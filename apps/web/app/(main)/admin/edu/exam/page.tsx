@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, FileText, ListChecks, Settings2 } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { cn } from '@/lib/utils'
@@ -46,6 +47,7 @@ function StatCard({
 }
 
 export default function EduExamPage() {
+  const t = useTranslations('admin.edu.exam.index')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
@@ -85,7 +87,7 @@ export default function EduExamPage() {
         : eduApi(API, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'papers'] })
       closeDialog()
     },
@@ -95,7 +97,7 @@ export default function EduExamPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`${API}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'papers'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -130,11 +132,11 @@ export default function EduExamPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.title.trim()) return setErr('试卷标题不能为空')
+    if (!form.title.trim()) return setErr(t('titleRequired'))
     saveMut.mutate()
   }
   function handleDelete(p: Paper) {
-    if (!window.confirm('确定删除该试卷吗？')) return
+    if (!window.confirm(t('confirmDelete'))) return
     deleteMut.mutate(p.id)
   }
 
@@ -145,32 +147,32 @@ export default function EduExamPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">考试管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理试卷、题目、组卷、考试安排与成绩</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={FileText}
-          label="试卷总数"
+          label={t('totalPapers')}
           value={total}
           gradient="bg-gradient-to-br from-indigo-500 to-purple-700"
         />
         <StatCard
           icon={ListChecks}
-          label="已发布"
+          label={t('published')}
           value={papers.filter((p) => p.isPublished).length}
           gradient="bg-gradient-to-br from-emerald-500 to-green-400"
         />
         <StatCard
           icon={Settings2}
-          label="随机组卷"
+          label={t('random')}
           value={papers.filter((p) => p.isRandom).length}
           gradient="bg-gradient-to-br from-sky-500 to-blue-500"
         />
         <StatCard
           icon={FileText}
-          label="当前页"
+          label={t('currentPage')}
           value={papers.length}
           gradient="bg-gradient-to-br from-pink-500 to-rose-500"
         />
@@ -188,7 +190,7 @@ export default function EduExamPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 份试卷</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -197,10 +199,10 @@ export default function EduExamPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -208,7 +210,7 @@ export default function EduExamPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
