@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ export function AuthFindInfoDialog({
   onSubmit,
   onClose,
 }: DialogProps) {
+  const t = useTranslations('adminAuthFindInfo')
   return (
     <Dialog
       open={open}
@@ -45,53 +47,52 @@ export function AuthFindInfoDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑用户资金账号' : '新增用户资金账号'}</DialogTitle>
-            <DialogDescription>
-              {editing ? '修改用户资金账号信息' : '添加新的用户资金账号'}
-            </DialogDescription>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
+            <DialogDescription>{editing ? t('editDesc') : t('createDesc')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label>用户UUID *</Label>
+              <Label>{t('userUuid')}</Label>
               <Input
                 value={form.userUuid}
                 onChange={(e) => onFormChange({ userUuid: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>银行卡号 *</Label>
+              <Label>{t('card')}</Label>
               <Input value={form.card} onChange={(e) => onFormChange({ card: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label>所属银行 *</Label>
+              <Label>{t('belong')}</Label>
               <Input
                 value={form.belong}
                 onChange={(e) => onFormChange({ belong: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>标题</Label>
+              <Label>{t('titleLabel')}</Label>
               <Input value={form.title} onChange={(e) => onFormChange({ title: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label>消息</Label>
+              <Label>{t('message')}</Label>
               <Input
                 value={form.message}
                 onChange={(e) => onFormChange({ message: e.target.value })}
               />
             </div>
             <DatePicker
-              label="创建时间"
+              label={t('createdAt')}
               value={form.createdAt}
               onChange={(v) => onFormChange({ createdAt: v })}
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>
@@ -113,6 +114,7 @@ export function AuthFindInfoDeleteDialog({
   onConfirm,
   onCancel,
 }: DeleteDialogProps) {
+  const t = useTranslations('adminAuthFindInfo')
   return (
     <Dialog
       open={delId !== null}
@@ -122,15 +124,16 @@ export function AuthFindInfoDeleteDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>确认删除</DialogTitle>
-          <DialogDescription>确定要删除该用户资金账号记录吗？此操作不可撤销。</DialogDescription>
+          <DialogTitle>{t('deleteTitle')}</DialogTitle>
+          <DialogDescription>{t('deleteDesc')}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onCancel} disabled={deletePending}>
-            取消
+            {t('cancel')}
           </Button>
           <Button type="button" variant="destructive" disabled={deletePending} onClick={onConfirm}>
-            {deletePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}删除
+            {deletePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            {t('delete')}
           </Button>
         </DialogFooter>
       </DialogContent>

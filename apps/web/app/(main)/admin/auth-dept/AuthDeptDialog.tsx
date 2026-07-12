@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ export function AuthDeptDialog({
   onSubmit,
   onClose,
 }: EditProps) {
+  const t = useTranslations('adminAuthDept')
   return (
     <Dialog
       open={open}
@@ -45,38 +47,37 @@ export function AuthDeptDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑用户部门关联' : '新增用户部门关联'}</DialogTitle>
-            <DialogDescription>
-              {editing ? '修改用户部门关联信息' : '添加新的用户部门关联'}
-            </DialogDescription>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
+            <DialogDescription>{editing ? t('editDesc') : t('createDesc')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label>用户ID *</Label>
+              <Label>{t('userId')}</Label>
               <Input
                 value={form.userId}
                 onChange={(e) => setForm({ ...form, userId: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>部门ID *</Label>
+              <Label>{t('deptId')}</Label>
               <Input
                 value={form.deptId}
                 onChange={(e) => setForm({ ...form, deptId: e.target.value })}
               />
             </div>
             <DatePicker
-              label="创建时间"
+              label={t('createdAt')}
               value={form.createdAt}
               onChange={(v) => setForm({ ...form, createdAt: v })}
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>
@@ -93,6 +94,7 @@ interface DeleteProps {
 }
 
 export function AuthDeptDeleteDialog({ delId, pending, onCancel, onConfirm }: DeleteProps) {
+  const t = useTranslations('adminAuthDept')
   return (
     <Dialog
       open={delId !== null}
@@ -102,15 +104,16 @@ export function AuthDeptDeleteDialog({ delId, pending, onCancel, onConfirm }: De
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>确认删除</DialogTitle>
-          <DialogDescription>确定要删除该用户部门关联记录吗？此操作不可撤销。</DialogDescription>
+          <DialogTitle>{t('deleteTitle')}</DialogTitle>
+          <DialogDescription>{t('deleteDesc')}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
-            取消
+            {t('cancel')}
           </Button>
           <Button type="button" variant="destructive" disabled={pending} onClick={onConfirm}>
-            {pending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}删除
+            {pending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            {t('delete')}
           </Button>
         </DialogFooter>
       </DialogContent>

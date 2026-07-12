@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Plus, Pencil, Trash2, Package } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -45,12 +46,24 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const selectClass = 'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const selectClass =
+  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const PERIODS: ApiPackage['period'][] = ['month', 'year', 'permanent']
-const PERIOD_LABEL: Record<ApiPackage['period'], string> = { month: '月', year: '年', permanent: '永久' }
-const EMPTY = { name: '', price: '0', quota: '0', period: 'month' as ApiPackage['period'], description: '' }
+const PERIOD_LABEL_KEY: Record<ApiPackage['period'], string> = {
+  month: 'periodMonth',
+  year: 'periodYear',
+  permanent: 'periodPermanent',
+}
+const EMPTY = {
+  name: '',
+  price: '0',
+  quota: '0',
+  period: 'month' as ApiPackage['period'],
+  description: '',
+}
 
 export default function AdminApiPlatformPackagesPage() {
+  const t = useTranslations('adminApiPackages')
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<ApiPackage | null>(null)
@@ -59,7 +72,8 @@ export default function AdminApiPlatformPackagesPage() {
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['admin', 'api-platform', 'packages'],
-    queryFn: () => api<{ list: ApiPackage[] }>('/api/admin/api-platform/packages').then((d) => d.list ?? []),
+    queryFn: () =>
+      api<{ list: ApiPackage[] }>('/api/admin/api-platform/packages').then((d) => d.list ?? []),
   })
 
   const saveMut = useMutation({
@@ -72,7 +86,10 @@ export default function AdminApiPlatformPackagesPage() {
         description: form.description,
       }
       return editing
-        ? api(`/api/admin/api-platform/packages/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
+        ? api(`/api/admin/api-platform/packages/${editing.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+          })
         : api('/api/admin/api-platform/packages', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
@@ -87,15 +104,31 @@ export default function AdminApiPlatformPackagesPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'api-platform', 'packages'] }),
   })
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY); setErr(null); setOpen(true) }
+  const openCreate = () => {
+    setEditing(null)
+    setForm(EMPTY)
+    setErr(null)
+    setOpen(true)
+  }
   const openEdit = (p: ApiPackage) => {
     setEditing(p)
-    setForm({ name: p.name, price: String(p.price), quota: String(p.quota), period: p.period, description: p.description ?? '' })
-    setErr(null); setOpen(true)
+    setForm({
+      name: p.name,
+      price: String(p.price),
+      quota: String(p.quota),
+      period: p.period,
+      description: p.description ?? '',
+    })
+    setErr(null)
+    setOpen(true)
   }
   const submit = (e: React.FormEvent) => {
-    e.preventDefault(); setErr(null)
-    if (!form.name.trim()) { setErr('请输入套餐名称'); return }
+    e.preventDefault()
+    setErr(null)
+    if (!form.name.trim()) {
+      setErr(t('enterName'))
+      return
+    }
     saveMut.mutate()
   }
 
@@ -105,13 +138,13 @@ export default function AdminApiPlatformPackagesPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <Package className="h-6 w-6 text-primary" />
-            API 套餐管理
+            {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理 API 计费套餐</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
-          新建套餐
+          {t('createBtn')}
         </Button>
       </div>
 
@@ -119,12 +152,12 @@ export default function AdminApiPlatformPackagesPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-xs uppercase">套餐名称</TableHead>
-              <TableHead className="text-xs uppercase">价格</TableHead>
-              <TableHead className="text-xs uppercase">配额</TableHead>
-              <TableHead className="text-xs uppercase">周期</TableHead>
-              <TableHead className="text-xs uppercase">状态</TableHead>
-              <TableHead className="text-right text-xs uppercase">操作</TableHead>
+              <TableHead className="text-xs uppercase">{t('colName')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colPrice')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colQuota')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colPeriod')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colStatus')}</TableHead>
+              <TableHead className="text-right text-xs uppercase">{t('colActions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -136,29 +169,46 @@ export default function AdminApiPlatformPackagesPage() {
               </TableRow>
             ) : list.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">暂无套餐</TableCell>
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  {t('noData')}
+                </TableCell>
               </TableRow>
             ) : (
               list.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">
                     {p.name}
-                    {p.description && <div className="text-xs text-muted-foreground">{p.description}</div>}
+                    {p.description && (
+                      <div className="text-xs text-muted-foreground">{p.description}</div>
+                    )}
                   </TableCell>
                   <TableCell>¥{p.price}</TableCell>
                   <TableCell>{p.quota.toLocaleString()}</TableCell>
-                  <TableCell>{PERIOD_LABEL[p.period]}</TableCell>
+                  <TableCell>{t(PERIOD_LABEL_KEY[p.period])}</TableCell>
                   <TableCell>
                     {p.status === 1 ? (
-                      <span className="inline-flex rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">上架</span>
+                      <span className="inline-flex rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
+                        {t('statusOn')}
+                      </span>
                     ) : (
-                      <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">下架</span>
+                      <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                        {t('statusOff')}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(p)}><Pencil className="h-3.5 w-3.5" />编辑</Button>
-                      <Button size="sm" variant="ghost" onClick={() => { if (confirm('确认删除？')) delMut.mutate(p.id) }}>
+                      <Button size="sm" variant="ghost" onClick={() => openEdit(p)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                        {t('edit')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          if (confirm(t('confirmDelete'))) delMut.mutate(p.id)
+                        }}
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -174,42 +224,80 @@ export default function AdminApiPlatformPackagesPage() {
         <DialogContent>
           <form onSubmit={submit} className="space-y-4">
             <DialogHeader>
-              <DialogTitle>{editing ? '编辑套餐' : '新建套餐'}</DialogTitle>
-              <DialogDescription>配置 API 计费套餐</DialogDescription>
+              <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
+              <DialogDescription>{t('dialogDesc')}</DialogDescription>
             </DialogHeader>
-            {err && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>}
+            {err && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {err}
+              </div>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="pk-name">套餐名称</Label>
-              <Input id="pk-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Label htmlFor="pk-name">{t('nameLabel')}</Label>
+              <Input
+                id="pk-name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="pk-price">价格</Label>
-                <Input id="pk-price" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+                <Label htmlFor="pk-price">{t('priceLabel')}</Label>
+                <Input
+                  id="pk-price"
+                  type="number"
+                  value={form.price}
+                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pk-quota">配额</Label>
-                <Input id="pk-quota" type="number" value={form.quota} onChange={(e) => setForm({ ...form, quota: e.target.value })} />
+                <Label htmlFor="pk-quota">{t('quotaLabel')}</Label>
+                <Input
+                  id="pk-quota"
+                  type="number"
+                  value={form.quota}
+                  onChange={(e) => setForm({ ...form, quota: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
-                <Label>周期</Label>
-                <Select value={form.period} onValueChange={(v) => setForm({ ...form, period: v as ApiPackage['period'] })}>
-                  <SelectTrigger className={selectClass}><SelectValue /></SelectTrigger>
+                <Label>{t('periodLabel')}</Label>
+                <Select
+                  value={form.period}
+                  onValueChange={(v) => setForm({ ...form, period: v as ApiPackage['period'] })}
+                >
+                  <SelectTrigger className={selectClass}>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {PERIODS.map((p) => <SelectItem key={p} value={p}>{PERIOD_LABEL[p]}</SelectItem>)}
+                    {PERIODS.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {t(PERIOD_LABEL_KEY[p])}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pk-desc">描述</Label>
-              <Input id="pk-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              <Label htmlFor="pk-desc">{t('descLabel')}</Label>
+              <Input
+                id="pk-desc"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saveMut.isPending}>取消</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={saveMut.isPending}
+              >
+                {t('cancel')}
+              </Button>
               <Button type="submit" disabled={saveMut.isPending}>
                 {saveMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                保存
+                {t('save')}
               </Button>
             </DialogFooter>
           </form>
