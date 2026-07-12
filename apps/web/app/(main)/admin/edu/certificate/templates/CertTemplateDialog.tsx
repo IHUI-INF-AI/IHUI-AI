@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import { textareaClass } from '@/lib/edu'
 import { cn } from '@/lib/utils'
@@ -38,6 +39,7 @@ export function CertTemplateDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.eduCertTemplate')
   return (
     <Dialog
       open={open}
@@ -48,7 +50,7 @@ export function CertTemplateDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑模板' : '新建模板'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -56,7 +58,7 @@ export function CertTemplateDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="tpl-name">名称</Label>
+            <Label htmlFor="tpl-name">{t('labelName')}</Label>
             <Input
               id="tpl-name"
               value={form.name}
@@ -64,7 +66,7 @@ export function CertTemplateDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="tpl-desc">描述</Label>
+            <Label htmlFor="tpl-desc">{t('labelDescription')}</Label>
             <textarea
               id="tpl-desc"
               className={textareaClass}
@@ -74,16 +76,16 @@ export function CertTemplateDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="tpl-bg">背景图片</Label>
+            <Label htmlFor="tpl-bg">{t('labelBackgroundImage')}</Label>
             <Input
               id="tpl-bg"
               value={form.backgroundImage}
               onChange={(e) => setForm({ ...form, backgroundImage: e.target.value })}
-              placeholder="背景图片URL（选填）"
+              placeholder={t('placeholderBackgroundImage')}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="tpl-config">模板配置 (JSON)</Label>
+            <Label htmlFor="tpl-config">{t('labelTemplateConfig')}</Label>
             <textarea
               id="tpl-config"
               className={cn(textareaClass, 'font-mono')}
@@ -99,14 +101,15 @@ export function CertTemplateDialog({
               checked={form.status}
               onCheckedChange={(v) => setForm({ ...form, status: v })}
             />
-            <Label htmlFor="tpl-status">启用</Label>
+            <Label htmlFor="tpl-status">{t('labelStatus')}</Label>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

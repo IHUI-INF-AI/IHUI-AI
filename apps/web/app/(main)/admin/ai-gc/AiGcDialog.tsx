@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   Button,
@@ -35,6 +36,8 @@ export function AiGcDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.aiGc')
+  const tc = useTranslations('common')
   return (
     <Dialog
       open={open}
@@ -45,7 +48,7 @@ export function AiGcDialog({
       <DialogContent className="max-w-xl">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑AIGC' : '新增AIGC'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {TEXT_FIELDS.map((f) => (
             <div key={f.key} className="space-y-2">
@@ -57,20 +60,20 @@ export function AiGcDialog({
                   onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
                   className={textareaClass}
                   rows={2}
-                  placeholder={`请输入${f.label}`}
+                  placeholder={t('inputPlaceholder', { label: f.label })}
                 />
               ) : (
                 <Input
                   id={`f-${f.key}`}
                   value={form[f.key]}
                   onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                  placeholder={`请输入${f.label}`}
+                  placeholder={t('inputPlaceholder', { label: f.label })}
                 />
               )}
             </div>
           ))}
           <div className="space-y-2">
-            <Label>封面图</Label>
+            <Label>{t('coverImage')}</Label>
             <ImageUpload
               value={form.coverUrl}
               onChange={(v) =>
@@ -80,10 +83,11 @@ export function AiGcDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {tc('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {tc('save')}
             </Button>
           </DialogFooter>
         </form>

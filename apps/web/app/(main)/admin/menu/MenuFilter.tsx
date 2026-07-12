@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Input } from '@ihui/ui'
 
 interface Props {
@@ -8,9 +9,10 @@ interface Props {
 }
 
 export function MenuFilter({ search, setSearch }: Props) {
+  const t = useTranslations('admin.menu')
   return (
     <Input
-      placeholder="搜索菜单名称..."
+      placeholder={t('searchPlaceholder')}
       value={search}
       onChange={(e) => setSearch(e.target.value)}
       className="max-w-sm"

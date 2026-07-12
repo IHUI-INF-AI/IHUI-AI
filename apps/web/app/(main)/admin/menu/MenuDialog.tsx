@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   Button,
@@ -36,6 +37,7 @@ export function MenuDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.menu')
   return (
     <Dialog
       open={open}
@@ -46,29 +48,29 @@ export function MenuDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑菜单' : '新建菜单'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="m-name">菜单名称</Label>
+            <Label htmlFor="m-name">{t('labelName')}</Label>
             <Input
               id="m-name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="请输入菜单名称"
+              placeholder={t('placeholderName')}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="m-icon">图标</Label>
+              <Label htmlFor="m-icon">{t('labelIcon')}</Label>
               <Input
                 id="m-icon"
                 value={form.icon}
                 onChange={(e) => setForm({ ...form, icon: e.target.value })}
-                placeholder="如 Settings"
+                placeholder={t('placeholderIcon')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="m-sort">排序权重</Label>
+              <Label htmlFor="m-sort">{t('labelSort')}</Label>
               <Input
                 id="m-sort"
                 type="number"
@@ -78,7 +80,7 @@ export function MenuDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="m-path">路由路径</Label>
+            <Label htmlFor="m-path">{t('labelPath')}</Label>
             <Input
               id="m-path"
               value={form.path}
@@ -87,10 +89,10 @@ export function MenuDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="m-parent">父菜单</Label>
+            <Label htmlFor="m-parent">{t('labelParent')}</Label>
             <Select
               options={[
-                { label: '顶级菜单', value: '' },
+                { label: t('topMenu'), value: '' },
                 ...list
                   .filter((m) => m.id !== editing?.id)
                   .map((m) => ({ label: m.name, value: m.id })),
@@ -106,15 +108,15 @@ export function MenuDialog({
               onChange={(e) => setForm({ ...form, visible: e.target.checked })}
               className="h-4 w-4 accent-primary"
             />
-            是否显示
+            {t('labelVisible')}
           </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
               {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
-              保存
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

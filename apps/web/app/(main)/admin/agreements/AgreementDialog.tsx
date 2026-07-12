@@ -53,8 +53,8 @@ export function AgreementDialog({
       <DialogContent className="max-w-2xl">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑协议' : '新增协议'}</DialogTitle>
-            <DialogDescription>{editing ? '修改协议信息' : '添加新的协议'}</DialogDescription>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
+            <DialogDescription>{editing ? t('editDesc') : t('createDesc')}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -78,7 +78,7 @@ export function AgreementDialog({
                 id="ag-version"
                 value={form.version}
                 onChange={(e) => setForm({ ...form, version: e.target.value })}
-                placeholder="如 v1.0.0"
+                placeholder={t('versionPlaceholder')}
               />
             </div>
           </div>
@@ -88,23 +88,23 @@ export function AgreementDialog({
               id="ag-title"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              placeholder="请输入协议标题"
+              placeholder={t('titlePlaceholder')}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ag-content">协议内容</Label>
+            <Label htmlFor="ag-content">{t('colContent')}</Label>
             <textarea
               id="ag-content"
               value={form.content}
               onChange={(e) => setForm({ ...form, content: e.target.value })}
-              placeholder="请输入协议内容"
+              placeholder={t('contentPlaceholder')}
               rows={6}
               className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="ag-date">生效日期</Label>
+              <Label htmlFor="ag-date">{t('effectiveDate')}</Label>
               <Input
                 id="ag-date"
                 type="datetime-local"

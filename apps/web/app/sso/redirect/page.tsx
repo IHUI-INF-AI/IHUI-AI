@@ -2,10 +2,14 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { decodeUserFromToken, isAuthenticated } from '@/lib/auth-utils'
+import { getTranslations } from 'next-intl/server'
 
-export const metadata: Metadata = {
-  title: '统一登录跳转',
-  robots: { index: false, follow: false },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('sso.redirect')
+  return {
+    title: t('title'),
+    robots: { index: false, follow: false },
+  }
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
@@ -36,11 +40,12 @@ export default async function SsoRedirectPage({
   const clientId = params.client_id || 'web'
 
   if (!isAllowedRedirect(targetUrl)) {
+    const t = await getTranslations('sso.redirect')
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center space-y-2">
-          <h1 className="text-xl font-semibold">跳转地址不被允许</h1>
-          <p className="text-muted-foreground text-sm">出于安全考虑，仅允许白名单内的跳转目标。</p>
+          <h1 className="text-xl font-semibold">{t('notAllowed')}</h1>
+          <p className="text-muted-foreground text-sm">{t('notAllowedDesc')}</p>
         </div>
       </div>
     )

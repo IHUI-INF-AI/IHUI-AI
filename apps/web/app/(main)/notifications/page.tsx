@@ -57,16 +57,16 @@ const TABS: {
   { value: 'comment', labelKey: 'comment' },
 ]
 
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, t: ReturnType<typeof useTranslations>): string {
   const diff = Date.now() - new Date(iso).getTime()
   const sec = Math.floor(diff / 1000)
-  if (sec < 60) return '刚刚'
+  if (sec < 60) return t('justNow')
   const min = Math.floor(sec / 60)
-  if (min < 60) return `${min} 分钟前`
+  if (min < 60) return t('minutesAgo', { min })
   const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} 小时前`
+  if (hr < 24) return t('hoursAgo', { hr })
   const day = Math.floor(hr / 24)
-  if (day < 30) return `${day} 天前`
+  if (day < 30) return t('daysAgo', { day })
   return new Date(iso).toLocaleDateString()
 }
 
@@ -78,6 +78,7 @@ async function unwrap<T>(p: Promise<{ success: boolean; data?: T; error?: string
 
 export default function NotificationsPage() {
   const t = useTranslations('user.notifications')
+  const tn = useTranslations('notifications')
   const qc = useQueryClient()
   const [tab, setTab] = React.useState<'all' | NotificationType>('all')
   const [view, setView] = React.useState<'list' | 'timeline'>('list')
@@ -195,7 +196,7 @@ export default function NotificationsPage() {
               return {
                 title: n.title,
                 description: n.content ?? undefined,
-                time: relativeTime(n.createdAt),
+                time: relativeTime(n.createdAt, tn),
                 icon: Icon,
                 color: n.isRead ? 'var(--muted-foreground)' : 'var(--primary)',
               }
@@ -212,7 +213,7 @@ export default function NotificationsPage() {
                 icon={Icon}
                 title={n.title}
                 content={n.content ?? undefined}
-                time={relativeTime(n.createdAt)}
+                time={relativeTime(n.createdAt, tn)}
                 read={n.isRead}
                 onClick={() => !n.isRead && readMut.mutate(n.id)}
                 className="rounded-none first:rounded-t-lg last:rounded-b-lg"

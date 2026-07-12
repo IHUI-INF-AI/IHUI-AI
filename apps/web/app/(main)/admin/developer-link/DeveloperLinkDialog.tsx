@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   Dialog,
@@ -36,6 +37,8 @@ export function DeveloperLinkDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.developerLink')
+  const tc = useTranslations('common')
   return (
     <Dialog
       open={open}
@@ -46,7 +49,7 @@ export function DeveloperLinkDialog({
       <DialogContent className="max-w-md">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑开发者链接' : '新增开发者链接'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -54,19 +57,19 @@ export function DeveloperLinkDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label>开发者 ID</Label>
+            <Label>{t('fieldDeveloperId')}</Label>
             <Input
               value={form.developerId}
               onChange={(e) => setForm({ ...form, developerId: e.target.value })}
-              placeholder="请输入开发者 ID"
+              placeholder={t('developerIdPlaceholder')}
             />
           </div>
           <div className="space-y-2">
-            <Label>Agent ID</Label>
+            <Label>{t('fieldAgentId')}</Label>
             <Input
               value={form.agentId}
               onChange={(e) => setForm({ ...form, agentId: e.target.value })}
-              placeholder="请输入 Agent ID"
+              placeholder={t('agentIdPlaceholder')}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -74,14 +77,15 @@ export function DeveloperLinkDialog({
               checked={form.status}
               onCheckedChange={(v) => setForm({ ...form, status: v })}
             />
-            <Label>启用</Label>
+            <Label>{t('enabled')}</Label>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {tc('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {tc('save')}
             </Button>
           </DialogFooter>
         </form>
