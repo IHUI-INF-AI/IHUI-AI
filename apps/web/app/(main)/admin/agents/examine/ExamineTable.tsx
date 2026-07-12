@@ -1,11 +1,12 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Loader2, ShieldCheck, Edit, Trash2, MessageCircle } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { STATUS_MAP, STATUS_STYLE } from './helpers'
+import { STATUS_STYLE } from './helpers'
 import type { Examine } from './types'
 
 interface ExamineTableProps {
@@ -17,18 +18,20 @@ interface ExamineTableProps {
 }
 
 export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: ExamineTableProps) {
+  const t = useTranslations('admin.agents.examine')
+  const tc = useTranslations('common')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-4 py-2.5">Agent名称</TableHead>
-            <TableHead className="px-4 py-2.5">状态</TableHead>
-            <TableHead className="px-4 py-2.5">开始时间</TableHead>
-            <TableHead className="px-4 py-2.5">联系电话</TableHead>
-            <TableHead className="px-4 py-2.5">审核人</TableHead>
-            <TableHead className="px-4 py-2.5">描述</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colAgentName')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colStartTime')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colStartPhone')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colExamineUser')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colDesc')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -36,14 +39,14 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中…
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : list.length === 0 ? (
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                 <ShieldCheck className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无数据
+                {t('empty')}
               </TableCell>
             </TableRow>
           ) : (
@@ -59,7 +62,7 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
                       STATUS_STYLE[item.status] ?? 'bg-muted text-muted-foreground',
                     )}
                   >
-                    {STATUS_MAP[item.status] ?? '-'}
+                    {t(`status${item.status}`)}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-muted-foreground">
@@ -74,13 +77,23 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
                   <div className="flex justify-end gap-1">
                     {item.status === 1 && (
                       <HasPermi code="ai:examine:edit">
-                        <Button variant="ghost" size="sm" onClick={() => onChat(item)} title="审批">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onChat(item)}
+                          title={t('chatApprove')}
+                        >
                           <MessageCircle className="h-4 w-4" />
                         </Button>
                       </HasPermi>
                     )}
                     <HasPermi code="ai:examine:edit">
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(item)} title="编辑">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(item)}
+                        title={tc('edit')}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                     </HasPermi>
@@ -89,7 +102,7 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
                         variant="ghost"
                         size="sm"
                         onClick={() => onDelete(item)}
-                        title="删除"
+                        title={tc('delete')}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />

@@ -199,13 +199,13 @@ export default function AgentDetailPage() {
 
           <Tabs defaultValue="progress" className="w-full">
             <TabsList className="flex w-full flex-wrap">
-              <TabsTrigger value="progress">进度</TabsTrigger>
-              <TabsTrigger value="swarm">群体监控</TabsTrigger>
-              <TabsTrigger value="checkpoint">检查点</TabsTrigger>
-              <TabsTrigger value="plan">计划</TabsTrigger>
-              <TabsTrigger value="activity">活动流</TabsTrigger>
-              <TabsTrigger value="background">后台</TabsTrigger>
-              <TabsTrigger value="permission">权限</TabsTrigger>
+              <TabsTrigger value="progress">{t('tabProgress')}</TabsTrigger>
+              <TabsTrigger value="swarm">{t('tabSwarm')}</TabsTrigger>
+              <TabsTrigger value="checkpoint">{t('tabCheckpoint')}</TabsTrigger>
+              <TabsTrigger value="plan">{t('tabPlan')}</TabsTrigger>
+              <TabsTrigger value="activity">{t('tabActivity')}</TabsTrigger>
+              <TabsTrigger value="background">{t('tabBackground')}</TabsTrigger>
+              <TabsTrigger value="permission">{t('tabPermission')}</TabsTrigger>
             </TabsList>
             <TabsContent value="progress" className="space-y-4">
               <AgentProgressPanel steps={[]} />
@@ -228,7 +228,7 @@ export default function AgentDetailPage() {
             </TabsContent>
             <TabsContent value="permission" className="space-y-3">
               <Button variant="outline" size="sm" onClick={() => setPermOpen(true)}>
-                查看权限确认示例
+                {t('viewPermissionExample')}
               </Button>
               <PermissionConfirmDialog open={permOpen} onOpenChange={setPermOpen} toolCall={null} />
             </TabsContent>

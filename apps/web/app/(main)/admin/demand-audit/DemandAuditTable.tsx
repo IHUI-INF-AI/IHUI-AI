@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Check, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui'
 import { DataTable, type Column, Badge } from '@/components/data'
@@ -26,60 +27,65 @@ export function DemandAuditTable({
   onEdit,
   onDelete,
 }: DemandAuditTableProps) {
+  const t = useTranslations('admin.demandAudit')
   const columns: Column<DemandRow>[] = [
     {
       key: 'agentName',
-      title: 'Agent名称',
+      title: t('colAgentName'),
       render: (d) => <span className="font-medium">{d.agentName || '-'}</span>,
     },
     {
       key: 'startName',
-      title: '发起人',
+      title: t('colStartName'),
       render: (d) => <span className="text-muted-foreground">{d.startName || '-'}</span>,
     },
     {
       key: 'desc',
-      title: '描述',
+      title: t('colDesc'),
       render: (d) => <span className="text-muted-foreground">{(d.desc || '-').slice(0, 30)}</span>,
     },
     {
       key: 'examineTime',
-      title: '审核时间',
+      title: t('colExamineTime'),
       render: (d) => <span className="text-muted-foreground">{d.examineTime || '-'}</span>,
     },
     {
       key: 'status',
-      title: '状态',
+      title: t('colStatus'),
       render: (d) => (
         <Badge
           variant={
             d.status === 'approved' ? 'success' : d.status === 'rejected' ? 'danger' : 'warning'
           }
         >
-          {d.status === 'approved' ? '已通过' : d.status === 'rejected' ? '已驳回' : '待审核'}
+          {d.status === 'approved'
+            ? t('statusApproved')
+            : d.status === 'rejected'
+              ? t('statusRejected')
+              : t('statusPending')}
         </Badge>
       ),
     },
     {
       key: 'actions',
-      title: '操作',
+      title: t('colActions'),
       align: 'right',
       render: (d) => (
         <div className="flex justify-end gap-1">
           <Button size="sm" variant="ghost" onClick={() => onApproval(d)}>
             <Check className="h-4 w-4" />
-            审批
+            {t('approveBtn')}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => onEdit(d)}>
             <Edit className="h-4 w-4" />
-            编辑
+            {t('edit')}
           </Button>
           <Button
             size="sm"
             variant="ghost"
             className="text-destructive"
             onClick={() => {
-              if (confirm('确认删除?')) onDelete(d.id)
+              if (confirm(t('deleteConfirm'))) onDelete(d.id)
             }}
           >
             <Trash2 className="h-4 w-4" />

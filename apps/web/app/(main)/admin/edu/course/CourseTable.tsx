@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Edit, Trash2, Loader2, BookOpen, Video, CreditCard } from 'lucide-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import {
@@ -116,7 +117,13 @@ export function CourseTable({
                 <TableCell className="px-4 py-2.5 text-xs">{r.remarkFile ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   {r.binding ? (
-                    <img src={r.binding} alt="" className="h-10 w-10 rounded object-cover" />
+                    <Image
+                      src={r.binding}
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded object-cover"
+                    />
                   ) : (
                     '-'
                   )}

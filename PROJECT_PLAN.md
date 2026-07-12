@@ -1757,3 +1757,65 @@ R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39
 - `pnpm --filter @ihui/web typecheck` — ✅ 拆分文件零错误（仅预存的 `src/test/` vitest 全局变量配置错误，非本次拆分引入）
 - 所有拆出文件均 < 250 行（最大 ConfigDialog.tsx 134 行 / OauthTokenDialog.tsx 111 行）
 - 主 page.tsx 均 < 250 行（configs 121 行 / oauth/tokens 188 行）
+
+## R81 全量 page.tsx 拆分至 < 250 行（2026-07-12）✅
+
+> AGENTS.md 第 4 节硬性约束"每个页面 < 250 行"。对前 12 批（R76-R79）之后的剩余 40 个超标 page.tsx 进行批量拆分，采用"六件套"模式（types.ts + helpers.ts + Filter/Table/Dialog 等子组件 + page.tsx 骨架），以 3 个并行子代理、每任务 2 页的节奏推进，共 7 批（第 13-19 批）全部完成。
+
+### 拆分清单（40 页）
+
+| 批次 | 页面                           | 原行数→拆分后 |
+| ---- | ------------------------------ | ------------- |
+| 13   | share/[code]                   | 512→48        |
+| 13   | teams/[id]                     | 508→237       |
+| 13   | search                         | 400→128       |
+| 13   | points                         | 378→104       |
+| 13   | workspace/[id]                 | 350→155       |
+| 13   | agents                         | 348→83        |
+| 14   | student/offline-records        | 319→138       |
+| 14   | certificate/download           | 306→152       |
+| 14   | user/security                  | 305→160       |
+| 14   | admin/settings                 | 301→83        |
+| 14   | workflows                      | 300→103       |
+| 14   | orders                         | 299→67        |
+| 15   | admin/api-platform/packages    | 308→117       |
+| 15   | admin/contact                  | 299→177       |
+| 15   | agents/create                  | 297→95        |
+| 15   | news                           | 294→80        |
+| 15   | admin/shop/funds               | 294→55        |
+| 15   | messages                       | 294→111       |
+| 16   | admin/recommendation-config    | 294→123       |
+| 16   | admin/edu/exam/papers-template | 288→161       |
+| 16   | admin/sensitive-words          | 287→131       |
+| 16   | student/notes                  | 285→149       |
+| 16   | ai-generation                  | 284→133       |
+| 16   | models                         | 284→28        |
+| 17   | admin/exchange-rates           | 282→138       |
+| 17   | articles                       | 280→100       |
+| 17   | admin/permissions              | 274→95        |
+| 17   | members                        | 271→87        |
+| 17   | workflows/instances/[id]       | 270→89        |
+| 17   | asks                           | 267→98        |
+| 18   | plaza                          | 266→57        |
+| 18   | ai-world                       | 265→157       |
+| 18   | exam/[id]                      | 263→138       |
+| 18   | resources/edit                 | 262→159       |
+| 18   | admin/api-logs                 | 261→95        |
+| 18   | teams                          | 258→93        |
+| 19   | feedback                       | 258→112       |
+| 19   | feedback/[id]                  | 258→111       |
+| 19   | admin/roles/select-user        | 256→147       |
+| 19   | student/papers                 | 254→114       |
+
+### 拆分模式
+
+- **六件套**：`types.ts`（类型）+ `helpers.ts`（纯函数/常量）+ 若干子组件 `.tsx`（Filter/Table/Dialog 或按区块语义命名的展示组件）+ `page.tsx` 骨架
+- **子组件纯展示**：不直接调用 useQuery/useMutation，状态和请求逻辑全部留在 page.tsx，通过 props 传递
+- **i18n 保持原方式**：原页面用 useTranslations 的子组件各自调用；原页面硬编码中文的保持硬编码
+- **非 CRUD 页面适配**：dashboard/profile/详情页等按区块语义拆分，不强套 Filter/Table/Dialog 命名
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — exit code 0（零错误）✅
+- 全量扫描 `apps/web` 下所有 page.tsx，无任何文件 > 250 行 ✅
+- 无越权文件创建（子代理红线约束生效，第 13 批后无测试文件越权）✅
