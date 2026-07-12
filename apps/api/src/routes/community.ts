@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -802,7 +802,12 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { page = 1, pageSize = 20 } = request.query as any
+    const { page, pageSize } = z
+      .object({
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+      })
+      .parse(request.query)
     const list = await db
       .select()
       .from(circlePostComments)
@@ -856,7 +861,15 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /circles/topic/list - 话题列表
   server.get('/circles/topic/list', async (request, reply) => {
-    const { page = 1, pageSize = 20, circleId, memberId, status } = request.query as any
+    const { page, pageSize, circleId, memberId, status } = z
+      .object({
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+        circleId: z.coerce.number().optional(),
+        memberId: z.coerce.number().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.query)
     const conditions: Array<ReturnType<typeof eq>> = []
     if (circleId) conditions.push(eq(circleDynamic.circleId, Number(circleId)))
     if (memberId) conditions.push(eq(circleDynamic.memberId, Number(memberId)))
@@ -965,7 +978,12 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /circles/category-relation/list - 分类关系列表
   server.get('/circles/category-relation/list', async (request, reply) => {
-    const { fatherCategoryId, childCategoryId } = request.query as any
+    const { fatherCategoryId, childCategoryId } = z
+      .object({
+        fatherCategoryId: z.coerce.number().optional(),
+        childCategoryId: z.coerce.number().optional(),
+      })
+      .parse(request.query)
     const conditions: Array<ReturnType<typeof eq>> = []
     if (fatherCategoryId)
       conditions.push(eq(circleCategoryRelation.fatherCategoryId, Number(fatherCategoryId)))
@@ -1026,7 +1044,12 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /circles/circle-category-relation/list - 类目关系列表
   server.get('/circles/circle-category-relation/list', async (request, reply) => {
-    const { categoryId, circleId } = request.query as any
+    const { categoryId, circleId } = z
+      .object({
+        categoryId: z.coerce.number().optional(),
+        circleId: z.coerce.number().optional(),
+      })
+      .parse(request.query)
     const conditions: Array<ReturnType<typeof eq>> = []
     if (categoryId) conditions.push(eq(circleCircleCategoryRelation.categoryId, Number(categoryId)))
     if (circleId) conditions.push(eq(circleCircleCategoryRelation.circleId, Number(circleId)))
