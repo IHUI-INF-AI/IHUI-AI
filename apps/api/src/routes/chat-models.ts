@@ -496,8 +496,8 @@ const cozeFeedbackSchema = z.object({
 // 常量
 // ============================================================================
 
-const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions'
-const QWEN_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation'
+const DEEPSEEK_URL = `${process.env.DEEPSEEK_API_BASE ?? 'https://api.deepseek.com'}/chat/completions`
+const QWEN_URL = `${process.env.DASHSCOPE_BASE ?? 'https://dashscope.aliyuncs.com/api/v1'}/services/aigc/text-generation/generation`
 const KLING_T2V = 'https://api.klingai.com/v1/videos/text2video'
 const KLING_I2V = 'https://api.klingai.com/v1/videos/image2video'
 const KLING_T2I = 'https://api.klingai.com/v1/images/generations'

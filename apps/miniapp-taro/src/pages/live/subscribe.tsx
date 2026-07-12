@@ -11,31 +11,42 @@ export default function LiveSubscribe() {
     try {
       const res = await getLiveList({ status: 'upcoming' })
       setList(res.list || [])
-    } catch {}
+    } catch (e) {
+      console.error('[live/subscribe] 获取直播列表 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
-  useDidShow(() => { load() })
+  useDidShow(() => {
+    load()
+  })
 
   const onSubscribe = useCallback(async (id: string | number) => {
     try {
       await subscribeLive(id)
-      setSubscribed(prev => {
+      setSubscribed((prev) => {
         const next = new Set(prev)
         next.add(id)
         return next
       })
       Taro.showToast({ title: '订阅成功', icon: 'success' })
-    } catch {}
+    } catch (e) {
+      console.error('[live/subscribe] 订阅直播 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
       {list.length > 0 ? (
         <View className="p-[12px]">
-          {list.map(l => {
+          {list.map((l) => {
             const isSubscribed = subscribed.has(l.id)
             return (
-              <View key={l.id} className="flex items-center bg-white rounded-[8px] p-[12px] mb-[12px]">
+              <View
+                key={l.id}
+                className="flex items-center bg-white rounded-[8px] p-[12px] mb-[12px]"
+              >
                 <Image
                   className="w-[80px] h-[60px] rounded-[8px] bg-[#f5f5f5]"
                   src={l.coverUrl}

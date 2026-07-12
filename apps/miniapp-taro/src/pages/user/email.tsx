@@ -11,7 +11,12 @@ export default function Email() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useDidShow(async () => {
-    try { setEmail((await getProfile()).email || '') } catch {}
+    try {
+      setEmail((await getProfile()).email || '')
+    } catch (e) {
+      console.error('[user/email] 获取用户信息 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   })
 
   function sendCode() {
@@ -22,7 +27,7 @@ export default function Email() {
     // 复用短信发送逻辑（实际应调用邮箱验证码接口）
     setCounting(true)
     timerRef.current = setInterval(() => {
-      setCount(prev => {
+      setCount((prev) => {
         if (prev <= 1) {
           if (timerRef.current) clearInterval(timerRef.current)
           setCounting(false)
@@ -38,7 +43,10 @@ export default function Email() {
       await bindEmail(email, code)
       Taro.showToast({ title: '绑定成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch {}
+    } catch (e) {
+      console.error('[user/email] 绑定邮箱 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }
 
   return (
@@ -51,7 +59,7 @@ export default function Email() {
             type="text"
             placeholder="请输入邮箱地址"
             value={email}
-            onInput={e => setEmail(e.detail.value)}
+            onInput={(e) => setEmail(e.detail.value)}
           />
         </View>
         <View className="flex items-center py-[16px]">
@@ -63,7 +71,7 @@ export default function Email() {
               placeholder="请输入验证码"
               maxlength={6}
               value={code}
-              onInput={e => setCode(e.detail.value)}
+              onInput={(e) => setCode(e.detail.value)}
             />
             <Text
               className={`text-[12px] whitespace-nowrap ${counting ? 'text-[#ccc]' : 'text-[#007aff]'}`}

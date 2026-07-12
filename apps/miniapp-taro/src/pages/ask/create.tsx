@@ -20,7 +20,10 @@ export default function AskCreatePage() {
       await createAsk({ title: form.title, content: form.content })
       Taro.showToast({ title: '发布成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
-    } catch {}
+    } catch (e) {
+      console.error('[ask/create] 发布问题 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [form.title, form.content])
 
   return (
@@ -32,7 +35,7 @@ export default function AskCreatePage() {
           value={form.title}
           placeholder="一句话描述你的问题"
           maxlength={50}
-          onInput={e => setForm(f => ({ ...f, title: e.detail.value }))}
+          onInput={(e) => setForm((f) => ({ ...f, title: e.detail.value }))}
         />
         <Text className="label">问题详情</Text>
         <Textarea
@@ -40,7 +43,7 @@ export default function AskCreatePage() {
           value={form.content}
           placeholder="详细描述问题背景、已尝试的方法等"
           maxlength={1000}
-          onInput={e => setForm(f => ({ ...f, content: e.detail.value }))}
+          onInput={(e) => setForm((f) => ({ ...f, content: e.detail.value }))}
         />
         <Text className="counter">{form.content.length}/1000</Text>
       </View>
@@ -48,12 +51,14 @@ export default function AskCreatePage() {
       <View className="card">
         <Text className="label">悬赏积分</Text>
         <View className="rewards">
-          {REWARDS.map(r => (
+          {REWARDS.map((r) => (
             <Text
               key={r}
               className={`reward${form.reward === r ? ' active' : ''}`}
-              onClick={() => setForm(f => ({ ...f, reward: r }))}
-            >{r}</Text>
+              onClick={() => setForm((f) => ({ ...f, reward: r }))}
+            >
+              {r}
+            </Text>
           ))}
         </View>
       </View>
@@ -64,11 +69,9 @@ export default function AskCreatePage() {
         <Text>· 采纳回答后悬赏积分将自动发放</Text>
       </View>
 
-      <Button
-        className="btn"
-        onClick={onSubmit}
-        disabled={!form.title || form.content.length < 5}
-      >发布问题</Button>
+      <Button className="btn" onClick={onSubmit} disabled={!form.title || form.content.length < 5}>
+        发布问题
+      </Button>
     </View>
   )
 }

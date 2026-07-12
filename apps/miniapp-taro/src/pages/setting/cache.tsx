@@ -8,7 +8,12 @@ export default function CachePage() {
   const [size, setSize] = useState('0KB')
 
   const load = useCallback(async () => {
-    try { setSize((await clearCacheSize()).size) } catch {}
+    try {
+      setSize((await clearCacheSize()).size)
+    } catch (e) {
+      console.error('[setting/cache] 获取缓存大小 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
   const onClear = useCallback(async () => {
@@ -16,7 +21,10 @@ export default function CachePage() {
       await clearCache()
       Taro.showToast({ title: '清理成功', icon: 'success' })
       load()
-    } catch {}
+    } catch (e) {
+      console.error('[setting/cache] 清理缓存 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [load])
 
   const onClearAll = useCallback(() => {
@@ -42,7 +50,9 @@ export default function CachePage() {
         </View>
       </View>
 
-      <Button className="btn" onClick={onClearAll}>一键清理</Button>
+      <Button className="btn" onClick={onClearAll}>
+        一键清理
+      </Button>
 
       <View className="tips">
         <Text>清理缓存不会影响您的账号数据</Text>

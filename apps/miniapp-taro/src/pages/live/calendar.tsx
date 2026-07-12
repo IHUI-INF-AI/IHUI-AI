@@ -23,10 +23,15 @@ export default function LiveCalendar() {
       const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
       const res = await getLiveCalendar({ month })
       setList(res.list || [])
-    } catch {}
+    } catch (e) {
+      console.error('[live/calendar] 获取直播日历 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
-  useDidShow(() => { load() })
+  useDidShow(() => {
+    load()
+  })
 
   const goDetail = useCallback((id: string | number) => {
     Taro.navigateTo({ url: `/pages/live/detail?id=${id}` })
@@ -39,13 +44,17 @@ export default function LiveCalendar() {
           {new Date().getMonth() + 1}月直播日历
         </Text>
       </View>
-      {list.map(group => (
+      {list.map((group) => (
         <View key={group.date} className="mb-[12px]">
           <View className="px-[12px] py-[8px]">
             <Text className="text-[14px] text-[#333] font-semibold">{group.date}</Text>
           </View>
-          {group.lives.map(l => {
-            const st = statusMap[l.status] || { text: '已结束', bg: 'bg-[#f5f5f5]', color: 'text-[#999]' }
+          {group.lives.map((l) => {
+            const st = statusMap[l.status] || {
+              text: '已结束',
+              bg: 'bg-[#f5f5f5]',
+              color: 'text-[#999]',
+            }
             return (
               <View
                 key={l.id}

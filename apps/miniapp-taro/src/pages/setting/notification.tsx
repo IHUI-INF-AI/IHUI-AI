@@ -1,5 +1,5 @@
 import { View, Text, Switch } from '@tarojs/components'
-import { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getNotificationSettings, updateNotificationSettings } from '@/api'
 
@@ -16,13 +16,18 @@ export default function NotificationPage() {
     try {
       const res = await getNotificationSettings()
       setList(res.list || [])
-    } catch {}
+    } catch (e) {
+      console.error('[setting/notification] 获取通知设置 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
-  useDidShow(() => { load() })
+  useDidShow(() => {
+    load()
+  })
 
   const onToggle = useCallback((key: string, value: boolean) => {
-    setList(prev => prev.map(item => item.key === key ? { ...item, enabled: value } : item))
+    setList((prev) => prev.map((item) => (item.key === key ? { ...item, enabled: value } : item)))
     updateNotificationSettings({ [key]: value }).catch(() => {})
   }, [])
 
@@ -37,10 +42,7 @@ export default function NotificationPage() {
             }`}
           >
             <Text className="text-[15px] text-[#333]">{item.title}</Text>
-            <Switch
-              checked={item.enabled}
-              onChange={e => onToggle(item.key, e.detail.value)}
-            />
+            <Switch checked={item.enabled} onChange={(e) => onToggle(item.key, e.detail.value)} />
           </View>
         ))}
       </View>

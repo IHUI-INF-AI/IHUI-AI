@@ -18,7 +18,10 @@ export default function UpgradePage() {
     try {
       const res = await upgradeVip(selected + 1)
       Taro.navigateTo({ url: `/pages/pay/index?orderNo=${res.orderNo}` })
-    } catch {}
+    } catch (e) {
+      console.error('[vip/upgrade] 升级VIP failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [selected])
 
   return (
@@ -44,10 +47,14 @@ export default function UpgradePage() {
       <View className="rights">
         <View className="rights-title">会员权益</View>
         {rights.map((r, i) => (
-          <View key={i} className="rights-item">· {r}</View>
+          <View key={i} className="rights-item">
+            · {r}
+          </View>
         ))}
       </View>
-      <Button className="btn" onClick={onUpgrade}>立即升级 ¥{plans[selected]!.price}</Button>
+      <Button className="btn" onClick={onUpgrade}>
+        立即升级 ¥{plans[selected]!.price}
+      </Button>
     </View>
   )
 }
