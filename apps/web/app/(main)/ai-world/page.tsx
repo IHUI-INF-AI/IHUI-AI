@@ -244,9 +244,9 @@ export default function AiWorldPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            统一 AI 面板
+            {t('unifiedAiPanelTitle')}
           </CardTitle>
-          <CardDescription>整合 chat + agent + generation 的统一交互面板</CardDescription>
+          <CardDescription>{t('unifiedAiPanelDesc')}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="h-[480px] border-t">
@@ -255,7 +255,7 @@ export default function AiWorldPage() {
               onSend={handleSend}
               isStreaming={isStreaming}
               streamingContent={streamingContent}
-              placeholder="输入消息体验统一 AI 面板..."
+              placeholder={t('unifiedAiPanelPlaceholder')}
             />
           </div>
         </CardContent>
