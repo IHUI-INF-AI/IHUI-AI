@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, FileText } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
@@ -22,16 +23,17 @@ export function CertTemplateTable({
   onEdit,
   onDelete,
 }: Props) {
+  const t = useTranslations('admin.eduCertTemplate')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-4 py-2.5">名称</TableHead>
-            <TableHead className="px-4 py-2.5">描述</TableHead>
-            <TableHead className="px-4 py-2.5">状态</TableHead>
-            <TableHead className="px-4 py-2.5">创建时间</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colName')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colDescription')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colCreatedAt')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -39,7 +41,7 @@ export function CertTemplateTable({
             <TableRow>
               <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : error ? (
@@ -52,18 +54,18 @@ export function CertTemplateTable({
             <TableRow>
               <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                 <FileText className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无模板
+                {t('noData')}
               </TableCell>
             </TableRow>
           ) : (
-            rows.map((t) => {
-              const enabled = t.status === 1
+            rows.map((row) => {
+              const enabled = row.status === 1
               return (
-                <TableRow key={t.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-medium">{t.name}</TableCell>
+                <TableRow key={row.id} className="hover:bg-muted/30">
+                  <TableCell className="px-4 py-2.5 font-medium">{row.name}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     <div className="max-w-xs break-words text-xs text-muted-foreground">
-                      {t.description ?? '-'}
+                      {row.description ?? '-'}
                     </div>
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
@@ -81,22 +83,27 @@ export function CertTemplateTable({
                           enabled ? 'bg-emerald-500' : 'bg-muted-foreground',
                         )}
                       />
-                      {enabled ? '启用' : '禁用'}
+                      {enabled ? t('enabled') : t('disabled')}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {new Date(t.createdAt).toLocaleDateString()}
+                    {new Date(row.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(t)} title="编辑">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(row)}
+                        title={t('edit')}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onDelete(t.id)}
-                        title="删除"
+                        onClick={() => onDelete(row.id)}
+                        title={t('delete')}
                         className="text-destructive hover:text-destructive"
                         disabled={deletePending}
                       >

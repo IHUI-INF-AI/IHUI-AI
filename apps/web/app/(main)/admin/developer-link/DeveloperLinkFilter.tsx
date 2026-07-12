@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
 import { Input } from '@ihui/ui'
 
@@ -16,6 +17,7 @@ export function DeveloperLinkFilter({
   searchAgent,
   setSearchAgent,
 }: Props) {
+  const t = useTranslations('admin.developerLink')
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative w-full max-w-xs">
@@ -23,7 +25,7 @@ export function DeveloperLinkFilter({
         <Input
           value={searchDeveloper}
           onChange={(e) => setSearchDeveloper(e.target.value)}
-          placeholder="搜索开发者ID"
+          placeholder={t('searchDeveloperPlaceholder')}
           className="h-9 pl-8"
         />
       </div>
@@ -32,7 +34,7 @@ export function DeveloperLinkFilter({
         <Input
           value={searchAgent}
           onChange={(e) => setSearchAgent(e.target.value)}
-          placeholder="搜索 AgentID"
+          placeholder={t('searchAgentPlaceholder')}
           className="h-9 pl-8"
         />
       </div>
