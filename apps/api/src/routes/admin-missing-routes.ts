@@ -1239,4 +1239,33 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   registerEmptyStub(server, '/products')
   registerEmptyStub(server, '/statistics')
+
+  // ===========================================================================
+  // 9. 补充端点 — 管理员角色/日志/配置（5 个，空数据桩）
+  // ===========================================================================
+  server.get('/roles', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(emptyList(q.data.page, q.data.pageSize))
+  })
+
+  server.post('/roles', async (_request, reply) => {
+    return reply.status(201).send(success({ created: true }))
+  })
+
+  server.get('/logs', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(emptyList(q.data.page, q.data.pageSize))
+  })
+
+  server.get('/configs', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(emptyList(q.data.page, q.data.pageSize))
+  })
+
+  server.put('/configs', async (_request, reply) => {
+    return reply.send(success({ updated: true }))
+  })
 }
