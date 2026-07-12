@@ -23,9 +23,8 @@ import { eq, desc, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { remoteDevices, remoteDeviceTasks } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
-
-const ADMIN_ROLE_ID = 1
 
 async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
   try {
@@ -38,16 +37,6 @@ async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promis
       .send(error(statusCode, (e as Error).message || 'Authentication required'))
     return false
   }
-}
-
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  if (!(await requireAuth(request, reply))) return false
-  const roleId = (request as unknown as { roleId?: number }).roleId
-  if (roleId === undefined || roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
 }
 
 const registerDeviceSchema = z.object({
@@ -125,7 +114,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/remote-devices', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = registerDeviceSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -141,7 +131,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/remote-devices/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = request.params as { id: string }
     const parsed = updateDeviceSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -157,7 +148,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/remote-devices/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = request.params as { id: string }
     await db.delete(remoteDevices).where(eq(remoteDevices.id, id))
     return reply.send(success({ deleted: true }))
@@ -204,7 +196,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/remote-devices/:id/tasks', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = request.params as { id: string }
     const parsed = createTaskSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -260,14 +253,16 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/remote-device-tasks/:taskId', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { taskId } = request.params as { taskId: string }
     await db.delete(remoteDeviceTasks).where(eq(remoteDeviceTasks.id, taskId))
     return reply.send(success({ deleted: true }))
   })
 
   server.post('/remote-device-tasks/:taskId/retry', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { taskId } = request.params as { taskId: string }
     const [task] = await db
       .select()

@@ -14,7 +14,7 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { eq, or, ilike, desc, asc, sql } from 'drizzle-orm'
+import { eq, or, ilike, desc, asc, sql, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -32,6 +32,17 @@ import {
   identityProportions,
   zhsUserAgentAudio,
   zhsUserAgentImage,
+  userThirdPartyAccounts,
+  userAuthInfo,
+  roles,
+  permissions,
+  userRoles,
+  userSk,
+  userVips,
+  vipLevels,
+  messageTemplates,
+  auditLogs,
+  sysLogininfor,
 } from '@ihui/database'
 
 const paginationSchema = z.object({
@@ -643,23 +654,523 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   registerEmptyStub(server, '/news/information')
 
   // ===========================================================================
-  // 3. 鉴权模块 — 无表路由（空数据桩，18 个）
+  // 3. 鉴权/用户/系统模块 — 有表路由（真实 CRUD，11 个）
   // ===========================================================================
-  registerEmptyStub(server, '/auth-accounts')
+
+  // /api/admin/auth-accounts — userThirdPartyAccounts 表（第三方账号绑定）
+  server.get('/auth-accounts', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search
+      ? or(
+          ilike(userThirdPartyAccounts.userId, `%${search}%`),
+          ilike(userThirdPartyAccounts.platform, `%${search}%`),
+        )
+      : undefined
+    const list = await db
+      .select()
+      .from(userThirdPartyAccounts)
+      .where(where)
+      .orderBy(desc(userThirdPartyAccounts.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(userThirdPartyAccounts)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.delete('/auth-accounts/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(userThirdPartyAccounts).where(eq(userThirdPartyAccounts.id, p.data.id))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // /api/admin/auth-info — userAuthInfo 表（用户认证信息）
+  server.get('/auth-info', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search
+      ? or(ilike(userAuthInfo.userUuid, `%${search}%`), ilike(userAuthInfo.phone, `%${search}%`))
+      : undefined
+    const list = await db
+      .select()
+      .from(userAuthInfo)
+      .where(where)
+      .orderBy(desc(userAuthInfo.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(userAuthInfo)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.put('/auth-info/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const body = request.body as Record<string, unknown>
+    const [row] = await db
+      .update(userAuthInfo)
+      .set({
+        ...(body.phone !== undefined && { phone: body.phone ? String(body.phone) : null }),
+        ...(body.authStatus !== undefined && { authStatus: String(body.authStatus) }),
+        ...(body.realName !== undefined && {
+          realName: body.realName ? String(body.realName) : null,
+        }),
+        updatedAt: new Date(),
+      })
+      .where(eq(userAuthInfo.userUuid, p.data.id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
+  })
+
+  // /api/admin/auth-role — roles 表（RBAC 角色管理）
+  server.get('/auth-role', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search
+      ? or(ilike(roles.name, `%${search}%`), ilike(roles.displayName, `%${search}%`))
+      : undefined
+    const list = await db
+      .select()
+      .from(roles)
+      .where(where)
+      .orderBy(desc(roles.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(roles)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.post('/auth-role', async (request, reply) => {
+    const body = request.body as Record<string, unknown>
+    const [row] = await db
+      .insert(roles)
+      .values({
+        name: String(body.name ?? ''),
+        displayName: String(body.displayName ?? ''),
+        description: body.description ? String(body.description) : null,
+        scope: body.scope ? String(body.scope) : 'self',
+      })
+      .returning()
+    return reply.status(201).send(success(row))
+  })
+  server.put('/auth-role/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const body = request.body as Record<string, unknown>
+    const [row] = await db
+      .update(roles)
+      .set({
+        ...(body.name !== undefined && { name: String(body.name) }),
+        ...(body.displayName !== undefined && { displayName: String(body.displayName) }),
+        ...(body.description !== undefined && {
+          description: body.description ? String(body.description) : null,
+        }),
+        ...(body.scope !== undefined && { scope: String(body.scope) }),
+        updatedAt: new Date(),
+      })
+      .where(eq(roles.id, p.data.id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
+  })
+  server.delete('/auth-role/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(roles).where(eq(roles.id, p.data.id))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // /api/admin/auth-tokens — userSk 表（用户 API Key/Token 管理）
+  server.get('/auth-tokens', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search
+      ? or(ilike(userSk.userId, `%${search}%`), ilike(userSk.key, `%${search}%`))
+      : undefined
+    const list = await db
+      .select()
+      .from(userSk)
+      .where(where)
+      .orderBy(desc(userSk.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(userSk)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.delete('/auth-tokens/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(userSk).where(eq(userSk.id, p.data.id))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // /api/admin/auth-user-vip — userVips 表（用户 VIP 订阅记录）
+  server.get('/auth-user-vip', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search ? ilike(userVips.userId, `%${search}%`) : undefined
+    const list = await db
+      .select()
+      .from(userVips)
+      .where(where)
+      .orderBy(desc(userVips.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(userVips)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.delete('/auth-user-vip/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(userVips).where(eq(userVips.id, p.data.id))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // /api/admin/auth-vip-level — vipLevels 表（VIP 等级配置）
+  server.get('/auth-vip-level', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search ? ilike(vipLevels.levelName, `%${search}%`) : undefined
+    const list = await db
+      .select()
+      .from(vipLevels)
+      .where(where)
+      .orderBy(asc(vipLevels.sortOrder))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(vipLevels)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.post('/auth-vip-level', async (request, reply) => {
+    const body = request.body as Record<string, unknown>
+    const [row] = await db
+      .insert(vipLevels)
+      .values({
+        levelName: String(body.levelName ?? ''),
+        levelValue: Number(body.levelValue ?? 0),
+        price: Number(body.price ?? 0),
+        durationDays: Number(body.durationDays ?? 30),
+        status: Number(body.status ?? 1),
+        sortOrder: Number(body.sortOrder ?? 0),
+      })
+      .returning()
+    return reply.status(201).send(success(row))
+  })
+  server.put('/auth-vip-level/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const body = request.body as Record<string, unknown>
+    const [row] = await db
+      .update(vipLevels)
+      .set({
+        ...(body.levelName !== undefined && { levelName: String(body.levelName) }),
+        ...(body.levelValue !== undefined && { levelValue: Number(body.levelValue) }),
+        ...(body.price !== undefined && { price: Number(body.price) }),
+        ...(body.durationDays !== undefined && { durationDays: Number(body.durationDays) }),
+        ...(body.status !== undefined && { status: Number(body.status) }),
+        ...(body.sortOrder !== undefined && { sortOrder: Number(body.sortOrder) }),
+        updatedAt: new Date(),
+      })
+      .where(eq(vipLevels.id, p.data.id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
+  })
+  server.delete('/auth-vip-level/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(vipLevels).where(eq(vipLevels.id, p.data.id))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // /api/admin/auth-sms-temp — messageTemplates 表（短信模板，channel='sms'）
+  server.get('/auth-sms-temp', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search
+      ? and(
+          eq(messageTemplates.channel, 'sms'),
+          or(
+            ilike(messageTemplates.title, `%${search}%`),
+            ilike(messageTemplates.code, `%${search}%`),
+          ),
+        )
+      : eq(messageTemplates.channel, 'sms')
+    const list = await db
+      .select()
+      .from(messageTemplates)
+      .where(where)
+      .orderBy(desc(messageTemplates.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(messageTemplates)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.post('/auth-sms-temp', async (request, reply) => {
+    const body = request.body as Record<string, unknown>
+    const [row] = await db
+      .insert(messageTemplates)
+      .values({
+        code: String(body.code ?? ''),
+        channel: 'sms',
+        title: String(body.title ?? ''),
+        content: String(body.content ?? ''),
+        status: Number(body.status ?? 1),
+      })
+      .returning()
+    return reply.status(201).send(success(row))
+  })
+  server.put('/auth-sms-temp/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const body = request.body as Record<string, unknown>
+    const [row] = await db
+      .update(messageTemplates)
+      .set({
+        ...(body.title !== undefined && { title: String(body.title) }),
+        ...(body.content !== undefined && { content: String(body.content) }),
+        ...(body.status !== undefined && { status: Number(body.status) }),
+        updatedAt: new Date(),
+      })
+      .where(eq(messageTemplates.id, p.data.id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
+  })
+  server.delete('/auth-sms-temp/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(messageTemplates).where(eq(messageTemplates.id, p.data.id))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // /api/admin/user-roles — userRoles 表（用户-角色关联）
+  server.get('/user-roles', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search
+      ? or(ilike(userRoles.userId, `%${search}%`), ilike(userRoles.roleId, `%${search}%`))
+      : undefined
+    const list = await db
+      .select()
+      .from(userRoles)
+      .where(where)
+      .orderBy(desc(userRoles.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(userRoles)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.post('/user-roles', async (request, reply) => {
+    const body = request.body as Record<string, unknown>
+    const [row] = await db
+      .insert(userRoles)
+      .values({
+        userId: String(body.userId ?? ''),
+        roleId: String(body.roleId ?? ''),
+        scopeResourceId: body.scopeResourceId ? String(body.scopeResourceId) : null,
+      })
+      .returning()
+    return reply.status(201).send(success(row))
+  })
+  server.delete('/user-roles/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(userRoles).where(eq(userRoles.id, p.data.id))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // /api/admin/member/permissions — permissions 表（权限点管理）
+  server.get('/member/permissions', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search
+      ? or(ilike(permissions.name, `%${search}%`), ilike(permissions.displayName, `%${search}%`))
+      : undefined
+    const list = await db
+      .select()
+      .from(permissions)
+      .where(where)
+      .orderBy(desc(permissions.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(permissions)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.post('/member/permissions', async (request, reply) => {
+    const body = request.body as Record<string, unknown>
+    const [row] = await db
+      .insert(permissions)
+      .values({
+        name: String(body.name ?? ''),
+        displayName: String(body.displayName ?? ''),
+        resource: String(body.resource ?? ''),
+        action: String(body.action ?? ''),
+        description: body.description ? String(body.description) : null,
+      })
+      .returning()
+    return reply.status(201).send(success(row))
+  })
+  server.put('/member/permissions/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const body = request.body as Record<string, unknown>
+    const [row] = await db
+      .update(permissions)
+      .set({
+        ...(body.name !== undefined && { name: String(body.name) }),
+        ...(body.displayName !== undefined && { displayName: String(body.displayName) }),
+        ...(body.resource !== undefined && { resource: String(body.resource) }),
+        ...(body.action !== undefined && { action: String(body.action) }),
+        ...(body.description !== undefined && {
+          description: body.description ? String(body.description) : null,
+        }),
+      })
+      .where(eq(permissions.id, p.data.id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
+  })
+  server.delete('/member/permissions/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(permissions).where(eq(permissions.id, p.data.id))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // /api/admin/system/operation-logs — auditLogs 表（操作审计日志）
+  server.get('/system/operation-logs', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search
+      ? or(ilike(auditLogs.userId, `%${search}%`), ilike(auditLogs.action, `%${search}%`))
+      : undefined
+    const list = await db
+      .select()
+      .from(auditLogs)
+      .where(where)
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(auditLogs)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.delete('/system/operation-logs/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(auditLogs).where(eq(auditLogs.id, p.data.id))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // /api/admin/system/login-logs — sysLogininfor 表（登录日志）
+  server.get('/system/login-logs', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search
+      ? or(
+          ilike(sysLogininfor.loginName, `%${search}%`),
+          ilike(sysLogininfor.ipaddr, `%${search}%`),
+        )
+      : undefined
+    const list = await db
+      .select()
+      .from(sysLogininfor)
+      .where(where)
+      .orderBy(desc(sysLogininfor.loginTime))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(sysLogininfor)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.delete('/system/login-logs/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(sysLogininfor).where(eq(sysLogininfor.infoId, Number(p.data.id)))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // ===========================================================================
+  // 3b. 鉴权/用户模块 — 无表路由（空数据桩，5 个）
+  // ===========================================================================
   registerEmptyStub(server, '/auth-find-info')
-  registerEmptyStub(server, '/auth-info')
-  registerEmptyStub(server, '/auth-role')
-  registerEmptyStub(server, '/auth-sms-temp')
-  registerEmptyStub(server, '/auth-tokens')
   registerEmptyStub(server, '/auth-user-margin')
-  registerEmptyStub(server, '/auth-user-vip')
   registerEmptyStub(server, '/auth-veri-codes')
-  registerEmptyStub(server, '/auth-vip-level')
   registerEmptyStub(server, '/member/blacklist')
-  registerEmptyStub(server, '/member/permissions')
-  registerEmptyStub(server, '/system/login-logs')
-  registerEmptyStub(server, '/system/operation-logs')
-  registerEmptyStub(server, '/user-roles')
   registerEmptyStub(server, '/users/course-users')
 
   // ===========================================================================
