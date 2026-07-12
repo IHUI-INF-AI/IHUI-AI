@@ -5,14 +5,14 @@ import * as api from '@/api'
 import './index.css'
 
 export default function AiGroup() {
-  const [list, setList] = useState<any[]>([])
+  const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = (await api.getAgentList()) as any
-      setList(res?.list || [])
+      const res = (await api.getAgentList()) as Record<string, unknown>
+      setList((res?.list as Record<string, unknown>[]) || [])
     } catch (e) {
       console.error('加载AI团队失败:', e)
     } finally {
