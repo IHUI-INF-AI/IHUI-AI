@@ -97,10 +97,8 @@ export interface DocsItem {
 /** 收藏条目 */
 export interface FavoriteItem {
   id: string
-  targetId: string
-  targetType: string
-  title: string
-  cover?: string | null
+  resourceType: string
+  resourceId: string
   createdAt: string
   [key: string]: unknown
 }
@@ -309,17 +307,15 @@ export async function deleteDocs(slug: string): Promise<ApiResult<{ success: boo
 
 /** 获取收藏列表 */
 export async function getFavorites(
-  query: PageQuery & { targetType?: string } = {},
+  query: PageQuery & { resourceType?: string } = {},
 ): Promise<ApiResult<PageData<FavoriteItem>>> {
   return fetchApi<PageData<FavoriteItem>>(`/api/favorites${buildQs(query)}`)
 }
 
 /** 添加收藏 */
 export async function addFavorite(input: {
-  targetId: string
-  targetType: string
-  title?: string
-  cover?: string
+  resourceType: string
+  resourceId: string
 }): Promise<ApiResult<FavoriteItem>> {
   return fetchApi<FavoriteItem>('/api/favorites', {
     method: 'POST',

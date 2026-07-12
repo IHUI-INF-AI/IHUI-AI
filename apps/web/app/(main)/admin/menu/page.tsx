@@ -2,59 +2,15 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Menu as MenuIcon, Plus, Edit, Trash2, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Menu as MenuIcon, Plus } from 'lucide-react'
 import { toast } from 'sonner'
+import { Button } from '@ihui/ui'
 
-import { fetchApi } from '@/lib/api'
-import {
-  Button,
-  Input,
-  Label,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@ihui/ui'
-import { DataTable, type Column } from '@/components/data'
-import { Select } from '@/components/form'
-import { cn } from '@/lib/utils'
-
-interface MenuItem {
-  id: string
-  name: string
-  icon: string
-  path: string
-  sort: number
-  parentId: string | null
-  visible: boolean
-  [key: string]: unknown
-}
-
-interface MenuForm {
-  name: string
-  icon: string
-  path: string
-  sort: number
-  parentId: string | null
-  visible: boolean
-}
-
-const EMPTY_FORM: MenuForm = {
-  name: '',
-  icon: '',
-  path: '',
-  sort: 0,
-  parentId: null,
-  visible: true,
-}
-const PAGE_SIZE = 20
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+import { MenuFilter } from './MenuFilter'
+import { MenuTable } from './MenuTable'
+import { MenuDialog } from './MenuDialog'
+import { PAGE_SIZE, api, EMPTY_FORM, menuToForm } from './helpers'
+import type { MenuItem, MenuForm, ListData } from './types'
 
 export default function MenuPage() {
   const qc = useQueryClient()
@@ -72,9 +28,7 @@ export default function MenuPage() {
         pageSize: String(PAGE_SIZE),
         keyword: search,
       })
-      const res = await api<{ list: MenuItem[]; total: number } | MenuItem[]>(
-        `/api/admin/menu?${qs}`,
-      )
+      const res = await api<ListData | MenuItem[]>(`/api/admin/menu?${qs}`)
       const list = Array.isArray(res) ? res : (res.list ?? [])
       const total = Array.isArray(res) ? res.length : (res.total ?? 0)
       return { list, total }
@@ -120,14 +74,7 @@ export default function MenuPage() {
   }
   function openEdit(m: MenuItem) {
     setEditing(m)
-    setForm({
-      name: m.name,
-      icon: m.icon,
-      path: m.path,
-      sort: m.sort,
-      parentId: m.parentId,
-      visible: m.visible,
-    })
+    setForm(menuToForm(m))
     setOpen(true)
   }
   function close() {
@@ -148,86 +95,6 @@ export default function MenuPage() {
   const list = data?.list ?? []
   const total = data?.total ?? 0
 
-  const columns: Column<MenuItem>[] = [
-    {
-      key: 'name',
-      title: '菜单名称',
-      render: (m) => <span className="font-medium">{m.name}</span>,
-    },
-    {
-      key: 'icon',
-      title: '图标',
-      render: (m) => (
-        <code className="font-mono text-xs text-muted-foreground">{m.icon || '-'}</code>
-      ),
-    },
-    {
-      key: 'path',
-      title: '路由路径',
-      render: (m) => (
-        <code className="font-mono text-xs text-muted-foreground">{m.path || '-'}</code>
-      ),
-    },
-    {
-      key: 'sort',
-      title: '排序',
-      render: (m) => <span className="text-muted-foreground">{m.sort}</span>,
-    },
-    {
-      key: 'parentId',
-      title: '父菜单',
-      render: (m) => {
-        const parent = list.find((p) => p.id === m.parentId)
-        return <span className="text-muted-foreground">{parent?.name ?? '顶级菜单'}</span>
-      },
-    },
-    {
-      key: 'visible',
-      title: '显示',
-      render: (m) => (
-        <button
-          onClick={() => toggleVisibleMut.mutate(m)}
-          className="inline-flex items-center gap-1"
-        >
-          {m.visible ? (
-            <Eye className="h-4 w-4 text-emerald-500" />
-          ) : (
-            <EyeOff className="h-4 w-4 text-muted-foreground" />
-          )}
-          <span className={cn('text-xs', m.visible ? 'text-emerald-600' : 'text-muted-foreground')}>
-            {m.visible ? '显示' : '隐藏'}
-          </span>
-        </button>
-      ),
-    },
-    {
-      key: 'actions',
-      title: '操作',
-      align: 'right',
-      render: (m) => (
-        <div className="flex justify-end gap-1">
-          <Button size="sm" variant="ghost" onClick={() => openEdit(m)}>
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => openCreate(m.id)}>
-            <Plus className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-destructive hover:text-destructive"
-            disabled={delMut.isPending}
-            onClick={() => {
-              if (confirm('确认删除该菜单?')) delMut.mutate(m.id)
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ]
-
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between">
@@ -246,103 +113,37 @@ export default function MenuPage() {
         </Button>
       </div>
 
-      <Input
-        placeholder="搜索菜单名称..."
-        value={search}
-        onChange={(e) => {
-          setSearch(e.target.value)
+      <MenuFilter
+        search={search}
+        setSearch={(v) => {
+          setSearch(v)
           setPage(1)
         }}
-        className="max-w-sm"
       />
 
-      <DataTable
-        columns={columns}
-        data={list}
-        rowKey={(m) => m.id}
-        loading={isLoading}
-        pagination={{ page, pageSize: PAGE_SIZE, total }}
+      <MenuTable
+        list={list}
+        isLoading={isLoading}
+        page={page}
+        total={total}
+        delPending={delMut.isPending}
+        onToggleVisible={(m) => toggleVisibleMut.mutate(m)}
+        onEdit={openEdit}
+        onAddChild={(parentId) => openCreate(parentId)}
+        onDelete={(m) => delMut.mutate(m.id)}
         onPageChange={setPage}
       />
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
-        <DialogContent>
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? '编辑菜单' : '新建菜单'}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-2">
-              <Label htmlFor="m-name">菜单名称</Label>
-              <Input
-                id="m-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="请输入菜单名称"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="m-icon">图标</Label>
-                <Input
-                  id="m-icon"
-                  value={form.icon}
-                  onChange={(e) => setForm({ ...form, icon: e.target.value })}
-                  placeholder="如 Settings"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="m-sort">排序权重</Label>
-                <Input
-                  id="m-sort"
-                  type="number"
-                  value={form.sort}
-                  onChange={(e) => setForm({ ...form, sort: Number(e.target.value) })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="m-path">路由路径</Label>
-              <Input
-                id="m-path"
-                value={form.path}
-                onChange={(e) => setForm({ ...form, path: e.target.value })}
-                placeholder="/admin/menu"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="m-parent">父菜单</Label>
-              <Select
-                options={[
-                  { label: '顶级菜单', value: '' },
-                  ...list
-                    .filter((m) => m.id !== editing?.id)
-                    .map((m) => ({ label: m.name, value: m.id })),
-                ]}
-                value={form.parentId ?? ''}
-                onChange={(v) => setForm({ ...form, parentId: (v as string) || null })}
-              />
-            </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.visible}
-                onChange={(e) => setForm({ ...form, visible: e.target.checked })}
-                className="h-4 w-4 accent-primary"
-              />
-              是否显示
-            </label>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
-                取消
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                保存
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <MenuDialog
+        open={open}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        list={list}
+        savePending={saveMut.isPending}
+        onSubmit={submit}
+        onClose={close}
+      />
     </div>
   )
 }

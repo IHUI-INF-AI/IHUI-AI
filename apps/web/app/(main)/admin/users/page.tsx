@@ -3,61 +3,14 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Search, ChevronLeft, ChevronRight, Users, Eye } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
-import { Avatar } from '@/components/data/Avatar'
-import {
-  Input,
-  Button,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@ihui/ui'
-import { Skeleton } from '@/components/common'
-import { Modal, Drawer, ConfirmDialog } from '@/components/feedback'
-import { cn } from '@/lib/utils'
+import { Users, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Button } from '@ihui/ui'
 
-interface AdminUser {
-  id: string
-  phone: string | null
-  email: string | null
-  nickname: string | null
-  avatar: string | null
-  roleId: number | null
-  status: number | null
-  createdAt: string | null
-}
-interface UsersData {
-  list: AdminUser[]
-  total: number
-  page: number
-  pageSize: number
-}
-
-const PAGE_SIZE = 10
-const selectClass =
-  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
-function fetchUsers(params: {
-  page: number
-  search: string
-  role: string
-  status: string
-}): Promise<UsersData> {
-  const qs = new URLSearchParams({ page: String(params.page), pageSize: String(PAGE_SIZE) })
-  if (params.search) qs.set('search', params.search)
-  if (params.role !== 'all') qs.set('role', params.role)
-  if (params.status !== 'all') qs.set('status', params.status)
-  return api<UsersData>(`/api/admin/users?${qs.toString()}`)
-}
+import { UserFilter } from './UserFilter'
+import { UserTable } from './UserTable'
+import { UserDialog } from './UserDialog'
+import { PAGE_SIZE, fetchUsers, api } from './helpers'
+import type { AdminUser } from './types'
 
 export default function AdminUsersPage() {
   const t = useTranslations('admin.users')
@@ -112,88 +65,6 @@ export default function AdminUsersPage() {
     setConfirmUser(null)
   }
 
-  const renderRow = (u: AdminUser) => {
-    const isAdmin = (u.roleId ?? 0) >= 1
-    const isActive = (u.status ?? 0) >= 1
-    const name = u.nickname || u.phone || u.email || 'U'
-    return (
-      <tr key={u.id} className="transition-colors hover:bg-muted/30">
-        <td className="px-4 py-2.5">
-          <button className="flex items-center gap-2" onClick={() => setQuickUser(u)}>
-            <Avatar src={u.avatar ?? undefined} name={name} size="sm" />
-            <span className="font-medium hover:text-primary">{name}</span>
-          </button>
-        </td>
-        <td className="px-4 py-2.5 text-muted-foreground">
-          <div className="text-xs">{u.phone || '-'}</div>
-          <div className="text-xs text-muted-foreground/80">{u.email || '-'}</div>
-        </td>
-        <td className="px-4 py-2.5">
-          <Select
-            value={isAdmin ? '1' : '0'}
-            onValueChange={(v) => patchMut.mutate({ id: u.id, body: { role: Number(v) } })}
-          >
-            <SelectTrigger
-              className={cn(
-                selectClass,
-                isAdmin ? 'border-primary/30 text-primary' : 'text-muted-foreground',
-              )}
-              aria-label={t('setRole')}
-              disabled={patchMut.isPending}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="0">{t('roleUser')}</SelectItem>
-              <SelectItem value="1">{t('roleAdmin')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </td>
-        <td className="px-4 py-2.5">
-          <span
-            className={cn(
-              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-              isActive
-                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                : 'bg-muted text-muted-foreground',
-            )}
-          >
-            <span
-              className={cn(
-                'h-1.5 w-1.5 rounded-full',
-                isActive ? 'bg-emerald-500' : 'bg-muted-foreground',
-              )}
-            />
-            {isActive ? t('statusActive') : t('statusDisabled')}
-          </span>
-        </td>
-        <td className="px-4 py-2.5 text-xs text-muted-foreground">
-          {u.createdAt ? dateFmt.format(new Date(u.createdAt)) : '-'}
-        </td>
-        <td className="px-4 py-2.5 text-right">
-          <div className="flex justify-end gap-1">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setDetailUser(u)}
-              aria-label={t('view')}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={patchMut.isPending}
-              onClick={() => setConfirmUser(u)}
-            >
-              {isActive ? t('disable') : t('enable')}
-            </Button>
-          </div>
-        </td>
-      </tr>
-    )
-  }
-
   return (
     <div className="space-y-4">
       <div>
@@ -204,91 +75,32 @@ export default function AdminUsersPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-            aria-label={t('search')}
-          />
-        </div>
-        <Select
-          value={role}
-          onValueChange={(v) => {
-            setRole(v)
-            setPage(1)
-          }}
-        >
-          <SelectTrigger className={selectClass} aria-label={t('role')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('allRoles')}</SelectItem>
-            <SelectItem value="1">{t('roleAdmin')}</SelectItem>
-            <SelectItem value="0">{t('roleUser')}</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={status}
-          onValueChange={(v) => {
-            setStatus(v)
-            setPage(1)
-          }}
-        >
-          <SelectTrigger className={selectClass} aria-label={t('status')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('allStatus')}</SelectItem>
-            <SelectItem value="1">{t('statusActive')}</SelectItem>
-            <SelectItem value="0">{t('statusDisabled')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <UserFilter
+        search={search}
+        onSearchChange={setSearch}
+        role={role}
+        onRoleChange={(v) => {
+          setRole(v)
+          setPage(1)
+        }}
+        status={status}
+        onStatusChange={(v) => {
+          setStatus(v)
+          setPage(1)
+        }}
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2.5 font-medium">{t('nickname')}</th>
-              <th className="px-4 py-2.5 font-medium">
-                {t('phone')} / {t('email')}
-              </th>
-              <th className="px-4 py-2.5 font-medium">{t('role')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('status')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('createdAt')}</th>
-              <th className="px-4 py-2.5 text-right font-medium">{t('actions')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-4">
-                  <Skeleton variant="list" count={5} />
-                </td>
-              </tr>
-            ) : error ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-destructive">
-                  {(error as Error).message}
-                </td>
-              </tr>
-            ) : users.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  <Users className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('noData')}
-                </td>
-              </tr>
-            ) : (
-              users.map(renderRow)
-            )}
-          </tbody>
-        </table>
-      </div>
+      <UserTable
+        list={users}
+        isLoading={isLoading}
+        error={error as Error | null}
+        patchPending={patchMut.isPending}
+        dateFmt={dateFmt}
+        onQuickView={setQuickUser}
+        onDetail={setDetailUser}
+        onRoleChange={(id, r) => patchMut.mutate({ id, body: { role: r } })}
+        onStatusToggle={setConfirmUser}
+      />
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
@@ -317,85 +129,16 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      <Modal
-        open={!!quickUser}
-        onClose={() => setQuickUser(null)}
-        title={t('userDetail')}
-        size="sm"
-      >
-        {quickUser && (
-          <div className="flex items-center gap-3">
-            <Avatar
-              src={quickUser.avatar ?? undefined}
-              name={quickUser.nickname || 'U'}
-              size="lg"
-            />
-            <div className="min-w-0">
-              <p className="font-medium">{quickUser.nickname || '-'}</p>
-              <p className="text-sm text-muted-foreground">{quickUser.phone || '-'}</p>
-              <p className="text-xs text-muted-foreground/80">{quickUser.email || '-'}</p>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      <Drawer
-        open={!!detailUser}
-        onClose={() => setDetailUser(null)}
-        title={t('userDetail')}
-        side="right"
-        width="28rem"
-      >
-        {detailUser && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Avatar
-                src={detailUser.avatar ?? undefined}
-                name={detailUser.nickname || 'U'}
-                size="lg"
-              />
-              <div>
-                <p className="font-medium">{detailUser.nickname || '-'}</p>
-                <p className="text-sm text-muted-foreground">
-                  {detailUser.phone || detailUser.email || '-'}
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">{t('phone')}</span>
-                <p>{detailUser.phone || '-'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">{t('email')}</span>
-                <p>{detailUser.email || '-'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">{t('role')}</span>
-                <p>{(detailUser.roleId ?? 0) >= 1 ? t('roleAdmin') : t('roleUser')}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">{t('status')}</span>
-                <p>{(detailUser.status ?? 0) >= 1 ? t('statusActive') : t('statusDisabled')}</p>
-              </div>
-              <div className="col-span-2">
-                <span className="text-muted-foreground">{t('createdAt')}</span>
-                <p>{detailUser.createdAt ? dateFmt.format(new Date(detailUser.createdAt)) : '-'}</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </Drawer>
-
-      <ConfirmDialog
-        open={!!confirmUser}
-        variant="danger"
-        title={confirmUser && (confirmUser.status ?? 0) >= 1 ? t('disable') : t('enable')}
-        content={t('confirmStatusChange')}
-        confirmText={confirmUser && (confirmUser.status ?? 0) >= 1 ? t('disable') : t('enable')}
-        onConfirm={handleStatusConfirm}
-        onCancel={() => setConfirmUser(null)}
-        loading={patchMut.isPending}
+      <UserDialog
+        quickUser={quickUser}
+        onCloseQuick={() => setQuickUser(null)}
+        detailUser={detailUser}
+        onCloseDetail={() => setDetailUser(null)}
+        confirmUser={confirmUser}
+        onConfirmStatus={handleStatusConfirm}
+        onCancelStatus={() => setConfirmUser(null)}
+        patchPending={patchMut.isPending}
+        dateFmt={dateFmt}
       />
     </div>
   )

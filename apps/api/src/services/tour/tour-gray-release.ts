@@ -12,6 +12,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { tourContent, type TourContent } from '@ihui/database'
+import { logger } from '../../utils/logger.js'
 
 export type ReleaseStage = 'off' | 'canary_1pct' | 'canary_5pct' | 'canary_25pct' | 'full'
 
@@ -94,7 +95,7 @@ export async function rollback(contentId: string, reason: string): Promise<TourC
     .where(eq(tourContent.id, contentId))
     .returning()
   if (!updated) throw new Error(`旅游内容 ${contentId} 不存在`)
-  console.warn(`[tour-gray-release] rollback ${contentId}: ${reason}`)
+  logger.warn(`[tour-gray-release] rollback ${contentId}: ${reason}`)
   return updated
 }
 

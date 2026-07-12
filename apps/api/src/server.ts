@@ -166,6 +166,7 @@ import { adminMissingRoutes } from './routes/admin-missing-routes.js'
 // 前端用户端缺失路由补建（54 个路由：空数据桩）
 import { missingUserRoutes } from './routes/missing-user-routes.js'
 
+import { setFastify } from './utils/logger.js'
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -242,6 +243,9 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   await registerPlugins(server)
   registerRoutes(server)
+
+  // 注入到统一 logger，使 service/util 层可通过 fastify pino 输出日志
+  setFastify(server)
 
   return server
 }
