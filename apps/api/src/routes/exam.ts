@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -419,7 +419,14 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/composition/list - 作文考试列表
   server.get('/exam/composition/list', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { page = 1, pageSize = 20, keyword, status } = request.query as any
+    const { page, pageSize, keyword, status } = z
+      .object({
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+        keyword: z.string().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.query)
     const conditions = []
     if (keyword) conditions.push(sql`${examExam.name} ILIKE ${`%${keyword}%`}`)
     if (status) conditions.push(eq(examExam.status, status))
@@ -461,7 +468,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/composition/rule/list - 抽题规则列表
   server.get('/exam/composition/rule/list', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { paperId } = request.query as any
+    const { paperId } = z.object({ paperId: z.coerce.number().optional() }).parse(request.query)
     const conditions = []
     if (paperId) conditions.push(eq(examPaperQuestionRule.paperId, Number(paperId)))
     const where = conditions.length ? and(...conditions) : sql`TRUE`
@@ -477,7 +484,15 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/composition/signup/list - 报名列表
   server.get('/exam/composition/signup/list', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { examId, memberId, status, page = 1, pageSize = 20 } = request.query as any
+    const { examId, memberId, status, page, pageSize } = z
+      .object({
+        examId: z.coerce.number().optional(),
+        memberId: z.coerce.number().optional(),
+        status: z.string().optional(),
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+      })
+      .parse(request.query)
     const conditions = []
     if (examId) conditions.push(eq(examSignUp.examId, Number(examId)))
     if (memberId) conditions.push(eq(examSignUp.memberId, Number(memberId)))
@@ -496,7 +511,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/composition/signup/my - 我的报名列表
   server.get('/exam/composition/signup/my', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { memberId } = request.query as any
+    const { memberId } = z.object({ memberId: z.coerce.number().optional() }).parse(request.query)
     const list = await db
       .select()
       .from(examSignUp)
@@ -595,7 +610,14 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   server.get('/exam/wrong/list', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
     const userId = request.userId!
-    const { page = 1, pageSize = 20, paperId, isMastered } = request.query as any
+    const { page, pageSize, paperId, isMastered } = z
+      .object({
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+        paperId: z.string().optional(),
+        isMastered: z.string().optional(),
+      })
+      .parse(request.query)
     const conditions = [eq(examWrongQuestion.userId, userId)]
     if (paperId) conditions.push(eq(examWrongQuestion.paperId, paperId))
     if (isMastered !== undefined)
