@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, Wand2 } from 'lucide-react'
 import { eduApi, selectClass } from '@/lib/edu'
 import {
@@ -35,6 +36,7 @@ interface Question {
 }
 
 export default function EduExamPapersManualPage() {
+  const t = useTranslations('admin.edu.exam.papersManual')
   const qc = useQueryClient()
   const [paperId, setPaperId] = React.useState('')
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
@@ -63,7 +65,7 @@ export default function EduExamPapersManualPage() {
       })
     },
     onSuccess: () => {
-      toast.success('手动组卷完成')
+      toast.success(t('assembleSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'questions', paperId] })
       setSelected(new Set())
     },
@@ -80,14 +82,14 @@ export default function EduExamPapersManualPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">手动组卷</h1>
-        <p className="mt-1 text-sm text-muted-foreground">从题库手动挑选题目组成试卷</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/exam">
             <ChevronLeft className="h-4 w-4" />
-            返回考试管理
+            {t('backToExam')}
           </Link>
         </Button>
         <div className="w-full max-w-sm">
@@ -98,8 +100,8 @@ export default function EduExamPapersManualPage() {
               setSelected(new Set())
             }}
           >
-            <SelectTrigger className={selectClass} aria-label="选择试卷">
-              <SelectValue placeholder="选择试卷" />
+            <SelectTrigger className={selectClass} aria-label={t('selectPaper')}>
+              <SelectValue placeholder={t('selectPaper')} />
             </SelectTrigger>
             <SelectContent>
               {papers.map((p) => (
@@ -121,7 +123,7 @@ export default function EduExamPapersManualPage() {
           ) : (
             <Wand2 className="h-4 w-4" />
           )}
-          组卷 ({selected.size})
+          {t('assemble', { count: selected.size })}
         </Button>
       </div>
 
@@ -129,30 +131,30 @@ export default function EduExamPapersManualPage() {
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="px-4 py-2.5 w-10">选</TableHead>
-              <TableHead className="px-4 py-2.5">题型</TableHead>
-              <TableHead className="px-4 py-2.5">题干</TableHead>
-              <TableHead className="px-4 py-2.5">分值</TableHead>
+              <TableHead className="px-4 py-2.5 w-10">{t('colSelect')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colType')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colScore')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y">
             {!paperId ? (
               <TableRow>
                 <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                  请先选择试卷
+                  {t('selectPaperFirst')}
                 </TableCell>
               </TableRow>
             ) : isLoading ? (
               <TableRow>
                 <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </TableCell>
               </TableRow>
             ) : (questions ?? []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                  暂无题目，请先在题库添加
+                  {t('noQuestions')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -182,11 +184,11 @@ export default function EduExamPapersManualPage() {
         </Table>
       </div>
       <div className="text-sm text-muted-foreground">
-        提示：手动组卷即从该试卷已有题目中挑选要启用的题目。也可前往
+        {t('tipPrefix')}
         <Link href="/admin/edu/exam/questions" className="ml-1 text-primary hover:underline">
-          题库管理
+          {t('questionsManage')}
         </Link>
-        添加新题目。
+        {t('tipSuffix')}
       </div>
     </div>
   )

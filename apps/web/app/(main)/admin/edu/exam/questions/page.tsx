@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import { eduApi } from '@/lib/edu'
 
@@ -14,6 +15,7 @@ import { QuestionsTable } from './QuestionsTable'
 import { QuestionsDialog } from './QuestionsDialog'
 
 function QuestionsContent() {
+  const t = useTranslations('admin.edu.exam.questions')
   const router = useRouter()
   const sp = useSearchParams()
   const qc = useQueryClient()
@@ -47,7 +49,7 @@ function QuestionsContent() {
         body: JSON.stringify(buildBody()),
       }),
     onSuccess: () => {
-      toast.success('创建成功')
+      toast.success(t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'questions', paperId] })
       closeDialog()
     },
@@ -60,7 +62,7 @@ function QuestionsContent() {
         body: JSON.stringify(buildBody()),
       }),
     onSuccess: () => {
-      toast.success('更新成功')
+      toast.success(t('updateSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'questions', paperId] })
       closeDialog()
     },
@@ -69,7 +71,7 @@ function QuestionsContent() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`/api/admin/exam/questions/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'questions', paperId] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -116,17 +118,17 @@ function QuestionsContent() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!paperId) return setErr('请先选择试卷')
-    if (!form.title.trim()) return setErr('题干不能为空')
+    if (!paperId) return setErr(t('paperRequired'))
+    if (!form.title.trim()) return setErr(t('titleRequired'))
     try {
       if (form.options.trim()) JSON.parse(form.options)
     } catch (e) {
-      return setErr(`选项JSON错误：${(e as Error).message}`)
+      return setErr(t('optionsJsonError', { msg: (e as Error).message }))
     }
     try {
       if (form.answer.trim()) JSON.parse(form.answer)
     } catch (e) {
-      return setErr(`答案JSON错误：${(e as Error).message}`)
+      return setErr(t('answerJsonError', { msg: (e as Error).message }))
     }
     if (editing) updateMut.mutate()
     else createMut.mutate()
@@ -139,7 +141,7 @@ function QuestionsContent() {
     router.replace(`/admin/edu/exam/questions?${p.toString()}`)
   }
   function handleDelete(q: Question) {
-    if (!window.confirm('确定删除该题目？')) return
+    if (!window.confirm(t('confirmDelete'))) return
     deleteMut.mutate(q.id)
   }
 
@@ -150,10 +152,8 @@ function QuestionsContent() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">题库管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          管理单选/多选/判断/填空/简答/编程 六种题型
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <QuestionsFilter
@@ -190,12 +190,13 @@ function QuestionsContent() {
 }
 
 export default function EduExamQuestionsPage() {
+  const t = useTranslations('admin.edu.exam.questions')
   return (
     <React.Suspense
       fallback={
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       }
     >

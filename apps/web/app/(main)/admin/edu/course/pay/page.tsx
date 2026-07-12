@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { exportFromApi } from '@/lib/export-utils'
@@ -15,6 +16,7 @@ import { PAGE_SIZE, EMPTY_FORM, EMPTY_SEARCH, EXPORT_COLS, coursePayToForm } fro
 import type { CoursePay, CForm, CoursePaySearch } from './types'
 
 export default function EduCoursePayPage() {
+  const t = useTranslations('admin.edu.course.pay')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [q, setQ] = React.useState<CoursePaySearch>(EMPTY_SEARCH)
@@ -44,7 +46,7 @@ export default function EduCoursePayPage() {
         : eduApi(`/api/admin/course-pay`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course-pay'] })
       closeDialog()
     },
@@ -53,7 +55,7 @@ export default function EduCoursePayPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`/api/admin/course-pay/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course-pay'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -80,18 +82,18 @@ export default function EduCoursePayPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.courseId.trim()) return setErr('课程ID不能为空')
+    if (!form.courseId.trim()) return setErr(t('courseIdRequired'))
     saveMut.mutate()
   }
   function handleDelete(r: CoursePay) {
-    if (window.confirm('确定删除？')) deleteMut.mutate(r.id)
+    if (window.confirm(t('confirmDelete'))) deleteMut.mutate(r.id)
   }
   function handleExport() {
     exportFromApi(
       `/api/admin/course-pay${buildQs({ ...q, pageSize: 10000 })}`,
       `coursePay_${Date.now()}`,
       EXPORT_COLS,
-    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? '导出成功' : '导出失败'))
+    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
   function patchQ(patch: Partial<CoursePaySearch>) {
     setQ((s) => ({ ...s, ...patch }))
@@ -105,8 +107,8 @@ export default function EduCoursePayPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">课程付费</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理课程付费类型与人群</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <CoursePayFilter
         q={q}
@@ -127,7 +129,7 @@ export default function EduCoursePayPage() {
         onDelete={handleDelete}
       />
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -136,10 +138,10 @@ export default function EduCoursePayPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -147,7 +149,7 @@ export default function EduCoursePayPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
