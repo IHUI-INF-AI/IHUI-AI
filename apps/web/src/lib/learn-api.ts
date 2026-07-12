@@ -296,7 +296,7 @@ export async function getMyMemberInfo(): Promise<ApiResult<Member>> {
 export async function getMembers(
   query: PageQuery & { level?: number; status?: Member['status'] } = {},
 ): Promise<ApiResult<PageData<Member>>> {
-  return fetchApi<PageData<Member>>(`/api/member${buildQs(query)}`)
+  return fetchApi<PageData<Member>>(`/api/members${buildQs(query)}`)
 }
 
 /** 获取会员详情 */

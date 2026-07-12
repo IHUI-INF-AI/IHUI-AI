@@ -1177,3 +1177,94 @@
 R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39 个本地定义改为从插件导入）"已完成。
 
 **以上为代码统一性优化，不属于业务功能范畴。迁移架构更改保持 100% 完整。**
+
+---
+
+## R70 死代码组件完整集成（2026-07-12）✅
+
+> 将 `src/components/feedback/` 7 个组件 + `src/components/business/` 6 个组件（共 13 个零外部引用组件）全部集成到实际页面。typecheck 零错误通过。
+
+### 集成清单
+
+#### feedback 组件（7 个）
+
+| 组件          | 集成位置                                     | 集成方式                                            |
+| ------------- | -------------------------------------------- | --------------------------------------------------- |
+| Modal         | `admin/users/page.tsx`                       | 用户昵称点击 → Modal 快速查看用户信息               |
+| Drawer        | `admin/users/page.tsx`                       | 操作列 Eye 按钮 → Drawer 侧滑详情                   |
+| ConfirmDialog | `admin/users/page.tsx` + `comments/page.tsx` | 禁用/启用确认 + 删除评论确认（替换 window.confirm） |
+| Tooltip       | `header.tsx`                                 | 3 个 icon 按钮悬浮提示                              |
+| Popover       | `chat/message-input.tsx`                     | 提示词模板按钮 → Popover 包裹 PromptTemplates       |
+| Dropdown      | `header.tsx`                                 | 用户头像菜单下拉                                    |
+| Alert         | `login/register/settings/page.tsx`           | danger/success/info 变体错误/成功提示               |
+
+#### business 组件（6 个）
+
+| 组件             | 集成位置                 | 集成方式                             |
+| ---------------- | ------------------------ | ------------------------------------ |
+| CourseCard       | `learn/page.tsx`         | 课程网格渲染（替换 Card 手写布局）   |
+| UserCard         | `following/page.tsx`     | 关注列表渲染（替换 Avatar 手写布局） |
+| OrderItem        | `orders/page.tsx`        | 卡片视图渲染（新增 table/card 切换） |
+| CommentItem      | `comments/page.tsx`      | 评论列表渲染                         |
+| NotificationItem | `notifications/page.tsx` | 通知列表渲染                         |
+| SearchBar        | `search/page.tsx`        | 搜索栏 + localStorage 搜索历史       |
+
+### i18n 同步
+
+- 5 个语言文件（zh-CN/en/zh-TW/ja/ko）添加 `admin.users.userDetail` + `admin.users.confirmStatusChange` 键
+
+### 修复记录
+
+- `message-input.tsx`：补充缺失的 `Popover` 导入 + 移除未使用的 `templateOpen` state
+- `search/page.tsx`：移除引用已删除 `input` state 的旧 `handleSubmit` + 替换 `form/Input` JSX 为 `SearchBar` 组件
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误通过（exit code 0）
+- 所有修改页面 < 250 行（admin/users 243 行 / comments 167 行 / learn 134 行 / following 125 行 / notifications 149 行 / orders 194 行）
+
+---
+
+## R71 死代码组件第二批集成（2026-07-12）✅
+
+> 将 `src/components/charts/` 3 个 + `src/components/data/` 3 个 + `src/components/feature-center/` 1 个（共 7 个零外部引用组件）全部集成到实际页面。typecheck 零错误通过。
+
+### 集成清单
+
+#### charts 组件（3 个）
+
+| 组件     | 集成位置                                              | 集成方式                                                            |
+| -------- | ----------------------------------------------------- | ------------------------------------------------------------------- |
+| BarChart | `admin/statistics/page.tsx` + `bi-dashboard/page.tsx` | 统计页"总览数据对比"横向柱状图；BI 仪表盘"核心指标对比"横向柱状图   |
+| PieChart | `admin/page.tsx`                                      | 概览页"订单状态分布"环形饼图（donut 模式，paid/pending/other 三色） |
+| Heatmap  | `admin/behavior/page.tsx`                             | 用户行为热力图（7×12 空数据桩，周一到周日 × 12 时段）               |
+
+#### data 组件（3 个）
+
+| 组件            | 集成位置                                          | 集成方式                                                                      |
+| --------------- | ------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Tag             | `tags/page.tsx` + `admin/tags/page.tsx`           | 标签页"热门推荐"前 5 标签 TagChip；管理表格 name 列改 TagChip（用 tag.color） |
+| Timeline        | `user/orders/page.tsx` + `notifications/page.tsx` | 订单页"订单时间线"最近 5 单状态变化；通知页 list/timeline 视图切换            |
+| DescriptionList | `user/profile/page.tsx` + `agents/[id]/page.tsx`  | 个人页"账号信息"2 列 5 字段；Agent 详情 3 列 9 字段                           |
+
+#### feature-center 组件（1 个）
+
+| 组件               | 集成位置     | 集成方式                                                                                                    |
+| ------------------ | ------------ | ----------------------------------------------------------------------------------------------------------- |
+| NotificationCenter | `header.tsx` | 替换原 Bell 按钮 → Popover + NotificationCenter，useQuery 拉取通知 + 红点未读数 + 一键已读 + "查看全部"链接 |
+
+### i18n 同步
+
+- 5 个语言文件（zh-CN/en/zh-TW/ja/ko）添加以下键：
+  - `header.viewAll`（5 语言全部新增）
+  - `user.profile.accountInfo` / `user.profile.userId`（zh-CN/zh-TW/ko 新增，en/ja 已有）
+  - `user.notifications.viewList` / `user.notifications.viewTimeline`（zh-CN/zh-TW/ko 新增，en/ja 已有）
+  - `user.orders.timelineTitle` / `user.orders.timelineHint`（zh-CN/zh-TW/ko 新增，en/ja 已有）
+  - `dashboard.admin.orderStatusDistribution` / `orderStatusDistributionHint` / `otherOrders`（zh-CN 新增，其他 4 语言已有）
+  - `behavior.heatmapTitle` / `heatmapCardTitle` / `heatmapHint`（zh-CN 新增，其他 4 语言已有）
+  - `agents.fieldAgentId` / `fieldWorkspace` / `fieldRemark`（zh-CN 新增，其他 4 语言已有）
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误通过（exit code 0，清理 tsbuildinfo 缓存后验证）
+- 所有修改页面 < 250 行（admin/statistics / bi-dashboard / admin / admin/behavior / tags / admin/tags / user/orders / notifications / user/profile / agents/[id] / header）

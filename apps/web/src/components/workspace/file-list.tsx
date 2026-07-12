@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Download, Trash2, FileText, Loader2 } from 'lucide-react'
+import { Download, Trash2, FileText, Loader2, Eye } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { Button } from '@ihui/ui'
@@ -19,6 +19,7 @@ export interface FileListProps {
   downloadingId?: string | null
   onDownload: (file: FileItem) => void
   onDelete: (file: FileItem) => void
+  onPreview?: (file: FileItem) => void
 }
 
 function formatSize(bytes: number): string {
@@ -39,7 +40,7 @@ function formatDate(value: string | Date): string {
   return d.toLocaleString()
 }
 
-export function FileList({ files, downloadingId, onDownload, onDelete }: FileListProps) {
+export function FileList({ files, downloadingId, onDownload, onDelete, onPreview }: FileListProps) {
   const t = useTranslations('workspace')
 
   if (files.length === 0) {
@@ -82,6 +83,17 @@ export function FileList({ files, downloadingId, onDownload, onDelete }: FileLis
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1">
+                    {onPreview && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => onPreview(file)}
+                        title="预览"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

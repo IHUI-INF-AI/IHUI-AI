@@ -235,7 +235,8 @@
     "toggleTheme": "切换主题",
     "profile": "个人中心",
     "menu": "菜单",
-    "announcements": "公告"
+    "announcements": "公告",
+    "viewAll": "查看全部"
   },
   "announcements": {
     "title": "平台公告",
@@ -1224,7 +1225,9 @@
       "page": "第 {page} 页 / 共 {total} 页",
       "total": "共 {total} 条",
       "noData": "暂无用户数据",
-      "loading": "加载中..."
+      "loading": "加载中...",
+      "userDetail": "用户详情",
+      "confirmStatusChange": "确认要更改该用户的状态吗？"
     },
     "roles": {
       "title": "角色管理",
@@ -2673,7 +2676,9 @@
       "following": "关注",
       "followers": "粉丝",
       "favorites": "收藏",
-      "statsLoading": "统计加载中..."
+      "statsLoading": "统计加载中...",
+      "accountInfo": "账号信息",
+      "userId": "用户 ID"
     },
     "security": {
       "title": "安全设置",
@@ -2719,7 +2724,9 @@
         "project": "项目",
         "comment": "评论",
         "follow": "关注"
-      }
+      },
+      "viewList": "列表视图",
+      "viewTimeline": "时间线视图"
     },
     "orders": {
       "title": "我的订单",
@@ -2739,7 +2746,9 @@
       "loading": "加载中...",
       "noData": "暂无订单",
       "pay": "去支付",
-      "view": "查看"
+      "view": "查看",
+      "timelineTitle": "订单时间线",
+      "timelineHint": "最近 5 个订单的状态变化"
     },
     "public": {
       "title": "用户主页",
@@ -3108,7 +3117,8 @@
     "groupDoc": "文档",
     "groupPost": "帖子",
     "groupComment": "评论",
-    "groupOther": "其他"
+    "groupOther": "其他",
+    "popular": "热门标签"
   },
   "docs": {
     "title": "文档中心",
@@ -3311,7 +3321,10 @@
       "paidCount": "已支付",
       "pendingCount": "待支付",
       "totalLabel": "总计",
-      "loadFailed": "数据加载失败,显示占位数据"
+      "loadFailed": "数据加载失败,显示占位数据",
+      "orderStatusDistribution": "订单状态分布",
+      "orderStatusDistributionHint": "已支付 / 待支付 / 其他 占比",
+      "otherOrders": "其他订单"
     }
   },
   "rbac": {
@@ -3846,7 +3859,10 @@
     "noRecords": "暂无观看记录",
     "topicType": "内容类型",
     "prev": "上一页",
-    "next": "下一页"
+    "next": "下一页",
+    "heatmapTitle": "热力图",
+    "heatmapCardTitle": "行为热力图",
+    "heatmapHint": "查看用户行为分布热力图"
   },
   "visitTracking": {
     "title": "访问统计",
@@ -4109,7 +4125,10 @@
     "fieldStatus": "状态",
     "fieldSort": "排序",
     "fieldIsFree": "免费",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "fieldAgentId": "Agent ID",
+    "fieldWorkspace": "工作区",
+    "fieldRemark": "备注"
   },
   "distribution": {
     "title": "分销中心",

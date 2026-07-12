@@ -13,8 +13,11 @@ export default function ExamDetail() {
     const id = router.params.id
     if (!id) return
     getExamDetail(id)
-      .then(res => setExam(res))
-      .catch(() => {})
+      .then((res) => setExam(res))
+      .catch((e) => {
+        console.error('考试详情加载 failed:', e)
+        Taro.showToast({ title: '考试详情加载失败', icon: 'none' })
+      })
   }, [router.params.id])
 
   const onStart = useCallback(() => {
@@ -29,19 +32,27 @@ export default function ExamDetail() {
           <View className="flex mt-4">
             <View className="flex-1 text-center">
               <Text className="block text-xs text-[#999]">题量</Text>
-              <Text className="block text-base text-[#007aff] font-semibold mt-1">{exam.questions}题</Text>
+              <Text className="block text-base text-[#007aff] font-semibold mt-1">
+                {exam.questions}题
+              </Text>
             </View>
             <View className="flex-1 text-center">
               <Text className="block text-xs text-[#999]">时长</Text>
-              <Text className="block text-base text-[#007aff] font-semibold mt-1">{exam.duration}分钟</Text>
+              <Text className="block text-base text-[#007aff] font-semibold mt-1">
+                {exam.duration}分钟
+              </Text>
             </View>
             <View className="flex-1 text-center">
               <Text className="block text-xs text-[#999]">及格</Text>
-              <Text className="block text-base text-[#007aff] font-semibold mt-1">{exam.passScore}分</Text>
+              <Text className="block text-base text-[#007aff] font-semibold mt-1">
+                {exam.passScore}分
+              </Text>
             </View>
           </View>
           {exam.startTime && (
-            <Text className="block mt-3 text-xs text-[#999]">考试时间：{exam.startTime} - {exam.endTime}</Text>
+            <Text className="block mt-3 text-xs text-[#999]">
+              考试时间：{exam.startTime} - {exam.endTime}
+            </Text>
           )}
         </View>
       )}

@@ -11,17 +11,19 @@ import {
   Wallet,
   ChevronLeft,
   ChevronRight,
+  LayoutGrid,
+  Table,
 } from 'lucide-react'
-
 import { fetchApi } from '@/lib/api'
 import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { DataTable, type Column } from '@/components/data'
 import { Empty, Loading } from '@/components/common'
+import { OrderItem } from '@/components/business'
 
 type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
 
-interface OrderItem {
+interface OrderRow {
   id: string
   orderNo: string
   orderType: string
@@ -31,9 +33,8 @@ interface OrderItem {
   createdAt: string
   [key: string]: unknown
 }
-
 interface OrdersData {
-  list: OrderItem[]
+  list: OrderRow[]
   total: number
   page: number
   pageSize: number
@@ -94,6 +95,7 @@ export default function OrdersPage() {
   const [status, setStatus] = React.useState('all')
   const [orderType, setOrderType] = React.useState('all')
   const [page, setPage] = React.useState(1)
+  const [view, setView] = React.useState<'table' | 'card'>('table')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['orders', 'me', status, orderType, page],
@@ -112,7 +114,7 @@ export default function OrdersPage() {
     minute: '2-digit',
   })
 
-  const columns: Column<OrderItem>[] = [
+  const columns: Column<OrderRow>[] = [
     {
       key: 'orderNo',
       title: t('orderNo'),
@@ -211,6 +213,32 @@ export default function OrdersPage() {
             </button>
           ))}
         </div>
+        <div className="ml-auto flex items-center gap-1 rounded-lg border p-1">
+          <button
+            onClick={() => setView('table')}
+            className={cn(
+              'rounded p-1.5 transition-colors',
+              view === 'table'
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+            aria-label="Table view"
+          >
+            <Table className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setView('card')}
+            className={cn(
+              'rounded p-1.5 transition-colors',
+              view === 'card'
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+            aria-label="Card view"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -223,8 +251,21 @@ export default function OrdersPage() {
         </div>
       ) : orders.length === 0 ? (
         <Empty icon={ShoppingCart} title={t('empty')} />
-      ) : (
+      ) : view === 'table' ? (
         <DataTable columns={columns} data={orders} rowKey={(o) => o.id} />
+      ) : (
+        <div className="space-y-3">
+          {orders.map((o) => (
+            <OrderItem
+              key={o.id}
+              orderNo={o.orderNo}
+              product={{ name: o.targetTitle ?? '-' }}
+              amount={Number(o.payAmount)}
+              status={o.status}
+              createdAt={dateFmt.format(new Date(o.createdAt))}
+            />
+          ))}
+        </div>
       )}
 
       {total > PAGE_SIZE && (

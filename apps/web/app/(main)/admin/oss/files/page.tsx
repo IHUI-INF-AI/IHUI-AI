@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { HardDrive, Download, Trash2, Loader2, Search } from 'lucide-react'
+import { HardDrive, Download, Trash2, Loader2, Search, Eye } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
@@ -19,7 +19,12 @@ import {
   TableRow,
   TableHead,
   TableCell,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from '@ihui/ui'
+import { FilePreview } from '@/components/media'
 
 interface OssFile {
   id: string
@@ -52,6 +57,7 @@ export default function AdminOssFilesPage() {
   const [debounced, setDebounced] = React.useState('')
   const [page, setPage] = React.useState(1)
   const [uploading, setUploading] = React.useState(false)
+  const [previewFile, setPreviewFile] = React.useState<OssFile | null>(null)
 
   React.useEffect(() => {
     const tm = setTimeout(() => {
@@ -220,20 +226,32 @@ export default function AdminOssFilesPage() {
                   </TableCell>
                   <TableCell className="px-4 py-2.5">{f.uploadedBy}</TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
-                    <HasPermi code="system:oss:remove">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
-                        onClick={() => {
-                          if (confirm(`确认删除文件 "${f.fileName}" ?`)) deleteMut.mutate(f.id)
-                        }}
-                        title="删除"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </HasPermi>
+                    <div className="flex justify-end gap-1">
+                      {f.url && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPreviewFile(f)}
+                          title="预览"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <HasPermi code="system:oss:remove">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          disabled={deleteMut.isPending}
+                          onClick={() => {
+                            if (confirm(`确认删除文件 "${f.fileName}" ?`)) deleteMut.mutate(f.id)
+                          }}
+                          title="删除"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </HasPermi>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -266,6 +284,30 @@ export default function AdminOssFilesPage() {
           </Button>
         </div>
       </div>
+
+      <Dialog
+        open={!!previewFile}
+        onOpenChange={(open) => {
+          if (!open) setPreviewFile(null)
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="break-words">{previewFile?.fileName ?? '预览'}</DialogTitle>
+          </DialogHeader>
+          <div className="min-h-[300px]">
+            {previewFile?.url ? (
+              <FilePreview
+                url={previewFile.url}
+                name={previewFile.fileName}
+                className="max-h-[60vh]"
+              />
+            ) : (
+              <p className="py-16 text-center text-sm text-muted-foreground">文件无可用预览地址</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

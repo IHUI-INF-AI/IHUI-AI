@@ -8,6 +8,38 @@ import { ArrowLeft, BookOpen, Download, Eye, FileText, Loader2 } from 'lucide-re
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { SafeHtml } from '@/components/common'
+import { ImageViewer, CodeViewer } from '@/components/media'
+
+const CODE_EXTENSIONS = [
+  'js',
+  'ts',
+  'tsx',
+  'jsx',
+  'py',
+  'go',
+  'rs',
+  'java',
+  'c',
+  'cpp',
+  'cs',
+  'rb',
+  'php',
+  'swift',
+  'kt',
+  'sh',
+  'bash',
+  'yaml',
+  'yml',
+  'json',
+  'xml',
+  'html',
+  'css',
+  'scss',
+  'sql',
+  'vue',
+  'svelte',
+]
 
 interface ResourceDetail {
   id: string
@@ -95,6 +127,9 @@ export default function ResourceDetailPage() {
   const resource = data.resource
   const related = data.related ?? []
 
+  const fileExt = resource.fileType?.toLowerCase().replace(/^\./, '') ?? ''
+  const isCodeResource = CODE_EXTENSIONS.includes(fileExt)
+
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
       <Link
@@ -134,14 +169,11 @@ export default function ResourceDetailPage() {
       </header>
 
       {resource.coverImage && (
-        <div className="overflow-hidden rounded-lg border">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={resource.coverImage}
-            alt={resource.title}
-            className="max-h-[420px] w-full object-cover"
-          />
-        </div>
+        <ImageViewer
+          src={resource.coverImage}
+          alt={resource.title}
+          className="max-h-[420px] border"
+        />
       )}
 
       <Card>
@@ -157,10 +189,12 @@ export default function ResourceDetailPage() {
           )}
         </CardHeader>
         <CardContent>
-          {resource.content ? (
-            <article
+          {isCodeResource && resource.content ? (
+            <CodeViewer code={resource.content} language={fileExt} showLineNumbers />
+          ) : resource.content ? (
+            <SafeHtml
+              html={resource.content}
               className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: resource.content }}
             />
           ) : (
             <p className="text-sm text-muted-foreground">{t('noContent')}</p>

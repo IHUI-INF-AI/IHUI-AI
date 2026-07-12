@@ -12,10 +12,8 @@ import {
   AtSign,
   AlertCircle,
   CheckCheck,
-  Check,
   Loader2,
 } from 'lucide-react'
-
 import {
   getNotifications,
   getUnreadCount,
@@ -24,6 +22,8 @@ import {
 } from '@/lib/notification-api'
 import { Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { NotificationItem } from '@/components/business'
+import { Timeline } from '@/components/data/Timeline'
 
 type NotificationType = 'system' | 'order' | 'project' | 'comment' | 'mention' | 'follow'
 
@@ -43,15 +43,6 @@ const TYPE_ICON: Record<NotificationType, React.ComponentType<{ className?: stri
   comment: MessageSquare,
   mention: AtSign,
   follow: User,
-}
-
-const TYPE_CLS: Record<NotificationType, string> = {
-  system: 'bg-primary/10 text-primary',
-  order: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
-  project: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
-  comment: 'bg-sky-500/10 text-sky-600 dark:text-sky-500',
-  mention: 'bg-violet-500/10 text-violet-600 dark:text-violet-500',
-  follow: 'bg-rose-500/10 text-rose-600 dark:text-rose-500',
 }
 
 const TABS: {
@@ -89,6 +80,7 @@ export default function NotificationsPage() {
   const t = useTranslations('user.notifications')
   const qc = useQueryClient()
   const [tab, setTab] = React.useState<'all' | NotificationType>('all')
+  const [view, setView] = React.useState<'list' | 'timeline'>('list')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['notifications', tab],
@@ -140,21 +132,47 @@ export default function NotificationsPage() {
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
-        {TABS.map((tabItem) => (
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-1 flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
+          {TABS.map((tabItem) => (
+            <button
+              key={tabItem.value}
+              onClick={() => setTab(tabItem.value)}
+              className={cn(
+                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                tab === tabItem.value
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {t(`tab.${tabItem.labelKey}`)}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
           <button
-            key={tabItem.value}
-            onClick={() => setTab(tabItem.value)}
+            onClick={() => setView('list')}
             className={cn(
               'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              tab === tabItem.value
+              view === 'list'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`tab.${tabItem.labelKey}`)}
+            {t('viewList')}
           </button>
-        ))}
+          <button
+            onClick={() => setView('timeline')}
+            className={cn(
+              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              view === 'timeline'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {t('viewTimeline')}
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -169,55 +187,39 @@ export default function NotificationsPage() {
           <Bell className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('noData')}</p>
         </div>
+      ) : view === 'timeline' ? (
+        <div className="rounded-lg border p-4">
+          <Timeline
+            items={notifications.map((n) => {
+              const Icon = TYPE_ICON[n.type] ?? AlertCircle
+              return {
+                title: n.title,
+                description: n.content ?? undefined,
+                time: relativeTime(n.createdAt),
+                icon: Icon,
+                color: n.isRead ? 'var(--muted-foreground)' : 'var(--primary)',
+              }
+            })}
+          />
+        </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <div className="space-y-1 rounded-lg border">
           {notifications.map((n) => {
             const Icon = TYPE_ICON[n.type] ?? AlertCircle
             return (
-              <li
+              <NotificationItem
                 key={n.id}
-                className={cn(
-                  'flex gap-3 px-4 py-3 transition-colors hover:bg-muted/30',
-                  !n.isRead && 'bg-primary/[0.03]',
-                )}
-              >
-                <div
-                  className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-                    TYPE_CLS[n.type],
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="break-words text-sm font-medium">{n.title}</p>
-                    {!n.isRead && (
-                      <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500"
-                        aria-label="unread"
-                      />
-                    )}
-                  </div>
-                  {n.content && <p className="mt-0.5 text-xs text-muted-foreground">{n.content}</p>}
-                  <p className="mt-1 text-xs text-muted-foreground">{relativeTime(n.createdAt)}</p>
-                </div>
-                {!n.isRead && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0 self-center"
-                    onClick={() => readMut.mutate(n.id)}
-                    disabled={readMut.isPending}
-                  >
-                    <Check className="mr-1 h-3.5 w-3.5" />
-                    {t('markRead')}
-                  </Button>
-                )}
-              </li>
+                icon={Icon}
+                title={n.title}
+                content={n.content ?? undefined}
+                time={relativeTime(n.createdAt)}
+                read={n.isRead}
+                onClick={() => !n.isRead && readMut.mutate(n.id)}
+                className="rounded-none first:rounded-t-lg last:rounded-b-lg"
+              />
             )
           })}
-        </ul>
+        </div>
       )}
     </div>
   )

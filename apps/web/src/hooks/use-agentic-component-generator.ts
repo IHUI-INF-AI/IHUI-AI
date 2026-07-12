@@ -28,7 +28,7 @@ export interface UseAgenticComponentGeneratorReturn {
 }
 
 async function generateComponent(input: ComponentGenInput): Promise<GeneratedComponent> {
-  const res = await fetchApi<GeneratedComponent>('/api/workspace-ai/generate-component', {
+  const res = await fetchApi<GeneratedComponent>('/api/workspace/generate-component', {
     method: 'POST',
     body: JSON.stringify(input),
   })

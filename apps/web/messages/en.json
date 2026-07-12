@@ -235,7 +235,8 @@
     "toggleTheme": "Toggle theme",
     "profile": "Profile",
     "menu": "Menu",
-    "announcements": "Announcements"
+    "announcements": "Announcements",
+    "viewAll": "View All"
   },
   "announcements": {
     "title": "Announcements",
@@ -1236,7 +1237,9 @@
       "page": "Page {page} of {total}",
       "total": "{total} total",
       "noData": "No users found",
-      "loading": "Loading..."
+      "loading": "Loading...",
+      "userDetail": "User Detail",
+      "confirmStatusChange": "Are you sure you want to change this user's status?"
     },
     "roles": {
       "title": "Role Management",
@@ -2685,7 +2688,9 @@
       "following": "Following",
       "followers": "Followers",
       "favorites": "Favorites",
-      "statsLoading": "Loading stats..."
+      "statsLoading": "Loading stats...",
+      "accountInfo": "Account Info",
+      "userId": "User ID"
     },
     "security": {
       "title": "Security",
@@ -2731,7 +2736,9 @@
         "project": "Projects",
         "comment": "Comments",
         "follow": "Follows"
-      }
+      },
+      "viewList": "List View",
+      "viewTimeline": "Timeline View"
     },
     "orders": {
       "title": "My Orders",
@@ -2751,7 +2758,9 @@
       "loading": "Loading...",
       "noData": "No orders found",
       "pay": "Pay",
-      "view": "View"
+      "view": "View",
+      "timelineTitle": "Order Timeline",
+      "timelineHint": "View order status change history"
     },
     "public": {
       "title": "User Profile",
@@ -3096,7 +3105,8 @@
     "groupDoc": "Documents",
     "groupPost": "Posts",
     "groupComment": "Comments",
-    "groupOther": "Other"
+    "groupOther": "Other",
+    "popular": "Popular Tags"
   },
   "docs": {
     "title": "Documentation",
@@ -3299,7 +3309,10 @@
       "paidCount": "Paid",
       "pendingCount": "Pending",
       "totalLabel": "Total",
-      "loadFailed": "Failed to load, showing placeholder data"
+      "loadFailed": "Failed to load, showing placeholder data",
+      "orderStatusDistribution": "Order Status Distribution",
+      "orderStatusDistributionHint": "Order count by status",
+      "otherOrders": "Other Orders"
     }
   },
   "rbac": {
@@ -3815,7 +3828,10 @@
     "noRecords": "No watch records",
     "topicType": "Content Type",
     "prev": "Prev",
-    "next": "Next"
+    "next": "Next",
+    "heatmapTitle": "Heatmap",
+    "heatmapCardTitle": "Behavior Heatmap",
+    "heatmapHint": "View user behavior distribution heatmap"
   },
   "visitTracking": {
     "title": "Visit Tracking",
@@ -4078,7 +4094,10 @@
     "fieldStatus": "Status",
     "fieldSort": "Sort",
     "fieldIsFree": "Free",
-    "submitting": "Submitting..."
+    "submitting": "Submitting...",
+    "fieldAgentId": "Agent ID",
+    "fieldWorkspace": "Workspace",
+    "fieldRemark": "Remark"
   },
   "distribution": {
     "title": "Distribution Center",

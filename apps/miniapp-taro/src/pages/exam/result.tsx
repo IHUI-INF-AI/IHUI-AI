@@ -22,8 +22,11 @@ export default function ExamResult() {
     }
     if (!params.id) return
     getExamResult(params.id)
-      .then(res => setInfo(res))
-      .catch(() => {})
+      .then((res) => setInfo(res))
+      .catch((e) => {
+        console.error('考试结果加载 failed:', e)
+        Taro.showToast({ title: '考试结果加载失败', icon: 'none' })
+      })
   }, [router.params])
 
   const goList = useCallback(() => {
@@ -42,7 +45,9 @@ export default function ExamResult() {
         >
           {info.pass ? '✓' : '×'}
         </View>
-        <Text className="block text-lg text-[#333] font-semibold mt-4">{info.pass ? '考试通过' : '未通过'}</Text>
+        <Text className="block text-lg text-[#333] font-semibold mt-4">
+          {info.pass ? '考试通过' : '未通过'}
+        </Text>
         <Text className="block text-3xl text-[#007aff] font-bold mt-2">{info.score}分</Text>
       </View>
 
@@ -60,13 +65,18 @@ export default function ExamResult() {
         {info.rank && (
           <View className="flex justify-between py-3">
             <Text className="text-sm text-[#999]">排名</Text>
-            <Text className="text-sm text-[#333]">第{info.rank}名 / {info.total}人</Text>
+            <Text className="text-sm text-[#333]">
+              第{info.rank}名 / {info.total}人
+            </Text>
           </View>
         )}
       </View>
 
       <View className="px-6">
-        <Button className="mt-4 bg-[#007aff] text-white rounded-full text-sm w-full" onClick={goList}>
+        <Button
+          className="mt-4 bg-[#007aff] text-white rounded-full text-sm w-full"
+          onClick={goList}
+        >
           返回列表
         </Button>
         <Button className="mt-4 bg-white text-[#333] rounded-full text-sm w-full" onClick={goStudy}>

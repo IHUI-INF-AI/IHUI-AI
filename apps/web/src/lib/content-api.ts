@@ -177,7 +177,7 @@ export async function getArticles(
 
 /** 获取文章详情 */
 export async function getArticleDetail(id: string | number): Promise<ApiResult<ArticleItem>> {
-  return fetchApi<ArticleItem>(`/api/article/detail${buildQs({ id })}`)
+  return fetchApi<ArticleItem>(`/api/article/detail/${id}`)
 }
 
 /** 获取热门文章 */
@@ -328,18 +328,21 @@ export async function addFavorite(input: {
 }
 
 /** 取消收藏 */
-export async function removeFavorite(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/favorites/${id}`, { method: 'DELETE' })
+export async function removeFavorite(
+  resourceType: string,
+  resourceId: string,
+): Promise<ApiResult<{ success: boolean }>> {
+  return fetchApi<{ success: boolean }>(`/api/favorites/${resourceType}/${resourceId}`, {
+    method: 'DELETE',
+  })
 }
 
 /** 检查是否已收藏 */
 export async function checkFavorite(
-  targetId: string,
-  targetType: string,
+  resourceType: string,
+  resourceId: string,
 ): Promise<ApiResult<{ favorited: boolean }>> {
-  return fetchApi<{ favorited: boolean }>(
-    `/api/favorites/check${buildQs({ targetId, targetType })}`,
-  )
+  return fetchApi<{ favorited: boolean }>(`/api/favorites/check/${resourceType}/${resourceId}`)
 }
 
 // ===================== feedback（反馈） =====================

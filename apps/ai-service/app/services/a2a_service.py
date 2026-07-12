@@ -167,8 +167,8 @@ class A2AServer:
             return
         try:
             await redis.hset(self.REDIS_AGENT_KEY, agent.id, json.dumps(agent.to_dict()))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"persist agent failed: {e}", exc_info=True)
 
     async def _persist_task(self, task: A2ATask) -> None:
         """持久化 task 到 Redis。"""
@@ -182,8 +182,8 @@ class A2AServer:
                 ex=86400 * 7,  # 7 天过期
             )
             await redis.zadd(self.REDIS_TASK_INDEX_KEY, {task.id: task.created_at.timestamp()})
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"persist task failed: {e}", exc_info=True)
 
     async def _load_task_from_redis(self, task_id: str) -> A2ATask | None:
         """从 Redis 加载 task。"""
@@ -194,8 +194,8 @@ class A2AServer:
             data = await redis.get(self.REDIS_TASK_KEY_PREFIX + task_id)
             if data:
                 return A2ATask.from_dict(json.loads(data))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"load task from redis failed: {e}", exc_info=True)
         return None
 
     async def _load_agents_from_redis(self) -> None:
@@ -208,8 +208,8 @@ class A2AServer:
             for agent_id, data in agents_map.items():
                 agent = A2AAgent.from_dict(json.loads(data))
                 self._agents[agent.id] = agent
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"load agents from redis failed: {e}", exc_info=True)
 
     async def _recover_tasks(self) -> None:
         """启动时恢复未完成的任务(标记 running 为 failed)。"""
@@ -226,8 +226,8 @@ class A2AServer:
                     task.updated_at = datetime.now(timezone.utc)
                     await self._persist_task(task)
                     self._tasks[task.id] = task
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"recover tasks failed: {e}", exc_info=True)
 
     async def init(self) -> None:
         """初始化:从 Redis 恢复数据。"""

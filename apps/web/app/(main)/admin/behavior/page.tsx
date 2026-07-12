@@ -7,6 +7,7 @@ import { Eye, Users, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Heatmap } from '@/components/charts/Heatmap'
 
 interface BehaviorStatistics {
   watchTotal: number
@@ -28,6 +29,32 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   if (!r.success) throw new Error(r.error)
   return r.data
 }
+
+const HEATMAP_X_LABELS = [
+  '00-02',
+  '02-04',
+  '04-06',
+  '06-08',
+  '08-10',
+  '10-12',
+  '12-14',
+  '14-16',
+  '16-18',
+  '18-20',
+  '20-22',
+  '22-24',
+]
+const HEATMAP_Y_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+// 用户活跃度热力图空数据桩：工作日白天偏高，周末晚间偏高
+const HEATMAP_DATA: number[][] = [
+  [1, 0, 0, 1, 3, 6, 8, 9, 7, 5, 4, 2],
+  [1, 0, 0, 1, 3, 7, 9, 10, 8, 5, 4, 2],
+  [1, 0, 0, 1, 3, 7, 9, 10, 8, 5, 4, 2],
+  [1, 0, 0, 1, 3, 7, 9, 10, 8, 5, 4, 2],
+  [2, 1, 0, 1, 2, 5, 7, 8, 7, 6, 5, 3],
+  [3, 1, 0, 0, 1, 2, 4, 5, 6, 7, 8, 6],
+  [2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 5],
+]
 
 export default function BehaviorPage() {
   const t = useTranslations('behavior')
@@ -103,6 +130,25 @@ export default function BehaviorPage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* 用户行为热力图 */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">{t('heatmapTitle')}</h2>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{t('heatmapCardTitle')}</CardTitle>
+            <p className="text-xs text-muted-foreground">{t('heatmapHint')}</p>
+          </CardHeader>
+          <CardContent>
+            <Heatmap
+              data={HEATMAP_DATA}
+              xLabels={HEATMAP_X_LABELS}
+              yLabels={HEATMAP_Y_LABELS}
+              color="var(--primary)"
+            />
+          </CardContent>
+        </Card>
       </section>
 
       {/* 浏览记录列表 */}

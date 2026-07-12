@@ -21,7 +21,7 @@ export interface UseAgenticReturn {
 }
 
 async function fetchAgentic(): Promise<AgenticTask[]> {
-  const res = await fetchApi<AgenticTask[]>('/api/workspace-ai/agentic')
+  const res = await fetchApi<AgenticTask[]>('/api/workspace/agentic')
   if (!res.success) throw new Error(res.error)
   return res.data
 }
