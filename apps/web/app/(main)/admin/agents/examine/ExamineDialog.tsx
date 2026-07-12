@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import {
@@ -38,12 +39,13 @@ export function ExamineDialog({
   onClose,
   onSubmit,
 }: ExamineDialogProps) {
+  const t = useTranslations('admin.agents.examine')
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑审核' : '新增审核'}</DialogTitle>
+            <DialogTitle>{editing ? t('dialogEditTitle') : t('dialogCreateTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -52,42 +54,42 @@ export function ExamineDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>AgentID *</Label>
+              <Label>{t('fieldAgentId')}</Label>
               <Input
                 value={form.agentId}
                 onChange={(e) => onFormChange({ ...form, agentId: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>Agent名称</Label>
+              <Label>{t('fieldAgentName')}</Label>
               <Input
                 value={form.agentName}
                 onChange={(e) => onFormChange({ ...form, agentName: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>开始时间</Label>
+              <Label>{t('fieldStartTime')}</Label>
               <DatePicker
                 value={form.startTime}
                 onChange={(v) => onFormChange({ ...form, startTime: v as string })}
               />
             </div>
             <div className="space-y-2">
-              <Label>联系电话</Label>
+              <Label>{t('fieldStartPhone')}</Label>
               <Input
                 value={form.startPhone}
                 onChange={(e) => onFormChange({ ...form, startPhone: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>联系人</Label>
+              <Label>{t('fieldStartName')}</Label>
               <Input
                 value={form.startName}
                 onChange={(e) => onFormChange({ ...form, startName: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>审核人</Label>
+              <Label>{t('fieldExamineUser')}</Label>
               <Input
                 value={form.examineUser}
                 onChange={(e) => onFormChange({ ...form, examineUser: e.target.value })}
@@ -95,21 +97,21 @@ export function ExamineDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>描述</Label>
+            <Label>{t('fieldDesc')}</Label>
             <Input
               value={form.desc}
               onChange={(e) => onFormChange({ ...form, desc: e.target.value })}
             />
           </div>
           <div className="space-y-2">
-            <Label>关注</Label>
+            <Label>{t('fieldFollow')}</Label>
             <Input
               value={form.follow}
               onChange={(e) => onFormChange({ ...form, follow: e.target.value })}
             />
           </div>
           <div className="space-y-2">
-            <Label>开场白</Label>
+            <Label>{t('fieldPrologue')}</Label>
             <Input
               value={form.prologue}
               onChange={(e) => onFormChange({ ...form, prologue: e.target.value })}
@@ -120,14 +122,15 @@ export function ExamineDialog({
               checked={form.status}
               onCheckedChange={(v) => onFormChange({ ...form, status: v })}
             />
-            <Label>启用</Label>
+            <Label>{t('fieldEnable')}</Label>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>
