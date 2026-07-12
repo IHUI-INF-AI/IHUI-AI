@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Button,
   Input,
@@ -44,6 +45,7 @@ export function RecordedDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.edu.learn.recorded')
   return (
     <Dialog
       open={open}
@@ -54,7 +56,7 @@ export function RecordedDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑课程视频' : '新建课程视频'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -64,7 +66,7 @@ export function RecordedDialog({
           <div className="grid grid-cols-2 gap-3">
             {TEXT_FIELDS.map((f) => (
               <div key={f.key} className="space-y-2">
-                <Label>{f.label}</Label>
+                <Label>{t(`field.${f.key}`)}</Label>
                 <Input
                   value={form[f.key]}
                   onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
@@ -74,32 +76,32 @@ export function RecordedDialog({
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
-              <Label>付费</Label>
+              <Label>{t('fieldPay')}</Label>
               <Select value={form.isPay} onValueChange={(v) => setForm({ ...form, isPay: v })}>
                 <SelectTrigger className={selectClass}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">免费</SelectItem>
-                  <SelectItem value="1">付费</SelectItem>
+                  <SelectItem value="0">{t('payFree')}</SelectItem>
+                  <SelectItem value="1">{t('payPaid')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>状态</Label>
+              <Label>{t('fieldStatus')}</Label>
               <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
                 <SelectTrigger className={selectClass}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">初级</SelectItem>
-                  <SelectItem value="1">中级</SelectItem>
-                  <SelectItem value="2">高级</SelectItem>
+                  <SelectItem value="0">{t('level.0')}</SelectItem>
+                  <SelectItem value="1">{t('level.1')}</SelectItem>
+                  <SelectItem value="2">{t('level.2')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>审核</Label>
+              <Label>{t('fieldAudit')}</Label>
               <Select
                 value={form.auditStatus}
                 onValueChange={(v) => setForm({ ...form, auditStatus: v })}
@@ -108,44 +110,45 @@ export function RecordedDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">待审核</SelectItem>
-                  <SelectItem value="1">审核中</SelectItem>
-                  <SelectItem value="2">待整改</SelectItem>
-                  <SelectItem value="3">已驳回</SelectItem>
-                  <SelectItem value="4">已通过</SelectItem>
+                  <SelectItem value="0">{t('audit.0')}</SelectItem>
+                  <SelectItem value="1">{t('audit.1')}</SelectItem>
+                  <SelectItem value="2">{t('audit.2')}</SelectItem>
+                  <SelectItem value="3">{t('audit.3')}</SelectItem>
+                  <SelectItem value="4">{t('audit.4')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <div className="space-y-2">
-            <Label>封面图</Label>
+            <Label>{t('fieldCover')}</Label>
             <ImageUpload
               value={form.binding}
               onChange={(v) => setForm({ ...form, binding: v as string })}
             />
           </div>
           <div className="space-y-2">
-            <Label>内容</Label>
+            <Label>{t('fieldContent')}</Label>
             <RichTextEditor
               value={form.content}
               onChange={(html) => setForm({ ...form, content: html })}
-              placeholder="请输入视频内容"
+              placeholder={t('contentPlaceholder')}
             />
           </div>
           <div className="space-y-2">
-            <Label>备注</Label>
+            <Label>{t('fieldRemark')}</Label>
             <RichTextEditor
               value={form.remark}
               onChange={(html) => setForm({ ...form, remark: html })}
-              placeholder="请输入备注"
+              placeholder={t('remarkPlaceholder')}
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

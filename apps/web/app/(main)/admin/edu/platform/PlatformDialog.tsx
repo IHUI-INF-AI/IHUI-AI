@@ -1,6 +1,7 @@
 'use client'
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import {
   Dialog,
@@ -37,6 +38,7 @@ export function PlatformDialog({
   pending,
   err,
 }: Props) {
+  const t = useTranslations('admin.edu.platform')
   return (
     <Dialog
       open={open}
@@ -47,7 +49,7 @@ export function PlatformDialog({
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑平台' : '新建平台'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -56,20 +58,20 @@ export function PlatformDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>编码</Label>
+              <Label>{t('codeLabel')}</Label>
               <Input value={form.code} onChange={(e) => onFormChange({ code: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>名称</Label>
+              <Label>{t('nameLabel')}</Label>
               <Input value={form.name} onChange={(e) => onFormChange({ name: e.target.value })} />
             </div>
           </div>
           <div className="space-y-2">
-            <Label>域名</Label>
+            <Label>{t('domainLabel')}</Label>
             <Input value={form.domain} onChange={(e) => onFormChange({ domain: e.target.value })} />
           </div>
           <div className="space-y-2">
-            <Label>备注</Label>
+            <Label>{t('remarkLabel')}</Label>
             <textarea
               className={textareaCls}
               value={form.remark}
@@ -77,23 +79,23 @@ export function PlatformDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>图片</Label>
+            <Label>{t('imageLabel')}</Label>
             <ImageUpload
               value={form.binding}
               onChange={(v) => onFormChange({ binding: v as string })}
             />
           </div>
           <div className="space-y-2">
-            <Label>文件路径</Label>
+            <Label>{t('filePathLabel')}</Label>
             <Input
               value={form.filePath}
               onChange={(e) => onFormChange({ filePath: e.target.value })}
-              placeholder="文件URL"
+              placeholder={t('filePathPlaceholder')}
             />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
-              <Label>类型</Label>
+              <Label>{t('typeLabel')}</Label>
               <Input
                 type="number"
                 value={form.type}
@@ -101,7 +103,7 @@ export function PlatformDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>排序</Label>
+              <Label>{t('sortLabel')}</Label>
               <Input
                 type="number"
                 value={form.sort}
@@ -109,28 +111,28 @@ export function PlatformDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>状态</Label>
+              <Label>{t('statusLabel')}</Label>
               <div className="flex h-9 items-center gap-2">
                 <Switch
                   checked={form.status}
                   onCheckedChange={(v) => onFormChange({ status: v })}
                 />
                 <span className="text-sm text-muted-foreground">
-                  {form.status ? '启用' : '禁用'}
+                  {form.status ? t('statusEnabled') : t('statusDisabled')}
                 </span>
               </div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>扩展字段1</Label>
+              <Label>{t('extField1')}</Label>
               <Input
                 value={form.field1}
                 onChange={(e) => onFormChange({ field1: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>扩展字段2</Label>
+              <Label>{t('extField2')}</Label>
               <Input
                 value={form.field2}
                 onChange={(e) => onFormChange({ field2: e.target.value })}
@@ -139,10 +141,11 @@ export function PlatformDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>
