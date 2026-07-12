@@ -1,16 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Users, UserPlus, UserMinus, Loader2 } from 'lucide-react'
-
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
-import { cn } from '@/lib/utils'
-import { Avatar } from '@/components/data/Avatar'
+import { UserCard } from '@/components/business'
 
 interface FollowUser {
   id: string
@@ -28,19 +24,18 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 function FollowingContent() {
   const t = useTranslations('follows')
+  const router = useRouter()
   const qc = useQueryClient()
   const searchParams = useSearchParams()
   const initialTab = searchParams.get('tab') === 'followers' ? 'followers' : 'following'
   const [tab, setTab] = React.useState<'following' | 'followers'>(initialTab)
 
-  // 当前展示的列表
   const { data, isLoading, error } = useQuery({
     queryKey: ['follows', tab],
     queryFn: () =>
       api<{ list: FollowUser[] }>(`/api/follows/${tab}?pageSize=100`).then((d) => d.list ?? []),
   })
 
-  // 始终拉取我关注的列表,用于在"粉丝"tab 判断是否互关(可回关)
   const { data: myFollowing } = useQuery({
     queryKey: ['follows', 'following'],
     queryFn: () =>
@@ -79,12 +74,11 @@ function FollowingContent() {
           <button
             key={value}
             onClick={() => setTab(value)}
-            className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               tab === value
                 ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
           >
             {t(`tabs.${value}`)}
           </button>
@@ -109,57 +103,21 @@ function FollowingContent() {
             <p className="text-sm">{t(`empty.${tab}`)}</p>
           </div>
         ) : (
-          <ul className="divide-y rounded-lg border">
+          <div className="space-y-3">
             {items.map((u) => {
               const isFollowing = followedIds.has(u.userId)
               return (
-                <li
+                <UserCard
                   key={u.id}
-                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
-                >
-                  <Link href={`/user/${u.userId}`} className="shrink-0">
-                    <Avatar
-                      src={u.avatar ?? undefined}
-                      name={u.nickname ?? 'U'}
-                      size="sm"
-                      className="h-9 w-9 text-sm"
-                    />
-                  </Link>
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/user/${u.userId}`}
-                      className="break-words text-sm font-medium hover:underline"
-                    >
-                      {u.nickname || 'User'}
-                    </Link>
-                  </div>
-                  {isFollowing ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="shrink-0"
-                      onClick={() => unfollowMut.mutate(u.userId)}
-                      disabled={unfollowMut.isPending}
-                    >
-                      <UserMinus className="mr-1 h-3.5 w-3.5" />
-                      {t('unfollow')}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0"
-                      onClick={() => followMut.mutate(u.userId)}
-                      disabled={followMut.isPending}
-                    >
-                      <UserPlus className="mr-1 h-3.5 w-3.5" />
-                      {t('follow')}
-                    </Button>
-                  )}
-                </li>
+                  avatar={u.avatar ?? undefined}
+                  name={u.nickname || 'User'}
+                  followed={isFollowing}
+                  onFollow={() => (isFollowing ? unfollowMut : followMut).mutate(u.userId)}
+                  onClick={() => router.push(`/user/${u.userId}`)}
+                />
               )
             })}
-          </ul>
+          </div>
         )}
       </div>
     </div>

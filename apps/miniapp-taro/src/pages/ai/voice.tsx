@@ -6,7 +6,7 @@ import './voice.css'
 
 export default function VoicePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'assistant', content: '您好，我是AI语音助手，按住下方按钮开始对话' }
+    { role: 'assistant', content: '您好，我是AI语音助手，按住下方按钮开始对话' },
   ])
   const [recording, setRecording] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -15,13 +15,18 @@ export default function VoicePage() {
     if (recording) {
       setRecording(false)
       setLoading(true)
-      setMessages(prev => [...prev, { role: 'user', content: '[语音消息]' }])
+      setMessages((prev) => [...prev, { role: 'user', content: '[语音消息]' }])
       voiceChat({ audio: 'demo' })
-        .then(res => {
-          setMessages(prev => [...prev, { role: 'assistant', content: res.reply }])
+        .then((res) => {
+          setMessages((prev) => [...prev, { role: 'assistant', content: res.reply }])
         })
-        .catch(() => {})
-        .finally(() => { setLoading(false) })
+        .catch((e) => {
+          console.error('语音对话 failed:', e)
+          Taro.showToast({ title: '语音对话失败', icon: 'none' })
+        })
+        .finally(() => {
+          setLoading(false)
+        })
     } else {
       setRecording(true)
       Taro.showToast({ title: '开始录音', icon: 'none' })

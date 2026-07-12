@@ -9,7 +9,6 @@ import { Search, User, FolderOpen, FileText, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import {
-  Input,
   Card,
   CardHeader,
   CardTitle,
@@ -22,6 +21,7 @@ import {
   SelectValue,
 } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { SearchBar } from '@/components/business'
 
 interface UserResult {
   id: string
@@ -165,7 +165,7 @@ function SearchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const q = searchParams.get('q') ?? ''
-  const [input, setInput] = React.useState(q)
+  const [history, setHistory] = React.useState<string[]>([])
   const validTabs: TabKey[] = ['all', 'user', 'project', 'file']
   const validSorts: SortKey[] = ['relevance', 'time', 'name', 'size']
   const initTab = searchParams.get('tab') as TabKey
@@ -175,7 +175,34 @@ function SearchContent() {
     validSorts.includes(initSort) ? initSort : 'relevance',
   )
 
-  React.useEffect(() => setInput(q), [q])
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem('searchHistory')
+      if (stored) setHistory(JSON.parse(stored))
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  const handleSearch = (kw: string) => {
+    const next = [kw, ...history.filter((h) => h !== kw)].slice(0, 10)
+    setHistory(next)
+    try {
+      localStorage.setItem('searchHistory', JSON.stringify(next))
+    } catch {
+      /* ignore */
+    }
+    router.push(`/search?q=${encodeURIComponent(kw)}`)
+  }
+
+  const handleClearHistory = () => {
+    setHistory([])
+    try {
+      localStorage.removeItem('searchHistory')
+    } catch {
+      /* ignore */
+    }
+  }
 
   // tab/sort 变化时同步到 URL(保留 q,去掉默认值参数)
   React.useEffect(() => {
@@ -201,28 +228,19 @@ function SearchContent() {
     minute: '2-digit',
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const kw = input.trim()
-    if (kw) router.push(`/search?q=${encodeURIComponent(kw)}`)
-  }
-
   const { users, projects, files } = React.useMemo(() => sortResults(data, sort), [data, sort])
   const total = users.length + projects.length + files.length
   const showGroup = (key: TabKey) => tab === 'all' || tab === key
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5">
-      <form onSubmit={handleSubmit} className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="search"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={tc('search')}
-          className="pl-9"
-        />
-      </form>
+      <SearchBar
+        placeholder={tc('search')}
+        onSearch={handleSearch}
+        history={history}
+        onHistoryClick={handleSearch}
+        onClearHistory={handleClearHistory}
+      />
 
       {data && total > 0 && (
         <p className="text-xs text-muted-foreground">

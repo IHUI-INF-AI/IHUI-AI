@@ -235,7 +235,8 @@
     "toggleTheme": "テーマ切替",
     "profile": "个人资料",
     "menu": "メニュー",
-    "announcements": "お知らせ管理"
+    "announcements": "お知らせ管理",
+    "viewAll": "すべて表示"
   },
   "announcements": {
     "title": "お知らせ管理",
@@ -1236,7 +1237,9 @@
       "page": "{page}ページ、全{total}ページ",
       "total": "合計: {n}",
       "noData": "なしデータ",
-      "loading": "読み込み中..."
+      "loading": "読み込み中...",
+      "userDetail": "ユーザー詳細",
+      "confirmStatusChange": "このユーザーのステータスを変更しますか？"
     },
     "roles": {
       "title": "ロール管理",
@@ -2685,7 +2688,9 @@
       "following": "済みフォロー",
       "followers": "フォロワー",
       "favorites": "お気に入り",
-      "statsLoading": "統計を読み込み中..."
+      "statsLoading": "統計を読み込み中...",
+      "accountInfo": "アカウント情報",
+      "userId": "ユーザー ID"
     },
     "security": {
       "title": "セキュリティ",
@@ -2731,7 +2736,9 @@
         "project": "プロジェクト",
         "comment": "コメント管理",
         "follow": "フォロー"
-      }
+      },
+      "viewList": "リストビュー",
+      "viewTimeline": "タイムラインビュー"
     },
     "orders": {
       "title": "注文一覧",
@@ -2751,7 +2758,9 @@
       "loading": "読み込み中...",
       "noData": "注文が見つかりません",
       "pay": "送金",
-      "view": "テーブル示"
+      "view": "テーブル示",
+      "timelineTitle": "注文タイムライン",
+      "timelineHint": "注文ステータス変更履歴を表示"
     },
     "public": {
       "title": "APIテスト",
@@ -3096,7 +3105,8 @@
     "groupDoc": "件ドキュメント",
     "groupPost": "投稿",
     "groupComment": "コメント管理",
-    "groupOther": "その他"
+    "groupOther": "その他",
+    "popular": "人気のタグ"
   },
   "docs": {
     "title": "ドキュメント",
@@ -3299,7 +3309,10 @@
       "paidCount": "收费",
       "pendingCount": "保留中",
       "totalLabel": "合計的",
-      "loadFailed": "読み込みドキュメント失敗"
+      "loadFailed": "読み込みドキュメント失敗",
+      "orderStatusDistribution": "注文ステータス分布",
+      "orderStatusDistributionHint": "ステータス別注文数統計",
+      "otherOrders": "その他の注文"
     }
   },
   "rbac": {
@@ -3815,7 +3828,10 @@
     "noRecords": "なし智汇値消耗記録",
     "topicType": "contentType",
     "prev": "前のページ",
-    "next": "回へ"
+    "next": "回へ",
+    "heatmapTitle": "ヒートマップ",
+    "heatmapCardTitle": "行動ヒートマップ",
+    "heatmapHint": "ユーザー行動分布ヒートマップを表示"
   },
   "visitTracking": {
     "title": "APIテスト",
@@ -4078,7 +4094,10 @@
     "fieldStatus": "ステータス",
     "fieldSort": "ソート",
     "fieldIsFree": "無料",
-    "submitting": "送信中..."
+    "submitting": "送信中...",
+    "fieldAgentId": "エージェント ID",
+    "fieldWorkspace": "ワークスペース",
+    "fieldRemark": "備考"
   },
   "distribution": {
     "title": "ディストリビューションセンター",
