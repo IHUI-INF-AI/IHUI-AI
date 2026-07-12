@@ -5,13 +5,13 @@ import { getModelPlazaList } from '@/api'
 import './index.css'
 
 export default function ModelPlazaIndex() {
-  const [list, setList] = useState<any[]>([])
+  const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const res: any = await getModelPlazaList()
-      setList(res?.list || [])
+      const res = (await getModelPlazaList()) as Record<string, unknown>
+      setList((res?.list as Record<string, unknown>[]) || [])
     } catch {
       // ignore
     } finally {
@@ -30,13 +30,13 @@ export default function ModelPlazaIndex() {
         {loading ? (
           <Text className="loading-text">加载中...</Text>
         ) : list.length ? (
-          list.map((model: any) => (
-            <View key={model.id} className="model-item">
+          list.map((model) => (
+            <View key={model.id as string} className="model-item">
               <View className="model-head">
-                <Text className="model-name">{model.name || '未命名模型'}</Text>
-                <Text className="model-tag">{model.provider || ''}</Text>
+                <Text className="model-name">{(model.name as string) || '未命名模型'}</Text>
+                <Text className="model-tag">{(model.provider as string) || ''}</Text>
               </View>
-              <Text className="model-desc">{model.desc || '暂无介绍'}</Text>
+              <Text className="model-desc">{(model.desc as string) || '暂无介绍'}</Text>
             </View>
           ))
         ) : (

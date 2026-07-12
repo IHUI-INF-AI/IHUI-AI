@@ -18,6 +18,7 @@ export default function ExamAnswer() {
   const examIdRef = useRef('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const submittedRef = useRef(false)
+  const onSubmitRef = useRef<() => void>(() => {})
 
   const current = useMemo(() => questions[currentIdx], [questions, currentIdx])
 
@@ -44,6 +45,8 @@ export default function ExamAnswer() {
     }
   }, [answers])
 
+  onSubmitRef.current = onSubmit
+
   useEffect(() => {
     const id = router.params.id
     if (!id) return
@@ -55,7 +58,7 @@ export default function ExamAnswer() {
         timerRef.current = setInterval(() => {
           setRemain((prev) => {
             if (prev <= 1) {
-              onSubmit()
+              onSubmitRef.current()
               return 0
             }
             return prev - 1

@@ -41,8 +41,8 @@ export default function ModelEdit() {
           <Text>加载中...</Text>
         ) : list.length ? (
           list.map((item) => (
-            <View key={item.id || item.name} className="list-item">
-              <Text>{item.name || item.title || '模型'}</Text>
+            <View key={(item.id as string) || (item.name as string)} className="list-item">
+              <Text>{(item.name as string) || (item.title as string) || '模型'}</Text>
             </View>
           ))
         ) : (

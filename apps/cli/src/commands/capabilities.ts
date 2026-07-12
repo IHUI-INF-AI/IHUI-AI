@@ -93,7 +93,7 @@ async function apiRequest(
 }
 
 function printJson(data: unknown): void {
-  console.log(JSON.stringify(data, null, 2));
+  console.info(JSON.stringify(data, null, 2));
 }
 
 function parseOptions(raw: string | undefined): Record<string, unknown> {
@@ -140,13 +140,13 @@ async function listCapabilities(
     return;
   }
   for (const cat of categories) {
-    console.log(`\n=== ${chalk.bold(cat.name)} (${cat.id}) ===`);
+    console.info(`\n=== ${chalk.bold(cat.name)} (${cat.id}) ===`);
     for (const item of cat.items ?? []) {
       const desc = (item.description ?? '').slice(0, 60);
-      console.log(`  [${chalk.cyan(item.id)}] ${item.name} - ${chalk.dim(desc)}`);
+      console.info(`  [${chalk.cyan(item.id)}] ${item.name} - ${chalk.dim(desc)}`);
     }
   }
-  console.log(chalk.dim(`\n共 ${total} 个能力`));
+  console.info(chalk.dim(`\n共 ${total} 个能力`));
 }
 
 // ==================== categories ====================
@@ -164,11 +164,11 @@ async function listCategories(
     return;
   }
   if (data.length === 0) {
-    console.log(chalk.dim('(无数据)'));
+    console.info(chalk.dim('(无数据)'));
     return;
   }
   for (const cat of data) {
-    console.log(`[${chalk.cyan(cat.id)}] ${chalk.bold(cat.name)} - ${chalk.dim(cat.description ?? '')}`);
+    console.info(`[${chalk.cyan(cat.id)}] ${chalk.bold(cat.name)} - ${chalk.dim(cat.description ?? '')}`);
   }
 }
 
@@ -195,8 +195,8 @@ async function invokeCapability(
   }
   const result = resp?.data;
   if (result?.success) {
-    console.log(chalk.green('✓ 调用成功'));
-    console.log(`结果: ${result.result ?? '(无输出)'}`);
+    console.info(chalk.green('✓ 调用成功'));
+    console.info(`结果: ${result.result ?? '(无输出)'}`);
   } else {
     console.error(chalk.red(`✗ 调用失败: ${result?.error ?? '未知错误'}`));
     process.exit(1);
@@ -223,15 +223,15 @@ async function autoMatch(
   }
   const result = resp?.data;
   if (!result) {
-    console.log(chalk.yellow('未匹配到能力'));
+    console.info(chalk.yellow('未匹配到能力'));
     return;
   }
-  console.log(`匹配结果: ${chalk.bold(result.capability_name)} (${result.capability_id})`);
+  console.info(`匹配结果: ${chalk.bold(result.capability_name)} (${result.capability_id})`);
   if (result.capability_type) {
-    console.log(`类型: ${result.capability_type}`);
+    console.info(`类型: ${result.capability_type}`);
   }
-  console.log(`原因: ${result.reason}`);
-  console.log(`置信度: ${result.confidence}`);
+  console.info(`原因: ${result.reason}`);
+  console.info(`置信度: ${result.confidence}`);
 }
 
 // ==================== 命令注册 ====================
