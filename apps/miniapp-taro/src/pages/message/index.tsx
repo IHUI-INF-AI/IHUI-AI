@@ -5,13 +5,13 @@ import { getMessageRooms } from '@/api'
 import './index.css'
 
 export default function MessageIndex() {
-  const [list, setList] = useState<any[]>([])
+  const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const res: any = await getMessageRooms()
-      setList(res?.list || [])
+      const res = (await getMessageRooms()) as Record<string, unknown>
+      setList((res?.list as Record<string, unknown>[]) || [])
     } catch {
       // ignore
     } finally {
@@ -30,10 +30,10 @@ export default function MessageIndex() {
         {loading ? (
           <Text className="loading-text">加载中...</Text>
         ) : list.length ? (
-          list.map((room: any) => (
-            <View key={room.id} className="message-item">
-              <Text className="message-title">{room.name || '未命名会话'}</Text>
-              <Text className="message-preview">{room.lastMessage || '暂无消息'}</Text>
+          list.map((room) => (
+            <View key={room.id as string} className="message-item">
+              <Text className="message-title">{(room.name as string) || '未命名会话'}</Text>
+              <Text className="message-preview">{(room.lastMessage as string) || '暂无消息'}</Text>
             </View>
           ))
         ) : (

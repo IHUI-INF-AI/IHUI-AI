@@ -46,14 +46,14 @@ export default function BusinessCardIndex() {
       {card ? (
         <View className="card-form">
           {card.avatar ? (
-            <Image className="card-avatar" src={card.avatar} mode="aspectFill" />
+            <Image className="card-avatar" src={card.avatar as string} mode="aspectFill" />
           ) : null}
           <View className="form-item">
             <Text className="form-label">姓名</Text>
             <Input
               className="form-input"
               disabled={!editing}
-              value={card.name || ''}
+              value={(card.name as string) || ''}
               onInput={(e) => update('name', e.detail.value)}
             />
           </View>
@@ -62,7 +62,7 @@ export default function BusinessCardIndex() {
             <Input
               className="form-input"
               disabled={!editing}
-              value={card.title || ''}
+              value={(card.title as string) || ''}
               onInput={(e) => update('title', e.detail.value)}
             />
           </View>
@@ -71,7 +71,7 @@ export default function BusinessCardIndex() {
             <Input
               className="form-input"
               disabled={!editing}
-              value={card.company || ''}
+              value={(card.company as string) || ''}
               onInput={(e) => update('company', e.detail.value)}
             />
           </View>
@@ -80,7 +80,7 @@ export default function BusinessCardIndex() {
             <Input
               className="form-input"
               disabled={!editing}
-              value={card.phone || ''}
+              value={(card.phone as string) || ''}
               onInput={(e) => update('phone', e.detail.value)}
             />
           </View>
@@ -89,7 +89,7 @@ export default function BusinessCardIndex() {
             <Textarea
               className="form-textarea"
               disabled={!editing}
-              value={card.intro || ''}
+              value={(card.intro as string) || ''}
               onInput={(e) => update('intro', e.detail.value)}
             />
           </View>
