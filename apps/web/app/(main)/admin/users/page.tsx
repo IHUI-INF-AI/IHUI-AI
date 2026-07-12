@@ -3,8 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Search, Loader2, ChevronLeft, ChevronRight, Users } from 'lucide-react'
-
+import { Search, ChevronLeft, ChevronRight, Users, Eye } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Avatar } from '@/components/data/Avatar'
 import {
@@ -16,6 +15,8 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui'
+import { Skeleton } from '@/components/common'
+import { Modal, Drawer, ConfirmDialog } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
 interface AdminUser {
@@ -62,12 +63,14 @@ export default function AdminUsersPage() {
   const t = useTranslations('admin.users')
   const locale = useLocale()
   const qc = useQueryClient()
-
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [role, setRole] = React.useState('all')
   const [status, setStatus] = React.useState('all')
   const [page, setPage] = React.useState(1)
+  const [quickUser, setQuickUser] = React.useState<AdminUser | null>(null)
+  const [detailUser, setDetailUser] = React.useState<AdminUser | null>(null)
+  const [confirmUser, setConfirmUser] = React.useState<AdminUser | null>(null)
 
   React.useEffect(() => {
     const tm = setTimeout(() => {
@@ -101,6 +104,95 @@ export default function AdminUsersPage() {
     hour: '2-digit',
     minute: '2-digit',
   })
+
+  const handleStatusConfirm = () => {
+    if (!confirmUser) return
+    const isActive = (confirmUser.status ?? 0) >= 1
+    patchMut.mutate({ id: confirmUser.id, body: { status: isActive ? 0 : 1 } })
+    setConfirmUser(null)
+  }
+
+  const renderRow = (u: AdminUser) => {
+    const isAdmin = (u.roleId ?? 0) >= 1
+    const isActive = (u.status ?? 0) >= 1
+    const name = u.nickname || u.phone || u.email || 'U'
+    return (
+      <tr key={u.id} className="transition-colors hover:bg-muted/30">
+        <td className="px-4 py-2.5">
+          <button className="flex items-center gap-2" onClick={() => setQuickUser(u)}>
+            <Avatar src={u.avatar ?? undefined} name={name} size="sm" />
+            <span className="font-medium hover:text-primary">{name}</span>
+          </button>
+        </td>
+        <td className="px-4 py-2.5 text-muted-foreground">
+          <div className="text-xs">{u.phone || '-'}</div>
+          <div className="text-xs text-muted-foreground/80">{u.email || '-'}</div>
+        </td>
+        <td className="px-4 py-2.5">
+          <Select
+            value={isAdmin ? '1' : '0'}
+            onValueChange={(v) => patchMut.mutate({ id: u.id, body: { role: Number(v) } })}
+          >
+            <SelectTrigger
+              className={cn(
+                selectClass,
+                isAdmin ? 'border-primary/30 text-primary' : 'text-muted-foreground',
+              )}
+              aria-label={t('setRole')}
+              disabled={patchMut.isPending}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="0">{t('roleUser')}</SelectItem>
+              <SelectItem value="1">{t('roleAdmin')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </td>
+        <td className="px-4 py-2.5">
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+              isActive
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                : 'bg-muted text-muted-foreground',
+            )}
+          >
+            <span
+              className={cn(
+                'h-1.5 w-1.5 rounded-full',
+                isActive ? 'bg-emerald-500' : 'bg-muted-foreground',
+              )}
+            />
+            {isActive ? t('statusActive') : t('statusDisabled')}
+          </span>
+        </td>
+        <td className="px-4 py-2.5 text-xs text-muted-foreground">
+          {u.createdAt ? dateFmt.format(new Date(u.createdAt)) : '-'}
+        </td>
+        <td className="px-4 py-2.5 text-right">
+          <div className="flex justify-end gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setDetailUser(u)}
+              aria-label={t('view')}
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={patchMut.isPending}
+              onClick={() => setConfirmUser(u)}
+            >
+              {isActive ? t('disable') : t('enable')}
+            </Button>
+          </div>
+        </td>
+      </tr>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -174,9 +266,8 @@ export default function AdminUsersPage() {
           <tbody className="divide-y">
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  {t('loading')}
+                <td colSpan={6} className="px-4 py-4">
+                  <Skeleton variant="list" count={5} />
                 </td>
               </tr>
             ) : error ? (
@@ -193,81 +284,7 @@ export default function AdminUsersPage() {
                 </td>
               </tr>
             ) : (
-              users.map((u) => {
-                const isAdmin = (u.roleId ?? 0) >= 1
-                const isActive = (u.status ?? 0) >= 1
-                const name = u.nickname || u.phone || u.email || 'U'
-                return (
-                  <tr key={u.id} className="transition-colors hover:bg-muted/30">
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <Avatar src={u.avatar ?? undefined} name={name ?? 'U'} size="sm" />
-                        <span className="font-medium">{name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5 text-muted-foreground">
-                      <div className="text-xs">{u.phone || '-'}</div>
-                      <div className="text-xs text-muted-foreground/80">{u.email || '-'}</div>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <Select
-                        value={isAdmin ? '1' : '0'}
-                        onValueChange={(v) =>
-                          patchMut.mutate({ id: u.id, body: { role: Number(v) } })
-                        }
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            selectClass,
-                            isAdmin ? 'border-primary/30 text-primary' : 'text-muted-foreground',
-                          )}
-                          aria-label={t('setRole')}
-                          disabled={patchMut.isPending}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0">{t('roleUser')}</SelectItem>
-                          <SelectItem value="1">{t('roleAdmin')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                          isActive
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                            : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            'h-1.5 w-1.5 rounded-full',
-                            isActive ? 'bg-emerald-500' : 'bg-muted-foreground',
-                          )}
-                        />
-                        {isActive ? t('statusActive') : t('statusDisabled')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                      {u.createdAt ? dateFmt.format(new Date(u.createdAt)) : '-'}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={patchMut.isPending}
-                        onClick={() =>
-                          patchMut.mutate({ id: u.id, body: { status: isActive ? 0 : 1 } })
-                        }
-                      >
-                        {isActive ? t('disable') : t('enable')}
-                      </Button>
-                    </td>
-                  </tr>
-                )
-              })
+              users.map(renderRow)
             )}
           </tbody>
         </table>
@@ -299,6 +316,87 @@ export default function AdminUsersPage() {
           </Button>
         </div>
       </div>
+
+      <Modal
+        open={!!quickUser}
+        onClose={() => setQuickUser(null)}
+        title={t('userDetail')}
+        size="sm"
+      >
+        {quickUser && (
+          <div className="flex items-center gap-3">
+            <Avatar
+              src={quickUser.avatar ?? undefined}
+              name={quickUser.nickname || 'U'}
+              size="lg"
+            />
+            <div className="min-w-0">
+              <p className="font-medium">{quickUser.nickname || '-'}</p>
+              <p className="text-sm text-muted-foreground">{quickUser.phone || '-'}</p>
+              <p className="text-xs text-muted-foreground/80">{quickUser.email || '-'}</p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Drawer
+        open={!!detailUser}
+        onClose={() => setDetailUser(null)}
+        title={t('userDetail')}
+        side="right"
+        width="28rem"
+      >
+        {detailUser && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Avatar
+                src={detailUser.avatar ?? undefined}
+                name={detailUser.nickname || 'U'}
+                size="lg"
+              />
+              <div>
+                <p className="font-medium">{detailUser.nickname || '-'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {detailUser.phone || detailUser.email || '-'}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">{t('phone')}</span>
+                <p>{detailUser.phone || '-'}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t('email')}</span>
+                <p>{detailUser.email || '-'}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t('role')}</span>
+                <p>{(detailUser.roleId ?? 0) >= 1 ? t('roleAdmin') : t('roleUser')}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t('status')}</span>
+                <p>{(detailUser.status ?? 0) >= 1 ? t('statusActive') : t('statusDisabled')}</p>
+              </div>
+              <div className="col-span-2">
+                <span className="text-muted-foreground">{t('createdAt')}</span>
+                <p>{detailUser.createdAt ? dateFmt.format(new Date(detailUser.createdAt)) : '-'}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
+      <ConfirmDialog
+        open={!!confirmUser}
+        variant="danger"
+        title={confirmUser && (confirmUser.status ?? 0) >= 1 ? t('disable') : t('enable')}
+        content={t('confirmStatusChange')}
+        confirmText={confirmUser && (confirmUser.status ?? 0) >= 1 ? t('disable') : t('enable')}
+        onConfirm={handleStatusConfirm}
+        onCancel={() => setConfirmUser(null)}
+        loading={patchMut.isPending}
+      />
     </div>
   )
 }

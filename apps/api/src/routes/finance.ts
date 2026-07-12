@@ -17,7 +17,6 @@ import {
   listSubordinates,
   teamCenter,
 } from '../db/commission-queries.js'
-import { feedbackInvite } from '../services/commission-service.js'
 import { orders } from '@ihui/database'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -266,17 +265,4 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     const available = await availableWithdrawal(userId)
     return reply.send(success({ available }))
   })
-}
-
-// 佣金自动分账（支付成功后调用）
-export async function feedbackInviteByOrder(
-  orderId: string,
-  orderAmount: number,
-  buyerId: string,
-): Promise<void> {
-  const tokenQuantity = await getBalance(buyerId)
-  await feedbackInvite(
-    { id: buyerId, tokenQuantity },
-    { id: orderId, amount: orderAmount, orderType: 0, productId: null },
-  )
 }

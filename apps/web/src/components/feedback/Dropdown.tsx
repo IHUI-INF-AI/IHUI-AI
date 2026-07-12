@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 
 export interface DropdownItem {
   key: string
-  label: React.ReactNode
+  label?: React.ReactNode
   icon?: React.ComponentType<{ className?: string }>
   disabled?: boolean
   danger?: boolean
@@ -22,7 +22,13 @@ interface DropdownProps {
   className?: string
 }
 
-export function Dropdown({ items, trigger, align = 'end', side = 'bottom', className }: DropdownProps) {
+export function Dropdown({
+  items,
+  trigger,
+  align = 'end',
+  side = 'bottom',
+  className,
+}: DropdownProps) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
