@@ -19,6 +19,7 @@
 import { createHash } from 'node:crypto'
 import IORedis, { type Redis } from 'ioredis'
 import { config } from '../config/index.js'
+import { logger } from './logger.js'
 
 /** 去重 TTL（秒），默认 5 分钟。 */
 const DEFAULT_TTL_SEC = 300
@@ -41,7 +42,7 @@ function getRedis(): Redis {
       lazyConnect: false,
     })
     redisClient.on('error', (err) => {
-      console.error('[ws-dedup] redis error:', err)
+      logger.error('[ws-dedup] redis error', { error: err })
     })
     const quit = (): void => {
       redisClient?.quit().catch(() => {

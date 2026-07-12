@@ -18,6 +18,7 @@
 
 import IORedis, { type Redis } from 'ioredis'
 import { config } from '../config/index.js'
+import { logger } from './logger.js'
 
 /** 窗口大小（毫秒），默认 1 秒。 */
 const WINDOW_MS = 1000
@@ -49,7 +50,7 @@ function getRedis(): Redis {
       lazyConnect: false,
     })
     redisClient.on('error', (err) => {
-      console.error('[ws-rate-limit] redis error:', err)
+      logger.error('[ws-rate-limit] redis error', { error: err })
     })
     const quit = (): void => {
       redisClient?.quit().catch(() => {

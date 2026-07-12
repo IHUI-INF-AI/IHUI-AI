@@ -3,92 +3,24 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  Loader2,
-  Activity,
-  Trash2,
-  Eraser,
-  Download,
-  Search,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
+import { Activity, Trash2, Eraser, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
-import {
-  Button,
-  Input,
-  Label,
-  Checkbox,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@ihui/ui'
+import { Button } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { exportFromApi } from '@/lib/export-utils'
-import { cn } from '@/lib/utils'
+import { OperationLogsFilter } from './OperationLogsFilter'
+import { OperationLogsTable } from './OperationLogsTable'
+import { OperationLogsDetailDialog } from './OperationLogsDetailDialog'
+import { RESOURCE, BIZ_TYPE, STATUS_LABEL, api } from './helpers'
+import type { OperLog, ListResp } from './types'
 
-interface OperLog {
-  id: string
-  title: string
-  businessType: number
-  operName: string
-  operUrl: string
-  requestMethod: string
-  operParam: string
-  jsonResult: string
-  status: number
-  errorMsg: string
-  costTime: number
-  operTime: string
-  operIp: string
-  operLocation: string
-}
-
-interface ListResp {
-  list: OperLog[]
-  total: number
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
-const RESOURCE = '/api/admin/system/operation-logs'
-const th = 'px-4 py-2.5 text-left font-medium text-xs uppercase text-muted-foreground'
-const inputCls =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-const BIZ_TYPE: Record<number, string> = {
-  0: '其他',
-  1: '新增',
-  2: '修改',
-  3: '删除',
-  4: '授权',
-  5: '导出',
-  6: '导入',
-  7: '强退',
-  8: '生成代码',
-  9: '清空数据',
-}
-const STATUS_LABEL: Record<number, { label: string; cls: string }> = {
-  0: { label: '成功', cls: 'bg-emerald-500/10 text-emerald-600' },
-  1: { label: '失败', cls: 'bg-red-500/10 text-red-600' },
-}
+const PAGE_SIZE = 15
+const EMPTY_SEARCH = { title: '', operName: '', businessType: '' }
 
 export default function OperationLogsPage() {
   const qc = useQueryClient()
-  const [search, setSearch] = React.useState({ title: '', operName: '', businessType: '' })
-  const [applied, setApplied] = React.useState({ title: '', operName: '', businessType: '' })
+  const [search, setSearch] = React.useState(EMPTY_SEARCH)
+  const [applied, setApplied] = React.useState(EMPTY_SEARCH)
   const [page, setPage] = React.useState(1)
   const [sort, setSort] = React.useState<{ col: string; dir: 'asc' | 'desc' }>({
     col: 'operTime',
@@ -96,12 +28,11 @@ export default function OperationLogsPage() {
   })
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
   const [detail, setDetail] = React.useState<OperLog | null>(null)
-  const pageSize = 15
 
   const params = React.useMemo(() => {
     const qs = new URLSearchParams()
     qs.set('page', String(page))
-    qs.set('pageSize', String(pageSize))
+    qs.set('pageSize', String(PAGE_SIZE))
     if (applied.title) qs.set('title', applied.title)
     if (applied.operName) qs.set('operName', applied.operName)
     if (applied.businessType) qs.set('businessType', applied.businessType)
@@ -116,7 +47,7 @@ export default function OperationLogsPage() {
   })
   const list = data?.list ?? []
   const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const delMut = useMutation({
     mutationFn: (ids: string[]) =>
@@ -142,8 +73,8 @@ export default function OperationLogsPage() {
     setApplied(search)
   }
   const handleReset = () => {
-    setSearch({ title: '', operName: '', businessType: '' })
-    setApplied({ title: '', operName: '', businessType: '' })
+    setSearch(EMPTY_SEARCH)
+    setApplied(EMPTY_SEARCH)
     setPage(1)
   }
   const toggleAll = () =>
@@ -177,8 +108,6 @@ export default function OperationLogsPage() {
       ],
     ).then((ok) => (ok ? toast.success('导出成功') : toast.error('导出失败')))
 
-  const sortIcon = (col: string) => (sort.col === col ? (sort.dir === 'desc' ? '↓' : '↑') : '')
-
   return (
     <div className="space-y-4">
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -186,54 +115,12 @@ export default function OperationLogsPage() {
         操作日志
       </h1>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
-        <div className="space-y-1.5">
-          <Label className="text-xs">模块</Label>
-          <Input
-            value={search.title}
-            onChange={(e) => setSearch({ ...search, title: e.target.value })}
-            placeholder="操作模块"
-            className={inputCls}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">操作人</Label>
-          <Input
-            value={search.operName}
-            onChange={(e) => setSearch({ ...search, operName: e.target.value })}
-            placeholder="操作人"
-            className={inputCls}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">类型</Label>
-          <Select
-            value={search.businessType}
-            onValueChange={(v) => setSearch({ ...search, businessType: v === 'all' ? '' : v })}
-          >
-            <SelectTrigger className={inputCls}>
-              <SelectValue placeholder="全部" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部</SelectItem>
-              {Object.entries(BIZ_TYPE).map(([k, v]) => (
-                <SelectItem key={k} value={k}>
-                  {v}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" onClick={handleSearch}>
-            <Search className="h-4 w-4" />
-            搜索
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleReset}>
-            重置
-          </Button>
-        </div>
-      </div>
+      <OperationLogsFilter
+        value={search}
+        onChange={setSearch}
+        onSearch={handleSearch}
+        onReset={handleReset}
+      />
 
       <div className="flex items-center gap-2">
         <HasPermi code="system:operlog:remove">
@@ -268,104 +155,16 @@ export default function OperationLogsPage() {
         </HasPermi>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="w-10 px-4 py-2.5">
-                <Checkbox
-                  checked={list.length > 0 && selected.size === list.length}
-                  onCheckedChange={toggleAll}
-                />
-              </th>
-              <th className={th}>ID</th>
-              <th className={th}>模块</th>
-              <th className={th}>类型</th>
-              <th
-                className={cn(th, 'cursor-pointer select-none')}
-                onClick={() => handleSort('operName')}
-              >
-                操作人 {sortIcon('operName')}
-              </th>
-              <th className={th}>请求方式</th>
-              <th className={th}>IP</th>
-              <th className={th}>位置</th>
-              <th className={th}>状态</th>
-              <th
-                className={cn(th, 'cursor-pointer select-none')}
-                onClick={() => handleSort('operTime')}
-              >
-                操作时间 {sortIcon('operTime')}
-              </th>
-              <th
-                className={cn(th, 'cursor-pointer select-none')}
-                onClick={() => handleSort('costTime')}
-              >
-                耗时 {sortIcon('costTime')}
-              </th>
-              <th className={th}>操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr>
-                <td colSpan={12} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                </td>
-              </tr>
-            ) : list.length === 0 ? (
-              <tr>
-                <td colSpan={12} className="px-4 py-10 text-center text-muted-foreground">
-                  暂无数据
-                </td>
-              </tr>
-            ) : (
-              list.map((l) => {
-                const st = STATUS_LABEL[l.status] ?? {
-                  label: '-',
-                  cls: 'bg-muted text-muted-foreground',
-                }
-                return (
-                  <tr key={l.id} className="transition-colors hover:bg-muted/30">
-                    <td className="px-4 py-2.5">
-                      <Checkbox
-                        checked={selected.has(l.id)}
-                        onCheckedChange={() => toggleOne(l.id)}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.id}</td>
-                    <td className="px-4 py-2.5 font-medium">{l.title}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">
-                      {BIZ_TYPE[l.businessType] ?? '-'}
-                    </td>
-                    <td className="px-4 py-2.5">{l.operName}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{l.requestMethod}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs">{l.operIp}</td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.operLocation}</td>
-                    <td className="px-4 py-2.5">
-                      <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs', st.cls)}>
-                        {st.label}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
-                      {l.operTime ? new Date(l.operTime).toLocaleString() : '-'}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.costTime}ms</td>
-                    <td className="px-4 py-2.5">
-                      <HasPermi code="system:operlog:query">
-                        <Button size="sm" variant="ghost" onClick={() => setDetail(l)}>
-                          <Eye className="h-3.5 w-3.5" />
-                          详情
-                        </Button>
-                      </HasPermi>
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <OperationLogsTable
+        list={list}
+        isLoading={isLoading}
+        selected={selected}
+        onToggleAll={toggleAll}
+        onToggleOne={toggleOne}
+        sort={sort}
+        onSort={handleSort}
+        onDetail={setDetail}
+      />
 
       {total > 0 && (
         <div className="flex items-center justify-between text-sm">
@@ -393,78 +192,7 @@ export default function OperationLogsPage() {
         </div>
       )}
 
-      <Dialog open={!!detail} onOpenChange={(o) => (o ? null : setDetail(null))}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>操作日志详情</DialogTitle>
-          </DialogHeader>
-          {detail && (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">模块：</span>
-                {detail.title}
-              </div>
-              <div>
-                <span className="text-muted-foreground">类型：</span>
-                {BIZ_TYPE[detail.businessType] ?? '-'}
-              </div>
-              <div>
-                <span className="text-muted-foreground">操作人：</span>
-                {detail.operName}
-              </div>
-              <div>
-                <span className="text-muted-foreground">IP：</span>
-                {detail.operIp}
-              </div>
-              <div className="col-span-2">
-                <span className="text-muted-foreground">请求URL：</span>
-                {detail.operUrl}
-              </div>
-              <div>
-                <span className="text-muted-foreground">请求方式：</span>
-                {detail.requestMethod}
-              </div>
-              <div>
-                <span className="text-muted-foreground">耗时：</span>
-                {detail.costTime}ms
-              </div>
-              <div>
-                <span className="text-muted-foreground">状态：</span>
-                {STATUS_LABEL[detail.status]?.label ?? '-'}
-              </div>
-              <div>
-                <span className="text-muted-foreground">操作时间：</span>
-                {detail.operTime ? new Date(detail.operTime).toLocaleString() : '-'}
-              </div>
-              <div className="col-span-2">
-                <span className="text-muted-foreground">请求参数：</span>
-                <pre className="mt-1 max-h-32 overflow-auto rounded bg-muted/50 p-2 text-xs">
-                  {detail.operParam || '-'}
-                </pre>
-              </div>
-              <div className="col-span-2">
-                <span className="text-muted-foreground">返回结果：</span>
-                <pre className="mt-1 max-h-32 overflow-auto rounded bg-muted/50 p-2 text-xs">
-                  {detail.jsonResult || '-'}
-                </pre>
-              </div>
-              {detail.status === 1 && (
-                <div className="col-span-2">
-                  <span className="text-destructive">错误信息：</span>
-                  <pre className="mt-1 max-h-32 overflow-auto rounded bg-red-500/5 p-2 text-xs text-destructive">
-                    {detail.errorMsg || '-'}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetail(null)}>
-              关闭
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <OperationLogsDetailDialog detail={detail} onClose={() => setDetail(null)} />
     </div>
   )
 }

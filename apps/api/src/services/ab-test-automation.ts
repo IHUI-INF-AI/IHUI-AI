@@ -147,7 +147,7 @@ export async function evaluateAllRunningTests(): Promise<
         promoted: shouldPromote,
       })
     } catch (err) {
-      console.error(`[ab-test-automation] evaluate ${test.id} failed:`, (err as Error).message)
+      logger.error(`[ab-test-automation] evaluate ${test.id} failed: ${(err as Error).message}`)
       out.push({ testId: test.id, winner: null, promoted: false })
     }
   }

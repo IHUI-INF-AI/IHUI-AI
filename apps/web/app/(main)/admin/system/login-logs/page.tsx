@@ -3,79 +3,32 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  Loader2,
-  LogIn,
-  Trash2,
-  Eraser,
-  Download,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
+import { LogIn, Trash2, Eraser, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Checkbox } from '@ihui/ui'
+import { Button } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { exportFromApi } from '@/lib/export-utils'
-import { cn } from '@/lib/utils'
 
-interface LoginLog {
-  id: string
-  userUuid: string
-  loginType: string
-  platform: string
-  ip: string
-  location: string
-  userAgent: string
-  loginTime: string
-  message: string
-}
-
-interface ListResp {
-  list: LoginLog[]
-  total: number
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
-const RESOURCE = '/api/admin/system/login-logs'
-const th = 'px-4 py-2.5 text-left font-medium text-xs uppercase text-muted-foreground'
-const inputCls =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+import { LoginLogFilter } from './LoginLogFilter'
+import { LoginLogTable } from './LoginLogTable'
+import { PAGE_SIZE, RESOURCE, api, EMPTY_SEARCH, EXPORT_COLUMNS } from './helpers'
+import type { LoginLogSearch, ListResp } from './types'
 
 export default function LoginLogsPage() {
   const qc = useQueryClient()
-  const [search, setSearch] = React.useState({
-    userUuid: '',
-    platform: '',
-    location: '',
-    startTime: '',
-    endTime: '',
-  })
-  const [applied, setApplied] = React.useState({
-    userUuid: '',
-    platform: '',
-    location: '',
-    startTime: '',
-    endTime: '',
-  })
+  const [search, setSearch] = React.useState<LoginLogSearch>(EMPTY_SEARCH)
+  const [applied, setApplied] = React.useState<LoginLogSearch>(EMPTY_SEARCH)
   const [page, setPage] = React.useState(1)
   const [sort, setSort] = React.useState<{ col: string; dir: 'asc' | 'desc' }>({
     col: 'loginTime',
     dir: 'desc',
   })
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
-  const pageSize = 15
 
   const params = React.useMemo(() => {
     const qs = new URLSearchParams()
     qs.set('page', String(page))
-    qs.set('pageSize', String(pageSize))
+    qs.set('pageSize', String(PAGE_SIZE))
     if (applied.userUuid) qs.set('userUuid', applied.userUuid)
     if (applied.platform) qs.set('platform', applied.platform)
     if (applied.location) qs.set('location', applied.location)
@@ -93,7 +46,7 @@ export default function LoginLogsPage() {
 
   const list = data?.list ?? []
   const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const delMut = useMutation({
     mutationFn: (ids: string[]) =>
@@ -119,19 +72,16 @@ export default function LoginLogsPage() {
     setApplied(search)
   }
   const handleReset = () => {
-    setSearch({ userUuid: '', platform: '', location: '', startTime: '', endTime: '' })
-    setApplied({ userUuid: '', platform: '', location: '', startTime: '', endTime: '' })
+    setSearch(EMPTY_SEARCH)
+    setApplied(EMPTY_SEARCH)
     setPage(1)
   }
   const toggleAll = () =>
     setSelected(selected.size === list.length ? new Set() : new Set(list.map((l) => l.id)))
   const toggleOne = (id: string) => {
     const next = new Set(selected)
-    if (next.has(id)) {
-      next.delete(id)
-    } else {
-      next.add(id)
-    }
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
     setSelected(next)
   }
   const handleSort = (col: string) =>
@@ -140,16 +90,7 @@ export default function LoginLogsPage() {
     exportFromApi(
       `${RESOURCE}?pageSize=9999&${new URLSearchParams(applied as Record<string, string>)}`,
       'login-logs',
-      [
-        { key: 'id', title: 'ID' },
-        { key: 'userUuid', title: '用户' },
-        { key: 'loginType', title: '登录类型' },
-        { key: 'platform', title: '平台' },
-        { key: 'ip', title: 'IP' },
-        { key: 'location', title: '位置' },
-        { key: 'loginTime', title: '登录时间' },
-        { key: 'message', title: '消息' },
-      ],
+      EXPORT_COLUMNS,
     ).then((ok) => (ok ? toast.success('导出成功') : toast.error('导出失败')))
 
   return (
@@ -161,62 +102,12 @@ export default function LoginLogsPage() {
         </h1>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
-        <div className="space-y-1.5">
-          <Label className="text-xs">用户</Label>
-          <Input
-            value={search.userUuid}
-            onChange={(e) => setSearch({ ...search, userUuid: e.target.value })}
-            placeholder="用户标识"
-            className={inputCls}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">平台</Label>
-          <Input
-            value={search.platform}
-            onChange={(e) => setSearch({ ...search, platform: e.target.value })}
-            placeholder="平台"
-            className={inputCls}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">位置</Label>
-          <Input
-            value={search.location}
-            onChange={(e) => setSearch({ ...search, location: e.target.value })}
-            placeholder="登录位置"
-            className={inputCls}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">开始日期</Label>
-          <Input
-            type="date"
-            value={search.startTime}
-            onChange={(e) => setSearch({ ...search, startTime: e.target.value })}
-            className={inputCls}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">结束日期</Label>
-          <Input
-            type="date"
-            value={search.endTime}
-            onChange={(e) => setSearch({ ...search, endTime: e.target.value })}
-            className={inputCls}
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" onClick={handleSearch}>
-            <Search className="h-4 w-4" />
-            搜索
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleReset}>
-            重置
-          </Button>
-        </div>
-      </div>
+      <LoginLogFilter
+        search={search}
+        setSearch={setSearch}
+        onSearch={handleSearch}
+        onReset={handleReset}
+      />
 
       <div className="flex items-center gap-2">
         <HasPermi code="system:logininfor:remove">
@@ -251,81 +142,15 @@ export default function LoginLogsPage() {
         </HasPermi>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="w-10 px-4 py-2.5">
-                <Checkbox
-                  checked={list.length > 0 && selected.size === list.length}
-                  onCheckedChange={toggleAll}
-                />
-              </th>
-              <th className={th}>ID</th>
-              <th className={th}>用户</th>
-              <th className={th}>类型</th>
-              <th className={th}>平台</th>
-              <th className={th}>IP</th>
-              <th className={th}>位置</th>
-              <th className={th}>UA</th>
-              <th
-                className={cn(th, 'cursor-pointer select-none')}
-                onClick={() => handleSort('loginTime')}
-              >
-                登录时间 {sort.col === 'loginTime' && (sort.dir === 'desc' ? '↓' : '↑')}
-              </th>
-              <th className={th}>消息</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr>
-                <td colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                </td>
-              </tr>
-            ) : list.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
-                  暂无数据
-                </td>
-              </tr>
-            ) : (
-              list.map((l) => (
-                <tr key={l.id} className="transition-colors hover:bg-muted/30">
-                  <td className="px-4 py-2.5">
-                    <Checkbox
-                      checked={selected.has(l.id)}
-                      onCheckedChange={() => toggleOne(l.id)}
-                    />
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.id}</td>
-                  <td className="px-4 py-2.5 font-medium">{l.userUuid}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{l.loginType}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{l.platform}</td>
-                  <td className="px-4 py-2.5 font-mono text-xs">{l.ip}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{l.location}</td>
-                  <td
-                    className="max-w-[200px] truncate px-4 py-2.5 text-xs text-muted-foreground"
-                    title={l.userAgent}
-                  >
-                    {l.userAgent}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
-                    {l.loginTime ? new Date(l.loginTime).toLocaleString() : '-'}
-                  </td>
-                  <td
-                    className="max-w-[200px] truncate px-4 py-2.5 text-xs text-muted-foreground"
-                    title={l.message}
-                  >
-                    {l.message}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <LoginLogTable
+        list={list}
+        isLoading={isLoading}
+        selected={selected}
+        sort={sort}
+        onToggleAll={toggleAll}
+        onToggleOne={toggleOne}
+        onSort={handleSort}
+      />
 
       {total > 0 && (
         <div className="flex items-center justify-between text-sm">

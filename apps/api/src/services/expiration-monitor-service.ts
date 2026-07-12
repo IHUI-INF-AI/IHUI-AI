@@ -24,6 +24,7 @@ import { db } from '../db/index.js'
 import { config } from '../config/index.js'
 import { zhsAgentBuy, agentSettlements } from '@ihui/database'
 import { getCanaryConfig, rollbackCanary } from './canary-service.js'
+import { logger } from '../utils/logger.js'
 
 // ---------- 常量 ----------
 
@@ -68,7 +69,7 @@ function getRedis(): Redis {
       lazyConnect: false,
     })
     redisClient.on('error', (err) => {
-      console.error('[expiration-monitor] redis error:', err)
+      logger.error('[expiration-monitor] redis error', { error: err })
     })
     const quit = (): void => {
       redisClient?.quit().catch(() => {})
@@ -230,18 +231,18 @@ async function triggerCanaryRollback(reason: string): Promise<void> {
   try {
     const cfg = await getCanaryConfig(CANARY_NAME)
     if (!cfg) {
-      console.error('[expiration-monitor] canary config "%s" not found, skip rollback', CANARY_NAME)
+      logger.error(`[expiration-monitor] canary config "${CANARY_NAME}" not found, skip rollback`)
       return
     }
     if (!cfg.isActive) {
-      console.warn('[expiration-monitor] canary "%s" not active, skip rollback', CANARY_NAME)
+      logger.warn(`[expiration-monitor] canary "${CANARY_NAME}" not active, skip rollback`)
       return
     }
     await rollbackCanary(CANARY_NAME, reason)
-    console.error('[expiration-monitor] canary rollback triggered: %s', reason)
+    logger.error(`[expiration-monitor] canary rollback triggered: ${reason}`)
   } catch (err) {
     // 回滚失败不应影响后续调度
-    console.error('[expiration-monitor] canary rollback failed:', err)
+    logger.error('[expiration-monitor] canary rollback failed', { error: err })
   }
 }
 
@@ -266,7 +267,7 @@ export async function startExpirationMonitor(): Promise<ExpirationMonitorResult>
     checkedBuy = r.checked
     expiredBuy = r.expired
   } catch (err) {
-    console.error('[expiration-monitor] detect AgentBuy failed:', err)
+    logger.error('[expiration-monitor] detect AgentBuy failed', { error: err })
     const { triggered, streak } = await recordFailureAndMaybeRollback(
       redis,
       `AgentBuy detection error: ${(err as Error).message}`,
@@ -296,7 +297,7 @@ export async function startExpirationMonitor(): Promise<ExpirationMonitorResult>
       healthy: true,
     }
   } catch (err) {
-    console.error('[expiration-monitor] detect AgentSettlement failed:', err)
+    logger.error('[expiration-monitor] detect AgentSettlement failed', { error: err })
     const { triggered, streak } = await recordFailureAndMaybeRollback(
       redis,
       `AgentSettlement detection error: ${(err as Error).message}`,
