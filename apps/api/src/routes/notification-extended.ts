@@ -70,12 +70,14 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
   // -------------------------------------------------------------------------
   server.get('/notifications/channels', async (request, reply) => {
     await authenticate(request)
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      type?: string
-      isActive?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        type: z.string().optional(),
+        isActive: z.string().optional(),
+      })
+      .parse(request.query)
     const { page, pageSize } = parsePaging(q)
     const offset = (page - 1) * pageSize
     const conds: SQL[] = []

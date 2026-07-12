@@ -58,13 +58,15 @@ export const organizationRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   server.get('/organizations/list', async (request, reply) => {
     await authenticate(request)
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      keyword?: string
-      status?: string
-      parentId?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        keyword: z.string().optional(),
+        status: z.string().optional(),
+        parentId: z.string().optional(),
+      })
+      .parse(request.query)
     const { page, pageSize } = parsePaging(q)
     const offset = (page - 1) * pageSize
     const conds: SQL[] = []
@@ -211,12 +213,14 @@ export const organizationRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '无效的 ID'))
     }
     const { id } = paramParsed.data
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      role?: string
-      status?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        role: z.string().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.query)
     const { page, pageSize } = parsePaging(q)
     const offset = (page - 1) * pageSize
     const conds: SQL[] = [sql`om."org_id"::text = ${id}`]
@@ -301,7 +305,7 @@ export const organizationRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   server.delete('/organizations/:id/members/:userId', async (request, reply) => {
     await authenticate(request)
-    const params = request.params as { id: string; userId: string }
+    const params = z.object({ id: z.string(), userId: z.string() }).parse(request.params)
     if (!params.id || !params.userId) {
       return reply.status(400).send(error(400, '组织 ID 和用户 ID 不能为空'))
     }
@@ -380,7 +384,7 @@ export const organizationRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   server.put('/organizations/:id/members/:userId/role', async (request, reply) => {
     await authenticate(request)
-    const params = request.params as { id: string; userId: string }
+    const params = z.object({ id: z.string(), userId: z.string() }).parse(request.params)
     if (!params.id || !params.userId) {
       return reply.status(400).send(error(400, '组织 ID 和用户 ID 不能为空'))
     }
