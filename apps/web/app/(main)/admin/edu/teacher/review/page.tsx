@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, ShieldCheck, Check, X } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
+import { isNotFound } from '@/lib/api-error'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 
 interface Applicant {
@@ -52,7 +53,7 @@ export default function EduTeacherReviewPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rows = data?.list ?? []
-  const noEndpoint = !!(error as Error) && (error as Error).message.includes('请求失败')
+  const noEndpoint = isNotFound(error)
 
   return (
     <div className="space-y-4">

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Plus, Edit, Trash2, Loader2, ChevronLeft, Star } from 'lucide-react'
 import { eduApi, type PageData } from '@/lib/edu'
+import { isNotFound } from '@/lib/api-error'
 import {
   Table,
   TableHeader,
@@ -120,7 +121,7 @@ export default function EduStudentLevelsPage() {
   }
 
   const rows = data?.list ?? []
-  const noEndpoint = !!(error as Error) && (error as Error).message.includes('请求失败')
+  const noEndpoint = isNotFound(error)
 
   return (
     <div className="space-y-4">
