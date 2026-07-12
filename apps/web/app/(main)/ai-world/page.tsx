@@ -4,59 +4,12 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Loader2,
-  Sparkles,
-  Bot,
-  Image,
-  Video,
-  Music,
-  Code,
-  Briefcase,
-  GraduationCap,
-  Megaphone,
-} from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
-import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@ihui/ui'
-import { UnifiedAIPanel } from '@/components/ai/unified-ai-panel'
-
-interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  content: string
-}
-
-interface AiCategory {
-  id: string
-  name: string
-  description: string
-  icon: string
-  href: string
-}
-
-interface AiWorldData {
-  categories: AiCategory[]
-  hotApps: Array<{ id: string; name: string; href: string }>
-}
-
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Bot,
-  Image,
-  Video,
-  Music,
-  Code,
-  Briefcase,
-  GraduationCap,
-  Megaphone,
-  Sparkles,
-}
-
-async function fetchAiWorld(): Promise<AiWorldData> {
-  const res = await fetchApi<AiWorldData>('/api/ai-world')
-  if (!res.success) throw new Error(res.error)
-  return res.data
-}
+import { HotAppsCard } from './HotAppsCard'
+import { CategoryGrid } from './CategoryGrid'
+import { UnifiedPanelCard } from './UnifiedPanelCard'
+import { fetchAiWorld } from './helpers'
+import type { AiWorldData, ChatMessage } from './types'
 
 export default function AiWorldPage() {
   const t = useTranslations('common.aiWorld')
@@ -183,83 +136,21 @@ export default function AiWorldPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            {t('hotApps')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {hotApps.map((app) => (
-              <Button
-                key={app.id}
-                variant="secondary"
-                size="sm"
-                onClick={() => router.push(app.href)}
-              >
-                {app.name}
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <HotAppsCard hotApps={hotApps} onNavigate={(href) => router.push(href)} />
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loading')}
-        </div>
-      ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error).message}
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {categories.map((cat) => {
-            const Icon = ICON_MAP[cat.icon] ?? Sparkles
-            return (
-              <Card
-                key={cat.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => router.push(cat.href)}
-                className="cursor-pointer transition-shadow hover:shadow-md"
-              >
-                <CardHeader>
-                  <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <CardTitle>{cat.name}</CardTitle>
-                  <CardDescription>{cat.description}</CardDescription>
-                </CardHeader>
-              </Card>
-            )
-          })}
-        </div>
-      )}
+      <CategoryGrid
+        isLoading={isLoading}
+        error={error}
+        categories={categories}
+        onNavigate={(href) => router.push(href)}
+      />
 
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            {t('unifiedAiPanelTitle')}
-          </CardTitle>
-          <CardDescription>{t('unifiedAiPanelDesc')}</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="h-[480px] border-t">
-            <UnifiedAIPanel
-              messages={messages}
-              onSend={handleSend}
-              isStreaming={isStreaming}
-              streamingContent={streamingContent}
-              placeholder={t('unifiedAiPanelPlaceholder')}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <UnifiedPanelCard
+        messages={messages}
+        onSend={handleSend}
+        isStreaming={isStreaming}
+        streamingContent={streamingContent}
+      />
     </div>
   )
 }

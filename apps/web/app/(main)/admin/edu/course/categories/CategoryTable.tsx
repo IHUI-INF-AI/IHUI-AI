@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 import { Edit, Trash2, Loader2, FolderTree } from 'lucide-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import {
@@ -98,14 +99,26 @@ export function CategoryTable({
                 <TableCell className="px-4 py-2.5">{r.typeId ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   {r.img ? (
-                    <img src={r.img} alt="" className="h-10 w-10 rounded object-cover" />
+                    <Image
+                      src={r.img}
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded object-cover"
+                    />
                   ) : (
                     '-'
                   )}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
                   {r.butImg ? (
-                    <img src={r.butImg} alt="" className="h-10 w-10 rounded object-cover" />
+                    <Image
+                      src={r.butImg}
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded object-cover"
+                    />
                   ) : (
                     '-'
                   )}

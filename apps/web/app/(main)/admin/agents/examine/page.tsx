@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ShieldCheck, Plus, Download } from 'lucide-react'
@@ -16,6 +17,7 @@ import { PAGE_SIZE, EMPTY_FORM, EXPORT_COLUMNS, api, formFromItem } from './help
 import type { Examine, ListData, ExamineForm } from './types'
 
 export default function AdminExaminePage() {
+  const t = useTranslations('admin.agents.examine')
   const qc = useQueryClient()
   const [searchAgent, setSearchAgent] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
@@ -65,7 +67,7 @@ export default function AdminExaminePage() {
         : api('/api/admin/examine', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '新增成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'examine'] })
       closeDialog()
     },
@@ -75,7 +77,7 @@ export default function AdminExaminePage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => api(`/api/admin/examine/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'examine'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -102,16 +104,16 @@ export default function AdminExaminePage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.agentId.trim()) return setErr('请输入AgentID')
+    if (!form.agentId.trim()) return setErr(t('agentIdRequired'))
     saveMut.mutate()
   }
   function handleDelete(item: Examine) {
-    if (!window.confirm(`确认删除 ?`)) return
+    if (!window.confirm(t('deleteConfirm'))) return
     deleteMut.mutate(item.id)
   }
   function handleExport() {
     exportToExcel(
-      '审核管理',
+      t('exportName'),
       EXPORT_COLUMNS,
       (data?.list ?? []) as unknown as Record<string, unknown>[],
     )
@@ -130,17 +132,17 @@ export default function AdminExaminePage() {
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ShieldCheck className="h-6 w-6 text-primary" />
-          审核管理
+          {t('pageHeader')}
         </h1>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4" />
-            导出
+            {t('exportLabel')}
           </Button>
           <HasPermi code="ai:examine:add">
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
-              新增
+              {t('createLabel')}
             </Button>
           </HasPermi>
         </div>
@@ -157,7 +159,7 @@ export default function AdminExaminePage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -165,7 +167,7 @@ export default function AdminExaminePage() {
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
-            上一页
+            {t('prev')}
           </Button>
           <span className="text-sm text-muted-foreground">
             {page} / {totalPages}
@@ -176,7 +178,7 @@ export default function AdminExaminePage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('next')}
           </Button>
         </div>
       </div>

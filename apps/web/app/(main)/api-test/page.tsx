@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2, Terminal, Send } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -11,6 +12,7 @@ type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 const METHODS: Method[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 
 export default function ApiTestPage() {
+  const t = useTranslations('apiTest')
   const [url, setUrl] = React.useState('')
   const [method, setMethod] = React.useState<Method>('GET')
   const [headers, setHeaders] = React.useState('')
@@ -24,7 +26,7 @@ export default function ApiTestPage() {
     setError(null)
     setResponse('')
     if (!url.trim()) {
-      setError('请输入请求 URL')
+      setError(t('urlRequired'))
       return
     }
     setLoading(true)
@@ -39,7 +41,7 @@ export default function ApiTestPage() {
       const r = await fetchApi<unknown>(url.trim(), init)
       setResponse(JSON.stringify(r, null, 2))
     } catch (err) {
-      setError(err instanceof Error ? err.message : '请求失败')
+      setError(err instanceof Error ? err.message : t('requestFailed'))
     } finally {
       setLoading(false)
     }
@@ -50,9 +52,9 @@ export default function ApiTestPage() {
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Terminal className="h-6 w-6 text-primary" />
-          API 测试
+          {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">发送自定义请求并查看响应</p>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -82,7 +84,7 @@ export default function ApiTestPage() {
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
-                发送
+                {t('send')}
               </Button>
             </div>
 
@@ -120,7 +122,7 @@ export default function ApiTestPage() {
       {response && (
         <Card>
           <CardHeader className="p-4">
-            <CardTitle className="text-sm">响应</CardTitle>
+            <CardTitle className="text-sm">{t('response')}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 text-xs">{response}</pre>
