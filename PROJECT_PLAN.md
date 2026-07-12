@@ -1503,3 +1503,190 @@ R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39
 - `pnpm --filter @ihui/api typecheck` — ✅ 零错误
 - `pnpm --filter @ihui/api test` — ✅ 860/860 全部通过
 - `grep 'request.(query|params|body) as any' apps/api/src/routes/` — ✅ 零残留
+
+---
+
+## R79-R80 全量类型断言清理（2026-07-12）✅
+
+> 将 `apps/api/src/routes/` 中全部 `request.X as {类型}` 类型断言（449处）改为 Zod schema 校验，实现 `as any` 和 `as {类型}` 双清零。
+
+### R79: 40 个文件 198 处（commit 077d2f1b4）
+
+小文件（1-5处）25 个 + 中等文件（6-14处）15 个，共 198 处类型断言改为 Zod schema。
+
+### R80: 9 个大文件 251 处（commit 7746dfb02）
+
+| 文件                | 断言数 | 新增可复用 schema               |
+| ------------------- | ------ | ------------------------------- |
+| ai-vendors.ts       | 66     | 14 个 schema 常量               |
+| workspace-ai.ts     | 54     | 8 个 schema 常量                |
+| agents.ts           | 48     | 6 个 schema 常量                |
+| auth-extended.ts    | 21     | —                               |
+| admin-sys.ts        | 19     | —                               |
+| payment-gateway.ts  | 19     | outTradeNoQuery / billDateQuery |
+| finance.ts          | 12     | —                               |
+| finance-extended.ts | 10     | —                               |
+| agentic-service.ts  | 2      | —                               |
+
+### 最终验证
+
+| 验证项                                     | 结果                |
+| ------------------------------------------ | ------------------- |
+| `pnpm --filter @ihui/api typecheck`        | ✅ 零错误           |
+| `pnpm --filter @ihui/api test`             | ✅ 860/860 全部通过 |
+| `as any` in `apps/api/src/`                | ✅ 零残留           |
+| `request.X as {` in `apps/api/src/routes/` | ✅ 零残留           |
+| 空 catch in `apps/api/src/`                | ✅ 零残留           |
+| 空 catch in `apps/miniapp-taro/src/`       | ✅ 零残留           |
+
+### 剩余可接受模式
+
+46 处 `as Record<string, unknown/string>` — 用于 webhook 回调和泛型 body 传透，Zod 等价写法 `z.record(z.unknown())` 不提供额外运行时校验价值，属于合理的类型标注模式。
+
+---
+
+## R76 拆分 2 个超标 admin 页面（2026-07-12）✅
+
+> AGENTS.md 第 4 节硬性约束"每个页面 < 250 行"。拆分 `admin/dict/page.tsx`（531 行）和 `admin/refund/page.tsx`（507 行）至 < 250 行。
+
+### 拆分内容
+
+**1. `admin/dict/page.tsx`（531 → 237 行）** ✅
+
+拆出 5 个文件：
+
+| 文件             | 行数 | 说明                                                                                                     |
+| ---------------- | ---- | -------------------------------------------------------------------------------------------------------- |
+| `types.ts`       | 28   | DictItem / DictType / TypeForm / ItemForm 类型定义                                                       |
+| `helpers.ts`     | 89   | EMPTY_TYPE/EMPTY_ITEM/th/textareaClass/EXPORT_COLUMNS + fetchDictList/filterDictList/buildDictExportRows |
+| `DictFilter.tsx` | 27   | 搜索框（名称/编码）                                                                                      |
+| `DictTable.tsx`  | 173  | 展开列表 + 子项表格 + 行内编辑/删除按钮                                                                  |
+| `DictDialog.tsx` | 175  | DictTypeDialog（类型）+ DictItemDialog（条目）                                                           |
+| `page.tsx`       | 237  | 页面骨架（state + 4 mutations + handlers + 组合）                                                        |
+
+**2. `admin/refund/page.tsx`（507 → 198 行）** ✅
+
+拆出 6 个文件：
+
+| 文件                   | 行数 | 说明                                                                 |
+| ---------------------- | ---- | -------------------------------------------------------------------- |
+| `types.ts`             | 47   | RefundStatus / EduRefund / PageData / RefundStats / ActionState      |
+| `helpers.ts`           | 55   | PAGE_SIZE/api/REFUND_STATUS_CFG/STATUS_TABS/textareaClass/inputClass |
+| `RefundStatsCards.tsx` | 66   | 6 个统计卡片（自包含 useQuery）                                      |
+| `RefundFilter.tsx`     | 62   | 状态标签 + 搜索表单                                                  |
+| `RefundTable.tsx`      | 144  | 退款列表表格 + 行内审核/驳回/查看按钮                                |
+| `RefundDialog.tsx`     | 130  | 审核/驳回 Dialog（approve + reject 双按钮）                          |
+| `page.tsx`             | 198  | 页面骨架（header + StatsCards + RefundList 子组件）                  |
+
+### 拆分原则
+
+- 遵循已建立拆分模式：`types.ts + helpers.ts + <Name>Filter + <Name>Table + <Name>Dialog + page.tsx 骨架`
+- 子组件通过 props 传递数据（无全局状态）
+- 复用 `@ihui/ui`（Button/Input/Label/Dialog 系列）
+- 保持 i18n 接入方式不变（`useTranslations('adminTools')` / `useTranslations('admin.refund')` / `useTranslations('common')`）
+- 不修改 API 调用、不修改 i18n 键、不改变功能行为
+- 紧凑优雅：textareaClass/inputClass 等共享样式提取到 helpers.ts
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误通过
+- 所有拆出文件均 < 250 行（最大 DictDialog.tsx 175 行 / DictTable.tsx 173 行）
+- 主 page.tsx 均 < 250 行（dict 237 行 / refund 198 行）
+
+---
+
+## R77 拆分 2 个超标 admin 页面（2026-07-12）✅
+
+> AGENTS.md 第 4 节硬性约束"每个页面 < 250 行"。拆分 `admin/post/page.tsx`（469 行）和 `admin/agents/categories/page.tsx`（465 行）至 < 250 行。
+
+### 拆分内容
+
+**1. `admin/post/page.tsx`（469 → 218 行）** ✅
+
+拆出 5 个文件：
+
+| 文件             | 行数 | 说明                                                                |
+| ---------------- | ---- | ------------------------------------------------------------------- |
+| `types.ts`       | 28   | Post / ListResp / PostForm / PostSearch 类型定义                    |
+| `helpers.ts`     | 30   | RESOURCE/PAGE_SIZE/th/inputCls/textareaCls/EMPTY/EXPORT_COLUMNS/api |
+| `PostFilter.tsx` | 73   | 岗位编码/名称/状态搜索表单                                          |
+| `PostTable.tsx`  | 120  | 列表表格 + 多选 + 行内编辑/删除                                     |
+| `PostDialog.tsx` | 115  | 新增/编辑岗位 Dialog                                                |
+| `page.tsx`       | 218  | 页面骨架（state + 2 mutations + handlers + 组合）                   |
+
+**2. `admin/agents/categories/page.tsx`（465 → 189 行）** ✅
+
+拆出 5 个文件：
+
+| 文件                 | 行数 | 说明                                                      |
+| -------------------- | ---- | --------------------------------------------------------- |
+| `types.ts`           | 24   | Category / CategoriesData / CategoryForm 类型定义         |
+| `helpers.ts`         | 42   | PAGE_SIZE/EMPTY_FORM/api/fetchCategories/formFromCategory |
+| `CategoryFilter.tsx` | 30   | 关键词搜索框（i18n）                                      |
+| `CategoryTable.tsx`  | 150  | 列表表格 + 状态徽章 + 付费开关 + 行内编辑/删除（i18n）    |
+| `CategoryDialog.tsx` | 130  | 新增/编辑分类 Dialog（i18n）                              |
+| `page.tsx`           | 189  | 页面骨架（state + 3 mutations + handlers + 组合）         |
+
+### 拆分原则
+
+- 遵循已建立拆分模式：`types.ts + helpers.ts + <Name>Filter + <Name>Table + <Name>Dialog + page.tsx 骨架`
+- 子组件通过 props 传递数据（无全局状态）
+- 复用 `@ihui/ui`（Button/Input/Label/Dialog/Table/Switch/Checkbox/Select 系列）
+- 保持 i18n 接入方式不变（categories 使用 `useTranslations('admin.agents.categories')` / `useTranslations('common')`；post 使用中文硬编码）
+- 不修改 API 调用、不修改 i18n 键、不改变功能行为
+- 紧凑优雅：inputCls/textareaCls/th 等共享样式提取到 helpers.ts
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误通过
+- 所有拆出文件均 < 250 行（最大 CategoryTable.tsx 150 行 / PostTable.tsx 120 行）
+- 主 page.tsx 均 < 250 行（post 218 行 / categories 189 行）
+
+---
+
+## R78 拆分 2 个超标 admin 页面（2026-07-12）✅
+
+> AGENTS.md 第 4 节硬性约束"每个页面 < 250 行"。拆分 `admin/zhs-activity/page.tsx`（456 行）和 `admin/task-developer/page.tsx`（455 行）至 < 250 行。
+
+### 拆分内容
+
+**1. `admin/zhs-activity/page.tsx`（456 → 186 行）** ✅
+
+拆出 5 个文件：
+
+| 文件                    | 行数 | 说明                                                          |
+| ----------------------- | ---- | ------------------------------------------------------------- |
+| `types.ts`              | 27   | ZhsActivity / ListData / ZhsActivityForm 类型定义             |
+| `helpers.ts`            | 44   | PAGE_SIZE/api/EMPTY_FORM/EXPORT_COLUMNS/activityToForm        |
+| `ZhsActivityFilter.tsx` | 35   | 活动名称搜索 + 开始时间 DatePicker                            |
+| `ZhsActivityTable.tsx`  | 98   | 列表表格 + 状态徽章 + 行内编辑/删除（权限 ai:zhs_activity:*） |
+| `ZhsActivityDialog.tsx` | 126  | 新增/编辑 Dialog（8 字段 + Switch 启用开关 + DatePicker）     |
+| `page.tsx`              | 186  | 页面骨架（state + 2 mutations + handlers + 组合）             |
+
+**2. `admin/task-developer/page.tsx`（455 → 216 行）** ✅
+
+拆出 5 个文件：
+
+| 文件                      | 行数 | 说明                                                                                 |
+| ------------------------- | ---- | ------------------------------------------------------------------------------------ |
+| `types.ts`                | 21   | TaskDeveloper / PageData / TaskDeveloperForm 类型定义                                |
+| `helpers.ts`              | 67   | RESOURCE/PERMS/STATUS_MAP/FIELDS/SEARCH_FIELDS/EXPORT_COLS/EMPTY_FORM/TH_CLS/fmtDate |
+| `TaskDeveloperFilter.tsx` | 32   | 6 字段搜索表单 + 搜索/重置按钮                                                       |
+| `TaskDeveloperTable.tsx`  | 130  | 列表表格 + 多选 checkbox + 状态徽章 + 行内编辑/删除                                  |
+| `TaskDeveloperDialog.tsx` | 66   | 新增/编辑 Dialog（FIELDS 驱动 8 字段 grid）                                          |
+| `page.tsx`                | 216  | 页面骨架（state + 3 mutations + 批量删除 + handlers + 组合）                         |
+
+### 拆分原则
+
+- 遵循已建立拆分模式：`types.ts + helpers.ts + <Name>Filter + <Name>Table + <Name>Dialog + page.tsx 骨架`
+- 子组件通过 props 传递数据（无全局状态）
+- 复用 `@ihui/ui`（Button/Input/Label/Dialog/Table/Switch 系列）
+- 保持 i18n 接入方式不变（两页均使用中文硬编码，未接入 useTranslations）
+- 不修改 API 调用、不修改 i18n 键、不改变功能行为
+- 紧凑优雅：TH_CLS/fmtDate/STATUS_MAP 等共享常量提取到 helpers.ts
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 拆分文件零错误（仅 1 个无关的预存错误：`admin/refund/[id]/page.tsx:113` EduOrder 类型不匹配，非本次拆分引入）
+- 所有拆出文件均 < 250 行（最大 TaskDeveloperTable.tsx 130 行 / ZhsActivityDialog.tsx 126 行）
+- 主 page.tsx 均 < 250 行（zhs-activity 186 行 / task-developer 216 行）
