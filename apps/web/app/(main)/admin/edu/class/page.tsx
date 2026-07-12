@@ -1,71 +1,18 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Users, Search } from 'lucide-react'
-import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
-import { cn } from '@/lib/utils'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-  Card,
-  CardContent,
-} from '@ihui/ui'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { eduApi, buildQs, type PageData } from '@/lib/edu'
+import { Button, Card, CardContent } from '@ihui/ui'
 
-interface ClassGroup {
-  id: string
-  name: string
-  courseId: string | null
-  courseName: string | null
-  teacherName: string | null
-  studentCount: number
-  startDate: string
-  endDate: string
-  status: string
-}
-interface CForm {
-  name: string
-  courseId: string
-  teacherName: string
-  startDate: string
-  endDate: string
-  status: string
-}
-const EMPTY: CForm = {
-  name: '',
-  courseId: '',
-  teacherName: '',
-  startDate: '',
-  endDate: '',
-  status: 'active',
-}
-
-const STATUS_CLASS: Record<string, string> = {
-  active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
-  pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  ended: 'bg-muted text-muted-foreground',
-}
-const PAGE_SIZE = 10
+import { EduClassFilter } from './EduClassFilter'
+import { EduClassTable } from './EduClassTable'
+import { EduClassDialog } from './EduClassDialog'
+import { PAGE_SIZE, EMPTY, classToForm } from './helpers'
+import type { ClassGroup, CForm } from './types'
 
 export default function EduClassPage() {
   const t = useTranslations('admin.edu.class')
@@ -136,14 +83,7 @@ export default function EduClassPage() {
   }
   function openEdit(c: ClassGroup) {
     setEditing(c)
-    setForm({
-      name: c.name,
-      courseId: c.courseId ?? '',
-      teacherName: c.teacherName ?? '',
-      startDate: c.startDate,
-      endDate: c.endDate,
-      status: c.status,
-    })
+    setForm(classToForm(c))
     setErr(null)
     setOpen(true)
   }
@@ -158,6 +98,9 @@ export default function EduClassPage() {
     setErr(null)
     if (!form.name.trim()) return setErr(t('nameRequired'))
     saveMut.mutate()
+  }
+  function handleDelete(c: ClassGroup) {
+    if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(c.id)
   }
 
   const total = data?.total ?? 0
@@ -195,123 +138,15 @@ export default function EduClassPage() {
           </CardContent>
         </Card>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/admin/edu">
-            <ChevronLeft className="h-4 w-4" />
-            {t('backToEdu')}
-          </Link>
-        </Button>
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-          />
-        </div>
-        <Button onClick={openCreate} size="sm" className="ml-auto">
-          <Plus className="h-4 w-4" />
-          {t('create')}
-        </Button>
-      </div>
-      <div className="overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="px-4 py-2.5">{t('colClass')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colCourse')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colTeacher')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colStudents')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colPeriod')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y">
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  {t('loading')}
-                </TableCell>
-              </TableRow>
-            ) : noEndpoint ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  <Users className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('endpointNotConfigured')}
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  <Users className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('empty')}
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((c) => {
-                const stCls = STATUS_CLASS[c.status] ?? 'bg-muted text-muted-foreground'
-                const stLabel =
-                  c.status === 'active'
-                    ? t('statusActive')
-                    : c.status === 'pending'
-                      ? t('statusPending')
-                      : c.status === 'ended'
-                        ? t('statusEnded')
-                        : c.status
-                return (
-                  <TableRow key={c.id} className="hover:bg-muted/30">
-                    <TableCell className="px-4 py-2.5 font-medium">{c.name}</TableCell>
-                    <TableCell className="px-4 py-2.5">{c.courseName ?? '-'}</TableCell>
-                    <TableCell className="px-4 py-2.5">{c.teacherName ?? '-'}</TableCell>
-                    <TableCell className="px-4 py-2.5">{c.studentCount}</TableCell>
-                    <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                      {c.startDate} ~ {c.endDate}
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5">
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                          stCls,
-                        )}
-                      >
-                        {stLabel}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(c)}
-                          title={t('edit')}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(c.id)
-                          }}
-                          title={t('delete')}
-                          className="text-destructive hover:text-destructive"
-                          disabled={deleteMut.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <EduClassFilter search={search} onSearchChange={setSearch} onCreate={openCreate} />
+      <EduClassTable
+        list={rows}
+        isLoading={isLoading}
+        noEndpoint={noEndpoint}
+        deletePending={deleteMut.isPending}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+      />
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('totalItems', { total })}</span>
         <div className="flex items-center gap-2">
@@ -336,94 +171,16 @@ export default function EduClassPage() {
           </Button>
         </div>
       </div>
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
-        <DialogContent>
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
-            </DialogHeader>
-            {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {err}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="cls-name">{t('fieldName')}</Label>
-              <Input
-                id="cls-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="cls-course">{t('fieldCourseId')}</Label>
-                <Input
-                  id="cls-course"
-                  value={form.courseId}
-                  onChange={(e) => setForm({ ...form, courseId: e.target.value })}
-                  placeholder={t('courseIdPlaceholder')}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cls-teacher">{t('fieldTeacher')}</Label>
-                <Input
-                  id="cls-teacher"
-                  value={form.teacherName}
-                  onChange={(e) => setForm({ ...form, teacherName: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="cls-start">{t('fieldStartDate')}</Label>
-                <Input
-                  id="cls-start"
-                  type="date"
-                  value={form.startDate}
-                  onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cls-end">{t('fieldEndDate')}</Label>
-                <Input
-                  id="cls-end"
-                  type="date"
-                  value={form.endDate}
-                  onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cls-status">{t('fieldStatus')}</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger className={selectClass} id="cls-status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">{t('statusActive')}</SelectItem>
-                  <SelectItem value="pending">{t('statusPending')}</SelectItem>
-                  <SelectItem value="ended">{t('statusEnded')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeDialog}
-                disabled={saveMut.isPending}
-              >
-                {t('cancel')}
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('save')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <EduClassDialog
+        open={open}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        err={err}
+        savePending={saveMut.isPending}
+        onSubmit={submit}
+        onClose={closeDialog}
+      />
     </div>
   )
 }

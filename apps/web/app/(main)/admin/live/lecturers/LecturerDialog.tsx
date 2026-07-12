@@ -1,0 +1,134 @@
+'use client'
+
+import * as React from 'react'
+import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Button,
+  Input,
+  Label,
+  Switch,
+} from '@ihui/ui'
+import type { Lecturer, LecturerForm } from './types'
+
+interface Props {
+  open: boolean
+  editing: Lecturer | null
+  form: LecturerForm
+  setForm: React.Dispatch<React.SetStateAction<LecturerForm>>
+  err: string | null
+  savePending: boolean
+  onSubmit: (e: React.FormEvent) => void
+  onClose: () => void
+}
+
+export function LecturerDialog({
+  open,
+  editing,
+  form,
+  setForm,
+  err,
+  savePending,
+  onSubmit,
+  onClose,
+}: Props) {
+  const t = useTranslations('admin.live')
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose()
+      }}
+    >
+      <DialogContent className="max-w-xl">
+        <form onSubmit={onSubmit} className="space-y-4">
+          <DialogHeader>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
+          </DialogHeader>
+          {err && (
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {err}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="lec-name">{t('fieldName')}</Label>
+              <Input
+                id="lec-name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder={t('namePlaceholder')}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lec-title">{t('fieldTitle')}</Label>
+              <Input
+                id="lec-title"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder={t('titlePlaceholder')}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lec-avatar">{t('fieldAvatar')}</Label>
+            <Input
+              id="lec-avatar"
+              value={form.avatar}
+              onChange={(e) => setForm({ ...form, avatar: e.target.value })}
+              placeholder={t('avatarPlaceholder')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lec-intro">{t('fieldIntro')}</Label>
+            <Input
+              id="lec-intro"
+              value={form.intro}
+              onChange={(e) => setForm({ ...form, intro: e.target.value })}
+              placeholder={t('introPlaceholder')}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="lec-sort">{t('fieldSort')}</Label>
+              <Input
+                id="lec-sort"
+                type="number"
+                min="0"
+                value={form.sort}
+                onChange={(e) => setForm({ ...form, sort: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lec-status">{t('fieldStatus')}</Label>
+              <div className="flex h-9 items-center gap-2">
+                <Switch
+                  id="lec-status"
+                  checked={form.status}
+                  onCheckedChange={(v) => setForm({ ...form, status: v })}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {form.status ? t('enabled') : t('disabled')}
+                </span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
+              {t('cancel')}
+            </Button>
+            <Button type="submit" disabled={savePending}>
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

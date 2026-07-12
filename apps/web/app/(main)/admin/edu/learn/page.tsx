@@ -4,110 +4,15 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  BookOpen,
-  FolderTree,
-  ListOrdered,
-  GraduationCap,
-  Radio,
-  FileStack,
-  ClipboardList,
-  TrendingUp,
-  CalendarDays,
-  Bell,
-  Users,
-  Trophy,
-} from 'lucide-react'
-import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
-import { cn } from '@/lib/utils'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-  Switch,
-  Card,
-  CardContent,
-} from '@ihui/ui'
+import { ChevronLeft, ChevronRight, BookOpen, FolderTree, GraduationCap } from 'lucide-react'
+import { eduApi, buildQs, type PageData } from '@/lib/edu'
+import { Button, Card, CardContent } from '@ihui/ui'
 
-interface Lesson {
-  id: string
-  title: string
-  intro: string | null
-  categoryId: string | null
-  categoryName: string | null
-  lecturerName: string | null
-  price: string
-  isFree: boolean
-  isPublished: boolean
-  sort: number
-  signupCount: number
-  viewCount: number
-}
-interface Category {
-  id: string
-  name: string
-  sort: number
-  status: number
-}
-
-interface LForm {
-  title: string
-  categoryId: string
-  intro: string
-  lecturerName: string
-  price: string
-  isFree: boolean
-  isPublished: boolean
-  sort: string
-}
-const EMPTY: LForm = {
-  title: '',
-  categoryId: '',
-  intro: '',
-  lecturerName: '',
-  price: '0',
-  isFree: false,
-  isPublished: false,
-  sort: '0',
-}
-
-const PAGE_SIZE = 10
-
-const SUB_LINKS = [
-  { href: '/admin/edu/learn/live', label: '直播学习', icon: Radio },
-  { href: '/admin/edu/learn/recorded', label: '录播学习', icon: FileStack },
-  { href: '/admin/edu/learn/materials', label: '资料学习', icon: FolderTree },
-  { href: '/admin/edu/learn/homework', label: '作业学习', icon: ClipboardList },
-  { href: '/admin/edu/learn/records', label: '学习记录', icon: ListOrdered },
-  { href: '/admin/edu/learn/progress', label: '学习进度', icon: TrendingUp },
-  { href: '/admin/edu/learn/plan', label: '学习计划', icon: CalendarDays },
-  { href: '/admin/edu/learn/remind', label: '学习提醒', icon: Bell },
-  { href: '/admin/edu/learn/community', label: '学习社区', icon: Users },
-  { href: '/admin/edu/learn/ranking', label: '学习排行', icon: Trophy },
-]
+import { LearnFilter } from './LearnFilter'
+import { LearnTable } from './LearnTable'
+import { LearnDialog } from './LearnDialog'
+import { PAGE_SIZE, EMPTY, SUB_LINKS, lessonToForm } from './helpers'
+import type { Category, Lesson, LForm } from './types'
 
 export default function EduLearnPage() {
   const qc = useQueryClient()
@@ -189,16 +94,7 @@ export default function EduLearnPage() {
   }
   function openEdit(l: Lesson) {
     setEditing(l)
-    setForm({
-      title: l.title,
-      categoryId: l.categoryId ?? '',
-      intro: l.intro ?? '',
-      lecturerName: l.lecturerName ?? '',
-      price: l.price,
-      isFree: l.isFree,
-      isPublished: l.isPublished,
-      sort: String(l.sort),
-    })
+    setForm(lessonToForm(l))
     setErr(null)
     setOpen(true)
   }
@@ -213,6 +109,9 @@ export default function EduLearnPage() {
     setErr(null)
     if (!form.title.trim()) return setErr('课程标题不能为空')
     saveMut.mutate()
+  }
+  function handleDelete(l: Lesson) {
+    if (window.confirm('确定删除？')) deleteMut.mutate(l.id)
   }
 
   const total = data?.total ?? 0
@@ -282,146 +181,23 @@ export default function EduLearnPage() {
         </Card>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索课程..."
-            className="h-9 pl-8"
-          />
-        </div>
-        <div className="w-full max-w-[200px]">
-          <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className={selectClass} aria-label="分类">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部分类</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={openCreate} size="sm" className="ml-auto">
-          <Plus className="h-4 w-4" />
-          新建课程
-        </Button>
-      </div>
+      <LearnFilter
+        search={search}
+        onSearchChange={setSearch}
+        categoryId={categoryId}
+        onCategoryChange={setCategoryId}
+        categories={categories}
+        onCreate={openCreate}
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="px-4 py-2.5">标题</TableHead>
-              <TableHead className="px-4 py-2.5">分类</TableHead>
-              <TableHead className="px-4 py-2.5">讲师</TableHead>
-              <TableHead className="px-4 py-2.5">报名</TableHead>
-              <TableHead className="px-4 py-2.5">状态</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y">
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
-                </TableCell>
-              </TableRow>
-            ) : error ? (
-              <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-destructive">
-                  {(error as Error).message}
-                </TableCell>
-              </TableRow>
-            ) : lessons.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  <BookOpen className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无课程
-                </TableCell>
-              </TableRow>
-            ) : (
-              lessons.map((l) => (
-                <TableRow key={l.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5">
-                    <div className="font-medium">{l.title}</div>
-                    {l.intro ? (
-                      <div className="max-w-xs break-words text-xs text-muted-foreground">
-                        {l.intro}
-                      </div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    {l.categoryName ?? <span className="text-muted-foreground">—</span>}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">{l.lecturerName ?? '-'}</TableCell>
-                  <TableCell className="px-4 py-2.5">{l.signupCount}</TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <div className="flex flex-col gap-1">
-                      <span
-                        className={cn(
-                          'inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                          l.isPublished
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                            : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            'h-1.5 w-1.5 rounded-full',
-                            l.isPublished ? 'bg-emerald-500' : 'bg-muted-foreground',
-                          )}
-                        />
-                        {l.isPublished ? '已上架' : '未上架'}
-                      </span>
-                      <span
-                        className={cn(
-                          'inline-flex w-fit items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                          l.isFree
-                            ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
-                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-                        )}
-                      >
-                        {l.isFree ? '免费' : '付费'}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button asChild variant="ghost" size="sm" title="章节">
-                        <Link href={`/admin/learn/chapters?lessonId=${l.id}`}>
-                          <ListOrdered className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(l)} title="编辑">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (window.confirm('确定删除？')) deleteMut.mutate(l.id)
-                        }}
-                        title="删除"
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <LearnTable
+        rows={lessons}
+        isLoading={isLoading}
+        error={error as Error | null}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+        deletePending={deleteMut.isPending}
+      />
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 门课程</span>
@@ -450,119 +226,17 @@ export default function EduLearnPage() {
         </div>
       </div>
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
-        <DialogContent className="max-w-xl">
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? '编辑课程' : '新建课程'}</DialogTitle>
-            </DialogHeader>
-            {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {err}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="l-title">标题</Label>
-              <Input
-                id="l-title"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="l-cat">分类</Label>
-                <Select
-                  value={form.categoryId || 'none'}
-                  onValueChange={(v) => setForm({ ...form, categoryId: v === 'none' ? '' : v })}
-                >
-                  <SelectTrigger className={selectClass} id="l-cat">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">无分类</SelectItem>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="l-lec">讲师</Label>
-                <Input
-                  id="l-lec"
-                  value={form.lecturerName}
-                  onChange={(e) => setForm({ ...form, lecturerName: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="l-intro">简介</Label>
-              <Input
-                id="l-intro"
-                value={form.intro}
-                onChange={(e) => setForm({ ...form, intro: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="l-price">价格</Label>
-                <Input
-                  id="l-price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="l-sort">排序</Label>
-                <Input
-                  id="l-sort"
-                  type="number"
-                  min="0"
-                  value={form.sort}
-                  onChange={(e) => setForm({ ...form, sort: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="l-free"
-                  checked={form.isFree}
-                  onCheckedChange={(v) => setForm({ ...form, isFree: v })}
-                />
-                <Label htmlFor="l-free">免费</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="l-pub"
-                  checked={form.isPublished}
-                  onCheckedChange={(v) => setForm({ ...form, isPublished: v })}
-                />
-                <Label htmlFor="l-pub">上架</Label>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeDialog}
-                disabled={saveMut.isPending}
-              >
-                取消
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}保存
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <LearnDialog
+        open={open}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        err={err}
+        savePending={saveMut.isPending}
+        categories={categories}
+        onSubmit={submit}
+        onClose={closeDialog}
+      />
     </div>
   )
 }
