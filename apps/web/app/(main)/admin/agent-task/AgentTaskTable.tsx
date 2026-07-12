@@ -1,9 +1,10 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, CheckCircle, XCircle, ClipboardList } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { STATUS_MAP, STATUS_STYLE } from './helpers'
+import { STATUS_STYLE } from './helpers'
 import type { AgentTask } from './types'
 
 interface Props {
@@ -16,18 +17,19 @@ interface Props {
 }
 
 export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, onDelete }: Props) {
+  const t = useTranslations('admin.agentTask')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-4 py-2.5">需求标题</TableHead>
-            <TableHead className="px-4 py-2.5">发布者</TableHead>
-            <TableHead className="px-4 py-2.5">截止时间</TableHead>
-            <TableHead className="px-4 py-2.5">周期</TableHead>
-            <TableHead className="px-4 py-2.5">价格范围</TableHead>
-            <TableHead className="px-4 py-2.5">状态</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colCreator')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colClosingTime')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colCycle')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colPriceRange')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -35,14 +37,14 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中…
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : list.length === 0 ? (
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                 <ClipboardList className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无数据
+                {t('empty')}
               </TableCell>
             </TableRow>
           ) : (
@@ -67,7 +69,7 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
                   <span
                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[item.status] ?? 'bg-muted text-muted-foreground'}`}
                   >
-                    {STATUS_MAP[item.status] ?? '-'}
+                    {t(`status${item.status}`)}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
@@ -79,7 +81,7 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
                             variant="ghost"
                             size="sm"
                             onClick={() => onApprove(item.id)}
-                            title="审批"
+                            title={t('approve')}
                             className="text-emerald-600"
                           >
                             <CheckCircle className="h-4 w-4" />
@@ -90,7 +92,7 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
                             variant="ghost"
                             size="sm"
                             onClick={() => onReject(item.id)}
-                            title="拒绝"
+                            title={t('reject')}
                             className="text-amber-600"
                           >
                             <XCircle className="h-4 w-4" />
@@ -99,7 +101,12 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
                       </>
                     )}
                     <HasPermi code="ai:agenttask:edit">
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(item)} title="编辑">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(item)}
+                        title={t('edit')}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                     </HasPermi>
@@ -108,7 +115,7 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
                         variant="ghost"
                         size="sm"
                         onClick={() => onDelete(item)}
-                        title="删除"
+                        title={t('delete')}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
