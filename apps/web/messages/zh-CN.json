@@ -4632,6 +4632,8 @@
     "pageTitle": "AI 内容生成",
     "pageSubtitle": "选择类型，生成文本、图像、视频、音频、3D 模型等内容",
     "tabGeneric": "通用",
+    "tabText": "文本",
+    "tabCode": "代码",
     "tabQwen": "千问",
     "tabDoubao": "豆包",
     "tabJimeng": "即梦",

@@ -168,7 +168,7 @@ export default function DeveloperLinkPage() {
             <Download className="h-4 w-4" />
             导出
           </Button>
-          <HasPermi code="ai:developerLink:add">
+          <HasPermi code="ai:developerlink:add">
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
               新增
@@ -255,7 +255,7 @@ export default function DeveloperLinkPage() {
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
-                      <HasPermi code="ai:developerLink:edit">
+                      <HasPermi code="ai:developerlink:edit">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -265,7 +265,7 @@ export default function DeveloperLinkPage() {
                           <Edit className="h-4 w-4" />
                         </Button>
                       </HasPermi>
-                      <HasPermi code="ai:developerLink:remove">
+                      <HasPermi code="ai:developerlink:remove">
                         <Button
                           variant="ghost"
                           size="sm"

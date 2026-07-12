@@ -239,7 +239,7 @@ export default function AgentTaskPage() {
             <Download className="h-4 w-4" />
             导出
           </Button>
-          <HasPermi code="ai:agentTask:add">
+          <HasPermi code="ai:agenttask:add">
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
               新增
@@ -331,7 +331,7 @@ export default function AgentTaskPage() {
                     <div className="flex justify-end gap-1">
                       {item.status === 0 && (
                         <>
-                          <HasPermi code="ai:agentTask:edit">
+                          <HasPermi code="ai:agenttask:edit">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -342,7 +342,7 @@ export default function AgentTaskPage() {
                               <CheckCircle className="h-4 w-4" />
                             </Button>
                           </HasPermi>
-                          <HasPermi code="ai:agentTask:edit">
+                          <HasPermi code="ai:agenttask:edit">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -355,7 +355,7 @@ export default function AgentTaskPage() {
                           </HasPermi>
                         </>
                       )}
-                      <HasPermi code="ai:agentTask:edit">
+                      <HasPermi code="ai:agenttask:edit">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -365,7 +365,7 @@ export default function AgentTaskPage() {
                           <Edit className="h-4 w-4" />
                         </Button>
                       </HasPermi>
-                      <HasPermi code="ai:agentTask:remove">
+                      <HasPermi code="ai:agenttask:remove">
                         <Button
                           variant="ghost"
                           size="sm"
