@@ -66,7 +66,7 @@ export function RecordedDialog({
           <div className="grid grid-cols-2 gap-3">
             {TEXT_FIELDS.map((f) => (
               <div key={f.key} className="space-y-2">
-                <Label>{t(`field.${f.key}`)}</Label>
+                <Label>{t(f.label)}</Label>
                 <Input
                   value={form[f.key]}
                   onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
