@@ -14,6 +14,7 @@ import { useAuthStore } from '@/stores/auth'
 import { Button, Input, Label } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
+import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
 
 const profileSchema = z.object({
   nickname: z.string().min(2).max(20),
@@ -37,6 +38,18 @@ interface ProfileResponse {
     bio: string
   }
   stats: UserStats
+}
+
+interface ChatHistoryItem {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  model: string
+}
+
+interface ChatHistoryData {
+  list: ChatHistoryItem[]
+  total: number
 }
 
 export default function ProfilePage() {
@@ -72,6 +85,27 @@ export default function ProfilePage() {
     },
     enabled: !!user?.id,
   })
+
+  // 拉取 AI 用量历史并聚合
+  const { data: usageData } = useQuery({
+    queryKey: ['user', 'ai-usage', user?.id],
+    queryFn: async () => {
+      const res = await fetchApi<ChatHistoryData>('/api/ai/history?pageSize=100')
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
+    enabled: !!user?.id,
+  })
+
+  const aiStats = React.useMemo(() => {
+    const list = usageData?.list ?? []
+    return {
+      promptTokens: list.reduce((s, i) => s + i.promptTokens, 0),
+      completionTokens: list.reduce((s, i) => s + i.completionTokens, 0),
+      totalTokens: list.reduce((s, i) => s + i.totalTokens, 0),
+      latestModel: list[list.length - 1]?.model ?? '—',
+    }
+  }, [usageData])
 
   // 资料到达后填充表单
   React.useEffect(() => {
@@ -186,6 +220,17 @@ export default function ProfilePage() {
             <span className="mt-0.5 text-xs text-muted-foreground">{item.label}</span>
           </Link>
         ))}
+      </div>
+
+      {/* AI 用量 */}
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold">AI 用量统计</h2>
+        <TokenUsagePanel
+          promptTokens={aiStats.promptTokens}
+          completionTokens={aiStats.completionTokens}
+          totalTokens={aiStats.totalTokens}
+          model={aiStats.latestModel}
+        />
       </div>
 
       {/* 表单 */}

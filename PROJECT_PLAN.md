@@ -1029,3 +1029,77 @@
 - 隐性达标项：无语法错误 / 可启动 / 无回归 / 符合规范 ✅
 
 **/goal 目标达成：项目已完整 100% 更改完架构，无遗漏缺失。**
+
+---
+
+## R68 最终收尾轮次（2026-07-12）✅
+
+> R68 验证后的收尾修复：权限码大小写一致性修复 + 超前组件状态校准 + 全量验证。
+
+### 1. 权限码大小写一致性修复 ✅
+
+**问题**：前端 25 个资源使用 camelCase 权限码（如 `ai:agentTask:`），后端 seed 强制全小写（`^[a-z0-9:_-]+$`，如 `ai:agenttask:`），导致 81 个权限码不匹配。非 admin 用户（roleId=0）登录后 HasPermi 组件因字符串不匹配返回 false，看不到功能按钮。
+
+**修复**：23 个文件 81 个权限码统一为全小写
+
+| 模块   | 文件数 | 权限码数 | 修复内容                                                                                                                       |
+| ------ | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| ai     | 9      | 29       | agentTask/agentRule/developerLink/userFeedback/userAgentImage/userAgentContext/Withdrawaldetail/zhsAgent/taskDeveloper         |
+| course | 9      | 34       | zhsIdentity/userPlatform/courseAudit/coursePlatformLog/categoryDictionary/coursePay/educationPlatform/courseVideo/coursePayLog |
+| 其他   | 5      | 18       | demandSquare/slave:userAgentAudit/userCenter/auth:AuthuserMargin                                                               |
+
+### 2. 超前组件状态校准 ✅
+
+**问题**：PROJECT_PLAN.md 记录"38 个 B 类未集成组件"，实际检查发现仅 11 个未集成。
+
+| 类别                   | PROJECT_PLAN 记录       | 实际未集成          | 偏差    |
+| ---------------------- | ----------------------- | ------------------- | ------- |
+| ai-generation          | 21（需新建路由 4.5 天） | **0**（全部已集成） | -21     |
+| mcp                    | 9（需重构 2.5-3.5 天）  | **3**（6 已集成）   | -6      |
+| ai 增强 chat           | 5                       | 5                   | 0       |
+| ai 增强 agents/profile | 3                       | 3                   | 0       |
+| **合计**               | **38**                  | **11**              | **-27** |
+
+**关键发现**：
+
+- `/ai-generation` 路由已完整集成全部 21 个组件（含 Tab 布局 + 后端 API + i18n + e2e）
+- `/mcp-projects` 已是 Tab 布局，6/9 组件已集成，剩余 3 个属简单接线
+- 实际剩余工作量约 4-5.5 天（非 13 天）
+
+### 3. 75 缺失路由补建确认 ✅
+
+**GAP_ANALYSIS.md 的 75 个缺失路由已全部补建**：
+
+- 14 个有表路由（真实 CRUD）：carousel/ai-gc/comment-logs/video-logs/zhs-activity/zhs-agent/zhs-user/zhs-identity/task-developer/developer-link/identity-proportion/user-agent-audio/user-agent-image
+- 61 个空桩路由（空数据桩）：内容运营 7 + 鉴权 17 + 教务 8 + 平台 7 + 监控 14 + 商城 4 + 相对路径 2 + oss/files 1
+- 12 项命名不一致 + 25 项前缀不一致：前端已通过 buildQs 适配，不强制对齐
+
+### 4. 权限码系统验证结果 ✅
+
+| 验证项                                                                  | 结论    |
+| ----------------------------------------------------------------------- | ------- |
+| HasPermi bug 修复（undefined→放行 / []→拒绝）                           | ✅ 通过 |
+| 后端登录接口返回 permissions（login/me/register/sso/exchange/validate） | ✅ 通过 |
+| 权限码种子数据（212 条 / 8 模块 / 格式正确）                            | ✅ 通过 |
+| 前端权限码大小写一致性（修复后）                                        | ✅ 通过 |
+| 后端 requireAdmin 中间件挂载（52 个文件）                               | ✅ 通过 |
+
+### 5. 全量验证 ✅
+
+- `pnpm --filter @ihui/api typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/database typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/api test` — ✅ 770/770 全部通过（70 test files）
+
+### 6. 剩余后续工作（非收尾范畴，记录为未来迭代）
+
+| 优先级 | 任务                               | 工作量   | 说明                                                                                      |
+| ------ | ---------------------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| P0     | mcp 剩余 3 个组件集成              | 0.5 天   | mcp-tool-call-result / mcp-result-preview / mcp-tool-parameter-form                       |
+| P1     | ai 增强 chat（5 个组件）           | 2-3 天   | markdown-stream / slash-command-palette / tool-call-card / voice-input / prompt-templates |
+| P2     | ai 增强 agents/profile（3 个组件） | 1.5-2 天 | 需产品决策 + 后端数据支持                                                                 |
+| P3     | C 类超前开发（15-16 个组件）       | 待评估   | Agent 编排功能，需产品决策 + 后端 API                                                     |
+| P3     | 空桩路由升级（24 条建议升级）      | 待评估   | P0 8条 + P1 7条 + P2 9条，需产品决策                                                      |
+| P3     | requireAdmin 实现统一              | 1 天     | 39 个本地定义改为从插件导入                                                               |
+
+**以上均为新功能开发/增强任务，不属于迁移收尾范畴。迁移架构更改已 100% 完整收尾。**

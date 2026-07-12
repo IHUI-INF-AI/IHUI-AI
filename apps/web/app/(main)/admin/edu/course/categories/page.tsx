@@ -75,7 +75,7 @@ const EMPTY: CForm = {
   sort: '0',
 }
 const PAGE_SIZE = 10
-const PERM = 'course:categoryDictionary:'
+const PERM = 'course:categorydictionary:'
 const API = '/api/admin/category-dictionary'
 
 export default function EduCourseCategoriesPage() {

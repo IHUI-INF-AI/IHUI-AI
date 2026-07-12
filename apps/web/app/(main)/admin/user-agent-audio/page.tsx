@@ -203,7 +203,7 @@ export default function UserAgentAudioPage() {
             <Download className="h-4 w-4" />
             导出
           </Button>
-          <HasPermi code="slave:userAgentAudit:add">
+          <HasPermi code="slave:useragentaudit:add">
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
               新增
@@ -290,7 +290,7 @@ export default function UserAgentAudioPage() {
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
-                      <HasPermi code="slave:userAgentAudit:edit">
+                      <HasPermi code="slave:useragentaudit:edit">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -300,7 +300,7 @@ export default function UserAgentAudioPage() {
                           <Edit className="h-4 w-4" />
                         </Button>
                       </HasPermi>
-                      <HasPermi code="slave:userAgentAudit:remove">
+                      <HasPermi code="slave:useragentaudit:remove">
                         <Button
                           variant="ghost"
                           size="sm"

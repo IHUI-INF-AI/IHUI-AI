@@ -31,7 +31,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 const RESOURCE = '/api/admin/user-dept'
-const PERM = 'userCenter:user_dept'
+const PERM = 'usercenter:user_dept'
 const PAGE_SIZE = 10
 type FormState = Record<string, string>
 const FIELDS: { key: string; label: string; required?: boolean }[] = [
