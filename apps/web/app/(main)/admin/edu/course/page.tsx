@@ -112,6 +112,7 @@ export default function EduCoursePage() {
       `${API}${buildQs({ ...q, pageSize: 10000 })}`,
       `course_${Date.now()}`,
       EXPORT_COLS,
+      t,
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
 

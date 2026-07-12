@@ -13,7 +13,7 @@ import { Button } from '@ihui/ui'
 import { ZhsIdentityFilter } from './ZhsIdentityFilter'
 import { ZhsIdentityTable } from './ZhsIdentityTable'
 import { ZhsIdentityDialog } from './ZhsIdentityDialog'
-import { PAGE_SIZE, PERM, EMPTY, EMPTY_SEARCH, EXPORT_COLUMNS, zhsIdentityToForm } from './helpers'
+import { PAGE_SIZE, PERM, EMPTY, EMPTY_SEARCH, EXPORT_COLS, zhsIdentityToForm } from './helpers'
 import type { ZhsIdentity, CForm, Search } from './types'
 
 export default function EduZhsIdentityPage() {
@@ -99,7 +99,8 @@ export default function EduZhsIdentityPage() {
     exportFromApi(
       `/api/admin/zhs-identity${buildQs({ ...q, pageSize: 10000 })}`,
       `zhsIdentity_${Date.now()}`,
-      EXPORT_COLUMNS,
+      EXPORT_COLS,
+      t,
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFail')))
   }
 

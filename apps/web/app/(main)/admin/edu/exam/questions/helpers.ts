@@ -10,21 +10,21 @@ export const TYPE_BADGE: Record<string, string> = {
 }
 
 export const TYPE_LABEL: Record<string, string> = {
-  single_choice: '单选题',
-  multi_choice: '多选题',
-  judgment: '判断题',
-  fill_blank: '填空题',
-  subjective: '简答题',
-  programming: '编程题',
+  single_choice: 'typeLabel.single_choice',
+  multi_choice: 'typeLabel.multi_choice',
+  judgment: 'typeLabel.judgment',
+  fill_blank: 'typeLabel.fill_blank',
+  subjective: 'typeLabel.subjective',
+  programming: 'typeLabel.programming',
 }
 
 export const TYPES: { value: QType; label: string }[] = [
-  { value: 'single_choice', label: '单选题' },
-  { value: 'multi_choice', label: '多选题' },
-  { value: 'judgment', label: '判断题' },
-  { value: 'fill_blank', label: '填空题' },
-  { value: 'subjective', label: '简答题' },
-  { value: 'programming', label: '编程题' },
+  { value: 'single_choice', label: 'typeLabel.single_choice' },
+  { value: 'multi_choice', label: 'typeLabel.multi_choice' },
+  { value: 'judgment', label: 'typeLabel.judgment' },
+  { value: 'fill_blank', label: 'typeLabel.fill_blank' },
+  { value: 'subjective', label: 'typeLabel.subjective' },
+  { value: 'programming', label: 'typeLabel.programming' },
 ]
 
 export const EMPTY: QForm = {

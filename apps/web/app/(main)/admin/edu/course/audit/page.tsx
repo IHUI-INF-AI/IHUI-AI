@@ -89,6 +89,7 @@ export default function EduCourseAuditPage() {
       `/api/admin/course-audit${buildQs({ ...q, pageSize: 10000 })}`,
       `courseAudit_${Date.now()}`,
       EXPORT_COLS,
+      t,
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
   function patchQ(patch: Partial<CourseAuditSearch>) {

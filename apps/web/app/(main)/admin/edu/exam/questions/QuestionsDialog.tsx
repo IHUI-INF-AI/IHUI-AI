@@ -71,7 +71,7 @@ export function QuestionsDialog({
                 <SelectContent>
                   {TYPES.map((t) => (
                     <SelectItem key={t.value} value={t.value}>
-                      {tc(`type.${t.value}`)}
+                      {tc(t.label)}
                     </SelectItem>
                   ))}
                 </SelectContent>

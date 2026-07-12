@@ -12,11 +12,11 @@ export const EMPTY: RForm = {
 }
 
 export const TYPE_MAP: Record<string, string> = {
-  study: '学习提醒',
-  exam: '考试提醒',
-  homework: '作业提醒',
-  live: '直播提醒',
-  system: '系统通知',
+  study: 'type.study',
+  exam: 'type.exam',
+  homework: 'type.homework',
+  live: 'type.live',
+  system: 'type.system',
 }
 
 export function remindToForm(r: Remind): RForm {
