@@ -25,7 +25,10 @@ export default function LanguagePage() {
       await setLanguage(v)
       Taro.setStorageSync('lang', v)
       Taro.showToast({ title: '设置成功', icon: 'success' })
-    } catch {}
+    } catch (e) {
+      console.error('[setting/language] 设置语言 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
   return (
@@ -40,9 +43,7 @@ export default function LanguagePage() {
             onClick={() => onSelect(l.value)}
           >
             <Text className="text-[15px] text-[#333]">{l.name}</Text>
-            {current === l.value && (
-              <Text className="text-[16px] text-[#007aff]">✓</Text>
-            )}
+            {current === l.value && <Text className="text-[16px] text-[#007aff]">✓</Text>}
           </View>
         ))}
       </View>
