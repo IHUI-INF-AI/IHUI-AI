@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Plus, ChevronLeft } from 'lucide-react'
 import { eduApi, buildQs } from '@/lib/edu'
 import { Button } from '@ihui/ui'
@@ -14,6 +15,7 @@ import { EMPTY_FORM, templateToForm } from './helpers'
 import type { Template, PageData, TForm } from './types'
 
 export default function EduExamPapersTemplatePage() {
+  const t = useTranslations('admin.edu.exam.papersTemplate')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
@@ -33,7 +35,7 @@ export default function EduExamPapersTemplatePage() {
       try {
         config = JSON.parse(form.config)
       } catch (e) {
-        return Promise.reject(new Error(`配置JSON错误：${(e as Error).message}`))
+        return Promise.reject(new Error(t('configJsonError', { message: (e as Error).message })))
       }
       const body = { name: form.name.trim(), description: form.description.trim() || null, config }
       if (editing)
@@ -44,7 +46,7 @@ export default function EduExamPapersTemplatePage() {
       return eduApi(`/api/admin/edu/exam/templates`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'templates'] })
       closeDialog()
     },
@@ -53,7 +55,7 @@ export default function EduExamPapersTemplatePage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`/api/admin/edu/exam/templates/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'templates'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -65,9 +67,9 @@ export default function EduExamPapersTemplatePage() {
     setErr(null)
     setOpen(true)
   }
-  function openEdit(t: Template) {
-    setEditing(t)
-    setForm(templateToForm(t))
+  function openEdit(tc: Template) {
+    setEditing(tc)
+    setForm(templateToForm(tc))
     setErr(null)
     setOpen(true)
   }
@@ -80,12 +82,12 @@ export default function EduExamPapersTemplatePage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.name.trim()) return setErr('名称不能为空')
+    if (!form.name.trim()) return setErr(t('nameRequired'))
     saveMut.mutate()
   }
-  function handleDelete(t: Template) {
-    if (!window.confirm('确定删除？')) return
-    deleteMut.mutate(t.id)
+  function handleDelete(tc: Template) {
+    if (!window.confirm(t('confirmDelete'))) return
+    deleteMut.mutate(tc.id)
   }
 
   const total = data?.total ?? 0
@@ -95,19 +97,19 @@ export default function EduExamPapersTemplatePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">模板组卷</h1>
-        <p className="mt-1 text-sm text-muted-foreground">维护组卷模板，可快速复用生成试卷</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/exam">
             <ChevronLeft className="h-4 w-4" />
-            返回考试管理
+            {t('backToExam')}
           </Link>
         </Button>
         <Button onClick={openCreate} size="sm" className="ml-auto">
           <Plus className="h-4 w-4" />
-          新建模板
+          {t('createTemplate')}
         </Button>
       </div>
 
@@ -121,7 +123,7 @@ export default function EduExamPapersTemplatePage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -129,10 +131,10 @@ export default function EduExamPapersTemplatePage() {
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -140,7 +142,7 @@ export default function EduExamPapersTemplatePage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
           </Button>
         </div>
       </div>
