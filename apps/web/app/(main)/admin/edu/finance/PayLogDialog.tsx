@@ -1,6 +1,7 @@
 'use client'
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,7 @@ export function PayLogDialog({
   pending,
   err,
 }: Props) {
+  const t = useTranslations('admin.edu.finance.index')
   return (
     <Dialog
       open={open}
@@ -44,7 +46,7 @@ export function PayLogDialog({
       <DialogContent className="max-w-xl">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑支付日志' : '新建支付日志'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -53,7 +55,7 @@ export function PayLogDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="pl-user">用户UUID *</Label>
+              <Label htmlFor="pl-user">{t('userUuidLabel')}</Label>
               <Input
                 id="pl-user"
                 value={form.userUuid}
@@ -61,7 +63,7 @@ export function PayLogDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pl-course">课程ID</Label>
+              <Label htmlFor="pl-course">{t('courseIdLabel')}</Label>
               <Input
                 id="pl-course"
                 value={form.courseId}
@@ -69,7 +71,7 @@ export function PayLogDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pl-video">视频ID</Label>
+              <Label htmlFor="pl-video">{t('videoIdLabel')}</Label>
               <Input
                 id="pl-video"
                 value={form.videoId}
@@ -77,7 +79,7 @@ export function PayLogDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pl-outBillOn">账单日期 *</Label>
+              <Label htmlFor="pl-outBillOn">{t('outBillOnLabel')}</Label>
               <Input
                 id="pl-outBillOn"
                 type="date"
@@ -86,7 +88,7 @@ export function PayLogDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pl-payWay">支付方式</Label>
+              <Label htmlFor="pl-payWay">{t('payWayLabel')}</Label>
               <Input
                 id="pl-payWay"
                 value={form.payWay}
@@ -94,7 +96,7 @@ export function PayLogDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pl-amount">金额</Label>
+              <Label htmlFor="pl-amount">{t('amountLabel')}</Label>
               <Input
                 id="pl-amount"
                 type="number"
@@ -105,7 +107,7 @@ export function PayLogDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pl-realAmount">实付金额</Label>
+              <Label htmlFor="pl-realAmount">{t('realAmountLabel')}</Label>
               <Input
                 id="pl-realAmount"
                 type="number"
@@ -118,10 +120,11 @@ export function PayLogDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

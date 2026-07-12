@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, LayoutTemplate } from 'lucide-react'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import type { Template } from './types'
@@ -21,15 +22,16 @@ export function PapersTemplateTable({
   onEdit,
   onDelete,
 }: Props) {
+  const tc = useTranslations('admin.edu.exam.papersTemplate')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-4 py-2.5">名称</TableHead>
-            <TableHead className="px-4 py-2.5">描述</TableHead>
-            <TableHead className="px-4 py-2.5">创建时间</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{tc('colName')}</TableHead>
+            <TableHead className="px-4 py-2.5">{tc('colDescription')}</TableHead>
+            <TableHead className="px-4 py-2.5">{tc('colCreatedAt')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{tc('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -37,21 +39,21 @@ export function PapersTemplateTable({
             <TableRow>
               <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {tc('loading')}
               </TableCell>
             </TableRow>
           ) : error ? (
             <TableRow>
               <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                 <LayoutTemplate className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无模板（需后端端点）
+                {tc('noTemplateNeedBackend')}
               </TableCell>
             </TableRow>
           ) : list.length === 0 ? (
             <TableRow>
               <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                 <LayoutTemplate className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无模板
+                {tc('noTemplate')}
               </TableCell>
             </TableRow>
           ) : (
@@ -64,14 +66,14 @@ export function PapersTemplateTable({
                 <TableCell className="px-4 py-2.5 text-xs">{t.createdAt}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(t)} title="编辑">
+                    <Button variant="ghost" size="sm" onClick={() => onEdit(t)} title={tc('edit')}>
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => onDelete(t)}
-                      title="删除"
+                      title={tc('delete')}
                       className="text-destructive hover:text-destructive"
                       disabled={deletePending}
                     >

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, ChevronLeft, ChevronRight, Trophy, Medal, Award } from 'lucide-react'
 import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
@@ -36,9 +37,10 @@ interface Rank {
 }
 
 const PAGE_SIZE = 20
-const PERIOD_MAP: Record<string, string> = { week: '本周', month: '本月', total: '总榜' }
+const PERIODS = ['week', 'month', 'total']
 
 export default function EduLearnRankingPage() {
+  const t = useTranslations('admin.edu.learn.ranking')
   const [page, setPage] = React.useState(1)
   const [period, setPeriod] = React.useState('total')
 
@@ -64,25 +66,25 @@ export default function EduLearnRankingPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">学习排行</h1>
-        <p className="mt-1 text-sm text-muted-foreground">学员学习时长与成绩排行榜</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/learn">
             <ChevronLeft className="h-4 w-4" />
-            返回学习管理
+            {t('backToLearn')}
           </Link>
         </Button>
         <div className="w-full max-w-[140px]">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className={selectClass} aria-label="周期">
+            <SelectTrigger className={selectClass} aria-label={t('period')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(PERIOD_MAP).map(([k, v]) => (
+              {PERIODS.map((k) => (
                 <SelectItem key={k} value={k}>
-                  {v}
+                  {t(`period.${k}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -118,11 +120,11 @@ export default function EduLearnRankingPage() {
                         {r.userName ?? r.userId.slice(0, 8)}
                       </span>
                       <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                        第 {i + 1} 名
+                        {t('rankLabel', { rank: i + 1 })}
                       </span>
                     </div>
                     <div className="mt-1 text-sm text-muted-foreground">
-                      学习 {r.totalHours} 小时 · {r.lessonCount} 门课
+                      {t('studyInfo', { hours: r.totalHours, lessons: r.lessonCount })}
                     </div>
                   </div>
                 </CardContent>
@@ -136,12 +138,12 @@ export default function EduLearnRankingPage() {
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="px-4 py-2.5">排名</TableHead>
-              <TableHead className="px-4 py-2.5">学员</TableHead>
-              <TableHead className="px-4 py-2.5">学习时长</TableHead>
-              <TableHead className="px-4 py-2.5">课程数</TableHead>
-              <TableHead className="px-4 py-2.5">考试数</TableHead>
-              <TableHead className="px-4 py-2.5">积分</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colRank')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colStudent')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colHours')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colLessons')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colExams')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colScore')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y">
@@ -149,21 +151,21 @@ export default function EduLearnRankingPage() {
               <TableRow>
                 <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </TableCell>
               </TableRow>
             ) : noEndpoint ? (
               <TableRow>
                 <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                   <Trophy className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  排行端点未配置
+                  {t('endpointNotConfigured')}
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                   <Trophy className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无排行
+                  {t('empty')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -185,7 +187,9 @@ export default function EduLearnRankingPage() {
                     <TableCell className="px-4 py-2.5 font-medium">
                       {r.userName ?? r.userId.slice(0, 8)}
                     </TableCell>
-                    <TableCell className="px-4 py-2.5">{r.totalHours} 小时</TableCell>
+                    <TableCell className="px-4 py-2.5">
+                      {t('hours', { count: r.totalHours })}
+                    </TableCell>
                     <TableCell className="px-4 py-2.5">{r.lessonCount}</TableCell>
                     <TableCell className="px-4 py-2.5">{r.examCount}</TableCell>
                     <TableCell className="px-4 py-2.5 font-semibold text-primary">
@@ -199,7 +203,7 @@ export default function EduLearnRankingPage() {
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -208,10 +212,10 @@ export default function EduLearnRankingPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -219,7 +223,7 @@ export default function EduLearnRankingPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
