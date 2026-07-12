@@ -24,7 +24,7 @@ function TypeQuestionsContent() {
   const qc = useQueryClient()
   const typeKey = params.type
   const apiType = TYPE_API[typeKey] ?? typeKey
-  const label = TYPE_LABEL[typeKey] ?? typeKey
+  const label = t(TYPE_LABEL[typeKey] ?? typeKey)
   const initialPaper = sp.get('paperId') ?? ''
   const [paperId, setPaperId] = React.useState(initialPaper)
   const [open, setOpen] = React.useState(false)

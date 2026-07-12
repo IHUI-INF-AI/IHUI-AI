@@ -12,7 +12,7 @@ import { Button } from '@ihui/ui'
 import { EduOrganizationFilter } from './EduOrganizationFilter'
 import { EduOrganizationTable } from './EduOrganizationTable'
 import { EduOrganizationDialog } from './EduOrganizationDialog'
-import { PAGE_SIZE, EMPTY_FORM, EMPTY_SEARCH, EXPORT_COLUMNS, organizationToForm } from './helpers'
+import { PAGE_SIZE, EMPTY_FORM, EMPTY_SEARCH, EXPORT_COLS, organizationToForm } from './helpers'
 import type { Organization, OrganizationForm, OrganizationSearch } from './types'
 
 export default function EduOrganizationPage() {
@@ -92,7 +92,8 @@ export default function EduOrganizationPage() {
     exportFromApi(
       `/api/admin/organization${buildQs({ ...q, pageSize: 10000 })}`,
       `organization_${Date.now()}`,
-      EXPORT_COLUMNS,
+      EXPORT_COLS,
+      t,
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
 
