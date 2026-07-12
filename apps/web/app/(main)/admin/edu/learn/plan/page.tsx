@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
+import { isNotFound } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -151,7 +152,7 @@ export default function EduLearnPlanPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rows = data?.list ?? []
-  const noEndpoint = !!(error as Error) && (error as Error).message.includes('请求失败')
+  const noEndpoint = isNotFound(error)
 
   return (
     <div className="space-y-4">
