@@ -12,10 +12,15 @@ export default function TeacherDetail() {
     if (!id) return
     try {
       setTeacher(await getTeacherDetail(id))
-    } catch {}
+    } catch (e) {
+      console.error('[teacher/detail] 获取讲师详情 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [router.params.id])
 
-  useDidShow(() => { load() })
+  useDidShow(() => {
+    load()
+  })
 
   const onViewCourses = useCallback(() => {
     if (!teacher) return
@@ -62,7 +67,9 @@ export default function TeacherDetail() {
           <Button
             className="w-full bg-[#007aff] text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
             onClick={onViewCourses}
-          >查看课程</Button>
+          >
+            查看课程
+          </Button>
         </View>
       )}
     </View>

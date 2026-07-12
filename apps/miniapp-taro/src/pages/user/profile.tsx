@@ -7,22 +7,39 @@ export default function Profile() {
   const [form, setForm] = useState<Partial<UserInfo>>({})
 
   const load = useCallback(async () => {
-    try { setForm(await getProfile()) } catch {}
+    try {
+      setForm(await getProfile())
+    } catch (e) {
+      console.error('[user/profile] 获取用户信息 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
   function navigate(url: string) {
     Taro.navigateTo({ url })
   }
 
-  useDidShow(() => { load() })
+  useDidShow(() => {
+    load()
+  })
 
   const rows = [
     { label: '头像', path: '/pages/user/avatar', value: null, isAvatar: true },
-    { label: '昵称', path: '/pages/user/nickname', value: form.nickname || '未设置', isAvatar: false },
+    {
+      label: '昵称',
+      path: '/pages/user/nickname',
+      value: form.nickname || '未设置',
+      isAvatar: false,
+    },
     { label: '手机号', path: '/pages/user/phone', value: form.phone || '未绑定', isAvatar: false },
     { label: '邮箱', path: '/pages/user/email', value: form.email || '未绑定', isAvatar: false },
     { label: '修改密码', path: '/pages/user/password', value: null, isAvatar: false },
-    { label: '实名认证', path: '/pages/user/realname', value: form.realName ? '已认证' : '未认证', isAvatar: false },
+    {
+      label: '实名认证',
+      path: '/pages/user/realname',
+      value: form.realName ? '已认证' : '未认证',
+      isAvatar: false,
+    },
   ]
 
   return (
