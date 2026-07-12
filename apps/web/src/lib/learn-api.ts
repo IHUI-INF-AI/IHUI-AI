@@ -123,31 +123,31 @@ export async function getLearnCourses(
     keyword?: string
   } = {},
 ): Promise<ApiResult<PageData<LearnCourse>>> {
-  return fetchApi<PageData<LearnCourse>>(`/api/learn${buildQs(query)}`)
+  return fetchApi<PageData<LearnCourse>>(`/api/learn/lessons${buildQs(query)}`)
 }
 
 /** 获取学习课程详情 */
 export async function getLearnCourseDetail(id: string): Promise<ApiResult<LearnCourse>> {
-  return fetchApi<LearnCourse>(`/api/learn/${id}`)
+  return fetchApi<LearnCourse>(`/api/learn/lessons/${id}`)
 }
 
 /** 报名学习课程 */
 export async function enrollLearnCourse(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/learn/${id}/enroll`, { method: 'POST' })
+  return fetchApi<{ success: boolean }>(`/api/learn/lessons/${id}/sign-up`, { method: 'POST' })
 }
 
 /** 获取我的学习课程 */
 export async function getMyLearnCourses(
   query: PageQuery & { status?: LearnRecord['status'] } = {},
 ): Promise<ApiResult<PageData<LearnCourse>>> {
-  return fetchApi<PageData<LearnCourse>>(`/api/learn/my${buildQs(query)}`)
+  return fetchApi<PageData<LearnCourse>>(`/api/learn/my-lessons${buildQs(query)}`)
 }
 
 /** 创建学习课程 */
 export async function createLearnCourse(
   input: Partial<LearnCourse>,
 ): Promise<ApiResult<LearnCourse>> {
-  return fetchApi<LearnCourse>('/api/learn', {
+  return fetchApi<LearnCourse>('/api/learn/lessons', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -158,7 +158,7 @@ export async function updateLearnCourse(
   id: string,
   input: Partial<LearnCourse>,
 ): Promise<ApiResult<LearnCourse>> {
-  return fetchApi<LearnCourse>(`/api/learn/${id}`, {
+  return fetchApi<LearnCourse>(`/api/learn/lessons/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -166,7 +166,7 @@ export async function updateLearnCourse(
 
 /** 删除学习课程 */
 export async function deleteLearnCourse(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/learn/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/learn/lessons/${id}`, { method: 'DELETE' })
 }
 
 // ===================== study（学习记录/进度） =====================

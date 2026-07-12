@@ -1,6 +1,6 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+﻿import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findPublicConfigs,
   findConfigs,
@@ -25,26 +25,6 @@ import {
   getApiLogStats,
 } from '../db/system-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-
-const ADMIN_ROLE_ID = 1
-
-/** 管理员鉴权：authenticate + requireAdmin，抛出带 statusCode 的错误。 */
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-  const roleId = request.jwtPayload?.roleId ?? 0
-  if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
-}
 
 // =============================================================================
 // Zod schemas
@@ -339,10 +319,7 @@ async function testAlipayIntegration(credentials: unknown): Promise<Connectivity
 
 export const adminSystemRoutes: FastifyPluginAsync = async (server) => {
   // 统一 admin 鉴权：preHandler 对全部 admin 路由生效
-  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    const ok = await requireAdmin(request, reply)
-    if (!ok) return // 已通过 requireAdmin 写入错误响应
-  })
+  server.addHook('preHandler', requireAdmin)
 
   // ---------------------------------------------------------------------------
   // 系统配置

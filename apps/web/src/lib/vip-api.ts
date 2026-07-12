@@ -59,28 +59,31 @@ export interface Coupon {
 }
 
 export async function getVipLevels(): Promise<ApiResult<VipLevel[]>> {
-  return fetchApi<VipLevel[]>('/auth-vip-level/list')
+  return fetchApi<VipLevel[]>('/api/vip/levels')
 }
 
 export async function getVipBenefits(
   query: { level?: number } = {},
 ): Promise<ApiResult<VipBenefit[]>> {
+  // 后端缺失
   return fetchApi<VipBenefit[]>(`/vip/benefits${buildQs(query)}`)
 }
 
 export async function getMembershipInfo(): Promise<ApiResult<MembershipInfo>> {
-  return fetchApi<MembershipInfo>('/membership/info')
+  return fetchApi<MembershipInfo>('/api/vip/my')
 }
 
 export async function getPoints(): Promise<ApiResult<PointsInfo>> {
   return fetchApi<PointsInfo>('/points')
 }
 
-export async function signIn(): Promise<ApiResult<{
-  points: number
-  continuousDays: number
-}>> {
-  return fetchApi<{ points: number; continuousDays: number }>('/points/sign-in', {
+export async function signIn(): Promise<
+  ApiResult<{
+    points: number
+    continuousDays: number
+  }>
+> {
+  return fetchApi<{ points: number; continuousDays: number }>('/api/sign-in', {
     method: 'POST',
   })
 }
@@ -88,5 +91,5 @@ export async function signIn(): Promise<ApiResult<{
 export async function getCoupons(
   query: { page?: number; pageSize?: number; status?: string } = {},
 ): Promise<ApiResult<PageData<Coupon>>> {
-  return fetchApi<PageData<Coupon>>(`/coupons${buildQs(query)}`)
+  return fetchApi<PageData<Coupon>>(`/api/coupons/verify${buildQs(query)}`)
 }

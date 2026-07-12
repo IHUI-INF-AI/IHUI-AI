@@ -1,6 +1,7 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import {
   globalSearch,
   findSearchHistory,
@@ -15,8 +16,6 @@ import {
   deleteHotWord,
 } from '../db/misc-extended-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-
-const ADMIN_ROLE_ID = 1
 
 // =============================================================================
 // Zod schemas
@@ -50,20 +49,6 @@ const updateHotWordSchema = z.object({
   sort: z.number().int().min(0).optional(),
   status: z.string().max(20).optional(),
 })
-
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-/** 校验管理员权限，失败时写入响应并返回 false。 */
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  const roleId = request.jwtPayload?.roleId ?? 0
-  if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
-}
 
 // =============================================================================
 // 路由
@@ -286,14 +271,16 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /search/hot-words - 热搜词列表
   server.get('/search/hot-words', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const list = await findHotWordList()
     return reply.send(success({ list }))
   })
 
   // POST /search/hot-words - 创建热搜词
   server.post('/search/hot-words', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = createHotWordSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -304,7 +291,8 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /search/hot-words/:id - 更新热搜词
   server.put('/search/hot-words/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -322,7 +310,8 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /search/hot-words/:id - 删除热搜词
   server.delete('/search/hot-words/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

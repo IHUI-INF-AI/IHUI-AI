@@ -105,7 +105,7 @@ export async function sendMessage(input: {
 
 /** 标记消息已读 */
 export async function markMessageRead(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/messages/${id}/read`, { method: 'POST' })
+  return fetchApi<{ success: boolean }>(`/api/messages/${id}/read`, { method: 'PUT' })
 }
 
 /** 批量标记消息已读 */
@@ -168,7 +168,7 @@ export async function createCustomerServiceSession(input: {
   topic?: string
   category?: string
 }): Promise<ApiResult<CustomerServiceSession>> {
-  return fetchApi<CustomerServiceSession>('/api/customer-service/sessions', {
+  return fetchApi<CustomerServiceSession>('/api/customer-service/tickets', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -179,7 +179,7 @@ export async function getCustomerServiceSessions(
   query: PageQuery & { status?: CustomerServiceSession['status'] } = {},
 ): Promise<ApiResult<PageData<CustomerServiceSession>>> {
   return fetchApi<PageData<CustomerServiceSession>>(
-    `/api/customer-service/sessions${buildQs(query)}`,
+    `/api/customer-service/tickets${buildQs(query)}`,
   )
 }
 
@@ -187,14 +187,14 @@ export async function getCustomerServiceSessions(
 export async function getCustomerServiceSessionDetail(
   id: string,
 ): Promise<ApiResult<CustomerServiceSession>> {
-  return fetchApi<CustomerServiceSession>(`/api/customer-service/sessions/${id}`)
+  return fetchApi<CustomerServiceSession>(`/api/customer-service/tickets/${id}`)
 }
 
 /** 关闭客服会话 */
 export async function closeCustomerServiceSession(
   id: string,
 ): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/customer-service/sessions/${id}/close`, {
+  return fetchApi<{ success: boolean }>(`/api/customer-service/tickets/${id}/close`, {
     method: 'POST',
   })
 }
@@ -205,7 +205,7 @@ export async function getCustomerServiceMessages(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<CustomerServiceMessage>>> {
   return fetchApi<PageData<CustomerServiceMessage>>(
-    `/api/customer-service/sessions/${sessionId}/messages${buildQs(query)}`,
+    `/api/customer-service/tickets/${sessionId}/comments${buildQs(query)}`,
   )
 }
 
@@ -215,10 +215,13 @@ export async function sendCustomerServiceMessage(input: {
   content: string
   type?: 'text' | 'image' | 'file'
 }): Promise<ApiResult<CustomerServiceMessage>> {
-  return fetchApi<CustomerServiceMessage>('/api/customer-service/messages', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
+  return fetchApi<CustomerServiceMessage>(
+    `/api/customer-service/tickets/${input.sessionId}/comments`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  )
 }
 
 /** 获取客服常见问题 */
