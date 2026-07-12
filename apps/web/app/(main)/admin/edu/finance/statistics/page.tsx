@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, BarChart3, TrendingUp, DollarSign, ShoppingCart } from 'lucide-react'
 import { eduApi, buildQs, selectClass } from '@/lib/edu'
 import { cn } from '@/lib/utils'
@@ -34,6 +35,7 @@ interface Stats {
 }
 
 export default function EduFinanceStatisticsPage() {
+  const tc = useTranslations('admin.edu.finance.statistics')
   const [period, setPeriod] = React.useState('month')
 
   const { data, isLoading, error } = useQuery({
@@ -48,25 +50,25 @@ export default function EduFinanceStatisticsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">财务统计</h1>
-        <p className="mt-1 text-sm text-muted-foreground">收入、订单与趋势分析</p>
+        <h1 className="text-2xl font-bold tracking-tight">{tc('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{tc('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/finance">
             <ChevronLeft className="h-4 w-4" />
-            返回财务管理
+            {tc('backToFinance')}
           </Link>
         </Button>
         <div className="w-full max-w-[140px]">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className={selectClass} aria-label="周期">
+            <SelectTrigger className={selectClass} aria-label={tc('periodAriaLabel')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="week">本周</SelectItem>
-              <SelectItem value="month">本月</SelectItem>
-              <SelectItem value="year">全年</SelectItem>
+              <SelectItem value="week">{tc('week')}</SelectItem>
+              <SelectItem value="month">{tc('month')}</SelectItem>
+              <SelectItem value="year">{tc('year')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -74,16 +76,16 @@ export default function EduFinanceStatisticsPage() {
       {isLoading ? (
         <div className="py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-          加载中...
+          {tc('loading')}
         </div>
       ) : noEndpoint ? (
         <div className="rounded-lg border px-4 py-10 text-center text-muted-foreground">
           <BarChart3 className="mx-auto mb-2 h-8 w-8 opacity-40" />
-          统计端点未配置
+          {tc('endpointNotConfigured')}
         </div>
       ) : !stats ? (
         <div className="rounded-lg border px-4 py-10 text-center text-destructive">
-          {(error as Error)?.message ?? '加载失败'}
+          {(error as Error)?.message ?? tc('loadFailed')}
         </div>
       ) : (
         <>
@@ -94,7 +96,7 @@ export default function EduFinanceStatisticsPage() {
                   <DollarSign className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">总收入</div>
+                  <div className="text-sm text-muted-foreground">{tc('totalRevenue')}</div>
                   <div className="mt-1 text-2xl font-semibold">
                     ¥{stats.totalRevenue.toFixed(2)}
                   </div>
@@ -107,7 +109,7 @@ export default function EduFinanceStatisticsPage() {
                   <ShoppingCart className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">订单总数</div>
+                  <div className="text-sm text-muted-foreground">{tc('totalOrders')}</div>
                   <div className="mt-1 text-2xl font-semibold">{stats.totalOrders}</div>
                 </div>
               </CardContent>
@@ -118,7 +120,7 @@ export default function EduFinanceStatisticsPage() {
                   <TrendingUp className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">已支付</div>
+                  <div className="text-sm text-muted-foreground">{tc('paidOrders')}</div>
                   <div className="mt-1 text-2xl font-semibold">{stats.paidOrders}</div>
                 </div>
               </CardContent>
@@ -129,7 +131,7 @@ export default function EduFinanceStatisticsPage() {
                   <DollarSign className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">退款金额</div>
+                  <div className="text-sm text-muted-foreground">{tc('refundedAmount')}</div>
                   <div className="mt-1 text-2xl font-semibold">
                     ¥{stats.refundedAmount.toFixed(2)}
                   </div>
@@ -140,14 +142,14 @@ export default function EduFinanceStatisticsPage() {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div>
-              <h2 className="mb-3 text-lg font-semibold">按商品类型</h2>
+              <h2 className="mb-3 text-lg font-semibold">{tc('byType')}</h2>
               <div className="overflow-x-auto rounded-lg border">
                 <Table>
                   <TableHeader className="bg-muted/50">
                     <TableRow>
-                      <TableHead className="px-4 py-2.5">类型</TableHead>
-                      <TableHead className="px-4 py-2.5">订单数</TableHead>
-                      <TableHead className="px-4 py-2.5">金额</TableHead>
+                      <TableHead className="px-4 py-2.5">{tc('colType')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{tc('colOrders')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{tc('colAmount')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y">
@@ -167,7 +169,7 @@ export default function EduFinanceStatisticsPage() {
                           colSpan={3}
                           className="px-4 py-8 text-center text-muted-foreground"
                         >
-                          暂无数据
+                          {tc('noData')}
                         </TableCell>
                       </TableRow>
                     )}
@@ -176,14 +178,14 @@ export default function EduFinanceStatisticsPage() {
               </div>
             </div>
             <div>
-              <h2 className="mb-3 text-lg font-semibold">月度趋势</h2>
+              <h2 className="mb-3 text-lg font-semibold">{tc('monthlyTrend')}</h2>
               <div className="overflow-x-auto rounded-lg border">
                 <Table>
                   <TableHeader className="bg-muted/50">
                     <TableRow>
-                      <TableHead className="px-4 py-2.5">月份</TableHead>
-                      <TableHead className="px-4 py-2.5">订单数</TableHead>
-                      <TableHead className="px-4 py-2.5">收入</TableHead>
+                      <TableHead className="px-4 py-2.5">{tc('colMonth')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{tc('colOrders')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{tc('colRevenue')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y">
@@ -203,7 +205,7 @@ export default function EduFinanceStatisticsPage() {
                           colSpan={3}
                           className="px-4 py-8 text-center text-muted-foreground"
                         >
-                          暂无数据
+                          {tc('noData')}
                         </TableCell>
                       </TableRow>
                     )}
@@ -216,7 +218,7 @@ export default function EduFinanceStatisticsPage() {
           <Card>
             <CardContent className="p-5">
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-medium">客单价</span>
+                <span className="text-sm font-medium">{tc('avgOrderAmount')}</span>
                 <span className="text-lg font-semibold text-primary">
                   ¥{stats.avgOrderAmount.toFixed(2)}
                 </span>
