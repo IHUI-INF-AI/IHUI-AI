@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, ChevronRight, TrendingUp, Search } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
+import { isNotFound } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -60,7 +61,7 @@ export default function EduLearnProgressPage() {
   const avgProgress =
     rows.length > 0 ? Math.round(rows.reduce((a, r) => a + r.progress, 0) / rows.length) : 0
   const completed = rows.filter((r) => r.progress >= 100).length
-  const noEndpoint = !!(error as Error) && (error as Error).message.includes('请求失败')
+  const noEndpoint = isNotFound(error)
 
   return (
     <div className="space-y-4">
