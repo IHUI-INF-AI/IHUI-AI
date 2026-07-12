@@ -1,6 +1,7 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { db } from '../db/index.js'
 import { examExam, examPaperQuestionRule, examSignUp, examWrongQuestion } from '@ihui/database'
 import { eq, sql, and, desc } from 'drizzle-orm'
@@ -47,8 +48,6 @@ import {
   findMarkRecordList,
 } from '../db/exam-extended-queries.js'
 import { success, error } from '../utils/response.js'
-
-const ADMIN_ROLE_ID = 1
 
 const QUESTION_TYPES = [
   'single_choice',
@@ -248,23 +247,6 @@ async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promis
     reply.status(statusCode).send(error(statusCode, message))
     return false
   }
-}
-
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-  const roleId = request.jwtPayload?.roleId ?? 0
-  if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
 }
 
 // =============================================================================
@@ -662,9 +644,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   server.register(async (child) => {
     // 统一 admin 鉴权
-    child.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-      if (!(await requireAdmin(request, reply))) return
-    })
+    child.addHook('preHandler', requireAdmin)
 
     // GET /admin/exam/papers - 管理员试卷列表(含未发布,分页,支持 categoryId 筛选)
     child.get('/admin/exam/papers', async (request, reply) => {

@@ -22,6 +22,7 @@ import {
 import { Grid } from '@/components/layout'
 import { Avatar } from '@/components/data/Avatar'
 import { AgentManager, type AgentItem } from '@/components/ai/agent-manager'
+import { AgentPill } from '@/components/ai/agent-pill'
 import { useAgent } from '@/hooks/use-agent'
 
 interface Agent {
@@ -119,7 +120,23 @@ function MyAgentsTab() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
+    <div className="mx-auto max-w-md space-y-4">
+      {items.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {items.slice(0, 8).map((a) => (
+            <AgentPill
+              key={a.id}
+              name={a.name}
+              status={a.status}
+              active={a.id === selectedId}
+              onClick={() => {
+                setSelectedId(a.id)
+                router.push(`/agents/${a.id}`)
+              }}
+            />
+          ))}
+        </div>
+      )}
       <AgentManager
         agents={items}
         selectedId={selectedId}

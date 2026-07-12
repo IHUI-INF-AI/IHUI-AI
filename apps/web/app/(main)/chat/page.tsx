@@ -20,15 +20,8 @@ function ChatContent() {
   const searchParams = useSearchParams()
   const urlConversationId = searchParams.get('conversationId')
 
-  const {
-    messages,
-    currentModel,
-    isStreaming,
-    sendMessage,
-    stop,
-    clearMessages,
-    setModel,
-  } = useChat()
+  const { messages, currentModel, isStreaming, sendMessage, stop, clearMessages, setModel } =
+    useChat()
 
   // 接入 WebSocket 通知通道,监听 ai_response / chat_message 等实时推送
   // ai_response: 后端 callback worker 持久化 assistant 消息后推送,用于多端同步
@@ -60,7 +53,9 @@ function ChatContent() {
                   id: message.id, // 替换为 DB 真实 ID
                   role: 'assistant' as const,
                   content: message.content,
-                  createdAt: message.createdAt ? new Date(message.createdAt).getTime() : m.createdAt,
+                  createdAt: message.createdAt
+                    ? new Date(message.createdAt).getTime()
+                    : m.createdAt,
                   error: false,
                 }
               : m,
@@ -179,6 +174,10 @@ function ChatContent() {
           emptyHint={t('emptyHint')}
           assistantLabel={t('assistant')}
           loadingLabel={t('loading')}
+          onTemplateSelect={(content) => {
+            // 模板内容填入输入框（通过 useChat 的 setInput）
+            useChatStore.setState({ draftInput: content })
+          }}
         />
       </div>
 
@@ -198,7 +197,13 @@ function ChatContent() {
 export default function ChatPage() {
   // Next.js 15 要求 useSearchParams 必须被 Suspense 包裹
   return (
-    <React.Suspense fallback={<div className="flex h-[calc(100dvh-3.5rem)] items-center justify-center"><Loading /></div>}>
+    <React.Suspense
+      fallback={
+        <div className="flex h-[calc(100dvh-3.5rem)] items-center justify-center">
+          <Loading />
+        </div>
+      }
+    >
       <ChatContent />
     </React.Suspense>
   )

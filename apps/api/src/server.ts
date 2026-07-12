@@ -163,6 +163,8 @@ import { adminErrorDashboardRoutes } from './routes/admin-error-dashboard.js'
 import { adminApiPlatformRoutes } from './routes/admin-api-platform.js'
 // 前端管理端缺失路由补建（75 个路由：24 真实 CRUD + 51 空数据桩）
 import { adminMissingRoutes } from './routes/admin-missing-routes.js'
+// 前端用户端缺失路由补建（54 个路由：空数据桩）
+import { missingUserRoutes } from './routes/missing-user-routes.js'
 
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
@@ -658,4 +660,9 @@ function registerRoutes(server: FastifyInstance) {
   // 24 条有表路由（真实 CRUD）+ 51 条无表路由（空数据桩）
   // 覆盖：内容运营 / 鉴权 / 教务 / 平台 / 监控 / 商城 等模块
   server.register(adminMissingRoutes, { prefix: '/api/admin' })
+
+  // ===== 前端用户端缺失路由补建（54 个路由）=====
+  // 全部空数据桩，覆盖：文章 / 内容生成 / 知识库 / 技能 / 学习记录 / MCP / OpenClaw
+  // 代理类 / 用户设置 / AI 补充 / 开发者扩展 / 分销 / VIP 权益 / 优惠券 / 通知详情 / 消息详情
+  server.register(missingUserRoutes, { prefix: '/api' })
 }
