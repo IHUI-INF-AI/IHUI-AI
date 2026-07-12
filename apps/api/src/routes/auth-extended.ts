@@ -157,6 +157,13 @@ const bindingRemoveSchema = z.object({
   platform: z.string().min(1),
 })
 
+const codeQuery = z.object({ code: z.string() })
+const pageLimitQuery = z.object({
+  page: z.coerce.number().optional().default(1),
+  limit: z.coerce.number().optional().default(20),
+})
+const skIdParam = z.object({ skId: z.string() })
+
 export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 邮箱登录
   server.post('/auth/login/email', async (request, reply) => {
@@ -209,7 +216,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // 检查手机号
   server.get('/auth/exist/:phone', async (request, reply) => {
-    const { phone } = request.params as { phone: string }
+    const { phone } = z.object({ phone: z.string() }).parse(request.params)
     return reply.send(success({ exists: await checkPhoneExists(phone) }))
   })
 
@@ -234,11 +241,13 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 更新资料
   server.put('/auth/profile', async (request, reply) => {
     await authenticate(request)
-    const { nickname, email, gender } = request.body as {
-      nickname?: string
-      email?: string
-      gender?: number
-    }
+    const { nickname, email, gender } = z
+      .object({
+        nickname: z.string().optional(),
+        email: z.string().optional(),
+        gender: z.number().optional(),
+      })
+      .parse(request.body)
     if (nickname !== undefined || email !== undefined) {
       await updateUser(request.userId!, { nickname, email })
     }
@@ -257,10 +266,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 修改密码
   server.put('/auth/profile/password', async (request, reply) => {
     await authenticate(request)
-    const { old_password, new_password } = request.body as {
-      old_password: string
-      new_password: string
-    }
+    const { old_password, new_password } = z
+      .object({
+        old_password: z.string(),
+        new_password: z.string(),
+      })
+      .parse(request.body)
     if (new_password.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
     const user = await findUserById(request.userId!)
     if (!user?.passwordHash || !bcrypt.compareSync(old_password, user.passwordHash)) {
@@ -279,7 +290,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // Google OAuth
   server.get('/auth/google/pc/wxCode', async (request, reply) => {
-    const { code } = request.query as { code: string }
+    const { code } = codeQuery.parse(request.query)
     if (!isGoogleConfigured())
       return reply.send(success({ mock: true, msg: 'Google OAuth 未配置' }))
     const info = await exchangeGoogleCode(code)
@@ -287,7 +298,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/auth/google/android/wxCode', async (request, reply) => {
-    const { id_token } = request.query as { id_token: string }
+    const { id_token } = z.object({ id_token: z.string() }).parse(request.query)
     if (!isGoogleConfigured())
       return reply.send(success({ mock: true, msg: 'Google OAuth 未配置' }))
     const info = await verifyGoogleIdToken(id_token)
@@ -300,7 +311,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // 微信小程序登录
   server.get('/auth/wechat/mini/login', async (request, reply) => {
-    const { code } = request.query as { code: string }
+    const { code } = codeQuery.parse(request.query)
     if (!isWechatMiniConfigured())
       return reply.send(success({ mock: true, msg: '微信小程序未配置' }))
     const session = await jscode2session(code)
@@ -319,7 +330,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/auth/wechat/mini/phone', async (request, reply) => {
     await authenticate(request)
-    const { code } = request.query as { code: string }
+    const { code } = codeQuery.parse(request.query)
     if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
     const phone = await getPhoneNumber(code)
     let user = await findUserByPhone(phone)
@@ -336,7 +347,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/auth/wechat/mini/rebind', async (request, reply) => {
     await authenticate(request)
-    const { code } = request.query as { code: string }
+    const { code } = codeQuery.parse(request.query)
     if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
     const session = await jscode2session(code)
     const existing = await findThirdPartyAccount('wechat', session.openId)
@@ -355,7 +366,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // 企业微信
   server.get('/auth/login/enterprise/pc/wxCode', async (request, reply) => {
-    const { code } = request.query as { code: string }
+    const { code } = codeQuery.parse(request.query)
     if (!isWecomConfigured()) return reply.send(success({ mock: true, msg: '企业微信未配置' }))
     const session = await wecomCode2session(code)
     return reply.send(success(session))
@@ -372,7 +383,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // 钉钉扫码登录 — code 换用户信息 → 查/建用户 → 颁发 JWT
   server.get('/auth/dingtalk/login', async (request, reply) => {
-    const { code } = request.query as { code: string }
+    const { code } = codeQuery.parse(request.query)
     if (!isDingtalkConfigured())
       return reply.send(success({ mock: true, msg: '钉钉 OAuth 未配置' }))
     const dingtalkToken = await exchangeDingtalkCode(code)
@@ -508,15 +519,16 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // OAuth2 授权
   server.get('/auth/oauth/authorize', async (request, reply) => {
     await authenticate(request)
-    const { client_id, redirect_uri, state, scope, code_challenge, code_challenge_method } =
-      request.query as {
-        client_id: string
-        redirect_uri: string
-        state: string
-        scope?: string
-        code_challenge?: string
-        code_challenge_method?: string
-      }
+    const { client_id, redirect_uri, state, scope, code_challenge, code_challenge_method } = z
+      .object({
+        client_id: z.string(),
+        redirect_uri: z.string(),
+        state: z.string(),
+        scope: z.string().optional(),
+        code_challenge: z.string().optional(),
+        code_challenge_method: z.string().optional(),
+      })
+      .parse(request.query)
     if (!state) return reply.status(400).send(error(400, 'state 不能为空'))
     const app = await findOAuthAppByClientId(client_id)
     if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
@@ -546,12 +558,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/auth/oauth/token', async (request, reply) => {
-    const { code, client_id, client_secret, state } = request.body as {
-      code: string
-      client_id: string
-      client_secret: string
-      state?: string
-    }
+    const { code, client_id, client_secret, state } = z
+      .object({
+        code: z.string(),
+        client_id: z.string(),
+        client_secret: z.string(),
+        state: z.string().optional(),
+      })
+      .parse(request.body)
     const app = await findOAuthAppByClientId(client_id)
     if (!app || app.clientSecret !== client_secret) {
       return reply.status(401).send(error(401, '应用凭证错误'))
@@ -597,14 +611,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/auth/oauth/apps/list', async (request, reply) => {
     await authenticate(request)
-    const { page = '1', limit = '20' } = request.query as { page: string; limit: string }
-    const result = await listOAuthApps(request.userId!, parseInt(page, 10), parseInt(limit, 10))
+    const { page, limit } = pageLimitQuery.parse(request.query)
+    const result = await listOAuthApps(request.userId!, page, limit)
     return reply.send(success(result))
   })
 
   server.delete('/auth/oauth/apps/:clientId', async (request, reply) => {
     await authenticate(request)
-    const { clientId } = request.params as { clientId: string }
+    const { clientId } = z.object({ clientId: z.string() }).parse(request.params)
     await deleteOAuthApp(clientId, request.userId!)
     return reply.send(success({ deleted: true }))
   })
@@ -618,7 +632,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/auth/oauth/my-authorized/:sessionId', async (request, reply) => {
     await authenticate(request)
-    const { sessionId } = request.params as { sessionId: string }
+    const { sessionId } = z.object({ sessionId: z.string() }).parse(request.params)
     await deleteSession(sessionId)
     return reply.send(success({ deleted: true }))
   })
@@ -638,7 +652,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/auth/bindings/:id', async (request, reply) => {
     await authenticate(request)
-    const { id } = request.params as { id: string }
+    const { id } = z.object({ id: z.string() }).parse(request.params)
     await removeBinding(id, request.userId!)
     return reply.send(success({ deleted: true }))
   })
@@ -665,22 +679,22 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/auth/user-sk/list', async (request, reply) => {
     await authenticate(request)
-    const { page = '1', limit = '20' } = request.query as { page: string; limit: string }
-    const result = await listUserSk(request.userId!, parseInt(page, 10), parseInt(limit, 10))
+    const { page, limit } = pageLimitQuery.parse(request.query)
+    const result = await listUserSk(request.userId!, page, limit)
     return reply.send(success(result))
   })
 
   server.put('/auth/user-sk/:skId', async (request, reply) => {
     await authenticate(request)
-    const { skId } = request.params as { skId: string }
-    const { status } = request.body as { status: number }
+    const { skId } = skIdParam.parse(request.params)
+    const { status } = z.object({ status: z.number() }).parse(request.body)
     await updateUserSk(skId, request.userId!, status)
     return reply.send(success({ updated: true }))
   })
 
   server.delete('/auth/user-sk/:skId', async (request, reply) => {
     await authenticate(request)
-    const { skId } = request.params as { skId: string }
+    const { skId } = skIdParam.parse(request.params)
     await deleteUserSk(skId, request.userId!)
     return reply.send(success({ deleted: true }))
   })
@@ -1240,7 +1254,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (process.env.NODE_ENV === 'production')
       return reply.status(403).send(error(403, '生产环境禁止调试端点'))
     await authenticate(request)
-    const { client_id } = request.body as { client_id?: string }
+    const { client_id } = z.object({ client_id: z.string().optional() }).parse(request.body)
     const code = generateAuthCode()
     await createOAuthSession({
       code,

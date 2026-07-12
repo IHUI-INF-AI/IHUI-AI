@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
@@ -22,6 +23,11 @@ import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 
 export const financeRoutes: FastifyPluginAsync = async (server) => {
+  const pageLimitQuery = z.object({
+    page: z.coerce.number().optional().default(1),
+    limit: z.coerce.number().optional().default(20),
+  })
+
   // ==========================================================================
   // Token 钱包余额
   // ==========================================================================
@@ -35,79 +41,78 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/finance/margin/check', async (request, reply) => {
     await authenticate(request)
-    const { minTokens } = request.query as { minTokens: string }
+    const { minTokens } = z.object({ minTokens: z.coerce.number() }).parse(request.query)
     const userId = request.userId!
     const balance = await getBalance(userId)
-    return reply.send(success({ sufficient: balance >= parseInt(minTokens, 10), balance }))
+    return reply.send(success({ sufficient: balance >= minTokens, balance }))
   })
 
   server.post('/finance/margin/deduct', async (request, reply) => {
     await authenticate(request)
-    const { quantity, remark = '' } = request.query as { quantity: string; remark?: string }
+    const { quantity, remark } = z
+      .object({ quantity: z.coerce.number(), remark: z.string().optional().default('') })
+      .parse(request.query)
     const userId = request.userId!
-    const balance = await deductToken(userId, parseInt(quantity, 10), remark)
+    const balance = await deductToken(userId, quantity, remark)
     return reply.send(success({ balance }))
   })
 
   server.post('/finance/margin/recharge', async (request, reply) => {
     await authenticate(request)
-    const { quantity, outTradeNo } = request.query as { quantity: string; outTradeNo: string }
+    const { quantity, outTradeNo } = z
+      .object({ quantity: z.coerce.number(), outTradeNo: z.string() })
+      .parse(request.query)
     const userId = request.userId!
-    const balance = await rechargeToken(userId, parseInt(quantity, 10), outTradeNo)
+    const balance = await rechargeToken(userId, quantity, outTradeNo)
     return reply.send(success({ balance }))
   })
 
   server.post('/finance/margin/expire', async (request, reply) => {
     await authenticate(request)
-    const { quantity, source = '到期清零' } = request.query as { quantity: string; source?: string }
+    const { quantity, source } = z
+      .object({ quantity: z.coerce.number(), source: z.string().optional().default('到期清零') })
+      .parse(request.query)
     const userId = request.userId!
-    const balance = await expireToken(userId, parseInt(quantity, 10), source)
+    const balance = await expireToken(userId, quantity, source)
     return reply.send(success({ balance }))
   })
 
   server.post('/finance/margin/commission', async (request, reply) => {
     await authenticate(request)
-    const {
-      quantity,
-      invitedUserId = '',
-      source = 'invite',
-    } = request.query as {
-      quantity: string
-      invitedUserId?: string
-      source?: string
-    }
+    const { quantity, invitedUserId, source } = z
+      .object({
+        quantity: z.coerce.number(),
+        invitedUserId: z.string().optional().default(''),
+        source: z.string().optional().default('invite'),
+      })
+      .parse(request.query)
     void invitedUserId
     const userId = request.userId!
-    const balance = await rechargeToken(userId, parseInt(quantity, 10), undefined, source)
+    const balance = await rechargeToken(userId, quantity, undefined, source)
     return reply.send(success({ balance }))
   })
 
   server.post('/finance/margin/refund', async (request, reply) => {
     await authenticate(request)
-    const { quantity, remark = '' } = request.query as { quantity: string; remark?: string }
+    const { quantity, remark } = z
+      .object({ quantity: z.coerce.number(), remark: z.string().optional().default('') })
+      .parse(request.query)
     const userId = request.userId!
-    const balance = await refundToken(userId, parseInt(quantity, 10), remark)
+    const balance = await refundToken(userId, quantity, remark)
     return reply.send(success({ balance }))
   })
 
   server.get('/finance/margin/flows', async (request, reply) => {
     await authenticate(request)
-    const {
-      page = '1',
-      limit = '20',
-      opType,
-    } = request.query as {
-      page: string
-      limit: string
-      opType?: string
-    }
+    const { page, limit, opType } = z
+      .object({
+        page: z.coerce.number().optional().default(1),
+        limit: z.coerce.number().optional().default(20),
+        opType: z.coerce.number().optional(),
+      })
+      .parse(request.query)
     const userId = request.userId!
-    const result = await listTokenFlows(
-      userId,
-      parseInt(page, 10),
-      parseInt(limit, 10),
-      opType ? parseInt(opType, 10) : undefined,
-    )
+    const result = await listTokenFlows(userId, page, limit, opType)
     return reply.send(success(result))
   })
 
@@ -117,9 +122,9 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/finance/commission/list', async (request, reply) => {
     await authenticate(request)
-    const { page = '1', limit = '20' } = request.query as { page: string; limit: string }
+    const { page, limit } = pageLimitQuery.parse(request.query)
     const userId = request.userId!
-    const result = await listCommissionFlows(userId, parseInt(page, 10), parseInt(limit, 10))
+    const result = await listCommissionFlows(userId, page, limit)
     return reply.send(success(result))
   })
 
@@ -132,17 +137,14 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/finance/commission/orders', async (request, reply) => {
     await authenticate(request)
-    const {
-      page = '1',
-      limit = '20',
-      orderType,
-      status,
-    } = request.query as {
-      page: string
-      limit: string
-      orderType?: string
-      status?: string
-    }
+    const { page, limit, orderType, status } = z
+      .object({
+        page: z.coerce.number().optional().default(1),
+        limit: z.coerce.number().optional().default(20),
+        orderType: z.string().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.query)
     const userId = request.userId!
     const conditions = [eq(orders.userId, userId)]
     if (orderType) conditions.push(eq(orders.paymentMethod, orderType))
@@ -153,8 +155,8 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
       .from(orders)
       .where(where)
       .orderBy(desc(orders.createdAt))
-      .limit(parseInt(limit, 10))
-      .offset((parseInt(page, 10) - 1) * parseInt(limit, 10))
+      .limit(limit)
+      .offset((page - 1) * limit)
     const countRows = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(orders)
@@ -168,9 +170,9 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/finance/distribution/subordinates', async (request, reply) => {
     await authenticate(request)
-    const { page = '1', limit = '20' } = request.query as { page: string; limit: string }
+    const { page, limit } = pageLimitQuery.parse(request.query)
     const userId = request.userId!
-    const result = await listSubordinates(userId, parseInt(page, 10), parseInt(limit, 10))
+    const result = await listSubordinates(userId, page, limit)
     return reply.send(success(result))
   })
 
@@ -196,9 +198,8 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/finance/withdrawal/apply', async (request, reply) => {
     await authenticate(request)
-    const { amount } = request.query as { amount: string }
+    const { amount: amountCents } = z.object({ amount: z.coerce.number() }).parse(request.query)
     const userId = request.userId!
-    const amountCents = parseInt(amount, 10)
     if (amountCents <= 0) return reply.status(400).send(error(400, '提现金额必须为正'))
 
     // 风控评估：大额提现 / 异常 IP 检测
@@ -246,9 +247,9 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/finance/withdrawal/list', async (request, reply) => {
     await authenticate(request)
-    const { page = '1', limit = '20' } = request.query as { page: string; limit: string }
+    const { page, limit } = pageLimitQuery.parse(request.query)
     const userId = request.userId!
-    const result = await listWithdrawals(userId, parseInt(page, 10), parseInt(limit, 10))
+    const result = await listWithdrawals(userId, page, limit)
     return reply.send(success(result))
   })
 
