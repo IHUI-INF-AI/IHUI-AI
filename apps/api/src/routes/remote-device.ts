@@ -17,27 +17,13 @@
  * - GET    /remote-device-tasks/pending — 待下发任务列表
  */
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, desc, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { remoteDevices, remoteDeviceTasks } from '@ihui/database'
-import { authenticate } from '../plugins/auth.js'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply
-      .status(statusCode)
-      .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    return false
-  }
-}
 
 const registerDeviceSchema = z.object({
   deviceNo: z.string().min(1).max(100),
@@ -83,7 +69,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   // ===== 设备管理 =====
 
   server.get('/remote-devices', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const query = request.query as {
       status?: string
       keyword?: string
@@ -106,7 +93,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/remote-devices/:id', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const { id } = request.params as { id: string }
     const [device] = await db.select().from(remoteDevices).where(eq(remoteDevices.id, id)).limit(1)
     if (!device) return reply.status(404).send(error(404, '设备不存在'))
@@ -156,7 +144,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/remote-devices/:id/heartbeat', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const { id } = request.params as { id: string }
     const body = request.body as {
       batteryLevel?: number
@@ -182,7 +171,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   // ===== 任务管理 =====
 
   server.get('/remote-devices/:id/tasks', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const { id } = request.params as { id: string }
     const query = request.query as { status?: string }
     const conditions = [eq(remoteDeviceTasks.deviceId, id)]
@@ -217,7 +207,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/remote-device-tasks/:taskId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const { taskId } = request.params as { taskId: string }
     const [task] = await db
       .select()
@@ -229,7 +220,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/remote-device-tasks/:taskId/status', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const { taskId } = request.params as { taskId: string }
     const parsed = updateTaskStatusSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -290,7 +282,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/remote-device-tasks/pending', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const query = request.query as { page?: string; pageSize?: string }
     const page = parseInt(query.page ?? '1', 10)
     const pageSize = parseInt(query.pageSize ?? '50', 10)
