@@ -49,12 +49,12 @@ export function requirePermission(permission: string): preHandlerAsyncHookHandle
 /**
  * 仅校验登录、不校验权限点的中间件（用于"需登录"端点）。
  */
-export const requireAuth: preHandlerAsyncHookHandler = async (request, reply) => {
+export const requireAuth = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
   try {
     await authenticate(request)
   } catch (e) {
     const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    return reply
+    reply
       .status(statusCode)
       .send({ code: statusCode, message: (e as Error).message || 'Authentication required' })
   }
