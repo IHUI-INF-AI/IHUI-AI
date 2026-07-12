@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CheckCircle2, XCircle, Send } from 'lucide-react'
@@ -16,6 +17,7 @@ interface ExamineChatDialogProps {
 }
 
 export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogProps) {
+  const t = useTranslations('admin.agents.examine')
   const qc = useQueryClient()
   const [chatMsgs, setChatMsgs] = React.useState<ChatMsg[]>([])
   const [chatInput, setChatInput] = React.useState('')
@@ -44,7 +46,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
         body: JSON.stringify({ remark }),
       }),
     onSuccess: () => {
-      toast.success('操作成功')
+      toast.success(t('operateSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'examine'] })
       closeChat()
     },
@@ -97,12 +99,12 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
           }
         }
         wsRef.current.onopen = () => doSend(ques)
-        wsRef.current.onerror = () => toast.error('WebSocket连接失败')
+        wsRef.current.onerror = () => toast.error(t('chatWsError'))
       } else {
         doSend(ques)
       }
     } catch {
-      toast.error('WebSocket连接失败')
+      toast.error(t('chatWsError'))
     }
   }
 
@@ -122,7 +124,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
   function submitApproval(type: 'pass' | 'reject') {
     if (!target) return
     if (!approvalRemark.trim()) {
-      toast.error('请输入审核备注')
+      toast.error(t('approvalRemarkRequired'))
       return
     }
     approveMut.mutate({ id: target.id, type, remark: approvalRemark.trim() })
@@ -132,13 +134,15 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
     <Dialog open={open} onOpenChange={(o) => (o ? null : closeChat())}>
       <DialogContent className="max-w-3xl max-h-[85vh]">
         <DialogHeader>
-          <DialogTitle>审批 - {target?.agentName || target?.agentId}</DialogTitle>
+          <DialogTitle>
+            {t('chatDialogTitle', { name: target?.agentName || target?.agentId })}
+          </DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 h-[450px]">
           <div className="flex flex-col border rounded-lg">
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {chatMsgs.length === 0 ? (
-                <p className="text-center text-sm text-muted-foreground mt-10">输入消息开始对话</p>
+                <p className="text-center text-sm text-muted-foreground mt-10">{t('chatEmpty')}</p>
               ) : (
                 chatMsgs.map((m, i) => (
                   <div key={i} className="space-y-1">
@@ -155,7 +159,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
               <Input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="输入消息"
+                placeholder={t('chatInputPlaceholder')}
                 className="h-9"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') sendChat()
@@ -169,30 +173,30 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
           <div className="flex flex-col border rounded-lg p-3 space-y-3 overflow-y-auto">
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">AgentID</span>
+                <span className="text-muted-foreground">{t('fieldAgentId')}</span>
                 <span>{target?.agentId}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">开始时间</span>
+                <span className="text-muted-foreground">{t('fieldStartTime')}</span>
                 <span>{target?.startTime || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">联系电话</span>
+                <span className="text-muted-foreground">{t('fieldStartPhone')}</span>
                 <span>{target?.startPhone || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">描述</span>
+                <span className="text-muted-foreground">{t('fieldDesc')}</span>
                 <span className="max-w-[150px] truncate">{target?.desc || '-'}</span>
               </div>
             </div>
             <div className="space-y-2">
-              <Label>审核备注 *</Label>
+              <Label>{t('approvalRemarkLabel')}</Label>
               <textarea
                 value={approvalRemark}
                 onChange={(e) => setApprovalRemark(e.target.value)}
                 rows={3}
                 className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                placeholder="请输入审核备注"
+                placeholder={t('approvalRemarkPlaceholder')}
               />
             </div>
             <div className="flex gap-2 mt-auto">
@@ -204,7 +208,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
                 disabled={approveMut.isPending}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                通过
+                {t('approve')}
               </Button>
               <Button
                 size="sm"
@@ -214,10 +218,10 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
                 disabled={approveMut.isPending}
               >
                 <XCircle className="h-4 w-4" />
-                拒绝
+                {t('rejectBtn')}
               </Button>
               <Button size="sm" variant="ghost" onClick={closeChat}>
-                取消
+                {t('cancel')}
               </Button>
             </div>
           </div>
