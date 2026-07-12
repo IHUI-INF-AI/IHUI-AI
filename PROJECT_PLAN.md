@@ -2072,6 +2072,112 @@ R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39
 
 ### 剩余可接受技术债
 
-- 14 处 `.includes('请求失败')`：API 错误检测逻辑（非用户可见文本），需后端错误码系统改造才能迁移
-- `helpers.ts` 中 `EXPORT_COLS` 中文表头 / `SUB_LINKS` label / `TYPE_LABEL` 等：需调整 `exportFromApi` 接受翻译后的列标题
-- `models/helpers.ts` 156 处中文：产品数据描述，建议保留
+- ~~14 处 `.includes('请求失败')`~~：已由 R89 错误码系统替代
+- ~~`helpers.ts` 中 `EXPORT_COLS` 中文表头 / `SUB_LINKS` label / `TYPE_LABEL` 等~~：已由 R90 i18n 迁移完成
+- ~~`models/helpers.ts` 156 处中文~~：已由 R90 i18n 迁移完成
+
+## R89 错误码系统 — ApiError 替代字符串匹配（2026-07-12）✅
+
+> commit `112bbcab3`，18 files changed, +53/-24。将14处 `.includes('请求失败')` 字符串匹配改为基于 HTTP status code 的 `ApiError` 判断。
+
+### 架构设计
+
+1. **扩展 `ApiResult` 类型**（`packages/types/src/api.ts`）：错误分支增加 `status?: number`
+2. **新建 `ApiError` 类**（`apps/web/src/lib/api-error.ts`）：继承 `Error`，增加 `status` 字段 + `isNotFound()` 工具函数
+3. **修改 `fetchApi`**（`apps/web/src/lib/api.ts`）：在 `!response.ok` 和 `json.code !== 0` 时返回 `status: response.status`
+4. **修改 `eduApi`**（`apps/web/src/lib/edu.ts`）：抛出 `ApiError` 而非 `Error`，携带 status
+5. **14个页面**：`includes('请求失败')` → `isNotFound(error)`
+
+### 修改的14个页面
+
+| 文件                          | 修改                |
+| ----------------------------- | ------------------- |
+| `learn/community/page.tsx`    | `isNotFound(error)` |
+| `learn/homework/page.tsx`     | `isNotFound(error)` |
+| `class/schedule/page.tsx`     | `isNotFound(error)` |
+| `student/levels/page.tsx`     | `isNotFound(error)` |
+| `finance/statistics/page.tsx` | `isNotFound(error)` |
+| `teacher/review/page.tsx`     | `isNotFound(error)` |
+| `class/page.tsx`              | `isNotFound(error)` |
+| `learn/materials/page.tsx`    | `isNotFound(error)` |
+| `class/members/page.tsx`      | `isNotFound(error)` |
+| `learn/progress/page.tsx`     | `isNotFound(error)` |
+| `learn/plan/page.tsx`         | `isNotFound(error)` |
+| `learn/ranking/page.tsx`      | `isNotFound(error)` |
+| `course/chapters/page.tsx`    | `isNotFound(error)` |
+| `learn/remind/page.tsx`       | `isNotFound(error)` |
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误
+- pre-commit i18n 键完整性 — ✅ 13 个文件 zh/en parity OK
+
+## R90 helpers.ts + models/helpers.ts 全量 i18n 迁移（2026-07-12）✅
+
+> commit `f9a83c697`，75 files changed, +3550/-231。14个 helpers.ts + models/helpers.ts + export-utils.ts + 5个messages.json，3个并行子代理完成。
+
+### 迁移内容
+
+#### 1. export-utils.ts 改造
+
+- `exportToExcel` 和 `exportFromApi` 新增可选参数 `t?: (key: string) => string`
+- 自动翻译 columns 的 `title` 和 `formatter` 返回值
+
+#### 2. 14个 helpers.ts 文件（~155个中文条目）
+
+| 类型                                                         | 文件数 | 内容                                                                                       |
+| ------------------------------------------------------------ | ------ | ------------------------------------------------------------------------------------------ |
+| EXPORT_COLS / EXPORT_COLUMNS                                 | 9      | title 改为 `col.*` i18n key，formatter 返回值改为 key                                      |
+| SUB_LINKS                                                    | 1      | label 改为 `subLink.*` i18n key                                                            |
+| COURSE_FIELDS / VIDEO_FIELDS / TEXT_FIELDS                   | 3      | label 改为 `field.*` i18n key                                                              |
+| TYPE_LABEL / TYPE_MAP / STAGE_TEXT / LEVEL_TEXT / AUDIT_TEXT | 5      | 值改为 key 模式（如 `stage.0`、`type.study`）                                              |
+| 命名统一                                                     | 3      | `EXPORT_COLUMNS` → `EXPORT_COLS: ExportColumn[]`（organization/platform-log/zhs-identity） |
+
+#### 3. models/helpers.ts（12个模型描述 + 2个模型名称）
+
+- `FALLBACK_MODELS` 的 `description` 改为 `model.*.description` i18n key
+- `MODEL_DESCRIPTIONS` 的 `description` 同上
+- 含中文的 `name`（groq/gemini）改为 `model.*.name` i18n key
+- `ModelsGrid.tsx` 渲染时检查 `model.` 前缀，是则 `t()` 翻译
+
+#### 4. .tsx 文件修改
+
+- 8个 page.tsx：`exportFromApi(url, file, EXPORT_COLS)` → `exportFromApi(url, file, EXPORT_COLS, t)`
+- `CourseAuditDialog.tsx`：`label={label}` → `label={t(label)}`
+- `learn/page.tsx`：`{s.label}` → `{t(s.label)}`
+- `RecordedDialog.tsx`：`{f.label}` → `{t(f.label)}`
+- `exam/questions/[type]/page.tsx`：`TYPE_LABEL[key]` → `t(TYPE_LABEL[key])`
+
+### 新增 i18n 键（67键 × 5语言 + 12键 × 5语言 models）
+
+- `admin.edu.course.index`: auditStatus.0-4, col.title/subtitle/stage/label/auditStatus/creator
+- `admin.edu.course.pay`: col.courseId/courseName/payType/payCrowd/amount/creator
+- `admin.edu.course.audit`: col.type/action/sourceId/targetId/status/creator/createdAt/updater + field.title/subtitle/content/remark/remarkFile/binding/stage/isHidden/sort/createdAt/updatedAt/courseId/videoPath/duration/attachment/isPaid/amount/status
+- `admin.edu.platform`: col.code/name/domain/type/status/sort/creator/createdAt
+- `admin.edu.finance.index`: col.userUuid/courseId/videoId/billDate/payMethod/amount/paidAmount/type/createdAt
+- `admin.edu.course.categories`: col.code/name/parentId/typeId/sort/creator
+- `admin.edu.organization`: col.platformId/name/remark/filePath/creator/createdAt
+- `admin.edu.course.platformLog`: col.platformId/courseId/videoId/type/creator/systemCreator/createdAt
+- `admin.eduZhsIdentity`: col.name/platformId/orgId/parentId/crossOrg/creator/createdAt
+- `admin.edu.learn.index`: subLink.live/recorded/materials/homework/records/progress/plan/remind/community/ranking
+- `admin.edu.learn.recorded`: field.courseId/videoPath/title/subtitle/teacher/duration/amount/label/agentIds/sort/creator/attachmentUrl/popularity/favorites
+- `admin.edu.exam.questions`: typeLabel.single_choice/multi_choice/judgment/fill_blank/subjective/programming
+- `admin.edu.exam.questionsType`: typeLabel.single/multi/judgment/fill/subjective/programming
+- `models`: model.stepfun-3-7-flash/stepfun-3-5-flash/stepfun-router-v1/agnes-gpt-4o/groq-llama-3-3-70b/gemini-1-5-flash/gpt-4o/gpt-4o-mini/claude-3-5-sonnet/gemini-2-flash 的 description + 2个 name
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/api typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/api test` — ✅ 860个测试全部通过
+- pre-commit i18n 键完整性 — ✅ 602 个文件 zh/en parity OK
+- 5语言文件键数一致（各7287键）
+- admin/edu 下所有 .ts 文件零中文残留
+
+### 技术债清零汇总
+
+| 技术债                             | 原数量 | 处理方式                               | 状态    |
+| ---------------------------------- | ------ | -------------------------------------- | ------- |
+| `.includes('请求失败')` 字符串匹配 | 14处   | ApiError + isNotFound()                | ✅ 清零 |
+| helpers.ts 硬编码中文              | ~155条 | i18n key 模式 + exportFromApi 翻译参数 | ✅ 清零 |
+| models/helpers.ts 硬编码中文       | 156处  | i18n key 模式 + ModelsGrid 翻译        | ✅ 清零 |
