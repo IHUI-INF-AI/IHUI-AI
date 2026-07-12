@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   Dialog,
@@ -41,12 +42,13 @@ export function UserPlatformDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.eduUserPlatform')
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑用户平台关系' : '新建用户平台关系'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -54,7 +56,7 @@ export function UserPlatformDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label>用户UUID</Label>
+            <Label>{t('labelUserUuid')}</Label>
             <Input
               value={form.userUuid}
               onChange={(e) => setForm({ ...form, userUuid: e.target.value })}
@@ -62,46 +64,46 @@ export function UserPlatformDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>平台ID</Label>
+              <Label>{t('labelPlatformId')}</Label>
               <Input
                 value={form.platformId}
                 onChange={(e) => setForm({ ...form, platformId: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>身份ID</Label>
+              <Label>{t('labelIdentityId')}</Label>
               <Input
                 value={form.identityId}
                 onChange={(e) => setForm({ ...form, identityId: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>状态</Label>
+              <Label>{t('labelStatus')}</Label>
               <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
                 <SelectTrigger className={selectClass}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">正常</SelectItem>
-                  <SelectItem value="1">禁用</SelectItem>
+                  <SelectItem value="0">{t('statusNormal')}</SelectItem>
+                  <SelectItem value="1">{t('statusDisabled')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>是否删除</Label>
+              <Label>{t('labelIsDel')}</Label>
               <Select value={form.isDel} onValueChange={(v) => setForm({ ...form, isDel: v })}>
                 <SelectTrigger className={selectClass}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">否</SelectItem>
-                  <SelectItem value="1">是</SelectItem>
+                  <SelectItem value="0">{t('no')}</SelectItem>
+                  <SelectItem value="1">{t('yes')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <div className="space-y-2">
-            <Label>扩展字段</Label>
+            <Label>{t('labelField1')}</Label>
             <Input
               value={form.field1}
               onChange={(e) => setForm({ ...form, field1: e.target.value })}
@@ -109,10 +111,11 @@ export function UserPlatformDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui'
 import { COLS, th } from './helpers'
@@ -14,18 +15,19 @@ interface Props {
 }
 
 export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Props) {
+  const t = useTranslations('admin.aiGc')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
           <tr>
-            <th className={th}>封面</th>
+            <th className={th}>{t('colCover')}</th>
             {COLS.map((c) => (
               <th key={c.key} className={th}>
                 {c.label}
               </th>
             ))}
-            <th className={`${th} text-right`}>操作</th>
+            <th className={`${th} text-right`}>{t('colActions')}</th>
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -36,7 +38,7 @@ export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Pro
                 className="px-4 py-10 text-center text-muted-foreground"
               >
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </td>
             </tr>
           ) : list.length === 0 ? (
@@ -45,7 +47,7 @@ export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Pro
                 colSpan={COLS.length + 2}
                 className="px-4 py-10 text-center text-muted-foreground"
               >
-                暂无数据
+                {t('noData')}
               </td>
             </tr>
           ) : (
@@ -68,7 +70,7 @@ export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Pro
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="ghost" onClick={() => onEdit(item)}>
                       <Edit className="h-4 w-4" />
-                      编辑
+                      {t('edit')}
                     </Button>
                     <Button
                       size="sm"
@@ -78,7 +80,7 @@ export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Pro
                       onClick={() => onDelete(item.id)}
                     >
                       <Trash2 className="h-4 w-4" />
-                      删除
+                      {t('delete')}
                     </Button>
                   </div>
                 </td>

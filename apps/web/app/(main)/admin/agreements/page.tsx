@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -11,6 +12,7 @@ import { api, EMPTY_FORM, agreementToForm, formToBody } from './helpers'
 import type { Agreement, AgreementForm } from './types'
 
 export default function AgreementsPage() {
+  const t = useTranslations('admin.agreements')
   const qc = useQueryClient()
   const [currentPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
@@ -34,7 +36,7 @@ export default function AgreementsPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'agreements'] })
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       close()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -44,7 +46,7 @@ export default function AgreementsPage() {
     mutationFn: (id: string) => api<void>(`/api/admin/agreements/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'agreements'] })
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -67,21 +69,21 @@ export default function AgreementsPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.title.trim()) {
-      toast.error('请输入标题')
+      toast.error(t('titleRequired'))
       return
     }
     if (!form.content.trim()) {
-      toast.error('请输入内容')
+      toast.error(t('contentRequired'))
       return
     }
     if (!form.version.trim()) {
-      toast.error('请输入版本号')
+      toast.error(t('versionRequired'))
       return
     }
     saveMut.mutate()
   }
   function handleDelete(item: Agreement) {
-    if (!window.confirm('确认删除该协议？')) return
+    if (!window.confirm(t('deleteConfirm'))) return
     deleteMut.mutate(item.id)
   }
 
