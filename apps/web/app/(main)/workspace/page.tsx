@@ -187,7 +187,7 @@ export default function WorkspacePage() {
 
       {/* 开发者工具预览 */}
       <section className="space-y-4">
-        <h2 className="text-base font-semibold">开发者工具</h2>
+        <h2 className="text-base font-semibold">{t('developerTools')}</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <WorkspaceFolderSelector
             folders={[]}
@@ -198,7 +198,7 @@ export default function WorkspacePage() {
         </div>
         <div className="relative">
           <Button variant="outline" size="sm" onClick={() => setMentionOpen((v) => !v)}>
-            提及文件
+            {t('mentionFile')}
           </Button>
           <FileMentionPopover
             files={[]}

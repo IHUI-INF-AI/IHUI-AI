@@ -32,6 +32,21 @@
     "notFoundTitle": "页面未找到",
     "notFoundDescription": "您访问的页面不存在或已被移除。",
     "backHome": "返回首页",
+    "reply": "回复",
+    "searchHistory": "搜索历史",
+    "clear": "清除",
+    "follow": "关注",
+    "followed": "已关注",
+    "orderNoLabel": "订单号",
+    "searchPlaceholder": "搜索...",
+    "orderStatus": {
+      "pending": "待付款",
+      "paid": "已付款",
+      "shipped": "已发货",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "refunded": "已退款"
+    },
     "tools": {
       "title": "工具中心",
       "subtitle": "浏览并使用平台提供的各类工具",
@@ -292,7 +307,9 @@
     "deleteConfirm": "确定要删除 {name} 吗？此操作不可恢复。",
     "uploadFailed": "上传失败",
     "downloadFailed": "下载失败",
-    "processedFiles": "已处理文件"
+    "processedFiles": "已处理文件",
+    "developerTools": "开发者工具",
+    "mentionFile": "提及文件"
   },
   "chat": {
     "title": "AI 对话",
@@ -320,7 +337,59 @@
     "loading": "加载会话中...",
     "enterToSend": "Enter 发送 · Shift+Enter 换行",
     "generating": "生成中",
-    "me": "我"
+    "me": "我",
+    "promptTemplate": "提示词模板",
+    "addContextReference": "添加为上下文引用",
+    "voiceRecord": "语音录制",
+    "voiceRecordLabel": "录音 {duration}s",
+    "modelDescGpt4oMini": "快速 · 经济",
+    "modelDescGpt4o": "均衡 · 高质量",
+    "modelDescClaude35Sonnet": "强推理 · 写作",
+    "modelDescClaude35Haiku": "快速 · 轻量",
+    "slashCmd": {
+      "summary": "总结当前对话",
+      "translate": "翻译文本",
+      "explain": "解释概念",
+      "code": "生成代码",
+      "polish": "润色文本"
+    },
+    "cmdSummary": "请总结以上对话内容，提炼关键信息",
+    "cmdTranslate": "请将以下内容翻译为英文：",
+    "cmdExplain": "请详细解释以下概念：",
+    "cmdCode": "请用代码实现以下功能，并添加注释：",
+    "cmdPolish": "请润色以下文本，使其更专业流畅：",
+    "tpl": {
+      "email": {
+        "name": "邮件起草",
+        "content": "请帮我起草一封邮件，主题为：",
+        "category": "写作"
+      },
+      "report": {
+        "name": "报告大纲",
+        "content": "请为以下主题生成报告大纲：",
+        "category": "写作"
+      },
+      "review": {
+        "name": "代码审查",
+        "content": "请审查以下代码，指出潜在问题：",
+        "category": "代码"
+      },
+      "refactor": {
+        "name": "代码重构",
+        "content": "请重构以下代码，提升可读性：",
+        "category": "代码"
+      },
+      "translate": {
+        "name": "中英互译",
+        "content": "请将以下内容翻译：",
+        "category": "翻译"
+      },
+      "summary": {
+        "name": "内容总结",
+        "content": "请总结以下内容的关键信息：",
+        "category": "总结"
+      }
+    }
   },
   "learn": {
     "title": "学习中心",
@@ -2678,7 +2747,10 @@
       "favorites": "收藏",
       "statsLoading": "统计加载中...",
       "accountInfo": "账号信息",
-      "userId": "用户 ID"
+      "userId": "用户 ID",
+      "aiUsage": "AI 用量统计",
+      "routines": "例行程序",
+      "voiceRecord": "语音录制"
     },
     "security": {
       "title": "安全设置",
@@ -4128,7 +4200,9 @@
     "submitting": "提交中...",
     "fieldAgentId": "Agent ID",
     "fieldWorkspace": "工作区",
-    "fieldRemark": "备注"
+    "fieldRemark": "备注",
+    "marketTab": "Agent 市场",
+    "mineTab": "我的 Agent"
   },
   "distribution": {
     "title": "分销中心",
