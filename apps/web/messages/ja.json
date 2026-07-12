@@ -2618,7 +2618,26 @@
           "subtitleWithType": "試験問題の{type}を管理",
           "backToQuestions": "問題集に戻る",
           "createWithType": "新規{type}",
-          "loading": "読み込み中..."
+          "loading": "読み込み中...",
+          "stem": "問題文",
+          "score": "配点",
+          "sort": "並び順",
+          "actions": "操作",
+          "noDataWithType": "{type}がありません",
+          "edit": "編集",
+          "delete": "削除",
+          "editWithType": "{type}を編集",
+          "stemPlaceholder": "問題文を入力",
+          "optionsJson": "選択肢 (JSON)",
+          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"選択肢1\"}]",
+          "answerJson": "回答 (JSON)",
+          "analysis": "解説",
+          "analysisPlaceholder": "解説(任意)",
+          "cancel": "キャンセル",
+          "save": "保存",
+          "selectPaper": "試験を選択",
+          "selectPaperPlaceholder": "試験を選択してください",
+          "unpublished": "（未公開）"
         }
       },
       "learn": {
