@@ -1,6 +1,6 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
-import { authenticate } from '../plugins/auth.js';
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
+import { authenticate } from '../plugins/auth.js'
 import {
   createConversation,
   findConversationsByUser,
@@ -15,8 +15,8 @@ import {
   favoriteConversation,
   unfavoriteConversation,
   findFavoriteConversations,
-} from '../db/chat-queries.js';
-import { success, error } from '../utils/response.js';
+} from '../db/chat-queries.js'
+import { success, error } from '../utils/response.js'
 
 // =============================================================================
 // Zod schemas
@@ -27,59 +27,64 @@ const createConversationSchema = z.object({
   model: z.string().max(64).optional(),
   systemPrompt: z.string().optional(),
   metadata: z.unknown().optional(),
-});
+})
 
 const updateConversationSchema = z.object({
   title: z.string().max(255).optional(),
   model: z.string().max(64).optional(),
   systemPrompt: z.string().optional(),
   metadata: z.unknown().optional(),
-});
+})
 
-const createMessageSchema = z.object({
-  content: z.string().min(1, '消息内容不能为空'),
-  // 客户端只能创建 user 消息,assistant/system 由后端 Worker/AI 创建
-  // 兼容旧前端:未传 role 默认 user,传 assistant/system 则忽略改为 user
-  role: z.enum(['user', 'assistant', 'system']).optional(),
-  tokens: z.number().int().nonnegative().optional(),
-  metadata: z.unknown().optional(),
-}).refine((data) => {
-  // 强制客户端只能写 user 消息
-  if (data.role && data.role !== 'user') {
-    return false
-  }
-  return true
-}, { message: '客户端只能创建 user 消息,assistant 消息由 AI 自动创建' });
+const createMessageSchema = z
+  .object({
+    content: z.string().min(1, '消息内容不能为空'),
+    // 客户端只能创建 user 消息,assistant/system 由后端 Worker/AI 创建
+    // 兼容旧前端:未传 role 默认 user,传 assistant/system 则忽略改为 user
+    role: z.enum(['user', 'assistant', 'system']).optional(),
+    tokens: z.number().int().nonnegative().optional(),
+    metadata: z.unknown().optional(),
+  })
+  .refine(
+    (data) => {
+      // 强制客户端只能写 user 消息
+      if (data.role && data.role !== 'user') {
+        return false
+      }
+      return true
+    },
+    { message: '客户端只能创建 user 消息,assistant 消息由 AI 自动创建' },
+  )
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
   search: z.string().max(255).optional(),
-});
+})
 
 const messageListSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
   before: z.string().uuid().optional(),
   after: z.string().uuid().optional(),
-});
+})
 
 // =============================================================================
 // 序列化辅助
 // =============================================================================
 
 function serializeConversation(c: {
-  id: string;
-  userId: string;
-  title: string;
-  model: string;
-  systemPrompt: string | null;
-  metadata: unknown;
-  lastMessageAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-  messageCount?: number;
-  favorite?: boolean;
+  id: string
+  userId: string
+  title: string
+  model: string
+  systemPrompt: string | null
+  metadata: unknown
+  lastMessageAt: Date | null
+  createdAt: Date
+  updatedAt: Date
+  messageCount?: number
+  favorite?: boolean
 }) {
   return {
     id: c.id,
@@ -93,17 +98,17 @@ function serializeConversation(c: {
     updatedAt: c.updatedAt,
     ...(c.messageCount !== undefined && { messageCount: c.messageCount }),
     ...(c.favorite !== undefined && { favorite: c.favorite }),
-  };
+  }
 }
 
 function serializeMessage(m: {
-  id: string;
-  conversationId: string;
-  role: string;
-  content: string;
-  tokens: number | null;
-  metadata: unknown;
-  createdAt: Date;
+  id: string
+  conversationId: string
+  role: string
+  content: string
+  tokens: number | null
+  metadata: unknown
+  createdAt: Date
 }) {
   return {
     id: m.id,
@@ -113,7 +118,7 @@ function serializeMessage(m: {
     tokens: m.tokens,
     metadata: m.metadata,
     createdAt: m.createdAt,
-  };
+  }
 }
 
 // =============================================================================
@@ -121,33 +126,30 @@ function serializeMessage(m: {
 // =============================================================================
 
 export const chatRoutes: FastifyPluginAsync = async (server) => {
+  const idParam = z.object({ id: z.string() })
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      await authenticate(request);
+      await authenticate(request)
     } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401;
-      const message = (e as Error).message || 'Authentication required';
-      return reply.status(statusCode).send(error(statusCode, message));
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || 'Authentication required'
+      return reply.status(statusCode).send(error(statusCode, message))
     }
-  };
+  }
 
   // 校验对话归属：存在且属于当前用户
-  const ensureOwnedConversation = async (
-    id: string,
-    userId: string,
-    reply: FastifyReply,
-  ) => {
-    const conversation = await findConversationById(id);
+  const ensureOwnedConversation = async (id: string, userId: string, reply: FastifyReply) => {
+    const conversation = await findConversationById(id)
     if (!conversation) {
-      reply.status(404).send(error(404, '对话不存在'));
-      return { conversation: null as null };
+      reply.status(404).send(error(404, '对话不存在'))
+      return { conversation: null as null }
     }
     if (conversation.userId !== userId) {
-      reply.status(403).send(error(403, '无权访问该对话'));
-      return { conversation: null as null };
+      reply.status(403).send(error(403, '无权访问该对话'))
+      return { conversation: null as null }
     }
-    return { conversation };
-  };
+    return { conversation }
+  }
 
   // POST /conversations - 创建对话
   server.post(
@@ -191,25 +193,26 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
 
-    const parsed = createConversationSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
-    }
+      const parsed = createConversationSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
 
-    const conversation = await createConversation({
-      userId,
-      title: parsed.data.title,
-      model: parsed.data.model,
-      systemPrompt: parsed.data.systemPrompt,
-      metadata: parsed.data.metadata,
-    });
+      const conversation = await createConversation({
+        userId,
+        title: parsed.data.title,
+        model: parsed.data.model,
+        systemPrompt: parsed.data.systemPrompt,
+        metadata: parsed.data.metadata,
+      })
 
-    return reply.status(201).send(success({ conversation: serializeConversation(conversation) }));
-  });
+      return reply.status(201).send(success({ conversation: serializeConversation(conversation) }))
+    },
+  )
 
   // GET /conversations - 对话列表（分页 + 按 title 搜索）
   server.get(
@@ -254,76 +257,77 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
 
-    const parsed = paginationSchema.safeParse(request.query);
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
-    }
+      const parsed = paginationSchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
 
-    const { list, total } = await findConversationsByUser(userId, {
-      page: parsed.data.page,
-      pageSize: parsed.data.pageSize,
-      search: parsed.data.search,
-    });
-
-    return reply.send(
-      success({
-        conversations: list.map(serializeConversation),
+      const { list, total } = await findConversationsByUser(userId, {
         page: parsed.data.page,
         pageSize: parsed.data.pageSize,
-        total,
-      }),
-    );
-  });
+        search: parsed.data.search,
+      })
+
+      return reply.send(
+        success({
+          conversations: list.map(serializeConversation),
+          page: parsed.data.page,
+          pageSize: parsed.data.pageSize,
+          total,
+        }),
+      )
+    },
+  )
 
   // GET /conversations/:id - 对话详情
   server.get('/conversations/:id', async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
 
-    const { id } = request.params as { id: string };
-    const { conversation } = await ensureOwnedConversation(id, userId, reply);
-    if (!conversation) return;
+    const { id } = idParam.parse(request.params)
+    const { conversation } = await ensureOwnedConversation(id, userId, reply)
+    if (!conversation) return
 
-    return reply.send(success({ conversation: serializeConversation(conversation) }));
-  });
+    return reply.send(success({ conversation: serializeConversation(conversation) }))
+  })
 
   // PATCH /conversations/:id - 更新对话
   server.patch('/conversations/:id', async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
 
-    const { id } = request.params as { id: string };
-    const parsed = updateConversationSchema.safeParse(request.body);
+    const { id } = idParam.parse(request.params)
+    const parsed = updateConversationSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
-    const owned = await ensureOwnedConversation(id, userId, reply);
-    if (!owned.conversation) return;
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
 
-    const updated = await updateConversation(id, parsed.data);
-    return reply.send(success({ conversation: serializeConversation(updated) }));
-  });
+    const updated = await updateConversation(id, parsed.data)
+    return reply.send(success({ conversation: serializeConversation(updated) }))
+  })
 
   // DELETE /conversations/:id - 删除对话（级联删除消息）
   server.delete('/conversations/:id', async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
 
-    const { id } = request.params as { id: string };
-    const owned = await ensureOwnedConversation(id, userId, reply);
-    if (!owned.conversation) return;
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
 
-    await deleteConversation(id);
-    return reply.send(success({ deleted: true }));
-  });
+    await deleteConversation(id)
+    return reply.send(success({ deleted: true }))
+  })
 
   // GET /conversations/:id/messages - 消息列表（分页/游标，按时间正序）
   server.get(
@@ -351,7 +355,11 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
               default: 20,
               description: '每页数量(1-100,默认 20)',
             },
-            before: { type: 'string', format: 'uuid', description: '游标:返回该消息 ID 之前的记录' },
+            before: {
+              type: 'string',
+              format: 'uuid',
+              description: '游标:返回该消息 ID 之前的记录',
+            },
             after: { type: 'string', format: 'uuid', description: '游标:返回该消息 ID 之后的记录' },
           },
         },
@@ -384,51 +392,52 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
 
-    const { id } = request.params as { id: string };
-    const owned = await ensureOwnedConversation(id, userId, reply);
-    if (!owned.conversation) return;
+      const { id } = idParam.parse(request.params)
+      const owned = await ensureOwnedConversation(id, userId, reply)
+      if (!owned.conversation) return
 
-    const parsed = messageListSchema.safeParse(request.query);
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
-    }
+      const parsed = messageListSchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
 
-    const { list, total, hasMore, nextCursor } = await findMessages(id, {
-      page: parsed.data.page,
-      pageSize: parsed.data.pageSize,
-      before: parsed.data.before,
-      after: parsed.data.after,
-    });
-
-    return reply.send(
-      success({
-        messages: list.map(serializeMessage),
+      const { list, total, hasMore, nextCursor } = await findMessages(id, {
         page: parsed.data.page,
         pageSize: parsed.data.pageSize,
-        total,
-        hasMore,
-        nextCursor,
-      }),
-    );
-  });
+        before: parsed.data.before,
+        after: parsed.data.after,
+      })
+
+      return reply.send(
+        success({
+          messages: list.map(serializeMessage),
+          page: parsed.data.page,
+          pageSize: parsed.data.pageSize,
+          total,
+          hasMore,
+          nextCursor,
+        }),
+      )
+    },
+  )
 
   // POST /conversations/:id/messages - 发送消息（更新 last_message_at）
   server.post('/conversations/:id/messages', async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
 
-    const { id } = request.params as { id: string };
-    const owned = await ensureOwnedConversation(id, userId, reply);
-    if (!owned.conversation) return;
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
 
-    const parsed = createMessageSchema.safeParse(request.body);
+    const parsed = createMessageSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     const message = await createMessage({
@@ -437,7 +446,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       content: parsed.data.content,
       tokens: parsed.data.tokens,
       metadata: parsed.data.metadata,
-    });
+    })
 
     // WebSocket 实时推送：新消息即时通知客户端刷新（多端同步）
     // 通过 server.pushNotification 自动处理本机 + 多实例广播
@@ -446,80 +455,80 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         type: 'chat_message',
         conversationId: id,
         message: serializeMessage(message),
-      });
+      })
     } catch {
       // 推送失败不阻塞消息创建
     }
 
-    return reply.status(201).send(success({ message: serializeMessage(message) }));
-  });
+    return reply.status(201).send(success({ message: serializeMessage(message) }))
+  })
 
   // DELETE /messages/:id - 删除单条消息
   server.delete('/messages/:id', async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
 
-    const { id } = request.params as { id: string };
-    const message = await findMessageById(id);
+    const { id } = idParam.parse(request.params)
+    const message = await findMessageById(id)
     if (!message) {
-      return reply.status(404).send(error(404, '消息不存在'));
+      return reply.status(404).send(error(404, '消息不存在'))
     }
 
     // 校验消息所属对话属于当前用户
-    const conversation = await findConversationById(message.conversationId);
+    const conversation = await findConversationById(message.conversationId)
     if (!conversation || conversation.userId !== userId) {
-      return reply.status(403).send(error(403, '无权删除该消息'));
+      return reply.status(403).send(error(403, '无权删除该消息'))
     }
 
-    await deleteMessage(id);
-    return reply.send(success({ deleted: true }));
-  });
+    await deleteMessage(id)
+    return reply.send(success({ deleted: true }))
+  })
 
   // POST /conversations/:id/favorite - 收藏对话
   server.post('/conversations/:id/favorite', async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
 
-    const { id } = request.params as { id: string };
-    const owned = await ensureOwnedConversation(id, userId, reply);
-    if (!owned.conversation) return;
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
 
-    const created = await favoriteConversation(userId, id);
-    return reply.status(created ? 201 : 200).send(success({ favorited: true, created }));
-  });
+    const created = await favoriteConversation(userId, id)
+    return reply.status(created ? 201 : 200).send(success({ favorited: true, created }))
+  })
 
   // DELETE /conversations/:id/favorite - 取消收藏
   server.delete('/conversations/:id/favorite', async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
 
-    const { id } = request.params as { id: string };
+    const { id } = idParam.parse(request.params)
     // 取消收藏前仍校验对话归属，避免越权操作
-    const owned = await ensureOwnedConversation(id, userId, reply);
-    if (!owned.conversation) return;
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
 
-    await unfavoriteConversation(userId, id);
-    return reply.send(success({ unfavorited: true }));
-  });
+    await unfavoriteConversation(userId, id)
+    return reply.send(success({ unfavorited: true }))
+  })
 
   // GET /favorites - 收藏对话列表
   server.get('/favorites', async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
 
-    const parsed = paginationSchema.safeParse(request.query);
+    const parsed = paginationSchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     const { list, total } = await findFavoriteConversations(userId, {
       page: parsed.data.page,
       pageSize: parsed.data.pageSize,
-    });
+    })
 
     return reply.send(
       success({
@@ -532,20 +541,20 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         pageSize: parsed.data.pageSize,
         total,
       }),
-    );
-  });
+    )
+  })
 
   // POST /conversations/:id/clear - 清空对话消息（保留对话）
   server.post('/conversations/:id/clear', async (request, reply) => {
-    await requireAuth(request, reply);
-    if (!request.userId) return;
-    const userId = request.userId;
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
 
-    const { id } = request.params as { id: string };
-    const owned = await ensureOwnedConversation(id, userId, reply);
-    if (!owned.conversation) return;
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
 
-    await clearMessages(id);
-    return reply.send(success({ cleared: true }));
-  });
-};
+    await clearMessages(id)
+    return reply.send(success({ cleared: true }))
+  })
+}

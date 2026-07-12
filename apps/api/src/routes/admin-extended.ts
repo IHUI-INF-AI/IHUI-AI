@@ -22,6 +22,18 @@ const demandAuditSchema = z.object({
 export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
+  const idParam = z.object({ id: z.string() })
+  const demandAuditListQuery = z.object({
+    status: z.string().optional(),
+    page: z.coerce.number().optional().default(1),
+    pageSize: z.coerce.number().optional().default(20),
+  })
+  const onlineUsersQuery = z.object({
+    keyword: z.string().optional(),
+    page: z.coerce.number().optional().default(1),
+    pageSize: z.coerce.number().optional().default(20),
+  })
+
   // ===========================================================================
   // 菜单管理 — /admin/menu
   // ===========================================================================
@@ -48,7 +60,7 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/menu/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const parsed = menuSchema.partial().safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -71,7 +83,7 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/menu/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     await db.execute(sql`DELETE FROM admin_menus WHERE id = ${id}`)
     return reply.send(success({ deleted: true }))
   })
@@ -80,9 +92,9 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 需求审核 — /admin/demand-audit
   // ===========================================================================
   server.get('/demand-audit', async (request, reply) => {
-    const query = request.query as { status?: string; page?: string; pageSize?: string }
-    const page = parseInt(query.page ?? '1', 10)
-    const pageSize = parseInt(query.pageSize ?? '20', 10)
+    const query = demandAuditListQuery.parse(request.query)
+    const page = query.page
+    const pageSize = query.pageSize
     const offset = (page - 1) * pageSize
     const statusFilter = query.status ? sql`WHERE status = ${query.status}` : sql``
     const rows = await db.execute(sql`
@@ -102,7 +114,7 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/demand-audit/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const [row] = await db.execute(sql`
       SELECT id, title, description, submitter_id, submitter_name, status, audit_comment,
              submitted_at, audited_at, created_at
@@ -113,7 +125,7 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/demand-audit/:id/audit', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const parsed = demandAuditSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -136,9 +148,9 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 在线用户 — /admin/online-users
   // ===========================================================================
   server.get('/online-users', async (request, reply) => {
-    const query = request.query as { keyword?: string; page?: string; pageSize?: string }
-    const page = parseInt(query.page ?? '1', 10)
-    const pageSize = parseInt(query.pageSize ?? '20', 10)
+    const query = onlineUsersQuery.parse(request.query)
+    const page = query.page
+    const pageSize = query.pageSize
     const offset = (page - 1) * pageSize
     const keywordFilter = query.keyword
       ? sql`WHERE (username ILIKE ${'%' + query.keyword + '%'} OR ip_address ILIKE ${'%' + query.keyword + '%'})`
@@ -159,7 +171,7 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/online-users/:id/force-logout', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const [row] = await db.execute(sql`
       UPDATE online_users SET status = 'force_offline', updated_at = NOW()
       WHERE id = ${id}

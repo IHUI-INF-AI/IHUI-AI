@@ -14,6 +14,7 @@
  */
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 
@@ -175,13 +176,15 @@ export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
   // GET /callback-log/list — 回调日志列表（支持 biz_type/source/status 过滤 + 分页）
   server.get('/list', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const query = request.query as {
-      biz_type?: string
-      source?: string
-      status?: string
-      page?: string
-      limit?: string
-    }
+    const query = z
+      .object({
+        biz_type: z.string().optional(),
+        source: z.string().optional(),
+        status: z.string().optional(),
+        page: z.string().optional(),
+        limit: z.string().optional(),
+      })
+      .parse(request.query)
     const page = Math.max(1, Number(query.page ?? '1') || 1)
     const limit = Math.min(100, Math.max(1, Number(query.limit ?? '20') || 20))
     const statusFilter = query.status === undefined ? undefined : Number(query.status)
@@ -203,7 +206,7 @@ export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
   // GET /callback-log/:id — 回调详情（含请求/响应体）
   server.get('/:id', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { id } = request.params as { id: string }
+    const { id } = z.object({ id: z.string() }).parse(request.params)
     const entry = store.get(id)
     if (!entry) {
       return reply.status(404).send(error(404, '日志不存在'))
@@ -214,7 +217,7 @@ export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /callback-log/:id — 删除回调日志
   server.delete('/:id', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { id } = request.params as { id: string }
+    const { id } = z.object({ id: z.string() }).parse(request.params)
     if (!store.has(id)) {
       return reply.status(404).send(error(404, '日志不存在'))
     }

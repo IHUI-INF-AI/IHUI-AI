@@ -52,6 +52,13 @@ function parseIdParam(request: FastifyRequest, reply: FastifyReply) {
 }
 
 export const missingUserRoutes: FastifyPluginAsync = async (server) => {
+  const orderNoParam = z.object({ orderNo: z.string() })
+  const refundNoParam = z.object({ refundNo: z.string() })
+  const orderIdParam = z.object({ orderId: z.string() })
+  const codeParam = z.object({ code: z.string() })
+  const taskIdParam = z.object({ taskId: z.string() })
+  const botConversationParam = z.object({ botId: z.string(), conversationId: z.string() })
+
   // 所有路由都需要登录
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -406,13 +413,13 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   // 14. 支付模块 /payment/*, /payments/*, /refunds/*, /top-up/*, /invoices/*（15 个端点）
   // ===========================================================================
   server.post('/payment/order/:orderNo/close', async (request, reply) => {
-    const orderNo = (request.params as { orderNo: string }).orderNo
+    const orderNo = orderNoParam.parse(request.params).orderNo
     if (!orderNo) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ success: true }))
   })
 
   server.post('/payment/order/:orderNo/sync', async (request, reply) => {
-    const orderNo = (request.params as { orderNo: string }).orderNo
+    const orderNo = orderNoParam.parse(request.params).orderNo
     if (!orderNo) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ success: true }))
   })
@@ -422,7 +429,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/payment/orders/:orderNo', async (request, reply) => {
-    const orderNo = (request.params as { orderNo: string }).orderNo
+    const orderNo = orderNoParam.parse(request.params).orderNo
     if (!orderNo) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ order: null }))
   })
@@ -434,31 +441,31 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/payment/refund/:refundNo', async (request, reply) => {
-    const refundNo = (request.params as { refundNo: string }).refundNo
+    const refundNo = refundNoParam.parse(request.params).refundNo
     if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ refund: null }))
   })
 
   server.post('/payment/refund/:refundNo/cancel', async (request, reply) => {
-    const refundNo = (request.params as { refundNo: string }).refundNo
+    const refundNo = refundNoParam.parse(request.params).refundNo
     if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ success: true }))
   })
 
   server.get('/payment/refund/:refundNo/status', async (request, reply) => {
-    const refundNo = (request.params as { refundNo: string }).refundNo
+    const refundNo = refundNoParam.parse(request.params).refundNo
     if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ status: null }))
   })
 
   server.post('/payment/refund/:refundNo/audit', async (request, reply) => {
-    const refundNo = (request.params as { refundNo: string }).refundNo
+    const refundNo = refundNoParam.parse(request.params).refundNo
     if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ success: true }))
   })
 
   server.post('/payment/refund/:refundNo/process', async (request, reply) => {
-    const refundNo = (request.params as { refundNo: string }).refundNo
+    const refundNo = refundNoParam.parse(request.params).refundNo
     if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ success: true }))
   })
@@ -474,7 +481,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/top-up/status/:orderId', async (request, reply) => {
-    const orderId = (request.params as { orderId: string }).orderId
+    const orderId = orderIdParam.parse(request.params).orderId
     if (!orderId) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ status: null }))
   })
@@ -552,13 +559,13 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/fund/:code', async (request, reply) => {
-    const code = (request.params as { code: string }).code
+    const code = codeParam.parse(request.params).code
     if (!code) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ fund: null }))
   })
 
   server.get('/fund/:code/net-values', async (request, reply) => {
-    const code = (request.params as { code: string }).code
+    const code = codeParam.parse(request.params).code
     if (!code) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ list: [] }))
   })
@@ -609,7 +616,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/ai/aigc/tasks/:taskId/cancel', async (request, reply) => {
-    const taskId = (request.params as { taskId: string }).taskId
+    const taskId = taskIdParam.parse(request.params).taskId
     if (!taskId) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ success: true }))
   })
@@ -788,7 +795,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/coze/chat/history/:botId/:conversationId', async (request, reply) => {
-    const { botId, conversationId } = request.params as { botId: string; conversationId: string }
+    const { botId, conversationId } = botConversationParam.parse(request.params)
     if (!botId || !conversationId) return reply.status(400).send(error(400, '参数错误'))
     return reply.send(success({ list: [] }))
   })
