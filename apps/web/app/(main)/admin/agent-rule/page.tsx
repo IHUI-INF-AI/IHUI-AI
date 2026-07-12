@@ -201,7 +201,7 @@ export default function AgentRulePage() {
             <Download className="h-4 w-4" />
             导出
           </Button>
-          <HasPermi code="ai:agentRule:add">
+          <HasPermi code="ai:agentrule:add">
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
               新增
@@ -300,7 +300,7 @@ export default function AgentRulePage() {
                       >
                         <Settings className="h-4 w-4" />
                       </Button>
-                      <HasPermi code="ai:agentRule:edit">
+                      <HasPermi code="ai:agentrule:edit">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -310,7 +310,7 @@ export default function AgentRulePage() {
                           <Edit className="h-4 w-4" />
                         </Button>
                       </HasPermi>
-                      <HasPermi code="ai:agentRule:remove">
+                      <HasPermi code="ai:agentrule:remove">
                         <Button
                           variant="ghost"
                           size="sm"
