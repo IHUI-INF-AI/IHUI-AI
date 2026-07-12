@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Lock, Smartphone, Monitor, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
@@ -18,23 +19,6 @@ interface Device {
   current: boolean
 }
 
-const MOCK_DEVICES: Device[] = [
-  {
-    id: '1',
-    name: 'Chrome · macOS',
-    ip: '192.168.1.1',
-    lastActive: '2026-07-08T10:00:00Z',
-    current: true,
-  },
-  {
-    id: '2',
-    name: 'Safari · iPhone',
-    ip: '10.0.0.2',
-    lastActive: '2026-07-07T22:30:00Z',
-    current: false,
-  },
-]
-
 export default function SecurityPage() {
   const t = useTranslations('user.security')
   const locale = useLocale()
@@ -47,6 +31,17 @@ export default function SecurityPage() {
   const [phoneMsg, setPhoneMsg] = React.useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [phoneLoading, setPhoneLoading] = React.useState(false)
   const [sendingCode, setSendingCode] = React.useState(false)
+
+  const { data: devices, isLoading: devicesLoading } = useQuery({
+    queryKey: ['user', 'security', 'devices', user?.id],
+    queryFn: async () => {
+      const r = await fetchApi<Device[]>(`/api/users/${user?.id}/devices`)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    enabled: !!user?.id,
+  })
+  const devicesList = devices ?? []
 
   const onPasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -270,29 +265,40 @@ export default function SecurityPage() {
           <Monitor className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold">{t('devices')}</h2>
         </div>
-        <ul className="divide-y rounded-lg border">
-          {MOCK_DEVICES.map((d) => (
-            <li key={d.id} className="flex items-center gap-3 px-3 py-2.5">
-              <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
-                <p className="break-words text-sm font-medium">{d.name}</p>
-                <p className="break-words text-xs text-muted-foreground">
-                  {d.ip} · {dateFmt.format(new Date(d.lastActive))}
-                </p>
-              </div>
-              {d.current ? (
-                <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-500">
-                  <Check className="h-3 w-3" />
-                  {t('currentDevice')}
-                </span>
-              ) : (
-                <Button variant="ghost" size="sm">
-                  {t('logout')}
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
+        {devicesLoading ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            加载中...
+          </div>
+        ) : devicesList.length === 0 ? (
+          <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+            暂无数据
+          </div>
+        ) : (
+          <ul className="divide-y rounded-lg border">
+            {devicesList.map((d) => (
+              <li key={d.id} className="flex items-center gap-3 px-3 py-2.5">
+                <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-medium">{d.name}</p>
+                  <p className="break-words text-xs text-muted-foreground">
+                    {d.ip} · {dateFmt.format(new Date(d.lastActive))}
+                  </p>
+                </div>
+                {d.current ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-500">
+                    <Check className="h-3 w-3" />
+                    {t('currentDevice')}
+                  </span>
+                ) : (
+                  <Button variant="ghost" size="sm">
+                    {t('logout')}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   )

@@ -2,105 +2,509 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
-import { Loader2, ChevronLeft, ChevronRight, Wallet, Search } from 'lucide-react'
-import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
-import { cn } from '@/lib/utils'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
-  Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
-  Button, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, Card, CardContent,
+  Plus,
+  Edit,
+  Trash2,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Wallet,
+} from 'lucide-react'
+import { eduApi, buildQs, type PageData } from '@/lib/edu'
+import { HasPermi } from '@/components/auth/HasPermi'
+import { exportFromApi } from '@/lib/export-utils'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Button,
+  Input,
+  Label,
+  Checkbox,
 } from '@ihui/ui'
 
-interface Order {
-  id: string; orderNo: string; userId: string; userName: string | null
-  productType: string; productName: string; amount: string
-  status: string; payMethod: string | null; createdAt: string
+interface PayLog {
+  id: string
+  userUuid: string
+  courseId?: string
+  videoId?: string
+  outBillOn?: string
+  payWay?: string
+  amount?: string
+  realAmount?: string
+  type?: number
+  createdAt?: string
+}
+interface CForm {
+  userUuid: string
+  courseId: string
+  videoId: string
+  outBillOn: string
+  payWay: string
+  amount: string
+  realAmount: string
+}
+const EMPTY: CForm = {
+  userUuid: '',
+  courseId: '',
+  videoId: '',
+  outBillOn: '',
+  payWay: '',
+  amount: '0',
+  realAmount: '0',
 }
 const PAGE_SIZE = 10
-const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-  paid: { label: '已支付', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },
-  pending: { label: '待支付', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-  cancelled: { label: '已取消', cls: 'bg-muted text-muted-foreground' },
-  refunded: { label: '已退款', cls: 'bg-rose-500/10 text-rose-600 dark:text-rose-500' },
-}
+const PERM = 'course:coursePayLog:'
+const API = '/api/admin/course-pay-log'
 
 export default function EduFinancePage() {
+  const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
-  const [search, setSearch] = React.useState('')
-  const [debounced, setDebounced] = React.useState('')
-  const [status, setStatus] = React.useState('all')
-
-  React.useEffect(() => { const tm = setTimeout(() => { setDebounced(search); setPage(1) }, 300); return () => clearTimeout(tm) }, [search])
-  React.useEffect(() => { setPage(1) }, [status])
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['edu', 'finance', debounced, status, page],
-    queryFn: () => eduApi<PageData<Order>>(`/api/admin/orders${buildQs({ page, pageSize: PAGE_SIZE, search: debounced, status: status === 'all' ? '' : status })}`),
+  const [q, setQ] = React.useState({
+    userUuid: '',
+    courseId: '',
+    videoId: '',
+    outBillOn: '',
+    payWay: '',
   })
+  const [ids, setIds] = React.useState<string[]>([])
+  const [open, setOpen] = React.useState(false)
+  const [editing, setEditing] = React.useState<PayLog | null>(null)
+  const [form, setForm] = React.useState<CForm>(EMPTY)
+  const [err, setErr] = React.useState<string | null>(null)
+
+  const params = { page, pageSize: PAGE_SIZE, ...q }
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['edu', 'course-pay-log', params],
+    queryFn: () => eduApi<PageData<PayLog>>(`${API}${buildQs(params)}`),
+  })
+  const saveMut = useMutation({
+    mutationFn: () => {
+      const body = {
+        userUuid: form.userUuid.trim(),
+        courseId: form.courseId.trim() || null,
+        videoId: form.videoId.trim() || null,
+        outBillOn: form.outBillOn || null,
+        payWay: form.payWay.trim() || null,
+        amount: form.amount,
+        realAmount: form.realAmount,
+      }
+      return editing
+        ? eduApi(`${API}/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
+        : eduApi(API, { method: 'POST', body: JSON.stringify(body) })
+    },
+    onSuccess: () => {
+      toast.success(editing ? '更新成功' : '创建成功')
+      qc.invalidateQueries({ queryKey: ['edu', 'course-pay-log'] })
+      closeDialog()
+    },
+    onError: (e: Error) => setErr(e.message),
+  })
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => eduApi(`${API}/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      toast.success('删除成功')
+      qc.invalidateQueries({ queryKey: ['edu', 'course-pay-log'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+  const batchDeleteMut = useMutation({
+    mutationFn: (ids: string[]) => eduApi(`${API}/${ids.join(',')}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      toast.success('批量删除成功')
+      setIds([])
+      qc.invalidateQueries({ queryKey: ['edu', 'course-pay-log'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  function openCreate() {
+    setEditing(null)
+    setForm(EMPTY)
+    setErr(null)
+    setOpen(true)
+  }
+  function openEdit(r: PayLog) {
+    setEditing(r)
+    setForm({
+      userUuid: r.userUuid ?? '',
+      courseId: r.courseId ?? '',
+      videoId: r.videoId ?? '',
+      outBillOn: r.outBillOn ?? '',
+      payWay: r.payWay ?? '',
+      amount: r.amount ?? '0',
+      realAmount: r.realAmount ?? '0',
+    })
+    setErr(null)
+    setOpen(true)
+  }
+  function closeDialog() {
+    if (saveMut.isPending) return
+    setOpen(false)
+    setEditing(null)
+    setErr(null)
+  }
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setErr(null)
+    if (!form.userUuid.trim()) return setErr('用户UUID不能为空')
+    if (!form.outBillOn) return setErr('账单日期不能为空')
+    saveMut.mutate()
+  }
+  function handleExport() {
+    exportFromApi(`${API}${buildQs({ ...q, pageSize: 10000 })}`, `coursePayLog_${Date.now()}`, [
+      { key: 'id', title: 'ID' },
+      { key: 'userUuid', title: '用户UUID' },
+      { key: 'courseId', title: '课程ID' },
+      { key: 'videoId', title: '视频ID' },
+      { key: 'outBillOn', title: '账单日期' },
+      { key: 'payWay', title: '支付方式' },
+      { key: 'amount', title: '金额' },
+      { key: 'realAmount', title: '实付金额' },
+      { key: 'type', title: '类型' },
+      { key: 'createdAt', title: '创建时间' },
+    ]).then((ok) => toast[ok ? 'success' : 'error'](ok ? '导出成功' : '导出失败'))
+  }
 
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rows = data?.list ?? []
-  const totalAmount = rows.reduce((a, r) => a + (r.status === 'paid' ? Number(r.amount) : 0), 0)
+  const allChecked = rows.length > 0 && rows.every((r) => ids.includes(r.id))
+  function toggleAll() {
+    setIds(allChecked ? [] : rows.map((r) => r.id))
+  }
+  function toggleOne(id: string) {
+    setIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+  }
+  const inputCls = 'h-9 w-32'
+  const COLSPAN = 11
 
   return (
     <div className="space-y-4">
-      <div><h1 className="text-2xl font-bold tracking-tight">财务管理</h1><p className="mt-1 text-sm text-muted-foreground">订单、发票与财务统计</p></div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card><CardContent className="p-5"><div className="text-sm text-muted-foreground">订单总数</div><div className="mt-1 text-2xl font-semibold">{total}</div></CardContent></Card>
-        <Card><CardContent className="p-5"><div className="text-sm text-muted-foreground">当前页已支付金额</div><div className="mt-1 text-2xl font-semibold text-emerald-600">¥{totalAmount.toFixed(2)}</div></CardContent></Card>
-        <Card><CardContent className="p-5"><div className="text-sm text-muted-foreground">已支付</div><div className="mt-1 text-2xl font-semibold">{rows.filter((r) => r.status === 'paid').length}</div></CardContent></Card>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">课程支付日志</h1>
+        <p className="mt-1 text-sm text-muted-foreground">管理课程支付记录与账单</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button asChild variant="ghost" size="sm"><Link href="/admin/edu"><ChevronLeft className="h-4 w-4" />返回教育后台</Link></Button>
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索订单..." className="h-9 pl-8" />
-        </div>
-        <div className="w-full max-w-[140px]">
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className={selectClass} aria-label="状态"><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="paid">已支付</SelectItem><SelectItem value="pending">待支付</SelectItem><SelectItem value="cancelled">已取消</SelectItem><SelectItem value="refunded">已退款</SelectItem></SelectContent>
-          </Select>
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/admin/edu">
+            <ChevronLeft className="h-4 w-4" />
+            返回教育后台
+          </Link>
+        </Button>
+        <Input
+          placeholder="用户UUID"
+          value={q.userUuid}
+          onChange={(e) => {
+            setQ({ ...q, userUuid: e.target.value })
+            setPage(1)
+          }}
+          className={inputCls}
+        />
+        <Input
+          placeholder="课程ID"
+          value={q.courseId}
+          onChange={(e) => {
+            setQ({ ...q, courseId: e.target.value })
+            setPage(1)
+          }}
+          className={inputCls}
+        />
+        <Input
+          placeholder="视频ID"
+          value={q.videoId}
+          onChange={(e) => {
+            setQ({ ...q, videoId: e.target.value })
+            setPage(1)
+          }}
+          className={inputCls}
+        />
+        <Input
+          type="date"
+          placeholder="账单日期"
+          value={q.outBillOn}
+          onChange={(e) => {
+            setQ({ ...q, outBillOn: e.target.value })
+            setPage(1)
+          }}
+          className={inputCls}
+        />
+        <Input
+          placeholder="支付方式"
+          value={q.payWay}
+          onChange={(e) => {
+            setQ({ ...q, payWay: e.target.value })
+            setPage(1)
+          }}
+          className={inputCls}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setQ({ userUuid: '', courseId: '', videoId: '', outBillOn: '', payWay: '' })
+            setPage(1)
+          }}
+        >
+          重置
+        </Button>
+        <div className="ml-auto flex gap-2">
+          <HasPermi code={`${PERM}add`}>
+            <Button onClick={openCreate} size="sm">
+              <Plus className="h-4 w-4" />
+              新建
+            </Button>
+          </HasPermi>
+          <HasPermi code={`${PERM}remove`}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={ids.length === 0}
+              onClick={() => {
+                if (window.confirm(`确定删除选中的 ${ids.length} 项？`)) batchDeleteMut.mutate(ids)
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+              批量删除
+            </Button>
+          </HasPermi>
+          <HasPermi code={`${PERM}export`}>
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="h-4 w-4" />
+              导出
+            </Button>
+          </HasPermi>
         </div>
       </div>
       <div className="overflow-x-auto rounded-lg border">
         <Table>
-          <TableHeader className="bg-muted/50"><TableRow>
-            <TableHead className="px-4 py-2.5">订单号</TableHead><TableHead className="px-4 py-2.5">用户</TableHead>
-            <TableHead className="px-4 py-2.5">商品</TableHead><TableHead className="px-4 py-2.5">金额</TableHead>
-            <TableHead className="px-4 py-2.5">支付方式</TableHead><TableHead className="px-4 py-2.5">状态</TableHead>
-            <TableHead className="px-4 py-2.5">时间</TableHead>
-          </TableRow></TableHeader>
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2.5 w-10">
+                <Checkbox checked={allChecked} onCheckedChange={toggleAll} />
+              </TableHead>
+              <TableHead className="px-4 py-2.5">ID</TableHead>
+              <TableHead className="px-4 py-2.5">用户UUID</TableHead>
+              <TableHead className="px-4 py-2.5">课程ID</TableHead>
+              <TableHead className="px-4 py-2.5">视频ID</TableHead>
+              <TableHead className="px-4 py-2.5">账单日期</TableHead>
+              <TableHead className="px-4 py-2.5">支付方式</TableHead>
+              <TableHead className="px-4 py-2.5">金额</TableHead>
+              <TableHead className="px-4 py-2.5">实付</TableHead>
+              <TableHead className="px-4 py-2.5">创建时间</TableHead>
+              <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody className="divide-y">
-            {isLoading ? (<TableRow><TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />加载中...</TableCell></TableRow>
-            ) : error ? (<TableRow><TableCell colSpan={7} className="px-4 py-10 text-center text-destructive">{(error as Error).message}</TableCell></TableRow>
-            ) : rows.length === 0 ? (<TableRow><TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground"><Wallet className="mx-auto mb-2 h-8 w-8 opacity-40" />暂无订单</TableCell></TableRow>
-            ) : rows.map((o) => {
-              const st = STATUS_MAP[o.status] ?? { label: o.status, cls: 'bg-muted text-muted-foreground' }
-              return (
-                <TableRow key={o.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-mono text-xs">{o.orderNo}</TableCell>
-                  <TableCell className="px-4 py-2.5">{o.userName ?? o.userId.slice(0, 8)}</TableCell>
-                  <TableCell className="px-4 py-2.5"><div className="font-medium">{o.productName}</div><div className="text-xs text-muted-foreground">{o.productType}</div></TableCell>
-                  <TableCell className="px-4 py-2.5 font-semibold">¥{o.amount}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs">{o.payMethod ?? '-'}</TableCell>
-                  <TableCell className="px-4 py-2.5"><span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', st.cls)}>{st.label}</span></TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">{new Date(o.createdAt).toLocaleString()}</TableCell>
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={COLSPAN}
+                  className="px-4 py-10 text-center text-muted-foreground"
+                >
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  加载中...
+                </TableCell>
+              </TableRow>
+            ) : error ? (
+              <TableRow>
+                <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-destructive">
+                  {(error as Error).message}
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={COLSPAN}
+                  className="px-4 py-10 text-center text-muted-foreground"
+                >
+                  <Wallet className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                  暂无支付记录
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((r) => (
+                <TableRow key={r.id} className="hover:bg-muted/30">
+                  <TableCell className="px-3 py-2.5">
+                    <Checkbox
+                      checked={ids.includes(r.id)}
+                      onCheckedChange={() => toggleOne(r.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    {r.id}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs font-mono">{r.userUuid}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs">{r.courseId ?? '-'}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs">{r.videoId ?? '-'}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs">{r.outBillOn ?? '-'}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs">{r.payWay ?? '-'}</TableCell>
+                  <TableCell className="px-4 py-2.5 font-semibold">{r.amount ?? '-'}</TableCell>
+                  <TableCell className="px-4 py-2.5 font-semibold text-emerald-600">
+                    {r.realAmount ?? '-'}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    {r.createdAt ? new Date(r.createdAt).toLocaleString() : '-'}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <HasPermi code={`${PERM}edit`}>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(r)} title="编辑">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </HasPermi>
+                      <HasPermi code={`${PERM}remove`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (window.confirm('确定删除？')) deleteMut.mutate(r.id)
+                          }}
+                          title="删除"
+                          className="text-destructive hover:text-destructive"
+                          disabled={deleteMut.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </HasPermi>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              )
-            })}
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}><ChevronLeft className="h-4 w-4" />上一页</Button>
-          <span className="text-sm text-muted-foreground">第 {page} / {totalPages} 页</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>下一页<ChevronRight className="h-4 w-4" /></Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            上一页
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            第 {page} / {totalPages} 页
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            下一页
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
+      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
+        <DialogContent className="max-w-xl">
+          <form onSubmit={submit} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>{editing ? '编辑支付日志' : '新建支付日志'}</DialogTitle>
+            </DialogHeader>
+            {err && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {err}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="pl-user">用户UUID *</Label>
+                <Input
+                  id="pl-user"
+                  value={form.userUuid}
+                  onChange={(e) => setForm({ ...form, userUuid: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pl-course">课程ID</Label>
+                <Input
+                  id="pl-course"
+                  value={form.courseId}
+                  onChange={(e) => setForm({ ...form, courseId: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pl-video">视频ID</Label>
+                <Input
+                  id="pl-video"
+                  value={form.videoId}
+                  onChange={(e) => setForm({ ...form, videoId: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pl-outBillOn">账单日期 *</Label>
+                <Input
+                  id="pl-outBillOn"
+                  type="date"
+                  value={form.outBillOn}
+                  onChange={(e) => setForm({ ...form, outBillOn: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pl-payWay">支付方式</Label>
+                <Input
+                  id="pl-payWay"
+                  value={form.payWay}
+                  onChange={(e) => setForm({ ...form, payWay: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pl-amount">金额</Label>
+                <Input
+                  id="pl-amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pl-realAmount">实付金额</Label>
+                <Input
+                  id="pl-realAmount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.realAmount}
+                  onChange={(e) => setForm({ ...form, realAmount: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
+                取消
+              </Button>
+              <Button type="submit" disabled={saveMut.isPending}>
+                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -316,3 +316,18 @@ export async function checkAnyPermission(
     .limit(1)
   return Number(rows[0]?.count ?? 0) > 0
 }
+
+/**
+ * 列出用户通过 RBAC 表持有的全部权限点 name 数组。
+ * 单次 SQL JOIN：user_roles → role_permissions → permissions。
+ * admin（users.roleId >= 1）的快速放行由调用方处理，本函数只做 RBAC 表查询。
+ */
+export async function getUserPermissions(userId: string): Promise<string[]> {
+  const rows = await db
+    .select({ name: permissions.name })
+    .from(userRoles)
+    .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
+    .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+    .where(eq(userRoles.userId, userId))
+  return Array.from(new Set(rows.map((r) => r.name)))
+}
