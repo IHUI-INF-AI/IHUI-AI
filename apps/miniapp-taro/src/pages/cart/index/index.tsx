@@ -41,8 +41,8 @@ export default function Cart() {
           <Text>加载中...</Text>
         ) : list.length ? (
           list.map((item) => (
-            <View key={item.id} className="list-item">
-              <Text>{item.title || item.name || '商品'}</Text>
+            <View key={item.id as string} className="list-item">
+              <Text>{(item.title as string) || (item.name as string) || '商品'}</Text>
             </View>
           ))
         ) : (
