@@ -20,6 +20,7 @@ import { PageHeader } from '@/components/layout'
 import { MiniChart } from '@/components/dashboard/mini-chart'
 import { RadarChart } from '@/components/charts/RadarChart'
 import { LineChart } from '@/components/charts/LineChart'
+import { PieChart } from '@/components/charts/PieChart'
 
 interface DetailedStats {
   totals: {
@@ -414,6 +415,36 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShoppingCart className="h-4 w-4 text-primary" />
+            {t('orderStatusDistribution')}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">{t('orderStatusDistributionHint')}</p>
+        </CardHeader>
+        <CardContent className="flex justify-center">
+          <PieChart
+            donut
+            size={220}
+            data={[
+              { label: t('paidCount'), value: stats.orderStats.paidCount, color: '#10b981' },
+              { label: t('pendingCount'), value: stats.orderStats.pendingCount, color: '#f59e0b' },
+              {
+                label: t('otherOrders'),
+                value: Math.max(
+                  0,
+                  stats.orderStats.totalCount -
+                    stats.orderStats.paidCount -
+                    stats.orderStats.pendingCount,
+                ),
+                color: '#94a3b8',
+              },
+            ]}
+          />
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -104,7 +104,7 @@ export interface Skill {
 export async function getResources(
   query: PageQuery & { type?: string; category?: string; keyword?: string } = {},
 ): Promise<ApiResult<PageData<Resource>>> {
-  return fetchApi<PageData<Resource>>(`/api/resource${buildQs(query)}`)
+  return fetchApi<PageData<Resource>>(`/api/resources${buildQs(query)}`)
 }
 
 /** 获取资源详情 */
@@ -114,7 +114,7 @@ export async function getResourceDetail(id: string): Promise<ApiResult<Resource>
 
 /** 创建资源 */
 export async function createResource(input: Partial<Resource>): Promise<ApiResult<Resource>> {
-  return fetchApi<Resource>('/api/resource', {
+  return fetchApi<Resource>('/api/resources', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -156,7 +156,7 @@ export async function likeResource(id: string): Promise<ApiResult<{ success: boo
 export async function getCertificates(
   query: PageQuery & { userId?: string; type?: string; status?: Certificate['status'] } = {},
 ): Promise<ApiResult<PageData<Certificate>>> {
-  return fetchApi<PageData<Certificate>>(`/api/certificate${buildQs(query)}`)
+  return fetchApi<PageData<Certificate>>(`/api/certificates${buildQs(query)}`)
 }
 
 /** 获取证书详情 */

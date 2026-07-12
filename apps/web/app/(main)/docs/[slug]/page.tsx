@@ -4,12 +4,12 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import ReactMarkdown from 'react-markdown'
 import { Loader2, ArrowLeft, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui'
 import { cn } from '@/lib/utils'
-import { api, markdownComponents, extractToc, type DocDetail } from '@/lib/content'
+import { api, extractToc, type DocDetail } from '@/lib/content'
+import { MarkdownViewer } from '@/components/media'
 
 export default function DocDetailPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -92,8 +92,8 @@ export default function DocDetailPage() {
       </header>
 
       <div className="flex flex-col gap-8 lg:flex-row">
-        <article className="min-w-0 flex-1 prose prose-sm dark:prose-invert max-w-none">
-          <ReactMarkdown components={markdownComponents}>{d.content}</ReactMarkdown>
+        <article className="min-w-0 flex-1">
+          <MarkdownViewer content={d.content} />
         </article>
 
         {toc.length > 0 && (

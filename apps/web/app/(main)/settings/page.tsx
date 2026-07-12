@@ -6,6 +6,9 @@ import { useTheme } from 'next-themes'
 import { Sun, Moon, Monitor, Globe, Languages, Check } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Alert } from '@/components/feedback'
+import { Container } from '@/components/layout'
+import { Switch } from '@/components/form'
 import { cn } from '@/lib/utils'
 import {
   DeviceManager,
@@ -54,7 +57,7 @@ export default function SettingsPage() {
   ] as const
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <Container maxWidth="md" padding={false} className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
@@ -132,29 +135,11 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => toggleCollapsed(false)}
-              className={cn(
-                'rounded-lg border p-3 text-sm transition-colors',
-                !collapsed
-                  ? 'border-primary bg-primary/5 text-primary'
-                  : 'hover:bg-accent hover:text-accent-foreground',
-              )}
-            >
-              {t('sidebarExpanded')}
-            </button>
-            <button
-              onClick={() => toggleCollapsed(true)}
-              className={cn(
-                'rounded-lg border p-3 text-sm transition-colors',
-                collapsed
-                  ? 'border-primary bg-primary/5 text-primary'
-                  : 'hover:bg-accent hover:text-accent-foreground',
-              )}
-            >
-              {t('sidebarCollapsed')}
-            </button>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
+            </span>
+            <Switch checked={collapsed} onChange={toggleCollapsed} />
           </div>
         </CardContent>
       </Card>
@@ -166,12 +151,13 @@ export default function SettingsPage() {
       <div className="space-y-2 pt-2">
         <h2 className="text-lg font-semibold tracking-tight">{t('securityCenter')}</h2>
       </div>
+      <Alert variant="info" title={t('securityCenter')} closable />
       <SecurityScore />
       <TwoFactorAuth />
       <DeviceManager />
       <SessionManager />
       <IpWhitelist />
       <LoginHistory />
-    </div>
+    </Container>
   )
 }
