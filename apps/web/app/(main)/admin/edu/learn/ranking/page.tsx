@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, ChevronLeft, ChevronRight, Trophy, Medal, Award } from 'lucide-react'
 import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
+import { isNotFound } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -60,7 +61,7 @@ export default function EduLearnRankingPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rows = data?.list ?? []
-  const noEndpoint = !!(error as Error) && (error as Error).message.includes('请求失败')
+  const noEndpoint = isNotFound(error)
   const top3 = rows.slice(0, 3)
 
   return (

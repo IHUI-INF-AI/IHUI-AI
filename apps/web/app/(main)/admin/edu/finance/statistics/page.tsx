@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, BarChart3, TrendingUp, DollarSign, ShoppingCart } from 'lucide-react'
 import { eduApi, buildQs, selectClass } from '@/lib/edu'
+import { isNotFound } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
 import {
   Card,
@@ -44,7 +45,7 @@ export default function EduFinanceStatisticsPage() {
     retry: false,
   })
 
-  const noEndpoint = !!(error as Error) && (error as Error).message.includes('请求失败')
+  const noEndpoint = isNotFound(error)
   const stats = data
 
   return (

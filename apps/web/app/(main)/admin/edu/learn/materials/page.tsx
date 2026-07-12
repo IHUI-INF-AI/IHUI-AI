@@ -16,6 +16,7 @@ import {
   Download,
 } from 'lucide-react'
 import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
+import { isNotFound } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -149,7 +150,7 @@ export default function EduLearnMaterialsPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rows = data?.list ?? []
-  const noEndpoint = !!(error as Error) && (error as Error).message.includes('请求失败')
+  const noEndpoint = isNotFound(error)
 
   return (
     <div className="space-y-4">
