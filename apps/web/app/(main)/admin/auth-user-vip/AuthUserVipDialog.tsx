@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ export function AuthUserVipDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('adminAuthUserVip')
   return (
     <Dialog
       open={open}
@@ -45,39 +47,37 @@ export function AuthUserVipDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑用户VIP进度' : '新增用户VIP进度'}</DialogTitle>
-            <DialogDescription>
-              {editing ? '修改用户VIP进度信息' : '添加新的用户VIP进度'}
-            </DialogDescription>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
+            <DialogDescription>{editing ? t('editDesc') : t('createDesc')}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>用户UUID</Label>
+              <Label>{t('labelUserUuid')}</Label>
               <Input
                 value={form.userUuid}
                 onChange={(e) => onFormChange({ userUuid: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>VIP ID *</Label>
+              <Label>{t('labelVipId')}</Label>
               <Input value={form.vipId} onChange={(e) => onFormChange({ vipId: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label>进度 *</Label>
+              <Label>{t('labelProgress')}</Label>
               <Input
                 value={form.progress}
                 onChange={(e) => onFormChange({ progress: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>创建者</Label>
+              <Label>{t('labelCreator')}</Label>
               <Input
                 value={form.creator}
                 onChange={(e) => onFormChange({ creator: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>是否有效</Label>
+              <Label>{t('labelIsValid')}</Label>
               <Input
                 value={form.isValid}
                 onChange={(e) => onFormChange({ isValid: e.target.value })}
@@ -85,17 +85,18 @@ export function AuthUserVipDialog({
               />
             </div>
             <DatePicker
-              label="创建时间"
+              label={t('labelCreatedTime')}
               value={form.createdTime}
               onChange={(v) => onFormChange({ createdTime: v })}
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

@@ -10,6 +10,7 @@ import {
   ChevronRight,
   UserCog,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -62,12 +63,13 @@ export function DeveloperCozeTable({
   onStatusChange,
   deletePending,
 }: DeveloperCozeTableProps) {
+  const t = useTranslations('admin.developer')
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <UserCog className="h-5 w-5" />
-          Coze 开发者账号
+          {t('cozeSectionTitle')}
         </h2>
         <div className="flex items-center gap-2">
           <div className="relative w-full max-w-xs">
@@ -75,14 +77,14 @@ export function DeveloperCozeTable({
             <Input
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="搜索 Coze ID / 账号 / 昵称..."
+              placeholder={t('cozeSearchPlaceholder')}
               className="h-9 pl-8"
             />
           </div>
           <HasPermi code="ai:developer:add">
             <Button size="sm" onClick={onCreate}>
               <Plus className="h-4 w-4" />
-              新增账号
+              {t('cozeCreate')}
             </Button>
           </HasPermi>
         </div>
@@ -92,12 +94,12 @@ export function DeveloperCozeTable({
           <TableHeader className="bg-muted/50">
             <TableRow>
               <TableHead className="px-3 py-2.5">ID</TableHead>
-              <TableHead className="px-3 py-2.5">Coze ID</TableHead>
-              <TableHead className="px-3 py-2.5">签权账号</TableHead>
-              <TableHead className="px-3 py-2.5">昵称</TableHead>
-              <TableHead className="px-3 py-2.5">平台</TableHead>
-              <TableHead className="px-3 py-2.5">状态</TableHead>
-              <TableHead className="px-3 py-2.5 text-right">操作</TableHead>
+              <TableHead className="px-3 py-2.5">{t('colCozeId')}</TableHead>
+              <TableHead className="px-3 py-2.5">{t('colSignAccount')}</TableHead>
+              <TableHead className="px-3 py-2.5">{t('colNickname')}</TableHead>
+              <TableHead className="px-3 py-2.5">{t('colPlatform')}</TableHead>
+              <TableHead className="px-3 py-2.5">{t('colStatus')}</TableHead>
+              <TableHead className="px-3 py-2.5 text-right">{t('colActions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y">
@@ -105,13 +107,13 @@ export function DeveloperCozeTable({
               <TableRow>
                 <TableCell colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </TableCell>
               </TableRow>
             ) : list.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
-                  暂无数据
+                  {t('noData')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -132,21 +134,26 @@ export function DeveloperCozeTable({
                           'h-7 w-24 border-0 px-2 text-xs font-medium',
                           COZE_STATUS_CLASS[c.status],
                         )}
-                        aria-label="状态"
+                        aria-label={t('statusAriaLabel')}
                       >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="0">未使用</SelectItem>
-                        <SelectItem value="1">使用中</SelectItem>
-                        <SelectItem value="2">已过期</SelectItem>
+                        <SelectItem value="0">{t('statusUnused')}</SelectItem>
+                        <SelectItem value="1">{t('statusInUse')}</SelectItem>
+                        <SelectItem value="2">{t('statusExpired')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell className="px-3 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <HasPermi code="ai:developer:edit">
-                        <Button variant="ghost" size="sm" onClick={() => onEdit(c)} title="编辑">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(c)}
+                          title={t('edit')}
+                        >
                           <Pencil className="h-4 w-4" />
                         </Button>
                       </HasPermi>
@@ -157,9 +164,10 @@ export function DeveloperCozeTable({
                           className="text-destructive hover:text-destructive"
                           disabled={deletePending}
                           onClick={() => {
-                            if (confirm(`确认删除账号 "${c.cozeId}" ?`)) onDelete(c.id)
+                            if (confirm(t('cozeDeleteConfirm', { cozeId: c.cozeId })))
+                              onDelete(c.id)
                           }}
-                          title="删除"
+                          title={t('delete')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -173,7 +181,7 @@ export function DeveloperCozeTable({
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -182,10 +190,10 @@ export function DeveloperCozeTable({
             onClick={() => onPageChange(Math.max(1, page - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prev')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -193,7 +201,7 @@ export function DeveloperCozeTable({
             disabled={page >= totalPages}
             onClick={() => onPageChange(page + 1)}
           >
-            下一页
+            {t('next')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
