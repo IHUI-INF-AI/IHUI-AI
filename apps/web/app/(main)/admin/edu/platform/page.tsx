@@ -107,6 +107,7 @@ export default function EduPlatformPage() {
       `${API}${buildQs({ ...q, pageSize: 10000 })}`,
       `educationPlatform_${Date.now()}`,
       EXPORT_COLS,
+      t,
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
   function handleDelete(r: EduPlatform) {

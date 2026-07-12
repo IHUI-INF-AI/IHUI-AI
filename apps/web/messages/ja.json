@@ -2575,7 +2575,15 @@
           "fieldAnalysis": "解説",
           "analysisPlaceholder": "解説（任意）",
           "cancel": "キャンセル",
-          "save": "保存"
+          "save": "保存",
+          "typeLabel": {
+            "single_choice": "単一選択",
+            "multi_choice": "複数選択",
+            "judgment": "判断",
+            "fill_blank": "穴埋め",
+            "subjective": "記述",
+            "programming": "プログラミング"
+          }
         },
         "records": {
           "title": "試験記録",
@@ -2637,7 +2645,15 @@
           "save": "保存",
           "selectPaper": "試験を選択",
           "selectPaperPlaceholder": "試験を選択してください",
-          "unpublished": "（未公開）"
+          "unpublished": "（未公開）",
+          "typeLabel": {
+            "single": "単一選択",
+            "multi": "複数選択",
+            "judgment": "判断",
+            "fill": "穴埋め",
+            "subjective": "記述",
+            "programming": "プログラミング"
+          }
         }
       },
       "learn": {
@@ -2899,7 +2915,19 @@
           "labelFree": "無料",
           "labelPublish": "公開",
           "cancel": "キャンセル",
-          "save": "保存"
+          "save": "保存",
+          "subLink": {
+            "live": "ライブ学習",
+            "recorded": "録画学習",
+            "materials": "資料学習",
+            "homework": "課題学習",
+            "records": "学習記録",
+            "progress": "学習進度",
+            "plan": "学習計画",
+            "remind": "学習リマインダー",
+            "community": "学習コミュニティ",
+            "ranking": "学習ランキング"
+          }
         },
         "records": {
           "title": "学習記録",
@@ -3010,7 +3038,11 @@
             "hot": "人気度",
             "collect": "お気に入り",
             "sort": "並び順",
-            "creator": "作成者"
+            "creator": "作成者",
+            "attachmentUrl": "添付URL",
+            "popularity": "人気度",
+            "favorites": "お気に入り",
+            "teacher": "講師"
           },
           "fieldPay": "課金",
           "fieldStatus": "ステータス",
@@ -3167,7 +3199,18 @@
           "amountLabel": "金額",
           "realAmountLabel": "実支払金額",
           "cancel": "キャンセル",
-          "save": "保存"
+          "save": "保存",
+          "col": {
+            "userUuid": "ユーザーUUID",
+            "courseId": "コースID",
+            "videoId": "動画ID",
+            "billDate": "請求日",
+            "payMethod": "支払方法",
+            "amount": "金額",
+            "paidAmount": "実支払額",
+            "type": "タイプ",
+            "createdAt": "作成日時"
+          }
         },
         "statistics": {
           "title": "財務統計",
@@ -3265,6 +3308,14 @@
           "payCrowd": {
             "0": "全員",
             "1": "会員"
+          },
+          "col": {
+            "courseId": "コースID",
+            "courseName": "コース名",
+            "payType": "有料タイプ",
+            "payCrowd": "有料対象",
+            "amount": "金額",
+            "creator": "作成者"
           }
         },
         "platformLog": {
@@ -3299,7 +3350,16 @@
           "creator": "作成者",
           "sysCreator": "システム作成者",
           "createdAt": "作成日時",
-          "actions": "操作"
+          "actions": "操作",
+          "col": {
+            "platformId": "プラットフォームID",
+            "courseId": "コースID",
+            "videoId": "動画ID",
+            "type": "タイプ",
+            "creator": "作成者",
+            "systemCreator": "システム作成者",
+            "createdAt": "作成日時"
+          }
         },
         "trash": {
           "title": "コースごみ箱",
@@ -3394,6 +3454,21 @@
             "2": "修正要",
             "3": "却下",
             "4": "承認済み"
+          },
+          "auditStatus": {
+            "0": "審査待ち",
+            "1": "審査中",
+            "2": "修正待ち",
+            "3": "差戻し",
+            "4": "承認済み"
+          },
+          "col": {
+            "title": "タイトル",
+            "subtitle": "サブタイトル",
+            "stage": "段階",
+            "label": "ラベル",
+            "auditStatus": "審査状態",
+            "creator": "作成者"
           }
         },
         "audit": {
@@ -3450,6 +3525,36 @@
             "close": "閉じる",
             "rectify": "修正を提出",
             "approve": "承認"
+          },
+          "col": {
+            "type": "タイプ",
+            "action": "操作",
+            "sourceId": "ソースID",
+            "targetId": "ターゲットID",
+            "status": "ステータス",
+            "creator": "作成者",
+            "createdAt": "作成日時",
+            "updater": "更新者"
+          },
+          "field": {
+            "title": "タイトル",
+            "subtitle": "サブタイトル",
+            "content": "内容",
+            "remark": "備考",
+            "remarkFile": "備考ファイル",
+            "binding": "バインディング",
+            "stage": "段階",
+            "isHidden": "非表示",
+            "sort": "並び順",
+            "createdAt": "作成日時",
+            "updatedAt": "更新日時",
+            "courseId": "コースID",
+            "videoPath": "動画パス",
+            "duration": "長さ",
+            "attachment": "添付",
+            "isPaid": "有料",
+            "amount": "金額",
+            "status": "ステータス"
           }
         },
         "categories": {
@@ -3509,6 +3614,14 @@
             "buttonImage": "ボタン画像",
             "cancel": "キャンセル",
             "save": "保存"
+          },
+          "col": {
+            "code": "コード",
+            "name": "名称",
+            "parentId": "親ID",
+            "typeId": "タイプID",
+            "sort": "並び順",
+            "creator": "作成者"
           }
         }
       },
@@ -3653,7 +3766,17 @@
         "extField1": "拡張フィールド1",
         "extField2": "拡張フィールド2",
         "cancel": "キャンセル",
-        "save": "保存"
+        "save": "保存",
+        "col": {
+          "code": "コード",
+          "name": "名称",
+          "domain": "ドメイン",
+          "type": "タイプ",
+          "status": "ステータス",
+          "sort": "並び順",
+          "creator": "作成者",
+          "createdAt": "作成日時"
+        }
       },
       "organization": {
         "title": "プラットフォーム組織",
@@ -3692,7 +3815,15 @@
         "totalItems": "合計 {count} 件",
         "prevPage": "前へ",
         "nextPage": "次へ",
-        "pageInfo": "{page} / {totalPages} ページ"
+        "pageInfo": "{page} / {totalPages} ページ",
+        "col": {
+          "platformId": "プラットフォームID",
+          "name": "名称",
+          "remark": "備考",
+          "filePath": "ファイルパス",
+          "creator": "作成者",
+          "createdAt": "作成日時"
+        }
       }
     },
     "eduSettings": {
@@ -4952,7 +5083,16 @@
       "fieldRemark": "備考",
       "fieldImage": "画像",
       "cancel": "キャンセル",
-      "save": "保存"
+      "save": "保存",
+      "col": {
+        "name": "名称",
+        "platformId": "プラットフォームID",
+        "orgId": "組織ID",
+        "parentId": "親ID",
+        "crossOrg": "クロス組織",
+        "creator": "作成者",
+        "createdAt": "作成日時"
+      }
     },
     "eduClassSchedule": {
       "title": "クラススケジュール",
@@ -5756,6 +5896,40 @@
       "google": "Googleログイン",
       "meta": "Meta",
       "local": "ローカルデータ"
+    },
+    "model": {
+      "stepfun-3-7-flash": {
+        "description": "StepFun最新モデル、プラン設定済み"
+      },
+      "stepfun-3-5-flash": {
+        "description": "StepFun 3.5 高速版"
+      },
+      "stepfun-router-v1": {
+        "description": "StepFunスマートルーティング、最適なモデルを自動選択"
+      },
+      "agnes-gpt-4o": {
+        "description": "Agnes AI がプロキシする GPT-4o"
+      },
+      "groq-llama-3-3-70b": {
+        "name": "Llama 3.3 70B (Groq 無料)",
+        "description": "無料 30 RPM、超高速、Groq APIキーのみ必要"
+      },
+      "gemini-1-5-flash": {
+        "name": "Gemini 1.5 Flash (無料)",
+        "description": "無料 15 RPM、100万トークンコンテキスト"
+      },
+      "gpt-4o": {
+        "description": "バランスの取れたマルチモーダル旗艦モデル"
+      },
+      "gpt-4o-mini": {
+        "description": "高速で経済的な軽量モデル"
+      },
+      "claude-3-5-sonnet": {
+        "description": "強力な推論と長文作成"
+      },
+      "gemini-2-flash": {
+        "description": "超長文コンテキストマルチモーダル"
+      }
     }
   },
   "dashboard": {
@@ -6622,7 +6796,15 @@
     "fieldWorkspace": "ワークスペース",
     "fieldRemark": "備考",
     "marketTab": "Agent マーケット",
-    "mineTab": "マイ Agent"
+    "mineTab": "マイ Agent",
+    "tabProgress": "進度",
+    "tabSwarm": "グループ監視",
+    "tabCheckpoint": "チェックポイント",
+    "tabPlan": "計画",
+    "tabActivity": "アクティビティ",
+    "tabBackground": "バックグラウンド",
+    "tabPermission": "権限",
+    "viewPermissionExample": "権限確認例を表示"
   },
   "distribution": {
     "title": "ディストリビューションセンター",

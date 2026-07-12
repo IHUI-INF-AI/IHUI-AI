@@ -17,8 +17,14 @@ export const EMPTY: CForm = {
 export const PAGE_SIZE = 10
 export const PERM = 'course:course:'
 export const API = '/api/admin/course'
-export const STAGE_TEXT = ['初级', '中级', '高级']
-export const AUDIT_TEXT = ['待审核', '审核中', '待整改', '已驳回', '已通过']
+export const STAGE_TEXT = ['stage.0', 'stage.1', 'stage.2']
+export const AUDIT_TEXT = [
+  'auditStatus.0',
+  'auditStatus.1',
+  'auditStatus.2',
+  'auditStatus.3',
+  'auditStatus.4',
+]
 
 export const badgeCls = (ok: boolean) =>
   cn(
@@ -30,14 +36,14 @@ export const badgeCls = (ok: boolean) =>
 
 export const EXPORT_COLS: ExportColumn[] = [
   { key: 'id', title: 'ID' },
-  { key: 'title', title: '标题' },
-  { key: 'subtitle', title: '副标题' },
-  { key: 'stage', title: '阶段', formatter: (v) => STAGE_TEXT[Number(v)] ?? String(v) },
-  { key: 'label', title: '标签' },
+  { key: 'title', title: 'col.title' },
+  { key: 'subtitle', title: 'col.subtitle' },
+  { key: 'stage', title: 'col.stage', formatter: (v) => STAGE_TEXT[Number(v)] ?? String(v) },
+  { key: 'label', title: 'col.label' },
   {
     key: 'auditStatus',
-    title: '审核状态',
+    title: 'col.auditStatus',
     formatter: (v) => AUDIT_TEXT[Number(v)] ?? String(v),
   },
-  { key: 'creator', title: '创建人' },
+  { key: 'creator', title: 'col.creator' },
 ]

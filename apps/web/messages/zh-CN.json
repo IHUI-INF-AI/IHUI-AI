@@ -2563,7 +2563,15 @@
           "fieldAnalysis": "解析",
           "analysisPlaceholder": "解析(选填)",
           "cancel": "取消",
-          "save": "保存"
+          "save": "保存",
+          "typeLabel": {
+            "single_choice": "单选题",
+            "multi_choice": "多选题",
+            "judgment": "判断题",
+            "fill_blank": "填空题",
+            "subjective": "简答题",
+            "programming": "编程题"
+          }
         },
         "records": {
           "title": "答题记录",
@@ -2625,7 +2633,15 @@
           "save": "保存",
           "selectPaper": "选择试卷",
           "selectPaperPlaceholder": "请选择试卷",
-          "unpublished": "（未发布）"
+          "unpublished": "（未发布）",
+          "typeLabel": {
+            "single": "单选题",
+            "multi": "多选题",
+            "judgment": "判断题",
+            "fill": "填空题",
+            "subjective": "简答题",
+            "programming": "编程题"
+          }
         }
       },
       "learn": {
@@ -2887,7 +2903,19 @@
           "labelFree": "免费",
           "labelPublish": "上架",
           "cancel": "取消",
-          "save": "保存"
+          "save": "保存",
+          "subLink": {
+            "live": "直播学习",
+            "recorded": "录播学习",
+            "materials": "资料学习",
+            "homework": "作业学习",
+            "records": "学习记录",
+            "progress": "学习进度",
+            "plan": "学习计划",
+            "remind": "学习提醒",
+            "community": "学习社区",
+            "ranking": "学习排行"
+          }
         },
         "records": {
           "title": "学习记录",
@@ -2998,7 +3026,11 @@
             "hot": "热度",
             "collect": "收藏",
             "sort": "排序",
-            "creator": "创建人"
+            "creator": "创建人",
+            "attachmentUrl": "附件URL",
+            "popularity": "热度",
+            "favorites": "收藏",
+            "teacher": "讲师"
           },
           "fieldPay": "付费",
           "fieldStatus": "状态",
@@ -3155,7 +3187,18 @@
           "amountLabel": "金额",
           "realAmountLabel": "实付金额",
           "cancel": "取消",
-          "save": "保存"
+          "save": "保存",
+          "col": {
+            "userUuid": "用户UUID",
+            "courseId": "课程ID",
+            "videoId": "视频ID",
+            "billDate": "账单日期",
+            "payMethod": "支付方式",
+            "amount": "金额",
+            "paidAmount": "实付金额",
+            "type": "类型",
+            "createdAt": "创建时间"
+          }
         },
         "statistics": {
           "title": "财务统计",
@@ -3253,6 +3296,14 @@
           "payCrowd": {
             "0": "全部",
             "1": "会员"
+          },
+          "col": {
+            "courseId": "课程ID",
+            "courseName": "课程名称",
+            "payType": "付费类型",
+            "payCrowd": "付费人群",
+            "amount": "金额",
+            "creator": "创建人"
           }
         },
         "platformLog": {
@@ -3287,7 +3338,16 @@
           "creator": "创建人",
           "sysCreator": "系统创建人",
           "createdAt": "创建时间",
-          "actions": "操作"
+          "actions": "操作",
+          "col": {
+            "platformId": "平台ID",
+            "courseId": "课程ID",
+            "videoId": "视频ID",
+            "type": "类型",
+            "creator": "创建人",
+            "systemCreator": "系统创建人",
+            "createdAt": "创建时间"
+          }
         },
         "trash": {
           "title": "课程回收站",
@@ -3382,6 +3442,21 @@
             "2": "待整改",
             "3": "已驳回",
             "4": "已通过"
+          },
+          "auditStatus": {
+            "0": "待审核",
+            "1": "审核中",
+            "2": "待整改",
+            "3": "已驳回",
+            "4": "已通过"
+          },
+          "col": {
+            "title": "标题",
+            "subtitle": "副标题",
+            "stage": "阶段",
+            "label": "标签",
+            "auditStatus": "审核状态",
+            "creator": "创建人"
           }
         },
         "audit": {
@@ -3438,6 +3513,36 @@
             "close": "关闭",
             "rectify": "提交整改",
             "approve": "通过审核"
+          },
+          "col": {
+            "type": "类型",
+            "action": "操作",
+            "sourceId": "源ID",
+            "targetId": "目标ID",
+            "status": "状态",
+            "creator": "创建人",
+            "createdAt": "创建时间",
+            "updater": "更新人"
+          },
+          "field": {
+            "title": "标题",
+            "subtitle": "副标题",
+            "content": "内容",
+            "remark": "备注",
+            "remarkFile": "备注文件",
+            "binding": "绑定",
+            "stage": "阶段",
+            "isHidden": "是否隐藏",
+            "sort": "排序",
+            "createdAt": "创建时间",
+            "updatedAt": "更新时间",
+            "courseId": "课程ID",
+            "videoPath": "视频路径",
+            "duration": "时长",
+            "attachment": "附件",
+            "isPaid": "是否付费",
+            "amount": "金额",
+            "status": "状态"
           }
         },
         "categories": {
@@ -3497,6 +3602,14 @@
             "buttonImage": "按钮图",
             "cancel": "取消",
             "save": "保存"
+          },
+          "col": {
+            "code": "编码",
+            "name": "名称",
+            "parentId": "父ID",
+            "typeId": "类型ID",
+            "sort": "排序",
+            "creator": "创建人"
           }
         }
       },
@@ -3641,7 +3754,17 @@
         "extField1": "扩展字段1",
         "extField2": "扩展字段2",
         "cancel": "取消",
-        "save": "保存"
+        "save": "保存",
+        "col": {
+          "code": "编码",
+          "name": "名称",
+          "domain": "域名",
+          "type": "类型",
+          "status": "状态",
+          "sort": "排序",
+          "creator": "创建人",
+          "createdAt": "创建时间"
+        }
       },
       "organization": {
         "title": "平台组织",
@@ -3680,7 +3803,15 @@
         "totalItems": "共 {count} 条",
         "prevPage": "上一页",
         "nextPage": "下一页",
-        "pageInfo": "第 {page} / {totalPages} 页"
+        "pageInfo": "第 {page} / {totalPages} 页",
+        "col": {
+          "platformId": "平台ID",
+          "name": "名称",
+          "remark": "备注",
+          "filePath": "文件路径",
+          "creator": "创建人",
+          "createdAt": "创建时间"
+        }
       }
     },
     "eduSettings": {
@@ -4940,7 +5071,16 @@
       "fieldRemark": "备注",
       "fieldImage": "图片",
       "cancel": "取消",
-      "save": "保存"
+      "save": "保存",
+      "col": {
+        "name": "名称",
+        "platformId": "平台ID",
+        "orgId": "组织ID",
+        "parentId": "父级ID",
+        "crossOrg": "是否跨组织",
+        "creator": "创建人",
+        "createdAt": "创建时间"
+      }
     },
     "eduClassSchedule": {
       "title": "班级排课",
@@ -5768,6 +5908,40 @@
       "google": "Google",
       "meta": "Meta",
       "local": "本地"
+    },
+    "model": {
+      "stepfun-3-7-flash": {
+        "description": "StepFun 阶跃星辰最新模型,已配置 plan 套餐"
+      },
+      "stepfun-3-5-flash": {
+        "description": "StepFun 3.5 快速版"
+      },
+      "stepfun-router-v1": {
+        "description": "StepFun 智能路由,自动选择最优模型"
+      },
+      "agnes-gpt-4o": {
+        "description": "Agnes AI 代理的 GPT-4o"
+      },
+      "groq-llama-3-3-70b": {
+        "name": "Llama 3.3 70B (Groq 免费)",
+        "description": "免费 30 RPM,速度极快,只需 Groq API key"
+      },
+      "gemini-1-5-flash": {
+        "name": "Gemini 1.5 Flash (免费)",
+        "description": "免费 15 RPM,100 万 token 上下文"
+      },
+      "gpt-4o": {
+        "description": "均衡的多模态旗舰模型"
+      },
+      "gpt-4o-mini": {
+        "description": "快速经济的轻量模型"
+      },
+      "claude-3-5-sonnet": {
+        "description": "强推理与长文写作"
+      },
+      "gemini-2-flash": {
+        "description": "超长上下文多模态"
+      }
     }
   },
   "dashboard": {

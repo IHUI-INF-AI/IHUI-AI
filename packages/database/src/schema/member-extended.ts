@@ -148,3 +148,19 @@ export type EduMemberTagRelation = typeof eduMemberTagRelations.$inferSelect
 export type NewEduMemberTagRelation = typeof eduMemberTagRelations.$inferInsert
 export type EduResourceProductRelation = typeof eduResourceProductRelations.$inferSelect
 export type NewEduResourceProductRelation = typeof eduResourceProductRelations.$inferInsert
+
+/**
+ * 会员分组-成员关联表 - 会员与分组的多对多关联。
+ * - memberId: 关联 edu_members；groupId: 关联 member_groups（逻辑关联，未做物理外键）。
+ */
+export const memberGroupMemberRelations = pgTable('member_group_member_relations', {
+  id: serial('id').primaryKey(),
+  memberId: integer('member_id').notNull(),
+  groupId: uuid('group_id')
+    .references(() => memberGroups.id, { onDelete: 'cascade' })
+    .notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export type MemberGroupMemberRelation = typeof memberGroupMemberRelations.$inferSelect
+export type NewMemberGroupMemberRelation = typeof memberGroupMemberRelations.$inferInsert

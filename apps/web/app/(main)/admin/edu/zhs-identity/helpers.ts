@@ -1,3 +1,4 @@
+import type { ExportColumn } from '@/lib/export-utils'
 import type { ZhsIdentity, CForm, Search } from './types'
 
 export const PAGE_SIZE = 10
@@ -21,16 +22,16 @@ export const EMPTY_SEARCH: Search = {
   organizationId: '',
 }
 
-export const EXPORT_COLUMNS = [
+export const EXPORT_COLS: ExportColumn[] = [
   { key: 'id', title: 'ID' },
   { key: 'uuid', title: 'UUID' },
-  { key: 'name', title: '名称' },
-  { key: 'platformId', title: '平台ID' },
-  { key: 'organizationId', title: '组织ID' },
-  { key: 'parentId', title: '父级ID' },
-  { key: 'isCross', title: '是否跨组织' },
-  { key: 'creator', title: '创建人' },
-  { key: 'createdAt', title: '创建时间' },
+  { key: 'name', title: 'col.name' },
+  { key: 'platformId', title: 'col.platformId' },
+  { key: 'organizationId', title: 'col.orgId' },
+  { key: 'parentId', title: 'col.parentId' },
+  { key: 'isCross', title: 'col.crossOrg' },
+  { key: 'creator', title: 'col.creator' },
+  { key: 'createdAt', title: 'col.createdAt' },
 ]
 
 export const textareaCls =

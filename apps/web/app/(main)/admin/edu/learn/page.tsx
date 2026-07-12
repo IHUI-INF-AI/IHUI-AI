@@ -137,7 +137,7 @@ export default function EduLearnPage() {
               className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors hover:bg-accent"
             >
               <Icon className="h-4 w-4 text-primary" />
-              <span>{s.label}</span>
+              <span>{t(s.label)}</span>
             </Link>
           )
         })}
