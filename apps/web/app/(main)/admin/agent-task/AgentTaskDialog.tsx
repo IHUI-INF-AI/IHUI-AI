@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   Button,
@@ -36,6 +37,7 @@ export function AgentTaskDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.agentTask')
   return (
     <Dialog
       open={open}
@@ -46,7 +48,7 @@ export function AgentTaskDialog({
       <DialogContent className="max-w-lg">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑Agent任务' : '新增Agent任务'}</DialogTitle>
+            <DialogTitle>{editing ? t('dialogEditTitle') : t('dialogCreateTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -54,14 +56,14 @@ export function AgentTaskDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label>需求标题 *</Label>
+            <Label>{t('fieldTitle')}</Label>
             <Input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
           </div>
           <div className="space-y-2">
-            <Label>需求描述</Label>
+            <Label>{t('fieldContext')}</Label>
             <Input
               value={form.context}
               onChange={(e) => setForm({ ...form, context: e.target.value })}
@@ -69,28 +71,28 @@ export function AgentTaskDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>最低价</Label>
+              <Label>{t('fieldLowestPrice')}</Label>
               <Input
                 value={form.lowestPrice}
                 onChange={(e) => setForm({ ...form, lowestPrice: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>最高价</Label>
+              <Label>{t('fieldPeakPrice')}</Label>
               <Input
                 value={form.peakPrice}
                 onChange={(e) => setForm({ ...form, peakPrice: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>周期</Label>
+              <Label>{t('fieldCycle')}</Label>
               <Input
                 value={form.cycle}
                 onChange={(e) => setForm({ ...form, cycle: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>周期单位</Label>
+              <Label>{t('fieldCycleUnit')}</Label>
               <Input
                 value={form.cycleUnit}
                 onChange={(e) => setForm({ ...form, cycleUnit: e.target.value })}
@@ -98,7 +100,7 @@ export function AgentTaskDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>截止时间</Label>
+            <Label>{t('fieldClosingTime')}</Label>
             <DatePicker
               value={form.closingTime}
               onChange={(v) => setForm({ ...form, closingTime: v as string })}
@@ -106,10 +108,11 @@ export function AgentTaskDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

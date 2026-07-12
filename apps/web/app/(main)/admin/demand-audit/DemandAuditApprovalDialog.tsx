@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, X, Send } from 'lucide-react'
 import { toast } from 'sonner'
@@ -16,6 +17,7 @@ interface DemandAuditApprovalDialogProps {
 }
 
 export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApprovalDialogProps) {
+  const t = useTranslations('admin.demandAudit')
   const qc = useQueryClient()
   const [chatMsgs, setChatMsgs] = React.useState<ChatMsg[]>([])
   const [chatInput, setChatInput] = React.useState('')
@@ -52,7 +54,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
         body: JSON.stringify({ id: row?.id, remark }),
       }),
     onSuccess: () => {
-      toast.success('操作成功')
+      toast.success(t('operateSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'demand-audit'] })
       onClose()
     },
@@ -81,7 +83,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden">
         <DialogHeader>
-          <DialogTitle>审批详情</DialogTitle>
+          <DialogTitle>{t('approvalTitle')}</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 overflow-y-auto" style={{ maxHeight: '60vh' }}>
           <div className="flex flex-col gap-2">
@@ -92,14 +94,14 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
                   isConnected ? 'bg-emerald-500' : 'bg-muted-foreground/50',
                 )}
               />
-              {isConnected ? 'WebSocket已连接' : '未连接'}
+              {isConnected ? t('wsConnected') : t('wsDisconnected')}
             </div>
             <div
               className="flex-1 space-y-2 overflow-y-auto rounded-md border p-2"
               style={{ minHeight: '200px', maxHeight: '300px' }}
             >
               {chatMsgs.length === 0 ? (
-                <p className="py-8 text-center text-xs text-muted-foreground">输入消息开始对话</p>
+                <p className="py-8 text-center text-xs text-muted-foreground">{t('chatEmpty')}</p>
               ) : (
                 chatMsgs.map((m, i) => (
                   <div key={i} className="space-y-1">
@@ -124,7 +126,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
                     sendChat()
                   }
                 }}
-                placeholder="输入消息..."
+                placeholder={t('chatInputPlaceholder')}
               />
               <Button size="icon" type="button" onClick={sendChat} disabled={!isConnected}>
                 <Send className="h-4 w-4" />
@@ -141,13 +143,13 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
               ))}
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">审核意见</Label>
+              <Label className="text-xs">{t('opinionLabel')}</Label>
               <textarea
                 className={textareaClass}
                 rows={2}
                 value={remark}
                 onChange={(e) => setRemark(e.target.value)}
-                placeholder="请输入审核意见..."
+                placeholder={t('opinionPlaceholder')}
               />
               <div className="flex gap-2">
                 <Button
@@ -157,7 +159,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
                   onClick={() => approveMut.mutate('pass')}
                 >
                   <Check className="h-4 w-4" />
-                  通过
+                  {t('approve')}
                 </Button>
                 <Button
                   size="sm"
@@ -167,7 +169,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
                   onClick={() => approveMut.mutate('reject')}
                 >
                   <X className="h-4 w-4" />
-                  驳回
+                  {t('reject')}
                 </Button>
               </div>
             </div>

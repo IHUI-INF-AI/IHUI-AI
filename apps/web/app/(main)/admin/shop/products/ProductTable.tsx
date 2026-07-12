@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { Loader2, Pencil, Trash2 } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
@@ -79,12 +80,16 @@ export function ProductTable({
                     {imgs.length > 0 ? (
                       <div className="flex gap-1">
                         {imgs.slice(0, 3).map((src, i) => (
-                          <img
+                          <Image
                             key={i}
                             src={src}
                             alt=""
+                            width={32}
+                            height={32}
                             className="h-8 w-8 rounded object-cover"
-                            onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                            onError={(e) => {
+                              ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+                            }}
                           />
                         ))}
                         {imgs.length > 3 && (
