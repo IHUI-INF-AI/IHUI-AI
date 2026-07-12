@@ -136,7 +136,7 @@ export default function ProfilePage() {
       <ProfileAccountInfo user={user} data={data} />
 
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold">AI 用量统计</h2>
+        <h2 className="text-sm font-semibold">{t('aiUsage')}</h2>
         <TokenUsagePanel
           promptTokens={aiStats.promptTokens}
           completionTokens={aiStats.completionTokens}
@@ -146,12 +146,12 @@ export default function ProfilePage() {
       </div>
 
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold">例行程序</h2>
+        <h2 className="text-sm font-semibold">{t('routines')}</h2>
         <RoutinesPanel routines={[]} />
       </div>
 
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold">语音录制</h2>
+        <h2 className="text-sm font-semibold">{t('voiceRecord')}</h2>
         <VoiceRecord />
       </div>
 
