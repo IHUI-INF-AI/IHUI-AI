@@ -8,6 +8,7 @@ import { FileText, Loader2, Calendar, Tag } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { SafeHtml } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 type AgreementType = 'user' | 'privacy'
@@ -147,9 +148,9 @@ export default function AgreementPage() {
                 </span>
               )}
             </div>
-            <article
+            <SafeHtml
+              html={agreement.content}
               className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: agreement.content }}
             />
           </CardContent>
         </Card>

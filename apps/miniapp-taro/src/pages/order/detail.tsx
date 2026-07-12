@@ -20,17 +20,17 @@ export default function OrderDetail() {
   const router = useRouter()
   const [order, setOrder] = useState<Order>({} as Order)
 
-  const statusText = useMemo(
-    () => STATUS_TEXT[order.status] || order.status,
-    [order.status]
-  )
+  const statusText = useMemo(() => STATUS_TEXT[order.status] || order.status, [order.status])
 
   useEffect(() => {
     const id = router.params.id
     if (!id) return
     getOrderDetail(id)
-      .then(data => setOrder(data))
-      .catch(() => {})
+      .then((data) => setOrder(data))
+      .catch((e) => {
+        console.error('订单详情加载 failed:', e)
+        Taro.showToast({ title: '订单加载失败', icon: 'none' })
+      })
   }, [router.params.id])
 
   const goPay = () => {

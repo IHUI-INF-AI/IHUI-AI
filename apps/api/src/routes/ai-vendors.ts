@@ -958,10 +958,15 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
       duration?: number
       size?: string
     }
-    const data = await callVendor('sora2', 'https://api.openai.com/v1/videos/generations', reply, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    })
+    const data = await callVendor(
+      'sora2',
+      `${VENDORS.sora2!.baseUrl}/v1/videos/generations`,
+      reply,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    )
     if (data === null) return
     const task = createTask(request.userId!, 'sora2', 'video', data)
     recordUsage(request.userId!, 'sora2')
@@ -986,7 +991,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
     }
     const upstream = await callVendor(
       'sora2',
-      `https://api.openai.com/v1/videos/generations/${encodeURIComponent(taskId)}`,
+      `${VENDORS.sora2!.baseUrl}/v1/videos/generations/${encodeURIComponent(taskId)}`,
       reply,
       { method: 'GET' },
     )
@@ -997,7 +1002,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /sora2/models — 模型列表
   server.get('/sora2/models', async (_request, reply) => {
-    const data = await callVendor('sora2', 'https://api.openai.com/v1/models', reply, {
+    const data = await callVendor('sora2', `${VENDORS.sora2!.baseUrl}/v1/models`, reply, {
       method: 'GET',
     })
     if (data === null) return
@@ -1716,7 +1721,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
       doubao: 'https://ark.cn-beijing.volces.com/api/v3/models',
       gemini: 'https://generativelanguage.googleapis.com/v1beta/models',
       suno: 'https://api.suno.ai/v1/models',
-      sora2: 'https://api.openai.com/v1/models',
+      sora2: `${VENDORS.sora2!.baseUrl}/v1/models`,
       coze: 'https://api.coze.cn/v1/models',
       volcengine: 'https://visual.volcengineapi.com/',
       jimeng4: 'https://visual.volcengineapi.com/',

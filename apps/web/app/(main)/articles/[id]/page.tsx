@@ -8,6 +8,7 @@ import { ArrowLeft, Loader2, Eye, Newspaper } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui'
+import { SafeHtml } from '@/components/common'
 
 interface ArticleDetail {
   id: string
@@ -112,9 +113,9 @@ export default function ArticleDetailPage() {
 
       <Card>
         <CardContent className="p-6">
-          <article
+          <SafeHtml
+            html={article.content}
             className="prose prose-sm max-w-none dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: article.content }}
           />
         </CardContent>
       </Card>

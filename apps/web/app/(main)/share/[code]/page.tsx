@@ -21,6 +21,7 @@ import { toast } from 'sonner'
 
 import { fetchShareContent, type ShareContent, type ShareListItem } from '@/lib/share-api'
 import { useClipboard } from '@/hooks/use-clipboard'
+import { VideoPlayer } from '@/components/media'
 
 // 小程序跳转链接（与历史项目保持一致）
 const MINI_PROGRAM_LINK = 'https://aizhs.top/share'
@@ -140,7 +141,7 @@ function AnswerArea({ answer }: { answer: ShareContent['answer'] }) {
       {answer.thinking && <ThinkingProcess text={answer.thinking} />}
 
       {/* 视频内容 */}
-      {answer.video && <VideoPlayer video={answer.video} />}
+      {answer.video && <ShareVideo video={answer.video} />}
 
       {/* 图片列表 */}
       {images.length > 0 && <ImageGrid images={images} />}
@@ -200,25 +201,19 @@ function ThinkingProcess({ text }: { text: string }) {
 }
 
 // =============================================================================
-// 视频播放：自适应尺寸，支持 9:16 竖屏
+// 视频播放：自适应尺寸，支持 9:16 竖屏（复用 media/VideoPlayer 组件）
 // =============================================================================
 
-function VideoPlayer({ video }: { video: NonNullable<ShareContent['answer']['video']> }) {
-  // 9:16 竖屏使用固定尺寸（与历史项目一致），其余按 width/height 自适应
+function ShareVideo({ video }: { video: NonNullable<ShareContent['answer']['video']> }) {
   const isVertical = video.width && video.height ? video.height > video.width : false
 
   if (isVertical) {
     return (
-      <div className="inline-block overflow-hidden rounded-lg">
-        <video
-          src={video.url}
-          poster={video.cover}
-          controls
-          className="block rounded-lg"
-          style={{ width: '118px', height: '210px' }}
-        >
-          <track kind="captions" />
-        </video>
+      <div
+        className="inline-block overflow-hidden rounded-lg"
+        style={{ width: '118px', height: '210px' }}
+      >
+        <VideoPlayer src={video.url} poster={video.cover} className="h-full w-full" />
       </div>
     )
   }
@@ -227,16 +222,8 @@ function VideoPlayer({ video }: { video: NonNullable<ShareContent['answer']['vid
     video.width && video.height && video.width > 0 ? `${video.width} / ${video.height}` : '16 / 9'
 
   return (
-    <div className="overflow-hidden rounded-lg">
-      <video
-        src={video.url}
-        poster={video.cover}
-        controls
-        className="block w-full rounded-lg"
-        style={{ aspectRatio }}
-      >
-        <track kind="captions" />
-      </video>
+    <div className="overflow-hidden rounded-lg" style={{ aspectRatio }}>
+      <VideoPlayer src={video.url} poster={video.cover} className="h-full w-full" />
     </div>
   )
 }

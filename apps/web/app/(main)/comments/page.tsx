@@ -14,9 +14,11 @@ import {
   Newspaper,
   BookOpen,
 } from 'lucide-react'
-
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button } from '@ihui/ui'
+import { ConfirmDialog } from '@/components/feedback'
+import { CommentItem } from '@/components/business'
+import { useAuthStore } from '@/stores/auth'
 
 interface MyComment {
   id: string
@@ -26,7 +28,6 @@ interface MyComment {
   targetTitle?: string | null
   createdAt: string
 }
-
 interface CommentsData {
   list: MyComment[]
   total: number
@@ -72,7 +73,9 @@ export default function MyCommentsPage() {
   const tc = useTranslations('student')
   const locale = useLocale()
   const qc = useQueryClient()
+  const user = useAuthStore((s) => s.user)
   const [page, setPage] = React.useState(1)
+  const [deleteTarget, setDeleteTarget] = React.useState<MyComment | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['comments', 'mine', page],
@@ -84,20 +87,21 @@ export default function MyCommentsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['comments'] }),
   })
 
-  function handleDelete(comment: MyComment) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    delMut.mutate(comment.id)
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return
+    delMut.mutate(deleteTarget.id)
+    setDeleteTarget(null)
   }
 
   const list = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-
   const fmtDate = (v?: string | null) => {
     if (!v) return '-'
     const d = new Date(v)
     return Number.isNaN(d.getTime()) ? '-' : new Intl.DateTimeFormat(locale).format(d)
   }
+  const userName = user?.nickname ?? 'U'
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -129,38 +133,36 @@ export default function MyCommentsPage() {
             {list.map((comment) => {
               const Icon = TARGET_ICONS[comment.targetType] ?? FileText
               return (
-                <Card key={comment.id} className="transition-colors hover:bg-accent">
-                  <CardContent className="space-y-3 p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <Link
-                        href={targetHref(comment)}
-                        className="flex min-w-0 flex-1 items-center gap-2"
-                      >
-                        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="text-sm font-medium hover:text-primary">
-                          {comment.targetTitle ?? comment.targetType}
-                        </span>
-                      </Link>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="shrink-0 text-destructive hover:text-destructive"
-                        disabled={delMut.isPending}
-                        onClick={() => handleDelete(comment)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        {t('delete')}
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{comment.content}</p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
-                        {t('targetType')}: {comment.targetType}
+                <div
+                  key={comment.id}
+                  className="rounded-lg border p-4 transition-colors hover:bg-accent"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <Link href={targetHref(comment)} className="flex min-w-0 items-center gap-2">
+                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="text-sm font-medium hover:text-primary">
+                        {comment.targetTitle ?? comment.targetType}
                       </span>
-                      <span>{fmtDate(comment.createdAt)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shrink-0 text-destructive hover:text-destructive"
+                      disabled={delMut.isPending}
+                      onClick={() => setDeleteTarget(comment)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {t('delete')}
+                    </Button>
+                  </div>
+                  <CommentItem
+                    avatar={user?.avatar}
+                    name={userName}
+                    content={comment.content}
+                    time={fmtDate(comment.createdAt)}
+                    onReply={() => (window.location.href = targetHref(comment))}
+                  />
+                </div>
               )
             })}
           </div>
@@ -192,6 +194,17 @@ export default function MyCommentsPage() {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        variant="danger"
+        title={t('delete')}
+        content={t('deleteConfirm')}
+        confirmText={t('delete')}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+        loading={delMut.isPending}
+      />
     </div>
   )
 }

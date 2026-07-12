@@ -4,10 +4,11 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Clock, Users, PlayCircle, Check, Loader2, BookOpen } from 'lucide-react'
+import { ArrowLeft, Clock, Users, PlayCircle, Check, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { ProgressBar } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 interface Section {
@@ -210,21 +211,7 @@ export default function CourseDetailPage() {
               </div>
 
               {lesson.signedUp && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <BookOpen className="h-3.5 w-3.5" />
-                      {t('progress')}
-                    </span>
-                    <span>{progress}%</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
+                <ProgressBar value={progress} showLabel label={t('progress')} size="md" />
               )}
 
               <Button
