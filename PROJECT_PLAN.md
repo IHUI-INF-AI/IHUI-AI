@@ -1482,3 +1482,24 @@ R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39
 | `pnpm --filter @ihui/api typecheck`          | ✅ 零错误           |
 | `pnpm --filter @ihui/miniapp-taro typecheck` | ✅ 零错误           |
 | `pnpm --filter @ihui/api test`               | ✅ 860/860 全部通过 |
+
+---
+
+## R75 剩余 as any 清理（2026-07-12）✅
+
+> R74 后剩余 4 个路由文件中的 25 处 `request.query as any` 统一改为 Zod schema 校验。
+
+### 修复内容
+
+| 文件            | 修复数 | 说明                                             |
+| --------------- | ------ | ------------------------------------------------ |
+| `community.ts`  | 4      | 分页查询 + 条件筛选                              |
+| `exam.ts`       | 5      | 分页查询 + 条件筛选                              |
+| `message.ts`    | 3      | 分页查询                                         |
+| `zhs-course.ts` | 13     | 分页查询 + 条件筛选，新增 `pageQuery` 可复用常量 |
+
+### 验证结果
+
+- `pnpm --filter @ihui/api typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/api test` — ✅ 860/860 全部通过
+- `grep 'request.(query|params|body) as any' apps/api/src/routes/` — ✅ 零残留

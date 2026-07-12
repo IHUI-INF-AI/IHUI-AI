@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -186,7 +186,14 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
   // GET /messages/private/list - 我的私信列表
   server.get('/messages/private/list', async (request, reply) => {
     const userId = request.userId!
-    const { peerId, isRead, page = 1, pageSize = 20 } = request.query as any
+    const { peerId, isRead, page, pageSize } = z
+      .object({
+        peerId: z.string().optional(),
+        isRead: z.string().optional(),
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+      })
+      .parse(request.query)
     const conditions = [
       or(eq(messagePrivateLetter.senderId, userId), eq(messagePrivateLetter.receiverId, userId)),
     ]
@@ -279,7 +286,12 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /messages/system-notice/list - 系统通知列表
   server.get('/messages/system-notice/list', async (request, reply) => {
-    const { page = 1, pageSize = 20 } = request.query as any
+    const { page, pageSize } = z
+      .object({
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+      })
+      .parse(request.query)
     const list = await db
       .select()
       .from(messageSystemNotice)
@@ -408,7 +420,14 @@ export const adminMessageRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /messages/template/list - 消息模板列表
   server.get('/messages/template/list', async (request, reply) => {
-    const { channel, status, page = 1, pageSize = 20 } = request.query as any
+    const { channel, status, page, pageSize } = z
+      .object({
+        channel: z.string().optional(),
+        status: z.coerce.number().optional(),
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+      })
+      .parse(request.query)
     const conditions = []
     if (channel) conditions.push(eq(messageTemplates.channel, channel))
     if (status !== undefined) conditions.push(eq(messageTemplates.status, Number(status)))
