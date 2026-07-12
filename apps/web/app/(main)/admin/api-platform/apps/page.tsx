@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
 import { ApiAppFilter } from './ApiAppFilter'
 import { ApiAppTable } from './ApiAppTable'
@@ -11,6 +11,7 @@ import { api, RESOURCE, EMPTY_FORM } from './helpers'
 import type { ApiApp, ApiAppForm } from './types'
 
 export default function AdminApiPlatformAppsPage() {
+  const t = useTranslations('adminApiApps')
   const qc = useQueryClient()
   const locale = useLocale()
   const [createOpen, setCreateOpen] = React.useState(false)
@@ -68,7 +69,7 @@ export default function AdminApiPlatformAppsPage() {
     e.preventDefault()
     setErr(null)
     if (!form.name.trim()) {
-      setErr('请输入应用名称')
+      setErr(t('validateName'))
       return
     }
     createMut.mutate()

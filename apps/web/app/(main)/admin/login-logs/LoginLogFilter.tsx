@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
 import { Button, Input, Label } from '@ihui/ui'
 import { DatePicker } from '@/components/form/DatePicker'
@@ -13,48 +14,49 @@ interface Props {
 }
 
 export function LoginLogFilter({ search, onSearchChange, onReset, onQuery }: Props) {
+  const t = useTranslations('admin.loginLogs')
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
       <div className="space-y-1">
-        <Label className="text-xs">用户UUID</Label>
+        <Label className="text-xs">{t('labelUserUuid')}</Label>
         <Input
           className="h-9 w-40"
           value={search.userUuid}
           onChange={(e) => onSearchChange({ userUuid: e.target.value })}
-          placeholder="搜索 UUID"
+          placeholder={t('placeholderUserUuid')}
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">平台</Label>
+        <Label className="text-xs">{t('labelPlatform')}</Label>
         <Input
           className="h-9 w-40"
           value={search.platform}
           onChange={(e) => onSearchChange({ platform: e.target.value })}
-          placeholder="搜索平台"
+          placeholder={t('placeholderPlatform')}
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">位置</Label>
+        <Label className="text-xs">{t('labelLocation')}</Label>
         <Input
           className="h-9 w-40"
           value={search.location}
           onChange={(e) => onSearchChange({ location: e.target.value })}
-          placeholder="搜索位置"
+          placeholder={t('placeholderLocation')}
         />
       </div>
       <div className="space-y-1">
         <DatePicker
-          label="登录时间"
+          label={t('labelLoginTime')}
           value={search.loginTime}
           onChange={(v) => onSearchChange({ loginTime: v })}
         />
       </div>
       <Button size="sm" onClick={onQuery}>
         <Search className="h-4 w-4" />
-        搜索
+        {t('search')}
       </Button>
       <Button variant="outline" size="sm" onClick={onReset}>
-        重置
+        {t('reset')}
       </Button>
     </div>
   )
