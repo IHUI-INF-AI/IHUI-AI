@@ -23,7 +23,7 @@ import {
   TableCell,
 } from '@ihui/ui'
 import { cn } from '@/lib/utils'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
 interface BillingRecord {
   id: string
@@ -49,18 +49,9 @@ async function api<T>(url: string): Promise<T> {
 
 const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-const TYPE_LABEL: Record<BillingRecord['type'], string> = {
-  recharge: '充值',
-  consume: '消费',
-  refund: '退款',
-}
-const STATUS_LABEL: Record<BillingRecord['status'], string> = {
-  pending: '处理中',
-  success: '成功',
-  failed: '失败',
-}
 
 export default function AdminApiPlatformBillingPage() {
+  const t = useTranslations('adminApiBilling')
   const locale = useLocale()
   const [type, setType] = React.useState('all')
   const [status, setStatus] = React.useState('all')
@@ -82,21 +73,37 @@ export default function AdminApiPlatformBillingPage() {
     },
   })
 
+  const TYPE_LABEL_KEY: Record<BillingRecord['type'], string> = {
+    recharge: 'typeRecharge',
+    consume: 'typeConsume',
+    refund: 'typeRefund',
+  }
+  const STATUS_LABEL_KEY: Record<BillingRecord['status'], string> = {
+    pending: 'statusPending',
+    success: 'statusSuccess',
+    failed: 'statusFailed',
+  }
+
   const cards = [
     {
-      label: '累计充值',
+      label: t('totalRecharge'),
       value: summary?.totalRecharge ?? 0,
       icon: TrendingUp,
       cls: 'text-emerald-600',
     },
     {
-      label: '累计消费',
+      label: t('totalConsume'),
       value: summary?.totalConsume ?? 0,
       icon: TrendingDown,
       cls: 'text-amber-600',
     },
-    { label: '累计退款', value: summary?.totalRefund ?? 0, icon: Receipt, cls: 'text-red-600' },
-    { label: '当前余额', value: summary?.balance ?? 0, icon: Wallet, cls: 'text-primary' },
+    {
+      label: t('totalRefund'),
+      value: summary?.totalRefund ?? 0,
+      icon: Receipt,
+      cls: 'text-red-600',
+    },
+    { label: t('balance'), value: summary?.balance ?? 0, icon: Wallet, cls: 'text-primary' },
   ]
 
   return (
@@ -104,9 +111,9 @@ export default function AdminApiPlatformBillingPage() {
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Receipt className="h-6 w-6 text-primary" />
-          API 计费管理
+          {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">API 平台账单与资金流水</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -132,25 +139,25 @@ export default function AdminApiPlatformBillingPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         <Select value={type} onValueChange={setType}>
-          <SelectTrigger className={selectClass} aria-label="类型">
+          <SelectTrigger className={selectClass} aria-label={t('ariaType')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部类型</SelectItem>
-            <SelectItem value="recharge">充值</SelectItem>
-            <SelectItem value="consume">消费</SelectItem>
-            <SelectItem value="refund">退款</SelectItem>
+            <SelectItem value="all">{t('typeAll')}</SelectItem>
+            <SelectItem value="recharge">{t('typeRecharge')}</SelectItem>
+            <SelectItem value="consume">{t('typeConsume')}</SelectItem>
+            <SelectItem value="refund">{t('typeRefund')}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className={selectClass} aria-label="状态">
+          <SelectTrigger className={selectClass} aria-label={t('ariaStatus')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
-            <SelectItem value="pending">处理中</SelectItem>
-            <SelectItem value="success">成功</SelectItem>
-            <SelectItem value="failed">失败</SelectItem>
+            <SelectItem value="all">{t('statusAll')}</SelectItem>
+            <SelectItem value="pending">{t('statusPending')}</SelectItem>
+            <SelectItem value="success">{t('statusSuccess')}</SelectItem>
+            <SelectItem value="failed">{t('statusFailed')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -159,11 +166,11 @@ export default function AdminApiPlatformBillingPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-xs uppercase">应用</TableHead>
-              <TableHead className="text-xs uppercase">类型</TableHead>
-              <TableHead className="text-xs uppercase">金额</TableHead>
-              <TableHead className="text-xs uppercase">状态</TableHead>
-              <TableHead className="text-xs uppercase">时间</TableHead>
+              <TableHead className="text-xs uppercase">{t('colApp')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colType')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colAmount')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colStatus')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colTime')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -176,7 +183,7 @@ export default function AdminApiPlatformBillingPage() {
             ) : records.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                  暂无记录
+                  {t('noData')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -192,7 +199,7 @@ export default function AdminApiPlatformBillingPage() {
                         r.type === 'refund' && 'bg-red-500/10 text-red-600',
                       )}
                     >
-                      {TYPE_LABEL[r.type]}
+                      {t(TYPE_LABEL_KEY[r.type])}
                     </span>
                   </TableCell>
                   <TableCell
@@ -226,7 +233,7 @@ export default function AdminApiPlatformBillingPage() {
                               : 'bg-red-500',
                         )}
                       />
-                      {STATUS_LABEL[r.status]}
+                      {t(STATUS_LABEL_KEY[r.status])}
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">

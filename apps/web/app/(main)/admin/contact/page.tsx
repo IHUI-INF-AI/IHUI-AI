@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Phone, Plus, Edit, Trash2, Loader2, Download, Search } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { exportFromApi, type ExportColumn } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -43,15 +44,12 @@ const FIELDS: {
   key: keyof Pick<ContactItem, 'introduction' | 'corporateCulture'>
   label: string
 }[] = [
-  { key: 'introduction', label: '公司简介' },
-  { key: 'corporateCulture', label: '企业文化' },
-]
-const EXPORT_COLS: ExportColumn[] = [
-  { key: 'id', title: 'ID' },
-  ...FIELDS.map((f) => ({ key: f.key, title: f.label })),
+  { key: 'introduction', label: 'fieldIntroduction' },
+  { key: 'corporateCulture', label: 'fieldCorporateCulture' },
 ]
 
 export default function ContactPage() {
+  const t = useTranslations('adminContact')
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<ContactItem | null>(null)
@@ -121,12 +119,16 @@ export default function ContactPage() {
     setPage(1)
   }
   async function handleExport() {
+    const EXPORT_COLS: ExportColumn[] = [
+      { key: 'id', title: 'ID' },
+      ...FIELDS.map((f) => ({ key: f.key, title: t(f.label) })),
+    ]
     const ok = await exportFromApi(
       `${RESOURCE}?${new URLSearchParams(params)}`,
-      '联系我们',
+      t('exportName'),
       EXPORT_COLS,
     )
-    if (!ok) alert('导出失败')
+    if (!ok) alert(t('exportFailed'))
   }
 
   const list = data?.list ?? []
@@ -139,21 +141,21 @@ export default function ContactPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <Phone className="h-6 w-6 text-primary" />
-            联系我们
+            {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理联系我们与企业文化内容</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <HasPermi code={`${PERM}:export`}>
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              导出
+              {t('export')}
             </Button>
           </HasPermi>
           <HasPermi code={`${PERM}:add`}>
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
-              新增
+              {t('add')}
             </Button>
           </HasPermi>
         </div>
@@ -162,21 +164,21 @@ export default function ContactPage() {
       <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
         {FIELDS.map((f) => (
           <div key={f.key} className="space-y-1">
-            <Label className="text-xs">{f.label}</Label>
+            <Label className="text-xs">{t(f.label)}</Label>
             <Input
               className="h-9 w-48"
               value={search[f.key]}
               onChange={(e) => setSearch({ ...search, [f.key]: e.target.value })}
-              placeholder={`搜索${f.label}`}
+              placeholder={t('searchPlaceholder', { label: t(f.label) })}
             />
           </div>
         ))}
         <Button size="sm" onClick={() => setPage(1)}>
           <Search className="h-4 w-4" />
-          搜索
+          {t('search')}
         </Button>
         <Button variant="outline" size="sm" onClick={handleReset}>
-          重置
+          {t('reset')}
         </Button>
       </div>
 
@@ -184,10 +186,10 @@ export default function ContactPage() {
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
-              <th className={th}>ID</th>
-              <th className={th}>简介</th>
-              <th className={th}>企业文化</th>
-              <th className={`${th} text-right`}>操作</th>
+              <th className={th}>{t('colId')}</th>
+              <th className={th}>{t('colIntroduction')}</th>
+              <th className={th}>{t('colCorporateCulture')}</th>
+              <th className={`${th} text-right`}>{t('colActions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -195,13 +197,13 @@ export default function ContactPage() {
               <tr>
                 <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </td>
               </tr>
             ) : list.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                  暂无数据
+                  {t('noData')}
                 </td>
               </tr>
             ) : (
@@ -219,7 +221,7 @@ export default function ContactPage() {
                       <HasPermi code={`${PERM}:edit`}>
                         <Button size="sm" variant="ghost" onClick={() => openEdit(item)}>
                           <Edit className="h-4 w-4" />
-                          编辑
+                          {t('edit')}
                         </Button>
                       </HasPermi>
                       <HasPermi code={`${PERM}:remove`}>
@@ -228,10 +230,10 @@ export default function ContactPage() {
                           variant="ghost"
                           className="text-destructive hover:text-destructive"
                           disabled={delMut.isPending}
-                          onClick={() => confirm('确认删除?') && delMut.mutate(item.id)}
+                          onClick={() => confirm(t('confirmDelete')) && delMut.mutate(item.id)}
                         >
                           <Trash2 className="h-4 w-4" />
-                          删除
+                          {t('delete')}
                         </Button>
                       </HasPermi>
                     </div>
@@ -244,21 +246,21 @@ export default function ContactPage() {
       </div>
       {total > pageSize && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">共 {total} 条</span>
+          <span className="text-muted-foreground">{t('total', { total })}</span>
           <div className="flex gap-1">
             <button
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
               className="rounded border px-2 py-1 disabled:opacity-50"
             >
-              上一页
+              {t('prevPage')}
             </button>
             <button
               disabled={page * pageSize >= total}
               onClick={() => setPage(page + 1)}
               className="rounded border px-2 py-1 disabled:opacity-50"
             >
-              下一页
+              {t('nextPage')}
             </button>
           </div>
         </div>
@@ -268,24 +270,25 @@ export default function ContactPage() {
         <DialogContent className="max-w-2xl">
           <form onSubmit={submit} className="space-y-4">
             <DialogHeader>
-              <DialogTitle>{editing ? '编辑联系我们' : '新增联系我们'}</DialogTitle>
+              <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
             </DialogHeader>
             {FIELDS.map((f) => (
               <div key={f.key} className="space-y-2">
-                <Label>{f.label}</Label>
+                <Label>{t(f.label)}</Label>
                 <RichTextEditor
                   value={form[f.key]}
                   onChange={(html) => setForm({ ...form, [f.key]: html })}
-                  placeholder={`请输入${f.label}...`}
+                  placeholder={t('inputPlaceholder', { label: t(f.label) })}
                 />
               </div>
             ))}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
-                取消
+                {t('cancel')}
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t('save')}
               </Button>
             </DialogFooter>
           </form>
