@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Package, Bot, FileText, Cpu, Code2, ArrowRight } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
@@ -34,42 +35,43 @@ async function fetchStats(): Promise<FeatureStats> {
 const ENTRIES = [
   {
     key: 'apis',
-    label: 'API 集市',
-    description: '浏览与接入开放 API',
+    labelKey: 'apisLabel',
+    descKey: 'apisDesc',
     icon: Package,
     href: '/feature-center/apis',
   },
   {
     key: 'agents',
-    label: 'Agent 集市',
-    description: '发现可复用的 AI Agent',
+    labelKey: 'agentsLabel',
+    descKey: 'agentsDesc',
     icon: Bot,
     href: '/feature-center/agents',
   },
   {
     key: 'documents',
-    label: '文档集市',
-    description: '查阅接入与开发文档',
+    labelKey: 'documentsLabel',
+    descKey: 'documentsDesc',
     icon: FileText,
     href: '/feature-center/documents',
   },
   {
     key: 'models',
-    label: '模型集市',
-    description: '选择适合的 AI 模型',
+    labelKey: 'modelsLabel',
+    descKey: 'modelsDesc',
     icon: Cpu,
     href: '/feature-center/models',
   },
   {
     key: 'sdks',
-    label: 'SDK 集市',
-    description: '下载各语言 SDK',
+    labelKey: 'sdksLabel',
+    descKey: 'sdksDesc',
     icon: Code2,
     href: '/feature-center/sdks',
   },
 ] as const
 
 export default function FeatureCenterPage() {
+  const t = useTranslations('featureCenter')
   const { data, isLoading } = useQuery({
     queryKey: ['feature-center-stats'],
     queryFn: fetchStats,
@@ -86,16 +88,13 @@ export default function FeatureCenterPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <FeatureCenterHeader
-        title="开放平台 Feature Center"
-        description="一站式发现 API、Agent、文档、模型与 SDK"
-      />
+      <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -108,17 +107,17 @@ export default function FeatureCenterPage() {
                     <Icon className="h-5 w-5" />
                   </div>
                   <CardTitle className="flex items-center justify-between">
-                    {entry.label}
+                    {t(entry.labelKey)}
                     <span className="text-2xl font-bold text-primary">
                       {statMap[`${entry.key}Count`] ?? 0}
                     </span>
                   </CardTitle>
-                  <CardDescription>{entry.description}</CardDescription>
+                  <CardDescription>{t(entry.descKey)}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Button asChild variant="ghost" size="sm" className="px-0">
                     <Link href={entry.href}>
-                      进入集市 <ArrowRight className="ml-1 h-4 w-4" />
+                      {t('enterMarketplace')} <ArrowRight className="ml-1 h-4 w-4" />
                     </Link>
                   </Button>
                 </CardContent>
