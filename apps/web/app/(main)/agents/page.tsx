@@ -95,6 +95,7 @@ function fetchCategories(): Promise<CategoriesData> {
 
 function MyAgentsTab() {
   const router = useRouter()
+  const t = useTranslations('agents')
   const { agents, loading, fetchAgents } = useAgent()
   const [selectedId, setSelectedId] = React.useState<string | undefined>()
 
@@ -114,7 +115,7 @@ function MyAgentsTab() {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
   }
@@ -196,8 +197,8 @@ export default function AgentsMarketPage() {
 
       <Tabs defaultValue="market" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="market">Agent 市场</TabsTrigger>
-          <TabsTrigger value="mine">我的 Agent</TabsTrigger>
+          <TabsTrigger value="market">{t('marketTab')}</TabsTrigger>
+          <TabsTrigger value="mine">{t('mineTab')}</TabsTrigger>
         </TabsList>
         <TabsContent value="market" className="space-y-6">
           <div className="flex flex-wrap items-center gap-2">

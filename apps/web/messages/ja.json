@@ -32,6 +32,21 @@
     "notFoundTitle": "ページが見つかりません",
     "notFoundDescription": "お探しのページは存在しないか、削除されています。",
     "backHome": "戻るホーム",
+    "reply": "返信",
+    "searchHistory": "検索履歴",
+    "clear": "クリア",
+    "follow": "フォロー",
+    "followed": "フォロー中",
+    "orderNoLabel": "注文番号",
+    "searchPlaceholder": "検索...",
+    "orderStatus": {
+      "pending": "未払い",
+      "paid": "支払済",
+      "shipped": "発送済",
+      "completed": "完了",
+      "cancelled": "キャンセル済",
+      "refunded": "返金済"
+    },
     "tools": {
       "title": "ツールセンター",
       "subtitle": "プラットフォームが提供する各種ツールを閲覧・使用",
@@ -292,7 +307,9 @@
     "uploadFailed": "アップロード失敗",
     "downloadFailed": "ダウンロードに失敗",
     "deleteConfirm": "確定要削除これ件変数吗？",
-    "processedFiles": "処理済みファイル"
+    "processedFiles": "処理済みファイル",
+    "developerTools": "開発者ツール",
+    "mentionFile": "ファイルをメンション"
   },
   "chat": {
     "title": "AI会話",
@@ -320,7 +337,59 @@
     "loading": "読み込み中...",
     "enterToSend": "Enterキーで送信、Shift+Enterで改行",
     "generating": "生成中...",
-    "me": "私"
+    "me": "私",
+    "promptTemplate": "プロンプトテンプレート",
+    "addContextReference": "コンテキスト参照として追加",
+    "voiceRecord": "音声録音",
+    "voiceRecordLabel": "録音 {duration}秒",
+    "modelDescGpt4oMini": "高速 · 経済的",
+    "modelDescGpt4o": "バランス · 高品質",
+    "modelDescClaude35Sonnet": "強い推論 · 執筆",
+    "modelDescClaude35Haiku": "高速 · 軽量",
+    "slashCmd": {
+      "summary": "現在の会話を要約",
+      "translate": "テキストを翻訳",
+      "explain": "概念を説明",
+      "code": "コードを生成",
+      "polish": "テキストを推敲"
+    },
+    "cmdSummary": "上記の会話を要約し、重要な情報を抽出してください",
+    "cmdTranslate": "以下の内容を英語に翻訳してください：",
+    "cmdExplain": "以下の概念を詳しく説明してください：",
+    "cmdCode": "以下の機能をコードで実装し、コメントを追加してください：",
+    "cmdPolish": "以下のテキストを推敲し、よりプロフェッショナルで流暢にしてください：",
+    "tpl": {
+      "email": {
+        "name": "メール作成",
+        "content": "メールの草稿を作成してください。件名：",
+        "category": "執筆"
+      },
+      "report": {
+        "name": "レポート概要",
+        "content": "以下のテーマについてレポートの概要を作成してください：",
+        "category": "執筆"
+      },
+      "review": {
+        "name": "コードレビュー",
+        "content": "以下のコードをレビューし、潜在的な問題を指摘してください：",
+        "category": "コード"
+      },
+      "refactor": {
+        "name": "コードリファクタリング",
+        "content": "以下のコードをリファクタリングし、可読性を向上させてください：",
+        "category": "コード"
+      },
+      "translate": {
+        "name": "中英相互翻訳",
+        "content": "以下の内容を翻訳してください：",
+        "category": "翻訳"
+      },
+      "summary": {
+        "name": "コンテンツ要約",
+        "content": "以下の内容の重要な情報を要約してください：",
+        "category": "要約"
+      }
+    }
   },
   "learn": {
     "title": "APIテスト",
@@ -2690,7 +2759,10 @@
       "favorites": "お気に入り",
       "statsLoading": "統計を読み込み中...",
       "accountInfo": "アカウント情報",
-      "userId": "ユーザー ID"
+      "userId": "ユーザー ID",
+      "aiUsage": "AI 使用量統計",
+      "routines": "ルーティン",
+      "voiceRecord": "音声録音"
     },
     "security": {
       "title": "セキュリティ",
@@ -4097,7 +4169,9 @@
     "submitting": "送信中...",
     "fieldAgentId": "エージェント ID",
     "fieldWorkspace": "ワークスペース",
-    "fieldRemark": "備考"
+    "fieldRemark": "備考",
+    "marketTab": "Agent マーケット",
+    "mineTab": "マイ Agent"
   },
   "distribution": {
     "title": "ディストリビューションセンター",
