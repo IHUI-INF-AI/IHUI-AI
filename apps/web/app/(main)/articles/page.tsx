@@ -1,57 +1,15 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import {
-  FileText,
-  Search,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Pin,
-  Newspaper,
-} from 'lucide-react'
+import { Search, Newspaper } from 'lucide-react'
+import { Input } from '@ihui/ui'
 
-import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui'
-import { cn } from '@/lib/utils'
-
-interface ArticleCategory {
-  id: string
-  name: string
-  sort: number
-  status: number
-}
-
-interface ArticleItem {
-  id: string
-  title: string
-  summary?: string | null
-  coverImage?: string | null
-  authorName?: string | null
-  categoryId?: string | null
-  viewCount: number
-  publishedAt?: string | null
-  isPinned?: boolean
-}
-
-interface ArticlesData {
-  list: ArticleItem[]
-  total: number
-  page: number
-  pageSize: number
-}
-
-const PAGE_SIZE = 20
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+import { ArticlesList } from './ArticlesList'
+import { ArticlesSidebar } from './ArticlesSidebar'
+import { PAGE_SIZE, api } from './helpers'
+import type { ArticleCategory, ArticlesData } from './types'
 
 export default function ArticlesPage() {
   const t = useTranslations('articles')
@@ -95,12 +53,6 @@ export default function ArticlesPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const items = data?.list ?? []
 
-  const fmtDate = (v?: string | null) => {
-    if (!v) return '-'
-    const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : new Intl.DateTimeFormat(locale).format(d)
-  }
-
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <header className="space-y-1">
@@ -123,157 +75,25 @@ export default function ArticlesPage() {
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
-        <div className="min-w-0 flex-1 space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16 text-muted-foreground">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              {t('loading')}
-            </div>
-          ) : error ? (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-              {(error as Error).message}
-            </div>
-          ) : items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
-              <FileText className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('empty')}</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {items.map((item) => (
-                <Link key={item.id} href={`/articles/${item.id}`} className="block">
-                  <Card className="overflow-hidden transition-colors hover:bg-accent">
-                    <CardContent className="flex gap-4 p-4">
-                      <div className="h-24 w-40 shrink-0 overflow-hidden rounded-md bg-muted">
-                        {item.coverImage ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={item.coverImage}
-                            alt={item.title}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <Newspaper className="h-8 w-8 text-muted-foreground/50" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <div className="flex items-center gap-2">
-                          {item.isPinned && (
-                            <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
-                              <Pin className="h-3 w-3" />
-                              {t('pinned')}
-                            </span>
-                          )}
-                          <h2 className="font-medium transition-colors group-hover:text-primary">
-                            {item.title}
-                          </h2>
-                        </div>
-                        {item.summary && (
-                          <p className="mt-1 text-sm text-muted-foreground">{item.summary}</p>
-                        )}
-                        <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-xs text-muted-foreground">
-                          {item.authorName && <span>{item.authorName}</span>}
-                          <span>{t('publishedAt', { date: fmtDate(item.publishedAt) })}</span>
-                          <span className="inline-flex items-center gap-1">
-                            <Eye className="h-3.5 w-3.5" />
-                            {t('viewCount', { count: item.viewCount })}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
-
-          {total > PAGE_SIZE && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  {t('prev')}
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  {page} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  {t('next')}
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <aside className="w-full shrink-0 space-y-4 lg:w-72">
-          <Card>
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm">{t('categories')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 p-4 pt-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setCategoryId('all')
-                  setPage(1)
-                }}
-                className={cn(
-                  'block w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors',
-                  categoryId === 'all'
-                    ? 'bg-primary/10 font-medium text-primary'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                )}
-              >
-                {t('allCategories')}
-              </button>
-              {categories.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => {
-                    setCategoryId(c.id)
-                    setPage(1)
-                  }}
-                  className={cn(
-                    'block w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors',
-                    categoryId === c.id
-                      ? 'bg-primary/10 font-medium text-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  )}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <Link href="/articles/hot">
-                <Button variant="outline" className="w-full">
-                  {t('hotArticles')}
-                </Button>
-              </Link>
-              <Link href="/articles/edit" className="mt-2 block">
-                <Button className="w-full">{t('publishArticle')}</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </aside>
+        <ArticlesList
+          items={items}
+          isLoading={isLoading}
+          error={error as Error | null}
+          total={total}
+          totalPages={totalPages}
+          page={page}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => p + 1)}
+          locale={locale}
+        />
+        <ArticlesSidebar
+          categories={categories}
+          categoryId={categoryId}
+          onSelectCategory={(id) => {
+            setCategoryId(id)
+            setPage(1)
+          }}
+        />
       </div>
     </div>
   )
