@@ -394,8 +394,8 @@ export const getRoomHistory = (roomId: string, page = 1) =>
 export const markRoomRead = (roomId: string) => post(`/messages/rooms/${roomId}/read`)
 
 /* ============ AIGC ============ */
-export const getAigcList = (params?: any) => get('/aigc/list', params)
-export const publishAigc = (data: any) => post('/aigc/publish', data)
+export const getAigcList = (params?: unknown) => get('/aigc/list', params)
+export const publishAigc = (data: unknown) => post('/aigc/publish', data)
 
 /* ============ 模型广场 ============ */
 export const getModelPlazaList = () => get('/models/plaza')
@@ -414,11 +414,11 @@ export const getDeveloperWithdrawalList = () => get('/developer/withdrawals')
 
 /* ============ N8N 工作流 ============ */
 export const getN8nWorkflows = () => get('/workflows/n8n')
-export const createN8nAgent = (data: any) => post('/workflows/n8n/create', data)
+export const createN8nAgent = (data: unknown) => post('/workflows/n8n/create', data)
 
 /* ============ 名片 ============ */
 export const getBusinessCard = () => get('/user/business-card')
-export const updateBusinessCard = (data: any) => put('/user/business-card', data)
+export const updateBusinessCard = (data: unknown) => put('/user/business-card', data)
 
 /* ============ 知识星球 ============ */
 export const getKnowledgePlanetInfo = () => get('/knowledge-planet/info')
@@ -430,8 +430,8 @@ export const getCoursePlanet = () => get('/course-planet')
 /* ============ 多登录方式 ============ */
 export const loginByAlipay = (code: string) => post('/auth/alipay/login', { code })
 export const loginByGoogle = (code: string) => post('/auth/google/login', { code })
-export const register = (data: any) => post('/auth/register', data)
-export const changePassword = (data: any) => put('/auth/password', data)
+export const register = (data: unknown) => post('/auth/register', data)
+export const changePassword = (data: unknown) => put('/auth/password', data)
 export const accountCancel = () => del('/auth/account')
 
 /* ============ 学习扩展 ============ */
@@ -450,62 +450,62 @@ export const getPrivacyPolicy = () => get('/settings/privacy')
 export const getUserAgreement = () => get('/settings/agreement')
 
 /* ============ 智能体对话上下文 ============ */
-type ApiParams = Record<string, any>
+type ApiParams = Record<string, unknown>
 
 /** 获取智能体 token */
 export const getAgentTokens = (params: ApiParams) => get('/agent/tokens', params)
 /** 保存对话上下文 */
-export const postContext = (data: any) => post('/agent/context', data)
+export const postContext = (data: unknown) => post('/agent/context', data)
 /** 获取用户对话上下文 */
 export const getUserContext = (params: ApiParams) => get('/agent/context', params)
 /** 保存聊天记录 */
-export const saveChatHistory = (data: any) => post('/chat/history', data)
+export const saveChatHistory = (data: unknown) => post('/chat/history', data)
 /** 删除聊天记录 */
 export const removeChatHistory = (id: string) => del(`/chat/history/${id}`)
 /** 查询智能体上下文 */
 export const queryAgentContext = (params: ApiParams) => get('/agent/context/query', params)
 /** 创建模型对话 */
-export const createModelChat = (data: any) => post('/model/chat', data)
+export const createModelChat = (data: unknown) => post('/model/chat', data)
 /** 删除模型对话 */
 export const removeModelChat = (id: string) => del(`/model/chat/${id}`)
 
 /* ============ AIGC 多媒体生成 ============ */
 /** 通义万相 - 图片生成 */
-export const generateImageDashscope = (data: any) => post('/dashscope/image/generate', data)
+export const generateImageDashscope = (data: unknown) => post('/dashscope/image/generate', data)
 /** 通义万相 - 图片编辑 */
-export const editImageDashscope = (data: any) => post('/dashscope/image/edit', data)
+export const editImageDashscope = (data: unknown) => post('/dashscope/image/edit', data)
 /** 通义万相 - 视频生成 */
-export const generateVideoDashscope = (data: any) => post('/dashscope/video/generate', data)
+export const generateVideoDashscope = (data: unknown) => post('/dashscope/video/generate', data)
 /** 腾讯混元3D - 提交生成 */
-export const generate3dTencent = (data: any) => post('/tencent/hunyuan3d/submit', data)
+export const generate3dTencent = (data: unknown) => post('/tencent/hunyuan3d/submit', data)
 /** 腾讯混元3D - 查询结果 */
 export const query3dTencent = (taskId: string) => get(`/tencent/hunyuan3d/query?taskId=${taskId}`)
 /** 豆包 - 图片生成 */
-export const generateImageDoubao = (data: any) => post('/doubao/image', data)
+export const generateImageDoubao = (data: unknown) => post('/doubao/image', data)
 /** 豆包 - 图片编辑 */
-export const editImageDoubao = (data: any) => post('/doubao/image/edit', data)
+export const editImageDoubao = (data: unknown) => post('/doubao/image/edit', data)
 /** 豆包 - 视频生成 */
-export const generateVideoDoubao = (data: any) => post('/doubao/video', data)
+export const generateVideoDoubao = (data: unknown) => post('/doubao/video', data)
 /** 即梦 - 图片生成 */
-export const generateImageJimeng = (data: any) => post('/volcengine/jimeng/image', data)
+export const generateImageJimeng = (data: unknown) => post('/volcengine/jimeng/image', data)
 /** 火山引擎 - 图片生成 */
-export const generateImageVolcengine = (data: any) => post('/volcengine/visual/generate', data)
+export const generateImageVolcengine = (data: unknown) => post('/volcengine/visual/generate', data)
 /** 可灵 - 视频生成 */
-export const generateVideoKling = (data: any) => post('/kling/video/generate', data)
+export const generateVideoKling = (data: unknown) => post('/kling/video/generate', data)
 /** 可灵 - 图片生成 */
-export const generateImageKling = (data: any) => post('/kling/image/generate', data)
+export const generateImageKling = (data: unknown) => post('/kling/image/generate', data)
 
 /* ============ 课程 / 视频内容管理 ============ */
 /** 课程分组详情 */
 export const getGroupDetail = (id: string) => get(`/learn/group/${id}`)
 /** 新增课程分组 */
-export const addGroup = (data: any) => post('/learn/group', data)
+export const addGroup = (data: unknown) => post('/learn/group', data)
 /** 更新课程 */
-export const coursePut = (id: string, data: any) => put(`/learn/course/${id}`, data)
+export const coursePut = (id: string, data: unknown) => put(`/learn/course/${id}`, data)
 /** 删除课程 */
 export const courseDelete = (id: string) => del(`/learn/course/${id}`)
 /** 新增视频 */
-export const addVideo = (data: any) => post('/learn/video', data)
+export const addVideo = (data: unknown) => post('/learn/video', data)
 /** 更新视频 */
 export const videoPut = (id: string, data: any) => put(`/learn/video/${id}`, data)
 /** 删除视频 */
@@ -517,9 +517,9 @@ export const delistCourse = (id: string) => post(`/learn/course/${id}/delist`)
 /** 视频评论列表 */
 export const getVideoCommentList = (params: ApiParams) => get('/learn/video/comments', params)
 /** 新增视频评论 */
-export const addVideoComment = (data: any) => post('/learn/video/comment', data)
+export const addVideoComment = (data: unknown) => post('/learn/video/comment', data)
 /** 视频日志操作 */
-export const videoLogOperate = (data: any) => post('/learn/video/log', data)
+export const videoLogOperate = (data: unknown) => post('/learn/video/log', data)
 
 /* ============ 分销高级功能 ============ */
 /** 获取微信二维码 */
@@ -533,43 +533,43 @@ export const getWithdrawalStatus = (id: string) => get(`/distribution/withdrawal
 
 /* ============ 分享功能 ============ */
 /** 智能体创建分享 */
-export const agentCreationShare = (data: any) => post('/agent/creation/share', data)
+export const agentCreationShare = (data: unknown) => post('/agent/creation/share', data)
 /** 第三方分享 */
-export const agentCreationShareThird = (data: any) => post('/agent/creation/share/third', data)
+export const agentCreationShareThird = (data: unknown) => post('/agent/creation/share/third', data)
 /** 首次分享状态查询 */
 export const checkFirstShareStatus = () => get('/agent/creation/share/first-status')
 /** 首次分享 */
-export const firstShare = (data: any) => post('/agent/creation/share/first', data)
+export const firstShare = (data: unknown) => post('/agent/creation/share/first', data)
 /** 根据分享码获取内容 */
 export const getShareContentByCode = (code: string) => get(`/agent/creation/share/third/${code}`)
 
 /* ============ 其他扩展 API ============ */
 /** 绑定用户 */
-export const bindUser = (data: any) => post('/auth/bind-user', data)
+export const bindUser = (data: unknown) => post('/auth/bind-user', data)
 /** 绑定用户（新版） */
-export const bindUserNew = (data: any) => post('/auth/bind-user-new', data)
+export const bindUserNew = (data: unknown) => post('/auth/bind-user-new', data)
 /** 获取手机号（微信授权） */
-export const getPhoneNumber = (data: any) => post('/auth/phone-number', data)
+export const getPhoneNumber = (data: unknown) => post('/auth/phone-number', data)
 /** 查询是否已设置密码 */
 export const pwdExist = (phone: string) => get(`/auth/pwd-exist?phone=${phone}`)
 /** 修改手机号 */
-export const editPhone = (data: any) => put('/auth/phone', data)
+export const editPhone = (data: unknown) => put('/auth/phone', data)
 /** 关闭订单 */
 export const closeOrder = (orderId: string) => post(`/order/${orderId}/close`)
 /** 批量关闭订单 */
 export const closeOrders = (orderIds: string[]) => post('/order/batch-close', { orderIds })
 /** 支付宝新支付 */
-export const zfbNewPay = (data: any) => post('/pay/zfb-new', data)
+export const zfbNewPay = (data: unknown) => post('/pay/zfb-new', data)
 /** Token 智汇值总数 */
 export const getTokenCount = () => get('/token/count')
 /** Token 智汇值返还 */
 export const getTokenReturn = () => get('/token/return')
 /** N8N 智能体处理 */
-export const processN8nAgent = (data: any) => post('/n8n/agent/process', data)
+export const processN8nAgent = (data: unknown) => post('/n8n/agent/process', data)
 /** Base64 上传文件 */
-export const uploadByBase64 = (data: any) => post('/files/upload/base64', data)
+export const uploadByBase64 = (data: unknown) => post('/files/upload/base64', data)
 /** 添加水印 */
-export const addWatermark = (data: any) => post('/files/watermark', data)
+export const addWatermark = (data: unknown) => post('/files/watermark', data)
 /** 资讯分类 */
 export const getInformationCategory = () => get('/news/categories')
 /** 每日资讯 */
@@ -585,11 +585,11 @@ export const getProduct = (id: string) => get(`/goods/${id}`)
 /** 根据智能体 ID 获取收费配置 */
 export const getChargeInfoById = (agentId: string | number) => get(`/agents/charge/${agentId}`)
 /** 创建付费记录 */
-export const createPayHistory = (data: any) => post('/agents/charge/pay-history', data)
+export const createPayHistory = (data: unknown) => post('/agents/charge/pay-history', data)
 /** 创建智能体收费配置 */
-export const createZntCharge = (data: any) => post('/agents/charge', data)
+export const createZntCharge = (data: unknown) => post('/agents/charge', data)
 /** 修改智能体收费配置 */
-export const putZntCharge = (data: any) => put('/agents/charge', data)
+export const putZntCharge = (data: unknown) => put('/agents/charge', data)
 /** 删除智能体收费配置 */
 export const deleteZntCharge = (id: string | number) => del(`/agents/charge/${id}`)
 /** 获取智能体审核记录列表 */
@@ -607,17 +607,17 @@ export const getMxList = (params: ApiParams) => get('/developer/income/mx', para
 /** 发布广场列表 */
 export const getPlazaList = (params: ApiParams) => get('/plaza/list', params)
 /** 发布广场模型 */
-export const addPlazaModel = (data: any) => post('/plaza/add', data)
+export const addPlazaModel = (data: unknown) => post('/plaza/add', data)
 /** 发布广场详情 */
 export const getPlazaInfoById = (id: string | number) => get(`/plaza/${id}`)
 
 /* ============ 视频分片上传 ============ */
 /** 分片上传 */
-export const uploadChunkedFile = (data: any) => post('/upload/chunked', data)
+export const uploadChunkedFile = (data: unknown) => post('/upload/chunked', data)
 /** 分片上传（PC） */
-export const uploadChunkedFilePC = (data: any) => post('/upload/chunked-pc', data)
+export const uploadChunkedFilePC = (data: unknown) => post('/upload/chunked-pc', data)
 /** 获取分片视频完整地址 */
-export const uploadChunkedFileJoint = (data: any) => post('/upload/chunked-joint', data)
+export const uploadChunkedFileJoint = (data: unknown) => post('/upload/chunked-joint', data)
 
 /* ============ 操盘手数据统计 ============ */
 /** 获取操盘手个人信息卡数据 */
@@ -637,7 +637,7 @@ export const getAgentType = () => get('/agents/types')
 /** 获取分类字典 */
 export const categoryDictionary = () => get('/category/dictionary')
 /** 智能体移除（购买） */
-export const aiRemoveAgent = (data: any) => post('/agents/remove', data)
+export const aiRemoveAgent = (data: unknown) => post('/agents/remove', data)
 /** 获取模型列表（统一接口） */
 export const getCozeApiList = (params?: ApiParams) => get('/coze/api-list', params)
 /** 搜索模型工作流运行 */
@@ -646,17 +646,18 @@ export const searchModelWorkflowRun = (params: ApiParams) =>
 
 /* ============ Luyala 代理 ============ */
 /** Luyala 对话补全 */
-export const cozeZhsApiLuyalaChatCompletions = (data: any) => post('/luyala/chat/completions', data)
+export const cozeZhsApiLuyalaChatCompletions = (data: unknown) =>
+  post('/luyala/chat/completions', data)
 /** 按 URL 代理 POST 请求 */
-export const postByUrl = (url: string, data: any) => post('/proxy/post-by-url', { url, data })
+export const postByUrl = (url: string, data: unknown) => post('/proxy/post-by-url', { url, data })
 
 /* ============ 音频 / Sora ============ */
 /** 阿里生成音色 */
-export const aliGenerateTimbre = (data: any) => post('/audio/generate-timbre', data)
+export const aliGenerateTimbre = (data: unknown) => post('/audio/generate-timbre', data)
 /** Sora 请求结束 */
-export const soraRequestEnd = (data: any) => post('/sora/request-end', data)
+export const soraRequestEnd = (data: unknown) => post('/sora/request-end', data)
 /** 音频会话开始（会话级管理） */
-export const audioStart = (data: any) => post('/audio/start', data)
+export const audioStart = (data: unknown) => post('/audio/start', data)
 
 /* ============ 智能体列表变体 ============ */
 /** 获取智能体列表（base1） */
@@ -698,12 +699,12 @@ export const userFeedbackList = (params: ApiParams) => get('/user/feedback-list'
 
 /* ============ 名片变体 ============ */
 /** 上传名片（变体 a） */
-export const uploadBusinessCarda = (data: any) => post('/business-card/upload-a', data)
+export const uploadBusinessCarda = (data: unknown) => post('/business-card/upload-a', data)
 /** Base64 上传（变体 a） */
-export const uploadBybase64a = (data: any) => post('/upload/base64-a', data)
+export const uploadBybase64a = (data: unknown) => post('/upload/base64-a', data)
 
 /* ============ 其他 ============ */
 /** 排行榜分组列表 */
 export const getGroupList = (params: ApiParams) => get('/rankings/group-list', params)
 /** 更新标记 */
-export const updateMark = (data: any) => put('/user/update-mark', data)
+export const updateMark = (data: unknown) => put('/user/update-mark', data)

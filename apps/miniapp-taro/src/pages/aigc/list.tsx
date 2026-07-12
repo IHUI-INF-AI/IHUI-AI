@@ -5,13 +5,13 @@ import { getAigcList } from '@/api'
 import './list.css'
 
 export default function AigcList() {
-  const [list, setList] = useState<any[]>([])
+  const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const res: any = await getAigcList()
-      setList(res?.list || [])
+      const res = (await getAigcList()) as Record<string, unknown>
+      setList((res?.list as Record<string, unknown>[]) || [])
     } catch {
       // ignore
     } finally {
@@ -30,7 +30,7 @@ export default function AigcList() {
         {loading ? (
           <Text className="loading-text">加载中...</Text>
         ) : list.length ? (
-          list.map((item: any) => (
+          list.map((item: Record<string, unknown>) => (
             <View key={item.id} className="aigc-card">
               {item.coverUrl ? (
                 <Image className="aigc-cover" src={item.coverUrl} mode="aspectFill" />
