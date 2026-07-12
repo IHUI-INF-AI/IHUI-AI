@@ -401,4 +401,407 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     if (id === null) return
     return reply.send(success({ message: null }))
   })
+
+  // ===========================================================================
+  // 14. 支付模块 /payment/*, /payments/*, /refunds/*, /top-up/*, /invoices/*（15 个端点）
+  // ===========================================================================
+  server.post('/payment/order/:orderNo/close', async (request, reply) => {
+    const orderNo = (request.params as { orderNo: string }).orderNo
+    if (!orderNo) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ success: true }))
+  })
+
+  server.post('/payment/order/:orderNo/sync', async (request, reply) => {
+    const orderNo = (request.params as { orderNo: string }).orderNo
+    if (!orderNo) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ success: true }))
+  })
+
+  server.post('/payment/callback/verify', async (_request, reply) => {
+    return reply.send(success({ success: true }))
+  })
+
+  server.get('/payment/orders/:orderNo', async (request, reply) => {
+    const orderNo = (request.params as { orderNo: string }).orderNo
+    if (!orderNo) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ order: null }))
+  })
+
+  server.get('/payments/me', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.get('/payment/refund/:refundNo', async (request, reply) => {
+    const refundNo = (request.params as { refundNo: string }).refundNo
+    if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ refund: null }))
+  })
+
+  server.post('/payment/refund/:refundNo/cancel', async (request, reply) => {
+    const refundNo = (request.params as { refundNo: string }).refundNo
+    if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ success: true }))
+  })
+
+  server.get('/payment/refund/:refundNo/status', async (request, reply) => {
+    const refundNo = (request.params as { refundNo: string }).refundNo
+    if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ status: null }))
+  })
+
+  server.post('/payment/refund/:refundNo/audit', async (request, reply) => {
+    const refundNo = (request.params as { refundNo: string }).refundNo
+    if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ success: true }))
+  })
+
+  server.post('/payment/refund/:refundNo/process', async (request, reply) => {
+    const refundNo = (request.params as { refundNo: string }).refundNo
+    if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ success: true }))
+  })
+
+  server.post('/refunds/apply', async (_request, reply) => {
+    return reply.status(201).send(success({ success: true }))
+  })
+
+  server.get('/refunds/me', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.get('/top-up/status/:orderId', async (request, reply) => {
+    const orderId = (request.params as { orderId: string }).orderId
+    if (!orderId) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ status: null }))
+  })
+
+  server.get('/invoices/applications', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.post('/invoices/applications', async (_request, reply) => {
+    return reply.status(201).send(success({ success: true }))
+  })
+
+  // ===========================================================================
+  // 15. 提现模块 /finance/withdrawal/*（7 个端点）
+  // ===========================================================================
+  server.post('/finance/withdrawal/withdrawal', async (_request, reply) => {
+    return reply.status(201).send(success({ success: true }))
+  })
+
+  server.get('/finance/withdrawal/getWithdrawal', async (_request, reply) => {
+    return reply.send(success({ withdrawal: null }))
+  })
+
+  server.get('/finance/withdrawal/my-records', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.get('/finance/withdrawal/flows/list', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.get('/finance/withdrawal/flows/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ flow: null }))
+  })
+
+  server.post('/finance/withdrawal/flows/:id/approve', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  server.post('/finance/withdrawal/flows/:id/reject', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  // ===========================================================================
+  // 16. 基金模块 /fund/*（6 个端点）
+  // ===========================================================================
+  server.post('/fund/ali/pay/create', async (_request, reply) => {
+    return reply.send(success({ payUrl: null, orderId: null }))
+  })
+
+  server.post('/fund/ali/pay/create2', async (_request, reply) => {
+    return reply.send(success({ payUrl: null, orderId: null }))
+  })
+
+  server.get('/fund/ali/pay/alipay/return', async (_request, reply) => {
+    return reply.send(success({ success: true }))
+  })
+
+  server.get('/fund', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.get('/fund/:code', async (request, reply) => {
+    const code = (request.params as { code: string }).code
+    if (!code) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ fund: null }))
+  })
+
+  server.get('/fund/:code/net-values', async (request, reply) => {
+    const code = (request.params as { code: string }).code
+    if (!code) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ list: [] }))
+  })
+
+  // ===========================================================================
+  // 17. AI 模块 /ai/*, /ai-ext/*（11 个端点）
+  // ===========================================================================
+  server.get('/ai/index', async (_request, reply) => {
+    return reply.send(success({ banners: [], models: [], recommend: [] }))
+  })
+
+  server.get('/ai/team', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.get('/ai/team/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ team: null }))
+  })
+
+  server.post('/ai/chat', async (_request, reply) => {
+    return reply.send(success({ reply: '', conversationId: null }))
+  })
+
+  server.get('/ai/history', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.post('/ai/chat/conversations', async (_request, reply) => {
+    return reply.status(201).send(success({ conversationId: null }))
+  })
+
+  server.get('/ai/chat/conversations', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.delete('/ai/chat/conversations/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  server.post('/ai/aigc/tasks/:taskId/cancel', async (request, reply) => {
+    const taskId = (request.params as { taskId: string }).taskId
+    if (!taskId) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ success: true }))
+  })
+
+  server.post('/ai-ext/capabilities/:id/toggle', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  server.get('/ai-ext/reports', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.post('/ai-ext/reports/generate', async (_request, reply) => {
+    return reply.status(201).send(success({ reportId: null }))
+  })
+
+  // ===========================================================================
+  // 18. AI Feed/World 模块 /ai-feed/*, /ai-world/*（4 个端点）
+  // ===========================================================================
+  server.get('/ai-feed', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.get('/ai-feed/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ feed: null }))
+  })
+
+  server.get('/ai-world/categories', async (_request, reply) => {
+    return reply.send(success({ list: [] }))
+  })
+
+  server.get('/ai-world/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ world: null }))
+  })
+
+  // ===========================================================================
+  // 19. Workspace-AI 模块 /workspace-ai/*（2 个端点）
+  // ===========================================================================
+  server.post('/workspace-ai/generate-component', async (_request, reply) => {
+    return reply.send(success({ component: null, code: '' }))
+  })
+
+  server.post('/workspace-ai/agentic', async (_request, reply) => {
+    return reply.send(success({ result: null, taskId: null }))
+  })
+
+  // ===========================================================================
+  // 20. Course 模块 /course/*（4 个端点）
+  // ===========================================================================
+  server.post('/course/:id/enroll', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.status(201).send(success({ success: true }))
+  })
+
+  server.get('/course/:id/progress', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ progress: 0, completedLessons: 0, totalLessons: 0 }))
+  })
+
+  server.post('/course/lesson-complete', async (_request, reply) => {
+    return reply.send(success({ success: true }))
+  })
+
+  server.get('/course/my', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  // ===========================================================================
+  // 21. Resource/Certificate/Knowledge/Skills 模块（9 个端点）
+  // ===========================================================================
+  server.get('/resources/:id/download', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ url: null }))
+  })
+
+  server.post('/resources/:id/like', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  server.post('/certificates/issue', async (_request, reply) => {
+    return reply.status(201).send(success({ certificateId: null }))
+  })
+
+  server.post('/certificates/:id/revoke', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  server.post('/knowledge', async (_request, reply) => {
+    return reply.status(201).send(success({ id: null }))
+  })
+
+  server.put('/knowledge/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  server.delete('/knowledge/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  server.post('/skills', async (_request, reply) => {
+    return reply.status(201).send(success({ id: null }))
+  })
+
+  server.put('/skills/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  server.delete('/skills/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  // ===========================================================================
+  // 22. Article/Member/Live/Agent/Coze 模块（7 个端点）
+  // 注意：POST /api/sign-in 已在 gamification.ts 中注册，跳过
+  // 注意：POST /api/coupons/verify 已在 promotions.ts 中注册，跳过
+  // ===========================================================================
+  server.get('/article/comments', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.get('/members/me', async (_request, reply) => {
+    return reply.send(success({ member: null }))
+  })
+
+  server.get('/live/calendar', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    return reply.send(emptyList(q.page, q.pageSize))
+  })
+
+  server.post('/agents/:id/favorite', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  server.get('/agents/:id/reviews', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ list: [] }))
+  })
+
+  server.post('/agents/:id/publish', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    return reply.send(success({ success: true }))
+  })
+
+  server.get('/coze/chat/history/:botId/:conversationId', async (request, reply) => {
+    const { botId, conversationId } = request.params as { botId: string; conversationId: string }
+    if (!botId || !conversationId) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(success({ list: [] }))
+  })
+
+  // ===========================================================================
+  // 23. 其他模块（2 个端点）
+  // 注意：POST /api/users/change-phone 已在 users.ts 中注册，跳过
+  // ===========================================================================
+  server.get('/categories', async (_request, reply) => {
+    return reply.send(success({ list: [] }))
+  })
+
+  server.post('/analytics/track', async (_request, reply) => {
+    return reply.send(success({ success: true }))
+  })
 }
