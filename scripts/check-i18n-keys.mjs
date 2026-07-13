@@ -301,19 +301,12 @@ if (issueCount > 0) {
   console.log(
     `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
   )
-  if (isStaged) {
-    console.log(`${C.red}[i18n 键检查] 发现问题,拒绝提交!${C.reset}`)
-    console.log(`${C.yellow}修复方法:${C.reset}`)
-    console.log(`  1. 在 apps/web/messages/${BASE_LANG}.json 对应命名空间补齐缺失键`)
-    console.log(`  2. 确保所有语言文件的键集与 ${BASE_LANG} 一致(parity)`)
-    console.log(`  3. 多命名空间文件用不同变量名(t/tc/te)避免冲突`)
-    process.exit(1)
-  } else {
-    console.log(
-      `${C.yellow}[i18n 键检查] 发现历史遗留问题,已标记为 WARNING,不阻止提交${C.reset}`,
-    )
-    process.exit(0)
-  }
+  console.log(`${C.red}[i18n 键检查] 发现问题,拒绝提交/CI失败!${C.reset}`)
+  console.log(`${C.yellow}修复方法:${C.reset}`)
+  console.log(`  1. 在 apps/web/messages/${BASE_LANG}.json 对应命名空间补齐缺失键`)
+  console.log(`  2. 确保所有语言文件的键集与 ${BASE_LANG} 一致(parity)`)
+  console.log(`  3. 多命名空间文件用不同变量名(t/tc/te)避免冲突`)
+  process.exit(1)
 }
 
 console.log(
