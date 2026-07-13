@@ -110,6 +110,7 @@ import {
   findAiExtReports,
   createAiExtReport,
   findAiCareers,
+  findAiCareerById,
   findAiChatTypes,
   findAiCommunityPosts,
 } from '../db/ai-modules-queries.js'
@@ -176,7 +177,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 1. 文章模块 /article/*（9 个端点，其中 7 个真实化，like/favorite 无表保持桩）
+  // 1. 文章模块 /article/*（9 个端点全部真实化,like/favorite 用 resource_likes 表 toggleLike）
   // ===========================================================================
   server.get('/article/list', async (request, reply) => {
     const q = parsePagination(request, reply)
@@ -682,7 +683,9 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai/careers/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ career: null }))
+    const career = await findAiCareerById(id)
+    if (!career) return reply.status(404).send(error(404, '职位不存在'))
+    return reply.send(success({ career }))
   })
 
   server.get('/ai/chat-types', async (_request, reply) => {
