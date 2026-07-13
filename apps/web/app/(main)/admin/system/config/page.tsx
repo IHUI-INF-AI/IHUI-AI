@@ -25,7 +25,7 @@ export default function AdminSystemConfigPage() {
     queryFn: () => {
       const qs = new URLSearchParams()
       if (category !== 'all') qs.set('category', category)
-      return api<{ list: SystemConfig[] }>(`/api/admin/system/config?${qs.toString()}`).then(
+      return api<{ list: SystemConfig[] }>(`/api/admin/config?${qs.toString()}`).then(
         (d) => d.list ?? [],
       )
     },
@@ -41,11 +41,11 @@ export default function AdminSystemConfigPage() {
     mutationFn: () => {
       const body = { ...form }
       return editing
-        ? api(`/api/admin/system/config/${editing.id}`, {
+        ? api(`/api/admin/config/${editing.id}`, {
             method: 'PATCH',
             body: JSON.stringify(body),
           })
-        : api('/api/admin/system/config', { method: 'POST', body: JSON.stringify(body) })
+        : api('/api/admin/config', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'system', 'config'] })
@@ -55,7 +55,7 @@ export default function AdminSystemConfigPage() {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/system/config/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/admin/config/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'system', 'config'] }),
   })
 
