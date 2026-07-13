@@ -4454,17 +4454,18 @@
       "deleteConfirm": "确定删除规则「{name}」？",
       "deleteParamConfirm": "确定删除参数「{name}」？",
       "ruleTypes": {
-        "system": "系统规则",
-        "user": "用户规则",
-        "tool": "工具规则",
-        "constraint": "约束规则"
+        "text": "文本规则",
+        "regex": "正则规则",
+        "llm": "大模型判断"
       },
       "paramId": "ID",
       "paramRuleId": "规则ID",
       "paramName": "参数名",
       "paramCode": "参数代码",
       "paramType": "参数类型",
-      "paramValue": "参数值"
+      "paramValue": "参数值",
+      "description": "描述",
+      "descriptionPlaceholder": "请输入描述"
     },
     "aboutUs": {
       "title": "关于我们",

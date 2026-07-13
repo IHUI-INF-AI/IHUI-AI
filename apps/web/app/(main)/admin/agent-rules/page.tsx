@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -43,11 +43,12 @@ export default function AgentRulesPage() {
     mutationFn: () => {
       const body = {
         agentId: form.agentId.trim(),
-        name: form.name.trim(),
-        code: form.code.trim(),
-        type: form.type,
+        ruleName: form.ruleName.trim(),
+        ruleCode: form.ruleCode.trim(),
+        ruleType: form.ruleType,
         priority: Number(form.priority) || 0,
         status: form.status ? 1 : 0,
+        description: form.description.trim() || undefined,
       }
       return api('/api/agent-ext/rules', { method: 'POST', body: JSON.stringify(body) })
     },
@@ -87,12 +88,12 @@ export default function AgentRulesPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.name.trim()) return setErr(t('nameRequired'))
-    if (!form.code.trim()) return setErr(t('codeRequired'))
+    if (!form.ruleName.trim()) return setErr(t('nameRequired'))
+    if (!form.ruleCode.trim()) return setErr(t('codeRequired'))
     createMut.mutate()
   }
   function handleDeleteRule(rule: AgentRule) {
-    if (!window.confirm(t('deleteConfirm', { name: rule.name }))) return
+    if (!window.confirm(t('deleteConfirm', { name: rule.ruleName }))) return
     deleteRuleMut.mutate(rule.id)
   }
   function handleDeleteParam(param: RuleParam) {
