@@ -8156,5 +8156,22 @@
     "deleteDesc": "This action cannot be undone",
     "delete": "Delete",
     "validateName": "Please enter app name"
+  },
+  "errors": {
+    "unknown": "Unknown error",
+    "validationFailed": "Validation failed",
+    "unauthorized": "Authentication required",
+    "forbidden": "Permission denied",
+    "notFound": "Resource not found",
+    "conflict": "Conflict",
+    "rateLimited": "Too many requests, please try later",
+    "locked": "Resource is locked",
+    "internalError": "Internal server error",
+    "upstreamFailure": "Upstream service error",
+    "serviceUnavailable": "Service unavailable",
+    "memberExists": "Member already exists",
+    "optimisticLock": "Data has been modified, please refresh and retry",
+    "invalidMoney": "Invalid money format",
+    "invalidTimezone": "Invalid timezone"
   }
 }
