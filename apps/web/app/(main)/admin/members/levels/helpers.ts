@@ -66,7 +66,7 @@ export const LEVEL_EXPORT: ExportColumn[] = [
   ...LEVEL_ALL_KEYS.map((k) => ({ key: k, title: LEVEL_LABELS[k] ?? '' })),
 ]
 
-export const USER_RESOURCE = '/api/admin/user-vip'
+export const USER_RESOURCE = '/api/admin/auth-user-vip'
 export const USER_PERM = 'ai:user_vip'
 export const USER_FIELDS: FieldConfig[] = [
   { key: 'userId', label: '用户ID' },

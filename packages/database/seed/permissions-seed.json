@@ -828,6 +828,18 @@
     "displayName": "课程审核-导出"
   },
   {
+    "name": "course:courseaudit:add",
+    "resource": "course:courseaudit",
+    "action": "add",
+    "displayName": "课程审核-新增"
+  },
+  {
+    "name": "course:courseaudit:remove",
+    "resource": "course:courseaudit",
+    "action": "remove",
+    "displayName": "课程审核-删除"
+  },
+  {
     "name": "course:coursepay:add",
     "resource": "course:coursepay",
     "action": "add",
