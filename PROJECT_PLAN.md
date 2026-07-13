@@ -2873,14 +2873,14 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 
 ### P0 资金/安全优先补测清单（8-10 文件）
 
-- [ ] `services/alipay.ts` — 支付核心
+- [x] ✅(2026-07-13) `services/alipay.ts` — 支付核心（15 测试：isAlipayConfigured/verifyNotify RSA2 签名验签/buildSignedUrl）
 - [ ] `routes/payment-gateway.ts` — 支付路由层（伪匹配盲点）
 - [ ] `routes/payment-extended.ts` — 支付扩展路由
 - [ ] `services/commission-service.ts` — 佣金计算
 - [ ] `services/settlement-service.ts` — 结算
 - [x] ✅(2026-07-13) `utils/crypto.ts` — 安全凭据（22 测试：AES-256-GCM 加解密往返/输出结构/完整性校验/isEncryptedPayload）
 - [ ] `utils/api-key-quota.ts` — API Key 配额
-- [ ] `plugins/auth.ts` — 鉴权核心
+- [x] ✅(2026-07-13) `plugins/auth.ts` — 鉴权核心（9 测试：Bearer token 解析/verifyAccessToken mock/无 header/非 Bearer/空 token/token 过期/trim 空格/admin roleId）
 - [x] ✅(2026-07-13) `plugins/require-permission.ts` — 权限校验（10 测试：requirePermission/requireAuth/requireAdmin 三中间件全覆盖）
 - [ ] `routes/auth-extended.ts` — 认证扩展路由（伪匹配盲点）
 - [x] ✅(2026-07-13) `utils/response.ts` — 统一响应辅助函数（22 测试：success/error/emptyToUndefined/parseOrThrow）
