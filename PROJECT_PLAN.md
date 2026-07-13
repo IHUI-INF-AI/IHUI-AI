@@ -97,6 +97,10 @@
   - 修复: 补齐 schema 导出 + 提交全部 R4 重构产物（之前未跟踪的 19 个文件）
   - 新增内容: `ai_vendor_configs` 表（schema+migration）+ 4 个 service（config/auth-strategies/caller/error-handler）+ admin 端点 DB 驱动迁移 + `aiVendorV2Routes` 新签名样板（6 个端点）+ 启动时异步初始化 + `init:vendors` 脚本
   - 验证: api typecheck 0 错误 / api test 935/935 全通过（新增 41 个测试）/ pre-commit 全绿
+- [x] ✅(2026-07-13) R6 AI 厂商配置管理重构 — 端到端收尾验证:
+  - 验证: api typecheck 0 错误 / api lint 0 errors (2 warnings 为 `admin-missing-routes.ts` 历史遗留，与本次重构无关) / api test 78 files / 935 tests 全通过 / 新增 4 个测试文件 (`vendor-auth-strategies` 23 + `vendor-error-handler` 8 + `ai-vendor-config-service` 10 + `ai-vendor-v2-routes` 4 = 50 tests，+ 5 init-vendor-configs) 合计 60 个新测试
+  - 服务可用性: 启动钩子 `initVendorConfigs` 在 DB 不可用时静默降级（warn 后继续），admin 端点 `listAllVendorsWithStatus` 内部自动 fallback 到 `FALLBACK_VENDORS`，保证不阻塞 listen
+  - 重构目标全部达成: 配置外部化（DB→schema→service）+ 鉴权策略抽象（Bearer/TC3/V4 + Factory）+ 统一错误处理（VendorErrorHandler）+ 统一调用服务（VendorCallerService）+ 环境变量回退（FALLBACK_VENDORS）+ 渐进式路由迁移（v2 样板 6 端点）+ 启动钩子初始化（ENABLE_VENDOR_INIT 可关）+ 单元测试覆盖（60 个新测试）
 
 ---
 
