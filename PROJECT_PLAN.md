@@ -119,6 +119,14 @@
     - RefundDlq: incr 计数 + 1h expire、第 3 次入 DLQ (zadd + 7d expire)、Redis 异常返回 -1、enqueueRefundFailure 单次入队、clearRefundFailure 三清、listDlq 解析、REPLAY/DROP/QUARANTINE 三动作
     - resilience-toolkit: 6 个 decorate (distributedLock/refundDlq/riskEngine/hotConfig/dlq/tenantAuditor) 全部就位 + 复用模块级单例身份 (4 个单例 toBe 相等)
   - 验证: api typecheck 0 错误 / api lint 0 errors / api test 83 files / 1007 tests 全通过（+5 files, +72 tests）
+- [x] ✅(2026-07-13) R9 深度审查+修复 8 处前端 API 404 风险（commit d3082af9，5 files +88 -7）:
+  - 审查: 三个维度深度审查 — 前端 API 调用 vs 后端端点全量比对 / i18n 键五语言完整性 / 数据库 migration+schema 完整性
+  - i18n 审查结果: PASS — 7732 键五语言完全一致，94 命名空间全部存在，5 个抽样页面 54 键全部定义
+  - migration 审查结果: PASS — 57/57 migration 全部注册，448/448 schema 表全部导出，5 个抽样 schema↔DDL 一致
+  - 404 风险修复（8 处）:
+    - 后端补建 6 端点: member/users GET+PATCH（users 表查询+状态更新）、api-platform/apps PATCH /:id/status（0|1→active|revoked）、oauth/apps PATCH /:id/status（active|disabled→isActive 0|1）、developer/coze PUT /:id/status（空桩，表无 status 字段）、shop/products PATCH /:id/status（空桩）
+    - 前端对齐 3 处: system/config→config（4处路径前缀）、certificates PATCH→PUT（方法对齐）、learn/invoices /:id/status→/:id/invoiced（用具名状态端点）
+  - 验证: api typecheck 0 错误 / web typecheck 0 错误 / api test 1007/1007 全通过
 
 ---
 
