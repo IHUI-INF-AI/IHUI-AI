@@ -14,7 +14,7 @@
  */
 import type { FastifyPluginAsync, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { eq, or, ilike, desc, asc, sql, and, inArray } from 'drizzle-orm'
+import { eq, or, ilike, desc, asc, sql, and, inArray, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -64,6 +64,31 @@ const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   search: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+})
+
+// R14: 多字段搜索 schema（comment-logs / video-logs 用）
+const commentLogQuerySchema = paginationSchema.extend({
+  userUuid: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
+  commentId: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
+  createdAt: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+  ),
+})
+
+const videoLogQuerySchema = paginationSchema.extend({
+  userUuid: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
+  videoId: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
+  createdAt: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+  ),
 })
 
 const idParamSchema = z.object({ id: z.string() })
@@ -393,10 +418,19 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
 
   // /api/admin/comment-logs — zhsUserCommentLog 表
   server.get('/comment-logs', async (request, reply) => {
-    const q = paginationSchema.safeParse(request.query)
+    const q = commentLogQuerySchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
-    const { page, pageSize, search } = q.data
-    const where = search ? ilike(zhsUserCommentLog.userUuid, `%${search}%`) : undefined
+    const { page, pageSize, userUuid, commentId, createdAt } = q.data
+    const conditions: SQL[] = []
+    if (userUuid) conditions.push(ilike(zhsUserCommentLog.userUuid, `%${userUuid}%`))
+    if (commentId !== undefined) conditions.push(eq(zhsUserCommentLog.commentId, commentId))
+    if (createdAt) {
+      const dayStart = new Date(createdAt)
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
+      conditions.push(sql`${zhsUserCommentLog.createdAt} >= ${dayStart.toISOString()}::timestamp`)
+      conditions.push(sql`${zhsUserCommentLog.createdAt} < ${dayEnd.toISOString()}::timestamp`)
+    }
+    const where = conditions.length ? and(...conditions) : undefined
     const list = await db
       .select()
       .from(zhsUserCommentLog)
@@ -422,10 +456,19 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
 
   // /api/admin/video-logs — zhsUserVideoLog 表
   server.get('/video-logs', async (request, reply) => {
-    const q = paginationSchema.safeParse(request.query)
+    const q = videoLogQuerySchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
-    const { page, pageSize, search } = q.data
-    const where = search ? ilike(zhsUserVideoLog.userUuid, `%${search}%`) : undefined
+    const { page, pageSize, userUuid, videoId, createdAt } = q.data
+    const conditions: SQL[] = []
+    if (userUuid) conditions.push(ilike(zhsUserVideoLog.userUuid, `%${userUuid}%`))
+    if (videoId !== undefined) conditions.push(eq(zhsUserVideoLog.videoId, videoId))
+    if (createdAt) {
+      const dayStart = new Date(createdAt)
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
+      conditions.push(sql`${zhsUserVideoLog.createdAt} >= ${dayStart.toISOString()}::timestamp`)
+      conditions.push(sql`${zhsUserVideoLog.createdAt} < ${dayEnd.toISOString()}::timestamp`)
+    }
+    const where = conditions.length ? and(...conditions) : undefined
     const list = await db
       .select()
       .from(zhsUserVideoLog)

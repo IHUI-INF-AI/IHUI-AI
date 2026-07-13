@@ -166,59 +166,87 @@ const skIdParam = z.object({ skId: z.string() })
 
 export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 邮箱登录
-  server.post('/auth/login/email', async (request, reply) => {
-    const parsed = loginByEmailSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const { email, code } = parsed.data
-    const { verifyCode } = await import('../utils/code-store.js')
-    if (!verifyCode(email, code)) return reply.status(400).send(error(400, '验证码错误或已过期'))
-    let user = await findUserByEmail(email)
-    if (!user) {
-      const emailPrefix = email.split('@')[0] ?? 'user'
-      user = await createUser({
-        email,
-        nickname: `用户${emailPrefix.slice(0, 20)}`,
-        roleId: 0,
-        status: 1,
-      })
-    } else if (user.status !== 1) {
-      return reply.status(403).send(error(403, '账号已被禁用'))
-    }
-    const { accessToken, refreshToken } = await buildTokenPair(user)
-    return reply.send(success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }))
-  })
+  server.post(
+    '/auth/login/email',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = loginByEmailSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { email, code } = parsed.data
+      const { verifyCode } = await import('../utils/code-store.js')
+      if (!verifyCode(email, code)) return reply.status(400).send(error(400, '验证码错误或已过期'))
+      let user = await findUserByEmail(email)
+      if (!user) {
+        const emailPrefix = email.split('@')[0] ?? 'user'
+        user = await createUser({
+          email,
+          nickname: `用户${emailPrefix.slice(0, 20)}`,
+          roleId: 0,
+          status: 1,
+        })
+      } else if (user.status !== 1) {
+        return reply.status(403).send(error(403, '账号已被禁用'))
+      }
+      const { accessToken, refreshToken } = await buildTokenPair(user)
+      return reply.send(
+        success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }),
+      )
+    },
+  )
 
   // 用户名登录
-  server.post('/auth/login/username', async (request, reply) => {
-    const parsed = loginByUsernameSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const { username, password } = parsed.data
-    const user = await findUserByUsername(username)
-    if (!user || !user.passwordHash || !bcrypt.compareSync(password, user.passwordHash)) {
-      return reply.status(401).send(error(401, '用户名或密码错误'))
-    }
-    if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
-    const { accessToken, refreshToken } = await buildTokenPair(user)
-    return reply.send(success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }))
-  })
+  server.post(
+    '/auth/login/username',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = loginByUsernameSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { username, password } = parsed.data
+      const user = await findUserByUsername(username)
+      if (!user || !user.passwordHash || !bcrypt.compareSync(password, user.passwordHash)) {
+        return reply.status(401).send(error(401, '用户名或密码错误'))
+      }
+      if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      const { accessToken, refreshToken } = await buildTokenPair(user)
+      return reply.send(
+        success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }),
+      )
+    },
+  )
 
   // 邮箱验证码
-  server.post('/auth/email/code', async (request, reply) => {
-    const parsed = emailCodeSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const result = await sendSmsCode(parsed.data.email)
-    if (!result.success) return reply.status(429).send(error(429, result.msg))
-    return reply.send(success({ sent: true }))
-  })
+  server.post(
+    '/auth/email/code',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = emailCodeSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const result = await sendSmsCode(parsed.data.email)
+      if (!result.success) return reply.status(429).send(error(429, result.msg))
+      return reply.send(success({ sent: true }))
+    },
+  )
 
-  // 检查手机号
-  server.get('/auth/exist/:phone', async (request, reply) => {
-    const { phone } = z.object({ phone: z.string() }).parse(request.params)
-    return reply.send(success({ exists: await checkPhoneExists(phone) }))
-  })
+  // 检查手机号（加 rateLimit 防枚举）
+  server.get(
+    '/auth/exist/:phone',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const { phone } = z.object({ phone: z.string() }).parse(request.params)
+      return reply.send(success({ exists: await checkPhoneExists(phone) }))
+    },
+  )
 
   // 用户信息
   server.get('/auth/info', async (request, reply) => {
@@ -416,27 +444,39 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ captchaKey, img }))
   })
 
-  server.post('/auth/captcha/verify', async (request, reply) => {
-    const parsed = captchaVerifySchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const stored = await findCaptcha(parsed.data.captchaKey)
-    if (!stored) return reply.status(400).send(error(400, '验证码不存在或已过期'))
-    const ok = verifyCaptcha(stored.code, parsed.data.code)
-    await deleteCaptcha(parsed.data.captchaKey)
-    if (!ok) return reply.status(400).send(error(400, '验证码错误'))
-    return reply.send(success({ verified: true }))
-  })
+  server.post(
+    '/auth/captcha/verify',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = captchaVerifySchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const stored = await findCaptcha(parsed.data.captchaKey)
+      if (!stored) return reply.status(400).send(error(400, '验证码不存在或已过期'))
+      const ok = verifyCaptcha(stored.code, parsed.data.code)
+      await deleteCaptcha(parsed.data.captchaKey)
+      if (!ok) return reply.status(400).send(error(400, '验证码错误'))
+      return reply.send(success({ verified: true }))
+    },
+  )
 
   // SMS
-  server.post('/auth/sms/code', async (request, reply) => {
-    const parsed = smsCodeSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const result = await sendSmsCode(parsed.data.phone)
-    if (!result.success) return reply.status(429).send(error(429, result.msg))
-    return reply.send(success({ sent: true }))
-  })
+  server.post(
+    '/auth/sms/code',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = smsCodeSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const result = await sendSmsCode(parsed.data.phone)
+      if (!result.success) return reply.status(429).send(error(429, result.msg))
+      return reply.send(success({ sent: true }))
+    },
+  )
 
   // SMS Proxy — 独立短信代理端点（解决旧前端 CORS 直连问题）
   server.post('/sms-proxy/send', async (request, reply) => {
@@ -468,33 +508,39 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
    * @body { phone: string, code: string, password: string, nickname?: string }
    * @returns 创建的用户信息（不含密码哈希）
    */
-  server.post('/sms-proxy/register', async (request, reply) => {
-    const parsed = smsRegisterSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const { phone, code, password, nickname } = parsed.data
-    const { verifyCode } = await import('../utils/code-store.js')
-    if (!verifyCode(phone, code)) {
-      return reply.status(400).send(error(400, '验证码错误或已过期'))
-    }
-    if (await checkPhoneExists(phone)) {
-      return reply.status(409).send(error(409, '该手机号已注册'))
-    }
-    const user = await createUser({
-      phone,
-      passwordHash: bcrypt.hashSync(password, 10),
-      nickname: nickname ?? `用户${phone.slice(-4)}`,
-      roleId: 0,
-      status: 1,
-    })
-    return reply.status(201).send(
-      success({
-        id: user.id,
-        phone: user.phone,
-        nickname: user.nickname,
-      }),
-    )
-  })
+  server.post(
+    '/sms-proxy/register',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = smsRegisterSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { phone, code, password, nickname } = parsed.data
+      const { verifyCode } = await import('../utils/code-store.js')
+      if (!verifyCode(phone, code)) {
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      }
+      if (await checkPhoneExists(phone)) {
+        return reply.status(409).send(error(409, '该手机号已注册'))
+      }
+      const user = await createUser({
+        phone,
+        passwordHash: bcrypt.hashSync(password, 10),
+        nickname: nickname ?? `用户${phone.slice(-4)}`,
+        roleId: 0,
+        status: 1,
+      })
+      return reply.status(201).send(
+        success({
+          id: user.id,
+          phone: user.phone,
+          nickname: user.nickname,
+        }),
+      )
+    },
+  )
 
   /**
    * 获取短信服务配置信息（不含密钥）。
@@ -557,36 +603,43 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  server.post('/auth/oauth/token', async (request, reply) => {
-    const { code, client_id, client_secret, state } = z
-      .object({
-        code: z.string(),
-        client_id: z.string(),
-        client_secret: z.string(),
-        state: z.string().optional(),
+  server.post(
+    '/auth/oauth/token',
+    {
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const { code, client_id, client_secret, state } = z
+        .object({
+          code: z.string(),
+          client_id: z.string(),
+          client_secret: z.string(),
+          state: z.string().optional(),
+        })
+        .parse(request.body)
+      const app = await findOAuthAppByClientId(client_id)
+      if (!app || app.clientSecret !== client_secret) {
+        return reply.status(401).send(error(401, '应用凭证错误'))
+      }
+      const session = await findSessionByCode(code)
+      if (!session || session.isUsed || session.expiresAt < new Date()) {
+        return reply.status(400).send(error(400, '授权码无效或已过期'))
+      }
+      if (state && session.state !== state)
+        return reply.status(400).send(error(400, 'state 不匹配'))
+      await markSessionUsed(code)
+      const user = await findUserById(session.userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      const { accessToken } = await buildTokenPair(user)
+      await createAuditLog({
+        event: 'token',
+        clientId: client_id,
+        userId: user.id,
+        status: 'success',
       })
-      .parse(request.body)
-    const app = await findOAuthAppByClientId(client_id)
-    if (!app || app.clientSecret !== client_secret) {
-      return reply.status(401).send(error(401, '应用凭证错误'))
-    }
-    const session = await findSessionByCode(code)
-    if (!session || session.isUsed || session.expiresAt < new Date()) {
-      return reply.status(400).send(error(400, '授权码无效或已过期'))
-    }
-    if (state && session.state !== state) return reply.status(400).send(error(400, 'state 不匹配'))
-    await markSessionUsed(code)
-    const user = await findUserById(session.userId)
-    if (!user) return reply.status(404).send(error(404, '用户不存在'))
-    const { accessToken } = await buildTokenPair(user)
-    await createAuditLog({
-      event: 'token',
-      clientId: client_id,
-      userId: user.id,
-      status: 'success',
-    })
-    return reply.send(success({ access_token: accessToken, token_type: 'Bearer' }))
-  })
+      return reply.send(success({ access_token: accessToken, token_type: 'Bearer' }))
+    },
+  )
 
   // OAuth2 应用管理
   server.post('/auth/oauth/apps/create', async (request, reply) => {
@@ -1221,8 +1274,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // POST /oauth/debug/callback — 调试回调
+  // POST /oauth/debug/callback — 调试回调（生产环境禁止）
   server.post('/oauth/debug/callback', async (request, reply) => {
+    if (process.env.NODE_ENV === 'production')
+      return reply.status(403).send(error(403, '生产环境禁止调试端点'))
     const body = request.body as Record<string, unknown>
     await createAuditLog({
       event: 'debug_callback',
