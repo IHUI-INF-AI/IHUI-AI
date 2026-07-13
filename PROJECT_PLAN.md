@@ -2807,18 +2807,18 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
    - 用 Proxy-based chainable mock 替换原有 mock db（支持任意查询链）
    - 为 10 个 DELETE 成功测试添加 `mockResolvedValueOnce` 覆盖
    - 修复 3 个剩余失败（PUT edu/classes 响应格式、DELETE auth-veri-codes 端点、db.execute mock）
-4. **tests/_server-smoke.test.ts**: 新增服务器启动烟测（验证 buildServer() 无路由冲突）
+4. **tests/\_server-smoke.test.ts**: 新增服务器启动烟测（验证 buildServer() 无路由冲突）
 
 #### 最终验证结果
 
 | 验证项                                   | 结果                                        |
 | ---------------------------------------- | ------------------------------------------- |
-| `pnpm turbo build typecheck lint test`  | ✅ 34/34 任务成功                           |
+| `pnpm turbo build typecheck lint test`   | ✅ 34/34 任务成功                           |
 | 全量测试                                 | ✅ 104 test files / 1522 tests 全绿         |
 | admin-missing-routes.test.ts（136 测试） | ✅ 全绿                                     |
 | Dev server 启动                          | ✅ 无路由冲突，正常监听 8080                |
 | 烟测 10 个新端点                         | ✅ 全部返回 401（路由已注册，认证门控正常） |
-| Git push                                | ✅ 26 commits 推送至 origin/main           |
+| Git push                                 | ✅ 26 commits 推送至 origin/main            |
 
 ## R100 补建日历/时区纯函数单测（P2-2 + P2-3）（2026-07-13）✅
 
@@ -2913,10 +2913,26 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 
 ### P1 整目录零测试基线（37 文件）
 
-- [ ] `services/clawdbot/` — 19 文件全无测试，优先 clawdbot-service.ts / gateway.ts / memory.ts
+- [x] ✅(2026-07-14) `services/clawdbot/` — 19 文件全部完成（系统/渠道/工具/记忆/消息/任务/进化/模型/技能/配对/语音/MCP/节点/浏览器/画布/集成/网关/主服务/logger+index）
   - [x] ✅(2026-07-14) `clawdbot/system.ts` — 系统服务（16 测试：配置管理+事件/日志写入+过滤+limit/clearLogs/getMetrics/getHealth/单例）
   - [x] ✅(2026-07-14) `clawdbot/channels.ts` — 渠道管理（19 测试：注册+注销+事件/列表查询/receiveMessage+事件/sendMessage+禁用检查/broadcast+filter/getStats/单例）
   - [x] ✅(2026-07-14) `clawdbot/tools.ts` — 工具系统（22 测试：注册+注销+事件/execute+不存在+禁用+抛错+权限检查/查询+分类/统计/单例）
+  - [x] ✅(2026-07-14) `clawdbot/memory.ts` — 记忆服务（27 测试：store 自动 expiresAt+evict/retrieve 过期删除/search 多过滤+排序+limit/update/forget/consolidate 升级/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/message-processor.ts` — 消息处理器（30 测试：process+history 截断/analyzeIntent 13 意图+sentiment+language/extractEntities URL+email+phone/enqueue+processQueue/context 管理/单例）
+  - [x] ✅(2026-07-14) `clawdbot/task-executor.ts` — 任务执行器（27 测试：create/execute+依赖+并发+步骤+condition+wait+resolveParams/cancel/get+list 过滤+排序/getStatus/单例）
+  - [x] ✅(2026-07-14) `clawdbot/self-evolution.ts` — 自我进化引擎（23 测试：enable/disable+事件/recordBehavior+频率+成功率+autoEvolve gap/detectGap/evolve+技能安装+失败+事件/查询/单例）
+  - [x] ✅(2026-07-14) `clawdbot/models.ts` — 模型管理（23 测试：register+默认+事件/unregister+清默认/setDefault+事件/list/listEnabled/complete 错误+事件/selectByCapability/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/skills.ts` — 技能系统（16 测试：install+事件/uninstall+事件/list/listByCategory/execute+不存在+禁用+工具成功+失败+condition+resolveParams/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/pairing.ts` — 配对服务（24 测试：createRequest+code+事件/confirmPairing+无效+过期+事件/getSession/getSessionByUser/updateActivity/unpair+事件/cancelRequest+事件/cleanupExpired/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/voice.ts` — 语音服务（16 测试：asr+事件/tts+事件/enrollVoiceprint+事件/verifyVoiceprint+无/有声纹/listVoiceprints 过滤/deleteVoiceprint/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/mcp.ts` — MCP 协议（20 测试：connect+事件/disconnect+级联+事件/registerTool+事件/callTool+不存在+禁用+事件/registerResource+事件/readResource+错误+事件/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/nodes.ts` — 节点系统（19 测试：register+事件/get/list/execute+不存在+循环+start+end+condition+loop+parallel+delay+action/visited+currentNodeId/事件/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/browser.ts` — 浏览器自动化（22 测试：navigate+事件+headers+失败/scrape+extract+selector+#id+.class+事件/fillForm+ok+失败+事件/getPage/listPages/closePage/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/canvas.ts` — 画布服务（18 测试：create+事件/get/list/update+版本+事件/delete+事件/execute+不存在+无节点+成功+失败+多节点/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/integrations.ts` — 集成服务（20 测试：register+事件/unregister/list/listEnabled/call+不存在+禁用+成功+POST+query+无baseUrl+事件+api_key+bearer+basic+headers 非JSON/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/gateway.ts` — AI 网关（18 测试：configure/connect+重复+事件/disconnect+事件/receiveMessage+事件/routeCompletion failover+fallback+全失败+round_robin+least_latency+cost_optimized/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/clawdbot-service.ts` — 主服务（34 测试：initialize+config+channels+autoEvolve+事件/shutdown+事件/handleChannelMessage+事件+history/chat+事件+历史注入/executeTask/getConversation/getStatus/17 子服务访问器/单例）
+  - 注：`logger.ts` + `index.ts` 为辅助聚合文件，无独立逻辑无需测试
 - [x] ✅(2026-07-14) `services/ai/cognitive-intelligence.ts` — 认知智能（30 测试：getContext/clearContext/understand 意图识别+实体+情感+短时记忆/reason 归纳+演绎+溯因/learnPreference 偏好权重/getPreferences 排序/rememberFact/recallFact/listFacts）
 - [x] ✅(2026-07-14) `services/ai/plot-advisor-service.ts` — 剧情顾问（23 测试：createStory/getStory/addCharacter/addPlotPoint foreshadow 回收/checkConsistency 伏笔+关系对称性/analyzePacing 四幕评分/suggestChapterOutline）
 - [x] ✅(2026-07-14) `services/ai/video-quality-analyzer.ts` — 视频质量分析（28 测试：analyzeQuality 分辨率分类+宽高比+技术评分+视觉评分+推荐等级/analyzeBatch）
