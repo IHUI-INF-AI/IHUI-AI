@@ -31,9 +31,7 @@ export default function ArticlesPage() {
   const { data: categories = [] } = useQuery({
     queryKey: ['articles', 'categories'],
     queryFn: () =>
-      api<{ list: ArticleCategory[] }>(`/api/content/articles/categories`).then(
-        (d) => d.list ?? [],
-      ),
+      api<{ list: ArticleCategory[] }>(`/api/article/categories`).then((d) => d.list ?? []),
   })
 
   const { data, isLoading, error } = useQuery({
@@ -45,7 +43,7 @@ export default function ArticlesPage() {
       })
       if (categoryId !== 'all') qs.set('categoryId', categoryId)
       if (debounced) qs.set('search', debounced)
-      return api<ArticlesData>(`/api/content/articles?${qs.toString()}`)
+      return api<ArticlesData>(`/api/article/list?${qs.toString()}`)
     },
   })
 

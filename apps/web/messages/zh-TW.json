@@ -1811,7 +1811,8 @@
         "storage": "存儲",
         "security": "安全",
         "payment": "支付",
-        "ai": "ai"
+        "ai": "ai",
+        "system": "系統"
       },
       "colKey": "Key",
       "colValue": "值",
@@ -4437,9 +4438,11 @@
       "delete": "刪除",
       "save": "儲存",
       "cancel": "取消",
+      "export": "匯出",
       "subtitle": "管理智能體擴展規則與規則參數",
       "hideForm": "收起",
       "formTitle": "新增規則",
+      "editTitle": "編輯規則",
       "loading": "載入中...",
       "noData": "暫無資料",
       "total": "共 {total} 條",
@@ -4462,7 +4465,9 @@
       "nameRequired": "規則名稱不能為空",
       "codeRequired": "規則代碼不能為空",
       "createSuccess": "建立成功",
+      "updateSuccess": "更新成功",
       "deleteSuccess": "刪除成功",
+      "exportFailed": "匯出失敗",
       "deleteConfirm": "確定刪除規則「{name}」？",
       "deleteParamConfirm": "確定刪除參數「{name}」？",
       "ruleTypes": {
