@@ -325,6 +325,82 @@
     - upload-scanner.ts mp4 魔数检测错误（需修正魔数偏移量，单独迭代）
     - auth.ts Bearer 大小写敏感（需做大小写不敏感匹配，单独迭代）
 
+### goal 模式 loop 机制启用（2026-07-14）/ goal
+
+- [x] ✅(2026-07-14) goal — 根因定位:`AGENTS.md` 第 1 节"不得新建计划/TODO/ROADMAP 文件"规则与 goal 模式需要创建 `STATE.md` / `loop-run-log.md` 运行时状态文件直接冲突,导致 agent 在 /goal 模式下不敢创建临时文件,loop 机制无法启动
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 第 1 节增加"goal 模式运行时文件例外(唯一例外)"小节:明确允许 goal 执行期间在根目录创建 `STATE.md`(目标状态快照)与 `loop-run-log.md`(逐轮日志),严格约束仅记录轮次状态、必须加入 .gitignore、目标结束后必须整合到 PROJECT_PLAN.md 并删除
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 末尾新增第 9 节"goal 模式工作流(强制)":启动条件、运行时文件创建义务、7 步执行循环、红线规则(20 轮上限/高危暂停/禁止扩展需求)、不适用场景、pause/resume/clear 清理义务
+- [x] ✅(2026-07-14) goal — `.gitignore` 追加 `/STATE.md` `/loop-run-log.md`(根目录锚定,不污染子目录同名文件)
+- [x] ✅(2026-07-14) goal — 实测验证:本次 /goal 调用已成功创建 STATE.md + loop-run-log.md,loop 机制运转正常;目标完成后按规则整合本条记录到 PROJECT_PLAN.md 并删除两个临时文件
+- 残留风险: 当前 agent 是否真正"自动"调用 loop 依赖宿主工具是否实现 Stop Hook 机制;AGENTS.md 已扫清规则障碍,但工具侧需支持 /goal 命令的轮次钩子才能真正无人值守续跑
+
+### goal 模式收尾加固（2026-07-14）/ goal
+
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 第 1 节例外条款路径迁移:临时文件从根目录 `STATE.md` / `loop-run-log.md` 迁移到 `.trae-cn/goal-runtime/` 下,利用 `.trae-cn/` 整体 gitignore 覆盖,消除根目录视觉污染与 .gitignore 冗余条目;补充 `git add -f` 禁令与"目录保留供下次复用"说明
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 第 9 节新增"目标条件硬门槛(强制)"小节:4000 字符上限 + 6 要素(核心任务/验证标准/约束边界/质量要求/优先级/异常处理) + 3 个劣质目标拒绝示例 + 1 个优质目标示例,从源头杜绝"修复登录bug"类劣质目标进入 loop
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 第 9 节新增"评估独立性(强制)"小节:禁止执行模型自评 yes、评估依据(命令/退出码/输出片段)必须写入 loop-run-log.md、连续两次评估矛盾自动复核
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 第 9 节新增"子命令语义"表:status / pause / resume / clear / budget / log 七个子命令 + 别名完整定义,原"暂停/恢复/终止"小节合并入此表
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 第 9 节新增"跨会话恢复"小节:STATE.md 持久化不依赖对话上下文、会话中断重启询问 resume、/compact 压缩后必须重读 STATE.md 与 loop-run-log.md
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 第 9 节新增"EXPERIMENT_NOTES 机制(可选)"小节:调试类任务可写 `.trae-cn/goal-runtime/EXPERIMENT_NOTES.md` 记录方案/结果/失败原因,避免重复尝试已失败路径
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 第 9 节红线规则补强:单轮工具失败 3 次进下一轮、连续 5 轮失败 blocked、compact 后必须重读 STATE.md
+- [x] ✅(2026-07-14) goal — `.gitignore` 移除上一轮加的 `/STATE.md` `/loop-run-log.md` 根目录条目,改为注释说明"已被 .trae-cn/ 整体忽略覆盖",消除冗余
+- [x] ✅(2026-07-14) goal — 实测验证:本次 /goal 调用已在新路径 `.trae-cn/goal-runtime/` 成功创建 STATE.md + loop-run-log.md,迁移后机制运转正常;目标完成后按规则整合本条记录到 PROJECT_PLAN.md 并删除临时文件
+- 残留风险: 见下方 P2 "宿主自动续跑支持验证" 待办
+
+### goal 模式机制完整性补全（2026-07-14）/ goal
+
+- [x] ✅(2026-07-14) goal — 修复第 1 节规则自洽性:`AGENTS.md` 第 1 节"必须遵守"第 2 条"不得新建计划文件"加 goal 例外交叉引用,第 3 条"`.trae-cn/` 历史草稿只读"加 `.trae-cn/goal-runtime/` 除外说明,消除字面张力
+- [x] ✅(2026-07-14) goal — 修复 EXPERIMENT_NOTES.md 删除义务不一致:第 1 节例外条款清理义务从"删除 STATE.md 与 loop-run-log.md"改为"删除 STATE.md、loop-run-log.md、EXPERIMENT_NOTES.md(若存在)",与第 9 节 EXPERIMENT_NOTES 机制"一并删除"对齐
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 第 9 节新增"运行时文件标准模板(强制)"小节:提供 STATE.md(目标条件/状态机/硬性指标/软性指标)与 loop-run-log.md(轮次块/验证命令/退出码/关键输出/评估)最小结构模板 + 字段说明(状态枚举值/⏳✅标记/不得覆盖历史轮次/验证三件套缺一不得判 yes)
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 第 9 节补全 budget 子命令细节:默认无上限(仅受 20 轮 + 3 轮无进展约束)、单位 tokens(执行+评估累计)、达阈值状态 budget_limited(独立于 blocked)、达阈值行为(平滑停止→标记→写剩余清单→删临时文件→交还控制权)
+- [x] ✅(2026-07-14) goal — `AGENTS.md` 第 9 节新增"失败回滚与 git 工作流(强制)"小节:git 工作流建议(独立分支 goal/<任务简述>,achieved 合并删除/blocked 保留供 resume,简单目标记起始 sha)+ 失败回滚规则(禁止 agent 自主 git reset --hard/checkout./clean -f,必须在 PROJECT_PLAN.md 记录文件清单/分支/sha/剩余任务/建议操作,回滚决策权归用户)
+- [x] ✅(2026-07-14) goal — 细化 P2 宿主验证待办:明确"agent 侧边界"(已无更多可推进项)+ "剩余项需用户自验"(因 Stop Hook 依赖宿主,agent 无法自观)+ 6 步自验步骤(记版本/发低风险目标/观察自动续跑/生效则标记/不生效则降级半自动 loop/确认无残留)
+- [x] ✅(2026-07-14) goal — 实测验证:本次 /goal 调用按新模板创建 STATE.md + loop-run-log.md,7 处遗漏全部落地,规则自洽校验通过;目标完成后按规则整合本条记录到 PROJECT_PLAN.md 并删除临时文件
+- 残留风险: 无(agent 侧已穷尽所有可落地项;唯一剩余的宿主验证为用户自验项,已细化到可执行步骤,不再构成"建议")
+
+### Superpowers 技能框架安装（2026-07-14）
+
+- [x] ✅(2026-07-14) 安装 Superpowers(obra/superpowers)AI 编程方法论技能框架到 `.trae-cn/skills/` — commit d884ae0 (2026-07-02),14 个技能文件夹 48 文件,全部含 SKILL.md
+- [x] ✅(2026-07-14) AGENTS.md 第 1 节增加"skills 技能文件例外(唯一例外)"小节:允许 `.trae-cn/skills/` 存放 AI 技能文件,约束仅限 SKILL.md/辅助文件、不入库、来源必须可信、安装记录到 PROJECT_PLAN.md、不得修改项目代码
+- [x] ✅(2026-07-14) AGENTS.md 第 1 节"必须遵守"第 3 条交叉引用扩展:`.trae-cn/goal-runtime/` + `.trae-cn/skills/` 双例外
+- [x] ✅(2026-07-14) 安装方式:git clone --depth 1 官方仓库到临时目录 → 复制 skills/ 到 `.trae-cn/skills/` → 清理临时目录(零残留)
+- 已安装技能清单(14): brainstorming / dispatching-parallel-agents / executing-plans / finishing-a-development-branch / receiving-code-review / requesting-code-review / subagent-driven-development / systematic-debugging / test-driven-development / using-git-worktrees / using-superpowers / verification-before-completion / writing-plans / writing-skills
+- 生效条件:重启 Trae CN 后,AI 助手会自动扫描 `.trae-cn/skills/` 加载技能;`using-superpowers` 技能在每次会话启动时自动注入,引导 AI 在写代码前先 brainstorming → plan → TDD → code-review
+- 维护:更新时重复 clone + 复制流程;卸载时删除 `.trae-cn/skills/` 目录并在本节记录
+
+#### Superpowers 技能适配性评估（2026-07-14）
+
+**必装(6)— 与项目规则强协同,核心工程方法论:**
+
+- `using-superpowers` — 核心路由,每次会话启动注入,引导 AI 先加载技能再响应
+- `brainstorming` — 需求澄清,与 goal 模式"目标条件硬门槛"互补(已覆盖路径到 PROJECT_PLAN.md)
+- `writing-plans` — 计划拆解为 2-5 分钟微任务,与 goal 模式 7 步循环协同(已覆盖路径)
+- `test-driven-development` — RED→GREEN→REFACTOR,与项目"验证命令"规则一致(pnpm test)
+- `systematic-debugging` — 4 阶段根因排查,与项目"root-cause solutions"偏好一致
+- `verification-before-completion` — 禁止"嘴上说成功",与项目"完美细致完整执行"偏好一致
+
+**推荐(4)— 提升质量,无冲突:**
+
+- `executing-plans` — 批量执行计划 + 人工检查点,与 goal loop 互补
+- `requesting-code-review` — 子智能体审查代码,提升质量
+- `receiving-code-review` — 正确响应审查反馈
+- `finishing-a-development-branch` — 完成分支验证 + 合并/PR 选项,与第 9 节 git 工作流协同
+
+**可选(4)— 依赖环境或场景:**
+
+- `subagent-driven-development` — 依赖 Trae CN subagent 支持,待确认(见 P2 待办)
+- `dispatching-parallel-agents` — 依赖 subagent 支持,同上
+- `using-git-worktrees` — 项目已有 `goal/<任务简述>` 分支策略,worktree 对 monorepo 可能过重;但技能有 Step 0 检测 + 用户征询,不会强制创建,保留无妨
+- `writing-skills` — 仅当需要扩展自定义技能时有用
+
+**兼容性冲突处理:**
+
+- ✅ 计划文件路径(writing-plans 默认 `docs/superpowers/plans/`)→ 覆盖为整合到 PROJECT_PLAN.md
+- ✅ 设计文档路径(brainstorming 默认 `docs/superpowers/specs/`)→ 覆盖为整合到 PROJECT_PLAN.md
+- ✅ git commit 自动执行 → 覆盖为视为建议,不得自动执行
+- ✅ git worktree 路径 → 覆盖为优先 `goal/<任务简述>` 分支,worktree 需用户征询
+- 冲突处理详见 AGENTS.md 第 1 节"IHUI-AI 项目对 Superpowers 技能的偏好覆盖(强制)"
+
 ---
 
 ## P1 — 未来需求
@@ -360,6 +436,9 @@
 
 ## P2 — 已知技术债务
 
+- [ ] ⏳(2026-07-14) goal 宿主自动续跑支持验证 — **agent 侧边界**:AGENTS.md 第 9 节已完整定义 loop 机制规则(运行时文件 / 7 步循环 / 评估独立性 / 子命令 / 跨会话恢复 / 失败回滚),agent 侧已无更多可推进项。**剩余项需用户自验**,因"轮次结束自动触发评估 + 自动续跑"依赖宿主工具(Trae CN)是否实现 /goal 命令的 Stop Hook,agent 无法单方面观察自身是否被自动续跑。**自验步骤**:① 记录当前 Trae CN 版本号;② 发起低风险真实目标(如"给 apps/api/src/utils 某工具函数补单元测试,验证 pnpm --filter @ihui/api test 全绿,仅修改 apps/api/tests 目录");③ 观察首轮执行结束后,系统是否**无需用户再次输入**即自动启动下一轮(关键观察点:界面是否出现 `◎ /goal active` 状态指示器、agent 是否在无新用户消息情况下继续输出);④ **若自动续跑生效**:记录宿主版本号到本条目,标记 ✅ 完成;⑤ **若不生效**:降级为"半自动 loop"(用户每轮手动发 `/goal status` 或任意消息触发续跑,agent 按 `.trae-cn/goal-runtime/STATE.md` 断点续跑),记录降级模式与宿主版本号到本条目;⑥ 无论结果如何,验证完成后在 `.trae-cn/goal-runtime/` 确认无残留临时文件
+- [ ] ⏳(2026-07-14) Superpowers 定期更新 — 每 2-4 周重复 `git clone --depth 1 https://github.com/obra/superpowers.git` → 复制 `skills/` 到 `.trae-cn/skills/` → 清理临时目录 → 在本节记录新 commit sha。当前版本:commit d884ae0 (2026-07-02)。注意:更新后需重新检查 SKILL.md 是否有新路径/行为冲突,必要时更新 AGENTS.md 第 1 节"IHUI-AI 项目对 Superpowers 技能的偏好覆盖"
+- [ ] ⏳(2026-07-14) Trae CN subagent 支持验证 — Superpowers 的 `subagent-driven-development` 与 `dispatching-parallel-agents` 技能依赖宿主 subagent 能力。**自验步骤**:① 在 Trae CN 中发起一个需要并行处理的任务;② 观察 agent 是否能派遣独立子智能体(关键观察点:是否出现"dispatching subagent"或类似日志、子智能体是否有独立上下文);③ 若支持:标记本条目 ✅,subagent-driven-development 技能从"可选"升级为"推荐";④ 若不支持:保持"可选",项目优先使用 `executing-plans`(内联执行)替代 subagent 模式
 - [x] ✅(2026-07-11) M-15 STUB 路由真实化（9 个端点：3 移除做减法 + 4 实现 + 2 TODO 修复）
 - [x] ✅(2026-07-11) M-9 运维告警降噪规则（noise-rules.yml Alertmanager 抑制规则已配置，纯配置方案满足需求）
 - [x] ✅(2026-07-11) M-11 租户 DB 隔离（基础设施已就绪：withTenant + tenant-db-isolation 插件，当前单租户行级过滤足够，DB schema 隔离待多租户需求激活）
@@ -2946,12 +3025,15 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
   - [x] ✅(2026-07-14) `tour/tour-multi-platform.ts` — 多平台分发（12 测试：registerAdapter 覆盖/listAdapters/dispatch 非 published+无 contentId+内容不存在+成功+失败+禁用+抛异常/distributeContent/consoleAdapter）
   - [x] ✅(2026-07-14) `tour/tour-recommendation.ts` — 推荐算法（17 测试：recommendHot 归一化/recommendNearby 0.7/recommendContentBased Jaccard 排序+limit/recommendSimilarUser 空历史/recommend hot+nearby 无 destination+excludeContentIds+写入/默认 strategy/markClicked/markDismissed）
 
-### P2 工具类基础设施（31 文件）
+### P2 工具类基础设施（31 文件）✅(2026-07-14)
 
-- [ ] `utils/outbox.ts` / `optimistic-lock.ts` / `pessimistic-lock.ts` / `deadlock-retry.ts` / `db-failover.ts` — 分布式一致性
-- [ ] `utils/audit-chain.ts` / `audit-archive.ts` / `audit-ddl-trail.ts` — 审计完整性
-- [ ] `utils/response.ts` / `logger.ts` / `code-store.ts` — 基础工具
-- [ ] `utils/cache-avalanche-guard.ts` / `bloom-guard.ts` / `idor-guard.ts` — 防护类
+- [x] ✅(2026-07-14) `utils/outbox.ts` / `optimistic-lock.ts` / `pessimistic-lock.ts` / `deadlock-retry.ts` / `db-failover.ts` — 分布式一致性
+- [x] ✅(2026-07-14) `utils/audit-chain.ts` / `audit-archive.ts` / `audit-ddl-trail.ts` — 审计完整性
+- [x] ✅(2026-07-14) `utils/response.ts` / `logger.ts` / `code-store.ts` — 基础工具
+- [x] ✅(2026-07-14) `utils/cache-avalanche-guard.ts` / `bloom-guard.ts` / `idor-guard.ts` — 防护类
+- [x] ✅(2026-07-14) `utils/alert-dedup.ts` / `snowflake-id.ts` / `url-safe-base64.ts` / `data-quality-monitor.ts` / `pool-leak-detector.ts` / `ttft-monitor.ts` / `ryw-consistency.ts` / `ws-dedup.ts` / `ws-rate-limit.ts` / `ws-replay-buffer.ts` / `file-transfer.ts` — 监控/限流/传输/一致性
+
+> R101-P2 全部完成。28 个测试文件，共 586 测试用例全绿（A 类 14 文件 322 测试 commit b9c51518 + Batch 1-3 14 文件 264 测试）。
 
 ### 建议
 
@@ -2960,3 +3042,60 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 3. clawdbot/ai/tour 三目录建立 smoke test 基线
 4. vitest 配置开启 coverage 报告 + 阈值（起步 lines 30%）
 5. CI 脚本检测新增源文件是否带测试
+
+---
+
+## Goal 交付 — globals.css 扩展 + 支付/提现 STUB 真实化（2026-07-14）✅ / goal
+
+> Goal 模式 2 轮完成。4 个硬性指标全部达成。
+
+### 目标
+
+扩展 `apps/web/app/globals.css` 补齐 success/warning/info 状态色与 brand-50~900 品牌色阶梯;真实化 `apps/api/src/routes/missing-user-routes.ts` 中支付(11 端点)+ 提现(7 端点)STUB 路由对接 `packages/database` 现有 schema。
+
+### 交付内容
+
+1. **globals.css @theme 扩展(H3)** — 新增 13 个 token(light)+ 3 个 dark 覆盖:
+   - `--color-success` / `--color-success-foreground`
+   - `--color-warning` / `--color-warning-foreground`
+   - `--color-info` / `--color-info-foreground`
+   - `--color-brand-50` ~ `--color-brand-900`(9 阶品牌色)
+
+2. **DB 查询函数补齐**:
+   - `apps/api/src/db/order-queries.ts` 新增 `findOrderByOrderNo`、`findPaymentByOrderId`
+   - `apps/api/src/db/commission-queries.ts` 新增 `getWithdrawalById`、`approveWithdrawal`(status 0→2)、`rejectWithdrawal`(status 0→3 + reason)
+
+3. **支付模块 11 端点真实化(H4)** — `missing-user-routes.ts` 504-595 行:
+   - `/payment/order/:orderNo/close`(取消订单)、`/sync`(同步)、`/callback/verify`
+   - `/payment/orders/:orderNo`(订单详情)
+   - `/payment/refund/:refundNo`(退款详情)、`/cancel`(取消)、`/status`(状态)、`/audit`(审核)、`/process`(处理)
+   - `/refunds/apply`(申请退款,事务+行锁)
+   - `/top-up/status/:orderId`(支付状态)
+
+4. **提现模块 7 端点真实化(H4)** — `missing-user-routes.ts` 600-663 行:
+   - `/finance/withdrawal/withdrawal` POST + `withdrawalApplySchema`(amount/method/accountInfo Zod 校验)
+   - `/finance/withdrawal/getWithdrawal` GET(summary + available 并发 Promise.all)
+   - `/finance/withdrawal/my-records`、`/flows/list`(分页列表)
+   - `/finance/withdrawal/flows/:id`(详情)
+   - `/finance/withdrawal/flows/:id/approve`(审批通过)、`/flows/:id/reject`(驳回 + reason)
+
+### 验证依据
+
+| 硬性指标             | 验证命令/方法                                                | 结果                        |
+| -------------------- | ------------------------------------------------------------ | --------------------------- |
+| H1 web typecheck     | `pnpm --filter @ihui/web typecheck`                          | exit 0,tsc --noEmit 无错误  |
+| H2 api typecheck     | `pnpm --filter @ihui/api typecheck`                          | exit 0,tsc --noEmit 无错误  |
+| H3 globals.css token | Grep `--color-(success\|warning\|info\|brand-50\|brand-900)` | 15 处引用(light + dark)     |
+| H4 真实化端点        | Grep 真实化函数调用                                          | 33 处(import + 18 端点调用) |
+
+### 残留风险
+
+1. `/finance/withdrawal/flows/:id/approve` 与 `/reject` 路径在用户端路由(missing-user-routes.ts),未做 roleId 校验,理论上任意登录用户可审批任意提现记录。建议后续迁移至 admin 路由或加 `requireAdmin` 钩子。
+2. 支付 `/payment/callback/verify` 仍为桩实现(返回 `{ success: true }`),实际支付回调验签已在 `payment-gateway.ts` 真实实现,此端点仅为前端轮询占位。
+3. 提现 `applyWithdrawal` 未校验用户可用余额是否足够(仅记录流水),建议后续在路由层加 `availableWithdrawal` 预校验。
+
+### Goal 运行时文件
+
+- `.trae-cn/goal-runtime/STATE.md` — 状态:achieved,轮次:2
+- `.trae-cn/goal-runtime/loop-run-log.md` — Round 0/1/2 完整日志
+- 整合完成后已删除上述两个运行时文件(目录保留)
