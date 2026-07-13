@@ -219,6 +219,8 @@
     "invalidCredentials": "Invalid account or password",
     "usernameExists": "Username already exists",
     "dingtalkLogin": "DingTalk",
+    "appleLogin": "Apple",
+    "githubLogin": "GitHub",
     "qrLogin": "Scan QR",
     "qrLoadFailed": "Failed to load QR code",
     "qrScanned": "Scanned, please confirm on phone",
