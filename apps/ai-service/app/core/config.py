@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     # AI 回调共享密钥(可选,与后端 AI_CALLBACK_SECRET 一致;为空则不发送 X-Internal-Secret 头)
     ai_callback_secret: str = ""
 
+    # 凭据加密密钥(与 apps/api 的 CREDENTIALS_ENCRYPTION_KEY 共享,用于解密 ai_model_config.api_key_enc)
+    credentials_encryption_key: str = ""
+
     # JWT 验证(与 apps/api 共享 JWT_SECRET,用于 SSO 跨服务认证)
     jwt_secret: str = ""
     jwt_issuer: str = "ihui-ai"
