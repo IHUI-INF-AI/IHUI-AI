@@ -16,9 +16,51 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
+import { eq, asc, sql } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-import { findMyLessons } from '../db/learn-queries.js'
+import { db } from '../db/index.js'
+import { aiModelConfig } from '@ihui/database'
+import {
+  findMyLessons,
+  signUpLesson,
+  isSignedUp,
+  findSignUp,
+  updateProgress,
+} from '../db/learn-queries.js'
+import {
+  findOrderByOrderNo,
+  findPaymentByOrderId,
+  findRefundById,
+  cancelOrder,
+  applyRefund,
+  processRefund,
+  handleRefund,
+} from '../db/order-queries.js'
+import {
+  applyWithdrawal,
+  listWithdrawals,
+  getWithdrawalById,
+  approveWithdrawal,
+  rejectWithdrawal,
+  withdrawalSummary,
+  availableWithdrawal,
+  commissionSummary,
+  listCommissionFlows,
+  listSubordinates,
+  teamCenter,
+} from '../db/commission-queries.js'
+import {
+  findPublishedArticles,
+  findArticleById,
+  incrementArticleViewCount,
+  createArticle,
+  findPublishedNewsCategories,
+  findMyArticles,
+} from '../db/news-queries.js'
+import { findMessageById } from '../db/chat-queries.js'
+import { createCertificate, updateCertificateStatus } from '../db/certificate-queries.js'
+import { findResourceById } from '../db/resource-queries.js'
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -67,49 +109,85 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      reply
+      return reply
         .status(statusCode)
         .send(error(statusCode, (e as Error).message || 'Authentication required'))
     }
   })
 
   // ===========================================================================
-  // 1. 文章模块 /article/*（9 个端点）
+  // 1. 文章模块 /article/*（9 个端点，其中 7 个真实化，like/favorite 无表保持桩）
   // ===========================================================================
   server.get('/article/list', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findPublishedArticles({
+      page: q.page,
+      pageSize: q.pageSize,
+      search: q.search,
+    })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/article/detail/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ article: null }))
+    const article = await findArticleById(id)
+    if (article) await incrementArticleViewCount(id)
+    return reply.send(success({ article }))
   })
 
   server.get('/article/hot', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+    const result = await findPublishedArticles({ page: 1, pageSize: 10 })
+    return reply.send(success({ list: result.list }))
   })
 
   server.get('/article/essence', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+    const result = await findPublishedArticles({ page: 1, pageSize: 10 })
+    return reply.send(success({ list: result.list }))
   })
 
   server.get('/article/categories', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+    const list = await findPublishedNewsCategories()
+    return reply.send(success({ list }))
   })
 
   server.get('/article/my', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findMyArticles(request.userId!, { page: q.page, pageSize: q.pageSize })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
-  server.post('/article/publish', async (_request, reply) => {
-    return reply.status(201).send(success({ success: true }))
+  server.post('/article/publish', async (request, reply) => {
+    const body =
+      (request.body as {
+        title?: string
+        content?: string
+        categoryId?: string
+        summary?: string
+        coverImage?: string
+        isPublished?: boolean
+      } | null) ?? {}
+    if (!body.title || !body.content)
+      return reply.status(400).send(error(400, '标题和内容不能为空'))
+    const article = await createArticle({
+      title: body.title,
+      content: body.content,
+      categoryId: body.categoryId,
+      summary: body.summary,
+      coverImage: body.coverImage,
+      authorId: request.userId,
+      isPublished: body.isPublished ?? false,
+    })
+    return reply.status(201).send(success({ success: true, article }))
   })
 
+  // 注: like/favorite 无对应表，保持桩实现
   server.post('/article/like', async (_request, reply) => {
     return reply.send(success({ success: true }))
   })
@@ -377,13 +455,43 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   // 10. AI 模块补充 /ai/*（6 个端点）
   // ===========================================================================
   server.get('/ai/models', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+    const rows = await db
+      .select({
+        id: aiModelConfig.id,
+        name: aiModelConfig.name,
+        provider: aiModelConfig.providerCode,
+        description: aiModelConfig.description,
+        type: aiModelConfig.apiFormat,
+        status: sql<number>`CASE WHEN ${aiModelConfig.enabled} THEN 1 ELSE 0 END`,
+        sort: aiModelConfig.sortOrder,
+        baseUrl: aiModelConfig.baseUrl,
+        modelIdForTest: aiModelConfig.modelIdForTest,
+      })
+      .from(aiModelConfig)
+      .where(eq(aiModelConfig.enabled, true))
+      .orderBy(asc(aiModelConfig.sortOrder), asc(aiModelConfig.id))
+    return reply.send(success({ list: rows }))
   })
 
   server.get('/ai/models/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ model: null }))
+    const [row] = await db
+      .select({
+        id: aiModelConfig.id,
+        name: aiModelConfig.name,
+        provider: aiModelConfig.providerCode,
+        description: aiModelConfig.description,
+        type: aiModelConfig.apiFormat,
+        status: sql<number>`CASE WHEN ${aiModelConfig.enabled} THEN 1 ELSE 0 END`,
+        sort: aiModelConfig.sortOrder,
+        baseUrl: aiModelConfig.baseUrl,
+        modelIdForTest: aiModelConfig.modelIdForTest,
+      })
+      .from(aiModelConfig)
+      .where(eq(aiModelConfig.id, Number(id)))
+    if (!row) return reply.status(404).send(error(404, '模型不存在'))
+    return reply.send(success({ model: row }))
   })
 
   server.get('/ai/careers', async (_request, reply) => {
@@ -430,31 +538,52 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // 12. 分销 /commission/*（4 个端点）
   // ===========================================================================
-  server.get('/commission/overview', async (_request, reply) => {
+  server.get('/commission/overview', async (request, reply) => {
+    const userId = request.userId!
+    const [summary, withdrawal, available] = await Promise.all([
+      commissionSummary(userId, 30),
+      withdrawalSummary(userId),
+      availableWithdrawal(userId),
+    ])
     return reply.send(
       success({
-        totalCommission: 0,
-        availableCommission: 0,
-        pendingCommission: 0,
-        withdrawnCommission: 0,
+        totalCommission: summary.totalAmount,
+        availableCommission: available,
+        pendingCommission: withdrawal.pendingAmount,
+        withdrawnCommission: withdrawal.totalWithdrawn,
       }),
     )
   })
 
-  server.get('/commission/invite-info', async (_request, reply) => {
-    return reply.send(success({ inviteCode: null, inviteUrl: null, inviteCount: 0 }))
+  server.get('/commission/invite-info', async (request, reply) => {
+    const team = await teamCenter(request.userId!)
+    return reply.send(
+      success({
+        inviteCode: null,
+        inviteUrl: null,
+        inviteCount: team.totalInvitees,
+        vipInvitees: team.vipInvitees,
+        monthNew: team.monthNew,
+      }),
+    )
   })
 
   server.get('/commission/invited-users', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await listSubordinates(request.userId!, q.page, q.pageSize)
+    return reply.send(
+      success({ list: result.items, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/commission/list', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await listCommissionFlows(request.userId!, q.page, q.pageSize)
+    return reply.send(
+      success({ list: result.items, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   // ===========================================================================
@@ -480,7 +609,8 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/messages/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ message: null }))
+    const message = await findMessageById(id)
+    return reply.send(success({ message }))
   })
 
   // ===========================================================================
@@ -489,13 +619,17 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.post('/payment/order/:orderNo/close', async (request, reply) => {
     const orderNo = orderNoParam.parse(request.params).orderNo
     if (!orderNo) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ success: true }))
+    const order = await findOrderByOrderNo(orderNo)
+    if (!order) return reply.status(404).send(error(404, '订单不存在'))
+    const updated = await cancelOrder(order.id)
+    return reply.send(success({ success: !!updated, order: updated }))
   })
 
   server.post('/payment/order/:orderNo/sync', async (request, reply) => {
     const orderNo = orderNoParam.parse(request.params).orderNo
     if (!orderNo) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ success: true }))
+    const order = await findOrderByOrderNo(orderNo)
+    return reply.send(success({ order }))
   })
 
   server.post('/payment/callback/verify', async (_request, reply) => {
@@ -505,7 +639,8 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/payment/orders/:orderNo', async (request, reply) => {
     const orderNo = orderNoParam.parse(request.params).orderNo
     if (!orderNo) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ order: null }))
+    const order = await findOrderByOrderNo(orderNo)
+    return reply.send(success({ order }))
   })
 
   // 注: /payments/me 已由 order.ts 真实实现,此处不再重复注册空桩
@@ -513,35 +648,60 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/payment/refund/:refundNo', async (request, reply) => {
     const refundNo = refundNoParam.parse(request.params).refundNo
     if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ refund: null }))
+    const refund = await findRefundById(refundNo)
+    return reply.send(success({ refund }))
   })
 
   server.post('/payment/refund/:refundNo/cancel', async (request, reply) => {
     const refundNo = refundNoParam.parse(request.params).refundNo
     if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ success: true }))
+    const refund = await processRefund(refundNo, 'rejected', '用户取消')
+    return reply.send(success({ success: !!refund, refund }))
   })
 
   server.get('/payment/refund/:refundNo/status', async (request, reply) => {
     const refundNo = refundNoParam.parse(request.params).refundNo
     if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ status: null }))
+    const refund = await findRefundById(refundNo)
+    return reply.send(success({ status: refund?.status ?? null }))
   })
 
   server.post('/payment/refund/:refundNo/audit', async (request, reply) => {
     const refundNo = refundNoParam.parse(request.params).refundNo
     if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ success: true }))
+    const body =
+      (request.body as { action?: 'approved' | 'rejected'; reason?: string } | null) ?? {}
+    const refund = await processRefund(refundNo, body.action ?? 'approved', body.reason ?? null)
+    return reply.send(success({ success: !!refund, refund }))
   })
 
   server.post('/payment/refund/:refundNo/process', async (request, reply) => {
     const refundNo = refundNoParam.parse(request.params).refundNo
     if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ success: true }))
+    const body =
+      (request.body as {
+        status?: 'processing' | 'completed' | 'failed'
+        message?: string
+      } | null) ?? {}
+    const refund = await handleRefund(refundNo, body.status ?? 'processing', body.message ?? null)
+    return reply.send(success({ success: !!refund, refund }))
   })
 
-  server.post('/refunds/apply', async (_request, reply) => {
-    return reply.status(201).send(success({ success: true }))
+  server.post('/refunds/apply', async (request, reply) => {
+    const body =
+      (request.body as { orderId?: string; reason?: string; refundType?: string } | null) ?? {}
+    if (!body.orderId) return reply.status(400).send(error(400, '缺少订单 id'))
+    const result = await applyRefund({
+      orderId: body.orderId,
+      userId: request.userId!,
+      reason: body.reason,
+      refundType: body.refundType,
+    })
+    if (result.reason)
+      return reply
+        .status(400)
+        .send(error(400, result.reason === 'order_not_found' ? '订单不存在' : '订单未支付'))
+    return reply.status(201).send(success({ success: true, refund: result.refund }))
   })
 
   // 注: /refunds/me 已由 order.ts 真实实现,此处不再重复注册空桩
@@ -549,7 +709,8 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/top-up/status/:orderId', async (request, reply) => {
     const orderId = orderIdParam.parse(request.params).orderId
     if (!orderId) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ status: null }))
+    const payment = await findPaymentByOrderId(orderId)
+    return reply.send(success({ status: payment?.status ?? null, payment }))
   })
 
   // 注: /invoices/applications (GET/POST) 已由 order.ts 真实实现,此处不再重复注册空桩
@@ -557,42 +718,81 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // 15. 提现模块 /finance/withdrawal/*（7 个端点）
   // ===========================================================================
-  server.post('/finance/withdrawal/withdrawal', async (_request, reply) => {
-    return reply.status(201).send(success({ success: true }))
+  const withdrawalApplySchema = z.object({
+    amount: z.coerce.number().int().positive(),
+    method: z.string().min(1),
+    accountInfo: z.record(z.unknown()).optional(),
   })
 
-  server.get('/finance/withdrawal/getWithdrawal', async (_request, reply) => {
-    return reply.send(success({ withdrawal: null }))
+  server.post('/finance/withdrawal/withdrawal', async (request, reply) => {
+    const parsed = withdrawalApplySchema.safeParse(request.body)
+    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
+    const available = await availableWithdrawal(request.userId!)
+    if (available < parsed.data.amount) {
+      return reply.status(400).send(error(400, '可提现余额不足'))
+    }
+    const flow = await applyWithdrawal({
+      userId: request.userId!,
+      amount: parsed.data.amount,
+      method: parsed.data.method,
+      accountInfo: parsed.data.accountInfo ?? {},
+    })
+    return reply.status(201).send(success({ success: true, flow }))
+  })
+
+  server.get('/finance/withdrawal/getWithdrawal', async (request, reply) => {
+    const userId = request.userId!
+    const [summary, available] = await Promise.all([
+      withdrawalSummary(userId),
+      availableWithdrawal(userId),
+    ])
+    return reply.send(success({ withdrawal: { ...summary, available } }))
   })
 
   server.get('/finance/withdrawal/my-records', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await listWithdrawals(request.userId!, q.page, q.pageSize)
+    return reply.send(
+      success({ list: result.items, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/finance/withdrawal/flows/list', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await listWithdrawals(request.userId!, q.page, q.pageSize)
+    return reply.send(
+      success({ list: result.items, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/finance/withdrawal/flows/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ flow: null }))
+    const flow = await getWithdrawalById(id)
+    return reply.send(success({ flow }))
   })
 
   server.post('/finance/withdrawal/flows/:id/approve', async (request, reply) => {
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (roleId < 1) return reply.status(403).send(error(403, '需要管理员权限'))
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ success: true }))
+    const flow = await approveWithdrawal(id)
+    if (!flow) return reply.status(400).send(error(400, '提现记录不存在或已处理'))
+    return reply.send(success({ success: true, flow }))
   })
 
   server.post('/finance/withdrawal/flows/:id/reject', async (request, reply) => {
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (roleId < 1) return reply.status(403).send(error(403, '需要管理员权限'))
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ success: true }))
+    const body = (request.body as { reason?: string } | null) ?? {}
+    const flow = await rejectWithdrawal(id, body.reason ?? '驳回')
+    if (!flow) return reply.status(400).send(error(400, '提现记录不存在或已处理'))
+    return reply.send(success({ success: true, flow }))
   })
 
   // ===========================================================================
@@ -724,28 +924,49 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 20. Course 模块 /course/*（4 个端点）
+  // 20. Course 模块 /course/*（4 个端点，全部真实化）
   // ===========================================================================
   server.post('/course/:id/enroll', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.status(201).send(success({ success: true }))
+    const userId = request.userId!
+    const already = await isSignedUp(id, userId)
+    if (!already) await signUpLesson(id, userId)
+    return reply.status(201).send(success({ success: true, enrolled: !already }))
   })
 
   server.get('/course/:id/progress', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ progress: 0, completedLessons: 0, totalLessons: 0 }))
+    const signup = await findSignUp(id, request.userId!)
+    if (!signup) return reply.status(404).send(error(404, '未报名该课程'))
+    return reply.send(
+      success({
+        progress: signup.progress,
+        status: signup.status,
+        completedLessons: signup.status >= 2 ? 1 : 0,
+        totalLessons: 1,
+      }),
+    )
   })
 
-  server.post('/course/lesson-complete', async (_request, reply) => {
-    return reply.send(success({ success: true }))
+  server.post('/course/lesson-complete', async (request, reply) => {
+    const body = (request.body as { lessonId?: string } | null) ?? {}
+    if (!body.lessonId) return reply.status(400).send(error(400, '缺少 lessonId'))
+    const updated = await updateProgress(body.lessonId, request.userId!, 100)
+    if (!updated) return reply.status(404).send(error(404, '未报名该课程'))
+    return reply.send(
+      success({ success: true, progress: updated.progress, status: updated.status }),
+    )
   })
 
   server.get('/course/my', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findMyLessons(request.userId!, { page: q.page, pageSize: q.pageSize })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   // ===========================================================================
@@ -754,23 +975,49 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/resources/:id/download', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ url: null }))
+    const resource = await findResourceById(id)
+    if (!resource) return reply.status(404).send(error(404, '资源不存在'))
+    return reply.send(success({ url: resource.fileUrl, resource }))
   })
 
-  server.post('/resources/:id/like', async (request, reply) => {
-    const id = parseIdParam(request, reply)
-    if (id === null) return
+  // 注: resources/:id/like 无对应 like 表，保持桩实现
+  server.post('/resources/:id/like', async (_request, reply) => {
     return reply.send(success({ success: true }))
   })
 
-  server.post('/certificates/issue', async (_request, reply) => {
-    return reply.status(201).send(success({ certificateId: null }))
+  server.post('/certificates/issue', async (request, reply) => {
+    const body =
+      (request.body as {
+        userId?: string
+        templateId?: string
+        title?: string
+        recipientName?: string
+        source?: string
+        sourceId?: string
+      } | null) ?? {}
+    if (!body.userId || !body.templateId || !body.title) {
+      return reply.status(400).send(error(400, '缺少 userId/templateId/title'))
+    }
+    const cert = await createCertificate({
+      userId: body.userId,
+      templateId: body.templateId,
+      certificateNo: 'CERT' + Date.now() + randomUUID().slice(0, 6).toUpperCase(),
+      title: body.title,
+      recipientName: body.recipientName,
+      source: body.source,
+      sourceId: body.sourceId,
+    })
+    return reply
+      .status(201)
+      .send(success({ success: true, certificateId: cert.id, certificate: cert }))
   })
 
   server.post('/certificates/:id/revoke', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ success: true }))
+    const cert = await updateCertificateStatus(id, 0)
+    if (!cert) return reply.status(404).send(error(404, '证书不存在'))
+    return reply.send(success({ success: true, certificate: cert }))
   })
 
   server.post('/knowledge', async (_request, reply) => {
