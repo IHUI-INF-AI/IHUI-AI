@@ -3671,3 +3671,86 @@ Tailwind CSS 4 默认 `dark:` variant 基于 `@media (prefers-color-scheme: dark
 ### 残留风险
 
 无新增风险。R101 修复正确,所有 dark: 类按预期工作。
+
+## R103 @tailwindcss/typography 插件安装 + markdown 渲染修复(2026-07-14)✅
+
+> R102 审计发现的预先存在 bug:代码使用 `prose prose-sm dark:prose-invert` 类但 `@tailwindcss/typography` 插件未安装,导致全项目 markdown 渲染无排版样式。本次修复。
+
+### 问题根因
+
+- `apps/web/src/components/media/MarkdownViewer.tsx:39`、`apps/web/src/components/ai-generation/vision-analysis.tsx:121` 使用 `prose prose-sm max-w-none dark:prose-invert` 类
+- `apps/web/app/(main)/agreement/page.tsx:153` 等多个页面通过 `SafeHtml` 间接使用 prose 类
+- 但 `package.json` 中**未安装** `@tailwindcss/typography`
+- `globals.css` 中**未通过 `@plugin` 引入**
+- 编译后 CSS 中无 `.prose` 规则(grep 验证)
+- 影响:11 个文件渲染 markdown 时无排版样式(标题/段落/列表/代码块/引用/链接无视觉差异),`dark:prose-invert` 也因此不生效
+
+### 改动清单
+
+#### 1. `apps/web/package.json`
+
+新增 devDependency:`@tailwindcss/typography: ^0.5.20`
+
+#### 2. `apps/web/app/globals.css`
+
+```diff
+ @import 'tailwindcss';
++@plugin '@tailwindcss/typography';
++
+ @custom-variant dark (&:where(.dark, .dark *));
+```
+
+Tailwind 4 用 `@plugin` 在 CSS 中引入插件(替代 Tailwind 3 的 `tailwind.config.js` 配置)。
+
+### 验证结果
+
+#### 编译产物验证
+
+- `.next/static/chunks/apps_web_app_globals_css_*.css` 现包含:
+  - `.prose` 规则(line 1151)+ 大量子元素选择器(p/h1-h6/ul/ol/blockquote/pre/code/table/a/strong 等)
+  - `--tw-prose-invert-*` CSS 变量(line 1691-1700)
+  - `.dark\:prose-invert:where(.dark, .dark *)` 选择器(line 7244,与 R101 的 `@custom-variant dark` 协同)
+
+#### Playwright colorScheme emulation 终验
+
+在 /login 页面注入完整 markdown HTML(h1/h2/p/ul/blockquote/pre/code/table/a/strong),采集 light/dark 双模式 computed style:
+
+| 元素        | LIGHT 模式                                      | DARK 模式(prose-invert)                               |
+| ----------- | ----------------------------------------------- | ----------------------------------------------------- |
+| prose color | `rgb(54, 65, 83)` 深灰 ✅                       | `rgb(209, 213, 220)` 浅灰(翻白)✅                     |
+| h1          | 30px / weight 800 / `rgb(16, 24, 40)` 深色 ✅   | 30px / weight 800 / `rgb(255, 255, 255)` 纯白(翻白)✅ |
+| h2          | 20px / weight 700 ✅                            | 20px / weight 700 ✅                                  |
+| p           | marginBottom 16px ✅                            | marginBottom 16px ✅                                  |
+| ul          | paddingLeft 22px / listStyleType disc ✅        | paddingLeft 22px / listStyleType disc ✅              |
+| blockquote  | borderLeft 4px / italic / `rgb(229,229,229)` ✅ | borderLeft 4px / italic / `rgb(38,38,38)`(深色边框)✅ |
+| pre         | backgroundColor `rgb(30, 41, 57)` 深色代码块 ✅ | backgroundColor `rgba(0,0,0,0.5)` 半透明黑 ✅         |
+| code        | weight 600 / 12px ✅                            | weight 600 / 12px ✅                                  |
+| a           | underline / `rgb(16,24,40)` ✅                  | underline / `rgb(255,255,255)` 白链接 ✅              |
+| strong      | weight 600 ✅                                   | weight 600 ✅                                         |
+
+所有 markdown 元素在 light/dark 双模式下排版正确,`dark:prose-invert` 颜色翻转生效。
+
+#### 其他验证
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/web lint` — ✅ 零错误零警告
+
+### 影响范围
+
+修复后,以下 11 个文件的 markdown 渲染获得正确排版:
+
+- `apps/web/src/components/media/MarkdownViewer.tsx`(通用 markdown 渲染组件)
+- `apps/web/src/components/ai-generation/vision-analysis.tsx`(AI 视觉分析结果)
+- `apps/web/app/(main)/agreement/page.tsx`(用户协议/隐私政策)
+- `apps/web/app/(main)/articles/[id]/page.tsx`(文章详情)
+- `apps/web/app/(main)/announcements/[id]/page.tsx`(公告详情)
+- `apps/web/app/(main)/docs/[slug]/page.tsx`(文档)
+- `apps/web/app/(main)/feedback/[id]/FeedbackDetailBody.tsx`(反馈详情)
+- `apps/web/app/(main)/help/[slug]/page.tsx`(帮助文档)
+- `apps/web/app/(main)/news/[id]/page.tsx`(新闻详情)
+- `apps/web/app/(main)/resources/[id]/page.tsx`(资源详情)
+- `apps/web/app/(main)/share/[code]/AnswerArea.tsx`(分享页)
+
+### 残留风险
+
+无。`@tailwindcss/typography` 是 Tailwind 官方插件,`@plugin` 是 Tailwind 4 官方推荐的插件引入方式,行为可预期。
