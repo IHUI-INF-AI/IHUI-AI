@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
@@ -31,10 +31,9 @@ interface Props {
 export function AgentRuleForm({ form, setForm, err, savePending, onSubmit, onCancel }: Props) {
   const t = useTranslations('admin.agentRules')
   const RULE_TYPES = [
-    { value: 'system', label: t('ruleTypes.system') },
-    { value: 'user', label: t('ruleTypes.user') },
-    { value: 'tool', label: t('ruleTypes.tool') },
-    { value: 'constraint', label: t('ruleTypes.constraint') },
+    { value: 'text', label: t('ruleTypes.text') },
+    { value: 'regex', label: t('ruleTypes.regex') },
+    { value: 'llm', label: t('ruleTypes.llm') },
   ]
 
   return (
@@ -63,8 +62,8 @@ export function AgentRuleForm({ form, setForm, err, savePending, onSubmit, onCan
               <Label htmlFor="r-name">{t('ruleName')}</Label>
               <Input
                 id="r-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                value={form.ruleName}
+                onChange={(e) => setForm({ ...form, ruleName: e.target.value })}
                 placeholder={t('namePlaceholder')}
               />
             </div>
@@ -72,14 +71,17 @@ export function AgentRuleForm({ form, setForm, err, savePending, onSubmit, onCan
               <Label htmlFor="r-code">{t('ruleCode')}</Label>
               <Input
                 id="r-code"
-                value={form.code}
-                onChange={(e) => setForm({ ...form, code: e.target.value })}
+                value={form.ruleCode}
+                onChange={(e) => setForm({ ...form, ruleCode: e.target.value })}
                 placeholder={t('codePlaceholder')}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="r-type">{t('ruleType')}</Label>
-              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+              <Select
+                value={form.ruleType}
+                onValueChange={(v) => setForm({ ...form, ruleType: v })}
+              >
                 <SelectTrigger id="r-type">
                   <SelectValue />
                 </SelectTrigger>
@@ -117,6 +119,15 @@ export function AgentRuleForm({ form, setForm, err, savePending, onSubmit, onCan
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="r-desc">{t('description')}</Label>
+            <Input
+              id="r-desc"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder={t('descriptionPlaceholder')}
+            />
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onCancel} disabled={savePending}>
