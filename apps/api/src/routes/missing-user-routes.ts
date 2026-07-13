@@ -17,6 +17,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { findMyLessons } from '../db/learn-queries.js'
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -184,8 +185,30 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ record: null }))
   })
 
-  server.get('/study/progress', async (_request, reply) => {
-    return reply.send(success({ progress: 0, totalCourses: 0, completedCourses: 0 }))
+  server.get('/study/progress', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const result = await findMyLessons(request.userId!, { page: q.page, pageSize: q.pageSize })
+    const completed = result.list.filter((l) => l.progress >= 100).length
+    return reply.send(
+      success({
+        progress:
+          result.list.length > 0
+            ? Math.round(result.list.reduce((s, l) => s + l.progress, 0) / result.list.length)
+            : 0,
+        totalCourses: result.total,
+        completedCourses: completed,
+      }),
+    )
+  })
+
+  server.get('/study/progress/all', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const result = await findMyLessons(request.userId!, { page: q.page, pageSize: q.pageSize })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/study/statistics', async (_request, reply) => {
