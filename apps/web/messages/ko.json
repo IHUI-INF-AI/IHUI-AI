@@ -8156,5 +8156,22 @@
     "deleteDesc": "이 작업은 취소할 수 없습니다",
     "delete": "삭제",
     "validateName": "앱 이름을 입력해 주세요"
+  },
+  "errors": {
+    "unknown": "알 수 없는 오류",
+    "validationFailed": "매개변수 오류",
+    "unauthorized": "로그인이 필요합니다",
+    "forbidden": "권한이 부족합니다",
+    "notFound": "리소스를 찾을 수 없습니다",
+    "conflict": "작업 충돌",
+    "rateLimited": "요청이 너무 빈번합니다, 나중에 다시 시도하세요",
+    "locked": "리소스가 잠겨 있습니다",
+    "internalError": "서버 오류",
+    "upstreamFailure": "업스트림 서비스 오류",
+    "serviceUnavailable": "서비스를 일시적으로 사용할 수 없습니다",
+    "memberExists": "회원이 이미 존재합니다",
+    "optimisticLock": "데이터가 수정되었습니다, 새로고침 후 재시도하세요",
+    "invalidMoney": "금액 형식 오류",
+    "invalidTimezone": "시간대 오류"
   }
 }

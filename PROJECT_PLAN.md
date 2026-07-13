@@ -2274,3 +2274,82 @@ R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39
 - `pnpm --filter @ihui/api typecheck` — ✅ 零错误
 - `pnpm --filter @ihui/web typecheck` — ✅ 零错误
 - `pnpm --filter @ihui/api test` — ✅ 873个测试全部通过
+
+## R93 ZodError 统一处理 + parseOrThrow 工具（2026-07-12）✅
+
+> 修改 errorHandler 识别 ZodError 自动返回 400+errorCode='VALIDATION_FAILED'，修复8个文件 `.parse()` 抛错返回500的bug。新建 parseOrThrow 工具函数供新路由使用。
+
+### 改动
+
+1. **errorHandler 加 ZodError 分支**（`apps/api/src/server.ts`）：识别 `error.name === 'ZodError'`，强制 statusCode=400，message 取 `issues[0]?.message`，errorCode='VALIDATION_FAILED'
+2. **新建 parseOrThrow 工具**（`apps/api/src/utils/response.ts`）：`parseOrThrow(schema, input)` 失败时抛 AppError(400, 'VALIDATION_FAILED')，替代路由中重复的 safeParse + 手动 400 模板
+3. **legacy-completion.test.ts 修复**：移除 ZodError 显式导入和自定义 errorHandler 的 ZodError 特殊处理，改用与全局 errorHandler 一致的逻辑
+
+### 修复的bug
+
+8个路由文件（agents.ts、admin-sys.ts、agent-extended.ts、admin-extended.ts、admin-api-platform.ts、agentic-service.ts、admin-gray-release.ts、legacy-completion.ts）使用 `.parse()` 直接抛 ZodError，原 errorHandler 将其兜底为 500。现统一返回 400 + 首条 issue message。
+
+### 验证结果
+
+- `pnpm --filter @ihui/api typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/api test` — ✅ 873个测试全部通过
+
+## R94 errorCode → i18n key 映射 + 前端错误消息国际化（2026-07-12）✅
+
+> 新建 `error-messages.ts`，定义14个 errorCode → i18n key 映射，提供 `resolveErrorMessage(error, t)` 工具函数。5语言文件添加 errors 命名空间（15键）。
+
+### 新建文件
+
+- `apps/web/src/lib/error-messages.ts`：
+  - `ERROR_CODE_TO_I18N_KEY` 映射表（14个 errorCode）
+  - `getErrorI18nKey(errorCode)` 获取 i18n key
+  - `resolveErrorMessage(error, t)` 优先用 errorCode 对应的 i18n 文案，fallback 到原始 message
+
+### i18n 键（15键 × 5语言）
+
+errors 命名空间：unknown / validationFailed / unauthorized / forbidden / notFound / conflict / rateLimited / locked / internalError / upstreamFailure / serviceUnavailable / memberExists / optimisticLock / invalidMoney / invalidTimezone
+
+### 使用方式
+
+```tsx
+import { resolveErrorMessage } from '@/lib/error-messages'
+import { ApiError } from '@/lib/api-error'
+
+try {
+  await eduApi('/api/xxx')
+} catch (err) {
+  const message = err instanceof ApiError ? resolveErrorMessage(err, t) : t('errors.unknown')
+  toast.error(message)
+}
+```
+
+### 验证结果
+
+- `node scripts/check-i18n-keys.mjs` — ✅ 通过（661 文件，6708 键，5 语言 parity OK）
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误
+
+## R95 CI i18n 检查升级为 fail-fast（2026-07-12）✅
+
+> 将 `scripts/check-i18n-keys.mjs` 全量模式从 exit 0（warning）升级为 exit 1（error），CI 真正守门。
+
+### 改动
+
+- 移除 `--staged` 与全量模式的退出码区分，统一 exit 1
+- 历史遗留 i18n 缺失键已在 R92 全部修复，当前0个问题，可安全升级
+
+### 验证结果
+
+- `node scripts/check-i18n-keys.mjs` — ✅ exit 0（0个问题）
+
+## R96 历史遗留文件清理（2026-07-12）✅
+
+> commit `1faa9222f`，9 files changed。清理工作区9个历史遗留未提交文件。
+
+### 清理内容
+
+| 类别                   | 文件                                                               | 改动                                          |
+| ---------------------- | ------------------------------------------------------------------ | --------------------------------------------- |
+| 重复空桩路由移除       | admin-missing-routes.ts、missing-user-routes.ts、order.ts          | 删除已被真实实现替代的空桩路由                |
+| 小程序UI组件复用       | ranking/index.tsx、share/index.tsx                                 | 提取 Ranking/Loading/NavBar 组件复用          |
+| migration 外键改软引用 | 0054_missing_relation_tables.sql、_journal.json、agent-commerce.ts | 移除物理外键，改软引用避免 migration 顺序依赖 |
+| 测试类型修复           | legacy-completion.test.ts                                          | 修复 err 类型注解                             |
