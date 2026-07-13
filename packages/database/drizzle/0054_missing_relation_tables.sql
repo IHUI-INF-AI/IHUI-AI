@@ -33,6 +33,7 @@ ALTER TABLE "resource_tag_relations" ADD CONSTRAINT "resource_tag_relations_tag_
 --> statement-breakpoint
 
 -- 3. 智能体购买定时任务表 (历史 agent_buy_scheduled_tasks)
+-- 注: buy_id 软引用 zhs_agent_buy.id,不建物理外键(zhs_agent_buy 表可能在其他 migration 中创建)
 CREATE TABLE IF NOT EXISTS "agent_buy_scheduled_tasks" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"buy_id" uuid NOT NULL,
@@ -48,5 +49,3 @@ CREATE TABLE IF NOT EXISTS "agent_buy_scheduled_tasks" (
 CREATE INDEX "agent_buy_scheduled_buy_idx" ON "agent_buy_scheduled_tasks" ("buy_id");
 --> statement-breakpoint
 CREATE INDEX "agent_buy_scheduled_status_idx" ON "agent_buy_scheduled_tasks" ("status");
---> statement-breakpoint
-ALTER TABLE "agent_buy_scheduled_tasks" ADD CONSTRAINT "agent_buy_scheduled_tasks_buy_id_zhs_agent_buy_id_fk" FOREIGN KEY ("buy_id") REFERENCES "zhs_agent_buy"("id") ON DELETE cascade ON UPDATE no action;
