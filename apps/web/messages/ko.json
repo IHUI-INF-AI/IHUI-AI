@@ -1811,7 +1811,8 @@
         "storage": "스토리지",
         "security": "보안",
         "payment": "결제",
-        "ai": "ai"
+        "ai": "ai",
+        "system": "시스템"
       },
       "colKey": "Key",
       "colValue": "값",
@@ -4437,9 +4438,11 @@
       "delete": "삭제",
       "save": "저장",
       "cancel": "취소",
+      "export": "내보내기",
       "subtitle": "에이전트 확장 규칙 및 매개변수 관리",
       "hideForm": "접기",
       "formTitle": "새 규칙",
+      "editTitle": "규칙 편집",
       "loading": "로딩 중...",
       "noData": "데이터 없음",
       "total": "총 {total}건",
@@ -4462,7 +4465,9 @@
       "nameRequired": "규칙 이름은 필수입니다",
       "codeRequired": "규칙 코드는 필수입니다",
       "createSuccess": "생성 성공",
+      "updateSuccess": "업데이트 성공",
       "deleteSuccess": "삭제 성공",
+      "exportFailed": "내보내기 실패",
       "deleteConfirm": "규칙 \"{name}\"을(를) 삭제하시겠습니까?",
       "deleteParamConfirm": "매개변수 \"{name}\"을(를) 삭제하시겠습니까?",
       "ruleTypes": {
