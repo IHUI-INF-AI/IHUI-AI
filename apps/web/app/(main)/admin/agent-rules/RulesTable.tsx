@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useTranslations } from 'next-intl'
 import { Edit, Trash2, Loader2, Shield } from 'lucide-react'
@@ -12,11 +12,12 @@ interface Props {
   rows: AgentRule[]
   isLoading: boolean
   error: Error | null
+  onEdit: (rule: AgentRule) => void
   onDelete: (rule: AgentRule) => void
   deletePending: boolean
 }
 
-export function RulesTable({ rows, isLoading, error, onDelete, deletePending }: Props) {
+export function RulesTable({ rows, isLoading, error, onEdit, onDelete, deletePending }: Props) {
   const t = useTranslations('admin.agentRules')
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -73,7 +74,12 @@ export function RulesTable({ rows, isLoading, error, onDelete, deletePending }: 
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" title={t('edit')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(rule)}
+                        title={t('edit')}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button

@@ -41,7 +41,7 @@ export default function ArticleDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'detail', id],
-    queryFn: () => api<DetailResponse>(`/api/content/articles/${id}`),
+    queryFn: () => api<DetailResponse>(`/api/article/detail/${id}`),
   })
 
   const fmtDate = (v?: string | null) => {
