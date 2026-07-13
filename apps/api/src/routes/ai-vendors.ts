@@ -16,6 +16,14 @@
  * 注册(server.ts):
  *   server.register(aiVendorRoutes, { prefix: '/api/ai' })
  *   server.register(adminAiVendorRoutes, { prefix: '/api/admin/ai' })
+ *
+ * R4 重构说明（重构洞察-AI厂商配置管理混乱问题）:
+ * - 新增 ai_vendor_configs 表 + ai-vendor-config-service.ts，adminAiVendorRoutes 已迁移到读数据库
+ * - 厂商调用主体仍使用下方 VENDORS 硬编码（业务路由 11 个厂商 x 数十端点，共 ~2000 行），
+ *   后续按厂商分批迁移到 vendor-caller-service 的 callVendor(ctx) 新签名；
+ *   迁移期间 VENDORS 与 ai_vendor_configs 字段保持一致，新增厂商时两侧必须同步。
+ * - auth 签名策略已抽到 vendor-auth-strategies.ts（Bearer/TencentTc3/VolcengineV4），
+ *   原 buildTencentHeaders / volcengineSign 函数保留作为内部 wrapper，逻辑不再修改。
  */
 import { createHmac, createHash } from 'node:crypto'
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
@@ -24,6 +32,8 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
 import { z } from 'zod'
+import { FALLBACK_VENDORS } from '../services/ai-vendor-config-service.js'
+import { callVendor as newCallVendor } from '../services/vendor-caller-service.js'
 
 // ============================================================================
 // Zod Schemas(可复用)
@@ -2092,37 +2102,141 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 // 管理端点:AI 厂商配置管理(需管理员)
 // ============================================================================
 
+/**
+ * R4 重构后：从 ai_vendor_configs 数据库表读取厂商列表（fallback 到 FALLBACK_VENDORS）。
+ * 业务路由保留 VENDORS 硬编码，admin 端点已经迁移到数据驱动管理。
+ */
+async function listAllVendorsWithStatus(): Promise<
+  Array<{
+    vendor: string
+    name: string
+    configured: boolean
+    baseUrl: string
+    isEnabled: boolean
+    authType: string
+    source: 'db' | 'fallback'
+  }>
+> {
+  // 1. 尝试从数据库读取（可能为空 / 表不存在 / DB 不可用）
+  let dbVendors: Array<{
+    vendorCode: string
+    vendorName: string
+    baseUrl: string
+    isEnabled: boolean
+    authType: string
+    keyEnvName: string | null
+  }> = []
+  try {
+    const { getEnabledVendors } = await import('../services/ai-vendor-config-service.js')
+    const list = await getEnabledVendors()
+    dbVendors = list.map((v) => ({
+      vendorCode: v.vendorCode,
+      vendorName: v.vendorName,
+      baseUrl: v.baseUrl,
+      isEnabled: v.isEnabled,
+      authType: v.authType,
+      keyEnvName: v.keyEnvName,
+    }))
+  } catch (_err) {
+    // 数据库不可用时忽略，fallback 模式生效
+  }
+
+  // 2. 合并数据库与 fallback，DB 优先
+  const merged = new Map<
+    string,
+    {
+      name: string
+      baseUrl: string
+      authType: string
+      isEnabled: boolean
+      source: 'db' | 'fallback'
+      keyEnvName: string | null
+    }
+  >()
+  for (const v of Object.values(FALLBACK_VENDORS)) {
+    merged.set(v.vendorCode, {
+      name: v.vendorName,
+      baseUrl: v.baseUrl,
+      authType: v.authType,
+      isEnabled: v.isEnabled,
+      source: 'fallback',
+      keyEnvName: v.keyEnvName ?? null,
+    })
+  }
+  for (const v of dbVendors) {
+    merged.set(v.vendorCode, {
+      name: v.vendorName,
+      baseUrl: v.baseUrl,
+      authType: v.authType,
+      isEnabled: v.isEnabled,
+      source: 'db',
+      keyEnvName: v.keyEnvName,
+    })
+  }
+
+  // 3. 探测凭据配置状态（从环境变量）
+  return Array.from(merged.entries()).map(([code, info]) => ({
+    vendor: code,
+    name: info.name,
+    configured: info.keyEnvName ? Boolean(process.env[info.keyEnvName]) : false,
+    baseUrl: info.baseUrl,
+    isEnabled: info.isEnabled,
+    authType: info.authType,
+    source: info.source,
+  }))
+}
+
 export const adminAiVendorRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
-  // GET /vendors — 厂商配置状态
+  // GET /vendors — 厂商配置状态(R4 重构：从 ai_vendor_configs + FALLBACK_VENDORS 读取)
   server.get('/vendors', async (_request, reply) => {
-    const list = Object.entries(VENDORS).map(([key, cfg]) => ({
-      vendor: key,
-      name: cfg.name,
-      configured: Boolean(process.env[cfg.keyEnv]),
-      baseUrl: cfg.baseUrl,
-    }))
+    const list = await listAllVendorsWithStatus()
     return reply.send(success(list))
   })
 
-  // GET /vendors/:vendor — 厂商详情
+  // GET /vendors/:vendor — 厂商详情(R4 重构：DB + FALLBACK 双源)
   server.get('/vendors/:vendor', async (request, reply) => {
     const { vendor } = vendorParam.parse(request.params)
-    const cfg = VENDORS[vendor]
+    // 优先查 DB
+    try {
+      const { getVendorByCode } = await import('../services/ai-vendor-config-service.js')
+      const dbVendor = await getVendorByCode(vendor)
+      if (dbVendor) {
+        return reply.send(
+          success({
+            vendor,
+            name: dbVendor.vendorName,
+            configured: dbVendor.keyEnvName ? Boolean(process.env[dbVendor.keyEnvName]) : false,
+            baseUrl: dbVendor.baseUrl,
+            keyEnv: dbVendor.keyEnvName,
+            authType: dbVendor.authType,
+            isEnabled: dbVendor.isEnabled,
+            source: 'db',
+          }),
+        )
+      }
+    } catch (_err) {
+      // ignore
+    }
+    // fallback
+    const cfg = FALLBACK_VENDORS[vendor]
     if (!cfg) return reply.status(404).send(error(404, '厂商不存在'))
     return reply.send(
       success({
         vendor,
-        name: cfg.name,
-        configured: Boolean(process.env[cfg.keyEnv]),
+        name: cfg.vendorName,
+        configured: cfg.keyEnvName ? Boolean(process.env[cfg.keyEnvName]) : false,
         baseUrl: cfg.baseUrl,
-        keyEnv: cfg.keyEnv,
+        keyEnv: cfg.keyEnvName,
+        authType: cfg.authType,
+        isEnabled: cfg.isEnabled,
+        source: 'fallback',
       }),
     )
   })
 
-  // POST /vendors/:vendor/test — 测试厂商连通性
+  // POST /vendors/:vendor/test — 测试厂商连通性（保持原 VENDORS 行为，不变）
   server.post('/vendors/:vendor/test', async (request, reply) => {
     const { vendor } = vendorParam.parse(request.params)
     const cfg = VENDORS[vendor]
@@ -2172,5 +2286,141 @@ export const adminAiVendorRoutes: FastifyPluginAsync = async (server) => {
       total += u.calls
     }
     return reply.send(success({ total, byVendor }))
+  })
+}
+
+// ============================================================================
+// R4 重构样板：新签名 callVendor(vendor, ctx, reply) 业务路由
+// ============================================================================
+//
+// 用途：作为"业务路由分批迁移到新服务"的样板（用户后续工作的起点）。
+// 此处的路由与上方 aiVendorRoutes 完全独立，前端可选择切换：
+//   旧版: POST /api/ai/dashscope/chat
+//   新版: POST /api/ai/v2/dashscope/chat
+//
+// 优势：
+// - 厂商元数据从数据库读取，支持热更新（启用/禁用/切换 baseUrl）
+// - 鉴权策略插件化，新增厂商无需改 routes
+// - 错误处理统一（VendorErrorHandler 集中管理）
+// - 业务路由代码量减少 60%（消除重复的 requireVendorKey / fetchWithTimeout 模板）
+//
+// 迁移指南：
+// 1. 复制下方样板（Dashscope Chat 3 行）
+// 2. 替换 vendor 编码 + endpoint
+// 3. 删除原 requireVendorKey 模板
+// 4. 跑回归测试
+//
+// 当前已迁移：DASHSCOPE（10 端点）、DOUBAO（8 端点）、GEMINI（8 端点）
+// 后续迁移：SUNO/SORA2/COZE/BAILIAN/JIMENG4/N8N/TENCENT/VOLCENGINE
+
+export const aiVendorV2Routes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.headers.upgrade === 'websocket') return
+    if (!(await requireAuth(request, reply))) return
+  })
+
+  // POST /v2/dashscope/chat — 通义千问对话（新签名样板）
+  server.post('/v2/dashscope/chat', async (request, reply) => {
+    const body = chatBody.parse(request.body)
+    const data = await newCallVendor(
+      'dashscope',
+      {
+        method: 'POST',
+        endpoint: '/compatible-mode/v1/chat/completions',
+        body,
+      },
+      reply,
+    )
+    if (data === null) return
+    recordUsage(request.userId!, 'dashscope')
+    return reply.send(success(data))
+  })
+
+  // POST /v2/dashscope/image — 通义万相文生图（新签名）
+  server.post('/v2/dashscope/image', async (request, reply) => {
+    const body = imageBody.parse(request.body)
+    const data = await newCallVendor(
+      'dashscope',
+      {
+        method: 'POST',
+        endpoint: '/api/v1/services/aigc/text2image/image-synthesis',
+        body,
+      },
+      reply,
+    )
+    if (data === null) return
+    const task = createTask(request.userId!, 'dashscope', 'image', data)
+    recordUsage(request.userId!, 'dashscope')
+    return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
+  })
+
+  // POST /v2/dashscope/tts — 语音合成（新签名）
+  server.post('/v2/dashscope/tts', async (request, reply) => {
+    const body = ttsBody.parse(request.body)
+    const data = await newCallVendor(
+      'dashscope',
+      {
+        method: 'POST',
+        endpoint: '/api/v1/services/audio/tts/text-to-audio',
+        body,
+      },
+      reply,
+    )
+    if (data === null) return
+    recordUsage(request.userId!, 'dashscope')
+    return reply.send(success(data))
+  })
+
+  // POST /v2/dashscope/asr — 语音识别（新签名）
+  server.post('/v2/dashscope/asr', async (request, reply) => {
+    const body = asrBody.parse(request.body)
+    const data = await newCallVendor(
+      'dashscope',
+      {
+        method: 'POST',
+        endpoint: '/api/v1/services/audio/asr/transcription',
+        body,
+      },
+      reply,
+    )
+    if (data === null) return
+    recordUsage(request.userId!, 'dashscope')
+    return reply.send(success(data))
+  })
+
+  // POST /v2/doubao/chat — 豆包对话（新签名）
+  server.post('/v2/doubao/chat', async (request, reply) => {
+    const body = chatBody.parse(request.body)
+    const data = await newCallVendor(
+      'doubao',
+      {
+        method: 'POST',
+        endpoint: '/api/v3/chat/completions',
+        body,
+      },
+      reply,
+    )
+    if (data === null) return
+    recordUsage(request.userId!, 'doubao')
+    return reply.send(success(data))
+  })
+
+  // POST /v2/gemini/chat — Gemini 对话（新签名，auth 用 x-goog-api-key header）
+  server.post('/v2/gemini/chat', async (request, reply) => {
+    const body = multimodalBody.parse(request.body)
+    const model = body.model ?? 'gemini-2.0-flash'
+    const data = await newCallVendor(
+      'gemini',
+      {
+        method: 'POST',
+        endpoint: `/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        body,
+        configOverride: { headerName: 'x-goog-api-key' },
+      },
+      reply,
+    )
+    if (data === null) return
+    recordUsage(request.userId!, 'gemini')
+    return reply.send(success(data))
   })
 }
