@@ -3,7 +3,7 @@ import type { ExportColumn } from '@/lib/export-utils'
 import type { Department, FormState } from './types'
 
 export const PAGE_SIZE = 10
-export const RESOURCE = '/api/admin/user-dept'
+export const RESOURCE = '/api/admin/members/departments'
 export const PERM = 'usercenter:user_dept'
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {

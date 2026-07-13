@@ -28,7 +28,7 @@ export default function BiDashboardPage() {
   const { data: stats = DEFAULT_STATS, isLoading } = useQuery({
     queryKey: ['bi-dashboard'],
     queryFn: async () => {
-      const r = await fetchApi<BiStats>('/api/bi/dashboard')
+      const r = await fetchApi<BiStats>('/api/admin/bi/dashboard')
       if (r.success && r.data) return r.data
       return DEFAULT_STATS
     },

@@ -33,7 +33,7 @@ export interface UseBiReturn {
 }
 
 async function fetchDashboard(): Promise<BiDashboard> {
-  const res = await fetchApi<BiDashboard>('/api/bi/dashboard')
+  const res = await fetchApi<BiDashboard>('/api/admin/bi/dashboard')
   if (!res.success) throw new Error(res.error)
   return res.data
 }

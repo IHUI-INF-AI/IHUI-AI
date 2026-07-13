@@ -2,13 +2,13 @@ import type { FastifyPluginAsync } from 'fastify'
 import { count, sql, eq } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { users, orders } from '@ihui/database'
-import { requireAuth } from '../plugins/require-permission.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success } from '../utils/response.js'
 
 export const biDashboardRoutes: FastifyPluginAsync = async (server) => {
-  server.addHook('preHandler', requireAuth)
+  server.addHook('preHandler', requireAdmin)
 
-  // GET /bi/dashboard — BI 仪表盘概览
+  // GET /bi/dashboard — BI 仪表盘概览（管理员）
   server.get('/bi/dashboard', async (_request, reply) => {
     const [userRow] = await dbRead.select({ total: count() }).from(users)
     const totalUsers = userRow?.total ?? 0
