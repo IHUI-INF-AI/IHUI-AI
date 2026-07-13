@@ -13,6 +13,9 @@ from app.core.config import settings
 from app.core.jwt_auth import JWTAuthMiddleware
 from app.routers import a2a, agents, health, llm, mcp, tools
 from app.routers.legacy import router as legacy_router
+from app.routers.chat_room import router as chat_room_ws_router
+from app.routers.chat_room import http_router as chat_room_http_router
+from app.routers.chat_room import ws_admin_router as chat_room_admin_router
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +48,10 @@ def create_app() -> FastAPI:
     app.include_router(agents.router, prefix="/api", tags=["agents"])
     app.include_router(a2a.router, prefix="/api", tags=["a2a"])
     app.include_router(legacy_router)
+    # 聊天室 WebSocket + HTTP 管理 + 连接监控(迁移自 coze_zhs_py chat_room_socket.py + websocket.py)
+    app.include_router(chat_room_ws_router)
+    app.include_router(chat_room_http_router)
+    app.include_router(chat_room_admin_router)
 
     # Prometheus 指标(/metrics 端点,由 prometheus-fastapi-instrumentator 自动暴露)
     Instrumentator(
