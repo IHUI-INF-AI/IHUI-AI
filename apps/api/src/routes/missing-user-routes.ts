@@ -107,6 +107,9 @@ import {
   toggleAiExtCapability,
   findAiExtReports,
   createAiExtReport,
+  findAiCareers,
+  findAiChatTypes,
+  findAiCommunityPosts,
 } from '../db/ai-modules-queries.js'
 import {
   findDeveloperInfo,
@@ -114,6 +117,11 @@ import {
   createDeveloperApplication,
   updateDeveloperApplicationStatus,
 } from '../db/developer-queries.js'
+import { findMyMember } from '../db/my-member-queries.js'
+import { findLiveCalendar } from '../db/live-calendar-queries.js'
+import { findAgentReviews, getAgentReviewStats } from '../db/agent-reviews-queries.js'
+import { publishAgent } from '../db/agent-queries.js'
+import { findCozeChatHistory } from '../db/coze-chat-queries.js'
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -347,7 +355,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ record: null }))
   })
 
-  // POST /study/records - 记录学习（桩实现，前端 LearnRecord 字段与 learnRecord 表结构不匹配，保持桩策略）
+  // POST /study/records - 记录学习（真实化：报名课程 + 可选更新进度）
   server.post('/study/records', async (request, reply) => {
     const body = z
       .object({
@@ -360,23 +368,33 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success) {
       return reply.status(400).send(error(400, '参数错误'))
     }
+    const userId = request.userId!
+    const lessonId = body.data.lessonId ?? body.data.courseId
+    if (!lessonId) {
+      return reply.status(400).send(error(400, '缺少 lessonId/courseId'))
+    }
+    await signUpLesson(lessonId, userId)
+    if (body.data.progress !== undefined) {
+      await updateProgress(lessonId, userId, body.data.progress)
+    }
+    const signup = await findSignUp(lessonId, userId)
     return reply.status(201).send(
       success({
         record: {
-          id: randomUUID(),
-          userId: request.userId!,
+          id: signup?.id ?? lessonId,
+          userId,
+          lessonId,
           courseId: body.data.courseId ?? null,
-          lessonId: body.data.lessonId ?? null,
           duration: body.data.duration ?? 0,
-          progress: body.data.progress ?? 0,
-          status: 'in_progress',
-          createdAt: new Date().toISOString(),
+          progress: signup?.progress ?? 0,
+          status: signup ? (signup.status >= 2 ? 'completed' : 'in_progress') : 'in_progress',
+          createdAt: signup?.createdAt ?? new Date().toISOString(),
         },
       }),
     )
   })
 
-  // PUT /study/records/:id - 更新学习进度（桩实现）
+  // PUT /study/records/:id - 更新学习进度（真实化：updateProgress）
   server.put('/study/records/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
@@ -389,13 +407,18 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success) {
       return reply.status(400).send(error(400, '参数错误'))
     }
+    const userId = request.userId!
+    const progress = body.data.progress ?? 0
+    const updated = await updateProgress(id, userId, progress)
+    if (!updated) return reply.status(404).send(error(404, '学习记录不存在或未报名'))
     return reply.send(
       success({
         record: {
-          id,
-          userId: request.userId!,
-          progress: body.data.progress ?? 0,
-          status: body.data.status ?? 'in_progress',
+          id: updated.id,
+          userId,
+          lessonId: updated.lessonId,
+          progress: updated.progress,
+          status: updated.status >= 2 ? 'completed' : 'in_progress',
           updatedAt: new Date().toISOString(),
         },
       }),
@@ -623,7 +646,8 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/ai/careers', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+    const list = await findAiCareers()
+    return reply.send(success({ list }))
   })
 
   server.get('/ai/careers/:id', async (request, reply) => {
@@ -633,13 +657,21 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/ai/chat-types', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+    const list = await findAiChatTypes()
+    return reply.send(success({ list }))
   })
 
   server.get('/ai/community', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findAiCommunityPosts({
+      page: q.page,
+      pageSize: q.pageSize,
+      search: q.search,
+    })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   // ===========================================================================
@@ -1382,44 +1414,80 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   // 注意：POST /api/sign-in 已在 gamification.ts 中注册，跳过
   // 注意：POST /api/coupons/verify 已在 promotions.ts 中注册，跳过
   // ===========================================================================
+  // GET /article/comments - 保持桩：前端调用缺少文章 ID 参数，
+  // findComments 需 resourceType+resourceId，无 resourceId 无法返回有意义的评论。
   server.get('/article/comments', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
     return reply.send(emptyList(q.page, q.pageSize))
   })
 
-  server.get('/members/me', async (_request, reply) => {
-    return reply.send(success({ member: null }))
+  server.get('/members/me', async (request, reply) => {
+    const member = await findMyMember(request.userId!)
+    return reply.send(success({ member }))
   })
 
   server.get('/live/calendar', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const query = request.query as { startDate?: string; endDate?: string } | null
+    const result = await findLiveCalendar({
+      page: q.page,
+      pageSize: q.pageSize,
+      startDate: query?.startDate ? new Date(query.startDate) : undefined,
+      endDate: query?.endDate ? new Date(query.endDate) : undefined,
+    })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.post('/agents/:id/favorite', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ success: true }))
+    const result = await toggleLike('agent', id, request.userId!)
+    return reply.send(success({ success: true, favorited: result.liked }))
   })
 
   server.get('/agents/:id/reviews', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ list: [] }))
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const [result, stats] = await Promise.all([
+      findAgentReviews(id, q.page, q.pageSize),
+      getAgentReviewStats(id),
+    ])
+    return reply.send(
+      success({
+        list: result.list,
+        total: result.total,
+        page: q.page,
+        pageSize: q.pageSize,
+        avgRating: stats.avgRating,
+        ratingCount: stats.total,
+      }),
+    )
   })
 
   server.post('/agents/:id/publish', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ success: true }))
+    const body = (request.body as { publish?: boolean } | null) ?? {}
+    const agent = await publishAgent(id, body.publish ?? true)
+    if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
+    return reply.send(success({ success: true, agent }))
   })
 
   server.get('/coze/chat/history/:botId/:conversationId', async (request, reply) => {
     const { botId, conversationId } = botConversationParam.parse(request.params)
     if (!botId || !conversationId) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ list: [] }))
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const result = await findCozeChatHistory(botId, conversationId, q.page, q.pageSize)
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   // ===========================================================================
