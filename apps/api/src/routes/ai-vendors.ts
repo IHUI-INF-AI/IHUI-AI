@@ -20,6 +20,7 @@
 import { createHmac, createHash } from 'node:crypto'
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
 import { z } from 'zod'
@@ -2088,13 +2089,11 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 }
 
 // ============================================================================
-// 管理端点:AI 厂商配置管理(可选,需登录)
+// 管理端点:AI 厂商配置管理(需管理员)
 // ============================================================================
 
 export const adminAiVendorRoutes: FastifyPluginAsync = async (server) => {
-  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAuth(request, reply))) return
-  })
+  server.addHook('preHandler', requireAdmin)
 
   // GET /vendors — 厂商配置状态
   server.get('/vendors', async (_request, reply) => {
