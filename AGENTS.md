@@ -13,17 +13,80 @@
 ### 必须遵守
 
 - 所有任务计划、进度更新、待办清单、状态变更**只写** `PROJECT_PLAN.md`。
-- **不得**在 `.trae/`、`.trae-cn/`、`docs/`、根目录或其他任何位置新建计划/TODO/ROADMAP 文件。
-- `.trae/documents/` 和 `.trae-cn/` 下的文件为**历史草稿,只读**,不再更新。
+- **不得**在 `.trae/`、`.trae-cn/`、`docs/`、根目录或其他任何位置新建计划/TODO/ROADMAP 文件(`/goal` 模式运行时临时文件例外见下方"goal 模式运行时文件例外"小节)。
+- `.trae/documents/` 和 `.trae-cn/` 下的文件为**历史草稿,只读**,不再更新(`.trae-cn/goal-runtime/` 下的 goal 运行时文件、`.trae-cn/skills/` 下的 AI 技能文件除外)。
 - 完成任务后,在 `PROJECT_PLAN.md` 对应条目把 `[ ]` 改为 `[x]` 并追加 `✅(日期)`。
 - 新增任务追加到 `PROJECT_PLAN.md` 对应优先级(P0/P1/P2)末尾。
 - commit message 用 `docs(plan): 更新 PROJECT_PLAN — <简述>`。
 
+### goal 模式运行时文件例外(唯一例外)
+
+> 本例外**仅适用于** `/goal` 目标驱动模式执行期间,且为**全局唯一例外**,其他任何场景仍禁止创建计划/状态类 md 文件。
+
+- `/goal` 执行期间允许在 `.trae-cn/goal-runtime/` 目录下创建两个**运行时临时文件**:
+  - `.trae-cn/goal-runtime/STATE.md`:目标状态快照(目标条件、状态机、轮次计数、最近评估结论)
+  - `.trae-cn/goal-runtime/loop-run-log.md`:每轮执行 + 评估日志
+- 这两个文件是**机制性运行产物**,不是任务计划文档,不与 `PROJECT_PLAN.md` 冲突。
+- 路径选在 `.trae-cn/goal-runtime/` 是因为 `.trae-cn/` 整体已被 `.gitignore` 忽略,无需额外配置即可避免误提交,且不污染仓库根目录。
+- 严格约束(违反即视为破坏规则):
+  1. **不得**承载需求拆解、设计决策、长期 TODO;仅记录当前目标轮次状态与评估日志。
+  2. **不得**提交到版本库(已由 `.gitignore` 兜底,但仍禁止 `git add -f` 强加)。
+  3. 目标达成 / 清除 / 阻塞后,**必须立即**:
+     - 将目标摘要、最终交付结论、关键日志条目**整合写入** `PROJECT_PLAN.md` 对应条目;
+     - **删除** `STATE.md`、`loop-run-log.md`、`EXPERIMENT_NOTES.md`(若存在)(目录保留,供下次 goal 复用);
+     - 若目标因阻塞或预算耗尽终止,在 `PROJECT_PLAN.md` 记录未完成原因与剩余任务清单后再删除。
+  4. 同一会话同一时刻**仅允许一个活跃目标**,新目标覆盖旧目标时,旧目标临时文件先按上一条规则清理。
+
+### skills 技能文件例外(唯一例外)
+
+> 本例外允许在 `.trae-cn/skills/` 目录下安装 AI 编程技能框架(如 Superpowers)的 `SKILL.md` 技能文件,为 AI 助手注入工程方法论。
+
+- 允许在 `.trae-cn/skills/` 目录下存放 AI 技能文件(`SKILL.md` 及技能目录内的辅助文件)。
+- 技能文件是**工具配置**,不是项目计划文档,不与 `PROJECT_PLAN.md` 冲突。
+- 路径选在 `.trae-cn/skills/` 是因为 `.trae-cn/` 整体已被 `.gitignore` 忽略,且 Trae CN 原生扫描该目录加载技能。
+- 严格约束(违反即视为破坏规则):
+  1. **仅限** `SKILL.md` 技能文件及其辅助文件(如 `references/`、`scripts/`),**不得**存放计划/TODO/ROADMAP/设计文档。
+  2. **不得**提交到版本库(已由 `.gitignore` 兜底,仍禁止 `git add -f` 强加)。
+  3. 技能来源必须是**可信仓库**(如 `obra/superpowers` 官方仓库),安装前必须确认仓库可信度。
+  4. 安装/更新/卸载操作记录到 `PROJECT_PLAN.md`(简述技能名 + 版本/commit + 安装时间)。
+  5. 技能文件**不得**修改项目代码或配置,仅作为 AI 助手的上下文指令。
+
+### IHUI-AI 项目对 Superpowers 技能的偏好覆盖(强制)
+
+> Superpowers 技能的默认路径与行为与本项目 AGENTS.md 规则存在冲突,利用技能自带的"User preferences override"机制(writing-plans L19 / brainstorming L107)进行覆盖。本覆盖规则**优先于**技能默认行为。
+
+**冲突 1:计划文件路径(writing-plans 默认 `docs/superpowers/plans/`)**
+
+- **覆盖为**:不创建独立计划文件,所有计划内容**直接整合到 `PROJECT_PLAN.md`** 对应条目(新增到 P0/P1/P2 末尾,标注 `📋(日期) plan`)。
+- 若计划篇幅过大必须临时文件,路径为 `.trae-cn/goal-runtime/<feature-name>-plan.md`,目标完成后**必须删除**(同 goal 运行时文件清理规则)。
+- 涉及技能:`writing-plans`、`requesting-code-review`(引用计划路径)、`subagent-driven-development`(引用计划路径)、`executing-plans`。
+
+**冲突 2:设计文档路径(brainstorming 默认 `docs/superpowers/specs/` + commit)**
+
+- **覆盖为**:不创建独立设计文档,设计要点**直接整合到 `PROJECT_PLAN.md`** 对应条目(标注 `🎨(日期) design`)。
+- 若需临时文件,路径为 `.trae-cn/goal-runtime/<topic>-design.md`,目标完成后**必须删除**。
+- 涉及技能:`brainstorming`。
+
+**冲突 3:git commit 自动执行(writing-plans Task 模板含 `git commit`、brainstorming 含"Commit the design document")**
+
+- **覆盖为**:技能中的 `git commit` 步骤**视为建议**,**不得自动执行**;必须等待用户显式指令(如"提交这些改动")才执行 commit。
+- 涉及技能:`writing-plans`、`brainstorming`、`executing-plans`(执行含 commit 步骤的计划时)。
+
+**冲突 4:git worktree 路径(using-git-worktrees 默认 `.worktrees/`)**
+
+- **覆盖为**:本项目优先使用第 9 节 `goal/<任务简述>` 分支策略,不强制 worktree。
+- 若需 worktree 隔离,遵守 `using-git-worktrees` 技能的 Step 0 检测 + 用户征询机制,路径默认 `.worktrees/`(需先加入 `.gitignore`)。
+- worktree 清理遵守第 8 节删除安全规则,禁止 agent 自主 `git worktree remove`。
+- 涉及技能:`using-git-worktrees`、`finishing-a-development-branch`。
+
+**优先级**:本偏好覆盖 > Superpowers 技能默认行为 > 通用 AGENTS.md 规则(仅在无覆盖时)。
+
 ### 禁止事项
 
-- 不创建新的 TODO/PLAN/ROADMAP 文件。
+- 不创建新的 TODO/PLAN/ROADMAP 文件(goal 模式 `STATE.md` / `loop-run-log.md` 例外除外)。
 - 不在 commit message 里写长篇计划。
 - 不把计划散落到代码注释。
+- **不保留**已结束目标的 `STATE.md` / `loop-run-log.md` 残留文件。
 
 ---
 
@@ -124,3 +187,196 @@ pnpm dev                                       # 启动所有服务
 2. 在当前 monorepo(`apps/api`、`apps/web`、`apps/ai-service`、`apps/miniapp-taro`、`packages/`)中**逐项**搜索等价实现。
 3. 搜索结果为"未实现"时 → 停止删除,在 `PROJECT_PLAN.md` 新增迁移任务并执行。
 4. 搜索结果为"已实现"时 → 可删除,但 commit message 需注明审查结论(如 `chore: drop legacy X — confirmed feature Y migrated to apps/web/...`)。
+
+---
+
+## 9. goal 模式工作流(强制)
+
+> 当用户触发 `/goal <可量化完成条件>` 时,必须按本节流程启用 loop 机制自主推进任务,不得跳过。
+
+### 启动条件
+
+- 用户输入 `/goal <目标条件>` 且目标条件满足下方"目标条件硬门槛",否则拒绝启动并提示用户补全。
+
+### 目标条件硬门槛(强制)
+
+目标条件单条最大 **4000 字符**,且必须同时包含以下要素,缺一即拒绝启动:
+
+1. **核心任务**:要完成什么事(动词 + 对象 + 范围)。
+2. **验证标准**:可观测结果(命令退出码 / 测试输出 / 文件状态 / HTTP 响应),禁止用"完成"/"修好"/"可用"等主观词。
+3. **约束边界**:允许修改的范围 + 禁止触碰的范围(如"仅修改 src/auth,不得改用户表结构")。
+4. **质量要求**:类型检查 / 测试通过数 / 性能底线等可量化底线。
+5. **优先级**:多目标冲突时的取舍规则(可选,单目标可省)。
+6. **异常处理**:遇到不可解决问题时的操作(记录并跳过 / 立即停止)。
+
+劣质目标拒绝示例(不得启动):
+
+- `/goal 修复登录bug` → 缺验证标准、缺约束边界
+- `/goal 优化一下架构` → 模糊探索,无可验证依据
+- `/goal 把代码写好` → 主观,无量化标准
+
+优质目标示例(可启动):
+
+- `/goal 修复登录接口中文账号登录失败的问题,验证标准:执行 pnpm --filter @ihui/api test auth 全部用例通过且退出码为 0;仅修改 apps/api/src/auth 目录,不得改动用户表结构;保持原有接口兼容性;遇到无法复现的用例记录原因后跳过,全部处理完后汇总问题清单`
+
+### 运行时文件创建(强制)
+
+- 进入 goal 模式后**第一轮执行开始前**必须在 `.trae-cn/goal-runtime/` 目录下创建:
+  - `STATE.md`:写入目标条件、状态机(`active` / `paused` / `achieved` / `blocked` / `budget_limited`)、当前轮次、Token 累计、最近评估结论、硬性指标清单。
+  - `loop-run-log.md`:逐轮追加(轮次号 / 执行摘要 / 工具调用统计 / 评估结论 `yes|no` + 一行理由)。
+- 这两个文件受第 1 节"goal 模式运行时文件例外"保护,**必须创建**,不得因担心违反"唯一计划文档"规则而跳过。
+- 目录 `.trae-cn/goal-runtime/` 首次使用前需创建(若不存在)。
+
+### 运行时文件标准模板(强制)
+
+为确保每次 goal 执行格式一致,`STATE.md` 与 `loop-run-log.md` 必须按以下最小结构创建:
+
+**STATE.md 模板:**
+
+```markdown
+# STATE — goal 运行时状态(临时,目标结束后删除)
+
+## 目标条件
+
+<完整目标条件原文>
+
+## 状态机
+
+- 当前状态: active | paused | achieved | blocked | budget_limited
+- 当前轮次: <N>
+- 累计 Token: <数值>
+- 最近评估结论: yes | no | pending — <一句话理由>
+
+## 硬性指标
+
+1. <指标1> ⏳ | ✅
+2. <指标2> ⏳ | ✅
+
+## 软性指标
+
+- <指标>
+```
+
+**loop-run-log.md 模板:**
+
+```markdown
+# loop-run-log — goal 执行日志(临时,目标结束后删除)
+
+## 轮次 0 — 初始化
+
+- 时间: <YYYY-MM-DD>
+- 操作: <初始化摘要>
+- 评估: pending
+
+## 轮次 N — 执行
+
+- 操作:
+  1. <步骤1>
+  2. <步骤2>
+- 验证命令: <命令>
+- 命令退出码: <码>
+- 关键输出: <片段>
+- 评估: yes | no — <一句话理由>
+```
+
+字段说明:
+
+- `状态机.当前状态` 必须是 5 个枚举值之一,不得自创。
+- `硬性指标` 用 ⏳(未完成)/ ✅(已完成)标记,与 PROJECT_PLAN.md 复选框语义一致。
+- `loop-run-log.md` 每轮追加一个 `## 轮次 N` 块,不得覆盖历史轮次。
+- `验证命令 / 命令退出码 / 关键输出` 三件套是评估独立性的依据,缺一不得判定 yes。
+
+### 7 步执行循环
+
+1. **目标解析与初始化**:拆分硬性 / 软性指标,初始化 `STATE.md`,首轮执行计划写入 `loop-run-log.md` 第 0 轮。
+2. **单轮任务执行**:聚焦核心问题,完成一轮读写 / 命令 / 代码修改,输出执行摘要追加到 `loop-run-log.md`。
+3. **独立评估校验**:基于真实结果(命令输出 / 文件内容 / 测试结果)输出 `yes|no + 一行理由`,写入 `loop-run-log.md`;**禁止**仅凭"看起来完成了"判定 yes。
+4. **循环判定**:`yes` → 进入第 5 步;`no` → 自动续跑下一轮;连续 3 轮 `no` 且无实质进展 → 进入 `blocked` 状态,暂停并请求人工指导。
+5. **最终交付校验**:逐条核对硬性指标,全部满足才标记 `achieved`。
+6. **状态清除与交还控制权**:输出交付报告(目标 / 验证依据 / 完成状态 / 残留风险)。
+7. **整合与清理(强制)**:把目标摘要 + 最终交付结论追加到 `PROJECT_PLAN.md` 对应条目(无对应条目时新增到 P1 末尾并标注 `✅(日期) / goal`),然后**删除** `STATE.md` 与 `loop-run-log.md`(目录保留)。
+
+### 评估独立性(强制)
+
+- 评估校验(第 3 步)必须基于**真实可验证依据**(命令输出 / 文件内容 / 测试结果),**禁止**执行模型自评 yes。
+- 评估依据必须写入 `loop-run-log.md`,包括:执行的验证命令、命令退出码、关键输出片段。
+- 连续两次评估结论矛盾(一轮 yes 一轮 no)时,自动增加一轮复核,避免误判停止或误判继续。
+
+### 子命令语义
+
+| 子指令          | 别名                                         | 语义                                                                         |
+| --------------- | -------------------------------------------- | ---------------------------------------------------------------------------- |
+| `<目标条件>`    | —                                            | 设置目标并立即启动第一轮执行                                                 |
+| (无参数)        | `status`                                     | 查询当前目标运行状态(目标条件 / 运行时长 / 轮次 / Token 累计 / 最近评估结论) |
+| `pause`         | `hold`                                       | 暂停目标,状态机置 `paused`,保留运行时文件,等待 `resume`                      |
+| `resume`        | `continue`                                   | 从 `STATE.md` 断点续跑                                                       |
+| `clear`         | `stop` / `off` / `reset` / `cancel` / `none` | 终止目标,按第 7 步"整合与清理"流程处理,不得残留                              |
+| `budget <数值>` | `limit`                                      | 设置当前目标 Token 消耗上限,达阈值平滑停止并生成剩余任务清单                 |
+| `log`           | `history`                                    | 输出 `loop-run-log.md` 完整执行日志与每轮评估记录                            |
+
+**budget 子命令细节:**
+
+- 默认值:**无上限**(不设预算时,仅受"20 轮上限"与"连续 3 轮无进展 blocked"约束)。
+- 单位:**tokens**(执行模型 + 评估模型累计消耗)。
+- 达阈值状态:`budget_limited`(独立于 `blocked`,语义为"资源耗尽"而非"无法推进")。
+- 达阈值行为:平滑结束当前轮次 → 在 `STATE.md` 标记 `budget_limited` → 把已完成进度 + 剩余任务清单写入 `PROJECT_PLAN.md` → 删除运行时临时文件 → 输出进度报告并交还控制权。
+
+### 跨会话恢复
+
+- 目标状态持久化于 `.trae-cn/goal-runtime/STATE.md`,不依赖对话上下文。
+- 会话中断后重启,若检测到 `STATE.md` 存在且状态非 `achieved` / `blocked` / `budget_limited`,询问用户是否 `resume`。
+- 上下文压缩(`/compact`)不影响目标状态,但执行模型必须在压缩后重新读取 `STATE.md` 与 `loop-run-log.md` 恢复上下文。
+
+### EXPERIMENT_NOTES 机制(可选,调试类任务推荐)
+
+- 排查 / 调试类目标可在目标条件中要求实时写入 `.trae-cn/goal-runtime/EXPERIMENT_NOTES.md`。
+- 每尝试一种方案,记录:方案内容 / 执行结果 / 是否有效 / 失败原因。
+- 避免长任务中重复尝试已失败路径,提升排查效率。
+- 目标结束后与 `STATE.md` / `loop-run-log.md` 一并删除(或整合关键结论到 `PROJECT_PLAN.md` 后删除)。
+
+### 红线规则
+
+- 单目标最大自动迭代 **20 轮**,超出进入 `blocked`。
+- 高危操作(删除分支 / 强推 / 删库表 / 影响生产)**必须暂停**请求人工确认,不得借"自主执行"名义绕过第 8 节删除安全规则。
+- 严格围绕目标,**禁止**扩展需求、做无关重构、加未要求的功能。
+- 每轮**完整承接上下文**,不得因压缩丢失目标条件与已执行轮次(压缩后必须重读 `STATE.md`)。
+- 单轮内工具调用连续失败 3 次,记录错误后进入下一轮;连续 5 轮失败则 `blocked`。
+- 隐性默认达标项:无语法错误 / 可启动 / 无回归 / 符合第 3 节代码风格与第 4-5 节约束。
+
+### 失败回滚与 git 工作流(强制)
+
+> 当目标进入 `blocked` / `budget_limited` 状态时,代码改动的处理必须按本节执行,防止留下半成品或污染主分支。
+
+**git 工作流建议(推荐但非强制):**
+
+- goal 执行前创建独立分支,命名 `goal/<任务简述>`(如 `goal/fix-auth-login`)。
+- `achieved`:合并回工作分支后删除 goal 分支。
+- `blocked` / `budget_limited`:保留 goal 分支供后续 `resume`,在 `PROJECT_PLAN.md` 记录分支名与未完成原因。
+- 简单目标可在当前分支执行,但必须在 `STATE.md` 记录起始 commit sha,便于回滚定位。
+
+**失败回滚规则:**
+
+- `blocked` / `budget_limited` 状态下,**禁止** agent 自主执行 `git reset --hard` / `git checkout .` / `git clean -f` 等破坏性回滚(受第 8 节删除安全规则约束)。
+- agent 必须在 `PROJECT_PLAN.md` 记录:
+  1. 已修改的文件清单(逐文件列明)。
+  2. 当前 git 分支与起始 commit sha(便于用户定位)。
+  3. 未完成原因与剩余任务清单。
+  4. 建议的后续操作(保留改动 / `git reset --soft` 回滚到起始 sha / 删除 goal 分支),由用户决定。
+- 交还控制权后,回滚决策权归属用户,agent 不得自行执行。
+
+### goal 模式与 Superpowers 技能协同(强制)
+
+> 当 `/goal` 模式与 Superpowers 技能同时启用时,两者分工如下,不得混淆。
+
+- **goal 模式**:管**目标级 loop** — 7 步循环、状态机、轮次评估、预算控制、跨会话恢复(本节前述内容)。
+- **Superpowers 技能**:管**任务级工程方法论** — brainstorming(需求澄清)→ writing-plans(计划拆解)→ test-driven-development(实现)→ requesting-code-review(审查)→ verification-before-completion(验证)。
+- **协同方式**:goal 目标条件可引用 Superpowers 技能流程(如"按 brainstorming → writing-plans → TDD 流程实现 X,验证标准:...")。goal 模式的 7 步循环作为外层框架,Superpowers 技能作为内层任务执行方法论。
+- **路径/commit/worktree 行为**:goal 模式执行期间,Superpowers 技能的默认路径与 commit 行为**必须遵守第 1 节"IHUI-AI 项目对 Superpowers 技能的偏好覆盖(强制)"**,不得因"自主执行"名义绕过。
+- **冲突优先级**:第 1 节偏好覆盖 > goal 模式规则 > Superpowers 技能默认行为。
+
+### 不适用场景(应拒绝 / 改用普通对话)
+
+- 模糊探索性任务(如"优化一下架构")。
+- 需要频繁人工决策的创意型开发。
+- 高风险生产环境操作(直接改线上库 / 改 CI 凭据等)。
+- 单轮可完成的简单任务(改名 / 单文件补注释)。
