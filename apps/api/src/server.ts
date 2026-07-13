@@ -72,7 +72,7 @@ import { adminEduExtendedRoutes, adminCourseAuditRoutes } from './routes/edu-ext
 import aiCallbackRoutes from './routes/ai-callback.js'
 import { adminSysRoutes } from './routes/admin-sys.js'
 import { eduPublicRoutes } from './routes/edu-public.js'
-import { aiVendorRoutes, adminAiVendorRoutes } from './routes/ai-vendors.js'
+import { aiVendorRoutes, adminAiVendorRoutes, aiVendorV2Routes } from './routes/ai-vendors.js'
 import { aiAudioRoutes } from './routes/ai-audio.js'
 import { customerServiceRoutes, adminCustomerServiceRoutes } from './routes/customer-service.js'
 import { gdprRoutes } from './routes/gdpr.js'
@@ -511,6 +511,9 @@ function registerRoutes(server: FastifyInstance) {
   // AI 厂商专属多模态：dashscope/doubao/gemini/suno/sora2/coze + 通用工具（R4 补完）
   server.register(aiVendorRoutes, { prefix: '/api/ai' })
   server.register(adminAiVendorRoutes, { prefix: '/api/admin/ai' })
+  // AI 厂商 v2 路由：基于 R4 重构的 callVendor(ctx, reply) 新签名（dashscope/doubao/gemini 部分端点）
+  // 与原 /api/ai/* 共存，前端可逐步迁移到 /api/ai/v2/*
+  server.register(aiVendorV2Routes, { prefix: '/api/ai' })
   // AI audio 子模块：TTS/ASR/声纹/实时语音 WebSocket（R4 补完）
   server.register(aiAudioRoutes, { prefix: '/api/ai' })
 
