@@ -92,6 +92,11 @@
   - R4 admin/feedbacks POST/DELETE: `comment-queries.ts` 新增 `deleteFeedback` 函数；`comments.ts` 补建 POST /admin/feedbacks 创建 + DELETE /admin/feedbacks/:id 删除（含 404 检查）
   - R5 study/records POST/PUT: `missing-user-routes.ts` 补建 POST /study/records 记录学习 + PUT /study/records/:id 更新进度（桩实现，前端 LearnRecord 字段与 learnRecord 表结构不匹配，保持文件策略一致）
 - [x] ✅(2026-07-13) R1-R5 验证: web typecheck 0 错误 / api typecheck 仅预存 ai-vendors 相关错误（非本次引入）/ api test 915/916 通过（1 失败为预存 ai-vendor 测试）/ pre-commit 全绿（API key + i18n + lint-staged）
+- [x] ✅(2026-07-13) R6 AI厂商配置管理重构补齐（commit 8c0744b97，19 files +1868 -14）:
+  - 根因: `packages/database/src/schema/index.ts` 缺少 `export * from './ai-vendor-configs.js'`，导致 `aiVendorConfigs`/`AiVendorConfig` 导入失败，类型推断链中断，产生 13 个 typecheck 错误 + 2 个测试失败
+  - 修复: 补齐 schema 导出 + 提交全部 R4 重构产物（之前未跟踪的 19 个文件）
+  - 新增内容: `ai_vendor_configs` 表（schema+migration）+ 4 个 service（config/auth-strategies/caller/error-handler）+ admin 端点 DB 驱动迁移 + `aiVendorV2Routes` 新签名样板（6 个端点）+ 启动时异步初始化 + `init:vendors` 脚本
+  - 验证: api typecheck 0 错误 / api test 935/935 全通过（新增 41 个测试）/ pre-commit 全绿
 
 ---
 
