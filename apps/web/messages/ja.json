@@ -111,7 +111,7 @@
     "exam": "試験",
     "circles": "兴趣コミュニティ",
     "plaza": "プラザ",
-    "asks": "Q&A",
+    "asks": "Q\u0026A",
     "docs": "docs",
     "payment": "支払い",
     "vip": "VIP",
@@ -484,9 +484,9 @@
     "title": "APIテスト",
     "subtitle": "包括的な開発ドキュメントとAPIリファレンス",
     "circlesTab": "兴趣コミュニティ",
-    "asksTab": "Q&A",
+    "asksTab": "Q\u0026A",
     "viewAllCircles": "すべてのサークルを表示",
-    "viewAllAsks": "すべてのQ&Aを表示"
+    "viewAllAsks": "すべてのQ\u0026Aを表示"
   },
   "vip": {
     "title": "VIP",
@@ -4466,17 +4466,18 @@
       "deleteConfirm": "ルール「{name}」を削除しますか？",
       "deleteParamConfirm": "パラメータ「{name}」を削除しますか？",
       "ruleTypes": {
-        "system": "システムルール",
-        "user": "ユーザールール",
-        "tool": "ツールルール",
-        "constraint": "制約ルール"
+        "text": "テキスト",
+        "regex": "正規表現",
+        "llm": "LLM"
       },
       "paramId": "ID",
       "paramRuleId": "ルールID",
       "paramName": "パラメータ名",
       "paramCode": "パラメータコード",
       "paramType": "パラメータタイプ",
-      "paramValue": "パラメータ値"
+      "paramValue": "パラメータ値",
+      "description": "説明",
+      "descriptionPlaceholder": "説明を入力"
     },
     "aboutUs": {
       "title": "私たちについて",
@@ -6395,7 +6396,7 @@
     "totalSignups": "申込総数",
     "totalExams": "試験総数",
     "totalPosts": "投稿総数",
-    "totalAsks": "Q&A総数",
+    "totalAsks": "Q\u0026A総数",
     "totalResources": "リソース総数",
     "passRate": "試験合格率",
     "learnStats": "学習統計",
