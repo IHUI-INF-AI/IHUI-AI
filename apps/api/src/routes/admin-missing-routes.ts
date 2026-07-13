@@ -58,7 +58,9 @@ import {
   productIdentities,
   statisticsSnapshots,
   users,
+  aiModelConfig,
 } from '@ihui/database'
+import { encryptJSON, decryptJSON, isEncryptedPayload } from '../utils/crypto.js'
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -1722,6 +1724,229 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     searchField: statisticsSnapshots.type,
     hasUpdatedAt: false,
     map: fields({ type: 'string', data: 'json', createdBy: 'string' }),
+  })
+
+  // ===========================================================================
+  // 8.5 AI 模型配置 — aiModelConfig 表(加密 CRUD + 测试连通,6 个端点)
+  // ===========================================================================
+  // apiKeyEnc 字段 AES-256-GCM 加密(与 utils/crypto.ts 一致)
+  // GET 不返回 apiKeyEnc,仅返回 hasApiKey 布尔;POST/PUT 接收 body.apiKey 明文加密入库
+
+  server.get('/ai-model-config', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search ? ilike(aiModelConfig.name, `%${search}%`) : undefined
+    const rows = await db
+      .select({
+        id: aiModelConfig.id,
+        name: aiModelConfig.name,
+        providerCode: aiModelConfig.providerCode,
+        isBuiltin: aiModelConfig.isBuiltin,
+        baseUrl: aiModelConfig.baseUrl,
+        apiFormat: aiModelConfig.apiFormat,
+        modelIdForTest: aiModelConfig.modelIdForTest,
+        enabled: aiModelConfig.enabled,
+        description: aiModelConfig.description,
+        sortOrder: aiModelConfig.sortOrder,
+        ownerUuid: aiModelConfig.ownerUuid,
+        lastTestStatus: aiModelConfig.lastTestStatus,
+        lastTestResponseMs: aiModelConfig.lastTestResponseMs,
+        lastTestedAt: aiModelConfig.lastTestedAt,
+        lastTestError: aiModelConfig.lastTestError,
+        hasApiKey: sql<boolean>`${aiModelConfig.apiKeyEnc} IS NOT NULL`,
+        createdAt: aiModelConfig.createdAt,
+        updatedAt: aiModelConfig.updatedAt,
+      })
+      .from(aiModelConfig)
+      .where(where)
+      .orderBy(desc(aiModelConfig.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(aiModelConfig)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list: rows, total, page, pageSize }))
+  })
+
+  server.get('/ai-model-config/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const id = Number(p.data.id)
+    const [row] = await db
+      .select({
+        id: aiModelConfig.id,
+        name: aiModelConfig.name,
+        providerCode: aiModelConfig.providerCode,
+        isBuiltin: aiModelConfig.isBuiltin,
+        baseUrl: aiModelConfig.baseUrl,
+        apiFormat: aiModelConfig.apiFormat,
+        modelIdForTest: aiModelConfig.modelIdForTest,
+        enabled: aiModelConfig.enabled,
+        description: aiModelConfig.description,
+        sortOrder: aiModelConfig.sortOrder,
+        ownerUuid: aiModelConfig.ownerUuid,
+        lastTestStatus: aiModelConfig.lastTestStatus,
+        lastTestResponseMs: aiModelConfig.lastTestResponseMs,
+        lastTestedAt: aiModelConfig.lastTestedAt,
+        lastTestError: aiModelConfig.lastTestError,
+        hasApiKey: sql<boolean>`${aiModelConfig.apiKeyEnc} IS NOT NULL`,
+        extraConfig: aiModelConfig.extraConfig,
+        createdAt: aiModelConfig.createdAt,
+        updatedAt: aiModelConfig.updatedAt,
+      })
+      .from(aiModelConfig)
+      .where(eq(aiModelConfig.id, id))
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
+  })
+
+  server.post('/ai-model-config', async (request, reply) => {
+    const body = (request.body ?? {}) as Record<string, unknown>
+    const apiKey = typeof body.apiKey === 'string' ? body.apiKey : ''
+    const insertData: Record<string, unknown> = {
+      name: String(body.name ?? ''),
+      providerCode: String(body.providerCode ?? ''),
+      isBuiltin: Boolean(body.isBuiltin ?? false),
+      baseUrl: String(body.baseUrl ?? ''),
+      apiFormat: String(body.apiFormat ?? 'openai_chat'),
+      modelIdForTest: body.modelIdForTest ? String(body.modelIdForTest) : null,
+      enabled: Boolean(body.enabled ?? true),
+      description: body.description ? String(body.description) : null,
+      sortOrder: Number(body.sortOrder ?? 0),
+      ownerUuid: body.ownerUuid ? String(body.ownerUuid) : null,
+      extraConfig: body.extraConfig ? String(body.extraConfig) : null,
+    }
+    if (apiKey) {
+      insertData.apiKeyEnc = JSON.stringify(encryptJSON(apiKey))
+    }
+    const [row] = await db
+      .insert(aiModelConfig)
+      .values(insertData as never)
+      .returning({ id: aiModelConfig.id })
+    if (!row) return reply.status(500).send(error(500, '创建失败'))
+    return reply.status(201).send(success({ id: row.id, created: true }))
+  })
+
+  server.put('/ai-model-config/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const id = Number(p.data.id)
+    const body = (request.body ?? {}) as Record<string, unknown>
+    const updateData: Record<string, unknown> = { updatedAt: new Date() }
+    for (const k of [
+      'name',
+      'providerCode',
+      'baseUrl',
+      'apiFormat',
+      'modelIdForTest',
+      'description',
+      'ownerUuid',
+      'extraConfig',
+    ]) {
+      if (body[k] !== undefined) updateData[k] = body[k] === null ? null : String(body[k])
+    }
+    for (const k of ['isBuiltin', 'enabled']) {
+      if (body[k] !== undefined) updateData[k] = Boolean(body[k])
+    }
+    if (body.sortOrder !== undefined) updateData.sortOrder = Number(body.sortOrder)
+    if (typeof body.apiKey === 'string' && body.apiKey) {
+      updateData.apiKeyEnc = JSON.stringify(encryptJSON(body.apiKey))
+    }
+    const [row] = await db
+      .update(aiModelConfig)
+      .set(updateData as never)
+      .where(eq(aiModelConfig.id, id))
+      .returning({ id: aiModelConfig.id })
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success({ id: row.id, updated: true }))
+  })
+
+  server.delete('/ai-model-config/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const id = Number(p.data.id)
+    await db.delete(aiModelConfig).where(eq(aiModelConfig.id, id))
+    return reply.send(success({ id, deleted: true }))
+  })
+
+  server.post('/ai-model-config/:id/test', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const id = Number(p.data.id)
+    const [row] = await db.select().from(aiModelConfig).where(eq(aiModelConfig.id, id))
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+
+    const startTime = Date.now()
+    try {
+      let apiKey = ''
+      if (row.apiKeyEnc) {
+        try {
+          const payload = JSON.parse(row.apiKeyEnc) as unknown
+          apiKey = isEncryptedPayload(payload) ? String(decryptJSON(payload)) : row.apiKeyEnc
+        } catch {
+          apiKey = row.apiKeyEnc
+        }
+      }
+      if (!apiKey) throw new Error('API Key 未配置或解密失败')
+
+      const model = row.modelIdForTest || `${row.providerCode}/test`
+      const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000'
+      const response = await fetch(`${aiServiceUrl}/api/llm/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'user', content: 'Hello, this is a connectivity test. Reply with "OK".' },
+          ],
+          model,
+        }),
+      })
+      const elapsed = Date.now() - startTime
+      const result = (await response.json().catch(() => ({}))) as Record<string, unknown>
+
+      if (!response.ok || result.error) {
+        throw new Error(String(result.error_message || result.message || `HTTP ${response.status}`))
+      }
+
+      await db
+        .update(aiModelConfig)
+        .set({
+          lastTestStatus: 'success',
+          lastTestResponseMs: elapsed,
+          lastTestedAt: new Date().toISOString(),
+          lastTestError: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiModelConfig.id, id))
+
+      return reply.send(
+        success({
+          status: 'success',
+          responseMs: elapsed,
+          model: result.model,
+          content: typeof result.content === 'string' ? result.content.slice(0, 200) : '',
+        }),
+      )
+    } catch (e) {
+      const elapsed = Date.now() - startTime
+      const errMsg = e instanceof Error ? e.message : String(e)
+      await db
+        .update(aiModelConfig)
+        .set({
+          lastTestStatus: 'failed',
+          lastTestResponseMs: elapsed,
+          lastTestedAt: new Date().toISOString(),
+          lastTestError: errMsg,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiModelConfig.id, id))
+      return reply.send(success({ status: 'failed', responseMs: elapsed, error: errMsg }))
+    }
   })
 
   // ===========================================================================
