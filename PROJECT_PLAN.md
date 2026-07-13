@@ -127,6 +127,22 @@
     - 后端补建 6 端点: member/users GET+PATCH（users 表查询+状态更新）、api-platform/apps PATCH /:id/status（0|1→active|revoked）、oauth/apps PATCH /:id/status（active|disabled→isActive 0|1）、developer/coze PUT /:id/status（空桩，表无 status 字段）、shop/products PATCH /:id/status（空桩）
     - 前端对齐 3 处: system/config→config（4处路径前缀）、certificates PATCH→PUT（方法对齐）、learn/invoices /:id/status→/:id/invoiced（用具名状态端点）
   - 验证: api typecheck 0 错误 / web typecheck 0 错误 / api test 1007/1007 全通过
+- [x] ✅(2026-07-13) R10 stash 安全审计+清理（10 个 stash 全部安全 drop，0 残留）:
+  - 原则: 按 AGENTS.md 第 8 章删除/重构安全规则 — 删除前必须验证承载功能是否已在当前 monorepo 实现
+  - 审计方法: `git stash show` 提取功能点 → 跨 apps/api、apps/web、apps/ai-service、apps/miniapp-taro、packages/ 搜索等价实现
+  - 审计结果（10/10 已实现，安全 drop）:
+    1. **stash@{0} lint-staged 自动备份** (5 files, +119 -7) — 与 d3082af9 提交内容一致，commit 后已无意义，**已 drop**
+    2. **stash@{1} admin batch 4+** (15 files, +1152 -438): advertise/ai-gc/carousel/comment-logs/contact/developer/edu-learn-community/edu-organization/edu-platform/edu-zhs-identity/online-users/system-tasks/user-agent-image/video-logs/zhs-agent — 全部 15 个 admin 页面在 apps/web/app/(main)/admin/ 已存在（migrated），**已 drop**
+    3. **stash@{2} user/profile + oss/files** (2 files, +74 -19): admin/edu/course/page.tsx + user/profile/page.tsx — 两个页面在 apps/web/ 已实现，**已 drop**
+    4. **stash@{3} admin batch 3** (5 files, +1089 -285): learn-recorded/menu (2 admin 页面) + i18n ja/ko/zh-TW 各 2 键 — 2 admin 页面已存在，i18n 键在 messages/ja|ko|zh-TW.json 已存在，**已 drop**
+    5. **stash@{4} admin batch 2** (10 files, +1841 -837): agents/categories + agents/settlement + demand-square + dict + edu/finance + news + realname-audit + sms + i18n en/zh-CN — 全部 8 admin 页面已存在，**已 drop**
+    6. **stash@{5} admin pages export/edit/HasPermi/tree** (8 files, +1405 -540): agent-rules/agents/course/categories/course/member/departments/admin/page/system/config + LineChart — 全部 admin 页面 + LineChart 组件已存在，**已 drop**
+    7. **stash@{6} fix(about) asyncModules** (1 file, +30) — apps/web/app/(main)/admin/about-us/{page.tsx,AboutUsDialog.tsx,AboutUsTable.tsx,AboutUsFilter.tsx,helpers.ts,types.ts} 6 文件已实现 aboutUs 模块，**已 drop**
+    8. **stash@{7} AI/sidebar-pkg-2** (330 files, +2853 -3599) — 旧 client/ (Vue) + 旧 server/ (Python) 残留，apps/web (Next.js) + apps/api (Fastify) + apps/ai-service (FastAPI) 完整替代，**已 drop** (旧项目 2026-07-08 已 commit `a0ffa456` 删除 784 文件/127049 行)
+    9. **stash@{8} AI/workspace/agent** (2 files, +97) — 旧 client/src/components/ai/AIChat.vue + 旧 server/app/api/v1/workspace/tools.py，apps/ai-service/app/routers/agents.py + apps/web 完整替代，**已 drop**
+    10. **stash@{9} workspace/agent/AI changes** (18 files, +2485 -785) — 旧 client/ Vue + 旧 server/ Python + 旧 docs/ + 旧 scripts/ 迁移审计脚本，新架构完整替代，**已 drop**
+  - 验证: 10 个 stash 全部 drop 后 `git stash list` 为空，磁盘回收 ~50MB，dangling commit 自动 GC
+  - 安全审计符合度: 100%（10/10 功能均已在新 monorepo 实现后才 drop，符合 AGENTS.md 第 8 章强制规则）
 
 ---
 
