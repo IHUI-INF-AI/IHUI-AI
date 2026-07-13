@@ -24,6 +24,12 @@ import { deleteFile } from '../services/storage-service.js'
  * - learn_record 表使用 member_id / learn_time（秒），统计换算为分钟
  * - user_favorites 使用 resource_type / resource_id（非 target_type / target_id）
  * - db.execute 返回行数组（非 .rows）
+ *
+ * 编号说明：
+ * - 已实现：D1, D2, D3, D5, D6, D7, D8, D9, D10, D16, D17, D18, D19
+ * - 已废弃（无对应业务需求或被其它路由覆盖）：
+ *   - D4  历史考试详情聚合 → 由 /api/exam/* 系列路由覆盖
+ *   - D11 ~ D15  历史桩端点 → 实际无前端调用方，废弃
  */
 export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   const idParam = z.object({ id: z.string() })
