@@ -3,7 +3,7 @@ import type { ExportColumn } from '@/lib/export-utils'
 import type { LoginLog, LoginLogForm, LoginLogSearch } from './types'
 
 export const PAGE_SIZE = 10
-export const RESOURCE = '/api/admin/login-logs'
+export const RESOURCE = '/api/admin/system/login-logs'
 export const PERM = 'auth:login_logs'
 
 export const th = 'px-4 py-2.5 font-medium'
