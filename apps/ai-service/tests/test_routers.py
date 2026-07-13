@@ -148,6 +148,64 @@ async def test_llm_complete_stream_chunk_content_concatenated(client):
     assert "你好" in text
 
 
+async def test_llm_models_endpoint(client):
+    """GET /api/llm/models 返回模型列表 + 默认模型 + stub_mode 标记。"""
+    resp = await client.get("/api/llm/models")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "models" in data
+    assert "default" in data
+    assert "stub_mode" in data
+    assert isinstance(data["models"], list)
+    assert len(data["models"]) > 0
+    # stub_mode 应为 True(测试环境无 API key)
+    assert data["stub_mode"] is True
+
+
+async def test_llm_complete_with_metadata(client):
+    """POST /api/llm/complete 透传 metadata 到响应(stub 模式)。"""
+    resp = await client.post(
+        "/api/llm/complete",
+        json={
+            "messages": [{"role": "user", "content": "test"}],
+            "metadata": {"conversationId": "conv-123", "userId": "user-456"},
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["stub"] is True
+    assert data["metadata"]["conversationId"] == "conv-123"
+    assert data["metadata"]["userId"] == "user-456"
+
+
+async def test_llm_complete_with_metadata_no_association(client):
+    """POST /api/llm/complete metadata 无 conversationId 时不触发回调,无报错。"""
+    resp = await client.post(
+        "/api/llm/complete",
+        json={
+            "messages": [{"role": "user", "content": "test"}],
+            "metadata": {"foo": "bar"},
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["metadata"] == {"foo": "bar"}
+
+
+async def test_llm_complete_with_callback_url(client):
+    """POST /api/llm/complete 带 callback_url 不报错(stub 模式无关联键不回调)。"""
+    resp = await client.post(
+        "/api/llm/complete",
+        json={
+            "messages": [{"role": "user", "content": "test"}],
+            "callback_url": "http://example.com/callback",
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["stub"] is True
+
+
 # =============================================================================
 # tools 路由
 # =============================================================================
