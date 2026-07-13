@@ -126,7 +126,7 @@ export default function EduCertificatePage() {
   const statusMut = useMutation({
     mutationFn: ({ id, next }: { id: string; next: number }) =>
       eduApi(`/api/admin/certificates/${id}/status`, {
-        method: 'PATCH',
+        method: 'PUT',
         body: JSON.stringify({ status: next }),
       }),
     onSuccess: () => {
