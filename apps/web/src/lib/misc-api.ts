@@ -1,6 +1,6 @@
 /**
  * 其他 API
- * 合并迁移自旧架构：mcp, openclaw, n8n, tbox, luyala-proxy, openrouter-proxy, coze
+ * 合并迁移自旧架构：mcp, openclaw, n8n, tbox, openrouter-proxy, coze
  */
 import type { ApiResult } from '@ihui/types'
 
@@ -77,18 +77,6 @@ export interface TboxTool {
   url?: string
   config?: Record<string, unknown>
   status?: number
-  [key: string]: unknown
-}
-
-/** Luyala 代理请求参数 */
-export interface LuyalaProxyParams {
-  prompt?: string
-  image?: string
-  maxTokens?: number
-  model?: string
-  userUuid?: string
-  messages?: Array<{ role: string; content: unknown }>
-  chatId?: string
   [key: string]: unknown
 }
 
@@ -336,33 +324,6 @@ export async function updateTboxTool(
 /** 删除 Tbox 工具 */
 export async function deleteTboxTool(id: string): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>(`/api/tbox/${id}`, { method: 'DELETE' })
-}
-
-// ===================== luyala-proxy =====================
-
-/** Luyala 代理 - 聊天补全 */
-export async function luyalaChatCompletions(
-  params: LuyalaProxyParams,
-  url?: string,
-): Promise<ApiResult<unknown>> {
-  return fetchApi<unknown>(url || '/api/luyala-proxy/chat/completions', {
-    method: 'POST',
-    body: JSON.stringify(params),
-  })
-}
-
-/** Luyala 代理 - 视频生成 */
-export async function luyalaVideoCreate(
-  params: { prompt: string; [key: string]: unknown },
-  url?: string,
-): Promise<ApiResult<{ taskId: string; [key: string]: unknown }>> {
-  return fetchApi<{ taskId: string; [key: string]: unknown }>(
-    url || '/api/luyala-proxy/video/create',
-    {
-      method: 'POST',
-      body: JSON.stringify(params),
-    },
-  )
 }
 
 // ===================== openrouter-proxy =====================
