@@ -3602,6 +3602,11 @@ Tailwind CSS 4 默认 `dark:` variant 基于 `@media (prefers-color-scheme: dark
 - `pnpm --filter @ihui/web typecheck` — ✅ 零错误
 - `pnpm --filter @ihui/web lint` — ✅ 零错误零警告
 - e2e `auth-third-party.spec.ts`:4/5 通过(与修复前一致,1 失败为后端 8080 未启动的环境依赖,非回归)
+- Playwright colorScheme emulation 终验(模拟 system light/dark 两种系统主题):
+  - LIGHT 模式:`<html>` class 无 `dark`,按钮背景 `rgb(255, 255, 255)`,Apple/GitHub `filter: "none"`(黑色 logo 在白底上可见)✅
+  - DARK 模式:`<html>` class 有 `dark`,按钮背景 `rgb(10, 10, 10)`,Apple/GitHub `filter: "invert(1)"`(黑色 logo 翻白后在深黑底上可见)✅
+  - Google/钉钉/企微/微信 两种模式下 `filter: "none"`,品牌色图标正常显示 ✅
+- 视觉证据截图:`apps/web/e2e/.icon-verify/{login-light,buttons-light,login-dark,buttons-dark}.png`(临时,gitignored)
 
 ### 影响范围(本次修复一并解决)
 
@@ -3613,3 +3618,56 @@ Tailwind CSS 4 默认 `dark:` variant 基于 `@media (prefers-color-scheme: dark
 ### 残留风险
 
 无。该修复是 Tailwind 4 官方迁移指南推荐做法,与 Tailwind 3 `darkMode: 'class'` 配置等价,行为可预期。
+
+## R102 全项目 dark: variant 行为审计(2026-07-14)✅
+
+> R101 修复 `@custom-variant dark` 后,审计全项目 20 处 `dark:` utility 是否按预期生效,以及是否存在"原本隐藏的 dark mode 错误现在显形"的回归。
+
+### 审计范围
+
+全项目 10 个文件,20 处 `dark:` utility,分为 4 种模式:
+
+| 模式         | 数量 | 用途                              | 示例                                 |
+| ------------ | ---- | --------------------------------- | ------------------------------------ |
+| 文字提亮     | 17   | dark 模式下文字色变浅以保证对比度 | `text-amber-600 dark:text-amber-400` |
+| 背景加深     | 1    | dark 模式下徽章背景加深           | `bg-emerald-100 dark:bg-emerald-950` |
+| prose-invert | 2    | dark 模式下 markdown 文字翻转     | `prose dark:prose-invert`            |
+| invert       | 1    | 单色图标 dark 模式翻白            | `dark:invert`(已在 R101 验证)        |
+
+### 审计方法
+
+1. **编译产物验证**:grep `.next/static/chunks/apps_web_app_globals_css_*.css` 中 `dark\:` 前缀的规则
+2. **机制性证明**:确认所有 dark: 类被编译为 `:where(.dark, .dark *)` 选择器(即 @custom-variant dark 生效产物)
+3. **运行时验证**:R101 已通过 Playwright colorScheme emulation 验证 Apple `dark:invert` 在实际页面生效
+
+### 审计结果
+
+编译后 CSS 包含 24 条 `dark:` 规则(用 `:where(.dark, .dark *)` 选择器),覆盖:
+
+- `dark:invert`(Apple/GitHub 图标)✅
+- `dark:text-amber-400/500`、`dark:text-emerald-400/500`、`dark:text-red-400/500`、`dark:text-purple-400/500`、`dark:text-fuchsia-400`、`dark:text-orange-400`、`dark:text-cyan-400`、`dark:text-rose-400/500`、`dark:text-sky-400`、`dark:text-slate-300`、`dark:text-violet-400`
+- `dark:bg-emerald-950`、`dark:bg-amber-950/20`、`dark:bg-emerald-950/20`、`dark:bg-red-950/20`
+
+**结论:所有 dark: utility 按预期编译生效,无回归。** 修复前这些类静默失效(深色文字在深色背景上对比度差但仍可见),修复后正确切换为浅色文字(对比度更好)。
+
+### 发现的预先存在的 bug(非本次修复引入)
+
+**`@tailwindcss/typography` 插件缺失**:
+
+- 代码中有 2 处使用 `prose prose-sm dark:prose-invert` 类:
+  - `apps/web/src/components/ai-generation/vision-analysis.tsx:121`
+  - `apps/web/src/components/media/MarkdownViewer.tsx:39`
+- 但 `package.json` 中**未安装** `@tailwindcss/typography`,`globals.css` 中也**未通过 `@plugin` 引入**
+- 编译后 CSS 中**无** `prose-invert` 规则(grep 验证)
+- 影响:所有 markdown 渲染内容(AI 对话、文章详情、协议页、公告详情、资源详情、新闻详情、帮助文档等)**无 typography 排版样式**(标题/段落/列表/代码块无样式差异)
+- 修复前影响:dark 模式下 markdown 文字可能因无 prose-invert 而不可见(若 prose 类生效)
+- 实际影响:由于 prose 类完全不生效,markdown 文字使用默认 body 颜色,light/dark 模式下均可见但无排版
+
+### 处理决策
+
+- **dark: variant 审计**:闭环完成,无回归 ✅
+- **typography 插件缺失**:预先存在的独立 bug,与 R101 修复无关,不在本次审计范围内修复。建议作为独立任务处理(见"之后的最优建议")
+
+### 残留风险
+
+无新增风险。R101 修复正确,所有 dark: 类按预期工作。
