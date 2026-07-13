@@ -1,0 +1,63 @@
+name: i18n Check
+
+# =============================================================================
+# i18n 键完整性检查 workflow
+#
+# 扫描 apps/web 下所有 .ts/.tsx 的 useTranslations/getTranslations 调用,
+# 与 messages/*.json 比对,报告缺失键和语言间 parity 问题。
+# 脚本: scripts/check-i18n-keys.mjs
+# =============================================================================
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/web/**'
+      - 'apps/web/messages/**'
+      - 'scripts/check-i18n-keys.mjs'
+      - '.github/workflows/i18n-check.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/web/**'
+      - 'apps/web/messages/**'
+      - 'scripts/check-i18n-keys.mjs'
+      - '.github/workflows/i18n-check.yml'
+
+concurrency:
+  group: i18n-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+  i18n-check:
+    name: i18n 键完整性检查
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run i18n key check
+        run: pnpm check:i18n-keys

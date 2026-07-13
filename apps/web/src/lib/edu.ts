@@ -4,7 +4,7 @@ import { ApiError } from '@/lib/api-error'
 /** 教育后台统一 api 封装，自动剥离 ApiResponse 外壳 */
 export async function eduApi<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new ApiError(r.error, r.status)
+  if (!r.success) throw new ApiError(r.error, r.status, r.errorCode)
   return r.data
 }
 

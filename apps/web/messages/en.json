@@ -97,7 +97,8 @@
       "unifiedAiPanelDesc": "Unified interaction panel integrating chat, agent and generation",
       "unifiedAiPanelPlaceholder": "Type a message to try the unified AI panel...",
       "sampleResponse": "Received your message: \"{text}\".\n\nThis is a sample reply from the unified AI panel. In real scenarios, this will be connected to a real AI model streaming output."
-    }
+    },
+    "resources": "Resources"
   },
   "nav": {
     "home": "Home",
@@ -6745,7 +6746,8 @@
     "status": "Status",
     "statusPending": "Pending",
     "statusApproved": "Approved",
-    "statusRejected": "Rejected"
+    "statusRejected": "Rejected",
+    "cancel": "Cancel"
   },
   "apiTest": {
     "title": "API Test",

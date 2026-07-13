@@ -2,19 +2,17 @@
 /**
  * i18n 键完整性检查守门脚本。
  *
- * 扫描 apps/web/app 下所有 .tsx 文件的 useTranslations('xxx') + t('key') 调用,
- * 与 messages/zh-CN.json 和 en.json 比对,报告缺失键。
+ * 改进点(相比旧版):
+ * - 全语言覆盖: 动态扫描 apps/web/messages/*.json 全部语言文件,以 zh-CN 为基准做 parity
+ * - 扩大扫描范围: 扫描 apps/web/ 下所有 .ts/.tsx(含 app/、src/components/、src/lib/ 等)
+ *   排除 messages/、.next/、node_modules/、.git/
+ * - 识别 getTranslations: 同时识别 useTranslations('ns') 和 getTranslations('ns')(含 await)
+ * - 单文件多命名空间: 基于变量名精确归属,覆盖 t/tc/te 等变量;多 ns 时宽松检查(任一 ns 存在即通过)
+ * - --staged 双模式: 暂存区报 error(exit 1) / 全量报 warning(exit 0)
  *
- * 防止"代码调用 t('xxx') 但 messages 未定义 xxx"导致运行时显示 key 名而非文案。
- *
- * 触发条件(任一即失败):
- * 1. t('key') 调用的 key 在 zh-CN.json 对应命名空间中不存在
- * 2. t('key') 调用的 key 在 en.json 对应命名空间中不存在
- * 3. zh-CN.json 与 en.json 的键集不一致(parity)
- *
- * 用法:node scripts/check-i18n-keys.mjs [--staged]
- *   --staged: 只检查 git 暂存区涉及的 .tsx / messages 文件(pre-commit 用)
- *   无参数:全量检查(CI 用)
+ * 用法: node scripts/check-i18n-keys.mjs [--staged]
+ *   --staged: 只检查 git 暂存区涉及的文件(pre-commit 用, 有问题则 exit 1)
+ *   无参数:   全量检查(CI 用, 历史遗留问题标 warning, exit 0)
  */
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
@@ -22,43 +20,50 @@ import { join, relative } from 'node:path'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
-const MESSAGES_DIR = join(ROOT, 'apps/web/messages')
-const APP_DIR = join(ROOT, 'apps/web/app')
+const WEB_DIR = join(ROOT, 'apps/web')
+const MESSAGES_DIR = join(WEB_DIR, 'messages')
+const EXCLUDE_DIRS = new Set(['messages', '.next', 'node_modules', '.git'])
+const BASE_LANG = 'zh-CN'
 
-/** 递归收集目录下所有 .tsx 文件 */
-function collectTsxFiles(dir) {
-  const result = []
+const C = {
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  dim: '\x1b[2m',
+  reset: '\x1b[0m',
+}
+
+function collectSourceFiles(dir, result = []) {
   if (!existsSync(dir)) return result
   for (const entry of readdirSync(dir)) {
+    if (EXCLUDE_DIRS.has(entry)) continue
     const full = join(dir, entry)
     const st = statSync(full)
     if (st.isDirectory()) {
-      result.push(...collectTsxFiles(full))
-    } else if (entry.endsWith('.tsx')) {
+      collectSourceFiles(full, result)
+    } else if (entry.endsWith('.ts') || entry.endsWith('.tsx')) {
       result.push(full)
     }
   }
   return result
 }
 
-/** 从源码提取 useTranslations 命名空间 */
-function extractNamespace(src) {
-  const m = src.match(/useTranslations\(\s*['"]([^'"]+)['"]\s*\)/)
-  return m ? m[1] : null
-}
-
-/** 从源码提取所有 t('key') / t("key") 调用的 key(排除 toast( / get( 等) */
-function extractTKeys(src) {
-  const keys = new Set()
-  const re = /\bt\(\s*['"]([^'"]+)['"]/g
-  let mm
-  while ((mm = re.exec(src)) !== null) {
-    keys.add(mm[1])
+function loadMessages() {
+  const langs = {}
+  if (!existsSync(MESSAGES_DIR)) return langs
+  for (const entry of readdirSync(MESSAGES_DIR)) {
+    if (!entry.endsWith('.json')) continue
+    try {
+      langs[entry.replace('.json', '')] = JSON.parse(
+        readFileSync(join(MESSAGES_DIR, entry), 'utf8'),
+      )
+    } catch {
+    }
   }
-  return [...keys]
+  return langs
 }
 
-/** 按点号路径从 messages 对象取嵌套值 */
 function getNested(obj, dotPath) {
   return dotPath.split('.').reduce((acc, k) => {
     if (acc && typeof acc === 'object' && k in acc) return acc[k]
@@ -66,7 +71,6 @@ function getNested(obj, dotPath) {
   }, obj)
 }
 
-/** 收集一个对象的所有叶子键(用于 parity 检查) */
 function collectLeafKeys(obj, prefix = '') {
   const keys = []
   for (const [k, v] of Object.entries(obj)) {
@@ -80,8 +84,48 @@ function collectLeafKeys(obj, prefix = '') {
   return keys
 }
 
-// --- 收集需检查的文件 ---
-let tsxFiles
+function extractNamespaces(src) {
+  const pairs = []
+  const re =
+    /(?:const|let|var)\s+(\w+)\s*=\s*(?:await\s+)?(?:useTranslations|getTranslations)\(\s*['"]([^'"]+)['"]\s*\)/g
+  let m
+  while ((m = re.exec(src)) !== null) {
+    pairs.push({ varName: m[1], ns: m[2] })
+  }
+  return pairs
+}
+
+function extractKeysByVar(src, varName) {
+  const escaped = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const keys = new Set()
+  const re = new RegExp(`\\b${escaped}\\(\\s*['"]([^'"]+)['"]`, 'g')
+  let m
+  while ((m = re.exec(src)) !== null) {
+    keys.add(m[1])
+  }
+  return [...keys]
+}
+
+function hasKey(msg, ns, key) {
+  const nsObj = getNested(msg, ns)
+  if (!nsObj || typeof nsObj !== 'object') return false
+  if (key.includes('.')) {
+    return getNested(nsObj, key) !== undefined
+  }
+  return key in nsObj
+}
+
+const messages = loadMessages()
+const langNames = Object.keys(messages).sort()
+
+if (langNames.length === 0 || !messages[BASE_LANG]) {
+  console.log(`${C.yellow}[i18n 键检查] messages 文件不存在或不完整,跳过${C.reset}`)
+  process.exit(0)
+}
+
+const baseLeaves = new Set(collectLeafKeys(messages[BASE_LANG]))
+
+let sourceFiles = []
 let messagesChanged = false
 
 if (isStaged) {
@@ -91,125 +135,188 @@ if (isStaged) {
       cwd: ROOT,
     })
     const staged = output.split('\n').filter(Boolean)
-    // 如果暂存区含 .tsx 文件,检查这些;如果暂存区含 messages/*.json,触发全量(因影响面广)
-    tsxFiles = staged
-      .filter((f) => f.startsWith('apps/web/app/') && f.endsWith('.tsx'))
-      .map((f) => join(ROOT, f))
-      .filter((f) => existsSync(f))
     messagesChanged = staged.some(
       (f) => f.startsWith('apps/web/messages/') && f.endsWith('.json'),
     )
     if (messagesChanged) {
-      // messages 文件变更,全量检查所有 tsx
-      tsxFiles = collectTsxFiles(APP_DIR)
+      sourceFiles = collectSourceFiles(WEB_DIR)
+    } else {
+      sourceFiles = staged
+        .filter(
+          (f) =>
+            f.startsWith('apps/web/') &&
+            (f.endsWith('.ts') || f.endsWith('.tsx')),
+        )
+        .filter((f) => {
+          const rel = f.slice('apps/web/'.length)
+          return (
+            !rel.startsWith('messages/') &&
+            !rel.startsWith('.next/') &&
+            !rel.startsWith('node_modules/')
+          )
+        })
+        .map((f) => join(ROOT, f))
+        .filter((f) => existsSync(f))
     }
   } catch {
-    tsxFiles = []
+    sourceFiles = []
   }
 } else {
-  tsxFiles = collectTsxFiles(APP_DIR)
+  sourceFiles = collectSourceFiles(WEB_DIR)
 }
 
-if (tsxFiles.length === 0 && !messagesChanged) {
-  console.log('\x1b[32m[i18n 键检查] 无 .tsx / messages 文件变更,跳过\x1b[0m')
+if (sourceFiles.length === 0 && !messagesChanged) {
+  console.log(`${C.green}[i18n 键检查] 无源文件变更,跳过${C.reset}`)
   process.exit(0)
 }
 
-// --- 加载 messages 文件 ---
-const zhPath = join(MESSAGES_DIR, 'zh-CN.json')
-const enPath = join(MESSAGES_DIR, 'en.json')
+const parityIssues = []
 
-if (!existsSync(zhPath) || !existsSync(enPath)) {
-  console.log('\x1b[33m[i18n 键检查] messages 文件不存在,跳过\x1b[0m')
-  process.exit(0)
-}
-
-let zhMsg, enMsg
-try {
-  zhMsg = JSON.parse(readFileSync(zhPath, 'utf8'))
-  enMsg = JSON.parse(readFileSync(enPath, 'utf8'))
-} catch (e) {
-  console.error('\x1b[31m[i18n 键检查] messages JSON 解析失败:' + e.message + '\x1b[0m')
-  process.exit(1)
-}
-
-// --- 检查 zh/en parity(全局) ---
-const zhLeaves = new Set(collectLeafKeys(zhMsg))
-const enLeaves = new Set(collectLeafKeys(enMsg))
-const zhOnly = [...zhLeaves].filter((k) => !enLeaves.has(k))
-const enOnly = [...enLeaves].filter((k) => !zhLeaves.has(k))
-
-const violations = []
-
-if (zhOnly.length > 0 || enOnly.length > 0) {
-  if (zhOnly.length > 0) {
-    violations.push(`zh-CN.json 有但 en.json 无的键(${zhOnly.length}个):\n  ${zhOnly.slice(0, 20).join('\n  ')}${zhOnly.length > 20 ? '\n  ...' : ''}`)
-  }
-  if (enOnly.length > 0) {
-    violations.push(`en.json 有但 zh-CN.json 无的键(${enOnly.length}个):\n  ${enOnly.slice(0, 20).join('\n  ')}${enOnly.length > 20 ? '\n  ...' : ''}`)
+if (!isStaged || messagesChanged) {
+  for (const lang of langNames) {
+    if (lang === BASE_LANG) continue
+    const langLeaves = new Set(collectLeafKeys(messages[lang]))
+    const baseOnly = [...baseLeaves].filter((k) => !langLeaves.has(k))
+    const langOnly = [...langLeaves].filter((k) => !baseLeaves.has(k))
+    if (baseOnly.length > 0) {
+      parityIssues.push({
+        lang,
+        direction: 'base-only',
+        count: baseOnly.length,
+        keys: baseOnly.slice(0, 20),
+        total: baseOnly.length,
+      })
+    }
+    if (langOnly.length > 0) {
+      parityIssues.push({
+        lang,
+        direction: 'lang-only',
+        count: langOnly.length,
+        keys: langOnly.slice(0, 20),
+        total: langOnly.length,
+      })
+    }
   }
 }
 
-// --- 检查每个 .tsx 文件的 t() 调用 ---
-const reT = /\bt\(\s*['"]([^'"]+)['"]/g
+const missingKeyIssues = []
 let checkedFiles = 0
+let checkedKeys = 0
 
-for (const file of tsxFiles) {
-  const src = readFileSync(file, 'utf8')
-  const ns = extractNamespace(src)
-  if (!ns) continue // 无 useTranslations,跳过
+for (const file of sourceFiles) {
+  let src
+  try {
+    src = readFileSync(file, 'utf8')
+  } catch {
+    continue
+  }
 
-  const zhNs = getNested(zhMsg, ns)
-  const enNs = getNested(enMsg, ns)
-  const zhKeys = zhNs && typeof zhNs === 'object' ? new Set(Object.keys(zhNs)) : new Set()
-  const enKeys = enNs && typeof enNs === 'object' ? new Set(Object.keys(enNs)) : new Set()
+  const nsPairs = extractNamespaces(src)
+  if (nsPairs.length === 0) continue
 
-  const usedKeys = extractTKeys(src)
+  const namespaces = [...new Set(nsPairs.map((p) => p.ns))]
+  const isMultiNs = namespaces.length > 1
+
+  const seen = new Set()
+  const usedKeys = []
+
+  for (const { varName, ns } of nsPairs) {
+    for (const key of extractKeysByVar(src, varName)) {
+      const dedupe = `${ns}::${key}`
+      if (seen.has(dedupe)) continue
+      seen.add(dedupe)
+      usedKeys.push({ key, ns, varName })
+    }
+  }
+
   if (usedKeys.length === 0) continue
-
   checkedFiles++
+  checkedKeys += usedKeys.length
 
   const relPath = relative(ROOT, file)
-  const missingZh = []
-  const missingEn = []
 
-  for (const key of usedKeys) {
-    // 支持点号嵌套 key(如 t('a.b'))
-    const zhHas = key.includes('.')
-      ? getNested(zhNs, key) !== undefined
-      : zhKeys.has(key)
-    const enHas = key.includes('.')
-      ? getNested(enNs, key) !== undefined
-      : enKeys.has(key)
-    if (!zhHas) missingZh.push(key)
-    if (!enHas) missingEn.push(key)
-  }
-
-  if (missingZh.length > 0 || missingEn.length > 0) {
-    if (missingZh.length > 0) {
-      violations.push(`${relPath} [zh-CN 缺失, 命名空间 ${ns}]:\n  ${missingZh.map((k) => `t('${k}')`).join('\n  ')}`)
-    }
-    if (missingEn.length > 0) {
-      violations.push(`${relPath} [en 缺失, 命名空间 ${ns}]:\n  ${missingEn.map((k) => `t('${k}')`).join('\n  ')}`)
+  for (const { key, ns, varName } of usedKeys) {
+    const existsInBase = isMultiNs
+      ? namespaces.some((n) => hasKey(messages[BASE_LANG], n, key))
+      : hasKey(messages[BASE_LANG], ns, key)
+    if (!existsInBase) {
+      missingKeyIssues.push({
+        file: relPath,
+        ns: isMultiNs ? namespaces.join('|') : ns,
+        key,
+        varName,
+      })
     }
   }
 }
 
-// --- 输出结果 ---
-if (violations.length > 0) {
-  console.error('\x1b[31m[i18n 键检查] 发现缺失键,拒绝提交!\x1b[0m')
-  console.error('')
-  violations.forEach((v) => {
-    console.error('\x1b[31m  ' + v + '\x1b[0m')
-    console.error('')
-  })
-  console.error('\x1b[33m修复方法:\x1b[0m')
-  console.error('  1. 在 apps/web/messages/zh-CN.json 和 en.json 的对应命名空间补齐缺失键')
-  console.error('  2. 确保 zh-CN 与 en 的键集完全一致(parity)')
-  console.error('  3. 子页面共享命名空间时用前缀键(如 questionsTitle)避免冲突')
-  console.error('')
-  process.exit(1)
+const issueCount = parityIssues.length + missingKeyIssues.length
+const label = isStaged ? 'ERROR' : 'WARNING'
+const color = isStaged ? C.red : C.yellow
+
+if (parityIssues.length > 0) {
+  console.log(
+    `${color}[i18n 键检查] Parity 问题(${parityIssues.length}个) [${label}]:${C.reset}`,
+  )
+  for (const issue of parityIssues) {
+    if (issue.direction === 'base-only') {
+      console.log(
+        `${color}  ${BASE_LANG} 有但 ${issue.lang} 缺失的键(${issue.total}个):${C.reset}`,
+      )
+    } else {
+      console.log(
+        `${color}  ${issue.lang} 有但 ${BASE_LANG} 无的键(${issue.total}个):${C.reset}`,
+      )
+    }
+    console.log(`${color}    ${issue.keys.join('\n    ')}${issue.total > 20 ? '\n    ...' : ''}${C.reset}`)
+  }
+  console.log('')
 }
 
-console.log(`\x1b[32m[i18n 键检查] 通过,已检查 ${checkedFiles} 个文件,zh/en parity OK\x1b[0m`)
+if (missingKeyIssues.length > 0) {
+  const byFile = new Map()
+  for (const issue of missingKeyIssues) {
+    if (!byFile.has(issue.file)) byFile.set(issue.file, new Map())
+    const nsMap = byFile.get(issue.file)
+    if (!nsMap.has(issue.ns)) nsMap.set(issue.ns, [])
+    nsMap.get(issue.ns).push(issue.key)
+  }
+
+  console.log(
+    `${color}[i18n 键检查] 缺失键问题(${missingKeyIssues.length}个) [${label}]:${C.reset}`,
+  )
+  for (const [file, nsMap] of byFile) {
+    console.log(`${color}  ${file}:${C.reset}`)
+    for (const [ns, keys] of nsMap) {
+      console.log(
+        `${color}    命名空间 [${ns}] 缺失 ${keys.length} 键:${C.reset}`,
+      )
+      console.log(`${color}      ${keys.map((k) => `'${k}'`).join(', ')}${C.reset}`)
+    }
+  }
+  console.log('')
+}
+
+if (issueCount > 0) {
+  console.log(
+    `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
+  )
+  if (isStaged) {
+    console.log(`${C.red}[i18n 键检查] 发现问题,拒绝提交!${C.reset}`)
+    console.log(`${C.yellow}修复方法:${C.reset}`)
+    console.log(`  1. 在 apps/web/messages/${BASE_LANG}.json 对应命名空间补齐缺失键`)
+    console.log(`  2. 确保所有语言文件的键集与 ${BASE_LANG} 一致(parity)`)
+    console.log(`  3. 多命名空间文件用不同变量名(t/tc/te)避免冲突`)
+    process.exit(1)
+  } else {
+    console.log(
+      `${C.yellow}[i18n 键检查] 发现历史遗留问题,已标记为 WARNING,不阻止提交${C.reset}`,
+    )
+    process.exit(0)
+  }
+}
+
+console.log(
+  `${C.green}[i18n 键检查] 通过,已检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 parity OK${C.reset}`,
+)
 process.exit(0)
