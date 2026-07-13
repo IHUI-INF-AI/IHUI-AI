@@ -50,12 +50,11 @@ export default function MyArticlesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'my-articles', page],
-    queryFn: () =>
-      api<ArticlesData>(`/api/content/articles/mine?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () => api<ArticlesData>(`/api/article/my?page=${page}&pageSize=${PAGE_SIZE}`),
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/content/articles/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/article/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['student', 'my-articles'] }),
   })
 
