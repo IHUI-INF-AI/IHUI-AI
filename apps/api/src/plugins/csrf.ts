@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply 
 import fp from 'fastify-plugin'
 import cookie from '@fastify/cookie'
 import { config } from '../config/index.js'
+import { parsePath, matchesAnyPrefix } from '../utils/http-normalize.js'
 
 /**
  * CSRF 防护（双提交 Cookie 模式）。
@@ -121,9 +122,9 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
     const method = request.method.toUpperCase()
     if (SAFE_METHODS.has(method)) return
 
-    const url = request.url.split('?')[0] ?? ''
+    const url = parsePath(request.url)
     // 公开白名单豁免
-    if (publicPrefixes.some((p) => url === p || url.startsWith(p.endsWith('/') ? p : p + '/'))) {
+    if (matchesAnyPrefix(url, publicPrefixes)) {
       return
     }
     // Bearer JWT 请求豁免（JWT 本身防 CSRF）
