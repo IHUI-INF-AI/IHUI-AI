@@ -675,7 +675,7 @@ function registerRoutes(server: FastifyInstance) {
 
   // ===== 前端页面后端路由补齐 =====
   server.register(aiWorldRoutes, { prefix: '/api' })
-  server.register(biDashboardRoutes, { prefix: '/api' })
+  server.register(biDashboardRoutes, { prefix: '/api/admin' })
   server.register(dramaRoutes, { prefix: '/api' })
   server.register(distributionRoutes, { prefix: '/api' })
   server.register(adminGrayReleaseRoutes, { prefix: '/api/admin' })

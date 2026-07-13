@@ -34,12 +34,12 @@ export default function AdminMemberCompanyTypesPage() {
         status: form.status ? 1 : 0,
       }
       if (editing) {
-        return api<{ type: CompanyType }>(`/api/admin/member/company-types/${editing.id}`, {
+        return api<{ type: CompanyType }>(`/api/admin/members/company-types/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
       }
-      return api<{ type: CompanyType }>(`/api/admin/member/company-types`, {
+      return api<{ type: CompanyType }>(`/api/admin/members/company-types`, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -53,7 +53,7 @@ export default function AdminMemberCompanyTypesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/member/company-types/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/admin/members/company-types/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
       qc.invalidateQueries({ queryKey: ['admin', 'member', 'company-types'] })
