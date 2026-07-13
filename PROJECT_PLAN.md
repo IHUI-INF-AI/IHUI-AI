@@ -243,6 +243,16 @@
     - 7e2a9019 中 d3906a0a 的 1 行改动 (advertise/ai-gc/carousel/edu/* 等) 增量太小，不构成功能损失
     - 评估: 这些 WIP 是"功能愿望清单"，不是可工作的代码，丢弃是正确决定，但 R10 应在 PROJECT_PLAN 中明确记录"恢复 agent-rules edit 按钮功能"
   - 验证: web typecheck 0 错误 / web lint 0 错误
+  - 附带: tenant 插件 resolveTenantIdentifier 回归测试（2 files +120）
+    - `apps/api/src/plugins/tenant.ts`: 添加 `export` 关键字供测试 import
+    - `apps/api/tests/tenant-resolver.test.ts`: 新建 5 describe 块 20 用例
+      1. X-Tenant-Id header 优先（4 用例）: UUID / slug / 空白 / 缺失
+      2. IP 地址不作为租户 slug（R12 回归防护，5 用例）: 127.0.0.1 / 192.168.1.1 / 10.0.0.1 / 8.8.8.8 / 带端口
+      3. localhost / 短域名（3 用例）
+      4. 子域名解析（6 用例）: foo.example.com / acme.ihui.ai / 带端口 / www|api|admin 白名单
+      5. header 优先级覆盖 host（2 用例）
+    - 技术要点: `vi.mock` mock config + db 模块，避免 import 时 env 校验 process.exit(1)
+    - 验证: 单测 20/20 通过 / 全量 1027/1027（1007+20 新增）通过 / typecheck 0 错误
 
 ---
 
