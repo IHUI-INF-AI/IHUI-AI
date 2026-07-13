@@ -20,6 +20,7 @@ export interface UpdateUserInput {
   bio?: string
   phone?: string
   passwordHash?: string
+  gender?: number
 }
 
 /**
@@ -118,6 +119,7 @@ export async function updateUser(id: string, data: UpdateUserInput): Promise<Use
       ...(data.bio !== undefined && { bio: data.bio }),
       ...(data.phone !== undefined && { phone: data.phone }),
       ...(data.passwordHash !== undefined && { passwordHash: data.passwordHash }),
+      ...(data.gender !== undefined && { gender: data.gender }),
       updatedAt: new Date(),
     })
     .where(eq(users.id, id))

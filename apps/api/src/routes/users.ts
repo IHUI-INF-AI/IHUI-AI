@@ -19,6 +19,7 @@ const updateSchema = z.object({
   avatar: z.string().max(512).optional(),
   email: z.string().email('邮箱格式不正确').optional(),
   bio: z.string().max(500).optional(),
+  gender: z.number().int().min(0).max(2).optional().describe('0=未知 1=男 2=女'),
 })
 
 function publicUser(user: {
@@ -28,6 +29,7 @@ function publicUser(user: {
   nickname: string | null
   avatar: string | null
   bio: string | null
+  gender: number | null
   roleId: number | null
   status: number | null
   createdAt: Date | null
@@ -40,6 +42,7 @@ function publicUser(user: {
     nickname: user.nickname ?? '',
     avatar: user.avatar ?? '',
     bio: user.bio ?? '',
+    gender: user.gender ?? 0,
     roleId: user.roleId ?? 0,
     status: user.status ?? 1,
     createdAt: user.createdAt,
