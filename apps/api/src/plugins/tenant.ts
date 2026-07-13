@@ -3,6 +3,7 @@ import fp from 'fastify-plugin'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { tenants, tenantQuotas, type Tenant } from '@ihui/database'
+import { normalizeHeaderStrict, matchesAnyPrefix, parsePath } from '../utils/http-normalize.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -33,10 +34,10 @@ const PUBLIC_PREFIXES = [
 
 /** 从 header / subdomain 解析租户标识。 */
 export function resolveTenantIdentifier(request: FastifyRequest): string | null {
-  // 1. X-Tenant-Id header (UUID 或 slug)
-  const headerVal = request.headers[DEFAULT_TENANT_HEADER]
-  if (typeof headerVal === 'string' && headerVal.trim()) {
-    return headerVal.trim()
+  // 1. X-Tenant-Id header (UUID 或 slug，字符集校验防注入)
+  const headerVal = normalizeHeaderStrict(request.headers[DEFAULT_TENANT_HEADER])
+  if (headerVal) {
+    return headerVal
   }
   // 2. 子域名: <slug>.host.com
   const host = request.hostname.split(':')[0] ?? ''
@@ -51,8 +52,8 @@ export function resolveTenantIdentifier(request: FastifyRequest): string | null 
 }
 
 export function isPublicPath(url: string): boolean {
-  const path = url.split('?')[0] ?? ''
-  return PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p.endsWith('/') ? p : p + '/'))
+  const path = parsePath(url)
+  return matchesAnyPrefix(path, PUBLIC_PREFIXES)
 }
 
 /** 租户缓存：slug/uuid -> { tenant, expiredAt }，避免每请求查 DB。 */

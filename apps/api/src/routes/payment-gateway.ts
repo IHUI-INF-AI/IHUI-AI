@@ -309,9 +309,17 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/payments/wechat/status/:outTradeNo', async (request, reply) => {
+    await authenticate(request)
     const { outTradeNo } = z.object({ outTradeNo: z.string() }).parse(request.params)
     const order = await getOrder(outTradeNo)
-    return reply.send(success(order))
+    if (!order) return reply.status(404).send(error(404, '订单不存在'))
+    // 仅返回订单状态与归属人校验，不泄露完整订单信息
+    if (order.userId && order.userId !== request.userId) {
+      return reply.status(403).send(error(403, '无权查看此订单'))
+    }
+    return reply.send(
+      success({ orderNo: order.orderNo, status: order.status, amount: order.amount }),
+    )
   })
 
   // ==========================================================================
