@@ -49,17 +49,27 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
 
       if (!response.ok) {
         const text = await response.text().catch(() => '')
-        return {
-          success: false,
-          error: text || `请求失败（${response.status}）`,
-          status: response.status,
+        let errorCode: string | undefined
+        let message = text || `请求失败（${response.status}）`
+        try {
+          const parsed = JSON.parse(text)
+          if (parsed && typeof parsed.message === 'string') message = parsed.message
+          if (parsed && typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
+        } catch {
+          // 非 JSON 响应，保留 text 作为 message
         }
+        return { success: false, error: message, status: response.status, errorCode }
       }
 
       const json = (await response.json()) as ApiResponse<T>
 
       if (json.code !== 0) {
-        return { success: false, error: json.message || '请求失败', status: response.status }
+        return {
+          success: false,
+          error: json.message || '请求失败',
+          status: response.status,
+          errorCode: json.errorCode,
+        }
       }
 
       return { success: true, data: json.data }

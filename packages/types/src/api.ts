@@ -2,6 +2,7 @@ export interface ApiResponse<T = unknown> {
   code: number
   message: string
   data: T
+  errorCode?: string
 }
 
 export interface PaginatedResponse<T> {
@@ -12,4 +13,5 @@ export interface PaginatedResponse<T> {
 }
 
 export type ApiResult<T> =
-  { success: true; data: T } | { success: false; error: string; status?: number }
+  | { success: true; data: T }
+  | { success: false; error: string; status?: number; errorCode?: string }

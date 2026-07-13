@@ -97,7 +97,8 @@
       "unifiedAiPanelDesc": "整合 chat + agent + generation 的統一互動面板",
       "unifiedAiPanelPlaceholder": "輸入訊息體驗統一 AI 面板...",
       "sampleResponse": "已收到你的訊息：\"{text}\"。\n\n這是來自統一 AI 面板的範例回覆。在實際場景中，這裡會接入真實的 AI 模型串流輸出。"
-    }
+    },
+    "resources": "資源"
   },
   "nav": {
     "home": "首頁",
@@ -6745,7 +6746,8 @@
     "status": "狀態",
     "statusPending": "待處理",
     "statusApproved": "已通過",
-    "statusRejected": "已拒絕"
+    "statusRejected": "已拒絕",
+    "cancel": "取消"
   },
   "apiTest": {
     "title": "API 測試",
