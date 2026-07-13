@@ -68,7 +68,7 @@ import { plazaRoutes } from './routes/plaza.js'
 import { cozeVariablesRoutes } from './routes/coze-variables.js'
 import { cozeRoutes } from './routes/coze.js'
 import { agenticServiceRoutes } from './routes/agentic-service.js'
-import { adminEduExtendedRoutes } from './routes/edu-extended.js'
+import { adminEduExtendedRoutes, adminCourseAuditRoutes } from './routes/edu-extended.js'
 import aiCallbackRoutes from './routes/ai-callback.js'
 import { adminSysRoutes } from './routes/admin-sys.js'
 import { eduPublicRoutes } from './routes/edu-public.js'
@@ -540,6 +540,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(agentExtendedRoutes, { prefix: '/api/agent-ext' })
   // 教育扩展（course_audit 课程审核）
   server.register(eduExtendedRoutes, { prefix: '/api/edu-ext' })
+  // 管理员 course-audit 路由（前缀 /api/admin/course-audit）
+  server.register(adminCourseAuditRoutes, { prefix: '/api/admin' })
   // 管理/系统扩展（category_dictionary/bot_sites/ws_admin/compat_routes）
   server.register(systemExtendedRoutes, { prefix: '/api/system-ext' })
   server.register(adminCategoryDictionaryRoutes, { prefix: '/api/admin' })
