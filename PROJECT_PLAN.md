@@ -2937,7 +2937,14 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 - [x] ✅(2026-07-14) `services/ai/plot-advisor-service.ts` — 剧情顾问（23 测试：createStory/getStory/addCharacter/addPlotPoint foreshadow 回收/checkConsistency 伏笔+关系对称性/analyzePacing 四幕评分/suggestChapterOutline）
 - [x] ✅(2026-07-14) `services/ai/video-quality-analyzer.ts` — 视频质量分析（28 测试：analyzeQuality 分辨率分类+宽高比+技术评分+视觉评分+推荐等级/analyzeBatch）
 - [x] ✅(2026-07-14) `services/ai/prompt-optimizer-service.ts` — Prompt 优化器（40 测试：optimize 类型识别+模糊词替换+角色设定+输出格式+长度语言约束/optimizeBatch）
-- [ ] `services/tour/` — 7 文件全无测试，优先 tour-gray-release.ts / tour-monitoring.ts
+- [x] ✅(2026-07-14) `services/tour/` — 7 文件全部完成（共 100 测试）
+  - [x] ✅(2026-07-14) `tour/tour-gray-release.ts` — 灰度发布（18 测试：isVisibleForUser 阶段判定+hash bucket 分布/getPolicy/promote/rollback/recordFailure/listByStage）
+  - [x] ✅(2026-07-14) `tour/tour-dependency.ts` — 依赖管理（15 测试：addDependency 自身依赖+冲突回退/removeDependency/listDependencies/listDependents/checkPublishReadiness requires/conflicts/suggests/checkOfflineReadiness）
+  - [x] ✅(2026-07-14) `tour/tour-event-bus.ts` — 事件总线（9 测试：publish/publishBatch/processEvents 重试+maxAttempts/consoleDispatcher/getPendingByType）
+  - [x] ✅(2026-07-14) `tour/tour-alert.ts` — 告警服务（20 测试：fireAlert+labels/runAlertChecks 命中+未命中+抛错+默认 message/resolveAlert/createFailureRateRule off+canary+full/createLowCtrRule 阈值边界）
+  - [x] ✅(2026-07-14) `tour/tour-monitoring.ts` — 监控服务（9 测试：noopMetricsSink/setMetricsSink track 回调/computeAndReportCtr hits/total/reportGrayStageDistribution 空与非空/getContentHealth 完整摘要）
+  - [x] ✅(2026-07-14) `tour/tour-multi-platform.ts` — 多平台分发（12 测试：registerAdapter 覆盖/listAdapters/dispatch 非 published+无 contentId+内容不存在+成功+失败+禁用+抛异常/distributeContent/consoleAdapter）
+  - [x] ✅(2026-07-14) `tour/tour-recommendation.ts` — 推荐算法（17 测试：recommendHot 归一化/recommendNearby 0.7/recommendContentBased Jaccard 排序+limit/recommendSimilarUser 空历史/recommend hot+nearby 无 destination+excludeContentIds+写入/默认 strategy/markClicked/markDismissed）
 
 ### P2 工具类基础设施（31 文件）
 
