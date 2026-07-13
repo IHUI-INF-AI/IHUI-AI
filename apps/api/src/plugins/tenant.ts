@@ -14,8 +14,19 @@ declare module 'fastify' {
 const DEFAULT_TENANT_HEADER = 'x-tenant-id'
 const PUBLIC_PREFIXES = [
   '/api/health',
-  '/api/auth/login',
-  '/api/auth/register',
+  '/api/auth/',
+  '/api/sms-proxy/',
+  '/api/oauth/',
+  '/api/payments/',
+  '/api/ai/callback',
+  '/api/tbox/events',
+  '/api/csrf-token',
+  '/api/configs',
+  '/api/settings',
+  '/api/agreements/',
+  '/api/exchange-rates/',
+  '/api/share/',
+  '/api/openapi/',
   '/docs',
   '/openapi.json',
 ]
@@ -39,9 +50,9 @@ export function resolveTenantIdentifier(request: FastifyRequest): string | null 
   return null
 }
 
-function isPublicPath(url: string): boolean {
+export function isPublicPath(url: string): boolean {
   const path = url.split('?')[0] ?? ''
-  return PUBLIC_PREFIXES.some((p) => path.startsWith(p))
+  return PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p.endsWith('/') ? p : p + '/'))
 }
 
 /** 租户缓存：slug/uuid -> { tenant, expiredAt }，避免每请求查 DB。 */
