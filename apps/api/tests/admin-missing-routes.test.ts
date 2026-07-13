@@ -25,13 +25,13 @@ const {
   mockInsertReturning,
   mockUpdateReturning,
   mockDeleteWhere,
-  mockSelectLimit,
+  mockSelectResult,
 } = vi.hoisted(() => ({
   mockVerifyAccessToken: vi.fn(),
   mockInsertReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
   mockUpdateReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
   mockDeleteWhere: vi.fn().mockResolvedValue(undefined),
-  mockSelectLimit: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
+  mockSelectResult: vi.fn().mockResolvedValue([]),
 }))
 vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
@@ -40,32 +40,23 @@ vi.mock('@ihui/auth', () => ({
   createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
 }))
 
-// Mock db：有表路由的 CRUD 查询链式调用
-// mockSelectLimit 用于 DELETE 存在性检查：select().from().where().limit(1)
-const mockSelect = vi.fn().mockReturnValue({
-  from: vi.fn().mockReturnValue({
-    where: vi.fn().mockReturnValue({
-      orderBy: vi.fn().mockReturnValue({
-        limit: vi.fn().mockReturnValue({
-          offset: vi.fn().mockResolvedValue([]),
-        }),
-      }),
-      limit: mockSelectLimit,
-    }),
-  }),
-})
-const mockCountSelect = vi.fn().mockReturnValue({
-  from: vi.fn().mockReturnValue({
-    where: vi.fn().mockResolvedValue([{ c: 0 }]),
-  }),
-})
+// Mock db：Proxy-based chainable mock — 任意 db.select().from().where()... 链最终 await 走 mockSelectResult
+function createChainableMock() {
+  const thenFn = (resolve: (v: unknown) => void) => mockSelectResult().then(resolve)
+  const make = (): Record<string, unknown> => {
+    const proxy = new Proxy({} as Record<string, unknown>, {
+      get(_target, prop: string) {
+        if (prop === 'then') return thenFn
+        return vi.fn().mockReturnValue(make())
+      },
+    })
+    return proxy
+  }
+  return make()
+}
 vi.mock('../src/db/index.js', () => ({
   db: {
-    select: vi.fn((args) =>
-      args && typeof args === 'object' && 'c' in (args as Record<string, unknown>)
-        ? mockCountSelect()
-        : mockSelect(),
-    ),
+    select: vi.fn(() => createChainableMock()),
     insert: vi.fn(() => ({ values: vi.fn(() => ({ returning: mockInsertReturning })) })),
     update: vi.fn(() => ({
       set: vi.fn(() => ({ where: vi.fn(() => ({ returning: mockUpdateReturning })) })),
@@ -77,6 +68,10 @@ vi.mock('../src/db/index.js', () => ({
 }))
 
 import { adminMissingRoutes } from '../src/routes/admin-missing-routes.js'
+import { adminContentOpsRoutes } from '../src/routes/admin-content-routes.js'
+import { adminAuthEduRoutes } from '../src/routes/admin-auth-edu-routes.js'
+import { adminMonitoringRoutes } from '../src/routes/admin-monitoring-routes.js'
+import { adminShopRoutes } from '../src/routes/admin-shop-routes.js'
 
 const ADMIN_TOKEN = 'Bearer admin-token'
 const USER_TOKEN = 'Bearer user-token'
@@ -104,6 +99,10 @@ describe('admin-missing-routes', () => {
 
   beforeAll(async () => {
     await server.register(adminMissingRoutes, { prefix: '/api/admin' })
+    await server.register(adminContentOpsRoutes, { prefix: '/api/admin' })
+    await server.register(adminAuthEduRoutes, { prefix: '/api/admin' })
+    await server.register(adminMonitoringRoutes, { prefix: '/api/admin' })
+    await server.register(adminShopRoutes, { prefix: '/api/admin' })
     await server.ready()
   })
 
@@ -1109,7 +1108,7 @@ describe('admin-missing-routes', () => {
   describe('DELETE 404 覆盖', () => {
     it('DELETE /auth-accounts/:id 不存在返回 404', async () => {
       mockAdmin()
-      mockSelectLimit.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
         url: '/api/admin/auth-accounts/missing-id',
@@ -1121,7 +1120,7 @@ describe('admin-missing-routes', () => {
 
     it('DELETE /auth-role/:id 不存在返回 404', async () => {
       mockAdmin()
-      mockSelectLimit.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
         url: '/api/admin/auth-role/missing-id',
@@ -1132,7 +1131,7 @@ describe('admin-missing-routes', () => {
 
     it('DELETE /auth-tokens/:id 不存在返回 404', async () => {
       mockAdmin()
-      mockSelectLimit.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
         url: '/api/admin/auth-tokens/missing-id',
@@ -1143,7 +1142,7 @@ describe('admin-missing-routes', () => {
 
     it('DELETE /auth-user-vip/:id 不存在返回 404', async () => {
       mockAdmin()
-      mockSelectLimit.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
         url: '/api/admin/auth-user-vip/missing-id',
@@ -1154,7 +1153,7 @@ describe('admin-missing-routes', () => {
 
     it('DELETE /auth-vip-level/:id 不存在返回 404', async () => {
       mockAdmin()
-      mockSelectLimit.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
         url: '/api/admin/auth-vip-level/missing-id',
@@ -1165,7 +1164,7 @@ describe('admin-missing-routes', () => {
 
     it('DELETE /auth-sms-temp/:id 不存在返回 404', async () => {
       mockAdmin()
-      mockSelectLimit.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
         url: '/api/admin/auth-sms-temp/missing-id',
@@ -1176,7 +1175,7 @@ describe('admin-missing-routes', () => {
 
     it('DELETE /user-roles/:id 不存在返回 404', async () => {
       mockAdmin()
-      mockSelectLimit.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
         url: '/api/admin/user-roles/missing-id',
@@ -1187,7 +1186,7 @@ describe('admin-missing-routes', () => {
 
     it('DELETE /member/permissions/:id 不存在返回 404', async () => {
       mockAdmin()
-      mockSelectLimit.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
         url: '/api/admin/member/permissions/missing-id',
@@ -1198,7 +1197,7 @@ describe('admin-missing-routes', () => {
 
     it('DELETE /system/operation-logs/:id 不存在返回 404', async () => {
       mockAdmin()
-      mockSelectLimit.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
         url: '/api/admin/system/operation-logs/missing-id',
@@ -1209,7 +1208,7 @@ describe('admin-missing-routes', () => {
 
     it('DELETE /system/login-logs/:id 不存在返回 404', async () => {
       mockAdmin()
-      mockSelectLimit.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'DELETE',
         url: '/api/admin/system/login-logs/999999',
