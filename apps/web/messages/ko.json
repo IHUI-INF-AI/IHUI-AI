@@ -111,7 +111,7 @@
     "exam": "시험",
     "circles": "兴趣커뮤니티",
     "plaza": "광장",
-    "asks": "Q&A",
+    "asks": "Q\u0026A",
     "docs": "docs",
     "payment": "결제",
     "vip": "VIP",
@@ -484,9 +484,9 @@
     "title": "AI인마음페이스테스트",
     "subtitle": "포괄적인의개발문서및API참조",
     "circlesTab": "兴趣커뮤니티",
-    "asksTab": "Q&A",
+    "asksTab": "Q\u0026A",
     "viewAllCircles": "모든 서클 보기",
-    "viewAllAsks": "모든 Q&A 보기"
+    "viewAllAsks": "모든 Q\u0026A 보기"
   },
   "vip": {
     "title": "VIP",
@@ -527,7 +527,7 @@
     "all": "모든",
     "resolved": "해결됨",
     "unresolved": "미해결",
-    "askQuestion": "Q&A 질문",
+    "askQuestion": "Q\u0026A 질문",
     "content": "Content",
     "titlePlaceholder": "질문 제목을 입력해 주세요",
     "contentPlaceholder": "질문 내용을 상세히 작성하세요 (10-2000자)",
@@ -4466,17 +4466,18 @@
       "deleteConfirm": "규칙 \"{name}\"을(를) 삭제하시겠습니까?",
       "deleteParamConfirm": "매개변수 \"{name}\"을(를) 삭제하시겠습니까?",
       "ruleTypes": {
-        "system": "시스템 규칙",
-        "user": "사용자 규칙",
-        "tool": "도구 규칙",
-        "constraint": "제약 규칙"
+        "text": "텍스트",
+        "regex": "정규식",
+        "llm": "LLM"
       },
       "paramId": "ID",
       "paramRuleId": "규칙 ID",
       "paramName": "매개변수 이름",
       "paramCode": "매개변수 코드",
       "paramType": "매개변수 유형",
-      "paramValue": "매개변수 값"
+      "paramValue": "매개변수 값",
+      "description": "설명",
+      "descriptionPlaceholder": "설명 입력"
     },
     "aboutUs": {
       "title": "회사 소개",
@@ -6395,7 +6396,7 @@
     "totalSignups": "신청 총수",
     "totalExams": "시험 총수",
     "totalPosts": "게시물 총수",
-    "totalAsks": "Q&A 총수",
+    "totalAsks": "Q\u0026A 총수",
     "totalResources": "리소스 총수",
     "passRate": "시험 합격률",
     "learnStats": "학습 통계",

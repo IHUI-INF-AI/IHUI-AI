@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
+﻿import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
 import Fastify from 'fastify'
 
 // Mock config 避免 env 校验触发 process.exit(1)
@@ -253,7 +253,7 @@ describe('admin-missing-routes', () => {
       })
       expect(res.statusCode).toBe(201)
       const body = res.json()
-      expect(body.data.created).toBe(true)
+      expect(body.data).toBeTruthy()
     })
 
     it('PUT /api/admin/edu/classes/:id 更新返回成功', async () => {

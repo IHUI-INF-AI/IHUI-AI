@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 前端管理端缺失路由补建（75 个路由）。
  *
  * 来源：GAP_ANALYSIS.md — 前端调用但后端完全未实现的 /api/admin/* 路径。
@@ -14,7 +14,7 @@
  */
 import type { FastifyPluginAsync, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { eq, or, ilike, desc, asc, sql, and } from 'drizzle-orm'
+import { eq, or, ilike, desc, asc, sql, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -43,6 +43,17 @@ import {
   messageTemplates,
   auditLogs,
   sysLogininfor,
+  newsArticles,
+  lessons,
+  learnHomework,
+  cozeVariables,
+  oauthApps,
+  monitorAlerts,
+  suppressionRules,
+  apiLogs,
+  withdrawalFlows,
+  productIdentities,
+  statisticsSnapshots,
 } from '@ihui/database'
 
 const paginationSchema = z.object({
@@ -158,6 +169,89 @@ function registerEmptyStub(server: FastifyInstance, basePath: string) {
   })
 }
 
+function registerCrud(
+  server: FastifyInstance,
+  basePath: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  table: any,
+  opts: {
+    searchField?: any
+    orderBy?: any
+    hasUpdatedAt?: boolean
+    map: (body: Record<string, unknown>) => Record<string, unknown>
+  },
+) {
+  const hasUpdatedAt = opts.hasUpdatedAt !== false
+  server.get(basePath, async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search && opts.searchField ? ilike(opts.searchField, `%${search}%`) : undefined
+    const list = await db
+      .select()
+      .from(table)
+      .where(where)
+      .orderBy(opts.orderBy ?? desc(table.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(table)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.post(basePath, async (request, reply) => {
+    const body = request.body as Record<string, unknown>
+    const [row] = await db.insert(table).values(opts.map(body)).returning()
+    return reply.status(201).send(success(row))
+  })
+  server.put(`${basePath}/:id`, async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const body = request.body as Record<string, unknown>
+    const set: Record<string, unknown> = { ...opts.map(body) }
+    if (hasUpdatedAt) set.updatedAt = new Date()
+    const [row] = await db.update(table).set(set).where(eq(table.id, p.data.id)).returning()
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
+  })
+  server.delete(`${basePath}/:id`, async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(table).where(eq(table.id, p.data.id))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+  server.delete(basePath, async (request, reply) => {
+    const parsed = z
+      .object({ ids: z.string().optional().default('') })
+      .safeParse(request.body ?? {})
+    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
+    const idList = parsed.data.ids.split(',').filter(Boolean)
+    if (idList.length === 0) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(table).where(inArray(table.id, idList))
+    return reply.send(success({ deleted: idList.length }))
+  })
+}
+
+type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'json'
+function fields(fc: Record<string, FieldType>) {
+  return (b: Record<string, unknown>) => {
+    const o: Record<string, unknown> = {}
+    for (const [k, t] of Object.entries(fc)) {
+      if (b[k] === undefined) continue
+      const v = b[k]
+      if (t === 'string') o[k] = v === null ? null : String(v)
+      else if (t === 'number') o[k] = v === null ? null : Number(v)
+      else if (t === 'boolean') o[k] = v === null ? null : Boolean(v)
+      else if (t === 'date') o[k] = v ? new Date(String(v)) : null
+      else o[k] = v
+    }
+    return o
+  }
+}
 export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
@@ -725,7 +819,24 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   registerEmptyStub(server, '/mobile-adapter')
   registerEmptyStub(server, '/mobile-adapter/mode')
   registerEmptyStub(server, '/recommendation-config')
-  registerEmptyStub(server, '/news/information')
+  registerCrud(server, '/news/information', newsArticles, {
+    searchField: newsArticles.title,
+    map: fields({
+      categoryId: 'string',
+      title: 'string',
+      summary: 'string',
+      content: 'string',
+      coverImage: 'string',
+      authorId: 'string',
+      authorName: 'string',
+      isPublished: 'boolean',
+      isPinned: 'boolean',
+      viewCount: 'number',
+      sort: 'number',
+      status: 'number',
+      publishedAt: 'date',
+    }),
+  })
 
   // ===========================================================================
   // 3. 鉴权/用户/系统模块 — 有表路由（真实 CRUD，11 个）
@@ -1290,11 +1401,42 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // 4. 教务/课程模块 — 无表路由（空数据桩，8 个）
   // ===========================================================================
-  registerEmptyStub(server, '/courses')
+  registerCrud(server, '/courses', lessons, {
+    searchField: lessons.title,
+    map: fields({
+      title: 'string',
+      coverImage: 'string',
+      intro: 'string',
+      categoryId: 'string',
+      lecturerId: 'string',
+      lecturerName: 'string',
+      price: 'string',
+      originalPrice: 'string',
+      isFree: 'boolean',
+      isPublished: 'boolean',
+      sort: 'number',
+      viewCount: 'number',
+      signupCount: 'number',
+      lessonCount: 'number',
+      status: 'number',
+    }),
+  })
   registerEmptyStub(server, '/edu/classes')
   registerEmptyStub(server, '/edu/classes/schedules')
   registerEmptyStub(server, '/finance/statistics')
-  registerEmptyStub(server, '/learn/homework')
+  registerCrud(server, '/learn/homework', learnHomework, {
+    searchField: learnHomework.title,
+    map: fields({
+      lessonId: 'string',
+      chapterId: 'string',
+      title: 'string',
+      description: 'string',
+      content: 'json',
+      dueDate: 'date',
+      sort: 'number',
+      status: 'string',
+    }),
+  })
   registerEmptyStub(server, '/learn/materials')
   registerEmptyStub(server, '/learn/plans')
   registerEmptyStub(server, '/learn/reminds')
@@ -1306,8 +1448,30 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   registerEmptyStub(server, '/api-usage/day')
   registerEmptyStub(server, '/api-usage/stats')
   registerEmptyStub(server, '/api-usage/top')
-  registerEmptyStub(server, '/developer/coze')
-  registerEmptyStub(server, '/oauth/apps')
+  registerCrud(server, '/developer/coze', cozeVariables, {
+    searchField: cozeVariables.variableName,
+    map: fields({
+      botId: 'string',
+      variableName: 'string',
+      variableValue: 'string',
+      description: 'string',
+      dataType: 'string',
+    }),
+  })
+  registerCrud(server, '/oauth/apps', oauthApps, {
+    searchField: oauthApps.name,
+    map: fields({
+      clientId: 'string',
+      clientSecret: 'string',
+      name: 'string',
+      description: 'string',
+      redirectUris: 'json',
+      scopes: 'json',
+      icon: 'string',
+      ownerUuid: 'string',
+      isActive: 'number',
+    }),
+  })
   registerEmptyStub(server, '/oauth-audit/stats')
 
   // /api/admin/oss/files — 文件列表（空桩，实际文件由 oss 路由处理）
@@ -1326,11 +1490,49 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   registerEmptyStub(server, '/db-opt/tables')
   registerEmptyStub(server, '/event-bus/events')
   registerEmptyStub(server, '/event-bus/stats')
-  registerEmptyStub(server, '/monitor/alerts')
-  registerEmptyStub(server, '/monitor/alert-rules')
+  registerCrud(server, '/monitor/alerts', monitorAlerts, {
+    searchField: monitorAlerts.name,
+    hasUpdatedAt: false,
+    map: fields({
+      name: 'string',
+      source: 'string',
+      severity: 'string',
+      status: 'string',
+      message: 'string',
+      labels: 'json',
+      annotations: 'json',
+      firedAt: 'date',
+      resolvedAt: 'date',
+    }),
+  })
+  registerCrud(server, '/monitor/alert-rules', suppressionRules, {
+    searchField: suppressionRules.name,
+    map: fields({
+      name: 'string',
+      matchLabels: 'json',
+      matchSource: 'string',
+      isActive: 'boolean',
+      suppressMinutes: 'number',
+    }),
+  })
   registerEmptyStub(server, '/monitor/perf')
   registerEmptyStub(server, '/monitor/services')
-  registerEmptyStub(server, '/monitoring/logs')
+  registerCrud(server, '/monitoring/logs', apiLogs, {
+    searchField: apiLogs.path,
+    hasUpdatedAt: false,
+    map: fields({
+      userId: 'string',
+      method: 'string',
+      path: 'string',
+      statusCode: 'number',
+      duration: 'number',
+      ip: 'string',
+      userAgent: 'string',
+      requestBody: 'json',
+      responseBody: 'json',
+      error: 'string',
+    }),
+  })
   registerEmptyStub(server, '/monitoring/perf')
   registerEmptyStub(server, '/monitoring/services')
   registerEmptyStub(server, '/performance-dashboard/endpoints')
@@ -1345,14 +1547,43 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   registerEmptyStub(server, '/shop/funds/accounts')
   registerEmptyStub(server, '/shop/products')
-  registerEmptyStub(server, '/shop/withdrawal-flow')
+  registerCrud(server, '/shop/withdrawal-flow', withdrawalFlows, {
+    searchField: withdrawalFlows.method,
+    map: fields({
+      userId: 'string',
+      amount: 'number',
+      fee: 'number',
+      originalAmount: 'number',
+      status: 'number',
+      method: 'string',
+      accountInfo: 'json',
+      partnerTradeNo: 'string',
+      paymentNo: 'string',
+      rejectReason: 'string',
+      processedAt: 'date',
+    }),
+  })
   registerEmptyStub(server, '/shop/withdrawals')
 
   // ===========================================================================
   // 8. 相对路径模块 — 无表路由（空数据桩，2 个）
   // ===========================================================================
-  registerEmptyStub(server, '/products')
-  registerEmptyStub(server, '/statistics')
+  registerCrud(server, '/products', productIdentities, {
+    searchField: productIdentities.name,
+    map: fields({
+      name: 'string',
+      code: 'string',
+      type: 'string',
+      value: 'string',
+      description: 'string',
+      status: 'string',
+    }),
+  })
+  registerCrud(server, '/statistics', statisticsSnapshots, {
+    searchField: statisticsSnapshots.type,
+    hasUpdatedAt: false,
+    map: fields({ type: 'string', data: 'json', createdBy: 'string' }),
+  })
 
   // ===========================================================================
   // 9. 补充端点 — 管理员角色/日志/配置（5 个，空数据桩）
