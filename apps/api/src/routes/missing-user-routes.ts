@@ -127,6 +127,8 @@ import { publishAgent } from '../db/agent-queries.js'
 import { findCozeChatHistory } from '../db/coze-chat-queries.js'
 import { listVipLevels } from '../db/vip-queries.js'
 import { findComments } from '../db/comment-queries.js'
+import { isAlipayConfigured, buildSignedUrl } from '../services/alipay.js'
+import { createOrder } from '../db/payment-queries.js'
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -547,34 +549,81 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 8. 代理类 /luyala-proxy/* 和 /openrouter-proxy/*（4 个端点）
+  // 8. 代理类 /openrouter-proxy/*（2 个端点）
+  // 委托到 VENDOR_CONFIGS 机制(chat-models.ts),复用现有 LLM 代理实现。
   // ===========================================================================
-  server.post('/luyala-proxy/chat/completions', async (_request, reply) => {
-    return reply.send(
-      success({
-        id: 'chatcmpl-stub',
-        object: 'chat.completion',
-        choices: [],
-      }),
-    )
-  })
+  const VENDOR_BASES: Record<string, { base: string; keyEnv: string; name: string }> = {
+    openrouter: {
+      base: 'https://openrouter.ai/api/v1',
+      keyEnv: 'OPENROUTER_API_KEY',
+      name: 'OpenRouter',
+    },
+  }
 
-  server.post('/luyala-proxy/video/create', async (_request, reply) => {
-    return reply.send(success({ taskId: null, status: 'pending' }))
-  })
+  async function proxyChatCompletion(
+    vendor: string,
+    body: Record<string, unknown>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const cfg = VENDOR_BASES[vendor]
+    if (!cfg) {
+      reply.status(400).send(error(400, `不支持的厂商: ${vendor}`))
+      return
+    }
+    const key = process.env[cfg.keyEnv] ?? ''
+    if (!key) {
+      reply.status(503).send(error(503, `${cfg.name} 服务未配置`))
+      return
+    }
+    try {
+      const resp = await fetch(`${cfg.base}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify(body),
+      })
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        reply
+          .status(502)
+          .send(error(502, `上游 ${resp.status}: ${JSON.stringify(data).slice(0, 500)}`))
+        return
+      }
+      reply.send(success(data))
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
+      reply.status(502).send(error(502, `调用异常: ${msg}`))
+    }
+  }
 
-  server.post('/openrouter-proxy/chat/completions', async (_request, reply) => {
-    return reply.send(
-      success({
-        id: 'chatcmpl-stub',
-        object: 'chat.completion',
-        choices: [],
-      }),
-    )
+  server.post('/openrouter-proxy/chat/completions', async (request, reply) => {
+    const body = (request.body as Record<string, unknown> | null) ?? {}
+    await proxyChatCompletion('openrouter', body, reply)
   })
 
   server.get('/openrouter-proxy/models', async (_request, reply) => {
-    return reply.send(success({ data: [] }))
+    const cfg = VENDOR_BASES.openrouter
+    if (!cfg) {
+      reply.status(400).send(error(400, '不支持的厂商: openrouter'))
+      return
+    }
+    const key = process.env[cfg.keyEnv] ?? ''
+    if (!key) {
+      reply.status(503).send(error(503, `${cfg.name} 服务未配置`))
+      return
+    }
+    try {
+      const resp = await fetch(`${cfg.base}/models`, {
+        headers: { Authorization: `Bearer ${key}` },
+      })
+      const data = await resp.json().catch(() => ({ data: [] }))
+      if (!resp.ok) {
+        reply.status(502).send(error(502, `上游 ${resp.status}`))
+        return
+      }
+      reply.send(success(data))
+    } catch (e) {
+      reply.status(502).send(error(502, `调用异常: ${(e as Error).message}`))
+    }
   })
 
   // ===========================================================================
@@ -1019,16 +1068,83 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // 16. 基金模块 /fund/*（6 个端点）
   // ===========================================================================
-  server.post('/fund/ali/pay/create', async (_request, reply) => {
-    return reply.send(success({ payUrl: null, orderId: null }))
+  server.post('/fund/ali/pay/create', async (request, reply) => {
+    const body =
+      (request.body as { amount?: number; description?: string; productId?: string } | null) ?? {}
+    if (!body.amount || body.amount <= 0) {
+      return reply.status(400).send(error(400, '缺少 amount 或 amount <= 0'))
+    }
+    const order = await createOrder({
+      userId: request.userId!,
+      amount: Math.round(body.amount * 100),
+      orderType: 0,
+      productId: body.productId,
+      payType: 'alipay',
+      description: body.description,
+    })
+    if (!isAlipayConfigured()) {
+      return reply.send(
+        success({ payUrl: null, orderId: order.id, orderNo: order.orderNo, mock: true }),
+      )
+    }
+    const bizContent = {
+      out_trade_no: order.orderNo,
+      total_amount: body.amount.toFixed(2),
+      subject: body.description ?? '订单支付',
+      product_code: 'FAST_INSTANT_TRADE_PAY',
+    }
+    const payUrl = buildSignedUrl(bizContent, 'alipay.trade.page.pay')
+    return reply.send(success({ payUrl, orderId: order.id, orderNo: order.orderNo }))
   })
 
-  server.post('/fund/ali/pay/create2', async (_request, reply) => {
-    return reply.send(success({ payUrl: null, orderId: null }))
+  server.post('/fund/ali/pay/create2', async (request, reply) => {
+    const body =
+      (request.body as { amount?: number; description?: string; productId?: string } | null) ?? {}
+    if (!body.amount || body.amount <= 0) {
+      return reply.status(400).send(error(400, '缺少 amount 或 amount <= 0'))
+    }
+    const order = await createOrder({
+      userId: request.userId!,
+      amount: Math.round(body.amount * 100),
+      orderType: 0,
+      productId: body.productId,
+      payType: 'alipay',
+      description: body.description,
+    })
+    if (!isAlipayConfigured()) {
+      return reply.send(
+        success({ payUrl: null, orderId: order.id, orderNo: order.orderNo, mock: true }),
+      )
+    }
+    const bizContent = {
+      out_trade_no: order.orderNo,
+      total_amount: body.amount.toFixed(2),
+      subject: body.description ?? '订单支付',
+      product_code: 'FAST_INSTANT_TRADE_PAY',
+    }
+    const payUrl = buildSignedUrl(bizContent, 'alipay.trade.page.pay')
+    return reply.send(success({ payUrl, orderId: order.id, orderNo: order.orderNo }))
   })
 
-  server.get('/fund/ali/pay/alipay/return', async (_request, reply) => {
-    return reply.send(success({ success: true }))
+  server.get('/fund/ali/pay/alipay/return', async (request, reply) => {
+    const query =
+      (request.query as { orderNo?: string; out_trade_no?: string; trade_no?: string } | null) ?? {}
+    const orderNo = query.orderNo ?? query.out_trade_no
+    if (!orderNo) {
+      return reply.status(400).send(error(400, '缺少 orderNo'))
+    }
+    const order = await findOrderByOrderNo(orderNo)
+    if (!order) {
+      return reply.status(404).send(error(404, '订单不存在'))
+    }
+    return reply.send(
+      success({
+        success: true,
+        orderNo: order.orderNo,
+        status: order.status,
+        tradeNo: query.trade_no ?? null,
+      }),
+    )
   })
 
   server.get('/fund', async (request, reply) => {
