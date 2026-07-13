@@ -253,6 +253,36 @@
       5. header 优先级覆盖 host（2 用例）
     - 技术要点: `vi.mock` mock config + db 模块，避免 import 时 env 校验 process.exit(1)
     - 验证: 单测 20/20 通过 / 全量 1027/1027（1007+20 新增）通过 / typecheck 0 错误
+- [x] ✅(2026-07-13) R15 三维度深度审查 + P0 修复（commit 待提交，4 files）:
+  - 触发: 用户选择"继续深度审查"，启动 3 个并行 search agent 审查 onRequest 钩子/路径白名单/单测盲区
+  - 审查发现（3 份报告）:
+    1. **onRequest 钩子逻辑缺陷**: 5 高危 + 9 中危
+    2. **路径白名单不一致**: tenant/csrf PUBLIC_PREFIXES 严重不完整 + 5 安全漏洞
+    3. **单测盲区**: 26 模块 77 函数未测，5 整模块零测试
+  - P0 修复（3 文件）:
+    1. **prompt-injection-guard.ts** — onRequest→preHandler（修复钩子完全失效）+ 限制仅 AI 路径（避免误杀登录/支付）
+       - 原 onRequest 阶段 body 未解析，钩子完全不生效（安全防御空洞）
+       - 新增 AI_PATH_PREFIXES 白名单: /api/chat、/api/ai/、/api/clawdbot、/api/coze、/api/workspace
+    2. **tenant.ts PUBLIC_PREFIXES** — 5 条 → 16 条
+       - 新增: /api/auth/、/api/sms-proxy/、/api/oauth/、/api/payments/、/api/ai/callback、/api/tbox/events、/api/csrf-token、/api/configs、/api/settings、/api/agreements/、/api/exchange-rates/、/api/share/、/api/openapi/
+       - isPublicPath 前缀匹配修复: `path.startsWith(p)` → `path === p || path.startsWith(p.endsWith('/') ? p : p + '/')`（防止 /api/authlogin 误命中 /api/auth/）
+       - isPublicPath 导出供测试
+    3. **csrf.ts PUBLIC_PREFIXES** — 7 条 → 6 条（移除 3 无效 + 合并）
+       - 移除: /api/payment/callback（拼写错误）、/api/payments/callback（不存在）、/api/webhook（不存在）
+       - 新增: /api/auth/（覆盖全部认证端点）、/api/sms-proxy/、/api/oauth/、/api/payments/、/api/tbox/events
+       - 前缀匹配修复: 同 tenant.ts isPublicPath 逻辑
+    4. **tenant-resolver.test.ts** — 新增 isPublicPath 测试 17 用例
+       - 精确匹配 / 子路径 / querystring / 前缀边界防护
+  - 验证: typecheck 0 错误 / 单测 37/37 通过 / 全量 1044/1044（1027+17 新增）通过
+  - 未修复的中低危问题（待后续迭代）:
+    - tenant-db-isolation.ts sql.raw 拼接（需重构为白名单校验）
+    - server.ts CORS_ORIGIN split 未 trim
+    - metrics.ts route 指标未 split('?')
+    - distributed-rate-limit.ts header 未归一化
+    - xss-protection.ts 嵌套绕过
+    - upload-scanner.ts mp4 魔数检测错误
+    - auth.ts Bearer 大小写敏感
+    - 5 整模块零测试（response-sanitizer/xss-protection/upload-scanner/csrf/prompt-injection-guard）
 
 ---
 

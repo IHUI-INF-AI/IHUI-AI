@@ -20,7 +20,7 @@ vi.mock('../src/db/index.js', () => ({
   },
 }))
 
-import { resolveTenantIdentifier } from '../src/plugins/tenant.js'
+import { resolveTenantIdentifier, isPublicPath } from '../src/plugins/tenant.js'
 
 /** 构造最小 mock request，仅含 resolveTenantIdentifier 依赖的 headers + hostname。 */
 function mockReq(opts: { header?: string; host?: string }): FastifyRequest {
@@ -122,5 +122,75 @@ describe('resolveTenantIdentifier — header 优先级覆盖 host', () => {
     expect(resolveTenantIdentifier(mockReq({ header: 'from-header', host: '127.0.0.1' }))).toBe(
       'from-header',
     )
+  })
+})
+
+describe('isPublicPath — 公开路径白名单（R15 补全）', () => {
+  it('精确匹配 /api/health → true', () => {
+    expect(isPublicPath('/api/health')).toBe(true)
+  })
+
+  it('/api/health/ready → true（子路径）', () => {
+    expect(isPublicPath('/api/health/ready')).toBe(true)
+  })
+
+  it('/api/health?ts=1 → true（带 querystring）', () => {
+    expect(isPublicPath('/api/health?ts=1')).toBe(true)
+  })
+
+  it('/api/auth/login → true（/api/auth/ 前缀）', () => {
+    expect(isPublicPath('/api/auth/login')).toBe(true)
+  })
+
+  it('/api/auth/refresh → true', () => {
+    expect(isPublicPath('/api/auth/refresh')).toBe(true)
+  })
+
+  it('/api/oauth/token → true（/api/oauth/ 前缀）', () => {
+    expect(isPublicPath('/api/oauth/token')).toBe(true)
+  })
+
+  it('/api/payments/wechat/notify → true（/api/payments/ 前缀）', () => {
+    expect(isPublicPath('/api/payments/wechat/notify')).toBe(true)
+  })
+
+  it('/api/csrf-token → true（精确匹配）', () => {
+    expect(isPublicPath('/api/csrf-token')).toBe(true)
+  })
+
+  it('/api/configs → true（精确匹配）', () => {
+    expect(isPublicPath('/api/configs')).toBe(true)
+  })
+
+  it('/docs → true', () => {
+    expect(isPublicPath('/docs')).toBe(true)
+  })
+
+  it('/docs/json → true（子路径）', () => {
+    expect(isPublicPath('/docs/json')).toBe(true)
+  })
+
+  it('/openapi.json → true', () => {
+    expect(isPublicPath('/openapi.json')).toBe(true)
+  })
+
+  it('/api/admin/users → false（非公开）', () => {
+    expect(isPublicPath('/api/admin/users')).toBe(false)
+  })
+
+  it('/api/users/profile → false（非公开）', () => {
+    expect(isPublicPath('/api/users/profile')).toBe(false)
+  })
+
+  it('/api/authlogin → false（前缀边界防护）', () => {
+    expect(isPublicPath('/api/authlogin')).toBe(false)
+  })
+
+  it('/api/healthxxx → false（前缀边界防护）', () => {
+    expect(isPublicPath('/api/healthxxx')).toBe(false)
+  })
+
+  it('/api/csrf-token-xyz → false（精确匹配边界）', () => {
+    expect(isPublicPath('/api/csrf-token-xyz')).toBe(false)
   })
 })
