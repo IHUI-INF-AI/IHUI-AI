@@ -97,6 +97,11 @@
   - 修复: 补齐 schema 导出 + 提交全部 R4 重构产物（之前未跟踪的 19 个文件）
   - 新增内容: `ai_vendor_configs` 表（schema+migration）+ 4 个 service（config/auth-strategies/caller/error-handler）+ admin 端点 DB 驱动迁移 + `aiVendorV2Routes` 新签名样板（6 个端点）+ 启动时异步初始化 + `init:vendors` 脚本
   - 验证: api typecheck 0 错误 / api test 935/935 全通过（新增 41 个测试）/ pre-commit 全绿
+- [x] ✅(2026-07-13) R7 课程审计比较+回收站还原 5 个缺口端点补建（commit 665aec244，1 file +68 -1）:
+  - 调查: 前端 `audit/page.tsx` openCompare 函数调用 4 个端点 + `trash/page.tsx` 调用 1 个 restore 端点，全部 404
+  - 补建: `admin-missing-routes.ts` 在 `registerCrud(server, '/courses', lessons, ...)` 之后追加 5 个端点 — GET /courses/:id 课程详情(审计before快照) + GET /courses/temp/:id 课程临时表(审计after快照) + POST /courses/:id/restore 软删除还原(status=0→1) + GET /course-videos/:id 视频详情 + GET /course-videos/temp/:id 视频临时表
+  - 决策: 不扩展 registerCrud 签名（避免影响 14+ 个调用点），直接追加专用端点；temp 表字段不足但前端 Snapshot 是 Record 类型容忍缺失；lessons 表无 deletedAt 字段，用 status=0 表示软删除
+  - 验证: api typecheck 0 错误 / api test 935/935 全通过 / pre-commit 全绿
 - [x] ✅(2026-07-13) R6 AI 厂商配置管理重构 — 端到端收尾验证:
   - 验证: api typecheck 0 错误 / api lint 0 errors (2 warnings 为 `admin-missing-routes.ts` 历史遗留，与本次重构无关) / api test 78 files / 935 tests 全通过 / 新增 4 个测试文件 (`vendor-auth-strategies` 23 + `vendor-error-handler` 8 + `ai-vendor-config-service` 10 + `ai-vendor-v2-routes` 4 = 50 tests，+ 5 init-vendor-configs) 合计 60 个新测试
   - 服务可用性: 启动钩子 `initVendorConfigs` 在 DB 不可用时静默降级（warn 后继续），admin 端点 `listAllVendorsWithStatus` 内部自动 fallback 到 `FALLBACK_VENDORS`，保证不阻塞 listen
