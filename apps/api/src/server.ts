@@ -163,6 +163,14 @@ import { adminErrorDashboardRoutes } from './routes/admin-error-dashboard.js'
 import { adminApiPlatformRoutes } from './routes/admin-api-platform.js'
 // 前端管理端缺失路由补建（75 个路由：24 真实 CRUD + 51 空数据桩）
 import { adminMissingRoutes } from './routes/admin-missing-routes.js'
+// 内容运营真实 CRUD（6 个端点，替代 admin-missing-routes 中的空桩）
+import { adminContentOpsRoutes } from './routes/admin-content-routes.js'
+// 鉴权/教育/学习真实 CRUD（11 个端点，替代空桩）
+import { adminAuthEduRoutes } from './routes/admin-auth-edu-routes.js'
+// 监控/统计真实聚合（19 个端点，替代空桩）
+import { adminMonitoringRoutes } from './routes/admin-monitoring-routes.js'
+// 商城扩展真实 CRUD
+import { adminShopRoutes } from './routes/admin-shop-routes.js'
 // 前端用户端缺失路由补建（54 个路由：空数据桩）
 import { missingUserRoutes } from './routes/missing-user-routes.js'
 
@@ -694,6 +702,10 @@ function registerRoutes(server: FastifyInstance) {
   // 24 条有表路由（真实 CRUD）+ 51 条无表路由（空数据桩）
   // 覆盖：内容运营 / 鉴权 / 教务 / 平台 / 监控 / 商城 等模块
   server.register(adminMissingRoutes, { prefix: '/api/admin' })
+  server.register(adminContentOpsRoutes, { prefix: '/api/admin' })
+  server.register(adminAuthEduRoutes, { prefix: '/api/admin' })
+  server.register(adminMonitoringRoutes, { prefix: '/api/admin' })
+  server.register(adminShopRoutes, { prefix: '/api/admin' })
 
   // ===== 前端用户端缺失路由补建（54 个路由）=====
   // 全部空数据桩，覆盖：文章 / 内容生成 / 知识库 / 技能 / 学习记录 / MCP / OpenClaw
