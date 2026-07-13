@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
+import { parsePath } from '../utils/http-normalize.js'
 
 /**
  * 请求指标收集插件。
@@ -72,12 +73,13 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
     metrics.responseTimeSum += elapsed
     metrics.responseTimeCount++
 
-    // 方法统计
-    const method = request.method
+    // 方法统计（归一化大写，与 audit.ts 一致）
+    const method = request.method.toUpperCase()
     metrics.requestsByMethod.set(method, (metrics.requestsByMethod.get(method) ?? 0) + 1)
 
-    // 路由统计(用 request.routeOptions?.url 或 request.url)
-    const route = request.routeOptions?.url ?? request.url
+    // 路由统计（剥离 querystring 防止 metric 基数爆炸）
+    const rawRoute = request.routeOptions?.url ?? request.url
+    const route = parsePath(rawRoute)
     metrics.requestsByRoute.set(route, (metrics.requestsByRoute.get(route) ?? 0) + 1)
 
     // 状态码统计
