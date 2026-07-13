@@ -1678,18 +1678,6 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
 
   // ===========================================================================
   // 7. 商城模块 — 无表路由（空数据桩，4 个）
-  // ===========================================================================
-  server.patch('/shop/products/:id/status', async (request, reply) => {
-    const p = idParamSchema.safeParse(request.params)
-    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(
-      success({
-        id: p.data.id,
-        status: (request.body as { status?: string })?.status ?? '',
-        updated: true,
-      }),
-    )
-  })
   registerCrud(server, '/shop/withdrawal-flow', withdrawalFlows, {
     searchField: withdrawalFlows.method,
     map: fields({
