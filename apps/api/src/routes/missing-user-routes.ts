@@ -27,6 +27,8 @@ import {
   isSignedUp,
   findSignUp,
   updateProgress,
+  findSignUpById,
+  updateSignUpById,
 } from '../db/learn-queries.js'
 import {
   findOrderByOrderNo,
@@ -132,11 +134,6 @@ const paginationSchema = z.object({
 })
 
 const idParamSchema = z.object({ id: z.string() })
-
-/** 空列表响应 */
-function emptyList(page: number, pageSize: number) {
-  return success({ list: [], total: 0, page, pageSize })
-}
 
 /** 解析分页参数，失败返回 null 并发送 400 */
 function parsePagination(request: FastifyRequest, reply: FastifyReply) {
@@ -348,13 +345,40 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/study/records', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findMyLessons(request.userId!, { page: q.page, pageSize: q.pageSize })
+    const list = result.list.map((item) => ({
+      id: item.id,
+      userId: request.userId,
+      courseId: item.categoryId,
+      courseTitle: item.title,
+      lessonId: item.id,
+      lessonTitle: item.title,
+      duration: 0,
+      progress: item.progress,
+      status: item.signupStatus >= 2 ? 'completed' : 'in_progress',
+      lastStudyAt: item.signupCreatedAt.toISOString(),
+      createdAt: item.signupCreatedAt.toISOString(),
+    }))
+    return reply.send(success({ list, total: result.total, page: q.page, pageSize: q.pageSize }))
   })
 
   server.get('/study/records/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ record: null }))
+    const signup = await findSignUpById(id, request.userId!)
+    if (!signup) return reply.status(404).send(error(404, '学习记录不存在'))
+    return reply.send(
+      success({
+        record: {
+          id: signup.id,
+          userId: signup.userId,
+          lessonId: signup.lessonId,
+          progress: signup.progress,
+          status: signup.status >= 2 ? 'completed' : 'in_progress',
+          createdAt: signup.createdAt.toISOString(),
+        },
+      }),
+    )
   })
 
   // POST /study/records - 记录学习（真实化：报名课程 + 可选更新进度）
@@ -396,7 +420,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // PUT /study/records/:id - 更新学习进度（真实化：updateProgress）
+  // PUT /study/records/:id - 更新学习进度（真实化：updateSignUpById 按 id 更新）
   server.put('/study/records/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
@@ -410,8 +434,11 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '参数错误'))
     }
     const userId = request.userId!
-    const progress = body.data.progress ?? 0
-    const updated = await updateProgress(id, userId, progress)
+    const statusMap = { in_progress: 1, completed: 2, paused: 1 } as const
+    const updated = await updateSignUpById(id, userId, {
+      progress: body.data.progress,
+      status: body.data.status ? statusMap[body.data.status] : undefined,
+    })
     if (!updated) return reply.status(404).send(error(404, '学习记录不存在或未报名'))
     return reply.send(
       success({
