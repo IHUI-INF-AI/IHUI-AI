@@ -56,6 +56,13 @@
 - [x] ✅(2026-07-12) P2: Java 辅助端点补齐 3 个（D17 /circles/hot、D18 /circles/member-count、D19 /work-wechat/token）
 - [x] ✅(2026-07-12) P2: Vue tool/gen 代码生成器 + Crontab 评估完成 — 新架构用 Drizzle ORM 替代，按"做减法"原则不迁移（开发期工具非业务功能）
 - [x] ✅(2026-07-12) 验证: database typecheck 0 错误 / api typecheck 0 错误 / miniapp-taro typecheck 0 错误
+- [x] ✅(2026-07-12) 集成测试: D17/D18/D19 三个新端点 13 个测试全部通过（API 总测试 873 全部通过）
+- [x] ✅(2026-07-12) 组件集成: Ranking+Loading 集成到 ranking 页面，NavBar 集成到 share 页面
+- [x] ✅(2026-07-12) Migration 注册: 0054_missing_relation_tables 注册到 _journal.json（idx 54）
+- [x] ✅(2026-07-13) 数据库迁移执行: migration 0054 实际应用到 PostgreSQL 17.10，3 张表+8 索引+3 外键全部创建成功（数据库表总数 170→173）
+- [x] ✅(2026-07-13) 修复 pre-existing 路由冲突: admin-missing-routes.ts 与 system.ts 的 /logs /configs 重复注册；missing-user-routes.ts 与 order.ts/ai-user-model-chat.ts/promotions.ts 的 9 个重复空桩；order.ts 与 refund-audit.ts 的 /refunds/:id 重复
+- [x] ✅(2026-07-13) API 服务端到端验证: 服务成功启动监听 8080 端口，D17/D18/D19 三个新端点实际 HTTP 调用全部返回 200（D17 返回 10 个圈子数据，D18 返回 memberCount，D19 真实调用企业微信 API）
+- [x] ✅(2026-07-13) 最终全量验证: api/database/miniapp-taro typecheck 全绿，api test 873/873 通过
 
 ---
 
@@ -2181,3 +2188,89 @@ R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39
 | `.includes('请求失败')` 字符串匹配 | 14处   | ApiError + isNotFound()                | ✅ 清零 |
 | helpers.ts 硬编码中文              | ~155条 | i18n key 模式 + exportFromApi 翻译参数 | ✅ 清零 |
 | models/helpers.ts 硬编码中文       | 156处  | i18n key 模式 + ModelsGrid 翻译        | ✅ 清零 |
+
+## R91 后端统一错误码系统 — AppError + ErrorCode 枚举（2026-07-12）✅
+
+> 新建 `apps/api/src/errors/` 目录，定义 AppError 基类 + 14个错误码枚举。修复5个自定义 Error 类未设 statusCode（继承 AppError）。auth 包抛带 statusCode 的错误。前端 ApiError 扩展 errorCode 字段，形成端到端契约。
+
+### 架构设计
+
+1. **新建 `AppError` 基类**（`apps/api/src/errors/AppError.ts`）：继承 Error，携带 `statusCode` + `errorCode`
+2. **新建 `ErrorCode` 枚举**（`apps/api/src/errors/codes.ts`）：14个错误码（HTTP-aligned + 业务标识符）
+3. **扩展 `ApiError` 接口**（`apps/api/src/utils/response.ts`）：增加可选 `errorCode?: string`
+4. **修改全局 `errorHandler`**（`apps/api/src/server.ts`）：识别 AppError 并透传 errorCode 到响应体
+5. **5个自定义 Error 类继承 AppError**：OptimisticLockError(409)、MoneyError(400)、DistributedLockError(423)、TZError(400)、MemberConflictError(409)
+6. **auth 包加 statusCode**（`packages/auth/src/jwt.ts`）：getJwtSecret→500、verifyAccessToken→401、verifyRefreshToken→401
+7. **前端端到端契约**：ApiResult + ApiError + fetchApi + eduApi 全链路传递 errorCode
+
+### 端到端契约链路
+
+```
+后端 AppError(statusCode, errorCode)
+  → errorHandler 透传
+  → JSON { code, message, errorCode }
+  → fetchApi 解析
+  → ApiResult { error, status, errorCode }
+  → eduApi 抛出 ApiError(message, status, errorCode)
+  → 页面 isNotFound(error) / isErrorCode(err, 'MEMBER_EXISTS')
+```
+
+### 新增错误码
+
+| errorCode           | status | 用途             |
+| ------------------- | ------ | ---------------- |
+| VALIDATION_FAILED   | 400    | 参数校验失败     |
+| UNAUTHORIZED        | 401    | 未登录           |
+| FORBIDDEN           | 403    | 权限不足         |
+| NOT_FOUND           | 404    | 资源不存在       |
+| CONFLICT            | 409    | 冲突             |
+| RATE_LIMITED        | 429    | 限流             |
+| LOCKED              | 423    | 分布式锁         |
+| INTERNAL_ERROR      | 500    | 服务器错误       |
+| UPSTREAM_FAILURE    | 502    | 上游 AI 服务失败 |
+| SERVICE_UNAVAILABLE | 503    | 依赖不可用       |
+| MEMBER_EXISTS       | 409    | 会员已存在       |
+| OPTIMISTIC_LOCK     | 409    | 乐观锁冲突       |
+| INVALID_MONEY       | 400    | 金额格式错误     |
+| INVALID_TIMEZONE    | 400    | 时区错误         |
+
+### 验证结果
+
+- `pnpm --filter @ihui/api typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/api test` — ✅ 873个测试全部通过
+
+## R92 i18n key 校验脚本改进 + CI 集成 + 历史缺失键修复（2026-07-12）✅
+
+> 重写 `scripts/check-i18n-keys.mjs`（215行→322行），全语言覆盖 + getTranslations 识别 + 扩大扫描范围。新增 `.github/workflows/i18n-check.yml` CI 守门。修复2个历史遗留 i18n 缺失键。
+
+### 脚本改进点
+
+| 改进            | 旧版                  | 新版                                                  |
+| --------------- | --------------------- | ----------------------------------------------------- |
+| 语言覆盖        | 2/5（zh-CN + en）     | 5/5（zh-CN + en + ja + ko + zh-TW）                   |
+| 扫描范围        | 仅 apps/web/app/*.tsx | apps/web/**/*.ts + *.tsx                              |
+| getTranslations | 不识别                | 识别 useTranslations + getTranslations                |
+| 多命名空间      | 只取第一个            | 基于变量名精确归属（t/tc/te）                         |
+| CI 集成         | 无                    | `.github/workflows/i18n-check.yml`                    |
+| 双模式退出码    | 统一 exit 1           | --staged: exit 1 / 全量: exit 0（历史遗留标 warning） |
+
+### CI workflow
+
+- 触发：push/PR to main/develop，paths 过滤 apps/web/**
+- 运行：`pnpm check:i18n-keys`（全量模式）
+- 当前策略：历史遗留问题标 WARNING（exit 0），新问题在 --staged 模式阻止提交
+
+### 历史缺失键修复
+
+| 文件                             | 缺失键             | 修复方式                                             |
+| -------------------------------- | ------------------ | ---------------------------------------------------- |
+| `mcp-projects/page.tsx`          | `common.resources` | 5语言文件 common 命名空间添加 resources 键           |
+| `student/papers/PaperDialog.tsx` | `student.cancel`   | papers 命名空间添加 cancel 键 + 代码改用 t('cancel') |
+
+### 验证结果
+
+- `node scripts/check-i18n-keys.mjs` — ✅ 通过（661 文件，6708 键，5 语言 parity OK）
+- `pnpm --filter @ihui/api typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/api test` — ✅ 873个测试全部通过

@@ -11,9 +11,11 @@
  * 5. 业务函数 (updateFn) 抛出的错误不重试，直接向上抛出。
  */
 
-export class OptimisticLockError extends Error {
+import { AppError } from '../errors/AppError.js'
+
+export class OptimisticLockError extends AppError {
   constructor(message: string) {
-    super(message)
+    super(message, 409, 'OPTIMISTIC_LOCK')
     this.name = 'OptimisticLockError'
   }
 }
