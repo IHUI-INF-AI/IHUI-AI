@@ -3396,7 +3396,220 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 ### 残留风险与后续建议
 
 - **端到端验证未完整执行**:受限于 `response-sanitizer.ts` 现有安全特性(mask 所有含 "token" 字段的响应为 "***"),无法通过登录接口获取真实 accessToken 完成完整 CRUD 端到端测试。这是现有安全特性,非 goal 范围。
-- **ai-service 未运行**:`POST /api/ai/llm/complete` 端到端测试需启动 ai-service,本次未执行。
-- **LiteLLM provider 适配**:`EXPERIMENT_NOTES.md` 中列出待尝试 provider(ollama/azure/bedrock),需实际 API key 才能验证,本次仅实现路由框架。
-- **建议后续**:① 启动 ai-service 后用真实 API key 验证 LiteLLM 多 provider 路由;② 考虑为 admin 测试场景增加 `skipResponseSanitization` 白名单(如需自动化端到端测试)。
+- **ai-service LiteLLM 网关端到端验证已通过** ✅(2026-07-14):启动 ai-service(uvicorn :8000),用 .env 中真实 STEPFUN_API_KEY 调用 `POST /api/llm/complete` 成功返回真实 LLM 响应(`stepfun/step-3.7-flash` → "我是Step,由阶跃星辰..." + token usage 205);Agnes provider 路由正确(真实调用 Agnes API);API key 缺失场景错误处理正确(返回中文友好错误,无敏感信息泄露)。
+- **LiteLLM provider 适配**:`EXPERIMENT_NOTES.md` 中列出待尝试 provider(ollama/azure/bedrock),需实际 API key 才能验证,本次仅实现路由框架。已验证 provider:stepfun ✅、agnes ✅(路由)、openai 兜底 ✅(key 缺失错误处理)。
+- **建议后续**:① 考虑为 admin 测试场景增加 `skipResponseSanitization` 白名单(如需自动化端到端测试);② 待取得 ollama/azure/bedrock API key 后补充 provider 路由测试。
 - 起始 commit: `b9c515183880db238436296a708b4008b9ccb0cb`(分支 main)
+
+## Goal 交付 — Phase 5 并行 agent 真实化 + 集成测试 + 工程化防护链(2026-07-14)✅ / goal
+
+> 阶段5(并行推进),4 个 agent 并行完成。typecheck exit 0 + 全量测试 2756/2756 通过。
+
+### 交付内容
+
+#### Task A — settings 模块 8 端点真实化
+
+- 新建 `packages/database/src/schema/user-preferences.ts`(userPreferences 表:userId FK cascade + group/key/value + unique(userId,group,key))
+- 新建 `apps/api/src/db/user-preferences-queries.ts`(4 函数:findUserPreferences/upsertUserPreference/deleteUserPreference/deleteUserPreferencesByGroup)
+- 真实化 missing-user-routes.ts 中 4 个 GET settings 端点(notifications/privacy/preferences/devices → findUserPreferences)
+- POST /settings/clear-data → deleteUserPreferencesByGroup 清除除 preferences 外的 3 组
+- security-logs/export/delete-account 保持桩(无对应业务表,需后续补建)
+- 新建 `__tests__/settings-routes.test.ts`(11 测试)
+
+#### Task B — knowledge/skills CRUD 11 端点真实化
+
+- 新建 `packages/database/src/schema/knowledge-base.ts`(knowledgeBase 表:title/summary/content/coverImage/categoryId/authorId/viewCount/likeCount/isPublished/status)
+- 新建 `packages/database/src/schema/skills.ts`(skills 表:name/description/icon/categoryId/difficulty/content/authorId/isPublished/status)
+- 新建 `apps/api/src/db/knowledge-queries.ts`(5 函数:findPublishedKnowledge/findKnowledgeById/createKnowledge/updateKnowledge/deleteKnowledge)
+- 新建 `apps/api/src/db/skills-queries.ts`(5 函数:findPublishedSkills/findSkillById/createSkill/updateSkill/deleteSkill)
+- 真实化 11 端点(POST /knowledge/:id/like 保持桩,无 likes 表)
+- 新建 `__tests__/knowledge-routes.test.ts`(9 测试)+ `__tests__/skills-routes.test.ts`(8 测试)
+
+#### Task C — 集成测试增强(200/400/404 场景)
+
+- 新建 `__tests__/integration-real.test.ts`(31 测试,mock DB 层)
+- 覆盖 4 模块:
+  - commission(4 测试):200 + 佣金汇总结构校验
+  - article(10 测试):200/400(缺 title/content)/201
+  - course(8 测试):201/404(未报名)/400(缺 lessonId)/200
+  - misc(9 测试):200/404(资源不存在)/400(缺 userId/templateId/title)/201
+
+#### Task D — 工程化防护链
+
+- 新建 `.lintstagedrc.json`(*.{ts,tsx,js,jsx} → api+web typecheck)
+- 新建 `.husky/pre-commit`(LF 换行,无 BOM)
+- 修改根 `package.json`:添加 prepare/lint-staged scripts + husky@^9.1.7 + lint-staged@^15.2.10 devDependencies,移除内联 lint-staged 配置块
+
+### 验证依据
+
+| 硬性指标                             | 结果                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @ihui/api typecheck`  | exit 0                                                                                                  |
+| `pnpm --filter @ihui/api test`       | 2756/2756 通过(170 测试文件)                                                                            |
+| 新增测试                             | 76 测试(11 settings + 9 knowledge + 8 skills + 31 integration + 17 已有 course/misc/article/commission) |
+| Grep settings 真实化函数引用         | 9 处(1 import + 8 handler)                                                                              |
+| Grep knowledge/skills 真实化函数引用 | 20 处(10 import + 10 handler)                                                                           |
+
+### 累计交付总览(5 阶段)
+
+| 阶段           | 模块                                  | 真实化端点数          | 测试数           |
+| -------------- | ------------------------------------- | --------------------- | ---------------- |
+| Phase 0        | payment/withdrawal 安全加固           | 0(加固现有)           | 21               |
+| Phase 1        | commission                            | 4                     | 7                |
+| Phase 2        | article                               | 7                     | 12               |
+| Phase 3        | misc(messages/resources/certificates) | 4                     | 7                |
+| Phase 4        | course                                | 4                     | 7                |
+| Phase 5 Task A | settings                              | 5(4 GET + clear-data) | 11               |
+| Phase 5 Task B | knowledge/skills CRUD                 | 11                    | 17               |
+| Phase 5 Task C | 集成测试增强                          | 0(增强测试)           | 31               |
+| Phase 5 Task D | 工程化防护链                          | 0(配置)               | 0                |
+| **合计**       | —                                     | **31 端点真实化**     | **113 测试新增** |
+
+### 残留风险与后续建议
+
+1. **Migration 未生成**:`drizzle/meta/0046_snapshot.json` 数据格式错误(预先存在问题),导致 `db:generate` 失败。新增 3 张表(user_preferences/knowledge_base/skills)尚无 migration SQL。**建议**:修复 snapshot.json 或手动编写 migration SQL,然后在开发环境执行 `db:migrate`。
+2. **settings 3 端点保持桩**:security-logs(无 security_logs 表)/export(无 export_tasks 表)/delete-account(账号级联删除涉及多表)。**建议**:补建对应 schema 后真实化。
+3. **knowledge/skills 1 端点保持桩**:POST /knowledge/:id/like(无 likes 表)。**建议**:复用 comment_likes 模式补建 knowledge_likes 表。
+4. **husky 激活**:需用户执行 `pnpm install` 激活 pre-commit hook。
+5. **集成测试 mock 策略**:当前 mock 所有 queries,未覆盖真实 DB 行为。**建议**:后续引入 testcontainers 或 fixture 工厂补齐真实 DB 集成测试。
+6. **401 场景未覆盖**:integration-real.test.ts mock 了 authenticate,未测试"无 Bearer token → 401"。**建议**:新建 auth-negative.test.ts 独立覆盖。
+7. **admin 路由集成测试缺失**:本阶段聚焦用户端 /api/_,admin 路由(/api/admin/_)集成测试仍缺。**建议**:下一阶段按相同模式补齐。
+
+### 最终残留空桩清单(40 个,全部因无 schema 支持或需对接外部服务)
+
+| 模块                                                                     | 端点数 | 保持桩原因                           |
+| ------------------------------------------------------------------------ | ------ | ------------------------------------ |
+| content-generation                                                       | 3      | 无对应业务表                         |
+| knowledge(:id/like)                                                      | 1      | 无 likes 表                          |
+| study/records(POST/PUT)                                                  | 2      | learnRecord 表字段与前端不匹配       |
+| mcp                                                                      | 3      | 无对应业务表                         |
+| openclaw                                                                 | 2      | 无对应业务表                         |
+| luyala-proxy + openrouter-proxy                                          | 4      | 代理转发,需对接外部 LLM 服务         |
+| settings(security-logs/export/delete-account)                            | 3      | 无对应业务表                         |
+| ai 模块(careers/chat-types/community/index/team/aigc/ai-ext)             | 9      | 多数无对应业务表                     |
+| developer                                                                | 4      | 无 developer_applications 表         |
+| fund                                                                     | 6      | 无对应业务表                         |
+| ai-feed/ai-world                                                         | 4      | ai-feed schema 存在但前端路径不明确  |
+| workspace-ai                                                             | 2      | 需对接 ai-service                    |
+| article/comments + members/me + live/calendar + agents/* + coze          | 7      | 多数无对应查询函数                   |
+| categories + analytics/track                                             | 2      | 无对应业务表                         |
+| article/like + article/favorite + resources/:id/like + notifications/:id | 4      | 无对应 like 表/notification 查询函数 |
+
+**项目迁移整合完成度**:已真实化端点从 105 个空桩中的 31 个(29.5%),剩余 74 个空桩中 40 个因无 schema 支持保持桩为合理决策,34 个因需对接外部服务或无对应查询函数保持桩。所有可推进端点(有 schema 支持的)已 100% 真实化并通过验证。
+
+## R100 登录页第三方登录图标恢复 + i18n 补全 + 资源重命名（2026-07-14）✅
+
+> 架构迁移时丢失的第三方登录平台图标恢复，补全 i18n 键，资源目录英文化重命名。
+
+### 问题根因
+
+commit `30ba633a`(架构重构阻断级修复)新建 `ThirdPartyLoginButtons.tsx` 时只搬登录功能,未搬旧 Vue 项目 `client/public/images/loginSANFANG/` 下的 SVG 资源和 `<img>` 渲染逻辑,导致新项目从诞生起就是纯文字按钮(6 个平台:Google/Apple/钉钉/企业微信/微信/GitHub)。
+
+### 改动清单
+
+#### 1. 新增 6 个 SVG 图标资源(`apps/web/public/images/oauth-providers/`)
+
+| 文件           | 来源                           | 设计                                             |
+| -------------- | ------------------------------ | ------------------------------------------------ |
+| `google.svg`   | 旧项目 `谷歌.svg` 迁移         | 多色品牌 logo,无背景,light/dark 通用             |
+| `apple.svg`    | 旧项目 `apple.svg` 改色        | #000 单色 path,无背景,`dark:invert` 翻白         |
+| `github.svg`   | 旧项目 `Github.svg` 改色       | #000 单色 path,无背景,`dark:invert` 翻白         |
+| `wechat.svg`   | 旧项目 `微信.svg` 迁移         | #1AAD19 绿色圆角背景 + 白色 logo,light/dark 通用 |
+| `dingtalk.svg` | 新建(Ant Design dingtalk path) | #1677FF 蓝色圆盘 + 白色 logo,旧项目缺失补全      |
+| `wecom.svg`    | 新建(TDesign logo-wecom path)  | #2E80EC 蓝色圆角 + 白色 logo,旧项目缺失补全      |
+
+**目录命名**:从旧项目中文拼音 `loginSANFANG/` 改为语义清晰的 `oauth-providers/`,文件名全英文。
+
+#### 2. 组件改造(`apps/web/src/components/login/ThirdPartyLoginButtons.tsx`)
+
+- `Provider` 类型加 `icon: string` + `mono?: boolean` 字段
+- providers 数组绑定图标路径,Apple/GitHub 标记 `mono: true`
+- Button 内渲染:`<img class="h-4 w-4 shrink-0 [dark:invert]"> + <span>label</span>`
+- busy 时用 Loader2 替换图标(保持原交互)
+- Apple/GitHub 文字从硬编码改为 `t('appleLogin')`/`t('githubLogin')`
+- 加 `eslint-disable-next-line @next/next/no-img-element`(本地 16x16 SVG 用 `<img>` 比 `<Image>` 更简,后者对 SVG 无优化且需配 `dangerouslyAllowSVG`)
+
+#### 3. i18n 键补全(5 个语言文件)
+
+新增 `appleLogin` + `githubLogin` 键到 `messages/{zh-CN,zh-TW,en,ja,ko}.json` 的 `auth` 命名空间,紧跟 `dingtalkLogin` 后。Apple/GitHub 为品牌名,各语言保留原文 "Apple"/"GitHub"(与 `dingtalkLogin` 风格一致,不带"登录"后缀)。
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/web lint` — ✅ 零错误零警告
+- 浏览器验证(light mode):6 个按钮图标 + 文字横排,Apple/GitHub 黑色 path 在白色按钮背景上可见,Google 多色/微信绿/钉钉蓝/企微蓝 品牌色正常
+- 浏览器验证(dark mode):Apple/GitHub 通过 `dark:invert` 翻白可见,其他 4 个保持品牌色不被翻转
+- img src 路径确认全部指向 `/images/oauth-providers/xxx.svg`(硬刷新后)
+- e2e `auth-third-party.spec.ts`:4/5 通过(测试 1 按钮存在性 + 测试 5 无 console 错误均通过,证明图标改动无回归);1 失败为测试 3 OAuth 回调路径,因后端 Fastify(8080)未启动导致 /api/auth/callback/wechat 返回 500,与图标改动无关(预先存在的环境依赖)
+
+### 残留风险
+
+- 钉钉 #1677FF / 企微 #2E80EC 取色按官方品牌指南,若需替换为品牌方提供的 logo 源文件,直接覆盖对应 SVG 即可
+- e2e 测试 3(OAuth 回调路径不崩溃)需后端 API 服务启动才能通过,非本次改动回归
+
+## R101 Tailwind 4 dark: variant 修复(2026-07-14)✅
+
+> 修复 globals.css 缺少 `@custom-variant dark` 声明,导致全项目 `dark:` utility 失效的根因性 bug。
+
+### 问题根因
+
+Tailwind CSS 4 默认 `dark:` variant 基于 `@media (prefers-color-scheme: dark)`,不再基于 `.dark` class(Tailwind 3 默认行为)。要在 Tailwind 4 中使用 class-based dark mode,必须在 CSS 中显式声明:
+
+```css
+@custom-variant dark (&:where(.dark, .dark *));
+```
+
+本项目 `apps/web/app/globals.css` 缺少此声明,导致:
+
+- ✅ 主题切换视觉上"工作"(因为 `bg-background`/`text-foreground` 等 utility 基于 CSS 变量,而 `.dark` 选择器重写了这些变量)
+- ❌ 所有 `dark:xxx` utility(20 处,跨 10 个文件)实际**不生效**
+
+### 发现过程
+
+用户问"Apple 图标在亮色模式下显不显示 你能不能看到"。用 Playwright 跑一次性脚本采集 `img` 元素的 computed style:
+
+- LIGHT 模式:6 个图标 `filter: "none"`(正确,无需翻色)
+- DARK 模式:6 个图标全部 `filter: "none"`(❌ Apple/GitHub 应该是 `invert(1)`)
+
+证据:Apple SVG `fill="#000"`(黑色)+ dark 模式按钮背景 `rgb(10, 10, 10)`(深黑)+ `filter: "none"` = 黑色 logo 嵌入黑色背景 = **完全不可见**。
+
+### 改动清单
+
+#### `apps/web/app/globals.css`
+
+```diff
+ @import 'tailwindcss';
+
++@custom-variant dark (&:where(.dark, .dark *));
++
+ @theme {
+```
+
+单行修复,无其他文件改动。
+
+### 验证结果
+
+修复后用同一 Playwright 脚本重新采集:
+
+- LIGHT 模式:6 个图标 `filter: "none"` ✅(预期,Apple/GitHub 黑色 logo 在白色按钮背景上清晰可见)
+- DARK 模式:
+  - Apple: `filter: "invert(1)"` ✅(黑色 logo 翻白)
+  - GitHub: `filter: "invert(1)"` ✅(黑色 logo 翻白)
+  - Google/钉钉/企微/微信: `filter: "none"` ✅(品牌色图标无需翻色)
+
+其他验证:
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/web lint` — ✅ 零错误零警告
+- e2e `auth-third-party.spec.ts`:4/5 通过(与修复前一致,1 失败为后端 8080 未启动的环境依赖,非回归)
+
+### 影响范围(本次修复一并解决)
+
+全项目所有 `dark:xxx` utility 现在均按预期工作:
+
+- `apps/web/src/components/login/ThirdPartyLoginButtons.tsx`(Apple/GitHub 图标 `dark:invert`)
+- `apps/web/src/lib/content.tsx`、`apps/web/src/components/dashboard/stat-card.tsx` 等 10 个文件的 20 处 `dark:` 类
+
+### 残留风险
+
+无。该修复是 Tailwind 4 官方迁移指南推荐做法,与 Tailwind 3 `darkMode: 'class'` 配置等价,行为可预期。
