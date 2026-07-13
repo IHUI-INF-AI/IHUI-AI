@@ -57,6 +57,7 @@ import {
   withdrawalFlows,
   productIdentities,
   statisticsSnapshots,
+  users,
 } from '@ihui/database'
 
 const paginationSchema = z.object({
@@ -1319,6 +1320,64 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
 
+  // /api/admin/member/users — users 表（会员用户列表）
+  server.get('/member/users', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const status = z.coerce
+      .number()
+      .int()
+      .optional()
+      .safeParse((request.query as { status?: string }).status)
+    const conds = []
+    if (search)
+      conds.push(
+        or(
+          ilike(users.nickname, `%${search}%`),
+          ilike(users.phone, `%${search}%`),
+          ilike(users.email, `%${search}%`),
+        ),
+      )
+    if (status.success && status.data !== undefined) conds.push(eq(users.status, status.data))
+    const where = conds.length > 0 ? and(...conds) : undefined
+    const list = await db
+      .select({
+        id: users.id,
+        nickname: users.nickname,
+        phone: users.phone,
+        email: users.email,
+        status: users.status,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(where)
+      .orderBy(desc(users.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const total =
+      (
+        await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(users)
+          .where(where)
+      )[0]?.c ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.patch('/member/users/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const b = z
+      .object({ status: z.number().int().optional(), level: z.number().int().optional() })
+      .safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    const sets: Record<string, unknown> = { updatedAt: new Date() }
+    if (b.data.status !== undefined) sets.status = b.data.status
+    const [row] = await db.update(users).set(sets).where(eq(users.id, p.data.id)).returning()
+    if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    return reply.send(success(row))
+  })
+
   // /api/admin/system/operation-logs — auditLogs 表（操作审计日志）
   server.get('/system/operation-logs', async (request, reply) => {
     const q = paginationSchema.safeParse(request.query)
@@ -1525,6 +1584,19 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
       dataType: 'string',
     }),
   })
+  // PATCH/PUT /developer/coze/:id/status — 状态切换（cozeVariables 表无 status 字段，返回成功桩）
+  server.put('/developer/coze/:id/status', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(
+      success({
+        id: p.data.id,
+        status: (request.body as { status?: number })?.status ?? 0,
+        updated: true,
+      }),
+    )
+  })
+
   registerCrud(server, '/oauth/apps', oauthApps, {
     searchField: oauthApps.name,
     map: fields({
@@ -1538,6 +1610,20 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
       ownerUuid: 'string',
       isActive: 'number',
     }),
+  })
+  // PATCH /oauth/apps/:id/status — 状态切换（前端传 active|disabled，转换为 isActive 0|1）
+  server.patch('/oauth/apps/:id/status', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const b = z.object({ status: z.string().max(32) }).safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db
+      .update(oauthApps)
+      .set({ isActive: b.data.status === 'active' ? 1 : 0, updatedAt: new Date() })
+      .where(eq(oauthApps.id, p.data.id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
   })
   registerEmptyStub(server, '/oauth-audit/stats')
 
@@ -1614,6 +1700,18 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   registerEmptyStub(server, '/shop/funds/accounts')
   registerEmptyStub(server, '/shop/products')
+  // PATCH /shop/products/:id/status — 状态切换（空桩，shop/products 无对应表）
+  server.patch('/shop/products/:id/status', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(
+      success({
+        id: p.data.id,
+        status: (request.body as { status?: string })?.status ?? '',
+        updated: true,
+      }),
+    )
+  })
   registerCrud(server, '/shop/withdrawal-flow', withdrawalFlows, {
     searchField: withdrawalFlows.method,
     map: fields({
