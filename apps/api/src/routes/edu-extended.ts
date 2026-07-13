@@ -784,24 +784,41 @@ const courseAuditIdSchema = z.object({ id: z.coerce.number().int().positive() })
 const courseAuditListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  status: z.coerce.number().int().optional(),
   search: z.string().max(200).optional(),
+  operate: z.string().max(200).optional(),
+  sourceId: z.string().max(200).optional(),
+  creator: z.string().max(200).optional(),
 })
 
 const createCourseAuditBodySchema = z.object({
   courseId: z.coerce.number().int().positive(),
   title: z.string().min(1).max(200).optional(),
-  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  status: z.coerce.number().int().optional(),
   reason: z.string().max(500).optional(),
 })
 
 const updateCourseAuditBodySchema = z.object({
-  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  status: z.coerce.number().int().optional(),
+  remark: z.string().max(500).optional(),
   reason: z.string().max(500).optional(),
 })
 
-const statusToNum = (s: string): number => (s === 'approved' ? 1 : s === 'rejected' ? 2 : 0)
-const numToStatus = (n: number): string => (n === 1 ? 'approved' : n === 2 ? 'rejected' : 'pending')
+/** 映射 zhsCourseAudit 行到前端 Audit 接口字段 */
+function mapAuditRow(r: typeof zhsCourseAudit.$inferSelect) {
+  return {
+    id: String(r.id),
+    type: 0,
+    operate: 'update',
+    sourceId: String(r.courseId),
+    targetId: null,
+    status: r.auditStatus,
+    creator: r.auditor ?? null,
+    createdAt: r.createdAt.toISOString(),
+    updator: null,
+    remark: r.remark ?? null,
+  }
+}
 
 /** 注册 course-audit 路由（可复用于用户端和 admin 端） */
 function registerCourseAuditRoutes(server: FastifyInstance) {
@@ -811,10 +828,11 @@ function registerCourseAuditRoutes(server: FastifyInstance) {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { page, pageSize, status, search } = parsed.data
+    const { page, pageSize, status, search, creator } = parsed.data
     const conds = []
-    if (status) conds.push(eq(zhsCourseAudit.auditStatus, statusToNum(status)))
+    if (status !== undefined) conds.push(eq(zhsCourseAudit.auditStatus, status))
     if (search) conds.push(sql`${zhsCourseAudit.remark} ILIKE ${`%${search}%`}`)
+    if (creator) conds.push(sql`${zhsCourseAudit.auditor} ILIKE ${`%${creator}%`}`)
     const where = conds.length ? and(...conds) : undefined
     const [list, totalRows] = await Promise.all([
       dbRead
@@ -829,14 +847,7 @@ function registerCourseAuditRoutes(server: FastifyInstance) {
         .from(zhsCourseAudit)
         .where(where),
     ])
-    const mapped = list.map((r) => ({
-      id: r.id,
-      courseId: String(r.courseId),
-      title: null,
-      status: numToStatus(r.auditStatus),
-      reason: r.remark,
-      createdAt: r.createdAt.toISOString(),
-    }))
+    const mapped = list.map(mapAuditRow)
     return reply.send(success({ list: mapped, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
@@ -846,10 +857,11 @@ function registerCourseAuditRoutes(server: FastifyInstance) {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { page, pageSize, status, search } = parsed.data
+    const { page, pageSize, status, search, creator } = parsed.data
     const conds = []
-    if (status) conds.push(eq(zhsCourseAudit.auditStatus, statusToNum(status)))
+    if (status !== undefined) conds.push(eq(zhsCourseAudit.auditStatus, status))
     if (search) conds.push(sql`${zhsCourseAudit.remark} ILIKE ${`%${search}%`}`)
+    if (creator) conds.push(sql`${zhsCourseAudit.auditor} ILIKE ${`%${creator}%`}`)
     const where = conds.length ? and(...conds) : undefined
     const [list, totalRows] = await Promise.all([
       dbRead
@@ -864,14 +876,7 @@ function registerCourseAuditRoutes(server: FastifyInstance) {
         .from(zhsCourseAudit)
         .where(where),
     ])
-    const mapped = list.map((r) => ({
-      id: r.id,
-      courseId: String(r.courseId),
-      title: null,
-      status: numToStatus(r.auditStatus),
-      reason: r.remark,
-      createdAt: r.createdAt.toISOString(),
-    }))
+    const mapped = list.map(mapAuditRow)
     return reply.send(success({ list: mapped, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
@@ -887,17 +892,7 @@ function registerCourseAuditRoutes(server: FastifyInstance) {
       .where(eq(zhsCourseAudit.id, parsed.data.id))
       .limit(1)
     if (!rows[0]) return reply.status(404).send(error(404, '审核记录不存在'))
-    const r = rows[0]
-    return reply.send(
-      success({
-        id: r.id,
-        courseId: String(r.courseId),
-        title: null,
-        status: numToStatus(r.auditStatus),
-        reason: r.remark,
-        createdAt: r.createdAt.toISOString(),
-      }),
-    )
+    return reply.send(success(mapAuditRow(rows[0])))
   })
 
   // POST /course-audit — 创建审核记录
@@ -910,27 +905,16 @@ function registerCourseAuditRoutes(server: FastifyInstance) {
       .insert(zhsCourseAudit)
       .values({
         courseId: parsed.data.courseId,
-        auditStatus: parsed.data.status ? statusToNum(parsed.data.status) : 0,
+        auditStatus: parsed.data.status ?? 0,
         remark: parsed.data.reason,
         createTime: new Date(),
       })
       .returning()
     if (!record) return reply.status(500).send(error(500, 'Failed to create audit record'))
-    return reply
-      .status(201)
-      .send(
-        success({
-          id: record.id,
-          courseId: String(record.courseId),
-          title: null,
-          status: numToStatus(record.auditStatus),
-          reason: record.remark,
-          createdAt: record.createdAt.toISOString(),
-        }),
-      )
+    return reply.status(201).send(success(mapAuditRow(record)))
   })
 
-  // PUT /course-audit/:id — 更新审核记录
+  // PUT /course-audit/:id — 更新审核记录（前端发送 {status: number, remark: string}）
   server.put('/course-audit/:id', async (request, reply) => {
     const idParsed = courseAuditIdSchema.safeParse(request.params)
     if (!idParsed.success) {
@@ -942,26 +926,18 @@ function registerCourseAuditRoutes(server: FastifyInstance) {
     }
     const sets: Partial<typeof zhsCourseAudit.$inferInsert> = { updatedAt: new Date() }
     if (parsed.data.status !== undefined) {
-      sets.auditStatus = statusToNum(parsed.data.status)
+      sets.auditStatus = parsed.data.status
       sets.auditTime = new Date()
     }
-    if (parsed.data.reason !== undefined) sets.remark = parsed.data.reason
+    if (parsed.data.remark !== undefined) sets.remark = parsed.data.remark
+    else if (parsed.data.reason !== undefined) sets.remark = parsed.data.reason
     const [updated] = await db
       .update(zhsCourseAudit)
       .set(sets)
       .where(eq(zhsCourseAudit.id, idParsed.data.id))
       .returning()
     if (!updated) return reply.status(404).send(error(404, '审核记录不存在'))
-    return reply.send(
-      success({
-        id: updated.id,
-        courseId: String(updated.courseId),
-        title: null,
-        status: numToStatus(updated.auditStatus),
-        reason: updated.remark,
-        createdAt: updated.createdAt.toISOString(),
-      }),
-    )
+    return reply.send(success(mapAuditRow(updated)))
   })
 
   // DELETE /course-audit/:id — 删除审核记录
@@ -971,7 +947,7 @@ function registerCourseAuditRoutes(server: FastifyInstance) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     await db.delete(zhsCourseAudit).where(eq(zhsCourseAudit.id, parsed.data.id))
-    return reply.send(success({ id: parsed.data.id }))
+    return reply.send(success({ id: String(parsed.data.id) }))
   })
 }
 
