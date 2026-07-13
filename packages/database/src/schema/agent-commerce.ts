@@ -65,14 +65,13 @@ export type NewZhsAgentWithdrawalDetail = typeof zhsAgentWithdrawalDetail.$infer
 
 /**
  * 智能体购买定时任务表 - 定时检查购买过期并更新状态。
+ * 注: buyId 软引用 zhsAgentBuy.id,不建物理外键(避免 migration 顺序依赖)
  */
 export const agentBuyScheduledTasks = pgTable(
   'agent_buy_scheduled_tasks',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    buyId: uuid('buy_id')
-      .references(() => zhsAgentBuy.id, { onDelete: 'cascade' })
-      .notNull(),
+    buyId: uuid('buy_id').notNull(),
     taskType: varchar('task_type', { length: 32 }).default('expiry_check').notNull(),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
     executedAt: timestamp('executed_at', { withTimezone: true }),

@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { getKnowledgePlanetInfo } from '@/api'
 import { getShareInfo, showShareMenu } from '@/utils/share'
 import { saveNetworkImageToAlbum } from '@/utils/save-album'
+import { NavBar } from '@/components'
 
 interface PlanetInfo {
   name?: string
@@ -51,6 +52,7 @@ export default function SharePage() {
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
+      <NavBar title="分享星球" showBack />
       <View className="bg-gradient-to-b from-[#6366f1] to-[#818cf8] px-4 pt-10 pb-8 text-white text-center">
         <View className="flex justify-center mb-4">
           {info.coverUrl ? (

@@ -379,6 +379,13 @@
       "when": 1783776002000,
       "tag": "0053_audit_gap_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1783862400000,
+      "tag": "0054_missing_relation_tables",
+      "breakpoints": true
     }
   ]
 }

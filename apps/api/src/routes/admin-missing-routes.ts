@@ -1367,17 +1367,7 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ created: true }))
   })
 
-  server.get('/logs', async (request, reply) => {
-    const q = paginationSchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(emptyList(q.data.page, q.data.pageSize))
-  })
-
-  server.get('/configs', async (request, reply) => {
-    const q = paginationSchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(emptyList(q.data.page, q.data.pageSize))
-  })
+  // 注: /logs /configs 已由 system.ts adminSystemRoutes 真实实现,此处不再重复注册空桩
 
   server.put('/configs', async (_request, reply) => {
     return reply.send(success({ updated: true }))
