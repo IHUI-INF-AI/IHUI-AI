@@ -15,6 +15,7 @@ import {
   findFeedbackById,
   findAllFeedbacksForAdmin,
   updateFeedback,
+  deleteFeedback,
 } from '../db/comment-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
@@ -545,5 +546,37 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
     }
     const updated = await updateFeedback(parsed.data.id, body.data)
     return reply.send(success({ feedback: updated }))
+  })
+
+  // POST /admin/feedbacks - 管理员创建反馈
+  server.post('/admin/feedbacks', async (request, reply) => {
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (roleId < ADMIN_ROLE_ID) {
+      return reply.status(403).send(error(403, '需要管理员权限'))
+    }
+    const parsed = createFeedbackSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const feedback = await createFeedback({ ...parsed.data, userId: request.userId! })
+    return reply.status(201).send(success({ feedback }))
+  })
+
+  // DELETE /admin/feedbacks/:id - 管理员删除反馈
+  server.delete('/admin/feedbacks/:id', async (request, reply) => {
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (roleId < ADMIN_ROLE_ID) {
+      return reply.status(403).send(error(403, '需要管理员权限'))
+    }
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findFeedbackById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '反馈不存在'))
+    }
+    await deleteFeedback(parsed.data.id)
+    return reply.send(success({ id: parsed.data.id, deleted: true }))
   })
 }
