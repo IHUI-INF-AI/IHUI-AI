@@ -1,21 +1,68 @@
-.page-container {
+﻿.page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: #f7f8fa;
 }
-.page-header {
+.intro {
+  margin: 24rpx;
   padding: 24rpx;
+  background: #fff5e6;
+  border-radius: 12rpx;
+}
+.intro-text {
+  font-size: 24rpx;
+  color: #996600;
+  line-height: 1.7;
+}
+.card {
+  margin: 24rpx;
   background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
 }
-.page-title {
-  font-size: 36rpx;
-  font-weight: 600;
-  color: #333;
+.row {
+  display: flex;
+  align-items: flex-start;
+  padding: 28rpx 32rpx;
+  border-bottom: 2rpx solid #f5f5f5;
 }
-.page-content {
-  padding: 24rpx;
+.row.last {
+  border-bottom: none;
 }
-.info-text {
+.body {
+  flex: 1;
+}
+.head {
+  display: flex;
+  align-items: center;
+}
+.name {
   font-size: 28rpx;
-  color: #666;
+  color: #333;
+  font-weight: 500;
+}
+.tag {
+  font-size: 20rpx;
+  color: #fff;
+  background: #ff6b6b;
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+  margin-left: 16rpx;
+}
+.tag.opt {
+  background: #ccc;
+}
+.desc {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 8rpx;
   line-height: 1.6;
+}
+.tips {
+  text-align: center;
+  padding: 32rpx;
+}
+.tips text {
+  font-size: 22rpx;
+  color: #bbb;
 }
