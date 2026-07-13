@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
@@ -10,6 +10,11 @@ import {
   createEduSetting,
   updateEduSetting,
   deleteEduSetting,
+  findEduSettingGroups,
+  deleteEduSettingsByGroup,
+  renameEduSettingGroup,
+  exportAllEduSettings,
+  importEduSettings,
 } from '../db/setting-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
@@ -72,6 +77,29 @@ const updateSettingBodySchema = z
   )
 
 const uuidParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+
+const renameGroupBodySchema = z.object({
+  newGroup: z.string().min(1).max(64),
+})
+
+const importBodySchema = z.object({
+  items: z
+    .array(
+      z.object({
+        group: z.string().min(1).max(64).optional(),
+        key: z.string().min(1).max(128),
+        value: z.string().nullable().optional(),
+        type: settingTypeSchema.optional(),
+        credentials: z.record(z.unknown()).optional(),
+        description: z.string().nullable().optional(),
+        isPublic: z.boolean().optional(),
+        sort: z.number().int().min(0).optional(),
+        status: z.number().int().min(0).max(1).optional(),
+      }),
+    )
+    .min(1)
+    .max(500),
+})
 
 // =============================================================================
 // 公开路由(前缀 /api):GET /settings + GET /settings/:group
@@ -143,6 +171,24 @@ export const settingRoutes: FastifyPluginAsync = async (server) => {
 
 export const adminSettingRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
+
+  // GET /edu-settings/groups - 列出所有分组（必须在 /:id 之前注册以避免被吞）
+  server.get('/edu-settings/groups', async (_request, reply) => {
+    const groups = await findEduSettingGroups()
+    return reply.send(success({ groups, total: groups.length }))
+  })
+
+  // GET /edu-settings/export - 导出全部配置（JSON）
+  server.get('/edu-settings/export', async (_request, reply) => {
+    const list = await exportAllEduSettings()
+    return reply.send(
+      success({
+        exportedAt: new Date().toISOString(),
+        count: list.length,
+        items: list,
+      }),
+    )
+  })
 
   // GET /edu-settings - 分页列表(支持 group + key 筛选)
   server.get(
@@ -378,4 +424,56 @@ export const adminSettingRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ id: parsedParams.data.id, deleted: true }))
     },
   )
+
+  // ===========================================================================
+  // P0-5: 分组管理 + 导入端点
+  // ===========================================================================
+
+  // POST /edu-settings/groups/:group/rename - 重命名分组
+  server.post('/edu-settings/groups/:group/rename', async (request, reply) => {
+    const parsedParams = groupParamSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.status(400).send(error(400, parsedParams.error.issues[0]?.message ?? '参数错误'))
+    }
+    const parsedBody = renameGroupBodySchema.safeParse(request.body)
+    if (!parsedBody.success) {
+      return reply.status(400).send(error(400, parsedBody.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { group } = parsedParams.data
+    const { newGroup } = parsedBody.data
+    if (group !== newGroup) {
+      const targetGroups = await findEduSettingGroups()
+      if (targetGroups.some((g) => g.group === newGroup)) {
+        return reply.status(409).send(error(409, '目标分组名已存在'))
+      }
+    }
+    const updated = await renameEduSettingGroup(group, newGroup, request.userId)
+    if (updated === 0) {
+      return reply.status(404).send(error(404, '分组不存在或无配置项'))
+    }
+    return reply.send(success({ oldGroup: group, newGroup, updated }))
+  })
+
+  // DELETE /edu-settings/groups/:group - 删除整个分组
+  server.delete('/edu-settings/groups/:group', async (request, reply) => {
+    const parsedParams = groupParamSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.status(400).send(error(400, parsedParams.error.issues[0]?.message ?? '参数错误'))
+    }
+    const deleted = await deleteEduSettingsByGroup(parsedParams.data.group)
+    if (deleted === 0) {
+      return reply.status(404).send(error(404, '分组不存在或无配置项'))
+    }
+    return reply.send(success({ group: parsedParams.data.group, deleted }))
+  })
+
+  // POST /edu-settings/import - 批量导入（upsert 模式）
+  server.post('/edu-settings/import', async (request, reply) => {
+    const parsed = importBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await importEduSettings(parsed.data.items, request.userId)
+    return reply.send(success(result))
+  })
 }

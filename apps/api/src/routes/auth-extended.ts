@@ -1276,4 +1276,97 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       }),
     )
   })
+
+  // ========== 历史补齐:Coze PAT（个人访问令牌）端点 ==========
+  // 迁移自 coze_zhs_py/api/auth.py 的 /pat + /pat/async。
+  // 新架构不依赖 coze-py SDK，直接 HTTP 调用 Coze /v1/users/me。
+  const patRequestSchema = z.object({
+    token: z.string().min(1),
+    baseUrl: z.string().url().optional(),
+  })
+
+  const COZE_DEFAULT_BASE_URL = 'https://api.coze.cn'
+
+  /**
+   * POST /auth/pat — 使用 Coze PAT 验证身份（同步）。
+   * @body { token: string, baseUrl?: string }
+   * @returns { success: true, user: { name, ... } }
+   */
+  server.post('/auth/pat', async (request, reply) => {
+    const parsed = patRequestSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { token, baseUrl } = parsed.data
+    const apiUrl = `${baseUrl ?? COZE_DEFAULT_BASE_URL}/v1/users/me`
+    try {
+      const res = await fetch(apiUrl, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) {
+        return reply.status(401).send(error(401, `Coze 认证失败: HTTP ${res.status}`))
+      }
+      const data = (await res.json()) as {
+        code?: number
+        msg?: string
+        data?: { user_name?: string; nickname?: string; user_id?: string }
+      }
+      if (data.code !== 0) {
+        return reply.status(401).send(error(401, data.msg ?? 'Coze 认证失败'))
+      }
+      const user = data.data ?? {}
+      return reply.send(
+        success({
+          authenticated: true,
+          user: { name: user.user_name ?? user.nickname ?? '', userId: user.user_id ?? null },
+        }),
+      )
+    } catch (e) {
+      return reply
+        .status(401)
+        .send(error(401, `认证失败: ${e instanceof Error ? e.message : String(e)}`))
+    }
+  })
+
+  /**
+   * POST /auth/pat/async — 使用 Coze PAT 验证身份（异步,语义与 /pat 一致,保留端点兼容）。
+   * @body { token: string, baseUrl?: string }
+   */
+  server.post('/auth/pat/async', async (request, reply) => {
+    const parsed = patRequestSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { token, baseUrl } = parsed.data
+    const apiUrl = `${baseUrl ?? COZE_DEFAULT_BASE_URL}/v1/users/me`
+    try {
+      const res = await fetch(apiUrl, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) {
+        return reply.status(401).send(error(401, `Coze 异步认证失败: HTTP ${res.status}`))
+      }
+      const data = (await res.json()) as {
+        code?: number
+        msg?: string
+        data?: { user_name?: string; nickname?: string; user_id?: string }
+      }
+      if (data.code !== 0) {
+        return reply.status(401).send(error(401, data.msg ?? 'Coze 异步认证失败'))
+      }
+      const user = data.data ?? {}
+      return reply.send(
+        success({
+          authenticated: true,
+          user: { name: user.user_name ?? user.nickname ?? '', userId: user.user_id ?? null },
+        }),
+      )
+    } catch (e) {
+      return reply
+        .status(401)
+        .send(error(401, `异步认证失败: ${e instanceof Error ? e.message : String(e)}`))
+    }
+  })
 }
