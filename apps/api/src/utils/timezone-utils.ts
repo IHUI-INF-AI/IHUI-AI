@@ -8,10 +8,12 @@
  * 迁移自旧架构 bug137_timezone.py。
  */
 
+import { AppError } from '../errors/AppError.js'
+
 /** 时区错误。 */
-export class TZError extends Error {
+export class TZError extends AppError {
   constructor(message: string) {
-    super(message)
+    super(message, 400, 'INVALID_TIMEZONE')
     this.name = 'TZError'
   }
 }

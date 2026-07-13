@@ -11,9 +11,11 @@
  * 5. splitMoney 按比例分账，余数补到末项，保证 sum(parts) === total。
  */
 
-export class MoneyError extends Error {
+import { AppError } from '../errors/AppError.js'
+
+export class MoneyError extends AppError {
   constructor(message: string) {
-    super(message)
+    super(message, 400, 'INVALID_MONEY')
     this.name = 'MoneyError'
   }
 }
