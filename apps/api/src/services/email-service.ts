@@ -1,4 +1,5 @@
 import { config } from '../config/index.js'
+import { logger } from '../utils/logger.js'
 import type { FastifyInstance } from 'fastify'
 import type { EmailJobData } from '../plugins/queue.js'
 
@@ -78,7 +79,7 @@ export async function sendEmail(
 
     return { sent: true, stub: false }
   } catch (e) {
-    console.error(`[email-error] ${options.to}:`, (e as Error).message)
+    logger.error(`[email-error] ${options.to}: ${(e as Error).message}`)
     return { sent: false, stub: false, error: (e as Error).message }
   }
 }
@@ -93,7 +94,11 @@ export async function queueEmail(
   options: SendEmailOptions,
 ): Promise<{ queued: boolean; jobId?: string; fallback?: boolean; error?: string }> {
   try {
-    const queue = (server as unknown as { emailQueue?: { add(name: string, data: EmailJobData): Promise<{ id?: string }> } }).emailQueue
+    const queue = (
+      server as unknown as {
+        emailQueue?: { add(name: string, data: EmailJobData): Promise<{ id?: string }> }
+      }
+    ).emailQueue
     if (!queue) {
       // 队列未注册，降级为同步发送
       await sendEmail(options)
