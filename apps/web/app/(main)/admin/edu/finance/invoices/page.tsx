@@ -72,9 +72,8 @@ export default function EduFinanceInvoicesPage() {
 
   const approveMut = useMutation({
     mutationFn: (id: string) =>
-      eduApi(`/api/admin/learn/invoices/${id}/status`, {
+      eduApi(`/api/admin/learn/invoices/${id}/invoiced`, {
         method: 'PUT',
-        body: JSON.stringify({ status: 'issued' }),
       }),
     onSuccess: () => {
       toast.success(t('issueSuccess'))
