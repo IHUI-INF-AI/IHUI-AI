@@ -196,6 +196,12 @@ export async function findAiCareers(): Promise<AiCareer[]> {
     .orderBy(asc(aiCareers.sort), asc(aiCareers.createdAt))
 }
 
+/** 按 id 查询 AI 职位(不限 status,admin 预览用)。 */
+export async function findAiCareerById(id: string): Promise<AiCareer | undefined> {
+  const rows = await db.select().from(aiCareers).where(eq(aiCareers.id, id)).limit(1)
+  return rows[0]
+}
+
 /**
  * 查询已启用的 AI 聊天类型列表（status=1），按 sort 升序。
  */
