@@ -63,6 +63,19 @@
 - [x] ✅(2026-07-13) 修复 pre-existing 路由冲突: admin-missing-routes.ts 与 system.ts 的 /logs /configs 重复注册；missing-user-routes.ts 与 order.ts/ai-user-model-chat.ts/promotions.ts 的 9 个重复空桩；order.ts 与 refund-audit.ts 的 /refunds/:id 重复
 - [x] ✅(2026-07-13) API 服务端到端验证: 服务成功启动监听 8080 端口，D17/D18/D19 三个新端点实际 HTTP 调用全部返回 200（D17 返回 10 个圈子数据，D18 返回 memberCount，D19 真实调用企业微信 API）
 - [x] ✅(2026-07-13) 最终全量验证: api/database/miniapp-taro typecheck 全绿，api test 873/873 通过
+- [x] ✅(2026-07-13) P0-1+P0-2: 聊天室 WebSocket + 连接管理 — `apps/ai-service/app/routers/chat_room.py` 迁移自历史 `coze_zhs_py/api/chat_room_socket.py + websocket.py`，实现 ChatRoomManager + 3 router (WebSocket / HTTP 管理 / ws-admin 监控) + 5 WS 事件 + 8 HTTP 端点 + 10 ws-admin 端点，使用 asyncpg 原生连接池
+- [x] ✅(2026-07-13) P0-3: Coze PAT 认证端点 — `apps/api/src/routes/auth-extended.ts` 追加 `POST /auth/pat` + `POST /auth/pat/async`，直接 HTTP 调用 Coze API（不依赖 coze-py SDK）
+- [x] ✅(2026-07-13) P0-4: trace 安全审计端点 — `apps/api/src/routes/visit-tracking.ts` 追加 11 个端点：IP 黑名单内存管理 (GET/POST/DELETE) + 安全事件统计 + 用户活跃度 + 热门页面 + 用户访问路径 + 性能监控 + 慢查询桩 + 数据导出 + 汇总报告
+- [x] ✅(2026-07-13) P0-5: setting 配置分组+导入导出 — `apps/api/src/routes/setting.ts` 追加 5 个端点：分组列表 + 分组重命名 + 分组删除 + 全量导出 + 批量导入(upsert)；`apps/api/src/db/setting-queries.ts` 追加 5 个查询函数
+- [x] ✅(2026-07-13) 文档一致性修复: `apps/api/src/routes/legacy-completion.ts` 头部注释明确标注 D4/D11-D15 废弃状态及原因
+- [x] ✅(2026-07-13) 验证: api typecheck 0 错误 / api lint 0 错误（仅 2 个无关历史 any 警告）/ ai-service chat_room.py Python 语法编译通过
+- [x] ✅(2026-07-13) P1-1: 审计日志时间范围筛选 + 导出 — `apps/api/src/routes/audit.ts` 扩展 `findAuditLogs` 支持 startDate/endDate + 新增 `GET /audit-logs/export`（CSV/JSON，最多 10000 条）；`apps/api/src/db/search-queries.ts` 新增 `exportAuditLogs`
+- [x] ✅(2026-07-13) P1-2: 报表生成器 — 新建 `apps/api/src/routes/report.ts`，接线孤儿服务 `excel-export-service.ts` + `pdf-service.ts`，提供 4 种预定义报表（visit-summary/order-summary/user-growth/audit-summary）+ 3 种格式（json/excel/pdf）+ 3 个端点（types/generate/scheduled）；server.ts 注册到 `/api/admin`
+- [x] ✅(2026-07-13) P1-3: 推送 SDK 集成 — 新建 `apps/api/src/services/push-provider.ts`（FCM HTTP v1 JWT RS256 签名 + 个推 REST API v2 SHA256 签名，无 SDK 依赖，stub 降级）+ `apps/api/src/routes/push.ts`（用户端设备注册/注销 + provider 查询；admin 推送发送 + 设备列表）；server.ts 注册 pushRoutes→`/api`、adminPushRoutes→`/api/admin`
+- [x] ✅(2026-07-13) P1-4: 文件转码服务 — 新建 `apps/api/src/services/transcode-service.ts`（FFmpeg 子进程封装，6 种 preset：video/mp4/video/hls/video/webm/audio/mp3/audio/aac/thumbnail，内存任务 Map 状态机 pending/processing/completed/failed/cancelled）+ `apps/api/src/routes/transcode.ts`（用户端 health + 任务创建/查询/下载/取消；admin 任务列表/删除）；server.ts 注册 transcodeRoutes→`/api`、adminTranscodeRoutes→`/api/admin`
+- [x] ✅(2026-07-13) 验证: api typecheck 0 错误 / api lint 0 错误（仅 2 个无关历史 any 警告）
+- [x] ✅(2026-07-13) 运行时 HTTP 烟测: api dev 服务成功启动监听 8080 端口，3 个调度器（13 个 cron）+ 3 个 BullMQ worker 全部就绪，路由注册无冲突；18 个新增端点逐一验证 — 公开端点 `GET /api/transcode/health`→200（ffmpegAvailable:false 符合预期）、`GET /api/push/provider`→200（provider:"stub" 自动降级符合预期），16 个 admin 端点（traces ×7、edu-settings ×3、audit-logs/export、reports/types、push/devices、transcode/jobs 等）全部返回 401（requireAdmin 拦截，路由已注册）
+- [x] ✅(2026-07-13) 集成测试补全: 新建 `apps/api/tests/push.test.ts`（5 测试：provider 公开端点 + 4 个 401 端点）+ `apps/api/tests/transcode.test.ts`（7 测试：health 公开端点 + 6 个 401 端点），api test 873 → 885（+12），73 个测试文件全部通过
 
 ---
 

@@ -166,6 +166,15 @@ import { adminMissingRoutes } from './routes/admin-missing-routes.js'
 // 前端用户端缺失路由补建（54 个路由：空数据桩）
 import { missingUserRoutes } from './routes/missing-user-routes.js'
 
+// P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）
+import { adminReportRoutes } from './routes/report.js'
+
+// P1-3 补建：推送服务（FCM + 个推 HTTP API，无 SDK 依赖）
+import { pushRoutes, adminPushRoutes } from './routes/push.js'
+
+// P1-4 补建：文件转码服务（FFmpeg 子进程封装）
+import { transcodeRoutes, adminTranscodeRoutes } from './routes/transcode.js'
+
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
 import authPlugin from './plugins/auth.js'
@@ -682,4 +691,15 @@ function registerRoutes(server: FastifyInstance) {
   // 全部空数据桩，覆盖：文章 / 内容生成 / 知识库 / 技能 / 学习记录 / MCP / OpenClaw
   // 代理类 / 用户设置 / AI 补充 / 开发者扩展 / 分销 / VIP 权益 / 优惠券 / 通知详情 / 消息详情
   server.register(missingUserRoutes, { prefix: '/api' })
+
+  // ===== P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）=====
+  server.register(adminReportRoutes, { prefix: '/api/admin' })
+
+  // ===== P1-3 补建：推送服务（FCM + 个推 HTTP API）=====
+  server.register(pushRoutes, { prefix: '/api' })
+  server.register(adminPushRoutes, { prefix: '/api/admin' })
+
+  // ===== P1-4 补建：文件转码服务（FFmpeg 子进程封装）=====
+  server.register(transcodeRoutes, { prefix: '/api' })
+  server.register(adminTranscodeRoutes, { prefix: '/api/admin' })
 }
