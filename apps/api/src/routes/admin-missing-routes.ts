@@ -172,10 +172,10 @@ function emptyList(page: number, pageSize: number) {
   return success({ list: [], total: 0, page, pageSize })
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- Drizzle ORM 泛型表/列助手需要 any，社区标准模式 */
 function registerCrud(
   server: FastifyInstance,
   basePath: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   table: any,
   opts: {
     searchField?: any
@@ -238,6 +238,7 @@ function registerCrud(
     return reply.send(success({ deleted: idList.length }))
   })
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'json'
 function fields(fc: Record<string, FieldType>) {
