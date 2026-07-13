@@ -41,24 +41,24 @@ vi.mock('@ihui/auth', () => ({
 }))
 
 // Mock db：有表路由的 CRUD 查询链式调用
-// 递归 thenable mock：支持 select().from().where().orderBy().limit().offset() 等任意链式调用顺序
-function createChainableMock(result: unknown = []) {
-  const obj: Record<string, unknown> = {}
-  const thenFn = (resolve: (v: unknown) => void) => resolve(result)
-  const make = (): Record<string, unknown> => {
-    const proxy = new Proxy(obj, {
-      get(_target, prop: string) {
-        if (prop === 'then') return thenFn
-        return vi.fn().mockReturnValue(make())
-      },
-    })
-    return proxy
-  }
-  return make()
-}
-
-const mockSelect = vi.fn(() => createChainableMock([]))
-const mockCountSelect = vi.fn(() => createChainableMock([{ c: 0 }]))
+// mockSelectLimit 用于 DELETE 存在性检查：select().from().where().limit(1)
+const mockSelect = vi.fn().mockReturnValue({
+  from: vi.fn().mockReturnValue({
+    where: vi.fn().mockReturnValue({
+      orderBy: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          offset: vi.fn().mockResolvedValue([]),
+        }),
+      }),
+      limit: mockSelectLimit,
+    }),
+  }),
+})
+const mockCountSelect = vi.fn().mockReturnValue({
+  from: vi.fn().mockReturnValue({
+    where: vi.fn().mockResolvedValue([{ c: 0 }]),
+  }),
+})
 vi.mock('../src/db/index.js', () => ({
   db: {
     select: vi.fn((args) =>
@@ -77,10 +77,6 @@ vi.mock('../src/db/index.js', () => ({
 }))
 
 import { adminMissingRoutes } from '../src/routes/admin-missing-routes.js'
-import { adminContentOpsRoutes } from '../src/routes/admin-content-routes.js'
-import { adminAuthEduRoutes } from '../src/routes/admin-auth-edu-routes.js'
-import { adminMonitoringRoutes } from '../src/routes/admin-monitoring-routes.js'
-import { adminShopRoutes } from '../src/routes/admin-shop-routes.js'
 
 const ADMIN_TOKEN = 'Bearer admin-token'
 const USER_TOKEN = 'Bearer user-token'
@@ -108,10 +104,6 @@ describe('admin-missing-routes', () => {
 
   beforeAll(async () => {
     await server.register(adminMissingRoutes, { prefix: '/api/admin' })
-    await server.register(adminContentOpsRoutes, { prefix: '/api/admin' })
-    await server.register(adminAuthEduRoutes, { prefix: '/api/admin' })
-    await server.register(adminMonitoringRoutes, { prefix: '/api/admin' })
-    await server.register(adminShopRoutes, { prefix: '/api/admin' })
     await server.ready()
   })
 
