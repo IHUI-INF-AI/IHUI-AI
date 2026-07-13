@@ -283,6 +283,47 @@
     - upload-scanner.ts mp4 魔数检测错误
     - auth.ts Bearer 大小写敏感
     - 5 整模块零测试（response-sanitizer/xss-protection/upload-scanner/csrf/prompt-injection-guard）
+- [x] ✅(2026-07-13) R16 安全漏洞修复 + 公共工具抽取统一 header 归一化（commit 待提交，14 files）:
+  - 触发: 用户指令"继续按你的建议去做执行，要求完美细致完整毫无遗漏"，承接 R15 待办中危问题
+  - **P1-1 安全漏洞修复（3 文件，5 漏洞）**:
+    1. **payment-gateway.ts 订单信息泄露** — `/payments/wechat/status/:outTradeNo` 添加 `authenticate` + 归属权校验（`order.userId !== request.userId` 返回 403）+ 仅返回状态字段（不再泄露完整 order）
+    2. **health.ts 隔离器重置未鉴权** — `/resilience/reset/:circuitName` 添加 `authenticate` + `roleId >= 1` 校验
+    3. **auth-extended.ts 9 端点缺 rateLimit** — 全部添加路由级 `config: { rateLimit: { max, timeWindow } }`:
+       - `/auth/exist/:phone` max:10/1min（手机号枚举防护）
+       - `/auth/login/email` + `/auth/login/username` max:10/1min（撞库防护）
+       - `/auth/email/code` + `/auth/sms/code` max:5/1min（短信轰炸防护）
+       - `/sms-proxy/send` + `/sms-proxy/register` max:5/1min，`/sms-proxy/verify` max:10/1min
+       - `/auth/oauth/token` max:20/1min
+    4. **auth-extended.ts 调试端点门控** — `/oauth/debug/callback` 加 `NODE_ENV === 'production'` 拒绝门控
+  - **P1-2 公共工具抽取（2 新文件 + 8 插件重构）**:
+    - **新建 `apps/api/src/utils/http-normalize.ts`**（5 工具函数）:
+      - `normalizeHeader(value)` — 处理数组形式 + trim + 空串归一化为 undefined
+      - `normalizeHeaderStrict(value, maxLen)` — 严格字符集校验（白名单 `[A-Za-z0-9_.:-]+`，防 CRLF 注入）
+      - `parsePath(url)` — 剥离 querystring
+      - `matchesPrefix(path, prefix)` — 精确前缀匹配（防 `/api/authlogin` 误命中 `/api/auth/`）
+      - `matchesAnyPrefix(path, prefixes)` — 命中任一白名单
+    - **新建 `apps/api/tests/http-normalize.test.ts`** — 31 测试用例 5 describe 块，覆盖数组/trim/字符集/边界/querystring
+    - **应用到 8 插件**（统一消除 R15 发现的 5 类缺陷模式）:
+      1. `tenant.ts` — resolveTenantIdentifier 用 normalizeHeaderStrict；isPublicPath 用 parsePath + matchesAnyPrefix
+      2. `csrf.ts` — 白名单匹配用 matchesAnyPrefix 替代手动 startsWith
+      3. `tenant-db-isolation.ts` — x-tenant-id 用 normalizeHeaderStrict 替代 `as string | undefined` 强制断言
+      4. `api-versioning.ts` — Accept-Version 用 normalizeHeader 替代 typeof 检查
+      5. `metrics.ts` — route 用 parsePath 剥离 querystring（修复 R15 中危"route 指标未 split('?')"）+ method 用 toUpperCase()
+      6. `api-logger-extended.ts` — X-Request-Id 用 normalizeHeaderStrict（CRLF 注入防护）+ user-agent 用 normalizeHeader + URL 用 parsePath
+      7. `payment-idempotency.ts` — Idempotency-Key 用 normalizeHeader + 256 长度限制；outTradeNo trim + 128 长度限制
+      8. `distributed-rate-limit.ts` — x-tenant-id/x-api-key 用 normalizeHeader 替代 `as string | undefined`（修复 R15 中危"header 未归一化"）
+  - **附带修复 R14 残留 typecheck 错误**（admin-missing-routes.ts，R14 修改 working tree 残留）:
+    - 添加 `type SQL` 从 drizzle-orm 导入（修复 TS2304 Cannot find name 'SQL'）
+    - 删除 `platformId` 字段（zhs_user_video_log 表无此字段，修复 TS2339）
+    - `videoId` 类型从 string 改为 `z.coerce.number().int()`（表字段是 integer，修复 ilike 误用）
+  - 验证:
+    - typecheck 0 错误（含 R14 残留 3 错误全部修复）
+    - 全量单测 1075/1075 通过（含 http-normalize.test.ts 31 新增 + tenant-resolver.test.ts 37 + admin-missing-routes 136 + payment-gateway 5 + auth-extended 13）
+  - 未修复的中低危问题（待后续迭代）:
+    - tenant-db-isolation.ts sql.raw 拼接（需重构为白名单校验，单独迭代）
+    - xss-protection.ts 嵌套绕过（需重构递归检测，单独迭代）
+    - upload-scanner.ts mp4 魔数检测错误（需修正魔数偏移量，单独迭代）
+    - auth.ts Bearer 大小写敏感（需做大小写不敏感匹配，单独迭代）
 
 ---
 

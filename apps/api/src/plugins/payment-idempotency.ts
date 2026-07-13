@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
+import { normalizeHeader } from '../utils/http-normalize.js'
 
 /**
  * 支付幂等性插件。
@@ -134,12 +135,13 @@ const paymentIdempotencyPlugin: FastifyPluginAsync = async (server) => {
     )
   }
 
-  /** 默认提取：Idempotency-Key 头 + query.outTradeNo/out_trade_no */
+  /** 默认提取：Idempotency-Key 头 + query.outTradeNo/out_trade_no（归一化 + 长度限制） */
   function defaultExtract(req: FastifyRequest): { paymentId: string; idemKey: string } | null {
-    const idemKey = req.headers['idempotency-key'] as string | undefined
-    if (!idemKey) return null
+    const idemKey = normalizeHeader(req.headers['idempotency-key'])
+    if (!idemKey || idemKey.length > 256) return null
     const q = req.query as Record<string, unknown>
-    const outTradeNo = (q.outTradeNo as string) ?? (q.out_trade_no as string) ?? ''
+    const rawTradeNo = (q.outTradeNo as string) ?? (q.out_trade_no as string) ?? ''
+    const outTradeNo = typeof rawTradeNo === 'string' ? rawTradeNo.trim().slice(0, 128) : ''
     if (!outTradeNo) return null
     return { paymentId: outTradeNo, idemKey }
   }
