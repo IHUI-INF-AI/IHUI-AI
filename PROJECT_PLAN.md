@@ -143,6 +143,12 @@
     10. **stash@{9} workspace/agent/AI changes** (18 files, +2485 -785) — 旧 client/ Vue + 旧 server/ Python + 旧 docs/ + 旧 scripts/ 迁移审计脚本，新架构完整替代，**已 drop**
   - 验证: 10 个 stash 全部 drop 后 `git stash list` 为空，磁盘回收 ~50MB，dangling commit 自动 GC
   - 安全审计符合度: 100%（10/10 功能均已在新 monorepo 实现后才 drop，符合 AGENTS.md 第 8 章强制规则）
+- [x] ✅(2026-07-13) R11 CI 预防脚本补齐（commit 4a97c45c，2 files +219）:
+  - 新增 scripts/check-api-routes.mjs: 扫描前端所有 /api/ 调用 vs 后端 server.register 路由注册，发现 404 风险即 exit 1
+  - 注册 npm script: `pnpm check:api-routes`
+  - 已有 scripts/check-i18n-keys.mjs 覆盖五语言 parity 检查（7732 键 × 5 语言），无需新建
+  - HTTP 烟测发现预存问题: admin 路由全返 404（含已知路由 GET /api/admin/users），与本次修改无关，属环境/配置问题
+  - 验证: api typecheck 0 错误 / web typecheck 0 错误 / api test 1007/1007 全通过
 
 ---
 
