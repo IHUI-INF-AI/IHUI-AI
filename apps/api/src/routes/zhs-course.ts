@@ -15,6 +15,7 @@ import {
   zhsOperateTokenFlow,
 } from '@ihui/database'
 import { eq, sql, and, desc } from 'drizzle-orm'
+import { requireAdmin } from '../plugins/require-permission.js'
 
 const courseSchema = z.object({
   title: z.string().min(1).max(255),
@@ -773,4 +774,13 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       .where(and(eq(zhsUserPlatform.userUuid, userUuid), eq(zhsUserPlatform.status, 1)))
     return { list }
   })
+}
+
+/**
+ * 管理员课程路由（前缀 /api/admin/course）。
+ * 复用 zhsCourseRoutes 的全部端点，但添加 requireAdmin 钩子。
+ */
+export const adminZhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+  fastify.addHook('preHandler', requireAdmin)
+  fastify.register(zhsCourseRoutes)
 }
