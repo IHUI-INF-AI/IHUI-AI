@@ -8144,5 +8144,22 @@
     "deleteDesc": "该操作不可恢复",
     "delete": "删除",
     "validateName": "请输入应用名称"
+  },
+  "errors": {
+    "unknown": "未知错误",
+    "validationFailed": "参数错误",
+    "unauthorized": "请先登录",
+    "forbidden": "权限不足",
+    "notFound": "资源不存在",
+    "conflict": "操作冲突",
+    "rateLimited": "操作过于频繁，请稍后再试",
+    "locked": "资源被锁定",
+    "internalError": "服务器错误",
+    "upstreamFailure": "上游服务异常",
+    "serviceUnavailable": "服务暂不可用",
+    "memberExists": "会员已存在",
+    "optimisticLock": "数据已被修改，请刷新后重试",
+    "invalidMoney": "金额格式错误",
+    "invalidTimezone": "时区错误"
   }
 }
