@@ -3,6 +3,7 @@ import type { Worker } from 'bullmq'
 import { buildServer } from './server.js'
 import { startWorkers } from './workers/index.js'
 import { startSchedulerWorker } from './workers/scheduler-worker.js'
+import { initVendorConfigs } from './lifecycle/init-vendor-configs.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const HOST = process.env.HOST ?? '0.0.0.0'
@@ -15,6 +16,12 @@ async function start() {
   const enableWorker = process.env.ENABLE_WORKER !== 'false'
   const workers = enableWorker ? startWorkers(server) : null
   const schedulerWorker: Worker | null = enableWorker ? startSchedulerWorker(server) : null
+
+  // R4 重构产物：启动后异步初始化 AI 厂商配置（不阻塞 listen）
+  // 数据库不可用或表未创建时静默降级，不影响服务启动
+  void initVendorConfigs(server.log).catch((err) => {
+    server.log.warn({ err }, 'AI 厂商配置初始化跳过（数据库/表未就绪）')
+  })
 
   try {
     await server.listen({ port: PORT, host: HOST })
