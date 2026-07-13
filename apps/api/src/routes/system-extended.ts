@@ -4,6 +4,7 @@ import { eq, and, asc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { aibotSites } from '@ihui/database'
 import { success, error } from '../utils/response.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -100,22 +101,20 @@ async function rawDelete(table: string, id: string) {
   await db.execute(sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id}`)
 }
 
-const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
-  // -------------------------------------------------------------------------
-  // category_dictionary — 分类字典管理（表 zhs_category_dictionary）
-  // 旧逻辑：列表仅返回 is_show=true，按 sort_order 升序
-  // -------------------------------------------------------------------------
-  const categoryDictCols = [
-    'dict_type',
-    'code',
-    'label',
-    'value',
-    'sort_order',
-    'is_show',
-    'description',
-    'parent_id',
-    'extra',
-  ]
+const categoryDictCols = [
+  'dict_type',
+  'code',
+  'label',
+  'value',
+  'sort_order',
+  'is_show',
+  'description',
+  'parent_id',
+  'extra',
+]
+
+/** 注册 category-dictionary 路由（可复用于用户端和 admin 端） */
+function registerCategoryDictionaryRoutes(server: FastifyInstance) {
   server.get('/category-dictionary/list', async (req, reply) => {
     const q = req.query as {
       page?: string
@@ -194,6 +193,20 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(500).send(error(500, '删除字典项失败'))
     }
   })
+}
+
+/** 管理员 category-dictionary 路由（前缀 /api/admin/category-dictionary） */
+export const adminCategoryDictionaryRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', requireAdmin)
+  registerCategoryDictionaryRoutes(server)
+}
+
+const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
+  // -------------------------------------------------------------------------
+  // category_dictionary — 分类字典管理（表 zhs_category_dictionary）
+  // 旧逻辑：列表仅返回 is_show=true，按 sort_order 升序
+  // -------------------------------------------------------------------------
+  registerCategoryDictionaryRoutes(server)
 
   // -------------------------------------------------------------------------
   // bot_sites — Bot 站点配置（Drizzle schema: aibot_sites）
