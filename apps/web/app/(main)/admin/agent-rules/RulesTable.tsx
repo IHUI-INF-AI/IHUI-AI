@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useTranslations } from 'next-intl'
 import { Edit, Trash2, Loader2, Shield } from 'lucide-react'
@@ -61,9 +61,9 @@ export function RulesTable({ rows, isLoading, error, onDelete, deletePending }: 
                 <TableRow key={rule.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-mono text-xs">{rule.id}</TableCell>
                   <TableCell className="px-4 py-2.5 font-mono text-xs">{rule.agentId}</TableCell>
-                  <TableCell className="px-4 py-2.5 font-medium">{rule.name}</TableCell>
-                  <TableCell className="px-4 py-2.5 font-mono text-xs">{rule.code}</TableCell>
-                  <TableCell className="px-4 py-2.5">{rule.type}</TableCell>
+                  <TableCell className="px-4 py-2.5 font-medium">{rule.ruleName}</TableCell>
+                  <TableCell className="px-4 py-2.5 font-mono text-xs">{rule.ruleCode}</TableCell>
+                  <TableCell className="px-4 py-2.5">{rule.ruleType}</TableCell>
                   <TableCell className="px-4 py-2.5">{rule.priority}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     <span className={badgeCls(enabled)}>
