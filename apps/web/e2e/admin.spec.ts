@@ -37,8 +37,8 @@ test.describe('Admin 管理后台', () => {
     expect(page.url()).toBeTruthy()
   })
 
-  test('admin/settings 页面权限拦截', async ({ page }) => {
-    await page.goto('/admin/settings')
+  test('admin/configs 页面权限拦截', async ({ page }) => {
+    await page.goto('/admin/configs')
     await page.waitForURL(/\/(login|register|403|forbidden)/, { timeout: 5000 }).catch(() => {})
     expect(page.url()).toBeTruthy()
   })

@@ -1,7 +1,15 @@
 import { fetchApi } from '@/lib/api'
 import type { Category, CfgType, Config, ConfigForm } from './types'
 
-export const CATEGORIES: Category[] = ['general', 'mail', 'storage', 'security', 'payment', 'ai']
+export const CATEGORIES: Category[] = [
+  'general',
+  'mail',
+  'storage',
+  'security',
+  'payment',
+  'ai',
+  'system',
+]
 export const TYPES: CfgType[] = ['string', 'number', 'boolean', 'json']
 
 export const EMPTY_FORM: ConfigForm = {

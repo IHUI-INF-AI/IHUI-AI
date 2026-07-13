@@ -42,8 +42,7 @@ export default function HotArticlesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'hot', page],
-    queryFn: () =>
-      api<ArticlesData>(`/api/content/articles/hot?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () => api<ArticlesData>(`/api/article/hot?page=${page}&pageSize=${PAGE_SIZE}`),
   })
 
   const total = data?.total ?? 0

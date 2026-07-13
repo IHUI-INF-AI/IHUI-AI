@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Users,
   FolderCog,
-  Settings,
   ShoppingCart,
   ShieldCheck,
   Shield,
@@ -257,7 +256,6 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/integrations', labelKey: 'integrations', icon: Plug },
   { href: '/admin/logs', labelKey: 'logs', icon: ScrollText },
   { href: '/admin/events', labelKey: 'events', icon: Activity },
-  { href: '/admin/settings', labelKey: 'settings', icon: Settings },
   // API 平台管理
   { href: '/admin/api-platform/apps', labelKey: 'apiPlatformApps', icon: Plug },
   { href: '/admin/api-platform/packages', labelKey: 'apiPlatformPackages', icon: Package },
@@ -284,7 +282,6 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/member/blacklist', labelKey: 'memberBlacklist', icon: Ban },
   // 系统管理
   { href: '/admin/system/monitor', labelKey: 'systemMonitor', icon: Activity },
-  { href: '/admin/system/config', labelKey: 'systemConfig', icon: SlidersHorizontal },
   { href: '/admin/system/tasks', labelKey: 'systemTasks', icon: ListChecks },
   // R65: 实名认证审核
   { href: '/admin/realname-audit', labelKey: 'realnameAudit', icon: BadgeCheck },

@@ -1,0 +1,15 @@
+fix: R13 stash drop 反向审计+agent-rules Edit 按钮修复+admin 重构清理
+
+- 审计 33 个 dangling commit 发现 R10 审计不完整:
+  - agent-rules Edit 按钮无 onClick (死按钮)
+  - 后端 PUT /rules/:id 端点已存在但前端未使用
+  - WIP 7e2a9019 包含完整实现但 R10 被误判丢弃
+- 修复 agent-rules 编辑功能 (4 文件 +60 -5)
+- 新增 5 语言 i18n 键: editTitle / updateSuccess / exportFailed
+- 附带 admin 重构清理:
+  - admin/system/config → admin/configs (重命名)
+  - admin/settings 整个目录删除 (功能并入 configs)
+  - admin e2e 测试更新为 /admin/configs
+  - share/page.tsx / content-api.ts 删除 (无引用)
+  - 2 个 use-settings-* hook 删除 (随 settings 目录)
+- 修正 AdminNav.tsx 移除 Settings icon (未使用)

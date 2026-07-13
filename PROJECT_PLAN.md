@@ -204,6 +204,46 @@
   - 验证: api typecheck 0 错误 / api test 1007/1007 全通过（无回归）
   - 影响范围: 仅 apps/api/src/plugins/tenant.ts 1 文件 +2 行
 
+- [x] ✅(2026-07-13) R13 agent-rules Edit 按钮死按钮修复（commit 待提交，4 files +60 -5）:
+  - 触发: 用户要求"重新按照我的要求检查一遍 是否删错了 删掉了本来有用的东西"
+  - 反向审计方法: 解析所有 dropped stash 对应的 dangling commit → 与当前 monorepo 全量对比
+  - **审查的 33 个 dangling commits**:
+    - `74019693` (stash@{2}) - WIP user/profile sex + oss/files — R11 已恢复 sex 字段，oss/files 当前已有完整实现（OssFileTable/Dialog/Filter + page.tsx）✓
+    - `7e2a9019` (stash@{7}) - WIP admin pages feature additions (export/edit/HasPermi/tree) — 描述 "unfinished, has type errors"
+    - `d3906a0a` (stash@{10}) - WIP all uncommitted changes (admin pages feature work) — 多为 1 行微调
+    - 其他 30 个 dangling commits 全部为旧 client/ Vue 或旧 server/ Python 项目残留，已迁移
+  - 🔴 **关键发现**: R10 审计不完整，遗漏 agent-rules Edit 按钮实现
+    - 当前 `apps/web/app/(main)/admin/agent-rules/RulesTable.tsx:76` Edit 按钮**无 onClick 处理器**（死按钮）
+    - 当前 `page.tsx` 没有 `editingId` state、没有 `openEditRule` handler、没有 `PUT` mutation
+    - 当前 `AgentRuleForm` 总是显示 "新增规则" 标题，不会切换为 "编辑规则"
+    - 后端 `apps/api/src/routes/agent-extended.ts:791` 的 `PUT /rules/:id` 端点**已存在并工作正常**
+    - WIP 7e2a9019 包含完整实现（editingId + openEditRule + PUT + HasPermi 包装），但 R10 被判定为"未完成"丢弃
+  - **R10 审计不充分的原因**:
+    - 仅检查"该功能是否在当前 monorepo 中存在"，未检查"功能是否完整可用"
+    - 没有对 dangling commit 的 diff 进行"是否有功能性 UI 元素被简化丢失"的逐项对比
+    - 错误地把"unfinished, has type errors"等同于"无用代码"
+  - **修复内容**:
+    - **page.tsx**:
+      - 新增 `editingId` state
+      - 新增 `openCreate()` 和 `openEditRule(rule)` handler
+      - `createMut` 重构为 `saveMut`，根据 `editingId` 切换 POST/PUT
+      - 顶部"新增/收起"按钮: `onClick` 改为 `(editingId ? resetForm() : openCreate())`，文字根据 `editingId || showAddForm` 切换
+      - 新增 `handleExportParams` 导出函数
+      - params Tab 加导出按钮
+    - **RulesTable.tsx**:
+      - Props 新增 `onEdit: (rule: AgentRule) => void`
+      - Edit 按钮添加 `onClick={() => onEdit(rule)}`
+    - **AgentRuleForm.tsx**:
+      - Props 新增 `isEditing: boolean`
+      - 标题: `isEditing ? t('editTitle') : t('formTitle')`
+    - **i18n 5 语言**: 新增 `editTitle`、`updateSuccess`、`exportFailed` 3 键 × 5 语言 = 15 键
+  - **未恢复的 WIP 改动（评估为不可恢复/不应恢复）**:
+    - 7e2a9019 中 system/tasks WIP 期望后端有 `jobName/jobGroup/invokeTarget/misfirePolicy` 字段，但后端无对应实现，恢复后会运行时报错
+    - 7e2a9019 中 comment-logs/video-logs WIP 期望后端支持 POST/PUT，但当前后端只有 GET/DELETE（admin-missing-routes.ts:416-449 确认）
+    - 7e2a9019 中 d3906a0a 的 1 行改动 (advertise/ai-gc/carousel/edu/* 等) 增量太小，不构成功能损失
+    - 评估: 这些 WIP 是"功能愿望清单"，不是可工作的代码，丢弃是正确决定，但 R10 应在 PROJECT_PLAN 中明确记录"恢复 agent-rules edit 按钮功能"
+  - 验证: web typecheck 0 错误 / web lint 0 错误
+
 ---
 
 ## P1 — 未来需求

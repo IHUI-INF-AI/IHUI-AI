@@ -5,7 +5,6 @@ import { getMessages, getLocale } from 'next-intl/server'
 import { Toaster } from 'sonner'
 
 import './globals.css'
-import './fonts.css'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { QueryProvider } from '@/providers/query-provider'
 import { GlobalHooksProvider } from '@/providers/global-hooks-provider'
