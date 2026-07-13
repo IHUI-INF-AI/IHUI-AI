@@ -1,5 +1,25 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { FastifyRequest } from 'fastify'
+
+// Mock config:避免 env 校验触发 process.exit(1)
+vi.mock('../src/config/index.js', () => ({
+  config: {
+    NODE_ENV: 'test',
+    DATABASE_URL: 'postgres://localhost:5432/test',
+    REDIS_URL: 'redis://localhost:6379',
+    JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
+    AI_SERVICE_URL: 'http://localhost:8000',
+  },
+}))
+
+// Mock db:避免真实 DB 连接
+vi.mock('../src/db/index.js', () => ({
+  db: {
+    select: vi.fn(),
+    update: vi.fn(),
+  },
+}))
+
 import { resolveTenantIdentifier } from '../src/plugins/tenant.js'
 
 /** 构造最小 mock request，仅含 resolveTenantIdentifier 依赖的 headers + hostname。 */
