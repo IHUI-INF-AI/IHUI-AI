@@ -2845,3 +2845,62 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 | `pnpm --filter @ihui/api typecheck`                             | ✅ 0 错误                   |
 | `pnpm --filter @ihui/api test`（全量）                          | ✅ 1322/1322 通过           |
 | `money.test.ts` 已有覆盖                                        | ✅ 258 行全面覆盖，无需补充 |
+
+## R101 测试覆盖缺口深度扫描（2026-07-13）📋 技术债清单
+
+> R100 收尾后深度审查发现：apps/api 业务文件测试覆盖率约 27.7%（79/285 已测，206 未测）。本清单为后续迭代的技术债记录，不阻塞当前交付。
+
+### 扫描汇总
+
+| 目录                     | 业务文件数 | 已测试  | 未测试   | 覆盖率     |
+| ------------------------ | ---------- | ------- | -------- | ---------- |
+| `src/utils/`             | 40         | 9       | 31       | 22.5%      |
+| `src/plugins/`           | 36         | 7       | 29       | 19.4%      |
+| `src/services/`（顶层）  | 51         | 8       | 43       | 15.7%      |
+| `src/services/ai/`       | 11         | 0       | 11       | 0%         |
+| `src/services/tour/`     | 7          | 0       | 7        | 0%         |
+| `src/services/clawdbot/` | 19         | 0       | 19       | 0%         |
+| `src/routes/`            | ~120       | ~55     | ~65      | ~45.8%     |
+| `src/workers/`           | 1          | 0       | 1        | 0%         |
+| **合计**                 | **~285**   | **~79** | **~206** | **~27.7%** |
+
+### 伪匹配盲点（测试文件名相似但实际未覆盖）
+
+| 测试文件                  | 名义对应源文件              | 实际测试目标                                          | 缺口                               |
+| ------------------------- | --------------------------- | ----------------------------------------------------- | ---------------------------------- |
+| `auth-extended.test.ts`   | `routes/auth-extended.ts`   | `services/oauth-providers.ts` + `services/captcha.ts` | routes/auth-extended.ts 未被测试   |
+| `payment-gateway.test.ts` | `routes/payment-gateway.ts` | `services/wechat-pay.ts`                              | routes/payment-gateway.ts 未被测试 |
+
+### P0 资金/安全优先补测清单（8-10 文件）
+
+- [ ] `services/alipay.ts` — 支付核心
+- [ ] `routes/payment-gateway.ts` — 支付路由层（伪匹配盲点）
+- [ ] `routes/payment-extended.ts` — 支付扩展路由
+- [ ] `services/commission-service.ts` — 佣金计算
+- [ ] `services/settlement-service.ts` — 结算
+- [ ] `utils/crypto.ts` — 安全凭据
+- [ ] `utils/api-key-quota.ts` — API Key 配额
+- [ ] `plugins/auth.ts` — 鉴权核心
+- [ ] `plugins/require-permission.ts` — 权限校验
+- [ ] `routes/auth-extended.ts` — 认证扩展路由（伪匹配盲点）
+
+### P1 整目录零测试基线（37 文件）
+
+- [ ] `services/clawdbot/` — 19 文件全无测试，优先 clawdbot-service.ts / gateway.ts / memory.ts
+- [ ] `services/ai/` — 11 文件全无测试，优先 generation-queue-service.ts / prompt-optimizer-service.ts
+- [ ] `services/tour/` — 7 文件全无测试，优先 tour-gray-release.ts / tour-monitoring.ts
+
+### P2 工具类基础设施（31 文件）
+
+- [ ] `utils/outbox.ts` / `optimistic-lock.ts` / `pessimistic-lock.ts` / `deadlock-retry.ts` / `db-failover.ts` — 分布式一致性
+- [ ] `utils/audit-chain.ts` / `audit-archive.ts` / `audit-ddl-trail.ts` — 审计完整性
+- [ ] `utils/response.ts` / `logger.ts` / `code-store.ts` — 基础工具
+- [ ] `utils/cache-avalanche-guard.ts` / `bloom-guard.ts` / `idor-guard.ts` — 防护类
+
+### 建议
+
+1. 先修伪匹配盲点（auth-extended / payment-gateway 路由层专属测试）
+2. P0 资金/安全 8-10 文件优先补测
+3. clawdbot/ai/tour 三目录建立 smoke test 基线
+4. vitest 配置开启 coverage 报告 + 阈值（起步 lines 30%）
+5. CI 脚本检测新增源文件是否带测试
