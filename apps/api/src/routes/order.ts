@@ -451,20 +451,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /refunds/:id - 退款详情
-  server.get(
-    '/refunds/:id',
-    { schema: { summary: '退款详情', tags: ['order'], response: okResponse } },
-    async (request, reply) => {
-      const parsed = idParamSchema.safeParse(request.params)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const refund = await findRefundById(parsed.data.id)
-      if (!refund) return reply.status(404).send(error(404, '退款记录不存在'))
-      return reply.send(success({ refund }))
-    },
-  )
+  // 注: GET /refunds/:id 已由 refund-audit.ts 真实实现(含审核记录与订单信息),此处不再重复注册
 
   // ===== 发票抬头 =====
 

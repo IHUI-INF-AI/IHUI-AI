@@ -387,12 +387,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list: [] }))
   })
 
-  // GET /coupons - 用户优惠券列表（/api/admin/coupons 已在 promotions.ts admin 中实现）
-  server.get('/coupons', async (request, reply) => {
-    const q = parsePagination(request, reply)
-    if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
-  })
+  // 注: /coupons 已由 promotions.ts 真实实现,此处不再重复注册空桩
 
   // GET /notifications/:id - 通知详情
   // （GET /api/notifications 列表 和 POST /api/notifications/read-all 已在 notifications.ts 中实现）
@@ -434,11 +429,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ order: null }))
   })
 
-  server.get('/payments/me', async (request, reply) => {
-    const q = parsePagination(request, reply)
-    if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
-  })
+  // 注: /payments/me 已由 order.ts 真实实现,此处不再重复注册空桩
 
   server.get('/payment/refund/:refundNo', async (request, reply) => {
     const refundNo = refundNoParam.parse(request.params).refundNo
@@ -474,11 +465,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ success: true }))
   })
 
-  server.get('/refunds/me', async (request, reply) => {
-    const q = parsePagination(request, reply)
-    if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
-  })
+  // 注: /refunds/me 已由 order.ts 真实实现,此处不再重复注册空桩
 
   server.get('/top-up/status/:orderId', async (request, reply) => {
     const orderId = orderIdParam.parse(request.params).orderId
@@ -486,15 +473,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ status: null }))
   })
 
-  server.get('/invoices/applications', async (request, reply) => {
-    const q = parsePagination(request, reply)
-    if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
-  })
-
-  server.post('/invoices/applications', async (_request, reply) => {
-    return reply.status(201).send(success({ success: true }))
-  })
+  // 注: /invoices/applications (GET/POST) 已由 order.ts 真实实现,此处不再重复注册空桩
 
   // ===========================================================================
   // 15. 提现模块 /finance/withdrawal/*（7 个端点）
@@ -589,15 +568,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ team: null }))
   })
 
-  server.post('/ai/chat', async (_request, reply) => {
-    return reply.send(success({ reply: '', conversationId: null }))
-  })
-
-  server.get('/ai/history', async (request, reply) => {
-    const q = parsePagination(request, reply)
-    if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
-  })
+  // 注: /ai/chat (POST) 和 /ai/history (GET) 已由 ai-user-model-chat.ts 真实实现,此处不再重复注册空桩
 
   server.post('/ai/chat/conversations', async (_request, reply) => {
     return reply.status(201).send(success({ conversationId: null }))
