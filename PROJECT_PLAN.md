@@ -2888,6 +2888,9 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 ### P1 整目录零测试基线（37 文件）
 
 - [ ] `services/clawdbot/` — 19 文件全无测试，优先 clawdbot-service.ts / gateway.ts / memory.ts
+  - [x] ✅(2026-07-14) `clawdbot/system.ts` — 系统服务（16 测试：配置管理+事件/日志写入+过滤+limit/clearLogs/getMetrics/getHealth/单例）
+  - [x] ✅(2026-07-14) `clawdbot/channels.ts` — 渠道管理（19 测试：注册+注销+事件/列表查询/receiveMessage+事件/sendMessage+禁用检查/broadcast+filter/getStats/单例）
+  - [x] ✅(2026-07-14) `clawdbot/tools.ts` — 工具系统（22 测试：注册+注销+事件/execute+不存在+禁用+抛错+权限检查/查询+分类/统计/单例）
 - [x] ✅(2026-07-14) `services/ai/cognitive-intelligence.ts` — 认知智能（30 测试：getContext/clearContext/understand 意图识别+实体+情感+短时记忆/reason 归纳+演绎+溯因/learnPreference 偏好权重/getPreferences 排序/rememberFact/recallFact/listFacts）
 - [x] ✅(2026-07-14) `services/ai/plot-advisor-service.ts` — 剧情顾问（23 测试：createStory/getStory/addCharacter/addPlotPoint foreshadow 回收/checkConsistency 伏笔+关系对称性/analyzePacing 四幕评分/suggestChapterOutline）
 - [x] ✅(2026-07-14) `services/ai/video-quality-analyzer.ts` — 视频质量分析（28 测试：analyzeQuality 分辨率分类+宽高比+技术评分+视觉评分+推荐等级/analyzeBatch）
