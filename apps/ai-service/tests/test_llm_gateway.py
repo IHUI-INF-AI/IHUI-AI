@@ -35,8 +35,7 @@ def test_is_stub_mode_true_when_no_api_key(monkeypatch):
 def test_is_stub_mode_false_when_openai_key_set(monkeypatch):
     """设置 openai_api_key 后非 stub 模式。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
     gw = LLMGateway()
     assert gw._is_stub_mode() is False
 
@@ -154,8 +153,7 @@ async def test_complete_stub_with_explicit_model(monkeypatch):
 async def test_complete_real_mode_success(monkeypatch):
     """真实模式:litellm.acompletion 成功时返回响应。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
 
     gw = LLMGateway()
 
@@ -200,8 +198,7 @@ async def test_complete_real_mode_success(monkeypatch):
 async def test_complete_real_mode_no_usage(monkeypatch):
     """真实模式:litellm 返回 usage=None 时不报错。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
 
     gw = LLMGateway()
 
@@ -236,8 +233,7 @@ async def test_complete_real_mode_no_usage(monkeypatch):
 async def test_complete_real_mode_no_model_field(monkeypatch):
     """真实模式:response.model 为 None 时用 used_model。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
 
     gw = LLMGateway()
 
@@ -277,8 +273,7 @@ async def test_complete_real_mode_no_model_field(monkeypatch):
 async def test_complete_real_mode_exception_degrades_to_stub(monkeypatch):
     """真实模式:litellm 抛异常时降级为 stub 返回错误。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
 
     gw = LLMGateway()
 
@@ -295,18 +290,18 @@ async def test_complete_real_mode_exception_degrades_to_stub(monkeypatch):
 
     result = await gw.complete([{"role": "user", "content": "test"}])
 
-    # 异常时降级为 stub
-    assert result["stub"] is True
-    assert "LLM 调用失败" in result["content"]
-    assert "API 连接失败" in result["error"]
+    # 异常时返回 error 标记(非 stub 降级)
+    assert result["stub"] is False
+    assert result["error"] is True
+    assert result["content"] == ""
+    assert "API 连接失败" in result["error_message"]
     assert result["usage"] == {}
 
 
 async def test_complete_real_mode_usage_without_model_dump(monkeypatch):
     """真实模式:usage 无 model_dump 方法时用 dict() 转换。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
 
     gw = LLMGateway()
 
@@ -348,8 +343,7 @@ async def test_complete_real_mode_usage_without_model_dump(monkeypatch):
 async def test_complete_real_mode_passes_kwargs(monkeypatch):
     """真实模式:kwargs 透传给 litellm.acompletion。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
 
     gw = LLMGateway()
 
@@ -477,8 +471,7 @@ async def test_astream_stub_short_message_single_chunk(monkeypatch):
 async def test_astream_real_mode_yields_tokens(monkeypatch):
     """真实模式:astream 逐 token 产出 chunk + done。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
 
     gw = LLMGateway()
 
@@ -528,8 +521,7 @@ async def test_astream_real_mode_yields_tokens(monkeypatch):
 async def test_astream_real_mode_skip_empty_content(monkeypatch):
     """真实模式:空 content 的 chunk 被跳过。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
 
     gw = LLMGateway()
 
@@ -575,8 +567,7 @@ async def test_astream_real_mode_skip_empty_content(monkeypatch):
 async def test_astream_real_mode_exception_yields_error(monkeypatch):
     """真实模式:litellm 抛异常时 yield error 事件。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
 
     gw = LLMGateway()
 
@@ -601,8 +592,7 @@ async def test_astream_real_mode_exception_yields_error(monkeypatch):
 async def test_astream_real_mode_no_choices(monkeypatch):
     """真实模式:chunk 无 choices 时不报错,只取 model。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
 
     gw = LLMGateway()
 
@@ -635,8 +625,7 @@ async def test_astream_real_mode_no_choices(monkeypatch):
 async def test_astream_passes_stream_kwarg(monkeypatch):
     """真实模式:astream 透传 stream=True 给 litellm。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
 
     gw = LLMGateway()
 
@@ -663,3 +652,143 @@ async def test_astream_passes_stream_kwarg(monkeypatch):
     _ = [e async for e in gw.astream([{"role": "user", "content": "hi"}])]
 
     assert received_kwargs.get("stream") is True
+
+
+# =============================================================================
+# _resolve_provider — provider 前缀路由(固化 stepfun/agnes/openai 手动验证)
+# =============================================================================
+
+
+def test_resolve_provider_stepfun(monkeypatch):
+    """stepfun/* → (stepfun_api_key, stepfun_api_base, openai/<real_model>)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-stepfun-test")
+    monkeypatch.setattr(settings, "stepfun_api_base", "https://api.stepfun.com/step_plan/v1")
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("stepfun/step-3.7-flash")
+    assert api_key == "sk-stepfun-test"
+    assert api_base == "https://api.stepfun.com/step_plan/v1"
+    assert litellm_model == "openai/step-3.7-flash"
+
+
+def test_resolve_provider_agnes(monkeypatch):
+    """agnes/* → (agnes_api_key, agnes_api_base, openai/<real_model>)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "agnes_api_key", "sk-agnes-test")
+    monkeypatch.setattr(settings, "agnes_api_base", "https://apihub.agnes-ai.com/v1")
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("agnes/gpt-4o-mini")
+    assert api_key == "sk-agnes-test"
+    assert api_base == "https://apihub.agnes-ai.com/v1"
+    assert litellm_model == "openai/gpt-4o-mini"
+
+
+def test_resolve_provider_groq(monkeypatch):
+    """groq/* → (groq_api_key, None, model) — LiteLLM 原生路由。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "groq_api_key", "sk-groq-test")
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("groq/llama-3.3-70b")
+    assert api_key == "sk-groq-test"
+    assert api_base is None
+    assert litellm_model == "groq/llama-3.3-70b"
+
+
+def test_resolve_provider_gemini(monkeypatch):
+    """gemini/* → (gemini_api_key, None, model)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "gemini_api_key", "sk-gemini-test")
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("gemini/gemini-1.5-flash")
+    assert api_key == "sk-gemini-test"
+    assert api_base is None
+    assert litellm_model == "gemini/gemini-1.5-flash"
+
+
+def test_resolve_provider_openrouter(monkeypatch):
+    """openrouter/* → (openrouter_api_key, None, model)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "openrouter_api_key", "sk-or-test")
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("openrouter/llama-3")
+    assert api_key == "sk-or-test"
+    assert api_base is None
+    assert litellm_model == "openrouter/llama-3"
+
+
+def test_resolve_provider_anthropic(monkeypatch):
+    """anthropic/* → (anthropic_api_key, None, model)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "anthropic_api_key", "sk-ant-test")
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("anthropic/claude-3-opus")
+    assert api_key == "sk-ant-test"
+    assert api_base is None
+    assert litellm_model == "anthropic/claude-3-opus"
+
+
+def test_resolve_provider_claude_prefix(monkeypatch):
+    """claude-* → (anthropic_api_key, None, model) — claude- 前缀也路由到 anthropic。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "anthropic_api_key", "sk-ant-test")
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("claude-3-5-sonnet")
+    assert api_key == "sk-ant-test"
+    assert api_base is None
+    assert litellm_model == "claude-3-5-sonnet"
+
+
+def test_resolve_provider_openai_default(monkeypatch):
+    """gpt-4(无前缀)→ (openai_api_key, None, model) — 默认 OpenAI 路由。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "openai_api_key", "sk-openai-test")
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("gpt-4o")
+    assert api_key == "sk-openai-test"
+    assert api_base is None
+    assert litellm_model == "gpt-4o"
+
+
+def test_resolve_provider_openai_key_missing_returns_none(monkeypatch):
+    """openai key 缺失时 _resolve_provider 返回 (None, None, model)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "openai_api_key", "")
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("gpt-4o")
+    assert api_key is None
+    assert api_base is None
+    assert litellm_model == "gpt-4o"
+
+
+def test_resolve_provider_case_insensitive(monkeypatch):
+    """模型名大小写不敏感:STEPFUN/Step-3.7 → openai/Step-3.7。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-stepfun-test")
+    monkeypatch.setattr(settings, "stepfun_api_base", "https://api.stepfun.com/step_plan/v1")
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("STEPFUN/Step-3.7-Flash")
+    assert api_key == "sk-stepfun-test"
+    assert litellm_model == "openai/Step-3.7-Flash"
+
+
+# =============================================================================
+# complete — API key 缺失错误处理(固化 openai key 缺失手动验证)
+# =============================================================================
+
+
+async def test_complete_real_mode_api_key_missing_returns_error(monkeypatch):
+    """真实模式 + API key 缺失:complete() 返回 error:True + 中文错误信息。"""
+    from app.core.config import settings
+    # 设置 anthropic key 使 _is_stub_mode() 返回 False(非 stub 模式)
+    monkeypatch.setattr(settings, "anthropic_api_key", "sk-ant-test")
+
+    gw = LLMGateway()
+    # 请求 gpt-4o(默认 openai 路由),但 openai key 为空
+    result = await gw.complete(
+        [{"role": "user", "content": "test"}],
+        model="gpt-4o",
+    )
+    assert result["stub"] is False
+    assert result["error"] is True
+    assert "API key" in result["error_message"] or "未配置" in result["error_message"]
+    assert result["content"] == ""
