@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, desc, and, sql } from 'drizzle-orm'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -803,7 +803,43 @@ const updateCourseAuditBodySchema = z.object({
 const statusToNum = (s: string): number => (s === 'approved' ? 1 : s === 'rejected' ? 2 : 0)
 const numToStatus = (n: number): string => (n === 1 ? 'approved' : n === 2 ? 'rejected' : 'pending')
 
-const eduExtendedRoutes: FastifyPluginAsync = async (server) => {
+/** 注册 course-audit 路由（可复用于用户端和 admin 端） */
+function registerCourseAuditRoutes(server: FastifyInstance) {
+  // GET /course-audit — 根路径列表（别名 /list，兼容前端 RESTful 模式）
+  server.get('/course-audit', async (request, reply) => {
+    const parsed = courseAuditListQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, status, search } = parsed.data
+    const conds = []
+    if (status) conds.push(eq(zhsCourseAudit.auditStatus, statusToNum(status)))
+    if (search) conds.push(sql`${zhsCourseAudit.remark} ILIKE ${`%${search}%`}`)
+    const where = conds.length ? and(...conds) : undefined
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select()
+        .from(zhsCourseAudit)
+        .where(where)
+        .orderBy(desc(zhsCourseAudit.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(zhsCourseAudit)
+        .where(where),
+    ])
+    const mapped = list.map((r) => ({
+      id: r.id,
+      courseId: String(r.courseId),
+      title: null,
+      status: numToStatus(r.auditStatus),
+      reason: r.remark,
+      createdAt: r.createdAt.toISOString(),
+    }))
+    return reply.send(success({ list: mapped, total: totalRows[0]?.count ?? 0, page, pageSize }))
+  })
+
   // GET /course-audit/list — 课程审核列表
   server.get('/course-audit/list', async (request, reply) => {
     const parsed = courseAuditListQuerySchema.safeParse(request.query)
@@ -879,19 +915,19 @@ const eduExtendedRoutes: FastifyPluginAsync = async (server) => {
         createTime: new Date(),
       })
       .returning()
-    if (!record) {
-      return reply.status(500).send(error(500, 'Failed to create audit record'))
-    }
-    return reply.status(201).send(
-      success({
-        id: record.id,
-        courseId: String(record.courseId),
-        title: null,
-        status: numToStatus(record.auditStatus),
-        reason: record.remark,
-        createdAt: record.createdAt.toISOString(),
-      }),
-    )
+    if (!record) return reply.status(500).send(error(500, 'Failed to create audit record'))
+    return reply
+      .status(201)
+      .send(
+        success({
+          id: record.id,
+          courseId: String(record.courseId),
+          title: null,
+          status: numToStatus(record.auditStatus),
+          reason: record.remark,
+          createdAt: record.createdAt.toISOString(),
+        }),
+      )
   })
 
   // PUT /course-audit/:id — 更新审核记录
@@ -939,4 +975,14 @@ const eduExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 }
 
+const eduExtendedRoutes: FastifyPluginAsync = async (server) => {
+  registerCourseAuditRoutes(server)
+}
+
 export default eduExtendedRoutes
+
+/** 管理员 course-audit 路由（前缀 /api/admin） */
+export const adminCourseAuditRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', requireAdmin)
+  registerCourseAuditRoutes(server)
+}
