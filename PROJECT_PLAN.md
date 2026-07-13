@@ -2868,21 +2868,21 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 
 | 测试文件                  | 名义对应源文件              | 实际测试目标                                          | 缺口                               |
 | ------------------------- | --------------------------- | ----------------------------------------------------- | ---------------------------------- |
-| `auth-extended.test.ts`   | `routes/auth-extended.ts`   | `services/oauth-providers.ts` + `services/captcha.ts` | routes/auth-extended.ts 未被测试   |
-| `payment-gateway.test.ts` | `routes/payment-gateway.ts` | `services/wechat-pay.ts`                              | routes/payment-gateway.ts 未被测试 |
+| `auth-extended.test.ts`   | `routes/auth-extended.ts`   | `services/oauth-providers.ts` + `services/captcha.ts` | ✅ 已由 `src/routes/__tests__/auth-extended.test.ts` 补建 |
+| `payment-gateway.test.ts` | `routes/payment-gateway.ts` | `services/wechat-pay.ts`                              | ✅ 已由 `src/routes/__tests__/payment-gateway.test.ts` 补建 |
 
 ### P0 资金/安全优先补测清单（8-10 文件）
 
 - [x] ✅(2026-07-13) `services/alipay.ts` — 支付核心（15 测试：isAlipayConfigured/verifyNotify RSA2 签名验签/buildSignedUrl）
-- [ ] `routes/payment-gateway.ts` — 支付路由层（伪匹配盲点）
-- [ ] `routes/payment-extended.ts` — 支付扩展路由
+- [x] ✅(2026-07-14) `routes/payment-gateway.ts` — 支付路由层（28 测试：公开端点 success/fail/notify + 17 个需 auth 端点 401 + 3 个 admin 端点 401）
+- [x] ✅(2026-07-14) `routes/payment-extended.ts` — 支付扩展路由（7 测试：withdrawal/notify 公开幂等 + sync-return 302 重定向 + 2 个需 auth 端点 401）
 - [x] ✅(2026-07-14) `services/commission-service.ts` — 佣金计算（27 测试：calcReturnToken/calcReturnVip 4种 orderType × VIP/操盘手 × productId 矩阵/calcReturnTrader 祖父级返佣）
 - [x] ✅(2026-07-14) `services/settlement-service.ts` — 结算周期切分（16 测试：calculateMonthBoundaries 月边界/跨年/闰年2月/calculateMonthlyPeriods 单月/跨2月/跨3月/跨年/空周期/calculateMonthlyPeriodsForMonth）
 - [x] ✅(2026-07-13) `utils/crypto.ts` — 安全凭据（22 测试：AES-256-GCM 加解密往返/输出结构/完整性校验/isEncryptedPayload）
 - [x] ✅(2026-07-14) `utils/api-key-quota.ts` — API Key 配额（13 测试：默认配额常量/checkQuota 配额内/超额/重置/recordUsage/自定义配额/checkAndConsume 原子扣减）
 - [x] ✅(2026-07-13) `plugins/auth.ts` — 鉴权核心（9 测试：Bearer token 解析/verifyAccessToken mock/无 header/非 Bearer/空 token/token 过期/trim 空格/admin roleId）
 - [x] ✅(2026-07-13) `plugins/require-permission.ts` — 权限校验（10 测试：requirePermission/requireAuth/requireAdmin 三中间件全覆盖）
-- [ ] `routes/auth-extended.ts` — 认证扩展路由（伪匹配盲点）
+- [x] ✅(2026-07-14) `routes/auth-extended.ts` — 认证扩展路由（30 测试：google/config + sms-proxy/config + oauth/sms-config + oauth/sms-login + oauth/token/test + pat 400 + 19 个需 auth 端点 401）
 - [x] ✅(2026-07-13) `utils/response.ts` — 统一响应辅助函数（22 测试：success/error/emptyToUndefined/parseOrThrow）
 
 ### P1 整目录零测试基线（37 文件）
