@@ -219,6 +219,8 @@
     "invalidCredentials": "계정 또는 비밀번호가 올바르지 않습니다",
     "usernameExists": "사용자명이 이미 존재합니다",
     "dingtalkLogin": "딩톡",
+    "appleLogin": "Apple",
+    "githubLogin": "GitHub",
     "qrLogin": "QR코드 로그인",
     "qrLoadFailed": "QR 코드 로드 실패",
     "qrScanned": "스캔 완료, 휴대폰에서 확인해 주세요",
