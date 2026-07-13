@@ -167,6 +167,7 @@ import { adminMissingRoutes } from './routes/admin-missing-routes.js'
 import { missingUserRoutes } from './routes/missing-user-routes.js'
 
 import { setFastify } from './utils/logger.js'
+import { isAppError } from './errors/index.js'
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -226,9 +227,13 @@ function errorHandler(error: FastifyError, _request: FastifyRequest, reply: Fast
     logger.warn({ err: error.message, statusCode }, 'Request error')
   }
 
+  // AppError 透传 errorCode，形成端到端契约
+  const errorCode = isAppError(error) ? error.errorCode : undefined
+
   reply.status(statusCode).send({
     code: statusCode,
     message: statusCode >= 500 ? '服务器错误' : error.message,
+    ...(errorCode ? { errorCode } : {}),
   })
 }
 
