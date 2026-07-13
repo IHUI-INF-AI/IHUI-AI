@@ -22,6 +22,22 @@
   --color-border: hsl(0 0% 89.8%);
   --color-input: hsl(0 0% 89.8%);
   --color-ring: hsl(0 0% 70%);
+  --color-success: hsl(142 71% 45%);
+  --color-success-foreground: hsl(0 0% 98%);
+  --color-warning: hsl(38 92% 50%);
+  --color-warning-foreground: hsl(0 0% 98%);
+  --color-info: hsl(199 89% 48%);
+  --color-info-foreground: hsl(0 0% 98%);
+  --color-brand-50: hsl(240 5% 96%);
+  --color-brand-100: hsl(240 6% 90%);
+  --color-brand-200: hsl(240 5% 84%);
+  --color-brand-300: hsl(240 5% 65%);
+  --color-brand-400: hsl(240 5% 46%);
+  --color-brand-500: hsl(240 4% 36%);
+  --color-brand-600: hsl(240 5% 26%);
+  --color-brand-700: hsl(240 5% 21%);
+  --color-brand-800: hsl(240 6% 16%);
+  --color-brand-900: hsl(240 7% 11%);
   --radius: 0.5rem;
 }
 
@@ -43,6 +59,12 @@
   --color-border: hsl(0 0% 14.9%);
   --color-input: hsl(0 0% 14.9%);
   --color-ring: hsl(0 0% 25%);
+  --color-success: hsl(142 65% 50%);
+  --color-success-foreground: hsl(0 0% 98%);
+  --color-warning: hsl(38 85% 55%);
+  --color-warning-foreground: hsl(0 0% 98%);
+  --color-info: hsl(199 80% 55%);
+  --color-info-foreground: hsl(0 0% 98%);
 }
 
 * {
