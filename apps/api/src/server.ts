@@ -83,7 +83,7 @@ import tboxRoutes from './routes/tbox.js'
 import stockRoutes from './routes/stock.js'
 import agentExtendedRoutes from './routes/agent-extended.js'
 import eduExtendedRoutes from './routes/edu-extended.js'
-import systemExtendedRoutes from './routes/system-extended.js'
+import systemExtendedRoutes, { adminCategoryDictionaryRoutes } from './routes/system-extended.js'
 import aiExtendedRoutes from './routes/ai-extended.js'
 import miscExtendedRoutes from './routes/misc-extended.js'
 // M-20 补建：14 个 API 模块路由
@@ -109,7 +109,7 @@ import { aiUserModelChatRoutes } from './routes/ai-user-model-chat.js'
 import { adminFaqRoutes } from './routes/admin-faq.js'
 import { adminZoneRoutes } from './routes/admin-zone.js'
 import { adminDemandSquareRoutes } from './routes/admin-demand-square.js'
-import { zhsCourseRoutes } from './routes/zhs-course.js'
+import { zhsCourseRoutes, adminZhsCourseRoutes } from './routes/zhs-course.js'
 import { shareContentRoutes } from './routes/share-content.js'
 // 历史项目缺失端点补齐（集中实现）
 import { legacyCompletionRoutes } from './routes/legacy-completion.js'
@@ -542,6 +542,7 @@ function registerRoutes(server: FastifyInstance) {
   server.register(eduExtendedRoutes, { prefix: '/api/edu-ext' })
   // 管理/系统扩展（category_dictionary/bot_sites/ws_admin/compat_routes）
   server.register(systemExtendedRoutes, { prefix: '/api/system-ext' })
+  server.register(adminCategoryDictionaryRoutes, { prefix: '/api/admin' })
   // AI 扩展（capabilities/model_info/outbound_routes/video_routes/developer model_test）
   server.register(aiExtendedRoutes, { prefix: '/api/ai-ext' })
   // 其他扩展（remote/user_agent_context/docs）
@@ -596,6 +597,7 @@ function registerRoutes(server: FastifyInstance) {
 
   // ZHS 课程模块 CRUD：/api/course/*（迁移自 ZHS_Server_java 历史项目）
   server.register(zhsCourseRoutes, { prefix: '/api/course' })
+  server.register(adminZhsCourseRoutes, { prefix: '/api/admin/course' })
 
   // 分享内容 H5：/api/share/content/:code（迁移自 share-h5 历史项目）
   server.register(shareContentRoutes, { prefix: '/api/share' })
@@ -648,6 +650,7 @@ function registerRoutes(server: FastifyInstance) {
   // ===== R67 补建：M-66 教育平台 + M-72 支付状态 WS =====
   // M-66: 教育平台同步管理（6端点）
   server.register(educationPlatformRoutes, { prefix: '/api/education-platform' })
+  server.register(educationPlatformRoutes, { prefix: '/api/admin/education-platform' })
 
   // ===== 死表激活：敏感词 / 协议 / 汇率 / 私信管理 =====
   // 敏感词管理：/api/admin/sensitive-words CRUD + 内容过滤
