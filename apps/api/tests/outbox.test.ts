@@ -215,11 +215,10 @@ describe('outbox — 可靠消息模式', () => {
       mockUpdateWhere()
 
       const dispatcher: OutboxDispatcher = {
-        dispatch: vi
-          .fn()
-          .mockResolvedValueOnce(undefined)
-          .mockRejectedValueOnce(new Error('fail'))
-          .mockRejectedValueOnce(new Error('fail')),
+        dispatch: vi.fn().mockImplementation((event: { id: string }) => {
+          if (event.id === 'e1') return Promise.resolve(undefined)
+          return Promise.reject(new Error('fail'))
+        }),
       }
       const result = await processOutbox(dispatcher, { maxAttempts: 5 })
 
