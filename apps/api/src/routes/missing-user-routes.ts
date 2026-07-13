@@ -122,6 +122,8 @@ import { findLiveCalendar } from '../db/live-calendar-queries.js'
 import { findAgentReviews, getAgentReviewStats } from '../db/agent-reviews-queries.js'
 import { publishAgent } from '../db/agent-queries.js'
 import { findCozeChatHistory } from '../db/coze-chat-queries.js'
+import { listVipLevels } from '../db/vip-queries.js'
+import { findComments } from '../db/comment-queries.js'
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -777,7 +779,8 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /vip/benefits - VIP 权益列表
   server.get('/vip/benefits', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+    const list = await listVipLevels(true)
+    return reply.send(success({ list }))
   })
 
   // 注: /coupons 已由 promotions.ts 真实实现,此处不再重复注册空桩
@@ -816,8 +819,12 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ order }))
   })
 
-  server.post('/payment/callback/verify', async (_request, reply) => {
-    return reply.send(success({ success: true }))
+  server.post('/payment/callback/verify', async (request, reply) => {
+    const body = (request.body as { orderNo?: string } | null) ?? {}
+    if (!body.orderNo) return reply.status(400).send(error(400, '缺少 orderNo'))
+    const order = await findOrderByOrderNo(body.orderNo)
+    if (!order) return reply.status(404).send(error(404, '订单不存在'))
+    return reply.send(success({ success: true, order }))
   })
 
   server.get('/payment/orders/:orderNo', async (request, reply) => {
@@ -1414,12 +1421,24 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   // 注意：POST /api/sign-in 已在 gamification.ts 中注册，跳过
   // 注意：POST /api/coupons/verify 已在 promotions.ts 中注册，跳过
   // ===========================================================================
-  // GET /article/comments - 保持桩：前端调用缺少文章 ID 参数，
-  // findComments 需 resourceType+resourceId，无 resourceId 无法返回有意义的评论。
+  // GET /article/comments - 文章评论列表,需 query 参数 articleId
   server.get('/article/comments', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const query = request.query as { articleId?: string; parentId?: string } | null
+    const articleId = query?.articleId
+    if (!articleId) return reply.status(400).send(error(400, '缺少 articleId'))
+    const result = await findComments({
+      resourceType: 'article',
+      resourceId: articleId,
+      parentId: query?.parentId,
+      page: q.page,
+      pageSize: q.pageSize,
+      currentUserId: request.userId,
+    })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/members/me', async (request, reply) => {
