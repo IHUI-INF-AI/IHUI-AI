@@ -2794,6 +2794,32 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 - **R98 已完成路由注册**: server.ts 已正确注册 4 个新路由模块（adminContentOpsRoutes/adminAuthEduRoutes/adminMonitoringRoutes/adminShopRoutes），本次只需清理残留空桩。
 - **测试稳定性**: 删除 39 个 EmptyStub 后，136 个 admin-missing-routes 测试依然全绿，证明真实路由完整替代了空桩功能。
 
+### R99 最终收尾（2026-07-14）✅
+
+> 首轮清理后仍残留 40 个 EmptyStub 调用（与 4 个新路由模块的端点冲突），导致 dev server 启动时报 `FST_ERR_DUPLICATED_ROUTE`。本轮完成彻底清理 + 测试修复 + 烟测验证。
+
+#### 完成工作
+
+1. **admin-missing-routes.ts**: 删除剩余 40 个 `registerEmptyStub` 调用 + `registerEmptyStub` 函数定义 + 未使用的 `FastifyRequest, FastifyReply` import
+2. **server.ts**: 启用 `adminShopRoutes` 注册（import + server.register），5 个路由模块全部注册
+3. **tests/admin-missing-routes.test.ts**:
+   - 注册 4 个新路由模块（adminContentOpsRoutes/adminAuthEduRoutes/adminMonitoringRoutes/adminShopRoutes）
+   - 用 Proxy-based chainable mock 替换原有 mock db（支持任意查询链）
+   - 为 10 个 DELETE 成功测试添加 `mockResolvedValueOnce` 覆盖
+   - 修复 3 个剩余失败（PUT edu/classes 响应格式、DELETE auth-veri-codes 端点、db.execute mock）
+4. **tests/_server-smoke.test.ts**: 新增服务器启动烟测（验证 buildServer() 无路由冲突）
+
+#### 最终验证结果
+
+| 验证项                                   | 结果                                        |
+| ---------------------------------------- | ------------------------------------------- |
+| `pnpm turbo build typecheck lint test`  | ✅ 34/34 任务成功                           |
+| 全量测试                                 | ✅ 104 test files / 1522 tests 全绿         |
+| admin-missing-routes.test.ts（136 测试） | ✅ 全绿                                     |
+| Dev server 启动                          | ✅ 无路由冲突，正常监听 8080                |
+| 烟测 10 个新端点                         | ✅ 全部返回 401（路由已注册，认证门控正常） |
+| Git push                                | ✅ 26 commits 推送至 origin/main           |
+
 ## R100 补建日历/时区纯函数单测（P2-2 + P2-3）（2026-07-13）✅
 
 > R17 已补建 5 整模块零测试（155 测试）。本轮聚焦剩余两个零测试纯函数模块：`calendar-boundary.ts`（21 导出函数 + CalendarService 类）和 `timezone-utils.ts`（6 导出函数 + TimeWindow/TimezoneService 类 + COMMON_ZONES）。同时评估 `money.ts` 测试覆盖情况。
