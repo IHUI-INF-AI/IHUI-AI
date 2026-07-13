@@ -2876,10 +2876,10 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 - [x] ✅(2026-07-13) `services/alipay.ts` — 支付核心（15 测试：isAlipayConfigured/verifyNotify RSA2 签名验签/buildSignedUrl）
 - [ ] `routes/payment-gateway.ts` — 支付路由层（伪匹配盲点）
 - [ ] `routes/payment-extended.ts` — 支付扩展路由
-- [ ] `services/commission-service.ts` — 佣金计算
-- [ ] `services/settlement-service.ts` — 结算
+- [x] ✅(2026-07-14) `services/commission-service.ts` — 佣金计算（27 测试：calcReturnToken/calcReturnVip 4种 orderType × VIP/操盘手 × productId 矩阵/calcReturnTrader 祖父级返佣）
+- [x] ✅(2026-07-14) `services/settlement-service.ts` — 结算周期切分（16 测试：calculateMonthBoundaries 月边界/跨年/闰年2月/calculateMonthlyPeriods 单月/跨2月/跨3月/跨年/空周期/calculateMonthlyPeriodsForMonth）
 - [x] ✅(2026-07-13) `utils/crypto.ts` — 安全凭据（22 测试：AES-256-GCM 加解密往返/输出结构/完整性校验/isEncryptedPayload）
-- [ ] `utils/api-key-quota.ts` — API Key 配额
+- [x] ✅(2026-07-14) `utils/api-key-quota.ts` — API Key 配额（13 测试：默认配额常量/checkQuota 配额内/超额/重置/recordUsage/自定义配额/checkAndConsume 原子扣减）
 - [x] ✅(2026-07-13) `plugins/auth.ts` — 鉴权核心（9 测试：Bearer token 解析/verifyAccessToken mock/无 header/非 Bearer/空 token/token 过期/trim 空格/admin roleId）
 - [x] ✅(2026-07-13) `plugins/require-permission.ts` — 权限校验（10 测试：requirePermission/requireAuth/requireAdmin 三中间件全覆盖）
 - [ ] `routes/auth-extended.ts` — 认证扩展路由（伪匹配盲点）
