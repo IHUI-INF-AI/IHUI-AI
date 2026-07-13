@@ -774,6 +774,242 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       .where(and(eq(zhsUserPlatform.userUuid, userUuid), eq(zhsUserPlatform.status, 1)))
     return { list }
   })
+
+  // ========== 兼容端点（前端 RESTful CRUD 模式） ==========
+
+  // GET / - 根路径列表（别名 /list）
+  fastify.get('/', async (request) => {
+    const { page, pageSize, keyword, status, categoryId } = z
+      .object({
+        ...pageQuery,
+        keyword: z.string().optional(),
+        status: z.coerce.number().optional(),
+        categoryId: z.string().optional(),
+      })
+      .parse(request.query)
+    const offset = (Number(page) - 1) * Number(pageSize)
+    const conditions = []
+    if (keyword) conditions.push(sql`${lessons.title} ILIKE ${`%${keyword}%`}`)
+    if (status !== undefined) conditions.push(eq(lessons.status, Number(status)))
+    if (categoryId) conditions.push(eq(lessons.categoryId, categoryId))
+    const where = conditions.length ? sql.join(conditions, sql` AND `) : sql`TRUE`
+    const result = await db
+      .select()
+      .from(lessons)
+      .where(where)
+      .limit(Number(pageSize))
+      .offset(offset)
+    const total = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(lessons)
+      .where(where)
+    return {
+      list: result,
+      total: total[0]?.count ?? 0,
+      page: Number(page),
+      pageSize: Number(pageSize),
+    }
+  })
+
+  // PUT /:id - 更新课程（id 在 URL，兼容前端 RESTful 模式）
+  fastify.put('/:id', async (request, reply) => {
+    const { id } = idParam.parse(request.params)
+    const body = courseSchema.partial().parse(request.body)
+    const [updated] = await db
+      .update(lessons)
+      .set({
+        ...(body.title && { title: body.title }),
+        ...(body.description !== undefined && { intro: body.description }),
+        ...(body.coverUrl !== undefined && { coverImage: body.coverUrl }),
+        ...(body.categoryId && { categoryId: body.categoryId }),
+        ...(body.lecturerId && { lecturerId: body.lecturerId }),
+        ...(body.lecturerName && { lecturerName: body.lecturerName }),
+        ...(body.price !== undefined && { price: body.price.toString() }),
+        ...(body.originalPrice !== undefined && { originalPrice: body.originalPrice.toString() }),
+        ...(body.sort !== undefined && { sort: body.sort }),
+        ...(body.status !== undefined && { status: body.status }),
+        updatedAt: new Date(),
+      })
+      .where(eq(lessons.id, id))
+      .returning()
+    if (!updated) return reply.code(404).send({ error: '课程不存在' })
+    return updated
+  })
+
+  // POST /videos - 创建视频别名（兼容前端 POST ${API}）
+  fastify.post('/videos', async (request, reply) => {
+    const body = z
+      .object({
+        courseId: z.number().int(),
+        videoPath: z.string().min(1),
+        title: z.string().max(200).optional(),
+        subtitle: z.string().optional(),
+        content: z.string().optional(),
+        binding: z.string().optional(),
+        duration: z.number().int().optional(),
+        adjunctUrl: z.string().optional(),
+        isPay: z.number().int().default(0),
+        amount: z.number().optional(),
+        sort: z.number().int().default(0),
+        creator: z.string().optional(),
+        lecturer: z.string().optional(),
+        label: z.string().optional(),
+      })
+      .parse(request.body)
+    const [created] = await db
+      .insert(zhsCourseVideo)
+      .values({
+        courseId: body.courseId,
+        videoPath: body.videoPath,
+        title: body.title,
+        subtitle: body.subtitle,
+        content: body.content,
+        binding: body.binding,
+        duration: body.duration,
+        adjunctUrl: body.adjunctUrl,
+        isPay: body.isPay,
+        amount: body.amount,
+        sort: body.sort,
+        creator: body.creator,
+        lecturer: body.lecturer,
+        label: body.label,
+      })
+      .returning()
+    return reply.code(201).send(created)
+  })
+
+  // GET /pay - 支付列表
+  fastify.get('/pay', async (request) => {
+    const { page, pageSize, courseId, userUuid, status } = z
+      .object({
+        ...pageQuery,
+        courseId: z.coerce.number().optional(),
+        userUuid: z.string().optional(),
+        status: z.coerce.number().optional(),
+      })
+      .parse(request.query)
+    const conditions = []
+    if (courseId) conditions.push(eq(zhsCoursePay.courseId, Number(courseId)))
+    if (userUuid) conditions.push(eq(zhsCoursePay.userUuid, userUuid))
+    if (status !== undefined) conditions.push(eq(zhsCoursePay.status, Number(status)))
+    const where = conditions.length ? and(...conditions) : sql`TRUE`
+    const list = await db
+      .select()
+      .from(zhsCoursePay)
+      .where(where)
+      .orderBy(desc(zhsCoursePay.createdAt))
+      .limit(Number(pageSize))
+      .offset((Number(page) - 1) * Number(pageSize))
+    const total = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(zhsCoursePay)
+      .where(where)
+    return { list, total: total[0]?.count ?? 0, page: Number(page), pageSize: Number(pageSize) }
+  })
+
+  // PUT /pay/:id - 更新支付
+  fastify.put('/pay/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
+    const body = z
+      .object({ status: z.number().int().optional(), amount: z.number().optional() })
+      .parse(request.body)
+    const [updated] = await db
+      .update(zhsCoursePay)
+      .set({
+        ...(body.status !== undefined && { status: body.status }),
+        ...(body.amount !== undefined && { amount: body.amount }),
+        updatedAt: new Date(),
+      })
+      .where(eq(zhsCoursePay.id, id))
+      .returning()
+    if (!updated) return reply.code(404).send({ error: '支付记录不存在' })
+    return updated
+  })
+
+  // DELETE /pay/:id - 删除支付
+  fastify.delete('/pay/:id', async (request) => {
+    const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
+    await db.delete(zhsCoursePay).where(eq(zhsCoursePay.id, id))
+    return { deleted: true }
+  })
+
+  // POST /pay-logs - 创建支付日志
+  fastify.post('/pay-logs', async (request, reply) => {
+    const body = z
+      .object({
+        payId: z.number().int(),
+        action: z.string().min(1).max(32),
+        detail: z.string().optional(),
+      })
+      .parse(request.body)
+    const [created] = await db
+      .insert(zhsCoursePayLog)
+      .values({ payId: body.payId, action: body.action, detail: body.detail })
+      .returning()
+    return reply.code(201).send(created)
+  })
+
+  // PUT /pay-logs/:id - 更新支付日志
+  fastify.put('/pay-logs/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
+    const body = z
+      .object({ action: z.string().min(1).max(32).optional(), detail: z.string().optional() })
+      .parse(request.body)
+    const [updated] = await db
+      .update(zhsCoursePayLog)
+      .set({
+        ...(body.action && { action: body.action }),
+        ...(body.detail !== undefined && { detail: body.detail }),
+        updatedAt: new Date(),
+      })
+      .where(eq(zhsCoursePayLog.id, id))
+      .returning()
+    if (!updated) return reply.code(404).send({ error: '支付日志不存在' })
+    return updated
+  })
+
+  // DELETE /pay-logs/:id - 删除支付日志
+  fastify.delete('/pay-logs/:id', async (request) => {
+    const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
+    await db.delete(zhsCoursePayLog).where(eq(zhsCoursePayLog.id, id))
+    return { deleted: true }
+  })
+
+  // POST /platform-logs - 创建平台日志
+  fastify.post('/platform-logs', async (request, reply) => {
+    const body = z
+      .object({
+        courseId: z.number().int(),
+        platformId: z.number().int(),
+        action: z.string().min(1).max(32),
+      })
+      .parse(request.body)
+    const [created] = await db
+      .insert(zhsCoursePlatformLog)
+      .values({ courseId: body.courseId, platformId: body.platformId, action: body.action })
+      .returning()
+    return reply.code(201).send(created)
+  })
+
+  // PUT /platform-logs/:id - 更新平台日志
+  fastify.put('/platform-logs/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
+    const body = z.object({ action: z.string().min(1).max(32).optional() }).parse(request.body)
+    const [updated] = await db
+      .update(zhsCoursePlatformLog)
+      .set({ ...(body.action && { action: body.action }), updatedAt: new Date() })
+      .where(eq(zhsCoursePlatformLog.id, id))
+      .returning()
+    if (!updated) return reply.code(404).send({ error: '平台日志不存在' })
+    return updated
+  })
+
+  // DELETE /platform-logs/:id - 删除平台日志
+  fastify.delete('/platform-logs/:id', async (request) => {
+    const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
+    await db.delete(zhsCoursePlatformLog).where(eq(zhsCoursePlatformLog.id, id))
+    return { deleted: true }
+  })
 }
 
 /**
