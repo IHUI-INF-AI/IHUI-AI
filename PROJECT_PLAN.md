@@ -2698,3 +2698,35 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 - 小程序: 所有页面有真实实现,无空占位
 - 类型检查: 全部通过
 - 测试: 873 个全部通过
+
+## R98 路由注册收尾+测试稳定性修复（2026-07-13）✅
+
+> 用户要求"继续"未完成项收尾。修复 csrf cookie 重复注册、upload-scanner 边界、admin 路由未注册导致的 13 个测试失败。
+
+### 问题
+
+3 个测试文件失败（共 13 个测试 + 1 个未捕获异常）：
+
+1. **tests/csrf.test.ts** — `serializeCookie` 装饰器已存在（cookie 重复注册）→ 12 个测试 skipped + 1 unhandled error
+2. **tests/upload-scanner.test.ts** — `hasDangerousSignature` 边界检测失败（`subarray(0, 4096)` 漏掉 4090-4096 跨边界签名）
+3. **tests/admin-missing-routes.test.ts** — 12 个模块覆盖度抽样 404（adminContentOps/adminAuthEdu/adminMonitoring/adminShop 4 个新路由模块未注册到 server.ts）
+
+### 修复
+
+1. **csrf.ts**: 添加 `if (!server.hasPlugin('@fastify/cookie'))` 条件检查，避免测试中先注册 cookie 后再注册 csrfPlugin 时的重复注册
+2. **upload-scanner.ts**: `hasDangerousSignature` 窗口从 `subarray(0, 4096)` 扩大到 `subarray(0, 4096 + 16)`，确保边界签名命中
+3. **admin-content-routes.ts**: 重命名导出 `adminContentRoutes` → `adminContentOpsRoutes`（避免与 content.ts 命名冲突）
+4. **server.ts**: 恢复 4 个新路由模块的 import 和 register：
+   - `adminContentOpsRoutes`（6 个端点，真实 CRUD 替代空桩）
+   - `adminAuthEduRoutes`（11 个端点）
+   - `adminMonitoringRoutes`（19 个聚合端点）
+   - `adminShopRoutes`（商城扩展）
+
+### 验证结果
+
+| 验证项                                       | 结果              |
+| -------------------------------------------- | ----------------- |
+| `pnpm --filter @ihui/api typecheck`          | ✅ 0 错误         |
+| `pnpm --filter @ihui/web typecheck`          | ✅ 0 错误         |
+| `pnpm --filter @ihui/miniapp-taro typecheck` | ✅ 0 错误         |
+| `pnpm --filter @ihui/api test`               | ✅ 1230/1230 通过 |
