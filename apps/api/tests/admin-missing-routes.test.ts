@@ -501,6 +501,7 @@ describe('admin-missing-routes', () => {
     describe('/auth-accounts', () => {
       it('should delete account successfully (admin)', async () => {
         mockAdmin()
+        mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
           url: '/api/admin/auth-accounts/acc-1',
@@ -594,6 +595,7 @@ describe('admin-missing-routes', () => {
       })
       it('should delete role successfully (admin)', async () => {
         mockAdmin()
+        mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
           url: '/api/admin/auth-role/role-1',
@@ -617,6 +619,7 @@ describe('admin-missing-routes', () => {
     describe('/auth-tokens', () => {
       it('should delete token successfully (admin)', async () => {
         mockAdmin()
+        mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
           url: '/api/admin/auth-tokens/sk-1',
@@ -640,6 +643,7 @@ describe('admin-missing-routes', () => {
     describe('/auth-user-vip', () => {
       it('should delete user vip record successfully (admin)', async () => {
         mockAdmin()
+        mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
           url: '/api/admin/auth-user-vip/vip-1',
@@ -706,6 +710,7 @@ describe('admin-missing-routes', () => {
       })
       it('should delete vip level successfully (admin)', async () => {
         mockAdmin()
+        mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
           url: '/api/admin/auth-vip-level/lvl-1',
@@ -772,6 +777,7 @@ describe('admin-missing-routes', () => {
       })
       it('should delete sms template successfully (admin)', async () => {
         mockAdmin()
+        mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
           url: '/api/admin/auth-sms-temp/tpl-1',
@@ -816,6 +822,7 @@ describe('admin-missing-routes', () => {
       })
       it('should delete user-role binding successfully (admin)', async () => {
         mockAdmin()
+        mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
           url: '/api/admin/user-roles/ur-1',
@@ -887,6 +894,7 @@ describe('admin-missing-routes', () => {
       })
       it('should delete permission successfully (admin)', async () => {
         mockAdmin()
+        mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
           url: '/api/admin/member/permissions/perm-1',
@@ -910,6 +918,7 @@ describe('admin-missing-routes', () => {
     describe('/system/operation-logs', () => {
       it('should delete operation log successfully (admin)', async () => {
         mockAdmin()
+        mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
           url: '/api/admin/system/operation-logs/log-1',
@@ -933,6 +942,7 @@ describe('admin-missing-routes', () => {
     describe('/system/login-logs', () => {
       it('should delete login log successfully (admin)', async () => {
         mockAdmin()
+        mockSelectResult.mockResolvedValueOnce([{ id: 'mock-id' }])
         const res = await server.inject({
           method: 'DELETE',
           url: '/api/admin/system/login-logs/123',
