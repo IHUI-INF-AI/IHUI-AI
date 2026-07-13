@@ -1,4 +1,4 @@
-﻿# AGENTS.md — IHUI-AI 项目 Agent 指南
+# AGENTS.md — IHUI-AI 项目 Agent 指南
 
 > 本文件的作用域为整个 `G:\IHUI-AI` 仓库根目录及所有子目录。
 
@@ -95,3 +95,32 @@ pnpm dev                                       # 启动所有服务
 | `IHUI-AI-交接文档.md`       | Phase 1-18 完整交接(只读参考) |
 | `MIGRATION_GAP_ANALYSIS.md` | 迁移缺口深度报告(只读参考)    |
 | `DEPLOYMENT-R65.md`         | 生产部署清单                  |
+
+---
+
+## 8. 删除/重构安全规则(强制)
+
+> 适用范围:删除任何 git 对象(分支、stash、commit、文件)前必须执行的安全审查。
+
+### 必须遵守
+
+- **删除前审查**: 删除任何内容(分支/stash/commit/文件)前必须先回答:
+  1. 该内容承载的**功能**是什么?
+  2. 当前 monorepo 中是否有**等价的功能实现**?
+  3. 如果**没有**等价实现 → **不可以删除**,必须先迁移/开发好替代实现。
+- **路径兼容 ≠ 功能等价**: 旧项目残留(如 `client/` Vue、`server/` Python)即使路径与当前 monorepo 不兼容,仍可能承载**当前缺失的功能**。判定标准是"功能是否已被实现",不是"路径是否兼容"。
+- **stash drop 同样适用**: drop stash 前必须确认 stash 中改动对应的功能在当前 monorepo 已存在,否则需先实现再 drop。
+- **branch -D 同样适用**: 删除本地分支前必须确认该分支承载的功能已合并/已实现。
+
+### 禁止事项
+
+- 不基于"路径不兼容"或"文件类型不匹配"擅自 drop/删除旧项目残留。
+- 不在"看起来是垃圾"时跳过功能审查直接 drop。
+- 不在功能未迁移完成时删除任何承载该功能的 git 对象。
+
+### 审查流程
+
+1. `git stash show` / `git log --stat` / `git show <sha>` 提取待删除内容的功能点。
+2. 在当前 monorepo(`apps/api`、`apps/web`、`apps/ai-service`、`apps/miniapp-taro`、`packages/`)中**逐项**搜索等价实现。
+3. 搜索结果为"未实现"时 → 停止删除,在 `PROJECT_PLAN.md` 新增迁移任务并执行。
+4. 搜索结果为"已实现"时 → 可删除,但 commit message 需注明审查结论(如 `chore: drop legacy X — confirmed feature Y migrated to apps/web/...`)。
