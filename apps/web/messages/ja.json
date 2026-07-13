@@ -219,6 +219,8 @@
     "invalidCredentials": "アカウントまたはパスワードが間違っています",
     "usernameExists": "ユーザー名は既に存在します",
     "dingtalkLogin": "DingTalk",
+    "appleLogin": "Apple",
+    "githubLogin": "GitHub",
     "qrLogin": "QRコードログイン",
     "qrLoadFailed": "二维码読み込み失敗",
     "qrScanned": "スキャン済み、スマートフォンで確認してください",
