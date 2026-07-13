@@ -1,4 +1,4 @@
-import Fastify, {
+﻿import Fastify, {
   type FastifyInstance,
   type FastifyError,
   type FastifyReply,
@@ -169,8 +169,8 @@ import { adminContentOpsRoutes } from './routes/admin-content-routes.js'
 import { adminAuthEduRoutes } from './routes/admin-auth-edu-routes.js'
 // 监控/统计路由（19 个真实聚合端点，替代空桩）
 import { adminMonitoringRoutes } from './routes/admin-monitoring-routes.js'
-// 注：adminShopRoutes 注册的端点（api-groups/shop/*）与 admin-missing-routes 冲突，
-//      保留文件作为备份实现，不在 server 中注册以避免重复注册错误
+// 商城扩展真实 CRUD（5 个端点，替代空桩）
+import { adminShopRoutes } from './routes/admin-shop-routes.js'
 // 前端用户端缺失路由补建（54 个路由：空数据桩）
 import { missingUserRoutes } from './routes/missing-user-routes.js'
 
@@ -705,8 +705,7 @@ function registerRoutes(server: FastifyInstance) {
   server.register(adminContentOpsRoutes, { prefix: '/api/admin' })
   server.register(adminAuthEduRoutes, { prefix: '/api/admin' })
   server.register(adminMonitoringRoutes, { prefix: '/api/admin' })
-  // 注：adminShopRoutes 注册的端点（api-groups/shop/*）与 admin-missing-routes 冲突，
-  //      保留文件作为备份实现，不在 server 中注册以避免重复注册错误
+  server.register(adminShopRoutes, { prefix: '/api/admin' })
 
   // ===== 前端用户端缺失路由补建（54 个路由）=====
   // 全部空数据桩，覆盖：文章 / 内容生成 / 知识库 / 技能 / 学习记录 / MCP / OpenClaw
