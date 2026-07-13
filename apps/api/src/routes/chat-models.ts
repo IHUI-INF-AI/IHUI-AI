@@ -11,7 +11,7 @@
  *   DEEPSEEK_API_KEY / DASHSCOPE_API_KEY(或 QWEN_API_KEY) / ZHIPU_API_KEY
  *   KLING_ACCESS_KEY + KLING_SECRET_KEY
  *   COZE_API_KEY(或 COZE_PRIVATE_KEY) / COZE_API_BASE
- *   OPENROUTER_API_KEY / LUYALA_API_KEY / FREELLMAPI_BASE_URL / FREELLMAPI_API_KEY 等(multi)
+ *   OPENROUTER_API_KEY / FREELLMAPI_BASE_URL / FREELLMAPI_API_KEY 等(multi)
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
@@ -319,15 +319,6 @@ const VENDOR_CONFIGS: Record<string, VendorCfg> = {
     keyEnv: 'FREELLMAPI_API_KEY',
     serviceName: 'FreeLLMAPI',
     authHeader: (key) => (key ? { Authorization: `Bearer ${key}` } : {}) as Record<string, string>,
-    buildPayload: (model, message) => ({ model, messages: [{ role: 'user', content: message }] }),
-    streamable: true,
-  },
-  luyala: {
-    base: 'https://api.luyala.cn/v1',
-    chatPath: '/chat/completions',
-    keyEnv: 'LUYALA_API_KEY',
-    serviceName: 'Luyala',
-    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
     buildPayload: (model, message) => ({ model, messages: [{ role: 'user', content: message }] }),
     streamable: true,
   },
