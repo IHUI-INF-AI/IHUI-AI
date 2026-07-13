@@ -217,22 +217,30 @@ const logger = pino(loggerConfig)
  * 将抛出的带 statusCode 的错误转换为 { code, message } 格式。
  */
 function errorHandler(error: FastifyError, _request: FastifyRequest, reply: FastifyReply) {
-  const statusCode =
-    error.statusCode && error.statusCode >= 400 && error.statusCode < 600 ? error.statusCode : 500
+  const isZodErr =
+    error.name === 'ZodError' && Array.isArray((error as { issues?: unknown[] }).issues)
+  const statusCode = isZodErr
+    ? 400
+    : error.statusCode && error.statusCode >= 400 && error.statusCode < 600
+      ? error.statusCode
+      : 500
 
   if (statusCode >= 500) {
-    // 仅 5xx 打详细日志
     logger.error({ err: error }, 'Unhandled error')
   } else {
     logger.warn({ err: error.message, statusCode }, 'Request error')
   }
 
-  // AppError 透传 errorCode，形成端到端契约
-  const errorCode = isAppError(error) ? error.errorCode : undefined
+  const errorCode = isAppError(error) ? error.errorCode : isZodErr ? 'VALIDATION_FAILED' : undefined
+  const message = isZodErr
+    ? ((error as { issues?: Array<{ message?: string }> }).issues?.[0]?.message ?? '参数错误')
+    : statusCode >= 500
+      ? '服务器错误'
+      : error.message
 
   reply.status(statusCode).send({
     code: statusCode,
-    message: statusCode >= 500 ? '服务器错误' : error.message,
+    message,
     ...(errorCode ? { errorCode } : {}),
   })
 }

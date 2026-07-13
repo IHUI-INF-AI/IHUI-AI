@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
-import Fastify, { type FastifyInstance, type FastifyError } from 'fastify'
-import { ZodError } from 'zod'
+import Fastify, { type FastifyInstance } from 'fastify'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -65,12 +64,14 @@ describe('Legacy Completion API (D17/D18/D19 新增端点)', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
-    app.setErrorHandler((err: FastifyError, _request, reply) => {
-      if (err instanceof ZodError) {
-        reply.code(400).send({ error: 'Validation Error', details: err.errors })
-      } else {
-        reply.code(500).send({ error: err.message })
-      }
+    app.setErrorHandler((err: Error, _request, reply) => {
+      const isZodErr =
+        err.name === 'ZodError' && Array.isArray((err as { issues?: unknown[] }).issues)
+      const statusCode = isZodErr ? 400 : 500
+      const message = isZodErr
+        ? ((err as { issues?: Array<{ message?: string }> }).issues?.[0]?.message ?? '参数错误')
+        : '服务器错误'
+      reply.status(statusCode).send({ code: statusCode, message })
     })
     await app.register(legacyCompletionRoutes, { prefix: '/api' })
     await app.ready()

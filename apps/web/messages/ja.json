@@ -8156,5 +8156,22 @@
     "deleteDesc": "この操作は取り消せません",
     "delete": "削除",
     "validateName": "アプリ名を入力してください"
+  },
+  "errors": {
+    "unknown": "不明なエラー",
+    "validationFailed": "パラメータエラー",
+    "unauthorized": "ログインが必要です",
+    "forbidden": "権限が不足しています",
+    "notFound": "リソースが見つかりません",
+    "conflict": "操作が競合しました",
+    "rateLimited": "操作が頻繁すぎます、後でもう一度お試しください",
+    "locked": "リソースがロックされています",
+    "internalError": "サーバーエラー",
+    "upstreamFailure": "上流サービスエラー",
+    "serviceUnavailable": "サービスは一時的に利用できません",
+    "memberExists": "メンバーは既に存在します",
+    "optimisticLock": "データが変更されました、更新して再試行してください",
+    "invalidMoney": "金額形式エラー",
+    "invalidTimezone": "タイムゾーンエラー"
   }
 }
