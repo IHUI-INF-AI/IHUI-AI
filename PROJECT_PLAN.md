@@ -102,10 +102,23 @@
   - 补建: `admin-missing-routes.ts` 在 `registerCrud(server, '/courses', lessons, ...)` 之后追加 5 个端点 — GET /courses/:id 课程详情(审计before快照) + GET /courses/temp/:id 课程临时表(审计after快照) + POST /courses/:id/restore 软删除还原(status=0→1) + GET /course-videos/:id 视频详情 + GET /course-videos/temp/:id 视频临时表
   - 决策: 不扩展 registerCrud 签名（避免影响 14+ 个调用点），直接追加专用端点；temp 表字段不足但前端 Snapshot 是 Record 类型容忍缺失；lessons 表无 deletedAt 字段，用 status=0 表示软删除
   - 验证: api typecheck 0 错误 / api test 935/935 全通过 / pre-commit 全绿
+- [x] ✅(2026-07-13) R8 course-audit 后端返回字段对齐前端 Audit 接口（commit 9c50ef5fc，1 file +41 -65）:
+  - 问题: 后端返回 `{id, courseId, title, status:string, reason}` 与前端期望的 `{id, type, operate, sourceId, targetId, status:number, creator, createdAt, updator, remark}` 完全不匹配，PUT 接口接收 string enum status 但前端发送 number
+  - 修复: 新增 `mapAuditRow` 函数统一 5 个端点返回字段映射（id→String, type→0, operate→'update', sourceId→courseId, status→number, creator→auditor, remark→remark）；status 从 string enum 改为 number；PUT 接口接收 `{status:number, remark:string}` 对齐前端 audit/page.tsx 调用；GET 列表支持 creator 字段过滤
+  - 验证: api typecheck 0 错误 / api test 150/150 相关测试全通过（refund-dlq/resilience-toolkit 8 失败为预存问题，非本次引入）/ pre-commit 全绿
 - [x] ✅(2026-07-13) R6 AI 厂商配置管理重构 — 端到端收尾验证:
   - 验证: api typecheck 0 错误 / api lint 0 errors (2 warnings 为 `admin-missing-routes.ts` 历史遗留，与本次重构无关) / api test 78 files / 935 tests 全通过 / 新增 4 个测试文件 (`vendor-auth-strategies` 23 + `vendor-error-handler` 8 + `ai-vendor-config-service` 10 + `ai-vendor-v2-routes` 4 = 50 tests，+ 5 init-vendor-configs) 合计 60 个新测试
   - 服务可用性: 启动钩子 `initVendorConfigs` 在 DB 不可用时静默降级（warn 后继续），admin 端点 `listAllVendorsWithStatus` 内部自动 fallback 到 `FALLBACK_VENDORS`，保证不阻塞 listen
   - 重构目标全部达成: 配置外部化（DB→schema→service）+ 鉴权策略抽象（Bearer/TC3/V4 + Factory）+ 统一错误处理（VendorErrorHandler）+ 统一调用服务（VendorCallerService）+ 环境变量回退（FALLBACK_VENDORS）+ 渐进式路由迁移（v2 样板 6 端点）+ 启动钩子初始化（ENABLE_VENDOR_INIT 可关）+ 单元测试覆盖（60 个新测试）
+- [x] ✅(2026-07-13) R8 resilience-toolkit 插件测试补齐（独立模块，5 files +72 tests）:
+  - 补齐: `hot-config.test.ts` (16 tests) + `dead-letter-queue.test.ts` (14 tests) + `tenant-audit.test.ts` (22 tests) + `refund-dlq.test.ts` (13 tests) + `resilience-toolkit.test.ts` (7 tests)
+  - 覆盖点:
+    - HotConfigCenter: set/get/version 递增、值未变不触发、订阅者异常吞掉、maxHistory 容量、bulkSet/diff/snapshot/stats
+    - DeadLetterQueue: attempts 阈值、maxSize 淘汰最旧、replay 成功/失败/无 fn/抛错、exportJSON 不含 payload
+    - TenantAuditor: skipTables/未注册表跳过、SELECT/UPDATE/DELETE 缺 tenant_id 违规、INSERT 必须含 tenant_id、参数启发式、大小写不敏感、告警回调 (阈值 + minAuditsForAlert + resetAlert)
+    - RefundDlq: incr 计数 + 1h expire、第 3 次入 DLQ (zadd + 7d expire)、Redis 异常返回 -1、enqueueRefundFailure 单次入队、clearRefundFailure 三清、listDlq 解析、REPLAY/DROP/QUARANTINE 三动作
+    - resilience-toolkit: 6 个 decorate (distributedLock/refundDlq/riskEngine/hotConfig/dlq/tenantAuditor) 全部就位 + 复用模块级单例身份 (4 个单例 toBe 相等)
+  - 验证: api typecheck 0 错误 / api lint 0 errors / api test 83 files / 1007 tests 全通过（+5 files, +72 tests）
 
 ---
 
