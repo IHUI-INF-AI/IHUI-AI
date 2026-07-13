@@ -61,6 +61,24 @@ import {
 import { findMessageById } from '../db/chat-queries.js'
 import { createCertificate, updateCertificateStatus } from '../db/certificate-queries.js'
 import { findResourceById } from '../db/resource-queries.js'
+import {
+  findPublishedKnowledge,
+  findKnowledgeById,
+  createKnowledge,
+  updateKnowledge,
+  deleteKnowledge,
+} from '../db/knowledge-queries.js'
+import {
+  findPublishedSkills,
+  findSkillById,
+  createSkill,
+  updateSkill,
+  deleteSkill,
+} from '../db/skills-queries.js'
+import {
+  findUserPreferences,
+  deleteUserPreferencesByGroup,
+} from '../db/user-preferences-queries.js'
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -219,18 +237,26 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/knowledge', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findPublishedKnowledge({
+      page: q.page,
+      pageSize: q.pageSize,
+      search: q.search,
+    })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/knowledge/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ knowledge: null }))
+    const knowledge = await findKnowledgeById(id)
+    if (!knowledge) return reply.status(404).send(error(404, '知识库不存在'))
+    return reply.send(success({ knowledge }))
   })
 
-  server.post('/knowledge/:id/like', async (request, reply) => {
-    const id = parseIdParam(request, reply)
-    if (id === null) return
+  // 注: like 无对应表，保持桩实现
+  server.post('/knowledge/:id/like', async (_request, reply) => {
     return reply.send(success({ success: true }))
   })
 
@@ -240,13 +266,22 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/skills', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findPublishedSkills({
+      page: q.page,
+      pageSize: q.pageSize,
+      search: q.search,
+    })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/skills/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ skill: null }))
+    const skill = await findSkillById(id)
+    if (!skill) return reply.status(404).send(error(404, '技能不存在'))
+    return reply.send(success({ skill }))
   })
 
   // ===========================================================================
@@ -417,36 +452,52 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // 9. 用户设置 /settings/*（8 个端点）
   // ===========================================================================
-  server.get('/settings/notifications', async (_request, reply) => {
-    return reply.send(success({ settings: {} }))
+  server.get('/settings/notifications', async (request, reply) => {
+    const { list } = await findUserPreferences(request.userId!, 'notifications')
+    const settings = Object.fromEntries(list.map((r) => [r.key, r.value]))
+    return reply.send(success({ settings }))
   })
 
-  server.get('/settings/privacy', async (_request, reply) => {
-    return reply.send(success({ settings: {} }))
+  server.get('/settings/privacy', async (request, reply) => {
+    const { list } = await findUserPreferences(request.userId!, 'privacy')
+    const settings = Object.fromEntries(list.map((r) => [r.key, r.value]))
+    return reply.send(success({ settings }))
   })
 
-  server.get('/settings/preferences', async (_request, reply) => {
-    return reply.send(success({ settings: {} }))
+  server.get('/settings/preferences', async (request, reply) => {
+    const { list } = await findUserPreferences(request.userId!, 'preferences')
+    const settings = Object.fromEntries(list.map((r) => [r.key, r.value]))
+    return reply.send(success({ settings }))
   })
 
-  server.get('/settings/devices', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+  server.get('/settings/devices', async (request, reply) => {
+    const { list, total } = await findUserPreferences(request.userId!, 'devices')
+    return reply.send(success({ list, total }))
   })
 
+  // 桩:无 security_logs 表,待后续建表后真实化
   server.get('/settings/security-logs', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
     return reply.send(emptyList(q.page, q.pageSize))
   })
 
+  // 桩:无 export 任务表,待后续建表后真实化
   server.get('/settings/export', async (_request, reply) => {
     return reply.send(success({ url: null, exportedAt: null }))
   })
 
-  server.post('/settings/clear-data', async (_request, reply) => {
+  server.post('/settings/clear-data', async (request, reply) => {
+    const userId = request.userId!
+    await Promise.all([
+      deleteUserPreferencesByGroup(userId, 'notifications'),
+      deleteUserPreferencesByGroup(userId, 'privacy'),
+      deleteUserPreferencesByGroup(userId, 'devices'),
+    ])
     return reply.send(success({ success: true }))
   })
 
+  // 桩:账号删除需级联清理多表,待后续实现事务级联删除
   server.post('/settings/delete-account', async (_request, reply) => {
     return reply.send(success({ success: true }))
   })
@@ -1020,35 +1071,106 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ success: true, certificate: cert }))
   })
 
-  server.post('/knowledge', async (_request, reply) => {
-    return reply.status(201).send(success({ id: null }))
+  server.post('/knowledge', async (request, reply) => {
+    const body = z
+      .object({
+        title: z.string().min(1),
+        content: z.string().min(1),
+        summary: z.string().optional(),
+        coverImage: z.string().optional(),
+        categoryId: z.string().optional(),
+        isPublished: z.boolean().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '标题和内容不能为空'))
+    const knowledge = await createKnowledge({
+      title: body.data.title,
+      content: body.data.content,
+      summary: body.data.summary,
+      coverImage: body.data.coverImage,
+      categoryId: body.data.categoryId,
+      authorId: request.userId,
+      isPublished: body.data.isPublished ?? false,
+    })
+    return reply.status(201).send(success({ id: knowledge.id, knowledge }))
   })
 
   server.put('/knowledge/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ success: true }))
+    const body = z
+      .object({
+        title: z.string().optional(),
+        content: z.string().optional(),
+        summary: z.string().optional(),
+        coverImage: z.string().optional(),
+        categoryId: z.string().optional(),
+        isPublished: z.boolean().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const knowledge = await updateKnowledge(id, body.data)
+    if (!knowledge) return reply.status(404).send(error(404, '知识库不存在'))
+    return reply.send(success({ success: true, knowledge }))
   })
 
   server.delete('/knowledge/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
+    await deleteKnowledge(id)
     return reply.send(success({ success: true }))
   })
 
-  server.post('/skills', async (_request, reply) => {
-    return reply.status(201).send(success({ id: null }))
+  server.post('/skills', async (request, reply) => {
+    const body = z
+      .object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+        icon: z.string().optional(),
+        categoryId: z.string().optional(),
+        difficulty: z.number().optional(),
+        content: z.string().optional(),
+        isPublished: z.boolean().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '技能名称不能为空'))
+    const skill = await createSkill({
+      name: body.data.name,
+      description: body.data.description,
+      icon: body.data.icon,
+      categoryId: body.data.categoryId,
+      difficulty: body.data.difficulty,
+      content: body.data.content,
+      authorId: request.userId,
+      isPublished: body.data.isPublished ?? false,
+    })
+    return reply.status(201).send(success({ id: skill.id, skill }))
   })
 
   server.put('/skills/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ success: true }))
+    const body = z
+      .object({
+        name: z.string().optional(),
+        description: z.string().optional(),
+        icon: z.string().optional(),
+        categoryId: z.string().optional(),
+        difficulty: z.number().optional(),
+        content: z.string().optional(),
+        isPublished: z.boolean().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const skill = await updateSkill(id, body.data)
+    if (!skill) return reply.status(404).send(error(404, '技能不存在'))
+    return reply.send(success({ success: true, skill }))
   })
 
   server.delete('/skills/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
+    await deleteSkill(id)
     return reply.send(success({ success: true }))
   })
 
