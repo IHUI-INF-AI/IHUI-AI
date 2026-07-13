@@ -3,6 +3,7 @@ import { db } from '../db/index.js'
 import { sql } from 'drizzle-orm'
 import { config } from '../config/index.js'
 import { resetBulkhead } from '../plugins/resilience-extended.js'
+import { authenticate } from '../plugins/auth.js'
 
 interface HealthHistoryEntry {
   timestamp: string
@@ -166,6 +167,9 @@ export const healthRoutes: FastifyPluginAsync = async (server) => {
   server.post<{ Params: { circuitName: string } }>(
     '/resilience/reset/:circuitName',
     async (request, reply) => {
+      await authenticate(request)
+      const roleId = request.jwtPayload?.roleId ?? 0
+      if (roleId < 1) return reply.status(403).send({ code: 403, message: '需要管理员权限' })
       const { circuitName } = request.params
       const ok = resetBulkhead(circuitName)
       if (!ok) {
