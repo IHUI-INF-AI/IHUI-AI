@@ -219,6 +219,8 @@
     "invalidCredentials": "賬號或密碼错誤",
     "usernameExists": "用户名已存在",
     "dingtalkLogin": "钉钉",
+    "appleLogin": "Apple",
+    "githubLogin": "GitHub",
     "qrLogin": "掃碼登錄",
     "qrLoadFailed": "二維碼加載失敗",
     "qrScanned": "已掃描，请在手機確認",
