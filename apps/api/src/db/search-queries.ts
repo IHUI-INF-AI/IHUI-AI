@@ -1,4 +1,4 @@
-import { eq, and, or, ilike, desc, sql, gt } from 'drizzle-orm'
+import { eq, and, or, ilike, desc, sql, gt, gte, lte } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import {
   users,
@@ -289,12 +289,20 @@ export async function addAuditLog(input: {
 export async function findAuditLogs(
   page: number,
   pageSize: number,
-  opts: { userId?: string; action?: string; resourceType?: string },
+  opts: {
+    userId?: string
+    action?: string
+    resourceType?: string
+    startDate?: string
+    endDate?: string
+  },
 ): Promise<{ list: AuditLog[]; total: number }> {
   const conds = []
   if (opts.userId) conds.push(eq(auditLogs.userId, opts.userId))
   if (opts.action) conds.push(eq(auditLogs.action, opts.action))
   if (opts.resourceType) conds.push(eq(auditLogs.resourceType, opts.resourceType))
+  if (opts.startDate) conds.push(gte(auditLogs.createdAt, new Date(opts.startDate)))
+  if (opts.endDate) conds.push(lte(auditLogs.createdAt, new Date(`${opts.endDate}T23:59:59.999Z`)))
   const where = conds.length > 0 ? and(...conds) : undefined
 
   const [list, totalRows] = await Promise.all([
@@ -312,6 +320,33 @@ export async function findAuditLogs(
   ])
 
   return { list, total: Number(totalRows[0]?.count ?? 0) }
+}
+
+/** 导出审计日志（不分页，最多 10000 条）。 */
+export async function exportAuditLogs(
+  opts: {
+    userId?: string
+    action?: string
+    resourceType?: string
+    startDate?: string
+    endDate?: string
+  },
+  limit = 10000,
+): Promise<AuditLog[]> {
+  const conds = []
+  if (opts.userId) conds.push(eq(auditLogs.userId, opts.userId))
+  if (opts.action) conds.push(eq(auditLogs.action, opts.action))
+  if (opts.resourceType) conds.push(eq(auditLogs.resourceType, opts.resourceType))
+  if (opts.startDate) conds.push(gte(auditLogs.createdAt, new Date(opts.startDate)))
+  if (opts.endDate) conds.push(lte(auditLogs.createdAt, new Date(`${opts.endDate}T23:59:59.999Z`)))
+  const where = conds.length > 0 ? and(...conds) : undefined
+
+  return dbRead
+    .select()
+    .from(auditLogs)
+    .where(where)
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(limit)
 }
 
 // =============================================================================
