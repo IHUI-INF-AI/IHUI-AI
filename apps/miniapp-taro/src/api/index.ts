@@ -644,10 +644,6 @@ export const getCozeApiList = (params?: ApiParams) => get('/coze/api-list', para
 export const searchModelWorkflowRun = (params: ApiParams) =>
   get('/model/workflow-run/search', params)
 
-/* ============ Luyala 代理 ============ */
-/** Luyala 对话补全 */
-export const cozeZhsApiLuyalaChatCompletions = (data: unknown) =>
-  post('/luyala/chat/completions', data)
 /** 按 URL 代理 POST 请求 */
 export const postByUrl = (url: string, data: unknown) => post('/proxy/post-by-url', { url, data })
 
