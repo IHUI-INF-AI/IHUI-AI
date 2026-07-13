@@ -282,7 +282,7 @@
     - xss-protection.ts 嵌套绕过
     - upload-scanner.ts mp4 魔数检测错误
     - auth.ts Bearer 大小写敏感
-    - 5 整模块零测试（response-sanitizer/xss-protection/upload-scanner/csrf/prompt-injection-guard）
+    - 5 整模块零测试（response-sanitizer/xss-protection/upload-scanner/csrf/prompt-injection-guard）✅ R17 已补建 155 测试
 - [x] ✅(2026-07-13) R16 安全漏洞修复 + 公共工具抽取统一 header 归一化（commit 待提交，14 files）:
   - 触发: 用户指令"继续按你的建议去做执行，要求完美细致完整毫无遗漏"，承接 R15 待办中危问题
   - **P1-1 安全漏洞修复（3 文件，5 漏洞）**:
@@ -2730,3 +2730,35 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 | `pnpm --filter @ihui/web typecheck`          | ✅ 0 错误         |
 | `pnpm --filter @ihui/miniapp-taro typecheck` | ✅ 0 错误         |
 | `pnpm --filter @ihui/api test`               | ✅ 1230/1230 通过 |
+
+## R17 补建 5 整模块零测试（2026-07-13）✅
+
+> 承接 R15 深度审查发现的"5 整模块零测试"技术债（response-sanitizer/xss-protection/upload-scanner/csrf/prompt-injection-guard），补建 155 个测试用例，5 个安全插件模块从 0 测试覆盖提升至完整覆盖。R17 的 7 个文件随 commit `4ce195f0`（R98）一并提交。
+
+### 补建清单（7 文件，155 测试用例）
+
+| 文件                                   | 类型 | 测试数 | 覆盖要点                                                                                                                                      |
+| -------------------------------------- | ---- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/response-sanitizer.test.ts`     | 新建 | 45     | 7 describe: buildSensitiveKeySet/isSensitiveKey/maskValue/createMaskRule/applyMaskStrategy(10 策略)/sanitizeData/DataMaskingPipeline          |
+| `tests/upload-scanner.test.ts`         | 新建 | 44     | 5 describe: detectMimeFromBytes(含 MP4 偏移 4-7)/hasDangerousSignature(4096+16 窗口)/sanitizeFilename/extractExt/scanFileBuffer               |
+| `tests/prompt-injection-guard.test.ts` | 新建 | 35     | 3 describe: 命中(10 模式+大小写)/未命中(普通文本)/边界(多行/超长)                                                                             |
+| `tests/csrf.test.ts`                   | 新建 | 12     | 2 describe: GET /api/csrf-token 签发(2)/写请求校验(10: 双提交/Bearer/白名单)                                                                  |
+| `tests/xss-protection.test.ts`         | 新建 | 19     | 2 describe: server.sanitizeInput(15: 实体编码+危险向量剥离)/onSend 安全头(4)                                                                  |
+| `src/plugins/upload-scanner.ts`        | 改进 | —      | MAGIC_SIGNATURES 升级 3-tuple(魔数+MIME+扩展名)；MP4 偏移 4-7；危险特征检测前移；严格扩展名与魔数一致性校验                                   |
+| `src/plugins/xss-protection.ts`        | 改进 | —      | DANGEROUS_PATTERNS 改进：完整 `<script>...</script>` 段匹配；`on\w+=` 带引号；`<iframe>/<object>/<embed>` 含内容段；`expression()` 含闭合括号 |
+
+### 关键设计决策
+
+1. **upload-scanner MP4 魔数特殊处理** — MP4 的 `ftyp` 品牌位于偏移 4-7（前 4 字节是 box size），非 0-3。`detectMimeFromBytes` 对 `ftyp` 签名做 `data.subarray(4, 8)` 比较
+2. **upload-scanner 严格扩展名一致性** — `scanFileBuffer` 校验扩展名与魔数检测的 MIME 是否匹配，防 `exe.exe.png` 伪装
+3. **xss-protection 完整段匹配** — `/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi` 先剥离完整 script 段，再剥离残余 `<script>` 标签，避免脚本体残留
+4. **csrf.test.ts 单一 describe 共享 server** — 避免 `@fastify/cookie` 装饰器 `FST_ERR_DEC_ALREADY_PRESENT` 冲突
+5. **response-sanitizer 10 策略全覆盖** — FULL/PARTIAL/HASH/HMAC/AES/EMAIL/PHONE/ID_CARD/KEEP_PREFIX/CUSTOM，含 DataMaskingPipeline 审计+统计+行级过滤
+
+### 验证结果
+
+| 验证项                                 | 结果              |
+| -------------------------------------- | ----------------- |
+| `pnpm --filter @ihui/api typecheck`    | ✅ 0 错误         |
+| 5 新测试文件单独运行                   | ✅ 155/155 通过   |
+| `pnpm --filter @ihui/api test`（全量） | ✅ 1230/1230 通过 |
