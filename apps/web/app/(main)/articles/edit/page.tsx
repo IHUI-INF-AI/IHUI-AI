@@ -64,9 +64,7 @@ export default function ArticleEditPage() {
   const { data: categories = [] } = useQuery({
     queryKey: ['articles', 'categories'],
     queryFn: () =>
-      api<{ list: ArticleCategory[] }>(`/api/content/articles/categories`).then(
-        (d) => d.list ?? [],
-      ),
+      api<{ list: ArticleCategory[] }>(`/api/article/categories`).then((d) => d.list ?? []),
   })
 
   const saveMut = useMutation({
@@ -78,7 +76,7 @@ export default function ArticleEditPage() {
         categoryId: form.categoryId || undefined,
         coverImage: form.coverImage.trim() || undefined,
       }
-      return api(`/api/content/articles`, {
+      return api(`/api/article/publish`, {
         method: 'POST',
         body: JSON.stringify(body),
       })

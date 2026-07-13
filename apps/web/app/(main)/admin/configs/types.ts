@@ -1,4 +1,4 @@
-export type Category = 'general' | 'mail' | 'storage' | 'security' | 'payment' | 'ai'
+export type Category = 'general' | 'mail' | 'storage' | 'security' | 'payment' | 'ai' | 'system'
 export type CfgType = 'string' | 'number' | 'boolean' | 'json'
 
 export interface Config {

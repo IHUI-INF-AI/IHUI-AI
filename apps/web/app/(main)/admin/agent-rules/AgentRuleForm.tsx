@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
@@ -24,11 +24,20 @@ interface Props {
   setForm: React.Dispatch<React.SetStateAction<RuleForm>>
   err: string | null
   savePending: boolean
+  isEditing: boolean
   onSubmit: (e: React.FormEvent) => void
   onCancel: () => void
 }
 
-export function AgentRuleForm({ form, setForm, err, savePending, onSubmit, onCancel }: Props) {
+export function AgentRuleForm({
+  form,
+  setForm,
+  err,
+  savePending,
+  isEditing,
+  onSubmit,
+  onCancel,
+}: Props) {
   const t = useTranslations('admin.agentRules')
   const RULE_TYPES = [
     { value: 'text', label: t('ruleTypes.text') },
@@ -39,7 +48,7 @@ export function AgentRuleForm({ form, setForm, err, savePending, onSubmit, onCan
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">{t('formTitle')}</CardTitle>
+        <CardTitle className="text-base">{isEditing ? t('editTitle') : t('formTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-4">

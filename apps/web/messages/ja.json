@@ -1811,7 +1811,8 @@
         "storage": "ストレージ",
         "security": "セキュリティ",
         "payment": "支払い",
-        "ai": "ai"
+        "ai": "ai",
+        "system": "システム"
       },
       "colKey": "Key",
       "colValue": "値",
@@ -4437,9 +4438,11 @@
       "delete": "削除",
       "save": "保存",
       "cancel": "キャンセル",
+      "export": "エクスポート",
       "subtitle": "エージェント拡張ルールとパラメータを管理",
       "hideForm": "折りたたむ",
       "formTitle": "新規ルール",
+      "editTitle": "ルール編集",
       "loading": "読み込み中...",
       "noData": "データがありません",
       "total": "全 {total} 件",
@@ -4462,9 +4465,11 @@
       "nameRequired": "ルール名は必須です",
       "codeRequired": "ルールコードは必須です",
       "createSuccess": "作成成功",
+      "updateSuccess": "更新成功",
       "deleteSuccess": "削除成功",
       "deleteConfirm": "ルール「{name}」を削除しますか？",
       "deleteParamConfirm": "パラメータ「{name}」を削除しますか？",
+      "exportFailed": "エクスポート失敗",
       "ruleTypes": {
         "text": "テキスト",
         "regex": "正規表現",

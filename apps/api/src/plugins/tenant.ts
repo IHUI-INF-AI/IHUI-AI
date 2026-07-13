@@ -21,7 +21,7 @@ const PUBLIC_PREFIXES = [
 ]
 
 /** 从 header / subdomain 解析租户标识。 */
-function resolveTenantIdentifier(request: FastifyRequest): string | null {
+export function resolveTenantIdentifier(request: FastifyRequest): string | null {
   // 1. X-Tenant-Id header (UUID 或 slug)
   const headerVal = request.headers[DEFAULT_TENANT_HEADER]
   if (typeof headerVal === 'string' && headerVal.trim()) {
