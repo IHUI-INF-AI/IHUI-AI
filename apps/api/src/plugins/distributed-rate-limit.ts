@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import { monitorEventLoopDelay } from 'node:perf_hooks'
+import { normalizeHeader } from '../utils/http-normalize.js'
 
 /**
  * 分布式限流插件。
@@ -75,9 +76,7 @@ declare module 'fastify' {
         loadFactor: number
       }
       /** 生成 preHandler，命中限流返回 429 */
-      preHandler(
-        ruleName: string,
-      ): (request: FastifyRequest, reply: FastifyReply) => Promise<void>
+      preHandler(ruleName: string): (request: FastifyRequest, reply: FastifyReply) => Promise<void>
     }
   }
 }
@@ -89,9 +88,9 @@ function extractScope(scope: RateLimitScope, request: FastifyRequest): string {
     case 'user':
       return `user:${request.userId ?? 'anonymous'}`
     case 'tenant':
-      return `tenant:${(request.headers['x-tenant-id'] as string | undefined) ?? '0'}`
+      return `tenant:${normalizeHeader(request.headers['x-tenant-id']) ?? '0'}`
     case 'api_key':
-      return `apikey:${(request.headers['x-api-key'] as string | undefined) ?? 'none'}`
+      return `apikey:${normalizeHeader(request.headers['x-api-key']) ?? 'none'}`
     case 'global':
       return 'global:all'
   }
