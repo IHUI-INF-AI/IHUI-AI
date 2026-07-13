@@ -11,7 +11,7 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 export function fetchCompanyTypes(params: { page: number }): Promise<CompanyTypesData> {
   const qs = new URLSearchParams({ page: String(params.page), pageSize: String(PAGE_SIZE) })
-  return api<CompanyTypesData>(`/api/admin/member/company-types?${qs.toString()}`)
+  return api<CompanyTypesData>(`/api/admin/members/company-types?${qs.toString()}`)
 }
 
 export const EMPTY_FORM: CompanyTypeForm = {
