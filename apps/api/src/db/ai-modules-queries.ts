@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, ne } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ne, ilike } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   aiIndexBanners,
@@ -7,12 +7,18 @@ import {
   aiAigcTasks,
   aiExtCapabilities,
   aiExtReports,
+  aiCareers,
+  aiChatTypes,
+  aiCommunityPosts,
   type AiConversation,
   type AiAigcTask,
   type AiExtCapability,
   type AiExtReport,
   type AiTeamMember,
   type AiIndexBanner,
+  type AiCareer,
+  type AiChatType,
+  type AiCommunityPost,
 } from '@ihui/database'
 
 export async function findAiIndexBanners(): Promise<AiIndexBanner[]> {
@@ -173,4 +179,59 @@ export async function createAiExtReport(data: {
   const row = rows[0]
   if (!row) throw new Error('创建报告失败')
   return row
+}
+
+// =============================================================================
+// AI Careers / ChatTypes / Community
+// =============================================================================
+
+/**
+ * 查询已发布的 AI 职位列表（status=1），按 sort 升序、createdAt 升序。
+ */
+export async function findAiCareers(): Promise<AiCareer[]> {
+  return db
+    .select()
+    .from(aiCareers)
+    .where(eq(aiCareers.status, 1))
+    .orderBy(asc(aiCareers.sort), asc(aiCareers.createdAt))
+}
+
+/**
+ * 查询已启用的 AI 聊天类型列表（status=1），按 sort 升序。
+ */
+export async function findAiChatTypes(): Promise<AiChatType[]> {
+  return db
+    .select()
+    .from(aiChatTypes)
+    .where(eq(aiChatTypes.status, 1))
+    .orderBy(asc(aiChatTypes.sort), asc(aiChatTypes.createdAt))
+}
+
+/**
+ * 分页查询 AI 社区帖子（status=1），支持 title/content 模糊搜索，按时间倒序。
+ */
+export async function findAiCommunityPosts(opts: {
+  page: number
+  pageSize: number
+  search?: string
+}): Promise<{ list: AiCommunityPost[]; total: number; page: number; pageSize: number }> {
+  const conds = [eq(aiCommunityPosts.status, 1)]
+  if (opts.search) {
+    conds.push(ilike(aiCommunityPosts.title, `%${opts.search}%`))
+  }
+  const where = and(...conds)
+  const [list, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(aiCommunityPosts)
+      .where(where)
+      .orderBy(desc(aiCommunityPosts.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(aiCommunityPosts)
+      .where(where),
+  ])
+  return { list, total: totalRows[0]?.count ?? 0, page: opts.page, pageSize: opts.pageSize }
 }
