@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 前端管理端缺失路由补建（75 个路由）。
  *
  * 来源：GAP_ANALYSIS.md — 前端调用但后端完全未实现的 /api/admin/* 路径。
@@ -12,7 +12,7 @@
  * - 响应格式统一 { code, message, data }
  * - 列表接口支持分页（page/pageSize）+ 模糊搜索（search）
  */
-import type { FastifyPluginAsync, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { eq, or, ilike, desc, asc, sql, and, inArray, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -170,32 +170,6 @@ const updatePermissionSchema = z.object({
 /** 空列表响应（用于无对应表的路由） */
 function emptyList(page: number, pageSize: number) {
   return success({ list: [], total: 0, page, pageSize })
-}
-
-/** 通用空桩路由注册（用于无对应 DB 表的路由） */
-function registerEmptyStub(server: FastifyInstance, basePath: string) {
-  server.get(basePath, async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = paginationSchema.safeParse(request.query)
-    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(emptyList(parsed.data.page, parsed.data.pageSize))
-  })
-  server.post(basePath, async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.status(201).send(success({ created: true }))
-  })
-  server.put(`${basePath}/:id`, async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = idParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ id: parsed.data.id, updated: true }))
-  })
-  server.delete(`${basePath}/:id`, async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = idParamSchema.safeParse(request.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
-  })
-  server.delete(basePath, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { ids } = z.object({ ids: z.string().optional().default('') }).parse(request.body ?? {})
-    return reply.send(success({ deleted: ids.split(',').filter(Boolean).length }))
-  })
 }
 
 function registerCrud(
@@ -860,12 +834,6 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // 2. 内容运营模块 — 无表路由（空数据桩）
   // ===========================================================================
-  registerEmptyStub(server, '/about-us')
-  registerEmptyStub(server, '/advertise')
-  registerEmptyStub(server, '/contact')
-  registerEmptyStub(server, '/mobile-adapter')
-  registerEmptyStub(server, '/mobile-adapter/mode')
-  registerEmptyStub(server, '/recommendation-config')
   registerCrud(server, '/news/information', newsArticles, {
     searchField: newsArticles.title,
     map: fields({
@@ -1497,11 +1465,6 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // 3b. 鉴权/用户模块 — 无表路由（空数据桩，5 个）
   // ===========================================================================
-  registerEmptyStub(server, '/auth-find-info')
-  registerEmptyStub(server, '/auth-user-margin')
-  registerEmptyStub(server, '/auth-veri-codes')
-  registerEmptyStub(server, '/member/blacklist')
-  registerEmptyStub(server, '/users/course-users')
 
   // ===========================================================================
   // 4. 教务/课程模块 — 无表路由（空数据桩，8 个）
@@ -1590,9 +1553,6 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(row))
   })
 
-  registerEmptyStub(server, '/edu/classes')
-  registerEmptyStub(server, '/edu/classes/schedules')
-  registerEmptyStub(server, '/finance/statistics')
   registerCrud(server, '/learn/homework', learnHomework, {
     searchField: learnHomework.title,
     map: fields({
@@ -1606,17 +1566,10 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
       status: 'string',
     }),
   })
-  registerEmptyStub(server, '/learn/materials')
-  registerEmptyStub(server, '/learn/plans')
-  registerEmptyStub(server, '/learn/reminds')
 
   // ===========================================================================
   // 5. 平台/API 管理模块 — 无表路由（空数据桩，9 个）
   // ===========================================================================
-  registerEmptyStub(server, '/api-groups')
-  registerEmptyStub(server, '/api-usage/day')
-  registerEmptyStub(server, '/api-usage/stats')
-  registerEmptyStub(server, '/api-usage/top')
   registerCrud(server, '/developer/coze', cozeVariables, {
     searchField: cozeVariables.variableName,
     map: fields({
@@ -1668,7 +1621,6 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     if (!row) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success(row))
   })
-  registerEmptyStub(server, '/oauth-audit/stats')
 
   // /api/admin/oss/files — 文件列表（空桩，实际文件由 oss 路由处理）
   server.get('/oss/files', async (request, reply) => {
@@ -1680,12 +1632,6 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // 6. 监控/运维模块 — 无表路由（空数据桩，17 个）
   // ===========================================================================
-  registerEmptyStub(server, '/backend-health/events')
-  registerEmptyStub(server, '/db-opt/slow-queries')
-  registerEmptyStub(server, '/db-opt/suggestions')
-  registerEmptyStub(server, '/db-opt/tables')
-  registerEmptyStub(server, '/event-bus/events')
-  registerEmptyStub(server, '/event-bus/stats')
   registerCrud(server, '/monitor/alerts', monitorAlerts, {
     searchField: monitorAlerts.name,
     hasUpdatedAt: false,
@@ -1711,8 +1657,6 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
       suppressMinutes: 'number',
     }),
   })
-  registerEmptyStub(server, '/monitor/perf')
-  registerEmptyStub(server, '/monitor/services')
   registerCrud(server, '/monitoring/logs', apiLogs, {
     searchField: apiLogs.path,
     hasUpdatedAt: false,
@@ -1729,21 +1673,12 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
       error: 'string',
     }),
   })
-  registerEmptyStub(server, '/monitoring/perf')
-  registerEmptyStub(server, '/monitoring/services')
-  registerEmptyStub(server, '/performance-dashboard/endpoints')
-  registerEmptyStub(server, '/performance-dashboard/stats')
-  registerEmptyStub(server, '/system/monitor/metrics')
-  registerEmptyStub(server, '/system/monitor/services')
 
   // /api/admin/stats 已在 admin.ts 中实现，此处不再重复注册
 
   // ===========================================================================
   // 7. 商城模块 — 无表路由（空数据桩，4 个）
   // ===========================================================================
-  registerEmptyStub(server, '/shop/funds/accounts')
-  registerEmptyStub(server, '/shop/products')
-  // PATCH /shop/products/:id/status — 状态切换（空桩，shop/products 无对应表）
   server.patch('/shop/products/:id/status', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
@@ -1771,7 +1706,6 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
       processedAt: 'date',
     }),
   })
-  registerEmptyStub(server, '/shop/withdrawals')
 
   // ===========================================================================
   // 8. 相对路径模块 — 无表路由（空数据桩，2 个）
