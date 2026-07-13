@@ -17,6 +17,12 @@ interface Props {
   phone: string
 }
 
+const GENDER_OPTIONS = [
+  { value: 0, key: 'unknown' },
+  { value: 1, key: 'male' },
+  { value: 2, key: 'female' },
+] as const
+
 export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg, phone }: Props) {
   const t = useTranslations('user.profile')
   const {
@@ -57,6 +63,24 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg,
           )}
         />
         {errors.bio && <p className="text-xs text-destructive">{t('bioError')}</p>}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="gender">{t('gender')}</Label>
+        <select
+          id="gender"
+          {...form.register('gender', { valueAsNumber: true })}
+          className={cn(
+            'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors',
+            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          )}
+        >
+          {GENDER_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {t(`gender_${opt.key}`)}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex items-center gap-3">

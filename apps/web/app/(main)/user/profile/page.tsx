@@ -38,6 +38,7 @@ export default function ProfilePage() {
       nickname: user?.nickname ?? '',
       email: '',
       bio: '',
+      gender: 0,
     },
   })
   const { reset } = form
@@ -78,6 +79,7 @@ export default function ProfilePage() {
       nickname: data.user.nickname ?? '',
       email: data.user.email ?? '',
       bio: data.user.bio ?? '',
+      gender: data.user.gender ?? 0,
     })
   }, [data, reset])
 

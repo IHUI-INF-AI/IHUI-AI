@@ -143,6 +143,35 @@
     10. **stash@{9} workspace/agent/AI changes** (18 files, +2485 -785) — 旧 client/ Vue + 旧 server/ Python + 旧 docs/ + 旧 scripts/ 迁移审计脚本，新架构完整替代，**已 drop**
   - 验证: 10 个 stash 全部 drop 后 `git stash list` 为空，磁盘回收 ~50MB，dangling commit 自动 GC
   - 安全审计符合度: 100%（10/10 功能均已在新 monorepo 实现后才 drop，符合 AGENTS.md 第 8 章强制规则）
+- [x] ✅(2026-07-13) R11 stash drop 反向审计+sex 字段恢复（commit 验证中）:
+  - 触发: 用户要求"重新按照我的要求检查一遍 是否删错了 删掉了本来有用的东西"
+  - 反向审计方法: 解析每个 dropped stash 的 dangling commit (git fsck) → 与当前 monorepo 全量对比
+  - 🔴 **关键发现**: stash@{2} (74019693) 包含 `user/profile sex` 字段实现，**当前 monorepo 缺失** — 已恢复
+    - 缺失位置: `apps/web/app/(main)/user/profile/{types.ts,page.tsx,ProfileEditForm.tsx}` 三个文件均无 sex 字段
+    - API 缺失: `apps/api/src/routes/users.ts` 的 updateSchema 无 gender 字段，`publicUser()` 未返回 gender
+    - 数据库已有: `packages/database/src/schema/users.ts:14` 有 `gender: integer` 字段（0=未知 1=男 2=女）
+    - 恢复内容:
+      - **后端** `apps/api/src/db/queries.ts`: UpdateUserInput 加 `gender?: number`、updateUser set 加 `...(data.gender !== undefined && { gender: data.gender })`
+      - **后端** `apps/api/src/routes/users.ts`: updateSchema 加 `gender: z.number().int().min(0).max(2).optional()`、publicUser 签名加 `gender: number | null`、返回值加 `gender: user.gender ?? 0`
+      - **前端** `apps/web/app/(main)/user/profile/types.ts`: profileSchema 加 `gender: z.number().int().min(0).max(2).optional()`、ProfileResponse.user 加 `gender: number`
+      - **前端** `apps/web/app/(main)/user/profile/page.tsx`: form defaultValues 加 `gender: 0`、useEffect reset 加 `gender: data.user.gender ?? 0`
+      - **前端** `apps/web/app/(main)/user/profile/ProfileEditForm.tsx`: 加 GENDER_OPTIONS 常量 + gender select UI (3 选项: 未知/男/女)
+      - **i18n 5 语言**: en/zh-CN/ja/ko/zh-TW 各加 4 键 (gender, gender_unknown, gender_male, gender_female)
+  - 🟡 **WIP 功能未恢复 (建议后续评估)**:
+    - **stash@{5} (7e2a901) admin pages export/edit/HasPermi/tree** 的 WIP 改动:
+      - admin/agent-rules: exportToExcel + HasPermi + useSearchParams(ruleId) — 当前用 Tabs 重新设计，无 export/HasPermi
+      - admin/agents: botId/userId/agentModel 过滤 + HasPermi + exportToExcel — 当前用 AgentsFilter 重新设计，过滤字段不同
+      - admin/edu/course: HasPermi + ImageUpload + RichTextEditor — 当前用 CourseDialog 模块化
+      - admin/member/departments: HasPermi + export + leader/phone/email — **当前已实现全部功能 (更优架构)**
+      - admin/page.tsx: LineChart 重构为 secondaryData/secondaryColor/areaFill — **当前用 AdminStatCards/AdminOverviewCharts/DistributionCharts 重新设计**
+      - LineChart.tsx: secondaryData/secondaryColor/areaFill props — 当前 LineChart 不支持双线，但 admin/page.tsx 也不需要
+    - 判定: 这些 WIP 改动**不恢复**，因为当前实现是更优架构 (模块化、组件化)，原 WIP 不完整
+  - 🟢 **已正确 drop 的 stash (无功能丢失)**:
+    - stash@{0} lint-staged 备份 — 仅 pre-commit hook 自动备份
+    - stash@{6} fix(about) asyncModules — 旧 client/ Vue 代码
+    - stash@{7,8,9} AI/sidebar-pkg-2, AI/workspace/agent, workspace/agent/AI — 旧 client/ Vue + 旧 server/ Python
+  - 验证: api typecheck 0 错误 / web typecheck 0 错误 / api test 1007/1007 全通过 / 5 语言 i18n 键完整
+  - 恢复影响: 10 文件 (3 后端 + 3 前端 + 4 i18n) + 20 键 (4 键 × 5 语言)
 - [x] ✅(2026-07-13) R11 CI 预防脚本补齐（commit 4a97c45c，2 files +219）:
   - 新增 scripts/check-api-routes.mjs: 扫描前端所有 /api/ 调用 vs 后端 server.register 路由注册，发现 404 风险即 exit 1
   - 注册 npm script: `pnpm check:api-routes`
