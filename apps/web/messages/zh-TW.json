@@ -4466,17 +4466,18 @@
       "deleteConfirm": "確定刪除規則「{name}」？",
       "deleteParamConfirm": "確定刪除參數「{name}」？",
       "ruleTypes": {
-        "system": "系統規則",
-        "user": "用戶規則",
-        "tool": "工具規則",
-        "constraint": "約束規則"
+        "text": "文字規則",
+        "regex": "正則規則",
+        "llm": "大模型判斷"
       },
       "paramId": "ID",
       "paramRuleId": "規則ID",
       "paramName": "參數名稱",
       "paramCode": "參數代碼",
       "paramType": "參數類型",
-      "paramValue": "參數值"
+      "paramValue": "參數值",
+      "description": "描述",
+      "descriptionPlaceholder": "請輸入描述"
     },
     "aboutUs": {
       "title": "關於我們",

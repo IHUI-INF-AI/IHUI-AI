@@ -1,4 +1,4 @@
-import { fetchApi } from '@/lib/api'
+﻿import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { AgentRule, ListData, RuleParam, RuleForm } from './types'
 
@@ -22,11 +22,12 @@ export function fetchRuleParams(page: number): Promise<ListData<RuleParam>> {
 
 export const EMPTY_FORM: RuleForm = {
   agentId: '',
-  name: '',
-  code: '',
-  type: 'system',
+  ruleName: '',
+  ruleCode: '',
+  ruleType: 'text',
   priority: '0',
   status: true,
+  description: '',
 }
 
 export function badgeCls(enabled: boolean) {

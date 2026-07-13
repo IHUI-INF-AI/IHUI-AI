@@ -111,7 +111,7 @@
     "exam": "Exam",
     "circles": "Circles",
     "plaza": "Plaza",
-    "asks": "Q&A",
+    "asks": "Q\u0026A",
     "docs": "Docs",
     "payment": "Payment",
     "vip": "VIP Membership",
@@ -160,7 +160,7 @@
     "phone": "Phone",
     "password": "Password",
     "loginBtn": "Sign In",
-    "noAccount": "Don't have an account?",
+    "noAccount": "Don\u0027t have an account?",
     "registerNow": "Sign up",
     "forgotPassword": "Forgot password?",
     "registerTitle": "Create Account",
@@ -482,11 +482,11 @@
   },
   "plaza": {
     "title": "Community Plaza",
-    "subtitle": "Browse circles and Q&A in one place",
+    "subtitle": "Browse circles and Q\u0026A in one place",
     "circlesTab": "Circles",
-    "asksTab": "Q&A",
+    "asksTab": "Q\u0026A",
     "viewAllCircles": "View all circles",
-    "viewAllAsks": "View all Q&A"
+    "viewAllAsks": "View all Q\u0026A"
   },
   "vip": {
     "title": "VIP Membership",
@@ -1295,7 +1295,7 @@
       "subtitle": "Platform operations overview",
       "totalUsers": "Total Users",
       "totalProjects": "Total Projects",
-      "todayRevenue": "Today's Revenue",
+      "todayRevenue": "Today\u0027s Revenue",
       "activeSessions": "Active Sessions"
     },
     "users": {
@@ -1330,7 +1330,7 @@
       "noData": "No users found",
       "loading": "Loading...",
       "userDetail": "User Detail",
-      "confirmStatusChange": "Are you sure you want to change this user's status?"
+      "confirmStatusChange": "Are you sure you want to change this user\u0027s status?"
     },
     "roles": {
       "title": "Role Management",
@@ -2102,7 +2102,7 @@
         "answerTitle": "Answer Management",
         "answerDesc": "Online answering, programming judging, answer sheet",
         "learnTitle": "Learning Management",
-        "learnDesc": "Courses, live/recording, materials & homework, progress ranking",
+        "learnDesc": "Courses, live/recording, materials \u0026 homework, progress ranking",
         "studentTitle": "Student Management",
         "studentDesc": "Student info, details, levels",
         "teacherTitle": "Teacher Management",
@@ -4466,17 +4466,18 @@
       "deleteConfirm": "Delete rule \"{name}\"?",
       "deleteParamConfirm": "Delete parameter \"{name}\"?",
       "ruleTypes": {
-        "system": "System Rule",
-        "user": "User Rule",
-        "tool": "Tool Rule",
-        "constraint": "Constraint Rule"
+        "text": "Text",
+        "regex": "Regex",
+        "llm": "LLM"
       },
       "paramId": "ID",
       "paramRuleId": "Rule ID",
       "paramName": "Parameter Name",
       "paramCode": "Parameter Code",
       "paramType": "Parameter Type",
-      "paramValue": "Parameter Value"
+      "paramValue": "Parameter Value",
+      "description": "Description",
+      "descriptionPlaceholder": "Enter description"
     },
     "aboutUs": {
       "title": "About Us",
@@ -5553,7 +5554,7 @@
       "disable": "Disable",
       "scanQR": "Scan the QR code with an authenticator app",
       "enterCode": "Enter the 6-digit code",
-      "verify": "Verify & enable",
+      "verify": "Verify \u0026 enable",
       "codeInvalid": "Invalid code",
       "previewCode": "Current demo code",
       "backupDesc": "Save these backup codes safely. Use them to log in if you lose your 2FA device.",
@@ -5562,7 +5563,7 @@
       "done": "Done"
     },
     "themeBackup": {
-      "title": "Theme Backup & Sync",
+      "title": "Theme Backup \u0026 Sync",
       "desc": "Export current theme config, or import from a backup file with smooth transition",
       "export": "Export config",
       "import": "Import config"
@@ -5863,7 +5864,7 @@
     "deleteTeam": "Delete Team",
     "deleteTeamDesc": "Deleting a team removes all members and data. This cannot be undone.",
     "deleteConfirm": "Are you sure you want to delete this team? This cannot be undone.",
-    "notFound": "Team not found or you don't have access"
+    "notFound": "Team not found or you don\u0027t have access"
   },
   "chatHistory": {
     "title": "Chat History",
@@ -5940,7 +5941,7 @@
         "afternoon": "Good afternoon",
         "evening": "Good evening"
       },
-      "subtitle": "Here's your workspace overview",
+      "subtitle": "Here\u0027s your workspace overview",
       "stats": {
         "projects": "My Projects",
         "files": "Recent Files",
@@ -6232,7 +6233,7 @@
       "signedInBtn": "Signed In",
       "signing": "Signing in...",
       "signInSuccess": "Signed in! Earned {points} points",
-      "todayReward": "Today's reward",
+      "todayReward": "Today\u0027s reward",
       "weekCalendar": "This Week",
       "history": "Sign-in History",
       "dateLabel": "Date",
@@ -7430,7 +7431,7 @@
     "icpPlaceholder": "Beijing ICP No. 00000000"
   },
   "agreement": {
-    "title": "Agreements & Policies",
+    "title": "Agreements \u0026 Policies",
     "subtitle": "Please read the following agreements carefully",
     "loading": "Loading...",
     "userAgreement": "User Agreement",
@@ -7606,13 +7607,13 @@
     "accountPlaceholder": "Phone / Email / Username",
     "password": "Password",
     "passwordPlaceholder": "Enter password",
-    "loginBtn": "Sign In & Authorize",
+    "loginBtn": "Sign In \u0026 Authorize",
     "loginSuccess": "Login successful",
     "loginFailed": "Login failed",
     "enterAccountAndPassword": "Please enter account and password",
     "alreadyLoggedIn": "Already signed in",
     "authorizing": "Authorizing for {clientId}…",
-    "authorizeAndRedirect": "Authorize & Redirect",
+    "authorizeAndRedirect": "Authorize \u0026 Redirect",
     "generateCodeFailed": "Failed to generate authorization code",
     "footerHint": "You will be redirected back to the target app after authorization. The login state will be shared across all sub-projects.",
     "redirect": {
