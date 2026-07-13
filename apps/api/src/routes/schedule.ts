@@ -249,6 +249,83 @@ export const scheduleRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ log }))
     },
   )
+
+  // ===========================================================================
+  // 别名端点：前端使用 /schedule（无 tasks 层级），后端兼容至 /schedule/tasks
+  // ===========================================================================
+
+  // GET /schedule - 别名 /schedule/tasks
+  server.get('/schedule', async (request, reply) => {
+    const parsed = listTasksQuery.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await findScheduleTasks(parsed.data)
+    return reply.send(success(result))
+  })
+
+  // GET /schedule/:id - 别名 /schedule/tasks/:id
+  server.get('/schedule/:id', async (request, reply) => {
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const task = await findScheduleTaskById(parsed.data.id)
+    if (!task) {
+      return reply.status(404).send(error(404, '任务不存在'))
+    }
+    return reply.send(success({ task }))
+  })
+
+  // POST /schedule - 别名 /schedule/tasks（创建任务）
+  server.post('/schedule', async (request, reply) => {
+    const parsed = createTaskSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const task = await createScheduleTask(parsed.data)
+    return reply.status(201).send(success({ task }))
+  })
+
+  // PUT /schedule/:id - 别名 /schedule/tasks/:id（更新任务）
+  server.put('/schedule/:id', async (request, reply) => {
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const parsed = updateTaskSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const task = await updateScheduleTask(idParsed.data.id, parsed.data)
+    if (!task) {
+      return reply.status(404).send(error(404, '任务不存在'))
+    }
+    return reply.send(success({ task }))
+  })
+
+  // DELETE /schedule/:id - 别名 /schedule/tasks/:id
+  server.delete('/schedule/:id', async (request, reply) => {
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    await deleteScheduleTask(parsed.data.id)
+    return reply.send(success({ deleted: true }))
+  })
+
+  // POST /schedule/:id/complete - 标记任务完成（复用 runScheduleTaskNow 并置 success）
+  server.post('/schedule/:id/complete', async (request, reply) => {
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await runScheduleTaskNow(parsed.data.id)
+    if (!result) {
+      return reply.status(404).send(error(404, '任务不存在'))
+    }
+    return reply.send(success({ id: result.task.id, status: 'completed' }))
+  })
 }
 
 // =============================================================================
