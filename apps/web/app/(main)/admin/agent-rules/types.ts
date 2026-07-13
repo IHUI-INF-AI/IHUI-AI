@@ -1,11 +1,12 @@
-export interface AgentRule {
+﻿export interface AgentRule {
   id: string
   agentId: string
-  name: string
-  code: string
-  type: string
+  ruleName: string
+  ruleCode: string
+  ruleType: string
   priority: number
   status: number
+  description?: string
 }
 
 export interface RuleParam {
@@ -25,9 +26,10 @@ export interface ListData<T> {
 
 export interface RuleForm {
   agentId: string
-  name: string
-  code: string
-  type: string
+  ruleName: string
+  ruleCode: string
+  ruleType: string
   priority: string
   status: boolean
+  description: string
 }

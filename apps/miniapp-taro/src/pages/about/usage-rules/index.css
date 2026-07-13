@@ -1,21 +1,42 @@
-.page-container {
+﻿.page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: #f7f8fa;
 }
-.page-header {
-  padding: 24rpx;
+.card {
+  margin: 24rpx;
+  padding: 32rpx;
   background: #fff;
+  border-radius: 16rpx;
 }
-.page-title {
-  font-size: 36rpx;
-  font-weight: 600;
+.section-title {
+  display: block;
+  font-size: 30rpx;
   color: #333;
+  font-weight: 600;
+  margin-bottom: 20rpx;
 }
-.page-content {
-  padding: 24rpx;
+.rule-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 16rpx;
 }
-.info-text {
+.dot {
   font-size: 28rpx;
+  color: #007aff;
+  margin-right: 12rpx;
+  line-height: 1.7;
+}
+.rule-text {
+  flex: 1;
+  font-size: 26rpx;
   color: #666;
-  line-height: 1.6;
+  line-height: 1.7;
+}
+.tips {
+  text-align: center;
+  padding: 24rpx 32rpx 48rpx;
+}
+.tips text {
+  font-size: 22rpx;
+  color: #bbb;
 }
