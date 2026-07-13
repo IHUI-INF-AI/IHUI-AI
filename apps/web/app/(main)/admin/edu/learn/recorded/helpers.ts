@@ -3,7 +3,7 @@ import type { CForm, Video } from './types'
 
 export const PAGE_SIZE = 10
 export const PERM = 'course:coursevideo:'
-export const API = '/api/admin/course-video'
+export const API = '/api/admin/course/videos'
 export const LEVEL_TEXT = ['level.0', 'level.1', 'level.2']
 export const AUDIT_TEXT = ['audit.0', 'audit.1', 'audit.2', 'audit.3', 'audit.4']
 

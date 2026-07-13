@@ -14,6 +14,7 @@
  * 已在 notifications.ts 中实现，此处不再重复注册。
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -171,7 +172,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 5. 学习记录 /study/*（4 个端点）
+  // 5. 学习记录 /study/*（6 个端点）
   // ===========================================================================
   server.get('/study/records', async (request, reply) => {
     const q = parsePagination(request, reply)
@@ -183,6 +184,61 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
     return reply.send(success({ record: null }))
+  })
+
+  // POST /study/records - 记录学习（桩实现，前端 LearnRecord 字段与 learnRecord 表结构不匹配，保持桩策略）
+  server.post('/study/records', async (request, reply) => {
+    const body = z
+      .object({
+        courseId: z.string().optional(),
+        lessonId: z.string().optional(),
+        duration: z.number().optional(),
+        progress: z.number().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, '参数错误'))
+    }
+    return reply.status(201).send(
+      success({
+        record: {
+          id: randomUUID(),
+          userId: request.userId!,
+          courseId: body.data.courseId ?? null,
+          lessonId: body.data.lessonId ?? null,
+          duration: body.data.duration ?? 0,
+          progress: body.data.progress ?? 0,
+          status: 'in_progress',
+          createdAt: new Date().toISOString(),
+        },
+      }),
+    )
+  })
+
+  // PUT /study/records/:id - 更新学习进度（桩实现）
+  server.put('/study/records/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const body = z
+      .object({
+        progress: z.number().optional(),
+        status: z.enum(['in_progress', 'completed', 'paused']).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, '参数错误'))
+    }
+    return reply.send(
+      success({
+        record: {
+          id,
+          userId: request.userId!,
+          progress: body.data.progress ?? 0,
+          status: body.data.status ?? 'in_progress',
+          updatedAt: new Date().toISOString(),
+        },
+      }),
+    )
   })
 
   server.get('/study/progress', async (request, reply) => {
