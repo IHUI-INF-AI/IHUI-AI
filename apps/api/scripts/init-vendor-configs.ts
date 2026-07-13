@@ -55,7 +55,7 @@ async function main() {
     }
   }
 
-  console.log(
+  console.info(
     `[init-vendor-configs] 完成: 插入 ${inserted} 条，已存在 ${skipped} 条，失败 ${failed} 条`,
   )
   process.exit(failed > 0 ? 1 : 0)
