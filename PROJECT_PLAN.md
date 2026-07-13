@@ -178,6 +178,31 @@
   - 已有 scripts/check-i18n-keys.mjs 覆盖五语言 parity 检查（7732 键 × 5 语言），无需新建
   - HTTP 烟测发现预存问题: admin 路由全返 404（含已知路由 GET /api/admin/users），与本次修改无关，属环境/配置问题
   - 验证: api typecheck 0 错误 / web typecheck 0 错误 / api test 1007/1007 全通过
+- [x] ✅(2026-07-13) R12 tenant 插件 IP 地址误解析修复（commit 待提交，1 file +2）:
+  - 触发: R11 HTTP 烟测发现所有 admin 端点返回 404（含已注册路由 GET /api/admin/users、GET /api/admin/stats、GET /api/admin/member/users）
+  - 排查路径:
+    1. 检查 server.ts registerRoutes — 47 个 admin 路由注册正常
+    2. 检查 admin.ts plugin — addHook preHandler requireAdmin 正常
+    3. 获取 OpenAPI spec (/docs/json) — 确认所有路由已注册
+    4. 检查 11 个 onRequest 钩子链
+    5. 定位 tenant.ts 第 85 行: `reply.status(404).send({ code: 404, message: '租户不存在' })`
+  - 🔴 **根因**: `resolveTenantIdentifier` 函数将 IP 地址 `127.0.0.1` 误解析为租户 slug "127"
+    - host = "127.0.0.1" → parts = ["127", "0", "0", "1"] → parts.length = 4 >= 3 → firstPart = "127" → 返回 "127"
+    - lookupTenant("127") 按 slug 查 DB → 查不到 → 返回 404 "租户不存在"
+    - 影响所有非 PUBLIC_PREFIXES 路径（/api/admin/_、/api/users/_ 等）
+  - 修复: 在 resolveTenantIdentifier 中添加 IP 地址正则检测，IP 地址直接返回 null（跳过租户解析）
+    ```typescript
+    // IP 地址不作为租户标识符（避免 127.0.0.1 被误解析为 slug "127"）
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return null
+    ```
+  - HTTP 烟测验证（修复后）:
+    - `GET /api/health -> 200` ✓（公开路径）
+    - `GET /api/admin/users -> 401` ✓（之前 404，现正确要求认证）
+    - `GET /api/admin/member/users -> 401` ✓（之前 404，现正确）
+    - `GET /api/admin/stats -> 401` ✓（之前 404，现正确）
+    - `localhost` 请求同样返回 401（parts.length = 1，不进 IP 分支，但 firstPart = "localhost" 不在 [www,api,admin] 中且 parts.length < 3 → 返回 null → 跳过租户解析 → 进入 authenticate 返回 401）
+  - 验证: api typecheck 0 错误 / api test 1007/1007 全通过（无回归）
+  - 影响范围: 仅 apps/api/src/plugins/tenant.ts 1 文件 +2 行
 
 ---
 
