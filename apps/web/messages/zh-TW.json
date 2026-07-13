@@ -8156,5 +8156,22 @@
     "deleteDesc": "該操作不可復原",
     "delete": "刪除",
     "validateName": "請輸入應用名稱"
+  },
+  "errors": {
+    "unknown": "未知錯誤",
+    "validationFailed": "參數錯誤",
+    "unauthorized": "請先登入",
+    "forbidden": "權限不足",
+    "notFound": "資源不存在",
+    "conflict": "操作衝突",
+    "rateLimited": "操作過於頻繁，請稍後再試",
+    "locked": "資源被鎖定",
+    "internalError": "伺服器錯誤",
+    "upstreamFailure": "上游服務異常",
+    "serviceUnavailable": "服務暫不可用",
+    "memberExists": "會員已存在",
+    "optimisticLock": "資料已被修改，請重新整理後重試",
+    "invalidMoney": "金額格式錯誤",
+    "invalidTimezone": "時區錯誤"
   }
 }
