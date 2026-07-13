@@ -20,7 +20,7 @@ import { eq, asc, sql } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
-import { aiModelConfig } from '@ihui/database'
+import { aiModelConfig, users } from '@ihui/database'
 import {
   findMyLessons,
   signUpLesson,
@@ -79,6 +79,41 @@ import {
   findUserPreferences,
   deleteUserPreferencesByGroup,
 } from '../db/user-preferences-queries.js'
+import { findSecurityLogs } from '../db/security-logs-queries.js'
+import { createExportTask } from '../db/export-tasks-queries.js'
+import {
+  createGenerationTask,
+  findGenerationHistory,
+  findGenerationTemplates,
+} from '../db/content-generation-queries.js'
+import { toggleLike } from '../db/resource-likes-queries.js'
+import { findNotificationById } from '../db/notification-queries.js'
+import { findFunds, findFundByCode, findFundNetValues } from '../db/fund-queries.js'
+import { findAiFeedPosts, findAiFeedPostById } from '../db/ai-feed-post-queries.js'
+import { findAiWorldCategories, findAiWorldItemById } from '../db/ai-world-queries.js'
+import { createWorkspaceAiTask } from '../db/workspace-ai-queries.js'
+import { findMcpServers, findMcpServerById } from '../db/mcp-queries.js'
+import { findOpenclawItems, findOpenclawItemById } from '../db/openclaw-queries.js'
+import { findSiteCategories } from '../db/site-categories-queries.js'
+import { createAnalyticsEvent } from '../db/analytics-queries.js'
+import {
+  findAiIndexBanners,
+  findAiTeamMembers,
+  findAiTeamMemberById,
+  createAiConversation,
+  findAiConversations,
+  deleteAiConversation,
+  updateAiAigcTaskStatus,
+  toggleAiExtCapability,
+  findAiExtReports,
+  createAiExtReport,
+} from '../db/ai-modules-queries.js'
+import {
+  findDeveloperInfo,
+  findDeveloperPricing,
+  createDeveloperApplication,
+  updateDeveloperApplicationStatus,
+} from '../db/developer-queries.js'
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -205,30 +240,41 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ success: true, article }))
   })
 
-  // 注: like/favorite 无对应表，保持桩实现
-  server.post('/article/like', async (_request, reply) => {
-    return reply.send(success({ success: true }))
+  server.post('/article/like', async (request, reply) => {
+    const body = (request.body as { id?: string } | null) ?? {}
+    if (!body.id) return reply.status(400).send(error(400, '缺少 id'))
+    const result = await toggleLike('article', body.id, request.userId!)
+    return reply.send(success({ success: true, liked: result.liked }))
   })
 
-  server.post('/article/favorite', async (_request, reply) => {
-    return reply.send(success({ success: true }))
+  server.post('/article/favorite', async (request, reply) => {
+    const body = (request.body as { id?: string } | null) ?? {}
+    if (!body.id) return reply.status(400).send(error(400, '缺少 id'))
+    const result = await toggleLike('article_favorite', body.id, request.userId!)
+    return reply.send(success({ success: true, liked: result.liked }))
   })
 
   // ===========================================================================
   // 2. 内容生成 /content-generation/*（3 个端点）
   // ===========================================================================
-  server.post('/content-generation/generate', async (_request, reply) => {
-    return reply.send(success({ content: '', taskId: null }))
+  server.post('/content-generation/generate', async (request, reply) => {
+    const body = (request.body as { input?: string; templateId?: string } | null) ?? {}
+    const task = await createGenerationTask(request.userId!, body.input ?? null, body.templateId)
+    return reply.status(201).send(success({ content: '', taskId: task.id }))
   })
 
   server.get('/content-generation/history', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findGenerationHistory(request.userId!, q.page, q.pageSize)
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/content-generation/templates', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+    const list = await findGenerationTemplates()
+    return reply.send(success({ list }))
   })
 
   // ===========================================================================
@@ -255,9 +301,11 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ knowledge }))
   })
 
-  // 注: like 无对应表，保持桩实现
-  server.post('/knowledge/:id/like', async (_request, reply) => {
-    return reply.send(success({ success: true }))
+  server.post('/knowledge/:id/like', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const result = await toggleLike('knowledge', id, request.userId!)
+    return reply.send(success({ success: true, liked: result.liked }))
   })
 
   // ===========================================================================
@@ -390,16 +438,34 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/mcp', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findMcpServers({
+      page: q.page,
+      pageSize: q.pageSize,
+      search: q.search,
+    })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/mcp/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ mcp: null }))
+    const mcp = await findMcpServerById(id)
+    if (!mcp) return reply.status(404).send(error(404, 'MCP 服务不存在'))
+    return reply.send(success({ mcp }))
   })
 
-  server.post('/mcp/invoke', async (_request, reply) => {
+  server.post('/mcp/invoke', async (request, reply) => {
+    const body = (request.body as { serverId?: string; tool?: string; args?: unknown } | null) ?? {}
+    if (!body.serverId) return reply.status(400).send(error(400, '缺少 serverId'))
+    await createAnalyticsEvent({
+      userId: request.userId,
+      event: 'mcp_invoke',
+      properties: { serverId: body.serverId, tool: body.tool, args: body.args },
+      ip: request.ip,
+      userAgent: (request.headers['user-agent'] as string | undefined) ?? null,
+    })
     return reply.send(success({ result: null }))
   })
 
@@ -409,13 +475,22 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/openclaw', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findOpenclawItems({
+      page: q.page,
+      pageSize: q.pageSize,
+      search: q.search,
+    })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/openclaw/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ openclaw: null }))
+    const openclaw = await findOpenclawItemById(id)
+    if (!openclaw) return reply.status(404).send(error(404, 'OpenClaw 条目不存在'))
+    return reply.send(success({ openclaw }))
   })
 
   // ===========================================================================
@@ -475,16 +550,18 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total }))
   })
 
-  // 桩:无 security_logs 表,待后续建表后真实化
   server.get('/settings/security-logs', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findSecurityLogs(request.userId!, q.page, q.pageSize)
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
-  // 桩:无 export 任务表,待后续建表后真实化
-  server.get('/settings/export', async (_request, reply) => {
-    return reply.send(success({ url: null, exportedAt: null }))
+  server.get('/settings/export', async (request, reply) => {
+    const task = await createExportTask(request.userId!, 'user_data')
+    return reply.send(success({ url: null, exportedAt: null, taskId: task.id }))
   })
 
   server.post('/settings/clear-data', async (request, reply) => {
@@ -497,8 +574,8 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ success: true }))
   })
 
-  // 桩:账号删除需级联清理多表,待后续实现事务级联删除
-  server.post('/settings/delete-account', async (_request, reply) => {
+  server.post('/settings/delete-account', async (request, reply) => {
+    await db.update(users).set({ status: 0 }).where(eq(users.id, request.userId!))
     return reply.send(success({ success: true }))
   })
 
@@ -568,22 +645,47 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // 11. 开发者扩展 /developer/*（4 个端点）
   // ===========================================================================
-  server.get('/developer/info', async (_request, reply) => {
-    return reply.send(success({ developer: null }))
+  server.get('/developer/info', async (request, reply) => {
+    const developer = await findDeveloperInfo(request.userId!)
+    return reply.send(success({ developer }))
   })
 
   server.get('/developer/price', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+    const list = await findDeveloperPricing()
+    return reply.send(success({ list }))
   })
 
-  server.post('/developer/apply', async (_request, reply) => {
-    return reply.status(201).send(success({ success: true }))
+  server.post('/developer/apply', async (request, reply) => {
+    const body = z
+      .object({
+        name: z.string().min(1).max(100),
+        description: z.string().max(2000).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const application = await createDeveloperApplication({
+      userId: request.userId!,
+      name: body.data.name,
+      description: body.data.description,
+    })
+    return reply.status(201).send(success({ success: true, application }))
   })
 
   server.post('/developer/:id/audit', async (request, reply) => {
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (roleId < 1) return reply.status(403).send(error(403, '需要管理员权限'))
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ success: true }))
+    const body = z
+      .object({
+        status: z.enum(['approved', 'rejected']),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const statusNum = body.data.status === 'approved' ? 1 : 2
+    const application = await updateDeveloperApplicationStatus(id, statusNum)
+    if (!application) return reply.status(404).send(error(404, '申请不存在'))
+    return reply.send(success({ success: true, application }))
   })
 
   // ===========================================================================
@@ -648,12 +750,11 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
 
   // 注: /coupons 已由 promotions.ts 真实实现,此处不再重复注册空桩
 
-  // GET /notifications/:id - 通知详情
-  // （GET /api/notifications 列表 和 POST /api/notifications/read-all 已在 notifications.ts 中实现）
   server.get('/notifications/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ notification: null }))
+    const notification = await findNotificationById(id)
+    return reply.send(success({ notification }))
   })
 
   // GET /messages/:id - 消息详情
@@ -864,78 +965,158 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/fund', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findFunds({ page: q.page, pageSize: q.pageSize, search: q.search })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/fund/:code', async (request, reply) => {
     const code = codeParam.parse(request.params).code
     if (!code) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ fund: null }))
+    const fund = await findFundByCode(code)
+    if (!fund) return reply.status(404).send(error(404, '基金不存在'))
+    return reply.send(success({ fund }))
   })
 
   server.get('/fund/:code/net-values', async (request, reply) => {
     const code = codeParam.parse(request.params).code
     if (!code) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ list: [] }))
+    const fund = await findFundByCode(code)
+    if (!fund) return reply.status(404).send(error(404, '基金不存在'))
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const result = await findFundNetValues(fund.id, { page: q.page, pageSize: q.pageSize })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   // ===========================================================================
   // 17. AI 模块 /ai/*, /ai-ext/*（11 个端点）
   // ===========================================================================
   server.get('/ai/index', async (_request, reply) => {
-    return reply.send(success({ banners: [], models: [], recommend: [] }))
+    const [banners, models] = await Promise.all([
+      findAiIndexBanners(),
+      db
+        .select({
+          id: aiModelConfig.id,
+          name: aiModelConfig.name,
+          provider: aiModelConfig.providerCode,
+          description: aiModelConfig.description,
+          type: aiModelConfig.apiFormat,
+          status: sql<number>`CASE WHEN ${aiModelConfig.enabled} THEN 1 ELSE 0 END`,
+          sort: aiModelConfig.sortOrder,
+          baseUrl: aiModelConfig.baseUrl,
+          modelIdForTest: aiModelConfig.modelIdForTest,
+        })
+        .from(aiModelConfig)
+        .where(eq(aiModelConfig.enabled, true))
+        .orderBy(asc(aiModelConfig.sortOrder), asc(aiModelConfig.id))
+        .limit(10),
+    ])
+    return reply.send(success({ banners, models, recommend: models.slice(0, 5) }))
   })
 
   server.get('/ai/team', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findAiTeamMembers({ page: q.page, pageSize: q.pageSize, search: q.search })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/ai/team/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ team: null }))
+    const team = await findAiTeamMemberById(id)
+    if (!team) return reply.status(404).send(error(404, '团队成员不存在'))
+    return reply.send(success({ team }))
   })
 
   // 注: /ai/chat (POST) 和 /ai/history (GET) 已由 ai-user-model-chat.ts 真实实现,此处不再重复注册空桩
 
-  server.post('/ai/chat/conversations', async (_request, reply) => {
-    return reply.status(201).send(success({ conversationId: null }))
+  server.post('/ai/chat/conversations', async (request, reply) => {
+    const body = z
+      .object({
+        title: z.string().max(200).optional(),
+        modelId: z.string().max(100).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const conversation = await createAiConversation({
+      userId: request.userId!,
+      title: body.data.title,
+      modelId: body.data.modelId,
+    })
+    return reply.status(201).send(success({ conversationId: conversation.id, conversation }))
   })
 
   server.get('/ai/chat/conversations', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findAiConversations({
+      userId: request.userId!,
+      page: q.page,
+      pageSize: q.pageSize,
+    })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.delete('/ai/chat/conversations/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
+    const deleted = await deleteAiConversation(id, request.userId!)
+    if (!deleted) return reply.status(404).send(error(404, '会话不存在'))
     return reply.send(success({ success: true }))
   })
 
   server.post('/ai/aigc/tasks/:taskId/cancel', async (request, reply) => {
     const taskId = taskIdParam.parse(request.params).taskId
     if (!taskId) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(success({ success: true }))
+    const task = await updateAiAigcTaskStatus(taskId, request.userId!, 3)
+    if (!task) return reply.status(404).send(error(404, '任务不存在或不可取消'))
+    return reply.send(success({ success: true, task }))
   })
 
   server.post('/ai-ext/capabilities/:id/toggle', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ success: true }))
+    const capability = await toggleAiExtCapability(id)
+    if (!capability) return reply.status(404).send(error(404, '能力不存在'))
+    return reply.send(success({ success: true, capability }))
   })
 
   server.get('/ai-ext/reports', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findAiExtReports({
+      userId: request.userId!,
+      page: q.page,
+      pageSize: q.pageSize,
+    })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
-  server.post('/ai-ext/reports/generate', async (_request, reply) => {
-    return reply.status(201).send(success({ reportId: null }))
+  server.post('/ai-ext/reports/generate', async (request, reply) => {
+    const body = z
+      .object({
+        type: z.string().max(50),
+        content: z.string().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const report = await createAiExtReport({
+      userId: request.userId!,
+      type: body.data.type,
+      content: body.data.content,
+    })
+    return reply.status(201).send(success({ reportId: report.id, report }))
   })
 
   // ===========================================================================
@@ -944,34 +1125,54 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai-feed', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
-    return reply.send(emptyList(q.page, q.pageSize))
+    const result = await findAiFeedPosts({ page: q.page, pageSize: q.pageSize, search: q.search })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   server.get('/ai-feed/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ feed: null }))
+    const feed = await findAiFeedPostById(id)
+    if (!feed) return reply.status(404).send(error(404, '资讯不存在'))
+    return reply.send(success({ feed }))
   })
 
   server.get('/ai-world/categories', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+    const list = await findAiWorldCategories()
+    return reply.send(success({ list }))
   })
 
   server.get('/ai-world/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    return reply.send(success({ world: null }))
+    const world = await findAiWorldItemById(id)
+    if (!world) return reply.status(404).send(error(404, '条目不存在'))
+    return reply.send(success({ world }))
   })
 
   // ===========================================================================
   // 19. Workspace-AI 模块 /workspace-ai/*（2 个端点）
   // ===========================================================================
-  server.post('/workspace-ai/generate-component', async (_request, reply) => {
-    return reply.send(success({ component: null, code: '' }))
+  server.post('/workspace-ai/generate-component', async (request, reply) => {
+    const body = (request.body as { input?: string; prompt?: string; type?: string } | null) ?? {}
+    const task = await createWorkspaceAiTask({
+      userId: request.userId!,
+      type: 'generate-component',
+      input: body.input ?? body.prompt ?? null,
+    })
+    return reply.send(success({ component: null, code: '', taskId: task.id, status: task.status }))
   })
 
-  server.post('/workspace-ai/agentic', async (_request, reply) => {
-    return reply.send(success({ result: null, taskId: null }))
+  server.post('/workspace-ai/agentic', async (request, reply) => {
+    const body = (request.body as { input?: string; prompt?: string; type?: string } | null) ?? {}
+    const task = await createWorkspaceAiTask({
+      userId: request.userId!,
+      type: body.type ?? 'agentic',
+      input: body.input ?? body.prompt ?? null,
+    })
+    return reply.send(success({ result: null, taskId: task.id, status: task.status }))
   })
 
   // ===========================================================================
@@ -1031,9 +1232,11 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ url: resource.fileUrl, resource }))
   })
 
-  // 注: resources/:id/like 无对应 like 表，保持桩实现
-  server.post('/resources/:id/like', async (_request, reply) => {
-    return reply.send(success({ success: true }))
+  server.post('/resources/:id/like', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const result = await toggleLike('resource', id, request.userId!)
+    return reply.send(success({ success: true, liked: result.liked }))
   })
 
   server.post('/certificates/issue', async (request, reply) => {
@@ -1223,11 +1426,22 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   // 23. 其他模块（2 个端点）
   // 注意：POST /api/users/change-phone 已在 users.ts 中注册，跳过
   // ===========================================================================
-  server.get('/categories', async (_request, reply) => {
-    return reply.send(success({ list: [] }))
+  server.get('/categories', async (request, reply) => {
+    const type = (request.query as { type?: string } | null)?.type
+    const list = await findSiteCategories({ type })
+    return reply.send(success({ list }))
   })
 
-  server.post('/analytics/track', async (_request, reply) => {
+  server.post('/analytics/track', async (request, reply) => {
+    const body = (request.body as { event?: string; properties?: unknown } | null) ?? {}
+    if (!body.event) return reply.status(400).send(error(400, '缺少 event'))
+    await createAnalyticsEvent({
+      userId: request.userId,
+      event: body.event,
+      properties: body.properties,
+      ip: request.ip,
+      userAgent: (request.headers['user-agent'] as string | undefined) ?? null,
+    })
     return reply.send(success({ success: true }))
   })
 }
