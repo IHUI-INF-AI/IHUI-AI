@@ -7,11 +7,15 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui'
 
 import { useThirdPartyAuth, fetchGoogleOAuthConfig } from '@/hooks/use-third-party-auth'
+import { cn } from '@/lib/utils'
 import type { ThirdPartyPlatform } from '@/types/third-party'
 
 type Provider = {
   key: ThirdPartyPlatform
   label: string
+  icon: string
+  /** 单色图标：dark 模式下用 invert 翻色保证可见 */
+  mono?: boolean
   /** 未配置时禁用（仅 google 需要后端配置探测） */
   needsBackendConfig?: boolean
 }
@@ -79,13 +83,23 @@ export function ThirdPartyLoginButtons() {
     {
       key: 'google',
       label: t('googleLogin'),
+      icon: '/images/oauth-providers/google.svg',
       needsBackendConfig: true,
     },
-    { key: 'apple', label: 'Apple' },
-    { key: 'dingtalk', label: t('dingtalkLogin') },
-    { key: 'enterpriseWechat', label: t('enterpriseWechat') },
-    { key: 'wechat', label: t('wechatLogin') },
-    { key: 'github', label: 'GitHub' },
+    { key: 'apple', label: t('appleLogin'), icon: '/images/oauth-providers/apple.svg', mono: true },
+    { key: 'dingtalk', label: t('dingtalkLogin'), icon: '/images/oauth-providers/dingtalk.svg' },
+    {
+      key: 'enterpriseWechat',
+      label: t('enterpriseWechat'),
+      icon: '/images/oauth-providers/wecom.svg',
+    },
+    { key: 'wechat', label: t('wechatLogin'), icon: '/images/oauth-providers/wechat.svg' },
+    {
+      key: 'github',
+      label: t('githubLogin'),
+      icon: '/images/oauth-providers/github.svg',
+      mono: true,
+    },
   ]
 
   const handleProviderClick = (platform: ThirdPartyPlatform) => {
@@ -124,8 +138,18 @@ export function ThirdPartyLoginButtons() {
                     : undefined
               }
             >
-              {isBusy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              {p.label}
+              {isBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={p.icon}
+                  alt=""
+                  aria-hidden="true"
+                  className={cn('h-4 w-4 shrink-0', p.mono && 'dark:invert')}
+                />
+              )}
+              <span>{p.label}</span>
             </Button>
           )
         })}
