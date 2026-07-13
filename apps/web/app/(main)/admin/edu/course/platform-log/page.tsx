@@ -30,7 +30,7 @@ export default function EduCoursePlatformLogPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'course-platform-log', params],
     queryFn: () =>
-      eduApi<PageData<PlatformLog>>(`/api/admin/course-platform-log${buildQs(params)}`),
+      eduApi<PageData<PlatformLog>>(`/api/admin/course/platform-logs${buildQs(params)}`),
   })
   const saveMut = useMutation({
     mutationFn: () => {
@@ -44,11 +44,11 @@ export default function EduCoursePlatformLogPage() {
         createdAt: form.createdAt || undefined,
       }
       return editing
-        ? eduApi(`/api/admin/course-platform-log/${editing.id}`, {
+        ? eduApi(`/api/admin/course/platform-logs/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : eduApi(`/api/admin/course-platform-log`, { method: 'POST', body: JSON.stringify(body) })
+        : eduApi(`/api/admin/course/platform-logs`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       toast.success(editing ? t('updateSuccess') : t('createSuccess'))
@@ -59,7 +59,7 @@ export default function EduCoursePlatformLogPage() {
   })
   const deleteMut = useMutation({
     mutationFn: (id: string) =>
-      eduApi(`/api/admin/course-platform-log/${id}`, { method: 'DELETE' }),
+      eduApi(`/api/admin/course/platform-logs/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course-platform-log'] })
@@ -97,7 +97,7 @@ export default function EduCoursePlatformLogPage() {
   }
   function handleExport() {
     exportFromApi(
-      `/api/admin/course-platform-log${buildQs({ ...q, pageSize: 10000 })}`,
+      `/api/admin/course/platform-logs${buildQs({ ...q, pageSize: 10000 })}`,
       `coursePlatformLog_${Date.now()}`,
       EXPORT_COLS,
       t,
