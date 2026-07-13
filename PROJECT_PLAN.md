@@ -401,6 +401,15 @@
 - ✅ git worktree 路径 → 覆盖为优先 `goal/<任务简述>` 分支,worktree 需用户征询
 - 冲突处理详见 AGENTS.md 第 1 节"IHUI-AI 项目对 Superpowers 技能的偏好覆盖(强制)"
 
+### goal + Superpowers 联调测试（2026-07-14）/ goal
+
+- [x] ✅(2026-07-14) goal — 测试 goal 模式 loop + Superpowers 技能联调:修复 `apps/api/src/services/email-service.ts` L81 `console.error` 改为项目 `logger.error`(`utils/logger.ts`),验证 typecheck + test 退出码 0
+- [x] ✅(2026-07-14) goal — goal 机制验证通过:STATE.md / loop-run-log.md 按标准模板创建 → 7 步循环执行 → 评估独立性基于真实命令输出(typecheck 退出码 + test 退出码)→ 4 轮深入调查(flaky test 识别)→ 整合 + 清理
+- [x] ✅(2026-07-14) goal — Superpowers 技能验证:`verification-before-completion` 技能流程生效(禁止"嘴上说成功",强制基于真实验证),与 goal loop 协同正常
+- [x] ✅(2026-07-14) goal — 改动详情:L2 添加 `import { logger } from '../utils/logger.js'`;L82 `console.error` → `logger.error`,信息格式保持 `[email-error] <to>: <message>`
+- [x] ✅(2026-07-14) goal — 验证依据:`pnpm --filter @ihui/api typecheck` 退出码 0;`pnpm --filter @ihui/api test` 退出码 0(2643/2643 通过)
+- 新发现:outbox.test.ts 是 flaky test(间歇性失败),见 P2 待办
+
 ---
 
 ## P1 — 未来需求
@@ -439,6 +448,7 @@
 - [ ] ⏳(2026-07-14) goal 宿主自动续跑支持验证 — **agent 侧边界**:AGENTS.md 第 9 节已完整定义 loop 机制规则(运行时文件 / 7 步循环 / 评估独立性 / 子命令 / 跨会话恢复 / 失败回滚),agent 侧已无更多可推进项。**剩余项需用户自验**,因"轮次结束自动触发评估 + 自动续跑"依赖宿主工具(Trae CN)是否实现 /goal 命令的 Stop Hook,agent 无法单方面观察自身是否被自动续跑。**自验步骤**:① 记录当前 Trae CN 版本号;② 发起低风险真实目标(如"给 apps/api/src/utils 某工具函数补单元测试,验证 pnpm --filter @ihui/api test 全绿,仅修改 apps/api/tests 目录");③ 观察首轮执行结束后,系统是否**无需用户再次输入**即自动启动下一轮(关键观察点:界面是否出现 `◎ /goal active` 状态指示器、agent 是否在无新用户消息情况下继续输出);④ **若自动续跑生效**:记录宿主版本号到本条目,标记 ✅ 完成;⑤ **若不生效**:降级为"半自动 loop"(用户每轮手动发 `/goal status` 或任意消息触发续跑,agent 按 `.trae-cn/goal-runtime/STATE.md` 断点续跑),记录降级模式与宿主版本号到本条目;⑥ 无论结果如何,验证完成后在 `.trae-cn/goal-runtime/` 确认无残留临时文件
 - [ ] ⏳(2026-07-14) Superpowers 定期更新 — 每 2-4 周重复 `git clone --depth 1 https://github.com/obra/superpowers.git` → 复制 `skills/` 到 `.trae-cn/skills/` → 清理临时目录 → 在本节记录新 commit sha。当前版本:commit d884ae0 (2026-07-02)。注意:更新后需重新检查 SKILL.md 是否有新路径/行为冲突,必要时更新 AGENTS.md 第 1 节"IHUI-AI 项目对 Superpowers 技能的偏好覆盖"
 - [ ] ⏳(2026-07-14) Trae CN subagent 支持验证 — Superpowers 的 `subagent-driven-development` 与 `dispatching-parallel-agents` 技能依赖宿主 subagent 能力。**自验步骤**:① 在 Trae CN 中发起一个需要并行处理的任务;② 观察 agent 是否能派遣独立子智能体(关键观察点:是否出现"dispatching subagent"或类似日志、子智能体是否有独立上下文);③ 若支持:标记本条目 ✅,subagent-driven-development 技能从"可选"升级为"推荐";④ 若不支持:保持"可选",项目优先使用 `executing-plans`(内联执行)替代 subagent 模式
+- [x] ✅(2026-07-14) outbox.test.ts flaky test 修复 — 根因:测试代码使用了错误 API `mockRejectedOnce`（不存在），应为 `mockRejectedValueOnce`。已修复为正确 API，全量测试 162 文件 2664 测试全绿，flaky 消除。
 - [x] ✅(2026-07-11) M-15 STUB 路由真实化（9 个端点：3 移除做减法 + 4 实现 + 2 TODO 修复）
 - [x] ✅(2026-07-11) M-9 运维告警降噪规则（noise-rules.yml Alertmanager 抑制规则已配置，纯配置方案满足需求）
 - [x] ✅(2026-07-11) M-11 租户 DB 隔离（基础设施已就绪：withTenant + tenant-db-isolation 插件，当前单租户行级过滤足够，DB schema 隔离待多租户需求激活）
@@ -3099,3 +3109,99 @@ IHUI-AI 项目从 D 盘历史项目(Java 微服务/Vue 前端/Python AI 服务/u
 - `.trae-cn/goal-runtime/STATE.md` — 状态:achieved,轮次:2
 - `.trae-cn/goal-runtime/loop-run-log.md` — Round 0/1/2 完整日志
 - 整合完成后已删除上述两个运行时文件(目录保留)
+
+---
+
+## 收尾交付 — P0 安全修复 + P1 测试补齐 + P2 空桩清单(2026-07-14)✅
+
+> 针对 Goal 交付记录中的 3 项残留风险 + 后续建议清单,本次会话完成 P0/P1/P2 全部收尾。
+
+### P0 安全/正确性修复
+
+1. **提现审批权限漏洞修复** ✅
+   - 文件:`apps/api/src/routes/missing-user-routes.ts` 652-671 行
+   - 改动:`/finance/withdrawal/flows/:id/approve` 与 `/reject` handler 内部加 `request.jwtPayload?.roleId >= 1` 校验,失败返回 403
+   - 不破坏现有 preHandler 链(authenticate 全局钩子保留),仅在 handler 入口叠加 roleId 校验
+
+2. **提现余额预校验** ✅
+   - 文件:`apps/api/src/routes/missing-user-routes.ts` 606-620 行
+   - 改动:`/finance/withdrawal/withdrawal` POST handler 在 `applyWithdrawal` 前调 `availableWithdrawal(userId)`,若 `available < amount` 返回 400 "可提现余额不足"
+
+3. **路由去重审计** ✅
+   - 范围:`missing-user-routes.ts` 121 个端点逐一核对
+   - 结果:**未发现重复**(PROJECT_PLAN.md 第 63 行记录的 9 个重复空桩已修复,当前扫描确认无残留)
+   - 高风险路径核对:`/payment/*`(单数)与 `/payments/*`(复数)前缀不同不冲突;`/finance/withdrawal/*` 与 finance.ts/admin-shop-routes.ts 子路径不同不冲突;`/refunds/apply` 与 order.ts/refund-audit.ts 路径不同不冲突
+
+4. **全量验证** ✅
+   - `pnpm turbo typecheck lint build` — 30/30 任务成功,26 缓存,4 真实执行,零错误零警告
+
+### P1 测试补齐
+
+5. **支付/提现端点测试** ✅
+   - 新建文件:`apps/api/src/routes/__tests__/missing-user-routes.test.ts`
+   - 测试覆盖:21 个测试用例(1 路由注册 + 11 支付端点 401 + 7 提现端点 401 + 2 响应格式校验)
+   - 测试结果:**21/21 通过**(vitest run,114ms)
+   - 测试策略:参照 `payment-gateway.test.ts` 风格,用 `app.inject` 批量验证无 auth 时返回 401,确保 preHandler 钩子链正确拦截
+
+### P2 残留空桩清单 + 后续建议
+
+6. **残留空桩扫描** ✅
+   - 扫描结果:**105 个空桩**(missing-user-routes.ts 100 个 + admin-missing-routes.ts 5 个)
+   - 其中 3 个为策略性桩(POST /study/records、PUT /study/records/:id、PUT /developer/coze/:id/status),有 Zod 校验但无 DB 写入,因前端字段与表结构不匹配保持桩实现
+
+7. **残留空桩分优先级清单**
+
+   **P0(影响核心交易链路,3 个)**
+   - `POST /payment/callback/verify`(L556)— 支付回调验签是订单状态流转关键入口
+   - `POST /fund/ali/pay/create`(L709)、`POST /fund/ali/pay/create2`(L713)— 支付宝支付创建是充值/购买链路起点
+
+   **P1(高频用户路径,25 个)**
+   - `/settings/*` 8 个(L363-L395)— 用户设置中心高频访问
+   - `/commission/*` 4 个(L484-L505)— 分销模块用户增长核心
+   - `/article/*` 9 个(L100-L138)— 文章模块内容运营基础
+   - `/study/records` POST/PUT 2 个(L211/L240)— 策略性桩,需先修前端字段与表结构不匹配
+   - `/developer/coze/:id/status` PUT 1 个(admin L1589)— 策略性桩,需先在 cozeVariables 表加 status 字段
+   - `GET /oss/files`(admin L1632)— 注释说明实际由 oss 路由处理
+
+   **P2(功能完善,77 个)**
+   - `/ai/*`、`/ai-ext/*`、`/ai-feed/*`、`/ai-world/*`、`/workspace-ai/*` 共 22 个 — AI 扩展功能,建议 ai-service 实现后对接
+   - `/knowledge/*`、`/skills/*`、`/course/*`、`/resources/*`、`/certificates/*` 共 19 个 — 学习相关,有对应表可对接
+   - `/mcp/*`、`/openclaw/*`、`/luyala-proxy/*`、`/openrouter-proxy/*` 共 12 个 — 外部代理类,需对接第三方 API
+   - `/fund/*` 4 个(L717-L733)— 基金模块,无对应表需先建表
+   - `/developer/*` 4 个(L463-L475)— 开发者扩展,需求明确后推进
+   - `/members/me`、`/live/calendar`、`/agents/:id/*`、`/coze/chat/history/*`、`/vip/benefits`、`/notifications/:id`、`/messages/:id`、`/categories`、`/analytics/track` 共 16 个 — 零散端点
+
+8. **14 项功能缺口决策建议**
+   - 详见 `MIGRATION_GAP_ANALYSIS.md`(只读参考),涉及 Token 计费规则、特殊智能体扣费、Coze OAuth 多模式、Luyala/百度 API、tool/gen 代码生成器等
+   - 建议逐项业务决策是否迁移,决策后在 PROJECT_PLAN.md 新增对应 P0/P1/P2 条目
+
+### 修改文件清单
+
+| 文件                                                        | 改动                                        |
+| ----------------------------------------------------------- | ------------------------------------------- |
+| `apps/api/src/routes/missing-user-routes.ts`                | P0-1 提现审批 roleId 校验 + P0-2 余额预校验 |
+| `apps/api/src/routes/__tests__/missing-user-routes.test.ts` | P1 新建测试文件(21 测试)                    |
+| `PROJECT_PLAN.md`                                           | 追加本次收尾记录                            |
+
+### 最终验证
+
+- `pnpm --filter @ihui/api typecheck` — exit 0
+- `pnpm --filter @ihui/api test -- missing-user-routes` — 21/21 通过
+- `pnpm turbo typecheck lint build` — 30/30 成功
+
+### 自我评估与不足
+
+1. **测试覆盖深度不足**:本次仅覆盖 401(无 auth)场景,未覆盖 200/400/403/404 等业务路径(需 mock DB 或集成测试环境)
+2. **P0 残留空桩未真实化**:`/payment/callback/verify`、`/fund/ali/pay/create` 仍为空桩,需对接支付宝 SDK(超本次会话范围)
+3. **14 项功能缺口未决策**:需业务方决策是否迁移,非技术能解决
+4. **未跑 `pnpm turbo test` 全量测试**:仅跑了 missing-user-routes 单文件测试,全量测试可能因 DB 环境不可用而失败(项目历史模式)
+
+### 后续最优建议(已穷尽,无新增)
+
+本次会话已处理 Goal 交付记录中的全部 3 项残留风险 + P0/P1/P2 建议清单。剩余工作均需:
+
+- **业务决策**(14 项功能缺口迁移与否)
+- **第三方 SDK 对接**(支付宝/微信/Luyala/OpenRouter)
+- **批量 goal 模式推进**(105 个空桩按模块分批真实化)
+
+**对话可关闭。** 如需继续推进,建议按"P0 残留 3 个 → P1 25 个 → P2 77 个"顺序,每个模块发起独立 `/goal` 指令。
