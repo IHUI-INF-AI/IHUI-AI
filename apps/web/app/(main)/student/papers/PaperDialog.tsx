@@ -29,7 +29,6 @@ interface Props {
 
 export function PaperDialog({ open, form, setForm, err, createPending, onSubmit, onClose }: Props) {
   const t = useTranslations('papers')
-  const tc = useTranslations('student')
 
   return (
     <Dialog
@@ -68,7 +67,7 @@ export function PaperDialog({ open, form, setForm, err, createPending, onSubmit,
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={createPending}>
-              {tc('cancel')}
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={createPending}>
               {createPending && <Loader2 className="h-4 w-4 animate-spin" />}

@@ -97,7 +97,8 @@
       "unifiedAiPanelDesc": "chat＋agent＋generationを統合した統合インタラクションパネル",
       "unifiedAiPanelPlaceholder": "メッセージを入力して統合AIパネルを体験...",
       "sampleResponse": "メッセージを受け取りました：「{text}」。\n\nこれは統合 AI パネルからのサンプル返信です。実際のシナリオでは、実際の AI モデルのストリーミング出力に接続されます。"
-    }
+    },
+    "resources": "リソース"
   },
   "nav": {
     "home": "ホーム",
@@ -6745,7 +6746,8 @@
     "status": "ステータス",
     "statusPending": "保留中",
     "statusApproved": "済み通過ぎ",
-    "statusRejected": "済み拒绝"
+    "statusRejected": "済み拒绝",
+    "cancel": "キャンセル"
   },
   "apiTest": {
     "title": "APIテスト",

@@ -17,6 +17,7 @@
 
 import { randomBytes } from 'node:crypto'
 import type { Redis } from 'ioredis'
+import { AppError } from '../errors/AppError.js'
 
 export type LockState = 'ACQUIRED' | 'NOT_ACQUIRED' | 'EXPIRED' | 'RELEASED'
 
@@ -53,9 +54,9 @@ export interface DistributedLockOptions {
   watchdogIntervalMs?: number
 }
 
-export class DistributedLockError extends Error {
+export class DistributedLockError extends AppError {
   constructor(message: string) {
-    super(message)
+    super(message, 423, 'LOCKED')
     this.name = 'DistributedLockError'
   }
 }

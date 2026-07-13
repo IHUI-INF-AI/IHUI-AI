@@ -97,7 +97,8 @@
       "unifiedAiPanelDesc": "整合 chat + agent + generation 的统一交互面板",
       "unifiedAiPanelPlaceholder": "输入消息体验统一 AI 面板...",
       "sampleResponse": "已收到你的消息：\"{text}\"。\n\n这是来自统一 AI 面板的示例回复。在实际场景中，这里会接入真实的 AI 模型流式输出。"
-    }
+    },
+    "resources": "资源"
   },
   "nav": {
     "home": "首页",
@@ -6776,7 +6777,8 @@
     "status": "状态",
     "statusPending": "待审核",
     "statusApproved": "已通过",
-    "statusRejected": "已驳回"
+    "statusRejected": "已驳回",
+    "cancel": "取消"
   },
   "apiTest": {
     "title": "API 测试",
