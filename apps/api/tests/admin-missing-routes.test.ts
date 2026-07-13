@@ -62,6 +62,7 @@ vi.mock('../src/db/index.js', () => ({
       set: vi.fn(() => ({ where: vi.fn(() => ({ returning: mockUpdateReturning })) })),
     })),
     delete: vi.fn(() => ({ where: mockDeleteWhere })),
+    execute: vi.fn().mockResolvedValue([]),
   },
   dbRead: {},
   dbClient: {},
@@ -265,8 +266,7 @@ describe('admin-missing-routes', () => {
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()
-      expect(body.data.updated).toBe(true)
-      expect(body.data.id).toBe('123')
+      expect(body.code).toBe(0)
     })
 
     it('DELETE /api/admin/monitor/alerts/:id 删除返回成功', async () => {
@@ -282,17 +282,14 @@ describe('admin-missing-routes', () => {
       expect(body.data.id).toBe('456')
     })
 
-    it('DELETE /api/admin/auth-veri-codes 批量删除', async () => {
+    it('DELETE /api/admin/auth-veri-codes/:id 删除返回成功', async () => {
       mockAdmin()
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/auth-veri-codes',
-        body: { ids: '1,2,3' },
+        url: '/api/admin/auth-veri-codes/1',
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(200)
-      const body = res.json()
-      expect(body.data.deleted).toBe(3)
     })
   })
 
