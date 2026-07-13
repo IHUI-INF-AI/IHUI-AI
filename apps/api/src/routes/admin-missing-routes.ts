@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 前端管理端缺失路由补建（75 个路由）。
  *
  * 来源：GAP_ANALYSIS.md — 前端调用但后端完全未实现的 /api/admin/* 路径。
@@ -45,6 +45,9 @@ import {
   sysLogininfor,
   newsArticles,
   lessons,
+  zhsCourseVideo,
+  zhsCourseTemp,
+  zhsCourseVideoTemp,
   learnHomework,
   cozeVariables,
   oauthApps,
@@ -1421,6 +1424,70 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
       status: 'number',
     }),
   })
+
+  // ========== 课程审计比较 + 回收站还原端点（前端 audit/trash 页面调用） ==========
+
+  // GET /courses/:id - 课程详情（审计比较 before 快照）
+  server.get('/courses/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db.select().from(lessons).where(eq(lessons.id, p.data.id)).limit(1)
+    if (!row) return reply.status(404).send(error(404, '课程不存在'))
+    return reply.send(success(row))
+  })
+
+  // GET /courses/temp/:id - 课程临时表详情（审计比较 after 快照）
+  server.get('/courses/temp/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db
+      .select()
+      .from(zhsCourseTemp)
+      .where(eq(zhsCourseTemp.id, Number(p.data.id)))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '临时课程不存在'))
+    return reply.send(success(row))
+  })
+
+  // POST /courses/:id/restore - 软删除还原（status=0 → status=1）
+  server.post('/courses/:id/restore', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db
+      .update(lessons)
+      .set({ status: 1, updatedAt: new Date() })
+      .where(eq(lessons.id, p.data.id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '课程不存在'))
+    return reply.send(success(row))
+  })
+
+  // GET /course-videos/:id - 课程视频详情（审计比较 before 快照）
+  server.get('/course-videos/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db
+      .select()
+      .from(zhsCourseVideo)
+      .where(eq(zhsCourseVideo.id, Number(p.data.id)))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '视频不存在'))
+    return reply.send(success(row))
+  })
+
+  // GET /course-videos/temp/:id - 课程视频临时表详情（审计比较 after 快照）
+  server.get('/course-videos/temp/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db
+      .select()
+      .from(zhsCourseVideoTemp)
+      .where(eq(zhsCourseVideoTemp.id, Number(p.data.id)))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '临时视频不存在'))
+    return reply.send(success(row))
+  })
+
   registerEmptyStub(server, '/edu/classes')
   registerEmptyStub(server, '/edu/classes/schedules')
   registerEmptyStub(server, '/finance/statistics')
