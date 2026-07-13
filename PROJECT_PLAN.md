@@ -85,6 +85,13 @@
 - [x] ✅(2026-07-13) P1 命名统一: `admin-sys.ts` 新增 3 个英文规范别名路由 — `/login-logs`（兼容 /logininfor）、`/tasks/logs`（兼容 /job/log）、`/posts`（兼容 /post），复用现有 query 函数，保留若依风格原路由
 - [x] ✅(2026-07-13) P2 stub 评估完成: 全量扫描 8 个路由文件，识别 152 个纯 stub 端点 + 14 个条件性 mock 降级。比对 447 张数据库 schema 表，结论：21 个模块有对应表可实现、9 个部分对应、9 个完全无表（合理保留）。按 AGENTS.md "做减法、最小化代码"原则，不在本次批量替换 — stub 为有意识的架构占位（文件头有明确策略注释），前端 API 契约完整，待后续业务确认后逐模块实现
 - [x] ✅(2026-07-13) 最终验证: api typecheck 0 错误 / api lint 0 错误（仅 2 个无关历史 any 警告）/ api test 885/885 通过 / web typecheck 0 错误
+- [x] ✅(2026-07-13) 深度自我审查发现 17 处前后端路径不一致，系统性修复 R1-R5（commit dc95dee3a，10 files +514 -116）:
+  - R1 前端路径对齐: 4 个文件 5 个模块路径从连字符改为斜杠分层 — `recorded/helpers.ts` course-video→course/videos；`finance/helpers.ts` course-pay-log→course/pay-logs；`course/pay/page.tsx` course-pay→course/pay（5 处）；`course/platform-log/page.tsx` course-platform-log→course/platform-logs（5 处）
+  - R2 后端端点补建: `zhs-course.ts` 新增 12 个 CRUD 端点 — GET / 根列表（别名 /list）+ PUT /:id 更新 + POST /videos 创建视频别名 + GET/PUT/DELETE /pay 支付 CRUD + POST/PUT/DELETE /pay-logs 支付日志 CRUD + POST/PUT/DELETE /platform-logs 平台日志 CRUD
+  - R3 course-audit admin 拆分: `edu-extended.ts` 提取 `registerCourseAuditRoutes` 可复用函数 + 新增 `adminCourseAuditRoutes` 包装器（addHook requireAdmin）注册到 `/api/admin`；`server.ts` 更新 import 和注册
+  - R4 admin/feedbacks POST/DELETE: `comment-queries.ts` 新增 `deleteFeedback` 函数；`comments.ts` 补建 POST /admin/feedbacks 创建 + DELETE /admin/feedbacks/:id 删除（含 404 检查）
+  - R5 study/records POST/PUT: `missing-user-routes.ts` 补建 POST /study/records 记录学习 + PUT /study/records/:id 更新进度（桩实现，前端 LearnRecord 字段与 learnRecord 表结构不匹配，保持文件策略一致）
+- [x] ✅(2026-07-13) R1-R5 验证: web typecheck 0 错误 / api typecheck 仅预存 ai-vendors 相关错误（非本次引入）/ api test 915/916 通过（1 失败为预存 ai-vendor 测试）/ pre-commit 全绿（API key + i18n + lint-staged）
 
 ---
 
