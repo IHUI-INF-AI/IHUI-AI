@@ -1,30 +1,24 @@
-import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
-import { db } from './index.js';
-import {
-  comments,
-  commentLikes,
-  feedbacks,
-  type Comment,
-  type Feedback,
-} from '@ihui/database';
+import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
+import { db } from './index.js'
+import { comments, commentLikes, feedbacks, type Comment, type Feedback } from '@ihui/database'
 
 // =============================================================================
 // Comments
 // =============================================================================
 
 export interface CommentWithMeta extends Comment {
-  repliesCount: number;
-  likeCount: number;
-  likedByMe: boolean;
+  repliesCount: number
+  likeCount: number
+  likedByMe: boolean
 }
 
 interface ListCommentsOpts {
-  resourceType: string;
-  resourceId: string;
-  parentId?: string | null;
-  page: number;
-  pageSize: number;
-  currentUserId?: string;
+  resourceType: string
+  resourceId: string
+  parentId?: string | null
+  page: number
+  pageSize: number
+  currentUserId?: string
 }
 
 /**
@@ -39,17 +33,17 @@ export async function findComments(
   const baseConds = [
     eq(comments.resourceType, opts.resourceType),
     eq(comments.resourceId, opts.resourceId),
-  ];
+  ]
   // parentId 为非空字符串：按父评论过滤；为 null/undefined：返回顶级评论
   const parentIdCond = opts.parentId
     ? eq(comments.parentId, opts.parentId)
-    : isNull(comments.parentId);
-  baseConds.push(parentIdCond);
-  const where = and(...baseConds);
+    : isNull(comments.parentId)
+  baseConds.push(parentIdCond)
+  const where = and(...baseConds)
 
   const likedByMeExpr = opts.currentUserId
     ? sql<boolean>`EXISTS (SELECT 1 FROM comment_likes cl WHERE cl.comment_id = ${comments.id} AND cl.user_id = ${opts.currentUserId})`
-    : sql<boolean>`false`;
+    : sql<boolean>`false`
 
   const [list, totalRows] = await Promise.all([
     db
@@ -64,8 +58,14 @@ export async function findComments(
         isDeleted: comments.isDeleted,
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
-        repliesCount: sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${comments.id})`.as('replies_count'),
-        likeCount: sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${comments.id})`.as('like_count'),
+        repliesCount:
+          sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${comments.id})`.as(
+            'replies_count',
+          ),
+        likeCount:
+          sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${comments.id})`.as(
+            'like_count',
+          ),
         likedByMe: likedByMeExpr.as('liked_by_me'),
       })
       .from(comments)
@@ -73,19 +73,22 @@ export async function findComments(
       .orderBy(desc(comments.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(comments).where(where),
-  ]);
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(comments)
+      .where(where),
+  ])
 
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 export async function createComment(input: {
-  userId: string;
-  resourceType: string;
-  resourceId: string;
-  parentId?: string | null;
-  content: string;
-  mentions?: string[] | null;
+  userId: string
+  resourceType: string
+  resourceId: string
+  parentId?: string | null
+  content: string
+  mentions?: string[] | null
 }): Promise<Comment> {
   const rows = await db
     .insert(comments)
@@ -97,10 +100,10 @@ export async function createComment(input: {
       content: input.content,
       mentions: input.mentions ?? null,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建评论失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建评论失败')
+  return row
 }
 
 export async function findCommentById(
@@ -109,7 +112,7 @@ export async function findCommentById(
 ): Promise<CommentWithMeta | undefined> {
   const likedByMeExpr = currentUserId
     ? sql<boolean>`EXISTS (SELECT 1 FROM comment_likes cl WHERE cl.comment_id = ${comments.id} AND cl.user_id = ${currentUserId})`
-    : sql<boolean>`false`;
+    : sql<boolean>`false`
   const rows = await db
     .select({
       id: comments.id,
@@ -122,14 +125,20 @@ export async function findCommentById(
       isDeleted: comments.isDeleted,
       createdAt: comments.createdAt,
       updatedAt: comments.updatedAt,
-      repliesCount: sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${comments.id})`.as('replies_count'),
-      likeCount: sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${comments.id})`.as('like_count'),
+      repliesCount:
+        sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${comments.id})`.as(
+          'replies_count',
+        ),
+      likeCount:
+        sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${comments.id})`.as(
+          'like_count',
+        ),
       likedByMe: likedByMeExpr.as('liked_by_me'),
     })
     .from(comments)
     .where(eq(comments.id, id))
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 /**
@@ -144,8 +153,8 @@ export async function updateComment(
     .update(comments)
     .set({ content, updatedAt: new Date() })
     .where(and(eq(comments.id, id), eq(comments.userId, userId), eq(comments.isDeleted, false)))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 /**
@@ -157,8 +166,8 @@ export async function softDeleteComment(id: string): Promise<Comment | undefined
     .update(comments)
     .set({ isDeleted: true, content: '已删除', updatedAt: new Date() })
     .where(and(eq(comments.id, id), eq(comments.isDeleted, false)))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 // =============================================================================
@@ -169,16 +178,13 @@ export async function softDeleteComment(id: string): Promise<Comment | undefined
  * 点赞（幂等）。利用 (comment_id, user_id) 联合唯一约束，冲突时忽略。
  */
 export async function likeComment(commentId: string, userId: string): Promise<void> {
-  await db
-    .insert(commentLikes)
-    .values({ commentId, userId })
-    .onConflictDoNothing();
+  await db.insert(commentLikes).values({ commentId, userId }).onConflictDoNothing()
 }
 
 export async function unlikeComment(commentId: string, userId: string): Promise<void> {
   await db
     .delete(commentLikes)
-    .where(and(eq(commentLikes.commentId, commentId), eq(commentLikes.userId, userId)));
+    .where(and(eq(commentLikes.commentId, commentId), eq(commentLikes.userId, userId)))
 }
 
 /**
@@ -188,10 +194,10 @@ export async function findReplies(
   parentId: string,
   opts: { page: number; pageSize: number; currentUserId?: string },
 ): Promise<{ list: CommentWithMeta[]; total: number }> {
-  const where = eq(comments.parentId, parentId);
+  const where = eq(comments.parentId, parentId)
   const likedByMeExpr = opts.currentUserId
     ? sql<boolean>`EXISTS (SELECT 1 FROM comment_likes cl WHERE cl.comment_id = ${comments.id} AND cl.user_id = ${opts.currentUserId})`
-    : sql<boolean>`false`;
+    : sql<boolean>`false`
 
   const [list, totalRows] = await Promise.all([
     db
@@ -206,8 +212,14 @@ export async function findReplies(
         isDeleted: comments.isDeleted,
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
-        repliesCount: sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${comments.id})`.as('replies_count'),
-        likeCount: sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${comments.id})`.as('like_count'),
+        repliesCount:
+          sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${comments.id})`.as(
+            'replies_count',
+          ),
+        likeCount:
+          sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${comments.id})`.as(
+            'like_count',
+          ),
         likedByMe: likedByMeExpr.as('liked_by_me'),
       })
       .from(comments)
@@ -215,10 +227,13 @@ export async function findReplies(
       .orderBy(asc(comments.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(comments).where(where),
-  ]);
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(comments)
+      .where(where),
+  ])
 
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 // =============================================================================
@@ -226,11 +241,11 @@ export async function findReplies(
 // =============================================================================
 
 export async function createFeedback(input: {
-  userId: string;
-  type: string;
-  title: string;
-  content: string;
-  contact?: string | null;
+  userId: string
+  type: string
+  title: string
+  content: string
+  contact?: string | null
 }): Promise<Feedback> {
   const rows = await db
     .insert(feedbacks)
@@ -241,10 +256,10 @@ export async function createFeedback(input: {
       content: input.content,
       contact: input.contact ?? null,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建反馈失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建反馈失败')
+  return row
 }
 
 export async function findFeedbacksByUser(
@@ -252,7 +267,7 @@ export async function findFeedbacksByUser(
   page: number,
   pageSize: number,
 ): Promise<{ list: Feedback[]; total: number }> {
-  const where = eq(feedbacks.userId, userId);
+  const where = eq(feedbacks.userId, userId)
   const [list, totalRows] = await Promise.all([
     db
       .select()
@@ -261,14 +276,17 @@ export async function findFeedbacksByUser(
       .orderBy(desc(feedbacks.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(feedbacks).where(where),
-  ]);
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(feedbacks)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 export async function findFeedbackById(id: string): Promise<Feedback | undefined> {
-  const rows = await db.select().from(feedbacks).where(eq(feedbacks.id, id)).limit(1);
-  return rows[0];
+  const rows = await db.select().from(feedbacks).where(eq(feedbacks.id, id)).limit(1)
+  return rows[0]
 }
 
 export async function findAllFeedbacksForAdmin(
@@ -276,10 +294,10 @@ export async function findAllFeedbacksForAdmin(
   pageSize: number,
   opts: { type?: string; status?: string },
 ): Promise<{ list: Feedback[]; total: number }> {
-  const conds = [];
-  if (opts.type) conds.push(eq(feedbacks.type, opts.type));
-  if (opts.status) conds.push(eq(feedbacks.status, opts.status));
-  const where = conds.length > 0 ? and(...conds) : undefined;
+  const conds = []
+  if (opts.type) conds.push(eq(feedbacks.type, opts.type))
+  if (opts.status) conds.push(eq(feedbacks.status, opts.status))
+  const where = conds.length > 0 ? and(...conds) : undefined
 
   const [list, totalRows] = await Promise.all([
     db
@@ -289,19 +307,26 @@ export async function findAllFeedbacksForAdmin(
       .orderBy(desc(feedbacks.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(feedbacks).where(where),
-  ]);
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(feedbacks)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 export async function updateFeedback(
   id: string,
   patch: { status?: string; priority?: string; adminReply?: string | null },
 ): Promise<Feedback | undefined> {
-  const set: Record<string, unknown> = { updatedAt: new Date() };
-  if (patch.status !== undefined) set.status = patch.status;
-  if (patch.priority !== undefined) set.priority = patch.priority;
-  if (patch.adminReply !== undefined) set.adminReply = patch.adminReply;
-  const rows = await db.update(feedbacks).set(set).where(eq(feedbacks.id, id)).returning();
-  return rows[0];
+  const set: Record<string, unknown> = { updatedAt: new Date() }
+  if (patch.status !== undefined) set.status = patch.status
+  if (patch.priority !== undefined) set.priority = patch.priority
+  if (patch.adminReply !== undefined) set.adminReply = patch.adminReply
+  const rows = await db.update(feedbacks).set(set).where(eq(feedbacks.id, id)).returning()
+  return rows[0]
+}
+
+export async function deleteFeedback(id: string): Promise<void> {
+  await db.delete(feedbacks).where(eq(feedbacks.id, id))
 }

@@ -28,7 +28,7 @@ export default function EduCoursePayPage() {
   const params = { page, pageSize: PAGE_SIZE, ...q }
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'course-pay', params],
-    queryFn: () => eduApi<PageData<CoursePay>>(`/api/admin/course-pay${buildQs(params)}`),
+    queryFn: () => eduApi<PageData<CoursePay>>(`/api/admin/course/pay${buildQs(params)}`),
   })
   const saveMut = useMutation({
     mutationFn: () => {
@@ -39,11 +39,11 @@ export default function EduCoursePayPage() {
         amount: form.amount,
       }
       return editing
-        ? eduApi(`/api/admin/course-pay/${editing.id}`, {
+        ? eduApi(`/api/admin/course/pay/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : eduApi(`/api/admin/course-pay`, { method: 'POST', body: JSON.stringify(body) })
+        : eduApi(`/api/admin/course/pay`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       toast.success(editing ? t('updateSuccess') : t('createSuccess'))
@@ -53,7 +53,7 @@ export default function EduCoursePayPage() {
     onError: (e: Error) => setErr(e.message),
   })
   const deleteMut = useMutation({
-    mutationFn: (id: string) => eduApi(`/api/admin/course-pay/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => eduApi(`/api/admin/course/pay/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course-pay'] })
@@ -90,7 +90,7 @@ export default function EduCoursePayPage() {
   }
   function handleExport() {
     exportFromApi(
-      `/api/admin/course-pay${buildQs({ ...q, pageSize: 10000 })}`,
+      `/api/admin/course/pay${buildQs({ ...q, pageSize: 10000 })}`,
       `coursePay_${Date.now()}`,
       EXPORT_COLS,
       t,
