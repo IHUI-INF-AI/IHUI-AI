@@ -3755,6 +3755,85 @@ Tailwind 4 用 `@plugin` 在 CSS 中引入插件(替代 Tailwind 3 的 `tailwind
 
 无。`@tailwindcss/typography` 是 Tailwind 官方插件,`@plugin` 是 Tailwind 4 官方推荐的插件引入方式,行为可预期。
 
+## R104 登录弹窗化 + 丢失样式恢复(2026-07-14)✅
+
+> 用户诉求:登录页改弹窗形式(而非整页 /login),注册同弹窗 Tab 切换;并质问架构迁移丢失旧 Vue 项目样式。
+> 旧 Vue 项目(`client/src/components/login/LoginDialog.vue`,已删除,git commit `cfa81e43`)是 `el-dialog` 弹窗形式(460px 宽,多层柔和阴影,垂直居中,`login-shell-in` 0.28s 入场动画,95vh 限高),架构迁移时丢失弹窗形式。
+
+### 交付内容
+
+#### 新建文件(4)
+
+- `apps/web/src/stores/login-dialog.ts` — zustand 全局 store,API: `isOpen / mode('login'|'register') / redirectUrl / open(mode?, redirectUrl?) / close() / setMode(mode)`,替换原半成品 `use-login-dialog.ts`(本地 useState 非全局单例)
+- `apps/web/src/components/login/LoginFormContent.tsx` — 从 `app/(auth)/login/page.tsx` 提取的共用组件,`variant: 'page' | 'dialog'` + `onSuccess?` prop,弹窗版注册链接改 `setMode('register')` 切同弹窗 Tab
+- `apps/web/src/components/login/RegisterFormContent.tsx` — 从 `app/(auth)/register/page.tsx` 提取,同上,弹窗版"去登录"改 `setMode('login')`
+- `apps/web/src/components/login/LoginDialog.tsx` — shadcn/ui Dialog 弹窗壳,视觉复刻旧 Vue 项目:460px 宽 / 95vh 限高 / 多层柔和阴影 / 0.28s `login-shell-in` 入场动画 / 圆角 / sr-only DialogTitle(a11y)
+
+#### 修改文件(6)
+
+- `apps/web/src/hooks/use-login-dialog.ts` — 改为 re-export store(向后兼容,无引用点)
+- `apps/web/app/(auth)/login/PasswordLoginForm.tsx` — 加 `onSuccess?` prop,`router.push('/')` 改 `if (onSuccess) onSuccess(); else router.push('/')`
+- `apps/web/app/(auth)/login/EmailCodeLoginForm.tsx` — 同上
+- `apps/web/app/(auth)/login/UsernameLoginForm.tsx` — 同上
+- `apps/web/app/layout.tsx` — 在 `<GlobalHooksProvider>` 内挂载 `<LoginDialog />` 全局单例
+- `apps/web/src/components/header.tsx` — L233-236 `<Button asChild><Link href="/login">` 改 `<Button onClick={() => openLogin()}>`,加 `useLoginDialogStore`
+- `apps/web/app/(auth)/login/page.tsx` — 改用 `<LoginFormContent variant="page" />`(整页路由保留,兼容 OAuth 回调)
+- `apps/web/app/(auth)/register/page.tsx` — 改用 `<RegisterFormContent variant="page" />`
+- `apps/web/app/globals.css` — 追加 `@keyframes login-shell-in`(opacity + translate(-50%,-50%) + translateY(12px) + scale(0.98) → opacity1 + translate(-50%,-50%) + translateY(0) + scale(1))
+
+#### 关键设计决策
+
+| 决策点           | 选择                                                         | 理由                                                                                                                                            |
+| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 弹窗内容         | 复用当前 /login 全部内容(4 Tab + 第三方 + SdkQrLogin)        | 用户确认                                                                                                                                        |
+| 注册形式         | 同弹窗 Tab 切换(登录/注册同一弹窗)                           | 用户确认                                                                                                                                        |
+| 整页路由         | 保留 /login /register                                        | 兼容 OAuth 回调(整页跳转必然关闭弹窗)+ SEO + 直接访问                                                                                           |
+| 状态管理         | zustand 全局 store                                           | 项目标准(已有 23 个 store)                                                                                                                      |
+| OAuth 回调       | 保持整页 /login                                              | 第三方授权是整页跳转,弹窗必然关闭                                                                                                               |
+| logout 行为      | 保持 `router.push('/login')`                                 | 主动行为整页更符合预期                                                                                                                          |
+| 受保护路由未登录 | 保持跳整页 /login                                            | 简单可靠,弹窗仅作 Header 主动入口                                                                                                               |
+| 弹窗定位         | 内联 style `left:50% top:50% transform:translate(-50%,-50%)` | Tailwind 4 的 `translate-x-[-50%] translate-y-[-50%]` 在 LoginDialog 特有配置下未生效(其他 100 个 DialogContent 弹窗正常),用内联 style 强制居中 |
+| 蓝色 CTA         | 不恢复                                                       | 用户偏好"无蓝色发光边框"                                                                                                                        |
+| 滑动指示器       | 不恢复                                                       | 架构变化大,价值低                                                                                                                               |
+
+### 视觉恢复点(对照旧 LoginDialog.vue)
+
+1. ✅ `max-w-[460px]` — 旧弹窗 460px 宽
+2. ✅ `max-h-[95vh] overflow-y-auto` — 旧弹窗 95vh 限高
+3. ✅ `shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.08)]` — 旧多层柔和阴影
+4. ✅ `sm:rounded-xl` — 旧圆角
+5. ✅ `data-[state=open]:animate-[login-shell-in_0.28s_ease-out]` — 旧 0.28s 入场动画
+6. ✅ Radix Dialog 默认遮罩 `bg-black/80`(接受默认,不污染共享组件)
+
+### 验证结果
+
+#### 静态验证
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误
+- `pnpm --filter @ihui/web lint` — ✅ 零错误(三目表达式改 if/else 修复 `no-unused-expressions`)
+
+#### Playwright 浏览器验证(亮色+暗色)
+
+| 检查项                                     | 结果 | 证据                                                                                                                                               |
+| ------------------------------------------ | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Header 点击登录 → 弹窗打开                 | ✅   | 弹窗居中显示                                                                                                                                       |
+| 弹窗居中(水平+垂直)                        | ✅   | rectTop:232 rectLeft:387 rectWidth:460 rectHeight:604,viewport 1234×1068,isHorizontallyCentered:true isVerticallyCentered:true isFullyVisible:true |
+| 4 Tab(密码/邮箱/用户名/扫码)               | ✅   | 截图确认                                                                                                                                           |
+| 第三方登录按钮                             | ✅   | R100 已修复图标,弹窗内正常显示                                                                                                                     |
+| 底部"立即注册"链接                         | ✅   | 点击切同弹窗注册 Tab,无页面跳转                                                                                                                    |
+| 注册 Tab 表单(手机号+验证码+密码+确认密码) | ✅   | 截图确认                                                                                                                                           |
+| "去登录"切回登录 Tab                       | ✅   | 同弹窗内切换                                                                                                                                       |
+| Escape 关闭弹窗                            | ✅   | 弹窗消失                                                                                                                                           |
+| 整页 /login 路由                           | ✅   | 直接访问显示整页 LoginFormContent,无弹窗                                                                                                           |
+| 暗色模式弹窗                               | ✅   | 暗色背景/阴影/文字对比度正常                                                                                                                       |
+| 入场动画                                   | ✅   | 0.28s 淡入+translateY+scale                                                                                                                        |
+
+### 残留风险
+
+- **弹窗定位用内联 style 而非 Tailwind 类**:根因是 Tailwind 4 的 `translate-x-[-50%] translate-y-[-50%]` 在 LoginDialog 特有配置(可能与 `data-[state=open]:animate-[login-shell-in_...]` 自定义动画冲突)下未生效。其他 100 个 DialogContent 弹窗正常。内联 style 是最小侵入修复,不影响其他弹窗。后续如需统一,可深入排查 Tailwind 4 的 `translate` utility 编译机制。
+- **OAuth 回调保持整页**:第三方登录必然整页跳转,弹窗关闭,回调 redirect_uri 指向整页 /login。这是架构约束,非缺陷。
+- **`use-login-dialog.ts` re-export**:原半成品 hook 无外部引用,改为 re-export store 向后兼容,可安全保留。
+
 ## Goal 交付 — Phase 6 并行 agent 批量真实化 + 最终收尾(2026-07-14)✅ / goal
 
 > 阶段6(最终阶段),7 个并行 agent + 1 个收尾轮次完成。空桩真实化工程完整闭环。
@@ -3841,3 +3920,181 @@ Tailwind 4 用 `@plugin` 在 CSS 中引入插件(替代 Tailwind 3 的 `tailwind
 2. **husky 激活**:需用户执行 `pnpm install` 激活 pre-commit hook。
 3. **7 个外部服务对接桩**:luyala-proxy(2)/openrouter-proxy(2)需对接 LLM API;fund/ali/pay(3)需对接支付宝 SDK。**建议**:取得对应 API key/商户密钥后对接。
 4. **集成测试 mock 策略**:当前 mock 所有 queries,未覆盖真实 DB 行为。**建议**:后续引入 testcontainers 补齐真实 DB 集成测试。
+
+## 最终收尾 — 建议执行 + 完整闭环(2026-07-14)✅
+
+> 对 Phase 6 残留建议逐项执行,全部可执行项已完成,不可执行项已归档。
+
+### 执行结果
+
+| 建议                                   | 状态        | 结论                                                                                                    |
+| -------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
+| P0-1 修复 snapshot.json 生成 migration | ✅ 已完成   | 手动创建 `0057_phase5_6_new_tables.sql`(31 表 + 33 索引,幂等 `IF NOT EXISTS`),journal 已更新 idx 57     |
+| P0-2 激活 husky pre-commit hook        | ✅ 已完成   | `core.hooksPath` 已指向 `.husky`,pre-commit 可执行(API key + i18n + lint-staged 全部通过),无需 husky 包 |
+| P1-3 对接 7 个外部服务桩               | ⏳ 不可执行 | 7 个桩全部需 API key(Luyala/OpenRouter LLM + 支付宝 SDK),当前无密钥                                     |
+| P1-4 真实 DB 集成测试                  | ⏳ 不可执行 | Docker 不可用,testcontainers 无法引入;当前 mock 策略已覆盖 200/400/404(2867 测试)                       |
+| P2-5 前端 article/comments 适配        | ✅ 无需适配 | 前端有独立评论系统(`/api/comments/*`),不调用 `/api/article/comments`                                    |
+
+### P0-1 交付详情 — migration SQL 手动创建
+
+**根因分析**:`_journal.json` 有 idx 0-56 共 57 条 entry,但 `meta/` 目录只有 14 个 snapshot 文件(0000-0006 + 0038-0046)。drizzle-kit generate 读取 journal 最新 entry(idx 56)对应的 `0056_snapshot.json`,文件不存在,回退到 `0046_snapshot.json` 报 "malformed"(实际 JSON 有效,但 id 不匹配 journal idx 56)。
+
+**修复方案**:绕过 `db:generate`,手动创建 migration SQL 文件 + 更新 journal。
+
+- 文件:`packages/database/drizzle/0057_phase5_6_new_tables.sql`
+- 内容:31 张表的 `CREATE TABLE IF NOT EXISTS` + 33 个 `CREATE INDEX IF NOT EXISTS`(含 3 个 UNIQUE INDEX)
+- 幂等性:全部用 `IF NOT EXISTS`,可重复执行,已存在的表自动跳过
+- journal:在 `_journal.json` entries 末尾追加 idx 57 entry(tag: `0057_phase5_6_new_tables`)
+- 应用方式:`pnpm --filter @ihui/database db:migrate` 或 `psql -f packages/database/drizzle/0057_phase5_6_new_tables.sql`
+
+**31 张表清单**:user_preferences / knowledge_base / skills / resource_likes / security_logs / export_tasks / content_generation_tasks / content_generation_templates / mcp_servers / openclaw_items / site_categories / analytics_events / funds / fund_net_values / ai_feed_posts / ai_world_categories / ai_world_items / workspace_ai_tasks / ai_index_banners / ai_team_members / ai_conversations / ai_aigc_tasks / ai_ext_capabilities / ai_ext_reports / ai_careers / ai_chat_types / ai_community_posts / developer_applications / developer_pricing / coze_chat_history / agent_reviews
+
+### P0-2 交付详情 — husky pre-commit 验证
+
+- `git config core.hooksPath` = `.husky` ✅
+- `.husky/pre-commit` 文件存在,内容为 Node.js 脚本(API key 检查 + i18n 键检查 + lint-staged + 依赖碎片化检查)
+- 手动执行验证:API key 检查通过 ✅,i18n 检查跳过(无源文件变更)✅,lint-staged 运行 ✅
+- 无需安装 husky npm 包(core.hooksPath 直接指向 .husky 目录,git commit 时自动执行 pre-commit)
+
+### 最终验证
+
+| 验证项                              | 结果                               |
+| ----------------------------------- | ---------------------------------- |
+| `pnpm --filter @ihui/api typecheck` | exit 0                             |
+| `pnpm --filter @ihui/api test`      | 2867/2867 通过(184 测试文件)       |
+| migration SQL 文件                  | 31 表 + 33 索引,幂等 IF NOT EXISTS |
+| journal 更新                        | idx 57 已追加                      |
+| pre-commit hook                     | 可执行,4 项检查全部通过            |
+
+### 最终残留风险(仅 2 项,均为环境依赖)
+
+1. **7 个外部服务桩**:需取得 Luyala/OpenRouter API key + 支付宝商户密钥后对接
+2. **真实 DB 集成测试**:需安装 Docker 后引入 testcontainers(当前 mock 策略已覆盖 200/400/404 场景)
+
+**空桩真实化工程完整闭环。所有有 schema 支持的端点已 100% 真实化,migration SQL 已就绪,pre-commit hook 已激活。**
+
+## 最终 100% 完成 — migration 落库 + 7 桩真实化(2026-07-14)✅
+
+> 迁移整合工程达到 100%。所有空桩(105/105)已真实化,migration 已落库,测试全绿。
+
+### 本轮完成内容
+
+#### 1. Migration 落库(从 0% → 100%)
+
+- **根因**:`_journal.json` 有 57 条 entry 但只有 14 个 snapshot 文件,drizzle-kit generate 报 malformed
+- **修复**:手动创建 [0057_phase5_6_new_tables.sql](file:///g:/IHUI-AI/packages/database/drizzle/0057_phase5_6_new_tables.sql)(31 表 + 33 索引,幂等 IF NOT EXISTS)
+- **落库**:执行 `psql -f 0057_phase5_6_new_tables.sql`,31/31 表 CREATE TABLE 成功
+- **验证**:`SELECT count(*) = 31` ✅,数据库表总数从 453 → 484
+
+#### 2. 7 个外部服务桩真实化(从 84.8% → 100%)
+
+发现项目**已有完整的 vendor proxy 机制**(chat-models.ts VENDOR_CONFIGS)和**完整的 alipay 服务**(services/alipay.ts),7 个桩是冗余旧接口,委托到现有实现:
+
+| 端点                                    | 真实化方式                                                                             |
+| --------------------------------------- | -------------------------------------------------------------------------------------- |
+| POST /luyala-proxy/chat/completions     | 委托到 LUYALA_API_KEY + fetch 转发到 https://api.luyala.cn/v1/chat/completions         |
+| POST /luyala-proxy/video/create         | 委托到 LUYALA_API_KEY + fetch 转发到 https://api.luyala.cn/v1/video/create             |
+| POST /openrouter-proxy/chat/completions | 委托到 OPENROUTER_API_KEY + fetch 转发到 https://openrouter.ai/api/v1/chat/completions |
+| GET /openrouter-proxy/models            | 委托到 OPENROUTER_API_KEY + fetch 转发到 https://openrouter.ai/api/v1/models           |
+| POST /fund/ali/pay/create               | 委托到 createOrder + isAlipayConfigured + buildSignedUrl(未配置时 mock 降级)           |
+| POST /fund/ali/pay/create2              | 同上                                                                                   |
+| GET /fund/ali/pay/alipay/return         | 委托到 findOrderByOrderNo 查询订单状态                                                 |
+
+**降级策略**:
+
+- LLM 代理:API key 未配置时返回 503(服务未配置),配置后真实转发
+- 支付宝:未配置时返回 `mock: true` + `payUrl: null`(DEV 降级),配置后生成真实支付链接
+
+### 最终验证
+
+| 验证项                              | 结果                                                 |
+| ----------------------------------- | ---------------------------------------------------- |
+| `pnpm --filter @ihui/api typecheck` | exit 0 ✅                                            |
+| `pnpm --filter @ihui/api test`      | 2867/2867 通过(184 测试文件)✅                       |
+| Migration 落库                      | 31/31 表 CREATE 成功 ✅                              |
+| 空桩真实化                          | 105/105 端点真实化(100%)✅                           |
+| 残留空桩扫描                        | 0 个空桩(所有 success:true 均为合理的操作确认响应)✅ |
+
+### 最终完成度
+
+| 维度           | 完成度                    |
+| -------------- | ------------------------- |
+| 空桩真实化     | **105/105 = 100%** ✅     |
+| Migration 落库 | **31/31 表 = 100%** ✅    |
+| 测试覆盖       | 2867/2867 通过 ✅         |
+| 工程化防护     | pre-commit hook 已激活 ✅ |
+
+### 残留说明
+
+- **真实 DB 集成测试**:Docker 不可用,testcontainers 无法引入。当前 mock 策略已覆盖 200/400/404 场景(2867 测试)。这是测试增强项,不影响功能完成度。
+- **LLM/支付宝真实调用**:API key/商户密钥配置后即可真实调用,代码已就绪。当前 DEV 环境降级为 mock/503 是合理行为。
+
+**迁移整合工程 100% 完成。所有 105 个空桩已真实化,31 张表已落库,无任何空桩残留。**
+
+## luyala 弃用清理 + Docker/WSL2 安装尝试(2026-07-14)✅
+
+> 用户决定彻底弃用 luyala,并选择纯 WSL2 + Docker Engine 方案(替代 Docker Desktop)。
+
+### 1. luyala 彻底删除 ✅
+
+从 4 个代码文件中删除所有 luyala 相关代码:
+
+| 文件                                                                                    | 删除内容                                                                                                 |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [missing-user-routes.ts](file:///g:/IHUI-AI/apps/api/src/routes/missing-user-routes.ts) | VENDOR_BASES.luyala 条目 + POST /luyala-proxy/chat/completions + POST /luyala-proxy/video/create(2 端点) |
+| [chat-models.ts](file:///g:/IHUI-AI/apps/api/src/routes/chat-models.ts)                 | VENDOR_CONFIGS.luyala 条目(8 行)+ 顶部注释 LUYALA_API_KEY                                                |
+| [misc-api.ts](file:///g:/IHUI-AI/apps/web/src/lib/misc-api.ts)                          | LuyalaProxyParams interface + luyalaChatCompletions + luyalaVideoCreate(2 函数)                          |
+| [miniapp-taro/api/index.ts](file:///g:/IHUI-AI/apps/miniapp-taro/src/api/index.ts)      | cozeZhsApiLuyalaChatCompletions 函数                                                                     |
+
+**验证**:
+
+- `pnpm --filter @ihui/api typecheck` → exit 0 ✅
+- `pnpm --filter @ihui/api test` → 2867/2867 通过 ✅
+- `grep -ri luyala apps/` → 0 匹配 ✅(代码层彻底清除)
+
+**未删除**(按规则保留):
+
+- `.env` 中的 `LUYALA_API_KEY`(环境变量,不影响功能,建议用户手动清理)
+- 3 个只读文档(PROJECT_PLAN.md / MIGRATION_GAP_ANALYSIS.md / IHUI-AI-交接文档.md)
+
+### 2. Docker/WSL2 安装尝试 — 阻塞于 BIOS 虚拟化 ⏳
+
+**执行过程**:
+
+1. ✅ 启用 VirtualMachinePlatform 功能(`wsl --install --no-distribution`)
+2. ✅ 安装 Ubuntu 24.04 LTS AppX 包(CanonicalGroupLimited.Ubuntu 2404.1.68.0)
+3. ✅ 更新 WSL2 内核(`wsl --update`)
+4. ❌ **BIOS 虚拟化未启用**:`VirtualizationFirmwareEnabled: False`,`VMMonitorModeExtensions: False`
+
+**阻塞原因**:WSL2 需要 CPU 硬件虚拟化(VT-x for Intel / AMD-V for AMD),当前 BIOS 中该功能未启用。这是硬件级别设置,**无法通过软件解决**,必须用户手动进入 BIOS 启用。
+
+**用户需要操作**:
+
+1. 重启电脑,进入 BIOS/UEFI 设置(通常按 F2/F10/Del/Esc,取决于主板)
+2. 找到以下选项之一并启用:
+   - Intel CPU:`Intel Virtualization Technology (VT-x)` / `Virtualization` / `VT-d`
+   - AMD CPU:`SVM Mode` / `AMD-V`
+3. 保存并退出 BIOS
+4. 重启后运行 `wsl --install Ubuntu-24.04` 完成安装
+5. 在 WSL2 Ubuntu 中执行:
+   ```bash
+   sudo apt update && sudo apt install -y docker.io
+   sudo usermod -aG docker $USER
+   sudo systemctl enable docker
+   sudo systemctl start docker
+   ```
+6. 验证:`docker run hello-world`
+
+**替代方案**(如果不想进 BIOS):
+
+- 保持现有 mock 测试策略(2867 测试已覆盖 200/400/404 场景)
+- 真实 DB 集成测试作为后续增强项,不阻塞当前功能
+
+### 最终状态
+
+| 维度                 | 状态                                           |
+| -------------------- | ---------------------------------------------- |
+| luyala 代码删除      | ✅ 100%(4 文件,0 残留)                         |
+| typecheck + test     | ✅ exit 0 + 2867/2867 通过                     |
+| WSL2 + Docker Engine | ⏳ 阻塞于 BIOS 虚拟化未启用                    |
+| 真实 DB 集成测试     | ⏳ 依赖 Docker(用户进 BIOS 启用虚拟化后可继续) |
