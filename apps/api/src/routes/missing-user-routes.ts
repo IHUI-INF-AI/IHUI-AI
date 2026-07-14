@@ -1373,6 +1373,19 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
+  server.get('/fund/:code/net-values', async (request, reply) => {
+    const code = codeParam.parse(request.params).code
+    if (!code) return reply.status(400).send(error(400, '参数错误'))
+    const fund = await findFundByCode(code)
+    if (!fund) return reply.status(404).send(error(404, '基金不存在'))
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const result = await findFundNetValues(fund.id, { page: q.page, pageSize: q.pageSize })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
+  })
+
   // ===========================================================================
   // 17. AI 模块 /ai/*, /ai-ext/*（11 个端点）
   // ===========================================================================
