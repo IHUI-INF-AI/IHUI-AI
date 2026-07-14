@@ -1,5 +1,5 @@
-import { eq, and, desc, asc, sql, ilike } from 'drizzle-orm';
-import { db } from './index.js';
+import { eq, and, desc, asc, sql, ilike } from 'drizzle-orm'
+import { db } from './index.js'
 import {
   learnHomework,
   learnMaps,
@@ -13,6 +13,7 @@ import {
   lessonTask,
   lessonRate,
   lessonAccess,
+  learnHomeworkRecord,
   type LearnHomework,
   type LearnMap,
   type LearnInvoiceApplication,
@@ -20,7 +21,8 @@ import {
   type LessonTask,
   type LessonRate,
   type LessonAccess,
-} from '@ihui/database';
+  type LearnHomeworkRecord,
+} from '@ihui/database'
 
 // =============================================================================
 // Homework (课程作业)
@@ -34,27 +36,23 @@ export async function findHomeworkList(lessonId: string): Promise<LearnHomework[
     .select()
     .from(learnHomework)
     .where(eq(learnHomework.lessonId, lessonId))
-    .orderBy(asc(learnHomework.sort), asc(learnHomework.createdAt));
+    .orderBy(asc(learnHomework.sort), asc(learnHomework.createdAt))
 }
 
 export async function findHomeworkById(id: string): Promise<LearnHomework | undefined> {
-  const rows = await db
-    .select()
-    .from(learnHomework)
-    .where(eq(learnHomework.id, id))
-    .limit(1);
-  return rows[0];
+  const rows = await db.select().from(learnHomework).where(eq(learnHomework.id, id)).limit(1)
+  return rows[0]
 }
 
 export interface CreateHomeworkInput {
-  lessonId: string;
-  chapterId?: string | null;
-  title: string;
-  description?: string | null;
-  content?: unknown;
-  dueDate?: Date | null;
-  sort?: number;
-  status?: string;
+  lessonId: string
+  chapterId?: string | null
+  title: string
+  description?: string | null
+  content?: unknown
+  dueDate?: Date | null
+  sort?: number
+  status?: string
 }
 
 export async function createHomework(data: CreateHomeworkInput): Promise<LearnHomework> {
@@ -70,20 +68,20 @@ export async function createHomework(data: CreateHomeworkInput): Promise<LearnHo
       sort: data.sort,
       status: data.status,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建作业失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建作业失败')
+  return row
 }
 
 export interface UpdateHomeworkInput {
-  chapterId?: string | null;
-  title?: string;
-  description?: string | null;
-  content?: unknown;
-  dueDate?: Date | null;
-  sort?: number;
-  status?: string;
+  chapterId?: string | null
+  title?: string
+  description?: string | null
+  content?: unknown
+  dueDate?: Date | null
+  sort?: number
+  status?: string
 }
 
 export async function updateHomework(
@@ -103,12 +101,12 @@ export async function updateHomework(
       updatedAt: new Date(),
     })
     .where(eq(learnHomework.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteHomework(id: string): Promise<void> {
-  await db.delete(learnHomework).where(eq(learnHomework.id, id));
+  await db.delete(learnHomework).where(eq(learnHomework.id, id))
 }
 
 // =============================================================================
@@ -119,28 +117,21 @@ export async function deleteHomework(id: string): Promise<void> {
  * 查询学习地图列表,按 sort 升序、createdAt 倒序。
  */
 export async function findMapList(): Promise<LearnMap[]> {
-  return db
-    .select()
-    .from(learnMaps)
-    .orderBy(asc(learnMaps.sort), desc(learnMaps.createdAt));
+  return db.select().from(learnMaps).orderBy(asc(learnMaps.sort), desc(learnMaps.createdAt))
 }
 
 export async function findMapById(id: string): Promise<LearnMap | undefined> {
-  const rows = await db
-    .select()
-    .from(learnMaps)
-    .where(eq(learnMaps.id, id))
-    .limit(1);
-  return rows[0];
+  const rows = await db.select().from(learnMaps).where(eq(learnMaps.id, id)).limit(1)
+  return rows[0]
 }
 
 export interface CreateMapInput {
-  title: string;
-  description?: string | null;
-  cover?: string | null;
-  content?: unknown;
-  sort?: number;
-  isPublished?: boolean;
+  title: string
+  description?: string | null
+  cover?: string | null
+  content?: unknown
+  sort?: number
+  isPublished?: boolean
 }
 
 export async function createMap(data: CreateMapInput): Promise<LearnMap> {
@@ -154,25 +145,22 @@ export async function createMap(data: CreateMapInput): Promise<LearnMap> {
       sort: data.sort,
       isPublished: data.isPublished,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建学习地图失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建学习地图失败')
+  return row
 }
 
 export interface UpdateMapInput {
-  title?: string;
-  description?: string | null;
-  cover?: string | null;
-  content?: unknown;
-  sort?: number;
-  isPublished?: boolean;
+  title?: string
+  description?: string | null
+  cover?: string | null
+  content?: unknown
+  sort?: number
+  isPublished?: boolean
 }
 
-export async function updateMap(
-  id: string,
-  data: UpdateMapInput,
-): Promise<LearnMap | undefined> {
+export async function updateMap(id: string, data: UpdateMapInput): Promise<LearnMap | undefined> {
   const rows = await db
     .update(learnMaps)
     .set({
@@ -185,27 +173,24 @@ export async function updateMap(
       updatedAt: new Date(),
     })
     .where(eq(learnMaps.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteMap(id: string): Promise<void> {
-  await db.delete(learnMaps).where(eq(learnMaps.id, id));
+  await db.delete(learnMaps).where(eq(learnMaps.id, id))
 }
 
 /**
  * 更新学习地图发布状态。
  */
-export async function publishMap(
-  id: string,
-  isPublished: boolean,
-): Promise<LearnMap | undefined> {
+export async function publishMap(id: string, isPublished: boolean): Promise<LearnMap | undefined> {
   const rows = await db
     .update(learnMaps)
     .set({ isPublished, updatedAt: new Date() })
     .where(eq(learnMaps.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 // =============================================================================
@@ -213,14 +198,14 @@ export async function publishMap(
 // =============================================================================
 
 export interface FindInvoiceApplicationListOpts {
-  page: number;
-  pageSize: number;
-  status?: string;
-  search?: string;
+  page: number
+  pageSize: number
+  status?: string
+  search?: string
 }
 
 export interface InvoiceApplicationRow extends LearnInvoiceApplication {
-  userNickname: string | null;
+  userNickname: string | null
 }
 
 /**
@@ -229,15 +214,15 @@ export interface InvoiceApplicationRow extends LearnInvoiceApplication {
 export async function findInvoiceApplicationList(
   opts: FindInvoiceApplicationListOpts,
 ): Promise<{ list: InvoiceApplicationRow[]; total: number; page: number; pageSize: number }> {
-  const { page, pageSize, status, search } = opts;
-  const conds: ReturnType<typeof eq>[] = [];
-  if (status) conds.push(eq(learnInvoiceApplications.status, status));
-  let searchCond: ReturnType<typeof ilike> | undefined;
+  const { page, pageSize, status, search } = opts
+  const conds: ReturnType<typeof eq>[] = []
+  if (status) conds.push(eq(learnInvoiceApplications.status, status))
+  let searchCond: ReturnType<typeof ilike> | undefined
   if (search) {
-    searchCond = ilike(learnInvoiceApplications.orderId, `%${search}%`);
+    searchCond = ilike(learnInvoiceApplications.orderId, `%${search}%`)
   }
-  const baseConds = conds.length ? and(...conds) : undefined;
-  const whereCond = searchCond ? and(baseConds, searchCond) : baseConds;
+  const baseConds = conds.length ? and(...conds) : undefined
+  const whereCond = searchCond ? and(baseConds, searchCond) : baseConds
 
   const rows = await db
     .select({
@@ -249,20 +234,20 @@ export async function findInvoiceApplicationList(
     .where(whereCond)
     .orderBy(desc(learnInvoiceApplications.createdAt))
     .limit(pageSize)
-    .offset((page - 1) * pageSize);
+    .offset((page - 1) * pageSize)
 
   const list: InvoiceApplicationRow[] = rows.map((r) => ({
     ...r.application,
     userNickname: r.userNickname,
-  }));
+  }))
 
   const countRows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(learnInvoiceApplications)
-    .where(whereCond);
-  const total = countRows[0]?.count ?? 0;
+    .where(whereCond)
+  const total = countRows[0]?.count ?? 0
 
-  return { list, total, page, pageSize };
+  return { list, total, page, pageSize }
 }
 
 export async function findInvoiceApplicationById(
@@ -272,8 +257,8 @@ export async function findInvoiceApplicationById(
     .select()
     .from(learnInvoiceApplications)
     .where(eq(learnInvoiceApplications.id, id))
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 /**
@@ -287,8 +272,8 @@ export async function updateInvoiceApplicationStatus(
     .update(learnInvoiceApplications)
     .set({ status, updatedAt: new Date() })
     .where(eq(learnInvoiceApplications.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 // =============================================================================
@@ -303,7 +288,7 @@ export async function findInvoiceTitleList(userId: string): Promise<LearnInvoice
     .select()
     .from(learnInvoiceTitles)
     .where(eq(learnInvoiceTitles.userId, userId))
-    .orderBy(desc(learnInvoiceTitles.isDefault), desc(learnInvoiceTitles.createdAt));
+    .orderBy(desc(learnInvoiceTitles.isDefault), desc(learnInvoiceTitles.createdAt))
 }
 
 export async function findInvoiceTitleById(id: string): Promise<LearnInvoiceTitle | undefined> {
@@ -311,20 +296,20 @@ export async function findInvoiceTitleById(id: string): Promise<LearnInvoiceTitl
     .select()
     .from(learnInvoiceTitles)
     .where(eq(learnInvoiceTitles.id, id))
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 export interface CreateInvoiceTitleInput {
-  userId: string;
-  title: string;
-  type: string;
-  taxNo: string;
-  bank?: string | null;
-  bankAccount?: string | null;
-  address?: string | null;
-  phone?: string | null;
-  isDefault?: boolean;
+  userId: string
+  title: string
+  type: string
+  taxNo: string
+  bank?: string | null
+  bankAccount?: string | null
+  address?: string | null
+  phone?: string | null
+  isDefault?: boolean
 }
 
 export async function createInvoiceTitle(
@@ -335,7 +320,7 @@ export async function createInvoiceTitle(
     await db
       .update(learnInvoiceTitles)
       .set({ isDefault: false })
-      .where(eq(learnInvoiceTitles.userId, data.userId));
+      .where(eq(learnInvoiceTitles.userId, data.userId))
   }
   const rows = await db
     .insert(learnInvoiceTitles)
@@ -350,21 +335,21 @@ export async function createInvoiceTitle(
       phone: data.phone,
       isDefault: data.isDefault,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建发票抬头失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建发票抬头失败')
+  return row
 }
 
 export interface UpdateInvoiceTitleInput {
-  title?: string;
-  type?: string;
-  taxNo?: string;
-  bank?: string | null;
-  bankAccount?: string | null;
-  address?: string | null;
-  phone?: string | null;
-  isDefault?: boolean;
+  title?: string
+  type?: string
+  taxNo?: string
+  bank?: string | null
+  bankAccount?: string | null
+  address?: string | null
+  phone?: string | null
+  isDefault?: boolean
 }
 
 export async function updateInvoiceTitle(
@@ -373,12 +358,12 @@ export async function updateInvoiceTitle(
 ): Promise<LearnInvoiceTitle | undefined> {
   // 若设为默认,先清除该用户其他默认抬头
   if (data.isDefault) {
-    const existing = await findInvoiceTitleById(id);
+    const existing = await findInvoiceTitleById(id)
     if (existing) {
       await db
         .update(learnInvoiceTitles)
         .set({ isDefault: false })
-        .where(eq(learnInvoiceTitles.userId, existing.userId));
+        .where(eq(learnInvoiceTitles.userId, existing.userId))
     }
   }
   const rows = await db
@@ -395,12 +380,12 @@ export async function updateInvoiceTitle(
       updatedAt: new Date(),
     })
     .where(eq(learnInvoiceTitles.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteInvoiceTitle(id: string): Promise<void> {
-  await db.delete(learnInvoiceTitles).where(eq(learnInvoiceTitles.id, id));
+  await db.delete(learnInvoiceTitles).where(eq(learnInvoiceTitles.id, id))
 }
 
 // =============================================================================
@@ -408,9 +393,9 @@ export async function deleteInvoiceTitle(id: string): Promise<void> {
 // =============================================================================
 
 export interface CompanyStudyReportQuery {
-  startDate?: string;
-  endDate?: string;
-  search?: string;
+  startDate?: string
+  endDate?: string
+  search?: string
 }
 
 /**
@@ -420,10 +405,10 @@ export interface CompanyStudyReportQuery {
 export async function findCompanyStudyReport(
   query: CompanyStudyReportQuery,
 ): Promise<Record<string, unknown>> {
-  const { startDate, endDate, search } = query;
-  let searchCond: ReturnType<typeof ilike> | undefined;
+  const { startDate, endDate, search } = query
+  let searchCond: ReturnType<typeof ilike> | undefined
   if (search) {
-    searchCond = ilike(lessons.title, `%${search}%`);
+    searchCond = ilike(lessons.title, `%${search}%`)
   }
 
   const rows = await db
@@ -438,7 +423,7 @@ export async function findCompanyStudyReport(
     })
     .from(lessons)
     .leftJoin(lessonSignUps, eq(lessons.id, lessonSignUps.lessonId))
-    .where(searchCond);
+    .where(searchCond)
 
   const summary = rows[0] ?? {
     totalLessons: 0,
@@ -448,10 +433,10 @@ export async function findCompanyStudyReport(
     refundedCount: 0,
     avgProgress: 0,
     activeMembers: 0,
-  };
+  }
 
   // 时间段筛选的报名趋势(按天聚合)
-  let trend: { date: string; signups: number; completed: number }[] = [];
+  let trend: { date: string; signups: number; completed: number }[] = []
   if (startDate && endDate) {
     const trendRows = await db
       .select({
@@ -467,11 +452,11 @@ export async function findCompanyStudyReport(
         ),
       )
       .groupBy(sql`to_char(${lessonSignUps.createdAt}::date, 'YYYY-MM-DD')`)
-      .orderBy(sql`to_char(${lessonSignUps.createdAt}::date, 'YYYY-MM-DD')`);
-    trend = trendRows as { date: string; signups: number; completed: number }[];
+      .orderBy(sql`to_char(${lessonSignUps.createdAt}::date, 'YYYY-MM-DD')`)
+    trend = trendRows as { date: string; signups: number; completed: number }[]
   }
 
-  return { summary, trend };
+  return { summary, trend }
 }
 
 // =============================================================================
@@ -481,14 +466,11 @@ export async function findCompanyStudyReport(
 /**
  * 更新话题发布状态。
  */
-export async function publishTopic(
-  id: string,
-  isPublished: boolean,
-): Promise<void> {
+export async function publishTopic(id: string, isPublished: boolean): Promise<void> {
   await db
     .update(eduLessonTopics)
     .set({ isPublished, updatedAt: new Date() })
-    .where(eq(eduLessonTopics.id, id));
+    .where(eq(eduLessonTopics.id, id))
 }
 
 // =============================================================================
@@ -496,7 +478,7 @@ export async function publishTopic(
 // =============================================================================
 
 /** 哨兵标题,用于标记存储课程关联数据的作业记录。 */
-const LESSON_ASSOC_TITLE = '__lesson_associations__';
+const LESSON_ASSOC_TITLE = '__lesson_associations__'
 
 /**
  * 读取课程关联的试卷 ID。lessons 表无 examPaperId 字段,从哨兵作业记录的 content 中读取。
@@ -506,10 +488,10 @@ export async function getLessonExamPaperId(lessonId: string): Promise<string | n
     .select({ content: learnHomework.content })
     .from(learnHomework)
     .where(and(eq(learnHomework.lessonId, lessonId), eq(learnHomework.title, LESSON_ASSOC_TITLE)))
-    .limit(1);
-  const content = rows[0]?.content as Record<string, unknown> | null;
-  const examPaperId = content?.examPaperId;
-  return typeof examPaperId === 'string' ? examPaperId : null;
+    .limit(1)
+  const content = rows[0]?.content as Record<string, unknown> | null
+  const examPaperId = content?.examPaperId
+  return typeof examPaperId === 'string' ? examPaperId : null
 }
 
 /**
@@ -519,7 +501,7 @@ export async function setLessonExamPaperId(
   lessonId: string,
   examPaperId: string | null,
 ): Promise<void> {
-  await upsertLessonAssociation(lessonId, { examPaperId });
+  await upsertLessonAssociation(lessonId, { examPaperId })
 }
 
 /**
@@ -529,7 +511,7 @@ export async function setLessonCertificateId(
   lessonId: string,
   certificateTemplateId: string | null,
 ): Promise<void> {
-  await upsertLessonAssociation(lessonId, { certificateTemplateId });
+  await upsertLessonAssociation(lessonId, { certificateTemplateId })
 }
 
 /**
@@ -543,14 +525,14 @@ async function upsertLessonAssociation(
     .select()
     .from(learnHomework)
     .where(and(eq(learnHomework.lessonId, lessonId), eq(learnHomework.title, LESSON_ASSOC_TITLE)))
-    .limit(1);
-  const oldContent = (existing[0]?.content as Record<string, unknown> | null) ?? {};
-  const newContent = { ...oldContent, ...patch };
+    .limit(1)
+  const oldContent = (existing[0]?.content as Record<string, unknown> | null) ?? {}
+  const newContent = { ...oldContent, ...patch }
   if (existing[0]) {
     await db
       .update(learnHomework)
       .set({ content: newContent, updatedAt: new Date() })
-      .where(eq(learnHomework.id, existing[0].id));
+      .where(eq(learnHomework.id, existing[0].id))
   } else {
     await db.insert(learnHomework).values({
       lessonId,
@@ -558,7 +540,7 @@ async function upsertLessonAssociation(
       description: '课程关联数据(试卷/证书)',
       content: newContent,
       status: 'draft',
-    });
+    })
   }
 }
 
@@ -571,28 +553,28 @@ export async function findPublishedMaps(limit?: number): Promise<LearnMap[]> {
     .select()
     .from(learnMaps)
     .where(eq(learnMaps.isPublished, true))
-    .orderBy(asc(learnMaps.sort), desc(learnMaps.createdAt));
-  if (limit) return q.limit(limit);
-  return q;
+    .orderBy(asc(learnMaps.sort), desc(learnMaps.createdAt))
+  if (limit) return q.limit(limit)
+  return q
 }
 
 export interface MapListPagedOpts {
-  page: number;
-  pageSize: number;
-  search?: string;
-  isPublished?: boolean;
+  page: number
+  pageSize: number
+  search?: string
+  isPublished?: boolean
 }
 
 export async function findMapListPaged(
   opts: MapListPagedOpts,
 ): Promise<{ list: LearnMap[]; total: number; page: number; pageSize: number }> {
-  const { page, pageSize, search, isPublished } = opts;
-  const conds: ReturnType<typeof eq>[] = [];
-  if (isPublished !== undefined) conds.push(eq(learnMaps.isPublished, isPublished));
-  let searchCond: ReturnType<typeof ilike> | undefined;
-  if (search) searchCond = ilike(learnMaps.title, `%${search}%`);
-  const baseConds = conds.length ? and(...conds) : undefined;
-  const whereCond = searchCond ? and(baseConds, searchCond) : baseConds;
+  const { page, pageSize, search, isPublished } = opts
+  const conds: ReturnType<typeof eq>[] = []
+  if (isPublished !== undefined) conds.push(eq(learnMaps.isPublished, isPublished))
+  let searchCond: ReturnType<typeof ilike> | undefined
+  if (search) searchCond = ilike(learnMaps.title, `%${search}%`)
+  const baseConds = conds.length ? and(...conds) : undefined
+  const whereCond = searchCond ? and(baseConds, searchCond) : baseConds
 
   const list = await db
     .select()
@@ -600,22 +582,22 @@ export async function findMapListPaged(
     .where(whereCond)
     .orderBy(asc(learnMaps.sort), desc(learnMaps.createdAt))
     .limit(pageSize)
-    .offset((page - 1) * pageSize);
+    .offset((page - 1) * pageSize)
 
   const countRows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(learnMaps)
-    .where(whereCond);
-  const total = countRows[0]?.count ?? 0;
-  return { list, total, page, pageSize };
+    .where(whereCond)
+  const total = countRows[0]?.count ?? 0
+  return { list, total, page, pageSize }
 }
 
 export async function insertMap(data: {
-  title: string;
-  description?: string | null;
-  cover?: string | null;
-  content?: unknown;
-  isPublished?: boolean;
+  title: string
+  description?: string | null
+  cover?: string | null
+  content?: unknown
+  isPublished?: boolean
 }): Promise<LearnMap> {
   const rows = await db
     .insert(learnMaps)
@@ -626,26 +608,24 @@ export async function insertMap(data: {
       content: data.content,
       isPublished: data.isPublished,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建学习地图失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建学习地图失败')
+  return row
 }
 
 export async function findMapTopics(learnMapId: string): Promise<string[]> {
   const rows = await db
     .select({ topicId: learnLearnMapTopic.topicId })
     .from(learnLearnMapTopic)
-    .where(eq(learnLearnMapTopic.learnMapId, learnMapId));
-  return rows.map((r) => r.topicId);
+    .where(eq(learnLearnMapTopic.learnMapId, learnMapId))
+  return rows.map((r) => r.topicId)
 }
 
 export async function setMapTopics(learnMapId: string, topicIds: string[]): Promise<void> {
-  await db.delete(learnLearnMapTopic).where(eq(learnLearnMapTopic.learnMapId, learnMapId));
+  await db.delete(learnLearnMapTopic).where(eq(learnLearnMapTopic.learnMapId, learnMapId))
   if (topicIds.length > 0) {
-    await db.insert(learnLearnMapTopic).values(
-      topicIds.map((topicId) => ({ learnMapId, topicId })),
-    );
+    await db.insert(learnLearnMapTopic).values(topicIds.map((topicId) => ({ learnMapId, topicId })))
   }
 }
 
@@ -658,22 +638,22 @@ export async function findTasksByLesson(lessonId: string): Promise<LessonTask[]>
     .select()
     .from(lessonTask)
     .where(eq(lessonTask.lessonId, lessonId))
-    .orderBy(asc(lessonTask.createdAt));
+    .orderBy(asc(lessonTask.createdAt))
 }
 
 export async function findTaskById(id: string): Promise<LessonTask | undefined> {
-  const rows = await db.select().from(lessonTask).where(eq(lessonTask.id, id)).limit(1);
-  return rows[0];
+  const rows = await db.select().from(lessonTask).where(eq(lessonTask.id, id)).limit(1)
+  return rows[0]
 }
 
 export interface CreateTaskInput {
-  lessonId: string;
-  lessonChapterId?: string | null;
-  lessonChapterSectionId?: string | null;
-  title: string;
-  contentType?: string | null;
-  conditions?: string | null;
-  status?: string;
+  lessonId: string
+  lessonChapterId?: string | null
+  lessonChapterSectionId?: string | null
+  title: string
+  contentType?: string | null
+  conditions?: string | null
+  status?: string
 }
 
 export async function createTask(data: CreateTaskInput): Promise<LessonTask> {
@@ -688,19 +668,19 @@ export async function createTask(data: CreateTaskInput): Promise<LessonTask> {
       conditions: data.conditions,
       status: data.status,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建任务失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建任务失败')
+  return row
 }
 
 export interface UpdateTaskInput {
-  lessonChapterId?: string | null;
-  lessonChapterSectionId?: string | null;
-  title?: string;
-  contentType?: string | null;
-  conditions?: string | null;
-  status?: string;
+  lessonChapterId?: string | null
+  lessonChapterSectionId?: string | null
+  title?: string
+  contentType?: string | null
+  conditions?: string | null
+  status?: string
 }
 
 export async function updateTask(
@@ -721,24 +701,21 @@ export async function updateTask(
       updatedAt: new Date(),
     })
     .where(eq(lessonTask.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteTask(id: string): Promise<void> {
-  await db.delete(lessonTask).where(eq(lessonTask.id, id));
+  await db.delete(lessonTask).where(eq(lessonTask.id, id))
 }
 
-export async function setTaskStatus(
-  id: string,
-  status: string,
-): Promise<LessonTask | undefined> {
+export async function setTaskStatus(id: string, status: string): Promise<LessonTask | undefined> {
   const rows = await db
     .update(lessonTask)
     .set({ status, updatedAt: new Date() })
     .where(eq(lessonTask.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 // =============================================================================
@@ -746,34 +723,34 @@ export async function setTaskStatus(
 // =============================================================================
 
 export interface RateListOpts {
-  lessonId: string;
-  page: number;
-  pageSize: number;
+  lessonId: string
+  page: number
+  pageSize: number
 }
 
 export async function findRateList(
   opts: RateListOpts,
 ): Promise<{ list: LessonRate[]; total: number; page: number; pageSize: number }> {
-  const { lessonId, page, pageSize } = opts;
+  const { lessonId, page, pageSize } = opts
   const list = await db
     .select()
     .from(lessonRate)
     .where(and(eq(lessonRate.lessonId, lessonId), eq(lessonRate.status, 'published')))
     .orderBy(desc(lessonRate.createdAt))
     .limit(pageSize)
-    .offset((page - 1) * pageSize);
+    .offset((page - 1) * pageSize)
 
   const countRows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(lessonRate)
-    .where(and(eq(lessonRate.lessonId, lessonId), eq(lessonRate.status, 'published')));
-  const total = countRows[0]?.count ?? 0;
-  return { list, total, page, pageSize };
+    .where(and(eq(lessonRate.lessonId, lessonId), eq(lessonRate.status, 'published')))
+  const total = countRows[0]?.count ?? 0
+  return { list, total, page, pageSize }
 }
 
 export async function findRateById(id: string): Promise<LessonRate | undefined> {
-  const rows = await db.select().from(lessonRate).where(eq(lessonRate.id, id)).limit(1);
-  return rows[0];
+  const rows = await db.select().from(lessonRate).where(eq(lessonRate.id, id)).limit(1)
+  return rows[0]
 }
 
 export async function findRateByUserLesson(
@@ -781,25 +758,25 @@ export async function findRateByUserLesson(
   lessonId: string,
   signId?: string,
 ): Promise<LessonRate | undefined> {
-  const conds = [eq(lessonRate.userId, userId), eq(lessonRate.lessonId, lessonId)];
-  if (signId) conds.push(eq(lessonRate.signId, signId));
+  const conds = [eq(lessonRate.userId, userId), eq(lessonRate.lessonId, lessonId)]
+  if (signId) conds.push(eq(lessonRate.signId, signId))
   const rows = await db
     .select()
     .from(lessonRate)
     .where(and(...conds))
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 export interface CreateRateInput {
-  lessonId: string;
-  userId: string;
-  signId?: string | null;
-  content?: string | null;
-  contentUtilityScore?: number | null;
-  teacherScore?: number | null;
-  serviceScore?: number | null;
-  isAnonymous?: boolean;
+  lessonId: string
+  userId: string
+  signId?: string | null
+  content?: string | null
+  contentUtilityScore?: number | null
+  teacherScore?: number | null
+  serviceScore?: number | null
+  isAnonymous?: boolean
 }
 
 export async function createRate(data: CreateRateInput): Promise<LessonRate> {
@@ -815,14 +792,14 @@ export async function createRate(data: CreateRateInput): Promise<LessonRate> {
       serviceScore: data.serviceScore,
       isAnonymous: data.isAnonymous,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建评价失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建评价失败')
+  return row
 }
 
 export async function deleteRate(id: string): Promise<void> {
-  await db.delete(lessonRate).where(eq(lessonRate.id, id));
+  await db.delete(lessonRate).where(eq(lessonRate.id, id))
 }
 
 // =============================================================================
@@ -830,7 +807,7 @@ export async function deleteRate(id: string): Promise<void> {
 // =============================================================================
 
 export async function findAccessByLesson(lessonId: string): Promise<LessonAccess[]> {
-  return db.select().from(lessonAccess).where(eq(lessonAccess.lessonId, lessonId));
+  return db.select().from(lessonAccess).where(eq(lessonAccess.lessonId, lessonId))
 }
 
 export async function updateLessonAccess(
@@ -838,7 +815,7 @@ export async function updateLessonAccess(
   accessType: string,
   accessValues: string[],
 ): Promise<number> {
-  await db.delete(lessonAccess).where(eq(lessonAccess.lessonId, lessonId));
+  await db.delete(lessonAccess).where(eq(lessonAccess.lessonId, lessonId))
   if (accessValues.length > 0 || accessType !== 'all') {
     const rows = await db
       .insert(lessonAccess)
@@ -847,12 +824,61 @@ export async function updateLessonAccess(
         accessType,
         accessValues: JSON.stringify(accessValues),
       })
-      .returning();
-    return rows.length;
+      .returning()
+    return rows.length
   }
   const rows = await db
     .insert(lessonAccess)
     .values({ lessonId, accessType: 'all', accessValues: '[]' })
-    .returning();
-  return rows.length;
+    .returning()
+  return rows.length
+}
+
+// =============================================================================
+// Homework Record (作业提交记录)
+// =============================================================================
+
+export async function createHomeworkRecord(data: {
+  memberId: string
+  lessonId: string
+  url: string
+  signUpId: string
+}): Promise<LearnHomeworkRecord> {
+  const rows = await db
+    .insert(learnHomeworkRecord)
+    .values({
+      memberId: data.memberId,
+      lessonId: data.lessonId,
+      url: data.url,
+      signUpId: data.signUpId,
+    })
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建作业记录失败')
+  return row
+}
+
+export async function findMyHomeworkRecords(
+  memberId: string,
+  status?: string,
+): Promise<LearnHomeworkRecord[]> {
+  const conds = [eq(learnHomeworkRecord.memberId, memberId)]
+  if (status) conds.push(eq(learnHomeworkRecord.status, status))
+  return db
+    .select()
+    .from(learnHomeworkRecord)
+    .where(and(...conds))
+    .orderBy(desc(learnHomeworkRecord.createdAt))
+}
+
+export async function auditHomeworkRecord(
+  id: string,
+  status: 'approved' | 'rejected',
+): Promise<LearnHomeworkRecord | undefined> {
+  const rows = await db
+    .update(learnHomeworkRecord)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(learnHomeworkRecord.id, id))
+    .returning()
+  return rows[0]
 }

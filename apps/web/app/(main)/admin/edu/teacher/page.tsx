@@ -1,64 +1,18 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
-import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  UserCog,
-  Search,
-} from 'lucide-react'
-import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
-import { cn } from '@/lib/utils'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@ihui/ui'
+import { useTranslations } from 'next-intl'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { eduApi, buildQs, type PageData } from '@/lib/edu'
+import { Button } from '@ihui/ui'
 
-interface Teacher {
-  id: string
-  nickname: string
-  phone: string | null
-  title: string
-  intro: string | null
-  courseCount: number
-  studentCount: number
-  rating: number
-  status: number
-}
-interface TForm {
-  nickname: string
-  phone: string
-  title: string
-  intro: string
-  status: number
-}
-const EMPTY: TForm = { nickname: '', phone: '', title: '', intro: '', status: 1 }
-const PAGE_SIZE = 10
+import { EMPTY, PAGE_SIZE } from './helpers'
+import type { Teacher, TForm } from './types'
+import { TeacherFilter } from './TeacherFilter'
+import { TeacherTable } from './TeacherTable'
+import { TeacherDialog } from './TeacherDialog'
 
 export default function EduTeacherPage() {
   const t = useTranslations('admin.edu.teacher')
@@ -163,118 +117,17 @@ export default function EduTeacherPage() {
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/admin/edu">
-            <ChevronLeft className="h-4 w-4" />
-            {t('backToEdu')}
-          </Link>
-        </Button>
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-          />
-        </div>
-        <Button onClick={openCreate} size="sm" className="ml-auto">
-          <Plus className="h-4 w-4" />
-          {t('create')}
-        </Button>
-      </div>
-      <div className="overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="px-4 py-2.5">{t('colNickname')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colCourses')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colStudents')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colRating')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y">
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  {t('loading')}
-                </TableCell>
-              </TableRow>
-            ) : error ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-destructive">
-                  {(error as Error).message}
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  <UserCog className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('empty')}
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((tc) => (
-                <TableRow key={tc.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5">
-                    <div className="font-medium">{tc.nickname}</div>
-                    {tc.phone && <div className="text-xs text-muted-foreground">{tc.phone}</div>}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">{tc.title}</TableCell>
-                  <TableCell className="px-4 py-2.5">{tc.courseCount}</TableCell>
-                  <TableCell className="px-4 py-2.5">{tc.studentCount}</TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                      ★ {tc.rating.toFixed(1)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        tc.status === 1
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                          : 'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      {tc.status === 1 ? t('statusActive') : t('statusInactive')}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(tc)}
-                        title={t('edit')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(tc.id)
-                        }}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <TeacherFilter search={search} onSearchChange={setSearch} onCreate={openCreate} />
+      <TeacherTable
+        rows={rows}
+        isLoading={isLoading}
+        error={error as Error | null}
+        onEdit={openEdit}
+        onDelete={(tc) => {
+          if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(tc.id)
+        }}
+        deletePending={deleteMut.isPending}
+      />
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('totalItems', { total })}</span>
         <div className="flex items-center gap-2">
@@ -299,83 +152,16 @@ export default function EduTeacherPage() {
           </Button>
         </div>
       </div>
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
-        <DialogContent>
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
-            </DialogHeader>
-            {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {err}
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="t-nick">{t('fieldNickname')}</Label>
-                <Input
-                  id="t-nick"
-                  value={form.nickname}
-                  onChange={(e) => setForm({ ...form, nickname: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="t-phone">{t('fieldPhone')}</Label>
-                <Input
-                  id="t-phone"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="t-title">{t('fieldTitle')}</Label>
-              <Input
-                id="t-title"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="t-intro">{t('fieldIntro')}</Label>
-              <Input
-                id="t-intro"
-                value={form.intro}
-                onChange={(e) => setForm({ ...form, intro: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="t-status">{t('fieldStatus')}</Label>
-              <Select
-                value={String(form.status)}
-                onValueChange={(v) => setForm({ ...form, status: Number(v) })}
-              >
-                <SelectTrigger className={selectClass} id="t-status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">{t('statusActive')}</SelectItem>
-                  <SelectItem value="0">{t('statusInactive')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeDialog}
-                disabled={saveMut.isPending}
-              >
-                {t('cancel')}
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('save')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <TeacherDialog
+        open={open}
+        editing={editing}
+        form={form}
+        onFormChange={(patch) => setForm({ ...form, ...patch })}
+        onClose={closeDialog}
+        onSubmit={submit}
+        pending={saveMut.isPending}
+        err={err}
+      />
     </div>
   )
 }

@@ -1,0 +1,249 @@
+'use client'
+
+import { useParams } from 'next/navigation'
+import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
+import { useLocale } from 'next-intl'
+import { Loader2, ArrowLeft, RotateCcw, Clock, CheckCircle, XCircle, Wallet } from 'lucide-react'
+
+import { fetchApi } from '@/lib/api'
+import { Card, CardContent } from '@ihui/ui'
+import { cn } from '@/lib/utils'
+
+interface RefundDetail {
+  id: string
+  orderId: string
+  orderType: string
+  orderNo: string
+  userId: string
+  reason: string | null
+  refundAmount: string
+  refundType: string
+  status: string
+  applyTime: string | null
+  processTime: string | null
+  completeTime: string | null
+  processMessage: string | null
+  handleMessage: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface AuditRecord {
+  id: string
+  refundId: string
+  auditorId: string
+  action: string
+  reason: string | null
+  createdAt: string
+}
+
+interface RefundFullData {
+  refund: RefundDetail
+  order: unknown | null
+  auditRecords: AuditRecord[]
+}
+
+interface RefundListData {
+  list: RefundDetail[]
+  total: number
+}
+
+const STATUS_CONFIG: Record<string, { label: string; icon: typeof Clock; cls: string }> = {
+  pending: {
+    label: '审核中',
+    icon: Clock,
+    cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
+  },
+  approved: {
+    label: '已通过',
+    icon: CheckCircle,
+    cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-500',
+  },
+  rejected: { label: '已拒绝', icon: XCircle, cls: 'bg-destructive/10 text-destructive' },
+  completed: {
+    label: '已完成',
+    icon: Wallet,
+    cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+  },
+}
+
+const PENDING_CLS = 'bg-amber-500/10 text-amber-600 dark:text-amber-500'
+
+export default function RefundDetailPage() {
+  const params = useParams<{ id: string }>()
+  const locale = useLocale()
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['refund', params.id],
+    queryFn: async (): Promise<RefundFullData> => {
+      const detailRes = await fetchApi<RefundFullData>(`/api/refunds/${params.id}`)
+      if (detailRes.success) return detailRes.data
+
+      const listRes = await fetchApi<RefundListData>(`/api/refunds/me?page=1&pageSize=100`)
+      if (listRes.success && listRes.data) {
+        const found = listRes.data.list?.find((r) => r.id === params.id)
+        if (found) return { refund: found, order: null, auditRecords: [] }
+      }
+      throw new Error(detailRes.error || '退款记录不存在')
+    },
+    enabled: !!params.id,
+  })
+
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const fmt = (v: string | null) => {
+    if (!v) return '-'
+    const d = new Date(v)
+    return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
+  }
+
+  const refund = data?.refund
+  const auditRecords = data?.auditRecords ?? []
+  const statusKey = refund ? (STATUS_CONFIG[refund.status] ?? STATUS_CONFIG.pending) : null
+  const StatusIcon = statusKey?.icon
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        加载中...
+      </div>
+    )
+  }
+
+  if (error || !refund) {
+    return (
+      <div className="mx-auto w-full max-w-3xl space-y-4">
+        <Link
+          href="/refund"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          返回
+        </Link>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          {(error as Error)?.message ?? '退款记录不存在'}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <Link
+        href="/refund"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        返回
+      </Link>
+
+      <div className="space-y-1">
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <RotateCcw className="h-6 w-6 text-primary" />
+          退款详情
+        </h1>
+        <p className="font-mono text-sm text-muted-foreground">{refund.orderNo}</p>
+      </div>
+
+      {statusKey && StatusIcon && (
+        <div
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium',
+            statusKey.cls,
+          )}
+        >
+          <StatusIcon className="h-4 w-4" />
+          {statusKey.label}
+        </div>
+      )}
+
+      <Card>
+        <CardContent className="p-0">
+          <dl className="divide-y">
+            <Row label="退款单号" value={refund.id} mono />
+            <Row label="订单号" value={refund.orderNo} mono />
+            <Row label="订单类型" value={refund.orderType} />
+            <Row
+              label="退款金额"
+              value={
+                <span className="font-semibold text-primary">
+                  ¥{Number(refund.refundAmount).toFixed(2)}
+                </span>
+              }
+            />
+            <Row
+              label="退款方式"
+              value={refund.refundType === 'original' ? '原路退回' : refund.refundType}
+            />
+            <Row label="申请时间" value={fmt(refund.applyTime ?? refund.createdAt)} />
+            <Row label="处理时间" value={fmt(refund.processTime)} />
+            <Row label="完成时间" value={fmt(refund.completeTime)} />
+            {refund.reason && <Row label="退款原因" value={refund.reason} />}
+            {refund.processMessage && <Row label="处理说明" value={refund.processMessage} />}
+            {refund.handleMessage && <Row label="处理结果" value={refund.handleMessage} />}
+          </dl>
+        </CardContent>
+      </Card>
+
+      {auditRecords.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">审核记录</h2>
+          <div className="space-y-2">
+            {auditRecords.map((record) => {
+              const cfg =
+                record.action === 'approve'
+                  ? STATUS_CONFIG.approved
+                  : record.action === 'reject'
+                    ? STATUS_CONFIG.rejected
+                    : (STATUS_CONFIG.pending ?? null)
+              const RecIcon = cfg?.icon
+              return (
+                <div key={record.id} className="flex items-start gap-3 rounded-lg border p-3">
+                  <div
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                      cfg?.cls ?? PENDING_CLS,
+                    )}
+                  >
+                    {RecIcon && <RecIcon className="h-4 w-4" />}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {record.action === 'approve'
+                          ? '审核通过'
+                          : record.action === 'reject'
+                            ? '驳回'
+                            : record.action}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{fmt(record.createdAt)}</span>
+                    </div>
+                    {record.reason && (
+                      <p className="text-sm text-muted-foreground">{record.reason}</p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Row({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="flex justify-between px-4 py-3 text-sm">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={cn('text-right', mono && 'font-mono text-xs')}>{value}</dd>
+    </div>
+  )
+}
