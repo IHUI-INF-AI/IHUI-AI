@@ -6,46 +6,14 @@ import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import { Loader2, ChevronLeft, Clock, Send, FileText } from 'lucide-react'
-import { eduApi, buildQs, selectClass } from '@/lib/edu'
+import { Loader2, ChevronLeft, Clock, Send } from 'lucide-react'
+import { eduApi, buildQs } from '@/lib/edu'
 import { cn } from '@/lib/utils'
-import {
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-  Card,
-  CardContent,
-} from '@ihui/ui'
-
-interface Paper {
-  id: string
-  title: string
-  duration: number
-  isPublished: boolean
-  totalScore: string
-}
-interface Question {
-  id: string
-  type: string
-  title: string
-  options: unknown
-  score: string
-  sortOrder: number
-}
-
-const TYPE_LABEL: Record<string, string> = {
-  single_choice: 'single_choice',
-  multi_choice: 'multi_choice',
-  judgment: 'judgment',
-  fill_blank: 'fill_blank',
-  subjective: 'subjective',
-  programming: 'programming',
-}
+import { Button, Card, CardContent } from '@ihui/ui'
+import { AnswerInput } from './AnswerInput'
+import { PaperSelectCard } from './PaperSelectCard'
+import { TYPE_LABEL } from './helpers'
+import type { Paper, Question } from './types'
 
 function AnswerOnlineContent() {
   const t = useTranslations('admin.edu.answer.online')
@@ -146,52 +114,15 @@ function AnswerOnlineContent() {
       </div>
 
       {!recordId ? (
-        <Card>
-          <CardContent className="space-y-4 p-6">
-            <div className="space-y-2">
-              <Label htmlFor="o-paper">{t('selectPaper')}</Label>
-              <Select value={paperId} onValueChange={setPaperId}>
-                <SelectTrigger className={selectClass} id="o-paper">
-                  <SelectValue placeholder={t('selectPublishedPaperPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {papers.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {t('paperWithDuration', { title: p.title, duration: p.duration })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {paper && (
-              <div className="grid grid-cols-3 gap-3 rounded-md bg-muted/40 px-4 py-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground">{t('totalScoreLabel')}</span>
-                  <b>{Number(paper.totalScore)}</b>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">{t('durationLabel')}</span>
-                  <b>{t('minutesCount', { count: paper.duration })}</b>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">{t('questionCountLabel')}</span>
-                  <b>{questions.length}</b>
-                </div>
-              </div>
-            )}
-            <Button
-              onClick={() => startMut.mutate()}
-              disabled={!paperId || startMut.isPending || questions.length === 0}
-            >
-              {startMut.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileText className="h-4 w-4" />
-              )}
-              {t('startAnswer')}
-            </Button>
-          </CardContent>
-        </Card>
+        <PaperSelectCard
+          papers={papers}
+          paperId={paperId}
+          setPaperId={setPaperId}
+          paper={paper}
+          questions={questions}
+          startPending={startMut.isPending}
+          onStart={() => startMut.mutate()}
+        />
       ) : (
         <>
           <div className="sticky top-2 z-10 flex items-center justify-between rounded-lg border bg-background/95 px-4 py-2 shadow-sm backdrop-blur">
@@ -257,111 +188,6 @@ function AnswerOnlineContent() {
         </>
       )}
     </div>
-  )
-}
-
-function AnswerInput({
-  question,
-  value,
-  onChange,
-}: {
-  question: Question
-  value: unknown
-  onChange: (v: unknown) => void
-}) {
-  const t = useTranslations('admin.edu.answer.online')
-  const opts = Array.isArray(question.options)
-    ? (question.options as Array<{ key: string; text: string }>)
-    : []
-  if (question.type === 'single_choice') {
-    return (
-      <div className="space-y-1">
-        {opts.map((o) => (
-          <label key={o.key} className="flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="radio"
-              name={question.id}
-              checked={value === o.key}
-              onChange={() => onChange(o.key)}
-              className="h-4 w-4"
-            />
-            <span>
-              <b className="mr-1">{o.key}.</b>
-              {o.text}
-            </span>
-          </label>
-        ))}
-      </div>
-    )
-  }
-  if (question.type === 'multi_choice') {
-    const cur = Array.isArray(value) ? (value as string[]) : []
-    function toggle(k: string) {
-      onChange(cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k])
-    }
-    return (
-      <div className="space-y-1">
-        {opts.map((o) => (
-          <label key={o.key} className="flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={cur.includes(o.key)}
-              onChange={() => toggle(o.key)}
-              className="h-4 w-4"
-            />
-            <span>
-              <b className="mr-1">{o.key}.</b>
-              {o.text}
-            </span>
-          </label>
-        ))}
-      </div>
-    )
-  }
-  if (question.type === 'judgment') {
-    return (
-      <div className="flex gap-4">
-        <label className="flex cursor-pointer items-center gap-1 text-sm">
-          <input
-            type="radio"
-            name={question.id}
-            checked={value === true}
-            onChange={() => onChange(true)}
-            className="h-4 w-4"
-          />
-          {t('correct')}
-        </label>
-        <label className="flex cursor-pointer items-center gap-1 text-sm">
-          <input
-            type="radio"
-            name={question.id}
-            checked={value === false}
-            onChange={() => onChange(false)}
-            className="h-4 w-4"
-          />
-          {t('wrong')}
-        </label>
-      </div>
-    )
-  }
-  if (question.type === 'fill_blank') {
-    return (
-      <Input
-        value={typeof value === 'string' ? value : ''}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={t('fillBlankPlaceholder')}
-        className="h-9"
-      />
-    )
-  }
-  return (
-    <textarea
-      value={typeof value === 'string' ? value : ''}
-      onChange={(e) => onChange(e.target.value)}
-      rows={4}
-      className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      placeholder={t('answerPlaceholder')}
-    />
   )
 }
 
