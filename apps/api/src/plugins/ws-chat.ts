@@ -3,8 +3,8 @@ import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
 import { z } from 'zod'
-import { verifyAccessToken } from '@ihui/auth'
 import { authenticate } from './auth.js'
+import { wsAuth } from './ws-helpers.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 
@@ -24,20 +24,6 @@ interface RoomMember {
 }
 
 const ALLOWED_MSG_TYPES = new Set(['text', 'image', 'file', 'system'])
-
-async function wsAuth(socket: WebSocket, token: string | undefined): Promise<string | null> {
-  if (!token) {
-    socket.close(4001, '缺少 token')
-    return null
-  }
-  try {
-    const payload = await verifyAccessToken(token)
-    return payload.userId
-  } catch {
-    socket.close(4003, 'token 无效')
-    return null
-  }
-}
 
 const send = (socket: WebSocket, obj: unknown): void => {
   try {
