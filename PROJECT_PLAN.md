@@ -660,7 +660,7 @@
 #### AUDIT-P1-2: ~~补建 AI 生成队列服务~~ ✅ 已存在(评估接入)
 
 - [x] ✅(2026-07-14) P1-2-a: 探查确认 `apps/api/src/services/generation-queue-service.ts` 已存在(GenerationQueueService 类已定义)
-- [x] ✅(2026-07-14) P1-2-b: 评估 generation-queue-service.ts 接入率 0/7(7 个公共方法全部未被路由层引用,属"服务孤岛"),实际路径在 services/ai/generation-queue-service.ts,需补建 ai-generation.ts 路由
+- [x] ✅(2026-07-14) P1-2-b: 评估 + 补建接线 — 接入率从 0/7 提升到 5/6(closeQueue 为优雅关闭钩子不暴露 HTTP),新建 `apps/api/src/routes/ai-generation.ts`(153 行,5 端点:enqueue/status/cancel/listByUser/stats)+ server.ts 注册,typecheck 退出码 0
 - 验证命令:`pnpm --filter @ihui/api typecheck` 退出码 0;grep 确认 GenerationQueueService 在路由层被引用
 
 #### AUDIT-P1-3: 补建 4 个 AI 编排服务 — 预计 4.0 人日
