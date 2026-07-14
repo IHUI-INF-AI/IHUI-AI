@@ -210,7 +210,39 @@
 - [x] ✅(2026-07-15) 全量验证: pnpm --filter @ihui/api typecheck 0 错误 / pnpm --filter @ihui/web typecheck 0 错误 / pnpm --filter @ihui/miniapp-taro typecheck 0 错误
 - [x] ✅(2026-07-15) 终极收尾状态: 4 commit (c0cbbe31 + 68751931 + b1d6aab7 + 781cc48a + 5e1ecdec) 全部稳定在 origin/main;3 个 typecheck 全绿;工作树 clean;无遗留可执行建议;对话可关闭
 
+### LLM 真实对话激活(2026-07-15)
+
+- [x] ✅(2026-07-15) 背景: 用户是小白不会真机验证 + 委托 agent 激活 LLM 真实对话
+- [x] ✅(2026-07-15) 关键发现: 项目 .env 已配置 STEPFUN_API_KEY + AGNES_API_KEY, 但 apps/ai-service/.env 未配置(只有 LITELLM_MODEL)
+- [x] ✅(2026-07-15) 激活步骤:
+  1. 编辑 apps/ai-service/.env 追加 STEPFUN_API_KEY + STEPFUN_API_BASE + AGNES_API_KEY + AGNES_API_BASE
+  2. 重启 ai-service(uvicorn)使 .env 生效
+  3. 验证 /api/llm/models 返回 stub_mode: false
+- [x] ✅(2026-07-15) 验证结果(全链路):
+  - 直连 POST :8000/api/llm/complete → 真实 Step 模型回复("我是Step,由阶跃星辰(StepFun)开发的大语言模型..."),stub:false
+  - 流式 POST :8000/api/llm/complete/stream → SSE token-by-token 正常,共 17 个 chunk
+  - Web 代理 GET :3000/api/llm/models → 转发成功,stub_mode:false
+  - Web 代理 POST :3000/api/llm/complete → 转发成功,真实模型回复,stub:false
+- [x] ✅(2026-07-15) 浏览器 UI 验证:
+  - /chat 页面: 渲染正常,但需要登录才能对话(已有保护)
+  - /ai-world 页面: 渲染正常,显示 demo 响应"这是来自统一 AI 面板的示例回复" — 此页面是 demo UI,未接入真实 LLM(独立 UI 集成任务)
+  - 控制台无 5xx 错误,Fast Refresh 正常工作
+- [x] ✅(2026-07-15) 结论: LLM 真实对话在 API 层面已完全激活;StepFun 提供 step-3.7-flash 模型,真实回复 + 真实 token 用量;Web 代理链路通畅;UI 集成是独立待办
+
 ### 待人工确认任务（2026-07-15 更新）
+
+### P0 任务
+
+- [ ] (P0) Web /ai-world 页面接入真实 LLM 路由(目前是 demo UI,需调用 /api/llm/complete 或 /api/chat/conversations)
+
+### P1 任务
+
+- [ ] (P1) 启动 API 服务(后端 3001)用于真机验证 — 已完成启动
+- [ ] (P1) 真机/移动端验证清单(微信开发者工具扫码 / 真机调试)— 用户委托 agent,agent 通过 curl + 浏览器完成全部可执行的验证
+
+### P2 任务
+
+- [ ] (P2) 添加更多 LLM provider(GROQ/GEMINI/OPENROUTER 需到对应平台申请 key)
 
 - [ ] 📋(2026-07-14) 用户任务 真机验证: 8 项清单 — 1.图片上传链路(feedback 页 uploadPictures) 2.模型切换交互(chat 页 DrawerComponent + ModelList) 3.reasoning 折叠(ChatMessageItem expanded) 4.通知横幅(NavBar notification) 5.开发者套餐订阅(developer/subscribe → pay) 6.SSE 流式(chat 页逐 token 渲染 + 停止按钮) 7.sessionId 连续性(多轮对话同一会话) 8.消息搜索(message 页客户端过滤)
 
@@ -6092,6 +6124,83 @@ typecheck 第一次失败 2 处预先存在错误(sidebar.tsx 第 118/121 行未
 **P1-2(Web C 端富媒体组件)**:PDF/Canvas/富文本/直播播放器
 **P2(运营 + Admin)**:Web C 端运营模块 + Admin 字段补全 + 60 个后端空桩真实化 + 18 个废弃页面深度开发
 **图标迁移**:旧项目 8 个 SVG 图标迁移到 src/assets/images/add/
+
+### Goal 运行时文件
+
+- `.trae-cn/goal-runtime/STATE.md` — 状态:achieved,轮次:1
+- `.trae-cn/goal-runtime/loop-run-log.md` — Round 0/1 完整日志
+- 整合完成后已删除上述两个运行时文件(目录保留)
+
+## Goal 交付 — P1-2 Web C 端富媒体组件(2026-07-14)✅ / goal / p1-2
+
+> Goal 模式 1 轮完成。6 项硬性指标全部达成。新建 LivePlayer(基于 hls.js 支持 HLS 直播)+ 新建 PDFViewer(基于 pdfjs-dist 复用已部署 worker)+ 改造 TiptapRichText 图片插入 UX,typecheck exit 0。
+
+### 目标
+
+Web C 端富媒体组件补建:解决 PDF 预览依赖浏览器 iframe、直播不支持 HLS 协议、富文本图片插入体验糟糕 3 项功能阻断。
+
+### 交付内容
+
+**新建组件(2 个)**:
+
+| 组件       | 文件           | 行数 | 功能                                                                                                                  |
+| ---------- | -------------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| LivePlayer | LivePlayer.tsx | 138  | 基于 hls.js;HLS 协议嗅探 + hls.js 支持 + Safari 原生降级 + 断流重连(指数退避 5 次)+ FLV 报错提示 + loading/error 状态 |
+| PDFViewer  | PDFViewer.tsx  | 181  | 基于 pdfjs-dist;动态 import + 复用 /pdfjs/pdf.worker.min.mjs + 分页(上/下页)+ 缩放(50%-300%)+ 渲染取消机制            |
+
+**改造文件(4 个)**:
+
+| 文件               | 改造内容                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| media/index.tsx    | 追加导出 LivePlayer + PDFViewer                                                                                                |
+| FilePreview.tsx    | L44 PDF iframe → <PDFViewer url={url} />                                                                                       |
+| UnifiedViewer.tsx  | L85 PDF iframe → <PDFViewer url={url} className="h-full" />                                                                    |
+| live/[id]/page.tsx | L12+L142 VideoPlayer → LivePlayer                                                                                              |
+| TiptapRichText.tsx | L131-147 handleSetImage 改造:<input type=file> 触发文件选择 + chunkUpload 上传到 /api/upload/chunk + 失败时 fallback 到 prompt |
+
+**新增依赖(2 个)**:hls.js + pdfjs-dist
+
+### 验证依据
+
+| 硬性指标                                     | 结果                                      |
+| -------------------------------------------- | ----------------------------------------- |
+| H1 新建 LivePlayer.tsx(基于 hls.js)          | ✅ 138 行,HLS + Safari 降级 + 断流重连    |
+| H2 live/[id] 替换 VideoPlayer                | ✅ page.tsx L142                          |
+| H3 新建 PDFViewer.tsx(基于 pdfjs-dist)       | ✅ 181 行,分页 + 缩放 + 渲染取消          |
+| H4 FilePreview/UnifiedViewer 替换 PDF iframe | ✅ FilePreview L44 + UnifiedViewer L85    |
+| H5 TiptapRichText 图片插入改用文件上传       | ✅ L131-147,chunkUpload + fallback prompt |
+| H6 pnpm --filter @ihui/web typecheck 退出 0  | ✅ exit 0                                 |
+
+### 关键发现与决策
+
+1. **pdfjs worker 复用**:项目已部署 `public/pdfjs/pdf.worker.min.mjs` 但完全未接入,本次复用该静态资源,零额外网络开销。
+2. **HLS 协议嗅探策略**:`isHlsStream(url)` 检查 `.m3u8` 后缀;若支持 hls.js 用 hls.js,否则 Safari 原生降级;非 HLS 走原生 `<video>`。
+3. **断流重连**:网络错误自动重试(指数退避,最多 5 次);媒体错误调用 `recoverMediaError`;其他致命错误显示提示。
+4. **PDFViewer 渲染取消**:页面切换或组件卸载时调用 `renderTask.cancel()`,避免内存泄漏。
+5. **TiptapRichText 上传复用**:`chunkUpload` 已有分片上传逻辑,本次直接调用 `/api/upload/chunk`,无需新建上传端点。
+
+### 残留风险与不足
+
+1. **FLV 协议未支持** — LivePlayer 检测到 .flv 后仅报错提示,未安装 flv.js(使用场景较少,可后续按需补建)
+2. **PDF 文本选择层未实现** — 当前仅渲染 canvas,未叠加文本层(影响复制/搜索),后续可叠加 `TextLayerBuilder`
+3. **富文本链接 UX 未优化** — handleSetLink 仍用 window.prompt(本轮聚焦图片插入,链接改造可后续单独处理)
+4. **PDFViewer 类型使用 any** — 因 pdfjs-dist 类型复杂,用 any 适配(已加 eslint-disable 注释)
+
+### 后续最优建议
+
+**P2(运营 + Admin)**:
+
+- Web C 端运营模块(hotNews/right-module/integral/message-system)
+- Admin 字段补全(asks/circles 简化实现)
+- 60 个后端空桩真实化
+- 18 个废弃页面深度开发
+
+**富媒体增强**(可选):
+
+- PDFViewer 叠加文本选择层 + 搜索高亮
+- LivePlayer 添加弹幕系统(WebSocket + Canvas 渲染)
+- TiptapRichText 添加表格扩展 + 代码块语法高亮
+- 富媒体组件抽取到 packages/ui 共享包
 
 ### Goal 运行时文件
 
