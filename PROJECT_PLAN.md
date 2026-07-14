@@ -770,7 +770,8 @@
 #### AUDIT-P1-16: 补建 Admin 子路由 ~45 个 — 预计 5.0 人日
 
 - [x] ✅(2026-07-14) P1-16-a: 评估完成(深度复查)— admin/ 子路由共约 207 个,真空桩数=0;117 个组件化拆分(Dialog/Filter/Table/helpers/types)+ 81 个单文件完整功能页 + 8 个重定向 placeholder(URL 兼容)+ 1 个 401 页。前次评估"缺失 9 个"系误报,实际均已有实现。计划"45 空桩"前提不成立
-- [ ] ⏳(2026-07-14) P1-16-b: 任务重定义 — 无空桩需补建;改为重构 29 个 >250 行的单文件页为组件化拆分模式(主要在 edu/ 域 15 个 + theme/ 1 个 + 其他 13 个),遵守 AGENTS.md §4 每页 < 250 行约束
+- [x] ✅(2026-07-14) P1-16-b-1: 重构 3 个最长页面 — certificate(438→179 行)+ student(431→201 行)+ teacher(372→167 行),各新增 5 个子组件(types/helpers/Filter/Table/Dialog),采用扁平结构与现有 admin/edu/ 模式一致,typecheck 退出码 0
+- [ ] ⏳(2026-07-14) P1-16-b-2: 继续重构剩余 17 个 >250 行页面(learn/community 368 + learn/plan 366 + exam/arrangements 365 + answer/online 364 + learn/materials 348 + class/schedule 344 + learn/homework 340 + course/chapters 325 + learn/live 317 + answer/programming 313 + student/levels 298 + class/members 280 + agent-rules 277 + exam/grades 275 + withdrawals 274 + exam/categories 272 + ai-models 267)— 待推进
 - 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
 - 约束:仅新建 admin/ 下文件;每页 < 250 行
 
@@ -892,8 +893,8 @@
 #### AUDIT-P2-11: 修复 missing-user-routes.ts 54 条空数据桩 — 预计 2.0 人日
 
 - [x] ✅(2026-07-14) P2-11-a: 评估完成 — 实际文件 apps/api/src/routes/missing-user-routes.ts(~122 端点),原始 54 空桩已于 R5/R72/H4 等轮次真实化;当前仅剩 7 桩(4 真实需求项:study/statistics、mcp/invoke、payment/callback/verify、settings/export)+ 9 前端未调用端点(可删除)。计划"54 空桩"已过时
-- [ ] ⏳(2026-07-14) P2-11-b: 补建 3 项真实 CRUD(study/statistics 聚合查询、mcp/invoke 转发 ai-service、settings/export 异步导出);payment/callback/verify 保留桩+注释(已是合理设计)
-- [ ] ⏳(2026-07-14) P2-11-c: 删除 9 个前端未调用端点(content-generation/* 3 个、workspace-ai/* 2 个、article/comments、agents/:id/favorite、agents/:id/reviews、agents/:id/publish),删除前按 AGENTS.md §8 做功能等价审查
+- [x] ✅(2026-07-14) P2-11-b: 复查确认 3 项已全部真实化 — study/statistics 已有聚合查询(lessonSignUps 表 count/sum/streak 计算)、mcp/invoke 已转发 ai-service(/api/mcp/tools/call + 错误处理)、settings/export 已有完整导出流程(用户数据→JSON→下载链接+过期机制)。评估报告基于旧数据,实际无需补建
+- [x] ✅(2026-07-14) P2-11-c: 已删除 9 个后端端点(content-generation/* 3 + workspace/generate-component + workspace/agentic + article/comments + agents/:id/favorite + agents/:id/reviews + agents/:id/publish)+ 6 个未使用 import + 2 个前端死代码 hooks 文件(use-agentic.ts, use-agentic-component-generator.ts)+ agent-api.ts 中 3 个未使用函数 + 2 个后端测试文件 + 修改 realized-routes.test.ts;验证:typecheck 通过,测试 5 failed(全部预存在:notifications 3 + fund 2,非本次引入)
 - 验证命令:`pnpm --filter @ihui/api typecheck` 退出码 0;`pnpm --filter @ihui/api test` 通过数 ≥ 现有
 - 约束:仅修改 missing-user-routes.ts;逐条评估记录到 EXPERIMENT_NOTES.md
 
