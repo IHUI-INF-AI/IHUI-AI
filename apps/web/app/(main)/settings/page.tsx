@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
-import { Sun, Moon, Monitor, Globe, Languages, Check } from 'lucide-react'
+import { Sun, Moon, Monitor, Globe, Languages, Check, Smartphone } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
@@ -140,6 +140,28 @@ export default function SettingsPage() {
               {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
             </span>
             <Switch checked={collapsed} onChange={toggleCollapsed} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 小程序二维码 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Smartphone className="h-4 w-4" />
+            {t('miniappQr')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/common/miniapp-qr.png"
+              alt={t('miniappQr')}
+              className="h-48 w-48 rounded-lg border"
+              loading="lazy"
+            />
+            <p className="text-sm text-muted-foreground">{t('miniappQrDesc')}</p>
           </div>
         </CardContent>
       </Card>

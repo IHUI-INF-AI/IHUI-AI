@@ -16,9 +16,10 @@ import { loginSchema, type LoginValues } from './types'
 
 interface PasswordLoginFormProps {
   active: boolean
+  onSuccess?: () => void
 }
 
-export function PasswordLoginForm({ active }: PasswordLoginFormProps) {
+export function PasswordLoginForm({ active, onSuccess }: PasswordLoginFormProps) {
   const t = useTranslations('auth')
   const router = useRouter()
   const setToken = useAuthStore((s) => s.setToken)
@@ -72,7 +73,8 @@ export function PasswordLoginForm({ active }: PasswordLoginFormProps) {
       }
       setToken(json.data.token)
       if (json.data.user) setUser(json.data.user)
-      router.push('/')
+      if (onSuccess) onSuccess()
+      else router.push('/')
     } catch {
       setServerError(t('loginFailed'))
     } finally {

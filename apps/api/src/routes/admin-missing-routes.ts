@@ -1,11 +1,11 @@
 /**
- * 前端管理端缺失路由补建（75 个路由）。
+ * 前端管理端缺失路由补建。
  *
  * 来源：GAP_ANALYSIS.md — 前端调用但后端完全未实现的 /api/admin/* 路径。
  *
  * 策略：
- * - 有对应 schema 表的路由（24 条）：实现真实 CRUD（列表/创建/更新/删除）
- * - 无对应表的路由（51 条）：返回空数据桩，前端可正常渲染空列表
+ * - 有对应 schema 表的路由：实现真实 CRUD（列表/创建/更新/删除）
+ * - 无对应表的路由：返回空数据桩，前端可正常渲染空列表
  *
  * 所有路由：
  * - 使用 requireAdmin 中间件（roleId >= 1 放行）
@@ -14,7 +14,7 @@
  */
 import type { FastifyPluginAsync, FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { eq, or, ilike, desc, asc, sql, and, inArray, type SQL } from 'drizzle-orm'
+import { eq, or, ilike, desc, asc, sql, and, inArray, type SQL, type Column } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -174,14 +174,14 @@ function emptyList(page: number, pageSize: number) {
   return success({ list: [], total: 0, page, pageSize })
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- Drizzle ORM 泛型表/列助手需要 any，社区标准模式 */
+/* eslint-disable @typescript-eslint/no-explicit-any -- Drizzle ORM 泛型表类型需要 any，社区标准模式 */
 function registerCrud(
   server: FastifyInstance,
   basePath: string,
   table: any,
   opts: {
-    searchField?: any
-    orderBy?: any
+    searchField?: Column
+    orderBy?: SQL<unknown>
     hasUpdatedAt?: boolean
     map: (body: Record<string, unknown>) => Record<string, unknown>
   },

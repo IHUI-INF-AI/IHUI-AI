@@ -10,16 +10,14 @@ declare global {
     DDLogin?: {
       init: (options: { gotoUrl?: string; width?: number; height?: number }) => void
     }
-    WWLogin?: {
-      init: (options: {
-        id: string
-        appid: string
-        agentid: string
-        redirect_uri: string
-        state: string
-        href?: string
-      }) => void
-    }
+    WwLogin?: (options: {
+      id: string
+      appid: string
+      agentid: string
+      redirect_uri: string
+      state: string
+      href?: string
+    }) => void
   }
 }
 
@@ -54,8 +52,8 @@ export function SdkQrLogin() {
   React.useEffect(() => {
     if (!showEnterpriseQr) return
     const initWw = () => {
-      if (window.WWLogin) {
-        window.WWLogin.init({
+      if (window.WwLogin) {
+        window.WwLogin({
           id: 'ww-login-container',
           appid: '',
           agentid: '',
