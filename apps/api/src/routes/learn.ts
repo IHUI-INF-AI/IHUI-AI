@@ -74,6 +74,11 @@ import {
   deleteInvoiceTitle,
   findCompanyStudyReport,
   publishTopic,
+  findAllTopics,
+  findTopicRowById,
+  createTopicRow,
+  updateTopicRow,
+  deleteTopicRow,
   getLessonExamPaperId,
   setLessonExamPaperId,
   setLessonCertificateId,
@@ -401,6 +406,45 @@ const mapListQuerySchema = z.object({
     (v) => (v === '' || v === null || v === undefined ? undefined : v === 'true'),
     z.boolean().optional(),
   ),
+})
+
+const topicListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().max(200).optional(),
+  status: z.string().max(50).optional(),
+})
+
+const createTopicSchema = z.object({
+  title: z.string().min(1, '标题不能为空').max(100),
+  image: z.string().max(1000),
+  description: z.string().optional(),
+  price: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, '价格格式错误')
+    .optional(),
+  originalPrice: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, '价格格式错误')
+    .nullable()
+    .optional(),
+  status: z.enum(['draft', 'published']).optional(),
+})
+
+const updateTopicSchema = z.object({
+  title: z.string().min(1).max(100).optional(),
+  image: z.string().max(1000).optional(),
+  description: z.string().optional(),
+  price: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, '价格格式错误')
+    .optional(),
+  originalPrice: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, '价格格式错误')
+    .nullable()
+    .optional(),
+  status: z.enum(['draft', 'published']).optional(),
 })
 
 // =============================================================================
@@ -1204,6 +1248,60 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     await publishTopic(parsed.data.id, false)
+    return reply.send(success({ ok: true }))
+  })
+
+  // ----- Topics CRUD (话题管理 — learn_topic 表) -----
+
+  // GET /learn/topics - 话题列表(分页,支持 search/status 筛选)
+  server.get('/learn/topics', async (request, reply) => {
+    const parsed = topicListQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await findAllTopics(parsed.data)
+    return reply.send(success(result))
+  })
+
+  // POST /learn/topics - 创建话题
+  server.post('/learn/topics', async (request, reply) => {
+    const parsed = createTopicSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const topic = await createTopicRow(parsed.data)
+    return reply.status(201).send(success({ topic }))
+  })
+
+  // PUT /learn/topics/:id - 更新话题
+  server.put('/learn/topics/:id', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const parsed = updateTopicSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findTopicRowById(idParsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '话题不存在'))
+    }
+    const topic = await updateTopicRow(idParsed.data.id, parsed.data)
+    return reply.send(success({ topic }))
+  })
+
+  // DELETE /learn/topics/:id - 删除话题
+  server.delete('/learn/topics/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findTopicRowById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '话题不存在'))
+    }
+    await deleteTopicRow(parsed.data.id)
     return reply.send(success({ ok: true }))
   })
 
