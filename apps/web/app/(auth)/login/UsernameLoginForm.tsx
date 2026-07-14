@@ -12,9 +12,10 @@ import { usernameSchema, type TokenResult } from './types'
 
 interface UsernameLoginFormProps {
   active: boolean
+  onSuccess?: () => void
 }
 
-export function UsernameLoginForm({ active }: UsernameLoginFormProps) {
+export function UsernameLoginForm({ active, onSuccess }: UsernameLoginFormProps) {
   const t = useTranslations('auth')
   const router = useRouter()
   const setToken = useAuthStore((s) => s.setToken)
@@ -53,7 +54,8 @@ export function UsernameLoginForm({ active }: UsernameLoginFormProps) {
         return
       }
       setToken(json.data.accessToken)
-      router.push('/')
+      if (onSuccess) onSuccess()
+      else router.push('/')
     } catch {
       setUsernameErr(t('loginFailed'))
     } finally {

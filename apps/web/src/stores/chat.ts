@@ -1,4 +1,7 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+import { createPersistConfig } from './persist-helpers'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
 
@@ -49,47 +52,56 @@ function genId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-export const useChatStore = create<ChatState>((set) => ({
-  messages: [],
-  currentModel: 'stepfun/step-3.7-flash',
-  isStreaming: false,
-  error: null,
-  conversationId: null,
-  draftInput: null,
+export const useChatStore = create<ChatState>()(
+  persist(
+    (set) => ({
+      messages: [],
+      currentModel: 'stepfun/step-3.7-flash',
+      isStreaming: false,
+      error: null,
+      conversationId: null,
+      draftInput: null,
 
-  setModel: (model) => set({ currentModel: model }),
+      setModel: (model) => set({ currentModel: model }),
 
-  addMessage: (msg) => {
-    const id = genId()
-    const message: ChatMessage = {
-      id,
-      role: msg.role,
-      content: msg.content,
-      createdAt: Date.now(),
-      model: msg.model,
-    }
-    set((s) => ({ messages: [...s.messages, message] }))
-    return id
-  },
+      addMessage: (msg) => {
+        const id = genId()
+        const message: ChatMessage = {
+          id,
+          role: msg.role,
+          content: msg.content,
+          createdAt: Date.now(),
+          model: msg.model,
+        }
+        set((s) => ({ messages: [...s.messages, message] }))
+        return id
+      },
 
-  appendToMessage: (id, delta) =>
-    set((s) => ({
-      messages: s.messages.map((m) => (m.id === id ? { ...m, content: m.content + delta } : m)),
+      appendToMessage: (id, delta) =>
+        set((s) => ({
+          messages: s.messages.map((m) => (m.id === id ? { ...m, content: m.content + delta } : m)),
+        })),
+
+      setMessageError: (id, error) =>
+        set((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === id ? { ...m, error: true, content: m.content || error } : m,
+          ),
+          error,
+        })),
+
+      clearMessages: () => set({ messages: [], error: null }),
+
+      setStreaming: (v) => set({ isStreaming: v }),
+
+      setError: (e) => set({ error: e }),
+
+      setConversationId: (id) => set({ conversationId: id }),
+    }),
+    createPersistConfig<ChatState>('ihui-chat', (s) => ({
+      currentModel: s.currentModel,
+      conversationId: s.conversationId,
+      draftInput: s.draftInput,
     })),
-
-  setMessageError: (id, error) =>
-    set((s) => ({
-      messages: s.messages.map((m) =>
-        m.id === id ? { ...m, error: true, content: m.content || error } : m,
-      ),
-      error,
-    })),
-
-  clearMessages: () => set({ messages: [], error: null }),
-
-  setStreaming: (v) => set({ isStreaming: v }),
-
-  setError: (e) => set({ error: e }),
-
-  setConversationId: (id) => set({ conversationId: id }),
-}))
+  ),
+)

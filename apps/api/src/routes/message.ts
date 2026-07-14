@@ -300,6 +300,75 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
       .offset((Number(page) - 1) * Number(pageSize))
     return reply.send(success({ list, page: Number(page), pageSize: Number(pageSize) }))
   })
+
+  // GET /messages/aggregate - 聚合消息(公告 + 私信 + 系统通知 + 未读数)
+  server.get('/messages/aggregate', async (request, reply) => {
+    const userId = request.userId!
+    const [
+      announcementsResult,
+      privateMessages,
+      systemNotices,
+      unreadAnnRows,
+      unreadPrivRows,
+      unreadSysRows,
+    ] = await Promise.all([
+      findAnnouncements({ page: 1, pageSize: 5, publishedOnly: true }),
+      db
+        .select()
+        .from(messagePrivateLetter)
+        .where(
+          or(
+            eq(messagePrivateLetter.senderId, userId),
+            eq(messagePrivateLetter.receiverId, userId),
+          ),
+        )
+        .orderBy(desc(messagePrivateLetter.id))
+        .limit(5),
+      db.select().from(messageSystemNotice).orderBy(desc(messageSystemNotice.createdAt)).limit(5),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(eduMessages)
+        .where(
+          and(
+            eq(eduMessages.memberId, userId),
+            eq(eduMessages.isRead, false),
+            eq(eduMessages.msgType, 'announcement'),
+          ),
+        ),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(messagePrivateLetter)
+        .where(
+          and(eq(messagePrivateLetter.receiverId, userId), eq(messagePrivateLetter.isRead, false)),
+        ),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(eduMessages)
+        .where(
+          and(
+            eq(eduMessages.memberId, userId),
+            eq(eduMessages.isRead, false),
+            eq(eduMessages.msgType, 'system'),
+          ),
+        ),
+    ])
+    const annUnread = unreadAnnRows[0]?.count ?? 0
+    const privUnread = unreadPrivRows[0]?.count ?? 0
+    const sysUnread = unreadSysRows[0]?.count ?? 0
+    return reply.send(
+      success({
+        announcements: announcementsResult.list,
+        privateMessages,
+        systemNotices,
+        unreadCount: {
+          total: annUnread + privUnread + sysUnread,
+          announcements: annUnread,
+          private: privUnread,
+          system: sysUnread,
+        },
+      }),
+    )
+  })
 }
 
 // =============================================================================
