@@ -42,6 +42,7 @@
     "followed": "フォロー中",
     "orderNoLabel": "注文番号",
     "searchPlaceholder": "検索...",
+    "resizeSidebar": "サイドバーの幅を調整",
     "orderStatus": {
       "pending": "未払い",
       "paid": "支払済",
@@ -330,6 +331,8 @@
     "adminLogs": "APIログ",
     "expand": "展開",
     "collapse": "Show less",
+    "language": "言語",
+    "downloadClient": "アプリをダウンロード",
     "wallet": "ウォレット",
     "walletRecharge": "チャージ",
     "walletWithdraw": "出金",

@@ -42,6 +42,7 @@
     "followed": "已關注",
     "orderNoLabel": "訂單號",
     "searchPlaceholder": "搜索...",
+    "resizeSidebar": "調整側邊欄寬度",
     "orderStatus": {
       "pending": "待付款",
       "paid": "已付款",
@@ -330,6 +331,8 @@
     "adminLogs": "API 日誌",
     "expand": "展開",
     "collapse": "Show less",
+    "language": "語言",
+    "downloadClient": "下載客戶端",
     "wallet": "錢包",
     "walletRecharge": "充值",
     "walletWithdraw": "提現",

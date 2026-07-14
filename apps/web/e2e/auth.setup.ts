@@ -12,7 +12,7 @@ import {
  *
  * 使用 API 登录（apiLoginAndSaveStorageState）而非 UI 登录：
  * - 更快、更稳定，绕过邮箱登录的图形验证码（CaptchaCanvas）
- * - 与 src/components/login/EmailLogin.tsx 的 /api/auth/login/email 接口一致
+ * - 与 src/routes/auth.ts 的 /api/auth/login 接口一致
  *
  * 运行方式：
  * - 单独执行 setup：`npx playwright test --project=setup`
