@@ -1,4 +1,5 @@
 import { fetchApi } from '@/lib/api'
+import type { CsMessage } from '@/components/customer-service/MessageBubble'
 
 export type TicketStatus = 'pending' | 'open' | 'resolved' | 'closed' | 'rejected'
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -51,6 +52,25 @@ export interface Agent {
   skills: string[]
   createdAt: string
 }
+
+export interface CsSession {
+  id: string
+  userId: string
+  userName: string
+  userAvatar: string | null
+  lastMessage: string
+  lastTime: string
+  unread: number
+  messages: CsMessage[]
+}
+
+export interface CsStats {
+  onlineAgents: number
+  waiting: number
+  todayProcessed: number
+}
+
+export type SessionsData = { list: CsSession[] } | CsSession[]
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
