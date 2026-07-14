@@ -73,7 +73,6 @@ import {
   updateInvoiceTitle,
   deleteInvoiceTitle,
   findCompanyStudyReport,
-  publishTopic,
   findAllTopics,
   findTopicRowById,
   createTopicRow,
@@ -85,6 +84,10 @@ import {
   createHomeworkRecord,
   findMyHomeworkRecords,
   auditHomeworkRecord,
+  findAllCommunityPosts,
+  createCommunityPost,
+  updateCommunityPost,
+  deleteCommunityPost,
 } from '../db/learn-extended-queries.js'
 import { success, error } from '../utils/response.js'
 
@@ -1229,32 +1232,10 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ map }))
   })
 
-  // ----- Topics (话题发布) -----
-
-  // PUT /learn/topics/:id/publish - 发布话题
-  server.put('/learn/topics/:id/publish', async (request, reply) => {
-    const parsed = idParamSchema.safeParse(request.params)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    await publishTopic(parsed.data.id, true)
-    return reply.send(success({ ok: true }))
-  })
-
-  // PUT /learn/topics/:id/unpublish - 取消发布话题
-  server.put('/learn/topics/:id/unpublish', async (request, reply) => {
-    const parsed = idParamSchema.safeParse(request.params)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    await publishTopic(parsed.data.id, false)
-    return reply.send(success({ ok: true }))
-  })
-
   // ----- Topics CRUD (话题管理 — learn_topic 表) -----
 
-  // GET /learn/topics - 话题列表(分页,支持 search/status 筛选)
-  server.get('/learn/topics', async (request, reply) => {
+  // GET /learn/premium-topics - 话题列表(分页,支持 search/status 筛选)
+  server.get('/learn/premium-topics', async (request, reply) => {
     const parsed = topicListQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1263,8 +1244,8 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result))
   })
 
-  // POST /learn/topics - 创建话题
-  server.post('/learn/topics', async (request, reply) => {
+  // POST /learn/premium-topics - 创建话题
+  server.post('/learn/premium-topics', async (request, reply) => {
     const parsed = createTopicSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1273,8 +1254,8 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ topic }))
   })
 
-  // PUT /learn/topics/:id - 更新话题
-  server.put('/learn/topics/:id', async (request, reply) => {
+  // PUT /learn/premium-topics/:id - 更新话题
+  server.put('/learn/premium-topics/:id', async (request, reply) => {
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -1291,8 +1272,8 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ topic }))
   })
 
-  // DELETE /learn/topics/:id - 删除话题
-  server.delete('/learn/topics/:id', async (request, reply) => {
+  // DELETE /learn/premium-topics/:id - 删除话题
+  server.delete('/learn/premium-topics/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1302,6 +1283,71 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '话题不存在'))
     }
     await deleteTopicRow(parsed.data.id)
+    return reply.send(success({ ok: true }))
+  })
+
+  // ----- Community Posts (课程讨论帖) -----
+
+  const communityListQuerySchema = z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(10),
+    search: z.string().optional(),
+    status: z.string().optional(),
+  })
+  const createCommunitySchema = z.object({
+    title: z.string().min(1).max(200),
+    content: z.string().nullable().optional(),
+    lessonId: z.string().uuid().nullable().optional(),
+    status: z.string().max(20).optional(),
+    isPinned: z.boolean().optional(),
+  })
+  const updateCommunitySchema = createCommunitySchema.partial()
+
+  server.get('/learn/community', async (request, reply) => {
+    const parsed = communityListQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await findAllCommunityPosts(parsed.data)
+    return reply.send(success(result))
+  })
+
+  server.post('/learn/community', async (request, reply) => {
+    const parsed = createCommunitySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const row = await createCommunityPost({
+      userId: request.userId!,
+      title: parsed.data.title,
+      content: parsed.data.content ?? null,
+      lessonId: parsed.data.lessonId ?? null,
+      status: parsed.data.status,
+      isPinned: parsed.data.isPinned,
+    })
+    return reply.send(success(row))
+  })
+
+  server.put('/learn/community/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = updateCommunitySchema.safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const row = await updateCommunityPost(parsed.data.id, body.data)
+    if (!row) return reply.status(404).send(error(404, '讨论帖不存在'))
+    return reply.send(success(row))
+  })
+
+  server.delete('/learn/community/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    await deleteCommunityPost(parsed.data.id)
     return reply.send(success({ ok: true }))
   })
 

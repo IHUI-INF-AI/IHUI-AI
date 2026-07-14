@@ -10,6 +10,7 @@ import {
   completeOrder,
   cancelOrder,
   refundOrder,
+  activateOrderSubscription,
 } from '../services/order-service.js'
 import { feedbackInvite } from '../services/commission-service.js'
 import {
@@ -194,6 +195,11 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         const result = await completeOrder(out_trade_no, transaction_id)
         // 支付成功后触发返佣（失败不阻塞支付完成）
         if (result.success && result.order) {
+          try {
+            await activateOrderSubscription(result.order)
+          } catch (ae) {
+            request.log.warn({ err: ae, orderNo: out_trade_no }, 'subscription activation failed')
+          }
           try {
             const tokenQuantity = await getBalance(result.order.userId)
             await feedbackInvite(
@@ -400,6 +406,11 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         const result = await completeOrder(outTradeNo, params.trade_no)
         // 支付成功后触发返佣（失败不阻塞支付完成）
         if (result.success && result.order) {
+          try {
+            await activateOrderSubscription(result.order)
+          } catch (ae) {
+            request.log.warn({ err: ae, orderNo: outTradeNo }, 'subscription activation failed')
+          }
           try {
             const tokenQuantity = await getBalance(result.order.userId)
             await feedbackInvite(
