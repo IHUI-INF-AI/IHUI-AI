@@ -4,7 +4,6 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { useTheme } from 'next-themes'
 import {
   Home,
   MessageSquare,
@@ -43,27 +42,15 @@ import {
   KeyRound,
   Newspaper,
   GraduationCap,
-  Sun,
-  Moon,
-  Bell,
   Download,
 } from 'lucide-react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useLanguageStore, type Language } from '@/stores/language'
-import { useLoginDialogStore } from '@/stores/login-dialog'
 import { Avatar } from '@/components/data/Avatar'
 import { Tooltip, TooltipProvider, Dropdown, Popover } from '@/components/feedback'
-import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
-import {
-  getNotifications,
-  getUnreadCount,
-  markAllNotificationsRead,
-  type NotificationItem,
-} from '@/lib/notification-api'
 
 interface NavItem {
   href: string
@@ -184,23 +171,6 @@ const DOWNLOADS = [
   { label: '桌面端', href: '/download/desktop' },
 ]
 
-function mapNotifType(type: string): NoticeItem['type'] {
-  switch (type) {
-    case 'order':
-      return 'success'
-    case 'mention':
-      return 'warning'
-    default:
-      return 'info'
-  }
-}
-
-async function unwrap<T>(p: Promise<{ success: boolean; data?: T; error?: string }>): Promise<T> {
-  const r = await p
-  if (!r.success) throw new Error(r.error)
-  return r.data as T
-}
-
 interface SidebarProps {
   collapsed: boolean
   onToggleCollapse: () => void
@@ -209,15 +179,9 @@ interface SidebarProps {
   onCloseMobile: () => void
 }
 
-/** 侧边栏底部工具栏:搜索 / 语言 / 主题 / 下载客户端 */
+/** 侧边栏底部工具栏:语言 / 下载客户端（搜索与主题切换由 Header 承载，避免重复） */
 function SidebarActions({ collapsed }: { collapsed: boolean }) {
-  const tc = useTranslations('common')
-  const th = useTranslations('header')
-  const router = useRouter()
-  const { theme, setTheme } = useTheme()
   const { locale, setLocale } = useLanguageStore()
-  const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => setMounted(true), [])
 
   const handleLocaleChange = (code: Language) => {
     document.cookie = `locale=${code};path=/;max-age=31536000`
@@ -235,18 +199,6 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           collapsed ? 'flex-col items-center' : 'flex-row justify-center',
         )}
       >
-        <Tooltip content={tc('search')}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={btnClass}
-            title={collapsed ? tc('search') : undefined}
-            onClick={() => router.push('/search')}
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-        </Tooltip>
-
         <Popover
           position="top"
           content={
@@ -285,22 +237,6 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           </Button>
         </Popover>
 
-        <Tooltip content={th('toggleTheme')}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={btnClass}
-            title={collapsed ? th('toggleTheme') : undefined}
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          >
-            {mounted && theme === 'dark' ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
-          </Button>
-        </Tooltip>
-
         <Popover
           position="top"
           content={
@@ -331,7 +267,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   )
 }
 
-/** 侧边栏底部用户区:头像 + 用户名 + 通知铃铛 + 下拉菜单(profile/settings/logout) */
+/** 侧边栏底部用户区:头像 + 用户名 + 下拉菜单(profile/settings/logout)。未登录态不渲染(Header 已有登录入口)。 */
 function SidebarUserRow({
   collapsed,
   onCloseMobile,
@@ -341,79 +277,17 @@ function SidebarUserRow({
 }) {
   const t = useTranslations('nav')
   const tc = useTranslations('common')
-  const th = useTranslations('header')
   const router = useRouter()
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const logout = useAuthStore((s) => s.logout)
-  const openLogin = useLoginDialogStore((s) => s.open)
-
-  const qc = useQueryClient()
-  const { data: notifData } = useQuery({
-    queryKey: ['sidebar', 'notifications'],
-    queryFn: () => unwrap(getNotifications({ page: 1, pageSize: 10 })),
-    staleTime: 30 * 1000,
-  })
-  const { data: unreadData } = useQuery({
-    queryKey: ['sidebar', 'unread-count'],
-    queryFn: () => unwrap(getUnreadCount()),
-    staleTime: 30 * 1000,
-  })
-  const notices: NoticeItem[] = ((notifData?.list ?? []) as unknown as NotificationItem[]).map(
-    (n) => ({
-      id: n.id,
-      title: n.title,
-      description: n.content || undefined,
-      type: mapNotifType(n.type),
-      read: n.isRead,
-      createdAt: n.createdAt,
-    }),
-  )
-  const unread = unreadData?.notification ?? 0
-  const markAllMut = useMutation({
-    mutationFn: () => unwrap(markAllNotificationsRead()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['sidebar', 'unread-count'] })
-      qc.invalidateQueries({ queryKey: ['sidebar', 'notifications'] })
-    },
-  })
 
   const handleLogout = () => {
     logout()
     router.push('/login')
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="px-2 pb-2">
-        {collapsed ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 w-full"
-            title={tc('login')}
-            onClick={() => {
-              openLogin()
-              onCloseMobile()
-            }}
-          >
-            <User className="h-4 w-4" />
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => {
-              openLogin()
-              onCloseMobile()
-            }}
-          >
-            {tc('login')}
-          </Button>
-        )}
-      </div>
-    )
-  }
+  if (!isAuthenticated) return null
 
   return (
     <div className="px-2 pb-2">
@@ -476,45 +350,7 @@ function SidebarUserRow({
           }
         />
         {!collapsed && (
-          <>
-            <span className="flex-1 truncate text-sm font-medium">{user?.nickname ?? 'User'}</span>
-            <Popover
-              position="top"
-              content={
-                <div className="w-80">
-                  <NotificationCenter
-                    items={notices}
-                    onMarkAllRead={unread > 0 ? () => markAllMut.mutate() : undefined}
-                    onItemClick={() => {
-                      router.push('/notifications')
-                      onCloseMobile()
-                    }}
-                  />
-                  <div className="border-t p-2 text-center">
-                    <Link
-                      href="/notifications"
-                      onClick={onCloseMobile}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      {th('viewAll')}
-                    </Link>
-                  </div>
-                </div>
-              }
-            >
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative h-7 w-7 shrink-0"
-                title={th('notifications')}
-              >
-                <Bell className="h-4 w-4" />
-                {unread > 0 && (
-                  <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-red-500" />
-                )}
-              </Button>
-            </Popover>
-          </>
+          <span className="flex-1 truncate text-sm font-medium">{user?.nickname ?? 'User'}</span>
         )}
       </div>
     </div>
