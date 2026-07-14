@@ -67,7 +67,7 @@ async function loginAndSaveStorageState(
 
 /**
  * 通过 API 直接登录（更快，不经过 UI，绕过验证码）。
- * 调用真实接口 /api/auth/login/email，将 accessToken 写入 cookie。
+ * 调用真实接口 /api/auth/login，将 accessToken 写入 cookie。
  */
 async function apiLoginAndSaveStorageState(
   request: APIRequestContext,
@@ -75,9 +75,9 @@ async function apiLoginAndSaveStorageState(
   credentials: Credentials,
   storageStatePath: string,
 ) {
-  const response = await request.post(`${baseURL}/api/auth/login/email`, {
+  const response = await request.post(`${baseURL}/api/auth/login`, {
     data: {
-      email: credentials.email,
+      account: credentials.email,
       password: credentials.password,
     },
   })
