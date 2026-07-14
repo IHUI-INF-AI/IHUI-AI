@@ -32,8 +32,14 @@ export default function DistributionTeam() {
     setLoading(true)
     try {
       const res = await getDistributionTeam({ page: pageRef.current, pageSize: PAGE_SIZE })
-      const items = res.list || []
-      setList(prev => (reset ? items : [...prev, ...items]))
+      const items = (res.list || []).map((u): TeamMember => ({
+        id: u.id,
+        nickname: u.nickname || u.username,
+        avatar: u.avatar ?? undefined,
+        joinTime: u.createdAt,
+        level: 1,
+      }))
+      setList((prev) => (reset ? items : [...prev, ...items]))
       hasMoreRef.current = pageRef.current * PAGE_SIZE < res.total
       pageRef.current++
     } catch {
@@ -56,7 +62,7 @@ export default function DistributionTeam() {
     <View className="min-h-screen bg-[#f7f8fa]">
       {list.length > 0 && (
         <View className="p-[12px]">
-          {list.map(m => (
+          {list.map((m) => (
             <View
               key={m.id}
               className="flex items-center bg-white p-[12px] mb-[12px] rounded-[8px]"
@@ -68,7 +74,9 @@ export default function DistributionTeam() {
               />
               <View className="flex-1 ml-[12px]">
                 <Text className="block text-[14px] text-[#333]">{m.nickname}</Text>
-                <Text className="block text-[12px] text-[#999] mt-[4px]">加入时间：{m.joinTime}</Text>
+                <Text className="block text-[12px] text-[#999] mt-[4px]">
+                  加入时间：{m.joinTime}
+                </Text>
               </View>
               <Text className="text-[14px] text-[#ff6b35] font-semibold">V{m.level}</Text>
             </View>
