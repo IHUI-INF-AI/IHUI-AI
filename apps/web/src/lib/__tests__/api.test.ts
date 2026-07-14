@@ -40,6 +40,7 @@ describe('fetchApi', () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 500,
+      headers: new Headers(),
       text: async () => '服务器错误',
     }) as unknown as typeof fetch
 
@@ -52,6 +53,7 @@ describe('fetchApi', () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 404,
+      headers: new Headers(),
       text: async () => {
         throw new Error('read fail')
       },
