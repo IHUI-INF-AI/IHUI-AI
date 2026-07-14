@@ -1,4 +1,4 @@
-﻿import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { AgentRule, ListData, RuleParam, RuleForm } from './types'
 
@@ -42,3 +42,22 @@ export function badgeCls(enabled: boolean) {
 export function dotCls(enabled: boolean) {
   return cn('h-1.5 w-1.5 rounded-full', enabled ? 'bg-emerald-500' : 'bg-muted-foreground')
 }
+
+export const RULES_EXPORT_COLS = [
+  { key: 'id', title: 'ID' },
+  { key: 'agentId', title: 'Agent ID' },
+  { key: 'ruleName', title: '名称' },
+  { key: 'ruleCode', title: '编码' },
+  { key: 'ruleType', title: '类型' },
+  { key: 'priority', title: '优先级' },
+  { key: 'status', title: '状态' },
+] as const
+
+export const PARAMS_EXPORT_COLS = [
+  { key: 'id', title: 'ID' },
+  { key: 'ruleId', title: 'Rule ID' },
+  { key: 'name', title: '名称' },
+  { key: 'paramKey', title: 'Key' },
+  { key: 'paramValue', title: 'Value' },
+  { key: 'paramType', title: '类型' },
+] as const
