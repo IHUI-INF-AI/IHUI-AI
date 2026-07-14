@@ -4,34 +4,24 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import { Plus, Download, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Download } from 'lucide-react'
 import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
 import { exportFromApi } from '@/lib/export-utils'
 
 import { AgentRuleForm } from './AgentRuleForm'
 import { RulesTable } from './RulesTable'
 import { ParamsTable } from './ParamsTable'
-import { PAGE_SIZE, EMPTY_FORM, api, fetchRules, fetchRuleParams } from './helpers'
+import { Pagination } from './Pagination'
+import {
+  PAGE_SIZE,
+  EMPTY_FORM,
+  api,
+  fetchRules,
+  fetchRuleParams,
+  RULES_EXPORT_COLS,
+  PARAMS_EXPORT_COLS,
+} from './helpers'
 import type { AgentRule, RuleParam, RuleForm } from './types'
-
-const RULES_EXPORT_COLS = [
-  { key: 'id', title: 'ID' },
-  { key: 'agentId', title: 'Agent ID' },
-  { key: 'ruleName', title: '名称' },
-  { key: 'ruleCode', title: '编码' },
-  { key: 'ruleType', title: '类型' },
-  { key: 'priority', title: '优先级' },
-  { key: 'status', title: '状态' },
-] as const
-
-const PARAMS_EXPORT_COLS = [
-  { key: 'id', title: 'ID' },
-  { key: 'ruleId', title: 'Rule ID' },
-  { key: 'name', title: '名称' },
-  { key: 'paramKey', title: 'Key' },
-  { key: 'paramValue', title: 'Value' },
-  { key: 'paramType', title: '类型' },
-] as const
 
 export default function AgentRulesPage() {
   const t = useTranslations('admin.agentRules')
@@ -211,34 +201,12 @@ export default function AgentRulesPage() {
             onDelete={handleDeleteRule}
             deletePending={deleteRuleMut.isPending}
           />
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              {t('total', { total: rulesTotal })}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                {t('prev')}
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                {t('pageInfo', { page: currentPage, totalPages: rulesTotalPages })}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage >= rulesTotalPages}
-                onClick={() => setCurrentPage((p) => p + 1)}
-              >
-                {t('next')}
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <Pagination
+            page={currentPage}
+            totalPages={rulesTotalPages}
+            total={rulesTotal}
+            setPage={setCurrentPage}
+          />
         </TabsContent>
 
         <TabsContent value="params" className="space-y-4">
@@ -255,34 +223,12 @@ export default function AgentRulesPage() {
             onDelete={handleDeleteParam}
             deletePending={deleteParamMut.isPending}
           />
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              {t('total', { total: paramsTotal })}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                {t('prev')}
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                {t('pageInfo', { page: currentPage, totalPages: paramsTotalPages })}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage >= paramsTotalPages}
-                onClick={() => setCurrentPage((p) => p + 1)}
-              >
-                {t('next')}
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <Pagination
+            page={currentPage}
+            totalPages={paramsTotalPages}
+            total={paramsTotal}
+            setPage={setCurrentPage}
+          />
         </TabsContent>
       </Tabs>
     </div>
