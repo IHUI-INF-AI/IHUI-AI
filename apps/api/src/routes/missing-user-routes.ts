@@ -129,7 +129,6 @@ import {
   updateDeveloperApplicationStatus,
 } from '../db/developer-queries.js'
 import { findMyMember } from '../db/my-member-queries.js'
-import { findLiveCalendar } from '../db/live-calendar-queries.js'
 import { findCozeChatHistory } from '../db/coze-chat-queries.js'
 import { listVipLevels } from '../db/vip-queries.js'
 import { isAlipayConfigured, buildSignedUrl } from '../services/alipay.js'
@@ -1755,20 +1754,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ member }))
   })
 
-  server.get('/live/calendar', async (request, reply) => {
-    const q = parsePagination(request, reply)
-    if (!q) return
-    const query = request.query as { startDate?: string; endDate?: string } | null
-    const result = await findLiveCalendar({
-      page: q.page,
-      pageSize: q.pageSize,
-      startDate: query?.startDate ? new Date(query.startDate) : undefined,
-      endDate: query?.endDate ? new Date(query.endDate) : undefined,
-    })
-    return reply.send(
-      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
-    )
-  })
+  // 注意:GET /api/live/calendar 已在 live.ts 中以增强版注册(月度参数+按日分组),此处不重复
 
   server.get('/coze/chat/history/:botId/:conversationId', async (request, reply) => {
     const { botId, conversationId } = botConversationParam.parse(request.params)
