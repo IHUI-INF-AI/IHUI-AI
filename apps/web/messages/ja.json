@@ -6204,7 +6204,8 @@
       "statsFollowing": "済みフォロー",
       "statsFollowers": "フォロワー",
       "statsFavorites": "お気に入り",
-      "bioEmpty": "説明なし"
+      "bioEmpty": "説明なし",
+      "sendMessage": "メッセージを送信"
     },
     "realname": {
       "title": "実名認証",
@@ -6270,7 +6271,15 @@
       "alipay": "Alipay",
       "renewNow": "今すぐ更新",
       "openNow": "今すぐ登録",
-      "days": "日"
+      "days": "日間"
+    },
+    "articles": {
+      "title": "私の記事",
+      "total": "全 {n} 件",
+      "create": "新規記事",
+      "createFirst": "最初の一編を書く",
+      "empty": "まだ記事がありません",
+      "deleteSuccess": "削除しました"
     }
   },
   "settings": {
@@ -9526,6 +9535,7 @@
       "placeholder": "メッセージを入力..."
     },
     "send": "送信",
+    "loadMore": "もっと見る",
     "error": "送信に失敗しました",
     "subtitle": "他のユーザーとの1対1メッセージ",
     "loading": "読み込み中...",
@@ -9642,7 +9652,8 @@
     "titleRequired": "标题不能为空",
     "contentRequired": "内容不能为空",
     "cancel": "取消",
-    "publish": "发布"
+    "publish": "发布",
+    "save": "保存"
   },
   "myAsks": {
     "title": "我的问答",

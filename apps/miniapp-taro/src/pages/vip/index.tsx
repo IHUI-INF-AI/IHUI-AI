@@ -1,24 +1,38 @@
 import { View, Text, Button } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { useDidShow } from '@tarojs/taro'
 import { getVipInfo, getVipPrivilege, upgradeVip, type VipInfo } from '@/api'
+import {
+  VipBenefitsPopup,
+  VipUpgradeToast,
+  VipPriceSelector,
+  VipPayConfirm,
+  type VipBenefit,
+  type PriceOption,
+} from '@/components'
 import './index.css'
 
 const gradient = 'linear-gradient(135deg, #f8d486, #f2b04a)'
 
 export default function VipIndexPage() {
   const [info, setInfo] = useState<VipInfo>({} as VipInfo)
-  const [privileges, setPrivileges] = useState<Array<{ id: string; title: string; desc: string }>>(
-    [],
-  )
-  const [selected, setSelected] = useState(3)
+  const [benefits, setBenefits] = useState<VipBenefit[]>([])
+  const [selectedPlan, setSelectedPlan] = useState<PriceOption | null>(null)
+  const [showBenefits, setShowBenefits] = useState(false)
+  const [showPayConfirm, setShowPayConfirm] = useState(false)
+  const [showUpgradeToast, setShowUpgradeToast] = useState(false)
+  const [payMethod, setPayMethod] = useState<'wechat' | 'alipay'>('wechat')
 
   const load = useCallback(async () => {
     try {
       const [i, p] = await Promise.all([getVipInfo(), getVipPrivilege()])
       setInfo(i)
-      setPrivileges(p.list || [])
+      const list = (p.list || []).map((item) => ({
+        id: String(item.id),
+        title: item.title,
+        desc: item.desc,
+      })) as VipBenefit[]
+      setBenefits(list)
     } catch (e) {
       console.error('[vip/index] 获取VIP信息 failed:', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
@@ -29,15 +43,36 @@ export default function VipIndexPage() {
     Taro.navigateTo({ url: '/pages/vip/privilege' })
   }, [])
 
-  const onUpgrade = useCallback(async () => {
+  const onSelectPlan = useCallback((opt: PriceOption) => {
+    setSelectedPlan(opt)
+  }, [])
+
+  const onUpgradeClick = useCallback(() => {
+    if (!selectedPlan) {
+      Taro.showToast({ title: '请先选择套餐', icon: 'none' })
+      return
+    }
+    setShowPayConfirm(true)
+  }, [selectedPlan])
+
+  const onConfirmPay = useCallback(async () => {
+    if (!selectedPlan) return
+    setShowPayConfirm(false)
     try {
-      const res = await upgradeVip(selected)
-      Taro.navigateTo({ url: `/pages/pay/index?orderNo=${res.orderNo}` })
+      const res = await upgradeVip(Number(selectedPlan.id))
+      setShowUpgradeToast(true)
+      setTimeout(() => {
+        Taro.navigateTo({ url: `/pages/pay/index?orderNo=${res.orderNo}` })
+      }, 1500)
     } catch (e) {
       console.error('[vip/index] 开通VIP failed:', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
-  }, [selected])
+  }, [selectedPlan])
+
+  const onBenefitsClick = useCallback(() => {
+    setShowBenefits(true)
+  }, [])
 
   useDidShow(load)
 
@@ -55,33 +90,83 @@ export default function VipIndexPage() {
       <View className="card">
         <View className="card-title">VIP特权</View>
         <View className="grid">
-          {privileges.map((p) => (
-            <View key={p.id} className="grid-item" onClick={goPrivilege}>
+          {benefits.slice(0, 8).map((p) => (
+            <View key={p.id} className="grid-item" onClick={onBenefitsClick}>
               <View className="gicon">★</View>
               <Text className="gtext">{p.title}</Text>
             </View>
           ))}
         </View>
+        <View className="more-btn" onClick={onBenefitsClick}>
+          <Text>查看全部权益 ›</Text>
+        </View>
       </View>
 
       <View className="card">
         <View className="card-title">开通套餐</View>
-        <View className="plans">
-          {[1, 2, 3].map((lv) => (
-            <View
-              key={lv}
-              className={`plan${selected === lv ? ' active' : ''}`}
-              onClick={() => setSelected(lv)}
-            >
-              <Text className="plan-name">{['月度', '季度', '年度'][lv - 1]}VIP</Text>
-              <Text className="plan-price">¥{[19, 49, 158][lv - 1]}</Text>
-            </View>
-          ))}
-        </View>
-        <Button className="btn" onClick={onUpgrade}>
-          立即开通
+        <VipPriceSelector
+          options={[
+            { id: '1', name: '月度', price: 19, period: '1个月' },
+            {
+              id: '2',
+              name: '季度',
+              price: 49,
+              originalPrice: 57,
+              period: '3个月',
+              popular: true,
+              discount: '8.6折',
+            },
+            {
+              id: '3',
+              name: '年度',
+              price: 158,
+              originalPrice: 228,
+              period: '12个月',
+              discount: '6.9折',
+            },
+          ]}
+          selectedId={selectedPlan?.id || '3'}
+          onSelect={onSelectPlan}
+        />
+        <Button className="btn" onClick={onUpgradeClick}>
+          立即开通{selectedPlan ? ` ¥${selectedPlan.price}` : ''}
         </Button>
       </View>
+
+      <View className="card">
+        <View className="card-title">会员说明</View>
+        <Text className="desc-text">
+          · 会员有效期内在所有终端通用{'\n'}· 自动续费可随时取消{'\n'}· 已支付订单不支持退款
+        </Text>
+      </View>
+
+      <VipBenefitsPopup
+        visible={showBenefits}
+        benefits={benefits}
+        onUpgrade={() => {
+          setShowBenefits(false)
+          setShowPayConfirm(true)
+        }}
+        onClose={() => setShowBenefits(false)}
+      />
+
+      <VipPayConfirm
+        visible={showPayConfirm}
+        planName={selectedPlan ? `${selectedPlan.name}VIP` : '会员'}
+        price={selectedPlan?.price}
+        originalPrice={selectedPlan?.originalPrice}
+        paymentMethod={payMethod}
+        onConfirm={onConfirmPay}
+        onCancel={() => setShowPayConfirm(false)}
+        onMethodChange={setPayMethod}
+      />
+
+      <VipUpgradeToast
+        visible={showUpgradeToast}
+        desc="VIP 开通成功，特权已激活"
+        onClose={() => setShowUpgradeToast(false)}
+        onUpgrade={goPrivilege}
+      />
     </View>
   )
 }

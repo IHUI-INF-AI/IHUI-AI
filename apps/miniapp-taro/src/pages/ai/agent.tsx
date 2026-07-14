@@ -1,64 +1,124 @@
-import { View, Text, Input, Image } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import { View, Text } from '@tarojs/components'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
-import { useDidShow } from '@tarojs/taro'
 import { getAgentList } from '@/api'
+import {
+  AgentListPanel,
+  SearchBar,
+  ModelTypeButtonGroup,
+  ModelConfigDialog,
+  BottomActionBar,
+  EmptyState,
+  type AgentInfo as AgentItem,
+  type ModelConfig,
+  type ModelType,
+} from '@/components'
 import './agent.css'
 
-interface Agent {
-  id: string
-  name: string
-  desc: string
-  avatar?: string
-  uses: number
-}
-
 export default function AgentPage() {
-  const [list, setList] = useState<Agent[]>([])
+  const [list, setList] = useState<AgentItem[]>([])
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
+  const [activeType, setActiveType] = useState<ModelType | ''>('')
+  const [showConfig, setShowConfig] = useState(false)
+  const [config, setConfig] = useState<ModelConfig>({
+    temperature: 0.7,
+    maxTokens: 2048,
+    streamEnabled: true,
+  })
 
   const filtered = useMemo(() => {
-    if (!keyword) return list
-    return list.filter(a => a.name.includes(keyword) || a.desc.includes(keyword))
-  }, [list, keyword])
+    let arr = list
+    if (activeType) {
+      arr = arr.filter((a) => (a.category || '').toLowerCase().includes(activeType))
+    }
+    if (keyword) {
+      const kw = keyword.toLowerCase()
+      arr = arr.filter(
+        (a) =>
+          (a.name || '').toLowerCase().includes(kw) || (a.desc || '').toLowerCase().includes(kw),
+      )
+    }
+    return arr
+  }, [list, keyword, activeType])
 
   const load = useCallback(async () => {
-    try { setList((await getAgentList()).list || []) } finally { setLoading(false) }
+    try {
+      const res = await getAgentList()
+      const arr = (res.list || []).map((a: AgentItem) => ({
+        id: String(a.id),
+        name: a.name,
+        desc: a.desc,
+        avatar: a.avatar,
+        category: a.category,
+        uses: a.uses,
+      })) as AgentItem[]
+      setList(arr)
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   const goDetail = useCallback((id: string) => {
     Taro.navigateTo({ url: `/pages/ai/agent-detail?id=${id}` })
   }, [])
 
+  const onSelectAgent = useCallback(
+    (agent: AgentItem) => {
+      goDetail(agent.id)
+    },
+    [goDetail],
+  )
+
+  const onSendQuery = useCallback(() => {
+    if (!keyword.trim()) return
+    Taro.navigateTo({ url: `/pages/ai/chat?prompt=${encodeURIComponent(keyword)}` })
+  }, [keyword])
+
   useDidShow(load)
 
   return (
     <View className="page">
-      <View className="search-bar">
-        <Input
-          className="search-input"
-          placeholder="搜索Agent"
+      <View className="bg-white pb-2 sticky top-0 z-10">
+        <SearchBar
           value={keyword}
-          onInput={e => setKeyword(e.detail.value)}
+          placeholder="搜索 Agent / 提问"
+          onInput={setKeyword}
+          onSearch={onSendQuery}
+          onClear={() => setKeyword('')}
+        />
+        <ModelTypeButtonGroup activeType={activeType} onSelect={(t) => setActiveType(t)} />
+      </View>
+
+      {filtered.length ? (
+        <View className="px-3 py-2">
+          <Text className="block text-xs text-gray-400 mb-2">{filtered.length} 个智能体</Text>
+          <AgentListPanel visible agents={filtered} loading={loading} onSelect={onSelectAgent} />
+        </View>
+      ) : (
+        <EmptyState text={keyword || activeType ? '未找到匹配的智能体' : '暂无智能体'} />
+      )}
+
+      <View className="h-20" />
+
+      <View className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100">
+        <BottomActionBar
+          value={keyword}
+          onInput={setKeyword}
+          onSend={onSendQuery}
+          onAttach={() => setShowConfig(true)}
+          placeholder="输入问题或选择 Agent"
         />
       </View>
-      {filtered.length ? (
-        <View className="list">
-          {filtered.map(a => (
-            <View key={a.id} className="item" onClick={() => goDetail(a.id)}>
-              <Image className="avatar" src={a.avatar || '/static/default-agent.png'} mode="aspectFill" />
-              <View className="body">
-                <Text className="name">{a.name}</Text>
-                <Text className="desc">{a.desc}</Text>
-                <Text className="uses">{a.uses}次使用</Text>
-              </View>
-              <Text className="arrow">›</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-      {!loading && !filtered.length ? <View className="empty"><Text>暂无Agent</Text></View> : null}
+
+      <ModelConfigDialog
+        visible={showConfig}
+        config={config}
+        onChange={setConfig}
+        onClose={() => setShowConfig(false)}
+      />
     </View>
   )
 }
