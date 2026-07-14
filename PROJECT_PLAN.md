@@ -41,6 +41,8 @@
 - [x] ✅(2026-07-14) 验证: @ihui/api typecheck 0 错误 / @ihui/web typecheck 0 错误 / @ihui/database typecheck 0 错误 / @ihui/miniapp-taro typecheck 0 错误 / @ihui/api lint 0 错误 / @ihui/api test 2849/2855 通过(99.79%, 6 失败均为 pre-existing 跨模块遗留问题)
 - [x] ✅(2026-07-14) /goal 状态文件: .trae-cn/goal-runtime/STATE.md + loop-run-log.md 完整记录 7 轮执行 + 评估; 收尾后按 AGENTS.md 规则删除, 关键结论整合到 PROJECT_PLAN.md 本条目
 - [x] ✅(2026-07-14) 残留未提交: MIGRATION_GAP_ANALYSIS.md(+304)+ PROJECT_PLAN.md(+44)+ missing-user-routes.ts(我修复的路由冲突) + 4 个 staged 前端文件(admin/users/*) + 1 untracked apps/miniapp-taro/src/static/(4 张 PNG 静态资源: logo.png 887KB 真实 + default-agent/avatar/share 3 张 334 字节最小透明 PNG 占位)
+- [x] ✅(2026-07-14) 最终交付(本轮收尾):route 冲突修复后再核验 — `pnpm --filter @ihui/api typecheck` 退出码 0;`npx vitest run tests/_server-smoke.test.ts` 1/1 通过(`buildServer() can start without route conflicts 6198ms` 绿);按 AGENTS.md 第 9 节"整合与清理"删除 STATE.md(已前轮删除)/loop-run-log.md + 清理 .trae-cn/goal-runtime/ 残留 3 个 commit-msg.txt + 1 个 verification-report.md(均非例外白名单文件,违反"不得新建计划/审计文档"规则);目录保留供下次 goal 复用
+- [x] ✅(2026-07-14) 收尾状态: 目标 achieved; 无后续建议; 完美细致完整收尾; 关闭对话
 
 ### 前端问题修复（2026-07-11 全面审计）
 
