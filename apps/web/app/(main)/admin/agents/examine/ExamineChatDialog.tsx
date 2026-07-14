@@ -135,7 +135,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
       <DialogContent className="max-w-3xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>
-            {t('chatDialogTitle', { name: target?.agentName || target?.agentId })}
+            {t('chatDialogTitle', { name: target?.agentName || target?.agentId || '' })}
           </DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 h-[450px]">

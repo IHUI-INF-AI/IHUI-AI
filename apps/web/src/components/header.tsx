@@ -60,6 +60,8 @@ export function Header({ onMenuClick }: HeaderProps) {
     queryKey: ['announcements'],
     queryFn: () => api<{ list: Announcement[] }>('/api/announcements').then((d) => d.list ?? []),
     staleTime: 5 * 60 * 1000,
+    enabled: isAuthenticated,
+    retry: false,
   })
   const hasUnread = announcements.some((a) => !a.isRead)
 
@@ -68,11 +70,15 @@ export function Header({ onMenuClick }: HeaderProps) {
     queryKey: ['header', 'notifications'],
     queryFn: () => unwrap(getNotifications({ page: 1, pageSize: 10 })),
     staleTime: 30 * 1000,
+    enabled: isAuthenticated,
+    retry: false,
   })
   const { data: unreadData } = useQuery({
     queryKey: ['header', 'unread-count'],
     queryFn: () => unwrap(getUnreadCount()),
     staleTime: 30 * 1000,
+    enabled: isAuthenticated,
+    retry: false,
   })
   const headerNotices: NoticeItem[] = (
     (notifData?.list ?? []) as unknown as NotificationItem[]

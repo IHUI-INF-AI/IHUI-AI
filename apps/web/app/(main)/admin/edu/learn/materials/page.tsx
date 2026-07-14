@@ -228,7 +228,7 @@ export default function EduLearnMaterialsPage() {
                         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
                       )}
                     >
-                      {TYPE_MAP[m.type] ? t(TYPE_MAP[m.type]) : m.type}
+                      {TYPE_MAP[m.type] ? t(TYPE_MAP[m.type] as string) : m.type}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5">

@@ -79,6 +79,7 @@ import {
 } from '../db/skills-queries.js'
 import {
   findUserPreferences,
+  upsertUserPreference,
   deleteUserPreferencesByGroup,
 } from '../db/user-preferences-queries.js'
 import { findSecurityLogs } from '../db/security-logs-queries.js'
@@ -647,6 +648,54 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ settings }))
   })
 
+  server.put('/settings/notifications', async (request, reply) => {
+    const body = (request.body as Record<string, unknown> | null) ?? {}
+    const userId = request.userId!
+    await Promise.all(
+      Object.entries(body).map(([key, value]) =>
+        upsertUserPreference(
+          userId,
+          'notifications',
+          key,
+          value === null || value === undefined ? null : String(value),
+        ),
+      ),
+    )
+    return reply.send(success({ success: true }))
+  })
+
+  server.put('/settings/privacy', async (request, reply) => {
+    const body = (request.body as Record<string, unknown> | null) ?? {}
+    const userId = request.userId!
+    await Promise.all(
+      Object.entries(body).map(([key, value]) =>
+        upsertUserPreference(
+          userId,
+          'privacy',
+          key,
+          value === null || value === undefined ? null : String(value),
+        ),
+      ),
+    )
+    return reply.send(success({ success: true }))
+  })
+
+  server.put('/settings/preferences', async (request, reply) => {
+    const body = (request.body as Record<string, unknown> | null) ?? {}
+    const userId = request.userId!
+    await Promise.all(
+      Object.entries(body).map(([key, value]) =>
+        upsertUserPreference(
+          userId,
+          'preferences',
+          key,
+          value === null || value === undefined ? null : String(value),
+        ),
+      ),
+    )
+    return reply.send(success({ success: true }))
+  })
+
   server.get('/settings/devices', async (request, reply) => {
     const { list, total } = await findUserPreferences(request.userId!, 'devices')
     return reply.send(success({ list, total }))
@@ -662,6 +711,11 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/settings/export', async (request, reply) => {
+    const task = await createExportTask(request.userId!, 'user_data')
+    return reply.send(success({ url: null, exportedAt: null, taskId: task.id }))
+  })
+
+  server.post('/settings/export', async (request, reply) => {
     const task = await createExportTask(request.userId!, 'user_data')
     return reply.send(success({ url: null, exportedAt: null, taskId: task.id }))
   })
@@ -1164,7 +1218,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ fund }))
   })
 
-  server.get('/fund/:code/net-values', async (request, reply) => {
+  server.get('/fund/:code/history', async (request, reply) => {
     const code = codeParam.parse(request.params).code
     if (!code) return reply.status(400).send(error(400, '参数错误'))
     const fund = await findFundByCode(code)
@@ -1316,6 +1370,15 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
+  server.get('/ai-ext/ai-feed/items', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const result = await findAiFeedPosts({ page: q.page, pageSize: q.pageSize, search: q.search })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
+  })
+
   server.get('/ai-feed/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
@@ -1338,9 +1401,9 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 19. Workspace-AI 模块 /workspace-ai/*（2 个端点）
+  // 19. Workspace 模块 /workspace/*（2 个端点）
   // ===========================================================================
-  server.post('/workspace-ai/generate-component', async (request, reply) => {
+  server.post('/workspace/generate-component', async (request, reply) => {
     const body = (request.body as { input?: string; prompt?: string; type?: string } | null) ?? {}
     const task = await createWorkspaceAiTask({
       userId: request.userId!,
@@ -1350,14 +1413,8 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ component: null, code: '', taskId: task.id, status: task.status }))
   })
 
-  server.post('/workspace-ai/agentic', async (request, reply) => {
-    const body = (request.body as { input?: string; prompt?: string; type?: string } | null) ?? {}
-    const task = await createWorkspaceAiTask({
-      userId: request.userId!,
-      type: body.type ?? 'agentic',
-      input: body.input ?? body.prompt ?? null,
-    })
-    return reply.send(success({ result: null, taskId: task.id, status: task.status }))
+  server.get('/workspace/agentic', async (_request, reply) => {
+    return reply.send(success([]))
   })
 
   // ===========================================================================

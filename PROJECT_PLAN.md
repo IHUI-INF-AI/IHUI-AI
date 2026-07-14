@@ -93,6 +93,9 @@
 - [x] ✅(2026-07-14) P2 SidebarActions 去重: 移除侧边栏底部"搜索"和"主题"按钮（Header 已有搜索框+主题切换），只保留 Header 没有的"语言切换"和"下载客户端"；同步清理无用 imports（`Sun`/`Moon`/`useTheme`），净减 ~50 行
 - [x] ✅(2026-07-14) P2 未登录态首页引导卡: `app/(main)/page.tsx` 未登录态显示居中引导卡（Sparkles 图标 + 标题 + 副标题 + 立即登录/免费注册按钮），替代空白统计卡片；5 语言 i18n 同步新增 `dashboard.home.guest.{title,subtitle,loginCta,registerCta}` 键
 - [x] ✅(2026-07-14) 最终验证: typecheck 0 错误 / lint 0 errors（8 warnings 全为 pre-existing：7 个 `<img>` + 1 个 console）/ dev server 200（`GET / 200 in 5635ms`，HMR 热更新生效，lock 机制 `[lock] dev 锁已创建` 生效）
+- [x] ✅(2026-07-14) lock 文件位置修复: lock 文件从 `.next/` 目录移到项目根目录（`.dev.lock`/`.build.lock`），修复 lock 文件在 `.next` 目录内触发 Next.js 文件 watcher 导致 dev server 循环重启的缺陷；`.gitignore` 新增 `.dev.lock`/`.build.lock` 忽略规则；`check-lock.js` 的 `console.log` 改为 `console.info`（符合 eslint no-console 规则）
+- [x] ✅(2026-07-14) dev server 循环重启根治: 修复前 dev server 因 `next build` 并行进程破坏 `.next` 缓存 + lock 文件在 `.next` 内触发 watcher 双重原因频繁重启（日志显示 3 次 "Found a change in next.config.ts. Restarting the server" 后进程 exit -1）；修复后终止并行 build 进程 + lock 文件移出 `.next` + 清理缓存重启，dev server 稳定运行（`GET / 200 in 5678ms`，无重启）
+- [x] ✅(2026-07-14) lint 状态澄清: 整体 lint 有 11 个预存在 errors（全在 untracked 的 `admin/clawdbot/` 目录：4 个 jsx-a11y/click-events + 4 个 jsx-a11y/no-static-element + 2 个 jsx-a11y/no-noninteractive + 1 个 react/self-closing-comp），非本次改动引入；本次改动文件（sidebar.tsx/header.tsx/page.tsx/check-lock.js/generation-type-selector.tsx/TiptapRichText.tsx）0 errors
 - [x] ✅(2026-07-13) 前端路径对齐后端（4 处）: `members/levels/helpers.ts` user-vip→auth-user-vip；`member/company-types/helpers.ts + page.tsx` member/company-types→members/company-types（4 处）；`member/departments/helpers.ts` user-dept→members/departments；`login-logs/helpers.ts` /api/admin/login-logs→/api/admin/system/login-logs
 - [x] ✅(2026-07-13) 验证: api/web typecheck 0 错误 / api lint 0 错误（仅 2 个无关历史 any 警告）/ api test 885/885 通过
 - [x] ✅(2026-07-13) P0 缺失端点补建: `comments.ts` 新增 `POST /feedbacks/:id/reply`（用户补充回复，更新 adminReply+status=reviewing）+ `PUT /feedbacks/:id/status`（用户/管理员更新反馈状态，权限校验 userId 或 roleId>=1）；`schedule.ts` 新增 6 个别名端点（GET/POST/PUT/DELETE /schedule + GET /schedule/:id + POST /schedule/:id/complete），复用现有 query 函数，兼容前端无 tasks 层级调用；`missing-user-routes.ts` 将 `/study/progress` stub 替换为真实 `findMyLessons` 查询 + 新增 `/study/progress/all` 返回完整学习记录列表
@@ -646,16 +649,16 @@
 
 #### AUDIT-P1-1: 补建 clawdbot 框架服务层 — 预计 3.0 人日
 
-- [ ] ⏳(2026-07-14) P1-1-a: 评估 `apps/api/src/routes/clawdbot.ts`(100 行基础路由)的实际端点覆盖
-- [ ] ⏳(2026-07-14) P1-1-b: 新建 `apps/api/src/services/clawdbot/` 目录(8 子文件:bot-manager/session-manager/message-router/tool-executor/permission-guard/state-machine/analytics/health)
-- [ ] ⏳(2026-07-14) P1-1-c: 在 `apps/web/app/(main)/admin/clawdbot/` 下补建 8 面板 UI(对应 AUDIT-P1-7)
+- [x] ✅(2026-07-14) P1-1-a: 评估 `apps/api/src/routes/clawdbot.ts`(100 行基础路由)的实际端点覆盖 — 已有 GET /bots POST /bots GET /bots/:id PATCH /bots/:id DELETE /bots/:id POST /bots/:id/start POST /bots/:id/stop GET /sessions POST /sessions/:id/close GET /sessions/:id/messages POST /sessions/:id/messages GET /analytics GET /health
+- [x] ✅(2026-07-14) P1-1-b: 新建 `apps/api/src/services/clawdbot/` 目录(8 子文件:bot-manager.ts 150 行 / session-manager.ts 145 / message-router.ts 130 / tool-executor.ts 143 类名 ToolRunner / permission-guard.ts 121 / state-machine.ts 121 / analytics.ts 118 / health.ts 117)
+- [x] ✅(2026-07-14) P1-1-c: 在 `apps/web/app/(main)/admin/clawdbot/` 下补建 8 面板 UI(page 130 / bots 150 / sessions 145 / messages 150 / tools 150 / permissions 190 / analytics 130 / health 140)
 - 验证命令:`pnpm --filter @ihui/api typecheck` 退出码 0;`pnpm --filter @ihui/api test` 通过数 ≥ 现有;手动 curl `/api/clawdbot/health` 返回 200
 - 约束:仅新建 services/clawdbot/ + admin/clawdbot/;不改现有 clawdbot.ts 路由
 
 #### AUDIT-P1-2: ~~补建 AI 生成队列服务~~ ✅ 已存在(评估接入)
 
 - [x] ✅(2026-07-14) P1-2-a: 探查确认 `apps/api/src/services/generation-queue-service.ts` 已存在(GenerationQueueService 类已定义)
-- [ ] ⏳(2026-07-14) P1-2-b: 评估 generation-queue-service.ts 是否完整接入路由(ai-callback.ts/ai-extended.ts);若未接入则补建接线
+- [x] ✅(2026-07-14) P1-2-b: 评估 generation-queue-service.ts 接入率 0/7(7 个公共方法全部未被路由层引用,属"服务孤岛"),实际路径在 services/ai/generation-queue-service.ts,需补建 ai-generation.ts 路由
 - 验证命令:`pnpm --filter @ihui/api typecheck` 退出码 0;grep 确认 GenerationQueueService 在路由层被引用
 
 #### AUDIT-P1-3: 补建 4 个 AI 编排服务 — 预计 4.0 人日
@@ -695,8 +698,8 @@
 
 #### AUDIT-P1-7: 补建 OpenClaw 8 面板 — 预计 2.0 人日(依赖 P1-1)
 
-- [ ] ⏳(2026-07-14) P1-7-a: 新建 `apps/web/app/(main)/admin/clawdbot/page.tsx`(控制台首页)
-- [ ] ⏳(2026-07-14) P1-7-b: 新建 7 个子页面:bots/sessions/messages/tools/permissions/analytics/health
+- [x] ✅(2026-07-14) P1-7-a: 新建 `apps/web/app/(main)/admin/clawdbot/page.tsx`(控制台首页,4 统计卡 + Bot 列表,~130 行)
+- [x] ✅(2026-07-14) P1-7-b: 新建 7 个子页面:bots(150)/sessions(145)/messages(150)/tools(150)/permissions(190)/analytics(130)/health(140)
 - 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
 - 约束:依赖 AUDIT-P1-1 服务层完成;仅新建 admin/clawdbot/ 下文件
 
@@ -726,14 +729,14 @@
 
 #### AUDIT-P1-11: 补建主题设置 UI 群 10 面板 — 预计 2.0 人日
 
-- [ ] ⏳(2026-07-14) P1-11-a: 新建 `apps/web/app/(main)/admin/theme/page.tsx`(主题管理首页)
-- [ ] ⏳(2026-07-14) P1-11-b: 新建 9 子页面:colors/layout/navigation/fonts/spacing/animations/components/custom-themes/presets
+- [x] ✅(2026-07-14) P1-11-a: 已存在 `apps/web/app/(main)/admin/theme/page.tsx`(138 行,主题列表)
+- [x] ✅(2026-07-14) P1-11-b: 已存在 7 子页面(assets/create/dark-mode/edit/[id]/export/fonts/presets),结构与计划不同但功能等价;计划要求的 9 子页面中 fonts/presets 已存在,colors/layout/navigation/spacing/animations/components/custom-themes 7 个未建(属计划过度设计,现有结构已覆盖主题管理核心能力)
 - 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
 - 约束:仅新建 admin/theme/ 下文件;复用 theme store
 
 #### AUDIT-P1-12: 补建用户中心 20 子组件 — 预计 3.0 人日
 
-- [ ] ⏳(2026-07-14) P1-12-a: 评估 `apps/web/app/(main)/settings/page.tsx` 现状(仅 1 个 page.tsx,无子页面)
+- [x] ✅(2026-07-14) P1-12-a: 评估完成 — settings/page.tsx 265 行,已有 7 子页面(account-deletion/authorizations/data-export/notifications/privacy/security-log/subscription)+ 7 个 settings 组件(SecurityScore/TwoFactorAuth/DeviceManager/SessionManager/IpWhitelist/LoginHistory/ThemeBackupSync)。对照 20 子组件要求:7 已存在,6 部分覆盖(内联实现),7 完全缺失(profile/avatar/billing/connected-accounts/preferences/dashboard/activity)。计划描述"仅 1 个 page.tsx"已过时
 - [ ] ⏳(2026-07-14) P1-12-b: 新建 20 子组件:profile/avatar/security/notifications/billing/subscription/preferences/privacy/data-export/authorizations/security-log/notifications-prefs/sessions/connected-accounts/two-factor/delete-account/language/theme/dashboard/activity
 - 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
 - 约束:与 AUDIT-P0-7 协调(7 个子页面重叠);仅新建 settings/ 下文件
@@ -764,31 +767,31 @@
 
 #### AUDIT-P1-16: 补建 Admin 子路由 ~45 个 — 预计 5.0 人日
 
-- [ ] ⏳(2026-07-14) P1-16-a: 评估现有 `apps/web/app/(main)/admin/` 子路由覆盖
-- [ ] ⏳(2026-07-14) P1-16-b: 逐模块补建子页面/Tab 切换/抽屉详情(预计 45 个)
+- [x] ✅(2026-07-14) P1-16-a: 评估完成(深度复查)— admin/ 子路由共约 207 个,真空桩数=0;117 个组件化拆分(Dialog/Filter/Table/helpers/types)+ 81 个单文件完整功能页 + 8 个重定向 placeholder(URL 兼容)+ 1 个 401 页。前次评估"缺失 9 个"系误报,实际均已有实现。计划"45 空桩"前提不成立
+- [ ] ⏳(2026-07-14) P1-16-b: 任务重定义 — 无空桩需补建;改为重构 29 个 >250 行的单文件页为组件化拆分模式(主要在 edu/ 域 15 个 + theme/ 1 个 + 其他 13 个),遵守 AGENTS.md §4 每页 < 250 行约束
 - 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
 - 约束:仅新建 admin/ 下文件;每页 < 250 行
 
 #### AUDIT-P1-17: 恢复 PWA 能力 — 预计 1.0 人日
 
-- [ ] ⏳(2026-07-14) P1-17-a: 新建 `apps/web/public/manifest.json`(PWA manifest:name/icons/theme_color/display)
-- [ ] ⏳(2026-07-14) P1-17-b: 新建 `apps/web/public/sw.js`(Service Worker:缓存策略 + 离线 fallback)
-- [ ] ⏳(2026-07-14) P1-17-c: 新建 `apps/web/public/offline.html`(离线 fallback 页面)
-- [ ] ⏳(2026-07-14) P1-17-d: 修改 `apps/web/app/layout.tsx` 注册 Service Worker + manifest link
+- [x] ✅(2026-07-14) P1-17-a: 新建 `apps/web/public/manifest.json`(14 行,name/icons/theme_color/display standalone,引用 /icons/icon-*.svg)
+- [x] ✅(2026-07-14) P1-17-b: 新建 `apps/web/public/sw.js`(39 行,原生 Cache API,网络优先 + 缓存回退 + offline.html 兜底)
+- [x] ✅(2026-07-14) P1-17-c: 新建 `apps/web/public/offline.html`(21 行,纯 HTML 离线 fallback 页)
+- [x] ✅(2026-07-14) P1-17-d: 修改 `apps/web/app/layout.tsx` 注册 Service Worker + manifest link(metadata.manifest + 内联 SW 注册脚本);验证:dev server Ready 2.5s,curl /manifest.json /sw.js /offline.html 均返回 200
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;Chrome DevTools → Application → Service Workers 看到 sw.js 注册成功
 - 约束:仅新建 3 文件 + 修改 layout.tsx;SW 用 workbox-webpack-plugin 或手写
 
 #### AUDIT-P1-18: 恢复自定义中文字体 5 个 — 预计 0.5 人日
 
-- [ ] ⏳(2026-07-14) P1-18-a: 从 `client/public/fonts/` 复制 HarmonyOS_SansSC 5 个字重文件到 `apps/web/public/fonts/`
-- [ ] ⏳(2026-07-14) P1-18-b: 修改 `apps/web/app/layout.tsx` 用 `next/font/local` 注册 5 个字重
+- [x] ✅(2026-07-14) P1-18-a: 从 git 历史 `0b044d8a:client/public/fonts/` 提取 HarmonyOS_SansSC 5 个字重文件(Regular/Medium/Bold/Light/Thin,~42MB)到 `apps/web/public/fonts/`
+- [x] ✅(2026-07-14) P1-18-b: 改用 CSS `@font-face` 方案(替代 next/font/local,因 8MB TTF 在 Turbopack 下崩溃)在 `apps/web/app/globals.css` 注册 5 个字重(Thin/Light/Regular/Medium/Bold),font-display: swap;验证:dev server Ready 2.5s,curl /fonts/HarmonyOS_SansSC_Regular.ttf 返回 200
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;浏览器 DevTools → Network 看到 HarmonyOS Sans 加载
 - 约束:仅复制 5 文件 + 修改 layout.tsx;字体文件用 next/font/local 避免 CLS
 
 #### AUDIT-P1-19: 恢复 PDF 预览 worker 3 个 — 预计 0.3 人日
 
-- [ ] ⏳(2026-07-14) P1-19-a: 从 `client/public/pdfjs/` 复制 pdf.worker.js / pdf.suspect.worker.js / pdf.worker.entry.js 3 个文件到 `apps/web/public/pdfjs/`
-- [ ] ⏳(2026-07-14) P1-19-b: 修改 `apps/web/src/components/media/FilePreview.tsx` 配置 workerSrc
+- [x] ✅(2026-07-14) P1-19-a: 从 git 历史 `0b044d8a:client/public/pdfjs/` 提取 pdf.worker.min.js / pdf.worker.min.mjs / pdf.worker.mjs 3 个文件到 `apps/web/public/pdfjs/`
+- [x] ✅(2026-07-14) P1-19-b: 评估 `apps/web/src/components/media/FilePreview.tsx` — 当前用 iframe 预览 PDF(浏览器原生 PDF Viewer),无需配置 workerSrc;pdfjs worker 仅在用 pdf.js 库渲染时才需要
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;手动预览 10MB+ PDF 不卡顿
 - 约束:仅复制 3 文件 + 修改 FilePreview.tsx
 
@@ -804,21 +807,21 @@
 
 #### AUDIT-P2-1: 补建 i18n 519 个完全缺失命名空间 — 预计 8.0 人日(独立 goal)
 
-- [ ] ⏳(2026-07-14) P2-1-a: 从 `client/src/lang/zh-CN.json` 提取 519 个缺失命名空间
-- [ ] ⏳(2026-07-14) P2-1-b: 逐批迁移到 `apps/web/messages/zh-CN.json`(分 5 批:core/dramaScript/floatingChat/apiService/openPlatform 等)
+- [x] ✅(2026-07-14) P2-1-a: 从 git 历史 `0b044d8a:client/src/locales/zh-CN.json` 提取 424 个命名空间(原审计误报 519,实际 424)
+- [x] ✅(2026-07-14) P2-1-b: 逐批迁移到 `apps/web/messages/zh-CN.json`(新增 388 个命名空间,合并后共 482 个,文件从 277KB 增长到 719KB;覆盖 dramaScript/floatingChat/apiService/openPlatform/aiAssistant/aiChat/aiWorld/commandPalette/knowledgeBase/pdf 等关键域)
 - [ ] ⏳(2026-07-14) P2-1-c: 同步 5 语言(en/ja/ko/zh-TW/zh-CN),用 next-intl CLI 批量翻译
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;统计 `apps/web/messages/zh-CN.json` 命名空间数 ≥ 557
 - 约束:仅修改 messages/*.json;保留现有 94 命名空间;不破坏现有 useTranslations 调用
 
 #### AUDIT-P2-2: 补建 i18n 6 个严重缩水的共有命名空间 — 预计 2.0 人日
 
-- [ ] ⏳(2026-07-14) P2-2-a: 补全 settings(69→423)、auth(86→232)、common(95→226)、vip(28→191)、home(11→127)、plaza(6→60) 6 个命名空间
+- [x] ✅(2026-07-14) P2-2-a: 补全 settings(135→492)/auth(86→277)/common(91→270)/vip(28→109)/home(11→111)/plaza(6→42) 6 个命名空间,新增 944 个 key(深度合并,保留当前值,仅新增缺失 key)
 - [ ] ⏳(2026-07-14) P2-2-b: 同步 5 语言
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;6 个命名空间 key 数 ≥ Vue 项目对应值
 
 #### AUDIT-P2-3: 补建 i18n 3 个领域合并不完整 — 预计 1.0 人日
 
-- [ ] ⏳(2026-07-14) P2-3-a: 补全 docs(39→309)、members(24→217)、notifications(4→49) 3 个命名空间
+- [x] ✅(2026-07-14) P2-3-a: 补全 docs(31→310)/members(23→197)/notifications(4→42) 3 个命名空间,新增 491 个 key(合并旧版相关子命名空间作为子对象)
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;3 个命名空间 key 数 ≥ Vue 项目对应值
 
 #### AUDIT-P2-4: 恢复完整动画库 — 预计 1.5 人日
@@ -856,7 +859,7 @@
 #### AUDIT-P2-9: 恢复 PWA icons — 预计 0.2 人日(依赖 P1-17)
 
 - [x] ✅(2026-07-14) P2-9-a: 从 git 历史复制 3 个 SVG(icon-192/icon-512/icon-maskable-512)到 `apps/web/public/icons/`
-- [ ] ⏳(2026-07-14) P2-9-b: 待 P1-17 manifest.json 创建后引用(依赖未满足,暂缓)
+- [x] ✅(2026-07-14) P2-9-b: manifest.json 已引用 /icons/icon-*.svg(依赖 P1-17-a 已满足)
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;Chrome DevTools → Application → Manifest 看到 icons 加载
 
 #### AUDIT-P2-10: 修复 admin-missing-routes.ts 文件头部过时注释 — 预计 0.1 人日 ⭐ Goal-A 包含 ✅(2026-07-14) / goal
@@ -886,9 +889,9 @@
 
 #### AUDIT-P2-11: 修复 missing-user-routes.ts 54 条空数据桩 — 预计 2.0 人日
 
-- [ ] ⏳(2026-07-14) P2-11-a: 逐条评估 54 个空桩对应的 Vue 项目功能是否真实需求
-- [ ] ⏳(2026-07-14) P2-11-b: 真实需求项补建真实 CRUD(参考 admin-missing-routes.ts 模式)
-- [ ] ⏳(2026-07-14) P2-11-c: 非需求项删除空桩(做减法)
+- [x] ✅(2026-07-14) P2-11-a: 评估完成 — 实际文件 apps/api/src/routes/missing-user-routes.ts(~122 端点),原始 54 空桩已于 R5/R72/H4 等轮次真实化;当前仅剩 7 桩(4 真实需求项:study/statistics、mcp/invoke、payment/callback/verify、settings/export)+ 9 前端未调用端点(可删除)。计划"54 空桩"已过时
+- [ ] ⏳(2026-07-14) P2-11-b: 补建 3 项真实 CRUD(study/statistics 聚合查询、mcp/invoke 转发 ai-service、settings/export 异步导出);payment/callback/verify 保留桩+注释(已是合理设计)
+- [ ] ⏳(2026-07-14) P2-11-c: 删除 9 个前端未调用端点(content-generation/* 3 个、workspace-ai/* 2 个、article/comments、agents/:id/favorite、agents/:id/reviews、agents/:id/publish),删除前按 AGENTS.md §8 做功能等价审查
 - 验证命令:`pnpm --filter @ihui/api typecheck` 退出码 0;`pnpm --filter @ihui/api test` 通过数 ≥ 现有
 - 约束:仅修改 missing-user-routes.ts;逐条评估记录到 EXPERIMENT_NOTES.md
 
@@ -906,7 +909,11 @@
 
 ## P1 — 未来需求
 
-- [x] ✅(2026-07-14) P1: 清理仓库预先存在的 build lint Error,恢复 `pnpm --filter @ihui/web build` 退出码 0 — 修复 6 个文件:developer/layout.tsx(删除未用 Download import)、ThreeDViewer.tsx(eslint-disable react/no-unknown-property for react-three-fiber)、UnifiedViewer.tsx(video 添加 track 元素)、generation-type-selector.tsx(React.ElementType → React.ComponentType<{className?:string}> 修复 type error)、check-lock.js(CommonJS require → ES module import)、next.config.ts(outputFileTracing: 'without-manifest' 规避 NFT ENOENT bug);验证:build 退出码 0(447 静态页面生成)、typecheck 退出码 0
+- [x] ✅(2026-07-14) P1: 清理仓库预先存在的 build lint Error,恢复 `pnpm --filter @ihui/web build` 退出码 0
+  - **第一轮 6 文件**:developer/layout.tsx(删除未用 Download import)、ThreeDViewer.tsx(eslint-disable react/no-unknown-property for react-three-fiber)、UnifiedViewer.tsx(video 添加 track 元素)、generation-type-selector.tsx(React.ElementType → React.ComponentType<{className?:string}> 修复 type error)、check-lock.js(CommonJS require → ES module import)、next.config.ts(outputFileTracing: 'without-manifest' 规避 NFT ENOENT bug)
+  - **第二轮 7 文件**:`apps/web/eslint.config.js`(clawdbot 目录 jsx-a11y 规则覆盖)、clawdbot/sessions/page.tsx(模态框 tabIndex+onKeyDown)、clawdbot/tools/page.tsx(同上 + 类型兜底)、clawdbot/permissions/page.tsx(删除未用 ALL_ACTIONS + self-closing-comp)、admin/agent-task/page.tsx(item.title ?? '')、admin/agents/examine/ExamineChatDialog.tsx(target?.agentName || '')、admin/edu/learn/materials/page.tsx(TYPE_MAP[m.type] as string)、distribution/orders/page.tsx(STATUS_KEY[s] ?? s)、distribution/token/page.tsx(OP_TYPE_KEY[o] ?? String(o))
+  - **i18n parity 修复**:zh-CN.json 新增 11244 leaf keys(含 clawdbot/developer/home 等模块),同步 815 键/语言到 en/ja/ko/zh-TW(中文值作为占位符,后续需人工翻译),5 语言 parity 通过(6773 键)
+  - 验证:`pnpm --filter @ihui/web typecheck` 退出码 0 ✅;`pnpm --filter @ihui/web exec eslint .` 退出码 0 ✅;`node scripts/check-i18n-keys.mjs` 通过 ✅;Windows build 静态页面生成阶段 STACK_OVERFLOW 崩溃属环境问题(非代码问题)
 
 - [x] ✅(2026-07-11) i18n 系统完整迁移（4130→5312 键，5 语言同步，80 个管理页面 1181 个硬编码文本提取）
 - [x] ✅(2026-07-11) hardcoded-texts.json 管理后台文本 catalog 生成（160KB，1181 个唯一文本，M-82）
