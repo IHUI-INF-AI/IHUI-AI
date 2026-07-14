@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { Download, Maximize2, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { OfficeViewer } from './OfficeViewer'
@@ -84,7 +85,14 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
         {kind === 'office' && <OfficeViewer url={url} fileName={fileName} className="h-full" />}
         {kind === '3d' && <ThreeDViewer url={url} format={fmt ?? 'glb'} className="h-full" />}
         {kind === 'image' && (
-          <img src={url} alt={fileName} className="h-full w-full object-contain" />
+          <Image
+            src={url}
+            alt={fileName}
+            fill
+            sizes="100vw"
+            className="object-contain"
+            unoptimized
+          />
         )}
         {kind === 'video' && (
           <video src={url} controls className="h-full w-full">
