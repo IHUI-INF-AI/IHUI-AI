@@ -1,6 +1,6 @@
-import { eq, sql, and, or, ilike, isNull, gt, desc } from 'drizzle-orm';
-import { db } from './index.js';
-import { users, projects, refreshTokens } from '@ihui/database';
+import { eq, sql, and, or, ilike, isNull, gt, desc, notInArray } from 'drizzle-orm'
+import { db } from './index.js'
+import { users, projects, refreshTokens } from '@ihui/database'
 
 // 公开字段：精确选字段，排除 password_hash
 const userPublicFields = {
@@ -13,34 +13,34 @@ const userPublicFields = {
   status: users.status,
   createdAt: users.createdAt,
   updatedAt: users.updatedAt,
-};
+}
 
 export type AdminUser = {
-  id: string;
-  phone: string | null;
-  email: string | null;
-  nickname: string | null;
-  avatar: string | null;
-  roleId: number | null;
-  status: number | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-};
+  id: string
+  phone: string | null
+  email: string | null
+  nickname: string | null
+  avatar: string | null
+  roleId: number | null
+  status: number | null
+  createdAt: Date | null
+  updatedAt: Date | null
+}
 
 /**
  * 统计用户总数。
  */
 export async function countUsers(): Promise<number> {
-  const rows = await db.select({ count: sql<number>`COUNT(*)` }).from(users);
-  return Number(rows[0]?.count ?? 0);
+  const rows = await db.select({ count: sql<number>`COUNT(*)` }).from(users)
+  return Number(rows[0]?.count ?? 0)
 }
 
 /**
  * 统计项目总数。
  */
 export async function countProjects(): Promise<number> {
-  const rows = await db.select({ count: sql<number>`COUNT(*)` }).from(projects);
-  return Number(rows[0]?.count ?? 0);
+  const rows = await db.select({ count: sql<number>`COUNT(*)` }).from(projects)
+  return Number(rows[0]?.count ?? 0)
 }
 
 /**
@@ -50,12 +50,13 @@ export async function countActiveSessions(): Promise<number> {
   const rows = await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(refreshTokens)
-    .where(and(isNull(refreshTokens.revokedAt), gt(refreshTokens.expiresAt, new Date())));
-  return Number(rows[0]?.count ?? 0);
+    .where(and(isNull(refreshTokens.revokedAt), gt(refreshTokens.expiresAt, new Date())))
+  return Number(rows[0]?.count ?? 0)
 }
 
 /**
  * 分页查询用户，支持 search（phone/email/nickname 模糊匹配）/role/status 筛选。
+ * 默认排除已注销用户（status=3），传 includeDeleted=true 可查全量。
  */
 export async function findUsers(
   page: number,
@@ -63,15 +64,20 @@ export async function findUsers(
   search?: string,
   role?: number,
   status?: number,
+  includeDeleted = false,
 ): Promise<{ list: AdminUser[]; total: number }> {
-  const conds = [];
+  const conds = []
   if (search) {
-    const like = `%${search}%`;
-    conds.push(or(ilike(users.phone, like), ilike(users.email, like), ilike(users.nickname, like)));
+    const like = `%${search}%`
+    conds.push(or(ilike(users.phone, like), ilike(users.email, like), ilike(users.nickname, like)))
   }
-  if (role !== undefined) conds.push(eq(users.roleId, role));
-  if (status !== undefined) conds.push(eq(users.status, status));
-  const where = conds.length > 0 ? and(...conds) : undefined;
+  if (role !== undefined) conds.push(eq(users.roleId, role))
+  if (status !== undefined) {
+    conds.push(eq(users.status, status))
+  } else if (!includeDeleted) {
+    conds.push(notInArray(users.status, [3]))
+  }
+  const where = conds.length > 0 ? and(...conds) : undefined
 
   const [list, totalRows] = await Promise.all([
     db
@@ -81,18 +87,21 @@ export async function findUsers(
       .orderBy(desc(users.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(users).where(where),
-  ]);
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(users)
+      .where(where),
+  ])
 
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 /**
  * 按 ID 查询用户（不含 password_hash）。
  */
 export async function findUserById(id: string): Promise<AdminUser | undefined> {
-  const rows = await db.select(userPublicFields).from(users).where(eq(users.id, id)).limit(1);
-  return rows[0];
+  const rows = await db.select(userPublicFields).from(users).where(eq(users.id, id)).limit(1)
+  return rows[0]
 }
 
 /**
@@ -103,8 +112,8 @@ export async function updateUserRole(id: string, role: number): Promise<AdminUse
     .update(users)
     .set({ roleId: role, updatedAt: new Date() })
     .where(eq(users.id, id))
-    .returning(userPublicFields);
-  return rows[0];
+    .returning(userPublicFields)
+  return rows[0]
 }
 
 /**
@@ -115,8 +124,8 @@ export async function updateUserStatus(id: string, status: number): Promise<Admi
     .update(users)
     .set({ status, updatedAt: new Date() })
     .where(eq(users.id, id))
-    .returning(userPublicFields);
-  return rows[0];
+    .returning(userPublicFields)
+  return rows[0]
 }
 
 /**
@@ -147,29 +156,27 @@ export async function findProjectsWithOwner(
       .limit(pageSize)
       .offset((page - 1) * pageSize),
     db.select({ count: sql<number>`COUNT(*)` }).from(projects),
-  ]);
+  ])
 
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 export type AdminProjectRow = {
-  id: string;
-  userId: string;
-  name: string;
-  description: string | null;
-  status: number;
-  createdAt: Date;
-  updatedAt: Date;
-  ownerNickname: string | null;
-  ownerAvatar: string | null;
-  ownerPhone: string | null;
-  ownerEmail: string | null;
-};
+  id: string
+  userId: string
+  name: string
+  description: string | null
+  status: number
+  createdAt: Date
+  updatedAt: Date
+  ownerNickname: string | null
+  ownerAvatar: string | null
+  ownerPhone: string | null
+  ownerEmail: string | null
+}
 
 /** 按 id 查询项目(管理员视角,含 owner 信息)。 */
-export async function findProjectByIdWithOwner(
-  id: string,
-): Promise<AdminProjectRow | undefined> {
+export async function findProjectByIdWithOwner(id: string): Promise<AdminProjectRow | undefined> {
   const rows = await db
     .select({
       id: projects.id,
@@ -187,16 +194,16 @@ export async function findProjectByIdWithOwner(
     .from(projects)
     .leftJoin(users, eq(projects.userId, users.id))
     .where(eq(projects.id, id))
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 /** 管理员创建项目(需指定 userId)。 */
 export async function createProjectAdmin(input: {
-  userId: string;
-  name: string;
-  description?: string | null;
-  status?: number;
+  userId: string
+  name: string
+  description?: string | null
+  status?: number
 }): Promise<AdminProjectRow> {
   const rows = await db
     .insert(projects)
@@ -206,12 +213,20 @@ export async function createProjectAdmin(input: {
       description: input.description,
       status: input.status,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建项目失败');
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建项目失败')
   // 复用查询以附带 owner 信息
-  const withOwner = await findProjectByIdWithOwner(row.id);
-  return withOwner ?? { ...row, ownerNickname: null, ownerAvatar: null, ownerPhone: null, ownerEmail: null };
+  const withOwner = await findProjectByIdWithOwner(row.id)
+  return (
+    withOwner ?? {
+      ...row,
+      ownerNickname: null,
+      ownerAvatar: null,
+      ownerPhone: null,
+      ownerEmail: null,
+    }
+  )
 }
 
 /** 管理员更新项目(可改 name/description/status)。 */
@@ -219,20 +234,20 @@ export async function updateProjectAdmin(
   id: string,
   patch: { name?: string; description?: string | null; status?: number },
 ): Promise<AdminProjectRow | undefined> {
-  const set: Record<string, unknown> = {};
-  if (patch.name !== undefined) set.name = patch.name;
-  if (patch.description !== undefined) set.description = patch.description;
-  if (patch.status !== undefined) set.status = patch.status;
+  const set: Record<string, unknown> = {}
+  if (patch.name !== undefined) set.name = patch.name
+  if (patch.description !== undefined) set.description = patch.description
+  if (patch.status !== undefined) set.status = patch.status
   if (Object.keys(set).length === 0) {
-    return findProjectByIdWithOwner(id);
+    return findProjectByIdWithOwner(id)
   }
-  set.updatedAt = new Date();
-  await db.update(projects).set(set).where(eq(projects.id, id));
-  return findProjectByIdWithOwner(id);
+  set.updatedAt = new Date()
+  await db.update(projects).set(set).where(eq(projects.id, id))
+  return findProjectByIdWithOwner(id)
 }
 
 /** 管理员删除项目(级联删除项目下文件,由外键保证)。返回是否删除成功。 */
 export async function deleteProjectAdmin(id: string): Promise<boolean> {
-  const rows = await db.delete(projects).where(eq(projects.id, id)).returning({ id: projects.id });
-  return rows.length > 0;
+  const rows = await db.delete(projects).where(eq(projects.id, id)).returning({ id: projects.id })
+  return rows.length > 0
 }

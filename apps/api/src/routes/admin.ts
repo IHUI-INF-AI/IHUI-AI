@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { authenticate, requireActiveUser } from '../plugins/auth.js'
 import {
   countUsers,
   countProjects,
@@ -16,7 +16,6 @@ import {
   deleteProjectAdmin,
 } from '../db/admin-queries.js'
 import { createUser, type CreateUserInput } from '../db/queries.js'
-import { deleteUser } from '../db/usercenter-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import bcrypt from 'bcryptjs'
 
@@ -32,6 +31,7 @@ const listUsersQuerySchema = z.object({
   search: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   role: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
+  includeDeleted: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
 })
 
 const listProjectsQuerySchema = z.object({
@@ -83,13 +83,20 @@ const createUserBodySchema = z.object({
 // =============================================================================
 
 export const adminRoutes: FastifyPluginAsync = async (server) => {
-  // 统一 admin 鉴权：authenticate + requireAdmin，一次注册应用于全部 admin 路由
+  // 统一 admin 鉴权：authenticate + requireActiveUser + requireAdmin，一次注册应用于全部 admin 路由
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
       const message = (e as Error).message || 'Authentication required'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+    try {
+      await requireActiveUser(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '账号已注销'
       return reply.status(statusCode).send(error(statusCode, message))
     }
     const roleId = request.jwtPayload?.roleId ?? 0
@@ -201,8 +208,15 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { page, pageSize, search, role, status } = parsed.data
-      const { list, total } = await findUsers(page, pageSize, search, role, status)
+      const { page, pageSize, search, role, status, includeDeleted } = parsed.data
+      const { list, total } = await findUsers(
+        page,
+        pageSize,
+        search,
+        role,
+        status,
+        includeDeleted === true,
+      )
       return reply.send(success({ list, total, page, pageSize }))
     },
   )
@@ -401,13 +415,13 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // DELETE /users/:id - 物理删除用户(高危操作)
+  // DELETE /users/:id - 软删除用户(status=3 注销,保留审计追溯)
   server.delete(
     '/users/:id',
     {
       schema: {
-        summary: '删除用户',
-        description: '物理删除用户记录(高危操作,生产环境建议改用 status=3 软注销)',
+        summary: '软删除用户',
+        description: '将用户 status 置为 3(注销),保留记录用于审计,可由管理员恢复',
         tags: ['admin'],
         params: {
           type: 'object',
@@ -422,7 +436,12 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
             properties: {
               code: { type: 'number' },
               message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
+              data: {
+                type: 'object',
+                properties: {
+                  user: { type: 'object', additionalProperties: true },
+                },
+              },
             },
           },
           400: {
@@ -441,12 +460,11 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const existing = await findUserById(parsed.data.id)
-      if (!existing) {
+      const user = await updateUserStatus(parsed.data.id, 3)
+      if (!user) {
         return reply.status(404).send(error(404, '用户不存在'))
       }
-      await deleteUser(parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      return reply.send(success({ user }))
     },
   )
 
