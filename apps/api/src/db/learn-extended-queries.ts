@@ -10,6 +10,7 @@ import {
   users,
   eduLessonTopics,
   learnLearnMapTopic,
+  learnTopic,
   lessonTask,
   lessonRate,
   lessonAccess,
@@ -18,6 +19,7 @@ import {
   type LearnMap,
   type LearnInvoiceApplication,
   type LearnInvoiceTitle,
+  type LearnTopic,
   type LessonTask,
   type LessonRate,
   type LessonAccess,
@@ -471,6 +473,108 @@ export async function publishTopic(id: string, isPublished: boolean): Promise<vo
     .update(eduLessonTopics)
     .set({ isPublished, updatedAt: new Date() })
     .where(eq(eduLessonTopics.id, id))
+}
+
+// =============================================================================
+// Learn Topics CRUD (学习话题管理 — learn_topic 表)
+// =============================================================================
+
+export interface TopicListPagedOpts {
+  page: number
+  pageSize: number
+  search?: string
+  status?: string
+}
+
+export async function findAllTopics(
+  opts: TopicListPagedOpts,
+): Promise<{ list: LearnTopic[]; total: number; page: number; pageSize: number }> {
+  const { page, pageSize, search, status } = opts
+  const conds: ReturnType<typeof eq>[] = []
+  if (status) conds.push(eq(learnTopic.status, status))
+  let searchCond: ReturnType<typeof ilike> | undefined
+  if (search) searchCond = ilike(learnTopic.title, `%${search}%`)
+  const baseConds = conds.length ? and(...conds) : undefined
+  const whereCond = searchCond ? and(baseConds, searchCond) : baseConds
+
+  const list = await db
+    .select()
+    .from(learnTopic)
+    .where(whereCond)
+    .orderBy(desc(learnTopic.createdAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
+
+  const countRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(learnTopic)
+    .where(whereCond)
+  const total = countRows[0]?.count ?? 0
+  return { list, total, page, pageSize }
+}
+
+export async function findTopicRowById(id: string): Promise<LearnTopic | undefined> {
+  const rows = await db.select().from(learnTopic).where(eq(learnTopic.id, id)).limit(1)
+  return rows[0]
+}
+
+export interface CreateLearnTopicInput {
+  title: string
+  image: string
+  description?: string
+  price?: string | null
+  originalPrice?: string | null
+  status?: string
+}
+
+export async function createTopicRow(data: CreateLearnTopicInput): Promise<LearnTopic> {
+  const rows = await db
+    .insert(learnTopic)
+    .values({
+      title: data.title,
+      image: data.image,
+      description: data.description,
+      price: data.price,
+      originalPrice: data.originalPrice,
+      status: data.status,
+    })
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建话题失败')
+  return row
+}
+
+export interface UpdateLearnTopicInput {
+  title?: string
+  image?: string
+  description?: string
+  price?: string | null
+  originalPrice?: string | null
+  status?: string
+}
+
+export async function updateTopicRow(
+  id: string,
+  data: UpdateLearnTopicInput,
+): Promise<LearnTopic | undefined> {
+  const rows = await db
+    .update(learnTopic)
+    .set({
+      ...(data.title !== undefined ? { title: data.title } : {}),
+      ...(data.image !== undefined ? { image: data.image } : {}),
+      ...(data.description !== undefined ? { description: data.description } : {}),
+      ...(data.price !== undefined ? { price: data.price } : {}),
+      ...(data.originalPrice !== undefined ? { originalPrice: data.originalPrice } : {}),
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(learnTopic.id, id))
+    .returning()
+  return rows[0]
+}
+
+export async function deleteTopicRow(id: string): Promise<void> {
+  await db.delete(learnTopic).where(eq(learnTopic.id, id))
 }
 
 // =============================================================================
