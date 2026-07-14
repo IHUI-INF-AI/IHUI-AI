@@ -1,12 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Send } from 'lucide-react'
+import { Loader2, Send, ChevronUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Input } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { relativeTime } from './helpers'
-import type { Conversation } from './types'
+import type { Conversation, ChatMessage } from './types'
 
 interface Props {
   selected: Conversation | null
@@ -16,6 +16,14 @@ interface Props {
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
   sendPending: boolean
   scrollRef: React.RefObject<HTMLDivElement | null>
+  onLoadMore?: (
+    conversationId: string,
+    cursor: string,
+  ) => Promise<{
+    list: ChatMessage[]
+    hasMore: boolean
+    nextCursor: string | null
+  }>
 }
 
 export function MessagesChat({
@@ -26,8 +34,40 @@ export function MessagesChat({
   onKeyDown,
   sendPending,
   scrollRef,
+  onLoadMore,
 }: Props) {
   const t = useTranslations('privateMessages')
+  const [loadingMore, setLoadingMore] = React.useState(false)
+  const [hasMore, setHasMore] = React.useState(false)
+  const [cursor, setCursor] = React.useState<string | null>(null)
+  const prevHeightRef = React.useRef(0)
+
+  React.useEffect(() => {
+    if (!selected) return
+    const firstMsg = selected.messages[0]
+    setCursor(firstMsg?.createdAt ?? null)
+    setHasMore(selected.messages.length >= 20)
+  }, [selected?.id, selected])
+
+  const handleLoadMore = async () => {
+    if (!selected || !cursor || !onLoadMore) return
+    setLoadingMore(true)
+    const el = scrollRef.current
+    if (el) prevHeightRef.current = el.scrollHeight
+    try {
+      const res = await onLoadMore(selected.id, cursor)
+      setHasMore(res.hasMore)
+      setCursor(res.nextCursor)
+      requestAnimationFrame(() => {
+        if (el) el.scrollTop = el.scrollHeight - prevHeightRef.current
+      })
+    } catch {
+      setHasMore(false)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
   if (!selected) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -35,12 +75,12 @@ export function MessagesChat({
       </div>
     )
   }
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
           {selected.peerAvatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={selected.peerAvatar}
               alt={selected.peerName}
@@ -56,6 +96,25 @@ export function MessagesChat({
       </div>
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+        {hasMore && cursor && onLoadMore && (
+          <div className="flex justify-center pb-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="text-xs text-muted-foreground"
+            >
+              {loadingMore ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <ChevronUp className="mr-1 h-3 w-3" />
+              )}
+              {t('loadMore', { default: '加载更多' })}
+            </Button>
+          </div>
+        )}
         {(selected.messages ?? []).length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             {t('noMessagesHint')}

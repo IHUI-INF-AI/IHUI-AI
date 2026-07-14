@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Input } from '@tarojs/components'
 import { useState } from 'react'
 
 export interface CourseRatingProps {
@@ -74,5 +74,3 @@ export default function CourseRating({
     </View>
   )
 }
-
-import { Input } from '@tarojs/components'

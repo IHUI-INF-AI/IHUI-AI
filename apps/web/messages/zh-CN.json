@@ -6192,7 +6192,8 @@
       "statsFollowing": "关注",
       "statsFollowers": "粉丝",
       "statsFavorites": "收藏",
-      "bioEmpty": "暂无简介"
+      "bioEmpty": "暂无简介",
+      "sendMessage": "发消息"
     },
     "realname": {
       "title": "实名认证",
@@ -6259,6 +6260,14 @@
       "disableAutoRenew": "关闭自动续费",
       "success": "续费请求已发起",
       "error": "提交失败"
+    },
+    "articles": {
+      "title": "我的文章",
+      "total": "共 {n} 篇",
+      "create": "新建文章",
+      "createFirst": "写第一篇",
+      "empty": "还没有文章",
+      "deleteSuccess": "已删除"
     }
   },
   "certificate": {
@@ -8510,6 +8519,7 @@
       "placeholder": "输入消息..."
     },
     "send": "发送",
+    "loadMore": "加载更多",
     "error": "发送失败"
   },
   "topics": {
@@ -9592,7 +9602,8 @@
     "titleRequired": "标题不能为空",
     "contentRequired": "内容不能为空",
     "cancel": "取消",
-    "publish": "发布"
+    "publish": "发布",
+    "save": "保存"
   },
   "myAsks": {
     "title": "我的问答",

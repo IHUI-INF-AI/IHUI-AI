@@ -6204,7 +6204,8 @@
       "statsFollowing": "已關注",
       "statsFollowers": "粉絲",
       "statsFavorites": "我的收藏",
-      "bioEmpty": "暫無簡介"
+      "bioEmpty": "暫無簡介",
+      "sendMessage": "發訊息"
     },
     "realname": {
       "title": "實名認證",
@@ -6271,6 +6272,14 @@
       "renewNow": "立即續費",
       "openNow": "立即開通",
       "days": "天"
+    },
+    "articles": {
+      "title": "我的文章",
+      "total": "共 {n} 篇",
+      "create": "新增文章",
+      "createFirst": "寫第一篇",
+      "empty": "還沒有文章",
+      "deleteSuccess": "已刪除"
     }
   },
   "settings": {
@@ -9520,6 +9529,7 @@
       "placeholder": "輸入訊息..."
     },
     "send": "發送",
+    "loadMore": "載入更多",
     "error": "發送失敗",
     "subtitle": "與其他用戶的一對一訊息",
     "loading": "載入中...",
@@ -9636,7 +9646,8 @@
     "titleRequired": "標題不能為空",
     "contentRequired": "內容不能為空",
     "cancel": "取消",
-    "publish": "發佈"
+    "publish": "發佈",
+    "save": "保存"
   },
   "myAsks": {
     "title": "我的問答",
