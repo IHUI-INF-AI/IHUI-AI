@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
   Home,
@@ -51,6 +51,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useLanguageStore, type Language } from '@/stores/language'
 import { Avatar } from '@/components/data/Avatar'
 import { Tooltip, TooltipProvider, Dropdown, Popover } from '@/components/feedback'
+import { SearchBar } from '@/components/business'
+import { useClickOutside } from '@/hooks/use-click-outside'
 
 interface NavItem {
   href: string
@@ -179,7 +181,7 @@ interface SidebarProps {
   onCloseMobile: () => void
 }
 
-/** 侧边栏底部工具栏:语言 / 下载客户端（搜索与主题切换由 Header 承载，避免重复） */
+/** 侧边栏底部工具栏:语言 / 下载客户端(搜索入口由 Header + 侧边栏搜索行共同承载,见 SearchNavItem) */
 function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const { locale, setLocale } = useLanguageStore()
 
@@ -359,6 +361,108 @@ function SidebarUserRow({
   )
 }
 
+/**
+ * 侧边栏'搜索'导航行:折叠态退化为 Link 跳 /search;展开态承载一个带 SearchBar 的弹层,
+ * 提交后跳 /search?q=... 并关闭。点击外部 / Esc 键 / 路由变化均会关闭弹层。
+ */
+function SearchNavItem({
+  collapsed,
+  active,
+  label,
+  onCloseMobile,
+  refCb,
+}: {
+  collapsed: boolean
+  active: boolean
+  label: string
+  onCloseMobile: () => void
+  refCb: (el: HTMLElement | null) => void
+}) {
+  const router = useRouter()
+  const tc = useTranslations('common')
+  const [open, setOpen] = React.useState(false)
+  const popRef = useClickOutside<HTMLDivElement>(React.useCallback(() => setOpen(false), []))
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // 路由变化(同路径不同 query 也算)时关闭弹层
+  React.useEffect(() => {
+    setOpen(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, searchParams?.toString()])
+
+  // Esc 关闭弹层
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setOpen(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
+  const handleSearch = (kw: string) => {
+    router.push(`/search?q=${encodeURIComponent(kw)}`)
+    setOpen(false)
+    onCloseMobile()
+  }
+
+  const className = cn(
+    'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    active
+      ? 'bg-primary text-primary-foreground'
+      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+    collapsed && 'justify-center',
+  )
+
+  if (collapsed) {
+    return (
+      <Tooltip content={label} side="right">
+        <Link
+          href="/search"
+          ref={refCb}
+          onClick={onCloseMobile}
+          aria-label={label}
+          aria-current={active ? 'page' : undefined}
+          className={className}
+        >
+          <Search className="h-5 w-5 shrink-0" />
+        </Link>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <div ref={popRef} className="relative">
+      <button
+        type="button"
+        ref={refCb}
+        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-current={active ? 'page' : undefined}
+        onClick={() => setOpen((o) => !o)}
+        className={className}
+      >
+        <Search className="h-5 w-5 shrink-0" />
+        <span>{label}</span>
+      </button>
+      {open && (
+        <div
+          role="dialog"
+          aria-label={tc('searchPlaceholder')}
+          className="absolute left-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] max-w-80 rounded-md border bg-popover p-3 text-popover-foreground shadow-md lg:left-full lg:top-0 lg:mt-0 lg:ml-2"
+        >
+          <SearchBar onSearch={handleSearch} placeholder={tc('searchPlaceholder')} focusOnMount />
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function Sidebar({
   id,
   collapsed,
@@ -370,7 +474,7 @@ export function Sidebar({
   const pathname = usePathname()
   const user = useAuthStore((s) => s.user)
 
-  const [width, setWidth] = React.useState(168)
+  const [width, setWidth] = React.useState(160)
   const [isResizing, setIsResizing] = React.useState(false)
 
   React.useEffect(() => {
@@ -378,7 +482,7 @@ export function Sidebar({
       const saved = localStorage.getItem('sidebar-width')
       if (saved !== null) {
         const w = Number(saved)
-        if (!Number.isNaN(w) && w >= 60 && w <= 240) setWidth(w)
+        if (!Number.isNaN(w) && w >= 60 && w <= 160) setWidth(w)
       }
     } catch {
       // localStorage 不可用
@@ -394,7 +498,7 @@ export function Sidebar({
   }, [width])
 
   const navRef = React.useRef<HTMLElement>(null)
-  const itemRefs = React.useRef<Map<string, HTMLAnchorElement>>(new Map())
+  const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
     setIsResizing(true)
@@ -402,7 +506,7 @@ export function Sidebar({
     const startWidth = width
     const handleMouseMove = (ev: MouseEvent) => {
       const delta = ev.clientX - startX
-      setWidth(Math.min(Math.max(startWidth + delta, 60), 240))
+      setWidth(Math.min(Math.max(startWidth + delta, 60), 160))
     }
     const handleMouseUp = () => {
       setIsResizing(false)
@@ -462,15 +566,28 @@ export function Sidebar({
           const active = isActive(item.href)
           const label = t(item.labelKey)
           const className = cn(
-            'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+            'flex w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
             active
               ? 'bg-primary text-primary-foreground'
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             collapsed && 'justify-center',
           )
-          const refCb = (el: HTMLAnchorElement | null) => {
+          const refCb = (el: HTMLElement | null) => {
             if (el) itemRefs.current.set(item.href, el)
             else itemRefs.current.delete(item.href)
+          }
+          // 搜索行:展开态承载弹层 + SearchBar,折叠态保留 Link 跳 /search
+          if (item.labelKey === 'search') {
+            return (
+              <SearchNavItem
+                key={item.href}
+                collapsed={collapsed}
+                active={active}
+                label={label}
+                onCloseMobile={onCloseMobile}
+                refCb={refCb}
+              />
+            )
           }
           if (collapsed) {
             return (
@@ -562,7 +679,7 @@ export function Sidebar({
       <aside
         aria-label="主导航"
         className={cn(
-          'relative hidden h-screen shrink-0 flex-col bg-sidebar lg:flex',
+          'relative hidden h-screen shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar lg:flex',
           isResizing ? '' : 'transition-[width] duration-200',
           collapsed && 'w-[60px]',
         )}
@@ -597,7 +714,7 @@ export function Sidebar({
         aria-label="主导航"
         role="dialog"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[168px] flex-col bg-sidebar transition-transform duration-200 lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex w-[160px] flex-col overflow-hidden border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >

@@ -14,6 +14,8 @@ interface SearchBarProps {
   onHistoryClick?: (item: string) => void
   onClearHistory?: () => void
   className?: string
+  /** 挂载后自动聚焦输入框(用 ref+effect 实现,避免 jsx-a11y/no-autofocus 警告) */
+  focusOnMount?: boolean
 }
 
 export function SearchBar({
@@ -24,14 +26,21 @@ export function SearchBar({
   onHistoryClick,
   onClearHistory,
   className,
+  focusOnMount = false,
 }: SearchBarProps) {
   const t = useTranslations('common')
   const resolvedPlaceholder = placeholder ?? t('searchPlaceholder')
   const [value, setValue] = React.useState('')
   const [focused, setFocused] = React.useState(false)
+  const inputRef = React.useRef<HTMLInputElement>(null)
   const containerRef = useClickOutside<HTMLDivElement>(
     React.useCallback(() => setFocused(false), []),
   )
+
+  // focusOnMount:用 ref + effect 主动聚焦(避免 jsx-a11y/no-autofocus 警告)
+  React.useEffect(() => {
+    if (focusOnMount) inputRef.current?.focus()
+  }, [focusOnMount])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,6 +58,7 @@ export function SearchBar({
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
+            ref={inputRef}
             type="search"
             value={value}
             onChange={(e) => setValue(e.target.value)}
