@@ -1,10 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { UserPlus, UserMinus, Loader2, AlertCircle } from 'lucide-react'
+import { UserPlus, UserMinus, Loader2, AlertCircle, MessageCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
@@ -31,6 +31,10 @@ interface UserResponse {
   stats: UserStats
 }
 
+interface CreateConversationResult {
+  conversation: { id: string }
+}
+
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
@@ -40,6 +44,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 export default function PublicUserProfilePage() {
   const params = useParams<{ id: string }>()
   const id = params?.id
+  const router = useRouter()
   const t = useTranslations('user.public')
   const qc = useQueryClient()
   const currentUser = useAuthStore((s) => s.user)
@@ -67,6 +72,19 @@ export default function PublicUserProfilePage() {
   const unfollowMut = useMutation({
     mutationFn: () => api(`/api/follows/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['follows', 'status', id] }),
+  })
+
+  const startDmMut = useMutation({
+    mutationFn: () =>
+      api<CreateConversationResult>(`/api/messages/conversations`, {
+        method: 'POST',
+        body: JSON.stringify({ peerId: id }),
+      }),
+    onSuccess: (res) => {
+      if (res.conversation?.id) {
+        router.push(`/messages?conversationId=${res.conversation.id}`)
+      }
+    },
   })
 
   if (isLoading) {
@@ -117,29 +135,35 @@ export default function PublicUserProfilePage() {
           </div>
           {user.bio ? <p className="text-sm text-muted-foreground">{user.bio}</p> : null}
         </div>
-        {canFollow &&
-          (following ? (
+        {canFollow && (
+          <div className="flex shrink-0 gap-2">
             <Button
               variant="outline"
               size="sm"
-              className="shrink-0"
-              onClick={() => unfollowMut.mutate()}
-              disabled={unfollowMut.isPending}
+              onClick={() => startDmMut.mutate()}
+              disabled={startDmMut.isPending}
             >
-              <UserMinus className="mr-1.5 h-4 w-4" />
-              {t('unfollow')}
+              <MessageCircle className="mr-1.5 h-4 w-4" />
+              {t('sendMessage', { default: '私信他' })}
             </Button>
-          ) : (
-            <Button
-              size="sm"
-              className="shrink-0"
-              onClick={() => followMut.mutate()}
-              disabled={followMut.isPending}
-            >
-              <UserPlus className="mr-1.5 h-4 w-4" />
-              {t('follow')}
-            </Button>
-          ))}
+            {following ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => unfollowMut.mutate()}
+                disabled={unfollowMut.isPending}
+              >
+                <UserMinus className="mr-1.5 h-4 w-4" />
+                {t('unfollow')}
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => followMut.mutate()} disabled={followMut.isPending}>
+                <UserPlus className="mr-1.5 h-4 w-4" />
+                {t('follow')}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-3">
