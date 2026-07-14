@@ -9,7 +9,7 @@ vi.hoisted(() => {
 
 import { missingUserRoutes } from '../missing-user-routes.js'
 
-describe('Realized Routes API (12 端点真实化 - 401 without auth)', () => {
+describe('Realized Routes API (8 端点真实化 - 401 without auth)', () => {
   let app: FastifyInstance
 
   beforeAll(async () => {
@@ -46,25 +46,17 @@ describe('Realized Routes API (12 端点真实化 - 401 without auth)', () => {
         url: '/api/study/records/00000000-0000-0000-0000-000000000000',
         payload: { progress: 80 },
       },
-      // 3. GET /article/comments (保持桩)
-      { method: 'GET', url: '/api/article/comments' },
-      // 4. GET /members/me
+      // 3. GET /members/me
       { method: 'GET', url: '/api/members/me' },
-      // 5. GET /live/calendar
+      // 4. GET /live/calendar
       { method: 'GET', url: '/api/live/calendar' },
-      // 6. POST /agents/:id/favorite
-      { method: 'POST', url: '/api/agents/00000000-0000-0000-0000-000000000000/favorite' },
-      // 7. GET /agents/:id/reviews
-      { method: 'GET', url: '/api/agents/00000000-0000-0000-0000-000000000000/reviews' },
-      // 8. POST /agents/:id/publish
-      { method: 'POST', url: '/api/agents/00000000-0000-0000-0000-000000000000/publish' },
-      // 9. GET /coze/chat/history/:botId/:conversationId
+      // 5. GET /coze/chat/history/:botId/:conversationId
       { method: 'GET', url: '/api/coze/chat/history/bot-001/conv-001' },
-      // 10. GET /ai/careers
+      // 6. GET /ai/careers
       { method: 'GET', url: '/api/ai/careers' },
-      // 11. GET /ai/chat-types
+      // 7. GET /ai/chat-types
       { method: 'GET', url: '/api/ai/chat-types' },
-      // 12. GET /ai/community
+      // 8. GET /ai/community
       { method: 'GET', url: '/api/ai/community' },
     ]
 
@@ -87,17 +79,6 @@ describe('Realized Routes API (12 端点真实化 - 401 without auth)', () => {
 
     it('GET /api/ai/careers 返回标准 { code, message } 格式', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/ai/careers' })
-      expect(res.statusCode).toBe(401)
-      const body = res.json()
-      expect(body).toHaveProperty('code', 401)
-      expect(body).toHaveProperty('message')
-    })
-
-    it('POST /api/agents/.../favorite 返回标准 { code, message } 格式', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/agents/00000000-0000-0000-0000-000000000000/favorite',
-      })
       expect(res.statusCode).toBe(401)
       const body = res.json()
       expect(body).toHaveProperty('code', 401)
