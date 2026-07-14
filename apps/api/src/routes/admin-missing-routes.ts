@@ -1391,6 +1391,42 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
     return reply.send(success(row))
   })
+  server.post('/member/users', async (request, reply) => {
+    const b = z
+      .object({
+        nickname: z.string().min(1),
+        phone: z.string().optional(),
+        email: z.string().email().optional(),
+        password: z.string().min(6, '密码至少 6 位'),
+        roleId: z.number().int().optional(),
+        status: z.number().int().optional(),
+      })
+      .safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!b.data.phone && !b.data.email)
+      return reply.status(400).send(error(400, 'phone 与 email 至少需提供一个'))
+    const bcrypt = (await import('bcryptjs')).default
+    const [row] = await db
+      .insert(users)
+      .values({
+        nickname: b.data.nickname,
+        phone: b.data.phone,
+        email: b.data.email,
+        passwordHash: bcrypt.hashSync(b.data.password, 10),
+        roleId: b.data.roleId ?? 0,
+        status: b.data.status ?? 1,
+      })
+      .returning()
+    if (!row) return reply.status(500).send(error(500, '创建失败'))
+    return reply.status(201).send(success(row))
+  })
+  server.delete('/member/users/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db.delete(users).where(eq(users.id, p.data.id)).returning({ id: users.id })
+    if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    return reply.send(success({ id: row.id, deleted: true }))
+  })
 
   // /api/admin/system/operation-logs — auditLogs 表（操作审计日志）
   server.get('/system/operation-logs', async (request, reply) => {

@@ -26,6 +26,7 @@ import {
   unsubscribeLiveChannel,
   findUserSubscriptions,
 } from '../db/live-queries.js'
+import { findLiveCalendar } from '../db/live-calendar-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
 /** 复用响应 schema：data 字段允许任意附加属性。 */
@@ -334,6 +335,63 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(
       success({ list, total: result.total, page: result.page, pageSize: result.pageSize }),
     )
+  })
+
+  // GET /live/calendar - 直播日历（按日期分组，公共，无需登录）
+  const calendarQuerySchema = z.object({
+    month: z
+      .string()
+      .regex(/^\d{4}-\d{2}$/, '月份格式应为 YYYY-MM')
+      .optional(),
+  })
+  server.get('/live/calendar', { schema: { response: R } }, async (request, reply) => {
+    const parsed = calendarQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const now = new Date()
+    const monthStr =
+      parsed.data.month ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const parts = monthStr.split('-').map(Number)
+    const year = parts[0] ?? 0
+    const month = parts[1] ?? 1
+    const startDate = new Date(year, month - 1, 1)
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999)
+    const result = await findLiveCalendar({
+      page: 1,
+      pageSize: 200,
+      startDate,
+      endDate,
+    })
+    const grouped = new Map<
+      string,
+      Array<{
+        id: string
+        title: string
+        status: string
+        anchor: string | null
+        playUrl: string | null
+        watchCount: number
+      }>
+    >()
+    for (const c of result.list) {
+      const st =
+        c.startTime instanceof Date ? c.startTime : c.startTime ? new Date(c.startTime) : now
+      const date = st.toISOString().slice(0, 10)
+      if (!grouped.has(date)) grouped.set(date, [])
+      grouped.get(date)!.push({
+        id: c.id,
+        title: c.title,
+        status: deriveLiveStatus(c.isLive, c.isPublished),
+        anchor: c.lecturerName,
+        playUrl: c.playUrl,
+        watchCount: c.viewCount,
+      })
+    }
+    const list = Array.from(grouped.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, lives]) => ({ date, lives }))
+    return reply.send(success({ list }))
   })
 
   // GET /live/subscriptions - 当前用户订阅的频道列表（需登录）
