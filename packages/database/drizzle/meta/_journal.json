@@ -407,6 +407,34 @@
       "when": 1784092800000,
       "tag": "0057_phase5_6_new_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1784179200000,
+      "tag": "0058_r68_live_subscribe_exam_papertype",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1784180000000,
+      "tag": "0059_r69_sys_role_menu",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1784265600000,
+      "tag": "0060_r70_audit_logs_partition",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1784265601000,
+      "tag": "0061_r70_sys_role_menu_index",
+      "breakpoints": true
     }
   ]
 }
