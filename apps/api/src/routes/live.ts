@@ -1,5 +1,6 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findPublishedLiveCategories,
@@ -21,6 +22,9 @@ import {
   updateLecturer,
   deleteLecturer,
   getLiveStatistics,
+  subscribeLiveChannel,
+  unsubscribeLiveChannel,
+  findUserSubscriptions,
 } from '../db/live-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
@@ -176,6 +180,24 @@ function parseTime(v: string | null | undefined): Date | null {
   return new Date(v)
 }
 
+async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  try {
+    await authenticate(request)
+    return true
+  } catch (e) {
+    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+    const message = (e as Error).message || 'Authentication required'
+    reply.status(statusCode).send(error(statusCode, message))
+    return false
+  }
+}
+
+function deriveLiveStatus(isLive: boolean, isPublished: boolean): 'upcoming' | 'living' | 'ended' {
+  if (isLive) return 'living'
+  if (isPublished) return 'ended'
+  return 'upcoming'
+}
+
 // =============================================================================
 // 公共路由（前缀 /api，需登录）
 // =============================================================================
@@ -270,6 +292,105 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     return reply.send(success({ ok: true, event: 'stream-end', data: parsed.data }))
+  })
+
+  // ----- P0-16: 小程序直播 API 路径对齐（公共，无需登录） -----
+
+  // GET /live/list - 直播列表（简化字段）
+  server.get('/live/list', { schema: { response: R } }, async (request, reply) => {
+    const parsed = listChannelsQuery.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await findLiveChannels({ ...parsed.data, publishedOnly: true })
+    const list = result.list.map((c) => ({
+      id: c.id,
+      title: c.title,
+      status: deriveLiveStatus(c.isLive, c.isPublished),
+      anchor: c.lecturerName,
+      playUrl: c.playUrl,
+      watchCount: c.viewCount,
+    }))
+    return reply.send(
+      success({ list, total: result.total, page: result.page, pageSize: result.pageSize }),
+    )
+  })
+
+  // GET /live/history - 回放列表（isLive=false && isPublished=true）
+  server.get('/live/history', { schema: { response: R } }, async (request, reply) => {
+    const parsed = listChannelsQuery.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await findLiveChannels({ ...parsed.data, isLive: false, publishedOnly: true })
+    const list = result.list.map((c) => ({
+      id: c.id,
+      title: c.title,
+      status: deriveLiveStatus(c.isLive, c.isPublished),
+      anchor: c.lecturerName,
+      playUrl: c.playUrl,
+      watchCount: c.viewCount,
+    }))
+    return reply.send(
+      success({ list, total: result.total, page: result.page, pageSize: result.pageSize }),
+    )
+  })
+
+  // GET /live/subscriptions - 当前用户订阅的频道列表（需登录）
+  server.get('/live/subscriptions', { schema: { response: R } }, async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const userId = request.userId!
+    const list = await findUserSubscriptions(userId)
+    return reply.send(success({ list }))
+  })
+
+  // GET /live/:id - 频道详情（简化字段，GET /live/channels/:id 的别名）
+  server.get('/live/:id', { schema: { response: R } }, async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const channel = await findLiveChannelById(parsed.data.id)
+    if (!channel || !channel.isPublished || channel.status !== 1) {
+      return reply.status(404).send(error(404, '频道不存在'))
+    }
+    await incrementLiveViewCount(parsed.data.id)
+    return reply.send(
+      success({
+        id: channel.id,
+        title: channel.title,
+        status: deriveLiveStatus(channel.isLive, channel.isPublished),
+        anchor: channel.lecturerName,
+        playUrl: channel.playUrl,
+        watchCount: channel.viewCount,
+      }),
+    )
+  })
+
+  // ----- P0-1: 直播订阅（需登录） -----
+
+  // POST /live/:id/subscribe - 订阅直播频道
+  server.post('/live/:id/subscribe', { schema: { response: R } }, async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    await subscribeLiveChannel(userId, parsed.data.id)
+    return reply.status(201).send(success({ ok: true }))
+  })
+
+  // DELETE /live/:id/subscribe - 取消订阅
+  server.delete('/live/:id/subscribe', { schema: { response: R } }, async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    await unsubscribeLiveChannel(userId, parsed.data.id)
+    return reply.send(success({ ok: true }))
   })
 }
 

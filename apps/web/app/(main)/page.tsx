@@ -17,6 +17,7 @@ import {
 
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
 import { AnimatedNumber, PageSkeleton } from '@/components/common'
+import { IhuiAiEffectsLayer } from '@/components/IhuiAiEffectsLayer'
 import { fetchApi } from '@/lib/api'
 
 interface HomeStats {
@@ -121,6 +122,7 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
+      <IhuiAiEffectsLayer />
       {/* 欢迎区 */}
       <section className="flex flex-wrap items-end justify-between gap-2">
         <div>
