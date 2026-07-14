@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
 import { AnimatedNumber, PageSkeleton } from '@/components/common'
 import { IhuiAiEffectsLayer } from '@/components/IhuiAiEffectsLayer'
 import { fetchApi } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 
 interface HomeStats {
   projects: number
@@ -89,6 +90,7 @@ const QUICK_ACTIONS = [
 export default function HomePage() {
   const t = useTranslations('dashboard.home')
   const locale = useLocale()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const [now, setNow] = React.useState<Date | null>(null)
 
   React.useEffect(() => {
@@ -100,6 +102,8 @@ export default function HomePage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['home', 'stats'],
     queryFn: fetchHomeStats,
+    enabled: isAuthenticated,
+    retry: false,
   })
 
   const timeFmt = new Intl.DateTimeFormat(locale, {
