@@ -473,7 +473,7 @@ export function Sidebar({
   const pathname = usePathname()
   const user = useAuthStore((s) => s.user)
 
-  const [width, setWidth] = React.useState(220)
+  const [width, setWidth] = React.useState(160)
   const [isResizing, setIsResizing] = React.useState(false)
 
   React.useEffect(() => {
@@ -481,7 +481,7 @@ export function Sidebar({
       const saved = localStorage.getItem('sidebar-width')
       if (saved !== null) {
         const w = Number(saved)
-        if (!Number.isNaN(w) && w >= 80 && w <= 240) setWidth(w)
+        if (!Number.isNaN(w) && w >= 60 && w <= 160) setWidth(w)
       }
     } catch {
       // localStorage 不可用
@@ -500,7 +500,7 @@ export function Sidebar({
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
   const resizeCleanupRef = React.useRef<(() => void) | null>(null)
 
-  const clampWidth = React.useCallback((w: number) => Math.min(Math.max(w, 80), 240), [])
+  const clampWidth = React.useCallback((w: number) => Math.min(Math.max(w, 60), 160), [])
 
   const stopResize = React.useCallback(() => {
     resizeCleanupRef.current?.()
@@ -551,11 +551,11 @@ export function Sidebar({
         break
       case 'Home':
         e.preventDefault()
-        setWidth(80)
+        setWidth(60)
         break
       case 'End':
         e.preventDefault()
-        setWidth(240)
+        setWidth(160)
         break
     }
   }
@@ -741,8 +741,8 @@ export function Sidebar({
             role="slider"
             aria-label={tc('resizeSidebar')}
             aria-valuenow={width}
-            aria-valuemin={80}
-            aria-valuemax={240}
+            aria-valuemin={60}
+            aria-valuemax={160}
             tabIndex={0}
             onMouseDown={handleResizeMouseDown}
             onKeyDown={handleResizeKeyDown}
@@ -768,7 +768,7 @@ export function Sidebar({
         aria-label="主导航"
         role="dialog"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex w-[160px] flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
