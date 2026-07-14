@@ -1,6 +1,11 @@
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 
+export interface NavBarNotification {
+  text: string
+  onClose?: () => void
+}
+
 export interface NavBarProps {
   title?: string
   showBack?: boolean
@@ -9,6 +14,7 @@ export interface NavBarProps {
   onBack?: () => void
   rightText?: string
   onRightClick?: () => void
+  notification?: NavBarNotification
 }
 
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
@@ -21,6 +27,7 @@ export default function NavBar({
   onBack,
   rightText,
   onRightClick,
+  notification,
 }: NavBarProps) {
   const statusBarHeight = menuButton.top
   const navBarHeight = menuButton.height + 8
@@ -66,6 +73,23 @@ export default function NavBar({
           onClick={onRightClick}
         >
           <Text style={{ color: textColor, fontSize: '14px' }}>{rightText}</Text>
+        </View>
+      )}
+      {notification && (
+        <View
+          className="absolute left-0 right-0 flex items-center justify-between px-[16px] py-[8px]"
+          style={{ top: `${statusBarHeight + navBarHeight}px`, backgroundColor: '#fff8e1' }}
+        >
+          <Text className="flex-1 truncate text-[12px]" style={{ color: '#7c5e1e' }}>
+            {notification.text}
+          </Text>
+          <Text
+            className="ml-[8px] text-[16px] leading-none"
+            style={{ color: '#7c5e1e' }}
+            onClick={notification.onClose}
+          >
+            ×
+          </Text>
         </View>
       )}
     </View>
