@@ -1479,6 +1479,22 @@
   - **回归风险**:无 — aside 内部内容布局合理,不会横向溢出;nav 内部 `overflow-y-auto` 独立工作不受影响
   - **关键教训(强化)**:布局类 bug 容易被"功能层面修复完成"掩盖。后续修复时必须 **用浏览器的 DevTools 模拟实际渲染**(特别是 absolute 子元素跨越容器边界的情形),不能只验证 className 文本
 
+- [x] ✅(2026-07-14) P1-Sidebar 代码质量优化(本轮排查发现)
+  - **触发原因**:复盘发现侧边栏还有 2 处代码质量遗留,违反项目 i18n 规范 / 存在死代码
+  - **修复**:
+    1. SidebarActions 移除冗余 `TooltipProvider` 包裹(L197/L270)— 内部没有 Tooltip 子组件,TooltipProvider 是死代码(L611/L677 navContent 的 TooltipProvider 是必要的,保留)
+    2. SidebarActions 折叠态 button `title` 硬编码中文 `'语言'` / `'下载客户端'` 改为 i18n 调用 `t('language')` / `t('downloadClient')`,违反项目 i18n 5 语言 parity 规范(pre-commit i18n 检查会拦截)
+    3. 5 语言 i18n 文件新增 `nav.language` 和 `nav.downloadClient` 同步(zh-CN/zh-TW/en/ja/ko,2 key × 5 lang = 10 处)
+    4. SidebarUserRow dropdown trigger button 加 `aria-label={user?.nickname}`(原仅 `title`,屏幕阅读器朗读不一致)+ `focus-visible:ring-2`(键盘聚焦视觉反馈)+ `shrink-0`(防止被 flex 压缩到 0)
+    5. SidebarUserRow 展开态用户名 span 加 `min-w-0`(原 `flex-1 truncate` 在某些 flex 容器下不截断)
+  - **踩坑**:删除 `<TooltipProvider>` 闭标签时,**误改成 `</div>` 而非删掉**,触发 JSX 标签不平衡(typecheck `TS1005: ')' expected`)。修复:把多余的 `</div>` 改回 `)` + 删掉重复行
+  - **验证依据**:
+    - `pnpm --filter @ihui/web typecheck` 退出码 0
+    - `pnpm --filter @ihui/web lint` 退出码 0(2 pre-existing `<img>` warnings,非本次引入)
+    - `node scripts/check-i18n-keys.mjs` — 729 文件 / 6950 键 / 5 语言 parity OK(+2 唯一 key)
+  - **回归风险**:无 — title 改为 i18n 调用(`t('language')` 在折叠态 `collapsed=true` 时才显示,与原行为一致;展开态 `title=undefined` 不变)
+  - **跳过项**:`SidebarActions` 折叠态 button `aria-label` 增强、`img alt={locale}` 改 `lang.name` — 属于次要 a11y,留给后续 a11y 专项任务
+
 ---
 
 ## P2 — 已知技术债务
