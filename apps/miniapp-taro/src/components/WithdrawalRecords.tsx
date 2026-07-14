@@ -51,7 +51,7 @@ export default function WithdrawalRecords({
           <EmptyState text="暂无提现记录" />
         ) : (
           records.map((record) => {
-            const status = STATUS_MAP[record.status] || STATUS_MAP.pending
+            const status = STATUS_MAP[record.status] ?? { label: '未知', color: 'text-gray-500' }
             return (
               <View
                 key={record.id}
