@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
 import { eq, sql, desc, and } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { commissionFlows, withdrawalFlows, users, systemConfigs } from '@ihui/database'
@@ -221,5 +222,56 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
     }))
 
     return reply.send(success({ levels, count: levels.length }))
+  })
+
+  // GET /distribution/withdrawals — 当前用户提现记录列表
+  server.get('/distribution/withdrawals', async (request, reply) => {
+    const userId = request.userId!
+    const { page, pageSize, status } = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+        status: z.preprocess(
+          (v) => (v === undefined || v === '' ? undefined : Number(v)),
+          z.number().int().min(0).max(3).optional(),
+        ),
+      })
+      .parse(request.query)
+
+    const conditions = [eq(withdrawalFlows.userId, userId)]
+    if (status !== undefined) conditions.push(eq(withdrawalFlows.status, status))
+
+    const offset = (page - 1) * pageSize
+    const list = await dbRead
+      .select({
+        id: withdrawalFlows.id,
+        amount: withdrawalFlows.amount,
+        originalAmount: withdrawalFlows.originalAmount,
+        fee: withdrawalFlows.fee,
+        status: withdrawalFlows.status,
+        method: withdrawalFlows.method,
+        rejectReason: withdrawalFlows.rejectReason,
+        processedAt: withdrawalFlows.processedAt,
+        createdAt: withdrawalFlows.createdAt,
+      })
+      .from(withdrawalFlows)
+      .where(and(...conditions))
+      .orderBy(desc(withdrawalFlows.createdAt))
+      .limit(pageSize)
+      .offset(offset)
+
+    const [countRow] = await dbRead
+      .select({ total: sql<number>`count(*)::int` })
+      .from(withdrawalFlows)
+      .where(and(...conditions))
+
+    return reply.send(
+      success({
+        list,
+        total: countRow?.total ?? 0,
+        page,
+        pageSize,
+      }),
+    )
   })
 }
