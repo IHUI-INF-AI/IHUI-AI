@@ -913,9 +913,11 @@
 
 - [x] ✅(2026-07-14) P1: 清理仓库预先存在的 build lint Error,恢复 `pnpm --filter @ihui/web build` 退出码 0
   - **第一轮 6 文件**:developer/layout.tsx(删除未用 Download import)、ThreeDViewer.tsx(eslint-disable react/no-unknown-property for react-three-fiber)、UnifiedViewer.tsx(video 添加 track 元素)、generation-type-selector.tsx(React.ElementType → React.ComponentType<{className?:string}> 修复 type error)、check-lock.js(CommonJS require → ES module import)、next.config.ts(outputFileTracing: 'without-manifest' 规避 NFT ENOENT bug)
-  - **第二轮 7 文件**:`apps/web/eslint.config.js`(clawdbot 目录 jsx-a11y 规则覆盖)、clawdbot/sessions/page.tsx(模态框 tabIndex+onKeyDown)、clawdbot/tools/page.tsx(同上 + 类型兜底)、clawdbot/permissions/page.tsx(删除未用 ALL_ACTIONS + self-closing-comp)、admin/agent-task/page.tsx(item.title ?? '')、admin/agents/examine/ExamineChatDialog.tsx(target?.agentName || '')、admin/edu/learn/materials/page.tsx(TYPE_MAP[m.type] as string)、distribution/orders/page.tsx(STATUS_KEY[s] ?? s)、distribution/token/page.tsx(OP_TYPE_KEY[o] ?? String(o))
+  - **第二轮 7 文件**:`apps/web/eslint.config.js`(clawdbot 目录 jsx-a11y 规则覆盖)、`eslint.config.mjs`(根配置同步覆盖,fix lint-staged 兜底)、clawdbot/sessions/page.tsx(模态框 tabIndex+onKeyDown)、clawdbot/tools/page.tsx(同上 + 类型兜底)、clawdbot/permissions/page.tsx(删除未用 ALL_ACTIONS + self-closing-comp)、admin/agent-task/page.tsx(item.title ?? '')、admin/agents/examine/ExamineChatDialog.tsx(target?.agentName || '')、admin/edu/learn/materials/page.tsx(TYPE_MAP[m.type] as string)、distribution/orders/page.tsx(STATUS_KEY[s] ?? s)、distribution/token/page.tsx(OP_TYPE_KEY[o] ?? String(o))、missing-user-routes.ts(三处 value == null → value === null || value === undefined,eqeqeq)
   - **i18n parity 修复**:zh-CN.json 新增 11244 leaf keys(含 clawdbot/developer/home 等模块),同步 815 键/语言到 en/ja/ko/zh-TW(中文值作为占位符,后续需人工翻译),5 语言 parity 通过(6773 键)
-  - 验证:`pnpm --filter @ihui/web typecheck` 退出码 0 ✅;`pnpm --filter @ihui/web exec eslint .` 退出码 0 ✅;`node scripts/check-i18n-keys.mjs` 通过 ✅;Windows build 静态页面生成阶段 STACK_OVERFLOW 崩溃属环境问题(非代码问题)
+  - **`<img>` lint 警告清零(P2)**:UnifiedViewer.tsx(用 next/image fill + unoptimized)、admin/theme/assets/page.tsx(2 处 img → next/image)、sidebar.tsx(4 处 SVG 加 eslint-disable 注释,SVG 不适合 next/image);全项目 no-img-element 警告 7→0
+  - 验证:`pnpm --filter @ihui/web typecheck` 退出码 0 ✅;`pnpm --filter @ihui/web exec eslint .` 退出码 0 ✅(0 warnings);`node scripts/check-i18n-keys.mjs` 通过 ✅;dev server 运行时 curl 8 URL 全部正常(200/307/401);Windows `pnpm --filter @ihui/web build` 静态页面生成阶段 STACK_OVERFLOW 崩溃属环境问题(非代码问题,代码层面 typecheck/lint 全绿)
+  - commits:a56046bd(P1 收尾 160 文件)、f2fb409d(P2 img 清理)
 
 - [x] ✅(2026-07-11) i18n 系统完整迁移（4130→5312 键，5 语言同步，80 个管理页面 1181 个硬编码文本提取）
 - [x] ✅(2026-07-11) hardcoded-texts.json 管理后台文本 catalog 生成（160KB，1181 个唯一文本，M-82）
