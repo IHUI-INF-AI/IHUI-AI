@@ -1,7 +1,7 @@
-import type { FastifyPluginAsync } from 'fastify';
-import type { WebSocket } from '@fastify/websocket';
-import fp from 'fastify-plugin';
-import { verifyAccessToken } from '@ihui/auth';
+import type { FastifyPluginAsync } from 'fastify'
+import type { WebSocket } from '@fastify/websocket'
+import fp from 'fastify-plugin'
+import { wsAuth } from './ws-helpers.js'
 import {
   createSession,
   findSessionBySessionId,
@@ -11,7 +11,7 @@ import {
   findWaitingSessions,
   findAgentByUserId,
   updateAgentStatus,
-} from '../db/customer-service-queries.js';
+} from '../db/customer-service-queries.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -19,14 +19,14 @@ declare module 'fastify' {
      * 尝试为排队中的会话分配坐席（供路由层在坐席上线时调用）。
      * 按 queuePosition 顺序分配，直到无可用坐席或队列清空。
      */
-    csDispatchQueue(): Promise<number>;
+    csDispatchQueue(): Promise<number>
   }
 }
 
 interface CsConnMeta {
-  userId: string;
-  sessionId: string;
-  role: 'customer' | 'agent';
+  userId: string
+  sessionId: string
+  role: 'customer' | 'agent'
 }
 
 /**
@@ -52,109 +52,103 @@ interface CsConnMeta {
  */
 const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
   // sessionId -> 连接集合（同一会话可多端，客户与客服共享）
-  const connections = new Map<string, Set<WebSocket>>();
+  const connections = new Map<string, Set<WebSocket>>()
   // socket -> 元数据（用于断开时清理）
-  const meta = new WeakMap<WebSocket, CsConnMeta>();
+  const meta = new WeakMap<WebSocket, CsConnMeta>()
 
   function broadcast(sessionId: string, payload: unknown): void {
-    const conns = connections.get(sessionId);
-    if (!conns || conns.size === 0) return;
-    const text = JSON.stringify(payload);
-    const stale: WebSocket[] = [];
+    const conns = connections.get(sessionId)
+    if (!conns || conns.size === 0) return
+    const text = JSON.stringify(payload)
+    const stale: WebSocket[] = []
     for (const ws of conns) {
       try {
-        ws.send(text);
+        ws.send(text)
       } catch {
-        stale.push(ws);
+        stale.push(ws)
       }
     }
-    for (const ws of stale) conns.delete(ws);
+    for (const ws of stale) conns.delete(ws)
   }
 
   /** 尝试为排队中的会话分配坐席，返回成功分配的数量。 */
   async function dispatchQueue(): Promise<number> {
-    let assigned = 0;
+    let assigned = 0
     // 持续尝试，直到无等待会话或无可用坐席
     for (;;) {
-      const waiting = await findWaitingSessions();
-      if (waiting.length === 0) break;
-      const agent = await pickAvailableAgent();
-      if (!agent) break;
+      const waiting = await findWaitingSessions()
+      if (waiting.length === 0) break
+      const agent = await pickAvailableAgent()
+      if (!agent) break
       // 分配队首会话
-      const target = waiting[0];
-      if (!target) break;
-      const res = await assignSession(target.sessionId, agent.id);
+      const target = waiting[0]
+      if (!target) break
+      const res = await assignSession(target.sessionId, agent.id)
       if (res.session) {
-        assigned++;
+        assigned++
         broadcast(target.sessionId, {
           type: 'cs_assigned',
           data: { agentId: agent.id, agentNickname: agent.nickname },
-        });
+        })
       } else {
-        break; // 分配失败（会话状态已变），退出避免死循环
+        break // 分配失败（会话状态已变），退出避免死循环
       }
     }
-    return assigned;
+    return assigned
   }
 
   // 暴露给路由层（坐席上线时触发派单）
-  server.decorate('csDispatchQueue', dispatchQueue);
+  server.decorate('csDispatchQueue', dispatchQueue)
 
   server.get('/ws/customer-service', { websocket: true }, (socket, request) => {
-    const token = (request.query as { token?: string }).token;
-    const sessionIdParam = (request.query as { sessionId?: string }).sessionId;
-    const roleParam = ((request.query as { as?: string }).as ?? 'customer') as 'customer' | 'agent';
+    const token = (request.query as { token?: string }).token
+    const sessionIdParam = (request.query as { sessionId?: string }).sessionId
+    const roleParam = ((request.query as { as?: string }).as ?? 'customer') as 'customer' | 'agent'
 
-    if (!token) {
-      socket.close(4001, '缺少 token');
-      return;
-    }
-
-    (async () => {
-      let userId: string;
-      try {
-        const payload = await verifyAccessToken(token);
-        userId = payload.userId;
-      } catch {
-        socket.close(4003, 'token 无效');
-        return;
-      }
+    ;(async () => {
+      const userId = await wsAuth(socket, token)
+      if (!userId) return
 
       // ===== 坐席连接 =====
       if (roleParam === 'agent') {
-        const agent = await findAgentByUserId(userId);
+        const agent = await findAgentByUserId(userId)
         if (!agent) {
-          socket.close(4004, '非坐席账号');
-          return;
+          socket.close(4004, '非坐席账号')
+          return
         }
-        await updateAgentStatus(agent.id, 'online');
+        await updateAgentStatus(agent.id, 'online')
         // 坐席上线后触发派单
-        void dispatchQueue();
+        void dispatchQueue()
 
         // 坐席连接没有固定 sessionId，监听全局（此处简化：坐席通过消息携带 sessionId）
         // 用 "agent:<userId>" 作为虚拟会话键，便于心跳管理
-        const virtualKey = `agent:${agent.id}`;
-        if (!connections.has(virtualKey)) connections.set(virtualKey, new Set());
-        connections.get(virtualKey)!.add(socket);
-        meta.set(socket, { userId, sessionId: virtualKey, role: 'agent' });
+        const virtualKey = `agent:${agent.id}`
+        if (!connections.has(virtualKey)) connections.set(virtualKey, new Set())
+        connections.get(virtualKey)!.add(socket)
+        meta.set(socket, { userId, sessionId: virtualKey, role: 'agent' })
 
-        socket.send(JSON.stringify({ type: 'cs_connected', data: { sessionId: '', role: 'agent', agentId: agent.id } }));
+        socket.send(
+          JSON.stringify({
+            type: 'cs_connected',
+            data: { sessionId: '', role: 'agent', agentId: agent.id },
+          }),
+        )
 
         socket.on('message', (data: Buffer) => {
           if (data.toString() === 'ping') {
-            socket.send('pong');
-            return;
+            socket.send('pong')
+            return
           }
-          let msg: { type?: string; data?: Record<string, unknown> };
+          let msg: { type?: string; data?: Record<string, unknown> }
           try {
-            msg = JSON.parse(data.toString());
+            msg = JSON.parse(data.toString())
           } catch {
-            socket.send(JSON.stringify({ type: 'error', data: { message: 'Invalid JSON' } }));
-            return;
+            socket.send(JSON.stringify({ type: 'error', data: { message: 'Invalid JSON' } }))
+            return
           }
           // 坐席向某会话发消息
           if (msg.type === 'cs_message' && msg.data?.sessionId) {
-            const targetSession = String(msg.data.sessionId);
+            const targetSession = String(msg.data.sessionId)
             broadcast(targetSession, {
               type: 'cs_message',
               data: {
@@ -165,38 +159,38 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
                 senderRole: 'agent',
                 createdAt: new Date().toISOString(),
               },
-            });
+            })
           }
-        });
+        })
 
         socket.on('close', async () => {
-          const conns = connections.get(virtualKey);
+          const conns = connections.get(virtualKey)
           if (conns) {
-            conns.delete(socket);
-            if (conns.size === 0) connections.delete(virtualKey);
+            conns.delete(socket)
+            if (conns.size === 0) connections.delete(virtualKey)
           }
           // 坐席断开：若没有其他连接则置 offline
-          await updateAgentStatus(agent.id, 'offline').catch(() => {});
-        });
-        return;
+          await updateAgentStatus(agent.id, 'offline').catch(() => {})
+        })
+        return
       }
 
       // ===== 客户连接 =====
-      let session;
+      let session
       if (sessionIdParam) {
-        session = await findSessionBySessionId(sessionIdParam);
+        session = await findSessionBySessionId(sessionIdParam)
         if (!session) {
-          socket.close(4004, '会话不存在');
-          return;
+          socket.close(4004, '会话不存在')
+          return
         }
       } else {
-        session = await createSession({ userId, source: 'web' });
+        session = await createSession({ userId, source: 'web' })
       }
 
-      const sessionId = session.sessionId;
-      if (!connections.has(sessionId)) connections.set(sessionId, new Set());
-      connections.get(sessionId)!.add(socket);
-      meta.set(socket, { userId, sessionId, role: 'customer' });
+      const sessionId = session.sessionId
+      if (!connections.has(sessionId)) connections.set(sessionId, new Set())
+      connections.get(sessionId)!.add(socket)
+      meta.set(socket, { userId, sessionId, role: 'customer' })
 
       // 推送连接确认（含排队位置与是否已分配坐席）
       socket.send(
@@ -210,11 +204,11 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
             status: session.status,
           },
         }),
-      );
+      )
 
       // 若会话仍在排队，尝试立即分配坐席
       if (session.status === 'waiting') {
-        const assigned = await dispatchQueue();
+        const assigned = await dispatchQueue()
         if (assigned === 0) {
           // 暂无可用坐席，推送队列位置
           socket.send(
@@ -222,26 +216,26 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
               type: 'cs_queue',
               data: { position: session.queuePosition, total: session.queuePosition },
             }),
-          );
+          )
         }
       }
 
       socket.on('message', (data: Buffer) => {
         if (data.toString() === 'ping') {
-          socket.send('pong');
-          return;
+          socket.send('pong')
+          return
         }
-        let msg: { type?: string; data?: Record<string, unknown> };
+        let msg: { type?: string; data?: Record<string, unknown> }
         try {
-          msg = JSON.parse(data.toString());
+          msg = JSON.parse(data.toString())
         } catch {
-          socket.send(JSON.stringify({ type: 'error', data: { message: 'Invalid JSON' } }));
-          return;
+          socket.send(JSON.stringify({ type: 'error', data: { message: 'Invalid JSON' } }))
+          return
         }
 
         if (msg.type === 'cs_message') {
-          const content = String(msg.data?.content ?? '');
-          if (!content.trim()) return;
+          const content = String(msg.data?.content ?? '')
+          if (!content.trim()) return
           broadcast(sessionId, {
             type: 'cs_message',
             data: {
@@ -252,31 +246,31 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
               senderRole: 'customer',
               createdAt: new Date().toISOString(),
             },
-          });
+          })
         } else if (msg.type === 'cs_typing') {
           broadcast(sessionId, {
             type: 'cs_typing',
             data: { userId, isTyping: !!msg.data?.isTyping },
-          });
+          })
         }
-      });
+      })
 
       socket.on('close', () => {
-        const conns = connections.get(sessionId);
+        const conns = connections.get(sessionId)
         if (conns) {
-          conns.delete(socket);
+          conns.delete(socket)
           if (conns.size === 0) {
-            connections.delete(sessionId);
+            connections.delete(sessionId)
             // 客户端全部断开：关闭会话（不立即关闭，给重连留窗口；此处简化为标记关闭）
-            void closeSession(sessionId).catch(() => {});
+            void closeSession(sessionId).catch(() => {})
           }
         }
-      });
-    })();
+      })
+    })()
   })
-};
+}
 
 export const wsCustomerService = fp(wsCustomerServicePlugin, {
   name: 'ws-customer-service',
   fastify: '5.x',
-});
+})
