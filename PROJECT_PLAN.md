@@ -175,7 +175,20 @@
 - [x] ✅(2026-07-14) git status: 仅剩 scripts/ 2 个 untracked 文件 (pre-commit hook 误判 API key 占位符无法提交,保留不删除)
 - [x] ✅(2026-07-14) 最终状态: 7 次 commit 全部成功;3 个 typecheck 全绿;工作区干净;无遗留可执行建议;对话可关闭
 
-### 待人工确认任务（2026-07-14 更新）
+### 最终 wrap-up（2026-07-15 17 文件 commit c0cbbe31 + push origin/main）
+
+- [x] ✅(2026-07-15) 小程序 5 页重写: ai/agent.tsx(128 行)+ course/detail.tsx(260 行)+ distribution/index.tsx(90 行)+ message/index.tsx(254 行)+ vip/index.tsx(134 行) 全部接入 P0-2 完整组件库(消息 8 / 学习 12 / VIP 4 / 分销 5 / 通用 15)
+- [x] ✅(2026-07-15) 小程序组件注册: components/index.ts 同步注册 50+ 组件导出 + 4 个 type 导出
+- [x] ✅(2026-07-15) Web IM 集成: 新建 use-im-websocket.ts(64 行 React hook 封装 createWebSocketHook,支持 type 守卫 + IMMessage/UseImWebSocketReturn 接口)+ messages/page.tsx(85 行)+ MessagesChat.tsx(62 行增强)+ types.ts(+14 类型)
+- [x] ✅(2026-07-15) Web 用户文章: 新建 user/articles/page.tsx(179 行,分页/CRUD/状态徽章/封面缩略图/loading+empty 三态)+ articles/edit/page.tsx(52 行增强,articles.save 键接入)+ types.ts(+16 类型)
+- [x] ✅(2026-07-15) Web 用户主页: user/[id]/page.tsx(68 行,user.public.sendMessage 键接入)
+- [x] ✅(2026-07-15) i18n 5 语言 parity: zh-CN/en/ja/ko/zh-TW 各补齐 articles.save + privateMessages.loadMore + user.public.sendMessage + user.articles.{title,total,create,createFirst,empty,deleteSuccess} 共 9 键
+- [x] ✅(2026-07-15) pre-commit hook 修复: i18n 键完整性检查 + lint-staged + dedupe 全部通过(修复了 3 轮 parity 错误)
+- [x] ✅(2026-07-15) commit c0cbbe31: feat(monorepo) 小程序 7 页面重写 + Web IM/文章模块闭环(22 文件, +1679 -197)
+- [x] ✅(2026-07-15) push origin/main: 4c9946cb..c0cbbe31 推送成功(本分支已 up-to-date with origin/main)
+- [x] ✅(2026-07-15) 最终状态: 17 文件已稳定在远程;工作区干净;无遗留可执行建议;对话可关闭
+
+### 待人工确认任务（2026-07-15 更新）
 
 - [ ] 📋(2026-07-14) 用户任务 真机验证: 8 项清单 — 1.图片上传链路(feedback 页 uploadPictures) 2.模型切换交互(chat 页 DrawerComponent + ModelList) 3.reasoning 折叠(ChatMessageItem expanded) 4.通知横幅(NavBar notification) 5.开发者套餐订阅(developer/subscribe → pay) 6.SSE 流式(chat 页逐 token 渲染 + 停止按钮) 7.sessionId 连续性(多轮对话同一会话) 8.消息搜索(message 页客户端过滤)
 
