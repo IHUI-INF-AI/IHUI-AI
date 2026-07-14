@@ -266,25 +266,12 @@ body {
   background: linear-gradient(transparent, var(--color-sidebar));
 }
 
-/* 跳转到主内容链接:键盘用户可见,平时屏幕阅读器外隐藏 */
-.skip-to-main {
-  position: fixed;
-  top: 0.5rem;
-  left: 0.5rem;
-  z-index: 60;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
-  background: var(--color-primary);
-  color: var(--color-primary-foreground);
-  font-size: 0.875rem;
-  font-weight: 500;
-  transform: translateY(-150%);
-  transition: transform 0.15s ease;
-}
-.skip-to-main:focus {
-  transform: translateY(0);
+/* 跳转到主内容链接:键盘用户可见,平时屏幕阅读器外隐藏 — 由 app/(main)/layout.tsx 中的 sr-only 元素承担 */
+
+/* 主内容区焦点可见(配合 skip link 使用) */
+#main:focus-visible {
   outline: 2px solid var(--color-ring);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 /* 减少动画偏好:尊重系统设置 */
