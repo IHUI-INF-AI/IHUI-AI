@@ -11,6 +11,34 @@
   font-weight: bold;
   color: #333;
 }
+.subscribe-entry {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #4e8cff, #6a5cff);
+  margin: 20rpx;
+  padding: 28rpx 30rpx;
+  border-radius: 16rpx;
+}
+.subscribe-entry-body {
+  flex: 1;
+}
+.subscribe-entry-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #fff;
+  display: block;
+}
+.subscribe-entry-desc {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.85);
+  display: block;
+  margin-top: 8rpx;
+}
+.subscribe-entry-arrow {
+  font-size: 40rpx;
+  color: #fff;
+  opacity: 0.8;
+}
 .agent-list {
   padding: 20rpx;
 }
