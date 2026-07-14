@@ -204,6 +204,7 @@ async function unwrap<T>(p: Promise<{ success: boolean; data?: T; error?: string
 interface SidebarProps {
   collapsed: boolean
   onToggleCollapse: () => void
+  id?: string
   mobileOpen: boolean
   onCloseMobile: () => void
 }
@@ -520,12 +521,18 @@ function SidebarUserRow({
   )
 }
 
-export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: SidebarProps) {
+export function Sidebar({
+  id,
+  collapsed,
+  onToggleCollapse,
+  mobileOpen,
+  onCloseMobile,
+}: SidebarProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const user = useAuthStore((s) => s.user)
 
-  const [width, setWidth] = React.useState(136)
+  const [width, setWidth] = React.useState(168)
   const [isResizing, setIsResizing] = React.useState(false)
 
   React.useEffect(() => {
@@ -533,7 +540,7 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
       const saved = localStorage.getItem('sidebar-width')
       if (saved !== null) {
         const w = Number(saved)
-        if (!Number.isNaN(w) && w >= 60 && w <= 136) setWidth(w)
+        if (!Number.isNaN(w) && w >= 60 && w <= 240) setWidth(w)
       }
     } catch {
       // localStorage 不可用
@@ -548,6 +555,8 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
     }
   }, [width])
 
+  const navRef = React.useRef<HTMLElement>(null)
+  const itemRefs = React.useRef<Map<string, HTMLAnchorElement>>(new Map())
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
     setIsResizing(true)
@@ -555,7 +564,7 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
     const startWidth = width
     const handleMouseMove = (ev: MouseEvent) => {
       const delta = ev.clientX - startX
-      setWidth(Math.min(Math.max(startWidth + delta, 60), 136))
+      setWidth(Math.min(Math.max(startWidth + delta, 60), 240))
     }
     const handleMouseUp = () => {
       setIsResizing(false)
@@ -582,31 +591,81 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
   const isAdmin = (user?.roleId ?? 0) >= 1
   const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin)
 
+  const activeHref = React.useMemo(() => {
+    const found = visibleItems.find((item) => isActive(item.href))
+    return found?.href
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, visibleItems])
+
+  React.useEffect(() => {
+    if (!activeHref) return
+    const el = itemRefs.current.get(activeHref)
+    const nav = navRef.current
+    if (el && nav) {
+      const navRect = nav.getBoundingClientRect()
+      const elRect = el.getBoundingClientRect()
+      if (elRect.top < navRect.top || elRect.bottom > navRect.bottom) {
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        el.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
+      }
+    }
+  }, [activeHref])
+
   const navContent = (
-    <nav className="hover-scroll scroll-fade min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
-      {visibleItems.map((item) => {
-        const Icon = item.icon
-        const active = isActive(item.href)
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onCloseMobile}
-            title={collapsed ? t(item.labelKey) : undefined}
-            className={cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              active
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-              collapsed && 'justify-center',
-            )}
-          >
-            <Icon className="h-5 w-5 shrink-0" />
-            {!collapsed && <span>{t(item.labelKey)}</span>}
-          </Link>
-        )
-      })}
-    </nav>
+    <TooltipProvider>
+      <nav
+        ref={navRef}
+        id={id}
+        aria-label={t('title') ?? '主导航'}
+        className="hover-scroll scroll-fade min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-2"
+      >
+        {visibleItems.map((item) => {
+          const Icon = item.icon
+          const active = isActive(item.href)
+          const label = t(item.labelKey)
+          const className = cn(
+            'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+            active
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            collapsed && 'justify-center',
+          )
+          const refCb = (el: HTMLAnchorElement | null) => {
+            if (el) itemRefs.current.set(item.href, el)
+            else itemRefs.current.delete(item.href)
+          }
+          if (collapsed) {
+            return (
+              <Tooltip key={item.href} content={label} side="right">
+                <Link
+                  href={item.href}
+                  ref={refCb}
+                  onClick={onCloseMobile}
+                  aria-label={label}
+                  aria-current={active ? 'page' : undefined}
+                  className={className}
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                </Link>
+              </Tooltip>
+            )
+          }
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              ref={refCb}
+              onClick={onCloseMobile}
+              aria-current={active ? 'page' : undefined}
+              className={className}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              <span>{label}</span>
+            </Link>
+          )
+        })}
+      </nav>
+    </TooltipProvider>
   )
 
   const footer = (
@@ -661,6 +720,7 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
     <>
       {/* 桌面端固定侧边栏 */}
       <aside
+        aria-label="主导航"
         className={cn(
           'relative hidden h-screen shrink-0 flex-col bg-sidebar lg:flex',
           isResizing ? '' : 'transition-[width] duration-200',
@@ -693,8 +753,11 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
 
       {/* 移动端抽屉 */}
       <aside
+        aria-modal="true"
+        aria-label="主导航"
+        role="dialog"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[136px] flex-col bg-sidebar transition-transform duration-200 lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex w-[168px] flex-col bg-sidebar transition-transform duration-200 lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
