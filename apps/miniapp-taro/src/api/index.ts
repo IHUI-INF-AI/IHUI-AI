@@ -105,11 +105,24 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp?: number
+  reasoning?: string
+}
+
+export interface ChatOptions {
+  modelId?: string
+  agentId?: string
+  materialContent?: string
+}
+
+export interface ChatResult {
+  reply: string
+  sessionId: string
+  reasoning?: string
 }
 
 /** AI 对话（流式可由后端 SSE 处理，此处提供普通接口） */
-export const chat = (messages: ChatMessage[], sessionId?: string) =>
-  post<{ reply: string; sessionId: string }>('/ai/chat', { messages, sessionId })
+export const chat = (messages: ChatMessage[], sessionId?: string, options?: ChatOptions) =>
+  post<ChatResult>('/ai/chat', { messages, sessionId, ...options })
 
 /* ============ 用户设置 ============ */
 
