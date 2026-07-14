@@ -78,6 +78,7 @@ import {
   FileSearch,
   UserPlus,
   Files,
+  Bell,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -195,6 +196,7 @@ interface AdminNavItem {
     | 'rolesAuthUser'
     | 'rolesSelectUser'
     | 'ossFiles'
+    | 'notificationDispatch'
   icon: React.ComponentType<{ className?: string }>
 }
 
@@ -327,6 +329,8 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/roles/select-user', labelKey: 'rolesSelectUser', icon: UserPlus },
   // 文件管理
   { href: '/admin/oss/files', labelKey: 'ossFiles', icon: Files },
+  // 定向通知派发
+  { href: '/admin/notification-dispatch', labelKey: 'notificationDispatch', icon: Bell },
   // 官方页面
   { href: '/admin/contact', labelKey: 'contact', icon: MessageSquare },
   { href: '/admin/about-us', labelKey: 'aboutUs', icon: FileText },
