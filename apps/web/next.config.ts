@@ -5,7 +5,6 @@ import { vueToNextRedirects } from '@/config/redirects.config'
 const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
-  outputFileTracing: 'without-manifest',
   transpilePackages: ['@ihui/ui', '@ihui/types', '@ihui/config', '@ihui/auth'],
   experimental: {
     optimizePackageImports: [
