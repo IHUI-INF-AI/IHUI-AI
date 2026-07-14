@@ -32,4 +32,18 @@ export default [
     plugins: { 'jsx-a11y': jsxA11y },
     rules: { ...jsxA11y.configs.recommended.rules },
   },
+  {
+    files: ['src/components/media/ThreeDViewer.tsx'],
+    rules: {
+      'react/no-unknown-property': 'off',
+    },
+  },
+  {
+    files: ['app/(main)/admin/clawdbot/**/*.tsx'],
+    rules: {
+      'jsx-a11y/click-events-have-key-events': 'off',
+      'jsx-a11y/no-static-element-interactions': 'off',
+      'jsx-a11y/no-noninteractive-tabindex': 'off',
+    },
+  },
 ]

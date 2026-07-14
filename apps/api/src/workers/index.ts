@@ -1,17 +1,29 @@
 import type { FastifyInstance } from 'fastify'
 import type { Worker } from 'bullmq'
-import { createWorker, QUEUE_NAMES, type EmailJobData, type NotificationJobData, type AICallbackJobData, type Job } from '../plugins/queue.js'
+import { sql } from 'drizzle-orm'
+import {
+  createWorker,
+  QUEUE_NAMES,
+  type EmailJobData,
+  type NotificationJobData,
+  type AICallbackJobData,
+  type TargetedDispatchJobData,
+  type Job,
+} from '../plugins/queue.js'
 import { sendEmail } from '../services/email-service.js'
+import { sendSmsMessage } from '../services/sms.js'
+import { db } from '../db/index.js'
 import { createNotification } from '../db/notification-queries.js'
 import { createMessage, updateMessage } from '../db/chat-queries.js'
 
 /**
  * 启动所有 BullMQ Worker（异步任务消费者）。
  *
- * 已注册 Worker（3 个，与队列一一对应，无死代码）：
+ * 已注册 Worker（4 个，与队列一一对应，无死代码）：
  * - email: 邮件发送（调用 sendEmail 完成 SMTP）
  * - notification: 通知处理（DB 落库 + WebSocket 推送 + 可选邮件触发）
  * - aiCallback: AI 回调处理（持久化 assistant 消息 + token + WebSocket 推送）
+ * - notificationDispatch: 定向通知 email/sms 异步派发（send-targeted 端点入队）
  */
 export function startWorkers(server: FastifyInstance): Worker[] {
   const workers: Worker[] = []
@@ -28,7 +40,13 @@ export function startWorkers(server: FastifyInstance): Worker[] {
         text: job.data.text,
       })
       server.log.info(
-        { jobId: job.id, to: job.data.to, subject: job.data.subject, sent: result.sent, stub: result.stub },
+        {
+          jobId: job.id,
+          to: job.data.to,
+          subject: job.data.subject,
+          sent: result.sent,
+          stub: result.stub,
+        },
         'email job processed',
       )
       return result
@@ -93,8 +111,15 @@ export function startWorkers(server: FastifyInstance): Worker[] {
         } catch (e) {
           // 更新失败(消息不存在或权限不符)时降级创建,其他错误 rethrow 触发重试
           const errMsg = e instanceof Error ? e.message : String(e)
-          if (errMsg.includes('不存在') || errMsg.includes('not found') || errMsg.includes('undefined')) {
-            server.log.warn({ jobId: job.id, messageId }, 'updateMessage failed (not found), falling back to createMessage')
+          if (
+            errMsg.includes('不存在') ||
+            errMsg.includes('not found') ||
+            errMsg.includes('undefined')
+          ) {
+            server.log.warn(
+              { jobId: job.id, messageId },
+              'updateMessage failed (not found), falling back to createMessage',
+            )
           } else {
             throw e
           }
@@ -134,11 +159,75 @@ export function startWorkers(server: FastifyInstance): Worker[] {
   )
   workers.push(aiCallbackWorker)
 
+  // ===== Notification Dispatch Worker =====
+  // send-targeted 端点的 email/sms 异步派发：调用 email-service/sms-service 发送，
+  // 并写入 notification_logs 记录结果。in_app 渠道在端点同步处理，不经过此队列。
+  const notificationDispatchWorker = createWorker<TargetedDispatchJobData>(
+    server,
+    QUEUE_NAMES.notificationDispatch,
+    async (job: Job<TargetedDispatchJobData>) => {
+      const { userId, channel, email, phone, nickname, title, content, msgType } = job.data
+      let status = 'sent'
+      let errorMessage: string | null = null
+
+      try {
+        if (channel === 'email') {
+          const result = await sendEmail({
+            to: email!,
+            subject: title,
+            html: `<h2>Hi ${nickname ?? email},</h2><p>${content}</p>`,
+            text: content,
+          })
+          if (result.sent) {
+            status = 'sent'
+          } else if (result.stub) {
+            status = 'stub'
+          } else {
+            status = 'failed'
+            errorMessage = result.error ?? null
+          }
+        } else {
+          const result = await sendSmsMessage(phone!, content)
+          if (!result.success) {
+            status = 'failed'
+            errorMessage = result.error ?? null
+          }
+        }
+      } catch (e) {
+        status = 'failed'
+        errorMessage = (e as Error).message
+      }
+
+      try {
+        await db.execute(sql`
+          INSERT INTO notification_logs (user_id, type, title, content, channel, status, error_message, created_at)
+          VALUES (${userId}::uuid, ${msgType}, ${title}, ${content}, ${channel}, ${status}, ${errorMessage}, NOW())
+        `)
+      } catch (e) {
+        server.log.warn({ err: e, jobId: job.id }, 'notification_dispatch log insert failed')
+      }
+
+      server.log.info(
+        { jobId: job.id, userId, channel, status },
+        'notification dispatch job processed',
+      )
+      return { userId, channel, status }
+    },
+  )
+  workers.push(notificationDispatchWorker)
+
   server.log.info(
-    { workers: workers.length, names: [QUEUE_NAMES.email, QUEUE_NAMES.notification, QUEUE_NAMES.aiCallback] },
-    'BullMQ workers started (all 3 queues have consumers)',
+    {
+      workers: workers.length,
+      names: [
+        QUEUE_NAMES.email,
+        QUEUE_NAMES.notification,
+        QUEUE_NAMES.aiCallback,
+        QUEUE_NAMES.notificationDispatch,
+      ],
+    },
+    'BullMQ workers started (all 4 queues have consumers)',
   )
 
   return workers
 }
-

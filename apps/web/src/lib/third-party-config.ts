@@ -65,7 +65,7 @@ export interface ThirdPartyPlatformConfig {
 export const GOOGLE_CONFIG: ThirdPartyPlatformConfig = {
   enabled: getEnvBool('NEXT_PUBLIC_GOOGLE_ENABLED', true),
   clientId: getEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID'),
-  redirectUri: getEnv('NEXT_PUBLIC_GOOGLE_REDIRECT_URI', `${getOrigin()}/google/callback`),
+  redirectUri: getEnv('NEXT_PUBLIC_GOOGLE_REDIRECT_URI', `${getOrigin()}/login?platform=google`),
   scope: getEnv('NEXT_PUBLIC_GOOGLE_SCOPE', 'openid email profile'),
   proxyPath: '/api/auth/google',
   authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
@@ -78,7 +78,7 @@ export const GOOGLE_CONFIG: ThirdPartyPlatformConfig = {
 export const APPLE_CONFIG: ThirdPartyPlatformConfig = {
   enabled: getEnvBool('NEXT_PUBLIC_APPLE_ENABLED', true),
   clientId: getEnv('NEXT_PUBLIC_APPLE_CLIENT_ID'),
-  redirectUri: getEnv('NEXT_PUBLIC_APPLE_REDIRECT_URI', `${getOrigin()}/apple/callback`),
+  redirectUri: getEnv('NEXT_PUBLIC_APPLE_REDIRECT_URI', `${getOrigin()}/login?platform=apple`),
   scope: getEnv('NEXT_PUBLIC_APPLE_SCOPE', 'name email'),
   proxyPath: '/api/auth/apple',
   authUrl: 'https://appleid.apple.com/auth/authorize',
@@ -92,7 +92,10 @@ export const DINGTALK_CONFIG: ThirdPartyPlatformConfig = {
   enabled: getEnvBool('NEXT_PUBLIC_DINGTALK_ENABLED', true),
   appId: getEnv('NEXT_PUBLIC_DINGTALK_APP_ID'),
   clientId: getEnv('NEXT_PUBLIC_DINGTALK_CLIENT_ID'),
-  redirectUri: getEnv('NEXT_PUBLIC_DINGTALK_REDIRECT_URI', `${getOrigin()}/dingtalk/callback`),
+  redirectUri: getEnv(
+    'NEXT_PUBLIC_DINGTALK_REDIRECT_URI',
+    `${getOrigin()}/login?platform=dingtalk`,
+  ),
   scope: getEnv('NEXT_PUBLIC_DINGTALK_SCOPE', 'openid corpid'),
   proxyPath: '/api/auth/dingtalk',
   authUrl: 'https://login.dingtalk.com/oauth2/auth',
@@ -108,7 +111,7 @@ export const ENTERPRISE_WECHAT_CONFIG: ThirdPartyPlatformConfig = {
   agentId: getEnv('NEXT_PUBLIC_ENTERPRISE_WECHAT_AGENT_ID'),
   redirectUri: getEnv(
     'NEXT_PUBLIC_ENTERPRISE_WECHAT_REDIRECT_URI',
-    `${getOrigin()}/enterprise/callback`,
+    `${getOrigin()}/login?platform=enterpriseWechat`,
   ),
   scope: getEnv('NEXT_PUBLIC_ENTERPRISE_WECHAT_SCOPE', 'snsapi_privateinfo'),
   proxyPath: '/api/auth/login/enterprise/pc/wxCode',
@@ -122,7 +125,7 @@ export const ENTERPRISE_WECHAT_CONFIG: ThirdPartyPlatformConfig = {
 export const WECHAT_CONFIG: ThirdPartyPlatformConfig = {
   enabled: getEnvBool('NEXT_PUBLIC_WECHAT_ENABLED', true),
   appId: getEnv('NEXT_PUBLIC_WECHAT_APP_ID'),
-  redirectUri: getEnv('NEXT_PUBLIC_WECHAT_REDIRECT_URI', `${getOrigin()}/wechat/callback`),
+  redirectUri: getEnv('NEXT_PUBLIC_WECHAT_REDIRECT_URI', `${getOrigin()}/login?platform=wechat`),
   scope: getEnv('NEXT_PUBLIC_WECHAT_SCOPE', 'snsapi_login'),
   proxyPath: '/api/auth/wechat/mini/login',
   authUrl: 'https://open.weixin.qq.com/connect/qrconnect',
@@ -135,10 +138,24 @@ export const WECHAT_CONFIG: ThirdPartyPlatformConfig = {
 export const GITHUB_CONFIG: ThirdPartyPlatformConfig = {
   enabled: getEnvBool('NEXT_PUBLIC_GITHUB_ENABLED', true),
   clientId: getEnv('NEXT_PUBLIC_GITHUB_CLIENT_ID'),
-  redirectUri: getEnv('NEXT_PUBLIC_GITHUB_REDIRECT_URI', `${getOrigin()}/github/callback`),
+  redirectUri: getEnv('NEXT_PUBLIC_GITHUB_REDIRECT_URI', `${getOrigin()}/login?platform=github`),
   scope: getEnv('NEXT_PUBLIC_GITHUB_SCOPE', 'read:user user:email'),
   proxyPath: '/api/auth/github',
   authUrl: 'https://github.com/login/oauth/authorize',
+}
+
+/**
+ * 飞书登录配置
+ * 官方文档: https://open.feishu.cn/document/common-capabilities/sso/web-application-sso/qr-sdk-documentation
+ */
+export const FEISHU_CONFIG: ThirdPartyPlatformConfig = {
+  enabled: getEnvBool('NEXT_PUBLIC_FEISHU_ENABLED', true),
+  appId: getEnv('NEXT_PUBLIC_FEISHU_APP_ID'),
+  clientId: getEnv('NEXT_PUBLIC_FEISHU_CLIENT_ID'),
+  redirectUri: getEnv('NEXT_PUBLIC_FEISHU_REDIRECT_URI', `${getOrigin()}/login?platform=feishu`),
+  scope: getEnv('NEXT_PUBLIC_FEISHU_SCOPE', 'contact:user.base:readonly'),
+  proxyPath: '/api/auth/feishu',
+  authUrl: 'https://passport.feishu.cn/suite/passport/oauth/authorize',
 }
 
 /** 平台 → 配置映射 */
@@ -149,6 +166,7 @@ const PLATFORM_CONFIGS: Record<ThirdPartyPlatform, ThirdPartyPlatformConfig> = {
   enterpriseWechat: ENTERPRISE_WECHAT_CONFIG,
   wechat: WECHAT_CONFIG,
   github: GITHUB_CONFIG,
+  feishu: FEISHU_CONFIG,
 }
 
 /**

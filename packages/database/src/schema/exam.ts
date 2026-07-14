@@ -1,5 +1,16 @@
-import { pgTable, uuid, varchar, text, integer, boolean, timestamp, jsonb, numeric, index } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  jsonb,
+  numeric,
+  index,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 试卷分类表。
@@ -17,7 +28,7 @@ export const examCategories = pgTable(
   (t) => ({
     pidIdx: index('exam_categories_pid_idx').on(t.pid),
   }),
-);
+)
 
 /**
  * 试卷表。
@@ -32,6 +43,7 @@ export const examPapers = pgTable('exam_papers', {
   title: varchar('title', { length: 200 }).notNull(),
   description: text('description'),
   categoryId: uuid('category_id').references(() => examCategories.id, { onDelete: 'set null' }),
+  paperType: varchar('paper_type', { length: 50 }).default('normal').notNull(),
   totalScore: numeric('total_score', { precision: 6, scale: 2 }).default('100').notNull(),
   passScore: numeric('pass_score', { precision: 6, scale: 2 }).default('60').notNull(),
   duration: integer('duration').default(60).notNull(), // 分钟
@@ -42,7 +54,7 @@ export const examPapers = pgTable('exam_papers', {
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 题目表。
@@ -65,7 +77,7 @@ export const examQuestions = pgTable('exam_questions', {
   score: numeric('score', { precision: 6, scale: 2 }).default('5').notNull(),
   sortOrder: integer('sort_order').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 答题记录表。
@@ -90,13 +102,13 @@ export const examRecords = pgTable('exam_records', {
   submittedAt: timestamp('submitted_at', { withTimezone: true }),
   duration: integer('duration').default(0).notNull(), // 实际用时(秒)
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type ExamCategory = typeof examCategories.$inferSelect;
-export type NewExamCategory = typeof examCategories.$inferInsert;
-export type ExamPaper = typeof examPapers.$inferSelect;
-export type NewExamPaper = typeof examPapers.$inferInsert;
-export type ExamQuestion = typeof examQuestions.$inferSelect;
-export type NewExamQuestion = typeof examQuestions.$inferInsert;
-export type ExamRecord = typeof examRecords.$inferSelect;
-export type NewExamRecord = typeof examRecords.$inferInsert;
+export type ExamCategory = typeof examCategories.$inferSelect
+export type NewExamCategory = typeof examCategories.$inferInsert
+export type ExamPaper = typeof examPapers.$inferSelect
+export type NewExamPaper = typeof examPapers.$inferInsert
+export type ExamQuestion = typeof examQuestions.$inferSelect
+export type NewExamQuestion = typeof examQuestions.$inferInsert
+export type ExamRecord = typeof examRecords.$inferSelect
+export type NewExamRecord = typeof examRecords.$inferInsert
