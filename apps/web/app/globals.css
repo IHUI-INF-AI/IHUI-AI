@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
+@plugin 'tailwindcss-animate';
+@source '../../../packages/ui/src';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -42,6 +44,12 @@
   --color-brand-800: hsl(240 6% 16%);
   --color-brand-900: hsl(240 7% 11%);
   --radius: 0.5rem;
+
+  --color-sidebar: hsl(0 0% 96.1%);
+  --color-sidebar-foreground: hsl(0 0% 9%);
+  --color-sidebar-hover: hsl(218 14% 92%);
+  --color-sidebar-active: hsl(222 13% 86%);
+  --color-sidebar-active-hover: hsl(217 11% 80%);
 }
 
 .dark {
@@ -68,6 +76,12 @@
   --color-warning-foreground: hsl(0 0% 98%);
   --color-info: hsl(199 80% 55%);
   --color-info-foreground: hsl(0 0% 98%);
+
+  --color-sidebar: hsl(226 13% 19%);
+  --color-sidebar-foreground: hsl(0 0% 98%);
+  --color-sidebar-hover: hsl(222 14% 14%);
+  --color-sidebar-active: hsl(228 21% 8%);
+  --color-sidebar-active-hover: hsl(0 0% 0%);
 }
 
 * {
@@ -154,4 +168,251 @@ body {
   margin: 1rem 0;
   border: none;
   border-top: 1px solid var(--color-border);
+}
+
+/* 自定义滚动条:无背景、无箭头、细滑块 */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-muted-foreground) 60%, transparent) transparent;
+  transition: scrollbar-color 0.2s ease;
+}
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-muted-foreground) 60%, transparent);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+.thin-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
+}
+.thin-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.thin-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 侧边栏:默认透明,hover 时显示 */
+.hover-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.hover-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.hover-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hover-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+  transition: background 0.15s ease;
+}
+.hover-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
+}
+.hover-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.hover-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.hover-scroll:hover {
+  scrollbar-color: color-mix(in srgb, var(--color-muted-foreground) 60%, transparent) transparent;
+}
+.hover-scroll:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-muted-foreground) 60%, transparent);
+}
+
+/* 滚动渐隐遮罩:可滚动区域顶部/底部的渐变提示 */
+.scroll-fade {
+  position: relative;
+}
+.scroll-fade::before,
+.scroll-fade::after {
+  content: '';
+  position: sticky;
+  display: block;
+  height: 18px;
+  margin-inline: -0.5rem;
+  pointer-events: none;
+  z-index: 1;
+}
+.scroll-fade::before {
+  top: 0;
+  margin-top: -0.5rem;
+  background: linear-gradient(var(--color-sidebar), transparent);
+}
+.scroll-fade::after {
+  bottom: 0;
+  margin-bottom: -0.5rem;
+  background: linear-gradient(transparent, var(--color-sidebar));
+}
+.dark .scroll-fade::before {
+  background: linear-gradient(var(--color-sidebar), transparent);
+}
+.dark .scroll-fade::after {
+  background: linear-gradient(transparent, var(--color-sidebar));
+}
+
+/* 跳转到主内容链接:键盘用户可见,平时屏幕阅读器外隐藏 */
+.skip-to-main {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 60;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transform: translateY(-150%);
+  transition: transform 0.15s ease;
+}
+.skip-to-main:focus {
+  transform: translateY(0);
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* 减少动画偏好:尊重系统设置 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .scroll-fade::before,
+  .scroll-fade::after {
+    display: none;
+  }
+}
+
+/* IHUI AI 视觉特效层 */
+.ihui-ai-effects-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+}
+.ihui-ai-effects-layer * {
+  pointer-events: none;
+}
+.ihui-ai-background-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0.1;
+}
+.ihui-ai-bg-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  opacity: 0.15;
+}
+.ihui-ai-bg-feature {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  opacity: 0.1;
+}
+.ihui-ai-animations-layer {
+  position: absolute;
+  inset: 0;
+}
+.ihui-ai-animation-item {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  will-change: transform, opacity;
+}
+.ihui-ai-particle {
+  width: 100%;
+  height: 100%;
+  background: var(--color-foreground);
+  border-radius: var(--radius);
+  animation: ihui-ai-particle-pulse 2s ease-in-out infinite;
+}
+:root:not(.dark) .ihui-ai-animations-layer {
+  display: none;
+}
+@keyframes ihui-ai-particle-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+.ihui-ai-fade-in-left {
+  animation: ihui-ai-fade-in-left 1s ease-out both;
+}
+@keyframes ihui-ai-fade-in-left {
+  from {
+    transform: translateX(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+.ihui-ai-fade-in-top {
+  animation: ihui-ai-fade-in-top 1s ease-out both;
+}
+@keyframes ihui-ai-fade-in-top {
+  from {
+    transform: translateY(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.ihui-ai-fade-in-opacity {
+  animation: ihui-ai-opacity 0.5s ease-out both;
+}
+@keyframes ihui-ai-opacity {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@media (max-width: 768px) {
+  .ihui-ai-background-layer {
+    opacity: 0.05;
+  }
+  .ihui-ai-animation-item {
+    width: 3px;
+    height: 3px;
+  }
 }
