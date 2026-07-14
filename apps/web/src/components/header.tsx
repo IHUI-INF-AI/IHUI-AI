@@ -20,6 +20,7 @@ import {
 import { Avatar } from '@/components/data/Avatar'
 import { Tooltip, TooltipProvider, Dropdown, Popover } from '@/components/feedback'
 import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 
 function mapNotifType(type: string): NoticeItem['type'] {
   switch (type) {
@@ -53,6 +54,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const logout = useAuthStore((s) => s.logout)
+  const openLogin = useLoginDialogStore((s) => s.open)
 
   const { data: announcements = [] } = useQuery({
     queryKey: ['announcements'],
@@ -116,7 +118,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         <Menu className="h-5 w-5" />
       </Button>
 
-      <form onSubmit={handleSearch} className="relative hidden flex-1 md:block md:max-w-sm">
+      <form onSubmit={handleSearch} className="relative hidden flex-1 sm:block sm:max-w-sm">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
@@ -130,6 +132,17 @@ export function Header({ onMenuClick }: HeaderProps) {
 
       <TooltipProvider>
         <div className="ml-auto flex items-center gap-1">
+          <Tooltip content={t('searchPlaceholder')}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t('searchPlaceholder')}
+              onClick={() => router.push('/search')}
+              className="sm:hidden"
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+          </Tooltip>
           <Tooltip content={t('announcements')}>
             <Button
               variant="ghost"
@@ -231,8 +244,8 @@ export function Header({ onMenuClick }: HeaderProps) {
               }
             />
           ) : (
-            <Button asChild variant="ghost" size="sm" className="ml-1">
-              <Link href="/login">{tc('login')}</Link>
+            <Button variant="ghost" size="sm" className="ml-1" onClick={() => openLogin()}>
+              {tc('login')}
             </Button>
           )}
         </div>

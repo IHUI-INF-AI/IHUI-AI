@@ -1,9 +1,9 @@
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
-import { getExamDetail, type Exam } from '@/api'
+import { getExamPaper, getExamQuestions, type ExamPaper } from '@/api'
 
-type ExamDetail = Exam & { questions: Array<{ id: string; title: string; options: string[] }> }
+type ExamDetail = ExamPaper & { questionCount: number }
 
 export default function ExamDetail() {
   const router = useRouter()
@@ -12,8 +12,10 @@ export default function ExamDetail() {
   useEffect(() => {
     const id = router.params.id
     if (!id) return
-    getExamDetail(id)
-      .then((res) => setExam(res))
+    Promise.all([getExamPaper(id), getExamQuestions(id)])
+      .then(([{ paper }, { list }]) => {
+        setExam({ ...paper, questionCount: list.length })
+      })
       .catch((e) => {
         console.error('考试详情加载 failed:', e)
         Taro.showToast({ title: '考试详情加载失败', icon: 'none' })
@@ -33,27 +35,22 @@ export default function ExamDetail() {
             <View className="flex-1 text-center">
               <Text className="block text-xs text-[#999]">题量</Text>
               <Text className="block text-base text-[#007aff] font-semibold mt-1">
-                {exam.questions}题
+                {exam.questionCount}题
               </Text>
             </View>
             <View className="flex-1 text-center">
               <Text className="block text-xs text-[#999]">时长</Text>
               <Text className="block text-base text-[#007aff] font-semibold mt-1">
-                {exam.duration}分钟
+                {exam.duration || 0}分钟
               </Text>
             </View>
             <View className="flex-1 text-center">
               <Text className="block text-xs text-[#999]">及格</Text>
               <Text className="block text-base text-[#007aff] font-semibold mt-1">
-                {exam.passScore}分
+                {exam.passScore || '0'}分
               </Text>
             </View>
           </View>
-          {exam.startTime && (
-            <Text className="block mt-3 text-xs text-[#999]">
-              考试时间：{exam.startTime} - {exam.endTime}
-            </Text>
-          )}
         </View>
       )}
 
