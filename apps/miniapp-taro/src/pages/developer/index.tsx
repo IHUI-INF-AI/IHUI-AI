@@ -1,6 +1,6 @@
 import { View, Text, Image } from '@tarojs/components'
 import { useState, useCallback } from 'react'
-import { useDidShow } from '@tarojs/taro'
+import { useDidShow, navigateTo } from '@tarojs/taro'
 import { getDeveloperAgents } from '@/api'
 import './index.css'
 
@@ -25,6 +25,16 @@ export default function DeveloperIndex() {
     <View className="developer-page">
       <View className="page-header">
         <Text className="page-title">开发者中心</Text>
+      </View>
+      <View
+        className="subscribe-entry"
+        onClick={() => navigateTo({ url: '/pages/developer/subscribe' })}
+      >
+        <View className="subscribe-entry-body">
+          <Text className="subscribe-entry-title">开通开发者套餐</Text>
+          <Text className="subscribe-entry-desc">解锁 API 调用与智能体发布权益</Text>
+        </View>
+        <Text className="subscribe-entry-arrow">›</Text>
       </View>
       <View className="agent-list">
         {loading ? (
