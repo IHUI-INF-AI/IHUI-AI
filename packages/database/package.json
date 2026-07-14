@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --build --force",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",

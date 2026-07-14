@@ -184,6 +184,7 @@ interface SidebarProps {
 /** 侧边栏底部工具栏:语言 / 下载客户端(搜索入口由 Header + 侧边栏搜索行共同承载,见 SearchNavItem) */
 function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const { locale, setLocale } = useLanguageStore()
+  const t = useTranslations('nav')
 
   const handleLocaleChange = (code: Language) => {
     document.cookie = `locale=${code};path=/;max-age=31536000`
@@ -194,80 +195,74 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const btnClass = 'h-7 w-7 shrink-0'
 
   return (
-    <TooltipProvider>
-      <div
-        className={cn(
-          'flex gap-1 rounded-md p-1',
-          collapsed ? 'flex-col items-center' : 'flex-row justify-center',
-        )}
+    <div
+      className={cn(
+        'flex gap-1 rounded-md p-1',
+        collapsed ? 'flex-col items-center' : 'flex-row justify-center',
+      )}
+    >
+      <Popover
+        position={collapsed ? 'right' : 'top'}
+        content={
+          <div className="w-36 py-1">
+            {LANGUAGES.map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => handleLocaleChange(lang.code)}
+                className={cn(
+                  'flex w-full items-center gap-2 px-2 py-1.5 text-sm hover:bg-accent',
+                  locale === lang.code && 'bg-accent font-medium',
+                )}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- SVG flag icon, <img> more appropriate */}
+                <img
+                  src={`/images/flags/${lang.code}.svg`}
+                  className="h-3 w-4 object-cover"
+                  alt={lang.name}
+                />
+                <span>{lang.name}</span>
+              </button>
+            ))}
+          </div>
+        }
       >
-        <Popover
-          position="top"
-          content={
-            <div className="w-36 py-1">
-              {LANGUAGES.map((lang) => (
-                <button
-                  key={lang.code}
-                  onClick={() => handleLocaleChange(lang.code)}
-                  className={cn(
-                    'flex w-full items-center gap-2 px-2 py-1.5 text-sm hover:bg-accent',
-                    locale === lang.code && 'bg-accent font-medium',
-                  )}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- SVG flag icon, <img> more appropriate */}
-                  <img
-                    src={`/images/flags/${lang.code}.svg`}
-                    className="h-3 w-4 object-cover"
-                    alt={lang.name}
-                  />
-                  <span>{lang.name}</span>
-                </button>
-              ))}
-            </div>
-          }
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(btnClass, 'p-0')}
+          title={collapsed ? t('language') : undefined}
         >
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(btnClass, 'p-0')}
-            title={collapsed ? '语言' : undefined}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- SVG flag icon */}
-            <img
-              src={`/images/flags/${locale}.svg`}
-              className="h-3 w-4 object-cover"
-              alt={locale}
-            />
-          </Button>
-        </Popover>
+          {/* eslint-disable-next-line @next/next/no-img-element -- SVG flag icon */}
+          <img src={`/images/flags/${locale}.svg`} className="h-3 w-4 object-cover" alt={locale} />
+        </Button>
+      </Popover>
 
-        <Popover
-          position="top"
-          content={
-            <div className="w-36 py-1">
-              {DOWNLOADS.map((item) => (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  className="block px-2 py-1.5 text-sm hover:bg-accent"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </div>
-          }
+      <Popover
+        position={collapsed ? 'right' : 'top'}
+        content={
+          <div className="w-36 py-1">
+            {DOWNLOADS.map((item) => (
+              <a
+                key={item.label}
+                href={item.href}
+                className="block px-2 py-1.5 text-sm hover:bg-accent"
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+        }
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          className={btnClass}
+          title={collapsed ? t('downloadClient') : undefined}
         >
-          <Button
-            variant="ghost"
-            size="icon"
-            className={btnClass}
-            title={collapsed ? '下载客户端' : undefined}
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-        </Popover>
-      </div>
-    </TooltipProvider>
+          <Download className="h-4 w-4" />
+        </Button>
+      </Popover>
+    </div>
   )
 }
 
@@ -346,7 +341,8 @@ function SidebarUserRow({
           ]}
           trigger={
             <button
-              className="rounded-full outline-none ring-offset-background transition-colors hover:ring-2 hover:ring-ring"
+              className="shrink-0 rounded-full outline-none ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={user?.nickname ?? 'User'}
               title={user?.nickname ?? 'User'}
             >
               <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />
@@ -354,7 +350,9 @@ function SidebarUserRow({
           }
         />
         {!collapsed && (
-          <span className="flex-1 truncate text-sm font-medium">{user?.nickname ?? 'User'}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">
+            {user?.nickname ?? 'User'}
+          </span>
         )}
       </div>
     </div>
@@ -471,10 +469,11 @@ export function Sidebar({
   onCloseMobile,
 }: SidebarProps) {
   const t = useTranslations('nav')
+  const tc = useTranslations('common')
   const pathname = usePathname()
   const user = useAuthStore((s) => s.user)
 
-  const [width, setWidth] = React.useState(160)
+  const [width, setWidth] = React.useState(220)
   const [isResizing, setIsResizing] = React.useState(false)
 
   React.useEffect(() => {
@@ -482,7 +481,7 @@ export function Sidebar({
       const saved = localStorage.getItem('sidebar-width')
       if (saved !== null) {
         const w = Number(saved)
-        if (!Number.isNaN(w) && w >= 60 && w <= 160) setWidth(w)
+        if (!Number.isNaN(w) && w >= 80 && w <= 240) setWidth(w)
       }
     } catch {
       // localStorage 不可用
@@ -499,27 +498,76 @@ export function Sidebar({
 
   const navRef = React.useRef<HTMLElement>(null)
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const resizeCleanupRef = React.useRef<(() => void) | null>(null)
+
+  const clampWidth = React.useCallback((w: number) => Math.min(Math.max(w, 80), 240), [])
+
+  const stopResize = React.useCallback(() => {
+    resizeCleanupRef.current?.()
+    resizeCleanupRef.current = null
+  }, [])
+
+  const handleResizeStart = React.useCallback(
+    (clientX: number) => {
+      setIsResizing(true)
+      const startX = clientX
+      const startWidth = width
+      const handleMouseMove = (ev: MouseEvent) => {
+        setWidth(clampWidth(startWidth + (ev.clientX - startX)))
+      }
+      const handleMouseUp = () => stopResize()
+      resizeCleanupRef.current = () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+        setIsResizing(false)
+      }
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    },
+    [width, clampWidth, stopResize],
+  )
+
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
-    setIsResizing(true)
-    const startX = e.clientX
-    const startWidth = width
-    const handleMouseMove = (ev: MouseEvent) => {
-      const delta = ev.clientX - startX
-      setWidth(Math.min(Math.max(startWidth + delta, 60), 160))
-    }
-    const handleMouseUp = () => {
-      setIsResizing(false)
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
+    handleResizeStart(e.clientX)
   }
+
+  const handleResizeKeyDown = (e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? 32 : 8
+    switch (e.key) {
+      case 'ArrowLeft':
+      case 'ArrowDown':
+        e.preventDefault()
+        setWidth(clampWidth(width - step))
+        break
+      case 'ArrowRight':
+      case 'ArrowUp':
+        e.preventDefault()
+        setWidth(clampWidth(width + step))
+        break
+      case 'Home':
+        e.preventDefault()
+        setWidth(80)
+        break
+      case 'End':
+        e.preventDefault()
+        setWidth(240)
+        break
+    }
+  }
+
+  React.useEffect(() => {
+    const onBlur = () => stopResize()
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('blur', onBlur)
+      stopResize()
+    }
+  }, [stopResize])
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
@@ -566,7 +614,7 @@ export function Sidebar({
           const active = isActive(item.href)
           const label = t(item.labelKey)
           const className = cn(
-            'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
+            'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
             active
               ? 'bg-primary text-primary-foreground'
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -633,7 +681,7 @@ export function Sidebar({
   const header = (
     <div
       className={cn(
-        'flex h-10 shrink-0 items-center gap-2 px-2.5',
+        'flex h-10 shrink-0 items-center gap-2 px-2.5 transition-[padding] duration-200',
         collapsed && 'justify-center px-0',
       )}
     >
@@ -657,7 +705,7 @@ export function Sidebar({
         variant="ghost"
         size="icon"
         onClick={onToggleCollapse}
-        className={cn('hidden h-7 w-7 lg:flex', !collapsed && 'ml-auto')}
+        className={cn('hidden h-7 w-7 lg:flex', !collapsed ? 'ml-auto' : 'mx-auto')}
         title={collapsed ? t('expand') : t('collapse')}
       >
         {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
@@ -679,7 +727,7 @@ export function Sidebar({
       <aside
         aria-label="主导航"
         className={cn(
-          'relative hidden h-screen shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar lg:flex',
+          'relative hidden h-screen shrink-0 flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar lg:flex',
           isResizing ? '' : 'transition-[width] duration-200',
           collapsed && 'w-[60px]',
         )}
@@ -689,12 +737,18 @@ export function Sidebar({
         {navContent}
         {footer}
         {!collapsed && (
-          // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 拖拽调整侧边栏宽度的手柄
           <div
-            onMouseDown={handleMouseDown}
-            className="group absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize"
+            role="slider"
+            aria-label={tc('resizeSidebar')}
+            aria-valuenow={width}
+            aria-valuemin={80}
+            aria-valuemax={240}
+            tabIndex={0}
+            onMouseDown={handleResizeMouseDown}
+            onKeyDown={handleResizeKeyDown}
+            className="group absolute right-0 top-0 z-10 flex h-full w-1.5 cursor-col-resize items-center justify-center outline-none focus-visible:w-2 focus-visible:bg-primary/10"
           >
-            <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-border transition-all duration-200 group-hover:w-[3px] group-hover:bg-primary" />
+            <div className="h-full w-px bg-border transition-all duration-200 group-hover:w-[3px] group-hover:bg-primary group-focus-visible:w-[3px] group-focus-visible:bg-primary" />
           </div>
         )}
       </aside>
@@ -714,7 +768,7 @@ export function Sidebar({
         aria-label="主导航"
         role="dialog"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[160px] flex-col overflow-hidden border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >

@@ -19,6 +19,9 @@ export function StatsSection() {
             </div>
           ))}
         </div>
+        <p className="mt-6 text-center text-xs text-muted-foreground/70">
+          数据来源于内部统计(2026-07)
+        </p>
       </div>
     </section>
   )
