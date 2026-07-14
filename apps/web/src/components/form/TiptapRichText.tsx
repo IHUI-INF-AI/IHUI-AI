@@ -53,7 +53,7 @@ function ToolbarBtn({
   title,
   disabled,
 }: {
-  icon: React.ElementType
+  icon: React.FC<{ className?: string }>
   onClick: () => void
   active?: boolean
   title: string
