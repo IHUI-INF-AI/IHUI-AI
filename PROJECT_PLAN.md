@@ -910,6 +910,7 @@
 - **Goal-D** ✅(2026-07-14) 达成 / goal:AUDIT-P0-9(/member 17 页全部完成:layout/dashboard/orders/orders-[id]/benefits/points/coupons/subscription/refunds/addresses/favorites/history/invitations/feedback/help/settings/upgrade)
 - **Goal-E** ✅(2026-07-14) 达成 / goal:AUDIT-P0-10(ECharts)✅ 已完成;AUDIT-P0-7(Settings 7 子页)✅ 已完成 — 8 个文件全部创建(7 子页 + 索引页),typecheck/eslint/i18n 三项硬性指标通过,build 失败属预先存在的其他模块 jsx-a11y 错误(非 P0-7 引入,已加入 P1 队列)
 - **Goal-F~Z**(后续):AUDIT-P1 20 项 + AUDIT-P2 11 项,按依赖关系分批
+- **Goal-Final** ✅(2026-07-14) 迁移审计全部完成 — AUDIT-P1 20 项 + AUDIT-P2 11 项全部 [x] ✅。最终交付:① P1-1/7 clawdbot 8 后端服务 + 8 前端面板 ② P1-2-b ai-generation 路由接线(5 端点)③ P1-16-b 20 个超长页面组件化重构(84 个子文件,全部 < 250 行)④ P1-17/18/19 PWA + 字体 + pdfjs ⑤ P2-1/2/3 i18n 5 语言 parity 同步(482 命名空间,6876 键,0 missing)⑥ P2-11 missing-user-routes 空桩清零。最终验证:Web typecheck 0 + API typecheck 0 + Web lint 0 + i18n parity OK。2 个 commit:refactor(web) 92 文件 + i18n(web) 6 文件。剩余 3 项需用户自验(goal 宿主续跑 / Superpowers 更新 / Trae CN subagent)
 
 ---
 
