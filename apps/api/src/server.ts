@@ -86,6 +86,7 @@ import eduExtendedRoutes from './routes/edu-extended.js'
 import systemExtendedRoutes, { adminCategoryDictionaryRoutes } from './routes/system-extended.js'
 import aiExtendedRoutes from './routes/ai-extended.js'
 import miscExtendedRoutes from './routes/misc-extended.js'
+import aiGenerationRoutes from './routes/ai-generation.js'
 // M-20 补建：14 个 API 模块路由
 import toolsRoutes from './routes/tools.js'
 import rankingRoutes from './routes/ranking.js'
@@ -561,6 +562,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(aiExtendedRoutes, { prefix: '/api/ai-ext' })
   // 其他扩展（remote/user_agent_context/docs）
   server.register(miscExtendedRoutes, { prefix: '/api/misc-ext' })
+  // AI 生成队列：enqueue/status/cancel/list/stats
+  server.register(aiGenerationRoutes, { prefix: '/api' })
 
   // ===== M-20 补建：14 个 API 模块路由 =====
   // 用户端工具目录：/api/tools/*

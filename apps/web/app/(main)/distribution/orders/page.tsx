@@ -133,7 +133,7 @@ export default function CommissionOrdersPage() {
               <SelectItem value="all">{t('statusAll')}</SelectItem>
               {STATUS_OPTIONS.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {t(STATUS_KEY[s])}
+                  {t(STATUS_KEY[s] ?? s)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -177,8 +177,12 @@ export default function CommissionOrdersPage() {
               items.map((it) => (
                 <TableRow key={it.id}>
                   <TableCell className="px-4 py-2.5 font-medium">{it.orderNo}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">{it.paymentMethod ?? '-'}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-right font-medium">{fmtYuan(it.amount)}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-muted-foreground">
+                    {it.paymentMethod ?? '-'}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-right font-medium">
+                    {fmtYuan(it.amount)}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
@@ -189,7 +193,9 @@ export default function CommissionOrdersPage() {
                       {t(STATUS_KEY[it.status] ?? 'orderStatusPending')}
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">{fmtDate(it.createdAt)}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-muted-foreground">
+                    {fmtDate(it.createdAt)}
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -201,11 +207,23 @@ export default function CommissionOrdersPage() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
