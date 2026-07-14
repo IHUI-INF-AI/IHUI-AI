@@ -411,7 +411,7 @@ function SearchNavItem({
   }
 
   const className = cn(
-    'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    'flex h-10 w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
     active
       ? 'bg-primary text-primary-foreground'
       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -566,7 +566,7 @@ export function Sidebar({
           const active = isActive(item.href)
           const label = t(item.labelKey)
           const className = cn(
-            'flex w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
+            'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
             active
               ? 'bg-primary text-primary-foreground'
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
