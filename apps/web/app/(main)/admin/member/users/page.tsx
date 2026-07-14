@@ -190,6 +190,7 @@ export default function AdminMemberUsersPage() {
             <SelectItem value="all">全部状态</SelectItem>
             <SelectItem value="1">正常</SelectItem>
             <SelectItem value="0">禁用</SelectItem>
+            <SelectItem value="3">已注销</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -221,7 +222,9 @@ export default function AdminMemberUsersPage() {
               </tr>
             ) : (
               list.map((u) => {
-                const isActive = (u.status ?? 0) >= 1
+                const statusVal = u.status ?? 0
+                const isActive = statusVal === 1
+                const isCancelled = statusVal === 3
                 const levelLabel = ['普通', '白银', '黄金', '钻石'][u.level] ?? '普通'
                 return (
                   <tr key={u.id} className="transition-colors hover:bg-muted/30">
@@ -235,7 +238,7 @@ export default function AdminMemberUsersPage() {
                     <td className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex rounded px-1.5 py-0.5 text-xs',
+                          'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs',
                           u.level >= 2
                             ? 'bg-amber-500/10 text-amber-600'
                             : 'bg-muted text-muted-foreground',
@@ -248,18 +251,24 @@ export default function AdminMemberUsersPage() {
                       <span
                         className={cn(
                           'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
-                          isActive
-                            ? 'bg-emerald-500/10 text-emerald-600'
-                            : 'bg-muted text-muted-foreground',
+                          isCancelled
+                            ? 'bg-zinc-500/10 text-zinc-500'
+                            : isActive
+                              ? 'bg-emerald-500/10 text-emerald-600'
+                              : 'bg-muted text-muted-foreground',
                         )}
                       >
                         <span
                           className={cn(
                             'h-1.5 w-1.5 rounded-full',
-                            isActive ? 'bg-emerald-500' : 'bg-muted-foreground',
+                            isCancelled
+                              ? 'bg-zinc-500'
+                              : isActive
+                                ? 'bg-emerald-500'
+                                : 'bg-muted-foreground',
                           )}
                         />
-                        {isActive ? '正常' : '禁用'}
+                        {isCancelled ? '已注销' : isActive ? '正常' : '禁用'}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-xs text-muted-foreground">
