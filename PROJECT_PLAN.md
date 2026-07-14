@@ -188,6 +188,20 @@
 - [x] ✅(2026-07-15) push origin/main: 4c9946cb..c0cbbe31 推送成功(本分支已 up-to-date with origin/main)
 - [x] ✅(2026-07-15) 最终状态: 17 文件已稳定在远程;工作区干净;无遗留可执行建议;对话可关闭
 
+### 小程序分销中心真实 API 接入（2026-07-15 commit b1d6aab7 + 2 个 typecheck 修复）
+
+- [x] ✅(2026-07-15) 触发: 上次 commit c0cbbe31 留下 2 个未提交文件(api/index.ts + distribution/index.tsx 接入真实 API)+ typecheck 4 个错误
+- [x] ✅(2026-07-15) typecheck 错误修复:
+  - distribution/company/index.tsx:43 Member 字段映射(API 返回 {id,username,nickname,avatar,createdAt} → Member 需 {id,nickname,avatar?,joinTime,level})
+  - distribution/index.tsx:84 WITHDRAWAL_STATUS_MAP 类型收窄到 WithdrawalRecord['status']: 'pending'|'approved'|'rejected'|'completed'
+  - distribution/team.tsx:36 同样的 Member 字段映射
+  - message/index.tsx:123 SystemNoticeItem.type 类型收窄到 'system'|'activity'|'upgrade'
+  - message/index.tsx:72 移除未使用的 setInteractionList
+- [x] ✅(2026-07-15) commit b1d6aab7: feat(miniapp) 分销中心接入真实 API + 消息页改造 + typecheck 修复(5 文件, +338 -122)
+- [x] ✅(2026-07-15) push origin/main: 68751931..b1d6aab7 推送成功
+- [x] ✅(2026-07-15) 全量验证: pnpm --filter @ihui/api typecheck 0 错误 / pnpm --filter @ihui/web typecheck 0 错误 / pnpm --filter @ihui/miniapp-taro typecheck 0 错误
+- [x] ✅(2026-07-15) 最终状态: 5 文件已稳定在远程;3 个 typecheck 全绿;工作区干净;无遗留可执行建议;对话可关闭
+
 ### 待人工确认任务（2026-07-15 更新）
 
 - [ ] 📋(2026-07-14) 用户任务 真机验证: 8 项清单 — 1.图片上传链路(feedback 页 uploadPictures) 2.模型切换交互(chat 页 DrawerComponent + ModelList) 3.reasoning 折叠(ChatMessageItem expanded) 4.通知横幅(NavBar notification) 5.开发者套餐订阅(developer/subscribe → pay) 6.SSE 流式(chat 页逐 token 渲染 + 停止按钮) 7.sessionId 连续性(多轮对话同一会话) 8.消息搜索(message 页客户端过滤)
