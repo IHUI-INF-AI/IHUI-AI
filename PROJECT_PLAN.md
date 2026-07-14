@@ -160,6 +160,21 @@
 - [x] ✅(2026-07-14) 全量验证: pnpm --filter @ihui/miniapp-taro typecheck 退出码 0
 - [x] ✅(2026-07-14) 收尾状态: H5 端 SSE 兼容补建完成;无遗留可执行建议;对话可关闭
 
+### 最终 commit 整合（2026-07-14 7 次 commit + 全量验证）
+
+- [x] ✅(2026-07-14) commit 1 f006aba9: feat(database) 补建 community 讨论帖表 + developer 订阅 migration (6 文件)
+- [x] ✅(2026-07-14) commit 2 6760dc4e: feat(api) community CRUD 路由 + SSE 流式代理 + 支付回调激活订阅 (6 文件)
+- [x] ✅(2026-07-14) commit 3 a921e0a5: feat(miniapp) SSE 流式增强 + 停止生成 UI + H5 端兼容 (4 文件)
+- [x] ✅(2026-07-14) commit 4 df02a45c: feat(web) community 接入正式路由 + topics 路由重命名 + 前端断链修复 (4 文件)
+- [x] ✅(2026-07-14) commit 5 3f816630: docs(plan) 更新 PROJECT_PLAN — P2 收尾 + H5 SSE 兼容 (1 文件)
+- [x] ✅(2026-07-14) commit 6 7fec5231: chore 整合历史遗留改动 (50+ 小程序组件 + 20+ e2e 测试 + 5 语言 i18n + 配置) (95 文件)
+- [x] ✅(2026-07-14) commit 7 df887f20: feat(miniapp) 补建消息系统 9 组件 + 修复 typecheck 错误 (12 文件)
+- [x] ✅(2026-07-14) typecheck 修复: WithdrawalRecords.tsx (status possibly undefined) + ProgressCircle.tsx (未使用变量) + index.ts (10 个不存在的类型导出) + NoteEditor/TeamManager (未使用 import)
+- [x] ✅(2026-07-14) 恢复 15 个 drizzle meta snapshot 文件 (遵守不允许删除原则)
+- [x] ✅(2026-07-14) 全量验证: pnpm --filter @ihui/api typecheck 退出码 0 / pnpm --filter @ihui/web typecheck 退出码 0 / pnpm --filter @ihui/miniapp-taro typecheck 退出码 0
+- [x] ✅(2026-07-14) git status: 仅剩 scripts/ 2 个 untracked 文件 (pre-commit hook 误判 API key 占位符无法提交,保留不删除)
+- [x] ✅(2026-07-14) 最终状态: 7 次 commit 全部成功;3 个 typecheck 全绿;工作区干净;无遗留可执行建议;对话可关闭
+
 ### 待人工确认任务（2026-07-14 更新）
 
 - [ ] 📋(2026-07-14) 用户任务 真机验证: 8 项清单 — 1.图片上传链路(feedback 页 uploadPictures) 2.模型切换交互(chat 页 DrawerComponent + ModelList) 3.reasoning 折叠(ChatMessageItem expanded) 4.通知横幅(NavBar notification) 5.开发者套餐订阅(developer/subscribe → pay) 6.SSE 流式(chat 页逐 token 渲染 + 停止按钮) 7.sessionId 连续性(多轮对话同一会话) 8.消息搜索(message 页客户端过滤)
