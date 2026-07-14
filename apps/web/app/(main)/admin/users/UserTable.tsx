@@ -73,7 +73,9 @@ export function UserTable({
           ) : (
             list.map((u) => {
               const isAdmin = (u.roleId ?? 0) >= 1
-              const isActive = (u.status ?? 0) >= 1
+              const statusVal = u.status ?? 0
+              const isActive = statusVal === 1
+              const isCancelled = statusVal === 3
               const name = u.nickname || u.phone || u.email || 'U'
               return (
                 <tr key={u.id} className="transition-colors hover:bg-muted/30">
@@ -112,18 +114,28 @@ export function UserTable({
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                        isActive
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                          : 'bg-muted text-muted-foreground',
+                        isCancelled
+                          ? 'bg-zinc-500/10 text-zinc-500'
+                          : isActive
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                            : 'bg-muted text-muted-foreground',
                       )}
                     >
                       <span
                         className={cn(
                           'h-1.5 w-1.5 rounded-full',
-                          isActive ? 'bg-emerald-500' : 'bg-muted-foreground',
+                          isCancelled
+                            ? 'bg-zinc-500'
+                            : isActive
+                              ? 'bg-emerald-500'
+                              : 'bg-muted-foreground',
                         )}
                       />
-                      {isActive ? t('statusActive') : t('statusDisabled')}
+                      {isCancelled
+                        ? t('statusCancelled')
+                        : isActive
+                          ? t('statusActive')
+                          : t('statusDisabled')}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
