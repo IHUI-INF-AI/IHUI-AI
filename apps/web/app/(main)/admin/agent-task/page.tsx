@@ -118,7 +118,7 @@ export default function AgentTaskPage() {
     saveMut.mutate()
   }
   function handleDelete(item: AgentTask) {
-    if (!window.confirm(t('deleteConfirm', { title: item.title }))) return
+    if (!window.confirm(t('deleteConfirm', { title: item.title ?? '' }))) return
     deleteMut.mutate(item.id)
   }
   function handleExport() {
