@@ -6204,7 +6204,8 @@
       "statsFollowing": "완료팔로우",
       "statsFollowers": "팔로워",
       "statsFavorites": "즐겨찾기",
-      "bioEmpty": "설명 없음"
+      "bioEmpty": "설명 없음",
+      "sendMessage": "메시지 보내기"
     },
     "realname": {
       "title": "실명 인증",
@@ -6271,6 +6272,14 @@
       "renewNow": "지금 갱신",
       "openNow": "지금 가입",
       "days": "일"
+    },
+    "articles": {
+      "title": "내 글",
+      "total": "총 {n}편",
+      "create": "새 글",
+      "createFirst": "첫 글 쓰기",
+      "empty": "아직 글이 없습니다",
+      "deleteSuccess": "삭제됨"
     }
   },
   "settings": {
@@ -9526,6 +9535,7 @@
       "placeholder": "메시지 입력..."
     },
     "send": "전송",
+    "loadMore": "더 보기",
     "error": "전송 실패",
     "subtitle": "다른 사용자와의 1:1 메시지",
     "loading": "로딩 중...",
@@ -9642,7 +9652,8 @@
     "titleRequired": "标题不能为空",
     "contentRequired": "内容不能为空",
     "cancel": "取消",
-    "publish": "发布"
+    "publish": "发布",
+    "save": "保存"
   },
   "myAsks": {
     "title": "我的问答",

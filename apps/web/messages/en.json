@@ -6204,7 +6204,8 @@
       "statsFollowing": "Following",
       "statsFollowers": "Followers",
       "statsFavorites": "Favorites",
-      "bioEmpty": "No bio yet"
+      "bioEmpty": "No bio yet",
+      "sendMessage": "Send Message"
     },
     "realname": {
       "title": "Real Name Verification",
@@ -6271,6 +6272,14 @@
       "renewNow": "Renew Now",
       "openNow": "Subscribe Now",
       "days": "days"
+    },
+    "articles": {
+      "title": "My Articles",
+      "total": "{n} articles in total",
+      "create": "New Article",
+      "createFirst": "Write the first one",
+      "empty": "No articles yet",
+      "deleteSuccess": "Deleted"
     }
   },
   "settings": {
@@ -9572,7 +9581,8 @@
     "titleRequired": "Title is required",
     "contentRequired": "Content is required",
     "cancel": "Cancel",
-    "publish": "Publish"
+    "publish": "Publish",
+    "save": "Save"
   },
   "myAsks": {
     "title": "My Questions",
@@ -9650,6 +9660,7 @@
       "placeholder": "Type a message..."
     },
     "send": "Send",
+    "loadMore": "Load more",
     "error": "Send failed",
     "subtitle": "One-on-one messages with other users",
     "loading": "Loading...",

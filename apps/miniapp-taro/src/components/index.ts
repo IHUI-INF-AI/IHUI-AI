@@ -121,7 +121,7 @@ export { default as VipUpgradeToast } from './VipUpgradeToast'
 export type { VipUpgradeToastProps } from './VipUpgradeToast'
 
 export { default as VipPriceSelector } from './VipPriceSelector'
-export type { VipPriceSelectorProps } from './VipPriceSelector'
+export type { VipPriceSelectorProps, PriceOption } from './VipPriceSelector'
 
 export { default as VipPayConfirm } from './VipPayConfirm'
 export type { VipPayConfirmProps } from './VipPayConfirm'
@@ -144,7 +144,7 @@ export type { LevelBadgeProps } from './LevelBadge'
 
 // ============ P0-2 学习系统 12 组件 ============
 export { default as CourseHeader } from './CourseHeader'
-export type { CourseHeaderProps } from './CourseHeader'
+export type { CourseHeaderProps, CourseHeaderData } from './CourseHeader'
 
 export { default as LessonListItem } from './LessonListItem'
 export type { LessonListItemProps, LessonListItemData } from './LessonListItem'
