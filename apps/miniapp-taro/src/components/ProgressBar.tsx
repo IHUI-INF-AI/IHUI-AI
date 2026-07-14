@@ -1,0 +1,34 @@
+import { View, Text } from '@tarojs/components'
+
+export interface ProgressBarProps {
+  percent?: number
+  showText?: boolean
+  color?: string
+  height?: number
+}
+
+export default function ProgressBar({
+  percent = 0,
+  showText = false,
+  color = '#6366f1',
+  height = 4,
+}: ProgressBarProps) {
+  const clamped = Math.min(100, Math.max(0, percent))
+
+  return (
+    <View className="w-full">
+      <View
+        className="w-full bg-gray-100 rounded-full overflow-hidden"
+        style={{ height: `${height}px` }}
+      >
+        <View
+          className="rounded-full transition-all"
+          style={{ width: `${clamped}%`, height: '100%', backgroundColor: color }}
+        />
+      </View>
+      {showText && (
+        <Text className="block text-xs text-gray-500 mt-1 text-right">{Math.floor(clamped)}%</Text>
+      )}
+    </View>
+  )
+}

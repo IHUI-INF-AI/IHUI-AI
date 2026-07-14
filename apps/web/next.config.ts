@@ -40,7 +40,7 @@ const nextConfig: NextConfig = {
     ]
   },
   async rewrites() {
-    const apiUrl = process.env.API_URL ?? 'http://localhost:8080'
+    const apiUrl = process.env.API_URL ?? 'http://localhost:3001'
     const aiServiceUrl = process.env.AI_SERVICE_URL ?? 'http://localhost:8000'
     return [
       // AI 服务路由优先匹配,转发到 FastAPI(端口 8000)

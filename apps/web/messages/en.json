@@ -42,6 +42,7 @@
     "followed": "Following",
     "orderNoLabel": "Order No.",
     "searchPlaceholder": "Search...",
+    "resizeSidebar": "Resize sidebar",
     "orderStatus": {
       "pending": "Pending",
       "paid": "Paid",
@@ -330,6 +331,8 @@
     "adminLogs": "API Logs",
     "expand": "Expand",
     "collapse": "Collapse",
+    "language": "Language",
+    "downloadClient": "Download App",
     "wallet": "Wallet",
     "walletRecharge": "Recharge",
     "walletWithdraw": "Withdraw",
