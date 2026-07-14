@@ -2,14 +2,50 @@
 @plugin '@tailwindcss/typography';
 @plugin 'tailwindcss-animate';
 @source '../../../packages/ui/src';
+@import '../src/styles/animations.css';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/HarmonyOS_SansSC_Thin.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/HarmonyOS_SansSC_Light.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/HarmonyOS_SansSC_Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/HarmonyOS_SansSC_Medium.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/HarmonyOS_SansSC_Bold.ttf') format('truetype');
+}
+
 @theme {
   --font-sans:
-    var(--font-inter), 'HarmonyOS Sans SC', ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
-    'Apple Color Emoji', 'Segoe UI Emoji';
+    'HarmonyOS Sans SC', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
   --color-background: hsl(0 0% 100%);
   --color-foreground: hsl(0 0% 3.9%);
   --color-card: hsl(0 0% 100%);
@@ -50,6 +86,13 @@
   --color-sidebar-hover: hsl(218 14% 92%);
   --color-sidebar-active: hsl(222 13% 86%);
   --color-sidebar-active-hover: hsl(217 11% 80%);
+
+  --animate-ripple: ripple 0.6s ease-out;
+  --animate-success-bounce: success-bounce 0.4s ease;
+  --animate-error-shake: error-shake 0.4s ease;
+  --animate-fade-in: fade-in 0.3s ease;
+  --animate-slide-up: slide-up 0.3s ease;
+  --animate-scale-in: scale-in 0.2s ease;
 }
 
 .dark {
@@ -402,4 +445,28 @@ body {
     width: 3px;
     height: 3px;
   }
+}
+
+@media (prefers-contrast: high) {
+  :root {
+    --color-border: hsl(0 0% 0%);
+    --color-foreground: hsl(0 0% 0%);
+    --color-background: hsl(0 0% 100%);
+  }
+  .dark {
+    --color-border: hsl(0 0% 100%);
+    --color-foreground: hsl(0 0% 100%);
+    --color-background: hsl(0 0% 0%);
+  }
+}
+
+.high-contrast {
+  --color-border: hsl(0 0% 0%);
+  --color-foreground: hsl(0 0% 0%);
+  --color-background: hsl(0 0% 100%);
+}
+.dark.high-contrast {
+  --color-border: hsl(0 0% 100%);
+  --color-foreground: hsl(0 0% 100%);
+  --color-background: hsl(0 0% 0%);
 }
