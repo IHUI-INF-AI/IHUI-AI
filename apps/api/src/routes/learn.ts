@@ -77,6 +77,9 @@ import {
   getLessonExamPaperId,
   setLessonExamPaperId,
   setLessonCertificateId,
+  createHomeworkRecord,
+  findMyHomeworkRecords,
+  auditHomeworkRecord,
 } from '../db/learn-extended-queries.js'
 import { success, error } from '../utils/response.js'
 
@@ -255,6 +258,20 @@ const updateHomeworkSchema = z.object({
   sort: z.number().int().min(0).optional(),
   status: z.string().max(20).optional(),
 })
+
+const submitHomeworkRecordSchema = z.object({
+  url: z.string().min(1, '作业链接不能为空').max(3000),
+})
+
+const auditHomeworkSchema = z.object({
+  status: z.enum(['approved', 'rejected']),
+})
+
+const homeworkListQuerySchema = z.object({
+  status: z.string().max(20).optional(),
+})
+
+const homeworkIdParamSchema = z.object({ hid: z.string().uuid('无效的作业记录 ID') })
 
 const examPaperSchema = z.object({
   examPaperId: z.string().uuid().nullable(),
@@ -614,6 +631,45 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     const rate = await findRateByUserLesson(userId, parsed.data.lessonId)
     return reply.send(success({ rate }))
+  })
+
+  // ----- Homework Record (学生作业提交) -----
+
+  // POST /learn/lessons/:id/homework - 学生提交作业（需登录，需先报名）
+  server.post('/learn/lessons/:id/homework', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const bodyParsed = submitHomeworkRecordSchema.safeParse(request.body)
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const signup = await findSignUp(parsed.data.id, userId)
+    if (!signup) {
+      return reply.status(403).send(error(403, '未报名该课程，无法提交作业'))
+    }
+    const record = await createHomeworkRecord({
+      memberId: userId,
+      lessonId: parsed.data.id,
+      url: bodyParsed.data.url,
+      signUpId: signup.id,
+    })
+    return reply.status(201).send(success({ record }))
+  })
+
+  // GET /learn/homework - 我的作业提交记录列表（需登录，支持 status 过滤）
+  server.get('/learn/homework', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = homeworkListQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const list = await findMyHomeworkRecords(userId, parsed.data.status)
+    return reply.send(success({ list }))
   })
 }
 
@@ -1531,5 +1587,24 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
       bodyParsed.data.accessValues,
     )
     return reply.send(success({ count }))
+  })
+
+  // ----- Homework Record Audit (作业审核) -----
+
+  // PUT /learn/homework/:hid/audit - 教师审核学生作业
+  server.put('/learn/homework/:hid/audit', async (request, reply) => {
+    const paramParsed = homeworkIdParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const bodyParsed = auditHomeworkSchema.safeParse(request.body)
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const updated = await auditHomeworkRecord(paramParsed.data.hid, bodyParsed.data.status)
+    if (!updated) {
+      return reply.status(404).send(error(404, '作业记录不存在'))
+    }
+    return reply.send(success({ record: updated }))
   })
 }

@@ -295,21 +295,80 @@ export const getStudyRank = () =>
   )
 
 export interface Exam {
-  id: string | number
+  id: string
   title: string
+  description?: string | null
+  categoryId?: string | null
+  paperType?: 'normal' | 'random' | 'mock' | 'exam'
+  totalScore: string
+  passScore: string
   duration: number
-  questions: number
-  passScore: number
-  startTime?: string
-  endTime?: string
-  status?: string
+  isPublished?: boolean
+  questionCount: number
+  status?: number
+  categoryName?: string | null
+  createdAt?: string
 }
-export const getExamList = (params?: { page?: number; pageSize?: number }) =>
-  get<{ list: Exam[]; total: number }>('/exam/list', params)
-export const getExamDetail = (id: string | number) =>
-  get<Exam & { questions: Array<{ id: string; title: string; options: string[] }> }>(`/exam/${id}`)
-export const submitExam = (data: { examId: string; answers: Record<string, number> }) =>
-  post<{ score: number; pass: boolean }>('/exam/submit', data)
+export const getExamList = (params?: {
+  page?: number
+  pageSize?: number
+  search?: string
+  categoryId?: string
+  paperType?: 'normal' | 'random' | 'mock' | 'exam'
+}) => get<{ list: Exam[]; total: number }>('/exam/papers', params)
+export type QuestionType =
+  'single_choice' | 'multi_choice' | 'judgment' | 'fill_blank' | 'subjective'
+export interface ExamPaper {
+  id: string
+  title: string
+  description?: string | null
+  categoryId?: string
+  paperType?: 'normal' | 'random' | 'mock' | 'exam'
+  totalScore?: string
+  passScore?: string
+  duration?: number
+  isPublished?: boolean
+  isRandom?: boolean
+  status?: number
+}
+export interface ExamQuestion {
+  id: string
+  paperId: string
+  type: QuestionType
+  title: string
+  options?: string[]
+  score?: string
+  sortOrder?: number
+}
+export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${id}`)
+export const getExamQuestions = (id: string) =>
+  get<{ list: ExamQuestion[] }>(`/exam/papers/${id}/questions`)
+export interface ExamRecord {
+  id: string
+  paperId: string
+  score: string
+  isPassed: boolean
+  status: string
+  startedAt: string
+  submittedAt?: string | null
+}
+export const getExamRecords = (params?: { page?: number; pageSize?: number }) =>
+  get<{ list: ExamRecord[]; total: number }>('/exam/records', params)
+export interface ExamSubmitResult {
+  score: number
+  isPassed: boolean
+  duration: number
+  answers: Array<{ questionId: string; answer: unknown; isCorrect: boolean; score: number }>
+}
+export const startExamRecord = (paperId: string) =>
+  post<{ record: ExamRecord }>(`/exam/papers/${paperId}/start`)
+export const submitExam = (data: {
+  recordId: string
+  answers: Array<{ questionId: string; answer: unknown }>
+}) =>
+  post<{ result: ExamSubmitResult }>(`/exam/records/${data.recordId}/submit`, {
+    answers: data.answers,
+  })
 export const getExamResult = (id: string | number) =>
   get<{ score: number; pass: boolean; rank?: number; total?: number }>(`/exam/${id}/result`)
 
