@@ -3,7 +3,30 @@
 import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
-import { Sun, Moon, Monitor, Globe, Languages, Check } from 'lucide-react'
+import Link from 'next/link'
+import {
+  Sun,
+  Moon,
+  Monitor,
+  Globe,
+  Languages,
+  Check,
+  Smartphone,
+  UserX,
+  Shield,
+  Download,
+  Key,
+  FileText,
+  Bell,
+  CreditCard,
+  User,
+  UserCircle,
+  Receipt,
+  Link2,
+  Settings,
+  Activity,
+  LayoutDashboard,
+} from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
@@ -21,6 +44,73 @@ import {
 } from '@/components/settings'
 
 const SIDEBAR_KEY = 'sidebar-collapsed'
+
+const SUB_PAGES = [
+  {
+    href: '/settings/dashboard',
+    icon: LayoutDashboard,
+    titleKey: 'dashboardTitle',
+    descKey: 'dashboardDesc',
+  },
+  { href: '/settings/profile', icon: User, titleKey: 'profileTitle', descKey: 'profileDesc' },
+  { href: '/settings/avatar', icon: UserCircle, titleKey: 'avatarTitle', descKey: 'avatarDesc' },
+  { href: '/settings/billing', icon: Receipt, titleKey: 'billingTitle', descKey: 'billingDesc' },
+  {
+    href: '/settings/connected-accounts',
+    icon: Link2,
+    titleKey: 'connectedAccountsTitle',
+    descKey: 'connectedAccountsDesc',
+  },
+  {
+    href: '/settings/preferences',
+    icon: Settings,
+    titleKey: 'preferencesTitle',
+    descKey: 'preferencesDesc',
+  },
+  {
+    href: '/settings/activity',
+    icon: Activity,
+    titleKey: 'activityTitle',
+    descKey: 'activityDesc',
+  },
+  {
+    href: '/settings/account-deletion',
+    icon: UserX,
+    titleKey: 'accountDeletionTitle',
+    descKey: 'accountDeletionDesc',
+  },
+  { href: '/settings/privacy', icon: Shield, titleKey: 'privacyTitle', descKey: 'privacyDesc' },
+  {
+    href: '/settings/data-export',
+    icon: Download,
+    titleKey: 'dataExportTitle',
+    descKey: 'dataExportDesc',
+  },
+  {
+    href: '/settings/authorizations',
+    icon: Key,
+    titleKey: 'authorizationsTitle',
+    descKey: 'authorizationsDesc',
+  },
+  {
+    href: '/settings/security-log',
+    icon: FileText,
+    titleKey: 'securityLogTitle',
+    descKey: 'securityLogDesc',
+  },
+  {
+    href: '/settings/notifications',
+    icon: Bell,
+    titleKey: 'notificationsTitle',
+    descKey: 'notificationsDesc',
+  },
+  {
+    href: '/settings/subscription',
+    icon: CreditCard,
+    titleKey: 'subscriptionTitle',
+    descKey: 'subscriptionDesc',
+  },
+] as const
 
 export default function SettingsPage() {
   const t = useTranslations('settings')
@@ -144,6 +234,28 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* 小程序二维码 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Smartphone className="h-4 w-4" />
+            {t('miniappQr')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/common/miniapp-qr.png"
+              alt={t('miniappQr')}
+              className="h-48 w-48 rounded-lg border"
+              loading="lazy"
+            />
+            <p className="text-sm text-muted-foreground">{t('miniappQrDesc')}</p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 主题备份 / 同步 / 平滑过渡 */}
       <ThemeBackupSync />
 
@@ -158,6 +270,30 @@ export default function SettingsPage() {
       <SessionManager />
       <IpWhitelist />
       <LoginHistory />
+
+      <div className="space-y-2 pt-2">
+        <h2 className="text-lg font-semibold tracking-tight">{t('subPagesTitle')}</h2>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {SUB_PAGES.map((item) => {
+          const Icon = item.icon
+          return (
+            <Link key={item.href} href={item.href}>
+              <Card className="transition-colors hover:bg-accent">
+                <CardContent className="flex items-start gap-3 p-4">
+                  <div className="rounded-lg bg-muted p-2">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{t(item.titleKey)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t(item.descKey)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )
+        })}
+      </div>
     </Container>
   )
 }

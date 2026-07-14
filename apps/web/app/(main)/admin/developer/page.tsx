@@ -28,7 +28,7 @@ export default function DeveloperPage() {
   const { data: keys, isLoading } = useQuery({
     queryKey: ['admin', 'developer', 'keys'],
     queryFn: async () => {
-      const r = await fetchApi<ApiKey[]>('/api/admin/developer/keys')
+      const r = await fetchApi<ApiKey[]>('/api/developer/api-keys')
       if (!r.success) throw new Error(r.error)
       return r.data
     },
@@ -36,7 +36,7 @@ export default function DeveloperPage() {
   const { data: webhooks } = useQuery({
     queryKey: ['admin', 'developer', 'webhooks'],
     queryFn: async () => {
-      const r = await fetchApi<WebhookConfig[]>('/api/admin/developer/webhooks')
+      const r = await fetchApi<WebhookConfig[]>('/api/developer/webhooks')
       if (!r.success) throw new Error(r.error)
       return r.data
     },
@@ -44,7 +44,7 @@ export default function DeveloperPage() {
   const { data: sdks } = useQuery({
     queryKey: ['admin', 'developer', 'sdks'],
     queryFn: async () => {
-      const r = await fetchApi<SdkItem[]>('/api/admin/developer/sdks')
+      const r = await fetchApi<SdkItem[]>('/api/sdks')
       if (!r.success) throw new Error(r.error)
       return r.data
     },
@@ -52,7 +52,7 @@ export default function DeveloperPage() {
 
   const createKeyMut = useMutation({
     mutationFn: async () => {
-      const r = await fetchApi('/api/admin/developer/keys', {
+      const r = await fetchApi('/api/developer/api-keys', {
         method: 'POST',
         body: JSON.stringify({ name: keyName }),
       })
@@ -67,7 +67,7 @@ export default function DeveloperPage() {
   })
   const delKeyMut = useMutation({
     mutationFn: async (id: string) => {
-      const r = await fetchApi(`/api/admin/developer/keys/${id}`, { method: 'DELETE' })
+      const r = await fetchApi(`/api/developer/api-keys/${id}`, { method: 'DELETE' })
       if (!r.success) throw new Error(r.error)
     },
     onSuccess: () => {
@@ -81,7 +81,7 @@ export default function DeveloperPage() {
         .split(',')
         .map((e) => e.trim())
         .filter(Boolean)
-      const r = await fetchApi('/api/admin/developer/webhooks', {
+      const r = await fetchApi('/api/developer/webhooks', {
         method: 'POST',
         body: JSON.stringify({ url: whForm.url, events }),
       })

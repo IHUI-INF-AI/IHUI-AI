@@ -11,9 +11,12 @@ interface Props {
   detailUser: AdminUser | null
   onCloseDetail: () => void
   confirmUser: AdminUser | null
+  confirmMode: 'status' | 'delete'
   onConfirmStatus: () => void
+  onConfirmDelete: () => void
   onCancelStatus: () => void
   patchPending: boolean
+  deletePending: boolean
   dateFmt: Intl.DateTimeFormat
 }
 
@@ -23,12 +26,17 @@ export function UserDialog({
   detailUser,
   onCloseDetail,
   confirmUser,
+  confirmMode,
   onConfirmStatus,
+  onConfirmDelete,
   onCancelStatus,
   patchPending,
+  deletePending,
   dateFmt,
 }: Props) {
   const t = useTranslations('admin.users')
+  const isDelete = !!confirmUser && confirmMode === 'delete'
+  const isActive = !!confirmUser && (confirmUser.status ?? 0) >= 1
   return (
     <>
       <Modal open={!!quickUser} onClose={onCloseQuick} title={t('userDetail')} size="sm">
@@ -97,14 +105,29 @@ export function UserDialog({
       </Drawer>
 
       <ConfirmDialog
-        open={!!confirmUser}
+        open={!!confirmUser && confirmMode === 'status'}
         variant="danger"
-        title={confirmUser && (confirmUser.status ?? 0) >= 1 ? t('disable') : t('enable')}
+        title={isActive ? t('disable') : t('enable')}
         content={t('confirmStatusChange')}
-        confirmText={confirmUser && (confirmUser.status ?? 0) >= 1 ? t('disable') : t('enable')}
+        confirmText={isActive ? t('disable') : t('enable')}
         onConfirm={onConfirmStatus}
         onCancel={onCancelStatus}
         loading={patchPending}
+      />
+
+      <ConfirmDialog
+        open={isDelete}
+        variant="danger"
+        title="删除用户"
+        content={
+          confirmUser
+            ? `确认要删除用户 "${confirmUser.nickname || confirmUser.phone || confirmUser.id}" 吗?此操作不可恢复。`
+            : ''
+        }
+        confirmText="删除"
+        onConfirm={onConfirmDelete}
+        onCancel={onCancelStatus}
+        loading={deletePending}
       />
     </>
   )

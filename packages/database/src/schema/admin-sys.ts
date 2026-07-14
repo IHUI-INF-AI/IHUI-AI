@@ -9,7 +9,9 @@ import {
   serial,
   bigint,
   bigserial,
-} from 'drizzle-orm/pg-core';
+  unique,
+  index,
+} from 'drizzle-orm/pg-core'
 
 /**
  * 菜单权限表（sys_menu）。
@@ -36,7 +38,25 @@ export const sysMenus = pgTable('sys_menu', {
   updateBy: varchar('update_by', { length: 64 }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   remark: varchar('remark', { length: 500 }),
-});
+})
+
+/**
+ * 角色-菜单关联表（sys_role_menu）。
+ * roleId 与 JWT payload.roleId（legacy 数值角色）一致；
+ * menuId 关联 sys_menu.id（uuid）。
+ * (role_id, menu_id) 联合唯一。
+ */
+export const sysRoleMenu = pgTable(
+  'sys_role_menu',
+  {
+    roleId: integer('role_id').notNull(),
+    menuId: uuid('menu_id').notNull(),
+  },
+  (t) => ({
+    pk: unique('sys_role_menu_pk').on(t.roleId, t.menuId),
+    menuIdx: index('sys_role_menu_menu_idx').on(t.menuId),
+  }),
+)
 
 /**
  * 登录日志表（sys_logininfor）。
@@ -52,7 +72,7 @@ export const sysLogininfor = pgTable('sys_logininfor', {
   status: varchar('status', { length: 1 }).default('0').notNull(),
   msg: varchar('msg', { length: 255 }),
   loginTime: timestamp('login_time', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 通知公告表（sys_notice）。
@@ -69,7 +89,7 @@ export const sysNotices = pgTable('sys_notice', {
   updateBy: varchar('update_by', { length: 64 }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   remark: varchar('remark', { length: 255 }),
-});
+})
 
 /**
  * 定时任务表（sys_job）。
@@ -90,7 +110,7 @@ export const sysJobs = pgTable('sys_job', {
   updateBy: varchar('update_by', { length: 64 }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   remark: varchar('remark', { length: 500 }),
-});
+})
 
 /**
  * 定时任务日志表（sys_job_log）。
@@ -105,7 +125,7 @@ export const sysJobLogs = pgTable('sys_job_log', {
   status: varchar('status', { length: 1 }).default('0').notNull(),
   exceptionInfo: varchar('exception_info', { length: 2000 }),
   createTime: timestamp('create_time', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 部门表（sys_dept）。
@@ -124,7 +144,7 @@ export const sysDepts = pgTable('sys_dept', {
   delFlag: varchar('del_flag', { length: 1 }).default('0').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 岗位表（sys_post）。
@@ -138,7 +158,7 @@ export const sysPosts = pgTable('sys_post', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   remark: varchar('remark', { length: 500 }),
-});
+})
 
 /**
  * 系统参数配置表（sys_config）。
@@ -155,7 +175,7 @@ export const sysConfigs = pgTable('sys_config', {
   updateBy: varchar('update_by', { length: 64 }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   remark: varchar('remark', { length: 500 }),
-});
+})
 
 /**
  * 字典类型表（sys_dict_type）。
@@ -170,7 +190,7 @@ export const sysDictTypes = pgTable('sys_dict_type', {
   updateBy: varchar('update_by', { length: 64 }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   remark: varchar('remark', { length: 500 }),
-});
+})
 
 /**
  * 字典数据表（sys_dict_data）。
@@ -191,25 +211,27 @@ export const sysDictData = pgTable('sys_dict_data', {
   updateBy: varchar('update_by', { length: 64 }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   remark: varchar('remark', { length: 500 }),
-});
+})
 
-export type SysMenu = typeof sysMenus.$inferSelect;
-export type NewSysMenu = typeof sysMenus.$inferInsert;
-export type SysLogininfor = typeof sysLogininfor.$inferSelect;
-export type NewSysLogininfor = typeof sysLogininfor.$inferInsert;
-export type SysNotice = typeof sysNotices.$inferSelect;
-export type NewSysNotice = typeof sysNotices.$inferInsert;
-export type SysJob = typeof sysJobs.$inferSelect;
-export type NewSysJob = typeof sysJobs.$inferInsert;
-export type SysJobLog = typeof sysJobLogs.$inferSelect;
-export type NewSysJobLog = typeof sysJobLogs.$inferInsert;
-export type SysDept = typeof sysDepts.$inferSelect;
-export type NewSysDept = typeof sysDepts.$inferInsert;
-export type SysPost = typeof sysPosts.$inferSelect;
-export type NewSysPost = typeof sysPosts.$inferInsert;
-export type SysConfig = typeof sysConfigs.$inferSelect;
-export type NewSysConfig = typeof sysConfigs.$inferInsert;
-export type SysDictType = typeof sysDictTypes.$inferSelect;
-export type NewSysDictType = typeof sysDictTypes.$inferInsert;
-export type SysDictData = typeof sysDictData.$inferSelect;
-export type NewSysDictData = typeof sysDictData.$inferInsert;
+export type SysMenu = typeof sysMenus.$inferSelect
+export type NewSysMenu = typeof sysMenus.$inferInsert
+export type SysRoleMenu = typeof sysRoleMenu.$inferSelect
+export type NewSysRoleMenu = typeof sysRoleMenu.$inferInsert
+export type SysLogininfor = typeof sysLogininfor.$inferSelect
+export type NewSysLogininfor = typeof sysLogininfor.$inferInsert
+export type SysNotice = typeof sysNotices.$inferSelect
+export type NewSysNotice = typeof sysNotices.$inferInsert
+export type SysJob = typeof sysJobs.$inferSelect
+export type NewSysJob = typeof sysJobs.$inferInsert
+export type SysJobLog = typeof sysJobLogs.$inferSelect
+export type NewSysJobLog = typeof sysJobLogs.$inferInsert
+export type SysDept = typeof sysDepts.$inferSelect
+export type NewSysDept = typeof sysDepts.$inferInsert
+export type SysPost = typeof sysPosts.$inferSelect
+export type NewSysPost = typeof sysPosts.$inferInsert
+export type SysConfig = typeof sysConfigs.$inferSelect
+export type NewSysConfig = typeof sysConfigs.$inferInsert
+export type SysDictType = typeof sysDictTypes.$inferSelect
+export type NewSysDictType = typeof sysDictTypes.$inferInsert
+export type SysDictData = typeof sysDictData.$inferSelect
+export type NewSysDictData = typeof sysDictData.$inferInsert

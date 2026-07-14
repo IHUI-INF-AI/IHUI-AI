@@ -1424,4 +1424,168 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         .send(error(401, `异步认证失败: ${e instanceof Error ? e.message : String(e)}`))
     }
   })
+
+  // ============================================================================
+  // 第三方登录统一回调 POST /auth/:platform/callback
+  // 前端 use-third-party-auth.ts handleCallback 调用,接收 { code, state },
+  // 按 platform 分发到各厂商 API 换取用户信息,查/建用户,返回 token+user。
+  // ============================================================================
+
+  const platformCallbackParam = z.object({
+    platform: z.enum(['google', 'apple', 'dingtalk', 'enterpriseWechat', 'wechat', 'github']),
+  })
+  const platformCallbackBody = z.object({
+    code: z.string().min(1),
+    state: z.string().min(1),
+  })
+
+  server.post('/auth/:platform/callback', async (request, reply) => {
+    const paramParsed = platformCallbackParam.safeParse(request.params)
+    if (!paramParsed.success) return reply.status(400).send(error(400, '不支持的平台'))
+    const bodyParsed = platformCallbackBody.safeParse(request.body)
+    if (!bodyParsed.success)
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+    const { platform } = paramParsed.data
+    const { code } = bodyParsed.data
+
+    let openId: string
+    let unionId: string | undefined
+    let nickname: string | undefined
+    let avatar: string | undefined
+    let email: string | undefined
+
+    try {
+      switch (platform) {
+        case 'google': {
+          if (!isGoogleConfigured())
+            return reply.status(400).send(error(400, 'Google OAuth 未配置'))
+          const info = await exchangeGoogleCode(code)
+          openId = info.openId
+          email = info.email
+          nickname = info.name
+          avatar = info.picture
+          break
+        }
+        case 'github': {
+          const ghClientId = process.env.GITHUB_CLIENT_ID
+          const ghSecret = process.env.GITHUB_CLIENT_SECRET
+          if (!ghClientId || !ghSecret)
+            return reply.status(400).send(error(400, 'GitHub OAuth 未配置'))
+          const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ client_id: ghClientId, client_secret: ghSecret, code }),
+          })
+          const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string }
+          if (!tokenData.access_token)
+            return reply.status(400).send(error(400, 'GitHub 授权码无效'))
+          const userRes = await fetch('https://api.github.com/user', {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` },
+          })
+          const ghUser = (await userRes.json()) as {
+            id: number
+            login: string
+            avatar_url: string
+            email: string | null
+          }
+          openId = String(ghUser.id)
+          nickname = ghUser.login
+          avatar = ghUser.avatar_url
+          email = ghUser.email ?? undefined
+          break
+        }
+        case 'dingtalk': {
+          if (!isDingtalkConfigured())
+            return reply.status(400).send(error(400, '钉钉 OAuth 未配置'))
+          const dt = await exchangeDingtalkCode(code)
+          const info = await getDingtalkUserInfo(dt)
+          openId = info.openId
+          unionId = info.unionId
+          nickname = info.nick
+          avatar = info.avatarUrl
+          break
+        }
+        case 'enterpriseWechat': {
+          if (!isWecomConfigured()) return reply.status(400).send(error(400, '企业微信未配置'))
+          const session = await wecomCode2session(code)
+          openId = session.openUserId
+          break
+        }
+        case 'wechat': {
+          const wxAppId = process.env.WECHAT_APP_ID
+          const wxSecret = process.env.WECHAT_APP_SECRET
+          if (!wxAppId || !wxSecret) return reply.status(400).send(error(400, '微信 OAuth 未配置'))
+          const tokenRes = await fetch(
+            `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${wxAppId}&secret=${wxSecret}&code=${code}&grant_type=authorization_code`,
+          )
+          const tokenData = (await tokenRes.json()) as {
+            access_token?: string
+            openid?: string
+            unionid?: string
+            errcode?: number
+          }
+          if (!tokenData.access_token || !tokenData.openid)
+            return reply.status(400).send(error(400, '微信授权码无效'))
+          const userRes = await fetch(
+            `https://api.weixin.qq.com/sns/userinfo?access_token=${tokenData.access_token}&openid=${tokenData.openid}`,
+          )
+          const wxUser = (await userRes.json()) as {
+            openid: string
+            unionid?: string
+            nickname?: string
+            headimgurl?: string
+          }
+          openId = wxUser.openid
+          unionId = wxUser.unionid
+          nickname = wxUser.nickname
+          avatar = wxUser.headimgurl
+          break
+        }
+        case 'apple': {
+          return reply
+            .status(501)
+            .send(error(501, 'Apple 登录回调暂未实现,需配置 client_secret JWT'))
+        }
+      }
+    } catch (e) {
+      return reply
+        .status(500)
+        .send(error(500, `${platform} 登录失败: ${e instanceof Error ? e.message : String(e)}`))
+    }
+
+    const binding = await findThirdPartyAccount(platform, openId)
+    let user
+    if (binding) {
+      user = await findUserById(binding.userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    } else {
+      user = await createUser({
+        email,
+        nickname: nickname ?? `用户${openId.slice(-6)}`,
+        avatar,
+        roleId: 0,
+        status: 1,
+      })
+      await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
+    }
+
+    const { accessToken, refreshToken } = await buildTokenPair(user)
+    return reply.send(
+      success({
+        token: accessToken,
+        refreshToken,
+        user: {
+          id: user.id,
+          username: user.username ?? '',
+          email: user.email ?? '',
+          nickname: user.nickname ?? '',
+          avatar: user.avatar ?? '',
+          isVip: Boolean(user.isVip),
+          inviteCode: user.inviteCode ?? '',
+          createTime: user.createdAt?.toISOString() ?? '',
+        },
+      }),
+    )
+  })
 }

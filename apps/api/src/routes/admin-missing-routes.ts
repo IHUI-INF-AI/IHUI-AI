@@ -1,11 +1,11 @@
 /**
- * 前端管理端缺失路由补建（75 个路由）。
+ * 前端管理端缺失路由补建。
  *
  * 来源：GAP_ANALYSIS.md — 前端调用但后端完全未实现的 /api/admin/* 路径。
  *
  * 策略：
- * - 有对应 schema 表的路由（24 条）：实现真实 CRUD（列表/创建/更新/删除）
- * - 无对应表的路由（51 条）：返回空数据桩，前端可正常渲染空列表
+ * - 有对应 schema 表的路由：实现真实 CRUD（列表/创建/更新/删除）
+ * - 无对应表的路由：返回空数据桩，前端可正常渲染空列表
  *
  * 所有路由：
  * - 使用 requireAdmin 中间件（roleId >= 1 放行）
@@ -14,7 +14,7 @@
  */
 import type { FastifyPluginAsync, FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { eq, or, ilike, desc, asc, sql, and, inArray, type SQL } from 'drizzle-orm'
+import { eq, or, ilike, desc, asc, sql, and, inArray, type SQL, type Column } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -174,14 +174,14 @@ function emptyList(page: number, pageSize: number) {
   return success({ list: [], total: 0, page, pageSize })
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- Drizzle ORM 泛型表/列助手需要 any，社区标准模式 */
+/* eslint-disable @typescript-eslint/no-explicit-any -- Drizzle ORM 泛型表类型需要 any，社区标准模式 */
 function registerCrud(
   server: FastifyInstance,
   basePath: string,
   table: any,
   opts: {
-    searchField?: any
-    orderBy?: any
+    searchField?: Column
+    orderBy?: SQL<unknown>
     hasUpdatedAt?: boolean
     map: (body: Record<string, unknown>) => Record<string, unknown>
   },
@@ -1390,6 +1390,42 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     const [row] = await db.update(users).set(sets).where(eq(users.id, p.data.id)).returning()
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
     return reply.send(success(row))
+  })
+  server.post('/member/users', async (request, reply) => {
+    const b = z
+      .object({
+        nickname: z.string().min(1),
+        phone: z.string().optional(),
+        email: z.string().email().optional(),
+        password: z.string().min(6, '密码至少 6 位'),
+        roleId: z.number().int().optional(),
+        status: z.number().int().optional(),
+      })
+      .safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!b.data.phone && !b.data.email)
+      return reply.status(400).send(error(400, 'phone 与 email 至少需提供一个'))
+    const bcrypt = (await import('bcryptjs')).default
+    const [row] = await db
+      .insert(users)
+      .values({
+        nickname: b.data.nickname,
+        phone: b.data.phone,
+        email: b.data.email,
+        passwordHash: bcrypt.hashSync(b.data.password, 10),
+        roleId: b.data.roleId ?? 0,
+        status: b.data.status ?? 1,
+      })
+      .returning()
+    if (!row) return reply.status(500).send(error(500, '创建失败'))
+    return reply.status(201).send(success(row))
+  })
+  server.delete('/member/users/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db.delete(users).where(eq(users.id, p.data.id)).returning({ id: users.id })
+    if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    return reply.send(success({ id: row.id, deleted: true }))
   })
 
   // /api/admin/system/operation-logs — auditLogs 表（操作审计日志）

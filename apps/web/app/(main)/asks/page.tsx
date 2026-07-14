@@ -1,9 +1,11 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { HelpCircle } from 'lucide-react'
+import { HelpCircle, Plus } from 'lucide-react'
+import { Button } from '@ihui/ui'
 
 import { AsksFilter } from './AsksFilter'
 import { AsksList } from './AsksList'
@@ -73,21 +75,29 @@ export default function AsksPage() {
           </h1>
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <AsksDialog
-          open={open}
-          setOpen={(o) => {
-            if (!o && createMut.isPending) return
-            setOpen(o)
-            if (!o) setFormError(null)
-          }}
-          title={title}
-          setTitle={setTitle}
-          content={content}
-          setContent={setContent}
-          formError={formError}
-          pending={createMut.isPending}
-          onSubmit={handleSubmit}
-        />
+        <div className="flex items-center gap-2">
+          <Link href="/asks/edit">
+            <Button variant="outline">
+              <Plus className="h-4 w-4" />
+              发布需求
+            </Button>
+          </Link>
+          <AsksDialog
+            open={open}
+            setOpen={(o) => {
+              if (!o && createMut.isPending) return
+              setOpen(o)
+              if (!o) setFormError(null)
+            }}
+            title={title}
+            setTitle={setTitle}
+            content={content}
+            setContent={setContent}
+            formError={formError}
+            pending={createMut.isPending}
+            onSubmit={handleSubmit}
+          />
+        </div>
       </div>
 
       <AsksFilter search={search} setSearch={setSearch} filter={filter} setFilter={setFilter} />

@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Users, Eye } from 'lucide-react'
+import { Users, Eye, Trash2 } from 'lucide-react'
 import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
 import { Avatar } from '@/components/data/Avatar'
 import { Skeleton } from '@/components/common'
@@ -19,6 +19,7 @@ interface Props {
   onDetail: (u: AdminUser) => void
   onRoleChange: (id: string, role: number) => void
   onStatusToggle: (u: AdminUser) => void
+  onDelete: (u: AdminUser) => void
 }
 
 export function UserTable({
@@ -31,6 +32,7 @@ export function UserTable({
   onDetail,
   onRoleChange,
   onStatusToggle,
+  onDelete,
 }: Props) {
   const t = useTranslations('admin.users')
   return (
@@ -144,6 +146,15 @@ export function UserTable({
                         onClick={() => onStatusToggle(u)}
                       >
                         {isActive ? t('disable') : t('enable')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onDelete(u)}
+                        aria-label="删除"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </td>

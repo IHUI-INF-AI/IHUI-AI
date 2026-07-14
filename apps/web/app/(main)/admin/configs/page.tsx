@@ -34,7 +34,7 @@ export default function AdminConfigsPage() {
     mutationFn: () => {
       const body = { ...form }
       return editing
-        ? api(`/api/admin/configs/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
+        ? api(`/api/admin/configs/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
         : api('/api/admin/configs', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {

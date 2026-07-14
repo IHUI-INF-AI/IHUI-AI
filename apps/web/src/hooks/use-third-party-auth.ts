@@ -35,6 +35,7 @@ const PLATFORM_DISPLAY_NAMES: Record<ThirdPartyPlatform, string> = {
   enterpriseWechat: '企业微信',
   wechat: '微信',
   github: 'GitHub',
+  feishu: '飞书',
 }
 
 /** Google GIS SDK 脚本地址 */
@@ -82,7 +83,7 @@ function buildFallbackLoginData(platform: ThirdPartyPlatform): ThirdPartyLoginRe
       username: `${platform}_local_user`,
       email: 'local@example.com',
       nickname: `${PLATFORM_DISPLAY_NAMES[platform]}本地登录`,
-      avatar: '/images/svg/empty.svg',
+      avatar: '/images/common/empty.svg',
       isVip: false,
       inviteCode: 'LOCALTP',
       createTime: new Date().toISOString(),

@@ -1,10 +1,14 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import {
   findMenuList,
+  findMenuIdsByRole,
+  assignRoleMenus,
   updateMenu,
+  deleteMenuWithCascade,
+  deleteRoleMenuCascade,
   findLogininforList,
   cleanLogininfor,
   findNoticeList,
@@ -191,36 +195,48 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
   // ===========================================================================
-  // menu_router (prefix=/menu)
+  // menu_router (prefix=/sys-menu) — RuoYi 风格 sys_menu 子系统
+  // 注:前缀已迁移至 /sys-menu,避免与 admin-extended.ts 的 /menu CRUD 路径冲突
   // ===========================================================================
   server.register(
     async (s) => {
-      // GET /menu/list - 菜单列表
+      // GET /sys-menu/list - 菜单列表
       s.get('/list', async (_request, reply) => {
         const list = await findMenuList()
         return reply.send(success({ list, total: list.length }))
       })
 
-      // GET /menu/treeselect - 菜单树(下拉)
+      // GET /sys-menu/treeselect - 菜单树(下拉)
       s.get('/treeselect', async (_request, reply) => {
         const list = await findMenuList()
         return reply.send(success({ list }))
       })
 
-      // GET /menu/roleMenuTreeselect/:roleId - 角色分配菜单树
+      // GET /sys-menu/roleMenuTreeselect/:roleId - 角色分配菜单树
       s.get('/roleMenuTreeselect/:roleId', async (request, reply) => {
         const { roleId } = z.object({ roleId: z.string() }).parse(request.params)
+        const rid = Number(roleId)
         const list = await findMenuList()
-        return reply.send(success({ roleId, menus: list, checkedKeys: [] }))
+        const checkedKeys = Number.isNaN(rid) ? [] : await findMenuIdsByRole(rid)
+        return reply.send(success({ roleId, menus: list, checkedKeys }))
       })
 
-      // GET /menu/getRouters - 登录用户路由表
-      s.get('/getRouters', async (_request, reply) => {
-        const list = await findMenuList()
-        return reply.send(success({ list }))
+      // PUT /sys-menu/assignRoleMenus/:roleId - 分配角色菜单
+      s.put('/assignRoleMenus/:roleId', async (request, reply) => {
+        const { roleId } = z.object({ roleId: z.string() }).parse(request.params)
+        const rid = Number(roleId)
+        if (Number.isNaN(rid) || rid < 1) {
+          return reply.status(400).send(error(400, 'roleId 无效'))
+        }
+        const parsed = z.object({ menuIds: z.array(z.string().uuid()) }).safeParse(request.body)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        await assignRoleMenus(rid, parsed.data.menuIds)
+        return reply.send(success({ assigned: parsed.data.menuIds.length }))
       })
 
-      // PUT /menu - 修改菜单
+      // PUT /sys-menu - 修改菜单
       s.put('', async (request, reply) => {
         const parsed = menuBodySchema.safeParse(request.body)
         if (!parsed.success) {
@@ -236,8 +252,37 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
         }
         return reply.send(success({ menu }))
       })
+
+      // DELETE /sys-menu/:menuId - 删除菜单(级联清理 sys_role_menu)
+      s.delete('/:menuId', async (request, reply) => {
+        const { menuId } = z.object({ menuId: z.string().uuid() }).parse(request.params)
+        const menu = await deleteMenuWithCascade(menuId)
+        if (!menu) {
+          return reply.status(404).send(error(404, '菜单不存在'))
+        }
+        return reply.send(success({ menu }))
+      })
     },
-    { prefix: '/menu' },
+    { prefix: '/sys-menu' },
+  )
+
+  // ===========================================================================
+  // role_router (prefix=/role)
+  // ===========================================================================
+  server.register(
+    async (s) => {
+      // DELETE /role/:roleId - 删除角色(级联清理 sys_role_menu)
+      s.delete('/:roleId', async (request, reply) => {
+        const { roleId } = z.object({ roleId: z.string() }).parse(request.params)
+        const rid = Number(roleId)
+        if (Number.isNaN(rid) || rid < 1) {
+          return reply.status(400).send(error(400, 'roleId 无效'))
+        }
+        await deleteRoleMenuCascade(rid)
+        return reply.send(success({ roleId: rid }))
+      })
+    },
+    { prefix: '/role' },
   )
 
   // ===========================================================================
@@ -929,4 +974,17 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
     },
     { prefix: '/posts' },
   )
+}
+
+export const menuRoutersRoutes: FastifyPluginAsync = async (server) => {
+  server.get('/getRouters', { preHandler: requireAuth }, async (request, reply) => {
+    const roleId = request.jwtPayload?.roleId ?? 0
+    const list = await findMenuList()
+    if (roleId >= 1) {
+      return reply.send(success({ list }))
+    }
+    const menuIds = await findMenuIdsByRole(roleId)
+    const idSet = new Set(menuIds)
+    return reply.send(success({ list: list.filter((m) => idSet.has(m.id)) }))
+  })
 }

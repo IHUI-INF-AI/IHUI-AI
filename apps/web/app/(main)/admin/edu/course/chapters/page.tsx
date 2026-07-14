@@ -5,56 +5,14 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Loader2,
-  ChevronLeft,
-  ListOrdered,
-  ChevronDown,
-  ChevronRight,
-} from 'lucide-react'
+import { Plus, ChevronLeft } from 'lucide-react'
 import { eduApi, buildQs, selectClass } from '@/lib/edu'
-import { isNotFound } from '@/lib/api-error'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@ihui/ui'
+import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
 
-interface Lesson {
-  id: string
-  title: string
-}
-interface Chapter {
-  id: string
-  title: string
-  sortOrder: number
-  sections?: Section[]
-}
-interface Section {
-  id: string
-  title: string
-  duration: number
-  isFree: boolean
-}
-
-interface ChForm {
-  title: string
-  sortOrder: string
-}
-const EMPTY_CH: ChForm = { title: '', sortOrder: '0' }
+import { EMPTY_CH } from './helpers'
+import type { Lesson, Chapter, ChForm } from './types'
+import { ChapterList } from './ChapterList'
+import { ChapterDialog } from './ChapterDialog'
 
 export default function EduCourseChaptersPage() {
   const t = useTranslations('admin.edu.course.chapters')
@@ -152,7 +110,6 @@ export default function EduCourseChaptersPage() {
   }
 
   const rows = chapters ?? []
-  const noEndpoint = isNotFound(error)
 
   return (
     <div className="space-y-4">
@@ -192,145 +149,29 @@ export default function EduCourseChaptersPage() {
           </Button>
         )}
       </div>
-      {!lessonId ? (
-        <div className="rounded-lg border px-4 py-10 text-center text-muted-foreground">
-          <ListOrdered className="mx-auto mb-2 h-8 w-8 opacity-40" />
-          {t('selectCourseFirst')}
-        </div>
-      ) : isLoading ? (
-        <div className="rounded-lg border px-4 py-10 text-center text-muted-foreground">
-          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-          {t('loading')}
-        </div>
-      ) : noEndpoint ? (
-        <div className="rounded-lg border px-4 py-10 text-center text-muted-foreground">
-          <ListOrdered className="mx-auto mb-2 h-8 w-8 opacity-40" />
-          {t('endpointNotConfigured')}
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-lg border px-4 py-10 text-center text-muted-foreground">
-          <ListOrdered className="mx-auto mb-2 h-8 w-8 opacity-40" />
-          {t('noChapters')}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {rows.map((ch) => {
-            const isExp = expanded.has(ch.id)
-            return (
-              <div key={ch.id} className="rounded-lg border">
-                <div className="flex items-center gap-2 px-4 py-3 hover:bg-muted/30">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleExpand(ch.id)}
-                    className="h-7 w-7 p-0"
-                  >
-                    {isExp ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <span className="font-medium">{ch.title}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {t('sortOrder', { value: ch.sortOrder })}
-                  </span>
-                  <div className="ml-auto flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditCh(ch)}
-                      title={t('edit')}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        if (window.confirm(t('confirmDelete'))) deleteChMut.mutate(ch.id)
-                      }}
-                      title={t('delete')}
-                      className="text-destructive hover:text-destructive"
-                      disabled={deleteChMut.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                {isExp && (
-                  <div className="border-t bg-muted/20 px-4 py-2">
-                    {ch.sections?.length ? (
-                      ch.sections.map((s) => (
-                        <div key={s.id} className="flex items-center gap-2 py-1.5 text-sm">
-                          <span className="text-muted-foreground">└</span>
-                          <span>{s.title}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {t('minutes', { count: s.duration })}
-                          </span>
-                          {s.isFree && (
-                            <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-xs text-sky-600 dark:text-sky-400">
-                              {t('free')}
-                            </span>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="py-2 text-xs text-muted-foreground">{t('noSections')}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-      <Dialog open={chOpen} onOpenChange={(o) => (o ? setChOpen(true) : closeChDialog())}>
-        <DialogContent>
-          <form onSubmit={submitCh} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editingCh ? t('editChapter') : t('createChapter')}</DialogTitle>
-            </DialogHeader>
-            {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {err}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="ch-title">{t('titleLabel')}</Label>
-              <Input
-                id="ch-title"
-                value={chForm.title}
-                onChange={(e) => setChForm({ ...chForm, title: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ch-sort">{t('sortOrderLabel')}</Label>
-              <Input
-                id="ch-sort"
-                type="number"
-                min="0"
-                value={chForm.sortOrder}
-                onChange={(e) => setChForm({ ...chForm, sortOrder: e.target.value })}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeChDialog}
-                disabled={saveChMut.isPending}
-              >
-                {t('cancel')}
-              </Button>
-              <Button type="submit" disabled={saveChMut.isPending}>
-                {saveChMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('save')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ChapterList
+        rows={rows}
+        isLoading={isLoading}
+        error={error}
+        lessonId={lessonId}
+        expanded={expanded}
+        onToggleExpand={toggleExpand}
+        onEdit={openEditCh}
+        onDelete={(c) => {
+          if (window.confirm(t('confirmDelete'))) deleteChMut.mutate(c.id)
+        }}
+        deletePending={deleteChMut.isPending}
+      />
+      <ChapterDialog
+        open={chOpen}
+        editing={editingCh}
+        form={chForm}
+        onFormChange={(patch) => setChForm({ ...chForm, ...patch })}
+        onClose={closeChDialog}
+        onSubmit={submitCh}
+        pending={saveChMut.isPending}
+        err={err}
+      />
     </div>
   )
 }

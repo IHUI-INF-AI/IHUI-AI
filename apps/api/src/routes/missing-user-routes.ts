@@ -16,11 +16,20 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { eq, asc, sql } from 'drizzle-orm'
+import { eq, asc, sql, and } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
-import { aiModelConfig, users } from '@ihui/database'
+import {
+  aiModelConfig,
+  users,
+  exportTasks,
+  lessonSignUps,
+  lessons,
+  lessonChapters,
+  lessonChapterSections,
+} from '@ihui/database'
+import { config } from '../config/index.js'
 import {
   findMyLessons,
   signUpLesson,
@@ -79,21 +88,20 @@ import {
 } from '../db/skills-queries.js'
 import {
   findUserPreferences,
+  upsertUserPreference,
   deleteUserPreferencesByGroup,
 } from '../db/user-preferences-queries.js'
 import { findSecurityLogs } from '../db/security-logs-queries.js'
-import { createExportTask } from '../db/export-tasks-queries.js'
 import {
-  createGenerationTask,
-  findGenerationHistory,
-  findGenerationTemplates,
-} from '../db/content-generation-queries.js'
+  createExportTask,
+  findLatestExportTask,
+  completeExportTask,
+} from '../db/export-tasks-queries.js'
 import { toggleLike } from '../db/resource-likes-queries.js'
 import { findNotificationById } from '../db/notification-queries.js'
 import { findFunds, findFundByCode, findFundNetValues } from '../db/fund-queries.js'
 import { findAiFeedPosts, findAiFeedPostById } from '../db/ai-feed-post-queries.js'
 import { findAiWorldCategories, findAiWorldItemById } from '../db/ai-world-queries.js'
-import { createWorkspaceAiTask } from '../db/workspace-ai-queries.js'
 import { findMcpServers, findMcpServerById } from '../db/mcp-queries.js'
 import { findOpenclawItems, findOpenclawItemById } from '../db/openclaw-queries.js'
 import { findSiteCategories } from '../db/site-categories-queries.js'
@@ -121,12 +129,8 @@ import {
   updateDeveloperApplicationStatus,
 } from '../db/developer-queries.js'
 import { findMyMember } from '../db/my-member-queries.js'
-import { findLiveCalendar } from '../db/live-calendar-queries.js'
-import { findAgentReviews, getAgentReviewStats } from '../db/agent-reviews-queries.js'
-import { publishAgent } from '../db/agent-queries.js'
 import { findCozeChatHistory } from '../db/coze-chat-queries.js'
 import { listVipLevels } from '../db/vip-queries.js'
-import { findComments } from '../db/comment-queries.js'
 import { isAlipayConfigured, buildSignedUrl } from '../services/alipay.js'
 import { createOrder } from '../db/payment-queries.js'
 
@@ -157,6 +161,9 @@ function parseIdParam(request: FastifyRequest, reply: FastifyReply) {
   }
   return parsed.data.id
 }
+
+/** 内存导出内容缓存(taskId → content + 过期时间),进程重启后失效。 */
+const exportContentStore = new Map<string, { content: string; expiresAt: Date }>()
 
 export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   const orderNoParam = z.object({ orderNo: z.string() })
@@ -265,30 +272,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 2. 内容生成 /content-generation/*（3 个端点）
-  // ===========================================================================
-  server.post('/content-generation/generate', async (request, reply) => {
-    const body = (request.body as { input?: string; templateId?: string } | null) ?? {}
-    const task = await createGenerationTask(request.userId!, body.input ?? null, body.templateId)
-    return reply.status(201).send(success({ content: '', taskId: task.id }))
-  })
-
-  server.get('/content-generation/history', async (request, reply) => {
-    const q = parsePagination(request, reply)
-    if (!q) return
-    const result = await findGenerationHistory(request.userId!, q.page, q.pageSize)
-    return reply.send(
-      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
-    )
-  })
-
-  server.get('/content-generation/templates', async (_request, reply) => {
-    const list = await findGenerationTemplates()
-    return reply.send(success({ list }))
-  })
-
-  // ===========================================================================
-  // 3. 知识库 /knowledge/*（3 个端点）
+  // 2. 知识库 /knowledge/*（3 个端点）
   // ===========================================================================
   server.get('/knowledge', async (request, reply) => {
     const q = parsePagination(request, reply)
@@ -483,8 +467,60 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  server.get('/study/statistics', async (_request, reply) => {
-    return reply.send(success({ totalHours: 0, totalCourses: 0, totalLessons: 0, streak: 0 }))
+  server.get('/study/statistics', async (request, reply) => {
+    const userId = request.userId!
+    const activeCond = and(eq(lessonSignUps.userId, userId), sql`${lessonSignUps.status} != 3`)
+
+    const [signupStats] = await db
+      .select({
+        totalCourses: sql<number>`count(DISTINCT ${lessonSignUps.lessonId})::int`,
+        completedCourses: sql<number>`count(*) FILTER (WHERE ${lessonSignUps.status} = 2)::int`,
+        totalLessons: sql<number>`count(*)::int`,
+      })
+      .from(lessonSignUps)
+      .where(activeCond)
+
+    const [durationStats] = await db
+      .select({
+        totalDuration: sql<number>`COALESCE(SUM(${lessonChapterSections.duration}), 0)::int`,
+      })
+      .from(lessonSignUps)
+      .innerJoin(lessons, eq(lessonSignUps.lessonId, lessons.id))
+      .innerJoin(lessonChapters, eq(lessonChapters.lessonId, lessons.id))
+      .innerJoin(lessonChapterSections, eq(lessonChapterSections.chapterId, lessonChapters.id))
+      .where(activeCond)
+
+    const dateRows = await db
+      .select({ d: sql<string>`DISTINCT DATE(${lessonSignUps.createdAt})::text` })
+      .from(lessonSignUps)
+      .where(activeCond)
+      .orderBy(sql`d DESC`)
+      .limit(365)
+
+    const dateSet = new Set(dateRows.map((r) => r.d))
+    let streak = 0
+    const today = new Date()
+    for (let i = 0; i < 365; i++) {
+      const check = new Date(today)
+      check.setDate(check.getDate() - i)
+      const ds = check.toISOString().slice(0, 10)
+      if (dateSet.has(ds)) {
+        streak++
+      } else if (i > 0) {
+        break
+      }
+    }
+
+    return reply.send(
+      success({
+        totalDuration: durationStats?.totalDuration ?? 0,
+        totalCourses: signupStats?.totalCourses ?? 0,
+        completedCourses: signupStats?.completedCourses ?? 0,
+        totalLessons: signupStats?.totalLessons ?? 0,
+        completedLessons: signupStats?.completedCourses ?? 0,
+        continuousDays: streak,
+      }),
+    )
   })
 
   // ===========================================================================
@@ -512,16 +548,50 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/mcp/invoke', async (request, reply) => {
-    const body = (request.body as { serverId?: string; tool?: string; args?: unknown } | null) ?? {}
-    if (!body.serverId) return reply.status(400).send(error(400, '缺少 serverId'))
+    const body =
+      (request.body as {
+        serverId?: string
+        projectId?: string
+        tool?: string
+        toolName?: string
+        args?: unknown
+      } | null) ?? {}
+    const serverId = body.serverId ?? body.projectId
+    const toolName = body.tool ?? body.toolName
+    if (!serverId) return reply.status(400).send(error(400, '缺少 serverId'))
+    if (!toolName) return reply.status(400).send(error(400, '缺少 toolName'))
+
     await createAnalyticsEvent({
       userId: request.userId,
       event: 'mcp_invoke',
-      properties: { serverId: body.serverId, tool: body.tool, args: body.args },
+      properties: { serverId, tool: toolName, args: body.args },
       ip: request.ip,
       userAgent: (request.headers['user-agent'] as string | undefined) ?? null,
     })
-    return reply.send(success({ result: null }))
+
+    try {
+      const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/tools/call`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(request.headers.authorization
+            ? { Authorization: request.headers.authorization }
+            : {}),
+        },
+        body: JSON.stringify({ name: toolName, arguments: body.args ?? {} }),
+      })
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '')
+        return reply
+          .status(502)
+          .send(error(502, `MCP 服务调用失败: ${resp.status} ${text.slice(0, 200)}`))
+      }
+      const data = await resp.json().catch(() => ({}))
+      return reply.send(success({ result: data }))
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
+      return reply.status(502).send(error(502, `MCP 服务不可用: ${msg}`))
+    }
   })
 
   // ===========================================================================
@@ -647,6 +717,54 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ settings }))
   })
 
+  server.put('/settings/notifications', async (request, reply) => {
+    const body = (request.body as Record<string, unknown> | null) ?? {}
+    const userId = request.userId!
+    await Promise.all(
+      Object.entries(body).map(([key, value]) =>
+        upsertUserPreference(
+          userId,
+          'notifications',
+          key,
+          value === null || value === undefined ? null : String(value),
+        ),
+      ),
+    )
+    return reply.send(success({ success: true }))
+  })
+
+  server.put('/settings/privacy', async (request, reply) => {
+    const body = (request.body as Record<string, unknown> | null) ?? {}
+    const userId = request.userId!
+    await Promise.all(
+      Object.entries(body).map(([key, value]) =>
+        upsertUserPreference(
+          userId,
+          'privacy',
+          key,
+          value === null || value === undefined ? null : String(value),
+        ),
+      ),
+    )
+    return reply.send(success({ success: true }))
+  })
+
+  server.put('/settings/preferences', async (request, reply) => {
+    const body = (request.body as Record<string, unknown> | null) ?? {}
+    const userId = request.userId!
+    await Promise.all(
+      Object.entries(body).map(([key, value]) =>
+        upsertUserPreference(
+          userId,
+          'preferences',
+          key,
+          value === null || value === undefined ? null : String(value),
+        ),
+      ),
+    )
+    return reply.send(success({ success: true }))
+  })
+
   server.get('/settings/devices', async (request, reply) => {
     const { list, total } = await findUserPreferences(request.userId!, 'devices')
     return reply.send(success({ list, total }))
@@ -662,8 +780,86 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/settings/export', async (request, reply) => {
-    const task = await createExportTask(request.userId!, 'user_data')
-    return reply.send(success({ url: null, exportedAt: null, taskId: task.id }))
+    const latest = await findLatestExportTask(request.userId!)
+    return reply.send(
+      success({
+        taskId: latest?.id ?? null,
+        status: latest?.status ?? null,
+        url: latest?.fileUrl ?? null,
+        exportedAt: latest?.completedAt?.toISOString() ?? null,
+      }),
+    )
+  })
+
+  server.post('/settings/export', async (request, reply) => {
+    const userId = request.userId!
+    const task = await createExportTask(userId, 'user_data')
+
+    const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+    const [notifPrefs, privacyPrefs, prefPrefs] = await Promise.all([
+      findUserPreferences(userId, 'notifications'),
+      findUserPreferences(userId, 'privacy'),
+      findUserPreferences(userId, 'preferences'),
+    ])
+    const signups = await findMyLessons(userId, { page: 1, pageSize: 1000 })
+
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      user: userRow
+        ? {
+            id: userRow.id,
+            nickname: userRow.nickname,
+            email: userRow.email,
+            phone: userRow.phone,
+            avatar: userRow.avatar,
+            createdAt: userRow.createdAt,
+          }
+        : null,
+      preferences: {
+        notifications: notifPrefs.list,
+        privacy: privacyPrefs.list,
+        preferences: prefPrefs.list,
+      },
+      studyRecords: signups.list.map((s) => ({
+        lessonId: s.id,
+        title: s.title,
+        status: s.signupStatus,
+        progress: s.progress,
+        enrolledAt: s.signupCreatedAt,
+      })),
+    }
+    const content = JSON.stringify(exportData, null, 2)
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+    exportContentStore.set(task.id, { content, expiresAt })
+
+    const downloadUrl = `/api/settings/export/${task.id}/download`
+    await completeExportTask(task.id, downloadUrl)
+
+    return reply.send(
+      success({
+        url: downloadUrl,
+        filename: `user-data-${userId}-${Date.now()}.json`,
+        expiresAt: expiresAt.toISOString(),
+        taskId: task.id,
+      }),
+    )
+  })
+
+  server.get('/settings/export/:taskId/download', async (request, reply) => {
+    const taskId = (request.params as { taskId: string }).taskId
+    const entry = exportContentStore.get(taskId)
+    if (!entry) return reply.status(404).send(error(404, '导出文件不存在或已过期'))
+    if (entry.expiresAt < new Date()) {
+      exportContentStore.delete(taskId)
+      return reply.status(410).send(error(410, '导出文件已过期'))
+    }
+    const [task] = await db.select().from(exportTasks).where(eq(exportTasks.id, taskId)).limit(1)
+    if (!task || task.userId !== request.userId!) {
+      return reply.status(403).send(error(403, '无权访问'))
+    }
+    reply.header('Content-Type', 'application/json')
+    reply.header('Content-Disposition', `attachment; filename="user-data.json"`)
+    return reply.send(entry.content)
   })
 
   server.post('/settings/clear-data', async (request, reply) => {
@@ -1164,7 +1360,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ fund }))
   })
 
-  server.get('/fund/:code/net-values', async (request, reply) => {
+  server.get('/fund/:code/history', async (request, reply) => {
     const code = codeParam.parse(request.params).code
     if (!code) return reply.status(400).send(error(400, '参数错误'))
     const fund = await findFundByCode(code)
@@ -1316,6 +1512,15 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
+  server.get('/ai-ext/ai-feed/items', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const result = await findAiFeedPosts({ page: q.page, pageSize: q.pageSize, search: q.search })
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
+  })
+
   server.get('/ai-feed/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
@@ -1338,30 +1543,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 19. Workspace-AI 模块 /workspace-ai/*（2 个端点）
-  // ===========================================================================
-  server.post('/workspace-ai/generate-component', async (request, reply) => {
-    const body = (request.body as { input?: string; prompt?: string; type?: string } | null) ?? {}
-    const task = await createWorkspaceAiTask({
-      userId: request.userId!,
-      type: 'generate-component',
-      input: body.input ?? body.prompt ?? null,
-    })
-    return reply.send(success({ component: null, code: '', taskId: task.id, status: task.status }))
-  })
-
-  server.post('/workspace-ai/agentic', async (request, reply) => {
-    const body = (request.body as { input?: string; prompt?: string; type?: string } | null) ?? {}
-    const task = await createWorkspaceAiTask({
-      userId: request.userId!,
-      type: body.type ?? 'agentic',
-      input: body.input ?? body.prompt ?? null,
-    })
-    return reply.send(success({ result: null, taskId: task.id, status: task.status }))
-  })
-
-  // ===========================================================================
-  // 20. Course 模块 /course/*（4 个端点，全部真实化）
+  // 18. Course 模块 /course/*（4 个端点，全部真实化）
   // ===========================================================================
   server.post('/course/:id/enroll', async (request, reply) => {
     const id = parseIdParam(request, reply)
@@ -1563,86 +1745,16 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 22. Article/Member/Live/Agent/Coze 模块（7 个端点）
+  // 21. Member/Live/Agent/Coze 模块（6 个端点）
   // 注意：POST /api/sign-in 已在 gamification.ts 中注册，跳过
   // 注意：POST /api/coupons/verify 已在 promotions.ts 中注册，跳过
   // ===========================================================================
-  // GET /article/comments - 文章评论列表,需 query 参数 articleId
-  server.get('/article/comments', async (request, reply) => {
-    const q = parsePagination(request, reply)
-    if (!q) return
-    const query = request.query as { articleId?: string; parentId?: string } | null
-    const articleId = query?.articleId
-    if (!articleId) return reply.status(400).send(error(400, '缺少 articleId'))
-    const result = await findComments({
-      resourceType: 'article',
-      resourceId: articleId,
-      parentId: query?.parentId,
-      page: q.page,
-      pageSize: q.pageSize,
-      currentUserId: request.userId,
-    })
-    return reply.send(
-      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
-    )
-  })
-
   server.get('/members/me', async (request, reply) => {
     const member = await findMyMember(request.userId!)
     return reply.send(success({ member }))
   })
 
-  server.get('/live/calendar', async (request, reply) => {
-    const q = parsePagination(request, reply)
-    if (!q) return
-    const query = request.query as { startDate?: string; endDate?: string } | null
-    const result = await findLiveCalendar({
-      page: q.page,
-      pageSize: q.pageSize,
-      startDate: query?.startDate ? new Date(query.startDate) : undefined,
-      endDate: query?.endDate ? new Date(query.endDate) : undefined,
-    })
-    return reply.send(
-      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
-    )
-  })
-
-  server.post('/agents/:id/favorite', async (request, reply) => {
-    const id = parseIdParam(request, reply)
-    if (id === null) return
-    const result = await toggleLike('agent', id, request.userId!)
-    return reply.send(success({ success: true, favorited: result.liked }))
-  })
-
-  server.get('/agents/:id/reviews', async (request, reply) => {
-    const id = parseIdParam(request, reply)
-    if (id === null) return
-    const q = parsePagination(request, reply)
-    if (!q) return
-    const [result, stats] = await Promise.all([
-      findAgentReviews(id, q.page, q.pageSize),
-      getAgentReviewStats(id),
-    ])
-    return reply.send(
-      success({
-        list: result.list,
-        total: result.total,
-        page: q.page,
-        pageSize: q.pageSize,
-        avgRating: stats.avgRating,
-        ratingCount: stats.total,
-      }),
-    )
-  })
-
-  server.post('/agents/:id/publish', async (request, reply) => {
-    const id = parseIdParam(request, reply)
-    if (id === null) return
-    const body = (request.body as { publish?: boolean } | null) ?? {}
-    const agent = await publishAgent(id, body.publish ?? true)
-    if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
-    return reply.send(success({ success: true, agent }))
-  })
+  // 注意:GET /api/live/calendar 已在 live.ts 中以增强版注册(月度参数+按日分组),此处不重复
 
   server.get('/coze/chat/history/:botId/:conversationId', async (request, reply) => {
     const { botId, conversationId } = botConversationParam.parse(request.params)

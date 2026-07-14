@@ -70,7 +70,7 @@ import { cozeRoutes } from './routes/coze.js'
 import { agenticServiceRoutes } from './routes/agentic-service.js'
 import { adminEduExtendedRoutes, adminCourseAuditRoutes } from './routes/edu-extended.js'
 import aiCallbackRoutes from './routes/ai-callback.js'
-import { adminSysRoutes } from './routes/admin-sys.js'
+import { adminSysRoutes, menuRoutersRoutes } from './routes/admin-sys.js'
 import { eduPublicRoutes } from './routes/edu-public.js'
 import { aiVendorRoutes, adminAiVendorRoutes, aiVendorV2Routes } from './routes/ai-vendors.js'
 import { aiAudioRoutes } from './routes/ai-audio.js'
@@ -86,6 +86,7 @@ import eduExtendedRoutes from './routes/edu-extended.js'
 import systemExtendedRoutes, { adminCategoryDictionaryRoutes } from './routes/system-extended.js'
 import aiExtendedRoutes from './routes/ai-extended.js'
 import miscExtendedRoutes from './routes/misc-extended.js'
+import aiGenerationRoutes from './routes/ai-generation.js'
 // M-20 补建：14 个 API 模块路由
 import toolsRoutes from './routes/tools.js'
 import rankingRoutes from './routes/ranking.js'
@@ -161,7 +162,7 @@ import { distributionRoutes } from './routes/distribution.js'
 import { adminGrayReleaseRoutes } from './routes/admin-gray-release.js'
 import { adminErrorDashboardRoutes } from './routes/admin-error-dashboard.js'
 import { adminApiPlatformRoutes } from './routes/admin-api-platform.js'
-// 前端管理端缺失路由补建（75 个路由：24 真实 CRUD + 51 空数据桩）
+// 前端管理端缺失路由补建（真实 CRUD + 空数据桩）
 import { adminMissingRoutes } from './routes/admin-missing-routes.js'
 // 内容运营真实 CRUD（6 个端点，替代 admin-missing-routes 中的空桩）
 import { adminContentOpsRoutes } from './routes/admin-content-routes.js'
@@ -486,6 +487,7 @@ function registerRoutes(server: FastifyInstance) {
   server.register(adminEduExtendedRoutes, { prefix: '/api' })
   // 系统管理后端(迁移自 admin_panel.py):/api/admin/menu /api/admin/logininfor /api/admin/notice /api/admin/job /api/admin/online /api/admin/dept /api/admin/post /api/admin/config /api/admin/dict
   server.register(adminSysRoutes, { prefix: '/api/admin' })
+  server.register(menuRoutersRoutes, { prefix: '/api/admin/menu' })
   // 代理 / 广场 / Coze 变量 / Agent 服务
   server.register(agentsRoutes, { prefix: '/api' })
   server.register(plazaRoutes, { prefix: '/api/plaza' })
@@ -560,6 +562,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(aiExtendedRoutes, { prefix: '/api/ai-ext' })
   // 其他扩展（remote/user_agent_context/docs）
   server.register(miscExtendedRoutes, { prefix: '/api/misc-ext' })
+  // AI 生成队列：enqueue/status/cancel/list/stats
+  server.register(aiGenerationRoutes, { prefix: '/api' })
 
   // ===== M-20 补建：14 个 API 模块路由 =====
   // 用户端工具目录：/api/tools/*

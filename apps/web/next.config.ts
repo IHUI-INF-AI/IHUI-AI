@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
+import { vueToNextRedirects } from '@/config/redirects.config'
 
 const nextConfig: NextConfig = {
   output: 'standalone',
@@ -30,6 +31,13 @@ const nextConfig: NextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
+  },
+  async redirects() {
+    return [
+      { source: '/login', destination: '/sso/login', permanent: true },
+      { source: '/register', destination: '/sso/register', permanent: true },
+      ...vueToNextRedirects,
+    ]
   },
   async rewrites() {
     const apiUrl = process.env.API_URL ?? 'http://localhost:8080'

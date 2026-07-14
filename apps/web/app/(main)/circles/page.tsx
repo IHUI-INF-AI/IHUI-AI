@@ -4,10 +4,10 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Users, MessageSquare, Loader2, Circle } from 'lucide-react'
+import { Users, MessageSquare, Loader2, Circle, Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
 
 interface CircleItem {
   id: string
@@ -44,12 +44,20 @@ export default function CirclesPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-          <Circle className="h-7 w-7 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+      <header className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+            <Circle className="h-7 w-7 text-primary" />
+            {t('title')}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        </div>
+        <Link href="/circles/post">
+          <Button>
+            <Plus className="h-4 w-4" />
+            发帖
+          </Button>
+        </Link>
       </header>
 
       {isLoading ? (
