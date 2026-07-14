@@ -120,10 +120,12 @@
 - [x] ✅(2026-07-14) P1-2: 启动 AI 服务（FastAPI verify_main + uvicorn :8000，PID 29484/AI service 0.0.0.0:8000 Listen），完成 LLM 链路端到端 curl 验证 — `/health` 200 OK / `/api/llm/models` 返回 8 个真实模型（stepfun/groq/gemini/gpt-4o/claude-3-5-sonnet） / `/api/llm/complete` POST 返回真实 AI 回复 "Hello! How can I help you today?"（step-3.7-flash, stub:false, 28 tokens）/ 前端 `/api/llm/models` rewrite 透传 200 OK
 - [x] ✅(2026-07-14) P1-3: 全量 typecheck 验证 — `pnpm --filter @ihui/web typecheck` 退出 0（0 错误）/ `pnpm --filter @ihui/api typecheck` 退出 0（0 错误）/ `pnpm --filter @ihui/database typecheck` 退出 0（0 错误）
 - [x] ✅(2026-07-14) 三服务同跑状态: 前端 3000 (PID 50452, Next 15.5.20 + Turbopack, Ready in 7.1s) / 后端 8080 (PID 21044, node Fastify, uptime 929s+) / AI 服务 8000 (PID 29484, uvicorn) — 全部 Listen 正常
+- [x] ✅(2026-07-14) T9 experimental.turbo 警告根因确认: 排查 `node_modules/.../next-intl@3.26.5/.../esm/plugin.js` L23-32 源码 — `process.env.TURBOPACK` 存在时插件内部注入 `experimental.turbo.resolveAlias`（不是用户配置，是第三方插件代码路径）。next-intl 3.26.5 还未适配新 `turbopack` key；next-intl 4.x 已适配但 4.12.0/4.13.2 在 Next 15.5.20 下出现 ESM/CommonJS 互操作问题（`require is not defined`），故保留 3.26.5。警告为非阻塞，dev/build 均正常工作
+- [x] ✅(2026-07-14) T10 最终验证全绿: ① 清理 .dev.lock/.build.lock + 残留 node 进程 ② web/api/database typecheck 三件套 0 错误 ③ 重启三服务 (web:3000/api:8080/ai:8000) ④ 5 个核心页面 (`/` `/chat` `/models` `/workspace` `/sso/login`) curl 200 + `/api/health` 200 + `/api/announcements` 200 + `/api/llm/models` 8 真实模型 + `/api/llm/complete` 真实回复 ("Hi! Great to see you!", stub:false) + 前端 `/api/llm/models` rewrite 透传 200
 
 ### 残留非阻塞警告（不需用户介入）
 
-- ⚠ `experimental.turbo` 弃用警告（next-intl 插件内部注入，Next 15.5.20 已知行为，dev/build 不受影响，待 next-intl 升级修复）
+- ⚠ `experimental.turbo` 弃用警告（next-intl 3.26.5 插件内部注入，Next 15.5.20 已知行为，dev/build 不受影响，待 next-intl 升级修复 — T9 已确认根因）
 - ⚠ 控制台 Hydration mismatch 由 Trae CN IDE 浏览器扩展注入 `data-trae-ref` 属性导致，与代码无关，普通浏览器不会有
 - ⚠ dev 控制台偶发 `net::ERR_ABORTED /@vite/client` — Turbopack dev 工具探测，未影响功能（vite client 不存在属预期）
 - [x] ✅(2026-07-13) R6 AI厂商配置管理重构补齐（commit 8c0744b97，19 files +1868 -14）:
