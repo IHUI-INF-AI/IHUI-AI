@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
-import { verifyAccessToken } from '@ihui/auth'
+import { wsAuth } from './ws-helpers.js'
 import { config } from '../config/index.js'
 
 declare module 'fastify' {
@@ -181,31 +181,27 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
   server.get('/ws/notifications', { websocket: true }, (socket, request) => {
     // 从 query 提取 token
     const token = (request.query as { token?: string }).token
-    if (!token) {
-      // 上报鉴权失败
-      try {
-        server.recordWsAuthFailure('missing_token')
-      } catch {
-        /* 指标采集失败不影响业务 */
-      }
-      socket.close(4001, '缺少 token')
-      return
-    }
 
-    // verifyAccessToken 是 async，用 IIFE 包裹确保鉴权完成后再注册连接
+    // wsAuth 统一鉴权(JWT + status),失败时已内部 close
     ;(async () => {
-      let userId: string
+      let userId: string | null
       try {
-        const payload = await verifyAccessToken(token)
-        userId = payload.userId
+        userId = await wsAuth(socket, token)
       } catch {
-        // 上报鉴权失败
         try {
           server.recordWsAuthFailure('invalid_token')
         } catch {
           /* 指标采集失败不影响业务 */
         }
-        socket.close(4003, 'token 无效')
+        return
+      }
+      if (!userId) {
+        // 区分缺 token 与失效:wsAuth 已记录 close code,这里补充指标
+        try {
+          server.recordWsAuthFailure(token ? 'invalid_token' : 'missing_token')
+        } catch {
+          /* 指标采集失败不影响业务 */
+        }
         return
       }
 

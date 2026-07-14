@@ -1,29 +1,15 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import { eq } from 'drizzle-orm'
-import { verifyAccessToken } from '@ihui/auth'
 import { db } from '../db/index.js'
 import { orders } from '@ihui/database'
+import { wsAuth } from './ws-helpers.js'
 
 interface PaymentStatusPayload {
   orderNo: string
   status: string
   message: string
   timestamp: string
-}
-
-async function wsAuth(socket: WebSocket, token: string | undefined): Promise<string | null> {
-  if (!token) {
-    socket.close(4001, '缺少 token')
-    return null
-  }
-  try {
-    const payload = await verifyAccessToken(token)
-    return payload.userId
-  } catch {
-    socket.close(4003, 'token 无效')
-    return null
-  }
 }
 
 const send = (socket: WebSocket, obj: unknown): void => {
