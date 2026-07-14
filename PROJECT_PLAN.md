@@ -5553,3 +5553,173 @@ Tailwind 4 用 `@plugin` 在 CSS 中引入插件(替代 Tailwind 3 的 `tailwind
 - `.trae-cn/goal-runtime/STATE.md` — 状态:achieved,轮次:1
 - `.trae-cn/goal-runtime/loop-run-log.md` — Round 0/1 完整日志
 - 整合完成后已删除上述两个运行时文件(目录保留)
+
+---
+
+## Goal 交付 — P0-2 小程序 44 组件补建(2026-07-14)✅ / goal / p0-2
+
+> Goal 模式 1 轮完成。6 项硬性指标全部达成。补建小程序通用 15 + VIP 4 + 分销 5 + 学习 12 + 消息 8 共 44 个组件,组件迁移率从 31%(24/68)提升至 100%(68/68)。
+
+### 目标
+
+补建 apps/miniapp-taro 的 44 个剩余组件,分 5 组:
+
+- 通用 15 组件:LoadingSpinner/SkeletonCard/PageLoading/ErrorView/RetryButton/CountdownTimer/TagInput/SearchBar/FilterDropdown/EmptyIllustration/ConfirmDialog/Toast/Tooltip/Avatar/ProgressBar
+- VIP 弹窗 4 组件:VipBenefitsPopup/VipUpgradeToast/VipPriceSelector/VipPayConfirm
+- 分销操盘手 5 组件:DistributionStats/TeamManager/WithdrawalRecords/InvitePoster/LevelBadge
+- 学习系统 12 组件:CourseHeader/LessonListItem/ProgressCircle/NoteEditor/CourseCatalog/TeacherCard/CourseIntro/LessonComplete/StudyStats/CourseRating/QrCodeShare/LearningStreak
+- 消息系统 8 组件:MessageTabs/SystemNotice/InteractionMessage/PrivateMessageList/MessageDetail/UnreadBadge/MessageActions/NotificationSettings
+
+### 交付内容
+
+**通用 15 组件**(`apps/miniapp-taro/src/components/`):
+
+| 组件              | 文件                                                                                               | 功能                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| LoadingSpinner    | [LoadingSpinner.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/LoadingSpinner.tsx)       | 全屏/局部加载 spinner(圆形旋转)            |
+| SkeletonCard      | [SkeletonCard.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/SkeletonCard.tsx)           | 卡片骨架屏(头像+标题+描述占位)             |
+| PageLoading       | [PageLoading.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/PageLoading.tsx)             | 页面级加载(全屏 spinner + 文案)            |
+| ErrorView         | [ErrorView.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/ErrorView.tsx)                 | 错误占位(图标+提示+重试按钮)               |
+| RetryButton       | [RetryButton.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/RetryButton.tsx)             | 重试按钮(可配文案)                         |
+| CountdownTimer    | [CountdownTimer.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/CountdownTimer.tsx)       | 倒计时(分秒格式 + onEnd 回调)              |
+| TagInput          | [TagInput.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/TagInput.tsx)                   | 标签输入框(回车添加 + x 删除)              |
+| SearchBar         | [SearchBar.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/SearchBar.tsx)                 | 搜索栏(图标+输入框+清除)                   |
+| FilterDropdown    | [FilterDropdown.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/FilterDropdown.tsx)       | 筛选下拉菜单(单选 + 多选)                  |
+| EmptyIllustration | [EmptyIllustration.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/EmptyIllustration.tsx) | 空状态插画(图标+标题+描述+按钮)            |
+| ConfirmDialog     | [ConfirmDialog.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/ConfirmDialog.tsx)         | 确认弹窗(标题+内容+取消/确认)              |
+| Toast             | [Toast.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/Toast.tsx)                         | 轻提示(success/error/loading)              |
+| Tooltip           | [Tooltip.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/Tooltip.tsx)                     | 文字提示气泡(上下左右 4 方向)              |
+| Avatar            | [Avatar.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/Avatar.tsx)                       | 头像(图片/首字母 fallback + sm/md/lg 尺寸) |
+| ProgressBar       | [ProgressBar.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/ProgressBar.tsx)             | 横向进度条(可配颜色/高度/动画)             |
+
+**VIP 弹窗 4 组件**:
+
+| 组件             | 文件                                                                                             | 功能                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| VipBenefitsPopup | [VipBenefitsPopup.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/VipBenefitsPopup.tsx) | VIP 权益弹窗(权益列表 + 价格 + 立即开通)        |
+| VipUpgradeToast  | [VipUpgradeToast.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/VipUpgradeToast.tsx)   | VIP 升级轻提示(顶部弹出 + 去看看)               |
+| VipPriceSelector | [VipPriceSelector.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/VipPriceSelector.tsx) | VIP 价格选择(月/季/年 3 档 + 选中态 + 优惠标签) |
+| VipPayConfirm    | [VipPayConfirm.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/VipPayConfirm.tsx)       | VIP 支付确认弹窗(订单信息 + 微信支付)           |
+
+**分销操盘手 5 组件**:
+
+| 组件              | 文件                                                                                               | 功能                                              |
+| ----------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| DistributionStats | [DistributionStats.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/DistributionStats.tsx) | 分销统计(总收益/本月收益/提现 + 复用 ProgressBar) |
+| TeamManager       | [TeamManager.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/TeamManager.tsx)             | 团队管理(成员列表 + 复用 Avatar)                  |
+| WithdrawalRecords | [WithdrawalRecords.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/WithdrawalRecords.tsx) | 提现记录列表(状态:待审核/已通过/已驳回)           |
+| InvitePoster      | [InvitePoster.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/InvitePoster.tsx)           | 邀请海报(二维码 + 邀请码 + 复制按钮)              |
+| LevelBadge        | [LevelBadge.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/LevelBadge.tsx)               | 等级徽章(V1-V9 + 渐变背景 + 等级名称)             |
+
+**学习系统 12 组件**:
+
+| 组件           | 文件                                                                                         | 功能                                                   |
+| -------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| CourseHeader   | [CourseHeader.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/CourseHeader.tsx)     | 课程头部(封面+标题+标签+讲师+评分+价格)                |
+| LessonListItem | [LessonListItem.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/LessonListItem.tsx) | 课时列表项(序号+类型图标+标题+时长+试看/已看/锁定标记) |
+| ProgressCircle | [ProgressCircle.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/ProgressCircle.tsx) | 环形进度条(CSS border 实现 + 可配颜色)                 |
+| NoteEditor     | [NoteEditor.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/NoteEditor.tsx)         | 学习笔记编辑器(底部弹出 + Textarea + 字数统计)         |
+| CourseCatalog  | [CourseCatalog.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/CourseCatalog.tsx)   | 课程目录(复用 LessonListItem + ScrollView 分页)        |
+| TeacherCard    | [TeacherCard.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/TeacherCard.tsx)       | 讲师卡片(头像+名称+标题+统计+关注按钮)                 |
+| CourseIntro    | [CourseIntro.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/CourseIntro.tsx)       | 课程简介(描述+学习目标+亮点+适合人群)                  |
+| LessonComplete | [LessonComplete.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/LessonComplete.tsx) | 课时完成弹窗(🎉+学习时长+积分+下一节)                  |
+| StudyStats     | [StudyStats.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/StudyStats.tsx)         | 学习数据(复用 ProgressCircle + 三栏统计)               |
+| CourseRating   | [CourseRating.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/CourseRating.tsx)     | 课程评价(5 星评分 + 评论输入)                          |
+| QrCodeShare    | [QrCodeShare.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/QrCodeShare.tsx)       | 二维码分享(二维码图片+分享+保存到相册)                 |
+| LearningStreak | [LearningStreak.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/LearningStreak.tsx) | 学习连签(周视图+连续天数+签到按钮)                     |
+
+**消息系统 8 组件**:
+
+| 组件                 | 文件                                                                                                     | 功能                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| MessageTabs          | [MessageTabs.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/MessageTabs.tsx)                   | 消息标签栏(系统/互动/私信 + 未读数 + 选中下划线)       |
+| SystemNotice         | [SystemNotice.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/SystemNotice.tsx)                 | 系统通知列表(系统/活动/升级 3 类型 + 封面 + 已读/未读) |
+| InteractionMessage   | [InteractionMessage.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/InteractionMessage.tsx)     | 互动消息(赞/评论/关注/收藏 4 类 + 用户头像 + 类型角标) |
+| PrivateMessageList   | [PrivateMessageList.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/PrivateMessageList.tsx)     | 私信列表(头像+名称+最后消息+在线状态+未读数)           |
+| MessageDetail        | [MessageDetail.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/MessageDetail.tsx)               | 私信详情(聊天气泡 + 头像 + 输入框 + 发送)              |
+| UnreadBadge          | [UnreadBadge.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/UnreadBadge.tsx)                   | 未读徽章(数字/红点 + 99+ 截断)                         |
+| MessageActions       | [MessageActions.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/MessageActions.tsx)             | 消息操作菜单(标记已读/置顶/删除)                       |
+| NotificationSettings | [NotificationSettings.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/NotificationSettings.tsx) | 通知设置(Switch 开关列表)                              |
+
+**入口导出**:
+
+- [components/index.ts](file:///g:/IHUI-AI/apps/miniapp-taro/src/components/index.ts) 已新增 44 个 `export` 条目(原 23 + 新 44 = 67 个 default 导出 + Loading/Skeleton 共 68 个组件),按 5 组分块注释
+
+### 验证依据(6 项硬性指标全 ✅)
+
+| 硬性指标                          | 验证方法                                      | 结果                                          |
+| --------------------------------- | --------------------------------------------- | --------------------------------------------- |
+| H1 typecheck exit 0               | `pnpm --filter @ihui/miniapp-taro typecheck`  | ✅ exit 0,tsc --noEmit 无错误                 |
+| H2 44 个组件文件全部存在          | `Glob apps/miniapp-taro/src/components/*.tsx` | ✅ 67 个 .tsx 文件(P0-1 后 23 + P0-2 新增 44) |
+| H3 每组件含 props 类型定义        | 每个组件均导出 `interface XXXProps`           | ✅ 44 个组件全部含 props 类型                 |
+| H4 每组件含真实 UI 实现           | 每个组件含 JSX 结构 + Tailwind 类名           | ✅ 无空占位,均有真实 UI                       |
+| H5 组件导出到 components/index.ts | 44 个新组件全部 export                        | ✅ 全部导出                                   |
+| H6 总组件数 68(迁移率 100%)       | 24 + 44 = 68(Loading.tsx 含 Loading/Skeleton) | ✅ 迁移率从 31% 提升至 100%                   |
+
+### 修正记录
+
+typecheck 第一次失败 10 处类型导出名不匹配:
+
+| 组件文件          | 误用类型名       | 实际类型名       |
+| ----------------- | ---------------- | ---------------- |
+| TagInput          | TagItem          | (无副类型)       |
+| FilterDropdown    | FilterOption     | (无副类型)       |
+| Toast             | ToastType        | (无副类型)       |
+| VipPriceSelector  | VipPricePlan     | PriceOption      |
+| DistributionStats | DistributionData | (无副类型)       |
+| LevelBadge        | LevelInfo        | (无副类型)       |
+| CourseHeader      | CourseInfo       | CourseHeaderData |
+| TeacherCard       | TeacherInfo      | (无副类型)       |
+| StudyStats        | StudyStatItem    | StudyStatsData   |
+| CourseRating      | RatingItem       | (无副类型)       |
+
+修正后 typecheck 第二次 exit 0。
+
+### 残留风险与不足
+
+1. **新组件未集成到对应页面** — P0-2 44 个组件已创建并通过 typecheck,但仅 P0-1 的视频详情组件集成到 video-detail 页面;P0-2 组件尚未集成到 VIP/分销/学习/消息等业务页面(需 P1 批次处理页面集成)
+2. **组件数据未对接 API** — 所有 P0-2 组件均为 props 驱动的纯展示组件,未调具体 API(如 distribution/team、course/detail、message/list 等)
+3. **CourseRating.tsx import 位置** — 文件内 `import { Input }` 位于使用处而非文件顶部,TypeScript 允许但不符合 ESLint `import/first` 规则(typecheck 通过,lint 需后续验证)
+4. **旧项目 SVG 图标未迁移** — 与 P0-1 风险相同,`src/assets/` 仍使用占位图
+5. **复用关系未在运行时验证** — DistributionStats 复用 ProgressBar、TeamManager 复用 Avatar、CourseCatalog 复用 LessonListItem、StudyStats 复用 ProgressCircle,均已 typecheck 通过但未运行时验证
+
+### 后续最优建议
+
+**P0-3(下一批次,推荐立即推进)**:
+
+- Web C 端 IM 私信 4 功能(WebSocket 集成)
+- Web C 端"我的文章"页缺失
+
+**P1-1 ~ P1-3(组件集成 + 高级组件)**:
+
+- AI 首页 8 组件集成到 pages/ai/agent.tsx
+- VIP/分销/学习/消息 44 组件集成到对应业务页面
+- Web C 端 PDF/Canvas/富文本/直播播放器
+
+**P2(运营 + Admin)**:
+
+- Web C 端运营模块
+- Admin 字段补全
+- 60 个后端空桩真实化
+- 18 个废弃页面深度开发(除非有完全一致的同等替代)
+
+**集成任务(可与 P1 并行)**:
+
+- Comment/PayPopup/VipPayConfirm 对接 API
+- 迁移旧项目 8 个 SVG 图标到 src/assets/images/add/
+- 修正 CourseRating.tsx import 位置
+
+### Goal 运行时文件
+
+- `.trae-cn/goal-runtime/STATE.md` — 状态:achieved,轮次:1
+- `.trae-cn/goal-runtime/loop-run-log.md` — Round 0/1 完整日志
+- 整合完成后已删除上述两个运行时文件(目录保留)
+
+### �����Ự��β 2026-07-14(������β + E2E ��֤)
+
+- [x] (2026-07-14) ������ goal-runtime �����ļ�:.trae-cn/goal-runtime/STATE.md + loop-run-log.md(Υ�� AGENTS.md �� 1 ��Ψһ�ƻ��ĵ�����),Ŀ¼�������´� goal ����
+- [x] (2026-07-14) ���� API(3001)+ Web(3000)������֤�˵���:/api/health 200 OK,/ 200 OK
+- [x] (2026-07-14) E2E ����������֤:235 passed / 17 failed(������ 43 failed ���� 17 failed,���� 60%),ʧ�ܲ�����ҪΪҳ�����/��Ⱦ����,��������
+- [x] (2026-07-14) ���� .trae-cn/ ��ʱ�ű�:ɾ�� e2e-*.ps1 + check-db.js ����ʱ�ļ�,���� scripts/dev-tools/ Ŀ¼(�鵵),2 ����־�ļ��������޷�ɾ��
+- [x] (2026-07-14) Git ״̬:12 ���ļ����޸�δ�ύ(M)+ 2 �����ļ�δ����(??):scripts/setup-llm.md + scripts/test-llm-connection.mjs
+- [x] (2026-07-14) ��β״̬:Ŀ�� achieved;�޺�������;����ϸ��������β;�رնԻ�
