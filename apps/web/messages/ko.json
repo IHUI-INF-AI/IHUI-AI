@@ -42,6 +42,7 @@
     "followed": "팔로잉",
     "orderNoLabel": "주문 번호",
     "searchPlaceholder": "검색...",
+    "resizeSidebar": "사이드바 너비 조정",
     "orderStatus": {
       "pending": "결제 대기",
       "paid": "결제 완료",
@@ -330,6 +331,8 @@
     "adminLogs": "API 로그",
     "expand": "펼치기",
     "collapse": "Show less",
+    "language": "언어",
+    "downloadClient": "앱 다운로드",
     "wallet": "지갑",
     "walletRecharge": "충전",
     "walletWithdraw": "출금",
