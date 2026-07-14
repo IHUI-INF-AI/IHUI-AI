@@ -107,6 +107,22 @@
   - R4 admin/feedbacks POST/DELETE: `comment-queries.ts` 新增 `deleteFeedback` 函数；`comments.ts` 补建 POST /admin/feedbacks 创建 + DELETE /admin/feedbacks/:id 删除（含 404 检查）
   - R5 study/records POST/PUT: `missing-user-routes.ts` 补建 POST /study/records 记录学习 + PUT /study/records/:id 更新进度（桩实现，前端 LearnRecord 字段与 learnRecord 表结构不匹配，保持文件策略一致）
 - [x] ✅(2026-07-13) R1-R5 验证: web typecheck 0 错误 / api typecheck 仅预存 ai-vendors 相关错误（非本次引入）/ api test 915/916 通过（1 失败为预存 ai-vendor 测试）/ pre-commit 全绿（API key + i18n + lint-staged）
+
+### 端口固定 + 端到端验证 + 收尾（2026-07-14）
+
+- [x] ✅(2026-07-14) 端口固定化梳理: 前端 3000（`apps/web/package.json:8` 写死 `-p 3000`）/ 后端 8080（`apps/api/src/index.ts:8` 环境变量可覆盖默认 8080）/ AI 服务 8000（`apps/web/next.config.ts:45` 默认 `AI_SERVICE_URL=http://localhost:8000`），前端通过 `next.config.ts:43-58` rewrite 转发 `/api/llm|/api/agents|/api/mcp|/api/a2a → :8000`、其余 `/api/* → :8080`
+- [x] ✅(2026-07-14) 浏览器回归验证 5 个核心页面: `/` 首页（124 元素，营销页完整）/ `/chat` AI 对话（80 元素，5 提示词模板 + 输入框正常）/ `/models` 模型市场（61 元素，分类筛选正常）/ `/workspace` 工作空间（61 元素，空状态正确显示"暂无文件夹/暂无检查点"）/ `/sso/login` 统一登录（9 元素，鉴权 UI 正常）+ `/settings` 正确重定向 `/sso/login?redirect=/settings` 鉴权流
+- [x] ✅(2026-07-14) P0-1: 清理 `next.config.ts:8` `outputFileTracing: 'without-manifest'` 配置警告（Next 15.5.20 已不识别该 key）— 重启 dev 后 `Unrecognized key(s) in object: 'outputFileTracing'` 警告消失
+- [x] ✅(2026-07-14) P1-1: `apps/web/package.json` `prebuild` 链入 `tsc --noEmit` 强制生产构建前类型必须对（`predev` 保留 check-lock 不动，避免每次 dev 启动多等 30s+；生产构建严格门禁）
+- [x] ✅(2026-07-14) P1-2: 启动 AI 服务（FastAPI verify_main + uvicorn :8000，PID 29484/AI service 0.0.0.0:8000 Listen），完成 LLM 链路端到端 curl 验证 — `/health` 200 OK / `/api/llm/models` 返回 8 个真实模型（stepfun/groq/gemini/gpt-4o/claude-3-5-sonnet） / `/api/llm/complete` POST 返回真实 AI 回复 "Hello! How can I help you today?"（step-3.7-flash, stub:false, 28 tokens）/ 前端 `/api/llm/models` rewrite 透传 200 OK
+- [x] ✅(2026-07-14) P1-3: 全量 typecheck 验证 — `pnpm --filter @ihui/web typecheck` 退出 0（0 错误）/ `pnpm --filter @ihui/api typecheck` 退出 0（0 错误）/ `pnpm --filter @ihui/database typecheck` 退出 0（0 错误）
+- [x] ✅(2026-07-14) 三服务同跑状态: 前端 3000 (PID 50452, Next 15.5.20 + Turbopack, Ready in 7.1s) / 后端 8080 (PID 21044, node Fastify, uptime 929s+) / AI 服务 8000 (PID 29484, uvicorn) — 全部 Listen 正常
+
+### 残留非阻塞警告（不需用户介入）
+
+- ⚠ `experimental.turbo` 弃用警告（next-intl 插件内部注入，Next 15.5.20 已知行为，dev/build 不受影响，待 next-intl 升级修复）
+- ⚠ 控制台 Hydration mismatch 由 Trae CN IDE 浏览器扩展注入 `data-trae-ref` 属性导致，与代码无关，普通浏览器不会有
+- ⚠ dev 控制台偶发 `net::ERR_ABORTED /@vite/client` — Turbopack dev 工具探测，未影响功能（vite client 不存在属预期）
 - [x] ✅(2026-07-13) R6 AI厂商配置管理重构补齐（commit 8c0744b97，19 files +1868 -14）:
   - 根因: `packages/database/src/schema/index.ts` 缺少 `export * from './ai-vendor-configs.js'`，导致 `aiVendorConfigs`/`AiVendorConfig` 导入失败，类型推断链中断，产生 13 个 typecheck 错误 + 2 个测试失败
   - 修复: 补齐 schema 导出 + 提交全部 R4 重构产物（之前未跟踪的 19 个文件）
