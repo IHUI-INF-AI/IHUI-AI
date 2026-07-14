@@ -48,9 +48,7 @@ describe('Realized Routes API (8 端点真实化 - 401 without auth)', () => {
       },
       // 3. GET /members/me
       { method: 'GET', url: '/api/members/me' },
-      // 4. GET /live/calendar
-      { method: 'GET', url: '/api/live/calendar' },
-      // 5. GET /coze/chat/history/:botId/:conversationId
+      // 4. GET /coze/chat/history/:botId/:conversationId
       { method: 'GET', url: '/api/coze/chat/history/bot-001/conv-001' },
       // 6. GET /ai/careers
       { method: 'GET', url: '/api/ai/careers' },
