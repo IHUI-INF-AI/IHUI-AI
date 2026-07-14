@@ -27,7 +27,9 @@ export default function EduLearnTopicsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'learn', 'topics', page],
     queryFn: () =>
-      eduApi<PageData<Topic>>(`/api/admin/learn/topics${buildQs({ page, pageSize: PAGE_SIZE })}`),
+      eduApi<PageData<Topic>>(
+        `/api/admin/learn/premium-topics${buildQs({ page, pageSize: PAGE_SIZE })}`,
+      ),
     retry: false,
   })
 
@@ -42,11 +44,14 @@ export default function EduLearnTopicsPage() {
         status: form.status,
       }
       if (editing)
-        return eduApi(`/api/admin/learn/topics/${editing.id}`, {
+        return eduApi(`/api/admin/learn/premium-topics/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
-      return eduApi(`/api/admin/learn/topics`, { method: 'POST', body: JSON.stringify(body) })
+      return eduApi(`/api/admin/learn/premium-topics`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
     },
     onSuccess: () => {
       toast.success(editing ? t('updateSuccess') : t('createSuccess'))
@@ -56,7 +61,8 @@ export default function EduLearnTopicsPage() {
     onError: (e: Error) => setErr(e.message),
   })
   const deleteMut = useMutation({
-    mutationFn: (id: string) => eduApi(`/api/admin/learn/topics/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      eduApi(`/api/admin/learn/premium-topics/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'learn', 'topics'] })
