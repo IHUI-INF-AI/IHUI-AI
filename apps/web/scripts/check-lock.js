@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * 防止 next dev 与 next build 并行运行导致 .next 缓存冲突（dev server 500 根因）。
+ * lock 文件放在项目根目录（非 .next 目录），避免触发 Next.js 文件 watcher 导致循环重启。
  * 用法：
  *   node scripts/check-lock.js dev   — 启动 dev 前检查无 build lock
  *   node scripts/check-lock.js build — 启动 build 前检查无 dev lock
@@ -15,9 +16,9 @@ if (mode !== 'dev' && mode !== 'build') {
   process.exit(1)
 }
 
-const lockDir = path.resolve(process.cwd(), '.next')
-const devLock = path.join(lockDir, 'dev.lock')
-const buildLock = path.join(lockDir, 'build.lock')
+const root = process.cwd()
+const devLock = path.join(root, '.dev.lock')
+const buildLock = path.join(root, '.build.lock')
 const myLock = mode === 'dev' ? devLock : buildLock
 const otherLock = mode === 'dev' ? buildLock : devLock
 const otherName = mode === 'dev' ? 'build' : 'dev'
@@ -32,14 +33,13 @@ if (fs.existsSync(otherLock)) {
   console.error(
     `\x1b[31m[lock] 检测到 ${otherName} 锁文件存在（PID: ${pid}）。\x1b[0m\n` +
       `[lock] 请先停止 ${otherName} 进程再运行 ${mode}，否则会互相破坏 .next 缓存导致 500。\n` +
-      `[lock] 如确认无 ${otherName} 进程在运行，可删除 ${path.relative(process.cwd(), otherLock)} 后重试。`,
+      `[lock] 如确认无 ${otherName} 进程在运行，可删除 ${path.relative(root, otherLock)} 后重试。`,
   )
   process.exit(1)
 }
 
-fs.mkdirSync(lockDir, { recursive: true })
 fs.writeFileSync(myLock, String(process.pid))
-console.log(`[lock] ${mode} 锁已创建（PID: ${process.pid}）`)
+console.info(`[lock] ${mode} 锁已创建（PID: ${process.pid}）`)
 
 const cleanup = () => {
   try {
