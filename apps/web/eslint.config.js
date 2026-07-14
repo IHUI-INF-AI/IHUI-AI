@@ -32,4 +32,10 @@ export default [
     plugins: { 'jsx-a11y': jsxA11y },
     rules: { ...jsxA11y.configs.recommended.rules },
   },
+  {
+    files: ['src/components/media/ThreeDViewer.tsx'],
+    rules: {
+      'react/no-unknown-property': 'off',
+    },
+  },
 ]
