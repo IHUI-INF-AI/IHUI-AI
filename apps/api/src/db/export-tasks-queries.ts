@@ -31,3 +31,27 @@ export async function findExportTasks(
   ])
   return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
+
+/** 查询用户最近一条导出任务。 */
+export async function findLatestExportTask(userId: string): Promise<ExportTask | undefined> {
+  const rows = await db
+    .select()
+    .from(exportTasks)
+    .where(eq(exportTasks.userId, userId))
+    .orderBy(desc(exportTasks.createdAt))
+    .limit(1)
+  return rows[0]
+}
+
+/** 标记导出任务为已完成,写入 fileUrl。 */
+export async function completeExportTask(
+  id: string,
+  fileUrl: string,
+): Promise<ExportTask | undefined> {
+  const rows = await db
+    .update(exportTasks)
+    .set({ status: 1, fileUrl, completedAt: new Date() })
+    .where(eq(exportTasks.id, id))
+    .returning()
+  return rows[0]
+}

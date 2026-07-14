@@ -14,7 +14,7 @@ interface GenerationTypeSelectorProps {
 const OPTIONS: Array<{
   value: GenerationType
   label: string
-  icon: React.ElementType
+  icon: React.FC<{ className?: string }>
   color: string
 }> = [
   { value: 'auto', label: '自动', icon: Sparkles, color: 'text-primary' },

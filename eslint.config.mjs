@@ -36,4 +36,13 @@ export default [
     plugins: { 'jsx-a11y': jsxA11y },
     rules: { ...jsxA11y.configs.recommended.rules },
   },
+  // clawdbot 模块模态框遮罩使用 div+onClick 模式,豁免 a11y 规则
+  {
+    files: ['apps/web/app/(main)/admin/clawdbot/**/*.tsx'],
+    rules: {
+      'jsx-a11y/click-events-have-key-events': 'off',
+      'jsx-a11y/no-static-element-interactions': 'off',
+      'jsx-a11y/no-noninteractive-tabindex': 'off',
+    },
+  },
 ]

@@ -12,9 +12,10 @@ import { emailSchema, type TokenResult } from './types'
 
 interface EmailCodeLoginFormProps {
   active: boolean
+  onSuccess?: () => void
 }
 
-export function EmailCodeLoginForm({ active }: EmailCodeLoginFormProps) {
+export function EmailCodeLoginForm({ active, onSuccess }: EmailCodeLoginFormProps) {
   const t = useTranslations('auth')
   const router = useRouter()
   const setToken = useAuthStore((s) => s.setToken)
@@ -95,7 +96,8 @@ export function EmailCodeLoginForm({ active }: EmailCodeLoginFormProps) {
         return
       }
       setToken(json.data.accessToken)
-      router.push('/')
+      if (onSuccess) onSuccess()
+      else router.push('/')
     } catch {
       setEmailErr(t('loginFailed'))
     } finally {
