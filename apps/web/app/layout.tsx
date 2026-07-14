@@ -8,6 +8,7 @@ import './globals.css'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { QueryProvider } from '@/providers/query-provider'
 import { GlobalHooksProvider } from '@/providers/global-hooks-provider'
+import { LoginDialog } from '@/components/login/LoginDialog'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -51,7 +52,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           <NextIntlClientProvider locale={locale} messages={messages}>
             <QueryProvider>
-              <GlobalHooksProvider>{children}</GlobalHooksProvider>
+              <GlobalHooksProvider>
+                {children}
+                <LoginDialog />
+              </GlobalHooksProvider>
             </QueryProvider>
             <Toaster position="top-center" richColors closeButton />
           </NextIntlClientProvider>

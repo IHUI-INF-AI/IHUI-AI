@@ -10,7 +10,9 @@ import {
   integer,
   boolean,
   timestamp,
+  uuid,
   index,
+  unique,
 } from 'drizzle-orm/pg-core'
 
 // ---------------------------------------------------------------------------
@@ -134,12 +136,13 @@ export const liveSubscribe = pgTable(
   {
     id: serial('id').primaryKey(),
     userId: varchar('user_id', { length: 64 }).notNull(),
-    channelId: integer('channel_id').notNull(),
+    channelId: uuid('channel_id').notNull(),
     isNotify: boolean('is_notify').default(true).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
+    uniq: unique('live_subscribe_user_channel_uniq').on(t.userId, t.channelId),
     userIdx: index('live_subscribe_user_idx').on(t.userId),
     chanIdx: index('live_subscribe_channel_idx').on(t.channelId),
   }),

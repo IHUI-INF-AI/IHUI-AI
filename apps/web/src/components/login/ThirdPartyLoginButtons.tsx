@@ -68,6 +68,7 @@ export function ThirdPartyLoginButtons() {
       'enterpriseWechat',
       'wechat',
       'github',
+      'feishu',
     ]
     const platform =
       platformParam && knownPlatforms.includes(platformParam as ThirdPartyPlatform)
@@ -100,6 +101,7 @@ export function ThirdPartyLoginButtons() {
       icon: '/images/oauth-providers/github.svg',
       mono: true,
     },
+    { key: 'feishu', label: t('feishuLogin'), icon: '/images/loginSANFANG/feishu.png' },
   ]
 
   const handleProviderClick = (platform: ThirdPartyPlatform) => {
