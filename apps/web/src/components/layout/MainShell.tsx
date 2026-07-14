@@ -38,9 +38,6 @@ export function MainShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <a href="#main" className="skip-to-main">
-        跳转到主内容
-      </a>
       <Sidebar
         id={sidebarId}
         collapsed={collapsed}
