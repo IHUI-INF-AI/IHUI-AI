@@ -1302,6 +1302,36 @@
   - **残留工作**:仅剩 admin 41 页面功能等价性复核(17.5 人日),其余 2 大缺口(静态资源/i18n)已清零
   - **整合与清理**:.trae-cn/goal-runtime/STATE.md + loop-run-log.md 已删除(目录保留)
 
+- [x] ✅(2026-07-14) R80 — 开发者订阅套餐后端 + 小程序前端完整补建(解除 R76 批次3 项 7/8 阻塞)
+  - **背景**:R76 批次3 小程序 8 项补建时,项 7(开发者包月开通)+ 项 8(开发者包年开通)被标记为 ⛔ 阻塞 — 后端无开发者套餐订阅 API(仅 upgradeVip VIP 升级),约束边界禁止改 apps/api
+  - **本次解除阻塞**:R76 批次3 约束边界已解除,后端 + 前端 + i18n 全栈补建
+  - **后端补建**:
+    - `packages/database/src/schema/developer.ts`:新增 `developer_subscriptions` 表(id/userId/pricingId/period/startTime/endTime/status/autoRenew/orderId + 2 索引 user/status + FK to users/developerPricing/orders)
+    - `apps/api/src/db/developer-queries.ts`:3 个查询函数
+      - `findDeveloperPricingById(id)` — 按 ID 取套餐
+      - `activateDeveloperSubscription({userId,pricingId,period,orderId})` — 创建订阅(yearly=365d / monthly=30d 自动算 endTime)
+      - `getMyDeveloperSubscription(userId)` — 取生效中订阅(status=1 且 endTime>=now)
+    - `apps/api/src/routes/developer.ts`:2 个新端点
+      - `POST /subscribe` — 校验套餐 + 创建订单 + 开发环境直接激活订阅
+      - `GET /subscription` — 查询当前用户生效中订阅
+  - **小程序前端补建**:
+    - `apps/miniapp-taro/src/pages/developer/subscribe.{tsx,css}`:套餐选择页(月度/年度切换 + 加载套餐列表 + 提交后跳转支付页)
+    - `apps/miniapp-taro/src/api/index.ts`:新增 `getDeveloperPricingList` / `subscribeDeveloper` API 客户端 + `DeveloperPricing` 类型
+    - `apps/miniapp-taro/src/pages/developer/index.tsx`:入口加跳转订阅按钮
+    - `apps/miniapp-taro/src/app.config.ts`:注册 subscribe 页面路由
+  - **i18n 4 语言同步**:en/ja/ko/zh-TW 开发者订阅相关 key 补齐,5 语言 parity OK(pre-commit i18n 检查通过)
+  - **验证依据**:
+    - `pnpm --filter @ihui/api typecheck` 退出码 0
+    - `pnpm --filter @ihui/web typecheck` 退出码 0
+    - `pnpm --filter @ihui/api test` — 187 文件 / 2929 测试全绿(无回归)
+    - `pnpm --filter @ihui/web lint` — 0 errors(2 pre-existing `<img>` warnings,非本次引入)
+    - pre-commit:API key 泄露检查 ✅ + i18n 键完整性 5 语言 parity OK ✅ + eslint + prettier ✅
+  - **残留风险**:
+    - (1) 生产环境需补支付回调激活订阅(当前仅 `NODE_ENV=development` 直接激活)
+    - (2) 数据库迁移文件待生成(`pnpm --filter @ihui/database db:generate`),项目当前无 migrations 目录,使用 db:push 模式
+  - **commit**:`30b1f20b feat(developer): 开发者订阅套餐后端 + 小程序前端 + i18n 完整补建`(13 文件,+674/-267)
+  - **收尾状态**:R76 批次3 项 7/8 阻塞解除,8 项全部完成;无后续建议
+
 ---
 
 ## P2 — 已知技术债务
