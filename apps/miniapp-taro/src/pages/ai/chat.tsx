@@ -1,9 +1,10 @@
-import { View, Text, Input, ScrollView, Image } from '@tarojs/components'
+import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
-import { chat, type ChatMessage, getModelPlazaList, getAigcList, getAgentDetail } from '@/api'
-import { DrawerComponent, ModelList, type ModelItem } from '@/components'
+import { useState, useCallback, useRef } from 'react'
+import { chatStream, type ChatMessage, getModelPlazaList, getAigcList, getAgentDetail } from '@/api'
+import { type ModelItem } from '@/components'
 import ChatMessageItem from './ChatMessageItem'
+import { ModelDrawer, MaterialDrawer, AgentDrawer } from './ChatDrawers'
 import './chat.css'
 
 interface MaterialItem {
@@ -46,6 +47,7 @@ export default function ChatPage() {
   const [selectedMaterial, setSelectedMaterial] = useState<MaterialItem | null>(null)
   const [agentDrawerVisible, setAgentDrawerVisible] = useState(false)
   const [agent, setAgent] = useState<AgentInfo | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
@@ -93,36 +95,55 @@ export default function ChatPage() {
       const text = (overrideText ?? inputText).trim()
       if (!text || thinking) return
       const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() }
-      setMessages((prev) => [...prev, userMsg])
+      const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
+      setMessages((prev) => [...prev, userMsg, assistantMsg])
       setInputText('')
       setThinking(true)
       scrollToBottom()
+      const controller = new AbortController()
+      abortRef.current = controller
       try {
-        const res = await chat([...messages, userMsg], sessionId, {
-          modelId: currentModel || undefined,
-          agentId: agentId || undefined,
-          materialContent: selectedMaterial?.content || undefined,
-        })
-        setSessionId(res.sessionId)
-        setMessages((prev) => [
-          ...prev,
+        await chatStream(
+          [...messages, userMsg],
+          sessionId,
           {
-            role: 'assistant',
-            content: res.reply,
-            timestamp: Date.now(),
-            reasoning: res.reasoning,
+            modelId: currentModel || undefined,
+            agentId: agentId || undefined,
+            materialContent: selectedMaterial?.content || undefined,
           },
-        ])
-      } catch {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: '抱歉，服务暂时不可用，请稍后再试。',
-            timestamp: Date.now(),
+          (delta) => {
+            setMessages((prev) =>
+              prev.map((m, i) =>
+                i === prev.length - 1 ? { ...m, content: m.content + delta } : m,
+              ),
+            )
+            scrollToBottom()
           },
-        ])
+          (reasoningDelta) => {
+            setMessages((prev) =>
+              prev.map((m, i) =>
+                i === prev.length - 1
+                  ? { ...m, reasoning: (m.reasoning || '') + reasoningDelta }
+                  : m,
+              ),
+            )
+          },
+          (meta) => {
+            if (meta.sessionId) setSessionId(meta.sessionId)
+          },
+          controller.signal,
+        )
+      } catch (e) {
+        if ((e as Error)?.name !== 'AbortError') {
+          setMessages((prev) =>
+            prev.map((m, i) => {
+              if (i !== prev.length - 1) return m
+              return m.content ? m : { ...m, content: '抱歉，服务暂时不可用，请稍后再试。' }
+            }),
+          )
+        }
       } finally {
+        abortRef.current = null
         setThinking(false)
         scrollToBottom()
       }
@@ -138,6 +159,10 @@ export default function ChatPage() {
       selectedMaterial,
     ],
   )
+
+  const stopGeneration = useCallback(() => {
+    abortRef.current?.abort()
+  }, [])
 
   const handleSuggestion = useCallback(
     (text: string) => {
@@ -221,7 +246,7 @@ export default function ChatPage() {
           <ChatMessageItem key={idx} msg={msg} />
         ))}
 
-        {thinking ? (
+        {thinking && messages[messages.length - 1]?.role !== 'assistant' ? (
           <View className="msg-item assistant">
             <View className="avatar assistant">AI</View>
             <View className="bubble">
@@ -261,96 +286,40 @@ export default function ChatPage() {
           onInput={(e) => setInputText(e.detail.value)}
           adjustPosition
         />
-        <View
-          className={`send-btn${!inputText.trim() || thinking ? ' disabled' : ''}`}
-          onClick={() => sendMessage()}
-        >
-          <Text>发送</Text>
-        </View>
+        {thinking ? (
+          <View className="send-btn" onClick={stopGeneration}>
+            <Text>停止</Text>
+          </View>
+        ) : (
+          <View
+            className={`send-btn${!inputText.trim() ? ' disabled' : ''}`}
+            onClick={() => sendMessage()}
+          >
+            <Text>发送</Text>
+          </View>
+        )}
       </View>
 
-      <DrawerComponent
+      <ModelDrawer
         visible={modelDrawerVisible}
         onClose={() => setModelDrawerVisible(false)}
-        height="60vh"
-      >
-        <View className="drawer-header">
-          <Text className="drawer-title">选择模型</Text>
-        </View>
-        <ModelList
-          models={models}
-          selectedId={currentModel}
-          onSelect={selectModel}
-          loading={modelsLoading}
-        />
-      </DrawerComponent>
-
-      <DrawerComponent
+        models={models}
+        selectedId={currentModel}
+        loading={modelsLoading}
+        onSelect={selectModel}
+      />
+      <MaterialDrawer
         visible={materialDrawerVisible}
         onClose={() => setMaterialDrawerVisible(false)}
-        height="60vh"
-      >
-        <View className="drawer-header">
-          <Text className="drawer-title">素材库</Text>
-        </View>
-        {materialsLoading ? (
-          <View className="drawer-empty">
-            <Text>加载中...</Text>
-          </View>
-        ) : materials.length ? (
-          <View className="material-list">
-            {materials.map((m) => (
-              <View key={m.id} className="material-item" onClick={() => selectMaterial(m)}>
-                {m.coverUrl ? (
-                  <Image className="material-cover" src={m.coverUrl} mode="aspectFill" />
-                ) : null}
-                <Text className="material-title">{m.title}</Text>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View className="drawer-empty">
-            <Text>暂无素材</Text>
-          </View>
-        )}
-      </DrawerComponent>
-
-      <DrawerComponent
+        materials={materials}
+        loading={materialsLoading}
+        onSelect={selectMaterial}
+      />
+      <AgentDrawer
         visible={agentDrawerVisible}
         onClose={() => setAgentDrawerVisible(false)}
-        height="60vh"
-      >
-        <View className="drawer-header">
-          <Text className="drawer-title">技能详情</Text>
-        </View>
-        {agent ? (
-          <View className="agent-info">
-            <View className="agent-header">
-              {agent.avatar ? (
-                <Image className="agent-avatar" src={agent.avatar} mode="aspectFill" />
-              ) : (
-                <View className="agent-avatar agent-avatar-default">
-                  <Text>{agent.name.charAt(0)}</Text>
-                </View>
-              )}
-              <View className="agent-meta">
-                <Text className="agent-name">{agent.name}</Text>
-                <Text className="agent-desc">{agent.desc}</Text>
-              </View>
-            </View>
-            {agent.prompt ? (
-              <View className="agent-prompt-wrap">
-                <Text className="agent-prompt-title">提示词</Text>
-                <Text className="agent-prompt">{agent.prompt}</Text>
-              </View>
-            ) : null}
-          </View>
-        ) : (
-          <View className="drawer-empty">
-            <Text>加载中...</Text>
-          </View>
-        )}
-      </DrawerComponent>
+        agent={agent}
+      />
     </View>
   )
 }

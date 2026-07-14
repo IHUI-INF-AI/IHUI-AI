@@ -1,8 +1,10 @@
 /**
  * API 接口定义 - 对接新架构后端 http://localhost:3000/api
  */
-import { get, post, put, del } from '../utils/request'
-import type { UserInfo } from '../utils/auth'
+import Taro from '@tarojs/taro'
+import { get, post, put, del, BASE_URL } from '../utils/request'
+import { getToken, type UserInfo } from '../utils/auth'
+import { parseSSEChunk, type SSEEvent } from '../utils/sse-parse'
 export type { UserInfo }
 export { get, post } from '../utils/request'
 
@@ -123,6 +125,120 @@ export interface ChatResult {
 /** AI 对话（流式可由后端 SSE 处理，此处提供普通接口） */
 export const chat = (messages: ChatMessage[], sessionId?: string, options?: ChatOptions) =>
   post<ChatResult>('/ai/chat', { messages, sessionId, ...options })
+
+/** AI 对话 SSE 流式（小程序端 enableChunked / H5 端 fetch ReadableStream 自动降级） */
+export const chatStream = (
+  messages: ChatMessage[],
+  sessionId: string,
+  options: ChatOptions,
+  onChunk: (delta: string) => void,
+  onReasoning?: (delta: string) => void,
+  onMeta?: (meta: { sessionId?: string }) => void,
+  signal?: AbortSignal,
+): Promise<void> => {
+  let errored = false
+  const dispatch = (evt: SSEEvent) => {
+    if (errored) return
+    if (evt.type === 'chunk' && evt.content) onChunk(evt.content)
+    else if (evt.type === 'reasoning' && evt.content) onReasoning?.(evt.content)
+    else if (evt.type === 'meta' && evt.sessionId) onMeta?.({ sessionId: evt.sessionId })
+    else if (evt.type === 'error' && evt.content) {
+      errored = true
+      throw new Error(evt.content)
+    }
+  }
+
+  // H5 端: Taro.request 不支持 enableChunked,改用原生 fetch + ReadableStream
+  if (Taro.getEnv() === Taro.ENV_TYPE.WEB) {
+    return (async () => {
+      const token = getToken()
+      const decoder = new TextDecoder('utf-8')
+      let buffer = ''
+      const res = await fetch(BASE_URL + '/ai/chat/stream', {
+        method: 'POST',
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messages, sessionId, ...options }),
+        signal,
+      })
+      if (!res.ok || !res.body) throw new Error(`请求失败(${res.status})`)
+      const reader = res.body.getReader()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) {
+          if (buffer.trim()) {
+            const { events } = parseSSEChunk(buffer + '\n')
+            for (const evt of events) dispatch(evt)
+          }
+          return
+        }
+        buffer += decoder.decode(value, { stream: true })
+        const { events, remainder } = parseSSEChunk(buffer)
+        buffer = remainder
+        for (const evt of events) {
+          dispatch(evt)
+          if (errored) return
+        }
+      }
+    })()
+  }
+
+  // 小程序端: Taro.request + enableChunked 逐 chunk 接收
+  return new Promise<void>((resolve, reject) => {
+    const token = getToken()
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+
+    const task = Taro.request({
+      url: BASE_URL + '/ai/chat/stream',
+      method: 'POST',
+      data: { messages, sessionId, ...options },
+      enableChunked: true,
+      responseType: 'text',
+      header: {
+        Authorization: token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json',
+      },
+      success: (res) => {
+        if (errored) return
+        if (buffer.trim()) {
+          const { events } = parseSSEChunk(buffer + '\n')
+          for (const evt of events) {
+            try {
+              dispatch(evt)
+            } catch (e) {
+              reject(e)
+              return
+            }
+          }
+        }
+        if (res.statusCode >= 400) reject(new Error(`请求失败(${res.statusCode})`))
+        else resolve()
+      },
+      fail: (err) => reject(new Error(err.errMsg || '请求失败')),
+    })
+
+    task.onChunkReceived(({ data }) => {
+      if (errored) return
+      buffer += decoder.decode(data, { stream: true })
+      const { events, remainder } = parseSSEChunk(buffer)
+      buffer = remainder
+      for (const evt of events) {
+        try {
+          dispatch(evt)
+          if (errored) return
+        } catch (e) {
+          reject(e)
+          return
+        }
+      }
+    })
+
+    if (signal) signal.addEventListener('abort', () => task.abort(), { once: true })
+  })
+}
 
 /* ============ 用户设置 ============ */
 
