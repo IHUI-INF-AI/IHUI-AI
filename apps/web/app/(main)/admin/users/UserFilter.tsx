@@ -53,6 +53,7 @@ export function UserFilter({
           <SelectItem value="all">{t('allStatus')}</SelectItem>
           <SelectItem value="1">{t('statusActive')}</SelectItem>
           <SelectItem value="0">{t('statusDisabled')}</SelectItem>
+          <SelectItem value="3">{t('statusCancelled')}</SelectItem>
         </SelectContent>
       </Select>
     </div>
