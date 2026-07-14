@@ -84,6 +84,7 @@ export default defineAppConfig({
     'pages/developer/index',
     'pages/developer/income',
     'pages/developer/withdrawal',
+    'pages/developer/subscribe',
     'pages/business-card/index',
     'pages/register/index',
     'pages/webview/index',
