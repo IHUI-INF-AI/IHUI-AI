@@ -11,9 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 interface TopicItem {
   id: string
   title: string
-  cover?: string
+  coverImage?: string
   description?: string
-  lessonCount?: number
+  lessonIds?: string[]
   learnNum?: number
   price?: number
 }
@@ -31,7 +31,7 @@ async function api<T>(url: string): Promise<T> {
 export default function LearnTopicPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'topics'],
-    queryFn: () => api<TopicListData>(`/api/learn/topics`),
+    queryFn: () => api<TopicListData>(`/api/topics`),
   })
 
   const topics = data?.list ?? []
@@ -66,10 +66,10 @@ export default function LearnTopicPage() {
             <Link key={topic.id} href={`/learn/topic/${topic.id}`} className="group block">
               <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                 <div className="flex h-36 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-                  {topic.cover ? (
+                  {topic.coverImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={topic.cover}
+                      src={topic.coverImage}
                       alt={topic.title}
                       className="h-full w-full object-cover"
                     />
@@ -85,7 +85,7 @@ export default function LearnTopicPage() {
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
                       <BookOpen className="h-3.5 w-3.5" />
-                      {topic.lessonCount ?? 0} 门课程
+                      {topic.lessonIds?.length ?? 0} 门课程
                     </span>
                     {typeof topic.learnNum === 'number' && (
                       <span className="flex items-center gap-1">
