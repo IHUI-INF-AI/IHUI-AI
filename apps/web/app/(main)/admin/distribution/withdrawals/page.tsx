@@ -33,7 +33,6 @@ interface Withdrawal {
   account: string
   accountType?: string
   status: string
-  remark?: string | null
   userNickname?: string
   userId?: string
   createdAt: string
@@ -64,6 +63,14 @@ const STATUS_LABEL: Record<string, string> = {
   failed: '失败',
 }
 
+const STATUS_OPTIONS = [
+  { value: 'all', label: '全部' },
+  { value: 'pending', label: '待审核' },
+  { value: 'approved', label: '已通过' },
+  { value: 'rejected', label: '已拒绝' },
+  { value: 'paid', label: '已打款' },
+]
+
 async function safeFetch<T>(url: string, fallback: T): Promise<T> {
   try {
     const r = await fetchApi<T>(url)
@@ -74,6 +81,16 @@ async function safeFetch<T>(url: string, fallback: T): Promise<T> {
 }
 
 const fmtYuan = (n: number) => `¥${(n / 100).toFixed(2)}`
+const badgeCls = (s: string) =>
+  cn(
+    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+    STATUS_CLS[s] ?? 'bg-muted text-muted-foreground',
+  )
+const amountCls = (n: number) =>
+  cn(
+    'px-4 py-2.5 text-right font-medium',
+    n >= 0 ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500',
+  )
 
 export default function AdminDistributionWithdrawalsPage() {
   const locale = useLocale()
@@ -155,11 +172,11 @@ export default function AdminDistributionWithdrawalsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部</SelectItem>
-              <SelectItem value="pending">待审核</SelectItem>
-              <SelectItem value="approved">已通过</SelectItem>
-              <SelectItem value="rejected">已拒绝</SelectItem>
-              <SelectItem value="paid">已打款</SelectItem>
+              {STATUS_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </CardContent>
@@ -198,27 +215,13 @@ export default function AdminDistributionWithdrawalsPage() {
                   <TableCell className="px-4 py-2.5 font-medium">
                     {it.userNickname ?? it.userId ?? '-'}
                   </TableCell>
-                  <TableCell
-                    className={cn(
-                      'px-4 py-2.5 text-right font-medium',
-                      it.amount >= 0
-                        ? 'text-emerald-600 dark:text-emerald-500'
-                        : 'text-red-600 dark:text-red-500',
-                    )}
-                  >
-                    {fmtYuan(it.amount)}
-                  </TableCell>
+                  <TableCell className={amountCls(it.amount)}>{fmtYuan(it.amount)}</TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">
                     {it.account}
                     {it.accountType ? ` (${it.accountType})` : ''}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        STATUS_CLS[it.status] ?? 'bg-muted text-muted-foreground',
-                      )}
-                    >
+                    <span className={badgeCls(it.status)}>
                       {STATUS_LABEL[it.status] ?? it.status}
                     </span>
                   </TableCell>
