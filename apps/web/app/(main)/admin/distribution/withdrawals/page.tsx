@@ -5,92 +5,15 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { Loader2, ChevronLeft, ChevronRight, ArrowLeft, Check, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import {
-  Card,
-  CardContent,
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-  Button,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@ihui/ui'
+import { Button } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
-import { cn } from '@/lib/utils'
 
-interface Withdrawal {
-  id: string
-  amount: number
-  account: string
-  accountType?: string
-  status: string
-  userNickname?: string
-  userId?: string
-  createdAt: string
-  processedAt?: string | null
-}
-
-interface ListData {
-  items?: Withdrawal[]
-  list?: Withdrawal[]
-  total?: number
-}
-
-const PAGE_SIZE = 20
-
-const STATUS_CLS: Record<string, string> = {
-  pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
-  approved: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
-  rejected: 'bg-red-500/10 text-red-600 dark:text-red-500',
-  paid: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
-  failed: 'bg-red-500/10 text-red-600 dark:text-red-500',
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: '待审核',
-  approved: '已通过',
-  rejected: '已拒绝',
-  paid: '已打款',
-  failed: '失败',
-}
-
-const STATUS_OPTIONS = [
-  { value: 'all', label: '全部' },
-  { value: 'pending', label: '待审核' },
-  { value: 'approved', label: '已通过' },
-  { value: 'rejected', label: '已拒绝' },
-  { value: 'paid', label: '已打款' },
-]
-
-async function safeFetch<T>(url: string, fallback: T): Promise<T> {
-  try {
-    const r = await fetchApi<T>(url)
-    return r.success ? r.data : fallback
-  } catch {
-    return fallback
-  }
-}
-
-const fmtYuan = (n: number) => `¥${(n / 100).toFixed(2)}`
-const badgeCls = (s: string) =>
-  cn(
-    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-    STATUS_CLS[s] ?? 'bg-muted text-muted-foreground',
-  )
-const amountCls = (n: number) =>
-  cn(
-    'px-4 py-2.5 text-right font-medium',
-    n >= 0 ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500',
-  )
+import { WithdrawalsFilter } from './WithdrawalsFilter'
+import { WithdrawalsTable } from './WithdrawalsTable'
+import { PAGE_SIZE, fetchWithdrawals } from './helpers'
 
 export default function AdminDistributionWithdrawalsPage() {
   const locale = useLocale()
@@ -100,11 +23,7 @@ export default function AdminDistributionWithdrawalsPage() {
 
   const listQ = useQuery({
     queryKey: ['admin', 'distribution', 'withdrawals', page, status],
-    queryFn: () =>
-      safeFetch<ListData>(
-        `/commission/withdrawals?page=${page}&pageSize=${PAGE_SIZE}${status !== 'all' ? `&status=${status}` : ''}`,
-        { items: [], total: 0 },
-      ),
+    queryFn: () => fetchWithdrawals(page, status),
   })
 
   const items = listQ.data?.items ?? listQ.data?.list ?? []
@@ -158,111 +77,21 @@ export default function AdminDistributionWithdrawalsPage() {
         <Alert variant="danger" title="加载失败" description="无法获取提现申请列表" />
       )}
 
-      <Card>
-        <CardContent className="flex items-center gap-3 p-3">
-          <span className="text-sm text-muted-foreground">状态</span>
-          <Select
-            value={status}
-            onValueChange={(v) => {
-              setStatus(v)
-              setPage(1)
-            }}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      <WithdrawalsFilter
+        status={status}
+        onStatusChange={(v) => {
+          setStatus(v)
+          setPage(1)
+        }}
+      />
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="px-4 py-2.5">用户</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">金额</TableHead>
-              <TableHead className="px-4 py-2.5">收款账户</TableHead>
-              <TableHead className="px-4 py-2.5">状态</TableHead>
-              <TableHead className="px-4 py-2.5">申请时间</TableHead>
-              <TableHead className="px-4 py-2.5">处理时间</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {listQ.isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
-                </TableCell>
-              </TableRow>
-            ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  暂无提现申请
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((it) => (
-                <TableRow key={it.id}>
-                  <TableCell className="px-4 py-2.5 font-medium">
-                    {it.userNickname ?? it.userId ?? '-'}
-                  </TableCell>
-                  <TableCell className={amountCls(it.amount)}>{fmtYuan(it.amount)}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {it.account}
-                    {it.accountType ? ` (${it.accountType})` : ''}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span className={badgeCls(it.status)}>
-                      {STATUS_LABEL[it.status] ?? it.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {fmtDate(it.createdAt)}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {fmtDate(it.processedAt)}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    {it.status === 'pending' ? (
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={reviewMut.isPending}
-                          onClick={() => reviewMut.mutate({ id: it.id, action: 'approve' })}
-                        >
-                          <Check className="h-3.5 w-3.5 text-emerald-600" />
-                          通过
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={reviewMut.isPending}
-                          onClick={() => reviewMut.mutate({ id: it.id, action: 'reject' })}
-                        >
-                          <X className="h-3.5 w-3.5 text-red-600" />
-                          拒绝
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <WithdrawalsTable
+        items={items}
+        isLoading={listQ.isLoading}
+        reviewPending={reviewMut.isPending}
+        onReview={(id, action) => reviewMut.mutate({ id, action })}
+        fmtDate={fmtDate}
+      />
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">

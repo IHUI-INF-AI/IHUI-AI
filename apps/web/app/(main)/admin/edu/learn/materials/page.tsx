@@ -2,71 +2,18 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  FolderTree,
-  Download,
-} from 'lucide-react'
-import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
-import { cn } from '@/lib/utils'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@ihui/ui'
+import { Button } from '@ihui/ui'
 
-interface Material {
-  id: string
-  title: string
-  type: string
-  fileUrl: string | null
-  fileSize: number
-  downloadCount: number
-  lessonTitle: string | null
-}
-interface MForm {
-  title: string
-  type: string
-  fileUrl: string
-  lessonId: string
-}
-const EMPTY: MForm = { title: '', type: 'pdf', fileUrl: '', lessonId: '' }
-
-const TYPE_MAP: Record<string, string> = {
-  pdf: 'typePdf',
-  video: 'typeVideo',
-  audio: 'typeAudio',
-  doc: 'typeDoc',
-  image: 'typeImage',
-  other: 'typeOther',
-}
-
-const PAGE_SIZE = 10
+import { MaterialsFilter } from './MaterialsFilter'
+import { MaterialsTable } from './MaterialsTable'
+import { MaterialsDialog } from './MaterialsDialog'
+import { PAGE_SIZE, EMPTY, materialToForm } from './helpers'
+import type { Material, MForm } from './types'
 
 export default function EduLearnMaterialsPage() {
   const t = useTranslations('admin.edu.learn.materials')
@@ -130,7 +77,7 @@ export default function EduLearnMaterialsPage() {
   }
   function openEdit(m: Material) {
     setEditing(m)
-    setForm({ title: m.title, type: m.type, fileUrl: m.fileUrl ?? '', lessonId: '' })
+    setForm(materialToForm(m))
     setErr(null)
     setOpen(true)
   }
@@ -146,6 +93,9 @@ export default function EduLearnMaterialsPage() {
     if (!form.title.trim()) return setErr(t('titleRequired'))
     saveMut.mutate()
   }
+  function handleDelete(id: string) {
+    if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(id)
+  }
 
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -158,118 +108,15 @@ export default function EduLearnMaterialsPage() {
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/admin/edu/learn">
-            <ChevronLeft className="h-4 w-4" />
-            {t('backToLearn')}
-          </Link>
-        </Button>
-        <div className="w-full max-w-[160px]">
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className={selectClass} aria-label={t('typeAriaLabel')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('allTypes')}</SelectItem>
-              {Object.entries(TYPE_MAP).map(([k, v]) => (
-                <SelectItem key={k} value={k}>
-                  {t(v)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={openCreate} size="sm" className="ml-auto">
-          <Plus className="h-4 w-4" />
-          {t('create')}
-        </Button>
-      </div>
-      <div className="overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colType')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colSize')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colDownloads')}</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y">
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  {t('loading')}
-                </TableCell>
-              </TableRow>
-            ) : noEndpoint ? (
-              <TableRow>
-                <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  <FolderTree className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('endpointNotConfigured')}
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  <FolderTree className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('empty')}
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((m) => (
-                <TableRow key={m.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-medium">{m.title}</TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
-                      )}
-                    >
-                      {TYPE_MAP[m.type] ? t(TYPE_MAP[m.type] as string) : m.type}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    {m.fileSize > 0 ? `${(m.fileSize / 1024).toFixed(1)} KB` : '-'}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span className="inline-flex items-center gap-1">
-                      <Download className="h-3.5 w-3.5 text-muted-foreground" />
-                      {m.downloadCount}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(m)}
-                        title={t('edit')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(m.id)
-                        }}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <MaterialsFilter typeFilter={typeFilter} onTypeChange={setTypeFilter} onCreate={openCreate} />
+      <MaterialsTable
+        rows={rows}
+        isLoading={isLoading}
+        noEndpoint={noEndpoint}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+        deletePending={deleteMut.isPending}
+      />
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('totalItems', { total })}</span>
         <div className="flex items-center gap-2">
@@ -294,66 +141,16 @@ export default function EduLearnMaterialsPage() {
           </Button>
         </div>
       </div>
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
-        <DialogContent>
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
-            </DialogHeader>
-            {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {err}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="m-title">{t('fieldTitle')}</Label>
-              <Input
-                id="m-title"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="m-type">{t('fieldType')}</Label>
-              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                <SelectTrigger className={selectClass} id="m-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TYPE_MAP).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>
-                      {t(v)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="m-url">{t('fieldFileUrl')}</Label>
-              <Input
-                id="m-url"
-                value={form.fileUrl}
-                onChange={(e) => setForm({ ...form, fileUrl: e.target.value })}
-                placeholder="https://..."
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeDialog}
-                disabled={saveMut.isPending}
-              >
-                {t('cancel')}
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('save')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <MaterialsDialog
+        open={open}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        err={err}
+        savePending={saveMut.isPending}
+        onSubmit={submit}
+        onClose={closeDialog}
+      />
     </div>
   )
 }
