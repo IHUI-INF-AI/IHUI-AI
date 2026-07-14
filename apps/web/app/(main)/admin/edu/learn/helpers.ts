@@ -9,6 +9,8 @@ import {
   Bell,
   Users,
   Trophy,
+  MapIcon,
+  Layers,
 } from 'lucide-react'
 import type { LForm, Lesson } from './types'
 
@@ -33,6 +35,8 @@ export const SUB_LINKS = [
   { href: '/admin/edu/learn/records', label: 'subLink.records', icon: ListOrdered },
   { href: '/admin/edu/learn/progress', label: 'subLink.progress', icon: TrendingUp },
   { href: '/admin/edu/learn/plan', label: 'subLink.plan', icon: CalendarDays },
+  { href: '/admin/edu/learn/maps', label: 'subLink.maps', icon: MapIcon },
+  { href: '/admin/edu/learn/topics', label: 'subLink.topics', icon: Layers },
   { href: '/admin/edu/learn/remind', label: 'subLink.remind', icon: Bell },
   { href: '/admin/edu/learn/community', label: 'subLink.community', icon: Users },
   { href: '/admin/edu/learn/ranking', label: 'subLink.ranking', icon: Trophy },
