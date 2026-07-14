@@ -58,7 +58,15 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
         } catch {
           // 非 JSON 响应，保留 text 作为 message
         }
-        return { success: false, error: message, status: response.status, errorCode }
+        const retryAfterHeader = response.headers.get('retry-after')
+        const retryAfter = retryAfterHeader ? Number(retryAfterHeader) : undefined
+        return {
+          success: false,
+          error: message,
+          status: response.status,
+          errorCode,
+          retryAfter: retryAfter && Number.isFinite(retryAfter) ? retryAfter : undefined,
+        }
       }
 
       const json = (await response.json()) as ApiResponse<T>
