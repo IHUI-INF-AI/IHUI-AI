@@ -1,19 +1,20 @@
-import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify';
-import fp from 'fastify-plugin';
-import jwtPlugin from '@fastify/jwt';
-import { verifyAccessToken, type JWTPayload } from '@ihui/auth';
-import { config } from '../config/index.js';
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify'
+import fp from 'fastify-plugin'
+import jwtPlugin from '@fastify/jwt'
+import { verifyAccessToken, type JWTPayload } from '@ihui/auth'
+import { config } from '../config/index.js'
+import { getUserStatus } from '../db/usercenter-queries.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
-    userId?: string;
-    jwtPayload?: JWTPayload;
+    userId?: string
+    jwtPayload?: JWTPayload
   }
 }
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
-    payload: JWTPayload;
+    payload: JWTPayload
   }
 }
 
@@ -23,26 +24,52 @@ declare module '@fastify/jwt' {
  * 失败时抛出带 statusCode 的错误，由全局错误处理器统一返回 401。
  */
 export async function authenticate(request: FastifyRequest): Promise<JWTPayload> {
-  const header = request.headers.authorization;
+  const header = request.headers.authorization
   if (!header || !header.startsWith('Bearer ')) {
-    const err = new Error('Authentication required');
-    (err as Error & { statusCode: number }).statusCode = 401;
-    throw err;
+    const err = new Error('Authentication required')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
   }
 
-  const token = header.slice('Bearer '.length).trim();
-  let payload: JWTPayload;
+  const token = header.slice('Bearer '.length).trim()
+  let payload: JWTPayload
   try {
-    payload = await verifyAccessToken(token);
+    payload = await verifyAccessToken(token)
   } catch {
-    const err = new Error('Invalid or expired token');
-    (err as Error & { statusCode: number }).statusCode = 401;
-    throw err;
+    const err = new Error('Invalid or expired token')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
   }
 
-  request.userId = payload.userId;
-  request.jwtPayload = payload;
-  return payload;
+  request.userId = payload.userId
+  request.jwtPayload = payload
+  return payload
+}
+
+/**
+ * Opt-in 中间件：校验当前用户 status !== 3(已注销)。
+ * 必须在 authenticate 之后运行(从 request.userId 取 userId)。
+ * 适用场景：admin 路由等需要确保账号未注销的敏感端点。
+ * 设计权衡：放在独立中间件而非合并到 authenticate,避免破坏现有大量使用 mocked DB 的集成测试。
+ */
+export async function requireActiveUser(request: FastifyRequest): Promise<void> {
+  const userId = request.userId
+  if (!userId) {
+    const err = new Error('Authentication required')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
+  }
+  const status = await getUserStatus(userId)
+  if (status === undefined) {
+    const err = new Error('User not found')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
+  }
+  if (status === 3) {
+    const err = new Error('账号已注销')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
+  }
 }
 
 /**
@@ -56,12 +83,12 @@ const authPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   await server.register(jwtPlugin, {
     secret: config.JWT_SECRET,
     sign: { algorithm: 'HS256' },
-  });
-  server.decorateRequest('userId', undefined);
-  server.decorateRequest('jwtPayload', undefined);
-};
+  })
+  server.decorateRequest('userId', undefined)
+  server.decorateRequest('jwtPayload', undefined)
+}
 
 export default fp(authPlugin, {
   name: 'auth-plugin',
   fastify: '5.x',
-});
+})

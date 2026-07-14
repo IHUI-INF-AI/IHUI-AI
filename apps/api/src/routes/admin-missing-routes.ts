@@ -14,7 +14,19 @@
  */
 import type { FastifyPluginAsync, FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { eq, or, ilike, desc, asc, sql, and, inArray, type SQL, type Column } from 'drizzle-orm'
+import {
+  eq,
+  or,
+  ilike,
+  desc,
+  asc,
+  sql,
+  and,
+  inArray,
+  notInArray,
+  type SQL,
+  type Column,
+} from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -1344,6 +1356,7 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
       .int()
       .optional()
       .safeParse((request.query as { status?: string }).status)
+    const includeDeleted = (request.query as { includeDeleted?: string }).includeDeleted === 'true'
     const conds = []
     if (search)
       conds.push(
@@ -1353,7 +1366,11 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
           ilike(users.email, `%${search}%`),
         ),
       )
-    if (status.success && status.data !== undefined) conds.push(eq(users.status, status.data))
+    if (status.success && status.data !== undefined) {
+      conds.push(eq(users.status, status.data))
+    } else if (!includeDeleted) {
+      conds.push(notInArray(users.status, [3]))
+    }
     const where = conds.length > 0 ? and(...conds) : undefined
     const list = await db
       .select({
@@ -1423,9 +1440,13 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/member/users/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const [row] = await db.delete(users).where(eq(users.id, p.data.id)).returning({ id: users.id })
+    const [row] = await db
+      .update(users)
+      .set({ status: 3, updatedAt: new Date() })
+      .where(eq(users.id, p.data.id))
+      .returning()
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
-    return reply.send(success({ id: row.id, deleted: true }))
+    return reply.send(success({ user: row }))
   })
 
   // /api/admin/system/operation-logs — auditLogs 表（操作审计日志）
