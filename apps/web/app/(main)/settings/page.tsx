@@ -19,6 +19,13 @@ import {
   FileText,
   Bell,
   CreditCard,
+  User,
+  UserCircle,
+  Receipt,
+  Link2,
+  Settings,
+  Activity,
+  LayoutDashboard,
 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
@@ -39,6 +46,33 @@ import {
 const SIDEBAR_KEY = 'sidebar-collapsed'
 
 const SUB_PAGES = [
+  {
+    href: '/settings/dashboard',
+    icon: LayoutDashboard,
+    titleKey: 'dashboardTitle',
+    descKey: 'dashboardDesc',
+  },
+  { href: '/settings/profile', icon: User, titleKey: 'profileTitle', descKey: 'profileDesc' },
+  { href: '/settings/avatar', icon: UserCircle, titleKey: 'avatarTitle', descKey: 'avatarDesc' },
+  { href: '/settings/billing', icon: Receipt, titleKey: 'billingTitle', descKey: 'billingDesc' },
+  {
+    href: '/settings/connected-accounts',
+    icon: Link2,
+    titleKey: 'connectedAccountsTitle',
+    descKey: 'connectedAccountsDesc',
+  },
+  {
+    href: '/settings/preferences',
+    icon: Settings,
+    titleKey: 'preferencesTitle',
+    descKey: 'preferencesDesc',
+  },
+  {
+    href: '/settings/activity',
+    icon: Activity,
+    titleKey: 'activityTitle',
+    descKey: 'activityDesc',
+  },
   {
     href: '/settings/account-deletion',
     icon: UserX,

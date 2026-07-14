@@ -2,31 +2,14 @@
 
 import * as React from 'react'
 import { useLocale } from 'next-intl'
-import { Headphones, Clock, CheckCircle, Send, Loader2, MessageCircle, Users } from 'lucide-react'
+import { Send, Loader2, MessageCircle, Users } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Input } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
 import { MessageBubble, type CsMessage } from '@/components/customer-service/MessageBubble'
-
-interface CsSession {
-  id: string
-  userId: string
-  userName: string
-  userAvatar: string | null
-  lastMessage: string
-  lastTime: string
-  unread: number
-  messages: CsMessage[]
-}
-
-interface CsStats {
-  onlineAgents: number
-  waiting: number
-  todayProcessed: number
-}
-
-type SessionsData = { list: CsSession[] } | CsSession[]
+import { StatCards } from './StatCards'
+import type { CsSession, CsStats, SessionsData } from './types'
 
 export default function AdminCustomerServicePage() {
   const locale = useLocale()
@@ -128,37 +111,9 @@ export default function AdminCustomerServicePage() {
     )
   }
 
-  const statCards = [
-    {
-      key: 'online',
-      label: '在线客服',
-      value: stats.onlineAgents,
-      icon: Headphones,
-      cls: 'text-emerald-600',
-    },
-    { key: 'waiting', label: '等待中', value: stats.waiting, icon: Clock, cls: 'text-amber-600' },
-    {
-      key: 'processed',
-      label: '今日已处理',
-      value: stats.todayProcessed,
-      icon: CheckCircle,
-      cls: 'text-primary',
-    },
-  ]
-
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
-        {statCards.map((c) => (
-          <div key={c.key} className="flex items-center gap-3 rounded-lg border bg-card p-3">
-            <c.icon className={cn('h-5 w-5', c.cls)} />
-            <div>
-              <p className="text-lg font-semibold">{c.value}</p>
-              <p className="text-xs text-muted-foreground">{c.label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      <StatCards stats={stats} />
 
       <div className="flex h-[calc(100vh-280px)] overflow-hidden rounded-lg border bg-card">
         <div className="flex w-72 shrink-0 flex-col border-r">
