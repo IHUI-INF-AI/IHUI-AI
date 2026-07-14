@@ -1,119 +1,120 @@
 import { View, Text } from '@tarojs/components'
-import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
-import { useState, useCallback, useRef } from 'react'
-import { getExamList, type Exam } from '@/api'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useState, useCallback, useMemo } from 'react'
+import { getExamList, getExamRecords, type Exam, type ExamRecord } from '@/api'
+
+type Tab = 'all' | 'pending' | 'completed'
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'pending', label: '待考试' },
+  { key: 'completed', label: '已完成' },
+]
 
 export default function ExamList() {
-  const [list, setList] = useState<Exam[]>([])
+  const [tab, setTab] = useState<Tab>('all')
+  const [papers, setPapers] = useState<Exam[]>([])
+  const [records, setRecords] = useState<ExamRecord[]>([])
   const [loading, setLoading] = useState(false)
-  const [status, setStatus] = useState('')
-  const pageRef = useRef(1)
-  const hasMoreRef = useRef(true)
-  const loadingRef = useRef(false)
-  const lenRef = useRef(0)
 
-  const statusText = useCallback((s?: string) => {
-    return ({ pending: '待考', done: '已完成', expired: '已过期' } as Record<string, string>)[s || ''] || '待考'
-  }, [])
-
-  const load = useCallback(async (reset = false) => {
-    if (loadingRef.current) return
-    if (reset) {
-      pageRef.current = 1
-      hasMoreRef.current = true
-      lenRef.current = 0
-      setList([])
-    }
-    if (!reset && !hasMoreRef.current) return
-    loadingRef.current = true
+  const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await getExamList({ page: pageRef.current, pageSize: 20 })
-      const more = res.list || []
-      lenRef.current = reset ? more.length : lenRef.current + more.length
-      setList(prev => reset ? more : [...prev, ...more])
-      hasMoreRef.current = lenRef.current < res.total
-      pageRef.current++
+      const [pRes, rRes] = await Promise.all([
+        getExamList({ page: 1, pageSize: 100 }),
+        getExamRecords({ page: 1, pageSize: 100 }),
+      ])
+      setPapers(pRes.list || [])
+      setRecords(rRes.list || [])
     } catch {
-      // 统一提示
     } finally {
-      loadingRef.current = false
       setLoading(false)
     }
   }, [])
 
-  const switchTab = useCallback((s: string) => {
-    setStatus(s)
-    load(true)
-  }, [load])
-
-  const goDetail = useCallback((e: Exam) => {
-    if (e.status === 'done') {
-      Taro.navigateTo({ url: `/pages/exam/result?id=${e.id}` })
-    } else {
-      Taro.navigateTo({ url: `/pages/exam/detail?id=${e.id}` })
-    }
-  }, [])
-
   useDidShow(() => {
-    load(true)
+    load()
   })
-  useReachBottom(() => load())
+
+  const answeredIds = useMemo(() => new Set(records.map((r) => r.paperId)), [records])
+  const pendingList = useMemo(
+    () => papers.filter((p) => !answeredIds.has(p.id)),
+    [papers, answeredIds],
+  )
+  const paperMap = useMemo(() => new Map(papers.map((p) => [p.id, p])), [papers])
+
+  const goDetail = (id: string) => Taro.navigateTo({ url: `/pages/exam/detail?id=${id}` })
+  const goResult = (id: string) => Taro.navigateTo({ url: `/pages/exam/result?id=${id}` })
+
+  const renderPaper = (e: Exam) => (
+    <View key={e.id} className="bg-white rounded-2xl p-4 mb-3" onClick={() => goDetail(e.id)}>
+      <View className="flex justify-between items-center">
+        <Text className="text-base text-[#333] font-semibold">{e.title}</Text>
+        {e.categoryName && <Text className="text-xs text-[#007aff]">{e.categoryName}</Text>}
+      </View>
+      <View className="flex gap-3 mt-2">
+        <Text className="text-xs text-[#666]">{e.questionCount}题</Text>
+        <Text className="text-xs text-[#666]">{e.duration}分钟</Text>
+        <Text className="text-xs text-[#666]">及格{e.passScore}分</Text>
+        <Text className="text-xs text-[#666]">满分{e.totalScore}分</Text>
+      </View>
+    </View>
+  )
+
+  const renderRecord = (r: ExamRecord) => {
+    const paper = paperMap.get(r.paperId)
+    return (
+      <View key={r.id} className="bg-white rounded-2xl p-4 mb-3" onClick={() => goResult(r.id)}>
+        <View className="flex justify-between items-center">
+          <Text className="text-base text-[#333] font-semibold">
+            {paper?.title ?? '已下架试卷'}
+          </Text>
+          <Text className={`text-xs ${r.isPassed ? 'text-green-600' : 'text-red-500'}`}>
+            {r.isPassed ? '已通过' : '未通过'}
+          </Text>
+        </View>
+        <View className="flex gap-3 mt-2">
+          <Text className="text-xs text-[#666]">得分{r.score}</Text>
+          {paper && <Text className="text-xs text-[#666]">满分{paper.totalScore}分</Text>}
+          {r.submittedAt && (
+            <Text className="text-xs text-[#999]">
+              {new Intl.DateTimeFormat('zh-CN').format(new Date(r.submittedAt))}
+            </Text>
+          )}
+        </View>
+      </View>
+    )
+  }
+
+  const curList = tab === 'completed' ? records : tab === 'pending' ? pendingList : papers
+  const emptyText =
+    tab === 'completed' ? '暂无已完成考试' : tab === 'pending' ? '暂无待考试' : '暂无考试'
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
-      {/* 状态筛选 */}
-      <View className="flex bg-white">
-        {[
-          { key: '', label: '全部' },
-          { key: 'pending', label: '待考试' },
-          { key: 'done', label: '已完成' },
-        ].map(tab => (
+      <View className="flex bg-white border-b border-[#eee]">
+        {TABS.map((t) => (
           <View
-            key={tab.key}
-            className={`flex-1 text-center text-sm py-3 ${status === tab.key ? 'text-[#007aff] font-semibold' : 'text-[#666]'}`}
-            onClick={() => switchTab(tab.key)}
+            key={t.key}
+            className={`flex-1 py-3 text-center text-sm ${tab === t.key ? 'text-[#007aff] font-semibold border-b-2 border-[#007aff]' : 'text-[#666]'}`}
+            onClick={() => setTab(t.key)}
           >
-            <Text>{tab.label}</Text>
+            {t.label}
           </View>
         ))}
       </View>
 
-      {list.length > 0 && (
-        <View className="p-3">
-          {list.map(e => (
-            <View
-              key={e.id}
-              className="bg-white rounded-2xl p-4 mb-3"
-              onClick={() => goDetail(e)}
-            >
-              <View className="flex justify-between items-center">
-                <Text className="text-base text-[#333] font-semibold">{e.title}</Text>
-                <Text
-                  className={`text-xs ${
-                    e.status === 'pending' ? 'text-[#ff9a3c]' :
-                    e.status === 'done' ? 'text-[#4caf50]' : 'text-[#999]'
-                  }`}
-                >
-                  {statusText(e.status)}
-                </Text>
-              </View>
-              <View className="flex gap-3 mt-2">
-                <Text className="text-xs text-[#666]">{e.questions}题</Text>
-                <Text className="text-xs text-[#666]">{e.duration}分钟</Text>
-                <Text className="text-xs text-[#666]">及格{e.passScore}分</Text>
-              </View>
-              {e.startTime && (
-                <Text className="block text-xs text-[#999] mt-1.5">时间：{e.startTime} - {e.endTime}</Text>
-              )}
-            </View>
-          ))}
-        </View>
-      )}
+      <View className="p-3">
+        {tab === 'completed'
+          ? records.map((r) => renderRecord(r))
+          : tab === 'pending'
+            ? pendingList.map((e) => renderPaper(e))
+            : papers.map((e) => renderPaper(e))}
+      </View>
 
-      {!loading && list.length === 0 && (
+      {!loading && curList.length === 0 && (
         <View className="text-center py-16 text-[#999]">
-          <Text>暂无考试</Text>
+          <Text>{emptyText}</Text>
         </View>
       )}
     </View>

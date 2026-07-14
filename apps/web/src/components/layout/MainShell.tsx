@@ -8,10 +8,41 @@ import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
 export function MainShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
+  const sidebarId = React.useId()
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sidebar-collapsed')
+      if (saved === 'true') setCollapsed(true)
+    } catch {
+      // localStorage 不可用
+    }
+  }, [])
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('sidebar-collapsed', String(collapsed))
+    } catch {
+      // localStorage 不可用
+    }
+  }, [collapsed])
+
+  React.useEffect(() => {
+    if (!mobileOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [mobileOpen])
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
+      <a href="#main" className="skip-to-main">
+        跳转到主内容
+      </a>
       <Sidebar
+        id={sidebarId}
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((c) => !c)}
         mobileOpen={mobileOpen}
@@ -19,7 +50,11 @@ export function MainShell({ children }: { children: React.ReactNode }) {
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header onMenuClick={() => setMobileOpen(true)} />
-        <main id="main" className="flex-1 p-4 md:p-6 lg:p-8">
+        <main
+          id="main"
+          tabIndex={-1}
+          className="thin-scroll flex-1 overflow-y-auto p-4 md:p-6 lg:p-8"
+        >
           {children}
         </main>
       </div>

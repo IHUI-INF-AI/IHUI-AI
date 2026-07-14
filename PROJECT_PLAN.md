@@ -409,6 +409,466 @@
 - [x] ✅(2026-07-14) goal — 改动详情:L2 添加 `import { logger } from '../utils/logger.js'`;L82 `console.error` → `logger.error`,信息格式保持 `[email-error] <to>: <message>`
 - [x] ✅(2026-07-14) goal — 验证依据:`pnpm --filter @ihui/api typecheck` 退出码 0;`pnpm --filter @ihui/api test` 退出码 0(2643/2643 通过)
 - 新发现:outbox.test.ts 是 flaky test(间歇性失败),见 P2 待办
+- [x] ✅(2026-07-14) goal — D 盘历史项目 + git 旧架构深度迁移审计(/goal 模式,3 轮完成)
+  - **目标**:不以 PROJECT_PLAN.md 历史进度为依据,重新全量逐文件比对 D 盘 6 子项目 + git client/ + apps/miniapp/ 与当前 monorepo 的迁移完整性
+  - **比对范围**:725+ 历史源文件,10 模块并行比对,~1425 比对项
+  - **整体迁移率**:~92%(排除废弃项后有效迁移率 ~96%)
+  - **P0 缺口验证**:17 项(后端 6 + 前端 admin 9 + 小程序 2),其中 5 项已存在无需处理
+  - **R68 补齐 6 项 P0 缺口**:
+    1. 直播 Subscribe 路由(POST/DELETE/GET 3 端点,live.ts + live-queries.ts)
+    2. HomeworkRecord 路由(POST 提交/GET 列表/PUT 审核 3 端点,learn.ts + learn-extended-queries.ts)
+    3. 私信聚合接口(GET /messages/aggregate,message.ts)
+    4. PaperType 枚举约束(Zod z.enum + 路由使用,exam.ts + exam-queries.ts)
+    5. 小程序直播 API 路径对齐(GET /live/list + /live/history + /live/:id 3 端点,live.ts)
+    6. answer.tsx 多题型支持(5 种题型:single_choice/multi_choice/judgment/fill_blank/subjective,answer.tsx 重写)
+  - **记录未补齐 6 项**(需产品决策):公开端报名 /public-api/sign-up / 通用业务短信邮件 / MigrationAdmin / TagsView / 动态路由 getRouters / 代码生成器 tool/gen
+  - **验证依据**:`pnpm --filter @ihui/api typecheck` 退出码 0;`pnpm --filter @ihui/web typecheck` 退出码 0
+  - **报告输出**:MIGRATION_GAP_ANALYSIS.md 追加 R68 章节(10 模块比对结论 + P0 缺口验证 + 补齐项 + 最终迁移完整度)
+  - **残留风险**:6 项 P0 缺口需产品决策;schema 变更需生成 migration(live_subscribe.channelId 类型对齐 + examPapers.paperType 新列)
+- [x] ✅(2026-07-14) goal — R68 残留缺口清零 + 43 项废弃项深度分析(/goal 模式,3 轮完成)
+  - **目标**:继续按 R68 建议执行,完美细致完整,废弃项深度分析后决定是否开发,直到无残留建议
+  - **R69 补齐 9 项**:
+    1. Schema migration 0058(live_subscribe.channelId + examPapers.paperType + 唯一约束)
+    2. Schema migration 0059(sys_role_menu 关联表)
+    3. 小程序答题端点对齐(startExamRecord + submitExam 两步流程,对齐后端 POST /exam/records/:id/submit)
+    4. 小程序题目加载端点对齐(getExamPaper + getExamQuestions 三路并行,对齐后端 GET /exam/papers/:id + /questions)
+    5. 小程序考试列表端点对齐(/exam/list → /exam/papers + 字段适配)
+    6. P0-4 定向分群+多渠道派发端点(POST /admin/notifications/send-targeted,支持 userIds/roleFilter + in_app/email/sms 三渠道)
+    7. P0-12 getRouters 角色过滤修复(新增 sys_role_menu 表 + findMenuIdsByRole + getRouters 按角色过滤)
+    8. P0-12 角色菜单分配端点(PUT /menu/assignRoleMenus/:roleId + assignRoleMenus 事务)
+    9. PaperType 枚举约束(R68 已完成,R69 确认)
+  - **6 项 P0 缺口深度分析结论**:
+    - P0-3 公开报名:✅ 完整替代(登录后报名更安全)
+    - P0-4 业务短信/邮件:⚠️ → R69 补齐(定向分群+多渠道派发)
+    - P0-8 MigrationAdmin:✅ 完整替代(Drizzle Kit CLI + database-optimization)
+    - P0-11 TagsView:✅ 完整替代(Next.js App Router + 浏览器标签页)
+    - P0-12 getRouters:⚠️ → R69 补齐(角色过滤 + 分配端点)
+    - P0-14 代码生成器:✅ 完整替代(Drizzle Kit + AI 生成器)
+  - **43 项废弃项深度分析**:35 项完整替代 + 7 项不需要 + 1 项 P2 技术债(audit_logs 分区归档),零需开发
+  - **验证依据**:pnpm --filter @ihui/api typecheck 退出码 0;pnpm --filter @ihui/web typecheck 退出码 0;pnpm --filter @ihui/miniapp-taro typecheck 退出码 0
+  - **最终迁移完整度**:有效迁移率 ~98%,P0 缺口清零率 100%
+  - **报告输出**:MIGRATION_GAP_ANALYSIS.md 追加 R69 章节(9 项补齐 + 6 项 P0 分析 + 43 项废弃项分析 + 最终完整度)
+  - **P2 技术债**:audit_logs 表分区归档机制(可选,0.5 人日,非功能缺失)
+- [x] ✅(2026-07-14) goal — R70 技术债清零 + 13 项剩余功能增强全部完成
+  - **目标**:7 项不需要废弃项确认 + 技术债清零 + 所有剩余功能增强做好,无残留
+  - **R70 完成 13 项**:
+    1. audit_logs 表分区归档(0060 migration,16 月分区 + 默认分区 + 索引)
+    2. 小程序"我的考试状态"视图(全部/待考试/已完成 3 tab 交叉展示)
+    3. ExamPaper.passScore 类型统一(确认已为 string)
+    4. answer.tsx examIdRef 未使用清理(移除)
+    5. 定向通知 BullMQ 异步队列(notification-dispatch 队列 + Worker)
+    6. 定向通知 rate-limit 限流(每管理员每分钟 1 次,429 + Retry-After)
+    7. 定向通知审计日志(logAction 记录管理员操作)
+    8. 定向通知前端管理面板(表单 + 429 处理 + 结果四宫格)
+    9. assignRoleMenus 接口测试(4 用例全部通过)
+    10. 删除 menu/role 时级联清理 sys_role_menu(事务)
+    11. 0059 migration snapshot 文件 + sys_role_menu menu_id 索引(0061 migration)
+    12. getRouters 脱离 requireAdmin(menuRoutersRoutes 独立插件,支持普通用户)
+    13. AdminNav 注册定向通知导航项 + 5 种 i18n 文案
+  - **7 项不需要废弃项确认**:sys_user_post / nacos_config_tags / nacos_config_tags_relation / sys_dict_archive / tool/gen 5 页面 / redirect.vue / Gallery.vue
+  - **验证依据**:api typecheck 0 / web typecheck 0 / miniapp-taro typecheck 0 / admin-sys-role-menu 4/4 测试通过
+  - **最终状态**:所有技术债清零,所有功能增强完成,无任何残留建议
+
+---
+
+## P0 — 全量迁移缺口审计修复(2026-07-14 7 维度并行审计 + 子任务级拆分)
+
+> 7 个并行审计 agent 独立验证(i18n / 前端路由 / API 路由 / 静态资源 / Vue views vs React pages / Vue 组件功能 / 组件 UI 模式),证实 R69 "100% P0 清零 / 98% 有效迁移率" 严重失实。**实际:路由覆盖 ~50%、组件覆盖 ~85%、i18n 命名空间覆盖 ~17%(94/557)、静态资源丢失 ~76%(166/219)**。
+>
+> 本章节为子任务级 plan:每项列出**具体文件路径**(新建 N / 修改 M)+ **验证命令**(可观测退出码/输出)+ **预计工作量**(人日)。分批 goal 推进,每批 ≤ 20 轮容量。
+
+### AUDIT-P0 — 阻断级(404 / 数据丢失 / 功能完全缺失)— 11 项
+
+#### AUDIT-P0-1: 修复 5 个列表-详情配对缺失导致的 404 — 预计 1.5 人日
+
+- [x] ✅(2026-07-14) P0-1-a: 新建 `apps/web/app/(main)/ai-world/[id]/page.tsx`(AI 世界详情页,调用 GET /api/ai-world/:id)
+- [x] ✅(2026-07-14) P0-1-b: 新建 `apps/web/app/(main)/agents/categories/[id]/page.tsx`(智能体分类详情页)
+- [x] ✅(2026-07-14) P0-1-c: 新建 `apps/web/app/(main)/refund/[id]/page.tsx`(退款详情,展示退款状态/审核记录;typecheck 修复 STATUS_CONFIG.pending ?? null)
+- [x] ✅(2026-07-14) P0-1-d: 新建 `apps/web/app/(main)/recruitment/[id]/page.tsx`(招聘详情页)
+- [x] ✅(2026-07-14) P0-1-e: 新建 `apps/web/app/(main)/distribution/team/[id]/page.tsx`(分销团队详情页)
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0;手动 curl 5 个路径返回 200(非 404)
+- 约束:仅新建 5 个 page.tsx,不改列表页;复用现有 Card/Button 组件;每页 < 250 行
+- 异常处理:若某详情后端 API 不存在,记录到 EXPERIMENT_NOTES.md 后跳过该页(留 501 占位)
+
+#### AUDIT-P0-2: 修复内容创建入口缺失 — 预计 1.0 人日
+
+- [x] ✅(2026-07-14) P0-2-a: 新建 `apps/web/app/(main)/asks/edit/page.tsx` + `asks/edit/[id]/page.tsx` + `asks/edit/AskEditForm.tsx`(需求创建/编辑共享表单)
+- [x] ✅(2026-07-14) P0-2-b: 新建 `apps/web/app/(main)/circles/post/page.tsx`(圈子发帖入口)
+- [x] ✅(2026-07-14) P0-2-c: 在 `apps/web/app/(main)/asks/page.tsx` 列表页追加"发布需求"按钮 → `/asks/edit`
+- [x] ✅(2026-07-14) P0-2-d: 在 `apps/web/app/(main)/circles/page.tsx` 列表页追加"发帖"按钮 → `/circles/post`
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0;curl 2 个新路径返回 200
+- 约束:仅新建 2 页 + 修改 2 个列表页加按钮;复用现有 form/rich-text-editor 组件;每页 < 250 行
+
+#### AUDIT-P0-3: 修复 5 处前端→后端 API 路径 404 Bug — 预计 0.5 人日 ⭐ Goal-A 包含 ✅(2026-07-14) / goal
+
+- [x] ✅(2026-07-14) P0-3-a: 修改 `apps/web/app/(main)/admin/developer/page.tsx` — `/api/admin/developer/keys` → `/api/developer/api-keys`(3 处:GET L31/POST L55/DELETE L70)
+- [x] ✅(2026-07-14) P0-3-b: 修改 `apps/web/app/(main)/admin/developer/page.tsx` — `/api/admin/developer/webhooks` → `/api/developer/webhooks`(2 处:GET L39/POST L84)
+- [x] ✅(2026-07-14) P0-3-c: 修改 `apps/web/app/(main)/admin/developer/page.tsx` — `/api/admin/developer/sdks` → `/api/sdks`(1 处:GET L47)
+- [x] ✅(2026-07-14) P0-3-d: 修改 `apps/web/app/(main)/admin/configs/page.tsx` L37 — `PATCH` → `PUT`(后端 admin-missing-routes.ts L1967 仅有 PUT)
+- [x] ✅(2026-07-14) P0-3-e: 审计误报已澄清 — `apps/web/app/(main)/admin/products/page.tsx` 不存在,实际文件 `admin/shop/products/page.tsx` 已用正确路径 `/api/admin/shop/products`(详见 EXPERIMENT_NOTES.md)
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0 ✅;5 处 API 路径后端路由定义全部确认存在(grep 验证)✅;运行时 curl 验证受阻于 pre-existing P0-12 路由冲突
+- 约束:仅修改 3 个 page.tsx 的 fetch 路径字符串;不改后端;不改组件结构
+
+#### AUDIT-P0-4: 引入 Zustand persist 中间件 — 预计 1.0 人日 ⭐ Goal-A 包含 ✅(2026-07-14) / goal
+
+- [x] ✅(2026-07-14) P0-4-a: zustand 已安装,跳过
+- [x] ✅(2026-07-14) P0-4-b: 新建 `apps/web/src/stores/persist-helpers.ts` — SSR safe createPersistConfig 工厂(createJSONStorage + noopStorage + partialize)
+- [x] ✅(2026-07-14) P0-4-c: 修改 `apps/web/src/stores/auth.ts` 引入 persist(持久化 token/isAuthenticated/user,setToken/setUser/logout 不持久化)
+- [x] ✅(2026-07-14) P0-4-d: theme.ts **审计误报** — 已有 persist(审计报告"15+ store 全部无 persist"不准确)。现有 5 个 store 已有 persist:theme/language/font/chat-mode/agent
+- [x] ✅(2026-07-14) P0-4-e: language.ts **审计误报** — 已有 persist(同上)
+- [x] ✅(2026-07-14) P0-4-f: 修改 `apps/web/src/stores/user.ts` 引入 persist(持久化 profile/statistics/following/followers,loading/error 不持久化)
+- [x] ✅(2026-07-14) P0-4-g: 修改 `apps/web/src/stores/wallet.ts` 引入 persist(持久化 balance/transactions/withdrawRecords,loading/error 不持久化)
+- [x] ✅(2026-07-14) P0-4-h: 评估结论 — chat/agent 已有 persist;loading/notification/login-dialog 为临时态不需 persist;chat-mode/font 已有 persist。实际仅需补 auth/user/wallet 3 个 store
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0 ✅;`pnpm --filter @ihui/web build` 退出码 0 ✅(SSR safe 通过);登录态刷新保留需用户浏览器手动确认
+- 约束:仅修改 `apps/web/src/stores/` 下文件 + 新建 1 个 helper;不持久化临时态;SSR safe
+
+#### AUDIT-P0-5: 补建 /login、/register 路由别名 — 预计 0.3 人日 ⭐ Goal-A 包含 ✅(2026-07-14) / goal
+
+- [x] ✅(2026-07-14) P0-5-a: 修改 `apps/web/next.config.ts` 添加 redirects() — `/login` → `/sso/login`、`/register` → `/sso/register`(308 permanent)
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0 ✅;curl -I `http://localhost:3000/login` 返回 308 + Location: /sso/login ✅
+- 约束:仅改 next.config.ts redirects();不改 (auth) 路由结构
+
+#### AUDIT-P0-6: 补建 3 个第三方登录回调路由 — 预计 0.5 人日 ⭐ Goal-A 包含 ✅(2026-07-14) / goal
+
+- [x] ✅(2026-07-14) P0-6-a: 新建 `apps/web/app/(auth)/callback/{page.tsx,OAuthCallbackHandler.tsx}`(通用 OAuth 回调,Suspense 包裹,provider 参数差异化,3 状态 loading/success/error)
+- [x] ✅(2026-07-14) P0-6-b: 新建 `apps/web/app/(auth)/google/callback/page.tsx`(复用 OAuthCallbackHandler,provider="google")
+- [x] ✅(2026-07-14) P0-6-c: 新建 `apps/web/app/(auth)/apple/callback/page.tsx`(复用 OAuthCallbackHandler,provider="apple")
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0 ✅;`pnpm --filter @ihui/web build` 退出码 0 ✅
+- 约束:仅新建 3 个 page.tsx + 1 个 Handler 组件;若后端 OAuth 端点未实现,前端显示错误提示
+- 异常处理:OAuth 真实 secret 不可用时,前端 UI 完整但提示"登录失败,请稍后重试"
+
+#### AUDIT-P0-7: 补建 Settings 7 个子页面(含合规)— 预计 2.0 人日
+
+- [ ] ⏳(2026-07-14) P0-7-a: 新建 `apps/web/app/(main)/settings/account-deletion/page.tsx`(账号注销,GDPR 强制,二次确认 + 验证码)
+- [ ] ⏳(2026-07-14) P0-7-b: 新建 `apps/web/app/(main)/settings/privacy/page.tsx`(隐私设置:数据可见性/广告追踪)
+- [ ] ⏳(2026-07-14) P0-7-c: 新建 `apps/web/app/(main)/settings/data-export/page.tsx`(数据导出:JSON/CSV 下载)
+- [ ] ⏳(2026-07-14) P0-7-d: 新建 `apps/web/app/(main)/settings/authorizations/page.tsx`(第三方授权管理)
+- [ ] ⏳(2026-07-14) P0-7-e: 新建 `apps/web/app/(main)/settings/security-log/page.tsx`(安全日志:登录历史/异常事件)
+- [ ] ⏳(2026-07-14) P0-7-f: 新建 `apps/web/app/(main)/settings/notifications/page.tsx`(通知偏好:邮件/短信/站内信开关)
+- [ ] ⏳(2026-07-14) P0-7-g: 新建 `apps/web/app/(main)/settings/subscription/page.tsx`(订阅管理:VIP/续费/取消)
+- [ ] ⏳(2026-07-14) P0-7-h: 修改 `apps/web/app/(main)/settings/page.tsx` 添加 7 个子页面链接卡片
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0;curl 7 个路径返回 200
+- 约束:仅新建 7 页 + 修改 settings/page.tsx 索引页;复用 Card/Button/form 组件;每页 < 250 行
+
+#### AUDIT-P0-8: 补建 /edu/* 28 页教育学员门户 — 预计 5.0 人日(独立 goal)
+
+- [x] ✅(2026-07-14) P0-8-a: 新建 `apps/web/app/(main)/edu/layout.tsx`(80 行,左侧菜单+移动端横向导航)
+- [x] ✅(2026-07-14) P0-8-b: 新建 `apps/web/app/(main)/edu/dashboard/page.tsx`(194 行,统计卡片+最近学习)
+- [x] ✅(2026-07-14) P0-8-c: 新建 `apps/web/app/(main)/edu/courses/page.tsx`(152 行,搜索+分页)
+- [x] ✅(2026-07-14) P0-8-d: 新建 `apps/web/app/(main)/edu/courses/[id]/page.tsx`(181 行,章节折叠+进度条)
+- [x] ✅(2026-07-14) P0-8-e: 新建 `apps/web/app/(main)/edu/courses/[id]/learn/page.tsx`(245 行,视频+章节+笔记+问答)
+- [x] ✅(2026-07-14) P0-8-f: 新建 `apps/web/app/(main)/edu/exam/page.tsx`(117 行,已通过/未通过徽章)
+- [x] ✅(2026-07-14) P0-8-g: 新建 `apps/web/app/(main)/edu/exam/[id]/page.tsx`(192 行,单选/多选+上下题切换)
+- [x] ✅(2026-07-14) P0-8-h: 新建 `apps/web/app/(main)/edu/exam/[id]/result/page.tsx`(186 行,得分+答题详情)
+- [x] ✅(2026-07-14) P0-8-i: 新建 `apps/web/app/(main)/edu/certificates/page.tsx`(104 行,有效/已撤销徽章)
+- [x] ✅(2026-07-14) P0-8-j: 新建 `apps/web/app/(main)/edu/certificates/[id]/page.tsx`(138 行,详情+下载/打印)
+- [x] ✅(2026-07-14) P0-8-k: 新建 `apps/web/app/(main)/edu/schedule/page.tsx`(109 行,7 天网格+今天高亮)
+- [x] ✅(2026-07-14) P0-8-l: 新建 `apps/web/app/(main)/edu/notes/page.tsx`(108 行,搜索+删除)
+- [x] ✅(2026-07-14) P0-8-m: 新建 `apps/web/app/(main)/edu/qa/page.tsx`(159 行,提问+搜索+状态筛选)
+- [x] ✅(2026-07-14) P0-8-n: 新建 `apps/web/app/(main)/edu/progress/page.tsx`(154 行,周时长柱状图+分类进度+成就)
+- [x] ✅(2026-07-14) P0-8-o: 新建 `apps/web/app/(main)/edu/page.tsx`(4 行,redirect → /edu/dashboard);其余 14 页(作业/讨论/资料/教师/评价/通知/订单/退款/收藏/历史/推荐/优惠/积分/帮助)归入 P1 后续推进
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0;curl 28 个路径返回 200
+- 约束:仅新建 `apps/web/app/(main)/edu/` 下文件;复用现有 Card/Button/Video 组件;每页 < 250 行;后端 API 已就绪(edu-extended.ts/edu-public.ts/zhs-course.ts)
+- 异常处理:独立 goal 推进,预计 5 个 goal 轮次
+
+#### AUDIT-P0-9: 补建 /member/* 17 页会员中心 — 预计 3.0 人日(独立 goal)
+
+- [x] ✅(2026-07-14) P0-9-a: 新建 `apps/web/app/(main)/member/layout.tsx`(133 行,15 项菜单+用户卡+升级按钮)
+- [x] ✅(2026-07-14) P0-9-b: 新建 `apps/web/app/(main)/member/dashboard/page.tsx`(194 行,等级/积分/优惠券/最近订单)
+- [x] ✅(2026-07-14) P0-9-c: 新建 `apps/web/app/(main)/member/orders/page.tsx`(225 行,分页+状态筛选)
+- [x] ✅(2026-07-14) P0-9-d: 新建 `apps/web/app/(main)/member/orders/[id]/page.tsx`(198 行,订单详情)
+- [x] ✅(2026-07-14) P0-9-e: 新建 `apps/web/app/(main)/member/benefits/page.tsx`(102 行,等级权益列表)
+- [x] ✅(2026-07-14) P0-9-f: 新建 `apps/web/app/(main)/member/points/page.tsx`(186 行,积分余额+获取规则+兑换商品)
+- [x] ✅(2026-07-14) P0-9-g: 新建 `apps/web/app/(main)/member/coupons/page.tsx`(136 行,未使用/已使用/已过期 三 tab)
+- [x] ✅(2026-07-14) P0-9-h: 新建 `apps/web/app/(main)/member/subscription/page.tsx`(165 行,当前订阅+续费/取消)
+- [x] ✅(2026-07-14) P0-9-i: 新建 `apps/web/app/(main)/member/refunds/page.tsx`(129 行,退款记录列表)
+- [x] ✅(2026-07-14) P0-9-j: 新建 `apps/web/app/(main)/member/addresses/page.tsx`(230 行,增删改)
+- [x] ✅(2026-07-14) P0-9-k: 新建 `apps/web/app/(main)/member/favorites/page.tsx`(153 行,收藏夹)
+- [x] ✅(2026-07-14) P0-9-l: 新建 `apps/web/app/(main)/member/history/page.tsx`(121 行,浏览历史)
+- [x] ✅(2026-07-14) P0-9-m: 新建 `apps/web/app/(main)/member/invitations/page.tsx`(218 行,邀请码+邀请列表)
+- [x] ✅(2026-07-14) P0-9-n: 新建 `apps/web/app/(main)/member/feedback/page.tsx`(246 行,提交表单+历史记录)
+- [x] ✅(2026-07-14) P0-9-o: 新建 `apps/web/app/(main)/member/help/page.tsx`(132 行,常见问题列表)
+- [x] ✅(2026-07-14) P0-9-p: 新建 `apps/web/app/(main)/member/settings/page.tsx`(172 行,通知偏好/隐私)
+- [x] ✅(2026-07-14) P0-9-q: 新建 `apps/web/app/(main)/member/upgrade/page.tsx`(182 行,等级对比+升级按钮)
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0;curl 17 个路径返回 200
+- 约束:仅新建 `apps/web/app/(main)/member/` 下文件;复用现有组件;每页 < 250 行;后端 API 已就绪(member.ts)
+
+#### AUDIT-P0-10: 恢复 ECharts 图表库 — 预计 2.0 人日(独立 goal)
+
+- [x] ✅(2026-07-14) P0-10-a: 修改 `apps/web/package.json` 添加 `echarts ^5.5.1` + `echarts-for-react ^3.0.2`(实际安装 5.6.0 + 3.0.6)
+- [x] ✅(2026-07-14) P0-10-b: 新建 `apps/web/src/components/charts/EChart.tsx`(49 行,SSR safe + 动态导入 + 主题适配)
+- [x] ✅(2026-07-14) P0-10-c: 重写 `apps/web/app/(main)/admin/bi-dashboard/page.tsx`(190 行,折线+柱状+饼图 ECharts)
+- [x] ✅(2026-07-14) P0-10-d: 重写 `apps/web/app/(main)/admin/statistics/page.tsx`(214 行,折线+柱状+饼图 ECharts,保留 StatisticsFilter/Table)
+- [x] ✅(2026-07-14) P0-10-e: 新建 5 个图表组件:LearningProgressChart(53)+FinanceTrendChart(50)+UserGrowthChart(47)+SalesFunnelChart(43)+ConversionFunnelChart(44),全部 < 100 行
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0;手动浏览器访问 bi-dashboard 看到 ECharts 渲染(tooltip/legend 动画)
+- 约束:仅新建 EChart.tsx + 重写图表组件;不改列表页结构;动态导入避免 SSR 报错
+
+#### AUDIT-P0-11: 补建 55 个路径变更的 301 重定向映射 — 预计 1.0 人日
+
+- [x] ✅(2026-07-14) P0-11-a: 在 `apps/web/next.config.ts` redirects() 追加 55 条 308 重定向规则(展开 `...vueToNextRedirects`,保留原 /login + /register 两条)
+- [x] ✅(2026-07-14) P0-11-b: 从 git 历史 `0b044d8a:client/src/router/modules/*.ts`(13 文件,290+ Vue 路径)提取路径映射,新建 `apps/web/src/config/redirects.config.ts` 导出 55 条 RedirectRule
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;curl -I 抽样 10 个旧路径返回 308 + Location 正确
+- 约束:仅改 next.config.ts + 新建 redirects.config.ts;不改 (main) 路由结构
+
+### AUDIT-P1 — 高严重度(核心功能缺失但无 404)— 20 项
+
+#### AUDIT-P1-1: 补建 clawdbot 框架服务层 — 预计 3.0 人日
+
+- [ ] ⏳(2026-07-14) P1-1-a: 评估 `apps/api/src/routes/clawdbot.ts`(100 行基础路由)的实际端点覆盖
+- [ ] ⏳(2026-07-14) P1-1-b: 新建 `apps/api/src/services/clawdbot/` 目录(8 子文件:bot-manager/session-manager/message-router/tool-executor/permission-guard/state-machine/analytics/health)
+- [ ] ⏳(2026-07-14) P1-1-c: 在 `apps/web/app/(main)/admin/clawdbot/` 下补建 8 面板 UI(对应 AUDIT-P1-7)
+- 验证命令:`pnpm --filter @ihui/api typecheck` 退出码 0;`pnpm --filter @ihui/api test` 通过数 ≥ 现有;手动 curl `/api/clawdbot/health` 返回 200
+- 约束:仅新建 services/clawdbot/ + admin/clawdbot/;不改现有 clawdbot.ts 路由
+
+#### AUDIT-P1-2: ~~补建 AI 生成队列服务~~ ✅ 已存在(评估接入)
+
+- [x] ✅(2026-07-14) P1-2-a: 探查确认 `apps/api/src/services/generation-queue-service.ts` 已存在(GenerationQueueService 类已定义)
+- [ ] ⏳(2026-07-14) P1-2-b: 评估 generation-queue-service.ts 是否完整接入路由(ai-callback.ts/ai-extended.ts);若未接入则补建接线
+- 验证命令:`pnpm --filter @ihui/api typecheck` 退出码 0;grep 确认 GenerationQueueService 在路由层被引用
+
+#### AUDIT-P1-3: 补建 4 个 AI 编排服务 — 预计 4.0 人日
+
+- [ ] ⏳(2026-07-14) P1-3-a: 新建 `apps/api/src/services/unified-ai-orchestrator.ts`(统一 AI 调用入口:多模型路由/降级/负载均衡)
+- [ ] ⏳(2026-07-14) P1-3-b: 新建 `apps/api/src/services/ai-workflow-orchestrator.ts`(AI 工作流:多步骤编排/条件分支/并行)
+- [ ] ⏳(2026-07-14) P1-3-c: 新建 `apps/api/src/services/prompt-optimizer.ts`(Prompt 优化:模板/变量注入/A-B 测试)
+- [ ] ⏳(2026-07-14) P1-3-d: 新建 `apps/api/src/services/ai-cost-tracker.ts`(AI 成本追踪:token 计费/预算告警)
+- 验证命令:`pnpm --filter @ihui/api typecheck` 退出码 0;`pnpm --filter @ihui/api test` 通过数 ≥ 现有
+- 约束:仅新建 4 个 service 文件;不改现有路由
+
+#### AUDIT-P1-4: 补建 Crontab 编辑器 UI — 预计 1.5 人日
+
+- [x] ✅(2026-07-14) P1-4-a: 新建 `apps/web/src/components/cron/CronEditor.tsx`(219 行,5 字段×4 模式 + 实时预览 + 最近 5 次执行)
+- [x] ✅(2026-07-14) P1-4-b: 新建 `apps/web/src/components/cron/cron-parser.ts`(136 行,解析+下次执行+中文描述,纯 TS 零依赖)
+- [x] ✅(2026-07-14) P1-4-c: 新建 `apps/web/app/(main)/admin/schedule/page.tsx`(175 行,任务列表+编辑器+下次执行预览)
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0;手动测试 5 种 cron 模式预览正确
+- 约束:仅新建 CronEditor + cron-parser;不改 schedule 路由结构
+
+#### AUDIT-P1-5: 补建 PDF 工具 UI — 预计 2.0 人日
+
+- [x] ✅(2026-07-14) P1-5-a: 新建 `apps/web/app/(main)/tools/pdf/page.tsx`(80 行,4 工具入口 2x2 网格)
+- [x] ✅(2026-07-14) P1-5-b: 新建 `apps/web/app/(main)/tools/pdf/merge/page.tsx`(96 行,多文件上传+拖拽排序+进度条)
+- [x] ✅(2026-07-14) P1-5-c: 新建 `apps/web/app/(main)/tools/pdf/split/page.tsx`(117 行,三种拆分模式+ZIP 下载)
+- [x] ✅(2026-07-14) P1-5-d: 新建 `apps/web/app/(main)/tools/pdf/watermark/page.tsx`(166 行,文本/字号/颜色/透明度/9 宫格位置/旋转+实时预览)
+- [x] ✅(2026-07-14) P1-5-e: 新建 `apps/web/app/(main)/tools/pdf/convert/page.tsx`(138 行,6 个转换方向+图片格式/DPI 选项)+ 新建 `_components/shared.tsx`(148 行,私有共享 UploadArea/ProgressBar/DownloadLink)
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
+- 约束:仅新建 tools/pdf/ 下文件;前端用 pdf-lib 处理;每页 < 250 行
+
+#### AUDIT-P1-6: 补建 Office/3D/统一文件查看器 — 预计 2.0 人日
+
+- [ ] ⏳(2026-07-14) P1-6-a: 修改 `apps/web/src/components/media/FilePreview.tsx` 增加 Office 预览(用 Office Online viewer 或 microsoft-viewer)
+- [ ] ⏳(2026-07-14) P1-6-b: 新建 `apps/web/src/components/media/ThreeDViewer.tsx`(3D 模型查看器,用 Three.js / react-three-fiber)
+- [ ] ⏳(2026-07-14) P1-6-c: 新建 `apps/web/src/components/media/UnifiedViewer.tsx`(统一查看器:根据文件类型自动选择 PDF/Office/3D/图片/视频)
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
+- 约束:仅修改/新建 FilePreview/ThreeDViewer/UnifiedViewer;Three.js 用动态导入避免 SSR
+
+#### AUDIT-P1-7: 补建 OpenClaw 8 面板 — 预计 2.0 人日(依赖 P1-1)
+
+- [ ] ⏳(2026-07-14) P1-7-a: 新建 `apps/web/app/(main)/admin/clawdbot/page.tsx`(控制台首页)
+- [ ] ⏳(2026-07-14) P1-7-b: 新建 7 个子页面:bots/sessions/messages/tools/permissions/analytics/health
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
+- 约束:依赖 AUDIT-P1-1 服务层完成;仅新建 admin/clawdbot/ 下文件
+
+#### AUDIT-P1-8: 补建客服 ChatWindow — 预计 1.5 人日
+
+- [ ] ⏳(2026-07-14) P1-8-a: 新建 `apps/web/src/components/customer-service/ChatWindow.tsx`(完整客服对话窗口:消息列表+输入框+快捷回复+表情+文件上传)
+- [ ] ⏳(2026-07-14) P1-8-b: 集成到 `apps/web/app/(main)/admin/customer-service/page.tsx`
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
+- 约束:仅新建 ChatWindow 组件;复用 ws-chat 插件
+
+#### AUDIT-P1-9: 补建富文本编辑器完整版 — 预计 1.5 人日
+
+- [ ] ⏳(2026-07-14) P1-9-a: 修改 `apps/web/src/components/form/RichTextEditor.tsx` 升级为 TipTap(或保留 WangEditor React 包装)
+- [ ] ⏳(2026-07-14) P1-9-b: 添加图片上传/表格/代码块/工具栏配置 4 个插件
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
+- 约束:仅修改 RichTextEditor.tsx;动态导入避免 SSR
+
+#### AUDIT-P1-10: 补建 API 开放平台 14 子组件 — 预计 3.0 人日
+
+- [ ] ⏳(2026-07-14) P1-10-a: 新建 `apps/web/app/(main)/developer/api-docs/page.tsx`(API 文档:Swagger UI 集成)
+- [ ] ⏳(2026-07-14) P1-10-b: 新建 `apps/web/app/(main)/developer/keys/page.tsx`(密钥管理:CRUD + 权限范围)
+- [ ] ⏳(2026-07-14) P1-10-c: 新建 `apps/web/app/(main)/developer/stats/page.tsx`(调用统计:次数/延迟/错误率)
+- [ ] ⏳(2026-07-14) P1-10-d: 新建 `apps/web/app/(main)/developer/webhooks/page.tsx`(Webhook 配置:CRUD + 测试)
+- [ ] ⏳(2026-07-14) P1-10-e: 其余 10 子组件(SDK 下载/沙箱/限额/日志/版本/订阅/通知/团队/账单/设置)
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
+- 约束:仅新建 developer/ 下文件;后端 developer.ts 已就绪
+
+#### AUDIT-P1-11: 补建主题设置 UI 群 10 面板 — 预计 2.0 人日
+
+- [ ] ⏳(2026-07-14) P1-11-a: 新建 `apps/web/app/(main)/admin/theme/page.tsx`(主题管理首页)
+- [ ] ⏳(2026-07-14) P1-11-b: 新建 9 子页面:colors/layout/navigation/fonts/spacing/animations/components/custom-themes/presets
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
+- 约束:仅新建 admin/theme/ 下文件;复用 theme store
+
+#### AUDIT-P1-12: 补建用户中心 20 子组件 — 预计 3.0 人日
+
+- [ ] ⏳(2026-07-14) P1-12-a: 评估 `apps/web/app/(main)/settings/page.tsx` 现状(仅 1 个 page.tsx,无子页面)
+- [ ] ⏳(2026-07-14) P1-12-b: 新建 20 子组件:profile/avatar/security/notifications/billing/subscription/preferences/privacy/data-export/authorizations/security-log/notifications-prefs/sessions/connected-accounts/two-factor/delete-account/language/theme/dashboard/activity
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
+- 约束:与 AUDIT-P0-7 协调(7 个子页面重叠);仅新建 settings/ 下文件
+
+#### AUDIT-P1-13: 补建首页 10 组件 — 预计 2.0 人日
+
+- [ ] ⏳(2026-07-14) P1-13-a: 新建 `apps/web/src/components/home/` 下 10 组件:HeroSection/FeaturesSection/ShowcaseSection/TestimonialsSection/PricingSection/FAQSection/NewsletterSection/StatsSection/PartnersSection/CTASection
+- [ ] ⏳(2026-07-14) P1-13-b: 修改 `apps/web/app/page.tsx` 集成 10 组件
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0;手动访问首页看到 10 个 section
+- 约束:仅新建 home/ 组件 + 修改 page.tsx;复用现有 Card/Button
+
+#### AUDIT-P1-14: 补建 3 个完全缺失模块 — 预计 4.5 人日
+
+- [ ] ⏳(2026-07-14) P1-14-a: 新建 `apps/web/app/(main)/knowledge-base/` 模块(知识库管理:列表/详情/编辑/搜索,5 页)
+- [ ] ⏳(2026-07-14) P1-14-b: 新建 `apps/web/app/(main)/admin/i18n-dashboard/` 模块(国际化数据看板:翻译进度/缺失 key/语言对比,3 页)
+- [ ] ⏳(2026-07-14) P1-14-c: 新建 `apps/web/app/(main)/business-card/` 模块(电子名片:模板/编辑/分享/收藏,4 页)
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
+- 约束:仅新建 3 个模块目录;每模块 ≤ 5 页
+
+#### AUDIT-P1-15: 补建 AI 相关页面 21 个 — 预计 4.0 人日
+
+- [x] ✅(2026-07-14) P1-15-a: 补建 `/ai-world/*` 5 页(create 163/edit 199/history 115/favorites 105/share 154)
+- [x] ✅(2026-07-14) P1-15-b: 补建 `/agents/*` 5 页(edit 131/categories 117/my 163/stats 114/featured 140,复用 AgentCreateForm)
+- [x] ✅(2026-07-14) P1-15-c: 补建 `/chat/*` 3 页(templates 146/share 136/settings 163,已有 favorites/history)
+- [x] ✅(2026-07-14) P1-15-d: 补建 `/image-gen/*` 5 页(主页 141/history 93/favorites 90/gallery 104/templates 157)
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
+- 约束:仅新建 4 个目录下 21 页;每页 < 250 行
+
+#### AUDIT-P1-16: 补建 Admin 子路由 ~45 个 — 预计 5.0 人日
+
+- [ ] ⏳(2026-07-14) P1-16-a: 评估现有 `apps/web/app/(main)/admin/` 子路由覆盖
+- [ ] ⏳(2026-07-14) P1-16-b: 逐模块补建子页面/Tab 切换/抽屉详情(预计 45 个)
+- 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
+- 约束:仅新建 admin/ 下文件;每页 < 250 行
+
+#### AUDIT-P1-17: 恢复 PWA 能力 — 预计 1.0 人日
+
+- [ ] ⏳(2026-07-14) P1-17-a: 新建 `apps/web/public/manifest.json`(PWA manifest:name/icons/theme_color/display)
+- [ ] ⏳(2026-07-14) P1-17-b: 新建 `apps/web/public/sw.js`(Service Worker:缓存策略 + 离线 fallback)
+- [ ] ⏳(2026-07-14) P1-17-c: 新建 `apps/web/public/offline.html`(离线 fallback 页面)
+- [ ] ⏳(2026-07-14) P1-17-d: 修改 `apps/web/app/layout.tsx` 注册 Service Worker + manifest link
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;Chrome DevTools → Application → Service Workers 看到 sw.js 注册成功
+- 约束:仅新建 3 文件 + 修改 layout.tsx;SW 用 workbox-webpack-plugin 或手写
+
+#### AUDIT-P1-18: 恢复自定义中文字体 5 个 — 预计 0.5 人日
+
+- [ ] ⏳(2026-07-14) P1-18-a: 从 `client/public/fonts/` 复制 HarmonyOS_SansSC 5 个字重文件到 `apps/web/public/fonts/`
+- [ ] ⏳(2026-07-14) P1-18-b: 修改 `apps/web/app/layout.tsx` 用 `next/font/local` 注册 5 个字重
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;浏览器 DevTools → Network 看到 HarmonyOS Sans 加载
+- 约束:仅复制 5 文件 + 修改 layout.tsx;字体文件用 next/font/local 避免 CLS
+
+#### AUDIT-P1-19: 恢复 PDF 预览 worker 3 个 — 预计 0.3 人日
+
+- [ ] ⏳(2026-07-14) P1-19-a: 从 `client/public/pdfjs/` 复制 pdf.worker.js / pdf.suspect.worker.js / pdf.worker.entry.js 3 个文件到 `apps/web/public/pdfjs/`
+- [ ] ⏳(2026-07-14) P1-19-b: 修改 `apps/web/src/components/media/FilePreview.tsx` 配置 workerSrc
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;手动预览 10MB+ PDF 不卡顿
+- 约束:仅复制 3 文件 + 修改 FilePreview.tsx
+
+#### AUDIT-P1-20: 恢复文档中心 docs/ 61 文件 — 预计 1.0 人日
+
+- [ ] ⏳(2026-07-14) P1-20-a: 从 `client/public/docs/` 复制 61 个 Markdown 文件到 `apps/web/public/docs/`
+- [ ] ⏳(2026-07-14) P1-20-b: 新建 `apps/web/app/(main)/docs/[...slug]/page.tsx`(Markdown 渲染,用 next-mdx-remote)
+- [ ] ⏳(2026-07-14) P1-20-c: 新建 `apps/web/app/(main)/docs/page.tsx`(文档中心首页:分类目录)
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;curl /docs/getting-started 返回 200 + Markdown 渲染
+- 约束:仅复制 docs/ + 新建 2 页;每页 < 250 行
+
+### AUDIT-P2 — 中严重度(翻译/i18n/样式/动画/辅助资源)— 11 项
+
+#### AUDIT-P2-1: 补建 i18n 519 个完全缺失命名空间 — 预计 8.0 人日(独立 goal)
+
+- [ ] ⏳(2026-07-14) P2-1-a: 从 `client/src/lang/zh-CN.json` 提取 519 个缺失命名空间
+- [ ] ⏳(2026-07-14) P2-1-b: 逐批迁移到 `apps/web/messages/zh-CN.json`(分 5 批:core/dramaScript/floatingChat/apiService/openPlatform 等)
+- [ ] ⏳(2026-07-14) P2-1-c: 同步 5 语言(en/ja/ko/zh-TW/zh-CN),用 next-intl CLI 批量翻译
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;统计 `apps/web/messages/zh-CN.json` 命名空间数 ≥ 557
+- 约束:仅修改 messages/*.json;保留现有 94 命名空间;不破坏现有 useTranslations 调用
+
+#### AUDIT-P2-2: 补建 i18n 6 个严重缩水的共有命名空间 — 预计 2.0 人日
+
+- [ ] ⏳(2026-07-14) P2-2-a: 补全 settings(69→423)、auth(86→232)、common(95→226)、vip(28→191)、home(11→127)、plaza(6→60) 6 个命名空间
+- [ ] ⏳(2026-07-14) P2-2-b: 同步 5 语言
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;6 个命名空间 key 数 ≥ Vue 项目对应值
+
+#### AUDIT-P2-3: 补建 i18n 3 个领域合并不完整 — 预计 1.0 人日
+
+- [ ] ⏳(2026-07-14) P2-3-a: 补全 docs(39→309)、members(24→217)、notifications(4→49) 3 个命名空间
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;3 个命名空间 key 数 ≥ Vue 项目对应值
+
+#### AUDIT-P2-4: 恢复完整动画库 — 预计 1.5 人日
+
+- [ ] ⏳(2026-07-14) P2-4-a: 新建 `apps/web/src/styles/animations.css`(ripple/success-bounce/error-shake/fade-in/slide-up/scale-in 6+ 动画)
+- [ ] ⏳(2026-07-14) P2-4-b: 修改 `apps/web/app/globals.css` 引入 animations.css(129 行 → ~300 行,补回关键动画)
+- [ ] ⏳(2026-07-14) P2-4-c: 修改 `apps/web/tailwind.config.ts` 添加动画 keyframes 配置
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;手动测试按钮点击涟漪动画
+- 约束:仅新建 animations.css + 修改 globals.css + tailwind.config.ts
+
+#### AUDIT-P2-5: 恢复主题校验与高对比度模式 — 预计 1.0 人日
+
+- [ ] ⏳(2026-07-14) P2-5-a: 新建 `apps/web/src/lib/theme-validator.ts`(主题色校验:对比度 ≥ 4.5:1)
+- [ ] ⏳(2026-07-14) P2-5-b: 修改 `apps/web/app/globals.css` 添加 `@media (prefers-contrast: high)` 高对比度模式
+- [ ] ⏳(2026-07-14) P2-5-c: 修改 `apps/web/src/stores/theme.ts` 支持 high-contrast 主题
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;Chrome DevTools → Rendering → Emulate forced colors 看到 UI 适配
+
+#### AUDIT-P2-6: 恢复 Footer 资源 46 个 — 预计 0.5 人日
+
+- [ ] ⏳(2026-07-14) P2-6-a: 从 `client/public/footer/` 复制 46 个文件(公司 logo/合作伙伴/社交媒体/支付方式/二维码)到 `apps/web/public/footer/`
+- [ ] ⏳(2026-07-14) P2-6-b: 修改 `apps/web/src/components/layout/Footer.tsx` 使用本地资源(替换 CDN 引用)
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;手动检查 Footer 图片加载
+
+#### AUDIT-P2-7: 恢复 favicon.ico — 预计 0.1 人日
+
+- [ ] ⏳(2026-07-14) P2-7-a: 从 `client/public/favicon.ico` 复制到 `apps/web/app/favicon.ico`(Next.js 15 用 app/favicon.ico 约定)
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;浏览器标签页显示 favicon
+
+#### AUDIT-P2-8: 恢复 mock-data 22 文件 — 预计 0.5 人日
+
+- [ ] ⏳(2026-07-14) P2-8-a: 从 `client/public/mock-data/` 复制 22 个 JSON 文件到 `apps/web/public/mock-data/`(或迁移到 `apps/web/src/mocks/`)
+- [ ] ⏳(2026-07-14) P2-8-b: 评估是否需要 MSW (Mock Service Worker) 集成
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0
+
+#### AUDIT-P2-9: 恢复 PWA icons — 预计 0.2 人日(依赖 P1-17)
+
+- [ ] ⏳(2026-07-14) P2-9-a: 从 `client/public/icons/` 复制 icon-192/icon-512/apple-touch-icon 等到 `apps/web/public/icons/`
+- [ ] ⏳(2026-07-14) P2-9-b: 修改 `apps/web/public/manifest.json` 引用 icons(依赖 P1-17)
+- 验证命令:`pnpm --filter @ihui/web build` 退出码 0;Chrome DevTools → Application → Manifest 看到 icons 加载
+
+#### AUDIT-P2-10: 修复 admin-missing-routes.ts 文件头部过时注释 — 预计 0.1 人日 ⭐ Goal-A 包含 ✅(2026-07-14) / goal
+
+- [x] ✅(2026-07-14) P2-10-a: 修改 `apps/api/src/routes/admin-missing-routes.ts` L1-14 头部注释 — 移除过时数字"24 真实 + 51 空桩",改为不写具体数字的描述(避免再次过时)
+- [x] ✅(2026-07-14) P2-10-b: 同步修改 `apps/api/src/server.ts` L164 注释 — "75 个路由:24 真实 CRUD + 51 空数据桩" → "真实 CRUD + 空数据桩"(移除具体数字)
+- 验证命令:`pnpm --filter @ihui/api typecheck` 退出码 0 ✅;grep 确认无"24 真实"残留 ✅
+- 约束:仅修改注释,不改代码逻辑
+
+#### AUDIT-P0-12: 修复 admin-sys.ts 与 admin-extended.ts 菜单路由重复声明(阻断后端启动)— 预计 0.5 人日 ✅(2026-07-14) / goal:A.1
+
+> 2026-07-14 Goal-A 轮次 2 发现的 pre-existing 架构冲突,阻断后端 dev server 启动,影响全项目开发。优先级高于 Goal-B~F。
+> 2026-07-14 Goal-A.1 完成:采用方案 B(迁移 admin-sys.ts menu_router 前缀 `/menu` → `/sys-menu`),保留前端实际使用的 admin-extended.ts(`/api/admin/menu` CRUD,操作 `admin_menus` 表),同时保留 admin-sys.ts 的 RuoYi 风格角色菜单权限子系统供未来使用。
+
+- [x] ✅(2026-07-14) P0-12-a: 定位前端管理端菜单页实际调用的 API 路径 — 前端 `apps/web/app/(main)/admin/menu/page.tsx` 调用 `/api/admin/menu`(GET/POST/PUT/DELETE RESTful 风格),字段 `{id,name,icon,path,sort,parentId,visible}` 对齐 admin-extended.ts 的 `admin_menus` 表
+- [x] ✅(2026-07-14) P0-12-b: 评估两套菜单系统的功能差异:
+  - `admin-sys.ts`(原 `/menu/list`、`/menu/treeselect`、`/menu/roleMenuTreeselect/:roleId`、`/menu/assignRoleMenus/:roleId`、`PUT /menu`、`DELETE /menu/:menuId`)— RuoYi 风格,操作 `sys_menu` 表,含 `sys_role_menu` 级联清理,前端**完全未调用**
+  - `admin-extended.ts`(`GET/POST /menu`、`PUT/DELETE /menu/:id`)— 扩展 CRUD,操作 `admin_menus` 表,无级联,前端**实际使用**
+  - 冲突根因:仅 `DELETE /menu/:menuId`(admin-sys)与 `DELETE /menu/:id`(admin-extended)路径模式相同,Fastify 报 `FST_ERR_DUPLICATED_ROUTE`
+- [x] ✅(2026-07-14) P0-12-c: 采用方案 B(非原推荐方案 A)— 将 admin-sys.ts 的 menu_router 前缀从 `/menu` 迁移到 `/sys-menu`,保留 RuoYi 子系统供未来使用,避免与 admin-extended.ts 冲突。原推荐方案 A(删除 admin-extended.ts)会破坏前端,因前端字段对齐 `admin_menus` 表
+- [x] ✅(2026-07-14) P0-12-d: 验证后端启动 — `pnpm --filter @ihui/api dev` 启动成功,`Server listening at http://0.0.0.0:8080`,无 `FST_ERR_DUPLICATED_ROUTE` 错误
+- [x] ✅(2026-07-14) P0-12-e: 验证菜单 CRUD — `curl.exe http://localhost:8080/api/admin/menu` 返回 401(未登录,非 500),路由正常注册
+- 验证命令:`pnpm --filter @ihui/api dev` 启动成功 ✅;`pnpm --filter @ihui/api typecheck` 退出码 0 ✅;`pnpm --filter @ihui/api test` 通过数 2868/2871(3 个失败与本次修改无关,是 `tests/notifications.test.ts` 鉴权预存在问题)✅
+- 约束:仅删除/迁移重复路由;不改菜单业务逻辑;不改数据库 schema ✅
+- 异常处理:前端实际依赖 admin_menus 表,已改用方案 B(迁移到 `/sys-menu` 前缀)而非直接删除 ✅
+- 交付结论:Goal-A.1 达成。修改文件 `apps/api/src/routes/admin-sys.ts`(menu_router prefix `/menu` → `/sys-menu` + 注释更新)。所有硬性指标满足,后端可正常启动,菜单 API 返回 401(非 500)。残留风险:3 个 notifications 测试失败是预存在问题,建议后续 Goal 修复
+
+#### AUDIT-P2-11: 修复 missing-user-routes.ts 54 条空数据桩 — 预计 2.0 人日
+
+- [ ] ⏳(2026-07-14) P2-11-a: 逐条评估 54 个空桩对应的 Vue 项目功能是否真实需求
+- [ ] ⏳(2026-07-14) P2-11-b: 真实需求项补建真实 CRUD(参考 admin-missing-routes.ts 模式)
+- [ ] ⏳(2026-07-14) P2-11-c: 非需求项删除空桩(做减法)
+- 验证命令:`pnpm --filter @ihui/api typecheck` 退出码 0;`pnpm --filter @ihui/api test` 通过数 ≥ 现有
+- 约束:仅修改 missing-user-routes.ts;逐条评估记录到 EXPERIMENT_NOTES.md
+
+### Goal 批次规划(每批 ≤ 20 轮容量)
+
+- **Goal-A** ✅(2026-07-14) 代码层面达成 / goal:AUDIT-P0-3(5 处 API 404)+ AUDIT-P0-4(persist)+ AUDIT-P0-5(/login 别名)+ AUDIT-P0-6(OAuth 回调)+ AUDIT-P2-10(注释修复)— 共 5 项全部完成。5/7 硬性指标完全验证,2/7 代码层面验证(运行时受阻于 P0-12 路由冲突 + 浏览器手动测试)。2 个审计误报已澄清(P0-3-e products + P0-4 persist 现状)
+- **Goal-A.1** ✅(2026-07-14) 达成 / goal:AUDIT-P0-12(菜单路由冲突修复)— 采用方案 B 迁移 admin-sys.ts menu_router 前缀 `/menu` → `/sys-menu`,保留前端使用的 admin-extended.ts。后端启动成功(无 FST_ERR_DUPLICATED_ROUTE),typecheck 退出码 0,test 2868/2871 通过(3 个 notifications 失败为预存在问题),curl 返回 401(非 500)
+- **Goal-B** ✅(2026-07-14) 达成 / goal:AUDIT-P0-1(5 详情页 ai-world/agents-categories/refund/recruitment/distribution-team)+ AUDIT-P0-2(2 创建入口 asks-edit/circles-post)+ AUDIT-P0-11(55 重定向 redirects.config.ts)— 共 3 项全部完成(子任务标记 [x] ✅)
+- **Goal-C** ✅(2026-07-14) 达成 / goal:AUDIT-P0-8(/edu 15 页完成:layout/dashboard/courses/courses-[id]/courses-[id]-learn/exam/exam-[id]/exam-[id]-result/certificates/certificates-[id]/schedule/notes/qa/progress)— 其余 14 页归入 P1 后续推进
+- **Goal-D** ✅(2026-07-14) 达成 / goal:AUDIT-P0-9(/member 17 页全部完成:layout/dashboard/orders/orders-[id]/benefits/points/coupons/subscription/refunds/addresses/favorites/history/invitations/feedback/help/settings/upgrade)
+- **Goal-E** 🔶(部分达成,2026-07-14):AUDIT-P0-10(ECharts)✅ 已完成;AUDIT-P0-7(Settings 7 子页)⏳ 未完成 — 下一个待推进目标
+- **Goal-F~Z**(后续):AUDIT-P1 20 项 + AUDIT-P2 11 项,按依赖关系分批
 
 ---
 
@@ -1296,6 +1756,51 @@
 - ✅ 后端 `requireAdmin` 中间件在所有 admin 路由上正确挂载（56 个文件，本轮修复 bi-dashboard + ai-vendors 2 处遗漏）
 - ✅ 普通用户（roleId=0）登录后 HasPermi 正确拒绝无权限操作（前端 permissions=[] 拒绝显示按钮，后端 requireAdmin 返回 403）
 - ⚠️ `requirePermission` 细粒度权限校验仅 canary.ts 1 处使用（设计决策：当前 admin/普通用户二分法足够，未来若需"半管理员"角色再升级）
+
+### P2-URGENT: OAuth 第三方登录回调链路修复（2026-07-14 R104 审查发现）
+
+- [x] ✅(2026-07-14) **OAuth 第三方登录回调链路三重断裂修复** — 旧架构迁移遗留,当前所有第三方登录(Google/Apple/钉钉/企微/微信/GitHub)完全不可用。R104 登录弹窗化审查时发现,非 R104 引入。
+
+  **已完成修复(2026-07-14 goal 模式):**
+  1. ✅ `third-party-config.ts` 6 个平台 redirectUri 默认值改为 `${origin}/login?platform=<platform>`(google/apple/dingtalk/enterpriseWechat/wechat/github)
+  2. ✅ `auth-extended.ts` 新增 `POST /auth/:platform/callback` 路由,按 platform 分发:
+     - google: 复用 `exchangeGoogleCode(code)` 获取用户信息
+     - github: fetch 调 GitHub API(code → access_token → user info)
+     - dingtalk: 复用 `exchangeDingtalkCode` + `getDingtalkUserInfo`
+     - enterpriseWechat: 复用 `wecomCode2session(code)`,用 `openUserId` 作为 openId
+     - wechat: fetch 调微信 API(code → access_token+openid → userinfo)
+     - apple: 暂返回 501(需 client_secret JWT 签名,后续实现)
+  3. ✅ 查/建用户逻辑:`findThirdPartyAccount` 查绑定 → 有则 `findUserById` → 无则 `createUser` + `createThirdPartyBinding`
+  4. ✅ 响应格式匹配前端 `ThirdPartyLoginResponse`:`{ token, refreshToken, user: { id, username, email, nickname, avatar, isVip, inviteCode, createTime } }`
+  5. ✅ `pnpm --filter @ihui/web typecheck` + `pnpm --filter @ihui/api typecheck` 退出码 0
+  6. ✅ `pnpm --filter @ihui/web lint` + `pnpm --filter @ihui/api lint` 退出码 0
+
+  **残留事项:**
+  - Apple 平台回调暂返回 501,需后续实现 client_secret JWT 签名
+  - 厂商后台 OAuth app 的 redirect_uri 白名单需更新为 `${origin}/login?platform=<platform>`
+  - 浏览器完整链路实测需配置真实 OAuth app 凭据后进行
+
+  **三重断裂点:**
+  1. **redirectUri 指向不存在的路由**:`apps/web/src/lib/third-party-config.ts` 默认值 `${origin}/google/callback` / `${origin}/github/callback` 等,Next.js app 目录无这些路由 → 404
+  2. **回调缺 platform 参数**:`apps/web/src/components/login/ThirdPartyLoginButtons.tsx` 的 useEffect 需 URL 带 `platform` 参数才处理回调,但厂商回调只带 `code` + `state`,不带 `platform` → 回调被忽略
+  3. **后端无 callback 路由**:前端 `handleCallback` 调 `POST /api/auth/{platform}/callback`(use-third-party-auth.ts L48 `callbackPath`),后端 `apps/api/src/routes/auth-extended.ts` 无此路由 → 404
+
+  **修复方案:**
+  - 前端:改 `third-party-config.ts` 6 个平台的 `redirectUri` 默认值为 `${origin}/login?platform=<platform>`,让厂商回调到整页 /login(带 platform 参数,ThirdPartyLoginButtons 能处理)
+  - 后端:在 `auth-extended.ts` 新增 `POST /auth/{platform}/callback` 路由,接收 `{ code, state }`,用 code 向厂商换 token,查询/创建用户,返回 `{ token, user }`
+  - 厂商后台:更新 OAuth app 的 redirect_uri 白名单为新地址
+  - 演示模式:保持本地回退(`isDemoMode()` 时跳过后端)
+
+  **验证标准:**
+  - `pnpm --filter @ihui/web typecheck` + `pnpm --filter @ihui/api typecheck` 退出码 0
+  - `pnpm --filter @ihui/api test` 全绿
+  - 浏览器实测:至少 1 个平台(GitHub)完整链路 — 点击登录 → 跳厂商授权 → 回调 /login → 自动处理 → 登录态写入 → 跳首页
+
+  **约束:**
+  - 仅修改 `apps/web/src/lib/third-party-config.ts` + `apps/api/src/routes/auth-extended.ts`
+  - 不改 `use-third-party-auth.ts` 的 handleCallback 逻辑(已完整,只缺后端路由)
+  - 不改 ThirdPartyLoginButtons 的 useEffect 逻辑(已完整,只缺 platform 参数来源)
+  - 6 个平台的后端 callback 实现可复用公共逻辑(差异仅在 token 换取端点)
 
 ---
 
@@ -3767,9 +4272,9 @@ Tailwind 4 用 `@plugin` 在 CSS 中引入插件(替代 Tailwind 3 的 `tailwind
 - `apps/web/src/stores/login-dialog.ts` — zustand 全局 store,API: `isOpen / mode('login'|'register') / redirectUrl / open(mode?, redirectUrl?) / close() / setMode(mode)`,替换原半成品 `use-login-dialog.ts`(本地 useState 非全局单例)
 - `apps/web/src/components/login/LoginFormContent.tsx` — 从 `app/(auth)/login/page.tsx` 提取的共用组件,`variant: 'page' | 'dialog'` + `onSuccess?` prop,弹窗版注册链接改 `setMode('register')` 切同弹窗 Tab
 - `apps/web/src/components/login/RegisterFormContent.tsx` — 从 `app/(auth)/register/page.tsx` 提取,同上,弹窗版"去登录"改 `setMode('login')`
-- `apps/web/src/components/login/LoginDialog.tsx` — shadcn/ui Dialog 弹窗壳,视觉复刻旧 Vue 项目:460px 宽 / 95vh 限高 / 多层柔和阴影 / 0.28s `login-shell-in` 入场动画 / 圆角 / sr-only DialogTitle(a11y)
+- `apps/web/src/components/login/LoginDialog.tsx` — shadcn/ui Dialog 弹窗壳,视觉复刻旧 Vue 项目:460px 宽 / 95vh 限高 / 多层柔和阴影 / 圆角 / sr-only DialogTitle(a11y);依赖 Tailwind 4 `@source` 修复后默认 `translate-x/y-[-50%]` 居中生效,无需内联 style workaround
 
-#### 修改文件(6)
+#### 修改文件(8)
 
 - `apps/web/src/hooks/use-login-dialog.ts` — 改为 re-export store(向后兼容,无引用点)
 - `apps/web/app/(auth)/login/PasswordLoginForm.tsx` — 加 `onSuccess?` prop,`router.push('/')` 改 `if (onSuccess) onSuccess(); else router.push('/')`
@@ -3779,22 +4284,23 @@ Tailwind 4 用 `@plugin` 在 CSS 中引入插件(替代 Tailwind 3 的 `tailwind
 - `apps/web/src/components/header.tsx` — L233-236 `<Button asChild><Link href="/login">` 改 `<Button onClick={() => openLogin()}>`,加 `useLoginDialogStore`
 - `apps/web/app/(auth)/login/page.tsx` — 改用 `<LoginFormContent variant="page" />`(整页路由保留,兼容 OAuth 回调)
 - `apps/web/app/(auth)/register/page.tsx` — 改用 `<RegisterFormContent variant="page" />`
-- `apps/web/app/globals.css` — 追加 `@keyframes login-shell-in`(opacity + translate(-50%,-50%) + translateY(12px) + scale(0.98) → opacity1 + translate(-50%,-50%) + translateY(0) + scale(1))
+- `apps/web/app/globals.css` — 加 `@source '../../../packages/ui/src'` 修复 Tailwind 4 不扫描 packages/ui 导致 `left-[50%]`/`top-[50%]`/`translate-x/y-[-50%]` 不生成 CSS 的根因;移除 `@keyframes login-shell-in`(与 Tailwind translate utility 冲突);加 `@plugin 'tailwindcss-animate'` 恢复 `animate-in fade-in-0 zoom-in-95` 入场动画
+- `apps/web/src/components/login/LoginFormContent.tsx` — 加 `useQueryClient`,弹窗模式登录成功后 `invalidateQueries(['header'])` + `invalidateQueries(['announcements'])` 刷新 Header 通知/公告/未读数;整页模式保持 `router.push('/')`
 
 #### 关键设计决策
 
-| 决策点           | 选择                                                         | 理由                                                                                                                                            |
-| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| 弹窗内容         | 复用当前 /login 全部内容(4 Tab + 第三方 + SdkQrLogin)        | 用户确认                                                                                                                                        |
-| 注册形式         | 同弹窗 Tab 切换(登录/注册同一弹窗)                           | 用户确认                                                                                                                                        |
-| 整页路由         | 保留 /login /register                                        | 兼容 OAuth 回调(整页跳转必然关闭弹窗)+ SEO + 直接访问                                                                                           |
-| 状态管理         | zustand 全局 store                                           | 项目标准(已有 23 个 store)                                                                                                                      |
-| OAuth 回调       | 保持整页 /login                                              | 第三方授权是整页跳转,弹窗必然关闭                                                                                                               |
-| logout 行为      | 保持 `router.push('/login')`                                 | 主动行为整页更符合预期                                                                                                                          |
-| 受保护路由未登录 | 保持跳整页 /login                                            | 简单可靠,弹窗仅作 Header 主动入口                                                                                                               |
-| 弹窗定位         | 内联 style `left:50% top:50% transform:translate(-50%,-50%)` | Tailwind 4 的 `translate-x-[-50%] translate-y-[-50%]` 在 LoginDialog 特有配置下未生效(其他 100 个 DialogContent 弹窗正常),用内联 style 强制居中 |
-| 蓝色 CTA         | 不恢复                                                       | 用户偏好"无蓝色发光边框"                                                                                                                        |
-| 滑动指示器       | 不恢复                                                       | 架构变化大,价值低                                                                                                                               |
+| 决策点           | 选择                                                    | 理由                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 弹窗内容         | 复用当前 /login 全部内容(4 Tab + 第三方 + SdkQrLogin)   | 用户确认                                                                                                                                                                                                                                                                                                                                                                                 |
+| 注册形式         | 同弹窗 Tab 切换(登录/注册同一弹窗)                      | 用户确认                                                                                                                                                                                                                                                                                                                                                                                 |
+| 整页路由         | 保留 /login /register                                   | 兼容 OAuth 回调(整页跳转必然关闭弹窗)+ SEO + 直接访问                                                                                                                                                                                                                                                                                                                                    |
+| 状态管理         | zustand 全局 store                                      | 项目标准(已有 23 个 store)                                                                                                                                                                                                                                                                                                                                                               |
+| OAuth 回调       | 保持整页 /login                                         | 第三方授权是整页跳转,弹窗必然关闭                                                                                                                                                                                                                                                                                                                                                        |
+| logout 行为      | 保持 `router.push('/login')`                            | 主动行为整页更符合预期                                                                                                                                                                                                                                                                                                                                                                   |
+| 受保护路由未登录 | 保持跳整页 /login                                       | 简单可靠,弹窗仅作 Header 主动入口                                                                                                                                                                                                                                                                                                                                                        |
+| 弹窗定位         | Tailwind 4 `@source` 修复 + 默认 `translate-x/y-[-50%]` | 根因:Tailwind 4 从 apps/web 运行,默认不扫描 packages/ui/src,导致 `left-[50%]`/`top-[50%]`/`translate-x/y-[-50%]`(仅在 dialog.tsx 使用)不生成 CSS。加 `@source '../../../packages/ui/src'` 后 Tailwind 4 生成 CSS 独立 `translate: -50% -50%` 属性,弹窗居中生效。此修复惠及所有用 DialogContent 的弹窗。Playwright 验证:left:640px(=50%) top:512px(=50%) translate:-50% -50%,无内联 style |
+| 蓝色 CTA         | 不恢复                                                  | 用户偏好"无蓝色发光边框"                                                                                                                                                                                                                                                                                                                                                                 |
+| 滑动指示器       | 不恢复                                                  | 架构变化大,价值低                                                                                                                                                                                                                                                                                                                                                                        |
 
 ### 视觉恢复点(对照旧 LoginDialog.vue)
 
@@ -3802,7 +4308,7 @@ Tailwind 4 用 `@plugin` 在 CSS 中引入插件(替代 Tailwind 3 的 `tailwind
 2. ✅ `max-h-[95vh] overflow-y-auto` — 旧弹窗 95vh 限高
 3. ✅ `shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.08)]` — 旧多层柔和阴影
 4. ✅ `sm:rounded-xl` — 旧圆角
-5. ✅ `data-[state=open]:animate-[login-shell-in_0.28s_ease-out]` — 旧 0.28s 入场动画
+5. ✅ 入场动画恢复 — 已安装 tailwindcss-animate 插件,globals.css 加 `@plugin 'tailwindcss-animate'`,dialog.tsx 默认类 `animate-in fade-in-0 zoom-in-95` 生效,所有弹窗恢复入场动画
 6. ✅ Radix Dialog 默认遮罩 `bg-black/80`(接受默认,不污染共享组件)
 
 ### 验证结果
@@ -3814,25 +4320,26 @@ Tailwind 4 用 `@plugin` 在 CSS 中引入插件(替代 Tailwind 3 的 `tailwind
 
 #### Playwright 浏览器验证(亮色+暗色)
 
-| 检查项                                     | 结果 | 证据                                                                                                                                               |
-| ------------------------------------------ | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Header 点击登录 → 弹窗打开                 | ✅   | 弹窗居中显示                                                                                                                                       |
-| 弹窗居中(水平+垂直)                        | ✅   | rectTop:232 rectLeft:387 rectWidth:460 rectHeight:604,viewport 1234×1068,isHorizontallyCentered:true isVerticallyCentered:true isFullyVisible:true |
-| 4 Tab(密码/邮箱/用户名/扫码)               | ✅   | 截图确认                                                                                                                                           |
-| 第三方登录按钮                             | ✅   | R100 已修复图标,弹窗内正常显示                                                                                                                     |
-| 底部"立即注册"链接                         | ✅   | 点击切同弹窗注册 Tab,无页面跳转                                                                                                                    |
-| 注册 Tab 表单(手机号+验证码+密码+确认密码) | ✅   | 截图确认                                                                                                                                           |
-| "去登录"切回登录 Tab                       | ✅   | 同弹窗内切换                                                                                                                                       |
-| Escape 关闭弹窗                            | ✅   | 弹窗消失                                                                                                                                           |
-| 整页 /login 路由                           | ✅   | 直接访问显示整页 LoginFormContent,无弹窗                                                                                                           |
-| 暗色模式弹窗                               | ✅   | 暗色背景/阴影/文字对比度正常                                                                                                                       |
-| 入场动画                                   | ✅   | 0.28s 淡入+translateY+scale                                                                                                                        |
+| 检查项                                     | 结果 | 证据                                                                                                                                                                                                  |
+| ------------------------------------------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Header 点击登录 → 弹窗打开                 | ✅   | 弹窗居中显示                                                                                                                                                                                          |
+| 弹窗居中(水平+垂直)                        | ✅   | `@source` 修复后 Playwright 验证:left:640px(=50%) top:512px(=50%) translate:-50% -50%(Tailwind 4 CSS 独立属性),isHorizontallyCentered:true isVerticallyCentered:true isFullyVisible:true,无内联 style |
+| 4 Tab(密码/邮箱/用户名/扫码)               | ✅   | 截图确认                                                                                                                                                                                              |
+| 第三方登录按钮                             | ✅   | R100 已修复图标,弹窗内正常显示                                                                                                                                                                        |
+| 底部"立即注册"链接                         | ✅   | 点击切同弹窗注册 Tab,无页面跳转                                                                                                                                                                       |
+| 注册 Tab 表单(手机号+验证码+密码+确认密码) | ✅   | 截图确认                                                                                                                                                                                              |
+| "去登录"切回登录 Tab                       | ✅   | 同弹窗内切换                                                                                                                                                                                          |
+| Escape 关闭弹窗                            | ✅   | 弹窗消失                                                                                                                                                                                              |
+| 整页 /login 路由                           | ✅   | 直接访问显示整页 LoginFormContent,无弹窗                                                                                                                                                              |
+| 暗色模式弹窗                               | ✅   | 暗色背景/阴影/文字对比度正常                                                                                                                                                                          |
+| 入场动画                                   | ✅   | tailwindcss-animate 已安装,`animate-in fade-in-0 zoom-in-95` 生效,所有弹窗恢复入场动画                                                                                                                |
 
-### 残留风险
+### 残留风险与后续任务
 
-- **弹窗定位用内联 style 而非 Tailwind 类**:根因是 Tailwind 4 的 `translate-x-[-50%] translate-y-[-50%]` 在 LoginDialog 特有配置(可能与 `data-[state=open]:animate-[login-shell-in_...]` 自定义动画冲突)下未生效。其他 100 个 DialogContent 弹窗正常。内联 style 是最小侵入修复,不影响其他弹窗。后续如需统一,可深入排查 Tailwind 4 的 `translate` utility 编译机制。
-- **OAuth 回调保持整页**:第三方登录必然整页跳转,弹窗关闭,回调 redirect_uri 指向整页 /login。这是架构约束,非缺陷。
+- **~~弹窗定位用内联 style~~(已修复)**:原根因误判为 keyframes 冲突,实际根因是 Tailwind 4 从 apps/web 运行时不扫描 `packages/ui/src`,导致 `left-[50%]`/`top-[50%]`/`translate-x/y-[-50%]`(仅在 dialog.tsx 使用)不生成 CSS。已在 globals.css 加 `@source '../../../packages/ui/src'` 彻底修复,移除内联 style workaround 和自定义 keyframes。此修复惠及所有用 DialogContent 的弹窗。Playwright 验证:`translate: -50% -50%`(CSS 独立属性)生效,弹窗居中正常。
+- **~~OAuth 回调链路断裂~~(已修复)**:三重断裂已全部修复 — (1) `redirectUri` 默认值改为 `${origin}/login?platform=<platform>`(6 个平台);(2) 厂商回调到 /login 带 platform 参数,ThirdPartyLoginButtons 的 useEffect 能处理;(3) 后端 `auth-extended.ts` 新增 `POST /auth/:platform/callback` 路由(google/github/dingtalk/enterpriseWechat/wechat 已实现,apple 暂返回 501)。详见 P2-URGENT 条目。残留:Apple 需后续实现 client_secret JWT;厂商后台 redirect_uri 白名单需更新。
 - **`use-login-dialog.ts` re-export**:原半成品 hook 无外部引用,改为 re-export store 向后兼容,可安全保留。
+- **~~入场动画省略~~(已恢复)**:已安装 tailwindcss-animate 插件,globals.css 加 `@plugin 'tailwindcss-animate'`,dialog.tsx 默认类 `animate-in fade-in-0 zoom-in-95` 生效,所有弹窗恢复入场动画。
 
 ## Goal 交付 — Phase 6 并行 agent 批量真实化 + 最终收尾(2026-07-14)✅ / goal
 

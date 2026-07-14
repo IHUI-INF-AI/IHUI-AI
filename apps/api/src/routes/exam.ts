@@ -57,6 +57,8 @@ const QUESTION_TYPES = [
   'subjective',
 ] as const
 
+const paperTypeSchema = z.enum(['normal', 'random', 'mock', 'exam'])
+
 // =============================================================================
 // Zod schemas
 // =============================================================================
@@ -79,6 +81,7 @@ const papersQuerySchema = z.object({
       z.string().uuid('无效的分类 ID'),
     )
     .optional(),
+  paperType: paperTypeSchema.optional(),
 })
 
 const createExamCategorySchema = z.object({
@@ -119,6 +122,7 @@ const createPaperSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
   categoryId: z.string().uuid().optional(),
+  paperType: paperTypeSchema.optional(),
   totalScore: z.string().optional(),
   passScore: z.string().optional(),
   duration: z.number().int().min(1).max(600).optional(),
@@ -131,6 +135,7 @@ const updatePaperSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().nullable().optional(),
   categoryId: z.string().uuid().nullable().optional(),
+  paperType: paperTypeSchema.optional(),
   totalScore: z.string().optional(),
   passScore: z.string().optional(),
   duration: z.number().int().min(1).max(600).optional(),
@@ -282,6 +287,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       pageSize: parsed.data.pageSize,
       search: parsed.data.search,
       categoryId: parsed.data.categoryId,
+      paperType: parsed.data.paperType,
     })
     return reply.send(
       success({
@@ -684,6 +690,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
         pageSize: parsed.data.pageSize,
         search: parsed.data.search,
         categoryId: parsed.data.categoryId,
+        paperType: parsed.data.paperType,
       })
       return reply.send(
         success({
