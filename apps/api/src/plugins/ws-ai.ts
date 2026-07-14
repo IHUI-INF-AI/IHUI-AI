@@ -1,24 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
-import { verifyAccessToken } from '@ihui/auth'
 import { config } from '../config/index.js'
+import { wsAuth } from './ws-helpers.js'
 import { cloneTimbre } from '../routes/ai-vendors.js'
-
-/** WebSocket query-token 鉴权,返回 userId 或关闭连接. */
-async function wsAuth(socket: WebSocket, token: string | undefined): Promise<string | null> {
-  if (!token) {
-    socket.close(4001, '缺少 token')
-    return null
-  }
-  try {
-    const payload = await verifyAccessToken(token)
-    return payload.userId
-  } catch {
-    socket.close(4003, 'token 无效')
-    return null
-  }
-}
 
 const send = (socket: WebSocket, obj: unknown): void => {
   try {
