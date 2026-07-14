@@ -28,3 +28,17 @@ export interface ListData {
 export interface SendResult {
   message: ChatMessage
 }
+
+export interface HistoryData {
+  list: ChatMessage[]
+  hasMore: boolean
+  nextCursor: string | null
+}
+
+export interface ReadResult {
+  success: boolean
+}
+
+export interface CreateConversationResult {
+  conversation: Conversation
+}
