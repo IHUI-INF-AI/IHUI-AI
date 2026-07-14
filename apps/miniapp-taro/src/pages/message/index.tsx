@@ -1,7 +1,15 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
-import { getMessageRooms } from '@/api'
+import {
+  getMessageRooms,
+  getSystemNotices,
+  getPrivateMessages,
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  type AggregateMessages,
+  type NotificationPreferences,
+} from '@/api'
 import {
   NavBar,
   MessageTabs,
@@ -33,83 +41,17 @@ interface Room {
 
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
 
-const TABS: MessageTabItem[] = [
+const DEFAULT_TABS: MessageTabItem[] = [
   { key: 'all', label: '全部' },
-  { key: 'system', label: '系统通知', unread: 1 },
-  { key: 'interaction', label: '互动', unread: 2 },
-  { key: 'private', label: '私信', unread: 3 },
+  { key: 'system', label: '系统通知', unread: 0 },
+  { key: 'interaction', label: '互动', unread: 0 },
+  { key: 'private', label: '私信', unread: 0 },
 ]
 
-const MOCK_SYSTEM: SystemNoticeItem[] = [
-  {
-    id: 's1',
-    title: '系统维护通知',
-    content: '7月15日凌晨 2-4 点系统维护,期间无法访问。',
-    type: 'system',
-    createdAt: '2026-07-13 10:00',
-    read: false,
-  },
-  {
-    id: 's2',
-    title: '7月活动:邀请有礼',
-    content: '邀请好友注册得 30% 佣金,无上限。',
-    type: 'activity',
-    createdAt: '2026-07-10 09:00',
-    read: true,
-  },
-]
-
-const MOCK_INTERACTION: InteractionItem[] = [
-  {
-    id: 'i1',
-    type: 'like',
-    userName: '张三',
-    content: '赞了你的课程笔记',
-    targetTitle: 'React 入门第 3 节',
-    createdAt: '2026-07-13 14:20',
-    read: false,
-  },
-  {
-    id: 'i2',
-    type: 'comment',
-    userName: '李四',
-    content: '回复了你的评论:讲得真清楚!',
-    targetTitle: 'AI 大模型实战',
-    createdAt: '2026-07-13 11:00',
-    read: false,
-  },
-  {
-    id: 'i3',
-    type: 'follow',
-    userName: '王五',
-    content: '关注了你',
-    createdAt: '2026-07-12 16:30',
-    read: true,
-  },
-]
-
-const MOCK_PRIVATE: PrivateMessageItem[] = [
-  {
-    id: 'p1',
-    userId: 'u1',
-    userName: '张三',
-    lastMessage: '请问课程可以退款吗?',
-    lastTime: '14:30',
-    unread: 2,
-    online: true,
-  },
-  {
-    id: 'p2',
-    userId: 'u2',
-    userName: '李四',
-    lastMessage: '好的,谢谢!',
-    lastTime: '昨天',
-    unread: 1,
-    online: false,
-  },
-]
-
-const MOCK_SETTINGS: NotificationSettingItem[] = [
+const DEFAULT_SYSTEM: SystemNoticeItem[] = []
+const DEFAULT_INTERACTION: InteractionItem[] = []
+const DEFAULT_PRIVATE: PrivateMessageItem[] = []
+const DEFAULT_SETTINGS: NotificationSettingItem[] = [
   { key: 'system', label: '系统通知', desc: '重要系统消息', enabled: true },
   { key: 'interaction', label: '互动消息', desc: '点赞、评论、关注', enabled: true },
   { key: 'private', label: '私信', desc: '一对一私信提醒', enabled: true },
@@ -126,18 +68,133 @@ export default function MessageIndex() {
   const [selectedPrivate, setSelectedPrivate] = useState<PrivateMessageItem | null>(null)
   const [detailInput, setDetailInput] = useState('')
   const [detailMessages, setDetailMessages] = useState<MessageDetailItem[]>([])
-  const [settings, setSettings] = useState<NotificationSettingItem[]>(MOCK_SETTINGS)
+  const [systemList, setSystemList] = useState<SystemNoticeItem[]>(DEFAULT_SYSTEM)
+  const [privateList, setPrivateList] = useState<PrivateMessageItem[]>(DEFAULT_PRIVATE)
+  const [settings, setSettings] = useState<NotificationSettingItem[]>(DEFAULT_SETTINGS)
+  const [tabs, setTabs] = useState<MessageTabItem[]>(DEFAULT_TABS)
 
-  const load = useCallback(async () => {
+  const loadAggregate = useCallback(async () => {
     try {
-      const res = (await getMessageRooms()) as Record<string, unknown>
-      setList((res?.list as Room[]) || [])
+      const res: AggregateMessages = await getMessageRooms()
+      const rooms: Room[] = []
+      for (const ann of res.announcements || []) {
+        rooms.push({
+          id: ann.id,
+          name: ann.title,
+          lastMessage: ann.content || '',
+          unreadCount: 0,
+        })
+      }
+      for (const priv of res.privateMessages || []) {
+        rooms.push({
+          id: String(priv.id),
+          name: priv.senderId,
+          lastMessage: priv.content,
+          unreadCount: priv.isRead ? 0 : 1,
+          isUnread: !priv.isRead,
+        })
+      }
+      for (const sys of res.systemNotices || []) {
+        rooms.push({
+          id: sys.id,
+          name: sys.title,
+          lastMessage: sys.content || '',
+          unreadCount: 0,
+        })
+      }
+      setList(rooms)
+      setTabs([
+        { key: 'all', label: '全部' },
+        { key: 'system', label: '系统通知', unread: res.unreadCount?.system || 0 },
+        { key: 'interaction', label: '互动', unread: 0 },
+        { key: 'private', label: '私信', unread: res.unreadCount?.private || 0 },
+      ])
     } catch {
       // ignore
     } finally {
       setLoading(false)
     }
   }, [])
+
+  const loadSystemNotices = useCallback(async () => {
+    try {
+      const res = await getSystemNotices({ page: 1, pageSize: 20 })
+      const items: SystemNoticeItem[] = (res.list || []).map((s) => ({
+        id: s.id,
+        title: s.title,
+        content: s.content || '',
+        type: (s.type === 'activity' || s.type === 'upgrade' ? s.type : 'system') as
+          'system' | 'activity' | 'upgrade',
+        createdAt: s.createdAt,
+        read: false,
+      }))
+      setSystemList(items)
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const loadPrivateMessages = useCallback(async () => {
+    try {
+      const res = await getPrivateMessages({ page: 1, pageSize: 20 })
+      const items: PrivateMessageItem[] = (res.list || []).map((p) => ({
+        id: String(p.id),
+        userId: p.senderId,
+        userName: p.senderId,
+        lastMessage: p.content,
+        lastTime: p.createdAt,
+        unread: p.isRead ? 0 : 1,
+        online: false,
+      }))
+      setPrivateList(items)
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const loadPreferences = useCallback(async () => {
+    try {
+      const res: NotificationPreferences = await getNotificationPreferences()
+      const items: NotificationSettingItem[] = [
+        {
+          key: 'system',
+          label: '系统通知',
+          desc: '重要系统消息',
+          enabled: res.inAppEnabled,
+        },
+        {
+          key: 'interaction',
+          label: '互动消息',
+          desc: '点赞、评论、关注',
+          enabled: res.pushEnabled,
+        },
+        {
+          key: 'private',
+          label: '私信',
+          desc: '一对一私信提醒',
+          enabled: res.inAppEnabled,
+        },
+        {
+          key: 'marketing',
+          label: '活动营销',
+          desc: '优惠活动推送',
+          enabled: res.smsEnabled,
+        },
+      ]
+      setSettings(items)
+    } catch {
+      // ignore - keep defaults
+    }
+  }, [])
+
+  const load = useCallback(async () => {
+    await Promise.all([
+      loadAggregate(),
+      loadSystemNotices(),
+      loadPrivateMessages(),
+      loadPreferences(),
+    ])
+  }, [loadAggregate, loadSystemNotices, loadPrivateMessages, loadPreferences])
 
   useDidShow(load)
 
@@ -181,15 +238,24 @@ export default function MessageIndex() {
     setDetailInput('')
   }
 
-  const onToggleSetting = (key: string, enabled: boolean) => {
+  const onToggleSetting = async (key: string, enabled: boolean) => {
     setSettings((prev) => prev.map((s) => (s.key === key ? { ...s, enabled } : s)))
+    try {
+      const patch: Partial<NotificationPreferences> = {}
+      if (key === 'system' || key === 'private') patch.inAppEnabled = enabled
+      if (key === 'interaction') patch.pushEnabled = enabled
+      if (key === 'marketing') patch.smsEnabled = enabled
+      await updateNotificationPreferences(patch)
+    } catch {
+      // ignore - local state already updated
+    }
   }
 
   const renderTabContent = () => {
     if (activeTab === 'system') {
       return (
         <SystemNotice
-          list={MOCK_SYSTEM}
+          list={systemList}
           onClick={(item) => Taro.showToast({ title: item.title, icon: 'none' })}
         />
       )
@@ -197,7 +263,7 @@ export default function MessageIndex() {
     if (activeTab === 'interaction') {
       return (
         <InteractionMessage
-          list={MOCK_INTERACTION}
+          list={DEFAULT_INTERACTION}
           onClick={(item) =>
             Taro.showToast({ title: `${item.userName}:${item.content}`, icon: 'none' })
           }
@@ -205,7 +271,7 @@ export default function MessageIndex() {
       )
     }
     if (activeTab === 'private') {
-      return <PrivateMessageList list={MOCK_PRIVATE} onClick={onOpenPrivate} />
+      return <PrivateMessageList list={privateList} onClick={onOpenPrivate} />
     }
     return (
       <View className="message-list">
@@ -274,7 +340,7 @@ export default function MessageIndex() {
         onRightClick={() => setShowSettings(true)}
       />
       <View style={{ height: `${headerOffset}px` }} />
-      <MessageTabs tabs={TABS} active={activeTab} onChange={onTabChange} />
+      <MessageTabs tabs={tabs} active={activeTab} onChange={onTabChange} />
       <ScrollView scrollY style={{ height: 'calc(100vh - 200px)' }}>
         {renderTabContent()}
       </ScrollView>
