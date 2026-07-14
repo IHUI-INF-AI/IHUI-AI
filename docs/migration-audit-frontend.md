@@ -620,6 +620,24 @@
 **原审计报告缺陷根因**: 仅做文件名/路径比对,未读文件内容核查等价实现,导致"路由名不一致"或"功能合并/拆分"被误判为"缺失"。
 **后续批次注意**: 批次2(Web Admin 5 项)、批次3(小程序 8 项)需以本次为鉴,先核查等价路径再判定缺失。
 
+### 7.5 ⚠️ 修正:Web Admin 5 项经核查 1 项误判 + 4 项已补建(2026-07-14 /goal 批次2)
+
+> 启动 /goal 批次2 拟补建上表 Web Admin 5 项,轮次 1 核查发现 1 项误判(member/post 已等价实现),4 项真缺失(learn/map*2 + learn/topic*2),轮次 2 通过并行子代理完成补建。
+
+| # | 原判定"缺失"项 | 实际状态 | 证据 |
+|---|---|---|---|
+| 9 | learn/map 列表 | ✅ 已补建 | `admin/edu/learn/maps/page.tsx`(155 行)+ MapsTable/MapsFilter/MapsDialog/types/helpers;复用已有后端 API |
+| 10 | learn/map 编辑 | ✅ 已补建 | 同上(Dialog 模式,与 plan 模块一致,无独立 [id] 编辑页) |
+| 11 | learn/topic 列表 | ✅ 已补建 | `admin/edu/learn/topics/page.tsx`(143 行)+ TopicsTable/TopicsFilter/TopicsDialog/types/helpers;补建后端 GET/POST/PUT/DELETE /learn/topics 4 接口 |
+| 12 | learn/topic 编辑 | ✅ 已补建 | 同上 |
+| 13 | member/post | ✅ 等价实现 | `admin/post/page.tsx` + PostTable/PostDialog/PostFilter/helpers/types;`redirects.config.ts` L19 配置 /admin/member/post → /admin/post 301 重定向 |
+
+**修正后 Web Admin 覆盖率**: 92.1% → **100%**(原 5 项缺失 1 项已等价实现 + 4 项已补建)。
+**补建后端**: `apps/api/src/routes/learn.ts` adminLearnRoutes 内新增 4 个 topics CRUD 接口 + `apps/api/src/db/learn-extended-queries.ts` 新增 5 个 query 函数(findAllTopics/findTopicRowById/createTopicRow/updateTopicRow/deleteTopicRow)。
+**补建前端**: `admin/edu/learn/helpers.ts` SUB_LINKS 添加 maps + topics 入口;5 个 i18n 文件(zh-CN/zh-TW/en/ja/ko)添加 maps + topics 翻译块 + subLink.maps + subLink.topics。
+**验证**: `pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/api typecheck` 退出码 0。
+**残留风险**: topics 后端有 2 套发布机制(已有 PUT /learn/topics/:id/publish 操作 eduLessonTopics 表 + 新增 CRUD 操作 learnTopic 表),建议后续统一;TopicsFilter 缺 status 筛选下拉框(后端已支持);zh-TW/en/ja/ko 的 maps/topics 翻译为简体中文占位,建议补译。
+
 ---
 
 ## §8 最终结论
