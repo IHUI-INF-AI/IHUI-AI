@@ -10,6 +10,7 @@ export const QUEUE_NAMES = {
   email: 'email',
   notification: 'notification',
   aiCallback: 'ai-callback',
+  notificationDispatch: 'notification-dispatch',
 } as const
 
 export type QueueName = keyof typeof QUEUE_NAMES
@@ -50,6 +51,21 @@ export interface AICallbackJobData {
   metadata?: Record<string, unknown>
 }
 
+/**
+ * 定向通知派发任务 payload（send-targeted 端点的 email/sms 异步派发）。
+ * in_app 渠道保持同步（WebSocket 实时推送），email/sms 入队由 Worker 异步处理。
+ */
+export interface TargetedDispatchJobData {
+  userId: string
+  channel: 'email' | 'sms'
+  email: string | null
+  phone: string | null
+  nickname: string | null
+  title: string
+  content: string
+  msgType: string
+}
+
 declare module 'fastify' {
   interface FastifyInstance {
     /** 邮件队列 */
@@ -58,6 +74,8 @@ declare module 'fastify' {
     notificationQueue: Queue<NotificationJobData>
     /** AI 回调队列 */
     aiCallbackQueue: Queue<AICallbackJobData>
+    /** 定向通知派发队列（send-targeted 的 email/sms 异步派发） */
+    notificationDispatchQueue: Queue<TargetedDispatchJobData>
   }
 }
 
@@ -100,10 +118,18 @@ const queuePlugin: FastifyPluginAsync = async (server) => {
     connection,
     defaultJobOptions,
   })
+  const notificationDispatchQueue = new Queue<TargetedDispatchJobData>(
+    QUEUE_NAMES.notificationDispatch,
+    {
+      connection,
+      defaultJobOptions,
+    },
+  )
 
   server.decorate('emailQueue', emailQueue)
   server.decorate('notificationQueue', notificationQueue)
   server.decorate('aiCallbackQueue', aiCallbackQueue)
+  server.decorate('notificationDispatchQueue', notificationDispatchQueue)
 
   // QueueEvents 用于全局事件监听（失败、完成等），便于日志
   const queueEvents = new QueueEvents(QUEUE_NAMES.email, { connection })
@@ -129,6 +155,11 @@ const queuePlugin: FastifyPluginAsync = async (server) => {
     }
     try {
       await aiCallbackQueue.close()
+    } catch {
+      /* ignore */
+    }
+    try {
+      await notificationDispatchQueue.close()
     } catch {
       /* ignore */
     }
