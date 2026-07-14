@@ -1,4 +1,4 @@
-﻿import Fastify, {
+import Fastify, {
   type FastifyInstance,
   type FastifyError,
   type FastifyReply,
@@ -23,6 +23,7 @@ import { workspaceRoutes } from './routes/workspace.js'
 import { workspaceAiRoutes } from './routes/workspace-ai.js'
 import { fileRoutes } from './routes/files.js'
 import { adminRoutes } from './routes/admin.js'
+import { i18nDashboardRoutes } from './routes/i18n-dashboard.js'
 import { notificationRoutes } from './routes/notifications.js'
 import { billingRoutes } from './routes/billing.js'
 import { searchRoutes } from './routes/search.js'
@@ -403,6 +404,7 @@ function registerRoutes(server: FastifyInstance) {
   // 文件管理增强 API：/api/files/*（/api/tags 已迁至 socialRoutes）
   server.register(fileRoutes, { prefix: '/api' })
   server.register(adminRoutes, { prefix: '/api/admin' })
+  server.register(i18nDashboardRoutes, { prefix: '/api/admin' })
   server.register(notificationRoutes, { prefix: '/api' })
   server.register(billingRoutes, { prefix: '/api' })
   server.register(searchRoutes, { prefix: '/api' })
