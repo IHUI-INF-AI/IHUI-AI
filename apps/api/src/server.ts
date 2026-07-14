@@ -88,6 +88,7 @@ import systemExtendedRoutes, { adminCategoryDictionaryRoutes } from './routes/sy
 import aiExtendedRoutes from './routes/ai-extended.js'
 import miscExtendedRoutes from './routes/misc-extended.js'
 import aiGenerationRoutes from './routes/ai-generation.js'
+import { aiChatStreamRoutes } from './routes/ai-chat-stream.js'
 // M-20 补建：14 个 API 模块路由
 import toolsRoutes from './routes/tools.js'
 import rankingRoutes from './routes/ranking.js'
@@ -607,6 +608,8 @@ function registerRoutes(server: FastifyInstance) {
   // ===== M-22 补建：散点缺失路由 =====
   // 用户自定义模型对话：/api/ai/user-model-chat/*
   server.register(aiUserModelChatRoutes, { prefix: '/api/ai' })
+  // AI 对话 SSE 流式代理（小程序端）：/api/ai/chat/stream
+  server.register(aiChatStreamRoutes, { prefix: '/api/ai' })
   // FAQ 管理：/api/admin/faq/*
   server.register(adminFaqRoutes, { prefix: '/api/admin/faq' })
   // 区域/分区管理：/api/admin/zones/*
