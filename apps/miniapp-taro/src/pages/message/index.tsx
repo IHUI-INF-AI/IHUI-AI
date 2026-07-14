@@ -49,7 +49,34 @@ const DEFAULT_TABS: MessageTabItem[] = [
 ]
 
 const DEFAULT_SYSTEM: SystemNoticeItem[] = []
-const DEFAULT_INTERACTION: InteractionItem[] = []
+const DEFAULT_INTERACTION: InteractionItem[] = [
+  {
+    id: 'i1',
+    type: 'like',
+    userName: '张三',
+    content: '赞了你的课程笔记',
+    targetTitle: 'React 入门第 3 节',
+    createdAt: '2026-07-13 14:20',
+    read: false,
+  },
+  {
+    id: 'i2',
+    type: 'comment',
+    userName: '李四',
+    content: '回复了你的评论:讲得真清楚!',
+    targetTitle: 'AI 大模型实战',
+    createdAt: '2026-07-13 11:00',
+    read: false,
+  },
+  {
+    id: 'i3',
+    type: 'follow',
+    userName: '王五',
+    content: '关注了你',
+    createdAt: '2026-07-12 16:30',
+    read: true,
+  },
+]
 const DEFAULT_PRIVATE: PrivateMessageItem[] = []
 const DEFAULT_SETTINGS: NotificationSettingItem[] = [
   { key: 'system', label: '系统通知', desc: '重要系统消息', enabled: true },
