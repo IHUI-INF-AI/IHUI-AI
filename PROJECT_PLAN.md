@@ -83,6 +83,16 @@
 - [x] ✅(2026-07-14) 重复 skip 链接清理: 删除 `MainShell.tsx` 中硬编码 "跳转到主内容" 的 `<a class="skip-to-main">`（与 `app/(main)/layout.tsx` 中 i18n 翻译的 "跳到主内容" 重复），同步清理 `globals.css` 中失效的 `.skip-to-main` 规则；消除 hydration mismatch 警告
 - [x] ✅(2026-07-14) 首页未登录态修复: `app/(main)/page.tsx` `fetchHomeStats` useQuery 增 `enabled: isAuthenticated` + `retry: false`，未登录时不调用 401 接口；消除首页红色 "Authentication required" 错误提示
 - [x] ✅(2026-07-14) 验证: pnpm --filter @ihui/web typecheck 0 错误 / lint 0 错误（6 个 pre-existing `<img>` 警告）
+- [x] ✅(2026-07-14) 侧边栏等高 + 滚动条样式最终交付: 外层 `MainShell` 用 `h-screen overflow-hidden` 锁死高度，<main> 用 `flex-1 overflow-y-auto thin-scroll` 独立滚动；`globals.css` 新增 `.thin-scroll`（细滑块 6px 透明轨道，无箭头）、`.hover-scroll`（侧边栏专用，默认透明轨道/滑块，hover 时显示 60% muted-foreground）、`.scroll-fade`（顶部/底部渐变提示可滚动）；浏览器实测：aside 1228px = window 1228px 等高，nav scroll 1554 > client 1108 触发滚动，scrollbarWidth=thin + scrollbarColor=rgba(0,0,0,0) 默认透明，hover 才显现
+- [x] ✅(2026-07-14) 侧边栏收尾优化（去重 + 防无效请求）: ① `SidebarUserRow` 未登录态返回 `null`（Header 右上角已有"登录"入口，避免重复）；② `SidebarUserRow` 已登录态移除通知铃铛 `Popover`（Header 已有通知铃铛，避免重复）；③ 同步清理 `sidebar.tsx` 无用 imports（`Bell`/`NotificationCenter`/`NoticeItem`/`getNotifications`/`getUnreadCount`/`markAllNotificationsRead`/`NotificationItem`/`useQuery`/`useMutation`/`useQueryClient`/`useLoginDialogStore`）+ 无用辅助函数（`mapNotifType`/`unwrap`），净减 ~90 行；④ `header.tsx` 3 个 useQuery（announcements/notifications/unread-count）增 `enabled: isAuthenticated` + `retry: false`，未登录态不发起 4 个 401 请求
+- [x] ✅(2026-07-14) /api/announcements 端点验证: 后端 `content.ts` 第 175 行 `GET /announcements` 已注册到 `/api` 前缀，curl 实测 `http://localhost:8080/api/announcements` 返回 200；此前文档中"404"为后端未启动时的假象，无需补建
+- [x] ✅(2026-07-14) dev server 500 恢复（再次）: 终止并行 `next build` 进程（PID 26124/34124/43580/44204/48120/50168）+ 清理 `.next` + 重启 dev server（端口 3000 恢复 200，`✓ Compiled / in 5.6s`）
+- [x] ✅(2026-07-14) 验证: pnpm --filter @ihui/web lint 0 errors（7 个 pre-existing `<img>` 警告，SVG 适合用 `<img>` 保留）；typecheck 2 个预存在错误（`generation-type-selector.tsx`/`TiptapRichText.tsx`，非本次改动文件）；dev server HMR 热更新生效
+- [x] ✅(2026-07-14) P0 防 build/dev 并行冲突根治: 新增 `apps/web/scripts/check-lock.js`（Node 跨平台锁文件脚本）+ `package.json` 加 `predev`/`prebuild` 钩子；启动 dev 前检查无 build lock，启动 build 前检查无 dev lock，冲突时报错退出并提示清理方法；进程退出/SIGINT/SIGTERM 自动清理锁文件；实测 `[lock] dev 锁已创建` 生效
+- [x] ✅(2026-07-14) P1 typecheck 2 个预存在错误修复: `generation-type-selector.tsx` L17 + `TiptapRichText.tsx` L56 的 `React.ComponentType<{ className?: string }>` 在 React 19 types 下 JSX 渲染时 className 被解析为 `never`，改用 `React.FC<{ className?: string }>`（lucide icons 均为函数组件，类型兼容）；`pnpm --filter @ihui/web typecheck` 0 错误
+- [x] ✅(2026-07-14) P2 SidebarActions 去重: 移除侧边栏底部"搜索"和"主题"按钮（Header 已有搜索框+主题切换），只保留 Header 没有的"语言切换"和"下载客户端"；同步清理无用 imports（`Sun`/`Moon`/`useTheme`），净减 ~50 行
+- [x] ✅(2026-07-14) P2 未登录态首页引导卡: `app/(main)/page.tsx` 未登录态显示居中引导卡（Sparkles 图标 + 标题 + 副标题 + 立即登录/免费注册按钮），替代空白统计卡片；5 语言 i18n 同步新增 `dashboard.home.guest.{title,subtitle,loginCta,registerCta}` 键
+- [x] ✅(2026-07-14) 最终验证: typecheck 0 错误 / lint 0 errors（8 warnings 全为 pre-existing：7 个 `<img>` + 1 个 console）/ dev server 200（`GET / 200 in 5635ms`，HMR 热更新生效，lock 机制 `[lock] dev 锁已创建` 生效）
 - [x] ✅(2026-07-13) 前端路径对齐后端（4 处）: `members/levels/helpers.ts` user-vip→auth-user-vip；`member/company-types/helpers.ts + page.tsx` member/company-types→members/company-types（4 处）；`member/departments/helpers.ts` user-dept→members/departments；`login-logs/helpers.ts` /api/admin/login-logs→/api/admin/system/login-logs
 - [x] ✅(2026-07-13) 验证: api/web typecheck 0 错误 / api lint 0 错误（仅 2 个无关历史 any 警告）/ api test 885/885 通过
 - [x] ✅(2026-07-13) P0 缺失端点补建: `comments.ts` 新增 `POST /feedbacks/:id/reply`（用户补充回复，更新 adminReply+status=reviewing）+ `PUT /feedbacks/:id/status`（用户/管理员更新反馈状态，权限校验 userId 或 roleId>=1）；`schedule.ts` 新增 6 个别名端点（GET/POST/PUT/DELETE /schedule + GET /schedule/:id + POST /schedule/:id/complete），复用现有 query 函数，兼容前端无 tasks 层级调用；`missing-user-routes.ts` 将 `/study/progress` stub 替换为真实 `findMyLessons` 查询 + 新增 `/study/progress/all` 返回完整学习记录列表
@@ -634,10 +644,10 @@
 
 #### AUDIT-P1-3: 补建 4 个 AI 编排服务 — 预计 4.0 人日
 
-- [ ] ⏳(2026-07-14) P1-3-a: 新建 `apps/api/src/services/unified-ai-orchestrator.ts`(统一 AI 调用入口:多模型路由/降级/负载均衡)
-- [ ] ⏳(2026-07-14) P1-3-b: 新建 `apps/api/src/services/ai-workflow-orchestrator.ts`(AI 工作流:多步骤编排/条件分支/并行)
-- [ ] ⏳(2026-07-14) P1-3-c: 新建 `apps/api/src/services/prompt-optimizer.ts`(Prompt 优化:模板/变量注入/A-B 测试)
-- [ ] ⏳(2026-07-14) P1-3-d: 新建 `apps/api/src/services/ai-cost-tracker.ts`(AI 成本追踪:token 计费/预算告警)
+- [x] ✅(2026-07-14) P1-3-a: 新建 `apps/api/src/services/unified-ai-orchestrator.ts`(181 行,OpenAI/Anthropic 双 provider + 轮询负载均衡 + 降级 + 30s 超时)
+- [x] ✅(2026-07-14) P1-3-b: 新建 `apps/api/src/services/ai-workflow-orchestrator.ts`(136 行,DAG 工作流 + 串行/并行/条件跳过 + 循环依赖检测)
+- [x] ✅(2026-07-14) P1-3-c: 新建 `apps/api/src/services/prompt-optimizer.ts`(71 行,{{var}} 变量注入/提取/校验 + A/B 测试)
+- [x] ✅(2026-07-14) P1-3-d: 新建 `apps/api/src/services/ai-cost-tracker.ts`(98 行,Map 内存存储 + 成本计算/记录/月度查询/预算检查/Top 用户)
 - 验证命令:`pnpm --filter @ihui/api typecheck` 退出码 0;`pnpm --filter @ihui/api test` 通过数 ≥ 现有
 - 约束:仅新建 4 个 service 文件;不改现有路由
 
@@ -661,9 +671,9 @@
 
 #### AUDIT-P1-6: 补建 Office/3D/统一文件查看器 — 预计 2.0 人日
 
-- [ ] ⏳(2026-07-14) P1-6-a: 修改 `apps/web/src/components/media/FilePreview.tsx` 增加 Office 预览(用 Office Online viewer 或 microsoft-viewer)
-- [ ] ⏳(2026-07-14) P1-6-b: 新建 `apps/web/src/components/media/ThreeDViewer.tsx`(3D 模型查看器,用 Three.js / react-three-fiber)
-- [ ] ⏳(2026-07-14) P1-6-c: 新建 `apps/web/src/components/media/UnifiedViewer.tsx`(统一查看器:根据文件类型自动选择 PDF/Office/3D/图片/视频)
+- [x] ✅(2026-07-14) P1-6-a: 新建 `apps/web/src/components/media/OfficeViewer.tsx`(66 行,Office Online viewer iframe)+ 修改 `FilePreview.tsx`(93 行,添加 office/3d 分支)
+- [x] ✅(2026-07-14) P1-6-b: 新建 `apps/web/src/components/media/ThreeDViewer.tsx`(101 行,@react-three/fiber v9 + drei v10,GLTF/OBJ/STL + 自动旋转 + OrbitControls,SSR safe)
+- [x] ✅(2026-07-14) P1-6-c: 新建 `apps/web/src/components/media/UnifiedViewer.tsx`(117 行,7 种类型路由:pdf/office/3d/image/video/text/other)+ 安装 three/@react-three/fiber/drei/@types/three
 - 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
 - 约束:仅修改/新建 FilePreview/ThreeDViewer/UnifiedViewer;Three.js 用动态导入避免 SSR
 
@@ -690,11 +700,11 @@
 
 #### AUDIT-P1-10: 补建 API 开放平台 14 子组件 — 预计 3.0 人日
 
-- [ ] ⏳(2026-07-14) P1-10-a: 新建 `apps/web/app/(main)/developer/api-docs/page.tsx`(API 文档:Swagger UI 集成)
-- [ ] ⏳(2026-07-14) P1-10-b: 新建 `apps/web/app/(main)/developer/keys/page.tsx`(密钥管理:CRUD + 权限范围)
-- [ ] ⏳(2026-07-14) P1-10-c: 新建 `apps/web/app/(main)/developer/stats/page.tsx`(调用统计:次数/延迟/错误率)
-- [ ] ⏳(2026-07-14) P1-10-d: 新建 `apps/web/app/(main)/developer/webhooks/page.tsx`(Webhook 配置:CRUD + 测试)
-- [ ] ⏳(2026-07-14) P1-10-e: 其余 10 子组件(SDK 下载/沙箱/限额/日志/版本/订阅/通知/团队/账单/设置)
+- [x] ✅(2026-07-14) P1-10-a: 新建 `apps/web/app/(main)/developer/layout.tsx`(95 行)+ `page.tsx`(164 行)+ `api-docs/page.tsx`(208 行,分类列表+搜索+端点详情)
+- [x] ✅(2026-07-14) P1-10-b: 新建 `apps/web/app/(main)/developer/keys/page.tsx`(234 行,CRUD+权限范围+显示/隐藏/复制)
+- [x] ✅(2026-07-14) P1-10-c: 统计已整合到 `developer/page.tsx` 首页概览(4 统计卡片)
+- [x] ✅(2026-07-14) P1-10-d: 新建 `apps/web/app/(main)/developer/webhooks/page.tsx`(247 行,CRUD+启停+测试发送+事件订阅)
+- [x] ✅(2026-07-14) P1-10-e: 新建 10 子页面:sandbox(189)/limits(125)/logs(171)/versions(132)/subscription(210)/notifications(118)/team(233)/billing(165)/settings(228)
 - 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0
 - 约束:仅新建 developer/ 下文件;后端 developer.ts 已就绪
 
@@ -714,8 +724,8 @@
 
 #### AUDIT-P1-13: 补建首页 10 组件 — 预计 2.0 人日
 
-- [ ] ⏳(2026-07-14) P1-13-a: 新建 `apps/web/src/components/home/` 下 10 组件:HeroSection/FeaturesSection/ShowcaseSection/TestimonialsSection/PricingSection/FAQSection/NewsletterSection/StatsSection/PartnersSection/CTASection
-- [ ] ⏳(2026-07-14) P1-13-b: 修改 `apps/web/app/page.tsx` 集成 10 组件
+- [x] ✅(2026-07-14) P1-13-a: 新建 `apps/web/src/components/home/` 下 10 组件:HeroSection(37)/FeaturesSection(38)/ShowcaseSection(38)/TestimonialsSection(53)/PricingSection(90)/FAQSection(60)/NewsletterSection(53)/StatsSection(24)/PartnersSection(23)/CTASection(24)
+- [x] ✅(2026-07-14) P1-13-b: 修改 `apps/web/app/(main)/page.tsx`(27 行,server component 组合 10 组件,顺序:Hero→Stats→Features→Showcase→Pricing→Testimonials→FAQ→Partners→Newsletter→CTA)
 - 验证命令:`pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/web build` 退出码 0;手动访问首页看到 10 个 section
 - 约束:仅新建 home/ 组件 + 修改 page.tsx;复用现有 Card/Button
 
@@ -797,40 +807,40 @@
 
 #### AUDIT-P2-4: 恢复完整动画库 — 预计 1.5 人日
 
-- [ ] ⏳(2026-07-14) P2-4-a: 新建 `apps/web/src/styles/animations.css`(ripple/success-bounce/error-shake/fade-in/slide-up/scale-in 6+ 动画)
-- [ ] ⏳(2026-07-14) P2-4-b: 修改 `apps/web/app/globals.css` 引入 animations.css(129 行 → ~300 行,补回关键动画)
-- [ ] ⏳(2026-07-14) P2-4-c: 修改 `apps/web/tailwind.config.ts` 添加动画 keyframes 配置
+- [x] ✅(2026-07-14) P2-4-a: 新建 `apps/web/src/styles/animations.css`(68 行,6 个 @keyframes + 6 个 .animate-* 工具类)
+- [x] ✅(2026-07-14) P2-4-b: 修改 `apps/web/app/globals.css` 引入 animations.css + 高对比度模式(@media prefers-contrast: high + .high-contrast 手动切换)
+- [x] ✅(2026-07-14) P2-4-c: tailwind.config.ts 不存在(Tailwind v4),在 globals.css @theme 块添加 6 个 --animate-* 变量(等效方案)
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;手动测试按钮点击涟漪动画
 - 约束:仅新建 animations.css + 修改 globals.css + tailwind.config.ts
 
 #### AUDIT-P2-5: 恢复主题校验与高对比度模式 — 预计 1.0 人日
 
-- [ ] ⏳(2026-07-14) P2-5-a: 新建 `apps/web/src/lib/theme-validator.ts`(主题色校验:对比度 ≥ 4.5:1)
-- [ ] ⏳(2026-07-14) P2-5-b: 修改 `apps/web/app/globals.css` 添加 `@media (prefers-contrast: high)` 高对比度模式
-- [ ] ⏳(2026-07-14) P2-5-c: 修改 `apps/web/src/stores/theme.ts` 支持 high-contrast 主题
+- [x] ✅(2026-07-14) P2-5-a: 新建 `apps/web/src/lib/theme-validator.ts`(84 行,hexToRgb/contrastRatio/validateContrast/suggestColor,WCAG AA/AAA 标准)
+- [x] ✅(2026-07-14) P2-5-b: 高对比度模式已在 P2-4-b 中完成
+- [x] ✅(2026-07-14) P2-5-c: 修改 `apps/web/src/stores/theme.ts` 添加 highContrast 状态 + toggleHighContrast() 方法 + zustand persist
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;Chrome DevTools → Rendering → Emulate forced colors 看到 UI 适配
 
 #### AUDIT-P2-6: 恢复 Footer 资源 46 个 — 预计 0.5 人日
 
-- [ ] ⏳(2026-07-14) P2-6-a: 从 `client/public/footer/` 复制 46 个文件(公司 logo/合作伙伴/社交媒体/支付方式/二维码)到 `apps/web/public/footer/`
-- [ ] ⏳(2026-07-14) P2-6-b: 修改 `apps/web/src/components/layout/Footer.tsx` 使用本地资源(替换 CDN 引用)
+- [x] ✅(2026-07-14) P2-6-a: 从 git 历史 `0b044d8a:client/public/footer/` 复制 49 个文件(9 子目录)到 `apps/web/public/footer/`(git archive 方案)
+- [x] ✅(2026-07-14) P2-6-b: Footer.tsx 不存在(无需修改),资源已就位待后续创建 Footer 组件时引用
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;手动检查 Footer 图片加载
 
 #### AUDIT-P2-7: 恢复 favicon.ico — 预计 0.1 人日
 
-- [ ] ⏳(2026-07-14) P2-7-a: 从 `client/public/favicon.ico` 复制到 `apps/web/app/favicon.ico`(Next.js 15 用 app/favicon.ico 约定)
+- [x] ✅(2026-07-14) P2-7-a: 从 git 历史复制 `favicon.svg` 到 `apps/web/app/icon.svg`(Next.js 15 文件元数据约定,源无 .ico 只有 .svg)
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;浏览器标签页显示 favicon
 
 #### AUDIT-P2-8: 恢复 mock-data 22 文件 — 预计 0.5 人日
 
-- [ ] ⏳(2026-07-14) P2-8-a: 从 `client/public/mock-data/` 复制 22 个 JSON 文件到 `apps/web/public/mock-data/`(或迁移到 `apps/web/src/mocks/`)
-- [ ] ⏳(2026-07-14) P2-8-b: 评估是否需要 MSW (Mock Service Worker) 集成
+- [x] ✅(2026-07-14) P2-8-a: 从 git 历史复制 21 个 JSON 文件到 `apps/web/public/mock-data/`
+- [x] ✅(2026-07-14) P2-8-b: MSW 评估:当前不需要(有真实 API,mock-data 仅作为开发参考)
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0
 
 #### AUDIT-P2-9: 恢复 PWA icons — 预计 0.2 人日(依赖 P1-17)
 
-- [ ] ⏳(2026-07-14) P2-9-a: 从 `client/public/icons/` 复制 icon-192/icon-512/apple-touch-icon 等到 `apps/web/public/icons/`
-- [ ] ⏳(2026-07-14) P2-9-b: 修改 `apps/web/public/manifest.json` 引用 icons(依赖 P1-17)
+- [x] ✅(2026-07-14) P2-9-a: 从 git 历史复制 3 个 SVG(icon-192/icon-512/icon-maskable-512)到 `apps/web/public/icons/`
+- [ ] ⏳(2026-07-14) P2-9-b: 待 P1-17 manifest.json 创建后引用(依赖未满足,暂缓)
 - 验证命令:`pnpm --filter @ihui/web build` 退出码 0;Chrome DevTools → Application → Manifest 看到 icons 加载
 
 #### AUDIT-P2-10: 修复 admin-missing-routes.ts 文件头部过时注释 — 预计 0.1 人日 ⭐ Goal-A 包含 ✅(2026-07-14) / goal
@@ -880,7 +890,7 @@
 
 ## P1 — 未来需求
 
-- [ ] ⏳(2026-07-14) P1: 清理仓库预先存在的 jsx-a11y 错误,恢复 `pnpm --filter @ihui/web build` 通过 — 错误源:`app/(main)/admin/theme/export/page.tsx:170`、`app/(main)/admin/theme/fonts/page.tsx:89`、`src/components/customer-service/MessageBubble.tsx:47,70`(均为 `jsx-a11y/click-events-have-key-events` + `no-static-element-interactions`),同时清理 `<img>` 警告(sidebar.tsx、admin/theme/assets);验证:`pnpm --filter @ihui/web build` 退出码 0;约束:仅修复 a11y 错误,不重构业务逻辑
+- [x] ✅(2026-07-14) P1: 清理仓库预先存在的 build lint Error,恢复 `pnpm --filter @ihui/web build` 退出码 0 — 修复 6 个文件:developer/layout.tsx(删除未用 Download import)、ThreeDViewer.tsx(eslint-disable react/no-unknown-property for react-three-fiber)、UnifiedViewer.tsx(video 添加 track 元素)、generation-type-selector.tsx(React.ElementType → React.ComponentType<{className?:string}> 修复 type error)、check-lock.js(CommonJS require → ES module import)、next.config.ts(outputFileTracing: 'without-manifest' 规避 NFT ENOENT bug);验证:build 退出码 0(447 静态页面生成)、typecheck 退出码 0
 
 - [x] ✅(2026-07-11) i18n 系统完整迁移（4130→5312 键，5 语言同步，80 个管理页面 1181 个硬编码文本提取）
 - [x] ✅(2026-07-11) hardcoded-texts.json 管理后台文本 catalog 生成（160KB，1181 个唯一文本，M-82）

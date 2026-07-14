@@ -4,10 +4,12 @@ import * as React from 'react'
 import Image from 'next/image'
 import { FileText, File } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { OfficeViewer } from './OfficeViewer'
+import { ThreeDViewer } from './ThreeDViewer'
 
 interface FilePreviewProps {
   url: string
-  type?: 'pdf' | 'office' | 'image' | 'text' | 'auto'
+  type?: 'pdf' | 'office' | 'image' | 'text' | '3d' | 'auto'
   name?: string
   className?: string
 }
@@ -18,6 +20,7 @@ export function FilePreview({ url, type = 'auto', name, className }: FilePreview
     const ext = url.split('.').pop()?.toLowerCase()
     if (ext === 'pdf') return 'pdf'
     if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext ?? '')) return 'office'
+    if (['glb', 'gltf', 'obj', 'stl'].includes(ext ?? '')) return '3d'
     if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext ?? '')) return 'image'
     if (['txt', 'md', 'json', 'csv', 'log'].includes(ext ?? '')) return 'text'
     return 'text'
@@ -47,19 +50,14 @@ export function FilePreview({ url, type = 'auto', name, className }: FilePreview
   }
 
   if (detectedType === 'office') {
-    const encoded = encodeURIComponent(url)
-    return (
-      <div className="flex flex-col h-full">
-        <div className="px-3 py-1.5 text-xs text-muted-foreground bg-muted border-b">
-          Office 文件预览由微软在线服务提供，文件 URL 将发送至 view.officeapps.live.com
-        </div>
-        <iframe
-          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encoded}`}
-          title={name ?? 'Office preview'}
-          className={cn('h-full w-full border-0 flex-1', className)}
-        />
-      </div>
-    )
+    return <OfficeViewer url={url} fileName={name} className={className} />
+  }
+
+  if (detectedType === '3d') {
+    const ext = url.split('.').pop()?.toLowerCase()
+    const format = (ext && ['glb', 'gltf', 'obj', 'stl'].includes(ext) ? ext : 'glb') as
+      'glb' | 'gltf' | 'obj' | 'stl'
+    return <ThreeDViewer url={url} format={format} className={className} />
   }
 
   return <TextPreview url={url} name={name} className={className} />
