@@ -166,6 +166,30 @@ export async function completeOrderWithSaga(
 }
 
 /**
+ * 根据订单类型激活对应的订阅（支付成功回调调用，失败不阻塞）。
+ * - orderType=2: VIP 会员激活
+ * - orderType=5: 开发者套餐订阅激活
+ */
+export async function activateOrderSubscription(order: Order): Promise<void> {
+  if (!order.productId) return
+  if (order.orderType === 2) {
+    const { purchaseVip } = await import('../db/vip-queries.js')
+    await purchaseVip({ userId: order.userId, vipLevelId: order.productId, orderId: order.id })
+  } else if (order.orderType === 5) {
+    const { findDeveloperPricingById, activateDeveloperSubscription } =
+      await import('../db/developer-queries.js')
+    const pricing = await findDeveloperPricingById(order.productId)
+    if (!pricing) return
+    await activateDeveloperSubscription({
+      userId: order.userId,
+      pricingId: pricing.id,
+      period: pricing.period ?? 'monthly',
+      orderId: order.id,
+    })
+  }
+}
+
+/**
  * 状态机：取消订单。
  * 仅 pending 订单可取消；已支付订单需走退款流程。
  */
