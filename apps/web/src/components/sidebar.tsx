@@ -108,6 +108,18 @@ interface NavItem {
   adminOnly?: boolean
 }
 
+/**
+ * 侧边栏尺寸常量(R73 refactor 之前的仓库原状,2026-07-14 恢复)
+ * 后续重构请勿随意修改 — 与设计 token 耦合:
+ * - 168px 是中文 4 字导航项不换行的临界宽度(配合 nav item `gap-2.5 px-2.5 + whitespace-nowrap`)
+ * - 60px 是折叠态只显图标的临界宽度(h-10 item + 居中)
+ * - 240px 是避免主内容区挤压过窄的上限
+ */
+const SIDEBAR_DEFAULT_WIDTH = 168
+const SIDEBAR_MIN_WIDTH = 60
+const SIDEBAR_MAX_WIDTH = 240
+const SIDEBAR_MOBILE_WIDTH = 168
+
 const NAV_ITEMS: NavItem[] = [
   { href: '/', labelKey: 'home', icon: Home },
   { href: '/chat', labelKey: 'chat', icon: MessageSquare },
@@ -473,7 +485,7 @@ export function Sidebar({
   const pathname = usePathname()
   const user = useAuthStore((s) => s.user)
 
-  const [width, setWidth] = React.useState(168)
+  const [width, setWidth] = React.useState(SIDEBAR_DEFAULT_WIDTH)
   const [isResizing, setIsResizing] = React.useState(false)
 
   React.useEffect(() => {
@@ -551,11 +563,11 @@ export function Sidebar({
         break
       case 'Home':
         e.preventDefault()
-        setWidth(60)
+        setWidth(SIDEBAR_MIN_WIDTH)
         break
       case 'End':
         e.preventDefault()
-        setWidth(160)
+        setWidth(SIDEBAR_MAX_WIDTH)
         break
     }
   }
@@ -741,8 +753,8 @@ export function Sidebar({
             role="slider"
             aria-label={tc('resizeSidebar')}
             aria-valuenow={width}
-            aria-valuemin={60}
-            aria-valuemax={240}
+            aria-valuemin={SIDEBAR_MIN_WIDTH}
+            aria-valuemax={SIDEBAR_MAX_WIDTH}
             tabIndex={0}
             onMouseDown={handleResizeMouseDown}
             onKeyDown={handleResizeKeyDown}
@@ -767,8 +779,9 @@ export function Sidebar({
         aria-modal="true"
         aria-label="主导航"
         role="dialog"
+        style={{ width: SIDEBAR_MOBILE_WIDTH }}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[168px] flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
