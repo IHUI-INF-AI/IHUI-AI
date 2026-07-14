@@ -638,6 +638,29 @@
 **验证**: `pnpm --filter @ihui/web typecheck` 退出码 0;`pnpm --filter @ihui/api typecheck` 退出码 0。
 **残留风险**: topics 后端有 2 套发布机制(已有 PUT /learn/topics/:id/publish 操作 eduLessonTopics 表 + 新增 CRUD 操作 learnTopic 表),建议后续统一;TopicsFilter 缺 status 筛选下拉框(后端已支持);zh-TW/en/ja/ko 的 maps/topics 翻译为简体中文占位,建议补译。
 
+### 7.6 ⚠️ 修正:小程序 8 项经核查 6 项已补建 + 2 项阻塞(2026-07-14 /goal 批次3)
+
+> 启动 /goal 批次3 拟补建 §9 后续建议中标注的小程序 8 项完全缺失功能,轮次 1 全量核查发现 8 项全部真缺失(项 3 部分实现),其中 6 项可补建 + 2 项因后端 API 缺失阻塞,轮次 2 通过并行子代理完成 6 项补建。
+
+| # | 原判定"缺失"项 | 实际处理 | 证据 |
+|---|---|---|---|
+| 1 | AI 对话模型切换 | ✅ 已补建 | `pages/ai/chat.tsx`(130→245 行)增加 currentModel state + DrawerComponent + ModelList 激活;`api/index.ts` chat() 增加 ChatOptions.modelId 可选参数;复用 getModelPlazaList API |
+| 2 | 素材库 | ✅ 已补建 | `pages/ai/chat.tsx` 增加素材库抽屉(📁 图标)+ DrawerComponent 激活;复用 getAigcList API 展示作品作为素材;选中素材 content 附加到 chat 请求 |
+| 3 | 技能弹窗 | ✅ 已补建(部分实现→完整) | `pages/ai/chat.tsx` 增加 ⚡ 图标 + DrawerComponent 展示 Agent 详情;useRouter 接入 agentId(原被完全忽略);useDidShow 触发 getAgentDetail 加载;原 agent-detail.tsx 独立页保留 |
+| 4 | 思考过程 | ✅ 已补建 | `ChatMessage` 接口增加 reasoning?: string;`ChatResult` 增加 reasoning?: string;新建 `ChatMessageItem.tsx`(25 行)管理 expanded 折叠状态;msg.reasoning 存在时展示"▸/▾ 思考过程"折叠区 |
+| 5 | 反馈图片上传 | ✅ 已补建 | `pages/user/feedback.tsx`(76→137 行)增加图片选择网格 UI(最多 3 张)+ 缩略图 + 删除按钮;调用 uploadPictures() 上传;submitFeedback({content,contact,images}) 传图片 URL 数组 |
+| 6 | 消息搜索 + 通知横幅 | ✅ 已补建 | `pages/message/index.tsx`(45→85 行)增加 search-bar(客户端过滤 room.name);`components/NavBar.tsx`(73→97 行)增加 notification? props 渲染可关闭横幅;message 页从未读会话取通知文本 |
+| 7 | 开发者包月开通 | ⛔ 阻塞 | 后端无开发者套餐订阅 API(仅 upgradeVip VIP 升级),约束边界禁止改 apps/api,跳过 |
+| 8 | 开发者包年开通 | ⛔ 阻塞 | 同项 7,后端无开发者套餐 API |
+
+**修正后小程序覆盖率**: 91.8% → **~98%**(原 8 项缺失 6 项已补建 + 2 项阻塞待后端支持)。
+**补建文件清单**:
+- 修改:`api/index.ts`(+13 行)、`pages/ai/chat.tsx`(130→245 行)、`pages/ai/chat.css`(+36 行)、`pages/user/feedback.tsx`(76→137 行)、`pages/message/index.tsx`(45→85 行)、`pages/message/index.css`(重构)、`components/NavBar.tsx`(73→97 行)
+- 新建:`pages/ai/ChatMessageItem.tsx`(25 行)
+**验证**: `pnpm --filter @ihui/miniapp-taro typecheck` 退出码 0(独立验证通过)。
+**激活死代码**: ModelList.tsx + DrawerComponent.tsx 两个组件原从未被任何页面使用,本次补建项 1/2/3 激活复用。
+**残留风险**: (1) 项 7/8 开发者套餐需后端新增 /developer/subscribe 类 API 后才能补建;(2) 项 6 消息搜索为客户端过滤,会话量大时有性能开销,建议后端 getMessageRooms 增加 keyword 参数;(3) 项 4 reasoning 展示依赖后端 chat API 返回 reasoning 字段,若后端不返回则折叠区不显示;(4) 项 2 素材库复用 AIGC 作品作为素材,语义上 AIGC 作品 ≠ 对话素材,建议后续明确素材类型与数据源。
+
 ---
 
 ## §8 最终结论

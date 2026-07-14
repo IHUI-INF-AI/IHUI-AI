@@ -88,6 +88,29 @@
 - [x] ✅(2026-07-14) 残留风险: (1) zh-TW/en/ja/ko 的 maps/topics 翻译为简体中文占位,建议补译; (2) topics 存在双发布机制(PUT /learn/topics/:id/publish 操作 eduLessonTopics 表 vs 新增 CRUD 操作 learnTopic 表),建议后续统一
 - [x] ✅(2026-07-14) /goal 批次2 状态: achieved; 运行时文件 STATE.md + loop-run-log.md 已删除,目录保留供批次3 复用; 批次3(小程序 8 项)待启动
 
+### /goal 批次3 小程序 8 项补建（2026-07-14 6 项已补建 + 2 项阻塞）
+
+- [x] ✅(2026-07-14) /goal 批次3 目标: 核查并补建 docs/migration-audit-frontend.md §9 后续建议中标注的小程序 8 项完全缺失功能(AI 对话 4 项 + 反馈图片上传 + 消息搜索通知横幅 + 开发者包月包年);按平台分 3 批策略之第 3 批
+- [x] ✅(2026-07-14) 轮次 1 全量核查结论: 8 项全部真缺失(项 3 部分实现),6 项可补建 + 2 项阻塞(项 7/8 后端无开发者套餐 API)
+- [x] ✅(2026-07-14) 轮次 1 关键发现: chat.tsx 仅 130 行极简骨架完全忽略 agentId 参数;ModelList + DrawerComponent 两个组件已定义完整但从未被任何页面使用(死代码);项 5 后端 API submitFeedback({images?}) + 工具函数 upload-image.ts 已就绪
+- [x] ✅(2026-07-14) 轮次 2 补建执行(2 个并行子代理):
+  - 子代理 A 补建 AI 对话 4 项: chat.tsx(130→245 行)+ ChatMessageItem.tsx(25 行新建)+ chat.css(+36 行)+ api/index.ts(+13 行);激活 ModelList + DrawerComponent;接入 useRouter agentId;ChatMessage 接口加 reasoning 字段
+  - 子代理 B 补建 反馈+消息 2 项: feedback.tsx(76→137 行)+ message/index.tsx(45→85 行)+ NavBar.tsx(73→97 行)+ message/index.css(重构);图片选择网格 UI + uploadPictures;search-bar 客户端过滤;NavBar notification 横幅
+- [x] ✅(2026-07-14) 项 1 AI 对话模型切换: ✅ 已补建 — chat.tsx currentModel state + DrawerComponent + ModelList 激活 + chat() API 增加 modelId 可选参数
+- [x] ✅(2026-07-14) 项 2 素材库: ✅ 已补建 — chat.tsx 素材库抽屉(📁)+ DrawerComponent 激活 + 复用 getAigcList API 展示作品作为素材 + 选中素材 content 附加到 chat 请求
+- [x] ✅(2026-07-14) 项 3 技能弹窗: ✅ 已补建(部分实现→完整)— chat.tsx ⚡ 图标 + DrawerComponent 展示 Agent 详情 + useRouter 接入 agentId(原被完全忽略)+ useDidShow 触发 getAgentDetail
+- [x] ✅(2026-07-14) 项 4 思考过程: ✅ 已补建 — ChatMessage 接口加 reasoning?: string + ChatResult 加 reasoning?: string + 新建 ChatMessageItem.tsx(25 行)管理 expanded 折叠状态 + 浅灰背景折叠区
+- [x] ✅(2026-07-14) 项 5 反馈图片上传: ✅ 已补建 — feedback.tsx 图片选择网格 UI(最多 3 张)+ 缩略图 + 删除按钮 + uploadPictures 上传 + submitFeedback({content,contact,images})
+- [x] ✅(2026-07-14) 项 6 消息搜索 + 通知横幅: ✅ 已补建 — message/index.tsx search-bar(客户端过滤 room.name)+ NavBar.tsx notification? props 渲染可关闭横幅 + message 页从未读会话取通知文本
+- [x] ✅(2026-07-14) 项 7 开发者包月开通: ⛔ 阻塞 — 后端无开发者套餐订阅 API(仅 upgradeVip VIP 升级),约束边界禁止改 apps/api,记录阻塞跳过
+- [x] ✅(2026-07-14) 项 8 开发者包年开通: ⛔ 阻塞 — 同项 7
+- [x] ✅(2026-07-14) 验证: pnpm --filter @ihui/miniapp-taro typecheck 退出码 0(独立验证通过,非子代理自评)
+- [x] ✅(2026-07-14) 修正: docs/migration-audit-frontend.md 新增 §7.6 修正章节,标注 8 项处理结果(6 已补建 + 2 阻塞)
+- [x] ✅(2026-07-14) 激活死代码: ModelList.tsx + DrawerComponent.tsx 两个组件原从未被任何页面使用,本次补建项 1/2/3 激活复用
+- [x] ✅(2026-07-14) 残留风险: (1) 项 7/8 开发者套餐需后端新增 /developer/subscribe API;(2) 项 6 消息搜索为客户端过滤,建议后端 getMessageRooms 增加 keyword 参数;(3) 项 4 reasoning 展示依赖后端 chat API 返回 reasoning 字段;(4) 项 2 素材库复用 AIGC 作品,语义上 AIGC 作品 ≠ 对话素材
+- [x] ✅(2026-07-14) 三类计数: 真缺失补建 6 项 / 等价实现修正 0 项 / 阻塞 2 项
+- [x] ✅(2026-07-14) /goal 批次3 状态: achieved; 运行时文件 STATE.md + loop-run-log.md 已删除,目录保留; 3 批 21 项全部处理完成
+
 ### 前端问题修复（2026-07-11 全面审计）
 
 - [x] ✅(2026-07-11) 前端-FE-P0-1: 修复 `app/globals.css` 的 `--color-ring` token 反转（浅色模式 3.9% 近黑 → 70% 浅灰；暗色模式 83.1% 浅灰 → 25% 深灰），影响所有表单和 AI 输入框聚焦环
@@ -1175,6 +1198,66 @@
     - 注销态全链路端到端打通:登录拒绝(status=3)→ 后端 admin 路由 401 → 前端列表过滤 → UI 三态徽章
   - **收尾状态**:目标 achieved; 无后续建议; 完美细致完整收尾; 关闭对话
 
+- [x] ✅(2026-07-14) R77 — WebSocket 鉴权统一(status=3 拒绝 ws 连接)
+  - **目标**:R76 注销态强化仅覆盖 HTTP 路由;WebSocket 端点(`/ws/agent/stream`、`/ws/chat`、`/ws/notifications`、`/ws/customer-service`、`/ws/payment/status/*` 等)仍只用 `verifyAccessToken` 校验 JWT,无法拦截已注销账号的实时连接。本轮目标是把 R76 软删除语义完整穿透到 ws 层。
+  - **执行成果**:
+    1. **新增 `apps/api/src/plugins/ws-helpers.ts`**:集中 `wsAuth(socket, token, fetchStatus?)` 函数,统一 close code 约定(`WS_CLOSE.MISSING_TOKEN=4001` / `INVALID_TOKEN=4003` / `ACCOUNT_CANCELLED=4004`);支持注入式 status fetcher,默认 `getUserStatus` 读取 usercenter 表
+    2. **5 个 ws 插件迁移到 `wsAuth`**:
+       - `ws-ai.ts`(`/ws/agent/stream`、`/ws/tts/stream`、`/ws/realtime/pcm`、`/ws/stock/stream`)
+       - `ws-chat.ts`(`/ws/room/:roomId`)
+       - `ws-customer-service.ts`(`/ws/customer-service`) — 同时移除本地冗余 `verifyAccessToken` 导入
+       - `ws-notifications.ts`(`/ws/notifications`) — 同时保留 `recordWsAuthFailure` 指标上报,区分 missing/invalid_token
+       - `ws-payment.ts`(`/ws/payment/status/:orderNo`) — 移除原 inline `wsAuth` 实现,直接复用共享版本
+    3. **测试覆盖**:`apps/api/tests/ws-helpers.test.ts` 新增 11 个用例,覆盖 WS_CLOSE 常量 + 缺 token(4001) + token 无效(4003) + 用户不存在(4003) + 账号已注销(4004) + 正常放行 + 注入式 fetcher 接管验证
+  - **diff 统计**:6 文件(1 新 + 5 改),净 ~30 行(去除 5 处重复的 inline 鉴权样板)
+  - **验证结果**:
+    - `pnpm --filter @ihui/api typecheck` → ✅ 0 错误
+    - `pnpm --filter @ihui/api test` → ✅ **184 test files / 2865 tests 全绿** (39.42s,含新 ws-helpers 11 个)
+    - `pnpm --filter @ihui/web typecheck` → ✅ 0 错误
+  - **最终交付**:
+    - 单一改动点:注销态语义变更仅需改 `ws-helpers.ts`,无需逐插件同步
+    - 未来新增 ws 端点直接 `import { wsAuth } from './ws-helpers.js'` 即可获得完整鉴权
+    - 已注销账号的实时连接(AI 流、聊天、通知、客服、支付)统一被 4004 关闭,与 HTTP 路由行为一致
+  - **收尾状态**:目标 achieved; 无后续建议; 完美细致完整收尾; 关闭对话
+
+- [x] ✅(2026-07-14) R78 — i18n-dashboard 后端 API 实装(R76 后续建议 4 落实)
+  - **目标**:R76 后续建议 4 提到 `admin/i18n-dashboard/{compare,missing}` 前端已存在但后端 API 未实装,前端依赖 MOCK_ENTRIES 兜底。本轮实装 3 个后端端点让前端拿到真实 i18n 健康度数据
+  - **新增文件**:
+    - `apps/api/src/routes/i18n-dashboard.ts`(238 行) — 3 端点 + 文件级 mtime 缓存 + 5 语言扁平化 key 对比
+    - `apps/api/tests/i18n-dashboard.test.ts`(132 行) — 8 个集成测试(401/403/200/400 全覆盖 + 注销态 401)
+  - **修改文件**:
+    - `apps/api/src/server.ts` L26 + L407 — 注册 `i18nDashboardRoutes` 到 `/api/admin` 前缀
+  - **3 端点设计**:
+    1. `GET /api/admin/i18n-dashboard` — 总览:5 语言进度(zh-CN 100% 基准 + 4 翻译语言完成度)+ 缺失总数 + 最近更新
+    2. `GET /api/admin/i18n-dashboard/compare?left=X&right=Y` — 双语并排对比(union key 集合 + namespace 分组)
+    3. `GET /api/admin/i18n-dashboard/missing?locale=X&pageSize=N` — 缺失 key 列表(支持单语言/all + 分页)
+  - **设计要点**:
+    - 以 `zh-CN` 为基准语言(source of truth),其他 4 语言与之对比
+    - 文件级 mtime 缓存:`stat().mtimeMs` 未变则复用内存 dict,避免每次请求重读 5 个 JSON
+    - 路径解析:`process.env.I18N_MESSAGES_DIR ?? join(process.cwd(), '..', 'web', 'messages')`(生产可覆盖)
+    - 鉴权三道闸门复用 admin.ts 模式:`authenticate + requireActiveUser + roleId >= 1`
+  - **验证依据**:
+    - `pnpm --filter @ihui/api typecheck` 退出码 0
+    - `pnpm --filter @ihui/web typecheck` 退出码 0
+    - `pnpm --filter @ihui/api test` — 185 文件 / 2873 测试全绿(新增 1 文件 / 8 测试)
+    - `pnpm --filter @ihui/web test` — 21 文件 / 192 测试全绿
+    - `_server-smoke.test.ts` 通过 — 无路由冲突
+  - **残留风险**:无。前端 `helpers.ts` 的 MOCK 作为 fallback 保留(API 不可达时仍可演示 UI)
+  - **收尾状态**:目标 achieved; 无后续建议; 完美细致完整收尾; 关闭对话
+
+- [x] ✅(2026-07-14) R76 后续建议复核 + P2 待办清理
+  - **建议 1(路由分组细化 admin.ts preHandler 拆分)**:已复核 — 当前所有 admin 路由都需要 `authenticate + requireActiveUser + roleId>=1` 三道闸门,无 opt-out 需求,不拆分
+  - **建议 2(WebSocket 鉴权统一)**:R77 已完成 ✅
+  - **建议 3(小程序用户中心 status=3 UI)**:已复核 — 用户自己看不到自己的注销态(注销后 `requireActiveUser` 拦截登录),业务上不需要三态徽章,不补建
+  - **建议 4(i18n dashboard 后端 API)**:R78 已完成 ✅
+  - **建议 5(TS strict 全量启用)**:不自动推进 — 高风险,5 个 package 都未启用 `strictNullChecks`,渐进式开启需逐 package 评估,建议作为独立 P2 任务由用户决策
+  - **建议 6(Test coverage 提升)**:不自动推进 — 3 个 0 覆盖模块(services/ai 11 文件 / services/tour 7 文件 / services/clawdbot 25 文件)共 43 文件,需逐文件理解业务逻辑后补 smoke 测试,工作量 5-8 人日,建议作为独立 P2 任务
+  - **P2 待办清理**:
+    - `Superpowers 定期更新` ✅ — 已确认 GitHub `obra/superpowers` 最新 commit 仍为 `d884ae04`(2026-07-02),与 PROJECT_PLAN.md 记录一致,无需更新
+    - `goal 宿主自动续跑支持验证` — 保持待办,需用户自验(见 P2 条目)
+    - `Trae CN subagent 支持验证` — 保持待办,需用户自验(见 P2 条目)
+  - **收尾状态**:R76 6 项后续建议全部闭环(4 项已落实 + 2 项不推进并说明理由);P2 待办 3 项中 1 项完成 + 2 项保持用户自验
+
 - [x] ✅(2026-07-14) R72 — 三大缺口精确扫描 + 静态资源补齐(/goal 模式,4 轮完成)
   - **目标**:执行 R71 三大缺口推进计划第一步——404 资源引用扫描 + i18n 缺失 key 扫描 + 音视频/favicon 补齐 + 产出精确缺口清单
   - **执行轮次**:4 轮(初始化 + 并行扫描 + 静态资源补齐 + R72 章节追加 + 全量验证)
@@ -1201,7 +1284,7 @@
 ## P2 — 已知技术债务
 
 - [ ] ⏳(2026-07-14) goal 宿主自动续跑支持验证 — **agent 侧边界**:AGENTS.md 第 9 节已完整定义 loop 机制规则(运行时文件 / 7 步循环 / 评估独立性 / 子命令 / 跨会话恢复 / 失败回滚),agent 侧已无更多可推进项。**剩余项需用户自验**,因"轮次结束自动触发评估 + 自动续跑"依赖宿主工具(Trae CN)是否实现 /goal 命令的 Stop Hook,agent 无法单方面观察自身是否被自动续跑。**自验步骤**:① 记录当前 Trae CN 版本号;② 发起低风险真实目标(如"给 apps/api/src/utils 某工具函数补单元测试,验证 pnpm --filter @ihui/api test 全绿,仅修改 apps/api/tests 目录");③ 观察首轮执行结束后,系统是否**无需用户再次输入**即自动启动下一轮(关键观察点:界面是否出现 `◎ /goal active` 状态指示器、agent 是否在无新用户消息情况下继续输出);④ **若自动续跑生效**:记录宿主版本号到本条目,标记 ✅ 完成;⑤ **若不生效**:降级为"半自动 loop"(用户每轮手动发 `/goal status` 或任意消息触发续跑,agent 按 `.trae-cn/goal-runtime/STATE.md` 断点续跑),记录降级模式与宿主版本号到本条目;⑥ 无论结果如何,验证完成后在 `.trae-cn/goal-runtime/` 确认无残留临时文件
-- [ ] ⏳(2026-07-14) Superpowers 定期更新 — 每 2-4 周重复 `git clone --depth 1 https://github.com/obra/superpowers.git` → 复制 `skills/` 到 `.trae-cn/skills/` → 清理临时目录 → 在本节记录新 commit sha。当前版本:commit d884ae0 (2026-07-02)。注意:更新后需重新检查 SKILL.md 是否有新路径/行为冲突,必要时更新 AGENTS.md 第 1 节"IHUI-AI 项目对 Superpowers 技能的偏好覆盖"
+- [x] ✅(2026-07-14) Superpowers 定期更新 — 已确认 GitHub `obra/superpowers` 最新 commit 仍为 `d884ae04`(2026-07-02,Release v6.1.1),与本地版本一致,无需更新。下次复核时间:2026-07-28(2 周后)。注意:更新后需重新检查 SKILL.md 是否有新路径/行为冲突,必要时更新 AGENTS.md 第 1 节"IHUI-AI 项目对 Superpowers 技能的偏好覆盖"
 - [ ] ⏳(2026-07-14) Trae CN subagent 支持验证 — Superpowers 的 `subagent-driven-development` 与 `dispatching-parallel-agents` 技能依赖宿主 subagent 能力。**自验步骤**:① 在 Trae CN 中发起一个需要并行处理的任务;② 观察 agent 是否能派遣独立子智能体(关键观察点:是否出现"dispatching subagent"或类似日志、子智能体是否有独立上下文);③ 若支持:标记本条目 ✅,subagent-driven-development 技能从"可选"升级为"推荐";④ 若不支持:保持"可选",项目优先使用 `executing-plans`(内联执行)替代 subagent 模式
 - [x] ✅(2026-07-14) outbox.test.ts flaky test 修复 / goal — 根因:`mockResolvedValueOnce`/`mockRejectedValueOnce` 一次性队列依赖 vitest 内部 mock 状态,`vi.clearAllMocks()` 不清除队列残留,跨文件运行时被污染导致偶发 `mockRejectedValueOnce is not a function`。修复:L217-222 改用 `mockImplementation` 基于输入 event.id 返回,语义一致(e1 成功/e2,e3 失败)。验证:连续 3 次全量 `pnpm --filter @ihui/api test` 退出码 0(2664/2664 稳定通过)
 - [x] ✅(2026-07-11) M-15 STUB 路由真实化（9 个端点：3 移除做减法 + 4 实现 + 2 TODO 修复）
