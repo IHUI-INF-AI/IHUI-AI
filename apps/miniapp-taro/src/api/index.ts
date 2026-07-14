@@ -484,6 +484,40 @@ export const getDeveloperAgents = () => get('/developer/agents')
 export const getDeveloperIncome = () => get('/developer/income')
 export const getDeveloperWithdrawalList = () => get('/developer/withdrawals')
 
+export interface DeveloperPricing {
+  id: string
+  name: string
+  price: string
+  period: string | null
+  features: string[]
+  status: number
+  sort: number
+  createdAt: string
+}
+export interface DeveloperSubscription {
+  id: string
+  userId: string
+  pricingId: string | null
+  period: string | null
+  startTime: string
+  endTime: string
+  status: number
+  autoRenew: number
+  orderId: string | null
+}
+export const getDeveloperPricingList = () => get<{ list: DeveloperPricing[] }>('/developer/price')
+export const subscribeDeveloper = (data: {
+  pricingId: string
+  period?: 'monthly' | 'yearly'
+  paymentMethod?: string
+}) =>
+  post<{ orderId: string; orderNo: string; amount: number; pricingId: string; period: string }>(
+    '/developer/subscribe',
+    data,
+  )
+export const getMyDeveloperSubscription = () =>
+  get<{ subscription: DeveloperSubscription | null }>('/developer/subscription')
+
 /* ============ N8N 工作流 ============ */
 export const getN8nWorkflows = () => get('/workflows/n8n')
 export const createN8nAgent = (data: unknown) => post('/workflows/n8n/create', data)
