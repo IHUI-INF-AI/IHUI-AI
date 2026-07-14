@@ -3,7 +3,23 @@
 import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
-import { Sun, Moon, Monitor, Globe, Languages, Check, Smartphone } from 'lucide-react'
+import Link from 'next/link'
+import {
+  Sun,
+  Moon,
+  Monitor,
+  Globe,
+  Languages,
+  Check,
+  Smartphone,
+  UserX,
+  Shield,
+  Download,
+  Key,
+  FileText,
+  Bell,
+  CreditCard,
+} from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
@@ -21,6 +37,46 @@ import {
 } from '@/components/settings'
 
 const SIDEBAR_KEY = 'sidebar-collapsed'
+
+const SUB_PAGES = [
+  {
+    href: '/settings/account-deletion',
+    icon: UserX,
+    titleKey: 'accountDeletionTitle',
+    descKey: 'accountDeletionDesc',
+  },
+  { href: '/settings/privacy', icon: Shield, titleKey: 'privacyTitle', descKey: 'privacyDesc' },
+  {
+    href: '/settings/data-export',
+    icon: Download,
+    titleKey: 'dataExportTitle',
+    descKey: 'dataExportDesc',
+  },
+  {
+    href: '/settings/authorizations',
+    icon: Key,
+    titleKey: 'authorizationsTitle',
+    descKey: 'authorizationsDesc',
+  },
+  {
+    href: '/settings/security-log',
+    icon: FileText,
+    titleKey: 'securityLogTitle',
+    descKey: 'securityLogDesc',
+  },
+  {
+    href: '/settings/notifications',
+    icon: Bell,
+    titleKey: 'notificationsTitle',
+    descKey: 'notificationsDesc',
+  },
+  {
+    href: '/settings/subscription',
+    icon: CreditCard,
+    titleKey: 'subscriptionTitle',
+    descKey: 'subscriptionDesc',
+  },
+] as const
 
 export default function SettingsPage() {
   const t = useTranslations('settings')
@@ -180,6 +236,30 @@ export default function SettingsPage() {
       <SessionManager />
       <IpWhitelist />
       <LoginHistory />
+
+      <div className="space-y-2 pt-2">
+        <h2 className="text-lg font-semibold tracking-tight">{t('subPagesTitle')}</h2>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {SUB_PAGES.map((item) => {
+          const Icon = item.icon
+          return (
+            <Link key={item.href} href={item.href}>
+              <Card className="transition-colors hover:bg-accent">
+                <CardContent className="flex items-start gap-3 p-4">
+                  <div className="rounded-lg bg-muted p-2">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{t(item.titleKey)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t(item.descKey)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )
+        })}
+      </div>
     </Container>
   )
 }

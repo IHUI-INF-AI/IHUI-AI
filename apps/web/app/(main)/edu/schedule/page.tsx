@@ -34,8 +34,8 @@ export default function EduSchedulePage() {
     queryFn: () => api<{ list: ScheduleItem[] }>('/api/edu/schedule').then((d) => d.list ?? []),
   })
 
-  const items = data ?? []
   const byDay = React.useMemo(() => {
+    const items = data ?? []
     const map: Record<number, ScheduleItem[]> = {}
     for (let i = 0; i < 7; i++) map[i] = []
     items.forEach((it) => {
@@ -44,7 +44,7 @@ export default function EduSchedulePage() {
     })
     Object.values(map).forEach((arr) => arr.sort((a, b) => a.startTime.localeCompare(b.startTime)))
     return map
-  }, [items])
+  }, [data])
 
   const today = new Date().getDay()
   const todayIdx = today === 0 ? 6 : today - 1
@@ -66,7 +66,7 @@ export default function EduSchedulePage() {
         </div>
       ) : error ? (
         <Alert variant="danger" description={(error as Error).message} />
-      ) : items.length === 0 ? (
+      ) : (data ?? []).length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
           <CalendarDays className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">本周暂无课程</p>
