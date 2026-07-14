@@ -40,7 +40,14 @@ export default function CompanyPage() {
         getDistributionTeam({ page: 1, pageSize: 20 }),
       ])
       setInfo(infoRes)
-      setMembers(teamRes?.list || [])
+      const mapped: Member[] = (teamRes?.list || []).map((u) => ({
+        id: u.id,
+        nickname: u.nickname || u.username,
+        avatar: u.avatar ?? undefined,
+        joinTime: u.createdAt,
+        level: 1,
+      }))
+      setMembers(mapped)
     } catch {
       // ignore
     } finally {

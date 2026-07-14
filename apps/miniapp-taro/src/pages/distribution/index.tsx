@@ -1,7 +1,12 @@
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getDistributionInfo, type DistributionInfo } from '@/api'
+import {
+  getDistributionInfo,
+  getDistributionTeam,
+  getWithdrawalRecords,
+  type DistributionInfo,
+} from '@/api'
 import {
   DistributionStats,
   TeamManager,
@@ -20,6 +25,9 @@ const DEFAULT_INFO: DistributionInfo = {
   teamCount: 0,
 }
 
+const DEFAULT_TEAM: TeamMember[] = []
+const DEFAULT_WITHDRAWALS: WithdrawalRecord[] = []
+
 const MENU_ITEMS = [
   { icon: '👥', label: '我的团队', url: '/pages/distribution/team' },
   { icon: '💰', label: '佣金记录', url: '/pages/distribution/commission' },
@@ -27,34 +35,60 @@ const MENU_ITEMS = [
   { icon: '🏆', label: '排行榜', url: '/pages/distribution/rank' },
 ]
 
-const MOCK_TEAM: TeamMember[] = [
-  { id: '1', name: '张三', level: 1, joinedAt: '2026-06-01', earnings: 128.5, status: 'active' },
-  { id: '2', name: '李四', level: 2, joinedAt: '2026-06-15', earnings: 89.0, status: 'active' },
-]
+const WITHDRAWAL_STATUS_MAP: Record<number, 'pending' | 'approved' | 'rejected' | 'completed'> = {
+  0: 'pending',
+  1: 'approved',
+  2: 'completed',
+  3: 'rejected',
+}
 
-const MOCK_WITHDRAWALS: WithdrawalRecord[] = [
-  {
-    id: 'w1',
-    amount: 100,
-    status: 'completed',
-    method: '微信',
-    createdAt: '2026-07-10',
-  },
-  {
-    id: 'w2',
-    amount: 50,
-    status: 'pending',
-    method: '支付宝',
-    createdAt: '2026-07-13',
-  },
-]
+const METHOD_LABEL_MAP: Record<string, string> = {
+  wechat: '微信',
+  alipay: '支付宝',
+  bank: '银行卡',
+}
 
 export default function DistributionIndex() {
   const [info, setInfo] = useState<DistributionInfo>(DEFAULT_INFO)
+  const [inviteCode, setInviteCode] = useState<string>('')
+  const [team, setTeam] = useState<TeamMember[]>(DEFAULT_TEAM)
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>(DEFAULT_WITHDRAWALS)
 
   const load = useCallback(async () => {
     try {
-      setInfo(await getDistributionInfo())
+      const res = await getDistributionInfo()
+      setInfo(res)
+      if ((res as DistributionInfo & { inviteCode?: string | null }).inviteCode) {
+        setInviteCode((res as DistributionInfo & { inviteCode?: string | null }).inviteCode!)
+      }
+    } catch {
+      // ignore
+    }
+    try {
+      const teamRes = await getDistributionTeam({ page: 1, pageSize: 20 })
+      const members: TeamMember[] = (teamRes.list || []).map((u) => ({
+        id: u.id,
+        name: u.nickname || u.username,
+        level: 1,
+        joinedAt: u.createdAt,
+        earnings: 0,
+        status: 'active',
+      }))
+      setTeam(members)
+      setInfo((prev) => ({ ...prev, teamCount: teamRes.total || members.length }))
+    } catch {
+      // ignore
+    }
+    try {
+      const wRes = await getWithdrawalRecords({ page: 1, pageSize: 20 })
+      const records: WithdrawalRecord[] = (wRes.list || []).map((w) => ({
+        id: w.id,
+        amount: w.originalAmount / 100,
+        status: WITHDRAWAL_STATUS_MAP[w.status] || 'pending',
+        method: METHOD_LABEL_MAP[w.method] || w.method,
+        createdAt: w.createdAt,
+      }))
+      setWithdrawals(records)
     } catch {
       // ignore
     }
@@ -133,16 +167,12 @@ export default function DistributionIndex() {
         monthlyTarget={500}
       />
 
-      <TeamManager
-        members={MOCK_TEAM}
-        totalCount={info.teamCount}
-        onViewDetail={onViewTeamMember}
-      />
+      <TeamManager members={team} totalCount={info.teamCount} onViewDetail={onViewTeamMember} />
 
-      <WithdrawalRecords records={MOCK_WITHDRAWALS} onViewDetail={onViewWithdrawal} />
+      <WithdrawalRecords records={withdrawals} onViewDetail={onViewWithdrawal} />
 
       <InvitePoster
-        inviteCode={`IHUI${info.level}${info.teamCount}`}
+        inviteCode={inviteCode || `IHUI${info.level}${info.teamCount}`}
         inviteUrl="https://ihui.ai/invite/abc123"
         reward="邀请好友得 30% 佣金"
         inviterName="我"
