@@ -8,13 +8,13 @@ import {
   lessons,
   lessonSignUps,
   users,
-  eduLessonTopics,
   learnLearnMapTopic,
   learnTopic,
   lessonTask,
   lessonRate,
   lessonAccess,
   learnHomeworkRecord,
+  learnCommunityPost,
   type LearnHomework,
   type LearnMap,
   type LearnInvoiceApplication,
@@ -24,6 +24,7 @@ import {
   type LessonRate,
   type LessonAccess,
   type LearnHomeworkRecord,
+  type LearnCommunityPost,
 } from '@ihui/database'
 
 // =============================================================================
@@ -462,20 +463,6 @@ export async function findCompanyStudyReport(
 }
 
 // =============================================================================
-// Topics (话题发布状态)
-// =============================================================================
-
-/**
- * 更新话题发布状态。
- */
-export async function publishTopic(id: string, isPublished: boolean): Promise<void> {
-  await db
-    .update(eduLessonTopics)
-    .set({ isPublished, updatedAt: new Date() })
-    .where(eq(eduLessonTopics.id, id))
-}
-
-// =============================================================================
 // Learn Topics CRUD (学习话题管理 — learn_topic 表)
 // =============================================================================
 
@@ -583,6 +570,132 @@ export async function deleteTopicRow(id: string): Promise<void> {
 
 /** 哨兵标题,用于标记存储课程关联数据的作业记录。 */
 const LESSON_ASSOC_TITLE = '__lesson_associations__'
+
+// =============================================================================
+// Community Posts (课程讨论帖)
+// =============================================================================
+
+export interface CommunityPostRow {
+  id: string
+  userId: string
+  userName: string | null
+  lessonId: string | null
+  lessonTitle: string | null
+  title: string
+  content: string | null
+  isPinned: boolean
+  status: string
+  replyCount: number
+  viewCount: number
+  createdAt: string
+}
+
+export async function findAllCommunityPosts(params: {
+  page: number
+  pageSize: number
+  search?: string
+  status?: string
+}): Promise<{ list: CommunityPostRow[]; total: number }> {
+  const { page, pageSize, search, status } = params
+  const conditions = []
+  if (search) conditions.push(ilike(learnCommunityPost.title, `%${search}%`))
+  if (status) conditions.push(eq(learnCommunityPost.status, status))
+  const where = conditions.length > 0 ? and(...conditions) : undefined
+
+  const rows = await db
+    .select({
+      id: learnCommunityPost.id,
+      userId: learnCommunityPost.userId,
+      userName: users.nickname,
+      lessonId: learnCommunityPost.lessonId,
+      lessonTitle: lessons.title,
+      title: learnCommunityPost.title,
+      content: learnCommunityPost.content,
+      isPinned: learnCommunityPost.isPinned,
+      status: learnCommunityPost.status,
+      replyCount: learnCommunityPost.replyCount,
+      viewCount: learnCommunityPost.viewCount,
+      createdAt: learnCommunityPost.createdAt,
+    })
+    .from(learnCommunityPost)
+    .leftJoin(users, eq(users.id, learnCommunityPost.userId))
+    .leftJoin(lessons, eq(lessons.id, learnCommunityPost.lessonId))
+    .where(where)
+    .orderBy(desc(learnCommunityPost.isPinned), desc(learnCommunityPost.createdAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
+
+  const totalRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(learnCommunityPost)
+    .where(where)
+  const total = totalRows[0]?.count ?? 0
+
+  return {
+    list: rows.map((r) => ({
+      ...r,
+      userName: r.userName ?? null,
+      lessonId: r.lessonId ?? null,
+      lessonTitle: r.lessonTitle ?? null,
+      content: r.content ?? null,
+      createdAt: r.createdAt.toISOString(),
+    })),
+    total,
+  }
+}
+
+export async function findCommunityPostById(id: string): Promise<LearnCommunityPost | undefined> {
+  const rows = await db
+    .select()
+    .from(learnCommunityPost)
+    .where(eq(learnCommunityPost.id, id))
+    .limit(1)
+  return rows[0]
+}
+
+export async function createCommunityPost(input: {
+  userId: string
+  title: string
+  content?: string | null
+  lessonId?: string | null
+  status?: string
+  isPinned?: boolean
+}): Promise<LearnCommunityPost> {
+  const rows = await db
+    .insert(learnCommunityPost)
+    .values({
+      userId: input.userId,
+      title: input.title,
+      content: input.content ?? null,
+      lessonId: input.lessonId ?? null,
+      status: input.status ?? 'published',
+      isPinned: input.isPinned ?? false,
+    })
+    .returning()
+  return rows[0]!
+}
+
+export async function updateCommunityPost(
+  id: string,
+  input: Partial<{
+    title: string
+    content: string | null
+    lessonId: string | null
+    status: string
+    isPinned: boolean
+  }>,
+): Promise<LearnCommunityPost | undefined> {
+  const rows = await db
+    .update(learnCommunityPost)
+    .set({ ...input, updatedAt: new Date() })
+    .where(eq(learnCommunityPost.id, id))
+    .returning()
+  return rows[0]
+}
+
+export async function deleteCommunityPost(id: string): Promise<void> {
+  await db.delete(learnCommunityPost).where(eq(learnCommunityPost.id, id))
+}
 
 /**
  * 读取课程关联的试卷 ID。lessons 表无 examPaperId 字段,从哨兵作业记录的 content 中读取。
