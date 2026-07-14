@@ -1,59 +1,151 @@
-import { View, Text, Input, ScrollView } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import { View, Text, Input, ScrollView, Image } from '@tarojs/components'
+import Taro, { useRouter, useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { chat, type ChatMessage } from '@/api'
+import { chat, type ChatMessage, getModelPlazaList, getAigcList, getAgentDetail } from '@/api'
+import { DrawerComponent, ModelList, type ModelItem } from '@/components'
+import ChatMessageItem from './ChatMessageItem'
 import './chat.css'
 
+interface MaterialItem {
+  id: string
+  title: string
+  coverUrl?: string
+  content?: string
+}
+interface AgentInfo {
+  id: string
+  name: string
+  desc: string
+  avatar?: string
+  prompt: string
+}
+
+const SUGGESTIONS = [
+  '帮我写一段课程推广文案',
+  '如何提升学习效率？',
+  '推荐几本人工智能入门书',
+  '解释一下什么是大模型',
+]
+
 export default function ChatPage() {
+  const router = useRouter()
+  const agentId = router.params.agentId || ''
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
   const [thinking, setThinking] = useState(false)
   const [scrollTop, setScrollTop] = useState(0)
   const [sessionId, setSessionId] = useState('')
-
-  const suggestions = [
-    '帮我写一段课程推广文案',
-    '如何提升学习效率？',
-    '推荐几本人工智能入门书',
-    '解释一下什么是大模型',
-  ]
+  const [currentModel, setCurrentModel] = useState('')
+  const [currentModelName, setCurrentModelName] = useState('')
+  const [modelDrawerVisible, setModelDrawerVisible] = useState(false)
+  const [models, setModels] = useState<ModelItem[]>([])
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [materialDrawerVisible, setMaterialDrawerVisible] = useState(false)
+  const [materials, setMaterials] = useState<MaterialItem[]>([])
+  const [materialsLoading, setMaterialsLoading] = useState(false)
+  const [selectedMaterial, setSelectedMaterial] = useState<MaterialItem | null>(null)
+  const [agentDrawerVisible, setAgentDrawerVisible] = useState(false)
+  const [agent, setAgent] = useState<AgentInfo | null>(null)
 
   const scrollToBottom = useCallback(() => {
-    setTimeout(() => {
-      setScrollTop(s => (s === 99998 ? 99999 : 99998))
-    }, 50)
+    setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
   }, [])
 
-  const sendMessage = useCallback(async (overrideText?: string) => {
-    const text = (overrideText ?? inputText).trim()
-    if (!text || thinking) return
-
-    const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() }
-    setMessages(prev => [...prev, userMsg])
-    setInputText('')
-    setThinking(true)
-    scrollToBottom()
-
+  const loadModels = useCallback(async () => {
+    setModelsLoading(true)
     try {
-      const res = await chat([...messages, userMsg], sessionId)
-      setSessionId(res.sessionId)
-      setMessages(prev => [...prev, { role: 'assistant', content: res.reply, timestamp: Date.now() }])
+      const res = (await getModelPlazaList()) as { list?: ModelItem[] } | ModelItem[]
+      setModels(Array.isArray(res) ? res : res?.list || [])
     } catch {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: '抱歉，服务暂时不可用，请稍后再试。',
-        timestamp: Date.now(),
-      }])
+      Taro.showToast({ title: '模型加载失败', icon: 'none' })
     } finally {
-      setThinking(false)
-      scrollToBottom()
+      setModelsLoading(false)
     }
-  }, [inputText, thinking, sessionId, messages, scrollToBottom])
+  }, [])
 
-  const handleSuggestion = useCallback((text: string) => {
-    setInputText(text)
-    sendMessage(text)
-  }, [sendMessage])
+  const loadMaterials = useCallback(async () => {
+    setMaterialsLoading(true)
+    try {
+      const res = (await getAigcList()) as { list?: MaterialItem[] }
+      setMaterials(res?.list || [])
+    } catch {
+      Taro.showToast({ title: '素材加载失败', icon: 'none' })
+    } finally {
+      setMaterialsLoading(false)
+    }
+  }, [])
+
+  const loadAgent = useCallback(async () => {
+    if (!agentId) return
+    try {
+      setAgent(await getAgentDetail(agentId))
+    } catch {
+      Taro.showToast({ title: 'Agent加载失败', icon: 'none' })
+    }
+  }, [agentId])
+
+  useDidShow(() => {
+    if (agentId) loadAgent()
+  })
+
+  const sendMessage = useCallback(
+    async (overrideText?: string) => {
+      const text = (overrideText ?? inputText).trim()
+      if (!text || thinking) return
+      const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() }
+      setMessages((prev) => [...prev, userMsg])
+      setInputText('')
+      setThinking(true)
+      scrollToBottom()
+      try {
+        const res = await chat([...messages, userMsg], sessionId, {
+          modelId: currentModel || undefined,
+          agentId: agentId || undefined,
+          materialContent: selectedMaterial?.content || undefined,
+        })
+        setSessionId(res.sessionId)
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: res.reply,
+            timestamp: Date.now(),
+            reasoning: res.reasoning,
+          },
+        ])
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: '抱歉，服务暂时不可用，请稍后再试。',
+            timestamp: Date.now(),
+          },
+        ])
+      } finally {
+        setThinking(false)
+        scrollToBottom()
+      }
+    },
+    [
+      inputText,
+      thinking,
+      sessionId,
+      messages,
+      scrollToBottom,
+      currentModel,
+      agentId,
+      selectedMaterial,
+    ],
+  )
+
+  const handleSuggestion = useCallback(
+    (text: string) => {
+      setInputText(text)
+      sendMessage(text)
+    },
+    [sendMessage],
+  )
 
   const clearChat = useCallback(() => {
     Taro.showModal({
@@ -68,11 +160,46 @@ export default function ChatPage() {
     })
   }, [])
 
+  const selectModel = useCallback((m: ModelItem) => {
+    setCurrentModel(String(m.id))
+    setCurrentModelName(m.name)
+    setModelDrawerVisible(false)
+  }, [])
+
+  const selectMaterial = useCallback((m: MaterialItem) => {
+    setSelectedMaterial(m)
+    setMaterialDrawerVisible(false)
+  }, [])
+
+  const openModelDrawer = useCallback(() => {
+    setModelDrawerVisible(true)
+    if (!models.length) loadModels()
+  }, [models.length, loadModels])
+
+  const openMaterialDrawer = useCallback(() => {
+    setMaterialDrawerVisible(true)
+    if (!materials.length) loadMaterials()
+  }, [materials.length, loadMaterials])
+
   return (
     <View className="page">
       <View className="nav-bar safe-area-bottom">
-        <Text className="nav-title">AI 对话</Text>
-        {messages.length ? <Text className="nav-clear" onClick={clearChat}>清空</Text> : null}
+        <View className="nav-left" onClick={openModelDrawer}>
+          <Text className="nav-title">{currentModelName || 'AI 对话'}</Text>
+          <Text className="nav-arrow">▾</Text>
+        </View>
+        <View className="nav-right">
+          {agent ? (
+            <Text className="nav-agent" onClick={() => setAgentDrawerVisible(true)}>
+              {agent.name}
+            </Text>
+          ) : null}
+          {messages.length ? (
+            <Text className="nav-clear" onClick={clearChat}>
+              清空
+            </Text>
+          ) : null}
+        </View>
       </View>
 
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
@@ -81,7 +208,7 @@ export default function ChatPage() {
             <Text className="welcome-title">你好，我是智汇AI助手</Text>
             <Text className="welcome-desc">有什么问题请尽管问我</Text>
             <View className="suggest-list">
-              {suggestions.map((s, i) => (
+              {SUGGESTIONS.map((s, i) => (
                 <View key={i} className="suggest-item" onClick={() => handleSuggestion(s)}>
                   <Text>{s}</Text>
                 </View>
@@ -91,23 +218,39 @@ export default function ChatPage() {
         ) : null}
 
         {messages.map((msg, idx) => (
-          <View key={idx} className={`msg-item ${msg.role}`}>
-            <View className={`avatar ${msg.role}`}>{msg.role === 'user' ? '我' : 'AI'}</View>
-            <View className="bubble">
-              <Text className="bubble-text">{msg.content}</Text>
-            </View>
-          </View>
+          <ChatMessageItem key={idx} msg={msg} />
         ))}
 
         {thinking ? (
           <View className="msg-item assistant">
             <View className="avatar assistant">AI</View>
-            <View className="bubble"><Text className="bubble-text">思考中...</Text></View>
+            <View className="bubble">
+              <Text className="bubble-text">思考中...</Text>
+            </View>
           </View>
         ) : null}
       </ScrollView>
 
+      {selectedMaterial ? (
+        <View className="material-tag">
+          <Text className="material-tag-text">{selectedMaterial.title}</Text>
+          <Text className="material-tag-close" onClick={() => setSelectedMaterial(null)}>
+            ×
+          </Text>
+        </View>
+      ) : null}
+
       <View className="input-bar safe-area-bottom">
+        <View className="tool-icons">
+          <Text className="tool-icon" onClick={openMaterialDrawer}>
+            📁
+          </Text>
+          {agentId ? (
+            <Text className="tool-icon" onClick={() => setAgentDrawerVisible(true)}>
+              ⚡
+            </Text>
+          ) : null}
+        </View>
         <Input
           className="input"
           type="text"
@@ -115,7 +258,7 @@ export default function ChatPage() {
           placeholder="请输入问题"
           confirmType="send"
           onConfirm={() => sendMessage()}
-          onInput={e => setInputText(e.detail.value)}
+          onInput={(e) => setInputText(e.detail.value)}
           adjustPosition
         />
         <View
@@ -125,6 +268,89 @@ export default function ChatPage() {
           <Text>发送</Text>
         </View>
       </View>
+
+      <DrawerComponent
+        visible={modelDrawerVisible}
+        onClose={() => setModelDrawerVisible(false)}
+        height="60vh"
+      >
+        <View className="drawer-header">
+          <Text className="drawer-title">选择模型</Text>
+        </View>
+        <ModelList
+          models={models}
+          selectedId={currentModel}
+          onSelect={selectModel}
+          loading={modelsLoading}
+        />
+      </DrawerComponent>
+
+      <DrawerComponent
+        visible={materialDrawerVisible}
+        onClose={() => setMaterialDrawerVisible(false)}
+        height="60vh"
+      >
+        <View className="drawer-header">
+          <Text className="drawer-title">素材库</Text>
+        </View>
+        {materialsLoading ? (
+          <View className="drawer-empty">
+            <Text>加载中...</Text>
+          </View>
+        ) : materials.length ? (
+          <View className="material-list">
+            {materials.map((m) => (
+              <View key={m.id} className="material-item" onClick={() => selectMaterial(m)}>
+                {m.coverUrl ? (
+                  <Image className="material-cover" src={m.coverUrl} mode="aspectFill" />
+                ) : null}
+                <Text className="material-title">{m.title}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View className="drawer-empty">
+            <Text>暂无素材</Text>
+          </View>
+        )}
+      </DrawerComponent>
+
+      <DrawerComponent
+        visible={agentDrawerVisible}
+        onClose={() => setAgentDrawerVisible(false)}
+        height="60vh"
+      >
+        <View className="drawer-header">
+          <Text className="drawer-title">技能详情</Text>
+        </View>
+        {agent ? (
+          <View className="agent-info">
+            <View className="agent-header">
+              {agent.avatar ? (
+                <Image className="agent-avatar" src={agent.avatar} mode="aspectFill" />
+              ) : (
+                <View className="agent-avatar agent-avatar-default">
+                  <Text>{agent.name.charAt(0)}</Text>
+                </View>
+              )}
+              <View className="agent-meta">
+                <Text className="agent-name">{agent.name}</Text>
+                <Text className="agent-desc">{agent.desc}</Text>
+              </View>
+            </View>
+            {agent.prompt ? (
+              <View className="agent-prompt-wrap">
+                <Text className="agent-prompt-title">提示词</Text>
+                <Text className="agent-prompt">{agent.prompt}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : (
+          <View className="drawer-empty">
+            <Text>加载中...</Text>
+          </View>
+        )}
+      </DrawerComponent>
     </View>
   )
 }
