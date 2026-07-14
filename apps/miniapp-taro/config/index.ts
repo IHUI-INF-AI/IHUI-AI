@@ -13,7 +13,7 @@ export default defineConfig(async (merge) => {
     outputRoot: 'dist',
     plugins: [],
     defineConstants: {},
-    copy: { patterns: [], options: {} },
+    copy: { patterns: [{ from: 'src/static/', to: 'dist/static/' }], options: {} },
     framework: 'react',
     compiler: 'vite',
     cache: { enable: true },

@@ -182,7 +182,7 @@ declare global {
 
 /** 支持的第三方登录平台 */
 export type ThirdPartyPlatform =
-  'google' | 'apple' | 'dingtalk' | 'enterpriseWechat' | 'wechat' | 'github'
+  'google' | 'apple' | 'dingtalk' | 'enterpriseWechat' | 'wechat' | 'github' | 'feishu'
 
 /** 第三方登录状态机 */
 export type ThirdPartyLoginStatus =
