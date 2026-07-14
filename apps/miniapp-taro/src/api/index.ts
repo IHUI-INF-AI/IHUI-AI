@@ -312,12 +312,46 @@ export interface DistributionInfo {
   withdrawn: number
   teamCount: number
 }
-export const getDistributionInfo = () => get<DistributionInfo>('/distribution/info')
+export const getDistributionInfo = () =>
+  get<{
+    totalCommission: number
+    pendingCommission: number
+    withdrawnCommission: number
+    inviteCode: string | null
+  }>('/distribution/overview').then((res) => ({
+    level: 0,
+    totalCommission: res.totalCommission,
+    available: res.pendingCommission,
+    withdrawn: res.withdrawnCommission,
+    teamCount: 0,
+    inviteCode: res.inviteCode,
+  })) as Promise<DistributionInfo & { inviteCode: string | null }>
 export const getDistributionTeam = (params?: { page?: number; pageSize?: number }) =>
   get<{
-    list: Array<{ id: string; nickname: string; avatar?: string; joinTime: string; level: number }>
+    list: Array<{
+      id: string
+      username: string
+      nickname: string | null
+      avatar: string | null
+      createdAt: string
+    }>
     total: number
-  }>('/distribution/team', params)
+  }>('/distribution/invited-users', params)
+export const getWithdrawalRecords = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{
+      id: string
+      amount: number
+      originalAmount: number
+      fee: number
+      status: number
+      method: string
+      rejectReason: string | null
+      processedAt: string | null
+      createdAt: string
+    }>
+    total: number
+  }>('/distribution/withdrawals', params)
 export const getCommissionRecords = (params?: { page?: number; pageSize?: number }) =>
   get<{
     list: Array<{ id: string; amount: number; type: string; time: string; nickname?: string }>
@@ -576,10 +610,81 @@ export const getAgentUseHistory = () => get('/agents/use-history')
 export const getAgentCollections = () => get('/agents/collections')
 
 /* ============ 消息中心 ============ */
-export const getMessageRooms = () => get('/messages/rooms')
+export interface AggregateMessages {
+  announcements: Array<{
+    id: string
+    title: string
+    content: string | null
+    isPublished: boolean
+    status: number
+    createdAt: string
+  }>
+  privateMessages: Array<{
+    id: number
+    senderId: string
+    receiverId: string
+    content: string
+    isRead: boolean
+    readTime: string | null
+    createdAt: string
+  }>
+  systemNotices: Array<{
+    id: string
+    title: string
+    content: string | null
+    type: string | null
+    createdAt: string
+  }>
+  unreadCount: {
+    total: number
+    announcements: number
+    private: number
+    system: number
+  }
+}
+export const getMessageRooms = () => get<AggregateMessages>('/messages/aggregate')
+export const getSystemNotices = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{
+      id: string
+      title: string
+      content: string | null
+      type: string | null
+      createdAt: string
+    }>
+    page: number
+    pageSize: number
+  }>('/messages/system-notice/list', params)
+export const getPrivateMessages = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{
+      id: number
+      senderId: string
+      receiverId: string
+      content: string
+      isRead: boolean
+      readTime: string | null
+      createdAt: string
+    }>
+    page: number
+    pageSize: number
+  }>('/messages/private/list', params)
 export const getRoomHistory = (roomId: string, page = 1) =>
   get(`/messages/rooms/${roomId}/history`, { page })
 export const markRoomRead = (roomId: string) => post(`/messages/rooms/${roomId}/read`)
+
+/* ============ 通知偏好 ============ */
+export interface NotificationPreferences {
+  emailEnabled: boolean
+  smsEnabled: boolean
+  pushEnabled: boolean
+  inAppEnabled: boolean
+  types: string[]
+}
+export const getNotificationPreferences = () =>
+  get<NotificationPreferences>('/notifications/preferences')
+export const updateNotificationPreferences = (data: Partial<NotificationPreferences>) =>
+  put('/notifications/preferences', data)
 
 /* ============ AIGC ============ */
 export const getAigcList = (params?: unknown) => get('/aigc/list', params)
