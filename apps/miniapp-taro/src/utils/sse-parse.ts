@@ -1,0 +1,88 @@
+export interface SSEEvent {
+  type: 'chunk' | 'done' | 'error' | 'reasoning' | 'meta'
+  content?: string
+  sessionId?: string
+}
+
+export function parseSSEChunk(buffer: string): { events: SSEEvent[]; remainder: string } {
+  const events: SSEEvent[] = []
+  let rest = buffer
+
+  let nl: number
+  while ((nl = rest.indexOf('\n')) !== -1) {
+    const line = rest.slice(0, nl).replace(/\r$/, '')
+    rest = rest.slice(nl + 1)
+    const evt = parseLine(line)
+    if (evt) events.push(evt)
+  }
+
+  return { events, remainder: rest }
+}
+
+function parseLine(line: string): SSEEvent | null {
+  if (!line || line.startsWith(':')) return null
+
+  let data = line
+  if (line.startsWith('data:')) {
+    data = line.slice(5).replace(/^\s/, '')
+  } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+    return null
+  }
+
+  if (data === '[DONE]') return { type: 'done' }
+
+  const proto = data.match(/^(\d+):(.*)$/s)
+  const protoType = proto?.[1]
+  const protoPayload = proto?.[2]
+  if (protoType && protoPayload) {
+    try {
+      const parsed = JSON.parse(protoPayload)
+      if (protoType === '0' && typeof parsed === 'string') {
+        return { type: 'chunk', content: parsed }
+      }
+      if (protoType === '9' && typeof parsed === 'string') {
+        return { type: 'reasoning', content: parsed }
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  try {
+    const json = JSON.parse(data) as Record<string, unknown>
+    if (typeof json?.error === 'string') {
+      return { type: 'error', content: json.error }
+    }
+    if (json?.type === 'error' && typeof json?.message === 'string') {
+      return { type: 'error', content: json.message }
+    }
+    if (json?.error === true && typeof json?.error_message === 'string') {
+      return { type: 'error', content: json.error_message }
+    }
+    const choices = json?.choices as Array<Record<string, unknown>> | undefined
+    const choice = choices?.[0]
+    if (choice) {
+      const delta =
+        (choice.delta as Record<string, unknown> | undefined)?.content ??
+        (choice.message as Record<string, unknown> | undefined)?.content ??
+        choice.text
+      if (typeof delta === 'string') return { type: 'chunk', content: delta }
+    }
+    if (typeof json?.content === 'string') return { type: 'chunk', content: json.content }
+    if (typeof json?.delta === 'string') return { type: 'chunk', content: json.delta }
+    if (typeof json?.text === 'string') return { type: 'chunk', content: json.text }
+    if (json?.type === 'reasoning' && typeof json?.delta === 'string') {
+      return { type: 'reasoning', content: json.delta }
+    }
+    if (json?.type === 'meta' && typeof json?.sessionId === 'string') {
+      return { type: 'meta', sessionId: json.sessionId }
+    }
+    if (typeof json?.sessionId === 'string') {
+      return { type: 'meta', sessionId: json.sessionId }
+    }
+    return null
+  } catch {
+    return data ? { type: 'chunk', content: data } : null
+  }
+}
