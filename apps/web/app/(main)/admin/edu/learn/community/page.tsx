@@ -38,7 +38,7 @@ export default function EduLearnCommunityPage() {
     queryKey: ['edu', 'learn', 'community', debounced, page],
     queryFn: () =>
       eduApi<PageData<Topic>>(
-        `/api/admin/learn/topics${buildQs({ page, pageSize: PAGE_SIZE, search: debounced })}`,
+        `/api/admin/learn/community${buildQs({ page, pageSize: PAGE_SIZE, search: debounced })}`,
       ),
     retry: false,
   })
@@ -53,11 +53,11 @@ export default function EduLearnCommunityPage() {
         isPinned: form.isPinned,
       }
       if (editing)
-        return eduApi(`/api/admin/learn/topics/${editing.id}`, {
+        return eduApi(`/api/admin/learn/community/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
-      return eduApi(`/api/admin/learn/topics`, { method: 'POST', body: JSON.stringify(body) })
+      return eduApi(`/api/admin/learn/community`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       toast.success(editing ? t('updateSuccess') : t('createSuccess'))
@@ -67,7 +67,7 @@ export default function EduLearnCommunityPage() {
     onError: (e: Error) => setErr(e.message),
   })
   const deleteMut = useMutation({
-    mutationFn: (id: string) => eduApi(`/api/admin/learn/topics/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => eduApi(`/api/admin/learn/community/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'learn', 'community'] })

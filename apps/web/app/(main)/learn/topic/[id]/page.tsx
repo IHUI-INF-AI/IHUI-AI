@@ -13,17 +13,21 @@ interface TopicLesson {
   id: string
   title: string
   name?: string
+  coverImage?: string
   image?: string
   cover?: string
+  intro?: string
   instructor?: string
-  price?: number
+  price?: string | number
+  originalPrice?: string | number | null
+  isFree?: boolean
 }
 interface TopicDetail {
   id: string
   title: string
-  cover?: string
+  coverImage?: string
   description?: string
-  lessonCount?: number
+  lessonIds?: string[]
   learnNum?: number
   price?: number
   originalPrice?: number
@@ -43,7 +47,10 @@ export default function LearnTopicDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'topic', id],
-    queryFn: () => api<TopicDetail>(`/api/learn/topics/${id}`),
+    queryFn: async () => {
+      const res = await api<{ topic: TopicDetail }>(`/api/topics/${id}`)
+      return res.topic
+    },
   })
 
   if (isLoading)
@@ -88,10 +95,10 @@ export default function LearnTopicDetailPage() {
       <Card>
         <CardContent className="flex flex-col gap-4 p-6 md:flex-row">
           <div className="flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 md:w-64">
-            {topic.cover ? (
+            {topic.coverImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={topic.cover}
+                src={topic.coverImage}
                 alt={topic.title}
                 className="h-full w-full rounded-lg object-cover"
               />
@@ -107,7 +114,7 @@ export default function LearnTopicDetailPage() {
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <BookOpen className="h-4 w-4" />
-                {topic.lessonCount ?? lessons.length} 门课程
+                {topic.lessonIds?.length ?? lessons.length} 门课程
               </span>
               {typeof topic.learnNum === 'number' && (
                 <span className="flex items-center gap-1">
@@ -137,7 +144,7 @@ export default function LearnTopicDetailPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {lessons.map((lesson) => {
               const title = lesson.title ?? lesson.name ?? ''
-              const cover = lesson.image ?? lesson.cover
+              const cover = lesson.coverImage ?? lesson.image ?? lesson.cover
               return (
                 <Link key={lesson.id} href={`/learn/${lesson.id}`} className="group block">
                   <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
