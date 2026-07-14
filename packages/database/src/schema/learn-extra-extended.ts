@@ -1,4 +1,4 @@
-// 注意：该文件中的表当前无 API 引用，保留以备未来学习模块扩展需求
+// 注意：该文件包含 learn_topic 等历史表，已由 /api/admin/learn/premium-topics 路由引用
 import {
   pgTable,
   uuid,
@@ -216,6 +216,37 @@ export type LearnLearnMapTopic = typeof learnLearnMapTopic.$inferSelect
 export type NewLearnLearnMapTopic = typeof learnLearnMapTopic.$inferInsert
 export type LearnHomeworkRecord = typeof learnHomeworkRecord.$inferSelect
 export type NewLearnHomeworkRecord = typeof learnHomeworkRecord.$inferInsert
+
+/**
+ * 课程讨论帖表 (社区/学习圈讨论)。
+ * userId: 发帖人。lessonId: 关联课程(可空,空为综合区)。
+ * title/content: 标题/正文。isPinned: 置顶。status: published/draft/hidden。
+ * replyCount/viewCount: 回复数/浏览数(冗余计数,异步更新)。
+ */
+export const learnCommunityPost = pgTable(
+  'learn_community_post',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').notNull(),
+    lessonId: uuid('lesson_id'),
+    title: varchar('title', { length: 200 }).notNull(),
+    content: text('content'),
+    isPinned: boolean('is_pinned').default(false).notNull(),
+    status: varchar('status', { length: 20 }).default('published').notNull(),
+    replyCount: integer('reply_count').default(0).notNull(),
+    viewCount: integer('view_count').default(0).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index('learn_community_post_user_idx').on(t.userId),
+    lessonIdx: index('learn_community_post_lesson_idx').on(t.lessonId),
+    statusIdx: index('learn_community_post_status_idx').on(t.status),
+  }),
+)
+
+export type LearnCommunityPost = typeof learnCommunityPost.$inferSelect
+export type NewLearnCommunityPost = typeof learnCommunityPost.$inferInsert
 
 export const lessonTask = pgTable(
   'lesson_task',
