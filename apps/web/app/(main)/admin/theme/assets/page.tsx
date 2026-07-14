@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { Upload, Trash2, Loader2, Image as ImageIcon } from 'lucide-react'
 
 import { Button, Card, CardContent } from '@ihui/ui'
@@ -75,9 +76,16 @@ export default function AssetsPage() {
               <div key={type} className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">{label}</p>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border bg-muted">
+                  <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border bg-muted">
                     {cur ? (
-                      <img src={cur.url} alt={label} className="h-full w-full object-contain" />
+                      <Image
+                        src={cur.url}
+                        alt={label}
+                        fill
+                        sizes="64px"
+                        className="object-contain"
+                        unoptimized
+                      />
                     ) : (
                       <ImageIcon className="h-6 w-6 text-muted-foreground" />
                     )}
@@ -142,7 +150,14 @@ export default function AssetsPage() {
                   key={a.id}
                   className="group relative aspect-square overflow-hidden rounded-md border bg-muted"
                 >
-                  <img src={a.url} alt={a.name ?? ''} className="h-full w-full object-cover" />
+                  <Image
+                    src={a.url}
+                    alt={a.name ?? ''}
+                    fill
+                    sizes="120px"
+                    className="object-cover"
+                    unoptimized
+                  />
                   <button
                     type="button"
                     onClick={() => remove(a.id)}
