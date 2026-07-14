@@ -202,6 +202,14 @@
 - [x] ✅(2026-07-15) 全量验证: pnpm --filter @ihui/api typecheck 0 错误 / pnpm --filter @ihui/web typecheck 0 错误 / pnpm --filter @ihui/miniapp-taro typecheck 0 错误
 - [x] ✅(2026-07-15) 最终状态: 5 文件已稳定在远程;3 个 typecheck 全绿;工作区干净;无遗留可执行建议;对话可关闭
 
+### 消息页 mock 数据补回（2026-07-15 commit 5e1ecdec）
+
+- [x] ✅(2026-07-15) 触发: typecheck 修复过程中 DEFAULT_INTERACTION 被无意清空,本次补回 3 条样例(like/comment/follow)
+- [x] ✅(2026-07-15) commit 5e1ecdec: feat(miniapp) 消息页 DEFAULT_INTERACTION 补回 3 条 mock 数据(1 文件, +28 -1)
+- [x] ✅(2026-07-15) push origin/main: 781cc48a..5e1ecdec 推送成功
+- [x] ✅(2026-07-15) 全量验证: pnpm --filter @ihui/api typecheck 0 错误 / pnpm --filter @ihui/web typecheck 0 错误 / pnpm --filter @ihui/miniapp-taro typecheck 0 错误
+- [x] ✅(2026-07-15) 终极收尾状态: 4 commit (c0cbbe31 + 68751931 + b1d6aab7 + 781cc48a + 5e1ecdec) 全部稳定在 origin/main;3 个 typecheck 全绿;工作树 clean;无遗留可执行建议;对话可关闭
+
 ### 待人工确认任务（2026-07-15 更新）
 
 - [ ] 📋(2026-07-14) 用户任务 真机验证: 8 项清单 — 1.图片上传链路(feedback 页 uploadPictures) 2.模型切换交互(chat 页 DrawerComponent + ModelList) 3.reasoning 折叠(ChatMessageItem expanded) 4.通知横幅(NavBar notification) 5.开发者套餐订阅(developer/subscribe → pay) 6.SSE 流式(chat 页逐 token 渲染 + 停止按钮) 7.sessionId 连续性(多轮对话同一会话) 8.消息搜索(message 页客户端过滤)
@@ -6019,3 +6027,74 @@ typecheck 第一次失败 2 处预先存在错误(sidebar.tsx 第 118/121 行未
 - [x] (2026-07-14) LLM ���Ӳ���:������� 200 OK + ģ���б� 8 ��(stub mode);�Ի����� stub ģʽ(�� LLM key,���û����� OPENAI/GROQ/GEMINI �� key ����)
 - [x] (2026-07-14) Drizzle snapshot ���:16 �� snapshot �ļ�ȫ�� OK,0 �� malformed;0046=1067.7KB/426 tables,0059=1068.8KB/427 tables,0063=1198.6KB/481 tables(����);��ǰ��"0046/0059 malformed"���費����
 - [x] (2026-07-14) ��β״̬:Ŀ�� achieved;�޺�������;����ϸ��������β;�رնԻ�
+
+## Goal 交付 — P1-3 小程序后端 API 对接(2026-07-14)✅ / goal / p1-3
+
+> Goal 模式 1 轮完成。7 项硬性指标全部达成。修复 3 个前端 API 路径与后端不匹配,替换 5/6 处 mock 数据为真实 API 调用,新建 1 个后端端点(提现记录列表),typecheck 全部 exit 0。
+
+### 目标
+
+修复小程序前后端 API 路径不匹配 + 替换 P1-1 中 6 处 mock 数据为真实 API 调用 + 新建缺失后端端点。
+
+### 交付内容
+
+**后端新增端点(1 个)**:
+
+| 端点                          | 文件            | 说明                                                                                     |
+| ----------------------------- | --------------- | ---------------------------------------------------------------------------------------- |
+| GET /distribution/withdrawals | distribution.ts | 当前用户提现记录列表,支持分页 + 状态过滤,返回 amount/originalAmount/fee/status/method 等 |
+
+**前端 API 修复(3 个路径不匹配)**:
+
+| 前端函数              | 修复前路径         | 修复后路径                  | 字段映射                                                            |
+| --------------------- | ------------------ | --------------------------- | ------------------------------------------------------------------- |
+| getDistributionInfo() | /distribution/info | /distribution/overview      | level=0, available=pendingCommission, withdrawn=withdrawnCommission |
+| getDistributionTeam() | /distribution/team | /distribution/invited-users | id/username/nickname/avatar/createdAt → id/name/joinedAt            |
+| getMessageRooms()     | /messages/rooms    | /messages/aggregate         | 返回 announcements + privateMessages + systemNotices + unreadCount  |
+
+**前端新增 API 函数(5 个)**:getWithdrawalRecords / getSystemNotices / getPrivateMessages / getNotificationPreferences / updateNotificationPreferences
+
+**页面改造(2 个)**:
+
+| 页面                   | 改造内容                                                                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| distribution/index.tsx | 移除 MOCK_TEAM/MOCK_WITHDRAWALS,改用 getDistributionTeam() + getWithdrawalRecords();含状态映射(0-3→pending/processing/completed/failed)+ 方法映射(wechat→微信等)+ 金额分→元转换             |
+| message/index.tsx      | 移除 MOCK_SYSTEM/MOCK_PRIVATE/MOCK_SETTINGS,改用 getSystemNotices() + getPrivateMessages() + getNotificationPreferences();通知设置支持双向同步;保留 DEFAULT_INTERACTION(后端无互动消息端点) |
+
+### 验证依据
+
+| 硬性指标                                               | 结果                                           |
+| ------------------------------------------------------ | ---------------------------------------------- |
+| H1 getDistributionInfo() → /distribution/overview      | ✅ api/index.ts L315-328                       |
+| H2 getDistributionTeam() → /distribution/invited-users | ✅ api/index.ts L329-339                       |
+| H3 getMessageRooms() → /messages/aggregate             | ✅ api/index.ts L645                           |
+| H4 distribution/index.tsx mock 替换                    | ✅ 移除 MOCK_TEAM/MOCK_WITHDRAWALS             |
+| H5 message/index.tsx mock 替换                         | ✅ 移除 MOCK_SYSTEM/MOCK_PRIVATE/MOCK_SETTINGS |
+| H6 新建 GET /distribution/withdrawals                  | ✅ distribution.ts L226-275                    |
+| H7 typecheck 全部 exit 0                               | ✅ api=0 / miniapp-taro=0 / web=0              |
+
+### 关键发现与决策
+
+1. **前后端 API 路径系统性不匹配**:前端 API 定义于旧架构,采用"改前端适配后端"策略,最小化改动。
+2. **字段映射**:后端 /distribution/overview 返回 {totalCommission, pendingCommission, withdrawnCommission, inviteCode},映射为前端 DistributionInfo。
+3. **互动消息无后端端点**:后端无"互动消息"(点赞/评论/关注)端点,DEFAULT_INTERACTION 保留 mock 作为 fallback。
+4. **通知偏好双向同步**:NotificationSettings 支持读取 + 更新,调用 updateNotificationPreferences() 实时同步。
+
+### 残留风险与不足
+
+1. **互动消息无后端端点** — 需后续新建 /messages/interaction/list 端点
+2. **DistributionInfo.level 恒为 0** — 后端 /distribution/overview 不返回 level 字段
+3. **金额单位转换** — 后端金额单位为分,前端显示为元,已在 distribution 页做 /100 转换
+4. **课程详情页 mock 数据未处理** — LearningStreak/StudyStats 仍使用 mock
+
+### 后续最优建议
+
+**P1-2(Web C 端富媒体组件)**:PDF/Canvas/富文本/直播播放器
+**P2(运营 + Admin)**:Web C 端运营模块 + Admin 字段补全 + 60 个后端空桩真实化 + 18 个废弃页面深度开发
+**图标迁移**:旧项目 8 个 SVG 图标迁移到 src/assets/images/add/
+
+### Goal 运行时文件
+
+- `.trae-cn/goal-runtime/STATE.md` — 状态:achieved,轮次:1
+- `.trae-cn/goal-runtime/loop-run-log.md` — Round 0/1 完整日志
+- 整合完成后已删除上述两个运行时文件(目录保留)
