@@ -1,18 +1,98 @@
-.page { min-height: 100vh; background: #f7f8fa; display: flex; flex-direction: column; }
-.canvas { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32rpx; }
-.result-img { max-width: 100%; max-height: 600rpx; border-radius: 16rpx; }
-.empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.empty-icon { font-size: 120rpx; }
-.empty-text { font-size: 26rpx; color: #999; margin-top: 24rpx; }
-.examples { padding: 0 32rpx 24rpx; }
-.ex-title { font-size: 24rpx; color: #999; }
-.ex-list { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 16rpx; }
-.ex-item { padding: 12rpx 24rpx; background: #fff; border-radius: 24rpx; font-size: 24rpx; color: #666; }
-.form { padding: 24rpx 32rpx; background: #fff; }
-.input { width: 100%; min-height: 120rpx; padding: 20rpx; background: #f7f8fa; border-radius: 12rpx; font-size: 28rpx; box-sizing: border-box; }
-.form-row { display: flex; align-items: center; margin-top: 16rpx; gap: 16rpx; }
-.size-selector { display: flex; gap: 12rpx; flex: 1; }
-.size { padding: 8rpx 16rpx; border: 2rpx solid #eee; border-radius: 8rpx; font-size: 24rpx; color: #666; }
-.size.active { border-color: #007aff; color: #007aff; }
-.btn { background: #007aff; color: #fff; border-radius: 40rpx; font-size: 28rpx; padding: 0 32rpx; }
-.btn[disabled] { background: #ccc; }
+.page {
+  min-height: 100vh;
+  background: #f7f8fa;
+  display: flex;
+  flex-direction: column;
+}
+.canvas {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx;
+}
+.result-img {
+  max-width: 100%;
+  max-height: 600rpx;
+  border-radius: 16rpx;
+}
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.empty-icon {
+  font-size: 120rpx;
+}
+.empty-text {
+  font-size: 26rpx;
+  color: #999;
+  margin-top: 24rpx;
+}
+.examples {
+  padding: 0 32rpx 24rpx;
+}
+.ex-title {
+  font-size: 24rpx;
+  color: #999;
+}
+.ex-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+.ex-item {
+  padding: 12rpx 24rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  font-size: 24rpx;
+  color: #666;
+}
+.form {
+  padding: 24rpx 32rpx;
+  background: #fff;
+}
+.input {
+  width: 100%;
+  min-height: 120rpx;
+  padding: 20rpx;
+  background: #f7f8fa;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+.form-row {
+  display: flex;
+  align-items: center;
+  margin-top: 16rpx;
+  gap: 16rpx;
+}
+.size-selector {
+  display: flex;
+  gap: 12rpx;
+  flex: 1;
+}
+.size {
+  padding: 8rpx 16rpx;
+  border: 2rpx solid #eee;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  color: #666;
+}
+.size.active {
+  border-color: #07c160;
+  color: #07c160;
+}
+.btn {
+  background: #07c160;
+  color: #fff;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  padding: 0 32rpx;
+}
+.btn[disabled] {
+  background: #ccc;
+}

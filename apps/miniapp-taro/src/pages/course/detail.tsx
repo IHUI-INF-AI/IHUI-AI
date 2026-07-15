@@ -217,7 +217,7 @@ export default function CourseDetail() {
           <Text className="text-2xl text-[#dd524d] font-bold">{course.price ?? 0}</Text>
         </View>
         <View
-          className="px-7 h-10 leading-10 bg-[#007aff] text-white rounded-full text-sm"
+          className="px-7 h-10 leading-10 bg-[#07c160] text-white rounded-full text-sm"
           onClick={handleBuy}
         >
           <Text>立即购买</Text>

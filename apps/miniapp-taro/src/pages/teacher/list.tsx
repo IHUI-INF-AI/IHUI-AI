@@ -25,10 +25,14 @@ export default function TeacherList() {
     loadingRef.current = true
     setLoading(true)
     try {
-      const res = await getTeacherList({ page: pageRef.current, pageSize: 10, keyword: keywordRef.current })
+      const res = await getTeacherList({
+        page: pageRef.current,
+        pageSize: 10,
+        keyword: keywordRef.current,
+      })
       const more = res.list || []
       lenRef.current = reset ? more.length : lenRef.current + more.length
-      setList(prev => reset ? more : [...prev, ...more])
+      setList((prev) => (reset ? more : [...prev, ...more]))
       hasMoreRef.current = lenRef.current < res.total
       pageRef.current++
     } catch {
@@ -61,13 +65,13 @@ export default function TeacherList() {
           className="h-9 px-3 bg-white rounded-full text-sm"
           placeholder="搜索讲师"
           value={keyword}
-          onInput={e => setKeyword(e.detail.value)}
+          onInput={(e) => setKeyword(e.detail.value)}
           onConfirm={onSearch}
         />
       </View>
       {list.length > 0 && (
         <View className="px-3">
-          {list.map(t => (
+          {list.map((t) => (
             <View
               key={t.id}
               className="flex bg-white rounded-2xl p-3 mb-3"
@@ -82,7 +86,9 @@ export default function TeacherList() {
                 <View className="flex items-center gap-2">
                   <Text className="text-base text-[#333] font-semibold">{t.name}</Text>
                   {t.title && (
-                    <Text className="text-xs text-[#007aff] bg-[#e6f0ff] px-1.5 py-0.5 rounded">{t.title}</Text>
+                    <Text className="text-xs text-[#07c160] bg-[#e6f0ff] px-1.5 py-0.5 rounded">
+                      {t.title}
+                    </Text>
                   )}
                 </View>
                 <Text className="block text-xs text-[#999] mt-1.5 leading-relaxed">{t.intro}</Text>

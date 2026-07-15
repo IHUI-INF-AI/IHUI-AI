@@ -60,7 +60,7 @@ export default function Feedback() {
             <View
               key={t}
               className={`px-[16px] py-[6px] rounded-[16px] text-[13px] ${
-                activeType === t ? 'bg-[#007aff] text-white' : 'bg-[#f5f5f5] text-[#666]'
+                activeType === t ? 'bg-[#07c160] text-white' : 'bg-[#f5f5f5] text-[#666]'
               }`}
               onClick={() => setActiveType(t)}
             >
@@ -123,7 +123,7 @@ export default function Feedback() {
       </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          content.trim() ? 'bg-[#007aff] text-white' : 'bg-[#ccc] text-white'
+          content.trim() ? 'bg-[#07c160] text-white' : 'bg-[#ccc] text-white'
         }`}
         disabled={!content.trim()}
         onClick={onSubmit}

@@ -50,7 +50,7 @@ export default function ExamList() {
     <View key={e.id} className="bg-white rounded-2xl p-4 mb-3" onClick={() => goDetail(e.id)}>
       <View className="flex justify-between items-center">
         <Text className="text-base text-[#333] font-semibold">{e.title}</Text>
-        {e.categoryName && <Text className="text-xs text-[#007aff]">{e.categoryName}</Text>}
+        {e.categoryName && <Text className="text-xs text-[#07c160]">{e.categoryName}</Text>}
       </View>
       <View className="flex gap-3 mt-2">
         <Text className="text-xs text-[#666]">{e.questionCount}题</Text>
@@ -96,7 +96,7 @@ export default function ExamList() {
         {TABS.map((t) => (
           <View
             key={t.key}
-            className={`flex-1 py-3 text-center text-sm ${tab === t.key ? 'text-[#007aff] font-semibold border-b-2 border-[#007aff]' : 'text-[#666]'}`}
+            className={`flex-1 py-3 text-center text-sm ${tab === t.key ? 'text-[#07c160] font-semibold border-b-2 border-[#07c160]' : 'text-[#666]'}`}
             onClick={() => setTab(t.key)}
           >
             {t.label}

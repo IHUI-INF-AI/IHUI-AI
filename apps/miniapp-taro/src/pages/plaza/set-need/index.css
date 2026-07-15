@@ -1,4 +1,4 @@
-﻿.page {
+.page {
   min-height: 100vh;
   background: #f7f8fa;
   padding-bottom: 140rpx;
@@ -41,7 +41,7 @@
   background: #e6f0ff;
 }
 .tag.active text {
-  color: #007aff;
+  color: #07c160;
 }
 .save-btn {
   position: fixed;
@@ -50,7 +50,7 @@
   right: 32rpx;
   height: 88rpx;
   line-height: 88rpx;
-  background: #007aff;
+  background: #07c160;
   color: #fff;
   border-radius: 44rpx;
   font-size: 30rpx;

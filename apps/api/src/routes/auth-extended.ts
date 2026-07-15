@@ -1542,9 +1542,71 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           break
         }
         case 'apple': {
-          return reply
-            .status(501)
-            .send(error(501, 'Apple 登录回调暂未实现,需配置 client_secret JWT'))
+          // Apple OAuth 框架实现:接收 code/state,尝试用预签名 client_secret 换取 token。
+          // 完整实现需用 Apple 私钥签名 client_secret JWT,此处支持两种模式:
+          //   1) APPLE_CLIENT_SECRET 已为签名后的 JWT → 真实交换并解码 id_token
+          //   2) 未配置 → 返回回调已接收的框架响应
+          const appleClientId = process.env.APPLE_CLIENT_ID
+          const appleClientSecret = process.env.APPLE_CLIENT_SECRET
+          if (!appleClientId) {
+            return reply.status(400).send(error(400, 'Apple OAuth 未配置 (APPLE_CLIENT_ID 缺失)'))
+          }
+          if (appleClientSecret) {
+            const tokenRes = await fetch('https://appleid.apple.com/auth/token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({
+                client_id: appleClientId,
+                client_secret: appleClientSecret,
+                code,
+                grant_type: 'authorization_code',
+              }),
+            })
+            const tokenData = (await tokenRes.json()) as {
+              access_token?: string
+              id_token?: string
+              refresh_token?: string
+              error?: string
+              error_description?: string
+            }
+            if (!tokenData.id_token) {
+              return reply
+                .status(400)
+                .send(
+                  error(
+                    400,
+                    `Apple token 交换失败: ${tokenData.error ?? '未知错误'}${tokenData.error_description ? ` — ${tokenData.error_description}` : ''}`,
+                  ),
+                )
+            }
+            // 解码 id_token payload 获取 sub(Apple 用户唯一标识)与 email
+            const payloadB64 = tokenData.id_token.split('.')[1]
+            if (!payloadB64) {
+              return reply.status(400).send(error(400, 'Apple id_token 格式无效'))
+            }
+            const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8')) as {
+              sub: string
+              email?: string
+            }
+            openId = payload.sub
+            email = payload.email
+            break
+          }
+          // 框架返回:未配置私钥,仅确认收到回调
+          return reply.send(
+            success({
+              status: 'apple_callback_received',
+              code,
+              state: bodyParsed.data.state,
+              note: '需配置 Apple 私钥生成 client_secret JWT (APPLE_CLIENT_SECRET) 以完成 token 交换',
+              missing: {
+                clientSecret: true,
+                teamId: !process.env.APPLE_TEAM_ID,
+                keyId: !process.env.APPLE_KEY_ID,
+                privateKey: !process.env.APPLE_PRIVATE_KEY,
+              },
+            }),
+          )
         }
       }
     } catch (e) {

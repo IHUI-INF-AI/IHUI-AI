@@ -1,5 +1,13 @@
 import { View, ScrollView } from '@tarojs/components'
 import ModelTypeButton, { type ModelType } from './ModelTypeButton'
+import skillsIcon from '../assets/images/add/skills.svg'
+import talkIcon from '../assets/images/add/talk.svg'
+import imageIcon from '../assets/images/add/image.svg'
+import videoIcon from '../assets/images/add/video.svg'
+import audioIcon from '../assets/images/add/audio.svg'
+import videoaIcon from '../assets/images/add/videoa.svg'
+import otherIcon from '../assets/images/add/other.svg'
+import sckIcon from '../assets/images/add/sck.svg'
 
 export interface ModelTypeConfig {
   type: ModelType
@@ -8,14 +16,14 @@ export interface ModelTypeConfig {
 }
 
 export const MODEL_TYPES: ModelTypeConfig[] = [
-  { type: 'skills', label: '技能', icon: '/assets/tabbar/ai.png' },
-  { type: 'talk', label: '文本', icon: '/assets/tabbar/ai.png' },
-  { type: 'image', label: '图像', icon: '/assets/tabbar/ai.png' },
-  { type: 'video', label: '视频', icon: '/assets/tabbar/ai.png' },
-  { type: 'audio', label: '声音', icon: '/assets/tabbar/ai.png' },
-  { type: 'videoa', label: '数字人', icon: '/assets/tabbar/ai.png' },
-  { type: 'other', label: '全能', icon: '/assets/tabbar/ai.png' },
-  { type: 'sck', label: '素材', icon: '/assets/tabbar/ai.png' },
+  { type: 'skills', label: '技能', icon: skillsIcon },
+  { type: 'talk', label: '文本', icon: talkIcon },
+  { type: 'image', label: '图像', icon: imageIcon },
+  { type: 'video', label: '视频', icon: videoIcon },
+  { type: 'audio', label: '声音', icon: audioIcon },
+  { type: 'videoa', label: '数字人', icon: videoaIcon },
+  { type: 'other', label: '全能', icon: otherIcon },
+  { type: 'sck', label: '素材', icon: sckIcon },
 ]
 
 export interface ModelTypeButtonGroupProps {
