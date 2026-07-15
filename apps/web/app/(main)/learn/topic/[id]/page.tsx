@@ -4,7 +4,6 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
 import { ArrowLeft, Layers, BookOpen, Users, Loader2, PlayCircle, Sparkles, Info } from 'lucide-react'
 import Image from 'next/image'
 
@@ -64,9 +63,6 @@ async function loadTopic(id: string): Promise<LoadedTopic> {
 export default function LearnTopicDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const t = useTranslations('learn.topic')
-  const tCommon = useTranslations('common')
-
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'topic', id],
     queryFn: () => loadTopic(id),
