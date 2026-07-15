@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql, or, ilike } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -58,6 +58,12 @@ const auditBodySchema = z.object({
 // =============================================================================
 
 export const authIdentityRoutes: FastifyPluginAsync = async (server) => {
+  // 实名认证响应含 idCard(用户自身 + admin 列表查看),需跳过响应脱敏
+  // 防止 response-sanitizer 把 idCard 字段误伤为 '***'
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
   // POST /auth/realname/submit - 提交实名认证
   server.post('/auth/realname/submit', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
