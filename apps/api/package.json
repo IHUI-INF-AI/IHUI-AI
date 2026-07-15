@@ -58,7 +58,8 @@
     "postgres": "^3.4.5",
     "sharp": "^0.33.5",
     "xlsx": "^0.18.5",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
