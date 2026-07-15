@@ -1,11 +1,8 @@
 export { default as NavBar } from './NavBar'
 export type { NavBarProps } from './NavBar'
 
-export { default as Loading, Skeleton } from './Loading'
-export type { LoadingProps, SkeletonProps } from './Loading'
-
-export { default as InputArea } from './InputArea'
-export type { InputAreaProps } from './InputArea'
+export { default as Loading } from './Loading'
+export type { LoadingProps } from './Loading'
 
 export { default as ModelList } from './ModelList'
 export type { ModelListProps, ModelItem } from './ModelList'
@@ -24,15 +21,6 @@ export type { ModelTypeButtonProps, ModelType } from './ModelTypeButton'
 
 export { default as ModelTypeButtonGroup, MODEL_TYPES } from './ModelTypeButtonGroup'
 export type { ModelTypeButtonGroupProps, ModelTypeConfig } from './ModelTypeButtonGroup'
-
-export { default as SkillsPopup } from './SkillsPopup'
-export type { SkillsPopupProps, AgentItem } from './SkillsPopup'
-
-export { default as MaterialPopup } from './MaterialPopup'
-export type { MaterialPopupProps, MaterialItem, MaterialTab } from './MaterialPopup'
-
-export { default as ModelListPanel } from './ModelListPanel'
-export type { ModelListPanelProps, ModelInfo } from './ModelListPanel'
 
 export { default as AgentListPanel } from './AgentListPanel'
 export type { AgentListPanelProps, AgentInfo } from './AgentListPanel'
