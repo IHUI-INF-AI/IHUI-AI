@@ -1,6 +1,6 @@
 import { View, Text, Input, Image } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { getNewsList, type News } from '@/api'
 import { useI18n } from '@/i18n'
 import './list.css'
@@ -52,8 +52,10 @@ export default function NewsListPage() {
 
   useReachBottom(() => load())
 
+  const loadRef = useRef(load)
+  loadRef.current = load
   useEffect(() => {
-    load(true)
+    void loadRef.current(true)
   }, [])
 
   return (
