@@ -115,9 +115,11 @@ export const updatePermissionSchema = z.object({
 })
 
 
+// Drizzle CRUD 工厂:接受任意 pgTable 实例,泛型签名受 TableConfig 索引签名约束无法表达。
 export function registerCrud(
   server: FastifyInstance,
   basePath: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   table: any,
   opts: {
     searchField?: Column
@@ -180,7 +182,6 @@ export function registerCrud(
     return reply.send(success({ deleted: idList.length }))
   })
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'json'
 export function fields(fc: Record<string, FieldType>) {
