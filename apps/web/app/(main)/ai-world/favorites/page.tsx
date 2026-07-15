@@ -99,7 +99,7 @@ export default function AiWorldFavoritesPage() {
                   )}
                 </div>
                 <CardContent className="space-y-2 p-4">
-                  <h3 className="truncate text-sm font-medium">{item.title}</h3>
+                  <h3 className="line-clamp-2 text-sm font-medium">{item.title}</h3>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
                       <Eye className="h-3 w-3" />
