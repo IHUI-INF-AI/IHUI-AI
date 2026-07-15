@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils'
 
 import { selectClass } from './types'
 import type { useNewsArticles } from './useNewsArticles'
+import { formatDate } from '@/lib/date-utils'
 
 type Props = ReturnType<typeof useNewsArticles>
 
@@ -214,7 +215,7 @@ export function NewsArticleTable(props: Props) {
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-muted-foreground">
-                      {new Date(article.createdAt).toLocaleString()}
+                      {formatDate(article.createdAt)}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">

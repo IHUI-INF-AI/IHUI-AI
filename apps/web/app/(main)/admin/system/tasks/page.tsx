@@ -29,6 +29,7 @@ import {
   TableCell,
 } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/date-utils'
 
 interface Task {
   id: string
@@ -197,14 +198,14 @@ export default function AdminSystemTasksPage() {
                     {t.lastRunAt ? (
                       <span className="inline-flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {new Date(t.lastRunAt).toLocaleString()}
+                        {formatDate(t.lastRunAt)}
                       </span>
                     ) : (
                       '-'
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {t.nextRunAt ? new Date(t.nextRunAt).toLocaleString() : '-'}
+                    {t.nextRunAt ? formatDate(t.nextRunAt) : '-'}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {t.lastDuration !== null && t.lastDuration !== undefined

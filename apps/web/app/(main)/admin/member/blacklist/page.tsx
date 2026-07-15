@@ -16,6 +16,7 @@ import {
 } from '@ihui/ui'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/date-utils'
 
 interface BlacklistItem {
   id: string
@@ -157,10 +158,10 @@ export default function AdminMemberBlacklistPage() {
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {new Date(b.createdAt).toLocaleString()}
+                    {formatDate(b.createdAt)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {b.expiresAt ? new Date(b.expiresAt).toLocaleString() : '永久'}
+                    {b.expiresAt ? formatDate(b.expiresAt) : '永久'}
                   </TableCell>
                   <TableCell className="text-right">
                     {b.status === 'active' && (

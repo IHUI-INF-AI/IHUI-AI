@@ -1,5 +1,5 @@
 'use client'
-import { Edit, Trash2, Loader2, UserCog } from 'lucide-react'
+import { Edit, Trash2, Loader2, UserCog, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { useTranslations } from 'next-intl'
@@ -65,7 +65,8 @@ export function TeacherTable({ rows, isLoading, error, onEdit, onDelete, deleteP
                 <TableCell className="px-4 py-2.5">{tc.studentCount}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                    ★ {tc.rating.toFixed(1)}
+                    {tc.rating.toFixed(1)}
+                    <Star className="h-3 w-3 fill-current" />
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">

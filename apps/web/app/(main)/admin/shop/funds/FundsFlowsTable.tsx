@@ -5,6 +5,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { cn } from '@/lib/utils'
 import { TYPE_LABEL } from './helpers'
 import type { FundFlow } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface Props {
   flows: FundFlow[]
@@ -67,7 +68,7 @@ export function FundsFlowsTable({ flows, isLoading }: Props) {
                   {f.remark || '-'}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  {new Date(f.createdAt).toLocaleString()}
+                  {formatDate(f.createdAt)}
                 </TableCell>
               </TableRow>
             ))
