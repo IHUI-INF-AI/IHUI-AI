@@ -1033,6 +1033,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
     const newSecret = randomBytes(32).toString('hex')
     const app = await regenerateOAuthAppSecret(clientId, existing.ownerUuid!, newSecret)
+    // 跳过响应脱敏,否则 app.clientSecret 会被 response-sanitizer 误伤为 '***'
+    request.skipResponseSanitization = true
     return reply.send(success(app))
   })
 
