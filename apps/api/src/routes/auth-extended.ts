@@ -1426,6 +1426,84 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ============================================================================
+  // 换手机号四步流程（前端 auth-api.ts 调用 /api/auth/change-phone/*）
+  // ============================================================================
+
+  // POST /auth/change-phone/send-old-code — 向当前手机号发送验证码
+  server.post('/auth/change-phone/send-old-code', async (request, reply) => {
+    await authenticate(request)
+    const user = await findUserById(request.userId!)
+    if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
+    const result = await sendSmsCode(user.phone)
+    if (!result.success) return reply.status(429).send(error(429, result.msg))
+    return reply.send(success({ sent: true }))
+  })
+
+  // POST /auth/change-phone/verify-old-code — 校验当前手机号验证码
+  const oldCodeSchema = z.object({ code: z.string().length(6) })
+  server.post('/auth/change-phone/verify-old-code', async (request, reply) => {
+    await authenticate(request)
+    const user = await findUserById(request.userId!)
+    if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
+    const parsed = oldCodeSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { verifyCode } = await import('../utils/code-store.js')
+    if (!verifyCode(user.phone, parsed.data.code)) {
+      return reply.status(400).send(error(400, '验证码错误或已过期'))
+    }
+    return reply.send(success({ verified: true }))
+  })
+
+  // POST /auth/change-phone/send-new-code — 向新手机号发送验证码
+  const newPhoneSchema = z.object({
+    newPhone: z
+      .string()
+      .length(11, '手机号必须为 11 位')
+      .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+  })
+  server.post('/auth/change-phone/send-new-code', async (request, reply) => {
+    await authenticate(request)
+    const parsed = newPhoneSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { newPhone } = parsed.data
+    const existing = await findUserByPhone(newPhone)
+    if (existing && existing.id !== request.userId) {
+      return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
+    }
+    const result = await sendSmsCode(newPhone)
+    if (!result.success) return reply.status(429).send(error(429, result.msg))
+    return reply.send(success({ sent: true }))
+  })
+
+  // POST /auth/change-phone/confirm — 确认换号（校验新手机号验证码并更新）
+  const confirmSchema = z.object({
+    newPhone: z
+      .string()
+      .length(11, '手机号必须为 11 位')
+      .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+    code: z.string().length(6, '验证码必须为 6 位'),
+  })
+  server.post('/auth/change-phone/confirm', async (request, reply) => {
+    await authenticate(request)
+    const parsed = confirmSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { newPhone, code } = parsed.data
+    const { verifyCode } = await import('../utils/code-store.js')
+    if (!verifyCode(newPhone, code)) {
+      return reply.status(400).send(error(400, '验证码错误或已过期'))
+    }
+    const existing = await findUserByPhone(newPhone)
+    if (existing && existing.id !== request.userId) {
+      return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
+    }
+    const updated = await updateUser(request.userId!, { phone: newPhone })
+    return reply.send(success({ user: { id: updated.id, phone: updated.phone ?? '' } }))
+  })
+
+  // ============================================================================
   // 第三方登录统一回调 POST /auth/:platform/callback
   // 前端 use-third-party-auth.ts handleCallback 调用,接收 { code, state },
   // 按 platform 分发到各厂商 API 换取用户信息,查/建用户,返回 token+user。
