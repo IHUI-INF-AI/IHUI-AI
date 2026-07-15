@@ -105,7 +105,7 @@ export default function AiWorldHistoryPage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1 space-y-1">
-                    <h3 className="truncate text-sm font-medium">{item.title}</h3>
+                    <h3 className="line-clamp-2 text-sm font-medium">{item.title}</h3>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <Eye className="h-3 w-3" />

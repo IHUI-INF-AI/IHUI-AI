@@ -98,7 +98,7 @@ export default function ThemeListPage() {
             <CardContent className="space-y-3 p-4">
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{t.name}</p>
+                  <p className="line-clamp-2 text-sm font-semibold">{t.name}</p>
                   {t.description && (
                     <p className="truncate text-xs text-muted-foreground">{t.description}</p>
                   )}
