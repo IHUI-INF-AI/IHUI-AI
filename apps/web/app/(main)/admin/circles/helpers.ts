@@ -53,13 +53,3 @@ export function circleToForm(item: Circle): CircleForm {
     isPublished: item.isPublished,
   }
 }
-
-export function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\u4e00-\u9fa5\s-]/g, '')
-    .replace(/[\s_]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-}

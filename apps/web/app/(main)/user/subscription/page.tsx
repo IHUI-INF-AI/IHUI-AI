@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
+import { formatDate } from '@/lib/date-utils'
 import {
   Button,
   Label,
@@ -50,12 +51,6 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
   return r.data
-}
-
-function formatDate(v?: string): string {
-  if (!v) return '-'
-  const d = new Date(v)
-  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString()
 }
 
 function formatPrice(cents: number): string {
@@ -140,7 +135,8 @@ export default function SubscriptionPage() {
                   </p>
                   <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                     <span>
-                      {t('subscription.expireTime')}：{formatDate(status?.expireTime)}
+                      {t('subscription.expireTime')}：
+                      {status?.expireTime ? formatDate(status.expireTime) : '-'}
                     </span>
                     <span className="flex items-center gap-1">
                       {t('subscription.autoRenew')}：

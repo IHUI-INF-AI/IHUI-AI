@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Star, Loader2, MessageSquare } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { formatDate } from '@/lib/date-utils'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { Avatar } from '@/components/data/Avatar'
 
@@ -29,16 +30,6 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
   return r.data
-}
-
-function formatTime(t?: string) {
-  if (!t) return ''
-  try {
-    const d = new Date(t)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  } catch {
-    return t
-  }
 }
 
 export default function CourseRatePage() {
@@ -185,7 +176,7 @@ export default function CourseRatePage() {
             {list.map((item) => {
               const name = item.user?.nickname ?? item.userName ?? '匿名用户'
               const avatar = item.user?.avatar ?? item.userAvatar
-              const time = formatTime(item.createdAt ?? item.createTime)
+              const time = formatDate(item.createdAt ?? item.createTime ?? '')
               return (
                 <Card key={item.id}>
                   <CardContent className="flex items-start gap-3 p-4">

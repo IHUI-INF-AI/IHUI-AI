@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, ImageIcon, Sparkles, Download } from 'lucide-react'
@@ -133,11 +134,13 @@ export default function ImageGenPage() {
         <Card>
           <CardContent className="space-y-3 p-4">
             <div className="overflow-hidden rounded-lg bg-muted">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={result.imageUrl}
                 alt={result.revisedPrompt ?? prompt}
+                width={1024}
+                height={1024}
                 className="mx-auto max-h-[60vh] w-auto object-contain"
+                style={{ width: 'auto', height: 'auto' }}
               />
             </div>
             {result.revisedPrompt && (

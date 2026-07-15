@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Flame, Loader2, Eye, ChevronLeft, ChevronRight, Newspaper, ArrowLeft } from 'lucide-react'
@@ -120,9 +121,9 @@ export default function HotArticlesPage() {
                       </div>
                     </div>
                     {item.coverImage && (
-                      <div className="h-16 w-24 shrink-0 overflow-hidden rounded-md bg-muted">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                      <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md bg-muted">
+                        <Image
+                          fill
                           src={item.coverImage}
                           alt={item.title}
                           className="h-full w-full object-cover"
