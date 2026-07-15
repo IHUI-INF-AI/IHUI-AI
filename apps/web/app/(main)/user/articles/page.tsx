@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, Plus, Pencil, Trash2, Eye } from 'lucide-react'
@@ -97,11 +98,9 @@ export default function MyArticlesPage() {
               <Card key={a.id}>
                 <CardContent className="flex items-start gap-3 p-4">
                   {a.coverImage ? (
-                    <img
-                      src={a.coverImage}
-                      alt={a.title}
-                      className="h-16 w-24 shrink-0 rounded-md object-cover"
-                    />
+                    <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md">
+                      <Image src={a.coverImage} alt={a.title} fill className="object-cover" />
+                    </div>
                   ) : null}
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">

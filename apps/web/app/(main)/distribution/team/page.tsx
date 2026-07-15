@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Users, Loader2, ChevronLeft, ChevronRight, ArrowLeft, Crown } from 'lucide-react'
+import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -166,8 +167,13 @@ export default function DistributionTeamPage() {
                     <TableCell className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         {it.avatar ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={it.avatar} alt="" className="h-6 w-6 rounded-full" />
+                          <Image
+                            src={it.avatar}
+                            alt=""
+                            width={24}
+                            height={24}
+                            className="h-6 w-6 rounded-full"
+                          />
                         ) : (
                           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
                             {(it.nickname ?? 'U')[0]?.toUpperCase()}

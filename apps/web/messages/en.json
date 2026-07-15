@@ -101,7 +101,13 @@
       "loginRequiredTitle": "Please sign in",
       "loginRequiredDesc": "Sign in to experience real AI conversations",
       "aiErrorTitle": "AI call failed",
-      "aiErrorPrefix": "AI call failed"
+      "aiErrorPrefix": "AI call failed",
+      "modelSelectorLabel": "Select Model",
+      "modelSelectorPlaceholder": "Select Model",
+      "modelSelectorLoading": "Loading configs...",
+      "modelSelectorEmpty": "Please add a model config first",
+      "modelSelectorRequiredTitle": "Please select a model",
+      "modelSelectorRequiredDesc": "Choose a model config from the dropdown on the top right"
     },
     "resources": "Resources",
     "siteName": "Zhihui AI Community",
@@ -787,7 +793,66 @@
     "sensitivityHigh": "High",
     "speedSlow": "Slow",
     "speedMid": "mid",
-    "speedFast": "Fast"
+    "speedFast": "Fast",
+    "announcement": {
+      "welcomeMessage": "Welcome to ZhiHui AI Education Platform — start your smart learning journey!",
+      "close": "Close announcement"
+    },
+    "banner": {
+      "slide1Title": "AI-Powered Smart Learning Platform",
+      "slide1Subtitle": "Integrating AI with education for a personalized learning experience",
+      "slide1Cta": "Explore now",
+      "slide2Title": "Live Streaming with Expert Instructors",
+      "slide2Subtitle": "Industry experts teaching online — zero-distance Q&A",
+      "slide2Cta": "View live",
+      "slide3Title": "Massive Question Bank & Precise Assessment",
+      "slide3Subtitle": "Smart test assembly and error analysis for efficient exam prep",
+      "slide3Cta": "Start exam",
+      "switchTo": "Switch to slide {index}"
+    },
+    "memberCard": {
+      "points": "Points",
+      "balance": "Balance",
+      "following": "Following",
+      "fans": "Fans",
+      "signedIn": "Checked in",
+      "signIn": "Check in",
+      "welcome": "Hi, welcome to the learning platform",
+      "loginHint": "Log in for more services",
+      "loginNow": "Log in now",
+      "allCourses": "All courses",
+      "featuredArticles": "Featured articles",
+      "askCommunity": "Q&A community",
+      "learningCircle": "Learning circle",
+      "defaultUser": "User"
+    },
+    "moduleSection": {
+      "viewMore": "View more",
+      "noData": "No data"
+    },
+    "modules": {
+      "courses": "Courses",
+      "coursesEn": "Course",
+      "live": "Live",
+      "liveEn": "Live",
+      "exam": "Exam",
+      "examEn": "Exam",
+      "news": "News",
+      "newsEn": "News",
+      "article": "Articles",
+      "articleEn": "Article",
+      "ask": "Q&A",
+      "askEn": "Q&A",
+      "community": "Community",
+      "communityEn": "Community",
+      "knowledge": "Knowledge Base",
+      "knowledgeEn": "Knowledge"
+    },
+    "units": {
+      "questions": "{count} Q",
+      "answers": "{count} answers",
+      "members": "{count} members"
+    }
   },
   "header": {
     "searchPlaceholder": "Search...",
@@ -8773,6 +8838,7 @@
   "news": {
     "title": "News",
     "subtitle": "Stay up to date",
+    "detail": "Detail",
     "search": "Search news",
     "categories": "Categories",
     "allCategories": "All Categories",
@@ -8785,7 +8851,24 @@
     "next": "Next",
     "total": "{total} articles",
     "backToList": "Back to news",
-    "notFound": "News not found"
+    "notFound": "News not found",
+    "comments": {
+      "title": "Comments",
+      "placeholder": "Write your comment...",
+      "submit": "Post comment",
+      "empty": "No comments yet — be the first to comment",
+      "anonymous": "Anonymous user",
+      "me": "Me",
+      "justNow": "Just now",
+      "submitError": "Failed to post comment, please try again later"
+    },
+    "interaction": {
+      "favorited": "Favorited",
+      "favorite": "Favorite",
+      "liked": "Liked",
+      "like": "Like"
+    },
+    "tags": "Tags:"
   },
   "lecturer": {
     "title": "Lecturers",
@@ -22598,5 +22681,96 @@
   "module": {
     "courseCover": "LessonsCover",
     "free": "Free"
+  },
+  "course": {
+    "tabs": {
+      "overview": "Overview",
+      "comments": "Comments",
+      "homework": "Homework",
+      "rating": "Rating",
+      "certificate": "Certificate",
+      "intro": "Course Intro",
+      "noIntro": "No intro available",
+      "instructor": "Instructor Info",
+      "objectives": "Learning Objectives",
+      "noComments": "No comments yet",
+      "noHomework": "No assignments",
+      "noRating": "No ratings",
+      "anonymous": "Anonymous user",
+      "scoreUnit": "pts",
+      "ratersCount": "{count} raters",
+      "certTitle": "Completion Certificate",
+      "certAcquired": "Congratulations on completing the course! You've earned the certificate.",
+      "certPending": "Complete all lessons and pass the assessment to earn the certificate.",
+      "certPreview": "Certificate preview",
+      "certStudent": "Student name",
+      "certNo": "Certificate No.: {no}",
+      "statusPending": "Pending",
+      "statusSubmitted": "Submitted",
+      "statusGraded": "Graded",
+      "statusUnknown": "Unknown"
+    },
+    "chapters": {
+      "empty": "No chapters",
+      "sectionCount": "{count} sections"
+    },
+    "interaction": {
+      "like": "Like",
+      "favorite": "Favorite"
+    },
+    "video": {
+      "cover": "Course cover",
+      "selectChapter": "Select a chapter to start learning"
+    }
+  },
+  "operation": {
+    "hotNews": {
+      "title": "Hot News",
+      "more": "More",
+      "tenK": "k"
+    },
+    "integral": {
+      "title": "Points Center",
+      "mall": "Points Mall",
+      "currentPoints": "Current points",
+      "weeklyGain": "Weekly gain",
+      "myRank": "My rank",
+      "recentRecords": "Recent records",
+      "all": "All"
+    },
+    "messageSystem": {
+      "title": "Messages",
+      "viewAll": "View all",
+      "unreadCount": "{count} unread",
+      "noNewMessages": "No new messages",
+      "messageCenterAria": "Message Center",
+      "categories": {
+        "system": "System",
+        "interaction": "Interaction",
+        "private": "Private",
+        "announcement": "Announcement"
+      }
+    },
+    "rightModule": {
+      "quickEntries": "Quick Access",
+      "promotion": "Promotion",
+      "hotTags": "Hot Tags",
+      "more": "More",
+      "defaultEntries": {
+        "mall": { "label": "Points Mall", "description": "Redeem Gifts" },
+        "vip": { "label": "VIP Center", "description": "Premium Perks" },
+        "invite": { "label": "Invite Friends", "description": "Earn Points" },
+        "help": { "label": "Help Center", "description": "User Guide" }
+      },
+      "defaultTags": {
+        "llm": "AI LLM",
+        "tutorial": "Tutorial",
+        "rag": "RAG",
+        "agent": "Agent",
+        "frontend": "Frontend",
+        "backend": "Backend",
+        "opensource": "Open Source"
+      }
+    }
   }
 }

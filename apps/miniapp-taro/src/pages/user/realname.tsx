@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -17,7 +18,7 @@ export default function Realname() {
         setAuthName(profile.realName)
       }
     } catch (e) {
-      console.error('[user/realname] 获取用户信息 failed:', e)
+      logger.error('user/realname', '获取用户信息', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])
@@ -38,7 +39,7 @@ export default function Realname() {
       Taro.showToast({ title: '认证成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
-      console.error('[user/realname] 提交实名认证 failed:', e)
+      logger.error('user/realname', '提交实名认证', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }

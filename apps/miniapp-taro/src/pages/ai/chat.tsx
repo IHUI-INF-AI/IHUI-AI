@@ -3,6 +3,7 @@ import Taro, { useRouter, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { chatStream, type ChatMessage, getModelPlazaList, getAigcList, getAgentDetail } from '@/api'
 import { type ModelItem } from '@/components'
+import { useI18n } from '@/i18n'
 import ChatMessageItem from './ChatMessageItem'
 import { ModelDrawer, MaterialDrawer, AgentDrawer } from './ChatDrawers'
 import './chat.css'
@@ -21,15 +22,10 @@ interface AgentInfo {
   prompt: string
 }
 
-const SUGGESTIONS = [
-  '帮我写一段课程推广文案',
-  '如何提升学习效率？',
-  '推荐几本人工智能入门书',
-  '解释一下什么是大模型',
-]
-
 export default function ChatPage() {
   const router = useRouter()
+  const { t, tList } = useI18n()
+  const suggestions = tList('ai.suggestions')
   const agentId = router.params.agentId || ''
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
@@ -59,11 +55,11 @@ export default function ChatPage() {
       const res = (await getModelPlazaList()) as { list?: ModelItem[] } | ModelItem[]
       setModels(Array.isArray(res) ? res : res?.list || [])
     } catch {
-      Taro.showToast({ title: '模型加载失败', icon: 'none' })
+      Taro.showToast({ title: t('ai.modelLoadFailed'), icon: 'none' })
     } finally {
       setModelsLoading(false)
     }
-  }, [])
+  }, [t])
 
   const loadMaterials = useCallback(async () => {
     setMaterialsLoading(true)
@@ -71,20 +67,20 @@ export default function ChatPage() {
       const res = (await getAigcList()) as { list?: MaterialItem[] }
       setMaterials(res?.list || [])
     } catch {
-      Taro.showToast({ title: '素材加载失败', icon: 'none' })
+      Taro.showToast({ title: t('ai.materialLoadFailed'), icon: 'none' })
     } finally {
       setMaterialsLoading(false)
     }
-  }, [])
+  }, [t])
 
   const loadAgent = useCallback(async () => {
     if (!agentId) return
     try {
       setAgent(await getAgentDetail(agentId))
     } catch {
-      Taro.showToast({ title: 'Agent加载失败', icon: 'none' })
+      Taro.showToast({ title: t('ai.agentLoadFailed'), icon: 'none' })
     }
-  }, [agentId])
+  }, [agentId, t])
 
   useDidShow(() => {
     if (agentId) loadAgent()
@@ -138,7 +134,7 @@ export default function ChatPage() {
           setMessages((prev) =>
             prev.map((m, i) => {
               if (i !== prev.length - 1) return m
-              return m.content ? m : { ...m, content: '抱歉，服务暂时不可用，请稍后再试。' }
+              return m.content ? m : { ...m, content: t('ai.serviceUnavailable') }
             }),
           )
         }
@@ -157,6 +153,7 @@ export default function ChatPage() {
       currentModel,
       agentId,
       selectedMaterial,
+      t,
     ],
   )
 
@@ -174,8 +171,8 @@ export default function ChatPage() {
 
   const clearChat = useCallback(() => {
     Taro.showModal({
-      title: '提示',
-      content: '确定清空对话记录吗？',
+      title: t('common.hint'),
+      content: t('ai.clearConfirm'),
       success: (res) => {
         if (res.confirm) {
           setMessages([])
@@ -183,7 +180,7 @@ export default function ChatPage() {
         }
       },
     })
-  }, [])
+  }, [t])
 
   const selectModel = useCallback((m: ModelItem) => {
     setCurrentModel(String(m.id))
@@ -210,7 +207,7 @@ export default function ChatPage() {
     <View className="page">
       <View className="nav-bar safe-area-bottom">
         <View className="nav-left" onClick={openModelDrawer}>
-          <Text className="nav-title">{currentModelName || 'AI 对话'}</Text>
+          <Text className="nav-title">{currentModelName || t('ai.title')}</Text>
           <Text className="nav-arrow">▾</Text>
         </View>
         <View className="nav-right">
@@ -221,7 +218,7 @@ export default function ChatPage() {
           ) : null}
           {messages.length ? (
             <Text className="nav-clear" onClick={clearChat}>
-              清空
+              {t('ai.clear')}
             </Text>
           ) : null}
         </View>
@@ -230,10 +227,10 @@ export default function ChatPage() {
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
         {!messages.length ? (
           <View className="welcome">
-            <Text className="welcome-title">你好，我是智汇AI助手</Text>
-            <Text className="welcome-desc">有什么问题请尽管问我</Text>
+            <Text className="welcome-title">{t('ai.welcomeTitle')}</Text>
+            <Text className="welcome-desc">{t('ai.welcomeDesc')}</Text>
             <View className="suggest-list">
-              {SUGGESTIONS.map((s, i) => (
+              {suggestions.map((s, i) => (
                 <View key={i} className="suggest-item" onClick={() => handleSuggestion(s)}>
                   <Text>{s}</Text>
                 </View>
@@ -250,7 +247,7 @@ export default function ChatPage() {
           <View className="msg-item assistant">
             <View className="avatar assistant">AI</View>
             <View className="bubble">
-              <Text className="bubble-text">思考中...</Text>
+              <Text className="bubble-text">{t('ai.thinking')}</Text>
             </View>
           </View>
         ) : null}
@@ -280,7 +277,7 @@ export default function ChatPage() {
           className="input"
           type="text"
           value={inputText}
-          placeholder="请输入问题"
+          placeholder={t('ai.inputPlaceholder')}
           confirmType="send"
           onConfirm={() => sendMessage()}
           onInput={(e) => setInputText(e.detail.value)}
@@ -288,14 +285,14 @@ export default function ChatPage() {
         />
         {thinking ? (
           <View className="send-btn" onClick={stopGeneration}>
-            <Text>停止</Text>
+            <Text>{t('ai.stop')}</Text>
           </View>
         ) : (
           <View
             className={`send-btn${!inputText.trim() ? ' disabled' : ''}`}
             onClick={() => sendMessage()}
           >
-            <Text>发送</Text>
+            <Text>{t('ai.send')}</Text>
           </View>
         )}
       </View>

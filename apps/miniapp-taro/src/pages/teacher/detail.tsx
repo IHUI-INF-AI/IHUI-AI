@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -13,7 +14,7 @@ export default function TeacherDetail() {
     try {
       setTeacher(await getTeacherDetail(id))
     } catch (e) {
-      console.error('[teacher/detail] 获取讲师详情 failed:', e)
+      logger.error('teacher/detail', '获取讲师详情', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [router.params.id])

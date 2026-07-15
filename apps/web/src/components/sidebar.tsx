@@ -5,13 +5,10 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
-  Home,
   MessageSquare,
   FolderOpen,
-  BookOpen,
   Bot,
   FileText,
-  FileCheck,
   Users,
   CreditCard,
   Settings,
@@ -27,7 +24,6 @@ import {
   Tag,
   Rss,
   X,
-  Video,
   Package,
   Award,
   Calendar,
@@ -40,7 +36,6 @@ import {
   Crown,
   Wallet,
   KeyRound,
-  Newspaper,
   GraduationCap,
   Download,
 } from 'lucide-react'
@@ -121,7 +116,6 @@ const SIDEBAR_MAX_WIDTH = 240
 const SIDEBAR_MOBILE_WIDTH = 168
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/', labelKey: 'home', icon: Home },
   { href: '/chat', labelKey: 'chat', icon: MessageSquare },
   { href: '/chat/history', labelKey: 'chatHistory', icon: MessageSquare },
   { href: '/models', labelKey: 'models', icon: Bot },
@@ -132,19 +126,12 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/following', labelKey: 'following', icon: Users },
   { href: '/subscriptions', labelKey: 'subscriptions', icon: Rss },
   { href: '/tags', labelKey: 'tags', icon: Tag },
-  { href: '/learn', labelKey: 'learn', icon: BookOpen },
-  { href: '/exam', labelKey: 'exam', icon: FileCheck },
   { href: '/plaza', labelKey: 'plaza', icon: LayoutGrid },
-  { href: '/circles', labelKey: 'circles', icon: Users },
-  { href: '/asks', labelKey: 'asks', icon: HelpCircle },
-  { href: '/live', labelKey: 'live', icon: Video },
   { href: '/lecturers', labelKey: 'lecturers', icon: Users },
-  { href: '/news', labelKey: 'news', icon: Newspaper },
   { href: '/agents', labelKey: 'agents', icon: Bot },
   { href: '/distribution', labelKey: 'distribution', icon: Gift },
   { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
   { href: '/resources', labelKey: 'resources', icon: Package },
-  { href: '/topics', labelKey: 'topics', icon: BookOpen },
   { href: '/messages', labelKey: 'messages', icon: MessageSquare },
   { href: '/schedule', labelKey: 'schedule', icon: Calendar },
   { href: '/docs', labelKey: 'docs', icon: FileText },

@@ -52,7 +52,7 @@ const MODULES: Module[] = [
     title: 'studentTitle',
     desc: 'studentDesc',
     icon: Users,
-    gradient: 'from-sky-500 to-blue-600',
+    gradient: 'from-teal-500 to-emerald-600',
   },
   {
     href: '/admin/edu/teacher',

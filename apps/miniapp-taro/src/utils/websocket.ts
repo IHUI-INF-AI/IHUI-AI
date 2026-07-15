@@ -1,3 +1,4 @@
+import { logger } from './logger'
 import Taro from '@tarojs/taro'
 
 export interface WsCallbacks {
@@ -27,7 +28,7 @@ class WebSocketManager {
 
   connect(url: string, userUuid: string, callbacks: WsCallbacks = {}): void {
     if (!url || !userUuid) {
-      console.error('[websocket] 连接失败：缺少必要参数')
+      logger.error('websocket', '连接失败：缺少必要参数', '')
       return
     }
     this.url = url
@@ -67,7 +68,7 @@ class WebSocketManager {
       if (msg?.event === 'pong') return
       this.callbacks.onMessage?.(data)
     } catch (e) {
-      console.error('[websocket] 消息解析失败', e)
+      logger.error('websocket', '消息解析失败', e)
     }
   }
 
@@ -98,11 +99,11 @@ class WebSocketManager {
       const data = typeof message === 'string' ? message : JSON.stringify(message)
       this.ws.send({
         data,
-        fail: (err) => console.error('[websocket] 发送失败', err),
+        fail: (err) => logger.error('websocket', '发送失败', err),
       })
       return true
     } catch (e) {
-      console.error('[websocket] 发送异常', e)
+      logger.error('websocket', '发送异常', e)
       return false
     }
   }
@@ -138,7 +139,7 @@ class WebSocketManager {
       try {
         this.ws.close({})
       } catch (e) {
-        console.error('[websocket] 关闭异常', e)
+        logger.error('websocket', '关闭异常', e)
       }
       this.ws = null
     }

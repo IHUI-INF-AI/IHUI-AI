@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Textarea, Button, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -24,7 +25,7 @@ export default function ImagePage() {
       const res = await generateImage({ prompt, size })
       setResult(res.url)
     } catch (e) {
-      console.error('[ai/image] 生成图片 failed:', e)
+      logger.error('ai/image', '生成图片', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     } finally {
       setLoading(false)

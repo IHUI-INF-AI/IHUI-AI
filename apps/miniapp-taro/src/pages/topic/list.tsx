@@ -3,6 +3,7 @@ import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
+import { useI18n } from '@/i18n'
 import './list.css'
 
 interface TopicItem {
@@ -13,38 +14,50 @@ interface TopicItem {
 }
 
 export default function TopicListPage() {
+  const { t } = useI18n()
   const [list, setList] = useState<TopicItem[]>([])
   const [loading, setLoading] = useState(false)
   const [from, setFrom] = useState('')
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
 
-  const load = useCallback(async (reset = false) => {
-    if (loading) return
-    let curPage = page
-    if (reset) { curPage = 1; setHasMore(true); setList([]); setPage(1) }
-    if (!hasMore && !reset) return
-    setLoading(true)
-    try {
-      const res = await getTopicList({ page: curPage, pageSize: 20 })
-      const newList = res.list || []
-      setList(prev => reset ? newList : [...prev, ...newList])
-      setHasMore((reset ? newList.length : list.length + newList.length) < res.total)
-      setPage(curPage + 1)
-    } finally {
-      setLoading(false)
-    }
-  }, [loading, page, hasMore, list.length])
+  const load = useCallback(
+    async (reset = false) => {
+      if (loading) return
+      let curPage = page
+      if (reset) {
+        curPage = 1
+        setHasMore(true)
+        setList([])
+        setPage(1)
+      }
+      if (!hasMore && !reset) return
+      setLoading(true)
+      try {
+        const res = await getTopicList({ page: curPage, pageSize: 20 })
+        const newList = res.list || []
+        setList((prev) => (reset ? newList : [...prev, ...newList]))
+        setHasMore((reset ? newList.length : list.length + newList.length) < res.total)
+        setPage(curPage + 1)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [loading, page, hasMore, list.length],
+  )
 
-  const goDetail = useCallback((id: string) => {
-    if (from === 'create') {
-      const item = list.find(t => t.id === id)
-      Taro.eventCenter.trigger(TOPIC_EVENT, item?.name || '')
-      Taro.navigateBack()
-    } else {
-      Taro.navigateTo({ url: `/pages/topic/detail?id=${id}` })
-    }
-  }, [from, list])
+  const goDetail = useCallback(
+    (id: string) => {
+      if (from === 'create') {
+        const item = list.find((t) => t.id === id)
+        Taro.eventCenter.trigger(TOPIC_EVENT, item?.name || '')
+        Taro.navigateBack()
+      } else {
+        Taro.navigateTo({ url: `/pages/topic/detail?id=${id}` })
+      }
+    },
+    [from, list],
+  )
 
   useDidShow(() => {
     const instance = Taro.getCurrentInstance()
@@ -59,12 +72,14 @@ export default function TopicListPage() {
     <View className="page">
       {list.length ? (
         <View className="list">
-          {list.map(t => (
-            <View key={t.id} className="item" onClick={() => goDetail(t.id)}>
-              {t.coverUrl ? <Image className="cover" src={t.coverUrl} mode="aspectFill" /> : null}
+          {list.map((item) => (
+            <View key={item.id} className="item" onClick={() => goDetail(item.id)}>
+              {item.coverUrl ? (
+                <Image className="cover" src={item.coverUrl} mode="aspectFill" />
+              ) : null}
               <View className="body">
-                <Text className="name">#{t.name}</Text>
-                <Text className="count">{t.count}篇内容</Text>
+                <Text className="name">#{item.name}</Text>
+                <Text className="count">{t('topic.count', { n: item.count })}</Text>
               </View>
             </View>
           ))}
@@ -72,11 +87,15 @@ export default function TopicListPage() {
       ) : null}
 
       {!loading && !list.length ? (
-        <View className="empty"><Text>暂无话题</Text></View>
+        <View className="empty">
+          <Text>{t('topic.empty')}</Text>
+        </View>
       ) : null}
 
       {loading ? (
-        <View className="loading"><Text>加载中...</Text></View>
+        <View className="loading">
+          <Text>{t('common.loading')}</Text>
+        </View>
       ) : null}
     </View>
   )

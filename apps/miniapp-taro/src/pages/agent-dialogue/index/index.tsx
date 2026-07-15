@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -14,7 +15,7 @@ export default function AgentDialogue() {
       const res = (await api.getAgentList()) as Record<string, unknown>
       setList((res?.list as Record<string, unknown>[]) || [])
     } catch (e) {
-      console.error('加载智能体失败:', e)
+      logger.error('unknown', '加载智能体', e)
     } finally {
       setLoading(false)
     }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import Image from 'next/image'
 import { Edit, Trash2, Loader2, Users, EyeOff } from 'lucide-react'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
@@ -66,9 +67,11 @@ export function CirclesTable({
                   <TableCell className="px-4 py-2.5">
                     <div className="flex items-center gap-2 font-medium">
                       {item.coverImage ? (
-                        <img
+                        <Image
                           src={item.coverImage}
                           alt={item.name}
+                          width={32}
+                          height={32}
                           className="h-8 w-8 rounded object-cover"
                         />
                       ) : null}

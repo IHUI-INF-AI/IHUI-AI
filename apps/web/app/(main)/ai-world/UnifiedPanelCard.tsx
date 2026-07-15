@@ -12,18 +12,30 @@ interface Props {
   onSend: (text: string) => void
   isStreaming: boolean
   streamingContent: string
+  toolbar?: React.ReactNode
 }
 
-export function UnifiedPanelCard({ messages, onSend, isStreaming, streamingContent }: Props) {
+export function UnifiedPanelCard({
+  messages,
+  onSend,
+  isStreaming,
+  streamingContent,
+  toolbar,
+}: Props) {
   const t = useTranslations('common.aiWorld')
   return (
     <Card className="overflow-hidden">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          {t('unifiedAiPanelTitle')}
-        </CardTitle>
-        <CardDescription>{t('unifiedAiPanelDesc')}</CardDescription>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              {t('unifiedAiPanelTitle')}
+            </CardTitle>
+            <CardDescription>{t('unifiedAiPanelDesc')}</CardDescription>
+          </div>
+          {toolbar && <div className="shrink-0">{toolbar}</div>}
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         <div className="h-[480px] border-t">

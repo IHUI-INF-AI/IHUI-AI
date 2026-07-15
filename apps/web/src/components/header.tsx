@@ -2,13 +2,15 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import { Menu, Bell, Search, Sun, Moon, User as UserIcon, LogOut, Megaphone } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button, Input } from '@ihui/ui'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { api, type Announcement } from '@/lib/content'
 import {
@@ -21,6 +23,19 @@ import { Avatar } from '@/components/data/Avatar'
 import { Tooltip, TooltipProvider, Dropdown, Popover } from '@/components/feedback'
 import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
 import { useLoginDialogStore } from '@/stores/login-dialog'
+
+const NAV_ITEMS: { href: string; zh: string; en: string }[] = [
+  { href: '/', zh: '首页', en: 'Home' },
+  { href: '/learn', zh: '课程', en: 'Course' },
+  { href: '/live', zh: '直播', en: 'Live' },
+  { href: '/exam', zh: '考试', en: 'Exam' },
+  { href: '/news', zh: '资讯', en: 'News' },
+  { href: '/topics', zh: '文章', en: 'Article' },
+  { href: '/asks', zh: '问答', en: 'Q&A' },
+  { href: '/circles', zh: '社区', en: 'Community' },
+  { href: '/knowledge-base', zh: '知识库', en: 'Knowledge' },
+  { href: '/announcements', zh: '公告', en: 'Notice' },
+]
 
 function mapNotifType(type: string): NoticeItem['type'] {
   switch (type) {
@@ -47,6 +62,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const t = useTranslations('header')
   const tc = useTranslations('common')
   const router = useRouter()
+  const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
   const [searchInput, setSearchInput] = React.useState('')
@@ -112,8 +128,13 @@ export function Header({ onMenuClick }: HeaderProps) {
     if (kw) router.push(`/search?q=${encodeURIComponent(kw)}`)
   }
 
+  const isActive = (href: string) => {
+    if (href === '/') return pathname === '/'
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
+
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <Button
         variant="ghost"
         size="icon"
@@ -124,7 +145,56 @@ export function Header({ onMenuClick }: HeaderProps) {
         <Menu className="h-5 w-5" />
       </Button>
 
-      <form onSubmit={handleSearch} className="relative hidden flex-1 sm:block sm:max-w-sm">
+      <Link href="/" className="flex shrink-0 items-center" aria-label="IHUI AI">
+        <Image
+          src="/images/logo.svg"
+          alt="IHUI AI"
+          width={120}
+          height={32}
+          className="h-8 w-auto object-contain dark:hidden"
+          unoptimized
+        />
+        <Image
+          src="/images/bailogo.svg"
+          alt="IHUI AI"
+          width={120}
+          height={32}
+          className="hidden h-8 w-auto object-contain dark:block"
+          unoptimized
+        />
+      </Link>
+
+      <nav
+        className="hidden flex-1 items-center justify-center gap-0.5 lg:flex"
+        aria-label={t('menu') ?? '主导航'}
+      >
+        {NAV_ITEMS.map((item) => {
+          const active = isActive(item.href)
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'flex flex-col items-center justify-center rounded-md px-2.5 py-1 transition-colors',
+                active
+                  ? 'bg-primary/10 font-semibold text-primary'
+                  : 'text-foreground hover:bg-primary/5',
+              )}
+            >
+              <span className="text-sm leading-tight">{item.zh}</span>
+              <span
+                className="text-[9px] uppercase leading-tight opacity-70"
+                style={{ fontFamily: "'EDIX', 'HarmonyOS Sans SC', sans-serif" }}
+              >
+                {item.en}
+              </span>
+            </Link>
+          )
+        })}
+      </nav>
+
+      <form onSubmit={handleSearch} className="relative hidden ml-auto sm:block sm:max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
@@ -137,7 +207,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       </form>
 
       <TooltipProvider>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1 sm:ml-0">
           <Tooltip content={t('searchPlaceholder')}>
             <Button
               variant="ghost"

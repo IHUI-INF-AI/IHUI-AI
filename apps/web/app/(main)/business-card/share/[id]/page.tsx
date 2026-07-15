@@ -17,6 +17,7 @@ import {
   MessageCircle,
   MapPin,
 } from 'lucide-react'
+import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -148,10 +149,11 @@ export default function CardSharePage() {
       <div className={cn('rounded-xl p-6 shadow-sm', TPL_STYLES[tpl] ?? TPL_STYLES.minimal)}>
         <div className="flex items-start gap-4">
           {card.avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={card.avatar}
               alt={card.name}
+              width={64}
+              height={64}
               className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white/30"
             />
           ) : (
@@ -204,8 +206,14 @@ export default function CardSharePage() {
         <CardContent className="flex flex-col items-center gap-4 p-6 sm:flex-row sm:justify-between">
           <div className="flex flex-col items-center gap-2">
             <div className="rounded-lg border p-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qrUrl} alt="二维码" className="h-32 w-32" />
+              <Image
+                src={qrUrl}
+                alt="二维码"
+                width={128}
+                height={128}
+                className="h-32 w-32"
+                unoptimized
+              />
             </div>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <QrCode className="h-3 w-3" />

@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Image, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -63,7 +64,7 @@ export default function VipTraderIndexPage() {
         setSelectedLevel(levels[0].id)
       }
     } catch (e) {
-      console.error('加载操盘手信息失败:', e)
+      logger.error('unknown', '加载操盘手信息', e)
     } finally {
       setLoading(false)
     }
@@ -110,7 +111,7 @@ export default function VipTraderIndexPage() {
       Taro.showToast({ title: '申请已提交', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
-      console.error('提交申请失败:', e)
+      logger.error('unknown', '提交申请', e)
     } finally {
       setSubmitting(false)
     }

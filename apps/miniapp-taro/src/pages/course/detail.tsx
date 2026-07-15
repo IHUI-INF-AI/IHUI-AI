@@ -2,6 +2,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getCourseDetail, type Course } from '@/api'
+import { useI18n } from '@/i18n'
 import {
   CourseHeader,
   CourseCatalog,
@@ -22,6 +23,7 @@ import {
 
 export default function CourseDetail() {
   const router = useRouter()
+  const { t, tList } = useI18n()
   const [course, setCourse] = useState<Course | null>(null)
   const [showNote, setShowNote] = useState(false)
   const [showRating, setShowRating] = useState(false)
@@ -30,14 +32,17 @@ export default function CourseDetail() {
   const [learningProgress, setLearningProgress] = useState(35)
   const [noteContent, setNoteContent] = useState('')
 
-  const loadDetail = useCallback(async (id: string | number) => {
-    try {
-      const res = await getCourseDetail(id)
-      setCourse(res)
-    } catch {
-      Taro.showToast({ title: '加载失败', icon: 'none' })
-    }
-  }, [])
+  const loadDetail = useCallback(
+    async (id: string | number) => {
+      try {
+        const res = await getCourseDetail(id)
+        setCourse(res)
+      } catch {
+        Taro.showToast({ title: t('course.loadFailed'), icon: 'none' })
+      }
+    },
+    [t],
+  )
 
   useEffect(() => {
     const id = router.params.id || ''
@@ -45,48 +50,53 @@ export default function CourseDetail() {
   }, [router.params.id, loadDetail])
 
   const handleBuy = useCallback(() => {
-    Taro.showToast({ title: '购买功能开发中', icon: 'none' })
-  }, [])
+    Taro.showToast({ title: t('course.buyDeveloping'), icon: 'none' })
+  }, [t])
 
   const handleSign = useCallback(() => {
-    Taro.showToast({ title: '签到成功 +5 积分', icon: 'success' })
-  }, [])
+    Taro.showToast({ title: t('course.signSuccess'), icon: 'success' })
+  }, [t])
 
   const handleLessonClick = useCallback(
     (lesson: LessonListItemData, idx: number) => {
       if (lesson.locked) {
-        Taro.showToast({ title: '请先购买课程', icon: 'none' })
+        Taro.showToast({ title: t('course.buyFirst'), icon: 'none' })
         return
       }
       Taro.navigateTo({
         url: `/pages/study/video-detail/index?courseId=${course?.id || ''}&lessonIdx=${idx}`,
       })
     },
-    [course?.id],
+    [course?.id, t],
   )
 
-  const handleSubmitRating = useCallback((rating: number, comment: string) => {
-    setShowRating(false)
-    Taro.showToast({ title: `已评分 ${rating} 星`, icon: 'success' })
-    console.log('[course/detail] rating submitted:', rating, comment)
-  }, [])
+  const handleSubmitRating = useCallback(
+    (rating: number, _comment: string) => {
+      setShowRating(false)
+      Taro.showToast({ title: t('course.rated', { n: rating }), icon: 'success' })
+    },
+    [t],
+  )
 
-  const handleSaveNote = useCallback((content: string) => {
-    setNoteContent(content)
-    setShowNote(false)
-    Taro.showToast({ title: '笔记已保存', icon: 'success' })
-  }, [])
+  const handleSaveNote = useCallback(
+    (content: string) => {
+      setNoteContent(content)
+      setShowNote(false)
+      Taro.showToast({ title: t('course.noteSaved'), icon: 'success' })
+    },
+    [t],
+  )
 
   const handleLessonComplete = useCallback(() => {
     setShowComplete(false)
     setLearningProgress((p) => Math.min(100, p + 10))
-    Taro.showToast({ title: '完成本节', icon: 'success' })
-  }, [])
+    Taro.showToast({ title: t('course.lessonComplete'), icon: 'success' })
+  }, [t])
 
   if (!course) {
     return (
       <View className="flex items-center justify-center h-screen text-[#999]">
-        <Text>加载中...</Text>
+        <Text>{t('common.loading')}</Text>
       </View>
     )
   }
@@ -124,31 +134,31 @@ export default function CourseDetail() {
     <View className="min-h-screen pb-[80px] bg-[#f7f8fa]">
       <CourseHeader
         data={headerData}
-        onTeacherClick={() => Taro.showToast({ title: '查看讲师', icon: 'none' })}
+        onTeacherClick={() => Taro.showToast({ title: t('course.viewTeacher'), icon: 'none' })}
       />
 
       <View className="flex items-center justify-around mx-3 my-3 bg-white rounded-xl p-4">
         <View className="flex flex-col items-center">
           <ProgressCircle percent={learningProgress} size={60} />
-          <Text className="text-xs text-gray-500 mt-2">学习进度</Text>
+          <Text className="text-xs text-gray-500 mt-2">{t('course.learningProgress')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowNote(true)}>
           <View className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center">
             <Text className="text-xl">📝</Text>
           </View>
-          <Text className="text-xs text-gray-500 mt-2">笔记</Text>
+          <Text className="text-xs text-gray-500 mt-2">{t('course.note')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowRating(true)}>
           <View className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center">
             <Text className="text-xl">⭐</Text>
           </View>
-          <Text className="text-xs text-gray-500 mt-2">评分</Text>
+          <Text className="text-xs text-gray-500 mt-2">{t('course.rating')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowShare(true)}>
           <View className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center">
             <Text className="text-xl">📤</Text>
           </View>
-          <Text className="text-xs text-gray-500 mt-2">分享</Text>
+          <Text className="text-xs text-gray-500 mt-2">{t('course.share')}</Text>
         </View>
       </View>
 
@@ -171,23 +181,23 @@ export default function CourseDetail() {
       />
 
       <TeacherCard
-        name={course.teacher || '讲师'}
-        title="金牌讲师"
+        name={course.teacher || t('course.teacher')}
+        title={t('course.goldTeacher')}
         bio={course.subtitle}
         courseCount={12}
         studentCount={1280}
         rating={4.8}
         isFollowing={false}
-        onFollow={() => Taro.showToast({ title: '已关注', icon: 'success' })}
+        onFollow={() => Taro.showToast({ title: t('course.followed'), icon: 'success' })}
         onClick={() => Taro.navigateTo({ url: '/pages/teacher/detail?id=1' })}
       />
 
       <CourseIntro
         data={{
-          description: course.description || '暂无简介',
-          objectives: ['掌握核心概念', '能独立完成项目', '通过认证考试'],
-          suitableFor: ['初学者', '希望进阶的开发者'],
-          highlights: ['实战驱动', '终身有效', '社群答疑'],
+          description: course.description || t('course.noIntro'),
+          objectives: tList('course.objectives'),
+          suitableFor: tList('course.suitableFor'),
+          highlights: tList('course.highlights'),
         }}
       />
 
@@ -201,7 +211,9 @@ export default function CourseDetail() {
         <LessonListItem
           data={{
             id: 'next',
-            title: `下一节:${course.outline?.[0]?.title || '开始学习'}`,
+            title: t('course.nextLesson', {
+              title: course.outline?.[0]?.title || t('course.startLearning'),
+            }),
             type: 'video',
             duration: '15:30',
           }}
@@ -220,14 +232,14 @@ export default function CourseDetail() {
           className="px-7 h-10 leading-10 bg-[#07c160] text-white rounded-full text-sm"
           onClick={handleBuy}
         >
-          <Text>立即购买</Text>
+          <Text>{t('course.buyNow')}</Text>
         </View>
       </View>
 
       <NoteEditor
         visible={showNote}
         initialContent={noteContent}
-        title={`${course.title} - 笔记`}
+        title={t('course.noteTitle', { title: course.title })}
         onSave={handleSaveNote}
         onCancel={() => setShowNote(false)}
       />
@@ -242,7 +254,7 @@ export default function CourseDetail() {
           >
             <QrCodeShare
               title={course.title}
-              desc="扫码看课程"
+              desc={t('course.scanCourse')}
               userName=""
               onSave={() => setShowShare(false)}
               onShare={() => {

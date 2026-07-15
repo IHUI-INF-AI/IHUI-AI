@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -24,7 +25,7 @@ export default function LiveCalendar() {
       const res = await getLiveCalendar({ month })
       setList(res.list || [])
     } catch (e) {
-      console.error('[live/calendar] 获取直播日历 failed:', e)
+      logger.error('live/calendar', '获取直播日历', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])

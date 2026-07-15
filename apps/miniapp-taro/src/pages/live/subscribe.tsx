@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -12,7 +13,7 @@ export default function LiveSubscribe() {
       const res = await getLiveList({ status: 'upcoming' })
       setList(res.list || [])
     } catch (e) {
-      console.error('[live/subscribe] 获取直播列表 failed:', e)
+      logger.error('live/subscribe', '获取直播列表', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])
@@ -31,7 +32,7 @@ export default function LiveSubscribe() {
       })
       Taro.showToast({ title: '订阅成功', icon: 'success' })
     } catch (e) {
-      console.error('[live/subscribe] 订阅直播 failed:', e)
+      logger.error('live/subscribe', '订阅直播', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])

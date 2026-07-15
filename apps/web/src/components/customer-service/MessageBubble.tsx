@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
 export type MessageType = 'text' | 'image' | 'system'
@@ -46,11 +47,13 @@ export function MessageBubble({ message, isSelf }: Props) {
             onClick={() => setZoomed(true)}
             className="block max-h-48 overflow-hidden rounded-lg border"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={message.content}
               alt={message.content.split('/').pop() || '图片'}
+              width={400}
+              height={300}
               className="max-h-48 object-cover"
+              style={{ width: 'auto', height: 'auto' }}
             />
           </button>
         ) : (
@@ -82,8 +85,14 @@ export function MessageBubble({ message, isSelf }: Props) {
           role="button"
           tabIndex={0}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={message.content} alt="zoomed" className="max-h-full max-w-full rounded-lg" />
+          <Image
+            src={message.content}
+            alt="zoomed"
+            width={1200}
+            height={800}
+            className="max-h-full max-w-full rounded-lg"
+            style={{ width: 'auto', height: 'auto' }}
+          />
         </div>
       )}
     </div>

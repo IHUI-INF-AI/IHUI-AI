@@ -63,7 +63,7 @@ const MOCK: BiDashboardData = {
 
 const STAT_CARDS = [
   { key: 'totalRevenue' as const, label: '总营收', icon: TrendingUp, color: 'text-emerald-600' },
-  { key: 'totalOrders' as const, label: '总订单', icon: ShoppingCart, color: 'text-blue-600' },
+  { key: 'totalOrders' as const, label: '总订单', icon: ShoppingCart, color: 'text-teal-600' },
   { key: 'newUsers' as const, label: '新增用户', icon: Users, color: 'text-purple-600' },
   { key: 'activeUsers' as const, label: '活跃用户', icon: Activity, color: 'text-orange-600' },
 ]

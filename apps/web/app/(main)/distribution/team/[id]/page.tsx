@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Users, Crown, Calendar, ChevronRight } from 'lucide-react'
+import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui'
@@ -127,10 +128,11 @@ export default function DistributionTeamDetailPage() {
         <CardContent className="space-y-4 p-5">
           <div className="flex items-center gap-4">
             {member.avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={member.avatar}
                 alt={displayName}
+                width={64}
+                height={64}
                 className="h-16 w-16 rounded-full object-cover"
               />
             ) : (
@@ -193,8 +195,13 @@ export default function DistributionTeamDetailPage() {
                 )}
               >
                 {sub.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={sub.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
+                  <Image
+                    src={sub.avatar}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
                 ) : (
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
                     {(sub.nickname ?? sub.username ?? 'U')[0]?.toUpperCase()}

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { Loader2, Send, ChevronUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Input } from '@ihui/ui'
@@ -79,12 +80,13 @@ export function MessagesChat({
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-4 py-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
           {selected.peerAvatar ? (
-            <img
+            <Image
               src={selected.peerAvatar}
               alt={selected.peerName}
-              className="h-full w-full object-cover"
+              fill
+              className="object-cover"
             />
           ) : (
             <span className="text-xs font-medium text-muted-foreground">

@@ -101,7 +101,13 @@
       "loginRequiredTitle": "請先登入",
       "loginRequiredDesc": "體驗 ai 真實對話需要登入賬號",
       "aiErrorTitle": "ai 調用失敗",
-      "aiErrorPrefix": "ai 調用失敗"
+      "aiErrorPrefix": "ai 調用失敗",
+      "modelSelectorLabel": "選擇模型",
+      "modelSelectorPlaceholder": "選擇模型",
+      "modelSelectorLoading": "加載配置中...",
+      "modelSelectorEmpty": "請先添加模型配置",
+      "modelSelectorRequiredTitle": "請先選擇模型",
+      "modelSelectorRequiredDesc": "在右上角下拉框選擇要使用的模型配置"
     },
     "resources": "資源",
     "siteName": "智匯ai社區",
@@ -787,7 +793,66 @@
     "sensitivityHigh": "高",
     "speedSlow": "慢",
     "speedMid": "中",
-    "speedFast": "快"
+    "speedFast": "快",
+    "announcement": {
+      "welcomeMessage": "歡迎來到智匯AI教育平台，開啟你的智能學習之旅！",
+      "close": "關閉公告"
+    },
+    "banner": {
+      "slide1Title": "AI 驅動的智能學習平台",
+      "slide1Subtitle": "融合人工智能與教育，打造個性化學習體驗",
+      "slide1Cta": "立即探索",
+      "slide2Title": "名師直播 即時互動",
+      "slide2Subtitle": "行業專家在線授課，答疑解惑零距離",
+      "slide2Cta": "查看直播",
+      "slide3Title": "海量題庫 精準測評",
+      "slide3Subtitle": "智能組卷與錯題分析，助你高效備考",
+      "slide3Cta": "開始考試",
+      "switchTo": "切換到第 {index} 張"
+    },
+    "memberCard": {
+      "points": "積分",
+      "balance": "餘額",
+      "following": "關注",
+      "fans": "粉絲",
+      "signedIn": "已簽到",
+      "signIn": "簽到",
+      "welcome": "Hi，歡迎來到學習平台",
+      "loginHint": "登錄後享受更多服務",
+      "loginNow": "立即登錄",
+      "allCourses": "全部課程",
+      "featuredArticles": "精選文章",
+      "askCommunity": "問答社區",
+      "learningCircle": "學習圈子",
+      "defaultUser": "用戶"
+    },
+    "moduleSection": {
+      "viewMore": "查看更多",
+      "noData": "暫無數據"
+    },
+    "modules": {
+      "courses": "課程",
+      "coursesEn": "Course",
+      "live": "直播",
+      "liveEn": "Live",
+      "exam": "考試",
+      "examEn": "Exam",
+      "news": "資訊",
+      "newsEn": "News",
+      "article": "文章",
+      "articleEn": "Article",
+      "ask": "問答",
+      "askEn": "Q&A",
+      "community": "社區",
+      "communityEn": "Community",
+      "knowledge": "知識庫",
+      "knowledgeEn": "Knowledge"
+    },
+    "units": {
+      "questions": "{count}題",
+      "answers": "{count}回答",
+      "members": "{count}成員"
+    }
   },
   "header": {
     "searchPlaceholder": "搜尋",
@@ -8762,6 +8827,7 @@
   "news": {
     "title": "新聞管理",
     "subtitle": "全面的開發文檔和API參考",
+    "detail": "詳情",
     "search": "搜尋新聞",
     "categories": "分類",
     "allCategories": "All categories",
@@ -8774,7 +8840,24 @@
     "next": "下一步",
     "total": "總計: {n}",
     "backToList": "返回列表",
-    "notFound": "未找到"
+    "notFound": "未找到",
+    "comments": {
+      "title": "評論",
+      "placeholder": "寫下你的評論...",
+      "submit": "發佈評論",
+      "empty": "暫無評論，快來搶沙發吧",
+      "anonymous": "匿名用戶",
+      "me": "我",
+      "justNow": "剛剛",
+      "submitError": "評論發布失敗,請稍後重試"
+    },
+    "interaction": {
+      "favorited": "已收藏",
+      "favorite": "收藏",
+      "liked": "已讚",
+      "like": "點讚"
+    },
+    "tags": "標籤:"
   },
   "lecturer": {
     "title": "講師管理",
@@ -22582,5 +22665,96 @@
   "module": {
     "courseCover": "課程封面",
     "free": "免費"
+  },
+  "course": {
+    "tabs": {
+      "overview": "概覽",
+      "comments": "評論",
+      "homework": "作業",
+      "rating": "評分",
+      "certificate": "證書",
+      "intro": "課程簡介",
+      "noIntro": "暫無簡介",
+      "instructor": "講師信息",
+      "objectives": "學習目標",
+      "noComments": "暫無評論",
+      "noHomework": "暫無作業",
+      "noRating": "暫無評分",
+      "anonymous": "匿名用戶",
+      "scoreUnit": "分",
+      "ratersCount": "{count} 人評分",
+      "certTitle": "結業證書",
+      "certAcquired": "恭喜完成課程學習，已獲得結業證書",
+      "certPending": "完成全部課程學習並通過考核後，將獲得結業證書",
+      "certPreview": "證書預覽",
+      "certStudent": "學員姓名",
+      "certNo": "證書編號：{no}",
+      "statusPending": "待提交",
+      "statusSubmitted": "已提交",
+      "statusGraded": "已評分",
+      "statusUnknown": "未知"
+    },
+    "chapters": {
+      "empty": "暫無章節",
+      "sectionCount": "{count} 節"
+    },
+    "interaction": {
+      "like": "點讚",
+      "favorite": "收藏"
+    },
+    "video": {
+      "cover": "課程封面",
+      "selectChapter": "選擇章節開始學習"
+    }
+  },
+  "operation": {
+    "hotNews": {
+      "title": "熱門資訊",
+      "more": "更多",
+      "tenK": "萬"
+    },
+    "integral": {
+      "title": "積分中心",
+      "mall": "積分商城",
+      "currentPoints": "當前積分",
+      "weeklyGain": "本週新增",
+      "myRank": "我的排名",
+      "recentRecords": "最近明細",
+      "all": "全部"
+    },
+    "messageSystem": {
+      "title": "消息中心",
+      "viewAll": "查看全部",
+      "unreadCount": "{count} 條未讀",
+      "noNewMessages": "暫無新消息",
+      "messageCenterAria": "消息中心",
+      "categories": {
+        "system": "系統通知",
+        "interaction": "互動",
+        "private": "私信",
+        "announcement": "公告"
+      }
+    },
+    "rightModule": {
+      "quickEntries": "快捷入口",
+      "promotion": "推廣",
+      "hotTags": "熱門標籤",
+      "more": "更多",
+      "defaultEntries": {
+        "mall": { "label": "積分商城", "description": "兌換好禮" },
+        "vip": { "label": "會員中心", "description": "尊享特權" },
+        "invite": { "label": "邀請好友", "description": "賺積分" },
+        "help": { "label": "幫助中心", "description": "使用指南" }
+      },
+      "defaultTags": {
+        "llm": "AI 大模型",
+        "tutorial": "教程",
+        "rag": "RAG",
+        "agent": "Agent",
+        "frontend": "前端",
+        "backend": "後端",
+        "opensource": "開源"
+      }
+    }
   }
 }

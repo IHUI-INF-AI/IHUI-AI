@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
@@ -78,7 +79,7 @@ export default function ExamAnswer() {
         }, 1000)
       })
       .catch((e) => {
-        console.error('考试加载 failed:', e)
+        logger.error('unknown', '考试加载', e)
         Taro.showToast({ title: '考试加载失败', icon: 'none' })
       })
     return () => {
@@ -154,7 +155,7 @@ export default function ExamAnswer() {
         <View
           key={i}
           className={`flex items-center p-3 border rounded-xl mb-2 ${
-            selected ? 'border-[#07c160] bg-[#e6f0ff]' : 'border-[#eee]'
+            selected ? 'border-[#07c160] bg-[#e6f7ee]' : 'border-[#eee]'
           }`}
           onClick={() => select(val)}
         >

@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Input, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
@@ -23,7 +24,7 @@ export default function Password() {
       Taro.showToast({ title: '修改成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
-      console.error('[user/password] 修改密码 failed:', e)
+      logger.error('user/password', '修改密码', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }

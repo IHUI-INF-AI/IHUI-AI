@@ -3,19 +3,21 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { getHomePage, getCourseList, type Banner, type Course } from '@/api'
+import { useI18n } from '@/i18n'
 
 const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
 const entries = [
-  { icon: '📚', text: '课程', path: '/pages/course/list' },
-  { icon: '📺', text: '直播', path: '/pages/live/list' },
-  { icon: '🤖', text: 'AI', path: '/pages/ai/chat' },
-  { icon: '📋', text: '订单', path: '/pages/user/orders' },
-  { icon: '⚙️', text: '设置', path: '/pages/user/settings' },
+  { icon: '📚', key: 'home.entry.course', path: '/pages/course/list' },
+  { icon: '📺', key: 'home.entry.live', path: '/pages/live/list' },
+  { icon: '🤖', key: 'home.entry.ai', path: '/pages/ai/chat' },
+  { icon: '📋', key: 'home.entry.order', path: '/pages/user/orders' },
+  { icon: '⚙️', key: 'home.entry.setting', path: '/pages/user/settings' },
 ]
 
 export default function Index() {
+  const { t } = useI18n()
   const [isLogin, setIsLogin] = useState(false)
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [bannerList, setBannerList] = useState<Banner[]>([])
@@ -77,7 +79,7 @@ export default function Index() {
           />
           <View className="ml-[10px] flex items-center">
             <Text className="text-white text-[15px] font-semibold">
-              {userInfo.userName || userInfo.nickname || '用户'}
+              {userInfo.userName || userInfo.nickname || t('common.user')}
             </Text>
             {userInfo.isVip ? (
               <Text className="ml-[6px] px-[6px] py-[1px] bg-[#f0ad4e] text-white text-[10px] rounded-[10px]">
@@ -86,7 +88,7 @@ export default function Index() {
             ) : null}
           </View>
           <Text className="ml-auto text-white text-[13px]" onClick={goLogin}>
-            去登录
+            {t('home.goLogin')}
           </Text>
         </View>
       ) : (
@@ -100,7 +102,7 @@ export default function Index() {
             mode="aspectFill"
           />
           <Text className="ml-[10px] text-white text-[15px] font-semibold" onClick={goLogin}>
-            点击登录
+            {t('home.tapLogin')}
           </Text>
         </View>
       )}
@@ -121,7 +123,7 @@ export default function Index() {
         {bannerList.length === 0 ? (
           <SwiperItem>
             <View className="w-full h-full flex items-center justify-center bg-white text-[#07c160] text-[15px]">
-              <Text>智汇社区 · AI 赋能学习</Text>
+              <Text>{t('home.slogan')}</Text>
             </View>
           </SwiperItem>
         ) : null}
@@ -136,7 +138,7 @@ export default function Index() {
             onClick={() => goPage(entry.path)}
           >
             <Text className="text-[24px]">{entry.icon}</Text>
-            <Text className="mt-[4px] text-[12px] text-[#333]">{entry.text}</Text>
+            <Text className="mt-[4px] text-[12px] text-[#333]">{t(entry.key)}</Text>
           </View>
         ))}
       </View>
@@ -144,9 +146,9 @@ export default function Index() {
       {/* 推荐课程 */}
       <View className="mx-[16px] my-[16px]">
         <View className="flex justify-between items-center mb-[10px]">
-          <Text className="text-[16px] font-semibold text-[#333]">热门课程</Text>
+          <Text className="text-[16px] font-semibold text-[#333]">{t('home.hotCourses')}</Text>
           <Text className="text-[12px] text-[#999]" onClick={() => goPage('/pages/course/list')}>
-            更多 {'>'}
+            {t('home.more')} {'>'}
           </Text>
         </View>
         <ScrollView scrollX>

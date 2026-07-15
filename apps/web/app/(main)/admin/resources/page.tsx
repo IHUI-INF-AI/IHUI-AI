@@ -118,7 +118,7 @@ export default function AdminResourcesPage() {
           icon={FolderTree}
           label={t('statCategoryTotal')}
           value={categories.length}
-          gradient="bg-gradient-to-br from-sky-500 to-blue-500"
+          gradient="bg-gradient-to-br from-teal-500 to-emerald-600"
         />
       </div>
 

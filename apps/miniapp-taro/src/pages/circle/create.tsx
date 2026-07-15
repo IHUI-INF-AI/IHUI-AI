@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
@@ -40,7 +41,7 @@ export default function CircleCreatePage() {
       Taro.showToast({ title: '发布成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
     } catch (e) {
-      console.error('[circle/create] 发布动态 failed:', e)
+      logger.error('circle/create', '发布动态', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [form])

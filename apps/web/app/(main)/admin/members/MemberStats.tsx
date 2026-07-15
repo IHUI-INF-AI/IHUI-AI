@@ -49,7 +49,7 @@ export function MemberStats({ t }: { t: ReturnType<typeof useTranslations<'admin
         icon={Building2}
         label={t('statCompany')}
         value={statCompany}
-        gradient="bg-gradient-to-br from-sky-500 to-blue-500"
+        gradient="bg-gradient-to-br from-teal-500 to-emerald-600"
       />
     </div>
   )

@@ -2,6 +2,7 @@
 
 import { Loader2, Edit, Trash2, ImageOff } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import Image from 'next/image'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { STATUS_MAP } from './helpers'
@@ -72,9 +73,11 @@ export function TopicsTable({
                   <TableCell className="px-4 py-2.5 font-medium">{tp.title}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     {tp.image ? (
-                      <img
+                      <Image
                         src={tp.image}
                         alt={tp.title}
+                        width={40}
+                        height={40}
                         className="h-10 w-10 rounded object-cover"
                       />
                     ) : (
