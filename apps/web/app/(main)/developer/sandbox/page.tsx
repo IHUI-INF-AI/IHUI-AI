@@ -26,10 +26,10 @@ type Method = (typeof METHODS)[number]
 
 const METHOD_CLASS: Record<Method, string> = {
   GET: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  POST: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  PUT: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  POST: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  PUT: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
   DELETE: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
-  PATCH: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+  PATCH: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
 }
 
 export default function SandboxPage() {

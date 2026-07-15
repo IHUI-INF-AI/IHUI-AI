@@ -1,3 +1,4 @@
+import { TONE } from '@/lib/status-colors'
 import type { TaskDeveloperForm } from './types'
 
 export const RESOURCE = '/api/admin/task-developer'
@@ -10,11 +11,11 @@ export const PERMS = {
 }
 
 export const STATUS_MAP: Record<number, { label: string; cls: string }> = {
-  0: { label: '待接单', cls: 'bg-amber-500/10 text-amber-600' },
-  1: { label: '进行中', cls: 'bg-blue-500/10 text-blue-600' },
-  2: { label: '已完成', cls: 'bg-emerald-500/10 text-emerald-600' },
-  3: { label: '已取消', cls: 'bg-red-500/10 text-red-600' },
-  4: { label: '已超时', cls: 'bg-gray-500/10 text-gray-600' },
+  0: { label: '待接单', cls: TONE.amber },
+  1: { label: '进行中', cls: TONE.amber },
+  2: { label: '已完成', cls: TONE.emerald },
+  3: { label: '已取消', cls: TONE.red },
+  4: { label: '已超时', cls: TONE.muted },
 }
 
 export const FIELDS: { key: keyof TaskDeveloperForm; label: string; type?: 'number' }[] = [
