@@ -25,10 +25,14 @@ export default function CourseList() {
     loadingRef.current = true
     setLoading(true)
     try {
-      const res = await getCourseList({ page: pageRef.current, pageSize: 10, keyword: keywordRef.current })
+      const res = await getCourseList({
+        page: pageRef.current,
+        pageSize: 10,
+        keyword: keywordRef.current,
+      })
       const more = res.list || []
       lenRef.current = reset ? more.length : lenRef.current + more.length
-      setList(prev => reset ? more : [...prev, ...more])
+      setList((prev) => (reset ? more : [...prev, ...more]))
       hasMoreRef.current = lenRef.current < res.total
       pageRef.current++
     } catch {
@@ -66,10 +70,10 @@ export default function CourseList() {
           type="text"
           placeholder="搜索课程"
           value={keyword}
-          onInput={e => setKeyword(e.detail.value)}
+          onInput={(e) => setKeyword(e.detail.value)}
           onConfirm={onSearch}
         />
-        <View className="ml-2 px-3 h-9 leading-9 text-[#007aff] text-sm" onClick={onSearch}>
+        <View className="ml-2 px-3 h-9 leading-9 text-[#07c160] text-sm" onClick={onSearch}>
           <Text>搜索</Text>
         </View>
       </View>
@@ -77,13 +81,17 @@ export default function CourseList() {
       {/* 课程列表 */}
       {list.length > 0 && (
         <View>
-          {list.map(item => (
+          {list.map((item) => (
             <View
               key={item.id}
               className="flex bg-white rounded-2xl overflow-hidden mb-3"
               onClick={() => goDetail(item.id)}
             >
-              <Image className="w-[110px] h-[80px] flex-shrink-0" src={item.coverUrl} mode="aspectFill" />
+              <Image
+                className="w-[110px] h-[80px] flex-shrink-0"
+                src={item.coverUrl}
+                mode="aspectFill"
+              />
               <View className="flex-1 p-2 flex flex-col justify-between">
                 <Text className="text-[15px] text-[#333] font-semibold">{item.title}</Text>
                 {item.subtitle && <Text className="text-xs text-[#999] mt-1">{item.subtitle}</Text>}

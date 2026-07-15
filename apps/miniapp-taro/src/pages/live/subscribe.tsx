@@ -63,7 +63,7 @@ export default function LiveSubscribe() {
                 </View>
                 <Button
                   className={`ml-[8px] text-[12px] rounded-[4px] h-[30px] leading-[30px] px-[12px] ${
-                    isSubscribed ? 'bg-[#f5f5f5] text-[#999]' : 'bg-[#007aff] text-white'
+                    isSubscribed ? 'bg-[#f5f5f5] text-[#999]' : 'bg-[#07c160] text-white'
                   }`}
                   disabled={isSubscribed}
                   onClick={() => onSubscribe(l.id)}

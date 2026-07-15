@@ -62,6 +62,12 @@ const SUB_PAGES = [
     descKey: 'connectedAccountsDesc',
   },
   {
+    href: '/settings/llm',
+    icon: Key,
+    titleKey: 'llmConfigsTitle',
+    descKey: 'llmConfigsDesc',
+  },
+  {
     href: '/settings/preferences',
     icon: Settings,
     titleKey: 'preferencesTitle',

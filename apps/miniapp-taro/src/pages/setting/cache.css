@@ -1,9 +1,44 @@
-.page { min-height: 100vh; background: #f7f8fa; }
-.card { margin: 24rpx; background: #fff; border-radius: 16rpx; overflow: hidden; }
-.row { display: flex; justify-content: space-between; align-items: center; padding: 32rpx; border-bottom: 2rpx solid #f5f5f5; }
-.label { font-size: 28rpx; color: #333; }
-.value { font-size: 28rpx; color: #007aff; }
-.arrow { color: #ccc; }
-.btn { margin: 60rpx 32rpx; background: #007aff; color: #fff; border-radius: 40rpx; font-size: 32rpx; }
-.tips { padding: 0 32rpx; }
-.tips text { display: block; font-size: 22rpx; color: #999; line-height: 1.8; }
+.page {
+  min-height: 100vh;
+  background: #f7f8fa;
+}
+.card {
+  margin: 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32rpx;
+  border-bottom: 2rpx solid #f5f5f5;
+}
+.label {
+  font-size: 28rpx;
+  color: #333;
+}
+.value {
+  font-size: 28rpx;
+  color: #07c160;
+}
+.arrow {
+  color: #ccc;
+}
+.btn {
+  margin: 60rpx 32rpx;
+  background: #07c160;
+  color: #fff;
+  border-radius: 40rpx;
+  font-size: 32rpx;
+}
+.tips {
+  padding: 0 32rpx;
+}
+.tips text {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  line-height: 1.8;
+}
