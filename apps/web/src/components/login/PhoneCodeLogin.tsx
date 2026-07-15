@@ -79,7 +79,7 @@ export function PhoneCodeLogin() {
         setError(t('loginFailed'))
         return
       }
-      setToken(res.data.accessToken)
+      setToken(res.data.accessToken, res.data.refreshToken)
       router.push('/')
     } catch {
       setError(t('loginFailed'))

@@ -1,4 +1,4 @@
-export const MINI_PROGRAM_LINK = 'https://aizhs.top/share'
+export const MINI_PROGRAM_LINK = '/share'
 
 export function formatAudioTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60)

@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { BarChart } from '@/components/charts/BarChart'
+import { formatNumber } from '@/lib/date-utils'
 
 interface BiStats {
   totalUsers: number
@@ -39,14 +40,14 @@ export default function BiDashboardPage() {
     value: string
     Icon: React.ComponentType<{ className?: string }>
   }[] = [
-    { label: t('totalUsers'), value: stats.totalUsers.toLocaleString(), Icon: Users },
-    { label: t('totalOrders'), value: stats.totalOrders.toLocaleString(), Icon: ShoppingCart },
+    { label: t('totalUsers'), value: formatNumber(stats.totalUsers), Icon: Users },
+    { label: t('totalOrders'), value: formatNumber(stats.totalOrders), Icon: ShoppingCart },
     {
       label: t('totalRevenue'),
-      value: `¥${stats.totalRevenue.toLocaleString()}`,
+      value: `¥${formatNumber(stats.totalRevenue)}`,
       Icon: DollarSign,
     },
-    { label: t('activeUsers'), value: stats.activeUsers.toLocaleString(), Icon: Activity },
+    { label: t('activeUsers'), value: formatNumber(stats.activeUsers), Icon: Activity },
   ]
 
   return (

@@ -32,6 +32,7 @@ export default function SsoLoginPage() {
     try {
       const r = await fetchApi<{
         accessToken: string
+        refreshToken?: string
         user: {
           id: string
           nickname: string
@@ -44,7 +45,7 @@ export default function SsoLoginPage() {
         body: JSON.stringify({ account, password }),
       })
       if (r.success && r.data) {
-        useAuthStore.getState().setToken(r.data.accessToken)
+        useAuthStore.getState().setToken(r.data.accessToken, r.data.refreshToken ?? null)
         useAuthStore.getState().setUser({
           ...r.data.user,
           permissions: r.data.user.permissions ?? [],
