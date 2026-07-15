@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
+import { sql } from 'drizzle-orm'
 import { createWriteStream, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { pipeline } from 'node:stream/promises'
@@ -11,6 +12,7 @@ import { countFollowing, countFollowers, countFavorites } from '../db/social-que
 import { updateUserPassword } from '../db/usercenter-queries.js'
 import { success, error } from '../utils/response.js'
 import { verifyCode } from '../utils/code-store.js'
+import { db } from '../db/index.js'
 
 const ADMIN_ROLE_ID = 1
 
@@ -298,5 +300,45 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
     // 更新手机号
     const updated = await updateUser(userId, { phone: newPhone })
     return reply.send(success({ user: publicUser(updated) }))
+  })
+
+  // GET /api/users/:id/devices — 登录设备列表（从 api_logs 聚合最近登录设备）
+  server.get('/:id/devices', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || 'Authentication required'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const currentUserId = request.userId!
+    const roleId = request.jwtPayload?.roleId ?? 0
+
+    if (id !== currentUserId && roleId < ADMIN_ROLE_ID) {
+      return reply.status(403).send(error(403, '无权查看他人设备'))
+    }
+
+    try {
+      const rows = await db.execute(
+        sql`SELECT "ip", "user_agent", max("created_at") AS "last_login_at"
+            FROM "api_logs"
+            WHERE "user_id" = ${id} AND ("path" LIKE '%/auth/login%' OR "path" LIKE '%/auth/send-code%')
+            GROUP BY "ip", "user_agent"
+            ORDER BY max("created_at") DESC
+            LIMIT 20`,
+      )
+      const devices = (rows as Record<string, unknown>[]).map((r) => ({
+        id: `${r.ip ?? 'unknown'}-${r.user_agent ?? 'unknown'}`,
+        ip: r.ip ?? '',
+        userAgent: r.user_agent ?? '',
+        lastLoginAt: r.last_login_at,
+      }))
+      return reply.send(success({ devices }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询登录设备失败'))
+    }
   })
 }
