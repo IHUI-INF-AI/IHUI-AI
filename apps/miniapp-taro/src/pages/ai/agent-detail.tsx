@@ -3,6 +3,7 @@ import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getAgentDetail } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface AgentDetail {
   id: string
@@ -15,6 +16,7 @@ interface AgentDetail {
 
 export default function AgentDetailPage() {
   const router = useRouter()
+  const { t } = useI18n()
   const [agent, setAgent] = useState<AgentDetail | null>(null)
 
   const load = useCallback(async () => {
@@ -24,9 +26,9 @@ export default function AgentDetailPage() {
       setAgent(await getAgentDetail(id))
     } catch (e) {
       logger.error('ai/agent-detail', '获取Agent详情', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
-  }, [router.params.id])
+  }, [router.params.id, t])
 
   useDidShow(() => {
     load()
@@ -56,7 +58,9 @@ export default function AgentDetailPage() {
       )}
       {agent?.prompt && (
         <View className="mx-[12px] mb-[12px] bg-[#f5f5f5] rounded-[8px] p-[16px]">
-          <Text className="text-[14px] text-[#333] font-semibold mb-[8px] block">Agent提示词</Text>
+          <Text className="text-[14px] text-[#333] font-semibold mb-[8px] block">
+            {t('ai.agentDetail.promptLabel')}
+          </Text>
           <Text className="text-[14px] text-[#666] leading-[22px]">{agent.prompt}</Text>
         </View>
       )}
@@ -66,7 +70,7 @@ export default function AgentDetailPage() {
             className="w-full bg-[#07c160] text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
             onClick={onChat}
           >
-            开始对话
+            {t('ai.agentDetail.startChat')}
           </Button>
         </View>
       )}

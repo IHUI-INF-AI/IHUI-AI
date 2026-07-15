@@ -2,9 +2,11 @@ import { View, Text } from '@tarojs/components'
 import { useState, useCallback } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getTokenBalance, getTokenRecords } from '@/api'
+import { useI18n } from '@/i18n'
 import './balance.css'
 
 export default function TokenBalance() {
+  const { t } = useI18n()
   const [balance, setBalance] = useState<Record<string, unknown> | null>(null)
   const [records, setRecords] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,16 +31,16 @@ export default function TokenBalance() {
   return (
     <View className="token-page">
       <View className="balance-card">
-        <Text className="balance-label">智汇值余额</Text>
+        <Text className="balance-label">{t('token.balance.balanceLabel')}</Text>
         <Text className="balance-value">
           {loading ? '--' : ((balance?.amount as number) ?? (balance?.balance as number) ?? 0)}
         </Text>
       </View>
       <View className="records-section">
-        <Text className="section-title">变动记录</Text>
+        <Text className="section-title">{t('token.balance.recordsTitle')}</Text>
         <View className="record-list">
           {loading ? (
-            <Text className="loading-text">加载中...</Text>
+            <Text className="loading-text">{t('common.loading')}</Text>
           ) : records.length ? (
             records.map((r) => {
               const amount = r.amount as number
@@ -46,7 +48,7 @@ export default function TokenBalance() {
                 <View key={r.id as string} className="record-item">
                   <View className="record-info">
                     <Text className="record-title">
-                      {(r.title as string) || (r.type as string) || '变动'}
+                      {(r.title as string) || (r.type as string) || t('token.balance.change')}
                     </Text>
                     <Text className="record-time">{(r.time as string) || ''}</Text>
                   </View>
@@ -58,7 +60,7 @@ export default function TokenBalance() {
               )
             })
           ) : (
-            <Text className="empty-text">暂无记录</Text>
+            <Text className="empty-text">{t('token.balance.empty')}</Text>
           )}
         </View>
       </View>

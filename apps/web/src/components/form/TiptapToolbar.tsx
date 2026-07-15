@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { type Editor } from '@tiptap/react'
+import { useTranslations } from 'next-intl'
 import { chunkUpload } from '@/lib/file-utils'
 import {
   Bold,
@@ -61,8 +62,8 @@ function ToolbarBtn({
 
 const Sep = () => <span className="mx-1 h-4 w-px bg-border" />
 
-function handleSetLink(editor: Editor) {
-  const url = window.prompt('输入链接地址', 'https://')
+function handleSetLink(editor: Editor, promptText: string) {
+  const url = window.prompt(promptText, 'https://')
   if (url === null) return
   if (url === '') {
     editor.chain().focus().extendMarkRange('link').unsetLink().run()
@@ -71,7 +72,7 @@ function handleSetLink(editor: Editor) {
   editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
 }
 
-async function handleSetImage(editor: Editor) {
+async function handleSetImage(editor: Editor, failedPromptText: string) {
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = 'image/*'
@@ -82,7 +83,7 @@ async function handleSetImage(editor: Editor) {
       const result = await chunkUpload(file, '/api/upload/chunk')
       editor.chain().focus().setImage({ src: result.url }).run()
     } catch {
-      const fallbackUrl = window.prompt('上传失败,可手动输入图片地址', 'https://')
+      const fallbackUrl = window.prompt(failedPromptText, 'https://')
       if (fallbackUrl) editor.chain().focus().setImage({ src: fallbackUrl }).run()
     }
   }
@@ -90,109 +91,114 @@ async function handleSetImage(editor: Editor) {
 }
 
 export function TiptapToolbar({ editor }: { editor: Editor }) {
+  const t = useTranslations('editor.toolbar')
   const inTable = editor.isActive('table')
   return (
     <div className="flex flex-wrap items-center gap-1 border-b bg-muted/30 p-2">
       <ToolbarBtn
         icon={Bold}
-        title="加粗"
+        title={t('bold')}
         onClick={() => editor.chain().focus().toggleBold().run()}
         active={editor.isActive('bold')}
       />
       <ToolbarBtn
         icon={Italic}
-        title="斜体"
+        title={t('italic')}
         onClick={() => editor.chain().focus().toggleItalic().run()}
         active={editor.isActive('italic')}
       />
       <ToolbarBtn
         icon={UnderlineIcon}
-        title="下划线"
+        title={t('underline')}
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         active={editor.isActive('underline')}
       />
       <ToolbarBtn
         icon={Strikethrough}
-        title="删除线"
+        title={t('strikethrough')}
         onClick={() => editor.chain().focus().toggleStrike().run()}
         active={editor.isActive('strike')}
       />
       <Sep />
       <ToolbarBtn
         icon={Heading1}
-        title="标题1"
+        title={t('heading1')}
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
         active={editor.isActive('heading', { level: 1 })}
       />
       <ToolbarBtn
         icon={Heading2}
-        title="标题2"
+        title={t('heading2')}
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         active={editor.isActive('heading', { level: 2 })}
       />
       <ToolbarBtn
         icon={Heading3}
-        title="标题3"
+        title={t('heading3')}
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
         active={editor.isActive('heading', { level: 3 })}
       />
       <Sep />
       <ToolbarBtn
         icon={List}
-        title="无序列表"
+        title={t('bulletList')}
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         active={editor.isActive('bulletList')}
       />
       <ToolbarBtn
         icon={ListOrdered}
-        title="有序列表"
+        title={t('orderedList')}
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
         active={editor.isActive('orderedList')}
       />
       <Sep />
       <ToolbarBtn
         icon={Quote}
-        title="引用"
+        title={t('quote')}
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
         active={editor.isActive('blockquote')}
       />
       <ToolbarBtn
         icon={Code}
-        title="代码块"
+        title={t('codeBlock')}
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
         active={editor.isActive('codeBlock')}
       />
       <Sep />
       <ToolbarBtn
         icon={LinkIcon}
-        title="链接"
-        onClick={() => handleSetLink(editor)}
+        title={t('link')}
+        onClick={() => handleSetLink(editor, t('linkPrompt'))}
         active={editor.isActive('link')}
       />
-      <ToolbarBtn icon={ImageIcon} title="图片" onClick={() => handleSetImage(editor)} />
+      <ToolbarBtn
+        icon={ImageIcon}
+        title={t('image')}
+        onClick={() => handleSetImage(editor, t('imageUploadFailedPrompt'))}
+      />
       <Sep />
       <ToolbarBtn
         icon={AlignLeft}
-        title="左对齐"
+        title={t('alignLeft')}
         onClick={() => editor.chain().focus().setTextAlign('left').run()}
         active={editor.isActive({ textAlign: 'left' })}
       />
       <ToolbarBtn
         icon={AlignCenter}
-        title="居中"
+        title={t('alignCenter')}
         onClick={() => editor.chain().focus().setTextAlign('center').run()}
         active={editor.isActive({ textAlign: 'center' })}
       />
       <ToolbarBtn
         icon={AlignRight}
-        title="右对齐"
+        title={t('alignRight')}
         onClick={() => editor.chain().focus().setTextAlign('right').run()}
         active={editor.isActive({ textAlign: 'right' })}
       />
       <Sep />
       <ToolbarBtn
         icon={TableIcon}
-        title="插入表格"
+        title={t('insertTable')}
         onClick={() =>
           editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
         }
@@ -200,44 +206,44 @@ export function TiptapToolbar({ editor }: { editor: Editor }) {
       />
       <ToolbarBtn
         icon={Rows3}
-        title="添加行"
+        title={t('addRow')}
         onClick={() => editor.chain().focus().addRowAfter().run()}
         disabled={!inTable}
       />
       <ToolbarBtn
         icon={Columns3}
-        title="添加列"
+        title={t('addColumn')}
         onClick={() => editor.chain().focus().addColumnAfter().run()}
         disabled={!inTable}
       />
       <ToolbarBtn
         icon={Minus}
-        title="删除行"
+        title={t('deleteRow')}
         onClick={() => editor.chain().focus().deleteRow().run()}
         disabled={!inTable}
       />
       <ToolbarBtn
         icon={Minus}
-        title="删除列"
+        title={t('deleteColumn')}
         onClick={() => editor.chain().focus().deleteColumn().run()}
         disabled={!inTable}
       />
       <ToolbarBtn
         icon={Trash2}
-        title="删除表格"
+        title={t('deleteTable')}
         onClick={() => editor.chain().focus().deleteTable().run()}
         disabled={!inTable}
       />
       <Sep />
       <ToolbarBtn
         icon={Undo}
-        title="撤销"
+        title={t('undo')}
         onClick={() => editor.chain().focus().undo().run()}
         disabled={!editor.can().undo()}
       />
       <ToolbarBtn
         icon={Redo}
-        title="重做"
+        title={t('redo')}
         onClick={() => editor.chain().focus().redo().run()}
         disabled={!editor.can().redo()}
       />

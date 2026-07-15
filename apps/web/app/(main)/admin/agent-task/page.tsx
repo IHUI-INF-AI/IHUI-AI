@@ -13,7 +13,8 @@ import { Button } from '@ihui/ui'
 import { AgentTaskFilter } from './AgentTaskFilter'
 import { AgentTaskTable } from './AgentTaskTable'
 import { AgentTaskDialog } from './AgentTaskDialog'
-import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, agentTaskToForm } from './helpers'
+import { PAGE_SIZE, api, EMPTY_FORM, agentTaskToForm } from './helpers'
+import { getExportColumns } from './helpers'
 import type { AgentTask, AgentTaskForm, ListData } from './types'
 
 export default function AgentTaskPage() {
@@ -124,7 +125,7 @@ export default function AgentTaskPage() {
   function handleExport() {
     exportToExcel(
       t('exportName'),
-      EXPORT_COLUMNS,
+      getExportColumns(t),
       (data?.list ?? []) as unknown as Record<string, unknown>[],
     )
   }

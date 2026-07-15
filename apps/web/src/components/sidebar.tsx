@@ -166,10 +166,10 @@ const LANGUAGES: { code: Language; name: string }[] = [
 ]
 
 const DOWNLOADS = [
-  { label: 'iOS', href: 'https://apps.apple.com/cn/app/ihui-ai' },
-  { label: 'Android APK', href: '/apk/ihui-ai-latest.apk' },
-  { label: '微信小程序', href: '/minapp' },
-  { label: '桌面端', href: '/download/desktop' },
+  { labelKey: 'downloadIOS', href: 'https://apps.apple.com/cn/app/ihui-ai' },
+  { labelKey: 'downloadAndroidApk', href: '/apk/ihui-ai-latest.apk' },
+  { labelKey: 'downloadWechatMiniApp', href: '/minapp' },
+  { labelKey: 'downloadDesktop', href: '/download/desktop' },
 ]
 
 interface SidebarProps {
@@ -242,11 +242,11 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           <div className="w-36 py-1">
             {DOWNLOADS.map((item) => (
               <a
-                key={item.label}
+                key={item.labelKey}
                 href={item.href}
                 className="block px-2 py-1.5 text-sm hover:bg-accent"
               >
-                {item.label}
+                {t(item.labelKey)}
               </a>
             ))}
           </div>
@@ -411,7 +411,7 @@ function SearchNavItem({
     'flex h-10 w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
     active
       ? 'bg-primary text-primary-foreground'
-      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+      : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
     collapsed && 'justify-center',
   )
 
@@ -618,7 +618,7 @@ export function Sidebar({
             'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
             active
               ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
             collapsed && 'justify-center',
           )
           const refCb = (el: HTMLElement | null) => {
@@ -726,7 +726,7 @@ export function Sidebar({
     <>
       {/* 桌面端固定侧边栏 */}
       <aside
-        aria-label="主导航"
+        aria-label={t('mainNav')}
         className={cn(
           'relative hidden h-screen shrink-0 flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar lg:flex',
           isResizing ? '' : 'transition-[width] duration-200',
@@ -766,7 +766,7 @@ export function Sidebar({
       {/* 移动端抽屉 */}
       <aside
         aria-modal="true"
-        aria-label="主导航"
+        aria-label={t('mainNav')}
         role="dialog"
         style={{ width: SIDEBAR_MOBILE_WIDTH }}
         className={cn(

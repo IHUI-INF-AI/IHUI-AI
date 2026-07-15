@@ -2,6 +2,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getOrderList, type Order } from '@/api'
+import { useI18n } from '@/i18n'
 
 const statusColors: Record<Order['status'], string> = {
   paid: 'text-[#4cd964]',
@@ -10,23 +11,24 @@ const statusColors: Record<Order['status'], string> = {
   refunded: 'text-[#dd524d]',
 }
 
-function statusText(s: Order['status']) {
-  const map: Record<Order['status'], string> = {
-    pending: '待付款',
-    paid: '已付款',
-    cancelled: '已取消',
-    refunded: '已退款',
-  }
-  return map[s] || s
-}
-
 export default function Orders() {
+  const { t } = useI18n()
   const [list, setList] = useState<Order[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const pageSize = 10
+
+  function statusText(s: Order['status']) {
+    const map: Record<Order['status'], string> = {
+      pending: t('user.orders.statusPending'),
+      paid: t('user.orders.statusPaid'),
+      cancelled: t('user.orders.statusCancelled'),
+      refunded: t('user.orders.statusRefunded'),
+    }
+    return map[s] || s
+  }
 
   const load = useCallback(
     async (reset = false) => {
@@ -62,7 +64,7 @@ export default function Orders() {
   }
 
   function handlePay(item: Order) {
-    Taro.showToast({ title: `支付订单 ${item.orderNo}`, icon: 'none' })
+    Taro.showToast({ title: `${t('user.orders.pay')} ${item.orderNo}`, icon: 'none' })
   }
 
   const mountedRef = useRef(false)
@@ -81,10 +83,10 @@ export default function Orders() {
   })
 
   const tabs = [
-    { key: '', label: '全部' },
-    { key: 'pending', label: '待付款' },
-    { key: 'paid', label: '已付款' },
-    { key: 'cancelled', label: '已取消' },
+    { key: '', label: t('user.orders.tabsAll') },
+    { key: 'pending', label: t('user.orders.tabsPending') },
+    { key: 'paid', label: t('user.orders.tabsPaid') },
+    { key: 'cancelled', label: t('user.orders.tabsCancelled') },
   ]
 
   return (
@@ -110,7 +112,10 @@ export default function Orders() {
           {list.map((item) => (
             <View key={item.id} className="bg-white rounded-[8px] px-[12px] py-[12px] mb-[12px]">
               <View className="flex justify-between items-center">
-                <Text className="text-[12px] text-[#999]">订单号：{item.orderNo}</Text>
+                <Text className="text-[12px] text-[#999]">
+                  {t('user.orders.orderNo')}
+                  {item.orderNo}
+                </Text>
                 <Text className={`text-[13px] ${statusColors[item.status]}`}>
                   {statusText(item.status)}
                 </Text>
@@ -130,7 +135,7 @@ export default function Orders() {
                     className="px-[16px] py-[5px] bg-[#07c160] text-white rounded-[15px] text-[13px]"
                     onClick={() => handlePay(item)}
                   >
-                    <Text>去支付</Text>
+                    <Text>{t('user.orders.pay')}</Text>
                   </View>
                 ) : null}
               </View>
@@ -141,12 +146,12 @@ export default function Orders() {
 
       {!loading && list.length === 0 ? (
         <View className="text-center py-[60px] text-[#999] text-[13px]">
-          <Text>暂无订单</Text>
+          <Text>{t('user.orders.empty')}</Text>
         </View>
       ) : null}
       {loading ? (
         <View className="text-center py-[60px] text-[#999] text-[13px]">
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         </View>
       ) : null}
     </View>

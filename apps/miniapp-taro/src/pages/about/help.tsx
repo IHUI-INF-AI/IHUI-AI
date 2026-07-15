@@ -2,6 +2,7 @@ import { View, Text, Input } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getHelp } from '@/api'
+import { useI18n } from '@/i18n'
 import './help.css'
 
 interface HelpItem {
@@ -11,6 +12,7 @@ interface HelpItem {
 }
 
 export default function HelpPage() {
+  const { t } = useI18n()
   const [list, setList] = useState<HelpItem[]>([])
   const [keyword, setKeyword] = useState('')
   const [opened, setOpened] = useState('')
@@ -18,7 +20,7 @@ export default function HelpPage() {
 
   const filtered = useMemo(() => {
     if (!keyword) return list
-    return list.filter(h => h.title.includes(keyword) || h.content.includes(keyword))
+    return list.filter((h) => h.title.includes(keyword) || h.content.includes(keyword))
   }, [list, keyword])
 
   const load = useCallback(async () => {
@@ -31,7 +33,7 @@ export default function HelpPage() {
   }, [])
 
   const toggle = useCallback((id: string) => {
-    setOpened(prev => prev === id ? '' : id)
+    setOpened((prev) => (prev === id ? '' : id))
   }, [])
 
   useDidShow(() => load())
@@ -41,15 +43,15 @@ export default function HelpPage() {
       <View className="search-bar">
         <Input
           className="search-input"
-          placeholder="搜索帮助"
+          placeholder={t('about.help.search')}
           value={keyword}
-          onInput={e => setKeyword(e.detail.value)}
+          onInput={(e) => setKeyword(e.detail.value)}
         />
       </View>
 
       {filtered.length ? (
         <View className="list">
-          {filtered.map(h => (
+          {filtered.map((h) => (
             <View key={h.id} className="item" onClick={() => toggle(h.id)}>
               <View className="item-head">
                 <Text className="title">{h.title}</Text>
@@ -66,7 +68,9 @@ export default function HelpPage() {
       ) : null}
 
       {!loading && !filtered.length ? (
-        <View className="empty"><Text>暂无帮助内容</Text></View>
+        <View className="empty">
+          <Text>{t('about.help.empty')}</Text>
+        </View>
       ) : null}
     </View>
   )

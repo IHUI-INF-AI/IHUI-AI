@@ -3,8 +3,10 @@ import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { subscribeLive, getLiveList, type Live } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function LiveSubscribe() {
+  const { t } = useI18n()
   const [list, setList] = useState<Live[]>([])
   const [subscribed, setSubscribed] = useState<Set<string | number>>(new Set())
 
@@ -14,28 +16,31 @@ export default function LiveSubscribe() {
       setList(res.list || [])
     } catch (e) {
       logger.error('live/subscribe', '获取直播列表', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('live.subscribe.loadFailed'), icon: 'none' })
     }
-  }, [])
+  }, [t])
 
   useDidShow(() => {
     load()
   })
 
-  const onSubscribe = useCallback(async (id: string | number) => {
-    try {
-      await subscribeLive(id)
-      setSubscribed((prev) => {
-        const next = new Set(prev)
-        next.add(id)
-        return next
-      })
-      Taro.showToast({ title: '订阅成功', icon: 'success' })
-    } catch (e) {
-      logger.error('live/subscribe', '订阅直播', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
-    }
-  }, [])
+  const onSubscribe = useCallback(
+    async (id: string | number) => {
+      try {
+        await subscribeLive(id)
+        setSubscribed((prev) => {
+          const next = new Set(prev)
+          next.add(id)
+          return next
+        })
+        Taro.showToast({ title: t('live.subscribe.subscribeSuccess'), icon: 'success' })
+      } catch (e) {
+        logger.error('live/subscribe', '订阅直播', e)
+        Taro.showToast({ title: t('live.subscribe.loadFailed'), icon: 'none' })
+      }
+    },
+    [t],
+  )
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
@@ -69,7 +74,7 @@ export default function LiveSubscribe() {
                   disabled={isSubscribed}
                   onClick={() => onSubscribe(l.id)}
                 >
-                  {isSubscribed ? '已订阅' : '订阅提醒'}
+                  {isSubscribed ? t('live.subscribe.subscribed') : t('live.subscribe.subscribe')}
                 </Button>
               </View>
             )
@@ -77,7 +82,7 @@ export default function LiveSubscribe() {
         </View>
       ) : (
         <View className="text-center py-[64px]">
-          <Text className="text-[14px] text-[#999]">暂无即将开始的直播</Text>
+          <Text className="text-[14px] text-[#999]">{t('live.subscribe.empty')}</Text>
         </View>
       )}
     </View>

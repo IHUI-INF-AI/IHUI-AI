@@ -2,6 +2,7 @@ import { View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getVideoDetail } from '@/api'
+import { useI18n } from '@/i18n'
 import {
   VideoPlayer,
   VideoInfo,
@@ -34,6 +35,7 @@ interface VideoData {
 }
 
 export default function VideoDetailPage() {
+  const { t } = useI18n()
   const [info, setInfo] = useState<VideoData>({ id: '', title: '' })
   const [loading, setLoading] = useState(true)
   const [currentChapter, setCurrentChapter] = useState<string>('')
@@ -87,8 +89,8 @@ export default function VideoDetailPage() {
     const newComment: CommentItem = {
       id: Date.now().toString(),
       content: commentInput.trim(),
-      nickname: '我',
-      createdAt: '刚刚',
+      nickname: t('study.videoDetail.me'),
+      createdAt: t('study.videoDetail.justNow'),
     }
     setComments([newComment, ...comments])
     setCommentInput('')
@@ -137,9 +139,13 @@ export default function VideoDetailPage() {
       <View className="mx-3 mt-3 bg-white rounded-xl overflow-hidden">
         <VideoTabs
           tabs={[
-            { key: 'catalog', label: '目录', count: info.chapters?.length },
-            { key: 'intro', label: '简介' },
-            { key: 'comment', label: '评论', count: comments.length },
+            {
+              key: 'catalog',
+              label: t('study.videoDetail.tabsCatalog'),
+              count: info.chapters?.length,
+            },
+            { key: 'intro', label: t('study.videoDetail.tabsIntro') },
+            { key: 'comment', label: t('study.videoDetail.tabsComment'), count: comments.length },
           ]}
           active={activeTab}
           onChange={setActiveTab}
