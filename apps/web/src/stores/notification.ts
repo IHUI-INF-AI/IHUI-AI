@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 import type { WSNotification } from '@/hooks/use-websocket'
-import type { NotificationItem, MessageItem } from '@/lib/user-api'
+import type { NotificationItem, MessageItem } from '@/lib/notification-api'
 
 interface NotificationState {
   notifications: NotificationItem[]
@@ -73,7 +73,10 @@ export const useNotificationStore = create<NotificationState>((set) => ({
         }
         return m
       })
-      return { messages, unreadMessageCount: Math.max(0, s.unreadMessageCount - (decremented ? 1 : 0)) }
+      return {
+        messages,
+        unreadMessageCount: Math.max(0, s.unreadMessageCount - (decremented ? 1 : 0)),
+      }
     }),
 
   clearAll: () => set({ notifications: [], unreadCount: 0 }),
@@ -87,7 +90,10 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       id: str(data.id) ?? `${Date.now()}`,
       type: data.type,
       title: str(data.title) ?? (data.type === 'ai_response' ? 'AI 回复' : '新通知'),
-      content: str(data.content) ?? str((data as { message?: { content?: string } }).message?.content) ?? '',
+      content:
+        str(data.content) ??
+        str((data as { message?: { content?: string } }).message?.content) ??
+        '',
       isRead: false,
       createdAt: str(data.createdAt) ?? new Date().toISOString(),
     })
