@@ -47,6 +47,13 @@ vi.mock('../../db/index.js', () => {
   }
 })
 
+vi.mock('../../plugins/auth.js', () => ({
+  authenticate: vi.fn(async (request: { userId?: string }) => {
+    request.userId = 'test-user-id'
+    return { userId: 'test-user-id' } as never
+  }),
+}))
+
 vi.mock('../../services/storage-service.js', () => ({
   deleteFile: vi.fn().mockReturnValue(true),
 }))
@@ -64,13 +71,19 @@ describe('Legacy Completion API (D17/D18/D19 新增端点)', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
-    app.setErrorHandler((err: Error, _request, reply) => {
+    app.setErrorHandler((err: Error & { statusCode?: number }, _request, reply) => {
       const isZodErr =
         err.name === 'ZodError' && Array.isArray((err as { issues?: unknown[] }).issues)
-      const statusCode = isZodErr ? 400 : 500
+      const statusCode = isZodErr
+        ? 400
+        : err.statusCode && err.statusCode >= 400 && err.statusCode < 600
+          ? err.statusCode
+          : 500
       const message = isZodErr
         ? ((err as { issues?: Array<{ message?: string }> }).issues?.[0]?.message ?? '参数错误')
-        : '服务器错误'
+        : statusCode >= 500
+          ? '服务器错误'
+          : err.message
       reply.status(statusCode).send({ code: statusCode, message })
     })
     await app.register(legacyCompletionRoutes, { prefix: '/api' })

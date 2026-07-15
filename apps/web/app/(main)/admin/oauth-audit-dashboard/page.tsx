@@ -8,6 +8,7 @@ import { ShieldCheck, KeyRound, Activity, AlertTriangle, Loader2 } from 'lucide-
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/lib/date-utils'
 
 interface AuditStats {
   totalAuth: number
@@ -62,13 +63,13 @@ export default function OauthAuditDashboardPage() {
     ? [
         {
           label: t('oauthAudit.totalAuth'),
-          value: stats.totalAuth.toLocaleString(),
+          value: formatNumber(stats.totalAuth),
           icon: KeyRound,
           color: 'text-primary',
         },
         {
           label: t('oauthAudit.todayAuth'),
-          value: stats.todayAuth.toLocaleString(),
+          value: formatNumber(stats.todayAuth),
           icon: Activity,
           color: 'text-primary',
         },
