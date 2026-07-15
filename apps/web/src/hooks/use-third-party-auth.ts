@@ -36,6 +36,7 @@ const PLATFORM_DISPLAY_NAMES: Record<ThirdPartyPlatform, string> = {
   wechat: '微信',
   github: 'GitHub',
   feishu: '飞书',
+  alipay: '支付宝',
 }
 
 /** Google GIS SDK 脚本地址 */
@@ -94,7 +95,7 @@ function buildFallbackLoginData(platform: ThirdPartyPlatform): ThirdPartyLoginRe
 /** 登录成功后将 token/user 写入 auth store */
 function applyLoginData(data: ThirdPartyLoginResponse): void {
   const { setToken, setUser } = useAuthStore.getState()
-  setToken(data.token)
+  setToken(data.token, data.refreshToken)
   const user: AuthUser = {
     id: data.user.id,
     nickname: data.user.nickname,
@@ -258,14 +259,20 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
         // 演示模式或配置完整 → 直接构造厂商授权 URL
         const validation = validatePlatformConfig(platform)
         const canDirectRedirect =
-          isDemoMode() || (validation.valid && !!config.authUrl && !!config.clientId)
+          isDemoMode() ||
+          (validation.valid && !!config.authUrl && !!(config.clientId || config.appId))
 
         if (canDirectRedirect && config.authUrl) {
           const params: Record<string, string> = {
-            client_id: config.clientId || config.appId || '',
             redirect_uri: config.redirectUri,
             response_type: 'code',
             state,
+          }
+          // 支付宝使用 app_id 而非 client_id
+          if (platform === 'alipay') {
+            params.app_id = config.appId || ''
+          } else {
+            params.client_id = config.clientId || config.appId || ''
           }
           if (config.scope) params.scope = config.scope
           // Apple 需要 response_mode

@@ -42,7 +42,10 @@ export function OAuthCallbackHandler({ provider }: OAuthCallbackHandlerProps) {
     const apiPath = PROVIDER_API[provider]
     const body = JSON.stringify({ code, state })
 
-    fetchApi<{ token: string; user: unknown }>(apiPath, { method: 'POST', body })
+    fetchApi<{ token: string; refreshToken?: string; user: unknown }>(apiPath, {
+      method: 'POST',
+      body,
+    })
       .then((res) => {
         if (cancelled) return
         if (!res.success) {
@@ -55,7 +58,7 @@ export function OAuthCallbackHandler({ provider }: OAuthCallbackHandlerProps) {
           setErrorMsg('登录返回数据为空')
           return
         }
-        setToken(res.data.token)
+        setToken(res.data.token, res.data.refreshToken)
         setUser(res.data.user as never)
         setStatus('success')
         setTimeout(() => router.push('/'), 800)

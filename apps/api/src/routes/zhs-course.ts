@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import { authenticate } from '../plugins/auth.js'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import {
@@ -47,7 +48,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   const commentIdParam = z.object({ comment_id: z.string() })
 
   // 课程列表
-  fastify.get('/list', async (request) => {
+  fastify.get('/list', { preHandler: authenticate }, async (request) => {
     const { page, pageSize, keyword, status, categoryId } = z
       .object({
         ...pageQuery,
@@ -81,7 +82,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 课程详情
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get('/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const result = await db.select().from(lessons).where(eq(lessons.id, id)).limit(1)
     if (!result[0]) return reply.code(404).send({ error: '课程不存在' })
@@ -89,7 +90,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 创建课程
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', { preHandler: authenticate }, async (request, reply) => {
     const body = courseSchema.parse(request.body)
     const [created] = await db
       .insert(lessons)
@@ -110,7 +111,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 更新课程
-  fastify.put('/', async (request, reply) => {
+  fastify.put('/', { preHandler: authenticate }, async (request, reply) => {
     const body = updateSchema.parse(request.body)
     const { id, ...updateData } = body
     const [updated] = await db
@@ -137,7 +138,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 批量删除课程
-  fastify.delete('/:ids', async (request) => {
+  fastify.delete('/:ids', { preHandler: authenticate }, async (request) => {
     const { ids } = idsParam.parse(request.params)
     const idList = ids.split(',').filter(Boolean)
     await db.delete(lessons).where(sql`${lessons.id} = ANY(${idList}::uuid[])`)
@@ -145,7 +146,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 课程下架
-  fastify.post('/delist/:ids', async (request) => {
+  fastify.post('/delist/:ids', { preHandler: authenticate }, async (request) => {
     const { ids } = idsParam.parse(request.params)
     const idList = ids.split(',').filter(Boolean)
     await db
@@ -157,7 +158,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // ========== 课程视频 CRUD (9端点) ==========
   // 视频列表
-  fastify.get('/videos', async (request) => {
+  fastify.get('/videos', { preHandler: authenticate }, async (request) => {
     const { courseId, page, pageSize, status, keyword } = z
       .object({
         ...pageQuery,
@@ -186,7 +187,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 我的视频（静态路由，须在 /:video_id 之前注册）
-  fastify.get('/videos/my', async (request) => {
+  fastify.get('/videos/my', { preHandler: authenticate }, async (request) => {
     const { userUuid, courseId, page, pageSize } = z
       .object({
         ...pageQuery,
@@ -207,7 +208,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 视频详情
-  fastify.get('/videos/:video_id', async (request, reply) => {
+  fastify.get('/videos/:video_id', { preHandler: authenticate }, async (request, reply) => {
     const { video_id } = videoIdParam.parse(request.params)
     const result = await db
       .select()
@@ -219,7 +220,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 创建视频
-  fastify.post('/videos/create', async (request, reply) => {
+  fastify.post('/videos/create', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
         courseId: z.number().int(),
@@ -261,7 +262,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 批量创建视频
-  fastify.post('/videos/batch', async (request, reply) => {
+  fastify.post('/videos/batch', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
         videos: z.array(
@@ -282,7 +283,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 更新视频
-  fastify.put('/videos/:video_id', async (request, reply) => {
+  fastify.put('/videos/:video_id', { preHandler: authenticate }, async (request, reply) => {
     const { video_id } = videoIdParam.parse(request.params)
     const body = z
       .object({
@@ -328,14 +329,14 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 删除视频
-  fastify.delete('/videos/:video_id', async (request) => {
+  fastify.delete('/videos/:video_id', { preHandler: authenticate }, async (request) => {
     const { video_id } = videoIdParam.parse(request.params)
     await db.delete(zhsCourseVideo).where(eq(zhsCourseVideo.id, Number(video_id)))
     return { deleted: true }
   })
 
   // 移动视频（调整课程归属）
-  fastify.post('/videos/:video_id/move', async (request, reply) => {
+  fastify.post('/videos/:video_id/move', { preHandler: authenticate }, async (request, reply) => {
     const { video_id } = videoIdParam.parse(request.params)
     const { courseId } = z.object({ courseId: z.number().int() }).parse(request.body)
     const [updated] = await db
@@ -348,7 +349,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 发布视频
-  fastify.post('/videos/:video_id/issue', async (request, reply) => {
+  fastify.post('/videos/:video_id/issue', { preHandler: authenticate }, async (request, reply) => {
     const { video_id } = videoIdParam.parse(request.params)
     const [updated] = await db
       .update(zhsCourseVideo)
@@ -361,7 +362,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // ========== 课程分类 (2端点) ==========
   // 分类列表
-  fastify.get('/categories', async (request) => {
+  fastify.get('/categories', { preHandler: authenticate }, async (request) => {
     const { type, parentId, status } = z
       .object({
         type: z.string().optional(),
@@ -384,7 +385,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 父级分类链
-  fastify.get('/categories/:category_id/parent', async (request) => {
+  fastify.get('/categories/:category_id/parent', { preHandler: authenticate }, async (request) => {
     const { category_id } = categoryIdParam.parse(request.params)
     const chain: (typeof zhsCategoryDictionary.$inferSelect)[] = []
     let currentId = Number(category_id)
@@ -403,7 +404,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // ========== 教育平台 (5端点) ==========
   // 平台列表
-  fastify.get('/platforms', async (request) => {
+  fastify.get('/platforms', { preHandler: authenticate }, async (request) => {
     const { status, keyword } = z
       .object({ status: z.coerce.number().optional(), keyword: z.string().optional() })
       .parse(request.query)
@@ -420,7 +421,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 平台详情（按 code）
-  fastify.get('/platforms/:code', async (request, reply) => {
+  fastify.get('/platforms/:code', { preHandler: authenticate }, async (request, reply) => {
     const { code } = codeParam.parse(request.params)
     const result = await db
       .select()
@@ -432,7 +433,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 创建平台
-  fastify.post('/platforms/create', async (request, reply) => {
+  fastify.post('/platforms/create', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
         code: z.string().min(1).max(50),
@@ -462,7 +463,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 更新平台
-  fastify.put('/platforms/:platform_id', async (request, reply) => {
+  fastify.put('/platforms/:platform_id', { preHandler: authenticate }, async (request, reply) => {
     const { platform_id } = platformIdParam.parse(request.params)
     const body = z
       .object({
@@ -498,7 +499,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 删除平台（软删除）
-  fastify.delete('/platforms/:platform_id', async (request) => {
+  fastify.delete('/platforms/:platform_id', { preHandler: authenticate }, async (request) => {
     const { platform_id } = platformIdParam.parse(request.params)
     await db
       .update(zhsEducationPlatform)
@@ -509,7 +510,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // ========== 课程支付 (2端点) ==========
   // 创建支付
-  fastify.post('/pay', async (request, reply) => {
+  fastify.post('/pay', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
         courseId: z.number().int(),
@@ -537,7 +538,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 支付日志
-  fastify.get('/pay-logs', async (request) => {
+  fastify.get('/pay-logs', { preHandler: authenticate }, async (request) => {
     const { payId, page, pageSize } = z
       .object({
         ...pageQuery,
@@ -559,7 +560,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // ========== 课程评论 (4端点) ==========
   // 评论列表
-  fastify.get('/comments', async (request) => {
+  fastify.get('/comments', { preHandler: authenticate }, async (request) => {
     const { videoId, page, pageSize, status } = z
       .object({
         ...pageQuery,
@@ -582,7 +583,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 创建评论
-  fastify.post('/comments/create', async (request, reply) => {
+  fastify.post('/comments/create', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
         videoId: z.number().int(),
@@ -604,7 +605,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 父评论列表
-  fastify.get('/comments/parent', async (request) => {
+  fastify.get('/comments/parent', { preHandler: authenticate }, async (request) => {
     const { videoId, page, pageSize } = z
       .object({
         ...pageQuery,
@@ -628,7 +629,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 删除评论（软删除）
-  fastify.delete('/comments/:comment_id', async (request) => {
+  fastify.delete('/comments/:comment_id', { preHandler: authenticate }, async (request) => {
     const { comment_id } = commentIdParam.parse(request.params)
     await db
       .update(zhsUserVideoComment)
@@ -639,7 +640,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // ========== 视频日志 (2端点) ==========
   // 记录视频日志
-  fastify.post('/video-log', async (request, reply) => {
+  fastify.post('/video-log', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
         videoId: z.number().int(),
@@ -659,7 +660,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 视频日志列表
-  fastify.get('/video-log/list', async (request) => {
+  fastify.get('/video-log/list', { preHandler: authenticate }, async (request) => {
     const { videoId, userUuid, action, page, pageSize } = z
       .object({
         ...pageQuery,
@@ -685,7 +686,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // ========== 操作日志 (2端点) ==========
   // Token 操作日志列表
-  fastify.get('/operate/list', async (request) => {
+  fastify.get('/operate/list', { preHandler: authenticate }, async (request) => {
     const { userId, type, page, pageSize } = z
       .object({
         ...pageQuery,
@@ -708,7 +709,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 平台操作日志列表
-  fastify.get('/platform-logs', async (request) => {
+  fastify.get('/platform-logs', { preHandler: authenticate }, async (request) => {
     const { courseId, platformId, page, pageSize } = z
       .object({
         ...pageQuery,
@@ -732,7 +733,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // ========== 用户平台 (3端点) ==========
   // 绑定用户平台
-  fastify.post('/user-platform/bind', async (request, reply) => {
+  fastify.post('/user-platform/bind', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
         userUuid: z.string().min(1),
@@ -750,7 +751,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 解绑用户平台
-  fastify.delete('/user-platform/unbind', async (request) => {
+  fastify.delete('/user-platform/unbind', { preHandler: authenticate }, async (request) => {
     const { userUuid, platformId } = z
       .object({ userUuid: z.string(), platformId: z.coerce.number().optional() })
       .parse(request.query)
@@ -766,7 +767,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // 我的平台
-  fastify.get('/user-platform/my', async (request) => {
+  fastify.get('/user-platform/my', { preHandler: authenticate }, async (request) => {
     const { userUuid } = z.object({ userUuid: z.string() }).parse(request.query)
     const list = await db
       .select()
@@ -778,7 +779,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // ========== 兼容端点（前端 RESTful CRUD 模式） ==========
 
   // GET / - 根路径列表（别名 /list）
-  fastify.get('/', async (request) => {
+  fastify.get('/', { preHandler: authenticate }, async (request) => {
     const { page, pageSize, keyword, status, categoryId } = z
       .object({
         ...pageQuery,
@@ -812,7 +813,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // PUT /:id - 更新课程（id 在 URL，兼容前端 RESTful 模式）
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const body = courseSchema.partial().parse(request.body)
     const [updated] = await db
@@ -837,7 +838,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // POST /videos - 创建视频别名（兼容前端 POST ${API}）
-  fastify.post('/videos', async (request, reply) => {
+  fastify.post('/videos', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
         courseId: z.number().int(),
@@ -879,7 +880,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // GET /pay - 支付列表
-  fastify.get('/pay', async (request) => {
+  fastify.get('/pay', { preHandler: authenticate }, async (request) => {
     const { page, pageSize, courseId, userUuid, status } = z
       .object({
         ...pageQuery,
@@ -908,7 +909,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // PUT /pay/:id - 更新支付
-  fastify.put('/pay/:id', async (request, reply) => {
+  fastify.put('/pay/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
     const body = z
       .object({ status: z.number().int().optional(), amount: z.number().optional() })
@@ -927,14 +928,14 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // DELETE /pay/:id - 删除支付
-  fastify.delete('/pay/:id', async (request) => {
+  fastify.delete('/pay/:id', { preHandler: authenticate }, async (request) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
     await db.delete(zhsCoursePay).where(eq(zhsCoursePay.id, id))
     return { deleted: true }
   })
 
   // POST /pay-logs - 创建支付日志
-  fastify.post('/pay-logs', async (request, reply) => {
+  fastify.post('/pay-logs', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
         payId: z.number().int(),
@@ -950,7 +951,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // PUT /pay-logs/:id - 更新支付日志
-  fastify.put('/pay-logs/:id', async (request, reply) => {
+  fastify.put('/pay-logs/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
     const body = z
       .object({ action: z.string().min(1).max(32).optional(), detail: z.string().optional() })
@@ -969,14 +970,14 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // DELETE /pay-logs/:id - 删除支付日志
-  fastify.delete('/pay-logs/:id', async (request) => {
+  fastify.delete('/pay-logs/:id', { preHandler: authenticate }, async (request) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
     await db.delete(zhsCoursePayLog).where(eq(zhsCoursePayLog.id, id))
     return { deleted: true }
   })
 
   // POST /platform-logs - 创建平台日志
-  fastify.post('/platform-logs', async (request, reply) => {
+  fastify.post('/platform-logs', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
         courseId: z.number().int(),
@@ -992,7 +993,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // PUT /platform-logs/:id - 更新平台日志
-  fastify.put('/platform-logs/:id', async (request, reply) => {
+  fastify.put('/platform-logs/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
     const body = z.object({ action: z.string().min(1).max(32).optional() }).parse(request.body)
     const [updated] = await db
@@ -1005,7 +1006,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // DELETE /platform-logs/:id - 删除平台日志
-  fastify.delete('/platform-logs/:id', async (request) => {
+  fastify.delete('/platform-logs/:id', { preHandler: authenticate }, async (request) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params)
     await db.delete(zhsCoursePlatformLog).where(eq(zhsCoursePlatformLog.id, id))
     return { deleted: true }
