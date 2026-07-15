@@ -109,3 +109,6 @@ unfound-en.txt
 unfound-ja.txt
 unfound-ko.txt
 unfound-zh-TW.txt
+
+# 数据库 schema 备份(脚本生成,不入库)
+scripts/backup-*.sql
