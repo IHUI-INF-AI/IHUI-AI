@@ -113,6 +113,11 @@ import { adminFaqRoutes } from './routes/admin-faq.js'
 import { adminZoneRoutes } from './routes/admin-zone.js'
 import { adminDemandSquareRoutes } from './routes/admin-demand-square.js'
 import { zhsCourseRoutes, adminZhsCourseRoutes } from './routes/zhs-course.js'
+import { zhsOrganizationRoutes, adminZhsOrganizationRoutes } from './routes/zhs-organization.js'
+import {
+  userAgentFreeTimesRoutes,
+  adminUserAgentFreeTimesRoutes,
+} from './routes/user-agent-free-times.js'
 import { shareContentRoutes } from './routes/share-content.js'
 // 历史项目缺失端点补齐（集中实现）
 import { legacyCompletionRoutes } from './routes/legacy-completion.js'
@@ -628,6 +633,12 @@ function registerRoutes(server: FastifyInstance) {
   // ZHS 课程模块 CRUD：/api/course/*（迁移自 ZHS_Server_java 历史项目）
   server.register(zhsCourseRoutes, { prefix: '/api/course' })
   server.register(adminZhsCourseRoutes, { prefix: '/api/admin/course' })
+  // ZHS 组织机构管理：/api/organization/* + /api/admin/organization/*
+  server.register(zhsOrganizationRoutes, { prefix: '/api/organization' })
+  server.register(adminZhsOrganizationRoutes, { prefix: '/api/admin/organization' })
+  // 智能体免费试用次数：/api/agent-free-times/* + /api/admin/agent-free-times/*
+  server.register(userAgentFreeTimesRoutes, { prefix: '/api/agent-free-times' })
+  server.register(adminUserAgentFreeTimesRoutes, { prefix: '/api/admin/agent-free-times' })
 
   // 分享内容 H5：/api/share/content/:code（迁移自 share-h5 历史项目）
   server.register(shareContentRoutes, { prefix: '/api/share' })

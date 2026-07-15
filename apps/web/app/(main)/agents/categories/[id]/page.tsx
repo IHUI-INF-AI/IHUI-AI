@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Tag, Calendar, CreditCard, Sparkles } from 'lucide-react'
@@ -185,10 +186,11 @@ export default function AgentCategoryDetailPage() {
                 >
                   <div className="flex items-start gap-3">
                     {agent.avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={agent.avatar}
                         alt={agent.name}
+                        width={40}
+                        height={40}
                         className="h-10 w-10 rounded-lg object-cover"
                       />
                     ) : (

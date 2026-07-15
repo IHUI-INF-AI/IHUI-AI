@@ -10,7 +10,8 @@ import { Button } from '@ihui/ui'
 import { CirclesFilter } from './CirclesFilter'
 import { CirclesTable } from './CirclesTable'
 import { CircleDialog } from './CircleDialog'
-import { EMPTY_FORM, PAGE_SIZE, api, circleToForm, fetchCircles, slugify } from './helpers'
+import { EMPTY_FORM, PAGE_SIZE, api, circleToForm, fetchCircles } from './helpers'
+import { slugify } from '@/lib/content'
 import type { Circle, CircleForm } from './types'
 
 export default function AdminCirclesPage() {

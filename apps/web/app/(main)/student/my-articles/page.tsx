@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Newspaper, Loader2, Trash2, ChevronLeft, ChevronRight, Eye, Edit } from 'lucide-react'
@@ -120,10 +121,10 @@ export default function MyArticlesPage() {
               return (
                 <Card key={article.id} className="transition-colors hover:bg-accent">
                   <CardContent className="flex gap-4 p-4">
-                    <div className="h-20 w-32 shrink-0 overflow-hidden rounded-md bg-muted">
+                    <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-md bg-muted">
                       {article.coverImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
+                          fill
                           src={article.coverImage}
                           alt={article.title}
                           className="h-full w-full object-cover"
