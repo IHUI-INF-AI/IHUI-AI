@@ -2,8 +2,10 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveHistory, type Live } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function LiveHistory() {
+  const { t } = useI18n()
   const [list, setList] = useState<Live[]>([])
   const [loading, setLoading] = useState(false)
   const pageRef = useRef(1)
@@ -64,10 +66,14 @@ export default function LiveHistory() {
               />
               <View className="flex-1 p-2.5 flex flex-col justify-between">
                 <Text className="text-sm text-[#333] font-semibold">{l.title}</Text>
-                {l.anchor && <Text className="text-xs text-[#666]">主播：{l.anchor}</Text>}
+                {l.anchor && (
+                  <Text className="text-xs text-[#666]">
+                    {t('live.history.anchor', { name: l.anchor })}
+                  </Text>
+                )}
                 <View className="flex justify-between">
                   <Text className="text-xs text-[#999]">{l.startTime}</Text>
-                  <Text className="text-xs text-[#07c160]">回放</Text>
+                  <Text className="text-xs text-[#07c160]">{t('live.history.replay')}</Text>
                 </View>
               </View>
             </View>
@@ -77,13 +83,13 @@ export default function LiveHistory() {
 
       {!loading && list.length === 0 && (
         <View className="text-center py-16 text-[#999] text-sm">
-          <Text>暂无直播回放</Text>
+          <Text>{t('live.history.empty')}</Text>
         </View>
       )}
 
       {loading && (
         <View className="text-center py-16 text-[#999] text-sm">
-          <Text>加载中...</Text>
+          <Text>{t('live.history.loading')}</Text>
         </View>
       )}
     </View>

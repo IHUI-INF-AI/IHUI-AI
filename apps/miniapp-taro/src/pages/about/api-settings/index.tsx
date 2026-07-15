@@ -1,8 +1,9 @@
-﻿import { View, Text } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { BASE_URL } from '@/utils/request'
 import { get } from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 interface ApiConfig {
@@ -12,6 +13,7 @@ interface ApiConfig {
 }
 
 export default function ApiSettings() {
+  const { t } = useI18n()
   const [config, setConfig] = useState<ApiConfig>({
     version: '-',
     environment: '-',
@@ -37,34 +39,34 @@ export default function ApiSettings() {
     <View className="page">
       <View className="card">
         <View className="row" onClick={() => copy(BASE_URL)}>
-          <Text className="label">API 地址</Text>
+          <Text className="label">{t('about.apiSettings.apiUrl')}</Text>
           <Text className="value link">{BASE_URL}</Text>
         </View>
         <View className="row">
-          <Text className="label">API 版本</Text>
+          <Text className="label">{t('about.apiSettings.apiVersion')}</Text>
           <Text className="value">{config.version}</Text>
         </View>
         <View className="row">
-          <Text className="label">运行环境</Text>
+          <Text className="label">{t('about.apiSettings.environment')}</Text>
           <Text className="value">{config.environment}</Text>
         </View>
         <View className="row last">
-          <Text className="label">请求超时</Text>
+          <Text className="label">{t('about.apiSettings.timeout')}</Text>
           <Text className="value">{config.timeout}</Text>
         </View>
       </View>
 
       <View className="card">
         <View className="row last">
-          <Text className="label">网络诊断</Text>
+          <Text className="label">{t('about.apiSettings.diagnose')}</Text>
           <Text className="value link" onClick={load}>
-            点击测试
+            {t('about.apiSettings.test')}
           </Text>
         </View>
       </View>
 
       <View className="tips">
-        <Text>如遇网络异常，请检查网络连接或联系客服。</Text>
+        <Text>{t('about.apiSettings.footer')}</Text>
       </View>
     </View>
   )

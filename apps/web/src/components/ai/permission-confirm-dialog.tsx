@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Edit, Monitor, FileText, AlertTriangle, X, Check } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui'
 import { Button, Checkbox } from '@ihui/ui'
@@ -47,6 +48,7 @@ export function PermissionConfirmDialog({
   onConfirm,
   onDeny,
 }: PermissionConfirmDialogProps) {
+  const t = useTranslations('ai.permissionConfirm')
   const [allowAll, setAllowAll] = React.useState(false)
 
   React.useEffect(() => {
@@ -79,8 +81,8 @@ export function PermissionConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>工具执行确认</DialogTitle>
-          <DialogDescription>Agent 请求执行以下工具，请确认是否允许</DialogDescription>
+          <DialogTitle>{t('title')}</DialogTitle>
+          <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
 
         {toolCall && (
@@ -95,19 +97,21 @@ export function PermissionConfirmDialog({
                 {getToolIcon(toolCall.name)}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-xs text-muted-foreground">工具</div>
+                <div className="text-xs text-muted-foreground">{t('tool')}</div>
                 <div className="break-words font-medium">{toolCall.name}</div>
               </div>
               {toolCall.iteration !== null && toolCall.iteration !== undefined && (
                 <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                  第 {toolCall.iteration} 轮
+                  {t('iteration', { n: toolCall.iteration })}
                 </span>
               )}
             </div>
 
             {hasInput && (
               <div>
-                <div className="mb-1 text-xs font-medium text-muted-foreground">输入参数</div>
+                <div className="mb-1 text-xs font-medium text-muted-foreground">
+                  {t('inputParams')}
+                </div>
                 <pre className="max-h-48 overflow-auto rounded-md border bg-zinc-950 p-3 text-xs text-zinc-100">
                   <code>{formattedInput}</code>
                 </pre>
@@ -116,14 +120,16 @@ export function PermissionConfirmDialog({
 
             {toolCall.reason && (
               <div>
-                <div className="mb-1 text-xs font-medium text-muted-foreground">确认原因</div>
+                <div className="mb-1 text-xs font-medium text-muted-foreground">
+                  {t('confirmReason')}
+                </div>
                 <p className="rounded-md bg-muted/40 p-2 text-sm">{toolCall.reason}</p>
               </div>
             )}
 
             <span className="flex items-center gap-2 text-sm">
               <Checkbox checked={allowAll} onCheckedChange={(v) => setAllowAll(v === true)} />
-              <span>本次会话全部允许（后续不再弹窗）</span>
+              <span>{t('allowAllSession')}</span>
             </span>
           </div>
         )}
@@ -131,7 +137,7 @@ export function PermissionConfirmDialog({
         <div className="flex justify-end gap-2">
           <Button variant="destructive" onClick={handleDeny} disabled={!toolCall}>
             <X className="h-4 w-4" />
-            拒绝
+            {t('deny')}
           </Button>
           <Button
             variant="default"
@@ -140,7 +146,7 @@ export function PermissionConfirmDialog({
             disabled={!toolCall}
           >
             <Check className="h-4 w-4" />
-            允许
+            {t('allow')}
           </Button>
         </div>
       </DialogContent>

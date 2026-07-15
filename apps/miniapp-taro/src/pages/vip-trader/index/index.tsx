@@ -3,6 +3,7 @@ import { View, Text, Image, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 interface TraderLevel {
@@ -11,19 +12,16 @@ interface TraderLevel {
   desc: string
   icon?: string
 }
-
 interface TraderPrivilege {
   id: string
   title: string
   desc: string
   icon?: string
 }
-
 interface VipTraderInfo {
   levels: TraderLevel[]
   privileges: TraderPrivilege[]
 }
-
 interface ApplyForm {
   name: string
   phone: string
@@ -31,14 +29,10 @@ interface ApplyForm {
   reason: string
 }
 
-const initialForm: ApplyForm = {
-  name: '',
-  phone: '',
-  experience: '',
-  reason: '',
-}
+const initialForm: ApplyForm = { name: '', phone: '', experience: '', reason: '' }
 
 export default function VipTraderIndexPage() {
+  const { t } = useI18n()
   const router = useRouter()
   const [info, setInfo] = useState<VipTraderInfo | null>(null)
   const [loading, setLoading] = useState(false)
@@ -88,15 +82,15 @@ export default function VipTraderIndexPage() {
 
   const onSubmit = useCallback(async () => {
     if (!form.name.trim()) {
-      Taro.showToast({ title: '请输入姓名', icon: 'none' })
+      Taro.showToast({ title: t('vipTrader.enterName'), icon: 'none' })
       return
     }
     if (!form.phone.trim()) {
-      Taro.showToast({ title: '请输入手机号', icon: 'none' })
+      Taro.showToast({ title: t('vipTrader.enterPhone'), icon: 'none' })
       return
     }
     if (!selectedLevel) {
-      Taro.showToast({ title: '请选择等级', icon: 'none' })
+      Taro.showToast({ title: t('vipTrader.selectLevel'), icon: 'none' })
       return
     }
     setSubmitting(true)
@@ -108,20 +102,20 @@ export default function VipTraderIndexPage() {
         experience: form.experience.trim() || undefined,
         reason: form.reason.trim() || undefined,
       })
-      Taro.showToast({ title: '申请已提交', icon: 'success' })
+      Taro.showToast({ title: t('vipTrader.submitted'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('unknown', '提交申请', e)
     } finally {
       setSubmitting(false)
     }
-  }, [form.name, form.phone, form.experience, form.reason, selectedLevel])
+  }, [form.name, form.phone, form.experience, form.reason, selectedLevel, t])
 
   if (loading && !info) {
     return (
       <View className="vip-trader-page">
         <View className="trader-empty">
-          <Text>加载中...</Text>
+          <Text>{t('vipTrader.loading')}</Text>
         </View>
       </View>
     )
@@ -131,7 +125,7 @@ export default function VipTraderIndexPage() {
     return (
       <View className="vip-trader-page">
         <View className="trader-empty">
-          <Text>暂无操盘手信息</Text>
+          <Text>{t('vipTrader.empty')}</Text>
         </View>
       </View>
     )
@@ -140,12 +134,12 @@ export default function VipTraderIndexPage() {
   return (
     <View className="vip-trader-page">
       <View className="trader-header">
-        <Text className="trader-title">成为 VIP 操盘手</Text>
-        <Text className="trader-subtitle">选择等级，享受专属权益</Text>
+        <Text className="trader-title">{t('vipTrader.title')}</Text>
+        <Text className="trader-subtitle">{t('vipTrader.subtitle')}</Text>
       </View>
 
       <View className="trader-section">
-        <Text className="section-title">VIP 操盘手等级</Text>
+        <Text className="section-title">{t('vipTrader.levelSection')}</Text>
         <View className="level-list">
           {info.levels.map((item) => (
             <View
@@ -171,7 +165,7 @@ export default function VipTraderIndexPage() {
       </View>
 
       <View className="trader-section">
-        <Text className="section-title">权益列表</Text>
+        <Text className="section-title">{t('vipTrader.privilegeSection')}</Text>
         <View className="priv-list">
           {info.privileges.map((item) => (
             <View key={item.id} className="priv-item">
@@ -192,44 +186,44 @@ export default function VipTraderIndexPage() {
       </View>
 
       <View className="trader-section">
-        <Text className="section-title">申请表单</Text>
+        <Text className="section-title">{t('vipTrader.formSection')}</Text>
         <View className="form">
           <View className="form-item">
-            <Text className="form-label">真实姓名</Text>
+            <Text className="form-label">{t('vipTrader.nameLabel')}</Text>
             <Input
               className="form-input"
               type="text"
-              placeholder="请输入真实姓名"
+              placeholder={t('vipTrader.namePlaceholder')}
               value={form.name}
               onInput={(e) => onFieldChange('name', e.detail.value)}
             />
           </View>
           <View className="form-item">
-            <Text className="form-label">联系电话</Text>
+            <Text className="form-label">{t('vipTrader.phoneLabel')}</Text>
             <Input
               className="form-input"
               type="number"
-              placeholder="请输入手机号"
+              placeholder={t('vipTrader.phonePlaceholder')}
               value={form.phone}
               onInput={(e) => onFieldChange('phone', e.detail.value)}
             />
           </View>
           <View className="form-item">
-            <Text className="form-label">从业经验</Text>
+            <Text className="form-label">{t('vipTrader.experienceLabel')}</Text>
             <Input
               className="form-input"
               type="text"
-              placeholder="如：3年"
+              placeholder={t('vipTrader.experiencePlaceholder')}
               value={form.experience}
               onInput={(e) => onFieldChange('experience', e.detail.value)}
             />
           </View>
           <View className="form-item">
-            <Text className="form-label">申请理由</Text>
+            <Text className="form-label">{t('vipTrader.reasonLabel')}</Text>
             <Input
               className="form-input"
               type="text"
-              placeholder="请输入申请理由（选填）"
+              placeholder={t('vipTrader.reasonPlaceholder')}
               value={form.reason}
               onInput={(e) => onFieldChange('reason', e.detail.value)}
             />
@@ -240,7 +234,7 @@ export default function VipTraderIndexPage() {
             disabled={submitting}
             onClick={onSubmit}
           >
-            提交申请
+            {t('vipTrader.submit')}
           </Button>
         </View>
       </View>

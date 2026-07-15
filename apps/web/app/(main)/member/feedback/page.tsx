@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { MessageSquare, Loader2, Send } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -22,23 +22,10 @@ interface FeedbackItem {
   reply?: string | null
 }
 
-const TYPE_LABEL: Record<FeedbackType, string> = {
-  bug: '问题反馈',
-  suggestion: '功能建议',
-  question: '使用咨询',
-  other: '其他',
-}
-
 const STATUS_CLS: Record<FeedbackItem['status'], string> = {
   pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
   resolved: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
   closed: 'bg-muted text-muted-foreground',
-}
-
-const STATUS_LABEL: Record<FeedbackItem['status'], string> = {
-  pending: '处理中',
-  resolved: '已回复',
-  closed: '已关闭',
 }
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -49,12 +36,25 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 export default function MemberFeedbackPage() {
   const locale = useLocale()
+  const t = useTranslations('member.feedback')
   const qc = useQueryClient()
   const [tab, setTab] = React.useState<'list' | 'new'>('list')
   const [type, setType] = React.useState<FeedbackType>('bug')
   const [title, setTitle] = React.useState('')
   const [content, setContent] = React.useState('')
   const [contact, setContact] = React.useState('')
+
+  const typeLabel: Record<FeedbackType, string> = {
+    bug: t('typeBug'),
+    suggestion: t('typeSuggestion'),
+    question: t('typeQuestion'),
+    other: t('typeOther'),
+  }
+  const statusLabel: Record<FeedbackItem['status'], string> = {
+    pending: t('statusPending'),
+    resolved: t('statusResolved'),
+    closed: t('statusClosed'),
+  }
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'feedback'],
@@ -105,9 +105,9 @@ export default function MemberFeedbackPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <MessageSquare className="h-5 w-5 text-primary" />
-          意见反馈
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">提交反馈,帮助我们做得更好</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
@@ -122,7 +122,7 @@ export default function MemberFeedbackPage() {
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {v === 'list' ? '历史记录' : '提交反馈'}
+            {v === 'list' ? t('tabList') : t('tabNew')}
           </button>
         ))}
       </div>
@@ -133,12 +133,12 @@ export default function MemberFeedbackPage() {
         isLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            加载中...
+            {t('loading')}
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
             <MessageSquare className="h-8 w-8 text-muted-foreground opacity-40" />
-            <p className="text-sm text-muted-foreground">暂无反馈记录</p>
+            <p className="text-sm text-muted-foreground">{t('empty')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -148,7 +148,7 @@ export default function MemberFeedbackPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                        {TYPE_LABEL[item.type] ?? item.type}
+                        {typeLabel[item.type] ?? item.type}
                       </span>
                       <span className="text-sm font-medium">{item.title}</span>
                     </div>
@@ -158,13 +158,13 @@ export default function MemberFeedbackPage() {
                         STATUS_CLS[item.status],
                       )}
                     >
-                      {STATUS_LABEL[item.status]}
+                      {statusLabel[item.status]}
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">{item.content}</p>
                   {item.reply && (
                     <p className="rounded bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
-                      回复:{item.reply}
+                      {t('replyLabel', { reply: item.reply })}
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">
@@ -180,13 +180,13 @@ export default function MemberFeedbackPage() {
           <CardContent className="p-4">
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="space-y-1">
-                <Label className="text-xs">类型</Label>
+                <Label className="text-xs">{t('fieldType')}</Label>
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as FeedbackType)}
                   className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
                 >
-                  {Object.entries(TYPE_LABEL).map(([v, l]) => (
+                  {Object.entries(typeLabel).map(([v, l]) => (
                     <option key={v} value={v}>
                       {l}
                     </option>
@@ -194,31 +194,31 @@ export default function MemberFeedbackPage() {
                 </select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">标题</Label>
+                <Label className="text-xs">{t('fieldTitle')}</Label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="请简短描述问题"
+                  placeholder={t('titlePlaceholder')}
                   required
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">内容</Label>
+                <Label className="text-xs">{t('fieldContent')}</Label>
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="请详细描述..."
+                  placeholder={t('contentPlaceholder')}
                   required
                   rows={4}
                   className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">联系方式(选填)</Label>
+                <Label className="text-xs">{t('fieldContact')}</Label>
                 <Input
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}
-                  placeholder="便于我们与你联系"
+                  placeholder={t('contactPlaceholder')}
                 />
               </div>
               <div className="flex gap-2">
@@ -228,10 +228,10 @@ export default function MemberFeedbackPage() {
                   ) : (
                     <Send className="h-4 w-4" />
                   )}
-                  提交
+                  {t('submit')}
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setTab('list')}>
-                  取消
+                  {t('cancel')}
                 </Button>
               </div>
               {createMut.isError && (

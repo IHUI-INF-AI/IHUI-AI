@@ -3,16 +3,17 @@ import { View, Text, Textarea, Button, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { generateImage } from '@/api'
+import { useI18n } from '@/i18n'
 import './image.css'
 
-const sizes = [
-  { value: '512x512', label: '512' },
-  { value: '1024x1024', label: '1024' },
-  { value: '1024x1792', label: '竖版' },
-]
-const examples = ['一只可爱的猫咪', '未来城市夜景', '抽象艺术作品', '油画风格山水']
-
 export default function ImagePage() {
+  const { t, tList } = useI18n()
+  const sizes = [
+    { value: '512x512', label: '512' },
+    { value: '1024x1024', label: '1024' },
+    { value: '1024x1792', label: t('ai.image.vertical') },
+  ]
+  const examples = tList('ai.image.examples')
   const [prompt, setPrompt] = useState('')
   const [size, setSize] = useState('1024x1024')
   const [result, setResult] = useState('')
@@ -26,11 +27,11 @@ export default function ImagePage() {
       setResult(res.url)
     } catch (e) {
       logger.error('ai/image', '生成图片', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     } finally {
       setLoading(false)
     }
-  }, [prompt, size, loading])
+  }, [prompt, size, loading, t])
 
   return (
     <View className="page">
@@ -41,12 +42,12 @@ export default function ImagePage() {
       ) : (
         <View className="empty">
           <Text className="empty-icon">🎨</Text>
-          <Text className="empty-text">输入描述生成AI图片</Text>
+          <Text className="empty-text">{t('ai.image.emptyHint')}</Text>
         </View>
       )}
       {!result ? (
         <View className="examples">
-          <Text className="ex-title">试试这些：</Text>
+          <Text className="ex-title">{t('ai.image.tryThese')}</Text>
           <View className="ex-list">
             {examples.map((ex) => (
               <Text key={ex} className="ex-item" onClick={() => setPrompt(ex)}>
@@ -60,7 +61,7 @@ export default function ImagePage() {
         <Textarea
           className="input"
           value={prompt}
-          placeholder="描述你想要生成的图片..."
+          placeholder={t('ai.image.placeholder')}
           maxlength={500}
           onInput={(e) => setPrompt(e.detail.value)}
         />
@@ -77,7 +78,7 @@ export default function ImagePage() {
             ))}
           </View>
           <Button className="btn" onClick={onGenerate} disabled={!prompt || loading}>
-            {loading ? '生成中' : '生成'}
+            {loading ? t('ai.image.generating') : t('ai.image.generate')}
           </Button>
         </View>
       </View>
