@@ -3,8 +3,10 @@ import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import { getProfile, updateUserAvatar } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function Avatar() {
+  const { t } = useI18n()
   const [avatar, setAvatar] = useState('')
 
   useDidShow(async () => {
@@ -12,7 +14,7 @@ export default function Avatar() {
       setAvatar((await getProfile()).avatar || '')
     } catch (e) {
       logger.error('user/avatar', '获取用户信息', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
   })
 
@@ -25,10 +27,10 @@ export default function Avatar() {
         try {
           setAvatar(path)
           await updateUserAvatar(path)
-          Taro.showToast({ title: '更新成功', icon: 'success' })
+          Taro.showToast({ title: t('user.avatar.updateSuccess'), icon: 'success' })
         } catch (e) {
           logger.error('user/avatar', '更新头像', e)
-          Taro.showToast({ title: '操作失败', icon: 'none' })
+          Taro.showToast({ title: t('common.failed'), icon: 'none' })
         }
       },
     })
@@ -50,11 +52,15 @@ export default function Avatar() {
         className="mt-[30px] mb-[16px] bg-[#07c160] text-white rounded-[20px] text-[15px]"
         onClick={chooseImg}
       >
-        选择头像
+        {t('user.avatar.choose')}
       </Button>
       <View className="text-center">
-        <Text className="block text-[11px] text-[#999] leading-[1.8]">支持 JPG、PNG 格式</Text>
-        <Text className="block text-[11px] text-[#999] leading-[1.8]">建议尺寸 200×200</Text>
+        <Text className="block text-[11px] text-[#999] leading-[1.8]">
+          {t('user.avatar.formatHint')}
+        </Text>
+        <Text className="block text-[11px] text-[#999] leading-[1.8]">
+          {t('user.avatar.sizeHint')}
+        </Text>
       </View>
     </View>
   )

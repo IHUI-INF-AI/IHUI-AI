@@ -3,8 +3,10 @@ import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getProfile, sendSmsCode, bindPhone } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function Phone() {
+  const { t } = useI18n()
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [counting, setCounting] = useState(false)
@@ -16,14 +18,14 @@ export default function Phone() {
       setPhone((await getProfile()).phone || '')
     } catch (e) {
       logger.error('user/phone', '获取用户信息', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
   })
 
   function sendCode() {
     if (counting) return
     if (!/^1\d{10}$/.test(phone)) {
-      return Taro.showToast({ title: '手机号格式错误', icon: 'none' })
+      return Taro.showToast({ title: t('user.phone.phoneInvalid'), icon: 'none' })
     }
     sendSmsCode(phone)
       .then(() => {
@@ -41,18 +43,18 @@ export default function Phone() {
       })
       .catch((e) => {
         logger.error('unknown', '验证码发送', e)
-        Taro.showToast({ title: '验证码发送失败', icon: 'none' })
+        Taro.showToast({ title: t('user.phone.codeSendFailed'), icon: 'none' })
       })
   }
 
   async function onSubmit() {
     try {
       await bindPhone(phone, code)
-      Taro.showToast({ title: '绑定成功', icon: 'success' })
+      Taro.showToast({ title: t('user.phone.bindSuccess'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/phone', '绑定手机号', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
   }
 
@@ -60,23 +62,23 @@ export default function Phone() {
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="mx-[12px] px-[16px] bg-white rounded-[8px]">
         <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
-          <Text className="w-[70px] text-[14px] text-[#333]">手机号</Text>
+          <Text className="w-[70px] text-[14px] text-[#333]">{t('user.phone.phone')}</Text>
           <Input
             className="flex-1 text-[14px]"
             type="number"
-            placeholder="请输入手机号"
+            placeholder={t('user.phone.phonePlaceholder')}
             maxlength={11}
             value={phone}
             onInput={(e) => setPhone(e.detail.value)}
           />
         </View>
         <View className="flex items-center py-[16px]">
-          <Text className="w-[70px] text-[14px] text-[#333]">验证码</Text>
+          <Text className="w-[70px] text-[14px] text-[#333]">{t('user.phone.code')}</Text>
           <View className="flex-1 flex items-center">
             <Input
               className="flex-1 text-[14px]"
               type="number"
-              placeholder="请输入验证码"
+              placeholder={t('user.phone.codePlaceholder')}
               maxlength={6}
               value={code}
               onInput={(e) => setCode(e.detail.value)}
@@ -85,7 +87,7 @@ export default function Phone() {
               className={`text-[12px] whitespace-nowrap ${counting ? 'text-[#ccc]' : 'text-[#07c160]'}`}
               onClick={sendCode}
             >
-              {counting ? `${count}s` : '获取验证码'}
+              {counting ? `${count}s` : t('user.phone.getCode')}
             </Text>
           </View>
         </View>
@@ -97,7 +99,7 @@ export default function Phone() {
         disabled={!phone || !code}
         onClick={onSubmit}
       >
-        绑定
+        {t('user.phone.bind')}
       </Button>
     </View>
   )

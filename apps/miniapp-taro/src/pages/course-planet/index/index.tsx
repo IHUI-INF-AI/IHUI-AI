@@ -3,9 +3,11 @@ import { View, Text } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 export default function CoursePlanet() {
+  const { t } = useI18n()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -33,19 +35,21 @@ export default function CoursePlanet() {
   return (
     <View className="page-container">
       <View className="page-header">
-        <Text className="page-title">课程星球</Text>
+        <Text className="page-title">{t('coursePlanet.title')}</Text>
       </View>
       <View className="page-content">
         {loading ? (
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         ) : list.length ? (
           list.map((item: Record<string, unknown>, idx: number) => (
             <View key={(item.id as string) || idx} className="list-item">
-              <Text>{(item.title as string) || (item.name as string) || '课程'}</Text>
+              <Text>
+                {(item.title as string) || (item.name as string) || t('coursePlanet.course')}
+              </Text>
             </View>
           ))
         ) : (
-          <Text className="empty">暂无课程</Text>
+          <Text className="empty">{t('coursePlanet.empty')}</Text>
         )}
       </View>
     </View>

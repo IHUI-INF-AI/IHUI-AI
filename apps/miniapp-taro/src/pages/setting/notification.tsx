@@ -3,6 +3,7 @@ import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getNotificationSettings, updateNotificationSettings } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface NotificationItem {
   key: string
@@ -11,6 +12,7 @@ interface NotificationItem {
 }
 
 export default function NotificationPage() {
+  const { t } = useI18n()
   const [list, setList] = useState<NotificationItem[]>([])
 
   const load = useCallback(async () => {
@@ -19,9 +21,9 @@ export default function NotificationPage() {
       setList(res.list || [])
     } catch (e) {
       logger.error('setting/notification', '获取通知设置', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('setting.operationFailed'), icon: 'none' })
     }
-  }, [])
+  }, [t])
 
   useDidShow(() => {
     load()

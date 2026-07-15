@@ -3,11 +3,13 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { voiceChat, type ChatMessage } from '@/api'
+import { useI18n } from '@/i18n'
 import './voice.css'
 
 export default function VoicePage() {
+  const { t } = useI18n()
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'assistant', content: '您好，我是AI语音助手，按住下方按钮开始对话' },
+    { role: 'assistant', content: t('ai.voice.welcome') },
   ])
   const [recording, setRecording] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -16,23 +18,23 @@ export default function VoicePage() {
     if (recording) {
       setRecording(false)
       setLoading(true)
-      setMessages((prev) => [...prev, { role: 'user', content: '[语音消息]' }])
+      setMessages((prev) => [...prev, { role: 'user', content: t('ai.voice.voiceMessage') }])
       voiceChat({ audio: 'demo' })
         .then((res) => {
           setMessages((prev) => [...prev, { role: 'assistant', content: res.reply }])
         })
         .catch((e) => {
           logger.error('unknown', '语音对话', e)
-          Taro.showToast({ title: '语音对话失败', icon: 'none' })
+          Taro.showToast({ title: t('ai.voice.chatFailed'), icon: 'none' })
         })
         .finally(() => {
           setLoading(false)
         })
     } else {
       setRecording(true)
-      Taro.showToast({ title: '开始录音', icon: 'none' })
+      Taro.showToast({ title: t('ai.voice.startRecord'), icon: 'none' })
     }
-  }, [recording])
+  }, [recording, t])
 
   return (
     <View className="page">
@@ -44,13 +46,13 @@ export default function VoicePage() {
         ))}
         {loading ? (
           <View className="msg assistant">
-            <Text className="msg-text">正在思考...</Text>
+            <Text className="msg-text">{t('ai.voice.thinking')}</Text>
           </View>
         ) : null}
       </View>
       <View className="input-bar">
         <View className={`voice-btn${recording ? ' recording' : ''}`} onClick={onVoice}>
-          <Text>{recording ? '松开发送' : '🎤 按住说话'}</Text>
+          <Text>{recording ? t('ai.voice.releaseToSend') : t('ai.voice.holdToSpeak')}</Text>
         </View>
       </View>
     </View>

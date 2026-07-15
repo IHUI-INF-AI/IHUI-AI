@@ -2,6 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getDistributionInfo, getDistributionTeam } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface CompanyInfo {
   level: number
@@ -28,6 +29,7 @@ const DEFAULT_INFO: CompanyInfo = {
 }
 
 export default function CompanyPage() {
+  const { t } = useI18n()
   const [info, setInfo] = useState<CompanyInfo>(DEFAULT_INFO)
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
@@ -62,28 +64,40 @@ export default function CompanyPage() {
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="bg-gradient-to-b from-[#1f2937] to-[#374151] px-4 pt-8 pb-6 text-white">
-        <Text className="block text-sm opacity-80">我的公司</Text>
-        <Text className="block text-2xl font-bold mt-2">分销等级 V{info.level}</Text>
+        <Text className="block text-sm opacity-80">{t('distribution.company.title')}</Text>
+        <Text className="block text-2xl font-bold mt-2">
+          {t('distribution.company.level', { n: info.level })}
+        </Text>
         <View className="flex mt-5">
           <View className="flex-1 text-center">
             <Text className="block text-lg font-bold">¥{info.totalCommission}</Text>
-            <Text className="block text-xs opacity-70 mt-1">总收益</Text>
+            <Text className="block text-xs opacity-70 mt-1">
+              {t('distribution.company.totalEarnings')}
+            </Text>
           </View>
           <View className="flex-1 text-center">
             <Text className="block text-lg font-bold">¥{info.available}</Text>
-            <Text className="block text-xs opacity-70 mt-1">可提现</Text>
+            <Text className="block text-xs opacity-70 mt-1">
+              {t('distribution.company.available')}
+            </Text>
           </View>
           <View className="flex-1 text-center">
             <Text className="block text-lg font-bold">{info.teamCount}</Text>
-            <Text className="block text-xs opacity-70 mt-1">团队成员</Text>
+            <Text className="block text-xs opacity-70 mt-1">
+              {t('distribution.company.teamMembers')}
+            </Text>
           </View>
         </View>
       </View>
 
       <View className="mx-3 mt-3 bg-white rounded-xl p-4">
         <View className="flex items-center justify-between mb-3">
-          <Text className="text-sm font-medium text-gray-800">团队成员</Text>
-          <Text className="text-xs text-gray-400">{members.length}人</Text>
+          <Text className="text-sm font-medium text-gray-800">
+            {t('distribution.company.teamMembers')}
+          </Text>
+          <Text className="text-xs text-gray-400">
+            {t('distribution.company.memberCount', { n: members.length })}
+          </Text>
         </View>
         {loading ? (
           <View className="py-4">
@@ -96,7 +110,7 @@ export default function CompanyPage() {
           </View>
         ) : members.length === 0 ? (
           <View className="flex items-center justify-center py-8">
-            <Text className="text-sm text-gray-400">暂无成员</Text>
+            <Text className="text-sm text-gray-400">{t('distribution.company.empty')}</Text>
           </View>
         ) : (
           members.map((m) => (
@@ -118,7 +132,9 @@ export default function CompanyPage() {
               )}
               <View className="flex-1 min-w-0">
                 <Text className="block text-sm text-gray-700 truncate">{m.nickname}</Text>
-                <Text className="block text-xs text-gray-400 mt-0.5">加入时间: {m.joinTime}</Text>
+                <Text className="block text-xs text-gray-400 mt-0.5">
+                  {t('distribution.company.joinTime', { time: m.joinTime })}
+                </Text>
               </View>
               <Text className="text-xs text-gray-400">V{m.level}</Text>
             </View>
@@ -133,21 +149,25 @@ export default function CompanyPage() {
             onClick={() => navigateTo('/pages/distribution/team')}
           >
             <Text className="text-xl">👥</Text>
-            <Text className="text-xs text-gray-600 mt-1">团队管理</Text>
+            <Text className="text-xs text-gray-600 mt-1">{t('distribution.company.menuTeam')}</Text>
           </View>
           <View
             className="flex flex-col items-center py-3 rounded-lg bg-gray-50"
             onClick={() => navigateTo('/pages/distribution/commission')}
           >
             <Text className="text-xl">💰</Text>
-            <Text className="text-xs text-gray-600 mt-1">佣金记录</Text>
+            <Text className="text-xs text-gray-600 mt-1">
+              {t('distribution.company.menuCommission')}
+            </Text>
           </View>
           <View
             className="flex flex-col items-center py-3 rounded-lg bg-gray-50"
             onClick={() => navigateTo('/pages/distribution/withdraw')}
           >
             <Text className="text-xl">💸</Text>
-            <Text className="text-xs text-gray-600 mt-1">提现</Text>
+            <Text className="text-xs text-gray-600 mt-1">
+              {t('distribution.company.menuWithdraw')}
+            </Text>
           </View>
         </View>
       </View>

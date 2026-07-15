@@ -3,9 +3,11 @@ import { View, Text } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 export default function MemberDetail() {
+  const { t } = useI18n()
   const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -28,19 +30,19 @@ export default function MemberDetail() {
   return (
     <View className="page-container">
       <View className="page-header">
-        <Text className="page-title">团队成员</Text>
+        <Text className="page-title">{t('distribution.memberDetail.title')}</Text>
       </View>
       <View className="page-content">
         {loading ? (
-          <Text>加载中...</Text>
+          <Text>{t('distribution.memberDetail.loading')}</Text>
         ) : list.length ? (
           list.map((item) => (
             <View key={item.id as string} className="list-item">
-              <Text>{(item.nickname as string) || '成员'}</Text>
+              <Text>{(item.nickname as string) || t('distribution.memberDetail.member')}</Text>
             </View>
           ))
         ) : (
-          <Text className="empty">暂无团队成员</Text>
+          <Text className="empty">{t('distribution.memberDetail.empty')}</Text>
         )}
       </View>
     </View>

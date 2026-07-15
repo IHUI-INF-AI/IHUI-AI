@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Cpu, RefreshCw, X, Loader2, CheckCircle2, XCircle, MinusCircle } from 'lucide-react'
 import { Button } from '@ihui/ui'
 
@@ -26,15 +27,6 @@ const STATUS_ICON: Partial<Record<AgentStatus, React.ReactNode>> = {
   cancelled: <MinusCircle className="h-4 w-4 text-zinc-400" />,
 }
 
-const STATUS_LABEL: Partial<Record<AgentStatus, string>> = {
-  running: '运行中',
-  completed: '已完成',
-  failed: '失败',
-  cancelled: '已取消',
-  pending: '等待中',
-  idle: '空闲',
-}
-
 function truncate(text: string, max: number) {
   return text.length > max ? `${text.slice(0, max)}...` : text
 }
@@ -53,6 +45,8 @@ export function BackgroundAgentsPanel({
   onViewResult,
   onPurge,
 }: BackgroundAgentsPanelProps) {
+  const t = useTranslations('ai.backgroundAgents')
+  const ts = useTranslations('ai.status')
   const stats = React.useMemo(() => {
     const s = { running: 0, completed: 0, failed: 0, cancelled: 0 }
     for (const a of agents) {
@@ -66,11 +60,11 @@ export function BackgroundAgentsPanel({
       <div className="flex items-center justify-between border-b px-3 py-2">
         <div className="flex items-center gap-2">
           <Cpu className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">后台 Agent</span>
+          <span className="text-sm font-medium">{t('title')}</span>
           {stats.running > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-              {stats.running} 运行中
+              {t('runningCount', { count: stats.running })}
             </span>
           )}
         </div>
@@ -95,8 +89,8 @@ export function BackgroundAgentsPanel({
       {agents.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-1 py-8 text-center">
           <Cpu className="h-8 w-8 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">暂无后台 Agent</p>
-          <p className="text-xs text-muted-foreground/70">使用 /agents 或 API 启动后台任务</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-xs text-muted-foreground/70">{t('emptyHint')}</p>
         </div>
       ) : (
         <ul className="divide-y">
@@ -118,12 +112,12 @@ export function BackgroundAgentsPanel({
                         agent.status === 'cancelled' && 'bg-zinc-500/10 text-zinc-600',
                       )}
                     >
-                      {STATUS_LABEL[agent.status] ?? agent.status}
+                      {ts(agent.status)}
                     </span>
                     {agent.progress?.tool_calls !== null &&
                       agent.progress?.tool_calls !== undefined && (
                         <span className="text-[10px] text-muted-foreground">
-                          {agent.progress.tool_calls} 次调用
+                          {t('calls', { count: agent.progress.tool_calls })}
                         </span>
                       )}
                   </div>
@@ -160,7 +154,7 @@ export function BackgroundAgentsPanel({
                           className="h-6 px-2 text-xs text-red-600 hover:text-red-600"
                           onClick={() => onCancel?.(agent.agent_id)}
                         >
-                          取消
+                          {t('cancel')}
                         </Button>
                       )}
                       {agent.status === 'completed' && (
@@ -170,7 +164,7 @@ export function BackgroundAgentsPanel({
                           className="h-6 px-2 text-xs"
                           onClick={() => onViewResult?.(agent.agent_id)}
                         >
-                          查看结果
+                          {t('viewResult')}
                         </Button>
                       )}
                       {agent.status !== 'running' && (
@@ -180,7 +174,7 @@ export function BackgroundAgentsPanel({
                           className="h-6 px-2 text-xs"
                           onClick={() => onPurge?.(agent.agent_id)}
                         >
-                          删除
+                          {t('delete')}
                         </Button>
                       )}
                     </div>
@@ -194,10 +188,10 @@ export function BackgroundAgentsPanel({
 
       {agents.length > 0 && (
         <div className="flex items-center gap-3 border-t px-3 py-1.5 text-xs text-muted-foreground">
-          <span>共 {agents.length} 个</span>
-          {stats.completed > 0 && <span>完成 {stats.completed}</span>}
-          {stats.failed > 0 && <span>失败 {stats.failed}</span>}
-          {stats.cancelled > 0 && <span>已取消 {stats.cancelled}</span>}
+          <span>{t('total', { count: agents.length })}</span>
+          {stats.completed > 0 && <span>{t('completedCount', { count: stats.completed })}</span>}
+          {stats.failed > 0 && <span>{t('failedCount', { count: stats.failed })}</span>}
+          {stats.cancelled > 0 && <span>{t('cancelledCount', { count: stats.cancelled })}</span>}
         </div>
       )}
     </div>

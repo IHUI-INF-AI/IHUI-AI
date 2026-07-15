@@ -16,10 +16,10 @@ const NAV_ITEMS: NavItem[] = [
   { titleKey: 'live', englishKey: 'liveEn', href: '/live' },
   { titleKey: 'exam', englishKey: 'examEn', href: '/exam' },
   { titleKey: 'news', englishKey: 'newsEn', href: '/news' },
-  { titleKey: 'article', englishKey: 'articleEn', href: '/article' },
-  { titleKey: 'ask', englishKey: 'askEn', href: '/ask' },
-  { titleKey: 'community', englishKey: 'communityEn', href: '/circle' },
-  { titleKey: 'knowledge', englishKey: 'knowledgeEn', href: '/resource' },
+  { titleKey: 'article', englishKey: 'articleEn', href: '/articles' },
+  { titleKey: 'ask', englishKey: 'askEn', href: '/asks' },
+  { titleKey: 'community', englishKey: 'communityEn', href: '/circles' },
+  { titleKey: 'knowledge', englishKey: 'knowledgeEn', href: '/resources' },
 ]
 
 export function CategoryNav() {

@@ -109,7 +109,7 @@ export function HomeModules() {
         title={t('article')}
         englishTitle={t('articleEn')}
         icon={FileText}
-        href="/article"
+        href="/articles"
         variant="list"
         queryKey={['home', 'articles']}
         queryFn={async () => {
@@ -120,7 +120,7 @@ export function HomeModules() {
               title: a.title,
               cover: a.coverImage ?? undefined,
               meta: a.authorName ?? undefined,
-              href: `/article/${a.id}`,
+              href: `/articles/${a.id}`,
             }))
           }
           return []
@@ -130,7 +130,7 @@ export function HomeModules() {
         title={t('ask')}
         englishTitle={t('askEn')}
         icon={MessageCircle}
-        href="/ask"
+        href="/asks"
         variant="list"
         queryKey={['home', 'asks']}
         queryFn={async () => {
@@ -139,7 +139,7 @@ export function HomeModules() {
             id: a.id,
             title: a.title,
             meta: tUnits('answers', { count: a.answerCount }),
-            href: `/ask/${a.id}`,
+            href: `/asks/${a.id}`,
           }))
         }}
       />
@@ -147,7 +147,7 @@ export function HomeModules() {
         title={t('community')}
         englishTitle={t('communityEn')}
         icon={Users}
-        href="/circle"
+        href="/circles"
         queryKey={['home', 'circles']}
         queryFn={async () => {
           const d = unwrap(await getCircles({ page: 1, pageSize: 4 }))
@@ -156,7 +156,7 @@ export function HomeModules() {
             title: c.name,
             cover: c.cover ?? undefined,
             meta: tUnits('members', { count: c.memberCount }),
-            href: `/circle/${c.id}`,
+            href: `/circles/${c.id}`,
           }))
         }}
       />
@@ -164,7 +164,7 @@ export function HomeModules() {
         title={t('knowledge')}
         englishTitle={t('knowledgeEn')}
         icon={BookOpen}
-        href="/resource"
+        href="/resources"
         queryKey={['home', 'knowledge']}
         queryFn={async () => {
           const d = unwrap(await getKnowledgeList({ page: 1, pageSize: 4 }))
@@ -173,7 +173,7 @@ export function HomeModules() {
             title: k.title,
             cover: k.cover as string | undefined,
             meta: k.category,
-            href: `/resource/${k.id}`,
+            href: `/resources/${k.id}`,
           }))
         }}
       />

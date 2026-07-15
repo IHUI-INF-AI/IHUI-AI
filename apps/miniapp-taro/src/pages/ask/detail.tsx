@@ -3,6 +3,7 @@ import { View, Text, Image, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getAskDetail, type Ask } from '@/api'
+import { useI18n } from '@/i18n'
 import './detail.css'
 
 interface AnswerItem {
@@ -13,6 +14,7 @@ interface AnswerItem {
 }
 
 export default function AskDetailPage() {
+  const { t } = useI18n()
   const [data, setData] = useState<Ask>({} as Ask)
   const [answers, setAnswers] = useState<AnswerItem[]>([])
   const [answer, setAnswer] = useState('')
@@ -24,9 +26,9 @@ export default function AskDetailPage() {
       setData(await getAskDetail(id))
     } catch (e) {
       logger.error('ask/detail', '获取问题详情', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
-  }, [id])
+  }, [id, t])
 
   useDidShow(() => {
     const instance = Taro.getCurrentInstance()
@@ -43,10 +45,13 @@ export default function AskDetailPage() {
 
   const onAnswer = useCallback(() => {
     if (!answer) return
-    setAnswers((prev) => [...prev, { author: '我', time: '刚刚', content: answer }])
+    setAnswers((prev) => [
+      ...prev,
+      { author: t('ask.detail.me'), time: t('ask.detail.justNow'), content: answer },
+    ])
     setAnswer('')
-    Taro.showToast({ title: '回答成功', icon: 'success' })
-  }, [answer])
+    Taro.showToast({ title: t('ask.detail.answered'), icon: 'success' })
+  }, [answer, t])
 
   return (
     <View className="page">
@@ -68,7 +73,9 @@ export default function AskDetailPage() {
 
       {answers.length ? (
         <View className="answers">
-          <View className="answers-title">{answers.length}个回答</View>
+          <View className="answers-title">
+            {t('ask.detail.answerCount', { n: answers.length })}
+          </View>
           {answers.map((a, i) => (
             <View key={i} className="answer">
               <View className="a-head">
@@ -90,11 +97,11 @@ export default function AskDetailPage() {
         <Input
           className="input"
           value={answer}
-          placeholder="写下你的回答"
+          placeholder={t('ask.detail.placeholder')}
           onInput={(e) => setAnswer(e.detail.value)}
         />
         <Button className="btn" size="mini" onClick={onAnswer} disabled={!answer}>
-          回答
+          {t('ask.detail.answer')}
         </Button>
       </View>
     </View>

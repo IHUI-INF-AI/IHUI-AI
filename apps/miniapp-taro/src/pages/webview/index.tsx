@@ -1,8 +1,10 @@
 import { View, Text, WebView } from '@tarojs/components'
 import { useRouter } from '@tarojs/taro'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 export default function WebviewIndex() {
+  const { t } = useI18n()
   const router = useRouter()
   const url = decodeURIComponent(router.params.url || '')
 
@@ -10,9 +12,9 @@ export default function WebviewIndex() {
     return (
       <View className="webview-page">
         <View className="page-header">
-          <Text className="page-title">网页</Text>
+          <Text className="page-title">{t('webview.title')}</Text>
         </View>
-        <Text className="empty-text">缺少网页地址参数</Text>
+        <Text className="empty-text">{t('webview.missingUrl')}</Text>
       </View>
     )
   }

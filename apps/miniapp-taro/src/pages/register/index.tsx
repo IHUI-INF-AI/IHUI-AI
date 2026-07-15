@@ -2,9 +2,11 @@ import { View, Text, Input, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { register, sendSmsCode } from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 export default function RegisterIndex() {
+  const { t } = useI18n()
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
@@ -13,13 +15,13 @@ export default function RegisterIndex() {
 
   const onSendCode = useCallback(async () => {
     if (!phone.trim()) {
-      Taro.showToast({ title: '请输入手机号', icon: 'none' })
+      Taro.showToast({ title: t('register.enterPhone'), icon: 'none' })
       return
     }
     if (countdown > 0) return
     try {
       await sendSmsCode(phone)
-      Taro.showToast({ title: '验证码已发送', icon: 'success' })
+      Taro.showToast({ title: t('register.codeSent'), icon: 'success' })
       setCountdown(60)
       const timer = setInterval(() => {
         setCountdown((c) => {
@@ -33,37 +35,37 @@ export default function RegisterIndex() {
     } catch {
       // ignore
     }
-  }, [phone, countdown])
+  }, [phone, countdown, t])
 
   const onSubmit = useCallback(async () => {
     if (!phone.trim() || !code.trim() || !password.trim()) {
-      Taro.showToast({ title: '请完善信息', icon: 'none' })
+      Taro.showToast({ title: t('register.incomplete'), icon: 'none' })
       return
     }
     setSubmitting(true)
     try {
       await register({ phone, code, password })
-      Taro.showToast({ title: '注册成功', icon: 'success' })
+      Taro.showToast({ title: t('register.success'), icon: 'success' })
       setTimeout(() => Taro.redirectTo({ url: '/pages/login/login' }), 800)
     } catch {
       // ignore
     } finally {
       setSubmitting(false)
     }
-  }, [phone, code, password])
+  }, [phone, code, password, t])
 
   return (
     <View className="register-page">
       <View className="page-header">
-        <Text className="page-title">注册账号</Text>
+        <Text className="page-title">{t('register.title')}</Text>
       </View>
       <View className="form">
         <View className="form-item">
-          <Text className="form-label">手机号</Text>
+          <Text className="form-label">{t('register.phone')}</Text>
           <Input
             className="form-input"
             type="number"
-            placeholder="请输入手机号"
+            placeholder={t('register.phonePlaceholder')}
             value={phone}
             onInput={(e) => setPhone(e.detail.value)}
           />
@@ -72,20 +74,20 @@ export default function RegisterIndex() {
           <Input
             className="form-input code-input"
             type="number"
-            placeholder="验证码"
+            placeholder={t('register.code')}
             value={code}
             onInput={(e) => setCode(e.detail.value)}
           />
           <Text className={`send-code ${countdown > 0 ? 'disabled' : ''}`} onClick={onSendCode}>
-            {countdown > 0 ? `${countdown}s` : '获取验证码'}
+            {countdown > 0 ? `${countdown}s` : t('register.getCode')}
           </Text>
         </View>
         <View className="form-item">
-          <Text className="form-label">密码</Text>
+          <Text className="form-label">{t('register.password')}</Text>
           <Input
             className="form-input"
             password
-            placeholder="请设置密码"
+            placeholder={t('register.passwordPlaceholder')}
             value={password}
             onInput={(e) => setPassword(e.detail.value)}
           />
@@ -96,7 +98,7 @@ export default function RegisterIndex() {
           disabled={submitting}
           onClick={onSubmit}
         >
-          注册
+          {t('register.submit')}
         </Button>
       </View>
     </View>

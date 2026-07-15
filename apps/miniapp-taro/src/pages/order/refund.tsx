@@ -2,8 +2,10 @@ import { View, Text, Textarea, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { refund } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function OrderRefund() {
+  const { t } = useI18n()
   const router = useRouter()
   const [orderNo, setOrderNo] = useState('')
   const [reason, setReason] = useState('')
@@ -18,7 +20,7 @@ export default function OrderRefund() {
     setSubmitting(true)
     try {
       await refund({ orderNo, reason })
-      Taro.showToast({ title: '提交成功', icon: 'success' })
+      Taro.showToast({ title: t('order.refund.submitted'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
     } catch {
       // ignore
@@ -32,18 +34,20 @@ export default function OrderRefund() {
   return (
     <View className="min-h-screen bg-[#f7f8fa] pb-[120rpx]">
       <View className="m-[24rpx] p-[32rpx] bg-white rounded-[16rpx]">
-        <View className="text-[32rpx] text-[#333] font-semibold mb-[24rpx]">申请退款</View>
+        <View className="text-[32rpx] text-[#333] font-semibold mb-[24rpx]">
+          {t('order.refund.title')}
+        </View>
         <View className="flex justify-between py-[16rpx]">
-          <Text className="text-[26rpx] text-[#999]">订单号</Text>
+          <Text className="text-[26rpx] text-[#999]">{t('order.refund.orderNo')}</Text>
           <Text className="text-[26rpx] text-[#333]">{orderNo}</Text>
         </View>
         <View className="mt-[24rpx]">
-          <Text className="text-[26rpx] text-[#999]">退款原因</Text>
+          <Text className="text-[26rpx] text-[#999]">{t('order.refund.reason')}</Text>
           <Textarea
             className="w-full min-h-[200rpx] mt-[16rpx] p-[20rpx] bg-[#f7f8fa] rounded-[12rpx] text-[26rpx] box-border"
             value={reason}
             onInput={(e) => setReason(e.detail.value)}
-            placeholder="请填写退款原因"
+            placeholder={t('order.refund.reasonPlaceholder')}
             maxlength={200}
           />
         </View>
@@ -53,7 +57,7 @@ export default function OrderRefund() {
         disabled={disabled}
         onClick={onSubmit}
       >
-        提交申请
+        {t('order.refund.submit')}
       </Button>
     </View>
   )
