@@ -50,7 +50,7 @@ describe('member-queries — 真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM edu_companies`)
     await db.execute(sql`DELETE FROM edu_member_levels`)
     await db.execute(sql`DELETE FROM user_profiles`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('hashPassword', () => {

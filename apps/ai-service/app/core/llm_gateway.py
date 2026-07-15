@@ -193,6 +193,59 @@ class LLMGateway:
             return os.environ.get("AWS_ACCESS_KEY_ID") or None, None, model
         return settings.openai_api_key or None, None, model
 
+
+def trim_messages(
+    messages: list[dict[str, Any]],
+    window: int | None = None,
+) -> list[dict[str, Any]]:
+    """Sliding window 修剪消息列表,防止长对话超出上下文窗口。
+
+    规则:
+    1. 始终保留 system 消息(可能有多条,顺序不变)
+    2. 保留最后 N 轮 user/assistant 配对(一轮 = 1 user + 1 assistant)
+    3. 若最后一条是 user/tool(等待回复的当前输入),始终保留
+
+    Args:
+        messages: 原始消息列表。
+        window: 保留轮数,None 时用 settings.chat_history_window(默认 6)。
+
+    Returns:
+        修剪后的消息列表。
+    """
+    n = window if window is not None else settings.chat_history_window
+    if n <= 0 or len(messages) <= 1:
+        return list(messages)
+
+    system_msgs: list[dict[str, Any]] = []
+    turn_msgs: list[dict[str, Any]] = []
+    for m in messages:
+        role = m.get("role")
+        if role == "system":
+            system_msgs.append(m)
+        else:
+            turn_msgs.append(m)
+
+    if not turn_msgs:
+        return list(messages)
+
+    # 保留最后 N*2 条 turn(user/assistant/tool),确保配对完整
+    max_keep = n * 2
+    last_msg_role = turn_msgs[-1].get("role")
+    is_current_input = last_msg_role in ("user", "tool")
+
+    if len(turn_msgs) <= max_keep + (1 if is_current_input else 0):
+        trimmed_turns = turn_msgs
+    else:
+        if is_current_input:
+            current = turn_msgs[-1]
+            history = turn_msgs[-max_keep - 1 : -1]
+            trimmed_turns = history + [current]
+        else:
+            trimmed_turns = turn_msgs[-max_keep:]
+
+    return system_msgs + trimmed_turns
+
+
     async def _resolve(
         self,
         model: str,
@@ -224,6 +277,7 @@ class LLMGateway:
             包含 content/model/usage/stub 字段的字典。
         """
         used_model = model or settings.litellm_model
+        trimmed_messages = trim_messages(messages)
 
         if self._is_stub_mode():
             db_result = await _resolve_from_db(used_model, owner_uuid)
@@ -253,7 +307,7 @@ class LLMGateway:
                 raise ValueError(
                     f"模型 {used_model} 对应的 provider API key 未配置,请在 .env 或 ai_model_config 表中设置"
                 )
-            call_kwargs: dict[str, Any] = {"model": real_model, "messages": messages}
+            call_kwargs: dict[str, Any] = {"model": real_model, "messages": trimmed_messages}
             call_kwargs["api_key"] = api_key
             if api_base:
                 call_kwargs["api_base"] = api_base
@@ -302,6 +356,7 @@ class LLMGateway:
             - {"type": "error", "message": ...}
         """
         used_model = model or settings.litellm_model
+        trimmed_messages = trim_messages(messages)
 
         if self._is_stub_mode():
             db_result = await _resolve_from_db(used_model, owner_uuid)
@@ -331,7 +386,7 @@ class LLMGateway:
                 )
             call_kwargs: dict[str, Any] = {
                 "model": real_model,
-                "messages": messages,
+                "messages": trimmed_messages,
                 "stream": True,
                 "stream_usage": True,
             }

@@ -1,11 +1,25 @@
-import { View, Text, Input, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
-import { chatStream, type ChatMessage, getModelPlazaList, getAigcList, getAgentDetail } from '@/api'
-import { type ModelItem } from '@/components'
+import {
+  chatStream,
+  type ChatMessage,
+  getModelPlazaList,
+  getAigcList,
+  getAgentDetail,
+  getAgentList,
+} from '@/api'
+import {
+  type ModelItem,
+  InputArea,
+  SkillsPopup,
+  MaterialPopup,
+  type AgentItem,
+  type MaterialTab,
+} from '@/components'
 import { useI18n } from '@/i18n'
 import ChatMessageItem from './ChatMessageItem'
-import { ModelDrawer, MaterialDrawer, AgentDrawer } from './ChatDrawers'
+import { ModelDrawer, AgentDrawer } from './ChatDrawers'
 import './chat.css'
 
 interface MaterialItem {
@@ -13,6 +27,7 @@ interface MaterialItem {
   title: string
   coverUrl?: string
   content?: string
+  createdAt?: string
 }
 interface AgentInfo {
   id: string
@@ -22,13 +37,15 @@ interface AgentInfo {
   prompt: string
 }
 
+const MATERIAL_PAGE_SIZE = 20
+
 export default function ChatPage() {
   const router = useRouter()
   const { t, tList } = useI18n()
   const suggestions = tList('ai.suggestions')
-  const agentId = router.params.agentId || ''
+  const routeAgentId = router.params.agentId || ''
+  const [currentAgentId, setCurrentAgentId] = useState(routeAgentId)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [inputText, setInputText] = useState('')
   const [thinking, setThinking] = useState(false)
   const [scrollTop, setScrollTop] = useState(0)
   const [sessionId, setSessionId] = useState('')
@@ -40,10 +57,18 @@ export default function ChatPage() {
   const [materialDrawerVisible, setMaterialDrawerVisible] = useState(false)
   const [materials, setMaterials] = useState<MaterialItem[]>([])
   const [materialsLoading, setMaterialsLoading] = useState(false)
+  const [materialPage, setMaterialPage] = useState(1)
+  const [materialHasMore, setMaterialHasMore] = useState(true)
   const [selectedMaterial, setSelectedMaterial] = useState<MaterialItem | null>(null)
+  const [materialTab, setMaterialTab] = useState<MaterialTab>(1)
   const [agentDrawerVisible, setAgentDrawerVisible] = useState(false)
   const [agent, setAgent] = useState<AgentInfo | null>(null)
+  const [skillsPopupVisible, setSkillsPopupVisible] = useState(false)
+  const [agents, setAgents] = useState<AgentItem[]>([])
+  const [agentsLoading, setAgentsLoading] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+
+  const activeAgentId = currentAgentId || routeAgentId
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
@@ -61,11 +86,18 @@ export default function ChatPage() {
     }
   }, [t])
 
-  const loadMaterials = useCallback(async () => {
+  const loadMaterials = useCallback(async (page = 1, append = false) => {
     setMaterialsLoading(true)
     try {
-      const res = (await getAigcList()) as { list?: MaterialItem[] }
-      setMaterials(res?.list || [])
+      const res = (await getAigcList({ page, pageSize: MATERIAL_PAGE_SIZE })) as {
+        list?: MaterialItem[]
+        total?: number
+      }
+      const list = res?.list || []
+      const total = res?.total ?? 0
+      setMaterials((prev) => (append ? [...prev, ...list] : list))
+      setMaterialPage(page)
+      setMaterialHasMore(page * MATERIAL_PAGE_SIZE < total)
     } catch {
       Taro.showToast({ title: t('ai.materialLoadFailed'), icon: 'none' })
     } finally {
@@ -73,27 +105,43 @@ export default function ChatPage() {
     }
   }, [t])
 
-  const loadAgent = useCallback(async () => {
-    if (!agentId) return
+  const handleLoadMore = useCallback(async () => {
+    if (materialsLoading || !materialHasMore) return
+    await loadMaterials(materialPage + 1, true)
+  }, [materialsLoading, materialHasMore, materialPage, loadMaterials])
+
+  const loadAgents = useCallback(async () => {
+    setAgentsLoading(true)
     try {
-      setAgent(await getAgentDetail(agentId))
+      const res = (await getAgentList()) as { list?: AgentItem[] }
+      setAgents(res?.list || [])
+    } catch {
+      Taro.showToast({ title: t('ai.agentLoadFailed'), icon: 'none' })
+    } finally {
+      setAgentsLoading(false)
+    }
+  }, [t])
+
+  const loadAgent = useCallback(async () => {
+    if (!activeAgentId) return
+    try {
+      setAgent(await getAgentDetail(activeAgentId))
     } catch {
       Taro.showToast({ title: t('ai.agentLoadFailed'), icon: 'none' })
     }
-  }, [agentId, t])
+  }, [activeAgentId, t])
 
   useDidShow(() => {
-    if (agentId) loadAgent()
+    if (routeAgentId) loadAgent()
   })
 
   const sendMessage = useCallback(
     async (overrideText?: string) => {
-      const text = (overrideText ?? inputText).trim()
+      const text = (overrideText ?? '').trim()
       if (!text || thinking) return
       const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() }
       const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
       setMessages((prev) => [...prev, userMsg, assistantMsg])
-      setInputText('')
       setThinking(true)
       scrollToBottom()
       const controller = new AbortController()
@@ -104,7 +152,7 @@ export default function ChatPage() {
           sessionId,
           {
             modelId: currentModel || undefined,
-            agentId: agentId || undefined,
+            agentId: activeAgentId || undefined,
             materialContent: selectedMaterial?.content || undefined,
           },
           (delta) => {
@@ -145,13 +193,12 @@ export default function ChatPage() {
       }
     },
     [
-      inputText,
       thinking,
       sessionId,
       messages,
       scrollToBottom,
       currentModel,
-      agentId,
+      activeAgentId,
       selectedMaterial,
       t,
     ],
@@ -163,7 +210,6 @@ export default function ChatPage() {
 
   const handleSuggestion = useCallback(
     (text: string) => {
-      setInputText(text)
       sendMessage(text)
     },
     [sendMessage],
@@ -191,6 +237,47 @@ export default function ChatPage() {
   const selectMaterial = useCallback((m: MaterialItem) => {
     setSelectedMaterial(m)
     setMaterialDrawerVisible(false)
+  }, [])
+
+  const selectSkill = useCallback(
+    (a: AgentItem) => {
+      setCurrentAgentId(a.id)
+      setSkillsPopupVisible(false)
+      setAgent({
+        id: a.id,
+        name: a.name,
+        desc: a.desc || '',
+        avatar: a.avatar,
+        prompt: '',
+      })
+      loadAgent()
+    },
+    [loadAgent],
+  )
+
+  const openSkillsPopup = useCallback(() => {
+    setSkillsPopupVisible(true)
+    if (!agents.length) loadAgents()
+  }, [agents.length, loadAgents])
+
+  const handleUpload = useCallback((files: string[]) => {
+    Taro.showToast({ title: `已选 ${files.length} 个文件`, icon: 'none' })
+  }, [])
+
+  const handleVoicePress = useCallback(() => {
+    Taro.vibrateShort({ type: 'light' })
+  }, [])
+
+  const handleVoiceRelease = useCallback(
+    (filePath: string) => {
+      if (!filePath) return
+      sendMessage(t('ai.voice.voiceMessage'))
+    },
+    [sendMessage, t],
+  )
+
+  const handleMaterialUpload = useCallback((tab: MaterialTab) => {
+    Taro.showToast({ title: `上传 Tab${tab} 素材`, icon: 'none' })
   }, [])
 
   const openModelDrawer = useCallback(() => {
@@ -267,34 +354,23 @@ export default function ChatPage() {
           <Text className="tool-icon" onClick={openMaterialDrawer}>
             📁
           </Text>
-          {agentId ? (
-            <Text className="tool-icon" onClick={() => setAgentDrawerVisible(true)}>
-              ⚡
-            </Text>
-          ) : null}
+          <Text className="tool-icon" onClick={openSkillsPopup}>
+            ⚡
+          </Text>
         </View>
-        <Input
-          className="input"
-          type="text"
-          value={inputText}
+        <InputArea
           placeholder={t('ai.inputPlaceholder')}
-          confirmType="send"
-          onConfirm={() => sendMessage()}
-          onInput={(e) => setInputText(e.detail.value)}
-          adjustPosition
+          disabled={thinking}
+          onSend={(text) => sendMessage(text)}
+          onUpload={handleUpload}
+          onVoicePress={handleVoicePress}
+          onVoiceRelease={handleVoiceRelease}
         />
         {thinking ? (
           <View className="send-btn" onClick={stopGeneration}>
             <Text>{t('ai.stop')}</Text>
           </View>
-        ) : (
-          <View
-            className={`send-btn${!inputText.trim() ? ' disabled' : ''}`}
-            onClick={() => sendMessage()}
-          >
-            <Text>{t('ai.send')}</Text>
-          </View>
-        )}
+        ) : null}
       </View>
 
       <ModelDrawer
@@ -305,12 +381,41 @@ export default function ChatPage() {
         loading={modelsLoading}
         onSelect={selectModel}
       />
-      <MaterialDrawer
+      <MaterialPopup
         visible={materialDrawerVisible}
-        onClose={() => setMaterialDrawerVisible(false)}
-        materials={materials}
+        tab={materialTab}
+        items={materials.map((m) => ({
+          id: m.id,
+          title: m.title,
+          thumbnail: m.coverUrl,
+          content: m.content,
+          createdAt: m.createdAt,
+          tab: materialTab,
+        }))}
         loading={materialsLoading}
-        onSelect={selectMaterial}
+        hasMore={materialHasMore}
+        selectedId={selectedMaterial?.id}
+        onTabChange={setMaterialTab}
+        onSelect={(item) =>
+          selectMaterial({
+            id: item.id,
+            title: item.title,
+            coverUrl: item.thumbnail,
+            content: item.content,
+            createdAt: item.createdAt,
+          })
+        }
+        onClose={() => setMaterialDrawerVisible(false)}
+        onUpload={handleMaterialUpload}
+        onLoadMore={handleLoadMore}
+      />
+      <SkillsPopup
+        visible={skillsPopupVisible}
+        agents={agents}
+        loading={agentsLoading}
+        selectedId={activeAgentId}
+        onSelect={selectSkill}
+        onClose={() => setSkillsPopupVisible(false)}
       />
       <AgentDrawer
         visible={agentDrawerVisible}

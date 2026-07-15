@@ -191,7 +191,7 @@ export default function SignInPage() {
                 >
                   {isSigned ? <Check className="h-4 w-4" /> : item ? fmtShort(item.date) : '-'}
                 </span>
-                <span className="text-[10px] text-muted-foreground">+{item?.reward ?? 0}</span>
+                <span className="text-xs text-muted-foreground">+{item?.reward ?? 0}</span>
               </div>
             )
           })}

@@ -11,7 +11,7 @@ describe('users 表 — 真实 DB 集成测试', () => {
   // 用 DELETE 而非 TRUNCATE:users 被 100+ 表外键引用,TRUNCATE CASCADE 会级联清空所有引用表
   // DELETE 不级联,且 users 用 uuid 无序列需重置,速度更快
   beforeEach(async () => {
-    await testDb.execute(sql`DELETE FROM users`)
+    await testDb.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   it('插入用户并查询验证字段', async () => {

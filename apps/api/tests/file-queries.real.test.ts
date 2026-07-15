@@ -45,7 +45,7 @@ describe('file-queries — 真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM files`)
     await db.execute(sql`DELETE FROM project_members`)
     await db.execute(sql`DELETE FROM projects`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('canAccessFile 权限', () => {

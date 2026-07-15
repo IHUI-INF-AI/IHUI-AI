@@ -253,7 +253,7 @@ export default function EduCourseLearnPage() {
                       {qa.answer && (
                         <p className="mt-1 text-xs text-muted-foreground">{qa.answer}</p>
                       )}
-                      <p className="mt-1 text-[10px] text-muted-foreground">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         {qa.author} · {fmt(qa.createdAt)}
                       </p>
                     </div>

@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
-import { dateFormat } from '@/lib/date-utils'
+import { formatDate } from '@/lib/date-utils'
 import {
   Button,
   Input,
@@ -118,7 +118,7 @@ export default function RealnamePage() {
               <p className="text-sm text-muted-foreground">{t('realname.approvedTitle')}</p>
               <p className="text-lg font-semibold">{info?.realName ?? '-'}</p>
               <p className="text-xs text-muted-foreground">
-                {t('realname.auditTime')}：{info?.auditTime ? dateFormat(info.auditTime) : '-'}
+                {t('realname.auditTime')}：{info?.auditTime ? formatDate(info.auditTime) : '-'}
               </p>
             </div>
           </CardContent>

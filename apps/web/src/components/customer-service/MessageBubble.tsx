@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+import { getInitials } from '@/components/data/Avatar'
 
 export type MessageType = 'text' | 'image' | 'system'
 
@@ -17,10 +18,6 @@ export interface CsMessage {
 interface Props {
   message: CsMessage
   isSelf: boolean
-}
-
-function initials(name: string): string {
-  return name?.trim()?.slice(0, 1)?.toUpperCase() || '?'
 }
 
 export function MessageBubble({ message, isSelf }: Props) {
@@ -38,7 +35,7 @@ export function MessageBubble({ message, isSelf }: Props) {
           isSelf ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
         )}
       >
-        {isSelf ? '客' : initials(message.sender)}
+        {isSelf ? '客' : getInitials(message.sender)}
       </div>
       <div className={cn('flex max-w-[75%] flex-col', isSelf ? 'items-end' : 'items-start')}>
         {message.type === 'image' ? (
