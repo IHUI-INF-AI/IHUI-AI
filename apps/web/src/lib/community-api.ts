@@ -93,9 +93,7 @@ export async function getCircles(
 export async function getCircleById(
   id: string,
 ): Promise<ApiResult<{ circle: Circle; posts: CirclePost[] }>> {
-  return fetchApi<{ circle: Circle; posts: CirclePost[] }>(
-    `/circles/${encodeURIComponent(id)}`,
-  )
+  return fetchApi<{ circle: Circle; posts: CirclePost[] }>(`/circles/${encodeURIComponent(id)}`)
 }
 
 export async function createCirclePost(
@@ -108,15 +106,11 @@ export async function createCirclePost(
   })
 }
 
-export async function getAsks(
-  query: AskListQuery = {},
-): Promise<ApiResult<PageData<Ask>>> {
+export async function getAsks(query: AskListQuery = {}): Promise<ApiResult<PageData<Ask>>> {
   return fetchApi<PageData<Ask>>(`/asks${buildQs(query)}`)
 }
 
-export async function getAskById(
-  id: string,
-): Promise<ApiResult<{ ask: Ask; answers: unknown[] }>> {
+export async function getAskById(id: string): Promise<ApiResult<{ ask: Ask; answers: unknown[] }>> {
   return fetchApi<{ ask: Ask; answers: unknown[] }>(`/asks/${encodeURIComponent(id)}`)
 }
 
@@ -128,15 +122,98 @@ export async function createAsk(input: {
   return fetchApi<Ask>('/asks', { method: 'POST', body: JSON.stringify(input) })
 }
 
+export async function updateAsk(
+  id: string,
+  input: { title: string; content: string; tags?: string[] },
+): Promise<ApiResult<Ask>> {
+  return fetchApi<Ask>(`/asks/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function deleteAsk(id: string): Promise<ApiResult<void>> {
+  return fetchApi<void>(`/asks/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export interface AskAnswer {
+  id: string
+  askId: string
+  content: string
+  author: { id: string; nickname: string; avatar: string | null }
+  likeCount: number
+  isLiked: boolean
+  createdAt: string
+}
+
+export async function getAnswers(
+  askId: string,
+  query: { page?: number; pageSize?: number } = {},
+): Promise<ApiResult<PageData<AskAnswer>>> {
+  return fetchApi<PageData<AskAnswer>>(
+    `/asks/${encodeURIComponent(askId)}/answers${buildQs(query)}`,
+  )
+}
+
+export async function createAnswer(
+  askId: string,
+  input: { content: string },
+): Promise<ApiResult<AskAnswer>> {
+  return fetchApi<AskAnswer>(`/asks/${encodeURIComponent(askId)}/answers`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function updateAnswer(
+  answerId: string,
+  input: { content: string },
+): Promise<ApiResult<AskAnswer>> {
+  return fetchApi<AskAnswer>(`/asks/answers/${encodeURIComponent(answerId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function deleteAnswer(answerId: string): Promise<ApiResult<void>> {
+  return fetchApi<void>(`/asks/answers/${encodeURIComponent(answerId)}`, { method: 'DELETE' })
+}
+
+export async function getMyAsks(
+  query: { page?: number; pageSize?: number } = {},
+): Promise<ApiResult<PageData<Ask>>> {
+  return fetchApi<PageData<Ask>>(`/asks/my${buildQs(query)}`)
+}
+
+export async function getMyAnswers(
+  query: { page?: number; pageSize?: number } = {},
+): Promise<ApiResult<PageData<AskAnswer>>> {
+  return fetchApi<PageData<AskAnswer>>(`/asks/my/answers${buildQs(query)}`)
+}
+
+export async function getAsksByIds(ids: string[]): Promise<ApiResult<Ask[]>> {
+  return fetchApi<Ask[]>(`/asks/by-ids${buildQs({ ids: ids.join(',') })}`)
+}
+
+export async function getAnswersByIds(ids: string[]): Promise<ApiResult<AskAnswer[]>> {
+  return fetchApi<AskAnswer[]>(`/asks/answers/by-ids${buildQs({ ids: ids.join(',') })}`)
+}
+
+export async function countMyQuestions(): Promise<ApiResult<number>> {
+  return fetchApi<number>('/asks/my/count')
+}
+
+export async function countMyAnswers(): Promise<ApiResult<number>> {
+  return fetchApi<number>('/asks/my/answers/count')
+}
+
 export async function getTopics(
   query: { page?: number; pageSize?: number } = {},
 ): Promise<ApiResult<PageData<Topic>>> {
   return fetchApi<PageData<Topic>>(`/topics${buildQs(query)}`)
 }
 
-export async function getNews(
-  query: NewsListQuery = {},
-): Promise<ApiResult<PageData<News>>> {
+export async function getNews(query: NewsListQuery = {}): Promise<ApiResult<PageData<News>>> {
   return fetchApi<PageData<News>>(`/news${buildQs(query)}`)
 }
 
