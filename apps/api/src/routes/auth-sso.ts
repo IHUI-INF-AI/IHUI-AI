@@ -13,9 +13,24 @@ const SSO_CODE_TTL_SEC = 30
 const ADMIN_ROLE_ID = 1
 const ADMIN_WILDCARD_PERMISSIONS = ['*:*:*']
 
+/**
+ * redirectUri 校验:
+ * - 必须以 "/" 开头(站内路径,防 open redirect)
+ * - 不允许以 "//" 开头(防 protocol-relative URL open redirect)
+ * - 不允许包含 "\n\r" 等控制字符
+ * - 总长度不超过 2048
+ */
+const isSafeRedirectUri = (s: string): boolean =>
+  s.startsWith('/') &&
+  !s.startsWith('//') &&
+  !/[\r\n\t]/.test(s) &&
+  s.length <= 2048
+
 const generateCodeSchema = z.object({
   clientId: z.string().min(1).max(128),
-  redirectUri: z.string().url().max(2048),
+  redirectUri: z.string().refine(isSafeRedirectUri, {
+    message: 'redirectUri 必须是站内相对路径(以 / 开头且不以 // 开头)',
+  }),
 })
 
 const exchangeCodeSchema = z.object({
