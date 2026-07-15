@@ -3,29 +3,31 @@ import { View, Text, Input, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { updatePassword } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function Password() {
+  const { t } = useI18n()
   const [oldPwd, setOldPwd] = useState('')
   const [newPwd, setNewPwd] = useState('')
   const [confirmPwd, setConfirmPwd] = useState('')
 
   async function onSubmit() {
     if (!oldPwd) {
-      return Taro.showToast({ title: '请输入旧密码', icon: 'none' })
+      return Taro.showToast({ title: t('user.password.enterOld'), icon: 'none' })
     }
     if (newPwd.length < 6) {
-      return Taro.showToast({ title: '新密码至少6位', icon: 'none' })
+      return Taro.showToast({ title: t('user.password.tooShort'), icon: 'none' })
     }
     if (newPwd !== confirmPwd) {
-      return Taro.showToast({ title: '两次密码不一致', icon: 'none' })
+      return Taro.showToast({ title: t('user.password.mismatch'), icon: 'none' })
     }
     try {
       await updatePassword(oldPwd, newPwd)
-      Taro.showToast({ title: '修改成功', icon: 'success' })
+      Taro.showToast({ title: t('user.password.success'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/password', '修改密码', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
   }
 
@@ -33,31 +35,33 @@ export default function Password() {
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="mx-[12px] mt-[12px] px-[16px] bg-white rounded-[8px]">
         <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
-          <Text className="w-[80px] text-[14px] text-[#333]">旧密码</Text>
+          <Text className="w-[80px] text-[14px] text-[#333]">{t('user.password.oldPassword')}</Text>
           <Input
             className="flex-1 text-[14px]"
             password
-            placeholder="请输入旧密码"
+            placeholder={t('user.password.oldPlaceholder')}
             value={oldPwd}
             onInput={(e) => setOldPwd(e.detail.value)}
           />
         </View>
         <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
-          <Text className="w-[80px] text-[14px] text-[#333]">新密码</Text>
+          <Text className="w-[80px] text-[14px] text-[#333]">{t('user.password.newPassword')}</Text>
           <Input
             className="flex-1 text-[14px]"
             password
-            placeholder="请输入新密码"
+            placeholder={t('user.password.newPlaceholder')}
             value={newPwd}
             onInput={(e) => setNewPwd(e.detail.value)}
           />
         </View>
         <View className="flex items-center py-[16px]">
-          <Text className="w-[80px] text-[14px] text-[#333]">确认密码</Text>
+          <Text className="w-[80px] text-[14px] text-[#333]">
+            {t('user.password.confirmPassword')}
+          </Text>
           <Input
             className="flex-1 text-[14px]"
             password
-            placeholder="请再次输入新密码"
+            placeholder={t('user.password.confirmPlaceholder')}
             value={confirmPwd}
             onInput={(e) => setConfirmPwd(e.detail.value)}
           />
@@ -70,7 +74,7 @@ export default function Password() {
         disabled={!oldPwd || !newPwd || !confirmPwd}
         onClick={onSubmit}
       >
-        确认修改
+        {t('user.password.submit')}
       </Button>
     </View>
   )

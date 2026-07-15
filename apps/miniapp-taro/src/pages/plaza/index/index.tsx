@@ -3,9 +3,11 @@ import { View, Text } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 export default function PlazaIndex() {
+  const { t } = useI18n()
   const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -33,19 +35,21 @@ export default function PlazaIndex() {
   return (
     <View className="page-container">
       <View className="page-header">
-        <Text className="page-title">模型广场</Text>
+        <Text className="page-title">{t('plaza.index.title')}</Text>
       </View>
       <View className="page-content">
         {loading ? (
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         ) : list.length ? (
           list.map((item) => (
             <View key={(item.id as string) || (item.name as string)} className="list-item">
-              <Text>{(item.name as string) || (item.title as string) || '模型'}</Text>
+              <Text>
+                {(item.name as string) || (item.title as string) || t('plaza.index.model')}
+              </Text>
             </View>
           ))
         ) : (
-          <Text className="empty">暂无模型</Text>
+          <Text className="empty">{t('plaza.index.empty')}</Text>
         )}
       </View>
     </View>

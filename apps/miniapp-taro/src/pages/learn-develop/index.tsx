@@ -3,9 +3,11 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 export default function LearnDevelop() {
+  const { t } = useI18n()
   const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -32,11 +34,11 @@ export default function LearnDevelop() {
   return (
     <View className="page-container">
       <View className="page-header">
-        <Text className="page-title">学习开发</Text>
+        <Text className="page-title">{t('learnDevelop.title')}</Text>
       </View>
       <View className="page-content">
         {loading ? (
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         ) : list.length ? (
           list.map((item) => (
             <View
@@ -44,11 +46,11 @@ export default function LearnDevelop() {
               className="list-item"
               onClick={() => onItemClick(item.id as string)}
             >
-              <Text>{(item.title as string) || '课程'}</Text>
+              <Text>{(item.title as string) || t('learnDevelop.course')}</Text>
             </View>
           ))
         ) : (
-          <Text className="empty">暂无课程</Text>
+          <Text className="empty">{t('learnDevelop.empty')}</Text>
         )}
       </View>
     </View>

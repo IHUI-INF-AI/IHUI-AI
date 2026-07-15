@@ -3,9 +3,11 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 export default function AccountCancel() {
+  const { t } = useI18n()
   const [info, setInfo] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -28,15 +30,15 @@ export default function AccountCancel() {
 
   const onConfirm = useCallback(() => {
     Taro.showModal({
-      title: '账号注销',
-      content: '注销后账号数据将无法恢复，确定要注销吗？',
+      title: t('accountCancel.title'),
+      content: t('accountCancel.confirmContent'),
       success: (res) => {
         if (!res.confirm) return
         setSubmitting(true)
         api
           .accountCancel()
           .then(() => {
-            Taro.showToast({ title: '已注销', icon: 'success' })
+            Taro.showToast({ title: t('accountCancel.cancelled'), icon: 'success' })
             setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)
           })
           .catch((e) => {
@@ -47,25 +49,29 @@ export default function AccountCancel() {
           })
       },
     })
-  }, [])
+  }, [t])
 
   return (
     <View className="page-container">
       <View className="page-header">
-        <Text className="page-title">账号注销</Text>
+        <Text className="page-title">{t('accountCancel.title')}</Text>
       </View>
       <View className="page-content">
         {loading ? (
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         ) : info ? (
           <View>
-            <Text>当前账号：{(info.nickname as string) || (info.phone as string) || '-'}</Text>
+            <Text>
+              {t('accountCancel.currentAccount', {
+                name: (info.nickname as string) || (info.phone as string) || '-',
+              })}
+            </Text>
             <View className={`btn${submitting ? ' disabled' : ''}`} onClick={onConfirm}>
-              <Text>确认注销</Text>
+              <Text>{t('accountCancel.confirm')}</Text>
             </View>
           </View>
         ) : (
-          <Text className="empty">无法获取账号信息</Text>
+          <Text className="empty">{t('accountCancel.noInfo')}</Text>
         )}
       </View>
     </View>

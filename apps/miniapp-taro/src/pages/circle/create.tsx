@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { createCircle } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
+import { useI18n } from '@/i18n'
 import './create.css'
 
 interface FormState {
@@ -13,6 +14,7 @@ interface FormState {
 }
 
 export default function CircleCreatePage() {
+  const { t } = useI18n()
   const [form, setForm] = useState<FormState>({ title: '', content: '', images: [] })
   const [topic, setTopic] = useState('')
 
@@ -38,13 +40,13 @@ export default function CircleCreatePage() {
     if (!form.title || !form.content) return
     try {
       await createCircle(form)
-      Taro.showToast({ title: '发布成功', icon: 'success' })
+      Taro.showToast({ title: t('circle.createForm.published'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
     } catch (e) {
       logger.error('circle/create', '发布动态', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
-  }, [form])
+  }, [form, t])
 
   useDidShow(() => {
     // 页面显示时无需额外操作
@@ -65,14 +67,14 @@ export default function CircleCreatePage() {
         <Input
           className="title-input"
           value={form.title}
-          placeholder="标题（必填）"
+          placeholder={t('circle.createForm.titlePlaceholder')}
           maxlength={30}
           onInput={(e) => setForm((f) => ({ ...f, title: e.detail.value }))}
         />
         <Textarea
           className="content-input"
           value={form.content}
-          placeholder="分享你的想法..."
+          placeholder={t('circle.createForm.contentPlaceholder')}
           maxlength={1000}
           onInput={(e) => setForm((f) => ({ ...f, content: e.detail.value }))}
         />
@@ -95,13 +97,13 @@ export default function CircleCreatePage() {
 
       <View className="card">
         <View className="row" onClick={chooseTopic}>
-          <Text className="label">话题</Text>
-          <Text className="value">{topic || '选择话题'} ›</Text>
+          <Text className="label">{t('circle.createForm.topicLabel')}</Text>
+          <Text className="value">{topic || t('circle.createForm.selectTopic')} ›</Text>
         </View>
       </View>
 
       <Button className="btn" onClick={onSubmit} disabled={!form.title || !form.content}>
-        发布
+        {t('circle.createForm.publish')}
       </Button>
     </View>
   )

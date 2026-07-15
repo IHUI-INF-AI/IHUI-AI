@@ -2,6 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import { useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionTeam } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface TeamMember {
   id: string
@@ -14,6 +15,7 @@ interface TeamMember {
 const PAGE_SIZE = 20
 
 export default function DistributionTeam() {
+  const { t } = useI18n()
   const [list, setList] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(false)
   const pageRef = useRef(1)
@@ -75,7 +77,7 @@ export default function DistributionTeam() {
               <View className="flex-1 ml-[12px]">
                 <Text className="block text-[14px] text-[#333]">{m.nickname}</Text>
                 <Text className="block text-[12px] text-[#999] mt-[4px]">
-                  加入时间：{m.joinTime}
+                  {t('distribution.team.joinTime', { time: m.joinTime })}
                 </Text>
               </View>
               <Text className="text-[14px] text-[#ff6b35] font-semibold">V{m.level}</Text>
@@ -85,12 +87,12 @@ export default function DistributionTeam() {
       )}
       {list.length === 0 && !loading && (
         <View className="text-center py-[60px] text-[#999]">
-          <Text>暂无团队成员</Text>
+          <Text>{t('distribution.team.empty')}</Text>
         </View>
       )}
       {loading && (
         <View className="text-center py-[20px] text-[#999]">
-          <Text>加载中...</Text>
+          <Text>{t('distribution.team.loading')}</Text>
         </View>
       )}
     </View>

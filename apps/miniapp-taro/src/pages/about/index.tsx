@@ -48,7 +48,7 @@ export default function AboutIndexPage() {
 
       <View className="menu">
         <View className="menu-item" onClick={() => navigate('/pages/about/help')}>
-          <Text>{t('about.help')}</Text>
+          <Text>{t('about.help.title')}</Text>
           <Text className="arrow">›</Text>
         </View>
         <View className="menu-item" onClick={() => navigate('/pages/about/protocol')}>
@@ -60,7 +60,7 @@ export default function AboutIndexPage() {
           <Text className="arrow">›</Text>
         </View>
         <View className="menu-item" onClick={() => navigate('/pages/about/contact')}>
-          <Text>{t('about.contact')}</Text>
+          <Text>{t('about.contact.title')}</Text>
           <Text className="arrow">›</Text>
         </View>
       </View>
