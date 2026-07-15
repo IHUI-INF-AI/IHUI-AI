@@ -17,6 +17,12 @@ import {
 import { getUserPermissions } from '../db/rbac-queries.js'
 import { findInvitationByCode, markInvitationUsed } from '../db/promotion-queries.js'
 import { earnPoints } from '../services/points-service.js'
+import {
+  recordLoginFailure,
+  clearLoginFailures,
+  getLockRemainingMs,
+  ACCOUNT_LOCKOUT_CONFIG,
+} from '../services/account-lockout.js'
 import { success, error } from '../utils/response.js'
 import {
   codeStore,
@@ -456,6 +462,10 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
           },
+          429: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
       config: {
@@ -468,20 +478,56 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { account, password } = parsed.data
+      const ip = request.ip
+
+      // 账号/IP 锁定检查（防密码爆破）
+      const lockRemaining = getLockRemainingMs(account, ip)
+      if (lockRemaining > 0) {
+        const retryAfterSec = Math.ceil(lockRemaining / 1000)
+        return reply
+          .status(429)
+          .header('Retry-After', String(retryAfterSec))
+          .send(
+            error(
+              429,
+              `登录失败次数过多，账号已被临时锁定 ${Math.ceil(retryAfterSec / 60)} 分钟后重试`,
+            ),
+          )
+      }
 
       const user = await findUserByAccount(account)
       if (!user || !user.passwordHash) {
+        recordLoginFailure(account, ip)
         return reply.status(401).send(error(401, '用户不存在或密码错误'))
       }
 
       const ok = await bcrypt.compare(password, user.passwordHash)
       if (!ok) {
-        return reply.status(401).send(error(401, '用户不存在或密码错误'))
+        const remaining = recordLoginFailure(account, ip)
+        if (remaining === 0) {
+          return reply
+            .status(429)
+            .header('Retry-After', String(Math.ceil(ACCOUNT_LOCKOUT_CONFIG.lockDurationMs / 1000)))
+            .send(
+              error(
+                429,
+                `登录失败次数过多，账号已被临时锁定 ${Math.ceil(
+                  ACCOUNT_LOCKOUT_CONFIG.lockDurationMs / 60000,
+                )} 分钟`,
+              ),
+            )
+        }
+        return reply
+          .status(401)
+          .send(error(401, `用户不存在或密码错误（剩余 ${remaining} 次重试机会）`))
       }
 
       if (user.status !== 1) {
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
+
+      // 登录成功 → 清空失败计数
+      clearLoginFailures(account, ip)
 
       // 风控评估：异常 IP / 异地登录检测
       const risk = server.riskEngine.evaluateRisk({

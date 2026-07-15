@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import { authenticate } from '../plugins/auth.js'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import { sql, eq, and, desc } from 'drizzle-orm'
@@ -42,7 +43,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
 
   // ========== D1: 考试报名 sign-up CRUD (5端点) ==========
   // 报名列表
-  fastify.get('/exam/signups', async (request) => {
+  fastify.get('/exam/signups', { preHandler: authenticate }, async (request) => {
     const { examId, userId, page, pageSize } = z
       .object({
         examId: z.string().optional(),
@@ -65,7 +66,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   // 创建报名
-  fastify.post('/exam/signups', async (request, reply) => {
+  fastify.post('/exam/signups', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({ examId: z.string().uuid(), userId: z.string().uuid() })
       .parse(request.body)
@@ -80,7 +81,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   // 报名详情
-  fastify.get('/exam/signups/:id', async (request, reply) => {
+  fastify.get('/exam/signups/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const result = await db.select().from(examSignups).where(eq(examSignups.id, id)).limit(1)
     if (!result[0]) return reply.code(404).send({ error: '报名记录不存在' })
@@ -88,14 +89,14 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   // 取消报名
-  fastify.delete('/exam/signups/:id', async (request) => {
+  fastify.delete('/exam/signups/:id', { preHandler: authenticate }, async (request) => {
     const { id } = idParam.parse(request.params)
     await db.delete(examSignups).where(eq(examSignups.id, id))
     return { deleted: true }
   })
 
   // 检查是否已报名
-  fastify.get('/exam/signups/check', async (request) => {
+  fastify.get('/exam/signups/check', { preHandler: authenticate }, async (request) => {
     const { examId, userId } = z
       .object({ examId: z.string(), userId: z.string() })
       .parse(request.query)
@@ -128,7 +129,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     return { list }
   })
 
-  fastify.get('/exam/favorites', async (request) => {
+  fastify.get('/exam/favorites', { preHandler: authenticate }, async (request) => {
     const { userId } = userIdQuery.parse(request.query)
     // user_favorites 使用 resource_type / resource_id
     const rows = await db.execute(
@@ -138,7 +139,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   // ========== D3: 学习时间统计 (3端点) ==========
-  fastify.get('/learn/stats/total-time', async (request) => {
+  fastify.get('/learn/stats/total-time', { preHandler: authenticate }, async (request) => {
     const { userId } = userIdQuery.parse(request.query)
     // learn_record 表使用 member_id / learn_time（秒）
     const rows = await db.execute(
@@ -148,7 +149,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     return { totalMinutes: Math.floor(totalSeconds / 60) }
   })
 
-  fastify.get('/learn/stats/today-time', async (request) => {
+  fastify.get('/learn/stats/today-time', { preHandler: authenticate }, async (request) => {
     const { userId } = userIdQuery.parse(request.query)
     const rows = await db.execute(
       sql`SELECT COALESCE(SUM(learn_time), 0)::int AS today_seconds FROM learn_record WHERE member_id = ${userId} AND created_at >= CURRENT_DATE`,
@@ -157,7 +158,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     return { todayMinutes: Math.floor(todaySeconds / 60) }
   })
 
-  fastify.get('/learn/stats/rank-percent', async (request) => {
+  fastify.get('/learn/stats/rank-percent', { preHandler: authenticate }, async (request) => {
     const { userId } = userIdQuery.parse(request.query)
     const rows = await db.execute(sql`
       WITH user_total AS (
@@ -225,7 +226,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   // ========== D6: 直播频道订阅 (2端点) ==========
-  fastify.post('/live/subscribe', async (request, reply) => {
+  fastify.post('/live/subscribe', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({ channelId: z.string().uuid(), userId: z.string().uuid() })
       .parse(request.body)
@@ -240,7 +241,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     return reply.code(201).send(created)
   })
 
-  fastify.delete('/live/unsubscribe', async (request) => {
+  fastify.delete('/live/unsubscribe', { preHandler: authenticate }, async (request) => {
     const { channelId, userId } = z
       .object({ channelId: z.string(), userId: z.string() })
       .parse(request.query)
@@ -258,7 +259,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     return { list: rows as Record<string, unknown>[] }
   })
 
-  fastify.get('/ask/member/question-count', async (request) => {
+  fastify.get('/ask/member/question-count', { preHandler: authenticate }, async (request) => {
     const { userId } = userIdQuery.parse(request.query)
     const rows = await db.execute(
       sql`SELECT count(*)::int AS count FROM asks WHERE user_id = ${userId}`,
@@ -266,7 +267,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     return { count: (rows[0] as { count?: number } | undefined)?.count ?? 0 }
   })
 
-  fastify.get('/ask/member/answer-count', async (request) => {
+  fastify.get('/ask/member/answer-count', { preHandler: authenticate }, async (request) => {
     const { userId } = userIdQuery.parse(request.query)
     const rows = await db.execute(
       sql`SELECT count(*)::int AS count FROM ask_answers WHERE user_id = ${userId}`,
@@ -274,7 +275,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     return { count: (rows[0] as { count?: number } | undefined)?.count ?? 0 }
   })
 
-  fastify.get('/ask/member/questions', async (request) => {
+  fastify.get('/ask/member/questions', { preHandler: authenticate }, async (request) => {
     const { userId, page, pageSize } = paginatedUserIdQuery.parse(request.query)
     const list = await db
       .select()
@@ -285,7 +286,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     return { list, page: Number(page), pageSize: Number(pageSize) }
   })
 
-  fastify.get('/ask/member/answers', async (request) => {
+  fastify.get('/ask/member/answers', { preHandler: authenticate }, async (request) => {
     const { userId, page, pageSize } = paginatedUserIdQuery.parse(request.query)
     const list = await db
       .select()
@@ -297,13 +298,13 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   // ========== D8: 回答删除/更新 (2端点) ==========
-  fastify.delete('/ask/answers/:id', async (request) => {
+  fastify.delete('/ask/answers/:id', { preHandler: authenticate }, async (request) => {
     const { id } = idParam.parse(request.params)
     await db.delete(askAnswers).where(eq(askAnswers.id, id))
     return { deleted: true }
   })
 
-  fastify.patch('/ask/answers/:id', async (request) => {
+  fastify.patch('/ask/answers/:id', { preHandler: authenticate }, async (request) => {
     const { id } = idParam.parse(request.params)
     const { content } = z.object({ content: z.string() }).parse(request.body)
     const [updated] = await db
@@ -315,7 +316,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   // ========== D9: 各模块 by-ids 批量查询 (统一端点) ==========
-  fastify.post('/batch/lessons', async (request) => {
+  fastify.post('/batch/lessons', { preHandler: authenticate }, async (request) => {
     const { ids } = z.object({ ids: z.array(z.string()) }).parse(request.body)
     const list = await db
       .select()
@@ -324,7 +325,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     return { list }
   })
 
-  fastify.post('/batch/exams', async (request) => {
+  fastify.post('/batch/exams', { preHandler: authenticate }, async (request) => {
     const { ids } = z.object({ ids: z.array(z.string()) }).parse(request.body)
     const list = await db
       .select()
@@ -333,7 +334,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     return { list }
   })
 
-  fastify.post('/batch/channels', async (request) => {
+  fastify.post('/batch/channels', { preHandler: authenticate }, async (request) => {
     const { ids } = z.object({ ids: z.array(z.string()) }).parse(request.body)
     const list = await db
       .select()
@@ -343,7 +344,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   // ========== D10: OSS 文件删除 + URL转Base64 (2端点) ==========
-  fastify.delete('/oss/file', async (request) => {
+  fastify.delete('/oss/file', { preHandler: authenticate }, async (request) => {
     const { fileUrl } = z.object({ fileUrl: z.string().optional() }).parse(request.query)
     if (!fileUrl) return { deleted: false, error: 'fileUrl 为必填项' }
 
@@ -359,7 +360,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     return { deleted, fileUrl }
   })
 
-  fastify.get('/oss/to-base64', async (request, reply) => {
+  fastify.get('/oss/to-base64', { preHandler: authenticate }, async (request, reply) => {
     const { url } = z.object({ url: z.string().url() }).parse(request.query)
     try {
       const response = await fetch(url)
@@ -372,13 +373,13 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   // ========== D10补充: OSS 问答图片上传 ==========
-  fastify.post('/oss/ask/question/image', async (_request, reply) => {
+  fastify.post('/oss/ask/question/image', { preHandler: authenticate }, async (_request, reply) => {
     // 复用现有上传逻辑
     return reply.code(501).send({ error: '请使用 /api/oss/upload 端点' })
   })
 
   // ========== D16: 错题删除 ==========
-  fastify.delete('/exam/wrong-questions/:id', async (request) => {
+  fastify.delete('/exam/wrong-questions/:id', { preHandler: authenticate }, async (request) => {
     const { id } = idParam.parse(request.params)
     await db.delete(examWrongQuestion).where(eq(examWrongQuestion.id, id))
     return { deleted: true }
@@ -406,7 +407,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   // ========== D18: 圈子成员计数 (历史 /public-api/member/count) ==========
-  fastify.get('/circles/member-count', async (request) => {
+  fastify.get('/circles/member-count', { preHandler: authenticate }, async (request) => {
     const { circleId } = z.object({ circleId: z.string().uuid() }).parse(request.query)
     const [row] = await db
       .select({ count: circles.memberCount })

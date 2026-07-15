@@ -19,7 +19,13 @@ export interface UseLoginAuthReturn {
   register: (input: LoginInput & { phone: string }) => Promise<boolean>
 }
 
-/** 登录认证 Hook，封装账号密码/验证码登录与注册 */
+interface TokenPayload {
+  accessToken: string
+  refreshToken?: string
+  user: AuthUser
+}
+
+/** 登录认证 Hook,封装账号密码/验证码登录与注册 */
 export function useLoginAuth(): UseLoginAuthReturn {
   const toast = useToast()
   const setToken = useAuthStore((s) => s.setToken)
@@ -27,8 +33,8 @@ export function useLoginAuth(): UseLoginAuthReturn {
   const [loading, setLoading] = React.useState(false)
 
   const applyLogin = React.useCallback(
-    (data: { token: string; user: AuthUser }) => {
-      setToken(data.token)
+    (data: TokenPayload) => {
+      setToken(data.accessToken, data.refreshToken ?? null)
       setUser(data.user)
     },
     [setToken, setUser],
@@ -38,7 +44,7 @@ export function useLoginAuth(): UseLoginAuthReturn {
     async (input: LoginInput): Promise<boolean> => {
       setLoading(true)
       try {
-        const res = await fetchApi<{ token: string; user: AuthUser }>('/auth/login', {
+        const res = await fetchApi<TokenPayload>('/auth/login', {
           method: 'POST',
           body: JSON.stringify(input),
         })
@@ -60,7 +66,7 @@ export function useLoginAuth(): UseLoginAuthReturn {
     async (phone: string, code: string): Promise<boolean> => {
       setLoading(true)
       try {
-        const res = await fetchApi<{ token: string; user: AuthUser }>('/auth/login-code', {
+        const res = await fetchApi<TokenPayload>('/auth/login-code', {
           method: 'POST',
           body: JSON.stringify({ phone, code }),
         })
@@ -82,7 +88,7 @@ export function useLoginAuth(): UseLoginAuthReturn {
     async (input: LoginInput & { phone: string }): Promise<boolean> => {
       setLoading(true)
       try {
-        const res = await fetchApi<{ token: string; user: AuthUser }>('/auth/register', {
+        const res = await fetchApi<TokenPayload>('/auth/register', {
           method: 'POST',
           body: JSON.stringify(input),
         })
