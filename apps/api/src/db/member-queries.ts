@@ -677,6 +677,7 @@ export async function findUsersByDepartment(
         status: users.status,
         isVip: users.isVip,
         level: users.level,
+        isSystemAdmin: users.isSystemAdmin,
         inviteCode: users.inviteCode,
         parentId: users.parentId,
         createdAt: users.createdAt,

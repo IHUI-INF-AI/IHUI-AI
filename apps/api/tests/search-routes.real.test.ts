@@ -89,7 +89,7 @@ describe('search-routes — 需鉴权路由真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM search_history`)
     await db.execute(sql`DELETE FROM files`)
     await db.execute(sql`DELETE FROM projects`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   // =====================================================================
@@ -197,7 +197,8 @@ describe('search-routes — 需鉴权路由真实 DB 集成测试', () => {
       await createUser(`100${i}`, `User${i}`)
     }
     const user = await createUser('admin', 'Admin')
-    setMockUser(user.id)
+    // 搜索需要 admin 角色,因为 RLS 限制了非 admin 只能看自己
+    setMockAdmin(user.id)
     const res = await server.inject({ method: 'GET', url: '/api/search?q=User&type=user&limit=2' })
     const body = res.json()
     expect(body.data.users.length).toBe(2)

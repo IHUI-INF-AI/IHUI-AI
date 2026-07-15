@@ -27,14 +27,20 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
+const deadlineFmt = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
 function formatDeadline(t?: string) {
   if (!t) return ''
-  try {
-    const d = new Date(t)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  } catch {
-    return t
-  }
+  const d = new Date(t)
+  if (isNaN(d.getTime())) return t
+  return deadlineFmt.format(d)
 }
 
 const STATUS_MAP: Record<string, string> = {

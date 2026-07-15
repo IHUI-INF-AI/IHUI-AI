@@ -3,37 +3,9 @@
 import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
-import Link from 'next/link'
-import Image from 'next/image'
-import {
-  Sun,
-  Moon,
-  Monitor,
-  Globe,
-  Languages,
-  Check,
-  Smartphone,
-  UserX,
-  Shield,
-  Download,
-  Key,
-  FileText,
-  Bell,
-  CreditCard,
-  User,
-  UserCircle,
-  Receipt,
-  Link2,
-  Settings,
-  Activity,
-  LayoutDashboard,
-} from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
-import { Alert } from '@/components/feedback'
 import { Container } from '@/components/layout'
-import { Switch } from '@/components/form'
-import { cn } from '@/lib/utils'
+import { Alert } from '@/components/feedback'
 import {
   DeviceManager,
   IpWhitelist,
@@ -44,80 +16,12 @@ import {
   ThemeBackupSync,
 } from '@/components/settings'
 
-const SIDEBAR_KEY = 'sidebar-collapsed'
-
-const SUB_PAGES = [
-  {
-    href: '/settings/dashboard',
-    icon: LayoutDashboard,
-    titleKey: 'dashboardTitle',
-    descKey: 'dashboardDesc',
-  },
-  { href: '/settings/profile', icon: User, titleKey: 'profileTitle', descKey: 'profileDesc' },
-  { href: '/settings/avatar', icon: UserCircle, titleKey: 'avatarTitle', descKey: 'avatarDesc' },
-  { href: '/settings/billing', icon: Receipt, titleKey: 'billingTitle', descKey: 'billingDesc' },
-  {
-    href: '/settings/connected-accounts',
-    icon: Link2,
-    titleKey: 'connectedAccountsTitle',
-    descKey: 'connectedAccountsDesc',
-  },
-  {
-    href: '/settings/llm',
-    icon: Key,
-    titleKey: 'llmConfigsTitle',
-    descKey: 'llmConfigsDesc',
-  },
-  {
-    href: '/settings/preferences',
-    icon: Settings,
-    titleKey: 'preferencesTitle',
-    descKey: 'preferencesDesc',
-  },
-  {
-    href: '/settings/activity',
-    icon: Activity,
-    titleKey: 'activityTitle',
-    descKey: 'activityDesc',
-  },
-  {
-    href: '/settings/account-deletion',
-    icon: UserX,
-    titleKey: 'accountDeletionTitle',
-    descKey: 'accountDeletionDesc',
-  },
-  { href: '/settings/privacy', icon: Shield, titleKey: 'privacyTitle', descKey: 'privacyDesc' },
-  {
-    href: '/settings/data-export',
-    icon: Download,
-    titleKey: 'dataExportTitle',
-    descKey: 'dataExportDesc',
-  },
-  {
-    href: '/settings/authorizations',
-    icon: Key,
-    titleKey: 'authorizationsTitle',
-    descKey: 'authorizationsDesc',
-  },
-  {
-    href: '/settings/security-log',
-    icon: FileText,
-    titleKey: 'securityLogTitle',
-    descKey: 'securityLogDesc',
-  },
-  {
-    href: '/settings/notifications',
-    icon: Bell,
-    titleKey: 'notificationsTitle',
-    descKey: 'notificationsDesc',
-  },
-  {
-    href: '/settings/subscription',
-    icon: CreditCard,
-    titleKey: 'subscriptionTitle',
-    descKey: 'subscriptionDesc',
-  },
-] as const
+import { ThemeCard } from './ThemeCard'
+import { LanguageCard } from './LanguageCard'
+import { SidebarCard } from './SidebarCard'
+import { MiniappQrCard } from './MiniappQrCard'
+import { SubPageGrid } from './SubPageGrid'
+import { SIDEBAR_KEY } from './helpers'
 
 export default function SettingsPage() {
   const t = useTranslations('settings')
@@ -142,17 +46,6 @@ export default function SettingsPage() {
     window.location.reload()
   }
 
-  const themes = [
-    { key: 'light', icon: Sun, label: t('themeLight') },
-    { key: 'dark', icon: Moon, label: t('themeDark') },
-    { key: 'system', icon: Monitor, label: t('themeSystem') },
-  ] as const
-
-  const locales = [
-    { key: 'zh-CN', label: t('langZh') },
-    { key: 'en', label: t('langEn') },
-  ] as const
-
   return (
     <Container maxWidth="md" padding={false} className="space-y-6">
       <div>
@@ -160,113 +53,13 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Sun className="h-4 w-4" />
-            {t('theme')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-2">
-            {themes.map((item) => {
-              const Icon = item.icon
-              const active = mounted && theme === item.key
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => setTheme(item.key)}
-                  className={cn(
-                    'flex flex-col items-center gap-2 rounded-lg border p-3 text-sm transition-colors',
-                    active
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'hover:bg-accent hover:text-accent-foreground',
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {item.label}
-                </button>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <ThemeCard t={t} mounted={mounted} theme={theme} onSelect={(k) => setTheme(k)} />
+      <LanguageCard t={t} locale={locale} onSelect={switchLocale} />
+      <SidebarCard t={t} collapsed={collapsed} onToggle={toggleCollapsed} />
+      <MiniappQrCard t={t} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Languages className="h-4 w-4" />
-            {t('language')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-2">
-            {locales.map((item) => {
-              const active = locale === item.key
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => switchLocale(item.key)}
-                  className={cn(
-                    'flex items-center justify-center gap-2 rounded-lg border p-3 text-sm transition-colors',
-                    active
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'hover:bg-accent hover:text-accent-foreground',
-                  )}
-                >
-                  <Globe className="h-4 w-4" />
-                  {item.label}
-                  {active && <Check className="h-4 w-4" />}
-                </button>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Monitor className="h-4 w-4" />
-            {t('sidebar')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
-            </span>
-            <Switch checked={collapsed} onChange={toggleCollapsed} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 小程序二维码 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Smartphone className="h-4 w-4" />
-            {t('miniappQr')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center gap-3">
-            <Image
-              src="/images/common/miniapp-qr.png"
-              alt={t('miniappQr')}
-              width={192}
-              height={192}
-              className="h-48 w-48 rounded-lg border"
-            />
-            <p className="text-sm text-muted-foreground">{t('miniappQrDesc')}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 主题备份 / 同步 / 平滑过渡 */}
       <ThemeBackupSync />
 
-      {/* 安全中心 */}
       <div className="space-y-2 pt-2">
         <h2 className="text-lg font-semibold tracking-tight">{t('securityCenter')}</h2>
       </div>
@@ -281,26 +74,7 @@ export default function SettingsPage() {
       <div className="space-y-2 pt-2">
         <h2 className="text-lg font-semibold tracking-tight">{t('subPagesTitle')}</h2>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {SUB_PAGES.map((item) => {
-          const Icon = item.icon
-          return (
-            <Link key={item.href} href={item.href}>
-              <Card className="transition-colors hover:bg-accent">
-                <CardContent className="flex items-start gap-3 p-4">
-                  <div className="rounded-lg bg-muted p-2">
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{t(item.titleKey)}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{t(item.descKey)}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          )
-        })}
-      </div>
+      <SubPageGrid t={t} />
     </Container>
   )
 }

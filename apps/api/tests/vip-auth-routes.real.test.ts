@@ -84,7 +84,7 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM user_vips`)
     await db.execute(sql`DELETE FROM orders`)
     await db.execute(sql`DELETE FROM vip_levels`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   // =====================================================================

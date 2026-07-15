@@ -1064,6 +1064,25 @@
       "startLearning": "開始學習",
       "duration": "耗時",
       "studentsLabel": "學員數"
+    },
+    "topic": {
+      "title": "學習專題",
+      "subtitle": "課程專題 + 高級專題,系統化學習",
+      "empty": "暫無專題",
+      "loading": "載入中...",
+      "free": "免費",
+      "lessonCount": "{count} 門課程",
+      "learnNum": "{count} 人學",
+      "type": {
+        "lesson": {
+          "label": "課程專題",
+          "tip": "由運營精選的課程組合,免費學習。"
+        },
+        "premium": {
+          "label": "高級專題",
+          "tip": "包含企業/部門定制內容,可能涉及付費。"
+        }
+      }
     }
   },
   "exam": {

@@ -16,7 +16,7 @@ import {
 
 describe('auth queries — 真实 DB 集成测试', () => {
   beforeEach(async () => {
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   it('createUser + findUserByPhone — 创建后能按手机号查到', async () => {

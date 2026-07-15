@@ -5,19 +5,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Users, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import {
-  Button,
-  Input,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@ihui/ui'
+import { Button } from '@ihui/ui'
 
 import { UserFilter } from './UserFilter'
 import { UserTable } from './UserTable'
 import { UserDialog } from './UserDialog'
+import { CreateUserDialog, type CreateUserForm } from './CreateUserDialog'
 import { PAGE_SIZE, fetchUsers, api } from './helpers'
 import type { AdminUser } from './types'
 
@@ -35,7 +28,7 @@ export default function AdminUsersPage() {
   const [confirmUser, setConfirmUser] = React.useState<AdminUser | null>(null)
   const [confirmMode, setConfirmMode] = React.useState<'status' | 'delete'>('status')
   const [createOpen, setCreateOpen] = React.useState(false)
-  const [createForm, setCreateForm] = React.useState({
+  const [createForm, setCreateForm] = React.useState<CreateUserForm>({
     nickname: '',
     phone: '',
     email: '',
@@ -216,78 +209,14 @@ export default function AdminUsersPage() {
         deletePending={deleteMut.isPending}
       />
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>创建用户</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreateSubmit} className="space-y-3">
-            <div className="space-y-1">
-              <label htmlFor="create-nickname" className="text-sm font-medium">
-                昵称
-              </label>
-              <Input
-                id="create-nickname"
-                value={createForm.nickname}
-                onChange={(e) => setCreateForm((f) => ({ ...f, nickname: e.target.value }))}
-                placeholder="请输入昵称"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label htmlFor="create-phone" className="text-sm font-medium">
-                  手机号
-                </label>
-                <Input
-                  id="create-phone"
-                  aria-label="手机号"
-                  value={createForm.phone}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
-                  placeholder="可选"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="create-email" className="text-sm font-medium">
-                  邮箱
-                </label>
-                <Input
-                  id="create-email"
-                  type="email"
-                  value={createForm.email}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                  placeholder="可选"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="create-password" className="text-sm font-medium">
-                密码(至少 6 位)
-              </label>
-              <Input
-                id="create-password"
-                aria-label="密码"
-                type="password"
-                value={createForm.password}
-                onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
-                placeholder="请输入密码"
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCreateOpen(false)}
-                disabled={createMut.isPending}
-              >
-                取消
-              </Button>
-              <Button type="submit" disabled={createMut.isPending}>
-                {createMut.isPending ? '创建中…' : '创建'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <CreateUserDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        form={createForm}
+        onChange={setCreateForm}
+        submitting={createMut.isPending}
+        onSubmit={handleCreateSubmit}
+      />
     </div>
   )
 }

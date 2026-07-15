@@ -32,7 +32,7 @@ describe('gamification-queries — 真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM sign_in_records`)
     await db.execute(sql`DELETE FROM user_points`)
     await db.execute(sql`DELETE FROM levels`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('User Points 用户积分', () => {

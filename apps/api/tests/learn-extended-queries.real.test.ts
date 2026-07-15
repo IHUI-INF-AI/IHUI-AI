@@ -89,7 +89,7 @@ describe('learn-extended-queries — 真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM learn_maps`)
     await db.execute(sql`DELETE FROM lesson_sign_ups`)
     await db.execute(sql`DELETE FROM lessons`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('Homework', () => {

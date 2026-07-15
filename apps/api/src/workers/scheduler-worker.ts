@@ -256,6 +256,28 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             }
             return result
           }
+          case 'pg-backup-daily': {
+            const { spawn } = await import('node:child_process')
+            const scriptPath = new URL('../../scripts/pg-backup.mjs', import.meta.url).pathname
+            const result = await new Promise<{ code: number; stdout: string; stderr: string }>((resolve) => {
+              const p = spawn(process.execPath, [scriptPath], { cwd: process.cwd() })
+              let out = '', err = ''
+              p.stdout.on('data', d => out += d)
+              p.stderr.on('data', d => err += d)
+              p.on('close', code => resolve({ code: code ?? 0, stdout: out, stderr: err }))
+            })
+            server.log.info(
+              { exitCode: result.code, stdoutTail: result.stdout.split('\n').slice(-3).join(' | ') },
+              'pg backup done',
+            )
+            try {
+              server.recordJobExecution(name, result.code === 0 ? 'success' : 'failed')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            if (result.code !== 0) throw new Error(`pg-backup.mjs exit ${result.code}: ${result.stderr.slice(-200)}`)
+            return { exitCode: result.code }
+          }
           default:
             server.log.warn({ jobName: name }, 'unknown scheduled job')
             try {

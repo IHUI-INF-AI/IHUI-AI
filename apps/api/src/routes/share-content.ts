@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { success, error } from '../utils/response.js'
 import { dbRead } from '../db/index.js'
 import { aiGcContent, users } from '@ihui/database'
@@ -26,20 +26,20 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
         agentId: aiGcContent.agentId,
         userUuid: aiGcContent.userUuid,
         createdAt: aiGcContent.createdAt,
+        status: aiGcContent.status,
         userNickname: users.nickname,
         userAvatar: users.avatar,
       })
       .from(aiGcContent)
-      .leftJoin(users, eq(users.id, aiGcContent.userUuid))
+      .leftJoin(users, eq(sql`${users.id}::text`, aiGcContent.userUuid))
       .where(eq(aiGcContent.id, code))
       .limit(1)
 
     const content = rows[0]
-    if (!content || content.gcType === undefined) {
+    if (!content || content.gcType === undefined || content.status === 0) {
       return reply.code(404).send(error(404, '分享内容不存在或已下线'))
     }
-    // aiGcContent.status 默认 1 (启用)。左连接可能为 null,默认视为启用。
-    const status = 1
+    const status = content.status ?? 1
 
     let parsed: { question?: string; answer?: Record<string, unknown> } = {}
     try {

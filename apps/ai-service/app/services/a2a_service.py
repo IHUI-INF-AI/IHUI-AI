@@ -4,11 +4,10 @@
 当前实现是"带 Redis 持久化的本地异步任务队列",不是完整的 A2A 协议。
 - ✅ 已实现:Redis 持久化(agents + tasks)、内存热缓存、重启恢复、异步执行(LangGraph / agent_executor)
 - ✅ 已实现:agent 注册接口(endpoint 字段持久化)
-- ❌ 未实现:跨服务 HTTP 派发(_execute_task 无视 endpoint,所有任务本地执行)
+- ✅ 已实现:跨服务 HTTP 派发(_execute_task 按 agent.endpoint 发 HTTP 请求,失败 fallback 到本地执行)
 - ❌ 未实现:真正的 Agent-to-Agent 通信协议
 
-未来要落地完整 A2A:在 _execute_task 中按 agent.endpoint 发 HTTP 请求到远端 agent,
-而非无条件调用本地 langgraph_service / agent_executor。
+未来要落地完整 A2A:在现有 HTTP 派发基础上补充 Agent-to-Agent 通信协议(能力发现、任务状态回调等)。
 
 Redis 降级策略:Redis 不可用时静默退化为纯内存模式(重启即丢),
 2026-07-09 Phase 4 改进:降级时打 warning 日志(不再完全静默),便于运维感知。
@@ -270,9 +269,10 @@ class A2AServer:
         return task
 
     async def _execute_task(self, task_id: str) -> None:
-        """执行任务:调用 langgraph_service 或 agent_executor。
+        """执行任务:优先按 agent.endpoint 跨服务 HTTP 派发,fallback 到本地执行。
 
-        优先用 LangGraph(现在使用真正的 StateGraph),降级为 agent_executor。
+        - agent.endpoint 非空时:POST `${endpoint}/tasks/{task_id}/execute` 跨服务派发
+        - endpoint 为空或请求失败时:fallback 到本地 langgraph_service / agent_executor
         """
         task = self._tasks.get(task_id)
         if not task:
@@ -281,6 +281,26 @@ class A2AServer:
         task.updated_at = datetime.now(timezone.utc)
         await self._persist_task(task)
         try:
+            agent = self.get_agent(task.agent_id)
+            endpoint = agent.endpoint if agent else ""
+
+            if endpoint:
+                try:
+                    result = await self._dispatch_remote(endpoint, task)
+                    task.result = result
+                    task.status = "completed"
+                    task.updated_at = datetime.now(timezone.utc)
+                    await self._persist_task(task)
+                    return
+                except Exception as e:
+                    logger.warning(
+                        "a2a remote dispatch failed (task=%s, endpoint=%s): %s — fallback to local",
+                        task_id,
+                        endpoint,
+                        e,
+                        exc_info=True,
+                    )
+
             goal = task.input.get("goal") or task.input.get("message") or task.name
             session_id = f"a2a-{task.id}"
 
@@ -299,6 +319,28 @@ class A2AServer:
             task.status = "failed"
         task.updated_at = datetime.now(timezone.utc)
         await self._persist_task(task)
+
+    async def _dispatch_remote(self, endpoint: str, task: A2ATask) -> dict[str, Any]:
+        """跨服务 HTTP 派发:POST `${endpoint}/tasks/{task_id}/execute`。
+
+        30 秒超时,成功时返回响应 JSON。
+        """
+        import httpx
+
+        url = f"{endpoint.rstrip('/')}/tasks/{task.id}/execute"
+        payload = {
+            "task_id": task.id,
+            "input": task.input,
+            "metadata": {
+                "agent_id": task.agent_id,
+                "name": task.name,
+            },
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(url, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+        return data if isinstance(data, dict) else {"output": str(data)}
 
     async def get_task(self, task_id: str) -> A2ATask | None:
         """获取任务完整信息(优先内存,回退 Redis)。"""

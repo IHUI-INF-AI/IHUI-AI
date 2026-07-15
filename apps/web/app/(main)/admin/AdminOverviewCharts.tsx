@@ -50,7 +50,7 @@ export function AdminOverviewCharts({ stats, numFmt }: Props) {
             >
               <div className="absolute inset-[22%] flex flex-col items-center justify-center rounded-full bg-card">
                 <span className="text-lg font-bold">{numFmt.format(statusTotal)}</span>
-                <span className="text-[10px] text-muted-foreground">{t('totalLabel')}</span>
+                <span className="text-xs text-muted-foreground">{t('totalLabel')}</span>
               </div>
             </div>
             <ul className="flex-1 space-y-2">

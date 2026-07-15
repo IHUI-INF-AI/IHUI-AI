@@ -22,7 +22,7 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
   server.get('/distribution/overview', async (request, reply) => {
     const userId = request.userId!
     const [userRow] = await dbRead
-      .select({ inviteCode: users.inviteCode })
+      .select({ inviteCode: users.inviteCode, level: users.level })
       .from(users)
       .where(eq(users.id, userId))
 
@@ -47,6 +47,7 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
         pendingCommission: Number(pendingRow?.total ?? 0),
         withdrawnCommission: Number(withdrawnRow?.total ?? 0),
         inviteCode: userRow?.inviteCode ?? null,
+        level: userRow?.level ?? 0,
       }),
     )
   })
