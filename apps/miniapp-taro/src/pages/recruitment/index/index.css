@@ -13,7 +13,7 @@
   position: relative;
   width: 100%;
   height: 320rpx;
-  background: linear-gradient(135deg, #007aff, #00c6ff);
+  background: linear-gradient(135deg, #07c160, #35e683);
   overflow: hidden;
 }
 .recruit-banner {
@@ -66,7 +66,7 @@
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
-  background: #007aff;
+  background: #07c160;
   margin-top: 12rpx;
   margin-right: 16rpx;
   flex-shrink: 0;
@@ -142,7 +142,7 @@
 .income-level {
   font-size: 28rpx;
   font-weight: 600;
-  color: #007aff;
+  color: #07c160;
 }
 .income-detail {
   margin-top: 12rpx;
@@ -176,7 +176,7 @@
 }
 .apply-btn {
   height: 88rpx;
-  background: #007aff;
+  background: #07c160;
   color: #fff;
   font-size: 32rpx;
   border-radius: 44rpx;

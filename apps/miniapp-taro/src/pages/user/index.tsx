@@ -4,7 +4,8 @@ import { useState, useMemo, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
 import { logout } from '@/api'
 
-const defaultAvatar = 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
+const defaultAvatar =
+  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
 const menus = [
   { icon: '📋', text: '我的订单', path: '/pages/user/orders' },
@@ -52,14 +53,16 @@ export default function UserIndex() {
     })
   }
 
-  useDidShow(() => { refresh() })
+  useDidShow(() => {
+    refresh()
+  })
 
   return (
     <View className="min-h-screen">
       {/* 用户信息头部 */}
       <View
         className="pt-[60px] px-[16px] pb-[24px]"
-        style={{ background: 'linear-gradient(135deg, #007aff, #00c6ff)' }}
+        style={{ background: 'linear-gradient(135deg, #07c160, #35e683)' }}
       >
         {userInfo ? (
           <View className="flex items-center">
@@ -93,7 +96,9 @@ export default function UserIndex() {
             />
             <View className="ml-[12px]">
               <Text className="block text-white text-[18px] font-semibold">点击登录</Text>
-              <Text className="block mt-[4px] text-white text-[12px] opacity-85">登录后享受更多服务</Text>
+              <Text className="block mt-[4px] text-white text-[12px] opacity-85">
+                登录后享受更多服务
+              </Text>
             </View>
           </View>
         )}

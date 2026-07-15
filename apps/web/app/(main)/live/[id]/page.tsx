@@ -9,7 +9,7 @@ import { PlayCircle, Eye, Loader2, ArrowLeft, Radio, Calendar } from 'lucide-rea
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@ihui/ui'
-import { VideoPlayer } from '@/components/media'
+import { LivePlayer } from '@/components/media'
 
 interface ChannelDetail {
   id: string
@@ -139,7 +139,7 @@ export default function LiveDetailPage() {
       <Card className="overflow-hidden">
         {channel.playUrl ? (
           <div className="relative aspect-video bg-black">
-            <VideoPlayer
+            <LivePlayer
               src={channel.playUrl}
               poster={channel.coverImage ?? undefined}
               autoPlay={channel.isLive}

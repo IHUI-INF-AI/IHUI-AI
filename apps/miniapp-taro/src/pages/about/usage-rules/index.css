@@ -1,4 +1,4 @@
-﻿.page {
+.page {
   min-height: 100vh;
   background: #f7f8fa;
 }
@@ -22,7 +22,7 @@
 }
 .dot {
   font-size: 28rpx;
-  color: #007aff;
+  color: #07c160;
   margin-right: 12rpx;
   line-height: 1.7;
 }

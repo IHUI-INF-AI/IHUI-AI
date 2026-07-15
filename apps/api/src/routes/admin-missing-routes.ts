@@ -71,6 +71,7 @@ import {
   statisticsSnapshots,
   users,
   aiModelConfig,
+  systemConfigs,
 } from '@ihui/database'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../utils/crypto.js'
 
@@ -180,11 +181,6 @@ const updatePermissionSchema = z.object({
   action: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
 })
-
-/** 空列表响应（用于无对应表的路由） */
-function emptyList(page: number, pageSize: number) {
-  return success({ list: [], total: 0, page, pageSize })
-}
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Drizzle ORM 泛型表类型需要 any，社区标准模式 */
 function registerCrud(
@@ -1685,11 +1681,35 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   })
   // /oauth-audit/stats — 已迁移至 admin-monitoring-routes.ts
 
-  // /api/admin/oss/files — 文件列表（空桩，实际文件由 oss 路由处理）
+  // /api/admin/oss/files — OSS 文件列表（systemConfigs 表，category='oss_file'）
   server.get('/oss/files', async (request, reply) => {
     const q = paginationSchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(emptyList(q.data.page, q.data.pageSize))
+    const { page, pageSize, search } = q.data
+    try {
+      const baseCond = eq(systemConfigs.category, 'oss_file')
+      const searchCond = search
+        ? or(ilike(systemConfigs.key, `%${search}%`), ilike(systemConfigs.value, `%${search}%`))
+        : undefined
+      const where = searchCond ? and(baseCond, searchCond) : baseCond
+      const [list, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(systemConfigs)
+          .where(where)
+          .orderBy(desc(systemConfigs.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(systemConfigs)
+          .where(where),
+      ])
+      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询 OSS 文件列表失败'))
+    }
   })
 
   // ===========================================================================
@@ -2007,21 +2027,108 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 9. 补充端点 — 管理员角色/日志/配置（5 个，空数据桩）
+  // 9. 补充端点 — 管理员角色/配置
   // ===========================================================================
+  const roleCreateSchema = z.object({
+    name: z.string().min(1).max(64),
+    displayName: z.string().min(1).max(128).optional(),
+    description: z.string().nullable().optional(),
+    scope: z.string().max(16).optional(),
+  })
+  const configUpsertSchema = z.object({
+    key: z.string().min(1).max(128),
+    value: z.string(),
+    category: z.string().max(32).optional(),
+    description: z.string().nullable().optional(),
+    isPublic: z.boolean().optional(),
+  })
+
   server.get('/roles', async (request, reply) => {
     const q = paginationSchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
-    return reply.send(emptyList(q.data.page, q.data.pageSize))
+    const { page, pageSize, search } = q.data
+    try {
+      const where = search ? ilike(roles.name, `%${search}%`) : undefined
+      const [list, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(roles)
+          .where(where)
+          .orderBy(desc(roles.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(roles)
+          .where(where),
+      ])
+      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询角色列表失败'))
+    }
   })
 
-  server.post('/roles', async (_request, reply) => {
-    return reply.status(201).send(success({ created: true }))
+  server.post('/roles', async (request, reply) => {
+    const b = roleCreateSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const [row] = await db
+        .insert(roles)
+        .values({
+          name: b.data.name,
+          displayName: b.data.displayName ?? b.data.name,
+          description: b.data.description ?? null,
+          scope: b.data.scope ?? 'self',
+        })
+        .returning()
+      if (!row) return reply.status(500).send(error(500, '创建角色失败'))
+      return reply.status(201).send(success(row))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '创建角色失败'))
+    }
   })
 
-  // 注: /logs /configs 已由 system.ts adminSystemRoutes 真实实现,此处不再重复注册空桩
+  // 注: /logs GET/PATCH /configs 已由 system.ts adminSystemRoutes 实现;此处仅保留 PUT /configs 按 key upsert
 
-  server.put('/configs', async (_request, reply) => {
-    return reply.send(success({ updated: true }))
+  server.put('/configs', async (request, reply) => {
+    const b = configUpsertSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const [existing] = await db
+        .select()
+        .from(systemConfigs)
+        .where(eq(systemConfigs.key, b.data.key))
+        .limit(1)
+      if (existing) {
+        const [row] = await db
+          .update(systemConfigs)
+          .set({
+            value: b.data.value,
+            description: b.data.description,
+            isPublic: b.data.isPublic,
+            updatedAt: new Date(),
+          })
+          .where(eq(systemConfigs.key, b.data.key))
+          .returning()
+        return reply.send(success(row))
+      }
+      const [row] = await db
+        .insert(systemConfigs)
+        .values({
+          key: b.data.key,
+          value: b.data.value,
+          category: b.data.category ?? 'general',
+          type: 'string',
+          description: b.data.description,
+          isPublic: b.data.isPublic ?? false,
+        })
+        .returning()
+      return reply.status(201).send(success(row))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '更新系统配置失败'))
+    }
   })
 }

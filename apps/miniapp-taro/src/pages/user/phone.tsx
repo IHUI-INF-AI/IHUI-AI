@@ -81,7 +81,7 @@ export default function Phone() {
               onInput={(e) => setCode(e.detail.value)}
             />
             <Text
-              className={`text-[12px] whitespace-nowrap ${counting ? 'text-[#ccc]' : 'text-[#007aff]'}`}
+              className={`text-[12px] whitespace-nowrap ${counting ? 'text-[#ccc]' : 'text-[#07c160]'}`}
               onClick={sendCode}
             >
               {counting ? `${count}s` : '获取验证码'}
@@ -91,7 +91,7 @@ export default function Phone() {
       </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          phone && code ? 'bg-[#007aff] text-white' : 'bg-[#ccc] text-white'
+          phone && code ? 'bg-[#07c160] text-white' : 'bg-[#ccc] text-white'
         }`}
         disabled={!phone || !code}
         onClick={onSubmit}

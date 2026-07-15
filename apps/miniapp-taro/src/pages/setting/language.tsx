@@ -43,7 +43,7 @@ export default function LanguagePage() {
             onClick={() => onSelect(l.value)}
           >
             <Text className="text-[15px] text-[#333]">{l.name}</Text>
-            {current === l.value && <Text className="text-[16px] text-[#007aff]">✓</Text>}
+            {current === l.value && <Text className="text-[16px] text-[#07c160]">✓</Text>}
           </View>
         ))}
       </View>

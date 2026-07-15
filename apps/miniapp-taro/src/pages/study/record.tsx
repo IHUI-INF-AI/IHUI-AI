@@ -26,7 +26,7 @@ export default function StudyRecord() {
       const res = await getStudyRecords({ page: pageRef.current, pageSize: 20 })
       const more = res.list || []
       lenRef.current = reset ? more.length : lenRef.current + more.length
-      setList(prev => reset ? more : [...prev, ...more])
+      setList((prev) => (reset ? more : [...prev, ...more]))
       hasMoreRef.current = lenRef.current < res.total
       pageRef.current++
     } catch {
@@ -47,19 +47,16 @@ export default function StudyRecord() {
     <View className="min-h-screen bg-[#f7f8fa]">
       {list.length > 0 && (
         <View className="p-3">
-          {list.map(r => (
+          {list.map((r) => (
             <View key={r.id} className="bg-white rounded-2xl p-3 mb-3">
               <Text className="text-sm text-[#333] font-semibold">{r.courseTitle}</Text>
               <View className="flex justify-between mt-1.5">
-                <Text className="text-xs text-[#007aff]">学习 {r.duration}分钟</Text>
+                <Text className="text-xs text-[#07c160]">学习 {r.duration}分钟</Text>
                 <Text className="text-xs text-[#999]">{r.time}</Text>
               </View>
               {/* 进度条 */}
               <View className="h-1 bg-[#f5f5f5] rounded mt-2">
-                <View
-                  className="h-full bg-[#007aff] rounded"
-                  style={{ width: `${r.progress}%` }}
-                />
+                <View className="h-full bg-[#07c160] rounded" style={{ width: `${r.progress}%` }} />
               </View>
               <Text className="block text-xs text-[#999] mt-1">进度 {r.progress}%</Text>
             </View>

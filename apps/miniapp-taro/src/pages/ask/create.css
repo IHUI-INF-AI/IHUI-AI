@@ -1,13 +1,76 @@
-.page { min-height: 100vh; background: #f7f8fa; padding-bottom: 120rpx; }
-.card { margin: 24rpx; padding: 32rpx; background: #fff; border-radius: 16rpx; }
-.label { display: block; font-size: 26rpx; color: #333; margin: 16rpx 0; }
-.input { width: 100%; padding: 16rpx 0; font-size: 30rpx; border-bottom: 2rpx solid #f5f5f5; }
-.textarea { width: 100%; min-height: 240rpx; margin-top: 16rpx; padding: 16rpx; background: #f7f8fa; border-radius: 12rpx; font-size: 28rpx; box-sizing: border-box; }
-.counter { display: block; text-align: right; font-size: 22rpx; color: #999; margin-top: 8rpx; }
-.rewards { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.reward { padding: 12rpx 24rpx; border: 2rpx solid #eee; border-radius: 24rpx; font-size: 24rpx; color: #666; }
-.reward.active { border-color: #007aff; color: #007aff; background: #e6f0ff; }
-.tips { padding: 0 32rpx; }
-.tips text { display: block; font-size: 22rpx; color: #999; line-height: 1.8; }
-.btn { margin: 32rpx; background: #007aff; color: #fff; border-radius: 40rpx; font-size: 32rpx; }
-.btn[disabled] { background: #ccc; }
+.page {
+  min-height: 100vh;
+  background: #f7f8fa;
+  padding-bottom: 120rpx;
+}
+.card {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: #fff;
+  border-radius: 16rpx;
+}
+.label {
+  display: block;
+  font-size: 26rpx;
+  color: #333;
+  margin: 16rpx 0;
+}
+.input {
+  width: 100%;
+  padding: 16rpx 0;
+  font-size: 30rpx;
+  border-bottom: 2rpx solid #f5f5f5;
+}
+.textarea {
+  width: 100%;
+  min-height: 240rpx;
+  margin-top: 16rpx;
+  padding: 16rpx;
+  background: #f7f8fa;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+.counter {
+  display: block;
+  text-align: right;
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 8rpx;
+}
+.rewards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.reward {
+  padding: 12rpx 24rpx;
+  border: 2rpx solid #eee;
+  border-radius: 24rpx;
+  font-size: 24rpx;
+  color: #666;
+}
+.reward.active {
+  border-color: #07c160;
+  color: #07c160;
+  background: #e6f0ff;
+}
+.tips {
+  padding: 0 32rpx;
+}
+.tips text {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  line-height: 1.8;
+}
+.btn {
+  margin: 32rpx;
+  background: #07c160;
+  color: #fff;
+  border-radius: 40rpx;
+  font-size: 32rpx;
+}
+.btn[disabled] {
+  background: #ccc;
+}

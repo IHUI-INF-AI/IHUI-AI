@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { getHomePage, getCourseList, type Banner, type Course } from '@/api'
 
-const defaultAvatar = 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
+const defaultAvatar =
+  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
 const entries = [
   { icon: '📚', text: '课程', path: '/pages/course/list' },
@@ -54,8 +55,12 @@ export default function Index() {
     }
   }
 
-  useEffect(() => { loadData() }, [])
-  useDidShow(() => { refreshUser() })
+  useEffect(() => {
+    loadData()
+  }, [])
+  useDidShow(() => {
+    refreshUser()
+  })
 
   return (
     <View className="min-h-screen pb-[20px]">
@@ -63,7 +68,7 @@ export default function Index() {
       {isLogin && userInfo ? (
         <View
           className="flex items-center pt-[60px] px-[16px] pb-[12px]"
-          style={{ background: 'linear-gradient(135deg, #007aff, #00c6ff)' }}
+          style={{ background: 'linear-gradient(135deg, #07c160, #35e683)' }}
         >
           <Image
             className="w-[36px] h-[36px] rounded-full border-[1px] border-solid border-white"
@@ -80,12 +85,14 @@ export default function Index() {
               </Text>
             ) : null}
           </View>
-          <Text className="ml-auto text-white text-[13px]" onClick={goLogin}>去登录</Text>
+          <Text className="ml-auto text-white text-[13px]" onClick={goLogin}>
+            去登录
+          </Text>
         </View>
       ) : (
         <View
           className="flex items-center pt-[60px] px-[16px] pb-[12px]"
-          style={{ background: 'linear-gradient(135deg, #007aff, #00c6ff)' }}
+          style={{ background: 'linear-gradient(135deg, #07c160, #35e683)' }}
         >
           <Image
             className="w-[36px] h-[36px] rounded-full border-[1px] border-solid border-white"
@@ -106,14 +113,14 @@ export default function Index() {
         interval={4000}
         circular
       >
-        {bannerList.map(item => (
+        {bannerList.map((item) => (
           <SwiperItem key={item.id} onClick={() => onBannerClick(item)}>
             <Image className="w-full h-full" src={item.coverUrl} mode="aspectFill" />
           </SwiperItem>
         ))}
         {bannerList.length === 0 ? (
           <SwiperItem>
-            <View className="w-full h-full flex items-center justify-center bg-white text-[#007aff] text-[15px]">
+            <View className="w-full h-full flex items-center justify-center bg-white text-[#07c160] text-[15px]">
               <Text>智汇社区 · AI 赋能学习</Text>
             </View>
           </SwiperItem>
@@ -122,7 +129,7 @@ export default function Index() {
 
       {/* 功能入口 */}
       <View className="flex flex-wrap px-[16px] py-[8px] bg-white mx-[16px] rounded-[8px]">
-        {entries.map(entry => (
+        {entries.map((entry) => (
           <View
             key={entry.path}
             className="w-1/5 flex flex-col items-center py-[12px]"
@@ -144,7 +151,7 @@ export default function Index() {
         </View>
         <ScrollView scrollX>
           <View className="flex">
-            {courseList.map(c => (
+            {courseList.map((c) => (
               <View
                 key={c.id}
                 className="inline-block w-[140px] mr-[10px] bg-white rounded-[8px] overflow-hidden flex-shrink-0"
