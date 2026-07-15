@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Users, Loader2, Heart } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -33,6 +33,7 @@ function initials(name: string | null): string {
 
 export default function MemberFansPage() {
   const locale = useLocale()
+  const t = useTranslations('member.fans')
   const [page] = React.useState(1)
 
   const { data, isLoading, isError, error } = useQuery({
@@ -59,9 +60,9 @@ export default function MemberFansPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Heart className="h-5 w-5 text-primary" />
-          我的粉丝
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">共 {total} 位粉丝关注了你</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle', { total })}</p>
       </div>
 
       {isError && <Alert variant="danger" description={(error as Error).message} />}
@@ -69,12 +70,12 @@ export default function MemberFansPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : list.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
           <Users className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">还没有粉丝,快去发布内容吸引关注吧</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -89,8 +90,10 @@ export default function MemberFansPage() {
                   {initials(fan.nickname)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{fan.nickname ?? '匿名用户'}</p>
-                  <p className="text-xs text-muted-foreground">关注于 {fmt(fan.createdAt)}</p>
+                  <p className="truncate text-sm font-medium">{fan.nickname ?? t('anonymous')}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t('followedAt', { date: fmt(fan.createdAt) })}
+                  </p>
                 </div>
               </CardContent>
             </Card>

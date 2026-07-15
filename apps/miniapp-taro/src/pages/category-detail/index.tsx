@@ -2,6 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getAgentList } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface AgentItem {
   id: string | number
@@ -15,6 +16,7 @@ interface AgentItem {
 type SortType = 'hot' | 'new'
 
 export default function CategoryDetailPage() {
+  const { t } = useI18n()
   const [list, setList] = useState<AgentItem[]>([])
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState<SortType>('hot')
@@ -56,10 +58,14 @@ export default function CategoryDetailPage() {
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="flex items-center justify-between px-4 py-3 bg-white">
         <Text className="text-sm text-gray-500">
-          {categoryId ? `分类ID: ${categoryId}` : '全部分类'}
+          {categoryId
+            ? t('categoryDetail.categoryId', { id: categoryId })
+            : t('categoryDetail.allCategories')}
         </Text>
         <View className="flex items-center px-3 py-1 rounded-full bg-gray-50" onClick={toggleSort}>
-          <Text className="text-xs text-gray-600">{sort === 'hot' ? '🔥 最热' : '✨ 最新'}</Text>
+          <Text className="text-xs text-gray-600">
+            {sort === 'hot' ? t('categoryDetail.hot') : t('categoryDetail.new')}
+          </Text>
         </View>
       </View>
 
@@ -77,7 +83,7 @@ export default function CategoryDetailPage() {
         </View>
       ) : list.length === 0 ? (
         <View className="flex items-center justify-center py-16">
-          <Text className="text-sm text-gray-400">暂无Agent</Text>
+          <Text className="text-sm text-gray-400">{t('categoryDetail.empty')}</Text>
         </View>
       ) : (
         <View className="px-3 py-2">
@@ -105,7 +111,7 @@ export default function CategoryDetailPage() {
                   {agent.name}
                 </Text>
                 <Text className="block text-xs text-gray-400 truncate mt-0.5">
-                  {agent.desc || '暂无描述'}
+                  {agent.desc || t('categoryDetail.noDesc')}
                 </Text>
                 {agent.tags && agent.tags.length > 0 && (
                   <View className="flex flex-wrap mt-1">
@@ -121,7 +127,9 @@ export default function CategoryDetailPage() {
                 )}
               </View>
               {agent.uses !== undefined && (
-                <Text className="text-xs text-gray-400 ml-2">{agent.uses}次</Text>
+                <Text className="text-xs text-gray-400 ml-2">
+                  {t('categoryDetail.useCount', { n: agent.uses })}
+                </Text>
               )}
             </View>
           ))}

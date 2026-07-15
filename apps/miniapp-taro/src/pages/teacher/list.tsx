@@ -2,8 +2,10 @@ import { View, Text, Input, Image } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getTeacherList, type Teacher } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function TeacherList() {
+  const { t } = useI18n()
   const [list, setList] = useState<Teacher[]>([])
   const [loading, setLoading] = useState(false)
   const [keyword, setKeyword] = useState('')
@@ -63,7 +65,7 @@ export default function TeacherList() {
       <View className="p-3">
         <Input
           className="h-9 px-3 bg-white rounded-full text-sm"
-          placeholder="搜索讲师"
+          placeholder={t('teacher.list.searchPlaceholder')}
           value={keyword}
           onInput={(e) => setKeyword(e.detail.value)}
           onConfirm={onSearch}
@@ -71,30 +73,36 @@ export default function TeacherList() {
       </View>
       {list.length > 0 && (
         <View className="px-3">
-          {list.map((t) => (
+          {list.map((item) => (
             <View
-              key={t.id}
+              key={item.id}
               className="flex bg-white rounded-2xl p-3 mb-3"
-              onClick={() => goDetail(t.id)}
+              onClick={() => goDetail(item.id)}
             >
               <Image
                 className="w-[60px] h-[60px] rounded-full bg-[#f5f5f5] flex-shrink-0"
-                src={t.avatar || '/static/default-avatar.png'}
+                src={item.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />
               <View className="flex-1 ml-3">
                 <View className="flex items-center gap-2">
-                  <Text className="text-base text-[#333] font-semibold">{t.name}</Text>
-                  {t.title && (
+                  <Text className="text-base text-[#333] font-semibold">{item.name}</Text>
+                  {item.title && (
                     <Text className="text-xs text-[#07c160] bg-[#e6f7ee] px-1.5 py-0.5 rounded">
-                      {t.title}
+                      {item.title}
                     </Text>
                   )}
                 </View>
-                <Text className="block text-xs text-[#999] mt-1.5 leading-relaxed">{t.intro}</Text>
+                <Text className="block text-xs text-[#999] mt-1.5 leading-relaxed">
+                  {item.intro}
+                </Text>
                 <View className="flex gap-3 mt-1.5">
-                  <Text className="text-xs text-[#666]">{t.courses || 0}课程</Text>
-                  <Text className="text-xs text-[#666]">{t.students || 0}学员</Text>
+                  <Text className="text-xs text-[#666]">
+                    {t('teacher.list.courseCount', { n: item.courses || 0 })}
+                  </Text>
+                  <Text className="text-xs text-[#666]">
+                    {t('teacher.list.studentCount', { n: item.students || 0 })}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -103,12 +111,12 @@ export default function TeacherList() {
       )}
       {!loading && list.length === 0 && (
         <View className="text-center py-16 text-[#999] text-sm">
-          <Text>暂无讲师</Text>
+          <Text>{t('teacher.list.empty')}</Text>
         </View>
       )}
       {loading && (
         <View className="text-center py-16 text-[#999] text-sm">
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         </View>
       )}
     </View>

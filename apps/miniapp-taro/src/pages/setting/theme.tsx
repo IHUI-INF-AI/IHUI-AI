@@ -3,27 +3,29 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { setTheme } from '@/api'
+import { useI18n } from '@/i18n'
 import './theme.css'
 
-const THEMES = [
-  { value: 'light', name: '浅色模式', color: '#ffffff' },
-  { value: 'dark', name: '深色模式', color: '#1a1a1a' },
-  { value: 'auto', name: '跟随系统', color: 'linear-gradient(135deg, #fff 50%, #1a1a1a 50%)' },
-]
+const THEME_VALUES = ['light', 'dark', 'auto']
+const THEME_COLORS = ['#ffffff', '#1a1a1a', 'linear-gradient(135deg, #fff 50%, #1a1a1a 50%)']
 
 export default function ThemePage() {
+  const { t } = useI18n()
   const [current, setCurrent] = useState('light')
 
-  const onSelect = useCallback(async (v: string) => {
-    setCurrent(v)
-    try {
-      await setTheme(v)
-      Taro.showToast({ title: '设置成功', icon: 'success' })
-    } catch (e) {
-      logger.error('setting/theme', '设置主题', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
-    }
-  }, [])
+  const onSelect = useCallback(
+    async (v: string) => {
+      setCurrent(v)
+      try {
+        await setTheme(v)
+        Taro.showToast({ title: t('setting.setSuccess'), icon: 'success' })
+      } catch (e) {
+        logger.error('setting/theme', '设置主题', e)
+        Taro.showToast({ title: t('setting.operationFailed'), icon: 'none' })
+      }
+    },
+    [t],
+  )
 
   return (
     <View className="page">
@@ -35,15 +37,15 @@ export default function ThemePage() {
       </View>
 
       <View className="list">
-        {THEMES.map((t) => (
+        {THEME_VALUES.map((v, i) => (
           <View
-            key={t.value}
-            className={`item${current === t.value ? ' active' : ''}`}
-            onClick={() => onSelect(t.value)}
+            key={v}
+            className={`item${current === v ? ' active' : ''}`}
+            onClick={() => onSelect(v)}
           >
-            <View className="color" style={{ background: t.color }} />
-            <Text className="name">{t.name}</Text>
-            {current === t.value ? <Text className="check">✓</Text> : null}
+            <View className="color" style={{ background: THEME_COLORS[i] }} />
+            <Text className="name">{t(`setting.theme.${v}`)}</Text>
+            {current === v ? <Text className="check">✓</Text> : null}
           </View>
         ))}
       </View>

@@ -3,9 +3,11 @@ import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getCircleDetail, type Circle } from '@/api'
+import { useI18n } from '@/i18n'
 import './detail.css'
 
 export default function CircleDetailPage() {
+  const { t } = useI18n()
   const [data, setData] = useState<Circle>({} as Circle)
   const [liked, setLiked] = useState(false)
   const [id, setId] = useState('')
@@ -16,9 +18,9 @@ export default function CircleDetailPage() {
       setData(await getCircleDetail(id))
     } catch (e) {
       logger.error('circle/detail', '获取动态详情', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
-  }, [id])
+  }, [id, t])
 
   useDidShow(() => {
     const instance = Taro.getCurrentInstance()
@@ -37,8 +39,8 @@ export default function CircleDetailPage() {
   )
 
   const onFollow = useCallback(() => {
-    Taro.showToast({ title: '关注成功', icon: 'success' })
-  }, [])
+    Taro.showToast({ title: t('circle.detail.followed'), icon: 'success' })
+  }, [t])
 
   const onLike = useCallback(() => {
     setLiked((prev) => {
@@ -49,8 +51,8 @@ export default function CircleDetailPage() {
   }, [])
 
   const onShare = useCallback(() => {
-    Taro.showToast({ title: '点击右上角分享', icon: 'none' })
-  }, [])
+    Taro.showToast({ title: t('circle.detail.shareHint'), icon: 'none' })
+  }, [t])
 
   return (
     <View className="page">
@@ -66,7 +68,7 @@ export default function CircleDetailPage() {
             <Text className="time">{data.createTime}</Text>
           </View>
           <Button className="follow" size="mini" onClick={onFollow}>
-            关注
+            {t('circle.detail.follow')}
           </Button>
         </View>
       ) : null}
@@ -102,7 +104,7 @@ export default function CircleDetailPage() {
         </View>
         <View className="action" onClick={onShare}>
           <Text>↗</Text>
-          <Text>分享</Text>
+          <Text>{t('circle.detail.share')}</Text>
         </View>
       </View>
     </View>

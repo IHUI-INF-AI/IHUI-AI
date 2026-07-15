@@ -2,8 +2,10 @@ import { View, Text, Input, Image } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getCourseList, type Course } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function CourseList() {
+  const { t } = useI18n()
   const [list, setList] = useState<Course[]>([])
   const [loading, setLoading] = useState(false)
   const [keyword, setKeyword] = useState('')
@@ -63,22 +65,20 @@ export default function CourseList() {
 
   return (
     <View className="min-h-screen p-3">
-      {/* 搜索栏 */}
       <View className="flex items-center mb-3">
         <Input
           className="flex-1 h-9 px-3 bg-white rounded-full text-sm"
           type="text"
-          placeholder="搜索课程"
+          placeholder={t('course.list.searchPlaceholder')}
           value={keyword}
           onInput={(e) => setKeyword(e.detail.value)}
           onConfirm={onSearch}
         />
         <View className="ml-2 px-3 h-9 leading-9 text-[#07c160] text-sm" onClick={onSearch}>
-          <Text>搜索</Text>
+          <Text>{t('course.list.search')}</Text>
         </View>
       </View>
 
-      {/* 课程列表 */}
       {list.length > 0 && (
         <View>
           {list.map((item) => (
@@ -107,13 +107,13 @@ export default function CourseList() {
 
       {!loading && list.length === 0 && (
         <View className="text-center py-16 text-[#999] text-sm">
-          <Text>暂无课程</Text>
+          <Text>{t('course.list.empty')}</Text>
         </View>
       )}
 
       {loading && (
         <View className="text-center py-16 text-[#999] text-sm">
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         </View>
       )}
     </View>

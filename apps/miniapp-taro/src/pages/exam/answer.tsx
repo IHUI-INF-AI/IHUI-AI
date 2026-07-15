@@ -9,6 +9,7 @@ import {
   startExamRecord,
   type QuestionType,
 } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface Question {
   id: string
@@ -19,9 +20,8 @@ interface Question {
 
 type AnswerValue = number | number[] | string | boolean
 
-const JUDGMENT_OPTIONS = ['正确', '错误']
-
 export default function ExamAnswer() {
+  const { t, tList } = useI18n()
   const router = useRouter()
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -32,6 +32,7 @@ export default function ExamAnswer() {
   const submittedRef = useRef(false)
   const onSubmitRef = useRef<() => void>(() => {})
 
+  const judgmentOptions = tList('exam.answer.judgmentOptions')
   const current = useMemo(() => questions[currentIdx], [questions, currentIdx])
 
   const formatTime = useCallback((s: number) => {
@@ -80,7 +81,7 @@ export default function ExamAnswer() {
       })
       .catch((e) => {
         logger.error('unknown', '考试加载', e)
-        Taro.showToast({ title: '考试加载失败', icon: 'none' })
+        Taro.showToast({ title: t('exam.answer.loadFailed'), icon: 'none' })
       })
     return () => {
       if (timerRef.current) {
@@ -88,7 +89,7 @@ export default function ExamAnswer() {
         timerRef.current = null
       }
     }
-  }, [router.params.id])
+  }, [router.params.id, t])
 
   const select = useCallback(
     (val: AnswerValue) => {
@@ -125,7 +126,7 @@ export default function ExamAnswer() {
         <Input
           className="w-full text-sm text-[#333] p-3 border border-[#eee] rounded-xl"
           type="text"
-          placeholder="请输入答案"
+          placeholder={t('exam.answer.answerPlaceholder')}
           value={typeof ans === 'string' ? ans : ''}
           onInput={(e) => select(e.detail.value)}
         />
@@ -135,14 +136,14 @@ export default function ExamAnswer() {
       return (
         <Textarea
           className="w-full text-sm text-[#333] p-3 border border-[#eee] rounded-xl min-h-[160px]"
-          placeholder="请输入答案"
+          placeholder={t('exam.answer.answerPlaceholder')}
           value={typeof ans === 'string' ? ans : ''}
           onInput={(e) => select(e.detail.value)}
           maxlength={1000}
         />
       )
     }
-    const opts = current.type === 'judgment' ? JUDGMENT_OPTIONS : current.options || []
+    const opts = current.type === 'judgment' ? judgmentOptions : current.options || []
     const isMulti = current.type === 'multi_choice'
     return opts.map((opt, i) => {
       const selected = isMulti
@@ -195,19 +196,19 @@ export default function ExamAnswer() {
       <View className="fixed bottom-4 left-4 right-4 flex gap-3">
         {currentIdx > 0 && (
           <Button className="flex-1 bg-white text-[#333] rounded-full text-sm" onClick={prev}>
-            上一题
+            {t('exam.answer.prev')}
           </Button>
         )}
         {currentIdx < questions.length - 1 ? (
           <Button className="flex-1 bg-[#07c160] text-white rounded-full text-sm" onClick={next}>
-            下一题
+            {t('exam.answer.next')}
           </Button>
         ) : (
           <Button
             className="flex-1 bg-[#07c160] text-white rounded-full text-sm"
             onClick={onSubmit}
           >
-            交卷
+            {t('exam.answer.submit')}
           </Button>
         )}
       </View>
