@@ -54,6 +54,12 @@ async function deliverWebhook(
 // =============================================================================
 
 const webhooksRoutes: FastifyPluginAsync = async (server) => {
+  // webhook 创建后返回 signing secret,需跳过响应脱敏
+  // 防止 response-sanitizer 把 secret 字段误伤为 '***'
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
   // 统一鉴权：所有 webhook 端点需登录
   server.addHook('preHandler', requireAuth)
 

@@ -61,6 +61,12 @@ function safeParseBlacklist(value: string): BlacklistPayload {
 }
 
 export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
+  // admin 鉴权/教育路由响应含 idCard(已通过 card 重命名隐式绕过,此处改为显式旁路)
+  // 防止 response-sanitizer 把 idCard 字段误伤为 '***'(若未来移除重命名)
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
   server.addHook('preHandler', requireAdmin)
 
   // 1. /auth-find-info — userAuthInfo 表 CRUD
