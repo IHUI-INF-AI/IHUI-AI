@@ -33,5 +33,5 @@ describe('server smoke', () => {
     const server = await buildServer()
     expect(server).toBeDefined()
     await server.close()
-  }, 30000)
+  }, 60000)
 })

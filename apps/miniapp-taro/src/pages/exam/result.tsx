@@ -3,6 +3,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getExamResult } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface ExamResultInfo {
   score: number
@@ -12,6 +13,7 @@ interface ExamResultInfo {
 }
 
 export default function ExamResult() {
+  const { t } = useI18n()
   const router = useRouter()
   const [info, setInfo] = useState<ExamResultInfo>({ score: 0, pass: false })
 
@@ -26,9 +28,9 @@ export default function ExamResult() {
       .then((res) => setInfo(res))
       .catch((e) => {
         logger.error('unknown', '考试结果加载', e)
-        Taro.showToast({ title: '考试结果加载失败', icon: 'none' })
+        Taro.showToast({ title: t('exam.result.loadFailed'), icon: 'none' })
       })
-  }, [router.params])
+  }, [router.params, t])
 
   const goList = useCallback(() => {
     Taro.redirectTo({ url: '/pages/exam/list' })
@@ -47,27 +49,31 @@ export default function ExamResult() {
           {info.pass ? '✓' : '×'}
         </View>
         <Text className="block text-lg text-[#333] font-semibold mt-4">
-          {info.pass ? '考试通过' : '未通过'}
+          {info.pass ? t('exam.result.pass') : t('exam.result.notPass')}
         </Text>
-        <Text className="block text-3xl text-[#07c160] font-bold mt-2">{info.score}分</Text>
+        <Text className="block text-3xl text-[#07c160] font-bold mt-2">
+          {t('exam.result.scoreValue', { n: info.score })}
+        </Text>
       </View>
 
       <View className="m-3 p-4 bg-white rounded-2xl">
         <View className="flex justify-between py-3 border-b border-[#f5f5f5]">
-          <Text className="text-sm text-[#999]">得分</Text>
-          <Text className="text-sm text-[#333]">{info.score}分</Text>
+          <Text className="text-sm text-[#999]">{t('exam.result.score')}</Text>
+          <Text className="text-sm text-[#333]">
+            {t('exam.result.scoreValue', { n: info.score })}
+          </Text>
         </View>
         <View className="flex justify-between py-3 border-b border-[#f5f5f5]">
-          <Text className="text-sm text-[#999]">是否通过</Text>
+          <Text className="text-sm text-[#999]">{t('exam.result.isPass')}</Text>
           <Text className={`text-sm ${info.pass ? 'text-[#4caf50]' : 'text-[#333]'}`}>
-            {info.pass ? '通过' : '未通过'}
+            {info.pass ? t('exam.result.passLabel') : t('exam.result.notPassLabel')}
           </Text>
         </View>
         {info.rank && (
           <View className="flex justify-between py-3">
-            <Text className="text-sm text-[#999]">排名</Text>
+            <Text className="text-sm text-[#999]">{t('exam.result.rank')}</Text>
             <Text className="text-sm text-[#333]">
-              第{info.rank}名 / {info.total}人
+              {t('exam.result.rankValue', { n: info.rank, total: info.total ?? 0 })}
             </Text>
           </View>
         )}
@@ -78,10 +84,10 @@ export default function ExamResult() {
           className="mt-4 bg-[#07c160] text-white rounded-full text-sm w-full"
           onClick={goList}
         >
-          返回列表
+          {t('exam.result.goList')}
         </Button>
         <Button className="mt-4 bg-white text-[#333] rounded-full text-sm w-full" onClick={goStudy}>
-          继续学习
+          {t('exam.result.goStudy')}
         </Button>
       </View>
     </View>

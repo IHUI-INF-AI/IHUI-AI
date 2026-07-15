@@ -42,7 +42,7 @@ export async function findComments(
   const where = and(...baseConds)
 
   const likedByMeExpr = opts.currentUserId
-    ? sql<boolean>`EXISTS (SELECT 1 FROM comment_likes cl WHERE cl.comment_id = ${comments.id} AND cl.user_id = ${opts.currentUserId})`
+    ? sql<boolean>`EXISTS (SELECT 1 FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')} AND cl.user_id = ${opts.currentUserId})`
     : sql<boolean>`false`
 
   const [list, totalRows] = await Promise.all([
@@ -59,11 +59,11 @@ export async function findComments(
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
         repliesCount:
-          sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${comments.id})`.as(
+          sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
             'replies_count',
           ),
         likeCount:
-          sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${comments.id})`.as(
+          sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')})`.as(
             'like_count',
           ),
         likedByMe: likedByMeExpr.as('liked_by_me'),
@@ -111,7 +111,7 @@ export async function findCommentById(
   currentUserId?: string,
 ): Promise<CommentWithMeta | undefined> {
   const likedByMeExpr = currentUserId
-    ? sql<boolean>`EXISTS (SELECT 1 FROM comment_likes cl WHERE cl.comment_id = ${comments.id} AND cl.user_id = ${currentUserId})`
+    ? sql<boolean>`EXISTS (SELECT 1 FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')} AND cl.user_id = ${currentUserId})`
     : sql<boolean>`false`
   const rows = await db
     .select({
@@ -126,11 +126,11 @@ export async function findCommentById(
       createdAt: comments.createdAt,
       updatedAt: comments.updatedAt,
       repliesCount:
-        sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${comments.id})`.as(
+        sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
           'replies_count',
         ),
       likeCount:
-        sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${comments.id})`.as(
+        sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')})`.as(
           'like_count',
         ),
       likedByMe: likedByMeExpr.as('liked_by_me'),
@@ -196,7 +196,7 @@ export async function findReplies(
 ): Promise<{ list: CommentWithMeta[]; total: number }> {
   const where = eq(comments.parentId, parentId)
   const likedByMeExpr = opts.currentUserId
-    ? sql<boolean>`EXISTS (SELECT 1 FROM comment_likes cl WHERE cl.comment_id = ${comments.id} AND cl.user_id = ${opts.currentUserId})`
+    ? sql<boolean>`EXISTS (SELECT 1 FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')} AND cl.user_id = ${opts.currentUserId})`
     : sql<boolean>`false`
 
   const [list, totalRows] = await Promise.all([
@@ -213,11 +213,11 @@ export async function findReplies(
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
         repliesCount:
-          sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${comments.id})`.as(
+          sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
             'replies_count',
           ),
         likeCount:
-          sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${comments.id})`.as(
+          sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')})`.as(
             'like_count',
           ),
         likedByMe: likedByMeExpr.as('liked_by_me'),

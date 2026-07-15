@@ -360,7 +360,12 @@
     "student": "학생 센터",
     "agents": "에이전트수량",
     "distribution": "유통",
-    "oauthPlatform": "오픈플랫폼"
+    "oauthPlatform": "오픈플랫폼",
+    "downloadIOS": "iOS",
+    "downloadAndroidApk": "Android APK",
+    "downloadWechatMiniApp": "WeChat 미니 프로그램",
+    "downloadDesktop": "데스크톱",
+    "mainNav": "메인 내비게이션"
   },
   "auth": {
     "loginTitle": "돌아오신 것을 환영합니다",
@@ -5217,7 +5222,12 @@
       "status3": "소통 중",
       "status4": "개발 중",
       "status5": "납품 중",
-      "status6": "완료"
+      "status6": "완료",
+      "colContext": "요건 설명",
+      "colCycleFull": "프로젝트 주기",
+      "colLowestPrice": "최저가",
+      "colPeakPrice": "최고가",
+      "colCreatedAt": "생성 시간"
     },
     "demandAudit": {
       "title": "수요 심사",
@@ -19726,8 +19736,227 @@
     "retry": "Google 로그인로그인 실패，다시 시도"
   },
   "enterprise": {
-    "keywords": "기업ai,에이전트,,ai,기업 수,ai솔루션,ai",
-    "title": "ai - 기업ai서비스"
+    "header": {
+      "backHome": "홈으로",
+      "badge": "ENTERPRISESERVICE"
+    },
+    "hero": {
+      "brandLabel": "IHUI AI 커뮤니티",
+      "title": "IHUI AI 기업 서비스",
+      "subtitle": "AI 시대 기업을 위한 합리적 효율 서비스 및 상호 지원 커뮤니티입니다. 의사결정자가 AI와 기업의 관계를 깊이 이해하고, 인간-기계 협업 슈퍼 조직을 구축하도록 돕습니다.",
+      "priceStandard": "위안/인/년 표준 가격",
+      "priceEarlyBird": "위안/인/년 얼리버드 가격",
+      "earlyBirdSlots": "얼리버드 명",
+      "joinNow": "지금 가입",
+      "exploreAgents": "에이전트 시나리오 자세히 보기"
+    },
+    "positioning": {
+      "label": "핵심 포지셔닝",
+      "title": "AI 시대 기업 합리적 효율 서비스 및 상호 지원 커뮤니티",
+      "description": "IHUI AI 커뮤니티는 기업 의사결정자가 AI와 기업의 관계를 깊이 이해하도록 돕는 데 전념합니다. 체계적인 과정, 실천 탐구, 커뮤니티 상호 지원을 통해 인간-기계 협업 슈퍼 조직을 구축하고 기업의 합리적 효율 향상을 실현합니다.",
+      "tags": ["인간-기계 협업", "합리적 효율", "슈퍼 조직"]
+    },
+    "modules": {
+      "label": "3대 서비스 모듈",
+      "coreServiceBadge": "핵심 서비스",
+      "items": [
+        {
+          "tag": "MODULE 01",
+          "title": "오프라인 커뮤니티",
+          "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
+          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
+        },
+        {
+          "tag": "MODULE 02",
+          "title": "온라인 커뮤니티",
+          "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
+          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
+        },
+        {
+          "tag": "MODULE 03",
+          "title": "AI 전문 서비스",
+          "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
+          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
+        }
+      ]
+    },
+    "join": {
+      "label": "IHUI AI 커뮤니티 가입",
+      "title": "뜻이 맞는 의사결정자와 함께 AI 시대의 무한한 가능성 탐구",
+      "subtitle": "선착순 18명 한정 · 얼리버드 가격 ¥6000/인/년 · 불만족 시 전액 환불",
+      "perYear": "/인/년",
+      "joinNow": "지금 가입",
+      "consultHint": "스캔하여 상담하거나 직접 문의하세요",
+      "benefits": [
+        "연간 모든 과정 무료 참석",
+        "탐구 활동 우선 참여",
+        "커뮤니티 상호 지원 무제한",
+        "온라인 커뮤니티 전용 입구",
+        "AI 어시스턴트 우선 체험",
+        "불만족 시 전액 환불"
+      ]
+    },
+    "footer": {
+      "brand": "IHUI AI 커뮤니티 · 중국 · 베이징",
+      "contact": "문의하기"
+    },
+    "courses": {
+      "label": "커리큘럼",
+      "title": "체계적인 AI 인지 및 실천 과정",
+      "subtitle": "기업 의사결정자가 AI 시대의 기회와 과제를 포괄적으로 이해하도록 돕습니다",
+      "phases": [
+        {
+          "tag": "PHASE 01",
+          "title": "AI 신규 도구 과정",
+          "description": "주류 AI 도구와 플랫폼을 숙지하고 AI 기술 발전 맥락 이해",
+          "courses": [
+            {
+              "name": "AI 기술 발전 역사 개요",
+              "duration": "1차시",
+              "isNew": true
+            },
+            {
+              "name": "AI 생산성 도구 사용법",
+              "duration": "1차시",
+              "isNew": true
+            },
+            {
+              "name": "주류 AI 도구 및 플랫폼 소개",
+              "duration": "1차시",
+              "isNew": true
+            },
+            {
+              "name": "로우/노코드 에이전트 앱 구축",
+              "duration": "1차시",
+              "isNew": true
+            },
+            {
+              "name": "기업 AI화 구조화 분석 방법",
+              "duration": "1차시",
+              "isNew": true
+            },
+            {
+              "name": "AI 시대 리터러시 — 비판적 사고",
+              "duration": "1차시",
+              "isNew": true
+            }
+          ]
+        },
+        {
+          "tag": "PHASE 02",
+          "title": "사고력 과정",
+          "description": "혁신 장벽을 돌파하고 구조화된 문제 해결과 조직 변화 방법 숙지",
+          "courses": [
+            {
+              "name": "구조화된 문제 해결 및 퍼실리테이션",
+              "duration": "1차시",
+              "isNew": false
+            },
+            {
+              "name": "혁신 장벽 돌파",
+              "duration": "1차시",
+              "isNew": false
+            },
+            {
+              "name": "창의적 학습 방법",
+              "duration": "1차시",
+              "isNew": false
+            },
+            {
+              "name": "조직 변화 심리학",
+              "duration": "1차시",
+              "isNew": false
+            }
+          ]
+        },
+        {
+          "tag": "PHASE 03",
+          "title": "문화 과정",
+          "description": "동서양 철학에서 기업 문화 관리까지, 심층 조직 합의 구축",
+          "courses": [
+            {
+              "name": "기업 문화 관리",
+              "duration": "1차시",
+              "isNew": false
+            },
+            {
+              "name": "미션, 비전, 가치관",
+              "duration": "1차시",
+              "isNew": false
+            },
+            {
+              "name": "중국 전통 철학 시리즈",
+              "duration": "시리즈",
+              "isNew": false
+            },
+            {
+              "name": "서양 철학 시리즈",
+              "duration": "시리즈",
+              "isNew": false
+            }
+          ]
+        }
+      ]
+    },
+    "compass": {
+      "label": "에이전트 시나리오 나침반",
+      "title": "작업 복잡도와 자율성에 기반한 시나리오 기획",
+      "subtitle": "기업이 에이전트 적용 시나리오를 식별하고 기획하도록 돕고, 단순에서 복잡으로 단계적 AI화 추진",
+      "adoptionLabel": "{percent}% 기업 도입 완료",
+      "quadrants": [
+        {
+          "tag": "Q1",
+          "title": "효율적 어시스턴트",
+          "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
+          "examples": ["지식 Q&A", "프로세스 자동화"]
+        },
+        {
+          "tag": "Q2",
+          "title": "스마트 어드바이저",
+          "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
+          "examples": ["데이터 분석", "의사결정 지원"]
+        },
+        {
+          "tag": "Q3",
+          "title": "실행 전문가",
+          "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
+          "examples": ["회의 일정", "승인 프로세스"]
+        },
+        {
+          "tag": "Q4",
+          "title": "올라운드 전문가",
+          "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
+          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
+        }
+      ]
+    },
+    "architecture": {
+      "label": "기업 AI화 서비스 아키텍처",
+      "title": "물리 세계에서 정보 세계로, 인간-기계 협업 슈퍼 기업 구축",
+      "physicalTitle": "물리 세계",
+      "physicalItems": [
+        {
+          "title": "조직 구조",
+          "desc": "기업 조직 구조를 정리하고 디지털 직원 포지션 정의"
+        },
+        {
+          "title": "프로세스 정리",
+          "desc": "순방향·역방향 프로세스 분석, 업무 운영 효율 최적화"
+        },
+        {
+          "title": "인본 가치",
+          "desc": "기업 문화, 미션과 비전, 비판적 사고와 겸손한 태도"
+        }
+      ],
+      "infoTitle": "정보 세계",
+      "infoBasicLabel": "초급 정보 세계",
+      "infoBasic": ["정보화", "IoT", "자동화"],
+      "infoAdvancedLabel": "고급 정보 세계",
+      "infoAdvanced": ["지각 AI", "생성형 AI", "에이전트 AI", "물리 AI"],
+      "effectTitle": "AI화 효과",
+      "effectFlow": ["슈퍼 직원", "슈퍼 팀", "슈퍼 제품/서비스"],
+      "effectMetrics": ["비용 최적화", "효율 향상", "경험 업그레이드"]
+    }
   },
   "drama": {
     "addCharDesc": "（설명）",
@@ -20439,7 +20668,35 @@
     "twelveLessons": "Twelve Lessons"
   },
   "editor": {
-    "placeholder": "Placeholder"
+    "placeholder": "Placeholder",
+    "toolbar": {
+      "bold": "굵게",
+      "italic": "기울임",
+      "underline": "밑줄",
+      "strikethrough": "취소선",
+      "heading1": "제목1",
+      "heading2": "제목2",
+      "heading3": "제목3",
+      "bulletList": "글머리 기호",
+      "orderedList": "번호 목록",
+      "quote": "인용",
+      "codeBlock": "코드 블록",
+      "link": "링크",
+      "image": "이미지",
+      "alignLeft": "왼쪽 정렬",
+      "alignCenter": "가운데 정렬",
+      "alignRight": "오른쪽 정렬",
+      "insertTable": "표 삽입",
+      "addRow": "행 추가",
+      "addColumn": "열 추가",
+      "deleteRow": "행 삭제",
+      "deleteColumn": "열 삭제",
+      "deleteTable": "표 삭제",
+      "undo": "실행 취소",
+      "redo": "다시 실행",
+      "linkPrompt": "링크 URL 입력",
+      "imageUploadFailedPrompt": "업로드 실패, 이미지 URL을 수동으로 입력할 수 있습니다"
+    }
   },
   "file": {
     "batchDelete": "Batch Delete",
@@ -21096,14 +21353,38 @@
     }
   },
   "member": {
-    "searchPlaceholder": {
-      "company": "검색회사",
-      "group": "검색그룹",
-      "level": "검색레벨",
-      "list": "검색목록",
-      "post": "검색게시물",
-      "tag": "검색라벨",
-      "unaudited": "검색검토 중"
+    "feedback": {
+      "title": "피드백",
+      "subtitle": "피드백을 제출하여 개선에 도움을 주세요",
+      "tabList": "기록",
+      "tabNew": "피드백 제출",
+      "loading": "로딩 중...",
+      "empty": "피드백 기록이 없습니다",
+      "typeBug": "문제 보고",
+      "typeSuggestion": "기능 제안",
+      "typeQuestion": "사용 문의",
+      "typeOther": "기타",
+      "statusPending": "처리 중",
+      "statusResolved": "답변 완료",
+      "statusClosed": "종료",
+      "replyLabel": "답변:{reply}",
+      "fieldType": "유형",
+      "fieldTitle": "제목",
+      "titlePlaceholder": "문제를 간단히 설명",
+      "fieldContent": "내용",
+      "contentPlaceholder": "자세히 설명...",
+      "fieldContact": "연락처(선택)",
+      "contactPlaceholder": "연락을 위해",
+      "submit": "제출",
+      "cancel": "취소"
+    },
+    "fans": {
+      "title": "내 팬",
+      "subtitle": "{total}명의 팬이 팔로우 중",
+      "loading": "로딩 중...",
+      "empty": "아직 팬이 없습니다. 콘텐츠를 게시해 팔로우를 모아보세요.",
+      "anonymous": "익명 사용자",
+      "followedAt": "{date}에 팔로우"
     }
   },
   "message": {
@@ -21882,23 +22163,6 @@
     "deleted": "삭제됨",
     "deleteFailed": "삭제실패"
   },
-  "p20Dashboard": {
-    "title": "P20 에이전트보기",
-    "subtitle": "시간",
-    "revenueTrend": "가까운 7 일Trend",
-    "orderStatus": "주문 상태 분포",
-    "agentActivity": "에이전트활성",
-    "courseCategory": "강의 분류",
-    "revenueAxis": "(¥)",
-    "revenue": "매출",
-    "unknown": "알 수 없음",
-    "callCount": "호출 수",
-    "cardUsers": "사용자",
-    "cardOrders": "주문",
-    "cardAgents": "에이전트",
-    "cardRevenue": "매출",
-    "loadFailed": "로딩 실패："
-  },
   "resourceDetail": {
     "breadcrumbResource": "리소스센터",
     "downloadTimes": "다운로드",
@@ -22291,13 +22555,6 @@
     "officialNews": "공식 뉴스",
     "read": "읽음가져오기"
   },
-  "p19AdminDashboard": {
-    "title": "P19 Admin 대시보드",
-    "recentActivity": "Recent Activity",
-    "action": "작업",
-    "target": "목표:",
-    "time": "시간"
-  },
   "statisticsPage": {
     "zeroHour": "0소시간"
   },
@@ -22312,11 +22569,6 @@
     "noTextContent": "없음텍스트내용",
     "noImageContent": "없음이미지내용",
     "noVideoContent": "동영상이 없습니다내용"
-  },
-  "p19PaymentMethods": {
-    "title": "P19 결제파티방법",
-    "accountBalance": "계정관리잔액",
-    "fee": "수수료"
   },
   "memberLearnRecord": {
     "title": "학습 기록",
@@ -22624,18 +22876,6 @@
     "downloads": "다운로드",
     "download": "다운로드"
   },
-  "p19AgentsList": {
-    "title": "P19 에이전트",
-    "calls": "호출",
-    "rating": "점수",
-    "call": "호출",
-    "answerTitle": "에이전트돌아"
-  },
-  "p19CoursesList": {
-    "title": "P19 코스관리목록",
-    "minutes": "Minutes",
-    "enroll": "신청"
-  },
   "middleRectangle": {
     "free": "무료",
     "learners": "중",
@@ -22883,6 +23123,145 @@
         "backend": "백엔드",
         "opensource": "오픈소스"
       }
+    }
+  },
+  "ai": {
+    "status": {
+      "idle": "유휴",
+      "pending": "대기 중",
+      "thinking": "생각 중",
+      "acting": "실행 중",
+      "reflecting": "반성 중",
+      "waiting": "대기 중",
+      "running": "실행 중",
+      "completed": "완료됨",
+      "failed": "실패",
+      "cancelled": "취소됨"
+    },
+    "swarmMonitor": {
+      "title": "군집 모니터",
+      "refresh": "새로고침",
+      "loading": "로딩 중...",
+      "notStarted": "Swarm이 시작되지 않음",
+      "swarmId": "Swarm ID",
+      "status": "상태",
+      "task": "작업",
+      "iteration": "반복",
+      "agentStatus": "에이전트 상태",
+      "name": "이름",
+      "type": "유형",
+      "currentStep": "현재 단계",
+      "performanceMetrics": "성능 지표",
+      "successRate": "성공률",
+      "avgTime": "평균 시간",
+      "avgTokens": "평균 토큰",
+      "totalSteps": "총 단계",
+      "completed": "완료됨",
+      "failed": "실패",
+      "optimizationSuggestions": "최적화 제안",
+      "executionResults": "실행 결과",
+      "toolResults": "도구 결과 ({count})",
+      "error": "오류: {message}"
+    },
+    "permissionConfirm": {
+      "title": "도구 실행 확인",
+      "description": "에이전트가 다음 도구를 실행하려고 합니다. 확인해 주세요",
+      "tool": "도구",
+      "iteration": "제 {n} 라운드",
+      "inputParams": "입력 매개변수",
+      "confirmReason": "확인 사유",
+      "allowAllSession": "이 세션에서 모두 허용(이후 프롬프트 없음)",
+      "deny": "거부",
+      "allow": "허용"
+    },
+    "backgroundAgents": {
+      "title": "백그라운드 에이전트",
+      "runningCount": "{count} 실행 중",
+      "empty": "백그라운드 에이전트 없음",
+      "emptyHint": "/agents 또는 API로 백그라운드 작업 시작",
+      "cancel": "취소",
+      "viewResult": "결과 보기",
+      "delete": "삭제",
+      "calls": "{count}회 호출",
+      "total": "총 {count}개",
+      "completedCount": "완료 {count}",
+      "failedCount": "실패 {count}",
+      "cancelledCount": "취소 {count}"
+    },
+    "subAgentFeed": {
+      "defaultName": "서브 에이전트",
+      "badge": "subagent",
+      "coordinated": "{count}개 서브 에이전트 조정 완료",
+      "totalSteps": "(총 {count}단계)",
+      "working": "{count}개 서브 에이전트 협업 중"
+    }
+  },
+  "developer": {
+    "settings": {
+      "title": "설정",
+      "subtitle": "개발자 정보, 환경설정 및 위험 작업",
+      "loading": "로딩 중...",
+      "infoTitle": "개발자 정보",
+      "infoName": "이름",
+      "infoNamePlaceholder": "개발자 이름",
+      "infoEmail": "이메일",
+      "infoCompany": "회사",
+      "infoCompanyPlaceholder": "회사명(선택)",
+      "infoWebsite": "웹사이트",
+      "saveInfo": "정보 저장",
+      "infoSaved": "정보가 저장되었습니다",
+      "prefsTitle": "환경설정",
+      "prefsDefaultVersion": "기본 API 버전",
+      "prefsDefaultVersionDesc": "샌드박스와 문서의 기본 표시 버전",
+      "prefsSandboxAutoRun": "샌드박스 자동 실행",
+      "prefsSandboxAutoRunDesc": "인터페이스 전환 시 자동 요청 전송",
+      "prefsErrorReport": "오류 보고",
+      "prefsErrorReportDesc": "플랫폼 안정성 개선에 도움",
+      "savePrefs": "환경설정 저장",
+      "prefsSaved": "환경설정이 저장되었습니다",
+      "dangerTitle": "위험 작업",
+      "dangerDeleteLabel": "개발자 계정 탈퇴",
+      "dangerDeleteDesc": "모든 키, Webhook 및 설정 삭제. 복구 불가.",
+      "dangerDeleteConfirm": "탈퇴를 확인하시겠습니까? 이 작업은 복구할 수 없으며 모든 키와 설정이 삭제됩니다.",
+      "dangerDeleteBtn": "계정 탈퇴",
+      "accountDeleted": "개발자 계정이 탈퇴되었습니다"
+    },
+    "notifications": {
+      "title": "알림 설정",
+      "subtitle": "개발자 이벤트 알림 환경설정 관리",
+      "loading": "로딩 중...",
+      "saved": "설정이 저장되었습니다",
+      "saveBtn": "설정 저장",
+      "savedTag": "저장됨",
+      "apiErrorLabel": "API 오류 알림",
+      "apiErrorDesc": "API 오류율이 임계값을 초과할 때 알림",
+      "quotaWarningLabel": "할당량 경고",
+      "quotaWarningDesc": "할당량 사용량이 80%에 도달할 때 알림",
+      "webhookFailureLabel": "Webhook 실패",
+      "webhookFailureDesc": "콜백 전송 실패 시 알림",
+      "weeklyReportLabel": "주간 리포트",
+      "weeklyReportDesc": "매주 월요일 사용 통계 요약 전송",
+      "versionUpdateLabel": "버전 업데이트",
+      "versionUpdateDesc": "API 새 버전 또는 중단 알림",
+      "billingReminderLabel": "청구서 알림",
+      "billingReminderDesc": "구독 만료 또는 결제 알림"
+    }
+  },
+  "edu": {
+    "qa": {
+      "title": "Q&A 센터",
+      "subtitle": "학습 중인 궁금증을 질문하고 답변",
+      "askPlaceholder": "질문을 입력...",
+      "askBtn": "질문",
+      "searchPlaceholder": "질문 검색...",
+      "statusAria": "상태 필터",
+      "statusAll": "전체",
+      "statusAnswered": "답변 완료",
+      "statusPending": "미답변",
+      "loading": "로딩 중...",
+      "empty": "질문이 없습니다",
+      "answered": "답변 완료",
+      "pending": "미답변"
     }
   }
 }

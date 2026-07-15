@@ -33,11 +33,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },
   async redirects() {
-    return [
-      { source: '/login', destination: '/sso/login', permanent: true },
-      { source: '/register', destination: '/sso/register', permanent: true },
-      ...vueToNextRedirects,
-    ]
+    return [...vueToNextRedirects]
   },
   async rewrites() {
     const apiUrl = process.env.API_URL ?? 'http://localhost:3001'

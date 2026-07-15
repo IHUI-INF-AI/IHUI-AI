@@ -3,6 +3,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 interface Requirement {
@@ -34,6 +35,7 @@ interface RecruitmentInfo {
 
 export default function RecruitmentIndexPage() {
   const router = useRouter()
+  const { t } = useI18n()
   const [info, setInfo] = useState<RecruitmentInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -60,7 +62,7 @@ export default function RecruitmentIndexPage() {
     setSubmitting(true)
     try {
       await post('/recruitment/apply', { invite: invite || undefined })
-      Taro.showToast({ title: '申请已提交', icon: 'success' })
+      Taro.showToast({ title: t('recruitment.applied'), icon: 'success' })
       setTimeout(() => {
         Taro.navigateTo({ url: '/pages/vip-trader/index/index' })
       }, 800)
@@ -69,13 +71,13 @@ export default function RecruitmentIndexPage() {
     } finally {
       setSubmitting(false)
     }
-  }, [submitting, router.params.invite])
+  }, [submitting, router.params.invite, t])
 
   if (loading && !info) {
     return (
       <View className="recruitment-page">
         <View className="recruit-empty">
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         </View>
       </View>
     )
@@ -85,7 +87,7 @@ export default function RecruitmentIndexPage() {
     return (
       <View className="recruitment-page">
         <View className="recruit-empty">
-          <Text>暂无招募信息</Text>
+          <Text>{t('recruitment.empty')}</Text>
         </View>
       </View>
     )
@@ -98,13 +100,13 @@ export default function RecruitmentIndexPage() {
           <Image className="recruit-banner" src={info.banner} mode="aspectFill" />
         ) : null}
         <View className="recruit-header-mask">
-          <Text className="recruit-title">{info.title || '操盘手招募计划'}</Text>
-          <Text className="recruit-subtitle">加入我们，开启专业操盘之旅</Text>
+          <Text className="recruit-title">{info.title || t('recruitment.defaultTitle')}</Text>
+          <Text className="recruit-subtitle">{t('recruitment.subtitle')}</Text>
         </View>
       </View>
 
       <View className="recruit-section">
-        <Text className="section-title">招募要求</Text>
+        <Text className="section-title">{t('recruitment.requirements')}</Text>
         <View className="req-list">
           {info.requirements.map((item) => (
             <View key={item.id} className="req-item">
@@ -119,7 +121,7 @@ export default function RecruitmentIndexPage() {
       </View>
 
       <View className="recruit-section">
-        <Text className="section-title">专属权益</Text>
+        <Text className="section-title">{t('recruitment.privileges')}</Text>
         <View className="priv-grid">
           {info.privileges.map((item) => (
             <View key={item.id} className="priv-item">
@@ -138,18 +140,18 @@ export default function RecruitmentIndexPage() {
       </View>
 
       <View className="recruit-section">
-        <Text className="section-title">收益预估</Text>
+        <Text className="section-title">{t('recruitment.incomeEstimate')}</Text>
         <View className="income-list">
           {info.incomeEstimates.map((item) => (
             <View key={item.level} className="income-item">
               <Text className="income-level">{item.level}</Text>
               <View className="income-detail">
                 <View className="income-row">
-                  <Text className="income-label">月均收益</Text>
+                  <Text className="income-label">{t('recruitment.monthlyIncome')}</Text>
                   <Text className="income-value">{item.monthly}</Text>
                 </View>
                 <View className="income-row">
-                  <Text className="income-label">年均收益</Text>
+                  <Text className="income-label">{t('recruitment.yearlyIncome')}</Text>
                   <Text className="income-value">{item.yearly}</Text>
                 </View>
               </View>
@@ -160,7 +162,7 @@ export default function RecruitmentIndexPage() {
 
       <View className="recruit-footer">
         <View className={`apply-btn${submitting ? ' disabled' : ''}`} onClick={onApply}>
-          <Text>{submitting ? '提交中...' : '立即申请'}</Text>
+          <Text>{submitting ? t('recruitment.submitting') : t('recruitment.apply')}</Text>
         </View>
       </View>
     </View>

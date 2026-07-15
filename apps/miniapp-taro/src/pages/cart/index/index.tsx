@@ -3,9 +3,11 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 export default function Cart() {
+  const { t } = useI18n()
   const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -26,28 +28,28 @@ export default function Cart() {
   })
 
   const onCheckout = useCallback(() => {
-    Taro.showToast({ title: '前往结算', icon: 'none' })
-  }, [])
+    Taro.showToast({ title: t('cart.checkoutToast'), icon: 'none' })
+  }, [t])
 
   return (
     <View className="page-container">
       <View className="page-header">
-        <Text className="page-title">购物车</Text>
+        <Text className="page-title">{t('cart.title')}</Text>
         <Text className="btn" onClick={onCheckout}>
-          结算
+          {t('cart.checkout')}
         </Text>
       </View>
       <View className="page-content">
         {loading ? (
-          <Text>加载中...</Text>
+          <Text>{t('cart.loading')}</Text>
         ) : list.length ? (
           list.map((item) => (
             <View key={item.id as string} className="list-item">
-              <Text>{(item.title as string) || (item.name as string) || '商品'}</Text>
+              <Text>{(item.title as string) || (item.name as string) || t('cart.product')}</Text>
             </View>
           ))
         ) : (
-          <Text className="empty">购物车为空</Text>
+          <Text className="empty">{t('cart.empty')}</Text>
         )}
       </View>
     </View>

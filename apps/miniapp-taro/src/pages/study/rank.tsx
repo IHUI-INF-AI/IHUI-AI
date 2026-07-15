@@ -2,6 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getStudyRank } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface RankUser {
   id: string
@@ -11,6 +12,7 @@ interface RankUser {
 }
 
 export default function StudyRank() {
+  const { t } = useI18n()
   const [list, setList] = useState<RankUser[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -32,13 +34,12 @@ export default function StudyRank() {
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="p-6 text-center bg-gradient-to-br from-[#07c160] to-[#35e683]">
-        <Text className="block text-white text-lg font-bold">学习排行榜</Text>
-        <Text className="block text-white/90 text-xs mt-1">本周学习时长排名</Text>
+        <Text className="block text-white text-lg font-bold">{t('study.rankPage.title')}</Text>
+        <Text className="block text-white/90 text-xs mt-1">{t('study.rankPage.subtitle')}</Text>
       </View>
 
       {list.length >= 3 && (
         <View className="flex items-end justify-center py-4 bg-white">
-          {/* 第2名 */}
           <View className="flex flex-col items-center mx-2 relative">
             <Image
               className="w-[55px] h-[55px] rounded-full bg-[#f5f5f5] border-2 border-[#c0c0c0]"
@@ -46,12 +47,13 @@ export default function StudyRank() {
               mode="aspectFill"
             />
             <Text className="text-xs text-[#333] mt-1">{list[1]!.nickname}</Text>
-            <Text className="text-xs text-[#07c160] mt-0.5">{list[1]!.minutes}分钟</Text>
+            <Text className="text-xs text-[#07c160] mt-0.5">
+              {t('study.rankPage.minutes', { n: list[1]!.minutes })}
+            </Text>
             <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#c0c0c0]">
               2
             </Text>
           </View>
-          {/* 第1名 */}
           <View className="flex flex-col items-center mx-2 relative">
             <Image
               className="w-[70px] h-[70px] rounded-full bg-[#f5f5f5] border-2 border-[#ffd700]"
@@ -59,12 +61,13 @@ export default function StudyRank() {
               mode="aspectFill"
             />
             <Text className="text-xs text-[#333] mt-1">{list[0]!.nickname}</Text>
-            <Text className="text-xs text-[#07c160] mt-0.5">{list[0]!.minutes}分钟</Text>
+            <Text className="text-xs text-[#07c160] mt-0.5">
+              {t('study.rankPage.minutes', { n: list[0]!.minutes })}
+            </Text>
             <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#ffd700]">
               1
             </Text>
           </View>
-          {/* 第3名 */}
           <View className="flex flex-col items-center mx-2 relative">
             <Image
               className="w-[55px] h-[55px] rounded-full bg-[#f5f5f5] border-2 border-[#cd7f32]"
@@ -72,7 +75,9 @@ export default function StudyRank() {
               mode="aspectFill"
             />
             <Text className="text-xs text-[#333] mt-1">{list[2]!.nickname}</Text>
-            <Text className="text-xs text-[#07c160] mt-0.5">{list[2]!.minutes}分钟</Text>
+            <Text className="text-xs text-[#07c160] mt-0.5">
+              {t('study.rankPage.minutes', { n: list[2]!.minutes })}
+            </Text>
             <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#cd7f32]">
               3
             </Text>
@@ -94,7 +99,9 @@ export default function StudyRank() {
                 mode="aspectFill"
               />
               <Text className="flex-1 ml-3 text-sm text-[#333]">{u.nickname}</Text>
-              <Text className="text-sm text-[#07c160] font-semibold">{u.minutes}分钟</Text>
+              <Text className="text-sm text-[#07c160] font-semibold">
+                {t('study.rankPage.minutes', { n: u.minutes })}
+              </Text>
             </View>
           ))}
         </View>
@@ -102,7 +109,7 @@ export default function StudyRank() {
 
       {!loading && list.length === 0 && (
         <View className="text-center py-16 text-[#999]">
-          <Text>暂无排行数据</Text>
+          <Text>{t('study.rankPage.empty')}</Text>
         </View>
       )}
     </View>

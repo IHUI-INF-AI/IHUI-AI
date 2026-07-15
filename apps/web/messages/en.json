@@ -360,7 +360,12 @@
     "student": "Student",
     "agents": "Agents",
     "distribution": "Distribution",
-    "oauthPlatform": "Open Platform"
+    "oauthPlatform": "Open Platform",
+    "downloadIOS": "iOS",
+    "downloadAndroidApk": "Android APK",
+    "downloadWechatMiniApp": "WeChat Mini Program",
+    "downloadDesktop": "Desktop",
+    "mainNav": "Main Navigation"
   },
   "auth": {
     "loginTitle": "Welcome Back",
@@ -5217,7 +5222,12 @@
       "status3": "Communicating",
       "status4": "In Development",
       "status5": "Delivering",
-      "status6": "Completed"
+      "status6": "Completed",
+      "colContext": "Description",
+      "colCycleFull": "Project Cycle",
+      "colLowestPrice": "Min Price",
+      "colPeakPrice": "Max Price",
+      "colCreatedAt": "Created At"
     },
     "demandAudit": {
       "title": "Demand Audit",
@@ -19736,8 +19746,227 @@
     "retry": "GoogleLogin failed，Retry"
   },
   "enterprise": {
-    "keywords": "EnterpriseAI,Agent,peopleMachine,AI,Companies,AIPlan,AI",
-    "title": "AI - EnterpriseAIServices"
+    "header": {
+      "backHome": "Back to Home",
+      "badge": "ENTERPRISESERVICE"
+    },
+    "hero": {
+      "brandLabel": "IHUI AI Community",
+      "title": "IHUI AI Enterprise Services",
+      "subtitle": "Rational efficiency services and a mutual-aid community for enterprises in the AI era. Helping decision-makers deeply understand the relationship between AI and enterprises, and build human-machine collaborative super organizations.",
+      "priceStandard": "CNY/person/year · standard price",
+      "priceEarlyBird": "CNY/person/year · early-bird price",
+      "earlyBirdSlots": "early-bird slots",
+      "joinNow": "Join Now",
+      "exploreAgents": "Explore Agent Scenarios"
+    },
+    "positioning": {
+      "label": "Core Positioning",
+      "title": "Rational efficiency services and a mutual-aid community for enterprises in the AI era",
+      "description": "IHUI AI Community is dedicated to helping enterprise decision-makers deeply understand the relationship between AI and enterprises. Through systematic courses, hands-on exploration, and community mutual aid, we build human-machine collaborative super organizations and achieve rational efficiency gains for enterprises.",
+      "tags": ["Human-Machine Collaboration", "Rational Efficiency", "Super Organization"]
+    },
+    "modules": {
+      "label": "Three Service Modules",
+      "coreServiceBadge": "Core Service",
+      "items": [
+        {
+          "tag": "MODULE 01",
+          "title": "Local Community",
+          "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
+          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+        },
+        {
+          "tag": "MODULE 02",
+          "title": "Online Community",
+          "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
+          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+        },
+        {
+          "tag": "MODULE 03",
+          "title": "AI Professional Services",
+          "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
+          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+        }
+      ]
+    },
+    "join": {
+      "label": "Join IHUI AI Community",
+      "title": "Explore the infinite possibilities of the AI era with like-minded decision-makers",
+      "subtitle": "Limited to the first 18 members · Early-bird price ¥6000/person/year · Full refund if not satisfied",
+      "perYear": "/person/year",
+      "joinNow": "Join Now",
+      "consultHint": "Scan to consult or contact us directly",
+      "benefits": [
+        "Free access to all yearly courses",
+        "Priority access to exploration activities",
+        "Unlimited community mutual aid",
+        "Exclusive online community access",
+        "Priority AI assistant experience",
+        "Full refund if not satisfied"
+      ]
+    },
+    "footer": {
+      "brand": "IHUI AI Community · China · Beijing",
+      "contact": "Contact Us"
+    },
+    "courses": {
+      "label": "Curriculum",
+      "title": "Systematic AI Cognition and Practice Courses",
+      "subtitle": "Helping enterprise decision-makers fully understand the opportunities and challenges of the AI era",
+      "phases": [
+        {
+          "tag": "PHASE 01",
+          "title": "AI New Tools Courses",
+          "description": "Master mainstream AI tools and platforms, and understand the AI technology development context",
+          "courses": [
+            {
+              "name": "Overview of AI Technology Development",
+              "duration": "1 lesson",
+              "isNew": true
+            },
+            {
+              "name": "How to Use AI Productivity Tools",
+              "duration": "1 lesson",
+              "isNew": true
+            },
+            {
+              "name": "Introduction to Mainstream AI Tools and Platforms",
+              "duration": "1 lesson",
+              "isNew": true
+            },
+            {
+              "name": "Low/No-Code Agent Application Building",
+              "duration": "1 lesson",
+              "isNew": true
+            },
+            {
+              "name": "Enterprise AI Transformation Structured Analysis Methods",
+              "duration": "1 lesson",
+              "isNew": true
+            },
+            {
+              "name": "AI Era Literacy — Critical Thinking",
+              "duration": "1 lesson",
+              "isNew": true
+            }
+          ]
+        },
+        {
+          "tag": "PHASE 02",
+          "title": "Thinking Courses",
+          "description": "Break through innovation barriers, master structured problem-solving and organizational change methods",
+          "courses": [
+            {
+              "name": "Structured Problem Solving and Facilitation",
+              "duration": "1 lesson",
+              "isNew": false
+            },
+            {
+              "name": "Breaking Innovation Barriers",
+              "duration": "1 lesson",
+              "isNew": false
+            },
+            {
+              "name": "Creative Learning Methods",
+              "duration": "1 lesson",
+              "isNew": false
+            },
+            {
+              "name": "Organizational Change Psychology",
+              "duration": "1 lesson",
+              "isNew": false
+            }
+          ]
+        },
+        {
+          "tag": "PHASE 03",
+          "title": "Culture Courses",
+          "description": "From Eastern and Western philosophy to corporate culture management, build deep organizational consensus",
+          "courses": [
+            {
+              "name": "Corporate Culture Management",
+              "duration": "1 lesson",
+              "isNew": false
+            },
+            {
+              "name": "Mission, Vision, and Values",
+              "duration": "1 lesson",
+              "isNew": false
+            },
+            {
+              "name": "Chinese Traditional Philosophy Series",
+              "duration": "Series",
+              "isNew": false
+            },
+            {
+              "name": "Western Philosophy Series",
+              "duration": "Series",
+              "isNew": false
+            }
+          ]
+        }
+      ]
+    },
+    "compass": {
+      "label": "Agent Scenario Compass",
+      "title": "Scenario planning based on task complexity and autonomy",
+      "subtitle": "Helping enterprises identify and plan agent application scenarios, advancing AI transformation progressively from simple to complex",
+      "adoptionLabel": "{percent}% of enterprises adopted",
+      "quadrants": [
+        {
+          "tag": "Q1",
+          "title": "Efficient Assistant",
+          "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
+          "examples": ["Knowledge Q&A", "Process automation"]
+        },
+        {
+          "tag": "Q2",
+          "title": "Smart Advisor",
+          "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
+          "examples": ["Data analysis", "Decision support"]
+        },
+        {
+          "tag": "Q3",
+          "title": "Execution Expert",
+          "description": "Simple decisions + complex execution, handling cross-system complex tasks",
+          "examples": ["Meeting scheduling", "Approval workflows"]
+        },
+        {
+          "tag": "Q4",
+          "title": "All-round Expert",
+          "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
+          "examples": ["Marketing automation", "Multi-agent collaboration"]
+        }
+      ]
+    },
+    "architecture": {
+      "label": "Enterprise AI Transformation Architecture",
+      "title": "From the physical world to the information world, building a human-machine collaborative super enterprise",
+      "physicalTitle": "Physical World",
+      "physicalItems": [
+        {
+          "title": "Organizational Structure",
+          "desc": "Helping enterprises map organizational structures and define digital employee positions"
+        },
+        {
+          "title": "Process Mapping",
+          "desc": "Forward and reverse process analysis, optimizing business operation efficiency"
+        },
+        {
+          "title": "Human-Centric Value",
+          "desc": "Corporate culture, mission and vision, critical thinking, and humble attitude"
+        }
+      ],
+      "infoTitle": "Information World",
+      "infoBasicLabel": "Basic Information World",
+      "infoBasic": ["Informatization", "IoT", "Automation"],
+      "infoAdvancedLabel": "Advanced Information World",
+      "infoAdvanced": ["Perceptive AI", "Generative AI", "Agent AI", "Physical AI"],
+      "effectTitle": "AI Transformation Effects",
+      "effectFlow": ["Super Employee", "Super Team", "Super Product/Service"],
+      "effectMetrics": ["Cost Optimization", "Efficiency Improvement", "Experience Upgrade"]
+    }
   },
   "drama": {
     "addCharDesc": "（peopleThingDesc）",
@@ -20449,7 +20678,35 @@
     "twelveLessons": "Twelve Lessons"
   },
   "editor": {
-    "placeholder": "Placeholder"
+    "placeholder": "Placeholder",
+    "toolbar": {
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
+      "strikethrough": "Strikethrough",
+      "heading1": "Heading 1",
+      "heading2": "Heading 2",
+      "heading3": "Heading 3",
+      "bulletList": "Bullet List",
+      "orderedList": "Ordered List",
+      "quote": "Quote",
+      "codeBlock": "Code Block",
+      "link": "Link",
+      "image": "Image",
+      "alignLeft": "Align Left",
+      "alignCenter": "Align Center",
+      "alignRight": "Align Right",
+      "insertTable": "Insert Table",
+      "addRow": "Add Row",
+      "addColumn": "Add Column",
+      "deleteRow": "Delete Row",
+      "deleteColumn": "Delete Column",
+      "deleteTable": "Delete Table",
+      "undo": "Undo",
+      "redo": "Redo",
+      "linkPrompt": "Enter link URL",
+      "imageUploadFailedPrompt": "Upload failed, you can enter image URL manually"
+    }
   },
   "file": {
     "batchDelete": "Batch Delete",
@@ -21106,14 +21363,38 @@
     }
   },
   "member": {
-    "searchPlaceholder": {
-      "company": "SearchCompany",
-      "group": "SearchGroup",
-      "level": "SearchLevel",
-      "list": "SearchList",
-      "post": "SearchPosts",
-      "tag": "SearchLabel",
-      "unaudited": "SearchPending"
+    "feedback": {
+      "title": "Feedback",
+      "subtitle": "Submit feedback to help us improve",
+      "tabList": "History",
+      "tabNew": "Submit Feedback",
+      "loading": "Loading...",
+      "empty": "No feedback yet",
+      "typeBug": "Bug Report",
+      "typeSuggestion": "Feature Suggestion",
+      "typeQuestion": "Usage Question",
+      "typeOther": "Other",
+      "statusPending": "In Progress",
+      "statusResolved": "Replied",
+      "statusClosed": "Closed",
+      "replyLabel": "Reply: {reply}",
+      "fieldType": "Type",
+      "fieldTitle": "Title",
+      "titlePlaceholder": "Briefly describe the issue",
+      "fieldContent": "Content",
+      "contentPlaceholder": "Describe in detail...",
+      "fieldContact": "Contact (optional)",
+      "contactPlaceholder": "So we can reach you",
+      "submit": "Submit",
+      "cancel": "Cancel"
+    },
+    "fans": {
+      "title": "My Fans",
+      "subtitle": "{total} fans are following you",
+      "loading": "Loading...",
+      "empty": "No fans yet. Publish content to attract followers.",
+      "anonymous": "Anonymous",
+      "followedAt": "Followed on {date}"
     }
   },
   "message": {
@@ -21892,23 +22173,6 @@
     "deleted": "Deleted",
     "deleteFailed": "DeleteFailed"
   },
-  "p20Dashboard": {
-    "title": "P20 AgentView",
-    "subtitle": "Realtime",
-    "revenueTrend": "Near 7 DTrend",
-    "orderStatus": "Order Status Distribution",
-    "agentActivity": "AgentActive",
-    "courseCategory": "Course Categories",
-    "revenueAxis": "(¥)",
-    "revenue": "营收",
-    "unknown": "Unknown",
-    "callCount": "Calls",
-    "cardUsers": "User",
-    "cardOrders": "Order",
-    "cardAgents": "Agent",
-    "cardRevenue": "营收",
-    "loadFailed": "Load Failed："
-  },
   "resourceDetail": {
     "breadcrumbResource": "Resource Center",
     "downloadTimes": "SubDownload",
@@ -22301,13 +22565,6 @@
     "officialNews": "SquareNews",
     "read": "Read"
   },
-  "p19AdminDashboard": {
-    "title": "P19 Admin Dashboard",
-    "recentActivity": "Recent Activity",
-    "action": "Action",
-    "target": "Target",
-    "time": "Time"
-  },
   "statisticsPage": {
     "zeroHour": "0SmallH"
   },
@@ -22322,11 +22579,6 @@
     "noTextContent": "NoneTextContent",
     "noImageContent": "NoneImageContent",
     "noVideoContent": "No videosContent"
-  },
-  "p19PaymentMethods": {
-    "title": "P19 Payment Method",
-    "accountBalance": "AccountBalance",
-    "fee": "Fee"
   },
   "memberLearnRecord": {
     "title": "Learning Records",
@@ -22634,18 +22886,6 @@
     "downloads": "Download",
     "download": "Download"
   },
-  "p19AgentsList": {
-    "title": "P19 Agent",
-    "calls": "调用",
-    "rating": "Score",
-    "call": "调用",
-    "answerTitle": "AgentAnswers"
-  },
-  "p19CoursesList": {
-    "title": "P19 LessonsList",
-    "minutes": "minutes",
-    "enroll": "Signups"
-  },
   "middleRectangle": {
     "free": "Free",
     "learners": "peopleing",
@@ -22893,6 +23133,145 @@
         "backend": "Backend",
         "opensource": "Open Source"
       }
+    }
+  },
+  "ai": {
+    "status": {
+      "idle": "Idle",
+      "pending": "Pending",
+      "thinking": "Thinking",
+      "acting": "Acting",
+      "reflecting": "Reflecting",
+      "waiting": "Waiting",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "swarmMonitor": {
+      "title": "Swarm Monitor",
+      "refresh": "Refresh",
+      "loading": "Loading...",
+      "notStarted": "Swarm not started",
+      "swarmId": "Swarm ID",
+      "status": "Status",
+      "task": "Task",
+      "iteration": "Iteration",
+      "agentStatus": "Agent Status",
+      "name": "Name",
+      "type": "Type",
+      "currentStep": "Current Step",
+      "performanceMetrics": "Performance Metrics",
+      "successRate": "Success Rate",
+      "avgTime": "Avg Time",
+      "avgTokens": "Avg Tokens",
+      "totalSteps": "Total Steps",
+      "completed": "Completed",
+      "failed": "Failed",
+      "optimizationSuggestions": "Optimization Suggestions",
+      "executionResults": "Execution Results",
+      "toolResults": "Tool Results ({count})",
+      "error": "Error: {message}"
+    },
+    "permissionConfirm": {
+      "title": "Tool Execution Confirmation",
+      "description": "Agent requests to execute the following tool, please confirm",
+      "tool": "Tool",
+      "iteration": "Iteration {n}",
+      "inputParams": "Input Parameters",
+      "confirmReason": "Confirmation Reason",
+      "allowAllSession": "Allow all for this session (no more prompts)",
+      "deny": "Deny",
+      "allow": "Allow"
+    },
+    "backgroundAgents": {
+      "title": "Background Agents",
+      "runningCount": "{count} Running",
+      "empty": "No background agents",
+      "emptyHint": "Use /agents or API to start background tasks",
+      "cancel": "Cancel",
+      "viewResult": "View Result",
+      "delete": "Delete",
+      "calls": "{count} calls",
+      "total": "Total {count}",
+      "completedCount": "Completed {count}",
+      "failedCount": "Failed {count}",
+      "cancelledCount": "Cancelled {count}"
+    },
+    "subAgentFeed": {
+      "defaultName": "Sub Agent",
+      "badge": "subagent",
+      "coordinated": "Coordinated {count} sub-agents to complete",
+      "totalSteps": "({count} steps total)",
+      "working": "{count} sub-agents collaborating"
+    }
+  },
+  "developer": {
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Developer info, preferences and danger zone",
+      "loading": "Loading...",
+      "infoTitle": "Developer Info",
+      "infoName": "Name",
+      "infoNamePlaceholder": "Developer name",
+      "infoEmail": "Email",
+      "infoCompany": "Company",
+      "infoCompanyPlaceholder": "Company name (optional)",
+      "infoWebsite": "Website",
+      "saveInfo": "Save Info",
+      "infoSaved": "Info saved",
+      "prefsTitle": "Preferences",
+      "prefsDefaultVersion": "Default API Version",
+      "prefsDefaultVersionDesc": "Default version shown in sandbox and docs",
+      "prefsSandboxAutoRun": "Sandbox Auto Run",
+      "prefsSandboxAutoRunDesc": "Auto-send request when switching endpoints",
+      "prefsErrorReport": "Error Reporting",
+      "prefsErrorReportDesc": "Help improve platform stability",
+      "savePrefs": "Save Preferences",
+      "prefsSaved": "Preferences saved",
+      "dangerTitle": "Danger Zone",
+      "dangerDeleteLabel": "Delete Developer Account",
+      "dangerDeleteDesc": "Delete all keys, webhooks and configs. Irreversible.",
+      "dangerDeleteConfirm": "Confirm deletion? This action is irreversible. All keys and configs will be deleted.",
+      "dangerDeleteBtn": "Delete Account",
+      "accountDeleted": "Developer account deleted"
+    },
+    "notifications": {
+      "title": "Notification Settings",
+      "subtitle": "Manage developer event notification preferences",
+      "loading": "Loading...",
+      "saved": "Settings saved",
+      "saveBtn": "Save Settings",
+      "savedTag": "Saved",
+      "apiErrorLabel": "API Error Alert",
+      "apiErrorDesc": "Notify when API error rate exceeds threshold",
+      "quotaWarningLabel": "Quota Warning",
+      "quotaWarningDesc": "Notify when quota usage reaches 80%",
+      "webhookFailureLabel": "Webhook Failure",
+      "webhookFailureDesc": "Notify when callback delivery fails",
+      "weeklyReportLabel": "Weekly Report",
+      "weeklyReportDesc": "Send usage stats summary every Monday",
+      "versionUpdateLabel": "Version Updates",
+      "versionUpdateDesc": "API new version or deprecation reminders",
+      "billingReminderLabel": "Billing Reminder",
+      "billingReminderDesc": "Subscription expiry or charge reminders"
+    }
+  },
+  "edu": {
+    "qa": {
+      "title": "Q&A Center",
+      "subtitle": "Ask and answer learning questions",
+      "askPlaceholder": "Enter your question...",
+      "askBtn": "Ask",
+      "searchPlaceholder": "Search questions...",
+      "statusAria": "Status filter",
+      "statusAll": "All",
+      "statusAnswered": "Answered",
+      "statusPending": "Pending",
+      "loading": "Loading...",
+      "empty": "No questions yet",
+      "answered": "Answered",
+      "pending": "Pending"
     }
   }
 }

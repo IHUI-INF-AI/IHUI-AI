@@ -3,10 +3,12 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getExamPaper, getExamQuestions, type ExamPaper } from '@/api'
+import { useI18n } from '@/i18n'
 
 type ExamDetail = ExamPaper & { questionCount: number }
 
 export default function ExamDetail() {
+  const { t } = useI18n()
   const router = useRouter()
   const [exam, setExam] = useState<ExamDetail>({} as ExamDetail)
 
@@ -19,9 +21,9 @@ export default function ExamDetail() {
       })
       .catch((e) => {
         logger.error('unknown', '考试详情加载', e)
-        Taro.showToast({ title: '考试详情加载失败', icon: 'none' })
+        Taro.showToast({ title: t('exam.detail.loadFailed'), icon: 'none' })
       })
-  }, [router.params.id])
+  }, [router.params.id, t])
 
   const onStart = useCallback(() => {
     Taro.navigateTo({ url: `/pages/exam/answer?id=${exam.id}` })
@@ -34,21 +36,21 @@ export default function ExamDetail() {
           <Text className="text-lg text-[#333] font-bold">{exam.title}</Text>
           <View className="flex mt-4">
             <View className="flex-1 text-center">
-              <Text className="block text-xs text-[#999]">题量</Text>
+              <Text className="block text-xs text-[#999]">{t('exam.detail.questionCount')}</Text>
               <Text className="block text-base text-[#07c160] font-semibold mt-1">
-                {exam.questionCount}题
+                {t('exam.detail.questionCountValue', { n: exam.questionCount })}
               </Text>
             </View>
             <View className="flex-1 text-center">
-              <Text className="block text-xs text-[#999]">时长</Text>
+              <Text className="block text-xs text-[#999]">{t('exam.detail.duration')}</Text>
               <Text className="block text-base text-[#07c160] font-semibold mt-1">
-                {exam.duration || 0}分钟
+                {t('exam.detail.durationValue', { n: exam.duration || 0 })}
               </Text>
             </View>
             <View className="flex-1 text-center">
-              <Text className="block text-xs text-[#999]">及格</Text>
+              <Text className="block text-xs text-[#999]">{t('exam.detail.passScore')}</Text>
               <Text className="block text-base text-[#07c160] font-semibold mt-1">
-                {exam.passScore || '0'}分
+                {t('exam.detail.passScoreValue', { n: exam.passScore || 0 })}
               </Text>
             </View>
           </View>
@@ -56,11 +58,13 @@ export default function ExamDetail() {
       )}
 
       <View className="m-3 p-4 bg-white rounded-2xl">
-        <Text className="text-sm text-[#333] font-semibold mb-3 block">考试须知</Text>
-        <Text className="block text-sm text-[#666] leading-loose">1. 考试开始后计时不可暂停</Text>
-        <Text className="block text-sm text-[#666] leading-loose">2. 每题选择后不可修改</Text>
-        <Text className="block text-sm text-[#666] leading-loose">3. 达到及格分数即通过</Text>
-        <Text className="block text-sm text-[#666] leading-loose">4. 考试结束后自动提交</Text>
+        <Text className="text-sm text-[#333] font-semibold mb-3 block">
+          {t('exam.detail.noticeTitle')}
+        </Text>
+        <Text className="block text-sm text-[#666] leading-loose">{t('exam.detail.notice1')}</Text>
+        <Text className="block text-sm text-[#666] leading-loose">{t('exam.detail.notice2')}</Text>
+        <Text className="block text-sm text-[#666] leading-loose">{t('exam.detail.notice3')}</Text>
+        <Text className="block text-sm text-[#666] leading-loose">{t('exam.detail.notice4')}</Text>
       </View>
 
       {exam.title && (
@@ -68,7 +72,7 @@ export default function ExamDetail() {
           className="fixed bottom-4 left-4 right-4 bg-[#07c160] text-white rounded-full text-base"
           onClick={onStart}
         >
-          开始考试
+          {t('exam.detail.start')}
         </Button>
       )}
     </View>

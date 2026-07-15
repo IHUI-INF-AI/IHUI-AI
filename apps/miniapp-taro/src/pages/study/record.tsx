@@ -2,8 +2,10 @@ import { View, Text } from '@tarojs/components'
 import { useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStudyRecords, type StudyRecord } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function StudyRecord() {
+  const { t } = useI18n()
   const [list, setList] = useState<StudyRecord[]>([])
   const [loading, setLoading] = useState(false)
   const pageRef = useRef(1)
@@ -51,26 +53,29 @@ export default function StudyRecord() {
             <View key={r.id} className="bg-white rounded-2xl p-3 mb-3">
               <Text className="text-sm text-[#333] font-semibold">{r.courseTitle}</Text>
               <View className="flex justify-between mt-1.5">
-                <Text className="text-xs text-[#07c160]">学习 {r.duration}分钟</Text>
+                <Text className="text-xs text-[#07c160]">
+                  {t('study.recordPage.duration', { n: r.duration })}
+                </Text>
                 <Text className="text-xs text-[#999]">{r.time}</Text>
               </View>
-              {/* 进度条 */}
               <View className="h-1 bg-[#f5f5f5] rounded mt-2">
                 <View className="h-full bg-[#07c160] rounded" style={{ width: `${r.progress}%` }} />
               </View>
-              <Text className="block text-xs text-[#999] mt-1">进度 {r.progress}%</Text>
+              <Text className="block text-xs text-[#999] mt-1">
+                {t('study.recordPage.progress', { n: r.progress })}
+              </Text>
             </View>
           ))}
         </View>
       )}
       {!loading && list.length === 0 && (
         <View className="text-center py-16 text-[#999] text-sm">
-          <Text>暂无学习记录</Text>
+          <Text>{t('study.recordPage.empty')}</Text>
         </View>
       )}
       {loading && (
         <View className="text-center py-16 text-[#999] text-sm">
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         </View>
       )}
     </View>

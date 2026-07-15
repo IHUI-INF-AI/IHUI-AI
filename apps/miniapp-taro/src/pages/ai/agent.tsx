@@ -13,9 +13,11 @@ import {
   type ModelConfig,
   type ModelType,
 } from '@/components'
+import { useI18n } from '@/i18n'
 import './agent.css'
 
 export default function AgentPage() {
+  const { t } = useI18n()
   const [list, setList] = useState<AgentItem[]>([])
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
@@ -84,21 +86,23 @@ export default function AgentPage() {
       <View className="bg-white pb-2 sticky top-0 z-10">
         <SearchBar
           value={keyword}
-          placeholder="搜索 Agent / 提问"
+          placeholder={t('ai.agent.searchPlaceholder')}
           onInput={setKeyword}
           onSearch={onSendQuery}
           onClear={() => setKeyword('')}
         />
-        <ModelTypeButtonGroup activeType={activeType} onSelect={(t) => setActiveType(t)} />
+        <ModelTypeButtonGroup activeType={activeType} onSelect={(tp) => setActiveType(tp)} />
       </View>
 
       {filtered.length ? (
         <View className="px-3 py-2">
-          <Text className="block text-xs text-gray-400 mb-2">{filtered.length} 个智能体</Text>
+          <Text className="block text-xs text-gray-400 mb-2">
+            {t('ai.agent.count', { n: filtered.length })}
+          </Text>
           <AgentListPanel visible agents={filtered} loading={loading} onSelect={onSelectAgent} />
         </View>
       ) : (
-        <EmptyState text={keyword || activeType ? '未找到匹配的智能体' : '暂无智能体'} />
+        <EmptyState text={keyword || activeType ? t('ai.agent.notFound') : t('ai.agent.empty')} />
       )}
 
       <View className="h-20" />
@@ -109,7 +113,7 @@ export default function AgentPage() {
           onInput={setKeyword}
           onSend={onSendQuery}
           onAttach={() => setShowConfig(true)}
-          placeholder="输入问题或选择 Agent"
+          placeholder={t('ai.agent.inputPlaceholder')}
         />
       </View>
 
