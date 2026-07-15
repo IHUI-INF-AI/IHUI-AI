@@ -97,7 +97,11 @@
       "unifiedAiPanelTitle": "aiパネル",
       "unifiedAiPanelDesc": "chat＋agent＋generationをしたインタラクションパネル",
       "unifiedAiPanelPlaceholder": "メッセージをしてaiパネルを...",
-      "sampleResponse": "メッセージをけりました：「{text}」。 これは ai パネルからのサンプルです。のシナリオでは、の ai モデルのストリーミングにされます。"
+      "sampleResponse": "メッセージをけりました：「{text}」。 これは ai パネルからのサンプルです。のシナリオでは、の ai モデルのストリーミングにされます。",
+      "loginRequiredTitle": "ログインしてください",
+      "loginRequiredDesc": "ai とのをえるにはログインがです",
+      "aiErrorTitle": "ai のはしくしました",
+      "aiErrorPrefix": "ai のはしくしました"
     },
     "resources": "リソース",
     "siteName": "智匯AIコミュニティ",
