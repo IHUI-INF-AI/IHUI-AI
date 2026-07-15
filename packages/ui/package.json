@@ -23,6 +23,7 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
+    "@ihui/ui-primitives": "workspace:*",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-label": "^2.1.1",
@@ -33,9 +34,7 @@
     "@radix-ui/react-checkbox": "^1.1.3",
     "@tanstack/react-table": "^8.20.5",
     "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "lucide-react": "^1.24.0",
-    "tailwind-merge": "^2.5.5"
+    "lucide-react": "^1.24.0"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
