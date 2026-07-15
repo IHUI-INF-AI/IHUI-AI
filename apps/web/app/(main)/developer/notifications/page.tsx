@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
   Bell,
@@ -38,16 +39,14 @@ const DEFAULT_PREFS: NotificationPrefs = {
 
 const PREF_GROUPS: Array<{
   key: keyof NotificationPrefs
-  label: string
-  desc: string
   icon: React.ComponentType<{ className?: string }>
 }> = [
-  { key: 'apiError', label: 'API 异常告警', desc: '接口错误率超阈值时通知', icon: AlertTriangle },
-  { key: 'quotaWarning', label: '额度告警', desc: '配额使用达 80% 时通知', icon: Gauge },
-  { key: 'webhookFailure', label: 'Webhook 失败', desc: '回调发送失败时通知', icon: Webhook },
-  { key: 'weeklyReport', label: '周报推送', desc: '每周一发送调用统计摘要', icon: FileText },
-  { key: 'versionUpdate', label: '版本更新', desc: 'API 新版本或废弃提醒', icon: AlertTriangle },
-  { key: 'billingReminder', label: '账单提醒', desc: '订阅到期或扣费提醒', icon: CreditCard },
+  { key: 'apiError', icon: AlertTriangle },
+  { key: 'quotaWarning', icon: Gauge },
+  { key: 'webhookFailure', icon: Webhook },
+  { key: 'weeklyReport', icon: FileText },
+  { key: 'versionUpdate', icon: AlertTriangle },
+  { key: 'billingReminder', icon: CreditCard },
 ]
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -57,6 +56,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export default function NotificationsPage() {
+  const t = useTranslations('developer.notifications')
   const [prefs, setPrefs] = React.useState<NotificationPrefs>(DEFAULT_PREFS)
   const [loaded, setLoaded] = React.useState(false)
 
@@ -75,7 +75,7 @@ export default function NotificationsPage() {
         method: 'PUT',
         body: JSON.stringify({ preferences: prefs }),
       }),
-    onSuccess: () => toast.success('设置已保存'),
+    onSuccess: () => toast.success(t('saved')),
     onError: (e: Error) => toast.error(e.message),
   })
 
@@ -83,7 +83,7 @@ export default function NotificationsPage() {
     return (
       <div className="flex items-center justify-center py-12 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
   }
@@ -93,9 +93,9 @@ export default function NotificationsPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Bell className="h-5 w-5 text-primary" />
-          通知设置
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">管理开发者事件通知偏好</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
@@ -108,8 +108,8 @@ export default function NotificationsPage() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <Label className="text-sm font-medium">{item.label}</Label>
-                  <p className="text-xs text-muted-foreground">{item.desc}</p>
+                  <Label className="text-sm font-medium">{t(`${item.key}Label`)}</Label>
+                  <p className="text-xs text-muted-foreground">{t(`${item.key}Desc`)}</p>
                 </div>
                 <Switch
                   checked={prefs[item.key]}
@@ -128,10 +128,10 @@ export default function NotificationsPage() {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          保存设置
+          {t('saveBtn')}
         </Button>
         {saveMut.isSuccess && (
-          <span className="text-xs text-emerald-600 dark:text-emerald-500">已保存</span>
+          <span className="text-xs text-emerald-600 dark:text-emerald-500">{t('savedTag')}</span>
         )}
       </div>
 
