@@ -57,7 +57,7 @@ export default function Nickname() {
       </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          nickname.trim() ? 'bg-[#007aff] text-white' : 'bg-[#ccc] text-white'
+          nickname.trim() ? 'bg-[#07c160] text-white' : 'bg-[#ccc] text-white'
         }`}
         disabled={!nickname.trim()}
         onClick={onSubmit}

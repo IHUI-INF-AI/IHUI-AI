@@ -31,7 +31,7 @@ export default function StudyRank() {
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="p-6 text-center bg-gradient-to-br from-[#007aff] to-[#00c6ff]">
+      <View className="p-6 text-center bg-gradient-to-br from-[#07c160] to-[#35e683]">
         <Text className="block text-white text-lg font-bold">学习排行榜</Text>
         <Text className="block text-white/90 text-xs mt-1">本周学习时长排名</Text>
       </View>
@@ -46,8 +46,10 @@ export default function StudyRank() {
               mode="aspectFill"
             />
             <Text className="text-xs text-[#333] mt-1">{list[1]!.nickname}</Text>
-            <Text className="text-xs text-[#007aff] mt-0.5">{list[1]!.minutes}分钟</Text>
-            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#c0c0c0]">2</Text>
+            <Text className="text-xs text-[#07c160] mt-0.5">{list[1]!.minutes}分钟</Text>
+            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#c0c0c0]">
+              2
+            </Text>
           </View>
           {/* 第1名 */}
           <View className="flex flex-col items-center mx-2 relative">
@@ -57,8 +59,10 @@ export default function StudyRank() {
               mode="aspectFill"
             />
             <Text className="text-xs text-[#333] mt-1">{list[0]!.nickname}</Text>
-            <Text className="text-xs text-[#007aff] mt-0.5">{list[0]!.minutes}分钟</Text>
-            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#ffd700]">1</Text>
+            <Text className="text-xs text-[#07c160] mt-0.5">{list[0]!.minutes}分钟</Text>
+            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#ffd700]">
+              1
+            </Text>
           </View>
           {/* 第3名 */}
           <View className="flex flex-col items-center mx-2 relative">
@@ -68,8 +72,10 @@ export default function StudyRank() {
               mode="aspectFill"
             />
             <Text className="text-xs text-[#333] mt-1">{list[2]!.nickname}</Text>
-            <Text className="text-xs text-[#007aff] mt-0.5">{list[2]!.minutes}分钟</Text>
-            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#cd7f32]">3</Text>
+            <Text className="text-xs text-[#07c160] mt-0.5">{list[2]!.minutes}分钟</Text>
+            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#cd7f32]">
+              3
+            </Text>
           </View>
         </View>
       )}
@@ -77,7 +83,10 @@ export default function StudyRank() {
       {list.length > 3 && (
         <View className="m-3 bg-white rounded-2xl overflow-hidden">
           {list.slice(3).map((u, i) => (
-            <View key={u.id} className="flex items-center p-3 border-b border-[#f5f5f5] last:border-b-0">
+            <View
+              key={u.id}
+              className="flex items-center p-3 border-b border-[#f5f5f5] last:border-b-0"
+            >
               <Text className="w-8 text-sm text-[#999]">{i + 4}</Text>
               <Image
                 className="w-[30px] h-[30px] rounded-full bg-[#f5f5f5]"
@@ -85,7 +94,7 @@ export default function StudyRank() {
                 mode="aspectFill"
               />
               <Text className="flex-1 ml-3 text-sm text-[#333]">{u.nickname}</Text>
-              <Text className="text-sm text-[#007aff] font-semibold">{u.minutes}分钟</Text>
+              <Text className="text-sm text-[#07c160] font-semibold">{u.minutes}分钟</Text>
             </View>
           ))}
         </View>

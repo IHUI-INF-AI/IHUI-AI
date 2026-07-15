@@ -340,7 +340,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (existing) {
         return reply.status(409).send(error(409, '该手机号已注册'))
       }
-
+      request.skipResponseSanitization = true
       const passwordHash = await bcrypt.hash(password, 10)
       const familyId = createFamilyId()
       const nickname = `用户${phone.slice(-4)}`
@@ -498,6 +498,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         )
       }
 
+      request.skipResponseSanitization = true
       const familyId = createFamilyId()
       const tokens = await buildTokenPair({
         id: user.id,
@@ -582,6 +583,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       await revokeRefreshToken(token)
 
       // 5. 用同一 familyId 签发新 token 对
+      request.skipResponseSanitization = true
       const tokens = await buildTokenPair({
         id: user.id,
         phone: user.phone,
