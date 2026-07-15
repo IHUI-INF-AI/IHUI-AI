@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   Sun,
   Moon,
@@ -250,12 +251,12 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/images/common/miniapp-qr.png"
               alt={t('miniappQr')}
+              width={192}
+              height={192}
               className="h-48 w-48 rounded-lg border"
-              loading="lazy"
             />
             <p className="text-sm text-muted-foreground">{t('miniappQrDesc')}</p>
           </div>

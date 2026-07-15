@@ -156,11 +156,3 @@ export function deleteConfig(id: number) {
 export function maskKey(hasKey: boolean): string {
   return hasKey ? '已配置(加密存储)' : '—'
 }
-
-/** 时间格式化(本地化短时间) */
-export function formatTime(s: string | null | undefined): string {
-  if (!s) return '—'
-  const d = new Date(s)
-  if (Number.isNaN(d.getTime())) return s
-  return d.toLocaleString('zh-CN', { hour12: false })
-}

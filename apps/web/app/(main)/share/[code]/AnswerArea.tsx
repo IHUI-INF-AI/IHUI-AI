@@ -3,6 +3,7 @@
 import * as React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import Image from 'next/image'
 import { ChevronDown, Pause, Play, Volume2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { type ShareContent, type ShareListItem } from '@/lib/share-api'
@@ -110,11 +111,13 @@ function ImageGrid({ images }: { images: string[] }) {
             onClick={() => setPreviewIndex(idx)}
             className="overflow-hidden rounded-2xl"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={url}
               alt={`图片${idx + 1}`}
+              width={400}
+              height={400}
               className="h-full w-full cursor-pointer object-cover transition-transform hover:scale-105"
+              style={{ width: '100%', height: 'auto' }}
             />
           </button>
         ))}
@@ -137,6 +140,8 @@ function ImagePreview({
   onClose: () => void
 }) {
   const [current, setCurrent] = React.useState(index)
+  const src = images[current]
+  if (!src) return null
 
   return (
     <div
@@ -159,11 +164,13 @@ function ImagePreview({
         <X className="h-5 w-5" />
       </button>
 
-      {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
-      <img
-        src={images[current]}
+      <Image
+        src={src}
         alt={`预览图片 ${current + 1}`}
+        width={1920}
+        height={1080}
         className="max-h-[90vh] max-w-[90vw] object-contain"
+        style={{ width: 'auto', height: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       />
       {images.length > 1 && (
@@ -292,11 +299,13 @@ function ListsContent({ lists }: { lists: ShareListItem[] }) {
               onClick={() => window.open(item.content, '_blank')}
               className="block overflow-hidden rounded-2xl"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={item.content}
                 alt={`图片${idx + 1}`}
+                width={800}
+                height={600}
                 className="w-full cursor-pointer object-cover"
+                style={{ width: '100%', height: 'auto' }}
               />
             </button>
           )
