@@ -418,6 +418,8 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
 
   // ========== D19: 企业微信 token (历史 /work-we-chat/token) ==========
   fastify.get('/work-wechat/token', async (request) => {
+    // 跳过响应脱敏,否则 accessToken 会被 response-sanitizer 误伤为 '***'
+    request.skipResponseSanitization = true
     const { corpId, agentId, secret } = z
       .object({
         corpId: z.string(),
