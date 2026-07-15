@@ -6,7 +6,7 @@ import { Cpu, RefreshCw, X, Loader2, CheckCircle2, XCircle, MinusCircle } from '
 import { Button } from '@ihui/ui'
 
 import { cn } from '@/lib/utils'
-import { dateFormat } from '@/lib/date-utils'
+import { formatTimeOnly } from '@/lib/date-utils'
 import type { BackgroundAgent, AgentStatus } from './types'
 
 interface BackgroundAgentsPanelProps {
@@ -105,7 +105,7 @@ export function BackgroundAgentsPanel({
                     </span>
                     <span
                       className={cn(
-                        'rounded px-1.5 py-0.5 text-[10px] font-medium',
+                        'rounded px-1.5 py-0.5 text-xs font-medium',
                         agent.status === 'running' && 'bg-amber-500/10 text-amber-600',
                         agent.status === 'completed' && 'bg-emerald-500/10 text-emerald-600',
                         agent.status === 'failed' && 'bg-red-500/10 text-red-600',
@@ -116,7 +116,7 @@ export function BackgroundAgentsPanel({
                     </span>
                     {agent.progress?.tool_calls !== null &&
                       agent.progress?.tool_calls !== undefined && (
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {t('calls', { count: agent.progress.tool_calls })}
                         </span>
                       )}
@@ -143,8 +143,8 @@ export function BackgroundAgentsPanel({
                   )}
 
                   <div className="mt-1 flex items-center gap-2">
-                    <span className="text-[10px] text-muted-foreground">
-                      {dateFormat(agent.updated_at || agent.created_at, 'time')}
+                    <span className="text-xs text-muted-foreground">
+                      {formatTimeOnly(agent.updated_at || agent.created_at)}
                     </span>
                     <div className="ml-auto flex items-center gap-1">
                       {agent.status === 'running' && (

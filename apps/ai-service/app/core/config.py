@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     stepfun_api_base: str = "https://api.stepfun.com/step_plan/v1"
     litellm_model: str = "stepfun/step-3.7-flash"  # 默认用 stepfun(已验证连通)
     max_agent_iterations: int = 10
+    # Sliding window:系统消息始终保留 + 最近 N 轮 user/assistant + 当前输入
+    # 默认 6 轮,总消息数 ≤ 13(1 system + 12 turn + 1 current,实际 N*2+1)
+    chat_history_window: int = 6
 
     # 后端 API
     api_service_url: str = "http://localhost:8080"

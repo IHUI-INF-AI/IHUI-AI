@@ -13,6 +13,7 @@ export * from './push'
 export * from './time'
 export * from './streaming-recognizer'
 export * from './doubao-voice-api'
+export * from './pay'
 
 export { default as websocketManager } from './websocket'
 export { default as voiceRecorder } from './voice-recorder'

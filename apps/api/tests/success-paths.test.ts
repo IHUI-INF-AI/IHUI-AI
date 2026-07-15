@@ -52,6 +52,20 @@ vi.mock('bcryptjs', () => ({
 }))
 
 // =============================================================================
+// Mock account-lockout：避免 Redis / 进程内计数跨测试用例干扰
+// =============================================================================
+vi.mock('../src/services/account-lockout.js', () => ({
+  getLockRemainingMs: vi.fn().mockResolvedValue(0),
+  recordLoginFailure: vi.fn().mockResolvedValue(3),
+  clearLoginFailures: vi.fn().mockResolvedValue(undefined),
+  ACCOUNT_LOCKOUT_CONFIG: {
+    maxFailures: 5,
+    lockDurationSec: 900,
+    failureWindowSec: 900,
+  },
+}))
+
+// =============================================================================
 // Mock db/queries.js（用户相关查询）
 // =============================================================================
 vi.mock('../src/db/queries.js', () => ({

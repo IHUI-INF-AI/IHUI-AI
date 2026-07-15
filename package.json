@@ -52,7 +52,13 @@
       "ioredis": "5.4.2",
       "webpack": "5.91.0",
       "@types/react": "19.2.17",
-      "@types/react-dom": "19.2.3"
+      "@types/react-dom": "19.2.3",
+      "drizzle-orm": "0.38.4"
+    },
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "@opentelemetry/api"
+      ]
     }
   },
   "lint-staged": {

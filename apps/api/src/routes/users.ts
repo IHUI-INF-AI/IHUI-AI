@@ -7,7 +7,7 @@ import { join, extname } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { randomUUID } from 'node:crypto'
 import { authenticate } from '../plugins/auth.js'
-import { findUserById, findUserByPhone, updateUser } from '../db/queries.js'
+import { findUserById, findUserByPhone, isSystemAdminUser, updateUser } from '../db/queries.js'
 import { countFollowing, countFollowers, countFavorites } from '../db/social-queries.js'
 import { updateUserPassword } from '../db/usercenter-queries.js'
 import { success, error } from '../utils/response.js'
@@ -78,7 +78,25 @@ function limitedPublicUser(user: {
 }
 
 export const usersRoutes: FastifyPluginAsync = async (server) => {
-  // GET /api/users/:id - 获取用户信息（需认证；本人/管理员返回完整字段,其他登录用户返回精简公开字段）
+  // GET /api/users/me - 获取当前登录用户信息(必须在 /:id 之前注册以优先匹配)
+  server.get('/me', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || 'Authentication required'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+
+    const currentUserId = request.userId!
+    const user = await findUserById(currentUserId)
+    if (!user) {
+      return reply.status(404).send(error(404, '用户不存在'))
+    }
+    return reply.send(success(publicUser(user)))
+  })
+
+  // GET /api/users/:id - 获取用户信息(需认证;本人/管理员返回完整字段,其他登录用户返回精简公开字段)
   server.get('/:id', async (request, reply) => {
     try {
       await authenticate(request)
@@ -144,6 +162,10 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '用户不存在'))
     }
 
+    if (await isSystemAdminUser(id)) {
+      return reply.status(403).send(error(403, '系统内置管理员资料不可修改'))
+    }
+
     const updated = await updateUser(id, parsed.data)
     return reply.send(success({ user: publicUser(updated) }))
   })
@@ -178,6 +200,10 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(id)
     if (!user) {
       return reply.status(404).send(error(404, '用户不存在'))
+    }
+
+    if (await isSystemAdminUser(id)) {
+      return reply.status(403).send(error(403, '系统内置管理员密码不可修改'))
     }
 
     const ok = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash ?? '')
@@ -215,6 +241,10 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
 
     if (id !== currentUserId) {
       return reply.status(403).send(error(403, '无权修改他人头像'))
+    }
+
+    if (await isSystemAdminUser(id)) {
+      return reply.status(403).send(error(403, '系统内置管理员头像不可修改'))
     }
 
     const data = await request.file()
@@ -279,6 +309,10 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const userId = request.jwtPayload!.userId
+
+    if (await isSystemAdminUser(userId)) {
+      return reply.status(403).send(error(403, '系统内置管理员手机号不可修改'))
+    }
 
     const parsed = changePhoneSchema.safeParse(request.body)
     if (!parsed.success) {

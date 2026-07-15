@@ -32,7 +32,7 @@ export function MiniChart({ data, labels, height = 120, className }: MiniChartPr
           {labels.map((l, i) => (
             <span
               key={`label-${i}`}
-              className="flex-1 break-words text-center text-[10px] text-muted-foreground"
+              className="flex-1 break-words text-center text-xs text-muted-foreground"
             >
               {l}
             </span>

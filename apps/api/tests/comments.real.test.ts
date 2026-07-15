@@ -29,7 +29,7 @@ describe('comment-queries — 真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM feedbacks`)
     await db.execute(sql`DELETE FROM comment_likes`)
     await db.execute(sql`DELETE FROM comments`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('createComment + findComments', () => {
