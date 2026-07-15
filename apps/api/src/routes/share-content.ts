@@ -25,10 +25,23 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(404).send(error(404, '分享内容不存在或已下线'))
     }
 
+    let parsed: { question?: string; answer?: Record<string, unknown> } = {}
+    try {
+      if (content.content) {
+        parsed = JSON.parse(content.content) as typeof parsed
+      }
+    } catch {
+      parsed = { answer: { text: content.content } }
+    }
+
     return reply.send(
       success({
         code,
         gcType: content.gcType,
+        modelName: '',
+        modelIcon: '',
+        question: parsed.question || '',
+        answer: parsed.answer || { text: content.content || '' },
         content: content.content,
         agentId: content.agentId,
         userUuid: content.userUuid,
