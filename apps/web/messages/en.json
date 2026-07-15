@@ -17250,7 +17250,7 @@
       },
       "recording": {
         "animation": {
-          "智汇AI": "AI",
+          "智汇 AI": "AI",
           "提供": "提供",
           "服务": "Services",
           "点击": "click",
@@ -17561,7 +17561,7 @@
     },
     "project_selector_demo": {
       "总管理端": "end",
-      "智汇AI教育平台1": "AIEdu Platform",
+      "智汇 AI教育平台1": "AIEdu Platform",
       "教育管理后台2": "Admin Console"
     },
     "home_page4": {
@@ -17618,7 +17618,7 @@
     "mobile_bottom_nav": {
       "AI应用商店": "AIApp",
       "广场1": "Plaza",
-      "智汇AI2": "AI",
+      "智汇 AI2": "AI",
       "动态3": "Feed",
       "我的4": "I "
     },
@@ -17654,8 +17654,8 @@
       "结算管理4": "Checkout"
     },
     "enterprise_service": {
-      "智汇AI社企业服": "AIEnterpriseServices：HelpEnterpriseDeepAIandEnterprise Off，AgentPlate、peopleMachineOrg、SystemAILessons，peopleMachine Org。",
-      "智汇AI社1": "AI",
+      "智汇 AI社企业服": "AIEnterpriseServices：HelpEnterpriseDeepAIandEnterprise Off，AgentPlate、peopleMachineOrg、SystemAILessons，peopleMachine Org。",
+      "智汇 AI社1": "AI",
       "AI时代企业理性2": "AIHEnterpriseServicesand",
       "企业AI化服务会3": "EnterpriseAIServicesMember",
       "企业服务4": "EnterpriseServices",
@@ -17786,17 +17786,17 @@
       "advantagesHighlight4": "Enterprise：PrivateDeploy、SLA、 Optional，FullandRow"
     },
     "publish_dialog": {
-      "智汇AI2": "AI",
+      "智汇 AI2": "AI",
       "豆包1": "Doubao",
       "通义千问": "Qwen"
     }
   },
   "title": {
     "a_i_chat": {
-      "来自智汇AI的创": "ComefromAI",
-      "来自智汇AI的代1": "ComefromAI Code",
-      "来自智汇AI的视2": "ComefromAI Video",
-      "来自智汇AI的音3": "ComefromAI Audio"
+      "来自智汇 AI的创": "ComefromAI",
+      "来自智汇 AI的代1": "ComefromAI Code",
+      "来自智汇 AI的视2": "ComefromAI Video",
+      "来自智汇 AI的音3": "ComefromAI Audio"
     },
     "prompt_templates": {
       "内容精炼": "Content",
@@ -17816,18 +17816,18 @@
       "DeepSeek2": "DeepSeekandKimiingBigModeltomidfirst",
       "苹果开发类Cha3": "DevTypeChatGPTApp，inTestNewSiri",
       "夸克AI眼镜迎首4": "AIfirstSubHeavyBigOTA",
-      "智汇AI平台全新5": "AIPlatformAllNew，outHow manyModalAI",
+      "智汇 AI平台全新5": "AIPlatformAllNew，outHow manyModalAI",
       "AI智汇社用户突6": "AIUser10，CommunityComplex",
-      "智汇AI开放平台7": "AIOpen PlatformPublish， TriSquareDevin",
-      "智汇AI推出企业8": "AIoutEnterprise，Companies",
+      "智汇 AI开放平台7": "AIOpen PlatformPublish， TriSquareDevin",
+      "智汇 AI推出企业8": "AIoutEnterprise，Companies",
       "AI智汇社举办首9": "AIfirstAINewBig，Community",
-      "智汇AI新增5010": "AIAdd50+AITool，MoreApp",
-      "智汇AI与多家高11": "AIandHow manyHomeHigharriveCooperate，inAIpeoplethen",
+      "智汇 AI新增5010": "AIAdd50+AITool，MoreApp",
+      "智汇 AI与多家高11": "AIandHow manyHomeHigharriveCooperate，inAIpeoplethen",
       "AI智汇社推出V12": "AIoutVIPMember，UnlockMoreAdvancedFeature",
-      "智汇AI平台性能13": "AIPlatformPerformance，Response300%",
-      "智汇AI发布AI14": "AIPublishAIModelPlatform，LowDev",
+      "智汇 AI平台性能13": "AIPlatformPerformance，Response300%",
+      "智汇 AI发布AI14": "AIPublishAIModelPlatform，LowDev",
       "AI智汇社社区活15": "AICommunityActiveNewHigh，D",
-      "智汇AI获得A轮16": "AIA，AddProductsand"
+      "智汇 AI获得A轮16": "AIA，AddProductsand"
     },
     "apple_login": {
       "正在跳转": "Go",
