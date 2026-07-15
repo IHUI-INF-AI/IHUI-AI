@@ -50,7 +50,10 @@ export default function LiveDetail() {
             <Image className="w-full h-full opacity-60" src={live.coverUrl} mode="aspectFill" />
             {live.status === 'living' && (
               <View className="absolute inset-0 flex items-center justify-center">
-                <View className="px-7 py-2.5 bg-[#dd524d] text-white rounded-full text-sm" onClick={enterLive}>
+                <View
+                  className="px-7 py-2.5 bg-[#dd524d] text-white rounded-full text-sm"
+                  onClick={enterLive}
+                >
                   <Text>进入直播</Text>
                 </View>
               </View>
@@ -63,7 +66,9 @@ export default function LiveDetail() {
             {live.status === 'upcoming' && (
               <View className="absolute inset-0 flex flex-col items-center justify-center text-white text-sm">
                 <Text>直播未开始</Text>
-                {live.startTime && <Text className="mt-2 text-xs opacity-80">{live.startTime}</Text>}
+                {live.startTime && (
+                  <Text className="mt-2 text-xs opacity-80">{live.startTime}</Text>
+                )}
               </View>
             )}
           </View>
@@ -74,8 +79,10 @@ export default function LiveDetail() {
       <View className="p-3">
         <Text className="text-lg text-[#333] font-semibold">{live.title}</Text>
         <View className="flex justify-between mt-2">
-          {live.anchor && <Text className="text-sm text-[#007aff]">主播：{live.anchor}</Text>}
-          {live.watchCount !== undefined && <Text className="text-sm text-[#999]">{live.watchCount}人观看</Text>}
+          {live.anchor && <Text className="text-sm text-[#07c160]">主播：{live.anchor}</Text>}
+          {live.watchCount !== undefined && (
+            <Text className="text-sm text-[#999]">{live.watchCount}人观看</Text>
+          )}
         </View>
       </View>
     </View>

@@ -49,7 +49,7 @@ export default function PayIndex() {
       </View>
       <View className="m-[24rpx] p-[32rpx] bg-white rounded-[16rpx]">
         <View className="text-[28rpx] text-[#333] font-semibold mb-[24rpx]">选择支付方式</View>
-        {METHODS.map(m => (
+        {METHODS.map((m) => (
           <View
             key={m.value}
             className="flex items-center py-[24rpx] border-b-[2rpx] border-[#f5f5f5]"
@@ -63,13 +63,13 @@ export default function PayIndex() {
             </View>
             <Text className="flex-1 ml-[24rpx] text-[28rpx] text-[#333]">{m.name}</Text>
             <View
-              className={`w-[36rpx] h-[36rpx] rounded-full border-[2rpx] ${payType === m.value ? 'bg-[#007aff] border-[#007aff]' : 'border-[#ccc]'}`}
+              className={`w-[36rpx] h-[36rpx] rounded-full border-[2rpx] ${payType === m.value ? 'bg-[#07c160] border-[#07c160]' : 'border-[#ccc]'}`}
             />
           </View>
         ))}
       </View>
       <Button
-        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-[#007aff] text-white rounded-[40rpx] text-[32rpx]"
+        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-[#07c160] text-white rounded-[40rpx] text-[32rpx]"
         onClick={onPay}
       >
         确认支付 ¥{amount}

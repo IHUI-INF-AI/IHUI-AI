@@ -6,6 +6,7 @@ import { FileText, File } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { OfficeViewer } from './OfficeViewer'
 import { ThreeDViewer } from './ThreeDViewer'
+import { PDFViewer } from './PDFViewer'
 
 interface FilePreviewProps {
   url: string
@@ -40,13 +41,7 @@ export function FilePreview({ url, type = 'auto', name, className }: FilePreview
   }
 
   if (detectedType === 'pdf') {
-    return (
-      <iframe
-        src={url}
-        title={name ?? 'PDF preview'}
-        className={cn('h-full w-full border-0', className)}
-      />
-    )
+    return <PDFViewer url={url} className={className} />
   }
 
   if (detectedType === 'office') {

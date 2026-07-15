@@ -64,7 +64,7 @@ export default function Password() {
       </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          oldPwd && newPwd && confirmPwd ? 'bg-[#007aff] text-white' : 'bg-[#ccc] text-white'
+          oldPwd && newPwd && confirmPwd ? 'bg-[#07c160] text-white' : 'bg-[#ccc] text-white'
         }`}
         disabled={!oldPwd || !newPwd || !confirmPwd}
         onClick={onSubmit}

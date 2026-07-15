@@ -46,14 +46,14 @@
   top: 50%;
   transform: translateY(-50%);
   font-size: 26rpx;
-  color: #007aff;
+  color: #07c160;
 }
 .send-code.disabled {
   color: #ccc;
 }
 .submit-btn {
   width: 100%;
-  background: #007aff;
+  background: #07c160;
   color: #fff;
   font-size: 30rpx;
   border-radius: 8rpx;
