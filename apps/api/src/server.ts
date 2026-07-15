@@ -118,6 +118,7 @@ import {
   userAgentFreeTimesRoutes,
   adminUserAgentFreeTimesRoutes,
 } from './routes/user-agent-free-times.js'
+import { serviceCatalogRoutes, adminServiceCatalogRoutes } from './routes/service-catalog.js'
 import { shareContentRoutes } from './routes/share-content.js'
 // 历史项目缺失端点补齐（集中实现）
 import { legacyCompletionRoutes } from './routes/legacy-completion.js'
@@ -639,6 +640,9 @@ function registerRoutes(server: FastifyInstance) {
   // 智能体免费试用次数：/api/agent-free-times/* + /api/admin/agent-free-times/*
   server.register(userAgentFreeTimesRoutes, { prefix: '/api/agent-free-times' })
   server.register(adminUserAgentFreeTimesRoutes, { prefix: '/api/admin/agent-free-times' })
+  // 服务注册发现：/api/service-catalog/* + /api/admin/service-catalog/*
+  server.register(serviceCatalogRoutes, { prefix: '/api/service-catalog' })
+  server.register(adminServiceCatalogRoutes, { prefix: '/api/admin/service-catalog' })
 
   // 分享内容 H5：/api/share/content/:code（迁移自 share-h5 历史项目）
   server.register(shareContentRoutes, { prefix: '/api/share' })

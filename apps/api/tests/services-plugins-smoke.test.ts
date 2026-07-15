@@ -167,7 +167,9 @@ describe('plugins smoke 测试', () => {
     })
 
     it('resolveTenantIdentifier 无 header 无子域名返回 null', () => {
-      const mockReq = { headers: {}, hostname: 'localhost' } as any
+      const mockReq = { headers: {}, hostname: 'localhost' } as unknown as Parameters<
+        typeof resolveTenantIdentifier
+      >[0]
       expect(resolveTenantIdentifier(mockReq)).toBeNull()
     })
 
@@ -175,7 +177,7 @@ describe('plugins smoke 测试', () => {
       const mockReq = {
         headers: { 'x-tenant-id': 'tenant-123' },
         hostname: 'localhost',
-      } as any
+      } as unknown as Parameters<typeof resolveTenantIdentifier>[0]
       expect(resolveTenantIdentifier(mockReq)).toBe('tenant-123')
     })
   })
