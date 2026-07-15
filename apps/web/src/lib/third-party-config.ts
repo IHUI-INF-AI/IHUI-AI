@@ -158,6 +158,26 @@ export const FEISHU_CONFIG: ThirdPartyPlatformConfig = {
   authUrl: 'https://passport.feishu.cn/suite/passport/oauth/authorize',
 }
 
+/**
+ * 支付宝登录配置
+ * 官方文档: https://opendocs.alipay.com/open/263/105809
+ *
+ * 支付宝登录使用 auth_code 模式(非标准 OAuth2 跳转),前端拿到 auth_code 后
+ * 直接 GET /api/auth/alipay/pc/wxCode?code=xxx,后端用应用私钥换 access_token + user_id。
+ * 未配置 ALIPAY_APP_ID / ALIPAY_PRIVATE_KEY 时降级为 mock 模式(DEV)。
+ *
+ * 授权页地址: https://openauth.alipay.com/oauth2/publicAppAuthorize.htm
+ * 关键差异: 参数名为 `app_id`(非 `client_id`),scope 默认 `auth_user`。
+ */
+export const ALIPAY_CONFIG: ThirdPartyPlatformConfig = {
+  enabled: getEnvBool('NEXT_PUBLIC_ALIPAY_ENABLED', true),
+  appId: getEnv('NEXT_PUBLIC_ALIPAY_APP_ID'),
+  redirectUri: getEnv('NEXT_PUBLIC_ALIPAY_REDIRECT_URI', `${getOrigin()}/login?platform=alipay`),
+  scope: getEnv('NEXT_PUBLIC_ALIPAY_SCOPE', 'auth_user'),
+  proxyPath: '/api/auth/alipay/pc/wxCode',
+  authUrl: 'https://openauth.alipay.com/oauth2/publicAppAuthorize.htm',
+}
+
 /** 平台 → 配置映射 */
 const PLATFORM_CONFIGS: Record<ThirdPartyPlatform, ThirdPartyPlatformConfig> = {
   google: GOOGLE_CONFIG,
@@ -167,6 +187,7 @@ const PLATFORM_CONFIGS: Record<ThirdPartyPlatform, ThirdPartyPlatformConfig> = {
   wechat: WECHAT_CONFIG,
   github: GITHUB_CONFIG,
   feishu: FEISHU_CONFIG,
+  alipay: ALIPAY_CONFIG,
 }
 
 /**

@@ -3,6 +3,7 @@ import { useLaunch } from '@tarojs/taro'
 import { checkLoginStatus, getToken, getUserInfo } from './utils/auth'
 import { showShareMenu } from './utils/share'
 import { initPrivacyGuard } from './utils/privacy'
+import { initPushSubscription } from './utils/push-init'
 import websocketManager from './utils/websocket'
 import { BASE_URL } from './utils/request'
 import { I18nProvider } from './i18n'
@@ -16,6 +17,7 @@ function App({ children }: PropsWithChildren<unknown>) {
     initPrivacyGuard()
     checkLoginStatus()
     showShareMenu()
+    initPushSubscription()
     const token = getToken()
     const userInfo = getUserInfo()
     if (token && userInfo?.uuid) {
