@@ -9781,6 +9781,59 @@ P26 报告"Web C 端登录页 19 张静态资源缺失"和"share-h5 多媒体渲
 
 ---
 
+## P33 — 会话恢复 + 全量回归验证 + 临时文件清理收尾(2026-07-16)✅(2026-07-16)
+
+### 背景
+
+上一会话在执行 P32(admin 永久不可变 + RLS)收尾时上下文丢失,需恢复并完成最终交付闭环。
+
+### 恢复与修复
+
+1. **DB admin 账号状态核验**:运行 `verify-system-admin.mjs`,确认 admin 账号(a56b1204)字段完整(username=admin / email=502319984@qq.com / phone=18643389808 / role_id=1 / is_system_admin=true),UPDATE/DELETE 触发器拦截正常,updated_at 例外通过,DB 仅剩 1 个 admin 账号(残留测试账号已清理)。
+2. **ja.json merge conflict 修复**:`apps/web/messages/ja.json` 第 1070 行残留 git merge conflict 标记(`<<<<<<< Updated upstream` / `=======` / `>>>>>>> Stashed changes`),导致 JSON 解析失败,i18n-dashboard 路由返回 500。采用 Stashed 版本翻译(更地道且 key 与 zh-CN 基准一致),删除冲突标记,5 个 locale 文件均解析正常(各 483 top-level keys)。
+3. **page.tsx 未使用变量**:上一会话已修复(删除 `useTranslations` import 和 `t`/`tCommon` 未使用声明),当前 HEAD 已包含修复。
+
+### 全量验证依据
+
+| 验证项 | 命令 | 退出码 | 结果 |
+|--------|------|--------|------|
+| web typecheck | `pnpm --filter @ihui/web typecheck` | 0 | ✅ 0 错误 |
+| api typecheck | `pnpm --filter @ihui/api typecheck` | 0 | ✅ 0 错误 |
+| web lint | `pnpm --filter @ihui/web lint` | 0 | ✅ 0 problems |
+| api lint | `pnpm --filter @ihui/api lint` | 0 | ✅ 0 errors(167 warnings 预存 no-console 非阻塞) |
+| api test | `pnpm --filter @ihui/api test` | 0 | ✅ 196 文件 / 3024 测试全绿(首次 worker 崩溃为偶发,二次运行全绿) |
+| i18n-dashboard 测试 | `vitest run tests/i18n-dashboard.test.ts` | 0 | ✅ 8/8 通过(ja.json 修复后) |
+
+### 临时文件清理
+
+| 文件 | 类型 | 处理 | 审查结论 |
+|------|------|------|----------|
+| `apps/api/scripts/_check-0074-and-fk.mjs` | 临时调试 | 删除 | 功能由正式脚本 `verify-rls.mjs`(183 行)完整替代 |
+| `apps/api/scripts/_cleanup-non-admin.mjs` | 一次性清理 | 删除 | 任务已完成(DB 仅剩 1 个 admin 账号),无需保留 |
+| `probe-sso.mjs`(根目录) | 临时探测 | 删除 | 一次性 SSO 端点连通性测试,非项目代码 |
+
+### 最终交付结论
+
+- [x] ✅(2026-07-16) 会话恢复:DB admin 账号状态正确,不可变保护生效
+- [x] ✅(2026-07-16) ja.json merge conflict 修复:i18n-dashboard 8/8 测试通过
+- [x] ✅(2026-07-16) 全量回归:typecheck + lint + test 全绿(3024/3024)
+- [x] ✅(2026-07-16) 临时文件清理:3 个临时脚本删除,git status 干净(仅剩脚本删除记录)
+- [x] ✅(2026-07-16) HEAD(e0cda619)已包含 P32 全部代码,working tree 污染已清除
+
+### 后续无建议(完整收尾)
+
+本轮已实现用户完整诉求:
+
+- admin 账号永久不可变(DB 触发器 + 应用层预检双层保护,已验证)
+- RLS 行级安全 6 表全部生效(24 策略 + safe_tenant_id 函数)
+- 全量代码无回归(typecheck 0 错误 / lint 0 错误 / test 3024/3024 通过)
+- i18n 5 语言 JSON 解析正常(ja.json 冲突已修复)
+- 临时调试脚本全部清理(git status 干净)
+
+无后续待办,任务完整收尾,关闭对话。
+
+---
+
 ## P32 — 系统内置管理员 admin 永久不可变 + RLS 行级安全双层防护(2026-07-16)
 
 ### 目标
@@ -10072,3 +10125,71 @@ password_hash: <bcrypt 哈希,密码=admin123 验证通过>
 - 项目已达成 100% 架构迁移完整性,可投入生产联调
 - 建议在真实使用过程中持续观察 109 项合理架构演进项是否触发功能缺失(概率极低)
 - RuoYi `tool/gen` 已用 drizzle-kit + plop 替代,如有自定义代码生成需求可基于 plop 模板扩展
+
+---
+
+## 长期-9/10 — pre-deploy 脚本修复 + AGENTS.md 自审(2026-07-16)✅
+
+### 长期-9:pre-deploy.mjs 修复(4 类 bug)
+
+**文件**:`scripts/pre-deploy.mjs`(569 → 545 行)
+
+#### Bug 1: Windows 兼容性(tail 命令)✅
+
+- **问题**:L100/114/136 用 `tail -40/50/30` 管道截取输出,Windows PowerShell 无 `tail` 命令导致 typecheck/lint/test 全部误判 FAIL
+- **修复**:移除 `| tail -N` 管道和 `--logFile=/dev/null`(Unix-only),改用 Node.js 原生 `String.split('\n').slice(-N).join('\n')`(错误分支已有此逻辑)
+
+#### Bug 2: 端点解析逻辑 ✅
+
+- **问题**:L350 `importRe` 用 `\.js` 匹配但只能捕获单个 named import,无法处理 `import { a, b } from './routes/xxx.js'` 多导出场景;L359-369 plugin-file 映射逻辑过于简化,导致 18 个 R65 端点全部"未注册"误判
+- **修复**:重写 `checkR65BackendEndpoints`:
+  1. 构建 `varToPrefix` 映射(从 `server.register(var, { prefix })`)
+  2. 构建 `importToFile` 映射(从 `import { a, b } from './routes/xxx.js'`,正确解析多 named exports)
+  3. 构建 `prefixToFiles` 映射(prefix → Set(filePath))
+  4. 按需匹配:对每个 required endpoint,只在对应 prefix 关联的文件中搜索 `server.method('local'`
+
+#### Bug 3: 迁移缺口报告解析 ✅
+
+- **问题**:`checkMigrationGapReport` 用 `/缺失.*?(\d+)/` 匹配到报告中的历史数据"97 项"缺失"(已被 v2 报告修正为 0),导致误判 FAIL
+- **修复**:先检查 `合计.*100%` 或 `真实完整率.*100%`(v2 格式),匹配到则 OK;否则 fallback 到 `真缺失.*?(\d+)` 提取当前真缺失数
+
+#### Bug 4: 测试命令参数 ✅
+
+- **问题**:`pnpm --filter @ihui/api test -- --run` 在 Windows pnpm 下报 "Unknown option: 'run'"(`--` 传参被 pnpm 拦截)
+- **修复**:改为 `pnpm --filter @ihui/api test`(test script 已含 `vitest run`)
+
+### 数据库 journal 修复 ✅
+
+**文件**:`packages/database/drizzle/meta/_journal.json`
+
+- **问题**:`entries=72 ≠ sql files=75`
+  - idx 70 `0069_system_admin_password_reset` 对应的 SQL 文件已不存在(被 0071 取代)
+  - 4 个新 SQL 文件(0071-0074)未在 journal 登记
+- **修复**:移除 0069 孤儿条目,追加 0071-0074 四个条目(idx 71-74),结果 75 entries = 75 SQL files
+
+### 长期-10:AGENTS.md 自审 ✅
+
+验证 4 项"Superpowers 技能偏好覆盖规则"的实际执行状态:
+
+| 冲突 | 规则 | 实际状态 | 结论 |
+|------|------|----------|------|
+| 1 计划文件路径 | 不创建 `docs/superpowers/plans/`,计划整合到 PROJECT_PLAN.md | `docs/superpowers/` 不存在 | ✅ 符合 |
+| 2 设计文档路径 | 不创建 `docs/superpowers/specs/`,设计整合到 PROJECT_PLAN.md | 同上,无独立设计文档 | ✅ 符合 |
+| 3 git commit | 技能中的 `git commit` 视为建议,不自动执行 | 未自动 commit,等待用户指令 | ✅ 符合 |
+| 4 git worktree | 优先用 `goal/<任务>` 分支,不强制 worktree | `.worktrees/` 不存在 | ✅ 符合 |
+
+其他检查:
+- `.trae-cn/skills/` 14 个 SKILL.md ✅ 符合技能文件例外
+- `.trae-cn/goal-runtime/` 残留 `initial-files.txt` 已清理 ✅
+
+### 验证依据
+
+| 验证项 | 命令 | 退出码 | 结果 |
+|--------|------|--------|------|
+| pre-deploy(--skip-tests) | `node scripts/pre-deploy.mjs --skip-tests` | 0 | ✅ 21 OK / 6 WARN / 0 FAIL |
+| typecheck | `pnpm turbo typecheck` | 0 | ✅ 10/10 任务全绿 |
+| lint | `pnpm turbo lint` | 0 | ✅ 0 error, 167 warnings(预存非阻塞) |
+| i18n 5 语言 parity | pre-deploy 内置检查 | - | ✅ 19419 keys × 5 语言 |
+| migration journal | pre-deploy 内置检查 | - | ✅ 75 entries = 75 SQL files |
+| R65 后端端点 | pre-deploy 内置检查 | - | ✅ 18/18 全部就位 |
+| 迁移完整度 | pre-deploy 内置检查 | - | ✅ 100% 完整(0 真缺失) |

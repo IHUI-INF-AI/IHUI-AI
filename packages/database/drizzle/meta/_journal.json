@@ -495,15 +495,36 @@
     {
       "idx": 70,
       "version": "7",
-      "when": 1784697800000,
-      "tag": "0069_system_admin_password_reset",
+      "when": 1784697900000,
+      "tag": "0070_rls_safe_tenant_id",
       "breakpoints": true
     },
     {
       "idx": 71,
       "version": "7",
-      "when": 1784697900000,
-      "tag": "0070_rls_safe_tenant_id",
+      "when": 1784784300000,
+      "tag": "0071_restore_admin_immutability",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1784784400000,
+      "tag": "0072_drop_0066_rls_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1784784500000,
+      "tag": "0073_refresh_tokens_cascade",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1784784600000,
+      "tag": "0074_reapply_tenant_rls",
       "breakpoints": true
     }
   ]
