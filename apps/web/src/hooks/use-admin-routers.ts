@@ -22,27 +22,23 @@ interface AdminRoutersState {
   loaded: boolean
 }
 
-let cached: AdminRouterItem[] | null = null
-
+/** 获取后台菜单路由。
+ * 不使用模块级缓存,避免跨用户账号切换时菜单泄漏(权限隔离)。
+ * 组件级 state 保证每次挂载按当前用户权限拉取。 */
 export function useAdminRouters() {
   const [state, setState] = useState<AdminRoutersState>({
-    list: cached ?? [],
-    loading: !cached,
-    loaded: !!cached,
+    list: [],
+    loading: true,
+    loaded: false,
   })
 
   useEffect(() => {
-    if (cached) {
-      setState({ list: cached, loading: false, loaded: true })
-      return
-    }
     let cancelled = false
     setState((s) => ({ ...s, loading: true }))
     void fetchApi<{ list: AdminRouterItem[] }>('/api/admin/menu/getRouters')
       .then((res) => {
         if (cancelled) return
         if (res.success && res.data?.list) {
-          cached = res.data.list
           setState({ list: res.data.list, loading: false, loaded: true })
         } else {
           setState({ list: [], loading: false, loaded: true })
