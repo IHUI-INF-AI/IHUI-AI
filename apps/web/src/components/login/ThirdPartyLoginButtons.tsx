@@ -57,9 +57,11 @@ export function ThirdPartyLoginButtons() {
   // 自动处理 OAuth 回调：URL 含 code + state 时触发
   React.useEffect(() => {
     const code = searchParams.get('code')
+    const authCode = searchParams.get('auth_code')
     const state = searchParams.get('state')
     const platformParam = searchParams.get('platform')
-    if (!code || !state) return
+    if (!state) return
+    if (!code && !authCode) return
 
     // 仅在明确带 platform 参数、或路径匹配已知回调时处理
     const knownPlatforms: ThirdPartyPlatform[] = [
@@ -70,6 +72,7 @@ export function ThirdPartyLoginButtons() {
       'wechat',
       'github',
       'feishu',
+      'alipay',
     ]
     const platform =
       platformParam && knownPlatforms.includes(platformParam as ThirdPartyPlatform)
@@ -77,8 +80,12 @@ export function ThirdPartyLoginButtons() {
         : null
     if (!platform) return
 
+    // 支付宝使用 auth_code 参数（其他平台使用 code）
+    const finalCode = platform === 'alipay' ? authCode : code
+    if (!finalCode) return
+
     setHandlingCallback(true)
-    void handleCallback(platform, code, state).finally(() => setHandlingCallback(false))
+    void handleCallback(platform, finalCode, state).finally(() => setHandlingCallback(false))
   }, [searchParams, handleCallback])
 
   const providers: Provider[] = [
@@ -103,6 +110,7 @@ export function ThirdPartyLoginButtons() {
       mono: true,
     },
     { key: 'feishu', label: t('feishuLogin'), icon: '/images/loginSANFANG/feishu.png' },
+    { key: 'alipay', label: t('alipayLogin'), icon: '/images/oauth-providers/alipay.svg' },
   ]
 
   const handleProviderClick = (platform: ThirdPartyPlatform) => {

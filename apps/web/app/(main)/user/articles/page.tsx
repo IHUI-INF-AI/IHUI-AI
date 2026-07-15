@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Loader2, Plus, Pencil, Trash2, Eye } from 'lucide-react'
+import { Loader2, Plus, Pencil, Trash2, Eye, Heart } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchApi } from '@/lib/api'
@@ -119,8 +119,16 @@ export default function MyArticlesPage() {
                       <p className="line-clamp-2 text-xs text-muted-foreground">{a.summary}</p>
                     ) : null}
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span>👁 {a.viewCount}</span>
-                      {typeof a.likeCount === 'number' ? <span>❤ {a.likeCount}</span> : null}
+                      <span className="inline-flex items-center gap-1">
+                        <Eye className="h-3 w-3" />
+                        {a.viewCount}
+                      </span>
+                      {typeof a.likeCount === 'number' ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Heart className="h-3 w-3" />
+                          {a.likeCount}
+                        </span>
+                      ) : null}
                       {a.publishedAt ? (
                         <span>{new Date(a.publishedAt).toLocaleDateString('zh-CN')}</span>
                       ) : null}
