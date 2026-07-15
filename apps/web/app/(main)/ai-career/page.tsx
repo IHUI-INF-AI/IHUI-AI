@@ -6,6 +6,7 @@ import { GraduationCap, Loader2, Sparkles } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui'
 import { Container } from '@/components/layout'
 import { Textarea } from '@/components/form'
+import { getCareerAdvice } from '@/lib/ai-api'
 
 interface CareerForm {
   school: string
@@ -38,6 +39,7 @@ export default function AICareerPage() {
   const [form, setForm] = React.useState<CareerForm>(INITIAL_FORM)
   const [loading, setLoading] = React.useState(false)
   const [result, setResult] = React.useState<string>('')
+  const [error, setError] = React.useState<string>('')
 
   const update = (key: keyof CareerForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -54,17 +56,16 @@ export default function AICareerPage() {
   const handleSubmit = async () => {
     setLoading(true)
     setResult('')
+    setError('')
     try {
-      // TODO: 接入真实 AI API (/api/ai/career-advice)
-      await new Promise((r) => setTimeout(r, 1500))
-      setResult(
-        `基于您提供的信息，AI 生成的生涯指导建议：\n\n` +
-          `1. 学业现状分析：${form.school}${form.classLevel}的学生，语英成绩${form.scoreRange}，主要困难是${form.languageDifficulty}。\n` +
-          `2. 学习障碍诊断：检测到${form.learningObstacle}倾向，建议家长加强陪伴与引导，建立规律作息。\n` +
-          `3. 兴趣特长培养：${form.hobbies || '暂未明确'}可作为突破口，结合理科特点${form.scienceCharacteristics || '一般'}制定个性化学习计划。\n` +
-          `4. 升学目标规划：目标${form.target}，建议分阶段制定学习里程碑，定期评估调整。\n\n` +
-          `温馨提示：本建议由 AI 生成，仅供参考，具体教育决策请结合专业教师意见。`,
-      )
+      const r = await getCareerAdvice(form)
+      if (!r.success) {
+        setError(r.error || 'AI 分析失败')
+        return
+      }
+      setResult(r.data.content)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'AI 分析失败')
     } finally {
       setLoading(false)
     }
@@ -217,6 +218,14 @@ export default function AICareerPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {error && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-destructive">{error}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {result && (
         <Card>

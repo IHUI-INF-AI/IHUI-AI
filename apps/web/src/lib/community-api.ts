@@ -214,9 +214,9 @@ export async function getTopics(
 }
 
 export async function getNews(query: NewsListQuery = {}): Promise<ApiResult<PageData<News>>> {
-  return fetchApi<PageData<News>>(`/news${buildQs(query)}`)
+  return fetchApi<PageData<News>>(`/news/articles${buildQs(query)}`)
 }
 
 export async function getNewsById(id: string): Promise<ApiResult<News>> {
-  return fetchApi<News>(`/news/${encodeURIComponent(id)}`)
+  return fetchApi<News>(`/news/articles/${encodeURIComponent(id)}`)
 }
