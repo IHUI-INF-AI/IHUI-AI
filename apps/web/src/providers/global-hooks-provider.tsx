@@ -4,9 +4,9 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useRouteAnalytics } from '@/hooks/use-route-analytics'
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
+import { CommandPalette } from '@/components/layout/CommandPalette'
 
 const SHORTCUT_ROUTES: Record<string, string> = {
-  'global-shortcut:open-chat': '/chat',
   'global-shortcut:search': '/search',
   'global-shortcut:new-chat': '/chat',
   'global-shortcut:open-drama': '/drama',
@@ -16,7 +16,7 @@ const SHORTCUT_ROUTES: Record<string, string> = {
  * 全局 Hooks Provider：在根 Layout 挂载全局副作用 hooks。
  *
  * - useRouteAnalytics：路由变化自动埋点（page_view / page_time / route_change）
- * - useGlobalShortcuts：全局快捷键监听（Ctrl+K / Ctrl+P / Ctrl+Shift+N / Ctrl+/ 等）
+ * - useGlobalShortcuts：全局快捷键监听（Ctrl+K 命令面板 / Ctrl+P 搜索 / Ctrl+Shift+N 新对话 / Ctrl+/ 帮助）
  *
  * 帮助面板（Ctrl+/ 触发）以最简 overlay 呈现，避免引入额外依赖。
  */
@@ -24,8 +24,11 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   const router = useRouter()
   const { currentPath } = useRouteAnalytics()
   const { showHelpPanel, toggleHelpPanel, shortcuts } = useGlobalShortcuts()
+  const [showCommandPalette, setShowCommandPalette] = React.useState(false)
 
   React.useEffect(() => {
+    const openChatHandler = () => setShowCommandPalette(true)
+    window.addEventListener('global-shortcut:open-chat', openChatHandler)
     const handlers: Array<[string, () => void]> = Object.entries(SHORTCUT_ROUTES).map(
       ([event, path]) => {
         const handler = () => {
@@ -37,6 +40,7 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
       },
     )
     return () => {
+      window.removeEventListener('global-shortcut:open-chat', openChatHandler)
       for (const [event, handler] of handlers) {
         window.removeEventListener(event, handler)
       }
@@ -46,6 +50,7 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   return (
     <>
       {children}
+      <CommandPalette open={showCommandPalette} onOpenChange={setShowCommandPalette} />
       {showHelpPanel && (
         <div
           role="button"

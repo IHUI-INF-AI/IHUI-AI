@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { HelpCircle, Loader2, Send, Search, MessageCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -41,6 +41,7 @@ const selectClass =
 
 export default function EduQAPage() {
   const locale = useLocale()
+  const t = useTranslations('edu.qa')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
@@ -89,9 +90,9 @@ export default function EduQAPage() {
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <HelpCircle className="h-7 w-7 text-primary" />
-          问答中心
+          {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">提问与解答学习中的疑问</p>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -99,7 +100,7 @@ export default function EduQAPage() {
           <Input
             value={askText}
             onChange={(e) => setAskText(e.target.value)}
-            placeholder="输入你的问题..."
+            placeholder={t('askPlaceholder')}
             className="h-9"
           />
           <Button
@@ -112,7 +113,7 @@ export default function EduQAPage() {
             ) : (
               <Send className="h-4 w-4" />
             )}
-            提问
+            {t('askBtn')}
           </Button>
         </CardContent>
       </Card>
@@ -123,18 +124,18 @@ export default function EduQAPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索问题..."
+            placeholder={t('searchPlaceholder')}
             className="h-9 pl-8"
           />
         </div>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className={cn(selectClass, 'w-32')} aria-label="状态筛选">
+          <SelectTrigger className={cn(selectClass, 'w-32')} aria-label={t('statusAria')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部</SelectItem>
-            <SelectItem value="answered">已回答</SelectItem>
-            <SelectItem value="pending">待回答</SelectItem>
+            <SelectItem value="all">{t('statusAll')}</SelectItem>
+            <SelectItem value="answered">{t('statusAnswered')}</SelectItem>
+            <SelectItem value="pending">{t('statusPending')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -142,14 +143,14 @@ export default function EduQAPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : error ? (
         <Alert variant="danger" description={(error as Error).message} />
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
           <HelpCircle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">暂无问答</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -169,7 +170,7 @@ export default function EduQAPage() {
                         : 'bg-amber-500/10 text-amber-600',
                     )}
                   >
-                    {item.status === 'answered' ? '已回答' : '待回答'}
+                    {item.status === 'answered' ? t('answered') : t('pending')}
                   </span>
                 </div>
                 {item.answer && <p className="ml-6 text-sm text-muted-foreground">{item.answer}</p>}

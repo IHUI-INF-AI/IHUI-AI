@@ -3,9 +3,11 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 export default function ModelEdit() {
+  const { t } = useI18n()
   const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -26,28 +28,30 @@ export default function ModelEdit() {
   })
 
   const onSave = useCallback(() => {
-    Taro.showToast({ title: '保存成功', icon: 'success' })
-  }, [])
+    Taro.showToast({ title: t('devEnter.modelEdit.saved'), icon: 'success' })
+  }, [t])
 
   return (
     <View className="page-container">
       <View className="page-header">
-        <Text className="page-title">模型编辑</Text>
+        <Text className="page-title">{t('devEnter.modelEdit.title')}</Text>
         <Text className="btn" onClick={onSave}>
-          保存
+          {t('common.save')}
         </Text>
       </View>
       <View className="page-content">
         {loading ? (
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         ) : list.length ? (
           list.map((item) => (
             <View key={(item.id as string) || (item.name as string)} className="list-item">
-              <Text>{(item.name as string) || (item.title as string) || '模型'}</Text>
+              <Text>
+                {(item.name as string) || (item.title as string) || t('devEnter.modelEdit.model')}
+              </Text>
             </View>
           ))
         ) : (
-          <Text className="empty">暂无可编辑模型</Text>
+          <Text className="empty">{t('devEnter.modelEdit.empty')}</Text>
         )}
       </View>
     </View>
