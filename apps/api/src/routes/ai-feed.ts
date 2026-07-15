@@ -71,6 +71,16 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result))
   })
 
+  // GET /hot — 热门资讯别名（前端调用 /api/ai-feed/hot）
+  server.get('/hot', async (request, reply) => {
+    const parsed = itemsQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await listFeedItems(parsed.data)
+    return reply.send(success(result))
+  })
+
   // GET /items/:id — 条目详情
   server.get<{ Params: { id: string } }>('/items/:id', async (request, reply) => {
     const { id } = request.params
