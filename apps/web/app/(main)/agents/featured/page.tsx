@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Sparkles, Star } from 'lucide-react'
@@ -93,8 +94,8 @@ export default function FeaturedAgentsPage() {
               <Card className="overflow-hidden transition-colors hover:bg-accent/40">
                 <div className="relative h-24 w-full bg-muted">
                   {agent.cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
+                      fill
                       src={agent.cover}
                       alt={agent.name}
                       className="h-full w-full object-cover"
@@ -112,10 +113,11 @@ export default function FeaturedAgentsPage() {
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-start gap-2">
                     {agent.avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={agent.avatar}
                         alt={agent.name}
+                        width={32}
+                        height={32}
                         className="h-8 w-8 rounded-lg object-cover"
                       />
                     ) : (

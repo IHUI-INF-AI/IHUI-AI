@@ -19,13 +19,3 @@ export async function createTeam(input: {
   if (!res.success) throw new Error(res.error)
   return res.data.team
 }
-
-export function formatDate(value: string): string {
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '-'
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(d)
-}

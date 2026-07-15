@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Users, Loader2, Trash2, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
@@ -97,10 +98,10 @@ export default function MyCirclesPage() {
             {list.map((circle) => (
               <Card key={circle.id} className="overflow-hidden transition-colors hover:bg-accent">
                 <Link href={`/circles/${circle.id}`}>
-                  <div className="aspect-video w-full overflow-hidden bg-muted">
+                  <div className="relative aspect-video w-full overflow-hidden bg-muted">
                     {circle.coverImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
+                        fill
                         src={circle.coverImage}
                         alt={circle.name}
                         className="h-full w-full object-cover"

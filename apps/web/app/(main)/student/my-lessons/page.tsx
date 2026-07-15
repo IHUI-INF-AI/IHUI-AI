@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { BookOpen, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -90,10 +91,10 @@ export default function MyLessonsPage() {
               return (
                 <Link key={item.id} href={`/learn/${item.lessonId}`}>
                   <Card className="overflow-hidden transition-colors hover:bg-accent">
-                    <div className="aspect-video w-full overflow-hidden bg-muted">
+                    <div className="relative aspect-video w-full overflow-hidden bg-muted">
                       {item.coverImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
+                          fill
                           src={item.coverImage}
                           alt={item.title}
                           className="h-full w-full object-cover"

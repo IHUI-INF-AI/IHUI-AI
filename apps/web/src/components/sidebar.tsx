@@ -381,12 +381,12 @@ function SearchNavItem({
   const popRef = useClickOutside<HTMLDivElement>(React.useCallback(() => setOpen(false), []))
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const searchParamsStr = searchParams?.toString()
 
   // 路由变化(同路径不同 query 也算)时关闭弹层
   React.useEffect(() => {
     setOpen(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, searchParams?.toString()])
+  }, [pathname, searchParamsStr, setOpen])
 
   // Esc 关闭弹层
   React.useEffect(() => {
@@ -568,14 +568,17 @@ export function Sidebar({
     }
   }, [stopResize])
 
-  const isActive = (href: string) => {
-    if (href === '/') return pathname === '/'
-    if (!pathname.startsWith(href)) return false
-    // 更具体的同前缀项优先高亮，避免 /chat 与 /chat/history 同时高亮
-    return !NAV_ITEMS.some(
-      (i) => i.href !== href && i.href.startsWith(href) && pathname.startsWith(i.href),
-    )
-  }
+  const isActive = React.useCallback(
+    (href: string) => {
+      if (href === '/') return pathname === '/'
+      if (!pathname.startsWith(href)) return false
+      // 更具体的同前缀项优先高亮，避免 /chat 与 /chat/history 同时高亮
+      return !NAV_ITEMS.some(
+        (i) => i.href !== href && i.href.startsWith(href) && pathname.startsWith(i.href),
+      )
+    },
+    [pathname],
+  )
 
   const isAdmin = (user?.roleId ?? 0) >= 1
   const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin)
@@ -583,8 +586,7 @@ export function Sidebar({
   const activeHref = React.useMemo(() => {
     const found = visibleItems.find((item) => isActive(item.href))
     return found?.href
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, visibleItems])
+  }, [visibleItems, isActive])
 
   React.useEffect(() => {
     if (!activeHref) return

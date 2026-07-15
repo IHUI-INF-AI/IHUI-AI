@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { FileText, Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
+import { slugify } from '@/lib/content'
 import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ihui/ui'
 import { cn } from '@/lib/utils'
@@ -32,10 +33,6 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 async function fetchList(): Promise<Doc[]> {
   const d = await api<{ list: Doc[] } | Doc[]>('/api/admin/docs')
   return Array.isArray(d) ? d : (d.list ?? [])
-}
-
-function slugify(s: string): string {
-  return s.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
 }
 
 const EMPTY = { title: '', slug: '', category: 'guide' as DocCategory, content: '', status: 'draft' as DocStatus }
