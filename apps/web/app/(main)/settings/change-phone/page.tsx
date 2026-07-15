@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { Phone, ShieldCheck, AlertTriangle } from 'lucide-react'
@@ -9,8 +10,14 @@ import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui'
 import { Container } from '@/components/layout'
 import { Input } from '@/components/form'
 import { useCountdown } from '@/hooks/use-countdown'
+import { getProfile } from '@/lib/user-api'
+import {
+  sendChangePhoneOldCode,
+  verifyChangePhoneOldCode,
+  sendChangePhoneNewCode,
+  changePhone,
+} from '@/lib/auth-api'
 
-const CURRENT_PHONE = '13888888888'
 const CODE_LENGTH = 6
 const COUNTDOWN_SECONDS = 60
 
@@ -34,39 +41,58 @@ export default function ChangePhonePage() {
   const oldCountdown = useCountdown(COUNTDOWN_SECONDS)
   const newCountdown = useCountdown(COUNTDOWN_SECONDS)
 
-  const maskedPhone = React.useMemo(() => maskPhone(CURRENT_PHONE), [])
+  const profileQ = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: async () => {
+      const r = await getProfile()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+  })
+
+  const currentPhone = profileQ.data?.phone ?? ''
+  const maskedPhone = React.useMemo(() => maskPhone(currentPhone), [currentPhone])
 
   const canVerifyOld = oldCode.trim().length === CODE_LENGTH
   const isNewPhoneValid = /^1\d{10}$/.test(newPhone.trim())
   const canSubmitNew = isNewPhoneValid && newCode.trim().length === CODE_LENGTH
 
-  const handleGetOldCode = () => {
+  const handleGetOldCode = async () => {
     if (oldCountdown.isRunning) return
-    // TODO: 调用发送验证码 API,确认接口路径
-    // await fetch('/api/user/settings/change-phone/send-code', { method: 'POST', body: JSON.stringify({ phone: CURRENT_PHONE, type: 'old' }) })
+    const r = await sendChangePhoneOldCode()
+    if (!r.success) {
+      setTip(r.error)
+      return
+    }
     oldCountdown.start()
     setTip(t('changePhoneCodeSent'))
   }
 
-  const handleVerifyOld = () => {
+  const handleVerifyOld = async () => {
     if (!canVerifyOld) {
       setTip(t('changePhoneInvalidCode'))
       return
     }
-    // TODO: 调用校验旧手机号验证码 API
-    // const res = await fetch('/api/user/settings/change-phone/verify-old', { method: 'POST', body: JSON.stringify({ phone: CURRENT_PHONE, code: oldCode }) })
+    const r = await verifyChangePhoneOldCode(oldCode.trim())
+    if (!r.success) {
+      setTip(t('changePhoneVerifyFailed'))
+      return
+    }
     setStep(2)
     setTip('')
   }
 
-  const handleGetNewCode = () => {
+  const handleGetNewCode = async () => {
     if (newCountdown.isRunning) return
     if (!isNewPhoneValid) {
       setTip(t('changePhoneInvalidNewPhone'))
       return
     }
-    // TODO: 调用发送新手机号验证码 API
-    // await fetch('/api/user/settings/change-phone/send-code', { method: 'POST', body: JSON.stringify({ phone: newPhone, type: 'new' }) })
+    const r = await sendChangePhoneNewCode(newPhone.trim())
+    if (!r.success) {
+      setTip(r.error)
+      return
+    }
     newCountdown.start()
     setTip(t('changePhoneCodeSent'))
   }
@@ -80,13 +106,11 @@ export default function ChangePhonePage() {
     if (submitting) return
     setSubmitting(true)
     try {
-      // TODO: 调用更换手机号 API,后端接口待确认
-      // const res = await fetch('/api/user/settings/change-phone', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ oldPhone: CURRENT_PHONE, oldCode, newPhone, newCode }),
-      // })
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      const r = await changePhone(newPhone.trim(), newCode.trim())
+      if (!r.success) {
+        setTip(r.error || t('changePhoneVerifyFailed'))
+        return
+      }
       setTip(t('changePhoneSuccess'))
       setTimeout(() => router.back(), 1000)
     } catch {
@@ -126,7 +150,9 @@ export default function ChangePhonePage() {
           <CardContent className="space-y-4">
             <div className="rounded-md bg-muted/30 px-3 py-2">
               <span className="text-xs text-muted-foreground">{t('changePhoneCurrentPhone')}</span>
-              <p className="mt-0.5 font-mono text-sm font-medium">{maskedPhone}</p>
+              <p className="mt-0.5 font-mono text-sm font-medium">
+                {profileQ.isLoading ? '加载中...' : maskedPhone}
+              </p>
             </div>
 
             <div className="flex gap-2">

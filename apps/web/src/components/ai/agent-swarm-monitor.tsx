@@ -18,7 +18,7 @@ interface AgentSwarmMonitorProps {
 }
 
 const STATUS_CLASS: Record<AgentStatus, string> = {
-  idle: 'bg-zinc-500/10 text-zinc-600',
+  idle: 'bg-muted text-muted-foreground',
   pending: 'bg-amber-500/10 text-amber-600',
   thinking: 'bg-amber-500/10 text-amber-600',
   acting: 'bg-violet-500/10 text-violet-600',
@@ -27,7 +27,7 @@ const STATUS_CLASS: Record<AgentStatus, string> = {
   running: 'bg-amber-500/10 text-amber-600',
   completed: 'bg-emerald-500/10 text-emerald-600',
   failed: 'bg-red-500/10 text-red-600',
-  cancelled: 'bg-zinc-500/10 text-zinc-600',
+  cancelled: 'bg-muted text-muted-foreground',
 }
 
 /**
