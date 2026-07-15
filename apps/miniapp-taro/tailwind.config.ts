@@ -11,7 +11,13 @@ import type { Config } from 'tailwindcss'
 
 export default {
   content: ['./src/**/*.{ts,tsx}'],
-  theme: { extend: {} },
+  theme: {
+    extend: {
+      colors: {
+        primary: 'hsl(142 71% 45% / <alpha-value>)',
+      },
+    },
+  },
   plugins: [],
   corePlugins: {
     preflight: false,

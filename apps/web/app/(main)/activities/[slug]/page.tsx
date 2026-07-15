@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Calendar, Users, Check, X, Sparkles } from 'lucide-react'
+import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui'
@@ -124,8 +125,9 @@ export default function ActivityDetailPage() {
 
       <div className="overflow-hidden rounded-lg border bg-card">
         {a.banner ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={a.banner} alt={a.title} className="h-48 w-full object-cover sm:h-64" />
+          <div className="relative h-48 w-full sm:h-64">
+            <Image src={a.banner} alt={a.title} fill className="object-cover" />
+          </div>
         ) : (
           <div className="flex h-48 w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 sm:h-64">
             <Sparkles className="h-12 w-12 text-primary/40" />

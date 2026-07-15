@@ -4,6 +4,7 @@ import { eq, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { videoGenerationTasks } from '@ihui/database'
 import { success, error } from '../utils/response.js'
+import { listDiscovered } from '../services/ai/ai-capability-discovery.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -145,11 +146,10 @@ async function configDelete(id: string): Promise<boolean> {
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // -------------------------------------------------------------------------
   // ai/capabilities — 统一 AI 能力列表
-  // NOTE: 旧架构 capabilities.py 为基于文件/Agent/Skill 的统一能力目录，无独立 DB 表；
-  // 此处返回静态能力目录作为合理默认值，待能力注册表迁移后替换。
+  // 优先查询 ai_capabilities 表（已注册能力），为空时 fallback 到静态能力目录。
   // -------------------------------------------------------------------------
-  server.get('/capabilities', async (_req, reply) => {
-    const capabilities = [
+  server.get('/capabilities', async (req, reply) => {
+    const fallback = [
       { id: 'chat', name: 'AI 对话', models: ['gpt-4o', 'claude-3.5-sonnet', 'deepseek-chat'] },
       { id: 'image-gen', name: 'AI 绘画', models: ['dall-e-3', 'sd-xl', 'flux'] },
       { id: 'video-gen', name: 'AI 视频', models: ['sora', 'runway-gen3'] },
@@ -157,7 +157,25 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       { id: 'code', name: 'AI 代码', models: ['cursor', 'copilot'] },
       { id: 'voice', name: 'AI 语音', models: ['whisper', 'tts-1'] },
     ]
-    return reply.send(success(capabilities))
+    try {
+      const discovered = await listDiscovered()
+      if (discovered.length > 0) {
+        const capabilities = discovered.map((c) => ({
+          id: c.id,
+          name: c.displayName || c.name,
+          category: c.category,
+          provider: c.provider,
+          version: c.version,
+          status: c.status,
+          enabled: c.enabled,
+          reachable: c.reachable,
+        }))
+        return reply.send(success(capabilities))
+      }
+    } catch (e) {
+      req.log.error(e)
+    }
+    return reply.send(success(fallback))
   })
 
   // -------------------------------------------------------------------------

@@ -86,7 +86,7 @@ export default function TeacherList() {
                 <View className="flex items-center gap-2">
                   <Text className="text-base text-[#333] font-semibold">{t.name}</Text>
                   {t.title && (
-                    <Text className="text-xs text-[#07c160] bg-[#e6f0ff] px-1.5 py-0.5 rounded">
+                    <Text className="text-xs text-[#07c160] bg-[#e6f7ee] px-1.5 py-0.5 rounded">
                       {t.title}
                     </Text>
                   )}

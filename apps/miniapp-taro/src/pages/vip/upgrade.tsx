@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -19,7 +20,7 @@ export default function UpgradePage() {
       const res = await upgradeVip(selected + 1)
       Taro.navigateTo({ url: `/pages/pay/index?orderNo=${res.orderNo}` })
     } catch (e) {
-      console.error('[vip/upgrade] 升级VIP failed:', e)
+      logger.error('vip/upgrade', '升级VIP', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [selected])

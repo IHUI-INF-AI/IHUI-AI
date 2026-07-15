@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Layers, BookOpen, Users, Loader2, PlayCircle } from 'lucide-react'
+import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
@@ -94,13 +95,13 @@ export default function LearnTopicDetailPage() {
       {/* 专题信息 */}
       <Card>
         <CardContent className="flex flex-col gap-4 p-6 md:flex-row">
-          <div className="flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 md:w-64">
+          <div className="relative flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 md:w-64">
             {topic.coverImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={topic.coverImage}
                 alt={topic.title}
-                className="h-full w-full rounded-lg object-cover"
+                fill
+                className="rounded-lg object-cover"
               />
             ) : (
               <Layers className="h-12 w-12 text-primary/40" />
@@ -148,10 +149,9 @@ export default function LearnTopicDetailPage() {
               return (
                 <Link key={lesson.id} href={`/learn/${lesson.id}`} className="group block">
                   <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
-                    <div className="flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                    <div className="relative flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                       {cover ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cover} alt={title} className="h-full w-full object-cover" />
+                        <Image src={cover} alt={title} fill className="object-cover" />
                       ) : (
                         <PlayCircle className="h-10 w-10 text-primary/40" />
                       )}

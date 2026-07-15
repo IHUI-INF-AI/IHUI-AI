@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -14,7 +15,7 @@ export default function PlazaCover() {
       const res = (await api.getModelPlazaList()) as Record<string, unknown>
       setList((res?.list as Record<string, unknown>[]) || [])
     } catch (e) {
-      console.error('加载模型广场失败:', e)
+      logger.error('unknown', '加载模型广场', e)
     } finally {
       setLoading(false)
     }

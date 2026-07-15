@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
@@ -10,7 +11,7 @@ export default function Avatar() {
     try {
       setAvatar((await getProfile()).avatar || '')
     } catch (e) {
-      console.error('[user/avatar] 获取用户信息 failed:', e)
+      logger.error('user/avatar', '获取用户信息', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   })
@@ -26,7 +27,7 @@ export default function Avatar() {
           await updateUserAvatar(path)
           Taro.showToast({ title: '更新成功', icon: 'success' })
         } catch (e) {
-          console.error('[user/avatar] 更新头像 failed:', e)
+          logger.error('user/avatar', '更新头像', e)
           Taro.showToast({ title: '操作失败', icon: 'none' })
         }
       },

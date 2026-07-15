@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { UploadCloud, X, Loader2 } from 'lucide-react'
+import Image from 'next/image'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -77,8 +78,7 @@ export function ImageUpload({
           key={idx}
           className="group relative h-20 w-20 overflow-hidden rounded-md border bg-muted"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt="" className="h-full w-full object-cover" />
+          <Image src={url} alt="" fill className="object-cover" />
           <button
             type="button"
             onClick={() => handleRemove(idx)}

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 
 interface AnimationItem {
   id: number
@@ -80,20 +81,22 @@ export function IhuiAiEffectsLayer({
       {showBg && (
         <div className="ihui-ai-background-layer">
           {!imgError.top && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src="/images/ihui-ai/bgtop.png"
               alt=""
+              width={1920}
+              height={1080}
               className="ihui-ai-bg-top"
               loading="lazy"
               onError={() => setImgError((p) => ({ ...p, top: true }))}
             />
           )}
           {!imgError.feature && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src="/images/ihui-ai/featurebg.png"
               alt=""
+              width={1920}
+              height={1080}
               className="ihui-ai-bg-feature"
               loading="lazy"
               onError={() => setImgError((p) => ({ ...p, feature: true }))}
