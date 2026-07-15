@@ -4,61 +4,29 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Layers, BookOpen, Users, Loader2, PlayCircle, Sparkles, Info } from 'lucide-react'
+import {
+  ArrowLeft,
+  Layers,
+  BookOpen,
+  Users,
+  Loader2,
+  PlayCircle,
+  Sparkles,
+  Info,
+} from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui'
-
-interface TopicLesson {
-  id: string
-  title: string
-  name?: string
-  coverImage?: string
-  image?: string
-  cover?: string
-  intro?: string
-  instructor?: string
-  price?: string | number
-  originalPrice?: string | number | null
-  isFree?: boolean
-}
-interface TopicDetail {
-  id: string
-  title: string
-  coverImage?: string
-  image?: string
-  description?: string
-  lessonIds?: string[]
-  learnNum?: number
-  price?: number | string
-  originalPrice?: number | string | null
-  lessonList?: TopicLesson[]
-  lessons?: TopicLesson[]
-}
-type TopicSource = 'lesson' | 'premium'
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
-interface LoadedTopic {
-  source: TopicSource
-  topic: TopicDetail
-}
-
-async function loadTopic(id: string): Promise<LoadedTopic> {
-  try {
-    const r = await api<{ topic: TopicDetail }>(`/api/topics/${id}`)
-    return { source: 'lesson', topic: r.topic }
-  } catch (lessonErr) {
-    const r = await api<TopicDetail>(`/api/learn/topics/${id}`)
-    if (r && 'error' in r) throw lessonErr
-    return { source: 'premium', topic: r }
-  }
-}
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@ihui/ui'
+import { fetchPremiumLessons, loadTopic, type TopicLesson } from '../helpers'
 
 export default function LearnTopicDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -68,22 +36,17 @@ export default function LearnTopicDetailPage() {
     queryFn: () => loadTopic(id),
   })
 
-  const premiumLessonsQ = useQuery({
-    queryKey: ['learn', 'topic', id, 'lessons'],
-    queryFn: async () => {
-      if (!data || data.source !== 'premium') return [] as TopicLesson[]
-      return api<TopicLesson[]>(`/api/learn/topics/${id}/lessons`).then((r) =>
-        Array.isArray(r) ? r : ((r as { list?: TopicLesson[] }).list ?? []),
-      )
-    },
-    enabled: false,
-  })
+  const [premiumLessons, setPremiumLessons] = React.useState<TopicLesson[]>([])
 
   React.useEffect(() => {
-    if (data?.source === 'premium' && !premiumLessonsQ.isFetched) {
-      void premiumLessonsQ.refetch()
+    if (data?.source === 'premium') {
+      fetchPremiumLessons(id)
+        .then(setPremiumLessons)
+        .catch(() => setPremiumLessons([]))
+    } else {
+      setPremiumLessons([])
     }
-  }, [data, premiumLessonsQ])
+  }, [data, id])
 
   if (isLoading)
     return (
@@ -113,10 +76,7 @@ export default function LearnTopicDetailPage() {
   const topic = data.topic
   const source = data.source
   const coverImage = topic.coverImage ?? topic.image
-  const lessons =
-    source === 'premium'
-      ? (premiumLessonsQ.data ?? [])
-      : (topic.lessonList ?? topic.lessons ?? [])
+  const lessons = source === 'premium' ? premiumLessons : (topic.lessonList ?? topic.lessons ?? [])
   const priceNum = topic.price === undefined ? undefined : Number(topic.price)
 
   return (
@@ -134,12 +94,7 @@ export default function LearnTopicDetailPage() {
         <CardContent className="flex flex-col gap-4 p-6 md:flex-row">
           <div className="relative flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 md:w-64">
             {coverImage ? (
-              <Image
-                src={coverImage}
-                alt={topic.title}
-                fill
-                className="rounded-lg object-cover"
-              />
+              <Image src={coverImage} alt={topic.title} fill className="rounded-lg object-cover" />
             ) : (
               <Layers className="h-12 w-12 text-primary/40" />
             )}
@@ -188,11 +143,7 @@ export default function LearnTopicDetailPage() {
                 </span>
               )}
               {typeof priceNum === 'number' && (
-                <span
-                  className={
-                    priceNum > 0 ? 'font-medium text-primary' : 'text-emerald-600'
-                  }
-                >
+                <span className={priceNum > 0 ? 'font-medium text-primary' : 'text-emerald-600'}>
                   {priceNum > 0 ? `￥${priceNum}` : '免费'}
                 </span>
               )}
