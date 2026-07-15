@@ -1,9 +1,21 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import type * as dns from 'node:dns'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
+})
+
+vi.mock('node:dns', async () => {
+  const actual = await vi.importActual<typeof dns>('node:dns')
+  return {
+    ...actual,
+    promises: {
+      ...actual.promises,
+      lookup: vi.fn().mockImplementation(async () => [{ address: '8.8.8.8', family: 4 }]),
+    },
+  }
 })
 
 vi.mock('../../db/index.js', () => {
