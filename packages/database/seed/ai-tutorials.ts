@@ -10,6 +10,7 @@ const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@lo
 // 本次新增: ai-coding-communities.json + claude-code-tutorials.json + cursor-skills-tutorials.json
 //          + vibe-coding-tutorials.json + prompt-engineering-tutorials.json + ai-coding-tools-comparison.json
 //          + clawdbot-import-articles.json + clawdbot-import-resources.json
+// 补充迁移: expert_courses.json (11 大类专家课程清单 — 吴恩达/李宏毅/李沐/Stanford/3Blue1Brown/Karpathy/fast.ai/DeepSeek/LangChain/RAG/LLM 综合 + 国家平台 + 官方文档)
 const aiTutorials = [
   // ========== MCP 教程 (来源: mcp-tutorials.json) ==========
   // 视频资源
@@ -641,6 +642,239 @@ const aiTutorials = [
     url: 'https://docs.clawdbot.com/api',
     description: 'Clawdbot REST API 完整文档，用于二次开发',
   },
+  // ========== 专家课程清单 (来源: expert_courses.json) ==========
+  // 吴恩达系列
+  {
+    title: '2025公认最好的【吴恩达大模型】教程',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1Bq421A74G/',
+    description:
+      '生成式AI、提示词工程、大语言模型微调、RAG、LangChain、MCP、智能体AI。中英字幕、附课件代码',
+  },
+  {
+    title: '吴恩达机器学习经典名课【中英字幕】',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV164411S78V/',
+    description: '112课时，监督学习、无监督学习、神经网络、深度学习。经典课程、中英字幕',
+  },
+  {
+    title: '【吴恩达机器学习】全套教程 Machine Learning Specialization',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1Hi421i74D/',
+    description: '100课时，机器学习专项课程。2024版、中英字幕',
+  },
+  // 李宏毅系列
+  {
+    title: '（2025版）李宏毅机器学习深度学习系列课程全集',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1TAtwzTE1S/',
+    description:
+      'CNN、RNN、LSTM、Transformer、GAN、强化学习、元学习、RAG、AI Agent。公认体验感最好的入门课程、15个实验作业',
+  },
+  {
+    title: '【2025版】李宏毅强化学习系列课程',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV15hw9euExZ/',
+    description: '深度Q网络(DQN)、Actor-Critic方法。强化学习专项',
+  },
+  // 李沐系列
+  {
+    title: '【李沐】动手学深度学习',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV18h411r7Z7/',
+    description: 'PyTorch实现、从基础到进阶。配套教材d2l.ai',
+  },
+  {
+    title: '【2025版】李沐深度学习系列课程',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1daQAYuEYm/',
+    description:
+      '191集、CNN、RNN、LSTM、GAN、DQN、Transformer、自编码器、注意力机制。逐行精讲、工业级应用',
+  },
+  // 斯坦福名校课程
+  {
+    title: 'Stanford CS229 机器学习',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1JE411w7Ub/',
+    description: '吴恩达讲授、研究生课程。中文字幕、100小时',
+  },
+  {
+    title: 'Stanford CS231n 深度学习与计算机视觉',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1nJ411z7fe/',
+    description: '李飞飞领衔、CNN视觉入门。Spring 2017版、中文字幕',
+  },
+  // 3Blue1Brown 数学基础
+  {
+    title: '3Blue1Brown线性代数本质系列',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1TE411k7qg/',
+    description: '向量、矩阵变换、特征值、15集。可视化数学、中文字幕',
+  },
+  {
+    title: '3Blue1Brown神经网络系列',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1As411o7Px/',
+    description: '神经网络基础、反向传播。直观动画讲解',
+  },
+  // Andrej Karpathy 系列
+  {
+    title: 'Neural Networks: Zero to Hero系列',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1GN4y1w7kU/',
+    description: 'micrograd、makemore、GPT从零实现。手写神经网络、深度讲解',
+  },
+  // fast.ai 实战课程
+  {
+    title: 'fast.ai深度学习实践课程',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/av41718196/',
+    description: '自上而下教学、PyTorch/fastai。中文字幕、实战导向',
+  },
+  // DeepSeek 实战
+  {
+    title: 'DeepSeek-R1+RAGFlow本地部署个人知识库教程',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1qQN3evE2s/',
+    description: '本地部署、RAG知识库。2025最新',
+  },
+  {
+    title: 'DeepSeek本地部署+Coze智能体快速入门',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1SjdpYdENr/',
+    description: 'Ollama部署、Coze智能体。零成本部署',
+  },
+  // LangChain 与 AI Agent
+  {
+    title: 'AI Agent入门到精通实战教程(Agent+RAG+LangChain)',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1jmyhBoE6T/',
+    description: '97集、Agent、RAG、LangChain全知识点。ReAct框架、Tool、Memory、MCP',
+  },
+  {
+    title: '大模型全套保姆级教程(LLM+RAG+Agent+Langchain)',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1x3XrYwEo6/',
+    description: '47集、LangGraph、AutoGen、CrewAI。从0-1快速上手',
+  },
+  // RAG 检索增强
+  {
+    title: 'RAGFlow构建本地个人知识库',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1usQVYRExV/',
+    description: '18集、RAG原理、向量数据库、Rerank。2025最详细',
+  },
+  {
+    title: 'Ollama教程：本地部署、模型量化、微调、RAG',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV11H9hYqEP2/',
+    description: 'Ollama全方面应用。从入门到精通',
+  },
+  // 大模型综合课程
+  {
+    title: '【全748集】AI大模型零基础全套教程',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1uNk1YxEJQ/',
+    description: 'Python入门、AI环境搭建、提示词工程、大模型应用。310万播放、最全教程',
+  },
+  {
+    title: '2026讲的最好的AI大模型视频教程',
+    category: 'expert-course',
+    type: 'video',
+    source: 'expert_courses.json',
+    url: 'https://www.bilibili.com/video/BV1urmTBsEaU/',
+    description: 'Transformer、RAG、Agent、LangChain、DeepSeek。95集核心知识',
+  },
+  // 国家平台
+  {
+    title: '中国大学MOOC — 机器学习(浙大)/人工智能之深度学习(电子科大)/人工智能引论(浙大)',
+    category: 'expert-course',
+    type: 'article',
+    source: 'expert_courses.json',
+    url: 'https://icourse163.org/',
+    description: '国家精品在线开放课程平台，含多门名校 AI 课程',
+  },
+  {
+    title: '学堂在线 — 清华大学AI课程/国家智慧教育公共服务平台AI课堂',
+    category: 'expert-course',
+    type: 'article',
+    source: 'expert_courses.json',
+    url: 'https://www.xuetangx.com/',
+    description: '清华大学发起的慕课平台，包含清华 AI 课程与国家智慧教育平台资源',
+  },
+  {
+    title: '国家智慧教育公共服务平台 — 清华MAIC全AI守护课堂/迈向通用的人工智能(刘知远)',
+    category: 'expert-course',
+    type: 'article',
+    source: 'expert_courses.json',
+    url: 'https://www.smartedu.cn/',
+    description: '国家公共服务平台，汇集顶尖高校 AI 课堂资源',
+  },
+  // 官方文档
+  {
+    title: 'Anthropic Claude官方文档',
+    category: 'expert-course',
+    type: 'doc',
+    source: 'expert_courses.json',
+    url: 'https://docs.anthropic.com/zh-CN/',
+    description: '提示词工程、Claude API、最佳实践',
+  },
+  {
+    title: 'OpenAI官方中文文档',
+    category: 'expert-course',
+    type: 'doc',
+    source: 'expert_courses.json',
+    url: 'https://openai.com/zh-Hans-CN/api/',
+    description: 'GPT API、结构化输出、Function Calling',
+  },
+  {
+    title: 'Hugging Face LLM课程',
+    category: 'expert-course',
+    type: 'doc',
+    source: 'expert_courses.json',
+    url: 'https://hugging-face.cn/learn/llm-course/',
+    description: 'Transformers、Datasets、Tokenizers',
+  },
 ]
 
 // 资源分类映射（用于创建资源分类并关联）
@@ -656,6 +890,7 @@ const categoryMap = [
   { name: 'AI工具对比', pid: null, sort: 9 },
   { name: 'Clawdbot文章', pid: null, sort: 10 },
   { name: 'Clawdbot扩展资源', pid: null, sort: 11 },
+  { name: '专家课程', pid: null, sort: 12 },
 ]
 
 const categoryKeyMap: Record<string, string> = {
@@ -670,6 +905,7 @@ const categoryKeyMap: Record<string, string> = {
   'ai-tools-comparison': 'AI工具对比',
   'clawdbot-articles': 'Clawdbot文章',
   'clawdbot-resources': 'Clawdbot扩展资源',
+  'expert-course': '专家课程',
 }
 
 export async function seedAiTutorials() {
