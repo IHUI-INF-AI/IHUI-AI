@@ -1,0 +1,4 @@
+{
+  "messages": [{ "role": "user", "content": "你好,请用一句话介绍你自己" }],
+  "model": "stepfun/step-3.7-flash"
+}
