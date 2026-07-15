@@ -717,11 +717,11 @@ export async function findLessonStudyReport(opts: {
       viewCount: lessons.viewCount,
       completedCount: sql<number>`(
         SELECT count(*)::int FROM ${lessonSignUps}
-        WHERE ${lessonSignUps.lessonId} = ${lessons.id} AND ${lessonSignUps.status} = 2
+        WHERE ${lessonSignUps.lessonId} = ${sql.raw('lessons.id')} AND ${lessonSignUps.status} = 2
       )`,
       avgProgress: sql<number>`COALESCE((
         SELECT avg(${lessonSignUps.progress})::int FROM ${lessonSignUps}
-        WHERE ${lessonSignUps.lessonId} = ${lessons.id}
+        WHERE ${lessonSignUps.lessonId} = ${sql.raw('lessons.id')}
       ), 0)`,
     })
     .from(lessons)

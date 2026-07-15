@@ -11957,7 +11957,34 @@
       "val4Title": "共有・共栄",
       "val4Desc": "とai，"
     },
-    "title": "ai"
+    "title": "ai",
+    "admin": {
+      "sites": {
+        "title": "AI ワールドサイト管理",
+        "agentManagerBtn": "エージェント管理へ",
+        "notice": "AI ワールドサイトは公開されたエージェントで構成されています。サイトの新規作成や変更はエージェント管理で行ってください。",
+        "loading": "読み込み中...",
+        "categoriesTitle": "カテゴリー設定（{count}）",
+        "hotAppsTitle": "人気サイト（{count}）",
+        "emptyHotApps": "人気サイトがありません。エージェント管理でエージェントを公開してください。",
+        "table": {
+          "name": "サイト名",
+          "id": "ID",
+          "action": "操作"
+        },
+        "edit": "編集",
+        "iconLabels": {
+          "message": "会話",
+          "palette": "絵画",
+          "video": "動画",
+          "music": "音楽",
+          "code": "コード",
+          "briefcase": "事務",
+          "graduation": "教育",
+          "megaphone": "マーケティング"
+        }
+      }
+    }
   },
   "aiCommunity": {
     "title": "aiコミュニティ",
@@ -19957,7 +19984,35 @@
     "coherent": "とと，から，",
     "transition": "切替",
     "sceneTransition": "转场",
-    "confirmCharContinue": "ロールですいいえ"
+    "confirmCharContinue": "ロールですいいえ",
+    "editor": {
+      "title": "ショートドラマエディタ",
+      "subtitle": "AI による脚本作成支援：全体強化（キャラクター一貫性 + ペース分析 + 章構成）と単行書き換え",
+      "enhance": {
+        "title": "全体強化",
+        "scriptIdPlaceholder": "脚本 ID",
+        "titlePlaceholder": "脚本タイトル（任意）",
+        "submitBtn": "強化",
+        "consistency": "キャラクター一貫性：",
+        "pacing": "ペース分析：",
+        "outline": "章構成："
+      },
+      "lineRewrite": {
+        "title": "単行書き換え",
+        "scriptIdPlaceholder": "脚本 ID",
+        "scenePlaceholder": "シーン",
+        "linePlaceholder": "行",
+        "contentPlaceholder": "セリフ内容",
+        "instructionPlaceholder": "書き換え指示（任意、例如：より口語的に）",
+        "submitBtn": "書き換え",
+        "original": "原文：",
+        "rewritten": "書き換え："
+      },
+      "errors": {
+        "scriptIdRequired": "脚本 ID を入力してください",
+        "scriptIdAndContentRequired": "脚本 ID とセリフ内容を入力してください"
+      }
+    }
   },
   "studyAdd": {
     "cover": "カバー",
@@ -23257,5 +23312,10 @@
       "answered": "回答済み",
       "pending": "未回答"
     }
+  },
+  "forbidden": {
+    "title": "アクセス権限がありません",
+    "description": "申し訳ございません、このページにアクセスする権限がありません。権限の付与については管理者にお問い合わせください。",
+    "backToHome": "ホームへ戻る"
   }
 }
