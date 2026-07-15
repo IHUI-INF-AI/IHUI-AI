@@ -44,6 +44,15 @@ const WHITELIST = new Set([
   'developer.ts',
   'agents.ts',
   'legacy-completion.ts',
+  // R70 补齐 — 用户自身/admin 上下文 PII 可见
+  'users.ts',
+  'auth-identity.ts',
+  'webhooks.ts',
+  'admin-api-platform.ts',
+  'admin.ts',
+  'usercenter.ts',
+  'admin-auth-edu-routes.ts',
+  'member-users.ts',
 ])
 
 function getFilesToCheck() {
