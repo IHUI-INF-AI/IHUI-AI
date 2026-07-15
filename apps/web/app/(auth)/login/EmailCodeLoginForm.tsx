@@ -6,7 +6,8 @@ import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore, type AuthUser } from '@/stores/auth'
+import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { emailSchema, type TokenResult } from './types'
 
@@ -19,6 +20,7 @@ export function EmailCodeLoginForm({ active, onSuccess }: EmailCodeLoginFormProp
   const t = useTranslations('auth')
   const router = useRouter()
   const setToken = useAuthStore((s) => s.setToken)
+  const setUser = useAuthStore((s) => s.setUser)
 
   const [email, setEmail] = React.useState('')
   const [emailCode, setEmailCode] = React.useState('')
@@ -96,6 +98,14 @@ export function EmailCodeLoginForm({ active, onSuccess }: EmailCodeLoginFormProp
         return
       }
       setToken(json.data.accessToken)
+      // 后端仅返回 userId + accessToken,缺少完整 user 字段;先写最小 user 占位,
+      // 再异步拉 /me 补全 nickname/avatar/roleId 等字段,Header 即可正常显示。
+      if (json.data.userId) {
+        setUser({ id: json.data.userId, nickname: '' })
+        void fetchApi<{ user: AuthUser }>('/api/auth/me').then((r) => {
+          if (r.success) setUser(r.data.user)
+        })
+      }
       if (onSuccess) onSuccess()
       else router.push('/')
     } catch {
