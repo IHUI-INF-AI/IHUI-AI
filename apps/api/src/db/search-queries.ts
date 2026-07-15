@@ -17,6 +17,31 @@ import {
 
 export type SearchType = 'user' | 'project' | 'file' | 'all'
 
+/**
+ * 中文分词:对含中文的 query 做 2-gram 滑动窗口分词
+ * 简化实现历史项目 Lucene HMMChineseTokenizer 的中文搜索能力
+ * - "人工智能教育" → ["人工智能教育", "人工", "工智", "智能", "能教", "教育", "人", "工", "智", "能", "教", "育"]
+ * - 非中文 query 返回空数组,走原 tsvector 路径
+ */
+export function segmentChineseQuery(q: string): string[] {
+  const trimmed = q.trim()
+  if (!trimmed) return []
+  if (!/[\u4e00-\u9fa5]/.test(trimmed)) return []
+
+  const tokens = new Set<string>()
+  tokens.add(trimmed)
+
+  for (let i = 0; i < trimmed.length - 1; i++) {
+    const token = trimmed.slice(i, i + 2)
+    if (/[\u4e00-\u9fa5]{2}/.test(token)) tokens.add(token)
+  }
+
+  const chineseChars = trimmed.match(/[\u4e00-\u9fa5]/g) ?? []
+  for (const ch of chineseChars) tokens.add(ch)
+
+  return [...tokens]
+}
+
 export interface SearchUserRow {
   id: string
   nickname: string | null
@@ -65,6 +90,19 @@ async function searchUsers(q: string, like: string, limit: number): Promise<Sear
     phone: users.phone,
     avatar: users.avatar,
   }
+  const chineseTokens = segmentChineseQuery(q)
+  if (chineseTokens.length > 0) {
+    const conds = chineseTokens.flatMap((t) => [
+      ilike(users.nickname, `%${t}%`),
+      ilike(users.email, `%${t}%`),
+      ilike(users.phone, `%${t}%`),
+    ])
+    return (await dbRead
+      .select(cols)
+      .from(users)
+      .where(or(...conds))
+      .limit(limit)) as SearchUserRow[]
+  }
   try {
     return (await dbRead
       .select(cols)
@@ -104,6 +142,18 @@ async function searchProjects(
       SELECT COUNT(*)::int FROM ${files} WHERE ${files.projectId} = ${sql.raw('projects.id')}
     )`,
     updatedAt: projects.updatedAt,
+  }
+  const chineseTokens = segmentChineseQuery(q)
+  if (chineseTokens.length > 0) {
+    const conds = chineseTokens.flatMap((t) => [
+      ilike(projects.name, `%${t}%`),
+      ilike(projects.description, `%${t}%`),
+    ])
+    return (await dbRead
+      .select(cols)
+      .from(projects)
+      .where(and(eq(projects.userId, userId), or(...conds)))
+      .limit(limit)) as SearchProjectRow[]
   }
   try {
     return (await dbRead
@@ -148,6 +198,16 @@ async function searchFiles(
     projectId: files.projectId,
     createdAt: files.createdAt,
     projectName: projects.name,
+  }
+  const chineseTokens = segmentChineseQuery(q)
+  if (chineseTokens.length > 0) {
+    const conds = chineseTokens.map((t) => ilike(files.name, `%${t}%`))
+    return (await dbRead
+      .select(cols)
+      .from(files)
+      .innerJoin(projects, eq(files.projectId, projects.id))
+      .where(and(eq(projects.userId, userId), or(...conds)))
+      .limit(limit)) as SearchFileRow[]
   }
   try {
     return (await dbRead
