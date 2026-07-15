@@ -11968,7 +11968,34 @@
       "val4Title": "TotalTotal",
       "val4Desc": "andCooperatePartnerTotalAI，How manySquareTotal"
     },
-    "title": "AI"
+    "title": "AI",
+    "admin": {
+      "sites": {
+        "title": "AI World Site Management",
+        "agentManagerBtn": "Go to Agent Management",
+        "notice": "AI World sites are composed of published Agents. To add or modify sites, please operate in Agent Management.",
+        "loading": "Loading...",
+        "categoriesTitle": "Categories ({count})",
+        "hotAppsTitle": "Hot Sites ({count})",
+        "emptyHotApps": "No hot sites yet. Please publish an Agent in Agent Management.",
+        "table": {
+          "name": "Site Name",
+          "id": "ID",
+          "action": "Action"
+        },
+        "edit": "Edit",
+        "iconLabels": {
+          "message": "Chat",
+          "palette": "Art",
+          "video": "Video",
+          "music": "Music",
+          "code": "Code",
+          "briefcase": "Office",
+          "graduation": "Education",
+          "megaphone": "Marketing"
+        }
+      }
+    }
   },
   "aiCommunity": {
     "title": "AICommunity",
@@ -19973,7 +20000,35 @@
     "coherent": "andupMon and，from，peopleThingMon",
     "transition": "切换",
     "sceneTransition": "转场",
-    "confirmCharContinue": "ConfirmRole Nobackout"
+    "confirmCharContinue": "ConfirmRole Nobackout",
+    "editor": {
+      "title": "Drama Editor",
+      "subtitle": "AI-assisted script creation: full enhancement (character consistency + pacing analysis + chapter outline) and single-line rewrite",
+      "enhance": {
+        "title": "Full Enhancement",
+        "scriptIdPlaceholder": "Script ID",
+        "titlePlaceholder": "Script title (optional)",
+        "submitBtn": "Enhance",
+        "consistency": "Character Consistency:",
+        "pacing": "Pacing Analysis:",
+        "outline": "Chapter Outline:"
+      },
+      "lineRewrite": {
+        "title": "Single-Line Rewrite",
+        "scriptIdPlaceholder": "Script ID",
+        "scenePlaceholder": "Scene",
+        "linePlaceholder": "Line",
+        "contentPlaceholder": "Dialogue content",
+        "instructionPlaceholder": "Rewrite instruction (optional, e.g. more colloquial)",
+        "submitBtn": "Rewrite",
+        "original": "Original:",
+        "rewritten": "Rewritten:"
+      },
+      "errors": {
+        "scriptIdRequired": "Please enter the script ID",
+        "scriptIdAndContentRequired": "Please enter the script ID and dialogue content"
+      }
+    }
   },
   "studyAdd": {
     "cover": "Cover",
@@ -23273,5 +23328,10 @@
       "answered": "Answered",
       "pending": "Pending"
     }
+  },
+  "forbidden": {
+    "title": "No Permission",
+    "description": "Sorry, you do not have permission to access this page. Please contact the administrator to request access.",
+    "backToHome": "Back to Home"
   }
 }
