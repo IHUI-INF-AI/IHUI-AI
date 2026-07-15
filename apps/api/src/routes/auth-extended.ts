@@ -174,6 +174,12 @@ const pageLimitQuery = z.object({
 const skIdParam = z.object({ skId: z.string() })
 
 export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
+  // 所有 auth-extended 端点响应中携带 accessToken/refreshToken/access_token/refresh_token
+  // 必须跳过响应脱敏,否则会被 response-sanitizer 的 'token' 子串匹配误伤为 '***'
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
   // 邮箱登录
   server.post(
     '/auth/login/email',
