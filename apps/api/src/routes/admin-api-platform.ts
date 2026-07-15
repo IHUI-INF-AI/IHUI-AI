@@ -58,6 +58,12 @@ const usageQuerySchema = z.object({
 // =============================================================================
 
 export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
+  // admin 创建 API 平台应用后返回明文 secret,需跳过响应脱敏
+  // 防止 response-sanitizer 把 secret 字段误伤为 '***'
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
   server.addHook('preHandler', requireAdmin)
 
   // ===== 应用管理（developerApiKeys）=====

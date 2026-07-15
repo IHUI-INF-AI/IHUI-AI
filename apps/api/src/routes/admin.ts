@@ -83,6 +83,12 @@ const createUserBodySchema = z.object({
 // =============================================================================
 
 export const adminRoutes: FastifyPluginAsync = async (server) => {
+  // admin 用户列表/详情/创建响应含 phone/email,需跳过响应脱敏
+  // 防止 response-sanitizer 把敏感字段误伤为 '***'
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
   // 统一 admin 鉴权：authenticate + requireActiveUser + requireAdmin，一次注册应用于全部 admin 路由
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
