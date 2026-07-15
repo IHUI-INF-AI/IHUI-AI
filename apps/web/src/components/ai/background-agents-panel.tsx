@@ -144,7 +144,7 @@ export function BackgroundAgentsPanel({
 
                   <div className="mt-1 flex items-center gap-2">
                     <span className="text-[10px] text-muted-foreground">
-                      {dateFormat(agent.updated_at || agent.created_at, 'HH:mm:ss')}
+                      {dateFormat(agent.updated_at || agent.created_at, 'time')}
                     </span>
                     <div className="ml-auto flex items-center gap-1">
                       {agent.status === 'running' && (

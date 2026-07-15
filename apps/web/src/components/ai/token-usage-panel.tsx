@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/lib/date-utils'
 
 interface TokenUsagePanelProps {
   promptTokens: number
@@ -14,7 +15,7 @@ interface TokenUsagePanelProps {
 function StatItem({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex flex-col">
-      <span className="text-lg font-semibold tabular-nums">{value.toLocaleString()}</span>
+      <span className="text-lg font-semibold tabular-nums">{formatNumber(value)}</span>
       <span className="text-xs text-muted-foreground">{label}</span>
     </div>
   )
