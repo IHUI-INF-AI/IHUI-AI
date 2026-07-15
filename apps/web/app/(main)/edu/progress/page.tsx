@@ -96,7 +96,7 @@ export default function EduProgressPage() {
                         title={`${w.hours}h`}
                       />
                     </div>
-                    <span className="text-[10px] text-muted-foreground">{fmt(w.date)}</span>
+                    <span className="text-xs text-muted-foreground">{fmt(w.date)}</span>
                   </div>
                 ))}
               </div>

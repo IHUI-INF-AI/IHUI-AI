@@ -36,6 +36,7 @@ import { workflowRoutes } from './routes/workflows.js'
 import { commentRoutes } from './routes/comments.js'
 import { communityRoutes } from './routes/community.js'
 import { socialRoutes } from './routes/social.js'
+import { interactionsRoutes } from './routes/interactions.js'
 import { promotionRoutes, adminPromotionRoutes } from './routes/promotions.js'
 import { gamificationRoutes } from './routes/gamification.js'
 import { contentRoutes, adminContentRoutes } from './routes/content.js'
@@ -201,9 +202,19 @@ import { pushRoutes, adminPushRoutes } from './routes/push.js'
 // P1-4 补建：文件转码服务（FFmpeg 子进程封装）
 import { transcodeRoutes, adminTranscodeRoutes } from './routes/transcode.js'
 
+// P1-5 补建：迁移缺口补全（7 个后端缺失路由文件）
+import { webrtcVoiceRoutes } from './routes/webrtc-voice.js'
+import { luyalaRoutes } from './routes/ai-vendors/luyala.js'
+import { wsBroadcast } from './plugins/ws-broadcast.js'
+import { outboundRoutes } from './routes/outbound.js'
+import { aiVideoComposeRoutes } from './routes/ai-video-compose.js'
+import { legacyLangchainRoutes } from './routes/legacy-langchain.js'
+import { rewardedVideoAdRoutes } from './routes/rewarded-video-ad.js'
+
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
 import authPlugin from './plugins/auth.js'
+import rlsContextPlugin from './plugins/rls-context.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
 import apiLoggerPlugin from './plugins/api-logger.js'
@@ -331,6 +342,9 @@ async function registerPlugins(server: FastifyInstance) {
   // auth 插件：注册 @fastify/jwt + request.userId 装饰器
   await server.register(authPlugin)
 
+  // RLS 上下文：每个请求设置 PG 会话变量供 RLS 策略使用
+  await server.register(rlsContextPlugin)
+
   // 多租户中间件：从 header/subdomain 解析租户, 装饰 request.tenantId
   await server.register(tenantPlugin)
 
@@ -363,6 +377,8 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(wsCustomerService)
   // WebSocket 支付状态实时推送:/ws/payment/status/:orderNo
   await server.register(wsPayment)
+  // WebSocket 公共广播推送:/ws/broadcast + server.broadcastToUser 装饰器
+  await server.register(wsBroadcast)
 
   // 审计日志插件：onResponse 异步记录所有 POST/PATCH/PUT/DELETE 写请求
   await server.register(auditPlugin)
@@ -438,6 +454,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(communityRoutes, { prefix: '/api' })
   // 社交关系：/api/follows /api/favorites /api/subscriptions /api/tags
   server.register(socialRoutes, { prefix: '/api' })
+  // 互动统一入口：/api/interactions/like /comment /follow(复用 comments + social query)
+  server.register(interactionsRoutes, { prefix: '/api/interactions' })
   // 邀请码 / 活动 / 优惠券：/api/invitations /api/activities /api/coupons + /api/admin/activities /api/admin/coupons
   server.register(promotionRoutes, { prefix: '/api' })
   server.register(adminPromotionRoutes, { prefix: '/api/admin' })
@@ -766,4 +784,18 @@ function registerRoutes(server: FastifyInstance) {
   // ===== P1-4 补建：文件转码服务（FFmpeg 子进程封装）=====
   server.register(transcodeRoutes, { prefix: '/api' })
   server.register(adminTranscodeRoutes, { prefix: '/api/admin' })
+
+  // ===== P1-5 补建：迁移缺口补全（7 个后端缺失路由文件）=====
+  // WebRTC 语音通话信令:/api/webrtc-voice/session|offer|ice-candidate|end
+  server.register(webrtcVoiceRoutes, { prefix: '/api/webrtc-voice' })
+  // 路亚拉(luyala)视频/语音代理:/api/ai-vendors/luyala/video|voice|tasks/:id
+  server.register(luyalaRoutes, { prefix: '/api/ai-vendors/luyala' })
+  // 外呼业务编排:/api/outbound/campaign + start/stop/stats
+  server.register(outboundRoutes, { prefix: '/api/outbound' })
+  // 一键视频编排(脚本→素材→合成→字幕):/api/ai-video-compose + /:id + /:id/regenerate
+  server.register(aiVideoComposeRoutes, { prefix: '/api/ai-video-compose' })
+  // LangChain API 兼容路由(旧客户端兼容):/api/langchain/chat|agent|models
+  server.register(legacyLangchainRoutes, { prefix: '/api/langchain' })
+  // 激励视频广告回调:/api/rewarded-video-ad/notify|config
+  server.register(rewardedVideoAdRoutes, { prefix: '/api/rewarded-video-ad' })
 }

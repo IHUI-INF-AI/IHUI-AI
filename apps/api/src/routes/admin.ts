@@ -15,7 +15,7 @@ import {
   updateProjectAdmin,
   deleteProjectAdmin,
 } from '../db/admin-queries.js'
-import { createUser, type CreateUserInput } from '../db/queries.js'
+import { createUser, isSystemAdminUser, type CreateUserInput } from '../db/queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import bcrypt from 'bcryptjs'
 
@@ -340,6 +340,10 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsedBody.error.issues[0]?.message ?? '参数错误'))
       }
 
+      if (await isSystemAdminUser(parsedParams.data.id)) {
+        return reply.status(403).send(error(403, '系统内置管理员不可修改'))
+      }
+
       const existing = await findUserById(parsedParams.data.id)
       if (!existing) {
         return reply.status(404).send(error(404, '用户不存在'))
@@ -448,6 +452,10 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
           },
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
           404: {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
@@ -459,6 +467,9 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       const parsed = idParamSchema.safeParse(request.params)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      if (await isSystemAdminUser(parsed.data.id)) {
+        return reply.status(403).send(error(403, '系统内置管理员不可删除'))
       }
       const user = await updateUserStatus(parsed.data.id, 3)
       if (!user) {

@@ -1064,6 +1064,25 @@
       "startLearning": "Start Learning",
       "duration": "Duration",
       "studentsLabel": "Students"
+    },
+    "topic": {
+      "title": "Learning Topics",
+      "subtitle": "Curated and premium topics for systematic learning",
+      "empty": "No topics available",
+      "loading": "Loading...",
+      "free": "Free",
+      "lessonCount": "{count} courses",
+      "learnNum": "{count} learners",
+      "type": {
+        "lesson": {
+          "label": "Course Topic",
+          "tip": "Curated course bundles, free to learn."
+        },
+        "premium": {
+          "label": "Premium Topic",
+          "tip": "Includes company/department custom content; may require payment."
+        }
+      }
     }
   },
   "exam": {

@@ -30,7 +30,7 @@ export function AnswerArea({ answer }: { answer: ShareContent['answer'] }) {
 
       {/* 文本内容（支持 markdown 渲染） */}
       {answer.text && (
-        <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words text-[15px] leading-7 text-foreground">
+        <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words text-sm leading-7 text-foreground">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer.text}</ReactMarkdown>
         </div>
       )}

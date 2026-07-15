@@ -34,7 +34,7 @@ export const Heatmap = React.memo(function Heatmap({
             {xLabels?.map((label, i) => (
               <span
                 key={`x-${i}`}
-                className="flex-1 px-1 text-center text-[10px] text-muted-foreground"
+                className="flex-1 px-1 text-center text-xs text-muted-foreground"
               >
                 {label}
               </span>
@@ -44,14 +44,14 @@ export const Heatmap = React.memo(function Heatmap({
         {data.map((row, i) => (
           <div key={`row-${i}`} className="flex items-center">
             {yLabels && (
-              <span className="w-16 shrink-0 pr-2 text-right text-[10px] text-muted-foreground">
+              <span className="w-16 shrink-0 pr-2 text-right text-xs text-muted-foreground">
                 {yLabels[i]}
               </span>
             )}
             {row.map((v, j) => (
               <div
                 key={j}
-                className="m-0.5 flex aspect-square min-w-[24px] items-center justify-center rounded text-[10px] font-medium transition-transform hover:scale-110"
+                className="m-0.5 flex aspect-square min-w-[24px] items-center justify-center rounded text-xs font-medium transition-transform hover:scale-110"
                 style={{
                   backgroundColor: color,
                   opacity: getOpacity(v),

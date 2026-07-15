@@ -99,6 +99,11 @@ interface BusinessMetrics {
   // 新增：WebSocket 连接指标（Gauge，单值）
   wsConnections: number
   wsNoticeSubscriptions: number
+  // 新增：WebSocket 事件计数器（Counter，单值）
+  wsConnectTotal: number
+  wsMessageReceivedTotal: number
+  wsMessageSentTotal: number
+  wsDisconnectTotal: number
   // 新增：业务异常指标
   errorsTotal: Map<string, number> // key: endpoint|error_type
   // 新增：TTFT 指标
@@ -274,6 +279,10 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     // WebSocket 连接指标
     wsConnections: 0,
     wsNoticeSubscriptions: 0,
+    wsConnectTotal: 0,
+    wsMessageReceivedTotal: 0,
+    wsMessageSentTotal: 0,
+    wsDisconnectTotal: 0,
     // 业务异常指标
     errorsTotal: new Map(),
     // TTFT 指标
@@ -383,6 +392,18 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   })
   server.decorate('recordWsNoticeSubscriptions', (count: number) => {
     m.wsNoticeSubscriptions = count
+  })
+  server.decorate('recordWsConnect', () => {
+    m.wsConnectTotal++
+  })
+  server.decorate('recordWsMessageReceived', () => {
+    m.wsMessageReceivedTotal++
+  })
+  server.decorate('recordWsMessageSent', () => {
+    m.wsMessageSentTotal++
+  })
+  server.decorate('recordWsDisconnect', () => {
+    m.wsDisconnectTotal++
   })
 
   // ===== 新增：业务异常指标装饰器 =====
@@ -610,6 +631,22 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE business_ws_notice_subscriptions gauge')
     lines.push(`business_ws_notice_subscriptions ${m.wsNoticeSubscriptions}`)
 
+    lines.push('# HELP business_ws_connect_total Total WebSocket connections established')
+    lines.push('# TYPE business_ws_connect_total counter')
+    lines.push(`business_ws_connect_total ${m.wsConnectTotal}`)
+
+    lines.push('# HELP business_ws_message_received_total Total WebSocket messages received')
+    lines.push('# TYPE business_ws_message_received_total counter')
+    lines.push(`business_ws_message_received_total ${m.wsMessageReceivedTotal}`)
+
+    lines.push('# HELP business_ws_message_sent_total Total WebSocket messages sent')
+    lines.push('# TYPE business_ws_message_sent_total counter')
+    lines.push(`business_ws_message_sent_total ${m.wsMessageSentTotal}`)
+
+    lines.push('# HELP business_ws_disconnect_total Total WebSocket disconnections')
+    lines.push('# TYPE business_ws_disconnect_total counter')
+    lines.push(`business_ws_disconnect_total ${m.wsDisconnectTotal}`)
+
     // 11. 业务异常指标
     lines.push('# HELP business_errors_total Business errors by endpoint and error type')
     lines.push('# TYPE business_errors_total counter')
@@ -716,6 +753,14 @@ declare module 'fastify' {
     recordWsConnections: (count: number) => void
     /** 设置当前通知订阅数（Gauge）。 */
     recordWsNoticeSubscriptions: (count: number) => void
+    /** 上报 WS 连接建立（Counter）。 */
+    recordWsConnect: () => void
+    /** 上报 WS 消息接收（Counter）。 */
+    recordWsMessageReceived: () => void
+    /** 上报 WS 消息发送（Counter）。 */
+    recordWsMessageSent: () => void
+    /** 上报 WS 连接断开（Counter）。 */
+    recordWsDisconnect: () => void
     /** 上报业务异常（Counter，按 endpoint + error_type）。 */
     recordBusinessError: (endpoint: string, errorType: string) => void
     /** 上报 TTFT 首 token 延迟（秒，Histogram，按 model + endpoint）。 */

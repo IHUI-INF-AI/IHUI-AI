@@ -157,7 +157,7 @@ describe('share-content-routes — 路由层真实 DB 集成测试', () => {
       const content = await createContent({
         userUuid: 'user-1',
         gcType,
-        content: JSON.stringify({ answer: { url: `https://example.com/${gcType}` } }),
+        content: JSON.stringify({ answer: { text: `https://example.com/${gcType}` } }),
       })
       const res = await server.inject({
         method: 'GET',
@@ -165,7 +165,7 @@ describe('share-content-routes — 路由层真实 DB 集成测试', () => {
       })
       const body = res.json()
       expect(body.data.gcType).toBe(gcType)
-      expect(body.data.answer).toEqual({ url: `https://example.com/${gcType}` })
+      expect(body.data.answer.text).toBe(`https://example.com/${gcType}`)
     }
   })
 

@@ -55,6 +55,9 @@ export type { CommentProps, CommentItem } from './Comment'
 export { default as PayPopup } from './PayPopup'
 export type { PayPopupProps, PayInfo } from './PayPopup'
 
+export { default as VerifyCodeModal } from './VerifyCodeModal'
+export type { VerifyCodeModalProps, VerifyCodeType } from './VerifyCodeModal'
+
 // ============ P0-2 通用 15 组件 ============
 export { default as LoadingSpinner } from './LoadingSpinner'
 export type { LoadingSpinnerProps } from './LoadingSpinner'
@@ -194,3 +197,13 @@ export type { NotificationSettingsProps, NotificationSettingItem } from './Notif
 
 export { default as CustomerServiceFloat } from './CustomerServiceFloat'
 export type { CustomerServiceFloatProps } from './CustomerServiceFloat'
+
+// ============ AI 聊天 3 组件 ============
+export { default as InputArea } from './InputArea'
+export type { InputAreaProps } from './InputArea'
+
+export { default as SkillsPopup } from './SkillsPopup'
+export type { SkillsPopupProps, AgentItem, SkillCategory } from './SkillsPopup'
+
+export { default as MaterialPopup } from './MaterialPopup'
+export type { MaterialPopupProps, MaterialItem, MaterialTab } from './MaterialPopup'

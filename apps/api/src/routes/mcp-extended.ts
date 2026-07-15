@@ -1,14 +1,19 @@
 /**
- * MCP 项目管理与集成扩展（6 端点）。
+ * MCP 项目管理与集成扩展（11 端点）。
  * 前端 use-mcp.ts / use-mcp-integration.ts 调用但后端缺失。
  *
  * 端点清单：
- * 1. GET  /mcp/projects                  — 项目列表
- * 2. GET  /mcp/projects/:id              — 项目详情
- * 3. GET  /mcp/projects/:projectId/performance — 性能统计
- * 4. POST /mcp/projects/:projectId/use   — 使用记录
- * 5. GET  /mcp/integrations              — 集成列表
- * 6. POST /mcp/integrations/:id/toggle   — 启用/禁用
+ * 1.  GET    /mcp/projects                       — 项目列表
+ * 2.  POST   /mcp/projects                       — 创建项目
+ * 3.  GET    /mcp/projects/:id                   — 项目详情
+ * 4.  DELETE /mcp/projects/:id                   — 删除项目
+ * 5.  GET    /mcp/projects/:projectId/performance — 性能统计
+ * 6.  GET    /mcp/projects/:projectId/use        — 使用统计（读）
+ * 7.  POST   /mcp/projects/:projectId/use        — 使用记录（写）
+ * 8.  GET    /mcp/integrations                   — 集成列表
+ * 9.  POST   /mcp/integrations                   — 创建集成
+ * 10. DELETE /mcp/integrations/:id               — 删除集成
+ * 11. POST   /mcp/integrations/:id/toggle        — 启用/禁用
  *
  * 数据存储：system_configs 表 category='mcp_project' / 'mcp_integration'。
  */
@@ -122,6 +127,13 @@ async function configUpdate(
   return r ? rowToConfig(r) : null
 }
 
+async function configDelete(id: string): Promise<boolean> {
+  const rows = await db.execute(
+    sql`DELETE FROM "system_configs" WHERE "id"::text = ${id} RETURNING id`,
+  )
+  return (rows as Record<string, unknown>[]).length > 0
+}
+
 export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   // 1. GET /mcp/projects — 项目列表
@@ -139,7 +151,9 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // POST /mcp/projects — 创建项目（前端 use-mcp.ts 调用）
+  // ==========================================================================
+  // 2. POST /mcp/projects — 创建项目（前端 use-mcp.ts 调用）
+  // ==========================================================================
   server.post('/mcp/projects', async (request, reply) => {
     await authenticate(request)
     const parsed = projectBody.safeParse(request.body)
@@ -154,7 +168,7 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // 2. GET /mcp/projects/:id — 项目详情
+  // 3. GET /mcp/projects/:id — 项目详情
   // ==========================================================================
   server.get('/mcp/projects/:id', async (request, reply) => {
     await authenticate(request)
@@ -171,7 +185,24 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // 3. GET /mcp/projects/:projectId/performance — 性能统计
+  // 4. DELETE /mcp/projects/:id — 删除项目（前端 use-mcp.ts removeProject 调用）
+  // ==========================================================================
+  server.delete('/mcp/projects/:id', async (request, reply) => {
+    await authenticate(request)
+    const parsed = idParam.safeParse(request.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    try {
+      const ok = await configDelete(parsed.data.id)
+      if (!ok) return reply.status(404).send(error(404, 'MCP 项目不存在'))
+      return reply.send(success({ id: parsed.data.id, deleted: true }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '删除 MCP 项目失败'))
+    }
+  })
+
+  // ==========================================================================
+  // 5. GET /mcp/projects/:projectId/performance — 性能统计
   // ==========================================================================
   server.get('/mcp/projects/:projectId/performance', async (request, reply) => {
     await authenticate(request)
@@ -198,7 +229,32 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // 4. POST /mcp/projects/:projectId/use — 使用记录（累计 stats.calls）
+  // 6. GET /mcp/projects/:projectId/use — 使用统计（读，前端 useMcpUse 调用）
+  // ==========================================================================
+  server.get('/mcp/projects/:projectId/use', async (request, reply) => {
+    await authenticate(request)
+    const parsed = projectIdParam.safeParse(request.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的项目 ID'))
+    try {
+      const project = await configById(parsed.data.projectId)
+      if (!project) return reply.status(404).send(error(404, 'MCP 项目不存在'))
+      const stats = (project.stats as Record<string, unknown> | undefined) ?? {}
+      return reply.send(
+        success({
+          projectId: parsed.data.projectId,
+          toolCalls: (stats.toolCalls as number | undefined) ?? (stats.calls as number | undefined) ?? 0,
+          resourceReads: (stats.resourceReads as number | undefined) ?? 0,
+          promptsUsed: (stats.promptsUsed as number | undefined) ?? 0,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询 MCP 使用统计失败'))
+    }
+  })
+
+  // ==========================================================================
+  // 7. POST /mcp/projects/:projectId/use — 使用记录（写，累计 stats）
   // ==========================================================================
   server.post('/mcp/projects/:projectId/use', async (request, reply) => {
     await authenticate(request)
@@ -238,7 +294,7 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // 5. GET /mcp/integrations — 集成列表
+  // 8. GET /mcp/integrations — 集成列表
   // ==========================================================================
   server.get('/mcp/integrations', async (request, reply) => {
     await authenticate(request)
@@ -253,7 +309,9 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // POST /mcp/integrations — 创建集成（前端 use-mcp-integration.ts 调用）
+  // ==========================================================================
+  // 9. POST /mcp/integrations — 创建集成（前端 use-mcp-integration.ts 调用）
+  // ==========================================================================
   server.post('/mcp/integrations', async (request, reply) => {
     await authenticate(request)
     const parsed = integrationBody.safeParse(request.body)
@@ -271,7 +329,24 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // 6. POST /mcp/integrations/:id/toggle — 启用/禁用
+  // 10. DELETE /mcp/integrations/:id — 删除集成（前端 use-mcp-integration.ts 调用）
+  // ==========================================================================
+  server.delete('/mcp/integrations/:id', async (request, reply) => {
+    await authenticate(request)
+    const parsed = idParam.safeParse(request.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    try {
+      const ok = await configDelete(parsed.data.id)
+      if (!ok) return reply.status(404).send(error(404, 'MCP 集成不存在'))
+      return reply.send(success({ id: parsed.data.id, deleted: true }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '删除 MCP 集成失败'))
+    }
+  })
+
+  // ==========================================================================
+  // 11. POST /mcp/integrations/:id/toggle — 启用/禁用
   // ==========================================================================
   server.post('/mcp/integrations/:id/toggle', async (request, reply) => {
     await authenticate(request)
