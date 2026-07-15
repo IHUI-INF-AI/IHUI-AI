@@ -1,5 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { sql } from 'drizzle-orm'
+import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
@@ -14,6 +16,50 @@ import {
   cancelUserVip,
 } from '../db/vip-queries.js'
 import { createOrder } from '../db/payment-queries.js'
+
+// =============================================================================
+// system_configs JSON 存储辅助（用于无独立表的资源 CRUD，按 category 区分）
+// =============================================================================
+
+function parseJSONValue(s: unknown): Record<string, unknown> {
+  if (typeof s !== 'string') return {}
+  try {
+    const v = JSON.parse(s)
+    return typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function rowToConfig(r: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...parseJSONValue(r.value),
+    id: r.id,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }
+}
+
+async function configList(
+  category: string,
+  page: number,
+  pageSize: number,
+): Promise<{ list: Record<string, unknown>[]; total: number; page: number; pageSize: number }> {
+  const offset = (page - 1) * pageSize
+  const rows = await db.execute(
+    sql`SELECT id, value, created_at, updated_at FROM "system_configs" WHERE "category" = ${category} ORDER BY "created_at" DESC LIMIT ${pageSize} OFFSET ${offset}`,
+  )
+  const countRows = await db.execute(
+    sql`SELECT count(*)::int AS count FROM "system_configs" WHERE "category" = ${category}`,
+  )
+  const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
+  return {
+    list: (rows as Record<string, unknown>[]).map(rowToConfig),
+    total,
+    page,
+    pageSize,
+  }
+}
 
 const ADMIN_ROLE_ID = 1
 
@@ -87,6 +133,67 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
         vipLevelId: level.id,
       }),
     )
+  })
+
+  // ==========================================================================
+  // VIP 扩展端点（3 个）
+  // ==========================================================================
+
+  // GET /vip/faqs — FAQ 列表（从 system_configs category='vip_faq' 查询）
+  server.get('/vip/faqs', async (_request, reply) => {
+    try {
+      const result = await configList('vip_faq', 1, 100)
+      return reply.send(success(result))
+    } catch (e) {
+      _request.log.error(e)
+      return reply.status(500).send(error(500, '查询 VIP FAQ 失败'))
+    }
+  })
+
+  // POST /vip/order — 创建 VIP 订单（复用 createOrder 逻辑）
+  const vipOrderBody = z.object({
+    vipLevelId: z.string().min(1),
+    paymentMethod: z.string().optional().default('wechat'),
+    quantity: z.number().int().positive().optional().default(1),
+  })
+  server.post('/vip/order', async (request, reply) => {
+    await authenticate(request)
+    const parsed = vipOrderBody.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { vipLevelId, paymentMethod, quantity } = parsed.data
+    const level = await findVipLevel(vipLevelId)
+    if (!level || level.status !== 1) {
+      return reply.status(404).send(error(404, 'VIP 等级不存在'))
+    }
+    const order = await createOrder({
+      userId: request.userId!,
+      amount: level.price * quantity,
+      orderType: 2,
+      productId: level.id,
+      payType: paymentMethod,
+    })
+    return reply.send(
+      success({
+        orderId: order.id,
+        orderNo: order.orderNo,
+        amount: level.price * quantity,
+        vipLevelId: level.id,
+        quantity,
+      }),
+    )
+  })
+
+  // GET /vip/testimonials — 用户评价列表（从 system_configs category='vip_testimonial' 查询）
+  server.get('/vip/testimonials', async (_request, reply) => {
+    try {
+      const result = await configList('vip_testimonial', 1, 100)
+      return reply.send(success(result))
+    } catch (e) {
+      _request.log.error(e)
+      return reply.status(500).send(error(500, '查询 VIP 用户评价失败'))
+    }
   })
 }
 

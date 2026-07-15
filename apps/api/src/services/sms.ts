@@ -12,6 +12,52 @@ import {
   CODE_TTL_MS,
   CODE_RESEND_INTERVAL_MS,
 } from '../utils/code-store.js'
+import { logger } from '../utils/logger.js'
+
+const FETCH_TIMEOUT_MS = 10_000
+
+async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+interface AliyunSmsModules {
+  default: new (config: unknown) => { sendSms(request: unknown): Promise<unknown> }
+  SendSmsRequest: new (input: Record<string, unknown>) => unknown
+  Config: new (input: Record<string, unknown>) => unknown
+}
+
+let aliyunSdkCache: AliyunSmsModules | null | undefined
+
+async function loadAliyunSdk(): Promise<AliyunSmsModules | null> {
+  if (aliyunSdkCache !== undefined) return aliyunSdkCache
+  try {
+    // 阿里云短信 SDK 为可选依赖,未安装时降级为日志输出
+    // @ts-expect-error 可选模块,类型声明见 src/types/optional-deps.d.ts
+    const sdk = (await import('@alicloud/dysmsapi20170525')) as AliyunSmsModules
+    // @ts-expect-error 可选模块,类型声明见 src/types/optional-deps.d.ts
+    const openApi = (await import('@alicloud/openapi-client')) as {
+      Config: new (input: Record<string, unknown>) => unknown
+    }
+    aliyunSdkCache = {
+      default: sdk.default,
+      SendSmsRequest: sdk.SendSmsRequest,
+      Config: openApi.Config,
+    }
+    return aliyunSdkCache
+  } catch (e) {
+    logger.warn('阿里云短信 SDK 未安装或加载失败,降级为日志输出', {
+      error: (e as Error).message,
+    })
+    aliyunSdkCache = null
+    return null
+  }
+}
 
 interface RateLimitEntry {
   count: number
@@ -95,20 +141,50 @@ async function dispatchSms(phone: string, code: string): Promise<void> {
     await sendViaProxy(phone, code)
     return
   }
-  // 策略 3：dev console
-  console.info(`[DEV SMS] phone=${phone} code=${code}`)
+  // 策略 3：dev console（降级）
+  logger.warn('SMS 降级为 console 输出（未配置阿里云/代理）', { phone })
 }
 
 async function sendViaAliyun(phone: string, code: string): Promise<void> {
-  // 阿里云短信 SDK 调用（简化实现，生产可安装 @alicloud/sms20170525）
-  // 此处为占位，密钥配置后实际接入
-  console.info(`[Aliyun SMS] phone=${phone} code=${code} (待接入 SDK)`)
+  const signName = env.ALI_SMS_SIGN_NAME
+  const templateCode = env.ALI_SMS_TEMPLATE_CODE
+  if (!signName || !templateCode) {
+    logger.warn('阿里云短信缺少 ALI_SMS_SIGN_NAME 或 ALI_SMS_TEMPLATE_CODE,降级为 console', {
+      phone,
+    })
+    return
+  }
+
+  const sdk = await loadAliyunSdk()
+  if (!sdk) {
+    logger.warn('阿里云短信 SDK 不可用,降级为 console', { phone })
+    return
+  }
+
+  try {
+    const config = new sdk.Config({
+      accessKeyId: env.ALI_SMS_ACCESS_KEY_ID,
+      accessKeySecret: env.ALI_SMS_ACCESS_KEY_SECRET,
+      endpoint: 'dysmsapi.aliyuncs.com',
+    })
+    const client = new sdk.default(config)
+    const request = new sdk.SendSmsRequest({
+      phoneNumbers: phone,
+      signName,
+      templateCode,
+      templateParam: JSON.stringify({ code }),
+    })
+    await client.sendSms(request)
+  } catch (e) {
+    logger.warn(`阿里云短信发送失败: ${(e as Error).message}`, { phone })
+    throw e
+  }
 }
 
 async function sendViaProxy(phone: string, code: string): Promise<void> {
   const base = env.SMS_API_BASE_URL!
   const endpoint = env.SMS_VERIFY_ENDPOINT ?? '/ai/login/pwd/smsVerify'
-  await fetch(`${base}${endpoint}`, {
+  await fetchWithTimeout(`${base}${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ phone, code }),
@@ -122,19 +198,44 @@ export async function sendSmsMessage(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (env.ALI_SMS_ACCESS_KEY_ID && env.ALI_SMS_ACCESS_KEY_SECRET) {
-      console.info(`[Aliyun SMS] phone=${phone} content=${content} (待接入 SDK)`)
+      const signName = env.ALI_SMS_SIGN_NAME
+      const templateCode = env.ALI_SMS_TEMPLATE_CODE
+      if (!signName || !templateCode) {
+        logger.warn('阿里云短信缺少 ALI_SMS_SIGN_NAME 或 ALI_SMS_TEMPLATE_CODE,降级为 console', {
+          phone,
+        })
+        return { success: true }
+      }
+      const sdk = await loadAliyunSdk()
+      if (!sdk) {
+        logger.warn('阿里云短信 SDK 不可用,降级为 console', { phone })
+        return { success: true }
+      }
+      const config = new sdk.Config({
+        accessKeyId: env.ALI_SMS_ACCESS_KEY_ID,
+        accessKeySecret: env.ALI_SMS_ACCESS_KEY_SECRET,
+        endpoint: 'dysmsapi.aliyuncs.com',
+      })
+      const client = new sdk.default(config)
+      const request = new sdk.SendSmsRequest({
+        phoneNumbers: phone,
+        signName,
+        templateCode,
+        templateParam: JSON.stringify({ content }),
+      })
+      await client.sendSms(request)
       return { success: true }
     }
     if (env.SMS_API_BASE_URL) {
       const base = env.SMS_API_BASE_URL!
-      await fetch(`${base}/sms/send`, {
+      await fetchWithTimeout(`${base}/sms/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, content }),
       })
       return { success: true }
     }
-    console.info(`[DEV SMS] phone=${phone} content=${content}`)
+    logger.warn('SMS 降级为 console 输出（未配置阿里云/代理）', { phone })
     return { success: true }
   } catch (e) {
     return { success: false, error: (e as Error).message }
