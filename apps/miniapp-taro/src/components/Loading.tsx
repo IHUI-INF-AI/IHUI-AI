@@ -34,28 +34,3 @@ export default function Loading({
 
   return <View className="flex items-center justify-center py-8">{spinner}</View>
 }
-
-export interface SkeletonProps {
-  rows?: number
-  avatar?: boolean
-  className?: string
-}
-
-export function Skeleton({ rows = 3, avatar = false, className = '' }: SkeletonProps) {
-  return (
-    <View className={`px-4 py-3 ${className}`}>
-      <View className="flex items-start">
-        {avatar && <View className="w-10 h-10 mr-3 rounded-full bg-gray-100 animate-pulse" />}
-        <View className="flex-1 space-y-2">
-          {Array.from({ length: rows }).map((_, i) => (
-            <View
-              key={i}
-              className="h-3 rounded bg-gray-100 animate-pulse"
-              style={{ width: `${100 - i * 15}%` }}
-            />
-          ))}
-        </View>
-      </View>
-    </View>
-  )
-}
