@@ -24,6 +24,7 @@ import {
   TableCell,
 } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/lib/date-utils'
 
 interface UsageRow {
   id: string
@@ -137,7 +138,7 @@ export default function AdminApiPlatformUsagePage() {
               </CardHeader>
               <CardContent>
                 <div className={cn('text-2xl font-bold', c.cls)}>
-                  {typeof c.value === 'number' ? c.value.toLocaleString() : c.value}
+                  {typeof c.value === 'number' ? formatNumber(c.value) : c.value}
                 </div>
                 {c.key === 'success' && (
                   <div className="mt-1 text-xs text-muted-foreground">
@@ -182,11 +183,11 @@ export default function AdminApiPlatformUsagePage() {
                 return (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.appName}</TableCell>
-                    <TableCell>{r.callCount.toLocaleString()}</TableCell>
+                    <TableCell>{formatNumber(r.callCount)}</TableCell>
                     <TableCell className="text-emerald-600">
-                      {r.successCount.toLocaleString()}
+                      {formatNumber(r.successCount)}
                     </TableCell>
-                    <TableCell className="text-red-600">{r.failCount.toLocaleString()}</TableCell>
+                    <TableCell className="text-red-600">{formatNumber(r.failCount)}</TableCell>
                     <TableCell>{r.avgLatency}ms</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

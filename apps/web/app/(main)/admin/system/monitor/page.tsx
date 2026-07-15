@@ -2,11 +2,21 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, MonitorCog, Server, Database, Cpu, Activity, HardDrive, Network } from 'lucide-react'
+import {
+  Loader2,
+  MonitorCog,
+  Server,
+  Database,
+  Cpu,
+  Activity,
+  HardDrive,
+  Network,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/lib/date-utils'
 
 interface SystemMetrics {
   cpu: number
@@ -32,11 +42,12 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const SERVICE_STYLE: Record<ServiceStatus['status'], { dot: string; text: string; label: string }> = {
-  running: { dot: 'bg-emerald-500', text: 'text-emerald-600', label: '运行中' },
-  stopped: { dot: 'bg-muted-foreground', text: 'text-muted-foreground', label: '已停止' },
-  error: { dot: 'bg-red-500', text: 'text-red-600', label: '异常' },
-}
+const SERVICE_STYLE: Record<ServiceStatus['status'], { dot: string; text: string; label: string }> =
+  {
+    running: { dot: 'bg-emerald-500', text: 'text-emerald-600', label: '运行中' },
+    stopped: { dot: 'bg-muted-foreground', text: 'text-muted-foreground', label: '已停止' },
+    error: { dot: 'bg-red-500', text: 'text-red-600', label: '异常' },
+  }
 
 export default function AdminSystemMonitorPage() {
   const { data: metrics } = useQuery({
@@ -46,7 +57,10 @@ export default function AdminSystemMonitorPage() {
   })
   const { data: services = [], isLoading } = useQuery({
     queryKey: ['admin', 'system', 'monitor', 'services'],
-    queryFn: () => api<{ list: ServiceStatus[] }>('/api/admin/system/monitor/services').then((d) => d.list ?? []),
+    queryFn: () =>
+      api<{ list: ServiceStatus[] }>('/api/admin/system/monitor/services').then(
+        (d) => d.list ?? [],
+      ),
     refetchInterval: 5000,
   })
 
@@ -82,11 +96,21 @@ export default function AdminSystemMonitorPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{c.value.toLocaleString()}{c.unit}</div>
+                <div className="text-2xl font-bold">
+                  {formatNumber(c.value)}
+                  {c.unit}
+                </div>
                 {!c.raw && c.max > 0 && (
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
                     <div
-                      className={cn('h-full rounded-full', c.value > 90 ? 'bg-red-500' : c.value > 70 ? 'bg-amber-500' : 'bg-emerald-500')}
+                      className={cn(
+                        'h-full rounded-full',
+                        c.value > 90
+                          ? 'bg-red-500'
+                          : c.value > 70
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-500',
+                      )}
                       style={{ width: `${Math.min(c.value, 100)}%` }}
                     />
                   </div>
@@ -113,15 +137,21 @@ export default function AdminSystemMonitorPage() {
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">负载（1/5/15分钟）</div>
-                <div className="mt-0.5 font-medium">{(metrics?.loadAvg ?? [0, 0, 0]).join(' / ')}</div>
+                <div className="mt-0.5 font-medium">
+                  {(metrics?.loadAvg ?? [0, 0, 0]).join(' / ')}
+                </div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">网络入站</div>
-                <div className="mt-0.5 font-medium">{((metrics?.network.in ?? 0) / 1024).toFixed(1)} KB/s</div>
+                <div className="mt-0.5 font-medium">
+                  {((metrics?.network.in ?? 0) / 1024).toFixed(1)} KB/s
+                </div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">网络出站</div>
-                <div className="mt-0.5 font-medium">{((metrics?.network.out ?? 0) / 1024).toFixed(1)} KB/s</div>
+                <div className="mt-0.5 font-medium">
+                  {((metrics?.network.out ?? 0) / 1024).toFixed(1)} KB/s
+                </div>
               </div>
             </div>
           </CardContent>
@@ -146,7 +176,10 @@ export default function AdminSystemMonitorPage() {
                 {services.map((s) => {
                   const st = SERVICE_STYLE[s.status]
                   return (
-                    <div key={s.name} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                    <div
+                      key={s.name}
+                      className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                    >
                       <div className="flex items-center gap-2">
                         <span className={cn('h-2 w-2 rounded-full', st.dot)} />
                         <span className="font-medium">{s.name}</span>

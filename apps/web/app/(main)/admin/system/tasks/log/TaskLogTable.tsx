@@ -6,6 +6,7 @@ import { HasPermi } from '@/components/auth/HasPermi'
 import { cn } from '@/lib/utils'
 import { th, STATUS_LABEL } from './helpers'
 import type { JobLog, SortState } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface Props {
   list: JobLog[]
@@ -104,7 +105,7 @@ export function TaskLogTable({
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
-                    {l.startTime ? new Date(l.startTime).toLocaleString() : '-'}
+                    {l.startTime ? formatDate(l.startTime) : '-'}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.costTime}ms</td>
                   <td className="px-4 py-2.5">

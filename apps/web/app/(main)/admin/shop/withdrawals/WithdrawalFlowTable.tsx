@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils'
 
 import { selectClass, inputSm, FLOW_STATUS, FLOW_STATUS_STYLE, FLOW_EXPORT } from './types'
 import type { useWithdrawalFlow } from './useWithdrawalFlow'
+import { formatDate } from '@/lib/date-utils'
 
 type Props = ReturnType<typeof useWithdrawalFlow>
 
@@ -194,10 +195,10 @@ export function WithdrawalFlowTable(props: Props) {
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {w.createdAt ? new Date(w.createdAt).toLocaleString() : '-'}
+                    {w.createdAt ? formatDate(w.createdAt) : '-'}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {w.updatedAt ? new Date(w.updatedAt).toLocaleString() : '-'}
+                    {w.updatedAt ? formatDate(w.updatedAt) : '-'}
                   </td>
                   <td className="max-w-xs break-words px-4 py-2.5">{w.transferDetail ?? '-'}</td>
                   <td className="px-4 py-2.5 text-right">

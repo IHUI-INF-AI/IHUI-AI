@@ -37,7 +37,7 @@ export function CirclesFilter({ search, setSearch, onCreate, mockMode }: Props) 
       </div>
       {mockMode && (
         <div className="w-full rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-          ⚠ {t('mockMode')}
+          [!] {t('mockMode')}
         </div>
       )}
     </div>

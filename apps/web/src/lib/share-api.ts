@@ -39,8 +39,14 @@ export interface ShareContent {
   answer: ShareAnswer
   tokenCost?: number
   createdAt: string
-  userAvatar?: string
-  userName?: string
+  userAvatar?: string | null
+  userName?: string | null
+  agentId?: string
+  userUuid?: string
+  gcType?: string
+  content?: string
+  /** 内容启用状态(1 启用,0 禁用,-1 软删);后端校验后已过滤 0/-1 */
+  status?: number
 }
 
 /**

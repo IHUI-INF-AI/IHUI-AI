@@ -8,6 +8,7 @@ import { Webhook, Activity, CheckCircle2, XCircle, Loader2, Clock } from 'lucide
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/lib/date-utils'
 
 interface EventStats {
   total: number
@@ -99,7 +100,7 @@ export default function EventBusMonitorPage() {
                   <c.icon className={cn('h-4 w-4', c.color)} />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{c.value.toLocaleString()}</div>
+                  <div className="text-2xl font-bold">{formatNumber(c.value)}</div>
                 </CardContent>
               </Card>
             ))}

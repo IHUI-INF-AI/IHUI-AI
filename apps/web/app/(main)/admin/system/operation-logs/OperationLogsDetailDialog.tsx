@@ -3,6 +3,7 @@
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
 import { BIZ_TYPE, STATUS_LABEL } from './helpers'
 import type { OperLog } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface OperationLogsDetailDialogProps {
   detail: OperLog | null
@@ -52,7 +53,7 @@ export function OperationLogsDetailDialog({ detail, onClose }: OperationLogsDeta
             </div>
             <div>
               <span className="text-muted-foreground">操作时间：</span>
-              {detail.operTime ? new Date(detail.operTime).toLocaleString() : '-'}
+              {detail.operTime ? formatDate(detail.operTime) : '-'}
             </div>
             <div className="col-span-2">
               <span className="text-muted-foreground">请求参数：</span>
