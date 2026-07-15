@@ -10,6 +10,7 @@ import {
   findUserById,
   createUser,
   updateUser,
+  cancelUserAccount,
   findRefreshToken,
   revokeRefreshToken,
 } from '../db/queries.js'
@@ -661,4 +662,73 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ revoked: true }))
     },
   )
+
+  // POST /api/auth/sms/send — 小程序别名（同 /send-code）
+  server.post(
+    '/sms/send',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = sendCodeSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { phone } = parsed.data
+      cleanupExpiredCodes()
+      const existing = codeStore.get(phone)
+      const now = Date.now()
+      if (existing && now - existing.sentAt < CODE_RESEND_INTERVAL_MS) {
+        return reply.status(429).send(error(429, '验证码已发送,请 60 秒后重试'))
+      }
+      const code = generateCode()
+      codeStore.set(phone, { code, expiresAt: now + CODE_TTL_MS, sentAt: now })
+      request.log.info({ phone, scene: parsed.data.scene }, '验证码已生成')
+      const isDev = process.env.NODE_ENV !== 'production'
+      return reply.send(
+        success(
+          isDev
+            ? { sent: true, code, expiresIn: CODE_TTL_MS / 1000 }
+            : { sent: true, expiresIn: CODE_TTL_MS / 1000 },
+        ),
+      )
+    },
+  )
+
+  // PUT /api/auth/password — 小程序别名（修改密码）
+  server.put('/password', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      return reply
+        .status(statusCode)
+        .send(error(statusCode, (e as Error).message || 'Authentication required'))
+    }
+    const body = (request.body as Record<string, string> | null) ?? {}
+    const oldPassword = body.old_password ?? body.oldPassword
+    const newPassword = body.new_password ?? body.newPassword
+    if (!oldPassword || !newPassword) {
+      return reply.status(400).send(error(400, '请提供原密码和新密码'))
+    }
+    if (newPassword.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
+    const user = await findUserById(request.userId!)
+    if (!user?.passwordHash || !bcrypt.compareSync(oldPassword, user.passwordHash)) {
+      return reply.status(400).send(error(400, '原密码错误'))
+    }
+    await updateUser(request.userId!, { passwordHash: bcrypt.hashSync(newPassword, 10) })
+    return reply.send(success({ updated: true }))
+  })
+
+  // DELETE /api/auth/account — 小程序别名（注销账号）
+  server.delete('/account', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      return reply
+        .status(statusCode)
+        .send(error(statusCode, (e as Error).message || 'Authentication required'))
+    }
+    await cancelUserAccount(request.userId!)
+    return reply.send(success({ cancelled: true }))
+  })
 }

@@ -2,15 +2,18 @@ import { type PropsWithChildren } from 'react'
 import { useLaunch } from '@tarojs/taro'
 import { checkLoginStatus, getToken, getUserInfo } from './utils/auth'
 import { showShareMenu } from './utils/share'
+import { initPrivacyGuard } from './utils/privacy'
 import websocketManager from './utils/websocket'
 import { BASE_URL } from './utils/request'
 import { I18nProvider } from './i18n'
+import CustomerServiceFloat from './components/CustomerServiceFloat'
 import './app.css'
 
 const WS_BASE = BASE_URL.replace(/^http/, 'ws').replace(/\/api$/, '')
 
 function App({ children }: PropsWithChildren<unknown>) {
   useLaunch(() => {
+    initPrivacyGuard()
     checkLoginStatus()
     showShareMenu()
     const token = getToken()
@@ -19,7 +22,12 @@ function App({ children }: PropsWithChildren<unknown>) {
       websocketManager.connect(`${WS_BASE}/ws/notifications?token=${token}`, userInfo.uuid)
     }
   })
-  return <I18nProvider>{children}</I18nProvider>
+  return (
+    <I18nProvider>
+      {children}
+      <CustomerServiceFloat />
+    </I18nProvider>
+  )
 }
 
 export default App
