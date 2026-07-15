@@ -303,6 +303,15 @@ export const refund = (data: { orderNo: string; reason: string }) => post('/orde
 export const getRefundList = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: Order[]; total: number }>('/order/refund/list', params)
 
+/** 创建充值订单（对接 payments/wechat|alipay/create） */
+export interface RechargeCreateResult {
+  outTradeNo: string
+  mock?: boolean
+  payParams?: Record<string, unknown>
+}
+export const createRecharge = (amount: number, payMethod: 'wechat' | 'alipay' = 'wechat') =>
+  post<RechargeCreateResult>(`/payments/${payMethod}/create?amount=${amount}`, {})
+
 /* ============ 分销 ============ */
 
 export interface DistributionInfo {

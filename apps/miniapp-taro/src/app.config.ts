@@ -122,6 +122,9 @@ export default defineAppConfig({
     'pages/distribution/company/index',
     'pages/study/video-detail/index',
     'pages/carte/index',
+    'pages/wallet/recharge/index',
+    'pages/wallet/recharge/success',
+    'pages/wallet/recharge/fail',
   ],
   window: {
     backgroundTextStyle: 'light',
