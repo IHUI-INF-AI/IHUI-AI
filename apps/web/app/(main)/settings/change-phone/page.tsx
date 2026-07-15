@@ -1,15 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
-import { Phone, ShieldCheck, AlertTriangle } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { ShieldCheck, AlertTriangle } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui'
 import { Container } from '@/components/layout'
-import { Input } from '@/components/form'
-import { useCountdown } from '@/hooks/use-countdown'
 import { getProfile } from '@/lib/user-api'
 import {
   sendChangePhoneOldCode,
@@ -18,14 +16,8 @@ import {
   changePhone,
 } from '@/lib/auth-api'
 
-const CODE_LENGTH = 6
-const COUNTDOWN_SECONDS = 60
-
-function maskPhone(phone: string): string {
-  const p = (phone || '').trim()
-  if (!p || p.length < 11) return '未绑定'
-  return p.slice(0, 3) + '****' + p.slice(-4)
-}
+import { Step1PhoneVerify } from './Step1PhoneVerify'
+import { Step2NewPhone } from './Step2NewPhone'
 
 export default function ChangePhonePage() {
   const t = useTranslations('settings')
@@ -38,9 +30,6 @@ export default function ChangePhonePage() {
   const [submitting, setSubmitting] = React.useState(false)
   const [tip, setTip] = React.useState('')
 
-  const oldCountdown = useCountdown(COUNTDOWN_SECONDS)
-  const newCountdown = useCountdown(COUNTDOWN_SECONDS)
-
   const profileQ = useQuery({
     queryKey: ['auth', 'me'],
     queryFn: async () => {
@@ -51,25 +40,18 @@ export default function ChangePhonePage() {
   })
 
   const currentPhone = profileQ.data?.phone ?? ''
-  const maskedPhone = React.useMemo(() => maskPhone(currentPhone), [currentPhone])
-
-  const canVerifyOld = oldCode.trim().length === CODE_LENGTH
-  const isNewPhoneValid = /^1\d{10}$/.test(newPhone.trim())
-  const canSubmitNew = isNewPhoneValid && newCode.trim().length === CODE_LENGTH
 
   const handleGetOldCode = async () => {
-    if (oldCountdown.isRunning) return
     const r = await sendChangePhoneOldCode()
     if (!r.success) {
       setTip(r.error)
       return
     }
-    oldCountdown.start()
     setTip(t('changePhoneCodeSent'))
   }
 
   const handleVerifyOld = async () => {
-    if (!canVerifyOld) {
+    if (oldCode.trim().length !== 6) {
       setTip(t('changePhoneInvalidCode'))
       return
     }
@@ -83,8 +65,7 @@ export default function ChangePhonePage() {
   }
 
   const handleGetNewCode = async () => {
-    if (newCountdown.isRunning) return
-    if (!isNewPhoneValid) {
+    if (!/^1\d{10}$/.test(newPhone.trim())) {
       setTip(t('changePhoneInvalidNewPhone'))
       return
     }
@@ -93,14 +74,17 @@ export default function ChangePhonePage() {
       setTip(r.error)
       return
     }
-    newCountdown.start()
     setTip(t('changePhoneCodeSent'))
   }
 
   const handleSubmit = async () => {
-    if (!canSubmitNew) {
-      if (!isNewPhoneValid) setTip(t('changePhoneInvalidNewPhone'))
-      else setTip(t('changePhoneInvalidCode'))
+    const isNewPhoneValid = /^1\d{10}$/.test(newPhone.trim())
+    if (!isNewPhoneValid) {
+      setTip(t('changePhoneInvalidNewPhone'))
+      return
+    }
+    if (newCode.trim().length !== 6) {
+      setTip(t('changePhoneInvalidCode'))
       return
     }
     if (submitting) return
@@ -140,99 +124,29 @@ export default function ChangePhonePage() {
       </Card>
 
       {step === 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Phone className="h-4 w-4" />
-              {t('changePhoneStep1Label')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-md bg-muted/30 px-3 py-2">
-              <span className="text-xs text-muted-foreground">{t('changePhoneCurrentPhone')}</span>
-              <p className="mt-0.5 font-mono text-sm font-medium">
-                {profileQ.isLoading ? '加载中...' : maskedPhone}
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <Input
-                placeholder={t('changePhoneOldCodePlaceholder')}
-                maxLength={CODE_LENGTH}
-                value={oldCode}
-                onChange={(e) => setOldCode(e.target.value.replace(/\D/g, ''))}
-                inputMode="numeric"
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                size="default"
-                disabled={oldCountdown.isRunning}
-                onClick={handleGetOldCode}
-                className="shrink-0"
-              >
-                {oldCountdown.isRunning ? `${oldCountdown.count}s` : t('changePhoneSendCode')}
-              </Button>
-            </div>
-
-            <Button className="w-full" disabled={!canVerifyOld} onClick={handleVerifyOld}>
-              {t('changePhoneNextStep')}
-            </Button>
-          </CardContent>
-        </Card>
+        <Step1PhoneVerify
+          t={t}
+          currentPhone={currentPhone}
+          isProfileLoading={profileQ.isLoading}
+          oldCode={oldCode}
+          onOldCodeChange={setOldCode}
+          onVerify={handleVerifyOld}
+          onGetOldCode={handleGetOldCode}
+        />
       )}
 
       {step === 2 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Phone className="h-4 w-4" />
-              {t('changePhoneStep2Label')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="rounded-md bg-green-50 px-3 py-2 text-xs text-green-700 dark:bg-green-950/40 dark:text-green-400">
-              {t('changePhoneStep1DoneTip')} {maskedPhone}
-            </p>
-
-            <Input
-              label={t('changePhoneNewPhoneLabel')}
-              placeholder={t('changePhoneNewPhonePlaceholder')}
-              maxLength={11}
-              value={newPhone}
-              onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, ''))}
-              inputMode="numeric"
-            />
-
-            <div className="flex gap-2">
-              <Input
-                placeholder={t('changePhoneNewCodePlaceholder')}
-                maxLength={CODE_LENGTH}
-                value={newCode}
-                onChange={(e) => setNewCode(e.target.value.replace(/\D/g, ''))}
-                inputMode="numeric"
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                size="default"
-                disabled={newCountdown.isRunning}
-                onClick={handleGetNewCode}
-                className="shrink-0"
-              >
-                {newCountdown.isRunning ? `${newCountdown.count}s` : t('changePhoneSendCode')}
-              </Button>
-            </div>
-
-            <Button
-              className="w-full"
-              disabled={!canSubmitNew || submitting}
-              onClick={handleSubmit}
-            >
-              {submitting ? t('changePhoneSubmitting') : t('changePhoneSubmit')}
-            </Button>
-          </CardContent>
-        </Card>
+        <Step2NewPhone
+          t={t}
+          currentPhone={currentPhone}
+          newPhone={newPhone}
+          onNewPhoneChange={setNewPhone}
+          newCode={newCode}
+          onNewCodeChange={setNewCode}
+          submitting={submitting}
+          onGetNewCode={handleGetNewCode}
+          onSubmit={handleSubmit}
+        />
       )}
 
       {tip && <p className="text-center text-xs text-muted-foreground">{tip}</p>}

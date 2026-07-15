@@ -173,7 +173,7 @@ export default function MobileAdapterPage() {
                     height: 200,
                   }}
                 >
-                  <div className="border-b border-primary/20 px-2 py-1 text-[10px] text-muted-foreground">
+                  <div className="border-b border-primary/20 px-2 py-1 text-xs text-muted-foreground">
                     {PREVIEW_MODES.find((m) => m.id === previewMode)?.label} ·{' '}
                     {PREVIEW_MODES.find((m) => m.id === previewMode)?.width}px
                   </div>

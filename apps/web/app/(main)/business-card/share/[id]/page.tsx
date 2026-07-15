@@ -22,6 +22,7 @@ import Image from 'next/image'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Card, CardContent } from '@ihui/ui'
+import { getInitials } from '@/components/data/Avatar'
 
 interface BusinessCard {
   id: string
@@ -41,10 +42,6 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
   return r.data
-}
-
-function initials(name: string) {
-  return name.slice(0, 2).toUpperCase()
 }
 
 const TPL_STYLES: Record<string, string> = {
@@ -158,7 +155,7 @@ export default function CardSharePage() {
             />
           ) : (
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/20 text-lg font-bold">
-              {initials(card.name)}
+              {getInitials(card.name)}
             </div>
           )}
           <div className="min-w-0 flex-1 space-y-1">

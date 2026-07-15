@@ -72,7 +72,7 @@ function UnreadBadge({ count }: { count: number }) {
   if (count <= 0) return null
   const display = count > 99 ? '99+' : String(count)
   return (
-    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-semibold leading-none text-white">
       {display}
     </span>
   )
@@ -117,7 +117,7 @@ export function MessageSystem({ className, compact = false }: MessageSystemProps
       >
         <Inbox className="h-4 w-4" />
         {!loading && total > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-semibold leading-none text-white">
             {total > 99 ? '99+' : total}
           </span>
         )}

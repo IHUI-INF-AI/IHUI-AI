@@ -42,6 +42,10 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
     // 新增：连接指标（Gauge）
     activeConnections: 0,
     websocketConnections: 0,
+    // 新增：WS 消息与断开指标（Counter，按方向 + 端点）
+    wsMessagesReceivedTotal: 0,
+    wsMessagesSentTotal: 0,
+    wsDisconnectsTotal: 0,
     // 新增：DB 连接池指标
     dbPoolInUse: 0,
     dbPoolSize: 0,
@@ -198,6 +202,18 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
     lines.push('# TYPE websocket_connections gauge')
     lines.push(`websocket_connections ${metrics.websocketConnections}`)
 
+    lines.push('# HELP ws_messages_received_total Total WebSocket messages received from clients')
+    lines.push('# TYPE ws_messages_received_total counter')
+    lines.push(`ws_messages_received_total ${metrics.wsMessagesReceivedTotal}`)
+
+    lines.push('# HELP ws_messages_sent_total Total WebSocket messages sent to clients')
+    lines.push('# TYPE ws_messages_sent_total counter')
+    lines.push(`ws_messages_sent_total ${metrics.wsMessagesSentTotal}`)
+
+    lines.push('# HELP ws_disconnects_total Total WebSocket disconnects')
+    lines.push('# TYPE ws_disconnects_total counter')
+    lines.push(`ws_disconnects_total ${metrics.wsDisconnectsTotal}`)
+
     // ===== 新增：DB 连接池指标 =====
     lines.push('# HELP db_pool_in_use DB connections currently in use')
     lines.push('# TYPE db_pool_in_use gauge')
@@ -279,6 +295,10 @@ declare module 'fastify' {
       // 新增：连接指标
       activeConnections: number
       websocketConnections: number
+      // 新增：WS 消息/断开 Counter
+      wsMessagesReceivedTotal: number
+      wsMessagesSentTotal: number
+      wsDisconnectsTotal: number
       // 新增：DB 连接池指标
       dbPoolInUse: number
       dbPoolSize: number

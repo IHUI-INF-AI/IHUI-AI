@@ -43,16 +43,6 @@ export function formatDate(input: string | number | Date | null | undefined): st
   return dateFormatter.format(d)
 }
 
-export function dateFormat(
-  input: string | number | Date | null | undefined,
-  pattern?: 'full' | 'date' | 'time',
-): string {
-  if (!input) return '-'
-  if (pattern === 'date') return formatDateOnly(input)
-  if (pattern === 'time') return formatTimeOnly(input)
-  return formatDate(input)
-}
-
 export function formatDateOnly(input: string | number | Date | null | undefined): string {
   if (!input) return '-'
   const d = input instanceof Date ? input : new Date(input)
@@ -75,8 +65,4 @@ export function formatNumber(input: number | null | undefined): string {
 export function formatCurrency(input: number | null | undefined): string {
   if (input === null || input === undefined || Number.isNaN(input)) return '-'
   return currencyFormatter.format(input)
-}
-
-export function dateFormatOnly(input: string | number | Date | null | undefined): string {
-  return formatDateOnly(input)
 }

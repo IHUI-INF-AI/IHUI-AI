@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Any, TypedDict
 
 from ..core.config import settings
-from ..core.llm_gateway import llm_gateway
+from ..core.llm_gateway import llm_gateway, trim_messages
 from .memory import memory_store
 
 
@@ -245,7 +245,9 @@ class LangGraphService:
 
         try:
             history = await memory_store.get(session_id)
-            messages = [{"role": m["role"], "content": m["content"]} for m in history]
+            messages = trim_messages(
+                [{"role": m["role"], "content": m["content"]} for m in history]
+            )
             messages.append(
                 {
                     "role": "system",
@@ -600,7 +602,9 @@ class LangGraphService:
     async def _execute_manual(self, state: WorkflowState):
         """手动模式:执行节点。"""
         history = await memory_store.get(state.session_id)
-        messages = [{"role": m["role"], "content": m["content"]} for m in history]
+        messages = trim_messages(
+            [{"role": m["role"], "content": m["content"]} for m in history]
+        )
         messages.append(
             {
                 "role": "system",
@@ -663,7 +667,9 @@ class LangGraphService:
     async def _execute_stream_manual(self, state: WorkflowState):
         """手动模式:执行节点的流式版本(带 trace)。"""
         history = await memory_store.get(state.session_id)
-        messages = [{"role": m["role"], "content": m["content"]} for m in history]
+        messages = trim_messages(
+            [{"role": m["role"], "content": m["content"]} for m in history]
+        )
 
         for i, step in enumerate(state.plan):
             start = time.monotonic()

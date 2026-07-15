@@ -7,10 +7,14 @@ const userPublicFields = {
   id: users.id,
   phone: users.phone,
   email: users.email,
+  username: users.username,
   nickname: users.nickname,
   avatar: users.avatar,
   roleId: users.roleId,
   status: users.status,
+  isVip: users.isVip,
+  level: users.level,
+  isSystemAdmin: users.isSystemAdmin,
   createdAt: users.createdAt,
   updatedAt: users.updatedAt,
 }
@@ -19,10 +23,14 @@ export type AdminUser = {
   id: string
   phone: string | null
   email: string | null
+  username: string | null
   nickname: string | null
   avatar: string | null
   roleId: number | null
   status: number | null
+  isVip: number | null
+  level: number | null
+  isSystemAdmin: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
 }

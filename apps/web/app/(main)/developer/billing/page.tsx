@@ -119,7 +119,7 @@ export default function BillingPage() {
                   <span className="font-medium">{PAYMENT_LABEL[p.type]}</span>
                   {p.last4 && <span className="text-muted-foreground">**** {p.last4}</span>}
                   {p.isDefault && (
-                    <span className="rounded bg-primary/10 px-1 py-0.5 text-[10px] text-primary">
+                    <span className="rounded bg-primary/10 px-1 py-0.5 text-xs text-primary">
                       默认
                     </span>
                   )}
@@ -150,7 +150,7 @@ export default function BillingPage() {
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-medium">{b.invoiceNo}</p>
                         <span
-                          className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', cfg.cls)}
+                          className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cfg.cls)}
                         >
                           {cfg.label}
                         </span>

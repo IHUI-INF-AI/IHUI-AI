@@ -747,7 +747,11 @@ export const updateNotificationPreferences = (data: Partial<NotificationPreferen
   put('/notifications/preferences', data)
 
 /* ============ AIGC ============ */
-export const getAigcList = (params?: unknown) => get('/aigc/list', params)
+export const getAigcList = (params?: { page?: number; pageSize?: number }) =>
+  get<{ list: unknown[]; total: number; page: number; pageSize: number }>(
+    '/content/aigc/list',
+    params,
+  )
 export const publishAigc = (data: unknown) => post('/aigc/publish', data)
 
 /* ============ 模型广场 ============ */

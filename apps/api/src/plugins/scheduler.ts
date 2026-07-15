@@ -29,6 +29,7 @@ export type ScheduledJobName =
   | 'mark-inactive-agents'
   | 'cleanup-old-heat'
   | 'oauth-session-cleanup'
+  | 'pg-backup-daily'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -86,6 +87,11 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'oauth-session-cleanup',
     pattern: '*/30 * * * *',
     description: '清理过期OAuth会话（每30分钟）',
+  },
+  {
+    name: 'pg-backup-daily',
+    pattern: '30 2 * * *',
+    description: 'PG 数据库备份（每日02:30,保留最近30份）',
   },
 ]
 

@@ -17,11 +17,18 @@ interface AvatarProps {
 }
 
 const sizeMap: Record<AvatarSize, string> = {
-  xs: 'h-6 w-6 text-[10px]',
+  xs: 'h-6 w-6 text-xs',
   sm: 'h-8 w-8 text-xs',
   md: 'h-10 w-10 text-sm',
   lg: 'h-12 w-12 text-base',
   xl: 'h-16 w-16 text-xl',
+}
+
+export function getInitials(name?: string | null): string {
+  if (!name) return '?'
+  const trimmed = name.trim()
+  if (!trimmed) return '?'
+  return trimmed.slice(0, 2).toUpperCase()
 }
 
 export function Avatar({
@@ -33,7 +40,7 @@ export function Avatar({
   className,
 }: AvatarProps) {
   const [error, setError] = React.useState(false)
-  const initials = fallback ?? (name ? name.slice(0, 2) : '?')
+  const initials = fallback ?? getInitials(name)
 
   return (
     <span

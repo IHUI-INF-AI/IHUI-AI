@@ -85,7 +85,7 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
                       <p className="break-words text-xs text-muted-foreground">{agent.role}</p>
                     </div>
                     {agent.model && (
-                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
                         {agent.model}
                       </span>
                     )}

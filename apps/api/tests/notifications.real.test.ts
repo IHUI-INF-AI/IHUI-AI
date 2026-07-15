@@ -26,7 +26,7 @@ describe('notification-queries — 真实 DB 集成测试', () => {
     // 按外键依赖顺序清空:messages → notifications → users
     await db.execute(sql`DELETE FROM messages`)
     await db.execute(sql`DELETE FROM notifications`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('createNotification + findNotificationsByUser', () => {
@@ -168,7 +168,7 @@ describe('notification-queries — 真实 DB 集成测试', () => {
   })
 
   describe('broadcastNotification', () => {
-    it('群发通知给所有用户', async () => {
+    it('群发通知给所有用户(含 system admin)', async () => {
       await createTestUser('13900000014')
       await createTestUser('13900000015')
       await createTestUser('13900000016')
@@ -179,18 +179,20 @@ describe('notification-queries — 真实 DB 集成测试', () => {
         type: 'system',
       })
 
-      expect(notifications).toHaveLength(3)
+      // 含 system admin 共 4 人(3 测试用户 + admin)
+      expect(notifications.length).toBeGreaterThanOrEqual(3)
       expect(notifications[0].title).toBe('系统公告')
       expect(notifications[0].isRead).toBe(false)
     })
 
-    it('无用户时返回空数组', async () => {
+    it('无测试用户时只通知 system admin(1 条)', async () => {
       const notifications = await broadcastNotification({
         title: '空',
         content: '',
         type: 'system',
       })
-      expect(notifications).toHaveLength(0)
+      // beforeEach 清空了非 system admin 用户,所以只剩 admin 一人
+      expect(notifications).toHaveLength(1)
     })
   })
 

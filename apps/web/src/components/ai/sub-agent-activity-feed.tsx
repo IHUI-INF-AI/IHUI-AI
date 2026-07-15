@@ -101,7 +101,7 @@ export function SubAgentActivityFeed({
                   )}
                 />
                 <span className="font-medium">{agent.name || agent.type || t('defaultName')}</span>
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                   {t('badge')}
                 </span>
                 <span className="text-xs text-muted-foreground">{ts(agent.status)}</span>
