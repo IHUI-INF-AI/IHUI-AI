@@ -12,6 +12,12 @@ import {
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
+  recordLoginFailure,
+  clearLoginFailures,
+  getLockRemainingMs,
+  ACCOUNT_LOCKOUT_CONFIG,
+} from '../services/account-lockout.js'
+import {
   findUserByPhone,
   findUserByEmail,
   findUserByUsername,
@@ -67,6 +73,9 @@ import {
   buildDingtalkAuthUrl,
   exchangeDingtalkCode,
   getDingtalkUserInfo,
+  isAlipayLoginConfigured,
+  exchangeAlipayCode,
+  getAlipayUserInfo,
   generateState,
   generateAuthCode,
   generateClientId,
@@ -208,11 +217,43 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const { username, password } = parsed.data
+      const ip = request.ip
+
+      const lockRemaining = getLockRemainingMs(username, ip)
+      if (lockRemaining > 0) {
+        return reply
+          .status(429)
+          .header('Retry-After', String(Math.ceil(lockRemaining / 1000)))
+          .send(
+            error(
+              429,
+              `登录失败次数过多，账号已被临时锁定 ${Math.ceil(lockRemaining / 60000)} 分钟后重试`,
+            ),
+          )
+      }
+
       const user = await findUserByUsername(username)
       if (!user || !user.passwordHash || !bcrypt.compareSync(password, user.passwordHash)) {
-        return reply.status(401).send(error(401, '用户名或密码错误'))
+        const remaining = recordLoginFailure(username, ip)
+        if (remaining === 0) {
+          return reply
+            .status(429)
+            .header('Retry-After', String(Math.ceil(ACCOUNT_LOCKOUT_CONFIG.lockDurationMs / 1000)))
+            .send(
+              error(
+                429,
+                `登录失败次数过多，账号已被临时锁定 ${Math.ceil(
+                  ACCOUNT_LOCKOUT_CONFIG.lockDurationMs / 60000,
+                )} 分钟`,
+              ),
+            )
+        }
+        return reply
+          .status(401)
+          .send(error(401, `用户名或密码错误（剩余 ${remaining} 次重试机会）`))
       }
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      clearLoginFailures(username, ip)
       const { accessToken, refreshToken } = await buildTokenPair(user)
       return reply.send(
         success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }),
@@ -335,6 +376,36 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/auth/google/config', async (_request, reply) => {
     return reply.send(success({ configured: isGoogleConfigured() }))
+  })
+
+  // 支付宝登录（auth_code → access_token + user_id）
+  // 与 Google /auth/google/pc/wxCode 风格一致,前端 GET /auth/alipay/pc/wxCode?code=xxx
+  server.get('/auth/alipay/pc/wxCode', async (request, reply) => {
+    const { code } = codeQuery.parse(request.query)
+    if (!isAlipayLoginConfigured())
+      return reply.send(success({ mock: true, msg: 'Alipay OAuth 未配置' }))
+    const token = await exchangeAlipayCode(code)
+    let info: { nick: string; avatar: string } = { nick: '', avatar: '' }
+    try {
+      const user = await getAlipayUserInfo(token.accessToken)
+      info = { nick: user.nick, avatar: user.avatar }
+    } catch {
+      // user.info.share 失败不影响主流程,用 user_id 作为兜底
+    }
+    return reply.send(
+      success({
+        userId: token.userId,
+        openId: token.openId,
+        unionId: token.unionId,
+        accessToken: token.accessToken,
+        nick: info.nick || `支付宝用户${token.userId.slice(-4)}`,
+        avatar: info.avatar,
+      }),
+    )
+  })
+
+  server.get('/auth/alipay/config', async (_request, reply) => {
+    return reply.send(success({ configured: isAlipayLoginConfigured() }))
   })
 
   // 微信小程序登录

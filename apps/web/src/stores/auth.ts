@@ -14,11 +14,19 @@ export interface AuthUser {
   roles?: string[]
 }
 
+export interface TokenPair {
+  accessToken: string
+  refreshToken?: string
+  expiresIn?: number
+}
+
 interface AuthState {
   token: string | null
+  refreshToken: string | null
+  expiresIn: number | null
   isAuthenticated: boolean
   user: AuthUser | null
-  setToken: (token: string | null) => void
+  setToken: (token: string | null, refreshOrPair?: string | TokenPair | null) => void
   setUser: (user: AuthUser | null) => void
   logout: () => void
 }
@@ -27,20 +35,48 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       token: null,
+      refreshToken: null,
+      expiresIn: null,
       isAuthenticated: false,
       user: null,
-      setToken: (token) => {
+      setToken: (token, refreshOrPair) => {
         setAuthCookie(token)
-        set({ token, isAuthenticated: !!token })
+        if (refreshOrPair === null || refreshOrPair === undefined) {
+          set({ token, isAuthenticated: !!token, refreshToken: null, expiresIn: null })
+          return
+        }
+        if (typeof refreshOrPair === 'string') {
+          set({
+            token,
+            isAuthenticated: !!token,
+            refreshToken: refreshOrPair || null,
+            expiresIn: null,
+          })
+          return
+        }
+        set({
+          token,
+          isAuthenticated: !!token,
+          refreshToken: refreshOrPair.refreshToken ?? null,
+          expiresIn: refreshOrPair.expiresIn ?? null,
+        })
       },
       setUser: (user) => set({ user }),
       logout: () => {
         setAuthCookie(null)
-        set({ token: null, isAuthenticated: false, user: null })
+        set({
+          token: null,
+          refreshToken: null,
+          expiresIn: null,
+          isAuthenticated: false,
+          user: null,
+        })
       },
     }),
     createPersistConfig<AuthState>('ihui-auth', (s) => ({
       token: s.token,
+      refreshToken: s.refreshToken,
+      expiresIn: s.expiresIn,
       isAuthenticated: s.isAuthenticated,
       user: s.user,
     })),
