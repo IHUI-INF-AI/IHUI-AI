@@ -55,7 +55,6 @@ export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Pro
               <tr key={item.id} className="transition-colors hover:bg-muted/30">
                 <td className="px-4 py-2.5">
                   {item.coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={item.coverUrl} alt="" className="h-10 w-10 rounded object-cover" />
                   ) : (
                     <span className="text-muted-foreground/50">-</span>

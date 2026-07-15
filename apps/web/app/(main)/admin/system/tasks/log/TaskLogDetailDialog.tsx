@@ -3,6 +3,7 @@
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
 import { STATUS_LABEL } from './helpers'
 import type { JobLog } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface Props {
   detail: JobLog | null
@@ -40,11 +41,11 @@ export function TaskLogDetailDialog({ detail, onClose }: Props) {
             </div>
             <div>
               <span className="text-muted-foreground">开始时间：</span>
-              {detail.startTime ? new Date(detail.startTime).toLocaleString() : '-'}
+              {detail.startTime ? formatDate(detail.startTime) : '-'}
             </div>
             <div>
               <span className="text-muted-foreground">停止时间：</span>
-              {detail.stopTime ? new Date(detail.stopTime).toLocaleString() : '-'}
+              {detail.stopTime ? formatDate(detail.stopTime) : '-'}
             </div>
             <div>
               <span className="text-muted-foreground">耗时：</span>

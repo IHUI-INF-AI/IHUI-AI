@@ -17,6 +17,7 @@ import {
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/lib/date-utils'
 
 interface ServiceItem {
   name: string
@@ -147,7 +148,7 @@ export default function AdminMonitorDashboardPage() {
                 <div key={c.label} className="rounded-md border p-3">
                   <div className="text-xs text-muted-foreground">{c.label}</div>
                   <div className={cn('mt-1 text-xl font-bold', c.cls)}>
-                    {c.value.toLocaleString()}
+                    {formatNumber(c.value)}
                     {c.unit}
                   </div>
                   {!c.raw && c.max > 0 && (
