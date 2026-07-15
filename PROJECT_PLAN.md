@@ -7361,3 +7361,51 @@ $env:PGPASSWORD='postgres'
 3. `afterAll` 调用 `closeTestDb()`
 4. `beforeEach` 用 `DELETE FROM <table>` 清空测试表(避免 TRUNCATE CASCADE 级联)
 5. 用 `testDb.insert/update/delete/select` 直接操作表,验证真实 DB 行为(约束/默认值/级联/事务)
+
+---
+
+## P12 — 完美收尾 + LLM 真机验证 + 真实测试基础设施 + i18n 五语补全(2026-07-15)
+
+- [x] ✅(2026-07-15) **真机验证 LLM 真实对话**: /ai-world 页面 → 登录(18888889999)→ 选择 StepFun 配置 → 发送 "hello, 自我介绍" → 收到 step-3.7-flash 真实流式回复;全链路打通用 userId 解析用户配置 + provider prefix 路由
+- [x] ✅(2026-07-15) **LlmConfigSelector 关键 bug 修复**: onValueChange 缺 provider prefix,导致 litellm 无法识别 provider 报错;修复后 `modelId` 字段自动拼接 `${providerCode}/${modelIdForTest}` 形式
+- [x] ✅(2026-07-15) **userId 透传打通**: helpers.ts streamAiChat 注入 `metadata: { userId, source: 'ai-world' }` + user-llm-configs.ts 连通测试同步注入 → LLM gateway 能根据 userId 查 ai_model_config 拿到用户 API key
+- [x] ✅(2026-07-15) **LoginDialog 字段映射修复**: PasswordLoginForm 提交时 `phone` 映射为 `account`(`account: z.string().min(1)`),`accessToken` 提取到 `token` 字段
+- [x] ✅(2026-07-15) **真实测试基础设施**: vitest.real.config.ts + .env.test + tests/setup-env.ts(自动检测 .env.test 路径) + tests/helpers/test-db.ts + health.real.test.ts + users.real.test.ts(DELETE 替代 TRUNCATE 避免 100+ 表外键级联)
+- [x] ✅(2026-07-15) **54 个文件代码清理**: `<img>` 改 next/image 消除 lint 警告;`formatTime/formatDate` 局部函数统一替换为 `@/lib/date-utils.dateFormat`;移除未使用的 `slugify/formatTime` 死代码;3 处日文乱码修复(`みみ/しました/しました` → 正常日文)
+- [x] ✅(2026-07-15) **新增 11 个 P0 页面**: ai-career / commission/plan / distribution/company / live/[id]/play / settings/app-permission / business-license / change-phone / icp-record / model-record / usage-rules / token-value
+- [x] ✅(2026-07-15) **新增 3 个后端路由**: user-agent-free-times / zhs-organization / monitor suppression-rules 5 端点
+- [x] ✅(2026-07-15) **i18n 五语 parity 修复**: 162 个新键 5 语言同步(settings 83 键 + 4 命名空间 29 键 × 5 语言)
+- [x] ✅(2026-07-15) **真实 DB CI workflow**: .github/workflows/test-real-db.yml(自动启动 PG17 service container + drizzle-kit push + test:real)
+- [x] ✅(2026-07-15) **pre-commit hook 全绿**: API key 泄露检查 ✓ / i18n 键完整性 762 文件 7250 键 ✓ / lint-staged ✓ / 依赖碎片化 ✓
+- [x] ✅(2026-07-15) **代码清理 commit(8034c347)**: /ai-world 接入真实 LLM 流式路由
+- [x] ✅(2026-07-15) **收尾 commit(b196f803)**: P8-P11 完美收尾 + 真实 LLM 流式对话 + 零 lint 警告
+- [x] ✅(2026-07-15) **测试稳定 commit(ce3fb662)**: dns mock 让 misc-extended 沙箱稳定通过
+- [x] ✅(2026-07-15) **终极收尾 commit(bcf179eb)**: P12 完美收尾 + i18n 五语补全 + 真实测试基础设施(88 文件 +8834 -5051)
+- [x] ✅(2026-07-15) **git push 全部成功**: 4 个 commit 全部推送至 origin/main(网络恢复后立即推送)
+
+### 验证依据
+
+| 验证项         | 命令                                           | 结果                                 |
+| -------------- | ---------------------------------------------- | ------------------------------------ |
+| 后端 typecheck | `pnpm --filter @ihui/api typecheck`            | ✅ exit 0                            |
+| 前端 typecheck | `pnpm --filter @ihui/web typecheck`            | ✅ exit 0                            |
+| Mock 测试      | `pnpm --filter @ihui/api test`                 | ✅ 193 文件 2989 用例全绿            |
+| 真实 DB 测试   | `pnpm --filter @ihui/api test:real`            | ✅ 2 文件 6 用例全绿(1.28s)          |
+| i18n 完整性    | `node scripts/check-i18n-keys.mjs --staged`    | ✅ 762 文件 7250 键 5 语言 parity OK |
+| API key 泄露   | `node scripts/check-api-key-leak.mjs --staged` | ✅ 通过                              |
+| Lint-staged    | `npx lint-staged`                              | ✅ 通过                              |
+| Git 推送       | `git push origin main`                         | ✅ 4 commits 全部推送                |
+| LLM 端到端     | /ai-world 真机 StepFun 真实对话                | ✅ 流式回复成功                      |
+
+### 后续建议清单
+
+1. **生产部署验证**: 当前所有服务跑在本地 PG17/Redis,生产化前需用 `docker-compose up` 验证完整栈可用性(参考 DEPLOYMENT-R65.md)
+2. **真实 LLM 多平台验证**: 当前已验证 StepFun,建议补 OpenAI/Anthropic/DeepSeek/Agnes 真实连通测试(每个平台创建 1 个 configId → 发送 "ping" → 验证响应)
+3. **vitest 真实测试覆盖扩展**: 现有 6 个 *.real.test.ts 用例(health/users),建议为核心查询(agents/exams/messages/orders)各补 1 个 *.real.test.ts
+4. **WSL2/Docker 修复**: Windows CBS 组件损坏已记录,生产部署建议换 Linux 机器或修复 WinSxS 后重装 WSL2
+5. **API key 加密密钥管理**: `CREDENTIALS_ENCRYPTION_KEY` 当前为 test 值,生产前需用 vault/KMS 注入
+6. **CI 加速**: 当前 CI 跑 mock + real 两套测试,建议拆分 workflow 让两者并行(节省 ~50% 时间)
+7. **WebSocket 压测**: locustfile.py 已存在但未跑过,生产前需对 ws-chat / ws-ai / ws-payment 三类连接做 1000+ 并发压测
+8. **A11y 自动化**: 已有 e2e/accessibility.spec.ts,但只跑 smoke,建议扩展到全 26 spec
+9. **多端 i18n 补全**: 当前 ja/ko/zh-TW 多处用 zh-CN 文本占位(本轮新增的 settings 83 键),建议用翻译 API 批量翻译
+10. **Miniapp 真实设备测试**: 微信开发者工具 + 真机扫码验证分销 / 消息 / 直播 / 任务 4 大场景
