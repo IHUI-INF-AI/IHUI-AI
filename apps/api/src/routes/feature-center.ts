@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { agents, docs, sdks, aiModelConfig } from '@ihui/database'
 import { success } from '../utils/response.js'
@@ -15,48 +15,28 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   server.get('/stats', async (_request, reply) => {
     try {
-      const [apiCountRow] = await db
-        .select({ count: aiModelConfig.id })
-        .from(aiModelConfig)
-        .where(eq(aiModelConfig.enabled, true))
-        .limit(1)
-      const apiCount = apiCountRow ? 1 : 0
-
-      const agentRows = await db
-        .select({ agentId: agents.agentId })
-        .from(agents)
-        .where(eq(agents.status, 'published'))
-        .limit(1000)
-      const agentCount = agentRows.length
-
-      const docRows = await db
-        .select({ id: docs.id })
-        .from(docs)
-        .where(eq(docs.status, 'published'))
-        .limit(1000)
-      const documentCount = docRows.length
-
-      const modelRows = await db
-        .select({ id: aiModelConfig.id })
-        .from(aiModelConfig)
-        .where(eq(aiModelConfig.enabled, true))
-        .limit(1000)
-      const modelCount = modelRows.length
-
-      const sdkRows = await db
-        .select({ id: sdks.id })
-        .from(sdks)
-        .where(eq(sdks.status, 'active'))
-        .limit(1000)
-      const sdkCount = sdkRows.length
+      const [apiCountRow, agentRows, docRows, sdkRows] = await Promise.all([
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(aiModelConfig)
+          .where(eq(aiModelConfig.enabled, true)),
+        db
+          .select({ agentId: agents.agentId })
+          .from(agents)
+          .where(eq(agents.status, 'published'))
+          .limit(1000),
+        db.select({ id: docs.id }).from(docs).where(eq(docs.status, 'published')).limit(1000),
+        db.select({ id: sdks.id }).from(sdks).where(eq(sdks.status, 'active')).limit(1000),
+      ])
+      const apiCount = apiCountRow[0]?.count ?? 0
 
       return reply.send(
         success({
           apiCount,
-          agentCount,
-          documentCount,
-          modelCount,
-          sdkCount,
+          agentCount: agentRows.length,
+          documentCount: docRows.length,
+          modelCount: apiCount,
+          sdkCount: sdkRows.length,
         }),
       )
     } catch (e) {

@@ -5,6 +5,9 @@ import {
   agentCategories,
   agentSettlements,
   agentExamines,
+  agentThumbs,
+  agentCollects,
+  agentUseDetails,
   type Agent,
   type AgentCategory,
   type AgentSettlement,
@@ -499,6 +502,148 @@ export async function updateExamine(
 
 export async function deleteExamine(id: string): Promise<AgentExamine | undefined> {
   const rows = await db.delete(agentExamines).where(eq(agentExamines.id, id)).returning()
+  return rows[0]
+}
+
+// =============================================================================
+// thumbs / collect / use / unpublish
+// =============================================================================
+
+export async function findThumb(uuid: string, botId: string): Promise<{ id: string } | undefined> {
+  const rows = await dbRead
+    .select({ id: agentThumbs.id })
+    .from(agentThumbs)
+    .where(and(eq(agentThumbs.uuid, uuid), eq(agentThumbs.botId, botId)))
+    .limit(1)
+  return rows[0]
+}
+
+export async function addThumb(uuid: string, botId: string): Promise<void> {
+  await db.insert(agentThumbs).values({ uuid, botId })
+  await db
+    .update(agents)
+    .set({ likeCount: sql`${agents.likeCount} + 1`, updatedAt: new Date() })
+    .where(eq(agents.botId, botId))
+}
+
+export async function removeThumb(uuid: string, botId: string): Promise<void> {
+  await db.delete(agentThumbs).where(and(eq(agentThumbs.uuid, uuid), eq(agentThumbs.botId, botId)))
+  await db
+    .update(agents)
+    .set({
+      likeCount: sql`GREATEST(COALESCE(${agents.likeCount}, 0) - 1, 0)`,
+      updatedAt: new Date(),
+    })
+    .where(eq(agents.botId, botId))
+}
+
+export async function findCollect(
+  uuid: string,
+  botId: string,
+): Promise<{ id: string } | undefined> {
+  const rows = await dbRead
+    .select({ id: agentCollects.id })
+    .from(agentCollects)
+    .where(and(eq(agentCollects.uuid, uuid), eq(agentCollects.botId, botId)))
+    .limit(1)
+  return rows[0]
+}
+
+export async function addCollect(uuid: string, botId: string): Promise<void> {
+  await db.insert(agentCollects).values({ uuid, botId })
+  await db
+    .update(agents)
+    .set({ collectCount: sql`${agents.collectCount} + 1`, updatedAt: new Date() })
+    .where(eq(agents.botId, botId))
+}
+
+export async function removeCollect(uuid: string, botId: string): Promise<void> {
+  await db
+    .delete(agentCollects)
+    .where(and(eq(agentCollects.uuid, uuid), eq(agentCollects.botId, botId)))
+  await db
+    .update(agents)
+    .set({
+      collectCount: sql`GREATEST(COALESCE(${agents.collectCount}, 0) - 1, 0)`,
+      updatedAt: new Date(),
+    })
+    .where(eq(agents.botId, botId))
+}
+
+export async function recordAgentUse(uuid: string, botId: string): Promise<void> {
+  await db.insert(agentUseDetails).values({ uuid, botId })
+  await db
+    .update(agents)
+    .set({ usageCount: sql`${agents.usageCount} + 1`, updatedAt: new Date() })
+    .where(eq(agents.botId, botId))
+}
+
+export async function findAgentByBotId(botId: string): Promise<Agent | undefined> {
+  const rows = await dbRead.select().from(agents).where(eq(agents.botId, botId)).limit(1)
+  return rows[0]
+}
+
+export async function findAgentByAgentId(agentId: string): Promise<Agent | undefined> {
+  const rows = await dbRead.select().from(agents).where(eq(agents.agentId, agentId)).limit(1)
+  return rows[0]
+}
+
+export async function unpublishAgentByAgentId(
+  agentId: string,
+  reason: string,
+): Promise<Agent | undefined> {
+  void reason
+  const rows = await db
+    .update(agents)
+    .set({
+      publishStatus: 'unpublished',
+      status: 'offline',
+      updatedAt: new Date(),
+    })
+    .where(eq(agents.agentId, agentId))
+    .returning()
+
+  await db
+    .update(agentExamines)
+    .set({
+      status: 'rejected',
+      reason: `智能体已下架 - ${reason}`,
+      updatedAt: new Date(),
+    })
+    .where(eq(agentExamines.agentId, agentId))
+
+  return rows[0]
+}
+
+export async function findAgentSuggestions(botId: string): Promise<string[] | null> {
+  const rows = await dbRead
+    .select({ sq: agents.suggestedQuestions })
+    .from(agents)
+    .where(eq(agents.botId, botId))
+    .limit(1)
+  const sq = rows[0]?.sq
+  if (!sq) return null
+  try {
+    const parsed = JSON.parse(sq)
+    return Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+export async function updateAgentDetails(
+  agentId: string,
+  details: {
+    agentVariables?: string
+    avatar?: string
+    agentModel?: string
+  },
+): Promise<Agent | undefined> {
+  const rows = await db
+    .update(agents)
+    .set({ ...details, updatedAt: new Date() })
+    .where(eq(agents.agentId, agentId))
+    .returning()
   return rows[0]
 }
 

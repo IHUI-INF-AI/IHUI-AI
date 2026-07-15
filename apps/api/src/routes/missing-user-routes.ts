@@ -66,6 +66,8 @@ import {
   findArticleById,
   incrementArticleViewCount,
   createArticle,
+  updateArticle,
+  deleteArticle,
   findPublishedNewsCategories,
   findMyArticles,
 } from '../db/news-queries.js'
@@ -269,6 +271,48 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     if (!body.id) return reply.status(400).send(error(400, '缺少 id'))
     const result = await toggleLike('article_favorite', body.id, request.userId!)
     return reply.send(success({ success: true, liked: result.liked }))
+  })
+
+  server.put('/article/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const existing = await findArticleById(id)
+    if (!existing) return reply.status(404).send(error(404, '文章不存在'))
+    if (existing.authorId !== request.userId)
+      return reply.status(403).send(error(403, '无权编辑此文章'))
+    const body =
+      (request.body as {
+        title?: string
+        content?: string
+        categoryId?: string
+        summary?: string
+        coverImage?: string
+        isPublished?: boolean
+      } | null) ?? {}
+    if (body.title !== undefined && !body.title.trim())
+      return reply.status(400).send(error(400, '标题不能为空'))
+    if (body.content !== undefined && !body.content.trim())
+      return reply.status(400).send(error(400, '内容不能为空'))
+    const article = await updateArticle(id, {
+      title: body.title,
+      content: body.content,
+      categoryId: body.categoryId,
+      summary: body.summary,
+      coverImage: body.coverImage,
+      isPublished: body.isPublished,
+    })
+    return reply.send(success({ success: true, article }))
+  })
+
+  server.delete('/article/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const existing = await findArticleById(id)
+    if (!existing) return reply.status(404).send(error(404, '文章不存在'))
+    if (existing.authorId !== request.userId)
+      return reply.status(403).send(error(403, '无权删除此文章'))
+    await deleteArticle(id)
+    return reply.send(success({ success: true }))
   })
 
   // ===========================================================================
