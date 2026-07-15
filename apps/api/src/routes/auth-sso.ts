@@ -21,10 +21,7 @@ const ADMIN_WILDCARD_PERMISSIONS = ['*:*:*']
  * - 总长度不超过 2048
  */
 const isSafeRedirectUri = (s: string): boolean =>
-  s.startsWith('/') &&
-  !s.startsWith('//') &&
-  !/[\r\n\t]/.test(s) &&
-  s.length <= 2048
+  s.startsWith('/') && !s.startsWith('//') && !/[\r\n\t]/.test(s) && s.length <= 2048
 
 const generateCodeSchema = z.object({
   clientId: z.string().min(1).max(128),
@@ -62,6 +59,12 @@ async function resolveUserPermissions(userId: string, roleId: number | null): Pr
 }
 
 export const authSsoRoutes: FastifyPluginAsync = async (server) => {
+  // SSO 路由响应中携带 accessToken/refreshToken,必须跳过响应脱敏
+  // 否则会被 response-sanitizer 的 'token' 子串匹配误伤为 '***'
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
   server.post(
     '/sso/code',
     {
