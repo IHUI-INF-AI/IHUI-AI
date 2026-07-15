@@ -4,38 +4,20 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { Users, Plus, Trash2, Loader2, Pencil } from 'lucide-react'
+import { Users, Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Button, Input, Label } from '@ihui/ui'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
+import { Button } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
-import { Avatar } from '@/components/data/Avatar'
-import { cn } from '@/lib/utils'
-
-interface TeamMember {
-  id: string
-  nickname: string
-  avatar?: string
-  email: string
-  role: 'owner' | 'admin' | 'developer' | 'viewer'
-  joinedAt: string
-}
+import { TeamList } from './TeamList'
+import { TeamDialog } from './TeamDialog'
+import type { TeamMember } from './types'
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
   return r.data
 }
-
-const ROLE_CONFIG: Record<TeamMember['role'], { label: string; cls: string }> = {
-  owner: { label: '所有者', cls: 'bg-primary/10 text-primary' },
-  admin: { label: '管理员', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-  developer: { label: '开发者', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-  viewer: { label: '观察者', cls: 'bg-muted text-muted-foreground' },
-}
-
-const ROLE_OPTIONS: TeamMember['role'][] = ['admin', 'developer', 'viewer']
 
 export default function TeamPage() {
   const locale = useLocale()
@@ -111,6 +93,15 @@ export default function TeamPage() {
     setOpen(true)
   }
 
+  function handleSave() {
+    if (editId) {
+      const m = list.find((x) => x.id === editId)
+      if (m) updateRoleMut.mutate(m)
+    } else {
+      inviteMut.mutate()
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between">
@@ -135,117 +126,27 @@ export default function TeamPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              加载中...
-            </div>
-          ) : list.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">暂无团队成员</p>
-          ) : (
-            <div className="divide-y">
-              {list.map((m) => {
-                const cfg = ROLE_CONFIG[m.role]
-                return (
-                  <div key={m.id} className="flex items-center gap-3 px-4 py-3">
-                    <Avatar src={m.avatar} name={m.nickname} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium">{m.nickname}</p>
-                        <span
-                          className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', cfg.cls)}
-                        >
-                          {cfg.label}
-                        </span>
-                      </div>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {m.email} · 加入于 {dateFmt.format(new Date(m.joinedAt))}
-                      </p>
-                    </div>
-                    {m.role !== 'owner' && (
-                      <div className="flex shrink-0 gap-1">
-                        <Button size="sm" variant="outline" onClick={() => openEdit(m)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => confirm('确认移除该成员?') && removeMut.mutate(m.id)}
-                          className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <TeamList
+        list={list}
+        isLoading={isLoading}
+        dateFmt={dateFmt}
+        removePending={removeMut.isPending}
+        onEdit={openEdit}
+        onRemove={(id) => removeMut.mutate(id)}
+      />
 
-      <Dialog open={open} onOpenChange={(v) => !v && closeDialog()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editId ? '修改角色' : '邀请成员'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-1">
-              <Label className="text-sm">邮箱</Label>
-              <Input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="member@example.com"
-                disabled={!!editId}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-sm">角色</Label>
-              <div className="flex flex-wrap gap-2">
-                {ROLE_OPTIONS.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRole(r)}
-                    className={cn(
-                      'rounded-md border px-2.5 py-1 text-xs transition-colors',
-                      role === r
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-accent',
-                    )}
-                  >
-                    {ROLE_CONFIG[r].label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              取消
-            </Button>
-            <Button
-              onClick={() => {
-                if (editId) {
-                  const m = list.find((x) => x.id === editId)
-                  if (m) updateRoleMut.mutate(m)
-                } else {
-                  inviteMut.mutate()
-                }
-              }}
-              disabled={!email.trim() || inviteMut.isPending || updateRoleMut.isPending}
-            >
-              {(inviteMut.isPending || updateRoleMut.isPending) && (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              )}
-              {editId ? '保存' : '邀请'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TeamDialog
+        open={open}
+        isEdit={!!editId}
+        email={email}
+        role={role}
+        isPending={inviteMut.isPending || updateRoleMut.isPending}
+        onOpenChange={(v) => !v && closeDialog()}
+        onEmailChange={setEmail}
+        onRoleChange={setRole}
+        onSave={handleSave}
+        onCancel={closeDialog}
+      />
     </div>
   )
 }
