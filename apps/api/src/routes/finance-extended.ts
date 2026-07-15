@@ -138,6 +138,65 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // 日/月收益汇总（前端 distribution/company 调用 /api/finance/commission/day-month-summary）
+  server.get('/finance/commission/day-month-summary', async (request, reply) => {
+    await authenticate(request)
+    const userId = request.userId!
+    try {
+      const [dayRows, monthRows, totalRow] = await Promise.all([
+        db
+          .select({
+            dateStr: sql<string>`to_char(${commissionFlows.createdAt}, 'YYYY-MM-DD')`,
+            amount: sql<number>`COALESCE(SUM(${commissionFlows.amount}), 0)::int`,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(commissionFlows)
+          .where(
+            and(
+              eq(commissionFlows.beneficiaryId, userId),
+              eq(commissionFlows.status, 1),
+              sql`${commissionFlows.createdAt} >= NOW() - INTERVAL '30 days'`,
+            ),
+          )
+          .groupBy(sql`to_char(${commissionFlows.createdAt}, 'YYYY-MM-DD')`)
+          .orderBy(sql`to_char(${commissionFlows.createdAt}, 'YYYY-MM-DD') DESC`),
+        db
+          .select({
+            monthStr: sql<string>`to_char(${commissionFlows.createdAt}, 'YYYY-MM')`,
+            amount: sql<number>`COALESCE(SUM(${commissionFlows.amount}), 0)::int`,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(commissionFlows)
+          .where(
+            and(
+              eq(commissionFlows.beneficiaryId, userId),
+              eq(commissionFlows.status, 1),
+              sql`${commissionFlows.createdAt} >= NOW() - INTERVAL '12 months'`,
+            ),
+          )
+          .groupBy(sql`to_char(${commissionFlows.createdAt}, 'YYYY-MM')`)
+          .orderBy(sql`to_char(${commissionFlows.createdAt}, 'YYYY-MM') DESC`),
+        db
+          .select({
+            totalAmount: sql<number>`COALESCE(SUM(${commissionFlows.amount}), 0)::int`,
+            totalCount: sql<number>`count(*)::int`,
+          })
+          .from(commissionFlows)
+          .where(and(eq(commissionFlows.beneficiaryId, userId), eq(commissionFlows.status, 1))),
+      ])
+      return reply.send(
+        success({
+          daySummary: dayRows,
+          monthSummary: monthRows,
+          total: totalRow[0] ?? { totalAmount: 0, totalCount: 0 },
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询日/月收益汇总失败'))
+    }
+  })
+
   // ==========================================================================
   // Agent 提现全套
   // ==========================================================================
