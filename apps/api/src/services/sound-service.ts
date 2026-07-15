@@ -7,12 +7,18 @@
  * 能力：
  * - 音效库 CRUD（内存 + 元数据，实际文件由 storage-service 管理）
  * - 按分类/标签/情绪检索
- * - 播放 URL 签名（防盗链，可选 TTL）
+ * - 播放 URL 签名（HMAC-SHA256 防盗链，可选 TTL）
  * - 使用统计：播放次数、最近播放
  *
  * 设计：纯内存存储，重启后丢失元数据。如需持久化可由调用方
  * 通过 exportLibrary/importLibrary 序列化到 DB 或文件。
  */
+
+import { createHmac, timingSafeEqual } from 'node:crypto'
+import { env } from 'node:process'
+import { logger } from '../utils/logger.js'
+
+let fallbackSignSecretWarned = false
 
 export type SoundCategory =
   | 'ui' // 界面音效（点击/悬停/成功/错误）
@@ -133,7 +139,25 @@ export function getPopularSounds(limit = 20): SoundAsset[] {
     .slice(0, limit)
 }
 
-/** 生成带 TTL 签名的播放 URL（防盗链占位实现）。 */
+/** 生成签名密钥。配置 SOUND_SIGN_SECRET 时使用 HMAC-SHA256；未配置时降级为明文拼接（开发环境）。 */
+function getSignSecret(): string | null {
+  const secret = env.SOUND_SIGN_SECRET
+  return secret && secret.length > 0 ? secret : null
+}
+
+function signPayload(soundId: string, expiresAt: number): string {
+  const secret = getSignSecret()
+  if (!secret) {
+    if (!fallbackSignSecretWarned) {
+      logger.warn('SOUND_SIGN_SECRET 未配置,播放 URL 使用明文降级签名(仅开发环境)')
+      fallbackSignSecretWarned = true
+    }
+    return `${soundId}.${expiresAt.toString(36)}`
+  }
+  return createHmac('sha256', secret).update(`${soundId}.${expiresAt}`).digest('hex')
+}
+
+/** 生成带 TTL 签名的播放 URL（防盗链）。 */
 export function signPlayUrl(
   sound: SoundAsset,
   ttlSec = 3600,
@@ -142,12 +166,23 @@ export function signPlayUrl(
   expiresAt: number
 } {
   const expiresAt = Date.now() + ttlSec * 1000
-  // 占位签名：实际应使用 HMAC-SHA256 + 密钥
-  const signature = `${sound.id}.${expiresAt.toString(36)}`
+  const signature = signPayload(sound.id, expiresAt)
   const separator = sound.url.includes('?') ? '&' : '?'
   return {
     url: `${sound.url}${separator}sig=${signature}&expires=${expiresAt}`,
     expiresAt,
+  }
+}
+
+/** 校验播放 URL 签名。返回 true 表示签名有效且未过期。 */
+export function verifyPlayUrl(soundId: string, expiresAt: number, signature: string): boolean {
+  if (Date.now() > expiresAt) return false
+  const expected = signPayload(soundId, expiresAt)
+  if (expected.length !== signature.length) return false
+  try {
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+  } catch {
+    return false
   }
 }
 
