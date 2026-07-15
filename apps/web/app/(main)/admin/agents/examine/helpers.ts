@@ -1,4 +1,5 @@
 import { fetchApi } from '@/lib/api'
+import { TONE } from '@/lib/status-colors'
 import type { ExamineForm, Examine } from './types'
 
 export const PAGE_SIZE = 10
@@ -7,9 +8,9 @@ export const WS_URL = process.env.NEXT_PUBLIC_WS_CHAT_URL || '/ws/chat'
 export const STATUS_MAP: Record<number, string> = { 0: '待提交', 1: '审核中', 2: '已通过' }
 
 export const STATUS_STYLE: Record<number, string> = {
-  0: 'bg-amber-500/10 text-amber-600',
-  1: 'bg-blue-500/10 text-blue-600',
-  2: 'bg-emerald-500/10 text-emerald-600',
+  0: TONE.amber,
+  1: TONE.amber,
+  2: TONE.emerald,
 }
 
 export const EMPTY_FORM: ExamineForm = {
