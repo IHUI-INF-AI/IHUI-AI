@@ -4,41 +4,14 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { Webhook, Plus, Trash2, Send, Loader2, Power, Pencil } from 'lucide-react'
+import { Webhook, Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import {
-  Card,
-  CardContent,
-  Button,
-  Input,
-  Label,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@ihui/ui'
+import { Button } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
-import { cn } from '@/lib/utils'
-
-interface WebhookItem {
-  id: string
-  url: string
-  events: string[]
-  isEnabled: boolean
-  createdAt: string
-  lastTriggeredAt?: string
-}
-
-const ALL_EVENTS = [
-  'api.called',
-  'key.created',
-  'key.deleted',
-  'limit.reached',
-  'webhook.failed',
-  'subscription.updated',
-]
+import { WebhooksList } from './WebhooksList'
+import { WebhookDialog } from './WebhookDialog'
+import type { WebhookItem } from './types'
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -153,131 +126,29 @@ export default function WebhooksPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              加载中...
-            </div>
-          ) : list.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">暂无 Webhook 配置</p>
-          ) : (
-            <div className="divide-y">
-              {list.map((wh) => (
-                <div key={wh.id} className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium">{wh.url}</p>
-                        <span
-                          className={cn(
-                            'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-                            wh.isEnabled
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                              : 'bg-muted text-muted-foreground',
-                          )}
-                        >
-                          {wh.isEnabled ? '启用' : '停用'}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {wh.events.map((ev) => (
-                          <span
-                            key={ev}
-                            className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                          >
-                            {ev}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        创建于 {dateFmt.format(new Date(wh.createdAt))}
-                        {wh.lastTriggeredAt &&
-                          ` · 最近触发 ${dateFmt.format(new Date(wh.lastTriggeredAt))}`}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => testMut.mutate(wh.id)}
-                        disabled={testMut.isPending}
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => toggleMut.mutate(wh)}>
-                        <Power className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => openEdit(wh)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => confirm('确认删除?') && delMut.mutate(wh.id)}
-                        className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <WebhooksList
+        list={list}
+        isLoading={isLoading}
+        dateFmt={dateFmt}
+        testPending={testMut.isPending}
+        onTest={(id) => testMut.mutate(id)}
+        onToggle={(wh) => toggleMut.mutate(wh)}
+        onEdit={openEdit}
+        onDelete={(id) => delMut.mutate(id)}
+      />
 
-      <Dialog open={open} onOpenChange={(v) => !v && closeDialog()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing ? '编辑 Webhook' : '新建 Webhook'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-1">
-              <Label className="text-sm">回调 URL</Label>
-              <Input
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://example.com/webhook"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-sm">订阅事件</Label>
-              <div className="flex flex-wrap gap-2">
-                {ALL_EVENTS.map((ev) => (
-                  <button
-                    key={ev}
-                    type="button"
-                    onClick={() => toggleEvent(ev)}
-                    className={cn(
-                      'rounded-md border px-2.5 py-1 text-xs transition-colors',
-                      events.includes(ev)
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-accent',
-                    )}
-                  >
-                    {ev}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              取消
-            </Button>
-            <Button
-              onClick={() => saveMut.mutate()}
-              disabled={!url.trim() || events.length === 0 || saveMut.isPending}
-            >
-              {saveMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <WebhookDialog
+        open={open}
+        isEdit={!!editing}
+        url={url}
+        events={events}
+        isPending={saveMut.isPending}
+        onOpenChange={(v) => !v && closeDialog()}
+        onUrlChange={setUrl}
+        onToggleEvent={toggleEvent}
+        onSave={() => saveMut.mutate()}
+        onCancel={closeDialog}
+      />
     </div>
   )
 }
