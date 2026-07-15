@@ -4,18 +4,24 @@ import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getDeveloperPricingList, subscribeDeveloper, type DeveloperPricing } from '@/api'
+import { useI18n } from '@/i18n'
 import './subscribe.css'
 
-const PERIOD_LABEL: Record<string, string> = {
-  monthly: '月度',
-  yearly: '年度',
-}
-
 export default function DeveloperSubscribePage() {
+  const { t } = useI18n()
   const [list, setList] = useState<DeveloperPricing[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(0)
   const [submitting, setSubmitting] = useState(false)
+
+  const periodLabel = useCallback(
+    (period?: string | null) => {
+      if (period === 'monthly') return t('developer.subscribe.monthly')
+      if (period === 'yearly') return t('developer.subscribe.yearly')
+      return t('developer.subscribe.monthly')
+    },
+    [t],
+  )
 
   const load = useCallback(async () => {
     try {
@@ -40,24 +46,24 @@ export default function DeveloperSubscribePage() {
       Taro.navigateTo({ url: `/pages/pay/index?orderNo=${res.orderNo}` })
     } catch (e) {
       logger.error('developer/subscribe', '开通套餐', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }
-  }, [list, selected, submitting])
+  }, [list, selected, submitting, t])
 
   const current = list[selected]
-  const periodText = current ? PERIOD_LABEL[current.period || ''] || current.period || '月度' : ''
+  const periodText = current ? periodLabel(current.period) : ''
 
   return (
     <View className="page">
       <View className="banner">
-        <View className="banner-title">开发者套餐</View>
-        <View className="banner-desc">开通开发者权益，解锁 API 调用与智能体发布</View>
+        <View className="banner-title">{t('developer.subscribe.bannerTitle')}</View>
+        <View className="banner-desc">{t('developer.subscribe.bannerDesc')}</View>
       </View>
       <View className="plan-list">
         {loading ? (
-          <Text className="loading-text">加载中...</Text>
+          <Text className="loading-text">{t('common.loading')}</Text>
         ) : list.length ? (
           list.map((p, i) => (
             <View
@@ -65,12 +71,12 @@ export default function DeveloperSubscribePage() {
               className={`plan-card${selected === i ? ' active' : ''}`}
               onClick={() => setSelected(i)}
             >
-              {i === 1 ? <View className="plan-tag">推荐</View> : null}
+              {i === 1 ? (
+                <View className="plan-tag">{t('developer.subscribe.recommended')}</View>
+              ) : null}
               <View className="plan-head">
                 <Text className="plan-name">{p.name}</Text>
-                <Text className="plan-period">
-                  {PERIOD_LABEL[p.period || ''] || p.period || '月度'}
-                </Text>
+                <Text className="plan-period">{periodLabel(p.period)}</Text>
               </View>
               <Text className="plan-price">{p.price}</Text>
               {Array.isArray(p.features) && p.features.length ? (
@@ -85,12 +91,14 @@ export default function DeveloperSubscribePage() {
             </View>
           ))
         ) : (
-          <Text className="empty-text">暂无可选套餐</Text>
+          <Text className="empty-text">{t('developer.subscribe.empty')}</Text>
         )}
       </View>
       {current ? (
         <Button className="btn" disabled={submitting} onClick={onSubscribe}>
-          {submitting ? '提交中...' : `立即开通 ¥${current.price} / ${periodText}`}
+          {submitting
+            ? t('developer.subscribe.submitting')
+            : t('developer.subscribe.priceLabel', { price: current.price, period: periodText })}
         </Button>
       ) : null}
     </View>

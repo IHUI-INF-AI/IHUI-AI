@@ -3,8 +3,10 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProtocol } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function ProtocolPage() {
+  const { t } = useI18n()
   const [content, setContent] = useState('')
 
   const load = useCallback(async () => {
@@ -13,9 +15,9 @@ export default function ProtocolPage() {
       setContent(res.content)
     } catch (e) {
       logger.error('about/protocol', '获取协议内容', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('aboutProtocol.loadFailed'), icon: 'none' })
     }
-  }, [])
+  }, [t])
 
   useDidShow(() => {
     load()

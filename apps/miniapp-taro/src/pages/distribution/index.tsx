@@ -16,6 +16,7 @@ import {
   type TeamMember,
   type WithdrawalRecord,
 } from '@/components'
+import { useI18n } from '@/i18n'
 
 const DEFAULT_INFO: DistributionInfo = {
   level: 0,
@@ -28,13 +29,6 @@ const DEFAULT_INFO: DistributionInfo = {
 const DEFAULT_TEAM: TeamMember[] = []
 const DEFAULT_WITHDRAWALS: WithdrawalRecord[] = []
 
-const MENU_ITEMS = [
-  { icon: '👥', label: '我的团队', url: '/pages/distribution/team' },
-  { icon: '💰', label: '佣金记录', url: '/pages/distribution/commission' },
-  { icon: '💸', label: '提现', url: '/pages/distribution/withdraw' },
-  { icon: '🏆', label: '排行榜', url: '/pages/distribution/rank' },
-]
-
 const WITHDRAWAL_STATUS_MAP: Record<number, 'pending' | 'approved' | 'rejected' | 'completed'> = {
   0: 'pending',
   1: 'approved',
@@ -42,17 +36,39 @@ const WITHDRAWAL_STATUS_MAP: Record<number, 'pending' | 'approved' | 'rejected' 
   3: 'rejected',
 }
 
-const METHOD_LABEL_MAP: Record<string, string> = {
-  wechat: '微信',
-  alipay: '支付宝',
-  bank: '银行卡',
-}
-
 export default function DistributionIndex() {
+  const { t } = useI18n()
   const [info, setInfo] = useState<DistributionInfo>(DEFAULT_INFO)
   const [inviteCode, setInviteCode] = useState<string>('')
   const [team, setTeam] = useState<TeamMember[]>(DEFAULT_TEAM)
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>(DEFAULT_WITHDRAWALS)
+
+  const methodLabel = useCallback(
+    (method: string) => {
+      const map: Record<string, string> = {
+        wechat: t('distribution.withdraw.methodWechat'),
+        alipay: t('distribution.withdraw.methodAlipay'),
+        bank: t('distribution.withdraw.methodBank'),
+      }
+      return map[method] || method
+    },
+    [t],
+  )
+
+  const menuItems = [
+    { icon: '👥', label: t('distribution.index.menuTeam'), url: '/pages/distribution/team' },
+    {
+      icon: '💰',
+      label: t('distribution.index.menuCommission'),
+      url: '/pages/distribution/commission',
+    },
+    {
+      icon: '💸',
+      label: t('distribution.index.menuWithdraw'),
+      url: '/pages/distribution/withdraw',
+    },
+    { icon: '🏆', label: t('distribution.index.menuRank'), url: '/pages/distribution/rank' },
+  ]
 
   const load = useCallback(async () => {
     try {
@@ -85,14 +101,14 @@ export default function DistributionIndex() {
         id: w.id,
         amount: w.originalAmount / 100,
         status: WITHDRAWAL_STATUS_MAP[w.status] || 'pending',
-        method: METHOD_LABEL_MAP[w.method] || w.method,
+        method: methodLabel(w.method),
         createdAt: w.createdAt,
       }))
       setWithdrawals(records)
     } catch {
       // ignore
     }
-  }, [])
+  }, [methodLabel])
 
   const navigate = (url: string) => Taro.navigateTo({ url })
 
@@ -105,7 +121,7 @@ export default function DistributionIndex() {
   }
 
   const onViewWithdrawal = (r: WithdrawalRecord) => {
-    Taro.showToast({ title: `查看 ${r.id}`, icon: 'none' })
+    Taro.showToast({ title: t('distribution.index.viewWithdrawal', { id: r.id }), icon: 'none' })
   }
 
   return (
@@ -113,7 +129,7 @@ export default function DistributionIndex() {
       <View className="bg-gradient-to-b from-[#ff6b35] to-[#ff8e53] px-[16px] pt-[24px] pb-[20px] text-white">
         <View className="flex items-center justify-between">
           <View className="flex items-center">
-            <Text className="block text-[14px] opacity-90">分销等级</Text>
+            <Text className="block text-[14px] opacity-90">{t('distribution.index.level')}</Text>
             <View className="ml-2">
               <LevelBadge level={info.level} size="sm" />
             </View>
@@ -122,30 +138,38 @@ export default function DistributionIndex() {
             className="text-[12px] px-3 py-1 rounded-full bg-white/20"
             onClick={() => navigate('/pages/distribution/rank')}
           >
-            排行榜 ›
+            {t('distribution.index.rank')}
           </Text>
         </View>
         <Text className="block text-[40px] font-bold mt-[8px]">¥{info.totalCommission}</Text>
-        <Text className="block text-[12px] opacity-90 mt-[4px]">累计佣金</Text>
+        <Text className="block text-[12px] opacity-90 mt-[4px]">
+          {t('distribution.index.totalCommission')}
+        </Text>
         <View className="flex mt-[16px]">
           <View className="flex-1 text-center">
             <Text className="block text-[20px] font-bold">¥{info.available}</Text>
-            <Text className="block text-[12px] opacity-90 mt-[4px]">可提现</Text>
+            <Text className="block text-[12px] opacity-90 mt-[4px]">
+              {t('distribution.index.available')}
+            </Text>
           </View>
           <View className="flex-1 text-center">
             <Text className="block text-[20px] font-bold">¥{info.withdrawn}</Text>
-            <Text className="block text-[12px] opacity-90 mt-[4px]">已提现</Text>
+            <Text className="block text-[12px] opacity-90 mt-[4px]">
+              {t('distribution.index.withdrawn')}
+            </Text>
           </View>
           <View className="flex-1 text-center">
             <Text className="block text-[20px] font-bold">{info.teamCount}</Text>
-            <Text className="block text-[12px] opacity-90 mt-[4px]">团队人数</Text>
+            <Text className="block text-[12px] opacity-90 mt-[4px]">
+              {t('distribution.index.teamCount')}
+            </Text>
           </View>
         </View>
       </View>
 
       <View className="mx-[12px] mt-[12px] bg-white rounded-[8px] p-[16px]">
         <View className="grid grid-cols-4 gap-[12px]">
-          {MENU_ITEMS.map((item) => (
+          {menuItems.map((item) => (
             <View
               key={item.url}
               className="flex flex-col items-center"
@@ -174,9 +198,11 @@ export default function DistributionIndex() {
       <InvitePoster
         inviteCode={inviteCode || `IHUI${info.level}${info.teamCount}`}
         inviteUrl="https://ihui.ai/invite/abc123"
-        reward="邀请好友得 30% 佣金"
-        inviterName="我"
-        onSave={() => Taro.showToast({ title: '已保存海报', icon: 'success' })}
+        reward={t('distribution.index.inviteReward')}
+        inviterName={t('distribution.index.inviterName')}
+        onSave={() =>
+          Taro.showToast({ title: t('distribution.index.posterSaved'), icon: 'success' })
+        }
         onShare={() => Taro.showShareMenu({ withShareTicket: true })}
       />
     </View>

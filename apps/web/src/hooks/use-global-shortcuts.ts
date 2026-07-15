@@ -48,7 +48,7 @@ interface DefaultShortcut {
 }
 
 const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
-  { key: 'Ctrl+K', description: '打开对话', event: 'global-shortcut:open-chat' },
+  { key: 'Ctrl+K', description: '命令面板', event: 'global-shortcut:open-chat' },
   { key: 'Ctrl+P', description: '搜索', event: 'global-shortcut:search' },
   { key: 'Ctrl+Shift+N', description: '新建对话', event: 'global-shortcut:new-chat' },
   { key: 'Ctrl+/', description: '快捷键帮助', event: '__toggle_help__' },
@@ -119,7 +119,7 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
     listenersRef.current.forEach((l) => l())
   }, [])
 
-  const version = React.useSyncExternalStore(
+  React.useSyncExternalStore(
     subscribe,
     () => versionRef.current,
     () => versionRef.current,
@@ -202,7 +202,7 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
         description: entry.description,
         active: entry.scope === 'global' || entry.scope === scope,
       })),
-    [version, scope],
+    [scope],
   )
 
   return {

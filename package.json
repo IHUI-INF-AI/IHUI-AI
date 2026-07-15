@@ -26,6 +26,7 @@
     "knip": "knip",
     "openapi-check": "node scripts/openapi-check.mjs",
     "miniapp:preview": "node scripts/miniapp-preview.mjs",
+    "push:safe": "powershell -ExecutionPolicy Bypass -File scripts/git-push-retry.ps1",
     "clean": "turbo run clean && rimraf node_modules",
     "changeset": "changeset",
     "version-packages": "changeset version",

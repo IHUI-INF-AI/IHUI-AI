@@ -3,8 +3,10 @@ import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getProfile, bindEmail } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function Email() {
+  const { t } = useI18n()
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [counting, setCounting] = useState(false)
@@ -16,14 +18,14 @@ export default function Email() {
       setEmail((await getProfile()).email || '')
     } catch (e) {
       logger.error('user/email', '获取用户信息', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
   })
 
   function sendCode() {
     if (counting) return
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return Taro.showToast({ title: '邮箱格式错误', icon: 'none' })
+      return Taro.showToast({ title: t('user.email.emailInvalid'), icon: 'none' })
     }
     // 复用短信发送逻辑（实际应调用邮箱验证码接口）
     setCounting(true)
@@ -42,11 +44,11 @@ export default function Email() {
   async function onSubmit() {
     try {
       await bindEmail(email, code)
-      Taro.showToast({ title: '绑定成功', icon: 'success' })
+      Taro.showToast({ title: t('user.email.bindSuccess'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/email', '绑定邮箱', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
   }
 
@@ -54,22 +56,22 @@ export default function Email() {
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="mx-[12px] px-[16px] bg-white rounded-[8px]">
         <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
-          <Text className="w-[70px] text-[14px] text-[#333]">邮箱</Text>
+          <Text className="w-[70px] text-[14px] text-[#333]">{t('user.email.email')}</Text>
           <Input
             className="flex-1 text-[14px]"
             type="text"
-            placeholder="请输入邮箱地址"
+            placeholder={t('user.email.emailPlaceholder')}
             value={email}
             onInput={(e) => setEmail(e.detail.value)}
           />
         </View>
         <View className="flex items-center py-[16px]">
-          <Text className="w-[70px] text-[14px] text-[#333]">验证码</Text>
+          <Text className="w-[70px] text-[14px] text-[#333]">{t('user.email.code')}</Text>
           <View className="flex-1 flex items-center">
             <Input
               className="flex-1 text-[14px]"
               type="number"
-              placeholder="请输入验证码"
+              placeholder={t('user.email.codePlaceholder')}
               maxlength={6}
               value={code}
               onInput={(e) => setCode(e.detail.value)}
@@ -78,7 +80,7 @@ export default function Email() {
               className={`text-[12px] whitespace-nowrap ${counting ? 'text-[#ccc]' : 'text-[#07c160]'}`}
               onClick={sendCode}
             >
-              {counting ? `${count}s` : '获取验证码'}
+              {counting ? `${count}s` : t('user.email.getCode')}
             </Text>
           </View>
         </View>
@@ -90,7 +92,7 @@ export default function Email() {
         disabled={!email || !code}
         onClick={onSubmit}
       >
-        绑定邮箱
+        {t('user.email.bind')}
       </Button>
     </View>
   )

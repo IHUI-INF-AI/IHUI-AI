@@ -2,6 +2,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getStudyInfo } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface StudyInfo {
   todayMinutes: number
@@ -11,6 +12,7 @@ interface StudyInfo {
 }
 
 export default function StudyIndex() {
+  const { t } = useI18n()
   const [info, setInfo] = useState<StudyInfo>({
     todayMinutes: 0,
     totalMinutes: 0,
@@ -44,19 +46,19 @@ export default function StudyIndex() {
         <View className="flex flex-wrap">
           <View className="w-1/2 text-center mb-3 text-white">
             <Text className="block text-xl font-bold">{info.todayMinutes}</Text>
-            <Text className="block text-xs opacity-90 mt-0.5">今日(分钟)</Text>
+            <Text className="block text-xs opacity-90 mt-0.5">{t('study.todayMinutes')}</Text>
           </View>
           <View className="w-1/2 text-center mb-3 text-white">
             <Text className="block text-xl font-bold">{info.totalMinutes}</Text>
-            <Text className="block text-xs opacity-90 mt-0.5">累计(分钟)</Text>
+            <Text className="block text-xs opacity-90 mt-0.5">{t('study.totalMinutes')}</Text>
           </View>
           <View className="w-1/2 text-center mb-3 text-white">
             <Text className="block text-xl font-bold">{info.continuousDays}</Text>
-            <Text className="block text-xs opacity-90 mt-0.5">连续(天)</Text>
+            <Text className="block text-xs opacity-90 mt-0.5">{t('study.continuousDays')}</Text>
           </View>
           <View className="w-1/2 text-center mb-3 text-white">
             <Text className="block text-xl font-bold">{info.courses}</Text>
-            <Text className="block text-xs opacity-90 mt-0.5">学习课程</Text>
+            <Text className="block text-xs opacity-90 mt-0.5">{t('study.courses')}</Text>
           </View>
         </View>
       </View>
@@ -66,7 +68,7 @@ export default function StudyIndex() {
           onClick={() => navigate('/pages/study/record')}
         >
           <Text>📋</Text>
-          <Text className="flex-1 ml-3 text-sm text-[#333]">学习记录</Text>
+          <Text className="flex-1 ml-3 text-sm text-[#333]">{t('study.record')}</Text>
           <Text className="text-[#ccc]">›</Text>
         </View>
         <View
@@ -74,7 +76,7 @@ export default function StudyIndex() {
           onClick={() => navigate('/pages/study/plan')}
         >
           <Text>🎯</Text>
-          <Text className="flex-1 ml-3 text-sm text-[#333]">学习计划</Text>
+          <Text className="flex-1 ml-3 text-sm text-[#333]">{t('study.plan')}</Text>
           <Text className="text-[#ccc]">›</Text>
         </View>
         <View
@@ -82,7 +84,7 @@ export default function StudyIndex() {
           onClick={() => navigate('/pages/study/rank')}
         >
           <Text>🏆</Text>
-          <Text className="flex-1 ml-3 text-sm text-[#333]">学习排行</Text>
+          <Text className="flex-1 ml-3 text-sm text-[#333]">{t('study.rank')}</Text>
           <Text className="text-[#ccc]">›</Text>
         </View>
         <View
@@ -90,15 +92,17 @@ export default function StudyIndex() {
           onClick={() => navigate('/pages/exam/list')}
         >
           <Text>📝</Text>
-          <Text className="flex-1 ml-3 text-sm text-[#333]">我的考试</Text>
+          <Text className="flex-1 ml-3 text-sm text-[#333]">{t('study.exam')}</Text>
           <Text className="text-[#ccc]">›</Text>
         </View>
       </View>
       <View className="m-3 p-4 bg-white rounded-2xl">
-        <Text className="text-base text-[#333] font-semibold mb-3 block">继续学习</Text>
+        <Text className="text-base text-[#333] font-semibold mb-3 block">
+          {t('study.continueLearning')}
+        </Text>
         {!loading && (
           <View className="text-center py-6 text-[#999]">
-            <Text>暂无学习中的课程</Text>
+            <Text>{t('study.emptyCourse')}</Text>
           </View>
         )}
       </View>

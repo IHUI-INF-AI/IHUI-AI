@@ -1,5 +1,6 @@
 import { View, Text, Image } from '@tarojs/components'
 import { DrawerComponent, ModelList, type ModelItem } from '@/components'
+import { useI18n } from '@/i18n'
 
 interface MaterialItem {
   id: string
@@ -30,10 +31,11 @@ export function ModelDrawer({
   loading: boolean
   onSelect: (m: ModelItem) => void
 }) {
+  const { t } = useI18n()
   return (
     <DrawerComponent visible={visible} onClose={onClose} height="60vh">
       <View className="drawer-header">
-        <Text className="drawer-title">选择模型</Text>
+        <Text className="drawer-title">{t('ai.chatDrawers.selectModel')}</Text>
       </View>
       <ModelList models={models} selectedId={selectedId} onSelect={onSelect} loading={loading} />
     </DrawerComponent>
@@ -53,14 +55,15 @@ export function MaterialDrawer({
   loading: boolean
   onSelect: (m: MaterialItem) => void
 }) {
+  const { t } = useI18n()
   return (
     <DrawerComponent visible={visible} onClose={onClose} height="60vh">
       <View className="drawer-header">
-        <Text className="drawer-title">素材库</Text>
+        <Text className="drawer-title">{t('ai.chatDrawers.materialLibrary')}</Text>
       </View>
       {loading ? (
         <View className="drawer-empty">
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         </View>
       ) : materials.length ? (
         <View className="material-list">
@@ -75,7 +78,7 @@ export function MaterialDrawer({
         </View>
       ) : (
         <View className="drawer-empty">
-          <Text>暂无素材</Text>
+          <Text>{t('ai.chatDrawers.emptyMaterial')}</Text>
         </View>
       )}
     </DrawerComponent>
@@ -91,10 +94,11 @@ export function AgentDrawer({
   onClose: () => void
   agent: AgentInfo | null
 }) {
+  const { t } = useI18n()
   return (
     <DrawerComponent visible={visible} onClose={onClose} height="60vh">
       <View className="drawer-header">
-        <Text className="drawer-title">技能详情</Text>
+        <Text className="drawer-title">{t('ai.chatDrawers.skillDetail')}</Text>
       </View>
       {agent ? (
         <View className="agent-info">
@@ -113,14 +117,14 @@ export function AgentDrawer({
           </View>
           {agent.prompt ? (
             <View className="agent-prompt-wrap">
-              <Text className="agent-prompt-title">提示词</Text>
+              <Text className="agent-prompt-title">{t('ai.chatDrawers.promptLabel')}</Text>
               <Text className="agent-prompt">{agent.prompt}</Text>
             </View>
           ) : null}
         </View>
       ) : (
         <View className="drawer-empty">
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         </View>
       )}
     </DrawerComponent>

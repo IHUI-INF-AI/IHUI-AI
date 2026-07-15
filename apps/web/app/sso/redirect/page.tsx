@@ -58,12 +58,12 @@ export default async function SsoRedirectPage({
     const loginRedirect = encodeURIComponent(
       `/sso/redirect?redirect=${encodeURIComponent(targetUrl)}&client_id=${clientId}`,
     )
-    redirect(`/login?redirect=${loginRedirect}`)
+    redirect(`/sso/login?redirect=${loginRedirect}`)
   }
 
   const user = decodeUserFromToken(token!)
   if (!user) {
-    redirect('/login')
+    redirect('/sso/login')
   }
 
   try {
