@@ -8,7 +8,7 @@ export interface VipUpgradeToastProps {
   duration?: number
 }
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export default function VipUpgradeToast({
   visible = false,
@@ -18,15 +18,19 @@ export default function VipUpgradeToast({
   duration = 5000,
 }: VipUpgradeToastProps) {
   const [show, setShow] = useState(visible)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const durationRef = useRef(duration)
+  durationRef.current = duration
 
   useEffect(() => {
     setShow(visible)
-    if (visible && duration > 0) {
-      const t = setTimeout(() => {
+    if (visible && durationRef.current > 0) {
+      const timer = setTimeout(() => {
         setShow(false)
-        onClose?.()
-      }, duration)
-      return () => clearTimeout(t)
+        onCloseRef.current?.()
+      }, durationRef.current)
+      return () => clearTimeout(timer)
     }
   }, [visible])
 

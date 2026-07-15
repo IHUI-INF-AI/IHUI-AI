@@ -143,6 +143,8 @@ import { featureCenterRoutes } from './routes/feature-center.js'
 
 // R68 补建：M-64 ask 模块扩展端点
 import { askExtendedRoutes } from './routes/ask-extended.js'
+// admin/asks 管理后台问答端点
+import { adminAskRoutes } from './routes/admin-asks.js'
 
 // 死表激活：敏感词 / 协议 / 汇率 / 私信管理
 import { adminSensitiveWordsRoutes } from './routes/admin-sensitive-words.js'
@@ -178,6 +180,10 @@ import { adminMonitoringRoutes } from './routes/admin-monitoring-routes.js'
 import { adminShopRoutes } from './routes/admin-shop-routes.js'
 // 前端用户端缺失路由补建（54 个路由：空数据桩）
 import { missingUserRoutes } from './routes/missing-user-routes.js'
+// 补桩：文章列表 / 用户签到 / 教育课程作业评分证书 / 学习记录上传
+import { articleRoutes } from './routes/articles.js'
+import { userCheckinRoutes } from './routes/user.js'
+import { eduStubRoutes } from './routes/edu-stubs.js'
 
 // P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）
 import { adminReportRoutes } from './routes/report.js'
@@ -670,6 +676,8 @@ function registerRoutes(server: FastifyInstance) {
   // ===== R68 补建：M-64 ask 模块扩展端点 =====
   // M-64: ask 扩展（12端点：回答编辑/删除+点赞+收藏+评论+分类CRUD+树+统计）
   server.register(askExtendedRoutes, { prefix: '/api' })
+  // admin/asks 管理后台问答端点（5端点：列表/创建/编辑/审核/删除）
+  server.register(adminAskRoutes, { prefix: '/api/admin' })
 
   // ===== R67 补建：M-66 教育平台 + M-72 支付状态 WS =====
   // M-66: 教育平台同步管理（6端点）
@@ -724,6 +732,11 @@ function registerRoutes(server: FastifyInstance) {
   // 全部空数据桩，覆盖：文章 / 内容生成 / 知识库 / 技能 / 学习记录 / MCP / OpenClaw
   // 代理类 / 用户设置 / AI 补充 / 开发者扩展 / 分销 / VIP 权益 / 优惠券 / 通知详情 / 消息详情
   server.register(missingUserRoutes, { prefix: '/api' })
+
+  // ===== 补桩：文章列表 / 用户签到 / 教育课程扩展 / 学习记录上传 =====
+  server.register(articleRoutes, { prefix: '/api' })
+  server.register(userCheckinRoutes, { prefix: '/api' })
+  server.register(eduStubRoutes, { prefix: '/api' })
 
   // ===== P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）=====
   server.register(adminReportRoutes, { prefix: '/api/admin' })

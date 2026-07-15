@@ -1,4 +1,5 @@
 ﻿import { View, Text, Button } from '@tarojs/components'
+import { logger } from '@/utils/logger'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
@@ -58,7 +59,7 @@ export default function SetNeed() {
       Taro.showToast({ title: '保存成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
-      console.error('[plaza/set-need] save failed:', e)
+      logger.error('plaza/set-need', 'save', e)
     } finally {
       setSaving(false)
     }

@@ -86,7 +86,7 @@ export default function MemberDashboardPage() {
       value: summary.orderCount ?? 0,
       icon: ShoppingBag,
       href: '/member/orders',
-      cls: 'text-blue-600 dark:text-blue-400',
+      cls: 'text-teal-600 dark:text-teal-400',
     },
   ]
 

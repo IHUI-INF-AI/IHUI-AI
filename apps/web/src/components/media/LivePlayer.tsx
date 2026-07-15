@@ -11,6 +11,7 @@ interface LivePlayerProps {
   autoPlay?: boolean
   muted?: boolean
   className?: string
+  onTimeUpdate?: (currentTime: number, duration: number) => void
 }
 
 function isHlsStream(url: string): boolean {
@@ -27,6 +28,7 @@ export function LivePlayer({
   autoPlay = false,
   muted = false,
   className,
+  onTimeUpdate,
 }: LivePlayerProps) {
   const videoRef = React.useRef<HTMLVideoElement>(null)
   const hlsRef = React.useRef<Hls | null>(null)
@@ -149,6 +151,12 @@ export function LivePlayer({
     if (container) container.requestFullscreen()
   }
 
+  const handleTimeUpdate = () => {
+    const v = videoRef.current
+    if (!v || !onTimeUpdate) return
+    onTimeUpdate(v.currentTime, v.duration || 0)
+  }
+
   return (
     <div className={cn('group relative overflow-hidden rounded-lg bg-black', className)}>
       <video
@@ -158,6 +166,7 @@ export function LivePlayer({
         muted={muted}
         playsInline
         onClick={togglePlay}
+        onTimeUpdate={onTimeUpdate ? handleTimeUpdate : undefined}
         className="h-full w-full"
       >
         <track kind="captions" />

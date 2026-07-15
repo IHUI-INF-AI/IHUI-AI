@@ -2,13 +2,14 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getPayResult } from '@/api'
+import { useI18n } from '@/i18n'
 
 type PayStatus = 'pending' | 'paid' | 'failed'
 
-const STATUS_TEXT: Record<PayStatus, string> = {
-  pending: '支付处理中',
-  paid: '支付成功',
-  failed: '支付失败',
+const STATUS_KEY: Record<PayStatus, string> = {
+  pending: 'pay.result.pending',
+  paid: 'pay.result.paid',
+  failed: 'pay.result.failed',
 }
 
 const STATUS_ICON: Record<PayStatus, string> = {
@@ -24,6 +25,7 @@ const STATUS_BG: Record<PayStatus, string> = {
 }
 
 export default function PayResult() {
+  const { t } = useI18n()
   const router = useRouter()
   const [status, setStatus] = useState<PayStatus>('pending')
   const [amount, setAmount] = useState(0)
@@ -62,7 +64,7 @@ export default function PayResult() {
           {STATUS_ICON[status]}
         </View>
         <Text className="block text-[36rpx] text-[#333] font-semibold mt-[32rpx]">
-          {STATUS_TEXT[status]}
+          {t(STATUS_KEY[status])}
         </Text>
         {amount > 0 && (
           <Text className="block text-[40rpx] text-[#dd524d] mt-[16rpx]">¥{amount}</Text>
@@ -74,13 +76,13 @@ export default function PayResult() {
             className="mt-[32rpx] bg-[#07c160] text-white rounded-[40rpx] text-[30rpx]"
             onClick={goHome}
           >
-            返回首页
+            {t('pay.backHome')}
           </Button>
           <Button
             className="mt-[32rpx] bg-white text-[#333] rounded-[40rpx] text-[30rpx]"
             onClick={goOrders}
           >
-            查看订单
+            {t('pay.viewOrders')}
           </Button>
         </View>
       ) : (
@@ -89,7 +91,7 @@ export default function PayResult() {
             className="mt-[32rpx] bg-[#07c160] text-white rounded-[40rpx] text-[30rpx]"
             onClick={check}
           >
-            刷新状态
+            {t('pay.refresh')}
           </Button>
         </View>
       )}
