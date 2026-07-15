@@ -23,22 +23,8 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
-      - name: Debug versions
-        run: |
-          echo "pnpm: $(pnpm --version)"
-          echo "node: $(node --version)"
-          head -1 pnpm-lock.yaml
-
       - name: Install dependencies
-        run: |
-          set -ex
-          echo "=== package.json hashes (root + workspace) ==="
-          find . -name package.json -not -path "*/node_modules/*" -exec sha256sum {} \; 2>/dev/null | sort
-          echo "=== pnpm-lock.yaml hash ==="
-          sha256sum pnpm-lock.yaml
-          echo "=== Running pnpm install --frozen-lockfile ==="
-          pnpm install --frozen-lockfile --reporter=append-only
-          echo "=== Install completed ==="
+        run: pnpm install --frozen-lockfile
 
       - name: Build database package
         run: pnpm --filter @ihui/database build
@@ -121,15 +107,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: |
-          set -ex
-          echo "=== package.json hashes (root + workspace) ==="
-          find . -name package.json -not -path "*/node_modules/*" -exec sha256sum {} \; 2>/dev/null | sort
-          echo "=== pnpm-lock.yaml hash ==="
-          sha256sum pnpm-lock.yaml
-          echo "=== Running pnpm install --frozen-lockfile ==="
-          pnpm install --frozen-lockfile --reporter=append-only
-          echo "=== Install completed ==="
+        run: pnpm install --frozen-lockfile
 
       - name: Build database package
         run: pnpm --filter @ihui/database build
