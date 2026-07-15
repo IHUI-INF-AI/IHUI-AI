@@ -78,6 +78,12 @@ function limitedPublicUser(user: {
 }
 
 export const usersRoutes: FastifyPluginAsync = async (server) => {
+  // 用户自身资料含 phone/email,需跳过响应脱敏
+  // 防止 response-sanitizer 把敏感字段误伤为 '***'
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
   // GET /api/users/me - 获取当前登录用户信息(必须在 /:id 之前注册以优先匹配)
   server.get('/me', async (request, reply) => {
     try {

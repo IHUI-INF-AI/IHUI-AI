@@ -12,8 +12,14 @@ import { isSystemAdminUser } from '../../db/queries.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
 const memberUsersRoutes: FastifyPluginAsync = async (server) => {
+  // admin 会员列表/详情含 phone/email,需跳过响应脱敏
+  // 防止 response-sanitizer 把敏感字段误伤为 '***'
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
   server.addHook('preHandler', requireAdmin)
-server.get('/member/users', async (request, reply) => {
+  server.get('/member/users', async (request, reply) => {
     const q = paginationSchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, search } = q.data
