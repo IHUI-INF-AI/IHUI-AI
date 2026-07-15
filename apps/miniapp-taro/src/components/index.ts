@@ -203,3 +203,6 @@ export type { MessageActionsProps } from './MessageActions'
 
 export { default as NotificationSettings } from './NotificationSettings'
 export type { NotificationSettingsProps, NotificationSettingItem } from './NotificationSettings'
+
+export { default as CustomerServiceFloat } from './CustomerServiceFloat'
+export type { CustomerServiceFloatProps } from './CustomerServiceFloat'
