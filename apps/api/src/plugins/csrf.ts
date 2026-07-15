@@ -110,7 +110,7 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
     reply.setCookie(CSRF_COOKIE_NAME, cookieValue, {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV !== 'development',
       path: '/',
       maxAge: CSRF_TOKEN_TTL,
     })
