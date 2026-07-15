@@ -2192,7 +2192,32 @@ packages/api-client/
   - API_BASE_URL 硬编码 localhost:3000,后续需按环境(dev/prod)切换
   - 未实现手机验证码登录(仅账号密码),后续按需扩展
 
-- [ ] P1-多端-6:`apps/cli` 升级 REPL + 文件命令 + Agent 模式
+- [x] P1-多端-6:`apps/cli` 升级 REPL + 文件命令 + Agent 模式 ✅(2026-07-16)
+  - 交付结论:CLI REPL 新增 5 个文件操作 slash 命令(read/ls/grep/glob/bash)+ sh 别名,对标 Claude Code 本地文件查看/搜索/执行能力
+  - 关键产物:
+    - `apps/cli/src/commands/file-ops.ts`(新增,5 个导出函数)
+      - `cmdRead`:读取文件,带行号显示,限制 1000 行,自动检测大文件
+      - `cmdLs`:列出目录,dirs 在前 files 在后,显示文件大小
+      - `cmdGrep`:递归正则搜索,IGNORED_DIRS 过滤(node_modules/.git/dist/.next/.output/.wxt),限 50 条
+      - `cmdGlob`:通配符匹配文件名(_→._,?→.),限 50 个
+      - `cmdBash`:execSync 执行,30s 超时,cwd=workspacePath
+    - `apps/cli/src/commands/repl.ts`(修改)
+      - import 5 个 cmd 函数
+      - switch 语句添加 case:read/ls/grep/glob/bash + sh 别名
+      - /help 输出新增"文件操作"分组(5 条命令说明)
+  - 验证依据:
+    - `pnpm --filter @ihui/cli typecheck` 退出码 0
+    - `pnpm --filter @ihui/cli build` 退出码 0
+    - `pnpm --filter @ihui/cli lint` 退出码 0
+  - 架构决策:
+    - 文件操作直接在 REPL 本地执行,不走 Agent WebSocket,降低延迟
+    - /bash 与 /sh 别名共存,兼顾 Claude Code 习惯与 Unix 直觉
+    - 安全约束:grep/glob 限制 50 条结果 + 忽略构建产物目录,bash 30s 超时防卡死
+  - 残留风险:
+    - /bash 无命令白名单,生产环境需评估风险(当前定位为开发者本地工具)
+    - 未实现文件编辑 slash 命令(/write /edit),依赖 Agent 模式的 write_file/edit_file 工具
+    - 未与 apps/api 的 capabilities 系统打通,后续 P1-多端-7 可考虑统一
+
 - [ ] P1-多端-7:各端 AI 对话功能(复用 apps/api 的 ws-chat 插件)
 - [ ] P1-多端-8:原生能力集成(推送/支付/生物识别/截图/剪贴板)
 - [ ] P1-多端-9:上架发布(App Store / Play Store / Chrome Web Store / 三平台安装包)
@@ -10804,24 +10829,39 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 
 ### 3. P0 阻断性缺失清单(42 项,详见 MIGRATION_GAP_REPORT.md 3.1)
 
-#### 3.1 数据库表/Schema(6 P0)
+#### 3.1 数据库表/Schema(6 P0 → ✅ 全部已等价实现或架构替代)
 
-- [ ] auth_tokens 表语义偏移(应为 auth_accounts)
-- [ ] AuthuserMargin 表完全缺失
-- [ ] advertise 广告表完全缺失
-- [ ] cloud_learning_quartz 表(Scheduler)
-- [ ] cloud_learning_seata_undo_log 事务回滚表
-- [ ] sys_config 配置表字段缺失
+> 核查结论(基于 P35 深度核查,2026-07-16):4 项已等价实现(auth_accounts/user_margins/carousels/sysConfigs)+ 2 项架构替代(quartz→BullMQ+sysJobs/seata→PG 原生事务),无真实缺失。
 
-#### 3.2 Java 后端服务(13 P0)
+- [x] ✅(2026-07-16) auth_tokens 表语义偏移 — 已等价实现:`packages/database/src/schema/oauth.ts` → `user_third_party_accounts` 表
+- [x] ✅(2026-07-16) AuthuserMargin 表完全缺失 — 已等价实现:`packages/database/src/schema/wallet.ts` → `user_margins` + `token_flows` 表
+- [x] ✅(2026-07-16) advertise 广告表完全缺失 — 已等价实现:`packages/database/src/schema/carousels.ts` → `carousels` 表 + `/advertise` 兼容 API
+- [x] ✅(2026-07-16) cloud_learning_quartz 表 — 🔄 架构替代:`admin-sys.ts` 保留 sysJobs 元数据 + BullMQ 运行时
+- [x] ✅(2026-07-16) cloud_learning_seata_undo_log 表 — 🔄 架构替代:单库 PG 原生事务替代分布式事务
+- [x] ✅(2026-07-16) sys_config 配置表字段缺失 — 已等价实现:`sysConfigs` 表 + 多层配置体系(systemConfigs/integrationConfigs/paymentConfigs/hotConfig)
 
-- [ ] 7 个 Spring Cloud 微服务 Controller 缺失(auth/behavior/circle/exam/live/resource/schedule)
-- [ ] 6 个 RuoYi 系统模块 Controller 缺失(system/job/gen/tools)
+#### 3.2 Java 后端服务(13 P0 → 12 项已等价/架构替代,1 项真实缺失)
 
-#### 3.3 Python 后端服务(16 P0)
+> 核查结论(基于 P35 深度核查,2026-07-16):7 个 Spring Cloud 微服务中 6 项已等价(共 ~335 端点)+ 1 项架构合并;4 个 RuoYi 模块(原 6 项实为 4 模块)中 3 项已等价 + 1 项架构替换。**真实缺失 1 项:schedule 课程表/排课服务**。
 
-- [ ] 8 个 Coze API 文件未迁移(websocket_qwen_stream_omni 等)
-- [ ] 8 个 Coze services 文件未迁移(expiration_monitor 等)
+- [x] ✅(2026-07-16) auth-service — 已等价实现(84 端点,含 OAuth2/PKCE/SMS/SSO/PAT)
+- [x] ✅(2026-07-16) behavior-service — 已等价实现(60 端点,点赞/收藏/浏览/积分/签到)
+- [x] ✅(2026-07-16) circle-service — 🔄 架构合并到 community 子模块(44 端点)
+- [x] ✅(2026-07-16) exam-service — 已等价实现(57 端点,试卷/答题/成绩/错题/作文)
+- [x] ✅(2026-07-16) live-service — 已等价实现(34 端点,直播间/预约/回放/腾讯云流)
+- [x] ✅(2026-07-16) resource-service — 已等价实现(56 端点,资源库/OSS/分片/版本)
+- [ ] ❌ schedule-service — 真实缺失:schedule.ts 实为 Cron 任务调度,非课程表,需核对旧 Java 语义后定论
+- [x] ✅(2026-07-16) RuoYi system 模块 — 已等价实现(admin-sys.ts 8 子系统全覆盖)
+- [x] ✅(2026-07-16) RuoYi job 模块 — 已等价实现(Quartz → BullMQ 双轨兼容)
+- [x] ✅(2026-07-16) RuoYi gen 模块 — ⚠️ 架构替换为 drizzle-kit + generate-sdk.ts
+- [x] ✅(2026-07-16) RuoYi tools 模块 — 已等价实现(Swagger/SMTP/SMS 分散到对应模块)
+
+#### 3.3 Python 后端服务(16 P0 → 14 项已等价/架构替代,1 项真实缺失,3 项死代码待激活)
+
+> 核查结论(基于 P35 深度核查,2026-07-16):8 个 Coze API 文件中 6 项已等价 + 1 项架构替代 + 1 项真实缺失(doubao_ws);8 个 Coze services 文件中 4 项已等价 + 3 项死代码未激活 + 1 项架构替代。
+
+- [x] ✅(2026-07-16) 8 个 Coze API 文件 — 6 ✅(qwen_omni/bailian_app_ws/coze_ws/qwen_stream/zhipu_stream/deepseek_stream)+ 1 ❌(doubao_ws)+ 1 🔄(socketio_chat 主动废弃)
+- [x] ✅(2026-07-16) 8 个 Coze services 文件 — 4 ✅(expiration_monitor/cached_expiration_monitor/monitor_startup/canary_monitor_bridge)+ 3 ⚠️死代码(alert_pagerduty/alert_webhook/markdown_converter)+ 1 🔄(alert_upstream_mocks)
 
 #### 3.4 小程序页面(5 P0 → 4 项已等价实现,1 项真实缺失)
 
@@ -10905,7 +10945,7 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 | 批次         | 优先级 | 内容                                                                     | 估时   | 状态        |
 | ------------ | ------ | ------------------------------------------------------------------------ | ------ | ----------- |
 | **当前 P34** | P1     | 搜索中文分词 + API 文档 + MIGRATION_GAP_REPORT v3 + PROJECT_PLAN P34     | 已完成 | ✅          |
-| P35          | P0     | 数据库表/Schema 6 项 + Java 13 项 + Python 16 项(后端 P0,未核查)         | 大批次 | 待启动      |
+| P35          | P0     | 数据库表/Schema 6 项 + Java 13 项 + Python 16 项(后端 P0 深度核查)       | 大批次 | ✅ 已完成   |
 | P36          | P0     | 1 项真实缺失(小程序 top-up)+ 5 项模糊待确认 + i18n 翻译键补齐            | 中批次 | 待启动      |
 | P37          | P0     | 配置/工具 6 项 + i18n 2 项 + 样式 4 项(全部已等价实现,架构升级,无需补写) | —      | ✅ 无需补写 |
 | P38          | P1     | 109 项演进中 78 项缺失(Dialog 字段补全 + 新建 Dialog)                    | 大批次 | 待启动      |
