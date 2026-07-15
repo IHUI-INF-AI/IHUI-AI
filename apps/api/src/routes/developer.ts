@@ -88,6 +88,8 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       })
       .returning()
     // 仅此一次返回完整 secret，后续不再提供
+    // 跳过响应脱敏,否则 secret 会被 response-sanitizer 误伤为 '***'
+    request.skipResponseSanitization = true
     return reply.status(201).send(
       success({
         apiKey: record,
