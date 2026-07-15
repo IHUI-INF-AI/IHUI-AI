@@ -34,19 +34,19 @@ export default function ExamDetail() {
           <View className="flex mt-4">
             <View className="flex-1 text-center">
               <Text className="block text-xs text-[#999]">题量</Text>
-              <Text className="block text-base text-[#007aff] font-semibold mt-1">
+              <Text className="block text-base text-[#07c160] font-semibold mt-1">
                 {exam.questionCount}题
               </Text>
             </View>
             <View className="flex-1 text-center">
               <Text className="block text-xs text-[#999]">时长</Text>
-              <Text className="block text-base text-[#007aff] font-semibold mt-1">
+              <Text className="block text-base text-[#07c160] font-semibold mt-1">
                 {exam.duration || 0}分钟
               </Text>
             </View>
             <View className="flex-1 text-center">
               <Text className="block text-xs text-[#999]">及格</Text>
-              <Text className="block text-base text-[#007aff] font-semibold mt-1">
+              <Text className="block text-base text-[#07c160] font-semibold mt-1">
                 {exam.passScore || '0'}分
               </Text>
             </View>
@@ -64,7 +64,7 @@ export default function ExamDetail() {
 
       {exam.title && (
         <Button
-          className="fixed bottom-4 left-4 right-4 bg-[#007aff] text-white rounded-full text-base"
+          className="fixed bottom-4 left-4 right-4 bg-[#07c160] text-white rounded-full text-base"
           onClick={onStart}
         >
           开始考试

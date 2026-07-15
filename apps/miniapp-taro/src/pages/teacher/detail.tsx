@@ -40,7 +40,7 @@ export default function TeacherDetail() {
             <View className="ml-[12px] flex-1">
               <Text className="text-[18px] text-[#333] font-bold">{teacher.name}</Text>
               {teacher.title && (
-                <Text className="block text-[13px] text-[#007aff] mt-[4px]">{teacher.title}</Text>
+                <Text className="block text-[13px] text-[#07c160] mt-[4px]">{teacher.title}</Text>
               )}
             </View>
           </View>
@@ -65,7 +65,7 @@ export default function TeacherDetail() {
       {teacher && (
         <View className="mx-[12px] my-[12px]">
           <Button
-            className="w-full bg-[#007aff] text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
+            className="w-full bg-[#07c160] text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
             onClick={onViewCourses}
           >
             查看课程

@@ -7,6 +7,18 @@ import { success, error } from '../utils/response.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
+const routeBodySchema = z.object({ name: z.string().min(1) }).passthrough()
+const modelTestBodySchema = z
+  .object({ name: z.string().min(1), modelId: z.string().optional() })
+  .passthrough()
+const modelTestRunSchema = z
+  .object({
+    modelId: z.string().min(1),
+    prompt: z.string().default('你好'),
+    temperature: z.number().min(0).max(2).optional(),
+  })
+  .passthrough()
+
 // =============================================================================
 // 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）
 // =============================================================================
@@ -38,6 +50,96 @@ async function rawList(
     page: opts.page,
     pageSize: opts.pageSize,
   }
+}
+
+// =============================================================================
+// system_configs JSON 存储辅助（用于无独立表的资源 CRUD，按 category 区分）
+// =============================================================================
+
+function parseJSONValue(s: unknown): Record<string, unknown> {
+  if (typeof s !== 'string') return {}
+  try {
+    const v = JSON.parse(s)
+    return typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function rowToConfig(r: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...parseJSONValue(r.value),
+    id: r.id,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }
+}
+
+async function configList(
+  category: string,
+  page: number,
+  pageSize: number,
+): Promise<{ list: Record<string, unknown>[]; total: number; page: number; pageSize: number }> {
+  const offset = (page - 1) * pageSize
+  const rows = await db.execute(
+    sql`SELECT id, value, created_at, updated_at FROM "system_configs" WHERE "category" = ${category} ORDER BY "created_at" DESC LIMIT ${pageSize} OFFSET ${offset}`,
+  )
+  const countRows = await db.execute(
+    sql`SELECT count(*)::int AS count FROM "system_configs" WHERE "category" = ${category}`,
+  )
+  const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
+  return {
+    list: (rows as Record<string, unknown>[]).map(rowToConfig),
+    total,
+    page,
+    pageSize,
+  }
+}
+
+async function configById(id: string): Promise<Record<string, unknown> | null> {
+  const rows = await db.execute(
+    sql`SELECT id, value, created_at, updated_at FROM "system_configs" WHERE "id"::text = ${id} LIMIT 1`,
+  )
+  const r = (rows as Record<string, unknown>[])[0]
+  return r ? rowToConfig(r) : null
+}
+
+async function configCreate(
+  category: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const id = crypto.randomUUID()
+  const value = JSON.stringify(body)
+  const rows = await db.execute(
+    sql`INSERT INTO "system_configs" (id, key, value, type, category) VALUES (${id}, ${id}, ${value}, ${'json'}, ${category}) RETURNING id, value, created_at, updated_at`,
+  )
+  const r = (rows as Record<string, unknown>[])[0]
+  if (!r) return { id, ...body }
+  return rowToConfig(r)
+}
+
+async function configUpdate(
+  id: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown> | null> {
+  const existing = await db.execute(
+    sql`SELECT value FROM "system_configs" WHERE "id"::text = ${id} LIMIT 1`,
+  )
+  const exRow = (existing as Record<string, unknown>[])[0]
+  if (!exRow) return null
+  const merged = { ...parseJSONValue(exRow.value), ...body }
+  const rows = await db.execute(
+    sql`UPDATE "system_configs" SET "value" = ${JSON.stringify(merged)}, "updated_at" = NOW() WHERE "id"::text = ${id} RETURNING id, value, created_at, updated_at`,
+  )
+  const r = (rows as Record<string, unknown>[])[0]
+  return r ? rowToConfig(r) : null
+}
+
+async function configDelete(id: string): Promise<boolean> {
+  const rows = await db.execute(
+    sql`DELETE FROM "system_configs" WHERE "id"::text = ${id} RETURNING id`,
+  )
+  return (rows as Record<string, unknown>[]).length > 0
 }
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
@@ -161,32 +263,66 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   // -------------------------------------------------------------------------
-  // ai/outbound_routes — AI 外呼路由
-  // NOTE: 旧架构 outbound_routes.py 仅提供 POST /analyze（LLM 意向分析），无独立 DB 表；
-  // 此处 CRUD 保持合理默认值，待外呼路由表迁移后替换。
+  // ai/outbound_routes — AI 外呼路由（存入 system_configs，category='outbound_route'）
   // -------------------------------------------------------------------------
-  server.get('/outbound-routes/list', async (_req, reply) => {
-    // NOTE: 表尚未迁移，使用合理默认值
-    return reply.send(success({ list: [], total: 0 }))
+  server.get('/outbound-routes/list', async (req, reply) => {
+    const q = req.query as { page?: string; pageSize?: string }
+    const { page, pageSize } = parsePaging(q)
+    try {
+      const result = await configList('outbound_route', page, pageSize)
+      return reply.send(success(result))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询外呼路由失败'))
+    }
   })
   server.get('/outbound-routes/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    // NOTE: 表尚未迁移，使用合理默认值
-    return reply.send(success({ id: parsed.data.id }))
+    try {
+      const row = await configById(parsed.data.id)
+      if (!row) return reply.status(404).send(error(404, '外呼路由不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询外呼路由失败'))
+    }
   })
   server.post('/outbound-routes', async (req, reply) => {
-    return reply.status(201).send(success({ created: true, body: req.body }))
+    const parsed = routeBodySchema.safeParse(req.body)
+    if (!parsed.success) return reply.status(400).send(error(400, 'name 为必填项'))
+    try {
+      const row = await configCreate('outbound_route', parsed.data)
+      return reply.status(201).send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '创建外呼路由失败'))
+    }
   })
   server.put('/outbound-routes/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id, updated: true }))
+    const body = (req.body as Record<string, unknown>) ?? {}
+    try {
+      const row = await configUpdate(parsed.data.id, body)
+      if (!row) return reply.status(404).send(error(404, '外呼路由不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '更新外呼路由失败'))
+    }
   })
   server.delete('/outbound-routes/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    try {
+      const deleted = await configDelete(parsed.data.id)
+      if (!deleted) return reply.status(404).send(error(404, '外呼路由不存在'))
+      return reply.send(success({ id: parsed.data.id, deleted: true }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '删除外呼路由失败'))
+    }
   })
 
   // -------------------------------------------------------------------------
@@ -298,32 +434,67 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   // -------------------------------------------------------------------------
-  // ai/video_routes — AI 视频路由 + 任务
-  // NOTE: /video-routes CRUD 无独立 DB 表（旧架构 video_routes.py 仅 POST /generate）；
+  // ai/video_routes — AI 视频路由（存入 system_configs，category='video_route'）
   // 任务端点对接 Drizzle schema: video_generation_tasks。
   // -------------------------------------------------------------------------
-  server.get('/video-routes/list', async (_req, reply) => {
-    // NOTE: 表尚未迁移，使用合理默认值
-    return reply.send(success({ list: [], total: 0 }))
+  server.get('/video-routes/list', async (req, reply) => {
+    const q = req.query as { page?: string; pageSize?: string }
+    const { page, pageSize } = parsePaging(q)
+    try {
+      const result = await configList('video_route', page, pageSize)
+      return reply.send(success(result))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询视频路由失败'))
+    }
   })
   server.get('/video-routes/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    // NOTE: 表尚未迁移，使用合理默认值
-    return reply.send(success({ id: parsed.data.id }))
+    try {
+      const row = await configById(parsed.data.id)
+      if (!row) return reply.status(404).send(error(404, '视频路由不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询视频路由失败'))
+    }
   })
   server.post('/video-routes', async (req, reply) => {
-    return reply.status(201).send(success({ created: true, body: req.body }))
+    const parsed = routeBodySchema.safeParse(req.body)
+    if (!parsed.success) return reply.status(400).send(error(400, 'name 为必填项'))
+    try {
+      const row = await configCreate('video_route', parsed.data)
+      return reply.status(201).send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '创建视频路由失败'))
+    }
   })
   server.put('/video-routes/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id, updated: true }))
+    const body = (req.body as Record<string, unknown>) ?? {}
+    try {
+      const row = await configUpdate(parsed.data.id, body)
+      if (!row) return reply.status(404).send(error(404, '视频路由不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '更新视频路由失败'))
+    }
   })
   server.delete('/video-routes/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    try {
+      const deleted = await configDelete(parsed.data.id)
+      if (!deleted) return reply.status(404).send(error(404, '视频路由不存在'))
+      return reply.send(success({ id: parsed.data.id, deleted: true }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '删除视频路由失败'))
+    }
   })
   // POST /video-routes/tasks/create — 创建视频生成任务
   server.post('/video-routes/tasks/create', async (req, reply) => {
@@ -374,37 +545,108 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   // -------------------------------------------------------------------------
-  // developer/model_test — 开发者模型测试
-  // NOTE: 旧架构 model_test_service.py 为运行时模型连通性探测（无 DB 表）；
-  // CRUD 保持合理默认值，/run 保持运行时探测语义。
+  // developer/model_test — 开发者模型测试（存入 system_configs，category='model_test_task'）
+  // /run 调用 AI_SERVICE_URL/llm/complete 执行真实探测，未配置时返回 mock。
   // -------------------------------------------------------------------------
-  server.get('/developer/model-test/list', async (_req, reply) => {
-    // NOTE: 表尚未迁移，使用合理默认值
-    return reply.send(success({ list: [], total: 0 }))
+  server.get('/developer/model-test/list', async (req, reply) => {
+    const q = req.query as { page?: string; pageSize?: string }
+    const { page, pageSize } = parsePaging(q)
+    try {
+      const result = await configList('model_test_task', page, pageSize)
+      return reply.send(success(result))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询模型测试任务失败'))
+    }
   })
   server.get('/developer/model-test/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    // NOTE: 表尚未迁移，使用合理默认值
-    return reply.send(success({ id: parsed.data.id }))
+    try {
+      const row = await configById(parsed.data.id)
+      if (!row) return reply.status(404).send(error(404, '模型测试任务不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询模型测试任务失败'))
+    }
   })
   server.post('/developer/model-test', async (req, reply) => {
-    return reply.status(201).send(success({ created: true, body: req.body }))
+    const parsed = modelTestBodySchema.safeParse(req.body)
+    if (!parsed.success) return reply.status(400).send(error(400, 'name 为必填项'))
+    try {
+      const row = await configCreate('model_test_task', parsed.data)
+      return reply.status(201).send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '创建模型测试任务失败'))
+    }
   })
   server.put('/developer/model-test/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id, updated: true }))
+    const body = (req.body as Record<string, unknown>) ?? {}
+    try {
+      const row = await configUpdate(parsed.data.id, body)
+      if (!row) return reply.status(404).send(error(404, '模型测试任务不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '更新模型测试任务失败'))
+    }
   })
   server.delete('/developer/model-test/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    try {
+      const deleted = await configDelete(parsed.data.id)
+      if (!deleted) return reply.status(404).send(error(404, '模型测试任务不存在'))
+      return reply.send(success({ id: parsed.data.id, deleted: true }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '删除模型测试任务失败'))
+    }
   })
   // POST /developer/model-test/run — 执行模型测试
   server.post('/developer/model-test/run', async (req, reply) => {
-    // NOTE: 运行时探测端点，真实实现需调用目标模型 API（见旧架构 model_test_service.py）
-    return reply.send(success({ result: 'ok', body: req.body }))
+    const parsed = modelTestRunSchema.safeParse(req.body)
+    if (!parsed.success) return reply.status(400).send(error(400, 'modelId 为必填项'))
+    const { modelId, prompt, temperature } = parsed.data
+    const aiServiceUrl = process.env.AI_SERVICE_URL
+    const started = Date.now()
+    if (!aiServiceUrl) {
+      return reply.send(
+        success({
+          result: 'success',
+          modelId,
+          response: `[mock] ${prompt}`,
+          latency: Date.now() - started,
+          mock: true,
+        }),
+      )
+    }
+    try {
+      const llmResp = await fetch(`${aiServiceUrl}/llm/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelId, prompt, temperature }),
+      })
+      const latency = Date.now() - started
+      if (!llmResp.ok) {
+        req.log.error({ status: llmResp.status }, '模型测试调用失败')
+        return reply.status(502).send(error(502, `模型测试调用失败: ${llmResp.status}`))
+      }
+      const data = (await llmResp.json().catch(() => ({}))) as {
+        text?: string
+        content?: string
+        result?: string
+      }
+      const response = data.text ?? data.content ?? data.result ?? ''
+      return reply.send(success({ result: 'success', modelId, response, latency }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(502).send(error(502, `模型测试异常: ${(e as Error).message}`))
+    }
   })
 }
 

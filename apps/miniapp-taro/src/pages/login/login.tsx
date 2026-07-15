@@ -30,7 +30,7 @@ export default function Login() {
       Taro.showToast({ title: '验证码已发送', icon: 'success' })
       setCountdown(60)
       timerRef.current = setInterval(() => {
-        setCountdown(prev => {
+        setCountdown((prev) => {
           if (prev <= 1 && timerRef.current) {
             clearInterval(timerRef.current)
             timerRef.current = null
@@ -87,7 +87,7 @@ export default function Login() {
     <View className="min-h-screen px-[24px] bg-white">
       {/* 顶部 Logo */}
       <View className="pt-[80px] pb-[40px] text-center">
-        <Text className="text-[28px] font-bold text-[#007aff]">智汇AI</Text>
+        <Text className="text-[28px] font-bold text-[#07c160]">智汇AI</Text>
         <Text className="block mt-[8px] text-[13px] text-[#999]">AI 赋能学习与成长</Text>
       </View>
 
@@ -96,7 +96,7 @@ export default function Login() {
         <View
           className={`flex-1 text-center py-[10px] text-[15px] border-b-[2px] border-solid ${
             loginType === 'phone'
-              ? 'text-[#007aff] font-semibold border-[#007aff]'
+              ? 'text-[#07c160] font-semibold border-[#07c160]'
               : 'text-[#999] border-transparent'
           }`}
           onClick={() => setLoginType('phone')}
@@ -106,7 +106,7 @@ export default function Login() {
         <View
           className={`flex-1 text-center py-[10px] text-[15px] border-b-[2px] border-solid ${
             loginType === 'password'
-              ? 'text-[#007aff] font-semibold border-[#007aff]'
+              ? 'text-[#07c160] font-semibold border-[#07c160]'
               : 'text-[#999] border-transparent'
           }`}
           onClick={() => setLoginType('password')}
@@ -123,7 +123,7 @@ export default function Login() {
           maxlength={11}
           placeholder="请输入手机号"
           value={phone}
-          onInput={e => setPhone(e.detail.value)}
+          onInput={(e) => setPhone(e.detail.value)}
         />
       </View>
 
@@ -136,10 +136,10 @@ export default function Login() {
             maxlength={6}
             placeholder="请输入验证码"
             value={code}
-            onInput={e => setCode(e.detail.value)}
+            onInput={(e) => setCode(e.detail.value)}
           />
           <View
-            className={`px-[10px] text-[13px] ${codeBtnDisabled ? 'text-[#ccc]' : 'text-[#007aff]'}`}
+            className={`px-[10px] text-[13px] ${codeBtnDisabled ? 'text-[#ccc]' : 'text-[#07c160]'}`}
             onClick={sendCode}
           >
             <Text>{codeBtnText}</Text>
@@ -155,14 +155,14 @@ export default function Login() {
             password
             placeholder="请输入密码"
             value={password}
-            onInput={e => setPassword(e.detail.value)}
+            onInput={(e) => setPassword(e.detail.value)}
           />
         </View>
       ) : null}
 
       {/* 登录按钮 */}
       <View
-        className={`h-[48px] mt-[12px] rounded-[24px] flex items-center justify-center text-white text-[16px] bg-[#007aff] ${
+        className={`h-[48px] mt-[12px] rounded-[24px] flex items-center justify-center text-white text-[16px] bg-[#07c160] ${
           isLogging ? 'opacity-60' : ''
         }`}
         onClick={handleLogin}
@@ -171,7 +171,10 @@ export default function Login() {
       </View>
 
       {/* 微信登录 */}
-      <View className="mt-[24px] text-center text-[14px] text-[#07c160]" onClick={handleWechatLogin}>
+      <View
+        className="mt-[24px] text-center text-[14px] text-[#07c160]"
+        onClick={handleWechatLogin}
+      >
         <Text>微信一键登录</Text>
       </View>
 

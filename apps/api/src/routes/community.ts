@@ -23,8 +23,8 @@ import {
   acceptAnswer,
 } from '../db/community-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-import { sql, eq, and, desc, asc } from 'drizzle-orm'
-import { db } from '../db/index.js'
+import { sql, eq, and, desc, asc, ilike } from 'drizzle-orm'
+import { db, dbRead } from '../db/index.js'
 import {
   circles,
   circlePosts,
@@ -1504,5 +1504,114 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
     }
     const circle = await updateCircleShowStatus(idParsed.data.id, parsed.data.isPublished)
     return reply.send(success({ circle }))
+  })
+
+  // GET /admin/circles - 管理员圈子列表(支持 search + isPublished 过滤)
+  server.get('/admin/circles', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+        search: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
+        isPublished: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+      })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, search, isPublished } = parsed.data
+    const conds: Array<ReturnType<typeof eq>> = []
+    if (search) conds.push(ilike(circles.name, `%${search}%`))
+    if (isPublished !== undefined) conds.push(eq(circles.isPublished, isPublished))
+    const where = conds.length > 0 ? and(...conds) : undefined
+    const offset = (page - 1) * pageSize
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select()
+        .from(circles)
+        .where(where)
+        .orderBy(desc(circles.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(circles)
+        .where(where),
+    ])
+    return reply.send(success({ list, total: Number(totalRows[0]?.count ?? 0), page, pageSize }))
+  })
+
+  // POST /admin/circles - 管理员创建圈子
+  server.post('/admin/circles', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const body = z
+      .object({
+        name: z.string().min(1).max(100),
+        slug: z.string().min(1).max(120).optional(),
+        description: z.string().max(2000).optional().nullable(),
+        coverImage: z.string().max(512).optional().nullable(),
+        isPublished: z.boolean().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const slug =
+      body.data.slug ??
+      `${body.data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`
+    const [created] = await db
+      .insert(circles)
+      .values({
+        name: body.data.name,
+        slug,
+        description: body.data.description ?? null,
+        coverImage: body.data.coverImage ?? null,
+        isPublished: body.data.isPublished ?? true,
+      })
+      .returning()
+    if (!created) return reply.status(500).send(error(500, '创建圈子失败'))
+    return reply.status(201).send(success({ circle: created }))
+  })
+
+  // PUT /admin/circles/:id - 管理员编辑圈子(全字段 optional)
+  server.put('/admin/circles/:id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = z
+      .object({
+        name: z.string().min(1).max(100).optional(),
+        slug: z.string().min(1).max(120).optional(),
+        description: z.string().max(2000).nullable().optional(),
+        coverImage: z.string().max(512).nullable().optional(),
+        isPublished: z.boolean().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findCircleById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '圈子不存在'))
+    }
+    const updateData: Record<string, unknown> = { updatedAt: new Date() }
+    if (body.data.name !== undefined) updateData.name = body.data.name
+    if (body.data.slug !== undefined) updateData.slug = body.data.slug
+    if (body.data.description !== undefined) updateData.description = body.data.description
+    if (body.data.coverImage !== undefined) updateData.coverImage = body.data.coverImage
+    if (body.data.isPublished !== undefined) updateData.isPublished = body.data.isPublished
+    const [updated] = await db
+      .update(circles)
+      .set(updateData)
+      .where(eq(circles.id, parsed.data.id))
+      .returning()
+    if (!updated) return reply.status(500).send(error(500, '修改圈子失败'))
+    return reply.send(success({ circle: updated }))
   })
 }

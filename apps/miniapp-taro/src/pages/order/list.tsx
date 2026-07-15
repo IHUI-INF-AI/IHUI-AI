@@ -51,7 +51,7 @@ export default function OrderList() {
         status: statusRef.current || undefined,
       })
       const items = res.list || []
-      setList(prev => (reset ? items : [...prev, ...items]))
+      setList((prev) => (reset ? items : [...prev, ...items]))
       hasMoreRef.current = pageRef.current * PAGE_SIZE < res.total
       pageRef.current++
     } catch {
@@ -89,10 +89,10 @@ export default function OrderList() {
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="flex bg-white sticky top-0 z-10">
-        {TABS.map(tab => (
+        {TABS.map((tab) => (
           <Text
             key={tab.value}
-            className={`flex-1 text-center text-[26rpx] py-[24rpx] ${status === tab.value ? 'text-[#007aff] font-semibold' : 'text-[#666]'}`}
+            className={`flex-1 text-center text-[26rpx] py-[24rpx] ${status === tab.value ? 'text-[#07c160] font-semibold' : 'text-[#666]'}`}
             onClick={() => switchTab(tab.value)}
           >
             {tab.label}
@@ -101,7 +101,7 @@ export default function OrderList() {
       </View>
       {list.length > 0 && (
         <View className="p-[24rpx]">
-          {list.map(o => (
+          {list.map((o) => (
             <View
               key={o.id}
               className="bg-white rounded-[16rpx] p-[32rpx] mb-[24rpx]"
@@ -121,8 +121,8 @@ export default function OrderList() {
               {o.status === 'paid' && (
                 <View className="mt-[24rpx] text-right">
                   <Text
-                    className="inline-block text-[24rpx] text-[#007aff] px-[24rpx] py-[8rpx] border-[2rpx] border-[#007aff] rounded-[24rpx]"
-                    onClick={e => {
+                    className="inline-block text-[24rpx] text-[#07c160] px-[24rpx] py-[8rpx] border-[2rpx] border-[#07c160] rounded-[24rpx]"
+                    onClick={(e) => {
                       e.stopPropagation()
                       goRefund(o)
                     }}

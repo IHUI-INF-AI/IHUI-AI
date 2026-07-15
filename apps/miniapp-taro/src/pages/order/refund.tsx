@@ -42,14 +42,14 @@ export default function OrderRefund() {
           <Textarea
             className="w-full min-h-[200rpx] mt-[16rpx] p-[20rpx] bg-[#f7f8fa] rounded-[12rpx] text-[26rpx] box-border"
             value={reason}
-            onInput={e => setReason(e.detail.value)}
+            onInput={(e) => setReason(e.detail.value)}
             placeholder="请填写退款原因"
             maxlength={200}
           />
         </View>
       </View>
       <Button
-        className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] text-white rounded-[40rpx] text-[32rpx] ${disabled ? 'bg-[#ccc]' : 'bg-[#007aff]'}`}
+        className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] text-white rounded-[40rpx] text-[32rpx] ${disabled ? 'bg-[#ccc]' : 'bg-[#07c160]'}`}
         disabled={disabled}
         onClick={onSubmit}
       >
