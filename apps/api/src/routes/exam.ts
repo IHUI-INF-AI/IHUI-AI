@@ -13,6 +13,7 @@ import {
   updateExamCategory,
   deleteExamCategory,
   findPublishedPapers,
+  findPublishedPapersByIds,
   findAllPapers,
   findPaperById,
   findQuestionsByPaperId,
@@ -311,6 +312,19 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '试卷不存在'))
     }
     return reply.send(success({ paper }))
+  })
+
+  // GET /exam/papers/by-ids - 按 id 列表批量查询已发布试卷
+  server.get('/exam/papers/by-ids', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const idsParam = (request.query as { ids?: string }).ids ?? ''
+    const ids = idsParam
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (ids.length === 0) return reply.send(success({ list: [] }))
+    const list = await findPublishedPapersByIds(ids)
+    return reply.send(success({ list }))
   })
 
   // GET /exam/papers/:id/questions - 试卷题目(不含正确答案,用于答题)
