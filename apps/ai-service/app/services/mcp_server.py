@@ -845,6 +845,8 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
             cwd=repo_path,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=30,
             check=False,
         )
