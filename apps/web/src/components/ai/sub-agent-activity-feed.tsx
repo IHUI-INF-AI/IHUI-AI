@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Check, CheckCircle2, ChevronDown, ChevronUp, Loader2, Zap } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -26,19 +27,6 @@ const STATUS_DOT_COLOR: Record<AgentStatus, string> = {
   cancelled: 'bg-zinc-400',
 }
 
-const STATUS_TEXT: Record<AgentStatus, string> = {
-  idle: '空闲',
-  pending: '等待',
-  thinking: '思考中',
-  acting: '执行中',
-  reflecting: '反思中',
-  waiting: '等待中',
-  running: '运行中',
-  completed: '已完成',
-  failed: '失败',
-  cancelled: '已取消',
-}
-
 /**
  * SubAgentActivityFeed - 子 Agent 活动流
  * 显示 Agentic 模式下每个子智能体的实时活动
@@ -49,6 +37,8 @@ export function SubAgentActivityFeed({
   completed = false,
   initiallyExpanded,
 }: SubAgentActivityFeedProps) {
+  const t = useTranslations('ai.subAgentFeed')
+  const ts = useTranslations('ai.status')
   const hasRunning = activities.some(
     (a) => a.status !== 'completed' && a.status !== 'failed' && a.status !== 'cancelled',
   )
@@ -80,13 +70,15 @@ export function SubAgentActivityFeed({
           <span className="text-sm font-medium">
             {completed ? (
               <>
-                已协调 {activities.length} 个子智能体完成
+                {t('coordinated', { count: activities.length })}
                 {totalSteps > 0 && (
-                  <span className="ml-1 text-muted-foreground">（共 {totalSteps} 步）</span>
+                  <span className="ml-1 text-muted-foreground">
+                    {t('totalSteps', { count: totalSteps })}
+                  </span>
                 )}
               </>
             ) : (
-              <>{activities.length} 个子智能体协作中</>
+              <>{t('working', { count: activities.length })}</>
             )}
           </span>
         </div>
@@ -108,11 +100,11 @@ export function SubAgentActivityFeed({
                     STATUS_DOT_COLOR[agent.status],
                   )}
                 />
-                <span className="font-medium">{agent.name || agent.type || '子智能体'}</span>
+                <span className="font-medium">{agent.name || agent.type || t('defaultName')}</span>
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                  subagent
+                  {t('badge')}
                 </span>
-                <span className="text-xs text-muted-foreground">{STATUS_TEXT[agent.status]}</span>
+                <span className="text-xs text-muted-foreground">{ts(agent.status)}</span>
               </div>
 
               {(agent.completedSteps.length > 0 || agent.currentStep) && (

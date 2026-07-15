@@ -2,50 +2,52 @@ import { View, Text, Input, Textarea, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { publishAigc } from '@/api'
+import { useI18n } from '@/i18n'
 import './publish.css'
 
 export default function AigcPublish() {
+  const { t } = useI18n()
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const onSubmit = useCallback(async () => {
     if (!title.trim()) {
-      Taro.showToast({ title: '请输入标题', icon: 'none' })
+      Taro.showToast({ title: t('aigc.publish.titleRequired'), icon: 'none' })
       return
     }
     setSubmitting(true)
     try {
       await publishAigc({ title, content })
-      Taro.showToast({ title: '发布成功', icon: 'success' })
+      Taro.showToast({ title: t('aigc.publish.published'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch {
       // ignore
     } finally {
       setSubmitting(false)
     }
-  }, [title, content])
+  }, [title, content, t])
 
   return (
     <View className="publish-page">
       <View className="page-header">
-        <Text className="page-title">发布作品</Text>
+        <Text className="page-title">{t('aigc.publish.title')}</Text>
       </View>
       <View className="form">
         <View className="form-item">
-          <Text className="form-label">标题</Text>
+          <Text className="form-label">{t('aigc.publish.titleLabel')}</Text>
           <Input
             className="form-input"
-            placeholder="请输入作品标题"
+            placeholder={t('aigc.publish.titlePlaceholder')}
             value={title}
             onInput={(e) => setTitle(e.detail.value)}
           />
         </View>
         <View className="form-item">
-          <Text className="form-label">描述</Text>
+          <Text className="form-label">{t('aigc.publish.descLabel')}</Text>
           <Textarea
             className="form-textarea"
-            placeholder="请输入作品描述"
+            placeholder={t('aigc.publish.descPlaceholder')}
             value={content}
             onInput={(e) => setContent(e.detail.value)}
           />
@@ -56,7 +58,7 @@ export default function AigcPublish() {
           disabled={submitting}
           onClick={onSubmit}
         >
-          发布
+          {t('aigc.publish.publish')}
         </Button>
       </View>
     </View>

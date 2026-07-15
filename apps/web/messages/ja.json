@@ -360,7 +360,12 @@
     "student": "センター",
     "agents": "エージェント",
     "distribution": "ディストリビューション",
-    "oauthPlatform": "プラットフォーム"
+    "oauthPlatform": "プラットフォーム",
+    "downloadIOS": "iOS",
+    "downloadAndroidApk": "Android APK",
+    "downloadWechatMiniApp": "WeChat ミニプログラム",
+    "downloadDesktop": "デスクトップ",
+    "mainNav": "メインナビゲーション"
   },
   "auth": {
     "loginTitle": "おかえりなさい",
@@ -5217,7 +5222,12 @@
       "status3": "沟通中",
       "status4": "开发中",
       "status5": "配送中",
-      "status6": "完了"
+      "status6": "完了",
+      "colContext": "要件詳細",
+      "colCycleFull": "プロジェクト周期",
+      "colLowestPrice": "最低価格",
+      "colPeakPrice": "最高価格",
+      "colCreatedAt": "作成日時"
     },
     "demandAudit": {
       "title": "需求審査",
@@ -19720,8 +19730,227 @@
     "retry": "GoogleログインLogin Failed，"
   },
   "enterprise": {
-    "keywords": "エンタープライズai,エージェント,,ai,エンタープライズ,aiソリューション,ai",
-    "title": "ai - エンタープライズaiサービス"
+    "header": {
+      "backHome": "ホームに戻る",
+      "badge": "ENTERPRISESERVICE"
+    },
+    "hero": {
+      "brandLabel": "IHUI AIコミュニティ",
+      "title": "IHUI AIエンタープライズサービス",
+      "subtitle": "AI時代の企業のための合理的効率サービスと相互支援コミュニティ。意思決定者がAIと企業の関係を深く理解し、人機協同のスーパー組織を構築するよう支援します。",
+      "priceStandard": "元/人/年 標準価格",
+      "priceEarlyBird": "元/人/年 アーリーバード価格",
+      "earlyBirdSlots": "アーリーバード枠",
+      "joinNow": "今すぐ参加",
+      "exploreAgents": "エージェントシナリオを詳しく見る"
+    },
+    "positioning": {
+      "label": "コアポジショニング",
+      "title": "AI時代の企業合理的効率サービスと相互支援コミュニティ",
+      "description": "IHUI AIコミュニティは、企業の意思決定者がAIと企業の関係を深く理解できるよう支援することに尽力しています。体系化されたコース、実践的な探求、コミュニティの相互支援を通じて、人機協同のスーパー組織を構築し、企業の合理的効率向上を実現します。",
+      "tags": ["人機協同", "合理的効率", "スーパー組織"]
+    },
+    "modules": {
+      "label": "三大サービスモジュール",
+      "coreServiceBadge": "コアサービス",
+      "items": [
+        {
+          "tag": "MODULE 01",
+          "title": "ローカルコミュニティ",
+          "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
+          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+        },
+        {
+          "tag": "MODULE 02",
+          "title": "オンラインコミュニティ",
+          "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
+          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+        },
+        {
+          "tag": "MODULE 03",
+          "title": "AI専門サービス",
+          "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
+          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+        }
+      ]
+    },
+    "join": {
+      "label": "IHUI AIコミュニティに参加",
+      "title": "志を同じくする意思決定者と一緒に、AI時代の無限の可能性を探求",
+      "subtitle": "先着18名限定 · アーリーバード価格 ¥6000/人/年 · 満足できない場合全額返金",
+      "perYear": "/人/年",
+      "joinNow": "今すぐ参加",
+      "consultHint": "スキャンして相談、または直接お問い合わせください",
+      "benefits": [
+        "年間すべてのコース無料参加",
+        "探求活動への優先参加",
+        "コミュニティ相互支援無制限",
+        "オンラインコミュニティ専用入り口",
+        "AIアシスタント優先体験",
+        "満足できない場合全額返金"
+      ]
+    },
+    "footer": {
+      "brand": "IHUI AIコミュニティ · 中国 · 北京",
+      "contact": "お問い合わせ"
+    },
+    "courses": {
+      "label": "カリキュラム",
+      "title": "体系化されたAI認知と実践コース",
+      "subtitle": "企業の意思決定者がAI時代の機会と課題を全面的に理解できるよう支援",
+      "phases": [
+        {
+          "tag": "PHASE 01",
+          "title": "AI新ツールコース",
+          "description": "主流のAIツールとプラットフォームを習得し、AI技術の発展脈絡を理解",
+          "courses": [
+            {
+              "name": "AI技術発展の歴史概論",
+              "duration": "1コマ",
+              "isNew": true
+            },
+            {
+              "name": "AI生産性ツールの使い方",
+              "duration": "1コマ",
+              "isNew": true
+            },
+            {
+              "name": "主流AIツールとプラットフォームの紹介",
+              "duration": "1コマ",
+              "isNew": true
+            },
+            {
+              "name": "ロー/ノーコードエージェントアプリ構築",
+              "duration": "1コマ",
+              "isNew": true
+            },
+            {
+              "name": "企業AI化の構造化分析手法",
+              "duration": "1コマ",
+              "isNew": true
+            },
+            {
+              "name": "AI時代のリテラシー——批判的思考",
+              "duration": "1コマ",
+              "isNew": true
+            }
+          ]
+        },
+        {
+          "tag": "PHASE 02",
+          "title": "思考系コース",
+          "description": "イノベーションの障壁を突破し、構造化された問題解決と組織変革の手法を習得",
+          "courses": [
+            {
+              "name": "構造化された問題解決とファシリテーション",
+              "duration": "1コマ",
+              "isNew": false
+            },
+            {
+              "name": "イノベーション障壁の突破",
+              "duration": "1コマ",
+              "isNew": false
+            },
+            {
+              "name": "創造的学習手法",
+              "duration": "1コマ",
+              "isNew": false
+            },
+            {
+              "name": "組織変革の心理学",
+              "duration": "1コマ",
+              "isNew": false
+            }
+          ]
+        },
+        {
+          "tag": "PHASE 03",
+          "title": "文化系コース",
+          "description": "東洋・西洋哲学から企業文化管理まで、深い組織の合意形成を構築",
+          "courses": [
+            {
+              "name": "企業文化管理",
+              "duration": "1コマ",
+              "isNew": false
+            },
+            {
+              "name": "ミッション、ビジョン、バリュー",
+              "duration": "1コマ",
+              "isNew": false
+            },
+            {
+              "name": "中国伝統哲学シリーズ",
+              "duration": "シリーズ",
+              "isNew": false
+            },
+            {
+              "name": "西洋哲学シリーズ",
+              "duration": "シリーズ",
+              "isNew": false
+            }
+          ]
+        }
+      ]
+    },
+    "compass": {
+      "label": "エージェントシナリオコンパス",
+      "title": "タスクの複雑さと自律性に基づくシナリオ計画",
+      "subtitle": "企業がエージェントアプリケーションシナリオを識別し計画するよう支援し、簡単なものから複雑なものへと段階的にAI化を推進",
+      "adoptionLabel": "{percent}% の企業が導入済み",
+      "quadrants": [
+        {
+          "tag": "Q1",
+          "title": "効率的アシスタント",
+          "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
+          "examples": ["ナレッジQ&A", "プロセス自動化"]
+        },
+        {
+          "tag": "Q2",
+          "title": "スマートアドバイザー",
+          "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
+          "examples": ["データ分析", "意思決定サポート"]
+        },
+        {
+          "tag": "Q3",
+          "title": "実行エキスパート",
+          "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
+          "examples": ["会議調整", "承認プロセス"]
+        },
+        {
+          "tag": "Q4",
+          "title": "オールラウンドエキスパート",
+          "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
+          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+        }
+      ]
+    },
+    "architecture": {
+      "label": "企業AI化サービスアーキテクチャ",
+      "title": "物理世界から情報世界へ、人機協同のスーパー企業を構築",
+      "physicalTitle": "物理世界",
+      "physicalItems": [
+        {
+          "title": "組織構造",
+          "desc": "企業の組織構造を整理し、デジタル従業員のポジションを定義"
+        },
+        {
+          "title": "プロセス整理",
+          "desc": "順方向・逆方向プロセス分析、業務運営効率を最適化"
+        },
+        {
+          "title": "人本価値",
+          "desc": "企業文化、ミッションとビジョン、批判的思考と謙虚な態度"
+        }
+      ],
+      "infoTitle": "情報世界",
+      "infoBasicLabel": "初級情報世界",
+      "infoBasic": ["情報化", "IoT", "自動化"],
+      "infoAdvancedLabel": "高度情報世界",
+      "infoAdvanced": ["知覚AI", "生成AI", "エージェントAI", "物理AI"],
+      "effectTitle": "AI化の効果",
+      "effectFlow": ["スーパー従業員", "スーパーチーム", "スーパープロダクト/サービス"],
+      "effectMetrics": ["コスト最適化", "効率向上", "体験アップグレード"]
+    }
   },
   "drama": {
     "addCharDesc": "（）",
@@ -20433,7 +20662,35 @@
     "twelveLessons": "Twelve Lessons"
   },
   "editor": {
-    "placeholder": "Placeholder"
+    "placeholder": "Placeholder",
+    "toolbar": {
+      "bold": "太字",
+      "italic": "斜体",
+      "underline": "下線",
+      "strikethrough": "取り消し線",
+      "heading1": "見出し1",
+      "heading2": "見出し2",
+      "heading3": "見出し3",
+      "bulletList": "箇条書き",
+      "orderedList": "番号付きリスト",
+      "quote": "引用",
+      "codeBlock": "コードブロック",
+      "link": "リンク",
+      "image": "画像",
+      "alignLeft": "左揃え",
+      "alignCenter": "中央揃え",
+      "alignRight": "右揃え",
+      "insertTable": "表を挿入",
+      "addRow": "行を追加",
+      "addColumn": "列を追加",
+      "deleteRow": "行を削除",
+      "deleteColumn": "列を削除",
+      "deleteTable": "表を削除",
+      "undo": "元に戻す",
+      "redo": "やり直し",
+      "linkPrompt": "リンクURLを入力",
+      "imageUploadFailedPrompt": "アップロード失敗、画像URLを手動入力できます"
+    }
   },
   "file": {
     "batchDelete": "Batch Delete",
@@ -21090,14 +21347,38 @@
     }
   },
   "member": {
-    "searchPlaceholder": {
-      "company": "会社検索",
-      "group": "グループ",
-      "level": "レベル",
-      "list": "リスト",
-      "post": "投稿検索",
-      "tag": "ラベル",
-      "unaudited": "検索審査待ち"
+    "feedback": {
+      "title": "フィードバック",
+      "subtitle": "フィードバックを送信して改善にご協力ください",
+      "tabList": "履歴",
+      "tabNew": "フィードバック送信",
+      "loading": "読み込み中...",
+      "empty": "フィードバックはまだありません",
+      "typeBug": "バグ報告",
+      "typeSuggestion": "機能提案",
+      "typeQuestion": "利用質問",
+      "typeOther": "その他",
+      "statusPending": "対応中",
+      "statusResolved": "返信済み",
+      "statusClosed": "クローズ",
+      "replyLabel": "返信:{reply}",
+      "fieldType": "タイプ",
+      "fieldTitle": "タイトル",
+      "titlePlaceholder": "問題を簡潔に説明",
+      "fieldContent": "内容",
+      "contentPlaceholder": "詳細を説明...",
+      "fieldContact": "連絡先(任意)",
+      "contactPlaceholder": "ご連絡のため",
+      "submit": "送信",
+      "cancel": "キャンセル"
+    },
+    "fans": {
+      "title": "マイファン",
+      "subtitle": "{total} 人のファンがあなたをフォローしています",
+      "loading": "読み込み中...",
+      "empty": "まだファンがいません。コンテンツを公開してフォローを集めましょう。",
+      "anonymous": "匿名ユーザー",
+      "followedAt": "{date} にフォロー"
     }
   },
   "message": {
@@ -21876,23 +22157,6 @@
     "deleted": "削除済み",
     "deleteFailed": "削除失敗"
   },
-  "p20Dashboard": {
-    "title": "P20 エージェント",
-    "subtitle": "リアルタイム監視",
-    "revenueTrend": "7 Trend",
-    "orderStatus": "ステータス",
-    "agentActivity": "エージェントアクティブ",
-    "courseCategory": "コースカテゴリー",
-    "revenueAxis": "(¥)",
-    "revenue": "売上",
-    "unknown": "不明",
-    "callCount": "びし",
-    "cardUsers": "ユーザー",
-    "cardOrders": "注文",
-    "cardAgents": "エージェント",
-    "cardRevenue": "売上",
-    "loadFailed": "みみ："
-  },
   "resourceDetail": {
     "breadcrumbResource": "リソースセンター",
     "downloadTimes": "ダウンロード",
@@ -22285,13 +22549,6 @@
     "officialNews": "公式ニュース",
     "read": "閲覧"
   },
-  "p19AdminDashboard": {
-    "title": "P19 Admin ダッシュボード",
-    "recentActivity": "Recent Activity",
-    "action": "操作",
-    "target": ":",
-    "time": "時間"
-  },
   "statisticsPage": {
     "zeroHour": "0"
   },
@@ -22306,11 +22563,6 @@
     "noTextContent": "なしテキスト",
     "noImageContent": "なし",
     "noVideoContent": "なし"
-  },
-  "p19PaymentMethods": {
-    "title": "P19 いメソッド",
-    "accountBalance": "アカウント残高",
-    "fee": "手数料"
   },
   "memberLearnRecord": {
     "title": "コース",
@@ -22618,18 +22870,6 @@
     "downloads": "ダウンロード",
     "download": "ダウンロード"
   },
-  "p19AgentsList": {
-    "title": "P19 エージェント",
-    "calls": "コール",
-    "rating": "スコア",
-    "call": "コール",
-    "answerTitle": "エージェント"
-  },
-  "p19CoursesList": {
-    "title": "P19 コースリスト",
-    "minutes": "Minutes",
-    "enroll": "申込"
-  },
   "middleRectangle": {
     "free": "無料",
     "learners": "人が学習中",
@@ -22877,6 +23117,145 @@
         "backend": "バックエンド",
         "opensource": "オープンソース"
       }
+    }
+  },
+  "ai": {
+    "status": {
+      "idle": "アイドル",
+      "pending": "待機中",
+      "thinking": "思考中",
+      "acting": "実行中",
+      "reflecting": "振り返り中",
+      "waiting": "待機中",
+      "running": "実行中",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル済み"
+    },
+    "swarmMonitor": {
+      "title": "群監視",
+      "refresh": "更新",
+      "loading": "読み込み中...",
+      "notStarted": "Swarm 未開始",
+      "swarmId": "Swarm ID",
+      "status": "ステータス",
+      "task": "タスク",
+      "iteration": "反復",
+      "agentStatus": "エージェント状態",
+      "name": "名前",
+      "type": "タイプ",
+      "currentStep": "現在のステップ",
+      "performanceMetrics": "パフォーマンス指標",
+      "successRate": "成功率",
+      "avgTime": "平均時間",
+      "avgTokens": "平均トークン",
+      "totalSteps": "総ステップ",
+      "completed": "完了",
+      "failed": "失敗",
+      "optimizationSuggestions": "最適化の提案",
+      "executionResults": "実行結果",
+      "toolResults": "ツール結果 ({count})",
+      "error": "エラー: {message}"
+    },
+    "permissionConfirm": {
+      "title": "ツール実行確認",
+      "description": "エージェントが以下のツールを実行しようとしています。確認してください",
+      "tool": "ツール",
+      "iteration": "第 {n} ラウンド",
+      "inputParams": "入力パラメータ",
+      "confirmReason": "確認理由",
+      "allowAllSession": "このセッションではすべて許可(以降プロンプトなし)",
+      "deny": "拒否",
+      "allow": "許可"
+    },
+    "backgroundAgents": {
+      "title": "バックグラウンドエージェント",
+      "runningCount": "{count} 実行中",
+      "empty": "バックグラウンドエージェントなし",
+      "emptyHint": "/agents または API でバックグラウンドタスクを開始",
+      "cancel": "キャンセル",
+      "viewResult": "結果を表示",
+      "delete": "削除",
+      "calls": "{count} 回呼び出し",
+      "total": "合計 {count}",
+      "completedCount": "完了 {count}",
+      "failedCount": "失敗 {count}",
+      "cancelledCount": "キャンセル {count}"
+    },
+    "subAgentFeed": {
+      "defaultName": "サブエージェント",
+      "badge": "subagent",
+      "coordinated": "{count} 個のサブエージェントを調整して完了",
+      "totalSteps": "(全 {count} ステップ)",
+      "working": "{count} 個のサブエージェントが協力中"
+    }
+  },
+  "developer": {
+    "settings": {
+      "title": "設定",
+      "subtitle": "開発者情報、設定と危険操作",
+      "loading": "読み込み中...",
+      "infoTitle": "開発者情報",
+      "infoName": "名称",
+      "infoNamePlaceholder": "開発者名",
+      "infoEmail": "メール",
+      "infoCompany": "会社",
+      "infoCompanyPlaceholder": "会社名(任意)",
+      "infoWebsite": "ウェブサイト",
+      "saveInfo": "情報を保存",
+      "infoSaved": "情報を保存しました",
+      "prefsTitle": "環境設定",
+      "prefsDefaultVersion": "デフォルト API バージョン",
+      "prefsDefaultVersionDesc": "サンドボックスとドキュメントのデフォルト表示バージョン",
+      "prefsSandboxAutoRun": "サンドボックス自動実行",
+      "prefsSandboxAutoRunDesc": "インターフェース切替時に自動でリクエスト送信",
+      "prefsErrorReport": "エラー報告",
+      "prefsErrorReportDesc": "プラットフォームの安定性向上に協力",
+      "savePrefs": "設定を保存",
+      "prefsSaved": "設定を保存しました",
+      "dangerTitle": "危険操作",
+      "dangerDeleteLabel": "開発者アカウント削除",
+      "dangerDeleteDesc": "すべてのキー、Webhook と設定を削除。復元不可。",
+      "dangerDeleteConfirm": "削除を確認しますか?この操作は復元できず、すべてのキーと設定が削除されます。",
+      "dangerDeleteBtn": "アカウント削除",
+      "accountDeleted": "開発者アカウントを削除しました"
+    },
+    "notifications": {
+      "title": "通知設定",
+      "subtitle": "開発者イベントの通知設定を管理",
+      "loading": "読み込み中...",
+      "saved": "設定を保存しました",
+      "saveBtn": "設定を保存",
+      "savedTag": "保存済み",
+      "apiErrorLabel": "API エラー通知",
+      "apiErrorDesc": "API エラー率が閾値を超えた時に通知",
+      "quotaWarningLabel": "クォータ警告",
+      "quotaWarningDesc": "クォータ使用量が 80% に達した時に通知",
+      "webhookFailureLabel": "Webhook 失敗",
+      "webhookFailureDesc": "コールバック送信失敗時に通知",
+      "weeklyReportLabel": "週次レポート",
+      "weeklyReportDesc": "毎週月曜日に利用統計サマリーを送信",
+      "versionUpdateLabel": "バージョン更新",
+      "versionUpdateDesc": "API 新バージョンや非推奨の通知",
+      "billingReminderLabel": "請求リマインダー",
+      "billingReminderDesc": "サブスクリプション期限や課金の通知"
+    }
+  },
+  "edu": {
+    "qa": {
+      "title": "Q&A センター",
+      "subtitle": "学習の疑問を質問・回答",
+      "askPlaceholder": "質問を入力...",
+      "askBtn": "質問",
+      "searchPlaceholder": "質問を検索...",
+      "statusAria": "ステータス絞り込み",
+      "statusAll": "すべて",
+      "statusAnswered": "回答済み",
+      "statusPending": "未回答",
+      "loading": "読み込み中...",
+      "empty": "質問はまだありません",
+      "answered": "回答済み",
+      "pending": "未回答"
     }
   }
 }

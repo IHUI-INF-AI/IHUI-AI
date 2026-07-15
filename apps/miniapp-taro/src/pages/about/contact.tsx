@@ -3,6 +3,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getContact } from '@/api'
+import { useI18n } from '@/i18n'
 import './contact.css'
 
 interface ContactInfo {
@@ -13,6 +14,7 @@ interface ContactInfo {
 }
 
 export default function ContactPage() {
+  const { t } = useI18n()
   const [info, setInfo] = useState<ContactInfo>({ phone: '', email: '', address: '' })
 
   const load = useCallback(async () => {
@@ -20,9 +22,9 @@ export default function ContactPage() {
       setInfo(await getContact())
     } catch (e) {
       logger.error('about/contact', '获取联系方式', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
-  }, [])
+  }, [t])
 
   const call = useCallback((phone: string) => {
     Taro.makePhoneCall({ phoneNumber: phone })
@@ -41,28 +43,28 @@ export default function ContactPage() {
           <View className="row" onClick={() => call(info.phone)}>
             <Text className="icon">📞</Text>
             <View className="body">
-              <Text className="label">客服电话</Text>
+              <Text className="label">{t('about.contact.phone')}</Text>
               <Text className="value">{info.phone}</Text>
             </View>
           </View>
           <View className="row" onClick={() => copy(info.email)}>
             <Text className="icon">✉️</Text>
             <View className="body">
-              <Text className="label">邮箱</Text>
+              <Text className="label">{t('about.contact.email')}</Text>
               <Text className="value">{info.email}</Text>
             </View>
           </View>
           <View className="row" onClick={() => copy(info.qq || '')}>
             <Text className="icon">💬</Text>
             <View className="body">
-              <Text className="label">QQ</Text>
+              <Text className="label">{t('about.contact.qq')}</Text>
               <Text className="value">{info.qq}</Text>
             </View>
           </View>
           <View className="row">
             <Text className="icon">📍</Text>
             <View className="body">
-              <Text className="label">地址</Text>
+              <Text className="label">{t('about.contact.address')}</Text>
               <Text className="value">{info.address}</Text>
             </View>
           </View>
@@ -70,7 +72,7 @@ export default function ContactPage() {
       ) : null}
 
       <View className="tips">
-        <Text>工作时间：周一至周五 9:00-18:00</Text>
+        <Text>{t('about.contact.workTime')}</Text>
       </View>
     </View>
   )

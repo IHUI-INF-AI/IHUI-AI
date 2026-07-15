@@ -3,9 +3,11 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 export default function AiCircle() {
+  const { t } = useI18n()
   const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -32,11 +34,11 @@ export default function AiCircle() {
   return (
     <View className="page-container">
       <View className="page-header">
-        <Text className="page-title">AI圈</Text>
+        <Text className="page-title">{t('aiCircle.title')}</Text>
       </View>
       <View className="page-content">
         {loading ? (
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         ) : list.length ? (
           list.map((item) => (
             <View
@@ -44,11 +46,11 @@ export default function AiCircle() {
               className="list-item"
               onClick={() => onItemClick(item.id as string)}
             >
-              <Text>{(item.title as string) || '动态'}</Text>
+              <Text>{(item.title as string) || t('aiCircle.post')}</Text>
             </View>
           ))
         ) : (
-          <Text className="empty">暂无动态</Text>
+          <Text className="empty">{t('aiCircle.empty')}</Text>
         )}
       </View>
     </View>

@@ -1,33 +1,32 @@
-﻿import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button } from '@tarojs/components'
 import { logger } from '@/utils/logger'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
-interface NeedCategory {
-  key: string
-  label: string
-}
-
-const CATEGORIES: NeedCategory[] = [
-  { key: 'writing', label: '文案写作' },
-  { key: 'coding', label: '编程开发' },
-  { key: 'design', label: '设计创作' },
-  { key: 'marketing', label: '营销推广' },
-  { key: 'education', label: '教育培训' },
-  { key: 'translation', label: '翻译服务' },
-  { key: 'analysis', label: '数据分析' },
-  { key: 'customer', label: '客服咨询' },
+const CATEGORY_KEYS = [
+  'writing',
+  'coding',
+  'design',
+  'marketing',
+  'education',
+  'translation',
+  'analysis',
+  'customer',
 ]
 
-const LEVELS = ['入门级', '进阶级', '专业级']
-
 export default function SetNeed() {
+  const { t, tList } = useI18n()
   const [selected, setSelected] = useState<string[]>([])
   const [level, setLevel] = useState('')
   const [budget, setBudget] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const categories = tList('plaza.setNeed.categories')
+  const levels = tList('plaza.setNeed.levels')
+  const budgets = tList('plaza.setNeed.budgets')
 
   const load = useCallback(async () => {
     try {
@@ -50,43 +49,46 @@ export default function SetNeed() {
 
   const save = useCallback(async () => {
     if (!selected.length) {
-      Taro.showToast({ title: '请至少选择一个需求方向', icon: 'none' })
+      Taro.showToast({ title: t('plaza.setNeed.selectAtLeast'), icon: 'none' })
       return
     }
     setSaving(true)
     try {
       await post('/plaza/need', { categories: selected, level, budget })
-      Taro.showToast({ title: '保存成功', icon: 'success' })
+      Taro.showToast({ title: t('plaza.setNeed.saved'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
       logger.error('plaza/set-need', 'save', e)
     } finally {
       setSaving(false)
     }
-  }, [selected, level, budget])
+  }, [selected, level, budget, t])
 
   return (
     <View className="page">
       <View className="card">
-        <Text className="card-title">需求方向</Text>
-        <Text className="card-desc">选择您感兴趣的方向，我们将为您推荐相关模型</Text>
+        <Text className="card-title">{t('plaza.setNeed.directionTitle')}</Text>
+        <Text className="card-desc">{t('plaza.setNeed.directionDesc')}</Text>
         <View className="tag-group">
-          {CATEGORIES.map((cat) => (
-            <View
-              key={cat.key}
-              className={`tag${selected.includes(cat.key) ? ' active' : ''}`}
-              onClick={() => toggleCategory(cat.key)}
-            >
-              <Text>{cat.label}</Text>
-            </View>
-          ))}
+          {categories.map((label, i) => {
+            const key = CATEGORY_KEYS[i] || label
+            return (
+              <View
+                key={key}
+                className={`tag${selected.includes(key) ? ' active' : ''}`}
+                onClick={() => toggleCategory(key)}
+              >
+                <Text>{label}</Text>
+              </View>
+            )
+          })}
         </View>
       </View>
 
       <View className="card">
-        <Text className="card-title">使用水平</Text>
+        <Text className="card-title">{t('plaza.setNeed.levelTitle')}</Text>
         <View className="tag-group">
-          {LEVELS.map((lv) => (
+          {levels.map((lv) => (
             <View
               key={lv}
               className={`tag${level === lv ? ' active' : ''}`}
@@ -99,9 +101,9 @@ export default function SetNeed() {
       </View>
 
       <View className="card">
-        <Text className="card-title">预算范围（选填）</Text>
+        <Text className="card-title">{t('plaza.setNeed.budgetTitle')}</Text>
         <View className="tag-group">
-          {['免费', '100元内', '100-500元', '500元以上'].map((b) => (
+          {budgets.map((b) => (
             <View
               key={b}
               className={`tag${budget === b ? ' active' : ''}`}
@@ -114,7 +116,7 @@ export default function SetNeed() {
       </View>
 
       <Button className="save-btn" loading={saving} onClick={save} disabled={saving}>
-        保存设置
+        {t('plaza.setNeed.save')}
       </Button>
     </View>
   )

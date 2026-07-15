@@ -360,7 +360,12 @@
     "student": "學員中心",
     "agents": "智能體數量",
     "distribution": "分銷",
-    "oauthPlatform": "開放平臺"
+    "oauthPlatform": "開放平臺",
+    "downloadIOS": "iOS",
+    "downloadAndroidApk": "Android APK",
+    "downloadWechatMiniApp": "微信小程式",
+    "downloadDesktop": "桌面端",
+    "mainNav": "主導航"
   },
   "auth": {
     "loginTitle": "歡迎回來",
@@ -5217,7 +5222,12 @@
       "status3": "溝通中",
       "status4": "開發中",
       "status5": "交付中",
-      "status6": "已完成"
+      "status6": "已完成",
+      "colContext": "需求描述",
+      "colCycleFull": "專案週期",
+      "colLowestPrice": "最低價",
+      "colPeakPrice": "最高價",
+      "colCreatedAt": "建立時間"
     },
     "demandAudit": {
       "title": "需求審核",
@@ -19720,8 +19730,227 @@
     "retry": "Google登錄登錄失敗，請重試"
   },
   "enterprise": {
-    "keywords": "企業ai化,智能體,人機協作,ai培訓,企業數字化轉型,ai解決方案,智匯ai社",
-    "title": "智匯ai社 - 企業ai化服務"
+    "header": {
+      "backHome": "返回首頁",
+      "badge": "ENTERPRISESERVICE"
+    },
+    "hero": {
+      "brandLabel": "智匯AI社",
+      "title": "智匯AI企業服務",
+      "subtitle": "AI時代企業理性效率服務與互助社群。幫助決策者深度理解AI與企業的關係,構建人機協同的超級組織。",
+      "priceStandard": "元/人/年 標準價格",
+      "priceEarlyBird": "元/人/年 早鳥價",
+      "earlyBirdSlots": "個早鳥名額",
+      "joinNow": "立即加入",
+      "exploreAgents": "深入了解智能體場景"
+    },
+    "positioning": {
+      "label": "核心定位",
+      "title": "AI時代企業理性效率服務與互助社群",
+      "description": "智匯AI社致力於幫助企業決策者深度理解AI與企業的關係,通過系統化的課程、實踐探索和社群互助,構建人機協同的超級組織,實現企業的理性效率提升。",
+      "tags": ["人機協同", "理性效率", "超級組織"]
+    },
+    "modules": {
+      "label": "三大服務模組",
+      "coreServiceBadge": "核心服務",
+      "items": [
+        {
+          "tag": "MODULE 01",
+          "title": "在地社群",
+          "description": "線下課程、探索活動與互助社群,深度連結志同道合的決策者",
+          "features": ["系統化課程", "實踐探索", "社群互助"]
+        },
+        {
+          "tag": "MODULE 02",
+          "title": "線上社群",
+          "description": "便捷的線上交流平台,隨時隨地獲取資訊與支持",
+          "features": ["交流平台", "經驗共享", "資源對接"]
+        },
+        {
+          "tag": "MODULE 03",
+          "title": "AI專業服務",
+          "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
+          "features": ["專業大模型", "智能體服務", "諮詢服務"]
+        }
+      ]
+    },
+    "join": {
+      "label": "加入智匯AI社",
+      "title": "與志同道合的決策者一起,探索AI時代的無限可能",
+      "subtitle": "僅限前18位會員 · 早鳥價 ¥6000/人/年 · 不滿意全額退款",
+      "perYear": "/人/年",
+      "joinNow": "立即加入",
+      "consultHint": "掃碼諮詢或直接聯繫我們",
+      "benefits": [
+        "全年所有課程免費參加",
+        "探索活動優先參與",
+        "社群互助無限次",
+        "線上社群專屬入口",
+        "AI助手優先體驗",
+        "不滿意全額退款"
+      ]
+    },
+    "footer": {
+      "brand": "智匯AI社 · 中國 · 北京",
+      "contact": "聯繫我們"
+    },
+    "courses": {
+      "label": "課程體系",
+      "title": "系統化AI認知與實踐課程",
+      "subtitle": "幫助企業決策者全面理解AI時代的機遇與挑戰",
+      "phases": [
+        {
+          "tag": "PHASE 01",
+          "title": "AI新工具課程",
+          "description": "掌握主流AI工具與平台,理解AI技術發展脈絡",
+          "courses": [
+            {
+              "name": "AI技術發展歷程概述",
+              "duration": "1課時",
+              "isNew": true
+            },
+            {
+              "name": "AI生產力工具的使用方法",
+              "duration": "1課時",
+              "isNew": true
+            },
+            {
+              "name": "主流AI工具與平台介紹",
+              "duration": "1課時",
+              "isNew": true
+            },
+            {
+              "name": "低/無代碼智能體應用搭建",
+              "duration": "1課時",
+              "isNew": true
+            },
+            {
+              "name": "企業AI化結構化分析方法",
+              "duration": "1課時",
+              "isNew": true
+            },
+            {
+              "name": "AI時代素養——批判性思維",
+              "duration": "1課時",
+              "isNew": true
+            }
+          ]
+        },
+        {
+          "tag": "PHASE 02",
+          "title": "思維類課程",
+          "description": "突破創新障礙,掌握結構化問題解決與組織變革方法",
+          "courses": [
+            {
+              "name": "結構化問題解決與引導",
+              "duration": "1課時",
+              "isNew": false
+            },
+            {
+              "name": "創新障礙突破",
+              "duration": "1課時",
+              "isNew": false
+            },
+            {
+              "name": "創意學習方法",
+              "duration": "1課時",
+              "isNew": false
+            },
+            {
+              "name": "組織變革心理",
+              "duration": "1課時",
+              "isNew": false
+            }
+          ]
+        },
+        {
+          "tag": "PHASE 03",
+          "title": "文化類課程",
+          "description": "從東西方哲學到企業文化管理,構建深層組織共識",
+          "courses": [
+            {
+              "name": "企業文化管理",
+              "duration": "1課時",
+              "isNew": false
+            },
+            {
+              "name": "使命、願景與價值觀",
+              "duration": "1課時",
+              "isNew": false
+            },
+            {
+              "name": "中國傳統哲學系列",
+              "duration": "系列",
+              "isNew": false
+            },
+            {
+              "name": "西方哲學系列",
+              "duration": "系列",
+              "isNew": false
+            }
+          ]
+        }
+      ]
+    },
+    "compass": {
+      "label": "智能體場景羅盤",
+      "title": "基於任務複雜度與自主決策度的場景規劃",
+      "subtitle": "幫助企業識別和規劃智能體應用場景,從簡單到複雜逐步推進AI化",
+      "adoptionLabel": "{percent}% 企業已採用",
+      "quadrants": [
+        {
+          "tag": "Q1",
+          "title": "高效助手",
+          "description": "簡單決策 + 簡單執行,快速部署高頻應用",
+          "examples": ["知識問答", "流程自動化"]
+        },
+        {
+          "tag": "Q2",
+          "title": "智慧顧問",
+          "description": "複雜決策 + 簡單執行,提供深度分析與建議",
+          "examples": ["數據分析", "決策支持"]
+        },
+        {
+          "tag": "Q3",
+          "title": "執行專家",
+          "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
+          "examples": ["會議安排", "審批流程"]
+        },
+        {
+          "tag": "Q4",
+          "title": "全能專家",
+          "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
+          "examples": ["營銷自動化", "多智能體協同"]
+        }
+      ]
+    },
+    "architecture": {
+      "label": "企業AI化服務架構",
+      "title": "從物理世界到資訊世界,構建人機協同的超級企業",
+      "physicalTitle": "物理世界",
+      "physicalItems": [
+        {
+          "title": "組織架構",
+          "desc": "幫助企業梳理組織結構,定義數字員工崗位"
+        },
+        {
+          "title": "流程梳理",
+          "desc": "正向與逆向流程分析,優化業務運轉效率"
+        },
+        {
+          "title": "人本價值",
+          "desc": "企業文化、使命願景、批判性思維與謙卑態度"
+        }
+      ],
+      "infoTitle": "資訊世界",
+      "infoBasicLabel": "初級資訊世界",
+      "infoBasic": ["資訊化", "物聯網", "自動化"],
+      "infoAdvancedLabel": "高級資訊世界",
+      "infoAdvanced": ["感知AI", "生成式AI", "智能體AI", "物理AI"],
+      "effectTitle": "AI化效果",
+      "effectFlow": ["超級員工", "超級團隊", "超級產品/服務"],
+      "effectMetrics": ["成本優化", "效率提升", "體驗升級"]
+    }
   },
   "drama": {
     "addCharDesc": "（需要補充人物形象說明）",
@@ -20433,7 +20662,35 @@
     "twelveLessons": "Twelve Lessons"
   },
   "editor": {
-    "placeholder": "Placeholder"
+    "placeholder": "Placeholder",
+    "toolbar": {
+      "bold": "粗體",
+      "italic": "斜體",
+      "underline": "下劃線",
+      "strikethrough": "刪除線",
+      "heading1": "標題1",
+      "heading2": "標題2",
+      "heading3": "標題3",
+      "bulletList": "無序列表",
+      "orderedList": "有序列表",
+      "quote": "引用",
+      "codeBlock": "代碼塊",
+      "link": "連結",
+      "image": "圖片",
+      "alignLeft": "左對齊",
+      "alignCenter": "置中",
+      "alignRight": "右對齊",
+      "insertTable": "插入表格",
+      "addRow": "新增行",
+      "addColumn": "新增列",
+      "deleteRow": "刪除行",
+      "deleteColumn": "刪除列",
+      "deleteTable": "刪除表格",
+      "undo": "撤銷",
+      "redo": "重做",
+      "linkPrompt": "輸入連結地址",
+      "imageUploadFailedPrompt": "上傳失敗,可手動輸入圖片地址"
+    }
   },
   "file": {
     "batchDelete": "Batch Delete",
@@ -21090,14 +21347,38 @@
     }
   },
   "member": {
-    "searchPlaceholder": {
-      "company": "搜尋公司",
-      "group": "搜尋分組",
-      "level": "搜尋等級",
-      "list": "搜尋列表",
-      "post": "搜尋動態",
-      "tag": "搜尋標籤",
-      "unaudited": "搜尋待審核"
+    "feedback": {
+      "title": "意見回饋",
+      "subtitle": "提交回饋,協助我們做得更好",
+      "tabList": "歷史記錄",
+      "tabNew": "提交回饋",
+      "loading": "載入中...",
+      "empty": "暫無回饋記錄",
+      "typeBug": "問題回饋",
+      "typeSuggestion": "功能建議",
+      "typeQuestion": "使用諮詢",
+      "typeOther": "其他",
+      "statusPending": "處理中",
+      "statusResolved": "已回覆",
+      "statusClosed": "已關閉",
+      "replyLabel": "回覆:{reply}",
+      "fieldType": "類型",
+      "fieldTitle": "標題",
+      "titlePlaceholder": "請簡短描述問題",
+      "fieldContent": "內容",
+      "contentPlaceholder": "請詳細描述...",
+      "fieldContact": "聯絡方式(選填)",
+      "contactPlaceholder": "便於我們與您聯絡",
+      "submit": "提交",
+      "cancel": "取消"
+    },
+    "fans": {
+      "title": "我的粉絲",
+      "subtitle": "共 {total} 位粉絲關注了你",
+      "loading": "載入中...",
+      "empty": "還沒有粉絲,快去發佈內容吸引關注吧",
+      "anonymous": "匿名使用者",
+      "followedAt": "關注於 {date}"
     }
   },
   "message": {
@@ -21876,23 +22157,6 @@
     "deleted": "已刪除",
     "deleteFailed": "刪除失敗"
   },
-  "p20Dashboard": {
-    "title": "P20 智能體運營看板",
-    "subtitle": "實時監控",
-    "revenueTrend": "近 7 日營收趨勢",
-    "orderStatus": "訂單狀態分佈",
-    "agentActivity": "智能體調用活躍度",
-    "courseCategory": "課程分類佔比",
-    "revenueAxis": "營收(¥)",
-    "revenue": "營收",
-    "unknown": "未知",
-    "callCount": "調用次數",
-    "cardUsers": "用戶",
-    "cardOrders": "訂單",
-    "cardAgents": "智能體",
-    "cardRevenue": "營收",
-    "loadFailed": "加載失敗："
-  },
   "resourceDetail": {
     "breadcrumbResource": "資源中心",
     "downloadTimes": "次下載",
@@ -22285,13 +22549,6 @@
     "officialNews": "官方資訊",
     "read": "閱讀"
   },
-  "p19AdminDashboard": {
-    "title": "P19 Admin 儀表盤",
-    "recentActivity": "最近活動",
-    "action": "操作",
-    "target": "目標",
-    "time": "時間"
-  },
   "statisticsPage": {
     "zeroHour": "0小時"
   },
@@ -22306,11 +22563,6 @@
     "noTextContent": "暫無文本內容",
     "noImageContent": "暫無圖片內容",
     "noVideoContent": "暫無視頻內容"
-  },
-  "p19PaymentMethods": {
-    "title": "P19 支付方法",
-    "accountBalance": "賬戶餘額",
-    "fee": "手續費"
   },
   "memberLearnRecord": {
     "title": "學習記錄",
@@ -22618,18 +22870,6 @@
     "downloads": "下載",
     "download": "下載"
   },
-  "p19AgentsList": {
-    "title": "P19 智能體",
-    "calls": "調用",
-    "rating": "評分",
-    "call": "調用",
-    "answerTitle": "智能體答題管理"
-  },
-  "p19CoursesList": {
-    "title": "P19 課程列表",
-    "minutes": "分鐘",
-    "enroll": "報名"
-  },
   "middleRectangle": {
     "free": "免費",
     "learners": "人在學",
@@ -22877,6 +23117,145 @@
         "backend": "後端",
         "opensource": "開源"
       }
+    }
+  },
+  "ai": {
+    "status": {
+      "idle": "空閒",
+      "pending": "等待",
+      "thinking": "思考中",
+      "acting": "執行中",
+      "reflecting": "反思中",
+      "waiting": "等待中",
+      "running": "執行中",
+      "completed": "已完成",
+      "failed": "失敗",
+      "cancelled": "已取消"
+    },
+    "swarmMonitor": {
+      "title": "群體監控",
+      "refresh": "重新整理",
+      "loading": "載入中...",
+      "notStarted": "未啟動 Swarm",
+      "swarmId": "Swarm ID",
+      "status": "狀態",
+      "task": "任務",
+      "iteration": "迭代",
+      "agentStatus": "Agent 狀態",
+      "name": "名稱",
+      "type": "類型",
+      "currentStep": "目前步驟",
+      "performanceMetrics": "效能指標",
+      "successRate": "成功率",
+      "avgTime": "平均耗時",
+      "avgTokens": "平均 Token",
+      "totalSteps": "總步驟",
+      "completed": "已完成",
+      "failed": "失敗",
+      "optimizationSuggestions": "最佳化建議",
+      "executionResults": "執行結果",
+      "toolResults": "工具結果 ({count})",
+      "error": "錯誤: {message}"
+    },
+    "permissionConfirm": {
+      "title": "工具執行確認",
+      "description": "Agent 請求執行以下工具,請確認是否允許",
+      "tool": "工具",
+      "iteration": "第 {n} 輪",
+      "inputParams": "輸入參數",
+      "confirmReason": "確認原因",
+      "allowAllSession": "本次工作階段全部允許(後續不再彈窗)",
+      "deny": "拒絕",
+      "allow": "允許"
+    },
+    "backgroundAgents": {
+      "title": "背景 Agent",
+      "runningCount": "{count} 執行中",
+      "empty": "暫無背景 Agent",
+      "emptyHint": "使用 /agents 或 API 啟動背景任務",
+      "cancel": "取消",
+      "viewResult": "查看結果",
+      "delete": "刪除",
+      "calls": "{count} 次呼叫",
+      "total": "共 {count} 個",
+      "completedCount": "完成 {count}",
+      "failedCount": "失敗 {count}",
+      "cancelledCount": "已取消 {count}"
+    },
+    "subAgentFeed": {
+      "defaultName": "子智能體",
+      "badge": "subagent",
+      "coordinated": "已協調 {count} 個子智能體完成",
+      "totalSteps": "(共 {count} 步)",
+      "working": "{count} 個子智能體協作中"
+    }
+  },
+  "developer": {
+    "settings": {
+      "title": "設定",
+      "subtitle": "開發者資訊、偏好與危險操作",
+      "loading": "載入中...",
+      "infoTitle": "開發者資訊",
+      "infoName": "名稱",
+      "infoNamePlaceholder": "開發者名稱",
+      "infoEmail": "信箱",
+      "infoCompany": "公司",
+      "infoCompanyPlaceholder": "公司名稱(選填)",
+      "infoWebsite": "網站",
+      "saveInfo": "儲存資訊",
+      "infoSaved": "資訊已儲存",
+      "prefsTitle": "偏好設定",
+      "prefsDefaultVersion": "預設 API 版本",
+      "prefsDefaultVersionDesc": "沙盒與文件預設顯示版本",
+      "prefsSandboxAutoRun": "沙盒自動執行",
+      "prefsSandboxAutoRunDesc": "切換介面時自動發送請求",
+      "prefsErrorReport": "錯誤上報",
+      "prefsErrorReportDesc": "協助改進平台穩定性",
+      "savePrefs": "儲存偏好",
+      "prefsSaved": "偏好已儲存",
+      "dangerTitle": "危險操作",
+      "dangerDeleteLabel": "註銷開發者帳號",
+      "dangerDeleteDesc": "刪除所有金鑰、Webhook 與設定,無法復原",
+      "dangerDeleteConfirm": "確認註銷?此操作無法復原,所有金鑰與設定將被刪除。",
+      "dangerDeleteBtn": "註銷帳號",
+      "accountDeleted": "開發者帳號已註銷"
+    },
+    "notifications": {
+      "title": "通知設定",
+      "subtitle": "管理開發者事件通知偏好",
+      "loading": "載入中...",
+      "saved": "設定已儲存",
+      "saveBtn": "儲存設定",
+      "savedTag": "已儲存",
+      "apiErrorLabel": "API 異常告警",
+      "apiErrorDesc": "介面錯誤率超閾值時通知",
+      "quotaWarningLabel": "額度告警",
+      "quotaWarningDesc": "配額使用達 80% 時通知",
+      "webhookFailureLabel": "Webhook 失敗",
+      "webhookFailureDesc": "回調發送失敗時通知",
+      "weeklyReportLabel": "週報推送",
+      "weeklyReportDesc": "每週一發送呼叫統計摘要",
+      "versionUpdateLabel": "版本更新",
+      "versionUpdateDesc": "API 新版本或廢棄提醒",
+      "billingReminderLabel": "帳單提醒",
+      "billingReminderDesc": "訂閱到期或扣費提醒"
+    }
+  },
+  "edu": {
+    "qa": {
+      "title": "問答中心",
+      "subtitle": "提問與解答學習中的疑問",
+      "askPlaceholder": "輸入你的問題...",
+      "askBtn": "提問",
+      "searchPlaceholder": "搜尋問題...",
+      "statusAria": "狀態篩選",
+      "statusAll": "全部",
+      "statusAnswered": "已回答",
+      "statusPending": "待回答",
+      "loading": "載入中...",
+      "empty": "暫無問答",
+      "answered": "已回答",
+      "pending": "待回答"
     }
   }
 }

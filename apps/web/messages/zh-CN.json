@@ -360,7 +360,12 @@
     "student": "学员中心",
     "agents": "智能体",
     "distribution": "分销",
-    "oauthPlatform": "开放平台"
+    "oauthPlatform": "开放平台",
+    "downloadIOS": "iOS",
+    "downloadAndroidApk": "Android APK",
+    "downloadWechatMiniApp": "微信小程序",
+    "downloadDesktop": "桌面端",
+    "mainNav": "主导航"
   },
   "auth": {
     "loginTitle": "欢迎回来",
@@ -5205,7 +5210,12 @@
       "status3": "沟通中",
       "status4": "开发中",
       "status5": "交付中",
-      "status6": "已完成"
+      "status6": "已完成",
+      "colContext": "需求描述",
+      "colCycleFull": "项目周期",
+      "colLowestPrice": "最低价",
+      "colPeakPrice": "最高价",
+      "colCreatedAt": "创建时间"
     },
     "demandAudit": {
       "title": "需求审核",
@@ -19708,8 +19718,227 @@
     "retry": "Google登录失败，请重试"
   },
   "enterprise": {
-    "keywords": "企业AI化,智能体,人机协作,AI培训,企业数字化转型,AI解决方案,智汇AI社",
-    "title": "智汇AI社 - 企业AI化服务"
+    "header": {
+      "backHome": "返回首页",
+      "badge": "ENTERPRISESERVICE"
+    },
+    "hero": {
+      "brandLabel": "智汇AI社",
+      "title": "智汇AI企业服务",
+      "subtitle": "AI时代企业理性效率服务与互助社群。帮助决策者深度理解AI与企业的关系,构建人机协同的超级组织。",
+      "priceStandard": "元/人/年 标准价格",
+      "priceEarlyBird": "元/人/年 早鸟价",
+      "earlyBirdSlots": "位早鸟名额",
+      "joinNow": "立即加入",
+      "exploreAgents": "深入了解智能体场景"
+    },
+    "positioning": {
+      "label": "核心定位",
+      "title": "AI时代企业理性效率服务与互助社群",
+      "description": "智汇AI社致力于帮助企业决策者深度理解AI与企业的关系,通过系统化的课程、实践探索和社群互助,构建人机协同的超级组织,实现企业的理性效率提升。",
+      "tags": ["人机协同", "理性效率", "超级组织"]
+    },
+    "modules": {
+      "label": "三大服务模块",
+      "coreServiceBadge": "核心服务",
+      "items": [
+        {
+          "tag": "MODULE 01",
+          "title": "在地社群",
+          "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
+          "features": ["系统化课程", "实践探索", "社群互助"]
+        },
+        {
+          "tag": "MODULE 02",
+          "title": "线上社群",
+          "description": "便捷的在线交流平台,随时随地获取信息与支持",
+          "features": ["交流平台", "经验共享", "资源对接"]
+        },
+        {
+          "tag": "MODULE 03",
+          "title": "AI专业服务",
+          "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
+          "features": ["专业大模型", "智能体服务", "咨询服务"]
+        }
+      ]
+    },
+    "join": {
+      "label": "加入智汇AI社",
+      "title": "与志同道合的决策者一起,探索AI时代的无限可能",
+      "subtitle": "仅限前18位会员 · 早鸟价 ¥6000/人/年 · 不满意全额退款",
+      "perYear": "/人/年",
+      "joinNow": "立即加入",
+      "consultHint": "扫码咨询或直接联系我们",
+      "benefits": [
+        "全年所有课程免费参加",
+        "探索活动优先参与",
+        "社群互助无限次",
+        "线上社群专属入口",
+        "AI助手优先体验",
+        "不满意全额退款"
+      ]
+    },
+    "footer": {
+      "brand": "智汇AI社 · 中国 · 北京",
+      "contact": "联系我们"
+    },
+    "courses": {
+      "label": "课程体系",
+      "title": "系统化AI认知与实践课程",
+      "subtitle": "帮助企业决策者全面理解AI时代的机遇与挑战",
+      "phases": [
+        {
+          "tag": "PHASE 01",
+          "title": "AI新工具课程",
+          "description": "掌握主流AI工具与平台,理解AI技术发展脉络",
+          "courses": [
+            {
+              "name": "AI技术发展历程概述",
+              "duration": "1课时",
+              "isNew": true
+            },
+            {
+              "name": "AI生产力工具的使用方法",
+              "duration": "1课时",
+              "isNew": true
+            },
+            {
+              "name": "主流AI工具与平台介绍",
+              "duration": "1课时",
+              "isNew": true
+            },
+            {
+              "name": "低/无代码智能体应用搭建",
+              "duration": "1课时",
+              "isNew": true
+            },
+            {
+              "name": "企业AI化结构化分析方法",
+              "duration": "1课时",
+              "isNew": true
+            },
+            {
+              "name": "AI时代素养——批判性思维",
+              "duration": "1课时",
+              "isNew": true
+            }
+          ]
+        },
+        {
+          "tag": "PHASE 02",
+          "title": "思维类课程",
+          "description": "突破创新障碍,掌握结构化问题解决与组织变革方法",
+          "courses": [
+            {
+              "name": "结构化问题解决与引导",
+              "duration": "1课时",
+              "isNew": false
+            },
+            {
+              "name": "创新障碍突破",
+              "duration": "1课时",
+              "isNew": false
+            },
+            {
+              "name": "创意学习方法",
+              "duration": "1课时",
+              "isNew": false
+            },
+            {
+              "name": "组织变革心理",
+              "duration": "1课时",
+              "isNew": false
+            }
+          ]
+        },
+        {
+          "tag": "PHASE 03",
+          "title": "文化类课程",
+          "description": "从东西方哲学到企业文化管理,构建深层组织共识",
+          "courses": [
+            {
+              "name": "企业文化管理",
+              "duration": "1课时",
+              "isNew": false
+            },
+            {
+              "name": "使命、愿景与价值观",
+              "duration": "1课时",
+              "isNew": false
+            },
+            {
+              "name": "中国传统哲学系列",
+              "duration": "系列",
+              "isNew": false
+            },
+            {
+              "name": "西方哲学系列",
+              "duration": "系列",
+              "isNew": false
+            }
+          ]
+        }
+      ]
+    },
+    "compass": {
+      "label": "智能体场景罗盘",
+      "title": "基于任务复杂度与自主决策度的场景规划",
+      "subtitle": "帮助企业识别和规划智能体应用场景,从简单到复杂逐步推进AI化",
+      "adoptionLabel": "{percent}% 企业已采用",
+      "quadrants": [
+        {
+          "tag": "Q1",
+          "title": "高效助手",
+          "description": "简单决策 + 简单执行,快速部署高频应用",
+          "examples": ["知识问答", "流程自动化"]
+        },
+        {
+          "tag": "Q2",
+          "title": "智慧顾问",
+          "description": "复杂决策 + 简单执行,提供深度分析与建议",
+          "examples": ["数据分析", "决策支持"]
+        },
+        {
+          "tag": "Q3",
+          "title": "执行专家",
+          "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
+          "examples": ["会议安排", "审批流程"]
+        },
+        {
+          "tag": "Q4",
+          "title": "全能专家",
+          "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
+          "examples": ["营销自动化", "多智能体协同"]
+        }
+      ]
+    },
+    "architecture": {
+      "label": "企业AI化服务架构",
+      "title": "从物理世界到信息世界,构建人机协同的超级企业",
+      "physicalTitle": "物理世界",
+      "physicalItems": [
+        {
+          "title": "组织架构",
+          "desc": "帮助企业梳理组织结构,定义数字员工岗位"
+        },
+        {
+          "title": "流程梳理",
+          "desc": "正向与逆向流程分析,优化业务运转效率"
+        },
+        {
+          "title": "人本价值",
+          "desc": "企业文化、使命愿景、批判性思维与谦卑态度"
+        }
+      ],
+      "infoTitle": "信息世界",
+      "infoBasicLabel": "初级信息世界",
+      "infoBasic": ["信息化", "物联网", "自动化"],
+      "infoAdvancedLabel": "高级信息世界",
+      "infoAdvanced": ["感知AI", "生成式AI", "智能体AI", "物理AI"],
+      "effectTitle": "AI化效果",
+      "effectFlow": ["超级员工", "超级团队", "超级产品/服务"],
+      "effectMetrics": ["成本优化", "效率提升", "体验升级"]
+    }
   },
   "drama": {
     "addCharDesc": "（需要补充人物形象描述）",
@@ -20421,7 +20650,35 @@
     "twelveLessons": "Twelve Lessons"
   },
   "editor": {
-    "placeholder": "Placeholder"
+    "placeholder": "Placeholder",
+    "toolbar": {
+      "bold": "加粗",
+      "italic": "斜体",
+      "underline": "下划线",
+      "strikethrough": "删除线",
+      "heading1": "标题1",
+      "heading2": "标题2",
+      "heading3": "标题3",
+      "bulletList": "无序列表",
+      "orderedList": "有序列表",
+      "quote": "引用",
+      "codeBlock": "代码块",
+      "link": "链接",
+      "image": "图片",
+      "alignLeft": "左对齐",
+      "alignCenter": "居中",
+      "alignRight": "右对齐",
+      "insertTable": "插入表格",
+      "addRow": "添加行",
+      "addColumn": "添加列",
+      "deleteRow": "删除行",
+      "deleteColumn": "删除列",
+      "deleteTable": "删除表格",
+      "undo": "撤销",
+      "redo": "重做",
+      "linkPrompt": "输入链接地址",
+      "imageUploadFailedPrompt": "上传失败,可手动输入图片地址"
+    }
   },
   "file": {
     "batchDelete": "Batch Delete",
@@ -21864,23 +22121,6 @@
     "deleted": "已删除",
     "deleteFailed": "删除失败"
   },
-  "p20Dashboard": {
-    "title": "P20 智能体运营看板",
-    "subtitle": "实时监控",
-    "revenueTrend": "近 7 日营收趋势",
-    "orderStatus": "订单状态分布",
-    "agentActivity": "智能体调用活跃度",
-    "courseCategory": "课程分类占比",
-    "revenueAxis": "营收(¥)",
-    "revenue": "营收",
-    "unknown": "未知",
-    "callCount": "调用次数",
-    "cardUsers": "用户",
-    "cardOrders": "订单",
-    "cardAgents": "智能体",
-    "cardRevenue": "营收",
-    "loadFailed": "加载失败："
-  },
   "resourceDetail": {
     "breadcrumbResource": "资源中心",
     "downloadTimes": "次下载",
@@ -22273,13 +22513,6 @@
     "officialNews": "官方资讯",
     "read": "阅读"
   },
-  "p19AdminDashboard": {
-    "title": "P19 Admin 仪表盘",
-    "recentActivity": "最近活动",
-    "action": "操作",
-    "target": "目标",
-    "time": "时间"
-  },
   "statisticsPage": {
     "zeroHour": "0小时"
   },
@@ -22294,11 +22527,6 @@
     "noTextContent": "暂无文本内容",
     "noImageContent": "暂无图片内容",
     "noVideoContent": "暂无视频内容"
-  },
-  "p19PaymentMethods": {
-    "title": "P19 支付方式",
-    "accountBalance": "账户余额",
-    "fee": "手续费"
   },
   "memberLearnRecord": {
     "title": "学习记录",
@@ -22606,18 +22834,6 @@
     "downloads": "下载",
     "download": "下载"
   },
-  "p19AgentsList": {
-    "title": "P19 智能体",
-    "calls": "调用",
-    "rating": "评分",
-    "call": "调用",
-    "answerTitle": "智能体回答"
-  },
-  "p19CoursesList": {
-    "title": "P19 课程列表",
-    "minutes": "分钟",
-    "enroll": "报名"
-  },
   "middleRectangle": {
     "free": "免费",
     "learners": "人在学",
@@ -22865,6 +23081,180 @@
         "backend": "后端",
         "opensource": "开源"
       }
+    }
+  },
+  "ai": {
+    "status": {
+      "idle": "空闲",
+      "pending": "等待",
+      "thinking": "思考中",
+      "acting": "执行中",
+      "reflecting": "反思中",
+      "waiting": "等待中",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    },
+    "swarmMonitor": {
+      "title": "群体监控",
+      "refresh": "刷新",
+      "loading": "加载中...",
+      "notStarted": "未启动 Swarm",
+      "swarmId": "Swarm ID",
+      "status": "状态",
+      "task": "任务",
+      "iteration": "迭代",
+      "agentStatus": "Agent 状态",
+      "name": "名称",
+      "type": "类型",
+      "currentStep": "当前步骤",
+      "performanceMetrics": "性能指标",
+      "successRate": "成功率",
+      "avgTime": "平均耗时",
+      "avgTokens": "平均 Token",
+      "totalSteps": "总步骤",
+      "completed": "已完成",
+      "failed": "失败",
+      "optimizationSuggestions": "优化建议",
+      "executionResults": "执行结果",
+      "toolResults": "工具结果 ({count})",
+      "error": "错误: {message}"
+    },
+    "permissionConfirm": {
+      "title": "工具执行确认",
+      "description": "Agent 请求执行以下工具,请确认是否允许",
+      "tool": "工具",
+      "iteration": "第 {n} 轮",
+      "inputParams": "输入参数",
+      "confirmReason": "确认原因",
+      "allowAllSession": "本次会话全部允许(后续不再弹窗)",
+      "deny": "拒绝",
+      "allow": "允许"
+    },
+    "backgroundAgents": {
+      "title": "后台 Agent",
+      "runningCount": "{count} 运行中",
+      "empty": "暂无后台 Agent",
+      "emptyHint": "使用 /agents 或 API 启动后台任务",
+      "cancel": "取消",
+      "viewResult": "查看结果",
+      "delete": "删除",
+      "calls": "{count} 次调用",
+      "total": "共 {count} 个",
+      "completedCount": "完成 {count}",
+      "failedCount": "失败 {count}",
+      "cancelledCount": "已取消 {count}"
+    },
+    "subAgentFeed": {
+      "defaultName": "子智能体",
+      "badge": "subagent",
+      "coordinated": "已协调 {count} 个子智能体完成",
+      "totalSteps": "(共 {count} 步)",
+      "working": "{count} 个子智能体协作中"
+    }
+  },
+  "developer": {
+    "settings": {
+      "title": "设置",
+      "subtitle": "开发者信息、偏好与危险操作",
+      "loading": "加载中...",
+      "infoTitle": "开发者信息",
+      "infoName": "名称",
+      "infoNamePlaceholder": "开发者名称",
+      "infoEmail": "邮箱",
+      "infoCompany": "公司",
+      "infoCompanyPlaceholder": "公司名称(选填)",
+      "infoWebsite": "网站",
+      "saveInfo": "保存信息",
+      "infoSaved": "信息已保存",
+      "prefsTitle": "偏好设置",
+      "prefsDefaultVersion": "默认 API 版本",
+      "prefsDefaultVersionDesc": "沙箱与文档默认显示版本",
+      "prefsSandboxAutoRun": "沙箱自动执行",
+      "prefsSandboxAutoRunDesc": "切换接口时自动发送请求",
+      "prefsErrorReport": "错误上报",
+      "prefsErrorReportDesc": "帮助改进平台稳定性",
+      "savePrefs": "保存偏好",
+      "prefsSaved": "偏好已保存",
+      "dangerTitle": "危险操作",
+      "dangerDeleteLabel": "注销开发者账号",
+      "dangerDeleteDesc": "删除所有密钥、Webhook 与配置,不可恢复",
+      "dangerDeleteConfirm": "确认注销?此操作不可恢复,所有密钥与配置将被删除。",
+      "dangerDeleteBtn": "注销账号",
+      "accountDeleted": "开发者账号已注销"
+    },
+    "notifications": {
+      "title": "通知设置",
+      "subtitle": "管理开发者事件通知偏好",
+      "loading": "加载中...",
+      "saved": "设置已保存",
+      "saveBtn": "保存设置",
+      "savedTag": "已保存",
+      "apiErrorLabel": "API 异常告警",
+      "apiErrorDesc": "接口错误率超阈值时通知",
+      "quotaWarningLabel": "额度告警",
+      "quotaWarningDesc": "配额使用达 80% 时通知",
+      "webhookFailureLabel": "Webhook 失败",
+      "webhookFailureDesc": "回调发送失败时通知",
+      "weeklyReportLabel": "周报推送",
+      "weeklyReportDesc": "每周一发送调用统计摘要",
+      "versionUpdateLabel": "版本更新",
+      "versionUpdateDesc": "API 新版本或废弃提醒",
+      "billingReminderLabel": "账单提醒",
+      "billingReminderDesc": "订阅到期或扣费提醒"
+    }
+  },
+  "member": {
+    "feedback": {
+      "title": "意见反馈",
+      "subtitle": "提交反馈,帮助我们做得更好",
+      "tabList": "历史记录",
+      "tabNew": "提交反馈",
+      "loading": "加载中...",
+      "empty": "暂无反馈记录",
+      "typeBug": "问题反馈",
+      "typeSuggestion": "功能建议",
+      "typeQuestion": "使用咨询",
+      "typeOther": "其他",
+      "statusPending": "处理中",
+      "statusResolved": "已回复",
+      "statusClosed": "已关闭",
+      "replyLabel": "回复:{reply}",
+      "fieldType": "类型",
+      "fieldTitle": "标题",
+      "titlePlaceholder": "请简短描述问题",
+      "fieldContent": "内容",
+      "contentPlaceholder": "请详细描述...",
+      "fieldContact": "联系方式(选填)",
+      "contactPlaceholder": "便于我们与你联系",
+      "submit": "提交",
+      "cancel": "取消"
+    },
+    "fans": {
+      "title": "我的粉丝",
+      "subtitle": "共 {total} 位粉丝关注了你",
+      "loading": "加载中...",
+      "empty": "还没有粉丝,快去发布内容吸引关注吧",
+      "anonymous": "匿名用户",
+      "followedAt": "关注于 {date}"
+    }
+  },
+  "edu": {
+    "qa": {
+      "title": "问答中心",
+      "subtitle": "提问与解答学习中的疑问",
+      "askPlaceholder": "输入你的问题...",
+      "askBtn": "提问",
+      "searchPlaceholder": "搜索问题...",
+      "statusAria": "状态筛选",
+      "statusAll": "全部",
+      "statusAnswered": "已回答",
+      "statusPending": "待回答",
+      "loading": "加载中...",
+      "empty": "暂无问答",
+      "answered": "已回答",
+      "pending": "待回答"
     }
   }
 }

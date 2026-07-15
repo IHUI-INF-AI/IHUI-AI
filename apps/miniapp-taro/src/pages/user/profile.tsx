@@ -3,8 +3,10 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, type UserInfo } from '@/api'
+import { useI18n } from '@/i18n'
 
 export default function Profile() {
+  const { t } = useI18n()
   const [form, setForm] = useState<Partial<UserInfo>>({})
 
   const load = useCallback(async () => {
@@ -12,9 +14,9 @@ export default function Profile() {
       setForm(await getProfile())
     } catch (e) {
       logger.error('user/profile', '获取用户信息', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
-  }, [])
+  }, [t])
 
   function navigate(url: string) {
     Taro.navigateTo({ url })
@@ -25,20 +27,35 @@ export default function Profile() {
   })
 
   const rows = [
-    { label: '头像', path: '/pages/user/avatar', value: null, isAvatar: true },
+    { label: t('user.profile.avatar'), path: '/pages/user/avatar', value: null, isAvatar: true },
     {
-      label: '昵称',
+      label: t('user.profile.nickname'),
       path: '/pages/user/nickname',
-      value: form.nickname || '未设置',
+      value: form.nickname || t('user.profile.notSet'),
       isAvatar: false,
     },
-    { label: '手机号', path: '/pages/user/phone', value: form.phone || '未绑定', isAvatar: false },
-    { label: '邮箱', path: '/pages/user/email', value: form.email || '未绑定', isAvatar: false },
-    { label: '修改密码', path: '/pages/user/password', value: null, isAvatar: false },
     {
-      label: '实名认证',
+      label: t('user.profile.phone'),
+      path: '/pages/user/phone',
+      value: form.phone || t('user.profile.unbound'),
+      isAvatar: false,
+    },
+    {
+      label: t('user.profile.email'),
+      path: '/pages/user/email',
+      value: form.email || t('user.profile.unbound'),
+      isAvatar: false,
+    },
+    {
+      label: t('user.profile.password'),
+      path: '/pages/user/password',
+      value: null,
+      isAvatar: false,
+    },
+    {
+      label: t('user.profile.realname'),
       path: '/pages/user/realname',
-      value: form.realName ? '已认证' : '未认证',
+      value: form.realName ? t('user.profile.verified') : t('user.profile.unverified'),
       isAvatar: false,
     },
   ]
@@ -75,7 +92,7 @@ export default function Profile() {
           className="flex justify-between items-center px-[16px] py-[16px]"
           onClick={() => navigate('/pages/user/feedback')}
         >
-          <Text className="text-[14px] text-[#333]">意见反馈</Text>
+          <Text className="text-[14px] text-[#333]">{t('user.profile.feedback')}</Text>
           <View className="flex items-center text-[#ccc]">
             <Text>›</Text>
           </View>
