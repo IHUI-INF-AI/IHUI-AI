@@ -62,7 +62,7 @@ export default function VipPayConfirm({
           </View>
           <View
             className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
-              paymentMethod === 'alipay' ? 'border-blue-500 bg-blue-50' : 'border-gray-100'
+              paymentMethod === 'alipay' ? 'border-primary bg-primary/10' : 'border-gray-100'
             }`}
             onClick={() => onMethodChange?.('alipay')}
           >

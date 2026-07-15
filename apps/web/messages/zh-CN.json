@@ -101,7 +101,13 @@
       "loginRequiredTitle": "请先登录",
       "loginRequiredDesc": "体验 AI 真实对话需要登录账号",
       "aiErrorTitle": "AI 调用失败",
-      "aiErrorPrefix": "AI 调用失败"
+      "aiErrorPrefix": "AI 调用失败",
+      "modelSelectorLabel": "选择模型",
+      "modelSelectorPlaceholder": "选择模型",
+      "modelSelectorLoading": "加载配置中...",
+      "modelSelectorEmpty": "请先添加模型配置",
+      "modelSelectorRequiredTitle": "请先选择模型",
+      "modelSelectorRequiredDesc": "在右上角下拉框选择要使用的模型配置"
     },
     "resources": "资源",
     "siteName": "智汇AI社区",
@@ -787,7 +793,66 @@
     "sensitivityHigh": "高",
     "speedSlow": "慢",
     "speedMid": "中",
-    "speedFast": "快"
+    "speedFast": "快",
+    "announcement": {
+      "welcomeMessage": "欢迎来到智汇AI教育平台，开启你的智能学习之旅！",
+      "close": "关闭公告"
+    },
+    "banner": {
+      "slide1Title": "AI 驱动的智能学习平台",
+      "slide1Subtitle": "融合人工智能与教育，打造个性化学习体验",
+      "slide1Cta": "立即探索",
+      "slide2Title": "名师直播 实时互动",
+      "slide2Subtitle": "行业专家在线授课，答疑解惑零距离",
+      "slide2Cta": "查看直播",
+      "slide3Title": "海量题库 精准测评",
+      "slide3Subtitle": "智能组卷与错题分析，助你高效备考",
+      "slide3Cta": "开始考试",
+      "switchTo": "切换到第 {index} 张"
+    },
+    "memberCard": {
+      "points": "积分",
+      "balance": "余额",
+      "following": "关注",
+      "fans": "粉丝",
+      "signedIn": "已签到",
+      "signIn": "签到",
+      "welcome": "Hi，欢迎来到学习平台",
+      "loginHint": "登录后享受更多服务",
+      "loginNow": "立即登录",
+      "allCourses": "全部课程",
+      "featuredArticles": "精选文章",
+      "askCommunity": "问答社区",
+      "learningCircle": "学习圈子",
+      "defaultUser": "用户"
+    },
+    "moduleSection": {
+      "viewMore": "查看更多",
+      "noData": "暂无数据"
+    },
+    "modules": {
+      "courses": "课程",
+      "coursesEn": "Course",
+      "live": "直播",
+      "liveEn": "Live",
+      "exam": "考试",
+      "examEn": "Exam",
+      "news": "资讯",
+      "newsEn": "News",
+      "article": "文章",
+      "articleEn": "Article",
+      "ask": "问答",
+      "askEn": "Q&A",
+      "community": "社区",
+      "communityEn": "Community",
+      "knowledge": "知识库",
+      "knowledgeEn": "Knowledge"
+    },
+    "units": {
+      "questions": "{count}题",
+      "answers": "{count}回答",
+      "members": "{count}成员"
+    }
   },
   "header": {
     "searchPlaceholder": "搜索...",
@@ -8794,6 +8859,7 @@
   "news": {
     "title": "平台资讯",
     "subtitle": "了解最新动态",
+    "detail": "详情",
     "search": "搜索资讯",
     "categories": "分类",
     "allCategories": "全部分类",
@@ -8806,7 +8872,24 @@
     "next": "下一页",
     "total": "共 {total} 篇",
     "backToList": "返回资讯",
-    "notFound": "资讯不存在"
+    "notFound": "资讯不存在",
+    "comments": {
+      "title": "评论",
+      "placeholder": "写下你的评论...",
+      "submit": "发布评论",
+      "empty": "暂无评论，快来抢沙发吧",
+      "anonymous": "匿名用户",
+      "me": "我",
+      "justNow": "刚刚",
+      "submitError": "评论发布失败,请稍后重试"
+    },
+    "interaction": {
+      "favorited": "已收藏",
+      "favorite": "收藏",
+      "liked": "已赞",
+      "like": "点赞"
+    },
+    "tags": "标签:"
   },
   "lecturer": {
     "title": "讲师团队",
@@ -22570,5 +22653,96 @@
   "module": {
     "courseCover": "课程封面",
     "free": "免费"
+  },
+  "course": {
+    "tabs": {
+      "overview": "概览",
+      "comments": "评论",
+      "homework": "作业",
+      "rating": "评分",
+      "certificate": "证书",
+      "intro": "课程简介",
+      "noIntro": "暂无简介",
+      "instructor": "讲师信息",
+      "objectives": "学习目标",
+      "noComments": "暂无评论",
+      "noHomework": "暂无作业",
+      "noRating": "暂无评分",
+      "anonymous": "匿名用户",
+      "scoreUnit": "分",
+      "ratersCount": "{count} 人评分",
+      "certTitle": "结业证书",
+      "certAcquired": "恭喜完成课程学习，已获得结业证书",
+      "certPending": "完成全部课程学习并通过考核后，将获得结业证书",
+      "certPreview": "证书预览",
+      "certStudent": "学员姓名",
+      "certNo": "证书编号：{no}",
+      "statusPending": "待提交",
+      "statusSubmitted": "已提交",
+      "statusGraded": "已评分",
+      "statusUnknown": "未知"
+    },
+    "chapters": {
+      "empty": "暂无章节",
+      "sectionCount": "{count} 节"
+    },
+    "interaction": {
+      "like": "点赞",
+      "favorite": "收藏"
+    },
+    "video": {
+      "cover": "课程封面",
+      "selectChapter": "选择章节开始学习"
+    }
+  },
+  "operation": {
+    "hotNews": {
+      "title": "热门资讯",
+      "more": "更多",
+      "tenK": "万"
+    },
+    "integral": {
+      "title": "积分中心",
+      "mall": "积分商城",
+      "currentPoints": "当前积分",
+      "weeklyGain": "本周新增",
+      "myRank": "我的排名",
+      "recentRecords": "最近明细",
+      "all": "全部"
+    },
+    "messageSystem": {
+      "title": "消息中心",
+      "viewAll": "查看全部",
+      "unreadCount": "{count} 条未读",
+      "noNewMessages": "暂无新消息",
+      "messageCenterAria": "消息中心",
+      "categories": {
+        "system": "系统通知",
+        "interaction": "互动",
+        "private": "私信",
+        "announcement": "公告"
+      }
+    },
+    "rightModule": {
+      "quickEntries": "快捷入口",
+      "promotion": "推广",
+      "hotTags": "热门标签",
+      "more": "更多",
+      "defaultEntries": {
+        "mall": { "label": "积分商城", "description": "兑换好礼" },
+        "vip": { "label": "会员中心", "description": "尊享特权" },
+        "invite": { "label": "邀请好友", "description": "赚积分" },
+        "help": { "label": "帮助中心", "description": "使用指南" }
+      },
+      "defaultTags": {
+        "llm": "AI 大模型",
+        "tutorial": "教程",
+        "rag": "RAG",
+        "agent": "Agent",
+        "frontend": "前端",
+        "backend": "后端",
+        "opensource": "开源"
+      }
+    }
   }
 }

@@ -101,7 +101,13 @@
       "loginRequiredTitle": "ログインしてください",
       "loginRequiredDesc": "ai とのをえるにはログインがです",
       "aiErrorTitle": "ai のはしくしました",
-      "aiErrorPrefix": "ai のはしくしました"
+      "aiErrorPrefix": "ai のはしくしました",
+      "modelSelectorLabel": "モデル",
+      "modelSelectorPlaceholder": "モデルを",
+      "modelSelectorLoading": "コンフィグをちみ...",
+      "modelSelectorEmpty": "まずモデルコンフィグをしてください",
+      "modelSelectorRequiredTitle": "モデルをしてください",
+      "modelSelectorRequiredDesc": "ののドロップダウンからモデルをしてください"
     },
     "resources": "リソース",
     "siteName": "智匯AIコミュニティ",
@@ -787,7 +793,66 @@
     "sensitivityHigh": "高",
     "speedSlow": "遅",
     "speedMid": "中",
-    "speedFast": "速"
+    "speedFast": "速",
+    "announcement": {
+      "welcomeMessage": "智匯AI教育プラットフォームへようこそ、スマート学習の旅を始めましょう！",
+      "close": "お知らせを閉じる"
+    },
+    "banner": {
+      "slide1Title": "AI駆動のスマート学習プラットフォーム",
+      "slide1Subtitle": "AIと教育を融合し、パーソナライズされた学習体験を提供",
+      "slide1Cta": "今すぐ探索",
+      "slide2Title": "プロ講師のライブ配信・リアルタイム交流",
+      "slide2Subtitle": "業界の専門家がオンラインで授業、質問にもすぐ対応",
+      "slide2Cta": "ライブを見る",
+      "slide3Title": "膨大な問題バンク・精密な評価",
+      "slide3Subtitle": "スマート出題とエラー分析で効率的な試験対策を",
+      "slide3Cta": "試験を開始",
+      "switchTo": "第 {index} 枚目に切り替え"
+    },
+    "memberCard": {
+      "points": "ポイント",
+      "balance": "残高",
+      "following": "フォロー",
+      "fans": "ファン",
+      "signedIn": "チェックイン済み",
+      "signIn": "チェックイン",
+      "welcome": "Hi、学習プラットフォームへようこそ",
+      "loginHint": "ログインしてさらに多くのサービスを利用",
+      "loginNow": "今すぐログイン",
+      "allCourses": "全コース",
+      "featuredArticles": "注目記事",
+      "askCommunity": "Q&Aコミュニティ",
+      "learningCircle": "学習サークル",
+      "defaultUser": "ユーザー"
+    },
+    "moduleSection": {
+      "viewMore": "もっと見る",
+      "noData": "データがありません"
+    },
+    "modules": {
+      "courses": "コース",
+      "coursesEn": "Course",
+      "live": "ライブ",
+      "liveEn": "Live",
+      "exam": "試験",
+      "examEn": "Exam",
+      "news": "ニュース",
+      "newsEn": "News",
+      "article": "記事",
+      "articleEn": "Article",
+      "ask": "Q&A",
+      "askEn": "Q&A",
+      "community": "コミュニティ",
+      "communityEn": "Community",
+      "knowledge": "ナレッジベース",
+      "knowledgeEn": "Knowledge"
+    },
+    "units": {
+      "questions": "{count}問",
+      "answers": "{count}回答",
+      "members": "{count}人"
+    }
   },
   "header": {
     "searchPlaceholder": "",
@@ -8762,6 +8827,7 @@
   "news": {
     "title": "",
     "subtitle": "のなドキュメントとAPIリファレンス",
+    "detail": "詳細",
     "search": "ニュースを",
     "categories": "カテゴリ",
     "allCategories": "All categories",
@@ -8774,7 +8840,24 @@
     "next": "へ",
     "total": ": {n}",
     "backToList": "るリスト",
-    "notFound": "つかりません"
+    "notFound": "つかりません",
+    "comments": {
+      "title": "コメント",
+      "placeholder": "コメントを書く...",
+      "submit": "コメントを投稿",
+      "empty": "まだコメントがありません。最初のコメントを書きましょう",
+      "anonymous": "匿名ユーザー",
+      "me": "私",
+      "justNow": "たった今",
+      "submitError": "コメントの投稿に失敗しました。後でもう一度お試しください"
+    },
+    "interaction": {
+      "favorited": "お気に入り済み",
+      "favorite": "お気に入り",
+      "liked": "いいね済み",
+      "like": "いいね"
+    },
+    "tags": "タグ:"
   },
   "lecturer": {
     "title": "",
@@ -22582,5 +22665,96 @@
   "module": {
     "courseCover": "コースカバー",
     "free": ""
+  },
+  "course": {
+    "tabs": {
+      "overview": "概要",
+      "comments": "コメント",
+      "homework": "課題",
+      "rating": "評価",
+      "certificate": "修了証",
+      "intro": "コース紹介",
+      "noIntro": "紹介はありません",
+      "instructor": "講師情報",
+      "objectives": "学習目標",
+      "noComments": "コメントがありません",
+      "noHomework": "課題なし",
+      "noRating": "評価なし",
+      "anonymous": "匿名ユーザー",
+      "scoreUnit": "点",
+      "ratersCount": "{count} 人が評価",
+      "certTitle": "修了証明書",
+      "certAcquired": "コース学習完了おめでとうございます。修了証明書を取得しました",
+      "certPending": "全课程の学習を完了し、評価に合格すると修了証明書が取得できます",
+      "certPreview": "修了証プレビュー",
+      "certStudent": "受講者名",
+      "certNo": "証明書番号：{no}",
+      "statusPending": "未提出",
+      "statusSubmitted": "提出済み",
+      "statusGraded": "評価済み",
+      "statusUnknown": "不明"
+    },
+    "chapters": {
+      "empty": "章がありません",
+      "sectionCount": "{count} 節"
+    },
+    "interaction": {
+      "like": "いいね",
+      "favorite": "お気に入り"
+    },
+    "video": {
+      "cover": "コースカバー",
+      "selectChapter": "章を選択して学習を開始"
+    }
+  },
+  "operation": {
+    "hotNews": {
+      "title": "人気ニュース",
+      "more": "もっと見る",
+      "tenK": "万"
+    },
+    "integral": {
+      "title": "ポイントセンター",
+      "mall": "ポイントモール",
+      "currentPoints": "現在のポイント",
+      "weeklyGain": "今週の増加",
+      "myRank": "マイランク",
+      "recentRecords": "最近の明細",
+      "all": "すべて"
+    },
+    "messageSystem": {
+      "title": "メッセージセンター",
+      "viewAll": "すべて見る",
+      "unreadCount": "{count} 件未読",
+      "noNewMessages": "新着メッセージなし",
+      "messageCenterAria": "メッセージセンター",
+      "categories": {
+        "system": "システム通知",
+        "interaction": "交流",
+        "private": "ダイレクトメッセージ",
+        "announcement": "お知らせ"
+      }
+    },
+    "rightModule": {
+      "quickEntries": "クイックアクセス",
+      "promotion": "プロモーション",
+      "hotTags": "人気タグ",
+      "more": "もっと見る",
+      "defaultEntries": {
+        "mall": { "label": "ポイントモール", "description": "ギフト交換" },
+        "vip": { "label": "会員センター", "description": "特典" },
+        "invite": { "label": "友達を招待", "description": "ポイント獲得" },
+        "help": { "label": "ヘルプセンター", "description": "利用ガイド" }
+      },
+      "defaultTags": {
+        "llm": "AI 大モデル",
+        "tutorial": "チュートリアル",
+        "rag": "RAG",
+        "agent": "Agent",
+        "frontend": "フロントエンド",
+        "backend": "バックエンド",
+        "opensource": "オープンソース"
+      }
+    }
   }
 }

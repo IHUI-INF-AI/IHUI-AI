@@ -101,7 +101,13 @@
       "loginRequiredTitle": "로그인이 필요합니다",
       "loginRequiredDesc": "실제 AI 대화를 체험하려면 로그인하세요",
       "aiErrorTitle": "AI 호출 실패",
-      "aiErrorPrefix": "AI 호출 실패"
+      "aiErrorPrefix": "AI 호출 실패",
+      "modelSelectorLabel": "모델 선택",
+      "modelSelectorPlaceholder": "모델 선택",
+      "modelSelectorLoading": "구성 로드 중...",
+      "modelSelectorEmpty": "먼저 모델 구성을 추가하세요",
+      "modelSelectorRequiredTitle": "모델을 선택하세요",
+      "modelSelectorRequiredDesc": "오른쪽 상단 드롭다운에서 모델 구성을 선택하세요"
     },
     "resources": "리소스",
     "siteName": "지후이 AI 커뮤니티",
@@ -787,7 +793,66 @@
     "sensitivityHigh": "높은",
     "speedSlow": "느린",
     "speedMid": "중",
-    "speedFast": "빠른"
+    "speedFast": "빠른",
+    "announcement": {
+      "welcomeMessage": "지혜AI 교육 플랫폼에 오신 것을 환영합니다. 스마트 학습 여정을 시작하세요!",
+      "close": "공지 닫기"
+    },
+    "banner": {
+      "slide1Title": "AI 기반 스마트 학습 플랫폼",
+      "slide1Subtitle": "AI와 교육을 융합하여 맞춤형 학습 경험 제공",
+      "slide1Cta": "지금 탐색",
+      "slide2Title": "전문 강사 라이브 방송 실시간 소통",
+      "slide2Subtitle": "업계 전문가의 온라인 강의, 질문에 즉시 답변",
+      "slide2Cta": "라이브 보기",
+      "slide3Title": "방대한 문제 은행 정밀 평가",
+      "slide3Subtitle": "스마트 출제와 오답 분석으로 효율적인 시험 대비",
+      "slide3Cta": "시험 시작",
+      "switchTo": "제 {index} 장으로 전환"
+    },
+    "memberCard": {
+      "points": "포인트",
+      "balance": "잔액",
+      "following": "팔로잉",
+      "fans": "팬",
+      "signedIn": "출석 완료",
+      "signIn": "출석",
+      "welcome": "Hi, 학습 플랫폼에 오신 것을 환영합니다",
+      "loginHint": "로그인 후 더 많은 서비스 이용",
+      "loginNow": "지금 로그인",
+      "allCourses": "전체 코스",
+      "featuredArticles": "추천 글",
+      "askCommunity": "Q&A 커뮤니티",
+      "learningCircle": "학습 서클",
+      "defaultUser": "사용자"
+    },
+    "moduleSection": {
+      "viewMore": "더 보기",
+      "noData": "데이터 없음"
+    },
+    "modules": {
+      "courses": "코스",
+      "coursesEn": "Course",
+      "live": "라이브",
+      "liveEn": "Live",
+      "exam": "시험",
+      "examEn": "Exam",
+      "news": "뉴스",
+      "newsEn": "News",
+      "article": "글",
+      "articleEn": "Article",
+      "ask": "Q&A",
+      "askEn": "Q&A",
+      "community": "커뮤니티",
+      "communityEn": "Community",
+      "knowledge": "지식 베이스",
+      "knowledgeEn": "Knowledge"
+    },
+    "units": {
+      "questions": "{count}문제",
+      "answers": "{count}답변",
+      "members": "{count}명"
+    }
   },
   "header": {
     "searchPlaceholder": "검색",
@@ -8768,6 +8833,7 @@
   "news": {
     "title": "새관리",
     "subtitle": "포괄적인의개발문서및API참조",
+    "detail": "상세",
     "search": "뉴스 검색",
     "categories": "카테고리",
     "allCategories": "All categories",
@@ -8780,7 +8846,24 @@
     "next": "다음",
     "total": "총계: {n}",
     "backToList": "백엔드로목이것은",
-    "notFound": "찾을 수 없음"
+    "notFound": "찾을 수 없음",
+    "comments": {
+      "title": "댓글",
+      "placeholder": "댓글을 작성하세요...",
+      "submit": "댓글 작성",
+      "empty": "아직 댓글이 없습니다. 첫 댓글을 남겨보세요",
+      "anonymous": "익명 사용자",
+      "me": "나",
+      "justNow": "방금",
+      "submitError": "댓글 게시에 실패했습니다. 나중에 다시 시도해 주세요"
+    },
+    "interaction": {
+      "favorited": "즐겨찾기됨",
+      "favorite": "즐겨찾기",
+      "liked": "좋아요됨",
+      "like": "좋아요"
+    },
+    "tags": "태그:"
   },
   "lecturer": {
     "title": "강사관리",
@@ -22588,5 +22671,96 @@
   "module": {
     "courseCover": "코스관리표지",
     "free": "무료"
+  },
+  "course": {
+    "tabs": {
+      "overview": "개요",
+      "comments": "댓글",
+      "homework": "과제",
+      "rating": "평가",
+      "certificate": "수료증",
+      "intro": "코스 소개",
+      "noIntro": "소개 없음",
+      "instructor": "강사 정보",
+      "objectives": "학습 목표",
+      "noComments": "댓글이 없습니다",
+      "noHomework": "과제 없음",
+      "noRating": "평점 없음",
+      "anonymous": "익명 사용자",
+      "scoreUnit": "점",
+      "ratersCount": "{count}명 평가",
+      "certTitle": "수료증",
+      "certAcquired": "코스 학습을 완료하신 것을 축하합니다. 수료증을 취득하셨습니다",
+      "certPending": "전체 코스 학습을 완료하고 평가에 합격하면 수료증을 받을 수 있습니다",
+      "certPreview": "수료증 미리보기",
+      "certStudent": "수강생 이름",
+      "certNo": "수료증 번호: {no}",
+      "statusPending": "미제출",
+      "statusSubmitted": "제출됨",
+      "statusGraded": "평가됨",
+      "statusUnknown": "알 수 없음"
+    },
+    "chapters": {
+      "empty": "챕터가 없습니다",
+      "sectionCount": "{count}개 섹션"
+    },
+    "interaction": {
+      "like": "좋아요",
+      "favorite": "즐겨찾기"
+    },
+    "video": {
+      "cover": "코스 표지",
+      "selectChapter": "챕터를 선택하여 학습을 시작하세요"
+    }
+  },
+  "operation": {
+    "hotNews": {
+      "title": "인기 뉴스",
+      "more": "더 보기",
+      "tenK": "만"
+    },
+    "integral": {
+      "title": "포인트 센터",
+      "mall": "포인트 몰",
+      "currentPoints": "현재 포인트",
+      "weeklyGain": "이번주 증가",
+      "myRank": "내 순위",
+      "recentRecords": "최근 내역",
+      "all": "전체"
+    },
+    "messageSystem": {
+      "title": "메시지 센터",
+      "viewAll": "전체 보기",
+      "unreadCount": "{count}건 미읽음",
+      "noNewMessages": "새 메시지 없음",
+      "messageCenterAria": "메시지 센터",
+      "categories": {
+        "system": "시스템 알림",
+        "interaction": "소통",
+        "private": "쪽지",
+        "announcement": "공지"
+      }
+    },
+    "rightModule": {
+      "quickEntries": "빠른 접근",
+      "promotion": "프로모션",
+      "hotTags": "인기 태그",
+      "more": "더보기",
+      "defaultEntries": {
+        "mall": { "label": "포인트 몰", "description": "상품 교환" },
+        "vip": { "label": "회원 센터", "description": "프리미엄 혜택" },
+        "invite": { "label": "친구 초대", "description": "포인트 획득" },
+        "help": { "label": "도움말 센터", "description": "사용 가이드" }
+      },
+      "defaultTags": {
+        "llm": "AI 대모델",
+        "tutorial": "튜토리얼",
+        "rag": "RAG",
+        "agent": "Agent",
+        "frontend": "프론트엔드",
+        "backend": "백엔드",
+        "opensource": "오픈소스"
+      }
+    }
   }
 }
