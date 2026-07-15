@@ -1,6 +1,6 @@
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { getCircleList, type Circle } from '@/api'
 import { useI18n } from '@/i18n'
 import './index.css'
@@ -56,8 +56,10 @@ export default function CircleIndexPage() {
 
   useReachBottom(() => load())
 
+  const loadRef = useRef(load)
+  loadRef.current = load
   useEffect(() => {
-    load(true)
+    loadRef.current(true)
   }, [])
 
   return (
