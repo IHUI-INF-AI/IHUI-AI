@@ -1409,6 +1409,15 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
       .int()
       .optional()
       .safeParse((request.query as { status?: string }).status)
+    if (!status.success) return reply.status(400).send(error(400, 'status 参数错误'))
+    const level = z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(3)
+      .optional()
+      .safeParse((request.query as { level?: string }).level)
+    if (!level.success) return reply.status(400).send(error(400, 'level 参数需为 0-3 的整数'))
     const includeDeleted = (request.query as { includeDeleted?: string }).includeDeleted === 'true'
     const conds = []
     if (search)
@@ -1424,6 +1433,9 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     } else if (!includeDeleted) {
       conds.push(notInArray(users.status, [3]))
     }
+    if (level.success && level.data !== undefined) {
+      conds.push(eq(users.level, level.data))
+    }
     const where = conds.length > 0 ? and(...conds) : undefined
     const list = await db
       .select({
@@ -1432,6 +1444,8 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
         phone: users.phone,
         email: users.email,
         status: users.status,
+        level: users.level,
+        isVip: users.isVip,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -1452,11 +1466,18 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const b = z
-      .object({ status: z.number().int().optional(), level: z.number().int().optional() })
+      .object({
+        status: z.number().int().optional(),
+        level: z.number().int().min(0).max(3).optional(),
+      })
       .safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    if (b.data.status === undefined && b.data.level === undefined) {
+      return reply.status(400).send(error(400, 'status 与 level 至少需提供一个'))
+    }
     const sets: Record<string, unknown> = { updatedAt: new Date() }
     if (b.data.status !== undefined) sets.status = b.data.status
+    if (b.data.level !== undefined) sets.level = b.data.level
     const [row] = await db.update(users).set(sets).where(eq(users.id, p.data.id)).returning()
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
     return reply.send(success(row))
@@ -1470,6 +1491,7 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
         password: z.string().min(6, '密码至少 6 位'),
         roleId: z.number().int().optional(),
         status: z.number().int().optional(),
+        level: z.number().int().min(0).max(3).optional(),
       })
       .safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
@@ -1485,6 +1507,7 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
         passwordHash: bcrypt.hashSync(b.data.password, 10),
         roleId: b.data.roleId ?? 0,
         status: b.data.status ?? 1,
+        level: b.data.level ?? 0,
       })
       .returning()
     if (!row) return reply.status(500).send(error(500, '创建失败'))
