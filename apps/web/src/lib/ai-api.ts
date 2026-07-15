@@ -492,3 +492,29 @@ export async function getAigcTasks(query: PageQuery = {}): Promise<ApiResult<Pag
 export async function cancelAigcTask(taskId: string): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>(`/api/ai/aigc/tasks/${taskId}/cancel`, { method: 'POST' })
 }
+
+// ===================== ai-career-advice =====================
+
+export interface CareerAdviceInput {
+  school: string
+  classLevel: string
+  scoreRange: string
+  languageDifficulty: string
+  scienceCharacteristics: string
+  learningObstacle: string
+  hobbies: string
+  target: string
+}
+
+export interface CareerAdviceResult {
+  content: string
+}
+
+export async function getCareerAdvice(
+  input: CareerAdviceInput,
+): Promise<ApiResult<CareerAdviceResult>> {
+  return fetchApi<CareerAdviceResult>('/api/ai/career-advice', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}

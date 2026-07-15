@@ -76,7 +76,7 @@ export function HomeBanner() {
               <Button
                 size="sm"
                 variant="secondary"
-                className="bg-white/90 text-foreground hover:bg-white"
+                className="bg-white/90 text-zinc-900 hover:bg-white"
               >
                 {t(slide.ctaKey)}
               </Button>
