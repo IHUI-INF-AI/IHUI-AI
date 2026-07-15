@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export interface ToastProps {
   visible?: boolean
@@ -31,14 +31,18 @@ export default function Toast({
   onClose,
 }: ToastProps) {
   const [show, setShow] = useState(visible)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const durationRef = useRef(duration)
+  durationRef.current = duration
 
   useEffect(() => {
     setShow(visible)
-    if (visible && duration > 0) {
+    if (visible && durationRef.current > 0) {
       const timer = setTimeout(() => {
         setShow(false)
-        onClose?.()
-      }, duration)
+        onCloseRef.current?.()
+      }, durationRef.current)
       return () => clearTimeout(timer)
     }
   }, [visible])

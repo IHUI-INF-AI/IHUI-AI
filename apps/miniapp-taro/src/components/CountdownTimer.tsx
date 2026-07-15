@@ -17,14 +17,18 @@ export default function CountdownTimer({
   const [remaining, setRemaining] = useState(seconds)
   const [running, setRunning] = useState(autoStart)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const onEndRef = useRef(onEnd)
+  onEndRef.current = onEnd
+  const remainingRef = useRef(remaining)
+  remainingRef.current = remaining
 
   useEffect(() => {
-    if (running && remaining > 0) {
+    if (running && remainingRef.current > 0) {
       timerRef.current = setInterval(() => {
         setRemaining((r) => {
           if (r <= 1) {
             setRunning(false)
-            onEnd?.()
+            onEndRef.current?.()
             return 0
           }
           return r - 1

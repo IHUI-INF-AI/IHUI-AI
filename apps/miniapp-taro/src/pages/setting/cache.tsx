@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -11,7 +12,7 @@ export default function CachePage() {
     try {
       setSize((await clearCacheSize()).size)
     } catch (e) {
-      console.error('[setting/cache] 获取缓存大小 failed:', e)
+      logger.error('setting/cache', '获取缓存大小', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])
@@ -22,7 +23,7 @@ export default function CachePage() {
       Taro.showToast({ title: '清理成功', icon: 'success' })
       load()
     } catch (e) {
-      console.error('[setting/cache] 清理缓存 failed:', e)
+      logger.error('setting/cache', '清理缓存', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [load])

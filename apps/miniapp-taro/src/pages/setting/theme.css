@@ -23,7 +23,7 @@
   background: #07c160;
 }
 .phone.dark .status-bar {
-  background: #0056b3;
+  background: #06ad56;
 }
 .content-area {
   flex: 1;
@@ -51,7 +51,7 @@
   border-bottom: none;
 }
 .item.active {
-  background: #e6f0ff;
+  background: #e6f7ee;
 }
 .color {
   width: 60rpx;

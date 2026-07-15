@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, ArrowLeft, Share2, Copy, Eye, Calendar, Sparkles } from 'lucide-react'
+import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui'
@@ -112,8 +113,9 @@ export default function AiWorldSharePage() {
 
       <Card className="overflow-hidden">
         {world.coverImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={world.coverImage} alt={world.title} className="h-40 w-full object-cover" />
+          <div className="relative h-40 w-full">
+            <Image src={world.coverImage} alt={world.title} fill className="object-cover" />
+          </div>
         ) : (
           <div className="flex h-40 items-center justify-center bg-muted">
             <Sparkles className="h-10 w-10 text-muted-foreground/40" />

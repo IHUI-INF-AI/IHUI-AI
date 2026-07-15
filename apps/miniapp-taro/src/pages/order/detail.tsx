@@ -1,14 +1,9 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo } from 'react'
 import { getOrderDetail, type Order } from '@/api'
-
-const STATUS_TEXT: Record<string, string> = {
-  pending: '待支付',
-  paid: '已支付',
-  cancelled: '已取消',
-  refunded: '已退款',
-}
+import { useI18n } from '@/i18n'
 
 const STATUS_COLOR: Record<string, string> = {
   paid: 'text-[#4caf50]',
@@ -16,11 +11,22 @@ const STATUS_COLOR: Record<string, string> = {
   refunded: 'text-[#999]',
 }
 
+const STATUS_KEYS: Record<string, string> = {
+  pending: 'order.status.pending',
+  paid: 'order.status.paid',
+  cancelled: 'order.status.cancelled',
+  refunded: 'order.status.refunded',
+}
+
 export default function OrderDetail() {
+  const { t } = useI18n()
   const router = useRouter()
   const [order, setOrder] = useState<Order>({} as Order)
 
-  const statusText = useMemo(() => STATUS_TEXT[order.status] || order.status, [order.status])
+  const statusText = useMemo(
+    () => (STATUS_KEYS[order.status] ? t(STATUS_KEYS[order.status] as string) : order.status),
+    [order.status, t],
+  )
 
   useEffect(() => {
     const id = router.params.id
@@ -28,10 +34,10 @@ export default function OrderDetail() {
     getOrderDetail(id)
       .then((data) => setOrder(data))
       .catch((e) => {
-        console.error('订单详情加载 failed:', e)
-        Taro.showToast({ title: '订单加载失败', icon: 'none' })
+        logger.error('unknown', '订单详情加载', e)
+        Taro.showToast({ title: t('order.loadFailed'), icon: 'none' })
       })
-  }, [router.params.id])
+  }, [router.params.id, t])
 
   const goPay = () => {
     Taro.navigateTo({ url: `/pages/pay/index?orderNo=${order.orderNo}&amount=${order.amount}` })
@@ -52,25 +58,25 @@ export default function OrderDetail() {
           {order.title}
         </View>
         <View className="flex justify-between py-[24rpx] border-b-[2rpx] border-[#f5f5f5]">
-          <Text className="text-[26rpx] text-[#999]">订单号</Text>
+          <Text className="text-[26rpx] text-[#999]">{t('order.orderNo')}</Text>
           <Text className="text-[26rpx] text-[#333]">{order.orderNo}</Text>
         </View>
         <View className="flex justify-between py-[24rpx] border-b-[2rpx] border-[#f5f5f5]">
-          <Text className="text-[26rpx] text-[#999]">创建时间</Text>
+          <Text className="text-[26rpx] text-[#999]">{t('order.createTime')}</Text>
           <Text className="text-[26rpx] text-[#333]">{order.createTime}</Text>
         </View>
         <View className="flex justify-between py-[24rpx] border-b-[2rpx] border-[#f5f5f5]">
-          <Text className="text-[26rpx] text-[#999]">订单类型</Text>
+          <Text className="text-[26rpx] text-[#999]">{t('order.orderType')}</Text>
           <Text className="text-[26rpx] text-[#333]">{order.type}</Text>
         </View>
         <View className="flex justify-between py-[24rpx] border-b-[2rpx] border-[#f5f5f5]">
-          <Text className="text-[26rpx] text-[#999]">订单状态</Text>
+          <Text className="text-[26rpx] text-[#999]">{t('order.orderStatus')}</Text>
           <Text className={`text-[26rpx] ${STATUS_COLOR[order.status] || 'text-[#333]'}`}>
             {statusText}
           </Text>
         </View>
         <View className="flex justify-between py-[24rpx]">
-          <Text className="text-[26rpx] text-[#999]">订单金额</Text>
+          <Text className="text-[26rpx] text-[#999]">{t('order.orderAmount')}</Text>
           <Text className="text-[32rpx] text-[#dd524d] font-semibold">¥{order.amount}</Text>
         </View>
       </View>
@@ -80,7 +86,7 @@ export default function OrderDetail() {
             className="mt-[24rpx] bg-[#07c160] text-white rounded-[40rpx] text-[30rpx]"
             onClick={goPay}
           >
-            去支付
+            {t('order.goPay')}
           </Button>
         )}
         {order.status === 'paid' && (
@@ -88,14 +94,14 @@ export default function OrderDetail() {
             className="mt-[24rpx] bg-white text-[#333] rounded-[40rpx] text-[30rpx]"
             onClick={goRefund}
           >
-            申请退款
+            {t('order.applyRefund')}
           </Button>
         )}
         <Button
           className="mt-[24rpx] bg-white text-[#333] rounded-[40rpx] text-[30rpx]"
           onClick={goList}
         >
-          订单列表
+          {t('order.title')}
         </Button>
       </View>
     </View>

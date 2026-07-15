@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
@@ -101,6 +101,22 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/news/categories', async (_request, reply) => {
     const list = await findPublishedNewsCategories()
     return reply.send(success({ list }))
+  })
+
+  // GET /news/hot - 热门资讯（公开，按浏览量排序）
+  server.get('/news/hot', async (request, reply) => {
+    const limitQuery = z
+      .object({ limit: z.coerce.number().int().min(1).max(50).default(10) })
+      .safeParse(request.query)
+    const limit = limitQuery.success ? limitQuery.data.limit : 10
+    const result = await findPublishedArticles({ page: 1, pageSize: limit })
+    const list = result.list.map((a) => ({
+      id: a.id,
+      title: a.title,
+      viewCount: a.viewCount,
+      publishedAt: a.publishedAt ? a.publishedAt.toISOString() : new Date().toISOString(),
+    }))
+    return reply.send(success(list))
   })
 
   // GET /news/articles - 已发布资讯列表（公开）

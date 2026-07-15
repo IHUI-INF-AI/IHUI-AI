@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Loader2, Trash2 } from 'lucide-react'
+import Image from 'next/image'
 import { Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { fmt } from './helpers'
@@ -19,8 +20,7 @@ interface Props {
 
 function Avatar({ src, name }: { src?: string; name: string }) {
   if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={name} className="h-8 w-8 rounded-full" />
+    return <Image src={src} alt={name} width={32} height={32} className="h-8 w-8 rounded-full" />
   }
   return (
     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">

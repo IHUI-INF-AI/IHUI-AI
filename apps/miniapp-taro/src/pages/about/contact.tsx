@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -18,7 +19,7 @@ export default function ContactPage() {
     try {
       setInfo(await getContact())
     } catch (e) {
-      console.error('[about/contact] 获取联系方式 failed:', e)
+      logger.error('about/contact', '获取联系方式', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])

@@ -44,7 +44,8 @@ class LLMCompleteRequest(BaseModel):
 @router.post("/llm/complete")
 async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any]:
     """直接调用 LLM 完成对话。"""
-    result = await llm_gateway.complete(req.messages, model=req.model)
+    owner_uuid = (req.metadata or {}).get("userId")
+    result = await llm_gateway.complete(req.messages, model=req.model, owner_uuid=owner_uuid)
     # 透传 metadata
     if req.metadata:
         result["metadata"] = req.metadata
@@ -97,10 +98,11 @@ async def complete_stream(req: LLMCompleteRequest) -> StreamingResponse:
     """
 
     accumulated: dict[str, Any] = {"content": "", "model": req.model, "usage": None, "stub": False}
+    owner_uuid = (req.metadata or {}).get("userId")
 
     async def gen():
         try:
-            async for event in llm_gateway.astream(req.messages, model=req.model):
+            async for event in llm_gateway.astream(req.messages, model=req.model, owner_uuid=owner_uuid):
                 event_type = event.get("type", "message")
                 # 累积内容用于回调
                 if event_type in ("chunk", "message"):

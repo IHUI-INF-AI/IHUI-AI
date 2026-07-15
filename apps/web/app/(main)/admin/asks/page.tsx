@@ -13,9 +13,6 @@ import { AskDialog } from './AskDialog'
 import { api, EMPTY_FORM, PAGE_SIZE, askToForm, fetchAsks, parseTags } from './helpers'
 import type { AskForm, AskItem } from './types'
 
-// TODO 后端对接: 当前 /admin/asks 路由尚未实现,以下接口在后端就绪前可能返回 404。
-// 列表通过 /api/asks 公共端点获取;创建/编辑/审核/删除调用 /api/admin/asks/* (待后端实现)。
-
 export default function AdminAsksPage() {
   const t = useTranslations('admin.asks')
   const qc = useQueryClient()
@@ -51,7 +48,6 @@ export default function AdminAsksPage() {
         status: form.status,
         isResolved: form.isResolved,
       }
-      // TODO 后端: /api/admin/asks POST/PUT 待实现
       return editing
         ? api(`/api/admin/asks/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
         : api('/api/admin/asks', { method: 'POST', body: JSON.stringify(body) })
@@ -65,9 +61,7 @@ export default function AdminAsksPage() {
   })
 
   const auditMut = useMutation({
-    mutationFn: (id: string) =>
-      // TODO 后端: /api/admin/asks/:id/audit PUT 待实现
-      api(`/api/admin/asks/${id}/audit`, { method: 'PUT' }),
+    mutationFn: (id: string) => api(`/api/admin/asks/${id}/audit`, { method: 'PUT' }),
     onSuccess: () => {
       toast.success(t('auditSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'asks'] })
@@ -76,9 +70,7 @@ export default function AdminAsksPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) =>
-      // TODO 后端: /api/admin/asks/:id DELETE 待实现(目前 /asks/:id 仅允许本人删除)
-      api(`/api/admin/asks/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/admin/asks/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'asks'] })
