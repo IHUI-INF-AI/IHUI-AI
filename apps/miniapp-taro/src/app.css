@@ -6,3 +6,41 @@ page {
   background-color: #f7f8fa;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
+
+.cs-float {
+  position: fixed;
+  right: 32rpx;
+  bottom: 180rpx;
+  z-index: 999;
+}
+
+.cs-float-btn {
+  width: 96rpx;
+  height: 96rpx;
+  padding: 0;
+  margin: 0;
+  background: rgba(7, 193, 96, 0.92);
+  border-radius: 50%;
+  box-shadow: 0 4rpx 16rpx rgba(7, 193, 96, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+}
+
+.cs-float-btn::after {
+  border: none;
+}
+
+.cs-float-icon {
+  font-size: 32rpx;
+  line-height: 1;
+}
+
+.cs-float-label {
+  font-size: 20rpx;
+  color: #fff;
+  margin-top: 4rpx;
+  line-height: 1;
+}
