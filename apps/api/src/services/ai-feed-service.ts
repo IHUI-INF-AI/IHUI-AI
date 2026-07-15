@@ -11,12 +11,15 @@
  * 设计原则：
  * - 函数式（与项目现有 service 风格一致），同步函数返回 Promise
  * - 读路径直接走 db 查询；写路径（collect/summarize/translate）更新 DB 状态
- * - 外部 HTTP 调用为占位实现（依赖 DAILYHOT_API_URL / RSSHUB_URL 环境变量配置后才真实抓取）
+ * - 外部 HTTP 抓取依赖 DAILYHOT_API_URL / RSSHUB_URL 环境变量配置
+ * - LLM 调用依赖 AI_SERVICE_URL 环境变量配置，未配置时回退到关键词规则
  * - 所有函数对调用方暴露明确返回类型，便于路由层直接序列化
  */
 
+import { env } from 'node:process'
 import { eq, and, desc, asc, ilike, sql, isNull, gte } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { logger } from '../utils/logger.js'
 import {
   aiFeedSource,
   aiFeedHotItem,
@@ -80,6 +83,124 @@ export interface CollectResult {
 export interface LlmBatchResult {
   processedItems: number
   details: string
+}
+
+interface FetchedFeedItem {
+  sourceCode: string
+  platformItemId: string
+  title: string
+  summary?: string | null
+  url?: string | null
+  coverUrl?: string | null
+  author?: string | null
+  currentRank?: number | null
+  currentHot?: number | null
+  publishTime?: Date | null
+}
+
+// =============================================================================
+// 内部工具：HTTP 抓取 + LLM 调用
+// =============================================================================
+
+const FETCH_TIMEOUT_MS = 10_000
+
+async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function parseHotValue(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null
+  if (typeof raw === 'number') return raw
+  const str = String(raw).trim()
+  if (!str) return null
+  const match = str.match(/^([\d.]+)\s*(亿|万|千)?/)
+  if (!match || !match[1]) return null
+  let num = parseFloat(match[1] ?? '0')
+  if (Number.isNaN(num)) return null
+  const unit = match[2]
+  if (unit === '亿') num *= 100_000_000
+  else if (unit === '万') num *= 10_000
+  else if (unit === '千') num *= 1_000
+  return Math.round(num)
+}
+
+async function fetchDailyHotApi(url: string, sourceCode: string): Promise<FetchedFeedItem[]> {
+  const res = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } })
+  if (!res.ok) throw new Error(`DailyHotApi ${url} 返回 ${res.status}`)
+  const json = (await res.json()) as {
+    code?: number
+    data?: Array<Record<string, unknown>>
+    items?: Array<Record<string, unknown>>
+  }
+  const list = json.data ?? json.items ?? []
+  return list.map((raw, idx) => ({
+    sourceCode,
+    platformItemId: String(raw.id ?? raw._id ?? idx),
+    title: String(raw.title ?? '').slice(0, 500),
+    summary: raw.desc ? String(raw.desc).slice(0, 2000) : null,
+    url: raw.url ? String(raw.url) : raw.mobileUrl ? String(raw.mobileUrl) : null,
+    coverUrl: raw.cover ? String(raw.cover) : raw.thumbnail ? String(raw.thumbnail) : null,
+    author: raw.author
+      ? String(raw.author).slice(0, 200)
+      : raw.source
+        ? String(raw.source).slice(0, 200)
+        : null,
+    currentRank: idx + 1,
+    currentHot: parseHotValue(raw.hot),
+    publishTime: raw.pubDate ? new Date(String(raw.pubDate)) : null,
+  }))
+}
+
+async function fetchRssHub(url: string, sourceCode: string): Promise<FetchedFeedItem[]> {
+  const target = url.includes('?') ? `${url}&format=json` : `${url}?format=json`
+  const res = await fetchWithTimeout(target, { headers: { Accept: 'application/json' } })
+  if (!res.ok) throw new Error(`RSSHub ${url} 返回 ${res.status}`)
+  const json = (await res.json()) as {
+    items?: Array<Record<string, unknown>>
+    data?: Array<Record<string, unknown>>
+  }
+  const list = json.items ?? json.data ?? []
+  return list.map((raw, idx) => ({
+    sourceCode,
+    platformItemId: String(raw.id ?? raw.guid ?? idx),
+    title: String(raw.title ?? '').slice(0, 500),
+    summary: raw.description ? String(raw.description).slice(0, 2000) : null,
+    url: raw.link ? String(raw.link) : raw.url ? String(raw.url) : null,
+    coverUrl: raw.enclosure ? String(raw.enclosure) : null,
+    author: raw.author ? String(raw.author).slice(0, 200) : null,
+    currentRank: idx + 1,
+    currentHot: null,
+    publishTime: raw.pubDate ? new Date(String(raw.pubDate)) : null,
+  }))
+}
+
+async function callLlm(prompt: string, content: string): Promise<string | null> {
+  const baseUrl = env.AI_SERVICE_URL
+  if (!baseUrl) return null
+  try {
+    const res = await fetchWithTimeout(`${baseUrl}/llm/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, content }),
+    })
+    if (!res.ok) {
+      logger.warn(`LLM 调用失败 status=${res.status}`, { url: `${baseUrl}/llm/complete` })
+      return null
+    }
+    const json = (await res.json()) as { data?: { content?: string } | string; content?: string }
+    const text =
+      typeof json.data === 'string' ? json.data : (json.data?.content ?? json.content ?? '')
+    return text.trim() || null
+  } catch (e) {
+    logger.warn(`LLM 调用异常: ${(e as Error).message}`)
+    return null
+  }
 }
 
 // =============================================================================
@@ -238,9 +359,12 @@ export async function getTrendChart(
 /**
  * 手动触发一次全量采集。
  *
- * 遍历所有 enabled 数据源，更新 lastFetchAt/lastFetchStatus/lastFetchCount。
- * 实际 HTTP 抓取依赖 DAILYHOT_API_URL / RSSHUB_URL 环境变量配置；
- * 未配置时仅刷新采集状态并返回各源的占位结果，不阻塞调用方。
+ * 遍历所有 enabled 数据源，根据 sourceType 调用对应抓取器：
+ * - hotlist: DAILYHOT_API_URL（默认路径 /news）
+ * - rss: RSSHUB_URL（默认路径 /热门订阅）
+ * - api: 使用 source.endpoint 直接抓取
+ * 数据源 endpoint 字段优先于默认路径。
+ * 未配置对应环境变量时刷新采集状态并返回各源 skipped 结果，不阻塞调用方。
  */
 export async function collectAllSources(): Promise<CollectResult> {
   const sources = await db
@@ -249,26 +373,105 @@ export async function collectAllSources(): Promise<CollectResult> {
     .where(eq(aiFeedSource.enabled, true))
     .orderBy(asc(aiFeedSource.sortOrder))
 
+  const dailyHotUrl = env.DAILYHOT_API_URL
+  const rsshubUrl = env.RSSHUB_URL
+
   const details: CollectResult['details'] = []
   let totalItems = 0
 
+  // 两个抓取源都未配置：降级
+  if (!dailyHotUrl && !rsshubUrl) {
+    logger.warn('collectAllSources: DAILYHOT_API_URL 与 RSSHUB_URL 均未配置,采集降级为空')
+    for (const src of sources) {
+      details.push({ sourceCode: src.sourceCode, status: 'skipped', count: 0 })
+      await db
+        .update(aiFeedSource)
+        .set({
+          lastFetchAt: new Date(),
+          lastFetchStatus: 'skipped',
+          lastFetchCount: 0,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiFeedSource.id, src.id))
+    }
+    return { fetchedSources: sources.length, totalItems: 0, details }
+  }
+
   for (const src of sources) {
-    // 占位实现：真实抓取需接入 DailyHotApi/RSSHub/官方 API。
-    // 此处仅刷新采集状态，避免未配置外部服务时阻塞。
-    const count = 0
-    totalItems += count
-    details.push({
-      sourceCode: src.sourceCode,
-      status: 'success',
-      count,
-    })
+    let items: FetchedFeedItem[] = []
+    let status = 'success'
+
+    try {
+      if (src.sourceType === 'hotlist' && dailyHotUrl) {
+        const url = src.endpoint ?? `${dailyHotUrl}/news`
+        items = await fetchDailyHotApi(url, src.sourceCode)
+      } else if (src.sourceType === 'rss' && rsshubUrl) {
+        const url = src.endpoint ?? `${rsshubUrl}/热门订阅`
+        items = await fetchRssHub(url, src.sourceCode)
+      } else if (src.sourceType === 'api' && src.endpoint) {
+        // api 类型直接用 endpoint，优先尝试 DailyHotApi 格式
+        items = await fetchDailyHotApi(src.endpoint, src.sourceCode)
+      } else {
+        // sourceType 与已配置环境变量不匹配，跳过
+        details.push({ sourceCode: src.sourceCode, status: 'skipped', count: 0 })
+        await db
+          .update(aiFeedSource)
+          .set({
+            lastFetchAt: new Date(),
+            lastFetchStatus: 'skipped',
+            lastFetchCount: 0,
+            updatedAt: new Date(),
+          })
+          .where(eq(aiFeedSource.id, src.id))
+        continue
+      }
+    } catch (e) {
+      status = 'error'
+      logger.warn(`collectAllSources: 采集 ${src.sourceCode} 失败: ${(e as Error).message}`)
+    }
+
+    // 幂等 upsert：已存在的 (sourceCode, platformItemId) 更新 lastSeenAt/currentHot/currentRank
+    for (const item of items) {
+      await db
+        .insert(aiFeedHotItem)
+        .values({
+          sourceCode: item.sourceCode,
+          platformItemId: item.platformItemId,
+          title: item.title,
+          summary: item.summary ?? null,
+          url: item.url ?? null,
+          coverUrl: item.coverUrl ?? null,
+          author: item.author ?? null,
+          currentRank: item.currentRank ?? null,
+          currentHot: item.currentHot ?? null,
+          publishTime: item.publishTime ?? null,
+          lastSeenAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [aiFeedHotItem.sourceCode, aiFeedHotItem.platformItemId],
+          set: {
+            title: item.title,
+            summary: item.summary ?? sql`null`,
+            url: item.url ?? sql`null`,
+            coverUrl: item.coverUrl ?? sql`null`,
+            author: item.author ?? sql`null`,
+            currentRank: item.currentRank ?? sql`null`,
+            currentHot: item.currentHot ?? sql`null`,
+            lastSeenAt: new Date(),
+            updatedAt: new Date(),
+          },
+        })
+    }
+
+    totalItems += items.length
+    details.push({ sourceCode: src.sourceCode, status, count: items.length })
 
     await db
       .update(aiFeedSource)
       .set({
         lastFetchAt: new Date(),
-        lastFetchStatus: 'success',
-        lastFetchCount: count,
+        lastFetchStatus: status,
+        lastFetchCount: items.length,
         updatedAt: new Date(),
       })
       .where(eq(aiFeedSource.id, src.id))
@@ -285,11 +488,14 @@ export async function collectAllSources(): Promise<CollectResult> {
 // 5. LLM 分类摘要（手动触发）
 // =============================================================================
 
+const CATEGORY_PROMPT =
+  '请对以下资讯标题进行分类，仅返回以下类别之一：hotspot、account、analysis、creation、retrieval、tool、source。仅返回类别名称，不要解释。'
+
 /**
  * 手动触发 LLM 分类与摘要批处理。
  *
  * 选取 llmProcessedAt 为空（未处理）的条目，批量更新 llmCategory/llmSummary/llmProcessedAt。
- * 实际 LLM 调用依赖 DeepSeek-V3 等模型配置；未配置时仅标记为已处理（占位分类），避免重复入队。
+ * 配置 AI_SERVICE_URL 时调用 LLM 服务做分类；未配置或调用失败时回退到关键词规则。
  */
 export async function processLlmBatch(limit = 100): Promise<LlmBatchResult> {
   const pending = await db
@@ -301,9 +507,15 @@ export async function processLlmBatch(limit = 100): Promise<LlmBatchResult> {
 
   let processed = 0
   for (const item of pending) {
-    // 占位实现：真实分类需调用 LLM 服务。
-    // 此处根据标题关键词做简单规则分类，标记为已处理。
-    const category = inferCategoryByTitle(item.title)
+    // 优先调用 LLM 做分类，失败回退到关键词规则
+    let category: string
+    const llmResult = await callLlm(CATEGORY_PROMPT, item.title)
+    if (llmResult && isValidCategory(llmResult)) {
+      category = llmResult.toLowerCase()
+    } else {
+      category = inferCategoryByTitle(item.title)
+    }
+
     await db
       .update(aiFeedHotItem)
       .set({
@@ -322,7 +534,21 @@ export async function processLlmBatch(limit = 100): Promise<LlmBatchResult> {
   }
 }
 
-/** 基于标题关键词的简单规则分类（占位实现，真实场景由 LLM 完成）。 */
+const VALID_CATEGORIES = new Set([
+  'hotspot',
+  'account',
+  'analysis',
+  'creation',
+  'retrieval',
+  'tool',
+  'source',
+])
+
+function isValidCategory(value: string): boolean {
+  return VALID_CATEGORIES.has(value.trim().toLowerCase())
+}
+
+/** 基于标题关键词的简单规则分类（LLM 不可用时的降级实现）。 */
 function inferCategoryByTitle(title: string): string {
   const lower = title.toLowerCase()
   if (/发布|推出|上线|launch|release|announce/.test(lower)) return 'hotspot'
@@ -338,11 +564,13 @@ function inferCategoryByTitle(title: string): string {
 // 6. 标题翻译（手动触发）
 // =============================================================================
 
+const TRANSLATE_PROMPT = '将以下中文标题翻译为英文，仅返回翻译结果，不要添加任何解释或引号。'
+
 /**
  * 手动触发标题翻译批处理。
  *
  * 选取 titleEn 为空（未翻译）的条目，批量翻译为英文。
- * 实际翻译依赖 LLM/翻译 API；未配置时仅回填原标题作为占位，避免重复入队。
+ * 配置 AI_SERVICE_URL 时调用 LLM 做翻译；未配置或调用失败时回填原标题作为占位。
  */
 export async function translateTitles(limit = 50): Promise<LlmBatchResult> {
   const pending = await db
@@ -354,12 +582,20 @@ export async function translateTitles(limit = 50): Promise<LlmBatchResult> {
 
   let processed = 0
   for (const item of pending) {
-    // 占位实现：真实翻译需调用翻译/LLM 服务。
-    // 此处仅回填原标题作为占位，标记为已处理。
+    // 优先调用 LLM 做翻译，失败回填原标题作为占位
+    let titleEn: string
+    try {
+      const llmResult = await callLlm(TRANSLATE_PROMPT, item.title)
+      titleEn = llmResult && llmResult.length > 0 ? llmResult.slice(0, 500) : item.title
+    } catch (e) {
+      logger.warn(`translateTitles: 翻译 ${item.id} 失败: ${(e as Error).message}`)
+      titleEn = item.title
+    }
+
     await db
       .update(aiFeedHotItem)
       .set({
-        titleEn: item.title,
+        titleEn,
         updatedAt: new Date(),
       })
       .where(eq(aiFeedHotItem.id, item.id))
