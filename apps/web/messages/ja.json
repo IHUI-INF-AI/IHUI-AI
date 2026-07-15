@@ -348,7 +348,7 @@
     "adminLogs": "APIログ",
     "expand": "展開",
     "collapse": "Show less",
-    "language": "",
+    "language": "语言",
     "downloadClient": "アプリをダウンロード",
     "wallet": "ウォレット",
     "walletRecharge": "チャージ",
@@ -663,18 +663,18 @@
       "kouzi": "アイコン",
       "bbxLogo": "logo",
       "brand4": "アイコン",
-      "zhipu": "",
+      "zhipu": "智谱清言",
       "brand8": "8",
-      "ali": "",
-      "baidu": "",
+      "ali": "阿里云",
+      "baidu": "百度文心",
       "dbsfdx": "東北師範大学",
       "gork": "Grok",
       "huawei": "です",
       "jldx": "吉林大学",
       "openai": "OpenAI",
-      "tencent": "",
+      "tencent": "腾讯云",
       "yuanbaoxiang": "元宝象",
-      "yushu": ""
+      "yushu": "宇树科技"
     },
     "promotionModal": {
       "title": "！",
@@ -693,7 +693,7 @@
     "input": {
       "model": "モデル",
       "auto": "から",
-      "manual": "",
+      "manual": "手动",
       "tabs": {
         "image": "画像",
         "video": "動画",
@@ -789,8 +789,8 @@
       "news": "ニュース"
     },
     "miniappBtn": "WeChatミニプログラム",
-    "wheelSensitivityLabel": "",
-    "marqueeSpeedLabel": "",
+    "wheelSensitivityLabel": "滚轮灵敏度",
+    "marqueeSpeedLabel": "滚动速度",
     "clickToResume": "クリック",
     "clickToPause": "クリック",
     "resumeScroll": "継続滚动",
@@ -1018,7 +1018,7 @@
       "summary": {
         "name": "コンテンツ",
         "content": "ののなをしてください：",
-        "category": ""
+        "category": "总结"
       }
     }
   },
@@ -1031,7 +1031,7 @@
     "allCategories": "All categories",
     "signupCount": "{count}が",
     "free": "無料",
-    "price": "",
+    "price": "¥{price}",
     "signUp": "立即申込",
     "signedUp": "み",
     "chapters": "コース",
@@ -1044,11 +1044,11 @@
       "course": "コース",
       "doc": "docs",
       "video": "動画",
-      "practice": ""
+      "practice": "实战"
     },
     "level": {
       "beginner": "入門",
-      "intermediate": "",
+      "intermediate": "进阶",
       "advanced": "高度"
     },
     "detail": {
@@ -1069,7 +1069,7 @@
     "back": "戻る",
     "questionCount": "{count} 問",
     "questionCountLabel": "Question",
-    "totalScore": "",
+    "totalScore": "总分 {score}",
     "passScore": "合格",
     "duration": "{minutes} 分",
     "startExam": "試験を開始",
@@ -1101,7 +1101,7 @@
     "publish": "公開",
     "back": "戻る",
     "all": "すべて",
-    "type1": "",
+    "type1": "开发",
     "type2": "相談",
     "type3": "研修",
     "ongoing": "進行中",
@@ -1117,7 +1117,7 @@
     "submitting": "...",
     "submit": "送信公開",
     "types": {
-      "development": "",
+      "development": "技术开发",
       "design": "クリエイティブデザイン",
       "business": "ビジネス提携"
     },
@@ -1150,8 +1150,8 @@
     "faqHint": "すべてのプランはいつでもキャンセルです。ありはからのにします。ごなはカスタマーサポートまで。",
     "details": "VIP 詳細",
     "trader": "トレーダー",
-    "monthly": "",
-    "yearly": "",
+    "monthly": "月度",
+    "yearly": "年度",
     "traderPlan": "トレーダープラン",
     "currentLevel": "のレベル",
     "expired": "れ",
@@ -1177,7 +1177,7 @@
     "stats": {
       "activeUsers": "アクティブユーザー",
       "aiFeatures": "ai",
-      "satisfaction": ""
+      "satisfaction": "满意度"
     },
     "features": {
       "ai_copywriting": {
@@ -1264,8 +1264,8 @@
       "confirmOrder": "確認注文",
       "orderDetails": "注文詳細",
       "billingCycle": "：{cycle}",
-      "monthly": "",
-      "yearly": "",
+      "monthly": "按月",
+      "yearly": "按年",
       "yearlyDiscount": "年付割引",
       "total": "合計",
       "wechatPay": "WeChat Pay",
@@ -1294,12 +1294,12 @@
     "searchPlaceholder": "を",
     "all": "て",
     "resolved": "み",
-    "unresolved": "",
+    "unresolved": "未解决",
     "askQuestion": "質問",
     "content": "Content",
     "titlePlaceholder": "タイトルをしてください",
     "contentPlaceholder": "をに（10-2000）",
-    "answerCount": "",
+    "answerCount": "{count} 回答",
     "viewCount": "{count}",
     "required": "{label}はです",
     "answerQuestion": "："
@@ -1344,7 +1344,7 @@
       "back": "戻る",
       "orderSummary": "サマリー",
       "plan": "ソリューション",
-      "subtotal": "",
+      "subtotal": "小计",
       "discount": "割引額",
       "total": "の",
       "coupon": "クーポン",
@@ -1419,7 +1419,7 @@
       "shopWithdrawals": "出金管理",
       "shopFunds": "资金アカウント",
       "oauthApps": "OAuthアプリ",
-      "oauthAudit": "",
+      "oauthAudit": "授权审计",
       "oauthTokens": "トークン",
       "monitorDashboard": "システム",
       "monitorFunnel": "ビジネスファネル",
@@ -1438,7 +1438,7 @@
       "contact": "おいわせ",
       "aboutUs": "たちについて",
       "aiGc": "aiコンテンツ",
-      "advertise": "",
+      "advertise": "广告管理",
       "carousel": "カルーセル",
       "zhsAgent": "スマートエージェント",
       "zhsUser": "スマートユーザー",
@@ -1446,7 +1446,7 @@
       "agentTask": "エージェントタスク",
       "agentRule": "エージェントルール",
       "developerLink": "リンク",
-      "identityProportion": "",
+      "identityProportion": "身份比例",
       "productIdentity": "アイデンティティ",
       "userAgentAudio": "ユーザーエージェント",
       "userAgentContext": "ユーザーエージェントコンテキスト",
@@ -1559,7 +1559,7 @@
       "deleteConfirm": "これ？",
       "deleteTitle": "タイトル",
       "colTitle": "Title",
-      "colTotalScore": "",
+      "colTotalScore": "总分",
       "colPassScore": "合格点",
       "colDuration": "()",
       "colStatus": "ステータス",
@@ -1572,7 +1572,7 @@
       "statPassRate": "合格率",
       "fieldTitle": "Title",
       "fieldDescription": "説明",
-      "fieldTotalScore": "",
+      "fieldTotalScore": "总分",
       "fieldPassScore": "合格点",
       "fieldDuration": "()",
       "fieldStatus": "ステータス",
@@ -1637,7 +1637,7 @@
       "statusPending": "解答中",
       "statusSubmitted": "み",
       "statusGraded": "み",
-      "recordsFieldDuration": "",
+      "recordsFieldDuration": "用时",
       "fieldStartedAt": "開始時間",
       "fieldQuestion": "Question",
       "fieldYourAnswer": "あなたの",
@@ -1794,7 +1794,7 @@
       "approve": "審査承認",
       "reject": "いいえ",
       "seal": "アカウント",
-      "unseal": "",
+      "unseal": "解封",
       "resetPwd": "パスワードリセット",
       "delete": "削除",
       "createTitle": "しい",
@@ -2161,7 +2161,7 @@
       "title": "APIテスト",
       "subtitle": "のなドキュメントとAPIリファレンス",
       "create": "プロジェクト",
-      "owner": "",
+      "owner": "拥有者",
       "createdAt": "作成日時",
       "prev": "のページ",
       "next": "へ",
@@ -2251,7 +2251,7 @@
       "invoiceStatus_pending": "ち",
       "invoiceStatus_approved": "みぎ",
       "invoiceStatus_rejected": "み",
-      "invoiceStatus_invoicing": "",
+      "invoiceStatus_invoicing": "开票中",
       "invoiceStatus_invoiced": "み",
       "invoiceStatus_canceled": "みキャンセル",
       "invoiceType_normal": "Normal請求書",
@@ -2277,7 +2277,7 @@
       "status_active": "アクティブ",
       "status_draft": "き",
       "status_archived": "アーカイブみ",
-      "trigger_manual": "",
+      "trigger_manual": "手动",
       "trigger_schedule": "Schedule",
       "trigger_event": "Event",
       "trigger_webhook": "Webhook",
@@ -2425,12 +2425,12 @@
       "deleteConfirm": "このレートをしますか？"
     },
     "identityProportion": {
-      "title": "",
+      "title": "身份比例管理",
       "identityType": "タイプ",
       "gift": "と",
       "tokenProportion": "Token",
       "vipGift": "VIPアドレスと",
-      "routineProportion": "",
+      "routineProportion": "常规比例",
       "beginTime": "開始時間",
       "endTime": "終了時間",
       "status": "ステータス",
@@ -2447,7 +2447,7 @@
       "deleteSuccess": "しました",
       "identityTypeRequired": "タイプをしてください",
       "deleteConfirm": "「{name}」をしますか？",
-      "exportFileName": "",
+      "exportFileName": "身份比例",
       "prev": "へ",
       "next": "へ",
       "total": "{total}"
@@ -2559,7 +2559,7 @@
         "payment": "い",
         "project": "プロジェクト",
         "ai": "ai",
-        "tech": ""
+        "tech": "技术"
       },
       "published": "み",
       "draft": "き",
@@ -2576,7 +2576,7 @@
       "save": "保存",
       "allCategories": "All categories",
       "categories": {
-        "general": "",
+        "general": "通用",
         "mail": "メール",
         "storage": "ストレージ",
         "security": "セキュリティ",
@@ -2604,7 +2604,7 @@
       "editTitle": "Edit Config",
       "createDesc": "キーを",
       "public": "公開",
-      "private": "",
+      "private": "私有",
       "noData": "なしデータ",
       "loading": "読み込み中..."
     },
@@ -2649,7 +2649,7 @@
       "method": "メソッド",
       "path": "パス",
       "statusCode": "ステータスCode",
-      "duration": "",
+      "duration": "耗时",
       "user": "ユーザー",
       "time": "時間",
       "ip": "IPアドレス",
@@ -2815,10 +2815,10 @@
         "allSources": "てのソース",
         "sourceExamShort": "試験",
         "sourceLearnShort": "コース",
-        "sourceManualShort": "",
+        "sourceManualShort": "手动",
         "colCertificateNo": "証明書编号",
         "colTitle": "タイトル",
-        "colRecipient": "",
+        "colRecipient": "获得者",
         "colSource": "ソース",
         "colTemplate": "テンプレート",
         "colIssuedAt": "発行日時",
@@ -2860,7 +2860,7 @@
         "userIdRequired": "ユーザーIDはです",
         "titleRequired": "タイトルはです",
         "sourceLabel": {
-          "manual": "",
+          "manual": "手动",
           "exam": "試験",
           "learn": "コース"
         }
@@ -2884,7 +2884,7 @@
         "classDesc": "クラス、メンバー、スケジュール",
         "certificateTitle": "APIテスト",
         "certificateDesc": "、テンプレート、み",
-        "financeTitle": "",
+        "financeTitle": "财务管理",
         "financeDesc": "、、"
       },
       "student": {
@@ -2960,7 +2960,7 @@
           "maxScore": "ポイント",
           "cancel": "キャンセル",
           "save": "保存",
-          "discountUnit": "",
+          "discountUnit": "折",
           "updateSuccess": "しいしい",
           "createSuccess": "しました",
           "deleteSuccess": "しました"
@@ -2982,7 +2982,7 @@
           "certCount": "获得証明書",
           "lessonProgress": "コースの",
           "colCourse": "コース",
-          "colProgress": "",
+          "colProgress": "进度",
           "noLessons": "なし",
           "level": {
             "1": "初級",
@@ -3001,14 +3001,14 @@
         "colNickname": "ニックネーム",
         "colTitle": "Title",
         "colCourses": "コース",
-        "colStudents": "",
+        "colStudents": "学生数",
         "colRating": "スコア",
         "colStatus": "ステータス",
         "colActions": "操作",
         "loading": "読み込み中...",
         "empty": "がいません",
         "statusActive": "在職",
-        "statusInactive": "",
+        "statusInactive": "离职",
         "edit": "編集",
         "delete": "削除",
         "deleteConfirm": "しますか？",
@@ -3033,7 +3033,7 @@
           "title": "講師審査",
           "subtitle": "を",
           "backToTeacher": "にる",
-          "colApplicant": "",
+          "colApplicant": "申请人",
           "colTitle": "Title",
           "colIntro": "から",
           "colAppliedAt": "申請日時",
@@ -3057,7 +3057,7 @@
           "loadFailed": "読み込みに失敗しました",
           "noContact": "なし",
           "courseCount": "コース",
-          "studentCount": "",
+          "studentCount": "学生数",
           "rating": "スコア",
           "courseList": "コース",
           "colCourse": "コース",
@@ -3070,12 +3070,12 @@
           "title": "スケジュール",
           "subtitle": "・・を",
           "backToExam": "にる",
-          "create": "",
+          "create": "新建安排",
           "colPaper": "試験問題",
           "colStartTime": "開始時間",
           "colEndTime": "終了時間",
-          "colRoom": "",
-          "colInvigilator": "",
+          "colRoom": "考场",
+          "colInvigilator": "监考",
           "colStatus": "ステータス",
           "colActions": "操作",
           "loading": "読み込み中...",
@@ -3089,14 +3089,14 @@
           "pageOf": "{page} / {totalPages} ページ",
           "next": "へ",
           "editTitle": "を",
-          "createTitle": "",
+          "createTitle": "新建安排",
           "fieldPaper": "試験問題",
           "selectPaperPlaceholder": "を",
           "fieldStartTime": "開始時間",
           "fieldEndTime": "終了時間",
-          "fieldRoom": "",
+          "fieldRoom": "考场",
           "roomPlaceholder": "：1",
-          "fieldInvigilator": "",
+          "fieldInvigilator": "监考人",
           "fieldStatus": "ステータス",
           "statusScheduled": "み",
           "statusOngoing": "進行中",
@@ -3122,7 +3122,7 @@
           "colActions": "操作",
           "loading": "読み込み中...",
           "noData": "のはありません",
-          "grade": "",
+          "grade": "批阅",
           "totalItems": "{total}",
           "prev": "へ",
           "pageOf": "{page} / {totalPages} ページ",
@@ -3157,7 +3157,7 @@
           "backToExam": "にる",
           "selectPaper": "を",
           "paperPlaceholder": "をしてください",
-          "colRank": "",
+          "colRank": "排名",
           "colUser": "ユーザー",
           "colScore": "スコア",
           "colPassed": "合格",
@@ -3250,7 +3250,7 @@
           "gradesManage": "成績批阅",
           "createPaper": "しい",
           "colTitle": "タイトル",
-          "colTotalScore": "",
+          "colTotalScore": "总分",
           "colPassScore": "合格点",
           "colDuration": "さ",
           "colStatus": "ステータス",
@@ -3265,7 +3265,7 @@
           "dialogCreateTitle": "しい",
           "fieldTitle": "タイトル",
           "fieldDescription": "説明",
-          "fieldTotalScore": "",
+          "fieldTotalScore": "总分",
           "fieldPassScore": "合格点",
           "fieldDuration": "（）",
           "fieldPublishStatus": "ステータス",
@@ -3281,12 +3281,12 @@
           }
         },
         "papersManual": {
-          "title": "",
+          "title": "手动组卷",
           "subtitle": "バンクからでをんでを",
           "backToExam": "にる",
           "selectPaper": "を",
           "assemble": "({count})",
-          "colSelect": "",
+          "colSelect": "选",
           "colType": "タイプ",
           "colTitle": "Question",
           "colScore": "Score",
@@ -3433,7 +3433,7 @@
           "title": "学習計画",
           "subtitle": "のとを",
           "backToLearn": "にる",
-          "create": "",
+          "create": "新建计划",
           "colTitle": "タイトル",
           "colStudent": "受講生",
           "colPeriod": "サイクル",
@@ -3452,7 +3452,7 @@
           "pageOf": "{page} / {totalPages} ページ",
           "next": "へ",
           "editTitle": "を",
-          "createTitle": "",
+          "createTitle": "新建计划",
           "fieldTitle": "タイトル",
           "fieldStartDate": "開始日付",
           "fieldEndDate": "終了日付",
@@ -3509,7 +3509,7 @@
           "title": "マップ",
           "subtitle": "パスマップを",
           "backToLearn": "にる",
-          "create": "",
+          "create": "新建",
           "edit": "編集",
           "delete": "削除",
           "createTitle": "マップ",
@@ -3698,13 +3698,13 @@
           "title": "学習進捗",
           "subtitle": "のコースの",
           "statCurrentPageStudents": "のページの",
-          "statAvgProgress": "",
+          "statAvgProgress": "平均进度",
           "statCompleted": "完了",
           "backToLearn": "にる",
           "searchPlaceholder": "を...",
           "colStudent": "受講生",
           "colLesson": "コース",
-          "colProgress": "",
+          "colProgress": "进度",
           "colHours": "学習時間",
           "colLastStudy": "最近学習",
           "loading": "読み込み中...",
@@ -3815,7 +3815,7 @@
           },
           "rankLabel": "{rank}",
           "studyInfo": "{hours} · {lessons} コース",
-          "colRank": "",
+          "colRank": "排名",
           "colStudent": "受講生",
           "colHours": "学習時間",
           "colLessons": "コース",
@@ -3838,7 +3838,7 @@
           "filterLabel": "ラベル",
           "filterCreator": "作成者",
           "reset": "リセット",
-          "create": "",
+          "create": "新建",
           "batchDelete": "バッチ",
           "export": "エクスポート",
           "colId": "ID",
@@ -3851,7 +3851,7 @@
           "colAmount": "金額",
           "colLabel": "ラベル",
           "colHot": "熱度",
-          "colLevel": "",
+          "colLevel": "难度",
           "colAudit": "審査",
           "colCreator": "作成者",
           "colActions": "操作",
@@ -3981,9 +3981,9 @@
             "company": "企業",
             "personal": "個人"
           },
-          "colApplicant": "",
+          "colApplicant": "申请人",
           "colTitle": "請求書宛名",
-          "colTaxNo": "",
+          "colTaxNo": "税号",
           "colType": "タイプ",
           "colAmount": "金額",
           "colStatus": "ステータス",
@@ -3991,7 +3991,7 @@
           "colAction": "操作",
           "loading": "読み込み中...",
           "noInvoices": "がありません",
-          "issue": "",
+          "issue": "开具",
           "issueSuccess": "み",
           "totalItems": "{count}",
           "prevPage": "へ",
@@ -4022,7 +4022,7 @@
           "filterOutBillOn": "账単日付",
           "filterPayWay": "いメソッド",
           "reset": "リセット",
-          "create": "",
+          "create": "新建",
           "batchDelete": "バッチ",
           "export": "エクスポート",
           "colUserUuid": "ユーザーUUID",
@@ -4131,7 +4131,7 @@
           "prevPage": "へ",
           "pageInfo": "{page} / {totalPages} ページ",
           "nextPage": "へ",
-          "create": "",
+          "create": "新建",
           "export": "エクスポート",
           "reset": "リセット",
           "cancel": "キャンセル",
@@ -4151,7 +4151,7 @@
           "actions": "操作",
           "payType": {
             "0": "無料",
-            "1": "",
+            "1": "限免",
             "2": "あり"
           },
           "payCrowd": {
@@ -4177,7 +4177,7 @@
           "confirmDelete": "しますか？",
           "exportSuccess": "エクスポート",
           "exportFailed": "エクスポート",
-          "create": "",
+          "create": "新建",
           "export": "エクスポート",
           "totalItems": "{count}",
           "prevPage": "へ",
@@ -4257,7 +4257,7 @@
           "filterLabel": "ラベル",
           "filterCreator": "作成者",
           "reset": "リセット",
-          "create": "",
+          "create": "新建",
           "batchDelete": "バッチ",
           "export": "エクスポート",
           "colId": "ID",
@@ -4430,7 +4430,7 @@
             "prentIdPlaceholder": "ID"
           },
           "reset": "リセット",
-          "create": "",
+          "create": "新建",
           "batchDelete": "バッチ",
           "export": "エクスポート",
           "column": {
@@ -4548,7 +4548,7 @@
           "colPassed": "合格",
           "colStartedAt": "開始時間",
           "colSubmittedAt": "送信日時",
-          "colDuration": "",
+          "colDuration": "用时",
           "loading": "読み込み中...",
           "noRecords": "がありません",
           "passed": "合格",
@@ -4583,7 +4583,7 @@
         "filterCode": "コード",
         "filterName": "名称",
         "reset": "リセット",
-        "create": "",
+        "create": "新建",
         "export": "エクスポート",
         "colCode": "コード",
         "colName": "名称",
@@ -4630,7 +4630,7 @@
       "organization": {
         "title": "プラットフォーム",
         "subtitle": "プラットフォームの",
-        "create": "",
+        "create": "新建",
         "export": "エクスポート",
         "reset": "リセット",
         "platformId": "プラットフォームID",
@@ -4691,7 +4691,7 @@
       "colPublic": "公開",
       "colActions": "操作",
       "public": "公開",
-      "private": "",
+      "private": "私有",
       "edit": "編集",
       "delete": "削除",
       "deleteConfirm": "これ？",
@@ -4717,10 +4717,10 @@
       "companiesSubtitle": "を",
       "departmentsTitle": "部署管理",
       "backToMembers": "にる",
-      "create": "",
+      "create": "新建",
       "edit": "編集",
       "editTitle": "編集",
-      "createTitle": "",
+      "createTitle": "新建",
       "delete": "削除",
       "loading": "読み込み中...",
       "noData": "なしデータ",
@@ -4827,10 +4827,10 @@
       "categoriesSubtitle": "categoriesSubtitle",
       "searchPlaceholder": "ドキュメント...",
       "search": "検索",
-      "create": "",
+      "create": "新建",
       "edit": "編集",
       "editTitle": "編集",
-      "createTitle": "",
+      "createTitle": "新建",
       "delete": "削除",
       "loading": "読み込み中...",
       "noData": "なしデータ",
@@ -4851,7 +4851,7 @@
       "colSort": "ソート",
       "colCreatedAt": "作成日時",
       "colCertificateNo": "証明書编号",
-      "colRecipient": "",
+      "colRecipient": "获得者",
       "colSource": "ソース",
       "colIssuedAt": "配布日時",
       "fieldTitle": "Title",
@@ -4866,7 +4866,7 @@
       "fieldStatus": "ステータス",
       "fieldName": "氏名",
       "fieldDescription": "説明",
-      "fieldBackgroundImage": "",
+      "fieldBackgroundImage": "背景图",
       "fieldTemplateConfig": "テンプレート(JSON)",
       "fieldUserId": "User Id",
       "fieldRecipientName": "获得者氏名",
@@ -4898,7 +4898,7 @@
       "noCategory": "カテゴリ",
       "sourceExam": "試験",
       "sourceLearn": "コース",
-      "sourceManual": "",
+      "sourceManual": "手动",
       "createSuccess": "しました",
       "updateSuccess": "しいしい",
       "deleteSuccess": "しました",
@@ -4916,10 +4916,10 @@
       "templatesSubtitle": "テンプレートを",
       "certificatesTitle": "リスト",
       "certificatesSubtitle": "されたを・",
-      "create": "",
+      "create": "新建",
       "edit": "編集",
       "editTitle": "編集",
-      "createTitle": "",
+      "createTitle": "新建",
       "delete": "削除",
       "loading": "読み込み中...",
       "noData": "なしデータ",
@@ -4938,14 +4938,14 @@
       "colActions": "操作",
       "colCertificateNo": "証明書编号",
       "colTitle": "Title",
-      "colRecipient": "",
+      "colRecipient": "获得者",
       "colSource": "ソース",
       "colIssuedAt": "配布日時",
       "colCreatedAt": "作成日時",
       "colSort": "ソート",
       "fieldName": "氏名",
       "fieldDescription": "説明",
-      "fieldBackgroundImage": "",
+      "fieldBackgroundImage": "背景图",
       "fieldTemplateConfig": "テンプレート(JSON)",
       "fieldUserId": "User Id",
       "fieldRecipientName": "获得者氏名",
@@ -4971,7 +4971,7 @@
       "allStatus": "てステータス",
       "sourceExam": "試験",
       "sourceLearn": "コース",
-      "sourceManual": "",
+      "sourceManual": "手动",
       "createSuccess": "しました",
       "updateSuccess": "しいしい",
       "deleteSuccess": "しました",
@@ -5115,7 +5115,7 @@
         "status1": "審査中",
         "status2": "み",
         "rejectBtn": "いいえ",
-        "chatApprove": "",
+        "chatApprove": "审批",
         "searchAgentPlaceholder": "エージェントを"
       },
       "settlement": {
@@ -5186,7 +5186,7 @@
       "colActions": "操作",
       "loading": "読み込み中…",
       "empty": "なしデータ",
-      "approve": "",
+      "approve": "审批",
       "reject": "いいえ",
       "edit": "編集",
       "delete": "削除",
@@ -5194,8 +5194,8 @@
       "dialogCreateTitle": "エージェントタスク",
       "fieldTitle": "タイトル *",
       "fieldContext": "需求説明",
-      "fieldLowestPrice": "",
-      "fieldPeakPrice": "",
+      "fieldLowestPrice": "最低价",
+      "fieldPeakPrice": "最高价",
       "fieldCycle": "サイクル",
       "fieldCycleUnit": "周期単位",
       "fieldClosingTime": "截止時間",
@@ -5211,11 +5211,11 @@
       "total": ": {total}",
       "prev": "へ",
       "next": "へ",
-      "status0": "",
+      "status0": "待审批",
       "status1": "いいえみ",
       "status2": "み",
-      "status3": "",
-      "status4": "",
+      "status3": "沟通中",
+      "status4": "开发中",
       "status5": "配送中",
       "status6": "完了"
     },
@@ -5244,7 +5244,7 @@
       "statusApproved": "み",
       "statusRejected": "み",
       "statusPending": "ち",
-      "approveBtn": "",
+      "approveBtn": "审批",
       "edit": "編集",
       "deleteConfirm": "を?"
     },
@@ -5261,7 +5261,7 @@
       "noData": "がありません",
       "userId": "ユーザーID",
       "realName": "本名",
-      "idCard": "",
+      "idCard": "身份证号",
       "auditTime": "认证時間",
       "actions": "操作",
       "rejectPrompt": "からをしてください",
@@ -5271,7 +5271,7 @@
       "statusPending": "ち",
       "statusApproved": "み",
       "statusRejected": "み",
-      "statusUnverified": "",
+      "statusUnverified": "未认证",
       "total": "{total}",
       "prev": "へ",
       "next": "へ"
@@ -5319,7 +5319,7 @@
       "exportFailed": "エクスポート",
       "ruleTypes": {
         "text": "テキスト",
-        "regex": "",
+        "regex": "正则规则",
         "llm": "LLM"
       },
       "paramId": "ID",
@@ -5346,7 +5346,7 @@
       "fieldNetwork": "ネットワーク",
       "fieldPhone": "電話",
       "fieldSocialMedia": "ソーシャルメディア",
-      "fieldExperience": "",
+      "fieldExperience": "经验",
       "fieldDescription": "説明",
       "editTitle": "たちについてを",
       "createTitle": "たちについてを",
@@ -5367,7 +5367,7 @@
       "exportFailed": "エクスポート"
     },
     "advertise": {
-      "title": "",
+      "title": "广告管理",
       "loading": "読み込み中...",
       "noData": "データなし",
       "colTitle": "タイトル",
@@ -5453,7 +5453,7 @@
       "exportName": "Agentルール",
       "ruleTypeFilter": "フィルター",
       "ruleTypeReplace": "置換",
-      "ruleTypeLimit": ""
+      "ruleTypeLimit": "限制"
     },
     "aiGc": {
       "title": "aiコンテンツ",
@@ -5574,7 +5574,7 @@
       "addAgent": "オペレーター",
       "colNickname": "ニックネーム",
       "colStatus": "ステータス",
-      "colLoad": "",
+      "colLoad": "负载",
       "colSkills": "スキル",
       "colActions": "操作",
       "loading": "読み込み中...",
@@ -5713,7 +5713,7 @@
       "hidden": "非表示"
     },
     "contact": {
-      "title": "",
+      "title": "联系管理",
       "loading": "読み込み中...",
       "noData": "データなし",
       "colType": "タイプ",
@@ -5738,7 +5738,7 @@
       "disabled": "無効"
     },
     "post": {
-      "title": "",
+      "title": "岗位管理",
       "loading": "読み込み中...",
       "noData": "データなし",
       "colName": "岗位氏名",
@@ -5783,8 +5783,8 @@
       "enabled": "有効",
       "disabled": "無効",
       "levelReplace": "置換",
-      "levelBlock": "",
-      "levelBan": ""
+      "levelBlock": "拦截",
+      "levelBan": "禁言"
     },
     "userMargin": {
       "title": "ユーザー",
@@ -5851,7 +5851,7 @@
       "statusDeleted": "削除済み",
       "statusHidden": "已非表示",
       "resolved": "み",
-      "unresolved": "",
+      "unresolved": "未解决",
       "published": "み",
       "draft": "き",
       "mockMode": "デモデータ",
@@ -5968,7 +5968,7 @@
     "eduZhsIdentity": {
       "title": "プラットフォームID",
       "subtitle": "プラットフォームID",
-      "create": "",
+      "create": "新建",
       "export": "エクスポート",
       "updateSuccess": "しいしい",
       "createSuccess": "しました",
@@ -6093,7 +6093,7 @@
     "eduUserPlatform": {
       "title": "ユーザープラットフォーム",
       "subtitle": "ユーザーとプラットフォームのけ",
-      "create": "",
+      "create": "新建",
       "export": "エクスポート",
       "updateSuccess": "しいしい",
       "createSuccess": "しました",
@@ -6233,7 +6233,7 @@
       "security": "セキュリティ",
       "notifications": "通知",
       "orders": "の",
-      "realname": "",
+      "realname": "实名认证",
       "subscription": "サブスクリプション"
     },
     "profile": {
@@ -6357,16 +6357,16 @@
       "sendMessage": "メッセージを"
     },
     "realname": {
-      "title": "",
+      "title": "实名认证",
       "status": {
-        "unverified": "",
+        "unverified": "未认证",
         "pending": "審査中",
         "approved": "み",
         "rejected": "いいえみ"
       },
       "form": {
         "name": "本名",
-        "idCard": "",
+        "idCard": "身份证号",
         "submit": "を",
         "resubmit": "重新送信",
         "namePlaceholder": "を",
@@ -6407,7 +6407,7 @@
       "activated": "ありみ",
       "expireTime": "あり",
       "autoRenewOn": "あり",
-      "autoRenewOff": "",
+      "autoRenewOff": "未开启",
       "notSubscribed": "VIPアドレス",
       "notSubscribedHint": "VIPアドレスにしてよりくのを",
       "renewTitle": "サブスクリプション",
@@ -6438,7 +6438,7 @@
     "themeLight": "ライト",
     "themeDark": "ダーク",
     "themeSystem": "システム",
-    "language": "",
+    "language": "语言",
     "langZh": "中国語",
     "langEn": "English",
     "sidebar": "サイドバー",
@@ -6475,8 +6475,8 @@
     "score": {
       "title": "セキュリティスコア",
       "empty": "コンテンツはまだありません。おしみに",
-      "excellent": "",
-      "high": "",
+      "excellent": "极好",
+      "high": "良好",
       "medium": "中",
       "low": "低"
     },
@@ -6690,7 +6690,7 @@
       "step2": "コード",
       "step3": "バックアップコード",
       "scanQR": "せるアプリ",
-      "secretKey": "",
+      "secretKey": "密钥",
       "enterCode": "の6コード",
       "backupCodesDesc": "コード，せる",
       "downloadBackupCodes": "ダウンロードコード",
@@ -6722,9 +6722,9 @@
       "expired": "れ",
       "startTime": "開始時間",
       "duration": "持续時間",
-      "endSession": "",
+      "endSession": "终止",
       "endConfirm": "「{deviceName}」？",
-      "endTitle": "",
+      "endTitle": "终止会话",
       "endSuccess": "セッション終了",
       "cannotEndCurrent": "None法终止のセッション",
       "endAllOtherSessions": "ありその",
@@ -6787,7 +6787,7 @@
       "noNotifications": "なし",
       "settings": "通知設定",
       "enableNotifications": "通知有効",
-      "desktopNotifications": "",
+      "desktopNotifications": "桌面通知",
       "soundNotifications": "リマインダー",
       "justNow": "たった",
       "minutesAgo": "{count}Minutes",
@@ -6802,7 +6802,7 @@
       "devices": "デバイスCount",
       "locations": "Count",
       "loginTime": "ログイン",
-      "peakHours": "",
+      "peakHours": "高峰时段",
       "commonDevices": "デバイス",
       "noDevices": "なしデバイス",
       "commonLocations": "常用場所",
@@ -6811,7 +6811,7 @@
       "trusted": "已信頼",
       "trust": "信頼",
       "unknown": "不明",
-      "riskAnalysis": "",
+      "riskAnalysis": "风险分析",
       "riskLevel": {
         "low": "低リスク",
         "medium": "中リスク",
@@ -6844,9 +6844,9 @@
       "showPhone": "表示電話",
       "activityTracking": "アクティビティ",
       "themeMode": "テーマ",
-      "language": "",
+      "language": "语言",
       "autoSave": "から",
-      "mouseFollower": "",
+      "mouseFollower": "鼠标跟随效果",
       "clearAllData": "クリアありData",
       "deleteAccount": "注销アカウント",
       "about": "About",
@@ -6944,7 +6944,7 @@
       },
       "profileVisibility": {
         "public": "公開",
-        "private": ""
+        "private": "私密"
       },
       "themeMode": {
         "light": "ライト模式",
@@ -6955,7 +6955,7 @@
         "zh-CN": "简体中国語",
         "zh-TW": "繁体中国語",
         "en": "English",
-        "ja": "",
+        "ja": "日本語",
         "ko": "한국어"
       }
     },
@@ -7084,7 +7084,7 @@
     "billingAmount": "金額",
     "billingStatus": "ステータス",
     "billingCreatedAt": "作成日時",
-    "billingInvoiceNo": "",
+    "billingInvoiceNo": "申请号",
     "billingInvoiceType": "タイプ",
     "billingLoading": "みみ...",
     "billingNoData": "データがありません",
@@ -7115,7 +7115,7 @@
     "connectedAccountsBound": "み",
     "connectedAccountsUnbound": "未バインディング",
     "connectedAccountsBind": "バインディング",
-    "connectedAccountsUnbind": "",
+    "connectedAccountsUnbind": "解绑",
     "connectedAccountsUnbindConfirm": "{platform} アカウントのをしますか？",
     "connectedAccountsPlatform": "プラットフォームアカウント",
     "connectedAccountsBoundAt": "バインド",
@@ -7218,7 +7218,7 @@
     "backToList": "るリスト",
     "updatedAt": "しいしい",
     "viewCount": "{count}",
-    "toc": "",
+    "toc": "目录",
     "prev": "へ",
     "next": "へ",
     "related": "相关記事",
@@ -7228,7 +7228,7 @@
       "payment": "い",
       "project": "プロジェクト",
       "ai": "ai",
-      "tech": ""
+      "tech": "技术"
     },
     "faq": {
       "account": [
@@ -7309,7 +7309,7 @@
     "emptyResult": "するがつかりません",
     "open": "Open",
     "sort": "ソート",
-    "sortRelevance": "",
+    "sortRelevance": "相关度",
     "sortTime": "時間",
     "sortName": "氏名",
     "sortSize": "Size",
@@ -7406,7 +7406,7 @@
     "empty": "ドキュメントがありません",
     "backToList": "るリスト",
     "author": "著者",
-    "toc": "",
+    "toc": "目录",
     "prev": "へ",
     "next": "へ",
     "loading": "読み込み中...",
@@ -7457,7 +7457,7 @@
       "comingSoon": "ドキュメント，",
       "incentiveProgram": {
         "label": "00 /",
-        "overview": "",
+        "overview": "计划概述",
         "overviewDesc": "AIコミュニティの",
         "publishGuide": "エージェントガイド",
         "publishGuideDesc": "をエージェントまでAIコミュニティ",
@@ -7483,13 +7483,13 @@
       "selectDoc": "からドキュメント",
       "loadFailed": "ドキュメント",
       "searchPlaceholder": "ドキュメント...",
-      "toc": "",
+      "toc": "目录",
       "enterpriseService": "エンタープライズサービス"
     },
     "apiDocs": {
       "nav": {
-        "overview": "",
-        "authentication": "",
+        "overview": "概述",
+        "authentication": "身份认证",
         "endpoints": "API",
         "models": "モデル",
         "chatCompletions": "聊日补全",
@@ -7516,7 +7516,7 @@
         "title": "プロジェクトInfo",
         "projectName": "Project Name",
         "version": "バージョン",
-        "license": "",
+        "license": "许可证",
         "node": "Node バージョン",
         "description": "プロジェクト"
       },
@@ -7596,7 +7596,7 @@
       },
       "tags": {
         "register": "登録",
-        "billing": "",
+        "billing": "计费",
         "security": "セキュリティ",
         "prompt": "プロンプト"
       },
@@ -7619,7 +7619,7 @@
       },
       "sectionLabels": {
         "knowledgeNodes": "ノード",
-        "uplinkChannels": ""
+        "uplinkChannels": "联络通道"
       },
       "faqs": {
         "register": {
@@ -7638,7 +7638,7 @@
           "question": "の？",
           "answer": "のプロンプト（Prompt）のロール，。"
         },
-        "beginner": "",
+        "beginner": "新手",
         "recharge": "チャージ",
         "optimize": "最適化"
       }
@@ -7800,7 +7800,7 @@
     "markdown": {
       "renderFailed": "Markdown",
       "defaultTitle": "Markdown ドキュメント",
-      "toc": "",
+      "toc": "目录",
       "loading": "読み込み中...",
       "loadFailed": "ドキュメントの読み込みに失敗しました",
       "loadError": "読み込み失敗",
@@ -7833,14 +7833,14 @@
     "enter": "Open",
     "empty": "コンテンツはまだありません。おしみに",
     "backToList": "るリスト",
-    "owner": "",
+    "owner": "拥有者",
     "createdAt": "作成日",
     "tabMembers": "メンバー",
-    "tabInvitations": "",
+    "tabInvitations": "邀请",
     "tabSettings": "設定",
     "inviteMember": "メンバーを",
     "inviteMemberDesc": "またはメールでメンバーをチームに",
-    "invitee": "",
+    "invitee": "被邀请人",
     "inviteePlaceholder": "またはメールをしてください",
     "inviteeRequired": "をしてください",
     "sendInvite": "を",
@@ -7853,12 +7853,12 @@
     "expiresAt": "Expires",
     "cancelInvite": "キャンセル",
     "roles": {
-      "owner": "",
+      "owner": "拥有者",
       "admin": "管理者",
       "member": "メンバー"
     },
     "status": {
-      "pending": "",
+      "pending": "待接受",
       "accepted": "み",
       "expired": "れ"
     },
@@ -8060,7 +8060,7 @@
     "notFound": "つかりません",
     "stepsCount": "{count}ステップ",
     "triggers": {
-      "manual": "",
+      "manual": "手动",
       "schedule": "Schedule",
       "event": "Event",
       "webhook": "Webhook"
@@ -8071,7 +8071,7 @@
       "draft": "き"
     },
     "instanceStatus": {
-      "pending": "",
+      "pending": "等待中",
       "running": "実行中",
       "completed": "完了",
       "failed": "已失敗",
@@ -8092,7 +8092,7 @@
     "detail": {
       "trigger": "トリガー",
       "tab_instances": "インスタンス",
-      "tab_definition": "",
+      "tab_definition": "定义",
       "definition": "ステップ",
       "noInstances": "インスタンスがありません",
       "startedAt": "開始時間",
@@ -8111,8 +8111,8 @@
       "logs": "ログ",
       "allLevels": "てレベル",
       "noLogs": "セキュリティログはありません",
-      "input": "",
-      "output": ""
+      "input": "输入",
+      "output": "输出"
     }
   },
   "activities": {
@@ -8139,7 +8139,7 @@
   "invitations": {
     "title": "APIテスト",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "generate": "",
+    "generate": "生成邀请码",
     "myCodes": "マイコード",
     "invitees": "みユーザー",
     "copy": "コピー",
@@ -8168,7 +8168,7 @@
     "type_all": "て",
     "type_bug": "Bug",
     "type_feature": "機能",
-    "type_improvement": "",
+    "type_improvement": "改进",
     "type_other": "その",
     "status_all": "て",
     "status_pending": "ち",
@@ -8226,7 +8226,7 @@
     "balance": "残高",
     "description": "説明",
     "time": "時間",
-    "rank": "",
+    "rank": "排名",
     "user": "ユーザー",
     "pointsLabel": "ポイント",
     "levelLabel": "レベル",
@@ -8620,19 +8620,19 @@
     "status": "ステータス",
     "total": ": {n}",
     "statusMap": {
-      "pending": "",
-      "running": "",
+      "pending": "待执行",
+      "running": "执行中",
       "success": "成功",
       "failed": "失敗"
     },
     "taskList": "タスクリスト",
     "searchTask": "タスクを",
-    "neverRun": ""
+    "neverRun": "未执行"
   },
   "statistics": {
     "title": "データ統計",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "overview": "",
+    "overview": "总览",
     "totalUsers": "ユーザー",
     "totalLessons": "コース",
     "totalSignups": "申込合計",
@@ -8744,7 +8744,7 @@
       "showDetails": "表示詳細",
       "hideDetails": "非表示詳細",
       "details": "Info",
-      "recovery": "",
+      "recovery": "建议操作",
       "closeAria": "閉じる"
     },
     "notification": {
@@ -8775,7 +8775,7 @@
       "typeRefund": "返金",
       "typeAgent": "エージェント",
       "typeMarketing": "マーケティング",
-      "typeSite": "",
+      "typeSite": "站点",
       "typeOther": "その他",
       "detailTitle": "通知詳細",
       "loadFailed": "読み込み失敗",
@@ -8864,7 +8864,7 @@
     "flowTime": "時間",
     "flowRemark": "備考",
     "flowRecharge": "チャージ",
-    "flowDeduct": "",
+    "flowDeduct": "扣除",
     "flowExpire": "れ",
     "flowRefund": "返金",
     "flowCommission": "コミッション",
@@ -8884,7 +8884,7 @@
     "authorizeTitle": "授权確認",
     "authorizeDesc": "{app} がアカウントへのアクセスをしています",
     "scopes": "権限范围",
-    "approve": "",
+    "approve": "授权",
     "deny": "いいえ",
     "myAuthorized": "マイ",
     "myAuthorizedDesc": "みのアプリケーション",
@@ -8971,10 +8971,10 @@
     "totalLessons": "コース",
     "completedLessons": "完了",
     "inProgressLessons": "進行中",
-    "avgProgress": "",
+    "avgProgress": "平均进度",
     "totalExams": "試験合計",
     "passedExams": "合格",
-    "avgScore": "",
+    "avgScore": "平均分",
     "totalCerts": "証明書合計",
     "quickLinks": "クイックリンク",
     "myLessons": "のコース",
@@ -8986,7 +8986,7 @@
     "myPapers": "マイ",
     "myLessonsTitle": "のコース",
     "empty": "なしデータ",
-    "progress": "",
+    "progress": "进度 {value}%",
     "statusInProgress": "進行中",
     "statusCompleted": "完了",
     "statusRefunded": "返金済み",
@@ -9012,7 +9012,7 @@
     "subtitle": "のなドキュメントとAPIリファレンス",
     "search": "検索笔记",
     "empty": "コンテンツはまだありません。おしみに",
-    "create": "",
+    "create": "新建笔记",
     "edit": "編集",
     "delete": "削除",
     "titleField": "Title",
@@ -9107,10 +9107,10 @@
     "fieldRemark": "備考",
     "marketTab": "Agent マーケット",
     "mineTab": "マイ Agent",
-    "tabProgress": "",
+    "tabProgress": "进度",
     "tabSwarm": "グループ",
     "tabCheckpoint": "チェックポイント",
-    "tabPlan": "",
+    "tabPlan": "计划",
     "tabActivity": "アクティビティ",
     "tabBackground": "バックグラウンド",
     "tabPermission": "権限",
@@ -9121,7 +9121,7 @@
     "subtitle": "のなドキュメントとAPIリファレンス",
     "quickEntry": "クイックアクセス",
     "inviteStats": "邀请統計",
-    "totalInvitees": "",
+    "totalInvitees": "总邀请数",
     "vipInvitees": "VIPアドレス",
     "teamSize": "チーム",
     "totalCommission": "コミッション",
@@ -9258,7 +9258,7 @@
       "tableUsage": "テーブルせる",
       "noData": "なしデータ",
       "colTable": "テーブル",
-      "colRows": "",
+      "colRows": "行数",
       "colSize": "Size",
       "colIndexSize": "インデックスサイズ",
       "slowQueries": "スロークエリ",
@@ -9289,7 +9289,7 @@
       "noData": "なしデータ",
       "colName": "氏名",
       "colDescription": "説明",
-      "colPercentage": "",
+      "colPercentage": "比例",
       "colStatus": "ステータス",
       "colActions": "操作",
       "enabled": "あり",
@@ -9303,7 +9303,7 @@
       "targetPlaceholder": "をしてください",
       "fieldDescription": "説明",
       "descriptionPlaceholder": "を",
-      "fieldPercentage": ""
+      "fieldPercentage": "比例"
     },
     "apiDebug": {
       "sendSuccess": "送信成功",
@@ -9358,7 +9358,7 @@
       "colEndpoint": "エンドポイント",
       "colMethod": "メソッド",
       "colStatus": "ステータス",
-      "colLatency": "",
+      "colLatency": "延迟",
       "colIp": "IP",
       "colUser": "ユーザー",
       "total": "{count}"
@@ -9544,7 +9544,7 @@
       "preview": "プレビュー"
     },
     "oauthAudit": {
-      "totalAuth": "",
+      "totalAuth": "总授权",
       "todayAuth": "今日の認証",
       "activeApps": "アクティブアプリ",
       "anomalyEvents": "イベント",
@@ -9601,7 +9601,7 @@
     "promptPlaceholder": "プロンプトをしてください",
     "generate": "生成",
     "generating": "...",
-    "result": "",
+    "result": "生成结果",
     "noResult": "するがつかりません",
     "download": "ダウンロード",
     "size": "Size",
@@ -9620,13 +9620,13 @@
     "instrumental": "インストゥルメンタル(ボーカルなし)",
     "taskId": "Task ID",
     "status": "ステータス",
-    "statusPending": "",
+    "statusPending": "等待中",
     "statusRunning": "...",
     "statusSucceeded": "完了",
     "statusFailed": "失敗",
     "polling": "タスクステータスをポーリング...",
     "taskSubmitted": "タスクみ",
-    "generateSuccess": "",
+    "generateSuccess": "生成成功",
     "generateFailed": "Generation failed",
     "fetchFailed": "データのにしました",
     "promptRequired": "プロンプトをしてください",
@@ -9674,10 +9674,10 @@
     "sunoMusicSubtitle": "Sunoでを",
     "resourceLibraryTitle": "リソース",
     "resourceLibrarySubtitle": "みのリソースを",
-    "stylePhoto": "",
+    "stylePhoto": "摄影",
     "styleAnime": "アニメ",
-    "styleOil": "",
-    "styleWatercolor": "",
+    "styleOil": "油画",
+    "styleWatercolor": "水彩",
     "stylePop": "ポップ",
     "styleRock": "ロック",
     "styleClassical": "クラシック",
@@ -9686,7 +9686,7 @@
     "modelDoubaoLite": "Doubao Lite",
     "pageTitle": "ai コンテンツ",
     "pageSubtitle": "タイプをして、テキスト、、、、3Dモデルなどを",
-    "tabGeneric": "",
+    "tabGeneric": "通用",
     "tabText": "テキスト",
     "tabCode": "コード",
     "tabQwen": "Qwen",
@@ -9714,12 +9714,12 @@
     "days7": "7",
     "days30": "30",
     "totalCalls": "Calls",
-    "overallSuccessRate": "",
+    "overallSuccessRate": "整体成功率",
     "overallAvgDuration": "Avg Duration",
     "server": "サービス",
     "tool": "ツール",
     "calls": "びし",
-    "successRate": "",
+    "successRate": "成功率",
     "avgDuration": "Avg Duration",
     "managerTitle": "MCPサーバー",
     "addServer": "サービス",
@@ -9741,10 +9741,10 @@
     "selectServer": "サーバーを",
     "selectTool": "ツールを",
     "parameters": "パラメータ",
-    "executing": "",
+    "executing": "执行中...",
     "success": "成功",
     "error": "エラー",
-    "result": "",
+    "result": "结果",
     "promptTitle": "タイトル",
     "noPrompts": "なしPrompts",
     "preview": "プレビュー",
@@ -9814,7 +9814,7 @@
   },
   "richTextEditor": {
     "bold": "太字",
-    "italic": "",
+    "italic": "斜体",
     "underline": "下線",
     "unorderedList": "き",
     "orderedList": "きリスト",
@@ -9839,7 +9839,7 @@
     "phone": "電話",
     "address": "住所",
     "addressValue": "北京市海淀区中関村ソフトウェアパーク",
-    "website": "",
+    "website": "网址",
     "noContact": "なしContact",
     "versionInfo": "バージョンInfo",
     "version": "バージョン",
@@ -9907,8 +9907,8 @@
     "subtitle": "のQuestion",
     "delete": "削除",
     "deleteConfirm": "Question？",
-    "statusPending": "",
-    "statusResolved": "",
+    "statusPending": "待解答",
+    "statusResolved": "已解决",
     "statusClosed": "クローズ済み"
   },
   "myCircles": {
@@ -9926,7 +9926,7 @@
     "deleteConfirm": "？",
     "statusDraft": "下書き",
     "statusPublished": "公開済み",
-    "statusOffline": "",
+    "statusOffline": "已下线",
     "statusRejected": "し"
   },
   "myResources": {
@@ -9936,7 +9936,7 @@
     "deleteConfirm": "Resource？",
     "statusPending": "審査中",
     "statusPublished": "公開済み",
-    "statusOffline": "",
+    "statusOffline": "已下线",
     "statusRejected": "し"
   },
   "myComments": {
@@ -10085,7 +10085,7 @@
     "balance": "の",
     "typeAll": "すべてのタイプ",
     "typeRecharge": "チャージ",
-    "typeConsume": "",
+    "typeConsume": "消费",
     "typeRefund": "返金",
     "statusAll": "すべてのステータス",
     "statusPending": "...",
@@ -10401,7 +10401,7 @@
     "success": "成功",
     "fail": "失敗",
     "avgLatency": "レイテンシ",
-    "successRate": "",
+    "successRate": "成功率",
     "rangeAriaLabel": "スコープ",
     "range24h": "24",
     "range7d": "7",
@@ -10446,7 +10446,7 @@
     "reset": "リセット",
     "colUserUuid": "ユーザーUUID",
     "colVipId": "VIP ID",
-    "colProgress": "",
+    "colProgress": "进度",
     "colCreator": "作成者",
     "colCreatedTime": "作成日時",
     "colValid": "あり",
@@ -10652,7 +10652,7 @@
       "viewAll": "すべて"
     },
     "tags": {
-      "stableVersion": "",
+      "stableVersion": "稳定版",
       "openApi": "API",
       "selfDeveloped": "Self Developed"
     },
@@ -10665,7 +10665,7 @@
     },
     "buttons": {
       "getStarted": "立即開始",
-      "techSpecs": "",
+      "techSpecs": "技术规格",
       "registerNow": "しみ",
       "bookDemo": "デモ",
       "learnArch": "Learn Arch",
@@ -10676,10 +10676,10 @@
       "online": "オンライン"
     },
     "sections": {
-      "pipeline": "",
+      "pipeline": "技术管道",
       "apiMatrix": "API",
       "apiList": "エンドポイント",
-      "dx": "",
+      "dx": "开发者体验",
       "solutions": "ソリューション",
       "featureHub": "機能センター",
       "ecosystem": "とツール",
@@ -10694,12 +10694,12 @@
     "sale": {
       "navAriaLabel": "と",
       "navIntro": "製品説明",
-      "navWho": "",
+      "navWho": "适合谁",
       "navUseCases": "せる",
       "navWhy": "です",
-      "navPricing": "",
+      "navPricing": "定价",
       "navAdvantages": "製品优势",
-      "navCases": "",
+      "navCases": "客户案例",
       "navRules": "販売ルール",
       "navCompare": "へ",
       "navFaq": "FAQ",
@@ -10715,13 +10715,13 @@
       "whyChoose5": "エンタープライズ：/Community support、SLA と",
       "whyChoose6": "から IHUI ai ：からまでモーダルから，ありDeploymentと",
       "whyChoose7": "API（IHUI API）：ストリーム、、",
-      "pricingTitle": "",
+      "pricingTitle": "定价",
       "pricingSubtitle": "，；へ。",
       "planFree": "無料体験",
       "planFreeDesc": "プラットフォーム，。",
-      "planFreeCta": "",
+      "planFreeCta": "立即体验",
       "planStandardCta": "联系相談",
-      "planEnterpriseCta": "",
+      "planEnterpriseCta": "联系报价",
       "planStandard": "スタンダード版",
       "planStandardDesc": "+ ドキュメント + Community support，チームとエンタープライズ。",
       "recommended": "推奨",
@@ -10729,7 +10729,7 @@
       "planEnterpriseDesc": "ありDeployment、SLA と，。",
       "planPriceFree": "¥0",
       "planPriceStandard": "¥9,999 year",
-      "planPriceEnterprise": "",
+      "planPriceEnterprise": "联系报价",
       "contactPrice": "と「」または GitHub 。",
       "contactBusiness": "联系ビジネス",
       "viewGitHub": "GitHub",
@@ -10747,7 +10747,7 @@
       "licenseSummary": "のコードせる、とDeployment：、コース、からありせる；またはへ、またはとai の。の LICENSE ファイルです。",
       "licenseLinkText": "表示完整许可条款",
       "deliveryTitle": "と",
-      "deliverySubtitle": "",
+      "deliverySubtitle": "您将获得",
       "delivery1": "GitHub ありまたは Release ダウンロード。",
       "delivery2": "ドキュメント、API とガイド。",
       "delivery3": "の Bug とセキュリティ（バージョン）。",
@@ -10771,10 +10771,10 @@
       "useCase5": "と：スコーププラットフォーム、と",
       "casesTitle": "と",
       "casesSubtitle": "と（）",
-      "case1Tag": "",
+      "case1Tag": "金融",
       "case1Title": "と",
       "case1Desc": "Swarm とドキュメント API，へと，と。",
-      "case2Tag": "",
+      "case2Tag": "电商",
       "case2Title": "カスタマーサポートとプロジェクト",
       "case2Desc": "と，からプロジェクトまでカスタマーサポート，、。",
       "case3Tag": "/",
@@ -10827,7 +10827,7 @@
       "swarmCreateDesc": "エージェントタスクと",
       "docParse": "ドキュメント",
       "docParseDesc": "ドキュメントと",
-      "visionAnalyze": "",
+      "visionAnalyze": "视觉分析",
       "visionAnalyzeDesc": "とモーダル",
       "audioTts": "音声合成",
       "audioTtsDesc": "テキスト，と",
@@ -10855,9 +10855,9 @@
       "dashboard": "機能センターダッシュボード",
       "publicDocs": "ドキュメントと",
       "basicChatApi": "チャット API",
-      "usageConsole": "",
+      "usageConsole": "用量控制台",
       "communitySupport": "コミュニティとヘルプドキュメント",
-      "fullSourceCode": "",
+      "fullSourceCode": "完整源码访问",
       "multiEndpoints": "（PC + ミニプログラム + H5 + APP）",
       "backendAndApis": "と Swarm/ドキュメント///ストリーム API",
       "officialSdks": "SDK",
@@ -10875,12 +10875,12 @@
     "capabilityTags": {
       "all": "すべて",
       "ariaFilterLabel": "カテゴリーフィルター API",
-      "core": "",
+      "core": "核心",
       "powerful": "ドキュメント",
-      "vision": "",
+      "vision": "视觉",
       "audio": "音声",
       "workflow": "ストリーム",
-      "support": ""
+      "support": "支撑"
     },
     "featureRef": {
       "title": "全機能参照表",
@@ -10900,7 +10900,7 @@
       "swarmDesc": "エージェントタスク",
       "docParse": "ドキュメント",
       "docParseDesc": "ドキュメントと",
-      "vision": "",
+      "vision": "视觉分析",
       "visionDesc": "とモーダル",
       "audioTts": "音声合成",
       "audioTtsDesc": "テキスト",
@@ -10916,7 +10916,7 @@
       "apiDocsDesc": "API とエンドポイントリスト",
       "knowledgeDocs": "ドキュメント",
       "knowledgeDocsDesc": "ドキュメントとガイド",
-      "console": "",
+      "console": "管理控制台",
       "consoleDesc": "、と",
       "workflowPlugins": "ストリームとドキュメント",
       "workflowPluginsDesc": "とドキュメント",
@@ -10957,7 +10957,7 @@
     "solutions": {
       "title": "ソリューション",
       "subtitleEn": "Solutions",
-      "explore": ""
+      "explore": "探索"
     },
     "featureHub": {
       "title": "機能センター",
@@ -10968,7 +10968,7 @@
       "subtitleEn": "Ecosystem"
     },
     "metrics": {
-      "latency": ""
+      "latency": "延迟"
     },
     "faq": {
       "title": "Question",
@@ -11047,7 +11047,7 @@
     "selectDoc": "からドキュメント",
     "loadFailed": "ドキュメント",
     "searchPlaceholder": "ドキュメント...",
-    "toc": "",
+    "toc": "目录",
     "enterpriseService": "エンタープライズサービス"
   },
   "unifiedQRLogin": {
@@ -11183,10 +11183,10 @@
     "installTitle": "インストールアプリ",
     "installDescription": "アプリまで，のせる",
     "install": "インストール",
-    "installLater": "",
+    "installLater": "稍后",
     "installSuccess": "アプリインストールまで",
     "updateDescription": "バージョン，",
-    "updateLater": "",
+    "updateLater": "稍后",
     "updateNow": "立即しい",
     "updateTitle": "バージョン"
   },
@@ -11203,7 +11203,7 @@
   "markdown": {
     "renderFailed": "Markdown",
     "defaultTitle": "Markdown ドキュメント",
-    "toc": "",
+    "toc": "目录",
     "loading": "読み込み中...",
     "loadFailed": "ドキュメントの読み込みに失敗しました",
     "loadError": "読み込み失敗",
@@ -11220,7 +11220,7 @@
     "escToAbort": "ESC じる",
     "enter": "Enter",
     "navigate": "ナビゲーション",
-    "execute": "",
+    "execute": "执行",
     "systemReady": "システムすぐ",
     "cpuOptimized": "テーブル优化",
     "noResults": "までマッチの",
@@ -11251,7 +11251,7 @@
     "privacyPolicy": "プライバシーポリシー",
     "requirementSquare": "プラザ",
     "plaza": "プラザ",
-    "xuqiu": "",
+    "xuqiu": "需求",
     "openPlatform": "プラットフォーム",
     "openPlatformDocs": "ドキュメント",
     "openPlatformDashboard": "機能センターダッシュボード",
@@ -11318,7 +11318,7 @@
     "distributionOrders": "ディストリビューション注文",
     "refundManagement": "返金管理",
     "refundDetail": "返金詳細",
-    "keyManagement": "",
+    "keyManagement": "密钥管理",
     "becomeTrader": "ですトレーダー",
     "personalCard": "名刺",
     "invitedTeam": "のチーム",
@@ -11379,7 +11379,7 @@
     "adminLearnTopicCategory": "カテゴリー",
     "adminLearnOrder": "コース",
     "adminLearnOrderInvoiceTitle": "請求書宛名",
-    "adminLearnOrderInvoiceApplication": "",
+    "adminLearnOrderInvoiceApplication": "开票申请",
     "adminLearnSignup": "申込管理",
     "adminLearnReport": "コース",
     "adminExamList": "試験管理",
@@ -11494,7 +11494,7 @@
     "adminBackendHealth": "バックエンドヘルスチェック"
   },
   "footer": {
-    "acknowledgments": "",
+    "acknowledgments": "致谢",
     "companyName": "あり",
     "addressLabel": ":",
     "addressLine1": "107",
@@ -11518,7 +11518,7 @@
     "searchPlaceholder": "エージェントまたはID",
     "allTypes": "すべてのタイプ",
     "free": "無料",
-    "limitFree": "",
+    "limitFree": "限免",
     "paid": "有料",
     "addConfig": "追加設定",
     "agentName": "エージェント",
@@ -11577,7 +11577,7 @@
     "examining": "審査中",
     "approved": "合格",
     "rejected": "しました",
-    "returned": "",
+    "returned": "已退回",
     "noExamineRecords": "なし",
     "initiator": "発起人",
     "examineTime": "審査時間",
@@ -11607,9 +11607,9 @@
     "statusExamining": "審査中",
     "statusApproved": "合格",
     "statusRejected": "しました",
-    "statusReturned": "",
+    "statusReturned": "已退回",
     "typeFree": "無料",
-    "typeLimitedFree": "",
+    "typeLimitedFree": "限免",
     "typePaid": "有料",
     "typeUnknown": "-",
     "status": "ステータス",
@@ -11696,7 +11696,7 @@
     "share": "共有",
     "refreshDetails": "詳細更新",
     "detailedInfo": "Info",
-    "overview": "",
+    "overview": "概述",
     "platformInfo": "プラットフォームInfo",
     "usageStats": "せる",
     "agentId": "エージェントID",
@@ -11739,7 +11739,7 @@
     "refreshFailed": "更新失敗",
     "statusActive": "アクティブ",
     "statusInactive": "無効化",
-    "statusDeprecated": "",
+    "statusDeprecated": "已废弃",
     "loadReviewsFailed": "評価読込失敗",
     "loadRelatedToolsFailed": "ツール",
     "processing": "Process...",
@@ -11771,7 +11771,7 @@
     "contactService": "カスタマーサポート",
     "orderNotExistOrDeleted": "またはみ",
     "typeRecharge": "チャージ",
-    "typeConsumption": "",
+    "typeConsumption": "消费",
     "typeRefund": "返金",
     "typeWithdraw": "出金",
     "statusPending": "Process",
@@ -11857,7 +11857,7 @@
       "trafficFissionDesc": "ストリームai，と",
       "globalRestructure": "全域再構築",
       "globalRestructureDesc": "ai，システムと",
-      "dawnEra": "",
+      "dawnEra": "破晓纪元",
       "dawnEraDesc": "，aiの",
       "functionTag": "CORE FUNCTIONS",
       "functionTitle": "とサービス",
@@ -11911,7 +11911,7 @@
       "sol4Title": "ソリューション",
       "sol4Desc": "です、とソリューション",
       "sol4Item1": "aiと",
-      "sol4Item2": "",
+      "sol4Item2": "智能药物研发加速",
       "sol4Item3": "と",
       "sol4Item4": "Resource",
       "sol5Title": "ソリューション",
@@ -11926,11 +11926,11 @@
       "sol6Item2": "Dataドライバ",
       "sol6Item3": "サービス",
       "sol6Item4": "Dataとセキュリティ",
-      "dev1Title": "",
+      "dev1Title": "技术筑基期",
       "dev1Item1": "aiとプラットフォーム",
       "dev1Item2": "エージェントとコミュニティ",
       "dev1Item3": "实现首批行业シーン落地認証",
-      "dev2Title": "",
+      "dev2Title": "生态拓展期",
       "dev2Item1": "aiソリューション",
       "dev2Item2": "と",
       "dev2Item3": "aiのみと",
@@ -11938,9 +11938,9 @@
       "dev3Item1": "ですai",
       "dev3Item2": "aiと",
       "dev3Item3": "AGIと",
-      "val1Title": "",
+      "val1Title": "技术领先",
       "val1Desc": "ai，",
-      "val2Title": "",
+      "val2Title": "生态开放",
       "val2Desc": "のaiネットワーク，Connectとエンタープライズ",
       "val3Title": "Dataドライバ",
       "val3Desc": "Dataです，と",
@@ -11963,7 +11963,7 @@
       "image": "画像",
       "video": "動画",
       "audio": "音声",
-      "music": "",
+      "music": "音乐",
       "article": "記事",
       "code": "コード"
     },
@@ -12087,7 +12087,7 @@
       "image": "画像",
       "video": "動画",
       "audio": "音声",
-      "music": "",
+      "music": "音乐",
       "article": "記事",
       "code": "コード"
     },
@@ -12126,7 +12126,7 @@
     "customDescPlaceholder": "してくださいカスタム",
     "shareType": "タイプ",
     "public": "公開",
-    "private": "",
+    "private": "私密",
     "password": "パスワード",
     "expireTime": "Expires",
     "selectExpire": "Expires",
@@ -12137,9 +12137,9 @@
     "scanQRCode": "扫描QRコード",
     "downloadQRCode": "ダウンロード",
     "wechat": "WeChat",
-    "weibo": "",
+    "weibo": "微博",
     "qq": "QQ",
-    "douyin": "",
+    "douyin": "抖音",
     "douyinShareTip": "せるスキャン",
     "linkCopied": "リンクCopied",
     "copyFailed": "コピー",
@@ -12199,8 +12199,8 @@
     "title": "aiチーム",
     "searchPlaceholder": "エージェント",
     "categories": "カテゴリー",
-    "oldEmployee": "",
-    "newEmployee": "",
+    "oldEmployee": "老员工",
+    "newEmployee": "新员工",
     "noDescription": "なし",
     "noAgents": "なしai",
     "likeSuccess": "いいね",
@@ -12240,7 +12240,7 @@
     "rule3": "コミッションい24からまでの",
     "joinVip": "VIPアドレス と",
     "totalEarnings": "累計収益",
-    "totalInvites": "",
+    "totalInvites": "邀请人数",
     "ratioLevel1": "Ratio Level1",
     "ratioLevel1Title": "Ratio Level1Title",
     "ratioLevel2": "Ratio Level2",
@@ -12334,7 +12334,7 @@
     "colorSystem": "システム",
     "colorPalette": "色调色板",
     "spacingSystem": "システム",
-    "spacingDemo": "",
+    "spacingDemo": "间距示例",
     "radiusSystem": "システム",
     "radiusDemo": "角丸サンプル",
     "buttonComponent": "ボタンコンポーネント",
@@ -12355,7 +12355,7 @@
     "utilitiesDemo": "ツールデモ",
     "utilitiesUsage": "ツールせる",
     "useUtilities": "せるツール",
-    "hoverEffect": "",
+    "hoverEffect": "悬停效果",
     "flexboxUtilities": "Flexbox ツール",
     "action": "操作",
     "primaryButton": "ボタン",
@@ -12372,7 +12372,7 @@
     "textSecondary": "テキスト",
     "bgPrimary": "背景メインカラー",
     "bgSecondary": "背景回色",
-    "bgHover": ""
+    "bgHover": "悬停背景"
   },
   "distributionCompany": {
     "title": "の",
@@ -12444,7 +12444,7 @@
     "noMembers": "Members",
     "transactionVolume": "取引体积",
     "commission": "コミッション",
-    "orderCount": "",
+    "orderCount": "顺序计数",
     "inviteTime": "viteTime",
     "tabAll": "Tabすべて",
     "tabActive": "Tabアクティビティ",
@@ -12518,8 +12518,8 @@
       "assistant": "ai"
     },
     "stages": {
-      "reasoning": "",
-      "acting": "",
+      "reasoning": "思考中",
+      "acting": "执行中",
       "result": "完了"
     },
     "reasoningChain": {
@@ -12574,7 +12574,7 @@
         "promptPlaceholder": "..."
       },
       "buttons": {
-        "identify": "",
+        "identify": "识别",
         "generate": "生成",
         "checkStatus": "ステータス",
         "checking": "..."
@@ -12588,7 +12588,7 @@
       },
       "messages": {
         "uploadFirst": "アップロード",
-        "identifySuccess": "",
+        "identifySuccess": "识别成功",
         "identifyFailed": "识别失敗",
         "fillComplete": "Info",
         "taskSubmitted": "タスク",
@@ -12654,7 +12654,7 @@
         "completed": "完了",
         "processing": "Process",
         "failed": "失敗",
-        "pending": ""
+        "pending": "等待中"
       },
       "startPolling": "から",
       "stopPolling": "ポーリング停止",
@@ -12686,7 +12686,7 @@
         "download": "ダウンロード",
         "copyUrl": "リンクをコピー"
       },
-      "result": "",
+      "result": "生成结果",
       "messages": {
         "modelRequired": "してくださいモデル",
         "promptRequired": "してくださいプロンプト",
@@ -12725,7 +12725,7 @@
         "generate": "生成画像",
         "reset": "リセット"
       },
-      "result": "",
+      "result": "生成结果",
       "messages": {
         "imageRequired": "アップロード",
         "uploadFailed": "アップロード",
@@ -12774,7 +12774,7 @@
   },
   "visionAnalysis": {
     "title": "Qwen -",
-    "tag": "",
+    "tag": "视觉理解",
     "form": {
       "upload": "アップロード",
       "selectImage": "選択画像",
@@ -12805,7 +12805,7 @@
     "form": {
       "prompt": "3D",
       "promptPlaceholder": "の3Dモデル...",
-      "format": "",
+      "format": "输出格式",
       "uploadImage": "アップロード"
     },
     "buttons": {
@@ -12826,7 +12826,7 @@
       "copy": "コピー",
       "edit": "編集",
       "delete": "削除",
-      "regenerate": "",
+      "regenerate": "重新生成",
       "like": "いいね",
       "exportChat": "エクスポートチャット",
       "clearChat": "チャットをクリア",
@@ -12843,8 +12843,8 @@
   },
   "floatingChat": {
     "openChat": "くaiチャット",
-    "minimize": "",
-    "maximize": "",
+    "minimize": "最小化",
+    "maximize": "最大化",
     "search": "検索",
     "returnToChat": "るチャット",
     "aiToolbox": "ai ツール",
@@ -12874,8 +12874,8 @@
     "like": "いいね",
     "unlike": "キャンセルいいね",
     "publishToCommunity": "までコミュニティ",
-    "regenerate": "",
-    "regenerateSuccess": "",
+    "regenerate": "重新生成",
+    "regenerateSuccess": "重新生成成功",
     "regenerateFailed": "Generation failed",
     "canOnlyRegenerateAI": "のみaiメッセージ",
     "messageNotFound": "までへのメッセージ",
@@ -12945,7 +12945,7 @@
       "browserQuickActions": "速速操作",
       "browserUrlPlaceholder": "， https://example.com",
       "browserOpen": "開く",
-      "browserScreenshot": "",
+      "browserScreenshot": "截图",
       "browserCurrentPage": "現在のページ",
       "browserView": "閲覧器视图",
       "browserBackendTools": "のツール",
@@ -12953,7 +12953,7 @@
       "browserUrlRequired": "してください",
       "browserNavigateSuccess": "く",
       "browserNavigateError": "く",
-      "browserScreenshotSuccess": "",
+      "browserScreenshotSuccess": "截图已生成",
       "browserScreenshotError": "截图失敗",
       "browserDownloadScreenshot": "ダウンロード",
       "browserDownloadSuccess": "ダウンロード",
@@ -13032,8 +13032,8 @@
     "modeAgent": "エージェント",
     "modeAgentic": "AgenticAI",
     "modeMCP": "MCPツール",
-    "modeHybrid": "",
-    "modeAuto": "",
+    "modeHybrid": "混合模式",
+    "modeAuto": "智能模式",
     "modeGeneration": "ai",
     "selectAgent": "エージェント...",
     "promptTemplates": "プロンプトテンプレート",
@@ -13100,7 +13100,7 @@
       "canvas": "ワークスペース",
       "canvasDesc": "ビジュアルデザイン作成",
       "skills": "スキル",
-      "skillsDesc": "",
+      "skillsDesc": "扩展能力插件",
       "browser": "閲覧器",
       "browserDesc": "から",
       "models": "モデル",
@@ -13114,19 +13114,19 @@
     "mcpToolsIntro": "MCP ツールチャット：ファイル、、Data、、，チャット。",
     "noMCPTools": "なしMCPツール",
     "generation": "ai",
-    "generationTypeAuto": "",
+    "generationTypeAuto": "智能识别",
     "generationTypeImage": "画像生成",
     "generationTypeVideo": "ビデオ生成",
     "generationType3D": "3Dモデル",
-    "generationTypeVision": "",
+    "generationTypeVision": "视觉分析",
     "generationTypeAudio": "音声合成",
-    "generationTypeMusic": "",
+    "generationTypeMusic": "音乐生成",
     "generationTypeAudioDesc": "せるaiですから，と",
     "generationTypeMusicDesc": "せるai，スタイルと",
     "audioGenerationSuccess": "音声合成成功",
     "audioGenerationFailed": "音声合成失敗",
     "audioUrlNotFound": "までURL",
-    "musicGenerationSuccess": "",
+    "musicGenerationSuccess": "音乐生成成功",
     "musicGenerationFailed": "Generation failed",
     "musicUrlNotFound": "までURL",
     "apiAccess": "API access",
@@ -13169,7 +13169,7 @@
     "videoGenerationFailed": "Generation failed：{error}",
     "editKeyword1": "編集",
     "editKeyword2": "変更",
-    "editKeyword3": "",
+    "editKeyword3": "调整",
     "editKeyword4": "最適化",
     "videoGenerationStartFailed": "：{error}",
     "visionAnalysisRequiresImage": "アップロード",
@@ -13185,14 +13185,14 @@
     "downloadLink": "ダウンロードリンク",
     "pleaseAnalyzeThisImage": "请この画像を分析",
     "visionAnalysisFailed": "视觉分析失敗",
-    "thinkingProcess": "",
+    "thinkingProcess": "思考过程",
     "analysisResult": "分析結果",
     "analysisResultImage": "分析結果画像",
     "capabilityModel": "モデル",
     "capabilityAgent": "エージェント",
     "capabilityAgentic": "エージェント",
     "capabilityMCP": "MCPツール",
-    "capabilityHybrid": "",
+    "capabilityHybrid": "混合模式",
     "pleaseEditThisImage": "请編集这张画像",
     "exportTimeLabel": "エクスポート",
     "model": "モデル",
@@ -13257,20 +13257,20 @@
     "scene": "シーン",
     "description": "説明",
     "reasoning": "から",
-    "firstFramePrompt": "",
+    "firstFramePrompt": "首帧图示词",
     "videoPrompt": "プロンプト",
     "characterAppearance": "キャラクターイメージ",
     "voice": "音声",
     "video": "動画",
-    "lastFrame": "",
+    "lastFrame": "尾帧",
     "referencePrevious": "前段を参照",
     "status": "ステータス",
-    "statusPending": "",
+    "statusPending": "待生成",
     "statusGenerating": "...",
     "statusCompleted": "完了",
     "statusFailed": "失敗",
     "generateVideo": "生成ビデオ",
-    "extractFrame": "",
+    "extractFrame": "提取尾帧",
     "firstFrameModelRemarkMissing": "モデルエンドポイント",
     "firstFrameWsNotSupported": "WebSocket",
     "appearance": "キャラクターイメージ",
@@ -13288,7 +13288,7 @@
     "enhancedMode": "ai",
     "enhancedModeOn": "ai，せるコンテキストと",
     "enhancedModeOff": "aiクローズみ，せるプロンプト",
-    "qualityScore": "",
+    "qualityScore": "质量",
     "lowQualityWarning": "{sequence} スコア：{score}/100，",
     "autoRetryScheduled": "{sequence} {delay} から",
     "optimizingPromptForRetry": "プロンプト...",
@@ -13311,12 +13311,12 @@
     "sceneRecommendations": "シーン推奨",
     "conflictDetection": "コンフリクト検出",
     "characterRelations": "ロール",
-    "pacingAnalysis": "",
+    "pacingAnalysis": "节奏分析",
     "getRecommendations": "获取シーン推奨",
     "confidence": "信頼度",
     "apply": "アプリ",
     "recommendationReason": "から",
-    "expectedEffect": "",
+    "expectedEffect": "预期效果",
     "noRecommendations": "クリック「」ai",
     "recommendationsLoaded": "Count",
     "recommendationsFailed": "获取シーン推奨失敗",
@@ -13357,20 +13357,20 @@
       "slow": "遅节奏"
     },
     "phases": {
-      "setup": "",
-      "rising": "",
-      "climax": "",
+      "setup": "铺垫",
+      "rising": "上升",
+      "climax": "高潮",
       "falling": "減少",
-      "resolution": ""
+      "resolution": "结局"
     },
     "plotTypes": {
-      "twist": "",
+      "twist": "转折",
       "conflict": "コンフリクト",
-      "resolution": "",
-      "climax": "",
-      "transition": ""
+      "resolution": "解决",
+      "climax": "高潮",
+      "transition": "过渡"
     },
-    "emotion": "",
+    "emotion": "情感",
     "auto": "から",
     "subtitlesGenerated": "字幕生成成功",
     "scenes": "個シーン",
@@ -13379,14 +13379,14 @@
       "character": "ロール",
       "scene": "シーン",
       "timeline": "タイムライン",
-      "logic": ""
+      "logic": "逻辑"
     },
     "severity": {
       "error": "エラー",
       "warning": "警告"
     },
     "plainText": "テキスト",
-    "resolved": "",
+    "resolved": "已解决",
     "characters": "文字",
     "subtitleProgress": "字幕生成進捗",
     "batchProgress": "：{completed}/{total}",
@@ -13424,50 +13424,50 @@
       "promptDialogueRequest": "チャット：",
       "promptDominantEmotion": "主要感情",
       "promptDramaTitle": "タイトル",
-      "promptEmotion": "",
+      "promptEmotion": "情感",
       "promptEmotionIntensity": "（0-1）",
-      "promptEmotionalTone": "",
+      "promptEmotionalTone": "情感基调",
       "promptEpisodeSummary": "本集Summary",
       "promptEpisodeTitle": "タイトル",
       "promptEpisodes": "の。",
       "promptFragmentId": "ID",
       "promptGenerateAtmosphere": "です：",
       "promptGenerateDialogue": "ロールチャット：",
-      "promptGenerateOutline": "",
+      "promptGenerateOutline": "请生成",
       "promptKeyScenes": "Key",
       "promptLighting": "照明",
-      "promptMood": "",
+      "promptMood": "氛围",
       "promptNextScene": "下月シーン",
       "promptProgressionFalling": "減少",
-      "promptProgressionFluctuating": "",
-      "promptProgressionRising": "",
-      "promptProgressionStable": "",
-      "promptReasoning": "",
+      "promptProgressionFluctuating": "波动",
+      "promptProgressionRising": "上升",
+      "promptProgressionStable": "稳定",
+      "promptReasoning": "推理过程",
       "promptRecentPlot": "：",
       "promptReturnFormat": "る：",
       "promptReturnJson": "JSON る。",
       "promptReturnJsonOnly": "る JSON，その。",
       "promptScene": "：",
       "promptSceneDescription": "シーン説明",
-      "promptSoundscape": "",
-      "promptSuggestedAdjustment": "",
+      "promptSoundscape": "音效",
+      "promptSuggestedAdjustment": "调整建议",
       "promptSuggestedCharacter": "ロール",
       "promptSynopsis": "あらすじ",
       "promptTheme": "テーマ：",
       "promptTitle": "タイトル",
-      "promptTypeClimax": "",
+      "promptTypeClimax": "高潮",
       "promptTypeConflict": "コンフリクト",
-      "promptTypeResolution": "",
-      "promptTypeTransition": "",
+      "promptTypeResolution": "解决",
+      "promptTypeTransition": "过渡",
       "promptTypeTwist": "反転",
-      "promptVoiceTone": "",
+      "promptVoiceTone": "语调",
       "characterArc": {
         "arcNegative": "ロール",
         "arcNeutral": "ロール",
         "arcPositive": "ロール",
-        "emotionNegative": "",
+        "emotionNegative": "消极",
         "emotionNeutral": "ニュートラル",
-        "emotionPositive": "",
+        "emotionPositive": "积极",
         "stageConflict": "コンフリクト段階",
         "stageDevelopment": "発展段階",
         "stageGrowth": "成长フェーズ",
@@ -13499,16 +13499,16 @@
         "startFirstScene": "1"
       },
       "defaultCameraStyle": "，",
-      "defaultColorPalette1": "",
+      "defaultColorPalette1": "暖色调",
       "defaultColorPalette2": "ニュートラルカラー",
-      "defaultEmotion": "",
+      "defaultEmotion": "平静",
       "defaultLighting": "とから",
       "defaultMood": "と",
-      "defaultSoundscape": ""
+      "defaultSoundscape": "轻微环境音"
     },
     "aiCreationLoadFailed": "aiData",
-    "storyArc": "",
-    "continuation": "",
+    "storyArc": "故事弧线",
+    "continuation": "续写建议",
     "applySuggestion": "アプリ",
     "suggestionApplied": "アプリ",
     "plotSuggestions": "ストーリー提案",
@@ -13520,18 +13520,18 @@
       "bgm": {
         "adventure": {
           "genre": "アドベンチャー",
-          "mood": "",
+          "mood": "激动",
           "name": "アドベンチャー旅"
         },
         "cafe": {
-          "genre": "",
-          "mood": "",
+          "genre": "爵士",
+          "mood": "放松",
           "name": "カフェタイム"
         },
         "comedy": {
           "genre": "ポップ",
           "mood": "欢速",
-          "name": ""
+          "name": "欢乐喜剧"
         },
         "epic": {
           "genre": "交響曲",
@@ -13545,34 +13545,34 @@
         },
         "mysterious": {
           "genre": "エレクトロニック",
-          "mood": "",
-          "name": ""
+          "mood": "神秘",
+          "name": "神秘氛围"
         },
         "night": {
-          "genre": "",
-          "mood": "",
+          "genre": "环境音乐",
+          "mood": "宁静",
           "name": "夜の静寂"
         },
         "romantic": {
           "genre": "クラシック",
-          "mood": "",
-          "name": ""
+          "mood": "浪漫",
+          "name": "浪漫时光"
         },
         "sad": {
-          "genre": "",
-          "mood": "",
-          "name": ""
+          "genre": "钢琴",
+          "mood": "悲伤",
+          "name": "忧伤旋律"
         },
         "tense": {
           "genre": "エレクトロニック",
-          "mood": "",
+          "mood": "紧张",
           "name": "紧张時刻"
         }
       },
       "exportPreset": {
         "highQuality": {
           "description": "4K ，60fps，",
-          "name": ""
+          "name": "高质量"
         },
         "mobile": {
           "description": "720p，",
@@ -13589,12 +13589,12 @@
       },
       "sfx": {
         "birds": {
-          "description": "",
-          "name": ""
+          "description": "鸟鸣声",
+          "name": "鸟鸣"
         },
         "boom": {
           "description": "の",
-          "name": ""
+          "name": "轰鸣"
         },
         "cafe": {
           "description": "カフェ環境音",
@@ -13613,36 +13613,36 @@
           "name": "ヒント"
         },
         "door": {
-          "description": "",
-          "name": ""
+          "description": "开门关门声",
+          "name": "门声"
         },
         "footsteps": {
-          "description": "",
-          "name": ""
+          "description": "脚步声",
+          "name": "脚步"
         },
         "gasp": {
           "description": "の",
           "name": "息遣い"
         },
         "heartbeat": {
-          "description": "",
-          "name": ""
+          "description": "心跳声",
+          "name": "心跳"
         },
         "laugh": {
-          "description": "",
-          "name": ""
+          "description": "笑声",
+          "name": "笑声"
         },
         "phone": {
           "description": "電話铃声",
           "name": "電話"
         },
         "rain": {
-          "description": "",
-          "name": ""
+          "description": "雨声",
+          "name": "雨声"
         },
         "thunder": {
-          "description": "",
-          "name": ""
+          "description": "雷声",
+          "name": "雷声"
         },
         "typing": {
           "description": "Key",
@@ -13650,39 +13650,39 @@
         },
         "whoosh": {
           "description": "の",
-          "name": ""
+          "name": "风声"
         },
         "wind": {
-          "description": "",
-          "name": ""
+          "description": "风声",
+          "name": "风声"
         }
       },
       "sfxCategory": {
         "action": "アクション",
-        "emotion": "",
-        "environment": "",
-        "transition": ""
+        "emotion": "情感",
+        "environment": "环境",
+        "transition": "转场"
       },
       "sfxTag": {
-        "communication": "",
-        "daily": "",
+        "communication": "通讯",
+        "daily": "日常",
         "dynamic": "フィード",
-        "emotion": "",
-        "fresh": "",
-        "indoor": "",
+        "emotion": "情感",
+        "fresh": "清新",
+        "indoor": "室内",
         "joy": "喜び",
         "leisure": "レジャー",
-        "modern": "",
+        "modern": "现代",
         "movement": "移動",
         "nature": "から",
         "noisy": "ざわめき",
         "office": "オフィス",
-        "outdoor": "",
+        "outdoor": "户外",
         "prompt": "ヒント",
-        "sadness": "",
-        "shock": "",
-        "surprise": "",
-        "tension": "",
+        "sadness": "悲伤",
+        "shock": "震撼",
+        "surprise": "惊讶",
+        "tension": "紧张",
         "urban": "すべて",
         "weather": "天気"
       },
@@ -13706,15 +13706,15 @@
         "romantic": "スタイル"
       },
       "transition": {
-        "dissolve": "",
-        "fadeLong": "",
+        "dissolve": "溶解",
+        "fadeLong": "长淡入淡出",
         "fadeMedium": "中フェード",
-        "fadeShort": "",
+        "fadeShort": "短淡入淡出",
         "none": "None转场",
-        "slideLeft": "",
+        "slideLeft": "左滑",
         "slideUp": "上にスワイプ",
-        "wipeLeft": "",
-        "wipeRight": "",
+        "wipeLeft": "左擦除",
+        "wipeRight": "右擦除",
         "zoomIn": "拡大",
         "zoomOut": "縮小"
       }
@@ -13727,8 +13727,8 @@
     "exportASS": "エクスポートASS",
     "subtitlesExported": "エクスポートしました",
     "subtitleStyle": "スタイル",
-    "bgm": "",
-    "sfx": "",
+    "bgm": "背景音乐",
+    "sfx": "音效",
     "exportSettings": "エクスポート",
     "versionManager": "バージョン",
     "createVersion": "バージョン",
@@ -13743,57 +13743,57 @@
     "enterComment": "コメント...",
     "addComment": "コメント",
     "commentAdded": "コメント",
-    "resolve": "",
+    "resolve": "解决",
     "commentResolved": "コメント",
     "noComments": "なしコメント",
-    "totalFragments": "",
+    "totalFragments": "总片段数",
     "completedFragments": "完了",
     "failedFragments": "失敗",
-    "successRate": "",
-    "qualityAnalysis": "",
-    "averageQuality": "",
+    "successRate": "成功率",
+    "qualityAnalysis": "质量分析",
+    "averageQuality": "平均质量",
     "qualityRange": "スコープ",
     "qualityExcellent": "優秀",
-    "qualityGood": "",
+    "qualityGood": "良好",
     "qualityAverage": "通常",
-    "qualityPoor": "",
-    "qualityBreakdown": "",
-    "clarity": "",
+    "qualityPoor": "较差",
+    "qualityBreakdown": "质量细分",
+    "clarity": "清晰度",
     "colorSaturation": "と",
     "motionSmoothness": "ストリーム",
     "characterConsistency": "人物月致性",
-    "efficiencyMetrics": "",
+    "efficiencyMetrics": "效率指标",
     "fragmentsPerHour": "每時間生成",
     "firstAttemptSuccess": "首回成功率",
     "retryEfficiency": "再試行效率",
     "avgPromptLength": "プロンプト",
-    "costEstimate": "",
+    "costEstimate": "成本估算",
     "videoGenerations": "ビデオ生成回数",
     "imageGenerations": "画像生成回数",
     "totalTokens": "Token",
-    "estimatedCost": "",
+    "estimatedCost": "预估成本",
     "characterStats": "ロール",
     "characterName": "Role Name",
-    "fragmentCount": "",
-    "avgQuality": "",
+    "fragmentCount": "片段数",
+    "avgQuality": "平均质量",
     "totalDuration": "总時間",
     "timeTrend": "Trend",
     "date": "日付",
     "created": "作成",
     "videoPreview": "プレビュー",
-    "play": "",
+    "play": "播放",
     "pause": "一時停止",
-    "restart": "",
+    "restart": "重放",
     "captureFrame": "截取現在帧",
     "frameCaptured": "です",
     "frameCapturedFailed": "截取帧失敗",
     "keyframes": "Key",
-    "transitionEffect": "",
+    "transitionEffect": "转场效果",
     "fragmentInfo": "Info",
     "duration": "さ",
     "videoGenerated": "{sequence}",
     "videoGenerateFailed": "{sequence} Generation failed",
-    "frameExtracted": "",
+    "frameExtracted": "尾帧提取成功",
     "frameExtractFailed": "尾帧提取失敗",
     "noVideo": "なしあり",
     "noFragments": "なし",
@@ -13808,7 +13808,7 @@
     "importNoData": "までData",
     "importConfirm": "インポート Count，ですいいえありData？",
     "replace": "置換",
-    "append": "",
+    "append": "追加",
     "addCharacter": "ロール",
     "editCharacter": "ロール",
     "characterNamePlaceholder": "してくださいRole Name",
@@ -13847,11 +13847,11 @@
     "total": "合計",
     "completed": "完了",
     "generating": "...",
-    "pending": "",
+    "pending": "待生成",
     "reorderSuccess": "ソート",
     "previousNotCompleted": "の",
     "emptyState": "まだなしあり，クリック「」",
-    "dragToReorder": "",
+    "dragToReorder": "拖拽行可调整顺序",
     "noSearchResults": "なしありまでマッチの",
     "fullscreen": "フルスクリーン",
     "downloadVideo": "ダウンロード",
@@ -13908,13 +13908,13 @@
     "offline": "オフライン",
     "fileOperations": "ファイル",
     "editOperations": "編集操作",
-    "generationOperations": "",
+    "generationOperations": "生成操作",
     "save": "保存",
     "undo": "元に戻す",
     "redo": "やり直し",
     "selectAll": "すべて選択",
     "deleteSelected": "選択削除",
-    "newFragment": "",
+    "newFragment": "新建片段",
     "showShortcuts": "Key",
     "importScript": "インポート",
     "shortcuts": "shortcuts",
@@ -13925,15 +13925,15 @@
     "exportProject": "エクスポートプロジェクト",
     "selectFormat": "選択格式",
     "exported": "エクスポートしました",
-    "continuityCheck": "",
-    "continuityCheckTitle": "",
+    "continuityCheck": "连续性检查",
+    "continuityCheckTitle": "连续性检查结果",
     "noContinuityIssues": "Question",
     "continuityIssuesFound": "CountQuestion",
     "jumpToFragment": "まで",
     "characterStatsTitle": "ロール",
     "noCharacterData": "キャラクターがいませんデータ",
     "firstAppearance": "首回出场",
-    "lastAppearance": "",
+    "lastAppearance": "最后出场",
     "scenesInvolved": "涉及シーン",
     "exportPreview": "プレビュー",
     "exportPreviewTitle": "エクスポートプレビュー",
@@ -13946,7 +13946,7 @@
     "overview": "概要",
     "characterList": "ロールリスト",
     "sceneList": "リスト",
-    "suggestion": "",
+    "suggestion": "建议",
     "fragmentsCount": "Fragments",
     "generatePrompt": "ヒント",
     "charactersCount": "Characters",
@@ -13994,11 +13994,11 @@
     "excelHeaderLastFrame": "尾帧画像",
     "excelHeaderRefLastFrame": "ですいいえ",
     "excelHeaderStatus": "ステータス",
-    "subtitleTitle": "",
+    "subtitleTitle": "短剧字幕",
     "currentUser": "ユーザー",
     "versionCreatedSummary": "バージョン {version}",
     "initialState": "ステータス",
-    "fileNamePrefix": "",
+    "fileNamePrefix": "短剧剧本",
     "dataFormatError": "Dataエラー：",
     "suggestionTransition": "または",
     "suggestionSpecifyCharacter": "のロール",
@@ -14017,21 +14017,21 @@
       "exportDirectorNotes": "导演備考",
       "exportDuration": "さ",
       "exportKeyElements": "Key",
-      "exportMovement": "",
+      "exportMovement": "运镜",
       "exportShotCount": "Count",
-      "exportShotLabel": "",
+      "exportShotLabel": "镜头",
       "exportSuggestions": "最適化提案",
       "exportTitle": "エクスポート",
       "exportTotalDuration": "总時間",
       "exportType": "タイプ",
-      "impactBalanced": "",
+      "impactBalanced": "平衡感",
       "impactDynamicTension": "フィード",
       "impactEmotionalResonance": "情感計鸣",
-      "impactGrandScale": "",
+      "impactGrandScale": "宏大场面",
       "impactIntimacy": "親密さ",
       "impactMajesty": "威厳",
-      "impactSpatialRelation": "",
-      "impactVisualInstability": "",
+      "impactSpatialRelation": "空间关系",
+      "impactVisualInstability": "视觉不稳定感",
       "noPrevious": "None前序镜头",
       "promptAsProfessional": "ですプロの，Info",
       "promptCameraMovement": "タイプ",
@@ -14042,7 +14042,7 @@
       "promptDesignRequest": "：",
       "promptDuration": "（）",
       "promptKeyElements": "Key",
-      "promptLightingMood": "",
+      "promptLightingMood": "灯光氛围",
       "promptLightingType": "タイプ",
       "promptNotes": "備考",
       "promptPictureDescription": "画面説明",
@@ -14051,9 +14051,9 @@
       "promptScene": "：",
       "promptShotType": "タイプ",
       "reasonArcImportant": "环绕运镜适合表现重要時刻",
-      "reasonCloseUpForEmotion": "",
+      "reasonCloseUpForEmotion": "特写镜头适合表现细腻情感",
       "reasonCraneUpLiberation": "からからと",
-      "reasonDollyInDiscovery": "",
+      "reasonDollyInDiscovery": "推进镜头适合展现发现过程",
       "reasonDollyInFocus": "Key",
       "reasonDollyOutFarewell": "と",
       "reasonDutchAngleForUnease": "と",
@@ -14061,33 +14061,33 @@
       "reasonFullForAction": "全景镜头适合展现アクション场面",
       "reasonHandheldTension": "と",
       "reasonLowAngleForPower": "と",
-      "reasonMediumCloseForWarmth": "",
+      "reasonMediumCloseForWarmth": "中近景营造温馨亲密氛围",
       "reasonMediumUniversal": "です，",
       "reasonOverShoulderForDialogue": "チャット",
-      "reasonPanRightEnvironment": "",
+      "reasonPanRightEnvironment": "右摇镜头展示环境全貌",
       "reasonStaticGeneral": "固定カメラ汎用安定",
-      "reasonTruckRightFollow": "",
+      "reasonTruckRightFollow": "右移镜头跟随主体",
       "reasonWideForEnvironment": "と",
       "reasonZoomInFocus": "Key",
-      "reasonZoomInPressure": "",
-      "shotLabel": "",
-      "suggestionCloseUp": "",
+      "reasonZoomInPressure": "变焦推进制造压力感",
+      "shotLabel": "镜头",
+      "suggestionCloseUp": "建议增加特写镜头以突出情感",
       "suggestionCount": "Count",
       "suggestionDiversity": "タイプの",
-      "suggestionMovement": "",
+      "suggestionMovement": "建议增加运镜变化以提升动感",
       "suggestionPacing": "建议调整镜头時間以改善节奏",
       "unitSeconds": "秒"
     },
     "canvasContextError": "Canvas コンテキスト",
-    "clarityLabel": "",
+    "clarityLabel": "清晰度",
     "continuityCharacterDisappear": "ロール {character}",
     "continuityMissingCharacter": "{sequence} ロールInfo",
     "continuityMissingDescription": "{sequence} Info",
     "continuitySceneJump": "から {prevScene} まで {currentScene}，Question",
     "deleteHistoryDesc": "Count",
-    "downloadFragmentPrefix": "",
+    "downloadFragmentPrefix": "片段",
     "duplicateHistoryDesc": "コピー Count",
-    "frameLabel": "",
+    "frameLabel": "帧",
     "generatingStatus": "...",
     "imageUploadFailedError": "アップロード",
     "importHistoryDesc": "インポート Count",
@@ -14151,13 +14151,13 @@
         "generationTime": "生成時間",
         "noDescription": "なし",
         "notSet": "未設定",
-        "notSpecified": "",
+        "notSpecified": "未指定",
         "sceneLabel": "シーン",
         "sceneList": "リスト",
         "scenesUnit": "個シーン",
         "totalScenes": "計",
         "unnamed": "なし",
-        "voice": ""
+        "voice": "配音"
       },
       "markdown": {
         "appearance": "外観",
@@ -14167,7 +14167,7 @@
         "generationTime": "生成時間",
         "noDescription": "なし",
         "notSet": "未設定",
-        "notSpecified": "",
+        "notSpecified": "未指定",
         "qualityScore": "スコア",
         "sceneLabel": "シーン",
         "sceneList": "リスト",
@@ -14176,7 +14176,7 @@
         "totalScenes": "計",
         "unnamedScene": "名称未設定シーン",
         "videoPrompt": "プロンプト",
-        "voice": ""
+        "voice": "配音"
       },
       "scriptParse": {
         "dialogueLabel": "チャット",
@@ -14186,13 +14186,13 @@
         "promptCharacters": "ロール",
         "promptDescription": "シーン説明",
         "promptDialogueCharacter": "ロール",
-        "promptDialogueEmotion": "",
+        "promptDialogueEmotion": "情感",
         "promptDialogueLine": "セリフ",
         "promptDialogues": "チャットリスト",
         "promptDuration": "（）",
         "promptLocation": "場所",
-        "promptMood": "",
-        "promptNotSpecified": "",
+        "promptMood": "氛围",
+        "promptNotSpecified": "未指定",
         "promptReturnJson": "JSON る。",
         "promptSceneNumber": "No",
         "promptScriptContent": "：",
@@ -14205,7 +14205,7 @@
   "mcpUseProject": {
     "title": "mcp-use プロジェクト",
     "subtitle": "MCP - 6コードMCPサービス",
-    "managementInterface": "",
+    "managementInterface": "管理界面",
     "openProjectFolder": "くプロジェクトフォルダ",
     "projectIntro": "プロジェクト",
     "description": "<strong>mcp-use</strong> ですMCP， <strong>Model Context Protocol</strong> の。6コードMCPサービス， <strong>Python</strong> と <strong>TypeScript</strong>。",
@@ -14233,10 +14233,10 @@
     "pythonDocsDesc": "Pythonバージョンのドキュメント",
     "projectInfo": "プロジェクトInfo",
     "projectLocation": "プロジェクト",
-    "languageSupport": "",
-    "license": "",
+    "languageSupport": "语言支持",
+    "license": "许可证",
     "status": "ステータス",
-    "integrated": "",
+    "integrated": "已集成",
     "quickLinks": "リンク",
     "mcpUseManagement": "mcp-use",
     "viewReadme": "README",
@@ -14268,7 +14268,7 @@
     "activeSwarms": "アクティブ Swarm",
     "noActiveSwarms": "なしアクティブの Swarm",
     "status": {
-      "pending": "",
+      "pending": "等待中",
       "running": "実行中",
       "completed": "完了",
       "failed": "失敗"
@@ -14288,7 +14288,7 @@
     "coordinationMode": "調整モード",
     "coordinationHierarchical": "分层調整",
     "coordinationPeerToPeer": "へ",
-    "coordinationMarketBased": "",
+    "coordinationMarketBased": "市场机制",
     "maxIterations": "イテレート",
     "autoOptimize": "から（）",
     "createAndExecute": "作成して実行",
@@ -14344,7 +14344,7 @@
     "appDescription": "アプリ",
     "redirectURILabel": "へURI",
     "redirectURIPlaceholder": "URI",
-    "scopeRead": "",
+    "scopeRead": "读取",
     "scopeWrite": "書き込み",
     "detailDialog": "アプリ",
     "status": "ステータス",
@@ -14369,7 +14369,7 @@
     "updatedAt": "しいしい",
     "cancelledAt": "キャンセル",
     "status": {
-      "pending": "",
+      "pending": "等待中",
       "processing": "Process",
       "completed": "完了",
       "failed": "失敗",
@@ -14858,24 +14858,24 @@
       "school": {
         "public": "Normal公办学校",
         "private": "Normal民办学校",
-        "key": ""
+        "key": "市重点学校"
       },
       "classLevel": {
         "normal": "Normal班",
-        "advanced": ""
+        "advanced": "尖子班"
       },
       "scoreRangePlaceholder": "してくださいスコアスコープ，：80-90",
       "languageDifficulty": {
         "readingSpeed": "読書速度",
-        "comprehension": "",
-        "vocabulary": "",
+        "comprehension": "理解能力",
+        "vocabulary": "词汇量",
         "writing": "作文表現"
       },
       "scienceCharacteristicsPlaceholder": "してくださいの...",
       "learningObstacle": {
-        "gameAddiction": "",
+        "gameAddiction": "孩子痴迷游戏",
         "daydreaming": "コース",
-        "procrastination": "",
+        "procrastination": "拖延症",
         "lowEfficiency": "コース"
       },
       "hobbiesPlaceholder": "：，",
@@ -14976,7 +14976,7 @@
           "title": "画像生成",
           "desc": "ai",
           "tag1": "画像",
-          "tag2": ""
+          "tag2": "设计"
         },
         "video": {
           "title": "ビデオ生成",
@@ -14985,9 +14985,9 @@
           "tag2": "アニメーション"
         },
         "copy": {
-          "title": "",
+          "title": "文案生成",
           "desc": "ai",
-          "tag1": "",
+          "tag1": "文案",
           "tag2": "ライティング"
         },
         "edit": {
@@ -15006,7 +15006,7 @@
           "title": "数値人",
           "desc": "ai",
           "tag1": "数値人",
-          "tag2": ""
+          "tag2": "虚拟形象"
         }
       }
     }
@@ -15016,7 +15016,7 @@
     "showDetails": "表示詳細",
     "hideDetails": "非表示詳細",
     "details": "Info",
-    "recovery": "",
+    "recovery": "建议操作",
     "closeAria": "閉じる"
   },
   "simpleFallback": {
@@ -15044,7 +15044,7 @@
     "create": "プリセット作成",
     "edit": "編集预设",
     "name": "名称",
-    "mode": "",
+    "mode": "模式",
     "export": "エクスポート",
     "import": "インポート",
     "reset": "リセットデフォルト",
@@ -15107,11 +15107,11 @@
   "themeTransition": {
     "title": "テーマ",
     "preview": "プレビュー",
-    "presets": "",
+    "presets": "预设效果",
     "customConfig": "カスタム",
     "type": "タイプ",
     "direction": "方向",
-    "speed": "",
+    "speed": "速度",
     "easing": "缓动関数",
     "duration": "持续時間",
     "enableOverlay": "マスク",
@@ -15119,11 +15119,11 @@
     "presetApplied": "アプリ",
     "previewComplete": "プレビュー",
     "types": {
-      "fade": "",
-      "slide": "",
+      "fade": "淡入淡出",
+      "slide": "滑动",
       "zoom": "スケール",
       "flip": "反転",
-      "ripple": "",
+      "ripple": "波纹",
       "none": "Noneアニメーション"
     },
     "directions": {
@@ -15139,8 +15139,8 @@
       "instant": "即時"
     },
     "easings": {
-      "bounce": "",
-      "smooth": "",
+      "bounce": "弹跳",
+      "smooth": "平滑",
       "swift": "速速"
     },
     "playDemo": "Play Demo",
@@ -15149,12 +15149,12 @@
   },
   "themeSync": {
     "title": "テーマ",
-    "syncNow": "",
+    "syncNow": "立即同步",
     "status": {
       "syncing": "...",
-      "synced": "",
+      "synced": "已同步",
       "error": "同期失敗",
-      "idle": ""
+      "idle": "等待同步"
     },
     "autoSync": "から",
     "syncInterval": "同期間隔",
@@ -15180,7 +15180,7 @@
       "description": "までローカルデータとData，してくださいProcess。",
       "keepLocal": "ローカルデータバージョン",
       "useCloud": "せるバージョン",
-      "merge": "",
+      "merge": "智能合并",
       "mergeDesc": "からの",
       "thisDevice": "デバイス",
       "cloudBackup": "云端バックアップ",
@@ -15208,7 +15208,7 @@
     "processQueue": "Process",
     "offlineMode": "オフライン，ネットワークから",
     "offlineCannotProcess": "ネットワーク，Process",
-    "notifications": "",
+    "notifications": "桌面通知",
     "settings": {
       "encryption": {
         "title": "Data",
@@ -15234,7 +15234,7 @@
       "performance": {
         "title": "同期パフォーマンス",
         "operations": "操作回数",
-        "successRate": "",
+        "successRate": "成功率",
         "avgDuration": "Avg Duration",
         "viewReport": "表示报告",
         "export": "エクスポートData",
@@ -15256,7 +15256,7 @@
     "search": "...",
     "tabs": {
       "basic": "基本設定",
-      "presets": "",
+      "presets": "预设管理",
       "schedule": "Schedule",
       "sync": "クラウド同期",
       "advanced": "オプション"
@@ -15274,7 +15274,7 @@
       "add": "追加计划",
       "label": "ラベル",
       "time": "時間",
-      "mode": "",
+      "mode": "模式",
       "days": "重复日付",
       "nextSwitch": "下回切替"
     },
@@ -15282,7 +15282,7 @@
       "title": "クラウド同期",
       "syncing": "...",
       "lastSynced": "上回同步",
-      "notSynced": "",
+      "notSynced": "尚未同步",
       "upload": "アップロードまで",
       "download": "からダウンロード",
       "syncSuccess": "同期成功"
@@ -15299,7 +15299,7 @@
       "announceChanges": "テーマ",
       "keyboardNav": "Key",
       "voiceControl": "音声控制",
-      "focusIndicator": "",
+      "focusIndicator": "焦点指示器",
       "focusDefault": "デフォルト",
       "focusHighContrast": "へ",
       "focusLarge": "Size",
@@ -15351,7 +15351,7 @@
     "executeAction": "执行アクション",
     "status": "ステータス",
     "tool": "ツール",
-    "result": "",
+    "result": "结果",
     "step": "ステップ",
     "componentGenerator": {
       "title": "タイトル",
@@ -15368,7 +15368,7 @@
       "generateFailed": "generate",
       "tabs": {
         "template": "テンプレート",
-        "script": "",
+        "script": "脚本",
         "style": "スタイル",
         "documentation": "ドキュメント"
       }
@@ -15377,7 +15377,7 @@
       "title": "タイトル",
       "agentStatus": "エージェントステータス",
       "taskPlanning": "タスク",
-      "strategicLayer": "",
+      "strategicLayer": "策略层",
       "tacticalLayer": "Tactical",
       "operationalLayer": "Operational",
       "reflectionResults": "ReflectionResults",
@@ -15397,7 +15397,7 @@
       "running": "実行中",
       "completed": "完了",
       "failed": "失敗",
-      "idle": "",
+      "idle": "空闲",
       "thinking": "Thinking",
       "acting": "Acting",
       "reflecting": "Reflecting"
@@ -15420,11 +15420,11 @@
     "pleaseLogin": "ログイン",
     "pleaseInput": "してくださいクリック",
     "allInOneExpert": "エキスパート",
-    "pan": "",
+    "pan": "平移",
     "streamComplete": "ストリームレスポンス",
     "chatTitle": "チャット {id}",
     "unlogged": "ログイン",
-    "unauthorized": ""
+    "unauthorized": "未授权"
   },
   "resourceLibrary": {
     "title": "Resource",
@@ -15463,9 +15463,9 @@
     "guideItem4": "コピー、ダウンロード、",
     "tishiTitle": "ヒント",
     "welcome": "ようこそせるN8N",
-    "generated": "",
+    "generated": "已生成",
     "tokensConsumed": "Counttoken",
-    "thinkingTitle": "",
+    "thinkingTitle": "思考中",
     "thinkingTip": "ai...",
     "placeholder": "してくださいのQuestion...",
     "send": "送信",
@@ -15522,7 +15522,7 @@
   },
   "chatMode": {
     "agentMode": "エージェント",
-    "normalMode": "",
+    "normalMode": "常规模式",
     "enterAgentMode": "EnterAgent",
     "exitAgentMode": "ExitAgent"
   },
@@ -15531,7 +15531,7 @@
     "subtitle": "のネットワーク，",
     "benefits": {
       "market": {
-        "title": "",
+        "title": "广阔市场",
         "description": "のプラットフォーム，エンタープライズユーザー"
       },
       "support": {
@@ -15608,7 +15608,7 @@
     "heroMission": "させるエンタープライズすべてai，させるすべてられる。",
     "stats": {
       "users": "ユーザー",
-      "developers": "",
+      "developers": "开发者",
       "models": "ai モデル"
     },
     "companyIntro": {
@@ -15625,7 +15625,7 @@
         "description": "ai と，のソリューションとベストプラクティス"
       },
       "efficient": {
-        "title": "",
+        "title": "高效",
         "description": "エンドポイントとストリーム，からまでの"
       },
       "reliable": {
@@ -15693,7 +15693,7 @@
     },
     "teamMembers": {
       "founder": {
-        "name": "",
+        "name": "李总",
         "role": "CTOCEO",
         "description": "ai とシステムエキスパート，と，とプラットフォーム"
       }
@@ -15727,10 +15727,10 @@
     "description": "説明",
     "use": "Use",
     "platform": "プラットフォーム",
-    "performance": "",
-    "capability": "",
+    "performance": "表现",
+    "capability": "能力",
     "callCount": "コール计数",
-    "successCount": "",
+    "successCount": "成功计数",
     "avgLatency": "Avg",
     "templates": "Templates",
     "selectTemplate": "テンプレート",
@@ -15786,7 +15786,7 @@
     "project": {
       "main": "aiプラットフォーム",
       "open": "プラットフォーム",
-      "admin": "",
+      "admin": "总管理端",
       "eduWeb": "aiプラットフォーム",
       "eduAdmin": "コンソール",
       "user": "ユーザー"
@@ -15894,23 +15894,23 @@
     "hasAccount": "Has Account"
   },
   "designer": {
-    "mode": "",
+    "mode": "模式",
     "labels": {
-      "strategy": "",
+      "strategy": "设计策略",
       "audit": "设计審査",
-      "blueprint": "",
+      "blueprint": "设计蓝图",
       "code": "コード"
     },
     "model": "モデル",
     "selectModel": "モデル",
-    "input": "",
+    "input": "输入",
     "placeholder": "してくださいの...",
     "actions": {
       "generate": "生成",
       "reset": "リセット"
     },
     "tabs": {
-      "output": "",
+      "output": "输出",
       "vue": "Vue",
       "react": "React",
       "html": "HTML"
@@ -15928,9 +15928,9 @@
       "generateFailed": "Generation failed"
     },
     "expect": {
-      "strategy": "",
+      "strategy": "设计策略",
       "audit": "设计審査",
-      "blueprint": "",
+      "blueprint": "设计蓝图",
       "code": "コード"
     }
   },
@@ -15975,7 +15975,7 @@
   },
   "apiService": {
     "usage": {
-      "successRate": "",
+      "successRate": "成功率",
       "requests": "リクエスト",
       "cost": "費用",
       "topGroups": "TOPグループ",
@@ -15986,16 +15986,16 @@
       "apiPath": "APIパス",
       "errorRate": "エラー",
       "avgLatency": "Avg",
-      "maxLatency": "",
+      "maxLatency": "最大延迟",
       "appName": "アプリ",
       "topStatsNotAvailable": "Top Stats Not Available"
     },
     "logs": {
       "time": "時間",
       "model": "モデル",
-      "endpoint": "",
+      "endpoint": "端点",
       "tokens": "Token",
-      "latency": "",
+      "latency": "延迟",
       "cost": "費用",
       "status": "ステータス",
       "ip": "IPアドレス",
@@ -16004,8 +16004,8 @@
       "method": "メソッド",
       "protocol": "利用規約",
       "app": "アプリ",
-      "input": "",
-      "output": "",
+      "input": "输入",
+      "output": "输出",
       "userAgent": "UserAgent",
       "statusCode": "ステータスCode",
       "errorMessage": "エラーMessage",
@@ -16028,7 +16028,7 @@
     },
     "home": {
       "advantages": {
-        "title": "",
+        "title": "核心优势",
         "subtitle": "ですのAPIサービス",
         "noProxy": "None需科学上网",
         "noProxyDesc": "，，",
@@ -16040,7 +16040,7 @@
         "fastConnectionDesc": "のネットワーク，レスポンス",
         "lowLatency": "低遅延・高同時接続",
         "lowLatencyDesc": "リクエスト，まで100ms",
-        "payAsYouGo": "",
+        "payAsYouGo": "按量计费更经济",
         "payAsYouGoDesc": "せる，"
       },
       "quickStart": {
@@ -16111,7 +16111,7 @@
       "addHeader": "Header",
       "body": "リクエスト",
       "bodyPlaceholder": "してくださいJSONのリクエスト",
-      "format": "",
+      "format": "格式化",
       "responseTime": "レスポンス",
       "responseBody": "ResponseBody",
       "responseHeaders": "ResponseHeaders"
@@ -16131,8 +16131,8 @@
       },
       "features": {
         "models": "モデル",
-        "concurrent": "",
-        "rateLimit": ""
+        "concurrent": "并发限制",
+        "rateLimit": "速率限制"
       },
       "appCount": "App",
       "createdAt": "CreatedAt",
@@ -16157,7 +16157,7 @@
       "status": {
         "pending": "Process",
         "processing": "Process",
-        "resolved": "",
+        "resolved": "已解决",
         "closed": "クローズ済み"
       },
       "priority": {
@@ -16180,9 +16180,9 @@
       "app": "アプリ",
       "apiKey": "ApiKey",
       "tokens": "Tokens",
-      "input": "",
-      "output": "",
-      "latency": "",
+      "input": "输入",
+      "output": "输出",
+      "latency": "延迟",
       "requestTime": "リクエスト",
       "exportSuccess": "エクスポートしました",
       "exportFailed": "エクスポート",
@@ -16195,8 +16195,8 @@
   },
   "apiDocs": {
     "nav": {
-      "overview": "",
-      "authentication": "",
+      "overview": "概述",
+      "authentication": "身份认证",
       "endpoints": "API",
       "models": "モデル",
       "chatCompletions": "聊日补全",
@@ -16211,13 +16211,13 @@
     "processing": "Process",
     "pending": "Process",
     "failed": "失敗",
-    "idle": "",
+    "idle": "空闲",
     "processingLabel": "Process",
-    "pendingLabel": "",
+    "pendingLabel": "等待中",
     "completedLabel": "完了",
     "failedLabel": "失敗",
     "processingTasks": "Process",
-    "pendingTasks": "",
+    "pendingTasks": "等待中",
     "empty": "です",
     "moreTasks": "まだあり Countタスク",
     "clearTitle": "クリア",
@@ -16244,12 +16244,12 @@
         "description": "オフラインコース、アクティビティと，リンクの",
         "features": {
           "courses": "システムコース",
-          "exploration": "",
-          "mutualAid": ""
+          "exploration": "实践探索",
+          "mutualAid": "社群互助"
         }
       },
       "onlineCommunity": {
-        "title": "",
+        "title": "线上社群",
         "description": "のオンラインストリームプラットフォーム，Infoと",
         "features": {
           "platform": "ストリームプラットフォーム",
@@ -16274,7 +16274,7 @@
       "title": "エンタープライズaiサービスパスと",
       "description": "からまでInfo，のエンタープライズ",
       "physicalWorld": {
-        "title": "",
+        "title": "物理世界",
         "structure": {
           "title": "組織構造",
           "description": "ヘルプエンタープライズ，"
@@ -16294,7 +16294,7 @@
           "label": "Info",
           "items": {
             "informatization": "Info",
-            "iot": "",
+            "iot": "物联网",
             "automation": "から"
           }
         },
@@ -16310,12 +16310,12 @@
       },
       "aiEffect": {
         "title": "ai",
-        "superEmployee": "",
+        "superEmployee": "超级员工",
         "superTeam": "チーム",
         "superProduct": "/サービス",
         "metrics": {
           "cost": "成本最適化",
-          "efficiency": "",
+          "efficiency": "效率提升",
           "experience": "体验アップグレード"
         }
       }
@@ -16335,7 +16335,7 @@
       },
       "quadrants": {
         "simple": {
-          "title": "",
+          "title": "高效助手",
           "description": "シンプル + シンプル，Deploymentアプリ",
           "examples": {
             "qa": "Q&A",
@@ -16343,7 +16343,7 @@
           }
         },
         "decision": {
-          "title": "",
+          "title": "智慧顾问",
           "description": "+ シンプル，と",
           "examples": {
             "analysis": "Data",
@@ -16400,7 +16400,7 @@
           "cultureManagement": "エンタープライズ",
           "missionVision": "せる、と",
           "easternPhilosophy": "中国伝統哲学シリーズ",
-          "westernPhilosophy": ""
+          "westernPhilosophy": "西方哲学系列"
         },
         "description": "description"
       }
@@ -16418,19 +16418,19 @@
       "industry": {
         "title": "エージェント",
         "manufacturing": "製造業",
-        "education": "",
+        "education": "教育行业",
         "healthcare": "医療健康",
         "government": "サービス"
       },
       "function": {
         "title": "エージェント",
         "sales": "マーケティングカスタマーサポート",
-        "production": "",
+        "production": "生产制造",
         "rd": "研发イノベーション",
         "office": "オフィス連携"
       },
       "partners": {
-        "title": ""
+        "title": "生态合作伙伴"
       }
     },
     "join": {
@@ -16438,7 +16438,7 @@
       "description": "とのエンタープライズ，aiの",
       "originalPrice": "定価",
       "earlyBird": "早鸟割引",
-      "currentPrice": "",
+      "currentPrice": "现价",
       "perYear": "/ year",
       "seatsNote": "18",
       "benefits": {
@@ -16446,7 +16446,7 @@
         "allCourses": "ありコース",
         "exploration": "アクティビティと",
         "mutualAid": "社群互助None限回",
-        "onlineCommunity": "",
+        "onlineCommunity": "线上社群专属入口",
         "aiAssistant": "ai",
         "refund": "不满意全额返金"
       },
@@ -16495,7 +16495,7 @@
     "overview": {
       "title": "エージェント",
       "description": "エージェントですヘルプエンタープライズとaiエージェントアプリの。タスクとから，エージェントアプリです，ヘルプエンタープライズからのパス。",
-      "keyPoint": "",
+      "keyPoint": "核心洞察",
       "keyPointText": "のエージェントへ、Deploymentとの。エンタープライズから（シンプル+シンプル），へその。"
     },
     "axes": {
@@ -16511,7 +16511,7 @@
       }
     },
     "characteristics": {
-      "title": ""
+      "title": "特征"
     },
     "examples": {
       "title": "アプリ"
@@ -16546,9 +16546,9 @@
         "fullDescription": "エージェントの，ですから、しかしタスク。ユーザーのですQuestion，エージェントと，しかしのへシンプル（または）。",
         "chars": {
           "openEnded": "Question",
-          "reasoning": "",
+          "reasoning": "深度推理",
           "output": "シンプル",
-          "prediction": ""
+          "prediction": "预测分析"
         },
         "examples": {
           "analysis": {
@@ -16566,7 +16566,7 @@
         "title": "エキスパート - エージェント",
         "fullDescription": "エージェントの，ですから、しかしタスク。ユーザー，しかしタスクシステム、API、のストリーム。",
         "chars": {
-          "clearIntent": "",
+          "clearIntent": "意图明确",
           "multiStep": "ステップストリーム",
           "multiAPI": "API",
           "crossSystem": "システム"
@@ -16615,7 +16615,7 @@
           "desc": "ストリーム，のaiアプリ，カテゴリー"
         },
         "evaluate": {
-          "title": "",
+          "title": "评估能力",
           "desc": "エンタープライズの、Dataと"
         },
         "pilot": {
@@ -16623,7 +16623,7 @@
           "desc": "1-2シンプル，"
         },
         "scale": {
-          "title": "",
+          "title": "规模扩展",
           "desc": "，までもっととの"
         }
       }
@@ -16632,7 +16632,7 @@
       "title": "のaiエージェント",
       "description": "ai，とプロエンタープライズのエージェントパス",
       "learnMore": "エンタープライズサービス",
-      "contact": ""
+      "contact": "联系顾问"
     },
     "footer": {
       "enterprise": "エンタープライズサービス",
@@ -16645,7 +16645,7 @@
     "heroSubtitle": "からまでInfo，のエンタープライズ。ヘルプエンタープライズaiの、ストリームと。",
     "architecture": {
       "physicalWorld": {
-        "title": "",
+        "title": "物理世界",
         "description": "、ストリーム、"
       },
       "infoWorld": {
@@ -16664,7 +16664,7 @@
         "title": "組織構造",
         "description": "エンタープライズ，とaiの",
         "features": {
-          "mapping": "",
+          "mapping": "岗位能力映射",
           "digital": "数値员工定位",
           "hybrid": "チーム"
         }
@@ -16690,15 +16690,15 @@
         "values": {
           "culture": "エンタープライズ",
           "mission": "せる",
-          "critical": "",
-          "humility": ""
+          "critical": "批判性思维",
+          "humility": "谦卑态度"
         }
       }
     },
     "infoWorld": {
       "title": "エンタープライズInfo",
       "intro": "エンタープライズからInfoまでai，の。",
-      "evolution": "",
+      "evolution": "能力演进",
       "basic": {
         "title": "Info",
         "description": "，ストリームのInfoとから",
@@ -16708,7 +16708,7 @@
             "desc": "Dataのストレージと"
           },
           "iot": {
-            "name": "",
+            "name": "物联网",
             "desc": "とのConnect"
           },
           "automation": {
@@ -16748,7 +16748,7 @@
         "description": "aiの，すべての",
         "features": {
           "productivity": "10",
-          "decision": "",
+          "decision": "智能决策",
           "creativity": "アイデア強化"
         }
       },
@@ -16757,7 +16757,7 @@
         "description": "チームのとの",
         "features": {
           "collaboration": "None缝协作",
-          "intelligence": "",
+          "intelligence": "集体智慧",
           "agility": "組織敏捷"
         }
       },
@@ -16771,10 +16771,10 @@
         }
       },
       "metrics": {
-        "title": "",
+        "title": "效果衡量维度",
         "cost": "成本最適化",
         "costDesc": "，Resource",
-        "efficiency": "",
+        "efficiency": "效率提升",
         "efficiencyDesc": "ストリーム，",
         "experience": "体验アップグレード",
         "experienceDesc": "と"
@@ -16785,11 +16785,11 @@
       "intro": "からまで，ヘルプエンタープライズai",
       "steps": {
         "assessment": {
-          "title": "",
+          "title": "现状评估",
           "desc": "エンタープライズの、aiアプリと"
         },
         "planning": {
-          "title": "",
+          "title": "战略规划",
           "desc": "ai，、とResource"
         },
         "pilot": {
@@ -16810,7 +16810,7 @@
       "title": "のエンタープライズ",
       "description": "ai，とプロエンタープライズのai",
       "learnMore": "エンタープライズサービス",
-      "contact": ""
+      "contact": "联系顾问"
     },
     "footer": {
       "enterprise": "エンタープライズサービス",
@@ -16865,7 +16865,7 @@
     "type": "タイプ",
     "currentStep": "ステップ",
     "performanceMetrics": "Metrics",
-    "successRate": "",
+    "successRate": "成功速率",
     "averageExecutionTime": "平均值执行時間",
     "averageTokens": "Tokens",
     "totalSteps": "Steps",
@@ -16900,7 +16900,7 @@
       "chat": "チャット",
       "drama": "Drama",
       "editor": "Editor",
-      "input": ""
+      "input": "输入"
     }
   },
   "apiMethodSearch": {
@@ -16954,7 +16954,7 @@
       "connectedServers": "ConnectServers",
       "agents": "Agents",
       "totalToolCalls": "ツールCalls",
-      "successRate": "",
+      "successRate": "成功速率",
       "servers": "Servers",
       "serverUrl": "サービスUrl",
       "timeout": "Timeout",
@@ -16968,7 +16968,7 @@
       "model": "モデル",
       "tools": "Tools",
       "autoSelect": "から",
-      "run": "",
+      "run": "运行",
       "tasks": "タスク",
       "taskExecution": "タスク",
       "selectAgent": "Agent",
@@ -16978,8 +16978,8 @@
       "context": "コンテキスト",
       "contextPlaceholder": "contextしてください",
       "contextTip": "contextヒント",
-      "execute": "",
-      "result": "",
+      "execute": "执行",
+      "result": "结果",
       "executionSuccess": "execution",
       "toolCalls": "ツールCalls",
       "executionFailed": "execution",
@@ -16994,7 +16994,7 @@
       "agentNamePlaceholder": "agentNameしてください",
       "descriptionPlaceholder": "してください",
       "modelPlaceholder": "モデルしてください",
-      "temperature": "",
+      "temperature": "温度",
       "toolsPlaceholder": "toolsしてください",
       "toolsTip": "toolsヒント",
       "serverIdRequired": "serverId",
@@ -17112,7 +17112,7 @@
     "commission": "コミッション",
     "buyer": "Buyer",
     "orderTime": "顺序時間",
-    "relatedOrder": "",
+    "relatedOrder": "相关顺序",
     "copy": "コピー",
     "noCommission": "Commission",
     "withdrawSuccess": "出金成功",
@@ -17198,13 +17198,13 @@
       "recording": {
         "animation": {
           "智汇AI": "ai",
-          "提供": "",
+          "提供": "提供",
           "服务": "サービス",
           "点击": "クリック",
-          "麦克风": "",
+          "麦克风": "麦克风",
           "图标": "アイコン",
           "完成": "完了",
-          "录音": ""
+          "录音": "录音"
         }
       }
     },
@@ -17257,7 +17257,7 @@
     "cross": {
       "project": {
         "banner": {
-          "总管理端": ""
+          "总管理端": "总管理端"
         }
       }
     },
@@ -17300,15 +17300,15 @@
       "scenario": {
         "应用象限": "アプリ",
         "企业已部署Q1": "エンタープライズDeploymentQ1",
-        "效率提升": ""
+        "效率提升": "效率提升"
       }
     },
     "human": {
       "machine": {
         "collaboration": {
-          "成本降低": "",
-          "效率提升": "",
-          "满意度": ""
+          "成本降低": "成本降低",
+          "效率提升": "效率提升",
+          "满意度": "满意度"
         }
       }
     },
@@ -17317,7 +17317,7 @@
     },
     "a_i_chat": {
       "voiceAud": "メッセージ...",
-      "isAudioP1": "",
+      "isAudioP1": "播放",
       "删除2": "削除"
     },
     "prompt_templates": {
@@ -17347,7 +17347,7 @@
     "edu_documentation": {
       "返回顶部1": "トップへ",
       "返回": "戻る",
-      "目录": "",
+      "目录": "目录",
       "目录导航": "目录ナビゲーション",
       "正在加载文档": "ドキュメント",
       "重新加载": "重新読み込み",
@@ -17490,13 +17490,13 @@
     "a_i_chat": {
       "视频": "動画",
       "图片1": "画像",
-      "识别2": "",
+      "识别2": "识别",
       "语音3": "音声",
-      "音乐4": ""
+      "音乐4": "音乐"
     },
     "prompt_templates": {
-      "通用": "",
-      "语言1": "",
+      "通用": "通用",
+      "语言1": "语言",
       "代码2": "コード",
       "写作3": "ライティング",
       "创意4": "アイデア",
@@ -17507,7 +17507,7 @@
       "klimg系列1": "klimg"
     },
     "project_selector_demo": {
-      "总管理端": "",
+      "总管理端": "总管理端",
       "智汇AI教育平台1": "aiプラットフォーム",
       "教育管理后台2": "コンソール"
     },
@@ -17544,7 +17544,7 @@
       "永久历史记录": "永久履歴",
       "优先体验新功能16": "优先体验新機能",
       "专属技术顾问": "専任テクニカルアドバイザー",
-      "定制化开发": "",
+      "定制化开发": "定制化开发",
       "高级数据导出": "データエクスポート",
       "一对一技术支持17": "へ",
       "专属培训课程": "コース",
@@ -17572,10 +17572,10 @@
     "index": {
       "默认": "デフォルト",
       "默认1": "デフォルト",
-      "微软雅黑2": "",
-      "宋体3": "",
-      "黑体4": "",
-      "楷体5": ""
+      "微软雅黑2": "微软雅黑",
+      "宋体3": "宋体",
+      "黑体4": "黑体",
+      "楷体5": "楷体"
     },
     "universal_third_party_auth": {
       "Google登录": "Googleログインログイン",
@@ -17586,9 +17586,9 @@
       "使用飞书账号登录5": "せるFeishuアカウントログイン"
     },
     "about": {
-      "张明远": "",
-      "李思涵1": "",
-      "王晓峰2": ""
+      "张明远": "张明远",
+      "李思涵1": "李思涵",
+      "王晓峰2": "王晓峰"
     },
     "agents_create": {
       "AI助手": "ai"
@@ -17608,35 +17608,35 @@
       "企业服务4": "エンタープライズサービス",
       "在地社群5": "ローカルコミュニティ",
       "线下课程探索活动6": "オフラインコース、アクティビティと",
-      "线上社群7": "",
+      "线上社群7": "线上社群",
       "便捷的在线交流平8": "のオンラインストリームプラットフォーム",
       "AI专业服务9": "aiプロサービス",
       "专业大模型与智能10": "プロモデルとエージェントサービス",
       "首页11": "ホーム",
-      "定位12": "",
+      "定位12": "定位",
       "服务13": "サービス",
-      "架构14": "",
-      "罗盘15": "",
+      "架构14": "架构",
+      "罗盘15": "罗盘",
       "课程16": "コース",
       "工具17": "ツール",
       "加入18": "参加",
       "AI工具课程19": "aiツールコース",
       "思维类课程20": "コース",
       "文化类课程21": "コース",
-      "火山引擎22": "",
-      "阿里云23": "",
-      "腾讯云24": "",
+      "火山引擎22": "火山引擎",
+      "阿里云23": "阿里云",
+      "腾讯云24": "腾讯云",
       "九章智算云25": "9章智算云",
-      "致远互联26": "",
-      "百度智能云27": "",
+      "致远互联26": "致远互联",
+      "百度智能云27": "百度智能云",
       "华为云28": "です",
       "httpswei29": "https://weixin.qq.com/ai",
       "企业服务30": "エンタープライズサービス"
     },
     "learn_a_i": {
-      "教学教研中台": "",
+      "教学教研中台": "教学教研中台",
       "互动社交中台1": "交流社交中台",
-      "经营增长中台2": "",
+      "经营增长中台2": "经营增长中台",
       "支撑数据中台3": "Data",
       "标准版4": "スタンダード版",
       "专业版5": "プロ",
@@ -17670,11 +17670,11 @@
       "专业知识博主33": "プロ",
       "职业资格认证34": "職業资格认证",
       "LangChai35": "LangChain",
-      "阿里云36": "",
+      "阿里云36": "阿里云",
       "AI助教37": "ai",
       "AI知识库38": "ai",
       "AI写作39": "ai ライティング",
-      "智能组卷40": ""
+      "智能组卷40": "智能组卷"
     },
     "open_platform": {
       "系统吞吐量REQ": "システム (REQS)",
@@ -17682,11 +17682,11 @@
       "平均可用性SLA2": "(SLA)",
       "边缘接入延迟LA3": "(LAT)",
       "AI核心生产力4": "ai",
-      "研报分析5": "",
+      "研报分析5": "研报分析",
       "图文建模6": "テキスト画像モデリング",
       "文书比对7": "へ",
       "phrase2": "Agentic",
-      "phrase3": "",
+      "phrase3": "工业级智能化",
       "phrase4": "モーダルProcess",
       "pricingFeaturesTitle": "機能詳細",
       "planFreeFeature1": "， API",
@@ -17712,7 +17712,7 @@
       "planEnterpriseFeature5": "とTraining support",
       "planEnterpriseFeature6": "とセキュリティ",
       "planPriceStandard": "¥9,999 year",
-      "planPriceEnterprise": "",
+      "planPriceEnterprise": "联系报价",
       "advantagesTitle": "と",
       "advantagesSubtitle": "· ·",
       "advantagesIntro": "プラットフォームです、の ai ，、Java/FastAPI と UniApp アプリ，エンタープライズとありDeployment。",
@@ -17726,7 +17726,7 @@
       "advantagesModulesItem2": "と API ：Swarm 、ドキュメント、モーダル、、ストリーム（n8n/Dify）、",
       "advantagesModulesItem3": "エージェントと：Agent 、MCP 、 SDK（Python/Node/Go/Rust/Java）、と",
       "advantagesModulesItem4": "とユーザー：VIPアドレス/、い（WeChat/Alipay）、サードパーティログイン、デバイスと",
-      "advantagesHighlightsTitle": "",
+      "advantagesHighlightsTitle": "核心优势",
       "advantagesHighlight1": "：PC + WeChat/Alipayミニプログラム + H5 + APP + Electron， Web と",
       "advantagesHighlight2": "：Java 、Python ai，、とDeployment",
       "advantagesHighlight3": "：と API ，と",
@@ -17755,7 +17755,7 @@
       "社交媒体文案6": "ソーシャルメディア",
       "爆款标题生成7": "タイトル",
       "头脑风暴8": "ブレインストーミング",
-      "深度逻辑分析9": ""
+      "深度逻辑分析9": "深度逻辑分析"
     },
     "home_page3": {
       "Meta以20亿": "Meta20ai AgentManus",
@@ -17777,7 +17777,7 @@
       "智汇AI获得A轮16": "aiA，と"
     },
     "apple_login": {
-      "正在跳转": "",
+      "正在跳转": "正在跳转",
       "登录成功1": "ログイン",
       "登录失败2": "Login Failed",
       "登录失败3": "Login Failed",
@@ -17787,7 +17787,7 @@
       "正在验证": "正在認証",
       "登录成功1": "ログイン",
       "登录失败2": "Login Failed",
-      "正在跳转3": "",
+      "正在跳转3": "正在跳转",
       "登录成功4": "ログイン",
       "登录失败5": "Login Failed",
       "登录失败6": "Login Failed",
@@ -17825,15 +17825,15 @@
       "用户中心18": "ユーザーセンター",
       "系统设置19": "システム",
       "搜索服务20": "サービス",
-      "访问追踪21": "",
+      "访问追踪21": "访问追踪",
       "AI智能助手22": "ai",
-      "知识图谱23": "",
+      "知识图谱23": "知识图谱",
       "AI内容生成24": "ai",
-      "智能分析25": "",
+      "智能分析25": "智能分析",
       "语音交互26": "音声交互",
       "AI视觉27": "ai",
       "高新技术企业28": "エンタープライズ",
-      "软件著作权29": "",
+      "软件著作权29": "软件著作权",
       "信息安全等保30": "Infoセキュリティ",
       "ISO认证31": "ISO",
       "724小时响应32": "7×24 レスポンス",
@@ -17841,7 +17841,7 @@
       "完整技术文档34": "ドキュメント",
       "999可用性35": "99.9%",
       "AI平台白皮书36": "ai プラットフォーム",
-      "客户案例集37": "",
+      "客户案例集37": "客户案例集",
       "技术架构文档38": "ドキュメント",
       "产品演示视频39": "デモ",
       "AI智能教学平台40": "ai プラットフォーム",
@@ -17852,16 +17852,16 @@
       "身份认证安全45": "セキュリティ",
       "接口访问控制46": "エンドポイント",
       "日志审计追踪47": "ログ",
-      "防攻击防护48": "",
+      "防攻击防护48": "防攻击防护",
       "数据备份恢复49": "Data"
     },
     "open_platform": {
       "安全准入": "セキュリティ",
-      "集群分发1": "",
-      "深度协作2": "",
-      "质量回溯3": "",
-      "智能金融风控10": "",
-      "电商全链路闭环11": "",
+      "集群分发1": "集群分发",
+      "深度协作2": "深度协作",
+      "质量回溯3": "质量回溯",
+      "智能金融风控10": "智能金融风控",
+      "电商全链路闭环11": "电商全链路闭环",
       "法律文档审计12": "ドキュメント",
       "数据看板13": "Data",
       "SDK集成14": "SDK",
@@ -17872,7 +17872,7 @@
       "文件管理22": "ファイル",
       "权限管理23": "権限管理",
       "审计日志24": "ログ",
-      "管理控制台19": "",
+      "管理控制台19": "管理控制台",
       "工作流商店20": "ストリーム",
       "GitHub仓库21": "GitHub"
     },
@@ -17917,7 +17917,7 @@
       "扣子图标": "アイコン",
       "百宝箱logo1": "logo",
       "品牌图标2": "アイコン",
-      "智谱清言3": "",
+      "智谱清言3": "智谱清言",
       "品牌84": "8"
     },
     "api_test_page": {
@@ -17940,16 +17940,16 @@
       "操作成功": "操作が成功しました",
       "调用成功1": "コール成功",
       "调用成功2": "コール成功",
-      "获取成功3": "",
-      "获取成功4": "",
-      "获取成功5": "",
-      "获取成功6": "",
-      "获取成功7": "",
+      "获取成功3": "获取成功",
+      "获取成功4": "获取成功",
+      "获取成功5": "获取成功",
+      "获取成功6": "获取成功",
+      "获取成功7": "获取成功",
       "智能体不存在8": "エージェント",
       "收藏成功11": "おにり",
       "取消收藏成功12": "キャンセルおにり",
-      "获取成功13": "",
-      "获取成功14": "",
+      "获取成功13": "获取成功",
+      "获取成功14": "获取成功",
       "同步成功15": "同期成功",
       "同步成功16": "同期成功",
       "同步成功17": "同期成功",
@@ -17962,28 +17962,28 @@
       "操作成功24": "操作が成功しました",
       "操作成功25": "操作が成功しました",
       "操作成功26": "操作が成功しました",
-      "获取成功27": "",
-      "获取成功28": "",
+      "获取成功27": "获取成功",
+      "获取成功28": "获取成功",
       "搜索失败": "検索失敗",
       "获取列表失败": "リスト",
       "调用失败": "コール失敗"
     },
     "api_service": {
-      "获取成功": "",
-      "获取成功1": "",
+      "获取成功": "获取成功",
+      "获取成功1": "获取成功",
       "创建成功2": "しました",
       "更新成功3": "しいしい",
       "删除成功4": "しました",
-      "重新生成成功5": "",
-      "获取成功6": "",
-      "获取成功7": "",
-      "获取成功8": "",
-      "获取成功9": "",
-      "获取成功10": "",
-      "获取成功11": "",
+      "重新生成成功5": "重新生成成功",
+      "获取成功6": "获取成功",
+      "获取成功7": "获取成功",
+      "获取成功8": "获取成功",
+      "获取成功9": "获取成功",
+      "获取成功10": "获取成功",
+      "获取成功11": "获取成功",
       "使用默认配置12": "せるデフォルト",
-      "获取成功13": "",
-      "获取成功14": "",
+      "获取成功13": "获取成功",
+      "获取成功14": "获取成功",
       "获取令牌列表失败": "APIリスト",
       "获取令牌详情失败": "API",
       "创建令牌失败": "API",
@@ -18012,22 +18012,22 @@
       "获取模型列表失败": "モデルリスト"
     },
     "apis": {
-      "获取成功": "",
-      "获取成功1": "",
+      "获取成功": "获取成功",
+      "获取成功1": "获取成功",
       "创建成功2": "しました",
       "更新成功3": "しいしい",
       "删除成功4": "しました",
       "测试成功5": "Test",
-      "获取成功6": "",
-      "生成成功7": "",
+      "获取成功6": "获取成功",
+      "生成成功7": "生成成功",
       "导出成功8": "エクスポートしました",
-      "获取成功9": "",
+      "获取成功9": "获取成功",
       "创建成功10": "しました",
       "切换成功11": "切替成功",
-      "获取成功12": "",
+      "获取成功12": "获取成功",
       "保存成功13": "保存しました",
       "删除成功14": "しました",
-      "获取成功15": ""
+      "获取成功15": "获取成功"
     },
     "batch_operations": {
       "批量创建成功": "バッチ",
@@ -18043,39 +18043,39 @@
     },
     "community": {
       "演示数据": "デモデータ",
-      "获取成功1": "",
+      "获取成功1": "获取成功",
       "发布成功2": "公開成功",
       "批量发布成功3": "バッチ",
-      "获取成功4": "",
+      "获取成功4": "获取成功",
       "点赞成功5": "いいね",
       "取消点赞成功6": "キャンセルいいね",
       "收藏成功7": "おにり",
       "取消收藏成功8": "キャンセルおにり",
-      "获取成功9": "",
+      "获取成功9": "获取成功",
       "评论成功10": "コメント",
       "演示数据11": "デモデータ",
-      "获取成功12": "",
-      "获取成功13": "",
-      "获取成功14": ""
+      "获取成功12": "获取成功",
+      "获取成功13": "获取成功",
+      "获取成功14": "获取成功"
     },
     "content_generation": {
-      "生成成功": "",
+      "生成成功": "生成成功",
       "批量生成成功1": "バッチ",
-      "生成成功2": "",
-      "生成成功3": "",
-      "获取成功4": ""
+      "生成成功2": "生成成功",
+      "生成成功3": "生成成功",
+      "获取成功4": "获取成功"
     },
     "courses": {
       "演示数据": "デモデータ",
-      "获取成功1": "",
-      "获取成功2": "",
+      "获取成功1": "获取成功",
+      "获取成功2": "获取成功",
       "演示数据3": "デモデータ",
-      "获取成功4": "",
-      "获取成功5": "",
+      "获取成功4": "获取成功",
+      "获取成功5": "获取成功",
       "报名成功6": "申込完了",
-      "获取成功7": "",
+      "获取成功7": "获取成功",
       "完成成功8": "完了成功",
-      "获取成功9": "",
+      "获取成功9": "获取成功",
       "更新成功10": "しいしい",
       "导出成功11": "エクスポートしました",
       "删除成功12": "しました"
@@ -18087,15 +18087,15 @@
       "任务创建成功": "タスク"
     },
     "gateway": {
-      "获取成功": "",
+      "获取成功": "获取成功",
       "创建成功1": "しました",
       "更新成功2": "しいしい",
       "删除成功3": "しました",
-      "获取成功4": "",
+      "获取成功4": "获取成功",
       "创建成功5": "しました",
       "更新成功6": "しいしい",
       "删除成功7": "しました",
-      "获取成功8": "",
+      "获取成功8": "获取成功",
       "测试成功9": "Test"
     },
     "knowledge": {
@@ -18106,23 +18106,23 @@
     },
     "mcp": {
       "演示数据": "デモデータ",
-      "获取成功1": "",
-      "获取成功2": "",
+      "获取成功1": "获取成功",
+      "获取成功2": "获取成功",
       "创建成功3": "しました",
       "更新成功4": "しいしい",
       "删除成功5": "しました",
       "测试成功6": "Test",
       "未知错误7": "エラー",
-      "获取成功8": "",
+      "获取成功8": "获取成功",
       "调用成功9": "コール成功",
-      "获取成功10": "",
+      "获取成功10": "获取成功",
       "调用成功11": "コール成功"
     },
     "models": {
       "演示数据": "デモデータ",
-      "获取成功1": "",
+      "获取成功1": "获取成功",
       "暂无可用模型2": "なしモデル",
-      "获取成功3": "",
+      "获取成功3": "获取成功",
       "创建成功4": "しました",
       "更新成功5": "しいしい",
       "删除成功6": "しました",
@@ -18130,13 +18130,13 @@
       "测试成功8": "Test",
       "未知错误9": "エラー",
       "调用成功10": "コール成功",
-      "获取成功12": "",
-      "获取成功13": "",
-      "获取成功14": "",
+      "获取成功12": "获取成功",
+      "获取成功13": "获取成功",
+      "获取成功14": "获取成功",
       "暂无可用模型15": "なしモデル",
       "暂无可用模型16": "なしモデル",
       "暂无可用模型17": "なしモデル",
-      "获取成功18": "",
+      "获取成功18": "获取成功",
       "暂无可用模型19": "なしモデル",
       "获取列表失败": "モデルリスト",
       "获取详情失败": "モデル",
@@ -18160,19 +18160,19 @@
       "通知显示成功8": "通知表示成功"
     },
     "platforms": {
-      "获取成功": "",
-      "获取成功1": "",
+      "获取成功": "获取成功",
+      "获取成功1": "获取成功",
       "创建成功2": "しました",
       "更新成功3": "しいしい",
       "删除成功4": "しました",
       "测试成功5": "Test",
       "未知错误6": "エラー",
-      "获取成功7": "",
+      "获取成功7": "获取成功",
       "同步成功8": "同期成功"
     },
     "plugins": {
-      "获取成功": "",
-      "获取成功1": "",
+      "获取成功": "获取成功",
+      "获取成功1": "获取成功",
       "创建成功2": "しました",
       "更新成功3": "しいしい",
       "删除成功4": "しました",
@@ -18180,22 +18180,22 @@
       "测试成功6": "Test"
     },
     "pricing": {
-      "获取成功": "",
+      "获取成功": "获取成功",
       "更新成功1": "しいしい",
-      "计算成功2": "",
-      "获取成功3": "",
+      "计算成功2": "计算成功",
+      "获取成功3": "获取成功",
       "更新成功4": "しいしい",
       "测试成功5": "Test",
       "未知错误6": "エラー",
-      "获取成功7": ""
+      "获取成功7": "获取成功"
     },
     "sdks": {
-      "获取成功": "",
-      "获取成功1": "",
+      "获取成功": "获取成功",
+      "获取成功1": "获取成功",
       "创建成功2": "しました",
       "更新成功3": "しいしい",
       "删除成功4": "しました",
-      "生成成功5": ""
+      "生成成功5": "生成成功"
     },
     "service_appointment": {
       "预约提交成功模拟": "（）",
@@ -18218,25 +18218,25 @@
       "获取订单统计失败": "获取注文統計失敗"
     },
     "tools": {
-      "获取成功": "",
-      "获取成功1": "",
+      "获取成功": "获取成功",
+      "获取成功1": "获取成功",
       "使用记录成功2": "せる",
       "批量使用记录成功3": "バッチせる",
-      "获取成功4": "",
-      "获取成功5": "",
-      "获取成功6": "",
-      "获取成功7": "",
+      "获取成功4": "获取成功",
+      "获取成功5": "获取成功",
+      "获取成功6": "获取成功",
+      "获取成功7": "获取成功",
       "收藏成功8": "おにり",
       "取消收藏成功9": "キャンセルおにり"
     },
     "unified_ai": {
       "调用成功": "コール成功",
       "调用成功1": "コール成功",
-      "执行成功2": "",
-      "执行成功3": "",
-      "获取成功4": "",
-      "获取成功5": "",
-      "获取成功6": ""
+      "执行成功2": "执行成功",
+      "执行成功3": "执行成功",
+      "获取成功4": "获取成功",
+      "获取成功5": "获取成功",
+      "获取成功6": "获取成功"
     },
     "unified_alipay": {
       "会话ID不能为空": "ID です",
@@ -18256,22 +18256,22 @@
       "上传成功1": "アップロード"
     },
     "workflows": {
-      "获取成功": "",
-      "获取成功1": "",
+      "获取成功": "获取成功",
+      "获取成功1": "获取成功",
       "创建成功2": "しました",
       "更新成功3": "しいしい",
       "删除成功4": "しました",
       "发布成功5": "公開成功",
-      "执行成功6": "",
-      "获取成功7": "",
-      "获取成功8": "",
+      "执行成功6": "执行成功",
+      "获取成功7": "获取成功",
+      "获取成功8": "获取成功",
       "取消成功9": "キャンセル"
     },
     "xuqiu": {
-      "获取成功": "",
+      "获取成功": "获取成功",
       "发布成功1": "公開成功",
       "批量发布成功2": "バッチ",
-      "获取成功3": "",
+      "获取成功3": "获取成功",
       "更新成功4": "しいしい",
       "点赞成功5": "いいね",
       "取消点赞成功6": "キャンセルいいね",
@@ -18279,7 +18279,7 @@
       "取消收藏成功8": "キャンセルおにり",
       "关注成功9": "フォロー",
       "取消关注成功10": "キャンセルフォロー",
-      "获取成功11": "",
+      "获取成功11": "获取成功",
       "评论成功12": "コメント",
       "分享成功13": "共有成功",
       "点赞成功14": "いいね",
@@ -18295,7 +18295,7 @@
       "复制成功3": "コピー",
       "复制失败4": "コピー",
       "复制失败5": "コピー",
-      "读取成功6": "",
+      "读取成功6": "读取成功",
       "读取失败7": "读取失敗",
       "剪贴板读取功能不8": "クリップボード読取不可",
       "支付宝SDK未初9": "AlipaySDK",
@@ -18304,7 +18304,7 @@
       "复制失败12": "コピー",
       "支付宝SDK未初13": "AlipaySDK",
       "支付宝剪贴板读取14": "Alipay",
-      "读取成功15": "",
+      "读取成功15": "读取成功",
       "读取失败16": "读取失敗"
     },
     "form_validation": {
@@ -18368,8 +18368,8 @@
       "删除成功3": "しました",
       "更新成功2": "しいしい",
       "查询成功1": "検索成功",
-      "获取成功4": "",
-      "获取成功5": ""
+      "获取成功4": "获取成功",
+      "获取成功5": "获取成功"
     },
     "news_crawler": {
       "无效的URL格式": "のURL"
@@ -18504,7 +18504,7 @@
       "缺少必要参数1": "パラメータ1",
       "缺少必要参数2": "パラメータ2",
       "缺少必要参数3": "パラメータ3",
-      "缺少访问令牌": "",
+      "缺少访问令牌": "缺少访问令牌",
       "缺少访问令牌1": "1",
       "设备未连接6": "デバイスConnect6",
       "设备未配对5": "デバイスへ5",
@@ -18569,7 +18569,7 @@
     },
     "task_executor": {
       "任务已加入队列等": "タスク",
-      "等待人工输入1": ""
+      "等待人工输入1": "等待人工输入"
     }
   },
   "text": {
@@ -18682,7 +18682,7 @@
       "目录路径17": "パス",
       "执行Shell命18": "Shell",
       "要执行的命令19": "の",
-      "工作目录20": "",
+      "工作目录20": "工作目录",
       "超时时间ms21": "(ms)",
       "搜索文件22": "ファイル",
       "搜索模式glob23": "(glob または)",
@@ -18739,7 +18739,7 @@
       "打开AI对话框2": "くaiダイアログ",
       "新建对话3": "チャット",
       "发送消息4": "メッセージ",
-      "重新生成5": "",
+      "重新生成5": "重新生成",
       "开始生成6": "開始生成",
       "暂停恢复队列7": "/",
       "新增片段8": "追加片段",
@@ -18753,7 +18753,7 @@
     },
     "use_notification_center": {
       "重试": "再試行",
-      "忽略1": ""
+      "忽略1": "忽略"
     },
     "use_user_settings": {
       "未命名对话": "チャット"
@@ -18814,21 +18814,21 @@
     "ai_toolbox": {
       "title": "ai ツール",
       "返回对话": "るチャット",
-      "记忆": "",
+      "记忆": "记忆",
       "知识存储": "ストレージ",
       "语音": "音声",
       "语音对话": "チャット",
-      "画布": "",
+      "画布": "画布",
       "可视化设计": "ビジュアルデザイン",
       "技能": "スキル",
-      "能力扩展": "",
+      "能力扩展": "能力扩展",
       "浏览器": "閲覧器",
       "网页自动化": "から",
       "自动化": "から",
       "定时任务": "Scheduleタスク",
       "模型": "モデル",
       "AI模型切换": "aiモデル",
-      "集成": "",
+      "集成": "集成",
       "第三方服务": "サービス",
       "仪表板": "ダッシュボード",
       "总览与数据": "とData",
@@ -18862,7 +18862,7 @@
       "快速开始16": "速速開始",
       "开发者平台介绍17": "プラットフォーム",
       "环境配置18": "环境設定",
-      "身份认证19": "",
+      "身份认证19": "身份认证",
       "API文档20": "APIドキュメント",
       "API概览21": "API",
       "对话API22": "チャットAPI",
@@ -18877,7 +18877,7 @@
       "OAuth集成31": "OAuth",
       "第三方登录32": "サードパーティログイン",
       "最佳实践33": "ベストプラクティス",
-      "故障排查34": ""
+      "故障排查34": "故障排查"
     },
     "swagger_endpoints": {
       "AI程序模块包含1": "ai プログラムモジュール - エージェント、ユーザー、",
@@ -18907,7 +18907,7 @@
       "数据查询5": "Data",
       "文本生成1": "テキスト",
       "智能对话3": "チャット",
-      "最大令牌数9": "",
+      "最大令牌数9": "最大令牌数",
       "温度参数控制输出8": "パラメータ",
       "输入数据7": "Data"
     },
@@ -18942,7 +18942,7 @@
       "是否只预览不应用13": "ですいいえのみプレビューアプリ",
       "是否等待响应41": "ですいいえレスポンス",
       "最大Token数4": "Token",
-      "格式20": "",
+      "格式20": "格式",
       "消息ID48": "メッセージID",
       "消息内容39": "メッセージ",
       "温度参数8": "パラメータ",
@@ -18950,16 +18950,16 @@
       "目标AgentI38": "AgentI",
       "目标文件路径12": "ファイルパス",
       "系统提示词7": "システムプロンプト",
-      "纬度34": "",
-      "经度35": "",
+      "纬度34": "纬度",
+      "经度35": "经度",
       "获取或设置地理位31": "または",
-      "表情符号49": "",
+      "表情符号49": "表情符号",
       "要执行的命令15": "の",
       "要执行的子任务描1": "のタスク",
       "语音消息TTS26": "メッセージTTS",
       "调用LLM执行子": "LLM",
       "超时时间秒46": "タイムアウト時間秒",
-      "输出格式9": "",
+      "输出格式9": "输出格式",
       "通话目标25": "通话ターゲット",
       "需要提权的原因16": "のReason",
       "高度22": "高さ"
@@ -18984,17 +18984,17 @@
       "已暂停14": "一時停止中",
       "待处理11": "Process",
       "微信公众号企业微5": "WeChatエンタープライズ",
-      "执行中13": "",
+      "执行中13": "执行中",
       "用户偏好设置22": "ユーザー",
       "网页聊天": "网ページ聊日",
-      "规划中12": ""
+      "规划中12": "规划中"
     },
     "ai_capability_analytics": {
       "使用模式分析3": "せる",
       "常见错误4": "エラー",
-      "延迟过高": "",
+      "延迟过高": "延迟过高",
       "成功率较低2": "成功率低",
-      "成本较高1": ""
+      "成本较高1": "成本较高"
     },
     "ai_capability_discovery": {
       "分析数据并生成报": "Data",
@@ -19022,7 +19022,7 @@
       "生成艺术级别的图7": "レベルの",
       "生成高质量创意丰6": "生成高质量アイデア丰",
       "生成高质量动画和12": "と",
-      "百度出品擅长生成9": "",
+      "百度出品擅长生成9": "百度出品擅长生成",
       "超强上下文理解擅2": "コンテキスト",
       "阿里自研大模型中4": "からモデル"
     },
@@ -19098,10 +19098,10 @@
     "developer": {
       "title": "センター",
       "copy": "コピー",
-      "regenerate": "",
+      "regenerate": "重新生成",
       "totalCalls": "Calls",
       "remainingQuota": "クォータ",
-      "successRate": "",
+      "successRate": "成功率",
       "viewDocs": "ドキュメント"
     },
     "statistics": {
@@ -19109,7 +19109,7 @@
       "totalViews": "总閲覧量",
       "favorites": "おにり",
       "orders": "注文数",
-      "totalSpent": "",
+      "totalSpent": "总消费",
       "usageTrend": "せるTrend",
       "chartDeveloping": "..."
     },
@@ -19147,13 +19147,13 @@
     },
     "settings": {
       "title": "通用設定",
-      "language": "",
+      "language": "语言",
       "languageDesc": "の",
       "theme": "テーマ",
       "themeDesc": "のテーマ",
       "notifications": "通知",
       "notificationsDesc": "システムとアクティビティ",
-      "soundEffects": "",
+      "soundEffects": "音效",
       "soundEffectsDesc": "またはじる"
     },
     "privacy": {
@@ -19209,7 +19209,7 @@
     "comingSoon": "ドキュメント，",
     "incentiveProgram": {
       "label": "00 /",
-      "overview": "",
+      "overview": "计划概述",
       "overviewDesc": "AIコミュニティの",
       "publishGuide": "エージェントガイド",
       "publishGuideDesc": "をエージェントまでAIコミュニティ",
@@ -19309,7 +19309,7 @@
       "typeAll": "すべてのタイプ",
       "statusPending": "Process",
       "statusProcessing": "Process",
-      "statusResolved": "",
+      "statusResolved": "已解决",
       "statusClosed": "クローズ済み",
       "typeBug": "Bugフィードバック",
       "typeFeature": "機能提案",
@@ -19317,7 +19317,7 @@
       "typeOther": "その他",
       "detail": "詳細",
       "process": "Process",
-      "resolve": "",
+      "resolve": "解决",
       "close": "閉じる",
       "detailTitle": "フィードバック",
       "labelId": "フィードバックID",
@@ -19327,7 +19327,7 @@
       "labelPriority": "優先度",
       "labelCreatedAt": "作成日時",
       "labelContent": "内容",
-      "screenshots": "",
+      "screenshots": "截图",
       "colUser": "ユーザー",
       "colContent": "内容",
       "colPriority": "優先度",
@@ -19398,7 +19398,7 @@
       "colType": "タイプ",
       "colPrice": "価格",
       "colStock": "在庫",
-      "colSales": "",
+      "colSales": "销量",
       "colCreatedAt": "作成日時",
       "onShelfSuccess": "已公開",
       "offShelfSuccess": "非公開",
@@ -19588,14 +19588,14 @@
     "addStep": "までステップ",
     "saveSuccess": "保存しました",
     "confirmDeleteAction": "削除を確認",
-    "cleared": "",
+    "cleared": "已清理",
     "editConfig": "Edit Config",
     "newConfig": "New Config",
     "clearCompleted": "清理完了",
     "intervalPrefix": "間隔",
     "maxRetriesPrefix": "最大再試行",
     "milliseconds": "ミリ秒",
-    "modeConditional": "",
+    "modeConditional": "条件执行",
     "modeParallel": "並列",
     "modeSequential": "逐次",
     "optional": "任意",
@@ -19605,9 +19605,9 @@
   },
   "dialogBottom": {
     "slogan": "30ai,.プロジェクト",
-    "findExpert": "",
+    "findExpert": "找大佬开发",
     "iAmDeveloper": "です",
-    "developerNotice": "",
+    "developerNotice": "开发者须知",
     "responsibilityTitle": "1.",
     "responsibilityContent": "のサービス，の。",
     "ipTitle": "2.",
@@ -19621,7 +19621,7 @@
     "agree": "同意します"
   },
   "keyManagement": {
-    "title": "",
+    "title": "密钥管理",
     "tip": "，。",
     "createdTitle": "API Key",
     "iKnow": "マイ知道了",
@@ -19656,7 +19656,7 @@
   "errorDashboard": {
     "totalErrors": "エラー",
     "todayErrors": "エラー",
-    "resolved": "",
+    "resolved": "已解决",
     "errorRate": "エラー",
     "trend": "エラーTrend",
     "h24": "24",
@@ -19684,7 +19684,7 @@
   },
   "unifiedQr": {
     "loginRequired": "ログイン",
-    "auth": "",
+    "auth": "认证",
     "qrFailed": "：サービス，エンドポイントログイン",
     "needLoginFirst": "Need Login First"
   },
@@ -19727,7 +19727,7 @@
     "addCharDesc": "（）",
     "coherent": "とと，から，",
     "transition": "切替",
-    "sceneTransition": "",
+    "sceneTransition": "转场",
     "confirmCharContinue": "ロールですいいえ"
   },
   "studyAdd": {
@@ -19743,12 +19743,12 @@
   },
   "unifiedViewer": {
     "cadFile": "CADファイル",
-    "format": "",
+    "format": "格式",
     "cadHint": "せる AutoCAD または FreeCAD く",
     "archiveFile": "ファイル",
     "loading": "読み込み中...",
     "notSupport": "プレビューファイルタイプ",
-    "extension": "",
+    "extension": "扩展名",
     "mimeType": "MIMEタイプ",
     "fullscreen": "フルスクリーン",
     "download": "ダウンロード",
@@ -19772,7 +19772,7 @@
     "catCad": "CAD"
   },
   "studyGroup": {
-    "subTrack": "",
+    "subTrack": "细分赛道",
     "titlePlaceholder": "してくださいタイトル",
     "descPlaceholder": "してください",
     "pleaseSelect": "選択してください",
@@ -19820,7 +19820,7 @@
     "compressImage": "画像圧縮",
     "autoShare": "から",
     "pendingFiles": "ファイルをアップロード",
-    "compressed": "",
+    "compressed": "已压缩",
     "startUpload": "アップロード",
     "uploaded": "アップロード",
     "shared": "已共有",
@@ -19921,15 +19921,15 @@
   },
   "viewerModel3DViewer": {
     "model3dFile": "3Dモデルファイル",
-    "format": "",
-    "supportedFormat": "",
+    "format": "格式",
+    "supportedFormat": "支持格式",
     "useBlenderHint": "せる Blender またはオンラインく"
   },
   "featureCallback": {
     "expired": "れ",
     "verifyFailed": "認証失敗",
-    "missing": "",
-    "attack": ""
+    "missing": "缺少",
+    "attack": "攻击"
   },
   "DistributionCenter": {
     "copyImage": "コピー",
@@ -19950,7 +19950,7 @@
   },
   "distRealAuthModal": {
     "incompleteUserInfo": "ユーザーInfo，ログイン",
-    "realAuthSuccess": "",
+    "realAuthSuccess": "实名认证成功",
     "realAuthFailed": "，"
   },
   "studyIndexStudyTip": {
@@ -19998,7 +19998,7 @@
   },
   "adminFeedbackList": {
     "setProcessing": "ですProcess",
-    "resolved": "",
+    "resolved": "已解决",
     "closed": "クローズ済み"
   },
   "AgenticAIPage": {
@@ -20082,7 +20082,7 @@
     "reset": "リセット",
     "rotateLeft": "左回転",
     "rotateRight": "右回転",
-    "fitScreen": "",
+    "fitScreen": "适应屏幕",
     "fullscreen": "フルスクリーン",
     "download": "ダウンロード"
   },
@@ -20160,9 +20160,9 @@
   },
   "viewerMediaViewer": {
     "mediaLoadFailed": "メディアの読み込みに失敗しました",
-    "playSpeed": "",
+    "playSpeed": "播放速度",
     "loop": "ループ",
-    "mute": "",
+    "mute": "静音",
     "download": "ダウンロード"
   },
   "featureGoogleLogin": {
@@ -20277,7 +20277,7 @@
       "title": "プロジェクトInfo",
       "projectName": "Project Name",
       "version": "バージョン",
-      "license": "",
+      "license": "许可证",
       "node": "Node バージョン",
       "description": "プロジェクト"
     },
@@ -20603,8 +20603,8 @@
       "warning": "Warning"
     },
     "anomalyTypes": {
-      "spike": "",
-      "drop": "",
+      "spike": "激增",
+      "drop": "骤降",
       "trend_change": "Trend",
       "outlier": "異常值"
     },
@@ -20730,7 +20730,7 @@
     "retryFailed": "再試行失敗项",
     "updating": "正在しい",
     "failed": "失敗",
-    "items": "",
+    "items": "条",
     "canRetryHint": "クリック\"\"",
     "label": {
       "activityId": "アクティビティID",
@@ -20741,7 +20741,7 @@
       "category": "カテゴリー",
       "completed": "完了",
       "description": "説明",
-      "design": "",
+      "design": "设计",
       "device": "デバイス",
       "disabled": "無効",
       "draft": "下書き",
@@ -20770,8 +20770,8 @@
       "actions": "操作",
       "autoPromote": "から",
       "byDevice": "デバイス",
-      "byPercentage": "",
-      "byRegion": "",
+      "byPercentage": "按百分比",
+      "byRegion": "按地区",
       "byUserGroup": "ユーザー",
       "completionThreshold": "完了阈值",
       "currentPhase": "現在フェーズ",
@@ -20779,7 +20779,7 @@
       "errorThreshold": "エラー",
       "exposureCompletion": "/",
       "message": "メッセージ",
-      "progress": "",
+      "progress": "进度",
       "releaseRatio": "公開割合",
       "releaseStrategy": "公開戦略",
       "scoreUnit": "分",
@@ -20799,7 +20799,7 @@
       "balance": "残高",
       "callCount": "びし",
       "chapters": "チャプター",
-      "conditional": "",
+      "conditional": "条件执行",
       "cover": "カバー",
       "createdAt": "作成日時",
       "delete": "削除",
@@ -20812,7 +20812,7 @@
       "errorType": "エラータイプ",
       "event": "イベント",
       "eventId": "イベントID",
-      "executionMode": "",
+      "executionMode": "执行模式",
       "free": "無料",
       "freeze": "凍結",
       "frozen": "凍結残高",
@@ -20831,7 +20831,7 @@
       "neverTriggered": "からトリガー",
       "normal": "アクティブ",
       "occurrenceTime": "発生日時",
-      "officialSite": "",
+      "officialSite": "官网",
       "officialUrl": "リンク",
       "page": "ページ",
       "pageUrl": "リンク",
@@ -20839,7 +20839,7 @@
       "parallel": "並列",
       "pause": "一時停止",
       "paused": "一時停止中",
-      "pay": "",
+      "pay": "打款",
       "price": "価格",
       "processingStatus": "Processステータス",
       "processingTime": "Process",
@@ -20848,7 +20848,7 @@
       "retryCount": "再試行回数",
       "retryInterval": "再試行間隔",
       "retryStrategy": "再試行策略",
-      "section": "",
+      "section": "板块",
       "sequential": "逐次",
       "sessionId": "ID",
       "shortDesc": "简短説明",
@@ -20867,7 +20867,7 @@
       "title": "タイトル",
       "totalEarnings": "総収益",
       "transactions": "取引記録",
-      "unfreeze": "",
+      "unfreeze": "解冻",
       "updatedAt": "しいしい",
       "userAgent": "ユーザー",
       "userId": "ユーザーID"
@@ -20891,7 +20891,7 @@
       "errorCount": "エラー",
       "exposedUsers": "ユーザー",
       "releaseDetail": "公開詳細",
-      "satisfaction": "",
+      "satisfaction": "满意度",
       "completed": "完了",
       "errorDetail": "エラー",
       "eventDetail": "イベント",
@@ -20998,7 +20998,7 @@
       "moduleStatPromotion": "{n}",
       "moduleStatSettings": "設定済み完了",
       "moduleStatTool": "{n} ツール",
-      "moduleStatWebhook": "",
+      "moduleStatWebhook": "已接入",
       "monitorCpuDetail": "{cores} {load}",
       "monitorCpuName": "CPU せる",
       "monitorDiskDetail": "{used} / {total}",
@@ -21186,7 +21186,7 @@
     "passed": "合格",
     "notPassed": "不合格",
     "scorePrefix": "Score",
-    "usedTimePrefix": "",
+    "usedTimePrefix": "用时",
     "emptyWrong": "なし",
     "questionContent": "Question",
     "correctAnswer": ":",
@@ -21244,7 +21244,7 @@
     "allCategories": "All categories",
     "latest": "最新",
     "hottest": "人気",
-    "mostAnswered": "",
+    "mostAnswered": "最多回答",
     "noQuestions": "なしQuestion",
     "pinned": "ピンめ",
     "essence": "注目",
@@ -21280,7 +21280,7 @@
     "dateFormat": "{year}{month}{day} {weekday}",
     "weatherTip1": "今日天気晴朗",
     "weatherTip2": "アクティビティ",
-    "weatherTip3": "",
+    "weatherTip3": "注意防晒",
     "admin": "管理者",
     "greetingNight": "おやすみなさい",
     "greetingMorning": "おはようございます",
@@ -21387,7 +21387,7 @@
     "typeRefund": "返金",
     "typeAgent": "エージェント",
     "typeMarketing": "マーケティング",
-    "typeSite": "",
+    "typeSite": "站点",
     "typeOther": "その他",
     "detailTitle": "通知詳細",
     "loadFailed": "読み込み失敗",
@@ -21485,7 +21485,7 @@
     "featuredArticles": "注目記事",
     "pageDesc": "· ·",
     "top": "ピンめ",
-    "essence": "",
+    "essence": "精",
     "anonymous": "匿名",
     "read": "閲覧",
     "like": "いいね",
@@ -21554,7 +21554,7 @@
     "enterpriseUnit": "エンタープライズ",
     "freeDownload": "ダウンロード",
     "industryGrade": "エンタープライズ級",
-    "labGradeSpecs": "",
+    "labGradeSpecs": "实验室级规格",
     "learnMore": "もっと",
     "microservices": "サービス",
     "microservicesName": "サービス",
@@ -21606,14 +21606,14 @@
     "标准版": "スタンダード版",
     "核心能力对比矩阵": "へ",
     "深度整合主流AI大模": "ストリームai",
-    "用": "",
+    "用": "用",
     "用AI重新定义每一个": "ai",
     "申请商业授权": "商用ライセンス申請",
     "电话": "電話",
     "痛点": "ペインポイント",
     "立即体验AI能力获取": "ai",
-    "等各行业实现智能化转": "",
-    "能力项": "",
+    "等各行业实现智能化转": "等各行业实现智能化转",
+    "能力项": "能力项",
     "荣誉资质": "栄誉資格",
     "获取解决方案": "ソリューション",
     "解答您关心的问题": "のQuestion",
