@@ -10,13 +10,8 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
-import {
-  requireAuth,
-  fetchWithTimeout,
-  genId,
-  taskStore,
-  type AsyncTask,
-} from './_shared.js'
+import { buildSchema } from '../../utils/swagger.js'
+import { requireAuth, fetchWithTimeout, genId, taskStore, type AsyncTask } from './_shared.js'
 
 const LUYALA_BASE_URL = process.env.LUYALA_BASE_URL ?? 'https://api.luyala.com'
 
@@ -87,69 +82,103 @@ export const luyalaRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /video — 视频生成(异步提交)
-  server.post('/video', async (request, reply) => {
-    const body = videoSchema.parse(request.body)
-    const data = await callLuyala('/v1/video/generate', reply, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    })
-    if (data === null) return
-    const taskId = ((data as Record<string, unknown>).task_id as string | undefined) ?? genId('luyala')
-    const task: AsyncTask = {
-      taskId,
-      userId: request.userId!,
-      vendor: 'luyala',
-      type: 'video',
-      status: 'pending',
-      result: data,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }
-    taskStore.set(taskId, task)
-    return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
-  })
+  server.post(
+    '/video',
+    {
+      schema: buildSchema({
+        summary: 'Luyala 视频生成',
+        description: '代理调用 Luyala v1/video/generate 接口生成视频(异步任务)',
+        tags: ['AI', 'Luyala'],
+        body: videoSchema,
+      }),
+    },
+    async (request, reply) => {
+      const body = videoSchema.parse(request.body)
+      const data = await callLuyala('/v1/video/generate', reply, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+      if (data === null) return
+      const taskId =
+        ((data as Record<string, unknown>).task_id as string | undefined) ?? genId('luyala')
+      const task: AsyncTask = {
+        taskId,
+        userId: request.userId!,
+        vendor: 'luyala',
+        type: 'video',
+        status: 'pending',
+        result: data,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+      taskStore.set(taskId, task)
+      return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
+    },
+  )
 
   // POST /voice — 语音合成(同步返回音频)
-  server.post('/voice', async (request, reply) => {
-    const body = voiceSchema.parse(request.body)
-    const data = await callLuyala('/v1/voice/synthesize', reply, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    })
-    if (data === null) return
-    return reply.send(success(data))
-  })
+  server.post(
+    '/voice',
+    {
+      schema: buildSchema({
+        summary: 'Luyala 语音合成',
+        description: '代理调用 Luyala v1/voice/synthesize 接口合成语音(同步返回)',
+        tags: ['AI', 'Luyala'],
+        body: voiceSchema,
+      }),
+    },
+    async (request, reply) => {
+      const body = voiceSchema.parse(request.body)
+      const data = await callLuyala('/v1/voice/synthesize', reply, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+      if (data === null) return
+      return reply.send(success(data))
+    },
+  )
 
   // GET /tasks/:id — 任务状态查询(本地缓存 + 上游拉取最新状态)
-  server.get('/tasks/:id', async (request, reply) => {
-    const { id } = taskIdParam.parse(request.params)
-    const task = taskStore.get(id)
-    if (!task || task.vendor !== 'luyala') {
-      return reply.status(404).send(error(404, '任务不存在'))
-    }
-    if (task.userId !== request.userId) {
-      return reply.status(403).send(error(403, '无权访问该任务'))
-    }
-    // 终态直接返回
-    if (task.status === 'succeeded' || task.status === 'failed') {
+  server.get(
+    '/tasks/:id',
+    {
+      schema: buildSchema({
+        summary: 'Luyala 任务状态查询',
+        description: '按 id 查询 Luyala 任务状态(本地缓存 + 上游拉取最新状态)',
+        tags: ['AI', 'Luyala'],
+        params: taskIdParam,
+      }),
+    },
+    async (request, reply) => {
+      const { id } = taskIdParam.parse(request.params)
+      const task = taskStore.get(id)
+      if (!task || task.vendor !== 'luyala') {
+        return reply.status(404).send(error(404, '任务不存在'))
+      }
+      if (task.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权访问该任务'))
+      }
+      // 终态直接返回
+      if (task.status === 'succeeded' || task.status === 'failed') {
+        return reply.send(success(task))
+      }
+      // 拉取上游最新状态
+      const upstream = await callLuyala(`/v1/tasks/${encodeURIComponent(id)}`, reply, {
+        method: 'GET',
+      })
+      if (upstream === null) return
+      const u = upstream as Record<string, unknown>
+      const status = String(u.status ?? '').toLowerCase()
+      if (status === 'succeeded' || status === 'success' || status === 'done') {
+        task.status = 'succeeded'
+      } else if (status === 'failed' || status === 'error') {
+        task.status = 'failed'
+      } else if (status) {
+        task.status = 'running'
+      }
+      task.result = upstream
+      task.updatedAt = Date.now()
       return reply.send(success(task))
-    }
-    // 拉取上游最新状态
-    const upstream = await callLuyala(`/v1/tasks/${encodeURIComponent(id)}`, reply, {
-      method: 'GET',
-    })
-    if (upstream === null) return
-    const u = upstream as Record<string, unknown>
-    const status = String(u.status ?? '').toLowerCase()
-    if (status === 'succeeded' || status === 'success' || status === 'done') {
-      task.status = 'succeeded'
-    } else if (status === 'failed' || status === 'error') {
-      task.status = 'failed'
-    } else if (status) {
-      task.status = 'running'
-    }
-    task.result = upstream
-    task.updatedAt = Date.now()
-    return reply.send(success(task))
-  })
+    },
+  )
 }
