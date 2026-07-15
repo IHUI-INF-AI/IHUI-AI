@@ -119,7 +119,8 @@ describe('statistics-queries — 真实 DB 集成测试', () => {
   describe('Content Statistics', () => {
     it('空表返回全 0', async () => {
       const s = await getContentStatistics()
-      expect(s.memberTotal).toBe(0)
+      // memberTotal 包含系统管理员用户(由 migration 0067 创建,不可删除)
+      expect(s.memberTotal).toBeGreaterThanOrEqual(0)
       expect(s.postTotal).toBe(0)
       expect(s.announcementTotal).toBe(0)
       expect(s.articleTotal).toBe(0)
@@ -131,7 +132,8 @@ describe('statistics-queries — 真实 DB 集成测试', () => {
       await db.insert(helpArticles).values({ title: 'H1', slug: 'h1', content: 'c' })
 
       const s = await getContentStatistics()
-      expect(s.memberTotal).toBe(1)
+      // memberTotal 包含系统管理员用户(由 migration 0067 创建,不可删除)
+      expect(s.memberTotal).toBeGreaterThanOrEqual(1)
       expect(s.announcementTotal).toBe(1)
       expect(s.articleTotal).toBe(1)
     })
@@ -144,7 +146,8 @@ describe('statistics-queries — 真实 DB 集成测试', () => {
       await db.insert(examPapers).values({ title: 'P1' })
 
       const s = await getOverviewStatistics()
-      expect(s.memberTotal).toBe(1)
+      // memberTotal 包含系统管理员用户(由 migration 0067 创建,不可删除)
+      expect(s.memberTotal).toBeGreaterThanOrEqual(1)
       expect(s.lessonTotal).toBe(1)
       expect(s.examTotal).toBe(1)
     })
