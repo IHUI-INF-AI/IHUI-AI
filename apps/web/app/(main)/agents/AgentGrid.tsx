@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { Loader2, Bot, Sparkles } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Card, CardContent } from '@ihui/ui'
@@ -53,8 +54,8 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
           <Card className="flex h-full flex-col overflow-hidden transition-colors hover:bg-accent">
             <div className="relative h-32 w-full overflow-hidden bg-muted">
               {a.cover ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
+                  fill
                   src={a.cover}
                   alt={a.name}
                   className="h-full w-full object-cover transition-transform group-hover:scale-105"

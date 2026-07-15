@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Download, Trash2, FileText, Loader2, Eye } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
+import { dateFormat } from '@/lib/date-utils'
 import { Button } from '@ihui/ui'
 
 export interface FileItem {
@@ -32,12 +33,6 @@ function formatSize(bytes: number): string {
     i++
   }
   return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
-}
-
-function formatDate(value: string | Date): string {
-  const d = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(d.getTime())) return '-'
-  return d.toLocaleString()
 }
 
 export function FileList({ files, downloadingId, onDownload, onDelete, onPreview }: FileListProps) {
@@ -79,7 +74,7 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
                   {file.mimeType || '-'}
                 </td>
                 <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                  {formatDate(file.createdAt)}
+                  {dateFormat(file.createdAt) || '-'}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1">

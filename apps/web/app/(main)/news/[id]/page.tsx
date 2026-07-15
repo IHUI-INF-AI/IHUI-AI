@@ -2,6 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, ChevronRight, Loader2, Eye, Bookmark, Heart, MessageSquare } from 'lucide-react'
@@ -134,11 +135,13 @@ export default function NewsDetailPage() {
 
               {article.coverImage && (
                 <div className="my-4 overflow-hidden rounded-lg border">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={article.coverImage}
                     alt={article.title}
+                    width={1200}
+                    height={630}
                     className="max-h-[420px] w-full object-cover"
+                    style={{ width: '100%', height: 'auto' }}
                   />
                 </div>
               )}

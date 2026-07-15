@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Sparkles, Plus } from 'lucide-react'
@@ -135,10 +136,11 @@ export default function MyAgentsPage() {
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-start gap-3">
                     {agent.avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={agent.avatar}
                         alt={agent.name}
+                        width={40}
+                        height={40}
                         className="h-10 w-10 rounded-lg object-cover"
                       />
                     ) : (
