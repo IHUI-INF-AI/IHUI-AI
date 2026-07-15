@@ -4,7 +4,7 @@ import * as React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Image from 'next/image'
-import { ChevronDown, Pause, Play, Volume2, X } from 'lucide-react'
+import { ChevronDown, Pause, Play, Volume2, X, Lightbulb } from 'lucide-react'
 import { toast } from 'sonner'
 import { type ShareContent, type ShareListItem } from '@/lib/share-api'
 import { VideoPlayer } from '@/components/media'
@@ -48,7 +48,7 @@ function ThinkingProcess({ text }: { text: string }) {
   return (
     <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-5">
       <div className="mb-3 flex items-center">
-        <span className="mr-2.5 text-xl">💭</span>
+        <Lightbulb className="mr-2.5 h-5 w-5 text-primary" />
         <span className="text-base font-semibold text-primary">思考过程</span>
       </div>
       <div

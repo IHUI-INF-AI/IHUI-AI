@@ -13,7 +13,7 @@ const TIMEOUT = 15000
 
 export interface RequestOptions {
   url: string
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   data?: unknown
   header?: Record<string, string>
   /** 是否跳过自动 token 注入 */
@@ -101,6 +101,10 @@ export const post = <T = unknown>(url: string, data?: unknown, header?: Record<s
 /** PUT 请求 */
 export const put = <T = unknown>(url: string, data?: unknown, header?: Record<string, string>) =>
   request<T>({ url, method: 'PUT', data, header })
+
+/** PATCH 请求 */
+export const patch = <T = unknown>(url: string, data?: unknown, header?: Record<string, string>) =>
+  request<T>({ url, method: 'PATCH', data, header })
 
 /** DELETE 请求 */
 export const del = <T = unknown>(url: string, data?: unknown, header?: Record<string, string>) =>

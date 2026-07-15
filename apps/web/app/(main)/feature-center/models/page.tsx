@@ -7,6 +7,8 @@ import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Input } from '@ihui/ui'
+import { formatNumber } from '@/lib/date-utils'
+
 import {
   FeatureCenterHeader,
   FeatureCenterNav,
@@ -111,7 +113,7 @@ export default function ModelsPage() {
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Cpu className="h-3.5 w-3.5" />
-                      {t('contextLabel')} {item.contextLength.toLocaleString()}
+                      {t('contextLabel')} {formatNumber(item.contextLength)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Zap className="h-3.5 w-3.5" />
