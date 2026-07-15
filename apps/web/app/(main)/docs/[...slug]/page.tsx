@@ -7,18 +7,10 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { slugify } from '@/lib/content'
 import { MarkdownViewer } from '@/components/media'
 
 const DOCS_DIR = path.join(process.cwd(), 'public', 'docs')
-
-function slugify(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-}
 
 function extractToc(markdown: string) {
   const items: { id: string; text: string; level: number }[] = []

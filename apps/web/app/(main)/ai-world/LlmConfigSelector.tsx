@@ -99,10 +99,12 @@ export function LlmConfigSelector({ value, onChange, disabled }: LlmConfigSelect
       onValueChange={(v) => {
         const c = enabledList.find((c: UserLlmConfig) => String(c.id) === v)
         if (!c) return
+        const id = c.modelIdForTest ?? ''
+        const fullModel = id && c.providerCode ? `${c.providerCode}/${id}` : id
         onChange({
           id: c.id,
           name: c.name,
-          modelId: c.modelIdForTest ?? '',
+          modelId: fullModel,
           providerCode: c.providerCode,
         })
       }}

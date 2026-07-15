@@ -1,10 +1,11 @@
 'use client'
 
 import { Award, Loader2, Download, Printer } from 'lucide-react'
-import { useTranslations, useLocale } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
-import { STATUS_STYLE, formatDate } from './helpers'
+import { formatDate } from '@/lib/date-utils'
+import { STATUS_STYLE } from './helpers'
 import type { Certificate } from './types'
 
 interface Props {
@@ -29,7 +30,6 @@ export function CertificateList({
   onPrint,
 }: Props) {
   const t = useTranslations('certificate')
-  const locale = useLocale()
 
   if (isLoading) {
     return (
@@ -87,7 +87,9 @@ export function CertificateList({
               <div className="space-y-1.5 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">{t('download.issueTime')}</span>
-                  <span className="font-medium">{formatDate(cert.issuedAt, locale)}</span>
+                  <span className="font-medium">
+                    {cert.issuedAt ? formatDate(cert.issuedAt) : '-'}
+                  </span>
                 </div>
                 {cert.templateName && (
                   <div className="flex items-center justify-between">

@@ -65,8 +65,7 @@ function SearchContent() {
     if (sort !== 'relevance') params.set('sort', sort)
     const qs = params.toString()
     router.replace(qs ? `/search?${qs}` : '/search', { scroll: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, sort, q])
+  }, [tab, sort, q, router])
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['search', q, tab],

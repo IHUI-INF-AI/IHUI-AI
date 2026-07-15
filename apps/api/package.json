@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:real": "vitest run --config vitest.real.config.ts",
     "init:vendors": "tsx scripts/init-vendor-configs.ts",
     "clean": "rimraf dist .turbo node_modules"
   },
