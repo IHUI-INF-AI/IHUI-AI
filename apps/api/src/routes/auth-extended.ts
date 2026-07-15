@@ -219,7 +219,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const { username, password } = parsed.data
       const ip = request.ip
 
-      const lockRemaining = getLockRemainingMs(username, ip)
+      const lockRemaining = await getLockRemainingMs(username, ip)
       if (lockRemaining > 0) {
         return reply
           .status(429)
@@ -234,17 +234,16 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
       const user = await findUserByUsername(username)
       if (!user || !user.passwordHash || !bcrypt.compareSync(password, user.passwordHash)) {
-        const remaining = recordLoginFailure(username, ip)
+        const remaining = await recordLoginFailure(username, ip)
         if (remaining === 0) {
+          const lockDurationMs = ACCOUNT_LOCKOUT_CONFIG.lockDurationSec * 1000
           return reply
             .status(429)
-            .header('Retry-After', String(Math.ceil(ACCOUNT_LOCKOUT_CONFIG.lockDurationMs / 1000)))
+            .header('Retry-After', String(Math.ceil(lockDurationMs / 1000)))
             .send(
               error(
                 429,
-                `登录失败次数过多，账号已被临时锁定 ${Math.ceil(
-                  ACCOUNT_LOCKOUT_CONFIG.lockDurationMs / 60000,
-                )} 分钟`,
+                `登录失败次数过多，账号已被临时锁定 ${Math.ceil(lockDurationMs / 60000)} 分钟`,
               ),
             )
         }
@@ -253,7 +252,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           .send(error(401, `用户名或密码错误（剩余 ${remaining} 次重试机会）`))
       }
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
-      clearLoginFailures(username, ip)
+      await clearLoginFailures(username, ip)
       const { accessToken, refreshToken } = await buildTokenPair(user)
       return reply.send(
         success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }),

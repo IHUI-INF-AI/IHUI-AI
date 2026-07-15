@@ -49,7 +49,7 @@ export function PlanReviewPanel({ plan, onApprove, onModify, onReject }: PlanRev
                       {step.tools.map((tool) => (
                         <span
                           key={tool}
-                          className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                          className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground"
                         >
                           {tool}
                         </span>

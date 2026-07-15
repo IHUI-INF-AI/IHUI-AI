@@ -73,17 +73,17 @@ function TemplateGrid({
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">{t.name}</span>
               {t.isOfficial ? (
-                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
                   官方
                 </span>
               ) : (
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                   自建
                 </span>
               )}
             </div>
-            <p className="line-clamp-1 text-[11px] text-muted-foreground">{t.description}</p>
-            <p className="truncate font-mono text-[10px] text-muted-foreground/70">{t.baseUrl}</p>
+            <p className="line-clamp-1 text-xs text-muted-foreground">{t.description}</p>
+            <p className="truncate font-mono text-xs text-muted-foreground/70">{t.baseUrl}</p>
           </button>
         )
       })}
@@ -124,7 +124,7 @@ function ModelsList({ models }: { models: UpstreamModel[] }) {
                 <div className="flex flex-1 items-center gap-2 overflow-hidden">
                   <code className="truncate font-mono">{m.id}</code>
                   {m.context_length ? (
-                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                    <span className="shrink-0 text-xs text-muted-foreground">
                       {(m.context_length / 1000).toFixed(0)}K
                     </span>
                   ) : null}
@@ -145,7 +145,7 @@ function ModelsList({ models }: { models: UpstreamModel[] }) {
           </ul>
         )}
       </div>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         点击模型 ID 旁的复制按钮,可填入「模型 ID」字段
       </p>
     </div>
@@ -253,7 +253,7 @@ export function LlmConfigDialog({
             </Label>
             <TemplateGrid templates={templates} current={form.templateCode} onPick={pickTemplate} />
             {tpl ? (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Base URL:{' '}
                 <code className="font-mono">
                   {form.baseUrlOverride || tpl.baseUrl || '(需自填)'}
@@ -314,7 +314,7 @@ export function LlmConfigDialog({
               <KeyRound className="h-3.5 w-3.5" />
               API Key
               {form.id ? (
-                <span className="text-[11px] text-muted-foreground">(留空不修改)</span>
+                <span className="text-xs text-muted-foreground">(留空不修改)</span>
               ) : null}
             </Label>
             <div className="relative">
@@ -361,7 +361,7 @@ export function LlmConfigDialog({
                   获取上游模型
                 </Button>
               ) : (
-                <span className="text-[11px] text-muted-foreground">保存后可拉取上游模型</span>
+                <span className="text-xs text-muted-foreground">保存后可拉取上游模型</span>
               )}
             </div>
             <Input

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { AnswerArea } from './AnswerArea'
 import { BottomBar } from './BottomBar'
 import { formatTokens } from './helpers'
-import { dateFormat } from '@/lib/date-utils'
+import { formatDate } from '@/lib/date-utils'
 import type { ShareContentProps } from './types'
 
 export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
@@ -36,7 +36,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
         {/* 用户提问 */}
         <div className="flex justify-end">
           <div className="w-full rounded-2xl border border-primary/40 bg-primary p-5 text-white">
-            <p className="whitespace-pre-wrap break-words text-[15px] leading-7">
+            <p className="whitespace-pre-wrap break-words text-sm leading-7">
               {question || ''}
             </p>
           </div>
@@ -52,7 +52,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
             {typeof tokenCost === 'number' && tokenCost > 0 && (
               <span>消耗智汇值：{formatTokens(tokenCost)}</span>
             )}
-            {createdAt && <span>{dateFormat(createdAt)}</span>}
+            {createdAt && <span>{formatDate(createdAt)}</span>}
           </div>
         </div>
       </div>

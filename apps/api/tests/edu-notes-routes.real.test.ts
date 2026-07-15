@@ -57,7 +57,7 @@ describe('edu-notes-routes — 学员笔记 CRUD 需鉴权真实 DB 集成测试
   beforeEach(async () => {
     resetMockAuth()
     await db.execute(sql`DELETE FROM edu_notes`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   // =====================================================================

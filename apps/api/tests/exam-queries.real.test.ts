@@ -37,7 +37,7 @@ describe('exam-queries — 真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM exam_questions`)
     await db.execute(sql`DELETE FROM exam_papers`)
     await db.execute(sql`DELETE FROM exam_categories`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('分类 CRUD', () => {

@@ -1064,6 +1064,25 @@
       "startLearning": "立即学习",
       "duration": "时长",
       "studentsLabel": "学员"
+    },
+    "topic": {
+      "title": "学习专题",
+      "subtitle": "课程专题 + 高级专题,系统化学习",
+      "empty": "暂无专题",
+      "loading": "加载中...",
+      "free": "免费",
+      "lessonCount": "{count} 门课程",
+      "learnNum": "{count} 人学",
+      "type": {
+        "lesson": {
+          "label": "课程专题",
+          "tip": "由运营精选的课程组合,免费学习。"
+        },
+        "premium": {
+          "label": "高级专题",
+          "tip": "包含企业/部门定制内容,可能涉及付费。"
+        }
+      }
     }
   },
   "exam": {

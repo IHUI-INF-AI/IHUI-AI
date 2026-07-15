@@ -23,7 +23,7 @@ describe('vip-queries — 真实 DB 集成测试', () => {
     // 按外键依赖顺序清空:user_vips → vip_levels → users
     await db.execute(sql`DELETE FROM user_vips`)
     await db.execute(sql`DELETE FROM vip_levels`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('VIP Levels', () => {

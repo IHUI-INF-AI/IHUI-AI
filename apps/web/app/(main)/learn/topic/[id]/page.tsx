@@ -4,11 +4,12 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Layers, BookOpen, Users, Loader2, PlayCircle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { ArrowLeft, Layers, BookOpen, Users, Loader2, PlayCircle, Sparkles, Info } from 'lucide-react'
 import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui'
 
 interface TopicLesson {
   id: string
@@ -27,14 +28,16 @@ interface TopicDetail {
   id: string
   title: string
   coverImage?: string
+  image?: string
   description?: string
   lessonIds?: string[]
   learnNum?: number
-  price?: number
-  originalPrice?: number
+  price?: number | string
+  originalPrice?: number | string | null
   lessonList?: TopicLesson[]
   lessons?: TopicLesson[]
 }
+type TopicSource = 'lesson' | 'premium'
 
 async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
@@ -42,17 +45,49 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
+interface LoadedTopic {
+  source: TopicSource
+  topic: TopicDetail
+}
+
+async function loadTopic(id: string): Promise<LoadedTopic> {
+  try {
+    const r = await api<{ topic: TopicDetail }>(`/api/topics/${id}`)
+    return { source: 'lesson', topic: r.topic }
+  } catch (lessonErr) {
+    const r = await api<TopicDetail>(`/api/learn/topics/${id}`)
+    if (r && 'error' in r) throw lessonErr
+    return { source: 'premium', topic: r }
+  }
+}
+
 export default function LearnTopicDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const t = useTranslations('learn.topic')
+  const tCommon = useTranslations('common')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'topic', id],
-    queryFn: async () => {
-      const res = await api<{ topic: TopicDetail }>(`/api/topics/${id}`)
-      return res.topic
-    },
+    queryFn: () => loadTopic(id),
   })
+
+  const premiumLessonsQ = useQuery({
+    queryKey: ['learn', 'topic', id, 'lessons'],
+    queryFn: async () => {
+      if (!data || data.source !== 'premium') return [] as TopicLesson[]
+      return api<TopicLesson[]>(`/api/learn/topics/${id}/lessons`).then((r) =>
+        Array.isArray(r) ? r : ((r as { list?: TopicLesson[] }).list ?? []),
+      )
+    },
+    enabled: false,
+  })
+
+  React.useEffect(() => {
+    if (data?.source === 'premium' && !premiumLessonsQ.isFetched) {
+      void premiumLessonsQ.refetch()
+    }
+  }, [data, premiumLessonsQ])
 
   if (isLoading)
     return (
@@ -79,8 +114,14 @@ export default function LearnTopicDetailPage() {
       </div>
     )
 
-  const topic = data
-  const lessons = topic.lessonList ?? topic.lessons ?? []
+  const topic = data.topic
+  const source = data.source
+  const coverImage = topic.coverImage ?? topic.image
+  const lessons =
+    source === 'premium'
+      ? (premiumLessonsQ.data ?? [])
+      : (topic.lessonList ?? topic.lessons ?? [])
+  const priceNum = topic.price === undefined ? undefined : Number(topic.price)
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
@@ -93,12 +134,12 @@ export default function LearnTopicDetailPage() {
       </Link>
 
       {/* 专题信息 */}
-      <Card>
+      <Card className="relative overflow-hidden">
         <CardContent className="flex flex-col gap-4 p-6 md:flex-row">
           <div className="relative flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 md:w-64">
-            {topic.coverImage ? (
+            {coverImage ? (
               <Image
-                src={topic.coverImage}
+                src={coverImage}
                 alt={topic.title}
                 fill
                 className="rounded-lg object-cover"
@@ -106,6 +147,33 @@ export default function LearnTopicDetailPage() {
             ) : (
               <Layers className="h-12 w-12 text-primary/40" />
             )}
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
+                    aria-label={source === 'premium' ? '高级专题' : '课程专题'}
+                  >
+                    {source === 'premium' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                        <Sparkles className="h-3 w-3" />
+                        高级专题
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                        <Info className="h-3 w-3" />
+                        课程专题
+                      </span>
+                    )}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs text-left leading-relaxed">
+                  {source === 'premium'
+                    ? '包含企业/部门定制内容,可能涉及付费。'
+                    : '由运营精选的课程组合,免费学习。'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <div className="flex-1 space-y-2">
             <h1 className="text-2xl font-bold tracking-tight">{topic.title}</h1>
@@ -123,9 +191,13 @@ export default function LearnTopicDetailPage() {
                   {topic.learnNum} 人学
                 </span>
               )}
-              {typeof topic.price === 'number' && (
-                <span className="font-medium text-primary">
-                  {topic.price > 0 ? `￥${topic.price}` : '免费'}
+              {typeof priceNum === 'number' && (
+                <span
+                  className={
+                    priceNum > 0 ? 'font-medium text-primary' : 'text-emerald-600'
+                  }
+                >
+                  {priceNum > 0 ? `￥${priceNum}` : '免费'}
                 </span>
               )}
             </div>

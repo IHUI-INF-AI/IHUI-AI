@@ -140,7 +140,7 @@ export default function ApiDocsPage() {
                     >
                       <span
                         className={cn(
-                          'shrink-0 rounded px-1 py-0.5 text-[10px] font-bold',
+                          'shrink-0 rounded px-1 py-0.5 text-xs font-bold',
                           METHOD_CLASS[e.method],
                         )}
                       >

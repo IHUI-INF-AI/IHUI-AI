@@ -34,7 +34,8 @@ describe('admin-missing-routes /member/users — level 字段完整处理', () =
 
   beforeEach(async () => {
     resetMockAuth()
-    await db.execute(sql`DELETE FROM users WHERE phone LIKE '5%' OR email LIKE '5%@%'`)
+    // 只删除 phone 以 5 开头的测试用户;不能用 email LIKE '5%@%' 因为会误删 system admin (502319984@qq.com)
+    await db.execute(sql`DELETE FROM users WHERE phone LIKE '5%'`)
   })
 
   it('GET /api/admin/member/users — 列表返回 level 字段', async () => {

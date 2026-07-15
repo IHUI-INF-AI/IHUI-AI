@@ -38,7 +38,7 @@ describe('statistics-queries — 真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM lessons`)
     await db.execute(sql`DELETE FROM help_articles`)
     await db.execute(sql`DELETE FROM announcements`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('Learn Statistics', () => {

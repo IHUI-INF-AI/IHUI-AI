@@ -86,7 +86,7 @@ describe('ranking-routes — 路由层真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM user_points`)
     await db.execute(sql`DELETE FROM agents`)
     await db.execute(sql`DELETE FROM lessons`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   it('GET /api/ranking/users — 空表返回空列表', async () => {

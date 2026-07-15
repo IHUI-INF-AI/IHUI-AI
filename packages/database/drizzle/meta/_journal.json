@@ -453,7 +453,7 @@
     {
       "idx": 64,
       "version": "7",
-      "when": 1784028262933,
+      "when": 1784438401000,
       "tag": "0063_empty_ultron",
       "breakpoints": true
     },
@@ -469,6 +469,41 @@
       "version": "7",
       "when": 1784524801000,
       "tag": "0065_users_level",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1784611200000,
+      "tag": "0066_rls_tenant_isolation",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1784697600000,
+      "tag": "0067_system_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1784697700000,
+      "tag": "0068_rls_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1784697800000,
+      "tag": "0069_system_admin_password_reset",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1784697900000,
+      "tag": "0070_rls_safe_tenant_id",
       "breakpoints": true
     }
   ]

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, timestamp, text, date, unique } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, integer, timestamp, text, date, boolean, unique } from 'drizzle-orm/pg-core'
 
 export const users = pgTable(
   'users',
@@ -18,6 +18,7 @@ export const users = pgTable(
     status: integer('status').default(1).notNull(), // 0=禁用 1=正常 3=注销
     isVip: integer('is_vip').default(0).notNull(), // -1=游客 0=普通 1=VIP 2=操盘手
     level: integer('level').default(0).notNull(), // 0=普通 1=白银 2=黄金 3=钻石
+    isSystemAdmin: boolean('is_system_admin').default(false).notNull(), // 系统内置管理员(DB 触发器+应用层双重锁,禁止任何 UPDATE/DELETE)
     inviteCode: varchar('invite_code', { length: 32 }),
     parentId: uuid('parent_id'), // 推荐人(分销关系链),不自引用 FK 以避免循环
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),

@@ -124,8 +124,8 @@ const checkinRoutes: FastifyPluginAsync = async (server) => {
 
     const conditions = [eq(signInRecords.userId, userId)]
     if (yearMonth) {
-      // 按月筛选：sign_in_date 以 YYYY-MM 开头
-      conditions.push(sql`${signInRecords.signInDate} like ${yearMonth + '-%'}`)
+      // 按月筛选：sign_in_date 以 YYYY-MM 开头(date 需显式转 text 才能用 LIKE)
+      conditions.push(sql`${signInRecords.signInDate}::text like ${yearMonth + '-%'}`)
     }
 
     const list = await db

@@ -112,7 +112,7 @@ export default function MemberCouponsPage() {
                 <span className="text-lg font-bold">
                   {c.amount > 0 ? currencyFmt.format(c.amount) : '折扣'}
                 </span>
-                <span className="text-[10px]">元</span>
+                <span className="text-xs">元</span>
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{c.name}</p>
@@ -122,7 +122,7 @@ export default function MemberCouponsPage() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   有效期至:{dateFmt.format(new Date(c.expiresAt))}
                 </p>
-                <p className="font-mono text-[10px] text-muted-foreground">CODE: {c.code}</p>
+                <p className="font-mono text-xs text-muted-foreground">CODE: {c.code}</p>
               </div>
             </div>
           ))}

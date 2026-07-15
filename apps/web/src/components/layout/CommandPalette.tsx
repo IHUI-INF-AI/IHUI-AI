@@ -136,7 +136,7 @@ export function CommandPalette({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
           />
-          <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             ESC
           </kbd>
         </div>
@@ -171,7 +171,7 @@ export function CommandPalette({
             })
           )}
         </div>
-        <div className="flex items-center justify-between border-t px-4 py-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
           <span>↑↓ 导航 · Enter 选择</span>
           <span>{filtered.length} 个结果</span>
         </div>
