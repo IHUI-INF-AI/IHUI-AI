@@ -4,7 +4,8 @@ import { Bot } from 'lucide-react'
 import Image from 'next/image'
 import { AnswerArea } from './AnswerArea'
 import { BottomBar } from './BottomBar'
-import { formatTokens, formatDate } from './helpers'
+import { formatTokens } from './helpers'
+import { dateFormat } from '@/lib/date-utils'
 import type { ShareContentProps } from './types'
 
 export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
@@ -51,7 +52,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
             {typeof tokenCost === 'number' && tokenCost > 0 && (
               <span>消耗智汇值：{formatTokens(tokenCost)}</span>
             )}
-            {createdAt && <span>{formatDate(createdAt)}</span>}
+            {createdAt && <span>{dateFormat(createdAt)}</span>}
           </div>
         </div>
       </div>

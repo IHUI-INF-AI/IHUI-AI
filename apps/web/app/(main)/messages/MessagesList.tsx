@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { relativeTime } from './helpers'
@@ -33,8 +34,8 @@ export function MessagesList({ conversations, selectedId, onSelect }: Props) {
             >
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
                 {conv.peerAvatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
+                    fill
                     src={conv.peerAvatar}
                     alt={conv.peerName}
                     className="h-full w-full object-cover"

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, Star, ArrowLeft, Eye } from 'lucide-react'
@@ -83,10 +84,10 @@ export default function AiWorldFavoritesPage() {
           {items.map((item) => (
             <Link key={item.id} href={`/ai-world/${item.id}`}>
               <Card className="overflow-hidden transition-colors hover:bg-accent/40">
-                <div className="h-32 w-full bg-muted">
+                <div className="relative h-32 w-full bg-muted">
                   {item.coverImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
+                      fill
                       src={item.coverImage}
                       alt={item.title}
                       className="h-full w-full object-cover"

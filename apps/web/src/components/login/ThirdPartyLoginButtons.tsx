@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useSearchParams } from 'next/navigation'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui'
@@ -143,11 +144,12 @@ export function ThirdPartyLoginButtons() {
               {isBusy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={p.icon}
                   alt=""
                   aria-hidden="true"
+                  width={16}
+                  height={16}
                   className={cn('h-4 w-4 shrink-0', p.mono && 'dark:invert')}
                 />
               )}

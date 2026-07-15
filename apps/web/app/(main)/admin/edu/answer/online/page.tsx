@@ -76,6 +76,9 @@ function AnswerOnlineContent() {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  const submitMutRef = React.useRef(submitMut)
+  submitMutRef.current = submitMut
+
   React.useEffect(() => {
     if (!recordId || remaining <= 0) return
     const tc = setInterval(() => setRemaining((s) => Math.max(0, s - 1)), 1000)
@@ -85,10 +88,9 @@ function AnswerOnlineContent() {
   React.useEffect(() => {
     if (recordId && remaining === 0 && questions.length > 0) {
       toast.warning(t('timeUpAutoSubmit'))
-      submitMut.mutate()
+      submitMutRef.current.mutate()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining, recordId, questions.length])
+  }, [remaining, recordId, questions.length, t])
 
   const mins = Math.floor(remaining / 60)
   const secs = remaining % 60

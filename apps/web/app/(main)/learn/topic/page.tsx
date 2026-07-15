@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { Layers, BookOpen, Loader2, Users } from 'lucide-react'
 
@@ -65,10 +66,10 @@ export default function LearnTopicPage() {
           {topics.map((topic) => (
             <Link key={topic.id} href={`/learn/topic/${topic.id}`} className="group block">
               <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
-                <div className="flex h-36 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                <div className="relative flex h-36 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                   {topic.coverImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
+                      fill
                       src={topic.coverImage}
                       alt={topic.title}
                       className="h-full w-full object-cover"

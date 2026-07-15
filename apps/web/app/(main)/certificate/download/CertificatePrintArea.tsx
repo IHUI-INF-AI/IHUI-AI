@@ -1,7 +1,7 @@
 'use client'
 
-import { useTranslations, useLocale } from 'next-intl'
-import { formatDate } from './helpers'
+import { useTranslations } from 'next-intl'
+import { formatDate } from '@/lib/date-utils'
 import type { Certificate } from './types'
 
 interface Props {
@@ -11,7 +11,6 @@ interface Props {
 
 export function CertificatePrintArea({ list, statusText }: Props) {
   const t = useTranslations('certificate')
-  const locale = useLocale()
   return (
     <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
       {list.map((cert) => (
@@ -38,7 +37,7 @@ export function CertificatePrintArea({ list, statusText }: Props) {
           <div style={{ fontSize: '16px', lineHeight: '2.2', color: '#374151' }}>
             <p>{t('download.certText', { name: cert.nickname ?? '-' })}</p>
             <p>
-              {t('download.issueTime')}：{formatDate(cert.issuedAt, locale)}
+              {t('download.issueTime')}：{cert.issuedAt ? formatDate(cert.issuedAt) : '-'}
             </p>
             <p>
               {t('download.status')}: {statusText[cert.status] ?? t('download.statusValid')}
@@ -54,7 +53,7 @@ export function CertificatePrintArea({ list, statusText }: Props) {
             }}
           >
             <span>{t('download.issuingOrg')}</span>
-            <span>{formatDate(cert.issuedAt, locale)}</span>
+            <span>{cert.issuedAt ? formatDate(cert.issuedAt) : '-'}</span>
           </div>
         </div>
       ))}

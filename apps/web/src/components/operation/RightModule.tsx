@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { ExternalLink } from 'lucide-react'
 
@@ -134,8 +135,8 @@ export function RightModule({ quickEntries, ad, hotTags, children, className }: 
                 className="group block overflow-hidden rounded-lg border bg-muted/30 transition-colors hover:bg-muted/60"
               >
                 <div className="relative aspect-[16/9] w-full">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
+                    fill
                     src={ad.image}
                     alt={ad.alt ?? t('promotion')}
                     className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"

@@ -7,7 +7,8 @@ import { useTranslations } from 'next-intl'
 import { HelpFilter } from './HelpFilter'
 import { HelpTable } from './HelpTable'
 import { HelpDialog } from './HelpDialog'
-import { api, fetchList, slugify, EMPTY_FORM, articleToForm } from './helpers'
+import { api, fetchList, EMPTY_FORM, articleToForm } from './helpers'
+import { slugify } from '@/lib/content'
 import type { HelpArticle, HelpForm } from './types'
 
 export default function AdminHelpPage() {

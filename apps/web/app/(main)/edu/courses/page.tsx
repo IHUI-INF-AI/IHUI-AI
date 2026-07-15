@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { BookOpen, Search, Loader2, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react'
 
@@ -111,10 +112,10 @@ export default function EduCoursesPage() {
               className="flex cursor-pointer flex-col transition-colors hover:bg-accent"
               onClick={() => router.push(`/edu/courses/${c.id}`)}
             >
-              <div className="flex h-32 items-center justify-center rounded-t-lg bg-gradient-to-br from-primary/15 to-primary/5">
+              <div className="relative flex h-32 items-center justify-center rounded-t-lg bg-gradient-to-br from-primary/15 to-primary/5">
                 {c.cover ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
+                    fill
                     src={c.cover}
                     alt={c.title}
                     className="h-full w-full rounded-t-lg object-cover"

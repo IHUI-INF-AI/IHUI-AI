@@ -13,7 +13,7 @@ import {
   CardFooter,
 } from '@ihui/ui'
 
-import { formatDate } from './helpers'
+import { formatDate } from '@/lib/date-utils'
 import type { TeamItem } from './types'
 
 interface Props {
@@ -58,7 +58,9 @@ export function TeamList({ data, isLoading, error }: Props) {
                 </div>
               </CardContent>
               <CardFooter className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{formatDate(team.createdAt)}</span>
+                <span className="text-xs text-muted-foreground">
+                  {formatDate(team.createdAt) || '-'}
+                </span>
                 <Button asChild size="sm">
                   <Link href={`/teams/${team.id}`}>
                     {t('enter')}
