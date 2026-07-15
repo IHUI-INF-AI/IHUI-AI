@@ -5,6 +5,7 @@ import { Checkbox } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { th } from './helpers'
 import type { LoginLog } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface Props {
   list: LoginLog[]
@@ -87,7 +88,7 @@ export function LoginLogTable({
                   {l.userAgent}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
-                  {l.loginTime ? new Date(l.loginTime).toLocaleString() : '-'}
+                  {l.loginTime ? formatDate(l.loginTime) : '-'}
                 </td>
                 <td
                   className="max-w-[200px] truncate px-4 py-2.5 text-xs text-muted-foreground"

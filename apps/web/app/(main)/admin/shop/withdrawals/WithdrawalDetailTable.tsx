@@ -36,6 +36,7 @@ import {
   DETAIL_EXPORT,
 } from './types'
 import type { useWithdrawalDetail } from './useWithdrawalDetail'
+import { formatDate } from '@/lib/date-utils'
 
 type Props = ReturnType<typeof useWithdrawalDetail>
 
@@ -210,7 +211,7 @@ export function WithdrawalDetailTable(props: Props) {
                   </td>
                   <td className="px-4 py-2.5">{w.reviewer ?? '-'}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {new Date(w.createdAt).toLocaleString()}
+                    {formatDate(w.createdAt)}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">

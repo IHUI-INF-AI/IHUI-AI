@@ -7,6 +7,7 @@ import { Button, Checkbox } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { th } from './helpers'
 import type { AuthUser } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface AuthUserTableProps {
   list: AuthUser[]
@@ -88,7 +89,7 @@ export function AuthUserTable({
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
-                  {u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}
+                  {u.createdAt ? formatDate(u.createdAt) : '-'}
                 </td>
                 <td className="px-4 py-2.5">
                   <HasPermi code="system:role:edit">

@@ -14,6 +14,7 @@ import {
 } from '@ihui/ui'
 import { PERM } from './helpers'
 import type { PayLog } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface Props {
   rows: PayLog[]
@@ -104,7 +105,7 @@ export function PayLogTable({
                   {r.realAmount ?? '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                  {r.createdAt ? new Date(r.createdAt).toLocaleString() : '-'}
+                  {r.createdAt ? formatDate(r.createdAt) : '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
