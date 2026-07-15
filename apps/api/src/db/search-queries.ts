@@ -101,7 +101,7 @@ async function searchProjects(
     description: projects.description,
     status: projects.status,
     fileCount: sql<number>`(
-      SELECT COUNT(*)::int FROM ${files} WHERE ${files.projectId} = ${projects.id}
+      SELECT COUNT(*)::int FROM ${files} WHERE ${files.projectId} = ${sql.raw('projects.id')}
     )`,
     updatedAt: projects.updatedAt,
   }

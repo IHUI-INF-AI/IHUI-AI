@@ -11957,7 +11957,34 @@
       "val4Title": "共享共贏",
       "val4Desc": "與合作夥伴共享ai紅利，實現生態多方共贏"
     },
-    "title": "ai世界"
+    "title": "ai世界",
+    "admin": {
+      "sites": {
+        "title": "AI 世界站點管理",
+        "agentManagerBtn": "前往 Agent 管理",
+        "notice": "AI 世界站點由已發佈的 Agent 組成。如需新增或修改站點，請在 Agent 管理中操作。",
+        "loading": "載入中...",
+        "categoriesTitle": "分類配置（{count}）",
+        "hotAppsTitle": "熱門站點（{count}）",
+        "emptyHotApps": "暫無熱門站點，請在 Agent 管理中發佈 Agent",
+        "table": {
+          "name": "站點名稱",
+          "id": "ID",
+          "action": "操作"
+        },
+        "edit": "編輯",
+        "iconLabels": {
+          "message": "對話",
+          "palette": "繪畫",
+          "video": "影片",
+          "music": "音樂",
+          "code": "程式",
+          "briefcase": "辦公",
+          "graduation": "教育",
+          "megaphone": "行銷"
+        }
+      }
+    }
   },
   "aiCommunity": {
     "title": "ai創作社區",
@@ -19957,7 +19984,35 @@
     "coherent": "與上一段保持視覺和情節連貫性，自然過渡，確保人物形象一致",
     "transition": "切換",
     "sceneTransition": "轉場",
-    "confirmCharContinue": "確認角色是否需要後續出場"
+    "confirmCharContinue": "確認角色是否需要後續出場",
+    "editor": {
+      "title": "短劇編輯器",
+      "subtitle": "AI 輔助劇本創作：整體增強（角色一致性 + 節奏分析 + 章節大綱）與單行改寫",
+      "enhance": {
+        "title": "整體增強",
+        "scriptIdPlaceholder": "劇本 ID",
+        "titlePlaceholder": "劇本標題（可選）",
+        "submitBtn": "增強",
+        "consistency": "角色一致性：",
+        "pacing": "節奏分析：",
+        "outline": "章節大綱："
+      },
+      "lineRewrite": {
+        "title": "單行改寫",
+        "scriptIdPlaceholder": "劇本 ID",
+        "scenePlaceholder": "場景",
+        "linePlaceholder": "行",
+        "contentPlaceholder": "對白內容",
+        "instructionPlaceholder": "改寫指令（可選，如：更口語化）",
+        "submitBtn": "改寫",
+        "original": "原文：",
+        "rewritten": "改寫："
+      },
+      "errors": {
+        "scriptIdRequired": "請輸入劇本 ID",
+        "scriptIdAndContentRequired": "請輸入劇本 ID 和對白內容"
+      }
+    }
   },
   "studyAdd": {
     "cover": "封面",
@@ -23257,5 +23312,10 @@
       "answered": "已回答",
       "pending": "待回答"
     }
+  },
+  "forbidden": {
+    "title": "無權限存取",
+    "description": "抱歉，您沒有存取該頁面的權限。如需開通權限，請聯絡管理員。",
+    "backToHome": "返回首頁"
   }
 }

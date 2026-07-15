@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { Globe, Loader2, ExternalLink, Info } from 'lucide-react'
 
@@ -32,18 +33,25 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const ICON_LABEL: Record<string, string> = {
-  message: '对话',
-  palette: '绘画',
-  video: '视频',
-  music: '音乐',
-  code: '代码',
-  briefcase: '办公',
-  graduation: '教育',
-  megaphone: '营销',
+const ICON_KEYS = [
+  'message',
+  'palette',
+  'video',
+  'music',
+  'code',
+  'briefcase',
+  'graduation',
+  'megaphone',
+] as const
+
+type IconKey = (typeof ICON_KEYS)[number]
+
+function isIconKey(k: string): k is IconKey {
+  return (ICON_KEYS as readonly string[]).includes(k)
 }
 
 export default function AdminAiWorldSitesPage() {
+  const t = useTranslations('aiWorld.admin.sites')
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['admin', 'ai-world'],
     queryFn: () => api<AiWorldData>('/api/ai-world'),
@@ -57,33 +65,32 @@ export default function AdminAiWorldSitesPage() {
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Globe className="h-6 w-6 text-primary" />
-          AI 世界站点管理
+          {t('title')}
         </h1>
         <Button size="sm" variant="outline" asChild>
           <Link href="/admin/agents">
             <ExternalLink className="h-4 w-4" />
-            前往 Agent 管理
+            {t('agentManagerBtn')}
           </Link>
         </Button>
       </div>
 
-      <Alert
-        variant="info"
-        description="AI 世界站点由已发布的 Agent 组成。如需新增或修改站点,请在 Agent 管理中操作。"
-      />
+      <Alert variant="info" description={t('notice')} />
 
       {isError && <Alert variant="danger" description={(error as Error).message} />}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : (
         <>
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">分类配置({categories.length})</CardTitle>
+              <CardTitle className="text-base">
+                {t('categoriesTitle', { count: categories.length })}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -93,7 +100,7 @@ export default function AdminAiWorldSitesPage() {
                     className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-xs font-medium text-primary">
-                      {ICON_LABEL[cat.icon] ?? cat.icon}
+                      {isIconKey(cat.icon) ? t(`iconLabels.${cat.icon}`) : cat.icon}
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{cat.name}</p>
@@ -107,22 +114,24 @@ export default function AdminAiWorldSitesPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">热门站点({hotApps.length})</CardTitle>
+              <CardTitle className="text-base">
+                {t('hotAppsTitle', { count: hotApps.length })}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {hotApps.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
                   <Info className="h-4 w-4" />
-                  暂无热门站点,请在 Agent 管理中发布 Agent
+                  {t('emptyHotApps')}
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-lg border">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
                       <tr>
-                        <th className="px-3 py-2 font-medium">站点名称</th>
-                        <th className="px-3 py-2 font-medium">ID</th>
-                        <th className="px-3 py-2 text-right font-medium">操作</th>
+                        <th className="px-3 py-2 font-medium">{t('table.name')}</th>
+                        <th className="px-3 py-2 font-medium">{t('table.id')}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t('table.action')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -134,7 +143,7 @@ export default function AdminAiWorldSitesPage() {
                           </td>
                           <td className="px-3 py-2 text-right">
                             <Button size="sm" variant="ghost" asChild>
-                              <Link href="/admin/agents">编辑</Link>
+                              <Link href="/admin/agents">{t('edit')}</Link>
                             </Button>
                           </td>
                         </tr>

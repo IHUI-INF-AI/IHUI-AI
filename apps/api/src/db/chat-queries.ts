@@ -1,26 +1,28 @@
-import { eq, and, desc, asc, ilike, sql, lt, gt } from 'drizzle-orm';
-import { db } from './index.js';
+import { eq, and, desc, asc, ilike, sql, lt, gt } from 'drizzle-orm'
+import { db } from './index.js'
 import {
   chatConversations,
   chatMessages,
   chatFavorites,
   type ChatConversation,
   type ChatMessage,
-} from '@ihui/database';
+} from '@ihui/database'
 
 // =============================================================================
 // 对话
 // =============================================================================
 
 export interface CreateConversationInput {
-  userId: string;
-  title?: string;
-  model?: string;
-  systemPrompt?: string;
-  metadata?: unknown;
+  userId: string
+  title?: string
+  model?: string
+  systemPrompt?: string
+  metadata?: unknown
 }
 
-export async function createConversation(input: CreateConversationInput): Promise<ChatConversation> {
+export async function createConversation(
+  input: CreateConversationInput,
+): Promise<ChatConversation> {
   const rows = await db
     .insert(chatConversations)
     .values({
@@ -30,25 +32,28 @@ export async function createConversation(input: CreateConversationInput): Promis
       systemPrompt: input.systemPrompt,
       metadata: input.metadata as Record<string, unknown> | null,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建对话失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建对话失败')
+  return row
 }
 
 export interface ListConversationsOpts {
-  page: number;
-  pageSize: number;
-  search?: string;
+  page: number
+  pageSize: number
+  search?: string
 }
 
 export async function findConversationsByUser(
   userId: string,
   opts: ListConversationsOpts,
-): Promise<{ list: (ChatConversation & { messageCount: number; favorite: boolean })[]; total: number }> {
-  const conds = [eq(chatConversations.userId, userId)];
-  if (opts.search) conds.push(ilike(chatConversations.title, `%${opts.search}%`));
-  const where = and(...conds);
+): Promise<{
+  list: (ChatConversation & { messageCount: number; favorite: boolean })[]
+  total: number
+}> {
+  const conds = [eq(chatConversations.userId, userId)]
+  if (opts.search) conds.push(ilike(chatConversations.title, `%${opts.search}%`))
+  const where = and(...conds)
 
   const [list, totalRows] = await Promise.all([
     db
@@ -63,12 +68,12 @@ export async function findConversationsByUser(
         createdAt: chatConversations.createdAt,
         updatedAt: chatConversations.updatedAt,
         messageCount: sql<number>`(
-          SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${chatConversations.id}
+          SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
         )`,
         favorite: sql<boolean>`EXISTS(
           SELECT 1 FROM ${chatFavorites}
           WHERE ${chatFavorites.userId} = ${userId}
-            AND ${chatFavorites.conversationId} = ${chatConversations.id}
+            AND ${chatFavorites.conversationId} = ${sql.raw('chat_conversations.id')}
         )`,
       })
       .from(chatConversations)
@@ -76,22 +81,29 @@ export async function findConversationsByUser(
       .orderBy(desc(chatConversations.lastMessageAt), desc(chatConversations.updatedAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(chatConversations).where(where),
-  ]);
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(chatConversations)
+      .where(where),
+  ])
 
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 export async function findConversationById(id: string): Promise<ChatConversation | undefined> {
-  const rows = await db.select().from(chatConversations).where(eq(chatConversations.id, id)).limit(1);
-  return rows[0];
+  const rows = await db
+    .select()
+    .from(chatConversations)
+    .where(eq(chatConversations.id, id))
+    .limit(1)
+  return rows[0]
 }
 
 export interface UpdateConversationInput {
-  title?: string;
-  model?: string;
-  systemPrompt?: string;
-  metadata?: unknown;
+  title?: string
+  model?: string
+  systemPrompt?: string
+  metadata?: unknown
 }
 
 export async function updateConversation(
@@ -104,18 +116,20 @@ export async function updateConversation(
       ...(data.title !== undefined && { title: data.title }),
       ...(data.model !== undefined && { model: data.model }),
       ...(data.systemPrompt !== undefined && { systemPrompt: data.systemPrompt }),
-      ...(data.metadata !== undefined && { metadata: data.metadata as Record<string, unknown> | null }),
+      ...(data.metadata !== undefined && {
+        metadata: data.metadata as Record<string, unknown> | null,
+      }),
       updatedAt: new Date(),
     })
     .where(eq(chatConversations.id, id))
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('更新对话失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('更新对话失败')
+  return row
 }
 
 export async function deleteConversation(id: string): Promise<void> {
-  await db.delete(chatConversations).where(eq(chatConversations.id, id));
+  await db.delete(chatConversations).where(eq(chatConversations.id, id))
 }
 
 // =============================================================================
@@ -123,52 +137,52 @@ export async function deleteConversation(id: string): Promise<void> {
 // =============================================================================
 
 export interface ListMessagesOpts {
-  page: number;
-  pageSize: number;
-  before?: string; // 游标:返回此 message id 之前的消息(用于加载更早的历史)
-  after?: string; // 游标:返回此 message id 之后的消息(用于加载新消息)
+  page: number
+  pageSize: number
+  before?: string // 游标:返回此 message id 之前的消息(用于加载更早的历史)
+  after?: string // 游标:返回此 message id 之后的消息(用于加载新消息)
 }
 
 export async function findMessages(
   conversationId: string,
   opts: ListMessagesOpts,
 ): Promise<{ list: ChatMessage[]; total: number; hasMore: boolean; nextCursor: string | null }> {
-  const where = eq(chatMessages.conversationId, conversationId);
-  const limit = Math.min(opts.pageSize, 100); // 上限 100
+  const where = eq(chatMessages.conversationId, conversationId)
+  const limit = Math.min(opts.pageSize, 100) // 上限 100
 
-  let list: ChatMessage[];
-  let hasMore = false;
-  let total = 0;
+  let list: ChatMessage[]
+  let hasMore = false
+  let total = 0
 
   if (opts.before) {
     // 游标模式(before):不需要 total,仅用 hasMore 判断
-    const cursorMsg = await findMessageById(opts.before);
+    const cursorMsg = await findMessageById(opts.before)
     if (!cursorMsg) {
-      return { list: [], total: 0, hasMore: false, nextCursor: null };
+      return { list: [], total: 0, hasMore: false, nextCursor: null }
     }
     const rows = await db
       .select()
       .from(chatMessages)
       .where(and(where, lt(chatMessages.createdAt, cursorMsg.createdAt)))
       .orderBy(desc(chatMessages.createdAt))
-      .limit(limit + 1);
-    hasMore = rows.length > limit;
-    list = hasMore ? rows.slice(0, limit) : rows;
-    list.reverse();
+      .limit(limit + 1)
+    hasMore = rows.length > limit
+    list = hasMore ? rows.slice(0, limit) : rows
+    list.reverse()
   } else if (opts.after) {
     // 游标模式(after):不需要 total
-    const cursorMsg = await findMessageById(opts.after);
+    const cursorMsg = await findMessageById(opts.after)
     if (!cursorMsg) {
-      return { list: [], total: 0, hasMore: false, nextCursor: null };
+      return { list: [], total: 0, hasMore: false, nextCursor: null }
     }
     const rows = await db
       .select()
       .from(chatMessages)
       .where(and(where, gt(chatMessages.createdAt, cursorMsg.createdAt)))
       .orderBy(asc(chatMessages.createdAt))
-      .limit(limit + 1);
-    hasMore = rows.length > limit;
-    list = hasMore ? rows.slice(0, limit) : rows;
+      .limit(limit + 1)
+    hasMore = rows.length > limit
+    list = hasMore ? rows.slice(0, limit) : rows
   } else {
     // offset 分页:单次 Promise.all 获取 rows + total,不重复查询
     const [rows, totalRows] = await Promise.all([
@@ -179,32 +193,35 @@ export async function findMessages(
         .orderBy(asc(chatMessages.createdAt))
         .limit(limit)
         .offset((opts.page - 1) * opts.pageSize),
-      db.select({ count: sql<number>`COUNT(*)` }).from(chatMessages).where(where),
-    ]);
-    list = rows;
-    total = Number(totalRows[0]?.count ?? 0);
-    hasMore = opts.page * opts.pageSize < total;
+      db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(chatMessages)
+        .where(where),
+    ])
+    list = rows
+    total = Number(totalRows[0]?.count ?? 0)
+    hasMore = opts.page * opts.pageSize < total
   }
 
   // 计算 nextCursor
-  let nextCursor: string | null = null;
+  let nextCursor: string | null = null
   if (hasMore) {
     if (opts.before) {
-      nextCursor = list[0]?.id ?? null;
+      nextCursor = list[0]?.id ?? null
     } else {
-      nextCursor = list[list.length - 1]?.id ?? null;
+      nextCursor = list[list.length - 1]?.id ?? null
     }
   }
 
-  return { list, total, hasMore, nextCursor };
+  return { list, total, hasMore, nextCursor }
 }
 
 export interface CreateMessageInput {
-  conversationId: string;
-  role?: string;
-  content: string;
-  tokens?: number;
-  metadata?: unknown;
+  conversationId: string
+  role?: string
+  content: string
+  tokens?: number
+  metadata?: unknown
 }
 
 /**
@@ -222,9 +239,9 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
         tokens: input.tokens,
         metadata: input.metadata as Record<string, unknown> | null,
       })
-      .returning();
-    const row = rows[0];
-    if (!row) throw new Error('创建消息失败');
+      .returning()
+    const row = rows[0]
+    if (!row) throw new Error('创建消息失败')
 
     // 同步最近消息时间(仅当新消息时间晚于现有 lastMessageAt,避免并发倒置)
     // 注意: 必须用 lt() 运算符而非 sql`... ${date}` 模板
@@ -239,15 +256,15 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
           eq(chatConversations.id, input.conversationId),
           lt(chatConversations.lastMessageAt, row.createdAt),
         ),
-      );
+      )
 
-    return row;
-  });
+    return row
+  })
 }
 
 export async function findMessageById(id: string): Promise<ChatMessage | undefined> {
-  const rows = await db.select().from(chatMessages).where(eq(chatMessages.id, id)).limit(1);
-  return rows[0];
+  const rows = await db.select().from(chatMessages).where(eq(chatMessages.id, id)).limit(1)
+  return rows[0]
 }
 
 /**
@@ -265,16 +282,16 @@ export async function updateMessage(
     .select({ messageId: chatMessages.id, conversationId: chatMessages.conversationId })
     .from(chatMessages)
     .where(eq(chatMessages.id, id))
-    .limit(1);
-  const row = target[0];
-  if (!row) return undefined;
+    .limit(1)
+  const row = target[0]
+  if (!row) return undefined
 
   const conv = await db
     .select({ userId: chatConversations.userId })
     .from(chatConversations)
     .where(eq(chatConversations.id, row.conversationId))
-    .limit(1);
-  if (!conv[0] || conv[0].userId !== userId) return undefined;
+    .limit(1)
+  if (!conv[0] || conv[0].userId !== userId) return undefined
 
   const updated = await db
     .update(chatMessages)
@@ -284,12 +301,12 @@ export async function updateMessage(
       metadata: patch.metadata as Record<string, unknown> | null,
     })
     .where(eq(chatMessages.id, id))
-    .returning();
-  return updated[0];
+    .returning()
+  return updated[0]
 }
 
 export async function deleteMessage(id: string): Promise<void> {
-  await db.delete(chatMessages).where(eq(chatMessages.id, id));
+  await db.delete(chatMessages).where(eq(chatMessages.id, id))
 }
 
 /**
@@ -298,12 +315,12 @@ export async function deleteMessage(id: string): Promise<void> {
  */
 export async function clearMessages(conversationId: string): Promise<void> {
   await db.transaction(async (tx) => {
-    await tx.delete(chatMessages).where(eq(chatMessages.conversationId, conversationId));
+    await tx.delete(chatMessages).where(eq(chatMessages.conversationId, conversationId))
     await tx
       .update(chatConversations)
       .set({ lastMessageAt: null, updatedAt: new Date() })
-      .where(eq(chatConversations.id, conversationId));
-  });
+      .where(eq(chatConversations.id, conversationId))
+  })
 }
 
 // =============================================================================
@@ -314,33 +331,44 @@ export async function clearMessages(conversationId: string): Promise<void> {
  * 收藏对话。幂等：已收藏则返回 false(未实际插入),新收藏返回 true。
  * 使用 ON CONFLICT DO NOTHING 依赖 (user_id, conversation_id) 唯一约束,消除 check-then-act 竞态。
  */
-export async function favoriteConversation(userId: string, conversationId: string): Promise<boolean> {
+export async function favoriteConversation(
+  userId: string,
+  conversationId: string,
+): Promise<boolean> {
   const rows = await db
     .insert(chatFavorites)
     .values({ userId, conversationId })
     .onConflictDoNothing({
       target: [chatFavorites.userId, chatFavorites.conversationId],
     })
-    .returning();
-  return rows.length > 0;
+    .returning()
+  return rows.length > 0
 }
 
-export async function unfavoriteConversation(userId: string, conversationId: string): Promise<boolean> {
+export async function unfavoriteConversation(
+  userId: string,
+  conversationId: string,
+): Promise<boolean> {
   const rows = await db
     .delete(chatFavorites)
     .where(and(eq(chatFavorites.userId, userId), eq(chatFavorites.conversationId, conversationId)))
-    .returning();
-  return rows.length > 0;
+    .returning()
+  return rows.length > 0
 }
 
 export async function findFavoriteConversations(
   userId: string,
   opts: { page: number; pageSize: number },
-): Promise<{ list: (ChatConversation & { messageCount: number; favorite: boolean; favoriteId: string; favoriteCreatedAt: Date })[]; total: number }> {
-  const where = and(
-    eq(chatFavorites.userId, userId),
-    eq(chatConversations.userId, userId),
-  );
+): Promise<{
+  list: (ChatConversation & {
+    messageCount: number
+    favorite: boolean
+    favoriteId: string
+    favoriteCreatedAt: Date
+  })[]
+  total: number
+}> {
+  const where = and(eq(chatFavorites.userId, userId), eq(chatConversations.userId, userId))
 
   const [list, totalRows] = await Promise.all([
     db
@@ -355,7 +383,7 @@ export async function findFavoriteConversations(
         createdAt: chatConversations.createdAt,
         updatedAt: chatConversations.updatedAt,
         messageCount: sql<number>`(
-          SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${chatConversations.id}
+          SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
         )`,
         favorite: sql<boolean>`TRUE`,
         favoriteId: chatFavorites.id,
@@ -372,7 +400,7 @@ export async function findFavoriteConversations(
       .from(chatFavorites)
       .innerJoin(chatConversations, eq(chatFavorites.conversationId, chatConversations.id))
       .where(where),
-  ]);
+  ])
 
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }

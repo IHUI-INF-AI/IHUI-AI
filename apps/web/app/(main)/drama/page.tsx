@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2, Sparkles, PenLine } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -33,6 +34,7 @@ const inputCls =
   'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground'
 
 export default function DramaPage() {
+  const t = useTranslations('drama.editor')
   const [scriptId, setScriptId] = React.useState('')
   const [title, setTitle] = React.useState('')
   const [enhanceResult, setEnhanceResult] = React.useState<EnhanceResult | null>(null)
@@ -51,7 +53,7 @@ export default function DramaPage() {
   async function handleEnhance(e: React.FormEvent) {
     e.preventDefault()
     if (!scriptId.trim()) {
-      setEnhanceErr('请输入剧本 ID')
+      setEnhanceErr(t('errors.scriptIdRequired'))
       return
     }
     setEnhanceLoading(true)
@@ -72,7 +74,7 @@ export default function DramaPage() {
   async function handleLine(e: React.FormEvent) {
     e.preventDefault()
     if (!lineScriptId.trim() || !content.trim()) {
-      setLineErr('请输入剧本 ID 和对白内容')
+      setLineErr(t('errors.scriptIdAndContentRequired'))
       return
     }
     setLineLoading(true)
@@ -95,18 +97,16 @@ export default function DramaPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Sparkles className="h-5 w-5 text-primary" />
-          短剧编辑器
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          AI 辅助剧本创作:整体增强(角色一致性 + 节奏分析 + 章节大纲)与单行改写
-        </p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Sparkles className="h-4 w-4" />
-            整体增强
+            {t('enhance.title')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -114,13 +114,13 @@ export default function DramaPage() {
             <div className="flex gap-2">
               <input
                 className={inputCls}
-                placeholder="剧本 ID"
+                placeholder={t('enhance.scriptIdPlaceholder')}
                 value={scriptId}
                 onChange={(e) => setScriptId(e.target.value)}
               />
               <input
                 className={inputCls}
-                placeholder="剧本标题(可选)"
+                placeholder={t('enhance.titlePlaceholder')}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
@@ -130,7 +130,7 @@ export default function DramaPage() {
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
-                增强
+                {t('enhance.submitBtn')}
               </Button>
             </div>
           </form>
@@ -138,19 +138,19 @@ export default function DramaPage() {
           {enhanceResult && (
             <div className="space-y-2 rounded-lg border bg-muted/30 p-3 text-sm">
               <div>
-                <span className="font-medium">角色一致性:</span>
+                <span className="font-medium">{t('enhance.consistency')}</span>
                 <pre className="mt-1 overflow-auto whitespace-pre-wrap text-xs">
                   {JSON.stringify(enhanceResult.consistency, null, 2)}
                 </pre>
               </div>
               <div>
-                <span className="font-medium">节奏分析:</span>
+                <span className="font-medium">{t('enhance.pacing')}</span>
                 <pre className="mt-1 overflow-auto whitespace-pre-wrap text-xs">
                   {JSON.stringify(enhanceResult.pacing, null, 2)}
                 </pre>
               </div>
               <div>
-                <span className="font-medium">章节大纲:</span>
+                <span className="font-medium">{t('enhance.outline')}</span>
                 <pre className="mt-1 overflow-auto whitespace-pre-wrap text-xs">
                   {JSON.stringify(enhanceResult.outline, null, 2)}
                 </pre>
@@ -164,7 +164,7 @@ export default function DramaPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <PenLine className="h-4 w-4" />
-            单行改写
+            {t('lineRewrite.title')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -172,7 +172,7 @@ export default function DramaPage() {
             <div className="flex gap-2">
               <input
                 className={inputCls}
-                placeholder="剧本 ID"
+                placeholder={t('lineRewrite.scriptIdPlaceholder')}
                 value={lineScriptId}
                 onChange={(e) => setLineScriptId(e.target.value)}
               />
@@ -180,7 +180,7 @@ export default function DramaPage() {
                 className={`${inputCls} w-20`}
                 type="number"
                 min="1"
-                placeholder="场景"
+                placeholder={t('lineRewrite.scenePlaceholder')}
                 value={sceneIndex}
                 onChange={(e) => setSceneIndex(e.target.value)}
               />
@@ -188,20 +188,20 @@ export default function DramaPage() {
                 className={`${inputCls} w-20`}
                 type="number"
                 min="1"
-                placeholder="行"
+                placeholder={t('lineRewrite.linePlaceholder')}
                 value={lineIndex}
                 onChange={(e) => setLineIndex(e.target.value)}
               />
             </div>
             <textarea
               className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
-              placeholder="对白内容"
+              placeholder={t('lineRewrite.contentPlaceholder')}
               value={content}
               onChange={(e) => setContent(e.target.value)}
             />
             <input
               className={inputCls}
-              placeholder="改写指令(可选,如:更口语化)"
+              placeholder={t('lineRewrite.instructionPlaceholder')}
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
             />
@@ -211,18 +211,20 @@ export default function DramaPage() {
               ) : (
                 <PenLine className="h-4 w-4" />
               )}
-              改写
+              {t('lineRewrite.submitBtn')}
             </Button>
           </form>
           {lineErr && <Alert variant="danger" description={lineErr} />}
           {lineResult && (
             <div className="space-y-2 rounded-lg border bg-muted/30 p-3 text-sm">
               <div>
-                <span className="font-medium text-muted-foreground">原文:</span>
+                <span className="font-medium text-muted-foreground">
+                  {t('lineRewrite.original')}
+                </span>
                 <p className="mt-1">{lineResult.original}</p>
               </div>
               <div>
-                <span className="font-medium text-primary">改写:</span>
+                <span className="font-medium text-primary">{t('lineRewrite.rewritten')}</span>
                 <p className="mt-1">{lineResult.rewritten}</p>
               </div>
             </div>
