@@ -9,6 +9,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { getInitials } from '@/components/data/Avatar'
 
 interface Fan {
   id: string
@@ -22,13 +23,6 @@ async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
   if (!r.success) throw new Error(r.error)
   return r.data
-}
-
-function initials(name: string | null): string {
-  if (!name) return '?'
-  const trimmed = name.trim()
-  if (!trimmed) return '?'
-  return trimmed.slice(0, 1).toUpperCase()
 }
 
 export default function MemberFansPage() {
@@ -87,7 +81,7 @@ export default function MemberFansPage() {
                     'flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground',
                   )}
                 >
-                  {initials(fan.nickname)}
+                  {getInitials(fan.nickname)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{fan.nickname ?? t('anonymous')}</p>

@@ -1064,6 +1064,25 @@
       "startLearning": "시작학습",
       "duration": "소요 시간",
       "studentsLabel": "수강생 수"
+    },
+    "topic": {
+      "title": "학습 토픽",
+      "subtitle": "강좌 토픽 + 프리미엄 토픽,체계적 학습",
+      "empty": "토픽이 없습니다",
+      "loading": "로딩 중...",
+      "free": "무료",
+      "lessonCount": "{count} 강좌",
+      "learnNum": "{count} 명",
+      "type": {
+        "lesson": {
+          "label": "강좌 토픽",
+          "tip": "운영팀이 선별한 강좌 묶음,무료 학습 가능."
+        },
+        "premium": {
+          "label": "프리미엄 토픽",
+          "tip": "기업/부서 맞춤 콘텐츠 포함,유료일 수 있음."
+        }
+      }
     }
   },
   "exam": {

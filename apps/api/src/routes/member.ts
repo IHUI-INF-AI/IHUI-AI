@@ -41,6 +41,7 @@ import {
   deleteSystemUser,
   MemberConflictError,
 } from '../db/member-queries.js'
+import { isSystemAdminUser } from '../db/queries.js'
 import {
   findGroupList,
   findGroupById,
@@ -1176,6 +1177,9 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     }
+    if (await isSystemAdminUser(idParsed.data.id)) {
+      return reply.status(403).send(error(403, '系统内置管理员不可修改'))
+    }
     const parsed = updateSystemUserSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1193,6 +1197,9 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (await isSystemAdminUser(idParsed.data.id)) {
+      return reply.status(403).send(error(403, '系统内置管理员不可修改密码'))
     }
     const parsed = resetSystemUserPwdSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -1212,6 +1219,9 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (await isSystemAdminUser(idParsed.data.id)) {
+      return reply.status(403).send(error(403, '系统内置管理员不可删除'))
     }
     const existing = await findSystemUserById(idParsed.data.id)
     if (!existing) {

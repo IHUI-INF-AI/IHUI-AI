@@ -118,7 +118,7 @@ export function RightModule({ quickEntries, ad, hotTags, children, className }: 
                     </span>
                     <span className="text-xs font-medium leading-tight">{entry.label}</span>
                     {entry.description && (
-                      <span className="text-[10px] text-muted-foreground">{entry.description}</span>
+                      <span className="text-xs text-muted-foreground">{entry.description}</span>
                     )}
                   </Link>
                 )
@@ -157,7 +157,7 @@ export function RightModule({ quickEntries, ad, hotTags, children, className }: 
                   >
                     <span className="break-words">{tag.label}</span>
                     {tag.count !== undefined && (
-                      <span className="text-[10px] text-muted-foreground/70">{tag.count}</span>
+                      <span className="text-xs text-muted-foreground/70">{tag.count}</span>
                     )}
                   </Link>
                 ))}

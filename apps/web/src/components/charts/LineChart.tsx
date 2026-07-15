@@ -97,7 +97,7 @@ export const LineChart = React.memo(function LineChart({
             x={points[i]?.x}
             y={height - 6}
             textAnchor="middle"
-            className="fill-muted-foreground text-[10px]"
+            className="fill-muted-foreground text-xs"
           >
             {label}
           </text>

@@ -13,6 +13,7 @@ import {
   cancelUserAccount,
   findRefreshToken,
   revokeRefreshToken,
+  isSystemAdminUser,
 } from '../db/queries.js'
 import { getUserPermissions } from '../db/rbac-queries.js'
 import { findInvitationByCode, markInvitationUsed } from '../db/promotion-queries.js'
@@ -253,6 +254,10 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
           },
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
           404: {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
@@ -281,6 +286,10 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserByPhone(phone)
       if (!user) {
         return reply.status(404).send(error(404, '用户不存在'))
+      }
+
+      if (await isSystemAdminUser(user.id)) {
+        return reply.status(403).send(error(403, '系统内置管理员密码不可重置'))
       }
 
       // 更新密码
@@ -481,7 +490,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const ip = request.ip
 
       // 账号/IP 锁定检查（防密码爆破）
-      const lockRemaining = getLockRemainingMs(account, ip)
+      const lockRemaining = await getLockRemainingMs(account, ip)
       if (lockRemaining > 0) {
         const retryAfterSec = Math.ceil(lockRemaining / 1000)
         return reply
@@ -497,22 +506,22 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       const user = await findUserByAccount(account)
       if (!user || !user.passwordHash) {
-        recordLoginFailure(account, ip)
+        await recordLoginFailure(account, ip)
         return reply.status(401).send(error(401, '用户不存在或密码错误'))
       }
 
       const ok = await bcrypt.compare(password, user.passwordHash)
       if (!ok) {
-        const remaining = recordLoginFailure(account, ip)
+        const remaining = await recordLoginFailure(account, ip)
         if (remaining === 0) {
           return reply
             .status(429)
-            .header('Retry-After', String(Math.ceil(ACCOUNT_LOCKOUT_CONFIG.lockDurationMs / 1000)))
+            .header('Retry-After', String(ACCOUNT_LOCKOUT_CONFIG.lockDurationSec))
             .send(
               error(
                 429,
                 `登录失败次数过多，账号已被临时锁定 ${Math.ceil(
-                  ACCOUNT_LOCKOUT_CONFIG.lockDurationMs / 60000,
+                  ACCOUNT_LOCKOUT_CONFIG.lockDurationSec / 60,
                 )} 分钟`,
               ),
             )
@@ -527,7 +536,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 登录成功 → 清空失败计数
-      clearLoginFailures(account, ip)
+      await clearLoginFailures(account, ip)
 
       // 风控评估：异常 IP / 异地登录检测
       const risk = server.riskEngine.evaluateRisk({

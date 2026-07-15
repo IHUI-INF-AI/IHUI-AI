@@ -126,6 +126,45 @@ jobs:
             apps/${{ matrix.app }}/dist
           retention-days: 7
 
+  cli-smoke:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: reset-admin-password --help 冒烟测试
+        working-directory: apps/api
+        run: pnpm reset:admin-password --help
+      - name: reset-admin-password 缺 --yes 拒绝测试
+        working-directory: apps/api
+        run: |
+          output=$(pnpm reset:admin-password --account admin --generate 2>&1 || true)
+          if echo "$output" | grep -q "用户未确认"; then
+            echo "✅ 缺 --yes 正确拒绝"
+          else
+            echo "❌ 缺 --yes 未被拒绝"
+            echo "$output"
+            exit 1
+          fi
+      - name: reset-admin-password 生产环境拒绝测试
+        working-directory: apps/api
+        run: |
+          output=$(NODE_ENV=production pnpm reset:admin-password --account admin --generate --yes 2>&1 || true)
+          if echo "$output" | grep -q "生产环境"; then
+            echo "✅ 生产环境无 --force 正确拒绝"
+          else
+            echo "❌ 生产环境未拒绝"
+            echo "$output"
+            exit 1
+          fi
+
   test-python:
     runs-on: ubuntu-latest
     steps:

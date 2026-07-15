@@ -42,7 +42,7 @@ describe('exam-extended-queries — 真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM exam_signups`)
     await db.execute(sql`DELETE FROM exam_records`)
     await db.execute(sql`DELETE FROM exam_papers`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('Chapters', () => {

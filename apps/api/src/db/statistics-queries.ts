@@ -338,21 +338,23 @@ export interface UserCenterStatistics {
 
 /** 用户中心统计：平台用户数 + 教育会员数 + VIP 数 + 普通用户数 + 禁用用户数。 */
 export async function getUserCenterStatistics(): Promise<UserCenterStatistics> {
+  // 排除 system admin(internal 账号,不计入业务用户统计)
+  const excludeAdmin = sql`${users.isSystemAdmin} = false`
   const [userRows, memberRows, vipRows, normalRows, disabledRows] = await Promise.all([
-    db.select({ count: sql<number>`count(*)::int` }).from(users),
+    db.select({ count: sql<number>`count(*)::int` }).from(users).where(excludeAdmin),
     db.select({ count: sql<number>`count(*)::int` }).from(eduMembers),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(users)
-      .where(eq(users.isVip, 1)),
+      .where(and(eq(users.isVip, 1), excludeAdmin)),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(users)
-      .where(eq(users.isVip, 0)),
+      .where(and(eq(users.isVip, 0), excludeAdmin)),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(users)
-      .where(eq(users.status, 0)),
+      .where(and(eq(users.status, 0), excludeAdmin)),
   ]);
   return {
     userTotal: userRows[0]?.count ?? 0,
