@@ -82,6 +82,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useAdminRouters } from '@/hooks/use-admin-routers'
 
 interface AdminNavItem {
   href: string
@@ -198,6 +199,7 @@ interface AdminNavItem {
     | 'ossFiles'
     | 'notificationDispatch'
   icon: React.ComponentType<{ className?: string }>
+  dynamicLabel?: string
 }
 
 const ADMIN_NAV: AdminNavItem[] = [
@@ -339,9 +341,27 @@ const ADMIN_NAV: AdminNavItem[] = [
 export function AdminNav({ children }: { children: React.ReactNode }) {
   const t = useTranslations('admin')
   const pathname = usePathname()
+  const { list: dynamicList, loaded } = useAdminRouters()
 
   const isActive = (href: string) =>
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
+
+  const navItems: AdminNavItem[] =
+    loaded && dynamicList.length > 0
+      ? dynamicList
+          .filter((r) => r.visible !== 0 && r.path)
+          .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+          .map((r) => ({
+            href: r.path,
+            labelKey: 'dashboard' as const,
+            icon: LayoutDashboard,
+            dynamicLabel: r.name,
+          }))
+          .map((r) => {
+            const matched = ADMIN_NAV.find((n) => n.href === r.href)
+            return matched ?? r
+          })
+      : ADMIN_NAV
 
   const renderItem = (item: AdminNavItem, active: boolean, compact = false) => {
     const Icon = item.icon
@@ -358,7 +378,7 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
-        <span>{t(`nav.${item.labelKey}`)}</span>
+        <span>{item.dynamicLabel ?? t(`nav.${item.labelKey}`)}</span>
       </Link>
     )
   }
@@ -373,12 +393,12 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
           <span className="text-base font-semibold tracking-tight">{t('title')}</span>
         </div>
         <nav className="space-y-1">
-          {ADMIN_NAV.map((item) => renderItem(item, isActive(item.href)))}
+          {navItems.map((item) => renderItem(item, isActive(item.href)))}
         </nav>
       </aside>
 
       <nav className="flex flex-wrap gap-1 border-b pb-2 lg:hidden">
-        {ADMIN_NAV.map((item) => renderItem(item, isActive(item.href), true))}
+        {navItems.map((item) => renderItem(item, isActive(item.href), true))}
       </nav>
 
       <div className="min-w-0 flex-1">{children}</div>
