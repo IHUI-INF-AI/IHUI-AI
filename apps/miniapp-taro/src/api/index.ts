@@ -2,7 +2,7 @@
  * API 接口定义 - 对接新架构后端 http://localhost:3000/api
  */
 import Taro from '@tarojs/taro'
-import { get, post, put, del, BASE_URL } from '../utils/request'
+import { get, post, put, patch, del, BASE_URL } from '../utils/request'
 import { getToken, type UserInfo } from '../utils/auth'
 import { parseSSEChunk, type SSEEvent } from '../utils/sse-parse'
 export type { UserInfo }
@@ -424,6 +424,39 @@ export const getAskList = (params?: { page?: number; pageSize?: number; keyword?
 export const getAskDetail = (id: string | number) => get<Ask>(`/community/ask/${id}`)
 export const createAsk = (data: { title: string; content: string }) => post('/community/ask', data)
 
+/* Ask 模块扩展（M-64 + D7/D8 端点） */
+export const getAskCategories = () =>
+  get<{ list: Array<{ id: string; name: string }> }>('/ask/categories')
+export const likeAsk = (id: string | number) =>
+  post<{ id: string; liked: boolean }>(`/asks/${id}/like`)
+export const favoriteAsk = (id: string | number) =>
+  post<{ id: string; favorited: boolean }>(`/asks/${id}/favorite`)
+export const getAskComments = (id: string | number) =>
+  get<{
+    list: Array<{ id: string; content: string; userId: string; createdAt: string }>
+    total: number
+  }>(`/asks/${id}/comments`)
+export const createAskComment = (id: string | number, data: { content: string; pid?: string }) =>
+  post(`/asks/${id}/comments`, data)
+export const updateAskAnswer = (id: string, data: { content: string }) =>
+  patch(`/asks/answers/${id}`, data)
+export const deleteAskAnswer = (id: string) => del(`/asks/answers/${id}`)
+export const getAskMemberQuestionCount = (userId: string) =>
+  get<{ count: number }>('/ask/member/question-count', { userId })
+export const getAskMemberAnswerCount = (userId: string) =>
+  get<{ count: number }>('/ask/member/answer-count', { userId })
+export const getAskMemberQuestions = (params: {
+  userId: string
+  page?: number
+  pageSize?: number
+}) => get<{ list: Ask[]; page: number; pageSize: number }>('/ask/member/questions', params)
+export const getAskMemberAnswers = (params: { userId: string; page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{ id: string; content: string; askId: string; createdAt: string }>
+    page: number
+    pageSize: number
+  }>('/ask/member/answers', params)
+
 export const getTopicList = (params?: { page?: number; pageSize?: number }) =>
   get<{
     list: Array<{ id: string; name: string; count: number; coverUrl?: string }>
@@ -534,6 +567,33 @@ export const submitExam = (data: {
   })
 export const getExamResult = (id: string | number) =>
   get<{ score: number; pass: boolean; rank?: number; total?: number }>(`/exam/${id}/result`)
+
+/* Exam 模块扩展（D1/D2 端点） */
+export const getExamSignups = (params?: {
+  examId?: string
+  userId?: string
+  page?: number
+  pageSize?: number
+}) =>
+  get<{
+    list: Array<{ id: string; paperId: string; userId: string }>
+    total: number
+    page: number
+    pageSize: number
+  }>('/exam/signups', params)
+export const createExamSignup = (data: { examId: string; userId: string }) =>
+  post<{ id: string; paperId: string; userId: string }>('/exam/signups', data)
+export const getExamSignup = (id: string) =>
+  get<{ id: string; paperId: string; userId: string }>(`/exam/signups/${id}`)
+export const cancelExamSignup = (id: string) => del<{ deleted: boolean }>(`/exam/signups/${id}`)
+export const checkExamSignup = (params: { examId: string; userId: string }) =>
+  get<{ signed: boolean; signup: { id: string } | null }>('/exam/signups/check', params)
+export const getExamRecommend = () => get<{ list: Exam[] }>('/exam/recommend')
+export const getExamHot = () => get<{ list: Exam[] }>('/exam/hot')
+export const getExamFavorites = (userId: string) =>
+  get<{ list: Exam[] }>('/exam/favorites', { userId })
+export const deleteExamWrongQuestion = (id: string) =>
+  del<{ deleted: boolean }>(`/exam/wrong-questions/${id}`)
 
 /* ============ AI 模块 ============ */
 

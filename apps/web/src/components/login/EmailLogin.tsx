@@ -57,7 +57,7 @@ export function EmailLogin() {
         setError(json.message || t('loginFailed'))
         return
       }
-      setToken(json.data.accessToken)
+      setToken(json.data.accessToken, json.data.refreshToken)
       router.push('/')
     } catch {
       setError(t('loginFailed'))
@@ -69,7 +69,9 @@ export function EmailLogin() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 pt-2">
       {error && (
-        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
       )}
       <div className="space-y-2">
         <Label htmlFor="email-login-email">{t('email')}</Label>

@@ -17,6 +17,7 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@ihui/ui'
+import { formatDate } from '@/lib/date-utils'
 
 interface ScheduleTask {
   id: string
@@ -158,9 +159,7 @@ export default function SchedulePage() {
                   <span>{t('priority', { priority: task.priority })}</span>
                 </div>
                 {task.lastRunTime && (
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(task.lastRunTime).toLocaleString()}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{formatDate(task.lastRunTime)}</p>
                 )}
               </CardContent>
             </Card>

@@ -46,4 +46,18 @@ export default [
       'jsx-a11y/no-noninteractive-tabindex': 'off',
     },
   },
+  {
+    // 管理后台表格广泛展示用户/服务端上传的图片(URL 动态、尺寸不可控),
+    // Next/Image 强制 width/height 难以适配;统一关闭此规则
+    files: ['app/(main)/admin/**/*.{tsx,jsx}'],
+    rules: {
+      '@next/next/no-img-element': 'off',
+    },
+  },
+  {
+    files: ['src/components/sidebar.tsx'],
+    rules: {
+      '@next/next/no-img-element': 'off',
+    },
+  },
 ]

@@ -1,68 +1,82 @@
 /**
- * 日期工具函数（迁移自历史项目 code/edu/web/web/src/util/dateUtils.js）
+ * 日期/数字格式化工具(统一带时区,避免各页面散落 Date.toLocaleString())
+ * AGENTS.md §4: 时间用 Intl.DateTimeFormat + 强制 Asia/Shanghai 时区
  */
 
-/**
- * 格式化日期
- * @param date 日期对象或时间戳或日期字符串
- * @param format 格式模板，支持 YYYY MM DD HH mm ss
- * @returns 格式化后的日期字符串
- */
-export function dateFormat(date: Date | number | string, format = 'YYYY-MM-DD HH:mm:ss'): string {
-  const d = new Date(date)
-  if (isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return format
-    .replace(/YYYY/g, String(d.getFullYear()))
-    .replace(/MM/g, pad(d.getMonth() + 1))
-    .replace(/DD/g, pad(d.getDate()))
-    .replace(/HH/g, pad(d.getHours()))
-    .replace(/mm/g, pad(d.getMinutes()))
-    .replace(/ss/g, pad(d.getSeconds()))
+const DEFAULT_TZ = 'Asia/Shanghai'
+
+const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: DEFAULT_TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+})
+
+const dateOnlyFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: DEFAULT_TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+const timeOnlyFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: DEFAULT_TZ,
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
+const numberFormatter = new Intl.NumberFormat('zh-CN')
+const currencyFormatter = new Intl.NumberFormat('zh-CN', {
+  style: 'currency',
+  currency: 'CNY',
+})
+
+export function formatDate(input: string | number | Date | null | undefined): string {
+  if (!input) return '-'
+  const d = input instanceof Date ? input : new Date(input)
+  if (Number.isNaN(d.getTime())) return '-'
+  return dateFormatter.format(d)
 }
 
-/**
- * 格式化日期（简写）
- */
-export function formatDate(date: Date | number | string): string {
-  return dateFormat(date, 'YYYY-MM-DD')
+export function dateFormat(
+  input: string | number | Date | null | undefined,
+  pattern?: 'full' | 'date' | 'time',
+): string {
+  if (!input) return '-'
+  if (pattern === 'date') return formatDateOnly(input)
+  if (pattern === 'time') return formatTimeOnly(input)
+  return formatDate(input)
 }
 
-/**
- * 友好时间显示（如"3分钟前"、"2小时前"、"昨天"等）
- */
-export function friendlyDate(date: Date | number | string): string {
-  const d = new Date(date)
-  if (isNaN(d.getTime())) return ''
-  const now = new Date()
-  const diff = now.getTime() - d.getTime()
-  const seconds = Math.floor(diff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
-
-  if (seconds < 60) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days === 1) return '昨天'
-  if (days < 7) return `${days}天前`
-  if (days < 30) return `${Math.floor(days / 7)}周前`
-  if (days < 365) return `${Math.floor(days / 30)}个月前`
-  return `${Math.floor(days / 365)}年前`
+export function formatDateOnly(input: string | number | Date | null | undefined): string {
+  if (!input) return '-'
+  const d = input instanceof Date ? input : new Date(input)
+  if (Number.isNaN(d.getTime())) return '-'
+  return dateOnlyFormatter.format(d)
 }
 
-/**
- * 秒转 mm:ss 格式
- */
-export function formatMinutes(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+export function formatTimeOnly(input: string | number | Date | null | undefined): string {
+  if (!input) return '-'
+  const d = input instanceof Date ? input : new Date(input)
+  if (Number.isNaN(d.getTime())) return '-'
+  return timeOnlyFormatter.format(d)
 }
 
-/**
- * 秒转分钟小数
- */
-export function formatMinute(seconds: number): string {
-  return (seconds / 60).toFixed(1)
+export function formatNumber(input: number | null | undefined): string {
+  if (input === null || input === undefined || Number.isNaN(input)) return '-'
+  return numberFormatter.format(input)
+}
+
+export function formatCurrency(input: number | null | undefined): string {
+  if (input === null || input === undefined || Number.isNaN(input)) return '-'
+  return currencyFormatter.format(input)
+}
+
+export function dateFormatOnly(input: string | number | Date | null | undefined): string {
+  return formatDateOnly(input)
 }

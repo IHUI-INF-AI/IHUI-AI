@@ -248,7 +248,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                   locale === lang.code && 'bg-accent font-medium',
                 )}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- SVG flag icon, <img> more appropriate */}
+                {}
                 <img
                   src={`/images/flags/${lang.code}.svg`}
                   className="h-3 w-4 object-cover"
@@ -266,7 +266,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           className={cn(btnClass, 'p-0')}
           title={collapsed ? t('language') : undefined}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- SVG flag icon */}
+          {}
           <img src={`/images/flags/${locale}.svg`} className="h-3 w-4 object-cover" alt={locale} />
         </Button>
       </Popover>
@@ -737,13 +737,13 @@ export function Sidebar({
     >
       {!collapsed && (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element -- SVG logo */}
+          {}
           <img
             src="/images/logo.svg"
             className="h-8 w-auto max-w-full cursor-pointer object-contain dark:hidden"
             alt="IHUI AI"
           />
-          {/* eslint-disable-next-line @next/next/no-img-element -- SVG logo */}
+          {}
           <img
             src="/images/bailogo.svg"
             className="hidden h-8 w-auto max-w-full cursor-pointer object-contain dark:block"

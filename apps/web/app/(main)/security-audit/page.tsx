@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, ShieldAlert, KeyRound, LogIn, Settings } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { formatDate } from '@/lib/date-utils'
+
 import {
   Card,
   CardContent,
@@ -51,7 +53,7 @@ export default function SecurityAuditPage() {
 
   const fmtDate = (v: string) => {
     const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString()
+    return Number.isNaN(d.getTime()) ? '-' : formatDate(d)
   }
 
   return (

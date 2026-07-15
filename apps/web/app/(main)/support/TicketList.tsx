@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { api, STATUS_LABEL, STATUS_BADGE } from './helpers'
 import type { Ticket as TicketType } from './types'
 import { TicketDetailDialog } from './TicketDetailDialog'
+import { formatDate } from '@/lib/date-utils'
 
 export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
   const [selected, setSelected] = React.useState<TicketType | null>(null)
@@ -59,7 +60,7 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
               <div className="min-w-0 flex-1">
                 <p className="break-words text-sm font-medium">{t.title}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {t.ticketNo} · {new Date(t.createdAt).toLocaleString()}
+                  {t.ticketNo} · {formatDate(t.createdAt)}
                 </p>
               </div>
               <span
