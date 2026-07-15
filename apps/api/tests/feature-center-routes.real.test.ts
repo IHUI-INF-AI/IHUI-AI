@@ -129,6 +129,11 @@ describe('feature-center-routes — 路由层真实 DB 集成测试', () => {
       providerCode: 'openai',
       baseUrl: 'https://api.openai.com',
     })
+    await createAiModel({
+      name: 'Claude',
+      providerCode: 'anthropic',
+      baseUrl: 'https://api.anthropic.com',
+    })
     await createAgent({ name: '助手A', status: 'published' })
     await createAgent({ name: '助手B', status: 'draft' })
     await createDoc({ title: '文档1', slug: 'doc-1', status: 'published' })
@@ -137,18 +142,21 @@ describe('feature-center-routes — 路由层真实 DB 集成测试', () => {
 
     const res = await server.inject({ method: 'GET', url: '/api/feature-center/stats' })
     const body = res.json()
+    expect(body.data.apiCount).toBe(2)
     expect(body.data.agentCount).toBe(1)
     expect(body.data.documentCount).toBe(1)
-    expect(body.data.modelCount).toBe(1)
+    expect(body.data.modelCount).toBe(2)
     expect(body.data.sdkCount).toBe(1)
   })
 
   it('GET /api/feature-center/stats — 仅统计 enabled=true 的模型', async () => {
     await createAiModel({ name: '启用', providerCode: 'openai', baseUrl: 'x', enabled: true })
     await createAiModel({ name: '禁用', providerCode: 'openai', baseUrl: 'x', enabled: false })
+    await createAiModel({ name: '启用2', providerCode: 'openai', baseUrl: 'x', enabled: true })
     const res = await server.inject({ method: 'GET', url: '/api/feature-center/stats' })
     const body = res.json()
-    expect(body.data.modelCount).toBe(1)
+    expect(body.data.apiCount).toBe(2)
+    expect(body.data.modelCount).toBe(2)
   })
 
   it('GET /api/feature-center/apis — 返回 enabled=true 的模型列表', async () => {
