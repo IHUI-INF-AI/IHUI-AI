@@ -117,7 +117,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @ihui/${{ matrix.app }} run build
+      - run: pnpm turbo run build --filter=@ihui/${{ matrix.app }}
       - uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.app }}
