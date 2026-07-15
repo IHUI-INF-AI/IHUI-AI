@@ -47,6 +47,9 @@ jobs:
       - name: Typecheck
         run: pnpm turbo run typecheck
 
+      - name: Schema drift check
+        run: node scripts/check-db-schema-drift.mjs
+
       - name: Lint
         run: pnpm turbo run lint
 
@@ -79,3 +82,66 @@ jobs:
       - name: Syntax check
         run: |
           python -c "import ast, os; files=[os.path.join(d,f) for d,_,fs in os.walk('app') for f in fs if f.endswith('.py')]; [ast.parse(open(fp,encoding='utf-8').read()) for fp in files]; print(f'{len(files)} files OK')"
+
+  ai-service-schema-check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ihui_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ihui_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build database package
+        run: pnpm --filter @ihui/database build
+
+      - name: Push schema to test DB
+        working-directory: packages/database
+        run: npx drizzle-kit push
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install ai-service dependencies
+        working-directory: apps/ai-service
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Run ai-service schema_check against test DB
+        working-directory: apps/ai-service
+        run: |
+          python -m app.core.schema_check
+          # 退出码 0 = 所有表存在且关键字段齐全;1 = 有表不存在或关键字段缺失
+          exit $?
