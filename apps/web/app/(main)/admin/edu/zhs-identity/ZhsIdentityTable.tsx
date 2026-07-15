@@ -73,7 +73,11 @@ export function ZhsIdentityTable({
                 <TableCell className="px-4 py-2.5">{r.organizationId}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   {r.binding ? (
-                    <img src={r.binding} alt="" className="h-10 w-10 rounded object-cover" />
+                    <img
+                      src={r.binding}
+                      alt={r.name || '身份图'}
+                      className="h-10 w-10 rounded object-cover"
+                    />
                   ) : (
                     '-'
                   )}
