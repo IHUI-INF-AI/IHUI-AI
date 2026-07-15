@@ -33,7 +33,7 @@ try {
 
   console.log('\n=== 检查外键依赖(并行) ===')
   for (const u of nonAdmin) {
-    let deps = []
+    const deps = []
     const tables = ['orders', 'payments', 'chat_conversations', 'chat_messages', 'refresh_tokens',
       'addresses', 'point_records', 'wallet_transactions', 'notifications',
       'user_video_comments', 'user_agent_images', 'share_contents', 'feedbacks',
@@ -43,7 +43,7 @@ try {
       try {
         const r = await sql`SELECT count(*)::int AS c FROM ${sql(t)} WHERE user_id = ${u.id}`
         if (r[0].c > 0) deps.push(`${t}=${r[0].c}`)
-      } catch (e) {}
+      } catch {}
     }
     console.log(`账号 ${u.id} 依赖:`, deps.length === 0 ? '无依赖(可安全删除)' : deps.join(', '))
   }
