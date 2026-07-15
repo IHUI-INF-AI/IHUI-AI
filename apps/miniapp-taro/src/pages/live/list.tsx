@@ -29,10 +29,14 @@ export default function LiveList() {
     loadingRef.current = true
     setLoading(true)
     try {
-      const res = await getLiveList({ page: pageRef.current, pageSize: 10, status: statusRef.current })
+      const res = await getLiveList({
+        page: pageRef.current,
+        pageSize: 10,
+        status: statusRef.current,
+      })
       const more = res.list || []
       lenRef.current = reset ? more.length : lenRef.current + more.length
-      setList(prev => reset ? more : [...prev, ...more])
+      setList((prev) => (reset ? more : [...prev, ...more]))
       hasMoreRef.current = lenRef.current < res.total
       pageRef.current++
     } catch {
@@ -43,11 +47,14 @@ export default function LiveList() {
     }
   }, [])
 
-  const switchStatus = useCallback((s: string) => {
-    statusRef.current = s
-    setStatus(s)
-    load(true)
-  }, [load])
+  const switchStatus = useCallback(
+    (s: string) => {
+      statusRef.current = s
+      setStatus(s)
+      load(true)
+    },
+    [load],
+  )
 
   const goDetail = useCallback((id: string | number) => {
     Taro.navigateTo({ url: `/pages/live/detail?id=${id}` })
@@ -71,10 +78,10 @@ export default function LiveList() {
           { key: 'living', label: '直播中' },
           { key: 'upcoming', label: '预告' },
           { key: 'ended', label: '回放' },
-        ].map(tab => (
+        ].map((tab) => (
           <View
             key={tab.key}
-            className={`flex-1 text-center py-2.5 text-sm ${status === tab.key ? 'text-[#007aff] font-semibold' : 'text-[#666]'}`}
+            className={`flex-1 text-center py-2.5 text-sm ${status === tab.key ? 'text-[#07c160] font-semibold' : 'text-[#666]'}`}
             onClick={() => switchStatus(tab.key)}
           >
             <Text>{tab.label}</Text>
@@ -85,7 +92,7 @@ export default function LiveList() {
       {/* 直播列表 */}
       {list.length > 0 && (
         <View>
-          {list.map(item => (
+          {list.map((item) => (
             <View
               key={item.id}
               className="bg-white rounded-2xl overflow-hidden mb-3"
@@ -95,9 +102,11 @@ export default function LiveList() {
                 <Image className="w-full h-full" src={item.coverUrl} mode="aspectFill" />
                 <View
                   className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-xs ${
-                    item.status === 'living' ? 'bg-[#dd524d] text-white' :
-                    item.status === 'upcoming' ? 'bg-[#f0ad4e] text-white' :
-                    'bg-black/50 text-white'
+                    item.status === 'living'
+                      ? 'bg-[#dd524d] text-white'
+                      : item.status === 'upcoming'
+                        ? 'bg-[#f0ad4e] text-white'
+                        : 'bg-black/50 text-white'
                   }`}
                 >
                   <Text>{statusText(item.status)}</Text>
@@ -106,7 +115,7 @@ export default function LiveList() {
               <View className="p-2.5">
                 <Text className="text-base text-[#333] font-semibold">{item.title}</Text>
                 <View className="flex justify-between mt-1.5">
-                  {item.anchor && <Text className="text-xs text-[#007aff]">{item.anchor}</Text>}
+                  {item.anchor && <Text className="text-xs text-[#07c160]">{item.anchor}</Text>}
                   {item.startTime && <Text className="text-xs text-[#999]">{item.startTime}</Text>}
                 </View>
                 {item.watchCount !== undefined && (

@@ -71,7 +71,7 @@ export default function PayResult() {
       {status !== 'pending' ? (
         <View className="px-[60rpx]">
           <Button
-            className="mt-[32rpx] bg-[#007aff] text-white rounded-[40rpx] text-[30rpx]"
+            className="mt-[32rpx] bg-[#07c160] text-white rounded-[40rpx] text-[30rpx]"
             onClick={goHome}
           >
             返回首页
@@ -86,7 +86,7 @@ export default function PayResult() {
       ) : (
         <View className="px-[60rpx]">
           <Button
-            className="mt-[32rpx] bg-[#007aff] text-white rounded-[40rpx] text-[30rpx]"
+            className="mt-[32rpx] bg-[#07c160] text-white rounded-[40rpx] text-[30rpx]"
             onClick={check}
           >
             刷新状态

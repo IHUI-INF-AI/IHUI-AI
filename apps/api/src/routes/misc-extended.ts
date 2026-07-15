@@ -1,11 +1,59 @@
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql } from 'drizzle-orm'
+import * as dns from 'node:dns'
 import { db } from '../db/index.js'
 import { zhsUserAgentContext, docs } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
+
+const BLOCKED_HOSTNAMES = new Set(['localhost', 'ip6-localhost', 'metadata.google.internal'])
+
+function isPrivateIPv4(ip: string): boolean {
+  const parts = ip.split('.').map(Number)
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
+    return false
+  }
+  const [a = -1, b = -1] = parts
+  if (a === 0 || a === 10 || a === 127) return true
+  if (a === 169 && b === 254) return true
+  if (a === 172 && b >= 16 && b <= 31) return true
+  if (a === 192 && b === 168) return true
+  return false
+}
+
+function isPrivateIPv6(ip: string): boolean {
+  const v = ip.toLowerCase()
+  if (v === '::1') return true
+  if (v.startsWith('fe80:')) return true
+  if (v.startsWith('fc') || v.startsWith('fd')) return true
+  return false
+}
+
+async function isPrivateOrLoopback(url: string): Promise<boolean> {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return true
+  }
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (BLOCKED_HOSTNAMES.has(hostname)) return true
+  if (hostname.includes(':')) return isPrivateIPv6(hostname)
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return isPrivateIPv4(hostname)
+  try {
+    const addrs = await dns.promises.lookup(hostname, { all: true })
+    if (addrs.length === 0) return true
+    for (const { address, family } of addrs) {
+      const blocked = family === 6 ? isPrivateIPv6(address) : isPrivateIPv4(address)
+      if (blocked) return true
+    }
+    return false
+  } catch {
+    return true
+  }
+}
 
 function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
   const page = Math.max(1, Math.floor(Number(q.page) || 1))
@@ -15,34 +63,196 @@ function parsePaging(q: { page?: string; pageSize?: string }): { page: number; p
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // -------------------------------------------------------------------------
-  // remote — 远程代理
-  // NOTE: 旧架构 remote.py 为第三方远程请求代理（我的团队/用户信息/上传名片/
-  // 可购买身份/智能体分类等），多数无独立 DB 表，此处保持合理默认值。
+  // remote — 远程代理配置（存储于 system_configs 表，category='remote_proxy'）
   // -------------------------------------------------------------------------
-  server.get('/remote/list', async (_req, reply) => {
-    return reply.send(success({ list: [], total: 0 }))
+  const remoteCreateSchema = z.object({
+    name: z.string().min(1).max(128),
+    url: z.string().url().optional(),
+    method: z.string().max(16).optional(),
+    headers: z.record(z.string(), z.string()).optional(),
+    body: z.unknown().optional(),
+    description: z.string().nullable().optional(),
   })
+  const remoteUpdateSchema = remoteCreateSchema.partial()
+  const proxySchema = z.object({
+    url: z.string().url(),
+    method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']).default('GET'),
+    headers: z.record(z.string(), z.string()).optional(),
+    body: z.unknown().optional(),
+  })
+
+  server.get('/remote/list', async (req, reply) => {
+    const q = req.query as { page?: string; pageSize?: string }
+    const { page, pageSize } = parsePaging(q)
+    const offset = (page - 1) * pageSize
+    try {
+      const rows = await db.execute(sql`
+        SELECT * FROM system_configs
+        WHERE category = 'remote_proxy'
+        ORDER BY created_at DESC
+        LIMIT ${pageSize} OFFSET ${offset}
+      `)
+      const countRows = await db.execute(sql`
+        SELECT count(*)::int AS count FROM system_configs WHERE category = 'remote_proxy'
+      `)
+      const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
+      return reply.send(success({ list: rows as Record<string, unknown>[], total, page, pageSize }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询远程代理失败'))
+    }
+  })
+
   server.get('/remote/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id }))
+    try {
+      const rows = await db.execute(sql`
+        SELECT * FROM system_configs
+        WHERE id::text = ${parsed.data.id} AND category = 'remote_proxy'
+        LIMIT 1
+      `)
+      const row = (rows as Record<string, unknown>[])[0]
+      if (!row) return reply.status(404).send(error(404, '远程代理不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询远程代理失败'))
+    }
   })
+
   server.post('/remote', async (req, reply) => {
-    return reply.status(201).send(success({ created: true, body: req.body }))
+    const b = remoteCreateSchema.safeParse(req.body)
+    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    const value = JSON.stringify({
+      url: b.data.url,
+      method: b.data.method,
+      headers: b.data.headers,
+      body: b.data.body,
+    })
+    try {
+      const rows = await db.execute(sql`
+        INSERT INTO system_configs (id, category, key, value, type, description, is_public)
+        VALUES (gen_random_uuid(), 'remote_proxy', ${b.data.name}, ${value}, 'json', ${b.data.description ?? null}, false)
+        RETURNING *
+      `)
+      const row = (rows as Record<string, unknown>[])[0]
+      if (!row) return reply.status(500).send(error(500, '创建远程代理失败'))
+      return reply.status(201).send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '创建远程代理失败'))
+    }
   })
+
   server.put('/remote/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id, updated: true }))
+    const p = idParamSchema.safeParse(req.params)
+    if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const b = remoteUpdateSchema.safeParse(req.body)
+    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const existing = await db.execute(sql`
+        SELECT * FROM system_configs WHERE id::text = ${p.data.id} AND category = 'remote_proxy' LIMIT 1
+      `)
+      const existingRow = (existing as Record<string, unknown>[])[0]
+      if (!existingRow) return reply.status(404).send(error(404, '远程代理不存在'))
+      let oldConfig: Record<string, unknown> = {}
+      try {
+        oldConfig = JSON.parse((existingRow.value as string) || '{}') as Record<string, unknown>
+      } catch {
+        oldConfig = {}
+      }
+      const newValue = JSON.stringify({
+        url: b.data.url ?? oldConfig.url,
+        method: b.data.method ?? oldConfig.method,
+        headers: b.data.headers ?? oldConfig.headers,
+        body: b.data.body ?? oldConfig.body,
+      })
+      const newKey = b.data.name ?? (existingRow.key as string)
+      const newDesc =
+        b.data.description !== undefined
+          ? b.data.description
+          : (existingRow.description as string | null)
+      const rows = await db.execute(sql`
+        UPDATE system_configs
+        SET key = ${newKey}, value = ${newValue}, description = ${newDesc}, updated_at = NOW()
+        WHERE id::text = ${p.data.id} AND category = 'remote_proxy'
+        RETURNING *
+      `)
+      const row = (rows as Record<string, unknown>[])[0]
+      return reply.send(success(row ?? { id: p.data.id, updated: true }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '更新远程代理失败'))
+    }
   })
+
   server.delete('/remote/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    try {
+      await db.execute(sql`
+        DELETE FROM system_configs WHERE id::text = ${parsed.data.id} AND category = 'remote_proxy'
+      `)
+      return reply.send(success({ id: parsed.data.id, deleted: true }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '删除远程代理失败'))
+    }
   })
-  // POST /remote/proxy — 代理转发请求
+
   server.post('/remote/proxy', async (req, reply) => {
-    return reply.send(success({ proxied: true, body: req.body }))
+    const b = proxySchema.safeParse(req.body)
+    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    const blocked = await isPrivateOrLoopback(b.data.url)
+    if (blocked) {
+      return reply.status(400).send(error(400, 'URL not allowed: potential SSRF'))
+    }
+    try {
+      const resp = await fetch(b.data.url, {
+        method: b.data.method,
+        headers: b.data.headers ?? {},
+        body:
+          b.data.body !== undefined && b.data.method !== 'GET'
+            ? JSON.stringify(b.data.body)
+            : undefined,
+        signal: AbortSignal.timeout(10000),
+      })
+      const MAX_RESPONSE_BYTES = 10 * 1024 * 1024
+      const reader = resp.body?.getReader()
+      const chunks: Uint8Array[] = []
+      let total = 0
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          if (value) {
+            total += value.byteLength
+            if (total > MAX_RESPONSE_BYTES) {
+              await reader.cancel()
+              return reply.status(413).send(error(413, '响应体超过 10MB 限制'))
+            }
+            chunks.push(value)
+          }
+        }
+      }
+      const text = Buffer.concat(chunks).toString('utf-8')
+      let respBody: unknown = text
+      const ct = resp.headers.get('content-type') || ''
+      if (ct.includes('application/json')) {
+        try {
+          respBody = JSON.parse(text)
+        } catch {
+          /* keep text */
+        }
+      }
+      return reply.status(resp.status).send(success({ status: resp.status, body: respBody }))
+    } catch (e) {
+      req.log.error(e)
+      return reply
+        .status(502)
+        .send({ error: 'proxy_failed', message: e instanceof Error ? e.message : String(e) })
+    }
   })
 
   // -------------------------------------------------------------------------

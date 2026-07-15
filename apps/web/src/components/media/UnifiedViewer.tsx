@@ -6,6 +6,7 @@ import { Download, Maximize2, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { OfficeViewer } from './OfficeViewer'
 import { ThreeDViewer } from './ThreeDViewer'
+import { PDFViewer } from './PDFViewer'
 
 interface UnifiedViewerProps {
   url: string
@@ -81,7 +82,7 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
         </div>
       </div>
       <div className="relative flex-1 overflow-hidden">
-        {kind === 'pdf' && <iframe src={url} title={fileName} className="h-full w-full border-0" />}
+        {kind === 'pdf' && <PDFViewer url={url} className="h-full" />}
         {kind === 'office' && <OfficeViewer url={url} fileName={fileName} className="h-full" />}
         {kind === '3d' && <ThreeDViewer url={url} format={fmt ?? 'glb'} className="h-full" />}
         {kind === 'image' && (

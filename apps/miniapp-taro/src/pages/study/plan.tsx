@@ -37,21 +37,20 @@ export default function StudyPlan() {
     <View className="min-h-screen bg-[#f7f8fa] pb-[60px]">
       {list.length > 0 && (
         <View className="p-3">
-          {list.map(p => (
+          {list.map((p) => (
             <View key={p.id} className="bg-white rounded-2xl p-3 mb-3">
               <View className="flex justify-between items-center">
                 <Text className="text-sm text-[#333] font-semibold">{p.title}</Text>
                 <Text className="text-xs text-[#999]">目标{p.target}%</Text>
               </View>
               <View className="h-1.5 bg-[#f5f5f5] rounded mt-2">
-                <View
-                  className="h-full bg-[#007aff] rounded"
-                  style={{ width: `${p.progress}%` }}
-                />
+                <View className="h-full bg-[#07c160] rounded" style={{ width: `${p.progress}%` }} />
               </View>
               <View className="flex justify-between mt-1.5">
                 <Text className="text-xs text-[#999]">已完成 {p.progress}%</Text>
-                <Text className={`text-xs ${p.progress >= p.target ? 'text-[#4caf50]' : 'text-[#ff9a3c]'}`}>
+                <Text
+                  className={`text-xs ${p.progress >= p.target ? 'text-[#4caf50]' : 'text-[#ff9a3c]'}`}
+                >
                   {p.progress >= p.target ? '已完成' : '进行中'}
                 </Text>
               </View>
@@ -65,7 +64,7 @@ export default function StudyPlan() {
         </View>
       )}
       <Button
-        className="fixed bottom-4 left-4 right-4 bg-[#007aff] text-white rounded-full text-sm"
+        className="fixed bottom-4 left-4 right-4 bg-[#07c160] text-white rounded-full text-sm"
         onClick={onAdd}
       >
         + 新建计划

@@ -24,7 +24,7 @@ export interface ThemeConfig {
 
 export const DEFAULT_THEME: ThemeConfig = {
   mode: 'auto',
-  primaryColor: '#3b82f6',
+  primaryColor: '#07c160',
   accentColor: '#10b981',
   fontSize: 14,
   borderRadius: 8,
@@ -45,8 +45,8 @@ export interface ThemePreset {
 export const OFFICIAL_PRESETS: ThemePreset[] = [
   {
     id: 'default',
-    name: '默认蓝',
-    description: '清新明亮的默认配色',
+    name: '默认绿',
+    description: '清新明亮的默认配色（微信品牌绿）',
     config: DEFAULT_THEME,
     isOfficial: true,
   },
