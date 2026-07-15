@@ -36,7 +36,7 @@ try {
       try {
         const r = await sql`SELECT count(*)::int AS c FROM ${sql(t)} WHERE user_id = ${testId}`
         if (r[0].c > 0) console.log(`  ${t}: ${r[0].c} 行`)
-      } catch (e) {
+      } catch {
         // 表不存在或无 user_id 列,跳过
       }
     }
