@@ -3,6 +3,7 @@
 import { Loader2 } from 'lucide-react'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import type { FundAccount } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface Props {
   accounts: FundAccount[]
@@ -49,7 +50,7 @@ export function FundsAccountsTable({ accounts, isLoading }: Props) {
                 </TableCell>
                 <TableCell className="text-red-600">¥{(a.totalConsume / 100).toFixed(2)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  {new Date(a.updatedAt).toLocaleString()}
+                  {formatDate(a.updatedAt)}
                 </TableCell>
               </TableRow>
             ))

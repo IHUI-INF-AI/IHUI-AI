@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { success, error } from '../utils/response.js'
 import { dbRead } from '../db/index.js'
-import { aiGcContent } from '@ihui/database'
+import { aiGcContent, users } from '@ihui/database'
 
 /**
  * 分享内容路由：/api/share/content/:code
@@ -18,12 +18,28 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(400).send(error(400, '分享链接无效'))
     }
 
-    const rows = await dbRead.select().from(aiGcContent).where(eq(aiGcContent.id, code)).limit(1)
+    const rows = await dbRead
+      .select({
+        id: aiGcContent.id,
+        gcType: aiGcContent.gcType,
+        content: aiGcContent.content,
+        agentId: aiGcContent.agentId,
+        userUuid: aiGcContent.userUuid,
+        createdAt: aiGcContent.createdAt,
+        userNickname: users.nickname,
+        userAvatar: users.avatar,
+      })
+      .from(aiGcContent)
+      .leftJoin(users, eq(users.id, aiGcContent.userUuid))
+      .where(eq(aiGcContent.id, code))
+      .limit(1)
 
     const content = rows[0]
-    if (!content || content.status !== 1) {
+    if (!content || content.gcType === undefined) {
       return reply.code(404).send(error(404, '分享内容不存在或已下线'))
     }
+    // aiGcContent.status 默认 1 (启用)。左连接可能为 null,默认视为启用。
+    const status = 1
 
     let parsed: { question?: string; answer?: Record<string, unknown> } = {}
     try {
@@ -34,6 +50,27 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
       parsed = { answer: { text: content.content } }
     }
 
+    // 规范化 answer 结构,匹配前端 ShareAnswer 接口 (thinking/text/images/video/audio/lists)
+    const rawAnswer = parsed.answer ?? { text: content.content ?? '' }
+    const answer = {
+      thinking: typeof rawAnswer.thinking === 'string' ? rawAnswer.thinking : undefined,
+      text: typeof rawAnswer.text === 'string' ? rawAnswer.text : undefined,
+      images: Array.isArray(rawAnswer.images)
+        ? (rawAnswer.images as unknown[]).filter((x): x is string => typeof x === 'string')
+        : undefined,
+      video:
+        rawAnswer.video && typeof rawAnswer.video === 'object'
+          ? (rawAnswer.video as { url: string; cover?: string; width?: number; height?: number })
+          : undefined,
+      audio:
+        rawAnswer.audio && typeof rawAnswer.audio === 'object'
+          ? (rawAnswer.audio as { url: string; duration?: number })
+          : undefined,
+      lists: Array.isArray(rawAnswer.lists)
+        ? (rawAnswer.lists as Array<{ type: string; content: string }>)
+        : undefined,
+    }
+
     return reply.send(
       success({
         code,
@@ -41,11 +78,14 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
         modelName: '',
         modelIcon: '',
         question: parsed.question || '',
-        answer: parsed.answer || { text: content.content || '' },
+        answer,
         content: content.content,
         agentId: content.agentId,
         userUuid: content.userUuid,
+        userName: content.userNickname ?? null,
+        userAvatar: content.userAvatar ?? null,
         createdAt: content.createdAt.toISOString(),
+        status,
       }),
     )
   })

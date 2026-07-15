@@ -5,6 +5,7 @@ import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell }
 import { cn } from '@/lib/utils'
 import { LEVEL_STYLE, STATUS_LABEL, STATUS_STYLE } from './helpers'
 import type { Alert } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface Props {
   list: Alert[]
@@ -87,7 +88,7 @@ export function AlertTable({
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {new Date(a.createdAt).toLocaleString()}
+                    {formatDate(a.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
                     {a.status === 'active' && (

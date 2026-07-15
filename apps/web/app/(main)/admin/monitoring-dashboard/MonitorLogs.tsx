@@ -4,6 +4,7 @@ import { ScrollText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import type { LogSummary } from './types'
+import { formatNumber } from '@/lib/date-utils'
 
 interface Props {
   logs: LogSummary | undefined
@@ -24,7 +25,7 @@ export function MonitorLogs({ logs, t }: Props) {
         <div className="mb-3 grid grid-cols-3 gap-2">
           <div className="rounded-md border p-2 text-center">
             <div className="text-xs text-muted-foreground">{t('monitor.logTotal')}</div>
-            <div className="mt-0.5 text-lg font-bold">{(logs?.total ?? 0).toLocaleString()}</div>
+            <div className="mt-0.5 text-lg font-bold">{formatNumber(logs?.total ?? 0)}</div>
           </div>
           <div className="rounded-md border p-2 text-center">
             <div className="text-xs text-muted-foreground">{t('monitor.logErrors')}</div>
