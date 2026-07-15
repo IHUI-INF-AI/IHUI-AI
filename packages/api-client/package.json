@@ -1,0 +1,45 @@
+{
+  "name": "@ihui/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "import": "./dist/client.js"
+    },
+    "./api-error": {
+      "types": "./src/api-error.ts",
+      "import": "./dist/api-error.js"
+    },
+    "./utils": {
+      "types": "./src/utils.ts",
+      "import": "./dist/utils.js"
+    },
+    "./endpoints/*": {
+      "types": "./src/endpoints/*.ts",
+      "import": "./dist/endpoints/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist .turbo node_modules"
+  },
+  "dependencies": {
+    "@ihui/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@ihui/eslint-config": "workspace:*",
+    "typescript": "^5.7.2",
+    "rimraf": "^6.0.1"
+  }
+}
