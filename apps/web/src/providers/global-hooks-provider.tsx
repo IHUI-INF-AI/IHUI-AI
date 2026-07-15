@@ -1,8 +1,16 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { useRouteAnalytics } from '@/hooks/use-route-analytics'
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
+
+const SHORTCUT_ROUTES: Record<string, string> = {
+  'global-shortcut:open-chat': '/chat',
+  'global-shortcut:search': '/search',
+  'global-shortcut:new-chat': '/chat',
+  'global-shortcut:open-drama': '/drama',
+}
 
 /**
  * 全局 Hooks Provider：在根 Layout 挂载全局副作用 hooks。
@@ -13,8 +21,27 @@ import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
  * 帮助面板（Ctrl+/ 触发）以最简 overlay 呈现，避免引入额外依赖。
  */
 export function GlobalHooksProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
   const { currentPath } = useRouteAnalytics()
   const { showHelpPanel, toggleHelpPanel, shortcuts } = useGlobalShortcuts()
+
+  React.useEffect(() => {
+    const handlers: Array<[string, () => void]> = Object.entries(SHORTCUT_ROUTES).map(
+      ([event, path]) => {
+        const handler = () => {
+          if (window.location.pathname === path) return
+          router.push(path)
+        }
+        window.addEventListener(event, handler)
+        return [event, handler]
+      },
+    )
+    return () => {
+      for (const [event, handler] of handlers) {
+        window.removeEventListener(event, handler)
+      }
+    }
+  }, [router])
 
   return (
     <>

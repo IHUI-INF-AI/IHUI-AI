@@ -4,50 +4,51 @@ import * as React from 'react'
 
 import { fetchApi } from '@/lib/api'
 
-export interface DramaScript {
-  id: string
-  title: string
-  characters: string[]
-  scenes: DramaScene[]
-  genre?: string
-  synopsis?: string
+export interface DramaEnhanceResult {
+  consistency: unknown
+  pacing: unknown
+  outline: unknown
 }
 
-export interface DramaScene {
-  index: number
-  location?: string
-  time?: string
-  dialogue: Array<{
-    character: string
-    line: string
-    emotion?: string
-    action?: string
-  }>
+export interface DramaLineRewrite {
+  original: string
+  rewritten: string
+  sceneIndex: number
+  lineIndex: number
 }
 
 export interface UseDramaScriptReturn {
-  script: DramaScript | null
+  enhanceResult: DramaEnhanceResult | null
+  lineRewrite: DramaLineRewrite | null
   loading: boolean
   error: string | null
-  enhance: (scriptId: string) => Promise<void>
-  enhanceLine: (scriptId: string, sceneIndex: number, lineIndex: number) => Promise<string | null>
+  enhance: (scriptId: string, title?: string) => Promise<void>
+  enhanceLine: (
+    scriptId: string,
+    sceneIndex: number,
+    lineIndex: number,
+    content: string,
+    instruction?: string,
+  ) => Promise<DramaLineRewrite | null>
+  reset: () => void
 }
 
-/** 剧本增强 Hook，支持整体增强与单行改写 */
 export function useDramaScript(): UseDramaScriptReturn {
-  const [script, setScript] = React.useState<DramaScript | null>(null)
+  const [enhanceResult, setEnhanceResult] = React.useState<DramaEnhanceResult | null>(null)
+  const [lineRewrite, setLineRewrite] = React.useState<DramaLineRewrite | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  const enhance = React.useCallback(async (scriptId: string) => {
+  const enhance = React.useCallback(async (scriptId: string, title?: string) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<DramaScript>(`/api/drama/scripts/${scriptId}/enhance`, {
+      const res = await fetchApi<DramaEnhanceResult>(`/api/drama/scripts/${scriptId}/enhance`, {
         method: 'POST',
+        body: JSON.stringify(title ? { title } : {}),
       })
       if (res.success) {
-        setScript(res.data)
+        setEnhanceResult(res.data)
       } else {
         setError(res.error)
       }
@@ -57,15 +58,41 @@ export function useDramaScript(): UseDramaScriptReturn {
   }, [])
 
   const enhanceLine = React.useCallback(
-    async (scriptId: string, sceneIndex: number, lineIndex: number) => {
-      const res = await fetchApi<{ line: string }>(
-        `/api/drama/scripts/${scriptId}/scenes/${sceneIndex}/lines/${lineIndex}/enhance`,
-        { method: 'POST' },
-      )
-      return res.success ? res.data.line : null
+    async (
+      scriptId: string,
+      sceneIndex: number,
+      lineIndex: number,
+      content: string,
+      instruction?: string,
+    ) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetchApi<DramaLineRewrite>(
+          `/api/drama/scripts/${scriptId}/scenes/${sceneIndex}/lines/${lineIndex}/enhance`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ content, instruction: instruction || undefined }),
+          },
+        )
+        if (res.success) {
+          setLineRewrite(res.data)
+          return res.data
+        }
+        setError(res.error)
+        return null
+      } finally {
+        setLoading(false)
+      }
     },
     [],
   )
 
-  return { script, loading, error, enhance, enhanceLine }
+  const reset = React.useCallback(() => {
+    setEnhanceResult(null)
+    setLineRewrite(null)
+    setError(null)
+  }, [])
+
+  return { enhanceResult, lineRewrite, loading, error, enhance, enhanceLine, reset }
 }

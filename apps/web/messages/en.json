@@ -201,7 +201,7 @@
     "previous": "Previous",
     "previousItem": "Prev",
     "toggleAnswer": "Show",
-    "toggleThinking": "",
+    "toggleThinking": "切换思考过程",
     "voiceInput": "VoiceInput",
     "categoryNav": "CategoryNav",
     "aiWorldCarousel": "AI World",
@@ -663,18 +663,18 @@
       "kouzi": "SonIcon",
       "bbxLogo": "logo",
       "brand4": "ItemIcon",
-      "zhipu": "",
+      "zhipu": "智谱清言",
       "brand8": "Item8",
       "ali": "in",
-      "baidu": "",
+      "baidu": "百度文心",
       "dbsfdx": "ENBig",
       "gork": "Grok",
       "huawei": "Why",
       "jldx": "Big",
       "openai": "OpenAI",
-      "tencent": "",
-      "yuanbaoxiang": "",
-      "yushu": ""
+      "tencent": "腾讯云",
+      "yuanbaoxiang": "元宝象",
+      "yushu": "宇树科技"
     },
     "promotionModal": {
       "title": "NewMember！",
@@ -789,8 +789,8 @@
       "news": "News"
     },
     "miniappBtn": "WeChatMini Program",
-    "wheelSensitivityLabel": "",
-    "marqueeSpeedLabel": "",
+    "wheelSensitivityLabel": "滚轮灵敏度",
+    "marqueeSpeedLabel": "滚动速度",
     "clickToResume": "clickContinue",
     "clickToPause": "clickPause",
     "resumeScroll": "Continue",
@@ -1102,8 +1102,8 @@
     "back": "Back",
     "all": "All",
     "type1": "Dev",
-    "type2": "",
-    "type3": "",
+    "type2": "咨询",
+    "type3": "培训",
     "ongoing": "In Progress",
     "completed": "Done",
     "myNeeds": "I",
@@ -1118,7 +1118,7 @@
     "submit": "SubmitPublish",
     "types": {
       "development": "TechDev",
-      "design": "",
+      "design": "创意设计",
       "business": "Cooperate"
     },
     "form": {
@@ -1230,7 +1230,7 @@
         "originalPrice": "Original Price ¥{price}"
       },
       "plans": {
-        "upgrade": "",
+        "upgrade": "升级套餐",
         "subscribe": "Subscribe Now",
         "recommended": "Recommend"
       },
@@ -5783,8 +5783,8 @@
       "enabled": "Enabled",
       "disabled": "Disabled",
       "levelReplace": "Replace",
-      "levelBlock": "",
-      "levelBan": ""
+      "levelBlock": "拦截",
+      "levelBan": "禁言"
     },
     "userMargin": {
       "title": "Title",
@@ -5797,7 +5797,7 @@
       "colActions": "Actions",
       "edit": "Edit",
       "normal": "Normal",
-      "frozen": ""
+      "frozen": "冻结"
     },
     "videoLogs": {
       "title": "Title",
@@ -6782,9 +6782,9 @@
       "disableConfirm": "OKDisabledTwo-Factor Authentication？ThiswillLowAccount Security。",
       "step1": "Tue",
       "step2": "CodeVerify",
-      "step3": "",
+      "step3": "备用码",
       "scanQR": "Apply VerifyDeviceAppTue",
-      "secretKey": "",
+      "secretKey": "密钥",
       "enterCode": "Input VerifyDeviceShow 6 Code",
       "backupCodesDesc": "SavedownCode，noApply VerifyDeviceHVerify",
       "downloadBackupCodes": "DownloadCode",
@@ -6853,7 +6853,7 @@
       "title": "IP Single",
       "description": "LimitLoginIPAddress",
       "enableWhitelist": "Enabled Single",
-      "strictMode": "",
+      "strictMode": "严格模式",
       "strictModeHint": "SingleWhyEmptyHRejecthave",
       "ipPlaceholder": "InputIPAddress (: 192.168.1.1)",
       "labelPlaceholder": "RemarkName",
@@ -6903,7 +6903,7 @@
       "noLocations": "NoneLocationRecord",
       "loginCount": "{count}SubLogin",
       "trusted": "already",
-      "trust": "",
+      "trust": "信任",
       "unknown": "Unknown",
       "riskAnalysis": "Analysis",
       "riskLevel": {
@@ -6940,7 +6940,7 @@
       "themeMode": "Theme",
       "language": "Language",
       "autoSave": "fromSave",
-      "mouseFollower": "",
+      "mouseFollower": "鼠标跟随效果",
       "clearAllData": "ClearhaveData",
       "deleteAccount": "NoteAccount",
       "about": "About",
@@ -7499,8 +7499,8 @@
     },
     "apiDocs": {
       "nav": {
-        "overview": "",
-        "authentication": "",
+        "overview": "概述",
+        "authentication": "身份认证",
         "endpoints": "APIendPoint",
         "models": "AvailableModel",
         "chatCompletions": "dayAll",
@@ -7588,7 +7588,7 @@
       "categoryCode": "CodeFile",
       "categoryMarkdown": "Markdown",
       "categoryText": "TextFile",
-      "categoryArchive": "",
+      "categoryArchive": "压缩包",
       "categoryModel3d": "3DModel",
       "categoryCad": "CADPaper",
       "categoryUnknown": "File"
@@ -7607,7 +7607,7 @@
       },
       "tags": {
         "register": "Register",
-        "billing": "",
+        "billing": "计费",
         "security": "Security",
         "prompt": "Prompt"
       },
@@ -7630,7 +7630,7 @@
       },
       "sectionLabels": {
         "knowledgeNodes": "Node",
-        "uplinkChannels": ""
+        "uplinkChannels": "联络通道"
       },
       "faqs": {
         "register": {
@@ -7651,11 +7651,11 @@
         },
         "beginner": "New",
         "recharge": "Top up",
-        "optimize": ""
+        "optimize": "优化"
       }
     },
     "knowledgeBase": {
-      "title": "",
+      "title": "知识库管理",
       "subtitle": "andOrg ， DocsUploadandSearch",
       "createKnowledgeBase": "Create",
       "searchPlaceholder": "Search...",
@@ -7754,17 +7754,17 @@
       "pageRange": "Scope",
       "copies": "Print",
       "duplex": "DoublesidePrint",
-      "header": "",
-      "footer": ""
+      "header": "页眉",
+      "footer": "页脚"
     },
     "pdfTools": {
-      "presetWatermark": "",
+      "presetWatermark": "预设水印",
       "splitOption": "MinOptions",
       "allPages": "Allside",
       "currentPage": "Current Pageside",
       "showPageNum": "Show",
       "tabSignature": "Signature",
-      "tabWatermark": "",
+      "tabWatermark": "水印",
       "tabMerge": "Min",
       "tabPrint": "Print",
       "confidential": "Machine",
@@ -7784,9 +7784,9 @@
       "signReason": "SignatureReason",
       "signerName": "SignatureName",
       "splitPdf": "MinPDF",
-      "textWatermark": "",
+      "textWatermark": "文字水印",
       "verified": "alreadyVerify",
-      "text": "",
+      "text": "文字",
       "undo": "Undo",
       "watermarkPreview": "Preview",
       "watermarkTextPlaceholder": "Please enter"
@@ -7796,7 +7796,7 @@
       "verifyAll": "VerifyAll",
       "applyWatermark": "App",
       "clearAll": "ClearAll",
-      "page": "",
+      "page": "页",
       "portrait": "to",
       "landscape": "to",
       "print": "Print",
@@ -7815,7 +7815,7 @@
       "loading": "Loading...",
       "loadFailed": "DocsLoad Failed",
       "loadError": "Load Failed",
-      "switchView": "",
+      "switchView": "切换视图",
       "edit": "Edit",
       "preview": "Preview",
       "copy": "Copy",
@@ -8453,10 +8453,10 @@
       "gender": "Gender",
       "male": "M",
       "female": "Daughter",
-      "secret": "",
+      "secret": "保密",
       "birthday": "Birthday",
-      "school": "",
-      "profession": "",
+      "school": "学校",
+      "profession": "职业",
       "bio": "PersonalBio"
     },
     "memberExamRecord": {
@@ -8538,14 +8538,14 @@
       "title": "Points Center",
       "subtitle": "Check-in / Task /",
       "availablePoints": "AvailablePoints",
-      "total": "",
+      "total": "累计",
       "used": "Used",
       "level": "Level",
       "noLogs": "NoneStream",
       "noGoods": "NoneProduct",
       "points": "Points",
       "stock": "Stock",
-      "exchangeNow": "",
+      "exchangeNow": "立即兑换",
       "noExchanges": "NoneRecord",
       "signedToday": "Signed in today",
       "dailySignin": "Daily Sign-in",
@@ -10663,7 +10663,7 @@
       "viewAll": "View All"
     },
     "tags": {
-      "stableVersion": "",
+      "stableVersion": "稳定版",
       "openApi": "Open API",
       "selfDeveloped": "Self Developed"
     },
@@ -10708,10 +10708,10 @@
       "navWho": "Who",
       "navUseCases": "Apply",
       "navWhy": "WhyWhatwhatSelIs",
-      "navPricing": "",
+      "navPricing": "定价",
       "navAdvantages": "Products",
-      "navCases": "",
-      "navRules": "",
+      "navCases": "客户案例",
+      "navRules": "售卖规则",
       "navCompare": "toDescription",
       "navFaq": "FAQ",
       "sectionTitle": "BuyandPermissionDescription",
@@ -10726,11 +10726,11 @@
       "whyChoose5": "Enterprise ：Single/Community support、SLA andOptional",
       "whyChoose6": "from IHUI AI ：fromtoHow manyModalfromMain，PrivateDeployandTueSubDev",
       "whyChoose7": "API（IHUI API）MonOn：MainStreamAgreement、Monin、LowLatencyHighAvailable",
-      "pricingTitle": "",
+      "pricingTitle": "定价",
       "pricingSubtitle": "，Sel；toFeature。",
       "planFree": "Free",
       "planFreeDesc": "Platform，RegisterValue。",
-      "planFreeCta": "",
+      "planFreeCta": "立即体验",
       "planStandardCta": "Contact",
       "planEnterpriseCta": "Contact",
       "planStandard": "Standard",
@@ -10745,7 +10745,7 @@
       "contactBusiness": "Contact",
       "viewGitHub": "View GitHub",
       "pricingFeaturesTitle": "Feature",
-      "rulesTitle": "",
+      "rulesTitle": "售卖规则",
       "rulesSubtitle": "BuyStreamand",
       "rule1": "Channel：Pass GitHub Publish Release，orPass/Buy。",
       "rule2": "Payand： toPublic、OnlinePay；IssueValueNormal/。",
@@ -10782,10 +10782,10 @@
       "useCase5": "and：ingPermissionScopeinwillPlatform、and",
       "casesTitle": "andRow",
       "casesSubtitle": "and（Replace）",
-      "case1Tag": "",
+      "case1Tag": "金融",
       "case1Title": "andAnalysis",
       "case1Desc": "Swarm andDocs API，toinRowSecParseand， Reviewand。",
-      "case2Tag": "",
+      "case2Tag": "电商",
       "case2Title": "AllRdSupportandProduct",
       "case2Desc": "GenerateandVoice，fromProducttofrontbackSupportMon，Lowpeople 、。",
       "case3Tag": "/",
@@ -10868,7 +10868,7 @@
       "basicChatApi": "Chat API",
       "usageConsole": "Console",
       "communitySupport": "CommunityandHelpDocs",
-      "fullSourceCode": "",
+      "fullSourceCode": "完整源码访问",
       "multiEndpoints": "How manyend（PC + Mini Program + H5 + APP）",
       "backendAndApis": "backendand Swarm/Docs//Voice/Workflows API",
       "officialSdks": "How manyLanguageSquare SDK",
@@ -10886,12 +10886,12 @@
     "capabilityTags": {
       "all": "All",
       "ariaFilterLabel": "CategoryFilter API",
-      "core": "",
+      "core": "核心",
       "powerful": "Docs",
-      "vision": "",
+      "vision": "视觉",
       "audio": "Audio",
       "workflow": "Workflows",
-      "support": ""
+      "support": "支撑"
     },
     "featureRef": {
       "title": "AllFeatureWatch",
@@ -10968,7 +10968,7 @@
     "solutions": {
       "title": "RowPlan",
       "subtitleEn": "Solutions",
-      "explore": ""
+      "explore": "探索"
     },
     "featureHub": {
       "title": "Featuremid",
@@ -11205,7 +11205,7 @@
     "close": "Close",
     "prev": "Previous",
     "next": "Next",
-    "skip": "",
+    "skip": "跳过",
     "complete": "Done"
   },
   "progress": {
@@ -11218,7 +11218,7 @@
     "loading": "Loading...",
     "loadFailed": "DocsLoad Failed",
     "loadError": "Load Failed",
-    "switchView": "",
+    "switchView": "切换视图",
     "edit": "Edit",
     "preview": "Preview",
     "copy": "Copy",
@@ -11262,7 +11262,7 @@
     "privacyPolicy": "Privacy Policy",
     "requirementSquare": "Demand Square",
     "plaza": "Demand Square",
-    "xuqiu": "",
+    "xuqiu": "需求",
     "openPlatform": "Open Platform",
     "openPlatformDocs": "Documentation",
     "openPlatformDashboard": "FeaturemidWatch",
@@ -11329,7 +11329,7 @@
     "distributionOrders": "DistributionOrder",
     "refundManagement": "Refund",
     "refundDetail": "Refund Detail",
-    "keyManagement": "",
+    "keyManagement": "密钥管理",
     "becomeTrader": "WhyTrader",
     "personalCard": "Personal  ",
     "invitedTeam": "IInvitations Team",
@@ -11349,7 +11349,7 @@
     "myAppointments": "I",
     "contactUs": "Contact Us",
     "adminGrayRelease": "Gray Release",
-    "adminDependencyManager": "",
+    "adminDependencyManager": "依赖管理",
     "adminEventBusMonitor": "Event Bus Monitor",
     "adminMonitoringDashboard": "Watch",
     "adminErrorDashboard": "ErrorStats",
@@ -11432,7 +11432,7 @@
     "adminAuthRole": "Role Management",
     "adminAuthAuthority": "Permission Management",
     "adminSetting": "System Settings",
-    "adminSettingCarousel": "",
+    "adminSettingCarousel": "轮播管理",
     "adminSettingAgreement": "Agreement",
     "adminSearchHot": "Word",
     "adminMobileDashboard": "MoveendBigPlate",
@@ -11448,7 +11448,7 @@
     "aiMcpUseManager": "mcp-use",
     "aiMcpUseProject": "mcp-use Project",
     "aiUnifiedAICenter": "Mon AI mid",
-    "aiKnowledgeBase": "",
+    "aiKnowledgeBase": "知识库管理",
     "aiTaskManagement": "Task",
     "aiMyFavorites": "I Favorite",
     "aiAssistant": "AI",
@@ -11505,7 +11505,7 @@
     "adminBackendHealth": "Backend Health Check"
   },
   "footer": {
-    "acknowledgments": "",
+    "acknowledgments": "致谢",
     "companyName": "peoplehaveCompany",
     "addressLabel": "Address:",
     "addressLine1": "LongHighNewZonearriveRd107No",
@@ -11530,7 +11530,7 @@
     "allTypes": "All Types",
     "free": "Free",
     "limitFree": "Limited Free",
-    "paid": "",
+    "paid": "收费",
     "addConfig": "AddConfig",
     "agentName": "AgentName",
     "agentId": "AgentID",
@@ -11543,7 +11543,7 @@
     "editConfig": "Edit",
     "edit": "Edit",
     "delete": "Delete",
-    "text": "",
+    "text": "文字",
     "image": "Image",
     "video": "Video",
     "member": "Member",
@@ -11621,7 +11621,7 @@
     "statusReturned": "alreadyoutBack",
     "typeFree": "Free",
     "typeLimitedFree": "Limited Free",
-    "typePaid": "",
+    "typePaid": "收费",
     "typeUnknown": "-",
     "status": "Status",
     "startTime": "Start Time"
@@ -11707,7 +11707,7 @@
     "share": "Share",
     "refreshDetails": "RefreshDetail",
     "detailedInfo": "Info",
-    "overview": "",
+    "overview": "概述",
     "platformInfo": "PlatformInfo",
     "usageStats": "Usage Statistics",
     "agentId": "AgentID",
@@ -11835,7 +11835,7 @@
     "empty": "No content，",
     "loading": "Loading...",
     "back": "Back",
-    "goToOfficial": "",
+    "goToOfficial": "访问官网",
     "detailEmpty": "NoneDetailContent",
     "viewMore": "ViewMore >>",
     "heroCarousel": "Carousel",
@@ -11868,7 +11868,7 @@
       "trafficFissionDesc": "StreamingAIdownLong，and",
       "globalRestructure": "AllHeavy",
       "globalRestructureDesc": "AIAngle，SystemHeavyRowand",
-      "dawnEra": "",
+      "dawnEra": "破晓纪元",
       "dawnEraDesc": "finalOldHLow，OnAIMain New",
       "functionTag": "CORE FUNCTIONS",
       "functionTitle": "AllFeatureandServices",
@@ -11885,7 +11885,7 @@
       "tenThousandPlus": "+",
       "fn1Title": "AgentDevPlatform",
       "fn1Desc": "、andDeployAgent，CodeFastAI",
-      "fn2Title": "",
+      "fn2Title": "知识库构建引擎",
       "fn2Desc": "Row，AI，Q&A",
       "fn3Title": "DataAnalysis",
       "fn3Desc": "AIDriverHow manyDataAnalysis，Value，",
@@ -11941,7 +11941,7 @@
       "dev1Item1": "DoneAITechandPlatform",
       "dev1Item2": "AgentandDevCommunity",
       "dev1Item3": "firstRowVerify",
-      "dev2Title": "",
+      "dev2Title": "生态拓展期",
       "dev2Item1": "How manyRowAIPlan",
       "dev2Item2": "CountryandCooperate",
       "dev2Item3": "AIpeoplethenand",
@@ -11974,7 +11974,7 @@
       "image": "Image",
       "video": "Video",
       "audio": "Audio",
-      "music": "",
+      "music": "音乐",
       "article": "Articles",
       "code": "Code"
     },
@@ -11984,7 +11984,7 @@
       "trending": "Trend"
     },
     "stats": {
-      "creations": "",
+      "creations": "创作",
       "creators": "Author",
       "likes": "Like"
     },
@@ -12098,7 +12098,7 @@
       "image": "Image",
       "video": "Video",
       "audio": "Audio",
-      "music": "",
+      "music": "音乐",
       "article": "Articles",
       "code": "Code"
     },
@@ -12148,9 +12148,9 @@
     "scanQRCode": "Tue",
     "downloadQRCode": "DownloadTue",
     "wechat": "WeChat",
-    "weibo": "",
+    "weibo": "微博",
     "qq": "QQ",
-    "douyin": "",
+    "douyin": "抖音",
     "douyinShareTip": "ApplyScanShare",
     "linkCopied": "LinkCopied",
     "copyFailed": "Copy failed",
@@ -12250,7 +12250,7 @@
     "rule2": "InvitationsgoodWhyMember，willMember20% Commission",
     "rule3": "CommissionwillinggoodPaySuccessback24SmallHinfromCheckoutto Account",
     "joinVip": "OnVIPMember andMinPlan",
-    "totalEarnings": "",
+    "totalEarnings": "累计收益",
     "totalInvites": "Invitationspeople",
     "ratioLevel1": "Ratio Level1",
     "ratioLevel1Title": "Ratio Level1Title",
@@ -12350,7 +12350,7 @@
     "radiusDemo": "CircleAngleExample",
     "buttonComponent": "ButtonComponent",
     "buttonVariants": "Button",
-    "variants": "",
+    "variants": "变体",
     "sizes": "Size",
     "status": "Status",
     "inputComponent": "InputComponent",
@@ -12366,7 +12366,7 @@
     "utilitiesDemo": "ToolTypeDemo",
     "utilitiesUsage": "ToolTypeApply",
     "useUtilities": "ApplyToolType",
-    "hoverEffect": "",
+    "hoverEffect": "悬停效果",
     "flexboxUtilities": "Flexbox ToolType",
     "action": "Action",
     "primaryButton": "MainButton",
@@ -12453,9 +12453,9 @@
     "totalMembers": "TotalMembers",
     "totalCommission": "TotalCommission",
     "noMembers": "noMembers",
-    "transactionVolume": "",
+    "transactionVolume": "交易体积",
     "commission": "Commission",
-    "orderCount": "",
+    "orderCount": "顺序计数",
     "inviteTime": "InvalidviteTime",
     "tabAll": "TabAll",
     "tabActive": "TabEvent",
@@ -12483,7 +12483,7 @@
     "loadMemberInfoFailed": "AddMemberInfoFailed"
   },
   "knowledgeBase": {
-    "title": "",
+    "title": "知识库管理",
     "subtitle": "andOrg ， DocsUploadandSearch",
     "createKnowledgeBase": "Create",
     "searchPlaceholder": "Search...",
@@ -12585,7 +12585,7 @@
         "promptPlaceholder": "DescVideoContent..."
       },
       "buttons": {
-        "identify": "",
+        "identify": "识别",
         "generate": "Generate",
         "checkStatus": "Status",
         "checking": "mid..."
@@ -12710,7 +12710,7 @@
     },
     "doubao": {
       "title": "Doubao Image Generation",
-      "tag": "",
+      "tag": "字节跳动",
       "form": {
         "prompt": "Prompt",
         "promptPlaceholder": "DescYouGenerate Image..."
@@ -12785,7 +12785,7 @@
   },
   "visionAnalysis": {
     "title": "Qwen - Analysis",
-    "tag": "",
+    "tag": "视觉理解",
     "form": {
       "upload": "Upload image",
       "selectImage": "SelImage",
@@ -12918,7 +12918,7 @@
       "noContext": "NoneContext",
       "addMemory": "Add",
       "addMemoryPlaceholder": "Input Content",
-      "typeFact": "",
+      "typeFact": "事实",
       "typePreference": "good",
       "typeEvent": "Event",
       "clearMemory": "ClearCurrent session",
@@ -12956,7 +12956,7 @@
       "browserQuickActions": "FastAction",
       "browserUrlPlaceholder": "InputWebsite， https://example.com",
       "browserOpen": "Open",
-      "browserScreenshot": "",
+      "browserScreenshot": "截图",
       "browserCurrentPage": "Current Pageside",
       "browserView": "ViewsDevice",
       "browserBackendTools": "backendalreadyRegister ViewsDeviceTool",
@@ -13043,8 +13043,8 @@
     "modeAgent": "Agent",
     "modeAgentic": "AgenticAI",
     "modeMCP": "MCPTool",
-    "modeHybrid": "",
-    "modeAuto": "",
+    "modeHybrid": "混合模式",
+    "modeAuto": "智能模式",
     "modeGeneration": "AIGenerate",
     "selectAgent": "SelAgent...",
     "promptTemplates": "Prompt Template",
@@ -13109,7 +13109,7 @@
       "voice": "Voice",
       "voiceDesc": "VoiceChat",
       "canvas": "Workspace",
-      "canvasDesc": "",
+      "canvasDesc": "可视化设计创作",
       "skills": "Skills",
       "skillsDesc": "Piece",
       "browser": "ViewsDevice",
@@ -13125,7 +13125,7 @@
     "mcpToolsIntro": "MCP ToolChat：File、Search、Database、、ImageGenerateEq，SelbackingChatmid。",
     "noMCPTools": "NoneAvailableMCPTool",
     "generation": "AIGenerate",
-    "generationTypeAuto": "",
+    "generationTypeAuto": "智能识别",
     "generationTypeImage": "ImageGenerate",
     "generationTypeVideo": "VideoGenerate",
     "generationType3D": "3DModel",
@@ -13180,8 +13180,8 @@
     "videoGenerationFailed": "VideoGeneration failed：{error}",
     "editKeyword1": "Edit",
     "editKeyword2": "Modify",
-    "editKeyword3": "",
-    "editKeyword4": "",
+    "editKeyword3": "调整",
+    "editKeyword4": "优化",
     "videoGenerationStartFailed": "VideoGenerateStartFailed：{error}",
     "visionAnalysisRequiresImage": "AnalysisUpload image",
     "model3DGenerationFailed": "3DModelGeneration failed",
@@ -13196,20 +13196,20 @@
     "downloadLink": "DownloadLink",
     "pleaseAnalyzeThisImage": "AnalysisThis Image",
     "visionAnalysisFailed": "AnalysisFailed",
-    "thinkingProcess": "",
+    "thinkingProcess": "思考过程",
     "analysisResult": "AnalysisResult",
     "analysisResultImage": "AnalysisResultImage",
     "capabilityModel": "Model",
     "capabilityAgent": "Agent",
     "capabilityAgentic": "Agent",
     "capabilityMCP": "MCPTool",
-    "capabilityHybrid": "",
+    "capabilityHybrid": "混合模式",
     "pleaseEditThisImage": "EditThis Image",
     "exportTimeLabel": "ExportTime",
     "model": "Model",
     "aiAssistant": "AI",
     "attachments": "Attachment",
-    "characters": "",
+    "characters": "字符",
     "generationTaskRunning": "GenerateTaskIn Progress: {taskId}",
     "recommended": "RecommendApply：{capability}",
     "imageProvider": "ImageServices",
@@ -13265,13 +13265,13 @@
     "generateNext": "One-ClickGeneratedown Video",
     "sequence": "No",
     "character": "peopleThing",
-    "scene": "",
+    "scene": "场景",
     "description": "Desc",
     "reasoning": "from",
     "firstFramePrompt": "first",
     "videoPrompt": "VideoGeneratePrompt",
     "characterAppearance": "peopleThing",
-    "voice": "",
+    "voice": "声音",
     "video": "Video",
     "lastFrame": "tail",
     "referencePrevious": "up",
@@ -13299,7 +13299,7 @@
     "enhancedMode": "AIStrong",
     "enhancedModeOn": "AIStrongEnabled，willApplyContextAnalysisand",
     "enhancedModeOff": "AIStrongClosed，ApplyGeneratePrompt",
-    "qualityScore": "",
+    "qualityScore": "质量",
     "lowQualityWarning": "{sequence} ScoreLow：{score}/100，HeavyNewGenerate",
     "autoRetryScheduled": "{sequence} willing {delay} SecbackfromRetry",
     "optimizingPromptForRetry": "PromptRetry...",
@@ -13318,26 +13318,26 @@
     "workflowCompletedWithErrors": "WorkflowsExecuteDone：Success {success}，Failed {failed}",
     "workflowFailed": "WorkflowsExecuteFailed",
     "noWorkflows": "No workflows foundTemplate",
-    "plotAdvisor": "",
+    "plotAdvisor": "剧情建议",
     "sceneRecommendations": "Recommend",
-    "conflictDetection": "",
+    "conflictDetection": "冲突检测",
     "characterRelations": "RoleOff",
     "pacingAnalysis": "Analysis",
     "getRecommendations": "Recommend",
-    "confidence": "",
+    "confidence": "置信度",
     "apply": "App",
     "recommendationReason": "Recommendfrom",
-    "expectedEffect": "",
+    "expectedEffect": "预期效果",
     "noRecommendations": "click「Recommend」AI",
     "recommendationsLoaded": "Success {count} item(s)Recommend",
     "recommendationsFailed": "RecommendFailed",
     "recommendationApplied": "RecommendalreadyApp",
-    "detectConflicts": "",
+    "detectConflicts": "检测冲突",
     "conflictType": {
       "character": "peopleThing",
       "timeline": "Timeline",
-      "scene": "",
-      "logic": ""
+      "scene": "场景冲突",
+      "logic": "逻辑冲突"
     },
     "noConflicts": "click「」 Question",
     "noConflictsDetected": "notto",
@@ -13368,29 +13368,29 @@
       "slow": "Slow"
     },
     "phases": {
-      "setup": "",
+      "setup": "铺垫",
       "rising": "up",
       "climax": "High",
       "falling": "down",
-      "resolution": ""
+      "resolution": "结局"
     },
     "plotTypes": {
       "twist": "off",
-      "conflict": "",
-      "resolution": "",
+      "conflict": "冲突",
+      "resolution": "解决",
       "climax": "High",
-      "transition": ""
+      "transition": "过渡"
     },
-    "emotion": "",
+    "emotion": "情感",
     "auto": "from",
     "subtitlesGenerated": "Generated successfully",
-    "scenes": "",
+    "scenes": "个场景",
     "appearances": "Subout",
     "issueTypes": {
       "character": "Role",
-      "scene": "",
+      "scene": "场景",
       "timeline": "Timeline",
-      "logic": ""
+      "logic": "逻辑"
     },
     "severity": {
       "error": "Error",
@@ -13398,7 +13398,7 @@
     },
     "plainText": "Text",
     "resolved": "Resolved",
-    "characters": "",
+    "characters": "字",
     "subtitleProgress": "GenerateProgress",
     "batchProgress": "Progress：{completed}/{total}",
     "batchVideoProgress": "VideoGenerateProgress：{completed}/{total}",
@@ -13435,9 +13435,9 @@
       "promptDialogueRequest": "downGenerateChat：",
       "promptDominantEmotion": "Main",
       "promptDramaTitle": "Title",
-      "promptEmotion": "",
+      "promptEmotion": "情感",
       "promptEmotionIntensity": "Strong（0-1）",
-      "promptEmotionalTone": "",
+      "promptEmotionalTone": "情感基调",
       "promptEpisodeSummary": "Summary",
       "promptEpisodeTitle": "MinTitle",
       "promptEpisodes": "Big。",
@@ -13450,35 +13450,35 @@
       "promptMood": "around",
       "promptNextScene": "downMon",
       "promptProgressionFalling": "down",
-      "promptProgressionFluctuating": "",
+      "promptProgressionFluctuating": "波动",
       "promptProgressionRising": "up",
-      "promptProgressionStable": "",
-      "promptReasoning": "",
+      "promptProgressionStable": "稳定",
+      "promptReasoning": "推理过程",
       "promptRecentPlot": "Near：",
       "promptReturnFormat": "Back：",
       "promptReturnJson": "JSON FormatBack。",
       "promptReturnJsonOnly": "Back JSON，notOtherContent。",
       "promptScene": "：",
       "promptSceneDescription": "Desc",
-      "promptSoundscape": "",
-      "promptSuggestedAdjustment": "",
+      "promptSoundscape": "音效",
+      "promptSuggestedAdjustment": "调整建议",
       "promptSuggestedCharacter": "Role",
       "promptSynopsis": "Bio",
       "promptTheme": "Theme：",
       "promptTitle": "Title",
       "promptTypeClimax": "High",
-      "promptTypeConflict": "",
-      "promptTypeResolution": "",
-      "promptTypeTransition": "",
-      "promptTypeTwist": "",
-      "promptVoiceTone": "",
+      "promptTypeConflict": "冲突",
+      "promptTypeResolution": "解决",
+      "promptTypeTransition": "过渡",
+      "promptTypeTwist": "反转",
+      "promptVoiceTone": "语调",
       "characterArc": {
         "arcNegative": "RoleLine",
         "arcNeutral": "RoleLine",
         "arcPositive": "RoleLine",
-        "emotionNegative": "",
+        "emotionNegative": "消极",
         "emotionNeutral": "mid",
-        "emotionPositive": "",
+        "emotionPositive": "积极",
         "stageConflict": "Stage",
         "stageDevelopment": "Stage",
         "stageGrowth": "LongStage",
@@ -13510,9 +13510,9 @@
         "startFirstScene": "StartFirst"
       },
       "defaultCameraStyle": "mid，head",
-      "defaultColorPalette1": "",
+      "defaultColorPalette1": "暖色调",
       "defaultColorPalette2": "mid",
-      "defaultEmotion": "",
+      "defaultEmotion": "平静",
       "defaultLighting": "andfrom",
       "defaultMood": "and",
       "defaultSoundscape": "LightEnvironment"
@@ -13522,7 +13522,7 @@
     "continuation": "Write",
     "applySuggestion": "App",
     "suggestionApplied": "WritealreadyApp",
-    "plotSuggestions": "",
+    "plotSuggestions": "剧情建议",
     "characterArcs": "RoleLine",
     "analyzeEmotions": "Analysis",
     "emotionAnalyzed": "AnalysisDone",
@@ -13530,23 +13530,23 @@
       "title": "VideoProcess",
       "bgm": {
         "adventure": {
-          "genre": "",
-          "mood": "",
-          "name": ""
+          "genre": "冒险",
+          "mood": "激动",
+          "name": "冒险之旅"
         },
         "cafe": {
-          "genre": "",
-          "mood": "",
+          "genre": "爵士",
+          "mood": "放松",
           "name": "H"
         },
         "comedy": {
           "genre": "Pop",
           "mood": "Fast",
-          "name": ""
+          "name": "欢乐喜剧"
         },
         "epic": {
-          "genre": "",
-          "mood": "",
+          "genre": "交响乐",
+          "mood": "壮阔",
           "name": "H"
         },
         "happy": {
@@ -13556,27 +13556,27 @@
         },
         "mysterious": {
           "genre": "Electronic",
-          "mood": "",
+          "mood": "神秘",
           "name": "around"
         },
         "night": {
           "genre": "Environment",
-          "mood": "",
-          "name": ""
+          "mood": "宁静",
+          "name": "夜晚静谧"
         },
         "romantic": {
           "genre": "Classical",
-          "mood": "",
+          "mood": "浪漫",
           "name": "H"
         },
         "sad": {
-          "genre": "",
-          "mood": "",
-          "name": ""
+          "genre": "钢琴",
+          "mood": "悲伤",
+          "name": "忧伤旋律"
         },
         "tense": {
           "genre": "Electronic",
-          "mood": "",
+          "mood": "紧张",
           "name": "H"
         }
       },
@@ -13600,24 +13600,24 @@
       },
       "sfx": {
         "birds": {
-          "description": "",
-          "name": ""
+          "description": "鸟鸣声",
+          "name": "鸟鸣"
         },
         "boom": {
           "description": "Low",
-          "name": ""
+          "name": "轰鸣"
         },
         "cafe": {
           "description": "Environment",
-          "name": ""
+          "name": "咖啡馆"
         },
         "city": {
           "description": "CityStEnvironment",
           "name": "City"
         },
         "cry": {
-          "description": "",
-          "name": ""
+          "description": "哭泣声",
+          "name": "哭泣"
         },
         "ding": {
           "description": "Tip",
@@ -13625,35 +13625,35 @@
         },
         "door": {
           "description": "OnOff",
-          "name": ""
+          "name": "门声"
         },
         "footsteps": {
-          "description": "",
-          "name": ""
+          "description": "脚步声",
+          "name": "脚步"
         },
         "gasp": {
-          "description": "",
-          "name": ""
+          "description": "惊讶的喘息声",
+          "name": "喘息"
         },
         "heartbeat": {
-          "description": "",
-          "name": ""
+          "description": "心跳声",
+          "name": "心跳"
         },
         "laugh": {
-          "description": "",
-          "name": ""
+          "description": "笑声",
+          "name": "笑声"
         },
         "phone": {
           "description": "Phone",
           "name": "Phone"
         },
         "rain": {
-          "description": "",
-          "name": ""
+          "description": "雨声",
+          "name": "雨声"
         },
         "thunder": {
-          "description": "",
-          "name": ""
+          "description": "雷声",
+          "name": "雷声"
         },
         "typing": {
           "description": "KeyPlateType",
@@ -13661,48 +13661,48 @@
         },
         "whoosh": {
           "description": "Fast",
-          "name": ""
+          "name": "风声"
         },
         "wind": {
-          "description": "",
-          "name": ""
+          "description": "风声",
+          "name": "风声"
         }
       },
       "sfxCategory": {
-        "action": "",
-        "emotion": "",
+        "action": "动作",
+        "emotion": "情感",
         "environment": "Environment",
-        "transition": ""
+        "transition": "转场"
       },
       "sfxTag": {
-        "communication": "",
+        "communication": "通讯",
         "daily": "D",
         "dynamic": "Feed",
-        "emotion": "",
+        "emotion": "情感",
         "fresh": "New",
         "indoor": "in",
-        "joy": "",
-        "leisure": "",
-        "modern": "",
+        "joy": "喜悦",
+        "leisure": "休闲",
+        "modern": "现代",
         "movement": "Move",
         "nature": "from",
-        "noisy": "",
+        "noisy": "喧闹",
         "office": "Public",
         "outdoor": "out",
         "prompt": "Tip",
-        "sadness": "",
-        "shock": "",
-        "surprise": "",
-        "tension": "",
+        "sadness": "悲伤",
+        "shock": "震撼",
+        "surprise": "惊讶",
+        "tension": "紧张",
         "urban": "all",
         "weather": "day"
       },
       "subtitle": {
-        "defaultTitle": "",
+        "defaultTitle": "字幕",
         "promptConvert": "willdownContentWhy：",
         "promptDuration": "Duration（Sec）",
         "promptRequirement1": "1. Rownot",
-        "promptRequirement1Suffix": "",
+        "promptRequirement1Suffix": "个字符",
         "promptRequirement2": "ContentMin ，",
         "promptRequirement3": "Why ShowDuration",
         "promptReturnFormat": "Back：",
@@ -13717,7 +13717,7 @@
         "romantic": "Style"
       },
       "transition": {
-        "dissolve": "",
+        "dissolve": "溶解",
         "fadeLong": "Longinout",
         "fadeMedium": "midinout",
         "fadeShort": "Shortinout",
@@ -13739,7 +13739,7 @@
     "subtitlesExported": "Export succeeded",
     "subtitleStyle": "Style",
     "bgm": "Background",
-    "sfx": "",
+    "sfx": "音效",
     "exportSettings": "ExportSettings",
     "versionManager": "Version",
     "createVersion": "CreateVersion",
@@ -13754,52 +13754,52 @@
     "enterComment": "InputComment...",
     "addComment": "AddComment",
     "commentAdded": "CommentalreadyAdd",
-    "resolve": "",
+    "resolve": "解决",
     "commentResolved": "CommentResolved",
     "noComments": "No comments",
-    "totalFragments": "",
+    "totalFragments": "总片段数",
     "completedFragments": "Done",
     "failedFragments": "Failed",
     "successRate": "Success Rate",
     "qualityAnalysis": "Analysis",
-    "averageQuality": "",
+    "averageQuality": "平均质量",
     "qualityRange": "Scope",
-    "qualityExcellent": "",
+    "qualityExcellent": "优秀",
     "qualityGood": "Good",
     "qualityAverage": "Normal",
-    "qualityPoor": "",
+    "qualityPoor": "较差",
     "qualityBreakdown": "Min",
-    "clarity": "",
+    "clarity": "清晰度",
     "colorSaturation": "and",
     "motionSmoothness": "Stream",
     "characterConsistency": "peopleThingMon",
-    "efficiencyMetrics": "",
+    "efficiencyMetrics": "效率指标",
     "fragmentsPerHour": "SmallHGenerate",
     "firstAttemptSuccess": "firstSubSuccess Rate",
     "retryEfficiency": "Retry",
     "avgPromptLength": "PromptLong",
-    "costEstimate": "",
+    "costEstimate": "成本估算",
     "videoGenerations": "VideoGenerateSub",
     "imageGenerations": "ImageGenerateSub",
     "totalTokens": "Token",
-    "estimatedCost": "",
+    "estimatedCost": "预估成本",
     "characterStats": "RoleStats",
     "characterName": "Role Name",
-    "fragmentCount": "",
-    "avgQuality": "",
+    "fragmentCount": "片段数",
+    "avgQuality": "平均质量",
     "totalDuration": "Duration",
     "timeTrend": "TimeTrend",
     "date": "Date",
     "created": "Create",
     "videoPreview": "VideoPreview",
-    "play": "",
+    "play": "播放",
     "pause": "Pause",
     "restart": "Heavy",
     "captureFrame": "front",
     "frameCaptured": "alreadyWhytail",
     "frameCapturedFailed": "Failed",
     "keyframes": "OffKey",
-    "transitionEffect": "",
+    "transitionEffect": "转场效果",
     "fragmentInfo": "  Info",
     "duration": "Duration",
     "videoGenerated": "   {sequence} VideoGenerated successfully",
@@ -13936,7 +13936,7 @@
     "exportProject": "ExportProject",
     "selectFormat": "Sel",
     "exported": "Export succeeded",
-    "continuityCheck": "",
+    "continuityCheck": "连续性检查",
     "continuityCheckTitle": "Result",
     "noContinuityIssues": "notQuestion",
     "continuityIssuesFound": "{count} item(s)Question",
@@ -13945,7 +13945,7 @@
     "noCharacterData": "No roles found",
     "firstAppearance": "firstSubout",
     "lastAppearance": "Lastout",
-    "scenesInvolved": "",
+    "scenesInvolved": "涉及场景",
     "exportPreview": "Preview",
     "exportPreviewTitle": "ExportPreview",
     "copyToClipboard": "Copy",
@@ -13957,7 +13957,7 @@
     "overview": "Overview",
     "characterList": "RoleList",
     "sceneList": "List",
-    "suggestion": "",
+    "suggestion": "建议",
     "fragmentsCount": "Fragments",
     "generatePrompt": "GenerateTip",
     "charactersCount": "Characters",
@@ -13992,7 +13992,7 @@
     "validationNoPrompt": "VerifyNoTip",
     "excelHeader": "No",
     "excelHeaderCharacter": "peopleThing",
-    "excelHeaderScene": "",
+    "excelHeaderScene": "场景",
     "excelHeaderDescription": "Desc",
     "excelHeaderFirstFramePrompt": "VideofirstImage",
     "excelHeaderVideoPrompt": "frontVideoGeneratePrompt",
@@ -14028,19 +14028,19 @@
       "exportDirectorNotes": "Remark",
       "exportDuration": "Duration",
       "exportKeyElements": "OffKeyElement",
-      "exportMovement": "",
+      "exportMovement": "运镜",
       "exportShotCount": "headCount",
       "exportShotLabel": "head",
       "exportSuggestions": "Suggestions",
       "exportTitle": "Min Export",
       "exportTotalDuration": "Duration",
       "exportType": "Type",
-      "impactBalanced": "",
+      "impactBalanced": "平衡感",
       "impactDynamicTension": "Feed",
       "impactEmotionalResonance": "Total",
       "impactGrandScale": "Bigside",
-      "impactIntimacy": "",
-      "impactMajesty": "",
+      "impactIntimacy": "亲密感",
+      "impactMajesty": "威严感",
       "impactSpatialRelation": "EmptybetweenOff",
       "impactVisualInstability": "not",
       "noPrevious": "nofronthead",
@@ -14090,7 +14090,7 @@
       "unitSeconds": "Sec"
     },
     "canvasContextError": "Canvas ContextFetch failed",
-    "clarityLabel": "",
+    "clarityLabel": "清晰度",
     "continuityCharacterDisappear": "Role {character} ingbackmid",
     "continuityMissingCharacter": "{sequence} fewRoleInfo",
     "continuityMissingDescription": "{sequence} fewDescInfo",
@@ -14098,7 +14098,7 @@
     "deleteHistoryDesc": "Delete {count} item(s)  ",
     "downloadFragmentPrefix": "  ",
     "duplicateHistoryDesc": "Copy {count} item(s)  ",
-    "frameLabel": "",
+    "frameLabel": "帧",
     "generatingStatus": "Generating",
     "imageUploadFailedError": "Image upload failed",
     "importHistoryDesc": "Import {count} item(s)",
@@ -14147,7 +14147,7 @@
     "templateTransitionName": "Template",
     "templateTransitionVideoPrompt": "inout，Slow。",
     "txtExportCharacter": "Role",
-    "txtExportScene": "",
+    "txtExportScene": "场景",
     "unknownCharacter": "UnknownRole",
     "unknownError": "Unknown error",
     "videoGenerationFailed": "VideoGeneration failed",
@@ -14163,12 +14163,12 @@
         "noDescription": "No description",
         "notSet": "notSettings",
         "notSpecified": "not",
-        "sceneLabel": "",
+        "sceneLabel": "场景",
         "sceneList": "List",
-        "scenesUnit": "",
+        "scenesUnit": "个场景",
         "totalScenes": "Total",
         "unnamed": "Unnamed",
-        "voice": ""
+        "voice": "配音"
       },
       "markdown": {
         "appearance": "out",
@@ -14180,14 +14180,14 @@
         "notSet": "notSettings",
         "notSpecified": "not",
         "qualityScore": "Score",
-        "sceneLabel": "",
+        "sceneLabel": "场景",
         "sceneList": "List",
-        "scenesUnit": "",
+        "scenesUnit": "个场景",
         "status": "Status",
         "totalScenes": "Total",
         "unnamedScene": "Unnamed",
         "videoPrompt": "VideoPrompt",
-        "voice": ""
+        "voice": "配音"
       },
       "scriptParse": {
         "dialogueLabel": "Chat",
@@ -14197,8 +14197,8 @@
         "promptCharacters": "outRole",
         "promptDescription": "Desc",
         "promptDialogueCharacter": "Role",
-        "promptDialogueEmotion": "",
-        "promptDialogueLine": "",
+        "promptDialogueEmotion": "情感",
+        "promptDialogueLine": "台词",
         "promptDialogues": "Conversation List",
         "promptDuration": "Duration（Sec）",
         "promptLocation": "Location",
@@ -14284,7 +14284,7 @@
       "completed": "Done",
       "failed": "Failed"
     },
-    "coordination": "",
+    "coordination": "协调",
     "iteration": "Iterate",
     "seoTitle": "Agentic AI Console - AI",
     "seoDescription": "Agentic AI DevPlatform，and Agentic Orchestrator Deep",
@@ -14296,7 +14296,7 @@
     "createSwarm": "CreateAgent Swarm",
     "taskDescription": "TaskDesc",
     "taskDescriptionPlaceholder": "Please enterTaskDesc",
-    "coordinationMode": "",
+    "coordinationMode": "协调模式",
     "coordinationHierarchical": "MinFloor",
     "coordinationPeerToPeer": "PointtoPoint",
     "coordinationMarketBased": "Machine",
@@ -14883,15 +14883,15 @@
       "scoreRangePlaceholder": "Please enterScoreScope，：80-90",
       "languageDifficulty": {
         "readingSpeed": "Read",
-        "comprehension": "",
-        "vocabulary": "",
+        "comprehension": "理解能力",
+        "vocabulary": "词汇量",
         "writing": "Watcharrive"
       },
       "scienceCharacteristicsPlaceholder": "Please enter...",
       "learningObstacle": {
         "gameAddiction": "Son",
         "daydreaming": "StudyHNo",
-        "procrastination": "",
+        "procrastination": "拖延症",
         "lowEfficiency": "StudyLow"
       },
       "hobbiesPlaceholder": "：，",
@@ -14947,7 +14947,7 @@
       "learningObstacle": "Study",
       "personality": "peopleOffand",
       "extraTime": "outStudy",
-      "pressureTolerance": "",
+      "pressureTolerance": "压力承受度",
       "learningGoal": "Learning Objectives",
       "personalityTest1": "Test1",
       "personalityTest2": "Test2",
@@ -14984,7 +14984,7 @@
     },
     "tools": {
       "categories": {
-        "creativeDesign": ""
+        "creativeDesign": "创意设计"
       },
       "items": {
         "creator": "SystemAdmin",
@@ -14992,37 +14992,37 @@
           "title": "ImageGenerate",
           "desc": "AIGenerateHighImage",
           "tag1": "Image",
-          "tag2": ""
+          "tag2": "设计"
         },
         "video": {
           "title": "VideoGenerate",
           "desc": "AIGenerateProVideo",
           "tag1": "Video",
-          "tag2": ""
+          "tag2": "动画"
         },
         "copy": {
           "title": "Generate",
           "desc": "AI",
-          "tag1": "",
+          "tag1": "文案",
           "tag2": "Writing"
         },
         "edit": {
           "title": "VideoEdit",
           "desc": "VideoTool",
-          "tag1": "",
+          "tag1": "剪辑",
           "tag2": "Edit"
         },
         "live": {
           "title": "Live",
           "desc": "AILiveTool",
           "tag1": "Live",
-          "tag2": ""
+          "tag2": "互动"
         },
         "digital": {
           "title": "people",
           "desc": "AIpeopleGenerate",
           "tag1": "people",
-          "tag2": ""
+          "tag2": "虚拟形象"
         }
       }
     }
@@ -15060,7 +15060,7 @@
     "create": "Create",
     "edit": "Edit",
     "name": "Name",
-    "mode": "",
+    "mode": "模式",
     "export": "Export",
     "import": "Import",
     "reset": "ResetDefault",
@@ -15123,11 +15123,11 @@
   "themeTransition": {
     "title": "Theme",
     "preview": "Preview",
-    "presets": "",
+    "presets": "预设效果",
     "customConfig": "CustomConfig",
     "type": "Type",
     "direction": "Direction",
-    "speed": "",
+    "speed": "速度",
     "easing": "Function",
     "duration": "Time",
     "enableOverlay": "EnabledMask",
@@ -15136,10 +15136,10 @@
     "previewComplete": "PreviewDone",
     "types": {
       "fade": "inout",
-      "slide": "",
+      "slide": "滑动",
       "zoom": "Scale",
-      "flip": "",
-      "ripple": "",
+      "flip": "翻转",
+      "ripple": "波纹",
       "none": "no"
     },
     "directions": {
@@ -15155,8 +15155,8 @@
       "instant": "H"
     },
     "easings": {
-      "bounce": "",
-      "smooth": "",
+      "bounce": "弹跳",
+      "smooth": "平滑",
       "swift": "Fast"
     },
     "playDemo": "Play Demo",
@@ -15196,7 +15196,7 @@
       "description": "toLocalandendDataing，Please selectProcess。",
       "keepLocal": "LocalVersion",
       "useCloud": "ApplyendVersion",
-      "merge": "",
+      "merge": "智能合并",
       "mergeDesc": "fromSelNew",
       "thisDevice": "Device",
       "cloudBackup": "end",
@@ -15212,7 +15212,7 @@
       "avgDuration": "Avg Latency",
       "actionUpload": "Upload",
       "actionDownload": "Download",
-      "actionConflict": "",
+      "actionConflict": "冲突解决",
       "empty": "NoneSyncRecord",
       "showAll": "ShowAll {count}  Record",
       "showLess": "Collapse",
@@ -15272,7 +15272,7 @@
     "search": "SearchSettings...",
     "tabs": {
       "basic": "Settings",
-      "presets": "",
+      "presets": "预设管理",
       "schedule": "Schedule",
       "sync": "Sync",
       "advanced": "AdvancedOptions"
@@ -15290,7 +15290,7 @@
       "add": "AddPlan",
       "label": "Label",
       "time": "Time",
-      "mode": "",
+      "mode": "模式",
       "days": "HeavyDate",
       "nextSwitch": "downSub"
     },
@@ -15384,7 +15384,7 @@
       "generateFailed": "generateFailed",
       "tabs": {
         "template": "Template",
-        "script": "",
+        "script": "脚本",
         "style": "Style",
         "documentation": "Docs"
       }
@@ -15422,7 +15422,7 @@
       "title": "Title",
       "taskDescription": "TaskDesc",
       "taskDescriptionPlaceholder": "taskDescriptionPlease enter",
-      "coordination": "",
+      "coordination": "协调",
       "coordinationHierarchical": "Hierarchical",
       "coordinationPeerToPeer": "PeerToPeer",
       "coordinationMarketBased": "MarketBased",
@@ -15436,7 +15436,7 @@
     "pleaseLogin": "Please login first",
     "pleaseInput": "Please enter contentagainclickSend",
     "allInOneExpert": "All Expert",
-    "pan": "",
+    "pan": "平移",
     "streamComplete": "StreamResponseDone",
     "chatTitle": "Chat {id}",
     "unlogged": "notLogin",
@@ -15538,7 +15538,7 @@
   },
   "chatMode": {
     "agentMode": "Agent",
-    "normalMode": "",
+    "normalMode": "常规模式",
     "enterAgentMode": "EnterAgent",
     "exitAgentMode": "ExitAgent"
   },
@@ -15547,7 +15547,7 @@
     "subtitle": "AddinIs Network，TotalLong",
     "benefits": {
       "market": {
-        "title": "",
+        "title": "广阔市场",
         "description": "inIs Platform，arriveEnterpriseUser"
       },
       "support": {
@@ -15593,7 +15593,7 @@
         "description": "Ising3-5 DinReview"
       },
       "businessNegotiation": {
-        "title": "",
+        "title": "商务洽谈",
         "description": "Approveback，Is TeamwillandContact"
       },
       "signAgreement": {
@@ -15645,7 +15645,7 @@
         "description": "MonAPIandWorkflows，ShortfromtoPublish Period"
       },
       "reliable": {
-        "title": "",
+        "title": "可靠",
         "description": "HighAvailableand， Run"
       },
       "innovative": {
@@ -15654,8 +15654,8 @@
       }
     },
     "developmentHistory": {
-      "tag": "",
-      "title": ""
+      "tag": "发展历程",
+      "title": "发展历程"
     },
     "team": {
       "tag": "Team",
@@ -15709,7 +15709,7 @@
     },
     "teamMembers": {
       "founder": {
-        "name": "",
+        "name": "李总",
         "role": "startpeopleCTOCEO",
         "description": "AI andSystemExpert，How manyand，NegTechRdLineandPlatform"
       }
@@ -15718,7 +15718,7 @@
   "unifiedAI": {
     "performanceStats": "PerformanceStats",
     "cacheStats": "Stats",
-    "cacheTotal": "",
+    "cacheTotal": "缓存总数",
     "totalHits": "midSub",
     "avgHitCount": "midSub",
     "hitRate": "mid",
@@ -15744,8 +15744,8 @@
     "use": "Use",
     "platform": "Platform",
     "performance": "Watch",
-    "capability": "",
-    "callCount": "",
+    "capability": "能力",
+    "callCount": "调用计数",
     "successCount": "Success",
     "avgLatency": "AvgLatency",
     "templates": "Templates",
@@ -15910,11 +15910,11 @@
     "hasAccount": "Has Account"
   },
   "designer": {
-    "mode": "",
+    "mode": "模式",
     "labels": {
-      "strategy": "",
+      "strategy": "设计策略",
       "audit": "Review",
-      "blueprint": "",
+      "blueprint": "设计蓝图",
       "code": "Code"
     },
     "model": "Model",
@@ -15944,9 +15944,9 @@
       "generateFailed": "Generation failed"
     },
     "expect": {
-      "strategy": "",
+      "strategy": "设计策略",
       "audit": "Review",
-      "blueprint": "",
+      "blueprint": "设计蓝图",
       "code": "Code"
     }
   },
@@ -15993,7 +15993,7 @@
     "usage": {
       "successRate": "Success Rate",
       "requests": "Request",
-      "cost": "",
+      "cost": "费用",
       "topGroups": "TOPGroup",
       "topApis": "TOPAPIAPI",
       "topLatency": "TOPLatency",
@@ -16012,7 +16012,7 @@
       "endpoint": "endPoint",
       "tokens": "Token",
       "latency": "Latency",
-      "cost": "",
+      "cost": "费用",
       "status": "Status",
       "ip": "IPAddress",
       "detail": "Detail",
@@ -16044,7 +16044,7 @@
     },
     "home": {
       "advantages": {
-        "title": "",
+        "title": "核心优势",
         "subtitle": "WhyWhatwhatSelIs APIServices",
         "noProxy": "noup",
         "noProxyDesc": "Countryin，noConfig，On",
@@ -16056,7 +16056,7 @@
         "fastConnectionDesc": "Network，SecResponse",
         "lowLatency": "LowLatencyHighConcurrent",
         "lowLatencyDesc": "HighConcurrentRequest，LatencyLowto100ms",
-        "payAsYouGo": "",
+        "payAsYouGo": "按量计费更经济",
         "payAsYouGoDesc": "Apply，"
       },
       "quickStart": {
@@ -16101,10 +16101,10 @@
     },
     "packages": {
       "quota": "Quota",
-      "remaining": "",
+      "remaining": "剩余",
       "startDate": "Start Date",
       "endDate": "End Date",
-      "upgrade": "",
+      "upgrade": "升级",
       "status": {
         "active": "Healthy",
         "expired": "Expired",
@@ -16127,7 +16127,7 @@
       "addHeader": "AddHeader",
       "body": "Body",
       "bodyPlaceholder": "Please enterJSON Body",
-      "format": "",
+      "format": "格式化",
       "responseTime": "Response Time",
       "responseBody": "Response Body",
       "responseHeaders": "Response Headers"
@@ -16135,12 +16135,12 @@
     "groups": {
       "comparison": {
         "feature": "Feature",
-        "scenarios": "",
+        "scenarios": "适用场景",
         "recommendation": "Sel",
         "recommendationText": "ApplyandSel GroupType。only TestApply，Sel；ProdEnvironmentApply，SelStandardorAdvanced； EnterpriseApp，SelEnterprise。"
       },
       "types": {
-        "basic": "",
+        "basic": "基础版",
         "standard": "Standard",
         "premium": "Advanced",
         "enterprise": "Enterprise"
@@ -16211,8 +16211,8 @@
   },
   "apiDocs": {
     "nav": {
-      "overview": "",
-      "authentication": "",
+      "overview": "概述",
+      "authentication": "身份认证",
       "endpoints": "APIendPoint",
       "models": "AvailableModel",
       "chatCompletions": "dayAll",
@@ -16248,7 +16248,7 @@
     "stats": {
       "priceLabel": "/people/yr StandardPrice",
       "earlyBirdLabel": "/people/yr",
-      "seatsLabel": ""
+      "seatsLabel": "位早鸟名额"
     },
     "positioning": {
       "title": "AIHEnterpriseServicesand",
@@ -16260,8 +16260,8 @@
         "description": "OfflineLessons、Eventand，DeepLink",
         "features": {
           "courses": "SystemLessons",
-          "exploration": "",
-          "mutualAid": ""
+          "exploration": "实践探索",
+          "mutualAid": "社群互助"
         }
       },
       "onlineCommunity": {
@@ -16326,13 +16326,13 @@
       },
       "aiEffect": {
         "title": "AI",
-        "superEmployee": "",
+        "superEmployee": "超级员工",
         "superTeam": "Team",
         "superProduct": "Products/Services",
         "metrics": {
-          "cost": "",
-          "efficiency": "",
-          "experience": ""
+          "cost": "成本优化",
+          "efficiency": "效率提升",
+          "experience": "体验升级"
         }
       }
     },
@@ -16359,11 +16359,11 @@
           }
         },
         "decision": {
-          "title": "",
+          "title": "智慧顾问",
           "description": "Complex + SimpleExecute，DeepAnalysisand",
           "examples": {
             "analysis": "DataAnalysis",
-            "advisor": ""
+            "advisor": "决策支持"
           }
         },
         "execution": {
@@ -16433,9 +16433,9 @@
       },
       "industry": {
         "title": "RowAgent",
-        "manufacturing": "",
+        "manufacturing": "制造业",
         "education": "Row",
-        "healthcare": "",
+        "healthcare": "医疗健康",
         "government": "Services"
       },
       "function": {
@@ -16511,7 +16511,7 @@
     "overview": {
       "title": "AgentPlate",
       "description": "AgentPlate Mon HelpEnterpriseandAIAgentApp Analysis。PassTaskExecuteComplexandfromMain ，willAgentAppMinWhyThu ，HelpEnterprisefromSel Path。",
-      "keyPoint": "",
+      "keyPoint": "核心洞察",
       "keyPointText": "not AgenttoTech、Deploy and not。Enterprisefromleftdown（Simple+SimpleExecute）Start，EXPbackagaintoOther。"
     },
     "axes": {
@@ -16527,7 +16527,7 @@
       }
     },
     "characteristics": {
-      "title": ""
+      "title": "特征"
     },
     "examples": {
       "title": "App"
@@ -16572,7 +16572,7 @@
             "desc": "DeepAnalysisData，"
           },
           "advisor": {
-            "name": "",
+            "name": "决策支持顾问",
             "desc": "How manySquaresideInfo，WhyFloor"
           }
         },
@@ -16582,7 +16582,7 @@
         "title": "ExecuteExpert - ComplexExecuteAgent",
         "fullDescription": "ThisTypeAgentPlate rightdown，Point fromMainLow、butTaskExecuteComplexHigh。Usernon，butDoneTaskHow many System、How many API、ExecuteComplex Stream。",
         "chars": {
-          "clearIntent": "",
+          "clearIntent": "意图明确",
           "multiStep": "How manyStepStream",
           "multiAPI": "How manyAPI",
           "crossSystem": "System"
@@ -16627,11 +16627,11 @@
       "intro": "AgentPlate，IsEnterprisein AI，fromSimpleStart，EXPand。",
       "steps": {
         "identify": {
-          "title": "",
+          "title": "识别场景",
           "desc": "Stream， AIApp，PlateinRowCategory"
         },
         "evaluate": {
-          "title": "",
+          "title": "评估能力",
           "desc": "Enterprisefront Tech、DataandOrg"
         },
         "pilot": {
@@ -16639,7 +16639,7 @@
           "desc": "Sel1-2 SimpleinRowPoint，VerifyValueEXP"
         },
         "scale": {
-          "title": "",
+          "title": "规模扩展",
           "desc": "PointEXP，toMoreandComplex"
         }
       }
@@ -16680,8 +16680,8 @@
         "title": "Org",
         "description": "EnterpriseOrg，DefinitionpeopleTypeandAI Off",
         "features": {
-          "mapping": "",
-          "digital": "",
+          "mapping": "岗位能力映射",
+          "digital": "数字员工定位",
           "hybrid": "Team"
         }
       },
@@ -16706,8 +16706,8 @@
         "values": {
           "culture": "Corporate Culture",
           "mission": "make",
-          "critical": "",
-          "humility": ""
+          "critical": "批判性思维",
+          "humility": "谦卑态度"
         }
       }
     },
@@ -16764,7 +16764,7 @@
         "description": "AIdown PersonalProd， all",
         "features": {
           "productivity": "10Prod",
-          "decision": "",
+          "decision": "智能决策",
           "creativity": "Strong"
         }
       },
@@ -16773,7 +16773,7 @@
         "description": "peopleMachineTeamHigh andStrongBig",
         "features": {
           "collaboration": "no",
-          "intelligence": "",
+          "intelligence": "集体智慧",
           "agility": "Org"
         }
       },
@@ -16781,18 +16781,18 @@
         "title": "Products/Services",
         "description": "AIDriver ProductsandServicesToolfrontnothave and",
         "features": {
-          "personalized": "",
+          "personalized": "极致个性化",
           "intelligent": "from",
           "iterative": "FastIterate"
         }
       },
       "metrics": {
-        "title": "",
-        "cost": "",
+        "title": "效果衡量维度",
+        "cost": "成本优化",
         "costDesc": "Low ，HighResource",
-        "efficiency": "",
+        "efficiency": "效率提升",
         "efficiencyDesc": "ShortStreamPeriod，Highout",
-        "experience": "",
+        "experience": "体验升级",
         "experienceDesc": "and Full"
       }
     },
@@ -16801,11 +16801,11 @@
       "intro": "fromto，HelpEnterpriseAI",
       "steps": {
         "assessment": {
-          "title": "",
+          "title": "现状评估",
           "desc": "Enterprisefront Horizontal、AIAppandOrg"
         },
         "planning": {
-          "title": "",
+          "title": "战略规划",
           "desc": "AIRdLine，Target、inandResource"
         },
         "pilot": {
@@ -16813,11 +16813,11 @@
           "desc": "SelHeavyPointinRowPoint，VerifyPlanRowEXP"
         },
         "scale": {
-          "title": "",
+          "title": "规模推广",
           "desc": "PointEXP，toMoreand"
         },
         "optimize": {
-          "title": "",
+          "title": "持续优化",
           "desc": "ImprovementMachine，notAIAppandOrg"
         }
       }
@@ -17010,7 +17010,7 @@
       "agentNamePlaceholder": "agentNamePlease enter",
       "descriptionPlaceholder": "DescPlease enter",
       "modelPlaceholder": "ModelPlease enter",
-      "temperature": "",
+      "temperature": "温度",
       "toolsPlaceholder": "toolsPlease enter",
       "toolsTip": "toolsTip",
       "serverIdRequired": "serverIdRequired",
@@ -17118,7 +17118,7 @@
   "myCommission": {
     "title": "Title",
     "totalCommission": "TotalCommission",
-    "yuan": "",
+    "yuan": "元",
     "available": "Available",
     "withdrawn": "Withdrawn",
     "pending": "Pending",
@@ -17214,13 +17214,13 @@
       "recording": {
         "animation": {
           "智汇AI": "AI",
-          "提供": "",
+          "提供": "提供",
           "服务": "Services",
           "点击": "click",
-          "麦克风": "",
+          "麦克风": "麦克风",
           "图标": "Icon",
           "完成": "Done",
-          "录音": ""
+          "录音": "录音"
         }
       }
     },
@@ -17316,14 +17316,14 @@
       "scenario": {
         "应用象限": "App",
         "企业已部署Q1": "EnterprisealreadyDeployQ1",
-        "效率提升": ""
+        "效率提升": "效率提升"
       }
     },
     "human": {
       "machine": {
         "collaboration": {
           "成本降低": "Low",
-          "效率提升": "",
+          "效率提升": "效率提升",
           "满意度": "Full"
         }
       }
@@ -17333,7 +17333,7 @@
     },
     "a_i_chat": {
       "voiceAud": "Type a message...",
-      "isAudioP1": "",
+      "isAudioP1": "播放",
       "删除2": "Delete"
     },
     "prompt_templates": {
@@ -17506,16 +17506,16 @@
     "a_i_chat": {
       "视频": "Video",
       "图片1": "Image",
-      "识别2": "",
+      "识别2": "识别",
       "语音3": "Voice",
-      "音乐4": ""
+      "音乐4": "音乐"
     },
     "prompt_templates": {
       "通用": "Generic",
       "语言1": "Language",
       "代码2": "Code",
       "写作3": "Writing",
-      "创意4": "",
+      "创意4": "创意",
       "分析5": "Analysis"
     },
     "input1": {
@@ -17589,9 +17589,9 @@
       "默认": "Default",
       "默认1": "Default",
       "微软雅黑2": "Soft",
-      "宋体3": "",
-      "黑体4": "",
-      "楷体5": ""
+      "宋体3": "宋体",
+      "黑体4": "黑体",
+      "楷体5": "楷体"
     },
     "universal_third_party_auth": {
       "Google登录": "GoogleLogin",
@@ -17603,8 +17603,8 @@
     },
     "about": {
       "张明远": "Far",
-      "李思涵1": "",
-      "王晓峰2": ""
+      "李思涵1": "李思涵",
+      "王晓峰2": "王晓峰"
     },
     "agents_create": {
       "AI助手": "AI"
@@ -17629,9 +17629,9 @@
       "AI专业服务9": "AIProServices",
       "专业大模型与智能10": "ProBigModelandAgentServices",
       "首页11": "Home",
-      "定位12": "",
+      "定位12": "定位",
       "服务13": "Services",
-      "架构14": "",
+      "架构14": "架构",
       "罗盘15": "Plate",
       "课程16": "Lessons",
       "工具17": "Tool",
@@ -17639,12 +17639,12 @@
       "AI工具课程19": "AIToolLessons",
       "思维类课程20": "TypeLessons",
       "文化类课程21": "TypeLessons",
-      "火山引擎22": "",
+      "火山引擎22": "火山引擎",
       "阿里云23": "in",
-      "腾讯云24": "",
-      "九章智算云25": "",
+      "腾讯云24": "腾讯云",
+      "九章智算云25": "九章智算云",
       "致远互联26": "Far",
-      "百度智能云27": "",
+      "百度智能云27": "百度智能云",
       "华为云28": "Why",
       "httpswei29": "https://weixin.qq.com/AI",
       "企业服务30": "EnterpriseServices"
@@ -17684,13 +17684,13 @@
       "K12在线教育31": "K12 Online",
       "新员工入职培训32": "New in",
       "专业知识博主33": "ProMain",
-      "职业资格认证34": "",
+      "职业资格认证34": "职业资格认证",
       "LangChai35": "LangChain",
       "阿里云36": "in",
       "AI助教37": "AI",
       "AI知识库38": "AI",
       "AI写作39": "AI Writing",
-      "智能组卷40": ""
+      "智能组卷40": "智能组卷"
     },
     "open_platform": {
       "系统吞吐量REQ": "System (REQS)",
@@ -17699,10 +17699,10 @@
       "边缘接入延迟LA3": "sideinLatency (LAT)",
       "AI核心生产力4": "AI Prod",
       "研报分析5": "Analysis",
-      "图文建模6": "",
+      "图文建模6": "图文建模",
       "文书比对7": "Bookto",
       "phrase2": "Agentic",
-      "phrase3": "",
+      "phrase3": "工业级智能化",
       "phrase4": "AllModalProcess",
       "pricingFeaturesTitle": "Feature",
       "planFreeFeature1": "RegisterValue， API",
@@ -17742,7 +17742,7 @@
       "advantagesModulesItem2": "Techand API ：Swarm 、AllDocs、How manyModal、Audio、WorkflowsPiece（n8n/Dify）、View",
       "advantagesModulesItem3": "Agentand：Agent 、MCP 、How manyLanguage SDK（Python/Node/Go/Rust/Java）、and",
       "advantagesModulesItem4": "andUser：VIP/Order、Pay（WeChat/Alipay）、Or continue with、How manyendDeviceandSession Management",
-      "advantagesHighlightsTitle": "",
+      "advantagesHighlightsTitle": "核心优势",
       "advantagesHighlight1": "How manyendMon：PC + WeChat/AlipayMini Program + H5 + APP + Electron， Web andMove",
       "advantagesHighlight2": "backendDouble：Java 、Python Strong AI，Min、andDeploy",
       "advantagesHighlight3": "HalfOn：frontendandOpen API ，andTueSubDev",
@@ -17841,9 +17841,9 @@
       "用户中心18": "User Center",
       "系统设置19": "System Settings",
       "搜索服务20": "SearchServices",
-      "访问追踪21": "",
+      "访问追踪21": "访问追踪",
       "AI智能助手22": "AI",
-      "知识图谱23": "",
+      "知识图谱23": "知识图谱",
       "AI内容生成24": "AI Content Generation",
       "智能分析25": "Analysis",
       "语音交互26": "Voice",
@@ -17857,7 +17857,7 @@
       "完整技术文档34": "TechDocs",
       "999可用性35": "99.9% Available",
       "AI平台白皮书36": "AI PlatformBook",
-      "客户案例集37": "",
+      "客户案例集37": "客户案例集",
       "技术架构文档38": "TechDocs",
       "产品演示视频39": "ProductsDemoVideo",
       "AI智能教学平台40": "AI Platform",
@@ -17868,7 +17868,7 @@
       "身份认证安全45": "Security",
       "接口访问控制46": "API",
       "日志审计追踪47": "Log",
-      "防攻击防护48": "",
+      "防攻击防护48": "防攻击防护",
       "数据备份恢复49": "Data Restore"
     },
     "open_platform": {
@@ -17876,7 +17876,7 @@
       "集群分发1": "Dispatch",
       "深度协作2": "Deep",
       "质量回溯3": "Back",
-      "智能金融风控10": "",
+      "智能金融风控10": "智能金融风控",
       "电商全链路闭环11": "AllRd",
       "法律文档审计12": "Docs",
       "数据看板13": "DataView",
@@ -17933,7 +17933,7 @@
       "扣子图标": "SonIcon",
       "百宝箱logo1": "logo",
       "品牌图标2": "ItemIcon",
-      "智谱清言3": "",
+      "智谱清言3": "智谱清言",
       "品牌84": "Item8"
     },
     "api_test_page": {
@@ -18769,7 +18769,7 @@
     },
     "use_notification_center": {
       "重试": "Retry",
-      "忽略1": ""
+      "忽略1": "忽略"
     },
     "use_user_settings": {
       "未命名对话": "UnnamedChat"
@@ -18786,7 +18786,7 @@
       "享受更快的响应速3": "Fast Response",
       "专属模型4": "Model",
       "访问最新最强的A5": "NewStrong AIModel",
-      "专属福利6": "",
+      "专属福利6": "专属福利",
       "丰富的会员专属福7": "Member",
       "专属客服8": "Dedicated support",
       "724小时专属客9": "7×24SmallHDedicated support",
@@ -18818,7 +18818,7 @@
       "自定义模型": "CustomModel",
       "团队协作": "Team",
       "数据导出": "Data Export",
-      "专属顾问": "",
+      "专属顾问": "专属顾问",
       "全部AI工具": "AllAITool",
       "企业模板库": "EnterpriseTemplate",
       "无限文件上传": "noFileUpload",
@@ -18830,21 +18830,21 @@
     "ai_toolbox": {
       "title": "AI Tool",
       "返回对话": "BackChat",
-      "记忆": "",
+      "记忆": "记忆",
       "知识存储": "Storage",
       "语音": "Voice",
       "语音对话": "VoiceChat",
-      "画布": "",
-      "可视化设计": "",
+      "画布": "画布",
+      "可视化设计": "可视化设计",
       "技能": "Skills",
-      "能力扩展": "",
+      "能力扩展": "能力扩展",
       "浏览器": "ViewsDevice",
       "网页自动化": "from",
       "自动化": "from",
       "定时任务": "ScheduleTask",
       "模型": "Model",
       "AI模型切换": "AIModel",
-      "集成": "",
+      "集成": "集成",
       "第三方服务": "TriSquareServices",
       "仪表板": "Watch",
       "总览与数据": "OverviewandData",
@@ -18878,7 +18878,7 @@
       "快速开始16": "FastStart",
       "开发者平台介绍17": "Developer Platform",
       "环境配置18": "EnvironmentConfig",
-      "身份认证19": "",
+      "身份认证19": "身份认证",
       "API文档20": "APIDocs",
       "API概览21": "APIOverview",
       "对话API22": "ChatAPI",
@@ -18893,7 +18893,7 @@
       "OAuth集成31": "OAuth",
       "第三方登录32": "Or continue with",
       "最佳实践33": "Best Practices",
-      "故障排查34": ""
+      "故障排查34": "故障排查"
     },
     "swagger_endpoints": {
       "AI程序模块包含1": "AI ProgramModule - Agent、User、OrderEq",
@@ -18958,7 +18958,7 @@
       "是否只预览不应用13": " NoonlyPreviewnotApp",
       "是否等待响应41": "NoEqResponse",
       "最大Token数4": "BigToken",
-      "格式20": "",
+      "格式20": "格式",
       "消息ID48": "MessageID",
       "消息内容39": "MessageContent",
       "温度参数8": "Parameter",
@@ -18966,8 +18966,8 @@
       "目标AgentI38": "TargetAgentI",
       "目标文件路径12": "TargetFile Path",
       "系统提示词7": "SystemPrompt",
-      "纬度34": "",
-      "经度35": "",
+      "纬度34": "纬度",
+      "经度35": "经度",
       "获取或设置地理位31": "orSettings",
       "表情符号49": "WatchNo",
       "要执行的命令15": "Execute",
@@ -19046,7 +19046,7 @@
       "重试": "Retry"
     },
     "plot_advisor_service": {
-      "温馨的咖啡厅阳光1": "",
+      "温馨的咖啡厅阳光1": "温馨的咖啡厅阳光",
       "现代化的办公室繁2": "PublicComplex",
       "繁华的城市街道人": "Complex CityStpeople"
     },
@@ -19103,7 +19103,7 @@
       "title": "BuyRecord",
       "orderNo": "Order No.",
       "viewDetails": "View detail",
-      "applyInvoice": "",
+      "applyInvoice": "申请发票",
       "empty": "NoneBuyRecord",
       "status": {
         "completed": "Done",
@@ -19169,7 +19169,7 @@
       "themeDesc": "Sel sideTheme",
       "notifications": "Notice",
       "notificationsDesc": "ReceiveSystemandEventNotice",
-      "soundEffects": "",
+      "soundEffects": "音效",
       "soundEffectsDesc": "OnorCloseside"
     },
     "privacy": {
@@ -19333,7 +19333,7 @@
       "typeOther": "Other",
       "detail": "Detail",
       "process": "Process",
-      "resolve": "",
+      "resolve": "解决",
       "close": "Close",
       "detailTitle": "FeedbackDetail",
       "labelId": "FeedbackID",
@@ -19343,7 +19343,7 @@
       "labelPriority": "Priority",
       "labelCreatedAt": "Created At",
       "labelContent": "Content",
-      "screenshots": "",
+      "screenshots": "截图",
       "colUser": "User",
       "colContent": "Content",
       "colPriority": "Priority",
@@ -19414,7 +19414,7 @@
       "colType": "Type",
       "colPrice": "Price",
       "colStock": "Stock",
-      "colSales": "",
+      "colSales": "销量",
       "colCreatedAt": "Created At",
       "onShelfSuccess": "Published",
       "offShelfSuccess": "Unpublished",
@@ -19435,7 +19435,7 @@
     "rejected": "Reject",
     "purchaseStats": "BuyStats",
     "totalPurchases": "Buy",
-    "totalRevenue": "",
+    "totalRevenue": "总营收",
     "uniqueBuyers": "MonBuy",
     "uniqueAgents": "MonAgent",
     "settlementStats": "CheckoutStats",
@@ -19462,8 +19462,8 @@
     "pageRange": "Scope",
     "copies": "Print",
     "duplex": "DoublesidePrint",
-    "header": "",
-    "footer": ""
+    "header": "页眉",
+    "footer": "页脚"
   },
   "grayRelease": {
     "ongoing": "In ProgressPublish",
@@ -19473,7 +19473,7 @@
     "start": "Start",
     "pause": "Pause",
     "resume": "Restore",
-    "promote": "",
+    "promote": "推广",
     "rollback": "Back",
     "phaseProgress": "StageProgress",
     "enterGuidId": "Please enterID",
@@ -19637,7 +19637,7 @@
     "agree": "I have read and agree to the"
   },
   "keyManagement": {
-    "title": "",
+    "title": "密钥管理",
     "tip": "Save，ShowMonSub。",
     "createdTitle": "API Key alreadyCreate",
     "iKnow": "I",
@@ -19700,7 +19700,7 @@
   },
   "unifiedQr": {
     "loginRequired": "Login",
-    "auth": "",
+    "auth": "认证",
     "qrFailed": "GenerateTueFailed：backendServicesConfig，APInotLogin",
     "needLoginFirst": "Need Login First"
   },
@@ -19742,8 +19742,8 @@
   "drama": {
     "addCharDesc": "（peopleThingDesc）",
     "coherent": "andupMon and，from，peopleThingMon",
-    "transition": "",
-    "sceneTransition": "",
+    "transition": "切换",
+    "sceneTransition": "转场",
     "confirmCharContinue": "ConfirmRole Nobackout"
   },
   "studyAdd": {
@@ -19759,12 +19759,12 @@
   },
   "unifiedViewer": {
     "cadFile": "CADPaperFile",
-    "format": "",
+    "format": "格式",
     "cadHint": "RecommendApply AutoCAD or FreeCAD Open",
     "archiveFile": "File",
     "loading": "Loading...",
     "notSupport": "not PreviewFile Type",
-    "extension": "",
+    "extension": "扩展名",
     "mimeType": "MIMEType",
     "fullscreen": "All",
     "download": "Download",
@@ -19783,7 +19783,7 @@
     "catAudio": "Audio",
     "catCode": "Code",
     "catText": "Text",
-    "catArchive": "",
+    "catArchive": "压缩包",
     "catModel3d": "3DModel",
     "catCad": "CADPaper"
   },
@@ -19937,15 +19937,15 @@
   },
   "viewerModel3DViewer": {
     "model3dFile": "3DModelFile",
-    "format": "",
-    "supportedFormat": "",
+    "format": "格式",
+    "supportedFormat": "支持格式",
     "useBlenderHint": "RecommendApply Blender orOnlineViewDeviceOpen"
   },
   "featureCallback": {
     "expired": "Expire",
     "verifyFailed": "VerifyFailed",
     "missing": "few",
-    "attack": ""
+    "attack": "攻击"
   },
   "DistributionCenter": {
     "copyImage": "CopyImage",
@@ -19990,7 +19990,7 @@
     "download": "Download",
     "downloadView": "DownloadView",
     "lines": "Row",
-    "chars": ""
+    "chars": "字符"
   },
   "cmpVipIntroducePopupAlt": {
     "benefitsCount": "............ <b>20</b> Benefit, Add ↑",
@@ -20061,7 +20061,7 @@
     "categoryCode": "CodeFile",
     "categoryMarkdown": "Markdown",
     "categoryText": "TextFile",
-    "categoryArchive": "",
+    "categoryArchive": "压缩包",
     "categoryModel3d": "3DModel",
     "categoryCad": "CADPaper",
     "categoryUnknown": "File"
@@ -20176,9 +20176,9 @@
   },
   "viewerMediaViewer": {
     "mediaLoadFailed": "Load Failed",
-    "playSpeed": "",
+    "playSpeed": "播放速度",
     "loop": "Loop",
-    "mute": "",
+    "mute": "静音",
     "download": "Download"
   },
   "featureGoogleLogin": {
@@ -20252,7 +20252,7 @@
       "tagSuccess": "Success",
       "tagInfo": "Info",
       "tagWarning": "Warning",
-      "tagDanger": ""
+      "tagDanger": "危险"
     },
     "data": {
       "title": "Data",
@@ -20510,7 +20510,7 @@
     },
     "stats": {
       "selected": "Selected",
-      "total": "",
+      "total": "总数",
       "totalSize": "Size"
     }
   },
@@ -20619,8 +20619,8 @@
       "warning": "Warning"
     },
     "anomalyTypes": {
-      "spike": "",
-      "drop": "",
+      "spike": "激增",
+      "drop": "骤降",
       "trend_change": "Trend",
       "outlier": "UnhealthyValue"
     },
@@ -20753,11 +20753,11 @@
       "ai": "AI",
       "approved": "Approved",
       "archived": "Archived",
-      "business": "",
+      "business": "商务",
       "category": "Category",
       "completed": "Done",
       "description": "Desc",
-      "design": "",
+      "design": "设计",
       "device": "Device",
       "disabled": "Disabled",
       "draft": "Draft",
@@ -20830,7 +20830,7 @@
       "eventId": "EventID",
       "executionMode": "Execute",
       "free": "Free",
-      "freeze": "",
+      "freeze": "冻结",
       "frozen": "Balance",
       "frozenStatus": "already",
       "hide": "Hide",
@@ -20847,7 +20847,7 @@
       "neverTriggered": "fromnotTrigger",
       "normal": "Healthy",
       "occurrenceTime": "Time",
-      "officialSite": "",
+      "officialSite": "官网",
       "officialUrl": "Link",
       "page": "side",
       "pageUrl": "sideLink",
@@ -20864,7 +20864,7 @@
       "retryCount": "RetrySub",
       "retryInterval": "Retrybetween",
       "retryStrategy": "Retry",
-      "section": "",
+      "section": "板块",
       "sequential": "Serial",
       "sessionId": "ID",
       "shortDesc": "SimpleShortDesc",
@@ -20881,9 +20881,9 @@
       "test": "Test",
       "timeout": "H",
       "title": "Title",
-      "totalEarnings": "",
+      "totalEarnings": "总收益",
       "transactions": "Record",
-      "unfreeze": "",
+      "unfreeze": "解冻",
       "updatedAt": "Updated at",
       "userAgent": "User",
       "userId": "User ID"
@@ -20990,7 +20990,7 @@
       "kpiOrdersLabel": "Orders",
       "kpiOrdersUnit": "Single",
       "kpiRevenueDesc": "D +¥{amount}",
-      "kpiRevenueLabel": "",
+      "kpiRevenueLabel": "营收总额",
       "kpiUsersDesc": "DAdd {count} people",
       "kpiUsersLabel": "Total Users",
       "moduleNameAgents": "Agent",
@@ -21058,9 +21058,9 @@
       "title": "Backend Health Check",
       "status": "Status",
       "overallStatus": "Status",
-      "healthy": "",
+      "healthy": "健康",
       "unhealthy": "not",
-      "degraded": "",
+      "degraded": "降级",
       "normal": "Healthy",
       "abnormal": "Unhealthy",
       "database": "Database",
@@ -21186,14 +21186,14 @@
     "difficultyAll": "AllLevel",
     "difficultyEasy": "Simple",
     "difficultyMedium": "Medium",
-    "difficultyHard": "",
+    "difficultyHard": "困难",
     "difficultyUnknown": "Unknown",
     "emptyPapers": "No exams",
     "noDesc": "No bio yet",
-    "questionUnit": "",
+    "questionUnit": "题",
     "minuteUnit": "minutes",
-    "passPrefix": "",
-    "attemptPrefix": "",
+    "passPrefix": "及格",
+    "attemptPrefix": "参考",
     "attemptSuffix": "people",
     "wrongBook": "Wrong Book",
     "startExam": "Start Exam",
@@ -21218,7 +21218,7 @@
     "verifyAll": "VerifyAll",
     "applyWatermark": "App",
     "clearAll": "ClearAll",
-    "page": "",
+    "page": "页",
     "portrait": "to",
     "landscape": "to",
     "print": "Print",
@@ -21235,14 +21235,14 @@
     "subscribeDaily": "SubscribeD",
     "subscribeDesc": "dayfromReceive",
     "email": "Email",
-    "frequency": "",
+    "frequency": "频率",
     "daily": "D",
     "weekly": "around",
     "monthly": "M",
     "modules": "Module",
     "subscribed": "alreadySubscribe",
     "subscribe": "Subscribe",
-    "slope": "",
+    "slope": "斜率",
     "method": "Method",
     "subscribeReport": "Subscribe",
     "loadFailed": "Load Failed",
@@ -21263,7 +21263,7 @@
     "mostAnswered": "How manyAnswers",
     "noQuestions": "NoneQuestion",
     "pinned": "Pinned",
-    "essence": "",
+    "essence": "精华",
     "title": "Title",
     "content": "Body",
     "category": "Category",
@@ -21305,8 +21305,8 @@
     "greetingEvening": "Good evening",
     "statUsers": "Total Users",
     "statOrders": "Orders",
-    "statRevenue": "",
-    "statConversations": "",
+    "statRevenue": "营收",
+    "statConversations": "会话数",
     "statDau": "D",
     "statTickets": "Single",
     "unitOrder": "Single",
@@ -21323,13 +21323,13 @@
     "badgeNew": "New",
     "statusApi": "APIServices",
     "statusDb": "Database",
-    "statusCache": "",
+    "statusCache": "缓存",
     "statusQueue": "MessageColumn",
     "statusStorage": "Storage",
     "statusSearch": "SearchServices",
     "statusNormal": "Healthy",
     "statusBusy": "Complex",
-    "statusDegraded": "",
+    "statusDegraded": "降级",
     "statusApiDetail": "Response Time 45ms",
     "statusDbDetail": "Connect 128/500",
     "statusCacheDetail": "mid 96.8%",
@@ -21369,7 +21369,7 @@
     "member": "Member",
     "allUsers": "haveUser",
     "price": "Price",
-    "yuan": "",
+    "yuan": "元",
     "month": "M",
     "limitFreeNote": "HFree",
     "discount": "Discount",
@@ -21379,8 +21379,8 @@
     "confirmOffline": "ConfirmDelist",
     "free": "Free",
     "limitedFree": "HFree",
-    "paid": "",
-    "text": "",
+    "paid": "收费",
+    "text": "文字",
     "image": "Image",
     "video": "Video",
     "discount6m80": "6 Mback8off",
@@ -21415,14 +21415,14 @@
     "title": "Points Center",
     "subtitle": "Check-in / Task /",
     "availablePoints": "AvailablePoints",
-    "total": "",
+    "total": "累计",
     "used": "Used",
     "level": "Level",
     "noLogs": "NoneStream",
     "noGoods": "NoneProduct",
     "points": "Points",
     "stock": "Stock",
-    "exchangeNow": "",
+    "exchangeNow": "立即兑换",
     "noExchanges": "NoneRecord",
     "signedToday": "Signed in today",
     "dailySignin": "Daily Sign-in",
@@ -21453,7 +21453,7 @@
     "publish": "Publish",
     "noPosts": "NoneFeed",
     "top": "Pinned",
-    "essence": "",
+    "essence": "精华",
     "postPlaceholder": "SayPointWhatwhat..."
   },
   "withdrawDialog": {
@@ -21463,7 +21463,7 @@
     "bankCard": "toBank Card",
     "noBankCard": "UnboundBank Card",
     "bindNow": "Bind",
-    "change": "",
+    "change": "更换",
     "agreePrefix": "I have read and agree to the",
     "termsTitle": "《WithdrawServicesAgreement》",
     "submit": "Withdraw",
@@ -21501,7 +21501,7 @@
     "featuredArticles": "SelArticles",
     "pageDesc": "Deepgood · PracticeEXP · Row",
     "top": "Pinned",
-    "essence": "",
+    "essence": "精",
     "anonymous": "Anonymous",
     "read": "Read",
     "like": "Like",
@@ -21510,17 +21510,17 @@
     "noArticle": "No articles",
     "latest": "New",
     "hottest": "Hot",
-    "essenceLabel": ""
+    "essenceLabel": "精华"
   },
   "askDetail": {
     "backToList": "Back to List",
     "questionNotFound": "QuestionnotingorDeleted",
     "top": "Pinned",
-    "essence": "",
+    "essence": "精华",
     "answers": " Answers",
     "submitAnswer": "SubmitAnswers",
     "adopted": "Accepted",
-    "adopt": "",
+    "adopt": "采纳",
     "favorite": "Favorite",
     "writeAnswerPlaceholder": "WritedownYou Answers..."
   },
@@ -21535,14 +21535,14 @@
     "actualPay": "Paid"
   },
   "learnAI": {
-    "tenThousand": "",
+    "tenThousand": "万",
     "phraseLlmDev": "BigModelAppDev",
     "phraseAiEdu": "AI +",
     "phraseAiEnterprise": "AI + Enterprisein",
     "phraseAiKnowledge": "AI +",
     "phraseAiCert": "AI + Skills",
     "phraseSmartQa": "Q&ASystem",
-    "phraseKnowledgeGraph": "",
+    "phraseKnowledgeGraph": "知识图谱构建",
     "sections": {
       "aiCore": "AI",
       "aiEcosystem": "AI",
@@ -21550,7 +21550,7 @@
       "aiScale": "AI",
       "aiSolution": "AIPlan",
       "aiTech": "AITech",
-      "credentials": "",
+      "credentials": "资质认证",
       "resources": "Resource",
       "section01": "1",
       "section02": "2",
@@ -21570,7 +21570,7 @@
     "enterpriseUnit": "EnterpriseSingle ",
     "freeDownload": "FreeDownload",
     "industryGrade": "Row",
-    "labGradeSpecs": "",
+    "labGradeSpecs": "实验室级规格",
     "learnMore": "More",
     "microservices": "Services",
     "microservicesName": "ServicesName",
@@ -21608,7 +21608,7 @@
     "四大AI场景覆盖学习": "ThuBigAIStudy",
     "大模型微服务构建企业": "BigModelServicesEnterprise",
     "安全保障": "Security",
-    "客户口碑": "",
+    "客户口碑": "客户口碑",
     "客户成功案例": "Success",
     "已帮助500企业实现": "alreadyHelp500Enterprise",
     "常见问题": "FAQ",
@@ -21622,15 +21622,15 @@
     "标准版": "Standard",
     "核心能力对比矩阵": "to",
     "深度整合主流AI大模": "DeepMainStreamAIBig",
-    "用": "",
+    "用": "用",
     "用AI重新定义每一个": "AIHeavyNewDefinitionMon",
     "申请商业授权": "License",
     "电话": "Phone",
     "痛点": "Point",
     "立即体验AI能力获取": "AI",
     "等各行业实现智能化转": "EqRow",
-    "能力项": "",
-    "荣誉资质": "",
+    "能力项": "能力项",
+    "荣誉资质": "荣誉资质",
     "获取解决方案": "Plan",
     "解答您关心的问题": "Off Question",
     "资源下载": "ResourceDownload",
@@ -21650,11 +21650,11 @@
     "questionCount": "Questions",
     "duration": "Duration",
     "minutes": "minutes",
-    "passScore": "",
+    "passScore": "及格",
     "startExam": "Start Exam",
-    "remaining": "",
+    "remaining": "剩余",
     "score": "Min",
-    "submit": ""
+    "submit": "交卷"
   },
   "memberPoint": {
     "myPoints": "My Points",
@@ -21703,7 +21703,7 @@
     "title": "Refund Audit",
     "subtitle": "Refund, SLA ExecuteBatchReview",
     "slaNormal": "Healthy",
-    "slaWarning": "",
+    "slaWarning": "预警",
     "slaOvertime": "H",
     "slaCritical": "Critical",
     "searchPlaceholder": "SearchRefundSingleNo/Order No.",
@@ -21717,11 +21717,11 @@
     "statusFailed": "Failed",
     "statusCancelled": "Revoked",
     "allSla": "All SLA",
-    "slaGreen": "",
-    "slaYellow": "",
-    "slaRed": "",
+    "slaGreen": "绿色",
+    "slaYellow": "黄色",
+    "slaRed": "红色",
     "slaCriticalLabel": "Critical",
-    "query": "",
+    "query": "查询",
     "selected": "Selected {count}",
     "batchApprove": "BatchPass",
     "batchReject": "BatchReject",
@@ -21742,7 +21742,7 @@
     "detailStatus": "Status",
     "detailReason": "RefundReason",
     "detailDescription": "Desc",
-    "detailEvidence": "",
+    "detailEvidence": "凭证",
     "evidenceCount": "Total {count}",
     "loadFailed": "Load Failed",
     "confirmSingle": "Confirm{action}RefundSingle?",
@@ -21777,7 +21777,7 @@
     "findingsTitle": "Unhealthy",
     "noFindings": "NoneUnhealthy",
     "riskOk": "Security",
-    "riskElevated": "",
+    "riskElevated": "留意",
     "riskWarning": "Warning",
     "riskCritical": "Critical",
     "refreshed": "SecurityDataalreadyRefresh",
@@ -21790,7 +21790,7 @@
     "quickEntry": "Quick entry",
     "hotCourses": "HotLessons",
     "more": "More",
-    "masterTeacher": "",
+    "masterTeacher": "名师",
     "peopleLearning": "peopleing",
     "free": "Free",
     "livingNow": "Live Now",
@@ -21900,13 +21900,13 @@
     "agentActivity": "AgentActive",
     "courseCategory": "Course Categories",
     "revenueAxis": "(¥)",
-    "revenue": "",
+    "revenue": "营收",
     "unknown": "Unknown",
     "callCount": "Calls",
     "cardUsers": "User",
     "cardOrders": "Order",
     "cardAgents": "Agent",
-    "cardRevenue": "",
+    "cardRevenue": "营收",
     "loadFailed": "Load Failed："
   },
   "resourceDetail": {
@@ -21993,7 +21993,7 @@
     "colLocalName": "LocalName",
     "colEnglishName": "Name",
     "colDirection": "Direction",
-    "colPluralRule": "",
+    "colPluralRule": "复数规则",
     "colSeparator": "Min",
     "colCurrency": "Position",
     "prefix": "front",
@@ -22001,8 +22001,8 @@
     "pluralPreview": "Example (CLDR)",
     "pluralHint": "front key: {key}",
     "formatPreview": "Preview",
-    "formatNumber": "",
-    "formatCurrency": "",
+    "formatNumber": "数字",
+    "formatCurrency": "货币",
     "formatDate": "Date",
     "formatRelative": "toTime",
     "diffTitle": "to",
@@ -22025,17 +22025,17 @@
     "mtSourceAria": "MT Text",
     "mtTranslate": "Translate",
     "mtSource": "Text",
-    "mtTranslated": "",
-    "mtConfidence": "",
+    "mtTranslated": "译文",
+    "mtConfidence": "置信度",
     "mtApprove": "Pass",
     "mtReject": "Reject",
     "mtInputHint": "InputTextinRowMachineDeviceTranslate",
     "targetLangAria": "TargetLanguage",
     "healthTitle": "Dashboard",
-    "healthScore": "",
+    "healthScore": "健康度",
     "healthTotalKeys": "key",
     "healthLanguages": "Language",
-    "healthCoverage": "",
+    "healthCoverage": "覆盖率",
     "healthPendingMt": "Pending MT",
     "healthStaleKeys": "Expire key",
     "loading": "Loading...",
@@ -22048,9 +22048,9 @@
     "exportResultAria": "ExportResult",
     "import": "Import",
     "importFmtAria": "Import",
-    "conflictStrategyAria": "",
-    "conflictOverwrite": "",
-    "conflictSkip": "",
+    "conflictStrategyAria": "冲突策略",
+    "conflictOverwrite": "覆盖",
+    "conflictSkip": "跳过",
     "importBtn": "Import",
     "importContentPlaceholder": "Paste CSV or XLIFF Content...",
     "importContentAria": "ImportContent",
@@ -22140,13 +22140,13 @@
     "systemAbnormal": "RunUnhealthy"
   },
   "pdfTools": {
-    "presetWatermark": "",
+    "presetWatermark": "预设水印",
     "splitOption": "MinOptions",
     "allPages": "Allside",
     "currentPage": "Current Pageside",
     "showPageNum": "Show",
     "tabSignature": "Signature",
-    "tabWatermark": "",
+    "tabWatermark": "水印",
     "tabMerge": "Min",
     "tabPrint": "Print",
     "confidential": "Machine",
@@ -22166,9 +22166,9 @@
     "signReason": "SignatureReason",
     "signerName": "SignatureName",
     "splitPdf": "MinPDF",
-    "textWatermark": "",
+    "textWatermark": "文字水印",
     "verified": "alreadyVerify",
-    "text": "",
+    "text": "文字",
     "undo": "Undo",
     "watermarkPreview": "Preview",
     "watermarkTextPlaceholder": "Please enter"
@@ -22214,7 +22214,7 @@
     "zoomIn": "Big"
   },
   "markdownViewer": {
-    "chars": "",
+    "chars": "字",
     "lines": "Row",
     "previewMode": "Preview mode",
     "editMode": "Edit"
@@ -22252,7 +22252,7 @@
     "backHome": "Home"
   },
   "learnRate": {
-    "reviews": "",
+    "reviews": "条评价",
     "writeReview": "Write",
     "rating": "Score",
     "content": "Content"
@@ -22345,10 +22345,10 @@
     "gender": "Gender",
     "male": "M",
     "female": "Daughter",
-    "secret": "",
+    "secret": "保密",
     "birthday": "Birthday",
-    "school": "",
-    "profession": "",
+    "school": "学校",
+    "profession": "职业",
     "bio": "PersonalBio"
   },
   "resourceList": {
@@ -22360,7 +22360,7 @@
     "typeVideo": "Video",
     "typeAudio": "Audio",
     "typeImage": "Image",
-    "typeArchive": "",
+    "typeArchive": "压缩包",
     "sortNew": "New",
     "sortHot": "Hot",
     "sortDownload": "Download",
@@ -22459,7 +22459,7 @@
     "favorite": "Favorite",
     "chapters": "Chapters",
     "noChapters": "No chapters",
-    "reviews": ""
+    "reviews": "评价"
   },
   "learnPaymentConfirm": {
     "title": "PaySuccess",
@@ -22551,7 +22551,7 @@
     "completeTime": "Completed"
   },
   "biDrilldown": {
-    "detail": "",
+    "detail": "明细",
     "recent": "Near",
     "days": "day",
     "total": "Total",
@@ -22597,7 +22597,7 @@
   },
   "learnHomework": {
     "course": "Lessons",
-    "homework": "",
+    "homework": "作业",
     "empty": "No homework",
     "deadline": ":",
     "status": "Status:",
@@ -22636,9 +22636,9 @@
   },
   "p19AgentsList": {
     "title": "P19 Agent",
-    "calls": "",
+    "calls": "调用",
     "rating": "Score",
-    "call": "",
+    "call": "调用",
     "answerTitle": "AgentAnswers"
   },
   "p19CoursesList": {
@@ -22652,7 +22652,7 @@
     "noContent": "No content"
   },
   "agenticSwarmMonitor": {
-    "dependencies": "",
+    "dependencies": "依赖",
     "priority": "Priority"
   },
   "confirmPurchasePopUp": {
@@ -22679,7 +22679,7 @@
     "mobileDevice": "Phoneend",
     "noSiteName": "notWriteSite Name",
     "noDesc": "No description",
-    "visitOfficial": "",
+    "visitOfficial": "访问官网",
     "viewDetailPage": "View detail",
     "noDetailContent": "NoneDetailContent",
     "sectionPlaceholder": "：AI Chat、AI Image、AI Coding"
@@ -22702,7 +22702,7 @@
     "askManageSub": "ReviewQ&AContent",
     "examManage": "Exam Management",
     "examManageSub": "Paper",
-    "carouselManage": "",
+    "carouselManage": "轮播管理",
     "carouselManageSub": "HomeCarousel",
     "rolePermission": "RolePermission",
     "rolePermissionSub": "RoleandPermission"
@@ -22738,7 +22738,7 @@
   "vipIntroducePopup": {
     "loading": "Loading",
     "noContinuousOptions": "NoneAvailable BuyOptions",
-    "trial": "",
+    "trial": "试用",
     "noMonthlyOptions": "NoneAvailable MBuyOptions",
     "pointsPerMonth": "Value / M"
   },
