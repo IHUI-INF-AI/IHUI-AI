@@ -140,6 +140,13 @@ function ChatContent() {
     router.replace('/chat', { scroll: false })
   }, [clearMessages, setConversationId, router])
 
+  // 全局快捷键 Ctrl+Shift+N：已在 /chat 时直接触发新建对话
+  React.useEffect(() => {
+    const onNewChat = () => handleNewChat()
+    window.addEventListener('global-shortcut:new-chat', onNewChat)
+    return () => window.removeEventListener('global-shortcut:new-chat', onNewChat)
+  }, [handleNewChat])
+
   return (
     // 抵消 main 容器的 padding，使聊天占满 header 以下的全高
     <div className="-m-4 flex h-[calc(100dvh-3.5rem)] flex-col md:-m-6 lg:-m-8">

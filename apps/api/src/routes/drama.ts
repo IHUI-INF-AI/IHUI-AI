@@ -49,17 +49,52 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/drama/scripts/:id/scenes/:sceneIndex/lines/:lineIndex/enhance',
     async (request, reply) => {
-      const { sceneIndex, lineIndex } = z
-        .object({ sceneIndex: z.string(), lineIndex: z.string() })
+      const { id, sceneIndex, lineIndex } = z
+        .object({ id: z.string(), sceneIndex: z.string(), lineIndex: z.string() })
         .parse(request.params)
       const parsed = enhanceLineBodySchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { content, instruction } = parsed.data
-      const rewritten = instruction
-        ? `[场景${sceneIndex}/行${lineIndex}] ${instruction}: ${content}`
-        : `[场景${sceneIndex}/行${lineIndex}] 优化: ${content}`
+
+      let rewritten: string
+      const aiServiceUrl = process.env.AI_SERVICE_URL
+      if (aiServiceUrl) {
+        try {
+          const prompt = instruction
+            ? `改写以下剧本对白,要求:${instruction}。只返回改写后的对白文本,不要解释。\n\n原文:${content}`
+            : `优化以下剧本对白,使其更自然生动。只返回改写后的对白文本,不要解释。\n\n原文:${content}`
+          const llmResp = await fetch(`${aiServiceUrl}/api/llm/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [{ role: 'user', content: prompt }],
+              metadata: { source: 'drama-enhance-line', scriptId: id, sceneIndex, lineIndex },
+            }),
+          })
+          if (llmResp.ok) {
+            const llmData = (await llmResp.json().catch(() => ({}))) as {
+              content?: string
+              result?: string
+            }
+            const llmText = (llmData.content ?? llmData.result ?? '').trim()
+            rewritten = llmText || content
+          } else {
+            request.log.warn(
+              { status: llmResp.status },
+              'drama enhanceLine LLM 调用失败,降级为原文',
+            )
+            rewritten = content
+          }
+        } catch (e) {
+          request.log.warn({ err: e }, 'drama enhanceLine LLM 异常,降级为原文')
+          rewritten = content
+        }
+      } else {
+        rewritten = content
+      }
+
       return reply.send(
         success({
           original: content,
