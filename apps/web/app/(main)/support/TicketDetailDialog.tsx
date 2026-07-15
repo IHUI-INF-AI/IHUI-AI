@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 import { api, STATUS_LABEL, STATUS_BADGE, PRIORITY_LABEL, textareaClass } from './helpers'
 import type { Ticket, Comment, Rating } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 export function TicketDetailDialog({
   ticket,
@@ -121,7 +122,7 @@ export function TicketDetailDialog({
                   >
                     <div className="mb-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                       <span className="font-medium">{c.isAdmin ? '客服' : '我'}</span>
-                      <span>{new Date(c.createdAt).toLocaleString()}</span>
+                      <span>{formatDate(c.createdAt)}</span>
                     </div>
                     <p className="whitespace-pre-wrap">{c.content}</p>
                   </div>

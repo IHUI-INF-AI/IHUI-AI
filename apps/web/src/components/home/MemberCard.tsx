@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarCheck, LogIn } from 'lucide-react'
+import { CalendarCheck, LogIn, UserCircle2 } from 'lucide-react'
 import { Button } from '@ihui/ui'
 import { Avatar } from '@/components/data/Avatar'
 import { fetchApi } from '@/lib/api'
@@ -114,8 +114,8 @@ export function MemberCard() {
         ) : (
           <>
             <div className="flex flex-col items-center text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-muted to-muted/50 text-3xl text-muted-foreground/40">
-                👋
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-muted to-muted/50 text-muted-foreground/40">
+                <UserCircle2 className="h-8 w-8" />
               </div>
               <p className="mt-3 text-base font-medium">{t('welcome')}</p>
               <p className="mt-1 text-xs text-muted-foreground">{t('loginHint')}</p>
