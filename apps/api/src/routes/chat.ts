@@ -1,6 +1,8 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { sql } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
+import { db } from '../db/index.js'
 import {
   createConversation,
   findConversationsByUser,
@@ -17,6 +19,56 @@ import {
   findFavoriteConversations,
 } from '../db/chat-queries.js'
 import { success, error } from '../utils/response.js'
+
+// =============================================================================
+// Coze conversation_id 自动管理（迁移自 coze_zhs_py/api/chat.py）
+// =============================================================================
+
+const cozeStreamSchema = z.object({
+  botId: z.string().min(1),
+  userId: z.string().min(1),
+  query: z.string().min(1),
+  conversationId: z.string().optional().default(''),
+})
+
+async function getCozeConversationId(uuid: string, botId: string): Promise<string> {
+  const rows = await db.execute(
+    sql`SELECT conversation_id FROM coze_chat_history WHERE uuid = ${uuid} AND bot_id = ${botId} ORDER BY created_at DESC LIMIT 1`,
+  )
+  const row = rows[0] as { conversation_id?: string } | undefined
+  return row?.conversation_id ?? ''
+}
+
+async function saveCozeConversationId(
+  uuid: string,
+  botId: string,
+  conversationId: string,
+): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO coze_chat_history (uuid, bot_id, conversation_id, created_at)
+    VALUES (${uuid}, ${botId}, ${conversationId}, now())
+    ON CONFLICT DO NOTHING
+  `)
+}
+
+function extractConversationId(data: unknown): string | null {
+  if (data === null || data === undefined) return null
+  if (typeof data === 'object') {
+    const obj = data as Record<string, unknown>
+    if (typeof obj.conversation_id === 'string' && obj.conversation_id) return obj.conversation_id
+    for (const value of Object.values(obj)) {
+      const found = extractConversationId(value)
+      if (found) return found
+    }
+  }
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      const found = extractConversationId(item)
+      if (found) return found
+    }
+  }
+  return null
+}
 
 // =============================================================================
 // Zod schemas
@@ -556,5 +608,87 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
     await clearMessages(id)
     return reply.send(success({ cleared: true }))
+  })
+
+  // POST /coze/stream — Coze 流式聊天 + conversation_id 自动管理
+  // 迁移自 coze_zhs_py/api/chat.py stream_generator
+  server.post('/coze/stream', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = cozeStreamSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { botId, userId: targetUserId, query, conversationId } = parsed.data
+
+    const cozeKey = process.env.COZE_API_KEY
+    if (!cozeKey) return reply.status(503).send(error(503, 'Coze 服务未配置'))
+
+    const existingConvId = conversationId || (await getCozeConversationId(targetUserId, botId))
+
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    })
+
+    let newConversationId: string | null = null
+    try {
+      const resp = await fetch('https://api.coze.cn/v1/chat', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cozeKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bot_id: botId,
+          user_id: targetUserId,
+          query,
+          conversation_id: existingConvId,
+          stream: true,
+        }),
+      })
+      if (!resp.ok || !resp.body) {
+        reply.raw.write(`data: ${JSON.stringify({ error: `Coze API ${resp.status}` })}\n\n`)
+        reply.raw.end()
+        return
+      }
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue
+          const jsonStr = line.slice(5).trim()
+          if (!jsonStr) continue
+          try {
+            const evt = JSON.parse(jsonStr) as unknown
+            const extracted = extractConversationId(evt)
+            if (extracted && extracted !== newConversationId) {
+              newConversationId = extracted
+              if (extracted !== existingConvId) {
+                await saveCozeConversationId(targetUserId, botId, extracted).catch(() => {})
+              }
+            }
+            reply.raw.write(`data: ${jsonStr}\n\n`)
+          } catch {
+            reply.raw.write(`data: ${jsonStr}\n\n`)
+          }
+        }
+      }
+      if (newConversationId) {
+        await saveCozeConversationId(targetUserId, botId, newConversationId).catch(() => {})
+      }
+    } catch (e) {
+      reply.raw.write(`data: ${JSON.stringify({ error: (e as Error).message })}\n\n`)
+    } finally {
+      reply.raw.end()
+    }
   })
 }
