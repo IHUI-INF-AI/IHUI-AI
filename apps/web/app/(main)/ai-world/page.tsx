@@ -4,16 +4,20 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 import { HotAppsCard } from './HotAppsCard'
 import { CategoryGrid } from './CategoryGrid'
 import { UnifiedPanelCard } from './UnifiedPanelCard'
-import { fetchAiWorld } from './helpers'
+import { fetchAiWorld, streamAiChat } from './helpers'
+import { useAuthStore } from '@/stores/auth'
 import type { AiWorldData, ChatMessage } from './types'
 
 export default function AiWorldPage() {
   const t = useTranslations('common.aiWorld')
   const router = useRouter()
+  const isAuthenticated = useAuthStore((s) => !!s.token)
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai-world'],
     queryFn: fetchAiWorld,
@@ -22,37 +26,63 @@ export default function AiWorldPage() {
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = React.useState(false)
   const [streamingContent, setStreamingContent] = React.useState('')
-  const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  const abortRef = React.useRef<AbortController | null>(null)
+  // 用 ref 保存最新 streamingContent,供 onDone 闭包读取(避免闭包过期)
+  const streamingContentRef = React.useRef('')
+  React.useEffect(() => {
+    streamingContentRef.current = streamingContent
+  }, [streamingContent])
 
   const handleSend = (text: string) => {
-    if (!text) {
-      setIsStreaming(false)
+    const trimmed = text.trim()
+    if (!trimmed || isStreaming) return
+
+    if (!isAuthenticated) {
+      toast.error(t('loginRequiredTitle'), { description: t('loginRequiredDesc') })
       return
     }
-    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: text }
-    setMessages((prev) => [...prev, userMsg])
+
+    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: trimmed }
+    const assistantId = `a-${Date.now()}`
+    setMessages((prev) => [...prev, userMsg, { id: assistantId, role: 'assistant', content: '' }])
     setIsStreaming(true)
     setStreamingContent('')
-    const response = t('sampleResponse', { text })
-    let i = 0
-    timerRef.current = setInterval(() => {
-      i += 3
-      setStreamingContent(response.slice(0, i))
-      if (i >= response.length) {
-        if (timerRef.current) clearInterval(timerRef.current)
-        setMessages((prev) => [
-          ...prev,
-          { id: `a-${Date.now()}`, role: 'assistant', content: response },
-        ])
+
+    const history = messages
+      .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content)
+      .map((m) => ({ role: m.role, content: m.content }))
+
+    abortRef.current = streamAiChat([...history, { role: 'user', content: trimmed }], {
+      onDelta: (delta) => {
+        setStreamingContent((prev) => prev + delta)
+      },
+      onError: (message) => {
         setIsStreaming(false)
         setStreamingContent('')
-      }
-    }, 40)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: m.content || `${t('aiErrorPrefix')}: ${message}` }
+              : m,
+          ),
+        )
+        toast.error(t('aiErrorTitle'), { description: message })
+      },
+      onDone: () => {
+        // 将流式累积内容固化到 assistant 消息(用 ref 避免闭包过期)
+        const acc = streamingContentRef.current
+        setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m)))
+        setIsStreaming(false)
+        setStreamingContent('')
+        abortRef.current = null
+      },
+    })
   }
 
+  // 组件卸载时中止进行中的流式请求
   React.useEffect(
     () => () => {
-      if (timerRef.current) clearInterval(timerRef.current)
+      abortRef.current?.abort()
     },
     [],
   )
