@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, timestamp, text, date, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, integer, timestamp, text, date, unique } from 'drizzle-orm/pg-core'
 
 export const users = pgTable(
   'users',
@@ -17,6 +17,7 @@ export const users = pgTable(
     roleId: integer('role_id').default(0),
     status: integer('status').default(1).notNull(), // 0=禁用 1=正常 3=注销
     isVip: integer('is_vip').default(0).notNull(), // -1=游客 0=普通 1=VIP 2=操盘手
+    level: integer('level').default(0).notNull(), // 0=普通 1=白银 2=黄金 3=钻石
     inviteCode: varchar('invite_code', { length: 32 }),
     parentId: uuid('parent_id'), // 推荐人(分销关系链),不自引用 FK 以避免循环
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
@@ -25,7 +26,7 @@ export const users = pgTable(
   (t) => ({
     inviteCodeIdx: unique('users_invite_code_unique').on(t.inviteCode),
   }),
-);
+)
 
 export const refreshTokens = pgTable('refresh_tokens', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -35,9 +36,9 @@ export const refreshTokens = pgTable('refresh_tokens', {
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-});
+})
 
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
-export type RefreshToken = typeof refreshTokens.$inferSelect;
-export type NewRefreshToken = typeof refreshTokens.$inferInsert;
+export type User = typeof users.$inferSelect
+export type NewUser = typeof users.$inferInsert
+export type RefreshToken = typeof refreshTokens.$inferSelect
+export type NewRefreshToken = typeof refreshTokens.$inferInsert

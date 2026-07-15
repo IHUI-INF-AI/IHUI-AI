@@ -676,6 +676,7 @@ export async function findUsersByDepartment(
         roleId: users.roleId,
         status: users.status,
         isVip: users.isVip,
+        level: users.level,
         inviteCode: users.inviteCode,
         parentId: users.parentId,
         createdAt: users.createdAt,
