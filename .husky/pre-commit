@@ -24,12 +24,22 @@ if (!run('🌐 检查 i18n 键完整性...', 'node scripts/check-i18n-keys.mjs -
   process.exit(1)
 }
 
-// 3. lint-staged：对暂存文件运行 eslint --fix 和 prettier --write
+// 3. schema drift 检查（TS schema 表名 vs migration SQL 表名）
+if (!run('🗄️ 检查 schema drift...', 'node scripts/check-db-schema-drift.mjs')) {
+  process.exit(1)
+}
+
+// 4. lint-staged：对暂存文件运行 eslint --fix 和 prettier --write
 if (!run('🎨 运行 lint-staged...', 'npx lint-staged')) {
   process.exit(1)
 }
 
-// 4. 依赖版本碎片化检查（仅当 pnpm-lock.yaml 变更时）
+// 5. skipResponseSanitization 一致性检查（防止 token 被脱敏为 *** 导致功能损坏）
+if (!run('🛡️ 检查 skipResponseSanitization...', 'node scripts/check-sanitizer-bypass.mjs --staged')) {
+  process.exit(1)
+}
+
+// 6. 依赖版本碎片化检查（仅当 pnpm-lock.yaml 变更时）
 if (!run('📦 检查依赖碎片化...', 'node scripts/check-dedupe.mjs --staged')) {
   process.exit(1)
 }
