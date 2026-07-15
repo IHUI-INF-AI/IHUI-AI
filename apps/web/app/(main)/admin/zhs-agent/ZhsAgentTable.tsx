@@ -49,7 +49,11 @@ export function ZhsAgentTable({ list, isLoading, onEdit, onDelete }: Props) {
                 <TableCell className="px-4 py-2.5 font-medium">{item.name || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   {item.image ? (
-                    <img src={item.image} alt="" className="h-10 w-10 rounded object-cover" />
+                    <img
+                      src={item.image}
+                      alt={item.name || 'Agent'}
+                      className="h-10 w-10 rounded object-cover"
+                    />
                   ) : (
                     <span className="text-muted-foreground">-</span>
                   )}

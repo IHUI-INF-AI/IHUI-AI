@@ -125,7 +125,7 @@ export default function FeaturedAgentsPage() {
                         <Sparkles className="h-4 w-4 text-muted-foreground" />
                       </div>
                     )}
-                    <h3 className="truncate pt-1 text-sm font-medium">{agent.name}</h3>
+                    <h3 className="line-clamp-2 pt-1 text-sm font-medium">{agent.name}</h3>
                   </div>
                   <p className="line-clamp-2 text-xs text-muted-foreground">
                     {agent.description ?? '暂无描述'}

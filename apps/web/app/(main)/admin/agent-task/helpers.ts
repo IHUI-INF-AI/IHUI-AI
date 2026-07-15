@@ -1,16 +1,17 @@
 import { fetchApi } from '@/lib/api'
+import { TONE } from '@/lib/status-colors'
 import type { AgentTask, AgentTaskForm } from './types'
 
 export const PAGE_SIZE = 10
 
 export const STATUS_STYLE: Record<number, string> = {
-  0: 'bg-amber-500/10 text-amber-600',
-  1: 'bg-red-500/10 text-red-600',
-  2: 'bg-emerald-500/10 text-emerald-600',
-  3: 'bg-blue-500/10 text-blue-600',
-  4: 'bg-purple-500/10 text-purple-600',
-  5: 'bg-cyan-500/10 text-cyan-600',
-  6: 'bg-muted text-muted-foreground',
+  0: TONE.amber,
+  1: TONE.red,
+  2: TONE.emerald,
+  3: TONE.amber,
+  4: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+  5: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+  6: TONE.muted,
 }
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
