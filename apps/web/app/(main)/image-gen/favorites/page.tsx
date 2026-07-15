@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Heart } from 'lucide-react'
+import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui'
@@ -81,9 +82,8 @@ export default function ImageGenFavoritesPage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {items.map((item) => (
             <Card key={item.id} className="overflow-hidden transition-colors hover:bg-accent/40">
-              <div className="aspect-square w-full bg-muted">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={item.imageUrl} alt={item.prompt} className="h-full w-full object-cover" />
+              <div className="relative aspect-square w-full bg-muted">
+                <Image src={item.imageUrl} alt={item.prompt} fill className="object-cover" />
               </div>
               <CardContent className="space-y-1 p-3">
                 <p className="line-clamp-2 text-xs font-medium">{item.prompt}</p>

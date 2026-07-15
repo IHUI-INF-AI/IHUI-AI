@@ -88,7 +88,7 @@ export function applyTheme(config: ThemeConfig): void {
   const root = ROOT()
   if (!root) return
   root.dataset.theme = config.mode
-  root.style.setProperty('--primary-color', config.primaryColor)
+  root.style.setProperty('--color-primary', config.primaryColor)
   root.style.setProperty('--accent-color', config.accentColor)
   root.style.setProperty('--font-size', `${config.fontSize}px`)
   root.style.setProperty('--border-radius', `${config.borderRadius}px`)
@@ -427,7 +427,7 @@ export function dumpCurrentTheme(): Record<string, string> {
   if (!root) return {}
   const styles = window.getComputedStyle(root)
   const keys = [
-    '--primary-color',
+    '--color-primary',
     '--accent-color',
     '--font-size',
     '--border-radius',

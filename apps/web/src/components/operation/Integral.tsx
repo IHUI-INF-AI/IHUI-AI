@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { ShoppingBag, Trophy, ChevronRight } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
@@ -27,19 +28,6 @@ interface IntegralProps {
   defaultData?: IntegralSummary
 }
 
-const MOCK_DATA: IntegralSummary = {
-  total: 8650,
-  weeklyGain: 320,
-  rank: 128,
-  records: [
-    { id: 'r1', title: '每日签到', delta: 10, createdAt: '2026-07-14T08:30:00Z' },
-    { id: 'r2', title: '完成课程《AI 入门》', delta: 50, createdAt: '2026-07-13T15:20:00Z' },
-    { id: 'r3', title: '发表评论', delta: 5, createdAt: '2026-07-13T11:05:00Z' },
-    { id: 'r4', title: '兑换礼品 - 笔记本', delta: -200, createdAt: '2026-07-12T16:45:00Z' },
-    { id: 'r5', title: '邀请好友注册', delta: 100, createdAt: '2026-07-11T09:10:00Z' },
-  ],
-}
-
 const dateFmt = new Intl.DateTimeFormat('zh-CN', {
   month: '2-digit',
   day: '2-digit',
@@ -57,11 +45,14 @@ async function fetchIntegral(): Promise<IntegralSummary> {
       records: Array.isArray(res.data.records) ? res.data.records : [],
     }
   }
-  return MOCK_DATA
+  return { total: 0, weeklyGain: 0, rank: 0, records: [] }
 }
 
 export function Integral({ className, defaultData }: IntegralProps) {
-  const [data, setData] = React.useState<IntegralSummary>(defaultData ?? MOCK_DATA)
+  const t = useTranslations('operation.integral')
+  const [data, setData] = React.useState<IntegralSummary>(
+    defaultData ?? { total: 0, weeklyGain: 0, rank: 0, records: [] },
+  )
   const [loading, setLoading] = React.useState(!defaultData)
 
   React.useEffect(() => {
@@ -82,11 +73,11 @@ export function Integral({ className, defaultData }: IntegralProps) {
   return (
     <Card className={cn('w-full', className)}>
       <CardHeader className="flex-row items-center justify-between space-y-0 p-4 pb-2">
-        <CardTitle className="text-sm">积分中心</CardTitle>
+        <CardTitle className="text-sm">{t('title')}</CardTitle>
         <Button asChild size="sm" variant="outline">
           <Link href="/integral/mall">
             <ShoppingBag className="h-3.5 w-3.5" />
-            积分商城
+            {t('mall')}
           </Link>
         </Button>
       </CardHeader>
@@ -96,31 +87,31 @@ export function Integral({ className, defaultData }: IntegralProps) {
             <div className="text-xl font-bold tracking-tight">
               {loading ? '—' : data.total.toLocaleString('zh-CN')}
             </div>
-            <div className="mt-0.5 text-xs text-muted-foreground">当前积分</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{t('currentPoints')}</div>
           </div>
           <div className="border-x border-border/60 text-center">
             <div className="flex items-center justify-center gap-0.5 text-xl font-bold tracking-tight text-emerald-600 dark:text-emerald-500">
               {loading ? '—' : `+${data.weeklyGain}`}
             </div>
-            <div className="mt-0.5 text-xs text-muted-foreground">本周新增</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{t('weeklyGain')}</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center gap-0.5 text-xl font-bold tracking-tight">
               <Trophy className="h-3.5 w-3.5 text-amber-500" />
               {loading ? '—' : `#${data.rank}`}
             </div>
-            <div className="mt-0.5 text-xs text-muted-foreground">我的排名</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{t('myRank')}</div>
           </div>
         </div>
 
         <div className="mt-3">
           <div className="mb-2 flex items-center justify-between">
-            <h4 className="text-xs font-medium text-muted-foreground">最近明细</h4>
+            <h4 className="text-xs font-medium text-muted-foreground">{t('recentRecords')}</h4>
             <Link
               href="/integral/records"
               className="flex items-center text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
-              全部
+              {t('all')}
               <ChevronRight className="h-3 w-3" />
             </Link>
           </div>

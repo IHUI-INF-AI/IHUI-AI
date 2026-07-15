@@ -1,7 +1,9 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getAbout } from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 interface AboutInfo {
@@ -12,16 +14,17 @@ interface AboutInfo {
 }
 
 export default function AboutIndexPage() {
+  const { t } = useI18n()
   const [info, setInfo] = useState<AboutInfo>({ name: '', version: '', intro: '' })
 
   const load = useCallback(async () => {
     try {
       setInfo(await getAbout())
     } catch (e) {
-      console.error('[about/index] 获取关于信息 failed:', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      logger.error('about/index', '获取关于信息', e)
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
-  }, [])
+  }, [t])
 
   const navigate = useCallback((url: string) => {
     Taro.navigateTo({ url })
@@ -35,7 +38,7 @@ export default function AboutIndexPage() {
         <View className="logo-box">
           <Image className="logo" src={info.logo || '/static/logo.png'} mode="aspectFit" />
           <Text className="name">{info.name}</Text>
-          <Text className="version">V{info.version}</Text>
+          <Text className="version">{t('about.version', { version: info.version })}</Text>
         </View>
       ) : null}
 
@@ -45,19 +48,19 @@ export default function AboutIndexPage() {
 
       <View className="menu">
         <View className="menu-item" onClick={() => navigate('/pages/about/help')}>
-          <Text>帮助中心</Text>
+          <Text>{t('about.help')}</Text>
           <Text className="arrow">›</Text>
         </View>
         <View className="menu-item" onClick={() => navigate('/pages/about/protocol')}>
-          <Text>用户协议</Text>
+          <Text>{t('about.protocol')}</Text>
           <Text className="arrow">›</Text>
         </View>
         <View className="menu-item" onClick={() => navigate('/pages/about/privacy')}>
-          <Text>隐私政策</Text>
+          <Text>{t('about.privacy')}</Text>
           <Text className="arrow">›</Text>
         </View>
         <View className="menu-item" onClick={() => navigate('/pages/about/contact')}>
-          <Text>联系我们</Text>
+          <Text>{t('about.contact')}</Text>
           <Text className="arrow">›</Text>
         </View>
       </View>

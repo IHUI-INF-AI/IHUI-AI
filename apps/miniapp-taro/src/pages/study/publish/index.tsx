@@ -1,4 +1,5 @@
 ﻿import { View, Text, Input, Textarea, Button, Picker } from '@tarojs/components'
+import { logger } from '@/utils/logger'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { post } from '@/api'
@@ -36,7 +37,7 @@ export default function StudyPublish() {
       Taro.showToast({ title: '发布成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
-      console.error('[study/publish] submit failed:', e)
+      logger.error('study/publish', 'submit', e)
     } finally {
       setSaving(false)
     }

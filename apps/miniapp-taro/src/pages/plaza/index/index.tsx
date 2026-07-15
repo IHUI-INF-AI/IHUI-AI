@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -19,7 +20,7 @@ export default function PlazaIndex() {
           : ((res as Record<string, unknown>)?.list as Record<string, unknown>[]) || [],
       )
     } catch (e) {
-      console.error('加载广场数据失败:', e)
+      logger.error('unknown', '加载广场数据', e)
     } finally {
       setLoading(false)
     }

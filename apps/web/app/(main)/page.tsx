@@ -1,27 +1,21 @@
-import { HeroSection } from '@/components/home/HeroSection'
-import { StatsSection } from '@/components/home/StatsSection'
-import { FeaturesSection } from '@/components/home/FeaturesSection'
-import { ShowcaseSection } from '@/components/home/ShowcaseSection'
-import { PricingSection } from '@/components/home/PricingSection'
-import { TestimonialsSection } from '@/components/home/TestimonialsSection'
-import { FAQSection } from '@/components/home/FAQSection'
-import { PartnersSection } from '@/components/home/PartnersSection'
-import { NewsletterSection } from '@/components/home/NewsletterSection'
-import { CTASection } from '@/components/home/CTASection'
+import { AnnouncementBar } from '@/components/home/AnnouncementBar'
+import { CategoryNav } from '@/components/home/CategoryNav'
+import { HomeBanner } from '@/components/home/HomeBanner'
+import { MemberCard } from '@/components/home/MemberCard'
+import { HomeModules } from '@/components/home/HomeModules'
 
 export default function HomePage() {
   return (
-    <div className="w-full">
-      <HeroSection />
-      <StatsSection />
-      <FeaturesSection />
-      <ShowcaseSection />
-      <PricingSection />
-      <TestimonialsSection />
-      <FAQSection />
-      <PartnersSection />
-      <NewsletterSection />
-      <CTASection />
+    <div className="mx-auto w-full max-w-[1240px] space-y-5">
+      <AnnouncementBar />
+      <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+        <div className="flex flex-col md:flex-row">
+          <CategoryNav />
+          <HomeBanner />
+          <MemberCard />
+        </div>
+      </section>
+      <HomeModules />
     </div>
   )
 }

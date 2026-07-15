@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -19,7 +20,7 @@ export default function ThemePage() {
       await setTheme(v)
       Taro.showToast({ title: '设置成功', icon: 'success' })
     } catch (e) {
-      console.error('[setting/theme] 设置主题 failed:', e)
+      logger.error('setting/theme', '设置主题', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])

@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
@@ -14,7 +15,7 @@ export default function Phone() {
     try {
       setPhone((await getProfile()).phone || '')
     } catch (e) {
-      console.error('[user/phone] 获取用户信息 failed:', e)
+      logger.error('user/phone', '获取用户信息', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   })
@@ -39,7 +40,7 @@ export default function Phone() {
         }, 1000)
       })
       .catch((e) => {
-        console.error('验证码发送 failed:', e)
+        logger.error('unknown', '验证码发送', e)
         Taro.showToast({ title: '验证码发送失败', icon: 'none' })
       })
   }
@@ -50,7 +51,7 @@ export default function Phone() {
       Taro.showToast({ title: '绑定成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
-      console.error('[user/phone] 绑定手机号 failed:', e)
+      logger.error('user/phone', '绑定手机号', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }

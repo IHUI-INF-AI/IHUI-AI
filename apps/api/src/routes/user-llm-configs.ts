@@ -88,6 +88,7 @@ async function testConnectivity(row: {
   providerCode: string
   apiFormat: string
   name: string
+  ownerUuid: string | null
 }): Promise<TestResult> {
   const apiKey = await getApiKey(row)
   if (!apiKey) {
@@ -105,8 +106,11 @@ async function testConnectivity(row: {
             content: 'Hello, this is a connectivity test. Reply with "OK".',
           },
         ],
-        model: row.modelIdForTest || `${row.providerCode}/test`,
-        metadata: { configId: row.id, testOnly: true },
+        model:
+          row.modelIdForTest && row.providerCode
+            ? `${row.providerCode}/${row.modelIdForTest}`
+            : row.modelIdForTest || `${row.providerCode}/test`,
+        metadata: { configId: row.id, testOnly: true, userId: row.ownerUuid },
       }),
     })
     const elapsed = Date.now() - start

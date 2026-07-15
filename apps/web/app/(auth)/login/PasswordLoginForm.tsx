@@ -60,18 +60,18 @@ export function PasswordLoginForm({ active, onSuccess }: PasswordLoginFormProps)
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ account: values.phone, password: values.password }),
       })
       const json = (await res.json()) as {
         code: number
         message: string
-        data?: { token?: string; user?: { id: string; nickname: string; avatar?: string } }
+        data?: { accessToken?: string; user?: { id: string; nickname: string; avatar?: string } }
       }
-      if (!res.ok || json.code !== 0 || !json.data?.token) {
+      if (!res.ok || json.code !== 0 || !json.data?.accessToken) {
         setServerError(json.message || t('loginFailed'))
         return
       }
-      setToken(json.data.token)
+      setToken(json.data.accessToken)
       if (json.data.user) setUser(json.data.user)
       if (onSuccess) onSuccess()
       else router.push('/')

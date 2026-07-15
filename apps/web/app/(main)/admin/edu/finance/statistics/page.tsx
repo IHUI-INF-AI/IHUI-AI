@@ -106,7 +106,7 @@ export default function EduFinanceStatisticsPage() {
             </Card>
             <Card>
               <CardContent className="flex items-center gap-3 p-5">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white">
                   <ShoppingCart className="h-6 w-6" />
                 </div>
                 <div>

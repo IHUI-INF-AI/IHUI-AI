@@ -28,6 +28,7 @@ import {
   type MessageDetailItem,
   type NotificationSettingItem,
 } from '@/components'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 interface Room {
@@ -40,13 +41,6 @@ interface Room {
 }
 
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
-
-const DEFAULT_TABS: MessageTabItem[] = [
-  { key: 'all', label: '全部' },
-  { key: 'system', label: '系统通知', unread: 0 },
-  { key: 'interaction', label: '互动', unread: 0 },
-  { key: 'private', label: '私信', unread: 0 },
-]
 
 const DEFAULT_SYSTEM: SystemNoticeItem[] = []
 const DEFAULT_INTERACTION: InteractionItem[] = [
@@ -78,14 +72,9 @@ const DEFAULT_INTERACTION: InteractionItem[] = [
   },
 ]
 const DEFAULT_PRIVATE: PrivateMessageItem[] = []
-const DEFAULT_SETTINGS: NotificationSettingItem[] = [
-  { key: 'system', label: '系统通知', desc: '重要系统消息', enabled: true },
-  { key: 'interaction', label: '互动消息', desc: '点赞、评论、关注', enabled: true },
-  { key: 'private', label: '私信', desc: '一对一私信提醒', enabled: true },
-  { key: 'marketing', label: '活动营销', desc: '优惠活动推送', enabled: false },
-]
 
 export default function MessageIndex() {
+  const { t } = useI18n()
   const [list, setList] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
@@ -97,8 +86,38 @@ export default function MessageIndex() {
   const [detailMessages, setDetailMessages] = useState<MessageDetailItem[]>([])
   const [systemList, setSystemList] = useState<SystemNoticeItem[]>(DEFAULT_SYSTEM)
   const [privateList, setPrivateList] = useState<PrivateMessageItem[]>(DEFAULT_PRIVATE)
-  const [settings, setSettings] = useState<NotificationSettingItem[]>(DEFAULT_SETTINGS)
-  const [tabs, setTabs] = useState<MessageTabItem[]>(DEFAULT_TABS)
+  const [tabs, setTabs] = useState<MessageTabItem[]>(() => [
+    { key: 'all', label: t('message.tabs.all') },
+    { key: 'system', label: t('message.tabs.system'), unread: 0 },
+    { key: 'interaction', label: t('message.tabs.interaction'), unread: 0 },
+    { key: 'private', label: t('message.tabs.private'), unread: 0 },
+  ])
+  const [settings, setSettings] = useState<NotificationSettingItem[]>(() => [
+    {
+      key: 'system',
+      label: t('message.notifLabels.system'),
+      desc: t('message.notifDescs.system'),
+      enabled: true,
+    },
+    {
+      key: 'interaction',
+      label: t('message.notifLabels.interaction'),
+      desc: t('message.notifDescs.interaction'),
+      enabled: true,
+    },
+    {
+      key: 'private',
+      label: t('message.notifLabels.private'),
+      desc: t('message.notifDescs.private'),
+      enabled: true,
+    },
+    {
+      key: 'marketing',
+      label: t('message.notifLabels.marketing'),
+      desc: t('message.notifDescs.marketing'),
+      enabled: false,
+    },
+  ])
 
   const loadAggregate = useCallback(async () => {
     try {
@@ -131,17 +150,17 @@ export default function MessageIndex() {
       }
       setList(rooms)
       setTabs([
-        { key: 'all', label: '全部' },
-        { key: 'system', label: '系统通知', unread: res.unreadCount?.system || 0 },
-        { key: 'interaction', label: '互动', unread: 0 },
-        { key: 'private', label: '私信', unread: res.unreadCount?.private || 0 },
+        { key: 'all', label: t('message.tabs.all') },
+        { key: 'system', label: t('message.tabs.system'), unread: res.unreadCount?.system || 0 },
+        { key: 'interaction', label: t('message.tabs.interaction'), unread: 0 },
+        { key: 'private', label: t('message.tabs.private'), unread: res.unreadCount?.private || 0 },
       ])
     } catch {
       // ignore
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const loadSystemNotices = useCallback(async () => {
     try {
@@ -185,26 +204,26 @@ export default function MessageIndex() {
       const items: NotificationSettingItem[] = [
         {
           key: 'system',
-          label: '系统通知',
-          desc: '重要系统消息',
+          label: t('message.notifLabels.system'),
+          desc: t('message.notifDescs.system'),
           enabled: res.inAppEnabled,
         },
         {
           key: 'interaction',
-          label: '互动消息',
-          desc: '点赞、评论、关注',
+          label: t('message.notifLabels.interaction'),
+          desc: t('message.notifDescs.interaction'),
           enabled: res.pushEnabled,
         },
         {
           key: 'private',
-          label: '私信',
-          desc: '一对一私信提醒',
+          label: t('message.notifLabels.private'),
+          desc: t('message.notifDescs.private'),
           enabled: res.inAppEnabled,
         },
         {
           key: 'marketing',
-          label: '活动营销',
-          desc: '优惠活动推送',
+          label: t('message.notifLabels.marketing'),
+          desc: t('message.notifDescs.marketing'),
           enabled: res.smsEnabled,
         },
       ]
@@ -212,7 +231,7 @@ export default function MessageIndex() {
     } catch {
       // ignore - keep defaults
     }
-  }, [])
+  }, [t])
 
   const load = useCallback(async () => {
     await Promise.all([
@@ -248,7 +267,7 @@ export default function MessageIndex() {
     setDetailMessages([
       {
         id: 'm1',
-        content: `您好,我是 ${item.userName}`,
+        content: t('message.hello', { name: item.userName }),
         createdAt: item.lastTime,
         self: false,
       },
@@ -260,7 +279,7 @@ export default function MessageIndex() {
     if (!text || !selectedPrivate) return
     setDetailMessages((prev) => [
       ...prev,
-      { id: `m${prev.length + 1}`, content: text, createdAt: '刚刚', self: true },
+      { id: `m${prev.length + 1}`, content: text, createdAt: t('message.justNow'), self: true },
     ])
     setDetailInput('')
   }
@@ -304,35 +323,37 @@ export default function MessageIndex() {
       <View className="message-list">
         <SearchBar
           value={keyword}
-          placeholder="搜索会话"
+          placeholder={t('message.search')}
           onInput={setKeyword}
           onClear={() => setKeyword('')}
         />
         {loading ? (
-          <Text className="loading-text">加载中...</Text>
+          <Text className="loading-text">{t('common.loading')}</Text>
         ) : filtered.length ? (
           filtered.map((room) => (
             <View key={(room.id || room.name) as string} className="message-item">
               <View className="flex-1 min-w-0">
                 <View className="flex items-center">
-                  <Text className="message-title">{room.name || '未命名会话'}</Text>
+                  <Text className="message-title">{room.name || t('message.unnamedRoom')}</Text>
                   {(room.unreadCount ?? room.unread ?? 0) > 0 && (
                     <View className="ml-2">
                       <UnreadBadge count={room.unreadCount ?? room.unread ?? 0} />
                     </View>
                   )}
                 </View>
-                <Text className="message-preview">{room.lastMessage || '暂无消息'}</Text>
+                <Text className="message-preview">{room.lastMessage || t('message.empty')}</Text>
               </View>
               <MessageActions
-                onMarkRead={() => Taro.showToast({ title: '已标记已读', icon: 'success' })}
-                onPin={() => Taro.showToast({ title: '已置顶', icon: 'success' })}
-                onDelete={() => Taro.showToast({ title: '已删除', icon: 'success' })}
+                onMarkRead={() =>
+                  Taro.showToast({ title: t('message.markedRead'), icon: 'success' })
+                }
+                onPin={() => Taro.showToast({ title: t('message.pinned'), icon: 'success' })}
+                onDelete={() => Taro.showToast({ title: t('message.deleted'), icon: 'success' })}
               />
             </View>
           ))
         ) : (
-          <Text className="empty-text">{keyword ? '未找到匹配会话' : '暂无消息'}</Text>
+          <Text className="empty-text">{keyword ? t('message.notFound') : t('message.empty')}</Text>
         )}
       </View>
     )
@@ -360,10 +381,10 @@ export default function MessageIndex() {
   return (
     <View className="message-page">
       <NavBar
-        title="消息中心"
+        title={t('message.center')}
         showBack={false}
         notification={notification}
-        rightText="设置"
+        rightText={t('message.settings')}
         onRightClick={() => setShowSettings(true)}
       />
       <View style={{ height: `${headerOffset}px` }} />
@@ -379,9 +400,11 @@ export default function MessageIndex() {
             onClick={(e) => e.stopPropagation()}
           >
             <View className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <Text className="text-sm font-medium text-gray-800">通知设置</Text>
+              <Text className="text-sm font-medium text-gray-800">
+                {t('message.notificationSettings')}
+              </Text>
               <Text className="text-sm text-gray-400" onClick={() => setShowSettings(false)}>
-                关闭
+                {t('message.close')}
               </Text>
             </View>
             <NotificationSettings items={settings} onToggle={onToggleSetting} />

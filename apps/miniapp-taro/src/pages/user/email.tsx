@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
@@ -14,7 +15,7 @@ export default function Email() {
     try {
       setEmail((await getProfile()).email || '')
     } catch (e) {
-      console.error('[user/email] 获取用户信息 failed:', e)
+      logger.error('user/email', '获取用户信息', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   })
@@ -44,7 +45,7 @@ export default function Email() {
       Taro.showToast({ title: '绑定成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
-      console.error('[user/email] 绑定邮箱 failed:', e)
+      logger.error('user/email', '绑定邮箱', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }

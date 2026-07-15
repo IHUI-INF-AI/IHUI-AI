@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -21,7 +22,7 @@ export default function AskCreatePage() {
       Taro.showToast({ title: '发布成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
     } catch (e) {
-      console.error('[ask/create] 发布问题 failed:', e)
+      logger.error('ask/create', '发布问题', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [form.title, form.content])

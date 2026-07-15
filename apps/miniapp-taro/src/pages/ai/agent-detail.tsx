@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -22,7 +23,7 @@ export default function AgentDetailPage() {
     try {
       setAgent(await getAgentDetail(id))
     } catch (e) {
-      console.error('[ai/agent-detail] 获取Agent详情 failed:', e)
+      logger.error('ai/agent-detail', '获取Agent详情', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [router.params.id])

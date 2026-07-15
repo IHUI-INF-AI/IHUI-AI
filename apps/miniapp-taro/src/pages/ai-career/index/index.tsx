@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -14,7 +15,7 @@ export default function AiCareer() {
       const res = (await api.getAgentList()) as Record<string, unknown>
       setList((res?.list as Record<string, unknown>[]) || [])
     } catch (e) {
-      console.error('加载生涯指导失败:', e)
+      logger.error('unknown', '加载生涯指导', e)
     } finally {
       setLoading(false)
     }

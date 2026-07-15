@@ -139,6 +139,23 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
+      const query = request.query as Record<string, string | undefined>
+      const topicType = query.topicType
+      const topicId = query.topicId
+      if (topicType && topicId) {
+        const page = Math.max(1, Math.floor(Number(query.page) || 1))
+        const pageSize = Math.min(100, Math.max(1, Math.floor(Number(query.pageSize) || 20)))
+        const parentId = query.parentId
+        const { list, total } = await findComments({
+          resourceType: topicType,
+          resourceId: topicId,
+          parentId: parentId ?? null,
+          page,
+          pageSize,
+          currentUserId: request.userId,
+        })
+        return reply.send(success({ list, total, page, pageSize }))
+      }
       const parsed = listCommentsQuery.safeParse(request.query)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -202,6 +219,40 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
+      const body = request.body as Record<string, unknown> | null
+      if (
+        body &&
+        typeof body.topicType === 'string' &&
+        typeof body.topicId === 'string' &&
+        typeof body.content === 'string' &&
+        body.content.length > 0
+      ) {
+        const resourceType = body.topicType
+        const resourceId = body.topicId
+        const content = body.content
+        const parentId = typeof body.parentId === 'string' ? body.parentId : null
+        const mentions = Array.isArray(body.mentions)
+          ? (body.mentions.filter((m) => typeof m === 'string') as string[])
+          : null
+        if (parentId) {
+          const parent = await findCommentById(parentId)
+          if (!parent) {
+            return reply.status(404).send(error(404, '父评论不存在'))
+          }
+          if (parent.resourceType !== resourceType || parent.resourceId !== resourceId) {
+            return reply.status(400).send(error(400, '父评论资源不匹配'))
+          }
+        }
+        const comment = await createComment({
+          userId: request.userId!,
+          resourceType,
+          resourceId,
+          parentId,
+          content,
+          mentions,
+        })
+        return reply.status(201).send(success({ comment }))
+      }
       const parsed = createCommentSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

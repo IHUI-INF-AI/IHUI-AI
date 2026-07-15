@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { Bell, Megaphone, MessageCircle, UserCheck, Inbox } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
@@ -19,40 +20,32 @@ export interface MessageAggregate {
 
 interface MessageCategory {
   key: 'system' | 'interaction' | 'private' | 'announcement'
-  label: string
   href: string
   icon: React.ComponentType<{ className?: string }>
   countKey: keyof MessageAggregate['unreadCount']
 }
 
 const CATEGORIES: MessageCategory[] = [
-  { key: 'system', label: '系统通知', href: '/message?tab=system', icon: Bell, countKey: 'system' },
+  { key: 'system', href: '/message?tab=system', icon: Bell, countKey: 'system' },
   {
     key: 'interaction',
-    label: '互动',
     href: '/message?tab=interaction',
     icon: UserCheck,
     countKey: 'system',
   },
   {
     key: 'private',
-    label: '私信',
     href: '/message?tab=private',
     icon: MessageCircle,
     countKey: 'private',
   },
   {
     key: 'announcement',
-    label: '公告',
     href: '/message?tab=announcement',
     icon: Megaphone,
     countKey: 'announcements',
   },
 ]
-
-const MOCK_DATA: MessageAggregate = {
-  unreadCount: { total: 0, announcements: 0, private: 0, system: 0 },
-}
 
 interface MessageSystemProps {
   className?: string
@@ -72,7 +65,7 @@ async function fetchAggregate(): Promise<MessageAggregate> {
       },
     }
   }
-  return MOCK_DATA
+  return { unreadCount: { total: 0, announcements: 0, private: 0, system: 0 } }
 }
 
 function UnreadBadge({ count }: { count: number }) {
@@ -86,7 +79,10 @@ function UnreadBadge({ count }: { count: number }) {
 }
 
 export function MessageSystem({ className, compact = false }: MessageSystemProps) {
-  const [data, setData] = React.useState<MessageAggregate>(MOCK_DATA)
+  const t = useTranslations('operation.messageSystem')
+  const [data, setData] = React.useState<MessageAggregate>({
+    unreadCount: { total: 0, announcements: 0, private: 0, system: 0 },
+  })
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
@@ -113,7 +109,11 @@ export function MessageSystem({ className, compact = false }: MessageSystemProps
           'relative inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
           className,
         )}
-        aria-label={`消息中心${total > 0 ? `,${total} 条未读` : ''}`}
+        aria-label={
+          total > 0
+            ? `${t('messageCenterAria')},${t('unreadCount', { count: total })}`
+            : t('messageCenterAria')
+        }
       >
         <Inbox className="h-4 w-4" />
         {!loading && total > 0 && (
@@ -130,13 +130,13 @@ export function MessageSystem({ className, compact = false }: MessageSystemProps
       <CardHeader className="flex-row items-center justify-between space-y-0 p-4 pb-2">
         <CardTitle className="flex items-center gap-1.5 text-sm">
           <Inbox className="h-4 w-4 text-primary" />
-          消息中心
+          {t('title')}
         </CardTitle>
         <Link
           href="/message"
           className="text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
-          {total > 0 ? `${total} 条未读` : '查看全部'}
+          {total > 0 ? t('unreadCount', { count: total }) : t('viewAll')}
         </Link>
       </CardHeader>
       <CardContent className="p-2 pt-0">
@@ -155,9 +155,11 @@ export function MessageSystem({ className, compact = false }: MessageSystemProps
                   {!loading && count > 0 && <UnreadBadge count={count} />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium leading-tight">{cat.label}</div>
+                  <div className="truncate text-sm font-medium leading-tight">
+                    {t(`categories.${cat.key}`)}
+                  </div>
                   <div className="text-xs text-muted-foreground">
-                    {!loading && count > 0 ? `${count} 条未读` : '暂无新消息'}
+                    {!loading && count > 0 ? t('unreadCount', { count }) : t('noNewMessages')}
                   </div>
                 </div>
               </Link>

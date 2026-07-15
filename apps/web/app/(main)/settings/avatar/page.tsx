@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Camera, Loader2, Upload, User } from 'lucide-react'
+import Image from 'next/image'
 
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui'
 import { Container } from '@/components/layout'
@@ -100,10 +101,15 @@ export default function AvatarPage() {
         <CardContent className="space-y-6">
           <div className="flex items-center gap-6">
             <div className="relative h-24 w-24 shrink-0">
-              <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-muted text-2xl font-medium text-muted-foreground">
+              <span className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-muted text-2xl font-medium text-muted-foreground">
                 {displaySrc ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={displaySrc} alt={displayName} className="h-full w-full object-cover" />
+                  <Image
+                    src={displaySrc}
+                    alt={displayName}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
                 ) : (
                   displayName.slice(0, 2)
                 )}

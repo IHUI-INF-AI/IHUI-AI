@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { ExternalLink } from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui'
@@ -34,23 +35,6 @@ interface RightModuleProps {
   className?: string
 }
 
-const DEFAULT_QUICK_ENTRIES: QuickEntry[] = [
-  { label: '积分商城', href: '/integral/mall', icon: ExternalLink, description: '兑换好礼' },
-  { label: '会员中心', href: '/vip', icon: ExternalLink, description: '尊享特权' },
-  { label: '邀请好友', href: '/invite', icon: ExternalLink, description: '赚积分' },
-  { label: '帮助中心', href: '/help', icon: ExternalLink, description: '使用指南' },
-]
-
-const DEFAULT_HOT_TAGS: HotTag[] = [
-  { label: 'AI 大模型', href: '/tag/llm', count: 328 },
-  { label: '教程', href: '/tag/tutorial', count: 256 },
-  { label: 'RAG', href: '/tag/rag', count: 192 },
-  { label: 'Agent', href: '/tag/agent', count: 184 },
-  { label: '前端', href: '/tag/frontend', count: 167 },
-  { label: '后端', href: '/tag/backend', count: 142 },
-  { label: '开源', href: '/tag/opensource', count: 98 },
-]
-
 function SectionBlock({
   title,
   children,
@@ -71,20 +55,56 @@ function SectionBlock({
   )
 }
 
-export function RightModule({
-  quickEntries = DEFAULT_QUICK_ENTRIES,
-  ad,
-  hotTags = DEFAULT_HOT_TAGS,
-  children,
-  className,
-}: RightModuleProps) {
+export function RightModule({ quickEntries, ad, hotTags, children, className }: RightModuleProps) {
+  const t = useTranslations('operation.rightModule')
+
+  const defaultQuickEntries: QuickEntry[] = [
+    {
+      label: t('defaultEntries.mall.label'),
+      href: '/integral/mall',
+      icon: ExternalLink,
+      description: t('defaultEntries.mall.description'),
+    },
+    {
+      label: t('defaultEntries.vip.label'),
+      href: '/vip',
+      icon: ExternalLink,
+      description: t('defaultEntries.vip.description'),
+    },
+    {
+      label: t('defaultEntries.invite.label'),
+      href: '/invite',
+      icon: ExternalLink,
+      description: t('defaultEntries.invite.description'),
+    },
+    {
+      label: t('defaultEntries.help.label'),
+      href: '/help',
+      icon: ExternalLink,
+      description: t('defaultEntries.help.description'),
+    },
+  ]
+
+  const defaultHotTags: HotTag[] = [
+    { label: t('defaultTags.llm'), href: '/tag/llm', count: 328 },
+    { label: t('defaultTags.tutorial'), href: '/tag/tutorial', count: 256 },
+    { label: t('defaultTags.rag'), href: '/tag/rag', count: 192 },
+    { label: t('defaultTags.agent'), href: '/tag/agent', count: 184 },
+    { label: t('defaultTags.frontend'), href: '/tag/frontend', count: 167 },
+    { label: t('defaultTags.backend'), href: '/tag/backend', count: 142 },
+    { label: t('defaultTags.opensource'), href: '/tag/opensource', count: 98 },
+  ]
+
+  const entries = quickEntries ?? defaultQuickEntries
+  const tags = hotTags ?? defaultHotTags
+
   return (
     <aside className={cn('flex w-full flex-col gap-4', className)}>
       <Card>
         <CardContent className="p-0">
-          <SectionBlock title="快捷入口">
+          <SectionBlock title={t('quickEntries')}>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-              {quickEntries.map((entry) => {
+              {entries.map((entry) => {
                 const Icon = entry.icon
                 return (
                   <Link
@@ -106,7 +126,7 @@ export function RightModule({
           </SectionBlock>
 
           {ad && (
-            <SectionBlock title="推广">
+            <SectionBlock title={t('promotion')}>
               <Link
                 href={ad.href}
                 target="_blank"
@@ -117,7 +137,7 @@ export function RightModule({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={ad.image}
-                    alt={ad.alt ?? '推广'}
+                    alt={ad.alt ?? t('promotion')}
                     className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
                   />
                 </div>
@@ -125,10 +145,10 @@ export function RightModule({
             </SectionBlock>
           )}
 
-          {hotTags.length > 0 && (
-            <SectionBlock title="热门标签">
+          {tags.length > 0 && (
+            <SectionBlock title={t('hotTags')}>
               <div className="flex flex-wrap gap-1.5">
-                {hotTags.map((tag) => (
+                {tags.map((tag) => (
                   <Link
                     key={tag.href}
                     href={tag.href}
@@ -144,7 +164,7 @@ export function RightModule({
             </SectionBlock>
           )}
 
-          {children && <SectionBlock title="更多">{children}</SectionBlock>}
+          {children && <SectionBlock title={t('more')}>{children}</SectionBlock>}
         </CardContent>
       </Card>
     </aside>
