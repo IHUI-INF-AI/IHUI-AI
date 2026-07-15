@@ -5,6 +5,15 @@ export interface KBCategory {
   name: string
 }
 
+export interface KBArticle {
+  id: string
+  title: string
+  summary?: string | null
+  content: string
+  categoryId?: string | null
+  tags?: string[]
+}
+
 export interface KBForm {
   title: string
   summary: string

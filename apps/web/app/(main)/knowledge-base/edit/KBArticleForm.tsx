@@ -1,7 +1,20 @@
 'use client'
 
 import { Loader2, Send } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
 import { selectClass, type KBCategory, type KBForm } from './helpers'
 import { TagInput } from './TagInput'
 
@@ -11,6 +24,7 @@ interface Props {
   tagInput: string
   err: string | null
   submitting: boolean
+  submitLabel?: string
   onFormChange: (form: KBForm) => void
   onTagInputChange: (v: string) => void
   onAddTag: () => void
@@ -25,6 +39,7 @@ export function KBArticleForm({
   tagInput,
   err,
   submitting,
+  submitLabel = '发布',
   onFormChange,
   onTagInputChange,
   onAddTag,
@@ -112,8 +127,12 @@ export function KBArticleForm({
               取消
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
-              发布
+              {submitting ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-1 h-4 w-4" />
+              )}
+              {submitLabel}
             </Button>
           </div>
         </form>

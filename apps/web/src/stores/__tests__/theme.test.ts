@@ -4,17 +4,20 @@ import { useThemeStore } from '../theme'
 
 describe('useThemeStore', () => {
   beforeEach(() => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
-    useThemeStore.setState({ theme: 'system', accentColor: 'blue', fontSize: 'medium' })
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    )
+    useThemeStore.setState({ theme: 'system', accentColor: 'green', fontSize: 'medium' })
     document.documentElement.className = ''
     document.documentElement.removeAttribute('data-accent')
     document.documentElement.removeAttribute('data-font-size')
   })
 
-  it('初始状态为system/blue/medium', () => {
+  it('初始状态为system/green/medium', () => {
     const s = useThemeStore.getState()
     expect(s.theme).toBe('system')
-    expect(s.accentColor).toBe('blue')
+    expect(s.accentColor).toBe('green')
     expect(s.fontSize).toBe('medium')
   })
 
@@ -23,32 +26,47 @@ describe('useThemeStore', () => {
     expect(useThemeStore.getState().theme).toBe('dark')
   })
 
-  it('setTheme(dark)为documentElement添加dark类', () => {
+  it('setTheme(dark)不再直接操作 .dark 类(由 next-themes 管理)', () => {
     useThemeStore.getState().setTheme('dark')
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    // stores/theme.ts 已移除 .dark 类 toggle 逻辑,交给 next-themes 统一管理
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
-  it('setTheme(light)移除dark类', () => {
+  it('setTheme(light)移除dark类(由 next-themes 管理,store 不操作)', () => {
     useThemeStore.getState().setTheme('dark')
     useThemeStore.getState().setTheme('light')
     expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
-  it('setAccentColor更新state和data-accent属性', () => {
+  it('setAccentColor只更新state,不再设置 data-accent 属性(死代码已移除)', () => {
     useThemeStore.getState().setAccentColor('red')
     expect(useThemeStore.getState().accentColor).toBe('red')
-    expect(document.documentElement.getAttribute('data-accent')).toBe('red')
+    expect(document.documentElement.getAttribute('data-accent')).toBe(null)
   })
 
-  it('setFontSize更新state和data-font-size属性', () => {
+  it('setFontSize只更新state,不再设置 data-font-size 属性(死代码已移除)', () => {
     useThemeStore.getState().setFontSize('large')
     expect(useThemeStore.getState().fontSize).toBe('large')
-    expect(document.documentElement.getAttribute('data-font-size')).toBe('large')
+    expect(document.documentElement.getAttribute('data-font-size')).toBe(null)
   })
 
-  it('setTheme(system)在prefers-color-scheme:dark时添加dark类', () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })))
+  it('setTheme(system)不再自动解析 prefers-color-scheme(由 next-themes 管理)', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: true })),
+    )
     useThemeStore.getState().setTheme('system')
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    // resolveDark 已移除,system 主题不再自动 toggle .dark 类
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+  })
+
+  it('toggleHighContrast切换high-contrast类', () => {
+    expect(useThemeStore.getState().highContrast).toBe(false)
+    useThemeStore.getState().toggleHighContrast()
+    expect(useThemeStore.getState().highContrast).toBe(true)
+    expect(document.documentElement.classList.contains('high-contrast')).toBe(true)
+    useThemeStore.getState().toggleHighContrast()
+    expect(useThemeStore.getState().highContrast).toBe(false)
+    expect(document.documentElement.classList.contains('high-contrast')).toBe(false)
   })
 })
