@@ -1199,4 +1199,30 @@ export default {
       empty: 'No agents',
     },
   },
+  wallet: {
+    recharge: {
+      title: 'Recharge',
+      amount: 'Recharge Amount',
+      customAmount: 'Custom Amount',
+      customPlaceholder: 'Enter amount',
+      method: 'Payment Method',
+      methodWechat: 'WeChat Pay',
+      submit: 'Recharge Now',
+      submitting: 'Recharging...',
+      invalidAmount: 'Please enter a valid amount',
+      success: {
+        title: 'Recharge Successful',
+        desc: 'Your recharge has arrived',
+        amount: 'Amount',
+        backHome: 'Back to Home',
+        backWallet: 'Back to Wallet',
+      },
+      fail: {
+        title: 'Recharge Failed',
+        desc: 'Recharge incomplete, please retry',
+        retry: 'Retry',
+        backWallet: 'Back to Wallet',
+      },
+    },
+  },
 }

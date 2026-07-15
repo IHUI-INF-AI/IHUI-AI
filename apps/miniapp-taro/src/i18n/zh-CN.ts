@@ -1166,4 +1166,30 @@ export default {
       empty: '暂无智能体',
     },
   },
+  wallet: {
+    recharge: {
+      title: '充值',
+      amount: '充值金额',
+      customAmount: '自定义金额',
+      customPlaceholder: '请输入金额',
+      method: '支付方式',
+      methodWechat: '微信支付',
+      submit: '立即充值',
+      submitting: '充值中...',
+      invalidAmount: '请输入有效金额',
+      success: {
+        title: '充值成功',
+        desc: '您的充值已到账',
+        amount: '充值金额',
+        backHome: '返回首页',
+        backWallet: '返回钱包',
+      },
+      fail: {
+        title: '充值失败',
+        desc: '充值未完成，请重试',
+        retry: '重新充值',
+        backWallet: '返回钱包',
+      },
+    },
+  },
 }
