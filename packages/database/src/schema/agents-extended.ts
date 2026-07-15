@@ -53,6 +53,9 @@ export const agents = pgTable(
     usageCount: bigint('usage_count', { mode: 'number' }).default(0).notNull(),
     likeCount: bigint('like_count', { mode: 'number' }).default(0).notNull(),
     shareCount: bigint('share_count', { mode: 'number' }).default(0).notNull(),
+    collectCount: bigint('collect_count', { mode: 'number' }).default(0).notNull(),
+    publishStatus: varchar('publish_status', { length: 20 }).default('published'),
+    suggestedQuestions: text('suggested_questions'),
     cozeAccountId: varchar('coze_account_id', { length: 64 }),
   },
   (t) => ({
@@ -237,3 +240,49 @@ export const agentCategoryLink = pgTable(
 
 export type AgentCategoryLink = typeof agentCategoryLink.$inferSelect
 export type NewAgentCategoryLink = typeof agentCategoryLink.$inferInsert
+
+export const agentThumbs = pgTable(
+  'zhs_agent_thumbs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    uuid: varchar('uuid', { length: 64 }).notNull(),
+    botId: varchar('bot_id', { length: 64 }).notNull(),
+    thumbsTime: timestamp('thumbs_time', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uuidBotIdx: index('zhs_agent_thumbs_uuid_bot_idx').on(t.uuid, t.botId),
+  }),
+)
+
+export const agentCollects = pgTable(
+  'zhs_agent_collect',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    uuid: varchar('uuid', { length: 64 }).notNull(),
+    botId: varchar('bot_id', { length: 64 }).notNull(),
+    collectTime: timestamp('collect_time', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uuidBotIdx: index('zhs_agent_collect_uuid_bot_idx').on(t.uuid, t.botId),
+  }),
+)
+
+export const agentUseDetails = pgTable(
+  'zhs_agent_useDetail',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    uuid: varchar('uuid', { length: 64 }).notNull(),
+    botId: varchar('bot_id', { length: 64 }).notNull(),
+    lastTime: timestamp('last_time', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uuidBotIdx: index('zhs_agent_useDetail_uuid_bot_idx').on(t.uuid, t.botId),
+  }),
+)
+
+export type AgentThumb = typeof agentThumbs.$inferSelect
+export type NewAgentThumb = typeof agentThumbs.$inferInsert
+export type AgentCollect = typeof agentCollects.$inferSelect
+export type NewAgentCollect = typeof agentCollects.$inferInsert
+export type AgentUseDetail = typeof agentUseDetails.$inferSelect
+export type NewAgentUseDetail = typeof agentUseDetails.$inferInsert
