@@ -12042,7 +12042,34 @@
       "val4Title": "共享共赢",
       "val4Desc": "与合作伙伴共享AI红利，实现生态多方共赢"
     },
-    "title": "AI世界"
+    "title": "AI世界",
+    "admin": {
+      "sites": {
+        "title": "AI 世界站点管理",
+        "agentManagerBtn": "前往 Agent 管理",
+        "notice": "AI 世界站点由已发布的 Agent 组成。如需新增或修改站点，请在 Agent 管理中操作。",
+        "loading": "加载中...",
+        "categoriesTitle": "分类配置（{count}）",
+        "hotAppsTitle": "热门站点（{count}）",
+        "emptyHotApps": "暂无热门站点，请在 Agent 管理中发布 Agent",
+        "table": {
+          "name": "站点名称",
+          "id": "ID",
+          "action": "操作"
+        },
+        "edit": "编辑",
+        "iconLabels": {
+          "message": "对话",
+          "palette": "绘画",
+          "video": "视频",
+          "music": "音乐",
+          "code": "代码",
+          "briefcase": "办公",
+          "graduation": "教育",
+          "megaphone": "营销"
+        }
+      }
+    }
   },
   "aiCommunity": {
     "title": "AI创作社区",
@@ -19945,7 +19972,35 @@
     "coherent": "与上一段保持视觉和情节连贯性，自然过渡，确保人物形象一致",
     "transition": "切换",
     "sceneTransition": "转场",
-    "confirmCharContinue": "确认角色是否需要后续出场"
+    "confirmCharContinue": "确认角色是否需要后续出场",
+    "editor": {
+      "title": "短剧编辑器",
+      "subtitle": "AI 辅助剧本创作：整体增强（角色一致性 + 节奏分析 + 章节大纲）与单行改写",
+      "enhance": {
+        "title": "整体增强",
+        "scriptIdPlaceholder": "剧本 ID",
+        "titlePlaceholder": "剧本标题（可选）",
+        "submitBtn": "增强",
+        "consistency": "角色一致性：",
+        "pacing": "节奏分析：",
+        "outline": "章节大纲："
+      },
+      "lineRewrite": {
+        "title": "单行改写",
+        "scriptIdPlaceholder": "剧本 ID",
+        "scenePlaceholder": "场景",
+        "linePlaceholder": "行",
+        "contentPlaceholder": "对白内容",
+        "instructionPlaceholder": "改写指令（可选，如：更口语化）",
+        "submitBtn": "改写",
+        "original": "原文：",
+        "rewritten": "改写："
+      },
+      "errors": {
+        "scriptIdRequired": "请输入剧本 ID",
+        "scriptIdAndContentRequired": "请输入剧本 ID 和对白内容"
+      }
+    }
   },
   "studyAdd": {
     "cover": "封面",
@@ -23256,5 +23311,10 @@
       "answered": "已回答",
       "pending": "待回答"
     }
+  },
+  "forbidden": {
+    "title": "无权限访问",
+    "description": "抱歉，您没有访问该页面的权限。如需开通权限，请联系管理员。",
+    "backToHome": "返回首页"
   }
 }

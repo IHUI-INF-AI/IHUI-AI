@@ -11963,7 +11963,34 @@
       "val4Title": "총총",
       "val4Desc": "및총ai，다중총"
     },
-    "title": "ai"
+    "title": "ai",
+    "admin": {
+      "sites": {
+        "title": "AI 월드 사이트 관리",
+        "agentManagerBtn": "에이전트 관리로 이동",
+        "notice": "AI 월드 사이트는 게시된 에이전트로 구성됩니다. 사이트를 추가하거나 수정하려면 에이전트 관리에서 작업해 주세요.",
+        "loading": "로딩 중...",
+        "categoriesTitle": "카테고리 설정({count})",
+        "hotAppsTitle": "인기 사이트({count})",
+        "emptyHotApps": "인기 사이트가 없습니다. 에이전트 관리에서 에이전트를 게시해 주세요.",
+        "table": {
+          "name": "사이트 이름",
+          "id": "ID",
+          "action": "작업"
+        },
+        "edit": "편집",
+        "iconLabels": {
+          "message": "대화",
+          "palette": "그림",
+          "video": "영상",
+          "music": "음악",
+          "code": "코드",
+          "briefcase": "사무",
+          "graduation": "교육",
+          "megaphone": "마케팅"
+        }
+      }
+    }
   },
   "aiCommunity": {
     "title": "ai커뮤니티",
@@ -19963,7 +19990,35 @@
     "coherent": "및상월및，에서，월",
     "transition": "전환",
     "sceneTransition": "转场",
-    "confirmCharContinue": "확인역할아니오후출"
+    "confirmCharContinue": "확인역할아니오후출",
+    "editor": {
+      "title": "숏드라마 에디터",
+      "subtitle": "AI 스크립트 작성 지원: 전체 강화(캐릭터 일관성 + 페이스 분석 + 챕터 개요)와 단일 줄 다시 쓰기",
+      "enhance": {
+        "title": "전체 강화",
+        "scriptIdPlaceholder": "스크립트 ID",
+        "titlePlaceholder": "스크립트 제목(선택)",
+        "submitBtn": "강화",
+        "consistency": "캐릭터 일관성:",
+        "pacing": "페이스 분석:",
+        "outline": "챕터 개요:"
+      },
+      "lineRewrite": {
+        "title": "단일 줄 다시 쓰기",
+        "scriptIdPlaceholder": "스크립트 ID",
+        "scenePlaceholder": "장면",
+        "linePlaceholder": "줄",
+        "contentPlaceholder": "대사 내용",
+        "instructionPlaceholder": "다시 쓰기 지시(선택, 예: 더 구어체로)",
+        "submitBtn": "다시 쓰기",
+        "original": "원문:",
+        "rewritten": "다시 쓰기:"
+      },
+      "errors": {
+        "scriptIdRequired": "스크립트 ID를 입력해 주세요",
+        "scriptIdAndContentRequired": "스크립트 ID와 대사 내용을 입력해 주세요"
+      }
+    }
   },
   "studyAdd": {
     "cover": "표지",
@@ -23263,5 +23318,10 @@
       "answered": "답변 완료",
       "pending": "미답변"
     }
+  },
+  "forbidden": {
+    "title": "권한 없음",
+    "description": "죄송합니다. 이 페이지에 접근할 권한이 없습니다. 권한 개설은 관리자에게 문의해 주세요.",
+    "backToHome": "홈으로"
   }
 }
