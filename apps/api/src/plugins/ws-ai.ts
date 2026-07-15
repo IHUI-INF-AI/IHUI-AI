@@ -439,6 +439,221 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       })
     })()
   })
+
+  // ==========================================================================
+  // 6. /ws/coze/chat — Coze WebSocket 聊天（迁移自 coze_zhs_py/api/websocket.py）
+  //    协议事件:
+  //      客户端 → 服务端: chat.start / chat.message / chat.stop / chat.clear
+  //      服务端 → 客户端: chat.created / conversation.chat.created /
+  //                       conversation.message.delta / conversation.chat.completed /
+  //                       conversation.chat.failed / error / system
+  //    功能: conversation_id 自动管理 + 心跳保活
+  // ==========================================================================
+  server.get('/ws/coze/chat', { websocket: true }, (socket, request) => {
+    const query = request.query as { token?: string; bot_id?: string }
+    const botId = query.bot_id ?? ''
+    ;(async () => {
+      const userId = await wsAuth(socket, query.token)
+      if (!userId) return
+      send(socket, { code: 0, msg: 'success', event: 'ready', user: userId, bot_id: botId })
+
+      const cozeKey = process.env.COZE_API_KEY
+      if (!cozeKey) {
+        send(socket, { code: 503, event: 'error', message: 'Coze 服务未配置' })
+        return
+      }
+
+      let conversationId = ''
+      let heartbeatTimer: NodeJS.Timeout | null = null
+
+      function startHeartbeat(): void {
+        if (heartbeatTimer) clearInterval(heartbeatTimer)
+        heartbeatTimer = setInterval(() => {
+          send(socket, {
+            code: 200,
+            msg: 'success',
+            data: {
+              id: `heartbeat_${Date.now()}`,
+              conversation_id: conversationId,
+              bot_id: botId,
+              role: 'assistant',
+              type: 'answer',
+              content: '的',
+              content_type: '智能体正在努力工作中,请您稍等片刻。。。\n',
+              chat_id: '',
+              section_id: '',
+            },
+            detail: null,
+            event: 'conversation.message.delta',
+            urlType: null,
+          })
+        }, 3000)
+      }
+
+      function stopHeartbeat(): void {
+        if (heartbeatTimer) {
+          clearInterval(heartbeatTimer)
+          heartbeatTimer = null
+        }
+      }
+
+      socket.on('message', async (data: Buffer) => {
+        const raw = data.toString()
+        if (raw === 'ping') {
+          socket.send('pong')
+          return
+        }
+        let msg: Record<string, unknown>
+        try {
+          msg = JSON.parse(raw) as Record<string, unknown>
+        } catch {
+          send(socket, { code: 400, event: 'error', message: 'JSON 格式错误' })
+          return
+        }
+
+        const eventType = msg.type as string | undefined
+
+        // chat.start — 初始化会话
+        if (eventType === 'chat.start') {
+          const reqBotId = (msg.bot_id as string) || botId
+          const reqUserId = (msg.user_id as string) || userId
+          send(socket, {
+            code: 200,
+            msg: 'success',
+            event: 'chat.created',
+            data: { bot_id: reqBotId, user_id: reqUserId, conversation_id: conversationId },
+          })
+          return
+        }
+
+        // chat.message — 发送消息并流式接收回复
+        if (eventType === 'chat.message') {
+          const queryText = msg.content as string | undefined
+          const reqBotId = (msg.bot_id as string) || botId
+          const reqUserId = (msg.user_id as string) || userId
+          if (!queryText) {
+            send(socket, { code: 400, event: 'error', message: '缺少 content' })
+            return
+          }
+
+          send(socket, {
+            code: 200,
+            msg: 'success',
+            event: 'conversation.chat.created',
+            data: { conversation_id: conversationId, bot_id: reqBotId },
+          })
+
+          startHeartbeat()
+
+          let newConversationId: string | null = null
+          try {
+            const resp = await fetch('https://api.coze.cn/v1/chat', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${cozeKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                bot_id: reqBotId,
+                user_id: reqUserId,
+                query: queryText,
+                conversation_id: conversationId,
+                stream: true,
+              }),
+            })
+            if (!resp.ok || !resp.body) {
+              stopHeartbeat()
+              send(socket, {
+                code: 502,
+                event: 'conversation.chat.failed',
+                message: `Coze API ${resp.status}`,
+              })
+              return
+            }
+            const reader = resp.body.getReader()
+            const decoder = new TextDecoder()
+            let buffer = ''
+            for (;;) {
+              const { done, value } = await reader.read()
+              if (done) break
+              buffer += decoder.decode(value, { stream: true })
+              const lines = buffer.split('\n')
+              buffer = lines.pop() ?? ''
+              for (const line of lines) {
+                if (!line.startsWith('data:')) continue
+                const jsonStr = line.slice(5).trim()
+                if (!jsonStr) continue
+                try {
+                  const evt = JSON.parse(jsonStr) as Record<string, unknown>
+                  // 提取 conversation_id
+                  const cid = evt.conversation_id as string | undefined
+                  if (cid && cid !== newConversationId) {
+                    newConversationId = cid
+                    conversationId = cid
+                  }
+                  const evtType = (evt.event as string) ?? ''
+                  // 透传事件
+                  send(socket, {
+                    code: 200,
+                    msg: 'success',
+                    ...evt,
+                    event: evtType,
+                  })
+                  if (
+                    evtType.includes('completed') ||
+                    evtType.includes('finish') ||
+                    evtType.includes('end')
+                  ) {
+                    stopHeartbeat()
+                  }
+                } catch {
+                  /* skip non-JSON */
+                }
+              }
+            }
+            stopHeartbeat()
+            if (newConversationId) {
+              conversationId = newConversationId
+            }
+            send(socket, {
+              code: 200,
+              msg: 'success',
+              event: 'conversation.chat.completed',
+              data: { conversation_id: conversationId },
+            })
+          } catch (e) {
+            stopHeartbeat()
+            send(socket, {
+              code: 500,
+              event: 'conversation.chat.failed',
+              message: (e as Error).message,
+            })
+          }
+          return
+        }
+
+        // chat.stop — 停止当前对话
+        if (eventType === 'chat.stop') {
+          stopHeartbeat()
+          send(socket, { code: 200, event: 'system', message: '聊天已停止' })
+          return
+        }
+
+        // chat.clear — 清除会话历史
+        if (eventType === 'chat.clear') {
+          conversationId = ''
+          send(socket, { code: 200, event: 'system', message: '会话已清除' })
+          return
+        }
+
+        send(socket, { code: 400, event: 'error', message: `未知事件类型: ${eventType}` })
+      })
+
+      socket.on('close', () => {
+        stopHeartbeat()
+      })
+    })()
+  })
 }
 
 export const wsAi = fp(wsAiPlugin, {

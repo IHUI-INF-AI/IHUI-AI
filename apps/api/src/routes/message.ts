@@ -8,8 +8,10 @@ import {
   messageSystemNotice,
   messageTemplates,
   eduMessages,
+  chatConversations,
+  chatMessages,
 } from '@ihui/database'
-import { eq, sql, and, or, desc, inArray } from 'drizzle-orm'
+import { eq, sql, and, or, desc, inArray, lt } from 'drizzle-orm'
 import {
   findAnnouncements,
   findAnnouncementById,
@@ -179,6 +181,149 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
       .delete(eduMessages)
       .where(and(eq(eduMessages.memberId, userId), inArray(eduMessages.id, body.ids)))
     return reply.send(success({ deleted: body.ids.length }))
+  })
+
+  // ----- IM Conversations/私聊会话(基于 chat_conversations + chat_messages) -----
+
+  // GET /messages/list - 我的会话列表(每会话附最近一条消息 + 未读数)
+  server.get('/messages/list', async (request, reply) => {
+    const userId = request.userId!
+    const { page, pageSize } = z
+      .object({ page: z.coerce.number().default(1), pageSize: z.coerce.number().default(20) })
+      .parse(request.query)
+    const conversations = await db
+      .select()
+      .from(chatConversations)
+      .where(eq(chatConversations.userId, userId))
+      .orderBy(desc(chatConversations.updatedAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    if (conversations.length === 0) return reply.send(success({ list: [] }))
+    const ids = conversations.map((c) => c.id)
+    const lastRows = await db
+      .select()
+      .from(chatMessages)
+      .where(inArray(chatMessages.conversationId, ids))
+      .orderBy(desc(chatMessages.createdAt))
+    const lastByConv = new Map<string, (typeof lastRows)[number]>()
+    for (const m of lastRows) {
+      if (!lastByConv.has(m.conversationId)) lastByConv.set(m.conversationId, m)
+    }
+    const list = conversations.map((c) => {
+      const last = lastByConv.get(c.id)
+      return {
+        id: c.id,
+        title: c.title,
+        peer: null,
+        messages: last
+          ? [
+              {
+                id: last.id,
+                conversationId: last.conversationId,
+                senderId: last.role === 'user' ? userId : 'assistant',
+                content: last.content,
+                createdAt: last.createdAt?.toISOString?.() ?? new Date().toISOString(),
+                isMine: last.role === 'user',
+              },
+            ]
+          : [],
+        unread: 0,
+        updatedAt: c.updatedAt,
+      }
+    })
+    return reply.send(success({ list, page, pageSize }))
+  })
+
+  // GET /messages/:id/history - 加载会话历史消息(分页)
+  server.get('/messages/:id/history', async (request, reply) => {
+    const userId = request.userId!
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    const { cursor, limit } = z
+      .object({
+        cursor: z.string().datetime().optional(),
+        limit: z.coerce.number().int().min(1).max(100).default(20),
+      })
+      .parse(request.query)
+    const conv = await db
+      .select()
+      .from(chatConversations)
+      .where(and(eq(chatConversations.id, id), eq(chatConversations.userId, userId)))
+      .limit(1)
+    if (conv.length === 0) return reply.status(404).send(error(404, '会话不存在'))
+    const conds = [eq(chatMessages.conversationId, id)]
+    if (cursor) conds.push(lt(chatMessages.createdAt, new Date(cursor)))
+    const rows = await db
+      .select()
+      .from(chatMessages)
+      .where(and(...conds))
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(limit)
+    const list = rows
+      .map((m) => ({
+        id: m.id,
+        conversationId: m.conversationId,
+        senderId: m.role === 'user' ? userId : 'assistant',
+        content: m.content,
+        createdAt: m.createdAt?.toISOString?.() ?? new Date().toISOString(),
+        isMine: m.role === 'user',
+      }))
+      .reverse()
+    const oldest = rows[rows.length - 1]
+    return reply.send(
+      success({
+        list,
+        hasMore: rows.length === limit,
+        nextCursor: oldest ? (oldest.createdAt?.toISOString?.() ?? null) : null,
+      }),
+    )
+  })
+
+  // POST /messages/send - 发送消息(写入用户消息,自动标记已读)
+  server.post('/messages/send', async (request, reply) => {
+    const userId = request.userId!
+    const { conversationId, content } = z
+      .object({ conversationId: z.string().uuid(), content: z.string().min(1).max(5000) })
+      .parse(request.body)
+    const conv = await db
+      .select()
+      .from(chatConversations)
+      .where(and(eq(chatConversations.id, conversationId), eq(chatConversations.userId, userId)))
+      .limit(1)
+    if (conv.length === 0) return reply.status(404).send(error(404, '会话不存在'))
+    const [created] = await db
+      .insert(chatMessages)
+      .values({ conversationId, role: 'user', content })
+      .returning()
+    if (!created) return reply.status(500).send(error(500, '消息发送失败'))
+    await db
+      .update(chatConversations)
+      .set({ lastMessageAt: new Date(), updatedAt: new Date() })
+      .where(eq(chatConversations.id, conversationId))
+    return reply.status(201).send(
+      success({
+        message: {
+          id: created.id,
+          conversationId: created.conversationId,
+          senderId: userId,
+          content: created.content,
+          createdAt: created.createdAt?.toISOString?.() ?? new Date().toISOString(),
+          isMine: true,
+        },
+      }),
+    )
+  })
+
+  // POST /messages/:id/read - 占位:会话已读标记(chat_messages 无 isRead 列,直接成功)
+  server.post('/messages/:id/read', async (request, reply) => {
+    const userId = request.userId!
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    const conv = await db
+      .select({ id: chatConversations.id })
+      .from(chatConversations)
+      .where(and(eq(chatConversations.id, id), eq(chatConversations.userId, userId)))
+      .limit(1)
+    if (conv.length === 0) return reply.status(404).send(error(404, '会话不存在'))
+    return reply.send(success({ success: true, cleared: 0 }))
   })
 
   // ----- Private messages 私信 -----
