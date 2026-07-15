@@ -49,7 +49,11 @@ export function UserAgentImageTable({ list, isLoading, onEdit, onDelete }: Props
                 <TableCell className="px-4 py-2.5 font-medium">{item.userUuid || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   {item.imagePath ? (
-                    <img src={item.imagePath} alt="" className="h-10 w-10 rounded object-cover" />
+                    <img
+                      src={item.imagePath}
+                      alt="Agent 形象"
+                      className="h-10 w-10 rounded object-cover"
+                    />
                   ) : (
                     <span className="text-muted-foreground">-</span>
                   )}

@@ -55,7 +55,11 @@ export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Pro
               <tr key={item.id} className="transition-colors hover:bg-muted/30">
                 <td className="px-4 py-2.5">
                   {item.coverUrl ? (
-                    <img src={item.coverUrl} alt="" className="h-10 w-10 rounded object-cover" />
+                    <img
+                      src={item.coverUrl}
+                      alt={item.title || 'AI 生成内容'}
+                      className="h-10 w-10 rounded object-cover"
+                    />
                   ) : (
                     <span className="text-muted-foreground/50">-</span>
                   )}

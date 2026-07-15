@@ -199,7 +199,7 @@ export default function AgentCategoryDetailPage() {
                       </div>
                     )}
                     <div className="min-w-0 flex-1 space-y-1">
-                      <h3 className="truncate text-sm font-medium group-hover:text-primary">
+                      <h3 className="line-clamp-2 text-sm font-medium group-hover:text-primary">
                         {agent.name}
                       </h3>
                       <p className="line-clamp-2 text-xs text-muted-foreground">

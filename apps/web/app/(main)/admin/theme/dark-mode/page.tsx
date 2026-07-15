@@ -20,7 +20,7 @@ const DEFAULT: DarkConfig = {
   bgColor: '#0f172a',
   textColor: '#f1f5f9',
   borderColor: '#1e293b',
-  accentColor: '#3b82f6',
+  accentColor: '#07c160',
 }
 
 function ColorField({
@@ -133,7 +133,7 @@ export default function DarkModePage() {
           <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 text-slate-900">
             <p className="text-sm font-semibold">亮色模式</p>
             <p className="text-xs opacity-80">示例正文内容</p>
-            <span className="inline-block rounded-md bg-blue-500 px-2 py-1 text-xs text-white">
+            <span className="inline-block rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground">
               主按钮
             </span>
           </div>
