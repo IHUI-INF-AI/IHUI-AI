@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -14,7 +15,7 @@ export default function Nickname() {
       setNickname(name)
       setOriginal(name)
     } catch (e) {
-      console.error('[user/nickname] 获取用户信息 failed:', e)
+      logger.error('user/nickname', '获取用户信息', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])
@@ -32,7 +33,7 @@ export default function Nickname() {
       Taro.showToast({ title: '修改成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
-      console.error('[user/nickname] 修改昵称 failed:', e)
+      logger.error('user/nickname', '修改昵称', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }

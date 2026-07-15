@@ -1,20 +1,23 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, logout, type UserInfo } from '@/api'
+import { useI18n } from '@/i18n'
 import './index.css'
 
 export default function SettingIndexPage() {
+  const { t } = useI18n()
   const [user, setUser] = useState<Partial<UserInfo>>({})
 
   const load = useCallback(async () => {
     try {
       setUser(await getProfile())
     } catch (e) {
-      console.error('[setting/index] 获取用户信息 failed:', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      logger.error('setting/index', '获取用户信息', e)
+      Taro.showToast({ title: t('setting.operationFailed'), icon: 'none' })
     }
-  }, [])
+  }, [t])
 
   const navigate = useCallback((url: string) => {
     Taro.navigateTo({ url })
@@ -22,21 +25,21 @@ export default function SettingIndexPage() {
 
   const onLogout = useCallback(() => {
     Taro.showModal({
-      title: '提示',
-      content: '确定退出登录吗？',
+      title: t('setting.hint'),
+      content: t('setting.logoutConfirm'),
       success: async (res) => {
         if (res.confirm) {
           try {
             await logout()
           } catch (e) {
-            console.error('[setting/index] 退出登录 failed:', e)
-            Taro.showToast({ title: '操作失败', icon: 'none' })
+            logger.error('setting/index', '退出登录', e)
+            Taro.showToast({ title: t('setting.operationFailed'), icon: 'none' })
           }
           Taro.reLaunch({ url: '/pages/login/login' })
         }
       },
     })
-  }, [])
+  }, [t])
 
   useDidShow(() => load())
 
@@ -51,49 +54,49 @@ export default function SettingIndexPage() {
           />
           <View className="info">
             <Text className="name">{user.nickname}</Text>
-            <Text className="phone">{user.phone || '未绑定手机'}</Text>
+            <Text className="phone">{user.phone || t('setting.unboundPhone')}</Text>
           </View>
         </View>
       ) : null}
 
       <View className="menu-group">
-        <Text className="group-title">账号</Text>
+        <Text className="group-title">{t('setting.account')}</Text>
         <View className="menu">
           <View className="menu-item" onClick={() => navigate('/pages/user/profile')}>
-            <Text>个人资料</Text>
+            <Text>{t('setting.profile')}</Text>
             <Text className="arrow">›</Text>
           </View>
           <View className="menu-item" onClick={() => navigate('/pages/setting/notification')}>
-            <Text>通知设置</Text>
+            <Text>{t('setting.notificationSetting')}</Text>
             <Text className="arrow">›</Text>
           </View>
           <View className="menu-item" onClick={() => navigate('/pages/setting/cache')}>
-            <Text>清除缓存</Text>
+            <Text>{t('setting.clearCache')}</Text>
             <Text className="arrow">›</Text>
           </View>
         </View>
       </View>
 
       <View className="menu-group">
-        <Text className="group-title">通用</Text>
+        <Text className="group-title">{t('setting.general')}</Text>
         <View className="menu">
           <View className="menu-item" onClick={() => navigate('/pages/setting/language')}>
-            <Text>语言设置</Text>
+            <Text>{t('setting.languageSetting')}</Text>
             <Text className="arrow">›</Text>
           </View>
           <View className="menu-item" onClick={() => navigate('/pages/setting/theme')}>
-            <Text>主题设置</Text>
+            <Text>{t('setting.themeSetting')}</Text>
             <Text className="arrow">›</Text>
           </View>
           <View className="menu-item" onClick={() => navigate('/pages/about/index')}>
-            <Text>关于我们</Text>
+            <Text>{t('setting.aboutUs')}</Text>
             <Text className="arrow">›</Text>
           </View>
         </View>
       </View>
 
       <Button className="logout" onClick={onLogout}>
-        退出登录
+        {t('setting.logout')}
       </Button>
     </View>
   )

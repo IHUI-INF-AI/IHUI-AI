@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -21,7 +22,7 @@ export default function VoicePage() {
           setMessages((prev) => [...prev, { role: 'assistant', content: res.reply }])
         })
         .catch((e) => {
-          console.error('语音对话 failed:', e)
+          logger.error('unknown', '语音对话', e)
           Taro.showToast({ title: '语音对话失败', icon: 'none' })
         })
         .finally(() => {

@@ -1,35 +1,42 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
+import { useI18n, type Locale } from '@/i18n'
 
-const LANGS = [
-  { value: 'zh-CN', name: '简体中文' },
-  { value: 'zh-TW', name: '繁體中文' },
-  { value: 'en', name: 'English' },
-  { value: 'ja', name: '日本語' },
-  { value: 'ko', name: '한국어' },
+const LANGS: Array<{ value: Locale; key: 'zhCN' | 'en' }> = [
+  { value: 'zh-CN', key: 'zhCN' },
+  { value: 'en', key: 'en' },
 ]
 
 export default function LanguagePage() {
-  const [current, setCurrent] = useState('zh-CN')
+  const { t, locale, setLocale } = useI18n()
+  const [current, setCurrent] = useState<Locale>(locale)
+
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('setting.languageTitle') })
+  }, [t])
 
   useDidShow(() => {
-    const lang = Taro.getStorageSync('lang')
-    if (lang) setCurrent(lang)
+    setCurrent(locale)
   })
 
-  const onSelect = useCallback(async (v: string) => {
-    setCurrent(v)
-    try {
-      await setLanguage(v)
-      Taro.setStorageSync('lang', v)
-      Taro.showToast({ title: '设置成功', icon: 'success' })
-    } catch (e) {
-      console.error('[setting/language] 设置语言 failed:', e)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
-    }
-  }, [])
+  const onSelect = useCallback(
+    async (v: Locale) => {
+      if (v === current) return
+      setCurrent(v)
+      setLocale(v)
+      try {
+        await setLanguage(v)
+        Taro.showToast({ title: t('setting.setSuccess'), icon: 'success' })
+      } catch (e) {
+        logger.error('setting/language', 'set language', e)
+        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      }
+    },
+    [current, setLocale, t],
+  )
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
@@ -42,7 +49,7 @@ export default function LanguagePage() {
             }`}
             onClick={() => onSelect(l.value)}
           >
-            <Text className="text-[15px] text-[#333]">{l.name}</Text>
+            <Text className="text-[15px] text-[#333]">{t(`setting.${l.key}`)}</Text>
             {current === l.value && <Text className="text-[16px] text-[#07c160]">✓</Text>}
           </View>
         ))}

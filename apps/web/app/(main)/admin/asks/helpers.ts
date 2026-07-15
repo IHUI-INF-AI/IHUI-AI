@@ -42,8 +42,7 @@ export async function fetchAsks(params: {
   })
   if (params.search) qs.set('search', params.search)
   if (params.resolved !== undefined) qs.set('resolved', String(params.resolved))
-  // 复用 /api/asks 公共列表端点(后端目前未提供 /admin/asks 列表)
-  return api<AsksListData>(`/api/asks?${qs.toString()}`)
+  return api<AsksListData>(`/api/admin/asks?${qs.toString()}`)
 }
 
 export function askToForm(item: AskItem): AskForm {

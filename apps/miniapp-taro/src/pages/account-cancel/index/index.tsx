@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -15,7 +16,7 @@ export default function AccountCancel() {
       const res = (await api.getProfile()) as Record<string, unknown>
       setInfo(res)
     } catch (e) {
-      console.error('加载用户信息失败:', e)
+      logger.error('unknown', '加载用户信息', e)
     } finally {
       setLoading(false)
     }
@@ -39,7 +40,7 @@ export default function AccountCancel() {
             setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)
           })
           .catch((e) => {
-            console.error('注销失败:', e)
+            logger.error('unknown', '注销', e)
           })
           .finally(() => {
             setSubmitting(false)

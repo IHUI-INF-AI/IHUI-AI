@@ -26,9 +26,11 @@ export interface StreamChatCallbacks {
 export function streamAiChat(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
   callbacks: StreamChatCallbacks,
+  options?: { model?: string },
 ): AbortController {
   const controller = new AbortController()
-  const token = useAuthStore.getState().token
+  const { token, user } = useAuthStore.getState()
+  const userId = user?.id ?? ''
 
   void (async () => {
     try {
@@ -39,7 +41,12 @@ export function streamAiChat(
           Accept: 'text/event-stream',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ messages, stream: true }),
+        body: JSON.stringify({
+          messages,
+          stream: true,
+          ...(options?.model ? { model: options.model } : {}),
+          metadata: { userId, source: 'ai-world' },
+        }),
         signal: controller.signal,
       })
 

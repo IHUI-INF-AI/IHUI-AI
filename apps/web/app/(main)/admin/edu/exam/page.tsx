@@ -168,7 +168,7 @@ export default function EduExamPage() {
           icon={Settings2}
           label={t('random')}
           value={papers.filter((p) => p.isRandom).length}
-          gradient="bg-gradient-to-br from-sky-500 to-blue-500"
+          gradient="bg-gradient-to-br from-teal-500 to-emerald-600"
         />
         <StatCard
           icon={FileText}

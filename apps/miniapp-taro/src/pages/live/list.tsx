@@ -2,8 +2,16 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveList, type Live } from '@/api'
+import { useI18n } from '@/i18n'
+
+const STATUS_KEY: Record<Live['status'], string> = {
+  living: 'live.liveNow',
+  upcoming: 'live.preview',
+  ended: 'live.replay',
+}
 
 export default function LiveList() {
+  const { t } = useI18n()
   const [list, setList] = useState<Live[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
@@ -13,9 +21,14 @@ export default function LiveList() {
   const lenRef = useRef(0)
   const statusRef = useRef('')
 
-  const statusText = useCallback((s: Live['status']) => {
-    return s === 'living' ? '直播中' : s === 'upcoming' ? '预告' : '回放'
-  }, [])
+  const statusText = useCallback((s: Live['status']) => t(STATUS_KEY[s]), [t])
+
+  const tabs = [
+    { key: '', labelKey: 'live.all' },
+    { key: 'living', labelKey: 'live.liveNow' },
+    { key: 'upcoming', labelKey: 'live.preview' },
+    { key: 'ended', labelKey: 'live.replay' },
+  ]
 
   const load = useCallback(async (reset = false) => {
     if (loadingRef.current) return
@@ -71,25 +84,18 @@ export default function LiveList() {
 
   return (
     <View className="min-h-screen p-3">
-      {/* 状态筛选 */}
       <View className="flex mb-3 bg-white rounded-xl">
-        {[
-          { key: '', label: '全部' },
-          { key: 'living', label: '直播中' },
-          { key: 'upcoming', label: '预告' },
-          { key: 'ended', label: '回放' },
-        ].map((tab) => (
+        {tabs.map((tab) => (
           <View
             key={tab.key}
             className={`flex-1 text-center py-2.5 text-sm ${status === tab.key ? 'text-[#07c160] font-semibold' : 'text-[#666]'}`}
             onClick={() => switchStatus(tab.key)}
           >
-            <Text>{tab.label}</Text>
+            <Text>{t(tab.labelKey)}</Text>
           </View>
         ))}
       </View>
 
-      {/* 直播列表 */}
       {list.length > 0 && (
         <View>
           {list.map((item) => (
@@ -119,7 +125,9 @@ export default function LiveList() {
                   {item.startTime && <Text className="text-xs text-[#999]">{item.startTime}</Text>}
                 </View>
                 {item.watchCount !== undefined && (
-                  <Text className="block mt-1 text-xs text-[#999]">{item.watchCount}人观看</Text>
+                  <Text className="block mt-1 text-xs text-[#999]">
+                    {t('live.viewers', { n: item.watchCount })}
+                  </Text>
                 )}
               </View>
             </View>
@@ -129,13 +137,13 @@ export default function LiveList() {
 
       {!loading && list.length === 0 && (
         <View className="text-center py-16 text-[#999] text-sm">
-          <Text>暂无直播</Text>
+          <Text>{t('live.empty')}</Text>
         </View>
       )}
 
       {loading && (
         <View className="text-center py-16 text-[#999] text-sm">
-          <Text>加载中...</Text>
+          <Text>{t('common.loading')}</Text>
         </View>
       )}
     </View>

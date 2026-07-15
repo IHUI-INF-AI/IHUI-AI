@@ -2,6 +2,7 @@
 
 import { Loader2, Edit, Trash2, MapIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import Image from 'next/image'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { STATUS_MAP } from './helpers'
@@ -66,7 +67,13 @@ export function MapsTable({ rows, isLoading, noEndpoint, onEdit, onDelete, delet
                   <TableCell className="px-4 py-2.5 font-medium">{m.title}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     {m.cover ? (
-                      <img src={m.cover} alt={m.title} className="h-10 w-10 rounded object-cover" />
+                      <Image
+                        src={m.cover}
+                        alt={m.title}
+                        width={40}
+                        height={40}
+                        className="h-10 w-10 rounded object-cover"
+                      />
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
