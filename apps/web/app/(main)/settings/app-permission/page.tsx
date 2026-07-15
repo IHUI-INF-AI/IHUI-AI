@@ -77,7 +77,7 @@ export default function AppPermissionPage() {
                           'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
                           perm.required
                             ? 'bg-orange-100 text-orange-700'
-                            : 'bg-gray-100 text-gray-600',
+                            : 'bg-muted text-muted-foreground',
                         )}
                       >
                         {perm.required

@@ -23,7 +23,7 @@ interface HotNewsProps {
 
 const RANK_STYLES: Record<number, string> = {
   1: 'bg-amber-500 text-white',
-  2: 'bg-slate-400 text-white',
+  2: 'bg-muted-foreground text-background',
   3: 'bg-orange-700 text-white',
 }
 
