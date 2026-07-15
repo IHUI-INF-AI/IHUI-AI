@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Images } from 'lucide-react'
+import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui'
@@ -94,8 +95,13 @@ export default function ImageGenGalleryPage() {
                   className="overflow-hidden transition-colors hover:bg-accent/40"
                 >
                   <div className="w-full bg-muted">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={item.imageUrl} alt={item.prompt} className="w-full object-cover" />
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.prompt}
+                      width={400}
+                      height={300}
+                      className="h-auto w-full"
+                    />
                   </div>
                   <CardContent className="space-y-1 p-3">
                     <p className="line-clamp-2 text-xs font-medium">{item.prompt}</p>

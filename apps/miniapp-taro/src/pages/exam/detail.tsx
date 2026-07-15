@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
@@ -17,7 +18,7 @@ export default function ExamDetail() {
         setExam({ ...paper, questionCount: list.length })
       })
       .catch((e) => {
-        console.error('考试详情加载 failed:', e)
+        logger.error('unknown', '考试详情加载', e)
         Taro.showToast({ title: '考试详情加载失败', icon: 'none' })
       })
   }, [router.params.id])

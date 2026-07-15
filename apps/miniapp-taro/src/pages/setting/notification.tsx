@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -17,7 +18,7 @@ export default function NotificationPage() {
       const res = await getNotificationSettings()
       setList(res.list || [])
     } catch (e) {
-      console.error('[setting/notification] 获取通知设置 failed:', e)
+      logger.error('setting/notification', '获取通知设置', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])

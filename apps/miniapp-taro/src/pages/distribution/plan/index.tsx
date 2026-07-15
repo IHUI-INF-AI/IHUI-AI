@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -14,7 +15,7 @@ export default function DistributionPlan() {
       const res = (await api.getDistributionInfo()) as unknown as Record<string, unknown>
       setInfo(res)
     } catch (e) {
-      console.error('加载分佣计划失败:', e)
+      logger.error('unknown', '加载分佣计划', e)
     } finally {
       setLoading(false)
     }

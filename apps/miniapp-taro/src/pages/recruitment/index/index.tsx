@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -43,7 +44,7 @@ export default function RecruitmentIndexPage() {
       const res = await get<RecruitmentInfo>('/recruitment')
       setInfo(res)
     } catch (e) {
-      console.error('加载招募信息失败:', e)
+      logger.error('unknown', '加载招募信息', e)
     } finally {
       setLoading(false)
     }
@@ -64,7 +65,7 @@ export default function RecruitmentIndexPage() {
         Taro.navigateTo({ url: '/pages/vip-trader/index/index' })
       }, 800)
     } catch (e) {
-      console.error('提交申请失败:', e)
+      logger.error('unknown', '提交申请', e)
     } finally {
       setSubmitting(false)
     }

@@ -1,6 +1,7 @@
 'use client'
 
 import { Bot } from 'lucide-react'
+import Image from 'next/image'
 import { AnswerArea } from './AnswerArea'
 import { BottomBar } from './BottomBar'
 import { formatTokens, formatDate } from './helpers'
@@ -14,8 +15,13 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
       {/* 头部：模型信息 */}
       <header className="flex items-center border-b border-gray-100 px-5 py-3.5">
         {modelIcon ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={modelIcon} alt="模型图标" className="mr-2.5 h-8 w-8 rounded object-cover" />
+          <Image
+            src={modelIcon}
+            alt="模型图标"
+            width={32}
+            height={32}
+            className="mr-2.5 h-8 w-8 rounded object-cover"
+          />
         ) : (
           <div className="mr-2.5 flex h-8 w-8 items-center justify-center rounded bg-gray-100">
             <Bot className="h-5 w-5 text-gray-500" />

@@ -25,7 +25,7 @@ const TYPE_ICON: Record<InteractionItem['type'], string> = {
 
 const TYPE_COLOR: Record<InteractionItem['type'], string> = {
   like: 'text-red-500',
-  comment: 'text-blue-500',
+  comment: 'text-primary',
   follow: 'text-green-500',
   collect: 'text-yellow-500',
 }

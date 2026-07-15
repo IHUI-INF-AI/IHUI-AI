@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -14,7 +15,7 @@ export default function ModelEdit() {
       const res = (await api.getDeveloperAgents()) as Record<string, unknown>
       setList((Array.isArray(res) ? res : res?.list || []) as Record<string, unknown>[])
     } catch (e) {
-      console.error('加载模型失败:', e)
+      logger.error('unknown', '加载模型', e)
     } finally {
       setLoading(false)
     }

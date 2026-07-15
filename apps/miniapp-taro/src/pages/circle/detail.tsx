@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -14,7 +15,7 @@ export default function CircleDetailPage() {
     try {
       setData(await getCircleDetail(id))
     } catch (e) {
-      console.error('[circle/detail] 获取动态详情 failed:', e)
+      logger.error('circle/detail', '获取动态详情', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [id])

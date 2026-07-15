@@ -2,18 +2,20 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { pay } from '@/api'
-
-const METHODS = [
-  { value: 'wechat' as const, name: '微信支付', icon: '微', color: '#09bb07' },
-  { value: 'alipay' as const, name: '支付宝', icon: '支', color: '#1677ff' },
-  { value: 'balance' as const, name: '余额支付', icon: '余', color: '#ff9a3c' },
-]
+import { useI18n } from '@/i18n'
 
 export default function PayIndex() {
+  const { t } = useI18n()
   const router = useRouter()
   const [orderNo, setOrderNo] = useState('')
   const [amount, setAmount] = useState(0)
   const [payType, setPayType] = useState<'wechat' | 'balance' | 'alipay'>('wechat')
+
+  const methods = [
+    { value: 'wechat' as const, name: t('pay.wechat'), icon: '微', color: '#09bb07' },
+    { value: 'alipay' as const, name: t('pay.alipay'), icon: '支', color: '#1677ff' },
+    { value: 'balance' as const, name: t('pay.balance'), icon: '余', color: '#ff9a3c' },
+  ]
 
   useEffect(() => {
     setOrderNo(router.params.orderNo || '')
@@ -22,7 +24,7 @@ export default function PayIndex() {
 
   const onPay = async () => {
     if (!orderNo) {
-      Taro.showToast({ title: '订单异常', icon: 'none' })
+      Taro.showToast({ title: t('pay.orderAbnormal'), icon: 'none' })
       return
     }
     try {
@@ -43,13 +45,15 @@ export default function PayIndex() {
     <View className="min-h-screen bg-[#f7f8fa] pb-[120rpx]">
       <View className="m-[24rpx] p-[32rpx] bg-white rounded-[16rpx]">
         <View className="text-center">
-          <Text className="block text-[26rpx] text-[#999]">订单金额</Text>
+          <Text className="block text-[26rpx] text-[#999]">{t('pay.orderAmount')}</Text>
           <Text className="block text-[60rpx] text-[#dd524d] font-bold mt-[12rpx]">¥{amount}</Text>
         </View>
       </View>
       <View className="m-[24rpx] p-[32rpx] bg-white rounded-[16rpx]">
-        <View className="text-[28rpx] text-[#333] font-semibold mb-[24rpx]">选择支付方式</View>
-        {METHODS.map((m) => (
+        <View className="text-[28rpx] text-[#333] font-semibold mb-[24rpx]">
+          {t('pay.selectMethod')}
+        </View>
+        {methods.map((m) => (
           <View
             key={m.value}
             className="flex items-center py-[24rpx] border-b-[2rpx] border-[#f5f5f5]"
@@ -72,7 +76,7 @@ export default function PayIndex() {
         className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-[#07c160] text-white rounded-[40rpx] text-[32rpx]"
         onClick={onPay}
       >
-        确认支付 ¥{amount}
+        {t('pay.confirm')} ¥{amount}
       </Button>
     </View>
   )

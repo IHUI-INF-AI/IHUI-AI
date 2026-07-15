@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -10,7 +11,7 @@ export default function Profile() {
     try {
       setForm(await getProfile())
     } catch (e) {
-      console.error('[user/profile] 获取用户信息 failed:', e)
+      logger.error('user/profile', '获取用户信息', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])

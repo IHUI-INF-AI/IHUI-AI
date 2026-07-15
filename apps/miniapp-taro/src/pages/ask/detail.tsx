@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Image, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
@@ -22,7 +23,7 @@ export default function AskDetailPage() {
     try {
       setData(await getAskDetail(id))
     } catch (e) {
-      console.error('[ask/detail] 获取问题详情 failed:', e)
+      logger.error('ask/detail', '获取问题详情', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [id])

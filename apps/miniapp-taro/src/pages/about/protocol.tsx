@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -11,7 +12,7 @@ export default function ProtocolPage() {
       const res = await getProtocol()
       setContent(res.content)
     } catch (e) {
-      console.error('[about/protocol] 获取协议内容 failed:', e)
+      logger.error('about/protocol', '获取协议内容', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])

@@ -3,18 +3,20 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
 import { logout } from '@/api'
+import { useI18n } from '@/i18n'
 
 const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
 const menus = [
-  { icon: '📋', text: '我的订单', path: '/pages/user/orders' },
-  { icon: '⚙️', text: '设置', path: '/pages/user/settings' },
-  { icon: '📚', text: '我的课程', path: '/pages/course/list' },
-  { icon: '🤖', text: 'AI 对话', path: '/pages/ai/chat' },
+  { icon: '📋', key: 'user.menu.orders', path: '/pages/user/orders' },
+  { icon: '⚙️', key: 'user.menu.settings', path: '/pages/user/settings' },
+  { icon: '📚', key: 'user.menu.courses', path: '/pages/course/list' },
+  { icon: '🤖', key: 'user.menu.ai', path: '/pages/ai/chat' },
 ]
 
 export default function UserIndex() {
+  const { t } = useI18n()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const isLogin = useMemo(() => !!userInfo, [userInfo])
 
@@ -36,8 +38,8 @@ export default function UserIndex() {
 
   function handleLogout() {
     Taro.showModal({
-      title: '提示',
-      content: '确定退出登录吗？',
+      title: t('common.hint'),
+      content: t('user.logoutConfirm'),
       success: async (res) => {
         if (res.confirm) {
           try {
@@ -47,7 +49,7 @@ export default function UserIndex() {
           }
           clearAuth()
           setUserInfo(null)
-          Taro.showToast({ title: '已退出登录', icon: 'success' })
+          Taro.showToast({ title: t('user.loggedOut'), icon: 'success' })
         }
       },
     })
@@ -73,7 +75,7 @@ export default function UserIndex() {
             />
             <View className="ml-[12px]">
               <Text className="block text-white text-[18px] font-semibold">
-                {userInfo.userName || userInfo.nickname || '用户'}
+                {userInfo.userName || userInfo.nickname || t('common.user')}
               </Text>
               {userInfo.phone ? (
                 <Text className="block mt-[4px] text-white text-[12px] opacity-85">
@@ -82,7 +84,7 @@ export default function UserIndex() {
               ) : null}
               {userInfo.isVip ? (
                 <Text className="inline-block mt-[6px] px-[8px] py-[2px] bg-[#f0ad4e] text-white text-[10px] rounded-[10px]">
-                  VIP 会员
+                  {t('user.vipMember')}
                 </Text>
               ) : null}
             </View>
@@ -95,9 +97,11 @@ export default function UserIndex() {
               mode="aspectFill"
             />
             <View className="ml-[12px]">
-              <Text className="block text-white text-[18px] font-semibold">点击登录</Text>
+              <Text className="block text-white text-[18px] font-semibold">
+                {t('user.tapLogin')}
+              </Text>
               <Text className="block mt-[4px] text-white text-[12px] opacity-85">
-                登录后享受更多服务
+                {t('user.loginHint')}
               </Text>
             </View>
           </View>
@@ -115,7 +119,7 @@ export default function UserIndex() {
             onClick={() => goPage(item.path)}
           >
             <Text className="text-[20px]">{item.icon}</Text>
-            <Text className="flex-1 ml-[10px] text-[15px] text-[#333]">{item.text}</Text>
+            <Text className="flex-1 ml-[10px] text-[15px] text-[#333]">{t(item.key)}</Text>
             <Text className="text-[13px] text-[#ccc]">{'>'}</Text>
           </View>
         ))}
@@ -127,7 +131,7 @@ export default function UserIndex() {
           className="mx-[16px] my-[24px] h-[48px] leading-[48px] text-center bg-white rounded-[24px] text-[#dd524d] text-[15px]"
           onClick={handleLogout}
         >
-          <Text>退出登录</Text>
+          <Text>{t('user.logout')}</Text>
         </View>
       ) : null}
     </View>

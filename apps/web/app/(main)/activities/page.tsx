@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Calendar, Gift, Sparkles, Clock, ArrowRight, UserPlus } from 'lucide-react'
+import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui'
@@ -102,8 +103,9 @@ export default function ActivitiesPage() {
                 className="group flex flex-col overflow-hidden transition-colors hover:bg-accent"
               >
                 {a.banner ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={a.banner} alt={a.title} className="h-36 w-full object-cover" />
+                  <div className="relative h-36 w-full">
+                    <Image src={a.banner} alt={a.title} fill className="object-cover" />
+                  </div>
                 ) : (
                   <div className="flex h-36 w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                     <Sparkles className="h-10 w-10 text-primary/40" />

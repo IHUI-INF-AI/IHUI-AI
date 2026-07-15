@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Pencil, Sparkles, Tag } from 'lucide-react'
+import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -121,8 +122,7 @@ export default function AgentDetailPage() {
           <div className="overflow-hidden rounded-lg border">
             <div className="relative h-32 w-full bg-muted">
               {agent.cover ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={agent.cover} alt={agent.name} className="h-full w-full object-cover" />
+                <Image src={agent.cover} alt={agent.name} fill className="object-cover" />
               ) : (
                 <div className="flex h-full items-center justify-center text-muted-foreground/40">
                   <Sparkles className="h-10 w-10" />

@@ -43,7 +43,7 @@ export function LiveStats({ t }: { t: ReturnType<typeof useTranslations<'admin.l
         icon={Eye}
         label={t('statViewSum')}
         value={viewSum}
-        gradient="bg-gradient-to-br from-sky-500 to-blue-500"
+        gradient="bg-gradient-to-br from-teal-500 to-emerald-600"
       />
     </div>
   )
