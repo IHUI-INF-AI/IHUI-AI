@@ -15,26 +15,18 @@ interface ThemeState {
   toggleHighContrast: () => void
 }
 
-/** 解析 system 主题为实际明暗 */
-function resolveDark(theme: ThemeMode): boolean {
-  if (theme === 'dark') return true
-  if (theme === 'light') return false
-  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-}
-
-/** 将主题应用到 document.documentElement.classList */
+/** 将主题应用到 document.documentElement.classList
+ * 注意: .dark 类由 next-themes (ThemeProvider attribute="class") 统一管理,此处不再 toggle 避免冲突。
+ * 仅处理 high-contrast 辅助类。 */
 function applyTheme(
-  theme: ThemeMode,
-  accentColor: string,
-  fontSize: FontSize,
+  _theme: ThemeMode,
+  _accentColor: string,
+  _fontSize: FontSize,
   highContrast: boolean,
 ) {
   if (typeof document === 'undefined') return
   const root = document.documentElement
-  root.classList.toggle('dark', resolveDark(theme))
   root.classList.toggle('high-contrast', highContrast)
-  root.setAttribute('data-accent', accentColor)
-  root.setAttribute('data-font-size', fontSize)
 }
 
 /** SSR 安全的 localStorage 替代存储 */
@@ -48,7 +40,7 @@ export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
       theme: 'system',
-      accentColor: 'blue',
+      accentColor: 'green',
       fontSize: 'medium',
       highContrast: false,
 
