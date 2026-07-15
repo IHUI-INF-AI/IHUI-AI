@@ -25,7 +25,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 
 const ROOT = process.cwd()
@@ -97,7 +97,7 @@ function header(title) {
 // =====================================================
 function checkTypecheck() {
   header('1. TypeScript 类型检查 (10 包)')
-  const r = run('pnpm turbo typecheck --logFile=/dev/null 2>&1 | tail -40')
+  const r = run('pnpm turbo typecheck')
   if (r.ok) {
     recordStatus('ok', 'pnpm turbo typecheck', '10/10 任务全绿')
   } else {
@@ -111,7 +111,7 @@ function checkTypecheck() {
 // =====================================================
 function checkLint() {
   header('2. ESLint 代码规范 (10 包)')
-  const r = run('pnpm turbo lint --logFile=/dev/null 2>&1 | tail -50')
+  const r = run('pnpm turbo lint')
   // lint 通常即使有 warning 也会 exit 0,error 才 exit 1
   if (r.ok) {
     // 提取 warning 数
@@ -133,7 +133,7 @@ function checkTests() {
     recordStatus('warn', 'pnpm --filter @ihui/api test', '--skip-tests 已跳过')
     return
   }
-  const r = run('pnpm --filter @ihui/api test -- --run 2>&1 | tail -30')
+  const r = run('pnpm --filter @ihui/api test')
   if (r.ok) {
     const m = r.stdout.match(/Tests\s+(\d+)\s+passed/)
     const f = r.stdout.match(/Tests\s+(\d+)\s+failed/)
@@ -241,7 +241,6 @@ function checkMigrations() {
   }
 
   // 关键 R65 表存在性
-  const schemaDir = join(ROOT, 'packages/database/src/schema')
   const requiredTables = [
     'upload_sessions',         // 0047
     'user_auth_info',          // 0047
@@ -318,72 +317,64 @@ function checkR65BackendEndpoints() {
     return
   }
 
-  // 1) 提取 server.register(prefix) 映射
   const serverSrc = readFileSync(serverFile, 'utf8')
-  const pluginPrefixMap = new Map() // plugin var name -> prefix
-  const prefixRe = /server\.register\(\s*(\w+)\s*,\s*\{\s*prefix:\s*['"`]([^'"`]+)['"`]/g
+
+  // 1) Build map: routeVarName -> prefix (from server.register calls)
+  const varToPrefix = new Map()
+  const regRe = /server\.register\(\s*(\w+)\s*,\s*\{\s*prefix:\s*['"`]([^'"`]+)['"`]/g
   let m
-  while ((m = prefixRe.exec(serverSrc)) !== null) {
-    pluginPrefixMap.set(m[1], m[2])
+  while ((m = regRe.exec(serverSrc)) !== null) {
+    varToPrefix.set(m[1], m[2])
   }
 
-  // 2) 提取每个 routes 文件中的 server.xxx(localPath) + 推断 plugin
-  // 通过查找 import 名称 + 文件路径匹配 server.ts 中的 import
-  // 简化:扫描所有 server.xxx(local) → 后续用 prefix+local 匹配
-  const allRoutes = [] // { method, local, file, full }
-  const routeFiles = collectFiles(routesDir, ['.ts'])
-  for (const f of routeFiles) {
-    const src = readFileSync(f, 'utf8')
-    const re = /server\.(get|post|put|patch|delete)\(\s*['"`]([^'"`]+)['"`]/g
-    let mm
-    while ((mm = re.exec(src)) !== null) {
-      allRoutes.push({
-        method: mm[1].toUpperCase(),
-        local: mm[2],
-        file: relative(ROOT, f),
-      })
-    }
-  }
-
-  // 3) 关联 plugin 与 prefix:从 server.ts 提取 import → 文件名
-  // 简化方案:对每个 import (xxxRoutes),推断其源文件 = routes/xxx.ts
-  const importRe = /import\s+(?:\{\s*(\w+)\s*\}|(\w+))\s+from\s+['"`]\.\/routes\/([^'"`]+)\.js['"`]/g
-  const pluginFileMap = new Map() // plugin var -> filename basename
+  // 2) Build map: importName -> filePath
+  // Handles both named imports { a, b } and default imports xxx
+  const importToFile = new Map()
+  const importRe = /import\s+(?:\{([^}]+)\}|(\w+))\s+from\s+['"`]\.\/routes\/([^'"`]+)\.js['"`]/g
   while ((m = importRe.exec(serverSrc)) !== null) {
-    const pluginName = m[1] ?? m[2]
     const fileBase = m[3]
-    pluginFileMap.set(pluginName, fileBase)
-  }
-
-  // 4) 计算每个路由的 full path
-  // 思路:如果文件 basename 能匹配 plugin → 用对应 prefix;否则 prefix=''
-  for (const r of allRoutes) {
-    const fileBase = r.file.replace(/^apps\/api\/src\/routes\//, '').replace(/\.ts$/, '').replace(/\/.*$/, '')
-    let prefix = ''
-    for (const [plugin, file] of pluginFileMap) {
-      if (file === fileBase) {
-        prefix = pluginPrefixMap.get(plugin) ?? ''
-        break
+    const filePath = join(routesDir, fileBase + '.ts')
+    if (m[1]) {
+      const names = m[1].split(',').map((s) => s.trim()).filter(Boolean)
+      for (const name of names) {
+        importToFile.set(name, filePath)
       }
+    } else if (m[2]) {
+      importToFile.set(m[2], filePath)
     }
-    r.full = (prefix + r.local).replace(/\/+/g, '/').replace(/\/$/, '') || '/'
   }
 
-  // 5) 校验
+  // 3) Build map: prefix -> Set(filePath)
+  const prefixToFiles = new Map()
+  for (const [varName, prefix] of varToPrefix) {
+    const filePath = importToFile.get(varName)
+    if (filePath) {
+      if (!prefixToFiles.has(prefix)) prefixToFiles.set(prefix, new Set())
+      prefixToFiles.get(prefix).add(filePath)
+    }
+  }
+
+  // 4) For each required endpoint, search in files mapped to that prefix
   let okCount = 0
   for (const req of required) {
     const fullReq = (req.prefix + req.local).replace(/\/+/g, '/').replace(/\/$/, '')
-    const found = allRoutes.find((r) => {
-      if (r.method !== req.method) return false
-      // 用 :param 通配
-      const rParts = r.full.split('/')
-      const reqParts = fullReq.split('/')
-      if (rParts.length !== reqParts.length) return false
-      for (let i = 0; i < rParts.length; i++) {
-        if (reqParts[i] !== rParts[i] && !reqParts[i].startsWith(':')) return false
+    const files = prefixToFiles.get(req.prefix)
+    if (!files || files.size === 0) {
+      recordStatus('fail', `${req.method} ${fullReq}`, `前缀 ${req.prefix} 无关联路由文件`)
+      continue
+    }
+    let found = false
+    for (const f of files) {
+      if (!existsSync(f)) continue
+      const src = readFileSync(f, 'utf8')
+      const methodLower = req.method.toLowerCase()
+      const escapedLocal = req.local.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const routeRe = new RegExp(`server\\.${methodLower}\\(\\s*['"\`]${escapedLocal}['"\`]`)
+      if (routeRe.test(src)) {
+        found = true
+        break
       }
-      return true
-    })
+    }
     if (found) {
       okCount++
     } else {
@@ -395,21 +386,6 @@ function checkR65BackendEndpoints() {
   } else {
     recordStatus('fail', 'R65 后端端点', `${okCount}/${required.length} 就位`)
   }
-}
-
-function collectFiles(dir, exts, result = []) {
-  if (!existsSync(dir)) return result
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry)
-    const st = statSync(full)
-    if (st.isDirectory()) {
-      if (entry === '__tests__') continue
-      collectFiles(full, exts, result)
-    } else if (exts.some((e) => entry.endsWith(e))) {
-      result.push(full)
-    }
-  }
-  return result
 }
 
 // =====================================================
@@ -465,15 +441,23 @@ function checkMigrationGapReport() {
     return
   }
   const content = readFileSync(report, 'utf8')
-  const m = content.match(/(?:缺失|missing|未迁移)[\s\S]*?(\d+)\s*(?:项|个)/i)
+
+  // 1) Check for 100% completeness (v2 report format)
+  if (/合计.*?100%/.test(content) || /真实完整率.*?100%/.test(content)) {
+    recordStatus('ok', '迁移完整度', '100% 完整(0 真缺失)')
+    return
+  }
+
+  // 2) Fallback: look for "真缺失" count in the report
+  const m = content.match(/真缺失[^\n]*?(\d+)/i)
   if (m) {
     const count = parseInt(m[1], 10)
     if (count === 0) {
-      recordStatus('ok', '迁移完整度', '0 项缺失')
+      recordStatus('ok', '迁移完整度', '0 项真缺失')
     } else if (count <= 10) {
-      recordStatus('warn', '迁移完整度', `${count} 项缺失(可接受)`)
+      recordStatus('warn', '迁移完整度', `${count} 项真缺失(可接受)`)
     } else {
-      recordStatus('fail', '迁移完整度', `${count} 项缺失(>10 需评估)`)
+      recordStatus('fail', '迁移完整度', `${count} 项真缺失(>10 需评估)`)
     }
   } else {
     recordStatus('warn', 'MIGRATION_GAP_REPORT.md', '格式未识别,跳过')
