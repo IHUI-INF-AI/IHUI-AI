@@ -19,7 +19,8 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui'
-import { selectClass, slugify, HELP_CATEGORIES } from './helpers'
+import { selectClass, HELP_CATEGORIES } from './helpers'
+import { slugify } from '@/lib/content'
 import type { HelpArticle, HelpForm } from './types'
 
 interface Props {

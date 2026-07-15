@@ -99,3 +99,13 @@ openapi.json
 openapi_problems.json
 report.json
 .trae-html-share-packages/
+
+# ============================================================================
+# 临时补丁和 i18n 扫描产物(不纳入版本库)
+# ============================================================================
+patches/
+unfound-zh.txt
+unfound-en.txt
+unfound-ja.txt
+unfound-ko.txt
+unfound-zh-TW.txt

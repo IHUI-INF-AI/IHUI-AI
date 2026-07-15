@@ -15,16 +15,6 @@ export async function fetchList(): Promise<HelpArticle[]> {
   return Array.isArray(d) ? d : (d.list ?? [])
 }
 
-export function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-}
-
 export const EMPTY_FORM: HelpForm = {
   title: '',
   slug: '',

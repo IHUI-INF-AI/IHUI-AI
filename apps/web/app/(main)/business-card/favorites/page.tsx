@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Star, Loader2, ArrowLeft, Trash2, Share2 } from 'lucide-react'
@@ -110,10 +111,11 @@ export default function CardFavoritesPage() {
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     {card.avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={card.avatar}
                         alt={card.name}
+                        width={48}
+                        height={48}
                         className="h-12 w-12 shrink-0 rounded-full object-cover"
                       />
                     ) : (

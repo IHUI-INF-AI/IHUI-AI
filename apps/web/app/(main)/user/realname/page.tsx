@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
+import { dateFormat } from '@/lib/date-utils'
 import {
   Button,
   Input,
@@ -47,12 +48,6 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
   return r.data
-}
-
-function formatDate(v?: string): string {
-  if (!v) return '-'
-  const d = new Date(v)
-  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString()
 }
 
 export default function RealnamePage() {
@@ -123,7 +118,7 @@ export default function RealnamePage() {
               <p className="text-sm text-muted-foreground">{t('realname.approvedTitle')}</p>
               <p className="text-lg font-semibold">{info?.realName ?? '-'}</p>
               <p className="text-xs text-muted-foreground">
-                {t('realname.auditTime')}：{formatDate(info?.auditTime)}
+                {t('realname.auditTime')}：{info?.auditTime ? dateFormat(info.auditTime) : '-'}
               </p>
             </div>
           </CardContent>

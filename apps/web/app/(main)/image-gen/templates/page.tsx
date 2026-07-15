@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, LayoutTemplate, Sparkles } from 'lucide-react'
@@ -138,9 +139,9 @@ export default function ImageGenTemplatesPage() {
               onClick={() => applyTemplate(tpl.prompt)}
             >
               {tpl.previewUrl ? (
-                <div className="h-32 w-full bg-muted">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                <div className="relative h-32 w-full bg-muted">
+                  <Image
+                    fill
                     src={tpl.previewUrl}
                     alt={tpl.title}
                     className="h-full w-full object-cover"

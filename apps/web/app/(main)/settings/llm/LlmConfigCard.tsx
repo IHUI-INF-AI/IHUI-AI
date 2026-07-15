@@ -17,14 +17,8 @@ import {
 import { Button, Card, CardContent, Switch } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
 
-import {
-  testConfig,
-  toggleConfig,
-  fetchUpstreamModels,
-  deleteConfig,
-  formatTime,
-  maskKey,
-} from './helpers'
+import { testConfig, toggleConfig, fetchUpstreamModels, deleteConfig, maskKey } from './helpers'
+import { dateFormat } from '@/lib/date-utils'
 import type { PlatformTemplate, UpstreamModel, UserLlmConfig } from './types'
 
 interface Props {
@@ -172,9 +166,9 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
               }
             >
               {testOk
-                ? `成功 ${config.lastTestResponseMs ?? 0}ms · ${formatTime(config.lastTestedAt)}`
+                ? `成功 ${config.lastTestResponseMs ?? 0}ms · ${config.lastTestedAt ? dateFormat(config.lastTestedAt) : '—'}`
                 : testFailed
-                  ? `失败 · ${formatTime(config.lastTestedAt)}`
+                  ? `失败 · ${config.lastTestedAt ? dateFormat(config.lastTestedAt) : '—'}`
                   : '未测试'}
             </p>
           </div>

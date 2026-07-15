@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { CreditCard, Plus, Star, Share2, Loader2, Pencil, Trash2 } from 'lucide-react'
@@ -47,10 +48,11 @@ function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNo
     <Card className="overflow-hidden transition-colors hover:bg-accent/40">
       <CardContent className="flex items-start gap-3 p-4">
         {card.avatar ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={card.avatar}
             alt={card.name}
+            width={48}
+            height={48}
             className="h-12 w-12 shrink-0 rounded-full object-cover"
           />
         ) : (

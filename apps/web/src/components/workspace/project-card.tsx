@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { FolderOpen, FileText, ArrowRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
+import { dateFormat } from '@/lib/date-utils'
 import {
   Card,
   CardHeader,
@@ -21,12 +22,6 @@ export interface ProjectCardData {
   description: string
   fileCount?: number
   updatedAt: string | Date
-}
-
-function formatDate(value: string | Date): string {
-  const d = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(d.getTime())) return '-'
-  return d.toLocaleString()
 }
 
 export function ProjectCard({ project }: { project: ProjectCardData }) {
@@ -51,7 +46,9 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
         </div>
       </CardContent>
       <CardFooter className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{formatDate(project.updatedAt)}</span>
+        <span className="text-xs text-muted-foreground">
+          {dateFormat(project.updatedAt) || '-'}
+        </span>
         <Button asChild size="sm">
           <Link href={`/workspace/${project.id}`}>
             {t('enterProject')}
