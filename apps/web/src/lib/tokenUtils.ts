@@ -19,6 +19,7 @@ const MAX_DELAY_MS = 24 * 60 * 60 * 1000 // 上限 24h
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 let inFlightRefresh: Promise<TokenPair | null> | null = null
+let stopped = false
 
 interface JWTPayload {
   exp?: number
@@ -123,6 +124,7 @@ async function doRefresh(opts: ScheduleOptions): Promise<void> {
 }
 
 function applyRefreshed(tokens: TokenPair): void {
+  if (stopped) return
   useAuthStore.getState().setToken(tokens.accessToken, tokens)
 }
 
@@ -132,6 +134,7 @@ function applyRefreshed(tokens: TokenPair): void {
  */
 export function startAutoRefresh(onError?: (err: Error) => void): void {
   if (typeof window === 'undefined') return
+  stopped = false
   const { token, refreshToken } = useAuthStore.getState()
   if (!token || !refreshToken) return
   schedule({
@@ -142,7 +145,9 @@ export function startAutoRefresh(onError?: (err: Error) => void): void {
   })
 }
 
-/** 停止自动刷新(通常在 logout 时调用) */
+/** 停止自动刷新(通常在 logout 时调用)。
+ * 标记 stopped 以阻止飞行中的 refresh 完成后写回已注销的 store。 */
 export function stopAutoRefresh(): void {
+  stopped = true
   clearRefreshTimer()
 }

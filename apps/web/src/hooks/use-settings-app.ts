@@ -4,6 +4,7 @@ import * as React from 'react'
 
 import { useThemeStore, type FontSize } from '@/stores/theme'
 import { useToast } from '@/hooks/use-toast'
+import { useTheme as useNextTheme } from 'next-themes'
 
 export interface UseSettingsAppReturn {
   theme: string
@@ -15,9 +16,11 @@ export interface UseSettingsAppReturn {
   reset: () => void
 }
 
-/** 设置-应用 Hook，管理主题、强调色、字号等应用级偏好 */
+/** 设置-应用 Hook，管理主题、强调色、字号等应用级偏好。
+ * 主题切换通过 next-themes 统一应用 .dark 类(zustand store 仅保留 UI 状态,避免双写冲突)。 */
 export function useSettingsApp(): UseSettingsAppReturn {
   const toast = useToast()
+  const { setTheme: setNextTheme } = useNextTheme()
   const theme = useThemeStore((s) => s.theme)
   const accentColor = useThemeStore((s) => s.accentColor)
   const fontSize = useThemeStore((s) => s.fontSize)
@@ -28,9 +31,10 @@ export function useSettingsApp(): UseSettingsAppReturn {
   const setTheme = React.useCallback(
     (t: 'light' | 'dark' | 'system') => {
       setThemeStore(t)
+      setNextTheme(t)
       toast.success('主题已更新')
     },
-    [setThemeStore, toast],
+    [setThemeStore, setNextTheme, toast],
   )
 
   const setAccentColor = React.useCallback(
@@ -51,10 +55,11 @@ export function useSettingsApp(): UseSettingsAppReturn {
 
   const reset = React.useCallback(() => {
     setThemeStore('system')
-    setAccentColorStore('blue')
+    setNextTheme('system')
+    setAccentColorStore('green')
     setFontSizeStore('medium')
     toast.success('已恢复默认设置')
-  }, [setThemeStore, setAccentColorStore, setFontSizeStore, toast])
+  }, [setThemeStore, setNextTheme, setAccentColorStore, setFontSizeStore, toast])
 
   return {
     theme,
