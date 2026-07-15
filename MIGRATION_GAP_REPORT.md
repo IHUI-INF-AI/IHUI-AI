@@ -32,30 +32,98 @@
 
 ### 3.1 P0 阻断性缺失(42 项,8 维度)
 
-#### 维度 1:数据库表/Schema(6 P0)
+> 核查结论(P35 后端 P0 深度核查,2026-07-16,5 个并发 agent 核查 35 项):**35 项中 22 项已等价实现,5 项架构替代,3 项已实现但死代码未激活,2 项真实缺失**(schedule 课程表 + doubao_ws)。原 v3 报告判定不准确,已全部修正。
 
-| #   | 缺失项                                         | 旧路径                                    | 影响                                                      |
-| --- | ---------------------------------------------- | ----------------------------------------- | --------------------------------------------------------- |
-| 1   | auth_tokens 表语义偏移(应为 auth_accounts)     | cloud_learning_auth                       | 鉴权语义混淆                                              |
-| 2   | AuthuserMargin 表完全缺失                      | edu/service/auth                          | 用户额度功能断层                                          |
-| 3   | advertise 广告表完全缺失                       | edu/service                               | 广告投放功能缺失                                          |
-| 4   | cloud_learning_quartz 表(Scheduler)未迁移      | ai-smart-society-java/sql/quartz.sql      | 定时任务元数据缺失(已用 BullMQ 替代,但需迁移历史任务定义) |
-| 5   | cloud_learning_seata_undo_log 事务回滚表未迁移 | ai-smart-society-java/sql/ry_seata.sql    | 分布式事务回滚(已用 PG 事务替代,但历史数据未迁移)         |
-| 6   | sys_config 配置表字段缺失                      | ai-smart-society-java/sql/ry_20250425.sql | 部分配置项未迁移到 hot-config                             |
+#### 维度 1:数据库表/Schema(6 P0 → ✅ 全部已等价实现或架构替代,0 真实缺失)
 
-#### 维度 2:Java 后端服务(13 P0)
+> 核查结论(基于深度代码核查):6 项全部已等价实现或合理的架构替代,无真实缺失。
 
-| #    | 缺失项                                       | 旧路径                                                                 | 影响                                               |
-| ---- | -------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------- |
-| 1-7  | 7 个 Spring Cloud 微服务 Controller 完全缺失 | edu/service/{auth,behavior,circle,exam,live,resource,schedule}-service | 业务功能断层                                       |
-| 8-13 | 6 个 RuoYi 系统模块 Controller 缺失          | ai-smart-society-java/ruoyi-modules/{system,job,gen,tools}             | 系统管理功能缺失(部分已被 drizzle-kit + plop 替代) |
+| #   | 缺失项                                         | 旧路径                                    | 新路径                                                                                                                              | 状态                                       |
+| --- | ---------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 1   | auth_tokens 表语义偏移(应为 auth_accounts)     | cloud_learning_auth                       | `packages/database/src/schema/oauth.ts` → `user_third_party_accounts` 表(userId/openId/unionId/platform/accessToken/refreshToken)  | ✅ 已等价实现                              |
+| 2   | AuthuserMargin 表完全缺失                      | edu/service/auth                          | `packages/database/src/schema/wallet.ts` → `user_margins` + `token_flows` 流水表;wallet.ts/fund.ts/token-balance-service.ts 已使用     | ✅ 已等价实现                              |
+| 3   | advertise 广告表完全缺失                       | edu/service                               | `packages/database/src/schema/carousels.ts` → `carousels` 表(position/title/imageUrl/linkUrl/startAt/endAt);`/advertise` 兼容 API + 前端 UI | ✅ 已等价实现(架构升级为通用 carousels)    |
+| 4   | cloud_learning_quartz 表(Scheduler)未迁移      | ai-smart-society-java/sql/quartz.sql      | `packages/database/src/schema/admin-sys.ts` L99-128 → `sysJobs` + `sysJobLogs` 元数据表;运行时由 BullMQ 替代 Quartz 集群              | 🔄 架构替代(元数据保留 + BullMQ 运行时)    |
+| 5   | cloud_learning_seata_undo_log 事务回滚表未迁移 | ai-smart-society-java/sql/ry_seata.sql    | 无(故意不迁移)— 单库 PostgreSQL 已用原生事务(BEGIN/COMMIT/ROLLBACK + Drizzle `db.transaction()`)替代分布式事务                          | 🔄 架构替代(单库 PG 事务替代 Seata)       |
+| 6   | sys_config 配置表字段缺失                      | ai-smart-society-java/sql/ry_20250425.sql | `packages/database/src/schema/admin-sys.ts` L167-178 → `sysConfigs` 表(RuoYi 完整字段);架构升级为多层配置(systemConfigs/integrationConfigs/paymentConfigs/hotConfig) | ✅ 已等价实现(字段更丰富,多层配置体系)    |
 
-#### 维度 3:Python 后端服务(16 P0)
+#### 维度 2:Java 后端服务(13 P0 → 12 项已等价/架构替代,1 项真实缺失)
 
-| #    | 缺失项                        | 旧路径                                                                                                           | 影响                             |
-| ---- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| 1-8  | 8 个 Coze API 文件未迁移      | coze_zhs_py/api/{websocket_qwen_stream_omni,websocket_doubao_stream_simplified,bailian_app_ws,socketio_chat,...} | AI 多模型 WebSocket 流式代理断层 |
-| 9-16 | 8 个 Coze services 文件未迁移 | coze_zhs_py/services/{expiration_monitor,cached_expiration_monitor,...}                                          | 后台监控服务断层                 |
+> 核查结论(基于深度代码核查):7 个 Spring Cloud 微服务中 6 项已等价实现(共 ~335 端点,远超旧服务)+ 1 项架构合并;4 个 RuoYi 模块(原清单 6 项实为 4 模块)中 3 项已等价 + 1 项架构替换。**真实缺失 1 项:schedule 课程表/排课服务**(schedule.ts 实为 Cron 任务调度,非课程表,server.ts:492 注释误导)。
+
+##### 2.1 Spring Cloud 微服务(7 项 → 5 ✅ + 1 🔄 + 1 ❌)
+
+| #   | 服务名            | 旧路径                          | 新路径                                                                                                                                                          | 端点数     | 状态                                                                                                                  |
+| --- | ----------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| 1   | auth-service      | edu/service/auth-service        | `apps/api/src/routes/auth.ts` + `auth-extended.ts` + `auth-identity.ts` + `auth-sso.ts`                                                                          | ~84        | ✅ 已等价实现(远超旧服务,含 OAuth2/PKCE/设备令牌/SMS/实名/SSO/PAT)                                                    |
+| 2   | behavior-service  | edu/service/behavior-service    | `apps/api/src/routes/behavior.ts` + `point.ts` + `gamification.ts` + `checkin.ts` + `interactions.ts`                                                          | ~60        | ✅ 已等价实现(点赞/收藏/浏览/积分/签到/互动全覆盖)                                                                     |
+| 3   | circle-service    | edu/service/circle-service      | `apps/api/src/routes/community/circles.ts` + `posts.ts` + `asks.ts` + `topics.ts` + `community.ts` 聚合                                                        | ~44        | 🔄 架构合并(合并到 community 子模块,圈子/动态/成员/话题全覆盖)                                                        |
+| 4   | exam-service      | edu/service/exam-service        | `apps/api/src/routes/exam.ts`                                                                                                                                   | ~57        | ✅ 已等价实现(试卷/题目/答题/成绩/错题/作文/章节/分类全覆盖)                                                            |
+| 5   | live-service      | edu/service/live-service        | `apps/api/src/routes/live.ts`(liveRoutes + adminLiveRoutes)                                                                                                     | ~34        | ✅ 已等价实现(直播间/预约/回放/讲师/分类/腾讯云流回调全覆盖)                                                            |
+| 6   | resource-service  | edu/service/resource-service    | `apps/api/src/routes/resource.ts` + `files.ts` + `oss.ts` + `chunked-upload.ts` + `file-version.ts`                                                            | ~56        | ✅ 已等价实现(资源库 + 文件上传 + OSS 直传 + 分片上传 + 版本管理)                                                     |
+| 7   | schedule-service  | edu/service/schedule-service    | `apps/api/src/routes/schedule.ts` 存在但为 Cron 任务调度(非课程表)                                                                                                | 0(课程表) | ❌ 真实缺失 — server.ts:492 注释"排课任务"系误导,schedule.ts 实际是 BullMQ 定时任务调度,全代码库无课程表/课节/教室/排课逻辑 |
+
+##### 2.2 RuoYi 系统模块(原清单 6 项 → 实为 4 模块,3 ✅ + 1 ⚠️)
+
+> 说明:原清单标题"6 个 RuoYi 系统模块 Controller"实际只列出 system / job / gen / tools 共 4 个模块(RuoYi 的 system 模块内部包含用户/角色/部门/菜单/字典/配置等 6 个子 Controller,可能是清单把"system 模块 6 个子 Controller"误算为"6 个模块")。
+
+| #   | 模块   | 旧路径                       | 新路径                                                                                                                                                                | 状态                                                                              |
+| --- | ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| 1   | system | ruoyi-modules/ruoyi-system   | `apps/api/src/routes/admin-sys.ts`(1042 行,8 子系统:sys-menu/role/logininfor/notice/job/online/dept/post/config/dict-type/dict-data)+ `system.ts`(560 行)+ 配套 schema         | ✅ 已等价实现                                                                     |
+| 2   | job    | ruoyi-modules/ruoyi-quartz   | `apps/api/src/routes/admin-sys.ts` L399-525(RuoYi 兼容 /job)+ `schedule.ts`(新风格 /schedule/tasks)+ `packages/database/src/schema/schedule.ts`(schedule_tasks + schedule_logs)+ bullmq | ✅ 已等价实现(Quartz → BullMQ,双轨兼容 + 新风格增强字段)                          |
+| 3   | gen    | ruoyi-modules/ruoyi-generator | `drizzle-kit: ^0.30.0`(migration 生成)+ `scripts/generate-sdk.ts`(前端 SDK 生成)                                                                                       | ⚠️ 架构替换(不再需要"DB 表→Java CRUD"脚手架,Drizzle 类型安全 schema 即单一来源)   |
+| 4   | tools  | ruoyi-modules/ruoyi-tools    | `@fastify/swagger-ui`(`/docs` 自动生成)+ `system.ts` L254-284 SMTP 测试(nodemailer)+ `services/sms.ts`(阿里云短信)+ `/admin/integrations/:id/test` 统一测试入口           | ✅ 已等价实现(三大职责 Swagger/邮件/短信分散到对应模块)                              |
+
+#### 维度 3:Python 后端服务(16 P0 → 14 项已等价/架构替代,1 项真实缺失,3 项死代码待激活)
+
+> 核查结论(基于深度代码核查):8 个 Coze API 文件中 6 项已等价 + 1 项架构替代 + 1 项真实缺失(doubao_ws);8 个 Coze services 文件中 4 项已等价 + 3 项已实现但死代码未激活 + 1 项架构替代。
+
+##### 3.1 Coze API 文件(8 项 → 6 ✅ + 1 ❌ + 1 🔄)
+
+| #   | 文件                                 | 旧路径                                            | 新路径                                                                                                                              | 状态                                                  |
+| --- | ------------------------------------ | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1   | websocket_qwen_stream_omni           | coze_zhs_py/api/websocket_qwen_stream_omni.py     | `apps/api/src/routes/chat-models.ts:900` → `GET /ws/qwen-omni`(双向 WS 转发 dashscope realtime,接入监控指标)                         | ✅ 已等价实现                                         |
+| 2   | websocket_doubao_stream_simplified   | coze_zhs_py/api/websocket_doubao_stream_simplified.py | 无 — 仅 `proxy-llm.ts:289` HTTP `/doubao/chat`(非流式),火山方舟 realtime WS 代理缺失                                                 | ❌ 真实缺失(建议升级 P1,参照 /ws/qwen-omni 补写 /ws/doubao) |
+| 3   | bailian_app_ws                       | coze_zhs_py/api/bailian_app_ws.py                 | `apps/api/src/routes/ai-vendors/proxy-tools.ts:371` → `GET /bailian/ws`(WS-to-SSE 桥接,推送 chunk/completed/error 事件)               | ✅ 已等价实现                                         |
+| 4   | socketio_chat                        | coze_zhs_py/api/socketio_chat.py                 | `apps/api/src/plugins/ws-chat.ts`(`/ws/chat`)+ `ws-ai.ts:452`(`/ws/coze/chat`)+ `ws-notifications.ts` + `legacy.py:40` 兼容状态端点   | 🔄 架构替代(主动废弃 Socket.IO,改用 @fastify/websocket 原生 WS) |
+| 5   | coze_websocket_chat(推断)            | coze_zhs_py/api/websocket.py                     | `apps/api/src/plugins/ws-ai.ts:452` → `GET /ws/coze/chat`(代码注释明确"迁移自 coze_zhs_py/api/websocket.py",完整 Coze WS 协议 + 3s 心跳) | ✅ 已等价实现                                         |
+| 6   | websocket_qwen_stream(推断)          | coze_zhs_py/api/websocket_qwen_stream.py         | `apps/api/src/routes/chat-models.ts:874` → `POST /qwen/chat/stream`(HTTP SSE,上游 dashscope compatible-mode)                         | ✅ 已等价实现(架构演进为 HTTP SSE)                    |
+| 7   | websocket_zhipu_stream(推断)        | coze_zhs_py/api/websocket_zhipu_stream.py        | `apps/api/src/routes/chat-models.ts:987` → `GET /ws/zhipu`(双向 WS 转发 GLM)+ `POST /multi/zhipu/chat/stream`(HTTP SSE 备选)          | ✅ 已等价实现                                         |
+| 8   | websocket_deepseek_stream(推断)      | coze_zhs_py/api/websocket_deepseek_stream.py     | `apps/api/src/routes/chat-models.ts:570` → `GET /ws/deepseek`(WS-to-SSE 桥接,上游 api.deepseek.com)                                 | ✅ 已等价实现                                         |
+
+##### 3.2 Coze services 文件(8 项 → 4 ✅ + 3 ⚠️死代码 + 1 🔄)
+
+> 说明:旧项目 `coze_zhs_py/` 已不在仓库,v3 报告路径"coze_zhs_py/services/"系路径误差,实际指旧架构 `server/app/services/` + `server/app/tasks/`(依据 MIGRATION_GAP_ANALYSIS.md R62 深审结论 + expiration-monitor-service.ts 文件头注释)。
+
+| #   | 服务                       | 旧路径                                          | 新路径                                                                                                                                                              | 激活状态                  | 状态                                       |
+| --- | -------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------ |
+| 1   | expiration_monitor         | server/app/tasks/expiration_monitor.py          | `apps/api/src/services/expiration-monitor-service.ts` + `workers/scheduler-worker.ts`(BullMQ 每 30s 调用)                                                            | 已激活                    | ✅ 已等价实现                              |
+| 2   | cached_expiration_monitor  | server/app/services/cached_expiration_monitor.py | 合并到 `expiration-monitor-service.ts`(Redis 缓存已处理记录 id,TTL 25h)                                                                                              | 已激活                    | ✅ 已等价实现(合并迁移)                    |
+| 3   | monitor_startup           | server/app/services/monitor_startup.py          | 合并到 `expiration-monitor-service.ts` + `plugins/scheduler.ts`(BullMQ repeatable job 生命周期)                                                                      | 已激活                    | ✅ 已等价实现(合并迁移)                    |
+| 4   | canary_monitor_bridge     | server/app/services/canary_monitor_bridge.py    | `apps/api/src/services/expiration-monitor-service.ts` L220-247(连续 4 次失败触发回滚)+ `canary-service.ts`(Drizzle 持久化 canaryConfigs + canaryAuditLogs)             | 已激活(4 路由 import)    | ✅ 已等价实现                              |
+| 5   | alert_pagerduty           | server/app/services/alert_pagerduty.py          | `apps/api/src/services/alert-notification-service.ts` L487 `pushAlert()`(PagerDuty Events API v2,trigger/acknowledge/resolve)                                         | **未激活**(无 import 引用) | ⚠️ 已实现但死代码(需接线激活)              |
+| 6   | alert_webhook             | server/app/services/alert_webhook.py            | `apps/api/src/services/alert-notification-service.ts`(合并,8 渠道:钉钉/企业微信/飞书/邮件/PagerDuty/Slack/Teams/自定义 Webhook,Promise.allSettled 并行)                | **未激活**(无 import 引用) | ⚠️ 已实现但死代码(需接线激活)              |
+| 7   | alert_upstream_mocks      | server/app/services/alert_upstream_mocks.py     | `monitoring/alertmanager/noise-rules.yml`(8 条抑制规则)+ `monitor.ts` 路由 `/backfill-status` + `monitorAlerts`/`suppressionRules` DB 表                            | N/A(测试 Mock 工具)      | 🔄 设计替代(测试工具,生产无需迁移)         |
+| 8   | markdown_converter        | server/app/services/markdown_converter.py       | `apps/api/src/services/markdown-converter-service.ts` L265 `convertToMarkdown()`(支持 .docx/.xlsx/.pptx/.pdf/.txt/.md 共 6 格式,mammoth + SheetJS + 零依赖 ZIP+XML)    | **未激活**(无路由 import) | ⚠️ 已实现但死代码(需接线激活)              |
+
+**P35 后端 P0 核查汇总(35 项):**
+
+| 维度                  | 总数 | ✅ 已等价 | 🔄 架构替代 | ⚠️ 死代码 | ❌ 真实缺失          |
+| --------------------- | ---- | --------- | ----------- | --------- | -------------------- |
+| 1. 数据库表/Schema    | 6    | 4         | 2           | 0         | 0                    |
+| 2.1 Spring Cloud 微服务 | 7    | 5         | 1           | 0         | 1(schedule 课程表)   |
+| 2.2 RuoYi 系统模块    | 4    | 3         | 1           | 0         | 0                    |
+| 3.1 Coze API 文件     | 8    | 6         | 1           | 0         | 1(doubao_ws)         |
+| 3.2 Coze services 文件 | 8    | 4         | 1           | 3         | 0                    |
+| **合计**              | **35** | **22**  | **5**       | **3**     | **2**                |
+
+**真实缺失 2 项 → 移入 P36 补写:**
+1. schedule 课程表/排课服务(需先核对旧 Java 语义定论)
+2. doubao_ws 火山方舟豆包 WebSocket 流式代理(参照 `/ws/qwen-omni` 模式补写 `/ws/doubao`)
+
+**死代码 3 项 → P1 接线激活:**
+1. alert-notification-service.ts(在 alert-check-service.ts 中 import pushAlert,当 escalated > 0 时触发多渠道告警)
+2. markdown-converter-service.ts(在 resource.ts 或 files.ts 中 import,提供 `/files/:id/convert-markdown` 端点)
 
 #### 维度 4:小程序页面(5 P0 → 4 项已等价实现,1 项真实缺失)
 
