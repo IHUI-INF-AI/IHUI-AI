@@ -60,7 +60,7 @@ export function KeysList({
                       {k.scopes.map((s) => (
                         <span
                           key={s}
-                          className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                          className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
                         >
                           {s}
                         </span>
