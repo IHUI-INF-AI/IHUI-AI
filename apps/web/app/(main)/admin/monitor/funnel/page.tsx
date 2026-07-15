@@ -8,6 +8,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/lib/date-utils'
 
 interface FunnelStage {
   key: string
@@ -29,7 +30,8 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const selectClass = 'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const selectClass =
+  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function AdminMonitorFunnelPage() {
   const [funnel, setFunnel] = React.useState('signup')
@@ -53,7 +55,9 @@ export default function AdminMonitorFunnelPage() {
           <p className="mt-1 text-sm text-muted-foreground">关键业务转化漏斗分析</p>
         </div>
         <Select value={funnel} onValueChange={setFunnel}>
-          <SelectTrigger className={selectClass} aria-label="漏斗"><SelectValue /></SelectTrigger>
+          <SelectTrigger className={selectClass} aria-label="漏斗">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="signup">注册转化</SelectItem>
             <SelectItem value="purchase">下单转化</SelectItem>
@@ -70,7 +74,7 @@ export default function AdminMonitorFunnelPage() {
               <CardTitle className="text-xs font-medium text-muted-foreground">总用户</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{data.totalUsers.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-primary">{formatNumber(data.totalUsers)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -78,7 +82,9 @@ export default function AdminMonitorFunnelPage() {
               <CardTitle className="text-xs font-medium text-muted-foreground">转化用户</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-emerald-600">{data.convertedUsers.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-emerald-600">
+                {formatNumber(data.convertedUsers)}
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -86,7 +92,9 @@ export default function AdminMonitorFunnelPage() {
               <CardTitle className="text-xs font-medium text-muted-foreground">转化率</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-amber-600">{data.conversionRate.toFixed(2)}%</div>
+              <div className="text-2xl font-bold text-amber-600">
+                {data.conversionRate.toFixed(2)}%
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -111,18 +119,27 @@ export default function AdminMonitorFunnelPage() {
               {stages.map((s, i) => {
                 const width = maxCount > 0 ? (s.count / maxCount) * 100 : 0
                 const prev = i > 0 ? stages[i - 1] : undefined
-                const dropRate = prev && prev.count > 0 ? ((prev.count - s.count) / prev.count) * 100 : 0
+                const dropRate =
+                  prev && prev.count > 0 ? ((prev.count - s.count) / prev.count) * 100 : 0
                 return (
                   <div key={s.key} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">{s.label}</span>
                       <span className="text-muted-foreground">
-                        {s.count.toLocaleString()} <span className="text-xs">({s.rate.toFixed(1)}%)</span>
+                        {formatNumber(s.count)}{' '}
+                        <span className="text-xs">({s.rate.toFixed(1)}%)</span>
                       </span>
                     </div>
                     <div className="relative h-8 overflow-hidden rounded-md bg-muted">
                       <div
-                        className={cn('flex h-full items-center rounded-md px-2 text-xs font-medium text-white transition-all', i === 0 ? 'bg-primary' : i === stages.length - 1 ? 'bg-emerald-600' : 'bg-primary/70')}
+                        className={cn(
+                          'flex h-full items-center rounded-md px-2 text-xs font-medium text-white transition-all',
+                          i === 0
+                            ? 'bg-primary'
+                            : i === stages.length - 1
+                              ? 'bg-emerald-600'
+                              : 'bg-primary/70',
+                        )}
                         style={{ width: `${Math.max(width, 15)}%` }}
                       >
                         {s.rate.toFixed(0)}%

@@ -140,7 +140,6 @@ export default function AdminCustomerServicePage() {
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
                     {s.userAvatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={s.userAvatar}
                         alt={s.userName}

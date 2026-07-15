@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { PERIOD_LABEL_KEY } from './helpers'
 import type { ApiPackage } from './types'
+import { formatNumber } from '@/lib/date-utils'
 
 interface Props {
   list: ApiPackage[]
@@ -51,7 +52,7 @@ export function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
                   )}
                 </TableCell>
                 <TableCell>¥{p.price}</TableCell>
-                <TableCell>{p.quota.toLocaleString()}</TableCell>
+                <TableCell>{formatNumber(p.quota)}</TableCell>
                 <TableCell>{t(PERIOD_LABEL_KEY[p.period])}</TableCell>
                 <TableCell>
                   {p.status === 1 ? (

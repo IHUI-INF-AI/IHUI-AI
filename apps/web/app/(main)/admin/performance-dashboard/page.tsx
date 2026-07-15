@@ -8,6 +8,7 @@ import { Gauge, Cpu, MemoryStick, Activity, Timer, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/lib/date-utils'
 
 interface Stats {
   cpu: number
@@ -180,7 +181,7 @@ export default function PerformanceDashboardPage() {
                         {e.avgLatency}ms
                       </span>
                     </td>
-                    <td className="px-4 py-2.5">{e.calls.toLocaleString()}</td>
+                    <td className="px-4 py-2.5">{formatNumber(e.calls)}</td>
                     <td className="px-4 py-2.5">
                       <span
                         className={cn(

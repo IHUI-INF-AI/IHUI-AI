@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@ihui/ui'
 import { api } from './helpers'
 import type { Snapshot } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface Props {
   list: Snapshot[]
@@ -40,9 +41,7 @@ export function StatisticsTable({ list }: Props) {
                   {s.type}
                 </span>
               </td>
-              <td className="px-4 py-2 text-muted-foreground">
-                {new Date(s.createdAt).toLocaleString()}
-              </td>
+              <td className="px-4 py-2 text-muted-foreground">{formatDate(s.createdAt)}</td>
               <td className="px-4 py-2">
                 <pre className="max-w-xs overflow-x-auto text-xs text-muted-foreground">
                   {JSON.stringify(s.data).slice(0, 120)}

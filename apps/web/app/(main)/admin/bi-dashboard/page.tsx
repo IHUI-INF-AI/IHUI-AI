@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import type { EChartsOption } from 'echarts'
 import { fetchApi } from '@/lib/api'
 import { EChart } from '@/components/charts/EChart'
+import { formatNumber } from '@/lib/date-utils'
 
 interface BiTrend {
   date: string
@@ -159,7 +160,7 @@ export default function BiDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {isLoading ? '—' : (d[c.key] as number).toLocaleString()}
+                  {isLoading ? '—' : formatNumber(d[c.key] as number)}
                 </div>
               </CardContent>
             </Card>

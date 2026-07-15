@@ -4,6 +4,7 @@ import { Wallet, TrendingUp, TrendingDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import type { FundAccount } from './types'
+import { formatNumber, formatCurrency } from '@/lib/date-utils'
 
 interface Props {
   accounts: FundAccount[]
@@ -45,9 +46,7 @@ export function FundsHeader({ accounts }: Props) {
               </CardHeader>
               <CardContent>
                 <div className={cn('text-2xl font-bold', c.cls)}>
-                  {c.raw
-                    ? c.value.toLocaleString()
-                    : `¥${(c.value / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                  {c.raw ? formatNumber(c.value) : `¥${formatCurrency(c.value / 100)}`}
                 </div>
               </CardContent>
             </Card>

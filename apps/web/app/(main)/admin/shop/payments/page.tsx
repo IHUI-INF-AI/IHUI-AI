@@ -21,6 +21,7 @@ import {
   TableCell,
 } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/date-utils'
 
 interface Order {
   id: string
@@ -172,7 +173,7 @@ export default function AdminShopPaymentsPage() {
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {new Date(o.createdAt).toLocaleString()}
+                    {formatDate(o.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
                     {o.status === 'paid' && (

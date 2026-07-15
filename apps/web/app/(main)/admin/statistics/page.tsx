@@ -12,6 +12,7 @@ import { StatisticsFilter } from './StatisticsFilter'
 import { StatisticsTable } from './StatisticsTable'
 import { api, buildOverviewCards } from './helpers'
 import type { OverviewStatistics, SnapshotListData, SnapshotType } from './types'
+import { formatNumber } from '@/lib/date-utils'
 
 interface UserGrowthPoint {
   date: string
@@ -182,7 +183,7 @@ export default function StatisticsPage() {
                     <Icon className={`h-4 w-4 ${c.color}`} />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{c.value.toLocaleString()}</div>
+                    <div className="text-2xl font-bold">{formatNumber(c.value)}</div>
                   </CardContent>
                 </Card>
               )

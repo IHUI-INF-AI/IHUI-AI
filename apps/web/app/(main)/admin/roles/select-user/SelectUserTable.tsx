@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 
 import { th } from './helpers'
 import type { UnallocUser } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface Props {
   list: UnallocUser[]
@@ -80,7 +81,7 @@ export function SelectUserTable({ list, isLoading, selected, onToggleAll, onTogg
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
-                  {u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}
+                  {u.createdAt ? formatDate(u.createdAt) : '-'}
                 </td>
               </tr>
             ))

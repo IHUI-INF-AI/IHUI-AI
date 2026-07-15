@@ -8,6 +8,7 @@ import { BarChart3, Activity, AlertTriangle, Timer, Loader2, TrendingUp } from '
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/lib/date-utils'
 
 interface UsageStats {
   totalCalls: number
@@ -72,13 +73,13 @@ export default function ApiUsagePage() {
     ? [
         {
           label: t('apiUsage.totalCalls'),
-          value: stats.totalCalls.toLocaleString(),
+          value: formatNumber(stats.totalCalls),
           icon: BarChart3,
           color: 'text-primary',
         },
         {
           label: t('apiUsage.todayCalls'),
-          value: stats.todayCalls.toLocaleString(),
+          value: formatNumber(stats.todayCalls),
           icon: Activity,
           color: 'text-primary',
         },
@@ -165,7 +166,7 @@ export default function ApiUsagePage() {
                     {dayUsageList.map((d) => (
                       <tr key={d.date} className="border-t">
                         <td className="px-3 py-2 text-muted-foreground">{d.date}</td>
-                        <td className="px-3 py-2 font-medium">{d.calls.toLocaleString()}</td>
+                        <td className="px-3 py-2 font-medium">{formatNumber(d.calls)}</td>
                         <td className="px-3 py-2">
                           <div className="h-2 w-40 overflow-hidden rounded-full bg-muted">
                             <div
@@ -218,7 +219,7 @@ export default function ApiUsagePage() {
                         {e.method}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 font-medium">{e.calls.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 font-medium">{formatNumber(e.calls)}</td>
                     <td className="px-4 py-2.5">
                       <span
                         className={cn(
