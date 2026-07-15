@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { ApiResult } from '@ihui/types'
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@ihui/api-client/client', () => ({
   fetchApi: vi.fn(),
 }))
 
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@ihui/api-client/client'
 import { getProfile, updateProfile } from '../user-api'
 
 describe('user-api', () => {
