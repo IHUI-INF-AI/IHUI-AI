@@ -8,6 +8,7 @@ import { Star, Loader2, ArrowLeft, Trash2, Share2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui'
+import { getInitials } from '@/components/data/Avatar'
 
 interface BusinessCard {
   id: string
@@ -37,10 +38,6 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
   return r.data
-}
-
-function initials(name: string) {
-  return name.slice(0, 2).toUpperCase()
 }
 
 export default function CardFavoritesPage() {
@@ -120,7 +117,7 @@ export default function CardFavoritesPage() {
                       />
                     ) : (
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                        {initials(card.name)}
+                        {getInitials(card.name)}
                       </div>
                     )}
                     <div className="min-w-0 flex-1 space-y-1">

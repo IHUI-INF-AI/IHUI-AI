@@ -635,6 +635,9 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
           socket.send(JSON.stringify({ type: 'error', data: { message: (e as Error).message } }))
         }
       })
+      socket.on('close', () => {
+        server.recordWsDisconnect()
+      })
     })()
   })
 
@@ -956,7 +959,17 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
+      server.recordWsConnect()
+      socket.on('message', () => {
+        server.recordWsMessageReceived()
+      })
+      const origSend = socket.send.bind(socket)
+      socket.send = ((data: unknown, ...rest: unknown[]) => {
+        server.recordWsMessageSent()
+        return (origSend as (...args: unknown[]) => unknown)(data, ...rest)
+      }) as typeof socket.send
       socket.on('close', () => {
+        server.recordWsDisconnect()
         try {
           upstream.close()
         } catch {
@@ -1029,7 +1042,17 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
+      server.recordWsConnect()
+      socket.on('message', () => {
+        server.recordWsMessageReceived()
+      })
+      const origSend = socket.send.bind(socket)
+      socket.send = ((data: unknown, ...rest: unknown[]) => {
+        server.recordWsMessageSent()
+        return (origSend as (...args: unknown[]) => unknown)(data, ...rest)
+      }) as typeof socket.send
       socket.on('close', () => {
+        server.recordWsDisconnect()
         try {
           upstream.close()
         } catch {

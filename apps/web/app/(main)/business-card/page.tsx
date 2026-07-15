@@ -9,6 +9,7 @@ import { CreditCard, Plus, Star, Share2, Loader2, Pencil, Trash2 } from 'lucide-
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui'
+import { getInitials } from '@/components/data/Avatar'
 
 interface BusinessCard {
   id: string
@@ -39,10 +40,6 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-function initials(name: string) {
-  return name.slice(0, 2).toUpperCase()
-}
-
 function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNode }) {
   return (
     <Card className="overflow-hidden transition-colors hover:bg-accent/40">
@@ -57,7 +54,7 @@ function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNo
           />
         ) : (
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-            {initials(card.name)}
+            {getInitials(card.name)}
           </div>
         )}
         <div className="min-w-0 flex-1 space-y-1">

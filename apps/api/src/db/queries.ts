@@ -83,6 +83,19 @@ export async function cancelUserAccount(id: string): Promise<void> {
 }
 
 /**
+ * 判断用户是否为系统内置管理员（is_system_admin=true）。
+ * 应用层预检：DB 触发器是最后防线，应用层先返回 403 提供更友好的错误。
+ */
+export async function isSystemAdminUser(id: string): Promise<boolean> {
+  const rows = await db
+    .select({ flag: users.isSystemAdmin })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1)
+  return rows[0]?.flag === true
+}
+
+/**
  * 创建新用户。
  */
 export async function createUser(data: CreateUserInput): Promise<User> {

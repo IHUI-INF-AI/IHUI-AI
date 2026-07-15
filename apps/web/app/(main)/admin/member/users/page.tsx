@@ -2,50 +2,24 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Users, Search, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { Users, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { fetchApi } from '@/lib/api'
-import {
-  Input,
-  Button,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@ihui/ui'
-import { cn } from '@/lib/utils'
+import { Button } from '@ihui/ui'
 
-interface MemberUser {
-  id: string
-  nickname: string | null
-  phone: string | null
-  email: string | null
-  level: number
-  status: number
-  createdAt: string | null
+import { UserFilter } from './UserFilter'
+import { UserTable } from './UserTable'
+import { CreateUserDialog } from './CreateUserDialog'
+import { DeleteUserDialog } from './DeleteUserDialog'
+import { PAGE_SIZE, api } from './helpers'
+import type { ListData, MemberUser, CreateUserForm } from './types'
+
+const EMPTY_FORM: CreateUserForm = {
+  nickname: '',
+  phone: '',
+  email: '',
+  password: '',
 }
-
-interface ListData {
-  list: MemberUser[]
-  total: number
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
-const PAGE_SIZE = 10
-const selectClass =
-  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function AdminMemberUsersPage() {
   const qc = useQueryClient()
@@ -55,12 +29,7 @@ export default function AdminMemberUsersPage() {
   const [status, setStatus] = React.useState('all')
   const [page, setPage] = React.useState(1)
   const [createOpen, setCreateOpen] = React.useState(false)
-  const [createForm, setCreateForm] = React.useState({
-    nickname: '',
-    phone: '',
-    email: '',
-    password: '',
-  })
+  const [createForm, setCreateForm] = React.useState<CreateUserForm>(EMPTY_FORM)
   const [deleteTarget, setDeleteTarget] = React.useState<MemberUser | null>(null)
 
   React.useEffect(() => {
@@ -95,7 +64,7 @@ export default function AdminMemberUsersPage() {
       toast.success('用户创建成功')
       qc.invalidateQueries({ queryKey: ['admin', 'member', 'users'] })
       setCreateOpen(false)
-      setCreateForm({ nickname: '', phone: '', email: '', password: '' })
+      setCreateForm(EMPTY_FORM)
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -116,6 +85,20 @@ export default function AdminMemberUsersPage() {
   const list = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  const handleLevelChange = (v: string) => {
+    setLevel(v)
+    setPage(1)
+  }
+  const handleStatusChange = (v: string) => {
+    setStatus(v)
+    setPage(1)
+  }
+
+  const handleStatusToggle = (u: MemberUser) => {
+    const isActive = (u.status ?? 0) === 1
+    patchMut.mutate({ id: u.id, body: { status: isActive ? 0 : 1 } })
+  }
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -148,163 +131,23 @@ export default function AdminMemberUsersPage() {
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索昵称/手机号"
-            className="h-9 pl-8"
-          />
-        </div>
-        <Select
-          value={level}
-          onValueChange={(v) => {
-            setLevel(v)
-            setPage(1)
-          }}
-        >
-          <SelectTrigger className={selectClass} aria-label="等级">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部等级</SelectItem>
-            <SelectItem value="0">普通</SelectItem>
-            <SelectItem value="1">白银</SelectItem>
-            <SelectItem value="2">黄金</SelectItem>
-            <SelectItem value="3">钻石</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={status}
-          onValueChange={(v) => {
-            setStatus(v)
-            setPage(1)
-          }}
-        >
-          <SelectTrigger className={selectClass} aria-label="状态">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
-            <SelectItem value="1">正常</SelectItem>
-            <SelectItem value="0">禁用</SelectItem>
-            <SelectItem value="3">已注销</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <UserFilter
+        search={search}
+        onSearchChange={setSearch}
+        level={level}
+        onLevelChange={handleLevelChange}
+        status={status}
+        onStatusChange={handleStatusChange}
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2.5 font-medium">用户</th>
-              <th className="px-4 py-2.5 font-medium">联系方式</th>
-              <th className="px-4 py-2.5 font-medium">等级</th>
-              <th className="px-4 py-2.5 font-medium">状态</th>
-              <th className="px-4 py-2.5 font-medium">注册时间</th>
-              <th className="px-4 py-2.5 text-right font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                </td>
-              </tr>
-            ) : list.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  暂无用户
-                </td>
-              </tr>
-            ) : (
-              list.map((u) => {
-                const statusVal = u.status ?? 0
-                const isActive = statusVal === 1
-                const isCancelled = statusVal === 3
-                const levelLabel = ['普通', '白银', '黄金', '钻石'][u.level] ?? '普通'
-                return (
-                  <tr key={u.id} className="transition-colors hover:bg-muted/30">
-                    <td className="px-4 py-2.5 font-medium">
-                      {u.nickname || u.phone || u.email || u.id}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                      <div>{u.phone || '-'}</div>
-                      <div className="text-muted-foreground/80">{u.email || '-'}</div>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs',
-                          u.level >= 2
-                            ? 'bg-amber-500/10 text-amber-600'
-                            : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        {levelLabel}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
-                          isCancelled
-                            ? 'bg-muted text-muted-foreground'
-                            : isActive
-                              ? 'bg-emerald-500/10 text-emerald-600'
-                              : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            'h-1.5 w-1.5 rounded-full',
-                            isCancelled
-                              ? 'bg-muted-foreground'
-                              : isActive
-                                ? 'bg-emerald-500'
-                                : 'bg-muted-foreground',
-                          )}
-                        />
-                        {isCancelled ? '已注销' : isActive ? '正常' : '禁用'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                      {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={patchMut.isPending}
-                          onClick={() =>
-                            patchMut.mutate({ id: u.id, body: { status: isActive ? 0 : 1 } })
-                          }
-                        >
-                          {isActive ? '禁用' : '启用'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={deleteMut.isPending}
-                          onClick={() => setDeleteTarget(u)}
-                          className="text-destructive hover:text-destructive"
-                          aria-label="删除用户"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <UserTable
+        list={list}
+        isLoading={isLoading}
+        patchPending={patchMut.isPending}
+        deletePending={deleteMut.isPending}
+        onStatusToggle={handleStatusToggle}
+        onDelete={setDeleteTarget}
+      />
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
@@ -333,118 +176,21 @@ export default function AdminMemberUsersPage() {
         </div>
       </div>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>创建用户</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreateSubmit} className="space-y-3">
-            <div className="space-y-1">
-              <label htmlFor="member-create-nickname" className="text-sm font-medium">
-                昵称
-              </label>
-              <Input
-                id="member-create-nickname"
-                aria-label="昵称"
-                value={createForm.nickname}
-                onChange={(e) => setCreateForm((f) => ({ ...f, nickname: e.target.value }))}
-                placeholder="请输入昵称"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label htmlFor="member-create-phone" className="text-sm font-medium">
-                  手机号
-                </label>
-                <Input
-                  id="member-create-phone"
-                  aria-label="手机号"
-                  value={createForm.phone}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
-                  placeholder="可选"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="member-create-email" className="text-sm font-medium">
-                  邮箱
-                </label>
-                <Input
-                  id="member-create-email"
-                  aria-label="邮箱"
-                  type="email"
-                  value={createForm.email}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                  placeholder="可选"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="member-create-password" className="text-sm font-medium">
-                密码(至少 6 位)
-              </label>
-              <Input
-                id="member-create-password"
-                aria-label="密码"
-                type="password"
-                value={createForm.password}
-                onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
-                placeholder="请输入密码"
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCreateOpen(false)}
-                disabled={createMut.isPending}
-              >
-                取消
-              </Button>
-              <Button type="submit" disabled={createMut.isPending}>
-                {createMut.isPending ? '创建中…' : '创建'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <CreateUserDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        form={createForm}
+        onChange={setCreateForm}
+        submitting={createMut.isPending}
+        onSubmit={handleCreateSubmit}
+      />
 
-      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>删除用户</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            确认要删除用户
-            <span className="mx-1 font-medium text-foreground">
-              "
-              {deleteTarget?.nickname ||
-                deleteTarget?.phone ||
-                deleteTarget?.email ||
-                deleteTarget?.id}
-              "
-            </span>
-            吗?此操作不可恢复。
-          </p>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeleteTarget(null)}
-              disabled={deleteMut.isPending}
-            >
-              取消
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
-              disabled={deleteMut.isPending}
-            >
-              {deleteMut.isPending ? '删除中…' : '删除'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteUserDialog
+        target={deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        submitting={deleteMut.isPending}
+        onConfirm={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
+      />
     </div>
   )
 }

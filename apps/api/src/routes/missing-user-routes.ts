@@ -20,6 +20,7 @@ import { eq, asc, sql, and } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
+import { isSystemAdminUser } from '../db/queries.js'
 import {
   aiModelConfig,
   users,
@@ -917,6 +918,9 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/settings/delete-account', async (request, reply) => {
+    if (await isSystemAdminUser(request.userId!)) {
+      return reply.status(403).send(error(403, '系统内置管理员账户不可注销'))
+    }
     await db.update(users).set({ status: 0 }).where(eq(users.id, request.userId!))
     return reply.send(success({ success: true }))
   })

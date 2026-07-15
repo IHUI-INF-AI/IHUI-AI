@@ -51,7 +51,7 @@ describe('customer-service-queries — 真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM customer_service_tickets`)
     await db.execute(sql`DELETE FROM customer_service_agents`)
     await db.execute(sql`DELETE FROM customer_service_categories`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('Helpers', () => {

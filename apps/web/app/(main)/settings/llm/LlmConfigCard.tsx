@@ -18,7 +18,7 @@ import { Button, Card, CardContent, Switch } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
 
 import { testConfig, toggleConfig, fetchUpstreamModels, deleteConfig, maskKey } from './helpers'
-import { dateFormat } from '@/lib/date-utils'
+import { formatDate } from '@/lib/date-utils'
 import type { PlatformTemplate, UpstreamModel, UserLlmConfig } from './types'
 
 interface Props {
@@ -97,7 +97,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
             <div className="flex items-center gap-2">
               <h3 className="truncate text-sm font-semibold">{config.name}</h3>
               <span
-                className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
                   config.enabled
                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
                     : 'bg-muted text-muted-foreground'
@@ -106,7 +106,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
                 {config.enabled ? '启用' : '已停用'}
               </span>
               {!config.hasApiKey ? (
-                <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
                   未配置 Key
                 </span>
               ) : null}
@@ -147,7 +147,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 text-[11px] sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
           <div className="min-w-0">
             <p className="text-muted-foreground">Base URL</p>
             <p className="truncate font-mono" title={config.baseUrl}>
@@ -166,9 +166,9 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
               }
             >
               {testOk
-                ? `成功 ${config.lastTestResponseMs ?? 0}ms · ${config.lastTestedAt ? dateFormat(config.lastTestedAt) : '—'}`
-                : testFailed
-                  ? `失败 · ${config.lastTestedAt ? dateFormat(config.lastTestedAt) : '—'}`
+                ? `成功 ${config.lastTestResponseMs ?? 0}ms · ${config.lastTestedAt ? formatDate(config.lastTestedAt) : '—'}`
+              : config.lastTestedAt
+                ? `失败 · ${config.lastTestedAt ? formatDate(config.lastTestedAt) : '—'}`
                   : '未测试'}
             </p>
           </div>
@@ -197,14 +197,14 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
                   <li key={m.id} className="flex items-center justify-between gap-2">
                     <code className="truncate font-mono">{m.id}</code>
                     {m.context_length ? (
-                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                      <span className="shrink-0 text-xs text-muted-foreground">
                         {(m.context_length / 1000).toFixed(0)}K
                       </span>
                     ) : null}
                   </li>
                 ))}
                 {models.length > 30 ? (
-                  <li className="pt-1 text-center text-[10px] text-muted-foreground">
+                  <li className="pt-1 text-center text-xs text-muted-foreground">
                     共 {models.length} 个,展开省略
                   </li>
                 ) : null}
@@ -215,7 +215,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-6 px-2 text-[11px]"
+                className="h-6 px-2 text-xs"
                 onClick={() => fetchMut.mutate()}
                 disabled={fetchMut.isPending}
               >

@@ -32,7 +32,7 @@ describe('point-queries — 真实 DB 集成测试', () => {
     await db.execute(sql`DELETE FROM edu_point_channel_relations`)
     await db.execute(sql`DELETE FROM edu_points`)
     await db.execute(sql`DELETE FROM edu_point_channels`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('Channels 积分渠道', () => {

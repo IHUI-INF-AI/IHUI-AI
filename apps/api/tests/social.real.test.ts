@@ -24,7 +24,7 @@ describe('social-queries — 真实 DB 集成测试', () => {
   beforeEach(async () => {
     await db.execute(sql`DELETE FROM user_favorites`)
     await db.execute(sql`DELETE FROM user_follows`)
-    await db.execute(sql`DELETE FROM users`)
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   describe('followUser / isFollowing', () => {

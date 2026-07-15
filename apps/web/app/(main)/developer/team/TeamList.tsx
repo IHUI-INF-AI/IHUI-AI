@@ -38,7 +38,7 @@ export function TeamList({ list, isLoading, dateFmt, removePending, onEdit, onRe
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-medium">{m.nickname}</p>
                       <span
-                        className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', cfg.cls)}
+                        className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cfg.cls)}
                       >
                         {cfg.label}
                       </span>

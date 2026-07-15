@@ -92,7 +92,7 @@ export const BarChart = React.memo(function BarChart({
                   x={x + barW / 2}
                   y={height - 6}
                   textAnchor="middle"
-                  className="fill-muted-foreground text-[10px]"
+                  className="fill-muted-foreground text-xs"
                 >
                   {xAxis[i]}
                 </text>
