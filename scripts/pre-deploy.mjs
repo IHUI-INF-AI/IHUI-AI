@@ -24,7 +24,7 @@
  * 输出:每项 [OK] / [FAIL] / [WARN] 颜色标注 + 最终汇总 + exit code
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 
