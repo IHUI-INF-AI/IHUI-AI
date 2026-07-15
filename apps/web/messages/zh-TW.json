@@ -97,7 +97,11 @@
       "unifiedAiPanelTitle": "統一 ai 面板",
       "unifiedAiPanelDesc": "整合 chat + agent + generation 的統一互動面板",
       "unifiedAiPanelPlaceholder": "輸入訊息體驗統一 ai 面板...",
-      "sampleResponse": "已收到你的訊息：\"{text}\"。\n\n這是來自統一 ai 面板的範例回覆。在實際場景中，這裡會接入真實的 ai 模型串流輸出。"
+      "sampleResponse": "已收到你的訊息：\"{text}\"。\n\n這是來自統一 ai 面板的範例回覆。在實際場景中，這裡會接入真實的 ai 模型串流輸出。",
+      "loginRequiredTitle": "請先登入",
+      "loginRequiredDesc": "體驗 ai 真實對話需要登入賬號",
+      "aiErrorTitle": "ai 調用失敗",
+      "aiErrorPrefix": "ai 調用失敗"
     },
     "resources": "資源",
     "siteName": "智匯ai社區",
