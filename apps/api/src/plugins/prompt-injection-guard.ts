@@ -32,7 +32,13 @@ function scanValue(data: unknown): string[] {
   return found
 }
 
-const AI_PATH_PREFIXES = ['/api/chat', '/api/ai/', '/api/clawdbot', '/api/coze', '/api/workspace']
+const AI_PATH_PREFIXES = [
+  '/api/chat',
+  '/api/ai/',
+  '/api/admin/clawdbot',
+  '/api/coze',
+  '/api/workspace',
+]
 
 function isAiPath(url: string): boolean {
   const path = url.split('?')[0] ?? ''
