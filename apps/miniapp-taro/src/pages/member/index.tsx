@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -12,7 +13,7 @@ export default function MemberIndexPage() {
     try {
       setInfo(await getMemberInfo())
     } catch (e) {
-      console.error('[member/index] 获取会员信息 failed:', e)
+      logger.error('member/index', '获取会员信息', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }, [])

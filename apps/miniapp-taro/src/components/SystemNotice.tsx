@@ -22,7 +22,7 @@ const TYPE_LABEL: Record<string, string> = {
 }
 
 const TYPE_STYLE: Record<string, string> = {
-  system: 'bg-blue-50 text-blue-600',
+  system: 'bg-primary/10 text-primary',
   activity: 'bg-orange-50 text-orange-600',
   upgrade: 'bg-green-50 text-green-600',
 }

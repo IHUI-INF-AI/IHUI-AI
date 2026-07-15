@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -14,7 +15,7 @@ export default function CoursePlanet() {
       const res = (await api.getCoursePlanet()) as Record<string, unknown>
       setData(res)
     } catch (e) {
-      console.error('加载课程星球失败:', e)
+      logger.error('unknown', '加载课程星球', e)
     } finally {
       setLoading(false)
     }

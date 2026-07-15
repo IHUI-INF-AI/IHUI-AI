@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -14,7 +15,7 @@ export default function LearnDevelop() {
       const res = (await api.getCourseList({ page: 1, pageSize: 20 })) as Record<string, unknown>
       setList((res?.list as Record<string, unknown>[]) || [])
     } catch (e) {
-      console.error('加载课程失败:', e)
+      logger.error('unknown', '加载课程', e)
     } finally {
       setLoading(false)
     }

@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -38,7 +39,7 @@ export default function DeveloperSubscribePage() {
       const res = await subscribeDeveloper({ pricingId: plan.id, period })
       Taro.navigateTo({ url: `/pages/pay/index?orderNo=${res.orderNo}` })
     } catch (e) {
-      console.error('[developer/subscribe] 开通套餐 failed:', e)
+      logger.error('developer/subscribe', '开通套餐', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     } finally {
       setSubmitting(false)
