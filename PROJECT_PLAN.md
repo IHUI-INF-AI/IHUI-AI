@@ -2110,7 +2110,34 @@ packages/api-client/
   - apps/web 仍保留 27 个 `*-api.ts` re-export 文件,后续可按需清理(非阻塞)
   - 4 端共享层目前仅覆盖 API 客户端,UI 跨端兼容(P1-多端-2)尚未启动
 
-- [ ] P1-多端-2:`packages/ui` 跨端兼容重构(剥离 DOM 强依赖)
+- [x] P1-多端-2:`packages/ui` 跨端兼容重构(抽取 ui-primitives 共享层) ✅(2026-07-16)
+
+  **交付结论**:基于前置调研修正策略 — `packages/ui` 本身**零直接 DOM API 调用**(`window./document./localStorage/cookie/navigator.` 全部无匹配),不存在"剥离 DOM"需求;实际跨端障碍是依赖 `@radix-ui/*` + `lucide-react`(Web 专用库)。Tauri(WebView)和 Chrome 插件可直接复用 `packages/ui`,RN 端需独立 UI 库(用户已确认采用 NativeWind + 自建 `packages/ui-native`,在 P1-多端-4 实现)。
+
+  **关键产物**:
+  - `packages/ui-primitives/`:跨端纯逻辑包(无 DOM/JSX 依赖,lib 仅 ES2023)
+    - `src/cn.ts`:`cn()` 函数(clsx + tailwind-merge,NativeWind 兼容)
+    - `src/index.ts`:导出 cn
+    - `package.json`:依赖 clsx + tailwind-merge + class-variance-authority(供后续 ui-native 复用 cva)
+    - `tsconfig.json`:lib 仅 ES2023,无 DOM
+  - `packages/ui/src/lib/utils.ts`:从 6 行实现改为 1 行 re-export `@ihui/ui-primitives`
+  - `packages/ui/package.json`:添加 `@ihui/ui-primitives: workspace:*`,移除 `clsx` 和 `tailwind-merge` 直接依赖(保留 `class-variance-authority` 因组件直接用 cva)
+
+  **验证依据**(六项退出码均为 0):
+  - `pnpm --filter @ihui/ui-primitives typecheck/build/lint` → 0 / 0 / 0
+  - `pnpm --filter @ihui/ui typecheck/build/lint` → 0 / 0 / 0
+  - `pnpm --filter @ihui/web typecheck/lint` → 0 / 0
+
+  **架构决策**:
+  1. 不"剥离 DOM"(本无 DOM 直接调用),而是抽取跨端纯逻辑到独立包
+  2. `packages/ui` 保留 `class-variance-authority`(组件内部用 cva),仅下沉 `cn` 到 ui-primitives
+  3. Tauri/Chrome 插件直接复用 `packages/ui`(WebView 环境);RN 端在 P1-多端-4 新建 `packages/ui-native`(NativeWind + RN 原生组件)
+  4. `ui-primitives` 的 `cn()` 兼容 NativeWind v4(基于 Tailwind v3,tailwind-merge 可用)
+
+  **残留风险/后续工作**:
+  - `packages/ui-native`(RN UI 库)在 P1-多端-4 启动时新建,需对标 `packages/ui` 的 11 个组件(Button/Card/Checkbox/Dialog/Input/Label/Select/Switch/Table/Tabs/Tooltip)
+  - `apps/web` 仍直接依赖 `clsx` + `tailwind-merge`(自有 cn 使用),非本次范围,后续可统一改用 `@ihui/ui-primitives`
+
 - [ ] P1-多端-3:`apps/desktop` Tauri 2.0 骨架 + 核心窗口/托盘/快捷键
 - [ ] P1-多端-4:`apps/mobile` Expo + RN 骨架 + Expo Router + 登录页
 - [ ] P1-多端-5:`apps/extension` WXT 骨架 + sidepanel + content script
@@ -10859,6 +10886,8 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 
 **✅(2026-07-16) P34 goal 已达成 — P1-1 搜索中文分词 + P1-2 API 文档 schema 注解全部完成,typecheck/lint/test 全绿(3054 测试通过)。运行时临时文件因并发 goal(api-client 迁移)覆盖已失效,本 goal 结论已整合到本条目。后续 P35-P40 分批补写待启动。**
 
+**✅(2026-07-16) ai-vendors schema 补全完成(P35 deferred 项)— proxy-media.ts(9 端点)+ proxy-tools.ts(20 端点)新增 swagger schema 注解;proxy-llm.ts(27 端点)+ proxy-extended.ts(31 端点)已有完整 schema;共 87 个 ai-vendors 端点 schema 覆盖完成。typecheck/lint/test 全绿(3054 通过)。**
+
 ### ai-service schema 字段对照校验机制建立（2026-07-15）✅
 
 > 基于上次多端数据互通评估给出的改进建议,为 ai-service(asyncpg 原生 SQL)与 packages/database(Drizzle TS schema)建立字段漂移防护机制。
@@ -11275,3 +11304,64 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 - [x] ✅(2026-07-16) 4 个 commit 全部推送远端
 
 **P1/P2/P3 为非阻断性待办,留待用户决策;本轮主任务完整收尾。**
+
+---
+
+## R70 — skipResponseSanitization 配置审计 P1/P2/P3 全部补齐(2026-07-16)✅(2026-07-16)
+
+> **背景**:R69 记录的 4 项 P1/P2/P3 非阻断性待办,用户授权"按推荐方案执行"。本 R70 一次性补齐 8 个文件的 plugin 级别 `skipResponseSanitization` 旁路,与 R68/R69 的 `auth.ts`/`auth-sso.ts`/`auth-extended.ts`/`gdpr.ts`/`developer.ts`/`agents.ts`/`legacy-completion.ts` 模式完全一致。
+
+### 1. 修复清单(8 文件)
+
+#### P1 修复(用户自身 PII 可见 — 2 文件)
+
+| 文件                                                                                | 修复位置                   | 影响端点                                                                                              | 决策依据                                                                 |
+| ----------------------------------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| [users.ts](file:///g:/IHUI-AI/apps/api/src/routes/users.ts#L80-L85)                 | plugin 入口 onRequest hook | `/me`、`/:id`(本人/admin)、PATCH `/:id`、`/:id/avatar`、`/change-phone`                               | 用户访问自身 phone/email 不应被脱敏(脱敏用于防止跨用户泄漏,不应用于自身) |
+| [auth-identity.ts](file:///g:/IHUI-AI/apps/api/src/routes/auth-identity.ts#L60-L65) | plugin 入口 onRequest hook | `/auth/realname/submit`、`/auth/realname/my`、`/auth/realname/list`、`/auth/realname/:userUuid/audit` | 用户访问自身 idCard + admin 审核列表查看 idCard 不应被脱敏               |
+
+#### P2 修复(创建后一次性返回 secret — 2 文件,与 developer.ts 同类)
+
+| 文件                                                                                          | 修复位置                   | 影响端点                                                  | 决策依据                                                                |
+| --------------------------------------------------------------------------------------------- | -------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [webhooks.ts](file:///g:/IHUI-AI/apps/api/src/routes/webhooks.ts#L56-L61)                     | plugin 入口 onRequest hook | POST `/`、GET `/`、`/:id/test`、`/:id/logs`、`/:id/retry` | webhook 创建后返回 signing secret(整个 plugin 是用户管理自己的 webhook) |
+| [admin-api-platform.ts](file:///g:/IHUI-AI/apps/api/src/routes/admin-api-platform.ts#L60-L65) | plugin 入口 onRequest hook | POST `/api-platform/apps` + 列表/详情/状态切换/删除       | admin 创建 API 平台应用后返回明文 secret(与 developer.ts 模式一致)      |
+
+#### P3 修复(admin 上下文 phone/email 可见 — 4 文件)
+
+| 文件                                                                                                | 修复位置                   | 影响端点                                                                 | 决策依据                                                                                                                |
+| --------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| [admin/member-users.ts](file:///g:/IHUI-AI/apps/api/src/routes/admin/member-users.ts#L14-L19)       | plugin 入口 onRequest hook | GET `/member/users`、`/:id`、PATCH、POST、DELETE                         | admin 角色本应能查看完整 PII                                                                                            |
+| [admin.ts](file:///g:/IHUI-AI/apps/api/src/routes/admin.ts#L85-L90)                                 | plugin 入口 onRequest hook | GET `/users`、`/:id`、PATCH、POST、DELETE                                | 同上                                                                                                                    |
+| [usercenter.ts](file:///g:/IHUI-AI/apps/api/src/routes/usercenter.ts#L96-L101)                      | plugin 入口 onRequest hook | `/usercenter/users` 系列(列表/by-phone/:id/POST/PUT)+ 部门 + 证书 + 统计 | 同上                                                                                                                    |
+| [admin-auth-edu-routes.ts](file:///g:/IHUI-AI/apps/api/src/routes/admin-auth-edu-routes.ts#L63-L68) | plugin 入口 onRequest hook | `/auth-find-info`(idCard→card 重命名)+ 课程/资料/学习计划/提醒等 11 端点 | 原本通过 `idCard → card` 重命名隐式绕过(因 `card` 不在敏感关键字列表),此处改为显式旁路,保留 `card` 字段名以维持前端兼容 |
+
+### 2. pre-commit 守门脚本白名单更新
+
+[scripts/check-sanitizer-bypass.mjs](file:///g:/IHUI-AI/scripts/check-sanitizer-bypass.mjs) L38-56:白名单从 7 个文件扩展到 15 个(新增 8 个)。守门脚本运行通过,零误报、零违规。
+
+### 3. 最终验证
+
+| 验证项         | 命令                                           | 退出码 | 结果                       |
+| -------------- | ---------------------------------------------- | ------ | -------------------------- |
+| 守门脚本       | `node scripts/check-sanitizer-bypass.mjs`      | 0      | ✅ 15 个白名单文件全通过   |
+| typecheck      | `pnpm --filter @ihui/api typecheck`            | 0      | ✅ tsc --noEmit 无错       |
+| eslint(8 文件) | `pnpm --filter @ihui/api exec eslint <8 文件>` | 0      | ✅ 无输出(干净)            |
+| auth 测试套件  | `pnpm --filter @ihui/api test auth`            | 0      | ✅ 8 文件 129/129 通过     |
+| 全量测试套件   | `pnpm --filter @ihui/api test`                 | 0      | ✅ 198 文件 3054/3054 通过 |
+
+### 4. 残留风险与诚实验证
+
+- **诚实验证**:本轮所有旁路均为 **plugin 级别 onRequest hook 显式设置**(与 R67/R68/R69 模式一致),非字段重命名隐式绕过(admin-auth-edu-routes.ts 的 `card` 重命名保留以维持前端兼容,但旁路已显式生效)
+- **粒度权衡**:plugin 级别旁路比按端点设置粒度粗,但所有 8 个文件的端点都属于同一上下文(用户自身 / admin 角色),粗粒度无副作用且更简洁
+- **白名单完整性**:pre-commit 守门脚本白名单已包含全部 15 个文件,后续新增返回 token/secret/phone/email/idCard 的端点会被自动拦截
+
+### 5. 收尾状态
+
+- [x] ✅(2026-07-16) P1 修复 2 文件(users.ts / auth-identity.ts)— 用户自身 PII 可见
+- [x] ✅(2026-07-16) P2 修复 2 文件(webhooks.ts / admin-api-platform.ts)— 创建后返回 secret
+- [x] ✅(2026-07-16) P3 修复 4 文件(admin/member-users.ts / admin.ts / usercenter.ts / admin-auth-edu-routes.ts)— admin 上下文 PII 可见
+- [x] ✅(2026-07-16) pre-commit 白名单从 7 → 15 文件
+- [x] ✅(2026-07-16) typecheck + eslint + 全量测试 3054/3054 通过
+
+**R69 记录的 4 项 P1/P2/P3 待办全部闭环,skipResponseSanitization 配置审计项目完整收尾。**
