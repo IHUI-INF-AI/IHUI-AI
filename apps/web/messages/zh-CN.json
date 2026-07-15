@@ -110,7 +110,7 @@
       "modelSelectorRequiredDesc": "在右上角下拉框选择要使用的模型配置"
     },
     "resources": "资源",
-    "siteName": "智汇AI社区",
+    "siteName": "智汇 AI社区",
     "selectLanguage": "选择语言",
     "ok": "确定",
     "status": "状态",
@@ -807,7 +807,7 @@
     "speedMid": "中",
     "speedFast": "快",
     "announcement": {
-      "welcomeMessage": "欢迎来到智汇AI教育平台，开启你的智能学习之旅！",
+      "welcomeMessage": "欢迎来到智汇 AI教育平台，开启你的智能学习之旅！",
       "close": "关闭公告"
     },
     "banner": {
@@ -7480,9 +7480,9 @@
       "incentiveProgram": {
         "label": "00 / 开发者激励计划",
         "overview": "计划概述",
-        "overviewDesc": "了解智汇AI社区开发者激励计划的核心内容",
+        "overviewDesc": "了解智汇 AI社区开发者激励计划的核心内容",
         "publishGuide": "智能体发布指南",
-        "publishGuideDesc": "手把手教你将扣子智能体发布到智汇AI社区",
+        "publishGuideDesc": "手把手教你将扣子智能体发布到智汇 AI社区",
         "monetizationGuide": "开发者变现指南",
         "monetizationGuideDesc": "了解如何通过智能体实现「睡」后收入",
         "platformIntro": "平台功能介绍",
@@ -10839,7 +10839,7 @@
       "licenseTitle": "开源协议",
       "licenseSubtitle": "半开源许可说明",
       "licenseName": "智汇开放平台商业源码许可（Semi-Open Source License）",
-      "licenseSummary": "您获得的代码在以下条件下可使用、修改与内部部署：允许查看、学习、修改及在自有业务中使用；禁止将源码或衍生品向第三方再分发、转售或用于与智汇AI 直接竞争的产品。具体条款以购买时附带的 LICENSE 文件为准。",
+      "licenseSummary": "您获得的代码在以下条件下可使用、修改与内部部署：允许查看、学习、修改及在自有业务中使用；禁止将源码或衍生品向第三方再分发、转售或用于与智汇 AI 直接竞争的产品。具体条款以购买时附带的 LICENSE 文件为准。",
       "licenseLinkText": "查看完整许可条款",
       "deliveryTitle": "交付与支持",
       "deliverySubtitle": "您将获得",
@@ -11184,9 +11184,9 @@
     "noMoreItems": "暂无更多功能"
   },
   "register": {
-    "brand": "智汇AI",
+    "brand": "智汇 AI",
     "sidebar": {
-      "title": "欢迎加入智汇AI社区",
+      "title": "欢迎加入智汇 AI社区",
       "subtitle": "创建账户，开启AI探索之旅",
       "features": {
         "community": "加入活跃社区",
@@ -11605,7 +11605,7 @@
     "officialApp": "官方应用",
     "contactUs": "联系我们",
     "icp": "吉ICP备2025027274号",
-    "copyright": "Copyright © 2025 智汇AI集团 版权所有"
+    "copyright": "Copyright © 2025 智汇 AI集团 版权所有"
   },
   "agentCategory": {
     "title": "智能体收费配置管理",
@@ -15640,7 +15640,7 @@
       "tag": "公司简介",
       "title": "我们是谁",
       "subtitle": "用技术与产品，把 AI 能力交付到每一款应用与每一次协作中。",
-      "paragraph1": "智汇AI 聚焦人工智能技术的产品化与规模化应用。我们对接国内外主流大模型与多模态能力，通过统一 API、工作流与开放平台，让企业与开发者能以更低成本、更快速度接入和迭代AI能力。",
+      "paragraph1": "智汇 AI 聚焦人工智能技术的产品化与规模化应用。我们对接国内外主流大模型与多模态能力，通过统一 API、工作流与开放平台，让企业与开发者能以更低成本、更快速度接入和迭代AI能力。",
       "paragraph2": "团队来自互联网与AI一线，既有算法与工程经验，也懂业务场景。我们相信：AI 的价值在于真正被用起来。因此我们在稳定性、易用性和可扩展性上持续投入，并围绕企业协作、内容生产、智能体等场景提供开箱即用的解决方案。",
       "visualSublabel": "以 AI 为优先的产品与架构设计"
     },
@@ -15678,7 +15678,7 @@
       "companyFounded": {
         "date": "2024年12月",
         "title": "公司成立",
-        "description": "智汇AI正式成立，专注AI技术研发与产品创新"
+        "description": "智汇 AI正式成立，专注AI技术研发与产品创新"
       },
       "aiAppStore": {
         "date": "2025年1月",
@@ -15809,7 +15809,7 @@
     "forgotPassword": "忘记密码",
     "noAccount": "还没有账号？",
     "project": {
-      "main": "智汇AI主平台",
+      "main": "智汇 AI主平台",
       "open": "开放平台",
       "admin": "总管理端",
       "eduWeb": "AI教育平台",
@@ -15822,7 +15822,7 @@
       "admin": "切换到管理端",
       "switchTo": "切换到"
     },
-    "ihuiLogo": "智汇AI Logo",
+    "ihuiLogo": "智汇 AI Logo",
     "worldFirst": "全球首创",
     "oneStopAI": "人人的一站式AI整合应用平台",
     "aiModels": "AI模型",
@@ -16252,7 +16252,7 @@
   "enterpriseService": {
     "badge": "ENTERPRISESERVICE",
     "adoptionRate": "企业已采用",
-    "heroTitle": "智汇AI企业服务",
+    "heroTitle": "智汇 AI企业服务",
     "heroSubtitle": "AI时代企业理性效率服务与互助社群。帮助决策者深度理解AI与企业的关系，构建人机协同的超级组织。",
     "stats": {
       "priceLabel": "元/人/年 标准价格",
@@ -16261,7 +16261,7 @@
     },
     "positioning": {
       "title": "AI时代企业理性效率服务与互助社群",
-      "description": "智汇AI社致力于帮助企业决策者深度理解AI与企业的关系，通过系统化的课程、实践探索和社群互助，构建人机协同的超级组织，实现企业的理性效率提升。"
+      "description": "智汇 AI社致力于帮助企业决策者深度理解AI与企业的关系，通过系统化的课程、实践探索和社群互助，构建人机协同的超级组织，实现企业的理性效率提升。"
     },
     "modules": {
       "localCommunity": {
@@ -16459,7 +16459,7 @@
       }
     },
     "join": {
-      "title": "加入智汇AI社",
+      "title": "加入智汇 AI社",
       "description": "与志同道合的企业决策者一起，探索AI时代的无限可能",
       "originalPrice": "原价",
       "earlyBird": "早鸟优惠",
@@ -16479,7 +16479,7 @@
       "hint": "扫码咨询或直接联系我们"
     },
     "footer": {
-      "company": "智汇AI社",
+      "company": "智汇 AI社",
       "location": "中国 · 北京",
       "agentScenario": "智能体场景",
       "humanMachine": "人机协作",
@@ -16655,7 +16655,7 @@
     },
     "cta": {
       "title": "开启您的AI智能体之旅",
-      "description": "加入智汇AI社，与专业顾问一起规划最适合您企业的智能体落地路径",
+      "description": "加入智汇 AI社，与专业顾问一起规划最适合您企业的智能体落地路径",
       "learnMore": "了解企业服务",
       "contact": "联系顾问"
     },
@@ -16833,7 +16833,7 @@
     },
     "cta": {
       "title": "构建您的超级企业",
-      "description": "加入智汇AI社，与专业顾问一起规划企业的AI化转型之路",
+      "description": "加入智汇 AI社，与专业顾问一起规划企业的AI化转型之路",
       "learnMore": "了解企业服务",
       "contact": "联系顾问"
     },
@@ -17222,7 +17222,7 @@
       },
       "recording": {
         "animation": {
-          "智汇AI": "智汇AI",
+          "智汇 AI": "智汇 AI",
           "提供": "提供",
           "服务": "服务",
           "点击": "点击",
@@ -17533,7 +17533,7 @@
     },
     "project_selector_demo": {
       "总管理端": "总管理端",
-      "智汇AI教育平台1": "智汇AI教育平台",
+      "智汇 AI教育平台1": "智汇 AI教育平台",
       "教育管理后台2": "教育管理后台"
     },
     "home_page4": {
@@ -17590,7 +17590,7 @@
     "mobile_bottom_nav": {
       "AI应用商店": "AI应用商店",
       "广场1": "广场",
-      "智汇AI2": "智汇AI",
+      "智汇 AI2": "智汇 AI",
       "动态3": "动态",
       "我的4": "我的"
     },
@@ -17626,8 +17626,8 @@
       "结算管理4": "结算管理"
     },
     "enterprise_service": {
-      "智汇AI社企业服": "智汇AI社企业服务：帮助企业决策者深度理解AI与企业的关系，提供智能体场景罗盘、人机协作组织、系统化AI课程，构建人机协同的超级组织。",
-      "智汇AI社1": "智汇AI社",
+      "智汇 AI社企业服": "智汇 AI社企业服务：帮助企业决策者深度理解AI与企业的关系，提供智能体场景罗盘、人机协作组织、系统化AI课程，构建人机协同的超级组织。",
+      "智汇 AI社1": "智汇 AI社",
       "AI时代企业理性2": "AI时代企业理性效率服务与互助社群",
       "企业AI化服务会3": "企业AI化服务会员",
       "企业服务4": "企业服务",
@@ -17655,7 +17655,7 @@
       "致远互联26": "致远互联",
       "百度智能云27": "百度智能云",
       "华为云28": "华为云",
-      "httpswei29": "https://weixin.qq.com/智汇AI社",
+      "httpswei29": "https://weixin.qq.com/智汇 AI社",
       "企业服务30": "企业服务"
     },
     "learn_a_i": {
@@ -17758,17 +17758,17 @@
       "advantagesHighlight4": "企业级能力：私有化部署、SLA、专属支持可选，满足政企与行业定制"
     },
     "publish_dialog": {
-      "智汇AI2": "智汇AI",
+      "智汇 AI2": "智汇 AI",
       "豆包1": "豆包",
       "通义千问": "通义千问"
     }
   },
   "title": {
     "a_i_chat": {
-      "来自智汇AI的创": "来自智汇AI的创作",
-      "来自智汇AI的代1": "来自智汇AI的代码",
-      "来自智汇AI的视2": "来自智汇AI的视频",
-      "来自智汇AI的音3": "来自智汇AI的音频"
+      "来自智汇 AI的创": "来自智汇 AI的创作",
+      "来自智汇 AI的代1": "来自智汇 AI的代码",
+      "来自智汇 AI的视2": "来自智汇 AI的视频",
+      "来自智汇 AI的音3": "来自智汇 AI的音频"
     },
     "prompt_templates": {
       "内容精炼": "内容精炼",
@@ -17788,18 +17788,18 @@
       "DeepSeek2": "DeepSeek和Kimi在谷歌大模型对抗赛中首轮淘汰",
       "苹果开发类Cha3": "苹果开发类ChatGPT应用，仅供内部测试新版Siri",
       "夸克AI眼镜迎首4": "夸克AI眼镜迎首次重大OTA升级",
-      "智汇AI平台全新5": "智汇AI平台全新升级，推出多模态AI能力",
+      "智汇 AI平台全新5": "智汇 AI平台全新升级，推出多模态AI能力",
       "AI智汇社用户突6": "AI智汇社用户突破10万，社区生态持续繁荣",
-      "智汇AI开放平台7": "智汇AI开放平台上线，支持第三方开发者接入",
-      "智汇AI推出企业8": "智汇AI推出企业版，助力企业数字化转型",
+      "智汇 AI开放平台7": "智汇 AI开放平台上线，支持第三方开发者接入",
+      "智汇 AI推出企业8": "智汇 AI推出企业版，助力企业数字化转型",
       "AI智汇社举办首9": "AI智汇社举办首届AI创新大赛，激发社区创造力",
-      "智汇AI新增5010": "智汇AI新增50+AI工具，覆盖更多应用场景",
-      "智汇AI与多家高11": "智汇AI与多家高校达成合作，推进AI人才培养",
+      "智汇 AI新增5010": "智汇 AI新增50+AI工具，覆盖更多应用场景",
+      "智汇 AI与多家高11": "智汇 AI与多家高校达成合作，推进AI人才培养",
       "AI智汇社推出V12": "AI智汇社推出VIP会员体系，解锁更多高级功能",
-      "智汇AI平台性能13": "智汇AI平台性能优化，响应速度提升300%",
-      "智汇AI发布AI14": "智汇AI发布AI模型训练平台，降低开发门槛",
+      "智汇 AI平台性能13": "智汇 AI平台性能优化，响应速度提升300%",
+      "智汇 AI发布AI14": "智汇 AI发布AI模型训练平台，降低开发门槛",
       "AI智汇社社区活15": "AI智汇社社区活跃度创新高，日均发帖量破千",
-      "智汇AI获得A轮16": "智汇AI获得A轮融资，加速产品研发和市场拓展"
+      "智汇 AI获得A轮16": "智汇 AI获得A轮融资，加速产品研发和市场拓展"
     },
     "apple_login": {
       "正在跳转": "正在跳转",
@@ -17826,7 +17826,7 @@
       "全球覆盖3": "全球覆盖"
     },
     "enterprise_service": {
-      "企业AI化服务智": "企业AI化服务 - 智汇AI社 | 企业级AI解决方案"
+      "企业AI化服务智": "企业AI化服务 - 智汇 AI社 | 企业级AI解决方案"
     },
     "learn_a_i": {
       "学习服务": "学习服务",
@@ -19235,9 +19235,9 @@
     "incentiveProgram": {
       "label": "00 / 开发者激励计划",
       "overview": "计划概述",
-      "overviewDesc": "了解智汇AI社区开发者激励计划的核心内容",
+      "overviewDesc": "了解智汇 AI社区开发者激励计划的核心内容",
       "publishGuide": "智能体发布指南",
-      "publishGuideDesc": "手把手教你将扣子智能体发布到智汇AI社区",
+      "publishGuideDesc": "手把手教你将扣子智能体发布到智汇 AI社区",
       "monetizationGuide": "开发者变现指南",
       "monetizationGuideDesc": "了解如何通过智能体实现「睡」后收入",
       "platformIntro": "平台功能介绍",
@@ -19750,8 +19750,8 @@
       "badge": "ENTERPRISESERVICE"
     },
     "hero": {
-      "brandLabel": "智汇AI社",
-      "title": "智汇AI企业服务",
+      "brandLabel": "智汇 AI社",
+      "title": "智汇 AI企业服务",
       "subtitle": "AI时代企业理性效率服务与互助社群。帮助决策者深度理解AI与企业的关系,构建人机协同的超级组织。",
       "priceStandard": "元/人/年 标准价格",
       "priceEarlyBird": "元/人/年 早鸟价",
@@ -19762,7 +19762,7 @@
     "positioning": {
       "label": "核心定位",
       "title": "AI时代企业理性效率服务与互助社群",
-      "description": "智汇AI社致力于帮助企业决策者深度理解AI与企业的关系,通过系统化的课程、实践探索和社群互助,构建人机协同的超级组织,实现企业的理性效率提升。",
+      "description": "智汇 AI社致力于帮助企业决策者深度理解AI与企业的关系,通过系统化的课程、实践探索和社群互助,构建人机协同的超级组织,实现企业的理性效率提升。",
       "tags": ["人机协同", "理性效率", "超级组织"]
     },
     "modules": {
@@ -19790,7 +19790,7 @@
       ]
     },
     "join": {
-      "label": "加入智汇AI社",
+      "label": "加入智汇 AI社",
       "title": "与志同道合的决策者一起,探索AI时代的无限可能",
       "subtitle": "仅限前18位会员 · 早鸟价 ¥6000/人/年 · 不满意全额退款",
       "perYear": "/人/年",
@@ -19806,7 +19806,7 @@
       ]
     },
     "footer": {
-      "brand": "智汇AI社 · 中国 · 北京",
+      "brand": "智汇 AI社 · 中国 · 北京",
       "contact": "联系我们"
     },
     "courses": {
@@ -20226,8 +20226,8 @@
     "realAuthFailed": "实名认证失败，请重试"
   },
   "studyIndexStudyTip": {
-    "studyTip": "智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享",
-    "studyTip2": "智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享",
+    "studyTip": "智汇 AI 云教育/短视频  欢迎所有AI相关视频上传分享",
+    "studyTip2": "智汇 AI 云教育/短视频  欢迎所有AI相关视频上传分享",
     "myGroups": "我的合集"
   },
   "viewerCodeViewer": {

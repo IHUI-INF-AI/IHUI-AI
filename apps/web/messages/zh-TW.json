@@ -110,7 +110,7 @@
       "modelSelectorRequiredDesc": "在右上角下拉框選擇要使用的模型配置"
     },
     "resources": "資源",
-    "siteName": "智匯ai社區",
+    "siteName": "智匯 AI社區",
     "selectLanguage": "選擇語言",
     "ok": "確定",
     "status": "狀態",
@@ -7468,9 +7468,9 @@
       "incentiveProgram": {
         "label": "00 / 開發者激勵計劃",
         "overview": "計劃概述",
-        "overviewDesc": "瞭解智匯ai社區開發者激勵計劃的核心內容",
+        "overviewDesc": "瞭解智匯 AI社區開發者激勵計劃的核心內容",
         "publishGuide": "智能體發佈指南",
-        "publishGuideDesc": "手把手教你將釦子智能體發佈到智匯ai社區",
+        "publishGuideDesc": "手把手教你將釦子智能體發佈到智匯 AI社區",
         "monetizationGuide": "開發者變現指南",
         "monetizationGuideDesc": "瞭解如何通過智能體實現「睡」後收入",
         "platformIntro": "平臺功能項介紹",
@@ -10754,7 +10754,7 @@
       "licenseTitle": "開源協議",
       "licenseSubtitle": "半開源許可說明",
       "licenseName": "智匯開放平臺商業源碼許可（Semi-Open Source License）",
-      "licenseSummary": "您獲得的代碼在以下條件下可應用、修改與內部Deployment：允許查看、學習、修改及在自有業務中應用；禁止將源碼或衍生品向第三方再分發、轉售或用於與智匯ai 直接競爭的產品。具體條款以購買時附帶的 LICENSE Files為準。",
+      "licenseSummary": "您獲得的代碼在以下條件下可應用、修改與內部Deployment：允許查看、學習、修改及在自有業務中應用；禁止將源碼或衍生品向第三方再分發、轉售或用於與智匯 AI 直接競爭的產品。具體條款以購買時附帶的 LICENSE Files為準。",
       "licenseLinkText": "查看完整許可條款",
       "deliveryTitle": "交付與支持",
       "deliverySubtitle": "您將獲得",
@@ -11099,9 +11099,9 @@
     "noMoreItems": "暫無更多功能項"
   },
   "register": {
-    "brand": "智匯ai",
+    "brand": "智匯 AI",
     "sidebar": {
-      "title": "歡迎加入智匯ai社區",
+      "title": "歡迎加入智匯 AI社區",
       "subtitle": "創建賬戶，開啟ai探索之旅",
       "features": {
         "community": "加入活躍社區",
@@ -11520,7 +11520,7 @@
     "officialApp": "官方應用",
     "contactUs": "聯繫我們",
     "icp": "吉ICP備2025027274號",
-    "copyright": "Copyright © 2025 智匯ai集團 版權所有"
+    "copyright": "Copyright © 2025 智匯 AI集團 版權所有"
   },
   "agentCategory": {
     "title": "智能體收費設定管理",
@@ -15652,7 +15652,7 @@
       "tag": "公司簡介",
       "title": "我們是誰",
       "subtitle": "用技術與產品，把 ai 能力交付到每一款應用與每一次協作中。",
-      "paragraph1": "智匯ai 聚焦人工智能技術的產品化與規模化應用。我們對接國內外主流大模型與多模態能力，通過統一 API、工作流與開放平臺，讓企業與開發者能以更低成本、更快速度接入和迭代ai能力。",
+      "paragraph1": "智匯 AI 聚焦人工智能技術的產品化與規模化應用。我們對接國內外主流大模型與多模態能力，通過統一 API、工作流與開放平臺，讓企業與開發者能以更低成本、更快速度接入和迭代ai能力。",
       "paragraph2": "團隊來自互聯網與ai一線，既有算法與工程經驗，也懂業務場景。我們相信：ai 的價值在於真正被用起來。因此我們在穩定性、易用性和可擴展性上持續投入，並圍繞企業協作、內容生產、智能體等場景提供開箱即用的解決方案。",
       "visualSublabel": "以 ai 為優先的產品與架構設計"
     },
@@ -15690,7 +15690,7 @@
       "companyFounded": {
         "date": "2024年12月",
         "title": "公司成立",
-        "description": "智匯ai正式成立，專註ai技術研發與產品創新"
+        "description": "智匯 AI正式成立，專註ai技術研發與產品創新"
       },
       "aiAppStore": {
         "date": "2025年1月",
@@ -15821,7 +15821,7 @@
     "forgotPassword": "忘記密碼",
     "noAccount": "還沒有賬號？",
     "project": {
-      "main": "智匯ai主平臺",
+      "main": "智匯 AI主平臺",
       "open": "開放平臺",
       "admin": "總管理後臺",
       "eduWeb": "ai教育平臺",
@@ -15834,7 +15834,7 @@
       "admin": "切換到管理後臺",
       "switchTo": "切換到"
     },
-    "ihuiLogo": "智匯ai Logo",
+    "ihuiLogo": "智匯 AI Logo",
     "worldFirst": "全球首創",
     "oneStopAI": "人人的一站式ai整合應用平臺",
     "aiModels": "ai模型",
@@ -16264,7 +16264,7 @@
   "enterpriseService": {
     "badge": "ENTERPRISESERVICE",
     "adoptionRate": "企業已採用",
-    "heroTitle": "智匯ai企業服務",
+    "heroTitle": "智匯 AI企業服務",
     "heroSubtitle": "ai時代企業理性效率服務與互助社群。幫助決策者深度理解ai與企業的關係，構建人機協同的超級組織。",
     "stats": {
       "priceLabel": "元/人 year 標準價格",
@@ -16273,7 +16273,7 @@
     },
     "positioning": {
       "title": "ai時代企業理性效率服務與互助社群",
-      "description": "智匯ai社致力於幫助企業決策者深度理解ai與企業的關係，通過系統化的課程、實踐探索和社群互助，構建人機協同的超級組織，實現企業的理性效率提升。"
+      "description": "智匯 AI社致力於幫助企業決策者深度理解ai與企業的關係，通過系統化的課程、實踐探索和社群互助，構建人機協同的超級組織，實現企業的理性效率提升。"
     },
     "modules": {
       "localCommunity": {
@@ -16471,7 +16471,7 @@
       }
     },
     "join": {
-      "title": "加入智匯ai社",
+      "title": "加入智匯 AI社",
       "description": "與誌同道合的企業決策者一起，探索ai時代的無限可能",
       "originalPrice": "原價",
       "earlyBird": "早鳥優惠",
@@ -16491,7 +16491,7 @@
       "hint": "掃碼諮詢或直接聯繫我們"
     },
     "footer": {
-      "company": "智匯ai社",
+      "company": "智匯 AI社",
       "location": "中國 · 北京",
       "agentScenario": "智能體場景",
       "humanMachine": "人機協作",
@@ -16667,7 +16667,7 @@
     },
     "cta": {
       "title": "開啟您的ai智能體之旅",
-      "description": "加入智匯ai社，與專業顧問一起規劃最適合您企業的智能體落地路徑",
+      "description": "加入智匯 AI社，與專業顧問一起規劃最適合您企業的智能體落地路徑",
       "learnMore": "瞭解企業服務",
       "contact": "聯繫顧問"
     },
@@ -16845,7 +16845,7 @@
     },
     "cta": {
       "title": "構建您的超級企業",
-      "description": "加入智匯ai社，與專業顧問一起規劃企業的ai化轉型之路",
+      "description": "加入智匯 AI社，與專業顧問一起規劃企業的ai化轉型之路",
       "learnMore": "瞭解企業服務",
       "contact": "聯繫顧問"
     },
@@ -17234,7 +17234,7 @@
       },
       "recording": {
         "animation": {
-          "智汇AI": "智匯ai",
+          "智汇 AI": "智匯 AI",
           "提供": "提供",
           "服务": "服務",
           "点击": "點擊",
@@ -17545,7 +17545,7 @@
     },
     "project_selector_demo": {
       "总管理端": "總管理後臺",
-      "智汇AI教育平台1": "智匯ai教育平臺",
+      "智汇 AI教育平台1": "智匯 AI教育平臺",
       "教育管理后台2": "教育管理後臺"
     },
     "home_page4": {
@@ -17602,7 +17602,7 @@
     "mobile_bottom_nav": {
       "AI应用商店": "ai應用商店",
       "广场1": "廣場",
-      "智汇AI2": "智匯ai",
+      "智汇 AI2": "智匯 AI",
       "动态3": "動態",
       "我的4": "我的"
     },
@@ -17638,8 +17638,8 @@
       "结算管理4": "結算管理"
     },
     "enterprise_service": {
-      "智汇AI社企业服": "智匯ai社企業服務：幫助企業決策者深度理解ai與企業的關係，提供智能體場景羅盤、人機協作組織、系統化ai課程，構建人機協同的超級組織。",
-      "智汇AI社1": "智匯ai社",
+      "智汇 AI社企业服": "智匯 AI社企業服務：幫助企業決策者深度理解ai與企業的關係，提供智能體場景羅盤、人機協作組織、系統化ai課程，構建人機協同的超級組織。",
+      "智汇 AI社1": "智匯 AI社",
       "AI时代企业理性2": "ai時代企業理性效率服務與互助社群",
       "企业AI化服务会3": "企業ai化服務會員",
       "企业服务4": "企業服務",
@@ -17667,7 +17667,7 @@
       "致远互联26": "致遠互聯",
       "百度智能云27": "百度智能雲",
       "华为云28": "華為雲",
-      "httpswei29": "https://weixin.qq.com/智匯ai社",
+      "httpswei29": "https://weixin.qq.com/智匯 AI社",
       "企业服务30": "企業服務"
     },
     "learn_a_i": {
@@ -17770,17 +17770,17 @@
       "advantagesHighlight4": "企業級能力：私密化Deployment、SLA、專屬支持可選，滿足政企與行業定製"
     },
     "publish_dialog": {
-      "智汇AI2": "智匯ai",
+      "智汇 AI2": "智匯 AI",
       "豆包1": "豆包",
       "通义千问": "通義千問"
     }
   },
   "title": {
     "a_i_chat": {
-      "来自智汇AI的创": "來自智匯ai的創作",
-      "来自智汇AI的代1": "來自智匯ai的代碼",
-      "来自智汇AI的视2": "來自智匯ai的視頻",
-      "来自智汇AI的音3": "來自智匯ai的音頻"
+      "来自智汇 AI的创": "來自智匯 AI的創作",
+      "来自智汇 AI的代1": "來自智匯 AI的代碼",
+      "来自智汇 AI的视2": "來自智匯 AI的視頻",
+      "来自智汇 AI的音3": "來自智匯 AI的音頻"
     },
     "prompt_templates": {
       "内容精炼": "內容精煉",
@@ -17800,18 +17800,18 @@
       "DeepSeek2": "DeepSeek和Kimi在谷歌大模型對抗賽中首輪淘汰",
       "苹果开发类Cha3": "蘋果開發類ChatGPT應用，僅供內部測試新版Siri",
       "夸克AI眼镜迎首4": "夸克ai眼鏡迎首次重大OTA升級",
-      "智汇AI平台全新5": "智匯ai平臺全新升級，推出多模態ai能力",
+      "智汇 AI平台全新5": "智匯 AI平臺全新升級，推出多模態ai能力",
       "AI智汇社用户突6": "ai智匯社用戶突破10萬，社區生態持續繁榮",
-      "智汇AI开放平台7": "智匯ai開放平臺上線，支持第三方開發者接入",
-      "智汇AI推出企业8": "智匯ai推出企業版，助力企業數字化轉型",
+      "智汇 AI开放平台7": "智匯 AI開放平臺上線，支持第三方開發者接入",
+      "智汇 AI推出企业8": "智匯 AI推出企業版，助力企業數字化轉型",
       "AI智汇社举办首9": "ai智匯社舉辦首屆ai創新大賽，激發社區創造力",
-      "智汇AI新增5010": "智匯ai新增50+ai工具，覆蓋更多應用場景",
-      "智汇AI与多家高11": "智匯ai與多家高校達成合作，推進ai人才培養",
+      "智汇 AI新增5010": "智匯 AI新增50+ai工具，覆蓋更多應用場景",
+      "智汇 AI与多家高11": "智匯 AI與多家高校達成合作，推進ai人才培養",
       "AI智汇社推出V12": "ai智匯社推出VIP位址會員體系，解鎖更多高級功能項",
-      "智汇AI平台性能13": "智匯ai平臺表現優化，響應速度提升300%",
-      "智汇AI发布AI14": "智匯ai發佈ai模型訓練平臺，降低開發門檻",
+      "智汇 AI平台性能13": "智匯 AI平臺表現優化，響應速度提升300%",
+      "智汇 AI发布AI14": "智匯 AI發佈ai模型訓練平臺，降低開發門檻",
       "AI智汇社社区活15": "ai智匯社社區活躍度創新高，日均發帖量破千",
-      "智汇AI获得A轮16": "智匯ai獲得A輪融資，加速產品研發和市場拓展"
+      "智汇 AI获得A轮16": "智匯 AI獲得A輪融資，加速產品研發和市場拓展"
     },
     "apple_login": {
       "正在跳转": "正在跳轉",
@@ -17838,7 +17838,7 @@
       "全球覆盖3": "全球覆蓋"
     },
     "enterprise_service": {
-      "企业AI化服务智": "企業ai化服務 - 智匯ai社 | 企業級ai解決方案"
+      "企业AI化服务智": "企業ai化服務 - 智匯 AI社 | 企業級ai解決方案"
     },
     "learn_a_i": {
       "学习服务": "學習服務",
@@ -19247,9 +19247,9 @@
     "incentiveProgram": {
       "label": "00 / 開發者激勵計劃",
       "overview": "計劃概述",
-      "overviewDesc": "瞭解智匯ai社區開發者激勵計劃的核心內容",
+      "overviewDesc": "瞭解智匯 AI社區開發者激勵計劃的核心內容",
       "publishGuide": "智能體發佈指南",
-      "publishGuideDesc": "手把手教你將釦子智能體發佈到智匯ai社區",
+      "publishGuideDesc": "手把手教你將釦子智能體發佈到智匯 AI社區",
       "monetizationGuide": "開發者變現指南",
       "monetizationGuideDesc": "瞭解如何通過智能體實現「睡」後收入",
       "platformIntro": "平臺功能項介紹",
@@ -20238,8 +20238,8 @@
     "realAuthFailed": "實名認證失敗，請重試"
   },
   "studyIndexStudyTip": {
-    "studyTip": "智匯ai 雲教育/短視頻  歡迎所有ai相關視頻上傳分享",
-    "studyTip2": "智匯ai 雲教育/短視頻  歡迎所有ai相關視頻上傳分享",
+    "studyTip": "智匯 AI 雲教育/短視頻  歡迎所有ai相關視頻上傳分享",
+    "studyTip2": "智匯 AI 雲教育/短視頻  歡迎所有ai相關視頻上傳分享",
     "myGroups": "我的合集"
   },
   "viewerCodeViewer": {
