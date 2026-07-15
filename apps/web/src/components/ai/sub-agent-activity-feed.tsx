@@ -15,7 +15,7 @@ interface SubAgentActivityFeedProps {
 }
 
 const STATUS_DOT_COLOR: Record<AgentStatus, string> = {
-  idle: 'bg-zinc-400',
+  idle: 'bg-muted-foreground/50',
   pending: 'bg-amber-400',
   thinking: 'bg-amber-500',
   acting: 'bg-violet-500',
@@ -24,7 +24,7 @@ const STATUS_DOT_COLOR: Record<AgentStatus, string> = {
   running: 'bg-amber-500',
   completed: 'bg-emerald-500',
   failed: 'bg-red-500',
-  cancelled: 'bg-zinc-400',
+  cancelled: 'bg-muted-foreground/50',
 }
 
 /**

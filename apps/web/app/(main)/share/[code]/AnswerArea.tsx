@@ -30,7 +30,7 @@ export function AnswerArea({ answer }: { answer: ShareContent['answer'] }) {
 
       {/* 文本内容（支持 markdown 渲染） */}
       {answer.text && (
-        <div className="prose prose-sm max-w-none whitespace-pre-wrap break-words text-[15px] leading-7 text-gray-700">
+        <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words text-[15px] leading-7 text-foreground">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer.text}</ReactMarkdown>
         </div>
       )}
@@ -46,24 +46,24 @@ function ThinkingProcess({ text }: { text: string }) {
   const needToggle = text.length > 200
 
   return (
-    <div className="rounded-2xl border border-[#e8ecff] bg-gradient-to-br from-[#f8f9ff] to-[#f0f4ff] p-5">
+    <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-5">
       <div className="mb-3 flex items-center">
         <span className="mr-2.5 text-xl">💭</span>
-        <span className="text-base font-semibold text-[#6366f1]">思考过程</span>
+        <span className="text-base font-semibold text-primary">思考过程</span>
       </div>
       <div
         className={`relative overflow-hidden transition-all duration-300 ${
           expanded ? 'max-h-none' : 'max-h-[200px]'
         }`}
       >
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-500">
+        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
           {text}
         </p>
       </div>
       {needToggle && (
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="mt-3 flex w-full items-center justify-center gap-2 py-2 text-sm text-[#6366f1]"
+          className="mt-3 flex w-full items-center justify-center gap-2 py-2 text-sm text-primary"
         >
           <span>{expanded ? '收起' : '展开'}</span>
           <ChevronDown
@@ -241,7 +241,7 @@ function AudioPlayer({ audio }: { audio: NonNullable<ShareContent['answer']['aud
   }
 
   return (
-    <div className="flex items-center rounded-2xl bg-gray-100 px-5 py-3.5">
+    <div className="flex items-center rounded-2xl bg-muted px-5 py-3.5">
       <audio
         ref={audioRef}
         src={audio.url}
@@ -259,7 +259,7 @@ function AudioPlayer({ audio }: { audio: NonNullable<ShareContent['answer']['aud
       </audio>
       <button
         onClick={toggle}
-        className="flex h-10 w-10 shrink-0 items-center justify-center text-xl text-[#9A99F3]"
+        className="flex h-10 w-10 shrink-0 items-center justify-center text-xl text-primary"
         aria-label={playing ? '暂停' : '播放'}
       >
         {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
@@ -270,10 +270,10 @@ function AudioPlayer({ audio }: { audio: NonNullable<ShareContent['answer']['aud
         max={100}
         value={progress}
         onChange={onSeek}
-        className="mx-5 h-1.5 flex-1 cursor-pointer accent-[#9A99F3]"
+        className="mx-5 h-1.5 flex-1 cursor-pointer accent-primary"
       />
-      <Volume2 className="mr-1 h-4 w-4 shrink-0 text-gray-400" />
-      <span className="shrink-0 text-xs text-gray-500">{formatAudioTime(currentTime)}</span>
+      <Volume2 className="mr-1 h-4 w-4 shrink-0 text-muted-foreground/70" />
+      <span className="shrink-0 text-xs text-muted-foreground">{formatAudioTime(currentTime)}</span>
     </div>
   )
 }
@@ -286,7 +286,7 @@ function ListsContent({ lists }: { lists: ShareListItem[] }) {
           return (
             <p
               key={`list-${idx}`}
-              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-700"
+              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground"
             >
               {item.content}
             </p>
