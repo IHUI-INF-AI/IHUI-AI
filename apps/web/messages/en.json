@@ -97,7 +97,11 @@
       "unifiedAiPanelTitle": "Unified AI Panel",
       "unifiedAiPanelDesc": "Unified interaction panel integrating chat, agent and generation",
       "unifiedAiPanelPlaceholder": "Type a message to try the unified AI panel...",
-      "sampleResponse": "Received your message: \"{text}\".\n\nThis is a sample reply from the unified AI panel. In real scenarios, this will be connected to a real AI model streaming output."
+      "sampleResponse": "Received your message: \"{text}\".\n\nThis is a sample reply from the unified AI panel. In real scenarios, this will be connected to a real AI model streaming output.",
+      "loginRequiredTitle": "Please sign in",
+      "loginRequiredDesc": "Sign in to experience real AI conversations",
+      "aiErrorTitle": "AI call failed",
+      "aiErrorPrefix": "AI call failed"
     },
     "resources": "Resources",
     "siteName": "Zhihui AI Community",

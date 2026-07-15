@@ -97,7 +97,11 @@
       "unifiedAiPanelTitle": "통합 AI 패널",
       "unifiedAiPanelDesc": "chat + agent + generation을 통합한 통합 인터랙션 패널",
       "unifiedAiPanelPlaceholder": "메시지를 입력해 통합 AI 패널을 경험...",
-      "sampleResponse": "메시지를 받았습니다: \"{text}\".\n\n이것은 통합 AI 패널의 샘플 응답입니다. 실제 시나리오에서는 실제 AI 모델 스트리밍 출력에 연결됩니다."
+      "sampleResponse": "메시지를 받았습니다: \"{text}\".\n\n이것은 통합 AI 패널의 샘플 응답입니다. 실제 시나리오에서는 실제 AI 모델 스트리밍 출력에 연결됩니다.",
+      "loginRequiredTitle": "로그인이 필요합니다",
+      "loginRequiredDesc": "실제 AI 대화를 체험하려면 로그인하세요",
+      "aiErrorTitle": "AI 호출 실패",
+      "aiErrorPrefix": "AI 호출 실패"
     },
     "resources": "리소스",
     "siteName": "지후이 AI 커뮤니티",
