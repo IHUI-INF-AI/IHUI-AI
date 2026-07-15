@@ -81,6 +81,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
               onClick={() => favMutation.mutate(item.id)}
               disabled={favMutation.isPending}
               title={item.favorite ? t('unfavorite') : t('favorite')}
+              aria-label={item.favorite ? t('unfavorite') : t('favorite')}
             >
               <Star
                 className={cn('h-3.5 w-3.5', item.favorite && 'fill-amber-400 text-amber-400')}
@@ -93,6 +94,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
               onClick={() => deleteMutation.mutate(item.id)}
               disabled={deleteMutation.isPending}
               title={t('delete')}
+              aria-label={t('delete')}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>

@@ -149,7 +149,7 @@ export default function MyAgentsPage() {
                       </div>
                     )}
                     <div className="min-w-0 flex-1 space-y-1">
-                      <h3 className="truncate text-sm font-medium">{agent.name}</h3>
+                      <h3 className="line-clamp-2 text-sm font-medium">{agent.name}</h3>
                       <span
                         className={cn(
                           'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',

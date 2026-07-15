@@ -179,7 +179,7 @@ export default function AiWorldDetailPage() {
               >
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-                  <span className="truncate text-sm font-medium">{app.name}</span>
+                  <span className="line-clamp-2 text-sm font-medium">{app.name}</span>
                 </div>
               </Link>
             ))}

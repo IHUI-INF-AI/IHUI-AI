@@ -265,6 +265,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           size="icon"
           className={cn(btnClass, 'p-0')}
           title={collapsed ? t('language') : undefined}
+          aria-label={t('language')}
         >
           {}
           <img src={`/images/flags/${locale}.svg`} className="h-3 w-4 object-cover" alt={locale} />
@@ -292,6 +293,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           size="icon"
           className={btnClass}
           title={collapsed ? t('downloadClient') : undefined}
+          aria-label={t('downloadClient')}
         >
           <Download className="h-4 w-4" />
         </Button>
@@ -757,6 +759,7 @@ export function Sidebar({
         onClick={onToggleCollapse}
         className={cn('hidden h-7 w-7 lg:flex', !collapsed ? 'ml-auto' : 'mx-auto')}
         title={collapsed ? t('expand') : t('collapse')}
+        aria-label={collapsed ? t('expand') : t('collapse')}
       >
         {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
       </Button>
@@ -765,6 +768,7 @@ export function Sidebar({
         size="icon"
         onClick={onCloseMobile}
         className="ml-auto h-7 w-7 lg:hidden"
+        aria-label={tc('close')}
       >
         <X className="h-4 w-4" />
       </Button>
