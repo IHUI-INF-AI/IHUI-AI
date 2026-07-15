@@ -56,6 +56,11 @@ export default function ExamTakePage() {
     },
   })
 
+  const submitMutRef = React.useRef(submitMut)
+  submitMutRef.current = submitMut
+  const answersRef = React.useRef(answers)
+  answersRef.current = answers
+
   React.useEffect(() => {
     if (phase !== 'answering' || leftSec <= 0) return
     const tm = setInterval(() => setLeftSec((s) => s - 1), 1000)
@@ -63,11 +68,10 @@ export default function ExamTakePage() {
   }, [phase, leftSec])
 
   React.useEffect(() => {
-    if (phase === 'answering' && leftSec === 0 && recordId && !submitMut.isPending) {
-      submitMut.mutate({ answers })
+    if (phase === 'answering' && leftSec === 0 && recordId && !submitMutRef.current.isPending) {
+      submitMutRef.current.mutate({ answers: answersRef.current })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leftSec, phase])
+  }, [leftSec, phase, recordId])
 
   const handleAnswer = (qid: string, val: string | string[]) =>
     setAnswers((a) => ({ ...a, [qid]: val }))

@@ -5,6 +5,7 @@ import { Cpu, RefreshCw, X, Loader2, CheckCircle2, XCircle, MinusCircle } from '
 import { Button } from '@ihui/ui'
 
 import { cn } from '@/lib/utils'
+import { dateFormat } from '@/lib/date-utils'
 import type { BackgroundAgent, AgentStatus } from './types'
 
 interface BackgroundAgentsPanelProps {
@@ -36,18 +37,6 @@ const STATUS_LABEL: Partial<Record<AgentStatus, string>> = {
 
 function truncate(text: string, max: number) {
   return text.length > max ? `${text.slice(0, max)}...` : text
-}
-
-function formatTime(iso: string) {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
 }
 
 /**
@@ -161,7 +150,7 @@ export function BackgroundAgentsPanel({
 
                   <div className="mt-1 flex items-center gap-2">
                     <span className="text-[10px] text-muted-foreground">
-                      {formatTime(agent.updated_at || agent.created_at)}
+                      {dateFormat(agent.updated_at || agent.created_at, 'HH:mm:ss')}
                     </span>
                     <div className="ml-auto flex items-center gap-1">
                       {agent.status === 'running' && (

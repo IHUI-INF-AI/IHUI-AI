@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { PlayCircle, Eye, Loader2, ArrowLeft, Radio, Calendar } from 'lucide-react'
@@ -151,8 +152,8 @@ export default function LiveDetailPage() {
         ) : (
           <div className="relative flex h-56 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
             {channel.coverImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
+                fill
                 src={channel.coverImage}
                 alt={channel.title}
                 className="absolute inset-0 h-full w-full object-cover"

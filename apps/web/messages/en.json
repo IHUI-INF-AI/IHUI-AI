@@ -189,7 +189,6 @@
       "removed": "alreadyRemove"
     },
     "addSuccess": "Added successfully",
-    "copy": "Copy",
     "copySuccess": "CopySuccess",
     "copyFailed": "Copy failed",
     "download": "Download",
@@ -268,7 +267,6 @@
     "deleteSuccess": "Deleted successfully",
     "item": "Project",
     "loadMore": "LoadMore",
-    "copied": "Copied",
     "daysAgo": "Days Ago",
     "dismiss": "Dismiss",
     "greeting": "Greeting",
@@ -296,7 +294,16 @@
       "email": "Invalid email",
       "url": "Please enterCorrect URL",
       "phone": "Please enter a valid phone number"
-    }
+    },
+    "levelLabel": "Level",
+    "withdraw": "Withdraw",
+    "viewDetail": "View Details",
+    "colTime": "Time",
+    "colAgent": "Agent",
+    "colModel": "Model",
+    "colToken": "Tokens",
+    "colAmount": "Amount",
+    "empty": "No records"
   },
   "nav": {
     "title": "Main Navigation",
@@ -6587,6 +6594,89 @@
     ],
     "back": "Back",
     "userCenter": "Profile",
+    "businessLicenseTitle": "Business License",
+    "businessLicenseDesc": "View platform business license information",
+    "businessLicenseCardTitle": "Business License Information",
+    "businessLicensePlaceholder": "Business license image not available",
+    "businessLicensePlaceholderSub": "Contact customer service or view in mini program",
+    "businessLicensePreviewTip": "Click to view large image",
+    "businessLicensePreviewBtn": "View Large Image",
+    "icpRecordTitle": "ICP Record Information",
+    "icpRecordDesc": "View platform ICP record information",
+    "icpRecordCardTitle": "Record Information",
+    "icpRecordNumber": "Record Number",
+    "icpRecordEntity": "Entity",
+    "icpRecordEntityType": "Entity Type",
+    "icpRecordTime": "Record Time",
+    "icpRecordUrl": "Record Query",
+    "icpRecordScope": "Service Scope",
+    "icpRecordScopeValue": "Internet Information Service",
+    "icpRecordNotice": "This platform has completed ICP record registration. The record information is as shown above. Contact customer service for any questions.",
+    "modelRecordTitle": "Model Record Information",
+    "modelRecordDesc": "View AI model algorithm record information",
+    "modelRecordCardTitle": "Model Record Registration",
+    "modelRecordModelName": "Model Name",
+    "modelRecordNumber": "Record Number",
+    "modelRecordAlgorithmType": "Algorithm Type",
+    "modelRecordAlgorithmTypeValue": "Generative Synthesis",
+    "modelRecordApplicant": "Applicant",
+    "modelRecordApplyDate": "Apply Date",
+    "modelRecordStatus": "Status",
+    "modelRecordStatusFiled": "Filed",
+    "modelRecordScope": "Application Scope",
+    "modelRecordScopeValue": "Text generation and dialogue services for users in China",
+    "modelRecordNotice": "This platform's AI model has completed algorithm record filing in accordance with the Interim Measures for the Management of Generative AI Services.",
+    "usageRulesTitle": "Usage Rules",
+    "usageRulesDesc": "View platform usage rules and terms",
+    "usageRulesCardTitle": "Platform Usage Rules",
+    "usageRulesSection1Title": "Account Usage",
+    "usageRulesSection1Content": "Users should register with real information and keep credentials secure; accounts are for personal use only and may not be lent, transferred, or sold; users bear responsibility for losses from improper account management.",
+    "usageRulesSection2Title": "Content Guidelines",
+    "usageRulesSection2Content": "Content must comply with laws and may not contain illegal, infringing, pornographic, violent, or discriminatory content; the platform may delete or block violating content.",
+    "usageRulesSection3Title": "Prohibited Activities",
+    "usageRulesSection3Content": "Prohibited: compromising system security, bulk data scraping, spam, malicious API attacks, abusing AI for illegal content; violators face service restrictions or termination.",
+    "usageRulesSection4Title": "Intellectual Property",
+    "usageRulesSection4Content": "Content copyright belongs to original rights holders; unauthorized copying or distribution is prohibited; AI-generated content must comply with applicable laws and platform policies.",
+    "usageRulesSection5Title": "Disclaimer",
+    "usageRulesSection5Content": "AI-generated content is for reference only and does not constitute professional advice; the platform does not guarantee accuracy or completeness; users bear usage risks.",
+    "appPermissionTitle": "App Permission Information",
+    "appPermissionDesc": "View app permissions and their purposes",
+    "appPermissionCardTitle": "Permission List",
+    "appPermissionName": "Permission Name",
+    "appPermissionPurpose": "Purpose",
+    "appPermissionRequired": "Required",
+    "appPermissionRequiredYes": "Required",
+    "appPermissionRequiredNo": "Optional",
+    "appPermissionCameraPurpose": "For photo upload, avatar settings, and image generation",
+    "appPermissionAlbumPurpose": "For selecting images from album for upload and image generation",
+    "appPermissionMicPurpose": "For voice input and voice dialogue",
+    "appPermissionNotificationPurpose": "For receiving order, message, and activity notifications",
+    "appPermissionStoragePurpose": "For caching data, saving generated files, and offline content",
+    "appPermissionNetworkPurpose": "For accessing network services, loading content, and syncing data",
+    "appPermissionDeviceIdPurpose": "For device identification, security, and account protection",
+    "changePhoneTitle": "Change Phone Number",
+    "changePhoneDesc": "Verify current phone number then bind new one",
+    "changePhoneIntroTitle": "Instructions",
+    "changePhoneIntroDesc": "For account security, verify your current phone first, then bind the new number; the process is simple and takes just a few steps.",
+    "changePhoneStep1Label": "1. Verify Current Phone",
+    "changePhoneStep2Label": "2. Bind New Phone",
+    "changePhoneCurrentPhone": "Current Phone",
+    "changePhoneOldCodePlaceholder": "Enter verification code sent to current phone",
+    "changePhoneSendCode": "Get Code",
+    "changePhoneCodeSent": "Code Sent",
+    "changePhoneNextStep": "Next",
+    "changePhoneStep1DoneTip": "Current phone verified:",
+    "changePhoneNewPhoneLabel": "New Phone",
+    "changePhoneNewPhonePlaceholder": "Enter new phone number",
+    "changePhoneNewCodePlaceholder": "Enter verification code sent to new phone",
+    "changePhoneSubmit": "Confirm Change",
+    "changePhoneSubmitting": "Submitting...",
+    "changePhoneNoticeTitle": "After Change",
+    "changePhoneNoticeDesc": "After change, login, password recovery, and notifications will use the new phone; the old number can no longer be used. Please confirm before proceeding.",
+    "changePhoneSuccess": "Changed Successfully",
+    "changePhoneInvalidNewPhone": "Please enter a valid new phone number",
+    "changePhoneInvalidCode": "Please enter 6-digit code",
+    "changePhoneVerifyFailed": "Verification failed, please retry",
     "page": {
       "title": "Settings",
       "subtitle": "AccountandAppSettings"
@@ -8232,7 +8322,8 @@
     "endTime": "End Time",
     "upcoming": "Upcoming",
     "ended": "Ended",
-    "notFound": "Live session not found"
+    "notFound": "Live session not found",
+    "notLive": "Live stream has not started yet"
   },
   "members": {
     "title": "Member Management",
@@ -12179,7 +12270,15 @@
     "settlement3Title": "Settlement3Title",
     "settlement4": "Settlement4",
     "settlement4Title": "Settlement4Title",
-    "settlementTitle": "Settlement Title"
+    "settlementTitle": "Settlement Title",
+    "pendingSettlement": "Pending Settlement",
+    "inviteTitle": "Invite Code",
+    "inviteCode": "Invite Code",
+    "inviteLinkPlaceholder": "Generating invite link...",
+    "levelsTitle": "Commission Rates by Level",
+    "commissionRate": "Commission Rate",
+    "copied": "Copied",
+    "copy": "Copy"
   },
   "xuqiu": {
     "noDemands": "None",
@@ -12303,7 +12402,15 @@
     "qrCodeNotLoaded": "TuenotAddDone",
     "qrCodeDownloadSuccess": "TueDownloadSuccess",
     "downloadFailed": "Download failed，backRetry",
-    "userIncomplete": "UserInfonot，HeavyNewLogin"
+    "userIncomplete": "UserInfonot，HeavyNewLogin",
+    "dayEarnings": "Today's Earnings",
+    "monthEarnings": "This Month",
+    "totalEarnings": "Total Earnings",
+    "pendingEarnings": "Pending Earnings",
+    "teamSize": "Team Size",
+    "activeMembers": "Active Members",
+    "myRank": "My Rank",
+    "teamOverview": "Team Overview"
   },
   "distributionOrders": {
     "title": "DistributionOrders",
@@ -14399,7 +14506,10 @@
       "totalEarned": "Total Earned",
       "totalUsed": "Apply"
     },
-    "noRecords": "NoneValueRecord"
+    "noRecords": "NoneValueRecord",
+    "currentBalance": "Current Balance",
+    "totalEarned": "Total Earned",
+    "totalUsed": "Total Used"
   },
   "topUp": {
     "title": "Top up",
@@ -22757,10 +22867,22 @@
       "hotTags": "Hot Tags",
       "more": "More",
       "defaultEntries": {
-        "mall": { "label": "Points Mall", "description": "Redeem Gifts" },
-        "vip": { "label": "VIP Center", "description": "Premium Perks" },
-        "invite": { "label": "Invite Friends", "description": "Earn Points" },
-        "help": { "label": "Help Center", "description": "User Guide" }
+        "mall": {
+          "label": "Points Mall",
+          "description": "Redeem Gifts"
+        },
+        "vip": {
+          "label": "VIP Center",
+          "description": "Premium Perks"
+        },
+        "invite": {
+          "label": "Invite Friends",
+          "description": "Earn Points"
+        },
+        "help": {
+          "label": "Help Center",
+          "description": "User Guide"
+        }
       },
       "defaultTags": {
         "llm": "AI LLM",

@@ -10,15 +10,3 @@ export function formatTokens(value: number): string {
   if (!value) return '0'
   return value >= 1000 ? (value / 1000).toFixed(1) + 'K' : String(value)
 }
-
-export function formatDate(v: string): string {
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}

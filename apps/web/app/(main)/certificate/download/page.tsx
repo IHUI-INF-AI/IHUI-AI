@@ -4,18 +4,18 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Award } from 'lucide-react'
 import { toast } from 'sonner'
-import { useTranslations, useLocale } from 'next-intl'
+import { useTranslations } from 'next-intl'
 
 import { useAuthStore } from '@/stores/auth'
 
 import { CertificateList } from './CertificateList'
 import { CertificatePrintArea } from './CertificatePrintArea'
-import { api, formatDate } from './helpers'
+import { api } from './helpers'
+import { formatDate } from '@/lib/date-utils'
 import type { Certificate, CertsData } from './types'
 
 export default function CertificateDownloadPage() {
   const t = useTranslations('certificate')
-  const locale = useLocale()
   const [downloadingId, setDownloadingId] = React.useState<string | null>(null)
   const [printingId, setPrintingId] = React.useState<string | null>(null)
 
@@ -96,7 +96,7 @@ export default function CertificateDownloadPage() {
           <p style="color:#666;margin:0 0 24px;">${t('download.certNo')}：${cert.certificateNo ?? '-'}</p>
           <div style="font-size:16px;line-height:2;">
             <p>${t('download.holder')}：${cert.nickname ?? '-'}</p>
-            <p>${t('download.issueTime')}：${formatDate(cert.issuedAt, locale)}</p>
+            <p>${t('download.issueTime')}：${cert.issuedAt ? formatDate(cert.issuedAt) : '-'}</p>
             <p>${STATUS_TEXT[cert.status] ?? t('download.statusValid')}</p>
           </div>
         </div>`
