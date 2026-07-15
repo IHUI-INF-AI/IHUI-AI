@@ -145,7 +145,10 @@ export default function EduTeacherDetailPage() {
                     <TableCell className="px-4 py-2.5 font-medium">{c.title}</TableCell>
                     <TableCell className="px-4 py-2.5">{c.signupCount}</TableCell>
                     <TableCell className="px-4 py-2.5 text-amber-600 dark:text-amber-400">
-                      ★ {c.rating.toFixed(1)}
+                      <span className="inline-flex items-center gap-1">
+                        {c.rating.toFixed(1)}
+                        <Star className="h-3 w-3 fill-current" />
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))

@@ -49,7 +49,6 @@ export function CarouselTable({ list, isLoading, onEdit, onDelete }: Props) {
                 <TableCell className="px-4 py-2.5 font-medium">{item.title}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   {item.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={item.imageUrl} alt="" className="h-10 w-16 rounded object-cover" />
                   ) : (
                     <span className="text-muted-foreground">-</span>

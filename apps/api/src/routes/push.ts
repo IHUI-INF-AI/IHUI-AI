@@ -1,10 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
+import { messageTemplates } from '@ihui/database'
 import { sendPushBatch, detectPushProvider, type PushMessage } from '../services/push-provider.js'
 
 // =============================================================================
@@ -69,6 +70,27 @@ export const pushRoutes: FastifyPluginAsync = async (server) => {
   // GET /push/provider - 查询当前推送 provider
   server.get('/push/provider', async (_request, reply) => {
     return reply.send(success({ provider: detectPushProvider() }))
+  })
+
+  // GET /push/templates - 客户端可订阅的微信小程序推送模板列表
+  // 微信小程序订阅消息机制: 客户端需先拿到模板 ID,再由用户主动授权订阅。
+  // 这里返回 channel='push' 且 status=1 的模板精简字段。
+  server.get('/push/templates', async (_request, reply) => {
+    try {
+      const rows = await db
+        .select({
+          id: messageTemplates.id,
+          code: messageTemplates.code,
+          title: messageTemplates.title,
+          variables: messageTemplates.variables,
+        })
+        .from(messageTemplates)
+        .where(eq(messageTemplates.channel, 'push'))
+        .orderBy(messageTemplates.code)
+      return reply.send(success({ list: rows, total: rows.length }))
+    } catch {
+      return reply.status(500).send(error(500, '查询推送模板失败'))
+    }
   })
 }
 
