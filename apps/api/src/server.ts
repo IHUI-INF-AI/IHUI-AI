@@ -86,6 +86,7 @@ import agentExtendedRoutes from './routes/agent-extended.js'
 import eduExtendedRoutes from './routes/edu-extended.js'
 import systemExtendedRoutes, { adminCategoryDictionaryRoutes } from './routes/system-extended.js'
 import aiExtendedRoutes from './routes/ai-extended.js'
+import { mcpExtendedRoutes } from './routes/mcp-extended.js'
 import miscExtendedRoutes from './routes/misc-extended.js'
 import aiGenerationRoutes from './routes/ai-generation.js'
 import { aiChatStreamRoutes } from './routes/ai-chat-stream.js'
@@ -551,8 +552,8 @@ function registerRoutes(server: FastifyInstance) {
   // GDPR 数据擦除：/api/gdpr/export /api/gdpr/erase /api/gdpr/portability
   server.register(gdprRoutes, { prefix: '/api/gdpr' })
 
-  // Clawdbot AI Bot 服务：/api/clawdbot/*
-  server.register(clawdbotRoutes, { prefix: '/api' })
+  // Clawdbot AI Bot 服务：/api/admin/clawdbot/*
+  server.register(clawdbotRoutes, { prefix: '/api/admin' })
 
   // 多租户管理：/api/tenants CRUD + 成员管理 + 配额管理
   server.register(tenantRoutes, { prefix: '/api/tenants' })
@@ -577,6 +578,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(adminCategoryDictionaryRoutes, { prefix: '/api/admin' })
   // AI 扩展（capabilities/model_info/outbound_routes/video_routes/developer model_test）
   server.register(aiExtendedRoutes, { prefix: '/api/ai-ext' })
+  // MCP 项目管理与集成扩展（projects/integrations）
+  server.register(mcpExtendedRoutes, { prefix: '/api' })
   // 其他扩展（remote/user_agent_context/docs）
   server.register(miscExtendedRoutes, { prefix: '/api/misc-ext' })
   // AI 生成队列：enqueue/status/cancel/list/stats

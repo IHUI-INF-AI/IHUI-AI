@@ -1846,4 +1846,79 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     })
     return reply.send(success({ success: true }))
   })
+
+  // ===========================================================================
+  // 24. AI 生涯指导（1 个端点）
+  // 前端 apps/web/src/lib/ai-api.ts getCareerAdvice 调用 /api/ai/career-advice
+  // ===========================================================================
+  const careerAdviceSchema = z.object({
+    school: z.string().max(200).optional().default(''),
+    classLevel: z.string().max(100).optional().default(''),
+    scoreRange: z.string().max(100).optional().default(''),
+    languageDifficulty: z.string().max(500).optional().default(''),
+    scienceCharacteristics: z.string().max(500).optional().default(''),
+    learningObstacle: z.string().max(1000).optional().default(''),
+    hobbies: z.string().max(1000).optional().default(''),
+    target: z.string().max(1000).optional().default(''),
+  })
+
+  server.post('/ai/career-advice', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      return reply
+        .status(statusCode)
+        .send(error(statusCode, (e as Error).message || 'Authentication required'))
+    }
+
+    const parsed = careerAdviceSchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const input = parsed.data
+
+    const prompt = [
+      '你是一位资深的升学与生涯规划顾问,请根据以下学生情况给出个性化的生涯指导建议。',
+      `学校: ${input.school || '未提供'}`,
+      `年级: ${input.classLevel || '未提供'}`,
+      `成绩区间: ${input.scoreRange || '未提供'}`,
+      `语文学科特点/难度: ${input.languageDifficulty || '未提供'}`,
+      `理科学科特点: ${input.scienceCharacteristics || '未提供'}`,
+      `学习障碍/困难: ${input.learningObstacle || '未提供'}`,
+      `兴趣爱好: ${input.hobbies || '未提供'}`,
+      `目标: ${input.target || '未提供'}`,
+      '请从升学方向、学科提升、兴趣发展、职业规划四个维度给出具体可执行的建议,800 字以内。',
+    ].join('\n')
+
+    try {
+      const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          max_tokens: 1500,
+          temperature: 0.7,
+        }),
+      })
+      if (resp.ok) {
+        const data = (await resp.json()) as { text?: string; content?: string; output?: string }
+        const content = data.text ?? data.content ?? data.output ?? '暂无建议内容,请稍后重试。'
+        return reply.send(success({ content }))
+      }
+      request.log.warn({ status: resp.status }, 'AI 服务调用失败,返回兜底建议')
+    } catch (e) {
+      request.log.warn({ err: e }, 'AI 服务不可用,返回兜底建议')
+    }
+
+    const fallback = [
+      `针对${input.classLevel || '该'}阶段同学的生涯指导建议:`,
+      '1. 升学方向:结合自身成绩区间与学科特点,优先考虑与优势学科匹配的专业方向。',
+      '2. 学科提升:针对学习障碍制定阶段性小目标,弱科每日固定时间攻坚,强科保持稳定。',
+      '3. 兴趣发展:将兴趣爱好与升学目标结合,参与相关竞赛或实践活动,丰富综合素质评价。',
+      '4. 职业规划:多了解目标行业的真实工作内容,通过职业体验、学长交流等方式验证兴趣。',
+      '(此为兜底建议,AI 服务暂不可用,请稍后重试获取个性化建议)',
+    ].join('\n')
+    return reply.send(success({ content: fallback }))
+  })
 }
