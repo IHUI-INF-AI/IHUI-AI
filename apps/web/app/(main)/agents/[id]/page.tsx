@@ -96,7 +96,7 @@ export default function AgentDetailPage() {
           {tc('back')}
         </Button>
         {agent && (
-          <Button size="sm" onClick={() => router.push(`/agents/${id}/edit`)}>
+          <Button size="sm" onClick={() => router.push(`/agents/edit/${id}`)}>
             <Pencil className="h-4 w-4" />
             {tc('edit')}
           </Button>

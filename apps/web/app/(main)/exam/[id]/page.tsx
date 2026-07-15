@@ -40,7 +40,14 @@ export default function ExamTakePage() {
     onSuccess: (d) => {
       setRecordId(d.record.id)
       setPhase('answering')
-      setLeftSec((data?.duration ?? 0) * 60)
+      const duration = data?.duration ?? 0
+      if (duration > 0) {
+        setLeftSec(duration * 60)
+        hasTimerRef.current = true
+      } else {
+        // 无限制时长,不启动倒计时
+        hasTimerRef.current = false
+      }
     },
   })
 
@@ -60,15 +67,22 @@ export default function ExamTakePage() {
   submitMutRef.current = submitMut
   const answersRef = React.useRef(answers)
   answersRef.current = answers
+  const hasTimerRef = React.useRef(false)
 
   React.useEffect(() => {
-    if (phase !== 'answering' || leftSec <= 0) return
+    if (phase !== 'answering' || !hasTimerRef.current || leftSec <= 0) return
     const tm = setInterval(() => setLeftSec((s) => s - 1), 1000)
     return () => clearInterval(tm)
   }, [phase, leftSec])
 
   React.useEffect(() => {
-    if (phase === 'answering' && leftSec === 0 && recordId && !submitMutRef.current.isPending) {
+    if (
+      phase === 'answering' &&
+      hasTimerRef.current &&
+      leftSec === 0 &&
+      recordId &&
+      !submitMutRef.current.isPending
+    ) {
       submitMutRef.current.mutate({ answers: answersRef.current })
     }
   }, [leftSec, phase, recordId])

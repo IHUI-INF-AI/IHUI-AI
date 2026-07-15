@@ -23,21 +23,6 @@ export function useToast(): UseToastReturn {
   return { toast, success, error, warning, info }
 }
 
-// 确认对话框
-export function useConfirm() {
-  const confirm = (message: string, title?: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if (typeof window !== 'undefined') {
-        const result = window.confirm(title ? `${title}\n\n${message}` : message)
-        resolve(result)
-      } else {
-        resolve(false)
-      }
-    })
-  }
-  return { confirm }
-}
-
 // 加载状态管理
 let loadingCount = 0
 const loadingListeners: Set<(loading: boolean) => void> = new Set()

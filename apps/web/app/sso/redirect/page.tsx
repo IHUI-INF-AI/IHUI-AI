@@ -66,6 +66,7 @@ export default async function SsoRedirectPage({
     redirect('/sso/login')
   }
 
+  let ssoCode: string | null = null
   try {
     const resp = await fetch(`${API_BASE}/api/auth/sso/code`, {
       method: 'POST',
@@ -85,13 +86,13 @@ export default async function SsoRedirectPage({
     if (data.code !== 200 || !data.data?.code) {
       throw new Error(data.message || 'SSO code generation failed')
     }
-
-    const ssoCode = data.data.code
-    const separator = targetUrl.includes('?') ? '&' : '?'
-    const finalUrl = `${targetUrl}${separator}sso_code=${ssoCode}`
-
-    redirect(finalUrl)
+    ssoCode = data.data.code
   } catch {
     redirect(`/login?redirect=${encodeURIComponent(targetUrl)}`)
+  }
+
+  if (ssoCode) {
+    const separator = targetUrl.includes('?') ? '&' : '?'
+    redirect(`${targetUrl}${separator}sso_code=${ssoCode}`)
   }
 }
