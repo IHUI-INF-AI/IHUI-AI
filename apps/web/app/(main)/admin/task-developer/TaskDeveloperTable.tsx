@@ -72,7 +72,7 @@ export function TaskDeveloperTable({
             list.map((row) => {
               const st = STATUS_MAP[row.status] ?? {
                 label: '未知',
-                cls: 'bg-gray-500/10 text-gray-600',
+                cls: 'bg-muted text-muted-foreground',
               }
               return (
                 <tr key={row.id} className="hover:bg-muted/30">

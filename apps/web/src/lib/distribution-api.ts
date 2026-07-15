@@ -88,9 +88,7 @@ export async function getCommissionList(
 export async function getWithdrawList(
   query: { page?: number; pageSize?: number; status?: string } = {},
 ): Promise<ApiResult<PageData<CommissionWithdrawRecord>>> {
-  return fetchApi<PageData<CommissionWithdrawRecord>>(
-    `/commission/withdraw-list${buildQs(query)}`,
-  )
+  return fetchApi<PageData<CommissionWithdrawRecord>>(`/commission/withdraw-list${buildQs(query)}`)
 }
 
 export async function requestWithdraw(input: {
@@ -108,4 +106,13 @@ export async function getRanking(
   query: { limit?: number; period?: string } = {},
 ): Promise<ApiResult<CommissionRanking[]>> {
   return fetchApi<CommissionRanking[]>(`/commission/ranking${buildQs(query)}`)
+}
+
+export interface DayMonthSummary {
+  day: number
+  month: number | null
+}
+
+export async function getDayMonthSummary(): Promise<ApiResult<DayMonthSummary>> {
+  return fetchApi<DayMonthSummary>('/api/finance/commission/day-month-summary')
 }

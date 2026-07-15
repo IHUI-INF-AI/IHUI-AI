@@ -19,8 +19,10 @@ import { fetchApi } from '@/lib/api'
 import {
   getOverview,
   getInviteInfo,
+  getDayMonthSummary,
   type CommissionOverview,
   type InviteInfo,
+  type DayMonthSummary,
 } from '@/lib/distribution-api'
 import { Button, Card, CardContent } from '@ihui/ui'
 import { Avatar } from '@/components/data'
@@ -41,11 +43,15 @@ async function apiInviteInfo(): Promise<InviteInfo> {
   return r.data
 }
 
-async function apiDayMonth(): Promise<{ day: number; month: number }> {
-  // TODO: 后端暂无日/月收益端点，复用 commission/summary 占位
-  const r = await fetchApi<{ commissionDay: number }>('/api/finance/commission/summary')
-  const day = r.success ? (r.data.commissionDay ?? 0) : 0
-  return { day, month: day * 30 }
+async function apiDayMonth(): Promise<DayMonthSummary> {
+  const r = await getDayMonthSummary()
+  if (r.success) return r.data
+  // 后端 day-month-summary 端点暂不可用时，降级取 commission/summary 的 day，month 暂无数据
+  const fallback = await fetchApi<{ commissionDay: number }>('/api/finance/commission/summary')
+  return {
+    day: fallback.success ? (fallback.data.commissionDay ?? 0) : 0,
+    month: null,
+  }
 }
 
 export default function DistributionCompanyPage() {
@@ -79,7 +85,10 @@ export default function DistributionCompanyPage() {
     },
     {
       label: t('monthEarnings'),
-      value: fmtYuan(dayMonthQ.data?.month ?? 0),
+      value:
+        dayMonthQ.data?.month === null || dayMonthQ.data?.month === undefined
+          ? '—'
+          : fmtYuan(dayMonthQ.data.month),
       icon: TrendingUp,
       tone: 'text-emerald-600 dark:text-emerald-400',
     },

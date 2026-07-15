@@ -252,7 +252,7 @@ export default function AdminMemberUsersPage() {
                         className={cn(
                           'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
                           isCancelled
-                            ? 'bg-zinc-500/10 text-zinc-500'
+                            ? 'bg-muted text-muted-foreground'
                             : isActive
                               ? 'bg-emerald-500/10 text-emerald-600'
                               : 'bg-muted text-muted-foreground',
@@ -262,7 +262,7 @@ export default function AdminMemberUsersPage() {
                           className={cn(
                             'h-1.5 w-1.5 rounded-full',
                             isCancelled
-                              ? 'bg-zinc-500'
+                              ? 'bg-muted-foreground'
                               : isActive
                                 ? 'bg-emerald-500'
                                 : 'bg-muted-foreground',

@@ -39,7 +39,7 @@ interface Record {
 
 const RANK_BADGE = [
   'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  'bg-slate-400/15 text-slate-600 dark:text-slate-300',
+  'bg-muted text-muted-foreground',
   'bg-orange-700/15 text-orange-700 dark:text-orange-400',
 ]
 

@@ -4,7 +4,6 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Coins, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
-
 import {
   Button,
   Input,
@@ -17,20 +16,7 @@ import {
 } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { AnimatedNumber } from '@/components/common'
-
-interface FlowItem {
-  id: string
-  agentName: string
-  modelName: string
-  token: number
-  amount: number
-  createdAt: string
-}
-
-interface FlowsData {
-  items: FlowItem[]
-  total: number
-}
+import { getTokenBalance, getTokenFlows, type TokenFlowItem } from '@/lib/token-api'
 
 type Range = 'today' | '7d' | '30d' | 'custom'
 
@@ -43,32 +29,6 @@ const RANGES: { key: Range; labelKey: string }[] = [
   { key: 'custom', labelKey: 'rangeCustom' },
 ]
 
-// TODO: 接入真实 API /api/user/token-flow（当前为 mock 数据，后端尚未提供该端点）
-const mockBalance = { balance: 8888, totalEarned: 12000, totalUsed: 3112 }
-
-function mockFlows(range: Range, page: number, customFrom?: string): FlowsData {
-  const agents = ['智能翻译', '代码助手', '文案生成', '图像识别', '数据分析']
-  const models = ['GPT-4o', 'Claude-3.5', 'GLM-4', 'Qwen-Max', 'DeepSeek-V3']
-  const total = 53
-  const start = (page - 1) * PAGE_SIZE
-  const end = Math.min(start + PAGE_SIZE, total)
-  const baseTs = range === 'custom' && customFrom ? new Date(customFrom).getTime() : Date.now()
-  const items: FlowItem[] = []
-  for (let i = start; i < end; i++) {
-    const stepH = range === 'today' ? 1 : range === '7d' ? 5 : 24
-    const token = 120 + i * 13
-    items.push({
-      id: `mock-${range}-${i}`,
-      agentName: agents[i % agents.length] ?? '-',
-      modelName: models[i % models.length] ?? '-',
-      token,
-      amount: -(token * 0.002),
-      createdAt: new Date(baseTs - i * stepH * 3600_000).toISOString(),
-    })
-  }
-  return { items, total }
-}
-
 export default function TokenValuePage() {
   const t = useTranslations('tokenValue')
   const tc = useTranslations('common')
@@ -80,18 +40,30 @@ export default function TokenValuePage() {
 
   const balanceQ = useQuery({
     queryKey: ['token-value', 'balance'],
-    // TODO: 替换为 fetchApi('/api/user/token-flow/balance')
-    queryFn: () => Promise.resolve(mockBalance),
+    queryFn: async () => {
+      const r = await getTokenBalance()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const flowsQ = useQuery({
     queryKey: ['token-value', 'flows', range, page, customFrom, customTo],
-    // TODO: 替换为 fetchApi(`/api/user/token-flow?range=${range}&page=${page}`)
-    queryFn: () => Promise.resolve(mockFlows(range, page, customFrom)),
+    queryFn: async () => {
+      const r = await getTokenFlows({
+        range,
+        page,
+        pageSize: PAGE_SIZE,
+        from: customFrom,
+        to: customTo,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const total = flowsQ.data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const items = flowsQ.data?.items ?? []
+  const items: TokenFlowItem[] = flowsQ.data?.list ?? []
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
