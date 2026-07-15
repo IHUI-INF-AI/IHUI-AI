@@ -38,9 +38,8 @@ async function loadAliyunSdk(): Promise<AliyunSmsModules | null> {
   if (aliyunSdkCache !== undefined) return aliyunSdkCache
   try {
     // 阿里云短信 SDK 为可选依赖,未安装时降级为日志输出
-    // @ts-expect-error 可选模块,类型声明见 src/types/optional-deps.d.ts
+    // 类型声明见 src/types/optional-deps.d.ts
     const sdk = (await import('@alicloud/dysmsapi20170525')) as AliyunSmsModules
-    // @ts-expect-error 可选模块,类型声明见 src/types/optional-deps.d.ts
     const openApi = (await import('@alicloud/openapi-client')) as {
       Config: new (input: Record<string, unknown>) => unknown
     }
