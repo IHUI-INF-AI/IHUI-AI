@@ -2,7 +2,9 @@
 
 提供 LLM 网关、MCP 工具、LangGraph 工作流等 AI 能力。
 """
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,8 +18,40 @@ from app.routers.legacy import router as legacy_router
 from app.routers.chat_room import router as chat_room_ws_router
 from app.routers.chat_room import http_router as chat_room_http_router
 from app.routers.chat_room import ws_admin_router as chat_room_admin_router
+from app.routers.chat_room import chat_room_manager, HEARTBEAT_INTERVAL_SEC
 
 logger = logging.getLogger(__name__)
+
+
+async def _heartbeat_loop() -> None:
+    """WebSocket 心跳循环:每 N 秒 ping 一次 + 清理僵尸连接。"""
+    while True:
+        try:
+            await asyncio.sleep(HEARTBEAT_INTERVAL_SEC)
+            await chat_room_manager.send_heartbeat_pings()
+            cleaned = await chat_room_manager.heartbeat_check()
+            if cleaned:
+                logger.info(f"ws heartbeat cleanup: closed {cleaned} dead connections")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"heartbeat loop error: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期:启动/关闭时启停后台任务。"""
+    task = asyncio.create_task(_heartbeat_loop())
+    logger.info("ws heartbeat loop started")
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+        logger.info("ws heartbeat loop stopped")
 
 
 def create_app() -> FastAPI:
@@ -26,6 +60,7 @@ def create_app() -> FastAPI:
         title="IHUI AI Service",
         description="AI 服务 - LLM 网关 + MCP + LangGraph",
         version=__version__,
+        lifespan=lifespan,
     )
 
     # CORS

@@ -2428,9 +2428,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
 
     const agentId = `n8n_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
-    const avatar =
-      body.agentAvatar ??
-      'https://file.aizhs.top/sys-backs/2025/09/24/391_42_20250924094836A218.png'
+    const avatar = body.agentAvatar ?? ''
     const agentVariablesJson = JSON.stringify(body.agentVariables ?? {})
 
     try {
