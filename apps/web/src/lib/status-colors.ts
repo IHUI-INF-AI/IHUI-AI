@@ -37,7 +37,16 @@ export const STATUS_COLORS: Record<string, string> = {
   refunded: 'bg-primary/10 text-primary',
 }
 
+/** 语义色调常量,供各 helpers 复用避免散布硬编码颜色字符串 */
+export const TONE = {
+  muted: 'bg-muted text-muted-foreground',
+  amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  red: 'bg-red-500/10 text-red-600 dark:text-red-400',
+  primary: 'bg-primary/10 text-primary',
+} as const
+
 /** 获取状态颜色，未知状态默认返回 muted */
 export function getStatusColor(status: string): string {
-  return STATUS_COLORS[status.toLowerCase()] ?? 'bg-muted text-muted-foreground'
+  return STATUS_COLORS[status.toLowerCase()] ?? TONE.muted
 }
