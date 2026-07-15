@@ -95,7 +95,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h3 className="truncate text-sm font-semibold">{config.name}</h3>
+              <h3 className="line-clamp-2 text-sm font-semibold">{config.name}</h3>
               <span
                 className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
                   config.enabled
@@ -167,8 +167,8 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
             >
               {testOk
                 ? `成功 ${config.lastTestResponseMs ?? 0}ms · ${config.lastTestedAt ? formatDate(config.lastTestedAt) : '—'}`
-              : config.lastTestedAt
-                ? `失败 · ${config.lastTestedAt ? formatDate(config.lastTestedAt) : '—'}`
+                : config.lastTestedAt
+                  ? `失败 · ${config.lastTestedAt ? formatDate(config.lastTestedAt) : '—'}`
                   : '未测试'}
             </p>
           </div>

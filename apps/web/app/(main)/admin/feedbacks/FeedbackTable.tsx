@@ -95,7 +95,11 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                   <td className="max-w-xs break-words px-4 py-2.5">{fb.title}</td>
                   <td className="px-4 py-2.5">
                     {fb.filePath ? (
-                      <img src={fb.filePath} alt="" className="h-10 w-10 rounded object-cover" />
+                      <img
+                        src={fb.filePath}
+                        alt="反馈图片"
+                        className="h-10 w-10 rounded object-cover"
+                      />
                     ) : (
                       <span className="text-xs text-muted-foreground">-</span>
                     )}
@@ -125,7 +129,7 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                     {fb.feedbackPath ? (
                       <img
                         src={fb.feedbackPath}
-                        alt=""
+                        alt={fb.feedback?.slice(0, 30) || '反馈附件'}
                         className="h-10 w-10 rounded object-cover"
                       />
                     ) : (

@@ -36,12 +36,13 @@ export function useStatusFormatter(): UseStatusFormatterReturn {
   }, [])
 
   const toneClass = React.useCallback((tone: StatusTone): string => {
+    // 颜色体系与 src/lib/status-colors.ts 保持一致(emerald/amber/red/muted + dark 变体)
     const map: Record<StatusTone, string> = {
-      default: 'text-gray-500 bg-gray-100',
-      success: 'text-green-600 bg-green-100',
-      warning: 'text-yellow-600 bg-yellow-100',
-      danger: 'text-red-600 bg-red-100',
-      info: 'text-amber-600 bg-amber-100',
+      default: 'bg-muted text-muted-foreground',
+      success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+      danger: 'bg-red-500/10 text-red-600 dark:text-red-400',
+      info: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
     }
     return map[tone]
   }, [])

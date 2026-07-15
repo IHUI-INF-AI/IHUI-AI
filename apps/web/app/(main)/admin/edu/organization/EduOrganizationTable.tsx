@@ -70,7 +70,11 @@ export function EduOrganizationTable({
                 <TableCell className="px-4 py-2.5">{r.name}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   {r.binding ? (
-                    <img src={r.binding} alt="" className="h-10 w-10 rounded object-cover" />
+                    <img
+                      src={r.binding}
+                      alt={r.name || '机构图'}
+                      className="h-10 w-10 rounded object-cover"
+                    />
                   ) : (
                     '-'
                   )}

@@ -141,7 +141,7 @@ export default function LivePlayPage() {
             <CardContent className="space-y-3 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h1 className="truncate text-lg font-semibold">{channel.title}</h1>
+                  <h1 className="text-lg font-semibold">{channel.title}</h1>
                   <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                     <span>{channel.lecturerName || '—'}</span>
                     <span>·</span>

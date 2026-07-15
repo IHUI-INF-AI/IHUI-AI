@@ -58,7 +58,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: typeof Clock; cls: st
   approved: {
     label: '已通过',
     icon: CheckCircle,
-    cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-500',
+    cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   },
   rejected: { label: '已拒绝', icon: XCircle, cls: 'bg-destructive/10 text-destructive' },
   completed: {
