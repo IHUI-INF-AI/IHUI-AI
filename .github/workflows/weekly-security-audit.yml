@@ -12,7 +12,7 @@ name: weekly-security-audit
 
 on:
   schedule:
-    - cron: '0 18 * * 0'  # UTC 周日 18:00 = 北京周一 02:00
+    - cron: '0 18 * * 0' # UTC 周日 18:00 = 北京周一 02:00
   workflow_dispatch:
 
 permissions:
@@ -33,9 +33,7 @@ jobs:
           fetch-depth: 0
 
       - name: 安装 pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
+        uses: pnpm/action-setup@v6
 
       - name: 安装 Node
         uses: actions/setup-node@v4
