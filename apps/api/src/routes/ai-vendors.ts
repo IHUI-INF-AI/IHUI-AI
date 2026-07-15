@@ -26,12 +26,15 @@
  *   原 buildTencentHeaders / volcengineSign 函数保留作为内部 wrapper，逻辑不再修改。
  */
 import { createHmac, createHash } from 'node:crypto'
+import { SignJWT } from 'jose'
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
 import { z } from 'zod'
+import { sql } from 'drizzle-orm'
+import { db } from '../db/index.js'
 import { FALLBACK_VENDORS } from '../services/ai-vendor-config-service.js'
 import { callVendor as newCallVendor } from '../services/vendor-caller-service.js'
 
@@ -2095,6 +2098,374 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
       byVendor[r.vendor] = (byVendor[r.vendor] ?? 0) + 1
     }
     return reply.send(success({ total, byType, byVendor }))
+  })
+
+  // ==========================================================================
+  // 13. Coze 特定 workflow + socket 推送 + 扣费（迁移自 coze_zhs_py/api/coze_chat.py）
+  // ==========================================================================
+
+  // POST /coze/workflow/chat — Coze workflow 执行 + WebSocket 推送 + token 扣费
+  server.post('/coze/workflow/chat', async (request, reply) => {
+    const body = z
+      .object({
+        text: z.string().min(1),
+        sessionId: z.string().optional(),
+        projectId: z.number().optional(),
+        chatId: z.string().optional(),
+      })
+      .parse(request.body)
+    const userId = request.userId!
+
+    const cozeWorkflowUrl = process.env.COZE_WORKFLOW_URL
+    const cozeWorkflowToken = process.env.COZE_WORKFLOW_TOKEN
+    if (!cozeWorkflowUrl || !cozeWorkflowToken) {
+      return reply
+        .status(503)
+        .send(error(503, 'Coze workflow 未配置(COZE_WORKFLOW_URL/COZE_WORKFLOW_TOKEN)'))
+    }
+
+    const chatId = body.chatId ?? genId('coze')
+    const sessionId = body.sessionId ?? genId('session')
+    const projectId = body.projectId ?? 0
+
+    // 推送开始消息
+    try {
+      server.pushNotification(userId, {
+        type: 'coze_workflow',
+        event: 'user',
+        chatId,
+        status: 'run',
+        message: [{ type: 'text', text: body.text, role: 'user' }],
+      })
+    } catch {
+      /* 推送失败不阻塞 */
+    }
+
+    let answerContent = ''
+    try {
+      const resp = await fetchWithTimeout(
+        cozeWorkflowUrl,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${cozeWorkflowToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            content: { query: { prompt: [{ type: 'text', content: { text: body.text } }] } },
+            type: 'query',
+            session_id: sessionId,
+            project_id: projectId,
+          }),
+        },
+        120_000,
+      )
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '')
+        return reply
+          .status(502)
+          .send(error(502, `Coze workflow 失败: ${resp.status} ${errText.slice(0, 200)}`))
+      }
+      const text = await resp.text()
+      for (const line of text.split('\n')) {
+        if (!line.trim()) continue
+        try {
+          const data = JSON.parse(line) as Record<string, unknown>
+          const content = data.content as Record<string, unknown> | undefined
+          if (content && typeof content.answer === 'string') {
+            answerContent += content.answer
+          }
+        } catch {
+          answerContent += line
+        }
+      }
+
+      // 推送结果
+      try {
+        server.pushNotification(userId, {
+          type: 'coze_workflow',
+          event: 'chat_result',
+          chatId,
+          status: 'stop',
+          message: [{ type: 'text', text: answerContent }],
+        })
+      } catch {
+        /* ignore */
+      }
+
+      // token 扣费（估算）
+      const estimatedTokens = body.text.length + answerContent.length
+      try {
+        const tokenBalance = server.tokenBalance
+        if (tokenBalance) {
+          await tokenBalance.deductTokens(
+            userId,
+            Math.max(1, Math.ceil(estimatedTokens / 1000)),
+            'coze_workflow_chat',
+          )
+        }
+      } catch {
+        /* 扣费失败不阻塞 */
+      }
+
+      // 保存会话记录
+      try {
+        await db.execute(sql`
+          INSERT INTO coze_chat_history (uuid, bot_id, conversation_id, problem, answer, chat_id, created_at)
+          VALUES (${userId}, 'coze_workflow', ${sessionId}, ${body.text}, ${answerContent}, ${chatId}, now())
+          ON CONFLICT DO NOTHING
+        `)
+      } catch {
+        /* 表不存在时忽略 */
+      }
+
+      recordUsage(userId, 'coze')
+      return reply.send(success({ answer: answerContent, chatId, sessionId }))
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
+      return reply.status(502).send(error(502, `Coze workflow 异常: ${msg}`))
+    }
+  })
+
+  // ==========================================================================
+  // 14. Kling AI 视频代理（迁移自 coze_zhs_py/api/kling_proxy.py）
+  //     人脸识别 + 任务创建 + 任务查询 + JWT + Token 扣费
+  // ==========================================================================
+
+  const KLING_BASE_URL = 'https://api-beijing.klingai.com'
+
+  async function klingJwt(): Promise<string | null> {
+    const ak = process.env.KLING_ACCESS_KEY
+    const sk = process.env.KLING_SECRET_KEY
+    if (!ak || !sk) return null
+    const now = Math.floor(Date.now() / 1000)
+    return new SignJWT({})
+      .setProtectedHeader({ alg: 'HS256', kid: ak })
+      .setIssuer(ak)
+      .setExpirationTime(now + 1800)
+      .setNotBefore(now - 5)
+      .sign(new TextEncoder().encode(sk))
+  }
+
+  // POST /kling/identify — 人脸识别
+  server.post('/kling/identify', async (request, reply) => {
+    const body = z
+      .object({
+        videoId: z.string().optional(),
+        videoUrl: z.string().optional(),
+      })
+      .refine((d) => Boolean(d.videoId) !== Boolean(d.videoUrl), {
+        message: 'videoId 和 videoUrl 必须二选一',
+      })
+      .parse(request.body)
+
+    const jwt = await klingJwt()
+    if (!jwt)
+      return reply
+        .status(503)
+        .send(error(503, 'Kling 服务未配置(KLING_ACCESS_KEY/KLING_SECRET_KEY)'))
+
+    const reqBody = body.videoId ? { video_id: body.videoId } : { video_url: body.videoUrl }
+    try {
+      const resp = await fetchWithTimeout(
+        `${KLING_BASE_URL}/v1/videos/identify-face`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(reqBody),
+        },
+        120_000,
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok || data.code !== 0) {
+        return reply
+          .status(502)
+          .send(error(502, `Kling 人脸识别失败: ${data.message ?? resp.status}`))
+      }
+      recordUsage(request.userId!, 'kling')
+      return reply.send(success(data.data ?? {}))
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
+      return reply.status(502).send(error(502, `Kling 调用异常: ${msg}`))
+    }
+  })
+
+  // POST /kling/task/create — 创建对口型任务
+  server.post('/kling/task/create', async (request, reply) => {
+    const body = z
+      .object({
+        sessionId: z.string().min(1),
+        faceChoose: z.array(z.record(z.unknown())).min(1),
+        externalTaskId: z.string().optional(),
+        callbackUrl: z.string().optional(),
+      })
+      .parse(request.body)
+
+    const jwt = await klingJwt()
+    if (!jwt) return reply.status(503).send(error(503, 'Kling 服务未配置'))
+
+    const createBody: Record<string, unknown> = {
+      session_id: body.sessionId,
+      face_choose: body.faceChoose,
+    }
+    if (body.externalTaskId) createBody.external_task_id = body.externalTaskId
+    if (body.callbackUrl) createBody.callback_url = body.callbackUrl
+
+    try {
+      const resp = await fetchWithTimeout(
+        `${KLING_BASE_URL}/v1/videos/advanced-lip-sync`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(createBody),
+        },
+        120_000,
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok || data.code !== 0) {
+        return reply
+          .status(502)
+          .send(error(502, `Kling 任务创建失败: ${data.message ?? resp.status}`))
+      }
+      const taskData = (data.data as Record<string, unknown> | undefined) ?? {}
+      const taskId = taskData.task_id as string | undefined
+      if (!taskId) return reply.status(502).send(error(502, 'Kling 未返回 task_id'))
+
+      const task = createTask(request.userId!, 'kling', 'lip-sync', { taskId })
+      recordUsage(request.userId!, 'kling')
+      return reply.send(success({ taskId, internalTaskId: task.taskId, status: 'pending' }))
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
+      return reply.status(502).send(error(502, `Kling 调用异常: ${msg}`))
+    }
+  })
+
+  // GET /kling/task/query/:taskId — 查询任务状态
+  server.get('/kling/task/query/:taskId', async (request, reply) => {
+    const { taskId } = taskIdParam.parse(request.params)
+    const jwt = await klingJwt()
+    if (!jwt) return reply.status(503).send(error(503, 'Kling 服务未配置'))
+
+    try {
+      const resp = await fetchWithTimeout(
+        `${KLING_BASE_URL}/v1/videos/advanced-lip-sync/${encodeURIComponent(taskId)}`,
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+        },
+        60_000,
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) return reply.status(502).send(error(502, `Kling 查询失败: ${resp.status}`))
+
+      const taskData = (data.data as Record<string, unknown> | undefined) ?? {}
+      const status = String(taskData.task_status ?? '').toLowerCase()
+      if (status === 'succeed') {
+        const videos =
+          ((taskData.task_result as Record<string, unknown> | undefined)?.videos as
+            Array<Record<string, unknown>> | undefined) ?? []
+        const videoUrl = videos[0]?.url as string | undefined
+        if (videoUrl) {
+          try {
+            const tokenBalance = server.tokenBalance
+            if (tokenBalance) {
+              await tokenBalance.deductTokens(request.userId!, 1500, 'kling_lip_sync')
+            }
+          } catch {
+            /* 扣费失败不阻塞 */
+          }
+        }
+      }
+      recordUsage(request.userId!, 'kling')
+      return reply.send(success(taskData))
+    } catch (e) {
+      return reply.status(502).send(error(502, `Kling 查询异常: ${(e as Error).message}`))
+    }
+  })
+
+  // ==========================================================================
+  // 15. N8N 增强（迁移自 coze_zhs_py/api/n8n_proxy.py）
+  //     GET /n8n/workflows + POST /n8n/addAgent 双表插入
+  // ==========================================================================
+
+  // GET /n8n/workflows — 查询 N8N 工作流（使用服务端配置的凭据）
+  server.get('/n8n/workflows', async (_request, reply) => {
+    const baseUrl = process.env.N8N_BASE_URL
+    const key = process.env.N8N_API_KEY
+    if (!baseUrl || !key) return reply.status(503).send(error(503, 'N8N 服务未配置'))
+    try {
+      const resp = await fetchWithTimeout(
+        `${baseUrl.replace(/\/$/, '')}/api/v1/workflows?active=true`,
+        { method: 'GET', headers: { 'X-N8N-API-KEY': key } },
+        30_000,
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) return reply.status(502).send(error(502, `N8N 调用失败: ${resp.status}`))
+      const items = Array.isArray(data.data) ? (data.data as Record<string, unknown>[]) : []
+      const formatted = items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        createdAt: item.createdAt ?? null,
+        updatedAt: item.updatedAt ?? null,
+      }))
+      return reply.send(success(formatted))
+    } catch (e) {
+      return reply.status(502).send(error(502, `N8N 调用异常: ${(e as Error).message}`))
+    }
+  })
+
+  // POST /n8n/addAgent/db — 新增智能体到数据库（agents + zhs_agent_examine 双表）
+  server.post('/n8n/addAgent/db', async (request, reply) => {
+    const body = z
+      .object({
+        agentName: z.string().min(1),
+        agentDescription: z.string().min(1),
+        connectorUserId: z.string().min(1),
+        agentVariables: z.record(z.unknown()).optional(),
+        agentModel: z.string().min(1),
+        agentAvatar: z.string().optional(),
+      })
+      .parse(request.body)
+
+    const agentId = `n8n_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+    const avatar =
+      body.agentAvatar ??
+      'https://file.aizhs.top/sys-backs/2025/09/24/391_42_20250924094836A218.png'
+    const agentVariablesJson = JSON.stringify(body.agentVariables ?? {})
+
+    try {
+      // 1. 插入 agents 表
+      await db.execute(sql`
+        INSERT INTO agents (agent_id, name, description, bot_id, agent_variables, avatar, status, publish_status, agent_model, created_at, updated_at)
+        VALUES (${agentId}, ${body.agentName}, ${body.agentDescription}, ${agentId}, ${agentVariablesJson}, ${avatar}, 'pending', 'pending', ${body.agentModel}, now(), now())
+        ON CONFLICT DO NOTHING
+      `)
+
+      // 2. 查询用户昵称
+      let startName = ''
+      try {
+        const userRows = await db.execute(
+          sql`SELECT nickname FROM users WHERE uuid = ${body.connectorUserId} LIMIT 1`,
+        )
+        const userRow = userRows[0] as { nickname?: string } | undefined
+        if (userRow?.nickname) startName = userRow.nickname
+      } catch {
+        /* users 表结构可能不同，忽略 */
+      }
+
+      // 3. 插入 zhs_agent_examine 表
+      await db.execute(sql`
+        INSERT INTO zhs_agent_examine (agent_id, agent_name, agent_avatar, prologue, status, start_time, start_user, start_name, "desc", follow)
+        VALUES (${agentId}, ${body.agentName}, ${avatar}, ${body.agentDescription}, 0, now(), ${body.connectorUserId}, ${startName}, '智能体新增，等待审核', ${`[${new Date().toISOString()}] 智能体通过n8n接口创建，等待审核`})
+        ON CONFLICT DO NOTHING
+      `)
+
+      recordUsage(request.userId!, 'n8n')
+      return reply.send(success({ agentId }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, `数据库写入失败: ${(e as Error).message}`))
+    }
   })
 }
 

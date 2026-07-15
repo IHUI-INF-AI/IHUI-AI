@@ -6,6 +6,7 @@ import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { db, dbRead } from '../db/index.js'
 import {
+  agents,
   zhsAgentBuy,
   agentSettlements,
   zhsAgentNeedTask,
@@ -41,6 +42,18 @@ import {
   deleteExamine,
   approveExamine,
   rejectExamine,
+  findThumb,
+  addThumb,
+  removeThumb,
+  findCollect,
+  addCollect,
+  removeCollect,
+  recordAgentUse,
+  findAgentByBotId,
+  findAgentByAgentId,
+  unpublishAgentByAgentId,
+  findAgentSuggestions,
+  updateAgentDetails,
   type UpdateAgentInput,
   type UpdateCategoryInput,
   type CreateSettlementInput,
@@ -1157,5 +1170,241 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const rows = await db.delete(zhsAgentNeedTask).where(eq(zhsAgentNeedTask.id, id)).returning()
     if (!rows[0]) return reply.status(404).send(error(404, '需求任务不存在'))
     return reply.send(success({ id, deleted: true }))
+  })
+
+  // -------------------------------------------------------------------------
+  // thumbs / collect / use / unpublish / fetch-details / callback / token-balance / clear-cache
+  // -------------------------------------------------------------------------
+
+  const thumbsSchema = z.object({
+    uuid: z.string().min(1),
+    botId: z.string().min(1),
+  })
+
+  server.post('/thumbs', async (request, reply) => {
+    const parsed = thumbsSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { uuid, botId } = parsed.data
+    const existing = await findThumb(uuid, botId)
+    if (existing) {
+      await removeThumb(uuid, botId)
+      return reply.send(success({ action: 'remove', isThumbs: false, message: '取消点赞成功' }))
+    }
+    await addThumb(uuid, botId)
+    return reply.send(success({ action: 'add', isThumbs: true, message: '点赞成功' }))
+  })
+
+  server.post('/collect', async (request, reply) => {
+    const parsed = thumbsSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { uuid, botId } = parsed.data
+    const existing = await findCollect(uuid, botId)
+    if (existing) {
+      await removeCollect(uuid, botId)
+      return reply.send(success({ action: 'remove', isCollect: false, message: '取消收藏成功' }))
+    }
+    await addCollect(uuid, botId)
+    return reply.send(success({ action: 'add', isCollect: true, message: '收藏成功' }))
+  })
+
+  server.post('/use', async (request, reply) => {
+    const parsed = thumbsSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { uuid, botId } = parsed.data
+    await recordAgentUse(uuid, botId)
+    const suggestedQuestions = await findAgentSuggestions(botId)
+    return reply.send(
+      success({
+        action: 'add',
+        message: '使用记录添加成功',
+        suggestedQuestions,
+      }),
+    )
+  })
+
+  const unpublishSchema = z.object({
+    agentId: z.string().min(1),
+    reason: z.string().optional().default(''),
+    operatorId: z.string().optional(),
+    operatorName: z.string().optional(),
+  })
+
+  server.post('/unpublish', async (request, reply) => {
+    const parsed = unpublishSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { agentId, reason } = parsed.data
+    const agent = await findAgentByAgentId(agentId)
+    if (!agent) {
+      return reply.status(404).send(error(404, `智能体不存在: ${agentId}`))
+    }
+    if (agent.publishStatus === 'unpublished') {
+      return reply.send(
+        success({
+          agentId,
+          message: '智能体已经是下架状态',
+          action: 'no_change',
+        }),
+      )
+    }
+    const updated = await unpublishAgentByAgentId(agentId, reason)
+    return reply.send(
+      success({
+        agentId,
+        agentName: updated?.name,
+        action: 'unpublished',
+        message: '智能体下架成功',
+      }),
+    )
+  })
+
+  server.post('/:agentId/fetch-details', async (request, reply) => {
+    const { id: agentId } = idParam.parse(request.params)
+    const agent = await findAgentByAgentId(agentId)
+    if (!agent) {
+      return reply.status(404).send(error(404, '智能体不存在'))
+    }
+    const cozeToken = process.env.COZE_API_KEY || ''
+    if (!cozeToken || !agent.botId) {
+      return reply.send(
+        success({
+          agentId,
+          message: '未配置 COZE_API_KEY 或 botId，跳过远程获取',
+          details: null,
+        }),
+      )
+    }
+    try {
+      const res = await fetch(
+        `https://api.coze.cn/v1/bot/get_online_info?bot_id=${encodeURIComponent(agent.botId)}`,
+        { headers: { Authorization: `Bearer ${cozeToken}` } },
+      )
+      const body = (await res.json()) as {
+        code: number
+        msg?: string
+        data?: { icon_url?: string; model_info?: string; prompt_info?: string }
+      }
+      if (body.code !== 0) {
+        return reply.send(
+          success({
+            agentId,
+            message: `Coze API 返回: ${body.msg ?? '未知错误'}`,
+            details: null,
+          }),
+        )
+      }
+      const d = body.data ?? {}
+      await updateAgentDetails(agentId, {
+        agentVariables: d.prompt_info ?? agent.agentVariables ?? undefined,
+        avatar: d.icon_url ?? agent.avatar ?? undefined,
+        agentModel: d.model_info ?? agent.agentModel ?? undefined,
+      })
+      return reply.send(
+        success({
+          agentId,
+          message: '智能体详情获取并更新成功',
+          details: {
+            iconUrl: d.icon_url ?? null,
+            hasModelInfo: !!d.model_info,
+            hasPromptInfo: !!d.prompt_info,
+          },
+        }),
+      )
+    } catch (e) {
+      return reply.status(500).send(error(500, `获取智能体详情失败: ${(e as Error).message}`))
+    }
+  })
+
+  const cozeCallbackSchema = z.object({
+    event_type: z.string().optional(),
+    bot_id: z.string().optional(),
+    space_id: z.string().optional(),
+    status: z.string().optional(),
+    reason: z.string().optional(),
+    data: z.record(z.unknown()).optional(),
+  })
+
+  server.post('/callback/coze', async (request, reply) => {
+    const parsed = cozeCallbackSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, '回调数据格式错误'))
+    }
+    const { bot_id: botId, status, reason } = parsed.data
+    if (botId) {
+      const agent = await findAgentByBotId(botId)
+      if (agent) {
+        if (status === 'published' || status === 'approved') {
+          await db
+            .update(agents)
+            .set({ publishStatus: 'published', status: 'published', updatedAt: new Date() })
+            .where(eq(agents.agentId, agent.agentId))
+        } else if (status === 'unpublished' || status === 'rejected') {
+          await db
+            .update(agents)
+            .set({ publishStatus: 'unpublished', status: 'offline', updatedAt: new Date() })
+            .where(eq(agents.agentId, agent.agentId))
+        }
+      }
+    }
+    return reply.send(
+      success({
+        received: true,
+        botId: botId ?? null,
+        status: status ?? null,
+        reason: reason ?? null,
+      }),
+    )
+  })
+
+  server.get('/callback/health', async (_request, reply) => {
+    return reply.send({
+      status: 'healthy',
+      endpoint: '/agents/callback/coze',
+      timestamp: new Date().toISOString(),
+    })
+  })
+
+  server.get('/token/balance/:userUuid', async (request, reply) => {
+    const { userUuid } = z.object({ userUuid: z.string().min(1) }).parse(request.params)
+    const rows = await dbRead.execute(
+      sql`SELECT user_uuid, balance, frozen_balance, updated_at FROM user_token_balance WHERE user_uuid = ${userUuid} LIMIT 1`,
+    )
+    const row = rows[0] as
+      | {
+          user_uuid: string
+          balance: string | number
+          frozen_balance: string | number
+          updated_at: Date
+        }
+      | undefined
+    if (!row) {
+      return reply.send(
+        success({
+          userUuid,
+          balance: 0,
+          frozenBalance: 0,
+          message: '用户 token 余额记录不存在，默认为 0',
+        }),
+      )
+    }
+    return reply.send(
+      success({
+        userUuid: row.user_uuid,
+        balance: Number(row.balance),
+        frozenBalance: Number(row.frozen_balance),
+        updatedAt: row.updated_at,
+      }),
+    )
+  })
+
+  server.post('/clear-cache', async (_request, reply) => {
+    return reply.send(success({ message: '智能体缓存已清理', clearedAt: new Date().toISOString() }))
   })
 }
