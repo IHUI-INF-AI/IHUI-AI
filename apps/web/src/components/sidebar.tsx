@@ -38,6 +38,7 @@ import {
   KeyRound,
   GraduationCap,
   Download,
+  PlayCircle,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -115,46 +116,80 @@ const SIDEBAR_MIN_WIDTH = 60
 const SIDEBAR_MAX_WIDTH = 240
 const SIDEBAR_MOBILE_WIDTH = 168
 
-const NAV_ITEMS: NavItem[] = [
-  { href: '/chat', labelKey: 'chat', icon: MessageSquare },
-  { href: '/chat/history', labelKey: 'chatHistory', icon: MessageSquare },
-  { href: '/models', labelKey: 'models', icon: Bot },
-  { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
-  { href: '/teams', labelKey: 'teams', icon: Users },
-  { href: '/search', labelKey: 'search', icon: Search },
-  { href: '/favorites', labelKey: 'favorites', icon: Star },
-  { href: '/following', labelKey: 'following', icon: Users },
-  { href: '/subscriptions', labelKey: 'subscriptions', icon: Rss },
-  { href: '/tags', labelKey: 'tags', icon: Tag },
-  { href: '/plaza', labelKey: 'plaza', icon: LayoutGrid },
-  { href: '/lecturers', labelKey: 'lecturers', icon: Users },
-  { href: '/agents', labelKey: 'agents', icon: Bot },
-  { href: '/distribution', labelKey: 'distribution', icon: Gift },
-  { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
-  { href: '/resources', labelKey: 'resources', icon: Package },
-  { href: '/messages', labelKey: 'messages', icon: MessageSquare },
-  { href: '/schedule', labelKey: 'schedule', icon: Calendar },
-  { href: '/docs', labelKey: 'docs', icon: FileText },
-  { href: '/vip-membership', labelKey: 'vip', icon: Crown },
-  { href: '/wallet', labelKey: 'wallet', icon: Wallet },
-  { href: '/oauth/my-authorized', labelKey: 'oauthMyAuthorized', icon: KeyRound },
-  { href: '/payment', labelKey: 'payment', icon: CreditCard },
-  { href: '/orders', labelKey: 'orders', icon: ShoppingBag },
-  { href: '/activities', labelKey: 'activities', icon: Gift },
-  { href: '/points', labelKey: 'points', icon: Star },
-  { href: '/edu-points', labelKey: 'eduPoints', icon: Award },
-  { href: '/student', labelKey: 'student', icon: GraduationCap },
-  { href: '/members', labelKey: 'members', icon: Users, adminOnly: true },
-  { href: '/user-center', labelKey: 'userCenter', icon: UserCircle, adminOnly: true },
-  { href: '/user/profile', labelKey: 'user', icon: User },
-  { href: '/settings', labelKey: 'settings', icon: Settings },
-  { href: '/admin', labelKey: 'admin', icon: Shield, adminOnly: true },
-  { href: '/admin/statistics', labelKey: 'adminStatistics', icon: BarChart3, adminOnly: true },
-  { href: '/admin/workflows', labelKey: 'adminWorkflows', icon: Workflow, adminOnly: true },
-  { href: '/admin/tags', labelKey: 'adminTags', icon: Tag, adminOnly: true },
-  { href: '/admin/logs', labelKey: 'adminLogs', icon: ScrollText, adminOnly: true },
-  { href: '/feedback', labelKey: 'feedback', icon: MessageSquare },
-  { href: '/help', labelKey: 'help', icon: HelpCircle },
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: 'AI',
+    items: [
+      { href: '/chat', labelKey: 'chat', icon: MessageSquare },
+      { href: '/chat/history', labelKey: 'chatHistory', icon: MessageSquare },
+      { href: '/models', labelKey: 'models', icon: Bot },
+      { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
+    ],
+  },
+  {
+    label: '内容',
+    items: [
+      { href: '/plaza', labelKey: 'plaza', icon: LayoutGrid },
+      { href: '/agents', labelKey: 'agents', icon: Bot },
+      { href: '/distribution', labelKey: 'distribution', icon: Gift },
+      { href: '/lecturers', labelKey: 'lecturers', icon: Users },
+      { href: '/teams', labelKey: 'teams', icon: Users },
+      { href: '/resources', labelKey: 'resources', icon: Package },
+      { href: '/messages', labelKey: 'messages', icon: MessageSquare },
+      { href: '/schedule', labelKey: 'schedule', icon: Calendar },
+      { href: '/docs', labelKey: 'docs', icon: FileText },
+      { href: '/search', labelKey: 'search', icon: Search },
+      { href: '/favorites', labelKey: 'favorites', icon: Star },
+      { href: '/following', labelKey: 'following', icon: Users },
+      { href: '/subscriptions', labelKey: 'subscriptions', icon: Rss },
+      { href: '/tags', labelKey: 'tags', icon: Tag },
+      { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
+    ],
+  },
+  {
+    label: '教育',
+    items: [
+      { href: '/learn', labelKey: 'learn', icon: GraduationCap },
+      { href: '/live', labelKey: 'live', icon: PlayCircle },
+      { href: '/exam', labelKey: 'exam', icon: ScrollText },
+      { href: '/asks', labelKey: 'asks', icon: MessageSquare },
+    ],
+  },
+  {
+    label: '交易',
+    items: [
+      { href: '/vip-membership', labelKey: 'vip', icon: Crown },
+      { href: '/wallet', labelKey: 'wallet', icon: Wallet },
+      { href: '/payment', labelKey: 'payment', icon: CreditCard },
+      { href: '/orders', labelKey: 'orders', icon: ShoppingBag },
+      { href: '/activities', labelKey: 'activities', icon: Gift },
+      { href: '/points', labelKey: 'points', icon: Star },
+      { href: '/edu-points', labelKey: 'eduPoints', icon: Award },
+      { href: '/oauth/my-authorized', labelKey: 'oauthMyAuthorized', icon: KeyRound },
+    ],
+  },
+  {
+    label: '个人',
+    items: [
+      { href: '/user/profile', labelKey: 'user', icon: User },
+      { href: '/student', labelKey: 'student', icon: GraduationCap },
+      { href: '/settings', labelKey: 'settings', icon: Settings },
+      { href: '/feedback', labelKey: 'feedback', icon: MessageSquare },
+      { href: '/help', labelKey: 'help', icon: HelpCircle },
+    ],
+  },
+  {
+    label: '管理',
+    items: [
+      { href: '/admin', labelKey: 'admin', icon: Shield, adminOnly: true },
+      { href: '/admin/statistics', labelKey: 'adminStatistics', icon: BarChart3, adminOnly: true },
+      { href: '/user-center', labelKey: 'userCenter', icon: UserCircle, adminOnly: true },
+      { href: '/members', labelKey: 'members', icon: Users, adminOnly: true },
+      { href: '/admin/workflows', labelKey: 'adminWorkflows', icon: Workflow, adminOnly: true },
+      { href: '/admin/tags', labelKey: 'adminTags', icon: Tag, adminOnly: true },
+      { href: '/admin/logs', labelKey: 'adminLogs', icon: ScrollText, adminOnly: true },
+    ],
+  },
 ]
 
 const LANGUAGES: { code: Language; name: string }[] = [
@@ -573,20 +608,25 @@ export function Sidebar({
       if (href === '/') return pathname === '/'
       if (!pathname.startsWith(href)) return false
       // 更具体的同前缀项优先高亮，避免 /chat 与 /chat/history 同时高亮
-      return !NAV_ITEMS.some(
-        (i) => i.href !== href && i.href.startsWith(href) && pathname.startsWith(i.href),
+      return !NAV_GROUPS.some((g) =>
+        g.items.some(
+          (i) => i.href !== href && i.href.startsWith(href) && pathname.startsWith(i.href),
+        ),
       )
     },
     [pathname],
   )
 
   const isAdmin = (user?.roleId ?? 0) >= 1
-  const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin)
+  const visibleGroups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((item) => !item.adminOnly || isAdmin),
+  })).filter((g) => g.items.length > 0)
 
   const activeHref = React.useMemo(() => {
-    const found = visibleItems.find((item) => isActive(item.href))
+    const found = visibleGroups.flatMap((g) => g.items).find((item) => isActive(item.href))
     return found?.href
-  }, [visibleItems, isActive])
+  }, [visibleGroups, isActive])
 
   React.useEffect(() => {
     if (!activeHref) return
@@ -608,66 +648,75 @@ export function Sidebar({
         ref={navRef}
         id={id}
         aria-label={t('title') ?? '主导航'}
-        className="hover-scroll scroll-fade min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-2"
+        className="hover-scroll scroll-fade min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-2"
       >
-        {visibleItems.map((item) => {
-          const Icon = item.icon
-          const active = isActive(item.href)
-          const label = t(item.labelKey)
-          const className = cn(
-            'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
-            active
-              ? 'bg-primary text-primary-foreground'
-              : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
-            collapsed && 'justify-center',
-          )
-          const refCb = (el: HTMLElement | null) => {
-            if (el) itemRefs.current.set(item.href, el)
-            else itemRefs.current.delete(item.href)
-          }
-          // 搜索行:展开态承载弹层 + SearchBar,折叠态保留 Link 跳 /search
-          if (item.labelKey === 'search') {
-            return (
-              <SearchNavItem
-                key={item.href}
-                collapsed={collapsed}
-                active={active}
-                label={label}
-                onCloseMobile={onCloseMobile}
-                refCb={refCb}
-              />
-            )
-          }
-          if (collapsed) {
-            return (
-              <Tooltip key={item.href} content={label} side="right">
+        {visibleGroups.map((group, gi) => (
+          <div key={group.label} className={gi > 0 ? 'pt-2' : ''}>
+            {!collapsed && (
+              <div className="px-2.5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                {group.label}
+              </div>
+            )}
+            {group.items.map((item) => {
+              const Icon = item.icon
+              const active = isActive(item.href)
+              const label = t(item.labelKey)
+              const className = cn(
+                'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+                active
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+                collapsed && 'justify-center',
+              )
+              const refCb = (el: HTMLElement | null) => {
+                if (el) itemRefs.current.set(item.href, el)
+                else itemRefs.current.delete(item.href)
+              }
+              // 搜索行:展开态承载弹层 + SearchBar,折叠态保留 Link 跳 /search
+              if (item.labelKey === 'search') {
+                return (
+                  <SearchNavItem
+                    key={item.href}
+                    collapsed={collapsed}
+                    active={active}
+                    label={label}
+                    onCloseMobile={onCloseMobile}
+                    refCb={refCb}
+                  />
+                )
+              }
+              if (collapsed) {
+                return (
+                  <Tooltip key={item.href} content={label} side="right">
+                    <Link
+                      href={item.href}
+                      ref={refCb}
+                      onClick={onCloseMobile}
+                      aria-label={label}
+                      aria-current={active ? 'page' : undefined}
+                      className={className}
+                    >
+                      <Icon className="h-5 w-5 shrink-0" />
+                    </Link>
+                  </Tooltip>
+                )
+              }
+              return (
                 <Link
+                  key={item.href}
                   href={item.href}
                   ref={refCb}
                   onClick={onCloseMobile}
-                  aria-label={label}
                   aria-current={active ? 'page' : undefined}
                   className={className}
                 >
                   <Icon className="h-5 w-5 shrink-0" />
+                  <span>{label}</span>
                 </Link>
-              </Tooltip>
-            )
-          }
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              ref={refCb}
-              onClick={onCloseMobile}
-              aria-current={active ? 'page' : undefined}
-              className={className}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              <span>{label}</span>
-            </Link>
-          )
-        })}
+              )
+            })}
+          </div>
+        ))}
       </nav>
     </TooltipProvider>
   )
