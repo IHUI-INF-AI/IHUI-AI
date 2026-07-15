@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -94,6 +94,12 @@ const createCertificateSchema = z.object({
 // =============================================================================
 
 export const usercenterRoutes: FastifyPluginAsync = async (server) => {
+  // 用户中心响应含 phone/email(admin 上下文),需跳过响应脱敏
+  // 防止 response-sanitizer 把敏感字段误伤为 '***'
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
   // 统一 admin 鉴权
   server.addHook('preHandler', requireAdmin)
 
