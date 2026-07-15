@@ -28,7 +28,7 @@ export function useTaskWebsocket(): UseTaskWebsocketReturn {
   const [messages, setMessages] = React.useState<TaskWsMessage[]>([])
   const [subscribedTask, setSubscribedTask] = React.useState<string | null>(null)
   const wsRef = React.useRef<WebSocket | null>(null)
-  const token = useAuthStore.getState().token
+  const token = useAuthStore((s) => s.token)
 
   const connect = React.useCallback(
     (taskId: string) => {
