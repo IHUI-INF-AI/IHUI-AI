@@ -12,6 +12,7 @@ import inquirer from 'inquirer';
 import { createSession, saveSession, type Session, type ChatMessage } from './session.js';
 import { loadMcpConfig } from './mcp-config.js';
 import { agentsMdExists, writeAgentsMd } from './template.js';
+import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 
 export interface ReplOptions {
   modelId: string;
@@ -92,6 +93,12 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info('  /init              创建 AGENTS.md 模板');
       console.info('  /mcp               列出已配置的 MCP 服务器');
       console.info('  /diff              显示最近的文件修改');
+      console.info(chalk.cyan('\n文件操作:'));
+      console.info('  /read <file>       读取文件 (带行号)');
+      console.info('  /ls [dir]          列出目录内容');
+      console.info('  /grep <pat> [path] 递归搜索内容');
+      console.info('  /glob <pattern>    匹配文件名 (如 *.ts)');
+      console.info('  /bash <cmd>        执行 shell 命令');
       console.info('');
       break;
 
@@ -145,6 +152,30 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
 
     case 'diff':
       handleDiff(state);
+      break;
+
+    case 'read':
+      cmdRead(state.opts.workspacePath, args[0] ?? '');
+      break;
+
+    case 'ls':
+      cmdLs(state.opts.workspacePath, args[0] ?? '');
+      break;
+
+    case 'grep':
+      cmdGrep(state.opts.workspacePath, args[0] ?? '', args[1] ?? '');
+      break;
+
+    case 'glob':
+      cmdGlob(state.opts.workspacePath, args[0] ?? '');
+      break;
+
+    case 'bash':
+      cmdBash(state.opts.workspacePath, args.join(' '));
+      break;
+
+    case 'sh':
+      cmdBash(state.opts.workspacePath, args.join(' '));
       break;
 
     default:
