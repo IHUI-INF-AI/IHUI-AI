@@ -11,7 +11,12 @@ interface StudyInfo {
 }
 
 export default function StudyIndex() {
-  const [info, setInfo] = useState<StudyInfo>({ todayMinutes: 0, totalMinutes: 0, continuousDays: 0, courses: 0 })
+  const [info, setInfo] = useState<StudyInfo>({
+    todayMinutes: 0,
+    totalMinutes: 0,
+    continuousDays: 0,
+    courses: 0,
+  })
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -35,7 +40,7 @@ export default function StudyIndex() {
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="p-6 bg-gradient-to-br from-[#007aff] to-[#00c6ff]">
+      <View className="p-6 bg-gradient-to-br from-[#07c160] to-[#35e683]">
         <View className="flex flex-wrap">
           <View className="w-1/2 text-center mb-3 text-white">
             <Text className="block text-xl font-bold">{info.todayMinutes}</Text>
@@ -56,22 +61,34 @@ export default function StudyIndex() {
         </View>
       </View>
       <View className="m-3 bg-white rounded-2xl overflow-hidden">
-        <View className="flex items-center p-4 border-b border-[#f5f5f] text-base" onClick={() => navigate('/pages/study/record')}>
+        <View
+          className="flex items-center p-4 border-b border-[#f5f5f] text-base"
+          onClick={() => navigate('/pages/study/record')}
+        >
           <Text>📋</Text>
           <Text className="flex-1 ml-3 text-sm text-[#333]">学习记录</Text>
           <Text className="text-[#ccc]">›</Text>
         </View>
-        <View className="flex items-center p-4 border-b border-[#f5f5f5] text-base" onClick={() => navigate('/pages/study/plan')}>
+        <View
+          className="flex items-center p-4 border-b border-[#f5f5f5] text-base"
+          onClick={() => navigate('/pages/study/plan')}
+        >
           <Text>🎯</Text>
           <Text className="flex-1 ml-3 text-sm text-[#333]">学习计划</Text>
           <Text className="text-[#ccc]">›</Text>
         </View>
-        <View className="flex items-center p-4 border-b border-[#f5f5f5] text-base" onClick={() => navigate('/pages/study/rank')}>
+        <View
+          className="flex items-center p-4 border-b border-[#f5f5f5] text-base"
+          onClick={() => navigate('/pages/study/rank')}
+        >
           <Text>🏆</Text>
           <Text className="flex-1 ml-3 text-sm text-[#333]">学习排行</Text>
           <Text className="text-[#ccc]">›</Text>
         </View>
-        <View className="flex items-center p-4 text-base" onClick={() => navigate('/pages/exam/list')}>
+        <View
+          className="flex items-center p-4 text-base"
+          onClick={() => navigate('/pages/exam/list')}
+        >
           <Text>📝</Text>
           <Text className="flex-1 ml-3 text-sm text-[#333]">我的考试</Text>
           <Text className="text-[#ccc]">›</Text>

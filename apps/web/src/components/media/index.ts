@@ -1,5 +1,7 @@
 export { ImageViewer } from './ImageViewer'
 export { VideoPlayer } from './VideoPlayer'
+export { LivePlayer } from './LivePlayer'
+export { PDFViewer } from './PDFViewer'
 export { MarkdownViewer } from './MarkdownViewer'
 export { CodeViewer } from './CodeViewer'
 export { FilePreview } from './FilePreview'

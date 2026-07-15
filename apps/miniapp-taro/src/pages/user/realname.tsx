@@ -82,7 +82,7 @@ export default function Realname() {
       </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          realName.trim() && idCard ? 'bg-[#007aff] text-white' : 'bg-[#ccc] text-white'
+          realName.trim() && idCard ? 'bg-[#07c160] text-white' : 'bg-[#ccc] text-white'
         }`}
         disabled={!realName.trim() || !idCard}
         onClick={onSubmit}

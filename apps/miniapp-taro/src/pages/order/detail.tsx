@@ -77,7 +77,7 @@ export default function OrderDetail() {
       <View className="px-[32rpx]">
         {order.status === 'pending' && (
           <Button
-            className="mt-[24rpx] bg-[#007aff] text-white rounded-[40rpx] text-[30rpx]"
+            className="mt-[24rpx] bg-[#07c160] text-white rounded-[40rpx] text-[30rpx]"
             onClick={goPay}
           >
             去支付

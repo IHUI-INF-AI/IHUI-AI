@@ -677,15 +677,26 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // GET /traces/slow-queries - 慢查询列表（无独立性能表，返回空桩）
+  // GET /traces/slow-queries - 慢查询列表（基于 pg_stat_activity 实时活跃查询）
   server.get('/traces/slow-queries', async (_request, reply) => {
-    return reply.send(
-      success({
-        list: [],
-        total: 0,
-        note: '慢查询表未独立建模，需启用 DB 端慢查询日志后接入',
-      }),
-    )
+    let list: Record<string, unknown>[] = []
+    let note = '基于 pg_stat_activity 实时活跃查询(执行时长 > 1 秒)'
+    try {
+      const rows = await db.execute(
+        sql`SELECT pid, usename, application_name, client_addr,
+                   now() - query_start AS duration, state, query
+            FROM pg_stat_activity
+            WHERE state = 'active'
+              AND now() - query_start > interval '1 second'
+              AND query NOT ILIKE '%pg_stat_activity%'
+            ORDER BY query_start ASC
+            LIMIT 50`,
+      )
+      list = rows as Record<string, unknown>[]
+    } catch {
+      note = 'pg_stat_activity 不可用,需授予 pg_stat_scan_tables 权限或启用 pg_stat_statements 扩展'
+    }
+    return reply.send(success({ list, total: list.length, note }))
   })
 
   // GET /traces/export - 导出原始访问日志（JSON）

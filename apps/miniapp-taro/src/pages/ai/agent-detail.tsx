@@ -62,7 +62,7 @@ export default function AgentDetailPage() {
       {agent && (
         <View className="mx-[12px] my-[12px]">
           <Button
-            className="w-full bg-[#007aff] text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
+            className="w-full bg-[#07c160] text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
             onClick={onChat}
           >
             开始对话
