@@ -65,13 +65,17 @@ export function PasswordLoginForm({ active, onSuccess }: PasswordLoginFormProps)
       const json = (await res.json()) as {
         code: number
         message: string
-        data?: { accessToken?: string; user?: { id: string; nickname: string; avatar?: string } }
+        data?: {
+          accessToken?: string
+          refreshToken?: string
+          user?: { id: string; nickname: string; avatar?: string }
+        }
       }
       if (!res.ok || json.code !== 0 || !json.data?.accessToken) {
         setServerError(json.message || t('loginFailed'))
         return
       }
-      setToken(json.data.accessToken)
+      setToken(json.data.accessToken, json.data.refreshToken)
       if (json.data.user) setUser(json.data.user)
       if (onSuccess) onSuccess()
       else router.push('/')

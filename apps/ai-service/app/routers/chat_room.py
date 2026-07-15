@@ -9,7 +9,13 @@
 - zhs_station_room(id, room_name, type, created_at)
 - zhs_station_user(id, user_uuid, room_id, is_leave, is_del, created_at, leave_at)
 - zhs_station_letter(id, user_uuid, receiver_uuid, type, content, chat_id, send_time, is_del, is_read)
+
+WebSocket 韧性:
+- 服务端每 25s 发送 ping,客户端必须在 60s 内回复 pong
+- 客户端断开时由 finally 自动 leave_room
+- 服务端用 fastapi 启动时注册 background task 周期巡检,清理僵尸连接
 """
+import asyncio
 import json
 import logging
 import time
@@ -23,6 +29,10 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# WebSocket 心跳参数
+HEARTBEAT_INTERVAL_SEC = 25
+HEARTBEAT_TIMEOUT_SEC = 60
 
 # =============================================================================
 # 数据库连接(复用 settings.database_url,asyncpg 原生连接池)
@@ -53,12 +63,14 @@ class ChatRoomManager:
     def __init__(self) -> None:
         # room_id -> {user_uuid: websocket}
         self.rooms: dict[str, dict[str, WebSocket]] = {}
-        # websocket -> {user_uuid, room_id, joined_at}
+        # websocket -> {user_uuid, room_id, joined_at, last_ping_at}
         self.user_sessions: dict[WebSocket, dict[str, Any]] = {}
         # room_id -> set(user_uuid)
         self.room_users: dict[str, set[str]] = {}
         # 系统房间:user_uuid -> {websocket, room_id, joined_at}
         self.system_rooms: dict[str, dict[str, Any]] = {}
+        # 启动时记录的当前时间戳,用于心跳基准
+        self._boot_ts = time.time()
 
     async def join_room(
         self,
@@ -139,10 +151,12 @@ class ChatRoomManager:
 
         # 记录会话
         rid = str(actual_room_id)
+        now = time.time()
         self.user_sessions[websocket] = {
             "user_uuid": user_uuid,
             "room_id": rid,
-            "joined_at": time.time(),
+            "joined_at": now,
+            "last_ping_at": now,
         }
         self.rooms.setdefault(rid, {})[user_uuid] = websocket
         self.room_users.setdefault(rid, set()).add(user_uuid)
@@ -300,25 +314,18 @@ class ChatRoomManager:
                         room_id,
                     )
                 else:
-                    # 给房间内所有其他用户持久化
-                    rows = await conn.fetch(
-                        "SELECT user_uuid FROM zhs_station_user WHERE room_id::text = $1 "
-                        "AND is_leave = 0 AND is_del = 0 AND user_uuid != $2",
-                        room_id,
+                    # 一次性给房间内所有其他用户持久化,避免 N+1 INSERT
+                    message_id = await conn.fetchval(
+                        "INSERT INTO zhs_station_letter (user_uuid, receiver_uuid, type, content, chat_id, send_time, is_del) "
+                        "SELECT $1, user_uuid, $2, $3, $4, NOW(), 0 "
+                        "FROM zhs_station_user "
+                        "WHERE room_id::text = $4 AND is_leave = 0 AND is_del = 0 AND user_uuid != $1 "
+                        "RETURNING id",
                         user_uuid,
+                        message_type,
+                        content,
+                        room_id,
                     )
-                    for row in rows:
-                        mid = await conn.fetchval(
-                            "INSERT INTO zhs_station_letter (user_uuid, receiver_uuid, type, content, chat_id, send_time, is_del) "
-                            "VALUES ($1, $2, $3, $4, $5, NOW(), 0) RETURNING id",
-                            user_uuid,
-                            row["user_uuid"],
-                            message_type,
-                            content,
-                            room_id,
-                        )
-                        if message_id is None:
-                            message_id = mid
             except Exception as e:
                 logger.error(f"persist message failed: {e}")
                 return False
@@ -367,6 +374,49 @@ class ChatRoomManager:
     def get_user_rooms(self, user_uuid: str) -> list[str]:
         return [rid for rid, users in self.rooms.items() if user_uuid in users]
 
+    def mark_ping(self, websocket: WebSocket) -> None:
+        """刷新心跳时间戳。"""
+        session = self.user_sessions.get(websocket)
+        if session is not None:
+            session["last_ping_at"] = time.time()
+
+    async def heartbeat_check(self) -> int:
+        """遍历所有连接,关闭心跳超时的僵尸连接。返回清理数。"""
+        now = time.time()
+        cleaned = 0
+        for ws in list(self.user_sessions.keys()):
+            session = self.user_sessions.get(ws)
+            if not session:
+                continue
+            if now - session.get("last_ping_at", now) < HEARTBEAT_TIMEOUT_SEC:
+                continue
+            try:
+                await ws.close(code=1011, reason="heartbeat timeout")
+            except Exception as e:
+                logger.debug(f"close dead ws: {e}")
+            try:
+                await self.leave_room(ws)
+            except Exception as e:
+                logger.debug(f"leave_room during heartbeat cleanup: {e}")
+            cleaned += 1
+        return cleaned
+
+    async def send_heartbeat_pings(self) -> int:
+        """向所有连接发送 ping 帧,等待客户端 pong。返回成功 ping 数。"""
+        sent = 0
+        for ws in list(self.user_sessions.keys()):
+            try:
+                await ws.send_json(
+                    {
+                        "event": "ping",
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
+                sent += 1
+            except Exception as e:
+                logger.debug(f"ping send failed: {e}")
+        return sent
+
 
 # 全局管理器
 chat_room_manager = ChatRoomManager()
@@ -400,6 +450,18 @@ async def chat_room_websocket(websocket: WebSocket) -> None:
                 data = await websocket.receive_text()
                 message = json.loads(data)
                 event = message.get("event")
+
+                if event == "ping":
+                    # 客户端主动 ping → 立即更新心跳时间戳
+                    chat_room_manager.mark_ping(websocket)
+                    await websocket.send_json(
+                        {"event": "pong", "timestamp": datetime.now().isoformat()}
+                    )
+                    continue
+
+                if event == "pong":
+                    chat_room_manager.mark_ping(websocket)
+                    continue
 
                 if event == "connect":
                     user_uuid = message.get("user_uuid")
@@ -559,33 +621,30 @@ async def get_user_rooms(user_uuid: str) -> dict[str, Any]:
         result = []
         # 系统房间
         system_room_id = f"system_{user_uuid}"
-        sys_unread = await conn.fetchval(
-            "SELECT COUNT(*) FROM zhs_station_letter WHERE receiver_uuid = $1 "
-            "AND chat_id = $2 AND is_read = 0 AND is_del = 0",
+        # 一次性聚合所有房间未读数,避免 N+1
+        unread_by_chat: dict[str, int] = {}
+        for r in await conn.fetch(
+            "SELECT chat_id, COUNT(*)::int AS cnt FROM zhs_station_letter "
+            "WHERE receiver_uuid = $1 AND is_read = 0 AND is_del = 0 "
+            "GROUP BY chat_id",
             user_uuid,
-            system_room_id,
-        )
+        ):
+            unread_by_chat[str(r["chat_id"])] = r["cnt"]
         result.append(
             {
                 "room_id": system_room_id,
                 "room_name": "系统消息",
                 "room_type": 0,
-                "unread_count": sys_unread or 0,
+                "unread_count": unread_by_chat.get(system_room_id, 0),
             }
         )
         for row in rooms:
-            unread = await conn.fetchval(
-                "SELECT COUNT(*) FROM zhs_station_letter WHERE receiver_uuid = $1 "
-                "AND chat_id = $2 AND is_read = 0 AND is_del = 0",
-                user_uuid,
-                str(row["room_id"]),
-            )
             result.append(
                 {
                     "room_id": str(row["room_id"]),
                     "room_name": row["room_name"],
                     "room_type": row["type"],
-                    "unread_count": unread or 0,
+                    "unread_count": unread_by_chat.get(str(row["room_id"]), 0),
                 }
             )
     return {"code": 200, "data": {"user_uuid": user_uuid, "rooms": result, "count": len(result)}}

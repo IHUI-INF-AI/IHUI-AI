@@ -97,7 +97,7 @@ export function EmailCodeLoginForm({ active, onSuccess }: EmailCodeLoginFormProp
         setEmailErr(json.message || t('loginFailed'))
         return
       }
-      setToken(json.data.accessToken)
+      setToken(json.data.accessToken, json.data.refreshToken)
       // 后端仅返回 userId + accessToken,缺少完整 user 字段;先写最小 user 占位,
       // 再异步拉 /me 补全 nickname/avatar/roleId 等字段,Header 即可正常显示。
       if (json.data.userId) {

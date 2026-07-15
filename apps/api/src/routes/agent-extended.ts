@@ -11,6 +11,26 @@ const idParamSchema = z.object({ id: z.string().min(1) })
 // 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）
 // =============================================================================
 
+// 允许访问的表名白名单（防止 sql.raw 拼接 table 参数时引入注入风险）
+const ALLOWED_TABLES = new Set([
+  'zhs_agent_need_task',
+  'agent_uploads',
+  'zhs_agent_usedetail',
+  'zhs_agent_buy',
+  'zhs_agent_withdrawal_detail',
+  'agent_rule',
+  'agent_rule_param',
+  'agent_heat_stats',
+  'zhs_developer_link',
+  'zhs_link_developer',
+])
+
+function assertTable(table: string): void {
+  if (!ALLOWED_TABLES.has(table)) {
+    throw new Error(`Table not in allowlist: ${table}`)
+  }
+}
+
 function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
   const page = Math.max(1, Math.floor(Number(q.page) || 1))
   const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
@@ -21,6 +41,7 @@ async function rawList(
   table: string,
   opts: { page: number; pageSize: number; conds?: SQL[]; orderBy?: string },
 ) {
+  assertTable(table)
   const where =
     opts.conds && opts.conds.length > 0 ? sql`WHERE ${sql.join(opts.conds, sql` AND `)}` : sql``
   const order = opts.orderBy ?? '"id" DESC'
@@ -41,6 +62,7 @@ async function rawList(
 }
 
 async function rawById(table: string, id: string) {
+  assertTable(table)
   const rows = await db.execute(
     sql`SELECT * FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id} LIMIT 1`,
   )
@@ -53,6 +75,7 @@ async function rawInsert(
   body: Record<string, unknown>,
   reply: FastifyReply,
 ): Promise<Record<string, unknown> | null> {
+  assertTable(table)
   const cols: string[] = []
   const vals: unknown[] = []
   for (const c of columns) {
@@ -85,6 +108,7 @@ async function rawUpdate(
   id: string,
   body: Record<string, unknown>,
 ) {
+  assertTable(table)
   const sets: SQL[] = []
   for (const c of columns) {
     if (body[c] !== undefined) sets.push(sql`${sql.raw(`"${c}"`)} = ${body[c]}`)
@@ -97,6 +121,7 @@ async function rawUpdate(
 }
 
 async function rawDelete(table: string, id: string) {
+  assertTable(table)
   await db.execute(sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id}`)
 }
 
