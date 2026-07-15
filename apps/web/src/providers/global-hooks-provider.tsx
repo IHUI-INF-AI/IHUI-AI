@@ -84,8 +84,8 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
               }
             }}
             style={{
-              background: 'var(--background, #fff)',
-              color: 'var(--foreground, #000)',
+              background: 'var(--color-background, #fff)',
+              color: 'var(--color-foreground, #000)',
               borderRadius: 12,
               padding: '24px 32px',
               minWidth: 320,
