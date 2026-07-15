@@ -10946,7 +10946,7 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 | ------------ | ------ | ------------------------------------------------------------------------ | ------ | ----------- |
 | **当前 P34** | P1     | 搜索中文分词 + API 文档 + MIGRATION_GAP_REPORT v3 + PROJECT_PLAN P34     | 已完成 | ✅          |
 | P35          | P0     | 数据库表/Schema 6 项 + Java 13 项 + Python 16 项(后端 P0 深度核查)       | 大批次 | ✅ 已完成   |
-| P36          | P0     | 1 项真实缺失(小程序 top-up)+ 5 项模糊待确认 + i18n 翻译键补齐            | 中批次 | 待启动      |
+| P36          | P0     | 1 项真实缺失(小程序 top-up)+ 2 项 P35 后端缺失(schedule 课程表 + doubao_ws)+ 3 项死代码激活 + 5 项模糊待确认 + i18n 翻译键补齐 | 中批次 | 待启动      |
 | P37          | P0     | 配置/工具 6 项 + i18n 2 项 + 样式 4 项(全部已等价实现,架构升级,无需补写) | —      | ✅ 无需补写 |
 | P38          | P1     | 109 项演进中 78 项缺失(Dialog 字段补全 + 新建 Dialog)                    | 大批次 | 待启动      |
 | P39          | P1     | 155 项额外缺失中 P1 部分(420+ 管理接口集中化)                            | 大批次 | 待启动      |
@@ -11029,6 +11029,42 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 | 全量 test      | `pnpm turbo test`      | 0      | ✅ 11/11 任务,api 3054 + web 193 + auth 34 = **3281 测试 100% 通过** |
 
 **P34 真正 100% 闭环,无任何遗留待办,无任何回归,无任何后续建议。**
+
+### P35 后端 P0 深度核查（2026-07-16 / goal / 5 并发 agent 核查 35 项）✅
+
+> **触发**:用户"继续按你的建议去做执行,要求完美细致完整毫无遗漏 直到没有任何后续建议可给到我为止 并发多agentAgent goal命令"指令。P35 条目原状态"待启动",本轮 goal 模式 7 步循环 + 5 个并发 search agent 完成 35 项后端 P0 深度核查。
+
+**执行方式**:goal 模式 7 步循环(目标解析→并发执行→评估→循环判定→交付→清理→整合);5 个并发 search agent 各负责一个维度(数据库 6 / Spring Cloud 7 / RuoYi 4 / Coze API 8 / Coze services 8)。
+
+**核查汇总(35 项)**:
+
+| 维度 | 总数 | ✅ 已等价 | 🔄 架构替代 | ⚠️ 死代码 | ❌ 真实缺失 |
+|------|------|-----------|-------------|-----------|-------------|
+| 1. 数据库表/Schema | 6 | 4 | 2 | 0 | 0 |
+| 2.1 Spring Cloud 微服务 | 7 | 5 | 1 | 0 | 1(schedule 课程表) |
+| 2.2 RuoYi 系统模块 | 4 | 3 | 1 | 0 | 0 |
+| 3.1 Coze API 文件 | 8 | 6 | 1 | 0 | 1(doubao_ws) |
+| 3.2 Coze services 文件 | 8 | 4 | 1 | 3 | 0 |
+| **合计** | **35** | **22** | **5** | **3** | **2** |
+
+**关键发现**:
+- 原 v3 报告判定 35 项"完全缺失"全部不准确,实际 22 项已等价实现
+- 真实缺失 2 项:schedule 课程表(schedule.ts 命名误导为 Cron 任务调度)+ doubao_ws(火山方舟豆包 WebSocket 流式)
+- 死代码 3 项:alert-notification-service.ts / markdown-converter-service.ts(代码完整但无 import 引用,需接线激活)
+- 架构替代 5 项:quartz→BullMQ+sysJobs / seata→PG 原生事务 / socketio→原生 WS / gen→drizzle-kit / alert_upstream_mocks→noise-rules.yml
+
+**修正文档**:
+- MIGRATION_GAP_REPORT.md 维度 1-3 全部修正(增加 ✅/⚠️/❌/🔄 标记 + 核查结论引言 + 新路径)
+- PROJECT_PLAN.md P35 状态 → ✅ 已完成,P36 内容扩展(纳入 2 项后端缺失 + 3 项死代码激活)
+- 3.1/3.2/3.3 清单逐项标注完成状态
+
+**验证**:核查为纯研究性质(5 个 search agent + Grep + Read),未修改业务代码,typecheck/lint 自动满足。
+
+**移入 P36 的后续任务**:
+1. schedule 课程表/排课服务补写(需先核对旧 Java 语义定论)
+2. doubao_ws 火山方舟豆包 WebSocket 流式代理补写(参照 `/ws/qwen-omni` 模式)
+3. alert-notification-service.ts 接线激活(在 alert-check-service.ts 中 import pushAlert)
+4. markdown-converter-service.ts 接线激活(在 files.ts 中提供 `/files/:id/convert-markdown`)
 
 ### ai-service schema 字段对照校验机制建立（2026-07-15）✅
 
