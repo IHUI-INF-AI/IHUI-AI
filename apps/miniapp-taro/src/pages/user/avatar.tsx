@@ -46,7 +46,7 @@ export default function Avatar() {
         />
       </View>
       <Button
-        className="mt-[30px] mb-[16px] bg-[#007aff] text-white rounded-[20px] text-[15px]"
+        className="mt-[30px] mb-[16px] bg-[#07c160] text-white rounded-[20px] text-[15px]"
         onClick={chooseImg}
       >
         选择头像

@@ -1,4 +1,4 @@
-﻿.page {
+.page {
   min-height: 100vh;
   background: #f7f8fa;
 }
@@ -30,7 +30,7 @@
   word-break: break-all;
 }
 .value.link {
-  color: #007aff;
+  color: #07c160;
 }
 .tips {
   text-align: center;

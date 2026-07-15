@@ -42,6 +42,15 @@
   src: url('/fonts/HarmonyOS_SansSC_Bold.ttf') format('truetype');
 }
 
+@font-face {
+  font-family: 'EDIX';
+  src: url('/fonts/EDIX.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007F, U+00A0-00FF, U+0100-017F;
+}
+
 @theme {
   --font-sans:
     'HarmonyOS Sans SC', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
@@ -50,8 +59,8 @@
   --color-foreground: hsl(0 0% 3.9%);
   --color-card: hsl(0 0% 100%);
   --color-card-foreground: hsl(0 0% 3.9%);
-  --color-primary: hsl(0 0% 9%);
-  --color-primary-foreground: hsl(0 0% 98%);
+  --color-primary: hsl(142 71% 45%);
+  --color-primary-foreground: hsl(0 0% 100%);
   --color-secondary: hsl(0 0% 96.1%);
   --color-secondary-foreground: hsl(0 0% 9%);
   --color-muted: hsl(0 0% 96.1%);
@@ -100,8 +109,8 @@
   --color-foreground: hsl(0 0% 98%);
   --color-card: hsl(0 0% 3.9%);
   --color-card-foreground: hsl(0 0% 98%);
-  --color-primary: hsl(0 0% 98%);
-  --color-primary-foreground: hsl(0 0% 9%);
+  --color-primary: hsl(142 65% 50%);
+  --color-primary-foreground: hsl(0 0% 100%);
   --color-secondary: hsl(0 0% 14.9%);
   --color-secondary-foreground: hsl(0 0% 98%);
   --color-muted: hsl(0 0% 14.9%);
@@ -469,4 +478,13 @@ body {
   --color-border: hsl(0 0% 100%);
   --color-foreground: hsl(0 0% 100%);
   --color-background: hsl(0 0% 0%);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'EDIX', 'HarmonyOS Sans SC', sans-serif;
 }

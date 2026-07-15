@@ -95,7 +95,7 @@ export default function Orders() {
           <View
             key={tab.key}
             className={`flex-1 text-center py-[10px] text-[13px] ${
-              status === tab.key ? 'text-[#007aff] font-semibold' : 'text-[#666]'
+              status === tab.key ? 'text-[#07c160] font-semibold' : 'text-[#666]'
             }`}
             onClick={() => switchStatus(tab.key)}
           >
@@ -127,7 +127,7 @@ export default function Orders() {
                 </View>
                 {item.status === 'pending' ? (
                   <View
-                    className="px-[16px] py-[5px] bg-[#007aff] text-white rounded-[15px] text-[13px]"
+                    className="px-[16px] py-[5px] bg-[#07c160] text-white rounded-[15px] text-[13px]"
                     onClick={() => handlePay(item)}
                   >
                     <Text>去支付</Text>

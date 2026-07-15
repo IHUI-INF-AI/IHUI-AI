@@ -154,7 +154,7 @@ export default function ExamAnswer() {
         <View
           key={i}
           className={`flex items-center p-3 border rounded-xl mb-2 ${
-            selected ? 'border-[#007aff] bg-[#e6f0ff]' : 'border-[#eee]'
+            selected ? 'border-[#07c160] bg-[#e6f0ff]' : 'border-[#eee]'
           }`}
           onClick={() => select(val)}
         >
@@ -162,7 +162,7 @@ export default function ExamAnswer() {
             className={`w-7 h-7 leading-7 text-center border text-sm ${
               isMulti ? 'rounded-md' : 'rounded-full'
             } ${
-              selected ? 'border-[#007aff] bg-[#007aff] text-white' : 'border-[#ccc] text-[#666]'
+              selected ? 'border-[#07c160] bg-[#07c160] text-white' : 'border-[#ccc] text-[#666]'
             }`}
           >
             {current.type === 'judgment' ? (i === 0 ? '√' : '×') : String.fromCharCode(65 + i)}
@@ -198,12 +198,12 @@ export default function ExamAnswer() {
           </Button>
         )}
         {currentIdx < questions.length - 1 ? (
-          <Button className="flex-1 bg-[#007aff] text-white rounded-full text-sm" onClick={next}>
+          <Button className="flex-1 bg-[#07c160] text-white rounded-full text-sm" onClick={next}>
             下一题
           </Button>
         ) : (
           <Button
-            className="flex-1 bg-[#007aff] text-white rounded-full text-sm"
+            className="flex-1 bg-[#07c160] text-white rounded-full text-sm"
             onClick={onSubmit}
           >
             交卷
