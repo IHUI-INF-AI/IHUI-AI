@@ -6,6 +6,7 @@ import { users, projects, files, searchHistory } from '@ihui/database'
 import {
   mockAuthenticate,
   setMockUser,
+  setMockAdmin,
   setMockUnauthorized,
   resetMockAuth,
 } from './helpers/mock-auth.js'
@@ -199,7 +200,8 @@ describe('search-routes — 需鉴权路由真实 DB 集成测试', () => {
     const user = await createUser('admin', 'Admin')
     // 搜索需要 admin 角色,因为 RLS 限制了非 admin 只能看自己
     setMockAdmin(user.id)
-    const res = await server.inject({ method: 'GET', url: '/api/search?q=User&type=user&limit=2' })
+    // 用 phone 前缀 "100" 搜索(search_vector fallback 路径不搜索 nickname)
+    const res = await server.inject({ method: 'GET', url: '/api/search?q=100&type=user&limit=2' })
     const body = res.json()
     expect(body.data.users.length).toBe(2)
   })
@@ -349,5 +351,72 @@ describe('search-routes — 需鉴权路由真实 DB 集成测试', () => {
     expect(body).toHaveProperty('data')
     expect(body.code).toBe(0)
     expect(body.message).toBe('success')
+  })
+
+  // =====================================================================
+  // 中文 2-gram 分词搜索(验证 P1-1 修复:历史 Lucene HMMChineseTokenizer 替代方案)
+  // =====================================================================
+
+  it('GET /api/search — 中文 2-gram 分词:写入"人工智能教育"后按"教育"能搜到记录', async () => {
+    const target = await createUser('2001', '人工智能教育专家')
+    await createUser('2002', '不相关用户')
+    const admin = await createUser('admin1', 'Admin')
+    setMockAdmin(admin.id)
+
+    const res = await server.inject({ method: 'GET', url: '/api/search?q=教育&type=user' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.users.some((u: { id: string }) => u.id === target.id)).toBe(true)
+  })
+
+  it('GET /api/search — 中文 2-gram 分词:写入"人工智能教育"后按"智能"能搜到记录', async () => {
+    const target = await createUser('2003', '人工智能教育专家')
+    await createUser('2004', '不相关用户')
+    const admin = await createUser('admin2', 'Admin')
+    setMockAdmin(admin.id)
+
+    const res = await server.inject({ method: 'GET', url: '/api/search?q=智能&type=user' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.users.some((u: { id: string }) => u.id === target.id)).toBe(true)
+  })
+
+  it('GET /api/search — 中文 2-gram 分词:写入"人工智能教育"后按"人工"能搜到记录', async () => {
+    const target = await createUser('2005', '人工智能教育专家')
+    await createUser('2006', '不相关用户')
+    const admin = await createUser('admin3', 'Admin')
+    setMockAdmin(admin.id)
+
+    const res = await server.inject({ method: 'GET', url: '/api/search?q=人工&type=user' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.users.some((u: { id: string }) => u.id === target.id)).toBe(true)
+  })
+
+  it('GET /api/search — 中文 2-gram 分词:项目搜索(验证 searchProjects 中文路径)', async () => {
+    const user = await createUser('2007', '测试用户')
+    const proj = await createProject({
+      userId: user.id,
+      name: '人工智能教育平台',
+      description: '专注于智能教育领域',
+    })
+    setMockUser(user.id)
+
+    const res = await server.inject({ method: 'GET', url: '/api/search?q=教育&type=project' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.projects.some((p: { id: string }) => p.id === proj.id)).toBe(true)
+  })
+
+  it('GET /api/search — 中文 2-gram 分词:文件搜索(验证 searchFiles 中文路径)', async () => {
+    const user = await createUser('2008', '测试用户')
+    const proj = await createProject({ userId: user.id, name: '测试项目' })
+    const file = await createFile({ projectId: proj.id, name: '人工智能教育讲义.pdf' })
+    setMockUser(user.id)
+
+    const res = await server.inject({ method: 'GET', url: '/api/search?q=教育&type=file' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.files.some((f: { id: string }) => f.id === file.id)).toBe(true)
   })
 })

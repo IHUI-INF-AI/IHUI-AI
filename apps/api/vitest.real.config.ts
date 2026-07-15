@@ -2,8 +2,8 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    // 加载 .env.test(指向 ihui_test 库)
-    setupFiles: ['./tests/setup-env.ts'],
+    // 加载 .env.test(指向 ihui_test 库) + 全局 beforeEach 清理业务表
+    setupFiles: ['./tests/setup-env.ts', './tests/setup-real-db.ts'],
     // 只跑真实 DB 集成测试
     include: ['tests/**/*.real.test.ts', 'src/routes/__tests__/**/*.real.test.ts'],
     exclude: ['dist/**', 'node_modules/**'],
