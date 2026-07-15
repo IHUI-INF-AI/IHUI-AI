@@ -268,6 +268,144 @@ export async function getDingtalkUserInfo(accessToken: string): Promise<Dingtalk
   }
 }
 
+// ============================================================================
+// 支付宝登录（auth_code 换 access_token + user_id）
+// 密钥留空时降级为 mock 模式（DEV）。
+//
+// 密钥配置（.env）:
+// - ALIPAY_APP_ID: 应用 appid
+// - ALIPAY_PRIVATE_KEY: 应用私钥 PEM（或 ALIPAY_PRIVATE_KEY_PATH）
+// - ALIPAY_PUBLIC_KEY: 支付宝公钥 PEM（或 ALIPAY_PUBLIC_KEY_PATH）
+// ============================================================================
+
+import { createSign } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { isAlipayConfigured as isAlipayPayConfigured } from './alipay.js'
+
+export interface AlipayUserInfo {
+  openId: string
+  unionId?: string
+  nick: string
+  avatar: string
+  phone?: string
+}
+
+export function isAlipayLoginConfigured(): boolean {
+  return isAlipayPayConfigured()
+}
+
+function getPrivateKey(): string {
+  if (env.ALIPAY_PRIVATE_KEY) return env.ALIPAY_PRIVATE_KEY
+  if (env.ALIPAY_PRIVATE_KEY_PATH) return readFileSync(env.ALIPAY_PRIVATE_KEY_PATH, 'utf-8')
+  return ''
+}
+
+/** 用 auth_code 调 alipay.system.oauth.token 换 access_token + user_id */
+export async function exchangeAlipayCode(authCode: string): Promise<{
+  accessToken: string
+  userId: string
+  openId?: string
+  unionId?: string
+}> {
+  const params: Record<string, string> = {
+    app_id: env.ALIPAY_APP_ID ?? '',
+    method: 'alipay.system.oauth.token',
+    charset: 'utf-8',
+    sign_type: 'RSA2',
+    timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, '+08:00'),
+    version: '1.0',
+    grant_type: 'authorization_code',
+    code: authCode,
+  }
+  params.sign = createSign('RSA-SHA256')
+    .update(
+      Object.keys(params)
+        .sort()
+        .map((k) => `${k}=${params[k]}`)
+        .join('&'),
+      'utf-8',
+    )
+    .sign(getPrivateKey(), 'base64')
+  const url = `${env.ALIPAY_GATEWAY ?? 'https://openapi.alipay.com/gateway.do'}?${new URLSearchParams(params).toString()}`
+  const resp = await fetch(url)
+  if (!resp.ok) throw new Error(`Alipay oauth.token failed: ${resp.status}`)
+  const data = (await resp.json()) as {
+    alipay_system_oauth_token_response?: {
+      access_token?: string
+      user_id?: string
+      open_id?: string
+      union_id?: string
+      code?: string
+      msg?: string
+    }
+  }
+  const inner = data.alipay_system_oauth_token_response
+  if (!inner || !inner.access_token || !inner.user_id) {
+    throw new Error(`Alipay oauth.token: ${inner?.msg ?? inner?.code ?? 'no access_token'}`)
+  }
+  return {
+    accessToken: inner.access_token,
+    userId: inner.user_id,
+    openId: inner.open_id,
+    unionId: inner.union_id,
+  }
+}
+
+/** 用 access_token 拉用户信息（alipay.user.info.share） */
+export async function getAlipayUserInfo(accessToken: string): Promise<AlipayUserInfo> {
+  const bizContent = JSON.stringify({})
+  const params: Record<string, string> = {
+    app_id: env.ALIPAY_APP_ID ?? '',
+    method: 'alipay.user.info.share',
+    charset: 'utf-8',
+    sign_type: 'RSA2',
+    timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, '+08:00'),
+    version: '1.0',
+    auth_token: accessToken,
+    biz_content: bizContent,
+  }
+  params.sign = createSign('RSA-SHA256')
+    .update(
+      Object.keys(params)
+        .sort()
+        .map((k) => `${k}=${params[k]}`)
+        .join('&'),
+      'utf-8',
+    )
+    .sign(getPrivateKey(), 'base64')
+  const url = `${env.ALIPAY_GATEWAY ?? 'https://openapi.alipay.com/gateway.do'}?${new URLSearchParams(params).toString()}`
+  const resp = await fetch(url)
+  if (!resp.ok) throw new Error(`Alipay user.info.share failed: ${resp.status}`)
+  const data = (await resp.json()) as {
+    alipay_user_info_share_response?: {
+      user_id?: string
+      open_id?: string
+      union_id?: string
+      nick_name?: string
+      avatar?: string
+      code?: string
+      msg?: string
+    }
+  }
+  const inner = data.alipay_user_info_share_response
+  if (!inner || inner.code !== '10000') {
+    throw new Error(`Alipay user.info.share: ${inner?.msg ?? inner?.code ?? 'failed'}`)
+  }
+  return {
+    openId: inner.user_id ?? inner.open_id ?? '',
+    unionId: inner.union_id,
+    nick: inner.nick_name ?? '',
+    avatar: inner.avatar ?? '',
+  }
+}
+
+// 重新导出支付服务的 isAlipayConfigured 供业务复用
+export { isAlipayPayConfigured }
+
+// ============================================================================
+// 公共工具
+// ============================================================================
+
 /** 生成随机 state（CSRF 防护） */
 export function generateState(): string {
   return randomBytes(16).toString('hex')
