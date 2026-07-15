@@ -22,21 +22,23 @@ export default function ShareCodePage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-white">
-        <Loader2 className="h-8 w-8 animate-spin text-[#9A99F3]" />
-        <p className="mt-4 text-sm text-gray-500">加载中...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="mt-4 text-sm text-muted-foreground">加载中...</p>
       </div>
     )
   }
 
   if (error || !data) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-white px-10 text-center">
-        <AlertCircle className="mb-6 h-16 w-16 text-gray-300" />
-        <p className="mb-8 text-sm text-gray-500">{(error as Error)?.message || '分享链接无效'}</p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-10 text-center">
+        <AlertCircle className="mb-6 h-16 w-16 text-muted-foreground/50" />
+        <p className="mb-8 text-sm text-muted-foreground">
+          {(error as Error)?.message || '分享链接无效'}
+        </p>
         <button
           onClick={() => refetch()}
-          className="rounded-md bg-[#9A99F3] px-7 py-2.5 text-sm text-white transition-colors hover:bg-[#8a89e3]"
+          className="rounded-md bg-primary px-7 py-2.5 text-sm text-white transition-colors hover:bg-primary/90"
         >
           重试
         </button>

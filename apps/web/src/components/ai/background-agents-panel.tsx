@@ -109,7 +109,7 @@ export function BackgroundAgentsPanel({
                         agent.status === 'running' && 'bg-amber-500/10 text-amber-600',
                         agent.status === 'completed' && 'bg-emerald-500/10 text-emerald-600',
                         agent.status === 'failed' && 'bg-red-500/10 text-red-600',
-                        agent.status === 'cancelled' && 'bg-zinc-500/10 text-zinc-600',
+                        agent.status === 'cancelled' && 'bg-muted text-muted-foreground',
                       )}
                     >
                       {ts(agent.status)}
