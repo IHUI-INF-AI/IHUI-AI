@@ -7,6 +7,7 @@ import { statusBadgeClass, statusDotClass } from './helpers'
 import { STATUS_OPTIONS } from './types'
 import type { SignupRow } from './types'
 import { SignupRowStatus } from './SignupDialog'
+import { formatDate } from '@/lib/date-utils'
 
 interface Props {
   rows: SignupRow[]
@@ -77,7 +78,7 @@ export function SignupTable({ rows, isLoading, error, pending, onStatusChange, t
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {new Date(row.createdAt).toLocaleString()}
+                    {formatDate(row.createdAt)}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <SignupRowStatus

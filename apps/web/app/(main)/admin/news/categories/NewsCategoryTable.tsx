@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import type { Category } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface Props {
   list: Category[]
@@ -83,7 +84,7 @@ export function NewsCategoryTable({
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {new Date(cat.createdAt).toLocaleString()}
+                    {formatDate(cat.createdAt)}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">

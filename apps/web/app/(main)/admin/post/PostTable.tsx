@@ -7,6 +7,7 @@ import { Button, Checkbox } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { th } from './helpers'
 import type { Post } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface PostTableProps {
   list: Post[]
@@ -93,7 +94,7 @@ export function PostTable({
                   {p.remark || '-'}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
-                  {p.createdAt ? new Date(p.createdAt).toLocaleString() : '-'}
+                  {p.createdAt ? formatDate(p.createdAt) : '-'}
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex gap-1">

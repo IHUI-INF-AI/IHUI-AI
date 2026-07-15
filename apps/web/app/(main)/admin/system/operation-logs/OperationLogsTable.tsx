@@ -6,6 +6,7 @@ import { HasPermi } from '@/components/auth/HasPermi'
 import { cn } from '@/lib/utils'
 import { th, BIZ_TYPE, STATUS_LABEL } from './helpers'
 import type { OperLog } from './types'
+import { formatDate } from '@/lib/date-utils'
 
 interface OperationLogsTableProps {
   list: OperLog[]
@@ -102,7 +103,7 @@ export function OperationLogsTable({
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
-                    {l.operTime ? new Date(l.operTime).toLocaleString() : '-'}
+                    {l.operTime ? formatDate(l.operTime) : '-'}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.costTime}ms</td>
                   <td className="px-4 py-2.5">

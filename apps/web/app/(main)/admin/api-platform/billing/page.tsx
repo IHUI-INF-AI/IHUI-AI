@@ -24,6 +24,7 @@ import {
 } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { useLocale, useTranslations } from 'next-intl'
+import { formatCurrency } from '@/lib/date-utils'
 
 interface BillingRecord {
   id: string
@@ -129,7 +130,7 @@ export default function AdminApiPlatformBillingPage() {
               </CardHeader>
               <CardContent>
                 <div className={cn('text-2xl font-bold', c.cls)}>
-                  ¥{(c.value / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  ¥{formatCurrency(c.value / 100)}
                 </div>
               </CardContent>
             </Card>

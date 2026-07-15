@@ -8,6 +8,7 @@ import { Database, Table2, Clock, Lightbulb, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/lib/date-utils'
 
 interface TableInfo {
   id: string
@@ -110,7 +111,7 @@ export default function DatabaseOptimizationPage() {
                 {tablesList.map((tb) => (
                   <tr key={tb.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-xs font-medium">{tb.name}</td>
-                    <td className="px-4 py-2.5">{tb.rows.toLocaleString()}</td>
+                    <td className="px-4 py-2.5">{formatNumber(tb.rows)}</td>
                     <td className="px-4 py-2.5">{tb.size}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{tb.indexSize}</td>
                   </tr>
@@ -149,7 +150,7 @@ export default function DatabaseOptimizationPage() {
                       {q.latency}ms
                     </span>
                     <span className="text-muted-foreground">
-                      {q.calls.toLocaleString()} {t('dbOpt.calls')}
+                      {formatNumber(q.calls)} {t('dbOpt.calls')}
                     </span>
                   </div>
                 </div>
