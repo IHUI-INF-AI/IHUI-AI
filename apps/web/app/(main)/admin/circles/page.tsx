@@ -10,7 +10,7 @@ import { Button } from '@ihui/ui'
 import { CirclesFilter } from './CirclesFilter'
 import { CirclesTable } from './CirclesTable'
 import { CircleDialog } from './CircleDialog'
-import { EMPTY_FORM, PAGE_SIZE, api, circleToForm, fetchCircles } from './helpers'
+import { EMPTY_FORM, PAGE_SIZE, api, circleToForm, fetchCircles, parseCidList } from './helpers'
 import { slugify } from '@/lib/content'
 import type { Circle, CircleForm } from './types'
 
@@ -42,11 +42,13 @@ export default function AdminCirclesPage() {
 
   const saveMut = useMutation({
     mutationFn: () => {
+      const cidArr = parseCidList(form.cidList)
       const body = {
         name: form.name.trim(),
         slug: form.slug.trim() || slugify(form.name),
         description: form.description.trim() || null,
         coverImage: form.coverImage.trim() || null,
+        cidList: cidArr.length > 0 ? cidArr : null,
         isPublished: form.isPublished,
       }
       return editing
