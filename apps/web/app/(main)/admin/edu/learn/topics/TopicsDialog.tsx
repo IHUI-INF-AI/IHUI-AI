@@ -19,7 +19,15 @@ import {
   SelectValue,
 } from '@ihui/ui'
 import { selectClass, textareaClass } from '@/lib/edu'
+import { ImageUpload } from '@/components/form/ImageUpload'
 import type { TForm, Topic } from './types'
+
+function splitIds(v: string): string[] {
+  return v
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
 
 interface Props {
   open: boolean
@@ -65,11 +73,30 @@ export function TopicsDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="t-image">{t('fieldImage')}</Label>
+            <ImageUpload
+              value={form.image || undefined}
+              onChange={(v) =>
+                setForm({ ...form, image: typeof v === 'string' ? v : (v[0] ?? '') })
+              }
+              placeholder={t('imageUploadPlaceholder')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="t-cid">{t('fieldCidList')}</Label>
             <Input
-              id="t-image"
-              value={form.image}
-              placeholder="https://..."
-              onChange={(e) => setForm({ ...form, image: e.target.value })}
+              id="t-cid"
+              value={form.cidList.join(',')}
+              onChange={(e) => setForm({ ...form, cidList: splitIds(e.target.value) })}
+              placeholder={t('cidListPlaceholder')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="t-lid">{t('fieldLidList')}</Label>
+            <Input
+              id="t-lid"
+              value={form.lidList.join(',')}
+              onChange={(e) => setForm({ ...form, lidList: splitIds(e.target.value) })}
+              placeholder={t('lidListPlaceholder')}
             />
           </div>
           <div className="space-y-2">

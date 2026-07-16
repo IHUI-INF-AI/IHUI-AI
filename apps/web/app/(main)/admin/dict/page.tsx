@@ -79,7 +79,11 @@ export default function DictPage() {
         dictLabel: itemForm.label,
         dictValue: itemForm.value,
         dictSort: itemForm.sort,
-        dictType: itemParent?.code,
+        dictType: itemForm.dictType || itemParent?.code,
+        cssClass: itemForm.cssClass,
+        listClass: itemForm.listClass,
+        status: itemForm.status,
+        remark: itemForm.remark,
       }
       const r = editingItem
         ? await fetchApi(`/api/admin/dict/data/${editingItem.id}`, {
@@ -141,13 +145,22 @@ export default function DictPage() {
   function openCreateItem(d: DictType) {
     setItemParent(d)
     setEditingItem(null)
-    setItemForm(EMPTY_ITEM)
+    setItemForm({ ...EMPTY_ITEM, dictType: d.code })
     setItemOpen(true)
   }
   function openEditItem(d: DictType, it: DictItem) {
     setItemParent(d)
     setEditingItem(it)
-    setItemForm({ label: it.label, value: it.value, sort: it.sort })
+    setItemForm({
+      label: it.label,
+      value: it.value,
+      sort: it.sort,
+      cssClass: it.cssClass,
+      listClass: it.listClass,
+      status: it.status,
+      remark: it.remark,
+      dictType: it.dictType || d.code,
+    })
     setItemOpen(true)
   }
   function closeItem() {
@@ -161,6 +174,10 @@ export default function DictPage() {
     e.preventDefault()
     if (!itemForm.label.trim() || !itemForm.value.trim()) {
       toast.error(t('dict.itemRequired'))
+      return
+    }
+    if (!itemForm.dictType.trim()) {
+      toast.error(t('dict.dictTypeRequired'))
       return
     }
     saveItemMut.mutate()

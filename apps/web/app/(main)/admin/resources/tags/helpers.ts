@@ -16,6 +16,7 @@ export function fetchTags(params: { page: number; search: string }): Promise<Tag
 }
 
 export const EMPTY_FORM: TagForm = {
+  pid: '',
   name: '',
   sort: '0',
   status: true,
@@ -23,6 +24,7 @@ export const EMPTY_FORM: TagForm = {
 
 export function tagToForm(item: TagItem): TagForm {
   return {
+    pid: item.pid ?? '',
     name: item.name,
     sort: String(item.sort),
     status: item.status === 1,

@@ -93,6 +93,16 @@ export function CircleDialog({
               placeholder={t('coverPlaceholder')}
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="c-cidlist">{t('fieldCidList')}</Label>
+            <Input
+              id="c-cidlist"
+              value={form.cidList}
+              onChange={(e) => setForm({ ...form, cidList: e.target.value })}
+              placeholder={t('cidListPlaceholder')}
+            />
+            <p className="text-xs text-muted-foreground">{t('cidListHint')}</p>
+          </div>
           <div className="flex items-center gap-2">
             <Switch
               id="c-published"

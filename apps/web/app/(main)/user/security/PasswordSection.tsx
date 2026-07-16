@@ -28,11 +28,29 @@ export function PasswordSection({ pwMsg, pwLoading, onSubmit }: Props) {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="new">{t('newPassword')}</Label>
-          <Input id="new" name="new" type="password" required />
+          <Input
+            id="new"
+            name="new"
+            type="password"
+            required
+            minLength={6}
+            maxLength={20}
+            pattern={'^[^<>"\'|\\\\]+$'}
+            autoComplete="new-password"
+          />
+          <p className="text-xs text-muted-foreground">{t('passwordHint')}</p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="confirm">{t('confirmPassword')}</Label>
-          <Input id="confirm" name="confirm" type="password" required />
+          <Input
+            id="confirm"
+            name="confirm"
+            type="password"
+            required
+            minLength={6}
+            maxLength={20}
+            autoComplete="new-password"
+          />
         </div>
         {pwMsg && (
           <p
