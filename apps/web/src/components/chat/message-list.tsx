@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { Sparkles, AlertCircle, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
@@ -89,13 +90,16 @@ export function MessageList({
       : []
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-          {isLoading ? (
-            <Loader2 className="h-7 w-7 animate-spin" />
-          ) : (
-            <Sparkles className="h-7 w-7" />
-          )}
-        </div>
+        <Image
+          src="/images/common/ai_default.svg"
+          alt=""
+          aria-hidden
+          width={56}
+          height={56}
+          className="h-14 w-14 opacity-90 dark:invert"
+          unoptimized
+        />
+        {isLoading && <Loader2 className="h-7 w-7 animate-spin" />}
         {isLoading ? (
           <p className="text-sm text-muted-foreground">{loadingLabel}</p>
         ) : (
