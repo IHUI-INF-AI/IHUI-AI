@@ -10,7 +10,9 @@ import {
   timestamp,
   bigint,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 /**
  * 学习记录表 (历史 learn_record)。
@@ -87,6 +89,9 @@ export const learnTopic = pgTable(
   (t) => ({
     statusIdx: index('learn_topic_status_idx').on(t.status),
     sortIdx: index('learn_topic_sort_idx').on(t.sort),
+    slugUniq: uniqueIndex('learn_topic_slug_uniq')
+      .on(t.slug)
+      .where(sql`${t.slug} IS NOT NULL`),
   }),
 )
 

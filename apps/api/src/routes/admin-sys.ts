@@ -57,9 +57,15 @@ import {
   findOperlogList,
   deleteOperlogsBatch,
   cleanOperlogs,
+  createOperlog,
   updateAdminRoleStatus,
   updateAdminRoleDataScope,
   findAdminRoleDeptIds,
+  findAllocatedUsers,
+  findUnallocatedUsers,
+  cancelUserRole,
+  cancelAllUserRole,
+  selectAllUserRole,
 } from '../db/admin-sys-queries.js'
 import { db } from '../db/index.js'
 import { eq, and, isNull, gt, desc, inArray } from 'drizzle-orm'
@@ -222,6 +228,83 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
   // ===========================================================================
+  // sys_operlog 审计埋点:onResponse 钩子,异步记录 admin 后台写操作
+  // - 仅记录 POST/PUT/PATCH/DELETE(RuoYi businessType:1新增/2修改/3删除/0其他)
+  // - status: 0=正常(statusCode<400), 1=异常(statusCode>=400)
+  // - setImmediate 异步落库,失败忽略,不阻塞业务请求
+  // - 自身路由(/operlog/*)不记录,避免日志查询/清空产生自循环日志
+  // ===========================================================================
+  const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+  const TITLE_MAP: Record<string, string> = {
+    '/sys-menu': '菜单管理',
+    '/dept': '部门管理',
+    '/post': '岗位管理',
+    '/config': '参数配置',
+    '/dict-type': '字典类型',
+    '/dict-data': '字典数据',
+    '/notice': '通知公告',
+    '/job': '定时任务',
+    '/role': '角色管理',
+    '/users': '用户管理',
+    '/logininfor': '登录日志',
+  }
+  const METHOD_MAP: Record<string, number> = { POST: 1, PUT: 2, PATCH: 2, DELETE: 3 }
+
+  server.addHook('onResponse', async (request, reply) => {
+    const method = request.method.toUpperCase()
+    if (!WRITE_METHODS.has(method)) return
+
+    const url = request.url.split('?')[0] ?? ''
+    // 命中 operlog 路由(列表/清空/删除)直接跳过,避免自循环
+    if (url.includes('/operlog')) return
+
+    // 从 URL 推断模块名(title)
+    const segments = url.split('/').filter(Boolean)
+    const seg = segments.find((s) => TITLE_MAP[`/${s}`])
+    const title = (seg && TITLE_MAP[`/${seg}`]) || '系统管理'
+    const businessType = METHOD_MAP[method] ?? 0
+    const statusCode = reply.statusCode
+    const status = statusCode >= 400 ? 1 : 0
+    const operName = request.userId ?? ''
+    const operIp = request.ip ?? ''
+    const operUrl = url.slice(0, 255)
+
+    // operParam:请求 body JSON 序列化(限长 2000 防止超大日志)
+    let operParam: string | undefined
+    try {
+      const body = request.body
+      if (body !== undefined && body !== null) {
+        operParam = JSON.stringify(body).slice(0, 2000)
+      }
+    } catch {
+      operParam = undefined
+    }
+
+    const jsonResult = JSON.stringify({ code: statusCode }).slice(0, 2000)
+    const costTime = Math.max(0, Math.round(reply.elapsedTime ?? 0))
+
+    setImmediate(() => {
+      createOperlog({
+        title,
+        businessType,
+        method: `${seg ?? 'system'}.${method.toLowerCase()}`,
+        requestMethod: method,
+        operatorType: 0,
+        operName,
+        operUrl,
+        operIp,
+        operParam,
+        jsonResult,
+        status,
+        errorMsg: status === 1 ? `HTTP ${statusCode}` : undefined,
+        costTime,
+      }).catch(() => {
+        /* 审计写入失败不影响业务 */
+      })
+    })
+  })
+
+  // ===========================================================================
   // menu_router (prefix=/sys-menu) — RuoYi 风格 sys_menu 子系统
   // 注:前缀已迁移至 /sys-menu,避免与 admin-extended.ts 的 /menu CRUD 路径冲突
   // ===========================================================================
@@ -319,10 +402,10 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
   // ===========================================================================
   // role_router (prefix=/role)
-  // 注:5 个 authUser 路由(allocatedList/unallocatedList/cancel/cancelAll/selectAll)跳过,
-  //   原因:rbac.ts 的 userRoles 表用 uuid roleId,与前端数值 roleId 不兼容;
-  //         adminUserRole 表 userId 是 integer(对应 adminUser 表),与 users.id (uuid) 不兼容;
-  //         无表能同时匹配 (uuid userId + integer roleId) 关联。待新建 sys_user_role 表后补齐。
+  // 注:authUser 5 端点基于 users.roleId (integer) 实现,不新建 sys_user_role 表:
+  //   - "分配角色" = UPDATE users SET roleId = ?
+  //   - "取消角色" = UPDATE users SET roleId = 0
+  //   避免与 users.roleId 数据冗余,与 requireAdmin (roleId >= 1) 鉴权体系一致。
   // ===========================================================================
   server.register(
     async (s) => {
@@ -378,6 +461,106 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
         await deleteRoleMenuCascade(rid)
         return reply.send(success({ roleId: rid }))
       })
+
+      // -----------------------------------------------------------------------
+      // authUser 子路由(prefix=/authUser)— 角色用户管理(5 端点)
+      // 基于 users.roleId (integer) 实现,不依赖 sys_user_role 中间表
+      // -----------------------------------------------------------------------
+      s.register(
+        async (sub) => {
+          // GET /role/authUser/allocatedList - 已分配该角色的用户
+          sub.get('/allocatedList', async (request, reply) => {
+            const q = request.query as Record<string, string>
+            const roleId = parseNum(q.roleId) ?? 0
+            if (roleId < 1) {
+              return reply.status(400).send(error(400, 'roleId 无效'))
+            }
+            const { list, total } = await findAllocatedUsers({
+              page: parseNum(q.page, 1),
+              pageSize: parseNum(q.pageSize, 10),
+              roleId,
+              userName: parseStr(q.userName),
+              phonenumber: parseStr(q.phonenumber),
+            })
+            return reply.send(success({ list, total }))
+          })
+
+          // GET /role/authUser/unallocatedList - 未分配该角色的用户
+          sub.get('/unallocatedList', async (request, reply) => {
+            const q = request.query as Record<string, string>
+            const roleId = parseNum(q.roleId, 0) ?? 0
+            if (roleId < 1) {
+              return reply.status(400).send(error(400, 'roleId 无效'))
+            }
+            const { list, total } = await findUnallocatedUsers({
+              page: parseNum(q.page, 1),
+              pageSize: parseNum(q.pageSize, 10),
+              roleId,
+              userName: parseStr(q.userName),
+              phonenumber: parseStr(q.phonenumber),
+            })
+            return reply.send(success({ list, total }))
+          })
+
+          // PUT /role/authUser/cancel - 取消单个用户的角色授权
+          sub.put('/cancel', async (request, reply) => {
+            const parsed = z
+              .object({
+                roleId: z.union([z.number().int(), z.string()]).transform(Number),
+                userId: z.union([z.number().int(), z.string()]).transform(String),
+              })
+              .safeParse(request.body)
+            if (!parsed.success) {
+              return reply
+                .status(400)
+                .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+            }
+            const { roleId, userId } = parsed.data
+            if (roleId < 1) {
+              return reply.status(400).send(error(400, 'roleId 无效'))
+            }
+            const affected = await cancelUserRole(userId, roleId)
+            return reply.send(success({ success: affected > 0 }))
+          })
+
+          // PUT /role/authUser/cancelAll - 批量取消角色授权(userIds 逗号分隔)
+          sub.put('/cancelAll', async (request, reply) => {
+            const q = request.query as Record<string, string>
+            const roleId = parseNum(q.roleId) ?? 0
+            if (roleId < 1) {
+              return reply.status(400).send(error(400, 'roleId 无效'))
+            }
+            const userIds = (q.userIds ?? '')
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+            if (userIds.length === 0) {
+              return reply.status(400).send(error(400, 'userIds 不能为空'))
+            }
+            const affected = await cancelAllUserRole(userIds, roleId)
+            return reply.send(success({ success: true, affected }))
+          })
+
+          // PUT /role/authUser/selectAll - 批量分配角色(userIds 逗号分隔)
+          sub.put('/selectAll', async (request, reply) => {
+            const q = request.query as Record<string, string>
+            const roleId = parseNum(q.roleId) ?? 0
+            if (roleId < 1) {
+              return reply.status(400).send(error(400, 'roleId 无效'))
+            }
+            const userIds = (q.userIds ?? '')
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+            if (userIds.length === 0) {
+              return reply.status(400).send(error(400, 'userIds 不能为空'))
+            }
+            const affected = await selectAllUserRole(userIds, roleId)
+            return reply.send(success({ success: true, affected }))
+          })
+        },
+        { prefix: '/authUser' },
+      )
     },
     { prefix: '/role' },
   )
