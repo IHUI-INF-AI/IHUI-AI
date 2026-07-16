@@ -45,6 +45,7 @@ export default function AdminResourceTagsPage() {
     mutationFn: () => {
       const body = {
         name: form.name.trim(),
+        pid: form.pid || null,
         sort: Number(form.sort) || 0,
         status: form.status ? 1 : 0,
       }
@@ -183,6 +184,7 @@ export default function AdminResourceTagsPage() {
         setForm={setForm}
         err={err}
         savePending={saveMut.isPending}
+        tags={tags}
         onSubmit={submit}
         onClose={closeDialog}
       />

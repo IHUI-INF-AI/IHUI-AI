@@ -38,7 +38,7 @@ export default function ArticleEditPage() {
 
   const { data: existing, isLoading: loadingDetail } = useQuery({
     queryKey: ['article', 'detail', editId],
-    queryFn: () => api<ArticleDetail>(`/api/article/${editId}`),
+    queryFn: () => api<ArticleDetail>(`/api/article/detail/${editId}`),
     enabled: isEdit,
   })
 
