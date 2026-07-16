@@ -1,6 +1,8 @@
 export interface Topic {
   id: string
   title: string
+  slug: string | null
+  sort: number | null
   image: string
   cidList: string[] | null
   lidList: string[] | null
@@ -14,6 +16,8 @@ export interface Topic {
 
 export interface TForm {
   title: string
+  slug: string
+  sort: number
   image: string
   cidList: string[]
   lidList: string[]
