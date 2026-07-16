@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { Loader2, Edit, Trash2, Tag } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
@@ -8,6 +9,7 @@ import type { TagItem } from './types'
 
 interface Props {
   list: TagItem[]
+  tags: TagItem[]
   isLoading: boolean
   error: Error | null
   deletePending: boolean
@@ -17,6 +19,7 @@ interface Props {
 
 export function ResourceTagTable({
   list,
+  tags,
   isLoading,
   error,
   deletePending,
@@ -24,12 +27,18 @@ export function ResourceTagTable({
   onDelete,
 }: Props) {
   const t = useTranslations('admin.resources')
+  const parentMap = React.useMemo(() => {
+    const m = new Map<string, string>()
+    tags.forEach((tg) => m.set(tg.id, tg.name))
+    return m
+  }, [tags])
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead className="px-4 py-2.5">{t('colName')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colParent')}</TableHead>
             <TableHead className="px-4 py-2.5">{t('colSort')}</TableHead>
             <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
@@ -38,20 +47,20 @@ export function ResourceTagTable({
         <TableBody className="divide-y">
           {isLoading ? (
             <TableRow>
-              <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
+              <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                 {t('loading')}
               </TableCell>
             </TableRow>
           ) : error ? (
             <TableRow>
-              <TableCell colSpan={4} className="px-4 py-10 text-center text-destructive">
+              <TableCell colSpan={5} className="px-4 py-10 text-center text-destructive">
                 {error.message}
               </TableCell>
             </TableRow>
           ) : list.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
+              <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                 <Tag className="mx-auto mb-2 h-8 w-8 opacity-40" />
                 {t('noData')}
               </TableCell>
@@ -59,9 +68,13 @@ export function ResourceTagTable({
           ) : (
             list.map((tag) => {
               const enabled = tag.status === 1
+              const parentName = tag.pid ? parentMap.get(tag.pid) : undefined
               return (
                 <TableRow key={tag.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-medium">{tag.name}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-muted-foreground">
+                    {parentName ?? '-'}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5">{tag.sort}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     <span
