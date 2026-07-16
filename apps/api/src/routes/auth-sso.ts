@@ -1,9 +1,14 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { type JWTPayload } from '@ihui/auth'
+import { type JWTPayload, verifyRefreshToken } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { issueTokenPair } from '../services/token-service.js'
-import { findUserById, revokeAllUserRefreshTokens } from '../db/queries.js'
+import {
+  findUserById,
+  revokeAllUserRefreshTokens,
+  findRefreshToken,
+  revokeRefreshToken,
+} from '../db/queries.js'
 import { getUserPermissions } from '../db/rbac-queries.js'
 import { success, error } from '../utils/response.js'
 import { randomBytes } from 'node:crypto'
@@ -33,6 +38,10 @@ const generateCodeSchema = z.object({
 const exchangeCodeSchema = z.object({
   code: z.string().min(1).max(256),
   clientId: z.string().min(1).max(128),
+})
+
+const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'refreshToken 不能为空'),
 })
 
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
@@ -161,6 +170,88 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
       const permissions = await resolveUserPermissions(user.id, user.roleId)
 
       request.log.info({ userId: user.id, clientId }, 'SSO token exchanged')
+
+      return reply.send(
+        success({
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          expiresIn: tokens.expiresIn,
+          refreshExpiresIn: tokens.refreshExpiresIn,
+          user: {
+            id: user.id,
+            phone: user.phone ?? '',
+            email: user.email ?? '',
+            nickname: user.nickname ?? '',
+            avatar: user.avatar ?? '',
+            roleId: user.roleId ?? 0,
+            status: user.status ?? 1,
+            permissions,
+          },
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/sso/refresh',
+    {
+      schema: {
+        summary: 'SSO 刷新 Token',
+        description: '使用 refreshToken 轮换签发新的 accessToken / refreshToken（旧 token 吊销）',
+        tags: ['sso'],
+        body: {
+          type: 'object',
+          required: ['refreshToken'],
+          properties: {
+            refreshToken: { type: 'string', description: '刷新令牌' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = refreshTokenSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.code(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const { refreshToken: token } = parsed.data
+
+      // 1. 验证 refresh token 签名 + 过期
+      let payload: JWTPayload
+      try {
+        payload = await verifyRefreshToken(token)
+      } catch {
+        return reply.code(401).send(error(401, 'refresh_token 无效或已过期'))
+      }
+
+      // 2. 查库确认未被吊销
+      const record = await findRefreshToken(token)
+      if (!record || record.revokedAt) {
+        return reply.code(401).send(error(401, 'refresh_token 无效或已被吊销'))
+      }
+
+      // 3. 确认用户仍然存在且启用
+      const user = await findUserById(payload.userId)
+      if (!user) {
+        return reply.code(404).send(error(404, '用户不存在'))
+      }
+      if (user.status !== 1) {
+        return reply.code(403).send(error(403, '用户已被禁用'))
+      }
+
+      // 4. 吊销旧 refresh token（轮转）
+      await revokeRefreshToken(token)
+
+      // 5. 用同一 familyId 签发新 token 对
+      const tokens = await buildTokenPair({
+        id: user.id,
+        phone: user.phone,
+        roleId: user.roleId,
+        familyId: payload.familyId,
+      })
+      const permissions = await resolveUserPermissions(user.id, user.roleId)
+
+      request.log.info({ userId: user.id }, 'SSO token refreshed')
 
       return reply.send(
         success({
