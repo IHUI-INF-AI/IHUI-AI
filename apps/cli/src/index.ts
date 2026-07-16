@@ -40,6 +40,11 @@ import { registerCheckpointCommand } from './commands/checkpoint.js';
 import { registerHooksCommand } from './commands/hooks.js';
 import { startAcpServer } from './acp/server.js';
 import { CheckpointManager } from './checkpoints/index.js';
+import {
+  resolveEffectiveConfig,
+  saveSettingsTemplate,
+  getSettingsPath,
+} from './commands/settings.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -100,6 +105,15 @@ async function runAgentAndExit(
   opts: OptionValues,
   jsonMode: boolean,
 ): Promise<void> {
+  const cfg = resolveEffectiveConfig({
+    cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
+    cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
+    cliModel: typeof opts.model === 'string' ? opts.model : undefined,
+    cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
+    cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
+    cliPlan: opts.plan === true ? true : undefined,
+    cliMcp: opts.mcp === true ? true : undefined,
+  });
   const abort = new AbortController();
   let session: ReturnType<typeof createSession> | null = null;
   const onSigint = (): void => {
@@ -112,7 +126,7 @@ async function runAgentAndExit(
   };
   process.on('SIGINT', onSigint);
   try {
-    session = createSession(opts.workspace, opts.model);
+    session = createSession(opts.workspace, cfg.model);
     // 如果 --resume/--continue,加载历史到 session.history
     const resumed = resolveSession(opts);
     if (resumed.sessionId && resumed.history) {
@@ -125,18 +139,18 @@ async function runAgentAndExit(
     });
     const result = await runAgent({
       prompt,
-      modelId: opts.model,
+      modelId: cfg.model,
       workspacePath: opts.workspace,
-      apiUrl: opts.apiUrl,
-      apiKey: opts.apiKey,
-      maxIterations: parseInt(opts.maxIterations, 10),
+      apiUrl: cfg.apiUrl,
+      apiKey: cfg.apiKey,
+      maxIterations: cfg.maxIterations,
       jsonMode,
       checkpoints,
-      enableMcp: opts.mcp === true,
-      allowDangerous: opts.allowDangerous === true,
+      enableMcp: cfg.enableMcp,
+      allowDangerous: cfg.allowDangerous,
       session,
       signal: abort.signal,
-      planFirst: opts.plan === true,
+      planFirst: cfg.planFirst,
     });
     process.exit(stopReasonToExitCode(result.stopReason));
   } finally {
@@ -146,15 +160,16 @@ async function runAgentAndExit(
 
 program.hook('preAction', () => {
   const opts = program.opts();
-  if (typeof opts.apiUrl === 'string') {
-    setBaseUrl(opts.apiUrl);
-  }
-  const apiKey = typeof opts.apiKey === 'string' ? opts.apiKey : '';
-  if (apiKey) {
-    if (process.env.IHUI_API_KEY !== apiKey) {
-      console.warn(chalk.yellow('⚠ --api-key 会暴露在进程列表中,推荐使用 IHUI_API_KEY 环境变量'));
+  const cfg = resolveEffectiveConfig({
+    cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
+    cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
+  });
+  setBaseUrl(cfg.apiUrl);
+  if (cfg.apiKey) {
+    if (opts.apiKey && process.env.IHUI_API_KEY !== opts.apiKey) {
+      console.warn(chalk.yellow('⚠ --api-key 会暴露在进程列表中,推荐使用 IHUI_API_KEY 环境变量或 settings.json'));
     }
-    setTokenProvider({ getToken: () => apiKey });
+    setTokenProvider({ getToken: () => cfg.apiKey });
   }
 });
 
@@ -167,17 +182,25 @@ program
       const jsonMode = resolveJsonMode(opts);
       await runAgentAndExit(prompt, opts, jsonMode);
     } else {
+      const cfg = resolveEffectiveConfig({
+        cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
+        cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
+        cliModel: typeof opts.model === 'string' ? opts.model : undefined,
+        cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
+        cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
+        cliMcp: opts.mcp === true ? true : undefined,
+      });
       const session = resolveSession(opts);
       await startREPL({
-        modelId: opts.model,
+        modelId: cfg.model,
         workspacePath: opts.workspace,
-        apiUrl: opts.apiUrl,
-        apiKey: opts.apiKey,
-        maxIterations: parseInt(opts.maxIterations, 10),
+        apiUrl: cfg.apiUrl,
+        apiKey: cfg.apiKey,
+        maxIterations: cfg.maxIterations,
         sessionId: session.sessionId,
         history: session.history,
-        enableMcp: opts.mcp === true,
-        allowDangerous: opts.allowDangerous === true,
+        enableMcp: cfg.enableMcp,
+        allowDangerous: cfg.allowDangerous,
       });
     }
   });
@@ -188,17 +211,25 @@ program
   .description('进入对话模式 (多轮)')
   .action(async () => {
     const opts = program.opts();
+    const cfg = resolveEffectiveConfig({
+      cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
+      cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
+      cliModel: typeof opts.model === 'string' ? opts.model : undefined,
+      cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
+      cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
+      cliMcp: opts.mcp === true ? true : undefined,
+    });
     const session = resolveSession(opts);
     await startREPL({
-      modelId: opts.model,
+      modelId: cfg.model,
       workspacePath: opts.workspace,
-      apiUrl: opts.apiUrl,
-      apiKey: opts.apiKey,
-      maxIterations: parseInt(opts.maxIterations, 10),
+      apiUrl: cfg.apiUrl,
+      apiKey: cfg.apiKey,
+      maxIterations: cfg.maxIterations,
       sessionId: session.sessionId,
       history: session.history,
-      enableMcp: opts.mcp === true,
-      allowDangerous: opts.allowDangerous === true,
+      enableMcp: cfg.enableMcp,
+      allowDangerous: cfg.allowDangerous,
     });
   });
 
@@ -328,19 +359,52 @@ registerCheckpointCommand(program);
 // hooks 子命令组
 registerHooksCommand(program);
 
+// settings 子命令组
+const settingsCmd = program.command('settings').description('管理 ~/.ihui/settings.json 统一配置');
+
+settingsCmd
+  .command('init')
+  .description('创建 settings.json 模板(已存在时需 --force 覆盖)')
+  .option('-f, --force', '覆盖已存在的文件')
+  .action((options: { force?: boolean }) => {
+    const created = saveSettingsTemplate(options.force === true);
+    if (created) {
+      console.info(chalk.green(`已创建配置模板: ${getSettingsPath()}`));
+      console.info(chalk.dim('编辑该文件设置默认值,CLI flag 优先级最高'));
+    } else {
+      console.info(chalk.yellow(`配置文件已存在: ${getSettingsPath()}`));
+      console.info(chalk.dim('使用 --force 覆盖'));
+    }
+  });
+
+settingsCmd
+  .command('path')
+  .description('显示 settings.json 路径')
+  .action(() => {
+    console.info(getSettingsPath());
+  });
+
 // acp 子命令 — 启动 ACP (Agent Client Protocol) server,供编辑器嵌入
 program
   .command('acp')
   .description('启动 ACP (Agent Client Protocol) server,供 Zed/VSCode/Cursor 等编辑器嵌入')
   .action(async () => {
     const opts = program.opts();
+    const cfg = resolveEffectiveConfig({
+      cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
+      cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
+      cliModel: typeof opts.model === 'string' ? opts.model : undefined,
+      cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
+      cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
+      cliMcp: opts.mcp === true ? true : undefined,
+    });
     const connection = startAcpServer({
-      apiUrl: opts.apiUrl,
-      apiKey: opts.apiKey,
-      modelId: opts.model,
-      maxIterations: parseInt(opts.maxIterations, 10),
-      enableMcp: opts.mcp === true,
-      allowDangerous: opts.allowDangerous === true,
+      apiUrl: cfg.apiUrl,
+      apiKey: cfg.apiKey,
+      modelId: cfg.model,
+      maxIterations: cfg.maxIterations,
+      enableMcp: cfg.enableMcp,
+      allowDangerous: cfg.allowDangerous,
     });
     process.on('SIGINT', () => connection.close());
     process.on('SIGTERM', () => connection.close());
