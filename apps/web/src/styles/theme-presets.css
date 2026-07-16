@@ -1,0 +1,130 @@
+/* theme-presets.css — 主题预设系统(3 种品牌色) */
+/* 历史源: _theme-presets.scss(data-theme="blue/green/purple") */
+/* hex 色值 → HSL 转换,适配 Tailwind/shadcn CSS 变量规范 */
+
+/* ============ 默认主题:绿色(与当前 --color-primary 一致) ============ */
+:root,
+[data-theme="green"] {
+  --color-primary: hsl(142 71% 45%);
+  --color-primary-hover: hsl(142 71% 40%);
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  --color-brand-50: hsl(138 76% 97%);
+  --color-brand-100: hsl(141 84% 93%);
+  --color-brand-200: hsl(141 83% 86%);
+  --color-brand-300: hsl(142 76% 77%);
+  --color-brand-400: hsl(142 71% 60%);
+  --color-brand-500: hsl(142 71% 45%);
+  --color-brand-600: hsl(142 71% 40%);
+  --color-brand-700: hsl(142 72% 35%);
+  --color-brand-800: hsl(143 70% 30%);
+  --color-brand-900: hsl(144 65% 25%);
+  --color-brand-950: hsl(145 70% 15%);
+
+  --color-ring: hsl(142 71% 45%);
+}
+
+/* ============ 蓝色主题 ============ */
+[data-theme="blue"] {
+  --color-primary: hsl(217 91% 60%);
+  --color-primary-hover: hsl(217 91% 55%);
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  --color-brand-50: hsl(214 100% 97%);
+  --color-brand-100: hsl(214 95% 93%);
+  --color-brand-200: hsl(213 97% 87%);
+  --color-brand-300: hsl(212 96% 78%);
+  --color-brand-400: hsl(213 94% 68%);
+  --color-brand-500: hsl(217 91% 60%);
+  --color-brand-600: hsl(217 91% 55%);
+  --color-brand-700: hsl(222 80% 50%);
+  --color-brand-800: hsl(224 76% 45%);
+  --color-brand-900: hsl(226 71% 40%);
+  --color-brand-950: hsl(229 84% 26%);
+
+  --color-ring: hsl(217 91% 60%);
+}
+
+/* ============ 紫色主题 ============ */
+[data-theme="purple"] {
+  --color-primary: hsl(265 89% 60%);
+  --color-primary-hover: hsl(265 89% 55%);
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  --color-brand-50: hsl(270 100% 96%);
+  --color-brand-100: hsl(269 100% 92%);
+  --color-brand-200: hsl(269 100% 87%);
+  --color-brand-300: hsl(270 95% 80%);
+  --color-brand-400: hsl(271 91% 70%);
+  --color-brand-500: hsl(265 89% 60%);
+  --color-brand-600: hsl(265 89% 55%);
+  --color-brand-700: hsl(263 80% 50%);
+  --color-brand-800: hsl(264 70% 45%);
+  --color-brand-900: hsl(265 65% 40%);
+  --color-brand-950: hsl(267 70% 25%);
+
+  --color-ring: hsl(265 89% 60%);
+}
+
+/* ============ 暗色模式覆盖 ============ */
+/* 暗色模式下主色调亮,前景色变深,保持对比度 */
+.dark,
+.dark[data-theme="green"] {
+  --color-primary: hsl(142 71% 50%);
+  --color-primary-hover: hsl(142 71% 55%);
+  --color-primary-foreground: hsl(0 0% 8%);
+
+  --color-brand-50: hsl(145 70% 15%);
+  --color-brand-100: hsl(144 65% 25%);
+  --color-brand-200: hsl(143 70% 30%);
+  --color-brand-300: hsl(142 72% 35%);
+  --color-brand-400: hsl(142 71% 40%);
+  --color-brand-500: hsl(142 71% 50%);
+  --color-brand-600: hsl(142 71% 55%);
+  --color-brand-700: hsl(142 76% 60%);
+  --color-brand-800: hsl(141 83% 70%);
+  --color-brand-900: hsl(141 84% 80%);
+  --color-brand-950: hsl(138 76% 90%);
+
+  --color-ring: hsl(142 71% 50%);
+}
+
+.dark[data-theme="blue"] {
+  --color-primary: hsl(217 91% 65%);
+  --color-primary-hover: hsl(217 91% 70%);
+  --color-primary-foreground: hsl(0 0% 8%);
+
+  --color-brand-50: hsl(229 84% 26%);
+  --color-brand-100: hsl(226 71% 40%);
+  --color-brand-200: hsl(224 76% 45%);
+  --color-brand-300: hsl(222 80% 50%);
+  --color-brand-400: hsl(217 91% 55%);
+  --color-brand-500: hsl(217 91% 65%);
+  --color-brand-600: hsl(217 91% 70%);
+  --color-brand-700: hsl(213 94% 75%);
+  --color-brand-800: hsl(212 96% 82%);
+  --color-brand-900: hsl(213 97% 90%);
+  --color-brand-950: hsl(214 100% 95%);
+
+  --color-ring: hsl(217 91% 65%);
+}
+
+.dark[data-theme="purple"] {
+  --color-primary: hsl(265 89% 65%);
+  --color-primary-hover: hsl(265 89% 70%);
+  --color-primary-foreground: hsl(0 0% 8%);
+
+  --color-brand-50: hsl(267 70% 25%);
+  --color-brand-100: hsl(265 65% 35%);
+  --color-brand-200: hsl(264 70% 40%);
+  --color-brand-300: hsl(263 80% 50%);
+  --color-brand-400: hsl(265 89% 55%);
+  --color-brand-500: hsl(265 89% 65%);
+  --color-brand-600: hsl(265 89% 70%);
+  --color-brand-700: hsl(271 91% 75%);
+  --color-brand-800: hsl(270 95% 82%);
+  --color-brand-900: hsl(269 100% 90%);
+  --color-brand-950: hsl(270 100% 95%);
+
+  --color-ring: hsl(265 89% 65%);
+}
