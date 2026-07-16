@@ -33,8 +33,8 @@ function normalize(path) {
 }
 
 function fastifyPath(path) {
-  // 把 :param 转成 :id（Fastify 参数名统一为 id，后续按位置使用）
-  return path.replace(/:param/g, ':id')
+  // 把 /:param 转成 /:id；没有斜杠的尾部 :param 是查询字符串误报，直接去掉
+  return path.replace(/\/:param/g, '/:id').replace(/:param$/, '')
 }
 
 function groupKey(path) {
