@@ -35,6 +35,7 @@ import { BUILTIN_TOOLS } from '../tools/builtins.js';
 import { createFileEditTools } from '../tools/file-edit.js';
 import { GIT_TOOLS } from '../tools/git.js';
 import { FETCH_TOOLS } from '../tools/fetch-url.js';
+import { TEST_TOOLS } from '../tools/run-tests.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import { compressContext } from '../context.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
@@ -121,6 +122,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   registerTools(BUILTIN_TOOLS);
   registerTools(GIT_TOOLS);
   registerTools(FETCH_TOOLS);
+  registerTools(TEST_TOOLS);
   if (opts.checkpoints) {
     registerTools(createFileEditTools({ workspacePath: opts.workspacePath, checkpoints: opts.checkpoints }));
   }
