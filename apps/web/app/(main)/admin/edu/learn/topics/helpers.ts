@@ -13,6 +13,7 @@ export const EMPTY: TForm = {
   price: '0',
   originalPrice: '0',
   status: 'draft',
+  isShowIndex: true,
 }
 
 export const STATUS_MAP: Record<string, { label: string; cls: string }> = {
@@ -35,5 +36,6 @@ export function topicToForm(t: Topic): TForm {
     price: t.price ?? '0',
     originalPrice: t.originalPrice ?? '0',
     status: t.status,
+    isShowIndex: t.isShowIndex ?? true,
   }
 }

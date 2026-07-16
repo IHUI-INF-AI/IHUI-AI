@@ -22,6 +22,15 @@ export const FALLBACK_MODELS: Model[] = [
     features: ['Plan', 'Auto-Route'],
   },
   {
+    id: 'agnes/gpt-4o',
+    name: 'GPT-4o (Agnes)',
+    provider: 'openai',
+    description: 'model.agnes-gpt-4o.description',
+    contextLength: 128000,
+    inputPrice: 0,
+    features: ['Plan', 'Multimodal'],
+  },
+  {
     id: 'groq/llama-3.3-70b-versatile',
     name: 'model.groq-llama-3-3-70b.name',
     provider: 'meta',

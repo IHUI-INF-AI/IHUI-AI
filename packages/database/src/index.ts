@@ -1,5 +1,6 @@
 export * from './client.js'
 export * from './read-replica.js'
 export * from './rls.js'
+export * from './tenant-router.js'
 export * from './schema/index.js'
 export * as schema from './schema/index.js'

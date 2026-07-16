@@ -1025,7 +1025,9 @@
         "content": "Please summarize the key information of the following content:",
         "category": "Summary"
       }
-    }
+    },
+    "hideReasoning": "Hide Reasoning",
+    "showReasoning": "Show Reasoning"
   },
   "learn": {
     "title": "Learning Center",
@@ -2168,7 +2170,20 @@
       "noData": "No users found",
       "loading": "Loading...",
       "userDetail": "User Detail",
-      "confirmStatusChange": "Are you sure you want to change this user's status?"
+      "confirmStatusChange": "Are you sure you want to change this user's status?",
+      "createUser": "Create User",
+      "uploadAvatar": "Upload Avatar",
+      "uploadAvatarHint": "JPG/PNG, max 2MB",
+      "dept": "Department",
+      "noDept": "No Department",
+      "ban": "Ban",
+      "unban": "Unban",
+      "confirmBan": "Ban this user?",
+      "confirmUnban": "Unban this user?",
+      "delete": "Delete",
+      "confirmDeletePrefix": "Delete user \"",
+      "confirmDeleteSuffix": "\"?",
+      "resetPassword": "Reset Password"
     },
     "roles": {
       "title": "Role Management",
@@ -3361,7 +3376,8 @@
           "status": {
             "published": "Published",
             "unpublished": "Unpublished"
-          }
+          },
+          "fieldEnabled": "Enabled"
         },
         "papersManual": {
           "title": "Manual Assembly",
@@ -3593,7 +3609,11 @@
           "updateSuccess": "Updated successfully",
           "deleteSuccess": "Deleted successfully",
           "deleteConfirm": "Confirm delete?",
-          "titleRequired": "Title is required"
+          "titleRequired": "Title is required",
+          "fieldShowIndex": "Show on Index",
+          "colShowIndex": "Show on Index",
+          "showIndexYes": "Yes",
+          "showIndexNo": "No"
         },
         "maps": {
           "title": "Learning Maps",
@@ -6437,7 +6457,12 @@
       "awardingOrganizationRequired": "Awarding organization is required",
       "awarderNameRequired": "Awarder name is required",
       "awardConditionsRequired": "Award conditions are required",
-      "validityPolicyRequired": "Validity policy is required"
+      "validityPolicyRequired": "Validity policy is required",
+      "validityCustomDays": "Custom Days",
+      "validityDateRange": "Validity Date Range",
+      "fieldValidDays": "Valid Days",
+      "fieldValidFrom": "Valid From",
+      "fieldValidTo": "Valid To"
     },
     "eduClassMembers": {
       "title": "Class Members",
@@ -8485,7 +8510,9 @@
     "loading": "Loading...",
     "empty": "No feedback yet",
     "backToList": "Back to feedback",
-    "notFound": "Feedback not found or no access"
+    "notFound": "Feedback not found or no access",
+    "field_images": "Images",
+    "imagesPlaceholder": "Paste or drag images here"
   },
   "comments": {
     "replyTitle": "Admin Reply",

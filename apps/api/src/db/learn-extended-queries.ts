@@ -514,6 +514,7 @@ export interface CreateLearnTopicInput {
   status?: string
   slug?: string | null
   sort?: number
+  isShowIndex?: boolean
 }
 
 export async function createTopicRow(data: CreateLearnTopicInput): Promise<LearnTopic> {
@@ -528,6 +529,7 @@ export async function createTopicRow(data: CreateLearnTopicInput): Promise<Learn
       status: data.status,
       slug: data.slug,
       sort: data.sort,
+      isShowIndex: data.isShowIndex,
     })
     .returning()
   const row = rows[0]
@@ -544,6 +546,7 @@ export interface UpdateLearnTopicInput {
   status?: string
   slug?: string | null
   sort?: number
+  isShowIndex?: boolean
 }
 
 export async function updateTopicRow(
@@ -561,6 +564,7 @@ export async function updateTopicRow(
       ...(data.status !== undefined ? { status: data.status } : {}),
       ...(data.slug !== undefined ? { slug: data.slug } : {}),
       ...(data.sort !== undefined ? { sort: data.sort } : {}),
+      ...(data.isShowIndex !== undefined ? { isShowIndex: data.isShowIndex } : {}),
       updatedAt: new Date(),
     })
     .where(eq(learnTopic.id, id))

@@ -19,6 +19,9 @@ export interface TForm {
   awarderName: string
   awardConditions: string
   validityPolicy: string
+  validDays: string
+  validFrom: string
+  validTo: string
   backgroundImage: string
   templateConfig: string
   status: boolean

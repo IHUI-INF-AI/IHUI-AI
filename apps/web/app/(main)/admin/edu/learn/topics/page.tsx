@@ -46,6 +46,7 @@ export default function EduLearnTopicsPage() {
         price: form.price || '0',
         originalPrice: form.originalPrice || '0',
         status: form.status,
+        isShowIndex: form.isShowIndex,
       }
       if (editing)
         return eduApi(`/api/admin/learn/premium-topics/${editing.id}`, {

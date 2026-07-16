@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { STATUS_MAP } from './helpers'
 import type { Topic } from './types'
 
-const COLSPAN = 5
+const COLSPAN = 6
 
 interface Props {
   rows: Topic[]
@@ -36,6 +36,7 @@ export function TopicsTable({
             <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
             <TableHead className="px-4 py-2.5">{t('colImage')}</TableHead>
             <TableHead className="px-4 py-2.5">{t('colPrice')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colShowIndex')}</TableHead>
             <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
@@ -93,6 +94,18 @@ export function TopicsTable({
                         ¥{tp.originalPrice}
                       </span>
                     )}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5">
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                        tp.isShowIndex
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                          : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      {tp.isShowIndex ? t('showIndexYes') : t('showIndexNo')}
+                    </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
                     <span

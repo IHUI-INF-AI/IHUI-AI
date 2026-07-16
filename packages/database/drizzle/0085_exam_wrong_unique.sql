@@ -1,0 +1,1 @@
+ALTER TABLE "exam_wrong_question" ADD CONSTRAINT "exam_wrong_question_user_question_unique" UNIQUE("user_id","question_id");

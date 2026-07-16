@@ -244,8 +244,10 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
 
     const { id } = z.object({ id: z.string() }).parse(request.params)
     const currentUserId = request.userId!
+    const roleId = request.jwtPayload?.roleId ?? 0
 
-    if (id !== currentUserId) {
+    // 仅本人或管理员可上传头像
+    if (id !== currentUserId && roleId < ADMIN_ROLE_ID) {
       return reply.status(403).send(error(403, '无权修改他人头像'))
     }
 

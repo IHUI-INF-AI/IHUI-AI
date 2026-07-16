@@ -90,6 +90,34 @@ test.describe('全站导航 - 导航元素', () => {
     }
   })
 
+  test('侧边栏“我的学习”聚合菜单可展开并展示子页面链接', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    const aside = page.locator('aside').first()
+    if (await aside.isVisible({ timeout: 3000 }).catch(() => false)) {
+      const parent = page.getByTestId('nav-myLearning').first()
+      await expect(parent).toBeVisible()
+
+      await expect(page.getByTestId('nav-favorites')).toHaveCount(0)
+      await expect(page.getByTestId('nav-following')).toHaveCount(0)
+      await expect(page.getByTestId('nav-subscriptions')).toHaveCount(0)
+
+      await parent.click()
+
+      const favorites = page.getByTestId('nav-favorites').first()
+      const following = page.getByTestId('nav-following').first()
+      const subscriptions = page.getByTestId('nav-subscriptions').first()
+      await expect(favorites).toBeVisible()
+      await expect(following).toBeVisible()
+      await expect(subscriptions).toBeVisible()
+
+      // 收藏/关注/订阅是个人页面，需要登录才能访问；这里只验证链接指向正确路径
+      expect(await favorites.getAttribute('href')).toBe('/favorites')
+      expect(await following.getAttribute('href')).toBe('/following')
+      expect(await subscriptions.getAttribute('href')).toBe('/subscriptions')
+    }
+  })
+
   test('全站无控制台未捕获异常(首页)', async ({ page }) => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
