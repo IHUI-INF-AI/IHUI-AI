@@ -14,7 +14,7 @@
         "next.config.*",
         "vite.config.*"
       ],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "build/**"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "build/**", ".output/**", ".wxt/**"],
       "env": ["NODE_ENV", "DATABASE_URL", "REDIS_URL", "JWT_SECRET"]
     },
     "dev": {
