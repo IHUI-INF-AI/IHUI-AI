@@ -45,6 +45,98 @@ export interface CompressionOptions {
 const DEFAULT_MAX_TOKENS = 24_000;
 const DEFAULT_KEEP_RECENT = 6;
 
+// ==================== 结构化摘要(替代 slice(0,200) 粗暴截断)====================
+
+const TOOL_CALL_REGEX = /```tool_call\s*\n([\s\S]*?)```/g;
+const TOOL_RESULT_REGEX = /\[工具结果\s*[✓✗]\]\s*(\S+)/g;
+const CODE_BLOCK_REGEX = /```(\w+)?/g;
+const MAX_SUMMARY_LEN = 160;
+
+/**
+ * 从单条消息内容提取结构化关键信息(智能摘要)。
+ *
+ * 替代 `msg.content.slice(0, 200)` 的粗暴截断,提取:
+ *   - assistant:tool_call 名称列表 + 首句决策 + 代码块语言标识
+ *   - user:tool_result 状态(✓/✗)+ 工具名 + 首句
+ *   - 其他:首句
+ *
+ * 每条摘要最多 MAX_SUMMARY_LEN 字符,信息密度高于 slice(0,200)。
+ */
+export function summarizeMessage(msg: ChatMessage): string {
+  const role = msg.role;
+  const content = msg.content;
+  if (!content) return `[${role}] (空)`;
+
+  const parts: string[] = [`[${role}]`];
+
+  // 提取 tool_call 名称(assistant 调用了哪些工具)
+  if (role === 'assistant') {
+    const toolNames: string[] = [];
+    let m: RegExpExecArray | null;
+    TOOL_CALL_REGEX.lastIndex = 0;
+    while ((m = TOOL_CALL_REGEX.exec(content)) !== null) {
+      try {
+        const parsed = JSON.parse(m[1]!.trim());
+        if (parsed && typeof parsed.name === 'string') toolNames.push(parsed.name);
+      } catch {
+        // 忽略解析失败
+      }
+    }
+    if (toolNames.length > 0) {
+      parts.push(`工具调用:${toolNames.join(', ')}`);
+    }
+  }
+
+  // 提取 tool_result 状态(user 消息中嵌入的工具结果)
+  if (role === 'user') {
+    const results: string[] = [];
+    let m: RegExpExecArray | null;
+    TOOL_RESULT_REGEX.lastIndex = 0;
+    while ((m = TOOL_RESULT_REGEX.exec(content)) !== null) {
+      results.push(m[1]!);
+    }
+    if (results.length > 0) {
+      parts.push(`工具结果:${results.join(', ')}`);
+    }
+  }
+
+  // 提取代码块语言标识(assistant 写了什么语言的代码)
+  if (role === 'assistant') {
+    const langs: string[] = [];
+    let m: RegExpExecArray | null;
+    CODE_BLOCK_REGEX.lastIndex = 0;
+    while ((m = CODE_BLOCK_REGEX.exec(content)) !== null) {
+      const lang = m[1];
+      if (lang && !langs.includes(lang)) langs.push(lang);
+    }
+    if (langs.length > 0) {
+      parts.push(`代码块:${langs.join(', ')}`);
+    }
+  }
+
+  // 提取首句(去掉 markdown 标记后的第一个句子)
+  const firstSentence = content
+    .replace(/```[\s\S]*?```/g, ' ') // 移除代码块
+    .replace(/[#*`>_~]/g, ' ')        // 移除 markdown 标记
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(/[。.!!\n?]/)[0] ?? '';
+  if (firstSentence) {
+    parts.push(firstSentence.slice(0, 80));
+  }
+
+  let summary = parts.join(' ');
+  if (summary.length > MAX_SUMMARY_LEN) {
+    summary = summary.slice(0, MAX_SUMMARY_LEN - 3) + '...';
+  }
+  return summary;
+}
+
+/** 批量生成结构化摘要(用于 compressContext / compressContextIfNeeded) */
+export function buildStructuredSummary(messages: ChatMessage[]): string {
+  return messages.map(summarizeMessage).join('\n');
+}
+
 export function compressContext(
   messages: ChatMessage[],
   opts: CompressionOptions = {},
@@ -72,8 +164,7 @@ export function compressContext(
 
   const summaryParts: string[] = [];
   for (const msg of toCompress) {
-    const preview = msg.content.slice(0, 200).replace(/\n/g, ' ');
-    summaryParts.push(`[${msg.role}] ${preview}...`);
+    summaryParts.push(summarizeMessage(msg));
   }
 
   const summaryMsg: ChatMessage = {
@@ -166,8 +257,7 @@ export function compressContextIfNeeded(
 
     const summaryParts: string[] = [];
     for (const msg of toCompress) {
-      const preview = msg.content.slice(0, 200).replace(/\n/g, ' ');
-      summaryParts.push(`[${msg.role}] ${preview}...`);
+      summaryParts.push(summarizeMessage(msg));
     }
     const summaryMsg: ChatMessage = {
       role: 'user',

@@ -8,7 +8,8 @@
  *   - sse transport:GET 建立 SSE 长连接,后续 POST 到 endpoint,响应通过 SSE 流推送
  *   - 工具枚举:调用 tools/list,将 MCP 工具转为 Tool 接口
  *   - 工具调用转发:Agent 调用时,转发到 MCP server 的 tools/call
- *   - 不实现 MCP 的 resources/prompts(仅 tools,做减法)
+ *   - resources:调用 resources/list / resources/read(预加载可选,不支持时静默)
+ *   - prompts:调用 prompts/list / prompts/get(预加载可选,不支持时静默)
  *
  * JSON-RPC 2.0 消息格式:
  *   请求:{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}
@@ -36,6 +37,36 @@ export interface McpToolDef {
   };
 }
 
+export interface McpResource {
+  uri: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+}
+
+export interface McpResourceContent {
+  uri: string;
+  mimeType?: string;
+  text?: string;
+  blob?: string;
+}
+
+export interface McpPrompt {
+  name: string;
+  description?: string;
+  arguments?: Array<{ name: string; description?: string; required?: boolean }>;
+}
+
+export interface McpPromptMessage {
+  role: 'user' | 'assistant';
+  content: { type: 'text'; text: string };
+}
+
+export interface McpPromptResult {
+  description?: string;
+  messages: McpPromptMessage[];
+}
+
 export interface McpConnection {
   server: McpServer;
   tools: McpToolDef[];
@@ -52,6 +83,10 @@ export interface McpConnection {
   ssePending: Map<string | number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>;
   /** sse 专用:下一个 JSON-RPC id */
   sseNextId: number;
+  /** resources/list 预加载结果(不支持 resources 的 server 为空数组) */
+  resources?: McpResource[];
+  /** prompts/list 预加载结果(不支持 prompts 的 server 为空数组) */
+  prompts?: McpPrompt[];
 }
 
 let _nextId = 1;
@@ -365,6 +400,18 @@ async function connectMcpServer(server: McpServer): Promise<McpConnection> {
     const toolsResult = await callMcpServer(conn, 'tools/list', {}) as { tools?: McpToolDef[] } | null;
     conn.tools = toolsResult?.tools ?? [];
     conn.connected = true;
+
+    // 可选预加载 resources/prompts:不支持这两个方法的 server 会返回错误,静默忽略
+    try {
+      await listMcpResources(conn);
+    } catch {
+      // server 不支持 resources(method not found 等),静默
+    }
+    try {
+      await listMcpPrompts(conn);
+    } catch {
+      // server 不支持 prompts(method not found 等),静默
+    }
   } catch (err) {
     disconnectMcpServer(conn);
     throw err;
@@ -373,22 +420,108 @@ async function connectMcpServer(server: McpServer): Promise<McpConnection> {
   return conn;
 }
 
+/**
+ * 统一 RPC 入口:按 transport 路由到 stdio/sse/http,返回 { result } 形式的响应。
+ * 出错时直接抛出(由调用方决定是否 try/catch)。callMcpServer 与 resources/prompts 函数均复用此函数。
+ */
+async function sendRpc(
+  conn: McpConnection,
+  method: string,
+  params: Record<string, unknown>,
+): Promise<{ result?: unknown }> {
+  const transport = conn.transport;
+  if (transport === 'stdio') {
+    if (!conn.process) throw new Error('stdio 连接未建立');
+    const result = await sendStdioRpc(conn.process, method, params);
+    return { result };
+  } else if (transport === 'sse') {
+    const result = await sendSseRpc(conn, method, params);
+    return { result };
+  } else {
+    if (!conn.server.url) throw new Error('URL 未配置');
+    const result = await sendHttpRpc(conn.server.url, method, params, conn.headers ?? {});
+    return { result };
+  }
+}
+
 async function callMcpServer(
   conn: McpConnection,
   method: string,
   params: Record<string, unknown>,
 ): Promise<unknown> {
-  const transport = conn.transport;
-  if (transport === 'stdio') {
-    if (!conn.process) throw new Error('stdio 连接未建立');
-    return sendStdioRpc(conn.process, method, params);
-  } else if (transport === 'sse') {
-    return sendSseRpc(conn, method, params);
-  } else {
-    // http
-    if (!conn.server.url) throw new Error('URL 未配置');
-    return sendHttpRpc(conn.server.url, method, params, conn.headers ?? {});
+  const resp = await sendRpc(conn, method, params);
+  return resp.result;
+}
+
+export function parseMcpResourcesResponse(resp: unknown): McpResource[] {
+  if (!resp || typeof resp !== 'object') return [];
+  const result = (resp as { result?: unknown }).result;
+  if (!result || typeof result !== 'object') return [];
+  const resources = (result as { resources?: unknown }).resources;
+  if (!Array.isArray(resources)) return [];
+  return resources.filter(
+    (r): r is McpResource =>
+      r !== null && typeof r === 'object' && typeof (r as { uri?: unknown }).uri === 'string',
+  );
+}
+
+export function parseMcpResourceContents(resp: unknown): McpResourceContent[] {
+  if (!resp || typeof resp !== 'object') return [];
+  const result = (resp as { result?: unknown }).result;
+  if (!result || typeof result !== 'object') return [];
+  const contents = (result as { contents?: unknown }).contents;
+  if (!Array.isArray(contents)) return [];
+  return contents.filter(
+    (c): c is McpResourceContent =>
+      c !== null && typeof c === 'object' && typeof (c as { uri?: unknown }).uri === 'string',
+  );
+}
+
+export function parseMcpPromptsResponse(resp: unknown): McpPrompt[] {
+  if (!resp || typeof resp !== 'object') return [];
+  const result = (resp as { result?: unknown }).result;
+  if (!result || typeof result !== 'object') return [];
+  const prompts = (result as { prompts?: unknown }).prompts;
+  if (!Array.isArray(prompts)) return [];
+  return prompts.filter(
+    (p): p is McpPrompt =>
+      p !== null && typeof p === 'object' && typeof (p as { name?: unknown }).name === 'string',
+  );
+}
+
+export async function listMcpResources(conn: McpConnection): Promise<McpResource[]> {
+  const resp = await sendRpc(conn, 'resources/list', {});
+  const resources = parseMcpResourcesResponse(resp);
+  conn.resources = resources;
+  return resources;
+}
+
+export async function readMcpResource(
+  conn: McpConnection,
+  uri: string,
+): Promise<McpResourceContent[]> {
+  const resp = await sendRpc(conn, 'resources/read', { uri });
+  return parseMcpResourceContents(resp);
+}
+
+export async function listMcpPrompts(conn: McpConnection): Promise<McpPrompt[]> {
+  const resp = await sendRpc(conn, 'prompts/list', {});
+  const prompts = parseMcpPromptsResponse(resp);
+  conn.prompts = prompts;
+  return prompts;
+}
+
+export async function getMcpPrompt(
+  conn: McpConnection,
+  name: string,
+  args?: Record<string, string>,
+): Promise<McpPromptResult> {
+  const resp = await sendRpc(conn, 'prompts/get', { name, arguments: args ?? {} });
+  const result = resp.result as McpPromptResult | undefined;
+  if (!result || !Array.isArray(result.messages)) {
+    return { messages: [] };
   }
+  return result;
 }
 
 function disconnectMcpServer(conn: McpConnection): void {
