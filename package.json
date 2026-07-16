@@ -24,6 +24,7 @@
     "check:api-routes": "node scripts/check-api-routes.mjs",
     "check:safe-parse": "node scripts/check-safe-parse.mjs",
     "check:dedupe": "node scripts/check-dedupe.mjs",
+    "check:orphan-images": "node apps/web/scripts/scan-orphan-images.cjs",
     "knip": "knip",
     "openapi-check": "node scripts/openapi-check.mjs",
     "miniapp:preview": "node scripts/miniapp-preview.mjs",
