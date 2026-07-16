@@ -1,11 +1,11 @@
 /**
- * 开发者相关 API
+ * 开发者相�?API
  * 合并迁移自旧架构：developer, sdks, packages, webhooks, oauth-apps
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
-import { buildQs, type PageData } from '../utils'
+import { fetchApi } from '../client.js'
+import { buildQs, type PageData } from '../utils.js'
 
 // ===================== 类型定义 =====================
 
@@ -15,7 +15,7 @@ export interface PageQuery {
   [key: string]: string | number | undefined | null
 }
 
-/** 开发者信息 */
+/** 开发者信�?*/
 export interface DeveloperInfo {
   id: string
   userId: string
@@ -75,7 +75,7 @@ export interface Webhook {
   [key: string]: unknown
 }
 
-/** Webhook 投递记录 */
+/** Webhook 投递记�?*/
 export interface WebhookDelivery {
   id: string
   webhookId: string
@@ -120,19 +120,19 @@ export interface OauthAuthorization {
 
 // ===================== developer（开发者） =====================
 
-/** 获取当前开发者信息 */
+/** 获取当前开发者信�?*/
 export async function getDeveloperInfo(): Promise<ApiResult<DeveloperInfo>> {
   return fetchApi<DeveloperInfo>('/api/developer/info')
 }
 
-/** 获取开发者价格信息 */
+/** 获取开发者价格信�?*/
 export async function getDeveloperPrice(): Promise<
   ApiResult<{ price: number; [key: string]: unknown }>
 > {
   return fetchApi<{ price: number; [key: string]: unknown }>('/api/developer/price')
 }
 
-/** 申请成为开发者 */
+/** 申请成为开发�?*/
 export async function applyDeveloper(input: {
   name: string
   email?: string
@@ -144,7 +144,7 @@ export async function applyDeveloper(input: {
   })
 }
 
-/** 更新开发者信息 */
+/** 更新开发者信�?*/
 export async function updateDeveloperInfo(
   input: Partial<DeveloperInfo>,
 ): Promise<ApiResult<DeveloperInfo>> {
@@ -172,7 +172,7 @@ export async function auditDeveloper(
   })
 }
 
-// ===================== sdks（SDK） =====================
+// ===================== sdks（SDK�?=====================
 
 /** 获取 SDK 列表 */
 export async function getSdkList(
@@ -186,7 +186,7 @@ export async function getSdkDetail(id: string): Promise<ApiResult<SdkInfo>> {
   return fetchApi<SdkInfo>(`/api/sdks/${id}`)
 }
 
-/** 获取 SDK 最新版本 */
+/** 获取 SDK 最新版�?*/
 export async function getLatestSdk(platform: SdkInfo['platform']): Promise<ApiResult<SdkInfo>> {
   return fetchApi<SdkInfo>(`/api/sdks/latest${buildQs({ platform })}`)
 }
@@ -299,7 +299,7 @@ export async function testWebhook(
   })
 }
 
-/** 获取 Webhook 投递记录 */
+/** 获取 Webhook 投递记�?*/
 export async function getWebhookDeliveries(
   id: string,
   query: PageQuery = {},

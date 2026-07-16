@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { eq, and, ilike, isNull } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
@@ -13,6 +14,8 @@ import {
 } from '../db/oss-queries.js'
 import { createUploadPreHandler } from '../plugins/upload-scanner.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { db } from '../db/index.js'
+import { files } from '@ihui/database'
 
 // =============================================================================
 // 鉴权辅助
@@ -166,6 +169,81 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
           message: `驱动 ${driver.name} 已就绪,请通过 /files 接口完成上传`,
         }),
       )
+    },
+  )
+
+  // DELETE /oss/files - 按 url 软删文件(清理孤儿文件,前端 ImageUpload onRemove 调用)
+  // 接受 body { url: string },按 path 模糊匹配 files 表,软删 deleted_at + deleted_by
+  // 注意:OSS 实际删除可能是异步任务(BullMQ),此处只保证 DB 软删
+  server.delete(
+    '/oss/files',
+    {
+      schema: {
+        summary: '按 URL 删除文件(软删)',
+        tags: ['oss'],
+        body: {
+          type: 'object',
+          properties: {
+            url: { type: 'string', description: '文件 URL 或服务端路径' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = z.object({ url: z.string().min(1).max(1024) }).safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+      }
+      const url = body.data.url
+      const userId = request.userId
+      const roleId = request.jwtPayload?.roleId ?? 0
+      try {
+        // 按 path 精确匹配或后缀匹配(防止误删,只用 ilike 匹配结尾)
+        const rows = await db
+          .select({ id: files.id, uploadedBy: files.uploadedBy, path: files.path })
+          .from(files)
+          .where(and(ilike(files.path, `%${url}`), isNull(files.deletedAt)))
+          .limit(5)
+        const target = rows[0]
+        if (target) {
+          // 权限校验:本人或管理员
+          if (target.uploadedBy !== userId && roleId < 1) {
+            return reply.status(403).send(error(403, '无权删除该文件'))
+          }
+          await db
+            .update(files)
+            .set({ deletedAt: new Date(), deletedBy: userId ?? null })
+            .where(eq(files.id, target.id))
+          return reply.send(success({ id: target.id, deleted: true, matched: true }))
+        }
+        // 未匹配到 DB 记录(可能是直传 OSS 的 URL),返回成功让前端继续清理本地状态
+        return reply.send(success({ deleted: false, matched: false }))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '文件删除失败'))
+      }
     },
   )
 
