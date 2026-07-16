@@ -24,6 +24,8 @@ export interface AcpServerOptions {
   modelId: string;
   maxIterations: number;
   enableMcp?: boolean;
+  /** 允许危险工具自动执行(默认拒绝,ACP 无交互确认通道) */
+  allowDangerous?: boolean;
 }
 
 interface AcpSessionState {
@@ -134,6 +136,10 @@ class IhuiAcpAgent {
         checkpoints: state.checkpoints ?? undefined,
         enableMcp: this.opts.enableMcp,
         silent: true,
+        confirmDangerous: async () => {
+          if (this.opts.allowDangerous) return true;
+          return false;
+        },
       });
       state.systemPrompt = result.systemPrompt;
       state.ctx = result.ctx;

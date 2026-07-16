@@ -60,7 +60,8 @@ program
   .option('--resume <session-id>', '恢复之前的会话')
   .option('--continue', '继续最近的会话')
   .option('--json', 'Headless 模式:输出 NDJSON 事件流 (非 TTY 自动启用,CI/CD 友好)')
-  .option('--mcp', '启用 MCP 工具(从 ~/.ihui/mcp.json 加载 MCP 服务器工具)');
+  .option('--mcp', '启用 MCP 工具(从 ~/.ihui/mcp.json 加载 MCP 服务器工具)')
+  .option('--allow-dangerous', '允许危险工具(run_command/delete_file/git_commit)自动执行,无需确认(默认拒绝,REPL 模式下交互确认)');
 
 interface ResolvedSession {
   sessionId?: string;
@@ -116,6 +117,7 @@ async function runAgentAndExit(
       jsonMode,
       checkpoints,
       enableMcp: opts.mcp === true,
+      allowDangerous: opts.allowDangerous === true,
     });
     process.exit(stopReasonToExitCode(result.stopReason));
   } finally {
@@ -156,6 +158,7 @@ program
         sessionId: session.sessionId,
         history: session.history,
         enableMcp: opts.mcp === true,
+        allowDangerous: opts.allowDangerous === true,
       });
     }
   });
@@ -176,6 +179,7 @@ program
       sessionId: session.sessionId,
       history: session.history,
       enableMcp: opts.mcp === true,
+      allowDangerous: opts.allowDangerous === true,
     });
   });
 
@@ -317,6 +321,7 @@ program
       modelId: opts.model,
       maxIterations: parseInt(opts.maxIterations, 10),
       enableMcp: opts.mcp === true,
+      allowDangerous: opts.allowDangerous === true,
     });
     process.on('SIGINT', () => connection.close());
     process.on('SIGTERM', () => connection.close());
