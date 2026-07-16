@@ -326,6 +326,7 @@
     "admin": "コンソール",
     "help": "ヘルプ",
     "search": "検索",
+    "myLearning": "マイ学習",
     "favorites": "おにり",
     "following": "みフォロー",
     "subscriptions": "購読",
@@ -1498,7 +1499,10 @@
       "rolesAuthUser": "ロールユーザー",
       "rolesSelectUser": "ユーザー",
       "ossFiles": "ファイル",
-      "notificationDispatch": "ターゲット"
+      "notificationDispatch": "ターゲット",
+      "messageOverview": "メッセージ概覧",
+      "visitTracking": "訪問追跡",
+      "examMarking": "試験採点"
     },
     "refund": {
       "title": "APIテスト",
