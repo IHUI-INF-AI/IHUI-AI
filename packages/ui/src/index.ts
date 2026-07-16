@@ -49,3 +49,4 @@ export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './comp
 export { TreeSelect } from './components/tree-select.js'
 export type { TreeNode } from './components/tree-select.js'
 export { ThemeLogo } from './components/theme-logo.js'
+export { Sidebar, SidebarItem, SidebarGroup } from './components/sidebar.js'

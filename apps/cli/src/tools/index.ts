@@ -215,15 +215,15 @@ export async function executeToolCall(
 
 // ==================== P1-4 Rate limiting(滑动窗口计数)====================
 
-const DEFAULT_RATE_LIMIT_WINDOW_MS = 10_000;
-const DEFAULT_RATE_LIMIT_MAX_CALLS = 5;
-const toolCallTimestamps = new Map<string, number[]>();
-let globalRateLimitOpts: RateLimitOptions = {};
-
 export interface RateLimitOptions {
   windowMs?: number;
   maxCalls?: number;
 }
+
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 10_000;
+const DEFAULT_RATE_LIMIT_MAX_CALLS = 5;
+const toolCallTimestamps = new Map<string, number[]>();
+let globalRateLimitOpts: RateLimitOptions = {};
 
 /**
  * 检查工具调用频率是否超限(滑动窗口算法)。

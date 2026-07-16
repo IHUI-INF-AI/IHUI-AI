@@ -83,7 +83,7 @@ export function summarizeMessage(msg: ChatMessage): string {
       }
     }
     if (toolNames.length > 0) {
-      parts.push(`工具调用:${toolNames.join(', ')}`);
+      parts.push(`工具调用: ${toolNames.join(', ')}`);
     }
   }
 
@@ -96,7 +96,7 @@ export function summarizeMessage(msg: ChatMessage): string {
       results.push(m[1]!);
     }
     if (results.length > 0) {
-      parts.push(`工具结果:${results.join(', ')}`);
+      parts.push(`工具结果: ${results.join(', ')}`);
     }
   }
 
@@ -110,7 +110,7 @@ export function summarizeMessage(msg: ChatMessage): string {
       if (lang && !langs.includes(lang)) langs.push(lang);
     }
     if (langs.length > 0) {
-      parts.push(`代码块:${langs.join(', ')}`);
+      parts.push(`代码块: ${langs.join(', ')}`);
     }
   }
 
