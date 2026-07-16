@@ -23,7 +23,7 @@ import {
   updateAsk,
   updateCircleShowStatus,
 } from '../../db/community-queries.js'
-import { circlePosts, circles, users } from '@ihui/database'
+import { circlePostComments, circlePosts, circles, users } from '@ihui/database'
 import {
   circleShowSchema,
   createAnswerSchema,
@@ -565,7 +565,10 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
         keyword: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-        status: z.preprocess(emptyToUndefined, z.enum(['published', 'deleted']).optional()),
+        status: z.preprocess(
+          emptyToUndefined,
+          z.enum(['published', 'deleted', 'pending', 'rejected']).optional(),
+        ),
         circleId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
       })
       .safeParse(request.query)
@@ -580,6 +583,8 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     }
     if (status === 'published') conds.push(eq(circlePosts.status, 1))
     else if (status === 'deleted') conds.push(eq(circlePosts.status, -1))
+    else if (status === 'pending') conds.push(eq(circlePosts.status, 2))
+    else if (status === 'rejected') conds.push(eq(circlePosts.status, 3))
     if (circleId) conds.push(eq(circlePosts.circleId, circleId))
     const where = conds.length > 0 ? and(...conds) : undefined
     const offset = (page - 1) * pageSize
@@ -613,26 +618,36 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
         .from(circlePosts)
         .where(where),
     ])
-    const list = rows.map((r) => ({
-      id: r.id,
-      content: r.content,
-      images: (r.images ?? []) as string[],
-      status: r.status === 1 ? ('published' as const) : ('deleted' as const),
-      author: {
-        id: r.authorId ?? '',
-        nickname: r.authorNickname ?? '',
-        avatar: r.authorAvatar ?? null,
-      },
-      circle: {
-        id: r.circleId ?? '',
-        name: r.circleName ?? '',
-      },
-      viewCount: r.viewCount,
-      commentCount: r.commentCount,
-      likeCount: r.likeCount,
-      favoriteCount: 0,
-      createdAt: r.createdAt,
-    }))
+    const list = rows.map((r) => {
+      const statusStr =
+        r.status === 1
+          ? ('published' as const)
+          : r.status === 2
+            ? ('pending' as const)
+            : r.status === 3
+              ? ('rejected' as const)
+              : ('deleted' as const)
+      return {
+        id: r.id,
+        content: r.content,
+        images: (r.images ?? []) as string[],
+        status: statusStr,
+        author: {
+          id: r.authorId ?? '',
+          nickname: r.authorNickname ?? '',
+          avatar: r.authorAvatar ?? null,
+        },
+        circle: {
+          id: r.circleId ?? '',
+          name: r.circleName ?? '',
+        },
+        viewCount: r.viewCount,
+        commentCount: r.commentCount,
+        likeCount: r.likeCount,
+        favoriteCount: 0,
+        createdAt: r.createdAt,
+      }
+    })
     return reply.send(success({ list, total: Number(totalRows[0]?.count ?? 0), page, pageSize }))
   })
 
@@ -653,6 +668,115 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       .set({ status: -1, updatedAt: new Date() })
       .where(eq(circlePosts.id, parsed.data.id))
     return reply.send(success(null))
+  })
+
+  // PUT /admin/circles/posts/:id/audit - 管理员审核帖子(更新 status 字段)
+  // status 映射: published=1, pending=2, rejected=3
+  server.put('/admin/circles/posts/:id/audit', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = z
+      .object({
+        status: z.enum(['published', 'pending', 'rejected']),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findPostById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '帖子不存在'))
+    }
+    const statusMap: Record<string, number> = {
+      published: 1,
+      pending: 2,
+      rejected: 3,
+    }
+    const [updated] = await db
+      .update(circlePosts)
+      .set({ status: statusMap[body.data.status], updatedAt: new Date() })
+      .where(eq(circlePosts.id, parsed.data.id))
+      .returning()
+    if (!updated) return reply.status(500).send(error(500, '审核失败'))
+    const statusStr =
+      updated.status === 1
+        ? ('published' as const)
+        : updated.status === 2
+          ? ('pending' as const)
+          : updated.status === 3
+            ? ('rejected' as const)
+            : ('deleted' as const)
+    return reply.send(success({ post: { id: updated.id, status: statusStr } }))
+  })
+
+  // GET /admin/circles/posts/:id/comments - 管理端帖子评论列表(分页)
+  server.get('/admin/circles/posts/:id/comments', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const query = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+      })
+      .safeParse(request.query)
+    if (!query.success) {
+      return reply.status(400).send(error(400, query.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize } = query.data
+    const existing = await findPostById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '帖子不存在'))
+    }
+    const cols = {
+      id: circlePostComments.id,
+      content: circlePostComments.content,
+      status: circlePostComments.status,
+      likeCount: circlePostComments.likeCount,
+      createdAt: circlePostComments.createdAt,
+      pid: circlePostComments.pid,
+      replyUserId: circlePostComments.replyUserId,
+      authorId: users.id,
+      authorNickname: users.nickname,
+      authorAvatar: users.avatar,
+    }
+    const offset = (page - 1) * pageSize
+    const [rows, totalRows] = await Promise.all([
+      dbRead
+        .select(cols)
+        .from(circlePostComments)
+        .leftJoin(users, eq(users.id, circlePostComments.userId))
+        .where(eq(circlePostComments.postId, parsed.data.id))
+        .orderBy(desc(circlePostComments.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(circlePostComments)
+        .where(eq(circlePostComments.postId, parsed.data.id)),
+    ])
+    const list = rows.map((r) => ({
+      id: r.id,
+      content: r.content,
+      status: r.status,
+      likeCount: r.likeCount,
+      createdAt: r.createdAt,
+      pid: r.pid,
+      replyUserId: r.replyUserId,
+      author: {
+        id: r.authorId ?? '',
+        nickname: r.authorNickname ?? '',
+        avatar: r.authorAvatar ?? null,
+      },
+    }))
+    return reply.send(success({ list, total: Number(totalRows[0]?.count ?? 0), page, pageSize }))
   })
 }
 export default asksRoutes
