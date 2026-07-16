@@ -54,6 +54,12 @@ import {
   createDictData,
   updateDictData,
   deleteDictDataBatch,
+  findOperlogList,
+  deleteOperlogsBatch,
+  cleanOperlogs,
+  updateAdminRoleStatus,
+  updateAdminRoleDataScope,
+  findAdminRoleDeptIds,
 } from '../db/admin-sys-queries.js'
 import { db } from '../db/index.js'
 import { eq, and, isNull, gt, desc, inArray } from 'drizzle-orm'
@@ -197,6 +203,17 @@ const createDictDataBodySchema = z.object({
   remark: z.string().optional(),
 })
 
+const roleChangeStatusBodySchema = z.object({
+  roleId: z.number().int(),
+  status: z.string(),
+})
+
+const roleDataScopeBodySchema = z.object({
+  roleId: z.number().int(),
+  dataScope: z.string().optional(),
+  deptIds: z.array(z.number().int()).optional(),
+})
+
 // =============================================================================
 // 主插件:系统管理后端(迁移自 admin_panel.py)
 // =============================================================================
@@ -302,9 +319,55 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
   // ===========================================================================
   // role_router (prefix=/role)
+  // 注:5 个 authUser 路由(allocatedList/unallocatedList/cancel/cancelAll/selectAll)跳过,
+  //   原因:rbac.ts 的 userRoles 表用 uuid roleId,与前端数值 roleId 不兼容;
+  //         adminUserRole 表 userId 是 integer(对应 adminUser 表),与 users.id (uuid) 不兼容;
+  //         无表能同时匹配 (uuid userId + integer roleId) 关联。待新建 sys_user_role 表后补齐。
   // ===========================================================================
   server.register(
     async (s) => {
+      // PUT /role/changeStatus - 修改角色状态(对应前端 changeRoleStatus)
+      s.put('/changeStatus', async (request, reply) => {
+        const parsed = roleChangeStatusBodySchema.safeParse(request.body)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const role = await updateAdminRoleStatus(parsed.data.roleId, parsed.data.status)
+        if (!role) {
+          return reply.status(404).send(error(404, '角色不存在'))
+        }
+        return reply.send(success({ role }))
+      })
+
+      // PUT /role/dataScope - 更新角色数据权限(对应前端 dataScope)
+      s.put('/dataScope', async (request, reply) => {
+        const parsed = roleDataScopeBodySchema.safeParse(request.body)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const role = await updateAdminRoleDataScope(
+          parsed.data.roleId,
+          parsed.data.dataScope ?? '1',
+          parsed.data.deptIds ?? [],
+        )
+        if (!role) {
+          return reply.status(404).send(error(404, '角色不存在'))
+        }
+        return reply.send(success({ role }))
+      })
+
+      // GET /role/deptTree/:roleId - 角色关联的部门树(对应前端 roleDeptTreeSelect)
+      s.get('/deptTree/:roleId', async (request, reply) => {
+        const { roleId } = z.object({ roleId: z.string() }).parse(request.params)
+        const rid = Number(roleId)
+        if (Number.isNaN(rid) || rid < 1) {
+          return reply.status(400).send(error(400, 'roleId 无效'))
+        }
+        const list = await findDeptList()
+        const checkedKeys = await findAdminRoleDeptIds(rid)
+        return reply.send(success({ depts: list, checkedKeys }))
+      })
+
       // DELETE /role/:roleId - 删除角色(级联清理 sys_role_menu)
       s.delete('/:roleId', async (request, reply) => {
         const { roleId } = z.object({ roleId: z.string() }).parse(request.params)
@@ -1069,6 +1132,49 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
       })
     },
     { prefix: '/dict/data' },
+  )
+
+  // ===========================================================================
+  // operlog_router (prefix=/operlog)
+  // ===========================================================================
+  server.register(
+    async (s) => {
+      // GET /operlog/list - 操作日志列表
+      s.get('/list', async (request, reply) => {
+        const q = request.query as Record<string, string>
+        const { list, total } = await findOperlogList({
+          page: parseNum(q.page, 1),
+          pageSize: parseNum(q.pageSize, 10),
+          title: parseStr(q.title),
+          businessType: parseNum(q.businessType),
+          operName: parseStr(q.operName),
+          status: parseNum(q.status),
+        })
+        return reply.send(success({ list, total }))
+      })
+
+      // DELETE /operlog/clean - 清空操作日志
+      s.delete('/clean', async (_request, reply) => {
+        await cleanOperlogs()
+        return reply.send(success({}))
+      })
+
+      // DELETE /operlog/:operIds - 删除操作日志(逗号分隔)
+      s.delete('/:operIds', async (request, reply) => {
+        const { operIds } = z.object({ operIds: z.string() }).parse(request.params)
+        const ids = operIds
+          .split(',')
+          .filter(Boolean)
+          .map(Number)
+          .filter((n) => !Number.isNaN(n))
+        if (ids.length === 0) {
+          return reply.status(400).send(error(400, '无效的 ID'))
+        }
+        const deleted = await deleteOperlogsBatch(ids)
+        return reply.send(success({ deleted }))
+      })
+    },
+    { prefix: '/operlog' },
   )
 
   // ===========================================================================

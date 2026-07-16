@@ -95,9 +95,16 @@ describe('admin 5 模块 i18n 完整性', () => {
       })
 
       it('所有值非空(防 t() 返回空串)', () => {
-        for (const v of Object.values(zh.admin[mod])) {
-          expect(typeof v).toBe('string')
-          expect((v as string).length).toBeGreaterThan(0)
+        for (const path of leafKeys(zh.admin[mod])) {
+          const segments = path.split('.')
+          let current: unknown = zh.admin[mod]
+          for (const seg of segments) {
+            if (current && typeof current === 'object') {
+              current = (current as Record<string, unknown>)[seg]
+            }
+          }
+          expect(typeof current).toBe('string')
+          expect((current as string).length).toBeGreaterThan(0)
         }
       })
 
