@@ -79,11 +79,14 @@ export const learnTopic = pgTable(
     createUserId: bigint('create_user_id', { mode: 'number' }),
     price: numeric('price', { precision: 14, scale: 2 }).default('0'),
     originalPrice: numeric('original_price', { precision: 14, scale: 2 }).default('0'),
+    slug: varchar('slug', { length: 200 }),
+    sort: integer('sort').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     statusIdx: index('learn_topic_status_idx').on(t.status),
+    sortIdx: index('learn_topic_sort_idx').on(t.sort),
   }),
 )
 
