@@ -114,6 +114,98 @@ export const updatePermissionSchema = z.object({
   description: z.string().nullable().optional(),
 })
 
+// --- auth-accounts body schema ---
+export const createAuthAccountSchema = z.object({
+  userId: z.string().min(1),
+  platform: z.string().min(1),
+  openId: z.string().max(100).optional(),
+  unionId: z.string().max(100).optional(),
+  accessToken: z.string().optional(),
+  refreshToken: z.string().optional(),
+  expiresAt: z.string().optional(),
+})
+export const updateAuthAccountSchema = z.object({
+  platform: z.string().min(1).optional(),
+  openId: z.string().max(100).optional(),
+  unionId: z.string().max(100).optional(),
+  accessToken: z.string().optional(),
+  refreshToken: z.string().optional(),
+  expiresAt: z.string().optional(),
+})
+
+// --- auth-info create body schema ---
+export const createAuthInfoSchema = z.object({
+  userUuid: z.string().min(1),
+  phone: z.string().max(20).optional(),
+  realName: z.string().max(50).optional(),
+  idCard: z.string().max(20).optional(),
+  authStatus: z.string().max(32).optional(),
+  authSource: z.string().max(50).optional(),
+})
+
+// --- auth-tokens body schema ---
+export const createAuthTokenSchema = z.object({
+  userId: z.string().min(1),
+  key: z.string().min(1),
+  status: z.number().int().optional(),
+  type: z.number().int().optional(),
+  max: z.number().int().optional(),
+  expiresAt: z.string().optional(),
+})
+export const updateAuthTokenSchema = z.object({
+  status: z.number().int().optional(),
+  type: z.number().int().optional(),
+  max: z.number().int().optional(),
+  expiresAt: z.string().optional(),
+})
+
+// --- auth-user-vip body schema ---
+export const createUserVipSchema = z.object({
+  userId: z.string().min(1),
+  vipLevelId: z.string().optional(),
+  levelValue: z.number().int().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  status: z.number().int().optional(),
+  autoRenew: z.number().int().optional(),
+})
+export const updateUserVipSchema = z.object({
+  vipLevelId: z.string().optional(),
+  levelValue: z.number().int().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  status: z.number().int().optional(),
+  autoRenew: z.number().int().optional(),
+})
+
+// --- user-roles update body schema ---
+export const updateUserRoleSchema = z.object({
+  userId: z.string().min(1).optional(),
+  roleId: z.string().min(1).optional(),
+  scopeResourceId: z.string().nullable().optional(),
+})
+
+// --- login-logs body schema ---
+export const createLoginLogSchema = z.object({
+  loginName: z.string().max(50).optional(),
+  ipaddr: z.string().max(50).optional(),
+  loginLocation: z.string().max(255).optional(),
+  browser: z.string().max(50).optional(),
+  os: z.string().max(50).optional(),
+  status: z.string().max(1).optional(),
+  msg: z.string().max(255).optional(),
+  loginTime: z.string().optional(),
+})
+export const updateLoginLogSchema = z.object({
+  loginName: z.string().max(50).optional(),
+  ipaddr: z.string().max(50).optional(),
+  loginLocation: z.string().max(255).optional(),
+  browser: z.string().max(50).optional(),
+  os: z.string().max(50).optional(),
+  status: z.string().max(1).optional(),
+  msg: z.string().max(255).optional(),
+  loginTime: z.string().optional(),
+})
 
 // Drizzle CRUD 工厂:接受任意 pgTable 实例,泛型签名受 TableConfig 索引签名约束无法表达。
 export function registerCrud(
