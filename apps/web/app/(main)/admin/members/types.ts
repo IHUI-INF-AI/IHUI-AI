@@ -123,57 +123,12 @@ export interface ImportResult {
   resultItemList: ImportResultItem[]
 }
 
-export function parseCsvToMembers(csv: string): Array<Record<string, unknown>> {
-  const lines = csv.split(/\r?\n/).filter((l) => l.trim().length > 0)
-  const headerLine = lines[0]
-  if (!headerLine || lines.length < 2) return []
-  const headers = headerLine.split(',').map((h) => h.trim())
-  return lines.slice(1).map((line, idx) => {
-    const values = line.split(',')
-    const row: Record<string, unknown> = { serialNum: idx + 1, rowNum: idx + 2 }
-    headers.forEach((h, i) => {
-      const v = values[i]?.trim() ?? ''
-      if (h === 'gender' || h === 'status') {
-        row[h] = v === '' ? undefined : Number(v)
-      } else {
-        row[h] = v
-      }
-    })
-    return row
-  })
-}
-
-export async function batchUploadMembers(file: File): Promise<ApiResult<ImportResult>> {
-  // CSV 解析 + JSON 数组提交,后端 /api/members/batch-upload 返回 { imported, failed, errors }
-  const text = await file.text()
-  const members = parseCsvToMembers(text)
-  const result = await fetchApi<{ imported: number; failed: number; errors: ImportResultItem[] }>(
-    '/api/members/batch-upload',
-    {
-      method: 'POST',
-      body: JSON.stringify({ members }),
-    },
-  )
-  if (!result.success) {
-    return result
-  }
-  const data = result.data
-  return {
-    success: true,
-    data: {
-      successCount: data.imported ?? 0,
-      failureCount: data.failed ?? Math.max(0, members.length - (data.imported ?? 0)),
-      resultItemList: data.errors ?? [],
-    },
-  }
-}
-
-export async function excelUploadMembers(file: File): Promise<ApiResult<ImportResult>> {
-  // Excel (.xlsx/.xls) 通过 multipart 上传到后端 /api/members/import/excel,后端解析后返回 { imported, failed, errors }
+export async function batchImportMembers(file: File): Promise<ApiResult<ImportResult>> {
+  // 统一文件上传,后端 /api/admin/members/batch-import 根据扩展名解析 CSV/Excel,返回 { imported, failed, errors }
   const form = new FormData()
   form.append('file', file)
   const result = await fetchApi<{ imported: number; failed: number; errors: ImportResultItem[] }>(
-    '/api/members/import/excel',
+    '/api/admin/members/batch-import',
     {
       method: 'POST',
       body: form,

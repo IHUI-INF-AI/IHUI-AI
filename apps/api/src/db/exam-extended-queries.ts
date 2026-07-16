@@ -1,5 +1,5 @@
-import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
-import { db } from './index.js';
+import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm'
+import { db } from './index.js'
 import {
   examChapters,
   examChapterSections,
@@ -14,8 +14,8 @@ import {
   type ExamSignup,
   type ExamRecord,
   type ExamWrongQuestion,
-} from '@ihui/database';
-import { AppError } from '../errors/AppError.js';
+} from '@ihui/database'
+import { AppError } from '../errors/AppError.js'
 
 // =============================================================================
 // Chapters - 试卷章节
@@ -27,19 +27,19 @@ export async function findChapterList(paperId: string): Promise<ExamChapter[]> {
     .select()
     .from(examChapters)
     .where(eq(examChapters.paperId, paperId))
-    .orderBy(asc(examChapters.sort), asc(examChapters.createdAt));
+    .orderBy(asc(examChapters.sort), asc(examChapters.createdAt))
 }
 
 export async function findChapterById(id: string): Promise<ExamChapter | undefined> {
-  const rows = await db.select().from(examChapters).where(eq(examChapters.id, id)).limit(1);
-  return rows[0];
+  const rows = await db.select().from(examChapters).where(eq(examChapters.id, id)).limit(1)
+  return rows[0]
 }
 
 export interface CreateChapterInput {
-  paperId: string;
-  title: string;
-  description?: string | null;
-  sort?: number;
+  paperId: string
+  title: string
+  description?: string | null
+  sort?: number
 }
 
 export async function createChapter(data: CreateChapterInput): Promise<ExamChapter> {
@@ -51,30 +51,33 @@ export async function createChapter(data: CreateChapterInput): Promise<ExamChapt
       description: data.description,
       sort: data.sort,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建章节失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建章节失败')
+  return row
 }
 
 export interface UpdateChapterInput {
-  title?: string;
-  description?: string | null;
-  sort?: number;
+  title?: string
+  description?: string | null
+  sort?: number
 }
 
-export async function updateChapter(id: string, data: UpdateChapterInput): Promise<ExamChapter | undefined> {
-  const set: Record<string, unknown> = {};
-  if (data.title !== undefined) set.title = data.title;
-  if (data.description !== undefined) set.description = data.description;
-  if (data.sort !== undefined) set.sort = data.sort;
-  set.updatedAt = new Date();
-  const rows = await db.update(examChapters).set(set).where(eq(examChapters.id, id)).returning();
-  return rows[0];
+export async function updateChapter(
+  id: string,
+  data: UpdateChapterInput,
+): Promise<ExamChapter | undefined> {
+  const set: Record<string, unknown> = {}
+  if (data.title !== undefined) set.title = data.title
+  if (data.description !== undefined) set.description = data.description
+  if (data.sort !== undefined) set.sort = data.sort
+  set.updatedAt = new Date()
+  const rows = await db.update(examChapters).set(set).where(eq(examChapters.id, id)).returning()
+  return rows[0]
 }
 
 export async function deleteChapter(id: string): Promise<void> {
-  await db.delete(examChapters).where(eq(examChapters.id, id));
+  await db.delete(examChapters).where(eq(examChapters.id, id))
 }
 
 // =============================================================================
@@ -87,7 +90,7 @@ export async function findSectionList(chapterId: string): Promise<ExamChapterSec
     .select()
     .from(examChapterSections)
     .where(eq(examChapterSections.chapterId, chapterId))
-    .orderBy(asc(examChapterSections.sort), asc(examChapterSections.createdAt));
+    .orderBy(asc(examChapterSections.sort), asc(examChapterSections.createdAt))
 }
 
 export async function findSectionById(id: string): Promise<ExamChapterSection | undefined> {
@@ -95,16 +98,16 @@ export async function findSectionById(id: string): Promise<ExamChapterSection | 
     .select()
     .from(examChapterSections)
     .where(eq(examChapterSections.id, id))
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 export interface CreateSectionInput {
-  chapterId: string;
-  title: string;
-  description?: string | null;
-  questionIds?: unknown;
-  sort?: number;
+  chapterId: string
+  title: string
+  description?: string | null
+  questionIds?: unknown
+  sort?: number
 }
 
 export async function createSection(data: CreateSectionInput): Promise<ExamChapterSection> {
@@ -117,39 +120,39 @@ export async function createSection(data: CreateSectionInput): Promise<ExamChapt
       questionIds: data.questionIds,
       sort: data.sort,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建小节失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建小节失败')
+  return row
 }
 
 export interface UpdateSectionInput {
-  title?: string;
-  description?: string | null;
-  questionIds?: unknown;
-  sort?: number;
+  title?: string
+  description?: string | null
+  questionIds?: unknown
+  sort?: number
 }
 
 export async function updateSection(
   id: string,
   data: UpdateSectionInput,
 ): Promise<ExamChapterSection | undefined> {
-  const set: Record<string, unknown> = {};
-  if (data.title !== undefined) set.title = data.title;
-  if (data.description !== undefined) set.description = data.description;
-  if (data.questionIds !== undefined) set.questionIds = data.questionIds;
-  if (data.sort !== undefined) set.sort = data.sort;
-  set.updatedAt = new Date();
+  const set: Record<string, unknown> = {}
+  if (data.title !== undefined) set.title = data.title
+  if (data.description !== undefined) set.description = data.description
+  if (data.questionIds !== undefined) set.questionIds = data.questionIds
+  if (data.sort !== undefined) set.sort = data.sort
+  set.updatedAt = new Date()
   const rows = await db
     .update(examChapterSections)
     .set(set)
     .where(eq(examChapterSections.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteSection(id: string): Promise<void> {
-  await db.delete(examChapterSections).where(eq(examChapterSections.id, id));
+  await db.delete(examChapterSections).where(eq(examChapterSections.id, id))
 }
 
 // =============================================================================
@@ -157,7 +160,9 @@ export async function deleteSection(id: string): Promise<void> {
 // =============================================================================
 
 /** 批量更新章节排序,逐条更新以保证顺序。 */
-export async function updateChapterSortOrder(items: Array<{ id: string; sort: number }>): Promise<void> {
+export async function updateChapterSortOrder(
+  items: Array<{ id: string; sort: number }>,
+): Promise<void> {
   await Promise.all(
     items.map((item) =>
       db
@@ -165,11 +170,13 @@ export async function updateChapterSortOrder(items: Array<{ id: string; sort: nu
         .set({ sort: item.sort, updatedAt: new Date() })
         .where(eq(examChapters.id, item.id)),
     ),
-  );
+  )
 }
 
 /** 批量更新小节排序,逐条更新以保证顺序。 */
-export async function updateSectionSortOrder(items: Array<{ id: string; sort: number }>): Promise<void> {
+export async function updateSectionSortOrder(
+  items: Array<{ id: string; sort: number }>,
+): Promise<void> {
   await Promise.all(
     items.map((item) =>
       db
@@ -177,7 +184,7 @@ export async function updateSectionSortOrder(items: Array<{ id: string; sort: nu
         .set({ sort: item.sort, updatedAt: new Date() })
         .where(eq(examChapterSections.id, item.id)),
     ),
-  );
+  )
 }
 
 // =============================================================================
@@ -186,20 +193,20 @@ export async function updateSectionSortOrder(items: Array<{ id: string; sort: nu
 
 /** 查询报名列表,支持按 paperId/userId 筛选。 */
 export async function findSignupList(opts: {
-  paperId?: string;
-  userId?: string;
+  paperId?: string
+  userId?: string
 }): Promise<ExamSignup[]> {
-  const conds = [];
-  if (opts.paperId) conds.push(eq(examSignups.paperId, opts.paperId));
-  if (opts.userId) conds.push(eq(examSignups.userId, opts.userId));
-  const where = conds.length ? and(...conds) : undefined;
-  return db.select().from(examSignups).where(where).orderBy(desc(examSignups.createdAt));
+  const conds = []
+  if (opts.paperId) conds.push(eq(examSignups.paperId, opts.paperId))
+  if (opts.userId) conds.push(eq(examSignups.userId, opts.userId))
+  const where = conds.length ? and(...conds) : undefined
+  return db.select().from(examSignups).where(where).orderBy(desc(examSignups.createdAt))
 }
 
 export interface CreateSignupInput {
-  paperId: string;
-  userId: string;
-  status?: string;
+  paperId: string
+  userId: string
+  status?: string
 }
 
 export async function createSignup(data: CreateSignupInput): Promise<ExamSignup> {
@@ -210,14 +217,14 @@ export async function createSignup(data: CreateSignupInput): Promise<ExamSignup>
       userId: data.userId,
       status: data.status,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建报名记录失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建报名记录失败')
+  return row
 }
 
 export async function deleteSignup(id: string): Promise<void> {
-  await db.delete(examSignups).where(eq(examSignups.id, id));
+  await db.delete(examSignups).where(eq(examSignups.id, id))
 }
 
 // =============================================================================
@@ -226,8 +233,8 @@ export async function deleteSignup(id: string): Promise<void> {
 
 /** 待评分答题记录(含试卷标题 + 用户昵称),查询 status='pending' 的记录。 */
 export interface MarkRecordRow extends ExamRecord {
-  paperTitle: string | null;
-  nickname: string | null;
+  paperTitle: string | null
+  nickname: string | null
 }
 
 /**
@@ -235,17 +242,17 @@ export interface MarkRecordRow extends ExamRecord {
  * 支持 paperId 筛选与关键词搜索(用户昵称/手机号)。
  */
 export async function findMarkRecordList(opts: {
-  page: number;
-  pageSize: number;
-  paperId?: string;
-  search?: string;
+  page: number
+  pageSize: number
+  paperId?: string
+  search?: string
 }): Promise<{ list: MarkRecordRow[]; total: number }> {
-  const conds = [eq(examRecords.status, 'pending')];
-  if (opts.paperId) conds.push(eq(examRecords.paperId, opts.paperId));
-  let where = and(...conds);
+  const conds = [eq(examRecords.status, 'pending')]
+  if (opts.paperId) conds.push(eq(examRecords.paperId, opts.paperId))
+  let where = and(...conds)
   if (opts.search) {
-    const searchCond = sql`${examRecords.userId} IN (SELECT id FROM users WHERE nickname ILIKE ${`%${opts.search}%`} OR phone ILIKE ${`%${opts.search}%`})`;
-    where = and(where, searchCond);
+    const searchCond = sql`${examRecords.userId} IN (SELECT id FROM users WHERE nickname ILIKE ${`%${opts.search}%`} OR phone ILIKE ${`%${opts.search}%`})`
+    where = and(where, searchCond)
   }
   const [rows, totalRows] = await Promise.all([
     db
@@ -261,14 +268,17 @@ export async function findMarkRecordList(opts: {
       .orderBy(desc(examRecords.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(examRecords).where(where),
-  ]);
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(examRecords)
+      .where(where),
+  ])
   const list: MarkRecordRow[] = rows.map((r) => ({
     ...r.record,
     paperTitle: r.paperTitle,
     nickname: r.nickname,
-  }));
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+  }))
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 // =============================================================================
@@ -276,55 +286,26 @@ export async function findMarkRecordList(opts: {
 // =============================================================================
 
 export interface CreateOrUpdateWrongQuestionInput {
-  userId: string;
-  questionId: string;
-  paperId: string;
-  paperTitle?: string | null;
-  userAnswer: string;
-  rightAnswer: string;
+  userId: string
+  questionId: string
+  paperId: string
+  paperTitle?: string | null
+  userAnswer: string
+  rightAnswer: string
 }
 
 /**
  * 创建或更新错题(幂等):同题同用户只一条记录。
+ * 依赖 exam_wrong_question_user_question_unique 唯一约束 (userId, questionId)。
  * - 存在:wrongCount+1 + 更新 lastWrongTime/userAnswer/rightAnswer + isMastered=false(重新答错则取消掌握标记)
  * - 不存在:新建 wrongCount=1
+ * 使用 onConflictDoUpdate 在数据库层保证幂等,消除应用层 select-then-update 的并发竞态。
  */
 export async function createOrUpdateWrongQuestion(
   data: CreateOrUpdateWrongQuestionInput,
 ): Promise<ExamWrongQuestion> {
-  const existing = await db
-    .select()
-    .from(examWrongQuestion)
-    .where(
-      and(
-        eq(examWrongQuestion.userId, data.userId),
-        eq(examWrongQuestion.questionId, data.questionId),
-      ),
-    )
-    .limit(1);
-
-  const now = new Date();
-
-  if (existing[0]) {
-    const [updated] = await db
-      .update(examWrongQuestion)
-      .set({
-        wrongCount: (existing[0].wrongCount ?? 1) + 1,
-        lastWrongTime: now,
-        userAnswer: data.userAnswer,
-        rightAnswer: data.rightAnswer,
-        paperId: data.paperId,
-        paperTitle: data.paperTitle ?? existing[0].paperTitle,
-        isMastered: false,
-        updatedAt: now,
-      })
-      .where(eq(examWrongQuestion.id, existing[0].id))
-      .returning();
-    if (!updated) throw new Error('更新错题失败');
-    return updated;
-  }
-
-  const [created] = await db
+  const now = new Date()
+  const [row] = await db
     .insert(examWrongQuestion)
     .values({
       userId: data.userId,
@@ -337,9 +318,22 @@ export async function createOrUpdateWrongQuestion(
       lastWrongTime: now,
       isMastered: false,
     })
-    .returning();
-  if (!created) throw new Error('创建错题失败');
-  return created;
+    .onConflictDoUpdate({
+      target: [examWrongQuestion.userId, examWrongQuestion.questionId],
+      set: {
+        wrongCount: sql`${examWrongQuestion.wrongCount} + 1`,
+        lastWrongTime: now,
+        userAnswer: data.userAnswer,
+        rightAnswer: data.rightAnswer,
+        paperId: data.paperId,
+        paperTitle: data.paperTitle ?? sql`${examWrongQuestion.paperTitle}`,
+        isMastered: false,
+        updatedAt: now,
+      },
+    })
+    .returning()
+  if (!row) throw new Error('创建/更新错题失败')
+  return row
 }
 
 /**
@@ -349,17 +343,17 @@ export async function createOrUpdateWrongQuestion(
 export async function batchCreateWrongQuestions(
   records: CreateOrUpdateWrongQuestionInput[],
 ): Promise<ExamWrongQuestion[]> {
-  if (records.length === 0) return [];
-  return Promise.all(records.map((r) => createOrUpdateWrongQuestion(r)));
+  if (records.length === 0) return []
+  return Promise.all(records.map((r) => createOrUpdateWrongQuestion(r)))
 }
 
 /** 错题列表行(含题目内容)。 */
 export interface WrongQuestionRow extends ExamWrongQuestion {
-  questionTitle: string | null;
-  questionType: string | null;
-  questionOptions: unknown;
-  questionAnalysis: string | null;
-  questionScore: string | null;
+  questionTitle: string | null
+  questionType: string | null
+  questionOptions: unknown
+  questionAnalysis: string | null
+  questionScore: string | null
 }
 
 /**
@@ -369,16 +363,16 @@ export interface WrongQuestionRow extends ExamWrongQuestion {
 export async function findWrongQuestionsByUser(
   userId: string,
   opts: {
-    page: number;
-    pageSize: number;
-    paperId?: string;
-    isMastered?: boolean;
+    page: number
+    pageSize: number
+    paperId?: string
+    isMastered?: boolean
   },
 ): Promise<{ list: WrongQuestionRow[]; total: number }> {
-  const conds = [eq(examWrongQuestion.userId, userId)];
-  if (opts.paperId) conds.push(eq(examWrongQuestion.paperId, opts.paperId));
-  if (opts.isMastered !== undefined) conds.push(eq(examWrongQuestion.isMastered, opts.isMastered));
-  const where = and(...conds);
+  const conds = [eq(examWrongQuestion.userId, userId)]
+  if (opts.paperId) conds.push(eq(examWrongQuestion.paperId, opts.paperId))
+  if (opts.isMastered !== undefined) conds.push(eq(examWrongQuestion.isMastered, opts.isMastered))
+  const where = and(...conds)
 
   const [rows, totalRows] = await Promise.all([
     db
@@ -396,8 +390,11 @@ export async function findWrongQuestionsByUser(
       .orderBy(desc(examWrongQuestion.lastWrongTime))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(examWrongQuestion).where(where),
-  ]);
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(examWrongQuestion)
+      .where(where),
+  ])
 
   const list: WrongQuestionRow[] = rows.map((r) => ({
     ...r.wrong,
@@ -406,8 +403,8 @@ export async function findWrongQuestionsByUser(
     questionOptions: r.questionOptions,
     questionAnalysis: r.questionAnalysis,
     questionScore: r.questionScore,
-  }));
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+  }))
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 /**
@@ -421,21 +418,16 @@ export async function markWrongQuestionResolved(
   const [updated] = await db
     .update(examWrongQuestion)
     .set({ isMastered: true, updatedAt: new Date() })
-    .where(
-      and(
-        eq(examWrongQuestion.userId, userId),
-        eq(examWrongQuestion.questionId, questionId),
-      ),
-    )
-    .returning();
-  return updated;
+    .where(and(eq(examWrongQuestion.userId, userId), eq(examWrongQuestion.questionId, questionId)))
+    .returning()
+  return updated
 }
 
 export interface WrongQuestionStats {
-  total: number;
-  unresolved: number;
-  resolved: number;
-  byType: Array<{ type: string; count: number }>;
+  total: number
+  unresolved: number
+  resolved: number
+  byType: Array<{ type: string; count: number }>
 }
 
 /**
@@ -443,10 +435,13 @@ export interface WrongQuestionStats {
  * 按题型分布需关联 exam_questions 获取 type 字段。
  */
 export async function getWrongQuestionStats(userId: string): Promise<WrongQuestionStats> {
-  const where = eq(examWrongQuestion.userId, userId);
+  const where = eq(examWrongQuestion.userId, userId)
 
   const [totalRows, resolvedRows, typeRows] = await Promise.all([
-    db.select({ count: sql<number>`COUNT(*)` }).from(examWrongQuestion).where(where),
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(examWrongQuestion)
+      .where(where),
     db
       .select({ count: sql<number>`COUNT(*)` })
       .from(examWrongQuestion)
@@ -457,16 +452,16 @@ export async function getWrongQuestionStats(userId: string): Promise<WrongQuesti
       .leftJoin(examQuestions, eq(examWrongQuestion.questionId, examQuestions.id))
       .where(where)
       .groupBy(examQuestions.type),
-  ]);
+  ])
 
-  const total = Number(totalRows[0]?.count ?? 0);
-  const resolved = Number(resolvedRows[0]?.count ?? 0);
+  const total = Number(totalRows[0]?.count ?? 0)
+  const resolved = Number(resolvedRows[0]?.count ?? 0)
   return {
     total,
     unresolved: total - resolved,
     resolved,
     byType: typeRows.map((r) => ({ type: r.type ?? 'unknown', count: Number(r.count) })),
-  };
+  }
 }
 
 // =============================================================================
@@ -480,9 +475,9 @@ export const EXAM_STATUS = {
   SUBMITTED: 'submitted',
   GRADED: 'graded',
   COMPLETED: 'completed',
-} as const;
+} as const
 
-export type ExamStatus = (typeof EXAM_STATUS)[keyof typeof EXAM_STATUS];
+export type ExamStatus = (typeof EXAM_STATUS)[keyof typeof EXAM_STATUS]
 
 /** 允许的状态流转图:currentStatus → 允许的下一状态。 */
 const STATUS_TRANSITIONS: Record<string, ExamStatus> = {
@@ -491,14 +486,14 @@ const STATUS_TRANSITIONS: Record<string, ExamStatus> = {
   [EXAM_STATUS.ANSWERING]: EXAM_STATUS.SUBMITTED,
   [EXAM_STATUS.SUBMITTED]: EXAM_STATUS.GRADED,
   [EXAM_STATUS.GRADED]: EXAM_STATUS.COMPLETED,
-};
+}
 
 /** 未终态(可继续流转)集合,用于报名幂等查询。 */
 const ACTIVE_STATUSES: ExamStatus[] = [
   EXAM_STATUS.DRAFT,
   EXAM_STATUS.ENROLLED,
   EXAM_STATUS.ANSWERING,
-];
+]
 
 /**
  * 状态机核心:校验当前状态并流转到新状态。
@@ -512,38 +507,38 @@ export async function checkAndUpdateStatus(
   expectedCurrentStatus: ExamStatus,
   newStatus: ExamStatus,
 ): Promise<ExamRecord> {
-  const record = await findExamRecordByIdExtended(recordId);
+  const record = await findExamRecordByIdExtended(recordId)
   if (!record) {
-    throw new AppError('答题记录不存在', 404, 'NOT_FOUND');
+    throw new AppError('答题记录不存在', 404, 'NOT_FOUND')
   }
   if (record.status !== expectedCurrentStatus) {
     throw new AppError(
       `状态校验失败:期望 ${expectedCurrentStatus},实际 ${record.status}`,
       409,
       'CONFLICT',
-    );
+    )
   }
-  const allowed = STATUS_TRANSITIONS[record.status];
+  const allowed = STATUS_TRANSITIONS[record.status]
   if (allowed !== newStatus) {
     throw new AppError(
       `状态流转非法:不允许从 ${record.status} 跳转到 ${newStatus}`,
       409,
       'CONFLICT',
-    );
+    )
   }
   const [updated] = await db
     .update(examRecords)
     .set({ status: newStatus })
     .where(eq(examRecords.id, recordId))
-    .returning();
-  if (!updated) throw new AppError('状态更新失败', 500, 'INTERNAL_ERROR');
-  return updated;
+    .returning()
+  if (!updated) throw new AppError('状态更新失败', 500, 'INTERNAL_ERROR')
+  return updated
 }
 
 /** 查询答题记录(扩展层入口,供状态机内部使用)。 */
 async function findExamRecordByIdExtended(id: string): Promise<ExamRecord | undefined> {
-  const rows = await db.select().from(examRecords).where(eq(examRecords.id, id)).limit(1);
-  return rows[0];
+  const rows = await db.select().from(examRecords).where(eq(examRecords.id, id)).limit(1)
+  return rows[0]
 }
 
 /**
@@ -563,8 +558,8 @@ export async function enrollExam(userId: string, paperId: string): Promise<ExamR
       ),
     )
     .orderBy(desc(examRecords.createdAt))
-    .limit(1);
-  if (existing[0]) return existing[0];
+    .limit(1)
+  if (existing[0]) return existing[0]
 
   const [created] = await db
     .insert(examRecords)
@@ -573,21 +568,17 @@ export async function enrollExam(userId: string, paperId: string): Promise<ExamR
       paperId,
       status: EXAM_STATUS.ENROLLED,
     })
-    .returning();
-  if (!created) throw new AppError('创建报名记录失败', 500, 'INTERNAL_ERROR');
-  return created;
+    .returning()
+  if (!created) throw new AppError('创建报名记录失败', 500, 'INTERNAL_ERROR')
+  return created
 }
 
 /** 开始答题(enrolled→answering),同时记录开始时间。 */
 export async function startAnswering(recordId: string): Promise<ExamRecord> {
-  const record = await findExamRecordByIdExtended(recordId);
-  if (!record) throw new AppError('答题记录不存在', 404, 'NOT_FOUND');
+  const record = await findExamRecordByIdExtended(recordId)
+  if (!record) throw new AppError('答题记录不存在', 404, 'NOT_FOUND')
   if (record.status !== EXAM_STATUS.ENROLLED) {
-    throw new AppError(
-      `状态流转非法:仅 enrolled 可开始答题,当前 ${record.status}`,
-      409,
-      'CONFLICT',
-    );
+    throw new AppError(`状态流转非法:仅 enrolled 可开始答题,当前 ${record.status}`, 409, 'CONFLICT')
   }
   const [updated] = await db
     .update(examRecords)
@@ -596,23 +587,46 @@ export async function startAnswering(recordId: string): Promise<ExamRecord> {
       startedAt: new Date(),
     })
     .where(eq(examRecords.id, recordId))
-    .returning();
-  if (!updated) throw new AppError('状态更新失败', 500, 'INTERNAL_ERROR');
-  return updated;
+    .returning()
+  if (!updated) throw new AppError('状态更新失败', 500, 'INTERNAL_ERROR')
+  return updated
 }
 
-/** 提交试卷(answering→submitted),记录提交时间。 */
+/** 提交试卷(answering→submitted),记录提交时间 + 时间窗口守卫(超时拒绝)。 */
 export async function submitExam(recordId: string): Promise<ExamRecord> {
-  return checkAndUpdateStatus(recordId, EXAM_STATUS.ANSWERING, EXAM_STATUS.SUBMITTED).then(
-    async (record) => {
-      const [updated] = await db
-        .update(examRecords)
-        .set({ submittedAt: new Date() })
-        .where(eq(examRecords.id, recordId))
-        .returning();
-      return updated ?? record;
-    },
-  );
+  const record = await findExamRecordByIdExtended(recordId)
+  if (!record) throw new AppError('答题记录不存在', 404, 'NOT_FOUND')
+  if (record.status !== EXAM_STATUS.ANSWERING) {
+    throw new AppError(`状态流转非法:仅 answering 可提交,当前 ${record.status}`, 409, 'CONFLICT')
+  }
+  // 时间窗口守卫:查试卷时长,若 now > startedAt + duration 分钟则拒绝
+  const paperRows = await db
+    .select({ duration: examPapers.duration })
+    .from(examPapers)
+    .where(eq(examPapers.id, record.paperId))
+    .limit(1)
+  const durationMin = paperRows[0]?.duration ?? 0
+  if (durationMin > 0 && record.startedAt) {
+    const allowedEndTime = new Date(record.startedAt.getTime() + durationMin * 60_000)
+    if (new Date() > allowedEndTime) {
+      throw new AppError(
+        `考试已超时(允许 ${durationMin} 分钟,已超过截止时间 ${allowedEndTime.toISOString()})`,
+        409,
+        'EXAM_TIMEOUT',
+      )
+    }
+  }
+  const [updated] = await db
+    .update(examRecords)
+    .set({
+      status: EXAM_STATUS.SUBMITTED,
+      submittedAt: new Date(),
+      duration: Math.floor((Date.now() - record.startedAt.getTime()) / 1000),
+    })
+    .where(eq(examRecords.id, recordId))
+    .returning()
+  if (!updated) throw new AppError('状态更新失败', 500, 'INTERNAL_ERROR')
+  return updated
 }
 
 /** 评分完成(submitted→graded),记录分数与是否通过。admin 操作。 */
@@ -626,19 +640,18 @@ export async function gradeExam(recordId: string, score: number): Promise<ExamRe
           isPassed: score >= 60,
         })
         .where(eq(examRecords.id, recordId))
-        .returning();
-      return updated ?? record;
+        .returning()
+      return updated ?? record
     },
-  );
+  )
 }
 
 /** 完成(graded→completed),预留证书生成等后续流程。 */
 export async function completeExam(recordId: string): Promise<ExamRecord> {
-  return checkAndUpdateStatus(recordId, EXAM_STATUS.GRADED, EXAM_STATUS.COMPLETED);
+  return checkAndUpdateStatus(recordId, EXAM_STATUS.GRADED, EXAM_STATUS.COMPLETED)
 }
 
 /** 查询答题记录当前状态。 */
 export async function getExamRecordStatus(recordId: string): Promise<ExamRecord | undefined> {
-  return findExamRecordByIdExtended(recordId);
+  return findExamRecordByIdExtended(recordId)
 }
-

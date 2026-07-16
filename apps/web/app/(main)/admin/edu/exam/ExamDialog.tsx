@@ -16,6 +16,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
+  Switch,
 } from '@ihui/ui'
 import { useTranslations } from 'next-intl'
 import type { Paper, PaperForm } from './types'
@@ -142,6 +143,14 @@ export function ExamDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="p-status"
+              checked={form.status}
+              onCheckedChange={(v) => onFormChange({ status: v })}
+            />
+            <Label htmlFor="p-status">{t('fieldEnabled')}</Label>
           </div>
           <ExamDialogFields form={form} onFormChange={onFormChange} />
           <DialogFooter>
