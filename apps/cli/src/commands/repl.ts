@@ -7,12 +7,12 @@ import * as path from 'node:path';
 import * as readline from 'node:readline';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import { streamChat } from '@ihui/api-client';
 import { createSession, saveSession, type Session, type ChatMessage } from './session.js';
 import { loadMcpConfig } from './mcp-config.js';
 import { agentsMdExists, writeAgentsMd } from './template.js';
 import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
+import { setupAgentTools, runToolLoop, type ToolContext } from './agent.js';
 
 export interface ReplOptions {
   modelId: string;
@@ -22,6 +22,7 @@ export interface ReplOptions {
   maxIterations: number;
   sessionId?: string;
   history?: ChatMessage[];
+  enableMcp?: boolean;
 }
 
 interface ReplState {
@@ -29,6 +30,9 @@ interface ReplState {
   history: ChatMessage[];
   session: Session | null;
   checkpoints: CheckpointManager | null;
+  agentReady: boolean;
+  systemPrompt: string | null;
+  ctx: ToolContext | null;
 }
 
 export async function startREPL(opts: ReplOptions): Promise<void> {
@@ -37,6 +41,9 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     history: opts.history ?? [],
     session: opts.sessionId ? null : createSession(opts.workspacePath, opts.modelId),
     checkpoints: null,
+    agentReady: false,
+    systemPrompt: null,
+    ctx: null,
   };
   if (state.session) {
     state.checkpoints = new CheckpointManager({
@@ -316,34 +323,46 @@ function handleDiff(state: ReplState, args: string[]): void {
 }
 
 async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
-  const controller = new AbortController();
-  state.history.push({ role: 'user', content: prompt });
-  let assistantText = '';
+  if (!state.agentReady) {
+    const result = await setupAgentTools({
+      workspacePath: state.opts.workspacePath,
+      checkpoints: state.checkpoints ?? undefined,
+      enableMcp: state.opts.enableMcp,
+      silent: true,
+    });
+    state.systemPrompt = result.systemPrompt;
+    state.ctx = result.ctx;
+    state.agentReady = true;
+  }
 
-  await streamChat({
-    model: state.opts.modelId,
-    messages: state.history.map((m) => ({
-      role: m.role as 'user' | 'assistant' | 'system',
-      content: m.content,
-    })),
-    signal: controller.signal,
-    onDelta: (delta) => {
-      assistantText += delta;
-      process.stdout.write(delta);
+  state.history.push({ role: 'user', content: prompt });
+
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    { role: 'system', content: state.systemPrompt! },
+    ...state.history.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })),
+  ];
+
+  const result = await runToolLoop({
+    modelId: state.opts.modelId,
+    messages,
+    ctx: state.ctx!,
+    maxIterations: state.opts.maxIterations,
+    onDelta: (delta) => { process.stdout.write(delta); },
+    onToolCall: (name, args) => console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`)),
+    onToolResult: (_name, success, output) => {
+      const icon = success ? '✓' : '✗';
+      console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
     },
-    onError: (err) => {
-      console.error(chalk.red(`\n❌ ${err}`));
-    },
-    onDone: () => {
-      if (assistantText) {
-        state.history.push({ role: 'assistant', content: assistantText });
-      }
-      if (state.session) {
-        state.session.history = state.history;
-        saveSession(state.session);
-      }
-      console.info(chalk.green('\n\n✨ 完成\n'));
-    },
+    onError: (err) => console.error(chalk.red(`\n❌ ${err}`)),
   });
+
+  if (result.assistantText) {
+    state.history.push({ role: 'assistant', content: result.assistantText });
+  }
+  if (state.session) {
+    state.session.history = state.history;
+    saveSession(state.session);
+  }
+  console.info(chalk.green('\n\n✨ 完成\n'));
 }
 
