@@ -4,7 +4,6 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  GraduationCap,
   LayoutDashboard,
   BookOpen,
   FileCheck,
@@ -37,7 +36,14 @@ export default function EduLayout({ children }: { children: React.ReactNode }) {
       <aside className="hidden w-56 shrink-0 lg:block">
         <div className="sticky top-4 space-y-1">
           <div className="mb-4 flex items-center gap-2 px-3">
-            <GraduationCap className="h-6 w-6 text-primary" />
+            <img
+              src="/images/Dlogoedu.svg"
+              alt="学习中心"
+              width={28}
+              height={28}
+              className="h-7 w-7 shrink-0"
+              loading="eager"
+            />
             <span className="text-lg font-semibold">学习中心</span>
           </div>
           <nav className="space-y-0.5">
