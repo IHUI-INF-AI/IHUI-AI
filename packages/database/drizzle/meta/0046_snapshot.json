@@ -41100,10 +41100,16 @@
       "indexes": {
         "edu_order_items_order_id_idx": {
           "name": "edu_order_items_order_id_idx",
-          "on": ["order_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "order_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -41158,17 +41164,29 @@
       "indexes": {
         "resource_downloads_resource_id_idx": {
           "name": "resource_downloads_resource_id_idx",
-          "on": ["resource_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "resource_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         },
         "resource_downloads_user_id_idx": {
           "name": "resource_downloads_user_id_idx",
-          "on": ["user_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -41217,17 +41235,29 @@
       "indexes": {
         "resource_search_logs_user_id_idx": {
           "name": "resource_search_logs_user_id_idx",
-          "on": ["user_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         },
         "resource_search_logs_keyword_idx": {
           "name": "resource_search_logs_keyword_idx",
-          "on": ["keyword"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "keyword",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -41270,17 +41300,29 @@
       "indexes": {
         "user_jobs_user_id_idx": {
           "name": "user_jobs_user_id_idx",
-          "on": ["user_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         },
         "user_jobs_job_id_idx": {
           "name": "user_jobs_job_id_idx",
-          "on": ["job_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -41329,17 +41371,29 @@
       "indexes": {
         "edu_member_company_relations_member_id_idx": {
           "name": "edu_member_company_relations_member_id_idx",
-          "on": ["member_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "member_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         },
         "edu_member_company_relations_company_id_idx": {
           "name": "edu_member_company_relations_company_id_idx",
-          "on": ["company_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "company_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -41394,10 +41448,16 @@
       "indexes": {
         "edu_member_level_relations_member_id_idx": {
           "name": "edu_member_level_relations_member_id_idx",
-          "on": ["member_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "member_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -41440,10 +41500,16 @@
       "indexes": {
         "edu_member_post_relations_member_id_idx": {
           "name": "edu_member_post_relations_member_id_idx",
-          "on": ["member_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "member_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -41486,10 +41552,16 @@
       "indexes": {
         "edu_member_tag_relations_member_id_idx": {
           "name": "edu_member_tag_relations_member_id_idx",
-          "on": ["member_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "member_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -41532,17 +41604,29 @@
       "indexes": {
         "edu_resource_product_relations_resource_id_idx": {
           "name": "edu_resource_product_relations_resource_id_idx",
-          "on": ["resource_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "resource_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         },
         "edu_resource_product_relations_product_id_idx": {
           "name": "edu_resource_product_relations_product_id_idx",
-          "on": ["product_id"],
-          "unique": false,
           "concurrently": false,
-          "method": "btree"
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "product_id",
+              "isExpression": false,
+              "asc": true
+            }
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
