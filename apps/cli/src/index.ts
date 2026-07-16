@@ -13,14 +13,14 @@
  */
 
 import 'dotenv/config';
-import { Command } from 'commander';
+import { Command, type OptionValues } from 'commander';
 import chalk from 'chalk';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import { startREPL } from './commands/repl.js';
-import { runAgent } from './commands/agent.js';
+import { runAgent, stopReasonToExitCode } from './commands/agent.js';
 import {
   loadSession,
   getMostRecentSession,
@@ -35,6 +35,7 @@ import {
   getMcpConfigPath,
 } from './commands/mcp-config.js';
 import { registerCapabilitiesCommand } from './commands/capabilities.js';
+import { registerCheckpointCommand } from './commands/checkpoint.js';
 import { startAcpServer } from './acp/server.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,7 +55,8 @@ program
   .option('--api-url <url>', '后端 API 地址', process.env.IHUI_API_URL || 'http://localhost:8000')
   .option('--api-key <key>', 'API 密钥', process.env.IHUI_API_KEY || '')
   .option('--resume <session-id>', '恢复之前的会话')
-  .option('--continue', '继续最近的会话');
+  .option('--continue', '继续最近的会话')
+  .option('--json', 'Headless 模式:输出 NDJSON 事件流 (非 TTY 自动启用,CI/CD 友好)');
 
 interface ResolvedSession {
   sessionId?: string;
@@ -83,6 +85,33 @@ function resolveSession(opts: Record<string, unknown>): ResolvedSession {
   return {};
 }
 
+function resolveJsonMode(opts: OptionValues): boolean {
+  return opts.json === true || !process.stdout.isTTY;
+}
+
+async function runAgentAndExit(
+  prompt: string,
+  opts: OptionValues,
+  jsonMode: boolean,
+): Promise<void> {
+  const onSigint = (): void => process.exit(130);
+  process.on('SIGINT', onSigint);
+  try {
+    const result = await runAgent({
+      prompt,
+      modelId: opts.model,
+      workspacePath: opts.workspace,
+      apiUrl: opts.apiUrl,
+      apiKey: opts.apiKey,
+      maxIterations: parseInt(opts.maxIterations, 10),
+      jsonMode,
+    });
+    process.exit(stopReasonToExitCode(result.stopReason));
+  } finally {
+    process.off('SIGINT', onSigint);
+  }
+}
+
 program.hook('preAction', () => {
   const opts = program.opts();
   if (typeof opts.apiUrl === 'string') {
@@ -102,17 +131,11 @@ program
   .argument('[prompt]', '直接执行的任务 (省略则进入 REPL)')
   .action(async (prompt: string | undefined) => {
     const opts = program.opts();
-    const session = resolveSession(opts);
     if (prompt) {
-      await runAgent({
-        prompt,
-        modelId: opts.model,
-        workspacePath: opts.workspace,
-        apiUrl: opts.apiUrl,
-        apiKey: opts.apiKey,
-        maxIterations: parseInt(opts.maxIterations, 10),
-      });
+      const jsonMode = resolveJsonMode(opts);
+      await runAgentAndExit(prompt, opts, jsonMode);
     } else {
+      const session = resolveSession(opts);
       await startREPL({
         modelId: opts.model,
         workspacePath: opts.workspace,
@@ -146,17 +169,11 @@ program
 // agent 子命令
 program
   .command('agent <task>')
-  .description('Agent 模式: 自主多步执行任务')
+  .description('Agent 模式: 自主多步执行任务 (支持 --json headless 模式)')
   .action(async (task: string) => {
     const opts = program.opts();
-    await runAgent({
-      prompt: task,
-      modelId: opts.model,
-      workspacePath: opts.workspace,
-      apiUrl: opts.apiUrl,
-      apiKey: opts.apiKey,
-      maxIterations: parseInt(opts.maxIterations, 10),
-    });
+    const jsonMode = resolveJsonMode(opts);
+    await runAgentAndExit(task, opts, jsonMode);
   });
 
 // init 子命令
@@ -268,6 +285,9 @@ mcpCmd
 
 // capabilities 子命令组
 registerCapabilitiesCommand(program);
+
+// checkpoint 子命令组
+registerCheckpointCommand(program);
 
 // acp 子命令 — 启动 ACP (Agent Client Protocol) server,供编辑器嵌入
 program
