@@ -9,6 +9,7 @@ import {
   numeric,
   serial,
   index,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 
 /**
@@ -86,16 +87,23 @@ export const resourceProducts = pgTable(
 )
 
 /**
- * 资源标签表。
+ * 资源标签表 - 支持树形结构(pid 指向父标签)。
  */
-export const resourceTags = pgTable('resource_tags', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: varchar('name', { length: 100 }).notNull(),
-  sort: integer('sort').default(0).notNull(),
-  status: integer('status').default(1).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
+export const resourceTags = pgTable(
+  'resource_tags',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 100 }).notNull(),
+    pid: uuid('pid').references((): AnyPgColumn => resourceTags.id, { onDelete: 'set null' }), // 父标签
+    sort: integer('sort').default(0).notNull(),
+    status: integer('status').default(1).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pidIdx: index('resource_tags_pid_idx').on(t.pid),
+  }),
+)
 
 export type ResourceCategory = typeof resourceCategories.$inferSelect
 export type NewResourceCategory = typeof resourceCategories.$inferInsert
