@@ -143,6 +143,7 @@ export default function AdminResourceTagsPage() {
 
       <ResourceTagTable
         list={tags}
+        tags={tags}
         isLoading={isLoading}
         error={error}
         deletePending={deleteMut.isPending}
