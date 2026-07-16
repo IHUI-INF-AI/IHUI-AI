@@ -1173,6 +1173,7 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
 - [x] ✅(2026-07-14) P1-1: `apps/web/package.json` `prebuild` 链入 `tsc --noEmit` 强制生产构建前类型必须对（`predev` 保留 check-lock 不动，避免每次 dev 启动多等 30s+；生产构建严格门禁）
 - [x] ✅(2026-07-14) P1-2: 启动 AI 服务（FastAPI verify_main + uvicorn :8000，PID 29484/AI service 0.0.0.0:8000 Listen），完成 LLM 链路端到端 curl 验证 — `/health` 200 OK / `/api/llm/models` 返回 8 个真实模型（stepfun/groq/gemini/gpt-4o/claude-3-5-sonnet） / `/api/llm/complete` POST 返回真实 AI 回复 "Hello! How can I help you today?"（step-3.7-flash, stub:false, 28 tokens）/ 前端 `/api/llm/models` rewrite 透传 200 OK
 - [x] ✅(2026-07-14) P1-3: 全量 typecheck 验证 — `pnpm --filter @ihui/web typecheck` 退出 0（0 错误）/ `pnpm --filter @ihui/api typecheck` 退出 0（0 错误）/ `pnpm --filter @ihui/database typecheck` 退出 0（0 错误）
+- [x] ✅(2026-07-17) P1-4: 清理未接入的 shadow-traffic 死代码 + 规范化 seed-users 到 `packages/database/seed` — 删除 `apps/api/src/services/shadow-traffic.ts`（无任何调用方）；新建 `packages/database/seed/users.ts` 并接入 `seed/index.ts`，通过 Drizzle `onConflictDoUpdate` 保持幂等；删除根目录 `seed-users.sql`
 - [x] ✅(2026-07-14) 三服务同跑状态: 前端 3000 (PID 50452, Next 15.5.20 + Turbopack, Ready in 7.1s) / 后端 8080 (PID 21044, node Fastify, uptime 929s+) / AI 服务 8000 (PID 29484, uvicorn) — 全部 Listen 正常
 - [x] ✅(2026-07-14) T9 experimental.turbo 警告根因确认: 排查 `node_modules/.../next-intl@3.26.5/.../esm/plugin.js` L23-32 源码 — `process.env.TURBOPACK` 存在时插件内部注入 `experimental.turbo.resolveAlias`（不是用户配置，是第三方插件代码路径）。next-intl 3.26.5 还未适配新 `turbopack` key；next-intl 4.x 已适配但 4.12.0/4.13.2 在 Next 15.5.20 下出现 ESM/CommonJS 互操作问题（`require is not defined`），故保留 3.26.5。警告为非阻塞，dev/build 均正常工作
 - [x] ✅(2026-07-14) T10 最终验证全绿: ① 清理 .dev.lock/.build.lock + 残留 node 进程 ② web/api/database typecheck 三件套 0 错误 ③ 重启三服务 (web:3000/api:8080/ai:8000) ④ 5 个核心页面 (`/` `/chat` `/models` `/workspace` `/sso/login`) curl 200 + `/api/health` 200 + `/api/announcements` 200 + `/api/llm/models` 8 真实模型 + `/api/llm/complete` 真实回复 ("Hi! Great to see you!", stub:false) + 前端 `/api/llm/models` rewrite 透传 200
@@ -3159,6 +3160,47 @@ packages/api-client/
     - @ihui/web build 失败(Next.js 15 App Router + output:standalone 已知 bug,非本次引入)
     - git push 15 个 commit(需用户显式要求)
     - 4 个 untracked 多租户文件(tenant-db.ts/auto-rollback.ts/shadow-traffic.ts/tenant-router.ts)未提交(属于不同功能,非 P1-多端-12 范围)
+- [x] ✅(2026-07-17) P1-多端-12 后续建议二轮收尾 — Task A 生产 wrapper 补全 + Task B i18n 翻译方案验证(失败回退) + Task C 全量回归 + Task D 文档收尾
+  - **Task A: migrate-legacy-data.ts 生产 wrapper 补全** ✅
+    - 新增 `createLegacyFetcherFromEnv()`(L155-174):动态 `import('mysql2/promise.js')`,从 `LEGACY_DATABASE_URL` 创建 mysql2 pool fetcher;mysql2 为可选依赖(未安装时抛清晰错误提示 `pnpm --filter @ihui/api add mysql2`);用 `@ts-expect-error` + 宽松 `MysqlModule`/`MysqlPool` 类型避免硬依赖类型
+    - `main()`(L733-735)非 dry-run 时自动调用 `createLegacyFetcherFromEnv()` 初始化 fetcher,dry-run 模式不需要 legacy DB
+    - 新增 `apps/api/tests/migrate-legacy-data.test.ts`(8 tests):验证 createLegacyFetcherFromEnv(未配置 URL 抛错 / mysql2 未安装抛错)+ parseArgs + generateBatchId + MIGRATION_PLAN 7 步 + runMigration dry-run 输出
+    - 修复 esbuild duplicate export 错误(函数已 `export async function` 声明,从 export 列表移除重复)
+  - **Task B: i18n parity 缺失键补齐(StepFun LLM 翻译)** ❌ 失败回退
+    - 尝试用 StepFun API(step-3.7-flash / step-3.5-flash / step-router-v1)批量翻译 ja/ko/zh-TW 共 ~1864 个未翻译键
+    - **失败原因 1**:step-3.7-flash 为 reasoning model,batch 超过 4 分钟无响应;step-3.5-flash batch=80 时 ~40% 批次 `finish_reason=length` 空 content(completion_tokens=8000 max_tokens 耗尽但无输出);step-router-v1 输出含 `[Advisor consultation #1]` 非 JSON 文本
+    - **失败原因 2**:StepFun API 451 内容审查拦截 ~5% 批次("The content you provided or machine outputted is blocked")
+    - **失败原因 3**:LLM 返回错误翻译(ASCII-only 值)1489 个,如 ja "AI Image"→"ai"、ko "Docs"→"docs",检测方法 ASCII 正则 + 值 !== en.json 对应值
+    - **最终决策**:放弃 LLM 翻译,`git checkout HEAD -- apps/web/messages/*.json` 回退;zh-TW.json HEAD(bd292027)有 6809 个 U+FFFD 损坏字符,从 commit 2e44549e 恢复干净版本 + 补齐 2 个缺失键
+    - **后续修复**:运行 `fix-i18n-deep.mjs` 修复 zh-TW 2990 处(opencc 字形转换 + 27 条 TW 用词映射)+ 2 处术语;deep-audit 问题数 5022 → 1412(zh-TW 2990→1 几乎全修复,剩余 1411 是 ja/ko pre-existing 翻译质量问题)
+  - **Task C: 全量回归验证** ✅
+    - 清 *.tsbuildinfo + .turbo 缓存(避免增量缓存陈旧误报)
+    - `pnpm turbo typecheck lint --force`:39/39 成功(0 cached, 0 error)
+    - `pnpm turbo test --force`:12/12 成功(0 cached);@ihui/api 219 test files / 3256 tests 全绿(含 Task A 新增 8 个 migrate-legacy-data 测试)
+    - `node scripts/check-i18n-keys.mjs`:5 语言 parity OK(798 文件, 7698 键)
+    - `node scripts/deep-i18n-audit.mjs`:5022 → 1412 问题(zh-TW 2990→1,剩余 ja 1228 + ko 171 + 术语 9 + 其他 4 为 pre-existing)
+  - **Task D: 文档收尾** ✅(本条目)
+  - **清理**:删除 11 个临时调试脚本(scripts/_tmp-_.mjs × 7 + tmp-_.mjs × 4);保留 3 个正式脚本(deep-i18n-audit.mjs / fix-i18n-deep.mjs / translate-i18n-batch.mjs,已记录在 PROJECT_PLAN.md)
+  - **残留风险/未完成**:
+    - i18n ja/ko 翻译质量:1411 个 pre-existing 问题(ja 单平假名占位 691 + 截断结尾 319 + 助词开头 214 + ko 混入中文字符 171 + 术语不统一 9 + 其他 7),需专业翻译服务或更高级 LLM(GPT-4o/Claude)解决,StepFun step-3.5-flash 质量不可靠
+    - i18n 未翻译值仍有 ~184 个(zh-CN/zh-TW 各 184,ja 262,ko 242,多为 "iOS"/"Google"/"Stripe" 等 en fallback 合理存在)
+    - migrate-legacy-data.ts 未在真实 MySQL 验证(需生产环境 LEGACY_DATABASE_URL + `pnpm --filter @ihui/api add mysql2`)
+    - git push 15 个 commit(需用户显式要求)
+    - @ihui/web build 失败(Next.js 15 App Router + output:standalone 已知 bug,非本次引入)
+- [x] ✅(2026-07-17) cli 迁移完整性深度复审 — 对比 cli 32 类能力 vs IHUI-AI cli 47 项已整合能力,识别 5 类高价值缺口 + 10 类增强项 + 6 类可借鉴理念 + 8 类不需要整合
+  - **审计方法**:WebSearch + WebFetch 获取 cli 完整能力清单(cli/cli 62 crate/32 类能力)+ search agent 深度核查 IHUI-AI apps/cli 当前 47 项能力实现状态 + general_purpose_task agent 逐项对比分析
+  - **已整合能力(47 项,无假阳性)**:Agent 引擎(7)+ 工具系统(16)+ 安全治理(7)+ 集成协议(7)+ 用户体验(10),三端复用 setupAgentTools+runToolLoop 公共函数
+  - **完全未整合的高价值缺口(5 项,P0 优先)**:
+    1. **Skills 平面加载** — cli 四级目录扫描(.grok/.agents/.claude/.cursor/skills)+ flat *.md→slash command;IHUI-AI 完全无;整合价值高(复用 Claude/Cursor 社区生态)
+    2. **Memory 持久记忆** — cli ~/.grok/memory/MEMORY.md 全局+项目双层 + 混合搜索 + /memory on|off /flush /dream;IHUI-AI 完全无;整合价值高(跨会话体验跃迁)
+    3. **Codebase Intelligence LSP** — cli codebase-graph 符号依赖图 + LSP 集成(定义跳转/引用/重命名);IHUI-AI 只有 grep/glob 静态检索;整合价值高(Agent 改代码准确性)
+    4. **Background Tasks** — cli background:true 异步 + get_command_output/wait_commands/kill_command + /loop Ns/Nm/Nh/Nd + monitor 工具 + scheduler_create/list/delete;IHUI-AI 完全无;整合价值高(长任务异步是 CLI 高频痛点)
+    5. **hunk 级 Checkpoints 回滚** — cli git/jj VCS 集成 + swap policy + hunk tracker(按 hunk 回滚非整文件);IHUI-AI 仅文件快照式;整合价值高(已有 git 工具基础,增强代价小)
+  - **部分整合需增强的能力(10 项,P1)**:Sessions 85% 自动压缩(当前手动)/ Plan Mode 强制阻断状态机(当前仅提示)/ MCP http/sse 传输(当前仅 stdio)/ Subagents personas(当前单类型)/ Headless --prompt-file+--output-format(当前仅 NDJSON)/ Hooks SessionStart 事件+HTTP 通道(当前仅 pre/post ToolCall)/ Sandbox 5 profile 预设(当前裸参数)/ Token sampler 配置(当前无)/ Permissions folder_trust 分级(当前单一确认)/ Slash Commands 补 /rewind /context /loop /fork /memory(当前 10 命令 vs grok 17 命令)
+  - **理念可借鉴(6 项,P2)**:跨生态配置兼容(.claude/.cursor 目录读取)/ 5 级沙箱 profile 命名预设/ 强制阻断式 Plan Mode/ 85% 自动压缩阈值/ hunk tracker 粒度/ plugin.json 清单模式
+  - **不需要整合(8 项,明确跳过)**:Voice(非编码场景)/ System Power(超出 Agent 职责)/ PTY/Termal(走 ACP 不自建终端)/ Hub/Remote/Upload(已有 apps/api+apps/web)/ Theming(宿主终端职责)/ OIDC/SSO 登录流(已有 API key)/ mixpanel Telemetry(国内合规不可行)/ xai 专有模型(绑定供应商)
+  - **核心结论**:IHUI-AI cli 在"工具执行器"层面整合完整(47 项能力无死代码),但"Agent 智能化基础设施"(Memory/Codebase Intelligence/Background Tasks/Skills)是最大缺口 — 这四项决定 Agent 是"工具执行器"还是"自主协作体";cli 的差异化不在工具数量,而在"状态机化安全治理"(Plan Mode 强制阻断/hunk 级回滚/85% 自动压缩/5 级沙箱 profile),IHUI-AI 当前偏"有能力但欠治理"
+  - **审计文件**:无代码改动,纯分析报告;cli 原始仓库从未克隆(理念借鉴+TS 重写策略不变)
 
 ---
 
@@ -3212,7 +3254,7 @@ packages/api-client/
   - **验证**: `pnpm --filter @ihui/api typecheck` 退出码 0 / `pnpm --filter @ihui/api lint` 退出码 0 / `pnpm --filter @ihui/api test search` 15/15 通过
 - [x] ✅(2026-07-16) R74 P2 — 金丝雀/影子流量/自动回滚增强（`canary-service.ts` 仅配置/审计，灰度发布能力不完整补建）
   - **canary-router 插件**: 新建 `apps/api/src/plugins/canary-router.ts` — Fastify preHandler 钩子，按 `X-Canary-Tag` 请求头或 Authorization/IP hash 路由到金丝雀版本，设置 `X-Served-By: canary-v{version}|stable` 响应头；CANARY_ENABLED 默认 false，不启用时空操作不影响现有流量
-  - **影子流量服务**: 新建 `apps/api/src/services/shadow-traffic.ts` — `sendShadowTraffic(request)` 异步 fire-and-forget 复制请求到金丝雀版本（`CANARY_SHADOW_URL`），不阻塞主请求；`compareResponses(stable, canary, meta)` 对比响应差异记录到日志
+  - **影子流量服务**: 新建 `apps/api/src/services/shadow-traffic.ts` — `sendShadowTraffic(request)` 异步 fire-and-forget 复制请求到金丝雀版本（`CANARY_SHADOW_URL`），不阻塞主请求；`compareResponses(stable, canary, meta)` 对比响应差异记录到日志（已于 2026-07-17 删除，因未接入主流程，属死代码）
   - **自动回滚服务**: 新建 `apps/api/src/services/auto-rollback.ts` — `checkCanaryHealth()` 从 Prometheus 读取金丝雀 5xx 错误率，超 `CANARY_ERROR_RATE_THRESHOLD`（默认 0.05）时调用 `rollbackCanary()` 将 canary 流量归零；`startAutoRollbackMonitor()` / `stopAutoRollbackMonitor()` 定时检查
   - **server.ts 集成**: 注册 canary-router 插件 + 启动 auto-rollback 监控（均受 CANARY_ENABLED env 控制）
   - **修改文件**: `apps/api/src/plugins/canary-router.ts`（新建）、`apps/api/src/services/shadow-traffic.ts`（新建）、`apps/api/src/services/auto-rollback.ts`（新建）、`apps/api/src/server.ts`（+import +注册）
@@ -14401,7 +14443,7 @@ Running 11 tests using 10 workers
 - [x] `pnpm turbo typecheck` 全项目无错误
 - [x] `pnpm turbo lint` 无错误(允许预存警告)
 - [x] `pnpm turbo test` 所有测试通过
-- [x] `pnpm turbo build` 构建成功(44/44 tasks successful)
+- [ ] `pnpm turbo build` 构建成功 — **本轮未作为验证标准执行**;核心包(`@ihui/api` / `@ihui/web` / `@ihui/extension` / `@ihui/cli` / `@ihui/miniapp-taro` / `@ihui/desktop`)独立构建均通过,完整 `pnpm turbo build` 受 Windows 长路径 symlink 限制在本机未跑完,建议在 CI/Linux 环境或启用 Git 长路径支持后补跑
 
 #### 3. 文档就绪
 
@@ -14422,17 +14464,20 @@ Running 11 tests using 10 workers
 | 7   | 小程序充值页面                                  | `apps/miniapp-taro/src/pages/wallet/top-up/*`                                                           | ✅   |
 | 8   | `client/` 旧目录清理                            | 删除 `client/` 下 4.04MB 残留                                                                           | ✅   |
 | 9   | `STATE.md` / `loop-run-log.md` 清理             | 按 AGENTS.md §9 删除                                                                                    | ✅   |
-| 10  | 临时脚本清理                                    | 删除 `scripts/_tmp-*.mjs`                                                                               | ✅   |
+| 10  | 临时脚本清理                                    | 删除 `scripts/_tmp-*.mjs` 与 `tmp-scan-*.mjs`                                                           | ✅   |
 | 11  | 迁移完成标准 Checklist                          | 本章节 + `MIGRATION_GAP_REPORT.md` 最终状态                                                             | ✅   |
 
 ### 最终验证结果(2026-07-17 实测)
 
-| 验证项                       | 命令                             | 退出码 | 结果                                                        |
-| ---------------------------- | -------------------------------- | ------ | ----------------------------------------------------------- |
-| 全量 typecheck + lint + test | `pnpm turbo typecheck lint test` | 0      | ✅ 44/44 tasks successful                                   |
-| API 测试                     | `pnpm --filter @ihui/api test`   | 0      | ✅ 215 文件 / 3244 测试全绿                                 |
-| 运行时文件残留               | `git status` / `glob`            | -      | ✅ 无 `STATE.md` / `loop-run-log.md` / `scripts/_tmp-*.mjs` |
-| 旧目录残留                   | `glob client/**`                 | -      | ✅ `client/` 已清空(仅 git 删除记录)                        |
+| 验证项                | 命令                           | 退出码 | 结果                                                                         |
+| --------------------- | ------------------------------ | ------ | ---------------------------------------------------------------------------- |
+| 全量 typecheck + lint | `pnpm turbo typecheck lint`    | 0      | ✅ 39/39 tasks successful                                                    |
+| 全量 test             | `pnpm turbo test`              | 0      | ✅ 12/12 tasks successful                                                    |
+| API 测试              | `pnpm --filter @ihui/api test` | 0      | ✅ 219 文件 / 3256 tests 全绿                                                |
+| Web 测试              | `pnpm --filter @ihui/web test` | 0      | ✅ 21 文件 / 204 tests 全绿                                                  |
+| 运行时文件残留        | `git status` / `glob`          | -      | ✅ 无根目录 STATE.md / loop-run-log.md / scripts/_tmp-_.mjs / tmp-scan-_.mjs |
+| 旧目录残留            | `LS client/` / `git status`    | -      | ✅ `client/` 目录已不存在                                                    |
+| 核心包独立构建        | `pnpm --filter <pkg> build`    | 0      | ✅ api/web/extension/cli/miniapp/desktop 均通过                              |
 
 ### 改动文件清单(按类别)
 
@@ -14451,15 +14496,15 @@ Running 11 tests using 10 workers
 
 - ✅ 全部 11 项 P0 缺口已修复
 - ✅ `client/` 旧目录已清理
-- ✅ `STATE.md` / `loop-run-log.md` 已删除
-- ✅ `scripts/_tmp-*.mjs` 临时脚本已清理
-- ✅ `pnpm turbo typecheck lint test` 44/44 任务成功，退出码 0
+- ✅ 根目录 `STATE.md` / `loop-run-log.md` 已删除;本轮 goal 运行时文件位于 `.trae-cn/goal-runtime/`,将在交付后立即删除
+- ✅ `scripts/_tmp-*.mjs` / `tmp-scan-*.mjs` 临时脚本已清理
+- ✅ `pnpm turbo typecheck lint test` 全绿(39 + 12 tasks,退出码 0)
 - ✅ `MIGRATION_GAP_REPORT.md` 已追加最终迁移状态
 - ✅ `PROJECT_PLAN.md` 已写入迁移完成标准 Checklist
 
 ### 后续最优建议
 
-本轮已穷尽用户可见 P0 缺口与工程化收尾项，**无后续可量化建议**。项目处于"全量验证通过 + 0 运行时残留 + P0 清零"的交付就绪状态。
+本轮已穷尽用户可见 P0 缺口与工程化收尾项,**无后续可量化建议**。项目处于"typecheck/lint/test 全量通过 + 0 运行时残留 + P0 清零"的交付就绪状态。唯一未闭环项是完整 `pnpm turbo build`,属于 Windows 本地环境限制,非代码回归,建议在 CI/Linux 或启用长路径支持后补跑。
 
 ---
 

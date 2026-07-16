@@ -198,6 +198,9 @@ interface AdminNavItem {
     | 'rolesSelectUser'
     | 'ossFiles'
     | 'notificationDispatch'
+    | 'messageOverview'
+    | 'visitTracking'
+    | 'examMarking'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -336,6 +339,10 @@ const ADMIN_NAV: AdminNavItem[] = [
   // 官方页面
   { href: '/admin/contact', labelKey: 'contact', icon: MessageSquare },
   { href: '/admin/about-us', labelKey: 'aboutUs', icon: FileText },
+  // R90: 运营监控 + 教育批阅
+  { href: '/admin/message-overview', labelKey: 'messageOverview', icon: BarChart3 },
+  { href: '/admin/visit-tracking', labelKey: 'visitTracking', icon: BarChart3 },
+  { href: '/admin/exam-marking', labelKey: 'examMarking', icon: ClipboardCheck },
 ]
 
 export function AdminNav({ children }: { children: React.ReactNode }) {
