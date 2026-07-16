@@ -1,0 +1,40 @@
+{
+  "name": "@ihui/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File ./scripts/with-rust.ps1 dev",
+    "build": "powershell -ExecutionPolicy Bypass -File ./scripts/with-rust.ps1 build",
+    "build:debug": "powershell -ExecutionPolicy Bypass -File ./scripts/with-rust.ps1 build --debug",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "icons:regen": "powershell -ExecutionPolicy Bypass -File ./scripts/regen-icons.ps1",
+    "clean": "rimraf dist node_modules .turbo src-tauri/target"
+  },
+  "dependencies": {
+    "@ihui/api-client": "workspace:*",
+    "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-deep-link": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.1",
+    "@tauri-apps/plugin-fs": "^2.0.3",
+    "@tauri-apps/plugin-http": "^2.0.1",
+    "@tauri-apps/plugin-notification": "^2.0.0",
+    "@tauri-apps/plugin-os": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.0.1",
+    "@tauri-apps/plugin-store": "^2.0.0",
+    "@tauri-apps/plugin-updater": "^2.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@ihui/eslint-config": "workspace:*",
+    "@tauri-apps/cli": "^2.1.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  }
+}
