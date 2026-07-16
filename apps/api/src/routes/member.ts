@@ -1088,6 +1088,7 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
   // ----- 批量上传 -----
 
   // POST /members/batch-upload - 批量上传会员
+  // 返回 ImportResult { imported, failed, errors: ImportResultItem[] }
   server.post('/members/batch-upload', { schema: { response: R } }, async (request, reply) => {
     const parsed = batchUploadSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -1095,11 +1096,36 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
     }
     const members = parsed.data.members
     let imported = 0
-    for (const item of members) {
+    const errors: Array<{
+      serialNum: number
+      rowNum: number
+      success: boolean
+      message: string
+      memberName?: string
+      memberMobile?: string
+    }> = []
+    for (const [idx, item] of members.entries()) {
+      const serialNum = typeof item.serialNum === 'number' ? item.serialNum : idx + 1
+      const rowNum = typeof item.rowNum === 'number' ? item.rowNum : idx + 2
+      const memberName =
+        item.nickname !== undefined && item.nickname !== null ? String(item.nickname) : undefined
+      const memberMobile =
+        item.mobile !== undefined && item.mobile !== null ? String(item.mobile) : undefined
+
+      const username = String(item.username ?? '').trim()
+      const password = String(item.password ?? '').trim()
+      if (!username || !password) {
+        errors.push({
+          serialNum,
+          rowNum,
+          success: false,
+          message: !username ? '用户名不能为空' : '密码不能为空',
+          memberName,
+          memberMobile,
+        })
+        continue
+      }
       try {
-        const username = String(item.username ?? '').trim()
-        const password = String(item.password ?? '').trim()
-        if (!username || !password) continue
         await createMember({
           username,
           password,
@@ -1120,11 +1146,13 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
           status: typeof item.status === 'number' ? item.status : undefined,
         })
         imported += 1
-      } catch {
-        // 单条失败跳过,继续处理下一条
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : '创建失败'
+        errors.push({ serialNum, rowNum, success: false, message: msg, memberName, memberMobile })
       }
     }
-    return reply.send(success({ imported }))
+    const failed = errors.length
+    return reply.send(success({ imported, failed, errors }))
   })
 
   // ----- 系统用户管理（users 表） -----
