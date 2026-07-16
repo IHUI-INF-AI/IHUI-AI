@@ -47,8 +47,8 @@ export const useUserStore = create<UserState>()(
           set({ loading: false, error: res.error })
           return
         }
-        // getProfile 返回 AuthUser(后端 /api/auth/me 实际形状),UserProfile 保留 gender/birthday 字段供 updateProfile 输入用
-        set({ profile: res.data as unknown as UserProfile, loading: false })
+        // 后端 /api/auth/me 已补全 gender/birthday/createdAt 等字段,AuthUser 与 UserProfile 形状一致
+        set({ profile: res.data as UserProfile, loading: false })
       },
     }),
     createPersistConfig<UserState>('ihui-user', (s) => ({
