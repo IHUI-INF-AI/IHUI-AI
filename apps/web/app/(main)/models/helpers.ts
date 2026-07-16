@@ -40,6 +40,15 @@ export const FALLBACK_MODELS: Model[] = [
     features: ['Free', 'Long Context', 'Multimodal'],
   },
   {
+    id: 'openrouter/auto',
+    name: 'model.openrouter-auto.name',
+    provider: 'meta',
+    description: 'model.openrouter-auto.description',
+    contextLength: 128000,
+    inputPrice: 0,
+    features: ['Free', 'Auto-Route', 'Multi-Provider'],
+  },
+  {
     id: 'gpt-4o',
     name: 'GPT-4o',
     provider: 'openai',
@@ -101,6 +110,10 @@ export const MODEL_DESCRIPTIONS: Record<string, { description: string; features:
   'gemini/gemini-1.5-flash': {
     description: 'model.gemini-1-5-flash.description',
     features: ['Free', 'Long Context', 'Multimodal'],
+  },
+  'openrouter/auto': {
+    description: 'model.openrouter-auto.description',
+    features: ['Free', 'Auto-Route', 'Multi-Provider'],
   },
   'gpt-4o': {
     description: 'model.gpt-4o.description',
