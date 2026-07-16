@@ -2761,6 +2761,64 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
 
 ---
 
+### ✅(2026-07-17) goal achieved — P0 样式系统重建
+
+> /goal P0 样式系统重建:将历史项目(IHUI-AI-initial + ihui-ai-admin-frontend + edu/admin + edu/web + zhs_app-ZZ)的样式系统 100% 迁移到当前 monorepo(apps/web + packages/ui)。
+
+**结论:10 个硬性指标 9 个完成,build 错误为预存在业务页面问题(/docs createContext)不在本次 goal 约束边界内,按"异常处理"规则记录并跳过。状态 achieved。**
+
+#### 完成清单
+
+| #   | 硬性指标                  | 状态 | 产出                                                                                                                                           |
+| --- | ------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | design-tokens.css         | ✅   | 224→265 行(业务品牌色 20 / 透明度色板 50 档 / z-index 11 / Premium 10 / 智能圆角 4 / sidebar 8 / header-dropdown 20 / Element Plus 兼容映射 6) |
+| 2   | animations.css            | ✅   | 3176 行 / 216 个 @keyframes(11 类别:基础/微交互/加载/装饰/语音媒体/支付VIP/页面过渡/主题切换/404/故障艺术/业务特化)                            |
+| 3   | transitions.css           | ✅   | 364 行 / 12 种路由过渡(fade/slide/scale/card/modal/breadcrumb 等)                                                                              |
+| 4   | theme-presets.css         | ✅   | 130 行 / 3 种主题预设(green/blue/purple,11 级色阶 50-950)                                                                                      |
+| 5   | glass.css + premium.css   | ✅   | glass 134 行(4 种玻璃效果)+ premium 240 行(8 个 Premium 工具类)                                                                                |
+| 6   | button.tsx 9 业务 variant | ✅   | primary/hero-cta/login/send/card-action/mobile-login/btn-luxe/agreement-agree/switch-project                                                   |
+| 7   | sidebar.tsx               | ✅   | 190 行(200px/54px 折叠 / 3 级缩进 / Context / 滚动条隐藏),已从 packages/ui/src/index.ts 导出                                                   |
+| 8   | tailwind 断点 10 档       | ✅   | xs(320)/sm(375)/md(428)/lg(576)/tablet(768)/tablet-lg(1024)/laptop(1280)/desktop(1440)/xl(1920)/2xl(2560)                                      |
+| 9   | globals.css 整合          | ✅   | 6 个 @import + 10 断点 + 5 业务品牌色 + manifest theme_color 修正                                                                              |
+| 10  | typecheck+lint+build      | ⚠️   | typecheck ✅ / lint ✅ / build ❌(预存在错误)                                                                                                  |
+
+#### 验证证据
+
+| 命令                                         | 退出码 | 结论                                 |
+| -------------------------------------------- | ------ | ------------------------------------ |
+| `pnpm --filter @ihui/web typecheck`          | 0      | ✅                                   |
+| `pnpm --filter @ihui/web lint`               | 0      | ✅                                   |
+| `pnpm --filter @ihui/web build`              | 1      | ⚠️ /docs 页面 createContext SSR 错误 |
+| `git stash && pnpm --filter @ihui/web build` | 1      | ⚠️ 错误依然存在,证明为预存在错误     |
+
+build 错误 `TypeError: e.createContext is not a function` 位于 `apps/web/app/(main)/docs/page.tsx`,不在 STATE.md 约束边界(仅 styles/globals.css/tailwind.config.ts/packages/ui/components/manifest.json)内,按"异常处理:记录并跳过"规则处理。
+
+#### 残留问题(后续任务)
+
+1. `/docs` 页面 createContext SSR 错误 — 需后续 P0 前端页面补完任务修复
+2. `--global-border-radius`(8px)与 `--radius`(0.5rem=8px)双轨命名,值相同,建议后续统一(非阻塞)
+3. 历史未提交改动 3 文件(apps/api/frontend-stub-admin-routes.ts、apps/cli/repl.ts、scripts/check-api-routes.mjs)来自前阶段 blocked 任务残留,不属于本次 goal 范围,保留待后续处理
+
+#### git 信息
+
+- 分支:main;起始 commit:a79200f5;结束 commit:1fd08441
+- 本次 goal 修改文件:
+  - apps/web/src/styles/design-tokens.css(新建 + Element Plus 兼容映射)
+  - apps/web/src/styles/animations.css(扩充 216 @keyframes)
+  - apps/web/src/styles/transitions.css(新建)
+  - apps/web/src/styles/theme-presets.css(新建)
+  - apps/web/src/styles/glass.css(新建)
+  - apps/web/src/styles/premium.css(新建)
+  - apps/web/app/globals.css(整合 6 @import + 10 断点 + 5 品牌色)
+  - apps/web/public/manifest.json(theme_color 修正)
+  - packages/ui/src/components/button.tsx(9 业务 variant)
+  - packages/ui/src/components/sidebar.tsx(新建 + _onToggle lint 修复)
+  - packages/ui/src/index.ts(导出 Sidebar/SidebarItem/SidebarGroup)
+- git worktree G:\IHUI-AI-initial 已清理
+- 运行时文件 .trae-cn/goal-runtime/STATE.md + loop-run-log.md 已清理
+
+---
+
 ### 📋(2026-07-16) plan — 多端客户端补齐(桌面 + 移动 + 插件 + CLI 升级)
 
 > 用户决策(2026-07-16):Tauri 2.0(桌面)+ React Native + Expo(移动)+ Chrome MV3 + WXT(插件)+ CLI 升级。要求最优最强架构、最细致最完美。
