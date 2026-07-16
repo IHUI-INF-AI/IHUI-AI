@@ -201,6 +201,7 @@ program
         history: session.history,
         enableMcp: cfg.enableMcp,
         allowDangerous: cfg.allowDangerous,
+        planFirst: cfg.planFirst,
       });
     }
   });
@@ -230,6 +231,7 @@ program
       history: session.history,
       enableMcp: cfg.enableMcp,
       allowDangerous: cfg.allowDangerous,
+      planFirst: cfg.planFirst,
     });
   });
 
@@ -405,6 +407,7 @@ program
       maxIterations: cfg.maxIterations,
       enableMcp: cfg.enableMcp,
       allowDangerous: cfg.allowDangerous,
+      planFirst: cfg.planFirst,
     });
     process.on('SIGINT', () => connection.close());
     process.on('SIGTERM', () => connection.close());
