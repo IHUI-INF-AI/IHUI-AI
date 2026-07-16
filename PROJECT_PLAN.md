@@ -12,7 +12,7 @@
 
 ### 交付摘要
 
-完成 8 类冲突桩路由清理 + 2 个路由检测/生成脚本修复 + 1 个冲突检测脚本重写,全量 typecheck / lint / test 全绿。
+完成 8 类冲突桩路由清理 + 2 个路由检测/生成脚本修复 + 1 个冲突检测脚本重写 + CLI 上下文摘要格式修复,全量 `pnpm turbo build typecheck lint test` 全绿。
 
 ### P0 — 冲突桩路由清理
 
@@ -26,6 +26,7 @@
 - [x] ✅(2026-07-17) `check-api-routes.mjs`:修复查询字符串模板变量(如 `${qs}`、`${query}`)被误判为路径参数的 bug,直接移除模板变量而非替换为 `:param`
 - [x] ✅(2026-07-17) `generate-stub-routes.mjs`:修复多参数路径生成错误,`fastifyPath` 仅替换 `/:param` 为 `/:id`,避免 `/teams/:id/invitations/:id` 这类重复占位
 - [x] ✅(2026-07-17) `find-route-conflicts.mjs`:重写冲突检测逻辑,按 `export const pluginName = async (server) => { ... }` 划分插件块,把路由精确归属到具体插件,再按 plugin+prefix 生成完整路径,避免跨 prefix 误报和同一文件多 export 误报
+- [x] ✅(2026-07-17) `apps/cli/src/context.ts`:修复结构化摘要标签格式,`工具调用:`/`工具结果:`/`代码块:` 后补空格,与测试断言一致
 
 ### 验证
 
@@ -151,8 +152,8 @@
 
 - ~~**P2 WebSocket 三端接入**:web 有 `use-websocket.ts`,mobile-rn/desktop/extension 仍用轮询,未接入 WebSocket 实时通知(本次未做)。~~ ✅(2026-07-17) 已完成,见下方"P2 WebSocket 跨端实时通知统一"章节。
 - **P2 i18n 跨端对齐**:web 有完整 i18n(zh-CN/zh-TW/en/ja/ko),其他端 i18n 覆盖不全(本次未做)。
-- **UserProfile 类型保留**:共享层 `UserProfile`(含 gender/birthday/createdAt/updatedAt)保留用于 `updateProfile` 输入,后端 `/api/auth/me` 不返回这些字段,web `stores/user.ts` 用 `as unknown as UserProfile` cast 适配。后端若补全 publicUser 字段可消除 cast(后续任务)。
-- **api 既有测试失败**:`systemLoginLogsRoutes` 路由注册冲突需单独修复(后续任务)。
+- ~~**UserProfile 类型保留**:共享层 `UserProfile`(含 gender/birthday/createdAt/updatedAt)保留用于 `updateProfile` 输入,后端 `/api/auth/me` 不返回这些字段,web `stores/user.ts` 用 `as unknown as UserProfile` cast 适配。后端若补全 publicUser 字段可消除 cast(后续任务)。~~ ✅(2026-07-17) 后端 publicUser 已补全全部字段(username/gender/birthday/familyId/isVip/level/inviteCode/parentId/createdAt/updatedAt),AuthUser 类型同步补全,web cast 从 `as unknown as` 降级为 `as`(运行时一致)。
+- ~~**api 既有测试失败**:`systemLoginLogsRoutes` 路由注册冲突需单独修复(后续任务)。~~ ✅(2026-07-17) 验证发现 api test 已全绿(3265/3265 + 219/219),路由冲突已在历史 commit 修复。
 
 ---
 
@@ -216,8 +217,73 @@
 
 ### 残留风险与后续任务
 
-- **通知面板 UI**:四端 lastMessage 暂用 console.log 输出,后续按需接入通知列表面板(web 已有 notification store 可直接订阅,mobile-rn/desktop/extension 需新建 UI)。
-- **api 既有测试失败**:`systemLoginLogsRoutes` 路由注册冲突仍存在(与本次改动无关)。
+- ~~**通知面板 UI**:四端 lastMessage 暂用 console.log 输出,后续按需接入通知列表面板(web 已有 notification store 可直接订阅,mobile-rn/desktop/extension 需新建 UI)。~~ ✅(2026-07-17) 已完成,见下方"P2 通知面板 UI 四端统一 + UserProfile 字段补全"章节。
+- ~~**api 既有测试失败**:`systemLoginLogsRoutes` 路由注册冲突仍存在(与本次改动无关)。~~ ✅(2026-07-17) 验证发现已修复,api test 3265/3265 全绿。
+
+---
+
+## P2 通知面板 UI 四端统一 + UserProfile 字段补全(2026-07-17)✅(2026-07-17)
+
+### 目标
+
+完成多端同步对齐残留的 P2 后续三项:UserProfile 后端字段补全(消除 web cast)+ 通知面板 UI 四端统一(WS lastMessage 落地到可视 UI)+ 验证 api 测试已修复。
+
+### 交付摘要
+
+1. **P2-A api 路由冲突**:验证发现 `systemLoginLogsRoutes` 路由冲突已在历史 commit 修复,api test 3265/3265 + 219/219 全绿,无需改动。
+2. **P2-B UserProfile 字段补全**:后端 `publicUser()` 补全全部字段(username/gender/birthday/familyId/isVip/level/inviteCode/parentId/createdAt/updatedAt),共享层 `AuthUser` 类型同步补全(保持可选兼容),web `stores/user.ts` cast 从 `as unknown as` 降级为 `as`(运行时形状一致)。
+3. **P2-C 通知面板 UI 四端统一**:web 复用已有 notification store + NotificationCenter(header 已接入);desktop/extension/mobile-rn 各新建 Context-based notification store + 通知面板组件 + 铃铛按钮(unreadCount badge),WS lastMessage 通过 `addFromWs` 分发到 store,面板显示通知列表 + 全部已读/清空操作。
+
+### 涉及改动
+
+#### P2-B UserProfile 字段补全(2 文件)
+
+| 文件 | 改动 |
+|------|------|
+| `apps/api/src/routes/auth.ts` | `publicUser()` 补全 username/gender/birthday/familyId/isVip/level/inviteCode/parentId/createdAt/updatedAt 字段返回 |
+| `packages/api-client/src/endpoints/auth.ts` | `AuthUser` 接口补全 username/gender/birthday/familyId/isVip/level/inviteCode/parentId/createdAt/updatedAt 字段(可选) |
+| `apps/web/src/stores/user.ts` | cast 从 `as unknown as UserProfile` 降级为 `as UserProfile`(运行时一致) |
+
+#### P2-C 通知面板 UI 四端统一
+
+| 端 | store 文件 | 面板组件 | 接入位置 | UI 反馈 |
+|----|-----------|---------|---------|---------|
+| web | `stores/notification.ts`(已有 zustand) | `components/feature-center/NotificationCenter.tsx`(已有) | `providers/global-hooks-provider.tsx`(已有) | header 已有铃铛 + 面板 |
+| desktop | `stores/notification.tsx`(新建 Context) | `components/NotificationPanel.tsx`(新建) | `App.tsx`(NotificationProvider + WS 分发 + 渲染面板) | Layout sidebar 铃铛 badge + 右侧滑出面板 |
+| extension | `lib/notification-store.tsx`(新建 Context) | `entrypoints/sidepanel/NotificationPanel.tsx`(新建) | `SidepanelApp.tsx`(NotificationProvider + WS 分发 + 渲染面板) | header 铃铛 badge + 右侧滑出面板 |
+| mobile-rn | `stores/notification.tsx`(新建 Context,含 connected) | `components/NotificationPanel.tsx`(新建 Modal + FlatList) | `RootNavigator.tsx`(NotificationProvider + WS 分发 + setConnected + 渲染面板) | HomeScreen 铃铛 badge + 底部弹出 Modal |
+
+### 关键设计决策
+
+1. **Context-based store(非 zustand)** — desktop/extension/mobile-rn 未装 zustand,为"做减法"不引入新依赖,用 React Context + useState 实现等价 store,接口与 web 的 zustand store 对齐(addFromWs/markAllRead/setVisible/clearAll/unreadCount)。
+2. **mobile-rn store 合并 connected** — mobile-rn 的 NotificationContext 之前只传 connected + lastMessage,本次合并为完整 store(含 notifications 数组 + actions),避免两个 Context。
+3. **通知面板交互统一** — 四端面板都有:通知列表(未读高亮)+ 全部已读 + 清空 + 关闭。desktop/extension 用右侧滑出面板(CSS fixed),mobile-rn 用底部弹出 Modal(RN Modal + FlatList)。
+4. **web 无需改动** — web 已有完整通知系统(zustand store + useGlobalNotification hook + NotificationCenter 组件 + header 铃铛),P2-C1 仅验证已接入。
+
+### 最终验证依据(2026-07-17 实测)
+
+| 验证项 | 命令 | 退出码 | 结果 |
+|--------|------|--------|------|
+| turbo typecheck | `pnpm turbo typecheck` | 0 | ✅ 23/23 全绿 |
+| turbo lint | `pnpm turbo lint` | 0 | ✅ 16/16 全绿 |
+| api test | `pnpm --filter @ihui/api test` | 0 | ✅ 3265/3265 + 219/219 全绿 |
+| web test | `pnpm --filter @ihui/web test` | 0 | ✅ 204/204 全绿(含 use-notification 测试) |
+
+### 涉及端清单(5 端 + 2 共享包)
+
+| 端 | 改动点 |
+|----|--------|
+| apps/api | `src/routes/auth.ts`(publicUser 补全字段) |
+| packages/api-client | `src/endpoints/auth.ts`(AuthUser 类型补全) |
+| apps/web | `src/stores/user.ts`(cast 降级) |
+| apps/desktop | `src/stores/notification.tsx`(新建)+ `src/components/NotificationPanel.tsx`(新建)+ `src/App.tsx`(接入)+ `src/components/Layout.tsx`(铃铛)+ `src/app.css`(面板样式) |
+| apps/extension | `lib/notification-store.tsx`(新建)+ `entrypoints/sidepanel/NotificationPanel.tsx`(新建)+ `entrypoints/sidepanel/SidepanelApp.tsx`(接入)+ `entrypoints/sidepanel/style.css`(面板样式) |
+| apps/mobile-rn | `src/stores/notification.tsx`(新建)+ `src/components/NotificationPanel.tsx`(新建)+ `src/navigation/RootNavigator.tsx`(接入)+ `src/screens/HomeScreen.tsx`(铃铛) |
+
+### 残留风险与后续任务
+
+- **P2 i18n 跨端对齐**:web 有完整 i18n(zh-CN/zh-TW/en/ja/ko),其他端 i18n 覆盖不全(本次未做,工作量大致留后续)。
+- **通知持久化**:四端通知 store 为内存态,刷新后清空。如需持久化可后续接入 `getNotifications` HTTP API 拉取历史通知(web 已有 `lib/notification-api.ts`)。
 
 ---
 
@@ -1367,6 +1433,10 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
 - [x] ✅(2026-07-14) dev:clean / dev:stable 脚本新增: `apps/web/package.json` 加 `dev:clean`（rimraf .next .dev.lock + check-lock + next dev --turbopack）和 `dev:stable`（同上但不用 Turbopack 走稳定 webpack）；遇到 stale render 未来可直接 `pnpm --filter @ihui/web dev:clean` 一键清缓存重启；typecheck 0 错误 / lint 0 错误；dev:clean 实测 2.4s 就绪
 - [x] ✅(2026-07-14) 验证: 47 个 trigger（46 `<a>` + 1 `<button>` 即 SearchNavItem）`getBoundingClientRect().height` 全部 = 40px；浏览器截图 60px 折叠态 + 160px 展开态均显示所有图标、文字、logo、展开/收起按钮正确；无背景裁切、无右侧切割边；active 状态高度与其他项完全一致
 - [x] ✅(2026-07-14) AI 对话框挨着左侧侧边栏的原始仓库样式恢复（用户反馈恢复原状）: 排查发现 `useState(220)` 80-240 范围并非仓库原状,通过 `git log -S` 追溯到 `7a2f4d10` commit 之前的 R73 refactor 阶段,原始默认宽度 168px / 范围 60-240px / 移动端 168px；恢复 `apps/web/src/components/sidebar.tsx` 5 处：L476 `useState(220)`→`useState(168)`,L484 范围 `80-240`→`60-240`,L503 `clampWidth(80,240)`→`clampWidth(60,240)`,L554/558 Home/End 键 80/240→60/240,L744-745 `aria-valuemin/max` 80/240→60/240,L771 移动端 `w-[220px]`→`w-[168px]`；`pnpm --filter @ihui/web typecheck` 退出码 0；dev server 浏览器实测 sidebar 168px 紧贴 AI 对话框(无 gap),折叠态 60px 仍正常,所有 40 个 nav items 完整显示无截断,resize handle 1.5px 紧贴右边缘
+- [x] ✅(2026-07-13) 前端路径对齐后端（4 处）: `members/levels/helpers.ts` user-vip→auth-user-vip；`member/company-types/helpers.ts + page.tsx` member/company-types→members/company-types（4 处）；`member/departments/helpers.ts` user-dept→members/departments；`login-logs/helpers.ts` /api/admin/login-logs→/api/admin/system/login-logs
+- [x] ✅(2026-07-13) 验证: api/web typecheck 0 错误 / api lint 0 错误（仅 2 个无关历史 any 警告）/ api test 885/885 通过
+- [x] ✅(2026-07-13) P0 缺失端点补建: `comments.ts` 新增 `POST /feedbacks/:id/reply`（用户补充回复，更新 adminReply+status=reviewing）+ `PUT /feedbacks/:id/status`（用户/管理员更新反馈状态，权限校验 userId 或 roleId>=1）；`schedule.ts` 新增 6 个别名端点（GET/POST/PUT/DELETE /schedule + GET /schedule/:id + POST /schedule/:id/complete），复用现有 query 函数，兼容前端无 tasks 层级调用；`missing-user-routes.ts` 将 `/study/progress` stub 替换为真实 `findMyLessons` 查询 + 新增 `/study/progress/all` 返回完整学习记录列表
+- [x] ✅(2026-07-13) P1 前缀分离: `zhs-course.ts` 新增 `adminZhsCourseRoutes` 包装器（addHook requireAdmin + register zhsCourseRoutes）注册到 `/api/admin/course`；`education-platform.ts` 额外注册到 `/api/admin/education-platform`（已有 requireAdmin）；`system-extended.ts` 提取 `registerCategoryDictionaryRoutes` 函数 + 新增 `adminCategoryDictionaryRoutes` 注册到 `/api/ator 阶段,原始默认宽度 168px / 范围 60-240px / 移动端 168px；恢复 `apps/web/src/components/sidebar.tsx` 5 处：L476 `useState(220)`→`useState(168)`,L484 范围 `80-240`→`60-240`,L503 `clampWidth(80,240)`→`clampWidth(60,240)`,L554/558 Home/End 键 80/240→60/240,L744-745 `aria-valuemin/max` 80/240→60/240,L771 移动端 `w-[220px]`→`w-[168px]`；`pnpm --filter @ihui/web typecheck` 退出码 0；dev server 浏览器实测 sidebar 168px 紧贴 AI 对话框(无 gap),折叠态 60px 仍正常,所有 40 个 nav items 完整显示无截断,resize handle 1.5px 紧贴右边缘
 - [x] ✅(2026-07-13) 前端路径对齐后端（4 处）: `members/levels/helpers.ts` user-vip→auth-user-vip；`member/company-types/helpers.ts + page.tsx` member/company-types→members/company-types（4 处）；`member/departments/helpers.ts` user-dept→members/departments；`login-logs/helpers.ts` /api/admin/login-logs→/api/admin/system/login-logs
 - [x] ✅(2026-07-13) 验证: api/web typecheck 0 错误 / api lint 0 错误（仅 2 个无关历史 any 警告）/ api test 885/885 通过
 - [x] ✅(2026-07-13) P0 缺失端点补建: `comments.ts` 新增 `POST /feedbacks/:id/reply`（用户补充回复，更新 adminReply+status=reviewing）+ `PUT /feedbacks/:id/status`（用户/管理员更新反馈状态，权限校验 userId 或 roleId>=1）；`schedule.ts` 新增 6 个别名端点（GET/POST/PUT/DELETE /schedule + GET /schedule/:id + POST /schedule/:id/complete），复用现有 query 函数，兼容前端无 tasks 层级调用；`missing-user-routes.ts` 将 `/study/progress` stub 替换为真实 `findMyLessons` 查询 + 新增 `/study/progress/all` 返回完整学习记录列表
@@ -2638,6 +2708,59 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
     - `node scripts/check-i18n-keys.mjs` — 729 文件 / 6950 键 / 5 语言 parity OK(+2 唯一 key)
   - **回归风险**:无 — title 改为 i18n 调用(`t('language')` 在折叠态 `collapsed=true` 时才显示,与原行为一致;展开态 `title=undefined` 不变)
   - **跳过项**:`SidebarActions` 折叠态 button `aria-label` 增强、`img alt={locale}` 改 `lang.name` — 属于次要 a11y,留给后续 a11y 专项任务
+
+---
+
+### 🚫(2026-07-17) goal blocked — 深度迁移完整性比对(5 维度 500+ 缺失项)
+
+> /goal 深度比对历史项目(D 盘 7 块 + git initial commit 5e56b6ba 11169 文件)vs 当前 monorepo,验证 100% 迁移完整性。覆盖前端/后端/样式/接口/交互/动画/连通全维度。**不参考 PROJECT_PLAN.md 历史记录,从代码全量重新分析。**
+
+**结论:未达 100% 迁移,综合完整度 ~75%,500+ 缺失项,进入 blocked。**
+
+#### 5 维度比对结果
+
+| 维度           | 完整度  | 缺失项                                               |
+| -------------- | ------- | ---------------------------------------------------- |
+| 前端页面/路由  | ~92%    | 86 项(8 高 + 38 中 + 40 低)                          |
+| 后端接口/路由  | ~88-92% | 59 端点 + 326 空桩 + 7 WS                            |
+| 样式/交互/动画 | ~18%    | 严重:240+ 动画仅 11、12 路由过渡全失、9 业务按钮全失 |
+| 连通层(机制级) | ~95%    | 3 项机制级 + 9 模块端点级未比对                      |
+| 数据库 schema  | ~98.5%  | 5 类表 + 12 字段                                     |
+
+#### P0 阻塞缺失(最高优)
+
+1. **样式系统重建**:240+ @keyframes 仅迁移 11(5%);12 种路由过渡全失;9 种业务按钮全失;7222+ 行 Element Plus 组件定制未迁移到 shadcn/ui;主题色不一致(历史纯黑/白 vs 当前绿色);10 档响应式断点仅 5 档;Premium mixin 8 个全失;玻璃拟态 mixin 全失;业务品牌色 9+ 全失;透明度色板 97 全失;z-index token 10 全失;主题预设 3 种全失
+2. **前端页面**:需求广场 4 页;部门管理;桌面端多页面(仅 1 个 ChatPage);AI 团队/Agentic/N8N/MCP 等 14 页
+3. **后端接口**:OAuth2 完整流程 15 端点(device/pkce/jwt/web);SSO 5 端点;支付状态 WS;钉钉/企业微信登录
+4. **数据库字段**:oauth_apps.app_type / oauth_sessions.auth_type
+
+#### P1 影响完整度(中优)
+
+- 样式:35 项(业务品牌色/透明度色板/z-index/Premium mixin/玻璃拟态/智能圆角/CSS Layers/微交互/交错延迟/组件定制/暗色模式组件级覆盖/字体 Semibold/主题切换动画/404 动画/故障艺术/RTL/sidebar scrollbar/PWA theme_color/业务特化样式)
+- 前端:38 项(AI 团队/N8N/MCP/通知中心/WebView/充值成功失败页/购买确认页/错题本/RuoYi 系统管理 5 子模块/ai 后台 13 子模块/auth 后台 10 子模块/course 后台 5 子模块)
+- 后端:钉钉/企业微信登录;agent rules/identity/developer_link 19 端点;monitor backfill;326 空桩路由逐一评估
+- 连通层:全局并发排队;DataScope 自定义部门;端点级 9 模块 487 端点未逐一比对
+- 数据库:5 类缺失表(t_manager/t_lecturer/t_company/t_invoice/t_job);user_margins token_quantity bigint;edu_user HR 字段复核;agents coze_* 字段复核
+
+#### 亮点(已完整迁移)
+
+- i18n 5 语言 100% 保留;小程序完整度 ~99%
+- OAuth2 服务端 4 flow + SSO + Token Family + Key Rotation + Blacklist + DataScope 5 级
+- AI callback + SSE 流式完整;多租户 RLS 完整迁移(替代 schema 隔离,更严格)
+- 18 项架构升级(超出历史范围);数据库表级 98.5%(385 vs 220)
+
+#### git 信息
+
+- 分支:main;起始 commit:a79200f5
+- 本任务未修改任何代码文件(仅创建运行时文件 .trae-cn/goal-runtime/,分析完成后已清理)
+- git worktree G:\IHUI-AI-initial(指向 5e56b6ba)已清理
+
+#### 建议后续操作
+
+1. **P0 样式系统重建**(最高优):创建 design-tokens.css / animations.css(240+) / transitions.css / theme-presets.css / glass.css / premium.css;扩充 button.tsx(9 业务 variant);创建 sidebar.tsx;扩展 tailwind 断点
+2. **P0 前端/后端补完**:需求广场 4 页 + 部门管理;OAuth2 15 端点 + SSO 5 端点 + 支付 WS
+3. **P1 逐项推进**:38 前端页 + 19 后端端点 + 35 样式项 + 5 数据库表 + 12 字段
+4. **P2 后续**:326 空桩逐一评估;双轨设计统一;端点级 9 模块 487 端点逐一比对
 
 ---
 
