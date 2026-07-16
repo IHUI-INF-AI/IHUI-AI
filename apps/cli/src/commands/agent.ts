@@ -39,6 +39,8 @@ import type { CheckpointManager } from '../checkpoints/index.js';
 import { compressContext } from '../context.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
 import { auditLog } from '../audit.js';
+import type { Session } from './session.js';
+import { saveSession } from './session.js';
 
 export type { ToolContext } from '../tools/index.js';
 
@@ -57,6 +59,12 @@ export interface AgentOptions {
   enableMcp?: boolean;
   /** 允许 dangerous 工具自动执行(无确认)。headless 模式推荐显式开启。 */
   allowDangerous?: boolean;
+  /** 关联会话(用于中断时持久化 messages 供 --resume 恢复) */
+  session?: Session;
+  /** 中断信号,abort 后 runToolLoop 会停止并返回 stopReason='cancelled' */
+  signal?: AbortSignal;
+  /** 强制 LLM 先输出 plan 块再执行工具 */
+  planFirst?: boolean;
 }
 
 export type AgentStopReason = 'end_turn' | 'cancelled' | 'max_iterations' | 'error';
@@ -98,6 +106,8 @@ export interface SetupAgentToolsOptions {
   silent?: boolean;
   /** 危险操作确认回调。REPL 用 inquirer,Agent 用 --allow-dangerous,ACP 默认拒绝。 */
   confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
+  /** 强制 LLM 先输出 plan 块再执行工具 */
+  planFirst?: boolean;
 }
 
 export interface SetupAgentToolsResult {
@@ -128,7 +138,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
 
   const tools = listTools();
   const agentsMd = readAgentsMd(opts.workspacePath);
-  const systemPrompt = buildSystemPrompt(tools, agentsMd);
+  const systemPrompt = buildSystemPrompt(tools, agentsMd, opts.planFirst);
   const ctx: ToolContext = {
     workspacePath: opts.workspacePath,
     confirmDangerous: opts.confirmDangerous,
@@ -241,13 +251,19 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       opts.messages.push({ role: 'user', content: resultParts.join('\n\n') });
     }
   } catch (err) {
-    hadError = true;
-    const msg = err instanceof Error ? err.message : String(err);
-    await opts.onError?.(msg);
+    if (opts.signal?.aborted) {
+      // abort 不是错误,由 stopReason 逻辑处理为 'cancelled'
+    } else {
+      hadError = true;
+      const msg = err instanceof Error ? err.message : String(err);
+      await opts.onError?.(msg);
+    }
   }
 
   let stopReason: AgentStopReason;
-  if (hadError) {
+  if (opts.signal?.aborted) {
+    stopReason = 'cancelled';
+  } else if (hadError) {
     stopReason = 'error';
   } else if (iterations >= opts.maxIterations) {
     stopReason = 'max_iterations';
@@ -271,6 +287,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     checkpoints: opts.checkpoints,
     enableMcp: opts.enableMcp,
     silent: opts.jsonMode === true,
+    planFirst: opts.planFirst,
     confirmDangerous: async (tool, args) => {
       if (opts.allowDangerous) {
         if (!opts.jsonMode) console.info(chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name} ${JSON.stringify(args).slice(0, 100)}`));
@@ -300,55 +317,75 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     { role: 'user', content: opts.prompt },
   ];
 
-  const result = await runToolLoop({
-    modelId: opts.modelId,
-    messages,
-    ctx,
-    maxIterations: opts.maxIterations,
-    onDelta: (delta) => {
-      if (jsonMode) emit({ type: 'message_delta', text: delta });
-      else {
-        if (spinner?.isSpinning) spinner.stop();
-        process.stdout.write(delta);
+  // 如果带历史会话(--resume/--continue),恢复非 system 历史
+  if (opts.session?.history.length) {
+    for (const m of opts.session.history) {
+      if (m.role === 'user' || m.role === 'assistant') {
+        messages.push({ role: m.role as ChatRole, content: m.content });
       }
-    },
-    onToolCall: (name, args) => {
-      emit({ type: 'tool_call', name, arguments: args });
-      if (!jsonMode) {
-        if (spinner?.isSpinning) spinner.stop();
-        console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`));
-      }
-    },
-    onToolResult: (name, success, output) => {
-      emit({ type: 'tool_result', name, success, output });
-      if (!jsonMode) {
-        const icon = success ? '✓' : '✗';
-        console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
-      }
-    },
-    onIteration: (count, max) => {
-      emit({ type: 'iteration', count, max });
-      if (!jsonMode && spinner) {
-        spinner.start(`🔧 执行中 (轮次 ${count}/${max})`);
-      }
-    },
-    onError: (message) => {
-      emit({ type: 'error', message });
-      if (!jsonMode) {
-        if (spinner?.isSpinning) spinner.stop();
-        console.error(chalk.red(`\n❌ ${message}`));
-      }
-    },
-  });
-
-  if (spinner?.isSpinning) spinner.stop();
-
-  if (!jsonMode) {
-    console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${result.stopReason})\n`));
+    }
   }
-  emit({ type: 'complete', stopReason: result.stopReason, iterations: result.iterations });
 
-  return result;
+  try {
+    const result = await runToolLoop({
+      modelId: opts.modelId,
+      messages,
+      ctx,
+      maxIterations: opts.maxIterations,
+      signal: opts.signal,
+      onDelta: (delta) => {
+        if (jsonMode) emit({ type: 'message_delta', text: delta });
+        else {
+          if (spinner?.isSpinning) spinner.stop();
+          process.stdout.write(delta);
+        }
+      },
+      onToolCall: (name, args) => {
+        emit({ type: 'tool_call', name, arguments: args });
+        if (!jsonMode) {
+          if (spinner?.isSpinning) spinner.stop();
+          console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`));
+        }
+      },
+      onToolResult: (name, success, output) => {
+        emit({ type: 'tool_result', name, success, output });
+        if (!jsonMode) {
+          const icon = success ? '✓' : '✗';
+          console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
+        }
+      },
+      onIteration: (count, max) => {
+        emit({ type: 'iteration', count, max });
+        if (!jsonMode && spinner) {
+          spinner.start(`🔧 执行中 (轮次 ${count}/${max})`);
+        }
+      },
+      onError: (message) => {
+        emit({ type: 'error', message });
+        if (!jsonMode) {
+          if (spinner?.isSpinning) spinner.stop();
+          console.error(chalk.red(`\n❌ ${message}`));
+        }
+      },
+    });
+
+    if (spinner?.isSpinning) spinner.stop();
+
+    if (!jsonMode) {
+      console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${result.stopReason})\n`));
+    }
+    emit({ type: 'complete', stopReason: result.stopReason, iterations: result.iterations });
+
+    return result;
+  } finally {
+    // 任何路径(完成/错误/中断)都持久化 messages 到 session,供 --resume 恢复
+    if (opts.session) {
+      opts.session.history = messages
+        .filter((m) => m.role !== 'system')
+        .map((m) => ({ role: m.role, content: m.content }));
+      saveSession(opts.session);
+    }
+  }
 }
 
 export function stopReasonToExitCode(reason: AgentStopReason): number {
