@@ -1,8 +1,8 @@
-import * as React from 'react';
-import { cn } from '../lib/utils.js';
+import * as React from 'react'
+import { cn } from '../lib/utils.js'
 
-const SidebarContext = React.createContext<boolean>(false);
-const useSidebarCollapsed = () => React.useContext(SidebarContext);
+const SidebarContext = React.createContext<boolean>(false)
+const useSidebarCollapsed = () => React.useContext(SidebarContext)
 
 function SidebarScrollHideStyles() {
   return (
@@ -17,16 +17,16 @@ function SidebarScrollHideStyles() {
         height: 0;
       }
     `}</style>
-  );
+  )
 }
 
 export interface SidebarProps extends React.HTMLAttributes<HTMLElement> {
-  collapsed?: boolean;
-  onToggle?: () => void;
+  collapsed?: boolean
+  onToggle?: () => void
 }
 
 export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
-  ({ collapsed = false, onToggle, children, className, ...props }, ref) => {
+  ({ collapsed = false, onToggle: _onToggle, children, className, ...props }, ref) => {
     return (
       <SidebarContext.Provider value={collapsed}>
         <aside
@@ -46,20 +46,20 @@ export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
           </nav>
         </aside>
       </SidebarContext.Provider>
-    );
+    )
   },
-);
-Sidebar.displayName = 'Sidebar';
+)
+Sidebar.displayName = 'Sidebar'
 
 export interface SidebarGroupProps {
-  title?: string;
-  children: React.ReactNode;
-  className?: string;
+  title?: string
+  children: React.ReactNode
+  className?: string
 }
 
 export const SidebarGroup = React.forwardRef<HTMLDivElement, SidebarGroupProps>(
   ({ title, children, className }, ref) => {
-    const collapsed = useSidebarCollapsed();
+    const collapsed = useSidebarCollapsed()
     return (
       <div ref={ref} className={cn('flex flex-col gap-0.5', className)}>
         {title && !collapsed && (
@@ -69,29 +69,29 @@ export const SidebarGroup = React.forwardRef<HTMLDivElement, SidebarGroupProps>(
         )}
         {children}
       </div>
-    );
+    )
   },
-);
-SidebarGroup.displayName = 'SidebarGroup';
+)
+SidebarGroup.displayName = 'SidebarGroup'
 
 export interface SidebarItemProps {
-  icon?: React.ReactNode;
-  label: string;
-  href?: string;
-  active?: boolean;
-  level?: 0 | 1 | 2;
-  onClick?: () => void;
-  children?: React.ReactNode;
-  className?: string;
+  icon?: React.ReactNode
+  label: string
+  href?: string
+  active?: boolean
+  level?: 0 | 1 | 2
+  onClick?: () => void
+  children?: React.ReactNode
+  className?: string
 }
 
-const levelPadding = ['pl-3', 'pl-8', 'pl-13'];
+const levelPadding = ['pl-3', 'pl-8', 'pl-13']
 
 export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
   ({ icon, label, href, active = false, level = 0, onClick, children, className }, ref) => {
-    const collapsed = useSidebarCollapsed();
-    const [expanded, setExpanded] = React.useState(false);
-    const hasChildren = React.Children.count(children) > 0;
+    const collapsed = useSidebarCollapsed()
+    const [expanded, setExpanded] = React.useState(false)
+    const hasChildren = React.Children.count(children) > 0
 
     const baseClass = cn(
       'flex h-9 min-w-0 items-center gap-2 rounded-md pr-3 text-sm font-medium whitespace-nowrap transition-colors',
@@ -101,19 +101,17 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
         : 'text-sidebar-foreground/70 hover:bg-sidebar-hover hover:text-sidebar-foreground',
       collapsed && 'justify-center px-0',
       className,
-    );
+    )
 
     const content = (
       <>
-        {icon && (
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center">{icon}</span>
-        )}
+        {icon && <span className="flex h-4 w-4 shrink-0 items-center justify-center">{icon}</span>}
         {!collapsed && <span className="truncate">{label}</span>}
       </>
-    );
+    )
 
     if (collapsed) {
-      const Tag = href ? 'a' : 'button';
+      const Tag = href ? 'a' : 'button'
       return (
         <Tag
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,7 +125,7 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
         >
           {content}
         </Tag>
-      );
+      )
     }
 
     if (hasChildren) {
@@ -157,7 +155,7 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
           </button>
           {expanded && <div className="flex flex-col gap-0.5">{children}</div>}
         </div>
-      );
+      )
     }
 
     if (href) {
@@ -171,7 +169,7 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
         >
           {content}
         </a>
-      );
+      )
     }
 
     return (
@@ -184,7 +182,7 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
       >
         {content}
       </button>
-    );
+    )
   },
-);
-SidebarItem.displayName = 'SidebarItem';
+)
+SidebarItem.displayName = 'SidebarItem'
