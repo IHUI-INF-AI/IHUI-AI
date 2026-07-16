@@ -489,7 +489,7 @@ function registerRoutes(server: FastifyInstance) {
   server.register(adminPointRoutes, { prefix: '/api/admin' })
   // 用户中心扩展：/api/admin/usercenter/*
   server.register(usercenterRoutes, { prefix: '/api/admin' })
-  // 排课任务：/api/schedule/* + /api/admin/schedule/*
+  // 定时任务调度 + 浏览记录异步落库：/api/schedule/* + /api/admin/schedule/*
   server.register(scheduleRoutes, { prefix: '/api' })
   server.register(adminScheduleRoutes, { prefix: '/api/admin' })
   // 统计模块：/api/statistics/* + /api/admin/statistics/*
