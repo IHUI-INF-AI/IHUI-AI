@@ -26,6 +26,8 @@ export interface AcpServerOptions {
   enableMcp?: boolean;
   /** 允许危险工具自动执行(默认拒绝,ACP 无交互确认通道) */
   allowDangerous?: boolean;
+  /** 强制 LLM 先输出 plan 块再执行工具 */
+  planFirst?: boolean;
 }
 
 interface AcpSessionState {
@@ -136,6 +138,7 @@ class IhuiAcpAgent {
         checkpoints: state.checkpoints ?? undefined,
         enableMcp: this.opts.enableMcp,
         silent: true,
+        planFirst: this.opts.planFirst,
         subagentParent: {
           modelId: this.opts.modelId,
           apiUrl: this.opts.apiUrl,
@@ -191,6 +194,21 @@ class IhuiAcpAgent {
       if (result.assistantText) {
         state.session.history.push({ role: 'assistant', content: result.assistantText });
       }
+      if (result.usage && result.usage.totalTokens > 0) {
+        const costStr = result.usage.estimatedCostUsd > 0
+          ? `$${result.usage.estimatedCostUsd.toFixed(6)}`
+          : 'plan 套餐';
+        await cx.notify(acp.methods.client.session.update, {
+          sessionId: params.sessionId,
+          update: {
+            sessionUpdate: 'agent_message_chunk',
+            content: {
+              type: 'text',
+              text: `\n\n📊 tokens: ${result.usage.totalTokens} (prompt ${result.usage.promptTokens} + completion ${result.usage.completionTokens}) — ${costStr}`,
+            },
+          },
+        });
+      }
       saveSession(state.session);
       return { stopReason: 'end_turn' };
     } catch (err) {
@@ -227,7 +245,7 @@ function extractTextFromPrompt(prompt: acp.ContentBlock[] | undefined): string {
     .join('\n');
 }
 
-export function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
+function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
   setBaseUrl(opts.apiUrl);
   if (opts.apiKey) {
     setTokenProvider({ getToken: () => opts.apiKey ?? null });
