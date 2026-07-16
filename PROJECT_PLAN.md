@@ -39,6 +39,12 @@
 | 全量测试                | `pnpm turbo test`                            | 0      | ✅ 12 tasks passed               |
 | 全量构建+类型+检查+测试 | `pnpm turbo build typecheck lint test`       | 0      | ✅ 51 tasks passed               |
 
+### 补漏:fastify 变量名盲区与 7 条遗漏重复桩(2026-07-17)✅(2026-07-17)
+
+- [x] ✅(2026-07-17) `check-api-routes.mjs`:methodRe 加入 `fastify` 变量名,识别 `zhs-course.ts`/`legacy-completion.ts`/`share-content.ts` 的路由注册(原仅识别 server/s/child/scope/authed/instance/app),后端路由从 2661 增至 2750,消除 6 条 course/pay、course/platform-logs 误报
+- [x] ✅(2026-07-17) `frontend-stub-admin-routes.ts`:删除 7 条遗漏重复桩(course/pay PUT/DELETE/POST、course/platform-logs PUT/DELETE/POST、courses DELETE),这些路由已由 `adminZhsCourseRoutes` 嵌套复用 `zhsCourseRoutes` 与 `registerCrud(server, '/courses', ...)` 注册,重复桩导致 `buildServer()` 报 `Method already declared`
+- [x] ✅(2026-07-17) `admin-missing-routes.test.ts`:`pluginTimeout` 提升至 60s,避免全量 test 并发 transform 冷启动时 10s 超时
+
 ### 残留风险与后续任务
 
 - 无。后端路由冲突已清理完毕,检测工具已修复,全量验证通过。
