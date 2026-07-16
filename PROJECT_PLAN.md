@@ -3187,6 +3187,32 @@ packages/api-client/
     - migrate-legacy-data.ts 未在真实 MySQL 验证(需生产环境 LEGACY_DATABASE_URL + `pnpm --filter @ihui/api add mysql2`)
     - git push 15 个 commit(需用户显式要求)
     - @ihui/web build 失败(Next.js 15 App Router + output:standalone 已知 bug,非本次引入)
+- [x] ✅(2026-07-17) P1-多端-13:多端互通修复清单(P0-P2)完美收尾 📋(2026-07-17) plan
+  - **目标**:诚实核查多端互通实际达成度,按 P0/P1/P2 优先级清单完美细致完整修复,直到无后续建议可给
+  - **P0 任务(3 项,全部完成)**:
+    1. **API 登录契约不匹配修复** — 小程序/mobile-rn 调用 `/auth/login/password`、`/auth/login/sms`、`/auth/login/wechat`,但 API 仅有 `/auth/login`。在 `apps/api/src/routes/auth.ts` 新增 3 个 Zod schema(phoneLoginSchema/smsLoginSchema/wechatLoginSchema)+ 3 个别名路由:`POST /login/password`(手机号+密码,含锁定检查/风控评估/token 签发)、`POST /login/sms`(验证 codeStore 一次性消费)、`POST /login/wechat`(501 诚实不假装支持 OAuth)。`apps/api/tests/success-paths.test.ts` 新增 12 个测试(password 成功/密码错误/用户不存在/缺字段 + sms 验证码正确/错误/用户不存在/缺字段 + wechat 501/缺 code),全部通过
+    2. **@ihui/api-client 共享层补齐** — `packages/api-client/src/endpoints/auth.ts` 从 4 个 change-phone 函数完全重写为 13 个完整认证函数:`loginByAccount`/`loginByPhone`/`loginBySms`/`loginByWechat`/`register`/`logout`/`refreshAccessToken`/`sendSmsCode`/`getMe`,新增 3 个类型(`AuthUser`/`LoginResult`/`SmsScene`),保留原 4 个 change-phone 函数
+    3. **desktop/mobile-rn 改用 api-client** — desktop `LoginPage.tsx` 从 `fetchApi('/auth/login')` 改用 `loginByAccount`,新增 `setRefreshToken` 存储;`Layout.tsx` logout 改为先调 `apiLogout(refreshToken)` 再 `clearToken`;`lib/token.ts` 新增 `getRefreshToken`/`setRefreshToken`,`clearToken` 同时清两个 token。mobile-rn `AuthContext.tsx` 完全重写用 `loginByAccount`/`apiLogout`,移除本地 `AuthUser` 定义改从 api-client 导入;`lib/token.ts`/`lib/config.ts` 新增 refreshToken 存储;`HomeScreen.tsx` `user.username`→`user.phone`(AuthUser 无 username);`ProfileScreen.tsx` 移除 `useAuth` fallback 改用 `getProfile()` 单一数据源
+  - **P1 任务(2 项,全部完成)**: 4. **extension 补齐 entrypoint** — 新建 `entrypoints/popup/App.tsx`(登录+用户信息+打开 sidepanel)+ `entrypoints/background.ts`(initApi+onInstalled)+ `entrypoints/sidepanel/App.tsx`(streamChat SSE 流式 AI 对话,支持发送/停止/错误显示,未登录提示)+ popup/sidepanel 各自 `index.html`+`main.tsx`。wxt.config.ts 已有 popup+sidepanel 配置无需修改,lib/token.ts+lib/config.ts 已有无需修改 5. **mobile-rn 功能核查** — WalletScreen(getBalance+4 卡片)/OrderScreen(getOrders+7 状态徽章)/CourseScreen(getCourses+搜索+分页)/SettingsScreen(生物识别/剪贴板/推送/截图)/ProfileScreen(getProfile)5 个 screen 均有真实 API 调用非空壳,ChatScreen 用 streamChat SSE 流式,无需补齐
+  - **P2 任务(1 项,评估后跳过)**: 6. **WebSocket 客户端接入评估** — 经核查 web 端 `use-websocket.ts`+`create-websocket-hook.ts` 主要用于 AI 响应推送(ai_response)替换本地占位消息 + 通知推送。mobile-rn/desktop/extension 三端的 AI 对话均用 `streamChat` SSE 流式实现实时 UI 更新,流结束内容已完整,不需要 WS 推送替换占位;通知推送各有原生通道(mobile Expo Push/desktop Tauri/extension chrome.notifications)。按 AGENTS.md "做减法,最小化代码,零冗余"原则,WS 接入对三端非必须,跳过不硬塞
+  - **验证证据(2026-07-17)**:
+    - typecheck 5 端全绿:`@ihui/api-client` / `@ihui/api` / `@ihui/desktop` / `@ihui/mobile-rn` / `@ihui/web` 退出码均 0
+    - test:`@ihui/api` 3266 tests passed(含新增 12 个登录别名测试);`@ihui/web` 21 test files / 204 tests passed
+    - lint:5 端并行 `pnpm lint` 无 error/warning/problem 输出
+  - **多端互通实际达成度评估(诚实)**:
+    | 维度             | 状态     | 证据                                                                                                  |
+    | ---------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+    | API 登录契约统一 | ✅ 完整  | `/auth/login` + `/login/password` + `/login/sms` + `/login/wechat` 4 入口,12 测试                     |
+    | 共享 api-client  | ✅ 完整  | 13 个认证函数 + 3 类型,4 端(web/desktop/mobile-rn/extension)统一调用                                  |
+    | 双 token 机制    | ✅ 完整  | accessToken + refreshToken 存储 + logout 吊销,desktop/mobile-rn 已接入                                |
+    | AI 对话流式      | ✅ 完整  | 4 端均用 streamChat SSE(web use-chat + desktop ChatPage + mobile-rn ChatScreen + extension sidepanel) |
+    | 业务页面对齐     | ✅ 完整  | 5 核心页(Chat/Profile/Wallet/Course/Settings)4 端对齐,mobile-rn 额外有 Order                          |
+    | 实时通知         | ⚠ 分通道 | web 用 WS,mobile/desktop/extension 用各原生通道(非统一但够用)                                         |
+  - **残留风险/未完成**:
+    - mobile-rn `usePush` 已有但未对接业务通知(订单状态变更等),需后端 push service 接入 Expo Push token
+    - extension sidepanel `streamChat` 在 service worker 环境未真机验证(仅 typecheck)
+    - WebSocket 跨端统一:若未来要求"4 端实时通知体验完全一致",需补 desktop(Tauri WS)/mobile-rn(RN WebSocket)/extension(chrome WS)三端 WS 客户端,当前按"够用"原则跳过
+    - git commit(需用户显式要求,本次未自动 commit)
 - [x] ✅(2026-07-17) grok-build 迁移完整性深度复审 — 对比 grok-build 32 类能力 vs IHUI-AI cli 47 项已整合能力,识别 5 类高价值缺口 + 10 类增强项 + 6 类可借鉴理念 + 8 类不需要整合
   - **审计方法**:WebSearch + WebFetch 获取 grok-build 完整能力清单(xai-org/grok-build 62 crate/32 类能力)+ search agent 深度核查 IHUI-AI apps/cli 当前 47 项能力实现状态 + general_purpose_task agent 逐项对比分析
   - **已整合能力(47 项,无假阳性)**:Agent 引擎(7)+ 工具系统(16)+ 安全治理(7)+ 集成协议(7)+ 用户体验(10),三端复用 setupAgentTools+runToolLoop 公共函数
