@@ -16,6 +16,7 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui'
+import { ImageUpload } from '@/components/form/ImageUpload'
 import { TYPES, selectClass } from './helpers'
 import type { FeedbackType } from './types'
 
@@ -28,6 +29,8 @@ interface Props {
   setContent: (v: string) => void
   contact: string
   setContact: (v: string) => void
+  images: string[]
+  setImages: (v: string[]) => void
   formError: string | null
   isPending: boolean
   onSubmit: (e: React.FormEvent) => void
@@ -43,6 +46,8 @@ export function FeedbackForm({
   setContent,
   contact,
   setContact,
+  images,
+  setImages,
   formError,
   isPending,
   onSubmit,
@@ -103,6 +108,17 @@ export function FeedbackForm({
               onChange={(e) => setContact(e.target.value)}
               placeholder={t('contactPlaceholder')}
               maxLength={128}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="fb-images">{t('field_images')}</Label>
+            <ImageUpload
+              value={images}
+              onChange={(v) => setImages(Array.isArray(v) ? v : [v])}
+              multiple
+              maxCount={5}
+              placeholder={t('imagesPlaceholder')}
             />
           </div>
 
