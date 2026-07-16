@@ -19,7 +19,22 @@ export * from './endpoints/chat.js'
 export * from './endpoints/community.js'
 export * from './endpoints/course.js'
 export * from './endpoints/developer.js'
-export * from './endpoints/distribution.js'
+export {
+  type CommissionOverview,
+  type InviteInfo,
+  type InvitedUser,
+  type CommissionRecord,
+  type CommissionWithdrawRecord,
+  type CommissionRanking,
+  type DayMonthSummary,
+  getOverview,
+  getInviteInfo,
+  getInvitedUsers,
+  getCommissionList,
+  getWithdrawList,
+  requestWithdraw,
+  getDayMonthSummary,
+} from './endpoints/distribution.js'
 export * from './endpoints/exam.js'
 export * from './endpoints/learn.js'
 export * from './endpoints/live.js'
@@ -37,7 +52,9 @@ export * from './endpoints/wallet.js'
 export * from './endpoints/workspace.js'
 
 // Explicit re-exports to resolve naming conflicts between modules.
-// These同名函数签名/用途不�?显式指定主来源以消除 export * 歧义(TS2308)�?// 仍可通过子路�?@ihui/api-client/endpoints/<name> 访问任一模块的同名导出�?export { getRanking } from './endpoints/business.js'
+// 同名函数签名/用途不同,显式指定主来源以消除 export * 歧义(TS2308)。
+// 仍可通过子路径 @ihui/api-client/endpoints/<name> 访问任一模块的同名导出。
+export { getRanking } from './endpoints/business.js'
 export { getMessages, sendMessage } from './endpoints/chat.js'
 export { getCategories } from './endpoints/system.js'
 export { getUserStatistics } from './endpoints/user.js'
