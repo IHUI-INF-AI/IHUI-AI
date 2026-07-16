@@ -44,7 +44,7 @@ export function loadMcpConfig(): McpConfig {
   }
 }
 
-export function saveMcpConfig(config: McpConfig): void {
+function saveMcpConfig(config: McpConfig): void {
   const configPath = getMcpConfigPath();
   const dir = path.dirname(configPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

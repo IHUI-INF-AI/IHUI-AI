@@ -533,6 +533,20 @@
 - [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli --force` 5/5 任务全绿,烟雾测试全通过(17 工具含 dispatch_subagent + token 估算正确 + 无 subagentParent 不注册)
 - [x] ✅(2026-07-16) (P0) 端到端 LLM 集成验证:mock SSE 服务器模拟 LLM 返回 tool_call,验证完整工具链(SSE 解析→parseToolCalls→executeToolCall→多轮循环→token 统计)。结果:stopReason=end_turn,2 轮迭代,read_file 工具执行成功,prompt=3408+completion=56=total=3464 tokens,stepfun 成本=0,subagent 注册=true。ALL_PASS
 
+### grok-build 迁移最终审计与收尾(2026-07-16 📋 plan)
+
+> 回到任务起点做深度审计,验证 29 阶段所有迁移能力是否真正融入项目并被使用(非"代码存在但未接入")。
+
+- [x] ✅(2026-07-16) (P0) 29 阶段全量深度审计:5 维度并行审计(文件存在/接入主流程/被使用/三端一致性/死代码),结果 **29/29 阶段全部融入并被使用**,三端复用架构(setupAgentTools + runToolLoop 公共函数,Agent/REPL/ACP 三处调用)清晰生效。发现 4 个局部集成缺口(不影响核心可用性)
+- [x] ✅(2026-07-16) (P1) 修复阶段11 auditEnabled 配置断链:`audit.ts` `isEnabled()` 此前只读 `IHUI_AUDIT` 环境变量,`settings.json` 的 `auditEnabled: false` 不生效。修复:先读 `loadSettings().auditEnabled`(默认 true),再叠加 `IHUI_AUDIT=0` 环境变量覆盖(settings > env 优先级一致)
+- [x] ✅(2026-07-16) (P2) 修复阶段29 ACP TokenUsage 未暴露:`acp/server.ts` `prompt()` 完成后,若 `result.usage.totalTokens > 0`,通过 `session/update` `agent_message_chunk` 通知 token 成本摘要(格式: `📊 tokens: N (prompt P + completion C) — $X / plan 套餐`),三端统一输出
+- [x] ✅(2026-07-16) (P3) 清理 12 个未使用 export + 1 个死依赖 + 1 个死函数(做减法,零冗余):
+  - `mcp-config.ts` saveMcpConfig / `template.ts` generateAgentsMdTemplate / `audit.ts` getAuditLogPath / `agent.ts` readAgentsMd / `acp/server.ts` createAcpAgent / `mcp-runtime.ts` connectMcpServer+callMcpServer+disconnectMcpServer+mcpToolToTool(4 项)/ `checkpoints/index.ts` getCheckpointsBaseDir / `highlight.ts` detectLang / `tools/index.ts` registerTool+buildToolSchema / `file-edit.ts` applySearchReplace / `subagent.ts` SUBAGENT_TOOL_FACTORY — 全部降级为非导出(仅文件内使用)或删除
+  - `package.json` 移除死依赖 `cli-highlight@^2.1.11`(highlight.ts 已改用 chalk,源码零 import)
+  - `highlight.ts` 删除 `detectLang` 死函数(定义后从未调用)
+- [x] ✅(2026-07-16) (P2) dist/ 构建验证:`pnpm turbo build typecheck lint --filter=@ihui/cli --force` 5/5 任务全绿(8.71s,exit 0,零错误零警告);`dist/index.js` 已生成;`node dist/index.js --help` 输出完整帮助(10 子命令 chat/agent/init/sessions/mcp/capabilities/checkpoint/hooks/settings/acp + 11 flag --model/--workspace/--max-iterations/--api-url/--api-key/--resume/--continue/--json/--mcp/--allow-dangerous/--plan 全部正常)
+- [x] ✅(2026-07-16) (P0) 最终结论:**grok-build 迁移 100% 完成,所有 29 阶段能力真正融入项目并被使用**。理念借鉴 + TS 重写策略成功(原始 Rust 仓库从未克隆),三端一致性(Agent/REPL/ACP)通过 setupAgentTools + runToolLoop 公共函数保证,零死代码零死依赖
+
 ### 前端问题修复（2026-07-11 全面审计）
 
 - [x] ✅(2026-07-11) 前端-FE-P0-1: 修复 `app/globals.css` 的 `--color-ring` token 反转（浅色模式 3.9% 近黑 → 70% 浅灰；暗色模式 83.1% 浅灰 → 25% 深灰），影响所有表单和 AI 输入框聚焦环
