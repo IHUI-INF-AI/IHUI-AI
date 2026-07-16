@@ -9,8 +9,14 @@
  *
  * Headless 模式(--json 或非 TTY):输出 NDJSON 事件流。
  * Exit code:0=成功 / 1=失败 / 2=部分完成(max_iterations) / 130=中断
+ *
+ * 公共函数(供 REPL/ACP 复用):
+ *   - setupAgentTools:注册工具 + 构建 system prompt(含 AGENTS.md 注入)
+ *   - runToolLoop:执行多轮工具循环,支持回调(onDelta/onToolCall/onToolResult)
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import chalk from 'chalk';
 import { streamChat, setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import {
@@ -28,6 +34,11 @@ import { createFileEditTools } from '../tools/file-edit.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import { compressContext } from '../context.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
+
+export type { ToolContext } from '../tools/index.js';
+
+type ChatRole = 'system' | 'user' | 'assistant';
+type ChatMessage = { role: ChatRole; content: string };
 
 export interface AgentOptions {
   prompt: string;
@@ -58,12 +69,35 @@ type HeadlessEvent =
   | { type: 'error'; message: string }
   | { type: 'complete'; stopReason: AgentStopReason; iterations: number };
 
-export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
-  setBaseUrl(opts.apiUrl);
-  if (opts.apiKey) {
-    setTokenProvider({ getToken: () => opts.apiKey ?? null });
-  }
+// ==================== 公共函数 ====================
 
+/** 读取工作区 AGENTS.md(如果存在),用于注入 system prompt */
+export function readAgentsMd(workspacePath: string): string | undefined {
+  const p = path.join(workspacePath, 'AGENTS.md');
+  try {
+    if (fs.existsSync(p)) {
+      return fs.readFileSync(p, 'utf-8');
+    }
+  } catch {
+    // 读取失败忽略
+  }
+  return undefined;
+}
+
+export interface SetupAgentToolsOptions {
+  workspacePath: string;
+  checkpoints?: CheckpointManager;
+  enableMcp?: boolean;
+  silent?: boolean;
+}
+
+export interface SetupAgentToolsResult {
+  systemPrompt: string;
+  ctx: ToolContext;
+}
+
+/** 注册工具 + 构建 system prompt(含 AGENTS.md 注入) */
+export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<SetupAgentToolsResult> {
   clearTools();
   registerTools(BUILTIN_TOOLS);
   if (opts.checkpoints) {
@@ -74,7 +108,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       const mcpTools = await loadMcpTools({ workspacePath: opts.workspacePath });
       if (mcpTools.length > 0) {
         registerTools(mcpTools);
-        if (opts.jsonMode !== true) console.info(chalk.dim(`  🔌 已加载 ${mcpTools.length} 个 MCP 工具`));
+        if (!opts.silent) console.info(chalk.dim(`  🔌 已加载 ${mcpTools.length} 个 MCP 工具`));
       }
     } catch {
       // MCP 加载失败不阻塞
@@ -82,8 +116,122 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
   }
 
   const tools = listTools();
-  const systemPrompt = buildSystemPrompt(tools);
+  const agentsMd = readAgentsMd(opts.workspacePath);
+  const systemPrompt = buildSystemPrompt(tools, agentsMd);
   const ctx: ToolContext = { workspacePath: opts.workspacePath };
+
+  return { systemPrompt, ctx };
+}
+
+export interface RunToolLoopOptions {
+  modelId: string;
+  messages: ChatMessage[];
+  ctx: ToolContext;
+  maxIterations: number;
+  signal?: AbortSignal;
+  onDelta?: (delta: string) => void | Promise<void>;
+  onToolCall?: (name: string, args: Record<string, unknown>) => void | Promise<void>;
+  onToolResult?: (name: string, success: boolean, output: string) => void | Promise<void>;
+  onIteration?: (count: number, max: number) => void | Promise<void>;
+  onError?: (message: string) => void | Promise<void>;
+}
+
+export interface RunToolLoopResult {
+  stopReason: AgentStopReason;
+  assistantText: string;
+  iterations: number;
+}
+
+/** 执行多轮工具循环,直到 end_turn 或 maxIterations。messages 数组会被原地修改(追加 assistant + tool_result 消息) */
+export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoopResult> {
+  let assistantText = '';
+  let hadError = false;
+  let iterations = 0;
+
+  try {
+    for (let i = 0; i < opts.maxIterations; i++) {
+      iterations = i + 1;
+      await opts.onIteration?.(iterations, opts.maxIterations);
+
+      const compression = compressContext(opts.messages);
+      const effectiveMessages = compression.messages;
+
+      let iterationText = '';
+      let iterError = false;
+
+      await streamChat({
+        model: opts.modelId,
+        messages: effectiveMessages,
+        signal: opts.signal,
+        onDelta: (delta) => {
+          iterationText += delta;
+          void opts.onDelta?.(delta);
+        },
+        onError: (err) => {
+          iterError = true;
+          hadError = true;
+          void opts.onError?.(err);
+        },
+        onDone: () => {
+          // 由调用方处理
+        },
+      });
+
+      if (iterError) break;
+
+      opts.messages.push({ role: 'assistant', content: iterationText });
+      assistantText += iterationText;
+
+      const toolCalls = parseToolCalls(iterationText);
+
+      if (toolCalls.length === 0) {
+        break;
+      }
+
+      const resultParts: string[] = [];
+      for (const call of toolCalls) {
+        await opts.onToolCall?.(call.name, call.arguments);
+
+        const result = await executeToolCall(call, opts.ctx);
+
+        await opts.onToolResult?.(call.name, result.success, result.output);
+        resultParts.push(formatToolResult(call, result));
+      }
+
+      opts.messages.push({ role: 'user', content: resultParts.join('\n\n') });
+    }
+  } catch (err) {
+    hadError = true;
+    const msg = err instanceof Error ? err.message : String(err);
+    await opts.onError?.(msg);
+  }
+
+  let stopReason: AgentStopReason;
+  if (hadError) {
+    stopReason = 'error';
+  } else if (iterations >= opts.maxIterations) {
+    stopReason = 'max_iterations';
+  } else {
+    stopReason = 'end_turn';
+  }
+
+  return { stopReason, assistantText, iterations };
+}
+
+// ==================== Agent 模式(非交互式) ====================
+
+export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
+  setBaseUrl(opts.apiUrl);
+  if (opts.apiKey) {
+    setTokenProvider({ getToken: () => opts.apiKey ?? null });
+  }
+
+  const { systemPrompt, ctx } = await setupAgentTools({
+    workspacePath: opts.workspacePath,
+    checkpoints: opts.checkpoints,
+    enableMcp: opts.enableMcp,
+    silent: opts.jsonMode === true,
+  });
 
   const jsonMode = opts.jsonMode === true;
   const emit = (event: HeadlessEvent): void => {
@@ -97,105 +245,46 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     console.info(chalk.dim(`任务: ${opts.prompt}\n`));
   }
 
-  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+  const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
     { role: 'user', content: opts.prompt },
   ];
 
-  let assistantText = '';
-  let hadError = false;
-  let iterations = 0;
-
-  try {
-    for (let i = 0; i < opts.maxIterations; i++) {
-      iterations = i + 1;
-      emit({ type: 'iteration', count: iterations, max: opts.maxIterations });
-
-      const compression = compressContext(messages);
-      if (compression.compressed && !jsonMode) {
-        console.info(chalk.dim(`  📦 上下文压缩: ${compression.originalTokens} → ${compression.compressedTokens} tokens (移除 ${compression.removedCount} 条)`));
+  const result = await runToolLoop({
+    modelId: opts.modelId,
+    messages,
+    ctx,
+    maxIterations: opts.maxIterations,
+    onDelta: (delta) => {
+      if (jsonMode) emit({ type: 'message_delta', text: delta });
+      else process.stdout.write(delta);
+    },
+    onToolCall: (name, args) => {
+      emit({ type: 'tool_call', name, arguments: args });
+      if (!jsonMode) console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`));
+    },
+    onToolResult: (name, success, output) => {
+      emit({ type: 'tool_result', name, success, output });
+      if (!jsonMode) {
+        const icon = success ? '✓' : '✗';
+        console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
       }
-      const effectiveMessages = compression.messages;
-
-      let iterationText = '';
-      let iterError = false;
-
-      await streamChat({
-        model: opts.modelId,
-        messages: effectiveMessages,
-        onDelta: (delta) => {
-          iterationText += delta;
-          if (jsonMode) emit({ type: 'message_delta', text: delta });
-          else process.stdout.write(delta);
-        },
-        onError: (err) => {
-          iterError = true;
-          hadError = true;
-          if (jsonMode) emit({ type: 'error', message: err });
-          else console.error(chalk.red(`\n❌ ${err}`));
-        },
-        onDone: () => {
-          if (!jsonMode) console.info('');
-        },
-      });
-
-      if (iterError) break;
-
-      messages.push({ role: 'assistant', content: iterationText });
-      assistantText += iterationText;
-
-      const toolCalls = parseToolCalls(iterationText);
-
-      if (toolCalls.length === 0) {
-        break;
-      }
-
-      if (!jsonMode) console.info(chalk.dim(`\n  📦 检测到 ${toolCalls.length} 个工具调用`));
-
-      const resultParts: string[] = [];
-      for (const call of toolCalls) {
-        emit({ type: 'tool_call', name: call.name, arguments: call.arguments });
-        if (!jsonMode) console.info(chalk.cyan(`  🔧 ${call.name} ${JSON.stringify(call.arguments)}`));
-
-        const result = await executeToolCall(call, ctx);
-
-        emit({ type: 'tool_result', name: call.name, success: result.success, output: result.output });
-        if (!jsonMode) {
-          const icon = result.success ? '✓' : '✗';
-          console.info(chalk.dim(`  ${icon} ${result.output.slice(0, 200)}`));
-        }
-
-        resultParts.push(formatToolResult(call, result));
-      }
-
-      messages.push({ role: 'user', content: resultParts.join('\n\n') });
-
-      if (i === opts.maxIterations - 1) {
-        if (!jsonMode) console.info(chalk.yellow(`\n  ⚠ 达到最大迭代次数 (${opts.maxIterations})`));
-      }
-    }
-  } catch (err) {
-    hadError = true;
-    const msg = err instanceof Error ? err.message : String(err);
-    if (jsonMode) emit({ type: 'error', message: msg });
-    else console.error(chalk.red(`\n❌ ${msg}`));
-  }
-
-  let stopReason: AgentStopReason;
-  if (hadError) {
-    stopReason = 'error';
-  } else if (iterations >= opts.maxIterations) {
-    stopReason = 'max_iterations';
-  } else {
-    stopReason = 'end_turn';
-  }
+    },
+    onIteration: (count, max) => {
+      emit({ type: 'iteration', count, max });
+    },
+    onError: (message) => {
+      emit({ type: 'error', message });
+      if (!jsonMode) console.error(chalk.red(`\n❌ ${message}`));
+    },
+  });
 
   if (!jsonMode) {
-    console.info(chalk.green(`\n✨ 完成 (${iterations} 轮迭代, ${stopReason})\n`));
+    console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${result.stopReason})\n`));
   }
-  emit({ type: 'complete', stopReason, iterations });
+  emit({ type: 'complete', stopReason: result.stopReason, iterations: result.iterations });
 
-  return { stopReason, assistantText, iterations };
+  return result;
 }
 
 export function stopReasonToExitCode(reason: AgentStopReason): number {
