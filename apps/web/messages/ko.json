@@ -326,6 +326,7 @@
     "admin": "관리게",
     "help": "돕는",
     "search": "검색",
+    "myLearning": "내 학습",
     "favorites": "즐겨찾기",
     "following": "완료팔로우",
     "subscriptions": "구독",
@@ -1498,7 +1499,10 @@
       "rolesAuthUser": "역할 인증 사용자",
       "rolesSelectUser": "사용자 선택",
       "ossFiles": "파일 관리",
-      "notificationDispatch": "타겟 알림"
+      "notificationDispatch": "타겟 알림",
+      "messageOverview": "메시지 개요",
+      "visitTracking": "방문 추적",
+      "examMarking": "시험 채점"
     },
     "refund": {
       "title": "AI인마음페이스테스트",

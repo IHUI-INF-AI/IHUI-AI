@@ -13,6 +13,16 @@ import { agentsMdExists, writeAgentsMd } from './template.js';
 import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import { setupAgentTools, runToolLoop, type ToolContext } from './agent.js';
+import { findSkill, type Skill } from '../skills/index.js';
+import {
+  getMemoryStore,
+  loadMemory,
+  searchMemory,
+  addMemoryEntry,
+  clearMemory,
+  setMemoryEnabled,
+  type MemoryEntry,
+} from '../memory/index.js';
 
 export interface ReplOptions {
   modelId: string;
@@ -36,6 +46,8 @@ interface ReplState {
   agentReady: boolean;
   systemPrompt: string | null;
   ctx: ToolContext | null;
+  skills: Skill[];
+  memory: MemoryEntry[];
 }
 
 export async function startREPL(opts: ReplOptions): Promise<void> {
@@ -47,6 +59,8 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     agentReady: false,
     systemPrompt: null,
     ctx: null,
+    skills: [],
+    memory: [],
   };
   if (state.session) {
     state.checkpoints = new CheckpointManager({
@@ -100,6 +114,9 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info('  /tools             列出可用工具');
       console.info('  /init              创建 AGENTS.md 模板');
       console.info('  /mcp               列出已配置的 MCP 服务器');
+      console.info('  /skills            列出已加载的 skills');
+      console.info('  /skill <name>      查看 skill 内容');
+      console.info('  /memory [cmd]      管理跨会话记忆(on/off/show/add/clear/search)');
       console.info(chalk.cyan('\n检查点:'));
       console.info('  /checkpoint [files...]  创建/列出检查点 (别名 /cp)');
       console.info('  /rollback <id|auto>      回滚到检查点 (别名 /rb)');
@@ -163,6 +180,103 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
     case 'mcp':
       handleMcpList();
       break;
+
+    case 'skills': {
+      if (state.skills.length === 0) {
+        console.info(chalk.dim('暂无 skills(可在 .ihui/skills/*.md 或 ~/.ihui/skills/*.md 创建)'));
+      } else {
+        console.info(chalk.cyan(`\n已加载 ${state.skills.length} 个 skill:`));
+        for (const s of state.skills) {
+          console.info(`  ${chalk.bold(s.name)} — ${chalk.dim(s.description)}`);
+        }
+        console.info('');
+      }
+      break;
+    }
+
+    case 'skill': {
+      const name = args[0];
+      if (!name) {
+        console.info(chalk.yellow('用法: /skill <name>'));
+        break;
+      }
+      const skill = findSkill(state.skills, name);
+      if (!skill) {
+        console.info(chalk.yellow(`未找到 skill: ${name}(/skills 查看可用列表)`));
+        break;
+      }
+      console.info(chalk.cyan(`\n# ${skill.name}`));
+      console.info(chalk.dim(`来源: ${skill.source}`));
+      console.info(chalk.dim(`描述: ${skill.description}\n`));
+      console.info(skill.body);
+      console.info('');
+      break;
+    }
+
+    case 'memory': {
+      const sub = args[0] ?? 'show';
+      const store = getMemoryStore(state.opts.workspacePath);
+      if (sub === 'on') {
+        setMemoryEnabled(true);
+        console.info(chalk.green('✓ memory 已启用'));
+      } else if (sub === 'off') {
+        setMemoryEnabled(false);
+        console.info(chalk.yellow('✓ memory 已关闭'));
+      } else if (sub === 'show') {
+        const entries = loadMemory(state.opts.workspacePath);
+        if (entries.length === 0) {
+          console.info(chalk.dim('暂无 memory 条目(/memory add <text> 添加)'));
+        } else {
+          console.info(chalk.cyan(`\n已加载 ${entries.length} 条 memory:`));
+          for (const e of entries) {
+            const tag = e.source === 'global' ? '🌐' : '📁';
+            console.info(`  ${tag} [${e.category}] ${e.text}`);
+          }
+          console.info('');
+        }
+      } else if (sub === 'add') {
+        const text = args.slice(1).join(' ');
+        if (!text) {
+          console.info(chalk.yellow('用法: /memory add <text> [--global] [--category <名称>]'));
+          break;
+        }
+        const isGlobal = args.includes('--global');
+        const catIdx = args.indexOf('--category');
+        const category = catIdx >= 0 ? args[catIdx + 1] ?? '通用' : '通用';
+        const target = isGlobal ? store.globalPath : store.projectPath;
+        addMemoryEntry(target, text, category);
+        console.info(chalk.green(`✓ 已添加 memory(${isGlobal ? '全局' : '项目'}): ${text}`));
+        // 重新加载到 state
+        state.memory = loadMemory(state.opts.workspacePath);
+      } else if (sub === 'clear') {
+        const isGlobal = args.includes('--global');
+        const target = isGlobal ? store.globalPath : store.projectPath;
+        clearMemory(target);
+        console.info(chalk.green(`✓ 已清空 ${isGlobal ? '全局' : '项目'} memory`));
+        state.memory = loadMemory(state.opts.workspacePath);
+      } else if (sub === 'search') {
+        const query = args.slice(1).join(' ');
+        if (!query) {
+          console.info(chalk.yellow('用法: /memory search <关键词>'));
+          break;
+        }
+        const entries = loadMemory(state.opts.workspacePath);
+        const matched = searchMemory(entries, query);
+        if (matched.length === 0) {
+          console.info(chalk.dim(`未找到匹配 "${query}" 的 memory`));
+        } else {
+          console.info(chalk.cyan(`\n找到 ${matched.length} 条匹配:`));
+          for (const e of matched) {
+            const tag = e.source === 'global' ? '🌐' : '📁';
+            console.info(`  ${tag} [${e.category}] ${e.text}`);
+          }
+          console.info('');
+        }
+      } else {
+        console.info(chalk.yellow('用法: /memory [on|off|show|add <text>|clear|search <关键词>]'));
+      }
+      break;
+    }
 
     case 'checkpoint':
     case 'cp':
@@ -356,6 +470,8 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
     });
     state.systemPrompt = result.systemPrompt;
     state.ctx = result.ctx;
+    state.skills = result.skills;
+    state.memory = result.memory;
     state.agentReady = true;
   }
 

@@ -238,7 +238,7 @@ export interface MarkRecordRow extends ExamRecord {
 }
 
 /**
- * 分页查询待评分答题记录(exam_records 中 status='pending')。
+ * 分页查询待评分答题记录(exam_records 中 status='submitted',已提交待人工评分)。
  * 支持 paperId 筛选与关键词搜索(用户昵称/手机号)。
  */
 export async function findMarkRecordList(opts: {
@@ -247,7 +247,8 @@ export async function findMarkRecordList(opts: {
   paperId?: string
   search?: string
 }): Promise<{ list: MarkRecordRow[]; total: number }> {
-  const conds = [eq(examRecords.status, 'pending')]
+  // 查 status='submitted' 的记录(已提交待人工评分),pending 表示用户尚未提交无法评分
+  const conds = [eq(examRecords.status, 'submitted')]
   if (opts.paperId) conds.push(eq(examRecords.paperId, opts.paperId))
   let where = and(...conds)
   if (opts.search) {
