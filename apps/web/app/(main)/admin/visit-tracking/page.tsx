@@ -24,9 +24,8 @@ import {
 interface VisitStats {
   pv?: number
   uv?: number
-  vv?: number
-  ip?: number
-  ipNum?: number
+  ipCount?: number
+  memberCount?: number
   [k: string]: unknown
 }
 interface TrendItem {
@@ -84,11 +83,11 @@ export default function VisitTrackingPage() {
   })
   const { data: pvTrend, isLoading: lt } = useQuery({
     queryKey: ['visit-tracking', 'pv', start, end],
-    queryFn: () => eduApi<PageList<TrendItem>>(`/api/admin/visit-tracking/day/pv/list${qs}`),
+    queryFn: () => eduApi<{ list: TrendItem[] }>(`/api/admin/visit-tracking/day/pv/list${qs}`),
   })
   const { data: uvTrend } = useQuery({
     queryKey: ['visit-tracking', 'uv', start, end],
-    queryFn: () => eduApi<PageList<TrendItem>>(`/api/admin/visit-tracking/day/uv/list${qs}`),
+    queryFn: () => eduApi<{ list: TrendItem[] }>(`/api/admin/visit-tracking/day/uv/list${qs}`),
   })
   const { data: listData, isLoading: ll } = useQuery({
     queryKey: ['visit-tracking', 'list', start, end, keyword, page],
@@ -117,8 +116,8 @@ export default function VisitTrackingPage() {
   const cards = [
     { title: '总浏览量 PV', value: stats?.pv ?? 0, icon: Eye, loading: ls },
     { title: '总访客数 UV', value: stats?.uv ?? 0, icon: Users, loading: ls },
-    { title: '总访问次数 VV', value: stats?.vv ?? 0, icon: RefreshCw, loading: ls },
-    { title: 'IP 数', value: stats?.ipNum ?? stats?.ip ?? 0, icon: MapPin, loading: ls },
+    { title: 'IP 数', value: stats?.ipCount ?? 0, icon: MapPin, loading: ls },
+    { title: '会员数', value: stats?.memberCount ?? 0, icon: RefreshCw, loading: ls },
   ]
 
   function setRecent(days: number) {
@@ -168,7 +167,7 @@ export default function VisitTrackingPage() {
           <StatCard
             key={c.title}
             title={c.title}
-            value={c.loading ? '—' : c.value}
+            value={c.loading ? '—' : Number(c.value)}
             icon={c.icon}
             loading={c.loading}
           />
