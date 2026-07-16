@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { desc } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
@@ -50,6 +51,7 @@ import {
   findHomeworkById,
   createHomework,
   updateHomework,
+  deleteHomework,
   findMapById,
   deleteMap,
   publishMap,
@@ -97,6 +99,8 @@ import {
   deleteCommunityPost,
 } from '../db/learn-extended-queries.js'
 import { success, error } from '../utils/response.js'
+import { db } from '../db/index.js'
+import { learnHomework } from '@ihui/database'
 
 // =============================================================================
 // Zod schemas
@@ -1855,5 +1859,97 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '作业记录不存在'))
     }
     return reply.send(success({ record: updated }))
+  })
+
+  // ----- Homework Admin (兼容前端 /admin/learn/homework 独立路径) -----
+
+  const homeworkListQuerySchema2 = z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    lessonId: z.string().uuid().optional(),
+    search: z.string().optional(),
+  })
+
+  // GET /learn/homework - 作业分页列表
+  server.get('/learn/homework', async (request, reply) => {
+    const parsed = homeworkListQuerySchema2.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, lessonId, search } = parsed.data
+    const listAll = lessonId
+      ? await findHomeworkList(lessonId)
+      : await db.select().from(learnHomework).orderBy(desc(learnHomework.createdAt))
+    const filtered = search
+      ? listAll.filter((h) => h.title?.toLowerCase().includes(search.toLowerCase()))
+      : listAll
+    const total = filtered.length
+    const offset = (page - 1) * pageSize
+    const list = filtered.slice(offset, offset + pageSize)
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+
+  // POST /learn/homework - 创建作业(lessonId 在 body 中)
+  server.post('/learn/homework', async (request, reply) => {
+    const bodySchema = createHomeworkSchema.extend({ lessonId: z.string().uuid() })
+    const parsed = bodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const lesson = await findLessonByIdAdmin(parsed.data.lessonId)
+    if (!lesson) {
+      return reply.status(404).send(error(404, '课程不存在'))
+    }
+    const homework = await createHomework({
+      lessonId: parsed.data.lessonId,
+      chapterId: parsed.data.chapterId,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      content: parsed.data.content,
+      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+      sort: parsed.data.sort,
+      status: parsed.data.status,
+    })
+    return reply.status(201).send(success({ homework }))
+  })
+
+  // PUT /learn/homework/:id - 更新作业
+  server.put('/learn/homework/:id', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const parsed = updateHomeworkSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findHomeworkById(idParsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '作业不存在'))
+    }
+    const homework = await updateHomework(idParsed.data.id, {
+      chapterId: parsed.data.chapterId,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      content: parsed.data.content,
+      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : undefined,
+      sort: parsed.data.sort,
+      status: parsed.data.status,
+    })
+    return reply.send(success({ homework }))
+  })
+
+  // DELETE /learn/homework/:id - 删除作业
+  server.delete('/learn/homework/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findHomeworkById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '作业不存在'))
+    }
+    await deleteHomework(parsed.data.id)
+    return reply.send(success({ ok: true }))
   })
 }
