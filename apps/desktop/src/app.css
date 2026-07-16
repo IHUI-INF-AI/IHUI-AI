@@ -162,6 +162,35 @@ textarea:focus {
   border-top: 1px solid var(--border);
   font-size: 12px;
   color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ws-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ws-status-dot.connected {
+  background: #16a34a;
+}
+
+.ws-status-dot.disconnected {
+  background: #9ca3af;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ws-status-dot.connected {
+    background: #22c55e;
+  }
+
+  .ws-status-dot.disconnected {
+    background: #4b5563;
+  }
 }
 
 .main-content {
