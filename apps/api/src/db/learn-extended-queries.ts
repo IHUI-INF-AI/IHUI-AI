@@ -488,7 +488,7 @@ export async function findAllTopics(
     .select()
     .from(learnTopic)
     .where(whereCond)
-    .orderBy(desc(learnTopic.createdAt))
+    .orderBy(asc(learnTopic.sort), desc(learnTopic.createdAt))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 
