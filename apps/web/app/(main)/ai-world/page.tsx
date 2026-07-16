@@ -12,6 +12,10 @@ import { UnifiedPanelCard } from './UnifiedPanelCard'
 import { LlmConfigSelector, type SelectedLlmConfig } from './LlmConfigSelector'
 import { fetchAiWorld, streamAiChat } from './helpers'
 import { useAuthStore } from '@/stores/auth'
+import { Button } from '@ihui/ui'
+import { useAiTalk } from '@/hooks/use-ai-talk'
+import { useAIWebSocket } from '@/hooks/use-ai-websocket'
+import { useAiPanel } from '@/hooks/use-ai-panel'
 import type { AiWorldData, ChatMessage } from './types'
 
 export default function AiWorldPage() {
@@ -38,6 +42,16 @@ export default function AiWorldPage() {
   React.useEffect(() => {
     selectedConfigRef.current = selectedConfig
   }, [selectedConfig])
+
+  // AI hooks 接入:面板状态(open/close/mode)+ WebSocket 连接状态 + talk 入口
+  const panel = useAiPanel('chat')
+  const ws = useAIWebSocket('qwen')
+  const aiTalk = useAiTalk({ currentModelName: selectedConfig?.name ?? '' })
+
+  const handleAiTalk = React.useCallback(() => {
+    aiTalk.setPrompt('你好,请介绍一下自己')
+    void aiTalk.talk('qwen-plus', `ai-world-${Date.now()}`)
+  }, [aiTalk])
 
   const handleSend = (text: string) => {
     const trimmed = text.trim()
@@ -192,21 +206,73 @@ export default function AiWorldPage() {
         onNavigate={(href) => router.push(href)}
       />
 
-      <UnifiedPanelCard
-        messages={messages}
-        onSend={handleSend}
-        isStreaming={isStreaming}
-        streamingContent={streamingContent}
-        toolbar={
-          isAuthenticated ? (
-            <LlmConfigSelector
-              value={selectedConfig ? String(selectedConfig.id) : null}
-              onChange={setSelectedConfig}
-              disabled={isStreaming}
-            />
-          ) : null
-        }
-      />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={panel.togglePanel}>
+            {panel.open ? '收起面板' : '展开面板'}
+          </Button>
+          {panel.open &&
+            (['chat', 'agent', 'tools'] as const).map((m) => (
+              <Button
+                key={m}
+                variant={panel.mode === m ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => panel.setMode(m)}
+              >
+                {m === 'chat' ? '对话' : m === 'agent' ? 'Agent' : '工具'}
+              </Button>
+            ))}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          WS: {ws.isConnected ? '已连接' : '未连接'}
+        </div>
+      </div>
+
+      {panel.open && (
+        <>
+          <UnifiedPanelCard
+            messages={messages}
+            onSend={handleSend}
+            isStreaming={isStreaming}
+            streamingContent={streamingContent}
+            toolbar={
+              isAuthenticated ? (
+                <LlmConfigSelector
+                  value={selectedConfig ? String(selectedConfig.id) : null}
+                  onChange={setSelectedConfig}
+                  disabled={isStreaming}
+                />
+              ) : null
+            }
+          />
+
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleAiTalk} disabled={isStreaming}>
+              触发 AI Talk (qwen-plus)
+            </Button>
+            {aiTalk.agentContentList.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                收到 {aiTalk.agentContentList.length} 条响应
+              </span>
+            )}
+          </div>
+
+          {aiTalk.agentContentList.length > 0 && (
+            <div className="space-y-2">
+              {aiTalk.agentContentList.map((item, i) => (
+                <div key={i} className="rounded-md border p-2 text-sm">
+                  {item.content ||
+                    item.videoUrl ||
+                    item.audioUrl ||
+                    (item.imgUrlList.length > 0
+                      ? `[图片 ${item.imgUrlList.length}张]`
+                      : '[空响应]')}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
