@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Loader2, Calendar, Gift, Sparkles, Clock, ArrowRight, UserPlus } from 'lucide-react'
+import { Loader2, Calendar, Gift, Clock, ArrowRight, UserPlus } from 'lucide-react'
 import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
@@ -108,7 +108,15 @@ export default function ActivitiesPage() {
                   </div>
                 ) : (
                   <div className="flex h-36 w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-                    <Sparkles className="h-10 w-10 text-primary/40" />
+                    <Image
+                      src="/images/common/fire-icon.svg"
+                      alt=""
+                      aria-hidden
+                      width={56}
+                      height={56}
+                      className="h-14 w-14 opacity-80"
+                      unoptimized
+                    />
                   </div>
                 )}
                 <CardContent className="flex flex-1 flex-col gap-3 p-4">
