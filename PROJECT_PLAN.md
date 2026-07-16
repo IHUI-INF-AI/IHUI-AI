@@ -483,6 +483,14 @@
 - [x] ✅(2026-07-16) (P0) 阶段16:自我反思/重试机制 — `runToolLoop` 用 Map 跟踪每个工具的连续失败次数,达 2 次注入 system 消息提示 LLM 反思策略 + 重置计数器
 - [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,CLI 启动 + redactSecrets 三模式脱敏测试通过
 
+### cli 第五轮迁移:URL fetch + ora 进度条(2026-07-16 📋 plan)
+
+> 补齐 Agent 联网能力 + 激活已装但零调用的 ora 依赖(沉没成本)。
+
+- [x] ✅(2026-07-16) (P0) 阶段17:URL fetch 工具 — 新增 `tools/fetch-url.ts`,基于 fetch + HTML→text 提取(去 script/style/nav/header/footer),截断到 10K 字符,15s 超时,仅 http/https,接入 dangerLevel='read' + hooks。实测 example.com 抓取成功
+- [x] ✅(2026-07-16) (P1) 阶段18:启用 ora 进度条 — `runAgent` 中 spinner.start(`🔧 执行中 (轮次 N/M)`),onDelta/onToolCall 暂停 spinner,onError 停止,完成后停止。激活 `ora@^8.1.0` 沉没依赖
+- [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,fetch_url 实测 example.com 抓取成功(200 + 183 字符正文)
+
 ### 前端问题修复（2026-07-11 全面审计）
 
 - [x] ✅(2026-07-11) 前端-FE-P0-1: 修复 `app/globals.css` 的 `--color-ring` token 反转（浅色模式 3.9% 近黑 → 70% 浅灰；暗色模式 83.1% 浅灰 → 25% 深灰），影响所有表单和 AI 输入框聚焦环
