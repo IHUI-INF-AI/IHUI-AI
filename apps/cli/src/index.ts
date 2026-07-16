@@ -18,6 +18,7 @@ import chalk from 'chalk';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import { startREPL } from './commands/repl.js';
 import { runAgent } from './commands/agent.js';
 import {
@@ -34,6 +35,7 @@ import {
   getMcpConfigPath,
 } from './commands/mcp-config.js';
 import { registerCapabilitiesCommand } from './commands/capabilities.js';
+import { startAcpServer } from './acp/server.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -80,6 +82,20 @@ function resolveSession(opts: Record<string, unknown>): ResolvedSession {
   }
   return {};
 }
+
+program.hook('preAction', () => {
+  const opts = program.opts();
+  if (typeof opts.apiUrl === 'string') {
+    setBaseUrl(opts.apiUrl);
+  }
+  const apiKey = typeof opts.apiKey === 'string' ? opts.apiKey : '';
+  if (apiKey) {
+    if (process.env.IHUI_API_KEY !== apiKey) {
+      console.warn(chalk.yellow('⚠ --api-key 会暴露在进程列表中,推荐使用 IHUI_API_KEY 环境变量'));
+    }
+    setTokenProvider({ getToken: () => apiKey });
+  }
+});
 
 // 默认命令: 交互式 REPL 或直接执行任务
 program
@@ -252,5 +268,22 @@ mcpCmd
 
 // capabilities 子命令组
 registerCapabilitiesCommand(program);
+
+// acp 子命令 — 启动 ACP (Agent Client Protocol) server,供编辑器嵌入
+program
+  .command('acp')
+  .description('启动 ACP (Agent Client Protocol) server,供 Zed/VSCode/Cursor 等编辑器嵌入')
+  .action(async () => {
+    const opts = program.opts();
+    const connection = startAcpServer({
+      apiUrl: opts.apiUrl,
+      apiKey: opts.apiKey,
+      modelId: opts.model,
+      maxIterations: parseInt(opts.maxIterations, 10),
+    });
+    process.on('SIGINT', () => connection.close());
+    process.on('SIGTERM', () => connection.close());
+    await connection.closed;
+  });
 
 program.parse();

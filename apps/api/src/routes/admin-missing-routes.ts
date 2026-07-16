@@ -85,6 +85,9 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   const { default: ossFilesRoutes } = await import('./admin/oss-files.js')
   await server.register(ossFilesRoutes)
 
+  const { default: adminCommentsRoutes } = await import('./admin/comments.js')
+  await server.register(adminCommentsRoutes)
+
   const { default: statsRoutes } = await import('./admin/stats.js')
   await server.register(statsRoutes)
 }
