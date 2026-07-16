@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { parseStreamLine } from '@ihui/api-client'
+import { parseStreamLine, parseStreamLineReasoning } from '@ihui/api-client'
 
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
@@ -147,6 +147,10 @@ export function useChat(): UseChatReturn {
             if (delta) {
               useChatStore.getState().appendToMessage(assistantId, delta)
             }
+            const reasoningDelta = parseStreamLineReasoning(line)
+            if (reasoningDelta) {
+              useChatStore.getState().appendReasoningToMessage(assistantId, reasoningDelta)
+            }
           }
         }
 
@@ -154,6 +158,10 @@ export function useChat(): UseChatReturn {
           const delta = parseStreamLine(buffer)
           if (delta) {
             useChatStore.getState().appendToMessage(assistantId, delta)
+          }
+          const reasoningDelta = parseStreamLineReasoning(buffer)
+          if (reasoningDelta) {
+            useChatStore.getState().appendReasoningToMessage(assistantId, reasoningDelta)
           }
         }
       } catch (err) {

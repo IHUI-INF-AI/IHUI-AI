@@ -8,6 +8,7 @@ export const EMPTY: PaperForm = {
   duration: '60',
   isPublished: false,
   isRandom: false,
+  status: true,
   cidList: [],
   questionIdList: [],
   questionDisordered: false,

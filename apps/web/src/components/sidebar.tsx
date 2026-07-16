@@ -39,6 +39,8 @@ import {
   GraduationCap,
   Download,
   PlayCircle,
+  BookOpen,
+  ChevronDown,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -100,8 +102,10 @@ interface NavItem {
     | 'agents'
     | 'distribution'
     | 'oauthPlatform'
+    | 'myLearning'
   icon: React.ComponentType<{ className?: string }>
   adminOnly?: boolean
+  children?: NavItem[]
 }
 
 /**
@@ -139,9 +143,6 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/schedule', labelKey: 'schedule', icon: Calendar },
       { href: '/docs', labelKey: 'docs', icon: FileText },
       { href: '/search', labelKey: 'search', icon: Search },
-      { href: '/favorites', labelKey: 'favorites', icon: Star },
-      { href: '/following', labelKey: 'following', icon: Users },
-      { href: '/subscriptions', labelKey: 'subscriptions', icon: Rss },
       { href: '/tags', labelKey: 'tags', icon: Tag },
       { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
     ],
@@ -169,6 +170,21 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: '我的',
+    items: [
+      {
+        href: '/favorites',
+        labelKey: 'myLearning',
+        icon: BookOpen,
+        children: [
+          { href: '/favorites', labelKey: 'favorites', icon: Star },
+          { href: '/following', labelKey: 'following', icon: Users },
+          { href: '/subscriptions', labelKey: 'subscriptions', icon: Rss },
+        ],
+      },
+    ],
+  },
+  {
     label: '个人',
     items: [
       { href: '/user/profile', labelKey: 'user', icon: User },
@@ -191,6 +207,12 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
 ]
+
+function flattenNavItems(items: NavItem[]): NavItem[] {
+  return items.flatMap((item) => [item, ...(item.children ? flattenNavItems(item.children) : [])])
+}
+
+const ALL_NAV_HREFS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items)).map((i) => i.href)
 
 const LANGUAGES: { code: Language; name: string }[] = [
   { code: 'zh-CN', name: '简体中文' },
@@ -497,6 +519,181 @@ function SearchNavItem({
   )
 }
 
+interface NavLinkProps {
+  item: NavItem
+  collapsed: boolean
+  active: boolean
+  label: string
+  onCloseMobile: () => void
+  registerRef: (href: string, el: HTMLElement | null) => void
+}
+
+function NavLink({ item, collapsed, active, label, onCloseMobile, registerRef }: NavLinkProps) {
+  const Icon = item.icon
+  const className = cn(
+    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    active
+      ? 'bg-primary text-primary-foreground'
+      : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+    collapsed && 'justify-center',
+  )
+  const refCb = (el: HTMLElement | null) => registerRef(item.href, el)
+
+  if (collapsed) {
+    return (
+      <Tooltip key={item.href} content={label} side="right">
+        <Link
+          href={item.href}
+          ref={refCb}
+          onClick={onCloseMobile}
+          aria-label={label}
+          aria-current={active ? 'page' : undefined}
+          className={className}
+        >
+          <Icon className="h-5 w-5 shrink-0" />
+        </Link>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <Link
+      key={item.href}
+      href={item.href}
+      ref={refCb}
+      onClick={onCloseMobile}
+      aria-current={active ? 'page' : undefined}
+      className={className}
+    >
+      <Icon className="h-5 w-5 shrink-0" />
+      <span>{label}</span>
+    </Link>
+  )
+}
+
+interface ExpandableNavItemProps {
+  item: NavItem
+  collapsed: boolean
+  isActive: (href: string) => boolean
+  onCloseMobile: () => void
+  registerRef: (href: string, el: HTMLElement | null) => void
+  t: (key: string) => string
+}
+
+function ExpandableNavItem({
+  item,
+  collapsed,
+  isActive,
+  onCloseMobile,
+  registerRef,
+  t,
+}: ExpandableNavItemProps) {
+  const router = useRouter()
+  const children = item.children ?? []
+  const parentActive = children.some((child) => isActive(child.href))
+  const [open, setOpen] = React.useState(parentActive)
+  const controlId = React.useId()
+  const listId = `${controlId}-list`
+
+  React.useEffect(() => {
+    if (parentActive) setOpen(true)
+  }, [parentActive])
+
+  const Icon = item.icon
+  const label = t(item.labelKey)
+
+  const parentClassName = cn(
+    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    parentActive
+      ? 'bg-primary text-primary-foreground'
+      : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+    collapsed && 'justify-center',
+  )
+
+  const childClassName = (active: boolean) =>
+    cn(
+      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-8 pr-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
+      active
+        ? 'bg-primary text-primary-foreground'
+        : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+    )
+
+  const childList = (
+    <div id={listId} role="group" aria-label={label} className="flex flex-col gap-0.5">
+      {children.map((child) => {
+        const ChildIcon = child.icon
+        const active = isActive(child.href)
+        const childLabel = t(child.labelKey)
+        const refCb = (el: HTMLElement | null) => registerRef(child.href, el)
+        return (
+          <Link
+            key={child.href}
+            data-testid={`nav-${child.labelKey}`}
+            href={child.href}
+            ref={refCb}
+            onClick={onCloseMobile}
+            aria-current={active ? 'page' : undefined}
+            className={childClassName(active)}
+          >
+            <ChildIcon className="h-4 w-4 shrink-0" />
+            <span>{childLabel}</span>
+          </Link>
+        )
+      })}
+    </div>
+  )
+
+  if (collapsed) {
+    return (
+      <Dropdown
+        side="right"
+        align="start"
+        items={children.map((child) => ({
+          key: child.href,
+          label: t(child.labelKey),
+          icon: child.icon,
+          onSelect: () => {
+            router.push(child.href)
+            onCloseMobile()
+          },
+        }))}
+        trigger={
+          <button
+            type="button"
+            data-testid={`nav-${item.labelKey}`}
+            aria-label={label}
+            aria-controls={listId}
+            className={parentClassName}
+            title={label}
+          >
+            <Icon className="h-5 w-5 shrink-0" />
+          </button>
+        }
+      />
+    )
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        data-testid={`nav-${item.labelKey}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={listId}
+        className={parentClassName}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        <span>{label}</span>
+        <ChevronDown
+          className={cn('ml-auto h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')}
+        />
+      </button>
+      {open && <div className="mt-0.5 pl-2">{childList}</div>}
+    </div>
+  )
+}
+
 export function Sidebar({
   id,
   collapsed,
@@ -610,11 +807,7 @@ export function Sidebar({
       if (href === '/') return pathname === '/'
       if (!pathname.startsWith(href)) return false
       // 更具体的同前缀项优先高亮，避免 /chat 与 /chat/history 同时高亮
-      return !NAV_GROUPS.some((g) =>
-        g.items.some(
-          (i) => i.href !== href && i.href.startsWith(href) && pathname.startsWith(i.href),
-        ),
-      )
+      return !ALL_NAV_HREFS.some((h) => h !== href && h.startsWith(href) && pathname.startsWith(h))
     },
     [pathname],
   )
@@ -625,10 +818,15 @@ export function Sidebar({
     items: g.items.filter((item) => !item.adminOnly || isAdmin),
   })).filter((g) => g.items.length > 0)
 
+  const allVisibleItems = React.useMemo(
+    () => flattenNavItems(visibleGroups.flatMap((g) => g.items)),
+    [visibleGroups],
+  )
+
   const activeHref = React.useMemo(() => {
-    const found = visibleGroups.flatMap((g) => g.items).find((item) => isActive(item.href))
+    const found = allVisibleItems.find((item) => isActive(item.href))
     return found?.href
-  }, [visibleGroups, isActive])
+  }, [allVisibleItems, isActive])
 
   React.useEffect(() => {
     if (!activeHref) return
@@ -660,19 +858,24 @@ export function Sidebar({
               </div>
             )}
             {group.items.map((item) => {
-              const Icon = item.icon
               const active = isActive(item.href)
               const label = t(item.labelKey)
-              const className = cn(
-                'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
-                active
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
-                collapsed && 'justify-center',
-              )
-              const refCb = (el: HTMLElement | null) => {
-                if (el) itemRefs.current.set(item.href, el)
-                else itemRefs.current.delete(item.href)
+              const registerRef = (href: string, el: HTMLElement | null) => {
+                if (el) itemRefs.current.set(href, el)
+                else itemRefs.current.delete(href)
+              }
+              if (item.children && item.children.length > 0) {
+                return (
+                  <ExpandableNavItem
+                    key={item.href}
+                    item={item}
+                    collapsed={collapsed}
+                    isActive={isActive}
+                    onCloseMobile={onCloseMobile}
+                    registerRef={registerRef}
+                    t={t}
+                  />
+                )
               }
               // 搜索行:展开态承载弹层 + SearchBar,折叠态保留 Link 跳 /search
               if (item.labelKey === 'search') {
@@ -683,38 +886,20 @@ export function Sidebar({
                     active={active}
                     label={label}
                     onCloseMobile={onCloseMobile}
-                    refCb={refCb}
+                    refCb={(el) => registerRef(item.href, el)}
                   />
                 )
               }
-              if (collapsed) {
-                return (
-                  <Tooltip key={item.href} content={label} side="right">
-                    <Link
-                      href={item.href}
-                      ref={refCb}
-                      onClick={onCloseMobile}
-                      aria-label={label}
-                      aria-current={active ? 'page' : undefined}
-                      className={className}
-                    >
-                      <Icon className="h-5 w-5 shrink-0" />
-                    </Link>
-                  </Tooltip>
-                )
-              }
               return (
-                <Link
+                <NavLink
                   key={item.href}
-                  href={item.href}
-                  ref={refCb}
-                  onClick={onCloseMobile}
-                  aria-current={active ? 'page' : undefined}
-                  className={className}
-                >
-                  <Icon className="h-5 w-5 shrink-0" />
-                  <span>{label}</span>
-                </Link>
+                  item={item}
+                  collapsed={collapsed}
+                  active={active}
+                  label={label}
+                  onCloseMobile={onCloseMobile}
+                  registerRef={registerRef}
+                />
               )
             })}
           </div>

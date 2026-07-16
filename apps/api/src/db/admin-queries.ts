@@ -12,6 +12,7 @@ const userPublicFields = {
   avatar: users.avatar,
   roleId: users.roleId,
   status: users.status,
+  deptId: users.deptId,
   isVip: users.isVip,
   level: users.level,
   isSystemAdmin: users.isSystemAdmin,
@@ -28,6 +29,7 @@ export type AdminUser = {
   avatar: string | null
   roleId: number | null
   status: number | null
+  deptId: number | null
   isVip: number | null
   level: number | null
   isSystemAdmin: boolean | null
@@ -133,6 +135,21 @@ export async function updateUserStatus(id: string, status: number): Promise<Admi
   const rows = await db
     .update(users)
     .set({ status, updatedAt: new Date() })
+    .where(eq(users.id, id))
+    .returning(userPublicFields)
+  return rows[0]
+}
+
+/**
+ * 更新用户部门。
+ */
+export async function updateUserDept(
+  id: string,
+  deptId: number | null,
+): Promise<AdminUser | undefined> {
+  const rows = await db
+    .update(users)
+    .set({ deptId, updatedAt: new Date() })
     .where(eq(users.id, id))
     .returning(userPublicFields)
   return rows[0]

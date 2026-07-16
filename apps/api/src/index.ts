@@ -4,11 +4,16 @@ import { buildServer } from './server.js'
 import { startWorkers } from './workers/index.js'
 import { startSchedulerWorker } from './workers/scheduler-worker.js'
 import { initVendorConfigs } from './lifecycle/init-vendor-configs.js'
+import { initOtel } from './plugins/otel.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const HOST = process.env.HOST ?? '0.0.0.0'
 
 async function start() {
+  // OpenTelemetry 追踪：在 buildServer 之前初始化，最大化 instrument 覆盖（含启动期代码）
+  // 未配置 OTEL_EXPORTER_OTLP_ENDPOINT 且 OTEL_ENABLED!=true 时为 no-op，不阻塞启动
+  initOtel()
+
   const server = await buildServer()
 
   // 启动 BullMQ Worker（异步消费者）

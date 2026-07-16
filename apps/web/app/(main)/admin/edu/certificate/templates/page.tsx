@@ -11,7 +11,7 @@ import { Button } from '@ihui/ui'
 import { CertTemplateFilter } from './CertTemplateFilter'
 import { CertTemplateTable } from './CertTemplateTable'
 import { CertTemplateDialog } from './CertTemplateDialog'
-import { PAGE_SIZE, EMPTY, templateToForm } from './helpers'
+import { PAGE_SIZE, EMPTY, templateToForm, encodeValidityPolicy } from './helpers'
 import type { Template, TForm } from './types'
 
 export default function EduCertificateTemplatesPage() {
@@ -48,7 +48,7 @@ export default function EduCertificateTemplatesPage() {
         awardingOrganization: form.awardingOrganization.trim(),
         awarderName: form.awarderName.trim(),
         awardConditions: form.awardConditions.trim(),
-        validityPolicy: form.validityPolicy,
+        validityPolicy: encodeValidityPolicy(form),
         backgroundImage: form.backgroundImage.trim() || undefined,
         templateConfig,
         status: form.status ? 1 : 0,

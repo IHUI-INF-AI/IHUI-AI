@@ -72,6 +72,7 @@ async def list_models() -> dict[str, Any]:
         {"id": "stepfun/step-3.7-flash", "name": "Step 3.7 Flash (StepFun)", "provider": "meta", "context_length": 128000, "input_price": 0},
         {"id": "stepfun/step-3.5-flash", "name": "Step 3.5 Flash (StepFun)", "provider": "meta", "context_length": 128000, "input_price": 0},
         {"id": "stepfun/step-router-v1", "name": "Step Router v1 (StepFun 智能路由)", "provider": "meta", "context_length": 128000, "input_price": 0},
+        {"id": "agnes/gpt-4o", "name": "GPT-4o (Agnes Plan)", "provider": "openai", "context_length": 128000, "input_price": 0},
         # 免费 provider(备选,需自行注册 key)
         {"id": "groq/llama-3.3-70b-versatile", "name": "Llama 3.3 70B (Groq 免费)", "provider": "meta", "context_length": 128000, "input_price": 0},
         {"id": "gemini/gemini-1.5-flash", "name": "Gemini 1.5 Flash (免费)", "provider": "google", "context_length": 1000000, "input_price": 0},
@@ -98,7 +99,7 @@ async def complete_stream(req: LLMCompleteRequest) -> StreamingResponse:
     - event: error  — 错误 {"message": "..."}
     """
 
-    accumulated: dict[str, Any] = {"content": "", "model": req.model, "usage": None, "stub": False}
+    accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     owner_uuid = (req.metadata or {}).get("userId")
 
     async def gen():
@@ -108,6 +109,8 @@ async def complete_stream(req: LLMCompleteRequest) -> StreamingResponse:
                 # 累积内容用于回调
                 if event_type in ("chunk", "message"):
                     accumulated["content"] += event.get("content", "")
+                elif event_type == "reasoning":
+                    accumulated["reasoning"] += event.get("content", "")
                 elif event_type == "done":
                     accumulated["model"] = event.get("model", req.model)
                     accumulated["usage"] = event.get("usage")
@@ -161,6 +164,8 @@ async def _fire_callback(url: str, payload: dict[str, Any], metadata: dict[str, 
         "stub": payload.get("stub", False),
         "metadata": metadata or {},
     }
+    if payload.get("reasoning"):
+        body["reasoning"] = payload["reasoning"]
     headers: dict[str, str] = {}
     if settings.ai_callback_secret:
         headers["X-Internal-Secret"] = settings.ai_callback_secret
