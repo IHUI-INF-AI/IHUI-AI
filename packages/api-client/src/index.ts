@@ -11,6 +11,27 @@ export { ApiError, isNotFound, isErrorCode } from './api-error.js'
 export { eduApi, buildQs } from './utils.js'
 export type { PageData, PageQuery } from './utils.js'
 
+// WebSocket 跨端客户端(框架无关,各端写薄包装层)
+export {
+  WebSocketClient,
+  createNotificationClient,
+  buildNotificationWsUrl,
+  isWSNotification,
+} from './ws-client.js'
+export type { WebSocketClientOptions, WebSocketClientHandlers } from './ws-client.js'
+
+// 通知类型 re-export(各端统一从 @ihui/api-client 导入,无需单独依赖 @ihui/types)
+export type {
+  WSNotification,
+  AIResponseNotification,
+  NotificationItem,
+  MessageItem,
+  UnreadCount,
+  CustomerServiceSession,
+  CustomerServiceMessage,
+} from '@ihui/types'
+export { isAIResponse } from '@ihui/types'
+
 export * from './endpoints/admin.js'
 export * from './endpoints/admin-auth.js'
 export * from './endpoints/admin-content.js'
