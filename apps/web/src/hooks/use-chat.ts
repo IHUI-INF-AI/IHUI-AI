@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { parseStreamLine, parseStreamLineReasoning } from '@ihui/api-client'
+import { streamChat } from '@ihui/api-client'
 
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
@@ -95,85 +95,39 @@ export function useChat(): UseChatReturn {
         }
       }, 15000)
 
-      const token = useAuthStore.getState().token
       // 从 auth store 获取 userId(用于回调链路关联)
       const userId = useAuthStore.getState().user?.id ?? ''
 
       try {
-        const res = await fetch('/api/llm/complete/stream', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'text/event-stream',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            model,
-            messages: [...history, { role: 'user', content: text }],
-            stream: true,
-            // 架构方案 A:传 metadata 启用回调链路
-            // ai-service 推理完成后用 settings.api_service_url + /api/ai/callback 回调
-            // → /api/ai/callback 入队 aiCallbackQueue → worker 持久化 assistant 消息
-            // 前端不再 fire-and-forget 持久化 assistant,消除双写
-            metadata: {
-              conversationId,
-              userId,
-              messageId: assistantId, // 前端占位消息 ID,worker 会尝试 updateMessage
-            },
-          }),
+        await streamChat({
+          model,
+          messages: [...history, { role: 'user', content: text }],
           signal: controller.signal,
-        })
-
-        if (!res.ok || !res.body) {
-          const errText = await res.text().catch(() => '')
-          throw new Error(errText || `请求失败（${res.status}）`)
-        }
-
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          firstTokenReceived = true
-          buffer += decoder.decode(value, { stream: true })
-
-          let nl: number
-          while ((nl = buffer.indexOf('\n')) !== -1) {
-            const line = buffer.slice(0, nl).replace(/\r$/, '')
-            buffer = buffer.slice(nl + 1)
-            const delta = parseStreamLine(line)
-            if (delta) {
-              useChatStore.getState().appendToMessage(assistantId, delta)
-            }
-            const reasoningDelta = parseStreamLineReasoning(line)
-            if (reasoningDelta) {
-              useChatStore.getState().appendReasoningToMessage(assistantId, reasoningDelta)
-            }
-          }
-        }
-
-        if (buffer.trim()) {
-          const delta = parseStreamLine(buffer)
-          if (delta) {
+          metadata: {
+            conversationId,
+            userId,
+            messageId: assistantId,
+          },
+          onDelta: (delta) => {
+            firstTokenReceived = true
             useChatStore.getState().appendToMessage(assistantId, delta)
-          }
-          const reasoningDelta = parseStreamLineReasoning(buffer)
-          if (reasoningDelta) {
-            useChatStore.getState().appendReasoningToMessage(assistantId, reasoningDelta)
-          }
-        }
+          },
+          onReasoning: (delta) => {
+            useChatStore.getState().appendReasoningToMessage(assistantId, delta)
+          },
+          onError: (errMsg) => {
+            useChatStore.getState().setMessageError(assistantId, errMsg)
+            useChatStore.getState().setError(errMsg)
+          },
+        })
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {
-          // 用户中断或首 token 超时,保留已生成内容
           if (!firstTokenReceived) {
             const msg = 'AI 响应超时(15 秒内未收到任何内容),请稍后重试'
             useChatStore.getState().setMessageError(assistantId, msg)
             useChatStore.getState().setError(msg)
           }
         } else if (err instanceof Error && err.name === 'SSEError') {
-          // AI service 返回的 SSE error 事件(parseStreamLine 抛 name='SSEError')
           useChatStore.getState().setMessageError(assistantId, err.message)
           useChatStore.getState().setError(err.message)
         } else {
@@ -185,9 +139,6 @@ export function useChat(): UseChatReturn {
         clearTimeout(timeoutId)
         abortRef.current = null
         useChatStore.getState().setStreaming(false)
-        // 方案 A:assistant 消息由后端 callback worker 持久化(经 ai-callback → BullMQ → DB)
-        // 前端不再 fire-and-forget 持久化 assistant,消除双写风险
-        // 错误消息(error)也不持久化,仅停留在前端 UI
       }
     },
     [router],
