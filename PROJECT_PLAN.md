@@ -4,6 +4,92 @@
 
 ---
 
+## 深度迁移完整性审计(2026-07-17)/ goal
+
+### 审计目标
+
+深度比对分析本项目未改架构前的 git 仓库所有代码 + D 盘历史项目(D:\历史项目存档)所有代码,vs 当前 monorepo(G:\IHUI-AI)所有代码,逐文件/逐方法/逐组件/逐字段/逐规则比对,验证整合迁移是否 100% 完整无遗漏。不以 PROJECT_PLAN.md 历史进度记录为依据,全部重新从源码分析。
+
+### 审计方法
+
+10 路并行 Task agent,覆盖 11 个历史源 × 9 个比对维度(后端端点/业务逻辑/前端页面/路由交互/数据库表/样式/动画/连通/配置)。P0 缺口经人工读取 TS 源码验证,排除假阳性。
+
+### 总体结论:迁移未达 100%,估计整体 75-80%
+
+| 历史源                                             | 规模                | 迁移率                                  | 评级          |
+| -------------------------------------------------- | ------------------- | --------------------------------------- | ------------- |
+| Java edu 22 微服务                                 | 624 端点            | ~65% 完整 + 20% 部分 + 15% 缺失         | ⚠️ 严重不完整 |
+| Python coze_zhs_py                                 | 306 端点            | 99%(303/306)                            | ✅ 优秀       |
+| Vue C端前端(edu web + Ai-WXMiniVue + share-h5)     | 94 页面             | ~97%                                    | ✅ 优秀       |
+| Vue admin 前端(edu admin + ihui-ai-admin-frontend) | 51 页面             | 75%(34 完整 + 8 部分 + 5 合并 + 4 缺失) | ⚠️ 需补齐     |
+| ZHS Java Server                                    | ~130 端点           | 92%                                     | ✅ 良好       |
+| service_2 SQL(init_database.sql)                   | 169 表              | 98%(1 表缺失,3 表字段差异)              | ✅ 优秀       |
+| git 早期封版代码                                   | 252 Python 路由模块 | 100%                                    | ✅ 完整       |
+| client/ Vue 残留                                   | ~230 页面           | 78%(~35 页缺失)                         | ⚠️ 需补齐     |
+
+### P0 核心缺口(已人工验证,11 项)
+
+| #   | 缺口                        | 历史源               | TS 现状                                           | 影响                         |
+| --- | --------------------------- | -------------------- | ------------------------------------------------- | ---------------------------- |
+| 1   | Article 服务 14/15 端点缺失 | content-service      | articles.ts 仅 1 GET 端点                         | 资讯管理基础能力不可用       |
+| 2   | 积分增减 API 缺失           | point-service        | point.ts 无 increase/decrease/fallback + 阈值校验 | 积分超发风险                 |
+| 3   | 资源下载端点缺失            | resource-service     | resource.ts 无 download 端点                      | 用户无法下载资源             |
+| 4   | 学习记录章节追踪缺失        | learn-service        | t_record/t_record_log 表 + 自动完成判定未迁移     | 课程进度/自动完成/排行榜失效 |
+| 5   | 腾讯云直播验签 stub         | live-service         | checkSign 未迁移                                  | 生产直播功能不可用           |
+| 6   | 报名状态机缺失              | exam-service         | checkAndUpdateStatus 未迁移                       | 答题完成后状态不流转         |
+| 7   | 错题自动入库缺失            | exam-service         | createWrongQuestion 未迁移                        | 错题本失效                   |
+| 8   | 随机抽题缺失                | exam-service         | randomGetQuestionList 未迁移                      | 随机试卷无法使用             |
+| 9   | 3 个 AOP 切面缺失           | behavior-service     | SearchAspect/WatchAspect/PointAspect              | 搜索索引/Redis去重/积分奖励  |
+| 10  | Carousel 轮播图缺失         | setting-service      | 无路由无数据表                                    | 首页轮播图不可用             |
+| 11  | 通知主题聚合缺失            | notification-service | getTopicMap 聚合 10 个业务 API 未迁移             | 通知无法显示业务标题         |
+
+### 假阳性纠正(1 项)
+
+- **Follow 功能全缺失** → ❌ 假阳性。social.ts 完整实现 7 个 follow 端点(关注/取关/列表/状态/互关/统计),功能从 member-service 迁移到 social.ts,架构升级非缺失。
+
+### P1 中等缺口(按服务分组,精选)
+
+**exam-service**:9 张 Java 关联表缺失(多对多简化为单一外键)、统计深度从 11 项降至 5 项、RocketMQ 事件缺失
+**member-service**:会员字段级更新端点缺失(avatar/idphoto/realname/name)、岗位/分组启用禁用、企业微信/钉钉 OAuth 配置端点
+**learn-service**:schedule.ts 语义错位(通用 Cron 非排课)、腾讯云直播流创建 stub
+**content-service**:统计聚合端点缺失(7 天趋势+热门)、Comment 楼中楼缺失、by-ids 批量查询普遍缺失
+**point-service**:OSS 直传签名缺失(改为代理上传)、积分统计端点缺失、会员等级自动更新缺失
+**resource-service**:推荐资源列表缺失、会员下载记录缺失
+**notification-service**:独立邮件/短信端点缺失、通知主题聚合缺失
+**setting-service**:分类首页显示切换缺失、搜索内容类型列表缺失
+**Vue admin**:用户管理 CRUD UI 不全(重置密码/封禁解封/头像上传/角色授权)、4 个缺失页面(评论管理/圈子管理/搜索管理/会员分组)
+**client/ 残留**:~35 页面缺失(开发工具/仪表盘/P19-P20 阶段页面/独立功能)
+
+### P2 低优先级(精选)
+
+- 数据模型字段缺失(Member 表 10 字段/User 表 10 HR 字段/Article 表 9 字段等)
+- ID 类型不兼容(Java Long 自增 vs TS uuid 随机)— 历史数据迁移需设计 ID 映射表
+- Vue C端:Taro 缺 AIGC/token-value/agreement 页面、FloatBox 悬浮按钮未迁移、品牌色 #07c160 未保留
+- 搜索:Java Lucene Smart Chinese → TS PostgreSQL tsvector + 2-gram(降级但可用)
+
+### TS 相对 Java 的增强(非缺口,记录架构升级)
+
+- 通信:RocketMQ → BullMQ + WebSocket + Redis Pub/Sub(多实例支持)
+- AI:Socket.IO → SSE 统一协议 + LangGraph + LiteLLM + MCP + A2A
+- 支付:新增 Saga 分布式事务 + 支付幂等 + 退款审核 + 订阅激活
+- 安全:新增 SSO 跨子项目 + RBAC + IDOR Guard + 审计链
+- 监控:新增告警/抑制规则/灰度提升器/金丝雀审计(Java 完全无对应)
+- 统计:新增 Agent 热度/快照管理/报表 PDF/Excel 导出
+
+### 审计产物
+
+10 份详细审计报告存放于 `.trae-cn/goal-runtime/audit-{1..10}-*.md`(已被 .gitignore 忽略,目标结束后删除)。
+
+### 后续最优建议
+
+1. **P0 立即处理**(11 项核心缺口):优先补齐 Article 服务 CRUD + 积分增减 API + 资源下载端点 + 报名状态机 + 错题入库 + 随机抽题 — 这些是业务断链,直接影响用户可用性
+2. **P1 本周内**:补齐用户管理 CRUD UI + 4 个缺失 admin 页面 + 学习记录章节追踪 + 腾讯云直播技术决策(完整迁移或正式废弃)
+3. **P2 两周内**:补齐数据模型字段 + by-ids 批量查询 + 通知主题聚合 + AOP 切面等价实现(Fastify 钩子)
+4. **数据迁移方案**:因 ID 类型不兼容,需设计 ID 映射表 + 关联重建脚本
+5. **持续审计**:本报告为"是否迁移"审计,建议下一轮做"迁移质量"审计(字段级/行为级对比)
+
+---
+
 ## cli 迁移端到端验证 + CLI 收尾(2026-07-16)✅(2026-07-16)
 
 ### 目标
