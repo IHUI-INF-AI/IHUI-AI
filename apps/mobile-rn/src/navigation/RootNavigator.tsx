@@ -4,12 +4,20 @@ import { useAuth } from '../context/AuthContext'
 import { LoginScreen } from '../screens/LoginScreen'
 import { HomeScreen } from '../screens/HomeScreen'
 import { ChatScreen } from '../screens/ChatScreen'
+import { ProfileScreen } from '../screens/ProfileScreen'
+import { CourseScreen } from '../screens/CourseScreen'
+import { OrderScreen } from '../screens/OrderScreen'
+import { WalletScreen } from '../screens/WalletScreen'
 import SettingsScreen from '../screens/SettingsScreen'
 
 export type RootStackParamList = {
   Login: undefined
   Chat: undefined
   Home: undefined
+  Profile: undefined
+  Course: undefined
+  Order: undefined
+  Wallet: undefined
   Settings: undefined
 }
 
@@ -32,6 +40,10 @@ export function RootNavigator() {
         <>
           <Stack.Screen name="Chat" component={ChatScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="Course" component={CourseScreen} />
+          <Stack.Screen name="Order" component={OrderScreen} />
+          <Stack.Screen name="Wallet" component={WalletScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
         </>
       ) : (

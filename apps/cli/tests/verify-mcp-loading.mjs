@@ -104,6 +104,8 @@ console.log('   ✓ tools/call add_numbers 端到端调用成功 (1+2=3)');
 console.log('   ✓ tools/call echo 端到端调用成功 (回显)');
 
 cleanup();
+// mock MCP server 子进程不会自动退出,强制结束
+process.exit(0);
 
 function cleanup() {
   if (mcpExisted && mcpBackup !== null) {
