@@ -1,0 +1,239 @@
+/* premium.css — Premium 设计系统(从 SCSS mixin 迁移) */
+/* 历史源: _design-tokens.scss(8 个 Premium mixin) */
+/* SCSS @mixin premium-* → CSS 工具类,使用 var(--ease-premium) 等令牌 */
+
+/* ============ premium-card ============ */
+.premium-card {
+  background: var(--color-card, hsl(0 0% 100%));
+  border: 1px solid var(--color-border, hsl(0 0% 90%));
+  border-radius: var(--smart-radius-large, 12px);
+  box-shadow: var(--shadow-premium-sm, 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.04));
+  transition: box-shadow 0.3s var(--ease-premium, ease),
+    transform 0.3s var(--ease-premium, ease),
+    border-color 0.3s var(--ease-premium, ease);
+}
+
+.premium-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-premium-hover, 0 8px 24px rgba(0, 0, 0, 0.12));
+  border-color: var(--color-primary, hsl(142 71% 45%));
+}
+
+.dark .premium-card {
+  background: hsl(0 0% 10%);
+  border-color: hsl(0 0% 20%);
+}
+
+.dark .premium-card:hover {
+  border-color: var(--color-primary, hsl(142 71% 50%));
+}
+
+/* ============ premium-button ============ */
+.premium-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1.5rem;
+  border-radius: var(--smart-radius-medium, 8px);
+  font-weight: 500;
+  transition: all 0.2s var(--ease-premium, ease);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: var(--color-primary, hsl(142 71% 45%));
+  color: var(--color-primary-foreground, hsl(0 0% 100%));
+}
+
+.premium-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-premium-sm, 0 2px 8px rgba(0, 0, 0, 0.08));
+  background: var(--color-primary-hover, hsl(142 71% 40%));
+}
+
+.premium-button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.premium-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 次要按钮变体 */
+.premium-button-secondary {
+  background: transparent;
+  color: var(--color-foreground, hsl(0 0% 4%));
+  border: 1px solid var(--color-border, hsl(0 0% 90%));
+  padding: calc(0.5rem - 1px) calc(1.5rem - 1px);
+}
+
+.premium-button-secondary:hover {
+  background: transparent;
+  border-color: var(--color-primary, hsl(142 71% 45%));
+  color: var(--color-primary, hsl(142 71% 45%));
+}
+
+/* 幽灵按钮变体 */
+.premium-button-ghost {
+  background: transparent;
+  color: var(--color-muted-foreground, hsl(0 0% 45%));
+  box-shadow: none;
+}
+
+.premium-button-ghost:hover {
+  background: transparent;
+  color: var(--color-foreground, hsl(0 0% 4%));
+  box-shadow: none;
+}
+
+/* ============ premium-page-header ============ */
+.premium-page-header {
+  padding: 2rem 0;
+  margin-bottom: 2rem;
+  background: linear-gradient(135deg,
+    var(--color-primary, hsl(142 71% 45%)) 0%,
+    var(--color-primary-hover, hsl(142 71% 40%)) 100%);
+  color: white;
+  border-radius: 0 0 var(--smart-radius-xl, 16px) var(--smart-radius-xl, 16px);
+}
+
+.premium-page-header .page-title {
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+
+.premium-page-header .page-subtitle {
+  font-size: clamp(16px, 2vw, 20px);
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.6;
+}
+
+.dark .premium-page-header {
+  background: linear-gradient(135deg,
+    var(--color-primary, hsl(142 71% 50%)) 0%,
+    var(--color-primary-hover, hsl(142 71% 45%)) 100%);
+}
+
+/* ============ premium-grid ============ */
+.premium-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.premium-grid-tight {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.premium-grid-wide {
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 2rem;
+}
+
+/* ============ premium-hover-lift ============ */
+.premium-hover-lift {
+  transition: transform 0.3s var(--ease-premium, ease),
+    box-shadow 0.3s var(--ease-premium, ease);
+}
+
+.premium-hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-premium-lg, 0 12px 32px rgba(0, 0, 0, 0.16));
+}
+
+.premium-hover-lift:active {
+  transform: translateY(-2px);
+}
+
+/* ============ premium-pulse-dot ============ */
+.premium-pulse-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary, hsl(142 71% 45%));
+  display: inline-block;
+}
+
+.premium-pulse-dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--color-primary, hsl(142 71% 45%));
+  animation: pulse-glow 2s ease-out infinite;
+}
+
+.premium-pulse-dot-lg {
+  width: 12px;
+  height: 12px;
+}
+
+.premium-pulse-dot-sm {
+  width: 6px;
+  height: 6px;
+}
+
+@keyframes pulse-glow {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* ============ premium-fixed-nav(导航专用) ============ */
+.premium-fixed-nav {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header, 100);
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-bottom: 1px solid var(--color-border, hsl(0 0% 90%));
+  transition: all 0.3s var(--ease-premium, ease);
+}
+
+.dark .premium-fixed-nav {
+  background: rgba(0, 0, 0, 0.8);
+  border-bottom: 1px solid hsl(0 0% 20%);
+}
+
+/* ============ premium-dark-mode ============ */
+.premium-dark-mode {
+  /* 暗色模式增强容器,默认亮色无特殊样式 */
+  background: var(--color-card, hsl(0 0% 100%));
+  color: var(--color-foreground, hsl(0 0% 4%));
+  transition: background 0.3s var(--ease-premium, ease),
+    color 0.3s var(--ease-premium, ease);
+}
+
+.dark .premium-dark-mode {
+  background: hsl(0 0% 8%);
+  color: hsl(0 0% 95%);
+}
+
+.dark .premium-dark-mode .premium-dark-mode-surface {
+  background: hsl(0 0% 12%);
+  border-color: hsl(0 0% 20%);
+}
+
+.premium-dark-mode-surface {
+  background: var(--color-muted, hsl(0 0% 96%));
+  border: 1px solid var(--color-border, hsl(0 0% 90%));
+  border-radius: var(--smart-radius-medium, 8px);
+  transition: background 0.3s var(--ease-premium, ease),
+    border-color 0.3s var(--ease-premium, ease);
+}
