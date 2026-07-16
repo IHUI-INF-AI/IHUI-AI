@@ -12,6 +12,7 @@ export default [
       'test-results/**',
       'e2e/**',
       'public/**',
+      'scripts/**',
       'next-env.d.ts',
     ],
   },
