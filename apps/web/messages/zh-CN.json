@@ -116,7 +116,7 @@
     "status": "状态",
     "refresh": "刷新",
     "share": "分享",
-    "print": "Print",
+    "print": "打印",
     "noData": "暂无数据",
     "me": "我",
     "unknown": "未知",
@@ -173,7 +173,7 @@
       "verifyTokenFailed": "验证Token失败",
       "getCaptchaFailed": "获取验证码失败",
       "requestCancelled": "请求已取消",
-      "loginFailed": "Login Failed",
+      "loginFailed": "登录失败",
       "actionFailed": "操作失败",
       "removeFailed": "移除失败",
       "jsonArrayError": "选项需为 JSON 数组，例如 [\"A\",\"B\",\"C\",\"D\"]"
@@ -249,7 +249,7 @@
     "total": "总的",
     "moreActions": "更多Actions",
     "restore": "还原",
-    "minimize": "Minimize",
+    "minimize": "最小化",
     "operation": "操作",
     "apply": "应用",
     "view": "查看",
@@ -267,20 +267,20 @@
     "deleteSuccess": "删除成功",
     "item": "项目",
     "loadMore": "负载更多",
-    "daysAgo": "Days Ago",
-    "dismiss": "Dismiss",
-    "greeting": "Greeting",
-    "hello": "Hello",
-    "hours": "Hours",
-    "hoursAgo": "Hours Ago",
-    "installFailed": "Install Failed",
-    "installSuccess": "Install Success",
-    "justNow": "Just Now",
-    "minutes": "Minutes",
-    "minutesAgo": "Minutes Ago",
-    "requestFailed": "Request Failed",
-    "saveFailed": "Save Failed",
-    "saveSuccess": "Save Success",
+    "daysAgo": "天前",
+    "dismiss": "忽略",
+    "greeting": "问候",
+    "hello": "你好",
+    "hours": "小时",
+    "hoursAgo": "小时前",
+    "installFailed": "安装失败",
+    "installSuccess": "安装成功",
+    "justNow": "刚刚",
+    "minutes": "分钟",
+    "minutesAgo": "分钟前",
+    "requestFailed": "请求失败",
+    "saveFailed": "保存失败",
+    "saveSuccess": "保存成功",
     "previewBtn": "预览报告",
     "validate": {
       "required": "{label}不能为空",
@@ -600,8 +600,8 @@
       "passwordRequireNumber": "密码必须包含数字",
       "passwordRequireSpecial": "密码必须包含特殊符号",
       "phoneRequired": "手机号必填",
-      "phoneOnlyNumbers": "PhoneOnlyNumbers",
-      "phoneInvalid": "PhoneInvalid"
+      "phoneOnlyNumbers": "手机号只能包含数字",
+      "phoneInvalid": "手机号无效"
     },
     "sessionExpiredTitle": "会话已过期",
     "sessionExpiredMessage": "您的登录会话已过期，请重新登录",
@@ -642,15 +642,15 @@
     "eduPlatformRedirectFailed": "教育平台跳转失败",
     "formNotReady": "表单未就绪",
     "verifyCodeFailed": "验证码验证失败",
-    "accountLogin": "Account Login",
-    "agreeTo": "Agree To",
-    "codeFormatError": "Code Format Error",
-    "newPasswordPlaceholder": "New Password Placeholder",
-    "nextStep": "Next Step",
-    "pleaseCompleteAllFields": "Please Complete All Fields",
-    "previousStep": "Previous Step",
-    "userAgreement": "User Agreement",
-    "usernameLengthError": "Username Length Error"
+    "accountLogin": "账号登录",
+    "agreeTo": "同意",
+    "codeFormatError": "验证码格式错误",
+    "newPasswordPlaceholder": "新密码占位符",
+    "nextStep": "下一步",
+    "pleaseCompleteAllFields": "请完善所有字段",
+    "previousStep": "上一步",
+    "userAgreement": "用户协议",
+    "usernameLengthError": "用户名长度错误"
   },
   "home": {
     "welcome": "欢迎使用 IHUI AI",
@@ -716,77 +716,77 @@
       "apiAccess": "API对接"
     },
     "miniappModal": {
-      "qrAlt": "Qr Alt",
-      "scanTip": "Scan Tip",
-      "title": "Title"
+      "qrAlt": "二维码替代文本",
+      "scanTip": "扫码提示",
+      "title": "标题"
     },
     "page1": {
-      "content": "Content",
-      "ctaPrimary": "Cta Primary",
-      "ctaSecondary": "Cta Secondary"
+      "content": "内容",
+      "ctaPrimary": "主要按钮",
+      "ctaSecondary": "次要按钮"
     },
     "page2": {
       "advantages": {
         "efficient": {
-          "description": "Description",
-          "title": "Title"
+          "description": "描述",
+          "title": "标题"
         },
         "innovative": {
-          "description": "Description",
-          "title": "Title"
+          "description": "描述",
+          "title": "标题"
         },
         "professional": {
-          "description": "Description",
-          "title": "Title"
+          "description": "描述",
+          "title": "标题"
         },
         "reliable": {
-          "description": "Description",
-          "title": "Title"
+          "description": "描述",
+          "title": "标题"
         },
-        "subtitle": "Subtitle",
-        "title": "Title",
-        "titleEn": "Title En"
+        "subtitle": "副标题",
+        "title": "标题",
+        "titleEn": "英文标题"
       },
-      "content": "Content",
+      "content": "内容",
       "features": {
         "appStore": "App Store",
-        "contentCreation": "Content Creation",
-        "edu": "Edu",
-        "modelIntegration": "Model Integration",
-        "navigation": "Navigation"
+        "contentCreation": "内容创作",
+        "edu": "教育",
+        "modelIntegration": "模型集成",
+        "navigation": "导航"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "标题",
+      "titleEn": "英文标题"
     },
     "page3": {
       "empty": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "外部",
+        "platform": "平台"
       },
-      "subtitle": "Subtitle",
+      "subtitle": "副标题",
       "tabs": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "外部",
+        "platform": "平台"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "标题",
+      "titleEn": "英文标题"
     },
     "page4": {
-      "content": "Content",
-      "subtitle": "Subtitle",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "内容",
+      "subtitle": "副标题",
+      "title": "标题",
+      "titleEn": "英文标题"
     },
     "page5": {
-      "content": "Content",
-      "joinText": "Join Text",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "内容",
+      "joinText": "加入文案",
+      "title": "标题",
+      "titleEn": "英文标题"
     },
     "typewriter": {
-      "brand": "Brand",
-      "connect": "Connect",
-      "explore": "Explore"
+      "brand": "品牌",
+      "connect": "连接",
+      "explore": "探索"
     },
     "hardcoded": {
       "aiNews": "AI资讯",
@@ -844,21 +844,21 @@
     },
     "modules": {
       "courses": "课程",
-      "coursesEn": "Course",
+      "coursesEn": "课程",
       "live": "直播",
-      "liveEn": "Live",
+      "liveEn": "直播",
       "exam": "考试",
-      "examEn": "Exam",
+      "examEn": "考试",
       "news": "资讯",
-      "newsEn": "News",
+      "newsEn": "资讯",
       "article": "文章",
-      "articleEn": "Article",
+      "articleEn": "文章",
       "ask": "问答",
-      "askEn": "Q&A",
+      "askEn": "问答",
       "community": "社区",
-      "communityEn": "Community",
+      "communityEn": "社区",
       "knowledge": "知识库",
-      "knowledgeEn": "Knowledge"
+      "knowledgeEn": "知识"
     },
     "units": {
       "questions": "{count}题",
@@ -1278,7 +1278,7 @@
     },
     "payment": {
       "paymentMethods": "支付方式",
-      "alipay": "alipay",
+      "alipay": "支付宝",
       "confirmPay": "确认支付 ¥{price}",
       "cancel": "取消",
       "qrCodeTitle": "扫码支付",
@@ -1337,18 +1337,35 @@
       "free": {
         "name": "免费版",
         "cta": "开始使用",
-        "features": ["每日 10 次 AI 对话", "基础模型", "1 个项目", "社区支持"]
+        "features": [
+          "每日 10 次 AI 对话",
+          "基础模型",
+          "1 个项目",
+          "社区支持"
+        ]
       },
       "pro": {
         "name": "专业版",
         "cta": "立即升级",
-        "features": ["无限 AI 对话", "高级模型", "无限项目", "优先支持", "API 接入"]
+        "features": [
+          "无限 AI 对话",
+          "高级模型",
+          "无限项目",
+          "优先支持",
+          "API 接入"
+        ]
       },
       "enterprise": {
         "name": "企业版",
         "cta": "联系我们",
         "contactSales": "联系销售",
-        "features": ["专属部署", "团队管理", "SLA 保障", "定制开发", "培训支持"]
+        "features": [
+          "专属部署",
+          "团队管理",
+          "SLA 保障",
+          "定制开发",
+          "培训支持"
+        ]
       }
     },
     "checkout": {
@@ -2577,7 +2594,7 @@
         "api": "API 文档",
         "guide": "用户指南",
         "development": "开发文档",
-        "faq": "FAQ"
+        "faq": "常见问题"
       },
       "status_draft": "草稿",
       "status_published": "已发布",
@@ -2725,7 +2742,7 @@
       "pathPlaceholder": "路径关键词...",
       "userIdPlaceholder": "用户 ID...",
       "allStatus": "全部状态",
-      "ms": "ms",
+      "ms": "毫秒",
       "anonymous": "匿名",
       "cleanup": "清理日志",
       "cleanupTitle": "清理旧日志",
@@ -5386,7 +5403,7 @@
       "prev": "上一页",
       "next": "下一页",
       "ruleId": "ID",
-      "agentId": "Agent ID",
+      "agentId": "智能体 ID",
       "ruleName": "规则名称",
       "ruleCode": "规则代码",
       "ruleType": "规则类型",
@@ -5510,7 +5527,7 @@
       "createTitle": "新增规则",
       "cancel": "取消",
       "save": "保存",
-      "labelAgentId": "Agent ID",
+      "labelAgentId": "智能体 ID",
       "labelRuleName": "规则名称",
       "labelRuleCode": "规则编码",
       "labelRuleType": "规则类型",
@@ -5618,7 +5635,7 @@
       "createTitle": "新增开发者链接",
       "fieldDeveloperId": "开发者 ID",
       "developerIdPlaceholder": "请输入开发者 ID",
-      "fieldAgentId": "Agent ID",
+      "fieldAgentId": "智能体 ID",
       "agentIdPlaceholder": "请输入 Agent ID"
     },
     "carousel": {
@@ -6769,7 +6786,7 @@
     "themeSystem": "跟随系统",
     "language": "语言",
     "langZh": "中文",
-    "langEn": "English",
+    "langEn": "英文",
     "sidebar": "侧边栏",
     "sidebarCollapsed": "默认收起",
     "sidebarExpanded": "默认展开",
@@ -6907,9 +6924,24 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "套餐功能",
     "subscribe": "订阅",
-    "planMonthlyFeatures": ["每月 1000 积分", "基础 AI 对话", "社区访问"],
-    "planYearlyFeatures": ["每月 12000 积分", "高级 AI 对话", "优先客服", "去广告"],
-    "planLifetimeFeatures": ["无限积分", "全部 AI 功能", "专属客服", "去广告", "早期功能体验"],
+    "planMonthlyFeatures": [
+      "每月 1000 积分",
+      "基础 AI 对话",
+      "社区访问"
+    ],
+    "planYearlyFeatures": [
+      "每月 12000 积分",
+      "高级 AI 对话",
+      "优先客服",
+      "去广告"
+    ],
+    "planLifetimeFeatures": [
+      "无限积分",
+      "全部 AI 功能",
+      "专属客服",
+      "去广告",
+      "早期功能体验"
+    ],
     "avatarCurrent": "当前头像",
     "avatarUpload": "点击相机按钮选择图片",
     "avatarUploadBtn": "上传头像",
@@ -7092,16 +7124,16 @@
         "desc": "请谨慎操作，这些操作不可逆"
       },
       "navigation": {
-        "desc": "Desc",
-        "title": "Title"
+        "desc": "描述",
+        "title": "标题"
       },
       "other": {
-        "desc": "Desc",
-        "title": "Title"
+        "desc": "描述",
+        "title": "标题"
       },
       "services": {
-        "desc": "Desc",
-        "title": "Title"
+        "desc": "描述",
+        "title": "标题"
       }
     },
     "securityScore": {
@@ -7313,28 +7345,28 @@
       "mouseFollower": "鼠标跟随效果",
       "clearAllData": "清除所有数据",
       "deleteAccount": "注销账户",
-      "about": "About",
-      "appPermission": "App Permission",
-      "businessLicense": "Business License",
-      "chatHistory": "Chat History",
-      "checkUpdate": "Check Update",
-      "commissionPlan": "Commission Plan",
-      "contactSupport": "Contact Support",
-      "editProfile": "Edit Profile",
-      "feedback": "Feedback",
-      "icpRecord": "Icp Record",
-      "logout": "Logout",
-      "messageNotification": "Message Notification",
-      "modelRecord": "Model Record",
-      "myAIModel": "My AI Model",
-      "myCompany": "My Company",
-      "privacySettings": "Privacy Settings",
-      "recruitment": "Recruitment",
-      "statistics": "Statistics",
-      "usageRules": "Usage Rules",
-      "viewMiniapp": "View Miniapp",
-      "webVersion": "Web Version",
-      "withdrawRecords": "Withdraw Records"
+      "about": "关于",
+      "appPermission": "应用权限",
+      "businessLicense": "营业执照",
+      "chatHistory": "聊天记录",
+      "checkUpdate": "检查更新",
+      "commissionPlan": "佣金方案",
+      "contactSupport": "联系客服",
+      "editProfile": "编辑资料",
+      "feedback": "反馈",
+      "icpRecord": "ICP 备案",
+      "logout": "退出登录",
+      "messageNotification": "消息通知",
+      "modelRecord": "模型记录",
+      "myAIModel": "我的 AI 模型",
+      "myCompany": "我的公司",
+      "privacySettings": "隐私设置",
+      "recruitment": "招聘",
+      "statistics": "统计",
+      "usageRules": "使用规则",
+      "viewMiniapp": "查看小程序",
+      "webVersion": "网页版",
+      "withdrawRecords": "提现记录"
     },
     "desc": {
       "avatar": "设置您的个人头像",
@@ -7358,28 +7390,28 @@
       "mouseFollower": "启用炫酷的鼠标跟随动画效果",
       "clearAllData": "删除所有聊天记录、设置和个人数据",
       "deleteAccount": "永久删除您的账户和所有相关数据",
-      "about": "About",
-      "appPermission": "App Permission",
-      "businessLicense": "Business License",
-      "chatHistory": "Chat History",
-      "checkUpdate": "Check Update",
-      "commissionPlan": "Commission Plan",
-      "contactSupport": "Contact Support",
-      "editProfile": "Edit Profile",
-      "feedback": "Feedback",
-      "icpRecord": "Icp Record",
-      "logout": "Logout",
-      "messageNotification": "Message Notification",
-      "modelRecord": "Model Record",
-      "myAIModel": "My AI Model",
-      "myCompany": "My Company",
-      "privacySettings": "Privacy Settings",
-      "recruitment": "Recruitment",
-      "statistics": "Statistics",
-      "usageRules": "Usage Rules",
-      "viewMiniapp": "View Miniapp",
-      "webVersion": "Web Version",
-      "withdrawRecords": "Withdraw Records"
+      "about": "关于",
+      "appPermission": "应用权限",
+      "businessLicense": "营业执照",
+      "chatHistory": "聊天记录",
+      "checkUpdate": "检查更新",
+      "commissionPlan": "佣金方案",
+      "contactSupport": "联系客服",
+      "editProfile": "编辑资料",
+      "feedback": "反馈",
+      "icpRecord": "ICP 备案",
+      "logout": "退出登录",
+      "messageNotification": "消息通知",
+      "modelRecord": "模型记录",
+      "myAIModel": "我的 AI 模型",
+      "myCompany": "我的公司",
+      "privacySettings": "隐私设置",
+      "recruitment": "招聘",
+      "statistics": "统计",
+      "usageRules": "使用规则",
+      "viewMiniapp": "查看小程序",
+      "webVersion": "网页版",
+      "withdrawRecords": "提现记录"
     },
     "placeholders": {
       "nickname": "请输入昵称",
@@ -7391,12 +7423,12 @@
       "changePassword": "修改密码",
       "clearData": "清除数据",
       "deleteAccount": "注销账户",
-      "checkUpdate": "Check Update",
-      "checking": "Checking",
-      "contact": "Contact",
-      "go": "Go",
-      "logout": "Logout",
-      "viewMiniapp": "View Miniapp"
+      "checkUpdate": "检查更新",
+      "checking": "检查中",
+      "contact": "联系方式",
+      "go": "前往",
+      "logout": "退出登录",
+      "viewMiniapp": "查看小程序"
     },
     "options": {
       "loginDuration": {
@@ -7418,7 +7450,7 @@
       "language": {
         "zh-CN": "简体中文",
         "zh-TW": "繁体中文",
-        "en": "English",
+        "en": "英文",
         "ja": "日本語",
         "ko": "한국어"
       }
@@ -7454,47 +7486,47 @@
         "confirmAction": "确认注销"
       },
       "contact": {
-        "email": "Email",
-        "hours": "Hours",
-        "hoursValue": "Hours Value",
-        "phone": "Phone",
-        "title": "Title"
+        "email": "邮箱",
+        "hours": "小时",
+        "hoursValue": "小时数",
+        "phone": "电话",
+        "title": "标题"
       },
       "miniapp": {
-        "alt": "Alt",
-        "tip": "Tip",
-        "title": "Title"
+        "alt": "替代文本",
+        "tip": "提示",
+        "title": "标题"
       }
     },
-    "confirmLogout": "Confirm Logout",
+    "confirmLogout": "确认退出",
     "messages": {
-      "latestVersion": "Latest Version"
+      "latestVersion": "最新版本"
     },
     "passwordStrength": {
-      "medium": "Medium",
-      "strong": "Strong",
-      "veryStrong": "Very Strong",
-      "weak": "Weak"
+      "medium": "中",
+      "strong": "强",
+      "veryStrong": "非常强",
+      "weak": "弱"
     },
     "securityCharts": {
-      "days30": "Days30",
-      "days7": "Days7",
-      "days90": "Days90",
-      "deviceUsage": "Device Usage",
-      "eventDistribution": "Event Distribution",
-      "failed": "Failed",
-      "failedLogin": "Failed Login",
-      "loginTrend": "Login Trend",
-      "riskTimeline": "Risk Timeline",
-      "successful": "Successful",
-      "suspiciousLogin": "Suspicious Login",
-      "title": "Title",
-      "totalEvents": "Total Events",
-      "typeDevice": "Type Device",
-      "typeLogin": "Type Login",
-      "typeLogout": "Type Logout",
-      "typePassword": "Type Password",
-      "typeSuspicious": "Type Suspicious"
+      "days30": "30 天",
+      "days7": "7 天",
+      "days90": "90 天",
+      "deviceUsage": "设备使用",
+      "eventDistribution": "事件分布",
+      "failed": "失败",
+      "failedLogin": "登录失败",
+      "loginTrend": "登录趋势",
+      "riskTimeline": "风险时间线",
+      "successful": "成功",
+      "suspiciousLogin": "可疑登录",
+      "title": "标题",
+      "totalEvents": "事件总数",
+      "typeDevice": "设备类型",
+      "typeLogin": "登录类型",
+      "typeLogout": "登出类型",
+      "typePassword": "密码类型",
+      "typeSuspicious": "可疑类型"
     }
   },
   "help": {
@@ -7707,7 +7739,7 @@
       "api": "API 文档",
       "guide": "用户指南",
       "development": "开发文档",
-      "faq": "FAQ"
+      "faq": "常见问题"
     },
     "items": {
       "apiQuickstart": {
@@ -7756,15 +7788,15 @@
         "platformIntro": "平台功能介绍",
         "platformIntroDesc": "一站式AI创新生态平台全功能解析"
       },
-      "files": "Files",
-      "linkCopied": "Link Copied",
-      "noShared": "No Shared",
-      "shareDeleted": "Share Deleted",
-      "shareLink": "Share Link",
-      "shared": "Shared",
-      "upload": "Upload",
-      "uploadError": "Upload Error",
-      "uploadSuccess": "Upload Success"
+      "files": "文件",
+      "linkCopied": "链接已复制",
+      "noShared": "未分享",
+      "shareDeleted": "分享已删除",
+      "shareLink": "分享链接",
+      "shared": "已分享",
+      "upload": "上传",
+      "uploadError": "上传错误",
+      "uploadSuccess": "上传成功"
     },
     "openPlatformDocs": {
       "title": "文档中心",
@@ -7798,7 +7830,7 @@
         "deploy": "部署流程",
         "environment": "环境变量",
         "security": "安全策略",
-        "faq": "FAQ",
+        "faq": "常见问题",
         "changelog": "更新日志",
         "contributing": "贡献指南"
       },
@@ -8214,6 +8246,10 @@
       "gemini-1-5-flash": {
         "name": "Gemini 1.5 Flash (免费)",
         "description": "免费 15 RPM,100 万 token 上下文"
+      },
+      "openrouter-auto": {
+        "name": "OpenRouter Auto (免费路由)",
+        "description": "免费 tier,自动路由到可用模型,多 provider 聚合"
       },
       "gpt-4o": {
         "description": "均衡的多模态旗舰模型"
@@ -9454,7 +9490,7 @@
     "fieldSort": "排序",
     "fieldIsFree": "免费",
     "submitting": "提交中...",
-    "fieldAgentId": "Agent ID",
+    "fieldAgentId": "智能体 ID",
     "fieldWorkspace": "工作区",
     "fieldRemark": "备注",
     "marketTab": "Agent 市场",
@@ -9612,25 +9648,25 @@
     "joinVip": "开通VIP会员 参与分佣计划",
     "totalEarnings": "累计收益",
     "totalInvites": "邀请人数",
-    "ratioLevel1": "Ratio Level1",
-    "ratioLevel1Title": "Ratio Level1Title",
-    "ratioLevel2": "Ratio Level2",
-    "ratioLevel2Title": "Ratio Level2Title",
-    "ratioNote": "Ratio Note",
-    "ratioNoteTitle": "Ratio Note Title",
-    "ratioTitle": "Ratio Title",
-    "rule1Title": "Rule1Title",
-    "rule2Title": "Rule2Title",
-    "rule3Title": "Rule3Title",
-    "settlement1": "Settlement1",
-    "settlement1Title": "Settlement1Title",
-    "settlement2": "Settlement2",
-    "settlement2Title": "Settlement2Title",
-    "settlement3": "Settlement3",
-    "settlement3Title": "Settlement3Title",
-    "settlement4": "Settlement4",
-    "settlement4Title": "Settlement4Title",
-    "settlementTitle": "Settlement Title",
+    "ratioLevel1": "比例等级 1",
+    "ratioLevel1Title": "比例等级 1 标题",
+    "ratioLevel2": "比例等级 2",
+    "ratioLevel2Title": "比例等级 2 标题",
+    "ratioNote": "比例说明",
+    "ratioNoteTitle": "比例说明标题",
+    "ratioTitle": "比例标题",
+    "rule1Title": "规则 1 标题",
+    "rule2Title": "规则 2 标题",
+    "rule3Title": "规则 3 标题",
+    "settlement1": "结算 1",
+    "settlement1Title": "结算 1 标题",
+    "settlement2": "结算 2",
+    "settlement2Title": "结算 2 标题",
+    "settlement3": "结算 3",
+    "settlement3Title": "结算 3 标题",
+    "settlement4": "结算 4",
+    "settlement4Title": "结算 4 标题",
+    "settlementTitle": "结算标题",
     "pendingSettlement": "待结算",
     "inviteTitle": "邀请码",
     "inviteCode": "邀请码",
@@ -10147,8 +10183,8 @@
     "styleRock": "摇滚",
     "styleClassical": "古典",
     "styleElectronic": "电子",
-    "modelDoubaoPro": "Doubao Pro",
-    "modelDoubaoLite": "Doubao Lite",
+    "modelDoubaoPro": "豆包 Pro",
+    "modelDoubaoLite": "豆包 Lite",
     "pageTitle": "AI 内容生成",
     "pageSubtitle": "选择类型，生成文本、图像、视频、音频、3D 模型等内容",
     "tabGeneric": "通用",
@@ -10971,18 +11007,18 @@
       "agents": "智能体数量",
       "apis": "API 端点",
       "quickAccess": {
-        "agents": "agents",
-        "agentsDesc": "agentsDesc",
-        "apiKey": "apiKey",
-        "apiKeyDesc": "apiKeyDesc",
-        "apis": "apis",
-        "apisDesc": "apisDesc",
-        "docs": "docs",
-        "docsDesc": "docsDesc",
-        "models": "models",
-        "modelsDesc": "modelsDesc",
-        "sdks": "sdks",
-        "sdksDesc": "sdksDesc",
+        "agents": "智能体",
+        "agentsDesc": "智能体描述",
+        "apiKey": "API Key",
+        "apiKeyDesc": "API Key 描述",
+        "apis": "API",
+        "apisDesc": "API 描述",
+        "docs": "文档",
+        "docsDesc": "文档描述",
+        "models": "模型",
+        "modelsDesc": "模型描述",
+        "sdks": "SDK",
+        "sdksDesc": "SDK 描述",
         "title": "快捷访问"
       }
     },
@@ -11033,9 +11069,9 @@
       "getApiKey": "获取 API Key",
       "viewDocs": "查看文档",
       "quickLinks": {
-        "errorHandling": "errorHandling",
-        "pricing": "pricing",
-        "sdks": "sdks",
+        "errorHandling": "错误处理",
+        "pricing": "定价",
+        "sdks": "SDK",
         "title": "快捷链接"
       },
       "categories": {
@@ -11046,19 +11082,19 @@
         "images": "图片生成 API",
         "endpoints": "所有 API 端点列表"
       },
-      "badge": "badge",
-      "categoriesSubtitle": "categoriesSubtitle",
-      "categoriesTitle": "categoriesTitle",
-      "getStarted": "getStarted",
-      "quickLinksSubtitle": "quickLinksSubtitle",
-      "statsSubtitle": "statsSubtitle",
-      "statsTitle": "statsTitle",
-      "step1Desc": "step1Desc",
-      "step1Title": "step1Title",
-      "step2Desc": "step2Desc",
-      "step2Title": "step2Title",
-      "step3Desc": "step3Desc",
-      "step3Title": "step3Title"
+      "badge": "徽章",
+      "categoriesSubtitle": "分类副标题",
+      "categoriesTitle": "分类标题",
+      "getStarted": "快速开始",
+      "quickLinksSubtitle": "快捷链接副标题",
+      "statsSubtitle": "统计副标题",
+      "statsTitle": "统计标题",
+      "step1Desc": "步骤 1 描述",
+      "step1Title": "步骤 1 标题",
+      "step2Desc": "步骤 2 描述",
+      "step2Title": "步骤 2 标题",
+      "step3Desc": "步骤 3 描述",
+      "step3Title": "步骤 3 标题"
     },
     "documents": {
       "title": "文档中心",
@@ -11075,22 +11111,22 @@
     "tags": {
       "stableVersion": "稳定版",
       "openApi": "开放 API",
-      "selfDeveloped": "Self Developed"
+      "selfDeveloped": "自主研发"
     },
     "hero": {
       "titleBrand": "智汇开放平台",
       "title": "让",
-      "subtitleEn": "Open Platform",
+      "subtitleEn": "开放平台",
       "description": "一站式 API 与智能体集群，助力企业快速接入大模型与多模态能力。",
-      "archLine": "Arch Line"
+      "archLine": "架构线"
     },
     "buttons": {
       "getStarted": "立即开始",
       "techSpecs": "技术规格",
       "registerNow": "立即注册",
       "bookDemo": "预约演示",
-      "learnArch": "Learn Arch",
-      "pricingLicense": "Pricing License"
+      "learnArch": "了解架构",
+      "pricingLicense": "定价授权"
     },
     "status": {
       "running": "运行中",
@@ -11110,7 +11146,7 @@
       "pricingCompare": "定价对比",
       "featureRef": "全功能参照",
       "featureTable": "功能表",
-      "ihuiArch": "Ihui Arch"
+      "ihuiArch": "Ihui 架构"
     },
     "sale": {
       "navAriaLabel": "购买与许可区块内导航",
@@ -11123,9 +11159,9 @@
       "navCases": "客户案例",
       "navRules": "售卖规则",
       "navCompare": "对比说明",
-      "navFaq": "FAQ",
+      "navFaq": "常见问题",
       "sectionTitle": "购买与许可说明",
-      "sectionSubtitleEn": "Purchase & License",
+      "sectionSubtitleEn": "购买与授权",
       "introTitle": "产品说明",
       "introDesc": "智汇开放平台以半开源形式在 GitHub 提供代码与文档的有限分发：核心前端与开放能力可被购买者查看、学习与在约定范围内使用，部分后端与商业模块保留闭源。适合企业二次开发、内部部署与合规审计。",
       "whyChooseTitle": "为什么选择智汇开放平台",
@@ -11221,21 +11257,21 @@
       "saleFaq3a": "支持。教育机构、非营利组织可凭有效证明联系我们申请折扣或特殊许可，具体以商务确认为准。",
       "saleFaq4q": "许可是否允许在客户项目中集成与交付？",
       "saleFaq4a": "允许在您自有业务及您向最终用户交付的项目中集成、修改与部署；但禁止将智汇开放平台源码或基于其的衍生品作为独立产品向第三方再分发、转售，或用于与智汇 AI 直接竞争的产品。具体以 LICENSE 为准。",
-      "backToNav": "Back To Nav"
+      "backToNav": "返回导航"
     },
     "pipeline": {
       "title": "从接入到上线，全链路可观测",
       "subtitleEn": "Pipeline",
-      "lead": "Lead"
+      "lead": "引言"
     },
     "apiMatrix": {
       "title": "API 能力矩阵",
-      "subtitleEn": "API Matrix",
-      "lead": "Lead"
+      "subtitleEn": "API 矩阵",
+      "lead": "引言"
     },
     "apiList": {
       "title": "接口一览",
-      "subtitleEn": "API Endpoints",
+      "subtitleEn": "API 端点",
       "lead": "智汇 API 主要端点，兼容 OpenAI 风格；完整列表与参数见 API 中心。",
       "method": "方法",
       "path": "路径",
@@ -11257,7 +11293,7 @@
     },
     "docLinks": {
       "title": "文档与资源",
-      "subtitleEn": "Docs & Resources",
+      "subtitleEn": "文档与资源",
       "developerGuide": "开发指南",
       "apiReference": "API 参考",
       "sdkDocs": "SDK 文档",
@@ -11305,7 +11341,7 @@
     },
     "featureRef": {
       "title": "全功能参照表",
-      "subtitleEn": "Feature Reference",
+      "subtitleEn": "功能参考",
       "lead": "平台能力与所属模块一览。",
       "featureName": "功能名称",
       "description": "说明",
@@ -11346,7 +11382,7 @@
     },
     "featureTable": {
       "title": "功能表",
-      "subtitleEn": "Features",
+      "subtitleEn": "功能",
       "lead": "核心能力简要列表。",
       "featureName": "功能",
       "description": "说明",
@@ -11369,7 +11405,7 @@
     },
     "dx": {
       "title": "极简集成，多语言 SDK",
-      "subtitleEn": "Developer Experience",
+      "subtitleEn": "开发者体验",
       "description": "一行代码完成鉴权与调用，支持 Python / Node / Go / Rust / Java 等，开箱即用。",
       "feature1": "多语言官方 SDK，持续维护",
       "feature2": "完整示例与最佳实践文档",
@@ -11377,23 +11413,23 @@
     },
     "solutions": {
       "title": "行业方案",
-      "subtitleEn": "Solutions",
+      "subtitleEn": "解决方案",
       "explore": "探索"
     },
     "featureHub": {
       "title": "功能中心",
-      "subtitleEn": "Feature Hub"
+      "subtitleEn": "功能中心"
     },
     "ecosystem": {
       "title": "生态与工具",
-      "subtitleEn": "Ecosystem"
+      "subtitleEn": "生态系统"
     },
     "metrics": {
       "latency": "延迟"
     },
     "faq": {
       "title": "常见问题",
-      "subtitleEn": "FAQ"
+      "subtitleEn": "常见问题"
     },
     "cta": {
       "badge": "立即开始",
@@ -11401,24 +11437,24 @@
       "title": "开启您的 AI 集成之旅",
       "description": "注册即享智汇值赠送，透明定价、完整文档与多语言 SDK 一步到位；购买标准版可获得源码与商业许可，企业版支持私有部署与专属支持。"
     },
-    "codeSimpleIntegration": "Code Simple Integration",
-    "codeTabListLabel": "Code Tab List Label",
-    "codeTaskComment": "Code Task Comment",
-    "ecosystemDesc1": "Ecosystem Desc1",
-    "ecosystemDesc2": "Ecosystem Desc2",
-    "ecosystemDesc3": "Ecosystem Desc3",
-    "ecosystemLinkManage": "Ecosystem Link Manage",
-    "ecosystemLinkPlugins": "Ecosystem Link Plugins",
-    "ecosystemLinkSdk": "Ecosystem Link Sdk",
-    "featureHubDesc1": "Feature Hub Desc1",
-    "featureHubDesc2": "Feature Hub Desc2",
-    "featureHubDesc3": "Feature Hub Desc3",
-    "featureHubDesc4": "Feature Hub Desc4",
-    "featureHubDesc5": "Feature Hub Desc5",
-    "featureHubDesc6": "Feature Hub Desc6",
-    "featureHubDesc7": "Feature Hub Desc7",
-    "featureHubDesc8": "Feature Hub Desc8",
-    "featureHubDesc9": "Feature Hub Desc9",
+    "codeSimpleIntegration": "代码简单集成",
+    "codeTabListLabel": "代码标签列表标签",
+    "codeTaskComment": "代码任务评论",
+    "ecosystemDesc1": "生态系统描述 1",
+    "ecosystemDesc2": "生态系统描述 2",
+    "ecosystemDesc3": "生态系统描述 3",
+    "ecosystemLinkManage": "生态系统链接管理",
+    "ecosystemLinkPlugins": "生态系统链接插件",
+    "ecosystemLinkSdk": "生态系统链接 SDK",
+    "featureHubDesc1": "功能中心描述 1",
+    "featureHubDesc2": "功能中心描述 2",
+    "featureHubDesc3": "功能中心描述 3",
+    "featureHubDesc4": "功能中心描述 4",
+    "featureHubDesc5": "功能中心描述 5",
+    "featureHubDesc6": "功能中心描述 6",
+    "featureHubDesc7": "功能中心描述 7",
+    "featureHubDesc8": "功能中心描述 8",
+    "featureHubDesc9": "功能中心描述 9",
     "ihuiArch": {
       "api1": "Api1",
       "api2": "Api2",
@@ -11426,40 +11462,40 @@
       "api4": "Api4",
       "api5": "Api5",
       "api6": "Api6",
-      "apiBadge": "Api Badge",
-      "apiDesc": "Api Desc",
-      "apiTitle": "Api Title",
+      "apiBadge": "API 徽章",
+      "apiDesc": "API 描述",
+      "apiTitle": "API 标题",
       "arch1": "Arch1",
       "arch2": "Arch2",
       "arch3": "Arch3",
       "arch4": "Arch4",
       "arch5": "Arch5",
       "arch6": "Arch6",
-      "archBadge": "Arch Badge",
-      "archDesc": "Arch Desc",
-      "archTitle": "Arch Title",
+      "archBadge": "架构徽章",
+      "archDesc": "架构描述",
+      "archTitle": "架构标题",
       "highlight1": "Highlight1",
       "highlight2": "Highlight2",
       "highlight3": "Highlight3",
       "highlight4": "Highlight4",
       "highlight5": "Highlight5",
-      "highlightsBadge": "Highlights Badge",
-      "highlightsDesc": "Highlights Desc",
-      "highlightsTitle": "Highlights Title",
-      "lead": "Lead",
-      "subtitleEn": "Subtitle En",
-      "title": "Title"
+      "highlightsBadge": "亮点徽章",
+      "highlightsDesc": "亮点描述",
+      "highlightsTitle": "亮点标题",
+      "lead": "引言",
+      "subtitleEn": "英文副标题",
+      "title": "标题"
     },
-    "pipelineDesc1": "Pipeline Desc1",
-    "pipelineDesc2": "Pipeline Desc2",
-    "pipelineDesc3": "Pipeline Desc3",
-    "pipelineDesc4": "Pipeline Desc4",
-    "solutionDesc1": "Solution Desc1",
-    "solutionDesc2": "Solution Desc2",
-    "solutionDesc3": "Solution Desc3",
-    "solutionTagCompliance": "Solution Tag Compliance",
-    "solutionTagRisk": "Solution Tag Risk",
-    "solutionTagSupport": "Solution Tag Support"
+    "pipelineDesc1": "Pipeline 描述 1",
+    "pipelineDesc2": "Pipeline 描述 2",
+    "pipelineDesc3": "Pipeline 描述 3",
+    "pipelineDesc4": "Pipeline 描述 4",
+    "solutionDesc1": "解决方案描述 1",
+    "solutionDesc2": "解决方案描述 2",
+    "solutionDesc3": "解决方案描述 3",
+    "solutionTagCompliance": "解决方案标签合规",
+    "solutionTagRisk": "解决方案标签风险",
+    "solutionTagSupport": "解决方案标签支持"
   },
   "openPlatformDocs": {
     "title": "文档中心",
@@ -11537,7 +11573,7 @@
       "code": "请输入验证码",
       "password": "请输入密码",
       "confirmPassword": "请确认密码",
-      "email": "email"
+      "email": "邮箱"
     },
     "validation": {
       "usernameRequired": "用户名不能为空",
@@ -11573,7 +11609,7 @@
       "agreementRequired": "请同意服务条款和隐私政策",
       "registerSuccess": "注册成功",
       "registerFailed": "注册失败",
-      "oauthRedirect": "OauthRedirect",
+      "oauthRedirect": "OAuth 重定向",
       "oauthFailed": "oauth失败"
     },
     "code": {
@@ -12165,7 +12201,7 @@
     "loadRelatedToolsFailed": "加载相关工具失败",
     "processing": "处理中...",
     "confirmPurchase": "确认Purchase",
-    "agentNotLoaded": "AgentNotLoaded",
+    "agentNotLoaded": "智能体未加载",
     "paymentRedirecting": "支付Redirecting",
     "wechatPaymentRequiresJSAPI": "Wechat支付RequiresJSAPI",
     "paymentQRCodeGenerated": "支付QRCodeGenerated",
@@ -12174,7 +12210,7 @@
     "purchaseFailed": "purchase失败",
     "linkCopied": "链接Copied",
     "copyFailed": "copy失败",
-    "invalidPaymentForm": "Invalid Payment Form"
+    "invalidPaymentForm": "支付表单无效"
   },
   "orderDetail": {
     "title": "订单详情",
@@ -12257,7 +12293,7 @@
       "heroTitle": "一站式AI创新生态枢纽整合平台",
       "heroDesc": "AI智赋，流量裂变，全域重构，破晓纪元！集智能体开发、超级个体孵化、企业转型赋能、资讯学习于一体的人工智能全领域创新平台",
       "heroStats": "汇聚全球AI领域专业人才",
-      "overviewTag": "PLATFORM OVERVIEW",
+      "overviewTag": "平台概览",
       "overviewTitle": "AI智汇社 平台概述",
       "overviewDesc": "依托人工智能全领域技术，打破信息壁垒，汇聚行业智慧，推动AI技术普及与深度应用，助力各行业实现智能化跨越",
       "platformPosition": "精准平台定位",
@@ -12280,16 +12316,16 @@
       "globalRestructureDesc": "AI渗透社会经济各角落，系统性重塑行业规则与商业模式",
       "dawnEra": "破晓纪元",
       "dawnEraDesc": "终结旧时代低效局限，开启AI主导的智能经济新纪元",
-      "functionTag": "CORE FUNCTIONS",
+      "functionTag": "核心功能",
       "functionTitle": "全维度核心功能与服务",
       "functionDesc": "聚焦AI领域全链路需求，打造从学习交流、技术聚合到产业赋能的一体化服务体系",
-      "solutionTag": "ENTERPRISE SOLUTIONS",
+      "solutionTag": "企业解决方案",
       "solutionTitle": "企业级AI应用解决方案",
       "solutionDesc": "从信息化到智能化，为企业提供全场景、定制化AI应用方案，实现降本增效与核心竞争力提升",
-      "developmentTag": "DEVELOPMENT PLAN",
+      "developmentTag": "发展计划",
       "developmentTitle": "未来发展规划与展望",
       "developmentDesc": "以技术创新为核心，以国际化为方向，以生态建设为基础，打造全球领先的AI创新生态平台",
-      "valueTag": "CORE VALUE",
+      "valueTag": "核心价值",
       "valueTitle": "平台核心价值与竞争优势",
       "valueDesc": "依托四大核心价值，构建AI领域的核心竞争力，为个人与企业提供可持续的AI发展赋能",
       "tenThousandPlus": "万+",
@@ -12960,10 +12996,10 @@
         "checking": "查询中..."
       },
       "status": {
-        "completed": "completed",
-        "failed": "failed",
-        "pending": "pending",
-        "processing": "processing",
+        "completed": "已完成",
+        "failed": "失败",
+        "pending": "待处理",
+        "processing": "处理中",
         "title": "状态"
       },
       "messages": {
@@ -12978,7 +13014,7 @@
         "statusCompleted": "视频生成完成",
         "statusFailed": "视频生成失败",
         "checkStatusFailed": "查询状态失败",
-        "pollTimeout": "PollTimeout"
+        "pollTimeout": "轮询超时"
       },
       "startPolling": "自动轮询",
       "stopPolling": "停止轮询",
@@ -13028,7 +13064,7 @@
         "topicRequired": "请输入视频主题",
         "status": "状态: {status}",
         "checkFailed": "查询失败",
-        "pollTimeout": "PollTimeout"
+        "pollTimeout": "轮询超时"
       },
       "status": {
         "completed": "已完成",
@@ -13365,7 +13401,7 @@
       "confirmDeleteWebhook": "确定删除该 Webhook？",
       "confirmDeleteHook": "确定删除该 Hook？",
       "confirmDeleteChannel": "确定删除该渠道？",
-      "messages": "Messages"
+      "messages": "消息"
     },
     "goToSystemSettings": "前往系统设置",
     "copied": "{label} 已复制",
@@ -13605,14 +13641,14 @@
     "templateSelected": "模板已选择",
     "mcpToolFailed": "MCP 工具调用失败",
     "mcpToolSuccess": "MCP 工具调用成功",
-    "emptyHint": "Empty Hint",
-    "emptyMessages": "Empty Messages",
-    "featureComingSoon": "Feature Coming Soon",
-    "noActivityYet": "No Activity Yet",
-    "recentActivity": "Recent Activity",
-    "settingsComingSoon": "Settings Coming Soon",
-    "thinking": "Thinking",
-    "uptime": "Uptime"
+    "emptyHint": "空提示",
+    "emptyMessages": "空消息",
+    "featureComingSoon": "功能即将上线",
+    "noActivityYet": "暂无活动",
+    "recentActivity": "最近活动",
+    "settingsComingSoon": "设置即将上线",
+    "thinking": "思考中",
+    "uptime": "运行时长"
   },
   "mcpComposable": {
     "calling": "正在调用 MCP 工具: {tool}...",
@@ -14297,7 +14333,7 @@
     "newFragment": "新建片段",
     "showShortcuts": "显示快捷键",
     "importScript": "导入剧本",
-    "shortcuts": "shortcuts",
+    "shortcuts": "快捷键",
     "parseScript": "解析剧本",
     "enterScriptContent": "请输入剧本内容，AI将自动解析为场景片段...",
     "parsedScenes": "解析结果",
@@ -14330,26 +14366,26 @@
     "fragmentsCount": "Fragments计数",
     "generatePrompt": "生成提示符",
     "charactersCount": "Characters计数",
-    "appearanceLoaded": "AppearanceLoaded",
-    "voiceLoaded": "VoiceLoaded",
+    "appearanceLoaded": "外观已加载",
+    "voiceLoaded": "语音已加载",
     "firstFrameGenerated": "第一个框架Generated",
     "firstFrameGeneratedRetry": "第一个框架Generated重试",
     "firstFrameGenerateFailed": "firstFrameGenerate失败",
     "firstFrameGenerateError": "firstFrameGenerate错误",
     "undone": "未已完成",
     "nothingToUndo": "无thingToUndo",
-    "redone": "Redone",
+    "redone": "已重做",
     "nothingToRedo": "无thingToRedo",
     "noSelection": "无Selection",
     "nothingToPaste": "无thingToPaste",
-    "pasted": "Pasted",
-    "duplicated": "Duplicated",
-    "deleted": "Deleted",
-    "enterScript": "EnterScript",
+    "pasted": "已粘贴",
+    "duplicated": "已复制副本",
+    "deleted": "已删除",
+    "enterScript": "输入剧本",
     "noScenesFound": "无ScenesFound",
-    "scenesParsed": "ScenesParsed",
+    "scenesParsed": "场景已解析",
     "parseFailed": "parse失败",
-    "scenesImported": "ScenesImported",
+    "scenesImported": "场景已导入",
     "insertTemplateHistory": "无效sertTemplateHistory",
     "templateApplied": "模板Applied",
     "batchEditHistory": "Batch编辑历史记录",
@@ -14590,13 +14626,13 @@
     "projectIntro": "项目介绍",
     "description": "<strong>mcp-use</strong> 是一个全栈MCP框架，提供构建 <strong>Model Context Protocol</strong> 所需的一切功能。支持在6行代码内接入MCP服务器，同时支持 <strong>Python</strong> 和 <strong>TypeScript</strong>。",
     "coreFeatures": "核心功能",
-    "mcpAgents": "MCPAgents",
+    "mcpAgents": "MCP 智能体",
     "mcpAgentsDesc": "可以使用工具并在步骤间推理的AI智能体",
-    "mcpClients": "MCPClients",
+    "mcpClients": "MCP 客户端",
     "mcpClientsDesc": "将任何LLM连接到任何MCP服务器",
-    "mcpServers": "MCPServers",
+    "mcpServers": "MCP 服务器",
     "mcpServersDesc": "构建您自己的MCP服务器",
-    "mcpInspector": "MCPInspector",
+    "mcpInspector": "MCP Inspector",
     "mcpInspectorDesc": "基于Web的MCP服务器调试器",
     "quickStart": "快速开始",
     "typescript": "TypeScript",
@@ -14640,7 +14676,7 @@
   },
   "customService": {
     "title": "标题",
-    "subtitle": "Subtitle"
+    "subtitle": "副标题"
   },
   "agenticDashboard": {
     "title": "Agentic AI 控制台",
@@ -14676,10 +14712,10 @@
     "id": "ID",
     "task": "任务",
     "status": {
-      "completed": "completed",
-      "failed": "failed",
-      "pending": "pending",
-      "running": "running",
+      "completed": "已完成",
+      "failed": "失败",
+      "pending": "待处理",
+      "running": "运行中",
       "title": "状态"
     },
     "actions": "操作",
@@ -14882,13 +14918,13 @@
     },
     "loading": "加载中...",
     "amountLabels": {
-      "coins": "Coins"
+      "coins": "金币"
     },
-    "customPlaceholder": "Custom Placeholder",
-    "notice1": "Notice1",
-    "notice2": "Notice2",
-    "notice3": "Notice3",
-    "noticeTitle": "Notice Title"
+    "customPlaceholder": "自定义占位符",
+    "notice1": "须知 1",
+    "notice2": "须知 2",
+    "notice3": "须知 3",
+    "noticeTitle": "须知标题"
   },
   "topUpSuccess": {
     "title": "充值成功",
@@ -14992,13 +15028,23 @@
       "title": "月度会员",
       "days": "30天",
       "select": "选择",
-      "benefits": ["全部课程免费学习", "专属学习社区", "每月3次AI答疑", "学习进度追踪"]
+      "benefits": [
+        "全部课程免费学习",
+        "专属学习社区",
+        "每月3次AI答疑",
+        "学习进度追踪"
+      ]
     },
     "yearly": {
       "title": "年度会员",
       "days": "365天",
       "select": "选择",
-      "benefits": ["全部课程免费学习", "专属学习社区", "无限AI答疑", "学习进度追踪+证书"]
+      "benefits": [
+        "全部课程免费学习",
+        "专属学习社区",
+        "无限AI答疑",
+        "学习进度追踪+证书"
+      ]
     },
     "monthlyMember": "月度会员",
     "yearlyMember": "年度会员"
@@ -15494,9 +15540,9 @@
       "smooth": "平滑",
       "swift": "快速"
     },
-    "playDemo": "Play Demo",
-    "playing": "Playing",
-    "previewTitle": "Preview Title"
+    "playDemo": "播放演示",
+    "playing": "播放中",
+    "previewTitle": "预览标题"
   },
   "themeSync": {
     "title": "主题同步",
@@ -15666,8 +15712,8 @@
   },
   "utils": {
     "voiceRecorder": {
-      "microphonePermissionDenied": "Microphone Permission Denied",
-      "recordingFailed": "Recording Failed"
+      "microphonePermissionDenied": "麦克风权限被拒绝",
+      "recordingFailed": "录音失败"
     }
   },
   "aiChat": {
@@ -15695,7 +15741,7 @@
       "justNow": "刚刚",
       "minutesAgo": "{minutes}分钟前",
       "hoursAgo": "{hours}小时前",
-      "daysAgo": "DaysAgo"
+      "daysAgo": "天前"
     },
     "loadHistoryFailed": "加载对话历史失败",
     "aiDialog": "AI 对话",
@@ -15709,7 +15755,7 @@
       "componentName": "组件名称",
       "componentDescription": "组件描述",
       "descriptionPlaceholder": "描述请输入",
-      "features": "Features",
+      "features": "功能",
       "useDesignSystem": "使用设计系统",
       "useSEO": "使用SEO优化",
       "useAnimations": "使用动画效果",
@@ -15731,7 +15777,7 @@
       "strategicLayer": "策略层",
       "tacticalLayer": "Tactical图层",
       "operationalLayer": "Operational图层",
-      "reflectionResults": "ReflectionResults",
+      "reflectionResults": "反思结果",
       "processing": "处理中...",
       "optimizationSuggestions": "优化Suggestions",
       "executionResults": "执行Results",
@@ -15749,9 +15795,9 @@
       "completed": "已完成",
       "failed": "失败",
       "idle": "空闲",
-      "thinking": "Thinking",
-      "acting": "Acting",
-      "reflecting": "Reflecting"
+      "thinking": "思考中",
+      "acting": "执行中",
+      "reflecting": "反思中"
     },
     "agenticTask": {
       "title": "标题",
@@ -15835,8 +15881,8 @@
     "mockResponsePrefix": "这是对\"{question}\"的N8N助手回复。",
     "mockResponseContent": "\n\nN8N是一个强大的工作流自动化工具，可以帮助您连接各种应用程序和服务，自动化重复性任务，提高工作效率。",
     "mockResponseCopy": "这是对\"{question}\"的N8N助手回复。",
-    "generating": "Generating",
-    "mockNotAvailable": "Mock Not Available"
+    "generating": "生成中",
+    "mockNotAvailable": "Mock 不可用"
   },
   "orderList": {
     "title": "订单列表",
@@ -16059,14 +16105,14 @@
     "hitRate": "命中率",
     "clearCache": "清除缓存",
     "typeModel": "Type模型",
-    "typeAgent": "TypeAgent",
-    "typeAgentic": "TypeAgentic",
-    "typeMCP": "TypeMCP",
+    "typeAgent": "智能体类型",
+    "typeAgentic": "Agentic 类型",
+    "typeMCP": "MCP 类型",
     "typeHybrid": "Type混合",
     "title": "标题",
-    "models": "Models",
-    "agents": "Agents",
-    "mcpTools": "McpTools",
+    "models": "模型",
+    "agents": "智能体",
+    "mcpTools": "MCP 工具",
     "totalCapabilities": "总计Capabilities",
     "quickInvoke": "快速调用",
     "inputPlaceholder": "输入请输入",
@@ -16074,16 +16120,16 @@
     "autoSelect": "自动选择",
     "invoke": "无效voke",
     "name": "名称",
-    "provider": "Provider",
+    "provider": "提供商",
     "description": "描述",
-    "use": "Use",
+    "use": "使用",
     "platform": "平台",
     "performance": "表现",
     "capability": "能力",
     "callCount": "调用计数",
     "successCount": "成功计数",
     "avgLatency": "Avg延迟",
-    "templates": "Templates",
+    "templates": "模板",
     "selectTemplate": "选择模板",
     "executeTemplate": "执行模板",
     "inputRequired": "输入必填",
@@ -16213,36 +16259,36 @@
         "feishu": "飞书登录"
       },
       "feishuLogin": "Feishu登录",
-      "accountLogin": "accountLogin",
-      "alipay": "alipay",
-      "comingSoon": "comingSoon",
-      "emailLogin": "emailLogin",
-      "feishu": "feishu",
-      "otherMethods": "otherMethods",
-      "phoneLogin": "phoneLogin",
-      "quickLogin": "quickLogin",
-      "securityNotice1": "securityNotice1",
-      "securityNotice2": "securityNotice2",
-      "securityNotice3": "securityNotice3",
-      "selectPreferred": "selectPreferred"
+      "accountLogin": "账号登录",
+      "alipay": "支付宝",
+      "comingSoon": "即将上线",
+      "emailLogin": "邮箱登录",
+      "feishu": "飞书",
+      "otherMethods": "其他方式",
+      "phoneLogin": "手机号登录",
+      "quickLogin": "快捷登录",
+      "securityNotice1": "安全提示 1",
+      "securityNotice2": "安全提示 2",
+      "securityNotice3": "安全提示 3",
+      "selectPreferred": "选择偏好"
     },
     "hidePassword": "隐藏Password",
     "showPassword": "显示Password",
     "welcomeTitle": "welcome标题",
     "apple": {
-      "loggingIn": "loggingIn",
-      "retry": "retry",
-      "securityTip": "securityTip"
+      "loggingIn": "登录中",
+      "retry": "重试",
+      "securityTip": "安全提示"
     },
     "google": {
-      "loggingIn": "loggingIn",
-      "retry": "retry",
-      "securityTip": "securityTip"
+      "loggingIn": "登录中",
+      "retry": "重试",
+      "securityTip": "安全提示"
     },
-    "switchPlatform": "switchPlatform",
-    "goLogin": "Go Login",
-    "goRegister": "Go Register",
-    "hasAccount": "Has Account"
+    "switchPlatform": "切换平台",
+    "goLogin": "去登录",
+    "goRegister": "去注册",
+    "hasAccount": "已有账号"
   },
   "designer": {
     "mode": "模式",
@@ -16339,7 +16385,7 @@
       "avgLatency": "平均延迟",
       "maxLatency": "最大延迟",
       "appName": "应用名称",
-      "topStatsNotAvailable": "Top Stats Not Available"
+      "topStatsNotAvailable": "顶部统计不可用"
     },
     "logs": {
       "time": "时间",
@@ -16357,19 +16403,19 @@
       "app": "应用",
       "input": "输入",
       "output": "输出",
-      "userAgent": "UserAgent",
+      "userAgent": "User-Agent",
       "statusCode": "状态Code",
       "errorMessage": "错误Message",
       "request": "请求",
       "requestHeaders": "请求Headers",
-      "headerKey": "HeaderKey",
+      "headerKey": "请求头键",
       "headerValue": "Header值",
       "noHeaders": "无Headers",
       "requestBody": "请求Body",
       "noBody": "无主体",
       "response": "响应",
-      "responseHeaders": "ResponseHeaders",
-      "responseBody": "ResponseBody"
+      "responseHeaders": "响应头",
+      "responseBody": "响应体"
     },
     "logStatus": {
       "success": "成功",
@@ -16486,7 +16532,7 @@
         "rateLimit": "速率限制"
       },
       "appCount": "App计数",
-      "createdAt": "CreatedAt",
+      "createdAt": "创建时间",
       "createSuccess": "创建成功",
       "createFailed": "创建失败",
       "updateSuccess": "更新成功",
@@ -16529,8 +16575,8 @@
     },
     "billing": {
       "app": "应用",
-      "apiKey": "ApiKey",
-      "tokens": "Tokens",
+      "apiKey": "API Key",
+      "tokens": "Token",
       "input": "输入",
       "output": "输出",
       "latency": "延迟",
@@ -16540,7 +16586,7 @@
       "status": {
         "success": "成功",
         "error": "错误",
-        "timeout": "Timeout"
+        "timeout": "超时"
       }
     }
   },
@@ -16576,7 +16622,7 @@
     "cleared": "队列已清空"
   },
   "enterpriseService": {
-    "badge": "ENTERPRISESERVICE",
+    "badge": "企业服务",
     "adoptionRate": "企业已采用",
     "heroTitle": "智汇 AI企业服务",
     "heroSubtitle": "AI时代企业理性效率服务与互助社群。帮助决策者深度理解AI与企业的关系，构建人机协同的超级组织。",
@@ -16617,9 +16663,9 @@
           "consulting": "咨询服务"
         }
       },
-      "module01": "module01",
-      "module02": "module02",
-      "module03": "module03"
+      "module01": "模块 01",
+      "module02": "模块 02",
+      "module03": "模块 03"
     },
     "architecture": {
       "title": "企业AI化服务路径与架构原理",
@@ -16733,7 +16779,7 @@
           "structureAnalysis": "企业AI化结构化分析方法",
           "aiLiteracy": "AI时代素养——批判性思维"
         },
-        "description": "description"
+        "description": "描述"
       },
       "thinking": {
         "title": "思维类课程",
@@ -16743,7 +16789,7 @@
           "creativeLearning": "创意学习方法",
           "orgChange": "组织变革心理"
         },
-        "description": "description"
+        "description": "描述"
       },
       "culture": {
         "title": "文化类课程",
@@ -16753,7 +16799,7 @@
           "easternPhilosophy": "中国传统哲学系列",
           "westernPhilosophy": "西方哲学系列"
         },
-        "description": "description"
+        "description": "描述"
       }
     },
     "tools": {
@@ -16811,34 +16857,34 @@
       "humanMachine": "人机协作",
       "contact": "联系我们"
     },
-    "badgeNew": "badgeNew",
-    "communityLabel": "communityLabel",
-    "coreService": "coreService",
-    "exit": "exit",
-    "jumpToSection": "jumpToSection",
+    "badgeNew": "新徽章",
+    "communityLabel": "社区标签",
+    "coreService": "核心服务",
+    "exit": "退出",
+    "jumpToSection": "跳转到章节",
     "layers": {
-      "layer01": "layer01",
-      "layer02": "layer02",
-      "layer03": "layer03"
+      "layer01": "层级 01",
+      "layer02": "层级 02",
+      "layer03": "层级 03"
     },
-    "learnMore": "learnMore",
+    "learnMore": "了解更多",
     "phases": {
-      "phase01": "phase01",
-      "phase02": "phase02",
-      "phase03": "phase03"
+      "phase01": "阶段 01",
+      "phase02": "阶段 02",
+      "phase03": "阶段 03"
     },
-    "scrollProgress": "scrollProgress",
-    "sectionNavigation": "sectionNavigation",
+    "scrollProgress": "滚动进度",
+    "sectionNavigation": "章节导航",
     "sections": {
-      "agentCompass": "agentCompass",
-      "architecture": "architecture",
-      "courseSystem": "courseSystem",
-      "joinUs": "joinUs",
-      "positioning": "positioning",
-      "serviceModules": "serviceModules",
-      "toolsOverview": "toolsOverview"
+      "agentCompass": "智能体指南针",
+      "architecture": "架构",
+      "courseSystem": "课程体系",
+      "joinUs": "加入我们",
+      "positioning": "定位",
+      "serviceModules": "服务模块",
+      "toolsOverview": "工具概览"
     },
-    "skipToMain": "skipToMain"
+    "skipToMain": "跳到主内容"
   },
   "agentScenario": {
     "heroTitle": "智能体场景罗盘",
@@ -16886,8 +16932,8 @@
             "desc": "自动化处理重复性工作流程，如数据录入、报表生成"
           },
           "qa": {
-            "desc": "Desc",
-            "name": "Name"
+            "desc": "描述",
+            "name": "名称"
           }
         },
         "value": "技术门槛最低，部署最快，适合企业AI化的第一步。可以快速产生价值，建立团队对AI的信心。"
@@ -17181,14 +17227,14 @@
     "type": "类型",
     "model": "模型",
     "status": "状态",
-    "test": "Test",
-    "testAgent": "TestAgent",
+    "test": "测试",
+    "testAgent": "测试智能体",
     "editAgent": "编辑Agent",
     "agentNamePlaceholder": "agentName请输入",
     "selectTypePlaceholder": "selectType请输入",
     "typeReasoning": "Type推理",
-    "typeActing": "TypeActing",
-    "typeSpecialist": "TypeSpecialist",
+    "typeActing": "执行型",
+    "typeSpecialist": "专家型",
     "selectModelPlaceholder": "selectModel请输入",
     "systemPrompt": "System提示符",
     "systemPromptPlaceholder": "systemPrompt请输入",
@@ -17221,10 +17267,10 @@
     "averageTokens": "平均值Tokens",
     "totalSteps": "总计Steps",
     "completedSteps": "已完成Steps",
-    "failedSteps": "FailedSteps",
+    "failedSteps": "失败步骤",
     "toolResults": "工具Results",
-    "reflection": "Reflection",
-    "corrected": "Corrected",
+    "reflection": "反思",
+    "corrected": "已纠正",
     "correctedResult": "Corrected结果",
     "quality": "质量:",
     "efficiency": "效率:",
@@ -17249,33 +17295,33 @@
     "toggleTip": "toggle提示",
     "scopes": {
       "chat": "对话",
-      "drama": "Drama",
-      "editor": "Editor",
+      "drama": "剧本",
+      "editor": "编辑器",
       "input": "输入"
     }
   },
   "apiMethodSearch": {
     "searchPlaceholder": "搜索请输入",
     "methodName": "方法名称",
-    "apiPath": "ApiPath",
+    "apiPath": "API 路径",
     "description": "描述",
     "actions": "操作",
     "copyMethodName": "复制方法名称",
     "noMatch": "无Match",
-    "copied": "Copied",
+    "copied": "已复制",
     "copyFailed": "copy失败",
     "loadFailed": "加载失败"
   },
   "customerService": {
     "chat": {
       "title": "标题",
-      "faqs": "Faqs",
+      "faqs": "常见问题",
       "startChat": "开始Chat",
-      "typing": "Typing",
+      "typing": "输入中",
       "placeholder": "请输入",
       "connected": "已连接",
-      "connecting": "Connecting",
-      "reconnecting": "Reconnecting",
+      "connecting": "连接中",
+      "reconnecting": "重连中",
       "disconnected": "已断开",
       "fileSizeExceeded": "文件SizeExceeded",
       "sendFailed": "send失败"
@@ -17285,39 +17331,39 @@
       "noFAQs": "无FAQs"
     },
     "title": "标题",
-    "subtitle": "Subtitle",
+    "subtitle": "副标题",
     "ticket": {
       "title": "标题"
     }
   },
   "codeBlock": {
-    "copied": "Copied",
+    "copied": "已复制",
     "copy": "复制",
-    "toggleLineNumbers": "ToggleLineNumbers",
+    "toggleLineNumbers": "切换行号",
     "copySuccess": "copy成功"
   },
   "mcpUse": {
     "manager": {
       "title": "标题",
-      "subtitle": "Subtitle",
-      "viewProject": "ViewProject",
+      "subtitle": "副标题",
+      "viewProject": "查看项目",
       "connectServer": "Connect服务器",
       "connectedServers": "已连接Servers",
-      "agents": "Agents",
+      "agents": "智能体",
       "totalToolCalls": "总计工具Calls",
       "successRate": "成功速率",
-      "servers": "Servers",
+      "servers": "服务器",
       "serverUrl": "服务器Url",
-      "timeout": "Timeout",
+      "timeout": "超时",
       "status": "状态",
       "connected": "已连接",
-      "test": "Test",
-      "disconnect": "Disconnect",
+      "test": "测试",
+      "disconnect": "断开连接",
       "createAgent": "创建Agent",
       "agentName": "Agent名称",
       "description": "描述",
       "model": "模型",
-      "tools": "Tools",
+      "tools": "工具",
       "autoSelect": "自动选择",
       "run": "运行",
       "tasks": "任务",
@@ -17337,10 +17383,10 @@
       "serverId": "服务器Id",
       "serverIdPlaceholder": "serverId请输入",
       "serverUrlPlaceholder": "serverUrl请输入",
-      "apiKey": "ApiKey",
+      "apiKey": "API Key",
       "apiKeyPlaceholder": "apiKey请输入",
       "timeoutTip": "timeout提示",
-      "agentId": "AgentId",
+      "agentId": "智能体 ID",
       "agentIdPlaceholder": "agentId请输入",
       "agentNamePlaceholder": "agentName请输入",
       "descriptionPlaceholder": "描述请输入",
@@ -17387,38 +17433,38 @@
     "viewGuide": "View指南",
     "guideTitle": "guide标题",
     "inputTips": "无效putTips",
-    "welcome": "Welcome",
+    "welcome": "欢迎",
     "copy": "复制",
-    "generated": "Generated",
-    "tokensConsumed": "TokensConsumed",
-    "generating": "Generating",
+    "generated": "已生成",
+    "tokensConsumed": "Token 消耗",
+    "generating": "生成中",
     "placeholder": "请输入",
     "send": "发送",
     "uploadImage": "Upload图片",
     "title": "标题",
-    "guide1": "Guide1",
-    "guide2": "Guide2",
-    "guide3": "Guide3",
-    "guide4": "Guide4",
+    "guide1": "指南 1",
+    "guide2": "指南 2",
+    "guide3": "指南 3",
+    "guide4": "指南 4",
     "copySuccess": "copy成功",
     "copyFailed": "copy失败",
     "downloadSuccess": "下载成功",
-    "imagesUploaded": "ImagesUploaded",
+    "imagesUploaded": "图片已上传",
     "voiceInputFailed": "voiceInput失败"
   },
   "order": {
     "status": {
       "unsettled": "未settled",
       "pending": "待处理",
-      "refunded": "Refunded",
+      "refunded": "已退款",
       "completed": "已完成"
     }
   },
   "forgotPassword": {
     "title": "标题",
-    "step1": "Step1",
-    "step2": "Step2",
-    "step3": "Step3",
+    "step1": "步骤 1",
+    "step2": "步骤 2",
+    "step3": "步骤 3",
     "email": "邮箱",
     "emailPlaceholder": "邮箱请输入",
     "verificationCode": "验证Code",
@@ -17429,24 +17475,24 @@
     "passwordPlaceholder": "密码请输入",
     "confirmPassword": "确认Password",
     "confirmPasswordPlaceholder": "confirmPassword请输入",
-    "passwordTips": "PasswordTips",
-    "tip1": "Tip1",
-    "tip2": "Tip2",
-    "tip3": "Tip3",
-    "tip4": "Tip4",
+    "passwordTips": "密码提示",
+    "tip1": "提示 1",
+    "tip2": "提示 2",
+    "tip3": "提示 3",
+    "tip4": "提示 4",
     "success": "成功",
     "successDesc": "成功描述",
     "goToLogin": "GoTo登录",
     "confirmPasswordRequired": "confirmPassword必填",
-    "passwordMismatch": "PasswordMismatch",
+    "passwordMismatch": "密码不一致",
     "emailRequired": "邮箱必填",
-    "emailInvalid": "EmailInvalid",
+    "emailInvalid": "邮箱无效",
     "codeRequired": "code必填",
     "passwordRequired": "密码必填",
     "passwordMinLength": "Password最小长度",
     "codeSent": "Code已发送",
     "sendCodeFailed": "sendCode失败",
-    "codeInvalid": "CodeInvalid",
+    "codeInvalid": "验证码无效",
     "passwordResetSuccess": "passwordReset成功",
     "resetPasswordFailed": "resetPassword失败"
   },
@@ -17455,13 +17501,13 @@
     "totalCommission": "总计佣金",
     "yuan": "元",
     "available": "可用",
-    "withdrawn": "Withdrawn",
+    "withdrawn": "已提现",
     "pending": "待处理",
     "todayCommission": "Today佣金",
     "withdraw": "提现",
-    "withdrawDetail": "WithdrawDetail",
+    "withdrawDetail": "提现详情",
     "commission": "佣金",
-    "buyer": "Buyer",
+    "buyer": "买家",
     "orderTime": "顺序时间",
     "relatedOrder": "相关顺序",
     "copy": "复制",
@@ -17483,12 +17529,12 @@
     "refundAmountPlaceholder": "refundAmount请输入",
     "refundAmountTip": "refundAmount提示",
     "reason": {
-      "duplicate": "duplicate",
-      "noNeed": "noNeed",
-      "notSatisfied": "notSatisfied",
-      "other": "other",
-      "qualityIssue": "qualityIssue",
-      "wrongProduct": "wrongProduct",
+      "duplicate": "重复",
+      "noNeed": "不需要",
+      "notSatisfied": "不满意",
+      "other": "其他",
+      "qualityIssue": "质量问题",
+      "wrongProduct": "商品错误",
       "title": "退款原因"
     },
     "reasonPlaceholder": "reason请输入",
@@ -17510,7 +17556,7 @@
     "applySuccess": "apply成功",
     "applyFailed": "apply失败",
     "title": "标题",
-    "subtitle": "Subtitle",
+    "subtitle": "副标题",
     "searchPlaceholder": "搜索请输入",
     "filterStatus": "滤镜状态",
     "startDate": "开始日期",
@@ -17520,11 +17566,11 @@
     "refundNo": "退款否",
     "amount": "金额",
     "createTime": "创建时间",
-    "approvedAt": "ApprovedAt",
+    "approvedAt": "批准时间",
     "completedAt": "已完成At",
     "rejectReason": "拒绝Reason",
     "cancel": "取消",
-    "viewDetail": "ViewDetail",
+    "viewDetail": "查看详情",
     "status": {
       "pending": "待处理",
       "processing": "处理中...",
@@ -17754,14 +17800,14 @@
       "exitFullscreen": "退出全屏 (ESC)",
       "officePreviewUnavailable": "当前文档为本地或内网地址，微软 Office 在线预览无法访问。请下载后使用本地 Office 打开。",
       "downloadDocument": "下载文档",
-      "reload": "Reload",
-      "uploadSuccessViewHint": "Upload Success View Hint"
+      "reload": "重新加载",
+      "uploadSuccessViewHint": "上传成功查看提示"
     },
     "headerActions": {
       "wechatMiniProgram": "微信小程序",
       "wechatQrCode": "微信小程序二维码",
       "scanWechatTip": "微信扫码体验小程序",
-      "close": "Close"
+      "close": "关闭"
     },
     "a_i_dialog": {
       "新模型1": "新模型",
@@ -18712,7 +18758,7 @@
       "模型配置有效可以5": "模型配置有效，可以连接"
     },
     "common": {
-      "requestFailed": "Request Failed"
+      "requestFailed": "请求失败"
     },
     "chat_history_service": {
       "创建成功": "创建成功",
@@ -19428,9 +19474,9 @@
       "refunded": "已退款"
     },
     "fileTypes": {
-      "audio": "Audio",
-      "image": "Image",
-      "video": "Video"
+      "audio": "音频",
+      "image": "图片",
+      "video": "视频"
     }
   },
   "userComponents": {
@@ -19539,10 +19585,10 @@
     },
     "loginPopup": {
       "login": "登录",
-      "code": "Code",
-      "phone": "Phone",
-      "sendCode": "Send Code",
-      "wechatLogin": "Wechat Login"
+      "code": "验证码",
+      "phone": "电话",
+      "sendCode": "发送验证码",
+      "wechatLogin": "微信登录"
     },
     "infoCard": {
       "edit": "编辑"
@@ -19569,15 +19615,15 @@
       "platformIntro": "平台功能介绍",
       "platformIntroDesc": "一站式AI创新生态平台全功能解析"
     },
-    "files": "Files",
-    "linkCopied": "Link Copied",
-    "noShared": "No Shared",
-    "shareDeleted": "Share Deleted",
-    "shareLink": "Share Link",
-    "shared": "Shared",
-    "upload": "Upload",
-    "uploadError": "Upload Error",
-    "uploadSuccess": "Upload Success"
+    "files": "文件",
+    "linkCopied": "链接已复制",
+    "noShared": "未分享",
+    "shareDeleted": "分享已删除",
+    "shareLink": "分享链接",
+    "shared": "已分享",
+    "upload": "上传",
+    "uploadError": "上传错误",
+    "uploadSuccess": "上传成功"
   },
   "adminComponents": {
     "userManagement": {
@@ -19648,10 +19694,10 @@
       "colViews": "浏览",
       "statusActive": "启用",
       "statusInactive": "禁用",
-      "addHint": "Add Hint",
-      "desc": "Desc",
-      "editHint": "Edit Hint",
-      "title": "Title"
+      "addHint": "添加提示",
+      "desc": "描述",
+      "editHint": "编辑提示",
+      "title": "标题"
     },
     "feedback": {
       "filterStatus": "状态",
@@ -19686,8 +19732,8 @@
       "priorityHigh": "高",
       "priorityMedium": "中",
       "priorityLow": "低",
-      "desc": "Desc",
-      "title": "Title"
+      "desc": "描述",
+      "title": "标题"
     },
     "userMargin": {
       "title": "资金账户管理",
@@ -19712,8 +19758,8 @@
       "statusCompleted": "已完成",
       "statusCancelled": "已取消",
       "statusRefunded": "已退款",
-      "desc": "Desc",
-      "title": "Title"
+      "desc": "描述",
+      "title": "标题"
     },
     "agent": {
       "title": "智能体管理",
@@ -19882,30 +19928,30 @@
     "revokeTitle": "确认撤销",
     "revokeSuccess": "权限撤销成功",
     "revokeFailed": "撤销权限失败",
-    "action": "Action",
-    "assignRole": "Assign Role",
-    "createRole": "Create Role",
-    "description": "Description",
-    "displayName": "Display Name",
-    "email": "Email",
-    "fileAccess": "File Access",
-    "grantedAt": "Granted At",
-    "grantedBy": "Granted By",
-    "permission": "Permission",
-    "permissionKey": "Permission Key",
-    "permissionName": "Permission Name",
-    "permissions": "Permissions",
-    "query": "Query",
-    "resource": "Resource",
-    "revoke": "Revoke",
-    "roleName": "Role Name",
-    "roles": "Roles",
-    "searchUser": "Search User",
-    "title": "Title",
-    "user": "User",
-    "userId": "User Id",
-    "username": "Username",
-    "users": "Users",
+    "action": "操作",
+    "assignRole": "分配角色",
+    "createRole": "创建角色",
+    "description": "描述",
+    "displayName": "显示名称",
+    "email": "邮箱",
+    "fileAccess": "文件访问",
+    "grantedAt": "授权时间",
+    "grantedBy": "授权人",
+    "permission": "权限",
+    "permissionKey": "权限键",
+    "permissionName": "权限名称",
+    "permissions": "权限",
+    "query": "查询",
+    "resource": "资源",
+    "revoke": "撤销",
+    "roleName": "角色名称",
+    "roles": "角色",
+    "searchUser": "搜索用户",
+    "title": "标题",
+    "user": "用户",
+    "userId": "用户 ID",
+    "username": "用户名",
+    "users": "用户",
     "confirmDelete": "确定要删除角色 \"{name}\" 吗？",
     "confirmDeleteTitle": "确认删除"
   },
@@ -19940,8 +19986,8 @@
     "saveSuccess": "保存成功",
     "confirmDeleteAction": "确认删除",
     "cleared": "已清理",
-    "editConfig": "Edit Config",
-    "newConfig": "New Config",
+    "editConfig": "编辑配置",
+    "newConfig": "新建配置",
     "clearCompleted": "清理已完成",
     "intervalPrefix": "间隔",
     "maxRetriesPrefix": "最大重试",
@@ -20037,7 +20083,7 @@
     "loginRequired": "需要登录",
     "auth": "认证",
     "qrFailed": "生成二维码失败：请检查后端服务配置，该接口应该不需要登录",
-    "needLoginFirst": "Need Login First"
+    "needLoginFirst": "需要先登录"
   },
   "eduDoc": {
     "fileNotExist": "文档文件不存在: {path}"
@@ -20073,7 +20119,7 @@
   "enterprise": {
     "header": {
       "backHome": "返回首页",
-      "badge": "ENTERPRISESERVICE"
+      "badge": "企业服务"
     },
     "hero": {
       "brandLabel": "智汇 AI社",
@@ -20089,7 +20135,11 @@
       "label": "核心定位",
       "title": "AI时代企业理性效率服务与互助社群",
       "description": "智汇 AI社致力于帮助企业决策者深度理解AI与企业的关系,通过系统化的课程、实践探索和社群互助,构建人机协同的超级组织,实现企业的理性效率提升。",
-      "tags": ["人机协同", "理性效率", "超级组织"]
+      "tags": [
+        "人机协同",
+        "理性效率",
+        "超级组织"
+      ]
     },
     "modules": {
       "label": "三大服务模块",
@@ -20099,19 +20149,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"]
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"]
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"]
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ]
         }
       ]
     },
@@ -20243,25 +20305,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"]
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"]
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"]
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"]
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ]
         }
       ]
     },
@@ -20285,12 +20359,29 @@
       ],
       "infoTitle": "信息世界",
       "infoBasicLabel": "初级信息世界",
-      "infoBasic": ["信息化", "物联网", "自动化"],
+      "infoBasic": [
+        "信息化",
+        "物联网",
+        "自动化"
+      ],
       "infoAdvancedLabel": "高级信息世界",
-      "infoAdvanced": ["感知AI", "生成式AI", "智能体AI", "物理AI"],
+      "infoAdvanced": [
+        "感知AI",
+        "生成式AI",
+        "智能体AI",
+        "物理AI"
+      ],
       "effectTitle": "AI化效果",
-      "effectFlow": ["超级员工", "超级团队", "超级产品/服务"],
-      "effectMetrics": ["成本优化", "效率提升", "体验升级"]
+      "effectFlow": [
+        "超级员工",
+        "超级团队",
+        "超级产品/服务"
+      ],
+      "effectMetrics": [
+        "成本优化",
+        "效率提升",
+        "体验升级"
+      ]
     }
   },
   "drama": {
@@ -20478,14 +20569,14 @@
     "cronExpr": "Cron 表达式",
     "minute": "分钟",
     "hour": "小时",
-    "cancel": "Cancel",
-    "confirm": "Confirm",
-    "day": "Day",
-    "month": "Month",
-    "reset": "Reset",
-    "second": "Second",
-    "week": "Week",
-    "year": "Year"
+    "cancel": "取消",
+    "confirm": "确认",
+    "day": "天",
+    "month": "月",
+    "reset": "重置",
+    "second": "秒",
+    "week": "周",
+    "year": "年"
   },
   "cmpPdfCompare": {
     "syncScroll": "同步滚动",
@@ -20867,7 +20958,7 @@
       "deploy": "部署流程",
       "environment": "环境变量",
       "security": "安全策略",
-      "faq": "FAQ",
+      "faq": "常见问题",
       "changelog": "更新日志",
       "contributing": "贡献指南"
     },
@@ -20949,89 +21040,89 @@
     "userId": "用户ID"
   },
   "cacheDashboard": {
-    "accessCount": "Access Count",
-    "addKeys": "Add Keys",
-    "addKeysToAnalyze": "Add Keys To Analyze",
-    "analysisComplete": "Analysis Complete",
-    "analyze": "Analyze",
-    "avgTTL": "Avg TTL",
-    "cacheKeys": "Cache Keys",
-    "cacheWarmup": "Cache Warmup",
-    "coldKeys": "Cold Keys",
-    "completedTasks": "Completed Tasks",
-    "configCreated": "Config Created",
-    "configDeleted": "Config Deleted",
-    "configUpdated": "Config Updated",
-    "count": "Count",
-    "description": "Description",
-    "distribution": "Distribution",
-    "editWarmupConfig": "Edit Warmup Config",
-    "enterKeys": "Enter Keys",
-    "failedTasks": "Failed Tasks",
-    "fillRequired": "Fill Required",
-    "high": "High",
-    "hotKeys": "Hot Keys",
-    "interval": "Interval",
-    "key": "Key",
-    "keyAnalysis": "Key Analysis",
-    "keyCount": "Key Count",
-    "keyPatterns": "Key Patterns",
-    "keys": "Keys",
-    "keysHint": "Keys Hint",
-    "keysInputPlaceholder": "Keys Input Placeholder",
-    "keysLoaded": "Keys Loaded",
-    "keysPlaceholder": "Keys Placeholder",
-    "lastAccess": "Last Access",
-    "lastRun": "Last Run",
-    "low": "Low",
-    "minutes": "Minutes",
-    "newWarmupTask": "New Warmup Task",
-    "nextRun": "Next Run",
-    "noAnalysisData": "No Analysis Data",
-    "noExpiry": "No Expiry",
-    "noTaskHistory": "No Task History",
-    "noWarmupConfigs": "No Warmup Configs",
-    "normal": "Normal",
-    "pattern": "Pattern",
-    "priority": "Priority",
-    "recommendations": "Recommendations",
-    "runAnalysis": "Run Analysis",
-    "running": "Running",
-    "schedule": "Schedule",
-    "scheduleType": "Schedule Type",
-    "scheduled": "Scheduled",
-    "size": "Size",
-    "taskHistory": "Task History",
-    "taskName": "Task Name",
-    "taskNamePlaceholder": "Task Name Placeholder",
-    "totalKeys": "Total Keys",
-    "totalMemory": "Total Memory",
-    "totalTasks": "Total Tasks",
-    "trend": "Trend",
-    "ttlDistribution": "Ttl Distribution",
-    "typeDistribution": "Type Distribution",
-    "warmupConfigs": "Warmup Configs",
-    "warmupStarted": "Warmup Started"
+    "accessCount": "访问次数",
+    "addKeys": "添加键",
+    "addKeysToAnalyze": "添加键以分析",
+    "analysisComplete": "分析完成",
+    "analyze": "分析",
+    "avgTTL": "平均 TTL",
+    "cacheKeys": "缓存键",
+    "cacheWarmup": "缓存预热",
+    "coldKeys": "冷键",
+    "completedTasks": "已完成任务",
+    "configCreated": "配置已创建",
+    "configDeleted": "配置已删除",
+    "configUpdated": "配置已更新",
+    "count": "数量",
+    "description": "描述",
+    "distribution": "分布",
+    "editWarmupConfig": "编辑预热配置",
+    "enterKeys": "输入键",
+    "failedTasks": "失败任务",
+    "fillRequired": "填写必填项",
+    "high": "高",
+    "hotKeys": "热键",
+    "interval": "间隔",
+    "key": "键",
+    "keyAnalysis": "键分析",
+    "keyCount": "键数量",
+    "keyPatterns": "键模式",
+    "keys": "键",
+    "keysHint": "键提示",
+    "keysInputPlaceholder": "键输入占位符",
+    "keysLoaded": "键已加载",
+    "keysPlaceholder": "键占位符",
+    "lastAccess": "最后访问",
+    "lastRun": "上次运行",
+    "low": "低",
+    "minutes": "分钟",
+    "newWarmupTask": "新建预热任务",
+    "nextRun": "下次运行",
+    "noAnalysisData": "无分析数据",
+    "noExpiry": "无过期",
+    "noTaskHistory": "无任务历史",
+    "noWarmupConfigs": "无预热配置",
+    "normal": "普通",
+    "pattern": "模式",
+    "priority": "优先级",
+    "recommendations": "建议",
+    "runAnalysis": "运行分析",
+    "running": "运行中",
+    "schedule": "计划",
+    "scheduleType": "计划类型",
+    "scheduled": "已计划",
+    "size": "大小",
+    "taskHistory": "任务历史",
+    "taskName": "任务名称",
+    "taskNamePlaceholder": "任务名称占位符",
+    "totalKeys": "键总数",
+    "totalMemory": "总内存",
+    "totalTasks": "任务总数",
+    "trend": "趋势",
+    "ttlDistribution": "TTL 分布",
+    "typeDistribution": "类型分布",
+    "warmupConfigs": "预热配置",
+    "warmupStarted": "预热已开始"
   },
   "courseDetail": {
-    "addToCart": "Add To Cart",
-    "addedToCart": "Added To Cart",
-    "back": "Back",
-    "beginner": "Beginner",
-    "buyNow": "Buy Now",
-    "courseIntro": "Course Intro",
-    "courseOutline": "Course Outline",
-    "fortyFiveMin": "Forty Five Min",
-    "goCheckout": "Go Checkout",
-    "learnShortVideoFromZero": "Learn Short Video From Zero",
-    "ninetyMin": "Ninety Min",
-    "sixtyMin": "Sixty Min",
-    "teacherZhang": "Teacher Zhang",
-    "title": "Title",
-    "twelveLessons": "Twelve Lessons"
+    "addToCart": "加入购物车",
+    "addedToCart": "已加入购物车",
+    "back": "返回",
+    "beginner": "初级",
+    "buyNow": "立即购买",
+    "courseIntro": "课程介绍",
+    "courseOutline": "课程大纲",
+    "fortyFiveMin": "45 分钟",
+    "goCheckout": "去结算",
+    "learnShortVideoFromZero": "从零学短视频",
+    "ninetyMin": "90 分钟",
+    "sixtyMin": "60 分钟",
+    "teacherZhang": "张老师",
+    "title": "标题",
+    "twelveLessons": "12 节课"
   },
   "editor": {
-    "placeholder": "Placeholder",
+    "placeholder": "占位符",
     "toolbar": {
       "bold": "加粗",
       "italic": "斜体",
@@ -21062,60 +21153,60 @@
     }
   },
   "file": {
-    "batchDelete": "Batch Delete",
-    "batchDownload": "Batch Download",
-    "batchShare": "Batch Share",
-    "clearSelection": "Clear Selection",
-    "delete": "Delete",
+    "batchDelete": "批量删除",
+    "batchDownload": "批量下载",
+    "batchShare": "批量分享",
+    "clearSelection": "清除选择",
+    "delete": "删除",
     "diff": {
-      "additions": "Additions",
-      "changeDetails": "Change Details",
-      "changes": "Changes",
-      "compare": "Compare",
-      "deletions": "Deletions",
-      "from": "From",
-      "line": "Line",
-      "selectVersions": "Select Versions",
-      "similarity": "Similarity",
-      "to": "To"
+      "additions": "新增",
+      "changeDetails": "变更详情",
+      "changes": "变更",
+      "compare": "对比",
+      "deletions": "删除",
+      "from": "从",
+      "line": "行",
+      "selectVersions": "选择版本",
+      "similarity": "相似度",
+      "to": "到"
     },
-    "download": "Download",
-    "empty": "Empty",
+    "download": "下载",
+    "empty": "空",
     "manager": {
-      "title": "Title"
+      "title": "标题"
     },
-    "preview": "Preview",
-    "remove": "Remove",
-    "search": "Search",
-    "selected": "Selected",
+    "preview": "预览",
+    "remove": "移除",
+    "search": "搜索",
+    "selected": "已选",
     "share": {
-      "1day": "1day",
-      "1hour": "1hour",
-      "7days": "7days",
-      "expires": "Expires",
-      "forever": "Forever",
-      "password": "Password",
-      "passwordHint": "Password Hint",
-      "title": "Title"
+      "1day": "1 天",
+      "1hour": "1 小时",
+      "7days": "7 天",
+      "expires": "过期时间",
+      "forever": "永久",
+      "password": "密码",
+      "passwordHint": "密码提示",
+      "title": "标题"
     },
     "sort": {
-      "date": "Date",
-      "name": "Name",
-      "size": "Size"
+      "date": "日期",
+      "name": "名称",
+      "size": "大小"
     },
-    "sortBy": "Sort By",
+    "sortBy": "排序方式",
     "upload": {
-      "dragDrop": "Drag Drop",
-      "title": "Title"
+      "dragDrop": "拖拽",
+      "title": "标题"
     },
     "versions": {
-      "compare": "Compare",
+      "compare": "对比",
       "diff": "Diff",
-      "empty": "Empty",
-      "new": "New",
-      "rollback": "Rollback",
-      "summary": "Summary",
-      "title": "Title",
+      "empty": "空",
+      "new": "新建",
+      "rollback": "回滚",
+      "summary": "摘要",
+      "title": "标题",
       "current": "当前版本"
     },
     "stats": {
@@ -21125,108 +21216,108 @@
     }
   },
   "imageUpload": {
-    "countLimit": "Count Limit",
-    "filenameComma": "Filename Comma",
-    "formatError": "Format Error",
-    "preview": "Preview",
-    "sizeLimit": "Size Limit",
-    "tip": "Tip",
-    "uploadFail": "Upload Fail",
-    "uploading": "Uploading"
+    "countLimit": "数量限制",
+    "filenameComma": "文件名逗号",
+    "formatError": "格式错误",
+    "preview": "预览",
+    "sizeLimit": "大小限制",
+    "tip": "提示",
+    "uploadFail": "上传失败",
+    "uploading": "上传中"
   },
   "mobileAdapter": {
-    "actions": "Actions",
-    "adaptationRules": "Adaptation Rules",
-    "applyTheme": "Apply Theme",
-    "backgroundColor": "Background Color",
-    "borderRadius": "Border Radius",
-    "breakpoint": "Breakpoint",
-    "browser": "Browser",
-    "cancel": "Cancel",
-    "compactMode": "Compact Mode",
-    "conditionField": "Condition Field",
+    "actions": "操作",
+    "adaptationRules": "适配规则",
+    "applyTheme": "应用主题",
+    "backgroundColor": "背景色",
+    "borderRadius": "圆角",
+    "breakpoint": "断点",
+    "browser": "浏览器",
+    "cancel": "取消",
+    "compactMode": "紧凑模式",
+    "conditionField": "条件字段",
     "conditionFields": {
-      "orientation": "Orientation",
-      "pixelRatio": "Pixel Ratio",
-      "screenHeight": "Screen Height",
-      "screenWidth": "Screen Width"
+      "orientation": "方向",
+      "pixelRatio": "像素比",
+      "screenHeight": "屏幕高度",
+      "screenWidth": "屏幕宽度"
     },
-    "conditionOperator": "Condition Operator",
-    "conditionValue": "Condition Value",
-    "create": "Create",
-    "currentDevice": "Current Device",
-    "delete": "Delete",
-    "deviceType": "Device Type",
-    "edit": "Edit",
-    "guideContent": "Guide Content",
-    "guideTitle": "Guide Title",
-    "newRule": "New Rule",
-    "nextStep": "Next Step",
-    "no": "No",
-    "operatingSystem": "Operating System",
+    "conditionOperator": "条件运算符",
+    "conditionValue": "条件值",
+    "create": "创建",
+    "currentDevice": "当前设备",
+    "delete": "删除",
+    "deviceType": "设备类型",
+    "edit": "编辑",
+    "guideContent": "指南内容",
+    "guideTitle": "指南标题",
+    "newRule": "新建规则",
+    "nextStep": "下一步",
+    "no": "否",
+    "operatingSystem": "操作系统",
     "operators": {
-      "between": "Between",
-      "eq": "Eq",
-      "gt": "Gt",
-      "lt": "Lt"
+      "between": "之间",
+      "eq": "等于",
+      "gt": "大于",
+      "lt": "小于"
     },
-    "orientation": "Orientation",
-    "pixelRatio": "Pixel Ratio",
-    "platform": "Platform",
-    "platformConfig": "Platform Config",
-    "platformName": "Platform Name",
-    "preview": "Preview",
-    "primaryColor": "Primary Color",
-    "priority": "Priority",
-    "refreshDevice": "Refresh Device",
-    "screenSize": "Screen Size",
-    "shadowEffect": "Shadow Effect",
-    "status": "Status",
-    "textColor": "Text Color",
-    "themeConfig": "Theme Config",
-    "touchSupport": "Touch Support",
-    "yes": "Yes"
+    "orientation": "方向",
+    "pixelRatio": "像素比",
+    "platform": "平台",
+    "platformConfig": "平台配置",
+    "platformName": "平台名称",
+    "preview": "预览",
+    "primaryColor": "主色",
+    "priority": "优先级",
+    "refreshDevice": "刷新设备",
+    "screenSize": "屏幕尺寸",
+    "shadowEffect": "阴影效果",
+    "status": "状态",
+    "textColor": "文字颜色",
+    "themeConfig": "主题配置",
+    "touchSupport": "触摸支持",
+    "yes": "是"
   },
   "monitoring": {
-    "acknowledge": "Acknowledge",
-    "activeAlerts": "Active Alerts",
-    "activeTours": "Active Tours",
-    "alertRules": "Alert Rules",
-    "anomalyDetection": "Anomaly Detection",
-    "cancel": "Cancel",
-    "completionRate": "Completion Rate",
-    "condition": "Condition",
-    "cooldownTime": "Cooldown Time",
-    "cpuUsage": "Cpu Usage",
-    "create": "Create",
-    "currentValue": "Current Value",
-    "errorRate": "Error Rate",
-    "expectedValue": "Expected Value",
-    "memoryUsage": "Memory Usage",
+    "acknowledge": "确认",
+    "activeAlerts": "活跃告警",
+    "activeTours": "活跃引导",
+    "alertRules": "告警规则",
+    "anomalyDetection": "异常检测",
+    "cancel": "取消",
+    "completionRate": "完成率",
+    "condition": "条件",
+    "cooldownTime": "冷却时间",
+    "cpuUsage": "CPU 使用率",
+    "create": "创建",
+    "currentValue": "当前值",
+    "errorRate": "错误率",
+    "expectedValue": "期望值",
+    "memoryUsage": "内存使用率",
     "metrics": {
-      "cpuUsage": "Cpu Usage",
-      "memoryUsage": "Memory Usage",
-      "tourComplete": "Tour Complete",
-      "tourError": "Tour Error",
-      "tourStart": "Tour Start"
+      "cpuUsage": "CPU 使用率",
+      "memoryUsage": "内存使用率",
+      "tourComplete": "引导完成",
+      "tourError": "引导错误",
+      "tourStart": "引导开始"
     },
-    "monitorMetric": "Monitor Metric",
-    "newRule": "New Rule",
+    "monitorMetric": "监控指标",
+    "newRule": "新建规则",
     "operators": {
-      "eq": "Eq",
-      "gt": "Gt",
-      "lt": "Lt"
+      "eq": "等于",
+      "gt": "大于",
+      "lt": "小于"
     },
-    "performanceMonitor": "Performance Monitor",
-    "renderFps": "Render Fps",
-    "ruleName": "Rule Name",
-    "seconds": "Seconds",
-    "severity": "Severity",
-    "severityLevel": "Severity Level",
+    "performanceMonitor": "性能监控",
+    "renderFps": "渲染 FPS",
+    "ruleName": "规则名称",
+    "seconds": "秒",
+    "severity": "严重性",
+    "severityLevel": "严重等级",
     "severityLevels": {
-      "critical": "Critical",
-      "info": "Info",
-      "warning": "Warning"
+      "critical": "严重",
+      "info": "信息",
+      "warning": "警告"
     },
     "anomalyTypes": {
       "spike": "激增",
@@ -21234,73 +21325,73 @@
       "trend_change": "趋势变化",
       "outlier": "异常值"
     },
-    "status": "Status",
-    "systemResources": "System Resources",
+    "status": "状态",
+    "systemResources": "系统资源",
     "timeRange": {
-      "1h": "1h",
-      "24h": "24h",
-      "7d": "7d"
+      "1h": "1 小时",
+      "24h": "24 小时",
+      "7d": "7 天"
     },
-    "type": "Type",
-    "viewAll": "View All"
+    "type": "类型",
+    "viewAll": "查看全部"
   },
   "recommendation": {
-    "abTests": "Ab Tests",
-    "actions": "Actions",
-    "avgDuration": "Avg Duration",
-    "confidence": "Confidence",
-    "createTime": "Create Time",
-    "description": "Description",
-    "enabledRules": "Enabled Rules",
-    "end": "End",
-    "lastActive": "Last Active",
-    "newRule": "New Rule",
-    "newSegment": "New Segment",
-    "newTest": "New Test",
-    "pageViews": "Page Views",
-    "pause": "Pause",
-    "priority": "Priority",
-    "reason": "Reason",
-    "recommendationResults": "Recommendation Results",
-    "recommendationRules": "Recommendation Rules",
-    "results": "Results",
-    "ruleName": "Rule Name",
-    "ruleType": "Rule Type",
+    "abTests": "A/B 测试",
+    "actions": "操作",
+    "avgDuration": "平均时长",
+    "confidence": "置信度",
+    "createTime": "创建时间",
+    "description": "描述",
+    "enabledRules": "已启用规则",
+    "end": "结束",
+    "lastActive": "最后活跃",
+    "newRule": "新建规则",
+    "newSegment": "新建细分",
+    "newTest": "新建测试",
+    "pageViews": "页面浏览",
+    "pause": "暂停",
+    "priority": "优先级",
+    "reason": "原因",
+    "recommendationResults": "推荐结果",
+    "recommendationRules": "推荐规则",
+    "results": "结果",
+    "ruleName": "规则名称",
+    "ruleType": "规则类型",
     "ruleTypes": {
-      "behavior": "Behavior",
-      "context": "Context",
-      "segment": "Segment",
-      "time": "Time"
+      "behavior": "行为",
+      "context": "上下文",
+      "segment": "细分",
+      "time": "时间"
     },
-    "score": "Score",
-    "search": "Search",
-    "segmentName": "Segment Name",
-    "sessions": "Sessions",
-    "start": "Start",
-    "testName": "Test Name",
-    "tourId": "Tour Id",
-    "tourInteractions": "Tour Interactions",
-    "trafficAllocation": "Traffic Allocation",
-    "userBehavior": "User Behavior",
-    "userCount": "User Count",
-    "userId": "User Id",
-    "userSegments": "User Segments",
-    "winnerVariant": "Winner Variant"
+    "score": "分数",
+    "search": "搜索",
+    "segmentName": "细分名称",
+    "sessions": "会话",
+    "start": "开始",
+    "testName": "测试名称",
+    "tourId": "引导 ID",
+    "tourInteractions": "引导交互",
+    "trafficAllocation": "流量分配",
+    "userBehavior": "用户行为",
+    "userCount": "用户数",
+    "userId": "用户 ID",
+    "userSegments": "用户细分",
+    "winnerVariant": "获胜变体"
   },
   "rightToolbar": {
-    "columnDisplay": "Column Display",
-    "dialogTitle": "Dialog Title",
-    "hide": "Hide",
-    "hideSearch": "Hide Search",
-    "refresh": "Refresh",
-    "show": "Show",
-    "showSearch": "Show Search",
-    "toggleColumns": "Toggle Columns"
+    "columnDisplay": "列显示",
+    "dialogTitle": "对话框标题",
+    "hide": "隐藏",
+    "hideSearch": "隐藏搜索",
+    "refresh": "刷新",
+    "show": "显示",
+    "showSearch": "显示搜索",
+    "toggleColumns": "切换列"
   },
   "tourFeedback": {
-    "commentLabel": "Comment Label",
-    "commentPlaceholder": "Comment Placeholder",
-    "pleaseRate": "Please Rate",
+    "commentLabel": "评论标签",
+    "commentPlaceholder": "评论占位符",
+    "pleaseRate": "请评分",
     "rating": {
       "1": "1",
       "2": "2",
@@ -21308,29 +21399,29 @@
       "4": "4",
       "5": "5"
     },
-    "ratingLabel": "Rating Label",
-    "skip": "Skip",
-    "submit": "Submit",
+    "ratingLabel": "评分标签",
+    "skip": "跳过",
+    "submit": "提交",
     "tags": {
-      "clear": "Clear",
-      "confusing": "Confusing",
-      "easy": "Easy",
-      "fast": "Fast",
-      "helpful": "Helpful",
-      "long": "Long"
+      "clear": "清除",
+      "confusing": "令人困惑",
+      "easy": "简单",
+      "fast": "快速",
+      "helpful": "有帮助",
+      "long": "太长"
     },
-    "tagsLabel": "Tags Label",
-    "thankYou": "Thank You",
-    "title": "Title"
+    "tagsLabel": "标签",
+    "thankYou": "谢谢",
+    "title": "标题"
   },
   "vipPopup": {
-    "activateNow": "Activate Now",
-    "agreeRecharge": "Agree Recharge",
-    "continuous": "Continuous",
-    "monthly": "Monthly",
-    "noProduct": "No Product",
-    "paySuccess": "Pay Success",
-    "productInfoError": "Product Info Error"
+    "activateNow": "立即激活",
+    "agreeRecharge": "同意充值",
+    "continuous": "连续",
+    "monthly": "每月",
+    "noProduct": "无产品",
+    "paySuccess": "支付成功",
+    "productInfoError": "产品信息错误"
   },
   "account": {
     "label": {
@@ -21716,14 +21807,38 @@
     }
   },
   "member": {
-    "searchPlaceholder": {
-      "company": "搜索公司",
-      "group": "搜索分组",
-      "level": "搜索等级",
-      "list": "搜索列表",
-      "post": "搜索帖子",
-      "tag": "搜索标签",
-      "unaudited": "搜索待审核"
+    "feedback": {
+      "title": "意见反馈",
+      "subtitle": "提交反馈,帮助我们做得更好",
+      "tabList": "历史记录",
+      "tabNew": "提交反馈",
+      "loading": "加载中...",
+      "empty": "暂无反馈记录",
+      "typeBug": "问题反馈",
+      "typeSuggestion": "功能建议",
+      "typeQuestion": "使用咨询",
+      "typeOther": "其他",
+      "statusPending": "处理中",
+      "statusResolved": "已回复",
+      "statusClosed": "已关闭",
+      "replyLabel": "回复:{reply}",
+      "fieldType": "类型",
+      "fieldTitle": "标题",
+      "titlePlaceholder": "请简短描述问题",
+      "fieldContent": "内容",
+      "contentPlaceholder": "请详细描述...",
+      "fieldContact": "联系方式(选填)",
+      "contactPlaceholder": "便于我们与你联系",
+      "submit": "提交",
+      "cancel": "取消"
+    },
+    "fans": {
+      "title": "我的粉丝",
+      "subtitle": "共 {total} 位粉丝关注了你",
+      "loading": "加载中...",
+      "empty": "还没有粉丝,快去发布内容吸引关注吧",
+      "anonymous": "匿名用户",
+      "followedAt": "关注于 {date}"
     }
   },
   "message": {
@@ -22669,7 +22784,7 @@
     "batchPushAria": "批量推送内容",
     "batchPushBtn": "推送",
     "monitorTitle": "MT Provider + V1 退役监控",
-    "mtProvider": "MT Provider",
+    "mtProvider": "MT 提供商",
     "mtProviderListAria": "MT provider 列表",
     "current": "当前",
     "available": "可用",
@@ -23457,7 +23572,7 @@
         "llm": "AI 大模型",
         "tutorial": "教程",
         "rag": "RAG",
-        "agent": "Agent",
+        "agent": "智能体",
         "frontend": "前端",
         "backend": "后端",
         "opensource": "开源"
@@ -23529,7 +23644,7 @@
     },
     "subAgentFeed": {
       "defaultName": "子智能体",
-      "badge": "subagent",
+      "badge": "子智能体",
       "coordinated": "已协调 {count} 个子智能体完成",
       "totalSteps": "(共 {count} 步)",
       "working": "{count} 个子智能体协作中"
@@ -23584,41 +23699,6 @@
       "versionUpdateDesc": "API 新版本或废弃提醒",
       "billingReminderLabel": "账单提醒",
       "billingReminderDesc": "订阅到期或扣费提醒"
-    }
-  },
-  "member": {
-    "feedback": {
-      "title": "意见反馈",
-      "subtitle": "提交反馈,帮助我们做得更好",
-      "tabList": "历史记录",
-      "tabNew": "提交反馈",
-      "loading": "加载中...",
-      "empty": "暂无反馈记录",
-      "typeBug": "问题反馈",
-      "typeSuggestion": "功能建议",
-      "typeQuestion": "使用咨询",
-      "typeOther": "其他",
-      "statusPending": "处理中",
-      "statusResolved": "已回复",
-      "statusClosed": "已关闭",
-      "replyLabel": "回复:{reply}",
-      "fieldType": "类型",
-      "fieldTitle": "标题",
-      "titlePlaceholder": "请简短描述问题",
-      "fieldContent": "内容",
-      "contentPlaceholder": "请详细描述...",
-      "fieldContact": "联系方式(选填)",
-      "contactPlaceholder": "便于我们与你联系",
-      "submit": "提交",
-      "cancel": "取消"
-    },
-    "fans": {
-      "title": "我的粉丝",
-      "subtitle": "共 {total} 位粉丝关注了你",
-      "loading": "加载中...",
-      "empty": "还没有粉丝,快去发布内容吸引关注吧",
-      "anonymous": "匿名用户",
-      "followedAt": "关注于 {date}"
     }
   },
   "edu": {
