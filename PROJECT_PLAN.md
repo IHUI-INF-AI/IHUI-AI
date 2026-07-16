@@ -463,6 +463,16 @@
 - [x] ✅(2026-07-16) (P1) 阶段8:MCP Runtime — `apps/cli/src/tools/mcp-runtime.ts` 实现 stdio(spawn 子进程 stdin/stdout JSON-RPC)+ http/sse(fetch POST JSON-RPC)双 transport;connectMcpServer(initialize→notifications/initialized→tools/list)+ callMcpServer(tools/call 转发)+ mcpToolToTool(MCP inputSchema→ToolParameter)+ loadMcpTools(从 ~/.ihui/mcp.json 加载);`--mcp` 选项启用;烟雾测试 15/15 通过
 - [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 全绿(5/5 任务成功,exit 0,5.113s);阶段5-8 全部交付
 
+### grok-build 第三轮迁移:P0 集成修复 + Git 工具 + 审计日志 + 真实 tokenizer(2026-07-16 📋 plan)
+
+> 深度对比 grok-build 17 项能力与 IHUI-AI CLI 现状,发现阶段5-8 代码存在 4 个集成 bug + 6 项未迁移能力。本轮优先修复集成 bug(让已迁移代码真正生效),再迁移 3 项高价值新能力。
+
+- [ ] (P0) 阶段9:P0 集成 bug 修复 — (a) `runAgentAndExit` 传 `checkpoints` 让 Agent 模式注册 file-edit 工具;(b) `buildSystemPrompt` 读取并拼接工作区 AGENTS.md;(c) REPL `sendToAgent` 集成工具循环(复用 runAgent 逻辑);(d) ACP `session/prompt` 集成工具循环
+- [ ] (P0) 阶段10:Git 集成工具集 — 新增 `apps/cli/src/tools/git.ts` 提供 git_diff/git_status/git_commit/git_log 工具,让 Agent 能自主操作 git;接入 sandbox+hooks
+- [ ] (P1) 阶段11:审计日志/可观测性 — 记录所有工具调用到 `~/.ihui/audit.jsonl`(时间戳/工具名/输入摘要/输出摘要/耗时/成功与否),决策链路可追溯
+- [ ] (P1) 阶段12:真实 tokenizer — 引入 `gpt-tokenizer` 替换 `chars/4` 粗估,修复中文 token 估算偏差(中文约 2 char/token,当前高估 2 倍导致过早压缩)
+- [ ] (P0) 全量验证:typecheck + lint + 烟雾测试全绿
+
 ### 前端问题修复（2026-07-11 全面审计）
 
 - [x] ✅(2026-07-11) 前端-FE-P0-1: 修复 `app/globals.css` 的 `--color-ring` token 反转（浅色模式 3.9% 近黑 → 70% 浅灰；暗色模式 83.1% 浅灰 → 25% 深灰），影响所有表单和 AI 输入框聚焦环
