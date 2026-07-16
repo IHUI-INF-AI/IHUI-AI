@@ -38,6 +38,8 @@ export default function EduLearnTopicsPage() {
       const body = {
         title: form.title.trim(),
         image: form.image.trim(),
+        cidList: form.cidList,
+        lidList: form.lidList,
         description: form.description,
         price: form.price || '0',
         originalPrice: form.originalPrice || '0',

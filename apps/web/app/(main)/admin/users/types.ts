@@ -15,3 +15,14 @@ export interface UsersData {
   page: number
   pageSize: number
 }
+
+export interface DeptItem {
+  deptId: number
+  parentId: number
+  deptName: string
+  orderNum: number | null
+  leader: string | null
+  phone: string | null
+  email: string | null
+  status: string | null
+}
