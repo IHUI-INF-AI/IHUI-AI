@@ -98,9 +98,8 @@ export default function ProfilePage() {
     }
   }
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !user?.id) return
+  const handleCroppedAvatar = async (file: File) => {
+    if (!user?.id) return
     setAvatarUploading(true)
     setErrorMsg('')
     const formData = new FormData()
@@ -115,7 +114,6 @@ export default function ProfilePage() {
     } else {
       setErrorMsg(res.error)
     }
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   return (
@@ -130,7 +128,7 @@ export default function ProfilePage() {
         nickname={user?.nickname ?? 'U'}
         uploading={avatarUploading}
         fileInputRef={fileInputRef}
-        onFileChange={handleAvatarChange}
+        onCropped={handleCroppedAvatar}
       />
 
       <ProfileStatsCards stats={data?.stats} isError={isError} />
