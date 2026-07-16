@@ -15,6 +15,23 @@ const buttonVariants = cva(
         secondary: 'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
+
+        primary: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
+        'hero-cta':
+          'bg-gradient-to-r from-primary to-primary/70 text-primary-foreground shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all px-8 py-3 text-base font-semibold rounded-lg',
+        login:
+          'w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 rounded-md font-medium',
+        send: 'bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-4 py-2',
+        'card-action':
+          'text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-2 py-1',
+        'mobile-login':
+          'w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12 rounded-lg text-base font-semibold',
+        'btn-luxe':
+          'bg-gradient-to-r from-vip-gold-start to-vip-gold-end text-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all px-6 py-2.5 rounded-md font-semibold',
+        'agreement-agree':
+          'w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12 rounded-md font-medium',
+        'switch-project':
+          'border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md px-3 py-1.5 text-sm',
       },
       size: {
         default: 'h-9 px-4 py-2',

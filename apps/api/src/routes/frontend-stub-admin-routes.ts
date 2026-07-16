@@ -381,4 +381,72 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   server.put('/admin/zhs-user/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(success({ updated: true }))
   })
+
+  // course/pay CRUD 桩（前端 edu/course/pay 调用，后端未注册）
+  server.put('/admin/course/pay/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.send(success({ updated: true }))
+  })
+  server.delete(
+    '/admin/course/pay/:id',
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      return reply.send(success({ deleted: true }))
+    },
+  )
+
+  // course/platform-logs CRUD 桩（前端 edu/course/platform-log 调用，后端未注册）
+  server.put(
+    '/admin/course/platform-logs/:id',
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      return reply.send(success({ updated: true }))
+    },
+  )
+  server.delete(
+    '/admin/course/platform-logs/:id',
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      return reply.send(success({ deleted: true }))
+    },
+  )
+
+  // courses 软删除桩（前端 edu/course/trash 调用，后端未注册）
+  server.delete('/admin/courses/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.send(success({ deleted: true }))
+  })
+
+  // POST 创建路由桩（前端 editing ? PUT /:id : POST / 模式，POST 创建分支后端未注册）
+  server.post('/admin/agent-rule', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  })
+  server.post('/admin/agent-task', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  })
+  server.post('/admin/clawdbot/bots', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  })
+  server.post('/admin/course/pay', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  })
+  server.post(
+    '/admin/course/platform-logs',
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      return reply.status(201).send(success({ created: true, id: randomUUID() }))
+    },
+  )
+  server.post('/admin/member-levels', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  })
+  server.post('/admin/user-platform', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  })
+  server.post('/admin/product-identity', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  })
+  server.post('/admin/themes/colors', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  })
+  server.post('/admin/user-agent-audio', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  })
+  server.post('/admin/zhs-user', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  })
 }
