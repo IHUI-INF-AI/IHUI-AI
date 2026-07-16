@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import {
@@ -110,13 +111,27 @@ export default function DistributionHomePage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-          <Gift className="h-7 w-7 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
-      </header>
+      <Card className="overflow-hidden">
+        <CardContent className="flex items-center gap-4 p-5">
+          <Image
+            src="/images/common/promotion-logo.svg"
+            alt=""
+            aria-hidden
+            width={64}
+            height={64}
+            className="h-16 w-16 shrink-0"
+            loading="eager"
+            unoptimized
+          />
+          <div className="min-w-0 space-y-1">
+            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+              <Gift className="h-7 w-7 text-primary" />
+              {t('title')}
+            </h1>
+            <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map((s) => (
