@@ -227,6 +227,20 @@ export default function AboutPage() {
               <p>{t('missionDesc2')}</p>
             </CardContent>
           </Card>
+
+          {/* 官方发布渠道插画 */}
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <img
+                src="/images/官方发布渠道.svg"
+                alt="官方发布渠道"
+                width={1930}
+                height={657}
+                className="h-auto w-full"
+                loading="lazy"
+              />
+            </CardContent>
+          </Card>
         </div>
       )}
     </Container>

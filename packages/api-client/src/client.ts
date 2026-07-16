@@ -106,7 +106,7 @@ export interface StreamChatOptions {
   onDone?: () => void
 }
 
-function parseStreamLine(line: string): string | null {
+export function parseStreamLine(line: string): string | null {
   if (!line || line.startsWith(':')) return null
   let data = line
   if (line.startsWith('data:')) {
@@ -115,19 +115,30 @@ function parseStreamLine(line: string): string | null {
     return null
   }
   if (data === '[DONE]') return null
+  // Vercel AI SDK data-stream protocol: `TYPE:JSON`（type 0 = 文本 token，其他类型目前忽略）
   const proto = data.match(/^(\d+):(.*)$/s)
-  if (proto?.[1] === '0') {
-    try {
-      const parsed = JSON.parse(proto[2]!)
-      if (typeof parsed === 'string') return parsed
-    } catch {
-      /* fallthrough */
+  if (proto?.[1] !== undefined) {
+    if (proto[1] === '0') {
+      try {
+        const parsed = JSON.parse(proto[2]!)
+        if (typeof parsed === 'string') return parsed
+      } catch {
+        /* fallthrough */
+      }
     }
+    return null
   }
   try {
     const json = JSON.parse(data)
     if (json?.type === 'error' && typeof json?.message === 'string') {
-      throw new Error(json.message)
+      const e = new Error(json.message)
+      e.name = 'SSEError'
+      throw e
+    }
+    if (json?.error === true && typeof json?.error_message === 'string') {
+      const e = new Error(json.error_message)
+      e.name = 'SSEError'
+      throw e
     }
     const choice = json?.choices?.[0]
     const delta =

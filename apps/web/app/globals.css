@@ -488,3 +488,16 @@ h5,
 h6 {
   font-family: 'EDIX', 'HarmonyOS Sans SC', sans-serif;
 }
+
+/* 登录页 welcome 图:浅色 welcome.svg,深色 baiwelcome.svg,配合 next-themes attribute="class" */
+/* 默认(浅色):显示 welcome.svg,隐藏 baiwelcome.svg */
+.welcome-img-dark {
+  display: none;
+}
+/* 深色模式:反之 */
+.dark .welcome-img {
+  display: none;
+}
+.dark .welcome-img-dark {
+  display: block;
+}
