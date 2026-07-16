@@ -11,7 +11,6 @@ import {
   zhsCourseVideo,
   zhsCourseTemp,
   zhsCourseVideoTemp,
-  learnHomework,
   cozeVariables,
   oauthApps,
 } from '@ihui/database'
@@ -211,20 +210,7 @@ const systemLoginLogsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(row))
   })
 
-  // /edu/classes, /edu/classes/schedules, /finance/statistics — 已迁移至 admin-monitoring-routes.ts / admin-auth-edu-routes.ts
-  registerCrud(server, '/learn/homework', learnHomework, {
-    searchField: learnHomework.title,
-    map: fields({
-      lessonId: 'string',
-      chapterId: 'string',
-      title: 'string',
-      description: 'string',
-      content: 'json',
-      dueDate: 'date',
-      sort: 'number',
-      status: 'string',
-    }),
-  })
+  // /learn/homework, /edu/classes, /edu/classes/schedules, /finance/statistics — 已迁移至 learn.ts / admin-monitoring-routes.ts / admin-auth-edu-routes.ts
   // /learn/materials, /learn/plans, /learn/reminds — 已迁移至 admin-auth-edu-routes.ts
 
   // ===========================================================================
