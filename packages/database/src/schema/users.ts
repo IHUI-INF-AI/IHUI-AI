@@ -1,4 +1,15 @@
-import { pgTable, uuid, varchar, integer, timestamp, text, date, boolean, unique } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  timestamp,
+  text,
+  date,
+  boolean,
+  unique,
+} from 'drizzle-orm/pg-core'
+import { sysDepts } from './admin-sys.js'
 
 export const users = pgTable(
   'users',
@@ -15,6 +26,7 @@ export const users = pgTable(
     birthday: date('birthday'),
     familyId: uuid('family_id'),
     roleId: integer('role_id').default(0),
+    deptId: integer('dept_id').references(() => sysDepts.deptId, { onDelete: 'set null' }),
     status: integer('status').default(1).notNull(), // 0=禁用 1=正常 3=注销
     isVip: integer('is_vip').default(0).notNull(), // -1=游客 0=普通 1=VIP 2=操盘手
     level: integer('level').default(0).notNull(), // 0=普通 1=白银 2=黄金 3=钻石
