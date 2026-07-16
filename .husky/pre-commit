@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Pre-commit 守门钩子（跨平台兼容 Windows）
-// 防止 API key 泄露 + i18n 键完整性
+// 防止 API key 泄露 + i18n 键完整性 + 陈旧 dist + 前端↔后端路由 + safeParse 静默忽略
 const { execSync } = require('child_process')
 
 function run(label, cmd) {
@@ -29,19 +29,34 @@ if (!run('🗄️ 检查 schema drift...', 'node scripts/check-db-schema-drift.m
   process.exit(1)
 }
 
-// 4. lint-staged：对暂存文件运行 eslint --fix 和 prettier --write
+// 4. packages 陈旧 dist 检查（防止 export 缺失导致 module not found）
+if (!run('📦 检查 packages 陈旧 dist...', 'node scripts/check-stale-dist.mjs')) {
+  process.exit(1)
+}
+
+// 5. lint-staged：对暂存文件运行 eslint --fix 和 prettier --write
 if (!run('🎨 运行 lint-staged...', 'npx lint-staged')) {
   process.exit(1)
 }
 
-// 5. skipResponseSanitization 一致性检查（防止 token 被脱敏为 *** 导致功能损坏）
+// 6. skipResponseSanitization 一致性检查（防止 token 被脱敏为 *** 导致功能损坏）
 if (!run('🛡️ 检查 skipResponseSanitization...', 'node scripts/check-sanitizer-bypass.mjs --staged')) {
   process.exit(1)
 }
 
-// 6. 依赖版本碎片化检查（仅当 pnpm-lock.yaml 变更时）
+// 7. 依赖版本碎片化检查（仅当 pnpm-lock.yaml 变更时）
 if (!run('📦 检查依赖碎片化...', 'node scripts/check-dedupe.mjs --staged')) {
   process.exit(1)
 }
+
+// 以下为非阻塞警告项:发现问题仅打印,不阻止提交
+// 8. 前端↔后端路由一致性（warn-only, 275 处缺失需后续工单跟进）
+run('🔗 检查前端↔后端路由一致性(warn-only)...', 'node scripts/check-api-routes.mjs --warn-only')
+
+// 9. safeParse silent-ignore 巡检(warn-only, 仅打印风险点)
+run('🔍 safeParse 静默忽略巡检(warn-only)...', 'node scripts/check-safe-parse.mjs')
+
+// 10. OpenAPI spec 存在性检查(informational)
+run('📋 OpenAPI spec 检查(informational)...', 'node scripts/openapi-check.mjs')
 
 console.log('✅ Pre-commit 检查通过')

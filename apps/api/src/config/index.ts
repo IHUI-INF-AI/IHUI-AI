@@ -26,6 +26,13 @@ const envSchema = z.object({
   // TBox webhook 签名密钥(可选,为空则不校验;配置后设备事件通知需带 X-Signature 头)
   TBOX_WEBHOOK_SECRET: z.string().default(''),
 
+  // 腾讯云直播回调验签密钥(可选,为空时回调端点返回 503;配置后回调需带 X-Signature/X-Timestamp/X-Nonce 头)
+  TENCENT_LIVE_CALLBACK_KEY: z.string().default(''),
+  // 腾讯云直播 AppID(用于流管理 API,预留)
+  TENCENT_LIVE_APP_ID: z.string().default(''),
+  // 腾讯云直播 API 密钥(用于流管理 API 签名,预留)
+  TENCENT_LIVE_API_KEY: z.string().default(''),
+
   SMTP_HOST: z.string().default(''),
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().default(''),
