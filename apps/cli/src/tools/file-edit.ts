@@ -43,6 +43,7 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
   return {
     name: 'write_file',
     description: '写入文件(创建或覆盖)。参数:path(文件路径),content(文件内容)。',
+    dangerLevel: 'write',
     parameters: {
       path: { type: 'string', description: '文件路径(相对工作区根目录)' },
       content: { type: 'string', description: '文件完整内容' },
@@ -95,6 +96,7 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
   return {
     name: 'edit_file',
     description: '编辑文件(search-and-replace)。参数:path(文件路径),search(搜索文本),replace(替换文本)。或用 patch 参数传入多个 SEARCH/REPLACE 块。',
+    dangerLevel: 'write',
     parameters: {
       path: { type: 'string', description: '文件路径' },
       search: { type: 'string', description: '要搜索的文本(精确匹配)' },
@@ -143,6 +145,7 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
   return {
     name: 'delete_file',
     description: '删除文件。参数:path(文件路径)。',
+    dangerLevel: 'dangerous',
     parameters: {
       path: { type: 'string', description: '要删除的文件路径' },
     },
