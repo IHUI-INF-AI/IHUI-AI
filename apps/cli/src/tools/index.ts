@@ -92,7 +92,7 @@ export function buildToolSchema(tool: Tool): ToolSchema {
   };
 }
 
-export function buildSystemPrompt(tools: Tool[], extraContext?: string): string {
+export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirst?: boolean): string {
   const toolDescriptions = tools
     .map((t) => {
       const params = Object.entries(t.parameters)
@@ -110,8 +110,23 @@ export function buildSystemPrompt(tools: Tool[], extraContext?: string): string 
     ? `\n\n## 项目上下文\n\n${extraContext}\n`
     : '';
 
+  const planSection = planFirst
+    ? `\n\n## 任务规划(必须先规划后执行)
+
+在执行任何工具调用前,你必须先输出一个任务规划块:
+
+\`\`\`plan
+1. <步骤1描述>
+2. <步骤2描述>
+3. <步骤N描述>
+\`\`\`
+
+规划完成后再逐步执行工具调用。每完成一步,简要说明进度并继续下一步。若规划需调整,先输出新的 plan 块再继续。`
+    : '';
+
   return `你是一个强大的编码助手。你可以使用以下工具来完成任务。
-${contextSection}
+${contextSection}${planSection}
+
 ## 可用工具
 
 ${toolDescriptions}
