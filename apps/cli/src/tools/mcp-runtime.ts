@@ -88,6 +88,19 @@ async function sendStdioRpc(
   });
 }
 
+/** 发送 JSON-RPC notification(无 id,无需响应),不分配 id 也不等待。 */
+function sendStdioNotification(
+  proc: ChildProcess,
+  method: string,
+  params: Record<string, unknown> = {},
+): void {
+  if (!proc.stdin) {
+    throw new Error('子进程 stdin 不可用');
+  }
+  const msg = JSON.stringify({ jsonrpc: '2.0', method, params }) + '\n';
+  proc.stdin.write(msg);
+}
+
 async function sendHttpRpc(
   url: string,
   method: string,
@@ -133,7 +146,7 @@ async function connectMcpServer(server: McpServer): Promise<McpConnection> {
         clientInfo: { name: 'ihui-cli', version: '1.0.0' },
         capabilities: {},
       });
-      await sendStdioRpc(proc, 'notifications/initialized', {});
+      sendStdioNotification(proc, 'notifications/initialized', {});
     } else if (transport === 'http' || transport === 'sse') {
       if (!server.url) throw new Error(`${transport} transport 需要 url`);
       const headers: Record<string, string> = { ...(server.headers ?? {}) };
