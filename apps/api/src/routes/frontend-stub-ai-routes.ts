@@ -38,9 +38,6 @@ export const frontendStubAiRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ list: [], total: 0 }))
     },
   )
-  server.get('/ai/aigc/records:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({}))
-  })
   server.post('/ai/mcp/servers', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.status(201).send(success({ created: true, id: randomUUID() }))
   })

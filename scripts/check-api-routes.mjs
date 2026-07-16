@@ -82,10 +82,18 @@ function extractFrontendCalls(src, file) {
         const keyMatch = prev.match(/\b(post|put|patch|delete)\s*:\s*['"`]/)
         if (keyMatch) method = keyMatch[1].toUpperCase()
       }
-      // 模板字符串变量替换为 :param
+      // 模板字符串变量：查询字符串构建器直接去掉，其余替换为 :param
       const normalized = rawPath
-        .replace(/\$\{[^}]+\}/g, ':param')
+        .replace(/\$\{([^}]+)\}/g, (_match, expr) => {
+          const isQueryStringBuilder =
+            expr.includes('?') ||
+            /(^|[^a-zA-Z0-9_])(qs|query|search|params|filter|filters|sort|pagination|listQs|pageQuery|searchParams|queryString|searchQuery)([^a-zA-Z0-9_]|$)/i.test(
+              expr,
+            )
+          return isQueryStringBuilder ? '' : ':param'
+        })
         .replace(/\?.*$/, '')
+        .replace(/\/+$/, '')
       calls.push({
         method,
         path: normalized,
@@ -226,14 +234,14 @@ for (const call of allCalls) {
   }
 }
 
-if (missing.length === 0) {
-  console.log(`${C.green}[API 路由比对] ✅ 通过，前端所有 API 调用均有后端路由对应${C.reset}`)
-  process.exit(0)
-}
-
 const dumpIdx = process.argv.indexOf('--dump-missing')
 if (dumpIdx !== -1 && process.argv[dumpIdx + 1]) {
   writeFileSync(process.argv[dumpIdx + 1], JSON.stringify(missing, null, 2), 'utf8')
+}
+
+if (missing.length === 0) {
+  console.log(`${C.green}[API 路由比对] ✅ 通过，前端所有 API 调用均有后端路由对应${C.reset}`)
+  process.exit(0)
 }
 
 console.log(`${C.red}[API 路由比对] ❌ 发现 ${missing.length} 处前端调用无后端路由（404 风险）:${C.reset}`)
