@@ -50,6 +50,8 @@ export function CertTemplateDialog({
     if (v === 'one_year') return t('validityOneYear')
     if (v === 'three_years') return t('validityThreeYears')
     if (v === 'five_years') return t('validityFiveYears')
+    if (v === 'custom_days') return t('validityCustomDays')
+    if (v === 'date_range') return t('validityDateRange')
     return t('validityPermanent')
   }
   return (
@@ -169,9 +171,45 @@ export function CertTemplateDialog({
                     <SelectItem value="one_year">{t('validityOneYear')}</SelectItem>
                     <SelectItem value="three_years">{t('validityThreeYears')}</SelectItem>
                     <SelectItem value="five_years">{t('validityFiveYears')}</SelectItem>
+                    <SelectItem value="custom_days">{t('validityCustomDays')}</SelectItem>
+                    <SelectItem value="date_range">{t('validityDateRange')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {form.validityPolicy === 'custom_days' && (
+                <div className="space-y-2">
+                  <Label htmlFor="tpl-vdays">{t('fieldValidDays')}</Label>
+                  <Input
+                    id="tpl-vdays"
+                    type="number"
+                    min="1"
+                    value={form.validDays}
+                    onChange={(e) => setForm({ ...form, validDays: e.target.value })}
+                  />
+                </div>
+              )}
+              {form.validityPolicy === 'date_range' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="tpl-vfrom">{t('fieldValidFrom')}</Label>
+                    <Input
+                      id="tpl-vfrom"
+                      type="date"
+                      value={form.validFrom}
+                      onChange={(e) => setForm({ ...form, validFrom: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tpl-vto">{t('fieldValidTo')}</Label>
+                    <Input
+                      id="tpl-vto"
+                      type="date"
+                      value={form.validTo}
+                      onChange={(e) => setForm({ ...form, validTo: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="tpl-bg">{t('labelBackgroundImage')}</Label>
                 <Input

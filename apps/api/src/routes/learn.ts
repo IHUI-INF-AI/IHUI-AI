@@ -452,6 +452,7 @@ const createTopicSchema = z.object({
   status: z.enum(['draft', 'published']).optional(),
   slug: z.string().max(200).optional(),
   sort: z.number().int().min(0).optional().default(0),
+  isShowIndex: z.boolean().optional().default(true),
 })
 
 const updateTopicSchema = z.object({
@@ -470,6 +471,7 @@ const updateTopicSchema = z.object({
   status: z.enum(['draft', 'published']).optional(),
   slug: z.string().max(200).nullable().optional(),
   sort: z.number().int().min(0).optional(),
+  isShowIndex: z.boolean().optional(),
 })
 
 // =============================================================================
@@ -608,7 +610,11 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
       sectionId: bodyParsed.data.sectionId ?? null,
       chapterId: bodyParsed.data.chapterId ?? null,
     })
-    const result = await updateWatchPosition(record.id, bodyParsed.data.position, bodyParsed.data.duration)
+    const result = await updateWatchPosition(
+      record.id,
+      bodyParsed.data.position,
+      bodyParsed.data.duration,
+    )
     if (!result) {
       return reply.status(500).send(error(500, '学习记录更新失败'))
     }
@@ -1328,6 +1334,19 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
     }
     const result = await findAllTopics(parsed.data)
     return reply.send(success(result))
+  })
+
+  // GET /learn/premium-topics/:id - 话题详情
+  server.get('/learn/premium-topics/:id', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const topic = await findTopicRowById(idParsed.data.id)
+    if (!topic) {
+      return reply.status(404).send(error(404, '话题不存在'))
+    }
+    return reply.send(success({ topic }))
   })
 
   // POST /learn/premium-topics - 创建话题
