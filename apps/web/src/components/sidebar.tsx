@@ -591,13 +591,29 @@ function ExpandableNavItem({
   const router = useRouter()
   const children = item.children ?? []
   const parentActive = children.some((child) => isActive(child.href))
-  const [open, setOpen] = React.useState(parentActive)
+  const storageKey = `sidebar-expand-${item.href}`
+  const [open, setOpen] = React.useState(() => {
+    if (parentActive) return true
+    try {
+      return localStorage.getItem(storageKey) === '1'
+    } catch {
+      return false
+    }
+  })
   const controlId = React.useId()
   const listId = `${controlId}-list`
 
   React.useEffect(() => {
     if (parentActive) setOpen(true)
   }, [parentActive])
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, open ? '1' : '0')
+    } catch {
+      // localStorage 不可用
+    }
+  }, [open, storageKey])
 
   const Icon = item.icon
   const label = t(item.labelKey)
