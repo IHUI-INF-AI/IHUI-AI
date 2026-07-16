@@ -1,8 +1,8 @@
 import type { ApiResult } from '@ihui/types'
-import { fetchApi } from '../client'
-import { buildQs } from '../utils'
-import { getCategories as getSystemCategories } from './system'
-import { getCategories as getCourseCategories } from './course'
+import { fetchApi } from '../client.js'
+import { buildQs } from '../utils.js'
+import { getCategories as getSystemCategories } from './system.js'
+import { getCategories as getCourseCategories } from './course.js'
 
 export type CategoryType =
   'lesson' | 'live' | 'article' | 'ask' | 'circle' | 'resource' | 'exam' | 'news'

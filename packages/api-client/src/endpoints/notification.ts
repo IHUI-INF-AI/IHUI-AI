@@ -4,8 +4,8 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
-import { buildQs, type PageData, type PageQuery } from '../utils'
+import { fetchApi } from '../client.js'
+import { buildQs, type PageData, type PageQuery } from '../utils.js'
 
 // ===================== 类型定义 =====================
 
@@ -85,7 +85,7 @@ export async function getMessageDetail(id: string): Promise<ApiResult<MessageIte
   return fetchApi<MessageItem>(`/api/messages/${id}`)
 }
 
-/** 发送消息 */
+/** 发送消�?*/
 export async function sendMessage(input: {
   toUserId: string
   content: string
@@ -112,7 +112,7 @@ export async function deleteMessage(id: string): Promise<ApiResult<{ success: bo
   return fetchApi<{ success: boolean }>(`/api/messages/${id}`, { method: 'DELETE' })
 }
 
-// ===================== notification（通知） =====================
+// ===================== notification（通知�?=====================
 
 /** 获取通知列表 */
 export async function getNotifications(
@@ -126,7 +126,7 @@ export async function getNotificationDetail(id: string): Promise<ApiResult<Notif
   return fetchApi<NotificationItem>(`/api/notifications/${id}`)
 }
 
-/** 创建通知（管理员） */
+/** 创建通知（管理员�?*/
 export async function createNotification(input: {
   type: string
   title: string
@@ -203,7 +203,7 @@ export async function getCustomerServiceMessages(
   )
 }
 
-/** 发送客服消息 */
+/** 发送客服消�?*/
 export async function sendCustomerServiceMessage(input: {
   sessionId: string
   content: string
