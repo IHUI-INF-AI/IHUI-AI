@@ -17,6 +17,13 @@ const chatStreamSchema = z.object({
   modelId: z.string().optional(),
   agentId: z.string().optional(),
   materialContent: z.string().optional(),
+  metadata: z
+    .object({
+      conversationId: z.string().optional(),
+      userId: z.string().optional(),
+      messageId: z.string().optional(),
+    })
+    .optional(),
 })
 
 async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
@@ -42,7 +49,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { messages, sessionId, modelId, agentId, materialContent } = parsed.data
+    const { messages, sessionId, modelId, agentId, materialContent, metadata } = parsed.data
 
     reply.hijack()
     const raw = reply.raw
@@ -58,6 +65,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     request.raw.on('close', onClose)
 
     try {
+      // 合并 metadata:客户端传入的 conversationId/messageId + 服务端的 userId
+      const mergedMetadata = {
+        conversationId: metadata?.conversationId,
+        userId: metadata?.userId ?? request.userId,
+        messageId: metadata?.messageId,
+      }
       const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
         method: 'POST',
         headers: {
@@ -70,7 +83,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           modelId,
           agentId,
           materialContent,
-          metadata: { userId: request.userId },
+          metadata: mergedMetadata,
         }),
         signal: controller.signal,
       })

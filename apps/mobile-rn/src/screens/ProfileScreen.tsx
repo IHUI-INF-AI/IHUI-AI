@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { Card } from '@ihui/ui-native'
-import { getProfile, type UserProfile } from '@ihui/api-client'
+import { getProfile, type AuthUser } from '@ihui/api-client'
 
 export function ProfileScreen() {
-  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profile, setProfile] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -45,18 +45,17 @@ export function ProfileScreen() {
 
   const rows: Array<[string, string | null]> = [
     ['用户 ID', data.id],
-    ['用户名', data.username],
-    ['昵称', data.nickname],
-    ['邮箱', data.email],
-    ['手机号', data.phone],
-    ['注册时间', data.createdAt ? new Date(data.createdAt).toLocaleString('zh-CN') : null],
+    ['昵称', data.nickname ?? null],
+    ['邮箱', data.email ?? null],
+    ['手机号', data.phone ?? null],
+    ['角色', (data.roleId ?? 0) >= 1 ? '管理员' : '普通用户'],
   ]
 
   return (
     <ScrollView className="flex-1 bg-white dark:bg-black">
       <View className="px-4 pb-2 pt-6">
         <Text className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
-          {data.nickname || data.username}
+          {data.nickname || '未设置昵称'}
         </Text>
         {data.bio ? <Text className="mt-1 text-sm text-neutral-500">{data.bio}</Text> : null}
       </View>

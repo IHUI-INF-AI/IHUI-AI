@@ -30,7 +30,9 @@ async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promis
     return true
   } catch (e) {
     const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply.status(statusCode).send(error(statusCode, (e as Error).message || 'Authentication required'))
+    reply
+      .status(statusCode)
+      .send(error(statusCode, (e as Error).message || 'Authentication required'))
     return false
   }
 }
@@ -78,7 +80,8 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   server.post('/clawdbot/tools/:name/execute', async (req, reply) => {
     if (!(await requireAuth(req, reply))) return
     const { name } = req.params as { name: string }
-    const { params, context } = (req.body as { params?: Record<string, unknown>; context?: unknown }) ?? {}
+    const { params, context } =
+      (req.body as { params?: Record<string, unknown>; context?: unknown }) ?? {}
     const result = await getToolExecutor().execute(name, params ?? {}, context as never)
     return success(result)
   })
@@ -94,7 +97,12 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/clawdbot/tasks', async (req, reply) => {
     if (!(await requireAuth(req, reply))) return
-    const body = req.body as { name: string; description: string; steps: never[]; context?: Record<string, unknown> }
+    const body = req.body as {
+      name: string
+      description: string
+      steps: never[]
+      context?: Record<string, unknown>
+    }
     const task = getTaskExecutor().create(body)
     return success(task)
   })
@@ -131,7 +139,8 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   server.post('/clawdbot/skills/:name/execute', async (req, reply) => {
     if (!(await requireAuth(req, reply))) return
     const { name } = req.params as { name: string }
-    const { params, context } = (req.body as { params?: Record<string, unknown>; context?: unknown }) ?? {}
+    const { params, context } =
+      (req.body as { params?: Record<string, unknown>; context?: unknown }) ?? {}
     const result = await getSkillManager().execute(name, params ?? {}, context as never)
     return success(result)
   })
@@ -154,6 +163,12 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // 系统服务
   // ===========================================================================
   server.get('/clawdbot/system/health', async (req, reply) => {
+    if (!(await requireAuth(req, reply))) return
+    return success(getSystemService().getHealth())
+  })
+
+  // 兼容前端旧路径 /admin/clawdbot/health
+  server.get('/clawdbot/health', async (req, reply) => {
     if (!(await requireAuth(req, reply))) return
     return success(getSystemService().getHealth())
   })
@@ -233,7 +248,10 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   server.post('/clawdbot/pairing/confirm', async (req, reply) => {
     if (!(await requireAuth(req, reply))) return
     const { code, userId, deviceId, channelType } = req.body as {
-      code: string; userId: string; deviceId: string; channelType: string
+      code: string
+      userId: string
+      deviceId: string
+      channelType: string
     }
     const session = getPairingService().confirmPairing(code, userId, deviceId, channelType)
     if (!session) {
@@ -263,7 +281,11 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   server.post('/clawdbot/browser/navigate', async (req, reply) => {
     if (!(await requireAuth(req, reply))) return
-    const { url, headers, timeout } = req.body as { url: string; headers?: Record<string, string>; timeout?: number }
+    const { url, headers, timeout } = req.body as {
+      url: string
+      headers?: Record<string, string>
+      timeout?: number
+    }
     const page = await getBrowserAutomation().navigate(url, { headers, timeout })
     return success(page)
   })
