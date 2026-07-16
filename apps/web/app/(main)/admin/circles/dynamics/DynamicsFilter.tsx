@@ -55,6 +55,8 @@ export function DynamicsFilter({ filter, onFilterChange, onSearch, onReset }: Pr
             <SelectContent>
               <SelectItem value="all">{t('statusAll')}</SelectItem>
               <SelectItem value="published">{t('statusPublished')}</SelectItem>
+              <SelectItem value="pending">{t('statusPending')}</SelectItem>
+              <SelectItem value="rejected">{t('statusRejected')}</SelectItem>
               <SelectItem value="deleted">{t('statusDeleted')}</SelectItem>
             </SelectContent>
           </Select>

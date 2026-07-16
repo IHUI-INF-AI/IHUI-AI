@@ -37,6 +37,8 @@ export default function EduLearnTopicsPage() {
     mutationFn: () => {
       const body = {
         title: form.title.trim(),
+        slug: form.slug.trim(),
+        sort: form.sort,
         image: form.image.trim(),
         cidList: form.cidList,
         lidList: form.lidList,
