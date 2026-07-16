@@ -66,6 +66,8 @@ export const examPapers = pgTable('exam_papers', {
  * answer: 正确答案(单选: "A", 多选: ["A","B"], 判断: true, 填空: ["答案"], 主观: 参考答案)。
  * analysis: 解析。
  * score: 题目分值 numeric(6,2)。
+ * difficulty: 题目难度 1-5(用于随机抽题筛选)。
+ * knowledgePointIds: 关联知识点 ID 数组 [uuid, ...](用于随机抽题知识点池筛选)。
  */
 export const examQuestions = pgTable('exam_questions', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -78,6 +80,8 @@ export const examQuestions = pgTable('exam_questions', {
   answer: jsonb('answer'), // 正确答案(单选: "A", 多选: ["A","B"], 判断: true, 填空: ["答案"], 主观: 参考答案)
   analysis: text('analysis'), // 解析
   score: numeric('score', { precision: 6, scale: 2 }).default('5').notNull(),
+  difficulty: integer('difficulty').default(3).notNull(), // 难度 1-5
+  knowledgePointIds: jsonb('knowledge_point_ids'), // 知识点ID数组 [uuid, ...]
   sortOrder: integer('sort_order').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
