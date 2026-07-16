@@ -20,7 +20,7 @@ import {
   TableHead,
   TableCell,
 } from '@ihui/ui'
-import { type ImportResult, batchUploadMembers } from './types'
+import { type ImportResult, batchUploadMembers, excelUploadMembers } from './types'
 
 export function MemberImportDialog({
   open,
@@ -49,6 +49,10 @@ export function MemberImportDialog({
   const uploadMut = useMutation({
     mutationFn: () => {
       if (!file) throw new Error(t('fileRequired'))
+      const name = file.name.toLowerCase()
+      if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        return excelUploadMembers(file)
+      }
       return batchUploadMembers(file)
     },
     onSuccess: (res) => {
@@ -124,7 +128,7 @@ export function MemberImportDialog({
                 id="m-import-file"
                 ref={inputRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 className="hidden"
                 onChange={handleFileChange}
                 disabled={uploadMut.isPending}
