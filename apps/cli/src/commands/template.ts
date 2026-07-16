@@ -5,7 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-export function generateAgentsMdTemplate(projectName?: string): string {
+function generateAgentsMdTemplate(projectName?: string): string {
   const name = projectName || 'Your Project';
   return `# AGENTS.md
 

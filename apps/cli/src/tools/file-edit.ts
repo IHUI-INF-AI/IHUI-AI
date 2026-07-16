@@ -99,7 +99,7 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
 
 const SEARCH_REPLACE_REGEX = /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g;
 
-export function applySearchReplace(original: string, patch: string): { result: string; replacements: number } | { error: string } {
+function applySearchReplace(original: string, patch: string): { result: string; replacements: number } | { error: string } {
   let result = original;
   let replacements = 0;
   let match: RegExpExecArray | null;
