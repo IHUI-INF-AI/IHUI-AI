@@ -3,6 +3,7 @@ import {
   estimateTokens,
   estimateMessagesTokens,
   compressContext,
+  compressContextIfNeeded,
 } from '../src/context.js'
 
 describe('estimateTokens', () => {
