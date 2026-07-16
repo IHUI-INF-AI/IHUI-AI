@@ -213,6 +213,32 @@ export const sysDictData = pgTable('sys_dict_data', {
   remark: varchar('remark', { length: 500 }),
 })
 
+/**
+ * 操作日志表（sys_operlog）。
+ * 记录用户操作行为，oper_id 为 bigserial 自增主键。
+ * businessType: 0=其它, 1=新增, 2=修改, 3=删除。
+ * operatorType: 0=其它, 1=后台, 2=手机端。
+ * status: 0=正常, 1=异常。
+ */
+export const sysOperlog = pgTable('sys_operlog', {
+  operId: bigserial('oper_id', { mode: 'number' }).primaryKey(),
+  title: varchar('title', { length: 50 }).default('').notNull(),
+  businessType: integer('business_type').default(0).notNull(),
+  method: varchar('method', { length: 100 }).default('').notNull(),
+  requestMethod: varchar('request_method', { length: 10 }).default('').notNull(),
+  operatorType: integer('operator_type').default(0).notNull(),
+  operName: varchar('oper_name', { length: 50 }).default('').notNull(),
+  deptName: varchar('dept_name', { length: 50 }).default('').notNull(),
+  operUrl: varchar('oper_url', { length: 255 }).default('').notNull(),
+  operIp: varchar('oper_ip', { length: 128 }).default('').notNull(),
+  operParam: text('oper_param'),
+  jsonResult: text('json_result'),
+  status: integer('status').default(0).notNull(),
+  errorMsg: text('error_msg'),
+  operTime: timestamp('oper_time', { withTimezone: true }).defaultNow().notNull(),
+  costTime: bigint('cost_time', { mode: 'number' }).default(0).notNull(),
+})
+
 export type SysMenu = typeof sysMenus.$inferSelect
 export type NewSysMenu = typeof sysMenus.$inferInsert
 export type SysRoleMenu = typeof sysRoleMenu.$inferSelect
@@ -235,3 +261,5 @@ export type SysDictType = typeof sysDictTypes.$inferSelect
 export type NewSysDictType = typeof sysDictTypes.$inferInsert
 export type SysDictData = typeof sysDictData.$inferSelect
 export type NewSysDictData = typeof sysDictData.$inferInsert
+export type SysOperlog = typeof sysOperlog.$inferSelect
+export type NewSysOperlog = typeof sysOperlog.$inferInsert
