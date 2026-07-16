@@ -238,6 +238,9 @@ importers:
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
+      gpt-tokenizer:
+        specifier: ^3.4.0
+        version: 3.4.0
       inquirer:
         specifier: ^12.3.0
         version: 12.11.1(@types/node@22.20.0)
@@ -9870,6 +9873,9 @@ packages:
   got@9.6.0:
     resolution: {integrity: sha512-R7eWptXuGYxwijs0eV+v3o6+XH1IqVK8dJOEecQfTmkncw9AV4dcw/Dhxi8MdlqPthxxpZyizMzyg8RTmEsG+Q==}
     engines: {node: '>=8.6'}
+
+  gpt-tokenizer@3.4.0:
+    resolution: {integrity: sha512-wxFLnhIXTDjYebd9A9pGl3e31ZpSypbpIJSOswbgop5jLte/AsZVDvjlbEuVFlsqZixVKqbcoNmRlFDf6pz/UQ==}
 
   graceful-fs@4.2.10:
     resolution: {integrity: sha512-9ByhssR2fPVsNZj478qUUbKfmL0+t5BDVyjShtyZZLiK7ZDAArFFfopyOTj0M05wE2tJPisA4iTnnXl2YoPvOA==}
@@ -26274,6 +26280,8 @@ snapshots:
       p-cancelable: 1.1.0
       to-readable-stream: 1.0.0
       url-parse-lax: 3.0.0
+
+  gpt-tokenizer@3.4.0: {}
 
   graceful-fs@4.2.10: {}
 
