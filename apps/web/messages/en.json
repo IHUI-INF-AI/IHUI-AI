@@ -8214,6 +8214,10 @@
         "name": "Gemini 1.5 Flash (Free)",
         "description": "Free 15 RPM, 1M token context"
       },
+      "openrouter-auto": {
+        "name": "OpenRouter Auto (Free Route)",
+        "description": "Free tier, auto-routes to available models, multi-provider aggregation"
+      },
       "gpt-4o": {
         "description": "Balanced multimodal flagship model"
       },
