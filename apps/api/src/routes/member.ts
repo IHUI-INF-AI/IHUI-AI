@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
+import * as XLSX from 'xlsx'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
@@ -354,6 +355,92 @@ const updateCompanyTypeSchema = z.object({
 const batchUploadSchema = z.object({
   members: z.array(z.record(z.unknown())).min(0),
 })
+
+// 会员批量导入结果项类型
+interface ImportErrorItem {
+  serialNum: number
+  rowNum: number
+  success: boolean
+  message: string
+  memberName?: string
+  memberMobile?: string
+}
+
+// Excel 中文表头 -> 英文字段名映射（与 CSV 字段保持一致）
+const HEADER_ALIASES: Record<string, string> = {
+  用户名: 'username',
+  密码: 'password',
+  手机号: 'mobile',
+  手机: 'mobile',
+  电话: 'mobile',
+  邮箱: 'email',
+  昵称: 'nickname',
+  姓名: 'nickname',
+  性别: 'gender',
+  状态: 'status',
+  头像: 'avatar',
+  等级ID: 'levelId',
+  企业ID: 'companyId',
+  部门ID: 'departmentId',
+}
+
+/**
+ * 批量导入会员共用逻辑：逐条校验 + 调用 createMember。
+ * members 每条记录可携带 serialNum/rowNum（缺省按 idx+1/idx+2 计算）。
+ */
+async function importMembers(
+  members: Array<Record<string, unknown>>,
+): Promise<{ imported: number; failed: number; errors: ImportErrorItem[] }> {
+  let imported = 0
+  const errors: ImportErrorItem[] = []
+  for (const [idx, item] of members.entries()) {
+    const serialNum = typeof item.serialNum === 'number' ? item.serialNum : idx + 1
+    const rowNum = typeof item.rowNum === 'number' ? item.rowNum : idx + 2
+    const memberName =
+      item.nickname !== undefined && item.nickname !== null ? String(item.nickname) : undefined
+    const memberMobile =
+      item.mobile !== undefined && item.mobile !== null ? String(item.mobile) : undefined
+
+    const username = String(item.username ?? '').trim()
+    const password = String(item.password ?? '').trim()
+    if (!username || !password) {
+      errors.push({
+        serialNum,
+        rowNum,
+        success: false,
+        message: !username ? '用户名不能为空' : '密码不能为空',
+        memberName,
+        memberMobile,
+      })
+      continue
+    }
+    try {
+      await createMember({
+        username,
+        password,
+        mobile: item.mobile !== undefined && item.mobile !== null ? String(item.mobile) : null,
+        email: item.email !== undefined && item.email !== null ? String(item.email) : null,
+        nickname:
+          item.nickname !== undefined && item.nickname !== null ? String(item.nickname) : null,
+        avatar: item.avatar !== undefined && item.avatar !== null ? String(item.avatar) : null,
+        gender: typeof item.gender === 'number' ? item.gender : undefined,
+        levelId: item.levelId !== undefined && item.levelId !== null ? String(item.levelId) : null,
+        companyId:
+          item.companyId !== undefined && item.companyId !== null ? String(item.companyId) : null,
+        departmentId:
+          item.departmentId !== undefined && item.departmentId !== null
+            ? String(item.departmentId)
+            : null,
+        status: typeof item.status === 'number' ? item.status : undefined,
+      })
+      imported += 1
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '创建失败'
+      errors.push({ serialNum, rowNum, success: false, message: msg, memberName, memberMobile })
+    }
+  }
+  return { imported, failed: errors.length, errors }
+}
 
 // =============================================================================
 // 鉴权辅助
@@ -1087,72 +1174,72 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
 
   // ----- 批量上传 -----
 
-  // POST /members/batch-upload - 批量上传会员
+  // POST /members/batch-upload - 批量上传会员（JSON 数组）
   // 返回 ImportResult { imported, failed, errors: ImportResultItem[] }
   server.post('/members/batch-upload', { schema: { response: R } }, async (request, reply) => {
     const parsed = batchUploadSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const members = parsed.data.members
-    let imported = 0
-    const errors: Array<{
-      serialNum: number
-      rowNum: number
-      success: boolean
-      message: string
-      memberName?: string
-      memberMobile?: string
-    }> = []
-    for (const [idx, item] of members.entries()) {
-      const serialNum = typeof item.serialNum === 'number' ? item.serialNum : idx + 1
-      const rowNum = typeof item.rowNum === 'number' ? item.rowNum : idx + 2
-      const memberName =
-        item.nickname !== undefined && item.nickname !== null ? String(item.nickname) : undefined
-      const memberMobile =
-        item.mobile !== undefined && item.mobile !== null ? String(item.mobile) : undefined
+    const result = await importMembers(parsed.data.members)
+    return reply.send(success(result))
+  })
 
-      const username = String(item.username ?? '').trim()
-      const password = String(item.password ?? '').trim()
-      if (!username || !password) {
-        errors.push({
-          serialNum,
-          rowNum,
-          success: false,
-          message: !username ? '用户名不能为空' : '密码不能为空',
-          memberName,
-          memberMobile,
-        })
-        continue
-      }
-      try {
-        await createMember({
-          username,
-          password,
-          mobile: item.mobile !== undefined && item.mobile !== null ? String(item.mobile) : null,
-          email: item.email !== undefined && item.email !== null ? String(item.email) : null,
-          nickname:
-            item.nickname !== undefined && item.nickname !== null ? String(item.nickname) : null,
-          avatar: item.avatar !== undefined && item.avatar !== null ? String(item.avatar) : null,
-          gender: typeof item.gender === 'number' ? item.gender : undefined,
-          levelId:
-            item.levelId !== undefined && item.levelId !== null ? String(item.levelId) : null,
-          companyId:
-            item.companyId !== undefined && item.companyId !== null ? String(item.companyId) : null,
-          departmentId:
-            item.departmentId !== undefined && item.departmentId !== null
-              ? String(item.departmentId)
-              : null,
-          status: typeof item.status === 'number' ? item.status : undefined,
-        })
-        imported += 1
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : '创建失败'
-        errors.push({ serialNum, rowNum, success: false, message: msg, memberName, memberMobile })
-      }
+  // POST /members/import/excel - 通过 Excel (.xlsx/.xls) 文件批量导入会员
+  // multipart/form-data 字段：file（必填，Excel 二进制）
+  // 表头支持英文键名（与 CSV 一致）或中文别名（详见 HEADER_ALIASES）
+  // 返回 { imported, failed, errors: ImportResultItem[] }
+  server.post('/members/import/excel', { schema: { response: R } }, async (request, reply) => {
+    if (!request.isMultipart()) {
+      return reply.status(400).send(error(400, '请求必须是 multipart/form-data'))
     }
-    const failed = errors.length
-    return reply.send(success({ imported, failed, errors }))
+    const data = await request.file()
+    if (!data) {
+      return reply.status(400).send(error(400, '未找到上传文件'))
+    }
+    const buffer = await data.toBuffer()
+    if (buffer.length === 0) {
+      return reply.status(400).send(error(400, '文件内容为空'))
+    }
+
+    let workbook: XLSX.WorkBook
+    try {
+      workbook = XLSX.read(buffer, { type: 'buffer' })
+    } catch {
+      return reply.status(400).send(error(400, 'Excel 文件解析失败'))
+    }
+    const firstSheetName = workbook.SheetNames[0]
+    if (!firstSheetName) {
+      return reply.status(400).send(error(400, 'Excel 文件无有效工作表'))
+    }
+    const firstSheet = workbook.Sheets[firstSheetName]
+    if (!firstSheet) {
+      return reply.status(400).send(error(400, 'Excel 文件无有效工作表'))
+    }
+
+    // 以第一行作为表头解析为对象数组，空单元格填充空字符串
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
+      defval: '',
+      raw: false,
+    })
+
+    // 表头映射 + 数值字段转换 + 注入 serialNum/rowNum
+    const members: Array<Record<string, unknown>> = rows.map((row, idx) => {
+      const mapped: Record<string, unknown> = { serialNum: idx + 1, rowNum: idx + 2 }
+      for (const [k, v] of Object.entries(row)) {
+        const key = HEADER_ALIASES[k] ?? k
+        if (key === 'gender' || key === 'status') {
+          const n = Number(v)
+          mapped[key] = Number.isFinite(n) && v !== '' ? n : undefined
+        } else {
+          mapped[key] = v
+        }
+      }
+      return mapped
+    })
+
+    const result = await importMembers(members)
+    return reply.send(success(result))
   })
 
   // ----- 系统用户管理（users 表） -----

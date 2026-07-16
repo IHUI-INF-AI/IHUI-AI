@@ -71,6 +71,26 @@ export function TopicsDialog({
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="t-slug">{t('fieldSlug')}</Label>
+              <Input
+                id="t-slug"
+                value={form.slug}
+                onChange={(e) => setForm({ ...form, slug: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="t-sort">{t('fieldSort')}</Label>
+              <Input
+                id="t-sort"
+                type="number"
+                min="0"
+                value={form.sort}
+                onChange={(e) => setForm({ ...form, sort: Number(e.target.value) })}
+              />
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="t-image">{t('fieldImage')}</Label>
             <ImageUpload
