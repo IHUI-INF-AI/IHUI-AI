@@ -106,6 +106,11 @@ export interface StreamChatOptions {
   onDone?: () => void
   onReasoning?: (delta: string) => void
   metadata?: { conversationId?: string; userId?: string; messageId?: string }
+  temperature?: number
+  topP?: number
+  topK?: number
+  maxTokens?: number
+  stop?: string[]
 }
 
 export function parseStreamLine(line: string): string | null {
@@ -200,6 +205,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
 
   const body: Record<string, unknown> = { modelId: opts.model, messages: opts.messages }
   if (opts.metadata) body.metadata = opts.metadata
+  if (opts.temperature !== undefined) body.temperature = opts.temperature
+  if (opts.topP !== undefined) body.topP = opts.topP
+  if (opts.topK !== undefined) body.topK = opts.topK
+  if (opts.maxTokens !== undefined) body.maxTokens = opts.maxTokens
+  if (opts.stop !== undefined) body.stop = opts.stop
 
   try {
     const resp = await fetch(url, {
