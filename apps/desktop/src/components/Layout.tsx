@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { logout as apiLogout, type AuthUser } from '@ihui/api-client'
 import { clearToken, getRefreshToken } from '../lib/token'
+import { useNotificationStore } from '../stores/notification'
 
 interface Props {
   user: AuthUser | null
@@ -18,6 +19,7 @@ const NAV = [
 
 export default function Layout({ user, wsConnected }: Props) {
   const navigate = useNavigate()
+  const { unreadCount, setVisible } = useNotificationStore()
 
   const onLogout = async () => {
     const refreshToken = getRefreshToken()
@@ -48,6 +50,16 @@ export default function Layout({ user, wsConnected }: Props) {
           ))}
         </nav>
         <div className="sidebar-footer">
+          <button
+            type="button"
+            className="notify-btn"
+            onClick={() => setVisible(true)}
+            aria-label="通知"
+            title="通知"
+          >
+            <span className="notify-icon">🔔</span>
+            {unreadCount > 0 ? <span className="notify-badge">{unreadCount}</span> : null}
+          </button>
           <span
             className={`ws-status-dot ${wsConnected ? 'connected' : 'disconnected'}`}
             title={wsConnected ? '实时通知已连接' : '实时通知未连接'}

@@ -16,6 +16,7 @@
  */
 
 import { redactSecrets } from '../redact.js';
+import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
 
 export interface ToolParameter {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
@@ -62,6 +63,8 @@ export interface ToolContext {
     blockedEnvVars?: string[];
     allowedPaths?: string[];
   };
+  /** 路径信任映射(可选,用于 write/edit/delete 工具的额外路径检查) */
+  folderTrust?: FolderTrustMap;
 }
 
 const registry = new Map<string, Tool>();
@@ -191,6 +194,11 @@ export async function executeToolCall(
   if (!tool) {
     return { success: false, output: '', error: `未知工具: ${call.name}` };
   }
+  // P1-4 Rate limiting:同一工具 10 秒内最多 5 次,超限返回 error
+  const rateLimit = checkRateLimit(call.name);
+  if (!rateLimit.allowed) {
+    return { success: false, output: '', error: rateLimit.reason };
+  }
   if (tool.dangerLevel === 'dangerous') {
     const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
     if (!allowed) {
@@ -201,13 +209,114 @@ export async function executeToolCall(
       };
     }
   }
-  try {
-    return await tool.execute(call.arguments, ctx);
-  } catch (err) {
+  // P1-5 Error recovery:read 工具失败自动重试 1 次 + 100ms 退避;write/dangerous 不重试(避免副作用)
+  return executeWithRetry(tool, call.arguments, ctx);
+}
+
+// ==================== P1-4 Rate limiting(滑动窗口计数)====================
+
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 10_000;
+const DEFAULT_RATE_LIMIT_MAX_CALLS = 5;
+const toolCallTimestamps = new Map<string, number[]>();
+let globalRateLimitOpts: RateLimitOptions = {};
+
+export interface RateLimitOptions {
+  windowMs?: number;
+  maxCalls?: number;
+}
+
+/**
+ * 检查工具调用频率是否超限(滑动窗口算法)。
+ *
+ * 默认:同一工具 10 秒内最多 5 次。超限返回 { allowed: false, reason },executeToolCall 会以此拒绝执行。
+ * 滑动窗口比固定窗口更公平 — 不会因为跨越窗口边界而突然允许突发流量。
+ */
+export function checkRateLimit(toolName: string, opts: RateLimitOptions = {}): { allowed: boolean; reason?: string } {
+  const windowMs = opts.windowMs ?? globalRateLimitOpts.windowMs ?? DEFAULT_RATE_LIMIT_WINDOW_MS;
+  const maxCalls = opts.maxCalls ?? globalRateLimitOpts.maxCalls ?? DEFAULT_RATE_LIMIT_MAX_CALLS;
+  const now = Date.now();
+  const timestamps = toolCallTimestamps.get(toolName) ?? [];
+  const recent = timestamps.filter((t) => now - t < windowMs);
+  if (recent.length >= maxCalls) {
+    const oldest = recent[0]!;
+    const waitMs = windowMs - (now - oldest);
     return {
-      success: false,
-      output: '',
-      error: err instanceof Error ? err.message : String(err),
+      allowed: false,
+      reason: `工具 ${toolName} 触发限流:${windowMs / 1000} 秒内已调用 ${recent.length} 次(上限 ${maxCalls}),请 ${Math.max(waitMs, 1)}ms 后再试`,
     };
   }
+  recent.push(now);
+  toolCallTimestamps.set(toolName, recent);
+  return { allowed: true };
+}
+
+/** 重置限流器状态(主要用于测试) */
+export function resetRateLimiter(): void {
+  toolCallTimestamps.clear();
+}
+
+/** 配置全局限流参数(可选,用于灵活调整窗口大小和最大次数) */
+export function setGlobalRateLimitOpts(opts: RateLimitOptions): void {
+  globalRateLimitOpts = opts;
+}
+
+// ==================== P1-5 Error recovery(读工具自动重试)====================
+
+const READ_TOOL_RETRY_DELAY_MS = 100;
+const READ_TOOL_MAX_RETRIES = 1;
+
+/**
+ * 执行工具,对 dangerLevel='read' 的幂等读工具失败时自动重试。
+ *
+ * 策略:
+ *   - read 工具:失败后等待 100ms 重试 1 次(应对瞬时网络/文件系统抖动)
+ *   - write/dangerous 工具:不重试(避免重复写入/删除等副作用)
+ *   - 抛异常和返回 success=false 都视为失败
+ */
+export async function executeWithRetry(
+  tool: Tool,
+  args: Record<string, unknown>,
+  ctx: ToolContext,
+): Promise<ToolResult> {
+  const maxRetries = tool.dangerLevel === 'read' ? READ_TOOL_MAX_RETRIES : 0;
+  let lastResult: ToolResult = { success: false, output: '', error: '未执行' };
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await tool.execute(args, ctx);
+      if (result.success) return result;
+      lastResult = result;
+      if (attempt < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, READ_TOOL_RETRY_DELAY_MS));
+      }
+    } catch (err) {
+      lastResult = {
+        success: false,
+        output: '',
+        error: err instanceof Error ? err.message : String(err),
+      };
+      if (attempt < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, READ_TOOL_RETRY_DELAY_MS));
+      }
+    }
+  }
+  return lastResult;
+}
+
+/**
+ * 检查路径是否允许写操作。
+ * 返回 { allowed: boolean, reason?: string }
+ */
+export function checkPathWritePermission(
+  filePath: string,
+  ctx: ToolContext,
+): { allowed: boolean; reason?: string } {
+  if (!ctx.folderTrust) return { allowed: true };
+  const level = checkFolderTrust(filePath, ctx.folderTrust);
+  if (level === 'forbidden') {
+    return { allowed: false, reason: `路径 ${filePath} 被 folder_trust 标记为 forbidden,禁止修改` };
+  }
+  if (level === 'read-only') {
+    return { allowed: false, reason: `路径 ${filePath} 被 folder_trust 标记为 read-only,禁止修改` };
+  }
+  return { allowed: true };
 }

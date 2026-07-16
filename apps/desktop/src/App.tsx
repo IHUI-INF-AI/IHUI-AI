@@ -3,7 +3,9 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { getProfile, type AuthUser } from '@ihui/api-client'
 import { initApi, getToken } from './lib/token'
 import { useNotificationWebSocket } from './hooks/use-websocket'
+import { NotificationProvider, useNotificationStore } from './stores/notification'
 import Layout from './components/Layout'
+import NotificationPanel from './components/NotificationPanel'
 import LoginPage from './pages/LoginPage'
 import ChatPage from './pages/ChatPage'
 import ProfilePage from './pages/ProfilePage'
@@ -13,11 +15,12 @@ import SettingsPage from './pages/SettingsPage'
 import OrderPage from './pages/OrderPage'
 import './app.css'
 
-export default function App() {
+function AppInner() {
   const [ready, setReady] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
   const token = getToken()
   const { connected: wsConnected, lastMessage } = useNotificationWebSocket(token || null)
+  const { addFromWs } = useNotificationStore()
 
   useEffect(() => {
     initApi()
@@ -38,12 +41,8 @@ export default function App() {
   }, [token])
 
   useEffect(() => {
-    if (lastMessage) {
-      // 开发期可见:WS 通知到达后输出到控制台
-      // 后续接入通知面板时改为分发到 store
-      console.log('[WS] notification:', lastMessage)
-    }
-  }, [lastMessage])
+    addFromWs(lastMessage)
+  }, [lastMessage, addFromWs])
 
   if (!ready) {
     return <div className="app-loading">加载中...</div>
@@ -75,7 +74,16 @@ export default function App() {
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Route>
       </Routes>
+      <NotificationPanel />
     </BrowserRouter>
+  )
+}
+
+export default function App() {
+  return (
+    <NotificationProvider>
+      <AppInner />
+    </NotificationProvider>
   )
 }
 
