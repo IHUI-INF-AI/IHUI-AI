@@ -21,6 +21,7 @@ import {
   SelectValue,
   Switch,
 } from '@ihui/ui'
+import { TiptapRichText } from '@/components/form/TiptapRichText'
 import {
   type Channel,
   type Category,
@@ -31,6 +32,13 @@ import {
   selectClass,
   api,
 } from './types'
+
+function splitIds(v: string): string[] {
+  return v
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
 
 export function ChannelFormDialog({
   open,
@@ -64,6 +72,10 @@ export function ChannelFormDialog({
           lecturerId: editing.lecturerId ?? '',
           lecturerName: editing.lecturerName ?? '',
           intro: editing.intro ?? '',
+          introduction: editing.introduction ?? '',
+          cidList: editing.cidList ?? [],
+          showNumber: String(editing.showNumber ?? 0),
+          enableChat: editing.enableChat ?? false,
           coverImage: editing.coverImage ?? '',
           pushUrl: editing.pushUrl ?? '',
           playUrl: editing.playUrl ?? '',
@@ -88,6 +100,10 @@ export function ChannelFormDialog({
         lecturerId: form.lecturerId || null,
         lecturerName: form.lecturerName.trim() || null,
         intro: form.intro.trim() || null,
+        introduction: form.introduction.trim() || null,
+        cidList: form.cidList,
+        showNumber: Number(form.showNumber) || 0,
+        enableChat: form.enableChat,
         coverImage: form.coverImage.trim() || null,
         pushUrl: form.pushUrl.trim() || null,
         playUrl: form.playUrl.trim() || null,
@@ -212,6 +228,44 @@ export function ChannelFormDialog({
               onChange={(e) => update('intro', e.target.value)}
               placeholder={t('introPlaceholder')}
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ch-intro-rt">{t('fieldIntroduction')}</Label>
+            <TiptapRichText
+              value={form.introduction}
+              onChange={(v) => update('introduction', v)}
+              placeholder={t('introductionPlaceholder')}
+              className="w-full"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ch-cid">{t('fieldCidList')}</Label>
+            <Input
+              id="ch-cid"
+              value={form.cidList.join(',')}
+              onChange={(e) => update('cidList', splitIds(e.target.value))}
+              placeholder={t('cidListPlaceholder')}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="ch-shownum">{t('fieldShowNumber')}</Label>
+              <Input
+                id="ch-shownum"
+                type="number"
+                min="0"
+                value={form.showNumber}
+                onChange={(e) => update('showNumber', e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2 pt-6">
+              <Switch
+                id="ch-chat"
+                checked={form.enableChat}
+                onCheckedChange={(v) => update('enableChat', v)}
+              />
+              <Label htmlFor="ch-chat">{t('fieldEnableChat')}</Label>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="ch-cover">{t('fieldCoverImage')}</Label>

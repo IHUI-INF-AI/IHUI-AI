@@ -13,7 +13,9 @@ import {
   Input,
   Label,
   Switch,
+  TreeSelect,
 } from '@ihui/ui'
+import type { TreeNode } from '@ihui/ui'
 import type { TagItem, TagForm } from './types'
 
 interface Props {
@@ -23,6 +25,7 @@ interface Props {
   setForm: React.Dispatch<React.SetStateAction<TagForm>>
   err: string | null
   savePending: boolean
+  tags: TagItem[]
   onSubmit: (e: React.FormEvent) => void
   onClose: () => void
 }
@@ -34,10 +37,15 @@ export function ResourceTagDialog({
   setForm,
   err,
   savePending,
+  tags,
   onSubmit,
   onClose,
 }: Props) {
   const t = useTranslations('admin.resources')
+  const treeData = React.useMemo<TreeNode[]>(
+    () => tags.map((tag) => ({ id: tag.id, label: tag.name, pid: tag.pid })),
+    [tags],
+  )
   return (
     <Dialog
       open={open}
@@ -55,6 +63,15 @@ export function ResourceTagDialog({
               {err}
             </div>
           )}
+          <div className="space-y-2">
+            <Label>{t('fieldParent')}</Label>
+            <TreeSelect
+              value={form.pid || null}
+              onChange={(v) => setForm({ ...form, pid: v ?? '' })}
+              data={treeData}
+              placeholder={t('rootTag')}
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="tag-name">{t('fieldName')}</Label>
             <Input

@@ -8,8 +8,8 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { ResourceForm } from './ResourceForm'
-import { api } from './helpers'
-import type { Category, ResourceDetail } from './types'
+import { api, parseIdList, toIdListString } from './helpers'
+import type { Category, ResourceDetail, ResourceType } from './types'
 
 export default function ResourceEditPage() {
   const router = useRouter()
@@ -18,7 +18,12 @@ export default function ResourceEditPage() {
 
   const [title, setTitle] = React.useState('')
   const [description, setDescription] = React.useState('')
-  const [categoryId, setCategoryId] = React.useState('')
+  const [cidList, setCidList] = React.useState('')
+  const [type, setType] = React.useState<ResourceType>('other')
+  const [productId, setProductId] = React.useState('')
+  const [tagIdList, setTagIdList] = React.useState('')
+  const [image, setImage] = React.useState('')
+  const [introduction, setIntroduction] = React.useState('')
   const [file, setFile] = React.useState<File | null>(null)
   const [fileName, setFileName] = React.useState('')
   const [fileUrl, setFileUrl] = React.useState('')
@@ -38,7 +43,12 @@ export default function ResourceEditPage() {
       const d = r.data
       setTitle(d.title ?? '')
       setDescription(d.description ?? '')
-      setCategoryId(d.categoryId ?? '')
+      setCidList(d.cidList ? toIdListString(d.cidList) : (d.categoryId ?? ''))
+      setType((d.type ?? 'other') as ResourceType)
+      setProductId(d.productId ?? '')
+      setTagIdList(toIdListString(d.tagIdList))
+      setImage(d.image ?? '')
+      setIntroduction(d.introduction ?? '')
       setFileUrl(d.url ?? '')
       setFileName(d.fileName ?? d.title ?? '')
       return d
@@ -53,26 +63,56 @@ export default function ResourceEditPage() {
         setFormError('请输入标题')
         throw new Error('请输入标题')
       }
-      if (!categoryId) {
-        setFormError('请选择分类')
-        throw new Error('请选择分类')
+      if (!type) {
+        setFormError('请选择资源类型')
+        throw new Error('请选择资源类型')
+      }
+      if (!productId.trim()) {
+        setFormError('请输入产品 ID')
+        throw new Error('请输入产品 ID')
+      }
+      if (!introduction.trim()) {
+        setFormError('请输入资源简介')
+        throw new Error('请输入资源简介')
+      }
+      const cidArr = parseIdList(cidList)
+      if (cidArr.length === 0) {
+        setFormError('请至少选择一个分类')
+        throw new Error('请至少选择一个分类')
       }
 
+      // 后端 createResourceSchema/updateResourceSchema 仅支持:
+      // title/coverImage/intro/categoryId(单)/fileUrl/fileType/fileSize/isPublished/sort/status
+      // TODO(后端): 支持 type / productId / tagIdList / image / introduction / cidList(多)
+      // 未支持字段暂随 body 发送,Zod 会 strip,需后端扩展 schema 后方可持久化
       const body = {
         title: title.trim(),
         description: description.trim(),
-        categoryId,
+        // TODO(后端): cidList 多选 — 当前仅取首个映射 categoryId
+        categoryId: cidArr[0],
+        cidList: cidArr,
         url: fileUrl,
         fileName: fileName || file?.name,
+        // TODO(后端): type 字段待支持
+        type,
+        // TODO(后端): productId 字段待支持
+        productId: productId.trim(),
+        // TODO(后端): tagIdList 字段待支持
+        tagIdList: parseIdList(tagIdList),
+        // TODO(后端): image 字段待支持(可映射 coverImage)
+        image,
+        // TODO(后端): introduction 字段待支持(可映射 intro)
+        introduction,
       }
 
+      // 创建/更新走 admin 路由(POST/PUT 仅注册在 /api/admin/resources)
       if (id) {
-        return api(`/api/resource/${id}`, {
+        return api(`/api/admin/resources/${id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
       }
-      return api(`/api/resource`, {
+      return api(`/api/admin/resources`, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -136,9 +176,19 @@ export default function ResourceEditPage() {
         setTitle={setTitle}
         description={description}
         setDescription={setDescription}
-        categoryId={categoryId}
-        setCategoryId={setCategoryId}
+        cidList={cidList}
+        setCidList={setCidList}
         categories={categories ?? []}
+        type={type}
+        setType={setType}
+        productId={productId}
+        setProductId={setProductId}
+        tagIdList={tagIdList}
+        setTagIdList={setTagIdList}
+        image={image}
+        setImage={setImage}
+        introduction={introduction}
+        setIntroduction={setIntroduction}
         fileName={fileName}
         uploadPending={uploadMut.isPending}
         uploadIsError={uploadMut.isError}

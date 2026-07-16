@@ -10,6 +10,7 @@ export interface Circle {
   description: string | null
   coverImage: string | null
   categoryId: string | null
+  cidList?: string[] | null
   memberCount: number
   postCount: number
   isPublished: boolean
@@ -25,5 +26,6 @@ export interface CircleForm {
   slug: string
   description: string
   coverImage: string
+  cidList: string
   isPublished: boolean
 }

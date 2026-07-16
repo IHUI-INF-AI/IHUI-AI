@@ -30,6 +30,7 @@ export default function AdminResourceCategoriesPage() {
     mutationFn: () => {
       const body = {
         name: form.name.trim(),
+        pid: form.pid || null,
         sort: Number(form.sort) || 0,
         status: form.status ? 1 : 0,
       }
@@ -126,6 +127,7 @@ export default function AdminResourceCategoriesPage() {
         savePending={saveMut.isPending}
         onSubmit={submit}
         onClose={closeDialog}
+        categories={categories}
       />
     </div>
   )
