@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { getProfile, type UserProfile as ApiUserProfile } from '@ihui/api-client'
+import { getProfile, type AuthUser } from '@ihui/api-client'
 import { initApi, getToken, setToken, clearToken } from '../../lib/token'
 import LoginPage from './pages/LoginPage'
 
@@ -16,7 +16,7 @@ export default function SidepanelApp() {
   const navigate = useNavigate()
   const [ready, setReady] = useState(false)
   const [authed, setAuthed] = useState(false)
-  const [user, setUser] = useState<ApiUserProfile | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -67,7 +67,7 @@ export default function SidepanelApp() {
     <div className="sidepanel-layout">
       <header className="sp-header">
         <span className="sp-brand">IHUI AI</span>
-        <span className="sp-user">{user?.nickname || user?.username || ''}</span>
+        <span className="sp-user">{user?.nickname || ''}</span>
       </header>
       <div className="sp-body">
         <nav className="sp-tabs" aria-label="导航">
