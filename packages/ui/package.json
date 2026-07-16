@@ -34,7 +34,7 @@
     "@radix-ui/react-checkbox": "^1.1.3",
     "@tanstack/react-table": "^8.20.5",
     "class-variance-authority": "^0.7.1",
-    "lucide-react": "^1.24.0"
+    "lucide-react": "^0.460.0"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
