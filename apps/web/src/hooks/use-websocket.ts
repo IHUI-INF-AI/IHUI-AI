@@ -1,6 +1,12 @@
 'use client'
 
 import { createWebSocketHook } from '@/hooks/create-websocket-hook'
+import { isWSNotification } from '@ihui/api-client'
+import type { WSNotification, AIResponseNotification } from '@ihui/types'
+
+// 类型 re-export(向后兼容:web 内部组件已从 @/hooks/use-websocket 导入这些类型)
+export type { WSNotification, AIResponseNotification }
+export { isAIResponse } from '@ihui/types'
 
 /**
  * WebSocket 通知客户端。
@@ -22,33 +28,6 @@ import { createWebSocketHook } from '@/hooks/create-websocket-hook'
  *   }, [lastMessage])
  */
 
-export interface WSNotification {
-  type: 'notification'
-  data: {
-    type: string // ai_response / chat_message / notification 等
-    [key: string]: unknown
-  }
-}
-
-/** AI 回复推送(ai_response)的具体载荷结构,由 aiCallbackWorker 推送 */
-export interface AIResponseNotification {
-  type: 'ai_response'
-  conversationId: string
-  /** 前端占位消息 UUID,前端用它匹配本地占位并替换为 DB id */
-  clientMessageId?: string
-  message: {
-    id: string
-    role: string
-    content: string
-    createdAt?: string
-  }
-}
-
-/** 类型守卫:判断 WSNotification 是否为 ai_response 推送 */
-export function isAIResponse(n: WSNotification | null): n is WSNotification & { data: AIResponseNotification } {
-  return !!n && n.data?.type === 'ai_response' && !!n.data?.message
-}
-
 export interface UseWebSocketReturn {
   /** 当前连接状态 */
   connected: boolean
@@ -61,13 +40,6 @@ function buildWsUrl(token: string | null): string {
   if (typeof window === 'undefined' || !token) return ''
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${proto}//${window.location.host}/ws/notifications?token=${encodeURIComponent(token)}`
-}
-
-/** 类型守卫:判断解析后的对象是否符合 WSNotification 结构 */
-function isWSNotification(data: unknown): data is WSNotification {
-  if (typeof data !== 'object' || data === null) return false
-  const d = data as WSNotification
-  return d.type === 'notification' && !!d.data
 }
 
 const useNotificationWS = createWebSocketHook<WSNotification>({
