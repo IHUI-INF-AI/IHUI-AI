@@ -2049,6 +2049,7 @@
       "save": "保存",
       "deleteConfirm": "これ？",
       "colTitle": "Title",
+      "colParent": "親",
       "colCategory": "カテゴリ",
       "colLecturer": "講師",
       "colStatus": "ステータス",
