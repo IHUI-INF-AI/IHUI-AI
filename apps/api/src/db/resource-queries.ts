@@ -1,5 +1,5 @@
-import { eq, and, desc, asc, sql, ilike, inArray } from 'drizzle-orm';
-import { db } from './index.js';
+import { eq, and, desc, asc, sql, ilike, inArray } from 'drizzle-orm'
+import { db } from './index.js'
 import {
   resourceCategories,
   resources,
@@ -9,7 +9,7 @@ import {
   type Resource,
   type ResourceProduct,
   type ResourceTag,
-} from '@ihui/database';
+} from '@ihui/database'
 
 // =============================================================================
 // Categories 分类
@@ -20,14 +20,14 @@ export async function findCategoriesByPid(
   pid: string | null,
   fetchAll = false,
 ): Promise<ResourceCategory[]> {
-  const conds = [];
-  if (pid !== null) conds.push(eq(resourceCategories.pid, pid));
-  if (!fetchAll) conds.push(eq(resourceCategories.status, 1));
+  const conds = []
+  if (pid !== null) conds.push(eq(resourceCategories.pid, pid))
+  if (!fetchAll) conds.push(eq(resourceCategories.status, 1))
   return db
     .select()
     .from(resourceCategories)
     .where(conds.length ? and(...conds) : undefined)
-    .orderBy(asc(resourceCategories.sort), asc(resourceCategories.id));
+    .orderBy(asc(resourceCategories.sort), asc(resourceCategories.id))
 }
 
 export async function findCategoryById(id: string): Promise<ResourceCategory | undefined> {
@@ -35,15 +35,15 @@ export async function findCategoryById(id: string): Promise<ResourceCategory | u
     .select()
     .from(resourceCategories)
     .where(eq(resourceCategories.id, id))
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 export interface CreateResourceCategoryInput {
-  name: string;
-  pid?: string | null;
-  sort?: number;
-  status?: number;
+  name: string
+  pid?: string | null
+  sort?: number
+  status?: number
 }
 
 export async function createResourceCategory(
@@ -57,17 +57,17 @@ export async function createResourceCategory(
       sort: data.sort,
       status: data.status,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建资源分类失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建资源分类失败')
+  return row
 }
 
 export interface UpdateResourceCategoryInput {
-  name?: string;
-  pid?: string | null;
-  sort?: number;
-  status?: number;
+  name?: string
+  pid?: string | null
+  sort?: number
+  status?: number
 }
 
 export async function updateResourceCategory(
@@ -84,12 +84,12 @@ export async function updateResourceCategory(
       updatedAt: new Date(),
     })
     .where(eq(resourceCategories.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteResourceCategory(id: string): Promise<void> {
-  await db.delete(resourceCategories).where(eq(resourceCategories.id, id));
+  await db.delete(resourceCategories).where(eq(resourceCategories.id, id))
 }
 
 // =============================================================================
@@ -97,25 +97,25 @@ export async function deleteResourceCategory(id: string): Promise<void> {
 // =============================================================================
 
 export interface FindResourcesOpts {
-  page: number;
-  pageSize: number;
-  title?: string;
-  categoryId?: string;
-  isPublished?: boolean;
-  status?: number;
+  page: number
+  pageSize: number
+  title?: string
+  categoryId?: string
+  isPublished?: boolean
+  status?: number
 }
 
 /** 分页查询资源列表(列表不返回 intro)。 */
 export async function findResources(
   opts: FindResourcesOpts,
 ): Promise<{ list: Resource[]; total: number; page: number; pageSize: number }> {
-  const { page, pageSize, title, categoryId, isPublished, status } = opts;
-  const conds = [];
-  if (title) conds.push(ilike(resources.title, `%${title}%`));
-  if (categoryId) conds.push(eq(resources.categoryId, categoryId));
-  if (isPublished !== undefined) conds.push(eq(resources.isPublished, isPublished));
-  if (status !== undefined) conds.push(eq(resources.status, status));
-  const where = conds.length ? and(...conds) : undefined;
+  const { page, pageSize, title, categoryId, isPublished, status } = opts
+  const conds = []
+  if (title) conds.push(ilike(resources.title, `%${title}%`))
+  if (categoryId) conds.push(eq(resources.categoryId, categoryId))
+  if (isPublished !== undefined) conds.push(eq(resources.isPublished, isPublished))
+  if (status !== undefined) conds.push(eq(resources.status, status))
+  const where = conds.length ? and(...conds) : undefined
 
   const [list, totalRows] = await Promise.all([
     db
@@ -125,10 +125,13 @@ export async function findResources(
       .orderBy(desc(resources.sort), desc(resources.id))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ count: sql<number>`count(*)::int` }).from(resources).where(where),
-  ]);
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(resources)
+      .where(where),
+  ])
 
-  return { list, total: totalRows[0]?.count ?? 0, page, pageSize };
+  return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
 /** 资源详情(含 intro),并自增浏览量。 */
@@ -136,38 +139,34 @@ export async function findResourceByIdAndIncrementView(id: string): Promise<Reso
   await db
     .update(resources)
     .set({ viewCount: sql<number>`${resources.viewCount} + 1` })
-    .where(eq(resources.id, id));
-  const rows = await db.select().from(resources).where(eq(resources.id, id)).limit(1);
-  return rows[0];
+    .where(eq(resources.id, id))
+  const rows = await db.select().from(resources).where(eq(resources.id, id)).limit(1)
+  return rows[0]
 }
 
 /** Admin 用：按 ID 查询资源(不限状态,不自增浏览量)。 */
 export async function findResourceById(id: string): Promise<Resource | undefined> {
-  const rows = await db.select().from(resources).where(eq(resources.id, id)).limit(1);
-  return rows[0];
+  const rows = await db.select().from(resources).where(eq(resources.id, id)).limit(1)
+  return rows[0]
 }
 
 /** 按 ID 列表批量查询资源(列表不返回 intro)。 */
 export async function findResourcesByIds(ids: string[]): Promise<Resource[]> {
-  if (ids.length === 0) return [];
-  return db
-    .select()
-    .from(resources)
-    .where(inArray(resources.id, ids))
-    .orderBy(desc(resources.id));
+  if (ids.length === 0) return []
+  return db.select().from(resources).where(inArray(resources.id, ids)).orderBy(desc(resources.id))
 }
 
 export interface CreateResourceInput {
-  title: string;
-  coverImage?: string | null;
-  intro?: string | null;
-  categoryId?: string | null;
-  fileUrl?: string | null;
-  fileType?: string | null;
-  fileSize?: number;
-  isPublished?: boolean;
-  sort?: number;
-  status?: number;
+  title: string
+  coverImage?: string | null
+  intro?: string | null
+  categoryId?: string | null
+  fileUrl?: string | null
+  fileType?: string | null
+  fileSize?: number
+  isPublished?: boolean
+  sort?: number
+  status?: number
 }
 
 export async function createResource(data: CreateResourceInput): Promise<Resource> {
@@ -185,22 +184,22 @@ export async function createResource(data: CreateResourceInput): Promise<Resourc
       sort: data.sort,
       status: data.status,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建资源失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建资源失败')
+  return row
 }
 
 export interface UpdateResourceInput {
-  title?: string;
-  coverImage?: string | null;
-  intro?: string | null;
-  categoryId?: string | null;
-  fileUrl?: string | null;
-  fileType?: string | null;
-  fileSize?: number;
-  sort?: number;
-  status?: number;
+  title?: string
+  coverImage?: string | null
+  intro?: string | null
+  categoryId?: string | null
+  fileUrl?: string | null
+  fileType?: string | null
+  fileSize?: number
+  sort?: number
+  status?: number
 }
 
 export async function updateResource(
@@ -222,12 +221,12 @@ export async function updateResource(
       updatedAt: new Date(),
     })
     .where(eq(resources.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteResource(id: string): Promise<void> {
-  await db.delete(resources).where(eq(resources.id, id));
+  await db.delete(resources).where(eq(resources.id, id))
 }
 
 /** 发布/取消发布资源。 */
@@ -239,8 +238,8 @@ export async function publishResource(
     .update(resources)
     .set({ isPublished, updatedAt: new Date() })
     .where(eq(resources.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 // =============================================================================
@@ -248,24 +247,24 @@ export async function publishResource(
 // =============================================================================
 
 export interface FindProductsOpts {
-  page: number;
-  pageSize: number;
-  resourceId?: string;
-  name?: string;
-  isPublished?: boolean;
-  status?: number;
+  page: number
+  pageSize: number
+  resourceId?: string
+  name?: string
+  isPublished?: boolean
+  status?: number
 }
 
 export async function findProducts(
   opts: FindProductsOpts,
 ): Promise<{ list: ResourceProduct[]; total: number; page: number; pageSize: number }> {
-  const { page, pageSize, resourceId, name, isPublished, status } = opts;
-  const conds = [];
-  if (resourceId) conds.push(eq(resourceProducts.resourceId, resourceId));
-  if (name) conds.push(ilike(resourceProducts.name, `%${name}%`));
-  if (isPublished !== undefined) conds.push(eq(resourceProducts.isPublished, isPublished));
-  if (status !== undefined) conds.push(eq(resourceProducts.status, status));
-  const where = conds.length ? and(...conds) : undefined;
+  const { page, pageSize, resourceId, name, isPublished, status } = opts
+  const conds = []
+  if (resourceId) conds.push(eq(resourceProducts.resourceId, resourceId))
+  if (name) conds.push(ilike(resourceProducts.name, `%${name}%`))
+  if (isPublished !== undefined) conds.push(eq(resourceProducts.isPublished, isPublished))
+  if (status !== undefined) conds.push(eq(resourceProducts.status, status))
+  const where = conds.length ? and(...conds) : undefined
 
   const [list, totalRows] = await Promise.all([
     db
@@ -275,30 +274,29 @@ export async function findProducts(
       .orderBy(desc(resourceProducts.sort), desc(resourceProducts.id))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ count: sql<number>`count(*)::int` }).from(resourceProducts).where(where),
-  ]);
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(resourceProducts)
+      .where(where),
+  ])
 
-  return { list, total: totalRows[0]?.count ?? 0, page, pageSize };
+  return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
 export async function findProductById(id: string): Promise<ResourceProduct | undefined> {
-  const rows = await db
-    .select()
-    .from(resourceProducts)
-    .where(eq(resourceProducts.id, id))
-    .limit(1);
-  return rows[0];
+  const rows = await db.select().from(resourceProducts).where(eq(resourceProducts.id, id)).limit(1)
+  return rows[0]
 }
 
 export interface CreateProductInput {
-  resourceId: string;
-  name: string;
-  price?: string;
-  originalPrice?: string | null;
-  description?: string | null;
-  isPublished?: boolean;
-  sort?: number;
-  status?: number;
+  resourceId: string
+  name: string
+  price?: string
+  originalPrice?: string | null
+  description?: string | null
+  isPublished?: boolean
+  sort?: number
+  status?: number
 }
 
 export async function createProduct(data: CreateProductInput): Promise<ResourceProduct> {
@@ -314,21 +312,21 @@ export async function createProduct(data: CreateProductInput): Promise<ResourceP
       sort: data.sort,
       status: data.status,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建资源产品失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建资源产品失败')
+  return row
 }
 
 export interface UpdateProductInput {
-  resourceId?: string;
-  name?: string;
-  price?: string;
-  originalPrice?: string | null;
-  description?: string | null;
-  isPublished?: boolean;
-  sort?: number;
-  status?: number;
+  resourceId?: string
+  name?: string
+  price?: string
+  originalPrice?: string | null
+  description?: string | null
+  isPublished?: boolean
+  sort?: number
+  status?: number
 }
 
 export async function updateProduct(
@@ -349,12 +347,12 @@ export async function updateProduct(
       updatedAt: new Date(),
     })
     .where(eq(resourceProducts.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  await db.delete(resourceProducts).where(eq(resourceProducts.id, id));
+  await db.delete(resourceProducts).where(eq(resourceProducts.id, id))
 }
 
 // =============================================================================
@@ -362,20 +360,22 @@ export async function deleteProduct(id: string): Promise<void> {
 // =============================================================================
 
 export interface FindTagsOpts {
-  page: number;
-  pageSize: number;
-  name?: string;
-  status?: number;
+  page: number
+  pageSize: number
+  name?: string
+  pid?: string | null
+  status?: number
 }
 
 export async function findTags(
   opts: FindTagsOpts,
 ): Promise<{ list: ResourceTag[]; total: number; page: number; pageSize: number }> {
-  const { page, pageSize, name, status } = opts;
-  const conds = [];
-  if (name) conds.push(ilike(resourceTags.name, `%${name}%`));
-  if (status !== undefined) conds.push(eq(resourceTags.status, status));
-  const where = conds.length ? and(...conds) : undefined;
+  const { page, pageSize, name, pid, status } = opts
+  const conds = []
+  if (name) conds.push(ilike(resourceTags.name, `%${name}%`))
+  if (pid !== undefined && pid !== null) conds.push(eq(resourceTags.pid, pid))
+  if (status !== undefined) conds.push(eq(resourceTags.status, status))
+  const where = conds.length ? and(...conds) : undefined
 
   const [list, totalRows] = await Promise.all([
     db
@@ -385,53 +385,62 @@ export async function findTags(
       .orderBy(asc(resourceTags.sort), desc(resourceTags.id))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ count: sql<number>`count(*)::int` }).from(resourceTags).where(where),
-  ]);
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(resourceTags)
+      .where(where),
+  ])
 
-  return { list, total: totalRows[0]?.count ?? 0, page, pageSize };
+  return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
 export async function findTagById(id: string): Promise<ResourceTag | undefined> {
-  const rows = await db.select().from(resourceTags).where(eq(resourceTags.id, id)).limit(1);
-  return rows[0];
+  const rows = await db.select().from(resourceTags).where(eq(resourceTags.id, id)).limit(1)
+  return rows[0]
 }
 
 export interface CreateTagInput {
-  name: string;
-  sort?: number;
-  status?: number;
+  name: string
+  pid?: string | null
+  sort?: number
+  status?: number
 }
 
 export async function createTag(data: CreateTagInput): Promise<ResourceTag> {
   const rows = await db
     .insert(resourceTags)
-    .values({ name: data.name, sort: data.sort, status: data.status })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建资源标签失败');
-  return row;
+    .values({ name: data.name, pid: data.pid, sort: data.sort, status: data.status })
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建资源标签失败')
+  return row
 }
 
 export interface UpdateTagInput {
-  name?: string;
-  sort?: number;
-  status?: number;
+  name?: string
+  pid?: string | null
+  sort?: number
+  status?: number
 }
 
-export async function updateTag(id: string, data: UpdateTagInput): Promise<ResourceTag | undefined> {
+export async function updateTag(
+  id: string,
+  data: UpdateTagInput,
+): Promise<ResourceTag | undefined> {
   const rows = await db
     .update(resourceTags)
     .set({
       ...(data.name !== undefined ? { name: data.name } : {}),
+      ...(data.pid !== undefined ? { pid: data.pid } : {}),
       ...(data.sort !== undefined ? { sort: data.sort } : {}),
       ...(data.status !== undefined ? { status: data.status } : {}),
       updatedAt: new Date(),
     })
     .where(eq(resourceTags.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteTag(id: string): Promise<void> {
-  await db.delete(resourceTags).where(eq(resourceTags.id, id));
+  await db.delete(resourceTags).where(eq(resourceTags.id, id))
 }

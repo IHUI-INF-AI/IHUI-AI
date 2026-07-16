@@ -9,6 +9,7 @@
  *
  * 环境变量:
  *   DEEPSEEK_API_KEY / DASHSCOPE_API_KEY(或 QWEN_API_KEY) / ZHIPU_API_KEY
+ *   DOUBAO_API_KEY(火山方舟豆包,用于 /ws/doubao)
  *   KLING_ACCESS_KEY + KLING_SECRET_KEY
  *   COZE_API_KEY(或 COZE_PRIVATE_KEY) / COZE_API_BASE
  *   OPENROUTER_API_KEY / FREELLMAPI_BASE_URL / FREELLMAPI_API_KEY 等(multi)
@@ -495,6 +496,7 @@ const KLING_T2I = 'https://api.klingai.com/v1/images/generations'
 const COZE_BASE = () => process.env.COZE_API_BASE ?? 'https://api.coze.cn'
 const COZE_KEY = () => process.env.COZE_API_KEY ?? process.env.COZE_PRIVATE_KEY ?? ''
 const QWEN_KEY = () => process.env.DASHSCOPE_API_KEY ?? process.env.QWEN_API_KEY ?? ''
+const DOUBAO_KEY = () => process.env.DOUBAO_API_KEY ?? ''
 
 // ============================================================================
 // 路由
@@ -926,6 +928,84 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
             },
           }),
         )
+        socket.on('message', (data: Buffer) => {
+          try {
+            upstream.send(data)
+          } catch {
+            /* upstream closed */
+          }
+        })
+      }
+
+      upstream.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+          socket.send(event.data)
+        } else if (event.data instanceof ArrayBuffer) {
+          socket.send(Buffer.from(event.data))
+        }
+      }
+
+      upstream.onerror = () => {
+        try {
+          socket.close(4002, 'upstream error')
+        } catch {
+          /* already closed */
+        }
+      }
+
+      upstream.onclose = () => {
+        try {
+          socket.close()
+        } catch {
+          /* already closed */
+        }
+      }
+
+      server.recordWsConnect()
+      socket.on('message', () => {
+        server.recordWsMessageReceived()
+      })
+      const origSend = socket.send.bind(socket)
+      socket.send = ((data: unknown, ...rest: unknown[]) => {
+        server.recordWsMessageSent()
+        return (origSend as (...args: unknown[]) => unknown)(data, ...rest)
+      }) as typeof socket.send
+      socket.on('close', () => {
+        server.recordWsDisconnect()
+        try {
+          upstream.close()
+        } catch {
+          /* already closed */
+        }
+      })
+    })()
+  })
+
+  // ==========================================================================
+  // 6.1 Doubao(豆包/火山方舟)WebSocket — GET /ws/doubao
+  //    双向 WS 转发:客户端 ↔ 火山方舟 Realtime WS
+  //    注:火山方舟 Realtime 协议与 DashScope 不同,先实现纯透传版,
+  //    客户端需自行发送 session.update 初始化;后续可按官方协议补写 onopen 内 session 配置。
+  // ==========================================================================
+
+  server.get('/ws/doubao', { websocket: true }, (socket, request) => {
+    const { token, model: qModel, api_key } = (request.query as Record<string, string>) ?? {}
+    const model = qModel || 'doubao-1.5-pro-32k'
+    const key = api_key || DOUBAO_KEY()
+
+    ;(async () => {
+      if (!key) {
+        socket.close(4001, 'Missing DOUBAO_API_KEY')
+        return
+      }
+      const userId = await wsAuth(token, (c, r) => socket.close(c, r))
+      if (!userId) return
+
+      const wsUrl = `wss://ark.cn-beijing.volces.com/api/v3/realtime?model=${encodeURIComponent(model)}`
+      const upstream = new WebSocket(wsUrl, { headers: { Authorization: `Bearer ${key}` } })
+      upstream.binaryType = 'arraybuffer'
+
+      upstream.onopen = () => {
         socket.on('message', (data: Buffer) => {
           try {
             upstream.send(data)
