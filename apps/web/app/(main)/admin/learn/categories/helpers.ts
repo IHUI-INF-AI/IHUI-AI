@@ -8,6 +8,7 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const EMPTY_FORM: CategoryForm = {
+  pid: '',
   name: '',
   sort: '0',
   status: true,
@@ -15,6 +16,7 @@ export const EMPTY_FORM: CategoryForm = {
 
 export function categoryToForm(item: Category): CategoryForm {
   return {
+    pid: item.pid ?? '',
     name: item.name,
     sort: String(item.sort),
     status: item.status === 1,

@@ -4,12 +4,13 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Plus, Search, ChevronLeft, ChevronRight, Crown } from 'lucide-react'
+import { Plus, Search, ChevronLeft, ChevronRight, Crown, UploadCloud } from 'lucide-react'
 import { Button, Input } from '@ihui/ui'
 import { fetchMembers, type Member, type MemberLevel, api, PAGE_SIZE } from './types'
 import { MemberStats } from './MemberStats'
 import { MembersTable } from './MembersTable'
 import { MemberCreateDialog } from './MemberCreateDialog'
+import { MemberImportDialog } from './MemberImportDialog'
 import { MemberResetPwdDialog } from './MemberResetPwdDialog'
 
 export default function AdminMembersPage() {
@@ -19,6 +20,7 @@ export default function AdminMembersPage() {
   const [debounced, setDebounced] = React.useState('')
   const [page, setPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
+  const [importOpen, setImportOpen] = React.useState(false)
   const [resetTarget, setResetTarget] = React.useState<Member | null>(null)
 
   React.useEffect(() => {
@@ -67,6 +69,10 @@ export default function AdminMembersPage() {
           <Button onClick={() => setOpen(true)} size="sm">
             <Plus className="h-4 w-4" />
             {t('create')}
+          </Button>
+          <Button onClick={() => setImportOpen(true)} variant="outline" size="sm">
+            <UploadCloud className="h-4 w-4" />
+            {t('importBtn')}
           </Button>
         </div>
       </div>
@@ -126,6 +132,11 @@ export default function AdminMembersPage() {
         onClose={() => setOpen(false)}
         levelsData={levelsData}
         t={t}
+      />
+      <MemberImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onSuccess={() => setImportOpen(false)}
       />
       <MemberResetPwdDialog
         open={!!resetTarget}
