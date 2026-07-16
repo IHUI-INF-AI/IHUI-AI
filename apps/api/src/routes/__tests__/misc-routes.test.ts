@@ -36,7 +36,7 @@ describe('Misc Routes API (消息/证书/资源真实化端点)', () => {
     }> = [
       { method: 'GET', url: '/api/notifications/00000000-0000-0000-0000-000000000000' },
       { method: 'GET', url: '/api/messages/00000000-0000-0000-0000-000000000000' },
-      { method: 'GET', url: '/api/resources/00000000-0000-0000-0000-000000000000/download' },
+      // /api/resources/:id/download 已在 resource.ts 真实化（auth + 权限 + 记录）
       { method: 'POST', url: '/api/resources/00000000-0000-0000-0000-000000000000/like' },
       {
         method: 'POST',
