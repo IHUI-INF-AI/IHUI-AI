@@ -326,6 +326,7 @@
     "admin": "Admin",
     "help": "Help",
     "search": "Search",
+    "myLearning": "My Learning",
     "favorites": "Favorites",
     "following": "Following",
     "subscriptions": "Subscriptions",
@@ -1498,7 +1499,10 @@
       "rolesAuthUser": "Role Auth User",
       "rolesSelectUser": "Select User",
       "ossFiles": "File Management",
-      "notificationDispatch": "Targeted Notification"
+      "notificationDispatch": "Targeted Notification",
+      "messageOverview": "Message Overview",
+      "visitTracking": "Visit Tracking",
+      "examMarking": "Exam Marking"
     },
     "refund": {
       "title": "Refund Audit Management",
