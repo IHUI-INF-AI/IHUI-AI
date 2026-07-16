@@ -133,13 +133,13 @@ export type NewResourceTagRelation = typeof resourceTagRelations.$inferInsert
 
 /**
  * 资源下载记录表 - 记录用户下载资源的行为。
- * - resourceId: 关联 resources（逻辑关联，未做物理外键）。
- * - userId: 关联 users（逻辑关联）。
+ * - resourceId: 关联 resources.id（UUID，逻辑关联未做物理外键）。
+ * - userId: 关联 users.id（UUID，逻辑关联）。
  */
 export const resourceDownloads = pgTable('resource_downloads', {
   id: serial('id').primaryKey(),
-  resourceId: integer('resource_id').notNull(),
-  userId: integer('user_id').notNull(),
+  resourceId: uuid('resource_id').notNull(),
+  userId: uuid('user_id').notNull(),
   ip: varchar('ip', { length: 45 }),
   userAgent: text('user_agent'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

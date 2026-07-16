@@ -74,7 +74,6 @@ import {
 } from '../db/news-queries.js'
 import { findMessageById } from '../db/chat-queries.js'
 import { createCertificate, updateCertificateStatus } from '../db/certificate-queries.js'
-import { findResourceById } from '../db/resource-queries.js'
 import {
   findPublishedKnowledge,
   findKnowledgeById,
@@ -1650,15 +1649,8 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 21. Resource/Certificate/Knowledge/Skills 模块（9 个端点）
+  // 21. Resource/Certificate/Knowledge/Skills 模块（8 个端点；/resources/:id/download 已在 resource.ts 真实化）
   // ===========================================================================
-  server.get('/resources/:id/download', async (request, reply) => {
-    const id = parseIdParam(request, reply)
-    if (id === null) return
-    const resource = await findResourceById(id)
-    if (!resource) return reply.status(404).send(error(404, '资源不存在'))
-    return reply.send(success({ url: resource.fileUrl, resource }))
-  })
 
   server.post('/resources/:id/like', async (request, reply) => {
     const id = parseIdParam(request, reply)
