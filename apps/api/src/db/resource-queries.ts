@@ -1,10 +1,13 @@
-import { eq, and, desc, asc, sql, ilike, inArray } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ilike, inArray, gt } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   resourceCategories,
   resources,
   resourceProducts,
   resourceTags,
+  resourceDownloads,
+  orders,
+  userVips,
   type ResourceCategory,
   type Resource,
   type ResourceProduct,
@@ -443,4 +446,106 @@ export async function updateTag(
 
 export async function deleteTag(id: string): Promise<void> {
   await db.delete(resourceTags).where(eq(resourceTags.id, id))
+}
+
+// =============================================================================
+// Download 下载（权限校验 + 记录写入）
+// =============================================================================
+
+/** 查询已发布资源（isPublished=true 且 status=1），不存在返回 undefined。 */
+export async function findPublishedResourceById(id: string): Promise<Resource | undefined> {
+  const rows = await db
+    .select()
+    .from(resources)
+    .where(and(eq(resources.id, id), eq(resources.isPublished, true), eq(resources.status, 1)))
+    .limit(1)
+  return rows[0]
+}
+
+/** 判断资源是否付费：存在已发布且 price > 0 的关联产品即为付费资源。 */
+export async function isResourcePaid(resourceId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: resourceProducts.id })
+    .from(resourceProducts)
+    .where(
+      and(
+        eq(resourceProducts.resourceId, resourceId),
+        eq(resourceProducts.isPublished, true),
+        eq(resourceProducts.status, 1),
+        gt(resourceProducts.price, '0'),
+      ),
+    )
+    .limit(1)
+  return rows.length > 0
+}
+
+/** 检查用户是否已购买该资源（orders 表中存在 status=paid 且 productId 指向 resourceId 的订单）。 */
+export async function hasUserPurchasedResource(
+  userId: string,
+  resourceId: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(
+      and(eq(orders.userId, userId), eq(orders.productId, resourceId), eq(orders.status, 'paid')),
+    )
+    .limit(1)
+  return rows.length > 0
+}
+
+/** 检查用户是否为有效 VIP（status=1 且 endTime > 当前时间）。 */
+export async function isUserActiveVip(userId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: userVips.id })
+    .from(userVips)
+    .where(
+      and(eq(userVips.userId, userId), eq(userVips.status, 1), gt(userVips.endTime, new Date())),
+    )
+    .limit(1)
+  return rows.length > 0
+}
+
+export interface DownloadPermissionResult {
+  allowed: boolean
+  reason: string
+}
+
+/** 下载权限校验：免费资源直接放行；付费资源需购买记录或有效 VIP。 */
+export async function checkDownloadPermission(
+  userId: string,
+  resourceId: string,
+): Promise<DownloadPermissionResult> {
+  const paid = await isResourcePaid(resourceId)
+  if (!paid) return { allowed: true, reason: 'free' }
+  const purchased = await hasUserPurchasedResource(userId, resourceId)
+  if (purchased) return { allowed: true, reason: 'purchased' }
+  const vip = await isUserActiveVip(userId)
+  if (vip) return { allowed: true, reason: 'vip' }
+  return { allowed: false, reason: '未购买且非 VIP' }
+}
+
+export interface CreateDownloadRecordInput {
+  resourceId: string
+  userId: string
+  ip?: string | null
+  userAgent?: string | null
+}
+
+/** 写入下载记录。 */
+export async function createDownloadRecord(data: CreateDownloadRecordInput): Promise<void> {
+  await db.insert(resourceDownloads).values({
+    resourceId: data.resourceId,
+    userId: data.userId,
+    ip: data.ip ?? null,
+    userAgent: data.userAgent ?? null,
+  })
+}
+
+/** 自增资源下载量。 */
+export async function incrementResourceDownloadCount(resourceId: string): Promise<void> {
+  await db
+    .update(resources)
+    .set({ downloadCount: sql<number>`${resources.downloadCount} + 1` })
+    .where(eq(resources.id, resourceId))
 }
