@@ -140,11 +140,21 @@ function publicUser(
     id: string
     phone: string | null
     email: string | null
+    username: string | null
     nickname: string | null
     avatar: string | null
     bio: string | null
+    gender: number | null
+    birthday: string | null
+    familyId: string | null
     roleId: number | null
     status: number | null
+    isVip: number | null
+    level: number | null
+    inviteCode: string | null
+    parentId: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
   },
   permissions: string[] = [],
 ) {
@@ -152,11 +162,21 @@ function publicUser(
     id: user.id,
     phone: user.phone ?? '',
     email: user.email ?? '',
+    username: user.username ?? '',
     nickname: user.nickname ?? '',
     avatar: user.avatar ?? '',
     bio: user.bio ?? '',
+    gender: user.gender ?? 0,
+    birthday: user.birthday ?? '',
+    familyId: user.familyId ?? '',
     roleId: user.roleId ?? 0,
     status: user.status ?? 1,
+    isVip: user.isVip ?? 0,
+    level: user.level ?? 0,
+    inviteCode: user.inviteCode ?? '',
+    parentId: user.parentId ?? '',
+    createdAt: user.createdAt ? user.createdAt.toISOString() : '',
+    updatedAt: user.updatedAt ? user.updatedAt.toISOString() : '',
     permissions,
   }
 }

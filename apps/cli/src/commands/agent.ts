@@ -40,6 +40,7 @@ import { TEST_TOOLS } from '../tools/run-tests.js';
 import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
 import { CODEGRAPH_TOOLS } from '../tools/codegraph.js';
 import { createSubagentTool } from '../tools/subagent.js';
+import { resolveSandboxOptions } from '../sandbox/index.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens } from '../context.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
@@ -47,9 +48,21 @@ import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.j
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
 import { loadHooks, runSessionStartHooks, runSessionEndHooks } from '../hooks/index.js';
-import { loadSettings } from './settings.js';
+import { loadSettings, type SamplerSettings } from './settings.js';
 import type { Session } from './session.js';
 import { saveSession } from './session.js';
+
+// 模块增强:为 StreamChatOptions 添加 sampler 字段(透传给后端 LiteLLM)。
+// 不修改 packages/api-client 源码,在此处以声明合并方式扩展类型。
+declare module '@ihui/api-client' {
+  interface StreamChatOptions {
+    temperature?: number;
+    topP?: number;
+    topK?: number;
+    maxTokens?: number;
+    stop?: string[];
+  }
+}
 
 export type { ToolContext } from '../tools/index.js';
 
@@ -74,9 +87,11 @@ export interface AgentOptions {
   signal?: AbortSignal;
   /** 强制 LLM 先输出 plan 块再执行工具 */
   planFirst?: boolean;
+  /** LLM 采样参数(透传到 streamChat) */
+  sampler?: SamplerSettings;
 }
 
-export type AgentStopReason = 'end_turn' | 'cancelled' | 'max_iterations' | 'error';
+export type AgentStopReason = 'end_turn' | 'cancelled' | 'max_iterations' | 'budget_limited' | 'error';
 
 export interface AgentResult {
   stopReason: AgentStopReason;
@@ -182,14 +197,19 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   const extraContext = [agentsMd, skillsText, memoryText].filter(Boolean).join('\n\n');
   const systemPrompt = buildSystemPrompt(tools, extraContext, opts.planFirst);
   const settings = loadSettings();
+  const resolvedSandbox = resolveSandboxOptions(
+    settings.sandbox?.profile,
+    settings.sandbox ?? {},
+  );
   const ctx: ToolContext = {
     workspacePath: opts.workspacePath,
     confirmDangerous: opts.confirmDangerous,
     sandbox: settings.sandbox ? {
-      commandAllowlist: settings.sandbox.commandAllowlist,
-      blockedEnvVars: settings.sandbox.blockedEnvVars,
-      allowedPaths: settings.sandbox.allowedPaths,
+      commandAllowlist: resolvedSandbox.commandAllowlist,
+      blockedEnvVars: resolvedSandbox.blockedEnvVars,
+      allowedPaths: resolvedSandbox.allowedPaths,
     } : undefined,
+    folderTrust: settings.folderTrust,
   };
 
   return { systemPrompt, ctx, skills, memory };
@@ -212,6 +232,10 @@ export interface RunToolLoopOptions {
   planFirst?: boolean;
   /** plan 是否已被批准;true 时跳过阻断,允许工具执行。阻断逻辑会在 plan 块出现后自动置 true */
   planApproved?: boolean;
+  /** LLM 采样参数(透传到 streamChat) */
+  sampler?: SamplerSettings;
+  /** 累计成本上限(美元)。超过后 stopReason='budget_limited'。与 AGENTS.md 第 9 节 goal 模式 budget 语义对齐 */
+  maxCostUsd?: number;
 }
 
 export interface RunToolLoopResult {
@@ -252,6 +276,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let iterations = 0;
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
+  let totalCostUsd = 0;
+  let budgetLimited = false;
   const consecutiveFailures = new Map<string, number>();
   const FAILURE_REFLECTION_THRESHOLD = 2;
 
@@ -284,6 +310,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         onDone: () => {
           // 由调用方处理
         },
+        ...(opts.sampler ?? {}),
       });
 
       if (iterError) break;
@@ -293,6 +320,15 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       const iterCompletionTokens = estimateTokens(iterationText);
       totalPromptTokens += iterPromptTokens;
       totalCompletionTokens += iterCompletionTokens;
+      totalCostUsd += estimateIterationCost(opts.modelId, iterPromptTokens, iterCompletionTokens);
+
+      // Cost guard:超阈值立即停止,语义对齐 AGENTS.md 第 9 节 budget_limited
+      if (opts.maxCostUsd !== undefined && totalCostUsd >= opts.maxCostUsd) {
+        budgetLimited = true;
+        opts.messages.push({ role: 'assistant', content: iterationText });
+        assistantText += iterationText;
+        break;
+      }
 
       opts.messages.push({ role: 'assistant', content: iterationText });
       assistantText += iterationText;
@@ -324,13 +360,19 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       }
 
       const resultParts: string[] = [];
+      // P0-1 Tool parallelism:先按顺序触发 onToolCall,再用 Promise.all 并行执行,最后按顺序处理结果
+      // 单工具时 Promise.all 退化为串行,无额外开销,UI 体验与原串行实现一致
       for (const call of toolCalls) {
         await opts.onToolCall?.(call.name, call.arguments);
-
-        const startTime = Date.now();
-        const result = await executeToolCall(call, opts.ctx);
-        const durationMs = Date.now() - startTime;
-
+      }
+      const parallelResults = await Promise.all(
+        toolCalls.map(async (call) => {
+          const startTime = Date.now();
+          const result = await executeToolCall(call, opts.ctx);
+          return { call, result, durationMs: Date.now() - startTime };
+        }),
+      );
+      for (const { call, result, durationMs } of parallelResults) {
         auditLog({
           timestamp: new Date().toISOString(),
           tool: call.name,
@@ -340,7 +382,6 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           durationMs,
           error: result.error,
         });
-
         if (result.success) {
           consecutiveFailures.set(call.name, 0);
         } else {
@@ -352,7 +393,6 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             consecutiveFailures.set(call.name, 0);
           }
         }
-
         await opts.onToolResult?.(call.name, result.success, result.output);
         resultParts.push(formatToolResult(call, result));
       }
@@ -374,6 +414,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     stopReason = 'cancelled';
   } else if (hadError) {
     stopReason = 'error';
+  } else if (budgetLimited) {
+    stopReason = 'budget_limited';
   } else if (iterations >= opts.maxIterations) {
     stopReason = 'max_iterations';
   } else {
@@ -385,7 +427,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     promptTokens: totalPromptTokens,
     completionTokens: totalCompletionTokens,
     totalTokens,
-    estimatedCostUsd: estimateIterationCost(opts.modelId, totalPromptTokens, totalCompletionTokens),
+    estimatedCostUsd: totalCostUsd,
   };
 
   return { stopReason, assistantText, iterations, usage };
@@ -478,6 +520,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       maxIterations: opts.maxIterations,
       signal: opts.signal,
       planFirst: opts.planFirst,
+      sampler: opts.sampler,
       onDelta: (delta) => {
         if (jsonMode) emit({ type: 'message_delta', text: delta });
         else {
