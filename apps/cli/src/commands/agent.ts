@@ -31,9 +31,11 @@ import {
 } from '../tools/index.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
 import { createFileEditTools } from '../tools/file-edit.js';
+import { GIT_TOOLS } from '../tools/git.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import { compressContext } from '../context.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
+import { auditLog } from '../audit.js';
 
 export type { ToolContext } from '../tools/index.js';
 
@@ -100,6 +102,7 @@ export interface SetupAgentToolsResult {
 export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<SetupAgentToolsResult> {
   clearTools();
   registerTools(BUILTIN_TOOLS);
+  registerTools(GIT_TOOLS);
   if (opts.checkpoints) {
     registerTools(createFileEditTools({ workspacePath: opts.workspacePath, checkpoints: opts.checkpoints }));
   }
@@ -192,7 +195,19 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       for (const call of toolCalls) {
         await opts.onToolCall?.(call.name, call.arguments);
 
+        const startTime = Date.now();
         const result = await executeToolCall(call, opts.ctx);
+        const durationMs = Date.now() - startTime;
+
+        auditLog({
+          timestamp: new Date().toISOString(),
+          tool: call.name,
+          input: call.arguments,
+          output: result.output,
+          success: result.success,
+          durationMs,
+          error: result.error,
+        });
 
         await opts.onToolResult?.(call.name, result.success, result.output);
         resultParts.push(formatToolResult(call, result));
