@@ -18,6 +18,9 @@ import {
   updatePointRelations,
   findRecords,
   findUserPointsBalance,
+  increasePoints,
+  decreasePoints,
+  fallbackPoints,
 } from '../db/point-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
@@ -118,6 +121,19 @@ const recordsListQuery = z.object({
   ...paginationQuery,
   memberId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   type: z.preprocess(emptyToUndefined, z.string().min(1).max(32).optional()),
+})
+
+const pointOperationSchema = z.object({
+  memberId: z.string().uuid('无效的会员 ID'),
+  channelId: z.string().uuid('无效的渠道 ID'),
+  pointId: z.string().uuid('无效的积分规则 ID'),
+  amount: z.number().int().positive('积分数量必须为正整数'),
+  remark: z.string().max(255).optional(),
+})
+
+const fallbackSchema = z.object({
+  recordId: z.string().uuid('无效的记录 ID'),
+  remark: z.string().max(255).optional(),
 })
 
 const rulesListQuery = z.object({
@@ -401,6 +417,60 @@ export const adminPointRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const result = await findRecords(parsed.data)
+      return reply.send(success(result))
+    },
+  )
+
+  // ----- Increase / Decrease / Fallback 积分增减 -----
+
+  // POST /edu-points/increase - 增加积分(事务包装 + 阈值校验 + channel.code 路由)
+  server.post(
+    '/edu-points/increase',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = pointOperationSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result = await increasePoints(parsed.data)
+      return reply.send(success(result))
+    },
+  )
+
+  // POST /edu-points/decrease - 扣减积分(余额校验 + 事务包装)
+  server.post(
+    '/edu-points/decrease',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = pointOperationSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result = await decreasePoints(parsed.data)
+      return reply.send(success(result))
+    },
+  )
+
+  // POST /edu-points/fallback - 积分回退(反向操作 + 幂等校验)
+  server.post(
+    '/edu-points/fallback',
+    {
+      schema: {
+        response: {
+          ...responseSchema,
+          409: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = fallbackSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result = await fallbackPoints(parsed.data.recordId, parsed.data.remark)
       return reply.send(success(result))
     },
   )
