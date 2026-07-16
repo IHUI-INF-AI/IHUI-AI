@@ -144,8 +144,7 @@ export function parseCsvToMembers(csv: string): Array<Record<string, unknown>> {
 }
 
 export async function batchUploadMembers(file: File): Promise<ApiResult<ImportResult>> {
-  // 方案:CSV 解析 + JSON 数组提交,后端 /api/members/batch-upload 返回 { imported, failed, errors }
-  // TODO: 若需支持 Excel xlsx 格式,后端需补 multipart /api/members/import/excel 接口
+  // CSV 解析 + JSON 数组提交,后端 /api/members/batch-upload 返回 { imported, failed, errors }
   const text = await file.text()
   const members = parseCsvToMembers(text)
   const result = await fetchApi<{ imported: number; failed: number; errors: ImportResultItem[] }>(
@@ -164,6 +163,31 @@ export async function batchUploadMembers(file: File): Promise<ApiResult<ImportRe
     data: {
       successCount: data.imported ?? 0,
       failureCount: data.failed ?? Math.max(0, members.length - (data.imported ?? 0)),
+      resultItemList: data.errors ?? [],
+    },
+  }
+}
+
+export async function excelUploadMembers(file: File): Promise<ApiResult<ImportResult>> {
+  // Excel (.xlsx/.xls) 通过 multipart 上传到后端 /api/members/import/excel,后端解析后返回 { imported, failed, errors }
+  const form = new FormData()
+  form.append('file', file)
+  const result = await fetchApi<{ imported: number; failed: number; errors: ImportResultItem[] }>(
+    '/api/members/import/excel',
+    {
+      method: 'POST',
+      body: form,
+    },
+  )
+  if (!result.success) {
+    return result
+  }
+  const data = result.data
+  return {
+    success: true,
+    data: {
+      successCount: data.imported ?? 0,
+      failureCount: data.failed ?? 0,
       resultItemList: data.errors ?? [],
     },
   }

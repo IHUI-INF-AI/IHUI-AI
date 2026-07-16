@@ -9,11 +9,13 @@ export interface CirclePostCircle {
   name: string
 }
 
+export type CirclePostStatus = 'published' | 'deleted' | 'pending' | 'rejected'
+
 export interface CirclePost {
   id: string
   content: string
   images: string[]
-  status: 'published' | 'deleted'
+  status: CirclePostStatus
   author: CirclePostAuthor
   circle: CirclePostCircle
   viewCount: number
@@ -23,9 +25,11 @@ export interface CirclePost {
   createdAt: string
 }
 
+export type PostStatusFilter = 'all' | CirclePostStatus
+
 export interface PostFilter {
   keyword: string
-  status: 'all' | 'published' | 'deleted'
+  status: PostStatusFilter
   page: number
   pageSize: number
 }
@@ -35,4 +39,15 @@ export const EMPTY_FILTER: PostFilter = {
   status: 'all',
   page: 1,
   pageSize: 20,
+}
+
+export interface CirclePostComment {
+  id: string
+  content: string
+  status: number
+  likeCount: number
+  createdAt: string
+  pid: string | null
+  replyUserId: string | null
+  author: CirclePostAuthor
 }
