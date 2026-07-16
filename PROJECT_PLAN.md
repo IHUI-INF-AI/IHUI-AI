@@ -12599,3 +12599,70 @@ P1/P2 后续任务全部闭环:snapshot 修复 + 前端 UI 接入 + AvatarCroppe
 - 交互/显示/数据/接口/互通连通 → 全维度覆盖
 
 **子代理报告的 8 个"潜在缺口"经逐条复核,全部已在当前代码中找到等价实现**(Dynamic→community/topics.ts, Learn-Map→learn.ts, Exam Chapters→exam.ts, Mail→notifications.ts+email-service.ts, Work-WeChat→oauth-providers.ts, Visit-tracking→visit-tracking.ts 等)。
+
+---
+
+## P0/P1/P2 真实缺口补完轮(2026-07-16)📋(2026-07-16) / 深度核查 + 补完
+
+> **触发**:用户贴出一份"深度核查真相报告",声称"5 类 109 项中 66 项完全缺失、420+ 接口完全缺失、60% 缺失"。
+>
+> **核查结论**:原报告**严重失实**。5 路并行 Task agent 按方法名/路由名 grep 全目录搜索 + 读取文件内容核查,发现 0 项完全缺失,大量已完成,少量真实缺口(P0:4 类 / P1:3 类 / P2:1 类)。
+
+### 1. 深度核查方法论(5 类 109 项)
+
+> 不按文件名 1:1 比对(会误判),用 grep 全目录搜索方法名 + 读取文件内容核查等价实现。
+
+| 类别 | 原报告声称 | 核查真实情况 |
+| ---- | ---------- | ------------ |
+| admin-system 端点对齐 | 完全缺失 | 11 路由真实缺失(menu/dept/post/config/dict/logininfor/users resetPwd) |
+| auth 端点对齐 | 420+ 缺失 | 20 路由真实缺失(GET/:id + POST + PUT 各 auth-*.ts) |
+| circle 审核/评论 | 缺失 | 真实缺失(POST audit + GET comments) |
+| member Excel | 缺失 | 真实缺 Excel 解析(已有 batch-upload JSON) |
+| Topics slug/sort | 缺失 | 真实缺失(DB 列 + Zod schema + UI) |
+| role/authUser | 缺失 | 3 路由可实现,5 路由需新建 sys_user_role 表(跳过) |
+| sys_operlog | 缺失 | 真实缺失(表 + 路由 + migration) |
+| AI hook UI 接线 | 缺失 | 真实缺失(ai-world/page.tsx 未接 hook) |
+
+### 2. P0 真实缺口补完(4 类,5 并行 Task)✅
+
+- [x] ✅(2026-07-16) **admin-system 11 路由补齐** — `apps/api/src/routes/admin-sys.ts`:menu GET/POST、dept POST/DELETE、post POST、config/dict refreshCache、dict-type POST、logininfor batch DELETE、users resetPwd
+- [x] ✅(2026-07-16) **admin-auth 20 路由补齐** — 9 个 auth-*.ts 文件:auth-accounts/auth-info/auth-role/auth-tokens/auth-user-vip/auth-vip-level/auth-sms-temp/user-roles/system-login-logs 各补 GET/:id + POST + PUT;`apps/api/src/routes/admin/_shared.ts` 新增 11 组 Zod body schema
+- [x] ✅(2026-07-16) **circle 审核/评论** — `apps/api/src/routes/community/asks.ts`:POST /admin/circles/posts/:id/audit + GET /admin/circles/posts/:id/comments;`apps/web/app/(main)/admin/circles/dynamics/`:DynamicsTable 审核按钮 + CommentsDialog(新建 109 行)
+- [x] ✅(2026-07-16) **member Excel 导入** — `apps/api/src/routes/member.ts`:POST /members/import/excel(multipart + xlsx 解析 + 中英文表头映射 HEADER_ALIASES);`apps/web/app/(main)/admin/members/`:MemberImportDialog accept 扩展 .csv/.xlsx/.xls;`packages/api-client/src/endpoints/admin-member.ts`:excelUploadMember 封装
+
+### 3. P1 后续任务(3 类,4 并行 Task)✅
+
+- [x] ✅(2026-07-16) **P1-1: sys_operlog 表 + 0080 migration + 3 路由** — `packages/database/src/schema/admin-sys.ts`:sysOperlog 表 16 字段(对齐 RuoYi 标准);`packages/database/drizzle/0080_sys_operlog.sql`:CREATE TABLE + 4 索引;`apps/api/src/routes/admin-sys.ts`:GET /operlog/list(分页+过滤)+ DELETE /operlog/clean + DELETE /operlog/:operIds;`apps/api/src/db/admin-sys-queries.ts`:findOperlogList/deleteOperlogsBatch/cleanOperlogs
+- [x] ✅(2026-07-16) **P1-2: learn_topic slug/sort + 0081 migration + Zod schema** — `packages/database/src/schema/learn-extra-extended.ts`:learnTopic 新增 slug + sort + sort_idx 索引;`packages/database/drizzle/0081_learn_topic_slug_sort.sql`:ALTER TABLE ADD COLUMN + CREATE INDEX;`apps/api/src/routes/learn.ts`:createTopicSchema/updateTopicSchema 补 slug/sort(update 不加 default 避免 partial update 陷阱);`apps/api/src/db/learn-extended-queries.ts`:CreateLearnTopicInput/UpdateLearnTopicInput 补 slug/sort;`apps/web/app/(main)/admin/edu/learn/topics/`:TopicsDialog 新增 slug + sort 输入 + 5 语言 i18n
+- [x] ✅(2026-07-16) **P1-3: role/authUser 3 路由** — `apps/api/src/routes/admin-sys.ts`:PUT /role/changeStatus + PUT /role/dataScope(事务+onConflictDoNothing 重建 adminRoleDept)+ GET /role/deptTree/:roleId;`apps/api/src/db/admin-sys-queries.ts`:updateAdminRoleStatus/updateAdminRoleDataScope/findAdminRoleDeptIds;5 端点跳过(需新建 sys_user_role 表:uuid userId + integer roleId,三套角色体系不兼容)
+- [x] ✅(2026-07-16) **P2: AI hook UI 接线** — `apps/web/app/(main)/ai-world/page.tsx`:导入 useAiTalk + useAIWebSocket + useAiPanel,调用 panel.togglePanel + ws.isConnected + aiTalk.talk,新增 handleAiTalk 回调 + 工具栏 + 响应渲染区(~70 行增量)
+
+### 4. 0080 + 0081 migration 部署到数据库 ✅
+
+- [x] ✅(2026-07-16) **apply-new-migrations.mjs 执行** — 0080_sys_operlog(5 statements:1 table + 4 indexes)+ 0081_learn_topic_slug_sort(2 statements:ALTER TABLE + CREATE INDEX)全部 OK
+- [x] ✅(2026-07-16) **__drizzle_migrations 同步** — 82 records = 82 entries,完全一致 ✅
+- [x] ✅(2026-07-16) **列验证** — sys_operlog.oper_id EXISTS ✅ / learn_topic.slug EXISTS ✅ / learn_topic.sort EXISTS ✅
+- [x] ✅(2026-07-16) **临时文件清理** — apply-new-migrations.mjs 已删除
+
+### 5. 最终全量验证(2026-07-16)✅
+
+| 验证项             | 命令                                                         | 退出码 | 结果                       |
+| ------------------ | ------------------------------------------------------------ | ------ | -------------------------- |
+| database typecheck | `pnpm --filter @ihui/database typecheck`                    | 0      | ✅ tsc --noEmit 无错       |
+| api typecheck      | `pnpm --filter @ihui/api typecheck`                         | 0      | ✅ tsc --noEmit 无错       |
+| web typecheck      | `pnpm --filter @ihui/web typecheck`                         | 0      | ✅ tsc --noEmit 无错       |
+| web lint           | `pnpm --filter @ihui/web lint`                              | 0      | ✅ eslint 无输出           |
+| api test           | `pnpm --filter @ihui/api test`                              | 0      | ✅ 201 文件 3092/3092 通过 |
+| migration 列验证   | information_schema.columns 查询                              | -      | ✅ 3 列全 EXISTS           |
+| __drizzle_migrations 一致性 | count vs _journal.json entries                       | -      | ✅ 82 records = 82 entries |
+
+### 6. 残留风险与后续建议
+
+1. **【P2,非阻塞】sys_user_role 表新建** — 补齐 role/authUser 5 端点(需 uuid userId + integer roleId 映射表,解决三套角色体系不兼容)
+2. **【P2,非阻塞】sys_operlog 审计埋点** — 当前表已建 + 路由已就绪,但无写入入口(审计钩子未埋点,列表页将长期为空);建议在 admin-sys preHandler 钩子统一埋点
+3. **【P2,非阻塞】learn_topic slug 唯一约束 + 列表按 sort 排序** — 当前 slug 仅存储未校验唯一性,列表未按 sort 排序
+4. **【待用户授权】commit + push P1 轮改动** — 涵盖 sys_operlog + learn_topic slug/sort + role/authUser + AI hook 接线 + migration 部署
+
+### ✅ 本轮交付状态
+
+P0/P1/P2 真实缺口补完轮全部闭环:深度核查(原报告失实确认)+ P0 4 类补完 + P1 3 类补完 + P2 AI hook 接线 + 0080/0081 migration 部署 + 临时文件清理,7 项验证全绿,3092 tests 全通过,82 records 一致,3 列验证通过。
