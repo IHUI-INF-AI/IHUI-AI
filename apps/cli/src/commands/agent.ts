@@ -41,6 +41,7 @@ import type { CheckpointManager } from '../checkpoints/index.js';
 import { compressContext } from '../context.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
 import { auditLog } from '../audit.js';
+import { loadSettings } from './settings.js';
 import type { Session } from './session.js';
 import { saveSession } from './session.js';
 
@@ -125,9 +126,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   registerTools(FETCH_TOOLS);
   registerTools(TEST_TOOLS);
   registerTools(DIAGNOSTIC_TOOLS);
-  if (opts.checkpoints) {
-    registerTools(createFileEditTools({ workspacePath: opts.workspacePath, checkpoints: opts.checkpoints }));
-  }
+  registerTools(createFileEditTools({ workspacePath: opts.workspacePath, checkpoints: opts.checkpoints }));
   if (opts.enableMcp) {
     try {
       const mcpTools = await loadMcpTools({ workspacePath: opts.workspacePath });
@@ -143,9 +142,15 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   const tools = listTools();
   const agentsMd = readAgentsMd(opts.workspacePath);
   const systemPrompt = buildSystemPrompt(tools, agentsMd, opts.planFirst);
+  const settings = loadSettings();
   const ctx: ToolContext = {
     workspacePath: opts.workspacePath,
     confirmDangerous: opts.confirmDangerous,
+    sandbox: settings.sandbox ? {
+      commandAllowlist: settings.sandbox.commandAllowlist,
+      blockedEnvVars: settings.sandbox.blockedEnvVars,
+      allowedPaths: settings.sandbox.allowedPaths,
+    } : undefined,
   };
 
   return { systemPrompt, ctx };
