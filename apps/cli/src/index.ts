@@ -25,6 +25,7 @@ import {
   loadSession,
   getMostRecentSession,
   listSessions,
+  createSession,
   type ChatMessage,
 } from './commands/session.js';
 import { writeAgentsMd, agentsMdExists } from './commands/template.js';
@@ -38,6 +39,7 @@ import { registerCapabilitiesCommand } from './commands/capabilities.js';
 import { registerCheckpointCommand } from './commands/checkpoint.js';
 import { registerHooksCommand } from './commands/hooks.js';
 import { startAcpServer } from './acp/server.js';
+import { CheckpointManager } from './checkpoints/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -99,6 +101,11 @@ async function runAgentAndExit(
   const onSigint = (): void => process.exit(130);
   process.on('SIGINT', onSigint);
   try {
+    const session = createSession(opts.workspace, opts.model);
+    const checkpoints = new CheckpointManager({
+      sessionId: session.id,
+      workspacePath: opts.workspace,
+    });
     const result = await runAgent({
       prompt,
       modelId: opts.model,
@@ -107,6 +114,7 @@ async function runAgentAndExit(
       apiKey: opts.apiKey,
       maxIterations: parseInt(opts.maxIterations, 10),
       jsonMode,
+      checkpoints,
       enableMcp: opts.mcp === true,
     });
     process.exit(stopReasonToExitCode(result.stopReason));
@@ -147,6 +155,7 @@ program
         maxIterations: parseInt(opts.maxIterations, 10),
         sessionId: session.sessionId,
         history: session.history,
+        enableMcp: opts.mcp === true,
       });
     }
   });
@@ -166,6 +175,7 @@ program
       maxIterations: parseInt(opts.maxIterations, 10),
       sessionId: session.sessionId,
       history: session.history,
+      enableMcp: opts.mcp === true,
     });
   });
 
@@ -306,6 +316,7 @@ program
       apiKey: opts.apiKey,
       modelId: opts.model,
       maxIterations: parseInt(opts.maxIterations, 10),
+      enableMcp: opts.mcp === true,
     });
     process.on('SIGINT', () => connection.close());
     process.on('SIGTERM', () => connection.close());
