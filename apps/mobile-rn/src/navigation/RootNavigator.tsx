@@ -4,11 +4,13 @@ import { useAuth } from '../context/AuthContext'
 import { LoginScreen } from '../screens/LoginScreen'
 import { HomeScreen } from '../screens/HomeScreen'
 import { ChatScreen } from '../screens/ChatScreen'
+import SettingsScreen from '../screens/SettingsScreen'
 
 export type RootStackParamList = {
   Login: undefined
   Chat: undefined
   Home: undefined
+  Settings: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -30,6 +32,7 @@ export function RootNavigator() {
         <>
           <Stack.Screen name="Chat" component={ChatScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
         </>
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} />

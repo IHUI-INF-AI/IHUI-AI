@@ -74,7 +74,7 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       content: { type: 'string', description: '文件完整内容' },
     },
     required: ['path', 'content'],
-    execute(args): ToolResult {
+    async execute(args): Promise<ToolResult> {
       const filePath = args.path as string;
       const content = args.content as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
@@ -132,7 +132,7 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
       patch: { type: 'string', description: '多个 SEARCH/REPLACE 块(格式: <<<<<<< SEARCH\\n...\\n=======\\n...\\n>>>>>>> REPLACE)' },
     },
     required: ['path'],
-    execute(args): ToolResult {
+    async execute(args): Promise<ToolResult> {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
 
@@ -179,7 +179,7 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       path: { type: 'string', description: '要删除的文件路径' },
     },
     required: ['path'],
-    execute(args): ToolResult {
+    async execute(args): Promise<ToolResult> {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
 

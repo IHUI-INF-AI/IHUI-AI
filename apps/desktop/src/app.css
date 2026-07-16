@@ -1,0 +1,240 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #111111;
+  --muted: #6b7280;
+  --card: #f5f5f5;
+  --border: #e5e7eb;
+  --accent: #2563eb;
+  --user-bg: #2563eb;
+  --user-fg: #ffffff;
+  --ai-bg: #f3f4f6;
+  --ai-fg: #111111;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0a0a;
+    --fg: #f5f5f5;
+    --muted: #9ca3af;
+    --card: #161616;
+    --border: #262626;
+    --accent: #60a5fa;
+    --ai-bg: #1f1f1f;
+    --ai-fg: #f5f5f5;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 24px;
+  gap: 16px;
+}
+
+.shell.chat {
+  padding: 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.topbar .brand {
+  font-weight: 600;
+}
+
+.topbar .model {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.topbar .link {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.topbar .link:hover {
+  background: var(--card);
+}
+
+.messages {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.placeholder {
+  color: var(--muted);
+  text-align: center;
+  margin: auto;
+}
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+}
+
+.msg.user {
+  align-self: flex-end;
+}
+
+.msg .role {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.msg .bubble {
+  padding: 10px 12px;
+  border-radius: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.msg.user .bubble {
+  background: var(--user-bg);
+  color: var(--user-fg);
+}
+
+.msg.assistant .bubble {
+  background: var(--ai-bg);
+  color: var(--ai-fg);
+}
+
+.composer {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.composer textarea {
+  flex: 1;
+  resize: none;
+  padding: 8px 10px;
+  background: var(--card);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.composer textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.composer button {
+  padding: 0 16px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.composer button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.card {
+  width: 360px;
+  margin: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.card .hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.card label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.card input {
+  padding: 8px 10px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.card input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.card button {
+  padding: 10px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  margin-top: 4px;
+}
+
+.card button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.card .error {
+  margin: 0;
+  color: #ef4444;
+  font-size: 12px;
+}

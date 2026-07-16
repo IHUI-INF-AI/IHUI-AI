@@ -12,6 +12,7 @@
     "build": "tsc -b tsconfig.json",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rimraf dist .turbo node_modules"
   },
   "dependencies": {
@@ -29,7 +30,8 @@
     "@types/node": "^22.10.0",
     "rimraf": "^6.0.1",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   },
   "engines": {
     "node": ">=20.10.0"
