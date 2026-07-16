@@ -2,12 +2,13 @@
  * 上下文管理 — token 估算与历史压缩。
  *
  * 灵感来源:grok-build 的 `xai-grok-shell` crate 的上下文管理机制。
- * 简化策略(做减法):
- *   - token 估算:chars/4 粗估(英文约 4 char/token,中文约 2 char/token,折中)
+ * 策略:
+ *   - token 估算:gpt-tokenizer(BPE 真实分词,精确匹配 GPT-4/Cl100k 编码)
  *   - 压缩策略:保留首条 system + 尾部最近 N 条,中段用摘要替代
  *   - 阈值触发:超过 maxTokens 时自动压缩
- *   - 不依赖 tokenizer 库(做减法,避免额外依赖)
  */
+
+import { encode } from 'gpt-tokenizer';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -16,7 +17,7 @@ export interface ChatMessage {
 
 export function estimateTokens(text: string): number {
   if (!text) return 0;
-  return Math.ceil(text.length / 4);
+  return encode(text).length;
 }
 
 export function estimateMessagesTokens(messages: ChatMessage[]): number {
