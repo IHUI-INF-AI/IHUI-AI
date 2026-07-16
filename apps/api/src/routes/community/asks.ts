@@ -7,11 +7,33 @@ import { z } from 'zod'
 import { authenticate } from '../../plugins/auth.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
-import { and, desc, eq, ilike, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
-import { acceptAnswer, createAnswer, createAsk, deleteAsk, deleteCircle, findAskAnswers, findAskById, findAsks, findCircleById, updateAsk, updateCircleShowStatus } from '../../db/community-queries.js'
-import { circles } from '@ihui/database'
-import { circleShowSchema, createAnswerSchema, createAskSchema, errRespSchema, listAskAnswersQuery, listAsksQuery, updateAskSchema, uuidParamSchema } from './_shared.js'
+import {
+  acceptAnswer,
+  createAnswer,
+  createAsk,
+  deleteAsk,
+  deleteCircle,
+  findAskAnswers,
+  findAskById,
+  findAsks,
+  findCircleById,
+  findPostById,
+  updateAsk,
+  updateCircleShowStatus,
+} from '../../db/community-queries.js'
+import { circlePosts, circles, users } from '@ihui/database'
+import {
+  circleShowSchema,
+  createAnswerSchema,
+  createAskSchema,
+  errRespSchema,
+  listAskAnswersQuery,
+  listAsksQuery,
+  updateAskSchema,
+  uuidParamSchema,
+} from './_shared.js'
 
 const asksRoutes: FastifyPluginAsync = async (server) => {
   // 统一鉴权：所有 circles / asks 路由均需登录
@@ -526,6 +548,107 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       .returning()
     if (!updated) return reply.status(500).send(error(500, '修改圈子失败'))
     return reply.send(success({ circle: updated }))
+  })
+
+  // ===== 圈子帖子管理（管理员） =====
+
+  // GET /admin/circles/posts - 管理员圈子帖子列表(支持 keyword + status + circleId 过滤)
+  server.get('/admin/circles/posts', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+        keyword: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
+        status: z.preprocess(emptyToUndefined, z.enum(['published', 'deleted']).optional()),
+        circleId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+      })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, keyword, status, circleId } = parsed.data
+    const conds: Array<ReturnType<typeof eq>> = []
+    if (keyword) {
+      const kw = `%${keyword}%`
+      conds.push(or(ilike(circlePosts.title, kw), ilike(circlePosts.content, kw))!)
+    }
+    if (status === 'published') conds.push(eq(circlePosts.status, 1))
+    else if (status === 'deleted') conds.push(eq(circlePosts.status, -1))
+    if (circleId) conds.push(eq(circlePosts.circleId, circleId))
+    const where = conds.length > 0 ? and(...conds) : undefined
+    const offset = (page - 1) * pageSize
+    const cols = {
+      id: circlePosts.id,
+      content: circlePosts.content,
+      images: circlePosts.images,
+      status: circlePosts.status,
+      viewCount: circlePosts.viewCount,
+      commentCount: circlePosts.replyCount,
+      likeCount: circlePosts.likeCount,
+      createdAt: circlePosts.createdAt,
+      authorId: users.id,
+      authorNickname: users.nickname,
+      authorAvatar: users.avatar,
+      circleId: circles.id,
+      circleName: circles.name,
+    }
+    const [rows, totalRows] = await Promise.all([
+      dbRead
+        .select(cols)
+        .from(circlePosts)
+        .leftJoin(users, eq(users.id, circlePosts.userId))
+        .leftJoin(circles, eq(circles.id, circlePosts.circleId))
+        .where(where)
+        .orderBy(desc(circlePosts.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(circlePosts)
+        .where(where),
+    ])
+    const list = rows.map((r) => ({
+      id: r.id,
+      content: r.content,
+      images: (r.images ?? []) as string[],
+      status: r.status === 1 ? ('published' as const) : ('deleted' as const),
+      author: {
+        id: r.authorId ?? '',
+        nickname: r.authorNickname ?? '',
+        avatar: r.authorAvatar ?? null,
+      },
+      circle: {
+        id: r.circleId ?? '',
+        name: r.circleName ?? '',
+      },
+      viewCount: r.viewCount,
+      commentCount: r.commentCount,
+      likeCount: r.likeCount,
+      favoriteCount: 0,
+      createdAt: r.createdAt,
+    }))
+    return reply.send(success({ list, total: Number(totalRows[0]?.count ?? 0), page, pageSize }))
+  })
+
+  // DELETE /admin/circles/posts/:id - 管理员删除帖子(软删:status=-1)
+  server.delete('/admin/circles/posts/:id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findPostById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '帖子不存在'))
+    }
+    await db
+      .update(circlePosts)
+      .set({ status: -1, updatedAt: new Date() })
+      .where(eq(circlePosts.id, parsed.data.id))
+    return reply.send(success(null))
   })
 }
 export default asksRoutes

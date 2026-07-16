@@ -5,6 +5,10 @@
     "lib": ["ES2023"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@ihui/api-client": ["../../packages/api-client/src/index.ts"]
+    },
     "outDir": "./dist",
     "rootDir": "./src",
     "incremental": true,
