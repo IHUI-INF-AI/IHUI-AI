@@ -5,6 +5,8 @@ export const PAGE_SIZE = 10
 export const EMPTY: TForm = {
   title: '',
   image: '',
+  cidList: [],
+  lidList: [],
   description: '',
   price: '0',
   originalPrice: '0',
@@ -23,6 +25,8 @@ export function topicToForm(t: Topic): TForm {
   return {
     title: t.title,
     image: t.image,
+    cidList: t.cidList ?? [],
+    lidList: t.lidList ?? [],
     description: t.description,
     price: t.price ?? '0',
     originalPrice: t.originalPrice ?? '0',
