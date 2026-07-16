@@ -55,32 +55,62 @@ function extractFrontendCalls(src, file) {
       const rawPath = m[1]
       // 跳过非 API 路径（如 /api/health 这种纯字面量但被误捕）
       if (!rawPath.startsWith('/api/')) continue
-      // 推断 method: 支持跨行(method: 'POST' 可能在 path 所在行的前后 3 行内)
+      // /api/llm/* 走 Next.js rewrite 到 ai-service (port 8000)，不在 API 路由检查范围
+      if (rawPath.startsWith('/api/llm/')) continue
+      // 推断 method: 优先 path 同行 → 向后第一个 method → 向前最近 method → 动态值用 ANY
       let method = 'GET'
-      const contextLines = []
-      for (let i = -3; i <= 4; i++) {
-        contextLines.push(lines[idx + i] || '')
-      }
-      const context = contextLines.join('\n').toLowerCase()
-      const methodMatch = context.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
-      if (methodMatch) {
-        method = methodMatch[1].toUpperCase()
-      } else if (/\bpost\s*[<(]/.test(context)) {
-        method = 'POST'
-      } else if (/\bput\s*[<(]/.test(context)) {
-        method = 'PUT'
-      } else if (/\bpatch\s*[<(]/.test(context)) {
-        method = 'PATCH'
-      } else if (/\bdelete\s*[<(]/.test(context)) {
-        method = 'DELETE'
-      }
-      // 如果路径是 fetchApi('/api/...', { method: 'POST' }) 中的第二个参数，
-      // 但 method 在路径之后跨行，上述上下文已覆盖
-      // 如果路径本身在对象字面量值中（如 { post: '/api/xxx' }），尝试从 key 推断
-      if (method === 'GET') {
-        const prev = (lines[idx - 1] || '').toLowerCase()
-        const keyMatch = prev.match(/\b(post|put|patch|delete)\s*:\s*['"`]/)
-        if (keyMatch) method = keyMatch[1].toUpperCase()
+      const sameLine = (lines[idx] || '').toLowerCase()
+      const sameLineMatch = sameLine.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
+      if (sameLineMatch) {
+        method = sameLineMatch[1].toUpperCase()
+      } else {
+        // 向后搜索 path 之后的第一个 method（同一 options 对象内，后 4 行）
+        let resolved = null
+        for (let i = 1; i <= 4; i++) {
+          const afterLine = (lines[idx + i] || '').toLowerCase()
+          const afterMatch = afterLine.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
+          if (afterMatch) {
+            resolved = afterMatch[1].toUpperCase()
+            break
+          }
+        }
+        if (!resolved) {
+          // 向前搜索 path 之前的最近 method（前 3 行，取行号最大的 = 离 path 最近）
+          for (let i = -1; i >= -3; i--) {
+            const beforeLine = (lines[idx + i] || '').toLowerCase()
+            const beforeMatch = beforeLine.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
+            if (beforeMatch) {
+              resolved = beforeMatch[1].toUpperCase()
+              break
+            }
+          }
+        }
+        if (resolved) {
+          method = resolved
+        } else {
+          // 前后均无字面量 method：检查动态 method（三元等）→ ANY；否则启发式
+          const contextLines = []
+          for (let i = -3; i <= 4; i++) {
+            contextLines.push(lines[idx + i] || '')
+          }
+          const context = contextLines.join('\n').toLowerCase()
+          if (/method\s*:\s*[^'"`\s]/.test(context)) {
+            method = 'ANY'
+          } else if (/\bpost\s*[<(]/.test(context)) {
+            method = 'POST'
+          } else if (/\bput\s*[<(]/.test(context)) {
+            method = 'PUT'
+          } else if (/\bpatch\s*[<(]/.test(context)) {
+            method = 'PATCH'
+          } else if (/\bdelete\s*[<(]/.test(context)) {
+            method = 'DELETE'
+          }
+          if (method === 'GET') {
+            const prev = (lines[idx - 1] || '').toLowerCase()
+            const keyMatch = prev.match(/\b(post|put|patch|delete)\s*:\s*['"`]/)
+            if (keyMatch) method = keyMatch[1].toUpperCase()
+          }
+        }
       }
       // 模板字符串变量：查询字符串构建器直接去掉，其余替换为 :param
       const normalized = rawPath
@@ -105,18 +135,47 @@ function extractFrontendCalls(src, file) {
   return calls
 }
 
-/** 提取 server.ts 中的 register 前缀映射 */
+/** 提取所有 prefix 注册（server.ts 顶层 + 子路由文件内 scoped） */
 function extractRegisterPrefixes() {
   const calls = []
-  if (!existsSync(SERVER_FILE)) return calls
-  const src = readFileSync(SERVER_FILE, 'utf8')
-  // 匹配 server.register(xxxRoutes, { prefix: '/api/admin' })
-  const re = /server\.register\(\s*(\w+)\s*,\s*\{\s*prefix:\s*['"`]([^'"`]+)['"`]/g
-  let m
-  while ((m = re.exec(src)) !== null) {
-    calls.push({ plugin: m[1], prefix: m[2] })
+  const re = /\{\s*prefix:\s*['"`]([^'"`]+)['"`]/g
+  // 1. server.ts 顶层 prefix（如 /api/admin, /api/teams）
+  if (existsSync(SERVER_FILE)) {
+    const src = readFileSync(SERVER_FILE, 'utf8')
+    let m
+    while ((m = re.exec(src)) !== null) {
+      calls.push({ prefix: m[1], isAbsolute: m[1].startsWith('/api') })
+    }
+  }
+  // 2. 子路由文件内 scoped prefix（如 /dict/type, /dept, /role）
+  if (existsSync(API_ROUTES_DIR)) {
+    for (const file of collectFiles(API_ROUTES_DIR, ['.ts'])) {
+      const src = readFileSync(file, 'utf8')
+      re.lastIndex = 0
+      let m
+      while ((m = re.exec(src)) !== null) {
+        calls.push({ prefix: m[1], isAbsolute: m[1].startsWith('/api') })
+      }
+    }
   }
   return calls
+}
+
+/** 构建组合 prefix 集合：absolute + (absolute × relative) 两层拼接。
+ *  Fastify 的 scoped prefix 是分层的（/api/admin + /dict/type → /api/admin/dict/type），
+ *  脚本无法知道层级关系，所以对 /api/admin（admin 路由根）做两层拼接覆盖大多数场景。 */
+function buildCompositePrefixes(prefixes) {
+  const absolute = [...new Set(prefixes.filter((p) => p.isAbsolute).map((p) => p.prefix))]
+  const relative = [...new Set(prefixes.filter((p) => !p.isAbsolute).map((p) => p.prefix))]
+  const composite = [...absolute]
+  // /api/admin 是 admin 路由根，几乎所有 relative scoped prefix 都在它下面
+  const adminRoots = absolute.filter((p) => p === '/api/admin' || p === '/api')
+  for (const root of adminRoots) {
+    for (const rel of relative) {
+      composite.push(normalizePath(root, rel))
+    }
+  }
+  return composite
 }
 
 /** 提取后端路由文件中的 server.xxx('path', ...) 注册 */
@@ -125,17 +184,32 @@ function extractBackendRoutes() {
   const prefixes = extractRegisterPrefixes()
   if (!existsSync(API_ROUTES_DIR)) return routes
   const files = collectFiles(API_ROUTES_DIR, ['.ts'])
+  // 已知 scoped instance 变量名: server.register(async (VAR) => {...})
+  // 项目实际使用: server / s (admin-sys) / child (exam) / scope (live) / authed (member)
+  const methodRe =
+    /\b(?:server|s|child|scope|authed|instance|app)\.(get|post|put|patch|delete)\(\s*['"`]([^'"`]*)['"`]/g
+  // registerCrud(VAR, 'basePath', ...) 工厂: 展开为 GET/POST/PUT/:id/DELETE/:id/DELETE(batch) 共 5 条
+  const crudRe = /registerCrud\(\s*\w+\s*,\s*['"`]([^'"`]+)['"`]/g
   for (const file of files) {
     const src = readFileSync(file, 'utf8')
-    // 匹配 server.get/post/put/patch/delete('path', ...)
-    const re = /server\.(get|post|put|patch|delete)\(\s*['"`]([^'"`]+)['"`]/g
     let m
-    while ((m = re.exec(src)) !== null) {
+    methodRe.lastIndex = 0
+    while ((m = methodRe.exec(src)) !== null) {
       routes.push({
         method: m[1].toUpperCase(),
         localPath: m[2],
         file: relative(ROOT, file),
       })
+    }
+    crudRe.lastIndex = 0
+    while ((m = crudRe.exec(src)) !== null) {
+      const basePath = m[1]
+      const rel = relative(ROOT, file)
+      routes.push({ method: 'GET', localPath: basePath, file: rel })
+      routes.push({ method: 'POST', localPath: basePath, file: rel })
+      routes.push({ method: 'PUT', localPath: `${basePath}/:id`, file: rel })
+      routes.push({ method: 'DELETE', localPath: `${basePath}/:id`, file: rel })
+      routes.push({ method: 'DELETE', localPath: basePath, file: rel })
     }
   }
   // 展开为完整路径（localPath + prefix）
@@ -171,6 +245,7 @@ const WARN_ONLY = process.argv.includes('--warn-only')
 console.log(`${C.cyan}[API 路由比对] 开始检查... (mode: ${WARN_ONLY ? 'warn-only' : 'strict'})${C.reset}`)
 
 const { routes: backendRoutes, prefixes } = extractBackendRoutes()
+const compositePrefixes = buildCompositePrefixes(prefixes)
 
 const backendDumpIdx = process.argv.indexOf('--dump-backend')
 if (backendDumpIdx !== -1 && process.argv[backendDumpIdx + 1]) {
@@ -178,7 +253,7 @@ if (backendDumpIdx !== -1 && process.argv[backendDumpIdx + 1]) {
     process.argv[backendDumpIdx + 1],
     JSON.stringify(
       backendRoutes.map((r) => {
-        const fullPaths = prefixes.map((p) => `${r.method} ${normalizePath(p.prefix, r.localPath)}`)
+        const fullPaths = compositePrefixes.map((p) => `${r.method} ${normalizePath(p, r.localPath)}`)
         return { ...r, fullPaths }
       }),
       null,
@@ -191,17 +266,18 @@ if (backendDumpIdx !== -1 && process.argv[backendDumpIdx + 1]) {
 // 构建后端完整路径集合
 const backendPathSet = new Set()
 for (const r of backendRoutes) {
-  // 对每个路由，尝试所有可能的 prefix 组合（简化：用最长匹配）
-  // 实际上 prefix 是固定的，但脚本简化处理：直接用 localPath 在所有 prefix 下尝试
-  for (const p of prefixes) {
-    const full = normalizePath(p.prefix, r.localPath)
+  // 对每个路由，尝试所有可能的 prefix 组合（含两层拼接的 composite prefix）
+  for (const p of compositePrefixes) {
+    const full = normalizePath(p, r.localPath)
     backendPathSet.add(`${r.method} ${full}`)
   }
   // 也添加不带 prefix 的（plugin 内部可能没有 prefix）
   backendPathSet.add(`${r.method} ${r.localPath}`)
 }
 
-console.log(`${C.dim}[API 路由比对] 后端注册路由: ${backendRoutes.length} 条（含 ${prefixes.length} 个前缀）${C.reset}`)
+console.log(
+  `${C.dim}[API 路由比对] 后端注册路由: ${backendRoutes.length} 条（含 ${compositePrefixes.length} 个组合前缀）${C.reset}`,
+)
 
 // 提取前端调用
 const frontendFiles = collectFiles(WEB_DIR, ['.ts', '.tsx'])
@@ -224,7 +300,9 @@ for (const call of allCalls) {
   let found = false
   for (const bp of backendPathSet) {
     const [bm, bp2] = bp.split(' ')
-    if (bm === call.method && pathMatches(call.path, bp2)) {
+    // ANY = method 为动态三元等无法确定，任意 method 匹配即算注册
+    const methodOk = call.method === 'ANY' || bm === call.method
+    if (methodOk && pathMatches(call.path, bp2)) {
       found = true
       break
     }
