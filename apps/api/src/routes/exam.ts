@@ -731,9 +731,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       }
       const bodyParsed = gradeStatusSchema.safeParse(request.body)
       if (!bodyParsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
       }
       try {
         const record = await gradeExam(parsed.data.recordId, bodyParsed.data.score)
@@ -1045,6 +1043,19 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
           pageSize: parsed.data.pageSize,
         }),
       )
+    })
+
+    // GET /admin/exam/papers/:id - 管理员试卷详情
+    child.get('/admin/exam/papers/:id', async (request, reply) => {
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const paper = await findPaperById(parsed.data.id)
+      if (!paper) {
+        return reply.status(404).send(error(404, '试卷不存在'))
+      }
+      return reply.send(success({ paper }))
     })
 
     // POST /admin/exam/papers - 创建试卷

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseStreamLine } from '@ihui/api-client'
+import { parseStreamLine, parseStreamLineReasoning } from '@ihui/api-client'
 
 describe('parseStreamLine SSE 解析器(@ihui/api-client 共享版)', () => {
   it('空行返回 null', () => {
@@ -100,5 +100,60 @@ describe('parseStreamLine SSE 解析器(@ihui/api-client 共享版)', () => {
   it('done 事件(无 content 字符串)返回 null', () => {
     const line = 'data: {"type":"done","model":"step-3.7-flash","usage":{"total_tokens":100}}'
     expect(parseStreamLine(line)).toBeNull()
+  })
+
+  it('reasoning 事件 parseStreamLine 返回 null(避免混入 content)', () => {
+    const line = 'data: {"type":"reasoning","content":"思考中..."}'
+    expect(parseStreamLine(line)).toBeNull()
+  })
+
+  it('OpenAI delta reasoning_content parseStreamLine 返回 null', () => {
+    const line = 'data: {"choices":[{"delta":{"reasoning_content":"why"}}]}'
+    expect(parseStreamLine(line)).toBeNull()
+  })
+})
+
+describe('parseStreamLineReasoning SSE reasoning 解析器', () => {
+  it('空行返回 null', () => {
+    expect(parseStreamLineReasoning('')).toBeNull()
+  })
+
+  it('event/id/retry 元信息行返回 null', () => {
+    expect(parseStreamLineReasoning('event: reasoning')).toBeNull()
+    expect(parseStreamLineReasoning('id: 12345')).toBeNull()
+  })
+
+  it('ai-service 风格 reasoning 事件解析成功', () => {
+    const line = 'data: {"type":"reasoning","content":"思考中..."}'
+    expect(parseStreamLineReasoning(line)).toBe('思考中...')
+  })
+
+  it('OpenAI delta reasoning_content 解析成功', () => {
+    const line = 'data: {"choices":[{"delta":{"reasoning_content":"why"}}]}'
+    expect(parseStreamLineReasoning(line)).toBe('why')
+  })
+
+  it('OpenAI message reasoning_content 解析成功', () => {
+    const line = 'data: {"choices":[{"message":{"reasoning_content":"full reasoning"}}]}'
+    expect(parseStreamLineReasoning(line)).toBe('full reasoning')
+  })
+
+  it('普通 content 事件返回 null(不误捕获)', () => {
+    const line = 'data: {"type":"chunk","content":"hello"}'
+    expect(parseStreamLineReasoning(line)).toBeNull()
+  })
+
+  it('done 事件返回 null', () => {
+    const line = 'data: {"type":"done","model":"step-3.7-flash","usage":{"total_tokens":100}}'
+    expect(parseStreamLineReasoning(line)).toBeNull()
+  })
+
+  it('非 JSON 裸文本返回 null', () => {
+    expect(parseStreamLineReasoning('data: 纯文本内容')).toBeNull()
+  })
+
+  it('SSE error 事件抛出 SSEError', () => {
+    const line = 'data: {"type":"error","message":"LLM 调用超时"}'
+    expect(() => parseStreamLineReasoning(line)).toThrow('LLM 调用超时')
   })
 })

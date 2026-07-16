@@ -1025,7 +1025,9 @@
         "content": "다음 내용의 핵심 정보를 요약해 주세요:",
         "category": "요약"
       }
-    }
+    },
+    "hideReasoning": "Hide Reasoning",
+    "showReasoning": "Show Reasoning"
   },
   "learn": {
     "title": "AI인마음페이스테스트",
@@ -1337,12 +1339,7 @@
       "free": {
         "name": "무료",
         "cta": "getStarted",
-        "features": [
-          "10 AI chats per day",
-          "Basic models",
-          "1 project",
-          "Community support"
-        ]
+        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
       },
       "pro": {
         "name": "프로페셔널",
@@ -2173,7 +2170,20 @@
       "noData": "없음데이마음",
       "loading": "로딩 중...",
       "userDetail": "사용자 상세",
-      "confirmStatusChange": "이 사용자의 상태를 변경하시겠습니까?"
+      "confirmStatusChange": "이 사용자의 상태를 변경하시겠습니까?",
+      "createUser": "Create User",
+      "uploadAvatar": "Upload Avatar",
+      "uploadAvatarHint": "JPG/PNG, max 2MB",
+      "dept": "Department",
+      "noDept": "No Department",
+      "ban": "Ban",
+      "unban": "Unban",
+      "confirmBan": "Ban this user?",
+      "confirmUnban": "Unban this user?",
+      "delete": "Delete",
+      "confirmDeletePrefix": "Delete user \"",
+      "confirmDeleteSuffix": "\"?",
+      "resetPassword": "Reset Password"
     },
     "roles": {
       "title": "역할관리",
@@ -3366,7 +3376,8 @@
             "normal": "일반",
             "random": "무작위"
           },
-          "questionIdListPlaceholder": "문제 ID, 여러 개는 쉼표로 구분"
+          "questionIdListPlaceholder": "문제 ID, 여러 개는 쉼표로 구분",
+          "fieldEnabled": "Enabled"
         },
         "papersManual": {
           "title": "수동 조판",
@@ -3598,7 +3609,11 @@
           "fieldCidList": "강의 카테고리（다중 ID 선택）",
           "fieldLidList": "학습 레벨（다중 ID 선택）",
           "imageUploadPlaceholder": "표지 이미지 업로드",
-          "lidListPlaceholder": "예: uuid1, uuid2"
+          "lidListPlaceholder": "예: uuid1, uuid2",
+          "fieldShowIndex": "Show on Index",
+          "colShowIndex": "Show on Index",
+          "showIndexYes": "Yes",
+          "showIndexNo": "No"
         },
         "maps": {
           "title": "학습 맵",
@@ -6299,7 +6314,12 @@
       "validityOneYear": "1년",
       "validityPermanent": "영구 유효",
       "validityPolicyRequired": "만료 정책을 선택하세요",
-      "validityThreeYears": "3년"
+      "validityThreeYears": "3년",
+      "validityCustomDays": "Custom Days",
+      "validityDateRange": "Validity Date Range",
+      "fieldValidDays": "Valid Days",
+      "fieldValidFrom": "Valid From",
+      "fieldValidTo": "Valid To"
     },
     "eduClassMembers": {
       "title": "클래스 멤버",
@@ -6861,17 +6881,8 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "플랜 기능",
     "subscribe": "구독",
-    "planMonthlyFeatures": [
-      "월 1000 크레딧",
-      "기본 AI 채팅",
-      "커뮤니티 접근"
-    ],
-    "planYearlyFeatures": [
-      "월 12000 크레딧",
-      "고급 AI 채팅",
-      "우선 지원",
-      "광고 없음"
-    ],
+    "planMonthlyFeatures": ["월 1000 크레딧", "기본 AI 채팅", "커뮤니티 접근"],
+    "planYearlyFeatures": ["월 12000 크레딧", "고급 AI 채팅", "우선 지원", "광고 없음"],
     "planLifetimeFeatures": [
       "무제한 크레딧",
       "모든 AI 기능",
@@ -8494,7 +8505,9 @@
     "loading": "로딩 중...",
     "empty": "피드백 기록 없음",
     "backToList": "목록으로 돌아가기",
-    "notFound": "찾을 수 없음"
+    "notFound": "찾을 수 없음",
+    "field_images": "Images",
+    "imagesPlaceholder": "Paste or drag images here"
   },
   "comments": {
     "replyTitle": "관리자 답변",
@@ -15028,23 +15041,13 @@
       "title": "청크월회원",
       "days": "30일",
       "select": "선택",
-      "benefits": [
-        "전체코스관리무료학습",
-        "학습 커뮤니티",
-        "월3ai",
-        "학습 진도"
-      ]
+      "benefits": ["전체코스관리무료학습", "학습 커뮤니티", "월3ai", "학습 진도"]
     },
     "yearly": {
       "title": "청크년회원",
       "days": "365일",
       "select": "선택",
-      "benefits": [
-        "전체코스관리무료학습",
-        "학습 커뮤니티",
-        "없음ai",
-        "학습 진도+인증서"
-      ]
+      "benefits": ["전체코스관리무료학습", "학습 커뮤니티", "없음ai", "학습 진도+인증서"]
     },
     "monthlyMember": "청크월회원",
     "yearlyMember": "청크년회원"
@@ -20135,11 +20138,7 @@
       "label": "핵심 포지셔닝",
       "title": "AI 시대 기업 합리적 효율 서비스 및 상호 지원 커뮤니티",
       "description": "IHUI AI 커뮤니티는 기업 의사결정자가 AI와 기업의 관계를 깊이 이해하도록 돕는 데 전념합니다. 체계적인 과정, 실천 탐구, 커뮤니티 상호 지원을 통해 인간-기계 협업 슈퍼 조직을 구축하고 기업의 합리적 효율 향상을 실현합니다.",
-      "tags": [
-        "인간-기계 협업",
-        "합리적 효율",
-        "슈퍼 조직"
-      ]
+      "tags": ["인간-기계 협업", "합리적 효율", "슈퍼 조직"]
     },
     "modules": {
       "label": "3대 서비스 모듈",
@@ -20149,31 +20148,19 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": [
-            "체계적 과정",
-            "실천 탐구",
-            "커뮤니티 상호 지원"
-          ]
+          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": [
-            "소통 플랫폼",
-            "경험 공유",
-            "자원 연결"
-          ]
+          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": [
-            "전문 대형 모델",
-            "에이전트 서비스",
-            "컨설팅 서비스"
-          ]
+          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
         }
       ]
     },
@@ -20305,37 +20292,25 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": [
-            "지식 Q&A",
-            "프로세스 자동화"
-          ]
+          "examples": ["지식 Q&A", "프로세스 자동화"]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": [
-            "데이터 분석",
-            "의사결정 지원"
-          ]
+          "examples": ["데이터 분석", "의사결정 지원"]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": [
-            "회의 일정",
-            "승인 프로세스"
-          ]
+          "examples": ["회의 일정", "승인 프로세스"]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": [
-            "마케팅 자동화",
-            "멀티에이전트 협업"
-          ]
+          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
         }
       ]
     },
@@ -20359,29 +20334,12 @@
       ],
       "infoTitle": "정보 세계",
       "infoBasicLabel": "초급 정보 세계",
-      "infoBasic": [
-        "정보화",
-        "IoT",
-        "자동화"
-      ],
+      "infoBasic": ["정보화", "IoT", "자동화"],
       "infoAdvancedLabel": "고급 정보 세계",
-      "infoAdvanced": [
-        "지각 AI",
-        "생성형 AI",
-        "에이전트 AI",
-        "물리 AI"
-      ],
+      "infoAdvanced": ["지각 AI", "생성형 AI", "에이전트 AI", "물리 AI"],
       "effectTitle": "AI화 효과",
-      "effectFlow": [
-        "슈퍼 직원",
-        "슈퍼 팀",
-        "슈퍼 제품/서비스"
-      ],
-      "effectMetrics": [
-        "비용 최적화",
-        "효율 향상",
-        "경험 업그레이드"
-      ]
+      "effectFlow": ["슈퍼 직원", "슈퍼 팀", "슈퍼 제품/서비스"],
+      "effectMetrics": ["비용 최적화", "효율 향상", "경험 업그레이드"]
     }
   },
   "drama": {
