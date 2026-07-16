@@ -33,8 +33,10 @@ if (mcpExisted) {
 }
 
 // 2. 用 mcp add 写入 mock server 配置
-// tsconfig outDir 是 ./dist,include 是 src/**/*.ts,所以编译产物在 dist/src/index.js
-const ihuiBin = path.join(cliRoot, 'dist', 'src', 'index.js');
+// tsconfig rootDir: "src" + outDir: "./dist" → 产物在 dist/index.js (兼容旧 dist/src/index.js)
+const ihuiBinNew = path.join(cliRoot, 'dist', 'index.js');
+const ihuiBinOld = path.join(cliRoot, 'dist', 'src', 'index.js');
+const ihuiBin = fs.existsSync(ihuiBinNew) ? ihuiBinNew : ihuiBinOld;
 try {
   execSync(`node "${ihuiBin}" mcp add mock node --args "${mockServer}"`, { stdio: 'inherit' });
 } catch (err) {
@@ -52,8 +54,11 @@ if (!config.servers || !config.servers.find((s) => s.name === 'mock')) {
   process.exit(1);
 }
 
-// 4. 用动态 import 调用 mcp-runtime.loadMcpTools
-const mcpRuntimeUrl = pathToFileURL(path.join(cliRoot, 'dist', 'src', 'tools', 'mcp-runtime.js')).href;
+// 4. 用动态 import 调用 mcp-runtime.loadMcpTools (兼容 dist/tools 和 dist/src/tools)
+const mcpRuntimeNew = path.join(cliRoot, 'dist', 'tools', 'mcp-runtime.js');
+const mcpRuntimeOld = path.join(cliRoot, 'dist', 'src', 'tools', 'mcp-runtime.js');
+const mcpRuntimePath = fs.existsSync(mcpRuntimeNew) ? mcpRuntimeNew : mcpRuntimeOld;
+const mcpRuntimeUrl = pathToFileURL(mcpRuntimePath).href;
 let tools;
 try {
   const mcpRuntime = await import(mcpRuntimeUrl);
@@ -69,8 +74,8 @@ for (const t of tools) {
   console.log(`   - ${t.name}: ${t.description} (必填: ${t.required.join(', ')})`);
 }
 
-// 5. 断言
-const expected = ['echo', 'add_numbers'];
+// 5. 断言 (排序后比较,避免顺序敏感性)
+const expected = ['add_numbers', 'echo'];
 const actual = tools.map((t) => t.name).sort();
 if (JSON.stringify(actual) !== JSON.stringify(expected)) {
   console.error(`✗ 工具列表不匹配: 期望 ${JSON.stringify(expected)}, 实际 ${JSON.stringify(actual)}`);
