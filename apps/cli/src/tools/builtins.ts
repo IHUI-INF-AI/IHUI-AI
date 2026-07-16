@@ -106,11 +106,12 @@ function matchesGlob(filePath: string, rootPath: string, pattern: string): boole
 export const read_file: Tool = {
   name: 'read_file',
   description: '读取文件内容(带行号,代码语法高亮)。参数:path(文件路径,相对工作区根目录)。',
+  dangerLevel: 'read',
   parameters: {
     path: { type: 'string', description: '要读取的文件路径' },
   },
   required: ['path'],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const filePath = args.path as string;
     if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
     const abs = resolvePath(ctx, filePath);
@@ -134,7 +135,7 @@ export const list_dir: Tool = {
     path: { type: 'string', description: '要列出的目录路径(默认 .)' },
   },
   required: [],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const dirPath = (args.path as string) || '.';
     const abs = resolvePath(ctx, dirPath);
     if (!fs.existsSync(abs)) return { success: false, output: '', error: `路径不存在: ${dirPath}` };
@@ -164,7 +165,7 @@ export const grep: Tool = {
     glob: { type: 'string', description: '路径通配过滤(如 src/**/*.ts,传给 rg -g)' },
   },
   required: ['pattern'],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const pattern = args.pattern as string;
     if (!pattern) return { success: false, output: '', error: '缺少 pattern 参数' };
     const searchPath = (args.path as string) || '.';
@@ -236,14 +237,19 @@ export const glob: Tool = {
     pattern: { type: 'string', description: '文件名通配符(* 和 ?)' },
   },
   required: ['pattern'],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const pattern = args.pattern as string;
     if (!pattern) return { success: false, output: '', error: '缺少 pattern 参数' };
-    const regexStr = pattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.');
-    const regex = new RegExp(`^${regexStr}$`);
+    // 展开 {a,b,c} 大括号(支持单层嵌套,常见 glob 扩展语法)
+    const expandBraces = (p: string): string[] => {
+      const match = p.match(/\{([^{}]+)\}/)
+      if (!match) return [p]
+      const prefix = p.slice(0, match.index)
+      const suffix = p.slice(match.index! + match[0].length)
+      const options = match[1]!.split(',')
+      return options.flatMap((opt) => expandBraces(prefix + opt + suffix))
+    }
+    const patterns = expandBraces(pattern)
     const results: string[] = [];
     function walk(dir: string): void {
       if (results.length >= MAX_GLOB_RESULTS) return;
@@ -254,7 +260,13 @@ export const glob: Tool = {
         if (entry.isDirectory()) {
           if (IGNORED_DIRS.has(entry.name)) continue;
           walk(path.join(dir, entry.name));
-        } else if (regex.test(entry.name)) {
+        } else if (patterns.some((p) => {
+          const regexStr = p
+            .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+            .replace(/\*/g, '.*')
+            .replace(/\?/g, '.');
+          return new RegExp(`^${regexStr}$`).test(entry.name);
+        })) {
           results.push(relativePath(ctx, path.join(dir, entry.name)));
         }
       }
@@ -275,9 +287,16 @@ export const run_command: Tool = {
     command: { type: 'string', description: '要执行的 shell 命令' },
   },
   required: ['command'],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const command = args.command as string;
     if (!command) return { success: false, output: '', error: '缺少 command 参数' };
+    // 默认拒绝策略:未提供 confirmDangerous 回调时,dangerous 工具直接拒绝(安全优先)
+    if (run_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) {
+      return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
+    }
+    if (ctx.confirmDangerous && !(await ctx.confirmDangerous(run_command, args))) {
+      return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
+    }
     const preResult = runPreToolCall('bash', { command, cwd: ctx.workspacePath });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
     const result = runSandboxed(command, {

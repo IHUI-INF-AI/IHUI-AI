@@ -49,7 +49,7 @@ export interface Tool {
   required: string[];
   /** 危险级别:read(只读,默认)/ write(写入)/ dangerous(危险,需用户确认) */
   dangerLevel?: 'read' | 'write' | 'dangerous';
-  execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> | ToolResult;
+  execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }
 
 export interface ToolContext {

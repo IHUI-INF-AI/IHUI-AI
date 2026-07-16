@@ -121,7 +121,7 @@ export const run_tests: Tool = {
     filter: { type: 'string', description: '测试文件名过滤(传给 jest -t 或 vitest 过滤)' },
   },
   required: [],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const filter = args.filter as string | undefined;
     const framework = detectTestFramework(ctx.workspacePath);
 

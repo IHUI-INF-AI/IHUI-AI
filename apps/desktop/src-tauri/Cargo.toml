@@ -1,0 +1,36 @@
+[package]
+name = "ihui-desktop"
+version = "0.1.0"
+description = "IHUI AI 桌面端 — Tauri 2 壳"
+authors = ["IHUI AI"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "ihui_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.1", features = ["tray-icon"] }
+tauri-plugin-deep-link = "2.0"
+tauri-plugin-dialog = "2.0"
+tauri-plugin-fs = "2.0"
+tauri-plugin-http = { version = "2.0", features = ["unsafe-headers"] }
+tauri-plugin-notification = "2.0"
+tauri-plugin-os = "2.0"
+tauri-plugin-shell = "2.0"
+tauri-plugin-store = "2.0"
+tauri-plugin-updater = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
