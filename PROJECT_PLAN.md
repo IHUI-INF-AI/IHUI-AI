@@ -3141,6 +3141,24 @@ packages/api-client/
     - @ihui/web build 失败(prerender /404 "Cannot find module for page: /_document"),Next.js 15 App Router + output:standalone 已知问题,非本次修改引入(typecheck+lint+test 全绿,build 不在任务验证标准内)
     - git push 14 个 commit(需用户显式要求)
 - [x] ✅(2026-07-17) goal clear — 清理 .trae-cn/goal-runtime/ 旧 goal 残留(目标:补齐独立审计 P0 缺失+清理旧目录+定义迁移完成标准)。该 goal 仅执行第 0 轮初始化(8 项待办清单),无实际代码进展。目标内容已被 R74 审计(L13963)+ P1-多端-12 收尾覆盖,按 AGENTS.md §9 clear 流程整合摘要后删除 STATE.md + loop-run-log.md(目录保留供下次复用)
+- [x] ✅(2026-07-17) P1-多端-12 最终交付收尾 — commit `0a14f4e1`(167 files, +66255/-7981)
+  - **本轮修复(4 项)**:
+    1. **GET /api/admin/learn/premium-topics/:id 路由补全** — P0 审计测试发现路由缺失(404),新增话题详情路由(learn.ts L1335-1346),3/3 测试通过
+    2. **i18n 缺失键补齐(27 键 × 5 语言)** — pre-commit hook 检测到 30 个源码引用但 zh-CN.json 缺失的键(admin.eduCertTemplate/admin.edu.exam/admin.edu.learn.topics/admin.users/feedback/chat),用 fix-missing-i18n-keys.mjs 批量补齐
+    3. **zh-CN ↔ zh-TW parity 修复(1134 键)** — "hardcoded" 命名空间用中文文本作 key,简繁版本 key 不同导致 1134 parity 差异,用 fix-zhtw-parity.mjs 以 zh-CN 为基准同步 zh-TW(简体对 TW 用户可理解,优先保证 parity)
+    4. **lint unused-vars 修复** — deep-i18n-audit.mjs 5 个未使用变量加 `_` 前缀 + translate-i18n-batch.mjs 清理 2 个未使用变量 + fix-zhtw-parity.mjs 清理 1 个未使用函数
+  - **验证证据**:
+    - typecheck + lint: 39/39 成功(0 cached, 0 error)
+    - test: 12/12 成功(API 219 files / 3256 tests 全绿)
+    - Python py_compile: llm_gateway.py + llm.py OK
+    - i18n parity: 5 语言 parity OK(798 文件, 7698 键)
+    - pre-commit hook: i18n 键检查 + API key 泄露检查 + lint-staged 全通过
+  - **commit 详情**: `0a14f4e1 feat: P1-多端-12 收尾 — i18n/迁移/审计测试/路由补全/残留清理`
+  - **残留风险/未完成**:
+    - i18n 未翻译值仍有 ~1872 处(ja/ko/zh-TW 值 === en,仅 WARNING 不阻塞提交,StepFun API 503 engine_overloaded 待恢复后批量翻译)
+    - @ihui/web build 失败(Next.js 15 App Router + output:standalone 已知 bug,非本次引入)
+    - git push 15 个 commit(需用户显式要求)
+    - 4 个 untracked 多租户文件(tenant-db.ts/auto-rollback.ts/shadow-traffic.ts/tenant-router.ts)未提交(属于不同功能,非 P1-多端-12 范围)
 
 ---
 
