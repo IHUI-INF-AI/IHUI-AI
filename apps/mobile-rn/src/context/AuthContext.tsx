@@ -1,18 +1,15 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { fetchApi } from '@ihui/api-client'
-import { initApi, setToken, getToken } from '../lib/token'
+import { loginByAccount, logout as apiLogout, type AuthUser } from '@ihui/api-client'
+import {
+  initApi,
+  setToken,
+  setRefreshToken,
+  getToken,
+  getRefreshToken,
+  clearToken,
+} from '../lib/token'
 
-export interface AuthUser {
-  id: string
-  username: string
-  nickname: string
-  avatar: string | null
-}
-
-interface LoginPayload {
-  accessToken: string
-  user: AuthUser
-}
+export type { AuthUser }
 
 export interface LoginResult {
   success: boolean
@@ -42,12 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (account: string, password: string): Promise<LoginResult> => {
-    const res = await fetchApi<LoginPayload>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ account, password }),
-    })
+    const res = await loginByAccount(account, password)
     if (res.success) {
       await setToken(res.data.accessToken)
+      await setRefreshToken(res.data.refreshToken)
       setTokenState(res.data.accessToken)
       setUser(res.data.user)
       return { success: true }
@@ -56,7 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async (): Promise<void> => {
-    await setToken(null)
+    const refreshToken = getRefreshToken()
+    if (refreshToken) {
+      await apiLogout(refreshToken)
+    }
+    await clearToken()
     setTokenState(null)
     setUser(null)
   }

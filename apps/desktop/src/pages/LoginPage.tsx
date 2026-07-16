@@ -1,21 +1,7 @@
 import { useEffect, useState } from 'react'
-import { fetchApi } from '@ihui/api-client'
+import { loginByAccount } from '@ihui/api-client'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
-import { setToken } from '../lib/token'
-
-interface UserProfile {
-  id: string
-  username: string
-  nickname: string
-  avatar: string | null
-  email: string | null
-  phone: string | null
-}
-
-interface LoginPayload {
-  accessToken: string
-  user: UserProfile
-}
+import { setToken, setRefreshToken } from '../lib/token'
 
 export default function LoginPage() {
   const [account, setAccount] = useState('')
@@ -36,12 +22,10 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetchApi<LoginPayload>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ account, password }),
-      })
+      const res = await loginByAccount(account, password)
       if (res.success) {
-        await setToken(res.data.accessToken)
+        setToken(res.data.accessToken)
+        setRefreshToken(res.data.refreshToken)
         window.location.assign('/')
       } else {
         setError(res.error || '登录失败')
