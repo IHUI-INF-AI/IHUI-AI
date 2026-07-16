@@ -3237,6 +3237,10 @@ packages/api-client/
   - **新增文件**:`src/skills/index.ts` / `src/memory/index.ts` / `src/tools/codegraph.ts` / `src/checkpoints/hunks.ts` + 4 个测试文件
   - **修改文件**:`src/context.ts`(新增 compressContextIfNeeded + RatioCompressionOptions)/ `src/commands/agent.ts`(import 替换 + contextLimit 参数)/ `src/commands/repl.ts`(/skills /skill /memory 命令)/ `src/commands/checkpoint.ts`(5 个 hunk-* 子命令)/ `src/index.ts`(skills 子命令 + 修复 require() lint 错误)
   - **教训**:(v) Windows 下 os.homedir() 优先 USERPROFILE 而非 HOME,测试需同时设置两者;(w) 测试数据需严格匹配 parser 规则(`- ` 带空格 vs `-无空格`);(x) 静态 import 比 require() 风格更简洁且符合 ESLint no-require-imports 规则;(y) hunk 级回滚的"部分恢复"语义需明确测试期望(只回滚 hunk 范围内,中间未快照行保持修改后状态);(z) 百分比阈值压缩需 minMessages 保护(消息数不足时不压缩,避免单条超长消息触发无效压缩)
+- [x] ✅(2026-07-17) AGENTS.md 规则更新 — 允许自动 commit+push + 新增多端同步开发强制规则
+  - **变更 1:冲突 3 改为允许自动 commit + push** — 原 AGENTS.md 第 1 节冲突 3(writing-plans/brainstorming 的 git commit 步骤)要求"不得自动执行,必须等待用户显式指令"。现改为:改动通过全量验证(typecheck + lint + test 全绿)后,agent 可自动 `git commit` + `git push`,无需用户显式指令。保留红线:不得 commit 敏感信息、高危操作仍需人工确认、禁止 force push(除非用户显式要求)、commit message 遵守约定式提交。
+  - **变更 2:新增第 10 节"多端同步开发强制规则(强制)"** — 适用任何功能/接口/数据/UI 改动任务,必须同步推进所有相关端,禁止"一端开发好另外一端滞后"。包含:9 端清单表(api/web/ai-service/cli/miniapp-taro/mobile-rn/desktop/extension/packages)+ 6 项必须遵守(接口契约/类型/数据结构/功能/UI对齐/共享组件同步)+ 6 项同步验证清单(任务完成前必检)+ 5 项禁止事项 + 3 层同步范围判定(功能层必须同步/呈现层允许特化/平台独占豁免需标注)。
+  - **同步范围**:本规则文档变更不涉及功能/接口/数据/UI 改动,属于纯规则文档修改,无需多端同步代码。
 
 ---
 
