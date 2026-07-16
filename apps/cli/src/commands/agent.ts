@@ -18,6 +18,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import chalk from 'chalk';
+import ora from 'ora';
 import { streamChat, setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import {
   registerTools,
@@ -33,6 +34,7 @@ import {
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
 import { createFileEditTools } from '../tools/file-edit.js';
 import { GIT_TOOLS } from '../tools/git.js';
+import { FETCH_TOOLS } from '../tools/fetch-url.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import { compressContext } from '../context.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
@@ -108,6 +110,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   clearTools();
   registerTools(BUILTIN_TOOLS);
   registerTools(GIT_TOOLS);
+  registerTools(FETCH_TOOLS);
   if (opts.checkpoints) {
     registerTools(createFileEditTools({ workspacePath: opts.workspacePath, checkpoints: opts.checkpoints }));
   }
@@ -283,6 +286,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     if (jsonMode) process.stdout.write(JSON.stringify(event) + '\n');
   };
 
+  const spinner = jsonMode ? null : ora({ text: '准备中...', color: 'cyan' }).start();
+
   if (jsonMode) {
     emit({ type: 'start', prompt: opts.prompt, model: opts.modelId, workspace: opts.workspacePath });
   } else {
@@ -302,11 +307,17 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     maxIterations: opts.maxIterations,
     onDelta: (delta) => {
       if (jsonMode) emit({ type: 'message_delta', text: delta });
-      else process.stdout.write(delta);
+      else {
+        if (spinner?.isSpinning) spinner.stop();
+        process.stdout.write(delta);
+      }
     },
     onToolCall: (name, args) => {
       emit({ type: 'tool_call', name, arguments: args });
-      if (!jsonMode) console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`));
+      if (!jsonMode) {
+        if (spinner?.isSpinning) spinner.stop();
+        console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`));
+      }
     },
     onToolResult: (name, success, output) => {
       emit({ type: 'tool_result', name, success, output });
@@ -317,12 +328,20 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     },
     onIteration: (count, max) => {
       emit({ type: 'iteration', count, max });
+      if (!jsonMode && spinner) {
+        spinner.start(`🔧 执行中 (轮次 ${count}/${max})`);
+      }
     },
     onError: (message) => {
       emit({ type: 'error', message });
-      if (!jsonMode) console.error(chalk.red(`\n❌ ${message}`));
+      if (!jsonMode) {
+        if (spinner?.isSpinning) spinner.stop();
+        console.error(chalk.red(`\n❌ ${message}`));
+      }
     },
   });
+
+  if (spinner?.isSpinning) spinner.stop();
 
   if (!jsonMode) {
     console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${result.stopReason})\n`));
