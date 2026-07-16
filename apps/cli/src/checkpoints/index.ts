@@ -219,7 +219,3 @@ function fileContentEqual(a: string, b: string): boolean {
     return false;
   }
 }
-
-export function getCheckpointsBaseDir(): string {
-  return path.join(os.homedir(), '.ihui', 'checkpoints');
-}
