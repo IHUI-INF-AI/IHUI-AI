@@ -37,8 +37,9 @@ import { GIT_TOOLS } from '../tools/git.js';
 import { FETCH_TOOLS } from '../tools/fetch-url.js';
 import { TEST_TOOLS } from '../tools/run-tests.js';
 import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
+import { createSubagentTool } from '../tools/subagent.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
-import { compressContext } from '../context.js';
+import { compressContext, estimateTokens, estimateMessagesTokens } from '../context.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
 import { auditLog } from '../audit.js';
 import { loadSettings } from './settings.js';
@@ -76,6 +77,7 @@ export interface AgentResult {
   stopReason: AgentStopReason;
   assistantText: string;
   iterations: number;
+  usage: TokenUsage;
 }
 
 type HeadlessEvent =
@@ -85,7 +87,7 @@ type HeadlessEvent =
   | { type: 'tool_result'; name: string; success: boolean; output: string }
   | { type: 'iteration'; count: number; max: number }
   | { type: 'error'; message: string }
-  | { type: 'complete'; stopReason: AgentStopReason; iterations: number };
+  | { type: 'complete'; stopReason: AgentStopReason; iterations: number; usage: TokenUsage };
 
 // ==================== 公共函数 ====================
 
@@ -111,6 +113,13 @@ export interface SetupAgentToolsOptions {
   confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
   /** 强制 LLM 先输出 plan 块再执行工具 */
   planFirst?: boolean;
+  /** 子 agent 父配置(提供则注册 dispatch_subagent 工具) */
+  subagentParent?: {
+    modelId: string;
+    apiUrl: string;
+    apiKey?: string;
+    allowDangerous?: boolean;
+  };
 }
 
 export interface SetupAgentToolsResult {
@@ -127,6 +136,15 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   registerTools(TEST_TOOLS);
   registerTools(DIAGNOSTIC_TOOLS);
   registerTools(createFileEditTools({ workspacePath: opts.workspacePath, checkpoints: opts.checkpoints }));
+  if (opts.subagentParent) {
+    registerTools([createSubagentTool({
+      modelId: opts.subagentParent.modelId,
+      apiUrl: opts.subagentParent.apiUrl,
+      apiKey: opts.subagentParent.apiKey,
+      workspacePath: opts.workspacePath,
+      allowDangerous: opts.subagentParent.allowDangerous,
+    })]);
+  }
   if (opts.enableMcp) {
     try {
       const mcpTools = await loadMcpTools({ workspacePath: opts.workspacePath });
@@ -173,6 +191,31 @@ export interface RunToolLoopResult {
   stopReason: AgentStopReason;
   assistantText: string;
   iterations: number;
+  usage: TokenUsage;
+}
+
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+}
+
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  'stepfun/step-3.7-flash': { input: 0, output: 0 },
+  'stepfun/step-3.5-flash': { input: 0, output: 0 },
+  'stepfun/step-router-v1': { input: 0, output: 0 },
+  'gpt-4o': { input: 2.5e-6, output: 10e-6 },
+  'gpt-4o-mini': { input: 0.15e-6, output: 0.6e-6 },
+  'gpt-4-turbo': { input: 10e-6, output: 30e-6 },
+  'gpt-3.5-turbo': { input: 0.5e-6, output: 1.5e-6 },
+  'claude-3-5-sonnet': { input: 3e-6, output: 15e-6 },
+  'claude-3-haiku': { input: 0.25e-6, output: 1.25e-6 },
+};
+
+function estimateIterationCost(modelId: string, promptTokens: number, completionTokens: number): number {
+  const pricing = MODEL_PRICING[modelId] ?? MODEL_PRICING['gpt-4o-mini']!;
+  return promptTokens * pricing.input + completionTokens * pricing.output;
 }
 
 /** 执行多轮工具循环,直到 end_turn 或 maxIterations。messages 数组会被原地修改(追加 assistant + tool_result 消息) */
@@ -180,6 +223,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let assistantText = '';
   let hadError = false;
   let iterations = 0;
+  let totalPromptTokens = 0;
+  let totalCompletionTokens = 0;
   const consecutiveFailures = new Map<string, number>();
   const FAILURE_REFLECTION_THRESHOLD = 2;
 
@@ -213,6 +258,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       });
 
       if (iterError) break;
+
+      // Token 累计:prompt 从压缩后 messages 估算,completion 从 iterationText 估算
+      const iterPromptTokens = estimateMessagesTokens(effectiveMessages);
+      const iterCompletionTokens = estimateTokens(iterationText);
+      totalPromptTokens += iterPromptTokens;
+      totalCompletionTokens += iterCompletionTokens;
 
       opts.messages.push({ role: 'assistant', content: iterationText });
       assistantText += iterationText;
@@ -280,7 +331,15 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     stopReason = 'end_turn';
   }
 
-  return { stopReason, assistantText, iterations };
+  const totalTokens = totalPromptTokens + totalCompletionTokens;
+  const usage: TokenUsage = {
+    promptTokens: totalPromptTokens,
+    completionTokens: totalCompletionTokens,
+    totalTokens,
+    estimatedCostUsd: estimateIterationCost(opts.modelId, totalPromptTokens, totalCompletionTokens),
+  };
+
+  return { stopReason, assistantText, iterations, usage };
 }
 
 // ==================== Agent 模式(非交互式) ====================
@@ -297,6 +356,12 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     enableMcp: opts.enableMcp,
     silent: opts.jsonMode === true,
     planFirst: opts.planFirst,
+    subagentParent: {
+      modelId: opts.modelId,
+      apiUrl: opts.apiUrl,
+      apiKey: opts.apiKey,
+      allowDangerous: opts.allowDangerous,
+    },
     confirmDangerous: async (tool, args) => {
       if (opts.allowDangerous) {
         if (!opts.jsonMode) console.info(chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name} ${JSON.stringify(args).slice(0, 100)}`));
@@ -381,9 +446,12 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     if (spinner?.isSpinning) spinner.stop();
 
     if (!jsonMode) {
-      console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${result.stopReason})\n`));
+      console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${result.stopReason})`));
+      const u = result.usage;
+      const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
+      console.info(chalk.dim(`📊 tokens: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens}) — ${cost}\n`));
     }
-    emit({ type: 'complete', stopReason: result.stopReason, iterations: result.iterations });
+    emit({ type: 'complete', stopReason: result.stopReason, iterations: result.iterations, usage: result.usage });
 
     return result;
   } finally {

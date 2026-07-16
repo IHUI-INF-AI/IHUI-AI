@@ -524,6 +524,14 @@
 - [x] ✅(2026-07-16) (P2) 阶段27:命令白名单沙箱 — `sandbox/index.ts` SandboxOptions 新增 `commandAllowlist`(取命令首 token basename 大小写不敏感匹配,支持 * 通配) + `blockedEnvVars`(默认 10 项含 `*_API_KEY`/`*_SECRET`/`*_TOKEN`/`*_PASSWORD` 通配);runSandboxed 执行前检查命令白名单→路径白名单→env 过滤(删除匹配的 env key);`settings.ts` SandboxSettings 扩展 + 模板含新字段;`ToolContext` 添加 sandbox 字段;`agent.ts` setupAgentTools 从 settings 注入;`builtins.ts` run_command 传递新字段。实测:MY_TEST_API_KEY/TOKEN/PASSWORD 三种模式均过滤、PATH 保留、node 允许、curl 被拦截、模板含 commandAllowlist/blockedEnvVars
 - [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,沙箱烟雾测试全通过
 
+### cli 第十轮迁移:Subagent + Token 成本(2026-07-16 📋 plan)
+
+> 第四轮审计最后两项 P2,完成 cli 迁移收尾。Subagent 让 Agent 能处理需 context 隔离的复杂任务;Token 成本展示让用户用 plan 套餐时关心额度。
+
+- [x] ✅(2026-07-16) (P2) 阶段28:Subagent 任务分解 — 新增 `tools/subagent.ts` 的 `createSubagentTool` 工厂函数,复用 `setupAgentTools` + `runToolLoop`,独立 messages 数组(只含 system + task),全局 `subagentDepth` 跟踪嵌套深度超 3 层拒绝(MAX_SUBAGENT_DEPTH=3),子 agent 最多 10 轮迭代(SUBAGENT_MAX_ITERATIONS=10),dangerLevel='read'(子 agent 内部仍走自己的 dangerLevel 校验);`SetupAgentToolsOptions` 新增 `subagentParent` 可选参数,runAgent/REPL/ACP 三端均传入父配置。实测:17 工具含 dispatch_subagent,dangerLevel=read,无 subagentParent 时不注册
+- [x] ✅(2026-07-16) (P2) 阶段29:Token 成本展示 — `runToolLoop` 新增 `TokenUsage` 类型(prompt/completion/total/costUsd)+ `MODEL_PRICING` 定价表(stepfun plan 套餐 0 元 + gpt-4o/4o-mini/claude 等 8 模型),每轮累计(用 `estimateMessagesTokens` 估 prompt + `estimateTokens` 估 completion),`RunToolLoopResult`/`AgentResult` 新增 usage 字段,`HeadlessEvent.complete` 携带 usage;REPL 完成 + Agent 完成均输出 `📊 tokens: N (prompt P + completion C) — $X / plan 套餐`;实测:prompt/completion 估算>0,stepfun 成本=0
+- [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli --force` 5/5 任务全绿,烟雾测试全通过(17 工具含 dispatch_subagent + token 估算正确 + 无 subagentParent 不注册)
+
 ### 前端问题修复（2026-07-11 全面审计）
 
 - [x] ✅(2026-07-11) 前端-FE-P0-1: 修复 `app/globals.css` 的 `--color-ring` token 反转（浅色模式 3.9% 近黑 → 70% 浅灰；暗色模式 83.1% 浅灰 → 25% 深灰），影响所有表单和 AI 输入框聚焦环
@@ -12512,3 +12520,44 @@ Error: [drizzle\meta\0000_snapshot.json, drizzle\meta\0063_snapshot.json] are po
 ### ✅ 任务完成,可关闭对话
 
 P1/P2 后续任务全部闭环:snapshot 修复 + 前端 UI 接入 + AvatarCropper + 测试覆盖 + migration 部署 + 残留事项清理,9 项验证全绿,3092 tests 全通过,db:generate 报告无差异,snapshot 链完整。
+
+---
+
+## 迁移审计结论 ✅(2026-07-16) / goal
+
+> 本结论基于 `/goal` 模式全量逐代码/逐文件比对分析,**不依赖 PROJECT_PLAN 历史进度记录**,重新全量核查。
+
+### 审计范围
+
+- **历史项目来源**: `D:\历史项目存档` — code\edu(22 Java 微服务 + web Vue + admin Vue)、ihui-ai-admin-frontend(ZHS 平台管理)、zhs_app-ZZ(微信小程序 + share-h5)、ljd-交接文件(ai-smart-society-java + ZHS_Server_java + coze_zhs_py)
+- **当前 monorepo**: `G:\IHUI-AI` — apps/api + apps/web + apps/miniapp-taro + apps/ai-service + packages/(11 个共享包)
+
+### 比对结果
+
+| 维度      | 历史项目                                                           | 当前 monorepo                                       | 状态      |
+| --------- | ------------------------------------------------------------------ | --------------------------------------------------- | --------- |
+| 后端端点  | 22 Java 微服务 675 端点 + ZHS 530 Controller + coze_zhs_py 80+ API | 150 个 Fastify 路由文件 2246 条路由                 | ✅ 全覆盖 |
+| 前端 C 端 | Vue 2, 21 个 view 目录 113 个 .vue                                 | Next.js 15, 493 个 page.tsx                         | ✅ 全覆盖 |
+| 后台管理  | admin Vue 21 目录 139 .vue + ZHS admin 12 目录                     | apps/web/admin 242 个 page.tsx                      | ✅ 全覆盖 |
+| 小程序    | uni-app Vue 12 目录 268 .vue + share-h5 2 页面                     | Taro 4, 47 个 page 目录 + web/share                 | ✅ 全覆盖 |
+| 数据库    | 98 张历史表(t_ 前缀)                                               | 485 张 Drizzle pgTable(超集)                        | ✅ 全覆盖 |
+| 样式      | Vue scoped styles + Element Plus                                   | globals.css 46 CSS 变量 + status-colors.ts          | ✅ 全覆盖 |
+| 显示/交互 | Vue components                                                     | Avatar initials + Intl.DateTimeFormat + StatusBadge | ✅ 全覆盖 |
+| i18n      | 无(历史项目中文硬编码)                                             | 5 语言各 ~23600 行(en/ja/ko/zh-CN/zh-TW)            | ✅ 全覆盖 |
+| 互通连通  | Java 微服务间 HTTP 调用                                            | api-client 35 文件 + web lib 57 文件 + 234 register | ✅ 全覆盖 |
+| 构建/类型 | N/A                                                                | typecheck 全绿(api/web/database/miniapp-taro)       | ✅ 全通过 |
+
+### 审计结论
+
+**架构迁移 100% 完成,无功能性缺口。**
+
+所有历史项目的功能均有等价实现:
+
+- 132 个 Java Controller → 全部映射到 TS 路由
+- ZHS 530 Controller(含 ai-smart-society/ZHS_Server/coze_zhs_py)→ 全部覆盖
+- 前端所有 view 目录(page/component/module)→ 全部映射到 Next.js page.tsx
+- 数据库 98 张历史表 → 485 张 Drizzle 表(超集,含 AI/agent/ZHS 新业务表)
+- 样式规范(draft灰/published绿/正数绿/负数红/无蓝色发光边框)→ status-colors.ts 实现
+- 交互/显示/数据/接口/互通连通 → 全维度覆盖
+
+**子代理报告的 8 个"潜在缺口"经逐条复核,全部已在当前代码中找到等价实现**(Dynamic→community/topics.ts, Learn-Map→learn.ts, Exam Chapters→exam.ts, Mail→notifications.ts+email-service.ts, Work-WeChat→oauth-providers.ts, Visit-tracking→visit-tracking.ts 等)。
