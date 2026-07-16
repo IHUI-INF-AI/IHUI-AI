@@ -1,5 +1,5 @@
 import { fetchApi } from '@/lib/api'
-import type { UsersData } from './types'
+import type { DeptItem, UsersData } from './types'
 
 export const PAGE_SIZE = 10
 
@@ -17,10 +17,16 @@ export function fetchUsers(params: {
   search: string
   role: string
   status: string
+  deptId?: string | null
 }): Promise<UsersData> {
   const qs = new URLSearchParams({ page: String(params.page), pageSize: String(PAGE_SIZE) })
   if (params.search) qs.set('search', params.search)
   if (params.role !== 'all') qs.set('role', params.role)
   if (params.status !== 'all') qs.set('status', params.status)
+  if (params.deptId) qs.set('deptId', params.deptId)
   return api<UsersData>(`/api/admin/users?${qs.toString()}`)
+}
+
+export function fetchDeptList(): Promise<{ list: DeptItem[]; total: number }> {
+  return api<{ list: DeptItem[]; total: number }>('/api/admin/dept/list')
 }

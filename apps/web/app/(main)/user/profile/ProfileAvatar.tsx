@@ -4,17 +4,49 @@ import * as React from 'react'
 import { Loader2, Camera } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Avatar } from '@/components/data/Avatar'
+import { AvatarCropper } from './AvatarCropper'
 
 interface Props {
   avatar?: string
   nickname: string
   uploading: boolean
   fileInputRef: React.RefObject<HTMLInputElement | null>
-  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onCropped: (file: File) => void
 }
 
-export function ProfileAvatar({ avatar, nickname, uploading, fileInputRef, onFileChange }: Props) {
+export function ProfileAvatar({ avatar, nickname, uploading, fileInputRef, onCropped }: Props) {
   const t = useTranslations('user.profile')
+  const [cropOpen, setCropOpen] = React.useState(false)
+  const [cropSrc, setCropSrc] = React.useState('')
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result === 'string') {
+        setCropSrc(result)
+        setCropOpen(true)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleConfirm = (blob: Blob) => {
+    const file = new File([blob], 'avatar.png', { type: 'image/png' })
+    setCropOpen(false)
+    setCropSrc('')
+    onCropped(file)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleCancel = () => {
+    setCropOpen(false)
+    setCropSrc('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   return (
     <div className="flex items-center gap-4">
       <div className="relative h-20 w-20 shrink-0">
@@ -23,7 +55,7 @@ export function ProfileAvatar({ avatar, nickname, uploading, fileInputRef, onFil
           ref={fileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
-          onChange={onFileChange}
+          onChange={handleFileChange}
           className="hidden"
         />
         <button
@@ -41,6 +73,12 @@ export function ProfileAvatar({ avatar, nickname, uploading, fileInputRef, onFil
         </button>
       </div>
       <p className="text-xs text-muted-foreground">{t('avatarHint')}</p>
+      <AvatarCropper
+        open={cropOpen}
+        src={cropSrc}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </div>
   )
 }

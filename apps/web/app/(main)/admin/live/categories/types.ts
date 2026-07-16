@@ -12,6 +12,7 @@ export interface ListData {
 }
 
 export interface CategoryForm {
+  pid: string
   name: string
   sort: string
   status: boolean

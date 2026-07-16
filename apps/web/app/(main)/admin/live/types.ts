@@ -5,6 +5,10 @@ export interface Channel {
   title: string
   coverImage: string | null
   intro: string | null
+  introduction: string | null
+  cidList: string[] | null
+  showNumber: number | null
+  enableChat: boolean | null
   categoryId: string | null
   categoryName: string | null
   lecturerId: string | null
@@ -81,6 +85,10 @@ export interface ChannelForm {
   lecturerId: string
   lecturerName: string
   intro: string
+  introduction: string
+  cidList: string[]
+  showNumber: string
+  enableChat: boolean
   coverImage: string
   pushUrl: string
   playUrl: string
@@ -97,6 +105,10 @@ export const EMPTY_FORM: ChannelForm = {
   lecturerId: '',
   lecturerName: '',
   intro: '',
+  introduction: '',
+  cidList: [],
+  showNumber: '0',
+  enableChat: false,
   coverImage: '',
   pushUrl: '',
   playUrl: '',
