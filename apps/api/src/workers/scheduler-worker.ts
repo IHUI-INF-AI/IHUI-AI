@@ -23,6 +23,7 @@ import {
   cleanupOldHeatStats,
   cleanupOauthSessions,
 } from '../services/scheduled-tasks-service.js'
+import { pushAlert } from '../services/alert-notification-service.js'
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -105,6 +106,23 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               { checked: result.checked, resolved: result.resolved, escalated: result.escalated },
               'daily alert check done',
             )
+            if (result.escalated > 0) {
+              try {
+                await pushAlert({
+                  title: '告警升级通知',
+                  message: `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
+                  severity: 'critical',
+                  source: 'alert-check-daily',
+                  metadata: {
+                    checked: result.checked,
+                    resolved: result.resolved,
+                    escalated: result.escalated,
+                  },
+                })
+              } catch (err) {
+                server.log.error({ err }, 'pushAlert failed in alert-check-daily')
+              }
+            }
             try {
               server.recordJobExecution(name, 'success')
             } catch {
@@ -259,15 +277,21 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
           case 'pg-backup-daily': {
             const { spawn } = await import('node:child_process')
             const scriptPath = new URL('../../scripts/pg-backup.mjs', import.meta.url).pathname
-            const result = await new Promise<{ code: number; stdout: string; stderr: string }>((resolve) => {
-              const p = spawn(process.execPath, [scriptPath], { cwd: process.cwd() })
-              let out = '', err = ''
-              p.stdout.on('data', d => out += d)
-              p.stderr.on('data', d => err += d)
-              p.on('close', code => resolve({ code: code ?? 0, stdout: out, stderr: err }))
-            })
+            const result = await new Promise<{ code: number; stdout: string; stderr: string }>(
+              (resolve) => {
+                const p = spawn(process.execPath, [scriptPath], { cwd: process.cwd() })
+                let out = '',
+                  err = ''
+                p.stdout.on('data', (d) => (out += d))
+                p.stderr.on('data', (d) => (err += d))
+                p.on('close', (code) => resolve({ code: code ?? 0, stdout: out, stderr: err }))
+              },
+            )
             server.log.info(
-              { exitCode: result.code, stdoutTail: result.stdout.split('\n').slice(-3).join(' | ') },
+              {
+                exitCode: result.code,
+                stdoutTail: result.stdout.split('\n').slice(-3).join(' | '),
+              },
               'pg backup done',
             )
             try {
@@ -275,7 +299,8 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             } catch {
               /* 指标采集失败不影响业务 */
             }
-            if (result.code !== 0) throw new Error(`pg-backup.mjs exit ${result.code}: ${result.stderr.slice(-200)}`)
+            if (result.code !== 0)
+              throw new Error(`pg-backup.mjs exit ${result.code}: ${result.stderr.slice(-200)}`)
             return { exitCode: result.code }
           }
           default:
