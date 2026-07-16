@@ -134,12 +134,17 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info(`工作区: ${state.opts.workspacePath}`);
       break;
 
-    case 'tools':
-      console.info(chalk.cyan('\n可用工具:'));
-      console.info('  read_file  write_file  edit_file  delete_file  list_dir');
-      console.info('  glob  grep  run_command  web_fetch  web_search  todo_write');
+    case 'tools': {
+      const { listTools } = await import('../tools/index.js');
+      const { BUILTIN_TOOLS } = await import('../tools/builtins.js');
+      const tools = listTools().length > 0 ? listTools() : BUILTIN_TOOLS;
+      console.info(chalk.cyan(`\n可用工具 (${tools.length}):`));
+      for (const t of tools) {
+        console.info(`  ${chalk.cyan(t.name)} — ${t.description}`);
+      }
       console.info('');
       break;
+    }
 
     case 'init':
       await handleInit(state);
