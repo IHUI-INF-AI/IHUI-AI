@@ -67,6 +67,10 @@ export class CheckpointManager {
   }
 
   async snapshot(files: string[], reason: string): Promise<CheckpointMeta> {
+    return this.snapshotSync(files, reason);
+  }
+
+  snapshotSync(files: string[], reason: string): CheckpointMeta {
     this.ensureDir(this.baseDir);
     const id = `cp_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
     const cpDir = path.join(this.baseDir, id);
