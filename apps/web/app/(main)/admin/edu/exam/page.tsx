@@ -81,6 +81,13 @@ export default function EduExamPage() {
         duration: Number(form.duration) || 60,
         isPublished: form.isPublished,
         isRandom: form.isRandom,
+        paperType: form.paperType,
+        questionDisordered: form.questionDisordered,
+        optionDisordered: form.optionDisordered,
+        difficulty: form.difficulty,
+        categoryId: form.cidList[0] || null,
+        cidList: form.cidList,
+        questionIdList: form.questionIdList,
       }
       return editing
         ? eduApi(`${API}/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
@@ -119,6 +126,12 @@ export default function EduExamPage() {
       duration: String(p.duration),
       isPublished: p.isPublished,
       isRandom: p.isRandom,
+      cidList: p.cidList ?? [],
+      questionIdList: p.questionIdList ?? [],
+      questionDisordered: p.questionDisordered ?? false,
+      optionDisordered: p.optionDisordered ?? false,
+      difficulty: p.difficulty ?? 2,
+      paperType: p.paperType ?? 'normal',
     })
     setErr(null)
     setOpen(true)

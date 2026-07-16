@@ -11,6 +11,7 @@ import { UserFilter } from './UserFilter'
 import { UserTable } from './UserTable'
 import { UserDialog } from './UserDialog'
 import { CreateUserDialog, type CreateUserForm } from './CreateUserDialog'
+import { DeptTree } from './DeptTree'
 import { PAGE_SIZE, fetchUsers, api } from './helpers'
 import type { AdminUser } from './types'
 
@@ -23,6 +24,7 @@ export default function AdminUsersPage() {
   const [role, setRole] = React.useState('all')
   const [status, setStatus] = React.useState('all')
   const [page, setPage] = React.useState(1)
+  const [selectedDeptId, setSelectedDeptId] = React.useState<string | null>(null)
   const [quickUser, setQuickUser] = React.useState<AdminUser | null>(null)
   const [detailUser, setDetailUser] = React.useState<AdminUser | null>(null)
   const [confirmUser, setConfirmUser] = React.useState<AdminUser | null>(null)
@@ -44,8 +46,8 @@ export default function AdminUsersPage() {
   }, [search])
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'users', debounced, role, status, page],
-    queryFn: () => fetchUsers({ page, search: debounced, role, status }),
+    queryKey: ['admin', 'users', debounced, role, status, page, selectedDeptId],
+    queryFn: () => fetchUsers({ page, search: debounced, role, status, deptId: selectedDeptId }),
   })
 
   const patchMut = useMutation({
@@ -124,73 +126,86 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <Users className="h-6 w-6 text-primary" />
-            {t('title')}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
-        </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4" />
-          新增用户
-        </Button>
-      </div>
+    <>
+      <div className="grid grid-cols-[220px_1fr] gap-4">
+        <aside className="sticky top-4 h-[calc(100vh-8rem)] self-start">
+          <DeptTree
+            selectedId={selectedDeptId}
+            onSelect={(id) => {
+              setSelectedDeptId(id)
+              setPage(1)
+            }}
+          />
+        </aside>
+        <div className="min-w-0 space-y-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+                <Users className="h-6 w-6 text-primary" />
+                {t('title')}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+            </div>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              新增用户
+            </Button>
+          </div>
 
-      <UserFilter
-        search={search}
-        onSearchChange={setSearch}
-        role={role}
-        onRoleChange={(v) => {
-          setRole(v)
-          setPage(1)
-        }}
-        status={status}
-        onStatusChange={(v) => {
-          setStatus(v)
-          setPage(1)
-        }}
-      />
+          <UserFilter
+            search={search}
+            onSearchChange={setSearch}
+            role={role}
+            onRoleChange={(v) => {
+              setRole(v)
+              setPage(1)
+            }}
+            status={status}
+            onStatusChange={(v) => {
+              setStatus(v)
+              setPage(1)
+            }}
+          />
 
-      <UserTable
-        list={users}
-        isLoading={isLoading}
-        error={error as Error | null}
-        patchPending={patchMut.isPending}
-        dateFmt={dateFmt}
-        onQuickView={setQuickUser}
-        onDetail={setDetailUser}
-        onRoleChange={(id, r) => patchMut.mutate({ id, body: { role: r } })}
-        onStatusToggle={askStatusToggle}
-        onDelete={askDelete}
-      />
+          <UserTable
+            list={users}
+            isLoading={isLoading}
+            error={error as Error | null}
+            patchPending={patchMut.isPending}
+            dateFmt={dateFmt}
+            onQuickView={setQuickUser}
+            onDetail={setDetailUser}
+            onRoleChange={(id, r) => patchMut.mutate({ id, body: { role: r } })}
+            onStatusToggle={askStatusToggle}
+            onDelete={askDelete}
+          />
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            {t('prev')}
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {t('page', { page, total: totalPages })}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t('next')}
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {t('prev')}
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {t('page', { page, total: totalPages })}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                {t('next')}
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -217,6 +232,6 @@ export default function AdminUsersPage() {
         submitting={createMut.isPending}
         onSubmit={handleCreateSubmit}
       />
-    </div>
+    </>
   )
 }
