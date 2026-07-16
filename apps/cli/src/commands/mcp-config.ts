@@ -30,18 +30,51 @@ export interface McpConfig {
   servers: McpServer[];
 }
 
+/** 多源扫描目录(高→低):workspace 三级 → home 三级 */
+const MCP_SOURCE_DIRS = ['.ihui', '.claude', '.cursor'];
+
+function listMcpConfigPaths(cwd: string): string[] {
+  const home = os.homedir();
+  const paths: string[] = [];
+  for (const d of MCP_SOURCE_DIRS) paths.push(path.join(cwd, d, 'mcp.json'));
+  for (const d of MCP_SOURCE_DIRS) paths.push(path.join(home, d, 'mcp.json'));
+  return paths;
+}
+
+/**
+ * 深合并两个 McpConfig:servers 按 name 合并(b 覆盖 a 的同名 server),其余保持。
+ * a 的独有 server 保留,b 的同名 server 覆盖 a,b 的独有 server 追加。
+ */
+export function deepMergeMcpConfig(a: McpConfig, b: McpConfig): McpConfig {
+  const byName = new Map<string, McpServer>();
+  for (const s of a.servers ?? []) byName.set(s.name, s);
+  for (const s of b.servers ?? []) byName.set(s.name, s);
+  return { servers: Array.from(byName.values()) };
+}
+
 export function getMcpConfigPath(): string {
   return path.join(os.homedir(), '.ihui', 'mcp.json');
 }
 
+/**
+ * 多源加载 mcp.json,按优先级深合并(高优先级覆盖低优先级同名 server)。
+ * 扫描顺序(高→低):<cwd>/.{ihui,claude,cursor} → ~/.{ihui,claude,cursor}。
+ */
 export function loadMcpConfig(): McpConfig {
-  const configPath = getMcpConfigPath();
-  if (!fs.existsSync(configPath)) return { servers: [] };
-  try {
-    return JSON.parse(fs.readFileSync(configPath, 'utf-8')) as McpConfig;
-  } catch {
-    return { servers: [] };
+  const paths = listMcpConfigPaths(process.cwd());
+  let acc: McpConfig = { servers: [] };
+  for (const p of [...paths].reverse()) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      const parsed = JSON.parse(fs.readFileSync(p, 'utf-8')) as McpConfig;
+      if (parsed && typeof parsed === 'object') {
+        acc = deepMergeMcpConfig(acc, parsed);
+      }
+    } catch {
+      // 损坏文件忽略,继续下一源
+    }
   }
+  return acc;
 }
 
 function saveMcpConfig(config: McpConfig): void {
