@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { getProfile, type UserProfile as ApiUserProfile } from '@ihui/api-client'
+import { getProfile, type AuthUser } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<ApiUserProfile | null>(null)
+  const [profile, setProfile] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -37,7 +37,7 @@ export default function ProfilePage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>{profile.nickname || profile.username}</CardTitle>
+          <CardTitle>{profile.nickname || '未设置昵称'}</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="sp-info-list">
