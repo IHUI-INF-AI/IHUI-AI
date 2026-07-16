@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { getProfile, type AuthUser } from '@ihui/api-client'
 import { initApi, getToken } from './lib/token'
+import { useNotificationWebSocket } from './hooks/use-websocket'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import ChatPage from './pages/ChatPage'
@@ -16,6 +17,7 @@ export default function App() {
   const [ready, setReady] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
   const token = getToken()
+  const { connected: wsConnected, lastMessage } = useNotificationWebSocket(token || null)
 
   useEffect(() => {
     initApi()
@@ -34,6 +36,14 @@ export default function App() {
       cancelled = true
     }
   }, [token])
+
+  useEffect(() => {
+    if (lastMessage) {
+      // 开发期可见:WS 通知到达后输出到控制台
+      // 后续接入通知面板时改为分发到 store
+      console.log('[WS] notification:', lastMessage)
+    }
+  }, [lastMessage])
 
   if (!ready) {
     return <div className="app-loading">加载中...</div>
@@ -54,7 +64,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route element={<Layout user={user} />}>
+        <Route element={<Layout user={user} wsConnected={wsConnected} />}>
           <Route path="/" element={<Navigate to="/chat" replace />} />
           <Route path="/chat" element={<ChatWithLogout />} />
           <Route path="/profile" element={<ProfilePage />} />

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { getProfile, type AuthUser } from '@ihui/api-client'
 import { initApi, getToken, setToken, clearToken } from '../../lib/token'
+import { useNotificationWebSocket } from '../../lib/use-websocket'
 import LoginPage from './pages/LoginPage'
 
 const TABS = [
@@ -17,15 +18,26 @@ export default function SidepanelApp() {
   const [ready, setReady] = useState(false)
   const [authed, setAuthed] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [token, setTokenState] = useState<string | null>(null)
+  const { connected: wsConnected, lastMessage } = useNotificationWebSocket(token)
+
+  useEffect(() => {
+    if (lastMessage) {
+      // 开发期可见:WS 通知到达后输出到控制台
+      // eslint-disable-next-line no-console
+      console.log('[WS] notification:', lastMessage)
+    }
+  }, [lastMessage])
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
       await initApi()
       if (cancelled) return
-      const has = !!getToken()
-      setAuthed(has)
-      if (has) {
+      const t = getToken()
+      setTokenState(t)
+      setAuthed(!!t)
+      if (t) {
         const res = await getProfile()
         if (cancelled) return
         if (res.success) setUser(res.data)
@@ -37,8 +49,9 @@ export default function SidepanelApp() {
     }
   }, [])
 
-  const onLoginSuccess = async (token: string) => {
-    await setToken(token)
+  const onLoginSuccess = async (newToken: string) => {
+    await setToken(newToken)
+    setTokenState(newToken)
     setAuthed(true)
     const res = await getProfile()
     if (res.success) setUser(res.data)
@@ -46,6 +59,7 @@ export default function SidepanelApp() {
 
   const onLogout = () => {
     clearToken()
+    setTokenState(null)
     setAuthed(false)
     setUser(null)
     navigate('/login', { replace: true })
@@ -67,6 +81,11 @@ export default function SidepanelApp() {
     <div className="sidepanel-layout">
       <header className="sp-header">
         <span className="sp-brand">IHUI AI</span>
+        <span
+          className={`sp-ws-dot ${wsConnected ? 'connected' : 'disconnected'}`}
+          title={wsConnected ? '实时通知已连接' : '实时通知未连接'}
+          aria-label={wsConnected ? '实时通知已连接' : '实时通知未连接'}
+        />
         <span className="sp-user">{user?.nickname || ''}</span>
       </header>
       <div className="sp-body">
