@@ -66,7 +66,7 @@ export interface ToolContext {
 
 const registry = new Map<string, Tool>();
 
-export function registerTool(tool: Tool): void {
+function registerTool(tool: Tool): void {
   registry.set(tool.name, tool);
 }
 
@@ -84,18 +84,6 @@ export function listTools(): Tool[] {
 
 export function clearTools(): void {
   registry.clear();
-}
-
-export function buildToolSchema(tool: Tool): ToolSchema {
-  return {
-    name: tool.name,
-    description: tool.description,
-    parameters: {
-      type: 'object',
-      properties: tool.parameters,
-      required: tool.required,
-    },
-  };
 }
 
 export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirst?: boolean): string {
