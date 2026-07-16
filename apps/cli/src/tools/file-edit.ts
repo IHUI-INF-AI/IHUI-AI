@@ -39,6 +39,31 @@ function snapshotBeforeEdit(ctx: EditToolContext, files: string[], reason: strin
   }
 }
 
+/** 计算简化 unified diff(公共前缀/后缀法,零依赖) */
+function computeUnifiedDiff(original: string, modified: string, filePath: string): string {
+  const orig = original.split('\n');
+  const mod = modified.split('\n');
+  let start = 0;
+  while (start < orig.length && start < mod.length && orig[start] === mod[start]) start++;
+  let endO = orig.length - 1;
+  let endM = mod.length - 1;
+  while (endO >= start && endM >= start && orig[endO] === mod[endM]) {
+    endO--;
+    endM--;
+  }
+  const removed = orig.slice(start, endO + 1);
+  const added = mod.slice(start, endM + 1);
+  if (removed.length === 0 && added.length === 0) return '';
+  const lines: string[] = [`@@ -${start + 1},${removed.length} +${start + 1},${added.length} @@`];
+  for (const l of removed) lines.push(`-${l}`);
+  for (const l of added) lines.push(`+${l}`);
+  const header = `\n--- a/${filePath}\n+++ b/${filePath}\n`;
+  if (lines.length > 200) {
+    return header + lines.slice(0, 200).join('\n') + '\n...(diff 超过 200 行,截断)';
+  }
+  return header + lines.join('\n');
+}
+
 export function createWriteFileTool(ctx: EditToolContext): Tool {
   return {
     name: 'write_file',
@@ -59,12 +84,15 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       const abs = resolvePath(ctx, filePath);
+      const existed = fs.existsSync(abs);
+      const original = existed ? fs.readFileSync(abs, 'utf-8') : '';
       snapshotBeforeEdit(ctx, [abs], 'auto_pre_write_file');
       fs.mkdirSync(path.dirname(abs), { recursive: true });
       fs.writeFileSync(abs, content, 'utf-8');
       runPostToolCall('write_file', { path: filePath, bytes: content.length });
       const lines = content.split('\n').length;
-      return { success: true, output: `已写入 ${filePath} (${lines} 行, ${content.length} 字节)` };
+      const diff = existed ? computeUnifiedDiff(original, content, filePath) : '';
+      return { success: true, output: `已写入 ${filePath} (${lines} 行, ${content.length} 字节)${diff}` };
     },
   };
 }
@@ -133,9 +161,10 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
 
       fs.writeFileSync(abs, applied.result, 'utf-8');
       runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements });
+      const diff = computeUnifiedDiff(original, applied.result, filePath);
       return {
         success: true,
-        output: `已编辑 ${filePath} (${applied.replacements} 处替换)`,
+        output: `已编辑 ${filePath} (${applied.replacements} 处替换)${diff}`,
       };
     },
   };
