@@ -84,6 +84,21 @@ function collectLeafKeys(obj, prefix = '') {
   return keys
 }
 
+function collectLeafValues(obj, prefix = '') {
+  const map = new Map()
+  for (const [k, v] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${k}` : k
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      for (const [p, val] of collectLeafValues(v, path)) {
+        map.set(p, val)
+      }
+    } else {
+      map.set(path, v)
+    }
+  }
+  return map
+}
+
 function extractNamespaces(src) {
   const pairs = []
   const re =
@@ -199,6 +214,34 @@ if (!isStaged || messagesChanged) {
   }
 }
 
+// 翻译完整性检查:对非 en 的语言,值 === en 值 且仅含 ASCII 字母,标记为"未翻译"
+// 仅作为 WARNING(不阻塞),用于发现历史上 i18n 复制粘贴导致的英文 fallback
+const untranslatedValueIssues = []
+const TRANSLATABLE_LANGS = ['ja', 'ko', 'zh-CN', 'zh-TW']
+if (!isStaged || messagesChanged) {
+  const enLeaves = collectLeafValues(messages.en || {})
+  for (const lang of TRANSLATABLE_LANGS) {
+    if (lang === 'en' || !messages[lang]) continue
+    const langValues = collectLeafValues(messages[lang])
+    const untranslated = []
+    for (const [key, enValue] of enLeaves) {
+      if (typeof enValue !== 'string' || enValue.length < 2) continue
+      if (!/^[A-Za-z0-9 ._!?'",:;\-/()&+@#$%^*=]+$/.test(enValue)) continue
+      const langValue = langValues.get(key)
+      if (langValue === enValue) {
+        untranslated.push({ key, value: enValue })
+      }
+    }
+    if (untranslated.length > 0) {
+      untranslatedValueIssues.push({
+        lang,
+        count: untranslated.length,
+        samples: untranslated.slice(0, 10),
+      })
+    }
+  }
+}
+
 const missingKeyIssues = []
 let checkedFiles = 0
 let checkedKeys = 0
@@ -294,6 +337,36 @@ if (missingKeyIssues.length > 0) {
       console.log(`${color}      ${keys.map((k) => `'${k}'`).join(', ')}${C.reset}`)
     }
   }
+  console.log('')
+}
+
+// 翻译完整性:未翻译键(值 === en,非阻塞 WARNING,仅信息)
+if (untranslatedValueIssues.length > 0) {
+  const totalUntranslated = untranslatedValueIssues.reduce(
+    (s, i) => s + i.count,
+    0,
+  )
+  console.log(
+    `${C.yellow}[i18n 翻译] 未翻译键(值===en,仅 ASCII) — ${totalUntranslated} 处待人工补译:${C.reset}`,
+  )
+  for (const issue of untranslatedValueIssues) {
+    console.log(
+      `${C.yellow}  ${issue.lang}: ${issue.count} 个未翻译键${C.reset}`,
+    )
+    for (const s of issue.samples) {
+      console.log(
+        `${C.dim}    ${s.key} = "${s.value}"${C.reset}`,
+      )
+    }
+    if (issue.count > issue.samples.length) {
+      console.log(
+        `${C.dim}    ... 还有 ${issue.count - issue.samples.length} 个${C.reset}`,
+      )
+    }
+  }
+  console.log(
+    `${C.dim}  → 修复:为这些键添加非英文翻译(或保留 en fallback 如有意为之)${C.reset}`,
+  )
   console.log('')
 }
 
