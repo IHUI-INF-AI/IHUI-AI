@@ -12,6 +12,9 @@ import {
   sysConfigs,
   sysDictTypes,
   sysDictData,
+  sysOperlog,
+  adminRole,
+  adminRoleDept,
   type SysMenu,
   type SysLogininfor,
   type SysNotice,
@@ -22,7 +25,10 @@ import {
   type SysConfig,
   type SysDictType,
   type SysDictData,
+  type SysOperlog,
 } from '@ihui/database'
+
+type AdminRole = typeof adminRole.$inferSelect
 
 // =============================================================================
 // 通用分页查询参数
@@ -888,4 +894,101 @@ export async function deleteDictData(id: number): Promise<SysDictData | undefine
 export async function deleteDictDataBatch(ids: number[]): Promise<number> {
   const rows = await db.delete(sysDictData).where(inArray(sysDictData.dictCode, ids)).returning()
   return rows.length
+}
+
+// =============================================================================
+// sysOperlog（bigserial 主键）
+// =============================================================================
+
+export interface OperlogListQuery extends ListQuery {
+  title?: string
+  businessType?: number
+  operName?: string
+  status?: number
+}
+
+export async function findOperlogList(
+  query: OperlogListQuery = {},
+): Promise<{ list: SysOperlog[]; total: number }> {
+  const { pageSize, offset } = paginate(query)
+  const conds = []
+  if (query.title) conds.push(ilike(sysOperlog.title, `%${query.title}%`))
+  if (query.businessType !== undefined) conds.push(eq(sysOperlog.businessType, query.businessType))
+  if (query.operName) conds.push(ilike(sysOperlog.operName, `%${query.operName}%`))
+  if (query.status !== undefined) conds.push(eq(sysOperlog.status, query.status))
+  const where = conds.length > 0 ? and(...conds) : undefined
+
+  const [list, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(sysOperlog)
+      .where(where)
+      .orderBy(desc(sysOperlog.operTime))
+      .limit(pageSize)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(sysOperlog)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
+}
+
+export async function deleteOperlogsBatch(ids: number[]): Promise<number> {
+  const rows = await db.delete(sysOperlog).where(inArray(sysOperlog.operId, ids)).returning()
+  return rows.length
+}
+
+/** 清空全部操作日志。 */
+export async function cleanOperlogs(): Promise<void> {
+  await db.delete(sysOperlog)
+}
+
+// =============================================================================
+// adminRole（serial 主键，历史 admin_role 表，含 dataScope/status）
+// 供 role/changeStatus、role/dataScope、role/deptTree 路由使用。
+// 注：rbac.ts 的 userRoles 表用 uuid roleId，与前端数值 roleId 不兼容，
+//   故 5 个 authUser 路由（allocatedList/unallocatedList/cancel/cancelAll/selectAll）跳过。
+// =============================================================================
+
+export async function updateAdminRoleStatus(
+  roleId: number,
+  status: string,
+): Promise<AdminRole | undefined> {
+  const rows = await db
+    .update(adminRole)
+    .set({ status, updateTime: new Date() })
+    .where(eq(adminRole.roleId, roleId))
+    .returning()
+  return rows[0]
+}
+
+export async function updateAdminRoleDataScope(
+  roleId: number,
+  dataScope: string,
+  deptIds: number[] = [],
+): Promise<AdminRole | undefined> {
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .update(adminRole)
+      .set({ dataScope, updateTime: new Date() })
+      .where(eq(adminRole.roleId, roleId))
+      .returning()
+    await tx.delete(adminRoleDept).where(eq(adminRoleDept.roleId, roleId))
+    if (deptIds.length > 0) {
+      await tx
+        .insert(adminRoleDept)
+        .values(deptIds.map((deptId) => ({ roleId, deptId })))
+        .onConflictDoNothing()
+    }
+    return rows[0]
+  })
+}
+
+export async function findAdminRoleDeptIds(roleId: number): Promise<number[]> {
+  const rows = await db
+    .select({ deptId: adminRoleDept.deptId })
+    .from(adminRoleDept)
+    .where(eq(adminRoleDept.roleId, roleId))
+  return rows.map((r) => r.deptId)
 }
