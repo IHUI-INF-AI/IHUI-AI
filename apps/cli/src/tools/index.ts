@@ -41,6 +41,8 @@ export interface ToolResult {
   success: boolean;
   output: string;
   error?: string;
+  /** P1-4 错误类型分级,供调用方/LLM 判断是否需要重试 */
+  errorType?: string;
 }
 
 export interface Tool {
@@ -192,12 +194,12 @@ export async function executeToolCall(
 ): Promise<ToolResult> {
   const tool = getTool(call.name);
   if (!tool) {
-    return { success: false, output: '', error: `未知工具: ${call.name}` };
+    return { success: false, output: '', error: `未知工具: ${call.name}`, errorType: 'not_found' };
   }
   // P1-4 Rate limiting:同一工具 10 秒内最多 5 次,超限返回 error
   const rateLimit = checkRateLimit(call.name);
   if (!rateLimit.allowed) {
-    return { success: false, output: '', error: rateLimit.reason };
+    return { success: false, output: '', error: rateLimit.reason, errorType: 'rate_limited' };
   }
   if (tool.dangerLevel === 'dangerous') {
     const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
@@ -285,21 +287,91 @@ export async function executeWithRetry(
       const result = await tool.execute(args, ctx);
       if (result.success) return result;
       lastResult = result;
-      if (attempt < maxRetries) {
-        await new Promise((resolve) => setTimeout(resolve, READ_TOOL_RETRY_DELAY_MS));
-      }
     } catch (err) {
       lastResult = {
         success: false,
         output: '',
         error: err instanceof Error ? err.message : String(err),
       };
-      if (attempt < maxRetries) {
-        await new Promise((resolve) => setTimeout(resolve, READ_TOOL_RETRY_DELAY_MS));
-      }
+    }
+    // P1-4 仅对可重试错误类型进行重试,避免对 permission/unknown 等无效重试
+    if (attempt < maxRetries) {
+      const errorType = lastResult.errorType ?? classifyError(lastResult.error);
+      if (!isRetryableErrorType(errorType)) break;
+      await new Promise((resolve) => setTimeout(resolve, READ_TOOL_RETRY_DELAY_MS));
     }
   }
+  // P1-4 错误分级:优先保留工具显式标记,其次启发式分类
+  if (lastResult.errorType === undefined) {
+    lastResult = { ...lastResult, errorType: classifyError(lastResult.error) };
+  }
   return lastResult;
+}
+
+// ==================== P1-4 Error classification ====================
+
+export type ErrorType =
+  | 'rate_limited'
+  | 'timeout'
+  | 'permission'
+  | 'not_found'
+  | 'network'
+  | 'unknown';
+
+/** 根据错误文本启发式分类错误类型(大小写不敏感)。 */
+export function classifyError(error?: string | null): ErrorType {
+  const e = (error ?? '').toLowerCase();
+  if (
+    e.includes('rate limit') ||
+    e.includes('限流') ||
+    e.includes('too many requests') ||
+    e.includes('429')
+  )
+    return 'rate_limited';
+  if (
+    e.includes('timeout') ||
+    e.includes('timed out') ||
+    e.includes('超时') ||
+    e.includes('etimedout')
+  )
+    return 'timeout';
+  if (
+    e.includes('permission denied') ||
+    e.includes('access forbidden') ||
+    e.includes('权限不足') ||
+    e.includes('操作被拒绝') ||
+    e.includes('eacces') ||
+    e.includes('eperm')
+  )
+    return 'permission';
+  if (
+    e.includes('not found') ||
+    e.includes('enoent') ||
+    e.includes('不存在') ||
+    e.includes('no such file')
+  )
+    return 'not_found';
+  if (
+    e.includes('network error') ||
+    e.includes('econnreset') ||
+    e.includes('econnrefused') ||
+    e.includes('fetch failed') ||
+    e.includes('连接被拒绝') ||
+    e.includes('enotfound') ||
+    e.includes('epipe')
+  )
+    return 'network';
+  return 'unknown';
+}
+
+/** 判断错误类型是否可重试(network/timeout/rate_limited)。 */
+export function isRetryableErrorType(errorType: string | undefined): boolean {
+  return errorType === 'network' || errorType === 'timeout' || errorType === 'rate_limited';
+}
+
+/** 判断错误类型是否为致命错误(仅 permission)。 */
+export function isFatalErrorType(errorType: string | undefined): boolean {
+  return errorType === 'permission';
 }
 
 /**
