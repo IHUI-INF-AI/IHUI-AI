@@ -12,6 +12,12 @@ const OUTPUT_DIR = join(ROOT, '.trae-cn/goal-runtime')
 
 if (!existsSync(OUTPUT_DIR)) mkdirSync(OUTPUT_DIR, { recursive: true })
 
+function readJSONStripBOM(filePath) {
+  let text = readFileSync(filePath, 'utf8')
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
+  return JSON.parse(text)
+}
+
 function collectLeafValues(obj, prefix = '') {
   const map = new Map()
   for (const [k, v] of Object.entries(obj)) {
@@ -39,7 +45,7 @@ function setNestedValue(obj, dotPath, value) {
   cur[keys[keys.length - 1]] = value
 }
 
-const enMessages = JSON.parse(readFileSync(join(MESSAGES_DIR, 'en.json'), 'utf8'))
+const enMessages = readJSONStripBOM(join(MESSAGES_DIR, 'en.json'))
 const enLeaves = collectLeafValues(enMessages)
 
 const TRANSLATABLE_LANGS = ['ja', 'ko', 'zh-CN', 'zh-TW']
@@ -48,7 +54,7 @@ const ASCII_RE = /^[-A-Za-z0-9 ._!?'",:;()&+@#$%^*=]+$/
 let totalExported = 0
 
 for (const lang of TRANSLATABLE_LANGS) {
-  const langMessages = JSON.parse(readFileSync(join(MESSAGES_DIR, `${lang}.json`), 'utf8'))
+  const langMessages = readJSONStripBOM(join(MESSAGES_DIR, `${lang}.json`))
   const langValues = collectLeafValues(langMessages)
 
   const untranslated = {}

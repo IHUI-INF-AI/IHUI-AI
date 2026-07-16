@@ -70,6 +70,7 @@ import { agentsRoutes } from './routes/agents.js'
 import { plazaRoutes } from './routes/plaza.js'
 import { cozeVariablesRoutes } from './routes/coze-variables.js'
 import { cozeRoutes } from './routes/coze.js'
+import { cozeEcosystemRoutes } from './routes/coze-ecosystem.js'
 import { agenticServiceRoutes } from './routes/agentic-service.js'
 import { adminEduExtendedRoutes, adminCourseAuditRoutes } from './routes/edu-extended.js'
 import aiCallbackRoutes from './routes/ai-callback.js'
@@ -247,8 +248,11 @@ import { dbKeepalive } from './plugins/db-keepalive.js'
 import { n1Detector } from './plugins/n1-detector.js'
 import { promptInjectionGuard } from './plugins/prompt-injection-guard.js'
 import { tenantDbIsolation } from './plugins/tenant-db-isolation.js'
+import tenantDbPlugin from './plugins/tenant-db.js'
 import { tokenBalanceService } from './plugins/token-balance-service.js'
 import { resilienceToolkit } from './plugins/resilience-toolkit.js'
+import canaryRouterPlugin from './plugins/canary-router.js'
+import { startAutoRollbackMonitor } from './services/auto-rollback.js'
 import searchAspectPlugin from './plugins/search-aspect.js'
 import watchAspectPlugin from './plugins/watch-aspect.js'
 import pointAspectPlugin from './plugins/point-aspect.js'
@@ -309,6 +313,9 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // 注入到统一 logger，使 service/util 层可通过 fastify pino 输出日志
   setFastify(server)
+
+  // 启动金丝雀自动回滚监控（CANARY_ENABLED=true 时生效，默认空操作）
+  startAutoRollbackMonitor()
 
   return server
 }
@@ -428,11 +435,16 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(promptInjectionGuard)
   // 多租户 DB 级隔离：per-tenant schema + AsyncLocalStorage 上下文传递
   await server.register(tenantDbIsolation)
+  // 多租户分库路由：per-tenant DATABASE_URL（物理分库），未配置时 fallback 到默认库
+  await server.register(tenantDbPlugin)
   // Token 余额服务：用户 credit 余额管理（查询/扣减/缓存）
   await server.register(tokenBalanceService)
 
   // 韧性工具集：分布式锁 / 风控引擎 / 热配置 / DLQ / 退款DLQ / 租户审计
   await server.register(resilienceToolkit)
+
+  // 金丝雀路由插件：CANARY_ENABLED=true 时按百分比路由流量到金丝雀版本（默认禁用）
+  await server.register(canaryRouterPlugin)
 }
 
 function registerRoutes(server: FastifyInstance) {
@@ -541,6 +553,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(cozeVariablesRoutes, { prefix: '/api/coze/variables' })
   // Coze 平台集成:apps/audio/chat-audio/conversations/datasets/files/review/templates/workflows/workspaces/bot
   server.register(cozeRoutes, { prefix: '/api/coze' })
+  // Coze 生态全量接口(R74 审计 P2 补建):REST 风格 apps/datasets/audio/files 端点
+  server.register(cozeEcosystemRoutes, { prefix: '/api/coze' })
   server.register(agenticServiceRoutes, { prefix: '/api/agent' })
 
   // AI 回调端点(由 AI service 推理完成后 POST 调用,入队 aiCallback)

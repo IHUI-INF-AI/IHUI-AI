@@ -13,6 +13,12 @@ const TRANSLATION_DIR = join(ROOT, '.trae-cn/goal-runtime')
 const ASCII_RE = /^[-A-Za-z0-9 ._!?'",:;()&+@#$%^*=]+$/
 const LANGS = ['ja', 'ko', 'zh-CN', 'zh-TW']
 
+function readJSONStripBOM(filePath) {
+  let text = readFileSync(filePath, 'utf8')
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
+  return JSON.parse(text)
+}
+
 function collectLeafPaths(obj, prefix = '') {
   const result = []
   for (const [k, v] of Object.entries(obj)) {
@@ -48,11 +54,9 @@ function setNested(obj, dotPath, value) {
 let totalReplaced = 0
 
 for (const lang of LANGS) {
-  const translationMap = JSON.parse(
-    readFileSync(join(TRANSLATION_DIR, `i18n-translation-${lang}.json`), 'utf8')
-  )
-  const enMessages = JSON.parse(readFileSync(join(MESSAGES_DIR, 'en.json'), 'utf8'))
-  const langMessages = JSON.parse(readFileSync(join(MESSAGES_DIR, `${lang}.json`), 'utf8'))
+  const translationMap = readJSONStripBOM(join(TRANSLATION_DIR, `i18n-translation-${lang}.json`))
+  const enMessages = readJSONStripBOM(join(MESSAGES_DIR, 'en.json'))
+  const langMessages = readJSONStripBOM(join(MESSAGES_DIR, `${lang}.json`))
 
   const enLeaves = collectLeafPaths(enMessages)
   let replacedCount = 0

@@ -6,6 +6,7 @@ export interface AdminUser {
   avatar: string | null
   roleId: number | null
   status: number | null
+  deptId: number | null
   createdAt: string | null
 }
 

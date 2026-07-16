@@ -3,11 +3,12 @@
  *
  * 用法:
  *   pnpm --filter @ihui/api tsx src/scripts/migrate-legacy-data.ts --dry-run
- *   pnpm --filter @ihui/api tsx src/scripts/migrate-legacy-data.ts --batch 20260717-001
+ *   LEGACY_DATABASE_URL=mysql://user:pass@host:port/dbname \
+ *     pnpm --filter @ihui/api tsx src/scripts/migrate-legacy-data.ts --batch 20260717-001
  *
  * 模式:
- * - --dry-run: 输出导入计划(表/预估行数/映射关系),不写库
- * - --batch <batchId>: 实际导入模式,按依赖顺序导入,断点续传
+ * - --dry-run: 输出导入计划(表/预估行数/映射关系),不写库,不需要 legacy DB
+ * - --batch <batchId>: 实际导入模式,需配置 LEGACY_DATABASE_URL,自动创建 mysql2 fetcher
  *
  * 依赖顺序(Java 旧表 → TS 新表):
  *   member → course → chapter → enrollment → exam_record → wrong_question → point_record
@@ -15,6 +16,8 @@
  * 断点续传: 每条记录导入前调 shouldSkip 跳过已完成。
  * 外键重建: 每步导入前查 id_mapping 获取关联 ID 映射,替换外键。
  * 错误隔离: 单条失败不阻塞批次,记录 failed 计数后继续。
+ *
+ * 生产依赖: --batch 模式需先安装 mysql2(`pnpm --filter @ihui/api add mysql2`)。
  */
 import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
@@ -134,9 +137,47 @@ export function setLegacyFetcher(fetcher: LegacyFetcher | null): void {
   legacyFetcher = fetcher
 }
 
+/**
+ * 从 LEGACY_DATABASE_URL 创建 mysql2 fetcher(生产模式自动调用)。
+ * 动态 import mysql2,未安装时抛出清晰错误。
+ * URL 格式:mysql://user:pass@host:port/dbname
+ *
+ * 注:mysql2 为可选依赖(仅生产迁移时按需 `pnpm add mysql2`),
+ * typecheck 时不要求安装,故用宽松类型 + @ts-expect-error。
+ */
+type MysqlPool = {
+  query: <T = Record<string, unknown>[]>(sql: string) => Promise<[T, unknown]>
+}
+type MysqlModule = {
+  createPool: (opts: { uri: string; connectionLimit: number }) => MysqlPool
+}
+
+export async function createLegacyFetcherFromEnv(): Promise<LegacyFetcher> {
+  const url = process.env.LEGACY_DATABASE_URL
+  if (!url) {
+    throw new Error('LEGACY_DATABASE_URL 未配置,无法创建 legacy fetcher')
+  }
+  let mysql: MysqlModule
+  try {
+    // @ts-expect-error mysql2 为可选依赖,未安装时模块类型不存在
+    mysql = await import('mysql2/promise.js')
+  } catch {
+    throw new Error(
+      'mysql2 未安装,请运行 `pnpm --filter @ihui/api add mysql2` 后重试(仅在需要真实 legacy MySQL 导入时安装)',
+    )
+  }
+  const pool = mysql.createPool({ uri: url, connectionLimit: 5 })
+  return async (sql: string) => {
+    const [rows] = await pool.query<Record<string, unknown>[]>(sql)
+    return rows
+  }
+}
+
 async function fetchLegacy<T>(sql: string): Promise<T[]> {
   if (!legacyFetcher) {
-    throw new Error('Legacy fetcher 未初始化,请通过 setLegacyFetcher 注入(测试)或配置 LEGACY_DATABASE_URL(生产)')
+    throw new Error(
+      'Legacy fetcher 未初始化,请通过 setLegacyFetcher 注入(测试)或配置 LEGACY_DATABASE_URL(生产)',
+    )
   }
   const rows = await legacyFetcher(sql)
   return rows as unknown as T[]
@@ -328,7 +369,10 @@ export async function importChapters(batch: string, dryRun: boolean): Promise<St
       const lessonId = await getNewId('course', row.lesson_id)
       if (!lessonId) {
         result.failed++
-        logger.warn('importChapters: 课程映射缺失,跳过', { legacyId: row.id, lessonId: row.lesson_id })
+        logger.warn('importChapters: 课程映射缺失,跳过', {
+          legacyId: row.id,
+          lessonId: row.lesson_id,
+        })
         continue
       }
       const newId = randomUUID()
@@ -473,7 +517,9 @@ export async function importAnswers(batch: string, dryRun: boolean): Promise<Ste
 // =============================================================================
 
 export async function importWrongQuestions(batch: string, dryRun: boolean): Promise<StepResult> {
-  const rows = await fetchLegacy<LegacyWrongQuestion>('SELECT * FROM exam_wrong_question ORDER BY id')
+  const rows = await fetchLegacy<LegacyWrongQuestion>(
+    'SELECT * FROM exam_wrong_question ORDER BY id',
+  )
   const result: StepResult = { total: rows.length, migrated: 0, skipped: 0, failed: 0 }
 
   if (dryRun) {
@@ -532,7 +578,10 @@ export async function importWrongQuestions(batch: string, dryRun: boolean): Prom
       result.migrated++
     } catch (err) {
       result.failed++
-      logger.warn('importWrongQuestions 单条失败', { legacyId: row.id, error: (err as Error).message })
+      logger.warn('importWrongQuestions 单条失败', {
+        legacyId: row.id,
+        error: (err as Error).message,
+      })
     }
   }
   return result
@@ -587,7 +636,10 @@ export async function importPointRecords(batch: string, dryRun: boolean): Promis
       result.migrated++
     } catch (err) {
       result.failed++
-      logger.warn('importPointRecords 单条失败', { legacyId: row.id, error: (err as Error).message })
+      logger.warn('importPointRecords 单条失败', {
+        legacyId: row.id,
+        error: (err as Error).message,
+      })
     }
   }
   return result
@@ -688,6 +740,11 @@ async function main(): Promise<void> {
   const batchId = batch ?? generateBatchId()
   if (!dryRun && !batch) {
     logger.info(`未指定 --batch,自动生成批次号: ${batchId}`)
+  }
+  // dry-run 不需要 legacy fetcher(只输出计划)
+  // 生产模式(--batch)自动从 LEGACY_DATABASE_URL 创建 fetcher
+  if (!dryRun && !legacyFetcher) {
+    setLegacyFetcher(await createLegacyFetcherFromEnv())
   }
   await runMigration({ dryRun, batch: batchId })
 }
