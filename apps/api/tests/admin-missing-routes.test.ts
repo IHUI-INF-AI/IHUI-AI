@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
+import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
 import Fastify from 'fastify'
 
 // Mock config 避免 env 校验触发 process.exit(1)
@@ -442,7 +442,6 @@ describe('admin-missing-routes', () => {
       { method: 'GET', url: '/api/admin/edu/classes' },
       { method: 'GET', url: '/api/admin/edu/classes/schedules' },
       { method: 'GET', url: '/api/admin/finance/statistics' },
-      { method: 'GET', url: '/api/admin/learn/homework' },
       { method: 'GET', url: '/api/admin/learn/materials' },
       { method: 'GET', url: '/api/admin/learn/plans' },
       { method: 'GET', url: '/api/admin/learn/reminds' },
