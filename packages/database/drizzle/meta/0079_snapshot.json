@@ -1,5 +1,5 @@
 {
-  "id": "ad71d634-499b-453c-8ed1-8d8bafa47668",
+  "id": "9523ecd0-787b-46ca-9b2e-1c50fbd81df6",
   "prevId": "67b747b2-65fa-499b-b15f-f7a7771dc40c",
   "version": "7",
   "dialect": "postgresql",
@@ -156,6 +156,12 @@
           "notNull": false,
           "default": 0
         },
+        "dept_id": {
+          "name": "dept_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "integer",
@@ -212,7 +218,17 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "users_dept_id_sys_dept_dept_id_fk": {
+          "name": "users_dept_id_sys_dept_dept_id_fk",
+          "tableFrom": "users",
+          "tableTo": "sys_dept",
+          "columnsFrom": ["dept_id"],
+          "columnsTo": ["dept_id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "users_phone_unique": {
@@ -4926,6 +4942,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "cid_list": {
+          "name": "cid_list",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "member_count": {
           "name": "member_count",
           "type": "integer",
@@ -5646,6 +5668,27 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "question_disordered": {
+          "name": "question_disordered",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "option_disordered": {
+          "name": "option_disordered",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "difficulty": {
+          "name": "difficulty",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 3
         },
         "question_count": {
           "name": "question_count",
@@ -7866,6 +7909,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "pid": {
+          "name": "pid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "sort": {
           "name": "sort",
           "type": "integer",
@@ -7895,8 +7944,34 @@
           "default": "now()"
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
+      "indexes": {
+        "resource_tags_pid_idx": {
+          "name": "resource_tags_pid_idx",
+          "columns": [
+            {
+              "expression": "pid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "resource_tags_pid_resource_tags_id_fk": {
+          "name": "resource_tags_pid_resource_tags_id_fk",
+          "tableFrom": "resource_tags",
+          "tableTo": "resource_tags",
+          "columnsFrom": ["pid"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -10396,6 +10471,30 @@
         "template_config": {
           "name": "template_config",
           "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "awarding_organization": {
+          "name": "awarding_organization",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "awarder_name": {
+          "name": "awarder_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "award_conditions": {
+          "name": "award_conditions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validity_policy": {
+          "name": "validity_policy",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
