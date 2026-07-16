@@ -1,5 +1,5 @@
-import { fetchApi } from './client'
-import { ApiError } from './api-error'
+import { fetchApi } from './client.js'
+import { ApiError } from './api-error.js'
 
 export async function eduApi<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
