@@ -49,15 +49,13 @@ vi.mock('../../db/commission-queries.js', () => ({
   availableWithdrawal: vi.fn().mockResolvedValue(50),
   listSubordinates: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   listCommissionFlows: vi.fn().mockResolvedValue({ items: [], total: 0 }),
-  teamCenter: vi
-    .fn()
-    .mockResolvedValue({
-      totalInvitees: 5,
-      vipInvitees: 2,
-      monthNew: 1,
-      commissionTotal: 100,
-      withdrawalTotal: 50,
-    }),
+  teamCenter: vi.fn().mockResolvedValue({
+    totalInvitees: 5,
+    vipInvitees: 2,
+    monthNew: 1,
+    commissionTotal: 100,
+    withdrawalTotal: 50,
+  }),
   applyWithdrawal: vi.fn(),
   listWithdrawals: vi.fn(),
   getWithdrawalById: vi.fn(),
@@ -109,7 +107,6 @@ import { missingUserRoutes } from '../missing-user-routes.js'
 import { findArticleById } from '../../db/news-queries.js'
 import { isSignedUp, findSignUp, updateProgress } from '../../db/learn-queries.js'
 import { updateCertificateStatus } from '../../db/certificate-queries.js'
-import { findResourceById } from '../../db/resource-queries.js'
 
 const AUTH = { authorization: 'Bearer mock-token' }
 
@@ -383,32 +380,7 @@ describe('Integration Tests (mocked DB)', () => {
       expect(body.data.message).toHaveProperty('id', 'msg-1')
     })
 
-    it('GET /resources/:id/download → 404(资源不存在)', async () => {
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/resources/r1/download',
-        headers: AUTH,
-      })
-      expect(res.statusCode).toBe(404)
-      const body = JSON.parse(res.body)
-      expect(body.code).toBe(404)
-    })
-
-    it('GET /resources/:id/download → 200(资源存在)', async () => {
-      vi.mocked(findResourceById).mockResolvedValueOnce({
-        id: 'r1',
-        fileUrl: 'https://example.com/file.pdf',
-      } as never)
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/resources/r1/download',
-        headers: AUTH,
-      })
-      expect(res.statusCode).toBe(200)
-      const body = JSON.parse(res.body)
-      expect(body.code).toBe(0)
-      expect(body.data).toHaveProperty('url', 'https://example.com/file.pdf')
-    })
+    // /resources/:id/download 已在 resource.ts 真实化，完整测试在 resource-download.test.ts（9 个用例）
 
     it('POST /certificates/issue → 400(缺少 userId)', async () => {
       const res = await app.inject({

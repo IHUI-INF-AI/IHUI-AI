@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { createReadStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
+import { basename } from 'node:path'
 import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
+import { authenticate } from '../plugins/auth.js'
 import {
   findCategoriesByPid,
   findCategoryById,
@@ -25,6 +29,10 @@ import {
   createTag,
   updateTag,
   deleteTag,
+  findPublishedResourceById,
+  checkDownloadPermission,
+  createDownloadRecord,
+  incrementResourceDownloadCount,
 } from '../db/resource-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
@@ -276,6 +284,73 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
       const resource = await findResourceByIdAndIncrementView(parsed.data.id)
       if (!resource) return reply.status(404).send(error(404, '资源不存在'))
       return reply.send(success({ resource }))
+    },
+  )
+
+  // GET /resources/:id/download - 资源下载（需登录 + 权限校验 + 下载记录）
+  server.get(
+    '/resources/:id/download',
+    {
+      schema: {
+        response: {
+          ...responseSchema,
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          302: { type: 'string' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      await authenticate(request)
+      const userId = request.userId!
+
+      const resource = await findPublishedResourceById(parsed.data.id)
+      if (!resource) return reply.status(404).send(error(404, '资源不存在或未发布'))
+
+      const permission = await checkDownloadPermission(userId, parsed.data.id)
+      if (!permission.allowed) {
+        return reply.status(403).send(error(403, permission.reason))
+      }
+
+      const fileUrl = resource.fileUrl
+      if (!fileUrl) return reply.status(404).send(error(404, '资源文件不存在'))
+
+      // 写入下载记录 + 自增下载量（不阻塞响应）
+      const ip =
+        (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ??
+        request.ip
+      const userAgent = request.headers['user-agent'] ?? null
+      await Promise.all([
+        createDownloadRecord({ resourceId: parsed.data.id, userId, ip, userAgent }),
+        incrementResourceDownloadCount(parsed.data.id),
+      ])
+
+      // HTTP(S) URL → 重定向到 OSS/CDN
+      if (/^https?:\/\//i.test(fileUrl)) {
+        return reply.redirect(fileUrl)
+      }
+
+      // 本地文件 → 流式传输
+      try {
+        const stats = await stat(fileUrl)
+        const filename = basename(fileUrl)
+        reply.header('Content-Type', resource.fileType || 'application/octet-stream')
+        reply.header('Content-Length', stats.size)
+        reply.header(
+          'Content-Disposition',
+          `attachment; filename="${encodeURIComponent(filename)}"`,
+        )
+        const stream = createReadStream(fileUrl)
+        return reply.send(stream)
+      } catch {
+        return reply.status(404).send(error(404, '资源文件不存在'))
+      }
     },
   )
 
