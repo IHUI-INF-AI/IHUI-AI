@@ -211,4 +211,165 @@ describe('Admin Sys — /online endpoints', () => {
       expect(body.message).toContain('不存在或已注销')
     })
   })
+
+  describe('sys_operlog 审计埋点', () => {
+    it('DELETE 请求触发后写入 sys_operlog(businessType=3)', async () => {
+      vi.mocked(db.update).mockReturnValueOnce({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([{ id: 'token-audit' }]),
+          }),
+        }),
+      } as never)
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/admin/online/token-audit',
+        headers: AUTH_HEADERS,
+      })
+      expect(res.statusCode).toBe(200)
+
+      // 等待 setImmediate 异步落库完成
+      await new Promise((resolve) => setImmediate(resolve))
+
+      // db.insert 在 createOperlog 中被调用(在线会话撤销也走 update,故只验证 insert 被调用)
+      expect(db.insert).toHaveBeenCalled()
+    })
+
+    it('GET 请求不触发 operlog 写入(insert 调用次数不增加)', async () => {
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => Promise.resolve([]),
+              }),
+            }),
+          }),
+        }),
+      } as never)
+
+      const insertCountBefore = vi.mocked(db.insert).mock.calls.length
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/admin/online/list',
+        headers: AUTH_HEADERS,
+      })
+      expect(res.statusCode).toBe(200)
+
+      await new Promise((resolve) => setImmediate(resolve))
+      const insertCountAfter = vi.mocked(db.insert).mock.calls.length
+      // GET 请求不应触发 operlog insert
+      expect(insertCountAfter).toBe(insertCountBefore)
+    })
+  })
+
+  describe('role/authUser 角色用户管理(5 端点)', () => {
+    it('GET /role/authUser/allocatedList 无 roleId 返回 400', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/admin/role/authUser/allocatedList',
+        headers: AUTH_HEADERS,
+      })
+      expect(res.statusCode).toBe(400)
+      const body = res.json()
+      expect(body.message).toContain('roleId')
+    })
+
+    it('GET /role/authUser/allocatedList 有效 roleId 返回列表', async () => {
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: () => ({
+                offset: () =>
+                  Promise.resolve([
+                    { id: 'u-1', username: 'admin', nickname: '管理员', roleId: 1 },
+                  ]),
+              }),
+            }),
+          }),
+        }),
+      } as never)
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          where: () => Promise.resolve([{ count: 1 }]),
+        }),
+      } as never)
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/admin/role/authUser/allocatedList?roleId=1',
+        headers: AUTH_HEADERS,
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.total).toBe(1)
+      expect(body.data.list[0].id).toBe('u-1')
+    })
+
+    it('PUT /role/authUser/cancel 取消用户角色', async () => {
+      vi.mocked(db.update).mockReturnValueOnce({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([{ id: 'u-1' }]),
+          }),
+        }),
+      } as never)
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: '/api/admin/role/authUser/cancel',
+        headers: AUTH_HEADERS,
+        payload: { roleId: 1, userId: 'u-1' },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.success).toBe(true)
+    })
+
+    it('PUT /role/authUser/cancelAll 批量取消', async () => {
+      vi.mocked(db.update).mockReturnValueOnce({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([{ id: 'u-1' }, { id: 'u-2' }]),
+          }),
+        }),
+      } as never)
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: '/api/admin/role/authUser/cancelAll?roleId=1&userIds=u-1,u-2',
+        headers: AUTH_HEADERS,
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.success).toBe(true)
+      expect(body.data.affected).toBe(2)
+    })
+
+    it('PUT /role/authUser/selectAll 批量分配', async () => {
+      vi.mocked(db.update).mockReturnValueOnce({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([{ id: 'u-1' }, { id: 'u-2' }]),
+          }),
+        }),
+      } as never)
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: '/api/admin/role/authUser/selectAll?roleId=2&userIds=u-1,u-2',
+        headers: AUTH_HEADERS,
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.success).toBe(true)
+      expect(body.data.affected).toBe(2)
+    })
+  })
 })
