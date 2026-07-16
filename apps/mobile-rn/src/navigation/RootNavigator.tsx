@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect } from 'react'
+import { useEffect } from 'react'
 import { View, Text } from 'react-native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import type { WSNotification } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
+import { NotificationProvider, useNotificationStore } from '../stores/notification'
+import NotificationPanel from '../components/NotificationPanel'
 import { LoginScreen } from '../screens/LoginScreen'
 import { HomeScreen } from '../screens/HomeScreen'
 import { ChatScreen } from '../screens/ChatScreen'
@@ -26,31 +27,18 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 
-// 通知 Context:在 RootNavigator 顶层订阅 WS,通过 Context 分发给已登录栈各 Screen
-interface NotificationContextValue {
-  connected: boolean
-  lastMessage: WSNotification | null
-}
-
-const NotificationContext = createContext<NotificationContextValue | null>(null)
-
-export function useNotification(): NotificationContextValue {
-  const ctx = useContext(NotificationContext)
-  if (!ctx) throw new Error('useNotification must be used within RootNavigator')
-  return ctx
-}
-
-export function RootNavigator() {
+function RootNavigatorInner() {
   const { token, ready } = useAuth()
-  const { connected, lastMessage } = useNotificationWebSocket(token)
+  const ws = useNotificationWebSocket(token)
+  const { setConnected, addFromWs } = useNotificationStore()
 
   useEffect(() => {
-    if (lastMessage) {
-      // 开发期可见:WS 通知到达后输出到控制台
-      // eslint-disable-next-line no-console
-      console.log('[WS] notification:', lastMessage)
-    }
-  }, [lastMessage])
+    setConnected(ws.connected)
+  }, [ws.connected, setConnected])
+
+  useEffect(() => {
+    addFromWs(ws.lastMessage)
+  }, [ws.lastMessage, addFromWs])
 
   if (!ready) {
     return (
@@ -61,7 +49,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NotificationContext.Provider value={{ connected, lastMessage }}>
+    <>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {token ? (
           <>
@@ -77,6 +65,15 @@ export function RootNavigator() {
           <Stack.Screen name="Login" component={LoginScreen} />
         )}
       </Stack.Navigator>
-    </NotificationContext.Provider>
+      <NotificationPanel />
+    </>
+  )
+}
+
+export function RootNavigator() {
+  return (
+    <NotificationProvider>
+      <RootNavigatorInner />
+    </NotificationProvider>
   )
 }

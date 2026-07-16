@@ -3,7 +3,9 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { getProfile, type AuthUser } from '@ihui/api-client'
 import { initApi, getToken, setToken, clearToken } from '../../lib/token'
 import { useNotificationWebSocket } from '../../lib/use-websocket'
+import { NotificationProvider, useNotificationStore } from '../../lib/notification-store'
 import LoginPage from './pages/LoginPage'
+import NotificationPanel from './NotificationPanel'
 
 const TABS = [
   { to: '/chat', label: '对话', icon: '💬' },
@@ -13,21 +15,18 @@ const TABS = [
   { to: '/settings', label: '设置', icon: '⚙️' },
 ]
 
-export default function SidepanelApp() {
+function SidepanelInner() {
   const navigate = useNavigate()
   const [ready, setReady] = useState(false)
   const [authed, setAuthed] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [token, setTokenState] = useState<string | null>(null)
   const { connected: wsConnected, lastMessage } = useNotificationWebSocket(token)
+  const { addFromWs, unreadCount, setVisible } = useNotificationStore()
 
   useEffect(() => {
-    if (lastMessage) {
-      // 开发期可见:WS 通知到达后输出到控制台
-      // eslint-disable-next-line no-console
-      console.log('[WS] notification:', lastMessage)
-    }
-  }, [lastMessage])
+    addFromWs(lastMessage)
+  }, [lastMessage, addFromWs])
 
   useEffect(() => {
     let cancelled = false
@@ -81,6 +80,16 @@ export default function SidepanelApp() {
     <div className="sidepanel-layout">
       <header className="sp-header">
         <span className="sp-brand">IHUI AI</span>
+        <button
+          type="button"
+          className="sp-notify-btn"
+          onClick={() => setVisible(true)}
+          aria-label="通知"
+          title="通知"
+        >
+          🔔
+          {unreadCount > 0 ? <span className="sp-notify-badge">{unreadCount}</span> : null}
+        </button>
         <span
           className={`sp-ws-dot ${wsConnected ? 'connected' : 'disconnected'}`}
           title={wsConnected ? '实时通知已连接' : '实时通知未连接'}
@@ -109,6 +118,15 @@ export default function SidepanelApp() {
           <Outlet context={{ onLogout }} />
         </main>
       </div>
+      <NotificationPanel />
     </div>
+  )
+}
+
+export default function SidepanelApp() {
+  return (
+    <NotificationProvider>
+      <SidepanelInner />
+    </NotificationProvider>
   )
 }

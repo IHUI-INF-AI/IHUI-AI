@@ -31,6 +31,51 @@ export interface SandboxOptions {
   blockedEnvVars?: string[];
 }
 
+export type FolderTrustLevel = 'trusted' | 'read-only' | 'forbidden';
+
+/**
+ * 路径模式 → 信任级别映射。
+ * 路径匹配规则:
+ * - 精确路径优先(如 '.env' 匹配根目录 .env 文件)
+ * - 目录通配(如 'src/*' 匹配 src 下所有文件,'src/**' 递归匹配)
+ * - glob 风格(* 单层,** 递归)
+ * 未匹配的路径默认 'trusted'(不阻塞正常工作)
+ */
+export type FolderTrustMap = Record<string, FolderTrustLevel>;
+
+/**
+ * 检查给定路径的信任级别。
+ * @param filePath 相对工作区的路径(POSIX 风格)
+ * @param trustMap 信任映射
+ * @returns 匹配的信任级别,未匹配返回 'trusted'
+ */
+export function checkFolderTrust(filePath: string, trustMap: FolderTrustMap | undefined): FolderTrustLevel {
+  if (!trustMap) return 'trusted';
+
+  const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+
+  if (trustMap[normalized]) return trustMap[normalized]!;
+
+  let bestMatch: { level: FolderTrustLevel; specificity: number } | null = null;
+  for (const [pattern, level] of Object.entries(trustMap)) {
+    if (pattern === normalized) {
+      return level;
+    }
+    const regexStr = pattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*\*/g, '<<<GLOBSTAR>>>')
+      .replace(/\*/g, '[^/]*')
+      .replace(/<<<GLOBSTAR>>>/g, '.*');
+    if (new RegExp(`^${regexStr}$`).test(normalized)) {
+      const specificity = (pattern.match(/[*/]/g) ?? []).length;
+      if (!bestMatch || specificity < bestMatch.specificity) {
+        bestMatch = { level, specificity };
+      }
+    }
+  }
+  return bestMatch?.level ?? 'trusted';
+}
+
 export type SandboxProfile = 'readonly' | 'limited' | 'trusted' | 'open' | 'full';
 
 export interface SandboxProfileConfig {

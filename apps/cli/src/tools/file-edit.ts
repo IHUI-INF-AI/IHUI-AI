@@ -19,7 +19,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
-import type { Tool, ToolResult, ToolContext } from './index.js';
+import { type Tool, type ToolResult, type ToolContext, checkPathWritePermission } from './index.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 
 interface EditToolContext extends ToolContext {
@@ -80,6 +80,9 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
       if (content === undefined) return { success: false, output: '', error: '缺少 content 参数' };
 
+      const perm = checkPathWritePermission(filePath, ctx);
+      if (!perm.allowed) return { success: false, output: '', error: perm.reason };
+
       const preResult = runPreToolCall('write_file', { path: filePath, cwd: ctx.workspacePath });
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
@@ -136,6 +139,9 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
 
+      const perm = checkPathWritePermission(filePath, ctx);
+      if (!perm.allowed) return { success: false, output: '', error: perm.reason };
+
       const preResult = runPreToolCall('edit_file', { path: filePath, cwd: ctx.workspacePath });
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
@@ -182,6 +188,9 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
     async execute(args): Promise<ToolResult> {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
+
+      const perm = checkPathWritePermission(filePath, ctx);
+      if (!perm.allowed) return { success: false, output: '', error: perm.reason };
 
       const preResult = runPreToolCall('delete_file', { path: filePath, cwd: ctx.workspacePath });
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
