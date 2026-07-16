@@ -132,7 +132,7 @@ textarea:focus {
 .sp-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--card);
@@ -142,6 +142,33 @@ textarea:focus {
 .sp-brand {
   font-weight: 600;
   font-size: 14px;
+  margin-right: auto;
+}
+
+.sp-ws-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sp-ws-dot.connected {
+  background: #16a34a;
+}
+
+.sp-ws-dot.disconnected {
+  background: #9ca3af;
+}
+
+@media (prefers-color-scheme: dark) {
+  .sp-ws-dot.connected {
+    background: #22c55e;
+  }
+
+  .sp-ws-dot.disconnected {
+    background: #4b5563;
+  }
 }
 
 .sp-user {
