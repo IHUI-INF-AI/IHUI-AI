@@ -129,6 +129,9 @@ const createPaperSchema = z.object({
   duration: z.number().int().min(1).max(600).optional(),
   isPublished: z.boolean().optional(),
   isRandom: z.boolean().optional(),
+  questionDisordered: z.boolean().optional(),
+  optionDisordered: z.boolean().optional(),
+  difficulty: z.number().int().min(1).max(5).optional(),
   status: z.number().int().optional(),
 })
 
@@ -142,6 +145,9 @@ const updatePaperSchema = z.object({
   duration: z.number().int().min(1).max(600).optional(),
   isPublished: z.boolean().optional(),
   isRandom: z.boolean().optional(),
+  questionDisordered: z.boolean().optional(),
+  optionDisordered: z.boolean().optional(),
+  difficulty: z.number().int().min(1).max(5).optional(),
   status: z.number().int().optional(),
 })
 

@@ -1,11 +1,10 @@
 /**
  * Agent 执行模块 — 非交互式单次执行。
- * 连接后端 WebSocket /workspace/agent/ws, 流式接收事件。
+ * 通过 @ihui/api-client 的 streamChat (SSE) 流式接收回复。
  */
 
-import WebSocket from 'ws';
 import chalk from 'chalk';
-import ora from 'ora';
+import { streamChat, setBaseUrl, setTokenProvider } from '@ihui/api-client';
 
 export interface AgentOptions {
   prompt: string;
@@ -16,99 +15,20 @@ export interface AgentOptions {
   maxIterations: number;
 }
 
-interface AgentContext {
-  currentTool: string;
-}
-
 export async function runAgent(opts: AgentOptions): Promise<void> {
-  const wsUrl =
-    opts.apiUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/api/v1/workspace/agent/ws';
+  setBaseUrl(opts.apiUrl);
+  if (opts.apiKey) {
+    setTokenProvider({ getToken: () => opts.apiKey ?? null });
+  }
 
   console.info(chalk.dim(`\n🤖 IHUI Agent — ${opts.workspacePath}\n`));
   console.info(chalk.dim(`任务: ${opts.prompt}\n`));
 
-  const spinner = ora({ text: '连接中...', color: 'cyan' }).start();
-  const ctx: AgentContext = { currentTool: '' };
-
-  return new Promise<void>((resolve) => {
-    const ws = new WebSocket(wsUrl);
-
-    ws.on('open', () => {
-      spinner.succeed('已连接');
-      ws.send(
-        JSON.stringify({
-          prompt: opts.prompt,
-          model_id: opts.modelId,
-          workspace_path: opts.workspacePath,
-          max_iterations: opts.maxIterations,
-        }),
-      );
-    });
-
-    ws.on('message', (data: Buffer) => {
-      try {
-        const event = JSON.parse(data.toString()) as Record<string, unknown>;
-        handleEvent(event, spinner, ctx);
-      } catch {
-        /* ignore parse errors */
-      }
-    });
-
-    ws.on('error', (err: Error) => {
-      spinner.fail('连接错误');
-      console.error(chalk.red(`\n❌ ${err.message}`));
-      resolve();
-    });
-
-    ws.on('close', () => {
-      spinner.stop();
-      console.info(chalk.dim('\n--- 会话结束 ---\n'));
-      resolve();
-    });
+  await streamChat({
+    model: opts.modelId,
+    messages: [{ role: 'user', content: opts.prompt }],
+    onDelta: (delta) => process.stdout.write(delta),
+    onError: (err) => console.error(chalk.red(`\n❌ ${err}`)),
+    onDone: () => console.info(chalk.green('\n\n✨ 完成\n')),
   });
-}
-
-function handleEvent(
-  event: Record<string, unknown>,
-  spinner: ReturnType<typeof ora>,
-  ctx: AgentContext,
-): void {
-  const type = event.type as string;
-  switch (type) {
-    case 'agent.context':
-      spinner.stop();
-      console.info(chalk.dim(`📁 工作区: ${event.workspace}`));
-      console.info(chalk.dim(`🧠 模型: ${event.model}`));
-      break;
-
-    case 'agent.text.delta':
-      process.stdout.write((event.content as string) || '');
-      break;
-
-    case 'agent.tool.call':
-      console.info('');
-      ctx.currentTool = event.name as string;
-      console.info(chalk.cyan(`🔧 调用工具: ${ctx.currentTool}`));
-      spinner.start(`执行 ${ctx.currentTool}...`);
-      break;
-
-    case 'agent.tool.result':
-      spinner.stop();
-      if (event.success) {
-        console.info(chalk.green(`✅ ${ctx.currentTool} 完成`));
-      } else {
-        console.info(chalk.red(`❌ ${ctx.currentTool} 失败: ${event.error}`));
-      }
-      console.info('');
-      break;
-
-    case 'agent.error':
-      spinner.fail('错误');
-      console.error(chalk.red(`\n❌ ${event.message}`));
-      break;
-
-    case 'agent.done':
-      console.info(chalk.green(`\n\n✨ 完成 (${event.iterations} 次迭代)`));
-      break;
-  }
 }

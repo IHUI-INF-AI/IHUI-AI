@@ -32,6 +32,10 @@ const listUsersQuerySchema = z.object({
   role: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
   includeDeleted: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+  deptId: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+    z.coerce.number().int().optional(),
+  ),
 })
 
 const listProjectsQuerySchema = z.object({
@@ -183,6 +187,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
             search: { type: 'string', description: '搜索关键词(可选)' },
             role: { type: 'integer', description: '角色 ID 筛选(可选)' },
             status: { type: 'integer', description: '状态筛选(可选)' },
+            deptId: { type: 'integer', description: '部门 ID 筛选(可选)' },
           },
         },
         response: {
@@ -214,7 +219,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { page, pageSize, search, role, status, includeDeleted } = parsed.data
+      const { page, pageSize, search, role, status, includeDeleted, deptId } = parsed.data
       const { list, total } = await findUsers(
         page,
         pageSize,
@@ -222,6 +227,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         role,
         status,
         includeDeleted === true,
+        deptId,
       )
       return reply.send(success({ list, total, page, pageSize }))
     },

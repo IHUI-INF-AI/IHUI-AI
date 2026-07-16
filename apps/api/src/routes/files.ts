@@ -17,6 +17,7 @@ import {
 import { findTagsByTarget, attachTag, detachTag } from '../db/social-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { buildSchema } from '../utils/swagger.js'
+import { convertToMarkdown } from '../services/markdown-converter-service.js'
 
 const ADMIN_ROLE_ID = 1
 
@@ -330,6 +331,45 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
 
       const tags = await findTagsByTarget('file', file.id)
       return reply.send(success({ tags: tags.map(serializeTag) }))
+    },
+  )
+
+  // POST /files/:id/convert-markdown - 文件转 Markdown
+  server.post(
+    '/files/:id/convert-markdown',
+    {
+      schema: buildSchema({
+        summary: '文件转 Markdown',
+        description: '将指定文件(docx/xlsx/pptx/pdf/txt/md)转换为 Markdown 文本',
+        tags: ['File'],
+        params: idParamSchema,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const file = await findFileById(parsed.data.id)
+      if (!file) {
+        return reply.status(404).send(error(404, '文件不存在'))
+      }
+      if (!isAdmin(request) && !(await canAccessFile(userId, file))) {
+        return reply.status(403).send(error(403, '无权访问该文件'))
+      }
+
+      const filePath = join(UPLOAD_DIR, file.id)
+      const markdown = await convertToMarkdown(filePath)
+      if (!markdown) {
+        return reply.status(422).send(error(422, '不支持的文件类型或转换失败'))
+      }
+
+      return reply.send(success({ markdown, fileName: file.name }))
     },
   )
 

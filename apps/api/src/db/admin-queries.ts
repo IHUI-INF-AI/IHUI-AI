@@ -73,6 +73,7 @@ export async function findUsers(
   role?: number,
   status?: number,
   includeDeleted = false,
+  deptId?: number,
 ): Promise<{ list: AdminUser[]; total: number }> {
   const conds = []
   if (search) {
@@ -80,6 +81,7 @@ export async function findUsers(
     conds.push(or(ilike(users.phone, like), ilike(users.email, like), ilike(users.nickname, like)))
   }
   if (role !== undefined) conds.push(eq(users.roleId, role))
+  if (deptId !== undefined) conds.push(eq(users.deptId, deptId))
   if (status !== undefined) {
     conds.push(eq(users.status, status))
   } else if (!includeDeleted) {

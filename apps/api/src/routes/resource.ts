@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
@@ -175,17 +175,20 @@ const updateProductSchema = z.object({
 const tagsListQuery = z.object({
   ...paginationQuery,
   name: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
+  pid: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
 })
 
 const createTagSchema = z.object({
   name: z.string().min(1).max(100),
+  pid: z.string().uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
 const updateTagSchema = z.object({
   name: z.string().min(1).max(100).optional(),
+  pid: z.string().uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
