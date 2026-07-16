@@ -40,7 +40,7 @@ import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
 import { CODEGRAPH_TOOLS } from '../tools/codegraph.js';
 import { createSubagentTool } from '../tools/subagent.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
-import { compressContext, estimateTokens, estimateMessagesTokens } from '../context.js';
+import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens } from '../context.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
 import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.js';
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
@@ -204,6 +204,8 @@ export interface RunToolLoopOptions {
   onToolResult?: (name: string, success: boolean, output: string) => void | Promise<void>;
   onIteration?: (count: number, max: number) => void | Promise<void>;
   onError?: (message: string) => void | Promise<void>;
+  /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 8000。 */
+  contextLimit?: number;
 }
 
 export interface RunToolLoopResult {
@@ -252,7 +254,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       iterations = i + 1;
       await opts.onIteration?.(iterations, opts.maxIterations);
 
-      const compression = compressContext(opts.messages);
+      const compression = compressContextIfNeeded(opts.messages, {
+        contextLimit: opts.contextLimit ?? 8000,
+      });
       const effectiveMessages = compression.messages;
 
       let iterationText = '';
