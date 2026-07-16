@@ -2,32 +2,38 @@ import { seedAiTutorials } from './ai-tutorials.js'
 import { seedLessons } from './lessons.js'
 import { seedAiCategories } from './ai-categories.js'
 import { seedPermissions } from './permissions.js'
+import { seedUsers } from './users.js'
 
 async function main() {
-  console.log('=== 开始种子数据导入 ===')
-  console.log('')
+  console.info('=== 开始种子数据导入 ===')
+  console.info('')
 
   // 1. AI 行业分类（先导入分类，后续资源/课程可关联）
-  console.log('[1/4] 导入 AI 行业分类...')
+  console.info('[1/5] 导入 AI 行业分类...')
   await seedAiCategories()
-  console.log('')
+  console.info('')
 
   // 2. 课程数据
-  console.log('[2/4] 导入课程数据...')
+  console.info('[2/5] 导入课程数据...')
   await seedLessons()
-  console.log('')
+  console.info('')
 
   // 3. AI 教学资源
-  console.log('[3/4] 导入 AI 教学资源...')
+  console.info('[3/5] 导入 AI 教学资源...')
   await seedAiTutorials()
-  console.log('')
+  console.info('')
 
   // 4. RBAC 权限点（212 条权限码 + admin 角色绑定）
-  console.log('[4/4] 导入 RBAC 权限点...')
+  console.info('[4/5] 导入 RBAC 权限点...')
   await seedPermissions()
-  console.log('')
+  console.info('')
 
-  console.log('=== 种子数据导入完成 ===')
+  // 5. 默认登录用户（test / admin）
+  console.info('[5/5] 导入默认用户...')
+  await seedUsers()
+  console.info('')
+
+  console.info('=== 种子数据导入完成 ===')
   process.exit(0)
 }
 
