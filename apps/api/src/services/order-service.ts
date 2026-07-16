@@ -15,11 +15,20 @@ import {
   type CreateOrderInput,
 } from '../db/payment-queries.js'
 import type { Order } from '@ihui/database'
+import type { FastifyInstance } from 'fastify'
 import { executeSaga, type SagaResult } from './distributed-transaction.js'
 import { earnPoints, spendPoints } from './points-service.js'
 import { writeToOutbox } from '../utils/outbox.js'
 
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
+
+/**
+ * 支付 WS 实时通知事件类型（推送给前端，与 outbox 事件 'order.*' 分离）。
+ * - payment.paid: 支付成功
+ * - payment.failed: 支付失败
+ * - payment.refunded: 退款完成
+ */
+export type PaymentEventType = 'payment.paid' | 'payment.failed' | 'payment.refunded'
 
 export type PlaceOrderInput = CreateOrderInput
 
@@ -75,10 +84,12 @@ export interface SagaOrderResult extends OrderOperationResult {
  *
  * @param orderNo 订单号
  * @param tradeNo 第三方交易号（可选，写入 outbox payload）
+ * @param server Fastify 实例（可选，传入后支付成功时推送 WS payment.paid 通知）
  */
 export async function completeOrderWithSaga(
   orderNo: string,
   tradeNo?: string,
+  server?: FastifyInstance,
 ): Promise<SagaOrderResult> {
   const order = await findOrderByNo(orderNo)
   if (!order) return { success: false, reason: '订单不存在' }
@@ -158,6 +169,22 @@ export async function completeOrderWithSaga(
       success: false,
       reason: `订单完成流程失败: ${saga.error ?? 'unknown'}`,
       saga,
+    }
+  }
+
+  // WS 实时通知：outbox 'order.paid' 已写入，推送 WS 'payment.paid' 给用户所有在线端
+  if (server) {
+    try {
+      server.pushNotification(order.userId, {
+        type: 'payment.paid' satisfies PaymentEventType,
+        orderNo,
+        amount: order.amount,
+        orderType: order.orderType,
+        tradeNo,
+        paidAt: new Date().toISOString(),
+      })
+    } catch {
+      /* 推送失败不阻塞订单完成 */
     }
   }
 
