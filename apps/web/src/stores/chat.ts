@@ -23,6 +23,7 @@ export interface ChatMessage {
   model?: string
   error?: boolean
   toolCalls?: ToolCall[]
+  reasoning?: string
 }
 
 interface ChatState {
@@ -38,6 +39,7 @@ interface ChatState {
   setModel: (model: string) => void
   addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model'>) => string
   appendToMessage: (id: string, delta: string) => void
+  appendReasoningToMessage: (id: string, delta: string) => void
   setMessageError: (id: string, error: string) => void
   clearMessages: () => void
   setStreaming: (v: boolean) => void
@@ -80,6 +82,13 @@ export const useChatStore = create<ChatState>()(
       appendToMessage: (id, delta) =>
         set((s) => ({
           messages: s.messages.map((m) => (m.id === id ? { ...m, content: m.content + delta } : m)),
+        })),
+
+      appendReasoningToMessage: (id, delta) =>
+        set((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === id ? { ...m, reasoning: (m.reasoning || '') + delta } : m,
+          ),
         })),
 
       setMessageError: (id, error) =>

@@ -67,7 +67,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           id="sw-register"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))`,
+            __html: `if('serviceWorker' in navigator && process.env.NODE_ENV === 'production')window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))`,
           }}
         />
       </body>

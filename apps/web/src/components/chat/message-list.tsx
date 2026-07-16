@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { Sparkles, AlertCircle, Loader2 } from 'lucide-react'
+import { Sparkles, AlertCircle, Loader2, ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import type { ChatMessage } from '@/stores/chat'
@@ -17,6 +17,28 @@ function TypingIndicator() {
       <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
       <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
       <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60" />
+    </div>
+  )
+}
+
+function ReasoningBlock({ reasoning }: { reasoning: string }) {
+  const t = useTranslations('chat')
+  const [expanded, setExpanded] = React.useState(false)
+  return (
+    <div className="rounded-md border border-muted bg-muted/30">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronDown className={cn('h-3 w-3 transition-transform', expanded && 'rotate-180')} />
+        {expanded ? t('hideReasoning') : t('showReasoning')}
+      </button>
+      {expanded && (
+        <div className="border-t border-muted px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap break-words">
+          {reasoning}
+        </div>
+      )}
     </div>
   )
 }
@@ -175,6 +197,7 @@ export function MessageList({
                     </p>
                   ) : (
                     <div className="space-y-2">
+                      {m.reasoning && <ReasoningBlock reasoning={m.reasoning} />}
                       {m.toolCalls?.map((tc) => (
                         <ToolCallCard
                           key={tc.id}

@@ -1,5 +1,16 @@
-import { pgTable, uuid, varchar, text, integer, boolean, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
-import { examPapers } from './exam.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  jsonb,
+  index,
+  unique,
+} from 'drizzle-orm/pg-core'
+import { examPapers } from './exam.js'
 
 /**
  * 试卷章节表(三级结构: 试卷 -> 章节 -> 小节)。
@@ -21,7 +32,7 @@ export const examChapters = pgTable(
   (t) => ({
     paperIdx: index('exam_chapters_paper_idx').on(t.paperId),
   }),
-);
+)
 
 /**
  * 章节小节表。
@@ -44,7 +55,7 @@ export const examChapterSections = pgTable(
   (t) => ({
     chapterIdx: index('exam_chapter_sections_chapter_idx').on(t.chapterId),
   }),
-);
+)
 
 /**
  * 考试报名表。
@@ -66,7 +77,7 @@ export const examSignups = pgTable(
     paperIdx: index('exam_signups_paper_idx').on(t.paperId),
     userIdx: index('exam_signups_user_idx').on(t.userId),
   }),
-);
+)
 
 /**
  * 错题本表 (历史 exam_wrong_question)。
@@ -92,14 +103,15 @@ export const examWrongQuestion = pgTable(
   (t) => ({
     userIdx: index('exam_wrong_question_user_idx').on(t.userId),
     questionIdx: index('exam_wrong_question_question_idx').on(t.questionId),
+    userQuestionUniq: unique('exam_wrong_question_user_question_unique').on(t.userId, t.questionId),
   }),
-);
+)
 
-export type ExamChapter = typeof examChapters.$inferSelect;
-export type NewExamChapter = typeof examChapters.$inferInsert;
-export type ExamChapterSection = typeof examChapterSections.$inferSelect;
-export type NewExamChapterSection = typeof examChapterSections.$inferInsert;
-export type ExamSignup = typeof examSignups.$inferSelect;
-export type NewExamSignup = typeof examSignups.$inferInsert;
-export type ExamWrongQuestion = typeof examWrongQuestion.$inferSelect;
-export type NewExamWrongQuestion = typeof examWrongQuestion.$inferInsert;
+export type ExamChapter = typeof examChapters.$inferSelect
+export type NewExamChapter = typeof examChapters.$inferInsert
+export type ExamChapterSection = typeof examChapterSections.$inferSelect
+export type NewExamChapterSection = typeof examChapterSections.$inferInsert
+export type ExamSignup = typeof examSignups.$inferSelect
+export type NewExamSignup = typeof examSignups.$inferInsert
+export type ExamWrongQuestion = typeof examWrongQuestion.$inferSelect
+export type NewExamWrongQuestion = typeof examWrongQuestion.$inferInsert
