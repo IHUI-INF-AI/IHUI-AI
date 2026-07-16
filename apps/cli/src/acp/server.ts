@@ -4,11 +4,49 @@
  * 协议规范:https://agentclientprotocol.com
  * SDK:@agentclientprotocol/sdk
  *
- * 启动方式:ihui acp
- * 编辑器侧配置示例(Zed agents.json):
- *   { "ihui": { "command": "ihui", "args": ["acp"] } }
+ * 启动方式:`ihui acp` (默认 stdio NDJSON 传输)
+ * 集成方法:
+ *
+ * **Zed** (`~/.config/zed/settings.json` 或工作区 `.zed/settings.json`):
+ * ```json
+ * {
+ *   "agent_servers": {
+ *     "ihui": {
+ *       "command": "ihui",
+ *       "args": ["acp"]
+ *     }
+ *   }
+ * }
+ * ```
+ *
+ * **VSCode** (需安装支持 ACP 的扩展,如 `agent-client-protocol` 扩展):
+ * ```json
+ * // settings.json
+ * {
+ *   "agent.servers": {
+ *     "ihui": { "command": "ihui", "args": ["acp"] }
+ *   }
+ * }
+ * ```
+ *
+ * **Cursor** (实验性 ACP 支持,settings.json):
+ * ```json
+ * {
+ *   "acp.servers": [
+ *     { "name": "ihui", "command": "ihui", "args": ["acp"] }
+ *   ]
+ * }
+ * ```
  *
  * 工具循环集成:session/prompt 调用 runToolLoop,Agent 可自主调用工具读写文件。
+ * 协议方法实现:initialize / authenticate / session/{new,load,prompt,close} / session/cancel。
+ * Token 成本:在 session/prompt 完成后通过 session/update 通知 agent_message_chunk,
+ *           Editor 可在状态栏/侧边栏展示。
+ *
+ * 危险工具(默认拒绝):Editor 内无交互确认通道,需在 `~/.ihui/settings.json` 设置
+ * `allowDangerous: true` 或启动时加 `--allow-dangerous` flag(自负风险)。
+ *
+ * MCP 工具:启动时加 `--mcp` flag 启用,自动从 `~/.ihui/mcp.json` 加载 MCP 服务器工具。
  */
 
 import { Readable, Writable } from 'node:stream';
