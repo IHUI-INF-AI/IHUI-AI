@@ -7,23 +7,32 @@
  * 启动方式:ihui acp
  * 编辑器侧配置示例(Zed agents.json):
  *   { "ihui": { "command": "ihui", "args": ["acp"] } }
+ *
+ * 工具循环集成:session/prompt 调用 runToolLoop,Agent 可自主调用工具读写文件。
  */
 
 import { Readable, Writable } from 'node:stream';
 import * as acp from '@agentclientprotocol/sdk';
-import { streamChat, setBaseUrl, setTokenProvider } from '@ihui/api-client';
+import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import { createSession, saveSession, loadSession, type Session } from '../commands/session.js';
+import { setupAgentTools, runToolLoop, type ToolContext } from '../commands/agent.js';
+import { CheckpointManager } from '../checkpoints/index.js';
 
 export interface AcpServerOptions {
   apiUrl: string;
   apiKey?: string;
   modelId: string;
   maxIterations: number;
+  enableMcp?: boolean;
 }
 
 interface AcpSessionState {
   session: Session;
   pendingAbort: AbortController | null;
+  agentReady: boolean;
+  systemPrompt: string | null;
+  ctx: ToolContext | null;
+  checkpoints: CheckpointManager | null;
 }
 
 class IhuiAcpAgent {
@@ -49,7 +58,18 @@ class IhuiAcpAgent {
 
   async newSession(params: acp.NewSessionRequest): Promise<acp.NewSessionResponse> {
     const session = createSession(params.cwd, this.opts.modelId);
-    const state: AcpSessionState = { session, pendingAbort: null };
+    const checkpoints = new CheckpointManager({
+      sessionId: session.id,
+      workspacePath: params.cwd,
+    });
+    const state: AcpSessionState = {
+      session,
+      pendingAbort: null,
+      agentReady: false,
+      systemPrompt: null,
+      ctx: null,
+      checkpoints,
+    };
     this.sessions.set(session.id, state);
     return { sessionId: session.id };
   }
@@ -62,7 +82,18 @@ class IhuiAcpAgent {
     if (!existing) {
       throw new Error(`Session ${params.sessionId} not found`);
     }
-    const state: AcpSessionState = { session: existing, pendingAbort: null };
+    const checkpoints = new CheckpointManager({
+      sessionId: existing.id,
+      workspacePath: existing.workspacePath,
+    });
+    const state: AcpSessionState = {
+      session: existing,
+      pendingAbort: null,
+      agentReady: false,
+      systemPrompt: null,
+      ctx: null,
+      checkpoints,
+    };
     this.sessions.set(existing.id, state);
 
     for (const msg of existing.history) {
@@ -97,6 +128,18 @@ class IhuiAcpAgent {
       throw new Error(`Session ${params.sessionId} not found`);
     }
 
+    if (!state.agentReady) {
+      const result = await setupAgentTools({
+        workspacePath: state.session.workspacePath,
+        checkpoints: state.checkpoints ?? undefined,
+        enableMcp: this.opts.enableMcp,
+        silent: true,
+      });
+      state.systemPrompt = result.systemPrompt;
+      state.ctx = result.ctx;
+      state.agentReady = true;
+    }
+
     state.pendingAbort?.abort();
     const abort = new AbortController();
     state.pendingAbort = abort;
@@ -104,17 +147,22 @@ class IhuiAcpAgent {
     const userText = extractTextFromPrompt(params.prompt);
     state.session.history.push({ role: 'user', content: userText });
 
-    let assistantText = '';
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: state.systemPrompt! },
+      ...state.session.history.map((m) => ({
+        role: m.role as 'system' | 'user' | 'assistant',
+        content: m.content,
+      })),
+    ];
+
     try {
-      await streamChat({
-        model: this.opts.modelId,
-        messages: state.session.history.map((m) => ({
-          role: m.role as 'user' | 'assistant' | 'system',
-          content: m.content,
-        })),
+      const result = await runToolLoop({
+        modelId: this.opts.modelId,
+        messages,
+        ctx: state.ctx!,
+        maxIterations: this.opts.maxIterations,
         signal: abort.signal,
         onDelta: async (delta) => {
-          assistantText += delta;
           await cx.notify(acp.methods.client.session.update, {
             sessionId: params.sessionId,
             update: {
@@ -128,15 +176,16 @@ class IhuiAcpAgent {
         },
       });
 
-      if (assistantText) {
-        state.session.history.push({ role: 'assistant', content: assistantText });
+      if (result.assistantText) {
+        state.session.history.push({ role: 'assistant', content: result.assistantText });
       }
       saveSession(state.session);
       return { stopReason: 'end_turn' };
     } catch (err) {
       if (abort.signal.aborted) {
-        if (assistantText) {
-          state.session.history.push({ role: 'assistant', content: assistantText });
+        const lastAssistant = messages.filter((m) => m.role === 'assistant').pop();
+        if (lastAssistant) {
+          state.session.history.push({ role: 'assistant', content: lastAssistant.content });
           saveSession(state.session);
         }
         return { stopReason: 'cancelled' };
