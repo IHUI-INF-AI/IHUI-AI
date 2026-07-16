@@ -57,7 +57,8 @@ program
   .option('--api-key <key>', 'API 密钥', process.env.IHUI_API_KEY || '')
   .option('--resume <session-id>', '恢复之前的会话')
   .option('--continue', '继续最近的会话')
-  .option('--json', 'Headless 模式:输出 NDJSON 事件流 (非 TTY 自动启用,CI/CD 友好)');
+  .option('--json', 'Headless 模式:输出 NDJSON 事件流 (非 TTY 自动启用,CI/CD 友好)')
+  .option('--mcp', '启用 MCP 工具(从 ~/.ihui/mcp.json 加载 MCP 服务器工具)');
 
 interface ResolvedSession {
   sessionId?: string;
@@ -106,6 +107,7 @@ async function runAgentAndExit(
       apiKey: opts.apiKey,
       maxIterations: parseInt(opts.maxIterations, 10),
       jsonMode,
+      enableMcp: opts.mcp === true,
     });
     process.exit(stopReasonToExitCode(result.stopReason));
   } finally {
