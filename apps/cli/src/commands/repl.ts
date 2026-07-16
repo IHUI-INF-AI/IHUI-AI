@@ -65,6 +65,8 @@ interface ReplState {
   memory: MemoryEntry[];
   /** Plan Mode 是否已被批准(/plan approve 后置 true) */
   planApproved?: boolean;
+  /** /rewind 用历史快照栈,每次 sendToAgent 前压入当前 history 深拷贝 */
+  rewindStack: ChatMessage[][];
 }
 
 export function formatContextStats(
@@ -123,6 +125,45 @@ export function formatContextStats(
   return lines.join('\n');
 }
 
+export function rewindHistory(
+  history: ChatMessage[],
+  stack: ChatMessage[][],
+  steps: number,
+): { history: ChatMessage[]; stack: ChatMessage[][]; actualSteps: number; message: string } {
+  if (steps < 0) steps = 1;
+  if (steps === 0) {
+    return { history, stack, actualSteps: 0, message: '未回退(steps=0)' };
+  }
+  if (stack.length === 0) {
+    return { history, stack, actualSteps: 0, message: '无历史可回退' };
+  }
+  const newStack = [...stack];
+  const actualSteps = Math.min(steps, newStack.length);
+  let restored: ChatMessage[] = [];
+  for (let i = 0; i < actualSteps; i++) {
+    restored = newStack.pop()!;
+  }
+  const message =
+    steps > stack.length
+      ? `已回退 ${actualSteps} 步(栈不足,请求 ${steps}),当前消息数: ${restored.length}`
+      : `已回退 ${actualSteps} 步,当前消息数: ${restored.length}`;
+  return { history: restored, stack: newStack, actualSteps, message };
+}
+
+export function forkHistory(
+  history: ChatMessage[],
+  forkIndex: number,
+): { ok: true; forkedHistory: ChatMessage[] } | { ok: false; error: string } {
+  if (history.length === 0) {
+    return { ok: false, error: 'history 为空,无法 fork' };
+  }
+  if (forkIndex < 1 || forkIndex > history.length) {
+    return { ok: false, error: `forkIndex 越界(1-${history.length}),got ${forkIndex}` };
+  }
+  const forkedHistory = history.slice(0, forkIndex).map((m) => ({ ...m }));
+  return { ok: true, forkedHistory };
+}
+
 export async function startREPL(opts: ReplOptions): Promise<void> {
   const hooksConfig = loadHooks();
 
@@ -136,6 +177,7 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     ctx: null,
     skills: [],
     memory: [],
+    rewindStack: [],
   };
   if (state.session) {
     state.checkpoints = new CheckpointManager({
@@ -209,6 +251,8 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info('  /memory [cmd]      管理跨会话记忆(on/off/show/add/clear/search)');
       console.info('  /plan [cmd]        Plan Mode 控制(on/off/approve/show)');
       console.info('  /context           显示当前会话 token 用量 + 消息数 + 压缩阈值');
+      console.info('  /rewind [N]          回退 N 步(默认 1 步,一步=一对 user+assistant)');
+      console.info('  /fork [msg-index]    从指定消息位置 fork 新 session(默认最后一条 user 消息)');
       console.info(chalk.cyan('\n后台任务:'));
       console.info('  /bg <cmd>          启动后台命令,返回 task_id');
       console.info('  /bg list           列出后台任务');
@@ -407,6 +451,61 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         memoryCount: state.memory.length,
       }));
       console.info('');
+      break;
+    }
+
+    case 'rewind': {
+      const raw = args[0] ? Number(args[0]) : 1;
+      const steps = Number.isFinite(raw) ? raw : 1;
+      const result = rewindHistory(state.history, state.rewindStack, steps);
+      state.history = result.history;
+      state.rewindStack = result.stack;
+      if (state.session) {
+        state.session.history = state.history;
+        saveSession(state.session);
+      }
+      if (result.actualSteps > 0) {
+        console.info(chalk.green(result.message));
+      } else {
+        console.info(chalk.yellow(result.message));
+      }
+      break;
+    }
+
+    case 'fork': {
+      let forkIndex: number;
+      if (args[0]) {
+        const parsed = Number(args[0]);
+        if (!Number.isFinite(parsed)) {
+          console.info(chalk.yellow('用法: /fork [msg-index]'));
+          break;
+        }
+        forkIndex = parsed;
+      } else {
+        let lastUserIdx = -1;
+        for (let i = state.history.length - 1; i >= 0; i--) {
+          if (state.history[i]!.role === 'user') {
+            lastUserIdx = i;
+            break;
+          }
+        }
+        if (lastUserIdx === -1) {
+          console.info(chalk.yellow('history 为空或无 user 消息,无法 fork'));
+          break;
+        }
+        forkIndex = lastUserIdx + 1;
+      }
+      const result = forkHistory(state.history, forkIndex);
+      if (!result.ok) {
+        console.info(chalk.yellow(`fork 失败: ${result.error}`));
+        break;
+      }
+      const newSession = createSession(state.opts.workspacePath, state.opts.modelId);
+      newSession.history = result.forkedHistory;
+      saveSession(newSession);
+      console.info(chalk.green(
+        `已 fork 新 session: ${newSession.id},从消息 #${forkIndex} 分叉,包含 ${result.forkedHistory.length} 条消息`,
+      ));
       break;
     }
 
@@ -724,6 +823,10 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
     state.agentReady = true;
   }
 
+  state.rewindStack.push(state.history.map((m) => ({ ...m })));
+  if (state.rewindStack.length > 20) {
+    state.rewindStack.shift();
+  }
   state.history.push({ role: 'user', content: prompt });
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
