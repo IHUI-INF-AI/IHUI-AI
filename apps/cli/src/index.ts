@@ -61,7 +61,8 @@ program
   .option('--continue', '继续最近的会话')
   .option('--json', 'Headless 模式:输出 NDJSON 事件流 (非 TTY 自动启用,CI/CD 友好)')
   .option('--mcp', '启用 MCP 工具(从 ~/.ihui/mcp.json 加载 MCP 服务器工具)')
-  .option('--allow-dangerous', '允许危险工具(run_command/delete_file/git_commit)自动执行,无需确认(默认拒绝,REPL 模式下交互确认)');
+  .option('--allow-dangerous', '允许危险工具(run_command/delete_file/git_commit)自动执行,无需确认(默认拒绝,REPL 模式下交互确认)')
+  .option('--plan', '强制 Agent 先输出任务规划(plan 块)再执行工具(长任务推荐)');
 
 interface ResolvedSession {
   sessionId?: string;
@@ -99,10 +100,25 @@ async function runAgentAndExit(
   opts: OptionValues,
   jsonMode: boolean,
 ): Promise<void> {
-  const onSigint = (): void => process.exit(130);
+  const abort = new AbortController();
+  let session: ReturnType<typeof createSession> | null = null;
+  const onSigint = (): void => {
+    if (!abort.signal.aborted) {
+      abort.abort();
+      if (session && !jsonMode) {
+        console.info(chalk.yellow('\n⚠ 中断中,正在保存会话...'));
+      }
+    }
+  };
   process.on('SIGINT', onSigint);
   try {
-    const session = createSession(opts.workspace, opts.model);
+    session = createSession(opts.workspace, opts.model);
+    // 如果 --resume/--continue,加载历史到 session.history
+    const resumed = resolveSession(opts);
+    if (resumed.sessionId && resumed.history) {
+      session.id = resumed.sessionId;
+      session.history = resumed.history;
+    }
     const checkpoints = new CheckpointManager({
       sessionId: session.id,
       workspacePath: opts.workspace,
@@ -118,6 +134,9 @@ async function runAgentAndExit(
       checkpoints,
       enableMcp: opts.mcp === true,
       allowDangerous: opts.allowDangerous === true,
+      session,
+      signal: abort.signal,
+      planFirst: opts.plan === true,
     });
     process.exit(stopReasonToExitCode(result.stopReason));
   } finally {
