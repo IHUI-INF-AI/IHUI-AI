@@ -15,18 +15,18 @@
     "clean": "rimraf dist .turbo node_modules"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "^1.2.1",
+    "@ihui/api-client": "workspace:*",
     "chalk": "^5.3.0",
     "cli-highlight": "^2.1.11",
     "commander": "^12.1.0",
     "dotenv": "^16.4.7",
     "inquirer": "^12.3.0",
-    "ora": "^8.1.0",
-    "ws": "^8.18.0"
+    "ora": "^8.1.0"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@types/node": "^22.10.0",
-    "@types/ws": "^8.5.13",
     "rimraf": "^6.0.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
