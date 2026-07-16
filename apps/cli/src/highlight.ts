@@ -1,41 +1,41 @@
 /**
- * 代码语法高亮 — 封装 cli-highlight(已装但闲置)。
+ * 代码语法高亮 — 简化版,用 chalk 对关键字着色。
  *
- * 灵感来源:cli 用 syntect crate 做 terminal ANSI 高亮。
- * 做减法:复用已有 cli-highlight 依赖,按扩展名映射语言,失败降级原文。
+ * 原计划用 cli-highlight(已装),但其依赖链断裂(highlight.js 未安装),
+ * 且为 P2 功能重装依赖违反做减法原则。改用 chalk 关键字着色,零新依赖。
  */
 
 import * as path from 'node:path';
-import { highlight } from 'cli-highlight';
+import chalk from 'chalk';
 
-const EXT_LANG_MAP: Record<string, string> = {
-  '.ts': 'typescript', '.tsx': 'tsx',
-  '.js': 'javascript', '.jsx': 'jsx',
-  '.py': 'python', '.json': 'json',
-  '.css': 'css', '.scss': 'scss',
-  '.html': 'html', '.xml': 'xml',
-  '.md': 'markdown', '.markdown': 'markdown',
-  '.yml': 'yaml', '.yaml': 'yaml',
-  '.go': 'go', '.rs': 'rust',
-  '.java': 'java', '.kt': 'kotlin',
-  '.c': 'c', '.cpp': 'cpp',
-  '.sh': 'bash', '.sql': 'sql',
+const EXT_SUPPORTED: Record<string, boolean> = {
+  '.ts': true, '.tsx': true, '.js': true, '.jsx': true,
+  '.py': true, '.go': true, '.rs': true, '.java': true, '.kt': true,
+  '.c': true, '.cpp': true, '.h': true, '.sh': true,
 };
 
-/** 按文件扩展名高亮代码,未知语言或失败返回原文 */
+const KEYWORDS = /\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|import|export|from|default|class|extends|implements|interface|type|enum|namespace|async|await|try|catch|finally|throw|new|typeof|instanceof|in|of|this|super|null|undefined|true|false|void|as|public|private|protected|readonly|static|abstract|declare|def|elif|lambda|raise|with|yield|pass|None|True|False|and|or|not|is|func|package|defer|chan|select|map|range|make|append|struct|impl|pub|use|mod|fn|mut|match|trait|where)\b/g;
+
+const STRINGS = /(["'`])((?:\\.|(?!\1).)*)\1/g;
+const COMMENTS = /(\/\/.*$|#.*$|\/\*[\s\S]*?\*\/)/gm;
+
+/** 按文件扩展名高亮代码(关键字 cyan + 字符串 green + 注释 gray),未知语言返回原文 */
 export function highlightCode(code: string, filePath?: string): string {
   if (!filePath) return code;
   const ext = path.extname(filePath).toLowerCase();
-  const lang = EXT_LANG_MAP[ext];
-  if (!lang) return code;
+  if (!EXT_SUPPORTED[ext]) return code;
   try {
-    return highlight(code, { language: lang });
+    let result = code;
+    result = result.replace(COMMENTS, (m) => chalk.gray(m));
+    result = result.replace(STRINGS, (m) => chalk.green(m));
+    result = result.replace(KEYWORDS, (m) => chalk.cyan(m));
+    return result;
   } catch {
     return code;
   }
 }
 
-/** 从文件路径推断语言名(供其他模块用) */
-export function detectLang(filePath: string): string | undefined {
-  return EXT_LANG_MAP[path.extname(filePath).toLowerCase()];
+/** 从文件路径推断是否支持高亮 */
+export function detectLang(filePath: string): boolean {
+  return !!EXT_SUPPORTED[path.extname(filePath).toLowerCase()];
 }
