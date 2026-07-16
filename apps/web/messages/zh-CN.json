@@ -2037,6 +2037,7 @@
       "save": "保存",
       "deleteConfirm": "确定要删除该频道吗？此操作不可撤销。",
       "colTitle": "标题",
+      "colParent": "父级",
       "colCategory": "分类",
       "colLecturer": "讲师",
       "colStatus": "状态",
