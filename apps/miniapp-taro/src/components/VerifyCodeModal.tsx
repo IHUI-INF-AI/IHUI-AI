@@ -10,7 +10,7 @@ export interface VerifyCodeModalProps {
   phone?: string
   type?: VerifyCodeType
   onClose?: () => void
-  onSuccess?: (data: { token?: string; user?: UserInfo }) => void
+  onSuccess?: (data: { accessToken?: string; refreshToken?: string; user?: UserInfo }) => void
 }
 
 const CODE_LENGTH = 6
@@ -104,7 +104,7 @@ export default function VerifyCodeModal({
     }
     setSubmitting(true)
     try {
-      let result: { token?: string; user?: UserInfo } = {}
+      let result: { accessToken?: string; refreshToken?: string; user?: UserInfo } = {}
       if (type === 'register') {
         await register({ phone, code: fullCode })
       } else if (type === 'changePhone') {
@@ -162,10 +162,7 @@ export default function VerifyCodeModal({
           <Text>{sendText}</Text>
         </View>
         <View className="flex space-x-3">
-          <View
-            className="flex-1 py-2.5 rounded-full bg-gray-100 text-center"
-            onClick={onClose}
-          >
+          <View className="flex-1 py-2.5 rounded-full bg-gray-100 text-center" onClick={onClose}>
             <Text className="text-sm text-gray-600">取消</Text>
           </View>
           <View

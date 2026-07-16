@@ -168,6 +168,14 @@ export function parseToolCalls(text: string): ParsedToolCall[] {
   return calls;
 }
 
+const PLAN_BLOCK_REGEX = /```plan\s*\n([\s\S]*?)```/;
+
+/** 从 LLM 输出中解析 plan 块,返回 plan 内容(无 ```plan 包裹),不存在返回 null。 */
+export function parsePlanBlock(text: string): string | null {
+  const m = PLAN_BLOCK_REGEX.exec(text);
+  return m ? m[1]!.trim() : null;
+}
+
 export function formatToolResult(call: ParsedToolCall, result: ToolResult): string {
   const status = result.success ? '✓' : '✗';
   const errorPart = result.error ? `\n错误: ${result.error}` : '';

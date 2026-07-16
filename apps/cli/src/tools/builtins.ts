@@ -9,9 +9,18 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { runSandboxed } from '../sandbox/index.js';
+import { runSandboxed, runSandboxedAsync } from '../sandbox/index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import { highlightCode } from '../highlight.js';
+import {
+  registerTask,
+  registerFailedTask,
+  getTask,
+  listTasks,
+  getTaskOutput,
+  waitForTask,
+  killTask,
+} from './background-registry.js';
 import type { Tool, ToolContext, ToolResult } from './index.js';
 
 const MAX_READ_LINES = 500;
@@ -281,15 +290,18 @@ export const glob: Tool = {
 
 export const run_command: Tool = {
   name: 'run_command',
-  description: '在沙盒中执行 shell 命令(带超时和路径限制)。参数:command(shell 命令)。',
+  description:
+    '在沙盒中执行 shell 命令(带超时和路径限制)。参数:command(shell 命令),background(可选 true=后台执行立即返回 task_id)。',
   dangerLevel: 'dangerous',
   parameters: {
     command: { type: 'string', description: '要执行的 shell 命令' },
+    background: { type: 'boolean', description: '后台执行,立即返回 task_id(用 list_background_tasks/get_command_output/wait_command 查询)' },
   },
   required: ['command'],
   async execute(args, ctx): Promise<ToolResult> {
     const command = args.command as string;
     if (!command) return { success: false, output: '', error: '缺少 command 参数' };
+    const background = args.background === true;
     // 默认拒绝策略:未提供 confirmDangerous 回调时,dangerous 工具直接拒绝(安全优先)
     if (run_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) {
       return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
@@ -297,8 +309,39 @@ export const run_command: Tool = {
     if (ctx.confirmDangerous && !(await ctx.confirmDangerous(run_command, args))) {
       return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
     }
-    const preResult = runPreToolCall('bash', { command, cwd: ctx.workspacePath });
+    const preResult = runPreToolCall('bash', { command, cwd: ctx.workspacePath, background });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+
+    if (background) {
+      // 后台执行:启动异步沙盒,注册任务,立即返回 task_id
+      const handle = runSandboxedAsync(command, {
+        cwd: ctx.workspacePath,
+        timeoutMs: 600_000, // 后台任务 10 分钟超时
+        allowedPaths: [ctx.workspacePath, ...(ctx.sandbox?.allowedPaths ?? [])],
+        commandAllowlist: ctx.sandbox?.commandAllowlist,
+        blockedEnvVars: ctx.sandbox?.blockedEnvVars,
+      });
+      if (!handle.process) {
+        // 预检失败
+        const failedId = registerFailedTask(command, '沙盒预检失败');
+        return {
+          success: false,
+          output: `任务 ${failedId} 注册但启动失败(沙盒拒绝)`,
+          error: '沙盒预检失败',
+        };
+      }
+      const taskId = registerTask(handle.process, command);
+      // 异步等待结果,完成后触发 post hook
+      handle.result.then((result) => {
+        runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut, background: true, taskId });
+      }).catch(() => { /* ignore */ });
+      return {
+        success: true,
+        output: `后台任务已启动\n  task_id: ${taskId}\n  command: ${command}\n  用 list_background_tasks 查看,get_command_output ${taskId} 获取输出,wait_command ${taskId} 等待结束,kill_command ${taskId} 终止`,
+      };
+    }
+
+    // 同步执行(原有逻辑)
     const result = runSandboxed(command, {
       cwd: ctx.workspacePath,
       timeoutMs: 30_000,
@@ -320,4 +363,125 @@ export const run_command: Tool = {
   },
 };
 
-export const BUILTIN_TOOLS: Tool[] = [read_file, list_dir, grep, glob, run_command];
+export const list_background_tasks: Tool = {
+  name: 'list_background_tasks',
+  description: '列出所有后台任务(running/exited/killed/error 状态)。无参数。',
+  dangerLevel: 'read',
+  parameters: {},
+  required: [],
+  async execute(_args, _ctx): Promise<ToolResult> {
+    const list = listTasks();
+    if (list.length === 0) {
+      return { success: true, output: '当前无后台任务' };
+    }
+    const lines = list.map(
+      (t) => `  ${t.id}  [${t.status}]  ${t.command.slice(0, 60)}${t.command.length > 60 ? '...' : ''}  exitCode=${t.exitCode ?? '-'}  started=${t.startedAt}`,
+    );
+    return {
+      success: true,
+      output: `后台任务列表(${list.length} 个):\n${lines.join('\n')}`,
+    };
+  },
+};
+
+export const get_command_output: Tool = {
+  name: 'get_command_output',
+  description: '获取后台任务的累计输出(stdout/stderr + 状态)。参数:task_id,tail(可选,最后 N 行)。',
+  dangerLevel: 'read',
+  parameters: {
+    task_id: { type: 'string', description: '后台任务 ID(bg_xxx)' },
+    tail: { type: 'number', description: '仅返回最后 N 行(可选,默认全部)' },
+  },
+  required: ['task_id'],
+  async execute(args, _ctx): Promise<ToolResult> {
+    const taskId = args.task_id as string;
+    const tail = args.tail as number | undefined;
+    if (!taskId) return { success: false, output: '', error: '缺少 task_id 参数' };
+    const output = getTaskOutput(taskId, tail);
+    if (!output) {
+      return { success: false, output: '', error: `任务 ${taskId} 不存在` };
+    }
+    const parts: string[] = [
+      `任务 ${output.id}  状态: ${output.status}  exitCode: ${output.exitCode ?? '-'}`,
+    ];
+    if (output.stdout.trim()) parts.push(`[stdout]\n${output.stdout.trimEnd()}`);
+    if (output.stderr.trim()) parts.push(`[stderr]\n${output.stderr.trimEnd()}`);
+    if (output.truncated) parts.push('[输出被截断]');
+    return {
+      success: output.status !== 'error',
+      output: parts.join('\n') || '(无输出)',
+      error: output.status === 'error' ? '任务出错' : undefined,
+    };
+  },
+};
+
+export const wait_command: Tool = {
+  name: 'wait_command',
+  description: '等待后台任务结束,timeout_ms 毫秒后返回当前状态(不杀进程)。参数:task_id,timeout_ms(默认 30000)。',
+  dangerLevel: 'read',
+  parameters: {
+    task_id: { type: 'string', description: '后台任务 ID' },
+    timeout_ms: { type: 'number', description: '等待超时(毫秒,默认 30000)' },
+  },
+  required: ['task_id'],
+  async execute(args, _ctx): Promise<ToolResult> {
+    const taskId = args.task_id as string;
+    const timeoutMs = (args.timeout_ms as number | undefined) ?? 30_000;
+    if (!taskId) return { success: false, output: '', error: '缺少 task_id 参数' };
+    const task = getTask(taskId);
+    if (!task) return { success: false, output: '', error: `任务 ${taskId} 不存在` };
+
+    const result = await waitForTask(taskId, timeoutMs);
+    if (!result) return { success: false, output: '', error: `任务 ${taskId} 已被清理` };
+
+    const parts: string[] = [
+      `任务 ${result.id}  状态: ${result.status}  exitCode: ${result.exitCode ?? '-'}`,
+    ];
+    if (result.stdoutBuf.trim()) parts.push(`[stdout]\n${result.stdoutBuf.trimEnd().slice(-2000)}`);
+    if (result.stderrBuf.trim()) parts.push(`[stderr]\n${result.stderrBuf.trimEnd().slice(-2000)}`);
+    if (result.timedOut) parts.push('[任务超时]');
+    return {
+      success: result.status === 'exited' && result.exitCode === 0,
+      output: parts.join('\n'),
+      error: result.status !== 'exited' ? `状态: ${result.status}` : (result.exitCode !== 0 ? `退出码 ${result.exitCode}` : undefined),
+    };
+  },
+};
+
+export const kill_command: Tool = {
+  name: 'kill_command',
+  description: '终止后台任务(SIGTERM,5 秒后强杀 SIGKILL)。参数:task_id。',
+  dangerLevel: 'dangerous',
+  parameters: {
+    task_id: { type: 'string', description: '后台任务 ID' },
+  },
+  required: ['task_id'],
+  async execute(args, ctx): Promise<ToolResult> {
+    const taskId = args.task_id as string;
+    if (!taskId) return { success: false, output: '', error: '缺少 task_id 参数' };
+    if (kill_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) {
+      return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${kill_command.name}` };
+    }
+    if (ctx.confirmDangerous && !(await ctx.confirmDangerous(kill_command, args))) {
+      return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${kill_command.name}` };
+    }
+    const result = await killTask(taskId);
+    return {
+      success: result.killed,
+      output: result.killed ? `任务 ${taskId} 已终止` : `任务 ${taskId} 终止失败: ${result.reason ?? '未知原因'}`,
+      error: result.killed ? undefined : result.reason,
+    };
+  },
+};
+
+export const BUILTIN_TOOLS: Tool[] = [
+  read_file,
+  list_dir,
+  grep,
+  glob,
+  run_command,
+  list_background_tasks,
+  get_command_output,
+  wait_command,
+  kill_command,
+];
