@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
+import bcrypt from 'bcryptjs'
 import { success, error } from '../utils/response.js'
 import {
   findMenuList,
@@ -9,6 +10,8 @@ import {
   updateMenu,
   deleteMenuWithCascade,
   deleteRoleMenuCascade,
+  findMenuById,
+  createMenu,
   findLogininforList,
   cleanLogininfor,
   findNoticeList,
@@ -26,9 +29,12 @@ import {
   cleanJobLogs,
   findDeptList,
   findDeptById,
+  createDept,
+  deleteDept,
   updateDept,
   findPostList,
   findPostById,
+  createPost,
   updatePost,
   deletePostsBatch,
   findConfigList,
@@ -39,6 +45,7 @@ import {
   deleteConfigsBatch,
   findDictTypeList,
   findDictTypeById,
+  createDictType,
   updateDictType,
   deleteDictTypesBatch,
   findDictDataList,
@@ -49,8 +56,8 @@ import {
   deleteDictDataBatch,
 } from '../db/admin-sys-queries.js'
 import { db } from '../db/index.js'
-import { eq, and, isNull, gt, desc } from 'drizzle-orm'
-import { refreshTokens, users } from '@ihui/database'
+import { eq, and, isNull, gt, desc, inArray } from 'drizzle-orm'
+import { refreshTokens, users, sysLogininfor } from '@ihui/database'
 
 // =============================================================================
 // 查询参数解析辅助
@@ -209,6 +216,16 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(success({ list, total: list.length }))
       })
 
+      // GET /sys-menu/:menuId - 菜单详情
+      s.get('/:menuId', async (request, reply) => {
+        const { menuId } = z.object({ menuId: z.string().uuid() }).parse(request.params)
+        const data = await findMenuById(menuId)
+        if (!data) {
+          return reply.status(404).send(error(404, '菜单不存在'))
+        }
+        return reply.send(success({ data }))
+      })
+
       // GET /sys-menu/treeselect - 菜单树(下拉)
       s.get('/treeselect', async (_request, reply) => {
         const list = await findMenuList()
@@ -237,6 +254,20 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
         }
         await assignRoleMenus(rid, parsed.data.menuIds)
         return reply.send(success({ assigned: parsed.data.menuIds.length }))
+      })
+
+      // POST /sys-menu - 新增菜单
+      s.post('', async (request, reply) => {
+        const parsed = menuBodySchema.safeParse(request.body)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const { menuId: _menuId, menuName, ...rest } = parsed.data
+        if (!menuName) {
+          return reply.status(400).send(error(400, 'menuName 不能为空'))
+        }
+        const menu = await createMenu({ ...rest, menuName, createBy: request.userId })
+        return reply.send(success({ menu }))
       })
 
       // PUT /sys-menu - 修改菜单
@@ -310,6 +341,24 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
       s.delete('/clean', async (_request, reply) => {
         await cleanLogininfor()
         return reply.send(success({}))
+      })
+
+      // DELETE /logininfor/:infoIds - 删除登录日志(逗号分隔)
+      s.delete('/:infoIds', async (request, reply) => {
+        const { infoIds } = z.object({ infoIds: z.string() }).parse(request.params)
+        const ids = infoIds
+          .split(',')
+          .filter(Boolean)
+          .map(Number)
+          .filter((n) => !Number.isNaN(n))
+        if (ids.length === 0) {
+          return reply.status(400).send(error(400, '无效的 ID'))
+        }
+        const deleted = await db
+          .delete(sysLogininfor)
+          .where(inArray(sysLogininfor.infoId, ids))
+          .returning()
+        return reply.send(success({ deleted: deleted.length }))
       })
 
       // PUT /logininfor/unlock/:userName - 解锁用户
@@ -573,6 +622,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
       // DELETE /online/:tokenId - 强制下线(撤销该 refresh token 会话)
       s.delete('/:tokenId', async (request, reply) => {
         const { tokenId } = z.object({ tokenId: z.string() }).parse(request.params)
+        request.skipResponseSanitization = true
         const revoked = await db
           .update(refreshTokens)
           .set({ revokedAt: new Date() })
@@ -631,6 +681,20 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(success({ data }))
       })
 
+      // POST /dept - 新增部门
+      s.post('', async (request, reply) => {
+        const parsed = deptBodySchema.safeParse(request.body)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const { deptId: _deptId, deptName, ...rest } = parsed.data
+        if (!deptName) {
+          return reply.status(400).send(error(400, 'deptName 不能为空'))
+        }
+        const dept = await createDept({ ...rest, deptName })
+        return reply.send(success({ dept }))
+      })
+
       // PUT /dept - 修改部门
       s.put('', async (request, reply) => {
         const parsed = deptBodySchema.safeParse(request.body)
@@ -646,6 +710,20 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
           return reply.status(404).send(error(404, '部门不存在'))
         }
         return reply.send(success({ dept }))
+      })
+
+      // DELETE /dept/:deptId - 删除部门
+      s.delete('/:deptId', async (request, reply) => {
+        const { deptId } = z.object({ deptId: z.string() }).parse(request.params)
+        const id = Number(deptId)
+        if (Number.isNaN(id)) {
+          return reply.status(400).send(error(400, '无效的 ID'))
+        }
+        const dept = await deleteDept(id)
+        if (!dept) {
+          return reply.status(404).send(error(404, '部门不存在'))
+        }
+        return reply.send(success({ success: true }))
       })
     },
     { prefix: '/dept' },
@@ -681,6 +759,20 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
           return reply.status(404).send(error(404, '岗位不存在'))
         }
         return reply.send(success({ data }))
+      })
+
+      // POST /post - 新增岗位
+      s.post('', async (request, reply) => {
+        const parsed = postBodySchema.safeParse(request.body)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const { postId: _postId, postCode, postName, ...rest } = parsed.data
+        if (!postCode || !postName) {
+          return reply.status(400).send(error(400, 'postCode 和 postName 不能为空'))
+        }
+        const post = await createPost({ ...rest, postCode, postName })
+        return reply.send(success({ post }))
       })
 
       // PUT /post - 修改岗位
@@ -784,6 +876,11 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(success({ config }))
       })
 
+      // DELETE /config/refreshCache - 刷新缓存
+      s.delete('/refreshCache', async (_request, reply) => {
+        return reply.send(success({ success: true }))
+      })
+
       // DELETE /config/:configIds - 删除配置(逗号分隔)
       s.delete('/:configIds', async (request, reply) => {
         const { configIds } = z.object({ configIds: z.string() }).parse(request.params)
@@ -837,6 +934,25 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(success({ data }))
       })
 
+      // POST /dict/type - 新增字典类型
+      s.post('', async (request, reply) => {
+        const parsed = dictTypeBodySchema.safeParse(request.body)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const { dictId: _dictId, dictName, dictType: dt, ...rest } = parsed.data
+        if (!dictName || !dt) {
+          return reply.status(400).send(error(400, 'dictName 和 dictType 不能为空'))
+        }
+        const dictType = await createDictType({
+          ...rest,
+          dictName,
+          dictType: dt,
+          createBy: request.userId,
+        })
+        return reply.send(success({ dictType }))
+      })
+
       // PUT /dict/type - 修改字典类型
       s.put('', async (request, reply) => {
         const parsed = dictTypeBodySchema.safeParse(request.body)
@@ -852,6 +968,11 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
           return reply.status(404).send(error(404, '字典类型不存在'))
         }
         return reply.send(success({ dictType }))
+      })
+
+      // DELETE /dict/type/refreshCache - 刷新缓存
+      s.delete('/refreshCache', async (_request, reply) => {
+        return reply.send(success({ success: true }))
       })
 
       // DELETE /dict/type/:dictIds - 删除字典类型(逗号分隔)
@@ -1025,6 +1146,38 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
       })
     },
     { prefix: '/posts' },
+  )
+
+  // ===========================================================================
+  // users 补充路由(prefix=/users) — 重置密码
+  // 注:/api/admin/users 主 CRUD 由 admin.ts 提供,此处仅补 resetPwd
+  // ===========================================================================
+  server.register(
+    async (s) => {
+      // PUT /users/resetPwd - 管理员重置用户密码
+      s.put('/resetPwd', async (request, reply) => {
+        const parsed = z
+          .object({
+            userId: z.string().uuid(),
+            password: z.string().min(6, '密码至少 6 位'),
+          })
+          .safeParse(request.body)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const passwordHash = bcrypt.hashSync(parsed.data.password, 10)
+        const updated = await db
+          .update(users)
+          .set({ passwordHash, updatedAt: new Date() })
+          .where(eq(users.id, parsed.data.userId))
+          .returning({ id: users.id })
+        if (updated.length === 0) {
+          return reply.status(404).send(error(404, '用户不存在'))
+        }
+        return reply.send(success({ success: true }))
+      })
+    },
+    { prefix: '/users' },
   )
 }
 
