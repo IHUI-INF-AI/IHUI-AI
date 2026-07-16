@@ -45,22 +45,46 @@
   --color-payment-purple-end: #764ba2;
 
   /* 装饰性渐变 - 浅紫到浅黄(卡片背景) */
-  --color-gradient-purple-yellow: linear-gradient(112deg, rgba(205, 208, 255, 0.7) 0%, rgba(253, 255, 225, 0.7) 100%);
+  --color-gradient-purple-yellow: linear-gradient(
+    112deg,
+    rgba(205, 208, 255, 0.7) 0%,
+    rgba(253, 255, 225, 0.7) 100%
+  );
 
   /* 装饰性渐变 - 浅紫到深紫(VIP 介绍) */
-  --color-gradient-purple-deep: linear-gradient(269deg, rgba(217, 219, 254, 0.8) 219%, rgba(144, 125, 255, 0.8) 219%);
+  --color-gradient-purple-deep: linear-gradient(
+    269deg,
+    rgba(217, 219, 254, 0.8) 219%,
+    rgba(144, 125, 255, 0.8) 219%
+  );
 
   /* 装饰性渐变 - 白到蓝(横幅) */
-  --color-gradient-white-blue: linear-gradient(0deg, rgba(255, 255, 255, 1) 1%, rgba(77, 180, 232, 1) 77%);
+  --color-gradient-white-blue: linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 1) 1%,
+    rgba(77, 180, 232, 1) 77%
+  );
 
   /* 装饰性渐变 - 卡片左(浅紫到浅黄) */
-  --color-gradient-card-left: linear-gradient(116deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  --color-gradient-card-left: linear-gradient(
+    116deg,
+    rgba(217, 219, 255, 0.8) 3%,
+    rgba(253, 255, 220, 0.8) 104%
+  );
 
   /* 装饰性渐变 - 卡片右(黑到深绿) */
-  --color-gradient-card-right: linear-gradient(116deg, rgba(0, 0, 0, 0.8) 3%, rgba(0, 109, 11, 0.8) 104%);
+  --color-gradient-card-right: linear-gradient(
+    116deg,
+    rgba(0, 0, 0, 0.8) 3%,
+    rgba(0, 109, 11, 0.8) 104%
+  );
 
   /* 装饰性渐变 - 组背景(浅紫到浅黄低透明度) */
-  --color-gradient-group: linear-gradient(106deg, rgba(228, 229, 255, 0.25) 4%, rgba(254, 255, 236, 0.25) 104%);
+  --color-gradient-group: linear-gradient(
+    106deg,
+    rgba(228, 229, 255, 0.25) 4%,
+    rgba(254, 255, 236, 0.25) 104%
+  );
 }
 
 /* ============ 透明度色板 ============ */
@@ -127,17 +151,17 @@
 /* 源: _global-tokens.scss L365-377
  * 层级从低到高: base < header < sticky < dropdown/overlay < modal < popover < notification < loading < max */
 :root {
-  --z-base: 1;              /* 基础内容层 */
-  --z-0: 0;                 /* 层叠上下文基底(创建新层叠上下文用) */
-  --z-header: 100;          /* 头部导航栏 */
-  --z-sticky: 990;          /* 粘性定位元素 */
-  --z-dropdown: 1000;       /* 下拉菜单 */
-  --z-overlay: 1000;        /* 遮罩层 */
-  --z-modal: 2000;          /* 弹窗/对话框 */
-  --z-popover: 2001;        /* 弹出层(高于 modal) */
-  --z-notification: 9999;   /* 通知/提示 */
-  --z-loading: 10000;       /* 全屏加载 */
-  --z-max: 10003;           /* 最大层级(全屏覆盖) */
+  --z-base: 1; /* 基础内容层 */
+  --z-0: 0; /* 层叠上下文基底(创建新层叠上下文用) */
+  --z-header: 100; /* 头部导航栏 */
+  --z-sticky: 990; /* 粘性定位元素 */
+  --z-dropdown: 1000; /* 下拉菜单 */
+  --z-overlay: 1000; /* 遮罩层 */
+  --z-modal: 2000; /* 弹窗/对话框 */
+  --z-popover: 2001; /* 弹出层(高于 modal) */
+  --z-notification: 9999; /* 通知/提示 */
+  --z-loading: 10000; /* 全屏加载 */
+  --z-max: 10003; /* 最大层级(全屏覆盖) */
 }
 
 /* ============ Premium 变量 ============ */
@@ -207,6 +231,48 @@
   --header-dropdown-item-active-bg: var(--el-fill-color-light);
   --header-dropdown-item-active-color: var(--el-text-color-primary);
   --header-dropdown-item-active-font-weight: 700;
+}
+
+/* ============ Element Plus 兼容变量 ============ */
+/* 用于 header-dropdown-* 等迁移自 Element Plus 定制的样式。
+ * 映射到当前项目的 Tailwind 4 / shadcn 设计 token,保证引用有效。 */
+:root {
+  --el-bg-color: var(--color-card);
+  --el-text-color-primary: var(--color-foreground);
+  --el-fill-color-light: var(--color-muted);
+  --el-fill-color-darker: var(--color-secondary);
+  --el-color-primary: var(--color-primary);
+  --dropdown-border-color: var(--color-border);
+}
+
+.dark {
+  --el-bg-color: var(--color-card);
+  --el-text-color-primary: var(--color-foreground);
+  --el-fill-color-light: var(--color-secondary);
+  --el-fill-color-darker: var(--color-muted);
+  --el-color-primary: var(--color-primary);
+  --dropdown-border-color: var(--color-border);
+}
+
+/* ============ Element Plus 兼容变量 ============ */
+/* 用于 header-dropdown-* 等迁移自 Element Plus 定制的样式。
+ * 映射到当前项目的 Tailwind 4 / shadcn 设计 token,保证引用有效。 */
+:root {
+  --el-bg-color: var(--color-card);
+  --el-text-color-primary: var(--color-foreground);
+  --el-fill-color-light: var(--color-muted);
+  --el-fill-color-darker: var(--color-secondary);
+  --el-color-primary: var(--color-primary);
+  --dropdown-border-color: var(--color-border);
+}
+
+.dark {
+  --el-bg-color: var(--color-card);
+  --el-text-color-primary: var(--color-foreground);
+  --el-fill-color-light: var(--color-secondary);
+  --el-fill-color-darker: var(--color-muted);
+  --el-color-primary: var(--color-primary);
+  --dropdown-border-color: var(--color-border);
 }
 
 /* ============ 暗色模式覆盖 ============ */
