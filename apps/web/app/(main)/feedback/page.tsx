@@ -19,6 +19,7 @@ export default function FeedbackPage() {
   const [title, setTitle] = React.useState('')
   const [content, setContent] = React.useState('')
   const [contact, setContact] = React.useState('')
+  const [images, setImages] = React.useState<string[]>([])
   const [formError, setFormError] = React.useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
@@ -27,7 +28,13 @@ export default function FeedbackPage() {
   })
 
   const createMut = useMutation({
-    mutationFn: (input: { type: FeedbackType; title: string; content: string; contact?: string }) =>
+    mutationFn: (input: {
+      type: FeedbackType
+      title: string
+      content: string
+      contact?: string
+      images?: string[]
+    }) =>
       api<{ feedback: FeedbackItem }>('/api/feedbacks', {
         method: 'POST',
         body: JSON.stringify(input),
@@ -39,6 +46,7 @@ export default function FeedbackPage() {
       setTitle('')
       setContent('')
       setContact('')
+      setImages([])
       setFormError(null)
     },
     onError: (e: Error) => setFormError(e.message),
@@ -56,6 +64,7 @@ export default function FeedbackPage() {
       title: title.trim(),
       content: content.trim(),
       contact: contact.trim() || undefined,
+      images: images.length > 0 ? images : undefined,
     })
   }
 
@@ -99,6 +108,8 @@ export default function FeedbackPage() {
             setContent={setContent}
             contact={contact}
             setContact={setContact}
+            images={images}
+            setImages={setImages}
             formError={formError}
             isPending={createMut.isPending}
             onSubmit={handleSubmit}

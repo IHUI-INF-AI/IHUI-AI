@@ -140,6 +140,7 @@ export function parseStreamLine(line: string): string | null {
       e.name = 'SSEError'
       throw e
     }
+    if (json?.type === 'reasoning') return null
     const choice = json?.choices?.[0]
     const delta =
       choice?.delta?.content ??
@@ -150,6 +151,38 @@ export function parseStreamLine(line: string): string | null {
     return typeof delta === 'string' ? delta : null
   } catch (e) {
     if (e instanceof SyntaxError) return data
+    throw e
+  }
+}
+
+export function parseStreamLineReasoning(line: string): string | null {
+  if (!line || line.startsWith(':')) return null
+  let data = line
+  if (line.startsWith('data:')) {
+    data = line.slice(5).replace(/^\s/, '')
+  } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+    return null
+  }
+  if (data === '[DONE]') return null
+  try {
+    const json = JSON.parse(data)
+    if (json?.type === 'error' && typeof json?.message === 'string') {
+      const e = new Error(json.message)
+      e.name = 'SSEError'
+      throw e
+    }
+    if (json?.error === true && typeof json?.error_message === 'string') {
+      const e = new Error(json.error_message)
+      e.name = 'SSEError'
+      throw e
+    }
+    if (json?.type === 'reasoning' && typeof json?.content === 'string') return json.content
+    const choice = json?.choices?.[0]
+    const reasoning =
+      choice?.delta?.reasoning_content ?? choice?.message?.reasoning_content ?? json?.reasoning
+    return typeof reasoning === 'string' ? reasoning : null
+  } catch (e) {
+    if (e instanceof SyntaxError) return null
     throw e
   }
 }

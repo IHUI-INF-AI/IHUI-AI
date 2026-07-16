@@ -8,6 +8,7 @@ export interface Paper {
   isPublished: boolean
   isRandom: boolean
   questionCount: number
+  status: number
   paperType?: 'normal' | 'mock' | 'random' | null
   cidList?: string[] | null
   questionIdList?: string[] | null
@@ -24,6 +25,7 @@ export interface PaperForm {
   duration: string
   isPublished: boolean
   isRandom: boolean
+  status: boolean
   cidList: string[]
   questionIdList: string[]
   questionDisordered: boolean

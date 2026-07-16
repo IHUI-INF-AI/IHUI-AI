@@ -67,6 +67,7 @@ export const learnRecordLog = pgTable(
  * 专题表 (历史 learn_topic)。
  * status: draft/published。
  * price/originalPrice: 专题价格与原价。
+ * isShowIndex: 是否在首页展示。
  */
 export const learnTopic = pgTable(
   'learn_topic',
@@ -83,6 +84,7 @@ export const learnTopic = pgTable(
     originalPrice: numeric('original_price', { precision: 14, scale: 2 }).default('0'),
     slug: varchar('slug', { length: 200 }),
     sort: integer('sort').default(0).notNull(),
+    isShowIndex: boolean('is_show_index').default(true).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

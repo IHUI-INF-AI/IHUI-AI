@@ -312,6 +312,15 @@ export interface RechargeCreateResult {
 export const createRecharge = (amount: number, payMethod: 'wechat' | 'alipay' = 'wechat') =>
   post<RechargeCreateResult>(`/payments/${payMethod}/create?amount=${amount}`, {})
 
+/** 钱包余额（对接 /wallet/balance） */
+export interface WalletBalance {
+  balance: number
+  frozenBalance: number
+  totalRecharge: number
+  totalWithdraw: number
+}
+export const getWalletBalance = () => get<WalletBalance>('/wallet/balance')
+
 /* ============ 分销 ============ */
 
 export interface DistributionInfo {
