@@ -27,6 +27,7 @@ import {
   executeToolCall,
   formatToolResult,
   clearTools,
+  type Tool,
   type ToolContext,
 } from '../tools/index.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
@@ -52,6 +53,8 @@ export interface AgentOptions {
   jsonMode?: boolean;
   checkpoints?: CheckpointManager;
   enableMcp?: boolean;
+  /** 允许 dangerous 工具自动执行(无确认)。headless 模式推荐显式开启。 */
+  allowDangerous?: boolean;
 }
 
 export type AgentStopReason = 'end_turn' | 'cancelled' | 'max_iterations' | 'error';
@@ -91,6 +94,8 @@ export interface SetupAgentToolsOptions {
   checkpoints?: CheckpointManager;
   enableMcp?: boolean;
   silent?: boolean;
+  /** 危险操作确认回调。REPL 用 inquirer,Agent 用 --allow-dangerous,ACP 默认拒绝。 */
+  confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
 }
 
 export interface SetupAgentToolsResult {
@@ -121,7 +126,10 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   const tools = listTools();
   const agentsMd = readAgentsMd(opts.workspacePath);
   const systemPrompt = buildSystemPrompt(tools, agentsMd);
-  const ctx: ToolContext = { workspacePath: opts.workspacePath };
+  const ctx: ToolContext = {
+    workspacePath: opts.workspacePath,
+    confirmDangerous: opts.confirmDangerous,
+  };
 
   return { systemPrompt, ctx };
 }
@@ -150,6 +158,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let assistantText = '';
   let hadError = false;
   let iterations = 0;
+  const consecutiveFailures = new Map<string, number>();
+  const FAILURE_REFLECTION_THRESHOLD = 2;
 
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
@@ -209,6 +219,18 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           error: result.error,
         });
 
+        if (result.success) {
+          consecutiveFailures.set(call.name, 0);
+        } else {
+          const prev = consecutiveFailures.get(call.name) ?? 0;
+          const next = prev + 1;
+          consecutiveFailures.set(call.name, next);
+          if (next >= FAILURE_REFLECTION_THRESHOLD) {
+            resultParts.push(`[系统提示] 工具 ${call.name} 已连续失败 ${next} 次。请反思:参数是否正确?是否应该换一种工具或方案?当前失败原因:${result.error ?? '未知'}`);
+            consecutiveFailures.set(call.name, 0);
+          }
+        }
+
         await opts.onToolResult?.(call.name, result.success, result.output);
         resultParts.push(formatToolResult(call, result));
       }
@@ -246,6 +268,14 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     checkpoints: opts.checkpoints,
     enableMcp: opts.enableMcp,
     silent: opts.jsonMode === true,
+    confirmDangerous: async (tool, args) => {
+      if (opts.allowDangerous) {
+        if (!opts.jsonMode) console.info(chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name} ${JSON.stringify(args).slice(0, 100)}`));
+        return true;
+      }
+      if (!opts.jsonMode) console.error(chalk.red(`  ✗ 危险操作被拒绝(需 --allow-dangerous): ${tool.name}`));
+      return false;
+    },
   });
 
   const jsonMode = opts.jsonMode === true;
