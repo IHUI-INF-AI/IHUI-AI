@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   examCategories,
@@ -641,4 +641,102 @@ export async function findAdminExamRecordsRich(opts: {
     nickname: r.nickname,
   }))
   return { list, total: Number(totalRows[0]?.count ?? 0) }
+}
+
+// =============================================================================
+// Random Questions — 随机抽题
+// =============================================================================
+
+/** 题库数量不足错误,携带可用数量与需求数量便于前端提示。 */
+export class InsufficientQuestionsError extends Error {
+  constructor(
+    public readonly available: number,
+    public readonly required: number,
+  ) {
+    super(`题库数量不足:需要 ${required} 题,当前筛选池中仅 ${available} 题`)
+    this.name = 'InsufficientQuestionsError'
+  }
+}
+
+/** FNV-1a 哈希:将种子字符串映射为 32 位无符号整数。无 seed 时用时间戳+随机回退。 */
+function hashSeed(seed?: string): number {
+  if (!seed) return (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0
+  let h = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+/** mulberry32 PRNG:给定 32 位种子,返回 [0,1) 伪随机数生成器(可重现)。 */
+function mulberry32(a: number): () => number {
+  return function () {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/**
+ * 确定性种子抽题:从 items 中按 seed 随机抽取 count 个,不重复。
+ * - 同 seed + 同 items 顺序 → 结果一致(可重现)。
+ * - items.length <= count 时全部返回(不丢弃)。
+ * - 无 seed 时退化为不可重现的随机抽样。
+ * 纯函数,不触 DB,便于单元测试。
+ */
+export function pickWithSeed<T>(items: readonly T[], count: number, seed?: string): T[] {
+  if (count <= 0 || items.length === 0) return []
+  if (items.length <= count) return [...items]
+  const rng = mulberry32(hashSeed(seed))
+  const arr = [...items]
+  // Fisher-Yates shuffle(部分,仅前 count 个落位即可)
+  for (let i = 0; i < count; i++) {
+    const j = i + Math.floor(rng() * (arr.length - i))
+    const tmp = arr[i]!
+    arr[i] = arr[j]!
+    arr[j] = tmp
+  }
+  return arr.slice(0, count)
+}
+
+export interface RandomQuestionInput {
+  examId?: string // 关联试卷(可选,限定题库池范围)
+  questionTypes: string[] // 题型筛选
+  difficulties?: number[] // 难度筛选(1-5)
+  knowledgePointIds?: string[] // 知识点池(任一命中即入选)
+  count: number // 抽题数量
+  seed?: string // 随机种子(同 seed 同结果)
+}
+
+/**
+ * 随机抽题:按题型/难度/知识点池筛选题库 → 数量校验 → seed 随机抽取。
+ * - 题库不足时抛 InsufficientQuestionsError(由路由层捕获返回 400)。
+ * - 使用应用层 seed + Fisher-Yates shuffle,避免大题库 ORDER BY RANDOM() 全表排序。
+ */
+export async function randomGetQuestionList(
+  opts: RandomQuestionInput,
+): Promise<{ list: ExamQuestion[]; total: number }> {
+  const conds = []
+  if (opts.examId) conds.push(eq(examQuestions.paperId, opts.examId))
+  if (opts.questionTypes.length > 0) {
+    conds.push(inArray(examQuestions.type, opts.questionTypes))
+  }
+  if (opts.difficulties && opts.difficulties.length > 0) {
+    conds.push(inArray(examQuestions.difficulty, opts.difficulties))
+  }
+  if (opts.knowledgePointIds && opts.knowledgePointIds.length > 0) {
+    // jsonb 数组与知识点池有交集(Zod 已校验 uuid,安全)
+    const safeIds = opts.knowledgePointIds.map((id) => `'${id}'`).join(',')
+    conds.push(sql`${examQuestions.knowledgePointIds} ?| array[${sql.raw(safeIds)}]::text[]`)
+  }
+  const where = conds.length ? and(...conds) : undefined
+  const pool = await db.select().from(examQuestions).where(where)
+  if (pool.length < opts.count) {
+    throw new InsufficientQuestionsError(pool.length, opts.count)
+  }
+  const picked = pickWithSeed(pool, opts.count, opts.seed)
+  return { list: picked, total: pool.length }
 }

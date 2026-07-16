@@ -16,6 +16,7 @@ import {
   createNotification,
   findAllNotificationsForAdmin,
   broadcastNotification,
+  attachTopicToList,
 } from '../db/notification-queries.js'
 import { sendEmail } from '../services/email-service.js'
 import { sendSmsMessage } from '../services/sms.js'
@@ -158,7 +159,10 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
         unreadOnly: unread,
       })
       const unreadCount = await countUnread(request.userId!)
-      return reply.send(success({ list, total, page, pageSize, unread: unreadCount }))
+      const listWithTopic = await attachTopicToList(list)
+      return reply.send(
+        success({ list: listWithTopic, total, page, pageSize, unread: unreadCount }),
+      )
     },
   )
 

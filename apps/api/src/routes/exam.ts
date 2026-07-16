@@ -31,6 +31,8 @@ import {
   findAdminExamRecordsRich,
   gradeSubjectiveAnswers,
   deleteExamRecord,
+  randomGetQuestionList,
+  InsufficientQuestionsError,
 } from '../db/exam-queries.js'
 import {
   findChapterList,
@@ -180,6 +182,15 @@ const submitExamSchema = z.object({
       }),
     )
     .min(1, '答案不能为空'),
+})
+
+const randomQuestionsSchema = z.object({
+  examId: z.string().uuid().optional(),
+  questionTypes: z.array(z.enum(QUESTION_TYPES)).min(1, '至少选择一种题型'),
+  difficulties: z.array(z.number().int().min(1).max(5)).optional(),
+  knowledgePointIds: z.array(z.string().uuid()).optional(),
+  count: z.number().int().min(1).max(500),
+  seed: z.string().max(200).optional(),
 })
 
 // ----- 章节/小节/排序/报名/待评分 schemas -----
@@ -441,6 +452,24 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     }
     const questions = await findQuestionsByPaperId(record.paperId)
     return reply.send(success({ record, questions }))
+  })
+
+  // POST /exam/random-questions - 随机抽题(按题型/难度/知识点池筛选 + seed 可重现)
+  server.post('/exam/random-questions', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = randomQuestionsSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const { list, total } = await randomGetQuestionList(parsed.data)
+      return reply.send(success({ list, total, count: list.length }))
+    } catch (e) {
+      if (e instanceof InsufficientQuestionsError) {
+        return reply.status(400).send(error(400, e.message))
+      }
+      throw e
+    }
   })
 
   // ===========================================================================
