@@ -491,6 +491,14 @@
 - [x] ✅(2026-07-16) (P1) 阶段18:启用 ora 进度条 — `runAgent` 中 spinner.start(`🔧 执行中 (轮次 N/M)`),onDelta/onToolCall 暂停 spinner,onError 停止,完成后停止。激活 `ora@^8.1.0` 沉没依赖
 - [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,fetch_url 实测 example.com 抓取成功(200 + 183 字符正文)
 
+### cli 第六轮迁移:Agent SIGINT 中断恢复 + plan-then-execute(2026-07-16 📋 plan)
+
+> Agent 长任务被 Ctrl+C 中断后所有上下文丢失 — 需保存中间状态供 `--resume` 恢复。同时引入 plan-then-execute 提升长任务质量。
+
+- [x] ✅(2026-07-16) (P1) 阶段19:Agent SIGINT 中断恢复 — `runAgentAndExit` 创建 AbortController,SIGINT 时 abort;`AgentOptions` 新增 `session?: Session` + `signal?: AbortSignal`,`runAgent` finally 块把 messages 同步到 session.history 并 saveSession;`runToolLoop` 区分 abort(hadError=false,stopReason='cancelled')与真实错误;支持 `--resume`/`--continue` 恢复中断会话
+- [x] ✅(2026-07-16) (P1) 阶段20:plan-then-execute 模式 — `buildSystemPrompt` 新增 `planFirst?: boolean`,启用时注入 `<plan>` 块要求 LLM 先规划后执行。新增 `--plan` CLI flag,实测 planFirst=false 无规划块、planFirst=true 含规划块
+- [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,`--plan` flag + buildSystemPrompt plan 块注入测试通过
+
 ### 前端问题修复（2026-07-11 全面审计）
 
 - [x] ✅(2026-07-11) 前端-FE-P0-1: 修复 `app/globals.css` 的 `--color-ring` token 反转（浅色模式 3.9% 近黑 → 70% 浅灰；暗色模式 83.1% 浅灰 → 25% 深灰），影响所有表单和 AI 输入框聚焦环
