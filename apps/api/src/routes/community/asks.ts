@@ -488,6 +488,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
         slug: z.string().min(1).max(120).optional(),
         description: z.string().max(2000).optional().nullable(),
         coverImage: z.string().max(512).optional().nullable(),
+        cidList: z.array(z.string().uuid()).max(50).optional(),
         isPublished: z.boolean().optional(),
       })
       .safeParse(request.body)
@@ -504,6 +505,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
         slug,
         description: body.data.description ?? null,
         coverImage: body.data.coverImage ?? null,
+        cidList: body.data.cidList ?? null,
         isPublished: body.data.isPublished ?? true,
       })
       .returning()
@@ -525,6 +527,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
         slug: z.string().min(1).max(120).optional(),
         description: z.string().max(2000).nullable().optional(),
         coverImage: z.string().max(512).nullable().optional(),
+        cidList: z.array(z.string().uuid()).max(50).nullable().optional(),
         isPublished: z.boolean().optional(),
       })
       .safeParse(request.body)
@@ -540,6 +543,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     if (body.data.slug !== undefined) updateData.slug = body.data.slug
     if (body.data.description !== undefined) updateData.description = body.data.description
     if (body.data.coverImage !== undefined) updateData.coverImage = body.data.coverImage
+    if (body.data.cidList !== undefined) updateData.cidList = body.data.cidList
     if (body.data.isPublished !== undefined) updateData.isPublished = body.data.isPublished
     const [updated] = await db
       .update(circles)
