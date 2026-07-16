@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@ihui/api-client": "workspace:*",
+    "@ihui/ui": "workspace:*",
     "@tauri-apps/api": "^2.1.1",
     "@tauri-apps/plugin-deep-link": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.1",
@@ -25,7 +26,8 @@
     "@tauri-apps/plugin-store": "^2.0.0",
     "@tauri-apps/plugin-updater": "^2.0.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
