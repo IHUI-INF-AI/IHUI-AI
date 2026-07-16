@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Star, TrendingUp, Coins, Award, Calendar, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui'
@@ -60,7 +61,15 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Star className="h-6 w-6 text-primary" />
+            <Image
+              src="/images/common/ai-token.svg"
+              alt=""
+              aria-hidden
+              width={24}
+              height={24}
+              className="h-6 w-6"
+              unoptimized
+            />
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
           </div>
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
