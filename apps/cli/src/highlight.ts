@@ -34,8 +34,3 @@ export function highlightCode(code: string, filePath?: string): string {
     return code;
   }
 }
-
-/** 从文件路径推断是否支持高亮 */
-export function detectLang(filePath: string): boolean {
-  return !!EXT_SUPPORTED[path.extname(filePath).toLowerCase()];
-}

@@ -13,6 +13,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { redactSecrets, redactObject } from './redact.js';
+import { loadSettings } from './commands/settings.js';
 
 export interface AuditEntry {
   timestamp: string;
@@ -28,12 +29,14 @@ let _enabled: boolean | null = null;
 
 function isEnabled(): boolean {
   if (_enabled === null) {
-    _enabled = process.env.IHUI_AUDIT !== '0';
+    const settingsEnabled = loadSettings().auditEnabled ?? true;
+    const envDisabled = process.env.IHUI_AUDIT === '0';
+    _enabled = settingsEnabled && !envDisabled;
   }
   return _enabled;
 }
 
-export function getAuditLogPath(): string {
+function getAuditLogPath(): string {
   return path.join(os.homedir(), '.ihui', 'audit.jsonl');
 }
 
