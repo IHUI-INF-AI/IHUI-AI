@@ -12454,11 +12454,28 @@ Error: [drizzle\meta\0000_snapshot.json, drizzle\meta\0063_snapshot.json] are po
 | migration 列验证            | information_schema.columns 查询          | -      | ✅ 10 列全 EXISTS          |
 | __drizzle_migrations 一致性 | count vs _journal.json entries           | -      | ✅ 81 records = 81 entries |
 
-### 7. 残留事项(可选 P2)
+### 7. 残留事项清理(2026-07-16)✅
 
-- ⚠️ `0063_empty_ultron.sql`(327KB 误存初始全量 schema dump)仍存在于 drizzle 目录,但 `__drizzle_migrations` 已标记为已执行,drizzle-kit migrate 不会重复执行;`_journal.json` 仍包含 idx 64 条目;后续可选清理(删除文件 + 移除 journal 条目 + 删除 snapshot + 删除 __drizzle_migrations 记录),但当前状态一致且可工作
-- ⚠️ `0080_fearless_zzzax.sql` 内容与 0063/0065 部分重复(因 db:generate 从 0063 基准重新计算差异),已加 IF NOT EXISTS 防御性写法,幂等安全
+- [x] ✅(2026-07-16) **`0063_empty_ultron.sql` 清理**:删除 327KB 误存 dump 文件 + `_journal.json` 移除 idx 64 条目 + `__drizzle_migrations` 删除 id=148 记录;idx 重新排序(0-80 → 0-79);0063_learn_community_post 完整性保留
+- [x] ✅(2026-07-16) **`0080_fearless_zzzax.sql` + `0080_youthful_sharon_ventura.sql` 清理**:删除两个 db:generate 误生成文件 + `0080_snapshot.json` + journal 中 idx 79/80 条目 + `__drizzle_migrations` 对应记录
+- [x] ✅(2026-07-16) **snapshot 链完整性修复**:db:generate 重新生成 `0079_lowly_zombie.sql`(合并 migration,包含 0063/0064/0065/0075-0079 所有差异,已加 IF NOT EXISTS + DO $$ BEGIN 幂等写法)+ `0079_snapshot.json`
+- [x] ✅(2026-07-16) **`__drizzle_migrations` 最终同步**:80 records = 80 entries,完全一致 ✅
+- [x] ✅(2026-07-16) **db:generate 验证**:再次执行报告 "No schema changes, nothing to migrate 😴",snapshot 链完整无差异
+
+### 8. 最终全量验证(2026-07-16)✅
+
+| 验证项                      | 命令                                       | 退出码 | 结果                       |
+| --------------------------- | ------------------------------------------ | ------ | -------------------------- |
+| database typecheck          | `pnpm --filter @ihui/database typecheck`   | 0      | ✅ tsc --noEmit 无错       |
+| api typecheck               | `pnpm --filter @ihui/api typecheck`        | 0      | ✅ tsc --noEmit 无错       |
+| web typecheck               | `pnpm --filter @ihui/web typecheck`        | 0      | ✅ tsc --noEmit 无错       |
+| cli typecheck               | `pnpm --filter @ihui/cli typecheck`        | 0      | ✅ tsc --noEmit 无错       |
+| web lint                    | `pnpm --filter @ihui/web lint`             | 0      | ✅ eslint 无输出           |
+| cli lint                    | `pnpm --filter @ihui/cli lint`             | 0      | ✅ eslint 无输出           |
+| api test                    | `pnpm --filter @ihui/api test`             | 0      | ✅ 201 文件 3092/3092 通过 |
+| db:generate                 | `pnpm --filter @ihui/database db:generate` | 0      | ✅ No schema changes       |
+| __drizzle_migrations 一致性 | count vs _journal.json entries             | -      | ✅ 80 records = 80 entries |
 
 ### ✅ 任务完成,可关闭对话
 
-P1/P2 后续任务全部闭环:snapshot 修复 + 前端 UI 接入 + AvatarCropper + 测试覆盖 + migration 部署,6 项验证全绿,3092 tests 全通过。
+P1/P2 后续任务全部闭环:snapshot 修复 + 前端 UI 接入 + AvatarCropper + 测试覆盖 + migration 部署 + 残留事项清理,9 项验证全绿,3092 tests 全通过,db:generate 报告无差异,snapshot 链完整。
