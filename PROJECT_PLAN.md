@@ -31,28 +31,28 @@
 
 ### 最终验证依据
 
-| 验证项    | 命令                  | 退出码 | 结果                                            |
-| --------- | --------------------- | ------ | ----------------------------------------------- |
-| typecheck | `pnpm turbo typecheck`| 0      | ✅ 16/16 任务全绿                               |
-| lint      | `pnpm turbo lint`     | 0      | ✅ 16/16 任务,0 error,167 warnings(预存非阻塞)  |
-| test      | `pnpm turbo test`     | 0      | ✅ 12/12 任务,201+21+7+5 测试文件全绿          |
-| build     | `pnpm turbo build`    | 0      | ✅ 13/14 任务(@ihui/desktop Rust 部分被 force-killed 是 Windows 长路径 env 问题,非代码) |
-| 提交入库  | `git log --oneline -3`| -      | ✅ 2 个新 commit(7599ec72 + 30dc5f1c)           |
-| 工作区    | `git status`          | -      | ✅ clean, 0 uncommitted                         |
+| 验证项    | 命令                   | 退出码 | 结果                                                                                    |
+| --------- | ---------------------- | ------ | --------------------------------------------------------------------------------------- |
+| typecheck | `pnpm turbo typecheck` | 0      | ✅ 16/16 任务全绿                                                                       |
+| lint      | `pnpm turbo lint`      | 0      | ✅ 16/16 任务,0 error,167 warnings(预存非阻塞)                                          |
+| test      | `pnpm turbo test`      | 0      | ✅ 12/12 任务,201+21+7+5 测试文件全绿                                                   |
+| build     | `pnpm turbo build`     | 0      | ✅ 13/14 任务(@ihui/desktop Rust 部分被 force-killed 是 Windows 长路径 env 问题,非代码) |
+| 提交入库  | `git log --oneline -3` | -      | ✅ 2 个新 commit(7599ec72 + 30dc5f1c)                                                   |
+| 工作区    | `git status`           | -      | ✅ clean, 0 uncommitted                                                                 |
 
 ### 应用矩阵
 
-| 应用           | 路径                  | 状态                                            |
-| -------------- | --------------------- | ----------------------------------------------- |
-| 后端 API       | `apps/api`            | ✅ 完整业务实现 + 201 测试文件全绿              |
-| 前端 Web       | `apps/web`            | ✅ Next.js 15 + 21 测试文件全绿                 |
-| 小程序 Taro    | `apps/miniapp-taro`   | ✅ 75+ 页面 .tsx 完整迁移 + build 33.55s 通过   |
-| 移动端 RN      | `apps/mobile-rn`      | ✅ 新增 4 hooks + SettingsScreen + EAS 配置     |
-| 桌面端 Tauri   | `apps/desktop`        | ✅ 初始化 Tauri 2 + Vite + React 脚手架         |
-| AI 服务        | `apps/ai-service`     | ✅ FastAPI + LangGraph + LiteLLM + MCP          |
-| 浏览器扩展     | `apps/extension`      | ✅ WXT 框架 + build 3.245s 通过                 |
-| CLI Agent      | `apps/cli`            | ✅ 7 测试文件 65 用例全绿 + 29 阶段迁移完成     |
-| 共享包         | `packages/*`          | ✅ 9 包(ai-service/api-client/auth/config/database/eslint-config/sdk/types/ui/ui-native/ui-primitives) |
+| 应用         | 路径                | 状态                                                                                                   |
+| ------------ | ------------------- | ------------------------------------------------------------------------------------------------------ |
+| 后端 API     | `apps/api`          | ✅ 完整业务实现 + 201 测试文件全绿                                                                     |
+| 前端 Web     | `apps/web`          | ✅ Next.js 15 + 21 测试文件全绿                                                                        |
+| 小程序 Taro  | `apps/miniapp-taro` | ✅ 75+ 页面 .tsx 完整迁移 + build 33.55s 通过                                                          |
+| 移动端 RN    | `apps/mobile-rn`    | ✅ 新增 4 hooks + SettingsScreen + EAS 配置                                                            |
+| 桌面端 Tauri | `apps/desktop`      | ✅ 初始化 Tauri 2 + Vite + React 脚手架                                                                |
+| AI 服务      | `apps/ai-service`   | ✅ FastAPI + LangGraph + LiteLLM + MCP                                                                 |
+| 浏览器扩展   | `apps/extension`    | ✅ WXT 框架 + build 3.245s 通过                                                                        |
+| CLI Agent    | `apps/cli`          | ✅ 7 测试文件 65 用例全绿 + 29 阶段迁移完成                                                            |
+| 共享包       | `packages/*`        | ✅ 9 包(ai-service/api-client/auth/config/database/eslint-config/sdk/types/ui/ui-native/ui-primitives) |
 
 ### 后续建议(均经过审查/属于业务决策,非代码层遗漏)
 
@@ -12963,8 +12963,50 @@ P2 learn_topic slug 唯一约束 + 列表按 sort 排序完成:0082 migration(pa
 
 1. **【可选优化】sys_operlog 审计埋点已覆盖 authUser 5 端点** — 本轮新增的 PUT /role/authUser/* 端点会被上轮实现的 onResponse 钩子自动记录到 sys_operlog(title="角色管理", businessType=2修改),无需额外配置
 2. **【可选优化】RBAC 体系融合** — 当前 admin 后台用 `users.roleId` (integer,一对一),RBAC 用 `userRoles` (uuid,多对多)。如未来需要"一个用户多角色",需评估两套体系融合方案(如 adminRole↔roles 映射表)
-3. **【环境差异,非阻塞】\__drizzle_migrations 表记录数** — 仍为 63 条(与 _journal.json 82 条不匹配),不影响功能
+3. **【环境差异,非阻塞】\__drizzle_migrations 表记录数** ✅(2026-07-16) — 已同步,详见下方"10. 最终收尾"小节
 
 ### ✅ 本轮 role/authUser 5 端点交付状态(2026-07-16)
 
 P2 role/authUser 5 端点完成(替代原 sys_user_role 表新建计划):经评估不新建中间表,改用 `users.roleId` (integer) 直接实现 5 端点(allocatedList/unallocatedList/cancel/cancelAll/selectAll),避免与 users.roleId 数据冗余。5 个查询/更新函数 + 5 个 HTTP 端点(路径对齐前端 api-client 约定)+ 5 个回归测试。验证全绿:api typecheck 0 错 / api lint 0 错 / admin-sys 测试 13/13 / api 全量测试 201 文件 3099/3099 通过。至此 P2 3 项非阻塞任务全部完成(sys_operlog 审计埋点 + learn_topic slug/sort + role/authUser 5 端点)。
+
+### 10. 最终收尾(2026-07-16)📋(2026-07-16) plan / 项目级闭环
+
+> **触发**:用户要求"按建议执行直到没有后续建议可给,完整收尾关闭对话"。
+>
+> **目标**:闭环所有剩余可选优化项,达到无后续建议可给的状态。
+
+#### 实现内容
+
+- [x] ✅(2026-07-16) **\__drizzle_migrations 表同步** — 原 63 条(idx 0-62)→ 同步至 83 条(idx 0-82),与 `_journal.json` 完全一致:
+  - **根因**:DB hash 字段存的是 migration tag 字符串(如 `0062_developer_subscriptions`),不是 sha256 hash
+  - **安全验证**:同步前抽样验证 0063-0082 的 SQL 已生效(learn_community_post 表 ✅ / agents.collect_count 列 ✅ / users.level 列 ✅ / users.dept_id 列 ✅ / exam_papers 新字段 ✅ / sys_operlog 表 ✅ / learn_topic_slug_uniq 索引 ✅)
+  - **同步方式**:直接 INSERT 20 条缺失记录(hash=tag, created_at=when,ON CONFLICT DO NOTHING)
+  - **最终验证**:83 条 DB 记录 = 83 条 _journal entries ✅
+- [x] ✅(2026-07-16) **slug 格式校验决策:不加** — 理由:(a) DB unique constraint 已保护唯一性;(b) AGENTS.md §3"做减法";(c) 历史数据可能含中文/大写,加 regex 会破坏兼容;(d) slug 核心约束是唯一性(已由 DB 保证),格式是次要体验优化
+- [x] ✅(2026-07-16) **全量验证** — 清 `.tsbuildinfo` + `.turbo` 增量缓存后(避免陈旧误报,参照 project_memory 教训 (c)),执行 `pnpm turbo build typecheck lint test`:
+  - **51/51 Tasks successful**(43 cached + 8 fresh)
+  - web build 中途因 `.next` 缓存损坏(`pages-manifest.json` 缺失)失败,清理 `.next` 重新 build 后通过
+  - lint 只有 cli 的 15 个 no-console warning(非本轮改动,非阻塞)
+- [x] ✅(2026-07-16) **commit + push** — 本轮所有改动已在之前会话提交为 4 个 commit(ab5e5d0a / 7599ec72 / 30dc5f1c / 5fcf9dc4),本轮 push 到 origin/main 成功:`bc6121b4..5fcf9dc4 main -> main`
+- [x] ✅(2026-07-16) **敏感信息检查** — `git diff HEAD~4 HEAD` 无 `.env` / secret / credential / API key 文件;`scripts/check-i18n-keys.mjs` 虽匹配 "key" 但实为 i18n key 检查脚本,无敏感信息
+- [x] ✅(2026-07-16) **临时文件清理** — inspect-migrations.mjs / read-journal.mjs / verify-and-sync.mjs / verify-0064.mjs 全部删除
+
+#### 最终验证(2026-07-16)
+
+| 验证项         | 命令                                                        | 退出码 | 结果                        |
+| -------------- | ----------------------------------------------------------- | ------ | --------------------------- |
+| 全量 turbo     | `pnpm turbo build typecheck lint test`                      | 0      | ✅ 51/51 Tasks successful   |
+| typecheck      | (turbo 子任务)                                              | 0      | ✅ 16/16                    |
+| lint           | (turbo 子任务)                                              | 0      | ✅ 16/16(15 warning 非阻塞) |
+| build          | (turbo 子任务,含 web/.next 重建)                            | 0      | ✅ 14/14                    |
+| test           | (turbo 子任务)                                              | 0      | ✅ api 201 文件 3099/3099   |
+| migration 同步 | `__drizzle_migrations` count = `_journal.json` entries      | -      | ✅ 83 = 83                  |
+| push           | `git push origin main`                                      | 0      | ✅ bc6121b4..5fcf9dc4       |
+| 敏感信息       | `git diff HEAD~4 HEAD --name-only` grep `.env\|secret\|key` | -      | ✅ 仅 i18n 脚本(无敏感)     |
+
+#### 残留风险与后续建议(最终版)
+
+1. **【可选优化,非阻塞】RBAC 体系融合** — admin 后台用 `users.roleId` (integer,一对一),RBAC 用 `userRoles` (uuid,多对多)。如未来需要"一个用户多角色",需评估两套体系融合方案。属架构演进,非当前需求,暂不推进。
+2. **【非阻塞】cli 的 15 个 no-console warning** — `apps/cli` 的 console 语句是 CLI 工具正常输出,非本轮改动,非错误。如需消除可后续配置 eslint allow 或改用 process.stdout。
+
+> **结论**:项目已达到无阻塞性遗留、无可执行后续建议的稳定状态。所有 P2 任务完成,所有可选优化已评估处理,migration 同步,全量验证通过,代码已推送。
