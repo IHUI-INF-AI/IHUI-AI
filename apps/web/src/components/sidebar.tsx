@@ -733,7 +733,7 @@ export function Sidebar({
   const header = (
     <div
       className={cn(
-        'flex h-10 shrink-0 items-center gap-2 px-2.5 transition-[padding] duration-200',
+        'flex h-10 shrink-0 items-center gap-2 pl-2.5 pr-4 transition-[padding] duration-200',
         collapsed && 'justify-center px-0',
       )}
     >
@@ -800,9 +800,9 @@ export function Sidebar({
             tabIndex={0}
             onMouseDown={handleResizeMouseDown}
             onKeyDown={handleResizeKeyDown}
-            className="group absolute right-0 top-0 z-10 flex h-full w-1.5 cursor-col-resize items-center justify-center outline-none focus-visible:w-2 focus-visible:bg-primary/10"
+            className="group absolute right-[-1px] top-0 z-10 flex h-full w-1.5 cursor-col-resize items-center outline-none focus-visible:w-2"
           >
-            <div className="h-full w-px bg-border transition-all duration-200 group-hover:w-[3px] group-hover:bg-primary group-focus-visible:w-[3px] group-focus-visible:bg-primary" />
+            <div className="ml-auto h-full w-px bg-transparent transition-colors duration-200 group-hover:bg-border group-focus-visible:bg-border" />
           </div>
         )}
       </aside>

@@ -1,4 +1,4 @@
-export { fetchApi, setTokenProvider, setBaseUrl, streamChat } from './client.js'
+export { fetchApi, setTokenProvider, setBaseUrl, streamChat, parseStreamLine } from './client.js'
 export type { TokenProvider, StreamChatOptions } from './client.js'
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'
 export { eduApi, buildQs } from './utils.js'
