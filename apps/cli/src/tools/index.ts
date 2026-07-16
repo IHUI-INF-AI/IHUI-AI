@@ -85,7 +85,7 @@ export function buildToolSchema(tool: Tool): ToolSchema {
   };
 }
 
-export function buildSystemPrompt(tools: Tool[]): string {
+export function buildSystemPrompt(tools: Tool[], extraContext?: string): string {
   const toolDescriptions = tools
     .map((t) => {
       const params = Object.entries(t.parameters)
@@ -99,8 +99,12 @@ export function buildSystemPrompt(tools: Tool[]): string {
     })
     .join('\n\n');
 
-  return `你是一个强大的编码助手。你可以使用以下工具来完成任务。
+  const contextSection = extraContext
+    ? `\n\n## 项目上下文\n\n${extraContext}\n`
+    : '';
 
+  return `你是一个强大的编码助手。你可以使用以下工具来完成任务。
+${contextSection}
 ## 可用工具
 
 ${toolDescriptions}
