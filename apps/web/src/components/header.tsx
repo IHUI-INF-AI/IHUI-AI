@@ -2,14 +2,13 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import { Menu, Bell, Search, Sun, Moon, User as UserIcon, LogOut, Megaphone } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { Button, Input } from '@ihui/ui'
+import { Button, Input, ThemeLogo } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { api, type Announcement } from '@/lib/content'
@@ -146,22 +145,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       </Button>
 
       <Link href="/" className="flex shrink-0 items-center" aria-label="IHUI AI">
-        <Image
-          src="/images/logo.svg"
-          alt="IHUI AI"
-          width={120}
-          height={32}
-          className="h-8 w-auto object-contain dark:hidden"
-          unoptimized
-        />
-        <Image
-          src="/images/bailogo.svg"
-          alt="IHUI AI"
-          width={120}
-          height={32}
-          className="hidden h-8 w-auto object-contain dark:block"
-          unoptimized
-        />
+        <ThemeLogo />
       </Link>
 
       <nav

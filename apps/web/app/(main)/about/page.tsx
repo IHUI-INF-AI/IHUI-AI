@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Info, Mail, Phone, MapPin, Globe, Loader2, Shield, Users, Target } from 'lucide-react'
@@ -231,13 +232,14 @@ export default function AboutPage() {
           {/* 官方发布渠道插画 */}
           <Card className="overflow-hidden">
             <CardContent className="p-0">
-              <img
+              <Image
                 src="/images/官方发布渠道.svg"
                 alt="官方发布渠道"
                 width={1930}
                 height={657}
                 className="h-auto w-full"
                 loading="lazy"
+                unoptimized
               />
             </CardContent>
           </Card>

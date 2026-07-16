@@ -42,7 +42,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui'
+import { Button, ThemeLogo } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useLanguageStore, type Language } from '@/stores/language'
 import { Avatar } from '@/components/data/Avatar'
@@ -733,24 +733,13 @@ export function Sidebar({
   const header = (
     <div
       className={cn(
-        'flex h-10 shrink-0 items-center gap-2 pl-2.5 pr-4 transition-[padding] duration-200',
+        'flex h-10 shrink-0 items-center gap-2 pl-2.5 pr-5 transition-[padding] duration-200',
         collapsed && 'justify-center px-0',
       )}
     >
       {!collapsed && (
         <>
-          {}
-          <img
-            src="/images/logo.svg"
-            className="h-8 w-auto max-w-full cursor-pointer object-contain dark:hidden"
-            alt="IHUI AI"
-          />
-          {}
-          <img
-            src="/images/bailogo.svg"
-            className="hidden h-8 w-auto max-w-full cursor-pointer object-contain dark:block"
-            alt="IHUI AI"
-          />
+          <ThemeLogo clickable className="cursor-pointer" />
         </>
       )}
       <Button
