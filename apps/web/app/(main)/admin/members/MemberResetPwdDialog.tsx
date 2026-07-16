@@ -65,6 +65,18 @@ export function MemberResetPwdDialog({
       setResetErr(t('newPasswordRequired'))
       return
     }
+    if (resetPwd.length < 6) {
+      setResetErr(t('passwordTooShort'))
+      return
+    }
+    if (resetPwd.length > 20) {
+      setResetErr(t('passwordTooLong'))
+      return
+    }
+    if (/[<>"'|\\]/.test(resetPwd)) {
+      setResetErr(t('passwordInvalidChar'))
+      return
+    }
     resetPwdMut.mutate()
   }
 
@@ -91,7 +103,12 @@ export function MemberResetPwdDialog({
               value={resetPwd}
               onChange={(e) => setResetPwd(e.target.value)}
               placeholder={t('newPasswordPlaceholder')}
+              minLength={6}
+              maxLength={20}
+              pattern={'^[^<>"\'|\\\\]+$'}
+              autoComplete="new-password"
             />
+            <p className="text-xs text-muted-foreground">{t('passwordHint')}</p>
           </div>
           <DialogFooter>
             <Button
