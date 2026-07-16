@@ -1242,6 +1242,89 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result))
   })
 
+  // POST /members/batch-import - 统一批量导入会员（CSV 或 Excel,multipart/form-data,字段 file）
+  // 根据文件扩展名自动选择解析方式：.csv → 文本解析;.xlsx/.xls → XLSX 解析
+  // 表头支持英文键名（与 CSV 一致）或中文别名（详见 HEADER_ALIASES）
+  // 返回 { imported, failed, errors: ImportResultItem[] }
+  server.post('/members/batch-import', { schema: { response: R } }, async (request, reply) => {
+    if (!request.isMultipart()) {
+      return reply.status(400).send(error(400, '请求必须是 multipart/form-data'))
+    }
+    const data = await request.file()
+    if (!data) {
+      return reply.status(400).send(error(400, '未找到上传文件'))
+    }
+    const buffer = await data.toBuffer()
+    if (buffer.length === 0) {
+      return reply.status(400).send(error(400, '文件内容为空'))
+    }
+    const filename = (data.filename || '').toLowerCase()
+
+    let members: Array<Record<string, unknown>> = []
+
+    if (filename.endsWith('.csv')) {
+      const text = buffer.toString('utf-8')
+      const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
+      const headerLine = lines[0]
+      if (!headerLine || lines.length < 2) {
+        return reply.send(success({ imported: 0, failed: 0, errors: [] }))
+      }
+      const headers = headerLine.split(',').map((h) => h.trim())
+      members = lines.slice(1).map((line, idx) => {
+        const values = line.split(',')
+        const row: Record<string, unknown> = { serialNum: idx + 1, rowNum: idx + 2 }
+        headers.forEach((h, i) => {
+          const key = HEADER_ALIASES[h] ?? h
+          const v = values[i]?.trim() ?? ''
+          if (key === 'gender' || key === 'status') {
+            const n = Number(v)
+            row[key] = v !== '' && Number.isFinite(n) ? n : undefined
+          } else {
+            row[key] = v
+          }
+        })
+        return row
+      })
+    } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
+      let workbook: XLSX.WorkBook
+      try {
+        workbook = XLSX.read(buffer, { type: 'buffer' })
+      } catch {
+        return reply.status(400).send(error(400, 'Excel 文件解析失败'))
+      }
+      const firstSheetName = workbook.SheetNames[0]
+      if (!firstSheetName) {
+        return reply.status(400).send(error(400, 'Excel 文件无有效工作表'))
+      }
+      const firstSheet = workbook.Sheets[firstSheetName]
+      if (!firstSheet) {
+        return reply.status(400).send(error(400, 'Excel 文件无有效工作表'))
+      }
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
+        defval: '',
+        raw: false,
+      })
+      members = rows.map((row, idx) => {
+        const mapped: Record<string, unknown> = { serialNum: idx + 1, rowNum: idx + 2 }
+        for (const [k, v] of Object.entries(row)) {
+          const key = HEADER_ALIASES[k] ?? k
+          if (key === 'gender' || key === 'status') {
+            const n = Number(v)
+            mapped[key] = Number.isFinite(n) && v !== '' ? n : undefined
+          } else {
+            mapped[key] = v
+          }
+        }
+        return mapped
+      })
+    } else {
+      return reply.status(400).send(error(400, '不支持的文件类型,仅接受 .csv / .xlsx / .xls'))
+    }
+
+    const result = await importMembers(members)
+    return reply.send(success(result))
+  })
+
   // ----- 系统用户管理（users 表） -----
 
   // GET /members/departments/:id/users - 部门下用户列表

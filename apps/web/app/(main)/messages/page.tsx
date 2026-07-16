@@ -18,6 +18,7 @@ export default function MessagesPage() {
   const qc = useQueryClient()
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const [draft, setDraft] = React.useState('')
+  const [searchQuery, setSearchQuery] = React.useState('')
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const [extraMessages, setExtraMessages] = React.useState<Record<string, ChatMessage[]>>({})
   const [readCleared, setReadCleared] = React.useState<Set<string>>(new Set())
@@ -143,7 +144,7 @@ export default function MessagesPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
-      <MessagesHeader />
+      <MessagesHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />

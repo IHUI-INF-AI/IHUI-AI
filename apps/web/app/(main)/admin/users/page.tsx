@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Users, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
@@ -11,14 +11,19 @@ import { UserFilter } from './UserFilter'
 import { UserTable } from './UserTable'
 import { UserDialog } from './UserDialog'
 import { CreateUserDialog, type CreateUserForm } from './CreateUserDialog'
+import { ResetPasswordDialog } from './ResetPasswordDialog'
+import { RoleAssignDialog } from './RoleAssignDialog'
 import { DeptTree } from './DeptTree'
-import { PAGE_SIZE, fetchUsers, api } from './helpers'
+import { PAGE_SIZE, fetchUsers, fetchDeptList } from './helpers'
+import { useUserMutations } from './useUserMutations'
 import type { AdminUser } from './types'
+
+const EMPTY_FORM: CreateUserForm = { nickname: '', phone: '', email: '', password: '' }
 
 export default function AdminUsersPage() {
   const t = useTranslations('admin.users')
   const locale = useLocale()
-  const qc = useQueryClient()
+  const { patchMut, createMut, deleteMut, resetPwdMut, invalidateUsers } = useUserMutations()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [role, setRole] = React.useState('all')
@@ -30,12 +35,9 @@ export default function AdminUsersPage() {
   const [confirmUser, setConfirmUser] = React.useState<AdminUser | null>(null)
   const [confirmMode, setConfirmMode] = React.useState<'status' | 'delete'>('status')
   const [createOpen, setCreateOpen] = React.useState(false)
-  const [createForm, setCreateForm] = React.useState<CreateUserForm>({
-    nickname: '',
-    phone: '',
-    email: '',
-    password: '',
-  })
+  const [createForm, setCreateForm] = React.useState<CreateUserForm>(EMPTY_FORM)
+  const [resetUser, setResetUser] = React.useState<AdminUser | null>(null)
+  const [roleUser, setRoleUser] = React.useState<AdminUser | null>(null)
 
   React.useEffect(() => {
     const tm = setTimeout(() => {
@@ -50,35 +52,20 @@ export default function AdminUsersPage() {
     queryFn: () => fetchUsers({ page, search: debounced, role, status, deptId: selectedDeptId }),
   })
 
-  const patchMut = useMutation({
-    mutationFn: (p: { id: string; body: { role?: number; status?: number } }) =>
-      api<{ user: AdminUser }>(`/api/admin/users/${p.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(p.body),
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
+  const { data: deptData } = useQuery({
+    queryKey: ['admin', 'dept', 'list'],
+    queryFn: fetchDeptList,
+    staleTime: 5 * 60 * 1000,
   })
-
-  const createMut = useMutation({
-    mutationFn: (body: { nickname: string; phone?: string; email?: string; password: string }) =>
-      api<{ user: AdminUser }>('/api/admin/users', { method: 'POST', body: JSON.stringify(body) }),
-    onSuccess: () => {
-      toast.success('用户创建成功')
-      qc.invalidateQueries({ queryKey: ['admin', 'users'] })
-      setCreateOpen(false)
-      setCreateForm({ nickname: '', phone: '', email: '', password: '' })
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/users/${id}`, { method: 'DELETE' }),
-    onSuccess: () => {
-      toast.success('用户已删除')
-      qc.invalidateQueries({ queryKey: ['admin', 'users'] })
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
+  const deptMap = React.useMemo(() => {
+    const map = new Map<number, string>()
+    deptData?.list.forEach((d) => map.set(d.deptId, d.deptName))
+    return map
+  }, [deptData])
+  const getDeptName = React.useCallback(
+    (deptId: number | null) => (deptId ? (deptMap.get(deptId) ?? null) : null),
+    [deptMap],
+  )
 
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -93,8 +80,8 @@ export default function AdminUsersPage() {
 
   const handleStatusConfirm = () => {
     if (!confirmUser) return
-    const isActive = (confirmUser.status ?? 0) >= 1
-    patchMut.mutate({ id: confirmUser.id, body: { status: isActive ? 0 : 1 } })
+    const cur = confirmUser.status ?? 0
+    patchMut.mutate({ id: confirmUser.id, body: { status: cur === 1 ? 3 : 1 } })
     setConfirmUser(null)
   }
   const handleDeleteConfirm = () => {
@@ -114,15 +101,35 @@ export default function AdminUsersPage() {
     }
     if (createForm.phone.trim()) body.phone = createForm.phone.trim()
     if (createForm.email.trim()) body.email = createForm.email.trim()
-    createMut.mutate(body)
+    createMut.mutate(body, {
+      onSuccess: () => {
+        setCreateOpen(false)
+        setCreateForm(EMPTY_FORM)
+      },
+    })
   }
-  const askStatusToggle = (u: AdminUser) => {
-    setConfirmUser(u)
-    setConfirmMode('status')
+  const handleRoleAssign = (r: number) => {
+    if (!roleUser) return
+    patchMut.mutate(
+      { id: roleUser.id, body: { role: r } },
+      {
+        onSuccess: () => setRoleUser(null),
+      },
+    )
   }
-  const askDelete = (u: AdminUser) => {
+  const handleAvatarUploaded = (u: AdminUser) => {
+    setDetailUser(u)
+    invalidateUsers()
+    toast.success('头像已更新')
+  }
+  const handleDeptChange = (userId: string, deptId: number | null) =>
+    patchMut.mutate(
+      { id: userId, body: { deptId } },
+      { onSuccess: (resp) => setDetailUser(resp.user) },
+    )
+  const openConfirm = (u: AdminUser, mode: 'status' | 'delete') => {
     setConfirmUser(u)
-    setConfirmMode('delete')
+    setConfirmMode(mode)
   }
 
   return (
@@ -148,7 +155,7 @@ export default function AdminUsersPage() {
             </div>
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" />
-              新增用户
+              {t('createUser')}
             </Button>
           </div>
 
@@ -175,9 +182,10 @@ export default function AdminUsersPage() {
             dateFmt={dateFmt}
             onQuickView={setQuickUser}
             onDetail={setDetailUser}
-            onRoleChange={(id, r) => patchMut.mutate({ id, body: { role: r } })}
-            onStatusToggle={askStatusToggle}
-            onDelete={askDelete}
+            onRoleAssign={setRoleUser}
+            onResetPassword={setResetUser}
+            onStatusToggle={(u) => openConfirm(u, 'status')}
+            onDelete={(u) => openConfirm(u, 'delete')}
           />
 
           <div className="flex items-center justify-between">
@@ -222,6 +230,10 @@ export default function AdminUsersPage() {
         patchPending={patchMut.isPending}
         dateFmt={dateFmt}
         deletePending={deleteMut.isPending}
+        onAvatarUploaded={handleAvatarUploaded}
+        getDeptName={getDeptName}
+        deptList={deptData?.list}
+        onDeptChange={handleDeptChange}
       />
 
       <CreateUserDialog
@@ -231,6 +243,27 @@ export default function AdminUsersPage() {
         onChange={setCreateForm}
         submitting={createMut.isPending}
         onSubmit={handleCreateSubmit}
+      />
+
+      <ResetPasswordDialog
+        user={resetUser}
+        pending={resetPwdMut.isPending}
+        onConfirm={(pwd) => {
+          if (resetUser) {
+            resetPwdMut.mutate(
+              { userId: resetUser.id, password: pwd },
+              { onSuccess: () => setResetUser(null) },
+            )
+          }
+        }}
+        onCancel={() => setResetUser(null)}
+      />
+
+      <RoleAssignDialog
+        user={roleUser}
+        pending={patchMut.isPending}
+        onConfirm={handleRoleAssign}
+        onCancel={() => setRoleUser(null)}
       />
     </>
   )

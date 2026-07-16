@@ -2,215 +2,301 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
-import { BarChart3, Eye, Users, Globe, Loader2 } from 'lucide-react'
+import { Eye, Users, RefreshCw, MapPin, Loader2, Search } from 'lucide-react'
+import { eduApi, buildQs } from '@/lib/edu'
+import { StatCard } from '@/components/data'
+import { BarChart } from '@/components/charts'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Input,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@ihui/ui'
 
-import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+interface VisitStats {
+  pv?: number
+  uv?: number
+  vv?: number
+  ip?: number
+  ipNum?: number
+  [k: string]: unknown
+}
+interface TrendItem {
+  visitDate?: string
+  date?: string
+  pv?: number
+  uv?: number
+  [k: string]: unknown
+}
+interface VisitRow {
+  id?: string | number
+  ip?: string
+  ipCityName?: string
+  city?: string
+  url?: string
+  referer?: string
+  userAgent?: string
+  visitDate?: string
+  createTime?: string
+  [k: string]: unknown
+}
+interface PageList<T> {
+  list?: T[]
+  total?: number
+}
 
-interface VisitSummary {
-  pv: number
-  uv: number
-  ipCount: number
-  memberCount: number
-}
-interface DayPvItem {
-  visitDate: string
-  pv: number
-}
-interface DayUvItem {
-  visitDate: string
-  uv: number
-}
-interface IpCityItem {
-  ip: string | null
-  city: string | null
-  pv: number
-  uv: number
+function daysAgo(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return d.toISOString().slice(0, 10)
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+const inputCls =
+  'h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function VisitTrackingPage() {
-  const t = useTranslations('visitTracking')
+  const [start, setStart] = React.useState(daysAgo(7))
+  const [end, setEnd] = React.useState(daysAgo(0))
+  const [keyword, setKeyword] = React.useState('')
+  const [page, setPage] = React.useState(1)
+  const pageSize = 15
 
-  const { data: summary, isLoading: loadingSummary } = useQuery({
-    queryKey: ['visit-tracking', 'summary'],
-    queryFn: () =>
-      api<{ summary: VisitSummary }>(`/api/admin/visit-tracking/summary`).then((d) => d.summary),
+  const qs = buildQs({ startTime: start, endTime: end })
+  const listQs = buildQs({
+    startTime: start,
+    endTime: end,
+    url: keyword || undefined,
+    page,
+    pageSize,
   })
-  const { data: pvData } = useQuery({
-    queryKey: ['visit-tracking', 'day-pv'],
-    queryFn: () =>
-      api<{ list: DayPvItem[] }>(`/api/admin/visit-tracking/day/pv/list`).then((d) => d.list),
+
+  const { data: statsResp, isLoading: ls } = useQuery({
+    queryKey: ['visit-tracking', 'stats', start, end],
+    queryFn: () => eduApi<{ summary: VisitStats }>(`/api/admin/visit-tracking/summary${qs}`),
   })
-  const { data: uvData } = useQuery({
-    queryKey: ['visit-tracking', 'day-uv'],
-    queryFn: () =>
-      api<{ list: DayUvItem[] }>(`/api/admin/visit-tracking/day/uv/list`).then((d) => d.list),
+  const { data: pvTrend, isLoading: lt } = useQuery({
+    queryKey: ['visit-tracking', 'pv', start, end],
+    queryFn: () => eduApi<PageList<TrendItem>>(`/api/admin/visit-tracking/day/pv/list${qs}`),
   })
-  const { data: ipCityData, isLoading: loadingIpCity } = useQuery({
-    queryKey: ['visit-tracking', 'ip-city'],
-    queryFn: () =>
-      api<{ list: IpCityItem[]; total: number }>(
-        `/api/admin/visit-tracking/ip-city/summary/list?pageSize=20`,
-      ),
+  const { data: uvTrend } = useQuery({
+    queryKey: ['visit-tracking', 'uv', start, end],
+    queryFn: () => eduApi<PageList<TrendItem>>(`/api/admin/visit-tracking/day/uv/list${qs}`),
   })
+  const { data: listData, isLoading: ll } = useQuery({
+    queryKey: ['visit-tracking', 'list', start, end, keyword, page],
+    queryFn: () => eduApi<PageList<VisitRow>>(`/api/admin/visit-tracking/log/list${listQs}`),
+  })
+
+  const trendArr = React.useMemo(() => {
+    const pvList = pvTrend?.list ?? []
+    const uvList = uvTrend?.list ?? []
+    const uvMap = new Map(uvList.map((u) => [u.visitDate ?? u.date ?? '', u.uv ?? 0]))
+    return pvList.map((p) => ({
+      visitDate: p.visitDate ?? p.date,
+      pv: p.pv ?? 0,
+      uv: uvMap.get(p.visitDate ?? p.date ?? '') ?? 0,
+    }))
+  }, [pvTrend, uvTrend])
+  const stats = statsResp?.summary
+  const trendLabels = trendArr.map((t) => (t.visitDate ?? '').slice(5))
+  const pvSeries = trendArr.map((t) => Number(t.pv ?? 0))
+  const uvSeries = trendArr.map((t) => Number(t.uv ?? 0))
+
+  const list = listData?.list ?? []
+  const total = listData?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   const cards = [
-    { label: t('pv'), value: summary?.pv ?? 0, icon: Eye, color: 'text-primary' },
-    { label: t('uv'), value: summary?.uv ?? 0, icon: Users, color: 'text-primary' },
-    { label: t('ipCount'), value: summary?.ipCount ?? 0, icon: Globe, color: 'text-emerald-600' },
-    {
-      label: t('memberCount'),
-      value: summary?.memberCount ?? 0,
-      icon: BarChart3,
-      color: 'text-purple-600',
-    },
+    { title: '总浏览量 PV', value: stats?.pv ?? 0, icon: Eye, loading: ls },
+    { title: '总访客数 UV', value: stats?.uv ?? 0, icon: Users, loading: ls },
+    { title: '总访问次数 VV', value: stats?.vv ?? 0, icon: RefreshCw, loading: ls },
+    { title: 'IP 数', value: stats?.ipNum ?? stats?.ip ?? 0, icon: MapPin, loading: ls },
   ]
 
+  function setRecent(days: number) {
+    setStart(daysAgo(days))
+    setEnd(daysAgo(0))
+    setPage(1)
+  }
+  function refreshAll() {
+    setPage(1)
+  }
+
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-          <BarChart3 className="h-7 w-7 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <h1 className="text-2xl font-bold tracking-tight">访问追踪统计</h1>
+        <p className="text-sm text-muted-foreground">日期范围筛选 · PV/UV 概览 · 趋势与来源明细</p>
       </header>
 
-      {/* 概览卡片 */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('overview')}</h2>
-        {loadingSummary ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            {t('loading')}
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {cards.map((c) => (
-              <Card key={c.label}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {c.label}
-                  </CardTitle>
-                  <c.icon className={`h-4 w-4 ${c.color}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{c.value}</div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* 每日 PV/UV 趋势 */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">{t('dayPv')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(pvData ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('noData')}</p>
-            ) : (
-              <div className="max-h-64 overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="px-3 py-1.5 text-left font-medium">{t('date')}</th>
-                      <th className="px-3 py-1.5 text-left font-medium">PV</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(pvData ?? []).map((d) => (
-                      <tr key={d.visitDate} className="border-t">
-                        <td className="px-3 py-1.5 text-muted-foreground">{d.visitDate}</td>
-                        <td className="px-3 py-1.5">{d.pv}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">{t('dayUv')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(uvData ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('noData')}</p>
-            ) : (
-              <div className="max-h-64 overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="px-3 py-1.5 text-left font-medium">{t('date')}</th>
-                      <th className="px-3 py-1.5 text-left font-medium">UV</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(uvData ?? []).map((d) => (
-                      <tr key={d.visitDate} className="border-t">
-                        <td className="px-3 py-1.5 text-muted-foreground">{d.visitDate}</td>
-                        <td className="px-3 py-1.5">{d.uv}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-muted-foreground">日期范围：</span>
+        <Input
+          type="date"
+          value={start}
+          onChange={(e) => setStart(e.target.value)}
+          className={`${inputCls} w-40`}
+        />
+        <span className="text-sm text-muted-foreground">至</span>
+        <Input
+          type="date"
+          value={end}
+          onChange={(e) => setEnd(e.target.value)}
+          className={`${inputCls} w-40`}
+        />
+        <Button size="sm" onClick={refreshAll}>
+          查询
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setRecent(7)}>
+          近 7 天
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setRecent(30)}>
+          近 30 天
+        </Button>
       </div>
 
-      {/* IP 城市统计 */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('ipCity')}</h2>
-        {loadingIpCity ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            {t('loading')}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map((c) => (
+          <StatCard
+            key={c.title}
+            title={c.title}
+            value={c.loading ? '—' : c.value}
+            icon={c.icon}
+            loading={c.loading}
+          />
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {(
+          [
+            { title: '浏览量趋势 (PV)', series: pvSeries, color: 'var(--primary)' },
+            { title: '访客数趋势 (UV)', series: uvSeries, color: '#f97316' },
+          ] as const
+        ).map((c) => (
+          <Card key={c.title}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{c.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {lt ? (
+                <div className="flex items-center justify-center py-10 text-muted-foreground">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  加载中...
+                </div>
+              ) : c.series.length ? (
+                <BarChart data={c.series} xAxis={trendLabels} height={240} color={c.color} />
+              ) : (
+                <p className="py-10 text-center text-sm text-muted-foreground">暂无数据</p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-base">访问明细</CardTitle>
+            <div className="flex items-center gap-2">
+              <Input
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && refreshAll()}
+                placeholder="输入 IP / 路径搜索"
+                className={`${inputCls} w-56`}
+              />
+              <Button size="sm" variant="outline" onClick={refreshAll}>
+                <Search className="h-4 w-4" />
+                搜索
+              </Button>
+            </div>
           </div>
-        ) : (ipCityData?.list ?? []).length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12">
-            <Globe className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('noData')}</p>
-          </div>
-        ) : (
+        </CardHeader>
+        <CardContent>
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium">IP</th>
-                  <th className="px-4 py-2 text-left font-medium">{t('city')}</th>
-                  <th className="px-4 py-2 text-left font-medium">PV</th>
-                  <th className="px-4 py-2 text-left font-medium">UV</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(ipCityData?.list ?? []).map((r, i) => (
-                  <tr key={`${r.ip ?? ''}-${r.city ?? ''}-${i}`} className="border-t">
-                    <td className="px-4 py-2 font-mono text-xs">{r.ip ?? '-'}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{r.city ?? '-'}</td>
-                    <td className="px-4 py-2">{r.pv}</td>
-                    <td className="px-4 py-2">{r.uv}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <Table>
+              <TableHeader className="bg-muted/50">
+                <TableRow>
+                  <TableHead className="px-3 py-2">IP 地址</TableHead>
+                  <TableHead className="px-3 py-2">所在城市</TableHead>
+                  <TableHead className="px-3 py-2">访问路径</TableHead>
+                  <TableHead className="px-3 py-2">来源</TableHead>
+                  <TableHead className="px-3 py-2">访问日期</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y">
+                {ll ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                      <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                      加载中...
+                    </TableCell>
+                  </TableRow>
+                ) : list.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                      暂无数据
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  list.map((row, i) => (
+                    <TableRow key={row.id ?? i} className="hover:bg-muted/30">
+                      <TableCell className="px-3 py-2 font-mono text-xs">{row.ip ?? '-'}</TableCell>
+                      <TableCell className="px-3 py-2">
+                        {row.ipCityName ?? row.city ?? '-'}
+                      </TableCell>
+                      <TableCell
+                        className="max-w-[220px] truncate px-3 py-2 text-muted-foreground"
+                        title={row.url}
+                      >
+                        {row.url ?? '-'}
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-muted-foreground">
+                        {row.referer ?? '-'}
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-xs text-muted-foreground">
+                        {row.visitDate ?? row.createTime ?? '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
-        )}
-      </section>
+          {totalPages > 1 && (
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                上一页
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {page} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                下一页
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
