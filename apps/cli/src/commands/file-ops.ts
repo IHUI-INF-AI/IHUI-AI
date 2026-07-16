@@ -8,6 +8,7 @@ import * as path from 'node:path'
 import chalk from 'chalk'
 import { runSandboxed } from '../sandbox/index.js'
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js'
+import type { CheckpointManager } from '../checkpoints/index.js'
 
 const MAX_GREP_RESULTS = 50
 const MAX_GLOB_RESULTS = 50
@@ -173,7 +174,7 @@ export function cmdGlob(workspacePath: string, pattern: string): void {
   }
 }
 
-export function cmdBash(workspacePath: string, command: string): void {
+export function cmdBash(workspacePath: string, command: string, checkpoints?: CheckpointManager): void {
   if (!command) {
     console.info(chalk.yellow('用法: /bash <command>'))
     return
@@ -183,6 +184,20 @@ export function cmdBash(workspacePath: string, command: string): void {
   if (!preResult.proceed) {
     console.info(chalk.yellow(`⛔ ${preResult.reason}`))
     return
+  }
+
+  let autoCheckpointId: string | null = null
+  if (checkpoints) {
+    const filesToSnapshot = extractFilePathsFromCommand(command, workspacePath)
+    if (filesToSnapshot.length > 0) {
+      try {
+        const meta = checkpoints.snapshotSync(filesToSnapshot, 'auto_pre_bash')
+        autoCheckpointId = meta.id
+        console.info(chalk.dim(`  📸 自动检查点: ${meta.id} (${Object.keys(meta.files).length} 文件)`))
+      } catch {
+        // 快照失败不阻塞命令执行
+      }
+    }
   }
 
   console.info(chalk.dim(`$ ${command}`))
@@ -198,6 +213,39 @@ export function cmdBash(workspacePath: string, command: string): void {
   if (result.exitCode !== null && result.exitCode !== 0) {
     console.info(chalk.dim(`  exit: ${result.exitCode}`))
   }
+  if (autoCheckpointId && result.exitCode !== null && result.exitCode !== 0) {
+    console.info(chalk.yellow(`  💡 可用 /rollback ${autoCheckpointId} 回滚到此检查点`))
+  }
 
-  runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut })
+  const postResult = runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut })
+  if (!postResult.proceed) {
+    console.info(chalk.yellow(`⚠ ${postResult.reason}`))
+  }
+}
+
+function extractFilePathsFromCommand(command: string, workspacePath: string): string[] {
+  const tokens: string[] = []
+  let current = ''
+  let quote: '"' | "'" | null = null
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i]!
+    if (quote) {
+      if (ch === quote) quote = null
+      else current += ch
+    } else if (ch === '"' || ch === "'") {
+      quote = ch
+    } else if (/\s/.test(ch)) {
+      if (current) { tokens.push(current); current = '' }
+    } else {
+      current += ch
+    }
+  }
+  if (current) tokens.push(current)
+  const paths: string[] = []
+  for (const t of tokens) {
+    if (!t.includes('/') && !t.includes('\\') && !t.includes(path.sep)) continue
+    const abs = path.isAbsolute(t) ? t : path.resolve(workspacePath, t)
+    if (fs.existsSync(abs)) paths.push(abs)
+  }
+  return paths
 }
