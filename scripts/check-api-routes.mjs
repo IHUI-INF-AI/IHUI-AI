@@ -55,19 +55,20 @@ function extractFrontendCalls(src, file) {
       const rawPath = m[1]
       // 跳过非 API 路径（如 /api/health 这种纯字面量但被误捕）
       if (!rawPath.startsWith('/api/')) continue
-      // 推断 method
+      // 推断 method: 支持跨行(method: 'POST' 可能在 path 所在行的后续 1-2 行)
       let method = 'GET'
-      const lowerLine = line.toLowerCase()
-      if (lowerLine.includes('method:')) {
-        const mm = lowerLine.match(/method:\s*['"`]?(get|post|put|patch|delete)/i)
+      const contextLines = [line, lines[idx + 1] || '', lines[idx + 2] || '']
+      const context = contextLines.join('\n').toLowerCase()
+      if (/method\s*:\s*['"`]?(get|post|put|patch|delete)/.test(context)) {
+        const mm = context.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
         if (mm) method = mm[1].toUpperCase()
-      } else if (lowerLine.includes('post(') || lowerLine.includes('post<')) {
+      } else if (/\bpost\s*[<(]/.test(context)) {
         method = 'POST'
-      } else if (lowerLine.includes('put(') || lowerLine.includes('put<')) {
+      } else if (/\bput\s*[<(]/.test(context)) {
         method = 'PUT'
-      } else if (lowerLine.includes('patch(') || lowerLine.includes('patch<')) {
+      } else if (/\bpatch\s*[<(]/.test(context)) {
         method = 'PATCH'
-      } else if (lowerLine.includes('delete(') || lowerLine.includes('delete<')) {
+      } else if (/\bdelete\s*[<(]/.test(context)) {
         method = 'DELETE'
       }
       // 模板字符串变量替换为 :param
@@ -146,7 +147,9 @@ function pathMatches(frontendPath, backendPath) {
 }
 
 // ===== 主流程 =====
-console.log(`${C.cyan}[API 路由比对] 开始检查...${C.reset}`)
+const WARN_ONLY = process.argv.includes('--warn-only')
+
+console.log(`${C.cyan}[API 路由比对] 开始检查... (mode: ${WARN_ONLY ? 'warn-only' : 'strict'})${C.reset}`)
 
 const { routes: backendRoutes, prefixes } = extractBackendRoutes()
 
@@ -215,4 +218,4 @@ console.log(`  1. 确认前端调用路径是否正确（检查 prefix 层级）
 console.log(`  2. 确认 HTTP 方法是否匹配（GET/POST/PUT/PATCH/DELETE）`)
 console.log(`  3. 如后端缺失，在 apps/api/src/routes/ 对应文件补建路由`)
 console.log(`  4. 如前端错误，修正前端调用路径或方法`)
-process.exit(1)
+process.exit(WARN_ONLY ? 0 : 1)

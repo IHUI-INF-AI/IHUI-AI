@@ -28,6 +28,12 @@ import {
 } from '../db/live-queries.js'
 import { findLiveCalendar } from '../db/live-calendar-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { config } from '../config/index.js'
+import {
+  verifyCallbackSignature,
+  handleCallbackEvent,
+  type CallbackSignatureHeaders,
+} from '../services/tencent-live-service.js'
 
 /** 复用响应 schema：data 字段允许任意附加属性。 */
 const R = {
@@ -293,6 +299,54 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     return reply.send(success({ ok: true, event: 'stream-end', data: parsed.data }))
+  })
+
+  // ----- P0-5: 腾讯云直播回调验签(checkSign) -----
+
+  // POST /live/tencent/callback - 腾讯云直播回调端点(验签 + 事件处理)
+  // 独立子作用域:捕获 raw body 用于 HMAC-SHA256 验签,不影响其他 live 路由的 JSON 解析。
+  server.register(async (scope) => {
+    scope.addContentTypeParser(
+      'application/json',
+      { parseAs: 'string' },
+      (req, body, done) => {
+        const raw = body as string
+        ;(req as FastifyRequest & { rawBody?: string }).rawBody = raw
+        if (!raw) {
+          done(null, undefined)
+          return
+        }
+        try {
+          done(null, JSON.parse(raw))
+        } catch (e) {
+          done(e as Error, undefined)
+        }
+      },
+    )
+
+    scope.post('/live/tencent/callback', async (request, reply) => {
+      const callbackKey = config.TENCENT_LIVE_CALLBACK_KEY
+      if (!callbackKey) {
+        return reply
+          .status(503)
+          .send(error(503, '腾讯云直播回调未配置'))
+      }
+
+      const rawBody = (request as FastifyRequest & { rawBody?: string }).rawBody ?? ''
+      const headers = request.headers as CallbackSignatureHeaders
+      const verify = verifyCallbackSignature(headers, rawBody, callbackKey)
+      if (!verify.ok) {
+        return reply.status(403).send(error(403, verify.reason ?? '验签失败'))
+      }
+
+      const body = (request.body as Record<string, unknown> | undefined) ?? {}
+      const eventType =
+        (body.event_type as string | undefined) ??
+        (body.eventType as string | undefined) ??
+        (body.action as string | undefined)
+      const result = await handleCallbackEvent(eventType, body)
+      return reply.send(success(result))
+    })
   })
 
   // ----- P0-16: 小程序直播 API 路径对齐（公共，无需登录） -----
