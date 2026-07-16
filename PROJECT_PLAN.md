@@ -442,6 +442,16 @@
 - [x] ✅(2026-07-16) (P1) 阶段4:Sandbox + Hooks 系统 — `apps/cli/src/sandbox/` 子进程沙盒(基于 `node:child_process` spawnSync + 资源限制:超时/最大输出)+ `apps/cli/src/hooks/` pre/post tool hooks(从 `~/.ihui/hooks.json` 加载用户自定义钩子,支持 `preToolCall`/`postToolCall` 钩子,可阻断工具调用);`cmdBash` 集成 sandbox + hooks;新增 `ihui hooks list` 子命令;`getHooksPath()` 支持 `IHUI_HOOKS_CONFIG` 环境变量覆盖;烟雾测试通过(13/13:正常执行/超时/退出码/stderr/默认放行/阻断逻辑 PASS)
 - [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint test --filter=@ihui/cli --filter=@ihui/api-client` 全绿(7/7 任务成功,exit 0);阶段1-4 全部交付
 
+### cli 后续迭代(2026-07-16 📋 plan)
+
+> 在阶段1-4 交付基础上,对四个模块做选择性增强。遵守 AGENTS.md §3 做减法,每项独立实现+验证。
+
+- [x] ✅(2026-07-16) (P1) 迭代1:Sandbox 路径白名单 + 资源限制增强 — `apps/cli/src/sandbox/` 新增 `allowedPaths` 白名单(防止 cwd 越权访问,越权时 blocked=true 拒绝执行)+ `maxMemoryBytes`/`maxCpuMs` 内存/CPU 限制(POSIX,Windows 忽略)+ `extractPathsFromCommand` 命令路径提取;烟雾测试 7/7 通过
+- [x] ✅(2026-07-16) (P1) 迭代2:Hooks postToolCall 阻断能力 — `runPostToolCall` 返回 `HookResult`(原返回 void),新增 `blockOnError` 配置(默认 false 仅通知,true 时阻断);`cmdBash` 处理 postToolCall 阻断提示;烟雾测试 6/6 通过(默认放行/阻断/不匹配放行)
+- [x] ✅(2026-07-16) (P2) 迭代3:ACP loadSession 能力 — `agentCapabilities.loadSession` 改为 `true`;实现 `session/load` handler(从 `~/.ihui/sessions/` 恢复历史会话 + 通过 `session/update` notification 流式回放 user/assistant 消息);重构 `createAcpAgent`(返回 AgentApp)/`startAcpServer`(connect stdio);烟雾测试 3/3 通过
+- [x] ✅(2026-07-16) (P2) 迭代4:Checkpoints 工具调用前后自动快照 — `cmdBash` 执行前自动快照命令中引用的文件路径(reason `auto_pre_bash`),失败时提示 `/rollback <id>`;`CheckpointManager` 新增 `snapshotSync`(同步版,供同步 cmdBash 使用);`/rollback auto` 回滚到最近 auto_pre_bash 检查点;烟雾测试 8/8 通过(自动快照/回滚/无文件不创建检查点)
+- [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 全绿(5/5 任务成功,exit 0);迭代1-4 全部交付
+
 ### 前端问题修复（2026-07-11 全面审计）
 
 - [x] ✅(2026-07-11) 前端-FE-P0-1: 修复 `app/globals.css` 的 `--color-ring` token 反转（浅色模式 3.9% 近黑 → 70% 浅灰；暗色模式 83.1% 浅灰 → 25% 深灰），影响所有表单和 AI 输入框聚焦环
