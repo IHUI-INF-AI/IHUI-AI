@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import PDFKit from 'pdfkit'
 import { authenticate } from '../plugins/auth.js'
@@ -46,6 +46,10 @@ const createTemplateSchema = z.object({
   description: z.string().nullable().optional(),
   backgroundImage: z.string().max(512).nullable().optional(),
   templateConfig: z.unknown().optional(),
+  awardingOrganization: z.string().nullable().optional(),
+  awarderName: z.string().nullable().optional(),
+  awardConditions: z.string().nullable().optional(),
+  validityPolicy: z.string().nullable().optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
@@ -54,6 +58,10 @@ const updateTemplateSchema = z.object({
   description: z.string().nullable().optional(),
   backgroundImage: z.string().max(512).nullable().optional(),
   templateConfig: z.unknown().optional(),
+  awardingOrganization: z.string().nullable().optional(),
+  awarderName: z.string().nullable().optional(),
+  awardConditions: z.string().nullable().optional(),
+  validityPolicy: z.string().nullable().optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
