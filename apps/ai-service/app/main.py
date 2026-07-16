@@ -15,6 +15,7 @@ from app.core.jwt_auth import JWTAuthMiddleware
 from app.core.schema_check import check_schema, log_report
 from app.routers import a2a, agents, health, llm, mcp, tools
 from app.routers.legacy import router as legacy_router
+from app.telemetry import setup_telemetry, shutdown_telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("[schema_check] 启动校验异常(忽略): %s", e)
     yield
+    shutdown_telemetry()
 
 
 def create_app() -> FastAPI:
@@ -54,6 +56,9 @@ def create_app() -> FastAPI:
 
     # JWT 认证中间件（与 apps/api 共享 JWT_SECRET，SSO 跨服务认证）
     app.add_middleware(JWTAuthMiddleware)
+
+    # OpenTelemetry 追踪中间件（未配置 OTEL_EXPORTER_OTLP_ENDPOINT 时降级为 no-op）
+    setup_telemetry(app)
 
     # 注册路由(路由器自带 /llm /mcp /agents /a2a /tools 前缀,统一加 /api)
     app.include_router(health.router, tags=["health"])
