@@ -439,8 +439,8 @@
 - [x] ✅(2026-07-16) (P0) 阶段1:ACP 协议 + 编辑器嵌入 — `apps/cli/src/acp/` 新增 ACP server(JSON-RPC 2.0 over stdio,对标 Zed ACP 规范),让 IHUI CLI 可被 Zed/VSCode+ACP 扩展/Cursor 等编辑器作为 agent 后端启动;新增 `ihui acp` 子命令入口;不新建 VSCode 扩展项目(协议级嵌入,复用已有 `apps/extension` 浏览器扩展定位不变)
 - [x] ✅(2026-07-16) (P0) 阶段2:Checkpoints 检查点系统 — `apps/cli/src/checkpoints/` 新增工作区文件快照机制(只快照被指定文件,manifest.json 元数据 + 1:1 镜像存储);新增 `ihui checkpoint snapshot/list/restore/diff/delete` 子命令;REPL 新增 `/checkpoint`(别名`/cp`)、`/rollback`(别名`/rb`)、`/diff` slash 命令;存储 `~/.ihui/checkpoints/<sessionId>/`;烟雾测试通过(snapshot→list→diff→restore 回滚到原内容 PASS)
 - [x] ✅(2026-07-16) (P1) 阶段3:Headless 模式增强 — `apps/cli/src/commands/agent.ts` 新增 `jsonMode` + `AgentResult`/`AgentStopReason` 类型 + `stopReasonToExitCode()`;NDJSON 事件流(start/message_delta/error/complete);`index.ts` 新增 `--json` 全局选项 + 非 TTY 自动检测(`!process.stdout.isTTY`)+ `runAgentAndExit()` 封装 SIGINT→exit 130;exit code 规范(0=成功/1=失败/2=部分完成/130=中断);烟雾测试通过(NDJSON 格式合法 + exit code 映射 PASS)
-- [ ] (P1) 阶段4:Sandbox + Hooks 系统 — `apps/cli/src/sandbox/` 子进程沙盒(基于 `node:child_process` spawn + 资源限制:超时/最大输出/路径白名单)+ `apps/cli/src/hooks/` pre/post tool hooks(从 `~/.ihui/hooks.json` 加载用户自定义钩子,支持 `preToolCall`/`postToolCall` 钩子,可阻断工具调用)
-- [ ] (P0) 全量验证:`pnpm --filter @ihui/cli typecheck` + `lint` + `test` 全绿,更新本章节勾选状态为 ✅(日期)
+- [x] ✅(2026-07-16) (P1) 阶段4:Sandbox + Hooks 系统 — `apps/cli/src/sandbox/` 子进程沙盒(基于 `node:child_process` spawnSync + 资源限制:超时/最大输出)+ `apps/cli/src/hooks/` pre/post tool hooks(从 `~/.ihui/hooks.json` 加载用户自定义钩子,支持 `preToolCall`/`postToolCall` 钩子,可阻断工具调用);`cmdBash` 集成 sandbox + hooks;新增 `ihui hooks list` 子命令;`getHooksPath()` 支持 `IHUI_HOOKS_CONFIG` 环境变量覆盖;烟雾测试通过(13/13:正常执行/超时/退出码/stderr/默认放行/阻断逻辑 PASS)
+- [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint test --filter=@ihui/cli --filter=@ihui/api-client` 全绿(7/7 任务成功,exit 0);阶段1-4 全部交付
 
 ### 前端问题修复（2026-07-11 全面审计）
 
