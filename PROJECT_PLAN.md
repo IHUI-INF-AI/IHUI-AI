@@ -499,6 +499,24 @@
 - [x] ✅(2026-07-16) (P1) 阶段20:plan-then-execute 模式 — `buildSystemPrompt` 新增 `planFirst?: boolean`,启用时注入 `<plan>` 块要求 LLM 先规划后执行。新增 `--plan` CLI flag,实测 planFirst=false 无规划块、planFirst=true 含规划块
 - [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,`--plan` flag + buildSystemPrompt plan 块注入测试通过
 
+### grok-build 第七轮迁移:settings.json 统一配置 + run_tests 工具(2026-07-16 📋 plan)
+
+> 配置散落 mcp.json/hooks.json/CLI flag 三处,每次启动要敲长命令。同时补齐 TDD 场景的结构化测试工具。
+
+- [x] ✅(2026-07-16) (P1) 阶段21:`.ihui/settings.json` 统一配置 — 新增 `commands/settings.ts`,字段 {apiUrl, apiKey, defaultModel, maxIterations, auditEnabled, sandbox:{allowedPaths}, allowDangerous, planFirst},`index.ts` 启动时合并优先级:CLI flag > settings.json > env > 默认。新增 `settings init [--force]` 和 `settings path` 子命令,实测 `settings path` 输出 `C:\Users\Administrator\.ihui\settings.json`、`settings init --force` 创建模板成功
+- [x] ✅(2026-07-16) (P1) 阶段22:测试运行工具 run_tests — 新增 `tools/run-tests.ts`,跑 `npm test -- --json`(或 vitest),解析 JSON 输出返回 `{passed, failed, skipped, failures: [{name, message}]}`,dangerLevel='dangerous'。已注册到 `setupAgentTools`,`run_tests` 工具被标记 dangerous 并注入 system prompt,烟雾测试 12 个工具含 run_tests
+- [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,settings 子命令 + run_tests 烟雾测试通过
+
+### grok-build 第八轮迁移:P2 工具与体验增强(2026-07-16 📋 plan)
+
+> 第四轮审计剩余 P2 项,本轮整合 4 项独立、零风险、价值最高的工具与体验增强。遵守 AGENTS.md §3 做减法,零新运行时依赖。
+
+- [ ] (P2) 阶段23:Ripgrep 集成 — 改造 `tools/builtins.ts` 的 `grep` 工具,优先用 `rg --json` 调用系统 ripgrep(遵循 .gitignore、支持 --type/-g),rg 不存在时降级到现有 JS walk;复用 `git.ts` 的 `execGit` 模式
+- [ ] (P2) 阶段24:get_diagnostics 诊断工具 — 新增 `tools/diagnostics.ts`,执行 `tsc --noEmit --pretty false` + `eslint --format json`,解析输出返回结构化 `{file, line, column, severity, message, ruleId}[]`,dangerLevel='read',注册到 setupAgentTools
+- [ ] (P2) 阶段25:编辑后 diff 展示 — `tools/file-edit.ts` 的 edit_file/write_file 返回中追加 unified diff(手写简化 LCS line diff,零依赖),REPL 端用 chalk 绿/红着色 +/- 行
+- [ ] (P2) 阶段26:代码语法高亮 — 新增 `highlight.ts` 封装 cli-highlight(已装但闲置),read_file 输出按扩展名高亮,REPL 代码块高亮;Headless --json 模式不高亮
+- [ ] (P0) 全量验证:typecheck + lint + 烟雾测试全绿
+
 ### 前端问题修复（2026-07-11 全面审计）
 
 - [x] ✅(2026-07-11) 前端-FE-P0-1: 修复 `app/globals.css` 的 `--color-ring` token 反转（浅色模式 3.9% 近黑 → 70% 浅灰；暗色模式 83.1% 浅灰 → 25% 深灰），影响所有表单和 AI 输入框聚焦环
