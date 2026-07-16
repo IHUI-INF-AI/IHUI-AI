@@ -512,6 +512,8 @@ export interface CreateLearnTopicInput {
   price?: string | null
   originalPrice?: string | null
   status?: string
+  slug?: string | null
+  sort?: number
 }
 
 export async function createTopicRow(data: CreateLearnTopicInput): Promise<LearnTopic> {
@@ -524,6 +526,8 @@ export async function createTopicRow(data: CreateLearnTopicInput): Promise<Learn
       price: data.price,
       originalPrice: data.originalPrice,
       status: data.status,
+      slug: data.slug,
+      sort: data.sort,
     })
     .returning()
   const row = rows[0]
@@ -538,6 +542,8 @@ export interface UpdateLearnTopicInput {
   price?: string | null
   originalPrice?: string | null
   status?: string
+  slug?: string | null
+  sort?: number
 }
 
 export async function updateTopicRow(
@@ -553,6 +559,8 @@ export async function updateTopicRow(
       ...(data.price !== undefined ? { price: data.price } : {}),
       ...(data.originalPrice !== undefined ? { originalPrice: data.originalPrice } : {}),
       ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.slug !== undefined ? { slug: data.slug } : {}),
+      ...(data.sort !== undefined ? { sort: data.sort } : {}),
       updatedAt: new Date(),
     })
     .where(eq(learnTopic.id, id))
