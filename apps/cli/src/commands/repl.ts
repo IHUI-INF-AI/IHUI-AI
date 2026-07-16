@@ -23,6 +23,7 @@ export interface ReplOptions {
   sessionId?: string;
   history?: ChatMessage[];
   enableMcp?: boolean;
+  allowDangerous?: boolean;
 }
 
 interface ReplState {
@@ -329,6 +330,20 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
       checkpoints: state.checkpoints ?? undefined,
       enableMcp: state.opts.enableMcp,
       silent: true,
+      confirmDangerous: async (tool, args) => {
+        if (state.opts.allowDangerous) {
+          console.info(chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name}`));
+          return true;
+        }
+        const argSummary = JSON.stringify(args).slice(0, 100);
+        const { confirm } = await inquirer.prompt([{
+          type: 'confirm',
+          name: 'confirm',
+          message: `⚠ 工具 ${tool.name} 将执行危险操作(${argSummary}),是否继续?`,
+          default: false,
+        }]);
+        return confirm;
+      },
     });
     state.systemPrompt = result.systemPrompt;
     state.ctx = result.ctx;
