@@ -1,8 +1,26 @@
 import { fetchApi } from '@/lib/api'
-import type { DictItem, DictType, TypeForm, ItemForm } from './types'
+import type { DictItem, DictType, TypeForm, ItemForm, ListClass } from './types'
 
 export const EMPTY_TYPE: TypeForm = { name: '', code: '', description: '' }
-export const EMPTY_ITEM: ItemForm = { label: '', value: '', sort: 0 }
+export const EMPTY_ITEM: ItemForm = {
+  label: '',
+  value: '',
+  sort: 0,
+  cssClass: '',
+  listClass: 'default' as ListClass,
+  status: 0,
+  remark: '',
+  dictType: '',
+}
+
+export const LIST_CLASS_OPTIONS: ListClass[] = [
+  'default',
+  'primary',
+  'success',
+  'info',
+  'warning',
+  'danger',
+]
 
 export const th = 'px-4 py-2.5 font-medium'
 
@@ -25,7 +43,17 @@ export async function fetchDictList(): Promise<DictType[]> {
   const result: DictType[] = await Promise.all(
     (r.data?.list ?? []).map(async (t) => {
       const dr = await fetchApi<{
-        list: { dictCode: number; dictLabel: string; dictValue: string; dictSort?: number }[]
+        list: {
+          dictCode: number
+          dictLabel: string
+          dictValue: string
+          dictSort?: number
+          cssClass?: string
+          listClass?: string
+          status?: string | number
+          remark?: string
+          dictType?: string
+        }[]
       }>(`/api/admin/dict/data/type/${t.dictType}`)
       const items: DictItem[] =
         dr.success && dr.data?.list
@@ -34,6 +62,13 @@ export async function fetchDictList(): Promise<DictType[]> {
               label: d.dictLabel,
               value: d.dictValue,
               sort: d.dictSort ?? 0,
+              cssClass: d.cssClass ?? '',
+              listClass: (LIST_CLASS_OPTIONS.includes(d.listClass as ListClass)
+                ? d.listClass
+                : 'default') as ListClass,
+              status: Number(d.status) === 1 ? 1 : 0,
+              remark: d.remark ?? '',
+              dictType: d.dictType ?? t.dictType,
             }))
           : []
       return {

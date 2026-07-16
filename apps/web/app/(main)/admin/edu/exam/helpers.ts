@@ -8,6 +8,12 @@ export const EMPTY: PaperForm = {
   duration: '60',
   isPublished: false,
   isRandom: false,
+  cidList: [],
+  questionIdList: [],
+  questionDisordered: false,
+  optionDisordered: false,
+  difficulty: 2,
+  paperType: 'normal',
 }
 
 export const PAGE_SIZE = 10
