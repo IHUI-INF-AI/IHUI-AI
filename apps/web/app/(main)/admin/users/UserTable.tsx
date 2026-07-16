@@ -1,12 +1,11 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Users, Eye, Trash2 } from 'lucide-react'
-import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Users, Eye, Trash2, KeyRound, Shield, Ban, RotateCcw, ShieldCheck } from 'lucide-react'
+import { Button } from '@ihui/ui'
 import { Avatar } from '@/components/data/Avatar'
 import { Skeleton } from '@/components/common'
 import { cn } from '@/lib/utils'
-import { selectClass } from './helpers'
 import type { AdminUser } from './types'
 
 interface Props {
@@ -17,7 +16,8 @@ interface Props {
   dateFmt: Intl.DateTimeFormat
   onQuickView: (u: AdminUser) => void
   onDetail: (u: AdminUser) => void
-  onRoleChange: (id: string, role: number) => void
+  onRoleAssign: (u: AdminUser) => void
+  onResetPassword: (u: AdminUser) => void
   onStatusToggle: (u: AdminUser) => void
   onDelete: (u: AdminUser) => void
 }
@@ -30,7 +30,8 @@ export function UserTable({
   dateFmt,
   onQuickView,
   onDetail,
-  onRoleChange,
+  onRoleAssign,
+  onResetPassword,
   onStatusToggle,
   onDelete,
 }: Props) {
@@ -75,7 +76,7 @@ export function UserTable({
               const isAdmin = (u.roleId ?? 0) >= 1
               const statusVal = u.status ?? 0
               const isActive = statusVal === 1
-              const isCancelled = statusVal === 3
+              const isBanned = statusVal === 3
               const name = u.nickname || u.phone || u.email || 'U'
               return (
                 <tr key={u.id} className="transition-colors hover:bg-muted/30">
@@ -90,32 +91,22 @@ export function UserTable({
                     <div className="text-xs text-muted-foreground/80">{u.email || '-'}</div>
                   </td>
                   <td className="px-4 py-2.5">
-                    <Select
-                      value={isAdmin ? '1' : '0'}
-                      onValueChange={(v) => onRoleChange(u.id, Number(v))}
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 text-xs font-medium',
+                        isAdmin ? 'text-primary' : 'text-muted-foreground',
+                      )}
                     >
-                      <SelectTrigger
-                        className={cn(
-                          selectClass,
-                          isAdmin ? 'border-primary/30 text-primary' : 'text-muted-foreground',
-                        )}
-                        aria-label={t('setRole')}
-                        disabled={patchPending}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">{t('roleUser')}</SelectItem>
-                        <SelectItem value="1">{t('roleAdmin')}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <Shield className="h-3 w-3" />
+                      {isAdmin ? t('roleAdmin') : t('roleUser')}
+                    </span>
                   </td>
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                        isCancelled
-                          ? 'bg-muted text-muted-foreground'
+                        isBanned
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-500'
                           : isActive
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                             : 'bg-muted text-muted-foreground',
@@ -124,14 +115,14 @@ export function UserTable({
                       <span
                         className={cn(
                           'h-1.5 w-1.5 rounded-full',
-                          isCancelled
-                            ? 'bg-muted-foreground'
+                          isBanned
+                            ? 'bg-rose-500'
                             : isActive
                               ? 'bg-emerald-500'
                               : 'bg-muted-foreground',
                         )}
                       />
-                      {isCancelled
+                      {isBanned
                         ? t('statusCancelled')
                         : isActive
                           ? t('statusActive')
@@ -142,7 +133,7 @@ export function UserTable({
                     {u.createdAt ? dateFmt.format(new Date(u.createdAt)) : '-'}
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex justify-end gap-0.5">
                       <Button
                         size="sm"
                         variant="ghost"
@@ -154,16 +145,43 @@ export function UserTable({
                       <Button
                         size="sm"
                         variant="ghost"
+                        onClick={() => onRoleAssign(u)}
+                        aria-label={t('setRole')}
+                        disabled={patchPending}
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onResetPassword(u)}
+                        aria-label={t('resetPassword')}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         disabled={patchPending}
                         onClick={() => onStatusToggle(u)}
+                        className={cn(
+                          isActive
+                            ? 'text-rose-600 hover:text-rose-600 dark:text-rose-500'
+                            : 'text-emerald-600 hover:text-emerald-600 dark:text-emerald-500',
+                        )}
+                        aria-label={isActive ? t('ban') : t('unban')}
                       >
-                        {isActive ? t('disable') : t('enable')}
+                        {isActive ? (
+                          <Ban className="h-4 w-4" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4" />
+                        )}
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => onDelete(u)}
-                        aria-label="删除"
+                        aria-label={t('delete')}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
