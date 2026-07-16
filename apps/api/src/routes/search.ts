@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -8,6 +8,8 @@ import {
   addSearchHistory,
   clearSearchHistory,
   deleteSearchHistory,
+  highlightSearchResult,
+  getSearchFacets,
 } from '../db/search-queries.js'
 import {
   findHotWordList,
@@ -21,10 +23,14 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
+const boolQuery = z.preprocess((v) => v === 'true' || v === '1', z.boolean())
+
 const searchQuerySchema = z.object({
   q: z.string().trim().min(1, '关键词不能为空').max(255),
   type: z.preprocess(emptyToUndefined, z.enum(['user', 'project', 'file', 'all']).default('all')),
   limit: z.coerce.number().int().min(1).max(50).default(20),
+  highlight: boolQuery.default(false),
+  facets: boolQuery.default(false),
 })
 
 const historyQuerySchema = z.object({
@@ -89,6 +95,16 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
               default: 20,
               description: '返回数量(1-50,默认 20)',
             },
+            highlight: {
+              type: 'boolean',
+              default: false,
+              description: '是否返回高亮字段 highlightedTitle/highlightedContent(默认 false)',
+            },
+            facets: {
+              type: 'boolean',
+              default: false,
+              description: '是否返回 facets 聚合结果(默认 false)',
+            },
           },
         },
         response: {
@@ -116,8 +132,17 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { q, type, limit } = parsed.data
+      const { q, type, limit, highlight, facets } = parsed.data
       const result = await globalSearch(request.userId!, q, type, limit)
+
+      const data = highlight
+        ? highlightSearchResult(result, q)
+        : ({ ...result } as ReturnType<typeof highlightSearchResult>)
+
+      if (facets) {
+        data.facets = await getSearchFacets(request.userId!, q)
+      }
+
       // 异步记录搜索历史，不阻塞响应
       setImmediate(() => {
         addSearchHistory({
@@ -129,7 +154,7 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
           /* 审计性写入，失败忽略 */
         })
       })
-      return reply.send(success(result))
+      return reply.send(success(data))
     },
   )
 

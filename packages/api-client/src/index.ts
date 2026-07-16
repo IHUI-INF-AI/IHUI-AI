@@ -1,4 +1,11 @@
-export { fetchApi, setTokenProvider, setBaseUrl, streamChat, parseStreamLine } from './client.js'
+export {
+  fetchApi,
+  setTokenProvider,
+  setBaseUrl,
+  streamChat,
+  parseStreamLine,
+  parseStreamLineReasoning,
+} from './client.js'
 export type { TokenProvider, StreamChatOptions } from './client.js'
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'
 export { eduApi, buildQs } from './utils.js'
@@ -6,6 +13,7 @@ export type { PageData, PageQuery } from './utils.js'
 
 export * from './endpoints/admin.js'
 export * from './endpoints/admin-auth.js'
+export * from './endpoints/admin-content.js'
 export * from './endpoints/admin-member.js'
 export * from './endpoints/admin-monitor.js'
 export * from './endpoints/admin-system.js'

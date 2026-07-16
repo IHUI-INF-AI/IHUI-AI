@@ -20,7 +20,7 @@ import {
   TableHead,
   TableCell,
 } from '@ihui/ui'
-import { type ImportResult, batchUploadMembers, excelUploadMembers } from './types'
+import { type ImportResult, batchImportMembers } from './types'
 
 export function MemberImportDialog({
   open,
@@ -49,11 +49,7 @@ export function MemberImportDialog({
   const uploadMut = useMutation({
     mutationFn: () => {
       if (!file) throw new Error(t('fileRequired'))
-      const name = file.name.toLowerCase()
-      if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-        return excelUploadMembers(file)
-      }
-      return batchUploadMembers(file)
+      return batchImportMembers(file)
     },
     onSuccess: (res) => {
       if (!res.success) {

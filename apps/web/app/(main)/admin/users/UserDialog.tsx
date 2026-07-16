@@ -1,9 +1,17 @@
 'use client'
 
+import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { Camera, Loader2 } from 'lucide-react'
 import { Avatar } from '@/components/data/Avatar'
 import { Modal, Drawer, ConfirmDialog } from '@/components/feedback'
-import type { AdminUser } from './types'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { api } from './helpers'
+import type { AdminUser, DeptItem } from './types'
+
+interface AvatarUploadResp {
+  user: { avatar: string | null } & Partial<AdminUser>
+}
 
 interface Props {
   quickUser: AdminUser | null
@@ -18,6 +26,10 @@ interface Props {
   patchPending: boolean
   deletePending: boolean
   dateFmt: Intl.DateTimeFormat
+  onAvatarUploaded: (user: AdminUser) => void
+  getDeptName?: (deptId: number | null) => string | null
+  deptList?: DeptItem[]
+  onDeptChange?: (userId: string, deptId: number | null) => void
 }
 
 export function UserDialog({
@@ -33,10 +45,38 @@ export function UserDialog({
   patchPending,
   deletePending,
   dateFmt,
+  onAvatarUploaded,
+  getDeptName,
+  deptList,
+  onDeptChange,
 }: Props) {
   const t = useTranslations('admin.users')
   const isDelete = !!confirmUser && confirmMode === 'delete'
-  const isActive = !!confirmUser && (confirmUser.status ?? 0) >= 1
+  const isActive = !!confirmUser && (confirmUser.status ?? 0) === 1
+  const isBanned = !!confirmUser && (confirmUser.status ?? 0) === 3
+  const fileRef = React.useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = React.useState(false)
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !detailUser) return
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const resp = await api<AvatarUploadResp>(`/api/users/${detailUser.id}/avatar`, {
+        method: 'POST',
+        body: fd,
+      })
+      onAvatarUploaded({ ...detailUser, avatar: resp.user.avatar ?? detailUser.avatar })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '上传失败')
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
   return (
     <>
       <Modal open={!!quickUser} onClose={onCloseQuick} title={t('userDetail')} size="sm">
@@ -66,16 +106,39 @@ export function UserDialog({
         {detailUser && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <Avatar
-                src={detailUser.avatar ?? undefined}
-                name={detailUser.nickname || 'U'}
-                size="lg"
-              />
+              <div className="group relative">
+                <Avatar
+                  src={detailUser.avatar ?? undefined}
+                  name={detailUser.nickname || 'U'}
+                  size="lg"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  aria-label={t('uploadAvatar')}
+                  className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 disabled:opacity-60"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleFile}
+                />
+              </div>
               <div>
                 <p className="font-medium">{detailUser.nickname || '-'}</p>
                 <p className="text-sm text-muted-foreground">
                   {detailUser.phone || detailUser.email || '-'}
                 </p>
+                <p className="mt-0.5 text-xs text-muted-foreground/70">{t('uploadAvatarHint')}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -93,7 +156,41 @@ export function UserDialog({
               </div>
               <div>
                 <span className="text-muted-foreground">{t('status')}</span>
-                <p>{(detailUser.status ?? 0) >= 1 ? t('statusActive') : t('statusDisabled')}</p>
+                <p>
+                  {(detailUser.status ?? 0) === 3
+                    ? t('statusCancelled')
+                    : (detailUser.status ?? 0) >= 1
+                      ? t('statusActive')
+                      : t('statusDisabled')}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <span className="text-muted-foreground">{t('dept')}</span>
+                {deptList && onDeptChange ? (
+                  <div className="mt-1">
+                    <Select
+                      value={detailUser.deptId ? String(detailUser.deptId) : 'none'}
+                      onValueChange={(v) =>
+                        onDeptChange(detailUser.id, v === 'none' ? null : Number(v))
+                      }
+                      disabled={patchPending}
+                    >
+                      <SelectTrigger className="h-8 w-full text-sm" id="u-dept">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{t('noDept')}</SelectItem>
+                        {deptList.map((d) => (
+                          <SelectItem key={d.deptId} value={String(d.deptId)}>
+                            {d.deptName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <p>{getDeptName?.(detailUser.deptId) ?? t('noDept')}</p>
+                )}
               </div>
               <div className="col-span-2">
                 <span className="text-muted-foreground">{t('createdAt')}</span>
@@ -107,9 +204,11 @@ export function UserDialog({
       <ConfirmDialog
         open={!!confirmUser && confirmMode === 'status'}
         variant="danger"
-        title={isActive ? t('disable') : t('enable')}
-        content={t('confirmStatusChange')}
-        confirmText={isActive ? t('disable') : t('enable')}
+        title={isActive ? t('ban') : t('unban')}
+        content={
+          isActive ? t('confirmBan') : isBanned ? t('confirmUnban') : t('confirmStatusChange')
+        }
+        confirmText={isActive ? t('ban') : t('unban')}
         onConfirm={onConfirmStatus}
         onCancel={onCancelStatus}
         loading={patchPending}
@@ -118,13 +217,13 @@ export function UserDialog({
       <ConfirmDialog
         open={isDelete}
         variant="danger"
-        title="删除用户"
+        title={t('delete')}
         content={
           confirmUser
-            ? `确认要删除用户 "${confirmUser.nickname || confirmUser.phone || confirmUser.id}" 吗?此操作不可恢复。`
+            ? `${t('confirmDeletePrefix')} "${confirmUser.nickname || confirmUser.phone || confirmUser.id}" ${t('confirmDeleteSuffix')}`
             : ''
         }
-        confirmText="删除"
+        confirmText={t('delete')}
         onConfirm={onConfirmDelete}
         onCancel={onCancelStatus}
         loading={deletePending}

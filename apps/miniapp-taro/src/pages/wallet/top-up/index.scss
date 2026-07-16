@@ -1,0 +1,172 @@
+.top-up-page {
+  min-height: 100vh;
+  background: #f7f8fa;
+}
+
+.top-up-balance {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: linear-gradient(135deg, #07c160 0%, #0a9d52 100%);
+  border-radius: 16rpx;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+
+  &__label {
+    font-size: 26rpx;
+    opacity: 0.9;
+  }
+
+  &__value {
+    font-size: 52rpx;
+    font-weight: 700;
+    margin-top: 12rpx;
+    line-height: 1.2;
+  }
+
+  &__err {
+    font-size: 24rpx;
+    margin-top: 8rpx;
+    opacity: 0.85;
+  }
+}
+
+.top-up-card {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: #fff;
+  border-radius: 16rpx;
+
+  &__title {
+    display: block;
+    font-size: 28rpx;
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 24rpx;
+  }
+
+  &__presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20rpx;
+  }
+
+  &__custom {
+    margin-top: 24rpx;
+  }
+
+  &__custom-label {
+    display: block;
+    font-size: 26rpx;
+    color: #999;
+    margin-bottom: 12rpx;
+  }
+}
+
+.top-up-amount {
+  width: 200rpx;
+  padding: 24rpx 0;
+  text-align: center;
+  border-radius: 12rpx;
+  border: 2rpx solid #eee;
+  background: #fff;
+
+  &--active {
+    border-color: #07c160;
+    background: rgba(7, 193, 96, 0.05);
+  }
+
+  &__text {
+    display: block;
+    font-size: 36rpx;
+    color: #333;
+    font-weight: 700;
+  }
+}
+
+.top-up-input {
+  height: 80rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  border: 2rpx solid #eee;
+  border-radius: 12rpx;
+  background: #fff;
+
+  &--active {
+    border-color: #07c160;
+    background: rgba(7, 193, 96, 0.05);
+  }
+}
+
+.top-up-method {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+
+  &--active {
+    opacity: 1;
+  }
+
+  &__icon {
+    width: 60rpx;
+    height: 60rpx;
+    line-height: 60rpx;
+    text-align: center;
+    border-radius: 50%;
+    font-size: 28rpx;
+    background: #f5f5f5;
+
+    &--wx {
+      color: #09bb07;
+    }
+
+    &--ali {
+      color: #1677ff;
+    }
+  }
+
+  &__name {
+    flex: 1;
+    margin-left: 24rpx;
+    font-size: 28rpx;
+    color: #333;
+  }
+
+  &__radio {
+    width: 36rpx;
+    height: 36rpx;
+    border-radius: 50%;
+    border: 2rpx solid #ddd;
+    background: #fff;
+
+    &--on {
+      border-color: #07c160;
+      background: #07c160;
+      position: relative;
+
+      &::after {
+        content: '';
+        position: absolute;
+        left: 10rpx;
+        top: 6rpx;
+        width: 10rpx;
+        height: 16rpx;
+        border: 2rpx solid #fff;
+        border-top: 0;
+        border-left: 0;
+        transform: rotate(45deg);
+      }
+    }
+  }
+}
+
+.top-up-submit {
+  position: fixed;
+  bottom: 32rpx;
+  left: 32rpx;
+  right: 32rpx;
+  background: #07c160;
+  color: #fff;
+  border-radius: 40rpx;
+  font-size: 32rpx;
+}

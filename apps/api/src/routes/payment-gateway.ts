@@ -17,6 +17,8 @@ import {
   isWechatPayConfigured,
   jsapiPrepay,
   appPrepay,
+  h5Prepay,
+  nativePrepay,
   buildJsapiSign,
   verifyCallbackSignature,
   decryptCallback,
@@ -64,6 +66,19 @@ const wechatCreateQuery = z.object({
 const wechatAndroidCreateQuery = z.object({
   amount: z.coerce.number(),
   orderType: z.coerce.number().optional().default(0),
+  description: z.string().optional().default('Purchase'),
+})
+
+const wechatH5CreateQuery = z.object({
+  amount: z.coerce.number(),
+  orderType: z.coerce.number().optional().default(0),
+  description: z.string().optional().default('Purchase'),
+})
+
+const wechatNativeCreateQuery = z.object({
+  amount: z.coerce.number(),
+  orderType: z.coerce.number().optional().default(0),
+  productId: z.string().optional(),
   description: z.string().optional().default('Purchase'),
 })
 
@@ -199,6 +214,87 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(
         success({ outTradeNo: order.orderNo, amount: amountCents, prepayData: prepay }),
       )
+    },
+  )
+
+  server.post(
+    '/payments/wechat/h5',
+    {
+      schema: buildSchema({
+        summary: '微信 H5 支付下单',
+        description: '创建微信 H5 支付订单(返回 h5_url 跳转链接,移动端浏览器使用)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const {
+        amount: amountCents,
+        orderType,
+        description,
+      } = wechatH5CreateQuery.parse(request.query)
+      const userId = request.userId!
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        payType: 'wechat_h5',
+        description,
+      })
+      if (!isWechatPayConfigured()) {
+        return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, mock: true }))
+      }
+      const h5Url = await h5Prepay({
+        outTradeNo: order.orderNo,
+        amount: amountCents,
+        description,
+        notifyUrl: notifyUrl(),
+        payerClientIp: request.ip,
+      })
+      return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, h5Url }))
+    },
+  )
+
+  server.post(
+    '/payments/wechat/native',
+    {
+      schema: buildSchema({
+        summary: '微信 Native 支付下单',
+        description: '创建微信 Native 支付订单(返回 code_url 用于生成二维码)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const {
+        amount: amountCents,
+        orderType,
+        productId,
+        description,
+      } = wechatNativeCreateQuery.parse(request.query)
+      const userId = request.userId!
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        productId,
+        payType: 'wechat_native',
+        description,
+      })
+      if (!isWechatPayConfigured()) {
+        return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, mock: true }))
+      }
+      const codeUrl = await nativePrepay({
+        outTradeNo: order.orderNo,
+        amount: amountCents,
+        description,
+        notifyUrl: notifyUrl(),
+      })
+      return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, codeUrl }))
     },
   )
 

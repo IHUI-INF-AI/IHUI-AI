@@ -14,6 +14,8 @@ from typing import Any, AsyncIterator, Optional
 import asyncpg
 
 from .config import settings
+from ..providers import get_provider as _get_native_provider
+from ..providers.base_provider import BaseProvider, ProviderError
 
 logger = logging.getLogger(__name__)
 
@@ -246,8 +248,37 @@ class LLMGateway:
             return os.environ.get("AWS_ACCESS_KEY_ID") or None, None, model
         return settings.openai_api_key or None, None, model
 
+    async def _get_provider(
+        self,
+        model: str,
+        owner_uuid: Optional[str] = None,
+    ) -> BaseProvider | None:
+        """根据模型前缀返回厂商原生适配器(可选增强)。
 
+        适配器封装厂商特有能力(function calling 格式 / system prompt / safety_settings),
+        未配置 API key 或无匹配前缀时返回 None,调用方应 fallback 到 LiteLLM。
 
+        Args:
+            model: 模型名称(含厂商前缀,如 stepfun/step-3.7-flash)。
+            owner_uuid: 用户 UUID,用于匹配 ai_model_config 表私有配置。
+
+        Returns:
+            BaseProvider 实例或 None(无 key / 无匹配前缀 → fallback LiteLLM)。
+        """
+        if self._is_stub_mode():
+            db_result = await _resolve_from_db(model, owner_uuid)
+            if not db_result:
+                return None
+            api_key, api_base, _ = db_result
+        else:
+            api_key, api_base, _ = await self._resolve(model, owner_uuid)
+        if not api_key:
+            return None
+        try:
+            return _get_native_provider(model, api_key, api_base)
+        except Exception as e:
+            logger.warning("厂商适配器初始化失败(model=%s): %s, fallback LiteLLM", model, e)
+            return None
 
     async def _resolve(
         self,
@@ -281,6 +312,24 @@ class LLMGateway:
         """
         used_model = model or settings.litellm_model
         trimmed_messages = trim_messages(messages)
+
+        # 厂商原生适配器(可选增强):当请求含 tools(function calling)时,
+        # 优先用厂商原生 API 以保留格式差异(Anthropic tool_use / Gemini functionDeclarations 等),
+        # 失败时 fallback 到 LiteLLM 通用路径。
+        if "tools" in kwargs and not self._is_stub_mode():
+            provider = await self._get_provider(used_model, owner_uuid)
+            if provider is not None:
+                try:
+                    tools = kwargs.pop("tools", None)
+                    return await provider.complete(
+                        trimmed_messages, used_model, tools=tools, **kwargs
+                    )
+                except ProviderError as e:
+                    logger.warning(
+                        "厂商适配器调用失败(model=%s): %s, fallback LiteLLM",
+                        used_model,
+                        e,
+                    )
 
         if self._is_stub_mode():
             db_result = await _resolve_from_db(used_model, owner_uuid)
@@ -322,12 +371,16 @@ class LLMGateway:
                 usage_dict = (
                     usage.model_dump() if hasattr(usage, "model_dump") else dict(usage)
                 )
-            return {
+            result: dict[str, Any] = {
                 "content": response.choices[0].message.content,
                 "model": response.model or used_model,
                 "usage": usage_dict,
                 "stub": False,
             }
+            reasoning = getattr(response.choices[0].message, "reasoning_content", None)
+            if reasoning:
+                result["reasoning"] = reasoning
+            return result
         except Exception as e:
             safe_msg = str(e)
             for key_field in ("api_key", "apikey", "authorization"):
@@ -360,6 +413,18 @@ class LLMGateway:
         """
         used_model = model or settings.litellm_model
         trimmed_messages = trim_messages(messages)
+
+        # 厂商原生适配器(可选增强):tools 存在时优先用厂商原生流式 API。
+        # 流式场景不支持中途 fallback(已发送的 chunk 不可撤回),适配器内部自行处理错误。
+        if "tools" in kwargs and not self._is_stub_mode():
+            provider = await self._get_provider(used_model, owner_uuid)
+            if provider is not None:
+                tools = kwargs.pop("tools", None)
+                async for evt in provider.astream(
+                    trimmed_messages, used_model, tools=tools, **kwargs
+                ):
+                    yield evt
+                return
 
         if self._is_stub_mode():
             db_result = await _resolve_from_db(used_model, owner_uuid)
@@ -406,6 +471,9 @@ class LLMGateway:
                     token = getattr(delta, "content", None)
                     if token:
                         yield {"type": "chunk", "content": token}
+                    reasoning_token = getattr(delta, "reasoning_content", None)
+                    if reasoning_token:
+                        yield {"type": "reasoning", "content": reasoning_token}
                 if hasattr(chunk, "usage") and chunk.usage:
                     try:
                         final_usage = (
