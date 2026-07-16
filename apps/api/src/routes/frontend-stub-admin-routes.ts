@@ -89,39 +89,7 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(201).send(success({ created: true, id: randomUUID() }))
     },
   )
-  server.get('/admin/developer/coze/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({}))
-  })
-  server.delete(
-    '/admin/developer/coze/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ deleted: true }))
-    },
-  )
-  server.get('/admin/dict/type/list', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ list: [], total: 0 }))
-  })
-  server.get('/admin/dict/data/type/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({}))
-  })
-  server.put('/admin/dict/type/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
-  })
-  server.put('/admin/dict/type', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
-  })
-  server.delete('/admin/dict/type/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ deleted: true }))
-  })
-  server.put('/admin/dict/data/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
-  })
-  server.put('/admin/dict/data', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
-  })
-  server.delete('/admin/dict/data/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ deleted: true }))
-  })
+
   server.put(
     '/admin/certificates/templates',
     async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -149,63 +117,16 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ updated: true }))
     },
   )
-  server.put('/admin/course/pay/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
-  })
-  server.delete('/admin/course/pay/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ deleted: true }))
-  })
-  server.put(
-    '/admin/course/platform-logs/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ updated: true }))
-    },
-  )
-  server.delete(
-    '/admin/course/platform-logs/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ deleted: true }))
-    },
-  )
-  server.delete('/admin/courses/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ deleted: true }))
-  })
+
   server.put(
     '/admin/edu/exam/arrangements',
     async (_request: FastifyRequest, reply: FastifyReply) => {
       return reply.send(success({ updated: true }))
     },
   )
-  server.put(
-    '/admin/exam/categories/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ updated: true }))
-    },
-  )
-  server.put('/admin/exam/categories', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
-  })
-  server.delete(
-    '/admin/exam/categories/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ deleted: true }))
-    },
-  )
   server.put('/admin/edu/exam/templates', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(success({ updated: true }))
   })
-  server.post(
-    '/admin/exam/papers/:id/questions',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.status(201).send(success({ created: true, id: randomUUID() }))
-    },
-  )
-  server.delete(
-    '/admin/exam/questions/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ deleted: true }))
-    },
-  )
   server.put('/admin/learn/community', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(success({ updated: true }))
   })
@@ -285,12 +206,6 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ updated: true }))
   })
   server.post(
-    '/admin/monitor/alert-rules',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.status(201).send(success({ created: true, id: randomUUID() }))
-    },
-  )
-  server.post(
     '/admin/monitor/alerts/:id/ack',
     async (_request: FastifyRequest, reply: FastifyReply) => {
       return reply.status(201).send(success({ created: true, id: randomUUID() }))
@@ -308,30 +223,7 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   server.get('/admin/monitoring/alerts', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(success({ list: [], total: 0 }))
   })
-  server.put(
-    '/admin/news/information/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ updated: true }))
-    },
-  )
-  server.post('/admin/news/information', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
-  })
-  server.delete(
-    '/admin/news/information/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ deleted: true }))
-    },
-  )
-  server.get('/admin/oauth/apps', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ list: [], total: 0 }))
-  })
-  server.post('/admin/oauth/apps', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
-  })
-  server.delete('/admin/oauth/apps/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ deleted: true }))
-  })
+
   server.put('/admin/orders/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(success({ updated: true }))
   })
@@ -392,24 +284,7 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(201).send(success({ created: true, id: randomUUID() }))
     },
   )
-  server.put(
-    '/admin/shop/withdrawal-flow/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ updated: true }))
-    },
-  )
-  server.put(
-    '/admin/shop/withdrawal-flow',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ updated: true }))
-    },
-  )
-  server.delete(
-    '/admin/shop/withdrawal-flow/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ deleted: true }))
-    },
-  )
+
   server.get('/admin/system/tasks/logs', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(success({ list: [], total: 0 }))
   })
@@ -501,36 +376,6 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     '/admin/user-agent-audio/:id',
     async (_request: FastifyRequest, reply: FastifyReply) => {
       return reply.send(success({ updated: true }))
-    },
-  )
-  server.get('/admin/dept/list', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ list: [], total: 0 }))
-  })
-  server.put('/admin/users/resetPwd', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
-  })
-  server.get(
-    '/admin/visit-tracking/summary:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({}))
-    },
-  )
-  server.get(
-    '/admin/visit-tracking/day/pv/list:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({}))
-    },
-  )
-  server.get(
-    '/admin/visit-tracking/day/uv/list:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({}))
-    },
-  )
-  server.get(
-    '/admin/visit-tracking/log/list:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({}))
     },
   )
   server.put('/admin/zhs-user/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
