@@ -4,6 +4,8 @@ export const PAGE_SIZE = 10
 
 export const EMPTY: TForm = {
   title: '',
+  slug: '',
+  sort: 0,
   image: '',
   cidList: [],
   lidList: [],
@@ -24,6 +26,8 @@ export const STATUS_MAP: Record<string, { label: string; cls: string }> = {
 export function topicToForm(t: Topic): TForm {
   return {
     title: t.title,
+    slug: t.slug ?? '',
+    sort: t.sort ?? 0,
     image: t.image,
     cidList: t.cidList ?? [],
     lidList: t.lidList ?? [],
