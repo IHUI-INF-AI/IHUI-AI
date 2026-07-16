@@ -4,8 +4,8 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
-import { buildQs, type PageData } from '../utils'
+import { fetchApi } from '../client.js'
+import { buildQs, type PageData } from '../utils.js'
 
 // ===================== 类型定义 =====================
 
@@ -33,7 +33,7 @@ export interface CheckinRecord {
   [key: string]: unknown
 }
 
-/** 排行榜条目 */
+/** 排行榜条�?*/
 export interface RankingItem {
   id: string
   userId?: string
@@ -87,7 +87,7 @@ export interface Fund {
   [key: string]: unknown
 }
 
-/** 交易者 */
+/** 交易�?*/
 export interface Trader {
   id: string
   userId?: string
@@ -126,7 +126,7 @@ export interface Group {
   [key: string]: unknown
 }
 
-/** 小程序 */
+/** 小程�?*/
 export interface Miniprogram {
   id: string
   appId: string
@@ -231,9 +231,9 @@ export async function deleteCheckinRecord(rid: number): Promise<ApiResult<{ succ
   return fetchApi<{ success: boolean }>(`/api/checkin/record/${rid}`, { method: 'DELETE' })
 }
 
-// ===================== ranking（排行榜） =====================
+// ===================== ranking（排行榜�?=====================
 
-/** 获取排行榜列表 */
+/** 获取排行榜列�?*/
 export async function getRanking(
   query: PageQuery & { type?: string; period?: string } = {},
 ): Promise<ApiResult<PageData<RankingItem>>> {
@@ -346,7 +346,7 @@ export async function getFundDetail(code: string): Promise<ApiResult<Fund>> {
   return fetchApi<Fund>(`/api/fund/${code}`)
 }
 
-/** 获取基金净值历史 */
+/** 获取基金净值历�?*/
 export async function getFundNetValueHistory(
   code: string,
   query: { start?: string; end?: string } = {},
@@ -358,24 +358,24 @@ export async function getFundNetValueHistory(
 
 // ===================== trader（交易者） =====================
 
-/** 获取交易者列表 */
+/** 获取交易者列�?*/
 export async function getTraders(
   query: PageQuery & { level?: number } = {},
 ): Promise<ApiResult<PageData<Trader>>> {
   return fetchApi<PageData<Trader>>(`/api/trader${buildQs(query)}`)
 }
 
-/** 获取交易者详情 */
+/** 获取交易者详�?*/
 export async function getTraderDetail(id: string): Promise<ApiResult<Trader>> {
   return fetchApi<Trader>(`/api/trader/${id}`)
 }
 
-/** 关注交易者 */
+/** 关注交易�?*/
 export async function followTrader(id: string): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>(`/api/trader/${id}/follow`, { method: 'POST' })
 }
 
-/** 取消关注交易者 */
+/** 取消关注交易�?*/
 export async function unfollowTrader(id: string): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>(`/api/trader/${id}/unfollow`, { method: 'POST' })
 }
@@ -439,26 +439,26 @@ export async function joinGroup(id: string): Promise<ApiResult<{ success: boolea
   return fetchApi<{ success: boolean }>(`/api/groups/${id}/join`, { method: 'POST' })
 }
 
-/** 退出群组 */
+/** 退出群�?*/
 export async function leaveGroup(id: string): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>(`/api/groups/${id}/leave`, { method: 'POST' })
 }
 
-// ===================== miniprogram（小程序） =====================
+// ===================== miniprogram（小程序�?=====================
 
-/** 获取小程序列表 */
+/** 获取小程序列�?*/
 export async function getMiniprograms(
   query: PageQuery & { category?: string } = {},
 ): Promise<ApiResult<PageData<Miniprogram>>> {
   return fetchApi<PageData<Miniprogram>>(`/api/miniprogram${buildQs(query)}`)
 }
 
-/** 获取小程序详情 */
+/** 获取小程序详�?*/
 export async function getMiniprogramDetail(id: string): Promise<ApiResult<Miniprogram>> {
   return fetchApi<Miniprogram>(`/api/miniprogram/${id}`)
 }
 
-/** 创建小程序 */
+/** 创建小程�?*/
 export async function createMiniprogram(
   input: Partial<Miniprogram>,
 ): Promise<ApiResult<Miniprogram>> {
@@ -468,7 +468,7 @@ export async function createMiniprogram(
   })
 }
 
-/** 更新小程序 */
+/** 更新小程�?*/
 export async function updateMiniprogram(
   id: string,
   input: Partial<Miniprogram>,
@@ -479,7 +479,7 @@ export async function updateMiniprogram(
   })
 }
 
-/** 删除小程序 */
+/** 删除小程�?*/
 export async function deleteMiniprogram(id: string): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>(`/api/miniprogram/${id}`, { method: 'DELETE' })
 }
