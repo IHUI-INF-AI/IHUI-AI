@@ -74,6 +74,23 @@ const resetPasswordSchema = z.object({
   newPassword: z.string().min(8, '密码至少 8 位').max(72, '密码最多 72 位'),
 })
 
+const phoneLoginSchema = z.object({
+  phone: z.string().min(1, '手机号不能为空'),
+  password: z.string().min(1, '密码不能为空'),
+})
+
+const smsLoginSchema = z.object({
+  phone: z
+    .string()
+    .length(11, '手机号必须为 11 位')
+    .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+  code: z.string().length(6, '验证码必须为 6 位'),
+})
+
+const wechatLoginSchema = z.object({
+  code: z.string().min(1, '微信 code 不能为空'),
+})
+
 // =============================================================================
 // Token 签发辅助
 // =============================================================================
@@ -570,6 +587,199 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           user: publicUser(user, permissions),
         }),
       )
+    },
+  )
+
+  // POST /api/auth/login/password — 小程序别名(手机号 + 密码)
+  server.post(
+    '/login/password',
+    {
+      schema: {
+        summary: '手机号密码登录(小程序别名)',
+        description: '与 /auth/login 相同,接受 phone 字段替代 account',
+        tags: ['auth'],
+        body: {
+          type: 'object',
+          required: ['phone', 'password'],
+          properties: {
+            phone: { type: 'string', description: '手机号' },
+            password: { type: 'string', description: '密码' },
+          },
+        },
+      },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = phoneLoginSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { phone, password } = parsed.data
+      const ip = request.ip
+
+      const lockRemaining = await getLockRemainingMs(phone, ip)
+      if (lockRemaining > 0) {
+        const retryAfterSec = Math.ceil(lockRemaining / 1000)
+        return reply
+          .status(429)
+          .header('Retry-After', String(retryAfterSec))
+          .send(
+            error(
+              429,
+              `登录失败次数过多，账号已被临时锁定 ${Math.ceil(retryAfterSec / 60)} 分钟后重试`,
+            ),
+          )
+      }
+
+      const user = await findUserByPhone(phone)
+      if (!user || !user.passwordHash) {
+        await recordLoginFailure(phone, ip)
+        return reply.status(401).send(error(401, '用户不存在或密码错误'))
+      }
+
+      const ok = await bcrypt.compare(password, user.passwordHash)
+      if (!ok) {
+        const remaining = await recordLoginFailure(phone, ip)
+        if (remaining === 0) {
+          return reply
+            .status(429)
+            .header('Retry-After', String(ACCOUNT_LOCKOUT_CONFIG.lockDurationSec))
+            .send(
+              error(
+                429,
+                `登录失败次数过多，账号已被临时锁定 ${Math.ceil(
+                  ACCOUNT_LOCKOUT_CONFIG.lockDurationSec / 60,
+                )} 分钟`,
+              ),
+            )
+        }
+        return reply
+          .status(401)
+          .send(error(401, `用户不存在或密码错误（剩余 ${remaining} 次重试机会）`))
+      }
+
+      if (user.status !== 1) {
+        return reply.status(403).send(error(403, '账号已被禁用'))
+      }
+
+      await clearLoginFailures(phone, ip)
+
+      const risk = server.riskEngine.evaluateRisk({
+        userId: String(user.id),
+        ip: request.ip,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId: user.id, ip: request.ip, hits: risk.hits }, '登录被风控拒绝')
+        return reply.status(403).send(error(403, '登录请求被风控拦截，请联系客服'))
+      }
+
+      request.skipResponseSanitization = true
+      const familyId = createFamilyId()
+      const tokens = await buildTokenPair({
+        id: user.id,
+        phone: user.phone,
+        roleId: user.roleId,
+        familyId,
+      })
+
+      const permissions = await resolveUserPermissions(user.id, user.roleId)
+      return reply.send(
+        success({
+          ...tokens,
+          user: publicUser(user, permissions),
+        }),
+      )
+    },
+  )
+
+  // POST /api/auth/login/sms — 小程序别名(手机号 + 验证码)
+  server.post(
+    '/login/sms',
+    {
+      schema: {
+        summary: '手机号验证码登录(小程序别名)',
+        description: '使用手机号 + 短信验证码登录,验证码通过 /auth/sms/send 获取',
+        tags: ['auth'],
+        body: {
+          type: 'object',
+          required: ['phone', 'code'],
+          properties: {
+            phone: { type: 'string', description: '手机号(11 位)' },
+            code: { type: 'string', description: '短信验证码(6 位)' },
+          },
+        },
+      },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = smsLoginSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { phone, code } = parsed.data
+
+      cleanupExpiredCodes()
+      const stored = codeStore.get(phone)
+      if (!stored || stored.code !== code || Date.now() > stored.expiresAt) {
+        return reply.status(401).send(error(401, '验证码错误或已过期'))
+      }
+
+      const user = await findUserByPhone(phone)
+      if (!user) {
+        return reply.status(401).send(error(401, '用户不存在,请先注册'))
+      }
+      if (user.status !== 1) {
+        return reply.status(403).send(error(403, '账号已被禁用'))
+      }
+
+      codeStore.delete(phone)
+
+      request.skipResponseSanitization = true
+      const familyId = createFamilyId()
+      const tokens = await buildTokenPair({
+        id: user.id,
+        phone: user.phone,
+        roleId: user.roleId,
+        familyId,
+      })
+
+      const permissions = await resolveUserPermissions(user.id, user.roleId)
+      return reply.send(
+        success({
+          ...tokens,
+          user: publicUser(user, permissions),
+        }),
+      )
+    },
+  )
+
+  // POST /api/auth/login/wechat — 小程序别名(微信登录)
+  server.post(
+    '/login/wechat',
+    {
+      schema: {
+        summary: '微信登录(小程序别名)',
+        description: '使用微信 code 登录,需配置微信开放平台 AppID/Secret',
+        tags: ['auth'],
+        body: {
+          type: 'object',
+          required: ['code'],
+          properties: {
+            code: { type: 'string', description: '微信授权 code' },
+          },
+        },
+      },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = wechatLoginSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      // 微信 OAuth 集成未配置 — 诚实返回 501,不假装支持
+      return reply
+        .status(501)
+        .send(error(501, '微信登录暂未配置,请配置 WECHAT_APPID/WECHAT_SECRET 后启用'))
     },
   )
 

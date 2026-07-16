@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { Card } from '@ihui/ui-native'
 import { getProfile, type UserProfile } from '@ihui/api-client'
-import { useAuth } from '../context/AuthContext'
 
 export function ProfileScreen() {
-  const { user } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -42,7 +40,7 @@ export function ProfileScreen() {
     )
   }
 
-  const data = profile ?? (user as UserProfile | null)
+  const data = profile
   if (!data) return null
 
   const rows: Array<[string, string | null]> = [
