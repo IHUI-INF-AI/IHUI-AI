@@ -194,6 +194,9 @@ export interface CreatePaperInput {
   duration?: number
   isPublished?: boolean
   isRandom?: boolean
+  questionDisordered?: boolean
+  optionDisordered?: boolean
+  difficulty?: number
   status?: number
   createdBy?: string
 }
@@ -210,6 +213,9 @@ export async function createPaper(data: CreatePaperInput): Promise<ExamPaper> {
       duration: data.duration,
       isPublished: data.isPublished,
       isRandom: data.isRandom,
+      questionDisordered: data.questionDisordered,
+      optionDisordered: data.optionDisordered,
+      difficulty: data.difficulty,
       status: data.status,
       createdBy: data.createdBy,
     })
@@ -229,6 +235,9 @@ export interface UpdatePaperInput {
   duration?: number
   isPublished?: boolean
   isRandom?: boolean
+  questionDisordered?: boolean
+  optionDisordered?: boolean
+  difficulty?: number
   questionCount?: number
   status?: number
 }
@@ -249,6 +258,11 @@ export async function updatePaper(
       ...(data.duration !== undefined ? { duration: data.duration } : {}),
       ...(data.isPublished !== undefined ? { isPublished: data.isPublished } : {}),
       ...(data.isRandom !== undefined ? { isRandom: data.isRandom } : {}),
+      ...(data.questionDisordered !== undefined
+        ? { questionDisordered: data.questionDisordered }
+        : {}),
+      ...(data.optionDisordered !== undefined ? { optionDisordered: data.optionDisordered } : {}),
+      ...(data.difficulty !== undefined ? { difficulty: data.difficulty } : {}),
       ...(data.questionCount !== undefined ? { questionCount: data.questionCount } : {}),
       ...(data.status !== undefined ? { status: data.status } : {}),
       updatedAt: new Date(),
