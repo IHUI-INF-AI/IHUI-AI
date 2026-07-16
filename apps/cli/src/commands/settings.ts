@@ -43,22 +43,97 @@ export interface Settings {
   planFirst?: boolean;
   /** 启用 MCP 工具 */
   enableMcp?: boolean;
+  /** LLM 采样参数 */
+  sampler?: SamplerSettings;
+  /** 路径信任映射 */
+  folderTrust?: Record<string, 'trusted' | 'read-only' | 'forbidden'>;
+}
+
+export interface SamplerSettings {
+  /** 温度(0-2,代码任务推荐 0.2,创意任务推荐 0.7) */
+  temperature?: number;
+  /** top-p 采样(0-1) */
+  topP?: number;
+  /** top-k 采样(0-1000) */
+  topK?: number;
+  /** 最大生成 token 数 */
+  maxTokens?: number;
+  /** 停止序列 */
+  stop?: string[];
+}
+
+/**
+ * 合并 sampler 配置:CLI flag(非 undefined)覆盖 settings.sampler 对应字段。
+ * 两者都为空时返回 undefined。
+ */
+export function resolveSamplerSettings(
+  cli?: Partial<SamplerSettings>,
+  settings?: SamplerSettings,
+): SamplerSettings | undefined {
+  const merged: SamplerSettings = { ...(settings ?? {}), ...(cli ?? {}) };
+  const cleaned: SamplerSettings = {};
+  for (const [k, v] of Object.entries(merged)) {
+    if (v !== undefined) (cleaned as Record<string, unknown>)[k] = v;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
+
+/** 多源扫描目录(高→低):workspace 三级 → home 三级 */
+const SETTINGS_SOURCE_DIRS = ['.ihui', '.claude', '.cursor'];
+
+function listSettingsConfigPaths(cwd: string): string[] {
+  const home = os.homedir();
+  const paths: string[] = [];
+  for (const d of SETTINGS_SOURCE_DIRS) paths.push(path.join(cwd, d, 'settings.json'));
+  for (const d of SETTINGS_SOURCE_DIRS) paths.push(path.join(home, d, 'settings.json'));
+  return paths;
+}
+
+/**
+ * 深合并两个 Settings:b 覆盖 a。
+ * 对象字段(sampler/sandbox/folderTrust)做一层浅合并(b 的键覆盖 a);标量与数组由 b 覆盖。
+ */
+export function deepMergeSettings(a: Settings, b: Settings): Settings {
+  const result: Settings = { ...a };
+  for (const [k, v] of Object.entries(b)) {
+    if (v === undefined) continue;
+    const av = (a as Record<string, unknown>)[k];
+    if (
+      av && typeof av === 'object' && !Array.isArray(av) &&
+      typeof v === 'object' && !Array.isArray(v)
+    ) {
+      (result as Record<string, unknown>)[k] = { ...(av as Record<string, unknown>), ...(v as Record<string, unknown>) };
+    } else {
+      (result as Record<string, unknown>)[k] = v;
+    }
+  }
+  return result;
 }
 
 export function getSettingsPath(): string {
   return path.join(os.homedir(), '.ihui', 'settings.json');
 }
 
+/**
+ * 多源加载 settings.json,按优先级深合并(高优先级覆盖低优先级)。
+ * 扫描顺序(高→低):<cwd>/.{ihui,claude,cursor} → ~/.{ihui,claude,cursor}。
+ */
 export function loadSettings(): Settings {
-  const p = getSettingsPath();
-  try {
-    if (!fs.existsSync(p)) return {};
-    const raw = fs.readFileSync(p, 'utf-8');
-    const parsed = JSON.parse(raw) as Settings;
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
+  const paths = listSettingsConfigPaths(process.cwd());
+  let acc: Settings = {};
+  for (const p of [...paths].reverse()) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      const raw = fs.readFileSync(p, 'utf-8');
+      const parsed = JSON.parse(raw) as Settings;
+      if (parsed && typeof parsed === 'object') {
+        acc = deepMergeSettings(acc, parsed);
+      }
+    } catch {
+      // 损坏文件忽略,继续下一源
+    }
   }
+  return acc;
 }
 
 export function saveSettingsTemplate(overwrite = false): boolean {
@@ -75,6 +150,19 @@ export function saveSettingsTemplate(overwrite = false): boolean {
     planFirst: false,
     enableMcp: false,
     sandbox: { profile: 'trusted' },
+    sampler: {
+      temperature: 0.7,
+      maxTokens: 4096,
+    },
+    folderTrust: {
+      '.env': 'forbidden',
+      '.env.*': 'forbidden',
+      'package.json': 'read-only',
+      'package-lock.json': 'read-only',
+      'pnpm-lock.yaml': 'read-only',
+      'src/*': 'trusted',
+      'tests/*': 'trusted',
+    },
   };
   fs.writeFileSync(p, JSON.stringify(template, null, 2) + '\n', 'utf-8');
   return true;
@@ -92,6 +180,8 @@ export function resolveEffectiveConfig(args: {
   cliAllowDangerous?: boolean;
   cliPlan?: boolean;
   cliMcp?: boolean;
+  cliTemperature?: string;
+  cliMaxTokens?: string;
 }): {
   apiUrl: string;
   apiKey: string;
@@ -104,6 +194,7 @@ export function resolveEffectiveConfig(args: {
   sandboxAllowedPaths: string[];
   sandboxCommandAllowlist: string[];
   sandboxBlockedEnvVars: string[];
+  sampler?: SamplerSettings;
 } {
   const settings = loadSettings();
 
@@ -145,6 +236,17 @@ export function resolveEffectiveConfig(args: {
   const sandboxCommandAllowlist = sandboxResolved.commandAllowlist ?? [];
   const sandboxBlockedEnvVars = sandboxResolved.blockedEnvVars ?? [];
 
+  const cliSampler: Partial<SamplerSettings> = {};
+  if (args.cliTemperature) {
+    const t = parseFloat(args.cliTemperature);
+    if (Number.isFinite(t)) cliSampler.temperature = t;
+  }
+  if (args.cliMaxTokens) {
+    const m = parseInt(args.cliMaxTokens, 10);
+    if (Number.isFinite(m) && m > 0) cliSampler.maxTokens = m;
+  }
+  const sampler = resolveSamplerSettings(cliSampler, settings.sampler);
+
   return {
     apiUrl,
     apiKey,
@@ -157,5 +259,6 @@ export function resolveEffectiveConfig(args: {
     sandboxAllowedPaths,
     sandboxCommandAllowlist,
     sandboxBlockedEnvVars,
+    sampler,
   };
 }
