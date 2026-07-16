@@ -36,6 +36,7 @@ import {
 } from './commands/mcp-config.js';
 import { registerCapabilitiesCommand } from './commands/capabilities.js';
 import { registerCheckpointCommand } from './commands/checkpoint.js';
+import { registerHooksCommand } from './commands/hooks.js';
 import { startAcpServer } from './acp/server.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -288,6 +289,9 @@ registerCapabilitiesCommand(program);
 
 // checkpoint 子命令组
 registerCheckpointCommand(program);
+
+// hooks 子命令组
+registerHooksCommand(program);
 
 // acp 子命令 — 启动 ACP (Agent Client Protocol) server,供编辑器嵌入
 program
