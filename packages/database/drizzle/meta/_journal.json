@@ -561,6 +561,13 @@
       "when": 1785043200000,
       "tag": "0079_circles_cid_list",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1784178353836,
+      "tag": "0080_fearless_zzzax",
+      "breakpoints": true
     }
   ]
 }
