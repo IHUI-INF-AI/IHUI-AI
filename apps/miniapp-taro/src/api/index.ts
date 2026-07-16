@@ -3,7 +3,7 @@
  */
 import Taro from '@tarojs/taro'
 import { get, post, put, patch, del, BASE_URL } from '../utils/request'
-import { getToken, type UserInfo } from '../utils/auth'
+import { getToken, type UserInfo, type LoginResult } from '../utils/auth'
 import { parseSSEChunk, type SSEEvent } from '../utils/sse-parse'
 export type { UserInfo }
 export { get, post } from '../utils/request'
@@ -13,17 +13,16 @@ export { get, post } from '../utils/request'
 /** 发送短信验证码 */
 export const sendSmsCode = (phone: string) => post('/auth/sms/send', { phone, scene: 'login' })
 
-/** 手机号验证码登录 */
+/** 手机号验证码登录 — 返回与 @ihui/api-client LoginResult 对齐 */
 export const loginBySms = (phone: string, code: string) =>
-  post<{ token: string; user: UserInfo }>('/auth/login/sms', { phone, code })
+  post<LoginResult>('/auth/login/sms', { phone, code })
 
-/** 手机号密码登录 */
+/** 手机号密码登录 — 返回与 @ihui/api-client LoginResult 对齐 */
 export const loginByPassword = (phone: string, password: string) =>
-  post<{ token: string; user: UserInfo }>('/auth/login/password', { phone, password })
+  post<LoginResult>('/auth/login/password', { phone, password })
 
-/** 微信登录 */
-export const loginByWechat = (code: string) =>
-  post<{ token: string; user: UserInfo }>('/auth/login/wechat', { code })
+/** 微信登录 — 返回与 @ihui/api-client LoginResult 对齐 */
+export const loginByWechat = (code: string) => post<LoginResult>('/auth/login/wechat', { code })
 
 /** 退出登录 */
 export const logout = () => post('/auth/logout')

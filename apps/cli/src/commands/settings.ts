@@ -11,8 +11,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { resolveSandboxOptions } from '../sandbox/index.js';
 
 export interface SandboxSettings {
+  /** 沙盒预设 profile,优先级低于显式配置的字段 */
+  profile?: 'readonly' | 'limited' | 'trusted' | 'open' | 'full';
   /** 额外允许的路径白名单(cwd 始终允许) */
   allowedPaths?: string[];
   /** 命令白名单(只允许这些命令执行,空数组=允许全部,向后兼容) */
@@ -71,7 +74,7 @@ export function saveSettingsTemplate(overwrite = false): boolean {
     allowDangerous: false,
     planFirst: false,
     enableMcp: false,
-    sandbox: { allowedPaths: [], commandAllowlist: [], blockedEnvVars: [] },
+    sandbox: { profile: 'trusted' },
   };
   fs.writeFileSync(p, JSON.stringify(template, null, 2) + '\n', 'utf-8');
   return true;
@@ -134,9 +137,13 @@ export function resolveEffectiveConfig(args: {
 
   const auditEnabled = settings.auditEnabled ?? true;
 
-  const sandboxAllowedPaths = settings.sandbox?.allowedPaths ?? [];
-  const sandboxCommandAllowlist = settings.sandbox?.commandAllowlist ?? [];
-  const sandboxBlockedEnvVars = settings.sandbox?.blockedEnvVars ?? [];
+  const sandboxResolved = resolveSandboxOptions(
+    settings.sandbox?.profile,
+    settings.sandbox ?? {}
+  );
+  const sandboxAllowedPaths = sandboxResolved.allowedPaths ?? [];
+  const sandboxCommandAllowlist = sandboxResolved.commandAllowlist ?? [];
+  const sandboxBlockedEnvVars = sandboxResolved.blockedEnvVars ?? [];
 
   return {
     apiUrl,

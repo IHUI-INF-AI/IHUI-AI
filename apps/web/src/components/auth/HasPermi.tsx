@@ -31,10 +31,10 @@ export function useHasPermi(code: string | string[]): boolean {
 
 export function useHasRole(role: string | string[]): boolean {
   const user = useAuthStore((s) => s.user)
-  const userRoles = user?.roles
-  if (userRoles === undefined) return true
-  if (userRoles.length === 0) return false
-  if (userRoles.includes('admin') || userRoles.includes('superadmin')) return true
+  const roleId = user?.roleId
+  if (roleId === undefined) return true
   const roles = Array.isArray(role) ? role : [role]
-  return roles.some((r) => userRoles.includes(r))
+  // admin/superadmin 映射到 roleId >= 1(与后端 ADMIN_ROLE_ID = 1 一致)
+  if (roles.includes('admin') || roles.includes('superadmin')) return roleId >= 1
+  return false
 }
