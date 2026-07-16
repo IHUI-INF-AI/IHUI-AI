@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Pre-commit 守门钩子（跨平台兼容 Windows）
-// 防止 API key 泄露 + i18n 键完整性 + 陈旧 dist + 前端↔后端路由 + safeParse 静默忽略
+// 防止 API key 泄露 + i18n 键完整性 + zh-TW 简体字 + 陈旧 dist + 前端↔后端路由 + safeParse 静默忽略
 const { execSync } = require('child_process')
 
 function run(label, cmd) {
@@ -21,6 +21,11 @@ if (!run('🔐 检查 API key 泄露...', 'node scripts/check-api-key-leak.mjs -
 
 // 2. i18n 键完整性检查
 if (!run('🌐 检查 i18n 键完整性...', 'node scripts/check-i18n-keys.mjs --staged')) {
+  process.exit(1)
+}
+
+// 2b. zh-TW 简体字残留检查（opencc-js cn→tw 对比）
+if (!run('🔍 检查 zh-TW 简体字残留...', 'node scripts/scan-zh-tw-simp.mjs --staged')) {
   process.exit(1)
 }
 
@@ -49,9 +54,10 @@ if (!run('📦 检查依赖碎片化...', 'node scripts/check-dedupe.mjs --stage
   process.exit(1)
 }
 
-// 以下为非阻塞警告项:发现问题仅打印,不阻止提交
-// 8. 前端↔后端路由一致性（warn-only, 275 处缺失需后续工单跟进）
-run('🔗 检查前端↔后端路由一致性(warn-only)...', 'node scripts/check-api-routes.mjs --warn-only')
+// 8. 前端↔后端路由一致性（strict，0 缺失后阻止回归）
+if (!run('🔗 检查前端↔后端路由一致性...', 'node scripts/check-api-routes.mjs')) {
+  process.exit(1)
+}
 
 // 9. safeParse silent-ignore 巡检(warn-only, 仅打印风险点)
 run('🔍 safeParse 静默忽略巡检(warn-only)...', 'node scripts/check-safe-parse.mjs')
