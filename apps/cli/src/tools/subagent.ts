@@ -104,5 +104,3 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
     },
   };
 }
-
-export const SUBAGENT_TOOL_FACTORY = createSubagentTool;

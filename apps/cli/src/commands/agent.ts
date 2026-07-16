@@ -92,7 +92,7 @@ type HeadlessEvent =
 // ==================== 公共函数 ====================
 
 /** 读取工作区 AGENTS.md(如果存在),用于注入 system prompt */
-export function readAgentsMd(workspacePath: string): string | undefined {
+function readAgentsMd(workspacePath: string): string | undefined {
   const p = path.join(workspacePath, 'AGENTS.md');
   try {
     if (fs.existsSync(p)) {
