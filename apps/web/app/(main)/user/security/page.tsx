@@ -46,11 +46,19 @@ export default function SecurityPage() {
     const next = String(fd.get('new') ?? '')
     const confirm = String(fd.get('confirm') ?? '')
     if (next !== confirm) {
-      setPwMsg({ type: 'err', text: t('mismatch') })
+      setPwMsg({ type: 'err', text: t('passwordNotMatch') })
       return
     }
     if (next.length < 6) {
-      setPwMsg({ type: 'err', text: t('tooShort') })
+      setPwMsg({ type: 'err', text: t('passwordTooShort') })
+      return
+    }
+    if (next.length > 20) {
+      setPwMsg({ type: 'err', text: t('passwordTooLong') })
+      return
+    }
+    if (/[<>"'|\\]/.test(next)) {
+      setPwMsg({ type: 'err', text: t('passwordInvalidChar') })
       return
     }
     setPwLoading(true)

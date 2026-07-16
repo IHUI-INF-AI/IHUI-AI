@@ -7,6 +7,7 @@ export interface Category {
 }
 
 export interface CForm {
+  pid: string
   name: string
   sort: string
   status: boolean

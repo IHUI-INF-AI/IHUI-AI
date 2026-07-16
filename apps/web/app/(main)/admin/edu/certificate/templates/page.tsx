@@ -45,6 +45,10 @@ export default function EduCertificateTemplatesPage() {
       const body = {
         name: form.name.trim(),
         description: form.description.trim() || null,
+        awardingOrganization: form.awardingOrganization.trim(),
+        awarderName: form.awarderName.trim(),
+        awardConditions: form.awardConditions.trim(),
+        validityPolicy: form.validityPolicy,
         backgroundImage: form.backgroundImage.trim() || undefined,
         templateConfig,
         status: form.status ? 1 : 0,
@@ -98,6 +102,10 @@ export default function EduCertificateTemplatesPage() {
     e.preventDefault()
     setErr(null)
     if (!form.name.trim()) return setErr(t('nameRequired'))
+    if (!form.awardingOrganization.trim()) return setErr(t('awardingOrganizationRequired'))
+    if (!form.awarderName.trim()) return setErr(t('awarderNameRequired'))
+    if (!form.awardConditions.trim()) return setErr(t('awardConditionsRequired'))
+    if (!form.validityPolicy) return setErr(t('validityPolicyRequired'))
     saveMut.mutate()
   }
   function handleDelete(id: string) {
