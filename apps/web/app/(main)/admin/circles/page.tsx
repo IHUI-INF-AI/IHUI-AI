@@ -108,6 +108,11 @@ export default function AdminCirclesPage() {
     setErr(null)
     if (!form.name.trim()) return setErr(t('nameRequired'))
     if (!form.slug.trim() && !form.name.trim()) return setErr(t('slugRequired'))
+    const cidArr = parseCidList(form.cidList)
+    if (cidArr.length > 0) {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (cidArr.some((id) => !uuidRe.test(id))) return setErr(t('cidListInvalidUuid'))
+    }
     saveMut.mutate()
   }
   function handleToggle(item: Circle) {
