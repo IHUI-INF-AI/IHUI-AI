@@ -526,6 +526,34 @@
       "when": 1784784600000,
       "tag": "0074_reapply_tenant_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1784870400000,
+      "tag": "0075_users_dept_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1784956800000,
+      "tag": "0076_exam_papers_3_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1784956801000,
+      "tag": "0077_certificate_templates_4_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1784956802000,
+      "tag": "0078_resource_tags_pid",
+      "breakpoints": true
     }
   ]
 }
