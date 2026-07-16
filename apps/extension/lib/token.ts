@@ -32,3 +32,7 @@ export async function setToken(token: string | null): Promise<void> {
 export function getToken(): string | null {
   return cachedToken
 }
+
+export function clearToken(): void {
+  cachedToken = null
+}
