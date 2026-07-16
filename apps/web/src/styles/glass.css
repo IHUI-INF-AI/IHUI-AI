@@ -1,0 +1,134 @@
+/* glass.css — 玻璃拟态效果(从 SCSS mixin 迁移) */
+/* 历史源: _design-tokens.scss(glass-effect / glass-effect-dark / premium-fixed-nav mixin) */
+/* SCSS @mixin glass-effect($bg-opacity: 0.7, $blur: 20px) → CSS 工具类 */
+
+/* ============ 玻璃拟态工具类 ============ */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-effect {
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ============ 暗色玻璃拟态(强制暗色) ============ */
+.glass-effect-dark {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ============ 玻璃拟态强度变体 ============ */
+.glass-effect-light {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.glass-effect-strong {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px) saturate(200%);
+  -webkit-backdrop-filter: blur(20px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.dark .glass-effect-strong {
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* ============ Premium 固定导航 ============ */
+.premium-fixed-nav {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header, 100);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-bottom: 1px solid var(--color-border, hsl(0 0% 90%));
+  transition: all 0.3s var(--ease-premium, ease);
+}
+
+.dark .premium-fixed-nav {
+  background: rgba(0, 0, 0, 0.8);
+  border-bottom: 1px solid hsl(0 0% 20%);
+}
+
+/* 导航模糊背景层(绝对定位覆盖) */
+.nav-blur-bg {
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--color-border, hsl(0 0% 90%));
+  pointer-events: none;
+  z-index: -1;
+}
+
+.dark .nav-blur-bg {
+  border-bottom: 1px solid hsl(0 0% 20%);
+}
+
+/* ============ 玻璃拟态返回顶部按钮 ============ */
+.glass-back-to-top {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transition: all 0.3s var(--ease-premium, ease);
+  cursor: pointer;
+}
+
+.glass-back-to-top:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.glass-back-to-top:active {
+  transform: translateY(-2px);
+}
+
+.dark .glass-back-to-top {
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .glass-back-to-top:hover {
+  background: rgba(0, 0, 0, 0.9);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ============ 兼容性 fallback(不支持 backdrop-filter 时) ============ */
+@supports not (backdrop-filter: blur(12px)) {
+  .glass-effect {
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .glass-effect-dark {
+    background: rgba(0, 0, 0, 0.95);
+  }
+
+  .premium-fixed-nav {
+    background: rgba(255, 255, 255, 0.98);
+  }
+
+  .dark .premium-fixed-nav {
+    background: rgba(0, 0, 0, 0.98);
+  }
+
+  .glass-back-to-top {
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .dark .glass-back-to-top {
+    background: rgba(0, 0, 0, 0.95);
+  }
+}

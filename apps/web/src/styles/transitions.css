@@ -1,0 +1,363 @@
+/* transitions.css — 路由过渡系统(从 Vue transition 迁移) */
+/* 历史源: transitions.scss(9 种) + transition.scss(fade/fade-transform/breadcrumb) */
+/* Vue 的 enter-from/leave-to → React 的 enter/exit 命名 */
+
+/* ============ fade ============ */
+.fade-enter {
+  opacity: 0;
+}
+.fade-enter-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-to {
+  opacity: 1;
+}
+.fade-exit {
+  opacity: 1;
+}
+.fade-exit-active {
+  transition: opacity 0.3s ease;
+}
+.fade-exit-to {
+  opacity: 0;
+}
+
+/* ============ fade-transform ============ */
+.fade-transform-enter {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+.fade-transform-enter-active {
+  transition: all 0.5s ease;
+}
+.fade-transform-enter-to {
+  opacity: 1;
+  transform: translateX(0);
+}
+.fade-transform-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+.fade-transform-exit-active {
+  transition: all 0.5s ease;
+}
+.fade-transform-exit-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+/* ============ slide-left(从右滑入,向左滑出) ============ */
+.slide-left-enter {
+  transform: translateX(100%);
+  opacity: 0;
+}
+.slide-left-enter-active {
+  transition: all 0.3s ease;
+}
+.slide-left-enter-to {
+  transform: translateX(0);
+  opacity: 1;
+}
+.slide-left-exit {
+  transform: translateX(0);
+  opacity: 1;
+}
+.slide-left-exit-active {
+  transition: all 0.3s ease;
+}
+.slide-left-exit-to {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+/* ============ slide-right(从左滑入,向右滑出) ============ */
+.slide-right-enter {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+.slide-right-enter-active {
+  transition: all 0.3s ease;
+}
+.slide-right-enter-to {
+  transform: translateX(0);
+  opacity: 1;
+}
+.slide-right-exit {
+  transform: translateX(0);
+  opacity: 1;
+}
+.slide-right-exit-active {
+  transition: all 0.3s ease;
+}
+.slide-right-exit-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* ============ slide-up(从下滑入,向上滑出) ============ */
+.slide-up-enter {
+  transform: translateY(100%);
+  opacity: 0;
+}
+.slide-up-enter-active {
+  transition: all 0.3s ease;
+}
+.slide-up-enter-to {
+  transform: translateY(0);
+  opacity: 1;
+}
+.slide-up-exit {
+  transform: translateY(0);
+  opacity: 1;
+}
+.slide-up-exit-active {
+  transition: all 0.3s ease;
+}
+.slide-up-exit-to {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+/* ============ slide-down(从上滑入,向下滑出) ============ */
+.slide-down-enter {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+.slide-down-enter-active {
+  transition: all 0.3s ease;
+}
+.slide-down-enter-to {
+  transform: translateY(0);
+  opacity: 1;
+}
+.slide-down-exit {
+  transform: translateY(0);
+  opacity: 1;
+}
+.slide-down-exit-active {
+  transition: all 0.3s ease;
+}
+.slide-down-exit-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+/* ============ scale ============ */
+.scale-enter {
+  transform: scale(0.9);
+  opacity: 0;
+}
+.scale-enter-active {
+  transition: all 0.3s ease;
+}
+.scale-enter-to {
+  transform: scale(1);
+  opacity: 1;
+}
+.scale-exit {
+  transform: scale(1);
+  opacity: 1;
+}
+.scale-exit-active {
+  transition: all 0.3s ease;
+}
+.scale-exit-to {
+  transform: scale(1.1);
+  opacity: 0;
+}
+
+/* ============ fade-scale(淡入淡出 + 缩放) ============ */
+.fade-scale-enter {
+  transform: scale(0.95);
+  opacity: 0;
+}
+.fade-scale-enter-active {
+  transition: all 0.3s ease;
+}
+.fade-scale-enter-to {
+  transform: scale(1);
+  opacity: 1;
+}
+.fade-scale-exit {
+  transform: scale(1);
+  opacity: 1;
+}
+.fade-scale-exit-active {
+  transition: all 0.3s ease;
+}
+.fade-scale-exit-to {
+  transform: scale(1.05);
+  opacity: 0;
+}
+
+/* ============ list-item(列表项进入) ============ */
+.list-item-enter {
+  transform: translateY(20px);
+  opacity: 0;
+}
+.list-item-enter-active {
+  transition: all 0.3s ease;
+}
+.list-item-enter-to {
+  transform: translateY(0);
+  opacity: 1;
+}
+.list-item-exit {
+  transform: translateY(0);
+  opacity: 1;
+}
+.list-item-exit-active {
+  transition: all 0.3s ease;
+  position: absolute;
+}
+.list-item-exit-to {
+  transform: translateY(20px);
+  opacity: 0;
+}
+
+/* ============ card(卡片进入) ============ */
+.card-enter {
+  transform: translateY(30px);
+  opacity: 0;
+}
+.card-enter-active {
+  transition: all 0.3s ease;
+}
+.card-enter-to {
+  transform: translateY(0);
+  opacity: 1;
+}
+.card-exit {
+  transform: translateY(0);
+  opacity: 1;
+}
+.card-exit-active {
+  transition: all 0.3s ease;
+}
+.card-exit-to {
+  transform: translateY(30px);
+  opacity: 0;
+}
+
+/* ============ modal(模态框) ============ */
+.modal-enter {
+  opacity: 0;
+  transform: scale(0.9);
+}
+.modal-enter-active {
+  transition: all 0.3s ease;
+}
+.modal-enter-to {
+  opacity: 1;
+  transform: scale(1);
+}
+.modal-exit {
+  opacity: 1;
+  transform: scale(1);
+}
+.modal-exit-active {
+  transition: all 0.3s ease;
+}
+.modal-exit-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+/* ============ breadcrumb(面包屑) ============ */
+.breadcrumb-enter {
+  opacity: 0;
+  transform: translateX(20px);
+}
+.breadcrumb-enter-active {
+  transition: all 0.5s ease;
+}
+.breadcrumb-enter-to {
+  opacity: 1;
+  transform: translateX(0);
+}
+.breadcrumb-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+.breadcrumb-exit-active {
+  transition: all 0.5s ease;
+  position: absolute;
+}
+.breadcrumb-exit-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+/* ============ 通用工具类 ============ */
+.transition-fade {
+  transition: opacity 0.3s ease;
+}
+.transition-fade-transform {
+  transition: all 0.5s ease;
+}
+.transition-slide-left {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.transition-slide-right {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.transition-slide-up {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.transition-slide-down {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.transition-scale {
+  transition: all 0.3s ease;
+}
+.transition-fade-scale {
+  transition: all 0.3s ease;
+}
+.transition-list-item {
+  transition: all 0.3s ease;
+}
+.transition-card {
+  transition: all 0.3s ease;
+}
+.transition-modal {
+  transition: all 0.3s ease;
+}
+.transition-breadcrumb {
+  transition: all 0.5s ease;
+}
+
+/* ============ 减少动画偏好支持 ============ */
+@media (prefers-reduced-motion: reduce) {
+  .fade-enter-active,
+  .fade-exit-active,
+  .fade-transform-enter-active,
+  .fade-transform-exit-active,
+  .slide-left-enter-active,
+  .slide-left-exit-active,
+  .slide-right-enter-active,
+  .slide-right-exit-active,
+  .slide-up-enter-active,
+  .slide-up-exit-active,
+  .slide-down-enter-active,
+  .slide-down-exit-active,
+  .scale-enter-active,
+  .scale-exit-active,
+  .fade-scale-enter-active,
+  .fade-scale-exit-active,
+  .list-item-enter-active,
+  .list-item-exit-active,
+  .card-enter-active,
+  .card-exit-active,
+  .modal-enter-active,
+  .modal-exit-active,
+  .breadcrumb-enter-active,
+  .breadcrumb-exit-active {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* ============ 暗色模式(过渡动画保持不变) ============ */
+.dark .fade-enter-active,
+.dark .fade-exit-active {
+  transition: opacity 0.3s ease;
+}

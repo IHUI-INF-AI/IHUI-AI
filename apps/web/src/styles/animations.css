@@ -1,30 +1,21 @@
-@keyframes ripple {
+/* animations.css — IHUI-AI 动画系统(从历史项目迁移 200+ @keyframes) */
+/* 源:G:\IHUI-AI-initial\client\src\ + D:\历史项目存档\ihui-ai-admin-frontend + code\edu + zhs_app-ZZ */
+
+/* ============ 1. 基础动画 ============ */
+
+@keyframes spin {
   to {
-    transform: scale(2);
-    opacity: 0;
+    transform: rotate(360deg);
   }
 }
 
-@keyframes success-bounce {
+@keyframes pulse {
   0%,
   100% {
-    transform: scale(1);
+    opacity: 1;
   }
   50% {
-    transform: scale(1.1);
-  }
-}
-
-@keyframes error-shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-4px);
-  }
-  75% {
-    transform: translateX(4px);
+    opacity: 0.5;
   }
 }
 
@@ -34,6 +25,68 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-out-down {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -48,6 +101,57 @@
   }
 }
 
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(60px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideLeft {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-3750%);
+  }
+}
+
+@keyframes slideLefta {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
 @keyframes scale-in {
   from {
     opacity: 0;
@@ -59,21 +163,3013 @@
   }
 }
 
-.animate-ripple {
-  animation: ripple 0.6s ease-out;
+@keyframes scale-out {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
 }
-.animate-success-bounce {
-  animation: success-bounce 0.4s ease;
+
+@keyframes bounce {
+  0% {
+    box-shadow: none;
+    transform: translate(1px, 1px);
+  }
+  50% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    transform: translate(0, 0);
+  }
+  100% {
+    box-shadow: none;
+    transform: translate(1px, 1px);
+  }
 }
-.animate-error-shake {
-  animation: error-shake 0.4s ease;
+
+@keyframes bouncea {
+  0% {
+    box-shadow: none;
+    transform: translate(3rpx, 3rpx);
+  }
+  50% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    transform: translate(0, 0);
+  }
+  100% {
+    box-shadow: none;
+    transform: translate(3rpx, 3rpx);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes bounce-arrow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8rpx);
+  }
+}
+
+@keyframes rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rotate-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes slow-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes slow-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rotating {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes tech-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+    filter: blur(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes flipIn {
+  0% {
+    transform: perspective(400px) rotateY(0deg);
+    opacity: 1;
+  }
+  49% {
+    transform: perspective(400px) rotateY(-100deg);
+  }
+  51% {
+    transform: perspective(400px) rotateY(-260deg);
+  }
+  100% {
+    transform: perspective(400px) rotateY(-360deg);
+    opacity: 1;
+  }
+}
+
+@keyframes subtle-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+
+@keyframes unifiedFadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes unifiedSlideUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes unifiedSlideLeft {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes unifiedSlideRight {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ft {
+  from {
+    transform: translateY(-80px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fb {
+  from {
+    transform: translateY(80px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fl {
+  from {
+    transform: translateX(-80px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fr {
+  from {
+    transform: translateX(80px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ============ 2. 微交互 ============ */
+
+@keyframes ripple {
+  to {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes rippleExpand {
+  0% {
+    transform: scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes ripple-animation {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes ripple-effect {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes rippleEffect {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes uc-ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+@keyframes dc-ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+@keyframes glowFloat {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(30px, -20px) scale(1.1);
+  }
+  50% {
+    transform: translate(-20px, 30px) scale(0.95);
+  }
+  75% {
+    transform: translate(20px, 20px) scale(1.05);
+  }
+}
+
+@keyframes borderGlow {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes border-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes borderRotate {
+  from {
+    filter: hue-rotate(0deg);
+  }
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+@keyframes icon-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+@keyframes ringPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.7;
+  }
+}
+
+@keyframes ring-expand {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.95;
+  }
+}
+
+@keyframes pulse-glow-light {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 5px rgba(0, 150, 100, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 15px rgba(0, 150, 100, 0.4));
+  }
+}
+
+@keyframes pulse-dot {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes dotPulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-warn {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes pulse-opacity {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes pulse-pending {
+  0% {
+    box-shadow: 0 4rpx 12rpx rgba(255, 165, 0, 0.4);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 6rpx 16rpx rgba(255, 165, 0, 0.6);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes pulse-btn {
+  0% {
+    box-shadow: 0px 4rpx 12rpx rgba(255, 165, 0, 0.4);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0px 6rpx 16rpx rgba(255, 165, 0, 0.6);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes premium-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+@keyframes unified-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes page-header-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes shadowPulse {
+  0% {
+    box-shadow: 0px 0px 6rpx 0px rgba(86, 71, 250, 0.3);
+  }
+  50% {
+    box-shadow: 0px 0px 10rpx 0px rgba(73, 56, 255, 0.795);
+  }
+  100% {
+    box-shadow: 0px 0px 6rpx 0px rgba(86, 71, 250, 0.3);
+  }
+}
+
+@keyframes tag-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes circuit-blink {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ============ 3. 加载动画 ============ */
+
+@keyframes loading {
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+@keyframes loading-rotate {
+  100% {
+    transform: translate3d(0, 0, 0) rotate(360deg);
+  }
+}
+
+@keyframes loading-dash {
+  0% {
+    stroke-dasharray: 1, 200;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 90, 200;
+    stroke-dashoffset: -35px;
+  }
+  100% {
+    stroke-dasharray: 90, 200;
+    stroke-dashoffset: -124px;
+  }
+}
+
+@keyframes skeleton-loading {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes skeleton {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes loaderSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loaderpulse {
+  0% {
+    transform: scale(0.8);
+    box-shadow: 0 0 0 0 rgba(115, 68, 209, 0.4);
+  }
+  50% {
+    transform: scale(1.2);
+    box-shadow: 0 0 0 10px rgba(115, 68, 209, 0);
+  }
+  100% {
+    transform: scale(0.8);
+    box-shadow: 0 0 0 0 rgba(115, 68, 209, 0);
+  }
+}
+
+@keyframes iMove {
+  0% {
+    transform: rotateZ(var(--rz, 0)) translateY(4em) translate(0, 0) scale(0);
+  }
+  2% {
+    transform: rotateZ(var(--rz, 0)) translateY(4em) translate(0, 0) scale(1.25);
+  }
+  20% {
+    transform: rotateZ(var(--rz, 0)) translateY(4em) translate(0, 0) scale(1.25);
+  }
+  90%,
+  100% {
+    transform: rotateZ(var(--rz, 0)) translateY(4em) translate(var(--tx, 0), var(--ty, 0)) scale(0);
+  }
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes progress-wave {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes theme-loader-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes theme-loader-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes dc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes wd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes l1 {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* ============ 4. 装饰动画 ============ */
+
+@keyframes floatOrb {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(30px, -20px) scale(1.05);
+  }
+  50% {
+    transform: translate(-20px, 30px) scale(0.95);
+  }
+  75% {
+    transform: translate(-30px, -10px) scale(1.02);
+  }
+}
+
+@keyframes float-orb {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(30px, -30px) scale(1.1);
+  }
+  50% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+  75% {
+    transform: translate(20px, 10px) scale(1.05);
+  }
+}
+
+@keyframes orb-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -20px) scale(1.05);
+  }
+  66% {
+    transform: translate(-20px, 15px) scale(0.95);
+  }
+}
+
+@keyframes fp-orb-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(30px, -30px) scale(1.05);
+  }
+  50% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+  75% {
+    transform: translate(-30px, -20px) scale(1.02);
+  }
+}
+
+@keyframes wd-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(20px, -30px) scale(1.05);
+  }
+  50% {
+    transform: translate(-10px, 20px) scale(0.95);
+  }
+  75% {
+    transform: translate(30px, 10px) scale(1.02);
+  }
+}
+
+@keyframes float-gentle {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(10px, -15px) rotate(5deg);
+  }
+}
+
+@keyframes float-particle {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.15;
+  }
+  25% {
+    transform: translateY(-30px) translateX(10px);
+    opacity: 0.25;
+  }
+  50% {
+    transform: translateY(-10px) translateX(-15px);
+    opacity: 0.1;
+  }
+  75% {
+    transform: translateY(-25px) translateX(5px);
+    opacity: 0.2;
+  }
+}
+
+@keyframes subtle-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15rpx);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes gradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes gradientAnimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marqueeScroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes scroll-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes scrollReveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scroll-fade-up {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lightBeam {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 200%;
+  }
+}
+
+@keyframes flow {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes gridMove {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(60px, 60px);
+  }
+}
+
+@keyframes particleFloat {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(-100vh) rotate(360deg);
+    opacity: 0.8;
+  }
+}
+
+@keyframes fp-particle-rise {
+  0% {
+    bottom: -10px;
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    bottom: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes bg {
+  0% {
+    opacity: 0.9;
+    filter: brightness(1);
+  }
+  25% {
+    opacity: 0.8;
+    filter: brightness(0.95);
+  }
+  50% {
+    opacity: 0.7;
+    filter: brightness(0.9);
+  }
+  75% {
+    opacity: 0.8;
+    filter: brightness(0.95);
+  }
+  100% {
+    opacity: 0.9;
+    filter: brightness(1);
+  }
+}
+
+@keyframes bgRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(90deg);
+  }
+  40% {
+    transform: rotate(180deg) scale(0.95, 1);
+  }
+  60%,
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============ 5. 语音/媒体动画 ============ */
+
+@keyframes wave {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes wave1 {
+  0%,
+  100% {
+    height: 8px;
+  }
+  50% {
+    height: 18px;
+  }
+}
+
+@keyframes wave2 {
+  0%,
+  100% {
+    height: 18px;
+  }
+  50% {
+    height: 8px;
+  }
+}
+
+@keyframes wave3 {
+  0%,
+  100% {
+    height: 8px;
+  }
+  50% {
+    height: 18px;
+  }
+}
+
+@keyframes wave4 {
+  0%,
+  100% {
+    height: 18px;
+  }
+  50% {
+    height: 8px;
+  }
+}
+
+@keyframes wave5 {
+  0%,
+  100% {
+    height: 8px;
+  }
+  50% {
+    height: 18px;
+  }
+}
+
+@keyframes audioBar {
+  0% {
+    height: 10px;
+  }
+  100% {
+    height: 40px;
+  }
+}
+
+@keyframes recordingPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+}
+
+@keyframes typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+@keyframes move {
+  0% {
+    top: 0;
+    height: 65rpx;
+  }
+  100% {
+    top: 15rpx;
+    height: 25rpx;
+  }
+}
+
+@keyframes moveBall {
+  0% {
+    transform: translate(0, 0);
+  }
+  70% {
+    transform: translate(0, -584rpx);
+  }
+  75% {
+    transform: translate(20rpx, -602rpx);
+  }
+  100% {
+    transform: translate(80px, -602rpx);
+  }
+}
+
+@keyframes barGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ============ 6. 支付/VIP 动画 ============ */
+
+@keyframes badge-shine {
+  0%,
+  100% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes btn-shine {
+  0% {
+    left: -100%;
+  }
+  50%,
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes btnShine {
+  0%,
+  100% {
+    left: -100%;
+  }
+  50% {
+    left: 100%;
+  }
+}
+
+@keyframes buttonShine {
+  0% {
+    transform: translateX(-100%) rotate(45deg);
+  }
+  20%,
+  100% {
+    transform: translateX(100%) rotate(45deg);
+  }
+}
+
+@keyframes progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes shimmer-btn {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes glow-pulse-error {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+
+@keyframes glow-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-30px, -20px);
+  }
+}
+
+@keyframes circle-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes x-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes checkStroke {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes circleStroke {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes particleBurst {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--angle, 0deg)) translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle, 0deg)) translateX(80px);
+  }
+}
+
+@keyframes underlineExpand {
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes line-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    width: 40px;
+  }
+  50% {
+    opacity: 1;
+    width: 60px;
+  }
+}
+
+@keyframes fp-check-draw {
+  0% {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes fp-ring-expand {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes outline {
+  from {
+    outline-color: #6a6a6b;
+  }
+  50% {
+    outline-color: #fac826;
+  }
+  to {
+    outline-color: #fc466b;
+  }
+}
+
+@keyframes colors {
+  from {
+    color: #000;
+  }
+  to {
+    color: #fff;
+  }
+}
+
+@keyframes progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0%);
+  }
+}
+
+@keyframes bar {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 2.5rem 0;
+  }
+}
+
+@keyframes progressAnimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* ============ 7. 页面过渡 ============ */
+
+@keyframes fadeTransition {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes dissolveTransition {
+  0% {
+    opacity: 1;
+    filter: blur(0px);
+  }
+  50% {
+    opacity: 0.5;
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0px);
+  }
+}
+
+@keyframes wipeTransition {
+  0% {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+  50% {
+    clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%);
+  }
+  100% {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+}
+
+@keyframes slideTransition {
+  0% {
+    transform: translateX(0) translateY(0);
+  }
+  50% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(0) translateY(0);
+  }
+}
+
+@keyframes drawer-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialogEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes dropdownRevealCompact {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes messageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes messageHighlight {
+  0%,
+  100% {
+    background: transparent;
+  }
+  50% {
+    background: var(--el-color-primary-light-9, rgba(64, 158, 255, 0.1));
+  }
+}
+
+@keyframes highlight-pulse {
+  0%,
+  100% {
+    background: var(--el-color-warning-light-9, rgba(230, 162, 60, 0.1));
+  }
+  50% {
+    background: var(--el-color-warning-light-7, rgba(230, 162, 60, 0.2));
+  }
+}
+
+@keyframes selection-highlight {
+  0% {
+    background: var(--el-color-primary-light-8, rgba(64, 158, 255, 0.15));
+  }
+  50% {
+    background: var(--el-color-primary-light-6, rgba(64, 158, 255, 0.25));
+  }
+  100% {
+    background: var(--el-color-primary-light-8, rgba(64, 158, 255, 0.15));
+  }
+}
+
+@keyframes toast-appear {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes char-reveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes char-flip-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(100%) rotateX(-90deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-5%) rotateX(5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotateX(0);
+  }
+}
+
+@keyframes stagger-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tag-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes course-fade-in {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes search-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes successPop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0) scale(1.08);
+  }
+  33% {
+    transform: translateX(-4px) scale(1.08);
+  }
+  66% {
+    transform: translateX(4px) scale(1.08);
+  }
+}
+
+@keyframes disapear {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(5px) translateY(20px);
+    filter: blur(5px);
+  }
+}
+
+@keyframes takeOff {
+  0% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(70px) rotate(45deg) scale(2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(160px) rotate(45deg) scale(0);
+  }
+}
+
+@keyframes land {
+  0% {
+    transform: translateX(-60px) translateY(30px) rotate(-50deg) scale(2);
+    opacity: 0;
+    filter: blur(3px);
+  }
+  100% {
+    transform: translateX(0) translateY(0) rotate(0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes contrail {
+  0% {
+    width: 0;
+    opacity: 1;
+  }
+  8% {
+    width: 15px;
+  }
+  60% {
+    opacity: 0.7;
+    width: 80px;
+  }
+  100% {
+    opacity: 0;
+    width: 160px;
+  }
+}
+
+@keyframes appear {
+  0% {
+    opacity: 0;
+    transform: scale(4) rotate(-40deg);
+    filter: blur(4px);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(0.6);
+    filter: blur(1px);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes keyframes-fill {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes dc-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-40rpx) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes itemFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mobileMenuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes agentsHeaderFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fp-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fp-stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes uc-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wd-reveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wd-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wd-pop {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes theme-fade-in {
+  0% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes theme-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+@keyframes theme-switch-ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes theme-loader-fade-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes theme-loader-fade-out {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+}
+
+@keyframes theme-loader-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ihui-ai-fade-in-left {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ihui-ai-fade-in-top {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ihui-ai-fade-in-left-global {
+  from {
+    transform: translateX(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes ihui-ai-fade-in-top-global {
+  from {
+    transform: translateY(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes ihui-ai-fade-in-bottom-global {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes ihui-ai-opacity-global {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ihui-ai-flash-global {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300px);
+  }
+}
+
+@keyframes highlight-fade-in {
+  0% {
+    background-color: transparent;
+  }
+  100% {
+    background-color: var(--el-color-warning-light-9, rgba(230, 162, 60, 0.1));
+  }
+}
+
+/* ============ 8. 主题切换动画 ============ */
+
+@keyframes cloud-move {
+  0% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  80% {
+    transform: translateX(-4px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes star-twinkle {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.2);
+  }
+  80% {
+    transform: scale(0.8);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes rotate-center {
+  0% {
+    transform: translateX(16px) rotate(0deg);
+  }
+  100% {
+    transform: translateX(16px) rotate(360deg);
+  }
+}
+
+@keyframes theme-wave {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ============ 9. 404 页面动画 ============ */
+
+@keyframes cloudLeft {
+  0% {
+    top: 17px;
+    left: 220px;
+    opacity: 0;
+  }
+  20% {
+    top: 33px;
+    left: 188px;
+    opacity: 1;
+  }
+  80% {
+    top: 81px;
+    left: 92px;
+    opacity: 1;
+  }
+  100% {
+    top: 97px;
+    left: 60px;
+    opacity: 0;
+  }
+}
+
+@keyframes cloudMid {
+  0% {
+    top: 10px;
+    left: 420px;
+    opacity: 0;
+  }
+  20% {
+    top: 40px;
+    left: 360px;
+    opacity: 1;
+  }
+  70% {
+    top: 130px;
+    left: 180px;
+    opacity: 1;
+  }
+  100% {
+    top: 160px;
+    left: 120px;
+    opacity: 0;
+  }
+}
+
+@keyframes cloudRight {
+  0% {
+    top: 100px;
+    left: 500px;
+    opacity: 0;
+  }
+  20% {
+    top: 120px;
+    left: 460px;
+    opacity: 1;
+  }
+  80% {
+    top: 180px;
+    left: 340px;
+    opacity: 1;
+  }
+  100% {
+    top: 200px;
+    left: 300px;
+    opacity: 0;
+  }
+}
+
+/* ============ 10. 故障艺术 ============ */
+
+@keyframes glitch {
+  0%,
+  90%,
+  100% {
+    transform: translate(0);
+  }
+  92% {
+    transform: translate(-2px, 1px);
+  }
+  94% {
+    transform: translate(2px, -1px);
+  }
+  96% {
+    transform: translate(-1px, -1px);
+  }
+  98% {
+    transform: translate(1px, 1px);
+  }
+}
+
+@keyframes glitch-1 {
+  0%,
+  100% {
+    clip-path: inset(0 0 0 0);
+    transform: translate(0);
+  }
+  20% {
+    clip-path: inset(20% 0 60% 0);
+    transform: translate(-3px);
+  }
+  40% {
+    clip-path: inset(40% 0 40% 0);
+    transform: translate(3px);
+  }
+  60% {
+    clip-path: inset(60% 0 20% 0);
+    transform: translate(-3px);
+  }
+  80% {
+    clip-path: inset(80% 0 0% 0);
+    transform: translate(3px);
+  }
+}
+
+@keyframes glitch-2 {
+  0%,
+  100% {
+    clip-path: inset(0 0 0 0);
+    transform: translate(0);
+  }
+  20% {
+    clip-path: inset(60% 0 20% 0);
+    transform: translate(3px);
+  }
+  40% {
+    clip-path: inset(20% 0 60% 0);
+    transform: translate(-3px);
+  }
+  60% {
+    clip-path: inset(80% 0 0% 0);
+    transform: translate(3px);
+  }
+  80% {
+    clip-path: inset(40% 0 40% 0);
+    transform: translate(-3px);
+  }
+}
+
+/* ============ 11. 业务特化动画 ============ */
+
+@keyframes slideIndicator {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 4px;
+    opacity: 1;
+  }
+}
+
+@keyframes uc-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes dc-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+
+@keyframes dc-menu-fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-hint {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-5px);
+  }
+}
+
+@keyframes arrow-pulse {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes compass-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes wd-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ============ 工具类 ============ */
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 .animate-fade-in {
-  animation: fade-in 0.3s ease;
+  animation: fade-in 0.3s ease-out;
+}
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+.animate-fadeOut {
+  animation: fadeOut 0.3s ease-out;
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.3s ease-out;
+}
+.animate-fade-out-down {
+  animation: fade-out-down 0.3s ease-out;
+}
+.animate-fadeInUp {
+  animation: fadeInUp 0.5s ease-out;
+}
+.animate-fadeInDown {
+  animation: fadeInDown 0.5s ease-out;
 }
 .animate-slide-up {
   animation: slide-up 0.3s ease;
 }
+.animate-slideUp {
+  animation: slideUp 0.5s ease-out;
+}
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out;
+}
+.animate-slideDown {
+  animation: slideDown 0.3s ease-out;
+}
+.animate-slideLeft {
+  animation: slideLeft 30s linear infinite;
+}
+.animate-slideLefta {
+  animation: slideLefta 20s linear infinite;
+}
 .animate-scale-in {
   animation: scale-in 0.2s ease;
+}
+.animate-scale-out {
+  animation: scale-out 0.2s ease;
+}
+.animate-bounce {
+  animation: bounce 2s ease-in-out infinite;
+}
+.animate-bouncea {
+  animation: bouncea 2s ease-in-out infinite;
+}
+.animate-bounceIn {
+  animation: bounceIn 0.5s ease-out;
+}
+.animate-bounce-arrow {
+  animation: bounce-arrow 1.5s ease-in-out infinite;
+}
+.animate-rotate {
+  animation: rotate 5s linear infinite;
+}
+.animate-rotate-slow {
+  animation: rotate-slow 8s linear infinite;
+}
+.animate-slow-spin {
+  animation: slow-spin 8s linear infinite;
+}
+.animate-slow-orbit {
+  animation: slow-orbit 15s linear infinite;
+}
+.animate-rotating {
+  animation: rotating 2s linear infinite;
+}
+.animate-tech-slide-in {
+  animation: tech-slide-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-flipIn {
+  animation: flipIn 1s linear;
+}
+.animate-subtle-bounce {
+  animation: subtle-bounce 2s ease-in-out infinite;
+}
+.animate-unifiedFadeIn {
+  animation: unifiedFadeIn 0.5s ease forwards;
+}
+.animate-unifiedSlideUp {
+  animation: unifiedSlideUp 0.5s ease forwards;
+}
+.animate-unifiedSlideLeft {
+  animation: unifiedSlideLeft 0.5s ease forwards;
+}
+.animate-unifiedSlideRight {
+  animation: unifiedSlideRight 0.5s ease forwards;
+}
+.animate-ft {
+  animation: ft 0.5s ease-out;
+}
+.animate-fb {
+  animation: fb 0.5s ease-out;
+}
+.animate-fl {
+  animation: fl 0.5s ease-out;
+}
+.animate-fr {
+  animation: fr 0.5s ease-out;
+}
+
+/* ============ 微交互工具类 ============ */
+
+.animate-ripple {
+  animation: ripple 0.6s ease-out;
+}
+.animate-rippleExpand {
+  animation: rippleExpand 1.5s ease-out;
+}
+.animate-ripple-animation {
+  animation: ripple-animation 0.6s ease-out;
+}
+.animate-ripple-effect {
+  animation: ripple-effect 0.6s ease-out;
+}
+.animate-rippleEffect {
+  animation: rippleEffect 0.6s ease-out;
+}
+.animate-uc-ripple {
+  animation: uc-ripple 0.6s ease-out;
+}
+.animate-dc-ripple {
+  animation: dc-ripple 0.6s ease-out;
+}
+.animate-glowFloat {
+  animation: glowFloat 8s ease-in-out infinite;
+}
+.animate-borderGlow {
+  animation: borderGlow 3s ease-in-out infinite;
+}
+.animate-border-glow {
+  animation: border-glow 3s ease-in-out infinite;
+}
+.animate-borderRotate {
+  animation: borderRotate 4s linear infinite;
+}
+.animate-icon-pulse {
+  animation: icon-pulse 3s ease-in-out infinite;
+}
+.animate-ringPulse {
+  animation: ringPulse 3s ease-in-out infinite;
+}
+.animate-ring-expand {
+  animation: ring-expand 2s ease-out infinite;
+}
+.animate-pulseGlow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+.animate-pulse-glow {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+.animate-pulse-glow-light {
+  animation: pulse-glow-light 2s ease-in-out infinite;
+}
+.animate-pulse-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+.animate-dot-pulse {
+  animation: dot-pulse 2s ease-in-out infinite;
+}
+.animate-dotPulse {
+  animation: dotPulse 1.5s ease-in-out infinite;
+}
+.animate-pulse-warn {
+  animation: pulse-warn 1.2s ease-in-out infinite;
+}
+.animate-pulse-opacity {
+  animation: pulse-opacity 2s ease-in-out infinite;
+}
+.animate-pulse-pending {
+  animation: pulse-pending 2s ease-in-out infinite alternate;
+}
+.animate-pulse-btn {
+  animation: pulse-btn 2s ease-in-out infinite alternate;
+}
+.animate-premium-pulse {
+  animation: premium-pulse 2s ease-in-out infinite;
+}
+.animate-unified-pulse {
+  animation: unified-pulse 2s ease-in-out infinite;
+}
+.animate-page-header-pulse {
+  animation: page-header-pulse 2s ease-in-out infinite;
+}
+.animate-shadowPulse {
+  animation: shadowPulse 2s ease-in-out infinite;
+}
+.animate-tag-glow {
+  animation: tag-glow 3s ease-in-out infinite;
+}
+.animate-statusPulse {
+  animation: statusPulse 2s ease-in-out infinite;
+}
+.animate-status-pulse {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+.animate-circuit-blink {
+  animation: circuit-blink 3s ease-in-out infinite;
+}
+
+/* ============ 加载动画工具类 ============ */
+
+.animate-loading {
+  animation: loading 1.4s ease-in-out infinite both;
+}
+.animate-loading-rotate {
+  animation: loading-rotate 2s linear infinite;
+}
+.animate-loading-dash {
+  animation: loading-dash 1.5s ease-in-out infinite;
+}
+.animate-skeleton-loading {
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+.animate-skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+.animate-skeleton {
+  animation: skeleton 1.5s ease-in-out infinite;
+}
+.animate-loaderSpin {
+  animation: loaderSpin 16s linear infinite;
+}
+.animate-loaderpulse {
+  animation: loaderpulse 1.5s ease-in-out infinite;
+}
+.animate-iMove {
+  animation: iMove 4s ease-in-out infinite;
+}
+.animate-btn-spin {
+  animation: btn-spin 0.8s linear infinite;
+}
+.animate-progress-wave {
+  animation: progress-wave 1s ease-in-out infinite;
+}
+.animate-theme-loader-spin {
+  animation: theme-loader-spin 0.8s linear infinite;
+}
+.animate-theme-loader-pulse {
+  animation: theme-loader-pulse 1.5s ease-in-out infinite;
+}
+.animate-dc-spin {
+  animation: dc-spin 0.8s linear infinite;
+}
+.animate-wd-spin {
+  animation: wd-spin 0.8s linear infinite;
+}
+.animate-l1 {
+  animation: l1 1.5s linear infinite;
+}
+
+/* ============ 装饰动画工具类 ============ */
+
+.animate-floatOrb {
+  animation: floatOrb 15s ease-in-out infinite;
+}
+.animate-float-orb {
+  animation: float-orb 20s ease-in-out infinite;
+}
+.animate-orb-float {
+  animation: orb-float 15s ease-in-out infinite;
+}
+.animate-fp-orb-float {
+  animation: fp-orb-float 12s ease-in-out infinite;
+}
+.animate-wd-float {
+  animation: wd-float 12s ease-in-out infinite;
+}
+.animate-float-gentle {
+  animation: float-gentle 6s ease-in-out infinite;
+}
+.animate-float-particle {
+  animation: float-particle 8s ease-in-out infinite;
+}
+.animate-subtle-float {
+  animation: subtle-float 2s ease-in-out infinite;
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+.animate-gradientFlow {
+  animation: gradientFlow 6s ease infinite;
+}
+.animate-gradientAnimation {
+  animation: gradientAnimation 4s linear infinite;
+}
+.animate-marquee {
+  animation: marquee 20s linear infinite;
+}
+.animate-marqueeScroll {
+  animation: marqueeScroll 20s linear infinite;
+}
+.animate-marquee-scroll {
+  animation: marquee-scroll 20s linear infinite;
+}
+.animate-scroll-left {
+  animation: scroll-left 8s linear infinite;
+}
+.animate-scrollReveal {
+  animation: scrollReveal 0.8s ease forwards;
+}
+.animate-scroll-fade-up {
+  animation: scroll-fade-up 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.animate-lightBeam {
+  animation: lightBeam 3s ease-in-out infinite;
+}
+.animate-flow {
+  animation: flow 10s linear infinite;
+}
+.animate-gridMove {
+  animation: gridMove 20s linear infinite;
+}
+.animate-particleFloat {
+  animation: particleFloat 10s linear infinite;
+}
+.animate-fp-particle-rise {
+  animation: fp-particle-rise 8s ease-in-out infinite;
+}
+.animate-bg {
+  animation: bg 8s ease-in-out infinite;
+}
+.animate-bgRotate {
+  animation: bgRotate 4s linear infinite;
+}
+
+/* ============ 语音/媒体动画工具类 ============ */
+
+.animate-wave {
+  animation: wave 1s ease-in-out infinite;
+}
+.animate-wave1 {
+  animation: wave1 0.8s ease-in-out infinite;
+}
+.animate-wave2 {
+  animation: wave2 0.8s ease-in-out infinite;
+}
+.animate-wave3 {
+  animation: wave3 0.8s ease-in-out infinite;
+}
+.animate-wave4 {
+  animation: wave4 0.8s ease-in-out infinite;
+}
+.animate-wave5 {
+  animation: wave5 0.8s ease-in-out infinite;
+}
+.animate-audioBar {
+  animation: audioBar 0.5s ease-in-out infinite alternate;
+}
+.animate-recordingPulse {
+  animation: recordingPulse 1.5s ease-in-out infinite;
+}
+.animate-typing {
+  animation: typing 1.4s ease-in-out infinite;
+}
+.animate-move {
+  animation: move 0.75s linear infinite alternate;
+}
+.animate-moveBall {
+  animation: moveBall 2s linear infinite;
+}
+.animate-barGrow {
+  animation: barGrow 0.6s ease-out;
+}
+
+/* ============ 支付/VIP 动画工具类 ============ */
+
+.animate-badge-shine {
+  animation: badge-shine 3s ease-in-out infinite;
+}
+.animate-btn-shine {
+  animation: btn-shine 3s ease-in-out infinite;
+}
+.animate-btnShine {
+  animation: btnShine 3s ease-in-out infinite;
+}
+.animate-buttonShine {
+  animation: buttonShine 3s linear infinite;
+}
+.animate-progress-shimmer {
+  animation: progress-shimmer 2s linear infinite;
+}
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+.animate-shimmer-btn {
+  animation: shimmer-btn 2s linear infinite;
+}
+.animate-glow-pulse-error {
+  animation: glow-pulse-error 2s ease-in-out infinite;
+}
+.animate-glow-drift {
+  animation: glow-drift 8s ease-in-out infinite;
+}
+.animate-circle-draw {
+  animation: circle-draw 1s ease-out forwards;
+}
+.animate-x-draw {
+  animation: x-draw 0.5s ease-out forwards;
+}
+.animate-checkStroke {
+  animation: checkStroke 0.4s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+.animate-circleStroke {
+  animation: circleStroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+.animate-particleBurst {
+  animation: particleBurst 1s ease-out forwards;
+}
+.animate-underlineExpand {
+  animation: underlineExpand 0.6s ease-out forwards;
+}
+.animate-line-pulse {
+  animation: line-pulse 2s ease-in-out infinite;
+}
+.animate-fp-check-draw {
+  animation: fp-check-draw 0.8s ease forwards;
+}
+.animate-fp-ring-expand {
+  animation: fp-ring-expand 2s ease-out infinite;
+}
+.animate-outline {
+  animation: outline 3s linear infinite;
+}
+.animate-colors {
+  animation: colors 3s linear infinite alternate;
+}
+.animate-progress {
+  animation: progress 2s ease-out infinite;
+}
+.animate-bar {
+  animation: bar 1s linear infinite;
+}
+.animate-progressAnimation {
+  animation: progressAnimation 2s infinite;
+}
+
+/* ============ 页面过渡工具类 ============ */
+
+.animate-fadeTransition {
+  animation: fadeTransition 1s ease-in-out;
+}
+.animate-dissolveTransition {
+  animation: dissolveTransition 1s ease-in-out;
+}
+.animate-wipeTransition {
+  animation: wipeTransition 1s ease-in-out;
+}
+.animate-slideTransition {
+  animation: slideTransition 1s ease-in-out;
+}
+.animate-drawer-fade-in {
+  animation: drawer-fade-in 0.3s ease;
+}
+.animate-dialogEnter {
+  animation: dialogEnter 0.3s ease-out;
+}
+.animate-dropdownRevealCompact {
+  animation: dropdownRevealCompact 0.2s ease-out;
+}
+.animate-messageFadeIn {
+  animation: messageFadeIn 0.3s ease-out;
+}
+.animate-messageHighlight {
+  animation: messageHighlight 1s ease-in-out;
+}
+.animate-highlight-pulse {
+  animation: highlight-pulse 1s ease-in-out 3;
+}
+.animate-selection-highlight {
+  animation: selection-highlight 0.5s ease;
+}
+.animate-toast-appear {
+  animation: toast-appear 0.3s ease;
+}
+.animate-char-reveal {
+  animation: char-reveal 0.5s ease forwards;
+}
+.animate-char-flip-reveal {
+  animation: char-flip-reveal 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+.animate-stagger-fade-in {
+  animation: stagger-fade-in 0.5s ease forwards;
+}
+.animate-tag-fade-in {
+  animation: tag-fade-in 0.5s ease forwards;
+}
+.animate-course-fade-in {
+  animation: course-fade-in 0.5s ease forwards;
+}
+.animate-search-fade-in {
+  animation: search-fade-in 0.3s ease-out;
+}
+.animate-successPop {
+  animation: successPop 0.4s ease;
+}
+.animate-shake {
+  animation: shake 0.5s ease;
+}
+.animate-disapear {
+  animation: disapear 0.6s ease forwards;
+}
+.animate-takeOff {
+  animation: takeOff 0.8s linear forwards;
+}
+.animate-land {
+  animation: land 0.6s ease forwards;
+}
+.animate-contrail {
+  animation: contrail 0.8s linear forwards;
+}
+.animate-appear {
+  animation: appear 1.2s ease forwards;
+}
+.animate-keyframes-fill {
+  animation: keyframes-fill 0.3s ease;
+}
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+.animate-dc-blink {
+  animation: dc-blink 1.5s ease-in-out infinite;
+}
+.animate-cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+.animate-modalSlideIn {
+  animation: modalSlideIn 0.3s ease-out;
+}
+.animate-popupFadeIn {
+  animation: popupFadeIn 0.2s ease-out;
+}
+.animate-itemFadeIn {
+  animation: itemFadeIn 0.3s ease-out;
+}
+.animate-mobileMenuSlideIn {
+  animation: mobileMenuSlideIn 0.2s ease-out;
+}
+.animate-agentsHeaderFadeIn {
+  animation: agentsHeaderFadeIn 0.5s ease-out;
+}
+.animate-fp-fade-in {
+  animation: fp-fade-in 0.8s ease-out;
+}
+.animate-fp-stagger-in {
+  animation: fp-stagger-in 0.5s ease-out;
+}
+.animate-uc-fade-up {
+  animation: uc-fade-up 0.8s ease-out;
+}
+.animate-wd-reveal {
+  animation: wd-reveal 0.8s ease forwards;
+}
+.animate-wd-slide-in {
+  animation: wd-slide-in 0.3s ease-out;
+}
+.animate-wd-pop {
+  animation: wd-pop 0.3s ease-out;
+}
+.animate-theme-fade-in {
+  animation: theme-fade-in 0.15s ease-out;
+}
+.animate-theme-pulse {
+  animation: theme-pulse 0.3s ease-in-out;
+}
+.animate-theme-switch-ripple {
+  animation: theme-switch-ripple 0.6s ease-out;
+}
+.animate-theme-loader-fade-in {
+  animation: theme-loader-fade-in 0.2s ease-out forwards;
+}
+.animate-theme-loader-fade-out {
+  animation: theme-loader-fade-out 0.2s ease-out forwards;
+}
+.animate-theme-loader-pop {
+  animation: theme-loader-pop 0.2s ease-out;
+}
+.animate-ihui-ai-fade-in-left {
+  animation: ihui-ai-fade-in-left 0.5s ease both;
+}
+.animate-ihui-ai-fade-in-top {
+  animation: ihui-ai-fade-in-top 0.5s ease both;
+}
+.animate-ihui-ai-fade-in-left-global {
+  animation: ihui-ai-fade-in-left-global 1s ease-out both;
+}
+.animate-ihui-ai-fade-in-top-global {
+  animation: ihui-ai-fade-in-top-global 1s ease-out both;
+}
+.animate-ihui-ai-fade-in-bottom-global {
+  animation: ihui-ai-fade-in-bottom-global 1s ease-out both;
+}
+.animate-ihui-ai-opacity-global {
+  animation: ihui-ai-opacity-global 0.5s ease-out both;
+}
+.animate-ihui-ai-flash-global {
+  animation: ihui-ai-flash-global 0.5s linear;
+}
+.animate-highlight-fade-in {
+  animation: highlight-fade-in 0.5s ease;
+}
+
+/* ============ 主题切换动画工具类 ============ */
+
+.animate-cloud-move {
+  animation: cloud-move 2s ease-in-out infinite;
+}
+.animate-star-twinkle {
+  animation: star-twinkle 2s ease-in-out infinite;
+}
+.animate-rotate-center {
+  animation: rotate-center 1s linear infinite;
+}
+.animate-theme-wave {
+  animation: theme-wave 0.6s ease-out forwards;
+}
+
+/* ============ 404 页面动画工具类 ============ */
+
+.animate-cloudLeft {
+  animation: cloudLeft 20s linear infinite;
+}
+.animate-cloudMid {
+  animation: cloudMid 25s linear infinite;
+}
+.animate-cloudRight {
+  animation: cloudRight 30s linear infinite;
+}
+
+/* ============ 故障艺术工具类 ============ */
+
+.animate-glitch {
+  animation: glitch 2s infinite;
+}
+.animate-glitch-1 {
+  animation: glitch-1 2s infinite;
+}
+.animate-glitch-2 {
+  animation: glitch-2 2s infinite;
+}
+
+/* ============ 业务特化动画工具类 ============ */
+
+.animate-slideIndicator {
+  animation: slideIndicator 0.3s ease forwards;
+}
+.animate-uc-glow-pulse {
+  animation: uc-glow-pulse 3s ease-in-out infinite;
+}
+.animate-dc-glow-pulse {
+  animation: dc-glow-pulse 3s ease-in-out infinite;
+}
+.animate-dc-menu-fadeIn {
+  animation: dc-menu-fadeIn 0.15s ease-out;
+}
+.animate-slide-hint {
+  animation: slide-hint 1.5s ease-in-out infinite;
+}
+.animate-arrow-pulse {
+  animation: arrow-pulse 2s ease-in-out infinite;
+}
+.animate-compass-rotate {
+  animation: compass-rotate 20s linear infinite;
+}
+.animate-wd-pulse {
+  animation: wd-pulse 2s ease-in-out infinite;
+}
+
+/* ============ 微交互通用类 ============ */
+
+.card-hover {
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+}
+
+.button-hover {
+  transition: all 0.3s ease;
+}
+
+.input-focus {
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* ============ 交错延迟工具类 ============ */
+
+.delay-1 {
+  animation-delay: 0.1s;
+}
+.delay-2 {
+  animation-delay: 0.2s;
+}
+.delay-3 {
+  animation-delay: 0.3s;
+}
+.delay-4 {
+  animation-delay: 0.4s;
+}
+.delay-5 {
+  animation-delay: 0.5s;
+}
+.delay-6 {
+  animation-delay: 0.6s;
+}
+.delay-7 {
+  animation-delay: 0.7s;
+}
+.delay-8 {
+  animation-delay: 0.8s;
+}
+.delay-9 {
+  animation-delay: 0.9s;
+}
+.delay-10 {
+  animation-delay: 1s;
+}
+
+/* ============ prefers-reduced-motion ============ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
