@@ -330,6 +330,12 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
       checkpoints: state.checkpoints ?? undefined,
       enableMcp: state.opts.enableMcp,
       silent: true,
+      subagentParent: {
+        modelId: state.opts.modelId,
+        apiUrl: state.opts.apiUrl,
+        apiKey: state.opts.apiKey,
+        allowDangerous: state.opts.allowDangerous,
+      },
       confirmDangerous: async (tool, args) => {
         if (state.opts.allowDangerous) {
           console.info(chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name}`));
@@ -378,6 +384,9 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
     state.session.history = state.history;
     saveSession(state.session);
   }
-  console.info(chalk.green('\n\n✨ 完成\n'));
+  const u = result.usage;
+  const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
+  console.info(chalk.green(`\n\n✨ 完成 (${result.iterations} 轮, ${result.stopReason})`));
+  console.info(chalk.dim(`📊 tokens: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens}) — ${cost}\n`));
 }
 
