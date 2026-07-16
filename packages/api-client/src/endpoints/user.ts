@@ -2,6 +2,7 @@ import type { ApiResult } from '@ihui/types'
 
 import { fetchApi } from '../client.js'
 import { buildQs, type PageData, type PageQuery } from '../utils.js'
+import type { AuthUser } from './auth.js'
 
 export interface UserProfile {
   id: string
@@ -44,8 +45,15 @@ export interface FollowUser {
   followedAt: string
 }
 
-export async function getProfile(): Promise<ApiResult<UserProfile>> {
-  return fetchApi<UserProfile>('/api/auth/me')
+/**
+ * 获取当前登录用户信息 — GET /api/auth/me
+ * 后端返回 `{ user: AuthUser }`,此处解构返回 AuthUser 本体,便于调用方直接使用。
+ * 与 auth.ts 的 getMe() 区别:getMe() 返回 `{ user: AuthUser }` 原始结构,getProfile() 返回 `AuthUser`。
+ */
+export async function getProfile(): Promise<ApiResult<AuthUser>> {
+  const res = await fetchApi<{ user: AuthUser }>('/api/auth/me')
+  if (!res.success) return res
+  return { success: true, data: res.data.user }
 }
 
 export async function updateProfile(

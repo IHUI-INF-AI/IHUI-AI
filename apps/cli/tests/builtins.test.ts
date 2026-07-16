@@ -13,10 +13,20 @@ import {
 import type { ToolContext } from '../src/tools/index.js'
 
 describe('BUILTIN_TOOLS', () => {
-  it('注册 5 个核心工具', () => {
-    expect(BUILTIN_TOOLS).toHaveLength(5)
+  it('注册 9 个核心工具(含 4 个后台任务工具)', () => {
+    expect(BUILTIN_TOOLS).toHaveLength(9)
     const names = BUILTIN_TOOLS.map((t) => t.name).sort()
-    expect(names).toEqual(['glob', 'grep', 'list_dir', 'read_file', 'run_command'])
+    expect(names).toEqual([
+      'get_command_output',
+      'glob',
+      'grep',
+      'kill_command',
+      'list_background_tasks',
+      'list_dir',
+      'read_file',
+      'run_command',
+      'wait_command',
+    ])
   })
 
   it('read_file 工具危险级别为 read', () => {

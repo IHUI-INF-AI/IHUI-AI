@@ -38,8 +38,10 @@ export default defineConfig({
     // 本地用 dev(CI 用 build+start 更接近生产)
     command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
     url: 'http://localhost:3000',
-    // 本地默认复用已运行的 dev server,避免开发时反复重启
-    reuseExistingServer: process.env.CI ? false : process.env.PLAYWRIGHT_REUSE_SERVER !== '0',
+    // 本地默认复用已运行的 dev server,避免开发时反复重启;CI 模式下显式设置 PLAYWRIGHT_REUSE_SERVER=1 也可复用
+    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER
+      ? process.env.PLAYWRIGHT_REUSE_SERVER !== '0'
+      : !process.env.CI,
     // CI build 较慢,给 240s;本地 dev 启动快,120s 够用
     timeout: process.env.CI ? 240000 : 120000,
   },

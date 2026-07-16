@@ -7,7 +7,7 @@
  * 用法: node scripts/check-api-routes.mjs
  *   无参数: 全量比对，发现问题 exit 1，无问题 exit 0
  */
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const ROOT = process.cwd()
@@ -55,13 +55,16 @@ function extractFrontendCalls(src, file) {
       const rawPath = m[1]
       // 跳过非 API 路径（如 /api/health 这种纯字面量但被误捕）
       if (!rawPath.startsWith('/api/')) continue
-      // 推断 method: 支持跨行(method: 'POST' 可能在 path 所在行的后续 1-2 行)
+      // 推断 method: 支持跨行(method: 'POST' 可能在 path 所在行的前后 3 行内)
       let method = 'GET'
-      const contextLines = [line, lines[idx + 1] || '', lines[idx + 2] || '']
+      const contextLines = []
+      for (let i = -3; i <= 4; i++) {
+        contextLines.push(lines[idx + i] || '')
+      }
       const context = contextLines.join('\n').toLowerCase()
-      if (/method\s*:\s*['"`]?(get|post|put|patch|delete)/.test(context)) {
-        const mm = context.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
-        if (mm) method = mm[1].toUpperCase()
+      const methodMatch = context.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
+      if (methodMatch) {
+        method = methodMatch[1].toUpperCase()
       } else if (/\bpost\s*[<(]/.test(context)) {
         method = 'POST'
       } else if (/\bput\s*[<(]/.test(context)) {
@@ -70,6 +73,14 @@ function extractFrontendCalls(src, file) {
         method = 'PATCH'
       } else if (/\bdelete\s*[<(]/.test(context)) {
         method = 'DELETE'
+      }
+      // 如果路径是 fetchApi('/api/...', { method: 'POST' }) 中的第二个参数，
+      // 但 method 在路径之后跨行，上述上下文已覆盖
+      // 如果路径本身在对象字面量值中（如 { post: '/api/xxx' }），尝试从 key 推断
+      if (method === 'GET') {
+        const prev = (lines[idx - 1] || '').toLowerCase()
+        const keyMatch = prev.match(/\b(post|put|patch|delete)\s*:\s*['"`]/)
+        if (keyMatch) method = keyMatch[1].toUpperCase()
       }
       // 模板字符串变量替换为 :param
       const normalized = rawPath
@@ -153,6 +164,22 @@ console.log(`${C.cyan}[API 路由比对] 开始检查... (mode: ${WARN_ONLY ? 'w
 
 const { routes: backendRoutes, prefixes } = extractBackendRoutes()
 
+const backendDumpIdx = process.argv.indexOf('--dump-backend')
+if (backendDumpIdx !== -1 && process.argv[backendDumpIdx + 1]) {
+  writeFileSync(
+    process.argv[backendDumpIdx + 1],
+    JSON.stringify(
+      backendRoutes.map((r) => {
+        const fullPaths = prefixes.map((p) => `${r.method} ${normalizePath(p.prefix, r.localPath)}`)
+        return { ...r, fullPaths }
+      }),
+      null,
+      2,
+    ),
+    'utf8',
+  )
+}
+
 // 构建后端完整路径集合
 const backendPathSet = new Set()
 for (const r of backendRoutes) {
@@ -202,6 +229,11 @@ for (const call of allCalls) {
 if (missing.length === 0) {
   console.log(`${C.green}[API 路由比对] ✅ 通过，前端所有 API 调用均有后端路由对应${C.reset}`)
   process.exit(0)
+}
+
+const dumpIdx = process.argv.indexOf('--dump-missing')
+if (dumpIdx !== -1 && process.argv[dumpIdx + 1]) {
+  writeFileSync(process.argv[dumpIdx + 1], JSON.stringify(missing, null, 2), 'utf8')
 }
 
 console.log(`${C.red}[API 路由比对] ❌ 发现 ${missing.length} 处前端调用无后端路由（404 风险）:${C.reset}`)

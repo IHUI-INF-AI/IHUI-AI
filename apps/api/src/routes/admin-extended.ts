@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
+import { createExamine, approveExamine, rejectExamine } from '../db/agents-queries.js'
 
 const menuSchema = z.object({
   name: z.string().min(1, '菜单名称不能为空').max(64),
@@ -179,5 +180,56 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
     `)
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
     return reply.send(success({ ...row, message: '已强制下线' }))
+  })
+
+  // ===========================================================================
+  // Agent 审核别名 — /admin/examine/*（兼容前端旧路径）
+  // ===========================================================================
+  server.post('/examine', async (request, reply) => {
+    const body = z
+      .object({
+        agentId: z.string().optional(),
+        reason: z.string().nullable().optional(),
+        status: z.string().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!body.data.agentId) {
+      return reply.status(400).send(error(400, 'agentId 为必填项'))
+    }
+    const record = await createExamine({
+      agentId: body.data.agentId,
+      userId: request.userId,
+      status: body.data.status ?? 'pending',
+      reason: body.data.reason,
+    })
+    return reply.send(success(record))
+  })
+
+  server.post('/examine/pass', async (request, reply) => {
+    const body = z.object({ recordId: z.string() }).safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const record = await approveExamine(body.data.recordId, request.userId!)
+    if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    return reply.send(success(record))
+  })
+
+  server.post('/examine/reject', async (request, reply) => {
+    const body = z
+      .object({ recordId: z.string(), reason: z.string().optional() })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!body.data.reason) {
+      return reply.status(400).send(error(400, 'reason 为必填项'))
+    }
+    const record = await rejectExamine(body.data.recordId, request.userId!, body.data.reason)
+    if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    return reply.send(success(record))
   })
 }

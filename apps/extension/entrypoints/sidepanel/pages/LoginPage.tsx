@@ -1,18 +1,6 @@
 import { useState } from 'react'
-import { fetchApi } from '@ihui/api-client'
+import { loginByAccount } from '@ihui/api-client'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
-
-interface UserProfile {
-  id: string
-  username: string
-  nickname: string
-  avatar: string | null
-}
-
-interface LoginPayload {
-  accessToken: string
-  user: UserProfile
-}
 
 interface Props {
   onSuccess: (token: string) => void | Promise<void>
@@ -33,10 +21,7 @@ export default function LoginPage({ onSuccess }: Props) {
     setLoading(true)
     setError('')
     try {
-      const res = await fetchApi<LoginPayload>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ account, password }),
-      })
+      const res = await loginByAccount(account, password)
       if (res.success) {
         await onSuccess(res.data.accessToken)
       } else {
