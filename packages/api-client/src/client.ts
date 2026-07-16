@@ -94,3 +94,103 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
 
   return { success: false, error: lastError }
 }
+
+// ==================== SSE 流式对话 ====================
+
+export interface StreamChatOptions {
+  model: string
+  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+  signal?: AbortSignal
+  onDelta: (delta: string) => void
+  onError?: (error: string) => void
+  onDone?: () => void
+}
+
+function parseStreamLine(line: string): string | null {
+  if (!line || line.startsWith(':')) return null
+  let data = line
+  if (line.startsWith('data:')) {
+    data = line.slice(5).replace(/^\s/, '')
+  } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+    return null
+  }
+  if (data === '[DONE]') return null
+  const proto = data.match(/^(\d+):(.*)$/s)
+  if (proto?.[1] === '0') {
+    try {
+      const parsed = JSON.parse(proto[2]!)
+      if (typeof parsed === 'string') return parsed
+    } catch {
+      /* fallthrough */
+    }
+  }
+  try {
+    const json = JSON.parse(data)
+    if (json?.type === 'error' && typeof json?.message === 'string') {
+      throw new Error(json.message)
+    }
+    const choice = json?.choices?.[0]
+    const delta =
+      choice?.delta?.content ??
+      choice?.message?.content ??
+      json?.content ??
+      json?.delta ??
+      json?.text
+    return typeof delta === 'string' ? delta : null
+  } catch (e) {
+    if (e instanceof SyntaxError) return data
+    throw e
+  }
+}
+
+export async function streamChat(opts: StreamChatOptions): Promise<void> {
+  const token = tokenProvider.getToken()
+  const url = normalizeUrl('/llm/complete/stream')
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model: opts.model, messages: opts.messages, stream: true }),
+      signal: opts.signal,
+    })
+    if (!resp.ok || !resp.body) {
+      const text = await resp.text().catch(() => '')
+      throw new Error(text || `请求失败（${resp.status}）`)
+    }
+
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let nl: number
+      while ((nl = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, nl).replace(/\r$/, '')
+        buffer = buffer.slice(nl + 1)
+        const delta = parseStreamLine(line)
+        if (delta) opts.onDelta(delta)
+      }
+    }
+    if (buffer.trim()) {
+      const delta = parseStreamLine(buffer)
+      if (delta) opts.onDelta(delta)
+    }
+    opts.onDone?.()
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      opts.onDone?.()
+      return
+    }
+    const message = err instanceof Error ? err.message : '网络异常'
+    opts.onError?.(message)
+  }
+}

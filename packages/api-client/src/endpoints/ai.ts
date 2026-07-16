@@ -6,8 +6,8 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
-import { buildQs, type PageData } from '../utils'
+import { fetchApi } from '../client.js'
+import { buildQs, type PageData } from '../utils.js'
 
 // ===================== 类型定义 =====================
 
@@ -402,7 +402,7 @@ export async function deleteAiTeam(id: string): Promise<ApiResult<{ success: boo
 
 // ===================== ai-proxy =====================
 
-/** AI 代理请求（通用 POST） */
+/** AI 代理请求（通用 POST�?*/
 export async function aiProxy(url: string, params: AiProxyParams): Promise<ApiResult<unknown>> {
   return fetchApi<unknown>(url, {
     method: 'POST',
@@ -412,7 +412,7 @@ export async function aiProxy(url: string, params: AiProxyParams): Promise<ApiRe
 
 // ===================== aiChat =====================
 
-/** 发送 AI 聊天消息 */
+/** 发�?AI 聊天消息 */
 export async function sendAiChat(input: {
   message: string
   model?: string
@@ -477,7 +477,7 @@ export async function createAigcTask(input: {
   })
 }
 
-/** 查询 AIGC 任务状态 */
+/** 查询 AIGC 任务状�?*/
 export async function getAigcTask(taskId: string): Promise<ApiResult<AigcTask>> {
   return fetchApi<AigcTask>(`/api/ai/aigc/records/${taskId}`)
 }
