@@ -57,6 +57,7 @@ import { behaviorRoutes, adminBehaviorRoutes } from './routes/behavior.js'
 import { visitTrackingRoutes, adminVisitTrackingRoutes } from './routes/visit-tracking.js'
 import { ossRoutes, adminOssRoutes } from './routes/oss.js'
 import { settingRoutes, adminSettingRoutes } from './routes/setting.js'
+import { carouselPublicRoutes } from './routes/carousel.js'
 import { newsRoutes, adminNewsRoutes } from './routes/news.js'
 import { certificateRoutes, adminCertificateRoutes } from './routes/certificate.js'
 import { paymentGatewayRoutes, adminPaymentGatewayRoutes } from './routes/payment-gateway.js'
@@ -248,6 +249,9 @@ import { promptInjectionGuard } from './plugins/prompt-injection-guard.js'
 import { tenantDbIsolation } from './plugins/tenant-db-isolation.js'
 import { tokenBalanceService } from './plugins/token-balance-service.js'
 import { resilienceToolkit } from './plugins/resilience-toolkit.js'
+import searchAspectPlugin from './plugins/search-aspect.js'
+import watchAspectPlugin from './plugins/watch-aspect.js'
+import pointAspectPlugin from './plugins/point-aspect.js'
 
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
@@ -383,6 +387,11 @@ async function registerPlugins(server: FastifyInstance) {
   // 审计日志插件：onResponse 异步记录所有 POST/PATCH/PUT/DELETE 写请求
   await server.register(auditPlugin)
 
+  // P0-11 AOP 切面等价实现(Fastify 钩子):搜索索引 / 浏览去重 / 积分奖励
+  await server.register(searchAspectPlugin)
+  await server.register(watchAspectPlugin)
+  await server.register(pointAspectPlugin)
+
   // 上传内容安全扫描：装饰 server.createUploadPreHandler + request.scannedFile
   await server.register(uploadScannerPlugin)
 
@@ -513,6 +522,8 @@ function registerRoutes(server: FastifyInstance) {
   // 教育设置：/api/edu-settings/* + /api/admin/edu-settings/*
   server.register(settingRoutes, { prefix: '/api' })
   server.register(adminSettingRoutes, { prefix: '/api/admin' })
+  // 公开轮播图：/api/carousels（无需登录，仅返回 status=1）
+  server.register(carouselPublicRoutes, { prefix: '/api' })
   // 资讯模块：/api/news/* + /api/admin/news/*
   server.register(newsRoutes, { prefix: '/api' })
   server.register(adminNewsRoutes, { prefix: '/api/admin' })

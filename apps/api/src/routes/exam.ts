@@ -49,8 +49,20 @@ import {
   updateSectionSortOrder,
   findSignupList,
   findMarkRecordList,
+  batchCreateWrongQuestions,
+  findWrongQuestionsByUser,
+  markWrongQuestionResolved,
+  getWrongQuestionStats,
+  type CreateOrUpdateWrongQuestionInput,
+  enrollExam,
+  startAnswering,
+  submitExam,
+  gradeExam,
+  completeExam,
+  getExamRecordStatus,
 } from '../db/exam-extended-queries.js'
 import { success, error } from '../utils/response.js'
+import { isAppError } from '../errors/AppError.js'
 
 const QUESTION_TYPES = [
   'single_choice',
@@ -193,6 +205,40 @@ const randomQuestionsSchema = z.object({
   seed: z.string().max(200).optional(),
 })
 
+const submitAnswersSchema = z.object({
+  examId: z.string().uuid('无效的试卷 ID'),
+  examRecordId: z.string().uuid().optional(),
+  answers: z
+    .array(
+      z.object({
+        questionId: z.string().uuid(),
+        userAnswer: z.unknown(),
+      }),
+    )
+    .min(1, '答案不能为空'),
+})
+
+const wrongQuestionsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  examId: z
+    .preprocess(
+      (v) => (v === '' || v === null || v === undefined ? undefined : v),
+      z.string().uuid('无效的试卷 ID'),
+    )
+    .optional(),
+  isResolved: z
+    .preprocess((v) => {
+      if (v === '' || v === null || v === undefined) return undefined
+      return v === 'true'
+    }, z.boolean().optional())
+    .optional(),
+})
+
+const resolveQuestionParamSchema = z.object({
+  questionId: z.string().uuid('无效的题目 ID'),
+})
+
 // ----- 章节/小节/排序/报名/待评分 schemas -----
 
 const chapterIdParamSchema = z.object({
@@ -254,6 +300,16 @@ const pendingMarksQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   paperId: z.string().uuid().optional(),
   search: z.string().max(200).optional(),
+})
+
+// ----- 状态机 schemas -----
+
+const recordIdParamSchema = z.object({
+  recordId: z.string().uuid('无效的记录 ID'),
+})
+
+const gradeStatusSchema = z.object({
+  score: z.number().min(0).max(100),
 })
 
 // =============================================================================
@@ -471,6 +527,246 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       throw e
     }
   })
+
+  // ===========================================================================
+  // Wrong Questions 错题本端点（需登录）— 自动入库 + 列表 + 统计 + 标记掌握
+  // ===========================================================================
+
+  // POST /exam/submit-answers - 提交答案(含自动错题判定)
+  server.post('/exam/submit-answers', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = submitAnswersSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const { examId, answers } = parsed.data
+
+    const paper = await findPaperById(examId)
+    if (!paper) {
+      return reply.status(404).send(error(404, '试卷不存在'))
+    }
+
+    const questions = await findQuestionsByPaperId(examId)
+    const qMap = new Map(questions.map((q) => [q.id, q]))
+
+    let totalScore = 0
+    const wrongRecords: CreateOrUpdateWrongQuestionInput[] = []
+    const gradedAnswers = answers.map((a) => {
+      const q = qMap.get(a.questionId)
+      if (!q) {
+        return { questionId: a.questionId, userAnswer: a.userAnswer, isCorrect: false, score: 0 }
+      }
+      let isCorrect = false
+      if (q.type === 'single_choice' || q.type === 'judgment') {
+        isCorrect = JSON.stringify(a.userAnswer) === JSON.stringify(q.answer)
+      } else if (q.type === 'multi_choice') {
+        const ans = Array.isArray(a.userAnswer) ? [...a.userAnswer].sort() : []
+        const correct = Array.isArray(q.answer) ? [...q.answer].sort() : []
+        isCorrect = JSON.stringify(ans) === JSON.stringify(correct)
+      } else if (q.type === 'fill_blank') {
+        const ans = Array.isArray(a.userAnswer) ? a.userAnswer : [a.userAnswer]
+        const correct = Array.isArray(q.answer) ? q.answer : [q.answer]
+        isCorrect =
+          ans.length === correct.length &&
+          ans.every((v, i) => String(v).trim() === String(correct[i]).trim())
+      }
+      // subjective 不自动判分,不计入错题
+      const score = isCorrect ? Number(q.score) : 0
+      totalScore += score
+      if (!isCorrect && q.type !== 'subjective') {
+        wrongRecords.push({
+          userId,
+          questionId: a.questionId,
+          paperId: examId,
+          paperTitle: paper.title,
+          userAnswer: JSON.stringify(a.userAnswer),
+          rightAnswer: JSON.stringify(q.answer),
+        })
+      }
+      return { questionId: a.questionId, userAnswer: a.userAnswer, isCorrect, score }
+    })
+
+    const wrongQuestions = await batchCreateWrongQuestions(wrongRecords)
+
+    return reply.send(
+      success({
+        score: totalScore,
+        totalQuestions: answers.length,
+        correctCount: gradedAnswers.filter((a) => a.isCorrect).length,
+        wrongCount: wrongRecords.length,
+        answers: gradedAnswers,
+        wrongQuestions,
+      }),
+    )
+  })
+
+  // GET /exam/wrong-questions/stats - 错题统计(必须在 :questionId 动态路由前注册)
+  server.get('/exam/wrong-questions/stats', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const userId = request.userId!
+    const stats = await getWrongQuestionStats(userId)
+    return reply.send(success({ stats }))
+  })
+
+  // GET /exam/wrong-questions - 用户错题列表(分页,支持 examId/isResolved 筛选)
+  server.get('/exam/wrong-questions', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = wrongQuestionsQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const { list, total } = await findWrongQuestionsByUser(userId, {
+      page: parsed.data.page,
+      pageSize: parsed.data.pageSize,
+      paperId: parsed.data.examId,
+      isMastered: parsed.data.isResolved,
+    })
+    return reply.send(
+      success({
+        list,
+        total,
+        page: parsed.data.page,
+        pageSize: parsed.data.pageSize,
+      }),
+    )
+  })
+
+  // PUT /exam/wrong-questions/:questionId/resolve - 标记错题已掌握
+  server.put('/exam/wrong-questions/:questionId/resolve', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = resolveQuestionParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const updated = await markWrongQuestionResolved(userId, parsed.data.questionId)
+    if (!updated) {
+      return reply.status(404).send(error(404, '错题记录不存在'))
+    }
+    return reply.send(success({ wrong: updated }))
+  })
+
+  // ===========================================================================
+  // Status Machine 报名状态机端点（需登录）
+  // draft→enrolled→answering→submitted→graded→completed
+  // ===========================================================================
+
+  // POST /exam/:id/enroll - 报名(draft→enrolled,幂等)
+  server.post('/exam/:id/enroll', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const paper = await findPaperById(parsed.data.id)
+    if (!paper || !paper.isPublished) {
+      return reply.status(404).send(error(404, '试卷不存在或未发布'))
+    }
+    const userId = request.userId!
+    const record = await enrollExam(userId, parsed.data.id)
+    return reply.status(201).send(success({ record }))
+  })
+
+  // POST /exam/records/:recordId/start - 开始答题(enrolled→answering)
+  server.post('/exam/records/:recordId/start', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = recordIdParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const record = await startAnswering(parsed.data.recordId)
+      return reply.send(success({ record }))
+    } catch (e) {
+      if (isAppError(e)) {
+        return reply.status(e.statusCode).send(error(e.statusCode, e.message))
+      }
+      throw e
+    }
+  })
+
+  // POST /exam/records/:recordId/submit-exam - 提交试卷(answering→submitted)
+  // 注:路径用 submit-exam 避免与现有 /exam/records/:id/submit(含判分)冲突
+  server.post('/exam/records/:recordId/submit-exam', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = recordIdParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const record = await submitExam(parsed.data.recordId)
+      return reply.send(success({ record }))
+    } catch (e) {
+      if (isAppError(e)) {
+        return reply.status(e.statusCode).send(error(e.statusCode, e.message))
+      }
+      throw e
+    }
+  })
+
+  // GET /exam/records/:recordId/status - 查询答题记录状态
+  server.get('/exam/records/:recordId/status', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = recordIdParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const record = await getExamRecordStatus(parsed.data.recordId)
+    if (!record) {
+      return reply.status(404).send(error(404, '答题记录不存在'))
+    }
+    return reply.send(success({ status: record.status, record }))
+  })
+
+  // POST /exam/records/:recordId/grade - 评分(submitted→graded,admin)
+  server.post(
+    '/exam/records/:recordId/grade',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = recordIdParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const bodyParsed = gradeStatusSchema.safeParse(request.body)
+      if (!bodyParsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      try {
+        const record = await gradeExam(parsed.data.recordId, bodyParsed.data.score)
+        return reply.send(success({ record }))
+      } catch (e) {
+        if (isAppError(e)) {
+          return reply.status(e.statusCode).send(error(e.statusCode, e.message))
+        }
+        throw e
+      }
+    },
+  )
+
+  // POST /exam/records/:recordId/complete - 完成(graded→completed,admin)
+  server.post(
+    '/exam/records/:recordId/complete',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = recordIdParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      try {
+        const record = await completeExam(parsed.data.recordId)
+        return reply.send(success({ record }))
+      } catch (e) {
+        if (isAppError(e)) {
+          return reply.status(e.statusCode).send(error(e.statusCode, e.message))
+        }
+        throw e
+      }
+    },
+  )
 
   // ===========================================================================
   // Composition 作文考试端点（需登录）
