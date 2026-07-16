@@ -32,6 +32,9 @@ jobs:
       - name: Build auth package
         run: pnpm --filter @ihui/auth build
 
+      - name: Build api-client package
+        run: pnpm --filter @ihui/api-client build
+
       - name: Typecheck
         run: pnpm turbo run typecheck
 
@@ -111,6 +114,9 @@ jobs:
 
       - name: Build database package
         run: pnpm --filter @ihui/database build
+
+      - name: Build api-client package
+        run: pnpm --filter @ihui/api-client build
 
       - name: Push schema to test DB
         working-directory: packages/database
