@@ -1,7 +1,7 @@
-export { cn } from './lib/utils.js';
-export { Button, buttonVariants } from './components/button.js';
-export { Input } from './components/input.js';
-export { Label } from './components/label.js';
+export { cn } from './lib/utils.js'
+export { Button, buttonVariants } from './components/button.js'
+export { Input } from './components/input.js'
+export { Label } from './components/label.js'
 export {
   Card,
   CardHeader,
@@ -9,7 +9,7 @@ export {
   CardDescription,
   CardContent,
   CardFooter,
-} from './components/card.js';
+} from './components/card.js'
 export {
   Dialog,
   DialogTrigger,
@@ -19,7 +19,7 @@ export {
   DialogTitle,
   DialogDescription,
   DialogClose,
-} from './components/dialog.js';
+} from './components/dialog.js'
 export {
   Select,
   SelectGroup,
@@ -31,7 +31,7 @@ export {
   SelectSeparator,
   SelectScrollUpButton,
   SelectScrollDownButton,
-} from './components/select.js';
+} from './components/select.js'
 export {
   Table,
   TableHeader,
@@ -41,8 +41,10 @@ export {
   TableRow,
   TableCell,
   TableCaption,
-} from './components/table.js';
-export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/tabs.js';
-export { Checkbox } from './components/checkbox.js';
-export { Switch } from './components/switch.js';
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './components/tooltip.js';
+} from './components/table.js'
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/tabs.js'
+export { Checkbox } from './components/checkbox.js'
+export { Switch } from './components/switch.js'
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './components/tooltip.js'
+export { TreeSelect } from './components/tree-select.js'
+export type { TreeNode } from './components/tree-select.js'
