@@ -1,6 +1,6 @@
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 export async function sendChangePhoneOldCode(): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>('/api/auth/change-phone/send-old-code', {
