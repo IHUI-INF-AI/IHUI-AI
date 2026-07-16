@@ -43,7 +43,7 @@
       "outputs": ["playwright-report/**", "test-results/**"]
     },
     "typecheck": {
-      "dependsOn": [],
+      "dependsOn": ["^build"],
       "inputs": ["src/**", "tsconfig.json", "package.json"]
     },
     "db:generate": {

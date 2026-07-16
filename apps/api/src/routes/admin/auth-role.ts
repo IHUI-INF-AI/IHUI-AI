@@ -79,6 +79,9 @@ const authRoleRoutes: FastifyPluginAsync = async (server) => {
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const existing = await db.select().from(roles).where(eq(roles.id, p.data.id)).limit(1)
     if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
+    if (existing[0]?.isSystem || existing[0]?.name === 'super_admin') {
+      return reply.status(403).send(error(403, '系统内置角色不可删除'))
+    }
     await db.delete(roles).where(eq(roles.id, p.data.id))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })

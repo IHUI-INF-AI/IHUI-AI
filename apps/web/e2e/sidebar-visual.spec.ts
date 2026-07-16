@@ -16,6 +16,10 @@ import { test, expect } from '@playwright/test'
  */
 test.describe('Sidebar 视觉守门', () => {
   test.beforeEach(async ({ page }) => {
+    // 强制侧边栏展开,避免 localStorage 残留收起态导致 resize 手柄未渲染
+    await page.addInitScript(() => {
+      localStorage.setItem('sidebar-collapsed', 'false')
+    })
     await page.goto('/')
     // 等侧边栏渲染完成
     await expect(page.locator('aside').first()).toBeVisible({ timeout: 15000 })

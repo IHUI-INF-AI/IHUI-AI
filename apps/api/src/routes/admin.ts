@@ -9,6 +9,7 @@ import {
   findUserById,
   updateUserRole,
   updateUserStatus,
+  updateUserDept,
   findProjectsWithOwner,
   findProjectByIdWithOwner,
   createProjectAdmin,
@@ -68,9 +69,10 @@ const updateUserBodySchema = z
   .object({
     role: z.number().int().min(0).optional(),
     status: z.number().int().min(0).optional(),
+    deptId: z.number().int().nullable().optional(),
   })
-  .refine((d) => d.role !== undefined || d.status !== undefined, {
-    message: 'role 或 status 至少需提供一个',
+  .refine((d) => d.role !== undefined || d.status !== undefined || d.deptId !== undefined, {
+    message: 'role、status 或 deptId 至少需提供一个',
   })
 
 const createUserBodySchema = z.object({
@@ -289,13 +291,13 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // PATCH /users/:id - 更新用户角色/状态（仅 role 和 status 可改）
+  // PATCH /users/:id - 更新用户角色/状态/部门
   server.patch(
     '/users/:id',
     {
       schema: {
-        summary: '更新用户角色/状态',
-        description: '更新用户角色(role)或状态(status),至少需提供一个',
+        summary: '更新用户角色/状态/部门',
+        description: '更新用户角色(role)、状态(status)或部门(deptId),至少需提供一个',
         tags: ['admin'],
         params: {
           type: 'object',
@@ -309,6 +311,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
           properties: {
             role: { type: 'integer', minimum: 0, description: '角色 ID' },
             status: { type: 'integer', minimum: 0, description: '用户状态' },
+            deptId: { type: 'integer', nullable: true, description: '部门 ID' },
           },
         },
         response: {
@@ -368,6 +371,10 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       }
       if (parsedBody.data.status !== undefined) {
         const r = await updateUserStatus(parsedParams.data.id, parsedBody.data.status)
+        if (r) updated = r
+      }
+      if (parsedBody.data.deptId !== undefined) {
+        const r = await updateUserDept(parsedParams.data.id, parsedBody.data.deptId)
         if (r) updated = r
       }
 

@@ -17,6 +17,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
+  Switch,
 } from '@ihui/ui'
 import { selectClass, textareaClass } from '@/lib/edu'
 import { ImageUpload } from '@/components/form/ImageUpload'
@@ -164,6 +165,14 @@ export function TopicsDialog({
                 <SelectItem value="published">{t('statusPublished')}</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="t-show-index"
+              checked={form.isShowIndex}
+              onCheckedChange={(v) => setForm({ ...form, isShowIndex: v })}
+            />
+            <Label htmlFor="t-show-index">{t('fieldShowIndex')}</Label>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>

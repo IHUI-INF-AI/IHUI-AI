@@ -24,6 +24,7 @@ vi.mock('../../db/index.js', () => {
     leftJoin: () => DbChain
     innerJoin: () => DbChain
     groupBy: () => DbChain
+    onConflictDoUpdate: () => DbChain
   }
   function createChain(result: unknown[] = []): DbChain {
     const chain: DbChain = {
@@ -39,6 +40,7 @@ vi.mock('../../db/index.js', () => {
       leftJoin: () => chain,
       innerJoin: () => chain,
       groupBy: () => chain,
+      onConflictDoUpdate: () => chain,
     }
     return chain
   }
@@ -77,7 +79,20 @@ function mockChain(result: unknown): never {
   const chain: Record<string, unknown> = {
     then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
   }
-  for (const m of ['from', 'where', 'orderBy', 'limit', 'offset', 'values', 'set', 'returning', 'leftJoin', 'innerJoin', 'groupBy']) {
+  for (const m of [
+    'from',
+    'where',
+    'orderBy',
+    'limit',
+    'offset',
+    'values',
+    'set',
+    'returning',
+    'leftJoin',
+    'innerJoin',
+    'groupBy',
+    'onConflictDoUpdate',
+  ]) {
     chain[m] = () => chain
   }
   return chain as never
@@ -182,8 +197,8 @@ describe('POST /api/exam/submit-answers — 提交答案 + 自动错题判定', 
     vi.mocked(db.select)
       .mockReturnValueOnce(mockChain([PAPER])) // findPaperById
       .mockReturnValueOnce(mockChain([makeQuestion(Q1_ID, 'single_choice', 'A')])) // findQuestionsByPaperId
-      .mockReturnValueOnce(mockChain([])) // createOrUpdateWrongQuestion: existing=[]
-    vi.mocked(db.insert).mockReturnValueOnce(mockChain([makeWrongRecord()])) // insert
+    // createOrUpdateWrongQuestion: insert + onConflictDoUpdate(新建分支,返回 wrongCount=1)
+    vi.mocked(db.insert).mockReturnValueOnce(mockChain([makeWrongRecord({ wrongCount: 1 })]))
 
     const res = await app.inject({
       method: 'POST',
@@ -225,13 +240,11 @@ describe('POST /api/exam/submit-answers — 提交答案 + 自动错题判定', 
 
   it('重复答错更新 wrongCount 而非新增(幂等)', async () => {
     const { db } = await import('../../db/index.js')
-    const existing = makeWrongRecord({ wrongCount: 1 })
-    const updated = makeWrongRecord({ wrongCount: 2 })
     vi.mocked(db.select)
       .mockReturnValueOnce(mockChain([PAPER])) // findPaperById
       .mockReturnValueOnce(mockChain([makeQuestion(Q1_ID, 'single_choice', 'A')])) // findQuestionsByPaperId
-      .mockReturnValueOnce(mockChain([existing])) // createOrUpdateWrongQuestion: existing=[record]
-    vi.mocked(db.update).mockReturnValueOnce(mockChain([updated])) // update
+    // createOrUpdateWrongQuestion: insert + onConflictDoUpdate(冲突更新分支,返回 wrongCount=2)
+    vi.mocked(db.insert).mockReturnValueOnce(mockChain([makeWrongRecord({ wrongCount: 2 })]))
 
     const res = await app.inject({
       method: 'POST',
@@ -244,21 +257,23 @@ describe('POST /api/exam/submit-answers — 提交答案 + 自动错题判定', 
     expect(body.code).toBe(0)
     expect(body.data.wrongCount).toBe(1)
     expect(body.data.wrongQuestions[0].wrongCount).toBe(2)
-    expect(db.update).toHaveBeenCalledTimes(1)
-    expect(db.insert).not.toHaveBeenCalled()
+    // onConflictDoUpdate 走 insert 路径,不应调用 update
+    expect(db.insert).toHaveBeenCalledTimes(1)
+    expect(db.update).not.toHaveBeenCalled()
   })
 
   it('批量提交答案(3 题对 2 题错,2 条错题记录)', async () => {
     const { db } = await import('../../db/index.js')
     vi.mocked(db.select)
       .mockReturnValueOnce(mockChain([PAPER])) // findPaperById
-      .mockReturnValueOnce(mockChain([
-        makeQuestion(Q1_ID, 'single_choice', 'A'),
-        makeQuestion(Q2_ID, 'single_choice', 'B'),
-        makeQuestion(Q3_ID, 'single_choice', 'C'),
-      ])) // findQuestionsByPaperId
-      .mockReturnValueOnce(mockChain([])) // createOrUpdateWrongQuestion Q1_ID: existing=[]
-      .mockReturnValueOnce(mockChain([])) // createOrUpdateWrongQuestion Q3_ID: existing=[]
+      .mockReturnValueOnce(
+        mockChain([
+          makeQuestion(Q1_ID, 'single_choice', 'A'),
+          makeQuestion(Q2_ID, 'single_choice', 'B'),
+          makeQuestion(Q3_ID, 'single_choice', 'C'),
+        ]),
+      ) // findQuestionsByPaperId
+    // createOrUpdateWrongQuestion: 2 次错题各 1 次 insert + onConflictDoUpdate
     vi.mocked(db.insert)
       .mockReturnValueOnce(mockChain([makeWrongRecord({ questionId: Q1_ID })]))
       .mockReturnValueOnce(mockChain([makeWrongRecord({ id: 'w-002', questionId: Q3_ID })]))
@@ -360,10 +375,12 @@ describe('GET /api/exam/wrong-questions/stats — 错题统计', () => {
     vi.mocked(db.select)
       .mockReturnValueOnce(mockChain([{ count: 5 }])) // totalRows
       .mockReturnValueOnce(mockChain([{ count: 2 }])) // resolvedRows
-      .mockReturnValueOnce(mockChain([
-        { type: 'single_choice', count: 3 },
-        { type: 'multi_choice', count: 2 },
-      ])) // typeRows
+      .mockReturnValueOnce(
+        mockChain([
+          { type: 'single_choice', count: 3 },
+          { type: 'multi_choice', count: 2 },
+        ]),
+      ) // typeRows
 
     const res = await app.inject({
       method: 'GET',
@@ -404,14 +421,18 @@ describe('GET /api/exam/wrong-questions — 错题列表', () => {
     const { db } = await import('../../db/index.js')
     const wrongRecord = makeWrongRecord()
     vi.mocked(db.select)
-      .mockReturnValueOnce(mockChain([{
-        wrong: wrongRecord,
-        questionTitle: 'Question ' + Q1_ID,
-        questionType: 'single_choice',
-        questionOptions: null,
-        questionAnalysis: '解析',
-        questionScore: '5.00',
-      }])) // list query
+      .mockReturnValueOnce(
+        mockChain([
+          {
+            wrong: wrongRecord,
+            questionTitle: 'Question ' + Q1_ID,
+            questionType: 'single_choice',
+            questionOptions: null,
+            questionAnalysis: '解析',
+            questionScore: '5.00',
+          },
+        ]),
+      ) // list query
       .mockReturnValueOnce(mockChain([{ count: 1 }])) // total query
 
     const res = await app.inject({
