@@ -49,6 +49,9 @@ export const examPapers = pgTable('exam_papers', {
   duration: integer('duration').default(60).notNull(), // 分钟
   isPublished: boolean('is_published').default(false).notNull(),
   isRandom: boolean('is_random').default(false).notNull(), // 随机抽题
+  questionDisordered: boolean('question_disordered').default(false).notNull(), // 题目乱序
+  optionDisordered: boolean('option_disordered').default(false).notNull(), // 选项乱序
+  difficulty: integer('difficulty').default(3).notNull(), // 难度 1-5
   questionCount: integer('question_count').default(0).notNull(),
   status: integer('status').default(1).notNull(),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),

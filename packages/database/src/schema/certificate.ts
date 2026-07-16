@@ -24,6 +24,10 @@ export const certificateTemplates = pgTable(
     description: text('description'),
     backgroundImage: varchar('background_image', { length: 512 }),
     templateConfig: jsonb('template_config'), // { title, subtitle, signature, fields: [{key, label, x, y}] }
+    awardingOrganization: text('awarding_organization'), // 颁发机构
+    awarderName: text('awarder_name'), // 颁发人姓名
+    awardConditions: text('award_conditions'), // 获奖条件
+    validityPolicy: text('validity_policy'), // 有效期策略
     status: integer('status').default(1).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
