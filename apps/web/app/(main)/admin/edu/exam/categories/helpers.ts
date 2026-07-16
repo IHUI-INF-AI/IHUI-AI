@@ -1,3 +1,3 @@
 import type { CForm } from './types'
 
-export const EMPTY: CForm = { name: '', sort: '0', status: true }
+export const EMPTY: CForm = { pid: '', name: '', sort: '0', status: true }

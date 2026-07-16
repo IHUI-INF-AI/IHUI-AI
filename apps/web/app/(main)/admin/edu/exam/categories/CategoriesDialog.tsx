@@ -13,7 +13,9 @@ import {
   Input,
   Label,
   Switch,
+  TreeSelect,
 } from '@ihui/ui'
+import type { TreeNode } from '@ihui/ui'
 import type { Category, CForm } from './types'
 
 interface Props {
@@ -25,6 +27,7 @@ interface Props {
   savePending: boolean
   onSubmit: (e: React.FormEvent) => void
   onClose: () => void
+  categories: Category[]
 }
 
 export function CategoriesDialog({
@@ -36,8 +39,13 @@ export function CategoriesDialog({
   savePending,
   onSubmit,
   onClose,
+  categories,
 }: Props) {
   const t = useTranslations('admin.edu.exam.categories')
+  const treeData = React.useMemo<TreeNode[]>(
+    () => categories.map((c) => ({ id: c.id, label: c.name, pid: c.pid })),
+    [categories],
+  )
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
@@ -50,6 +58,15 @@ export function CategoriesDialog({
               {err}
             </div>
           )}
+          <div className="space-y-2">
+            <Label>{t('fieldParent')}</Label>
+            <TreeSelect
+              value={form.pid || null}
+              onChange={(v) => setForm({ ...form, pid: v ?? '' })}
+              data={treeData}
+              placeholder={t('rootCategory')}
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="c-name">{t('nameLabel')}</Label>
             <Input

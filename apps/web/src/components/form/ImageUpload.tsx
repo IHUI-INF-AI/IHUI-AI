@@ -67,8 +67,18 @@ export function ImageUpload({
   }
 
   const handleRemove = (idx: number) => {
+    const removedUrl = values[idx]
     const newValues = values.filter((_, i) => i !== idx)
     onChange?.(multiple ? newValues : (newValues[0] ?? ''))
+    // 服务端清理孤儿文件(fire-and-forget,失败不阻塞 UI)
+    if (removedUrl) {
+      fetchApi('/api/oss/files', {
+        method: 'DELETE',
+        body: JSON.stringify({ url: removedUrl }),
+      }).catch(() => {
+        // 静默失败:不阻塞用户操作,孤儿文件可由后台清理任务兜底
+      })
+    }
   }
 
   return (

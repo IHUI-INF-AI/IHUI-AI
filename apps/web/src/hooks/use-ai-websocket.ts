@@ -2,10 +2,7 @@
 
 import * as React from 'react'
 
-import {
-  createWebSocketHook,
-  type WebSocketHookResult,
-} from '@/hooks/create-websocket-hook'
+import { createWebSocketHook, type WebSocketHookResult } from '@/hooks/create-websocket-hook'
 
 export type AIWSProvider = 'qwen' | 'zhipu' | 'deepseek' | 'doubao' | 'generic'
 
@@ -119,12 +116,7 @@ export function useAIWebSocket(provider: AIWSProvider): UseAIWebSocketReturn {
 
   // 向后兼容:工厂 error 为 string | null,映射为 Event | null
   const error = React.useMemo<Event | null>(
-    () =>
-      ws.error
-        ? typeof Event !== 'undefined'
-          ? new Event('error')
-          : null
-        : null,
+    () => (ws.error ? (typeof Event !== 'undefined' ? new Event('error') : null) : null),
     [ws.error],
   )
 
@@ -136,3 +128,16 @@ export function useAIWebSocket(provider: AIWSProvider): UseAIWebSocketReturn {
     error,
   }
 }
+
+// ===================== AI 业务方法扩展(8 方法 + 4 消息类型 + 7 参数变体) =====================
+// 从独立文件 re-export,保持单文件 < 400 行(迁移自旧项目 aiWebSocketMixin.js)
+
+export {
+  useAiWebSocket,
+  type AiModelKey,
+  type AgentContentListItem,
+  type WebSocketAiMessage,
+  type WebSocketSendParam,
+  type UseAiWebSocketOptions,
+  type UseAiWebSocketReturn,
+} from '@/hooks/use-ai-ws-business'
