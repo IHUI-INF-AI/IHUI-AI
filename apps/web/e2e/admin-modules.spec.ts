@@ -3,8 +3,9 @@ import { test, expect } from '@playwright/test'
 /**
  * Admin 各子模块导航与基础功能冒烟测试。
  *
- * 覆盖 18 个 admin 子页面:
+ * 覆盖 21 个 admin 子页面:
  * agents/dict/docs/edu/events/exam/help/learn/live/news/orders/oss/point/refund/roles/sms/tags/users
+ * + message-overview/visit-tracking/exam-marking(R90 新增运营监控与批阅)
  *
  * 验证:
  * - 页面可加载(无 500)
@@ -12,7 +13,7 @@ import { test, expect } from '@playwright/test'
  * - 控制台无未捕获异常
  */
 
-// 18 个 admin 子页面路径
+// 21 个 admin 子页面路径
 const ADMIN_MODULES = [
   'agents',
   'dict',
@@ -32,6 +33,9 @@ const ADMIN_MODULES = [
   'sms',
   'tags',
   'users',
+  'message-overview',
+  'visit-tracking',
+  'exam-marking',
 ] as const
 
 /** 通用页面冒烟:无 500 + main 可见 + 无控制台错误 */
