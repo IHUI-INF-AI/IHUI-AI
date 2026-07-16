@@ -4,6 +4,45 @@
 
 ---
 
+## 后端路由冲突清理与残留项收尾(2026-07-17)✅(2026-07-17)
+
+### 目标
+
+彻底解决前后端路由不一致导致的残留冲突:清理与真实路由重复的自动生成的桩路由,修复路由检测脚本误报,确保后端启动与全量测试无路由冲突。
+
+### 交付摘要
+
+完成 8 类冲突桩路由清理 + 2 个路由检测/生成脚本修复 + 1 个冲突检测脚本重写,全量 typecheck / lint / test 全绿。
+
+### P0 — 冲突桩路由清理
+
+- [x] ✅(2026-07-17) `frontend-stub-admin-routes.ts`:删除与真实路由冲突的桩路由,包括字典管理(/admin/dict/type/_、/admin/dict/data/_)、课程支付(/admin/course/pay/_)、考试分类(/admin/exam/categories/_)、监控告警(/admin/monitor/alert-rules)、新闻资讯(/admin/news/information/_)、提现流程(/admin/shop/withdrawal-flow/_)、部门管理(/admin/dept/list)、用户密码重置(/admin/users/resetPwd)等
+- [x] ✅(2026-07-17) `admin-missing-routes.ts`:删除临时添加的 `/learn/homework` 路由处理,避免与 `learn.ts` 真实路由冲突
+- [x] ✅(2026-07-17) `admin/system-login-logs.ts`:移除 `learnHomework` 表导入及 `/learn/homework` 的 `registerCrud`,该端点已迁移至 `learn.ts`
+- [x] ✅(2026-07-17) `admin-missing-routes.test.ts`:移除对已迁移路由 `/api/admin/learn/homework` 的测试覆盖
+
+### P1 — 路由检测/生成脚本修复
+
+- [x] ✅(2026-07-17) `check-api-routes.mjs`:修复查询字符串模板变量(如 `${qs}`、`${query}`)被误判为路径参数的 bug,直接移除模板变量而非替换为 `:param`
+- [x] ✅(2026-07-17) `generate-stub-routes.mjs`:修复多参数路径生成错误,`fastifyPath` 仅替换 `/:param` 为 `/:id`,避免 `/teams/:id/invitations/:id` 这类重复占位
+- [x] ✅(2026-07-17) `find-route-conflicts.mjs`:重写冲突检测逻辑,按 `export const pluginName = async (server) => { ... }` 划分插件块,把路由精确归属到具体插件,再按 plugin+prefix 生成完整路径,避免跨 prefix 误报和同一文件多 export 误报
+
+### 验证
+
+| 验证项                | 命令                                         | 退出码 | 结果                             |
+| --------------------- | -------------------------------------------- | ------ | -------------------------------- |
+| 路由冲突扫描          | `node scripts/find-route-conflicts.mjs`      | 0      | ✅ 未发现重复路由                |
+| API smoke 测试        | `pnpm --filter @ihui/api test _server-smoke` | 0      | ✅ buildServer 无冲突启动        |
+| API 全量测试          | `pnpm --filter @ihui/api test`               | 0      | ✅ 219 files / 3265 tests passed |
+| 全量 typecheck + lint | `pnpm turbo typecheck lint`                  | 0      | ✅ 39 tasks passed               |
+| 全量测试              | `pnpm turbo test`                            | 0      | ✅ 12 tasks passed               |
+
+### 残留风险与后续任务
+
+- 无。后端路由冲突已清理完毕,检测工具已修复,全量验证通过。
+
+---
+
 ## 侧边栏导航重构收尾 + P0/P1/P2 全建议落地(2026-07-17)✅(2026-07-17)
 
 > 用户诉求:把"关注/收藏/订阅"从侧边栏一级菜单聚合为"我的学习"可展开二级菜单,回归"AI 教育 + AI 编程 Agent"核心导航语义。要求"完美细致完整毫无遗漏 直到没有任何后续建议可给"。

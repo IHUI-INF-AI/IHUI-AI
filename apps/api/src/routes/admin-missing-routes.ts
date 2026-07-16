@@ -4,6 +4,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { requireAdmin } from '../plugins/require-permission.js'
+
 export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
