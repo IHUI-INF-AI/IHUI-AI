@@ -32,7 +32,7 @@ export function useTourPermissions(): UseTourPermissionsReturn {
   const [permission, setPermission] = React.useState<TourPermission | null>(null)
   const [loading, setLoading] = React.useState(false)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const role = useAuthStore((s) => s.user?.role)
+  const roleId = useAuthStore((s) => s.user?.roleId)
 
   const check = React.useCallback(
     async (spotId?: string) => {
@@ -54,14 +54,14 @@ export function useTourPermissions(): UseTourPermissionsReturn {
             ...DEFAULT_PERMISSION,
             canBook: true,
             canComment: true,
-            canManage: role === 'admin',
+            canManage: (roleId ?? 0) >= 1,
           })
         }
       } finally {
         setLoading(false)
       }
     },
-    [isAuthenticated, role],
+    [isAuthenticated, roleId],
   )
 
   return { permission, loading, check }
