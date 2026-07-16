@@ -141,6 +141,14 @@
 | 附  | 数据迁移 id_mapping          | `schema/id-mapping.ts` + `db/id-mapping-queries.ts` + `scripts/migrate-legacy-data.ts` | migrate-legacy.test.ts | 7      |
 | **合计** |                          |                                                                   | **12 测试文件**           | **128** |
 
+### 提交记录(2026-07-17 21:00)
+
+- `ba9093db` — docs(plan): 更新 PROJECT_PLAN — P0 11 项核心缺口 + 数据迁移全量补完
+- `bd292027` — feat: 多端 + 迁移 + i18n 全量补完(API/AOP/数据迁移/学习记录/直播/考试/简体清理)
+  - 范围: 25 个修改文件 + 18 个新增文件
+  - 验证: typecheck 5/5 ✅ / lint 3/3 ✅ / test 247 文件 / 3528 用例全绿(API 214/3236 + Web 21/193 + Auth 5/34 + CLI 7/65)
+- 当前 ahead origin/main: 11 commits(推送前请确认网络/代理/防火墙环境)
+
 ### 假阳性纠正(1 项)
 
 - **Follow 功能全缺失** → ❌ 假阳性。social.ts 完整实现 7 个 follow 端点(关注/取关/列表/状态/互关/统计),功能从 member-service 迁移到 social.ts,架构升级非缺失。
@@ -393,7 +401,7 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
 - ✅ 三端应用补全:RN 移动端 / Tauri 桌面端 / WXT 浏览器扩展
 - ✅ CLI 测试覆盖:7 文件 65 用例全绿
 - ✅ 调试残留全部清理,.gitignore 加防
-- ⏸️ 待推送:用户显式要求时执行 `git push origin main`
+- ⏸️ 待推送:用户显式要求时执行 `git push origin main`(当前 ahead 11 commits)
 
 ---
 
