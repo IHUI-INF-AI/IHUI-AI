@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { th } from './helpers'
+import { DictTag } from './DictTag'
 import type { DictType } from './types'
 
 interface DictTableProps {
@@ -119,13 +120,14 @@ export function DictTable({
                     <th className={th}>{t('dict.colLabel')}</th>
                     <th className={th}>{t('dict.colValue')}</th>
                     <th className={th}>{t('dict.colSort')}</th>
+                    <th className={th}>{t('dict.colStatus')}</th>
                     <th className={cn(th, 'text-right')}>{t('dict.colActions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {d.items.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">
+                      <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
                         {t('dict.noItems')}
                       </td>
                     </tr>
@@ -134,11 +136,27 @@ export function DictTable({
                       <tr key={it.id} className="transition-colors hover:bg-muted/30">
                         <td className="px-4 py-2.5 font-medium">{it.label}</td>
                         <td className="px-4 py-2.5">
-                          <code className="font-mono text-xs text-muted-foreground">
-                            {it.value}
-                          </code>
+                          <DictTag value={it.value} listClass={it.listClass} />
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">{it.sort}</td>
+                        <td className="px-4 py-2.5">
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 text-xs',
+                              it.status === 1
+                                ? 'text-emerald-600 dark:text-emerald-500'
+                                : 'text-muted-foreground',
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                'h-1.5 w-1.5 rounded-full',
+                                it.status === 1 ? 'bg-emerald-500' : 'bg-muted-foreground',
+                              )}
+                            />
+                            {it.status === 1 ? t('dict.statusEnabled') : t('dict.statusDisabled')}
+                          </span>
+                        </td>
                         <td className="px-4 py-2.5 text-right">
                           <HasPermi code="ai:dictionary:edit">
                             <Button size="sm" variant="ghost" onClick={() => onEditItem(d, it)}>

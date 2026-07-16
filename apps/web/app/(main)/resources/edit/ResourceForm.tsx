@@ -17,17 +17,29 @@ import {
   SelectValue,
 } from '@ihui/ui'
 
-import { selectClass } from './helpers'
-import type { Category } from './types'
+import { TiptapRichText } from '@/components/form/TiptapRichText'
+import { ImageUpload } from '@/components/form/ImageUpload'
+import { selectClass, RESOURCE_TYPES } from './helpers'
+import type { ResourceType } from './types'
 
 interface Props {
   title: string
   setTitle: (v: string) => void
   description: string
   setDescription: (v: string) => void
-  categoryId: string
-  setCategoryId: (v: string) => void
-  categories: Category[]
+  cidList: string
+  setCidList: (v: string) => void
+  categories: { id: string; name: string }[]
+  type: ResourceType
+  setType: (v: ResourceType) => void
+  productId: string
+  setProductId: (v: string) => void
+  tagIdList: string
+  setTagIdList: (v: string) => void
+  image: string
+  setImage: (v: string) => void
+  introduction: string
+  setIntroduction: (v: string) => void
   fileName: string
   uploadPending: boolean
   uploadIsError: boolean
@@ -48,9 +60,19 @@ export function ResourceForm({
   setTitle,
   description,
   setDescription,
-  categoryId,
-  setCategoryId,
+  cidList,
+  setCidList,
   categories,
+  type,
+  setType,
+  productId,
+  setProductId,
+  tagIdList,
+  setTagIdList,
+  image,
+  setImage,
+  introduction,
+  setIntroduction,
   fileName,
   uploadPending,
   uploadIsError,
@@ -88,25 +110,80 @@ export function ResourceForm({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="请输入资源描述"
-            rows={4}
+            rows={3}
             className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
 
         <div className="space-y-2">
-          <Label>分类</Label>
-          <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className={selectClass} aria-label="分类">
-              <SelectValue placeholder="请选择分类" />
+          <Label htmlFor="cidList">分类(多选,逗号分隔 ID)</Label>
+          <Input
+            id="cidList"
+            value={cidList}
+            onChange={(e) => setCidList(e.target.value)}
+            placeholder="如:uuid1, uuid2"
+          />
+          {categories.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              可选分类: {categories.map((c) => c.name).join(' / ')}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label>资源类型</Label>
+          <Select value={type} onValueChange={(v) => setType(v as ResourceType)}>
+            <SelectTrigger className={selectClass} aria-label="资源类型">
+              <SelectValue placeholder="请选择资源类型" />
             </SelectTrigger>
             <SelectContent>
-              {categories.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
+              {RESOURCE_TYPES.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="productId">产品 ID</Label>
+          <Input
+            id="productId"
+            value={productId}
+            onChange={(e) => setProductId(e.target.value)}
+            placeholder="请输入关联产品 ID"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="tagIdList">标签(多选,逗号分隔 ID)</Label>
+          <Input
+            id="tagIdList"
+            value={tagIdList}
+            onChange={(e) => setTagIdList(e.target.value)}
+            placeholder="如:tag-id-1, tag-id-2"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>展示图</Label>
+          <ImageUpload
+            value={image || undefined}
+            onChange={(v) => setImage(typeof v === 'string' ? v : (v[0] ?? ''))}
+            uploadUrl="/api/files/upload"
+            placeholder="上传展示图"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>资源简介(富文本)</Label>
+          <TiptapRichText
+            value={introduction}
+            onChange={setIntroduction}
+            placeholder="请输入资源详细介绍..."
+            className="w-full"
+          />
         </div>
 
         <div className="space-y-2">
