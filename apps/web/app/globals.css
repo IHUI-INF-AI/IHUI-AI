@@ -2,7 +2,12 @@
 @plugin '@tailwindcss/typography';
 @plugin 'tailwindcss-animate';
 @source '../../../packages/ui/src';
+@import '../src/styles/design-tokens.css';
 @import '../src/styles/animations.css';
+@import '../src/styles/transitions.css';
+@import '../src/styles/theme-presets.css';
+@import '../src/styles/glass.css';
+@import '../src/styles/premium.css';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -102,6 +107,25 @@
   --animate-fade-in: fade-in 0.3s ease;
   --animate-slide-up: slide-up 0.3s ease;
   --animate-scale-in: scale-in 0.2s ease;
+
+  /* 10 档响应式断点 */
+  --breakpoint-xs: 320px;
+  --breakpoint-sm: 375px;
+  --breakpoint-md: 428px;
+  --breakpoint-lg: 576px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-tablet-lg: 1024px;
+  --breakpoint-laptop: 1280px;
+  --breakpoint-desktop: 1440px;
+  --breakpoint-xl: 1920px;
+  --breakpoint-2xl: 2560px;
+
+  /* 业务品牌色映射 */
+  --color-vip-gold-start: #ffd700;
+  --color-vip-gold-end: #ffaa00;
+  --color-rank-gold: #ffd700;
+  --color-rank-silver: #c0c0c0;
+  --color-rank-bronze: #cd7f32;
 }
 
 .dark {
