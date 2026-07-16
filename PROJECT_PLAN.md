@@ -531,6 +531,7 @@
 - [x] ✅(2026-07-16) (P2) 阶段28:Subagent 任务分解 — 新增 `tools/subagent.ts` 的 `createSubagentTool` 工厂函数,复用 `setupAgentTools` + `runToolLoop`,独立 messages 数组(只含 system + task),全局 `subagentDepth` 跟踪嵌套深度超 3 层拒绝(MAX_SUBAGENT_DEPTH=3),子 agent 最多 10 轮迭代(SUBAGENT_MAX_ITERATIONS=10),dangerLevel='read'(子 agent 内部仍走自己的 dangerLevel 校验);`SetupAgentToolsOptions` 新增 `subagentParent` 可选参数,runAgent/REPL/ACP 三端均传入父配置。实测:17 工具含 dispatch_subagent,dangerLevel=read,无 subagentParent 时不注册
 - [x] ✅(2026-07-16) (P2) 阶段29:Token 成本展示 — `runToolLoop` 新增 `TokenUsage` 类型(prompt/completion/total/costUsd)+ `MODEL_PRICING` 定价表(stepfun plan 套餐 0 元 + gpt-4o/4o-mini/claude 等 8 模型),每轮累计(用 `estimateMessagesTokens` 估 prompt + `estimateTokens` 估 completion),`RunToolLoopResult`/`AgentResult` 新增 usage 字段,`HeadlessEvent.complete` 携带 usage;REPL 完成 + Agent 完成均输出 `📊 tokens: N (prompt P + completion C) — $X / plan 套餐`;实测:prompt/completion 估算>0,stepfun 成本=0
 - [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli --force` 5/5 任务全绿,烟雾测试全通过(17 工具含 dispatch_subagent + token 估算正确 + 无 subagentParent 不注册)
+- [x] ✅(2026-07-16) (P0) 端到端 LLM 集成验证:mock SSE 服务器模拟 LLM 返回 tool_call,验证完整工具链(SSE 解析→parseToolCalls→executeToolCall→多轮循环→token 统计)。结果:stopReason=end_turn,2 轮迭代,read_file 工具执行成功,prompt=3408+completion=56=total=3464 tokens,stepfun 成本=0,subagent 注册=true。ALL_PASS
 
 ### 前端问题修复（2026-07-11 全面审计）
 
