@@ -39,6 +39,13 @@ import {
   findMemberStudyReport,
 } from '../db/learn-queries.js'
 import {
+  upsertRecord,
+  updateWatchPosition,
+  getLessonProgress,
+  getRanking,
+  findSignUpRecord,
+} from '../db/learn-record-queries.js'
+import {
   findHomeworkList,
   findHomeworkById,
   createHomework,
@@ -121,6 +128,17 @@ const myLessonsQuerySchema = z.object({
 
 const updateProgressSchema = z.object({
   progress: z.number().int().min(0).max(100),
+})
+
+const heartbeatSchema = z.object({
+  sectionId: z.string().uuid('无效的小节 ID').nullable().optional(),
+  chapterId: z.string().uuid('无效的章节 ID').nullable().optional(),
+  position: z.number().int().min(0),
+  duration: z.number().int().min(0),
+})
+
+const rankingQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
 })
 
 const createLearnCategorySchema = z.object({
@@ -542,7 +560,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ ok: true }))
   })
 
-  // GET /learn/lessons/:id/progress - 获取学习进度（需登录）
+  // GET /learn/lessons/:id/progress - 获取学习进度(需登录,合并章节追踪数据)
   server.get('/learn/lessons/:id/progress', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
@@ -554,7 +572,71 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     if (!signup) {
       return reply.status(404).send(error(404, '未报名该课程'))
     }
-    return reply.send(success({ progress: signup.progress, status: signup.status }))
+    const recordProgress = await getLessonProgress(userId, parsed.data.id)
+    return reply.send(
+      success({
+        progress: signup.progress,
+        status: signup.status,
+        watchDuration: recordProgress?.watchDuration ?? 0,
+        totalDuration: recordProgress?.totalDuration ?? 0,
+        lastPosition: recordProgress?.lastPosition ?? 0,
+        sectionProgress: recordProgress?.sectionProgress ?? [],
+      }),
+    )
+  })
+
+  // POST /learn/lessons/:id/heartbeat - 心跳上报(需登录,前端定时调用,每 10-15 秒)
+  server.post('/learn/lessons/:id/heartbeat', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const bodyParsed = heartbeatSchema.safeParse(request.body)
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const signup = await findSignUpRecord(userId, parsed.data.id)
+    if (!signup) {
+      return reply.status(403).send(error(403, '未报名该课程,无法上报学习记录'))
+    }
+    // upsert 学习记录 + 更新位置 + 追加日志 + 检查自动完成
+    const record = await upsertRecord({
+      userId,
+      lessonId: parsed.data.id,
+      sectionId: bodyParsed.data.sectionId ?? null,
+      chapterId: bodyParsed.data.chapterId ?? null,
+    })
+    const result = await updateWatchPosition(record.id, bodyParsed.data.position, bodyParsed.data.duration)
+    if (!result) {
+      return reply.status(500).send(error(500, '学习记录更新失败'))
+    }
+    return reply.send(
+      success({
+        recordId: result.record.id,
+        progress: result.record.progress,
+        status: result.record.status,
+        watchDuration: result.record.watchDuration,
+        totalDuration: result.record.totalDuration,
+        lastPosition: result.record.lastPosition,
+        autoCompleted: result.autoCompleted,
+      }),
+    )
+  })
+
+  // GET /learn/courses/:id/ranking - 课程学习排行榜(公开,SQL 聚合)
+  server.get('/learn/courses/:id/ranking', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const queryParsed = rankingQuerySchema.safeParse(request.query)
+    if (!queryParsed.success) {
+      return reply.status(400).send(error(400, queryParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const list = await getRanking(parsed.data.id, queryParsed.data.limit)
+    return reply.send(success({ list }))
   })
 
   // POST /learn/lessons/:id/progress - 更新学习进度（需登录）
