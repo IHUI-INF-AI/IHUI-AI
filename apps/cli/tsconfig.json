@@ -7,7 +7,7 @@
     "moduleResolution": "Bundler",
     "baseUrl": ".",
     "paths": {
-      "@ihui/api-client": ["../../packages/api-client/src/index.ts"]
+      "@ihui/api-client": ["../../packages/api-client/dist/index.d.ts"]
     },
     "outDir": "./dist",
     "rootDir": "./src",

@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "composite": false,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": false,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "react-native": ["./node_modules/react-native"],
+      "react-native/*": ["./node_modules/react-native/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}
