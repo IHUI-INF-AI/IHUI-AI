@@ -15,8 +15,8 @@
 import 'dotenv/config';
 import { Command, type OptionValues } from 'commander';
 import chalk from 'chalk';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { readFileSync, statSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import { startREPL } from './commands/repl.js';
@@ -68,7 +68,8 @@ program
   .option('--json', 'Headless 模式:输出 NDJSON 事件流 (非 TTY 自动启用,CI/CD 友好)')
   .option('--mcp', '启用 MCP 工具(从 ~/.ihui/mcp.json 加载 MCP 服务器工具)')
   .option('--allow-dangerous', '允许危险工具(run_command/delete_file/git_commit)自动执行,无需确认(默认拒绝,REPL 模式下交互确认)')
-  .option('--plan', '强制 Agent 先输出任务规划(plan 块)再执行工具(长任务推荐)');
+  .option('--plan', '强制 Agent 先输出任务规划(plan 块)再执行工具(长任务推荐)')
+  .option('-f, --prompt-file <path>', '从文件读取 prompt(支持超长 PRD,UTF-8 编码)');
 
 interface ResolvedSession {
   sessionId?: string;
@@ -99,6 +100,48 @@ function resolveSession(opts: Record<string, unknown>): ResolvedSession {
 
 function resolveJsonMode(opts: OptionValues): boolean {
   return opts.json === true || !process.stdout.isTTY;
+}
+
+export function readPromptFile(
+  filePath: string,
+): { ok: true; content: string } | { ok: false; error: string } {
+  try {
+    const stat = statSync(filePath);
+    if (stat.isDirectory()) {
+      return { ok: false, error: `路径是目录,不是文件: ${filePath}` };
+    }
+    const raw = readFileSync(filePath, 'utf-8');
+    const content = raw.trim();
+    if (content.length === 0) {
+      return { ok: false, error: `文件内容为空: ${filePath}` };
+    }
+    return { ok: true, content };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { ok: false, error: `文件不存在: ${filePath}` };
+    }
+    return { ok: false, error: `读取文件失败: ${(err as Error).message}` };
+  }
+}
+
+function resolvePrompt(
+  positional: string | undefined,
+  opts: OptionValues,
+): string | undefined {
+  if (!opts.promptFile) {
+    return positional;
+  }
+  const result = readPromptFile(opts.promptFile as string);
+  if (!result.ok) {
+    console.error(chalk.red(`--prompt-file 错误: ${result.error}`));
+    process.exit(1);
+  }
+  if (positional) {
+    console.warn(
+      chalk.yellow('⚠ 同时传了 positional prompt 和 --prompt-file,优先使用 --prompt-file'),
+    );
+  }
+  return result.content;
 }
 
 async function runAgentAndExit(
@@ -179,9 +222,10 @@ program
   .argument('[prompt]', '直接执行的任务 (省略则进入 REPL)')
   .action(async (prompt: string | undefined) => {
     const opts = program.opts();
-    if (prompt) {
+    const effectivePrompt = resolvePrompt(prompt, opts);
+    if (effectivePrompt) {
       const jsonMode = resolveJsonMode(opts);
-      await runAgentAndExit(prompt, opts, jsonMode);
+      await runAgentAndExit(effectivePrompt, opts, jsonMode);
     } else {
       const cfg = resolveEffectiveConfig({
         cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
@@ -189,7 +233,8 @@ program
         cliModel: typeof opts.model === 'string' ? opts.model : undefined,
         cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
         cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
-        cliMcp: opts.mcp === true ? true : undefined,
+    cliPlan: opts.plan === true ? true : undefined,
+    cliMcp: opts.mcp === true ? true : undefined,
       });
       const session = resolveSession(opts);
       await startREPL({
@@ -238,12 +283,17 @@ program
 
 // agent 子命令
 program
-  .command('agent <task>')
-  .description('Agent 模式: 自主多步执行任务 (支持 --json headless 模式)')
-  .action(async (task: string) => {
+  .command('agent [task]')
+  .description('Agent 模式: 自主多步执行任务 (支持 --json headless 模式,可用 --prompt-file 传入超长 prompt)')
+  .action(async (task: string | undefined) => {
     const opts = program.opts();
+    const effectiveTask = resolvePrompt(task, opts);
+    if (!effectiveTask) {
+      console.error(chalk.red('用法: ihui agent <task>  或  ihui agent --prompt-file <path>'));
+      process.exit(1);
+    }
     const jsonMode = resolveJsonMode(opts);
-    await runAgentAndExit(task, opts, jsonMode);
+    await runAgentAndExit(effectiveTask, opts, jsonMode);
   });
 
 // init 子命令
@@ -453,4 +503,6 @@ program
     await connection.closed;
   });
 
-program.parse();
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  program.parse();
+}

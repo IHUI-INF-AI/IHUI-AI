@@ -104,6 +104,8 @@ export interface StreamChatOptions {
   onDelta: (delta: string) => void
   onError?: (error: string) => void
   onDone?: () => void
+  onReasoning?: (delta: string) => void
+  metadata?: { conversationId?: string; userId?: string; messageId?: string }
 }
 
 export function parseStreamLine(line: string): string | null {
@@ -196,11 +198,14 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
+  const body: Record<string, unknown> = { modelId: opts.model, messages: opts.messages }
+  if (opts.metadata) body.metadata = opts.metadata
+
   try {
     const resp = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ modelId: opts.model, messages: opts.messages }),
+      body: JSON.stringify(body),
       signal: opts.signal,
     })
     if (!resp.ok || !resp.body) {
@@ -211,6 +216,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const reader = resp.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    const hasReasoning = typeof opts.onReasoning === 'function'
 
     for (;;) {
       const { done, value } = await reader.read()
@@ -222,11 +228,19 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         buffer = buffer.slice(nl + 1)
         const delta = parseStreamLine(line)
         if (delta) opts.onDelta(delta)
+        if (hasReasoning) {
+          const r = parseStreamLineReasoning(line)
+          if (r) opts.onReasoning!(r)
+        }
       }
     }
     if (buffer.trim()) {
       const delta = parseStreamLine(buffer)
       if (delta) opts.onDelta(delta)
+      if (hasReasoning) {
+        const r = parseStreamLineReasoning(buffer)
+        if (r) opts.onReasoning!(r)
+      }
     }
     opts.onDone?.()
   } catch (err) {
