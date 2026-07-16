@@ -56,6 +56,12 @@ export interface ToolContext {
   workspacePath: string;
   /** 危险操作确认回调,返回 true 表示允许执行。未提供时 dangerous 操作直接拒绝。 */
   confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
+  /** 沙盒配置(命令白名单 + env 过滤),由 setupAgentTools 从 settings.json 注入 */
+  sandbox?: {
+    commandAllowlist?: string[];
+    blockedEnvVars?: string[];
+    allowedPaths?: string[];
+  };
 }
 
 const registry = new Map<string, Tool>();
