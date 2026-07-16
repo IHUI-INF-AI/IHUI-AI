@@ -21,6 +21,7 @@ import { dirname, join } from 'node:path';
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import { startREPL } from './commands/repl.js';
 import { runAgent, stopReasonToExitCode } from './commands/agent.js';
+import { loadSkills, findSkill } from './skills/index.js';
 import {
   loadSession,
   getMostRecentSession,
@@ -360,6 +361,44 @@ registerCheckpointCommand(program);
 
 // hooks 子命令组
 registerHooksCommand(program);
+
+// skills 子命令 — 列出/查看已加载的 skills(从 .ihui/.agents/.claude/.cursor/skills 平面加载)
+const skillsCmd = program.command('skills').description('管理/查看 skills(.ihui/skills/*.md 等四级目录平面加载)');
+
+skillsCmd
+  .command('list')
+  .description('列出当前工作区已加载的 skills')
+  .action(() => {
+    const skills = loadSkills({ cwd: process.cwd() });
+    if (skills.length === 0) {
+      console.info(chalk.dim('暂无 skills(可在以下目录创建 *.md 文件):'));
+      console.info(chalk.dim('  <cwd>/.ihui/skills/   <cwd>/.agents/skills/   <cwd>/.claude/skills/   <cwd>/.cursor/skills/'));
+      console.info(chalk.dim('  <repo-root>/.ihui/skills/ ...   ~/.ihui/skills/'));
+      return;
+    }
+    console.info(chalk.cyan(`\n已加载 ${skills.length} 个 skill:`));
+    for (const s of skills) {
+      console.info(`  ${chalk.bold(s.name)} — ${chalk.dim(s.description)}`);
+      console.info(chalk.dim(`    来源: ${s.source}`));
+    }
+    console.info('');
+  });
+
+skillsCmd
+  .command('show <name>')
+  .description('查看指定 skill 的内容')
+  .action((name: string) => {
+    const skills = loadSkills({ cwd: process.cwd() });
+    const skill = findSkill(skills, name);
+    if (!skill) {
+      console.info(chalk.red(`未找到 skill: ${name}`));
+      process.exit(1);
+    }
+    console.info(chalk.cyan(`# ${skill.name}`));
+    console.info(chalk.dim(`来源: ${skill.source}`));
+    console.info(chalk.dim(`描述: ${skill.description}\n`));
+    console.info(skill.body);
+  });
 
 // settings 子命令组
 const settingsCmd = program.command('settings').description('管理 ~/.ihui/settings.json 统一配置');
