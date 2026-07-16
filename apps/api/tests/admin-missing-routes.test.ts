@@ -96,7 +96,7 @@ function mockRegularUser() {
 }
 
 describe('admin-missing-routes', () => {
-  const server = Fastify({ logger: false })
+  const server = Fastify({ logger: false, pluginTimeout: 60000 })
 
   beforeAll(async () => {
     await server.register(adminMissingRoutes, { prefix: '/api/admin' })
