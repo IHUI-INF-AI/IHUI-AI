@@ -52,7 +52,7 @@ const git_status: Tool = {
     porcelain: { type: 'boolean', description: '使用 --porcelain 精简格式输出' },
   },
   required: [],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const porcelain = args.porcelain === true;
     const cmdArgs = ['status'];
     if (porcelain) cmdArgs.push('--porcelain');
@@ -73,7 +73,7 @@ const git_diff: Tool = {
     ref: { type: 'string', description: '对比的提交引用(如 HEAD~1、分支名)' },
   },
   required: [],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const staged = args.staged === true;
     const filePath = args.path as string | undefined;
     const ref = args.ref as string | undefined;
@@ -103,7 +103,7 @@ const git_log: Tool = {
     path: { type: 'string', description: '仅显示影响此路径的提交' },
   },
   required: [],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const count = typeof args.count === 'number' ? args.count : 10;
     const oneline = args.oneline === true;
     const filePath = args.path as string | undefined;
@@ -132,7 +132,7 @@ const git_add: Tool = {
     },
   },
   required: ['files'],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const files = args.files;
     if (!Array.isArray(files) || files.length === 0) {
       return { success: false, output: '', error: '缺少 files 参数(文件路径数组)' };
@@ -161,7 +161,7 @@ const git_commit: Tool = {
     amend: { type: 'boolean', description: '修改上一次提交(--amend)' },
   },
   required: ['message'],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const message = args.message as string;
     if (!message) return { success: false, output: '', error: '缺少 message 参数' };
     const amend = args.amend === true;
