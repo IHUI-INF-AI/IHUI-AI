@@ -2435,6 +2435,29 @@ packages/api-client/
     - P1-多端-3 Tauri 仍阻塞(需 Rust)
     - P1-多端-8 原生能力/P1-多端-9 上架发布未启动
 
+- [x] P1-多端-10 收尾(第二轮):全链路 e2e 冒烟 + 客户端 ESM/.js 扩展名修复 + Windows exit 崩溃修复 ✅(2026-07-16)
+  - 交付结论:CLI → API → ai-service 端到端链路打通,30/30 全量静态验证退出码 0,CLI 冒烟退出码 0
+  - 验证依据:
+    - `pnpm turbo typecheck lint --force`:30/30 成功,退出码 0
+    - CLI 冒烟:`node apps/cli/dist/index.js --api-url http://127.0.0.1:3001 --json "你好"` → 输出 `{type:"start",...}` + `{type:"iteration",count:1,max:25}` + `{type:"complete",stopReason:"end_turn",iterations:1,usage:{...}}`,退出码 0
+    - 后端 API 服务运行在 3001,登录端点 `/api/auth/login/username` 返回 200 + JWT,流式端点 `/api/ai/chat/stream` 接受请求
+    - ai-service 不可用(独立部署)→ 流式响应无 token 内容,但请求链路、错误处理、JSON headless 模式均正常
+  - 修复的 bug:
+    - `packages/api-client/src/client.ts` streamChat 端点路径错误:`/llm/complete/stream` → `/ai/chat/stream`(api 服务 aiChatStreamRoutes 实际 prefix 为 `/api/ai`,内部代理到 ai-service 的 `/api/llm/complete/stream`)
+    - `packages/api-client/src/client.ts` streamChat 请求体字段错误:`{model, messages, stream:true}` → `{modelId: opts.model, messages: opts.messages}`(匹配后端 ai-chat-stream.ts 的 chatStreamSchema)
+    - `packages/api-client/src/index.ts` distribution 命名冲突:distribution.ts 与 business.ts 都导出 `getRanking`,改用显式 named re-export(排除 getRanking)消除 TS2308
+    - `packages/api-client/src/**/*.ts` 32 文件 102 处相对导入缺 .js 扩展名(Node ESM 运行时报 ERR_MODULE_NOT_FOUND):用 PowerShell 批量加 .js 扩展名(ESM 最佳实践)
+    - `apps/cli/tsconfig.json` 客户端解析方案:用 TS project references(`references: [{ path: "../../packages/api-client" }]`)+ `tsc -b` 构建链,移除 `paths`/`rootDir` 避免 api-client 源码被纳入 CLI 程序
+    - `apps/cli/src/commands/repl.ts` handleCheckpoint/handleRollback 残留旧 API:`snapshotSync`/`restoreSync` → 改用 async `snapshot`/`restore`(CheckpointManager 实际接口)
+    - `apps/web/app/(main)/admin/comments/types.ts` `interface CommentDetail extends CommentItem {}` 空接口 → `type CommentDetail = CommentItem`(@typescript-eslint/no-empty-object-type)
+    - `apps/cli/src/index.ts` Windows UV_HANDLE_CLOSING 崩溃:在 runToolLoop 完成后由 `process.exit()` 强制退出导致 Node24 libuv 异步 handle 关闭 race,改为 `process.exitCode = ...` 让事件循环自然关闭
+  - 残留风险/未完成:
+    - ai-service 不可用,未做端到端 token 级流式冒烟(请求链路已验证,LLM 内容未验证)
+    - P1-多端-3 Tauri 仍阻塞(需 Rust)
+    - P1-多端-8 原生能力/P1-多端-9 上架发布未启动
+    - RN 端 fetch ReadableStream 在 Hermes 0.74 兼容性未在真机/模拟器验证
+    - Web 端未迁移到 streamChat(仍用 use-chat.ts 直接 fetch,后续可统一)
+
 ---
 
 ## P2 — 已知技术债务

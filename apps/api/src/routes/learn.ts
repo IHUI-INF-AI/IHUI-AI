@@ -432,6 +432,8 @@ const createTopicSchema = z.object({
     .nullable()
     .optional(),
   status: z.enum(['draft', 'published']).optional(),
+  slug: z.string().max(200).optional(),
+  sort: z.number().int().min(0).optional().default(0),
 })
 
 const updateTopicSchema = z.object({
@@ -448,6 +450,8 @@ const updateTopicSchema = z.object({
     .nullable()
     .optional(),
   status: z.enum(['draft', 'published']).optional(),
+  slug: z.string().max(200).nullable().optional(),
+  sort: z.number().int().min(0).optional(),
 })
 
 // =============================================================================
