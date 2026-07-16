@@ -12,7 +12,7 @@
 import { Readable, Writable } from 'node:stream';
 import * as acp from '@agentclientprotocol/sdk';
 import { streamChat, setBaseUrl, setTokenProvider } from '@ihui/api-client';
-import { createSession, saveSession, type Session } from '../commands/session.js';
+import { createSession, saveSession, loadSession, type Session } from '../commands/session.js';
 
 export interface AcpServerOptions {
   apiUrl: string;
@@ -38,7 +38,7 @@ class IhuiAcpAgent {
     return {
       protocolVersion: acp.PROTOCOL_VERSION,
       agentCapabilities: {
-        loadSession: false,
+        loadSession: true,
       },
     };
   }
@@ -52,6 +52,40 @@ class IhuiAcpAgent {
     const state: AcpSessionState = { session, pendingAbort: null };
     this.sessions.set(session.id, state);
     return { sessionId: session.id };
+  }
+
+  async loadSession(
+    params: acp.LoadSessionRequest,
+    cx: acp.AgentContext,
+  ): Promise<acp.LoadSessionResponse> {
+    const existing = loadSession(params.sessionId);
+    if (!existing) {
+      throw new Error(`Session ${params.sessionId} not found`);
+    }
+    const state: AcpSessionState = { session: existing, pendingAbort: null };
+    this.sessions.set(existing.id, state);
+
+    for (const msg of existing.history) {
+      if (msg.role === 'user') {
+        await cx.notify(acp.methods.client.session.update, {
+          sessionId: existing.id,
+          update: {
+            sessionUpdate: 'user_message_chunk',
+            content: { type: 'text', text: msg.content },
+          },
+        });
+      } else if (msg.role === 'assistant') {
+        await cx.notify(acp.methods.client.session.update, {
+          sessionId: existing.id,
+          update: {
+            sessionUpdate: 'agent_message_chunk',
+            content: { type: 'text', text: msg.content },
+          },
+        });
+      }
+    }
+
+    return {};
   }
 
   async prompt(
@@ -132,15 +166,11 @@ function extractTextFromPrompt(prompt: acp.ContentBlock[] | undefined): string {
     .join('\n');
 }
 
-export function startAcpServer(opts: AcpServerOptions): acp.AgentConnection {
+export function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
   setBaseUrl(opts.apiUrl);
   if (opts.apiKey) {
     setTokenProvider({ getToken: () => opts.apiKey ?? null });
   }
-
-  const input = Writable.toWeb(process.stdout);
-  const output = Readable.toWeb(process.stdin);
-  const stream = acp.ndJsonStream(input, output);
 
   const agent = new IhuiAcpAgent(opts);
   return acp
@@ -148,11 +178,18 @@ export function startAcpServer(opts: AcpServerOptions): acp.AgentConnection {
     .onRequest('initialize', (ctx) => agent.initialize(ctx.params))
     .onRequest('authenticate', (ctx) => agent.authenticate(ctx.params))
     .onRequest('session/new', (ctx) => agent.newSession(ctx.params))
+    .onRequest('session/load', (ctx) => agent.loadSession(ctx.params, ctx.client))
     .onRequest('session/prompt', (ctx) => agent.prompt(ctx.params, ctx.client))
     .onRequest('session/close', (ctx) => {
       agent.closeSession?.(ctx.params);
       return {};
     })
-    .onNotification('session/cancel', (ctx) => agent.cancel(ctx.params))
-    .connect(stream);
+    .onNotification('session/cancel', (ctx) => agent.cancel(ctx.params));
+}
+
+export function startAcpServer(opts: AcpServerOptions): acp.AgentConnection {
+  const input = Writable.toWeb(process.stdout);
+  const output = Readable.toWeb(process.stdin);
+  const stream = acp.ndJsonStream(input, output);
+  return createAcpAgent(opts).connect(stream);
 }
