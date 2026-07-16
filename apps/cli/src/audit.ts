@@ -12,6 +12,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { redactSecrets, redactObject } from './redact.js';
 
 export interface AuditEntry {
   timestamp: string;
@@ -49,7 +50,9 @@ export function auditLog(entry: AuditEntry): void {
 
   const record: AuditEntry = {
     ...entry,
-    output: entry.output ? truncate(entry.output) : undefined,
+    input: redactObject(entry.input),
+    output: entry.output ? truncate(redactSecrets(entry.output)) : undefined,
+    error: entry.error ? redactSecrets(entry.error) : undefined,
   };
 
   fs.appendFileSync(logPath, JSON.stringify(record) + '\n', 'utf-8');
