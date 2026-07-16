@@ -137,6 +137,9 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   server.put('/addresses/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(success({ updated: true }))
   })
+  server.post('/addresses', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  })
   server.delete('/addresses/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(success({ deleted: true }))
   })
