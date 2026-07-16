@@ -5,7 +5,7 @@
  * 简化策略(做减法):
  *   - 从 ~/.ihui/hooks.json 加载配置
  *   - preToolCall:钩子 exit != 0 时阻断工具调用(blockOnError 默认 true)
- *   - postToolCall:仅通知,不阻断
+ *   - postToolCall:钩子 exit != 0 时返回 blockResult(blockOnError 默认 false,仅通知)
  *   - 钩子通过环境变量接收上下文(IHUI_TOOL / IHUI_TOOL_INPUT / IHUI_TOOL_OUTPUT)
  *   - matchTool 支持正则匹配工具名,省略则匹配所有工具
  *
@@ -15,7 +15,7 @@
  *     { "name": "block-rm-rf", "command": "echo 'blocked' && exit 1", "matchTool": "bash", "blockOnError": true }
  *   ],
  *   "postToolCall": [
- *     { "name": "log-tool", "command": "echo $(date) $IHUI_TOOL >> /tmp/ihui-tools.log" }
+ *     { "name": "verify-build", "command": "npm test", "matchTool": "bash", "blockOnError": true }
  *   ]
  * }
  */
@@ -80,8 +80,8 @@ function runHook(
   });
   return {
     exitCode: result.status ?? 1,
-    stdout: (result.stdout ?? '').trim(),
-    stderr: (result.stderr ?? '').trim(),
+    stdout: typeof result.stdout === 'string' ? result.stdout.trim() : '',
+    stderr: typeof result.stderr === 'string' ? result.stderr.trim() : '',
   };
 }
 
@@ -106,15 +106,23 @@ export function runPreToolCall(toolName: string, input: unknown): HookResult {
   return { proceed: true };
 }
 
-export function runPostToolCall(toolName: string, output: unknown): void {
+export function runPostToolCall(toolName: string, output: unknown): HookResult {
   const config = loadHooks();
   const hooks = config.postToolCall ?? [];
   for (const entry of hooks) {
     if (!matchesTool(entry, toolName)) continue;
-    runHook(entry, {
+    const r = runHook(entry, {
       IHUI_HOOK_TYPE: 'postToolCall',
       IHUI_TOOL: toolName,
       IHUI_TOOL_OUTPUT: JSON.stringify(output ?? {}),
     });
+    const blockOnError = entry.blockOnError ?? false;
+    if (blockOnError && r.exitCode !== 0) {
+      return {
+        proceed: false,
+        reason: `postToolCall 钩子 "${entry.name}" 阻断: ${r.stderr || r.stdout || 'exit ' + r.exitCode}`,
+      };
+    }
   }
+  return { proceed: true };
 }

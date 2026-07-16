@@ -92,7 +92,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info('  /mcp               列出已配置的 MCP 服务器');
       console.info(chalk.cyan('\n检查点:'));
       console.info('  /checkpoint [files...]  创建/列出检查点 (别名 /cp)');
-      console.info('  /rollback <id>           回滚到检查点 (别名 /rb)');
+      console.info('  /rollback <id|auto>      回滚到检查点 (别名 /rb)');
       console.info('  /diff [id]                对比检查点与当前工作区');
       console.info(chalk.cyan('\n文件操作:'));
       console.info('  /read <file>       读取文件 (带行号)');
@@ -180,11 +180,11 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       break;
 
     case 'bash':
-      cmdBash(state.opts.workspacePath, args.join(' '));
+      cmdBash(state.opts.workspacePath, args.join(' '), state.checkpoints ?? undefined);
       break;
 
     case 'sh':
-      cmdBash(state.opts.workspacePath, args.join(' '));
+      cmdBash(state.opts.workspacePath, args.join(' '), state.checkpoints ?? undefined);
       break;
 
     default:
@@ -271,12 +271,22 @@ async function handleRollback(state: ReplState, args: string[]): Promise<void> {
   }
   const id = args[0];
   if (!id) {
-    console.info(chalk.yellow('用法: /rollback <checkpoint-id>'));
+    console.info(chalk.yellow('用法: /rollback <checkpoint-id> | /rollback auto'));
     return;
   }
+  let targetId = id;
+  if (id === 'auto') {
+    const autoCp = state.checkpoints.list().find((c) => c.reason === 'auto_pre_bash');
+    if (!autoCp) {
+      console.info(chalk.yellow('暂无自动检查点(auto_pre_bash)'));
+      return;
+    }
+    targetId = autoCp.id;
+    console.info(chalk.dim(`  找到自动检查点: ${targetId}`));
+  }
   try {
-    const result = await state.checkpoints.restore(id);
-    console.info(chalk.green(`✓ 已回滚到检查点: ${id}`));
+    const result = await state.checkpoints.restore(targetId);
+    console.info(chalk.green(`✓ 已回滚到检查点: ${targetId}`));
     console.info(chalk.dim(`  恢复: ${result.restored.length} 个 / 移除: ${result.removed.length} 个`));
   } catch (err) {
     console.info(chalk.red(`✗ 回滚失败: ${err instanceof Error ? err.message : String(err)}`));
