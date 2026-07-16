@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
@@ -36,13 +37,14 @@ export default function EduLayout({ children }: { children: React.ReactNode }) {
       <aside className="hidden w-56 shrink-0 lg:block">
         <div className="sticky top-4 space-y-1">
           <div className="mb-4 flex items-center gap-2 px-3">
-            <img
+            <Image
               src="/images/Dlogoedu.svg"
               alt="学习中心"
               width={28}
               height={28}
               className="h-7 w-7 shrink-0"
               loading="eager"
+              unoptimized
             />
             <span className="text-lg font-semibold">学习中心</span>
           </div>

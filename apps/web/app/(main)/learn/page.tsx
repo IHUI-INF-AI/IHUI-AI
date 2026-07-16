@@ -2,12 +2,14 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { GraduationCap, PlayCircle, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
+  Card,
   Input,
   Select,
   SelectTrigger,
@@ -89,13 +91,27 @@ export default function LearnPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-          <GraduationCap className="h-7 w-7 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
-      </header>
+      <Card className="overflow-hidden">
+        <div className="relative h-40 sm:h-48">
+          <Image
+            src="/images/edu-illustration.png"
+            alt=""
+            aria-hidden
+            fill
+            className="object-cover"
+            loading="eager"
+            sizes="(min-width: 1024px) 72rem, 100vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent" />
+          <div className="relative flex h-full flex-col justify-center gap-1 p-6 text-white">
+            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+              <GraduationCap className="h-7 w-7" />
+              {t('title')}
+            </h1>
+            <p className="text-sm opacity-90">{t('subtitle')}</p>
+          </div>
+        </div>
+      </Card>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import Image from 'next/image'
 import { Sparkles } from 'lucide-react'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -7,15 +8,16 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center text-center">
           {/* 欢迎图:浅色 welcome.svg,深色 baiwelcome.svg,与 next-themes attribute="class" 配合 */}
-          <img
+          <Image
             src="/images/welcome.svg"
             alt="Welcome to IHUI AI"
             width={447}
             height={67}
             className="welcome-img mb-4 h-auto w-[280px] max-w-full md:w-[340px]"
             loading="eager"
+            unoptimized
           />
-          <img
+          <Image
             src="/images/baiwelcome.svg"
             alt=""
             aria-hidden="true"
@@ -23,6 +25,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             height={67}
             className="welcome-img-dark mb-4 h-auto w-[280px] max-w-full md:w-[340px]"
             loading="eager"
+            unoptimized
           />
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
             <Sparkles className="h-6 w-6" />
