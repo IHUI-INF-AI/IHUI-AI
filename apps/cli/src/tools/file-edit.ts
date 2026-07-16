@@ -1,0 +1,171 @@
+/**
+ * 文件编辑工具集 — write_file / edit_file / delete_file。
+ *
+ * 灵感来源:grok-build 的 `xai-grok-tools` crate,port 了 openai/codex 的 apply_patch。
+ * 简化策略(做减法):
+ *   - write_file: 全量写入(创建或覆盖)
+ *   - edit_file: search-and-replace 块(对标 codex 的 apply_patch 格式)
+ *   - delete_file: 删除文件
+ *   - 所有写操作接入 checkpoints(编辑前自动快照)+ hooks(preToolCall/postToolCall)
+ *
+ * search-and-replace 格式:
+ *   <<<<<<< SEARCH
+ *   原始文本(精确匹配)
+ *   =======
+ *   替换文本
+ *   >>>>>>> REPLACE
+ */
+
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+import type { Tool, ToolResult, ToolContext } from './index.js';
+import type { CheckpointManager } from '../checkpoints/index.js';
+
+interface EditToolContext extends ToolContext {
+  checkpoints?: CheckpointManager;
+}
+
+function resolvePath(ctx: ToolContext, filePath: string): string {
+  return path.isAbsolute(filePath) ? filePath : path.resolve(ctx.workspacePath, filePath);
+}
+
+function snapshotBeforeEdit(ctx: EditToolContext, files: string[], reason: string): void {
+  if (!ctx.checkpoints) return;
+  try {
+    ctx.checkpoints.snapshotSync(files, reason);
+  } catch {
+    // 快照失败不阻塞编辑
+  }
+}
+
+export function createWriteFileTool(ctx: EditToolContext): Tool {
+  return {
+    name: 'write_file',
+    description: '写入文件(创建或覆盖)。参数:path(文件路径),content(文件内容)。',
+    parameters: {
+      path: { type: 'string', description: '文件路径(相对工作区根目录)' },
+      content: { type: 'string', description: '文件完整内容' },
+    },
+    required: ['path', 'content'],
+    execute(args): ToolResult {
+      const filePath = args.path as string;
+      const content = args.content as string;
+      if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
+      if (content === undefined) return { success: false, output: '', error: '缺少 content 参数' };
+
+      const preResult = runPreToolCall('write_file', { path: filePath, cwd: ctx.workspacePath });
+      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+
+      const abs = resolvePath(ctx, filePath);
+      snapshotBeforeEdit(ctx, [abs], 'auto_pre_write_file');
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      fs.writeFileSync(abs, content, 'utf-8');
+      runPostToolCall('write_file', { path: filePath, bytes: content.length });
+      const lines = content.split('\n').length;
+      return { success: true, output: `已写入 ${filePath} (${lines} 行, ${content.length} 字节)` };
+    },
+  };
+}
+
+const SEARCH_REPLACE_REGEX = /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g;
+
+export function applySearchReplace(original: string, patch: string): { result: string; replacements: number } | { error: string } {
+  let result = original;
+  let replacements = 0;
+  let match: RegExpExecArray | null;
+  SEARCH_REPLACE_REGEX.lastIndex = 0;
+  while ((match = SEARCH_REPLACE_REGEX.exec(patch)) !== null) {
+    const searchText = match[1]!;
+    const replaceText = match[2]!;
+    const idx = result.indexOf(searchText);
+    if (idx === -1) {
+      return { error: `未找到匹配的文本:\n${searchText.slice(0, 100)}...` };
+    }
+    result = result.slice(0, idx) + replaceText + result.slice(idx + searchText.length);
+    replacements++;
+  }
+  if (replacements === 0 && patch.includes('<<<<<<< SEARCH')) {
+    return { error: 'patch 格式错误,未执行替换' };
+  }
+  return { result, replacements };
+}
+
+export function createEditFileTool(ctx: EditToolContext): Tool {
+  return {
+    name: 'edit_file',
+    description: '编辑文件(search-and-replace)。参数:path(文件路径),search(搜索文本),replace(替换文本)。或用 patch 参数传入多个 SEARCH/REPLACE 块。',
+    parameters: {
+      path: { type: 'string', description: '文件路径' },
+      search: { type: 'string', description: '要搜索的文本(精确匹配)' },
+      replace: { type: 'string', description: '替换为的文本' },
+      patch: { type: 'string', description: '多个 SEARCH/REPLACE 块(格式: <<<<<<< SEARCH\\n...\\n=======\\n...\\n>>>>>>> REPLACE)' },
+    },
+    required: ['path'],
+    execute(args): ToolResult {
+      const filePath = args.path as string;
+      if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
+
+      const preResult = runPreToolCall('edit_file', { path: filePath, cwd: ctx.workspacePath });
+      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+
+      const abs = resolvePath(ctx, filePath);
+      if (!fs.existsSync(abs)) return { success: false, output: '', error: `文件不存在: ${filePath}` };
+
+      const original = fs.readFileSync(abs, 'utf-8');
+      snapshotBeforeEdit(ctx, [abs], 'auto_pre_edit_file');
+
+      let patchStr: string;
+      if (args.patch) {
+        patchStr = args.patch as string;
+      } else if (args.search !== undefined && args.replace !== undefined) {
+        patchStr = `<<<<<<< SEARCH\n${args.search}\n=======\n${args.replace}\n>>>>>>> REPLACE`;
+      } else {
+        return { success: false, output: '', error: '需要 search+replace 或 patch 参数' };
+      }
+
+      const applied = applySearchReplace(original, patchStr);
+      if ('error' in applied) {
+        return { success: false, output: '', error: applied.error };
+      }
+
+      fs.writeFileSync(abs, applied.result, 'utf-8');
+      runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements });
+      return {
+        success: true,
+        output: `已编辑 ${filePath} (${applied.replacements} 处替换)`,
+      };
+    },
+  };
+}
+
+export function createDeleteFileTool(ctx: EditToolContext): Tool {
+  return {
+    name: 'delete_file',
+    description: '删除文件。参数:path(文件路径)。',
+    parameters: {
+      path: { type: 'string', description: '要删除的文件路径' },
+    },
+    required: ['path'],
+    execute(args): ToolResult {
+      const filePath = args.path as string;
+      if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
+
+      const preResult = runPreToolCall('delete_file', { path: filePath, cwd: ctx.workspacePath });
+      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+
+      const abs = resolvePath(ctx, filePath);
+      if (!fs.existsSync(abs)) return { success: false, output: '', error: `文件不存在: ${filePath}` };
+      if (fs.statSync(abs).isDirectory()) return { success: false, output: '', error: `是目录,不是文件: ${filePath}` };
+
+      snapshotBeforeEdit(ctx, [abs], 'auto_pre_delete_file');
+      fs.unlinkSync(abs);
+      runPostToolCall('delete_file', { path: filePath });
+      return { success: true, output: `已删除 ${filePath}` };
+    },
+  };
+}
+
+export function createFileEditTools(ctx: EditToolContext): Tool[] {
+  return [createWriteFileTool(ctx), createEditFileTool(ctx), createDeleteFileTool(ctx)];
+}
