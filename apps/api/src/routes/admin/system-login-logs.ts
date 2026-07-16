@@ -5,14 +5,30 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { db } from '../../db/index.js'
 import { success, error } from '../../utils/response.js'
-import { sysLogininfor, lessons, zhsCourseVideo, zhsCourseTemp, zhsCourseVideoTemp, learnHomework, cozeVariables, oauthApps } from '@ihui/database'
+import {
+  sysLogininfor,
+  lessons,
+  zhsCourseVideo,
+  zhsCourseTemp,
+  zhsCourseVideoTemp,
+  learnHomework,
+  cozeVariables,
+  oauthApps,
+} from '@ihui/database'
 import { eq, ilike, desc, sql, or } from 'drizzle-orm'
-import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared.js'
+import {
+  paginationSchema,
+  idParamSchema,
+  registerCrud,
+  fields,
+  createLoginLogSchema,
+  updateLoginLogSchema,
+} from './_shared.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
 const systemLoginLogsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
-server.get('/system/login-logs', async (request, reply) => {
+  server.get('/system/login-logs', async (request, reply) => {
     const q = paginationSchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, search } = q.data
@@ -37,6 +53,59 @@ server.get('/system/login-logs', async (request, reply) => {
           .where(where)
       )[0]?.c ?? 0
     return reply.send(success({ list, total, page, pageSize }))
+  })
+  server.get('/system/login-logs/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db
+      .select()
+      .from(sysLogininfor)
+      .where(eq(sysLogininfor.infoId, Number(p.data.id)))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
+  })
+  server.post('/system/login-logs', async (request, reply) => {
+    const b = createLoginLogSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
+    const [row] = await db
+      .insert(sysLogininfor)
+      .values({
+        loginName: b.data.loginName ?? null,
+        ipaddr: b.data.ipaddr ?? null,
+        loginLocation: b.data.loginLocation ?? null,
+        browser: b.data.browser ?? null,
+        os: b.data.os ?? null,
+        status: b.data.status ?? '0',
+        msg: b.data.msg ?? null,
+        loginTime: b.data.loginTime ? new Date(b.data.loginTime) : new Date(),
+      })
+      .returning()
+    return reply.status(201).send(success(row))
+  })
+  server.put('/system/login-logs/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const b = updateLoginLogSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
+    const [row] = await db
+      .update(sysLogininfor)
+      .set({
+        ...(b.data.loginName !== undefined && { loginName: b.data.loginName }),
+        ...(b.data.ipaddr !== undefined && { ipaddr: b.data.ipaddr }),
+        ...(b.data.loginLocation !== undefined && { loginLocation: b.data.loginLocation }),
+        ...(b.data.browser !== undefined && { browser: b.data.browser }),
+        ...(b.data.os !== undefined && { os: b.data.os }),
+        ...(b.data.status !== undefined && { status: b.data.status }),
+        ...(b.data.msg !== undefined && { msg: b.data.msg }),
+        ...(b.data.loginTime !== undefined && {
+          loginTime: b.data.loginTime ? new Date(b.data.loginTime) : new Date(),
+        }),
+      })
+      .where(eq(sysLogininfor.infoId, Number(p.data.id)))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
   })
   server.delete('/system/login-logs/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
