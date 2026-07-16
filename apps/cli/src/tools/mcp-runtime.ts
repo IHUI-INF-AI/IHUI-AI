@@ -113,7 +113,7 @@ async function sendHttpRpc(
   }
 }
 
-export async function connectMcpServer(server: McpServer): Promise<McpConnection> {
+async function connectMcpServer(server: McpServer): Promise<McpConnection> {
   const conn: McpConnection = { server, tools: [], connected: false };
   const transport = server.transport ?? 'stdio';
 
@@ -158,7 +158,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
   return conn;
 }
 
-export async function callMcpServer(
+async function callMcpServer(
   conn: McpConnection,
   method: string,
   params: Record<string, unknown>,
@@ -176,7 +176,7 @@ export async function callMcpServer(
   }
 }
 
-export function disconnectMcpServer(conn: McpConnection): void {
+function disconnectMcpServer(conn: McpConnection): void {
   if (conn.process) {
     try {
       conn.process.kill();
@@ -206,7 +206,7 @@ function convertSchema(schema: unknown): Record<string, ToolParameter> {
   return result;
 }
 
-export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
+function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
   const params = convertSchema(mcpTool.inputSchema);
   const required = mcpTool.inputSchema.required ?? [];
   const serverName = conn.server.name;
