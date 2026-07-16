@@ -185,9 +185,9 @@ function extractBackendRoutes() {
   if (!existsSync(API_ROUTES_DIR)) return routes
   const files = collectFiles(API_ROUTES_DIR, ['.ts'])
   // 已知 scoped instance 变量名: server.register(async (VAR) => {...})
-  // 项目实际使用: server / s (admin-sys) / child (exam) / scope (live) / authed (member)
+  // 项目实际使用: server / s (admin-sys) / child (exam) / scope (live) / authed (member) / fastify (zhs-course 等)
   const methodRe =
-    /\b(?:server|s|child|scope|authed|instance|app)\.(get|post|put|patch|delete)\(\s*['"`]([^'"`]*)['"`]/g
+    /\b(?:server|s|child|scope|authed|instance|app|fastify)\.(get|post|put|patch|delete)\(\s*['"`]([^'"`]*)['"`]/g
   // registerCrud(VAR, 'basePath', ...) 工厂: 展开为 GET/POST/PUT/:id/DELETE/:id/DELETE(batch) 共 5 条
   const crudRe = /registerCrud\(\s*\w+\s*,\s*['"`]([^'"`]+)['"`]/g
   for (const file of files) {
