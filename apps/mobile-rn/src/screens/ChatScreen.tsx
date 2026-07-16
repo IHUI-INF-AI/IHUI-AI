@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react'
 import { View, Text, FlatList, Pressable } from 'react-native'
+import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { Button, Input } from '@ihui/ui-native'
 import { streamChat } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Role = 'user' | 'assistant' | 'system'
 
@@ -14,7 +16,7 @@ interface ChatMessage {
 
 const MODEL = 'stepfun/step-3.7-flash'
 
-export function ChatScreen() {
+export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
   const { logout } = useAuth()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
@@ -97,9 +99,14 @@ export function ChatScreen() {
     <View className="flex-1 bg-white">
       <View className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
         <Text className="text-lg font-semibold text-gray-900">IHUI AI</Text>
-        <Pressable onPress={logout} hitSlop={8}>
-          <Text className="text-sm text-gray-500">退出</Text>
-        </Pressable>
+        <View className="flex-row gap-4">
+          <Pressable onPress={() => navigation.navigate('Settings')} hitSlop={8}>
+            <Text className="text-sm text-gray-500">设置</Text>
+          </Pressable>
+          <Pressable onPress={logout} hitSlop={8}>
+            <Text className="text-sm text-gray-500">退出</Text>
+          </Pressable>
+        </View>
       </View>
 
       <FlatList
