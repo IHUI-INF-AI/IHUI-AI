@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
-import { View, Text, FlatList, Pressable } from 'react-native'
+import { View, Text, FlatList, Pressable, Alert, Share } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { Button, Input } from '@ihui/ui-native'
 import { streamChat } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
+import { useScreenshot } from '../hooks/use-screenshot'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Role = 'user' | 'assistant' | 'system'
@@ -75,12 +76,33 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     setIsStreaming(false)
   }
 
+  // 长按消息气泡:截图并弹出分享/保存菜单
+  const messageRefs = useRef<Map<string, View | null>>(new Map())
+  const { capture, busy: capturing } = useScreenshot()
+  const setMessageRef = (id: string) => (el: View | null) => {
+    if (el) messageRefs.current.set(id, el)
+    else messageRefs.current.delete(id)
+  }
+  const handleLongPress = async (item: ChatMessage) => {
+    const el = messageRefs.current.get(item.id)
+    if (!el || capturing) return
+    const uri = await capture({ current: el } as React.RefObject<View>)
+    if (!uri) return
+    Alert.alert(item.role === 'user' ? '我的消息' : 'AI 消息', '截图已生成', [
+      { text: '分享', onPress: () => Share.share({ url: uri, message: item.content }) },
+      { text: '取消', style: 'cancel' },
+    ])
+  }
+
   const renderItem = ({ item, index }: { item: ChatMessage; index: number }) => {
     const isUser = item.role === 'user'
     const isLastAi = item.role === 'assistant' && isStreaming && index === messages.length - 1
     return (
       <View className={isUser ? 'items-end' : 'items-start'}>
-        <View
+        <Pressable
+          ref={setMessageRef(item.id)}
+          onLongPress={() => handleLongPress(item)}
+          delayLongPress={500}
           className={
             isUser
               ? 'max-w-[80%] rounded-lg bg-gray-100 px-3 py-2'
@@ -90,7 +112,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
           <Text className="text-sm text-gray-900">
             {item.content || (isLastAi ? '思考中...' : '')}
           </Text>
-        </View>
+        </Pressable>
       </View>
     )
   }
@@ -99,7 +121,19 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     <View className="flex-1 bg-white">
       <View className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
         <Text className="text-lg font-semibold text-gray-900">IHUI AI</Text>
-        <View className="flex-row gap-4">
+        <View className="flex-row gap-3">
+          <Pressable onPress={() => navigation.navigate('Wallet')} hitSlop={8}>
+            <Text className="text-sm text-gray-500">钱包</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Course')} hitSlop={8}>
+            <Text className="text-sm text-gray-500">课程</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Order')} hitSlop={8}>
+            <Text className="text-sm text-gray-500">订单</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Profile')} hitSlop={8}>
+            <Text className="text-sm text-gray-500">我的</Text>
+          </Pressable>
           <Pressable onPress={() => navigation.navigate('Settings')} hitSlop={8}>
             <Text className="text-sm text-gray-500">设置</Text>
           </Pressable>

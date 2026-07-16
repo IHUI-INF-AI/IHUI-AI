@@ -3,80 +3,12 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { parseStreamLine } from '@ihui/api-client'
 
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { createConversation, sendMessage as persistMessage } from '@/lib/chat-api'
 import { logger } from '@/lib/logger'
-
-/**
- * 解析单行 SSE / data-stream 文本，返回增量文本。
- * 兼容：
- *  - OpenAI 风格 SSE：`data: {"choices":[{"delta":{"content":"x"}}]}` / `data: [DONE]`
- *  - Vercel AI SDK data-stream：`0:"x"`（type 0 = 文本 token）
- *  - 裸文本流（非 JSON）
- */
-export function parseLine(line: string): string | null {
-  if (!line) return null
-  if (line.startsWith(':')) return null // SSE comment / heartbeat
-
-  let data = line
-  if (line.startsWith('data:')) {
-    data = line.slice(5).replace(/^\s/, '')
-  } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
-    return null
-  }
-
-  if (data === '[DONE]') return null
-
-  // Vercel AI SDK data-stream protocol: `TYPE:JSON`
-  const proto = data.match(/^(\d+):(.*)$/s)
-  const protoType = proto?.[1]
-  const protoPayload = proto?.[2]
-  if (proto && protoType && protoPayload) {
-    try {
-      const parsed = JSON.parse(protoPayload)
-      if (protoType === '0' && typeof parsed === 'string') return parsed
-      return null
-    } catch {
-      return null
-    }
-  }
-
-  // JSON 负载
-  try {
-    const json = JSON.parse(data)
-    // 检测 SSE error 事件(如 {"type":"error","message":"..."} 或 {"error":true,...})
-    if (json?.type === 'error' && typeof json?.message === 'string') {
-      throw new SSEError(json.message)
-    }
-    if (json?.error === true && typeof json?.error_message === 'string') {
-      throw new SSEError(json.error_message)
-    }
-    const choice = json?.choices?.[0]
-    if (choice) {
-      const delta = choice.delta?.content ?? choice.message?.content ?? choice.text
-      if (typeof delta === 'string') return delta
-    }
-    if (typeof json?.content === 'string') return json.content
-    if (typeof json?.delta === 'string') return json.delta
-    if (typeof json?.text === 'string') return json.text
-    return null
-  } catch (e) {
-    // SSEError 向上抛出,由调用方捕获
-    if (e instanceof SSEError) throw e
-    // 非 JSON:当作裸文本(剥掉 data: 前缀后的内容)
-    return data
-  }
-}
-
-/** SSE 错误事件标记,由 parseLine 抛出,sendMessage 捕获 */
-class SSEError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'SSEError'
-  }
-}
 
 export interface UseChatReturn {
   messages: ReturnType<typeof useChatStore.getState>['messages']
@@ -211,7 +143,7 @@ export function useChat(): UseChatReturn {
           while ((nl = buffer.indexOf('\n')) !== -1) {
             const line = buffer.slice(0, nl).replace(/\r$/, '')
             buffer = buffer.slice(nl + 1)
-            const delta = parseLine(line)
+            const delta = parseStreamLine(line)
             if (delta) {
               useChatStore.getState().appendToMessage(assistantId, delta)
             }
@@ -219,7 +151,7 @@ export function useChat(): UseChatReturn {
         }
 
         if (buffer.trim()) {
-          const delta = parseLine(buffer)
+          const delta = parseStreamLine(buffer)
           if (delta) {
             useChatStore.getState().appendToMessage(assistantId, delta)
           }
@@ -232,8 +164,8 @@ export function useChat(): UseChatReturn {
             useChatStore.getState().setMessageError(assistantId, msg)
             useChatStore.getState().setError(msg)
           }
-        } else if (err instanceof SSEError) {
-          // AI service 返回的 SSE error 事件
+        } else if (err instanceof Error && err.name === 'SSEError') {
+          // AI service 返回的 SSE error 事件(parseStreamLine 抛 name='SSEError')
           useChatStore.getState().setMessageError(assistantId, err.message)
           useChatStore.getState().setError(err.message)
         } else {
