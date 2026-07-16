@@ -152,7 +152,7 @@ async function runAgentAndExit(
       signal: abort.signal,
       planFirst: cfg.planFirst,
     });
-    process.exit(stopReasonToExitCode(result.stopReason));
+    process.exitCode = stopReasonToExitCode(result.stopReason);
   } finally {
     process.off('SIGINT', onSigint);
   }
