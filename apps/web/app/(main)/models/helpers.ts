@@ -141,12 +141,9 @@ export const MODEL_DESCRIPTIONS: Record<string, { description: string; features:
 
 export async function fetchModels(): Promise<Model[]> {
   try {
-    const res = await fetch(
-      `${process.env.AI_SERVICE_URL ?? 'http://localhost:8000'}/api/llm/models`,
-      {
-        next: { revalidate: 300 },
-      },
-    )
+    const res = await fetch('/api/llm/models', {
+      next: { revalidate: 300 },
+    })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = (await res.json()) as {
       models: Array<{
