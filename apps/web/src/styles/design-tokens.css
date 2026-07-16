@@ -1,0 +1,223 @@
+/* design-tokens.css — IHUI-AI 设计 token 系统(从历史项目迁移) */
+/* 源文件:
+ *   - G:\IHUI-AI-initial\client\src\styles\_global-tokens.scss
+ *   - G:\IHUI-AI-initial\client\src\styles\_design-tokens.scss
+ *   - G:\IHUI-AI-initial\client\src\styles\_inputs.scss
+ *   - D:\历史项目存档\ihui-ai-admin-frontend\src\assets\styles\variables.scss
+ * 迁移原则:严格提取源文件真实值,不编造。
+ */
+
+/* ============ 全局基础变量 ============ */
+/* --global-border-radius 在源文件中为 SCSS 变量 $global-border-radius: 8px,
+   被 var(--global-border-radius) 引用,此处定义为 CSS 变量以保证引用有效。 */
+:root {
+  --global-border-radius: 8px;
+  --global-header-height: 60px;
+}
+
+/* ============ 业务品牌色 ============ */
+/* 源: _global-tokens.scss L316-358 */
+:root {
+  /* 微信小程序按钮品牌色 - 微信绿渐变 */
+  --color-miniapp-green: linear-gradient(135deg, #07c160, #06ad56);
+  --color-miniapp-green-dark: #06ad56;
+  --color-miniapp-green-darker: #059a4c;
+  --color-miniapp-green-darkest: #048040;
+
+  /* 排行榜排名颜色 */
+  --color-rank-gold: #f59e0b;
+  --color-rank-silver: #94a3b8;
+  --color-rank-bronze: #b45309;
+
+  /* 排行榜头像渐变 */
+  --color-rank-avatar-start: #6366f1;
+  --color-rank-avatar-end: #8b5cf6;
+
+  /* 排行榜 top-1 背景色 */
+  --color-rank-top1-bg: rgba(245, 158, 11, 0.04);
+
+  /* VIP 会员金色渐变 */
+  --color-vip-gold-start: #ffd700;
+  --color-vip-gold-end: #ffa500;
+
+  /* 支付页紫色品牌渐变 */
+  --color-payment-purple-start: #667eea;
+  --color-payment-purple-end: #764ba2;
+
+  /* 装饰性渐变 - 浅紫到浅黄(卡片背景) */
+  --color-gradient-purple-yellow: linear-gradient(112deg, rgba(205, 208, 255, 0.7) 0%, rgba(253, 255, 225, 0.7) 100%);
+
+  /* 装饰性渐变 - 浅紫到深紫(VIP 介绍) */
+  --color-gradient-purple-deep: linear-gradient(269deg, rgba(217, 219, 254, 0.8) 219%, rgba(144, 125, 255, 0.8) 219%);
+
+  /* 装饰性渐变 - 白到蓝(横幅) */
+  --color-gradient-white-blue: linear-gradient(0deg, rgba(255, 255, 255, 1) 1%, rgba(77, 180, 232, 1) 77%);
+
+  /* 装饰性渐变 - 卡片左(浅紫到浅黄) */
+  --color-gradient-card-left: linear-gradient(116deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+
+  /* 装饰性渐变 - 卡片右(黑到深绿) */
+  --color-gradient-card-right: linear-gradient(116deg, rgba(0, 0, 0, 0.8) 3%, rgba(0, 109, 11, 0.8) 104%);
+
+  /* 装饰性渐变 - 组背景(浅紫到浅黄低透明度) */
+  --color-gradient-group: linear-gradient(106deg, rgba(228, 229, 255, 0.25) 4%, rgba(254, 255, 236, 0.25) 104%);
+}
+
+/* ============ 透明度色板 ============ */
+/* 源: _global-tokens.scss L225-278
+ * 说明: 源文件白色档位实际 26 个、黑色档位实际 24 个(共 50 档),
+ *       存在档位间隔(如 7/9/11/13/16/17/19/21-29 等缺失),此处忠实保留源文件档位。 */
+:root {
+  /* 白色透明度阶梯(26 档) */
+  --color-white-2: rgba(255, 255, 255, 0.02);
+  --color-white-3: rgba(255, 255, 255, 0.03);
+  --color-white-4: rgba(255, 255, 255, 0.04);
+  --color-white-5: rgba(255, 255, 255, 0.05);
+  --color-white-6: rgba(255, 255, 255, 0.06);
+  --color-white-8: rgba(255, 255, 255, 0.08);
+  --color-white-10: rgba(255, 255, 255, 0.1);
+  --color-white-12: rgba(255, 255, 255, 0.12);
+  --color-white-14: rgba(255, 255, 255, 0.14);
+  --color-white-15: rgba(255, 255, 255, 0.15);
+  --color-white-18: rgba(255, 255, 255, 0.18);
+  --color-white-20: rgba(255, 255, 255, 0.2);
+  --color-white-30: rgba(255, 255, 255, 0.3);
+  --color-white-35: rgba(255, 255, 255, 0.35);
+  --color-white-40: rgba(255, 255, 255, 0.4);
+  --color-white-45: rgba(255, 255, 255, 0.45);
+  --color-white-50: rgba(255, 255, 255, 0.5);
+  --color-white-60: rgba(255, 255, 255, 0.6);
+  --color-white-70: rgba(255, 255, 255, 0.7);
+  --color-white-72: rgba(255, 255, 255, 0.72);
+  --color-white-75: rgba(255, 255, 255, 0.75);
+  --color-white-80: rgba(255, 255, 255, 0.8);
+  --color-white-85: rgba(255, 255, 255, 0.85);
+  --color-white-90: rgba(255, 255, 255, 0.9);
+  --color-white-95: rgba(255, 255, 255, 0.95);
+  --color-white-98: rgba(255, 255, 255, 0.98);
+
+  /* 黑色透明度阶梯(24 档) */
+  --color-black-2: rgba(0, 0, 0, 0.02);
+  --color-black-3: rgba(0, 0, 0, 0.03);
+  --color-black-04: rgba(0, 0, 0, 0.04);
+  --color-black-4: rgba(0, 0, 0, 0.04);
+  --color-black-5: rgba(0, 0, 0, 0.05);
+  --color-black-6: rgba(0, 0, 0, 0.06);
+  --color-black-8: rgba(0, 0, 0, 0.08);
+  --color-black-10: rgba(0, 0, 0, 0.1);
+  --color-black-12: rgba(0, 0, 0, 0.12);
+  --color-black-15: rgba(0, 0, 0, 0.15);
+  --color-black-20: rgba(0, 0, 0, 0.2);
+  --color-black-25: rgba(0, 0, 0, 0.25);
+  --color-black-30: rgba(0, 0, 0, 0.3);
+  --color-black-40: rgba(0, 0, 0, 0.4);
+  --color-black-45: rgba(0, 0, 0, 0.45);
+  --color-black-50: rgba(0, 0, 0, 0.5);
+  --color-black-60: rgba(0, 0, 0, 0.6);
+  --color-black-70: rgba(0, 0, 0, 0.7);
+  --color-black-75: rgba(0, 0, 0, 0.75);
+  --color-black-80: rgba(0, 0, 0, 0.8);
+  --color-black-85: rgba(0, 0, 0, 0.85);
+  --color-black-87: rgba(0, 0, 0, 0.87);
+  --color-black-90: rgba(0, 0, 0, 0.9);
+  --color-black-95: rgba(0, 0, 0, 0.95);
+}
+
+/* ============ z-index token ============ */
+/* 源: _global-tokens.scss L365-377
+ * 层级从低到高: base < header < sticky < dropdown/overlay < modal < popover < notification < loading < max */
+:root {
+  --z-base: 1;              /* 基础内容层 */
+  --z-0: 0;                 /* 层叠上下文基底(创建新层叠上下文用) */
+  --z-header: 100;          /* 头部导航栏 */
+  --z-sticky: 990;          /* 粘性定位元素 */
+  --z-dropdown: 1000;       /* 下拉菜单 */
+  --z-overlay: 1000;        /* 遮罩层 */
+  --z-modal: 2000;          /* 弹窗/对话框 */
+  --z-popover: 2001;        /* 弹出层(高于 modal) */
+  --z-notification: 9999;   /* 通知/提示 */
+  --z-loading: 10000;       /* 全屏加载 */
+  --z-max: 10003;           /* 最大层级(全屏覆盖) */
+}
+
+/* ============ Premium 变量 ============ */
+/* 源: _design-tokens.scss L771-786 + _global-tokens.scss L214
+ * 说明: 源文件中 Premium 阴影已统一为全局投影 0 2px 8px var(--color-black-6) */
+:root {
+  /* 全局投影 - 唯一设定:亮色模式 2px 微弱浅灰 */
+  --global-box-shadow: 0 2px 8px var(--color-black-6);
+
+  /* Premium 阴影 - 统一为全局投影 */
+  --shadow-premium-sm: 0 2px 8px var(--color-black-6);
+  --shadow-premium: 0 2px 8px var(--color-black-6);
+  --shadow-premium-lg: 0 2px 8px var(--color-black-6);
+  --shadow-premium-xl: 0 2px 8px var(--color-black-6);
+  --shadow-premium-hover: 0 2px 8px var(--color-black-6);
+
+  /* Premium 缓动函数 */
+  --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-premium-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-premium-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-premium-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ============ 智能圆角 ============ */
+/* 源: _inputs.scss L200-206
+ * 说明: 源文件中 4 档智能圆角统一引用 var(--global-border-radius),即 8px */
+:root {
+  --smart-radius-small: var(--global-border-radius);
+  --smart-radius-medium: var(--global-border-radius);
+  --smart-radius-large: var(--global-border-radius);
+  --smart-radius-xl: var(--global-border-radius);
+}
+
+/* ============ sidebar 变量 ============ */
+/* 源: ihui-ai-admin-frontend variables.scss ($base-sidebar-width: 200px)
+ *      其余 sidebar 变量为 RuoYi 风格约定值,由任务描述指定 */
+:root {
+  --sidebar-width: 200px;
+  --sidebar-collapsed-width: 54px;
+  --sidebar-menu-height: 24px;
+  --sidebar-indent-1: 20px;
+  --sidebar-indent-2: 40px;
+  --sidebar-dark-bg: #2a2a2a;
+  --sidebar-light-bg: #ffffff;
+}
+
+/* ============ header-dropdown 变量 ============ */
+/* 源: _design-tokens.scss L410-433 (亮色模式 css-variables-light mixin) */
+:root {
+  /* 下拉菜单容器 */
+  --header-dropdown-bg: var(--el-bg-color);
+  --header-dropdown-border: 1px solid var(--dropdown-border-color);
+  --header-dropdown-border-radius: var(--global-border-radius);
+  --header-dropdown-padding: 6px 8px;
+  --header-dropdown-shadow: none;
+  --header-dropdown-z-index: var(--z-max);
+
+  /* 下拉菜单项 */
+  --header-dropdown-item-padding: 6px 16px;
+  --header-dropdown-item-font-size: 14px;
+  --header-dropdown-item-font-weight: 500;
+  --header-dropdown-item-border-radius: var(--global-border-radius);
+  --header-dropdown-item-color: var(--el-text-color-primary);
+  --header-dropdown-item-bg: transparent;
+  --header-dropdown-item-hover-bg: var(--el-fill-color-light);
+  --header-dropdown-item-hover-color: var(--el-color-primary);
+  --header-dropdown-item-active-bg: var(--el-fill-color-light);
+  --header-dropdown-item-active-color: var(--el-text-color-primary);
+  --header-dropdown-item-active-font-weight: 700;
+}
+
+/* ============ 暗色模式覆盖 ============ */
+/* 源: _design-tokens.scss L607-625 (css-variables-dark mixin)
+ * 仅列出与亮色模式值不同的变量,相同的变量不重复声明。 */
+.dark {
+  /* 下拉菜单项 - 暗色模式 hover/active 背景与文字色调整 */
+  --header-dropdown-item-hover-bg: var(--el-fill-color-darker);
+  --header-dropdown-item-hover-color: var(--el-text-color-primary);
+  --header-dropdown-item-active-bg: var(--el-fill-color-darker);
+
+  /* sidebar 亮色背景在暗色模式下置暗 */
+  --sidebar-light-bg: #2a2a2a;
+}
