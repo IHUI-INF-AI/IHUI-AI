@@ -5,8 +5,9 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { execSync } from 'node:child_process'
 import chalk from 'chalk'
+import { runSandboxed } from '../sandbox/index.js'
+import { runPreToolCall, runPostToolCall } from '../hooks/index.js'
 
 const MAX_GREP_RESULTS = 50
 const MAX_GLOB_RESULTS = 50
@@ -177,18 +178,26 @@ export function cmdBash(workspacePath: string, command: string): void {
     console.info(chalk.yellow('用法: /bash <command>'))
     return
   }
-  console.info(chalk.dim(`$ ${command}`))
-  try {
-    const output = execSync(command, {
-      cwd: workspacePath,
-      encoding: 'utf-8',
-      timeout: BASH_TIMEOUT_MS,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
-    if (output.trim()) console.info(output.trimEnd())
-  } catch (err) {
-    const e = err as { stderr?: string; message?: string }
-    if (e.stderr) console.info(chalk.red(e.stderr.trim()))
-    else console.info(chalk.red(`命令失败: ${e.message ?? '未知错误'}`))
+
+  const preResult = runPreToolCall('bash', { command, cwd: workspacePath })
+  if (!preResult.proceed) {
+    console.info(chalk.yellow(`⛔ ${preResult.reason}`))
+    return
   }
+
+  console.info(chalk.dim(`$ ${command}`))
+  const result = runSandboxed(command, {
+    cwd: workspacePath,
+    timeoutMs: BASH_TIMEOUT_MS,
+  })
+  if (result.timedOut) {
+    console.info(chalk.red(`⏱ 命令超时 (${BASH_TIMEOUT_MS / 1000}s)`))
+  }
+  if (result.stdout.trim()) console.info(result.stdout.trimEnd())
+  if (result.stderr.trim()) console.info(chalk.red(result.stderr.trimEnd()))
+  if (result.exitCode !== null && result.exitCode !== 0) {
+    console.info(chalk.dim(`  exit: ${result.exitCode}`))
+  }
+
+  runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut })
 }

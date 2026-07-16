@@ -43,6 +43,7 @@ export interface HookResult {
 }
 
 export function getHooksPath(): string {
+  if (process.env.IHUI_HOOKS_CONFIG) return process.env.IHUI_HOOKS_CONFIG;
   return path.join(os.homedir(), '.ihui', 'hooks.json');
 }
 
