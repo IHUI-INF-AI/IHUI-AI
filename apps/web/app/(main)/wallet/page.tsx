@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Wallet, Plus, ArrowDownToLine, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -93,8 +94,16 @@ export default function WalletPage() {
           <div className="min-w-[200px] flex-1 rounded-xl border bg-card p-4 text-card-foreground shadow">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">{t('balance')}</span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Wallet className="h-4 w-4" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <Image
+                  src="/images/common/wallet.svg"
+                  alt=""
+                  aria-hidden
+                  width={18}
+                  height={18}
+                  className="h-[18px] w-[18px]"
+                  unoptimized
+                />
               </div>
             </div>
             <div className="mt-2 text-2xl font-bold tracking-tight">
