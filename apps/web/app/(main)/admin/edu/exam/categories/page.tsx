@@ -32,6 +32,7 @@ export default function EduExamCategoriesPage() {
     mutationFn: () => {
       const body = {
         name: form.name.trim(),
+        pid: form.pid || null,
         sort: Number(form.sort) || 0,
         status: form.status ? 1 : 0,
       }
@@ -66,7 +67,7 @@ export default function EduExamCategoriesPage() {
   }
   function openEdit(c: Category) {
     setEditing(c)
-    setForm({ name: c.name, sort: String(c.sort), status: c.status === 1 })
+    setForm({ pid: c.pid ?? '', name: c.name, sort: String(c.sort), status: c.status === 1 })
     setErr(null)
     setOpen(true)
   }
@@ -119,6 +120,7 @@ export default function EduExamCategoriesPage() {
         savePending={saveMut.isPending}
         onSubmit={submit}
         onClose={closeDialog}
+        categories={categories}
       />
     </div>
   )

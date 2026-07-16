@@ -15,6 +15,7 @@ export const EMPTY_FORM: CircleForm = {
   slug: '',
   description: '',
   coverImage: '',
+  cidList: '',
   isPublished: true,
 }
 
@@ -50,6 +51,14 @@ export function circleToForm(item: Circle): CircleForm {
     slug: item.slug,
     description: item.description ?? '',
     coverImage: item.coverImage ?? '',
+    cidList: (item.cidList ?? []).join(', '),
     isPublished: item.isPublished,
   }
+}
+
+export function parseCidList(cidList: string): string[] {
+  return cidList
+    .split(/[,，\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
 }

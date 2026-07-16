@@ -1,4 +1,5 @@
 import { fetchApi } from '@/lib/api'
+import type { ApiResult } from '@ihui/types'
 
 export interface Member {
   id: string
@@ -102,4 +103,68 @@ export function statusDotClass(status: number) {
   if (status === 1) return 'bg-emerald-500'
   if (status === 2) return 'bg-rose-500'
   return 'bg-amber-500'
+}
+
+export interface ImportResultItem {
+  serialNum: number
+  rowNum: number
+  success: boolean
+  message: string
+  companyName?: string
+  memberName?: string
+  memberMobile?: string
+  postName?: string
+  lessonName?: string
+}
+
+export interface ImportResult {
+  successCount: number
+  failureCount: number
+  resultItemList: ImportResultItem[]
+}
+
+export function parseCsvToMembers(csv: string): Array<Record<string, unknown>> {
+  const lines = csv.split(/\r?\n/).filter((l) => l.trim().length > 0)
+  const headerLine = lines[0]
+  if (!headerLine || lines.length < 2) return []
+  const headers = headerLine.split(',').map((h) => h.trim())
+  return lines.slice(1).map((line, idx) => {
+    const values = line.split(',')
+    const row: Record<string, unknown> = { serialNum: idx + 1, rowNum: idx + 2 }
+    headers.forEach((h, i) => {
+      const v = values[i]?.trim() ?? ''
+      if (h === 'gender' || h === 'status') {
+        row[h] = v === '' ? undefined : Number(v)
+      } else {
+        row[h] = v
+      }
+    })
+    return row
+  })
+}
+
+export async function batchUploadMembers(file: File): Promise<ApiResult<ImportResult>> {
+  // 方案:CSV 解析 + JSON 数组提交,后端 /api/members/batch-upload 返回 { imported, failed, errors }
+  // TODO: 若需支持 Excel xlsx 格式,后端需补 multipart /api/members/import/excel 接口
+  const text = await file.text()
+  const members = parseCsvToMembers(text)
+  const result = await fetchApi<{ imported: number; failed: number; errors: ImportResultItem[] }>(
+    '/api/members/batch-upload',
+    {
+      method: 'POST',
+      body: JSON.stringify({ members }),
+    },
+  )
+  if (!result.success) {
+    return result
+  }
+  const data = result.data
+  return {
+    success: true,
+    data: {
+      successCount: data.imported ?? 0,
+      failureCount: data.failed ?? Math.max(0, members.length - (data.imported ?? 0)),
+      resultItemList: data.errors ?? [],
+    },
+  }
 }
