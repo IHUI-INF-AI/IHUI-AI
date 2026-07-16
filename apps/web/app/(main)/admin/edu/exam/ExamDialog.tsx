@@ -19,6 +19,7 @@ import {
 } from '@ihui/ui'
 import { useTranslations } from 'next-intl'
 import type { Paper, PaperForm } from './types'
+import { ExamDialogFields } from './ExamDialogFields'
 
 interface Props {
   open: boolean
@@ -142,6 +143,7 @@ export function ExamDialog({
               </Select>
             </div>
           </div>
+          <ExamDialogFields form={form} onFormChange={onFormChange} />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
               {t('cancel')}

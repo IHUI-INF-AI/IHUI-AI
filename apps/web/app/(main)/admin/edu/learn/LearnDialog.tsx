@@ -20,7 +20,16 @@ import {
   Switch,
 } from '@ihui/ui'
 import { selectClass } from '@/lib/edu'
+import { ImageUpload } from '@/components/form/ImageUpload'
+import { TiptapRichText } from '@/components/form/TiptapRichText'
 import type { Category, LForm, Lesson } from './types'
+
+function splitIds(v: string): string[] {
+  return v
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
 
 interface Props {
   open: boolean
@@ -101,6 +110,34 @@ export function LearnDialog({
               id="l-intro"
               value={form.intro}
               onChange={(e) => setForm({ ...form, intro: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="l-intro-rt">{t('labelIntroduction')}</Label>
+            <TiptapRichText
+              value={form.introduction}
+              onChange={(v) => setForm({ ...form, introduction: v })}
+              placeholder={t('introductionPlaceholder')}
+              className="w-full"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="l-image">{t('labelImage')}</Label>
+            <ImageUpload
+              value={form.image || undefined}
+              onChange={(v) =>
+                setForm({ ...form, image: typeof v === 'string' ? v : (v[0] ?? '') })
+              }
+              placeholder={t('imageUploadPlaceholder')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="l-cid">{t('labelCidList')}</Label>
+            <Input
+              id="l-cid"
+              value={form.cidList.join(',')}
+              onChange={(e) => setForm({ ...form, cidList: splitIds(e.target.value) })}
+              placeholder={t('cidListPlaceholder')}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
