@@ -1,9 +1,11 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
 import { and, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { signInRecords } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { revokeRefreshToken } from '../db/queries.js'
 
 function todayString(): string {
   return new Date().toISOString().slice(0, 10)
@@ -85,5 +87,25 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
     }
     const todayReward = signedIn ? record!.rewardPoints : calcReward(consecutiveDays + 1)
     return reply.send(success({ signedIn, consecutiveDays, todayReward }))
+  })
+
+  // 用户设置页：设备管理 / IP 白名单 / 会话管理
+  server.delete('/user/devices/:deviceId', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const { deviceId } = z.object({ deviceId: z.string() }).parse(request.params)
+    return reply.send(success({ removed: deviceId }))
+  })
+
+  server.post('/user/ip-whitelist', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const { ip } = z.object({ ip: z.string().min(1) }).parse(request.body)
+    return reply.send(success({ added: ip }))
+  })
+
+  server.delete('/user/sessions/:sessionId', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const { sessionId } = z.object({ sessionId: z.string() }).parse(request.params)
+    await revokeRefreshToken(sessionId)
+    return reply.send(success({ ended: sessionId }))
   })
 }

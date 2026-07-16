@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { getProfile, type UserProfile as ApiUserProfile } from '@ihui/api-client'
+import { getProfile, type AuthUser } from '@ihui/api-client'
 import { initApi, getToken } from './lib/token'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
@@ -9,11 +9,12 @@ import ProfilePage from './pages/ProfilePage'
 import WalletPage from './pages/WalletPage'
 import CoursePage from './pages/CoursePage'
 import SettingsPage from './pages/SettingsPage'
+import OrderPage from './pages/OrderPage'
 import './app.css'
 
 export default function App() {
   const [ready, setReady] = useState(false)
-  const [user, setUser] = useState<ApiUserProfile | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const token = getToken()
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/courses" element={<CoursePage />} />
+          <Route path="/orders" element={<OrderPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Route>

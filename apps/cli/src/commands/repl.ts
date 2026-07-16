@@ -23,6 +23,21 @@ import {
   setMemoryEnabled,
   type MemoryEntry,
 } from '../memory/index.js';
+import {
+  registerTask,
+  listTasks,
+  getTaskOutput,
+  waitForTask,
+  killTask,
+  clearAllTasks,
+  startLoop,
+  listLoops,
+  stopLoop,
+  clearAllLoops,
+} from '../tools/background-registry.js';
+import { runSandboxedAsync } from '../sandbox/index.js';
+import { estimateMessagesTokens } from '../context.js';
+import { loadHooks, runSessionStartHooks, runSessionEndHooks } from '../hooks/index.js';
 
 export interface ReplOptions {
   modelId: string;
@@ -48,9 +63,69 @@ interface ReplState {
   ctx: ToolContext | null;
   skills: Skill[];
   memory: MemoryEntry[];
+  /** Plan Mode 是否已被批准(/plan approve 后置 true) */
+  planApproved?: boolean;
+}
+
+export function formatContextStats(
+  history: ChatMessage[],
+  opts?: {
+    planFirst?: boolean;
+    planApproved?: boolean;
+    skills?: number;
+    memoryCount?: number;
+    maxTokens?: number;
+  },
+): string {
+  if (history.length === 0) {
+    return chalk.dim('暂无对话历史');
+  }
+  const maxTokens = opts?.maxTokens ?? 24_000;
+  const tokens = estimateMessagesTokens(
+    history.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })),
+  );
+  const pct = Math.min(100, (tokens / maxTokens) * 100);
+  const pctStr = pct.toFixed(1);
+
+  const filled = Math.min(20, Math.floor((pct / 100) * 20));
+  const empty = 20 - filled;
+  let bar: string;
+  if (pct >= 85) {
+    bar = chalk.red('█'.repeat(filled)) + chalk.dim('░'.repeat(empty));
+  } else if (pct >= 50) {
+    bar = chalk.yellow('█'.repeat(filled)) + chalk.dim('░'.repeat(empty));
+  } else {
+    bar = chalk.green('█'.repeat(filled)) + chalk.dim('░'.repeat(empty));
+  }
+
+  const lines: string[] = [];
+  lines.push(chalk.cyan('📊 上下文用量:'));
+  lines.push(`  消息数: ${history.length}`);
+  lines.push(`  Token 估算: ${tokens} / ${maxTokens} (${pctStr}%)`);
+  lines.push(`  ${bar} ${pctStr}%`);
+  lines.push(`  压缩阈值: ${maxTokens} (达 85% 自动压缩到 60%)`);
+
+  if (opts !== undefined) {
+    lines.push('');
+    lines.push('附加状态:');
+    const planFirst = opts.planFirst ?? false;
+    const planApproved = opts.planApproved ?? false;
+    const planState = planFirst ? (planApproved ? 'on (approved)' : 'on (pending)') : 'off';
+    lines.push(`  Plan Mode: ${planState}`);
+    if (opts.skills !== undefined) {
+      lines.push(`  Skills: ${opts.skills} 个`);
+    }
+    if (opts.memoryCount !== undefined) {
+      lines.push(`  Memory: ${opts.memoryCount} 条`);
+    }
+  }
+
+  return lines.join('\n');
 }
 
 export async function startREPL(opts: ReplOptions): Promise<void> {
+  const hooksConfig = loadHooks();
+
   const state: ReplState = {
     opts,
     history: opts.history ?? [],
@@ -69,6 +144,11 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     });
   }
 
+  const sessionHookCtx = {
+    workspacePath: opts.workspacePath,
+    sessionId: state.session?.id ?? opts.sessionId,
+  };
+
   console.info(chalk.cyan(`\n🤖 IHUI AI (模型: ${opts.modelId}, 工作区: ${opts.workspacePath})\n`));
   console.info(chalk.dim('输入消息开始对话, /help 查看命令, /exit 退出\n'));
 
@@ -77,6 +157,12 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     output: process.stdout,
     prompt: chalk.green('> '),
   });
+
+  const startResult = runSessionStartHooks(hooksConfig, sessionHookCtx);
+  if (!startResult.proceed) {
+    console.error(chalk.red(`\n❌ 会话启动被钩子阻断: ${startResult.reason ?? '未知'}`));
+    process.exit(1);
+  }
 
   rl.prompt();
 
@@ -96,6 +182,10 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   });
 
   rl.on('close', () => {
+    // 清理后台任务和 loop 定时器,避免僵尸进程
+    clearAllLoops();
+    clearAllTasks();
+    runSessionEndHooks(hooksConfig, sessionHookCtx);
     console.info(chalk.dim('\n再见 👋\n'));
     process.exit(0);
   });
@@ -117,6 +207,16 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info('  /skills            列出已加载的 skills');
       console.info('  /skill <name>      查看 skill 内容');
       console.info('  /memory [cmd]      管理跨会话记忆(on/off/show/add/clear/search)');
+      console.info('  /plan [cmd]        Plan Mode 控制(on/off/approve/show)');
+      console.info('  /context           显示当前会话 token 用量 + 消息数 + 压缩阈值');
+      console.info(chalk.cyan('\n后台任务:'));
+      console.info('  /bg <cmd>          启动后台命令,返回 task_id');
+      console.info('  /bg list           列出后台任务');
+      console.info('  /bg out <id> [N]   获取任务输出(可选最后 N 行)');
+      console.info('  /bg wait <id> [ms] 等待任务结束');
+      console.info('  /bg kill <id>      终止任务');
+      console.info('  /loop <intvl> <c>  周期执行命令(如 /loop 5m pnpm test)');
+      console.info('  /loop list|stop <id>|clear  管理 loop');
       console.info(chalk.cyan('\n检查点:'));
       console.info('  /checkpoint [files...]  创建/列出检查点 (别名 /cp)');
       console.info('  /rollback <id|auto>      回滚到检查点 (别名 /rb)');
@@ -274,6 +374,155 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         }
       } else {
         console.info(chalk.yellow('用法: /memory [on|off|show|add <text>|clear|search <关键词>]'));
+      }
+      break;
+    }
+
+    case 'plan': {
+      const sub = args[0] ?? 'show';
+      if (sub === 'on') {
+        state.opts.planFirst = true;
+        state.planApproved = false;
+        console.info(chalk.green('✓ Plan Mode 已启用:LLM 必须先输出 plan 块再执行工具'));
+      } else if (sub === 'off') {
+        state.opts.planFirst = false;
+        state.planApproved = false;
+        console.info(chalk.green('✓ Plan Mode 已关闭'));
+      } else if (sub === 'approve') {
+        state.planApproved = true;
+        console.info(chalk.green('✓ Plan 已批准,后续工具调用将直接执行'));
+      } else if (sub === 'show') {
+        console.info(`Plan Mode: ${state.opts.planFirst ? 'on' : 'off'}, approved: ${state.planApproved ?? false}`);
+      } else {
+        console.info(chalk.dim('用法:/plan on|off|approve|show'));
+      }
+      break;
+    }
+
+    case 'context': {
+      console.info(formatContextStats(state.history, {
+        planFirst: state.opts.planFirst,
+        planApproved: state.planApproved,
+        skills: state.skills.length,
+        memoryCount: state.memory.length,
+      }));
+      console.info('');
+      break;
+    }
+
+    case 'bg':
+    case 'background': {
+      const sub = args[0] ?? '';
+      if (!sub) {
+        console.info(chalk.dim('用法:/bg <cmd> | /bg list | /bg out <id> [N] | /bg wait <id> [ms] | /bg kill <id>'));
+        break;
+      }
+      if (sub === 'list') {
+        const list = listTasks();
+        if (list.length === 0) {
+          console.info(chalk.dim('当前无后台任务'));
+        } else {
+          console.info(chalk.cyan(`\n后台任务(${list.length} 个):`));
+          for (const t of list) {
+            const icon = t.status === 'running' ? chalk.green('●') : t.status === 'exited' ? chalk.dim('●') : chalk.red('●');
+            console.info(`  ${icon} ${t.id}  [${t.status}]  ${t.command.slice(0, 50)}  exit=${t.exitCode ?? '-'}`);
+          }
+          console.info('');
+        }
+      } else if (sub === 'out') {
+        const id = args[1] ?? '';
+        const tail = args[2] ? Number(args[2]) : undefined;
+        if (!id) { console.info(chalk.red('缺少 task_id')); break; }
+        const output = getTaskOutput(id, tail);
+        if (!output) { console.info(chalk.red(`任务 ${id} 不存在`)); break; }
+        console.info(chalk.cyan(`任务 ${output.id}  状态: ${output.status}  exit: ${output.exitCode ?? '-'}`));
+        if (output.stdout) console.info(output.stdout.trimEnd());
+        if (output.stderr) console.info(chalk.yellow(`[stderr] ${output.stderr.trimEnd()}`));
+        if (output.truncated) console.info(chalk.dim('[输出被截断]'));
+      } else if (sub === 'wait') {
+        const id = args[1] ?? '';
+        const timeoutMs = args[2] ? Number(args[2]) : 30_000;
+        if (!id) { console.info(chalk.red('缺少 task_id')); break; }
+        console.info(chalk.dim(`等待 ${id} (超时 ${timeoutMs}ms)...`));
+        const result = await waitForTask(id, timeoutMs);
+        if (!result) { console.info(chalk.red('任务不存在')); break; }
+        console.info(chalk.cyan(`任务 ${result.id}  状态: ${result.status}  exit: ${result.exitCode ?? '-'}`));
+        if (result.stdoutBuf) console.info(result.stdoutBuf.trimEnd().slice(-2000));
+      } else if (sub === 'kill') {
+        const id = args[1] ?? '';
+        if (!id) { console.info(chalk.red('缺少 task_id')); break; }
+        const result = await killTask(id);
+        if (result.killed) console.info(chalk.green(`✓ 任务 ${id} 已终止`));
+        else console.info(chalk.red(`终止失败: ${result.reason ?? '未知'}`));
+      } else {
+        // /bg <cmd> — 启动后台任务
+        const cmd = args.join(' ');
+        const handle = runSandboxedAsync(cmd, {
+          cwd: state.opts.workspacePath,
+          timeoutMs: 600_000,
+          allowedPaths: [state.opts.workspacePath],
+        });
+        if (!handle.process) {
+          console.info(chalk.red('启动失败(沙盒拒绝)'));
+          break;
+        }
+        const taskId = registerTask(handle.process, cmd);
+        console.info(chalk.green(`✓ 后台任务已启动: ${taskId}`));
+        console.info(chalk.dim(`  命令: ${cmd}`));
+        console.info(chalk.dim(`  /bg out ${taskId} 查看输出, /bg wait ${taskId} 等待, /bg kill ${taskId} 终止`));
+      }
+      break;
+    }
+
+    case 'loop': {
+      const sub = args[0] ?? '';
+      if (!sub) {
+        console.info(chalk.dim('用法:/loop <intvl> <cmd> | /loop list | /loop stop <id> | /loop clear'));
+        console.info(chalk.dim('  intvl 格式: Ns/Nm/Nh/Nd(如 5m = 5 分钟)'));
+        break;
+      }
+      if (sub === 'list') {
+        const list = listLoops();
+        if (list.length === 0) {
+          console.info(chalk.dim('当前无 loop 任务'));
+        } else {
+          console.info(chalk.cyan(`\nLoop 任务(${list.length} 个):`));
+          for (const l of list) {
+            console.info(`  ${l.id}  每 ${l.intervalMs}ms  运行 ${l.runCount} 次  上次: ${l.lastRunAt ?? '-'}`);
+            console.info(chalk.dim(`    命令: ${l.command.slice(0, 60)}`));
+          }
+          console.info('');
+        }
+      } else if (sub === 'stop') {
+        const id = args[1] ?? '';
+        if (!id) { console.info(chalk.red('缺少 loop_id')); break; }
+        if (stopLoop(id)) console.info(chalk.green(`✓ Loop ${id} 已停止`));
+        else console.info(chalk.red(`Loop ${id} 不存在`));
+      } else if (sub === 'clear') {
+        clearAllLoops();
+        console.info(chalk.green('✓ 所有 loop 已停止'));
+      } else {
+        // /loop <intvl> <cmd>
+        const intvl = sub;
+        const cmd = args.slice(1).join(' ');
+        if (!cmd) { console.info(chalk.red('缺少命令')); break; }
+        const spawn = (command: string): string => {
+          const handle = runSandboxedAsync(command, {
+            cwd: state.opts.workspacePath,
+            timeoutMs: 600_000,
+            allowedPaths: [state.opts.workspacePath],
+          });
+          if (!handle.process) return '';
+          return registerTask(handle.process, command);
+        };
+        const result = startLoop({ command: cmd, interval: intvl, spawn });
+        if ('error' in result) {
+          console.info(chalk.red(result.error));
+        } else {
+          console.info(chalk.green(`✓ Loop 已启动: ${result.id}`));
+          console.info(chalk.dim(`  间隔: ${result.intervalMs}ms, 命令: ${cmd}`));
+          console.info(chalk.dim(`  /loop list 查看, /loop stop ${result.id} 停止`));
+        }
       }
       break;
     }
@@ -487,6 +736,8 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
     messages,
     ctx: state.ctx!,
     maxIterations: state.opts.maxIterations,
+    planFirst: state.opts.planFirst,
+    planApproved: state.planApproved,
     onDelta: (delta) => { process.stdout.write(delta); },
     onToolCall: (name, args) => console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`)),
     onToolResult: (_name, success, output) => {

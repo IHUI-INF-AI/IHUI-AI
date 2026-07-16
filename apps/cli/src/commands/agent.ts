@@ -25,6 +25,7 @@ import {
   listTools,
   buildSystemPrompt,
   parseToolCalls,
+  parsePlanBlock,
   executeToolCall,
   formatToolResult,
   clearTools,
@@ -45,6 +46,7 @@ import { loadMcpTools } from '../tools/mcp-runtime.js';
 import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.js';
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
+import { loadHooks, runSessionStartHooks, runSessionEndHooks } from '../hooks/index.js';
 import { loadSettings } from './settings.js';
 import type { Session } from './session.js';
 import { saveSession } from './session.js';
@@ -206,6 +208,10 @@ export interface RunToolLoopOptions {
   onError?: (message: string) => void | Promise<void>;
   /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 8000。 */
   contextLimit?: number;
+  /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
+  planFirst?: boolean;
+  /** plan 是否已被批准;true 时跳过阻断,允许工具执行。阻断逻辑会在 plan 块出现后自动置 true */
+  planApproved?: boolean;
 }
 
 export interface RunToolLoopResult {
@@ -297,6 +303,26 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         break;
       }
 
+      // Plan Mode 强制阻断:planFirst 开启且未批准时,要求 LLM 先输出 plan 块再执行工具
+      if (opts.planFirst && !opts.planApproved && toolCalls.length > 0) {
+        const planBlock = parsePlanBlock(iterationText);
+        if (planBlock) {
+          // LLM 输出了 plan 块,自动批准,本迭代跳过工具执行
+          opts.planApproved = true;
+          opts.messages.push({
+            role: 'user',
+            content: 'Plan 已记录,请按计划逐步执行工具。每完成一步简要说明进度。',
+          });
+        } else {
+          // LLM 没输出 plan 块就调用工具,拒绝执行
+          opts.messages.push({
+            role: 'user',
+            content: '请先输出 ```plan 代码块列出任务步骤,再执行工具。',
+          });
+        }
+        continue;
+      }
+
       const resultParts: string[] = [];
       for (const call of toolCalls) {
         await opts.onToolCall?.(call.name, call.arguments);
@@ -368,6 +394,27 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 // ==================== Agent 模式(非交互式) ====================
 
 export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
+  const hooksConfig = loadHooks();
+  const sessionHookCtx = {
+    workspacePath: opts.workspacePath,
+    sessionId: opts.session?.id,
+  };
+  const startResult = runSessionStartHooks(hooksConfig, sessionHookCtx);
+  if (!startResult.proceed) {
+    const errMsg = startResult.reason ?? 'sessionStart hook blocked';
+    if (opts.jsonMode === true) {
+      process.stdout.write(JSON.stringify({ type: 'error', message: errMsg }) + '\n');
+    } else {
+      console.error(chalk.red(`\n❌ ${errMsg}`));
+    }
+    return {
+      stopReason: 'error',
+      assistantText: '',
+      iterations: 0,
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
+    };
+  }
+
   setBaseUrl(opts.apiUrl);
   if (opts.apiKey) {
     setTokenProvider({ getToken: () => opts.apiKey ?? null });
@@ -430,6 +477,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       ctx,
       maxIterations: opts.maxIterations,
       signal: opts.signal,
+      planFirst: opts.planFirst,
       onDelta: (delta) => {
         if (jsonMode) emit({ type: 'message_delta', text: delta });
         else {
@@ -478,6 +526,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
 
     return result;
   } finally {
+    runSessionEndHooks(hooksConfig, sessionHookCtx);
     // 任何路径(完成/错误/中断)都持久化 messages 到 session,供 --resume 恢复
     if (opts.session) {
       opts.session.history = messages

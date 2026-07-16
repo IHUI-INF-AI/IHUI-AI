@@ -91,7 +91,7 @@ export default function App() {
         <div className="avatar">{user.nickname?.[0] || user.phone?.[0] || '?'}</div>
         <div className="user-detail">
           <div className="nickname">{user.nickname || user.phone}</div>
-          <div className="role">{user.roleId >= 1 ? '管理员' : '用户'}</div>
+          <div className="role">{(user.roleId ?? 0) >= 1 ? '管理员' : '用户'}</div>
         </div>
       </div>
       <button type="button" className="btn" onClick={openSidePanel}>
