@@ -69,6 +69,8 @@ program
   .option('--mcp', '启用 MCP 工具(从 ~/.ihui/mcp.json 加载 MCP 服务器工具)')
   .option('--allow-dangerous', '允许危险工具(run_command/delete_file/git_commit)自动执行,无需确认(默认拒绝,REPL 模式下交互确认)')
   .option('--plan', '强制 Agent 先输出任务规划(plan 块)再执行工具(长任务推荐)')
+  .option('--temperature <num>', 'LLM 温度(0-2,代码任务推荐 0.2,创意任务推荐 0.7)')
+  .option('--max-tokens <num>', '最大生成 token 数')
   .option('-f, --prompt-file <path>', '从文件读取 prompt(支持超长 PRD,UTF-8 编码)');
 
 interface ResolvedSession {
@@ -157,6 +159,8 @@ async function runAgentAndExit(
     cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
     cliPlan: opts.plan === true ? true : undefined,
     cliMcp: opts.mcp === true ? true : undefined,
+    cliTemperature: typeof opts.temperature === 'string' ? opts.temperature : undefined,
+    cliMaxTokens: typeof opts.maxTokens === 'string' ? opts.maxTokens : undefined,
   });
   const abort = new AbortController();
   let session: ReturnType<typeof createSession> | null = null;
@@ -195,6 +199,7 @@ async function runAgentAndExit(
       session,
       signal: abort.signal,
       planFirst: cfg.planFirst,
+      sampler: cfg.sampler,
     });
     process.exitCode = stopReasonToExitCode(result.stopReason);
   } finally {

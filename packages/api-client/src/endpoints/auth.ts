@@ -10,11 +10,21 @@ export interface AuthUser {
   id: string
   phone?: string
   email?: string
+  username?: string
   nickname?: string
   avatar?: string
   bio?: string
+  gender?: number
+  birthday?: string
+  familyId?: string
   roleId?: number
   status?: number
+  isVip?: number
+  level?: number
+  inviteCode?: string
+  parentId?: string
+  createdAt?: string
+  updatedAt?: string
   permissions?: string[]
 }
 
