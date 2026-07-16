@@ -10,6 +10,7 @@ export interface Topic {
   description: string
   price: string | null
   originalPrice: string | null
+  isShowIndex: boolean
   createdAt: string
   updatedAt: string
 }
@@ -25,4 +26,5 @@ export interface TForm {
   price: string
   originalPrice: string
   status: string
+  isShowIndex: boolean
 }

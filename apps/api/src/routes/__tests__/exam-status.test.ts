@@ -24,6 +24,7 @@ vi.mock('../../db/index.js', () => {
     leftJoin: () => DbChain
     innerJoin: () => DbChain
     groupBy: () => DbChain
+    onConflictDoUpdate: () => DbChain
   }
   function createChain(result: unknown[] = []): DbChain {
     const chain: DbChain = {
@@ -39,6 +40,7 @@ vi.mock('../../db/index.js', () => {
       leftJoin: () => chain,
       innerJoin: () => chain,
       groupBy: () => chain,
+      onConflictDoUpdate: () => chain,
     }
     return chain
   }
@@ -75,7 +77,20 @@ function mockChain(result: unknown): never {
   const chain: Record<string, unknown> = {
     then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
   }
-  for (const m of ['from', 'where', 'orderBy', 'limit', 'offset', 'values', 'set', 'returning', 'leftJoin', 'innerJoin', 'groupBy']) {
+  for (const m of [
+    'from',
+    'where',
+    'orderBy',
+    'limit',
+    'offset',
+    'values',
+    'set',
+    'returning',
+    'leftJoin',
+    'innerJoin',
+    'groupBy',
+    'onConflictDoUpdate',
+  ]) {
     chain[m] = () => chain
   }
   return chain as never
@@ -270,9 +285,12 @@ describe('POST /api/exam/records/:recordId/submit-exam — 提交试卷(answerin
 
   it('answering→submitted 成功', async () => {
     const { db } = await import('../../db/index.js')
-    vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'answering' })]))
-    vi.mocked(db.update).mockReturnValueOnce(mockChain([makeRecord({ status: 'submitted' })]))
-    vi.mocked(db.update).mockReturnValueOnce(mockChain([makeRecord({ status: 'submitted', submittedAt: new Date() })]))
+    // submitExam 流程:select record → select paper duration → update(仅 1 次)
+    vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'answering' })])) // findExamRecordByIdExtended
+    vi.mocked(db.select).mockReturnValueOnce(mockChain([{ duration: 60 }])) // 查 paper duration(60 分钟,未超时)
+    vi.mocked(db.update).mockReturnValueOnce(
+      mockChain([makeRecord({ status: 'submitted', submittedAt: new Date() })]),
+    )
 
     const res = await app.inject({
       method: 'POST',
@@ -321,7 +339,9 @@ describe('POST /api/exam/records/:recordId/grade — 评分(submitted→graded,a
     const { db } = await import('../../db/index.js')
     vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'submitted' })]))
     vi.mocked(db.update).mockReturnValueOnce(mockChain([makeRecord({ status: 'graded' })]))
-    vi.mocked(db.update).mockReturnValueOnce(mockChain([makeRecord({ status: 'graded', score: '85', isPassed: true })]))
+    vi.mocked(db.update).mockReturnValueOnce(
+      mockChain([makeRecord({ status: 'graded', score: '85', isPassed: true })]),
+    )
 
     const res = await app.inject({
       method: 'POST',
