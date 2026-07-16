@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "IHUI AI",
+    "slug": "ihui-ai-mobile",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ai.ihui.mobile"
+    },
+    "android": {
+      "package": "ai.ihui.mobile"
+    },
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}

@@ -7,8 +7,8 @@ import {
   boolean,
   timestamp,
   jsonb,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 圈子(社区)表。
@@ -24,13 +24,14 @@ export const circles = pgTable('circles', {
   description: text('description'),
   coverImage: varchar('cover_image', { length: 512 }),
   categoryId: uuid('category_id'),
+  cidList: jsonb('cid_list').$type<string[]>(),
   memberCount: integer('member_count').default(0).notNull(),
   postCount: integer('post_count').default(0).notNull(),
   isPublished: boolean('is_published').default(true).notNull(),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 圈子帖子表。
@@ -56,7 +57,7 @@ export const circlePosts = pgTable('circle_posts', {
   status: integer('status').default(1).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 问答表。
@@ -79,7 +80,7 @@ export const asks = pgTable('asks', {
   status: integer('status').default(1).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 问答回答表。
@@ -99,13 +100,13 @@ export const askAnswers = pgTable('ask_answers', {
   isAccepted: boolean('is_accepted').default(false).notNull(),
   status: integer('status').default(1).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type Circle = typeof circles.$inferSelect;
-export type NewCircle = typeof circles.$inferInsert;
-export type CirclePost = typeof circlePosts.$inferSelect;
-export type NewCirclePost = typeof circlePosts.$inferInsert;
-export type Ask = typeof asks.$inferSelect;
-export type NewAsk = typeof asks.$inferInsert;
-export type AskAnswer = typeof askAnswers.$inferSelect;
-export type NewAskAnswer = typeof askAnswers.$inferInsert;
+export type Circle = typeof circles.$inferSelect
+export type NewCircle = typeof circles.$inferInsert
+export type CirclePost = typeof circlePosts.$inferSelect
+export type NewCirclePost = typeof circlePosts.$inferInsert
+export type Ask = typeof asks.$inferSelect
+export type NewAsk = typeof asks.$inferInsert
+export type AskAnswer = typeof askAnswers.$inferSelect
+export type NewAskAnswer = typeof askAnswers.$inferInsert
