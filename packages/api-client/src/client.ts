@@ -145,7 +145,7 @@ function parseStreamLine(line: string): string | null {
 
 export async function streamChat(opts: StreamChatOptions): Promise<void> {
   const token = tokenProvider.getToken()
-  const url = normalizeUrl('/llm/complete/stream')
+  const url = normalizeUrl('/ai/chat/stream')
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'text/event-stream',
@@ -156,7 +156,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const resp = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ model: opts.model, messages: opts.messages, stream: true }),
+      body: JSON.stringify({ modelId: opts.model, messages: opts.messages }),
       signal: opts.signal,
     })
     if (!resp.ok || !resp.body) {
