@@ -1,8 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" fill="none">
-  <!-- Empty box icon for empty state -->
-  <rect x="20" y="40" width="80" height="60" rx="4" stroke="#9CA3AF" stroke-width="2" fill="none"/>
-  <path d="M20 50 L60 70 L100 50" stroke="#9CA3AF" stroke-width="2" fill="none"/>
-  <path d="M60 70 L60 100" stroke="#9CA3AF" stroke-width="2"/>
-  <ellipse cx="60" cy="35" rx="30" ry="10" stroke="#9CA3AF" stroke-width="2" fill="none"/>
-  <text x="60" y="115" text-anchor="middle" fill="#9CA3AF" font-size="10" font-family="sans-serif">Empty</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" fill="none"><!-- Empty box icon for empty state --><rect x="20" y="40" width="80" height="60" rx="4" stroke="#9CA3AF" stroke-width="2" fill="none"/><path d="M20 50 L60 70 L100 50" stroke="#9CA3AF" stroke-width="2" fill="none"/><path d="M60 70 L60 100" stroke="#9CA3AF" stroke-width="2"/><ellipse cx="60" cy="35" rx="30" ry="10" stroke="#9CA3AF" stroke-width="2" fill="none"/><text x="60" y="115" text-anchor="middle" fill="#9CA3AF" font-size="10" font-family="sans-serif">Empty</text></svg>
