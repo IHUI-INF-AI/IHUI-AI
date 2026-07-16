@@ -110,10 +110,75 @@
 
 ### 残留风险与后续任务
 
-- **P2 WebSocket 三端接入**:web 有 `use-websocket.ts`,mobile-rn/desktop/extension 仍用轮询,未接入 WebSocket 实时通知(本次未做)。
+- ~~**P2 WebSocket 三端接入**:web 有 `use-websocket.ts`,mobile-rn/desktop/extension 仍用轮询,未接入 WebSocket 实时通知(本次未做)。~~ ✅(2026-07-17) 已完成,见下方"P2 WebSocket 跨端实时通知统一"章节。
 - **P2 i18n 跨端对齐**:web 有完整 i18n(zh-CN/zh-TW/en/ja/ko),其他端 i18n 覆盖不全(本次未做)。
 - **UserProfile 类型保留**:共享层 `UserProfile`(含 gender/birthday/createdAt/updatedAt)保留用于 `updateProfile` 输入,后端 `/api/auth/me` 不返回这些字段,web `stores/user.ts` 用 `as unknown as UserProfile` cast 适配。后端若补全 publicUser 字段可消除 cast(后续任务)。
 - **api 既有测试失败**:`systemLoginLogsRoutes` 路由注册冲突需单独修复(后续任务)。
+
+---
+
+## P2 WebSocket 跨端实时通知统一(2026-07-17)✅(2026-07-17)
+
+### 目标
+
+完成多端同步对齐残留的 P2-WebSocket 项:web/mobile-rn/desktop/extension 四端 WebSocket 实时通知全端接入,达成"通知通讯同步"。
+
+### 交付摘要
+
+新建共享层框架无关的 WebSocketClient(`packages/api-client/src/ws-client.ts`)+ 通知类型下沉到 `packages/types`,四端各写薄包装层 hook,主入口接入并显示 connected 状态。四端模式一致:登录后自动连接 → token 变化自动重连 → UI 显示连接状态点 → lastMessage 通过 console.log 输出(后续接入通知面板)。
+
+### 共享层改动(packages/*)
+
+1. **`packages/types/src/notification.ts`(新建)** — 集中定义跨端通知类型:`WSNotification`/`AIResponseNotification`/`isAIResponse`/`NotificationItem`/`MessageItem`/`UnreadCount`/`CustomerServiceSession`/`CustomerServiceMessage`,各端统一从 `@ihui/types` 或 `@ihui/api-client` 导入。
+2. **`packages/api-client/src/ws-client.ts`(新建)** — 框架无关的 `WebSocketClient` 类 + `createNotificationClient` 工厂 + `buildNotificationWsUrl` + `isWSNotification`。封装自动 token 注入、心跳(30s ping)、指数退避重连(1s→30s 上限)、消息类型守卫。跨端 MessageEvent 类型差异用 `any` 兼容(DOM MessageEvent vs RN WebSocketMessageEvent)。
+3. **`packages/api-client/src/index.ts`** — 导出 WS 客户端 + 通知类型 re-export(各端无需单独依赖 @ihui/types)。
+4. **`packages/api-client/src/endpoints/notification.ts`** — 类型定义下沉到 @ihui/types,本地仅 re-export 保持向后兼容。
+
+### 四端接入改动
+
+| 端        | hook 文件                                | 主入口接入                                                                                        | UI 反馈                                                |
+| --------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| web       | `hooks/use-websocket.ts`(改用共享层类型) | `providers/global-hooks-provider.tsx` 调用 `useGlobalNotification()` 激活 WS + notification store | 各 UI 组件按需订阅 `useNotificationStore`(既有)        |
+| mobile-rn | `hooks/use-websocket.ts`(新建)           | `navigation/RootNavigator.tsx` 顶层调用 hook + `NotificationContext.Provider` 包裹已登录栈        | `screens/HomeScreen.tsx` 标题旁显示绿/灰状态点         |
+| desktop   | `hooks/use-websocket.ts`(新建)           | `App.tsx` 顶层调用 hook,传 token 给 `Layout`                                                      | `components/Layout.tsx` sidebar footer 显示绿/灰状态点 |
+| extension | `lib/use-websocket.ts`(新建)             | `entrypoints/sidepanel/SidepanelApp.tsx` 顶层调用 hook + token state 管理                         | sidepanel header 显示绿/灰状态点                       |
+
+### 关键设计决策
+
+1. **hook 接收 token 参数(非空依赖)** — 三端 hook 改为 `useNotificationWebSocket(token: string | null)`,useEffect 依赖 `[token]`。解决原空依赖 `[]` 导致登录后 token 出现不重连的 bug。token 变化(登录/登出)自动重连。
+2. **mobile-rn 用 NotificationContext 分发** — RN 的 Stack.Screen 各自独立,RootNavigator 顶层订阅 WS,通过 Context 分发给已登录栈各 Screen(避免每 Screen 重复连接)。
+3. **extension token 用 state 管理** — extension 的 `getToken()` 是内存缓存,initApi 后才有值。SidepanelApp 用 `token` state,initApi/onLoginSuccess/onLogout 时更新 state,触发 hook 重连。
+4. **popup 不接入 WS** — popup 是临时弹窗(点击图标弹出,关闭即销毁),WS 长连接意义不大,且已有"打开 AI 对话"按钮引导到 sidepanel。符合"做减法"。
+5. **lastMessage 暂用 console.log** — 四端 WS 连接 + 状态显示已完整,通知面板 UI 留作后续(避免过度设计)。
+
+### 最终验证依据(2026-07-17 实测)
+
+| 验证项               | 命令                                       | 退出码 | 结果                        |
+| -------------------- | ------------------------------------------ | ------ | --------------------------- |
+| types typecheck      | `pnpm --filter @ihui/types typecheck`      | 0      | ✅ 0 错误                   |
+| api-client typecheck | `pnpm --filter @ihui/api-client typecheck` | 0      | ✅ 0 错误                   |
+| web typecheck        | `pnpm --filter @ihui/web typecheck`        | 0      | ✅ 0 错误                   |
+| desktop typecheck    | `pnpm --filter @ihui/desktop typecheck`    | 0      | ✅ 0 错误                   |
+| mobile-rn typecheck  | `pnpm --filter @ihui/mobile-rn typecheck`  | 0      | ✅ 0 错误                   |
+| extension typecheck  | `pnpm --filter @ihui/extension typecheck`  | 0      | ✅ 0 错误                   |
+| 6 端 lint            | `pnpm --filter @ihui/web ... lint`         | 0      | ✅ 0 errors(1 既存 warning) |
+| web test             | `pnpm --filter @ihui/web test`             | 0      | ✅ 204/204 全绿             |
+
+### 涉及端清单(4 端同步 + 2 共享包)
+
+| 端                  | 改动点                                                                                                                                        |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| packages/types      | `src/notification.ts`(新建)+ `src/index.ts`(导出)                                                                                             |
+| packages/api-client | `src/ws-client.ts`(新建)+ `src/index.ts`(导出)+ `src/endpoints/notification.ts`(类型下沉)                                                     |
+| apps/web            | `src/hooks/use-websocket.ts`(改用共享层类型)+ `src/providers/global-hooks-provider.tsx`(激活 useGlobalNotification)                           |
+| apps/mobile-rn      | `src/hooks/use-websocket.ts`(新建)+ `src/navigation/RootNavigator.tsx`(NotificationContext + 接入)+ `src/screens/HomeScreen.tsx`(状态点)      |
+| apps/desktop        | `src/hooks/use-websocket.ts`(新建)+ `src/App.tsx`(接入)+ `src/components/Layout.tsx`(状态点)+ `src/app.css`(ws-status-dot 样式)               |
+| apps/extension      | `lib/use-websocket.ts`(新建)+ `entrypoints/sidepanel/SidepanelApp.tsx`(接入 + token state)+ `entrypoints/sidepanel/style.css`(sp-ws-dot 样式) |
+
+### 残留风险与后续任务
+
+- **通知面板 UI**:四端 lastMessage 暂用 console.log 输出,后续按需接入通知列表面板(web 已有 notification store 可直接订阅,mobile-rn/desktop/extension 需新建 UI)。
+- **api 既有测试失败**:`systemLoginLogsRoutes` 路由注册冲突仍存在(与本次改动无关)。
 
 ---
 

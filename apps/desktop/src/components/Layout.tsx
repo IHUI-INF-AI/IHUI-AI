@@ -4,6 +4,7 @@ import { clearToken, getRefreshToken } from '../lib/token'
 
 interface Props {
   user: AuthUser | null
+  wsConnected: boolean
 }
 
 const NAV = [
@@ -15,7 +16,7 @@ const NAV = [
   { to: '/settings', label: '设置' },
 ]
 
-export default function Layout({ user }: Props) {
+export default function Layout({ user, wsConnected }: Props) {
   const navigate = useNavigate()
 
   const onLogout = async () => {
@@ -47,6 +48,11 @@ export default function Layout({ user }: Props) {
           ))}
         </nav>
         <div className="sidebar-footer">
+          <span
+            className={`ws-status-dot ${wsConnected ? 'connected' : 'disconnected'}`}
+            title={wsConnected ? '实时通知已连接' : '实时通知未连接'}
+            aria-label={wsConnected ? '实时通知已连接' : '实时通知未连接'}
+          />
           <span className="user-name">{user?.nickname || '未登录'}</span>
         </div>
       </aside>
