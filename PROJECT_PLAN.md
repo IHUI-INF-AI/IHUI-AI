@@ -148,7 +148,8 @@
   - 范围: 25 个修改文件 + 18 个新增文件
   - 验证: typecheck 5/5 ✅ / lint 3/3 ✅ / test 247 文件 / 3528 用例全绿(API 214/3236 + Web 21/193 + Auth 5/34 + CLI 7/65)
 - `11c96c69` — docs(plan): 提交记录 + 推送状态同步
-- 当前 ahead origin/main: 12 commits(推送前请确认网络/代理/防火墙环境)
+- `b8e32fd8` — docs(plan): 同步 ahead=12 commits 状态
+- 当前 ahead origin/main: 13 commits(推送前请确认网络/代理/防火墙环境)
 
 ### 假阳性纠正(1 项)
 
