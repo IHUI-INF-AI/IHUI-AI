@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, ilike, sql, inArray } from 'drizzle-orm'
+import { eq, ne, and, or, isNull, desc, asc, ilike, sql, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   sysMenus,
@@ -15,6 +15,7 @@ import {
   sysOperlog,
   adminRole,
   adminRoleDept,
+  users,
   type SysMenu,
   type SysLogininfor,
   type SysNotice,
@@ -944,6 +945,28 @@ export async function cleanOperlogs(): Promise<void> {
   await db.delete(sysOperlog)
 }
 
+export interface CreateOperlogInput {
+  title: string
+  businessType: number
+  method: string
+  requestMethod: string
+  operatorType?: number
+  operName?: string
+  deptName?: string
+  operUrl?: string
+  operIp?: string
+  operParam?: string
+  jsonResult?: string
+  status?: number
+  errorMsg?: string
+  costTime?: number
+}
+
+export async function createOperlog(data: CreateOperlogInput): Promise<SysOperlog | undefined> {
+  const rows = await db.insert(sysOperlog).values(data).returning()
+  return rows[0]
+}
+
 // =============================================================================
 // adminRole（serial 主键，历史 admin_role 表，含 dataScope/status）
 // 供 role/changeStatus、role/dataScope、role/deptTree 路由使用。
@@ -991,4 +1014,144 @@ export async function findAdminRoleDeptIds(roleId: number): Promise<number[]> {
     .from(adminRoleDept)
     .where(eq(adminRoleDept.roleId, roleId))
   return rows.map((r) => r.deptId)
+}
+
+// =============================================================================
+// 角色-用户管理 (基于 users.roleId,不新建 sys_user_role 表避免数据冗余)
+// 5 端点:allocatedList / unallocatedList / cancel / cancelAll / selectAll
+// 设计:users.roleId (integer) 与 adminRole.roleId (serial) 类型兼容,
+//       "分配角色"= UPDATE users SET roleId = ?, "取消角色"= UPDATE users SET roleId = 0
+// =============================================================================
+
+export interface RoleUserListQuery extends ListQuery {
+  roleId: number
+  userName?: string
+  phonenumber?: string
+}
+
+export type RoleUserRow = {
+  id: string
+  username: string | null
+  nickname: string | null
+  avatar: string | null
+  email: string | null
+  phone: string | null
+  status: number
+  roleId: number | null
+  deptId: number | null
+  createdAt: Date | null
+}
+
+function buildRoleUserConds(query: RoleUserListQuery, allocated: boolean) {
+  const conds = []
+  if (allocated) {
+    conds.push(eq(users.roleId, query.roleId))
+  } else {
+    conds.push(or(ne(users.roleId, query.roleId), isNull(users.roleId)))
+  }
+  if (query.userName) {
+    conds.push(
+      or(
+        ilike(users.username, `%${query.userName}%`),
+        ilike(users.nickname, `%${query.userName}%`),
+      ),
+    )
+  }
+  if (query.phonenumber) {
+    conds.push(ilike(users.phone, `%${query.phonenumber}%`))
+  }
+  return and(...conds)
+}
+
+export async function findAllocatedUsers(
+  query: RoleUserListQuery,
+): Promise<{ list: RoleUserRow[]; total: number }> {
+  const { pageSize, offset } = paginate(query)
+  const where = buildRoleUserConds(query, true)
+  const [list, totalRows] = await Promise.all([
+    db
+      .select({
+        id: users.id,
+        username: users.username,
+        nickname: users.nickname,
+        avatar: users.avatar,
+        email: users.email,
+        phone: users.phone,
+        status: users.status,
+        roleId: users.roleId,
+        deptId: users.deptId,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(where)
+      .orderBy(desc(users.createdAt))
+      .limit(pageSize)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(users)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
+}
+
+export async function findUnallocatedUsers(
+  query: RoleUserListQuery,
+): Promise<{ list: RoleUserRow[]; total: number }> {
+  const { pageSize, offset } = paginate(query)
+  const where = buildRoleUserConds(query, false)
+  const [list, totalRows] = await Promise.all([
+    db
+      .select({
+        id: users.id,
+        username: users.username,
+        nickname: users.nickname,
+        avatar: users.avatar,
+        email: users.email,
+        phone: users.phone,
+        status: users.status,
+        roleId: users.roleId,
+        deptId: users.deptId,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(where)
+      .orderBy(desc(users.createdAt))
+      .limit(pageSize)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(users)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
+}
+
+export async function cancelUserRole(userId: string, roleId: number): Promise<number> {
+  const rows = await db
+    .update(users)
+    .set({ roleId: 0, updatedAt: new Date() })
+    .where(and(eq(users.id, userId), eq(users.roleId, roleId)))
+    .returning({ id: users.id })
+  return rows.length
+}
+
+export async function cancelAllUserRole(userIds: string[], roleId: number): Promise<number> {
+  if (userIds.length === 0) return 0
+  const rows = await db
+    .update(users)
+    .set({ roleId: 0, updatedAt: new Date() })
+    .where(and(inArray(users.id, userIds), eq(users.roleId, roleId)))
+    .returning({ id: users.id })
+  return rows.length
+}
+
+export async function selectAllUserRole(userIds: string[], roleId: number): Promise<number> {
+  if (userIds.length === 0) return 0
+  const rows = await db
+    .update(users)
+    .set({ roleId, updatedAt: new Date() })
+    .where(inArray(users.id, userIds))
+    .returning({ id: users.id })
+  return rows.length
 }
