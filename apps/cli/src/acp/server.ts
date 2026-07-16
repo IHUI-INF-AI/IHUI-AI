@@ -136,6 +136,12 @@ class IhuiAcpAgent {
         checkpoints: state.checkpoints ?? undefined,
         enableMcp: this.opts.enableMcp,
         silent: true,
+        subagentParent: {
+          modelId: this.opts.modelId,
+          apiUrl: this.opts.apiUrl,
+          apiKey: this.opts.apiKey,
+          allowDangerous: this.opts.allowDangerous,
+        },
         confirmDangerous: async () => {
           if (this.opts.allowDangerous) return true;
           return false;
