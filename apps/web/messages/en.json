@@ -2049,6 +2049,7 @@
       "save": "Save",
       "deleteConfirm": "Are you sure you want to delete this channel? This action cannot be undone.",
       "colTitle": "Title",
+      "colParent": "Parent",
       "colCategory": "Category",
       "colLecturer": "Lecturer",
       "colStatus": "Status",
