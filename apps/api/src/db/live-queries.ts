@@ -234,6 +234,17 @@ export async function incrementLiveViewCount(id: string): Promise<void> {
     .where(eq(liveChannels.id, id))
 }
 
+/** 按流名(streamName)更新频道直播状态(腾讯云回调:stream_begin/stream_end)。 */
+export async function updateLiveChannelStatusByStreamName(
+  streamName: string,
+  isLive: boolean,
+): Promise<void> {
+  await db
+    .update(liveChannels)
+    .set({ isLive })
+    .where(ilike(liveChannels.pushUrl, `%/${streamName}`))
+}
+
 // =============================================================================
 // 讲师
 // =============================================================================

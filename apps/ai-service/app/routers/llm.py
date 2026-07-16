@@ -75,6 +75,7 @@ async def list_models() -> dict[str, Any]:
         # 免费 provider(备选,需自行注册 key)
         {"id": "groq/llama-3.3-70b-versatile", "name": "Llama 3.3 70B (Groq 免费)", "provider": "meta", "context_length": 128000, "input_price": 0},
         {"id": "gemini/gemini-1.5-flash", "name": "Gemini 1.5 Flash (免费)", "provider": "google", "context_length": 1000000, "input_price": 0},
+        {"id": "openrouter/auto", "name": "OpenRouter Auto (免费路由)", "provider": "meta", "context_length": 128000, "input_price": 0},
         # 付费 provider(需付费 key)
         {"id": "gpt-4o", "name": "GPT-4o", "provider": "openai", "context_length": 128000, "input_price": 2.5},
         {"id": "gpt-4o-mini", "name": "GPT-4o mini", "provider": "openai", "context_length": 128000, "input_price": 0.15},
