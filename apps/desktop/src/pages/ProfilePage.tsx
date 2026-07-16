@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { getProfile, type UserProfile as ApiUserProfile } from '@ihui/api-client'
+import { getProfile, type AuthUser } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<ApiUserProfile | null>(null)
+  const [profile, setProfile] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -61,10 +61,6 @@ export default function ProfilePage() {
                 <dd>{profile.id}</dd>
               </div>
               <div>
-                <dt>用户名</dt>
-                <dd>{profile.username}</dd>
-              </div>
-              <div>
                 <dt>昵称</dt>
                 <dd>{profile.nickname || '—'}</dd>
               </div>
@@ -77,8 +73,8 @@ export default function ProfilePage() {
                 <dd>{profile.phone || '—'}</dd>
               </div>
               <div>
-                <dt>注册时间</dt>
-                <dd>{new Date(profile.createdAt).toLocaleString('zh-CN')}</dd>
+                <dt>角色</dt>
+                <dd>{(profile.roleId ?? 0) >= 1 ? '管理员' : '普通用户'}</dd>
               </div>
             </dl>
           </CardContent>

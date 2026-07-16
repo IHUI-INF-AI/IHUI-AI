@@ -5,6 +5,7 @@
 import { getStorageSync, setStorageSync, removeStorageSync, reLaunch } from '@tarojs/taro'
 
 const TOKEN_KEY = 'ihui_token'
+const REFRESH_TOKEN_KEY = 'ihui_refresh_token'
 const USER_INFO_KEY = 'ihui_user_info'
 
 export interface UserInfo {
@@ -17,7 +18,19 @@ export interface UserInfo {
   email?: string
   realName?: string
   isVip?: boolean
+  roleId?: number
+  status?: number
+  permissions?: string[]
   [key: string]: unknown
+}
+
+/** 登录结果(与 @ihui/api-client LoginResult 形状对齐) */
+export interface LoginResult {
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  refreshExpiresIn: number
+  user: UserInfo
 }
 
 /** 获取 Token */
@@ -28,6 +41,16 @@ export function getToken(): string {
 /** 设置 Token */
 export function setToken(token: string): void {
   setStorageSync(TOKEN_KEY, token)
+}
+
+/** 获取 Refresh Token */
+export function getRefreshToken(): string {
+  return getStorageSync(REFRESH_TOKEN_KEY) || ''
+}
+
+/** 设置 Refresh Token */
+export function setRefreshToken(token: string): void {
+  setStorageSync(REFRESH_TOKEN_KEY, token)
 }
 
 /** 获取用户信息 */
@@ -44,6 +67,7 @@ export function setUserInfo(info: UserInfo): void {
 /** 清除登录态 */
 export function clearAuth(): void {
   removeStorageSync(TOKEN_KEY)
+  removeStorageSync(REFRESH_TOKEN_KEY)
   removeStorageSync(USER_INFO_KEY)
 }
 
