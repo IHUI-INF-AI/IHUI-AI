@@ -7,12 +7,15 @@
  *   - Tool 接口最小化:name/description/parameters schema/execute
  *   - 工具注册器统一管理,支持动态注册(MCP 工具后并入)
  *   - 执行结果统一格式化(tool_result)回传给 LLM
+ *   - 危险操作(dangerLevel='dangerous')执行前需用户确认
  *
  * 工具调用格式(LLM 输出):
  * ```tool_call
  * {"name":"read_file","arguments":{"path":"src/index.ts"}}
  * ```
  */
+
+import { redactSecrets } from '../redact.js';
 
 export interface ToolParameter {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
@@ -44,11 +47,15 @@ export interface Tool {
   description: string;
   parameters: Record<string, ToolParameter>;
   required: string[];
+  /** 危险级别:read(只读,默认)/ write(写入)/ dangerous(危险,需用户确认) */
+  dangerLevel?: 'read' | 'write' | 'dangerous';
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> | ToolResult;
 }
 
 export interface ToolContext {
   workspacePath: string;
+  /** 危险操作确认回调,返回 true 表示允许执行。未提供时 dangerous 操作直接拒绝。 */
+  confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
 }
 
 const registry = new Map<string, Tool>();
@@ -155,7 +162,8 @@ export function parseToolCalls(text: string): ParsedToolCall[] {
 export function formatToolResult(call: ParsedToolCall, result: ToolResult): string {
   const status = result.success ? '✓' : '✗';
   const errorPart = result.error ? `\n错误: ${result.error}` : '';
-  return `[工具结果 ${status}] ${call.name}\n${result.output}${errorPart}`;
+  const safeOutput = redactSecrets(result.output);
+  return `[工具结果 ${status}] ${call.name}\n${safeOutput}${errorPart}`;
 }
 
 export async function executeToolCall(
@@ -165,6 +173,16 @@ export async function executeToolCall(
   const tool = getTool(call.name);
   if (!tool) {
     return { success: false, output: '', error: `未知工具: ${call.name}` };
+  }
+  if (tool.dangerLevel === 'dangerous') {
+    const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
+    if (!allowed) {
+      return {
+        success: false,
+        output: '',
+        error: `危险操作被拒绝(需用户确认): ${call.name}`,
+      };
+    }
   }
   try {
     return await tool.execute(call.arguments, ctx);

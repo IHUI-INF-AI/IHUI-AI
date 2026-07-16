@@ -123,6 +123,7 @@ const git_log: Tool = {
 const git_add: Tool = {
   name: 'git_add',
   description: '将文件添加到 git 暂存区(git add)。参数:files(字符串数组,要添加的文件路径,必填)。',
+  dangerLevel: 'write',
   parameters: {
     files: {
       type: 'array',
@@ -154,6 +155,7 @@ const git_add: Tool = {
 const git_commit: Tool = {
   name: 'git_commit',
   description: '提交暂存区到 git 仓库(git commit)。参数:message(字符串,提交信息,必填),amend(布尔,修改上一次提交)。',
+  dangerLevel: 'dangerous',
   parameters: {
     message: { type: 'string', description: '提交信息' },
     amend: { type: 'boolean', description: '修改上一次提交(--amend)' },
