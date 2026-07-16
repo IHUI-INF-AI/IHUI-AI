@@ -20,7 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import { startREPL } from './commands/repl.js';
-import { runAgent, stopReasonToExitCode } from './commands/agent.js';
+import { runAgent, stopReasonToExitCode, parseOutputFormat } from './commands/agent.js';
 import { loadSkills, findSkill } from './skills/index.js';
 import {
   loadSession,
@@ -66,6 +66,7 @@ program
   .option('--resume <session-id>', '恢复之前的会话')
   .option('--continue', '继续最近的会话')
   .option('--json', 'Headless 模式:输出 NDJSON 事件流 (非 TTY 自动启用,CI/CD 友好)')
+  .option('--output-format <format>', 'P1-5 Headless 输出格式: text|json|markdown|yaml (覆盖 --json,默认 text)')
   .option('--mcp', '启用 MCP 工具(从 ~/.ihui/mcp.json 加载 MCP 服务器工具)')
   .option('--allow-dangerous', '允许危险工具(run_command/delete_file/git_commit)自动执行,无需确认(默认拒绝,REPL 模式下交互确认)')
   .option('--plan', '强制 Agent 先输出任务规划(plan 块)再执行工具(长任务推荐)')
@@ -193,6 +194,7 @@ async function runAgentAndExit(
       apiKey: cfg.apiKey,
       maxIterations: cfg.maxIterations,
       jsonMode,
+      outputFormat: opts.outputFormat ? parseOutputFormat(opts.outputFormat) : undefined,
       checkpoints,
       enableMcp: cfg.enableMcp,
       allowDangerous: cfg.allowDangerous,

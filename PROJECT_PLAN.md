@@ -4,6 +4,39 @@
 
 ---
 
+## CLI 错误分级 + Desktop CI 构建修复收尾(2026-07-17)✅(2026-07-17)
+
+### 目标
+
+修复本次会话收尾阶段发现的最后两处残留问题,确保全量 `pnpm turbo build typecheck lint test` 51/51 全绿,无未使用文件残留。
+
+### 修复内容
+
+- [x] ✅(2026-07-17) `apps/cli/src/tools/index.ts`:
+  - `ToolResult` 新增 `errorType?` 字段;
+  - 新增 `classifyError` / `isRetryableErrorType` / `isFatalErrorType` 错误分级函数;
+  - `executeToolCall` 对「未知工具」返回 `errorType: 'not_found'`、对「限流拒绝」返回 `errorType: 'rate_limited'`;
+  - `executeWithRetry` 仅对 `network/timeout/rate_limited` 可重试类型执行重试,`permission/unknown` 等不可重试错误立即返回,避免无效二次调用。
+- [x] ✅(2026-07-17) `apps/desktop/scripts/with-rust.ps1`:
+  - 改为直接通过 `node node_modules/@tauri-apps/cli/tauri.js` 启动 Tauri CLI;
+  - 调用前 `Remove-Item env:CI` 彻底删除 CI 环境变量(空字符串仍被 Tauri CLI 2.x 识别为 CI),解决 `error: invalid value '1' for '--ci'` 构建失败。
+- [x] ✅(2026-07-17) 删除未使用的 `apps/cli/src/headless-format.ts`(其功能已在 `apps/cli/src/commands/agent.ts` 中实现,无文件引用)。
+
+### 验证
+
+| 验证项                  | 命令                                    | 退出码 | 结果                             |
+| ----------------------- | --------------------------------------- | ------ | -------------------------------- |
+| 路由冲突扫描            | `node scripts/find-route-conflicts.mjs` | 0      | ✅ 未发现重复路由                |
+| API 全量测试            | `pnpm --filter @ihui/api test`          | 0      | ✅ 219 files / 3265 tests passed |
+| CLI 全量测试            | `pnpm --filter @ihui/cli test`          | 0      | ✅ 22 files / 341 tests passed   |
+| 全量构建+类型+检查+测试 | `pnpm turbo build typecheck lint test`  | 0      | ✅ 51 tasks passed               |
+
+### 残留风险与后续任务
+
+- 无。所有已发现残留问题已修复,全量验证通过。
+
+---
+
 ## 后端路由冲突清理与残留项收尾(2026-07-17)✅(2026-07-17)
 
 ### 目标
