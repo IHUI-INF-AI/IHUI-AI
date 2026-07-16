@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { clearToken } from '../lib/token'
+import { logout as apiLogout } from '@ihui/api-client'
+import { clearToken, getRefreshToken } from '../lib/token'
 
 interface Props {
   user: { nickname: string; username: string } | null
@@ -16,7 +17,15 @@ const NAV = [
 export default function Layout({ user }: Props) {
   const navigate = useNavigate()
 
-  const onLogout = () => {
+  const onLogout = async () => {
+    const refreshToken = getRefreshToken()
+    if (refreshToken) {
+      try {
+        await apiLogout(refreshToken)
+      } catch {
+        // 网络异常也继续清除本地 token
+      }
+    }
     clearToken()
     navigate('/login', { replace: true })
   }
