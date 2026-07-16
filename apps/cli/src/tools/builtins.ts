@@ -283,7 +283,9 @@ export const run_command: Tool = {
     const result = runSandboxed(command, {
       cwd: ctx.workspacePath,
       timeoutMs: 30_000,
-      allowedPaths: [ctx.workspacePath],
+      allowedPaths: [ctx.workspacePath, ...(ctx.sandbox?.allowedPaths ?? [])],
+      commandAllowlist: ctx.sandbox?.commandAllowlist,
+      blockedEnvVars: ctx.sandbox?.blockedEnvVars,
     });
     runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut });
     const parts: string[] = [];

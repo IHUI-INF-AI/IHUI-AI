@@ -15,6 +15,10 @@ import * as os from 'node:os';
 export interface SandboxSettings {
   /** 额外允许的路径白名单(cwd 始终允许) */
   allowedPaths?: string[];
+  /** 命令白名单(只允许这些命令执行,空数组=允许全部,向后兼容) */
+  commandAllowlist?: string[];
+  /** 屏蔽的环境变量名(子进程不会继承这些变量) */
+  blockedEnvVars?: string[];
 }
 
 export interface Settings {
@@ -67,7 +71,7 @@ export function saveSettingsTemplate(overwrite = false): boolean {
     allowDangerous: false,
     planFirst: false,
     enableMcp: false,
-    sandbox: { allowedPaths: [] },
+    sandbox: { allowedPaths: [], commandAllowlist: [], blockedEnvVars: [] },
   };
   fs.writeFileSync(p, JSON.stringify(template, null, 2) + '\n', 'utf-8');
   return true;
@@ -95,6 +99,8 @@ export function resolveEffectiveConfig(args: {
   enableMcp: boolean;
   auditEnabled: boolean;
   sandboxAllowedPaths: string[];
+  sandboxCommandAllowlist: string[];
+  sandboxBlockedEnvVars: string[];
 } {
   const settings = loadSettings();
 
@@ -129,6 +135,8 @@ export function resolveEffectiveConfig(args: {
   const auditEnabled = settings.auditEnabled ?? true;
 
   const sandboxAllowedPaths = settings.sandbox?.allowedPaths ?? [];
+  const sandboxCommandAllowlist = settings.sandbox?.commandAllowlist ?? [];
+  const sandboxBlockedEnvVars = settings.sandbox?.blockedEnvVars ?? [];
 
   return {
     apiUrl,
@@ -140,5 +148,7 @@ export function resolveEffectiveConfig(args: {
     enableMcp,
     auditEnabled,
     sandboxAllowedPaths,
+    sandboxCommandAllowlist,
+    sandboxBlockedEnvVars,
   };
 }
