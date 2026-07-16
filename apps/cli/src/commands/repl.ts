@@ -24,6 +24,8 @@ export interface ReplOptions {
   history?: ChatMessage[];
   enableMcp?: boolean;
   allowDangerous?: boolean;
+  /** 强制 LLM 先输出 plan 块再执行工具 */
+  planFirst?: boolean;
 }
 
 interface ReplState {
@@ -330,6 +332,7 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
       checkpoints: state.checkpoints ?? undefined,
       enableMcp: state.opts.enableMcp,
       silent: true,
+      planFirst: state.opts.planFirst,
       subagentParent: {
         modelId: state.opts.modelId,
         apiUrl: state.opts.apiUrl,
