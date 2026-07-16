@@ -17,7 +17,8 @@ import {
 
 import { DynamicsFilter } from './DynamicsFilter'
 import { DynamicsTable } from './DynamicsTable'
-import { PAGE_SIZE, deleteDynamic, fetchDynamics } from './helpers'
+import { CommentsDialog } from './CommentsDialog'
+import { PAGE_SIZE, auditDynamic, deleteDynamic, fetchDynamics } from './helpers'
 import { EMPTY_FILTER, type CirclePost, type PostFilter } from './types'
 
 export default function AdminCirclesDynamicsPage() {
@@ -27,6 +28,7 @@ export default function AdminCirclesDynamicsPage() {
   const [filter, setFilter] = React.useState<PostFilter>(EMPTY_FILTER)
   const [applied, setApplied] = React.useState<PostFilter>(EMPTY_FILTER)
   const [deleteTarget, setDeleteTarget] = React.useState<CirclePost | null>(null)
+  const [commentsTarget, setCommentsTarget] = React.useState<CirclePost | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'circlesDynamics', applied],
@@ -44,6 +46,16 @@ export default function AdminCirclesDynamicsPage() {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  const auditMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'published' | 'pending' | 'rejected' }) =>
+      auditDynamic(id, status),
+    onSuccess: (_data, { status }) => {
+      toast.success(status === 'published' ? t('auditPublishSuccess') : t('auditRejectSuccess'))
+      qc.invalidateQueries({ queryKey: ['admin', 'circlesDynamics'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
   function handleSearch() {
     setApplied({ ...filter, page: 1 })
   }
@@ -52,8 +64,11 @@ export default function AdminCirclesDynamicsPage() {
     setFilter(reset)
     setApplied(reset)
   }
-  function handleComments() {
-    toast.info(t('commentsPending'))
+  function handleComments(item: CirclePost) {
+    setCommentsTarget(item)
+  }
+  function handleAudit(item: CirclePost, status: 'published' | 'pending' | 'rejected') {
+    auditMut.mutate({ id: item.id, status })
   }
   function confirmDelete() {
     if (deleteTarget) deleteMut.mutate(deleteTarget.id)
@@ -75,8 +90,10 @@ export default function AdminCirclesDynamicsPage() {
         list={list}
         isLoading={isLoading}
         deletePending={deleteMut.isPending}
+        auditPending={auditMut.isPending}
         onComments={handleComments}
         onDelete={setDeleteTarget}
+        onAudit={handleAudit}
       />
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
@@ -131,6 +148,7 @@ export default function AdminCirclesDynamicsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <CommentsDialog post={commentsTarget} onClose={() => setCommentsTarget(null)} />
     </div>
   )
 }
