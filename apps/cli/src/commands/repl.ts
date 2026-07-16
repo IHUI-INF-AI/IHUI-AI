@@ -12,6 +12,7 @@ import { createSession, saveSession, type Session, type ChatMessage } from './se
 import { loadMcpConfig } from './mcp-config.js';
 import { agentsMdExists, writeAgentsMd } from './template.js';
 import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
+import { CheckpointManager } from '../checkpoints/index.js';
 
 export interface ReplOptions {
   modelId: string;
@@ -27,6 +28,7 @@ interface ReplState {
   opts: ReplOptions;
   history: ChatMessage[];
   session: Session | null;
+  checkpoints: CheckpointManager | null;
 }
 
 export async function startREPL(opts: ReplOptions): Promise<void> {
@@ -34,7 +36,14 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     opts,
     history: opts.history ?? [],
     session: opts.sessionId ? null : createSession(opts.workspacePath, opts.modelId),
+    checkpoints: null,
   };
+  if (state.session) {
+    state.checkpoints = new CheckpointManager({
+      sessionId: state.session.id,
+      workspacePath: opts.workspacePath,
+    });
+  }
 
   console.info(chalk.cyan(`\n🤖 IHUI AI (模型: ${opts.modelId}, 工作区: ${opts.workspacePath})\n`));
   console.info(chalk.dim('输入消息开始对话, /help 查看命令, /exit 退出\n'));
@@ -81,6 +90,10 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info('  /tools             列出可用工具');
       console.info('  /init              创建 AGENTS.md 模板');
       console.info('  /mcp               列出已配置的 MCP 服务器');
+      console.info(chalk.cyan('\n检查点:'));
+      console.info('  /checkpoint [files...]  创建/列出检查点 (别名 /cp)');
+      console.info('  /rollback <id>           回滚到检查点 (别名 /rb)');
+      console.info('  /diff [id]                对比检查点与当前工作区');
       console.info(chalk.cyan('\n文件操作:'));
       console.info('  /read <file>       读取文件 (带行号)');
       console.info('  /ls [dir]          列出目录内容');
@@ -134,6 +147,20 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
 
     case 'mcp':
       handleMcpList();
+      break;
+
+    case 'checkpoint':
+    case 'cp':
+      await handleCheckpoint(state, args);
+      break;
+
+    case 'rollback':
+    case 'rb':
+      await handleRollback(state, args);
+      break;
+
+    case 'diff':
+      handleDiff(state, args);
       break;
 
     case 'read':
@@ -206,6 +233,70 @@ function handleMcpList(): void {
     }
   } else {
     console.info(chalk.dim('\n本地无 MCP 服务器配置'));
+  }
+}
+
+async function handleCheckpoint(state: ReplState, args: string[]): Promise<void> {
+  if (!state.checkpoints) {
+    console.info(chalk.yellow('会话未初始化,无法管理检查点'));
+    return;
+  }
+  if (args.length === 0) {
+    const list = state.checkpoints.list();
+    if (list.length === 0) {
+      console.info(chalk.dim('暂无检查点'));
+      return;
+    }
+    console.info(chalk.cyan(`\n检查点 (会话: ${state.session?.id ?? '-'}):`));
+    for (const m of list) {
+      const time = new Date(m.createdAt).toLocaleString();
+      const fc = Object.keys(m.files).length;
+      console.info(`  ${chalk.bold(m.id)}  ${chalk.dim(time)}  ${m.reason}  ${fc} 文件`);
+    }
+    console.info('');
+    return;
+  }
+  try {
+    const meta = await state.checkpoints.snapshot(args, 'manual_repl');
+    console.info(chalk.green(`✓ 已创建检查点: ${meta.id} (${Object.keys(meta.files).length} 文件)`));
+  } catch (err) {
+    console.info(chalk.red(`✗ 快照失败: ${err instanceof Error ? err.message : String(err)}`));
+  }
+}
+
+async function handleRollback(state: ReplState, args: string[]): Promise<void> {
+  if (!state.checkpoints) {
+    console.info(chalk.yellow('会话未初始化'));
+    return;
+  }
+  const id = args[0];
+  if (!id) {
+    console.info(chalk.yellow('用法: /rollback <checkpoint-id>'));
+    return;
+  }
+  try {
+    const result = await state.checkpoints.restore(id);
+    console.info(chalk.green(`✓ 已回滚到检查点: ${id}`));
+    console.info(chalk.dim(`  恢复: ${result.restored.length} 个 / 移除: ${result.removed.length} 个`));
+  } catch (err) {
+    console.info(chalk.red(`✗ 回滚失败: ${err instanceof Error ? err.message : String(err)}`));
+  }
+}
+
+function handleDiff(state: ReplState, args: string[]): void {
+  if (!state.checkpoints) {
+    console.info(chalk.yellow('会话未初始化'));
+    return;
+  }
+  const entries = state.checkpoints.diff(args[0]);
+  if (entries.length === 0) {
+    console.info(chalk.dim('无差异'));
+    return;
+  }
+  console.info(chalk.cyan('\n差异:'));
+  for (const e of entries) {
+    const icon = e.status === 'modified' ? chalk.yellow('M') : e.status === 'added' ? chalk.green('+') : chalk.red('-');
+    console.info(`  ${icon} ${e.path}`);
   }
 }
 
