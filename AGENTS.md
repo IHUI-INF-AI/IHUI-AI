@@ -388,92 +388,6 @@ pnpm dev                                       # 启动所有服务
 
 ---
 
-## 10. 多端同步开发规则(强制)
-
-> 本项目为 TS Monorepo 多端架构(API/Web/AI-Service/Miniapp/CLI/共享包),所有端程序必须**同步开发、同步更新、同步验证**,禁止任何"单端孤岛式"变更。
-
-### 适用范围
-
-- **后端 API**: `apps/api`(Fastify 5 + Drizzle ORM + PostgreSQL)
-- **前端 Web**: `apps/web`(Next.js 15 + React 19 + Tailwind 4 + shadcn/ui)
-- **AI 服务**: `apps/ai-service`(FastAPI + LangGraph + LiteLLM + MCP)
-- **小程序**: `apps/miniapp-taro`(Taro 4 + React)
-- **CLI**: `apps/cli`(Node.js + commander + inquirer)
-- **共享包**: `packages/`(database / auth / types / ui / config / eslint-config / tsconfig)
-
-### 必须遵守
-
-- **跨端影响分析(强制)**:任何变更在动手前必须回答:
-  1. 该变更是否影响**接口契约**(API 路由 / 类型定义 / 共享 schema)?
-  2. 该变更是否影响**共享类型**(`packages/types`)?
-  3. 该变更是否影响**共享 UI 组件**(`packages/ui`)?
-  4. 该变更是否影响**数据库 schema**(`packages/database`)?
-  5. 该变更是否影响**多端共用业务逻辑**(如登录态 / 权限 / 积分 / AI 对话链路)?
-  - 任一回答"是" → 必须在**同一次任务**中同步更新所有受影响端,禁止"先改 API 再补前端"分次提交。
-
-- **类型同步(强制)**:
-  - `packages/types` 是 API ↔ Web ↔ Miniapp ↔ CLI 的**唯一类型源**。
-  - API 路由响应类型变更 → 必须同步更新 `packages/types` → 必须同步更新消费端(Web/Miniapp/CLI)的引用。
-  - 禁止任何端**本地定义**与 `packages/types` 重复或冲突的类型。
-
-- **共享包变更同步(强制)**:
-  - `packages/database` schema 变更 → 必须同步 `pnpm --filter @ihui/database db:generate` → 同步更新所有消费端的 Drizzle 引用。
-  - `packages/ui` 组件 API 变更 → 必须同步更新所有消费端(Web/Miniapp)的引用 + 验证样式一致性。
-  - `packages/auth` 鉴权逻辑变更 → 必须同步 API + Web + CLI 三端的鉴权调用。
-  - `packages/config` 配置变更 → 必须同步所有端的引用。
-
-- **AI 对话链路同步(强制)**:AI 对话链路是横跨 API ↔ AI-Service ↔ Web ↔ CLI 的核心链路,任何一端变更必须同步:
-  - AI-Service 模型配置 / SSE 协议 / callback 协议变更 → 必须同步 API 的 `/api/llm/*` + `/api/ai/callback` 路由 + Web 的 `use-chat.ts` + CLI 的 LLM 调用层。
-  - API callback schema 变更 → 必须同步 AI-Service 的 `_fire_callback` + Web 的 WS 通知处理 + CLI 的 ai-callback 处理。
-
-- **同步验证(强制)**:跨端变更完成后必须执行全量验证,**禁止只验证单端**就声明完成:
-
-  ```bash
-  pnpm turbo build typecheck lint test  # 全量验证(必须全绿)
-  ```
-  - 若某端验证失败,必须修复到全绿,不得"先合并再修"。
-
-- **文档同步(强制)**:跨端变更必须同步更新:
-  - `docs/architecture.md`(若架构层级变化)
-  - `IHUI-AI-交接文档.md`(若涉及 Phase 推进)
-  - `PROJECT_PLAN.md`(任务状态)
-  - `DEPLOYMENT-R65.md`(若涉及生产部署清单变化)
-
-### 禁止事项
-
-- 不允许"只改 API 不改前端"的单端孤岛式提交。
-- 不允许在 `packages/types` 之外的地方定义跨端共享类型。
-- 不允许任何端持有与 `packages/database` schema 不一致的 Drizzle 模型副本。
-- 不允许只验证单端就声明"跨端变更完成"。
-- 不允许跨端变更后**不同步更新** `PROJECT_PLAN.md` 任务状态。
-
-### 审查清单(每次跨端变更前必填)
-
-变更执行者在动手前必须自检:
-
-- [ ] 我已确认本次变更的跨端影响范围(列出受影响端清单)。
-- [ ] 我已规划所有受影响端的同步修改方案。
-- [ ] 我已确认 `packages/types` / `packages/database` / `packages/ui` / `packages/auth` 是否需要同步。
-- [ ] 我已规划同步验证步骤(`pnpm turbo build typecheck lint test` 必须全绿)。
-- [ ] 我已规划文档同步(`PROJECT_PLAN.md` / `docs/architecture.md` 等)。
-
-### 单端变更例外
-
-仅当变更**明确无跨端影响**时,允许单端修改:
-
-- 纯 UI 样式调整(不改组件 API)。
-- 单端内部工具函数(不被其他端引用)。
-- 单端测试用例补充。
-- 单端配置文件调整(如 `tsconfig.json` 的 `paths`)。
-
-但即使单端变更,仍需执行 `pnpm turbo build typecheck lint test` 全量验证,确保无回归。
-
-### 冲突优先级
-
-本节"多端同步开发规则" > 通用 AGENTS.md 规则(仅在无覆盖时)。
-
----
-
 ## 10. 多端同步开发强制规则(强制)
 
 > 适用范围:任何涉及功能开发、接口调整、数据结构变更、UI 交互改动的任务,必须**同步推进本项目所有相关端**,禁止出现"一端开发好另外一端滞后"的情况。本规则与第 3 节"做减法"不冲突 — "做减法"指最小化代码冗余,本规则指功能跨端必须同步落地。
@@ -525,3 +439,33 @@ pnpm dev                                       # 启动所有服务
 - **功能层同步(必须)**:接口 / 类型 / 数据 / 业务逻辑必须全端同步。
 - **呈现层特化(允许)**:各端可根据平台特性调整 UI 布局 / 交互方式(如 mobile-rn 用 FlatList,web 用表格;desktop 用 Tauri 原生通知,mobile-rn 用 Expo Push)。
 - **平台独占(豁免)**:某些功能天然只属于特定端(如 desktop 的系统托盘、extension 的浏览器上下文菜单、miniapp-taro 的微信支付、CLI 的终端集成),此类不要求跨端同步,但必须在 `PROJECT_PLAN.md` 任务条目标注"平台独占"。
+
+### AI 对话链路同步(强制)
+
+AI 对话链路是横跨 API ↔ AI-Service ↔ Web ↔ CLI 的核心链路,任何一端变更必须同步:
+
+- AI-Service 模型配置 / SSE 协议 / callback 协议变更 → 必须同步 API 的 `/api/llm/*` + `/api/ai/callback` 路由 + Web 的 `use-chat.ts` + CLI 的 LLM 调用层。
+- API callback schema 变更 → 必须同步 AI-Service 的 `_fire_callback` + Web 的 WS 通知处理 + CLI 的 ai-callback 处理。
+- WebSocket 通知协议变更 → 必须同步 API 的 `ws-notifications.ts` + Web 的 `use-websocket.ts` + CLI 的 WS 客户端。
+- LiteLLM provider 配置变更 → 必须同步 AI-Service 的 `llm_gateway.py` + API 的 `/api/llm/models` + Web 的模型选择器 + CLI 的模型列表。
+
+### 文档同步(强制)
+
+跨端变更必须同步更新以下文档:
+
+- `docs/architecture.md`(若架构层级变化)
+- `IHUI-AI-交接文档.md`(若涉及 Phase 推进)
+- `PROJECT_PLAN.md`(任务状态)
+- `DEPLOYMENT-R65.md`(若涉及生产部署清单变化)
+- `MIGRATION_GAP_ANALYSIS.md`(若涉及迁移缺口变化)
+
+### 审查清单(每次跨端变更前必填)
+
+变更执行者在动手前必须自检:
+
+- [ ] 我已确认本次变更的跨端影响范围(列出受影响端清单)。
+- [ ] 我已规划所有受影响端的同步修改方案。
+- [ ] 我已确认 `packages/types` / `packages/database` / `packages/ui` / `packages/auth` / `packages/api-client` 是否需要同步。
+- [ ] 我已规划同步验证步骤(`pnpm turbo build typecheck lint test` 必须全绿,清 `*.tsbuildinfo` + `.turbo` 缓存后跑)。
+- [ ] 我已规划文档同步(`PROJECT_PLAN.md` / `docs/architecture.md` 等)。
+- [ ] 我已在 `PROJECT_PLAN.md` 任务条目显式列出目标端清单(单端任务标注"平台独占")。

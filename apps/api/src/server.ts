@@ -194,6 +194,11 @@ import { missingUserRoutes } from './routes/missing-user-routes.js'
 import { articleRoutes } from './routes/articles.js'
 import { userCheckinRoutes } from './routes/user.js'
 import { eduStubRoutes } from './routes/edu-stubs.js'
+// 前端缺失路由通用桩（按模块分组，避免 404）
+import { frontendStubAdminRoutes } from './routes/frontend-stub-admin-routes.js'
+import { frontendStubAiRoutes } from './routes/frontend-stub-ai-routes.js'
+import { frontendStubEduRoutes } from './routes/frontend-stub-edu-routes.js'
+import { frontendStubOtherRoutes } from './routes/frontend-stub-other-routes.js'
 
 // P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）
 import { adminReportRoutes } from './routes/report.js'
@@ -798,6 +803,12 @@ function registerRoutes(server: FastifyInstance) {
   server.register(articleRoutes, { prefix: '/api' })
   server.register(userCheckinRoutes, { prefix: '/api' })
   server.register(eduStubRoutes, { prefix: '/api' })
+
+  // ===== 前端缺失路由通用桩（按模块兜底，避免 404）=====
+  server.register(frontendStubAdminRoutes, { prefix: '/api' })
+  server.register(frontendStubAiRoutes, { prefix: '/api' })
+  server.register(frontendStubEduRoutes, { prefix: '/api' })
+  server.register(frontendStubOtherRoutes, { prefix: '/api' })
 
   // ===== P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）=====
   server.register(adminReportRoutes, { prefix: '/api/admin' })
