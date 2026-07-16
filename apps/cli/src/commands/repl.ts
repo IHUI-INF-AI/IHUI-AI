@@ -1,14 +1,13 @@
 /**
  * 交互式 REPL — 多轮对话模式。
- * 支持 slash 命令 (/help /exit /clear /model /tools /init /mcp /diff /undo 等)。
+ * 支持 slash 命令 (/help /exit /clear /model /tools /init /mcp 等)。
  */
 
 import * as path from 'node:path';
 import * as readline from 'node:readline';
-import WebSocket from 'ws';
 import chalk from 'chalk';
-import ora from 'ora';
 import inquirer from 'inquirer';
+import { streamChat } from '@ihui/api-client';
 import { createSession, saveSession, type Session, type ChatMessage } from './session.js';
 import { loadMcpConfig } from './mcp-config.js';
 import { agentsMdExists, writeAgentsMd } from './template.js';
@@ -24,18 +23,10 @@ export interface ReplOptions {
   history?: ChatMessage[];
 }
 
-interface FileChange {
-  file: string;
-  action: string;
-  content?: string;
-}
-
 interface ReplState {
   opts: ReplOptions;
   history: ChatMessage[];
   session: Session | null;
-  fileChanges: FileChange[];
-  lastDiff: FileChange | null;
 }
 
 export async function startREPL(opts: ReplOptions): Promise<void> {
@@ -43,8 +34,6 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     opts,
     history: opts.history ?? [],
     session: opts.sessionId ? null : createSession(opts.workspacePath, opts.modelId),
-    fileChanges: [],
-    lastDiff: null,
   };
 
   console.info(chalk.cyan(`\n🤖 IHUI AI (模型: ${opts.modelId}, 工作区: ${opts.workspacePath})\n`));
@@ -92,7 +81,6 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info('  /tools             列出可用工具');
       console.info('  /init              创建 AGENTS.md 模板');
       console.info('  /mcp               列出已配置的 MCP 服务器');
-      console.info('  /diff              显示最近的文件修改');
       console.info(chalk.cyan('\n文件操作:'));
       console.info('  /read <file>       读取文件 (带行号)');
       console.info('  /ls [dir]          列出目录内容');
@@ -109,8 +97,6 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
 
     case 'clear':
       state.history = [];
-      state.fileChanges = [];
-      state.lastDiff = null;
       if (state.session) {
         state.session.history = [];
         saveSession(state.session);
@@ -148,10 +134,6 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
 
     case 'mcp':
       handleMcpList();
-      break;
-
-    case 'diff':
-      handleDiff(state);
       break;
 
     case 'read':
@@ -227,74 +209,26 @@ function handleMcpList(): void {
   }
 }
 
-function handleDiff(state: ReplState): void {
-  if (!state.lastDiff) {
-    console.info(chalk.dim('尚无文件修改记录'));
-    return;
-  }
-  const diff = state.lastDiff;
-  console.info(chalk.cyan(`\n最近修改的文件: ${diff.file}`));
-  console.info(chalk.dim(`操作: ${diff.action}`));
-  if (diff.content) {
-    console.info(chalk.dim('\n内容:'));
-    console.info(diff.content);
-  }
-}
-
 async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
-  const wsUrl = state.opts.apiUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/api/v1/workspace/agent/ws';
+  const controller = new AbortController();
+  state.history.push({ role: 'user', content: prompt });
+  let assistantText = '';
 
-  return new Promise<void>((resolve) => {
-    const ws = new WebSocket(wsUrl);
-    const spinner = ora();
-    let assistantText = '';
-
-    ws.on('open', () => {
-      ws.send(
-        JSON.stringify({
-          prompt,
-          history: state.history,
-          model_id: state.opts.modelId,
-          workspace_path: state.opts.workspacePath,
-          max_iterations: state.opts.maxIterations,
-        }),
-      );
-    });
-
-    ws.on('message', (data: Buffer) => {
-      try {
-        const event = JSON.parse(data.toString()) as Record<string, unknown>;
-        if (event.type === 'agent.text.delta') {
-          assistantText += (event.content as string) || '';
-        }
-        if (event.type === 'agent.tool.call' && event.input) {
-          const toolName = event.name as string;
-          if (['write_file', 'edit_file', 'delete_file'].includes(toolName)) {
-            const input = event.input as Record<string, unknown>;
-            const fileChange: FileChange = {
-              file: String(input.path ?? input.file ?? 'unknown'),
-              action: toolName,
-              content: typeof input.content === 'string' ? input.content : undefined,
-            };
-            state.fileChanges.push(fileChange);
-            state.lastDiff = fileChange;
-          }
-        }
-        handleEvent(event, spinner);
-      } catch {
-        /* ignore parse errors */
-      }
-    });
-
-    ws.on('error', (err: Error) => {
-      spinner.fail('连接错误');
-      console.error(chalk.red(`❌ ${err.message}`));
-      resolve();
-    });
-
-    ws.on('close', () => {
-      spinner.stop();
-      state.history.push({ role: 'user', content: prompt });
+  await streamChat({
+    model: state.opts.modelId,
+    messages: state.history.map((m) => ({
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
+    })),
+    signal: controller.signal,
+    onDelta: (delta) => {
+      assistantText += delta;
+      process.stdout.write(delta);
+    },
+    onError: (err) => {
+      console.error(chalk.red(`\n❌ ${err}`));
+    },
+    onDone: () => {
       if (assistantText) {
         state.history.push({ role: 'assistant', content: assistantText });
       }
@@ -302,39 +236,8 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
         state.session.history = state.history;
         saveSession(state.session);
       }
-      resolve();
-    });
+      console.info(chalk.green('\n\n✨ 完成\n'));
+    },
   });
-}
-
-function handleEvent(event: Record<string, unknown>, spinner: ReturnType<typeof ora>): void {
-  const type = event.type as string;
-  switch (type) {
-    case 'agent.text.delta':
-      process.stdout.write((event.content as string) || '');
-      break;
-
-    case 'agent.tool.call':
-      console.info('');
-      console.info(chalk.cyan(`  🔧 ${event.name}`));
-      spinner.start(`  执行 ${event.name}...`);
-      break;
-
-    case 'agent.tool.result':
-      spinner.stop();
-      if (!event.success) {
-        console.info(chalk.red(`  ❌ ${event.error}`));
-      }
-      break;
-
-    case 'agent.error':
-      spinner.fail('错误');
-      console.error(chalk.red(`\n❌ ${event.message}`));
-      break;
-
-    case 'agent.done':
-      console.info(chalk.green(`\n\n✨ 完成 (${event.iterations} 次迭代)\n`));
-      break;
-  }
 }
 
