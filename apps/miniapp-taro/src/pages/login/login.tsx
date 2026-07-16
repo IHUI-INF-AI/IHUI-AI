@@ -60,7 +60,7 @@ export default function Login() {
         loginType === 'phone'
           ? await loginBySms(phone, code)
           : await loginByPassword(phone, password)
-      setAuth(res.token, res.user)
+      setAuth(res.accessToken, res.user, res.refreshToken)
       Taro.showToast({ title: t('login.loginSuccess'), icon: 'success' })
       setTimeout(() => Taro.reLaunch({ url: '/pages/index/index' }), 600)
     } catch {
@@ -76,7 +76,7 @@ export default function Login() {
         success: async (res) => {
           try {
             const data = await loginByWechat(res.code)
-            setAuth(data.token, data.user)
+            setAuth(data.accessToken, data.user, data.refreshToken)
             Taro.reLaunch({ url: '/pages/index/index' })
           } catch {
             Taro.showToast({ title: t('login.wechatFailed'), icon: 'none' })

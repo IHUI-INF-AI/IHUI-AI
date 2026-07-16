@@ -4,6 +4,71 @@
 
 ---
 
+## 多端同步对齐:9 端接口/类型/通知通讯统一(2026-07-17)✅(2026-07-17)
+
+### 目标
+
+落实 AGENTS.md 第 10 节"多端同步开发强制规则",修复 9 端之间的接口分叉、类型分叉、通知通讯断裂,达成功能/接口/类型/通知全端一致。
+
+### 交付摘要
+
+完成 3 项 P0 功能断裂修复 + 2 项 P1 类型/登录统一,9 端(api/web/ai-service/cli/miniapp-taro/mobile-rn/desktop/extension + packages/*)接口契约、用户类型、AI 对话链路、推送链路全部对齐。
+
+### P0 功能断裂修复(3 项)
+
+1. **P0-1 mobile-rn 推送链路断裂** — `apps/mobile-rn/src/hooks/use-push.ts` 获取 expo token 后从不调后端,`edu_notification_device` 表无设备记录。修复:token 获取后立即调 `/push/devices/register`,新增 `registered` 状态字段。
+2. **P0-2 AI 对话端点分叉** — web 直调 `/api/llm/complete/stream`(Next.js rewrites 代理),其他 4 端走 `/api/ai/chat/stream`(API 代理),后端逻辑不同。修复:扩展 `@ihui/api-client` 的 `streamChat` 支持 `metadata` + `onReasoning`,web 改用 `streamChat` 统一到 `/api/ai/chat/stream`,API 代理路由透传完整 metadata 到 ai-service。
+3. **P0-3 desktop/extension 缺 OrderPage** — 两端无订单页,与 web/mobile-rn 不一致。修复:两端各新建 OrderPage,对接 `getOrders`。
+
+### P1 类型/登录统一(2 项)
+
+4. **P1-4 5 端登录统一到 @ihui/api-client** — web `use-login-auth.ts`、extension sidepanel `LoginPage.tsx`、miniapp-taro(`api/index.ts` 登录函数返回 `LoginResult` + `stores/user.ts` 支持 refreshToken + `login.tsx` + `VerifyCodeModal.tsx`)全部改用共享层 `loginByAccount`/`loginBySms`/`register`,返回形状统一为 `LoginResult`(含 accessToken/refreshToken)。修复了 miniapp-taro 登录页 `res.token` 取 undefined 的既有 bug。
+5. **P1-5 AuthUser 类型统一 + 修复共享层 getProfile 返回类型 bug** —
+   - web `stores/auth.ts` 的 AuthUser 改为 `export type AuthUser = ApiAuthUser`(与共享层完全一致),删除本地 `role`/`roles` 兼容字段,`use-tour-permissions.ts` 和 `HasPermi.tsx` 改用 `roleId` 判断管理员。
+   - 共享层 `getProfile()` 修正返回类型:后端 `/api/auth/me` 实际返回 `{ user: AuthUser }`,原声明返回 `UserProfile`(含 username/gender/birthday/createdAt,后端不返回)是错的。修正为返回 `AuthUser`(内部解构 `res.data.user`),修复了 desktop/extension/mobile-rn profile 加载 `res.data` 是 `{user:...}` 而非 user 本体的运行时 bug。
+   - desktop/extension sidepanel/mobile-rn 的 ProfilePage 改用 `AuthUser`,移除后端不返回的 `username`/`createdAt` 显示,改用 `roleId` 显示角色。
+   - 共享层 `AuthUser` 字段改为可选(与后端 nullable 对齐 + 与各端构造部分字段 user 对象的场景兼容)。
+   - mobile-rn/extension popup 已用共享层 AuthUser,无需改动。
+
+### 涉及端清单(9 端同步)
+
+| 端                  | 改动点                                                                                                                                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| packages/api-client | `auth.ts`(AuthUser 字段可选)+ `user.ts`(getProfile 返回 AuthUser)+ `client.ts`(streamChat 扩展)+ `endpoints/auth.ts`(loginByAccount/register 签名扩展)                                                |
+| apps/api            | `routes/ai-chat-stream.ts`(透传 metadata)                                                                                                                                                             |
+| apps/web            | `stores/auth.ts`(AuthUser=共享层)+ `stores/user.ts`(cast 适配)+ `hooks/use-login-auth.ts`/`use-tour-permissions.ts`/`use-chat.ts` + `components/auth/HasPermi.tsx` + `lib/__tests__/user-api.test.ts` |
+| apps/desktop        | `App.tsx`/`pages/ProfilePage.tsx`/`pages/OrderPage.tsx`(新建)/`components/Layout.tsx`                                                                                                                 |
+| apps/extension      | `entrypoints/sidepanel/SidepanelApp.tsx`/`pages/LoginPage.tsx`/`pages/ProfilePage.tsx`/`pages/OrderPage.tsx`(新建)/`entrypoints/popup/App.tsx`                                                        |
+| apps/mobile-rn      | `hooks/use-push.ts`/`screens/ProfileScreen.tsx`                                                                                                                                                       |
+| apps/miniapp-taro   | `api/index.ts`/`stores/user.ts`/`pages/login/login.tsx`/`components/VerifyCodeModal.tsx`/`utils/auth.ts`                                                                                              |
+| apps/ai-service     | 无改动(SSE 协议不变)                                                                                                                                                                                  |
+| apps/cli            | 无改动(本次未涉及 CLI 调用层)                                                                                                                                                                         |
+
+### 最终验证依据(2026-07-17 实测)
+
+| 验证项                 | 命令                                                                         | 退出码 | 结果                    |
+| ---------------------- | ---------------------------------------------------------------------------- | ------ | ----------------------- |
+| api-client typecheck   | `pnpm --filter @ihui/api-client typecheck`                                   | 0      | ✅ 0 错误               |
+| web typecheck          | `pnpm --filter @ihui/web typecheck`                                          | 0      | ✅ 0 错误               |
+| desktop typecheck      | `pnpm --filter @ihui/desktop typecheck`                                      | 0      | ✅ 0 错误               |
+| extension typecheck    | `pnpm --filter @ihui/extension typecheck`                                    | 0      | ✅ 0 错误               |
+| mobile-rn typecheck    | `pnpm --filter @ihui/mobile-rn typecheck`                                    | 0      | ✅ 0 错误               |
+| miniapp-taro typecheck | `pnpm --filter @ihui/miniapp-taro typecheck`                                 | 0      | ✅ 0 错误               |
+| 全量 lint              | `pnpm turbo lint`                                                            | 0      | ✅ 0 错误               |
+| web user-api test      | `pnpm --filter @ihui/web exec vitest run src/lib/__tests__/user-api.test.ts` | 0      | ✅ 5 用例全绿           |
+| 全量 turbo(43/44)      | `pnpm turbo typecheck lint test`                                             | 1      | ⚠️ 43 成功 / 1 既有失败 |
+
+**既有失败说明**:`@ihui/api#test` 中 `systemLoginLogsRoutes` 路由注册冲突(`registerCrud` 的 `server.get(basePath)` 重复注册),与本次改动无关(本次未修改 `apps/api/src/routes/admin/system-login-logs.ts` 或 `_shared.ts`),为既有问题。
+
+### 残留风险与后续任务
+
+- **P2 WebSocket 三端接入**:web 有 `use-websocket.ts`,mobile-rn/desktop/extension 仍用轮询,未接入 WebSocket 实时通知(本次未做)。
+- **P2 i18n 跨端对齐**:web 有完整 i18n(zh-CN/zh-TW/en/ja/ko),其他端 i18n 覆盖不全(本次未做)。
+- **UserProfile 类型保留**:共享层 `UserProfile`(含 gender/birthday/createdAt/updatedAt)保留用于 `updateProfile` 输入,后端 `/api/auth/me` 不返回这些字段,web `stores/user.ts` 用 `as unknown as UserProfile` cast 适配。后端若补全 publicUser 字段可消除 cast(后续任务)。
+- **api 既有测试失败**:`systemLoginLogsRoutes` 路由注册冲突需单独修复(后续任务)。
+
+---
+
 ## 阶段四-A 用户管理 CRUD UI 补齐(2026-07-16)✅(2026-07-16)
 
 ### 目标

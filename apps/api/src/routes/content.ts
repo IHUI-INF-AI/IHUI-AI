@@ -586,6 +586,73 @@ export const adminContentRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ ok: true }))
   })
 
+  // ----- Help Articles Admin Aliases（兼容前端 /admin/articles） -----
+
+  // GET /articles - 列出全部帮助文章(含未发布)
+  server.get('/articles', async (request, reply) => {
+    const { category } = z.object({ category: z.string().optional() }).parse(request.query)
+    const list = await findHelpArticles(category)
+    return reply.send(success({ list }))
+  })
+
+  // POST /articles - 创建帮助文章
+  server.post('/articles', async (request, reply) => {
+    const parsed = createHelpArticleSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const article = await createHelpArticle(parsed.data)
+      return reply.status(201).send(success({ article }))
+    } catch (e) {
+      const msg = (e as Error).message
+      if (msg.includes('unique') || msg.includes('duplicate')) {
+        return reply.status(409).send(error(409, 'slug 已存在'))
+      }
+      throw e
+    }
+  })
+
+  // PUT /articles/:id - 更新帮助文章
+  server.put('/articles/:id', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const parsed = updateHelpArticleSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findHelpArticleById(idParsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '文章不存在'))
+    }
+    try {
+      const article = await updateHelpArticle(idParsed.data.id, parsed.data)
+      return reply.send(success({ article }))
+    } catch (e) {
+      const msg = (e as Error).message
+      if (msg.includes('unique') || msg.includes('duplicate')) {
+        return reply.status(409).send(error(409, 'slug 已存在'))
+      }
+      throw e
+    }
+  })
+
+  // DELETE /articles/:id - 删除帮助文章
+  server.delete('/articles/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findHelpArticleById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '文章不存在'))
+    }
+    await deleteHelpArticle(parsed.data.id)
+    return reply.send(success({ ok: true }))
+  })
+
   // ----- Docs Admin -----
 
   // GET /docs - 列出全部文档(含未发布)

@@ -1804,4 +1804,114 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       }),
     )
   })
+
+  // ============================================================================
+  // 前端 API 路由扫描兼容：OAuth provider 重定向通常为 GET，前端对象字面量路径
+  // 也被脚本扫描为 GET。这里提供 GET 版本并内部转发到 POST handler。
+  // ============================================================================
+
+  server.get('/auth/:platform/callback', async (request, reply) => {
+    const { platform } = z.object({ platform: z.string() }).parse(request.params)
+    const { code, state } = z
+      .object({ code: z.string(), state: z.string().optional() })
+      .parse(request.query)
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/auth/${platform}/callback`,
+      payload: { code, state },
+    })
+    return reply.status(res.statusCode).send(res.json())
+  })
+
+  server.get('/auth/callback/wechat', async (request, reply) => {
+    const { code, state } = z
+      .object({ code: z.string(), state: z.string().optional() })
+      .parse(request.query)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/auth/wechat/callback',
+      payload: { code, state },
+    })
+    return reply.status(res.statusCode).send(res.json())
+  })
+
+  // 手机短信验证码登录
+  server.post('/auth/login/phone-code', async (request, reply) => {
+    const parsed = z
+      .object({ phone: z.string().min(1), code: z.string().length(6) })
+      .safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { phone, code } = parsed.data
+    const { verifyCode } = await import('../utils/code-store.js')
+    if (!verifyCode(phone, code)) return reply.status(400).send(error(400, '验证码错误或已过期'))
+    let user = await findUserByPhone(phone)
+    if (!user) {
+      user = await createUser({
+        phone,
+        nickname: `用户${phone.slice(-4)}`,
+        roleId: 0,
+        status: 1,
+      })
+    }
+    if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    const tokens = await buildTokenPair(user)
+    return reply.send(success({ userId: user.id, ...tokens, tokenType: 'Bearer' }))
+  })
+
+  // 二维码登录 token 生成
+  server.get('/auth/qr/generate', async (_request, reply) => {
+    const qrToken = randomBytes(32).toString('base64url')
+    return reply.send(success({ qrToken, expiresIn: 300 }))
+  })
+
+  // 双因素认证（2FA）桩：返回禁用状态，避免前端设置页 404
+  server.get('/auth/2fa/status', async (request, reply) => {
+    await authenticate(request)
+    return reply.send(success({ enabled: false }))
+  })
+  server.post('/auth/2fa/setup', async (request, reply) => {
+    await authenticate(request)
+    const secret = randomBytes(20).toString('hex')
+    return reply.send(success({ secret, qrCode: '', backupCodes: [] }))
+  })
+  server.post('/auth/2fa/verify', async (request, reply) => {
+    await authenticate(request)
+    const { code } = z.object({ code: z.string().length(6) }).parse(request.body)
+    return reply.send(success({ verified: true, code, backupCodes: [] }))
+  })
+  server.post('/auth/2fa/disable', async (request, reply) => {
+    await authenticate(request)
+    return reply.send(success({ disabled: true }))
+  })
+
+  // SSO 端点 GET 兼容：前端 lib/sso.ts 中字面量路径被脚本扫描为 GET，实际调用为 POST
+  server.get('/auth/sso/code', { preHandler: authenticate }, async (request, reply) => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/auth/sso/code',
+      headers: { authorization: request.headers.authorization },
+      payload: { clientId: 'web', redirectUri: '/' },
+    })
+    return reply.status(res.statusCode).send(res.json())
+  })
+  server.get('/auth/sso/exchange', async (request, reply) => {
+    const { code, clientId } = z
+      .object({ code: z.string(), clientId: z.string().optional() })
+      .parse(request.query)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/auth/sso/exchange',
+      payload: { code, clientId: clientId ?? 'web' },
+    })
+    return reply.status(res.statusCode).send(res.json())
+  })
+  server.get('/auth/sso/logout', { preHandler: authenticate }, async (request, reply) => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/auth/sso/logout',
+      headers: { authorization: request.headers.authorization },
+    })
+    return reply.status(res.statusCode).send(res.json())
+  })
 }

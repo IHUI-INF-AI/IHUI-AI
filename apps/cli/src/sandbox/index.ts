@@ -9,7 +9,7 @@
  *   - 不实现 chroot/namespace 级隔离(超出 Node 能力范围)
  */
 
-import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
+import { spawnSync, spawn, type SpawnSyncOptions, type SpawnOptions, type ChildProcess } from 'node:child_process';
 import * as path from 'node:path';
 
 export interface SandboxOptions {
@@ -29,6 +29,69 @@ export interface SandboxOptions {
   /** 屏蔽的环境变量名(子进程不会继承这些变量)。
    *  默认会屏蔽常见 API key 相关变量(见 DEFAULT_BLOCKED_ENV_VARS)。 */
   blockedEnvVars?: string[];
+}
+
+export type SandboxProfile = 'readonly' | 'limited' | 'trusted' | 'open' | 'full';
+
+export interface SandboxProfileConfig {
+  description: string;
+  overrides: Partial<SandboxOptions>;
+}
+
+export const SANDBOX_PROFILES: Record<SandboxProfile, SandboxProfileConfig> = {
+  readonly: {
+    description: '只读:无写操作,无网络,无 shell 命令',
+    overrides: {
+      commandAllowlist: [],
+      blockedEnvVars: ['*'],
+      timeoutMs: 10_000,
+      maxOutputBytes: 1024 * 1024,
+    },
+  },
+  limited: {
+    description: '受限:仅白名单命令(默认 node/npm/pnpm/git/rg/tsc/eslint/vitest),保护 API key',
+    overrides: {
+      commandAllowlist: ['node', 'npm', 'npx', 'pnpm', 'git', 'rg', 'tsc', 'eslint', 'vitest', 'tsx'],
+      blockedEnvVars: ['*_API_KEY', '*_SECRET', '*_TOKEN', '*_PASSWORD', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY'],
+      timeoutMs: 60_000,
+      maxOutputBytes: 10 * 1024 * 1024,
+    },
+  },
+  trusted: {
+    description: '信任:限工作区路径,白名单命令,保护 API key(默认推荐)',
+    overrides: {
+      commandAllowlist: ['node', 'npm', 'npx', 'pnpm', 'git', 'rg', 'tsc', 'eslint', 'vitest', 'tsx', 'cat', 'ls', 'echo'],
+      blockedEnvVars: ['*_API_KEY', '*_SECRET', '*_TOKEN', '*_PASSWORD'],
+      timeoutMs: 120_000,
+      maxOutputBytes: 50 * 1024 * 1024,
+    },
+  },
+  open: {
+    description: '开放:全本地访问,不限命令,仍保护 API key',
+    overrides: {
+      blockedEnvVars: ['*_API_KEY', '*_SECRET', '*_TOKEN', '*_PASSWORD'],
+      timeoutMs: 300_000,
+      maxOutputBytes: 100 * 1024 * 1024,
+    },
+  },
+  full: {
+    description: '完全:无任何限制(危险,仅用于可信调试场景)',
+    overrides: {
+      timeoutMs: 600_000,
+      maxOutputBytes: 500 * 1024 * 1024,
+    },
+  },
+};
+
+/** 按 profile 解析 sandbox 配置:profile 提供基础,用户 opts 覆盖 */
+export function resolveSandboxOptions(
+  profile: SandboxProfile | undefined,
+  userOpts: Partial<SandboxOptions>
+): Partial<SandboxOptions> {
+  if (!profile) return userOpts;
+  const profileConfig = SANDBOX_PROFILES[profile];
+  if (!profileConfig) return userOpts;
+  return { ...profileConfig.overrides, ...userOpts };
 }
 
 export interface SandboxResult {
@@ -229,4 +292,139 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
     truncated: stdout.length >= maxOutput || stderr.length >= maxOutput,
     blocked: false,
   };
+}
+
+// ==================== 异步变体(后台任务用) ====================
+
+export interface SandboxPrecheckResult {
+  blocked: boolean;
+  blockReason?: string;
+}
+
+/** 沙盒预检查(命令白名单 + 路径白名单),供同步/异步版本共用。 */
+export function precheckSandbox(commandLine: string, opts: SandboxOptions): SandboxPrecheckResult {
+  const allowed = opts.allowedPaths ?? [];
+  const commandAllowlist = opts.commandAllowlist ?? [];
+  if (commandAllowlist.length > 0) {
+    const cmdName = extractCommandName(commandLine);
+    if (cmdName && !isCommandAllowed(cmdName, commandAllowlist)) {
+      return { blocked: true, blockReason: `command_not_allowed: ${cmdName}` };
+    }
+  }
+  if (allowed.length > 0) {
+    const pathsInCmd = extractPathsFromCommand(commandLine);
+    for (const p of pathsInCmd) {
+      if (!isPathAllowed(p, opts.cwd, allowed)) {
+        return { blocked: true, blockReason: `path_not_allowed: ${p}` };
+      }
+    }
+  }
+  return { blocked: false };
+}
+
+export interface SandboxAsyncHandle {
+  process: ChildProcess;
+  result: Promise<SandboxResult>;
+}
+
+/**
+ * 异步沙盒执行 — 启动后台进程,返回 ChildProcess + Promise<SandboxResult>。
+ * 不阻塞,适合后台任务。stdout/stderr 流式收集,超时用 SIGTERM。
+ */
+export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): SandboxAsyncHandle {
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const maxOutput = opts.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
+  const blockedEnvVars = opts.blockedEnvVars ?? DEFAULT_BLOCKED_ENV_VARS;
+
+  const precheck = precheckSandbox(commandLine, opts);
+  if (precheck.blocked) {
+    const blockedResult: SandboxResult = {
+      stdout: '',
+      stderr: `⛔ 命令被沙盒拒绝: ${precheck.blockReason}`,
+      exitCode: null,
+      timedOut: false,
+      truncated: false,
+      blocked: true,
+      blockReason: precheck.blockReason,
+    };
+    return {
+      process: null as unknown as ChildProcess,
+      result: Promise.resolve(blockedResult),
+    };
+  }
+
+  const spawnOpts: SpawnOptions = {
+    cwd: opts.cwd,
+    shell: true,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true,
+    env: buildFilteredEnv(blockedEnvVars),
+  };
+
+  const child = spawn(commandLine, spawnOpts);
+  let stdoutBuf = '';
+  let stderrBuf = '';
+  let truncated = false;
+  let settled = false;
+
+  const result = new Promise<SandboxResult>((resolve) => {
+    const timer = setTimeout(() => {
+      if (!settled) {
+        try { child.kill('SIGTERM'); } catch { /* ignore */ }
+        setTimeout(() => {
+          try { child.kill('SIGKILL'); } catch { /* ignore */ }
+        }, 5000);
+      }
+    }, timeoutMs);
+
+    child.stdout?.on('data', (chunk: Buffer) => {
+      if (stdoutBuf.length < maxOutput) {
+        stdoutBuf += chunk.toString('utf-8');
+        if (stdoutBuf.length >= maxOutput) {
+          truncated = true;
+          stdoutBuf = stdoutBuf.slice(0, maxOutput);
+        }
+      }
+    });
+    child.stderr?.on('data', (chunk: Buffer) => {
+      if (stderrBuf.length < maxOutput) {
+        stderrBuf += chunk.toString('utf-8');
+        if (stderrBuf.length >= maxOutput) {
+          truncated = true;
+          stderrBuf = stderrBuf.slice(0, maxOutput);
+        }
+      }
+    });
+
+    child.on('error', (err: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({
+        stdout: stdoutBuf,
+        stderr: stderrBuf + `\n[启动失败: ${err.message}]`,
+        exitCode: null,
+        timedOut: false,
+        truncated,
+        blocked: false,
+      });
+    });
+
+    child.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const timedOut = signal === 'SIGTERM' || signal === 'SIGKILL';
+      resolve({
+        stdout: stdoutBuf,
+        stderr: stderrBuf,
+        exitCode: code,
+        timedOut,
+        truncated,
+        blocked: false,
+      });
+    });
+  });
+
+  return { process: child, result };
 }

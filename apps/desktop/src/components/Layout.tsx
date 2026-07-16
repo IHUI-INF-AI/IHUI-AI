@@ -1,15 +1,16 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { logout as apiLogout } from '@ihui/api-client'
+import { logout as apiLogout, type AuthUser } from '@ihui/api-client'
 import { clearToken, getRefreshToken } from '../lib/token'
 
 interface Props {
-  user: { nickname: string; username: string } | null
+  user: AuthUser | null
 }
 
 const NAV = [
   { to: '/chat', label: 'AI 对话' },
   { to: '/profile', label: '个人中心' },
   { to: '/wallet', label: '钱包' },
+  { to: '/orders', label: '订单' },
   { to: '/courses', label: '课程' },
   { to: '/settings', label: '设置' },
 ]
@@ -46,7 +47,7 @@ export default function Layout({ user }: Props) {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <span className="user-name">{user?.nickname || user?.username || '未登录'}</span>
+          <span className="user-name">{user?.nickname || '未登录'}</span>
         </div>
       </aside>
       <main className="main-content">
