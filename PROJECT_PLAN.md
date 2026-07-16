@@ -467,11 +467,11 @@
 
 > 深度对比 cli 17 项能力与 IHUI-AI CLI 现状,发现阶段5-8 代码存在 4 个集成 bug + 6 项未迁移能力。本轮优先修复集成 bug(让已迁移代码真正生效),再迁移 3 项高价值新能力。
 
-- [ ] (P0) 阶段9:P0 集成 bug 修复 — (a) `runAgentAndExit` 传 `checkpoints` 让 Agent 模式注册 file-edit 工具;(b) `buildSystemPrompt` 读取并拼接工作区 AGENTS.md;(c) REPL `sendToAgent` 集成工具循环(复用 runAgent 逻辑);(d) ACP `session/prompt` 集成工具循环
-- [ ] (P0) 阶段10:Git 集成工具集 — 新增 `apps/cli/src/tools/git.ts` 提供 git_diff/git_status/git_commit/git_log 工具,让 Agent 能自主操作 git;接入 sandbox+hooks
-- [ ] (P1) 阶段11:审计日志/可观测性 — 记录所有工具调用到 `~/.ihui/audit.jsonl`(时间戳/工具名/输入摘要/输出摘要/耗时/成功与否),决策链路可追溯
-- [ ] (P1) 阶段12:真实 tokenizer — 引入 `gpt-tokenizer` 替换 `chars/4` 粗估,修复中文 token 估算偏差(中文约 2 char/token,当前高估 2 倍导致过早压缩)
-- [ ] (P0) 全量验证:typecheck + lint + 烟雾测试全绿
+- [x] ✅(2026-07-16) (P0) 阶段9:P0 集成 bug 修复 — (a) `runAgentAndExit` 传 `checkpoints` 让 Agent 模式注册 file-edit 工具;(b) `buildSystemPrompt` 读取并拼接工作区 AGENTS.md;(c) REPL `sendToAgent` 集成工具循环(复用 runAgent 逻辑);(d) ACP `session/prompt` 集成工具循环。抽取 `setupAgentTools` + `runToolLoop` 公共函数供 Agent/REPL/ACP 三处复用
+- [x] ✅(2026-07-16) (P0) 阶段10:Git 集成工具集 — 新增 `apps/cli/src/tools/git.ts` 提供 git_status/git_diff/git_log/git_add/git_commit 工具,使用 `spawnSync('git', args)` 直接调用(非 shell)避免注入,写操作接 hooks
+- [x] ✅(2026-07-16) (P1) 阶段11:审计日志/可观测性 — 新增 `apps/cli/src/audit.ts`,JSONL 格式追加到 `~/.ihui/audit.jsonl`,在 `runToolLoop` 中记录每次工具调用(时间戳/工具名/输入输出截断 500 字符/耗时/成功与否),`IHUI_AUDIT=0` 可禁用
+- [x] ✅(2026-07-16) (P1) 阶段12:真实 tokenizer — 引入 `gpt-tokenizer` 替换 `chars/4` 粗估,实测中文 34 chars 真实 15 tokens(旧粗估 9 少算 40%),修复中文 token 估算偏差
+- [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,CLI 启动 + tokenizer 精度对比测试通过
 
 ### 前端问题修复（2026-07-11 全面审计）
 

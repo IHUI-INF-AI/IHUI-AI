@@ -21,6 +21,7 @@
     "cli-highlight": "^2.1.11",
     "commander": "^12.1.0",
     "dotenv": "^16.4.7",
+    "gpt-tokenizer": "^3.4.0",
     "inquirer": "^12.3.0",
     "ora": "^8.1.0"
   },
