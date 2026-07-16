@@ -473,6 +473,16 @@
 - [x] ✅(2026-07-16) (P1) 阶段12:真实 tokenizer — 引入 `gpt-tokenizer` 替换 `chars/4` 粗估,实测中文 34 chars 真实 15 tokens(旧粗估 9 少算 40%),修复中文 token 估算偏差
 - [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,CLI 启动 + tokenizer 精度对比测试通过
 
+### cli 第四轮迁移:P0 安全与稳定性整合(2026-07-16 📋 plan)
+
+> 第四轮从头对比审计发现 17 项可整合能力(5 P0 / 5 P1 / 5 P2),本轮优先整合 4 项影响核心可用性/安全的 P0 项。
+
+- [x] ✅(2026-07-16) (P0) 阶段13:修复 sandbox 路径白名单失效 — `tools/builtins.ts` `run_command` 调用 `runSandboxed` 补传 `allowedPaths: [ctx.workspacePath]`,白名单机制恢复生效
+- [x] ✅(2026-07-16) (P0) 阶段14:敏感数据脱敏 — 新增 `redact.ts`(6 正则模式:OpenAI sk-/Bearer/password/api_key/AWS AKIA/Basic Auth),`audit.ts` 输入输出 + `formatToolResult` 回传 LLM 前全部脱敏,实测 sk-xxx 前 10 字符保留 + 后续替换为 _**REDACTED**_
+- [x] ✅(2026-07-16) (P0) 阶段15:用户确认机制 — `Tool` 接口新增 `dangerLevel?: 'read'|'write'|'dangerous'`,delete_file/git_commit/run_command 标为 dangerous,write_file/edit_file/git_add 标为 write。REPL 用 inquirer 弹窗确认,Agent 模式 `--allow-dangerous` flag,ACP 默认拒绝
+- [x] ✅(2026-07-16) (P0) 阶段16:自我反思/重试机制 — `runToolLoop` 用 Map 跟踪每个工具的连续失败次数,达 2 次注入 system 消息提示 LLM 反思策略 + 重置计数器
+- [x] ✅(2026-07-16) (P0) 全量验证:`pnpm turbo build typecheck lint --filter=@ihui/cli` 5/5 任务全绿,CLI 启动 + redactSecrets 三模式脱敏测试通过
+
 ### 前端问题修复（2026-07-11 全面审计）
 
 - [x] ✅(2026-07-11) 前端-FE-P0-1: 修复 `app/globals.css` 的 `--color-ring` token 反转（浅色模式 3.9% 近黑 → 70% 浅灰；暗色模式 83.1% 浅灰 → 25% 深灰），影响所有表单和 AI 输入框聚焦环

@@ -168,6 +168,7 @@ export const glob: Tool = {
 export const run_command: Tool = {
   name: 'run_command',
   description: '在沙盒中执行 shell 命令(带超时和路径限制)。参数:command(shell 命令)。',
+  dangerLevel: 'dangerous',
   parameters: {
     command: { type: 'string', description: '要执行的 shell 命令' },
   },
@@ -177,7 +178,11 @@ export const run_command: Tool = {
     if (!command) return { success: false, output: '', error: '缺少 command 参数' };
     const preResult = runPreToolCall('bash', { command, cwd: ctx.workspacePath });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
-    const result = runSandboxed(command, { cwd: ctx.workspacePath, timeoutMs: 30_000 });
+    const result = runSandboxed(command, {
+      cwd: ctx.workspacePath,
+      timeoutMs: 30_000,
+      allowedPaths: [ctx.workspacePath],
+    });
     runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut });
     const parts: string[] = [];
     if (result.stdout.trim()) parts.push(result.stdout.trimEnd());
