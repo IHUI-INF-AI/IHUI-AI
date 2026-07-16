@@ -95,7 +95,7 @@ export const get_diagnostics: Tool = {
     linter: { type: 'string', description: 'tsc | eslint | auto(默认 auto)' },
   },
   required: [],
-  execute(args, ctx): ToolResult {
+  async execute(args, ctx): Promise<ToolResult> {
     const targetPath = args.path as string | undefined;
     const linter = (args.linter as string) || 'auto';
     const preResult = runPreToolCall('get_diagnostics', { linter, path: targetPath });
