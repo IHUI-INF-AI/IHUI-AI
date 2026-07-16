@@ -37,10 +37,13 @@ import { GIT_TOOLS } from '../tools/git.js';
 import { FETCH_TOOLS } from '../tools/fetch-url.js';
 import { TEST_TOOLS } from '../tools/run-tests.js';
 import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
+import { CODEGRAPH_TOOLS } from '../tools/codegraph.js';
 import { createSubagentTool } from '../tools/subagent.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import { compressContext, estimateTokens, estimateMessagesTokens } from '../context.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
+import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.js';
+import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
 import { loadSettings } from './settings.js';
 import type { Session } from './session.js';
@@ -125,9 +128,13 @@ export interface SetupAgentToolsOptions {
 export interface SetupAgentToolsResult {
   systemPrompt: string;
   ctx: ToolContext;
+  /** 加载到的 skills(供 REPL /skill 命令使用) */
+  skills: Skill[];
+  /** 加载到的 memory 条目(供 REPL /memory 命令使用) */
+  memory: MemoryEntry[];
 }
 
-/** 注册工具 + 构建 system prompt(含 AGENTS.md 注入) */
+/** 注册工具 + 构建 system prompt(含 AGENTS.md + skills + memory 注入) */
 export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<SetupAgentToolsResult> {
   clearTools();
   registerTools(BUILTIN_TOOLS);
@@ -135,6 +142,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   registerTools(FETCH_TOOLS);
   registerTools(TEST_TOOLS);
   registerTools(DIAGNOSTIC_TOOLS);
+  registerTools(CODEGRAPH_TOOLS);
   registerTools(createFileEditTools({ workspacePath: opts.workspacePath, checkpoints: opts.checkpoints }));
   if (opts.subagentParent) {
     registerTools([createSubagentTool({
@@ -159,7 +167,18 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
 
   const tools = listTools();
   const agentsMd = readAgentsMd(opts.workspacePath);
-  const systemPrompt = buildSystemPrompt(tools, agentsMd, opts.planFirst);
+  const skills = loadSkills({ cwd: opts.workspacePath });
+  if (skills.length > 0 && !opts.silent) {
+    console.info(chalk.dim(`  📚 已加载 ${skills.length} 个 skill(/skills 查看,/skill <name> 调用)`));
+  }
+  const memory = loadMemory(opts.workspacePath);
+  if (memory.length > 0 && !opts.silent) {
+    console.info(chalk.dim(`  🧠 已加载 ${memory.length} 条 memory(/memory 查看)`));
+  }
+  const skillsText = formatSkillsForPrompt(skills);
+  const memoryText = formatMemoryForPrompt(memory);
+  const extraContext = [agentsMd, skillsText, memoryText].filter(Boolean).join('\n\n');
+  const systemPrompt = buildSystemPrompt(tools, extraContext, opts.planFirst);
   const settings = loadSettings();
   const ctx: ToolContext = {
     workspacePath: opts.workspacePath,
@@ -171,7 +190,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     } : undefined,
   };
 
-  return { systemPrompt, ctx };
+  return { systemPrompt, ctx, skills, memory };
 }
 
 export interface RunToolLoopOptions {

@@ -326,6 +326,7 @@
     "admin": "管理后台",
     "help": "帮助",
     "search": "搜索",
+    "myLearning": "我的学习",
     "favorites": "收藏",
     "following": "关注",
     "subscriptions": "订阅",
@@ -1486,7 +1487,10 @@
       "rolesAuthUser": "角色授权用户",
       "rolesSelectUser": "选择用户",
       "ossFiles": "文件管理",
-      "notificationDispatch": "定向通知"
+      "notificationDispatch": "定向通知",
+      "messageOverview": "消息概览",
+      "visitTracking": "访问追踪",
+      "examMarking": "考试批阅"
     },
     "refund": {
       "title": "退款审核管理",

@@ -188,6 +188,7 @@ import {
   findDocs,
   findDocBySlug,
 } from '../src/db/content-queries'
+import { codeStore } from '../src/utils/code-store'
 
 // =============================================================================
 // 常量与测试数据
@@ -410,6 +411,160 @@ describe('success paths', () => {
         method: 'POST',
         url: '/api/auth/login',
         body: { account: '13800000001' },
+      })
+      expect(res.statusCode).toBe(400)
+      const body = res.json()
+      expect(body.code).toBe(400)
+    })
+
+    // =====================================================================
+    // 小程序别名路由(/login/password, /login/sms, /login/wechat)
+    // =====================================================================
+    it('POST /api/auth/login/password 成功登录返回 200 与 token', async () => {
+      vi.mocked(findUserByPhone).mockResolvedValue(mockUser)
+      vi.mocked(bcrypt.compare).mockResolvedValue(true)
+
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/auth/login/password',
+        body: { phone: '13800000001', password: 'password123' },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data).toHaveProperty('accessToken')
+      expect(body.data).toHaveProperty('refreshToken')
+      expect(body.data.user.phone).toBe('13800000001')
+    })
+
+    it('POST /api/auth/login/password 密码错误返回 401', async () => {
+      vi.mocked(findUserByPhone).mockResolvedValue(mockUser)
+      vi.mocked(bcrypt.compare).mockResolvedValue(false)
+
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/auth/login/password',
+        body: { phone: '13800000001', password: 'wrongpassword' },
+      })
+      expect(res.statusCode).toBe(401)
+      const body = res.json()
+      expect(body.code).toBe(401)
+      expect(body.message).toContain('密码错误')
+    })
+
+    it('POST /api/auth/login/password 用户不存在返回 401', async () => {
+      vi.mocked(findUserByPhone).mockResolvedValue(undefined)
+
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/auth/login/password',
+        body: { phone: '13900000000', password: 'password123' },
+      })
+      expect(res.statusCode).toBe(401)
+      const body = res.json()
+      expect(body.code).toBe(401)
+    })
+
+    it('POST /api/auth/login/password 缺少字段返回 400', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/auth/login/password',
+        body: { phone: '13800000001' },
+      })
+      expect(res.statusCode).toBe(400)
+      const body = res.json()
+      expect(body.code).toBe(400)
+    })
+
+    it('POST /api/auth/login/sms 验证码正确成功登录', async () => {
+      vi.mocked(findUserByPhone).mockResolvedValue(mockUser)
+      // 手动注入验证码到 codeStore
+      codeStore.set('13800000001', {
+        code: '123456',
+        expiresAt: Date.now() + 5 * 60 * 1000,
+        sentAt: Date.now(),
+      })
+
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/auth/login/sms',
+        body: { phone: '13800000001', code: '123456' },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data).toHaveProperty('accessToken')
+      expect(body.data.user.phone).toBe('13800000001')
+      // 验证码应被消费(一次性)
+      expect(codeStore.has('13800000001')).toBe(false)
+    })
+
+    it('POST /api/auth/login/sms 验证码错误返回 401', async () => {
+      vi.mocked(findUserByPhone).mockResolvedValue(mockUser)
+      codeStore.set('13800000001', {
+        code: '123456',
+        expiresAt: Date.now() + 5 * 60 * 1000,
+        sentAt: Date.now(),
+      })
+
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/auth/login/sms',
+        body: { phone: '13800000001', code: '000000' },
+      })
+      expect(res.statusCode).toBe(401)
+      const body = res.json()
+      expect(body.code).toBe(401)
+      expect(body.message).toContain('验证码错误')
+    })
+
+    it('POST /api/auth/login/sms 用户不存在返回 401', async () => {
+      vi.mocked(findUserByPhone).mockResolvedValue(undefined)
+      codeStore.set('13900000000', {
+        code: '123456',
+        expiresAt: Date.now() + 5 * 60 * 1000,
+        sentAt: Date.now(),
+      })
+
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/auth/login/sms',
+        body: { phone: '13900000000', code: '123456' },
+      })
+      expect(res.statusCode).toBe(401)
+      const body = res.json()
+      expect(body.code).toBe(401)
+      expect(body.message).toContain('用户不存在')
+    })
+
+    it('POST /api/auth/login/sms 缺少字段返回 400', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/auth/login/sms',
+        body: { phone: '13800000001' },
+      })
+      expect(res.statusCode).toBe(400)
+      const body = res.json()
+      expect(body.code).toBe(400)
+    })
+
+    it('POST /api/auth/login/wechat 返回 501(未配置)', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/auth/login/wechat',
+        body: { code: 'wechat-auth-code' },
+      })
+      expect(res.statusCode).toBe(501)
+      const body = res.json()
+      expect(body.code).toBe(501)
+      expect(body.message).toContain('微信登录暂未配置')
+    })
+
+    it('POST /api/auth/login/wechat 缺少 code 返回 400', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/auth/login/wechat',
+        body: {},
       })
       expect(res.statusCode).toBe(400)
       const body = res.json()
