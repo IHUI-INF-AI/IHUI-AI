@@ -8,14 +8,14 @@ import { fetchApi } from '../client.js'
 
 export interface AuthUser {
   id: string
-  phone: string
-  email: string
-  nickname: string
-  avatar: string
-  bio: string
-  roleId: number
-  status: number
-  permissions: string[]
+  phone?: string
+  email?: string
+  nickname?: string
+  avatar?: string
+  bio?: string
+  roleId?: number
+  status?: number
+  permissions?: string[]
 }
 
 export interface LoginResult {
@@ -36,10 +36,13 @@ export type SmsScene = 'register' | 'login' | 'reset' | 'phone-binding'
 export async function loginByAccount(
   account: string,
   password: string,
+  captcha?: string,
 ): Promise<ApiResult<LoginResult>> {
+  const body: Record<string, string> = { account, password }
+  if (captcha) body.captcha = captcha
   return fetchApi<LoginResult>('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ account, password }),
+    body: JSON.stringify(body),
   })
 }
 
@@ -74,16 +77,21 @@ export async function loginByWechat(code: string): Promise<ApiResult<LoginResult
 // 注册 / 登出 / 刷新 / 验证码
 // =============================================================================
 
-/** 手机号注册 — POST /auth/register */
+/** 注册 — POST /auth/register */
 export async function register(
   phone: string,
   password: string,
   code?: string,
   invitationCode?: string,
+  account?: string,
+  captcha?: string,
 ): Promise<ApiResult<LoginResult>> {
+  const body: Record<string, string | undefined> = { phone, password, code, invitationCode }
+  if (account) body.account = account
+  if (captcha) body.captcha = captcha
   return fetchApi<LoginResult>('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ phone, password, code, invitationCode }),
+    body: JSON.stringify(body),
   })
 }
 

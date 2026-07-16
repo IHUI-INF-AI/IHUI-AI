@@ -1,9 +1,14 @@
 'use client'
 
 import * as React from 'react'
+import {
+  loginByAccount as apiLoginByAccount,
+  loginBySms as apiLoginBySms,
+  register as apiRegister,
+  type LoginResult,
+} from '@ihui/api-client'
 
-import { useAuthStore, type AuthUser } from '@/stores/auth'
-import { fetchApi } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/hooks/use-toast'
 
 export interface LoginInput {
@@ -19,12 +24,6 @@ export interface UseLoginAuthReturn {
   register: (input: LoginInput & { phone: string }) => Promise<boolean>
 }
 
-interface TokenPayload {
-  accessToken: string
-  refreshToken?: string
-  user: AuthUser
-}
-
 /** 登录认证 Hook,封装账号密码/验证码登录与注册 */
 export function useLoginAuth(): UseLoginAuthReturn {
   const toast = useToast()
@@ -33,7 +32,7 @@ export function useLoginAuth(): UseLoginAuthReturn {
   const [loading, setLoading] = React.useState(false)
 
   const applyLogin = React.useCallback(
-    (data: TokenPayload) => {
+    (data: LoginResult) => {
       setToken(data.accessToken, data.refreshToken ?? null)
       setUser(data.user)
     },
@@ -44,10 +43,7 @@ export function useLoginAuth(): UseLoginAuthReturn {
     async (input: LoginInput): Promise<boolean> => {
       setLoading(true)
       try {
-        const res = await fetchApi<TokenPayload>('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify(input),
-        })
+        const res = await apiLoginByAccount(input.account, input.password, input.captcha)
         if (res.success) {
           applyLogin(res.data)
           toast.success('登录成功')
@@ -66,10 +62,7 @@ export function useLoginAuth(): UseLoginAuthReturn {
     async (phone: string, code: string): Promise<boolean> => {
       setLoading(true)
       try {
-        const res = await fetchApi<TokenPayload>('/auth/login-code', {
-          method: 'POST',
-          body: JSON.stringify({ phone, code }),
-        })
+        const res = await apiLoginBySms(phone, code)
         if (res.success) {
           applyLogin(res.data)
           toast.success('登录成功')
@@ -88,10 +81,14 @@ export function useLoginAuth(): UseLoginAuthReturn {
     async (input: LoginInput & { phone: string }): Promise<boolean> => {
       setLoading(true)
       try {
-        const res = await fetchApi<TokenPayload>('/auth/register', {
-          method: 'POST',
-          body: JSON.stringify(input),
-        })
+        const res = await apiRegister(
+          input.phone,
+          input.password,
+          undefined,
+          undefined,
+          input.account,
+          input.captcha,
+        )
         if (res.success) {
           applyLogin(res.data)
           toast.success('注册成功')

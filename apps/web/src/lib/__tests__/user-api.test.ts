@@ -12,27 +12,27 @@ describe('user-api', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('getProfile调用fetchApi GET /api/auth/me', async () => {
-    const profile = {
+    // getProfile 内部解构 res.data.user,mock 需返回 { user: ... } 结构
+    const user = {
       id: 'u1',
-      username: 'test',
+      phone: '13800000000',
+      email: 'test@example.com',
       nickname: 'Test',
-      avatar: null,
-      email: null,
-      phone: null,
-      bio: null,
-      gender: null,
-      birthday: null,
-      createdAt: '',
-      updatedAt: '',
+      avatar: '',
+      bio: '',
+      roleId: 0,
+      status: 1,
+      permissions: [],
     }
-    vi.mocked(fetchApi).mockResolvedValue({ success: true, data: profile } as ApiResult<
-      typeof profile
-    >)
+    vi.mocked(fetchApi).mockResolvedValue({
+      success: true,
+      data: { user },
+    } as ApiResult<{ user: typeof user }>)
 
     const r = await getProfile()
     expect(fetchApi).toHaveBeenCalledWith('/api/auth/me')
     expect(r.success).toBe(true)
-    if (r.success) expect(r.data).toEqual(profile)
+    if (r.success) expect(r.data).toEqual(user)
   })
 
   it('getProfile失败时返回error', async () => {

@@ -1,18 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { AuthUser as ApiAuthUser } from '@ihui/api-client'
 import { setAuthCookie } from '@/lib/cookie-utils'
 import { createPersistConfig } from './persist-helpers'
 
-export interface AuthUser {
-  id: string
-  nickname: string
-  avatar?: string
-  phone?: string
-  roleId?: number
-  role?: string
-  permissions?: string[]
-  roles?: string[]
-}
+/** 与共享层 @ihui/api-client AuthUser 完全一致,确保 5 端用户类型统一 */
+export type AuthUser = ApiAuthUser
 
 export interface TokenPair {
   accessToken: string
