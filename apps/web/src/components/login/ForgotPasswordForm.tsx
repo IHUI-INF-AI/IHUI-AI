@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -9,6 +8,7 @@ import { z } from 'zod'
 
 import { Button, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
 import { PasswordStrengthIndicator } from './PasswordStrengthIndicator'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 
 const phoneRegex = /^1[3-9]\d{9}$/
 const emailSchema = z.string().email()
@@ -18,7 +18,6 @@ const emailSchema = z.string().email()
  */
 export function ForgotPasswordForm() {
   const t = useTranslations('auth')
-  const router = useRouter()
   const [method, setMethod] = React.useState<'phone' | 'email'>('phone')
 
   const [phone, setPhone] = React.useState('')
@@ -89,7 +88,7 @@ export function ForgotPasswordForm() {
         return
       }
       toast.success(t('resetSuccess'))
-      router.push('/login')
+      useLoginDialogStore.getState().open('login')
     } catch {
       setError(t('registerFailed'))
     } finally {
@@ -99,7 +98,13 @@ export function ForgotPasswordForm() {
 
   return (
     <div className="space-y-4">
-      <Tabs value={method} onValueChange={(v) => { setMethod(v as typeof method); setError(null) }}>
+      <Tabs
+        value={method}
+        onValueChange={(v) => {
+          setMethod(v as typeof method)
+          setError(null)
+        }}
+      >
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="phone">{t('phone')}</TabsTrigger>
           <TabsTrigger value="email">{t('email')}</TabsTrigger>
@@ -126,7 +131,9 @@ export function ForgotPasswordForm() {
       </Tabs>
 
       {error && (
-        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
       )}
 
       <div className="space-y-2">

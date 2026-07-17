@@ -9,6 +9,7 @@ import { ThemeProvider } from '@/providers/theme-provider'
 import { QueryProvider } from '@/providers/query-provider'
 import { GlobalHooksProvider } from '@/providers/global-hooks-provider'
 import { LoginDialog } from '@/components/login/LoginDialog'
+import { LoginRedirectListener } from '@/components/login/LoginRedirectListener'
 
 export const metadata: Metadata = {
   title: { default: 'IHUI AI', template: '%s | IHUI AI' },
@@ -57,6 +58,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <QueryProvider>
               <GlobalHooksProvider>
                 {children}
+                <LoginRedirectListener />
                 <LoginDialog />
               </GlobalHooksProvider>
             </QueryProvider>
