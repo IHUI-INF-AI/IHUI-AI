@@ -24,6 +24,7 @@ import {
 import type { Tool, ToolContext, ToolResult } from './index.js';
 import { todo_write } from './todo-write.js';
 import { ask_user_question } from './ask-user.js';
+import { matchDangerousCommand, isReadonlyCommand } from './command-safety.js';
 
 const MAX_READ_LINES = 500;
 const MAX_GREP_RESULTS = 50;
@@ -405,12 +406,24 @@ export const run_command: Tool = {
     const command = args.command as string;
     if (!command) return { success: false, output: '', error: '缺少 command 参数' };
     const background = args.background === true;
-    // 默认拒绝策略:未提供 confirmDangerous 回调时,dangerous 工具直接拒绝(安全优先)
-    if (run_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) {
-      return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
+    // 危险命令模式检查:即使 allowDangerous=true 也强制拦截,除非 IHUI_YOLO=1
+    const dangerousMatch = matchDangerousCommand(command);
+    if (dangerousMatch && !process.env.IHUI_YOLO) {
+      return {
+        success: false,
+        output: `⚠ 危险命令被拦截:命令匹配危险模式 ${dangerousMatch.source}\n如确需执行,请设置 IHUI_YOLO=1`,
+      };
     }
-    if (ctx.confirmDangerous && !(await ctx.confirmDangerous(run_command, args))) {
-      return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
+    // readonly 命令自动批准(trusted profile 默认):免 confirmDangerous 提示
+    const readonlyAutoApproved = isReadonlyCommand(command);
+    if (!readonlyAutoApproved) {
+      // 默认拒绝策略:未提供 confirmDangerous 回调时,dangerous 工具直接拒绝(安全优先)
+      if (run_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) {
+        return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
+      }
+      if (ctx.confirmDangerous && !(await ctx.confirmDangerous(run_command, args))) {
+        return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
+      }
     }
     const preResult = runPreToolCall('bash', { command, cwd: ctx.workspacePath, background });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
