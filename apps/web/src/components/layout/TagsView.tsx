@@ -69,7 +69,7 @@ export function TagsView() {
   if (tags.length === 0) return null
 
   return (
-    <div className="flex h-9 items-center gap-1 bg-muted/40 px-2">
+    <div className="mx-2 mt-2 flex h-9 items-center gap-1 rounded-lg bg-muted/40 px-2">
       <div className="thin_scroll flex flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
         {tags.map((tag) => {
           const active = tag.path === activePath
