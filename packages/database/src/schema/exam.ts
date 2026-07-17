@@ -43,6 +43,7 @@ export const examPapers = pgTable('exam_papers', {
   title: varchar('title', { length: 200 }).notNull(),
   description: text('description'),
   categoryId: uuid('category_id').references(() => examCategories.id, { onDelete: 'set null' }),
+  cidList: jsonb('cid_list').$type<string[]>(),
   paperType: varchar('paper_type', { length: 50 }).default('normal').notNull(),
   totalScore: numeric('total_score', { precision: 6, scale: 2 }).default('100').notNull(),
   passScore: numeric('pass_score', { precision: 6, scale: 2 }).default('60').notNull(),
