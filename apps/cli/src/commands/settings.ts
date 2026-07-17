@@ -52,6 +52,19 @@ export interface Settings {
   locale?: string;
   /** 权限模式(对齐 Claude Code --permission-mode):default|acceptEdits|bypassPermissions|plan|manual */
   permissionMode?: PermissionMode;
+  /** Compaction V2 配置(默认关闭,启用后用 LLM 摘要替代纯正则压缩) */
+  compactionV2?: {
+    /** 启用 V2(默认 false,渐进式启用) */
+    enabled?: boolean;
+    /** 压缩用模型(缺省用 defaultModel) */
+    model?: string;
+    /** 触发压缩的占用率(0-1,默认 0.85) */
+    triggerRatio?: number;
+    /** 压缩后目标占用率(0-1,默认 0.6) */
+    targetRatio?: number;
+    /** sampler 超时(默认 30000ms) */
+    samplingTimeoutMs?: number;
+  };
 }
 
 export interface SamplerSettings {
@@ -180,6 +193,9 @@ export function saveSettingsTemplate(overwrite = false): boolean {
     },
     locale: 'zh-CN',
     permissionMode: 'default',
+    compactionV2: {
+      enabled: false,
+    },
   };
   fs.writeFileSync(p, JSON.stringify(template, null, 2) + '\n', 'utf-8');
   return true;

@@ -45,14 +45,15 @@ import { createSubagentTool } from '../tools/subagent.js';
 import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
 import { resolveSandboxOptions } from '../sandbox/index.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
-import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens } from '../context.js';
+import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens, type CompressionResult } from '../context.js';
+import { compressContextV2, type CompactionSampler, type CompactionObserver } from '../compaction-v2.js';
 import { generateReminders } from '../reminders.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
 import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.js';
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
 import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '../hooks/index.js';
-import { loadSettings, type SamplerSettings } from './settings.js';
+import { loadSettings, type SamplerSettings, type Settings } from './settings.js';
 import type { Session } from './session.js';
 import { saveSession } from './session.js';
 import type { PluginRegistry } from '../plugins/index.js';
@@ -490,6 +491,74 @@ async function sampleWithRetry(
   }
 }
 
+/**
+ * createCompactionSampler:基于 streamChat 构造真实 LLM CompactionSampler。
+ * 复用 packages/api-client 的 streamChat(流式 + onDelta 回调),不重新实现 LLM 调用。
+ * 超时由 AbortController 触发,V2 的 classifyError 会分类为瞬态 → sampleWithRetry 重试。
+ */
+export function createCompactionSampler(model: string): CompactionSampler {
+  return {
+    async sampleCompaction(messages, opts) {
+      let response = '';
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
+      try {
+        await streamChat({
+          model,
+          messages: [
+            { role: 'system', content: '你是上下文压缩器。把以下对话历史压缩为结构化摘要,保留:1) 用户主要请求 2) 关键技术决策 3) 涉及的文件路径与代码段 4) 当前工作进度 5) 待办任务。输出纯文本,不要 <analysis> 等标签。' },
+            ...messages.map(m => ({ role: m.role, content: m.content })),
+          ],
+          signal: controller.signal,
+          onDelta: (delta) => { response += delta; },
+        });
+        return { response };
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+  };
+}
+
+/**
+ * decideCompaction:根据 settings.compactionV2 feature flag 决定走 V2 或 V1 路径。
+ * - V2 启用 → 调 compressContextV2(LLM 摘要 + reduction guard + retry),注入 sampler + observer
+ * - V2 抛错 → fallback 到 compressContextIfNeeded(双保险,V2 内部已有 fallback,这里再加一层)
+ * - V2 未启用 → 直接走 V1(纯正则,向后兼容)
+ * 提取为独立导出函数便于集成测试(vi.mock 依赖项即可,无需启动 runToolLoop)。
+ */
+export async function decideCompaction(
+  messages: ChatMessage[],
+  settings: Settings,
+  opts: { contextLimit: number; modelId: string },
+): Promise<CompressionResult> {
+  const v2Config = settings.compactionV2;
+  if (v2Config?.enabled === true) {
+    try {
+      const sampler = createCompactionSampler(v2Config.model || opts.modelId || 'default-model');
+      const observer: CompactionObserver = {
+        onSuccess: ({ tokensBefore, tokensAfter, turnsCompacted, elapsedMs }) => {
+          console.info(chalk.dim(`  🗜️ compaction-v2: ${tokensBefore}→${tokensAfter} tokens, ${turnsCompacted} turns, ${elapsedMs}ms`));
+        },
+        onError: ({ statusLabel, error }) => {
+          console.warn(chalk.yellow(`  ⚠️ compaction-v2 error (${statusLabel}): ${error?.message ?? 'unknown'}`));
+        },
+      };
+      return await compressContextV2(messages, {
+        contextLimit: opts.contextLimit,
+        triggerRatio: v2Config.triggerRatio,
+        targetRatio: v2Config.targetRatio,
+        samplingTimeoutMs: v2Config.samplingTimeoutMs,
+        sampler,
+        observer,
+      });
+    } catch (err) {
+      console.warn(chalk.yellow(`  ⚠️ compaction-v2 failed, fallback to v1: ${err instanceof Error ? err.message : String(err)}`));
+    }
+  }
+  return compressContextIfNeeded(messages, { contextLimit: opts.contextLimit });
+}
+
 /** 执行多轮工具循环,直到 end_turn 或 maxIterations。messages 数组会被原地修改(追加 assistant + tool_result 消息) */
 export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoopResult> {
   let assistantText = '';
@@ -527,6 +596,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     return true;
   }
 
+  // P1-2 Compaction V2:加载 settings 一次(feature flag 默认关闭,启用后用 LLM 摘要压缩)
+  const settings = loadSettings();
+
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
       iterations = i + 1;
@@ -536,8 +608,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       // 让 LLM 本轮看到 tool_result + user interjection,自然响应
       drainAndAppendInterjections();
 
-      const compression = compressContextIfNeeded(opts.messages, {
+      const compression = await decideCompaction(opts.messages, settings, {
         contextLimit: opts.contextLimit ?? 8000,
+        modelId: opts.modelId,
       });
       const effectiveMessages = compression.messages;
 
