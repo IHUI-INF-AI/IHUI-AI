@@ -4,6 +4,54 @@
 
 ---
 
+## 容器圆角守门 + Stash 审查结论(2026-07-17)✅(2026-07-17)
+
+### 目标
+
+完成"禁止纯圆/胶囊容器样式"治理的剩余收尾建议:
+
+1. 全项目容器圆角违规扫描,确认历史违规规模
+2. 新增 pre-commit 守门脚本拦截新增违规(豁免 img/Switch/Radio/Avatar shape/装饰点)
+3. 审查 5 个历史 stash 的功能等价性,按 AGENTS.md 第 8 节决定保留/drop
+
+### 完成记录
+
+- ✅ 新增 [scripts/check-rounded-full.mjs](file:///g:/IHUI-AI/scripts/check-rounded-full.mjs) — 容器圆角守门脚本(支持 `--staged` 阻塞模式 + 全量 warn 模式)
+  - 检测 `rounded-full` / `rounded-pill` / `border-radius: 9999px` / `border-radius: 50%`
+  - 豁免规则(严格按 AGENTS.md 第 4 节): `<img>`/`<Image>`/AvatarImage + Radix Switch Root/Thumb(data-state-translate-x + bg-background shadow-lg + border-2 border-transparent 三特征) + Radix Radio(h-4 w-4 border-input) + Avatar shape='circle' conditional + <=14px 装饰点(w-1/h-1 到 w-3.5/h-3.5 双维度无大容器特征) + w-0.5/h-0.5 极窄条 + bg-red-500 未读红点底 + animate-spin/bounce/ping/pulse 装饰动画
+- ✅ 接入 [.husky/pre-commit](file:///g:/IHUI-AI/.husky/pre-commit) 第 11 项 `⭕ 检查容器圆角违规` — staged 模式只拦截新增违规,不阻塞历史遗留
+- ✅ 全项目扫描结果:**3795 文件,667 处真实违规**(历史遗留,按 AGENTS.md 第 4 节"不单独发起大改"留作渐进式修复)
+  - 集中模式: 胶囊形 badge (`rounded-full px-2 py-0.5`) / 图标圆形容器 (`h-12 w-12 rounded-full`) / Avatar 外层 div / 进度条 (`h-full rounded-full`) / SearchBar (`h-10 w-full rounded-full`) 等
+  - 修复策略: 涉及该文件修改任务时一并纠正为本项目规范圆角(rounded-sm/md/lg/xl/2xl)
+
+### Stash 审查结论(按 AGENTS.md 第 8 节"删除安全规则")
+
+5 个历史 stash 全部**保留**(每个都含未在 HEAD 实现的功能,不可 drop):
+
+| Stash                                               | 关键功能                                                                                                                     | HEAD 状态                                                                                   | 决定 |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---- |
+| `stash@{0}` WIP on main                             | .husky/pre-push + frontend-stub-other-routes + zh-CN + MemberCard + sidebar + journal 0098 + schema/index.ts(+llm-call-logs) | .husky/pre-push 已实施 / journal 0098 无对应 .sql / llm-call-logs.js 不存在                 | 保留 |
+| `stash@{1}` temp: 隔离非本次任务                    | .husky/pre-push + admin-stub test + OAuthCallbackHandler + MemberCard + sidebar                                              | .husky/pre-push 已实施 / 其余未实现                                                         | 保留 |
+| `stash@{2}` pre-p12-wip(4 文件)                     | frontend-stub-admin-routes + admin-stub test + MemberCard + sidebar                                                          | 全部未实现                                                                                  | 保留 |
+| `stash@{3}` pre-p12-wip(24 文件)                    | login 重构完整版 + journal + schema + lib + middleware + MemberCard + sidebar                                                | login 重构/middleware 已被 fd15a2df 实施 / journal/schema/lib/MemberCard/sidebar 部分未实现 | 保留 |
+| `stash@{4}` concurrent-session-uncommitted-20260717 | seedAiFresh2026 + 214 权限码                                                                                                 | 完全未实现(ai-fresh-2026.js 不存在)                                                         | 保留 |
+
+**未 drop 原因**: AGENTS.md 第 8 节要求"删除前必须 grep 计划文档确认功能等价性",以上 stash 均含未实现功能(llm-call-logs schema / seedAiFresh2026 / OAuthCallbackHandler 改动 / 前端 UI 改动等)。drop 决策权归属用户。
+
+### 验证
+
+- `node scripts/check-rounded-full.mjs --staged` 空 staged 跳过 exit 0 ✅
+- `node scripts/check-rounded-full.mjs` 全量扫描 3795 文件 667 违规 exit 0 ✅
+- 豁免规则验证: Switch.tsx/Radio.tsx/Avatar.tsx/voice-input.tsx/Loading.tsx/checkpoint-history-panel.tsx 全部正确豁免 ✅
+
+### 后续建议(交还用户决策)
+
+1. **渐进式圆角修复**: 667 处历史违规按"涉及该文件修改任务时一并纠正"原则处理,不发起单次大改
+2. **5 个 stash 清理**: 用 `git stash show -p 'stash@{N}'` 逐个审查,功能已在 HEAD 实现的 drop,未实现的提取后实施再 drop
+3. **本机 commit 推送**: 当前 ahead by 1 commit,可 `git push origin main` 同步
+
+---
+
 ## 前端 other 模块空桩路由真实化升级(2026-07-17)✅(2026-07-17)
 
 ### 目标
@@ -3768,6 +3816,47 @@ themes.test.ts:鉴权(403)+ CRUD(201/200/404)+ isCurrent 事务 + current/dark-m
 
 - `HUSKY_SKIP_TYPECHECK=1` 可跳过 pre-push 的 typecheck:full(不推荐,仅紧急)
 - 用法:`HUSKY_SKIP_TYPECHECK=1 git push`
+
+---
+
+### ✅(2026-07-17) goal 后续收尾 — pre-push Windows 兼容修复 + 容器圆角守门
+
+> 第 13 轮 goal achieved 后的收尾工作(非 goal 模式,无运行时文件)
+
+**背景**:第 13 轮 push 时虽然 `1cac2e8c` 已推送到 `origin/main`,但 `.husky/pre-push` 中 `echo` 在 Windows git hooks 下因 stdin 关闭抛 `Bad file descriptor`,导致 push 看似失败实际成功。同时并发会话新增了容器圆角守门脚本但未提交。
+
+#### 完成清单
+
+| #   | 项目                                  | 状态 | 产出                                                                                |
+| --- | ------------------------------------- | ---- | ----------------------------------------------------------------------------------- |
+| 1   | `.husky/pre-push` Windows 兼容修复    | ✅   | `echo` → `printf >&2`,5 行输出全部改写,避免 stdin 关闭时 Bad file descriptor        |
+| 2   | `scripts/check-rounded-full.mjs` 入库 | ✅   | 并发会话新建脚本入库,扫描 .ts/.tsx/.js/.jsx/.css/.scss 中 rounded-full 等违规       |
+| 3   | `.husky/pre-commit` 新增第 11 项守门  | ✅   | pre-commit 调 `check-rounded-full.mjs --staged`,新增违规阻塞 commit                 |
+| 4   | 脚本独立运行验证                      | ✅   | `node scripts/check-rounded-full.mjs` exit 0(全量警告模式),`--staged` 模式跳过非 ts |
+| 5   | 6 个 stash 命运                       | ⏳   | 按 AGENTS.md 第 8 节,不擅自 drop,见第 13 轮表,决定权归用户                          |
+
+#### git 信息
+
+- commit:<本次提交>
+- 文件变更:4 files(`.husky/pre-push` echo→printf,`.husky/pre-commit` +6,`scripts/check-rounded-full.mjs` 新增,`PROJECT_PLAN.md` +本节)
+- 推送:待 push 时由 pre-push 钩子触发 typecheck:full 验证
+
+#### 6 个 stash 现状(按 AGENTS.md 第 8 节不擅自 drop)
+
+| Stash                              | 内容                                        | 命运             |
+| ---------------------------------- | ------------------------------------------- | ---------------- |
+| stash@{0} p13-push-pre-cleanup     | pre-push 改造前的隔离 + 4 web 改动          | 保留(部分已合入) |
+| stash@{1} WIP on fd15a2df          | 其他 agent login 重构 WIP                   | 保留             |
+| stash@{2} temp: 隔离非本次任务改动 | 本会话 stash                                | 保留             |
+| stash@{3} pre-p12-wip              | 其他 agent P2 路由真实化 + LLM 流式 + login | 保留             |
+| stash@{4} wip: 0089/0090 + seed    | **含 migration 0089/0090 + seed,不能 drop** | **不能 drop**    |
+| stash@{5} concurrent-session       | 其他 agent 30+ 改动                         | 保留             |
+
+#### 关键决策
+
+1. **不 drop 任何 stash**:第 13 轮已审查,但 stash@{4} 含未应用 migration(0089/0090)与 seed 脚本,功能未在 monorepo 等价实现,按 AGENTS.md 第 8 节"路径兼容 ≠ 功能等价"原则不可 drop。
+2. **printf >&2 替代 echo**:git hooks 关闭 stdin,`echo` 在某些 shell 实现下读 stdin 报错,`printf >&2` 直接写 stderr 不读 stdin,且 stderr 在 git hooks 下始终可用。
+3. **容器圆角守门**:AGENTS.md 第 4 节"禁止纯圆形/胶囊容器"的执行层,pre-commit 阻塞新增违规,全量模式仅警告(既有违规需在涉及文件时纠正)。
 
 ---
 
