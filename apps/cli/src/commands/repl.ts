@@ -7,7 +7,7 @@ import * as path from 'node:path';
 import * as readline from 'node:readline';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import { createSession, saveSession, type Session, type ChatMessage } from './session.js';
+import { createSession, saveSession, repairSessionHistory, type Session, type ChatMessage } from './session.js';
 import { loadMcpConfig } from './mcp-config.js';
 import { agentsMdExists, writeAgentsMd } from './template.js';
 import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
@@ -67,6 +67,10 @@ interface ReplState {
   planApproved?: boolean;
   /** /rewind 用历史快照栈,每次 sendToAgent 前压入当前 history 深拷贝 */
   rewindStack: ChatMessage[][];
+  /** P0-2 Interject:agent 运行中用户输入的非斜杠命令进入此 buffer,runToolLoop 在下一轮 drain */
+  interjectionBuffer: string[];
+  /** P0-2 Interject:agent 是否正在运行(用于 rl.on('line') 路由) */
+  agentRunning: boolean;
 }
 
 export function formatContextStats(
@@ -178,6 +182,8 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     skills: [],
     memory: [],
     rewindStack: [],
+    interjectionBuffer: [],
+    agentRunning: false,
   };
   if (state.session) {
     state.checkpoints = new CheckpointManager({
@@ -211,6 +217,14 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   rl.on('line', async (line: string) => {
     const input = line.trim();
     if (!input) {
+      rl.prompt();
+      return;
+    }
+    // P0-2 Interject:agent 运行中,非斜杠输入进入 buffer(不取消当前回合)
+    // 斜杠命令仍立即执行(如 /exit /clear 等紧急命令不能等 agent 完成)
+    if (state.agentRunning && !input.startsWith('/')) {
+      state.interjectionBuffer.push(input);
+      console.info(chalk.dim(`  ↳ 已追加到 interjection buffer(当前 ${state.interjectionBuffer.length} 条),agent 下一轮处理`));
       rl.prompt();
       return;
     }
@@ -253,6 +267,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info('  /context           显示当前会话 token 用量 + 消息数 + 压缩阈值');
       console.info('  /rewind [N]          回退 N 步(默认 1 步,一步=一对 user+assistant)');
       console.info('  /fork [msg-index]    从指定消息位置 fork 新 session(默认最后一条 user 消息)');
+      console.info('  /repair             自愈当前会话历史(清理非法 role/空消息/连续重复/interjection 残留)');
       console.info(chalk.cyan('\n后台任务:'));
       console.info('  /bg <cmd>          启动后台命令,返回 task_id');
       console.info('  /bg list           列出后台任务');
@@ -537,6 +552,32 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info(chalk.green(
         `已 fork 新 session: ${newSession.id},从消息 #${forkIndex} 分叉,包含 ${result.forkedHistory.length} 条消息`,
       ));
+      break;
+    }
+
+    case 'repair': {
+      // P1-1 会话历史自愈:清理非法 role / 空 content / 连续重复 / interjection 残留
+      const before = state.history.length;
+      const { repaired, removed, reasons } = repairSessionHistory(state.history);
+      state.history = repaired;
+      if (state.session) {
+        state.session.history = state.history;
+        saveSession(state.session);
+      }
+      console.info(chalk.cyan(`\n🔧 会话历史自愈完成:`));
+      console.info(`  修复前: ${before} 条 → 修复后: ${repaired.length} 条(移除 ${removed} 条)`);
+      if (reasons.length > 0) {
+        console.info(chalk.dim('  修复原因:'));
+        for (const r of reasons.slice(0, 10)) {
+          console.info(chalk.dim(`    - ${r}`));
+        }
+        if (reasons.length > 10) {
+          console.info(chalk.dim(`    ...(还有 ${reasons.length - 10} 条)`));
+        }
+      } else if (removed === 0) {
+        console.info(chalk.dim('  历史结构正常,无需修复'));
+      }
+      console.info('');
       break;
     }
 
@@ -865,6 +906,14 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
     ...state.history.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })),
   ];
 
+  // P0-2 Interject:agent 运行期间允许用户输入非斜杠命令到 buffer,runToolLoop 每轮 drain
+  state.agentRunning = true;
+  const drainInterjections = (): string[] => {
+    const buf = state.interjectionBuffer;
+    state.interjectionBuffer = [];
+    return buf;
+  };
+
   const result = await runToolLoop({
     modelId: state.opts.modelId,
     messages,
@@ -872,6 +921,7 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
     maxIterations: state.opts.maxIterations,
     planFirst: state.opts.planFirst,
     planApproved: state.planApproved,
+    drainInterjections,
     onDelta: (delta) => { process.stdout.write(delta); },
     onToolCall: (name, args) => console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`)),
     onToolResult: (_name, success, output) => {
@@ -880,6 +930,8 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
     },
     onError: (err) => console.error(chalk.red(`\n❌ ${err}`)),
   });
+
+  state.agentRunning = false;
 
   if (result.assistantText) {
     state.history.push({ role: 'assistant', content: result.assistantText });

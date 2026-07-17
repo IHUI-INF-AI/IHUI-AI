@@ -20,6 +20,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import { type Tool, type ToolResult, type ToolContext, checkPathWritePermission } from './index.js';
+import { seekSequence, type MatchLevel } from './seek-sequence.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 
 interface EditToolContext extends ToolContext {
@@ -102,25 +103,36 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
 
 const SEARCH_REPLACE_REGEX = /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g;
 
-function applySearchReplace(original: string, patch: string): { result: string; replacements: number } | { error: string } {
+interface ApplyResult {
+  result: string;
+  replacements: number;
+  /** 命中的匹配级别(最高级别,用于诊断) */
+  matchLevels: MatchLevel[];
+}
+
+function applySearchReplace(original: string, patch: string): ApplyResult | { error: string } {
   let result = original;
   let replacements = 0;
+  const matchLevels: MatchLevel[] = [];
   let match: RegExpExecArray | null;
   SEARCH_REPLACE_REGEX.lastIndex = 0;
   while ((match = SEARCH_REPLACE_REGEX.exec(patch)) !== null) {
     const searchText = match[1]!;
     const replaceText = match[2]!;
-    const idx = result.indexOf(searchText);
-    if (idx === -1) {
-      return { error: `未找到匹配的文本:\n${searchText.slice(0, 100)}...` };
+    // P0-1 4 级模糊匹配:exact → rstrip → trim → unicode
+    // 解决 LLM 生成 patch 时 typographic 标点(– '' "" nbsp)或行尾空白差异导致的匹配失败
+    const seek = seekSequence(result, searchText);
+    if (!seek) {
+      return { error: `未找到匹配的文本(已尝试 4 级模糊匹配 exact/rstrip/trim/unicode):\n${searchText.slice(0, 100)}...` };
     }
-    result = result.slice(0, idx) + replaceText + result.slice(idx + searchText.length);
+    result = result.slice(0, seek.index) + replaceText + result.slice(seek.index + seek.length);
+    matchLevels.push(seek.level);
     replacements++;
   }
   if (replacements === 0 && patch.includes('<<<<<<< SEARCH')) {
     return { error: 'patch 格式错误,未执行替换' };
   }
-  return { result, replacements };
+  return { result, replacements, matchLevels };
 }
 
 export function createEditFileTool(ctx: EditToolContext): Tool {
@@ -168,9 +180,14 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
       fs.writeFileSync(abs, applied.result, 'utf-8');
       runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements });
       const diff = computeUnifiedDiff(original, applied.result, filePath);
+      // 非全 exact 匹配时附加级别提示,帮助 LLM 感知 patch 与源文件的差异
+      const nonExact = applied.matchLevels.filter((lv) => lv !== 'exact');
+      const levelHint = nonExact.length > 0
+        ? ` [模糊匹配: ${applied.matchLevels.join('/')}]`
+        : '';
       return {
         success: true,
-        output: `已编辑 ${filePath} (${applied.replacements} 处替换)${diff}`,
+        output: `已编辑 ${filePath} (${applied.replacements} 处替换)${levelHint}${diff}`,
       };
     },
   };
