@@ -9,6 +9,7 @@ import {
 } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle, VipBadge } from '@ihui/ui'
 import { useI18n } from '../../../src/i18n'
+import AgentRuntimePanel from '../components/AgentRuntimePanel'
 
 const avatarStyle: CSSProperties = {
   display: 'inline-flex',
@@ -36,6 +37,30 @@ const descStyle: CSSProperties = {
   fontSize: 12,
   color: 'var(--muted)',
   lineHeight: 1.5,
+}
+
+const tabBarStyle: CSSProperties = {
+  display: 'flex',
+  gap: 4,
+  borderBottom: '1px solid var(--border)',
+}
+
+const tabBtnStyle: CSSProperties = {
+  background: 'none',
+  border: 'none',
+  borderBottom: '2px solid transparent',
+  borderRadius: 0,
+  padding: '6px 12px',
+  fontSize: 12,
+  color: 'var(--muted)',
+  cursor: 'pointer',
+}
+
+const activeTabBtnStyle: CSSProperties = {
+  ...tabBtnStyle,
+  color: 'var(--accent)',
+  borderBottomColor: 'var(--accent)',
+  fontWeight: 600,
 }
 
 function Avatar({ agent }: { agent: Agent }) {
@@ -139,6 +164,7 @@ function AgentDetail({ id }: { id: string }) {
   const [permission, setPermission] = useState<AgentPermission | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState<'info' | 'runtime'>('info')
 
   useEffect(() => {
     let cancelled = false
@@ -182,32 +208,52 @@ function AgentDetail({ id }: { id: string }) {
         </button>
         <h3>{agent.name}</h3>
       </div>
-      <Card>
-        <CardHeader>
-          <div style={rowStyle}>
-            <Avatar agent={agent} />
-            <CardTitle>{agent.name}</CardTitle>
-            {agent.isVipExclusive ? <VipBadge size="md" /> : null}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p style={descStyle}>{agent.description || '—'}</p>
-          <dl className="sp-info-list">
-            <div>
-              <dt>使用次数</dt>
-              <dd>{agent.useCount}</dd>
+      <div style={tabBarStyle}>
+        <button
+          type="button"
+          style={activeTab === 'info' ? activeTabBtnStyle : tabBtnStyle}
+          onClick={() => setActiveTab('info')}
+        >
+          详情
+        </button>
+        <button
+          type="button"
+          style={activeTab === 'runtime' ? activeTabBtnStyle : tabBtnStyle}
+          onClick={() => setActiveTab('runtime')}
+        >
+          {t('nav.tabRuntime')}
+        </button>
+      </div>
+      {activeTab === 'info' ? (
+        <Card>
+          <CardHeader>
+            <div style={rowStyle}>
+              <Avatar agent={agent} />
+              <CardTitle>{agent.name}</CardTitle>
+              {agent.isVipExclusive ? <VipBadge size="md" /> : null}
             </div>
-            <div>
-              <dt>评分</dt>
-              <dd>★ {agent.rating.toFixed(1)}</dd>
-            </div>
-            <div>
-              <dt>权限</dt>
-              <dd>{permText}</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <p style={descStyle}>{agent.description || '—'}</p>
+            <dl className="sp-info-list">
+              <div>
+                <dt>使用次数</dt>
+                <dd>{agent.useCount}</dd>
+              </div>
+              <div>
+                <dt>评分</dt>
+                <dd>★ {agent.rating.toFixed(1)}</dd>
+              </div>
+              <div>
+                <dt>权限</dt>
+                <dd>{permText}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+      ) : (
+        <AgentRuntimePanel agentId={id} />
+      )}
     </div>
   )
 }

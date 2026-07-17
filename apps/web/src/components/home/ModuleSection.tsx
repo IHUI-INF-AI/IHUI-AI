@@ -112,6 +112,7 @@ function ModuleItemCard({ item }: { item: HomeItem }) {
             src={item.cover}
             alt={item.title}
             fill
+            unoptimized
             className="object-cover transition-transform group-hover:scale-105"
             sizes="240px"
           />

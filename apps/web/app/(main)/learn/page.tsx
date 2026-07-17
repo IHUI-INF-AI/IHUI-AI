@@ -27,7 +27,7 @@ interface LessonItem {
   id: string
   title: string
   instructor: string
-  cover?: string
+  coverImage?: string | null
   price: number
   signupCount: number
 }
@@ -165,7 +165,7 @@ export default function LearnPage() {
             <CourseCard
               key={lesson.id}
               title={lesson.title}
-              cover={lesson.cover}
+              cover={lesson.coverImage ?? undefined}
               instructor={lesson.instructor}
               price={lesson.price > 0 ? `¥${lesson.price}` : t('free')}
               onClick={() => router.push(`/learn/${lesson.id}`)}

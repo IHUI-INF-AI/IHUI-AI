@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
 from app.services.agent_graph import AgentState, get_agent_graph
 
 router = APIRouter(prefix="/agent-runtime", tags=["agent-runtime"])

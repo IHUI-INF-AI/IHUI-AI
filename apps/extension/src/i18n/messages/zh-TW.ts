@@ -23,6 +23,7 @@ export const zhTW = {
     courses: '課程',
     notifications: '通知',
     agents: '智慧體',
+    tabRuntime: 'Agent 執行',
   },
   auth: {
     login: '登入',
