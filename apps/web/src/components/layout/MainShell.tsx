@@ -1,12 +1,13 @@
 'use client'
 
 import * as React from 'react'
+import { Menu } from 'lucide-react'
 import { Sidebar } from '@/components/sidebar'
-import { Header } from '@/components/header'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
 import { TagsView } from '@/components/layout/TagsView'
 import { useAuthStore } from '@/stores/auth'
+import { Button } from '@ihui/ui'
 
 export function MainShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = React.useState(false)
@@ -52,8 +53,17 @@ export function MainShell({ children }: { children: React.ReactNode }) {
       <React.Suspense fallback={null}>
         <AISidePanel />
       </React.Suspense>
-      <div className="flex min-w-0 flex-1 flex-col my-2 mr-2 ml-2 overflow-hidden rounded-xl bg-shell-panel">
-        <Header onMenuClick={() => setMobileOpen((o) => !o)} />
+      <div className="relative flex min-w-0 flex-1 flex-col my-2 mr-2 ml-2 overflow-hidden rounded-xl bg-shell-panel">
+        {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setMobileOpen((o) => !o)}
+          className="absolute left-2 top-2 z-30 h-9 w-9 lg:hidden"
+          aria-label="菜单"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
         {isAuthenticated && (
           <React.Suspense fallback={null}>
             <TagsView />
