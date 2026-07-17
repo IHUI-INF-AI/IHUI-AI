@@ -186,6 +186,7 @@ export function resolveEffectiveConfig(args: {
   cliApiKey?: string;
   cliModel?: string;
   cliMaxIterations?: string;
+  cliMaxTurns?: string;
   cliAllowDangerous?: boolean;
   cliPlan?: boolean;
   cliMcp?: boolean;
@@ -221,9 +222,11 @@ export function resolveEffectiveConfig(args: {
 
   const model = args.cliModel || settings.defaultModel || 'default';
 
-  const maxIterationsRaw = args.cliMaxIterations
-    ? parseInt(args.cliMaxIterations, 10)
-    : settings.maxIterations ?? 25;
+  const maxIterationsRaw = args.cliMaxTurns
+    ? parseInt(args.cliMaxTurns, 10)
+    : args.cliMaxIterations
+      ? parseInt(args.cliMaxIterations, 10)
+      : settings.maxIterations ?? 25;
   const maxIterations = Number.isFinite(maxIterationsRaw) && maxIterationsRaw > 0
     ? maxIterationsRaw
     : 25;
