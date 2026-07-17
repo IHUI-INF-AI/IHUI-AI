@@ -12751,9 +12751,11 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 | P36          | P0             | 1 项真实缺失(小程序 top-up)+ 2 项 P35 后端缺失(schedule 课程表 + doubao_ws)+ 3 项死代码激活 + 5 项模糊待确认 + i18n 翻译键补齐                          | 中批次 | ✅ 后端补写完成,仅余 i18n 翻译值补齐(83-92% → 95%+)                                             |
 | P37          | P0             | 配置/工具 6 项 + i18n 2 项 + 样式 4 项(全部已等价实现,架构升级,无需补写)                                                                                | —      | ✅ 无需补写                                                                                     |
 | P38          | P0(原 P1 升回) | 35 项 P0 阻断性缺失(v5 字段级核查确认:Dialog 字段降级 + TreeSelect 缺失 + 207 B 端接口空白 + AI 业务方法 100% 缺失 + 3 页面新建)— 4 个 goal 全部完成 ✅ | 大批次 | ✅ 已完成(2026-07-16,4 goal,23+ 文件 + 177 函数 + 38 hook 方法 + 75 i18n 键,后端配套待补非阻塞) |
-| P39          | P1             | 18 项 P1 功能完整性缺失 + 8 项 P2 设计意图待确认 — v5 字段级核查完成(8 项真需补写 + 3 项需补写 + 5 项后端配套)                                          | 中批次 | ⏳ 待 goal 补写(2026-07-16 核查完成)                                                            |
+| P39          | P1             | 18 项 P1 功能完整性缺失 + 8 项 P2 设计意图待确认 — v5 字段级核查完成(Goal 5-10 已闭合 21/26 项,残留 examPapers cidList 已在 P42 完成 + phonenumber 校验已完成 + 2 项无法识别待用户) | 中批次 | ✅ 基本完成(2026-07-17,P42 补齐 cidList + phonenumber,残留 2 项无法识别)                     |
 | P40          | P2             | 15+ 项 P2 增强(可选,按业务需求)                                                                                                                         | 小批次 | 待启动                                                                                          |
 | P41          | P1             | 跨端能力同步:Repair 共享层抽取(packages/types)+ CLI 委托 + API /chat/stream 接入 + ai-service llm_gateway 兜底接入(AGENTS.md 第 10 节多端同步规则落地)  | 小批次 | ✅ 已完成(2026-07-17,3 新增 + 7 修改,13 TS tests + 8 Python tests,全量验证全绿)                 |
+| P42          | P1             | 多 agent 并行开发:i18n 跨端 P0/P1 接入(5 端)+ 后端测试补齐(agent-extended 42 tests + providers 32 tests)+ examPapers cidList 数组化 + phonenumber 校验 | 大批次 | ✅ 已完成(2026-07-17,4 并行 agent,40+ 文件,74 新增 tests,全量验证 46 tasks 全绿)              |
+| P43          | P0             | 9 端一致性第二批 P0:miniapp-taro AI 对话链路(SSO 路径双 /api bug + chatStream 字段名 modelId→model + fetchModels 动态获取)+ extension refresh token 完整流程(chrome.alarms 定时刷新 + inFlightRefresh 防并发 + 401 拦截 + logout 吊销) | 中批次 | ✅ 已完成(2026-07-17,goal/fix-multiport-p0-batch2,2 并行 subagent + 主 agent 补测试,7 sso-path tests + 17 refresh-token tests,全量验证 46 tasks / 3313 tests 全绿) |
 
 ### 8. 验证标准(本 goal)
 
