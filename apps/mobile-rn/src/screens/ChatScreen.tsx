@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react'
-import { View, Text, FlatList, Pressable, Alert, Share } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { View, Text, FlatList, Pressable, Alert, Share, Modal, TouchableOpacity } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { Button, Input } from '@ihui/ui-native'
-import { streamChat } from '@ihui/api-client'
+import { streamChat, fetchModels, type LlmModel } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useScreenshot } from '../hooks/use-screenshot'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -15,7 +15,11 @@ interface ChatMessage {
   content: string
 }
 
-const MODEL = 'stepfun/step-3.7-flash'
+const FALLBACK_MODELS: LlmModel[] = [
+  { id: 'stepfun/step-3.7-flash', name: 'Step 3.7 Flash', provider: 'stepfun', context_length: 8192, input_price: 0 },
+  { id: 'openai/gpt-4o-mini', name: 'GPT-4o mini', provider: 'openai', context_length: 128000, input_price: 0 },
+  { id: 'anthropic/claude-3.5-haiku', name: 'Claude 3.5 Haiku', provider: 'anthropic', context_length: 200000, input_price: 0 },
+]
 
 export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
   const { logout } = useAuth()
@@ -23,9 +27,30 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   const [inputText, setInputText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState('')
+  const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
+  const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
   const nextId = () => `${++idCounter.current}`
+
+  useEffect(() => {
+    let cancelled = false
+    fetchModels()
+      .then((res) => {
+        if (cancelled) return
+        const list = res?.models?.length ? res.models : FALLBACK_MODELS
+        setModels(list)
+        const def = res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
+        setModel(def)
+      })
+      .catch(() => {
+        if (!cancelled) setModels(FALLBACK_MODELS)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const send = async () => {
     const text = inputText.trim()
@@ -45,7 +70,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     const apiMessages = history.map((m) => ({ role: m.role, content: m.content }))
 
     await streamChat({
-      model: MODEL,
+      model,
       messages: apiMessages,
       signal: controller.signal,
       onDelta: (delta) => {
@@ -117,6 +142,8 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     )
   }
 
+  const currentModelName = models.find((m) => m.id === model)?.name || model
+
   return (
     <View className="flex-1 bg-white">
       <View className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
@@ -142,6 +169,49 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
           </Pressable>
         </View>
       </View>
+
+      <Pressable
+        onPress={() => setPickerOpen(true)}
+        className="border-b border-gray-100 px-4 py-2"
+        hitSlop={4}
+      >
+        <Text className="text-xs text-gray-500">模型: {currentModelName} ▾</Text>
+      </Pressable>
+
+      <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
+        <TouchableOpacity
+          className="flex-1 bg-black/20"
+          activeOpacity={1}
+          onPress={() => setPickerOpen(false)}
+        >
+          <View className="mt-auto bg-white">
+            <View className="border-b border-gray-100 px-4 py-3">
+              <Text className="text-sm font-semibold text-gray-900">选择模型</Text>
+            </View>
+            <FlatList
+              data={models}
+              keyExtractor={(m) => m.id}
+              renderItem={({ item }) => {
+                const active = item.id === model
+                return (
+                  <Pressable
+                    onPress={() => {
+                      setModel(item.id)
+                      setPickerOpen(false)
+                    }}
+                    className="px-4 py-3"
+                  >
+                    <Text className={active ? 'text-sm font-medium text-gray-900' : 'text-sm text-gray-700'}>
+                      {item.name || item.id}
+                    </Text>
+                    <Text className="text-xs text-gray-400">{item.provider}</Text>
+                  </Pressable>
+                )
+              }}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <FlatList
         className="flex-1 px-4"
