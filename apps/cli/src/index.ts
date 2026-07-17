@@ -51,6 +51,11 @@ import { queryAuditLog } from './audit.js';
 import { t, setLocale } from './i18n/index.js';
 import type { Locale } from './i18n/index.js';
 import { parseToolList, type PermissionRules } from './tools/permissions.js';
+import { notifyUpdates } from './updater.js';
+import { installCrashHandler } from './crash-handler.js';
+
+// P1-16 在所有模块加载后立即安装 crash handler(全局兜底未捕获异常)
+installCrashHandler();
 
 /** 从 CLI opts 解析 --tools / --disallowed-tools 为 PermissionRules */
 function resolvePermissions(opts: OptionValues): PermissionRules | undefined {
@@ -88,7 +93,8 @@ program
   .option('--locale <locale>', '界面语言(zh-CN/en/ja/ko/zh-TW)', process.env.IHUI_LOCALE || '')
   .option('-f, --prompt-file <path>', '从文件读取 prompt(支持超长 PRD,UTF-8 编码)')
   .option('--tools <list>', 'P0-7 工具白名单(逗号分隔,如 read_file,grep,glob)。非空时仅允许这些工具')
-  .option('--disallowed-tools <list>', 'P0-7 工具黑名单(逗号分隔,如 delete_file,git_commit)。始终拒绝这些工具');
+  .option('--disallowed-tools <list>', 'P0-7 工具黑名单(逗号分隔,如 delete_file,git_commit)。始终拒绝这些工具')
+  .option('--no-update-check', 'P1-15 禁用启动时版本检查(默认每 24h 检查一次 npm registry)');
 
 interface ResolvedSession {
   sessionId?: string;
@@ -256,6 +262,10 @@ program.hook('preAction', () => {
       console.warn(chalk.yellow('⚠ --api-key 会暴露在进程列表中,推荐使用 IHUI_API_KEY 环境变量或 settings.json'));
     }
     setTokenProvider({ getToken: () => cfg.apiKey });
+  }
+  // P1-15 异步触发更新检查(--no-update-check 或 IHUI_NO_UPDATE_CHECK=1 时跳过)
+  if (opts.updateCheck !== false && process.env.IHUI_NO_UPDATE_CHECK !== '1') {
+    notifyUpdates();
   }
 });
 
