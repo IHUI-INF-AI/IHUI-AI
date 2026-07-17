@@ -250,11 +250,14 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
     <div
       className={cn(
         'flex gap-1 rounded-md p-1',
-        collapsed ? 'flex-col items-center' : 'flex-row justify-center',
+        // 折叠态:aside 的 border-r(1px)使内容区 59px,居中后按钮会偏左 0.5px。
+        // 用 pl-[9px] pr-2 补偿,让按钮回到 60px 视觉中心。
+        collapsed ? 'flex-col items-center pl-[9px] pr-2' : 'flex-row justify-center',
       )}
     >
       <Popover
         position={collapsed ? 'right' : 'top'}
+        className={collapsed ? undefined : 'left-0 translate-x-0'}
         content={
           <div className="w-36 py-1">
             {LANGUAGES.map((lang) => (
@@ -296,6 +299,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
 
       <Popover
         position={collapsed ? 'right' : 'top'}
+        className={collapsed ? undefined : 'left-0 translate-x-0'}
         content={
           <div className="w-36 py-1">
             {DOWNLOADS.map((item) => (
@@ -849,17 +853,20 @@ export function Sidebar({
   const header = (
     <div
       className={cn(
-        // 与未改架构前 _sidebar-layout.scss 保持一致:header 高 52px,水平 padding 16px,margin-x 6px
-        'flex h-[52px] shrink-0 items-center justify-between gap-2.5 px-4 mx-1.5 transition-[padding] duration-200',
-        collapsed && 'justify-center px-2 mx-0',
+        // 与未改架构前 _sidebar-layout.scss 保持一致:header 高 52px。
+        // px-4 mx-1.5 水平内边距让内容区 ~86px,让 logo 自然宽度(max 80)按比例缩放。
+        'flex h-[52px] shrink-0 items-center justify-between gap-2 px-4 mx-1.5 transition-[padding] duration-200',
+        // 折叠态:aside 的 border-r(1px)使内容区 59px,header 居中后按钮会偏左 0.5px。
+        // 用 pl-[9px] pr-2 补偿,让按钮回到 60px 视觉中心。
+        collapsed && 'justify-center pl-[9px] pr-2 mx-0',
       )}
     >
       {!collapsed && (
         <ThemeLogo
           clickable
-          width={120}
+          width={80}
           height={26}
-          className="h-[26px] max-w-[80px] min-w-0 flex-shrink cursor-pointer transition-opacity hover:opacity-75"
+          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
         />
       )}
       <Button
