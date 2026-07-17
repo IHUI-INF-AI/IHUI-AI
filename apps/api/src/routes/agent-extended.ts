@@ -13,6 +13,7 @@ import {
 } from '@ihui/database'
 import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
+import { calculateAgentPermission } from '../services/agent-service.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -473,6 +474,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 创建购买订单
   server.post('/buy/create', async (request, reply) => {
     const body = agentBuySchema.parse(request.body)
+    // VIP 权限校验:VIP 专享智能体仅 VIP 用户可购买（对齐旧架构 group==1 && is_vip==0 拒绝）
+    const permission = await calculateAgentPermission(body.agentId, body.userId)
+    if (!permission.hasPermission) {
+      return reply
+        .code(403)
+        .send({ code: 403, message: permission.reason ?? '无权购买', data: null })
+    }
     const expiresAt = new Date(Date.now() + body.duration * 86400000)
     const [order] = await db
       .insert(zhsAgentBuy)
@@ -498,6 +506,14 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       paymentId: order.paymentId,
     })
     return reply.code(201).send(order)
+  })
+
+  // 查询用户对指定智能体的访问权限（VIP 专享/免费/付费/已购买）
+  server.get('/permission/:agentId', async (request) => {
+    const params = z.object({ agentId: z.string().min(1) }).parse(request.params)
+    const query = z.object({ userId: z.string().uuid().optional() }).parse(request.query)
+    const permission = await calculateAgentPermission(params.agentId, query.userId)
+    return { code: 0, message: 'ok', data: permission }
   })
 
   // 购买记录列表
