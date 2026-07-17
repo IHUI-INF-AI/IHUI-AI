@@ -1,16 +1,19 @@
 """Agent runtime 路由(8 端点)。
 
 对齐 CLI 5 项核心能力(Permission/PlanMode/Sessions/Personas + Agent 执行链路)。
-骨架实现 — 实际 Agent 执行由 LangGraph 状态机完成(后续串行集成)。
+/execute/stream 由 LangGraph StateGraph(plan → execute → summarize)驱动 SSE 事件流。
 """
 
 import json
+import os
 import time
 import uuid
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+
+from app.services.agent_graph import AgentState, get_agent_graph
 
 router = APIRouter(prefix="/agent-runtime", tags=["agent-runtime"])
 
@@ -66,6 +69,56 @@ def _get_or_create_session(session_id: str | None, bot_id: str) -> SessionState:
     return session
 
 
+# ============ 可选 Redis 持久化(降级到内存)============
+
+_redis_client = None
+_redis_disabled = False
+
+
+def _get_redis():
+    global _redis_client, _redis_disabled
+    if _redis_disabled:
+        return None
+    if _redis_client is None:
+        redis_url = os.getenv("REDIS_URL")
+        if not redis_url:
+            _redis_disabled = True
+            return None
+        try:
+            import redis
+
+            _redis_client = redis.from_url(redis_url, decode_responses=True)
+            _redis_client.ping()
+        except Exception:
+            _redis_client = None
+            _redis_disabled = True
+            return None
+    return _redis_client
+
+
+def _save_session_redis(session: SessionState) -> None:
+    r = _get_redis()
+    if r is None:
+        return
+    try:
+        r.set(f"agent_session:{session.id}", session.model_dump_json(), ex=86400)
+    except Exception:
+        pass
+
+
+def _load_session_redis(session_id: str) -> SessionState | None:
+    r = _get_redis()
+    if r is None:
+        return None
+    try:
+        data = r.get(f"agent_session:{session_id}")
+        if not data:
+            return None
+        return SessionState.model_validate_json(data)
+    except Exception:
+        return None
+
+
 # ============ Permission 决策矩阵(对齐 CLI permission-guard)============
 
 
@@ -98,17 +151,73 @@ async def execute(req: ExecuteRequest) -> ExecuteResponse:
 
 @router.post("/execute/stream")
 async def execute_stream(req: ExecuteRequest) -> StreamingResponse:
-    """SSE 流式执行(占位 — 实际由 LangGraph 状态机完成)。"""
+    """SSE 流式执行 — LangGraph plan → execute → summarize 真实驱动。"""
     session = _get_or_create_session(req.sessionId, req.botId or "default")
     session.messages.append(SessionMessage(role="user", content=req.message))
+    _save_session_redis(session)
 
     async def event_stream():
         yield f"event: session\ndata: {json.dumps({'sessionId': session.id})}\n\n"
-        yield f"event: permission\ndata: {json.dumps({'mode': req.mode, 'decision': 'allow'})}\n\n"
-        yield (
-            f"event: done\ndata: "
-            f"{json.dumps({'sessionId': session.id, 'status': 'streaming-placeholder'})}\n\n"
-        )
+
+        if req.mode == "plan":
+            yield (
+                f"event: permission\ndata: "
+                f"{json.dumps({'mode': req.mode, 'toolName': 'Write', 'dangerLevel': 'write', 'decision': 'deny'})}\n\n"
+            )
+
+        try:
+            graph = get_agent_graph()
+            initial_state: AgentState = {
+                "messages": [m.model_dump() for m in session.messages],
+                "mode": req.mode,
+                "session_id": session.id,
+                "plan": "",
+                "execution_result": "",
+                "summary": "",
+                "error": None,
+            }
+
+            async for event in graph.astream(initial_state):
+                for node_name, node_output in event.items():
+                    if not isinstance(node_output, dict):
+                        continue
+                    if node_name == "plan" and node_output.get("plan"):
+                        yield (
+                            f"event: plan\ndata: "
+                            f"{json.dumps({'plan': node_output['plan']})}\n\n"
+                        )
+                    elif (
+                        node_name == "execute"
+                        and node_output.get("execution_result")
+                    ):
+                        yield (
+                            f"event: delta\ndata: "
+                            f"{json.dumps({'content': node_output['execution_result']})}\n\n"
+                        )
+                    elif node_name == "summarize" and node_output.get("summary"):
+                        session.messages.append(
+                            SessionMessage(
+                                role="assistant", content=node_output["summary"]
+                            )
+                        )
+                        session.status = "completed"
+                        _save_session_redis(session)
+                        yield (
+                            f"event: done\ndata: "
+                            f"{json.dumps({'sessionId': session.id, 'status': 'completed', 'summary': node_output['summary']})}\n\n"
+                        )
+                    if node_output.get("error"):
+                        yield (
+                            f"event: error\ndata: "
+                            f"{json.dumps({'message': node_output['error']})}\n\n"
+                        )
+        except Exception as e:
+            session.status = "failed"
+            _save_session_redis(session)
+            yield (
+                f"event: error\ndata: "
+                f"{json.dumps({'message': f'graph execution failed: {e}'})}\n\n"
+            )
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
