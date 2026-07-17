@@ -110,6 +110,64 @@ function isExempt(line) {
   return false
 }
 
+/**
+ * CSS/SCSS 上下文感知豁免 — 返回 true 表示该 50% 行可豁免。
+ * 仅对 .css/.scss 文件生效,基于选择器名 + 块内属性判断。
+ * 覆盖:小装饰点(≤14px/rpx)、装饰动画(pulse/spin/ping/bounce)、
+ *       ::before/::after 伪元素(≤20 或有动画)、头像图片选择器。
+ */
+function isCssExempt(lines, idx, file) {
+  if (!file.endsWith('.css') && !file.endsWith('.scss')) return false
+  const cur = lines[idx].trim()
+  if (!/border-radius\s*:\s*50%/i.test(cur)) return false
+
+  // 定位当前块边界:向上找最近的 {,向下找匹配的 }
+  let blockStart = -1
+  let depth = 0
+  for (let i = idx; i >= 0; i--) {
+    const t = lines[i]
+    if (t.includes('}')) depth++
+    if (t.includes('{')) {
+      depth--
+      if (depth <= 0) { blockStart = i; break }
+    }
+  }
+  if (blockStart === -1) return false
+  let blockEnd = lines.length - 1
+  depth = 1
+  for (let i = blockStart + 1; i < lines.length; i++) {
+    if (lines[i].includes('{')) depth++
+    if (lines[i].includes('}')) {
+      depth--
+      if (depth === 0) { blockEnd = i; break }
+    }
+  }
+  const selectorLine = (lines[blockStart] || '').trim()
+  const blockText = lines.slice(blockStart, blockEnd + 1).join('\n')
+
+  const wMatch = blockText.match(/width\s*:\s*(\d+(?:\.\d+)?)\s*(px|rpx)?/i)
+  const hMatch = blockText.match(/height\s*:\s*(\d+(?:\.\d+)?)\s*(px|rpx)?/i)
+  const w = wMatch ? parseFloat(wMatch[1]) : Infinity
+  const h = hMatch ? parseFloat(hMatch[1]) : Infinity
+
+  // 规则 1: 纯装饰小点(width AND height <= 14 px/rpx)
+  if (w <= 14 && h <= 14) return true
+
+  // 规则 2: 装饰动画(animate pulse/spin/ping/bounce)
+  if (/animation\s*:[^;]*(?:pulse|spin|ping|bounce)/i.test(blockText)) return true
+
+  // 规则 3: ::before / ::after 伪元素(小尺寸 <=20 或有装饰动画)
+  if (/::(?:before|after)/.test(selectorLine)) {
+    if (w <= 20 && h <= 20) return true
+    if (/animation\s*:[^;]*(?:pulse|spin|ping|bounce)/i.test(blockText)) return true
+  }
+
+  // 规则 4: 头像图片选择器(.avatar / .card-avatar / .agent-avatar / .user-avatar / .profile-img / .photo)
+  if (/(?:\.avatar|\.card-avatar|\.agent-avatar|\.user-avatar|\.profile-img|\.photo)\b/.test(selectorLine)) return true
+
+  return false
+}
+
 function collectFiles(dir, result = []) {
   if (!existsSync(dir)) return result
   for (const entry of readdirSync(dir)) {
@@ -137,6 +195,7 @@ function getStagedAddedLines() {
       encoding: 'utf8',
       cwd: ROOT,
       maxBuffer: 50 * 1024 * 1024,
+      stdio: ['pipe', 'pipe', 'pipe'],
     })
   } catch {
     return result
@@ -177,6 +236,7 @@ function getStagedFiles() {
     const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
       encoding: 'utf8',
       cwd: ROOT,
+      stdio: ['pipe', 'pipe', 'pipe'],
     })
     return output
       .split('\n')
@@ -234,6 +294,7 @@ for (const file of files) {
       if (!allowed || !allowed.has(lineNumber)) return
     }
     if (isExempt(line)) return
+    if (isCssExempt(lines, idx, file)) return
     for (const { re, label } of VIOLATION_PATTERNS) {
       const m = re.exec(line)
       if (m) {
