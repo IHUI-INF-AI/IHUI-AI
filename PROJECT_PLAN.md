@@ -19287,3 +19287,90 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 - SidebarChatHistory 在未登录态不渲染(`if (collapsed || !isAuthenticated) return null`),这是预期行为(历史对话需要登录后才获取)
 - AISidePanel 的 resize handle 视觉较细(6px 宽 + 1px 灰色线),功能正常但视觉可改进(若用户反馈再调整)
 - ai-service 未启动(Python 服务,本次任务不涉及 AI 对话实际生成,仅恢复 UI 布局)
+
+
+## 第 20 轮交付报告(2026-07-18,grok-build 融合第十六轮 — Agent 执行链路真实集成 + api-client 补齐)
+
+### 目标
+
+第十五轮完成后 API/AI-Service 路由均为占位骨架,缺真实 Agent 执行链路。本轮推进第十五轮后续工作第 1-4 项:API 端 SSE 真实转发到 AI-Service + AI-Service LangGraph 状态机集成 + api-client 端点路径补齐。3 subagent 并行(文件路径无冲突)。
+
+### 执行内容(3 subagent 并行)
+
+1. **Subagent A:API 端 SSE 真实转发 + permission 真实决策**
+   - 修改 `apps/api/src/routes/agent-runtime.ts`(+85 行):/execute/stream 端点从占位 SSE 升级为 fetch 转发到 `${AI_SERVICE_URL}/api/agent-runtime/execute/stream`
+   - 用 Node 18+ 原生 fetch + ReadableStream reader,TextDecoder 流式解码,SSE 事件按 \n\n 切分
+   - permission 事件特殊处理:解析上游 toolName + dangerLevel,调用 checkPermissionMode(toolName, permMode, dangerLevel) 计算真实 decision(替换上游占位 'allow')
+   - 非 permission 事件直接透传,顺序保持
+   - 错误处理:上游非 200 → error 事件 + 'upstream error: <status>';fetch reject → error 事件 + 'upstream connection failed'
+   - 新增 X-Accel-Buffering: no header(防 Nginx 缓冲)
+   - 修改 `apps/api/tests/agent-runtime-routes.test.ts`(+114 行):原 1 个测试改为 mock fetch 真实链路,新增 5 个测试(上游 200 / 上游 500 / fetch reject / Write+plan 决策 deny / Read+default 决策 allow / 多事件透传),总计 17/17 passed
+
+2. **Subagent B:AI-Service LangGraph 状态机集成 + Redis 持久化**
+   - 新建 `apps/ai-service/app/services/agent_graph.py`:LangGraph StateGraph(plan → execute → summarize),3 节点 + 条件路由(should_continue);AgentState TypedDict(messages/mode/session_id/plan/execution_result/summary/error);模块级单例 get_agent_graph() 避免重复编译
+   - plan_node:基于用户消息调 llm_gateway.complete 生成执行计划(bypassPermissions/manual 模式跳过规划)
+   - execute_node:基于计划执行实际任务,调 llm_gateway.complete
+   - summarize_node:直接返回 execution_result(做减法,不再调 LLM 避免延迟)
+   - 修改 `apps/ai-service/app/routers/agent_runtime.py`(+123 行):/execute/stream 端点替换占位 SSE 为真实 graph 驱动 + 新增可选 Redis 持久化(降级到内存)
+   - graph.astream 异步流式执行,逐步 yield SSE 事件:session/plan/delta/done/error
+   - mode=plan 时触发 permission 阻断语义(yield permission event with decision=deny)
+   - Redis 持久化降级安全:无 REDIS_URL 或 ping 失败时设置 _redis_disabled=True 永久降级,后续不再重试;_save_session_redis / _load_session_redis 全程 try/except 兜底,绝不阻塞主流程
+   - 修改 `apps/ai-service/tests/test_agent_runtime_router.py`(+149 行):原 1 个 stream 测试改为 mock llm_gateway 验证 graph 调度,新增 8 个测试(default/plan/bypass mode + graph 失败 + Redis 不可用降级 + Redis 可用持久化 + summary 内容校验 + session 事件),总计 29/29 passed
+   - **关键修正**:llm_gateway 实际位于 app.core.llm_gateway(非任务描述的 app.services.llm_gateway);llm_gateway.complete 返回 dict(非字符串)— 已用 result.get("content", "") 提取
+   - **依赖补齐**:pyproject.toml 已声明 langgraph>=0.2.0,但本地 Python 环境未安装,主线程执行 `pip install langgraph` 后测试全绿(已安装 langgraph-1.2.9 + langchain-core-1.4.9 等依赖)
+
+3. **Subagent C:api-client 端点路径补齐**
+   - 修改 `packages/api-client/src/endpoints/agent-runtime.ts`(+249 行):追加 8 个新函数覆盖 /agent-runtime/* 新路径,原有 20 个函数未动
+   - 新函数:executeAgentRuntime / executeAgentRuntimeStream(SSE with 6 callbacks + AbortSignal + Last-Event-ID 断线重连)/ listAgentRuntimeSessions / getAgentRuntimeSession / resumeAgentRuntimeSession / getAgentRuntimeStatus / cancelAgentRuntime / checkAgentRuntimePermission
+   - 4 个新接口:ExecuteAgentRuntimeParams / ExecuteAgentRuntimeResult / AgentRuntimeStreamCallbacks / CheckAgentRuntimePermissionParams
+   - 类型从 @ihui/types 导入(PermissionMode/PermissionDecision/DangerLevel/SessionStatus/SessionState)— 符合第 10 节"类型同步"要求
+   - 适配实际代码库:本仓库 client.ts 导出 fetchApi<T>(url, options) 而非 apiClient 单例,已适配为 fetchApi<T> 调用 + 失败时 throw new Error(res.error)
+   - SSE 函数复用文件内已有的 buildStreamUrl 私有助手 + 直接 fetch(与现有 executeAgentStream 风格一致)
+   - 新建 `packages/api-client/tests/agent-runtime.test.ts`(262 行,14 个测试):每个新函数至少 1 个测试 + SSE 流的 6 个回调 + Last-Event-ID + AbortSignal
+   - 验证:typecheck 0 error + lint 0 error + 用 apps/api 的 vitest 直接运行 14/14 passed(packages/api-client 暂无 vitest devDependency,后续 P1 补齐)
+
+### 多端同步审查清单核对(AGENTS.md 第 10 节)
+
+| 审查项 | 改动涉及? | 已同步端 |
+| --- | --- | --- |
+| 接口契约 | 是 /execute/stream 真实链路 | API(fetch 转发到 AI-Service)+ AI-Service(LangGraph 驱动)+ api-client(8 函数暴露给前端) |
+| 类型 | 是 共享层 5 类型 | api-client 从 @ihui/types import(PermissionMode/PermissionDecision/DangerLevel/SessionStatus/SessionState) |
+| 数据结构 | 否 无 schema 变更 | Redis 持久化为可选降级,不阻塞主流程 |
+| UI 组件 | 否 无共享 UI 改动 | 呈现层特化留作 P2 后续 |
+| 业务功能 | 是 Agent 执行链路 | API → AI-Service → LangGraph 真实推理;api-client 暴露给前端调用 |
+| 全量验证 | 是 全绿 | turbo 48/48 tasks 全绿;API 3568 + CLI 985 + AI-Service 29 + api-client 14 = 4596 测试全绿 |
+
+### 验证依据(2026-07-18)
+
+| 验证 | 命令 | 退出码 | 关键输出 |
+| --- | --- | --- | --- |
+| API typecheck | pnpm --filter @ihui/api typecheck | 0 | tsc --noEmit 通过 |
+| API test | pnpm --filter @ihui/api test agent-runtime-routes | 0 | 17/17 passed |
+| AI-Service pytest | python -m pytest tests/test_agent_runtime_router.py | 0 | 29 passed |
+| AI-Service graph import | python -c "from app.services.agent_graph import get_agent_graph" | 0 | CompiledStateGraph |
+| api-client typecheck | pnpm --filter @ihui/api-client typecheck | 0 | tsc --noEmit 通过 |
+| api-client lint | pnpm --filter @ihui/api-client lint | 0 | eslint src/ 0 errors |
+| api-client test(独立 vitest) | node apps/api/node_modules/vitest/vitest.mjs run packages/api-client/tests/agent-runtime.test.ts | 0 | 14/14 passed |
+| 全量 turbo | pnpm turbo typecheck lint test | 0 | 48/48 tasks 全绿 |
+
+### 累计整合进度
+
+- grok-build 32 类 → 已整合 17 项(第十三轮 CLI 5 模块 + 第十四轮多端同步 5 项 + 第十五轮集成 4 项 + 第十六轮真实链路 3 项)
+- Agent 能力覆盖:CLI(68 项 + 主循环接入)+ 共享层(24 类型)+ API(8 端点 + SSE 真实转发 + 5 mode Permission + DB Sessions)+ AI-Service(8 端点 + LangGraph 真实推理 + Redis 持久化)+ api-client(20 旧函数 + 8 新函数)
+- 前端各端可通过 @ihui/api-client 调用 Agent 真实执行链路(SSE 流式)
+
+### 平台独占豁免(未同步,符合 AGENTS.md 第 10 节)
+
+- 危险命令列表 / readonly 自动批准 / Subagent worktree / Hooks 全端执行 — CLI 本地特有
+- plugins/types.ts 中 Plugin 类型 — CLI 平台独占
+
+### 还有 4 项后续工作,见下方列表
+
+1. **packages/api-client 启用 pnpm test**:需在 package.json 添加 "test": "vitest run" script + vitest devDependency + 可选 vitest.config.ts。当前用 apps/api 的 vitest 独立运行 14/14 passed,补齐后 `pnpm --filter @ihui/api-client test` 即可直接跑通
+2. **真实 LLM 联调待验证**:当前测试用 mock llm_gateway 验证 graph 调度链路;生产环境需配置 STEPFUN_API_KEY 后做一次端到端 SSE 联调
+3. **Redis 持久化生产可用性**:REDIS_URL 环境变量在 AI-Service 部署清单(DEPLOYMENT-R65.md)中需补充声明,否则运行时永久降级到内存(功能正常但跨实例不共享 session)
+4. **呈现层特化(P2)**:Web/Desktop/Mobile UI — Agent 执行链路真实集成已完成,前端可通过 api-client 调用,可启动 UI 开发
+
+### 任务完成状态
+
+第十六轮 Agent 执行链路真实集成完成 — grok-build 能力从"API/AI-Service 占位骨架"(第十五轮)升级到"API SSE 真实转发 + AI-Service LangGraph 真实推理 + api-client 真实调用"(第十六轮)。3 subagent 并行(API + AI-Service + api-client,文件路径无冲突)。API 17 测试 + AI-Service 29 测试 + api-client 14 测试全绿,全量 turbo 48/48 tasks 全绿(4596 测试全绿)。还有 4 项后续工作,见上方列表。
