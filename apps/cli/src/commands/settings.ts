@@ -47,6 +47,8 @@ export interface Settings {
   sampler?: SamplerSettings;
   /** 路径信任映射 */
   folderTrust?: Record<string, 'trusted' | 'read-only' | 'forbidden'>;
+  /** 界面语言(zh-CN/en/ja/ko/zh-TW),优先级低于 --locale flag 与 IHUI_LOCALE 环境变量 */
+  locale?: string;
 }
 
 export interface SamplerSettings {
@@ -163,6 +165,7 @@ export function saveSettingsTemplate(overwrite = false): boolean {
       'src/*': 'trusted',
       'tests/*': 'trusted',
     },
+    locale: 'zh-CN',
   };
   fs.writeFileSync(p, JSON.stringify(template, null, 2) + '\n', 'utf-8');
   return true;

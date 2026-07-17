@@ -301,7 +301,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     if (q.file_type) conds.push(sql`"file_type" = ${q.file_type}`)
     if (q.user_id) conds.push(sql`"user_id" = ${q.user_id}`)
     try {
-      const result = await rawList('agent_upload', { page, pageSize, conds })
+      const result = await rawList('agent_uploads', { page, pageSize, conds })
       return reply.send(success(result))
     } catch (e) {
       req.log.error(e)
