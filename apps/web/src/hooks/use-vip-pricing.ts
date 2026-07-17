@@ -25,8 +25,8 @@ export function useVipPricing(): UseVipPricingReturn {
       const res = await getVipLevels()
       if (res.success) {
         setLevels(res.data)
-        const popular = res.data.find((l) => l.isPopular)
-        setSelectedId(popular?.id ?? res.data[0]?.id ?? null)
+        const popular = res.data.find((l) => l.sortOrder === 0) ?? res.data[0]
+        setSelectedId(popular?.id ?? null)
       }
     } finally {
       setLoading(false)
