@@ -1,16 +1,15 @@
 import { type PropsWithChildren } from 'react'
-import { useLaunch } from '@tarojs/taro'
+import Taro, { useLaunch } from '@tarojs/taro'
 import { checkLoginStatus, getToken, getUserInfo } from './utils/auth'
 import { showShareMenu } from './utils/share'
 import { initPrivacyGuard } from './utils/privacy'
 import { initPushSubscription } from './utils/push-init'
-import websocketManager from './utils/websocket'
+import { createNotificationClient } from '@ihui/api-client'
+import { taroWebSocketFactory } from './utils/taro-websocket-adapter'
 import { BASE_URL } from './utils/request'
 import { I18nProvider } from './i18n'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import './app.css'
-
-const WS_BASE = BASE_URL.replace(/^http/, 'ws').replace(/\/api$/, '')
 
 function App({ children }: PropsWithChildren<unknown>) {
   useLaunch(() => {
@@ -21,7 +20,13 @@ function App({ children }: PropsWithChildren<unknown>) {
     const token = getToken()
     const userInfo = getUserInfo()
     if (token && userInfo?.uuid) {
-      websocketManager.connect(`${WS_BASE}/ws/notifications?token=${token}`)
+      createNotificationClient(
+        { baseUrl: BASE_URL, tokenProvider: () => getToken() },
+        {
+          onMessage: (msg) => Taro.eventCenter.trigger('wsNotification', msg),
+        },
+        { webSocketFactory: taroWebSocketFactory },
+      ).connect()
     }
   })
   return (

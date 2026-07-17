@@ -10,6 +10,33 @@
  */
 import type { WSNotification } from '@ihui/types'
 
+/**
+ * WebSocket 子集接口(跨端适配)。
+ *
+ * 标准浏览器 `WebSocket` 与 Taro `Taro.connectSocket` 等非标准实现,
+ * 只需满足此接口即可被 `WebSocketClient` 使用。
+ *
+ * 注意:`OPEN/CONNECTING/CLOSING/CLOSED` 在标准 `WebSocket` 上是构造器静态属性,
+ * 实例上不一定存在,故设为可选;readyState 比较请使用模块级常量 `WS_OPEN` / `WS_CONNECTING`。
+ */
+export interface WebSocketLike {
+  readonly readyState: number
+  readonly OPEN?: number
+  readonly CONNECTING?: number
+  readonly CLOSING?: number
+  readonly CLOSED?: number
+  onopen: (() => void) | null
+  onmessage: ((event: { data: unknown }) => void) | null
+  onclose: (() => void) | null
+  onerror: ((err: unknown) => void) | null
+  send(data: string): void
+  close(): void
+}
+
+/** WebSocket readyState 数字常量(与标准 WebSocket 一致,避免直接引用全局 WebSocket) */
+const WS_CONNECTING = 0
+const WS_OPEN = 1
+
 export interface WebSocketClientOptions<TMessage> {
   /** 构建 WS URL(接收当前 token) */
   urlBuilder: (token: string) => string
@@ -23,6 +50,13 @@ export interface WebSocketClientOptions<TMessage> {
   maxReconnectDelay?: number
   /** 心跳消息工厂,默认 () => 'ping' */
   heartbeatMessage?: () => string
+  /**
+   * WebSocket 工厂(依赖注入点)。
+   *
+   * 用于非标准 WebSocket 环境(如 Taro 小程序 weapp 无全局 `WebSocket`),
+   * 各端可注入适配器(如包装 `Taro.connectSocket`)。不传时走默认 `new WebSocket()`。
+   */
+  webSocketFactory?: (url: string) => WebSocketLike
 }
 
 export interface WebSocketClientHandlers<TMessage> {
@@ -48,7 +82,7 @@ export interface WebSocketClientHandlers<TMessage> {
  * ```
  */
 export class WebSocketClient<TMessage = WSNotification> {
-  private ws: WebSocket | null = null
+  private ws: WebSocketLike | null = null
   private reconnectAttempt = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
@@ -68,17 +102,17 @@ export class WebSocketClient<TMessage = WSNotification> {
   connect(): void {
     const token = this.options.tokenProvider()
     if (!token || this.closedByUser) return
-    if (typeof WebSocket === 'undefined') return
-    if (
-      this.ws &&
-      (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)
-    ) {
+    // 提供了 webSocketFactory 时跳过全局 WebSocket 检查(factory 可能不依赖全局 WebSocket)
+    if (!this.options.webSocketFactory && typeof WebSocket === 'undefined') return
+    if (this.ws && (this.ws.readyState === WS_OPEN || this.ws.readyState === WS_CONNECTING)) {
       return
     }
 
-    let ws: WebSocket
+    let ws: WebSocketLike
     try {
-      ws = new WebSocket(this.options.urlBuilder(token))
+      ws = this.options.webSocketFactory
+        ? this.options.webSocketFactory(this.options.urlBuilder(token))
+        : (new WebSocket(this.options.urlBuilder(token)) as unknown as WebSocketLike)
     } catch (e) {
       this.handlers.onError?.(e instanceof Error ? e.message : 'WebSocket 连接失败')
       return
@@ -139,7 +173,7 @@ export class WebSocketClient<TMessage = WSNotification> {
 
   /** 发送消息(仅当连接打开时) */
   send(data: string): boolean {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+    if (this.ws && this.ws.readyState === WS_OPEN) {
       try {
         this.ws.send(data)
         return true
@@ -165,12 +199,12 @@ export class WebSocketClient<TMessage = WSNotification> {
     this.connect()
   }
 
-  private startHeartbeat(ws: WebSocket): void {
+  private startHeartbeat(ws: WebSocketLike): void {
     const interval = this.options.heartbeatInterval ?? 30000
     const heartbeatMessage = this.options.heartbeatMessage ?? (() => 'ping')
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer)
     this.heartbeatTimer = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WS_OPEN) {
         try {
           ws.send(heartbeatMessage())
         } catch {
