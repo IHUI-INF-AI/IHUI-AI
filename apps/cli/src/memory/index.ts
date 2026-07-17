@@ -237,3 +237,9 @@ export function formatMemoryForPrompt(entries: MemoryEntry[]): string {
   }
   return lines.join('\n');
 }
+
+// === 跨 session 记忆升级(P1-4):hybrid search + chunker + embedding ===
+// 平台独占:CLI 专用,不影响 API / Web / 其他端。
+export * from './chunker.js';
+export * from './embedding.js';
+export * from './hybrid-search.js';
