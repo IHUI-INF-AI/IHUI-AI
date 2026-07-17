@@ -96,6 +96,19 @@ const papersQuerySchema = z.object({
       z.string().uuid('无效的分类 ID'),
     )
     .optional(),
+  cidList: z
+    .preprocess(
+      (v) => {
+        if (v === '' || v === null || v === undefined) return undefined
+        if (Array.isArray(v)) return v
+        return String(v)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      },
+      z.array(z.string().uuid('无效的分类 ID')).optional(),
+    )
+    .optional(),
   paperType: paperTypeSchema.optional(),
 })
 
@@ -137,6 +150,7 @@ const createPaperSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
   categoryId: z.string().uuid().optional(),
+  cidList: z.array(z.string().uuid('无效的分类 ID')).optional(),
   paperType: paperTypeSchema.optional(),
   totalScore: z.string().optional(),
   passScore: z.string().optional(),
@@ -153,6 +167,7 @@ const updatePaperSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().nullable().optional(),
   categoryId: z.string().uuid().nullable().optional(),
+  cidList: z.array(z.string().uuid('无效的分类 ID')).nullable().optional(),
   paperType: paperTypeSchema.optional(),
   totalScore: z.string().optional(),
   passScore: z.string().optional(),
@@ -361,6 +376,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       pageSize: parsed.data.pageSize,
       search: parsed.data.search,
       categoryId: parsed.data.categoryId,
+      cidList: parsed.data.cidList,
       paperType: parsed.data.paperType,
     })
     return reply.send(
@@ -1033,6 +1049,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
         pageSize: parsed.data.pageSize,
         search: parsed.data.search,
         categoryId: parsed.data.categoryId,
+        cidList: parsed.data.cidList,
         paperType: parsed.data.paperType,
       })
       return reply.send(
