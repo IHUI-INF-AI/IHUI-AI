@@ -1106,7 +1106,31 @@
     "failed": "未通過",
     "correct": "正確",
     "incorrect": "錯誤",
-    "timeUp": "時間已到，已自動提交"
+    "timeUp": "時間已到，已自動提交",
+    "wrongQuestions": {
+      "title": "錯題本",
+      "subtitle": "回顧錯題，鞏固薄弱知識點",
+      "statsTotal": "錯題總數",
+      "statsUnresolved": "未掌握",
+      "statsResolved": "已掌握",
+      "filterAll": "全部",
+      "filterUnresolved": "未掌握",
+      "filterResolved": "已掌握",
+      "examIdPlaceholder": "按試卷 ID 篩選（可選）",
+      "colQuestion": "題目內容",
+      "colSource": "來源試卷",
+      "colTime": "添加時間",
+      "colStatus": "狀態",
+      "colActions": "操作",
+      "markAsResolved": "標記已掌握",
+      "markSuccess": "已標記為掌握",
+      "empty": "暫無錯題",
+      "loading": "載入中...",
+      "prev": "上一頁",
+      "next": "下一頁",
+      "pageInfo": "第 {page}/{totalPages} 頁",
+      "total": "共 {total} 條"
+    }
   },
   "circles": {
     "title": "圈子",
@@ -5276,7 +5300,10 @@
       "stat_total": "全部",
       "stat_pending": "待審核",
       "stat_approved": "已通過",
-      "stat_rejected": "已駁回"
+      "stat_rejected": "已駁回",
+      "statusPending": "待審核",
+      "statusApproved": "已通過",
+      "statusRejected": "已駁回"
     },
     "agentTask": {
       "title": "Agent任務管理",
@@ -9236,6 +9263,10 @@
     "rechargeFail": "充值失敗",
     "rechargeSuccessDesc": "您的充值已到賬",
     "rechargeFailDesc": "充值未完成，請重試",
+    "rechargeOrderNo": "訂單號",
+    "viewRecords": "查看記錄",
+    "retryRecharge": "重新充值",
+    "contactSupport": "聯繫客服",
     "withdrawTitle": "提現申請",
     "withdrawAmount": "提現金額",
     "withdrawMethod": "提現方式",

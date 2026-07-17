@@ -1106,7 +1106,31 @@
     "failed": "不合格",
     "correct": "しい",
     "incorrect": "エラー",
-    "timeUp": "のためからされました"
+    "timeUp": "のためからされました",
+    "wrongQuestions": {
+      "title": "間違いノート",
+      "subtitle": "間違いを振り返り、弱点を強化する",
+      "statsTotal": "総数",
+      "statsUnresolved": "未習得",
+      "statsResolved": "習得済み",
+      "filterAll": "すべて",
+      "filterUnresolved": "未習得",
+      "filterResolved": "習得済み",
+      "examIdPlaceholder": "試験IDで絞り込み（任意）",
+      "colQuestion": "問題内容",
+      "colSource": "出典試験",
+      "colTime": "追加日時",
+      "colStatus": "状態",
+      "colActions": "操作",
+      "markAsResolved": "習得済みにする",
+      "markSuccess": "習得済みに設定しました",
+      "empty": "間違い問題はありません",
+      "loading": "読み込み中...",
+      "prev": "前へ",
+      "next": "次へ",
+      "pageInfo": "{page}/{totalPages} ページ",
+      "total": "全 {total} 件"
+    }
   },
   "circles": {
     "title": "コミュニティ",
@@ -5288,7 +5312,10 @@
       "stat_total": "すべて",
       "stat_pending": "ち",
       "stat_approved": "み",
-      "stat_rejected": "み"
+      "stat_rejected": "み",
+      "statusPending": "保留中",
+      "statusApproved": "承認済み",
+      "statusRejected": "拒否済み"
     },
     "agentTask": {
       "title": "エージェントタスク",
@@ -9204,6 +9231,10 @@
     "rechargeFail": "チャージ",
     "rechargeSuccessDesc": "チャージがされました",
     "rechargeFailDesc": "チャージがです。もうおしください",
+    "rechargeOrderNo": "注文番号",
+    "viewRecords": "記録を見る",
+    "retryRecharge": "再チャージ",
+    "contactSupport": "サポートに連絡",
     "withdrawTitle": "出金申请",
     "withdrawAmount": "出金金額",
     "withdrawMethod": "メソッド",
