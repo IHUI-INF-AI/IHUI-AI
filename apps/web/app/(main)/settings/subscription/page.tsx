@@ -51,7 +51,7 @@ export default function SubscriptionPage() {
               <p className="text-lg font-semibold">VIP</p>
               <p className="text-sm text-muted-foreground">{t('planExpiry')}: 2026-12-31</p>
             </div>
-            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+            <span className="inline-flex items-center rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
               {t('planActive')}
             </span>
           </div>

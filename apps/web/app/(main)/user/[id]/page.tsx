@@ -128,7 +128,7 @@ export default function PublicUserProfilePage() {
               {user.nickname || 'User'}
             </h1>
             {isSelf && (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                 {t('isYou')}
               </span>
             )}

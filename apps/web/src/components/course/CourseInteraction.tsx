@@ -48,7 +48,7 @@ export function CourseInteraction({
         type="button"
         onClick={toggleLike}
         className={cn(
-          'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors',
+          'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
           liked
             ? 'bg-primary/10 text-primary'
             : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -62,7 +62,7 @@ export function CourseInteraction({
         type="button"
         onClick={toggleFav}
         className={cn(
-          'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors',
+          'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
           favorited
             ? 'bg-primary/10 text-primary'
             : 'text-muted-foreground hover:bg-accent hover:text-foreground',

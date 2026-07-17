@@ -296,7 +296,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               ]}
               trigger={
                 <button
-                  className="ml-1 rounded-full ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="ml-1 rounded-md ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={t('profile')}
                 >
                   <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />

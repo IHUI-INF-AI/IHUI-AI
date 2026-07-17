@@ -87,7 +87,7 @@ export default function EduCertificatesPage() {
                   </div>
                   <span
                     className={cn(
-                      'shrink-0 rounded-full px-2 py-0.5 text-xs',
+                      'shrink-0 rounded-md px-2 py-0.5 text-xs',
                       cert.status === 1
                         ? 'bg-emerald-500/10 text-emerald-600'
                         : 'bg-muted text-muted-foreground',

@@ -164,7 +164,7 @@ export default function EduQAPage() {
                   </p>
                   <span
                     className={cn(
-                      'shrink-0 rounded-full px-2 py-0.5 text-xs',
+                      'shrink-0 rounded-md px-2 py-0.5 text-xs',
                       item.status === 'answered'
                         ? 'bg-emerald-500/10 text-emerald-600'
                         : 'bg-amber-500/10 text-amber-600',

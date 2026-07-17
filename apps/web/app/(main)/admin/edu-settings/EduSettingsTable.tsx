@@ -48,7 +48,7 @@ export function EduSettingsTable({ list, isLoading, onEdit, onDelete, deletePend
             list.map((c) => (
               <tr key={c.id} className="transition-colors hover:bg-muted/30">
                 <td className="px-4 py-2.5">
-                  <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                  <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
                     {c.group}
                   </span>
                 </td>
@@ -65,14 +65,14 @@ export function EduSettingsTable({ list, isLoading, onEdit, onDelete, deletePend
                   {c.value || '-'}
                 </td>
                 <td className="px-4 py-2.5">
-                  <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                  <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
                     {c.type}
                   </span>
                 </td>
                 <td className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                       c.isPublic
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                         : 'bg-muted text-muted-foreground',

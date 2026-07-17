@@ -35,7 +35,7 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
         {Array.from({ length: 5 }).map((_, i) => (
           <View key={i} className="flex items-center py-3 animate-pulse">
             <View className="w-6 h-4 mr-3 bg-gray-100 rounded" />
-            <View className="w-9 h-9 mr-3 rounded-full bg-gray-100" />
+            <View className="w-9 h-9 mr-3 rounded-lg bg-gray-100" />
             <View className="flex-1 h-3 bg-gray-100 rounded" />
           </View>
         ))}
@@ -67,12 +67,12 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
             </View>
             {item.avatar ? (
               <Image
-                className="w-9 h-9 mr-3 rounded-full bg-gray-50"
+                className="w-9 h-9 mr-3 rounded-lg bg-gray-50"
                 src={item.avatar}
                 mode="aspectFill"
               />
             ) : (
-              <View className="flex items-center justify-center w-9 h-9 mr-3 rounded-full bg-gray-50">
+              <View className="flex items-center justify-center w-9 h-9 mr-3 rounded-lg bg-gray-50">
                 <Text className="text-xs font-medium text-gray-500">{getName(item).charAt(0)}</Text>
               </View>
             )}

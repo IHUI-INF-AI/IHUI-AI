@@ -17,7 +17,7 @@ export default function ErrorView({
       <Text className="text-sm font-medium text-gray-700 mb-1">{title}</Text>
       <Text className="text-xs text-gray-400 mb-4 text-center">{desc}</Text>
       {onRetry && (
-        <View className="px-4 py-2 rounded-full bg-indigo-50" onClick={onRetry}>
+        <View className="px-4 py-2 rounded-md bg-indigo-50" onClick={onRetry}>
           <Text className="text-sm text-indigo-600">重试</Text>
         </View>
       )}

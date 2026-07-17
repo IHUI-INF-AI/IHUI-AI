@@ -64,7 +64,7 @@ export default function TeacherList() {
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="p-3">
         <Input
-          className="h-9 px-3 bg-white rounded-full text-sm"
+          className="h-9 px-3 bg-white rounded-lg text-sm"
           placeholder={t('teacher.list.searchPlaceholder')}
           value={keyword}
           onInput={(e) => setKeyword(e.detail.value)}
@@ -80,7 +80,7 @@ export default function TeacherList() {
               onClick={() => goDetail(item.id)}
             >
               <Image
-                className="w-[60px] h-[60px] rounded-full bg-[#f5f5f5] flex-shrink-0"
+                className="w-[60px] h-[60px] rounded-md bg-[#f5f5f5] flex-shrink-0"
                 src={item.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />

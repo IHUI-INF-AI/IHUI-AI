@@ -410,7 +410,7 @@ export function OrdersTab({
                   <tr key={o.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-xs">{o.orderNo}</td>
                     <td className="px-4 py-2.5">
-                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                      <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
                         {t(`type_${o.orderType === 'course' ? 'course' : 'card'}`)}
                       </span>
                     </td>
@@ -422,7 +422,7 @@ export function OrdersTab({
                     <td className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                           sc.cls,
                         )}
                       >
