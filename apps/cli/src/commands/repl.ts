@@ -55,6 +55,7 @@ import {
   newSessionId,
 } from '../sessions/index.js';
 import { loadSettings, type Settings } from './settings.js';
+import { handlePluginMarketplaceCommand } from './plugin-marketplace.js';
 
 export interface ReplOptions {
   modelId: string;
@@ -644,6 +645,17 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         }
       } else {
         console.info(chalk.yellow('用法: /todo [show|clear]'));
+      }
+      break;
+    }
+
+    case 'plugin': {
+      // P1-4 Plugin Marketplace:委托 handlePluginMarketplaceCommand,受 settings.pluginMarketplace.enabled 控制
+      const result = await handlePluginMarketplaceCommand(args);
+      if (result.ok) {
+        console.info(chalk.green(`✓ ${result.message}`));
+      } else {
+        console.info(chalk.yellow(result.message));
       }
       break;
     }
