@@ -46,4 +46,7 @@ export default {
     cacheCleared: '삭제됨',
     clearCacheFailed: '삭제 실패',
   },
+  agent: {
+    tabRuntime: 'Agent 실행',
+  },
 }
