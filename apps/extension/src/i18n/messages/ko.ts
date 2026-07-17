@@ -22,6 +22,7 @@ export const ko = {
     wallet: '지갑',
     courses: '강의',
     notifications: '알림',
+    agents: '에이전트',
   },
   auth: {
     login: '로그인',

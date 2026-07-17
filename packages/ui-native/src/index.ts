@@ -10,3 +10,4 @@ export {
   type CardTitleProps,
 } from './card.js'
 export { Loading, Spinner, type LoadingProps } from './loading.js'
+export { VipBadge } from './vip-badge.js'
