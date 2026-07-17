@@ -9555,7 +9555,16 @@
     "tabActivity": "활동",
     "tabBackground": "백그라운드",
     "tabPermission": "권한",
-    "viewPermissionExample": "권한 확인 예시 보기"
+    "viewPermissionExample": "권한 확인 예시 보기",
+    "vipExclusive": "VIP 전용",
+    "vipPermissionDenied": "VIP 전용 에이전트입니다. VIP를 구독하세요.",
+    "permissionLoading": "권한 확인 중...",
+    "permissionAllowed": "이 에이전트를 사용할 권한이 있습니다",
+    "permissionDenied": "이 에이전트를 사용할 권한이 없습니다",
+    "permissionReasonFree": "무료 에이전트, 모든 사용자 이용 가능",
+    "permissionReasonVip": "VIP 전용 에이전트, VIP 구독 필요",
+    "permissionReasonPurchased": "이 에이전트를 구매했습니다",
+    "permissionReasonVipOnly": "VIP 전용, VIP를 구독하세요"
   },
   "distribution": {
     "title": "유통 센터",
