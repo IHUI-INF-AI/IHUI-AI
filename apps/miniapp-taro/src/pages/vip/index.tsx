@@ -2,10 +2,10 @@ import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getVipInfo, getVipPrivilege, upgradeVip, type VipInfo } from '@/api'
+import { getVipInfo, getVipPrivilege, upgradeVip, type VipInfo, type VipPayInfo } from '@/api'
+import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
 import {
   VipBenefitsPopup,
-  VipUpgradeToast,
   VipPriceSelector,
   VipPayConfirm,
   type VipBenefit,
@@ -13,6 +13,30 @@ import {
 } from '@/components'
 import { useI18n } from '@/i18n'
 import './index.css'
+
+function dispatchVipPay(payInfo: VipPayInfo, orderNo: string) {
+  if (
+    payInfo.method === 'jsapi' &&
+    payInfo.timeStamp &&
+    payInfo.nonceStr &&
+    payInfo.package &&
+    payInfo.signType &&
+    payInfo.paySign
+  ) {
+    requestWxPayment(payInfo as AnyPayParams)
+      .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` }))
+      .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` }))
+    return
+  }
+  if (payInfo.method === 'h5' && payInfo.h5Url && process.env.TARO_ENV === 'h5') {
+    window.location.href = payInfo.h5Url
+    return
+  }
+  if (payInfo.mock && payInfo.error) {
+    Taro.showToast({ title: '支付配置未就绪,请联系管理员', icon: 'none' })
+  }
+  Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
+}
 
 const gradient = 'linear-gradient(135deg, #f8d486, #f2b04a)'
 
@@ -23,7 +47,6 @@ export default function VipIndexPage() {
   const [selectedPlan, setSelectedPlan] = useState<PriceOption | null>(null)
   const [showBenefits, setShowBenefits] = useState(false)
   const [showPayConfirm, setShowPayConfirm] = useState(false)
-  const [showUpgradeToast, setShowUpgradeToast] = useState(false)
   const [payMethod, setPayMethod] = useState<'wechat' | 'alipay'>('wechat')
 
   const load = useCallback(async () => {
@@ -42,10 +65,6 @@ export default function VipIndexPage() {
     }
   }, [t])
 
-  const goPrivilege = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/vip/privilege' })
-  }, [])
-
   const onSelectPlan = useCallback((opt: PriceOption) => {
     setSelectedPlan(opt)
   }, [])
@@ -63,10 +82,7 @@ export default function VipIndexPage() {
     setShowPayConfirm(false)
     try {
       const res = await upgradeVip(Number(selectedPlan.id))
-      setShowUpgradeToast(true)
-      setTimeout(() => {
-        Taro.navigateTo({ url: `/pages/pay/index?orderNo=${res.orderNo}` })
-      }, 1500)
+      dispatchVipPay(res.payInfo, res.orderNo)
     } catch (e) {
       logger.error('vip/index', '开通VIP', e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
@@ -161,13 +177,6 @@ export default function VipIndexPage() {
         onConfirm={onConfirmPay}
         onCancel={() => setShowPayConfirm(false)}
         onMethodChange={setPayMethod}
-      />
-
-      <VipUpgradeToast
-        visible={showUpgradeToast}
-        desc={t('vip.upgradeSuccess')}
-        onClose={() => setShowUpgradeToast(false)}
-        onUpgrade={goPrivilege}
       />
     </View>
   )

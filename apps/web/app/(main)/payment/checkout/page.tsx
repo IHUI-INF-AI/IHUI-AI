@@ -9,6 +9,7 @@ import { Check, Loader2, ArrowLeft, Tag } from 'lucide-react'
 
 import { Button, Input } from '@ihui/ui'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { useVipPayment } from '@/hooks/use-vip-payment'
 import { useToast } from '@/hooks/use-toast'
@@ -25,7 +26,7 @@ const PLAN_PRICES: Record<string, { name: string; price: number }> = {
 const DEFAULT_PLAN = { name: '专业版', price: 99 }
 
 const METHODS = [
-  { id: 'wechat', labelKey: 'checkout.wechat' },
+  { id: 'wechat_native', labelKey: 'checkout.wechat' },
   { id: 'alipay', labelKey: 'checkout.alipay' },
   { id: 'stripe', labelKey: 'checkout.stripe' },
   { id: 'usdc', labelKey: 'checkout.usdc' },
@@ -43,6 +44,7 @@ function CheckoutContent() {
   const [coupon, setCoupon] = React.useState('')
   const [discount, setDiscount] = React.useState(0)
   const [polling, setPolling] = React.useState(false)
+  const [qrCodeUrl, setQrCodeUrl] = React.useState('')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const applyCoupon = () => {
@@ -72,6 +74,7 @@ function CheckoutContent() {
       const status = await queryOrder(orderNo)
       if (status === 'paid') {
         stopPoll()
+        setQrCodeUrl('')
         toast.success('支付成功')
         router.push('/payment')
         return
@@ -89,6 +92,17 @@ function CheckoutContent() {
     e.preventDefault()
     const order = await createOrder(planId)
     if (!order) return
+    const info = order.payInfo
+    if (info.mock && info.error) {
+      toast.error('支付配置未就绪', '请联系管理员')
+    } else if (info.method === 'native' && info.codeUrl) {
+      setQrCodeUrl(info.codeUrl)
+    } else if (info.method === 'h5' && info.h5Url) {
+      window.location.href = info.h5Url
+      return
+    } else {
+      toast.error('支付方式不支持')
+    }
     startPolling(order.orderNo)
   }
 
@@ -194,6 +208,23 @@ function CheckoutContent() {
           </Card>
         </div>
       </form>
+
+      <Dialog open={!!qrCodeUrl} onOpenChange={(o) => !o && setQrCodeUrl('')}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>微信扫码支付</DialogTitle>
+            <DialogDescription>请使用微信扫描下方二维码,支付完成后自动跳转</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrCodeUrl)}&size=240x240`}
+              alt="微信支付二维码"
+              className="h-60 w-60 rounded-lg border"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
