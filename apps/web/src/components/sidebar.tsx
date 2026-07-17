@@ -793,7 +793,7 @@ export function Sidebar({
           'hover-scroll min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto py-2',
           // 折叠态:aside 的 border-r(1px)使内容区 59px,nav 居中后图标会偏左 0.5px。
           // 用 pl-[9px] pr-2 补偿,让图标回到 60px 视觉中心。
-          collapsed ? 'pl-[9px] pr-2' : 'px-2',
+          collapsed ? 'pl-[9px] pr-2' : 'pl-[10px] pr-0',
         )}
       >
         {/* 新建对话按钮(对齐旧架构 .nav-new-chat,黑白对调主题) */}
