@@ -15,7 +15,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { eq, and, desc, asc, sql, or, isNotNull, count } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, or, count } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db, dbRead } from '../db/index.js'
@@ -44,6 +44,10 @@ import {
   businessCardFavorites,
   serviceAppointments,
   userAddresses,
+  pointRedeemItems,
+  imageGenFavorites,
+  notes,
+  knowledgeBaseCategories,
 } from '@ihui/database'
 import { findActivityById, joinActivity } from '../db/promotion-queries.js'
 import { findAuditLogList } from '../db/oauth-queries.js'
@@ -278,7 +282,9 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
       .select({ count: count() })
       .from(businessCardFavorites)
       .where(eq(businessCardFavorites.userId, request.userId!))
-    return reply.send(success({ list: items, total: totalRow?.count ?? 0, page: q.page, pageSize: q.pageSize }))
+    return reply.send(
+      success({ list: items, total: totalRow?.count ?? 0, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   // DELETE /business-card/favorites/:id — 取消收藏(by cardId + userId)
@@ -300,9 +306,7 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /business-card/favorites — 清空当前用户所有收藏
   server.delete('/business-card/favorites', async (request, reply) => {
-    await db
-      .delete(businessCardFavorites)
-      .where(eq(businessCardFavorites.userId, request.userId!))
+    await db.delete(businessCardFavorites).where(eq(businessCardFavorites.userId, request.userId!))
     return reply.send(success({ deleted: true }))
   })
 
@@ -634,10 +638,31 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   // 8. 图像生成 /image-gen/* (5 个,1 个需新表)
   // ===========================================================================
 
-  // GET /image-gen/favorites — NEEDS_NEW_TABLE: image_gen_favorites
-  server.get('/image-gen/favorites', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: image_gen_favorites
-    return reply.send(success({ list: [], total: 0 }))
+  // GET /image-gen/favorites — 当前用户收藏的 AI 生成图片列表
+  server.get('/image-gen/favorites', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select({
+          id: imageGenFavorites.id,
+          prompt: imageGenFavorites.prompt,
+          imageUrl: imageGenFavorites.imageUrl,
+          createdAt: imageGenFavorites.createdAt,
+        })
+        .from(imageGenFavorites)
+        .where(eq(imageGenFavorites.userId, request.userId!))
+        .orderBy(desc(imageGenFavorites.createdAt))
+        .limit(q.pageSize)
+        .offset((q.page - 1) * q.pageSize),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(imageGenFavorites)
+        .where(eq(imageGenFavorites.userId, request.userId!)),
+    ])
+    return reply.send(
+      success({ list, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   // GET /image-gen/gallery — 公开图库(aiGcContent where gcType=image, status=1)
@@ -723,16 +748,17 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   // 9. 知识库 /knowledge-base/* (4 个,1 个需新表)
   // ===========================================================================
 
-  // GET /knowledge-base/categories — NEEDS_NEW_TABLE: knowledge_base_categories
+  // GET /knowledge-base/categories — 知识库分类列表(含每分类文章数)
   server.get('/knowledge-base/categories', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: knowledge_base_categories
-    // 临时:返回 knowledgeBase 中已使用的 categoryId 去重列表
     const rows = await dbRead
-      .select({ categoryId: knowledgeBase.categoryId })
-      .from(knowledgeBase)
-      .where(isNotNull(knowledgeBase.categoryId))
-      .groupBy(knowledgeBase.categoryId)
-    return reply.send({ list: rows, total: rows.length })
+      .select({
+        id: knowledgeBaseCategories.id,
+        name: knowledgeBaseCategories.name,
+        count: sql<number>`(SELECT count(*) FROM knowledge_base kb WHERE kb.category_id = ${knowledgeBaseCategories.id})::int`,
+      })
+      .from(knowledgeBaseCategories)
+      .orderBy(asc(knowledgeBaseCategories.sortOrder), asc(knowledgeBaseCategories.name))
+    return reply.send(success({ list: rows }))
   })
 
   // POST /knowledge-base — 创建知识库条目
@@ -965,12 +991,20 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 12. 积分兑换 /points/redeem (1 个) — NEEDS_NEW_TABLE: point_redeem_items
+  // 12. 积分兑换 /points/redeem (1 个)
   // ===========================================================================
 
   server.get('/points/redeem', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: point_redeem_items (积分兑换商品表)
-    return reply.send(success({ list: [], total: 0 }))
+    const list = await dbRead
+      .select({
+        id: pointRedeemItems.id,
+        name: pointRedeemItems.name,
+        points: pointRedeemItems.points,
+        image: pointRedeemItems.image,
+      })
+      .from(pointRedeemItems)
+      .orderBy(asc(pointRedeemItems.sortOrder), asc(pointRedeemItems.name))
+    return reply.send(success({ list, total: list.length }))
   })
 
   // ===========================================================================
@@ -1067,11 +1101,37 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 16. 笔记 /notes/:id (1 个) — NEEDS_NEW_TABLE: notes
+  // 16. 笔记 /notes/:id (1 个)
   // ===========================================================================
 
-  server.put('/notes/:id', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: notes (用户笔记表)
+  server.put('/notes/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const bodySchema = z.object({
+      title: z.string().min(1).max(200).optional(),
+      content: z.string().min(1),
+      isPublic: z.boolean().optional(),
+      lessonId: z.string().optional(),
+    })
+    const body = bodySchema.safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await dbRead
+      .select({ id: notes.id, userId: notes.userId })
+      .from(notes)
+      .where(eq(notes.id, id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '笔记不存在'))
+    if (existing.userId !== request.userId!)
+      return reply.status(403).send(error(403, '无权修改此笔记'))
+    const updateData: Record<string, unknown> = {
+      updatedAt: new Date(),
+      content: body.data.content,
+    }
+    if (body.data.title !== undefined) updateData.title = body.data.title
+    if (body.data.isPublic !== undefined) updateData.isPublic = body.data.isPublic
+    if (body.data.lessonId !== undefined) updateData.lessonId = body.data.lessonId
+    await db.update(notes).set(updateData).where(eq(notes.id, id))
     return reply.send(success({ updated: true }))
   })
 
