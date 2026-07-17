@@ -185,6 +185,27 @@ export async function listOssFiles(params: PageQuery = {}): Promise<ApiResult<Pa
   return fetchApi<PageData<AdminRow>>(`/api/admin/oss/files${buildQs(params)}`)
 }
 
+export async function deleteOssFile(
+  id: string,
+): Promise<ApiResult<{ id: string; deleted: boolean }>> {
+  return fetchApi<{ id: string; deleted: boolean }>(`/api/admin/oss/files/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function batchDeleteOssFiles(ids: string[]): Promise<ApiResult<{ deleted: number }>> {
+  return fetchApi<{ deleted: number }>(`/api/admin/oss/files/batch-delete`, {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  })
+}
+
+export async function ossFileToBase64(
+  id: string,
+): Promise<ApiResult<{ base64: string; mimeType: string }>> {
+  return fetchApi<{ base64: string; mimeType: string }>(`/api/admin/oss/files/${id}/base64`)
+}
+
 // ===================== monitor/alerts(监控告警) =====================
 
 export async function listMonitorAlerts(
@@ -323,9 +344,7 @@ export async function delAiModelConfig(id: string | number): Promise<ApiResult<D
   return fetchApi<DeleteResult>(`/api/admin/ai-model-config/${id}`, { method: 'DELETE' })
 }
 
-export async function testAiModelConfig(
-  id: string | number,
-): Promise<
+export async function testAiModelConfig(id: string | number): Promise<
   ApiResult<{
     status: string
     responseMs: number
