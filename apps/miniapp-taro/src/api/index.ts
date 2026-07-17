@@ -1263,3 +1263,55 @@ export const uploadBybase64a = (data: unknown) => post('/upload/base64-a', data)
 export const getGroupList = (params: ApiParams) => get('/rankings/group-list', params)
 /** 更新标记 */
 export const updateMark = (data: unknown) => put('/user/update-mark', data)
+
+/* ============ 连续包月/自动续费 ============= */
+export interface WechatPayContract {
+  id: string
+  contractId: string
+  planId?: string
+  productId?: string
+  status: 'pending' | 'active' | 'cancelled' | 'expired'
+  wechatPlanId?: string
+  nextChargeTime?: string
+  lastChargeTime?: string
+  lastChargeStatus?: 'success' | 'failed' | 'pending'
+  signedAt?: string
+  cancelledAt?: string
+  trialEndAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SignContractResult {
+  signUrl: string
+  contractId: string
+}
+
+export interface SubscriptionStatus {
+  isVip: boolean
+  vipLevel?: number
+  endTime?: string
+  autoRenew: boolean
+  planName?: string
+  contract?: WechatPayContract
+}
+
+export const signRecurringContract = (params: {
+  planId: string
+  productId?: string
+  openid?: string
+}) => post<SignContractResult>('/payments/recurring/sign', params)
+
+export const listRecurringContracts = () =>
+  get<{ list: WechatPayContract[] }>('/payments/recurring/contracts')
+
+export const getRecurringContract = (id: string) =>
+  get<{ contract: WechatPayContract }>(`/payments/recurring/contracts/${encodeURIComponent(id)}`)
+
+export const cancelRecurringContract = (id: string, reason?: string) =>
+  post<{ cancelled: boolean }>(
+    `/payments/recurring/contracts/${encodeURIComponent(id)}/cancel`,
+    reason ? { reason } : {},
+  )
+
+export const getSubscriptionStatus = () => get<SubscriptionStatus>('/payments/subscription/status')
