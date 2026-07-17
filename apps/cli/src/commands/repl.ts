@@ -15,6 +15,7 @@ import { CheckpointManager } from '../checkpoints/index.js';
 import { setupAgentTools, runToolLoop, type ToolContext, type InterjectionBlock } from './agent.js';
 import { renderSlashHelp, suggestSlashCommands } from './slash-registry.js';
 import type { PermissionRules } from '../tools/permissions.js';
+import { readTodoList } from '../tools/todo-write.js';
 import { findSkill, type Skill } from '../skills/index.js';
 import {
   getMemoryStore,
@@ -405,6 +406,44 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         }
       } else {
         console.info(chalk.yellow('用法: /memory [on|off|show|add <text>|clear|search <关键词>]'));
+      }
+      break;
+    }
+
+    case 'todo': {
+      // P0-9 TodoWrite 工具配套 slash 命令:显示/清除 todo 清单
+      const sub = args[0] ?? 'show';
+      if (sub === 'clear') {
+        const todoPath = `${state.opts.workspacePath}/.ihui/todos.json`;
+        try {
+          const fs = await import('node:fs');
+          if (fs.existsSync(todoPath)) {
+            fs.unlinkSync(todoPath);
+            console.info(chalk.green('✓ todo 清单已清空'));
+          } else {
+            console.info(chalk.dim('当前无 todo 清单文件'));
+          }
+        } catch {
+          console.info(chalk.red('清空失败'));
+        }
+      } else if (sub === 'show') {
+        const ctx = state.ctx ?? { workspacePath: state.opts.workspacePath };
+        const todos = readTodoList(ctx);
+        if (todos.length === 0) {
+          console.info(chalk.dim('暂无 todo(Agent 可通过 todo_write 工具创建)'));
+        } else {
+          const inProgress = todos.filter((t) => t.status === 'in_progress').length;
+          const completed = todos.filter((t) => t.status === 'completed').length;
+          console.info(chalk.cyan(`\n📋 Todo 清单 (${todos.length} 项, ${inProgress} 进行中, ${completed} 已完成):`));
+          const icons: Record<string, string> = { pending: '⏳', in_progress: '🚧', completed: '✅' };
+          const priIcons: Record<string, string> = { high: '🔴', medium: '🟡', low: '🟢' };
+          for (const t of todos) {
+            console.info(`  ${icons[t.status]} ${priIcons[t.priority]} [${t.id}] ${t.content}`);
+          }
+          console.info('');
+        }
+      } else {
+        console.info(chalk.yellow('用法: /todo [show|clear]'));
       }
       break;
     }
