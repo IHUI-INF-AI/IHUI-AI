@@ -21,7 +21,7 @@ function App({ children }: PropsWithChildren<unknown>) {
     const token = getToken()
     const userInfo = getUserInfo()
     if (token && userInfo?.uuid) {
-      websocketManager.connect(`${WS_BASE}/ws/notifications?token=${token}`, userInfo.uuid)
+      websocketManager.connect(`${WS_BASE}/ws/notifications?token=${token}`)
     }
   })
   return (

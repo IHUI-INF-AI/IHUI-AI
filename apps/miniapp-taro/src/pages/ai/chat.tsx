@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from 'react'
 import {
   chatStream,
   type ChatMessage,
-  getModelPlazaList,
+  fetchModels,
   getAigcList,
   getAgentDetail,
   getAgentList,
@@ -77,8 +77,8 @@ export default function ChatPage() {
   const loadModels = useCallback(async () => {
     setModelsLoading(true)
     try {
-      const res = (await getModelPlazaList()) as { list?: ModelItem[] } | ModelItem[]
-      setModels(Array.isArray(res) ? res : res?.list || [])
+      const res = await fetchModels()
+      setModels(res?.models || [])
     } catch {
       Taro.showToast({ title: t('ai.modelLoadFailed'), icon: 'none' })
     } finally {
@@ -151,7 +151,7 @@ export default function ChatPage() {
           [...messages, userMsg],
           sessionId,
           {
-            modelId: currentModel || undefined,
+            model: currentModel || undefined,
             agentId: activeAgentId || undefined,
             materialContent: selectedMaterial?.content || undefined,
           },
@@ -229,7 +229,7 @@ export default function ChatPage() {
   }, [t])
 
   const selectModel = useCallback((m: ModelItem) => {
-    setCurrentModel(String(m.id))
+    setCurrentModel(m.id)
     setCurrentModelName(m.name)
     setModelDrawerVisible(false)
   }, [])
