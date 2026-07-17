@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Radio, PlayCircle, Eye, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -154,7 +155,16 @@ export default function LivePage() {
             <Link key={channel.id} href={`/live/${channel.id}`} className="group block">
               <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                 <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-                  <PlayCircle className="h-10 w-10 text-primary/40" />
+                  {channel.coverImage ? (
+                    <Image
+                      fill
+                      src={channel.coverImage}
+                      alt={channel.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <PlayCircle className="h-10 w-10 text-primary/40" />
+                  )}
                   {channel.isLive && (
                     <span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-red-500 px-2 py-0.5 text-xs font-medium text-white">
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
