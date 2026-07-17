@@ -2,7 +2,6 @@ import Taro from '@tarojs/taro'
 
 export * from './request'
 export * from './auth'
-export * from './websocket'
 export * from './voice-recorder'
 export * from './upload-image'
 export * from './file-utils'
@@ -15,7 +14,6 @@ export * from './streaming-recognizer'
 export * from './doubao-voice-api'
 export * from './pay'
 
-export { default as websocketManager } from './websocket'
 export { default as voiceRecorder } from './voice-recorder'
 export { default as streamingRecognizer } from './streaming-recognizer'
 
