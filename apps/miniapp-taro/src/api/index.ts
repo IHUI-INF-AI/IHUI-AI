@@ -293,7 +293,29 @@ export interface VipInfo {
 export const getVipInfo = () => get<VipInfo>('/vip/info')
 export const getVipPrivilege = () =>
   get<{ list: Array<{ id: string; title: string; desc: string }> }>('/vip/privilege')
-export const upgradeVip = (level: number) => post<{ orderNo: string }>('/vip/upgrade', { level })
+export interface VipPayInfo {
+  mock: boolean
+  method: 'jsapi' | 'native' | 'h5'
+  timeStamp?: string
+  nonceStr?: string
+  package?: string
+  signType?: string
+  paySign?: string
+  codeUrl?: string
+  h5Url?: string
+  error?: string
+}
+export interface VipOrderResult {
+  orderId: string
+  orderNo: string
+  amount: number
+  vipLevelId: string
+  quantity: number
+  payInfo: VipPayInfo
+}
+export const upgradeVip = (level: number) => post<VipOrderResult>('/vip/upgrade', { level })
+export const getVipOrderPayInfo = (orderNo: string) =>
+  get<{ status: string; payInfo?: VipPayInfo }>(`/vip/order/${orderNo}/payinfo`)
 
 export interface MemberInfo {
   level: string
