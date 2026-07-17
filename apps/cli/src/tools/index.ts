@@ -18,6 +18,13 @@
 import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
 import { checkPermission, type PermissionRules } from './permissions.js';
+import {
+  InMemoryRegistry,
+  CompoundResolver,
+  wrapTool,
+  ToolNotFoundError,
+  type ToolRegistry,
+} from './hub/index.js';
 
 export interface ToolParameter {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
@@ -74,12 +81,59 @@ export interface ToolContext {
 
 const registry = new Map<string, Tool>();
 
+// ==================== P1-5 Computer Hub 集成(feature flag 默认关闭)====================
+// Hub 模式启用时,CompoundResolver 调度 local-shadows-remote;关闭时完全等同原 Map 路径(零回归)。
+
+/** Hub 本地注册表(现有 Tool wrap 后注册到这里) */
+const hubLocalRegistry = new InMemoryRegistry();
+/** Hub 远程注册表(MCP 工具接入时填充,通过 setHubRemoteRegistry 设置) */
+let hubRemoteRegistry: ToolRegistry | undefined;
+/** Hub 组合解析器(启用时构造,禁用时置 undefined) */
+let hubResolver: CompoundResolver | undefined;
+/** Hub 是否启用(由 settings.toolHub.enabled 决定,默认 false) */
+let hubEnabled = false;
+
+/** 启用 hub 模式:把现有 registry 中所有工具 wrap 注册到 hubLocalRegistry,构造 CompoundResolver */
+export function enableToolHub(): void {
+  hubEnabled = true;
+  hubLocalRegistry.clear();
+  for (const tool of registry.values()) {
+    hubLocalRegistry.register(wrapTool(tool));
+  }
+  hubResolver = new CompoundResolver(hubLocalRegistry, hubRemoteRegistry);
+}
+
+/** 禁用 hub 模式:回到原 Map 路径 */
+export function disableToolHub(): void {
+  hubEnabled = false;
+  hubResolver = undefined;
+}
+
+/** 设置 hub remote registry(MCP 工具接入时调用;若 hub 已启用,同步重建 resolver) */
+export function setHubRemoteRegistry(remote: ToolRegistry): void {
+  hubRemoteRegistry = remote;
+  if (hubResolver) {
+    hubResolver = new CompoundResolver(hubLocalRegistry, hubRemoteRegistry);
+  }
+}
+
+/** 查询 hub 是否启用 */
+export function isToolHubEnabled(): boolean {
+  return hubEnabled;
+}
+
 function registerTool(tool: Tool): void {
   registry.set(tool.name, tool);
 }
 
 export function registerTools(tools: Tool[]): void {
-  for (const t of tools) registerTool(t);
+  for (const t of tools) {
+    registerTool(t);
+    // 如果 hub 已启用,同步注册到 hub local registry(后续 MCP 工具接入时也走这条路径)
+    if (hubEnabled) {
+      hubLocalRegistry.register(wrapTool(t));
+    }
+  }
 }
 
 export function getTool(name: string): Tool | undefined {
@@ -195,6 +249,23 @@ export async function executeToolCall(
   call: ParsedToolCall,
   ctx: ToolContext,
 ): Promise<ToolResult> {
+  // P1-5 Computer Hub 集成:flag 启用时优先走 CompoundResolver.dispatch(local-shadows-remote)
+  // ToolNotFoundError 时 fallback 到原 getTool 路径(零回归保障);其他错误转 ToolResult 返回。
+  // 横切关注点(permission / rate limit / retry)在 hub 未启用或 fallback 时仍由原路径处理。
+  if (hubEnabled && hubResolver) {
+    try {
+      return await hubResolver.dispatch(call.name, call.arguments, ctx);
+    } catch (err) {
+      if (!(err instanceof ToolNotFoundError)) {
+        return {
+          success: false,
+          output: '',
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+      // ToolNotFoundError: fallback 到原 getTool + 执行路径
+    }
+  }
   const tool = getTool(call.name);
   if (!tool) {
     return { success: false, output: '', error: `未知工具: ${call.name}`, errorType: 'not_found' };
