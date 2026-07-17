@@ -228,22 +228,18 @@ export const frontendStubAiRoutes: FastifyPluginAsync = async (server) => {
   // 真实等价实现已存在于 /api/ai-vendors/*(proxy-llm.ts / proxy-extended.ts),
   // 建议前端切换至 /api/ai-vendors/* 路径,或由 ai-service 增设对应端点后在此代理。
   // ==========================================================================
-  const vendorStubPaths = [
-    '/ai/keling/audio/end',
-    '/ai/sora/request/end',
-    '/ai/cosyvoice',
-    '/ai/keling/audio/start',
-    '/ai/sora/request',
-    '/ai/dashscope/image/generate',
-    '/ai/hunyuan/3d/submit',
-    '/ai/gemini/nano-banana',
-    '/ai/google/veo3',
-    '/ai/dashscope/video/generate',
-    '/ai/qwen/omni',
-  ] as const
-  for (const path of vendorStubPaths) {
-    server.post(path, async (_request, reply) => {
-      return reply.status(201).send(success({ created: true, id: randomUUID() }))
-    })
+  const vendorStubHandler = async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(201).send(success({ created: true, id: randomUUID() }))
   }
+  server.post('/ai/keling/audio/end', vendorStubHandler)
+  server.post('/ai/sora/request/end', vendorStubHandler)
+  server.post('/ai/cosyvoice', vendorStubHandler)
+  server.post('/ai/keling/audio/start', vendorStubHandler)
+  server.post('/ai/sora/request', vendorStubHandler)
+  server.post('/ai/dashscope/image/generate', vendorStubHandler)
+  server.post('/ai/hunyuan/3d/submit', vendorStubHandler)
+  server.post('/ai/gemini/nano-banana', vendorStubHandler)
+  server.post('/ai/google/veo3', vendorStubHandler)
+  server.post('/ai/dashscope/video/generate', vendorStubHandler)
+  server.post('/ai/qwen/omni', vendorStubHandler)
 }
