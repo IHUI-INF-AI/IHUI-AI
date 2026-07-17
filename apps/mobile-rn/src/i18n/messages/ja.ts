@@ -21,6 +21,7 @@ export default {
     orders: '注文',
     settings: '設定',
     profile: 'プロフィール',
+    agents: 'エージェント',
   },
   auth: {
     login: 'ログイン',

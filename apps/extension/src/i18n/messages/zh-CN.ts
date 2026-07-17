@@ -22,6 +22,7 @@ export const zhCN = {
     wallet: '钱包',
     courses: '课程',
     notifications: '通知',
+    agents: '智能体',
   },
   auth: {
     login: '登录',

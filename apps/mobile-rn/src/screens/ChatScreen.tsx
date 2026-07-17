@@ -188,6 +188,9 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       <View className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
         <Text className="text-lg font-semibold text-gray-900">IHUI AI</Text>
         <View className="flex-row gap-3">
+          <Pressable onPress={() => navigation.navigate('Agent')} hitSlop={8}>
+            <Text className="text-sm text-gray-500">智能体</Text>
+          </Pressable>
           <Pressable onPress={() => navigation.navigate('Wallet')} hitSlop={8}>
             <Text className="text-sm text-gray-500">钱包</Text>
           </Pressable>
