@@ -94,15 +94,15 @@ function mergeTodos(oldTodos: TodoItem[], newTodos: TodoItem[]): TodoItem[] {
 /** 渲染 todos 为用户可见文本 */
 function renderTodos(todos: TodoItem[]): string {
   if (todos.length === 0) return '(无 todo)';
-  const byStatus: Record<TodoItem['status'], TodoItem[]> = { in_progress: [], pending: [], completed: [] };
-  for (const t of todos) byStatus[t.status].push(t);
+  const byStatus: Record<string, TodoItem[]> = { in_progress: [], pending: [], completed: [] };
+  for (const t of todos) (byStatus[t.status] ?? []).push(t);
   const lines: string[] = [];
-  const order: TodoItem['status'][] = ['in_progress', 'pending', 'completed'];
-  const labels: Record<TodoItem['status'], string> = { in_progress: '进行中', pending: '待办', completed: '已完成' };
+  const order: (keyof typeof byStatus)[] = ['in_progress', 'pending', 'completed'];
+  const labels: Record<string, string> = { in_progress: '进行中', pending: '待办', completed: '已完成' };
   for (const status of order) {
-    const list = byStatus[status];
+    const list = byStatus[status]!;
     if (list.length === 0) continue;
-    lines.push(`${STATUS_ICONS[status]} ${labels[status]} (${list.length}):`);
+    lines.push(`${STATUS_ICONS[status as TodoItem['status']]} ${labels[status]} (${list.length}):`);
     for (const t of list) {
       const pri = PRIORITY_ICONS[t.priority];
       const summary = t.summary ? ` — ${t.summary}` : '';
@@ -162,12 +162,12 @@ export const todo_write: Tool = {
       finalTodos = opts.todos;
     }
     // 排序:in_progress > pending > completed;同 status 内按 priority 降序
-    const statusOrder: Record<TodoItem['status'], number> = { in_progress: 0, pending: 1, completed: 2 };
-    const priorityOrder: Record<TodoItem['priority'], number> = { high: 0, medium: 1, low: 2 };
+    const statusOrder: Record<string, number> = { in_progress: 0, pending: 1, completed: 2 };
+    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
     finalTodos.sort((a, b) => {
-      const s = statusOrder[a.status] - statusOrder[b.status];
+      const s = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
       if (s !== 0) return s;
-      return priorityOrder[a.priority] - priorityOrder[b.priority];
+      return (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99);
     });
     saveTodos(ctx, finalTodos);
     return {
