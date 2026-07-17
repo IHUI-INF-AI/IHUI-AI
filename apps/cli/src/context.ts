@@ -10,6 +10,7 @@
  */
 
 import { encode } from 'gpt-tokenizer';
+import { runHook } from './hooks/index.js';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -198,6 +199,10 @@ export interface RatioCompressionOptions {
   keepRecent?: number;
   /** 最少消息数(消息数不足时不压缩,默认 keepRecent + 1) */
   minMessages?: number;
+  /** 工作区路径(透传给 preCompact/postCompact hook 上下文) */
+  workspacePath?: string;
+  /** 会话 ID(透传给 preCompact/postCompact hook 上下文) */
+  sessionId?: string;
 }
 
 const DEFAULT_TRIGGER_RATIO = 0.85;
@@ -244,6 +249,12 @@ export function compressContextIfNeeded(
       usageRatio,
     };
   }
+
+  runHook('preCompact', {
+    workspacePath: opts.workspacePath,
+    sessionId: opts.sessionId,
+    compactedTokensBefore: originalTokens,
+  });
 
   const systemMsgs = messages.filter((m) => m.role === 'system');
   const nonSystem = messages.filter((m) => m.role !== 'system');
@@ -293,14 +304,21 @@ export function compressContextIfNeeded(
   }
 
   // bestResult 一定不为 null(因为 nonSystem.length > minMessages >= 2,至少有 1 条可压缩)
-  return bestResult ?? {
+  const result = bestResult ?? {
     messages,
     compressed: false,
     originalTokens,
     compressedTokens: originalTokens,
     removedCount: 0,
-    trigger: 'none',
+    trigger: 'none' as const,
     usageRatio,
   };
+  runHook('postCompact', {
+    workspacePath: opts.workspacePath,
+    sessionId: opts.sessionId,
+    compactedTokensBefore: originalTokens,
+    compactedTokensAfter: result.compressedTokens,
+  });
+  return result;
 }
 
