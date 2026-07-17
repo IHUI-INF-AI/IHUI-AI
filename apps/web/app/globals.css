@@ -168,7 +168,7 @@
   /* 暗色模式:纯黑,与 sidebar 的 14% L 偏白底形成区分 */
   --color-sidebar-item-hover-bg: hsl(0 0% 0%);
   /* 暗色模式:深灰色,与 14% L 偏白页面底形成反向对比 */
-  --color-shell-panel: hsl(220 12% 8%);
+  --color-shell-panel: hsl(220 12% 5%);
 }
 
 * {
