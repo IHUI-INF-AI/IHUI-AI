@@ -44,7 +44,7 @@ export function NotificationCenter({
           <Bell className="h-4 w-4 text-primary" />
           <span className="font-semibold">通知中心</span>
           {unreadCount > 0 && (
-            <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+            <span className="rounded-md bg-primary px-2 py-0.5 text-xs text-primary-foreground">
               {unreadCount}
             </span>
           )}

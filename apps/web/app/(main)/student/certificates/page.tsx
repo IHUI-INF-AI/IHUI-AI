@@ -84,7 +84,7 @@ export default function MyCertificatesPage() {
                     </div>
                     <span
                       className={cn(
-                        'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                         STATUS_STYLE[cert.status] ?? STATUS_STYLE[1],
                       )}
                     >

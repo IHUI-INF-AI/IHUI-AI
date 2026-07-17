@@ -41,7 +41,7 @@ export const fmtYuan = (n: number) => `¥${(n / 100).toFixed(2)}`
 
 export const badgeCls = (s: string) =>
   cn(
-    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+    'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
     STATUS_CLS[s] ?? 'bg-muted text-muted-foreground',
   )
 

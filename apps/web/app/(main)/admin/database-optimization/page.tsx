@@ -181,7 +181,7 @@ export default function DatabaseOptimizationPage() {
                       <CardTitle className="text-sm">{s.title}</CardTitle>
                       <span
                         className={cn(
-                          'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                           style.bg,
                           style.text,
                         )}

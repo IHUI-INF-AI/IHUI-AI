@@ -17,9 +17,30 @@ export interface InputAreaProps {
 }
 
 const EMOJI_LIST = [
-  '😀', '😁', '😂', '🤣', '😊', '😍', '🤔', '😎',
-  '😴', '😭', '😡', '👍', '👎', '👏', '🙏', '💪',
-  '❤️', '🔥', '✨', '🎉', '🎁', '🌟', '💯', '✅',
+  '😀',
+  '😁',
+  '😂',
+  '🤣',
+  '😊',
+  '😍',
+  '🤔',
+  '😎',
+  '😴',
+  '😭',
+  '😡',
+  '👍',
+  '👎',
+  '👏',
+  '🙏',
+  '💪',
+  '❤️',
+  '🔥',
+  '✨',
+  '🎉',
+  '🎁',
+  '🌟',
+  '💯',
+  '✅',
 ]
 
 type Mode = 'text' | 'voice'
@@ -57,9 +78,12 @@ export default function InputArea({
     setShowEmoji(false)
   }, [text, disabled, onSend])
 
-  const handleEmojiPick = useCallback((emoji: string) => {
-    setText((prev) => (prev + emoji).slice(0, maxLength))
-  }, [maxLength])
+  const handleEmojiPick = useCallback(
+    (emoji: string) => {
+      setText((prev) => (prev + emoji).slice(0, maxLength))
+    },
+    [maxLength],
+  )
 
   const toggleMode = useCallback(() => {
     setMode((m) => (m === 'text' ? 'voice' : 'text'))
@@ -73,7 +97,11 @@ export default function InputArea({
 
   const handleUpload = useCallback(async () => {
     try {
-      const imgRes = await Taro.chooseImage({ count: 9, sizeType: ['compressed'], sourceType: ['album', 'camera'] })
+      const imgRes = await Taro.chooseImage({
+        count: 9,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+      })
       const files = Array.isArray(imgRes.tempFilePaths) ? imgRes.tempFilePaths : []
       if (files.length) onUpload?.(files)
     } catch (err) {
@@ -134,7 +162,7 @@ export default function InputArea({
       <View className="flex items-end px-3 py-2">
         <View className="flex items-center mr-2">
           <Text
-            className={`w-9 h-9 leading-9 text-center text-xl rounded-full active:bg-gray-100 dark:active:bg-gray-800 ${mode === 'voice' ? 'text-green-600' : 'text-gray-500'}`}
+            className={`w-9 h-9 leading-9 text-center text-xl rounded-lg active:bg-gray-100 dark:active:bg-gray-800 ${mode === 'voice' ? 'text-green-600' : 'text-gray-500'}`}
             onClick={toggleMode}
           >
             {mode === 'text' ? '🎤' : '⌨️'}
@@ -160,7 +188,9 @@ export default function InputArea({
               disabled={disabled}
             />
             <View className="text-right text-xs text-gray-400 mt-1">
-              <Text>{text.length}/{maxLength}</Text>
+              <Text>
+                {text.length}/{maxLength}
+              </Text>
             </View>
           </View>
         ) : (
@@ -170,21 +200,23 @@ export default function InputArea({
             onTouchEnd={handleVoiceEnd}
             onTouchCancel={handleVoiceCancel}
           >
-            <Text>{recording ? t('ai.inputArea.releaseToSend') : t('ai.inputArea.holdToSpeak')}</Text>
+            <Text>
+              {recording ? t('ai.inputArea.releaseToSend') : t('ai.inputArea.holdToSpeak')}
+            </Text>
           </View>
         )}
 
         <View className="flex items-center ml-2">
           {mode === 'text' ? (
             <Text
-              className={`w-9 h-9 leading-9 text-center text-xl rounded-full active:bg-gray-100 dark:active:bg-gray-800 ${showEmoji ? 'text-green-600' : 'text-gray-500'}`}
+              className={`w-9 h-9 leading-9 text-center text-xl rounded-lg active:bg-gray-100 dark:active:bg-gray-800 ${showEmoji ? 'text-green-600' : 'text-gray-500'}`}
               onClick={toggleEmoji}
             >
               😊
             </Text>
           ) : null}
           <Text
-            className="w-9 h-9 leading-9 text-center text-xl rounded-full ml-1 text-gray-500 active:bg-gray-100 dark:active:bg-gray-800"
+            className="w-9 h-9 leading-9 text-center text-xl rounded-lg ml-1 text-gray-500 active:bg-gray-100 dark:active:bg-gray-800"
             onClick={handleUpload}
           >
             📎
@@ -193,7 +225,7 @@ export default function InputArea({
 
         {mode === 'text' ? (
           <View
-            className={`ml-2 px-4 h-9 leading-9 rounded-full text-sm ${canSend ? 'bg-green-600 text-white active:bg-green-700' : 'bg-gray-200 text-gray-400 dark:bg-gray-700'}`}
+            className={`ml-2 px-4 h-9 leading-9 rounded-lg text-sm ${canSend ? 'bg-green-600 text-white active:bg-green-700' : 'bg-gray-200 text-gray-400 dark:bg-gray-700'}`}
             onClick={handleSend}
           >
             <Text>{t('ai.inputArea.send')}</Text>

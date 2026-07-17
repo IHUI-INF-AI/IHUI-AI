@@ -152,7 +152,7 @@ export default function I18nMissingPage() {
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     )}
                     <span className="font-mono text-sm font-medium">{ns}</span>
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                       {keys.length}
                     </span>
                   </button>

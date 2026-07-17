@@ -120,7 +120,7 @@ export default function EduLearnRankingPage() {
                       <span className="break-words font-semibold">
                         {r.userName ?? r.userId.slice(0, 8)}
                       </span>
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                         {t('rankLabel', { rank: i + 1 })}
                       </span>
                     </div>
@@ -178,7 +178,7 @@ export default function EduLearnRankingPage() {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold',
+                          'inline-flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold',
                           isTop3 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
                         )}
                       >

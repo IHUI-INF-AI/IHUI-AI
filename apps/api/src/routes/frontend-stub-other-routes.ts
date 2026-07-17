@@ -1524,11 +1524,8 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, matched: list.length > 0 }))
   })
 
-  // GET /v1/ai/capabilities/ws/stream — NEEDS_NEW_TABLE/WS: WebSocket 流
-  server.get('/v1/ai/capabilities/ws/stream', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: WebSocket 流式响应,需通过 /api/webrtc-voice 或 SSE 路由实现
-    return reply.send(success({ list: [], total: 0 }))
-  })
+  // GET /v1/ai/capabilities/ws/stream — 真实实现在 plugins/ws-ai.ts (WebSocket 端点)
+  // 此处不注册 HTTP 路由,避免拦截 WebSocket upgrade 请求
 
   // ===========================================================================
   // 22. 服务预约 /service-appointment/* (4 个)

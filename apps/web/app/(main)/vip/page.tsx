@@ -84,7 +84,7 @@ export default function VipPage() {
                 {myVip.levelName ?? t('title')}
                 <span
                   className={cn(
-                    'rounded-full px-2 py-0.5 text-xs',
+                    'rounded-md px-2 py-0.5 text-xs',
                     myVip.status === 1
                       ? 'bg-emerald-100 text-emerald-700'
                       : 'bg-muted text-muted-foreground',
@@ -132,7 +132,7 @@ export default function VipPage() {
                 )}
               >
                 {isPopular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-1 text-xs font-medium text-white shadow">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-amber-500 px-3 py-1 text-xs font-medium text-white shadow">
                     <Sparkles className="mr-1 inline h-3 w-3" />
                     {t('popular')}
                   </span>

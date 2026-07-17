@@ -78,7 +78,7 @@ export function DictTable({
                 <code className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
                   {d.code}
                 </code>
-                <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                <span className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
                   {d.itemCount}
                 </span>
               </button>

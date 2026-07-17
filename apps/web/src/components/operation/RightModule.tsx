@@ -113,7 +113,7 @@ export function RightModule({ quickEntries, ad, hotTags, children, className }: 
                     href={entry.href}
                     className="group flex flex-col items-center gap-1.5 rounded-lg border border-transparent p-2.5 text-center transition-colors hover:border-border hover:bg-muted/50"
                   >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
                       <Icon className="h-4 w-4" />
                     </span>
                     <span className="text-xs font-medium leading-tight">{entry.label}</span>
@@ -153,7 +153,7 @@ export function RightModule({ quickEntries, ad, hotTags, children, className }: 
                   <Link
                     key={tag.href}
                     href={tag.href}
-                    className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground"
+                    className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground"
                   >
                     <span className="break-words">{tag.label}</span>
                     {tag.count !== undefined && (

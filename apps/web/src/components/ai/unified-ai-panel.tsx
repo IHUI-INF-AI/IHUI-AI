@@ -80,8 +80,10 @@ export function UnifiedAIPanel({
               >
                 <div
                   className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium',
-                    isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
+                    isUser
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground',
                   )}
                 >
                   {isUser ? '我' : <Sparkles className="h-4 w-4" />}
@@ -95,7 +97,9 @@ export function UnifiedAIPanel({
                   )}
                 >
                   {isUser ? (
-                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{m.content}</p>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                      {m.content}
+                    </p>
                   ) : (
                     <MarkdownStream content={m.content} />
                   )}
@@ -105,7 +109,7 @@ export function UnifiedAIPanel({
           })}
           {isStreaming && streamingContent !== undefined && (
             <div className="flex w-full gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                 <Sparkles className="h-4 w-4" />
               </div>
               <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5">

@@ -59,7 +59,7 @@ export default function PayResult() {
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="pt-[120rpx] pb-[120rpx] text-center">
         <View
-          className={`w-[160rpx] h-[160rpx] leading-[160rpx] mx-auto rounded-full text-[80rpx] text-white ${STATUS_BG[status]}`}
+          className={`w-[160rpx] h-[160rpx] leading-[160rpx] mx-auto rounded-md text-[80rpx] text-white ${STATUS_BG[status]}`}
         >
           {STATUS_ICON[status]}
         </View>

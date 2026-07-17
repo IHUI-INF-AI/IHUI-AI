@@ -103,7 +103,7 @@ export default function EduStudentDetailPage() {
               {data.phone ?? t('noPhone')} · {data.email ?? t('noEmail')} ·{' '}
               <span
                 className={cn(
-                  'rounded-full px-2 py-0.5 text-xs',
+                  'rounded-md px-2 py-0.5 text-xs',
                   data.status === 1
                     ? 'bg-emerald-500/10 text-emerald-600'
                     : 'bg-muted text-muted-foreground',
@@ -176,10 +176,10 @@ export default function EduStudentDetailPage() {
                     <TableCell className="px-4 py-2.5 font-medium">{l.title}</TableCell>
                     <TableCell className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-32 overflow-hidden rounded-full bg-muted">
+                        <div className="h-1.5 w-32 overflow-hidden rounded-2xl bg-muted">
                           <div
                             className={cn(
-                              'h-full rounded-full',
+                              'h-full rounded-md',
                               l.progress >= 100
                                 ? 'bg-emerald-500'
                                 : l.progress >= 50

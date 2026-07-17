@@ -168,7 +168,7 @@ export default function AdminDistributionRulesPage() {
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                         it.status === 'disabled'
                           ? 'bg-muted text-muted-foreground'
                           : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',

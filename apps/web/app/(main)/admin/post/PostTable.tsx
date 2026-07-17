@@ -78,7 +78,7 @@ export function PostTable({
                 <td className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex rounded-full px-2 py-0.5 text-xs',
+                      'inline-flex rounded-md px-2 py-0.5 text-xs',
                       p.status === 0
                         ? 'bg-emerald-500/10 text-emerald-600'
                         : 'bg-muted text-muted-foreground',

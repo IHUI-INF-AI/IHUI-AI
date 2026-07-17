@@ -44,7 +44,7 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
           <View className="flex items-center" onClick={onTeacherClick}>
             {data.teacherAvatar && (
               <Image
-                className="w-7 h-7 mr-2 rounded-full bg-gray-100"
+                className="w-7 h-7 mr-2 rounded-md bg-gray-100"
                 src={data.teacherAvatar}
                 mode="aspectFill"
               />

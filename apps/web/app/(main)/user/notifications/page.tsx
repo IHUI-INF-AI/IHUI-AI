@@ -157,7 +157,7 @@ export default function NotificationsPage() {
               >
                 <div
                   className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                     TYPE_CLS[n.type],
                   )}
                 >

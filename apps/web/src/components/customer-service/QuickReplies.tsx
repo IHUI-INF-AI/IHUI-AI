@@ -17,7 +17,7 @@ export function QuickReplies({ replies, onSelect }: Props) {
           type="button"
           onClick={() => onSelect(reply)}
           className={cn(
-            'shrink-0 rounded-full border bg-card px-3 py-1 text-xs transition-colors',
+            'shrink-0 rounded-md border bg-card px-3 py-1 text-xs transition-colors',
             'hover:bg-accent hover:text-accent-foreground',
           )}
         >

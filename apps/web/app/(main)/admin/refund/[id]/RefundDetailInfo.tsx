@@ -67,7 +67,7 @@ export function RefundDetailInfo({
           <h2 className="text-lg font-semibold">{t('detailTitle')}</h2>
           <span
             className={cn(
-              'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+              'inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-medium',
               REFUND_STATUS_CFG[refund.status].cls,
             )}
           >
@@ -155,7 +155,7 @@ export function RefundDetailInfo({
               >
                 <span
                   className={cn(
-                    'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                    'inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                     rec.action === 'approve'
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                       : 'bg-red-500/10 text-red-600 dark:text-red-500',

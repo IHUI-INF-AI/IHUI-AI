@@ -102,16 +102,16 @@ export default function LearnTopicDetailPage() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span
-                    className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
+                    className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
                     aria-label={source === 'premium' ? '高级专题' : '课程专题'}
                   >
                     {source === 'premium' ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                      <span className="inline-flex items-center gap-1 rounded-md border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300">
                         <Sparkles className="h-3 w-3" />
                         高级专题
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                      <span className="inline-flex items-center gap-1 rounded-md border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300">
                         <Info className="h-3 w-3" />
                         课程专题
                       </span>

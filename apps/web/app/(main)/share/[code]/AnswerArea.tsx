@@ -158,7 +158,7 @@ function ImagePreview({
     >
       <button
         onClick={onClose}
-        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
         aria-label="关闭"
       >
         <X className="h-5 w-5" />
@@ -180,7 +180,7 @@ function ImagePreview({
               e.stopPropagation()
               setCurrent((c) => (c - 1 + images.length) % images.length)
             }}
-            className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+            className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
             aria-label="上一张"
           >
             ‹
@@ -190,7 +190,7 @@ function ImagePreview({
               e.stopPropagation()
               setCurrent((c) => (c + 1) % images.length)
             }}
-            className="absolute right-4 top-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+            className="absolute right-4 top-1/2 flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
             aria-label="下一张"
           >
             ›

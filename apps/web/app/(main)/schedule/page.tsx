@@ -129,7 +129,7 @@ export default function SchedulePage() {
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-base">{task.name}</CardTitle>
                   <span
-                    className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs ${
+                    className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs ${
                       task.enabled
                         ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-muted text-muted-foreground'

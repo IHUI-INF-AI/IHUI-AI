@@ -23,7 +23,7 @@ function Avatar({ src, name }: { src?: string; name: string }) {
     return <Image src={src} alt={name} width={32} height={32} className="h-8 w-8 rounded-full" />
   }
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-xs font-medium">
       {(name[0] ?? 'U').toUpperCase()}
     </div>
   )

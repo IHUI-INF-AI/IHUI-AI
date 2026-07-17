@@ -137,7 +137,7 @@ export default function AiWorldDetailPage() {
             <h1 className="text-2xl font-bold tracking-tight">{world.title}</h1>
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               {world.categoryId && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
                   <Tag className="h-3 w-3" />
                   {categoryName}
                 </span>

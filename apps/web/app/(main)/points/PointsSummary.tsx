@@ -120,9 +120,9 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
                 : t('maxLevel')}
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-2 overflow-hidden rounded bg-muted">
             <div
-              className="h-full rounded-full bg-primary transition-all"
+              className="h-full rounded-md bg-primary transition-all"
               style={{ width: `${progress}%` }}
             />
           </div>
