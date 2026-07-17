@@ -272,7 +272,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                 {}
                 <img
                   src={`/images/flags/${lang.code}.svg`}
-                  className="block h-4 w-5 shrink-0 object-cover"
+                  className="block h-5 w-7 shrink-0 object-contain"
                   alt={lang.name}
                 />
                 <span>{lang.name}</span>
@@ -291,7 +291,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           {}
           <img
             src={`/images/flags/${locale}.svg`}
-            className="block h-4 w-5 shrink-0 object-cover"
+            className="block h-5 w-7 shrink-0 object-contain"
             alt={locale}
           />
         </Button>
