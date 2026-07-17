@@ -267,6 +267,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                     disabled={busyId === item.id}
                     aria-label={tc('actions.menu')}
                     title={tc('actions.menu')}
+                    data-testid="conversation-more-menu"
                   >
                     {busyId === item.id ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -334,6 +335,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                     onClick={() => setPendingDeleteId(item.id)}
                     disabled={busyId === item.id}
                     className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    data-testid="conversation-delete-action"
                   >
                     <Trash2 className="mr-2 h-3.5 w-3.5" />
                     <span>{tc('actions.delete')}</span>
