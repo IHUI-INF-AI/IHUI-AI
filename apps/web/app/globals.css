@@ -131,9 +131,9 @@
 }
 
 .dark {
-  --color-background: hsl(0 0% 3.9%);
+  --color-background: hsl(0 0% 6%);
   --color-foreground: hsl(0 0% 98%);
-  --color-card: hsl(0 0% 3.9%);
+  --color-card: hsl(0 0% 6%);
   --color-card-foreground: hsl(0 0% 98%);
   --color-popover: hsl(0 0% 7%);
   --color-popover-foreground: hsl(0 0% 98%);

@@ -119,13 +119,8 @@ export function ThirdPartyLoginButtons() {
 
   return (
     <>
-      <div className="relative my-2">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-2 text-muted-foreground">{t('thirdPartyLogin')}</span>
-        </div>
+      <div className="my-4 flex justify-center text-xs uppercase">
+        <span className="text-muted-foreground">{t('thirdPartyLogin')}</span>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
