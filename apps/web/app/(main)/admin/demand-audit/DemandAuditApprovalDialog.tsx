@@ -51,7 +51,9 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
     mutationFn: (action: 'pass' | 'reject') =>
       api(action === 'pass' ? '/api/admin/examine/pass' : '/api/admin/examine/reject', {
         method: 'POST',
-        body: JSON.stringify({ id: row?.id, remark }),
+        body: JSON.stringify(
+          action === 'pass' ? { recordId: row?.id } : { recordId: row?.id, reason: remark },
+        ),
       }),
     onSuccess: () => {
       toast.success(t('operateSuccess'))
