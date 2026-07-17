@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
 import {
   Button,
+  Input,
   Label,
   Select,
   SelectTrigger,
@@ -54,6 +55,15 @@ export function NotificationLogFilter({ search, onSearchChange, onReset, onQuery
             <SelectItem value="pending">{t('pending')}</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">{t('userId')}</Label>
+        <Input
+          className="h-9 w-48"
+          placeholder={t('userId')}
+          value={search.userId}
+          onChange={(e) => onSearchChange({ userId: e.target.value })}
+        />
       </div>
       <div className="space-y-1">
         <DatePicker

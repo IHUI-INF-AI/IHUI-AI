@@ -91,4 +91,7 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
 
   const { default: statsRoutes } = await import('./admin/stats.js')
   await server.register(statsRoutes)
+
+  const { default: notificationAdminRoutes } = await import('./admin/notification-admin.js')
+  await server.register(notificationAdminRoutes)
 }

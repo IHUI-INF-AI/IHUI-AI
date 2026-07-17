@@ -2,7 +2,7 @@ import { fetchApi } from '@/lib/api'
 import type { NotificationLogSearch } from './types'
 
 export const PAGE_SIZE = 10
-export const RESOURCE = '/api/notifications/logs'
+export const RESOURCE = '/api/admin/notifications/logs'
 export const th = 'px-4 py-2.5 font-medium'
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -16,6 +16,7 @@ export const EMPTY_SEARCH: NotificationLogSearch = {
   status: 'all',
   startDate: '',
   endDate: '',
+  userId: '',
 }
 
 export function buildQueryParams(
@@ -28,6 +29,7 @@ export function buildQueryParams(
   if (search.status && search.status !== 'all') p.status = search.status
   if (search.startDate.trim()) p.startDate = search.startDate.trim()
   if (search.endDate.trim()) p.endDate = search.endDate.trim()
+  if (search.userId.trim()) p.userId = search.userId.trim()
   return p
 }
 
