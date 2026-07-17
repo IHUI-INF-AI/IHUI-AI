@@ -347,11 +347,6 @@ export const getCouponList = (params?: { status?: string }) =>
 
 /* ============ 支付 / 订单 ============ */
 
-export interface PayParams {
-  orderNo: string
-  payType: 'wechat' | 'balance' | 'alipay'
-}
-export const pay = (data: PayParams) => post<{ success: boolean; payUrl?: string }>('/pay', data)
 export const getPayResult = async (orderNo: string) => {
   const res = await get<{ order: { status: string; amount: number } }>(`/payment/orders/${orderNo}`)
   const raw = res.order.status
