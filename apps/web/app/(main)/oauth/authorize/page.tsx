@@ -7,6 +7,7 @@ import { Loader2, ShieldCheck, ShieldAlert, Check } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
 
 interface ScopeInfo {
@@ -62,7 +63,8 @@ function AuthorizeContent() {
 
   React.useEffect(() => {
     if (!token) {
-      router.replace('/login')
+      useLoginDialogStore.getState().open('login', '/oauth/authorize')
+      router.replace('/')
       return
     }
     if (!clientId || !redirectUri || !state) {
@@ -164,10 +166,20 @@ function AuthorizeContent() {
             </ul>
           </div>
 
-          {error && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>}
+          {error && (
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onDeny} disabled={submitting}>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={onDeny}
+              disabled={submitting}
+            >
               {t('deny')}
             </Button>
             <Button type="button" className="flex-1" onClick={onApprove} disabled={submitting}>
