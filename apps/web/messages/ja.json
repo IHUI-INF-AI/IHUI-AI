@@ -42,7 +42,6 @@
     "followed": "フォロー",
     "orderNoLabel": "注文番号",
     "searchPlaceholder": "検索...",
-    "resizeSidebar": "サイドバーの幅を調整",
     "orderStatus": {
       "pending": "支払い待ち",
       "paid": "支払済み",
