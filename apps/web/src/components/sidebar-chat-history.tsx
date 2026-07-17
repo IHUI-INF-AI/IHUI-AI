@@ -4,15 +4,49 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Loader2, Trash2, MessageCirclePlus } from 'lucide-react'
+import {
+  Loader2,
+  Trash2,
+  MessageCirclePlus,
+  MoreVertical,
+  Download,
+  Archive,
+  ArchiveRestore,
+  Pencil,
+  FileText,
+  FileCode,
+} from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
+import { downloadText, slugifyForFilename, buildTimestamp } from '@/lib/download'
+import {
+  archiveConversation,
+  unarchiveConversation,
+  exportConversation,
+  compressConversation,
+} from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Input,
+  Button,
+} from '@ihui/ui'
 
 interface ConversationItem {
   id: string
@@ -20,6 +54,7 @@ interface ConversationItem {
   model: string
   lastMessageAt: string
   messageCount: number
+  archivedAt?: string | null
 }
 
 async function fetchConversations(): Promise<ConversationItem[]> {
@@ -58,8 +93,9 @@ function groupByDate(items: ConversationItem[]): { key: GroupKey; items: Convers
  * - 列表 max-h-220px 滚动
  * - hover/active 用 ::before 伪元素 inset-x-2 实现悬浮胶囊效果
  * - active 左侧 2px 高亮条
- * - 删除按钮:group 类在 <li> 上(不是内层 button),hover 整行时显示;hover 删除按钮本身用 destructive 色反馈
- * - 删除确认:用 ConfirmDialog(替代 window.confirm),删除成功/失败用 sonner toast 反馈
+ * - 操作按钮:MoreVertical 三点菜单 + DropdownMenu(重命名 / 归档 / 导出 / 压缩 / 删除)
+ * - 删除确认:用 ConfirmDialog,删除成功/失败用 sonner toast 反馈
+ * - 重命名:用 Dialog + Input
  * - 按时间分组:今天 / 本周(7天内)/ 本月(30天内)
  * - 空状态:图标 + 文案 + "新建对话"引导按钮
  * - 折叠态完全不渲染(避免无文字宽度)
@@ -77,6 +113,9 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   const openPanel = useAiPanelStore((s) => s.openPanel)
 
   const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null)
+  const [pendingRenameId, setPendingRenameId] = React.useState<string | null>(null)
+  const [renameValue, setRenameValue] = React.useState<string>('')
+  const [busyId, setBusyId] = React.useState<string | null>(null)
 
   const {
     data,
@@ -99,6 +138,55 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
     },
     onError: () => {
       error(tc('deleteFailed'))
+    },
+  })
+
+  const archiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await archiveConversation(id)
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+    },
+  })
+
+  const unarchiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await unarchiveConversation(id)
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+    },
+  })
+
+  const exportMutation = useMutation({
+    mutationFn: ({ id, format }: { id: string; format: 'txt' | 'md' }) =>
+      exportConversation(id, format),
+  })
+
+  const compressMutation = useMutation({
+    mutationFn: async ({ id, targetChars }: { id: string; targetChars: 200000 | 1000000 }) => {
+      const res = await compressConversation(id, targetChars)
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
+  })
+
+  const renameMutation = useMutation({
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      const res = await fetchApi<{ conversation: ConversationItem }>(
+        `/api/chat/conversations/${encodeURIComponent(id)}`,
+        { method: 'PATCH', body: JSON.stringify({ title }) },
+      )
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
     },
   })
 
@@ -129,7 +217,88 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   }
 
   const confirmDelete = () => {
-    if (pendingDeleteId) deleteMutation.mutate(pendingDeleteId)
+    if (pendingDeleteId) {
+      setBusyId(pendingDeleteId)
+      deleteMutation.mutate(pendingDeleteId, {
+        onSettled: () => setBusyId(null),
+      })
+    }
+  }
+
+  const handleRename = (item: ConversationItem) => {
+    setPendingRenameId(item.id)
+    setRenameValue(item.title)
+  }
+
+  const confirmRename = () => {
+    if (!pendingRenameId) return
+    const title = renameValue.trim()
+    if (!title) {
+      error(tc('toast.renameEmpty'))
+      return
+    }
+    setBusyId(pendingRenameId)
+    renameMutation.mutate(
+      { id: pendingRenameId, title },
+      {
+        onSettled: () => setBusyId(null),
+        onSuccess: () => {
+          setPendingRenameId(null)
+          success(tc('toast.renamed'))
+        },
+        onError: () => error(tc('toast.renameFailed')),
+      },
+    )
+  }
+
+  const handleArchiveToggle = (item: ConversationItem) => {
+    setBusyId(item.id)
+    const mutation = item.archivedAt ? unarchiveMutation : archiveMutation
+    mutation.mutate(item.id, {
+      onSettled: () => setBusyId(null),
+      onSuccess: () => {
+        success(item.archivedAt ? tc('toast.unarchived') : tc('toast.archived'))
+      },
+      onError: () => error(tc('toast.archiveFailed')),
+    })
+  }
+
+  const handleExport = (item: ConversationItem, format: 'txt' | 'md') => {
+    setBusyId(item.id)
+    exportMutation.mutate(
+      { id: item.id, format },
+      {
+        onSettled: () => setBusyId(null),
+        onSuccess: (content) => {
+          downloadText(
+            content,
+            `${slugifyForFilename(item.title)}-${buildTimestamp()}.${format}`,
+            format === 'md' ? 'text/markdown' : 'text/plain',
+          )
+          success(tc('toast.exported'))
+        },
+        onError: () => error(tc('toast.exportFailed')),
+      },
+    )
+  }
+
+  const handleCompress = (item: ConversationItem, targetChars: 200000 | 1000000) => {
+    setBusyId(item.id)
+    compressMutation.mutate(
+      { id: item.id, targetChars },
+      {
+        onSettled: () => setBusyId(null),
+        onSuccess: (data) => {
+          downloadText(
+            data.content,
+            `${slugifyForFilename(item.title)}-compressed-${targetChars}-${buildTimestamp()}.md`,
+            'text/markdown',
+          )
+          success(tc('toast.compressed'))
+        },
+        onError: () => error(tc('toast.compressFailed')),
+      },
+    )
   }
 
   const renderItem = (item: ConversationItem) => {
@@ -163,21 +332,115 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
             )}
           </span>
         </button>
-        <button
-          type="button"
-          onClick={(e) => handleDeleteClick(e, item.id)}
-          disabled={deleteMutation.isPending}
-          aria-label={t('delete')}
-          title={t('delete')}
-          className={cn(
-            'absolute right-0.5 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-all',
-            'text-muted-foreground opacity-0 group-hover:opacity-100',
-            'hover:bg-destructive/10 hover:text-destructive',
-            'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive',
-          )}
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => e.stopPropagation()}
+              disabled={busyId === item.id}
+              aria-label={tc('actions.menu')}
+              title={tc('actions.menu')}
+              className={cn(
+                'absolute right-0.5 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-all',
+                'text-muted-foreground opacity-0 group-hover:opacity-100',
+                'hover:bg-accent hover:text-accent-foreground',
+                'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                'data-[state=open]:opacity-100 data-[state=open]:bg-accent',
+              )}
+            >
+              {busyId === item.id ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <MoreVertical className="h-3 w-3" />
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleRename(item)
+              }}
+              disabled={busyId === item.id}
+            >
+              <Pencil className="mr-2 h-3.5 w-3.5" />
+              <span>{tc('actions.rename')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleArchiveToggle(item)
+              }}
+              disabled={busyId === item.id}
+            >
+              {item.archivedAt ? (
+                <>
+                  <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
+                  <span>{tc('actions.unarchive')}</span>
+                </>
+              ) : (
+                <>
+                  <Archive className="mr-2 h-3.5 w-3.5" />
+                  <span>{tc('actions.archive')}</span>
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleExport(item, 'md')
+              }}
+              disabled={busyId === item.id}
+            >
+              <FileCode className="mr-2 h-3.5 w-3.5" />
+              <span>{tc('actions.exportMd')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleExport(item, 'txt')
+              }}
+              disabled={busyId === item.id}
+            >
+              <FileText className="mr-2 h-3.5 w-3.5" />
+              <span>{tc('actions.exportTxt')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleCompress(item, 200000)
+              }}
+              disabled={busyId === item.id}
+            >
+              <Download className="mr-2 h-3.5 w-3.5" />
+              <span>{tc('actions.compressTo200k')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleCompress(item, 1000000)
+              }}
+              disabled={busyId === item.id}
+            >
+              <Download className="mr-2 h-3.5 w-3.5" />
+              <span>{tc('actions.compressTo1m')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDeleteClick(e, item.id)
+              }}
+              disabled={busyId === item.id}
+              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+            >
+              <Trash2 className="mr-2 h-3.5 w-3.5" />
+              <span>{tc('actions.delete')}</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </li>
     )
   }
@@ -237,6 +500,40 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDeleteId(null)}
       />
+
+      <Dialog
+        open={pendingRenameId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRenameId(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{tc('renameDialog.title')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">
+              {tc('renameDialog.label')}
+            </label>
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              placeholder={tc('renameDialog.placeholder')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirmRename()
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPendingRenameId(null)}>
+              {tc('renameDialog.cancel')}
+            </Button>
+            <Button onClick={confirmRename} disabled={renameMutation.isPending}>
+              {tc('renameDialog.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
