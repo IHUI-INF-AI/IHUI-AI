@@ -95,7 +95,7 @@
   text-align: center;
   background: #07c160;
   color: #fff;
-  border-radius: 50%;
+  border-radius: 16rpx;
   font-size: 60rpx;
   box-shadow: 0 4rpx 20rpx rgba(7, 193, 96, 0.4);
 }
