@@ -25,9 +25,9 @@
   --color-miniapp-green-darkest: #048040;
 
   /* 排行榜排名颜色 */
-  --color-rank-gold: #f59e0b;
-  --color-rank-silver: #94a3b8;
-  --color-rank-bronze: #b45309;
+  --color-rank-gold: #ffd700;
+  --color-rank-silver: #c0c0c0;
+  --color-rank-bronze: #cd7f32;
 
   /* 排行榜头像渐变 */
   --color-rank-avatar-start: #6366f1;
@@ -38,7 +38,7 @@
 
   /* VIP 会员金色渐变 */
   --color-vip-gold-start: #ffd700;
-  --color-vip-gold-end: #ffa500;
+  --color-vip-gold-end: #ffaa00;
 
   /* 支付页紫色品牌渐变 */
   --color-payment-purple-start: #667eea;
@@ -123,7 +123,6 @@
   /* 黑色透明度阶梯(24 档) */
   --color-black-2: rgba(0, 0, 0, 0.02);
   --color-black-3: rgba(0, 0, 0, 0.03);
-  --color-black-04: rgba(0, 0, 0, 0.04);
   --color-black-4: rgba(0, 0, 0, 0.04);
   --color-black-5: rgba(0, 0, 0, 0.05);
   --color-black-6: rgba(0, 0, 0, 0.06);
@@ -254,27 +253,6 @@
   --dropdown-border-color: var(--color-border);
 }
 
-/* ============ Element Plus 兼容变量 ============ */
-/* 用于 header-dropdown-* 等迁移自 Element Plus 定制的样式。
- * 映射到当前项目的 Tailwind 4 / shadcn 设计 token,保证引用有效。 */
-:root {
-  --el-bg-color: var(--color-card);
-  --el-text-color-primary: var(--color-foreground);
-  --el-fill-color-light: var(--color-muted);
-  --el-fill-color-darker: var(--color-secondary);
-  --el-color-primary: var(--color-primary);
-  --dropdown-border-color: var(--color-border);
-}
-
-.dark {
-  --el-bg-color: var(--color-card);
-  --el-text-color-primary: var(--color-foreground);
-  --el-fill-color-light: var(--color-secondary);
-  --el-fill-color-darker: var(--color-muted);
-  --el-color-primary: var(--color-primary);
-  --dropdown-border-color: var(--color-border);
-}
-
 /* ============ 暗色模式覆盖 ============ */
 /* 源: _design-tokens.scss L607-625 (css-variables-dark mixin)
  * 仅列出与亮色模式值不同的变量,相同的变量不重复声明。 */
@@ -286,4 +264,65 @@
 
   /* sidebar 亮色背景在暗色模式下置暗 */
   --sidebar-light-bg: #2a2a2a;
+}
+
+/* ========================================================================== */
+/* App 语义层 */
+/* ========================================================================== */
+:root {
+  --app-bg: var(--color-background);
+  --app-surface: var(--color-card);
+  --app-border: var(--color-border);
+  --app-text-primary: var(--color-foreground);
+  --app-text-secondary: var(--color-muted-foreground);
+  --app-text-muted: var(--color-muted-foreground);
+  --app-hover: var(--color-muted);
+  --app-active: var(--color-secondary);
+}
+
+.dark {
+  --app-bg: var(--color-background);
+  --app-surface: var(--color-card);
+  --app-border: var(--color-border);
+  --app-text-primary: var(--color-foreground);
+  --app-text-secondary: var(--color-muted-foreground);
+  --app-text-muted: var(--color-muted-foreground);
+  --app-hover: var(--color-secondary);
+  --app-active: var(--color-muted);
+}
+
+/* ========================================================================== */
+/* Header 按钮系统 */
+/* ========================================================================== */
+:root {
+  --header-btn-bg: transparent;
+  --header-btn-bg-hover: var(--color-muted);
+  --header-btn-bg-active: var(--color-secondary);
+  --header-btn-text: var(--color-foreground);
+  --header-btn-border: transparent;
+}
+
+.dark {
+  --header-btn-bg: transparent;
+  --header-btn-bg-hover: var(--color-secondary);
+  --header-btn-bg-active: var(--color-muted);
+  --header-btn-text: var(--color-foreground);
+  --header-btn-border: transparent;
+}
+
+/* ========================================================================== */
+/* 统一描边系统 */
+/* ========================================================================== */
+:root {
+  --border-unified-default: var(--color-border);
+  --border-unified-strong: var(--color-ring);
+  --border-unified-subtle: var(--color-black-6);
+  --border-unified-inverse: var(--color-white-20);
+}
+
+.dark {
+  --border-unified-default: var(--color-border);
+  --border-unified-strong: var(--color-ring);
+  --border-unified-subtle: var(--color-white-10);
+  --border-unified-inverse: var(--color-black-30);
 }
