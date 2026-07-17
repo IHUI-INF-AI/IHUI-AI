@@ -9549,7 +9549,16 @@
     "tabActivity": "アクティビティ",
     "tabBackground": "バックグラウンド",
     "tabPermission": "権限",
-    "viewPermissionExample": "を"
+    "viewPermissionExample": "を",
+    "vipExclusive": "VIP専用",
+    "vipPermissionDenied": "このエージェントはVIP専用です。VIPに登録してください。",
+    "permissionLoading": "権限を確認中...",
+    "permissionAllowed": "このエージェントを使用する権限があります",
+    "permissionDenied": "このエージェントを使用する権限がありません",
+    "permissionReasonFree": "無料エージェント、すべてのユーザーが利用可能",
+    "permissionReasonVip": "VIP専用エージェント、VIP登録が必要",
+    "permissionReasonPurchased": "このエージェントを購入しました",
+    "permissionReasonVipOnly": "VIP専用、VIPに登録してください"
   },
   "distribution": {
     "title": "ディストリビューションセンター",

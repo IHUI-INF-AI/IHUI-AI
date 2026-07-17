@@ -8,6 +8,7 @@ export interface AgentInfo {
   avatar?: string
   category?: string
   uses?: number
+  isVipExclusive?: boolean
 }
 
 export interface AgentListPanelProps {
@@ -52,6 +53,11 @@ export default function AgentListPanel({
               <View className="flex-1 min-w-0">
                 <View className="flex items-center">
                   <Text className="text-sm font-medium text-gray-800 truncate">{agent.name}</Text>
+                  {agent.isVipExclusive && (
+                    <Text className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">
+                      VIP
+                    </Text>
+                  )}
                   {agent.category && (
                     <Text className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-500">
                       {agent.category}
