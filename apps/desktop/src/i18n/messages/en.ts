@@ -22,6 +22,7 @@ export default {
     settings: 'Settings',
     profile: 'Profile',
     wallet: 'Wallet',
+    agents: 'Agents',
   },
   auth: {
     login: 'Login',

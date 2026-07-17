@@ -22,6 +22,7 @@ export default {
     settings: '설정',
     profile: '프로필',
     wallet: '지갑',
+    agents: '에이전트',
   },
   auth: {
     login: '로그인',

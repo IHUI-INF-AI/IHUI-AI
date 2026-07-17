@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 import { getProfile, logout, type AuthUser, type LoginResult } from '@ihui/api-client'
 import { initApi, getToken, getRefreshToken, setTokenPair, clearAllTokens } from '../../lib/token'
 import { startAutoRefresh, scheduleRefreshAlarm, doRefresh } from '../../lib/token-utils'
@@ -7,10 +7,18 @@ import { useNotificationWebSocket } from '../../lib/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../../lib/notification-store'
 import { useI18n } from '../../src/i18n'
 import LoginPage from './pages/LoginPage'
+import ChatPage from './pages/ChatPage'
+import ProfilePage from './pages/ProfilePage'
+import WalletPage from './pages/WalletPage'
+import CoursePage from './pages/CoursePage'
+import OrderPage from './pages/OrderPage'
+import SettingsPage from './pages/SettingsPage'
+import AgentPage from './pages/AgentPage'
 import NotificationPanel from './NotificationPanel'
 
 const TABS = [
   { to: '/chat', labelKey: 'nav.chat', icon: '💬' },
+  { to: '/agents', labelKey: 'nav.agents', icon: '🤖' },
   { to: '/profile', labelKey: 'nav.profile', icon: '👤' },
   { to: '/wallet', labelKey: 'nav.wallet', icon: '💰' },
   { to: '/courses', labelKey: 'nav.courses', icon: '📚' },
@@ -159,7 +167,20 @@ function SidepanelInner() {
 export default function SidepanelApp() {
   return (
     <NotificationProvider>
-      <SidepanelInner />
+      <Routes>
+        <Route element={<SidepanelInner />}>
+          <Route path="/" element={<Navigate to="/chat" replace />} />
+          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/agents" element={<AgentPage />} />
+          <Route path="/agents/:id" element={<AgentPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/wallet" element={<WalletPage />} />
+          <Route path="/courses" element={<CoursePage />} />
+          <Route path="/orders" element={<OrderPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/chat" replace />} />
+        </Route>
+      </Routes>
     </NotificationProvider>
   )
 }

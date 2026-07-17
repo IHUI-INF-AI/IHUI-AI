@@ -22,6 +22,7 @@ export const en = {
     wallet: 'Wallet',
     courses: 'Courses',
     notifications: 'Notifications',
+    agents: 'Agents',
   },
   auth: {
     login: 'Login',
