@@ -22,6 +22,7 @@ import {
   killTask,
 } from './background-registry.js';
 import type { Tool, ToolContext, ToolResult } from './index.js';
+import { todo_write } from './todo-write.js';
 
 const MAX_READ_LINES = 500;
 const MAX_GREP_RESULTS = 50;
@@ -585,4 +586,5 @@ export const BUILTIN_TOOLS: Tool[] = [
   get_command_output,
   wait_command,
   kill_command,
+  todo_write,
 ];
