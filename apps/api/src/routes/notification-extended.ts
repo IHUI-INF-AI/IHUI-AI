@@ -43,6 +43,20 @@ const updatePreferencesSchema = z.object({
     .array(z.string())
     .optional()
     .describe('订阅通知类型列表,如 system/order/project/comment/mention'),
+  // 扩展 5 字段(0088):静默时段 + 频率限制
+  quietHoursEnabled: z.boolean().optional(),
+  quietHoursStart: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, '静默开始时间需为 HH:mm 格式')
+    .optional()
+    .nullable(),
+  quietHoursEnd: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, '静默结束时间需为 HH:mm 格式')
+    .optional()
+    .nullable(),
+  maxPerHour: z.number().int().min(0).max(1000).optional(),
+  maxPerDay: z.number().int().min(0).max(10000).optional(),
 })
 
 const listLogsQuery = z.object({
@@ -210,7 +224,9 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
     const userId = request.userId!
     try {
       const rows = await db.execute(
-        sql`SELECT id, user_id, email_enabled, sms_enabled, push_enabled, in_app_enabled, types, created_at, updated_at
+        sql`SELECT id, user_id, email_enabled, sms_enabled, push_enabled, in_app_enabled, types,
+                   quiet_hours_enabled, quiet_hours_start, quiet_hours_end, max_per_hour, max_per_day,
+                   created_at, updated_at
             FROM notification_preferences
             WHERE user_id = ${userId}
             LIMIT 1`,
@@ -226,6 +242,11 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
             pushEnabled: true,
             inAppEnabled: true,
             types: ['system', 'order', 'project', 'comment', 'mention'],
+            quietHoursEnabled: false,
+            quietHoursStart: null,
+            quietHoursEnd: null,
+            maxPerHour: 20,
+            maxPerDay: 100,
           }),
         )
       }
@@ -246,27 +267,55 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const userId = request.userId!
-    const { emailEnabled, smsEnabled, pushEnabled, inAppEnabled, types } = parsed.data
+    const {
+      emailEnabled,
+      smsEnabled,
+      pushEnabled,
+      inAppEnabled,
+      types,
+      quietHoursEnabled,
+      quietHoursStart,
+      quietHoursEnd,
+      maxPerHour,
+      maxPerDay,
+    } = parsed.data
     const sets: SQL[] = []
     if (emailEnabled !== undefined) sets.push(sql`"email_enabled" = ${emailEnabled}`)
     if (smsEnabled !== undefined) sets.push(sql`"sms_enabled" = ${smsEnabled}`)
     if (pushEnabled !== undefined) sets.push(sql`"push_enabled" = ${pushEnabled}`)
     if (inAppEnabled !== undefined) sets.push(sql`"in_app_enabled" = ${inAppEnabled}`)
     if (types !== undefined) sets.push(sql`"types" = ${JSON.stringify(types)}`)
+    if (quietHoursEnabled !== undefined)
+      sets.push(sql`"quiet_hours_enabled" = ${quietHoursEnabled}`)
+    if (quietHoursStart !== undefined) sets.push(sql`"quiet_hours_start" = ${quietHoursStart}`)
+    if (quietHoursEnd !== undefined) sets.push(sql`"quiet_hours_end" = ${quietHoursEnd}`)
+    if (maxPerHour !== undefined) sets.push(sql`"max_per_hour" = ${maxPerHour}`)
+    if (maxPerDay !== undefined) sets.push(sql`"max_per_day" = ${maxPerDay}`)
     sets.push(sql`"updated_at" = NOW()`)
     try {
       const rows = await db.execute(
-        sql`INSERT INTO notification_preferences (user_id, email_enabled, sms_enabled, push_enabled, in_app_enabled, types, created_at, updated_at)
+        sql`INSERT INTO notification_preferences (
+              user_id, email_enabled, sms_enabled, push_enabled, in_app_enabled, types,
+              quiet_hours_enabled, quiet_hours_start, quiet_hours_end, max_per_hour, max_per_day,
+              created_at, updated_at
+            )
             VALUES (${userId},
                     ${emailEnabled ?? true},
                     ${smsEnabled ?? false},
                     ${pushEnabled ?? true},
                     ${inAppEnabled ?? true},
                     ${JSON.stringify(types ?? ['system', 'order', 'project', 'comment', 'mention'])},
+                    ${quietHoursEnabled ?? false},
+                    ${quietHoursStart ?? null},
+                    ${quietHoursEnd ?? null},
+                    ${maxPerHour ?? 20},
+                    ${maxPerDay ?? 100},
                     NOW(), NOW())
             ON CONFLICT (user_id) DO UPDATE
             SET ${sql.join(sets, sql`, `)}
-            RETURNING id, user_id, email_enabled, sms_enabled, push_enabled, in_app_enabled, types, created_at, updated_at`,
+            RETURNING id, user_id, email_enabled, sms_enabled, push_enabled, in_app_enabled, types,
+                      quiet_hours_enabled, quiet_hours_start, quiet_hours_end, max_per_hour, max_per_day,
+                      created_at, updated_at`,
       )
       const row = (rows as Record<string, unknown>[])[0]
       return reply.send(success(row))
