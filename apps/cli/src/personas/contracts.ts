@@ -1,38 +1,6 @@
-/**
- * Subagent Personas Input/Output Contracts — 对齐 grok-build Personas 规范。
- *
- * 每个 persona 声明自己的 input_schema / output_schema(JSON Schema 子集),
- * 让 dispatch_subagent 工具能向调用方与 LLM 暴露契约,降低 task 描述偏离风险。
- *
- * 做减法:纯类型 + 常量,不引入 ajv 等校验库;校验由调用方/LLM 自行约束。
- */
+import type { PersonaContract, PersonaContracts } from '@ihui/types';
 
-export type JSONSchemaType =
-  | 'object'
-  | 'string'
-  | 'number'
-  | 'integer'
-  | 'boolean'
-  | 'array'
-  | 'null';
-
-export interface JSONSchema {
-  type?: JSONSchemaType | JSONSchemaType[];
-  description?: string;
-  properties?: Record<string, JSONSchema>;
-  required?: string[];
-  items?: JSONSchema;
-  enum?: (string | number | boolean | null)[];
-  additionalProperties?: boolean | JSONSchema;
-  [key: string]: unknown;
-}
-
-export interface PersonaContract {
-  input_schema: JSONSchema;
-  output_schema: JSONSchema;
-}
-
-export type PersonaContracts = Record<string, PersonaContract>;
+export type { JSONSchema, PersonaContract, PersonaContracts } from '@ihui/types';
 
 export const PERSONAS_CONTRACTS: Readonly<PersonaContracts> = Object.freeze({
   researcher: {
