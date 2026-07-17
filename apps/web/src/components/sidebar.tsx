@@ -113,11 +113,15 @@ interface NavItem {
 }
 
 /** 侧边栏宽度常量(2026-07-17 统一)
- * - 130px 是展开态唯一宽度(桌面 + 移动抽屉复用)
+ * - 130px 是展开态默认宽度(桌面 + 移动抽屉复用)
  * - 60px 是折叠态宽度,只显图标
+ * - 桌面端展开态支持拖拽调整,范围 130-180px(2026-07-18)
  */
 const SIDEBAR_WIDTH = 130
+const SIDEBAR_MIN_WIDTH = 130
+const SIDEBAR_MAX_WIDTH = 180
 const SIDEBAR_COLLAPSED_WIDTH = 60
+const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
@@ -743,6 +747,45 @@ export function Sidebar({
   const navRef = React.useRef<HTMLElement>(null)
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
 
+  // 桌面端展开态拖拽调整宽度(130-180px),localStorage 持久化
+  const [sidebarWidth, setSidebarWidth] = React.useState(SIDEBAR_WIDTH)
+  const [isResizing, setIsResizing] = React.useState(false)
+
+  React.useEffect(() => {
+    const saved = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)
+    if (saved) {
+      const n = Number(saved)
+      if (Number.isFinite(n)) {
+        setSidebarWidth(Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, n)))
+      }
+    }
+  }, [])
+
+  const handleResizeStart = React.useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      setIsResizing(true)
+      const startX = e.clientX
+      const startWidth = sidebarWidth
+      let latest = startWidth
+      const onMove = (ev: PointerEvent) => {
+        const delta = ev.clientX - startX
+        const next = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, startWidth + delta))
+        latest = next
+        setSidebarWidth(next)
+      }
+      const onUp = () => {
+        setIsResizing(false)
+        window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(latest))
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    },
+    [sidebarWidth],
+  )
+
   const isActive = React.useCallback(
     (href: string) => {
       if (href === '/') return pathname === '/'
@@ -944,11 +987,32 @@ export function Sidebar({
           'relative hidden h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 lg:flex',
           collapsed && 'w-[60px]',
         )}
-        style={collapsed ? { width: SIDEBAR_COLLAPSED_WIDTH } : { width: SIDEBAR_WIDTH }}
+        style={
+          collapsed
+            ? { width: SIDEBAR_COLLAPSED_WIDTH }
+            : {
+                width: sidebarWidth,
+                transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
+              }
+        }
       >
         {header}
         {navContent}
         {footer}
+        {/* 右侧拖拽手柄:仅展开态显示;aside 无圆角(overflow-visible),用 top-0 bottom-0 贴满高度 */}
+        {!collapsed && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={tc('resize')}
+            onPointerDown={handleResizeStart}
+            className={cn(
+              'absolute right-0 top-0 bottom-0 z-10 w-px cursor-col-resize bg-transparent transition-colors',
+              'hover:bg-primary',
+              isResizing && 'bg-primary',
+            )}
+          />
+        )}
       </aside>
 
       {/* 移动端抽屉遮罩 */}
