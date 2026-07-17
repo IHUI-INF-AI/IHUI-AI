@@ -79,24 +79,32 @@ const REMAINING_KEYWORDS = [
 /** 文档级豁免 — 这些章节即使同时出现两类措辞也算合规 */
 function isExemptSection(section) {
   // 章节标题/讨论互斥规则本身的章节
-  if (/\bAGENTS\.md\s+第\s+11\s+节\b/.test(section)) return true
+  // 注意: 不用 \b 单词边界, 中文字符不属于 \w 类, \bAGENTS\.md\s+第\s+11\s+节\b 会失配
+  if (/AGENTS\.md\s+第\s+11\s+节/.test(section)) return true
   if (/交付报告一致性/.test(section)) return true
   if (/守门脚本/.test(section)) return true
   if (/互斥校验/.test(section)) return true
   // 检查守门脚本本身(含所有触发模式)
   if (/check-delivery-report-consistency/.test(section)) return true
+  // 合规措辞模板豁免: 用 "还有 N 项后续工作,见下方列表" 措辞的章节天然含两类措辞
+  // (措辞本身含"无后续建议"反义 + 列出后续工作),按 AGENTS.md 第 11 节措辞模板视为合规
+  if (/还有\s*\d+\s*项后续工作/.test(section)) return true
+  if (/还有\s*N\s*项后续工作/.test(section)) return true
+  if (/见下方列表/.test(section)) return true
   return false
 }
 
-/** 把 md 文件按 H2/H3 章节切分,返回 [{title, body}] */
+/** 把 md 文件按 H2/H3 章节切分,返回 [{title, body, startLine}] startLine 为 1-based */
 function splitSections(md) {
   const sections = []
   const lines = md.split('\n')
-  let cur = { title: '', body: [] }
+  let cur = { title: '', body: [], startLine: 0 }
+  let lineNo = 0
   for (const line of lines) {
+    lineNo++
     if (/^#{2,3}\s+/.test(line)) {
       if (cur.title || cur.body.length) sections.push(cur)
-      cur = { title: line, body: [] }
+      cur = { title: line, body: [], startLine: lineNo }
     } else {
       cur.body.push(line)
     }
@@ -137,6 +145,34 @@ function getStagedFiles() {
       .filter((f) => existsSync(f))
   } catch {
     return []
+  }
+}
+
+/**
+ * 获取 staged 文件中新增行(+)的行号集合(1-based)。
+ * 只检查新增行所在章节,避免历史违规阻塞新 commit。
+ */
+function getAddedLineNumbers(filePath) {
+  try {
+    const rel = relative(ROOT, filePath).replace(/\\/g, '/')
+    const output = execSync(`git diff --cached --unified=0 -- "${rel}"`, {
+      encoding: 'utf8',
+      cwd: ROOT,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    const addedLines = new Set()
+    for (const line of output.split('\n')) {
+      // @@ -oldStart,oldCount +newStart,newCount @@
+      const m = line.match(/^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@/)
+      if (m) {
+        const start = parseInt(m[1], 10)
+        const count = m[2] ? parseInt(m[2], 10) : 1
+        for (let i = 0; i < count; i++) addedLines.add(start + i)
+      }
+    }
+    return addedLines
+  } catch {
+    return new Set()
   }
 }
 
@@ -186,8 +222,19 @@ const fileReports = []
 for (const file of files) {
   const md = readFileSync(file, 'utf8')
   const sections = splitSections(md)
+  // staged 模式下只检查含新增行的章节,避免历史违规阻塞新 commit
+  const addedLines = isStaged ? getAddedLineNumbers(file) : null
   const findings = []
   for (const section of sections) {
+    // staged 模式:跳过不含任何新增行的章节(历史章节)
+    if (addedLines && addedLines.size > 0) {
+      const sectionEnd = section.startLine + section.body.length
+      let hasAdded = false
+      for (let ln = section.startLine; ln <= sectionEnd; ln++) {
+        if (addedLines.has(ln)) { hasAdded = true; break }
+      }
+      if (!hasAdded) continue
+    }
     const issues = checkSection(section)
     findings.push(...issues)
   }
