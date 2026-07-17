@@ -20,6 +20,7 @@ import { BackgroundAgentsPanel } from '@/components/ai/background-agents-panel'
 import { AgentSwarmMonitor } from '@/components/ai/agent-swarm-monitor'
 import { PermissionConfirmDialog } from '@/components/ai/permission-confirm-dialog'
 import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
+import { AgentRuntimePanel } from '@/components/ai/agent-runtime-panel'
 import { getAgentPermission } from '@ihui/api-client'
 
 interface Agent {
@@ -252,6 +253,7 @@ export default function AgentDetailPage() {
               <TabsTrigger value="activity">{t('tabActivity')}</TabsTrigger>
               <TabsTrigger value="background">{t('tabBackground')}</TabsTrigger>
               <TabsTrigger value="permission">{t('tabPermission')}</TabsTrigger>
+              <TabsTrigger value="runtime">{t('tabRuntime')}</TabsTrigger>
             </TabsList>
             <TabsContent value="progress" className="space-y-4">
               <AgentProgressPanel steps={[]} />
@@ -277,6 +279,11 @@ export default function AgentDetailPage() {
                 {t('viewPermissionExample')}
               </Button>
               <PermissionConfirmDialog open={permOpen} onOpenChange={setPermOpen} toolCall={null} />
+            </TabsContent>
+            <TabsContent value="runtime">
+              <div className="h-[calc(100dvh-13rem)] overflow-hidden rounded-lg border">
+                <AgentRuntimePanel />
+              </div>
             </TabsContent>
           </Tabs>
         </>
