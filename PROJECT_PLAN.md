@@ -19771,10 +19771,62 @@ grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工
 
 ### 后续工作
 
-还有 **62 项后续工作**(14 P0 + 20 P1 + 16 P2 + 12 P3),见上方真实缺口清单。建议按以下优先级推进:
+~~还有 **62 项后续工作**(14 P0 + 20 P1 + 16 P2 + 12 P3),见上方真实缺口清单。~~
 
-- **P0 立即处理**:用户端核心业务页 9 项(消息中心/个人中心/考试/直播/学习地图/圈子/问答/搜索/协议)+ 小程序 3 项(SharePage/AI视频/特殊模型)+ 接口连通性 2 项(WS 死链)。建议派发 5 个并行 subagent 各负责一个独立模块,每个 subagent 在 `subagent/<模块>` 分支上开发
-- **P1 本周处理**:admin 后台细分页 + 钉钉/企微登录 + logout token revoke + 小程序 API 补齐 + 富文本/上传组件
+#### ✅ P0 14 项全部完成(2026-07-18)
+
+**第一批 commit `31ba09f1` + `46a0c05c` + `8ef7db58`(已 push)**:
+
+- ✅ WS 死链 2 项(`/ws/messages` + `/ws/tasks/:taskId` 后端插件补齐)
+- ✅ Web logout 后端 token revoke 调用
+- ✅ 消息中心 6 子页(notice/like/favorite/comment/fans/private-letter)
+- ✅ 协议页 `agreement/[type]` + 购买确认 `learn/buyconfirm` + 支付确认 `learn/payment/confirm`
+- ✅ 问答页 `ask` + 考试结果页 `exam/[id]/result`
+- ✅ 小程序 AI 视频 `ai/video` + 特殊模型 `ai/special` + AI 创作分享 `share/creation`
+
+**第二批 commit `87b6db65`(已 push)**:
+
+- ✅ 用户中心 10 个子页(learn-record/comment/fans/follow/ask/circle/resource/point/exam/sign-up)
+- ✅ UserNav 16 个导航项 + 5 语言 i18n 键补齐
+- ✅ point 页对接已有 `/api/points` + `/api/points/transactions` 端点
+
+**已存在(误判为缺失,实际已有)**:考试作答页 `exam/[id]` + 直播详情 `live/[id]` + 学习地图 `learn/topic`+`learn/map` + 圈子详情+发帖 `circles/[id]`+`circles/post` + 全局搜索 `search` + 证书下载 `certificate/download`
+
+#### ✅ P1 8 项已完成(2026-07-18 核查确认)
+
+核查发现 PROJECT_PLAN 原 P1 清单 20 项中 8 项早已实现(误判):
+
+- ✅ 15. admin 评论审核 `admin/comments` + sensitive-words
+- ✅ 16. admin 热词管理 `admin/search-hot-words`
+- ✅ 17. admin 圈子管理 `admin/circles` + dynamics 子页
+- ✅ 18. admin 资源 product + 积分记录查询 `admin/point/records`
+- ✅ 19. admin 协议管理 `admin/agreements` + 站内信(5 个相关页)
+- ✅ 20. 钉钉/企微扫码登录(后端 `auth-extended.ts` + 前端 `ThirdPartyLoginButtons.tsx` 已实现)
+- ✅ 21. logout 后端 token revoke(commit 31ba09f1)
+- ✅ 33. Tiptap 富文本编辑器(`TiptapRichText.tsx` + `TiptapToolbar.tsx` 已迁移)
+
+#### ⏳ P1 剩余 12 项(7 真实缺失 + 5 部分实现,推进中)
+
+**真实缺失 7 项**:
+
+- ❌ 22. Pinia tagsView 多 tab 标签页视图
+- ❌ 23. 字典缓存 store
+- ❌ 25. Tool 代码生成器/表单构建器(需业务评估)
+- ❌ 26. fetchAudioText 语音转文字 API(小程序)
+- ❌ 27. product 连续包月商品 API(小程序,需业务评估)
+- ❌ 29. 小红书(mp-xhs)平台支持(Taro 原生不支持,需评估)
+- ❌ 30. 微信原生插件 materialPlugin(需评估)
+
+**部分实现 5 项**:
+
+- ⚠️ 24. AI 34 细分页(已有 25+ 页,部分细分页可能仍缺)
+- ⚠️ 28. getUserContextField/removeField(已有 getUserContext,补 2 个字段级函数)
+- ⚠️ 31. OSS 文件管理(已有 listOssFiles,补 deleteFile/toBase64)
+- ⚠️ 32. 钉钉/企微登录 api-client(后端已实现,共享层未导出)
+- ⚠️ 34. Upload/Video/Breadcrumb/Hamburger(packages/ui 缺,web 端有替代)
+
+#### P2/P3 待推进(28 项)
+
 - **P2 本月处理**:后端 16 个端点补齐 + 9 个 WS 死路由清理决策 + 16 个 AI-Service 协议不匹配架构决策
 - **P3 长期优化**:App 端原生支持评估 + 字体/iconfont/模型 logo 补齐 + Screenfull/拖拽组件核查
 

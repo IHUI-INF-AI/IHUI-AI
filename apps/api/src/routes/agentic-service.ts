@@ -1,9 +1,12 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { eq, and, desc } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { findAgentsList, findAgentById } from '../db/agents-queries.js'
 import { findCategoryList } from '../db/agents-queries.js'
+import { db } from '../db/index.js'
+import { zhsUserAgentContext } from '@ihui/database'
 
 async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
   try {
@@ -51,5 +54,59 @@ export const agenticServiceRoutes: FastifyPluginAsync = async (server) => {
   server.get('/categories', async (_request, reply) => {
     const { list, total } = await findCategoryList({})
     return reply.send(success({ list, total }))
+  })
+
+  const fieldParamSchema = z.object({ field: z.string().min(1).max(200) })
+
+  // GET /context/:field - 获取当前用户某个会话字段值（按 fieldName 查最新一条）
+  server.get('/context/:field', async (request, reply) => {
+    const parsed = fieldParamSchema.safeParse(request.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 field 参数'))
+    const userUuid = request.userId
+    if (!userUuid) return reply.status(401).send(error(401, 'Authentication required'))
+    try {
+      const rows = await db
+        .select()
+        .from(zhsUserAgentContext)
+        .where(
+          and(
+            eq(zhsUserAgentContext.userUuid, userUuid),
+            eq(zhsUserAgentContext.fieldName, parsed.data.field),
+          ),
+        )
+        .orderBy(desc(zhsUserAgentContext.id))
+        .limit(1)
+      const row = rows[0]
+      if (!row) return reply.status(404).send(error(404, '字段不存在'))
+      return reply.send(
+        success({ field: parsed.data.field, value: row.contextValue ?? row.content ?? null }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询会话字段失败'))
+    }
+  })
+
+  // DELETE /context/:field - 删除当前用户某个会话字段的所有记录
+  server.delete('/context/:field', async (request, reply) => {
+    const parsed = fieldParamSchema.safeParse(request.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 field 参数'))
+    const userUuid = request.userId
+    if (!userUuid) return reply.status(401).send(error(401, 'Authentication required'))
+    try {
+      const deleted = await db
+        .delete(zhsUserAgentContext)
+        .where(
+          and(
+            eq(zhsUserAgentContext.userUuid, userUuid),
+            eq(zhsUserAgentContext.fieldName, parsed.data.field),
+          ),
+        )
+        .returning({ id: zhsUserAgentContext.id })
+      return reply.send(success({ success: true, deleted: deleted.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '删除会话字段失败'))
+    }
   })
 }
