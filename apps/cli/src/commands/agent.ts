@@ -43,6 +43,7 @@ import { createSubagentTool } from '../tools/subagent.js';
 import { resolveSandboxOptions } from '../sandbox/index.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens } from '../context.js';
+import { generateReminders } from '../reminders.js';
 import { loadMcpTools } from '../tools/mcp-runtime.js';
 import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.js';
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
@@ -237,6 +238,14 @@ export interface RunToolLoopOptions {
   sampler?: SamplerSettings;
   /** 累计成本上限(美元)。超过后 stopReason='budget_limited'。与 AGENTS.md 第 9 节 goal 模式 budget 语义对齐 */
   maxCostUsd?: number;
+  /**
+   * P0-2 Interject:drain pending interjection buffer。
+   * 灵感来源:cli 的 `x.ai/interject` 扩展方法。
+   * 语义:在 agent 运行中,用户可向 buffer 追加新指令;runToolLoop 在每轮迭代开始 + end_turn 时 drain,
+   * 把累积的 interjection 作为新 user 消息追加(不取消当前回合,而是让 LLM 下一轮处理)。
+   * 回调实现应返回并清空 buffer(每次调用返回当前累积内容,然后清空)。
+   */
+  drainInterjections?: () => string[];
 }
 
 export interface RunToolLoopResult {
@@ -281,11 +290,26 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let budgetLimited = false;
   const consecutiveFailures = new Map<string, number>();
   const FAILURE_REFLECTION_THRESHOLD = 2;
+  // P1-2 Reminders:跨迭代持久化已注入的 reminder 类型(避免重复注入)
+  const reminderInjected = new Set<string>();
+
+  // P0-2 Interject:drain pending buffer 并作为新 user 消息追加。返回是否有 interjection 被 drain。
+  function drainAndAppendInterjections(): boolean {
+    if (!opts.drainInterjections) return false;
+    const interjections = opts.drainInterjections();
+    if (interjections.length === 0) return false;
+    opts.messages.push({ role: 'user', content: interjections.join('\n\n') });
+    return true;
+  }
 
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
       iterations = i + 1;
       await opts.onIteration?.(iterations, opts.maxIterations);
+
+      // P0-2 Interject:本轮 LLM 调用前 drain,处理上一轮工具执行期间用户输入的 interjection
+      // 让 LLM 本轮看到 tool_result + user interjection,自然响应
+      drainAndAppendInterjections();
 
       const compression = compressContextIfNeeded(opts.messages, {
         contextLimit: opts.contextLimit ?? 8000,
@@ -337,6 +361,11 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       const toolCalls = parseToolCalls(iterationText);
 
       if (toolCalls.length === 0) {
+        // P0-2 Interject:end_turn 时再 drain 一次,处理 LLM 调用期间用户输入的 interjection
+        // 如果有 interjection,不 break,continue 进入下一轮让 LLM 响应
+        if (drainAndAppendInterjections()) {
+          continue;
+        }
         break;
       }
 
@@ -396,6 +425,20 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         }
         await opts.onToolResult?.(call.name, result.success, result.output);
         resultParts.push(formatToolResult(call, result));
+      }
+
+      // P1-2 Reminders:工具结果后自动注入系统提醒(context budget / iteration progress)
+      // 灵感来源:cli 的 reminders crate,让 LLM 被动接收关键状态信息
+      const reminders = generateReminders({
+        iterations,
+        maxIterations: opts.maxIterations,
+        totalPromptTokens,
+        totalCompletionTokens,
+        contextLimit: opts.contextLimit ?? 8000,
+        injected: reminderInjected,
+      });
+      for (const r of reminders) {
+        resultParts.push(r);
       }
 
       opts.messages.push({ role: 'user', content: resultParts.join('\n\n') });
