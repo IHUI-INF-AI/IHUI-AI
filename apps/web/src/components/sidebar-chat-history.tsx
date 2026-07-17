@@ -549,7 +549,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
             />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setPendingRenameId(null)}>
+            <Button variant="ghost" className="bg-muted" onClick={() => setPendingRenameId(null)}>
               {tc('renameDialog.cancel')}
             </Button>
             <Button onClick={confirmRename} disabled={renameMutation.isPending}>
