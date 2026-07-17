@@ -30,6 +30,7 @@ import {
   formatToolResult,
   clearTools,
   getTool,
+  enableToolHub,
   type Tool,
   type ToolContext,
 } from '../tools/index.js';
@@ -40,7 +41,7 @@ import { FETCH_TOOLS } from '../tools/fetch-url.js';
 import { WEB_SEARCH_TOOLS } from '../tools/web-search.js';
 import { TEST_TOOLS } from '../tools/run-tests.js';
 import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
-import { CODEGRAPH_TOOLS } from '../tools/codegraph.js';
+import { CODEGRAPH_TOOLS, enableCodegraphIncremental, persistCodegraphCache } from '../tools/codegraph.js';
 import { createSubagentTool } from '../tools/subagent.js';
 import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
 import { resolveSandboxOptions } from '../sandbox/index.js';
@@ -186,6 +187,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   registerTools(DIAGNOSTIC_TOOLS);
   registerTools(CODEGRAPH_TOOLS);
   registerTools(createFileEditTools({ workspacePath: opts.workspacePath, checkpoints: opts.checkpoints }));
+  const settings = loadSettings();
   if (opts.subagentParent) {
     registerTools([createSubagentTool({
       modelId: opts.subagentParent.modelId,
@@ -193,6 +195,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
       apiKey: opts.subagentParent.apiKey,
       workspacePath: opts.workspacePath,
       allowDangerous: opts.subagentParent.allowDangerous,
+      worktreeFastPathEnabled: settings.worktreeFastPath?.enabled === true,
     })]);
   }
   if (opts.enableMcp) {
@@ -205,6 +208,12 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     } catch {
       // MCP 加载失败不阻塞
     }
+  }
+
+  // P1-5 Computer Hub 集成:flag 启用时把已注册工具同步到 hub(InMemoryRegistry + CompoundResolver)
+  // local-shadows-remote 调度;flag 关闭时完全等同原有行为(零回归)
+  if (settings.toolHub?.enabled === true) {
+    enableToolHub();
   }
 
   const tools = listTools();
@@ -221,7 +230,6 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   const memoryText = formatMemoryForPrompt(memory);
   const extraContext = [agentsMd, skillsText, memoryText].filter(Boolean).join('\n\n');
   const systemPrompt = buildSystemPrompt(tools, extraContext, opts.planFirst);
-  const settings = loadSettings();
   const resolvedSandbox = resolveSandboxOptions(
     settings.sandbox?.profile,
     settings.sandbox ?? {},
@@ -997,6 +1005,16 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     },
   });
 
+  // P1-6 Codegraph 增量索引:按 feature flag 启用(默认关闭,启用后加载缓存 + 全量索引一次)
+  const codegraphSettings = loadSettings();
+  if (codegraphSettings.codegraphIncremental?.enabled === true) {
+    try {
+      await enableCodegraphIncremental(opts.workspacePath);
+    } catch {
+      // 增量索引启用失败不阻塞主流程(工具内部会 fallback 到全量扫描)
+    }
+  }
+
   /** P1-5 统一 emit:按 outputFormat 切换序列化方式,流式输出到 stdout */
   const emit = (event: HeadlessEvent): void => {
     const line = formatHeadlessEvent(event, outputFormat);
@@ -1092,6 +1110,14 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     return result;
   } finally {
     runSessionEndHooks(hooksConfig, sessionHookCtx);
+    // P1-6 Codegraph 增量索引:退出时持久化缓存(供下次启动加载)
+    if (codegraphSettings.codegraphIncremental?.enabled === true) {
+      try {
+        await persistCodegraphCache(opts.workspacePath);
+      } catch {
+        // 持久化失败不阻塞退出
+      }
+    }
     // 任何路径(完成/错误/中断)都持久化 messages 到 session,供 --resume 恢复
     if (opts.session) {
       opts.session.history = messages
