@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import {
@@ -162,8 +163,17 @@ export default function ResourcesPage() {
           {items.map((item) => (
             <Link key={item.id} href={`/resources/${item.id}`} className="group block">
               <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
-                <div className="flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-                  <FileText className="h-10 w-10 text-primary/40" />
+                <div className="relative flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                  {item.coverImage ? (
+                    <Image
+                      fill
+                      src={item.coverImage}
+                      alt={item.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <FileText className="h-10 w-10 text-primary/40" />
+                  )}
                 </div>
                 <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-base">{item.title}</CardTitle>
