@@ -17,8 +17,13 @@ import {
   favoriteConversation,
   unfavoriteConversation,
   findFavoriteConversations,
+  archiveConversation,
+  unarchiveConversation,
+  findMessagesForExport,
+  saveCompressedContext,
 } from '../db/chat-queries.js'
 import { success, error } from '../utils/response.js'
+import { config } from '../config/index.js'
 
 // =============================================================================
 // Coze conversation_id 自动管理（迁移自 coze_zhs_py/api/chat.py）
@@ -121,6 +126,10 @@ const messageListSchema = z.object({
   after: z.string().uuid().optional(),
 })
 
+const compressSchema = z.object({
+  targetChars: z.union([z.literal(200000), z.literal(1000000)]),
+})
+
 // =============================================================================
 // 序列化辅助
 // =============================================================================
@@ -135,6 +144,9 @@ function serializeConversation(c: {
   lastMessageAt: Date | null
   createdAt: Date
   updatedAt: Date
+  archivedAt: Date | null
+  compressedAt: Date | null
+  compressedContext: string | null
   messageCount?: number
   favorite?: boolean
 }) {
@@ -148,6 +160,9 @@ function serializeConversation(c: {
     lastMessageAt: c.lastMessageAt,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
+    archivedAt: c.archivedAt,
+    compressedAt: c.compressedAt,
+    compressedContext: c.compressedContext,
     ...(c.messageCount !== undefined && { messageCount: c.messageCount }),
     ...(c.favorite !== undefined && { favorite: c.favorite }),
   }
@@ -608,6 +623,150 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
     await clearMessages(id)
     return reply.send(success({ cleared: true }))
+  })
+
+  // POST /conversations/:id/archive - 归档对话
+  server.post('/conversations/:id/archive', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
+
+    const updated = await archiveConversation(id)
+    return reply.send(success({ conversation: serializeConversation(updated) }))
+  })
+
+  // DELETE /conversations/:id/archive - 取消归档
+  server.delete('/conversations/:id/archive', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
+
+    const updated = await unarchiveConversation(id)
+    return reply.send(success({ conversation: serializeConversation(updated) }))
+  })
+
+  // GET /conversations/:id/export - 导出对话消息(md/txt)
+  server.get('/conversations/:id/export', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
+
+    const formatQuery = z.object({ format: z.enum(['txt', 'md']).default('md') })
+    const parsed = formatQuery.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const fmt = parsed.data.format
+
+    const messages = await findMessagesForExport(id)
+    const title = owned.conversation.title
+
+    if (fmt === 'md') {
+      const parts = [`# ${title}\n`]
+      for (const m of messages) {
+        parts.push(`## ${m.role} - ${new Date(m.createdAt).toISOString()}\n\n${m.content}\n`)
+      }
+      const content = parts.join('\n')
+      reply
+        .header('Content-Disposition', `attachment; filename="conversation-${id}.md"`)
+        .type('text/markdown')
+        .send(content)
+    } else {
+      const parts: string[] = []
+      for (const m of messages) {
+        parts.push(`[${m.role}] ${new Date(m.createdAt).toISOString()}\n${m.content}\n`)
+      }
+      const content = parts.join('\n')
+      reply
+        .header('Content-Disposition', `attachment; filename="conversation-${id}.txt"`)
+        .type('text/plain')
+        .send(content)
+    }
+  })
+
+  // POST /conversations/:id/compress - 压缩对话上下文(调用 ai-service)
+  server.post('/conversations/:id/compress', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
+
+    const parsed = compressSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { targetChars } = parsed.data
+
+    const messages = await findMessagesForExport(id)
+    const conversationText = messages.map((m) => `[${m.role}] ${m.content}`).join('\n\n')
+    const llmMessages = [
+      {
+        role: 'system',
+        content: `你是对话压缩助手。请把以下对话压缩到 ${targetChars} 字符以内,保留关键信息、用户意图、AI 回答要点,不要丢失重要上下文。直接输出压缩后的对话内容,不要附加说明。`,
+      },
+      { role: 'user', content: conversationText },
+    ]
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000)
+    let aiResult: {
+      content?: string
+      model?: string
+      usage?: unknown
+      stub?: boolean
+      error?: string
+    }
+    try {
+      const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: llmMessages, model: 'stepfun/step-3.7-flash' }),
+        signal: controller.signal,
+      })
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '')
+        return reply
+          .status(502)
+          .send(error(502, `AI service error: HTTP ${resp.status} ${errText}`))
+      }
+      aiResult = (await resp.json()) as typeof aiResult
+    } catch (e) {
+      return reply.status(502).send(error(502, `AI service error: ${(e as Error).message}`))
+    } finally {
+      clearTimeout(timeout)
+    }
+
+    if (aiResult.error) {
+      return reply.status(502).send(error(502, `AI service error: ${aiResult.error}`))
+    }
+
+    const content = aiResult.content ?? ''
+    await saveCompressedContext(id, content)
+
+    return reply.send(
+      success({
+        content,
+        model: aiResult.model,
+        usage: aiResult.usage,
+        originalChars: conversationText.length,
+        compressedChars: content.length,
+      }),
+    )
   })
 
   // POST /coze/stream — Coze 流式聊天 + conversation_id 自动管理

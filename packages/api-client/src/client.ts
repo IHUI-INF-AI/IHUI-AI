@@ -95,6 +95,21 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
   return { success: false, error: lastError }
 }
 
+export async function fetchText(url: string, options: RequestInit = {}): Promise<string> {
+  const token = tokenProvider.getToken()
+  const normalizedUrl = normalizeUrl(url)
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> | undefined),
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const response = await fetch(normalizedUrl, { ...options, headers, signal: options.signal })
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(`${response.status}: ${text}`)
+  }
+  return response.text()
+}
+
 // ==================== SSE 流式对话 ====================
 
 export interface StreamChatOptions {
