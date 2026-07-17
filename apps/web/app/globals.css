@@ -102,6 +102,7 @@
   --color-sidebar-hover: hsl(218 14% 92%);
   --color-sidebar-active: hsl(222 13% 86%);
   --color-sidebar-active-hover: hsl(217 11% 80%);
+  --color-shell-panel: hsl(0 0% 100%);
 
   --animate-ripple: ripple 0.6s ease-out;
   --animate-success-bounce: success-bounce 0.4s ease;
@@ -162,6 +163,7 @@
   --color-sidebar-hover: hsl(222 14% 14%);
   --color-sidebar-active: hsl(228 21% 8%);
   --color-sidebar-active-hover: hsl(0 0% 0%);
+  --color-shell-panel: hsl(220 12% 22%);
 }
 
 * {

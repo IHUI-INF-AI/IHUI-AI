@@ -198,7 +198,7 @@ export function MessageInput({
   const count = value.length
 
   return (
-    <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div>
       <div className="mx-auto max-w-3xl px-4 py-3">
         {references.length > 0 && (
           <div className="mb-2">
@@ -212,7 +212,7 @@ export function MessageInput({
           onClose={() => setSlashOpen(false)}
         />
         {voiceOpen && (
-          <div className="mb-2 rounded-xl border bg-card p-3 shadow-sm">
+          <div className="mb-2 rounded-xl p-3">
             <VoiceRecord onRecordComplete={handleRecordComplete} maxDuration={30} />
           </div>
         )}
@@ -223,7 +223,7 @@ export function MessageInput({
             onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
           />
-          <div className="flex items-end gap-2 rounded-2xl border bg-card p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
+          <div className="flex items-end gap-2 rounded-2xl p-2 focus-within:ring-1 focus-within:ring-ring">
             <textarea
               ref={textareaRef}
               value={value}
