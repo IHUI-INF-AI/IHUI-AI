@@ -24,13 +24,29 @@ vi.mock('@ihui/api-client', () => ({
   streamChat: streamChatMock,
   setBaseUrl: vi.fn(),
   setTokenProvider: vi.fn(),
+  formatSSEError: (err: unknown) => ({
+    severity: 'unknown' as const,
+    title: 'error',
+    message: err instanceof Error ? err.message : String(err),
+    rawMessage: err instanceof Error ? err.message : String(err),
+    requireReauth: false,
+  }),
+  parseStreamLine: (line: string) => {
+    const m = line.match(/^data:\s*(.+)$/);
+    if (!m) return null;
+    try {
+      return JSON.parse(m[1]);
+    } catch {
+      return m[1];
+    }
+  },
 }))
 
 vi.mock('../src/audit.js', () => ({
   auditLog: vi.fn(),
 }))
 
-import { runToolLoop } from '../src/commands/agent.js'
+import { runToolLoop, type InterjectionBlock } from '../src/commands/agent.js'
 
 function setStreamResponses(responses: string[]): void {
   for (const text of responses) {
@@ -63,25 +79,21 @@ describe('P0-2 Interject 中途插话', () => {
   })
 
   it('end_turn 时 drain 到 interjection → 继续下一轮处理', async () => {
-    // 第一轮:end_turn;drain 到 interjection 后继续;第二轮:end_turn
-    const drained: string[] = []
+    const drained: InterjectionBlock[] = []
     let drainCallCount = 0
-    const drainInterjections = (): string[] => {
+    const drainInterjections = (): InterjectionBlock[] => {
       drainCallCount++
-      if (drainCallCount === 1) {
-        // runToolLoop 开始时 drain(无内容)
-        return []
-      }
+      if (drainCallCount === 1) return []
       if (drainCallCount === 2) {
-        // end_turn 时 drain(有 interjection)
-        drained.push('顺便也加上 X')
-        return ['顺便也加上 X']
+        const block: InterjectionBlock = { type: 'text', text: '顺便也加上 X' }
+        drained.push(block)
+        return [block]
       }
       return []
     }
     setStreamResponses([
-      '任务完成。',                                  // 第一轮 end_turn
-      '好的,已加上 X。',                            // 第二轮 end_turn(处理 interjection)
+      '任务完成。',
+      '好的,已加上 X。',
     ])
     const result = await runToolLoop({
       modelId: 'test',
@@ -95,7 +107,7 @@ describe('P0-2 Interject 中途插话', () => {
     })
     expect(result.stopReason).toBe('end_turn')
     expect(result.iterations).toBe(2)
-    expect(drained).toEqual(['顺便也加上 X'])
+    expect(drained).toEqual([{ type: 'text', text: '顺便也加上 X' }])
   })
 
   it('工具执行期间 drain 到 interjection → 下一轮 LLM 看到 interjection', async () => {
@@ -108,17 +120,16 @@ describe('P0-2 Interject 中途插话', () => {
       execute: async () => ({ success: true, output: 'noop done' }),
     }])
     let drainCallCount = 0
-    const drainInterjections = (): string[] => {
+    const drainInterjections = (): InterjectionBlock[] => {
       drainCallCount++
       if (drainCallCount === 2) {
-        // 第二轮开始时 drain(第一轮工具执行期间用户输入了 interjection)
-        return ['顺便检查 Y']
+        return [{ type: 'text', text: '顺便检查 Y' }]
       }
       return []
     }
     setStreamResponses([
-      '```tool_call\n{"name":"noop","arguments":{}}\n```',  // 第一轮 tool_call
-      '已完成,也检查了 Y。',                                // 第二轮 end_turn
+      '```tool_call\n{"name":"noop","arguments":{}}\n```',
+      '已完成,也检查了 Y。',
     ])
     const result = await runToolLoop({
       modelId: 'test',
@@ -132,15 +143,14 @@ describe('P0-2 Interject 中途插话', () => {
     })
     expect(result.stopReason).toBe('end_turn')
     expect(result.iterations).toBe(2)
-    // 通过 drainCallCount 验证 drain 被调用(messages 不在 result 中)
     expect(drainCallCount).toBeGreaterThanOrEqual(2)
   })
 
   it('interjection 不会无限循环(第二轮 end_turn 后 drain 为空 → break)', async () => {
     let drainCallCount = 0
-    const drainInterjections = (): string[] => {
+    const drainInterjections = (): InterjectionBlock[] => {
       drainCallCount++
-      if (drainCallCount === 2) return ['interject 1']
+      if (drainCallCount === 2) return [{ type: 'text', text: 'interject 1' }]
       return []
     }
     setStreamResponses([
@@ -163,10 +173,9 @@ describe('P0-2 Interject 中途插话', () => {
 
   it('maxIterations 限制下 interjection 不超出迭代预算', async () => {
     let drainCallCount = 0
-    const drainInterjections = (): string[] => {
+    const drainInterjections = (): InterjectionBlock[] => {
       drainCallCount++
-      // 每次都返回 interjection(会持续 continue)
-      return [`interject ${drainCallCount}`]
+      return [{ type: 'text', text: `interject ${drainCallCount}` }]
     }
     setStreamResponses([
       'resp 1',
@@ -183,7 +192,6 @@ describe('P0-2 Interject 中途插话', () => {
       maxIterations: 3,
       drainInterjections,
     })
-    // 应该在 maxIterations 处停止
     expect(result.stopReason).toBe('max_iterations')
     expect(result.iterations).toBe(3)
   })
