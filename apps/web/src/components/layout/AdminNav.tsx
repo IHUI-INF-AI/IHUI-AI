@@ -79,6 +79,7 @@ import {
   UserPlus,
   Files,
   Bell,
+  BellRing,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -129,6 +130,9 @@ interface AdminNavItem {
     | 'developer'
     | 'dict'
     | 'sms'
+    | 'notificationChannels'
+    | 'notificationPreferences'
+    | 'notificationLogs'
     | 'recommendationConfig'
     | 'mobileAdapter'
     | 'oauthAuditDashboard'
@@ -243,6 +247,13 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/developer', labelKey: 'developer', icon: Code2 },
   { href: '/admin/dict', labelKey: 'dict', icon: BookMarked },
   { href: '/admin/sms', labelKey: 'sms', icon: MessageSquareReply },
+  { href: '/admin/notification-channels', labelKey: 'notificationChannels', icon: BellRing },
+  {
+    href: '/admin/notification-preferences',
+    labelKey: 'notificationPreferences',
+    icon: SlidersHorizontal,
+  },
+  { href: '/admin/notification-logs', labelKey: 'notificationLogs', icon: ScrollText },
   {
     href: '/admin/recommendation-config',
     labelKey: 'recommendationConfig',
