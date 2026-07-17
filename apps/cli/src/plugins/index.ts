@@ -30,3 +30,9 @@ export {
   type RegisterOptions,
   type UnregisterOptions,
 } from './registry.js';
+
+// P1-4 Plugin Marketplace 集成 — re-export paths/cache/marketplace/installer
+export * from './paths.js';
+export * from './cache.js';
+export * from './marketplace.js';
+export * from './installer.js';
