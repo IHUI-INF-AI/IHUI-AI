@@ -5,54 +5,33 @@
  * SDK:@agentclientprotocol/sdk
  *
  * 启动方式:`ihui acp` (默认 stdio NDJSON 传输)
- * 集成方法:
  *
- * **Zed** (`~/.config/zed/settings.json` 或工作区 `.zed/settings.json`):
- * ```json
- * {
- *   "agent_servers": {
- *     "ihui": {
- *       "command": "ihui",
- *       "args": ["acp"]
- *     }
- *   }
- * }
- * ```
- *
- * **VSCode** (需安装支持 ACP 的扩展,如 `agent-client-protocol` 扩展):
- * ```json
- * // settings.json
- * {
- *   "agent.servers": {
- *     "ihui": { "command": "ihui", "args": ["acp"] }
- *   }
- * }
- * ```
- *
- * **Cursor** (实验性 ACP 支持,settings.json):
- * ```json
- * {
- *   "acp.servers": [
- *     { "name": "ihui", "command": "ihui", "args": ["acp"] }
- *   ]
- * }
- * ```
- *
- * 工具循环集成:session/prompt 调用 runToolLoop,Agent 可自主调用工具读写文件。
- * 协议方法实现:initialize / authenticate / session/{new,load,prompt,close} / session/cancel。
- * Token 成本:在 session/prompt 完成后通过 session/update 通知 agent_message_chunk,
- *           Editor 可在状态栏/侧边栏展示。
+ * P0-2 扩展方法(对齐 grok-build 的 `x.ai/*` 私有扩展命名空间,使用 SDK 自定义方法三参数重载):
+ *   - `x.ai/session/repair`:自愈当前会话历史(清理非法 role / 空消息 / 连续重复 / interjection 残留)
+ *   - `x.ai/rewind/points`:列出可回退的 prompt 点(user 消息位置)
+ *   - `x.ai/rewind/execute`:回退 history 到指定 prompt 索引(支持 RewindMode + force)
  *
  * 危险工具(默认拒绝):Editor 内无交互确认通道,需在 `~/.ihui/settings.json` 设置
  * `allowDangerous: true` 或启动时加 `--allow-dangerous` flag(自负风险)。
- *
- * MCP 工具:启动时加 `--mcp` flag 启用,自动从 `~/.ihui/mcp.json` 加载 MCP 服务器工具。
  */
 
 import { Readable, Writable } from 'node:stream';
 import * as acp from '@agentclientprotocol/sdk';
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
-import { createSession, saveSession, loadSession, type Session } from '../commands/session.js';
+import {
+  createSession,
+  saveSession,
+  loadSession,
+  repairSessionHistoryReport,
+  listRewindPoints,
+  rewindHistory,
+  type Session,
+  type ChatMessage,
+  type RepairSessionResponse,
+  type RewindRequest,
+  type RewindResponse,
+  type RewindPoint,
+} from '../commands/session.js';
 import { setupAgentTools, runToolLoop, type ToolContext } from '../commands/agent.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 
@@ -75,6 +54,23 @@ interface AcpSessionState {
   systemPrompt: string | null;
   ctx: ToolContext | null;
   checkpoints: CheckpointManager | null;
+}
+
+/** P0-2 `x.ai/session/repair` 请求参数 */
+interface RepairSessionParams {
+  sessionId: string;
+  /** true=只检测不修改(dry_run) */
+  dryRun?: boolean;
+}
+
+/** P0-2 `x.ai/rewind/points` 请求参数 */
+interface RewindPointsParams {
+  sessionId: string;
+}
+
+/** P0-2 `x.ai/rewind/execute` 请求参数(扩展 RewindRequest 加 sessionId) */
+interface RewindExecuteParams extends RewindRequest {
+  sessionId: string;
 }
 
 class IhuiAcpAgent {
@@ -273,6 +269,58 @@ class IhuiAcpAgent {
   closeSession?(params: acp.CloseSessionRequest): void {
     this.sessions.delete(params.sessionId);
   }
+
+  // ==================== P0-2 ACP 扩展方法实现 ====================
+
+  /**
+   * `x.ai/session/repair` — 自愈当前会话历史。
+   * 调用 repairSessionHistoryReport(dry_run 可选),并持久化到 session。
+   */
+  async repairSession(params: RepairSessionParams): Promise<RepairSessionResponse> {
+    const state = this.requireSession(params.sessionId);
+    const report = repairSessionHistoryReport(state.session.history, {
+      dryRun: params.dryRun === true,
+      persistToSession: params.dryRun === true ? undefined : state.session,
+    });
+    return report;
+  }
+
+  /**
+   * `x.ai/rewind/points` — 列出可回退的 prompt 点。纯只读。
+   */
+  async rewindPoints(params: RewindPointsParams): Promise<{ points: RewindPoint[] }> {
+    const state = this.requireSession(params.sessionId);
+    const points = listRewindPoints(state.session.history);
+    return { points };
+  }
+
+  /**
+   * `x.ai/rewind/execute` — 回退 history 到指定 prompt 索引。
+   * 成功则更新 session.history 并持久化,失败(rewound=false)返回原 history 不变 + reason。
+   */
+  async rewindExecute(params: RewindExecuteParams): Promise<RewindResponse> {
+    const state = this.requireSession(params.sessionId);
+    const request: RewindRequest = {
+      targetPromptIndex: params.targetPromptIndex,
+      force: params.force,
+      mode: params.mode,
+    };
+    const response = rewindHistory(state.session.history, request);
+    if (response.rewound) {
+      state.session.history = response.rewoundHistory;
+      saveSession(state.session);
+    }
+    return response;
+  }
+
+  /** 内部:根据 sessionId 查找 AcpSessionState,不存在则抛错 */
+  private requireSession(sessionId: string): AcpSessionState {
+    const state = this.sessions.get(sessionId);
+    if (!state) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+    return state;
+  }
 }
 
 function extractTextFromPrompt(prompt: acp.ContentBlock[] | undefined): string {
@@ -281,6 +329,15 @@ function extractTextFromPrompt(prompt: acp.ContentBlock[] | undefined): string {
     .filter((block): block is { type: 'text'; text: string } => block.type === 'text')
     .map((block) => block.text)
     .join('\n');
+}
+
+/**
+ * P0-2 自定义方法参数 parser(纯 cast,不做 zod 校验 — 校验在 agent 方法内进行)。
+ * SDK `onRequest(method, params, handler)` 三参数重载要求一个 ParamsParser,
+ * 既能传 zod schema 也能传函数。这里用最简函数 cast 避免引入 zod 依赖。
+ */
+function castParams<T>(): (params: unknown) => T {
+  return (params: unknown) => params as T;
 }
 
 function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
@@ -301,6 +358,23 @@ function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
       agent.closeSession?.(ctx.params);
       return {};
     })
+    // P0-2 ACP 私有扩展方法(x.ai/* 命名空间,对齐 grok-build)
+    // 使用 SDK 三参数重载:onRequest<Params, Response>(method, paramsParser, handler)
+    .onRequest<RepairSessionParams, RepairSessionResponse>(
+      'x.ai/session/repair',
+      castParams<RepairSessionParams>(),
+      (ctx) => agent.repairSession(ctx.params),
+    )
+    .onRequest<RewindPointsParams, { points: RewindPoint[] }>(
+      'x.ai/rewind/points',
+      castParams<RewindPointsParams>(),
+      (ctx) => agent.rewindPoints(ctx.params),
+    )
+    .onRequest<RewindExecuteParams, RewindResponse>(
+      'x.ai/rewind/execute',
+      castParams<RewindExecuteParams>(),
+      (ctx) => agent.rewindExecute(ctx.params),
+    )
     .onNotification('session/cancel', (ctx) => agent.cancel(ctx.params));
 }
 
@@ -310,3 +384,13 @@ export function startAcpServer(opts: AcpServerOptions): acp.AgentConnection {
   const stream = acp.ndJsonStream(input, output);
   return createAcpAgent(opts).connect(stream);
 }
+
+// P0-2 类型再导出(供 acp 测试 / 其他模块复用)
+export type {
+  RepairSessionResponse,
+  RewindRequest,
+  RewindResponse,
+  RewindPoint,
+  ChatMessage,
+  Session,
+};
