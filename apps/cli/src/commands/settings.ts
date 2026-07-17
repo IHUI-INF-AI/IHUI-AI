@@ -13,6 +13,12 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { resolveSandboxOptions } from '../sandbox/index.js';
 import { parsePermissionMode, type PermissionMode } from '../tools/permissions.js';
+import {
+  loadConfig,
+  setSessionConfig,
+  clearSessionConfig,
+  DEFAULT_SETTINGS,
+} from '../config/index.js';
 
 export interface SandboxSettings {
   /** 沙盒预设 profile,优先级低于显式配置的字段 */
@@ -64,6 +70,31 @@ export interface Settings {
     targetRatio?: number;
     /** sampler 超时(默认 30000ms) */
     samplingTimeoutMs?: number;
+  };
+  /** Worktree 快路径配置(默认关闭,启用后用 CoW 复制加速 worktree 创建) */
+  worktreeFastPath?: {
+    /** 启用快路径(默认 false,失败自动 fallback 到 git worktree add) */
+    enabled?: boolean;
+  };
+  /** Tool Hub 配置(默认关闭,启用后用 CompoundResolver 调度工具,支持 local-shadows-remote) */
+  toolHub?: {
+    /** 启用 hub(默认 false) */
+    enabled?: boolean;
+  };
+  /** Subagent precedence 链配置(默认关闭,启用后用 4 层优先级解析 subagent 配置) */
+  subagentPrecedence?: {
+    /** 启用 precedence(默认 false) */
+    enabled?: boolean;
+  };
+  /** Codegraph 增量索引配置(默认关闭,启用后用增量索引 + JSON 持久化加速符号查询) */
+  codegraphIncremental?: {
+    /** 启用增量索引(默认 false) */
+    enabled?: boolean;
+  };
+  /** Plugin Marketplace 配置(默认关闭,启用后可用 /plugin install/uninstall/list 命令) */
+  pluginMarketplace?: {
+    /** 启用 marketplace(默认 false) */
+    enabled?: boolean;
   };
 }
 
@@ -196,6 +227,21 @@ export function saveSettingsTemplate(overwrite = false): boolean {
     compactionV2: {
       enabled: false,
     },
+    worktreeFastPath: {
+      enabled: false,
+    },
+    toolHub: {
+      enabled: false,
+    },
+    subagentPrecedence: {
+      enabled: false,
+    },
+    codegraphIncremental: {
+      enabled: false,
+    },
+    pluginMarketplace: {
+      enabled: false,
+    },
   };
   fs.writeFileSync(p, JSON.stringify(template, null, 2) + '\n', 'utf-8');
   return true;
@@ -232,7 +278,7 @@ export function resolveEffectiveConfig(args: {
   sampler?: SamplerSettings;
   permissionMode: PermissionMode;
 } {
-  const settings = loadSettings();
+  const settings = loadSettingsV2(args);
 
   const apiUrl =
     args.cliApiUrl ||
@@ -305,3 +351,83 @@ export function resolveEffectiveConfig(args: {
     permissionMode,
   };
 }
+
+/**
+ * V2 配置加载(6 层合并:defaults > global > project > session > env > cli)。
+ * - 失败时 fallback 到 loadSettings() 确保向后兼容
+ * - 内部委托给 config/loadConfig()
+ *
+ * args 形参与 resolveEffectiveConfig 入参一致,便于直接透传。
+ *
+ * 向后兼容说明(确保现有测试零回归):
+ * - env 层禁用(传 env: {}),由 resolveEffectiveConfig 用 V1 优先级(settings > env)处理,
+ *   避免 V2 的 env > settings 语义破坏现有 "settings > env" 测试断言。
+ * - defaults 层的 apiUrl 在等于默认值时剥离,避免阻塞 resolveEffectiveConfig 的
+ *   process.env.IHUI_API_URL 回退(resolveEffectiveConfig 用 || 短路)。
+ * - permissionMode / temperature / maxTokens / maxIterations 在传入 V2 cli 层前
+ *   做与 resolveEffectiveConfig 一致的校验,避免非法值污染 settings 导致回退失效。
+ */
+export function loadSettingsV2(args: {
+  cliApiUrl?: string;
+  cliApiKey?: string;
+  cliModel?: string;
+  cliMaxIterations?: string;
+  cliMaxTurns?: string;
+  cliAllowDangerous?: boolean;
+  cliPlan?: boolean;
+  cliMcp?: boolean;
+  cliTemperature?: string;
+  cliMaxTokens?: string;
+  cliPermissionMode?: string;
+  cliLocale?: string;
+} = {}): Settings {
+  try {
+    // 把 resolveEffectiveConfig 的 args 映射为 loadConfig 的 cliArgs 参数
+    const cliOverrides: Record<string, unknown> = {};
+    if (args.cliApiUrl) cliOverrides.apiUrl = args.cliApiUrl;
+    if (args.cliApiKey) cliOverrides.apiKey = args.cliApiKey;
+    if (args.cliModel) cliOverrides.defaultModel = args.cliModel;
+    // cliMaxTurns 优先级高于 cliMaxIterations(对齐 resolveEffectiveConfig 语义)
+    if (args.cliMaxTurns) {
+      const n = parseInt(args.cliMaxTurns, 10);
+      if (Number.isFinite(n) && n > 0) cliOverrides.maxIterations = n;
+    } else if (args.cliMaxIterations) {
+      const n = parseInt(args.cliMaxIterations, 10);
+      if (Number.isFinite(n) && n > 0) cliOverrides.maxIterations = n;
+    }
+    if (args.cliAllowDangerous !== undefined) cliOverrides.allowDangerous = args.cliAllowDangerous;
+    if (args.cliPlan !== undefined) cliOverrides.planFirst = args.cliPlan;
+    if (args.cliMcp !== undefined) cliOverrides.enableMcp = args.cliMcp;
+    if (args.cliTemperature) {
+      const t = parseFloat(args.cliTemperature);
+      if (Number.isFinite(t)) cliOverrides['sampler.temperature'] = t;
+    }
+    if (args.cliMaxTokens) {
+      const m = parseInt(args.cliMaxTokens, 10);
+      if (Number.isFinite(m) && m > 0) cliOverrides['sampler.maxTokens'] = m;
+    }
+    // permissionMode 需校验为合法枚举值,非法值不进入 V2 cli 层
+    // (否则会污染 settings.permissionMode,导致 resolveEffectiveConfig 的 ?? 回退失效)
+    if (args.cliPermissionMode) {
+      const validated = parsePermissionMode(args.cliPermissionMode);
+      if (validated) cliOverrides.permissionMode = validated;
+    }
+    if (args.cliLocale) cliOverrides.locale = args.cliLocale;
+
+    // env 层禁用:由 resolveEffectiveConfig 用 V1 优先级(settings > env)处理
+    const result = loadConfig({ cliArgs: cliOverrides, env: {} });
+
+    // 剥离 defaults 层的 apiUrl:避免阻塞 resolveEffectiveConfig 的 env 回退
+    // (resolveEffectiveConfig: args.cliApiUrl || settings.apiUrl || process.env.IHUI_API_URL)
+    if (result.apiUrl === DEFAULT_SETTINGS.apiUrl) {
+      return { ...result, apiUrl: undefined };
+    }
+    return result;
+  } catch {
+    // 双保险 fallback:V2 失败时降级到 V1
+    return loadSettings();
+  }
+}
+
+/** 暴露 session config API 给 CLI 调用方 */
+export { setSessionConfig, clearSessionConfig, DEFAULT_SETTINGS };
