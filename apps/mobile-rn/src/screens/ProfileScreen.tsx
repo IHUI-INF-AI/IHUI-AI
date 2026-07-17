@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { getProfile, type AuthUser } from '@ihui/api-client'
+import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function ProfileScreen() {
+  const { t } = useI18n()
+  const navigation = useNavigation<NavigationProp>()
   const [profile, setProfile] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -51,6 +59,12 @@ export function ProfileScreen() {
     ['角色', (data.roleId ?? 0) >= 1 ? '管理员' : '普通用户'],
   ]
 
+  const menu: Array<{ label: string; screen: 'Favorites' | 'Following' | 'Subscriptions' }> = [
+    { label: t('favorites.title'), screen: 'Favorites' },
+    { label: t('following.title'), screen: 'Following' },
+    { label: t('subscriptions.title'), screen: 'Subscriptions' },
+  ]
+
   return (
     <ScrollView className="flex-1 bg-white dark:bg-black">
       <View className="px-4 pb-2 pt-6">
@@ -73,6 +87,27 @@ export function ProfileScreen() {
               <Text className="text-sm text-neutral-500">{label}</Text>
               <Text className="text-sm text-neutral-900 dark:text-neutral-50">{value || '—'}</Text>
             </View>
+          ))}
+        </Card>
+      </View>
+      <View className="px-4 pb-6">
+        <Text className="mb-2 text-xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {t('nav.profile')}
+        </Text>
+        <Card>
+          {menu.map(({ label, screen }, idx) => (
+            <TouchableOpacity
+              key={screen}
+              onPress={() => navigation.navigate(screen as keyof RootStackParamList)}
+              className={
+                idx === 0
+                  ? 'flex-row justify-between border-b border-neutral-100 py-3 dark:border-neutral-800'
+                  : 'flex-row justify-between border-b border-neutral-100 py-3 dark:border-neutral-800'
+              }
+            >
+              <Text className="text-sm text-neutral-900 dark:text-neutral-50">{label}</Text>
+              <Text className="text-sm text-neutral-400">›</Text>
+            </TouchableOpacity>
           ))}
         </Card>
       </View>
