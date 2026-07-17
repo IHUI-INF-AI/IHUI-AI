@@ -395,7 +395,7 @@ function SidebarUserRow({
           ]}
           trigger={
             <button
-              className="shrink-0 rounded-full outline-none ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
+              className="shrink-0 rounded-lg outline-none ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={user?.nickname ?? 'User'}
               title={user?.nickname ?? 'User'}
             >
@@ -767,7 +767,7 @@ export function Sidebar({
         ref={navRef}
         id={id}
         aria-label={t('title') ?? '主导航'}
-        className="hover-scroll scroll-fade min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto px-2 py-2"
+        className="hover-scroll min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto px-2 py-2"
       >
         {visibleGroups.map((group, gi) => (
           <div key={group.label} className={gi > 0 ? 'pt-2' : ''}>

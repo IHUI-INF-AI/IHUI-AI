@@ -81,7 +81,7 @@
   backdrop-filter: blur(12px) saturate(180%);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
+  border-radius: 16px;
   transition: all 0.3s var(--ease-premium, ease);
   cursor: pointer;
 }
