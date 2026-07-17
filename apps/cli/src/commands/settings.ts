@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { resolveSandboxOptions } from '../sandbox/index.js';
+import { parsePermissionMode, type PermissionMode } from '../tools/permissions.js';
 
 export interface SandboxSettings {
   /** 沙盒预设 profile,优先级低于显式配置的字段 */
@@ -49,6 +50,8 @@ export interface Settings {
   folderTrust?: Record<string, 'trusted' | 'read-only' | 'forbidden'>;
   /** 界面语言(zh-CN/en/ja/ko/zh-TW),优先级低于 --locale flag 与 IHUI_LOCALE 环境变量 */
   locale?: string;
+  /** 权限模式(对齐 Claude Code --permission-mode):default|acceptEdits|bypassPermissions|plan|manual */
+  permissionMode?: PermissionMode;
 }
 
 export interface SamplerSettings {
@@ -89,8 +92,12 @@ export function resolveSamplerSettings(
 /** 多源扫描目录(高→低):workspace 三级 → home 三级 */
 const SETTINGS_SOURCE_DIRS = ['.ihui', '.claude', '.cursor'];
 
+function getHomeDir(): string {
+  return process.env.HOME || process.env.USERPROFILE || os.homedir();
+}
+
 function listSettingsConfigPaths(cwd: string): string[] {
-  const home = os.homedir();
+  const home = getHomeDir();
   const paths: string[] = [];
   for (const d of SETTINGS_SOURCE_DIRS) paths.push(path.join(cwd, d, 'settings.json'));
   for (const d of SETTINGS_SOURCE_DIRS) paths.push(path.join(home, d, 'settings.json'));
@@ -119,7 +126,7 @@ export function deepMergeSettings(a: Settings, b: Settings): Settings {
 }
 
 export function getSettingsPath(): string {
-  return path.join(os.homedir(), '.ihui', 'settings.json');
+  return path.join(getHomeDir(), '.ihui', 'settings.json');
 }
 
 /**
@@ -172,6 +179,7 @@ export function saveSettingsTemplate(overwrite = false): boolean {
       'tests/*': 'trusted',
     },
     locale: 'zh-CN',
+    permissionMode: 'default',
   };
   fs.writeFileSync(p, JSON.stringify(template, null, 2) + '\n', 'utf-8');
   return true;
@@ -192,6 +200,7 @@ export function resolveEffectiveConfig(args: {
   cliMcp?: boolean;
   cliTemperature?: string;
   cliMaxTokens?: string;
+  cliPermissionMode?: string;
 }): {
   apiUrl: string;
   apiKey: string;
@@ -205,6 +214,7 @@ export function resolveEffectiveConfig(args: {
   sandboxCommandAllowlist: string[];
   sandboxBlockedEnvVars: string[];
   sampler?: SamplerSettings;
+  permissionMode: PermissionMode;
 } {
   const settings = loadSettings();
 
@@ -259,6 +269,10 @@ export function resolveEffectiveConfig(args: {
   }
   const sampler = resolveSamplerSettings(cliSampler, settings.sampler);
 
+  // 优先级:CLI flag > settings.permissionMode > 'default'
+  const permissionMode: PermissionMode =
+    parsePermissionMode(args.cliPermissionMode) ?? settings.permissionMode ?? 'default';
+
   return {
     apiUrl,
     apiKey,
@@ -272,5 +286,6 @@ export function resolveEffectiveConfig(args: {
     sandboxCommandAllowlist,
     sandboxBlockedEnvVars,
     sampler,
+    permissionMode,
   };
 }
