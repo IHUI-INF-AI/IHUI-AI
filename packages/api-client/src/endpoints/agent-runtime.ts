@@ -1,4 +1,11 @@
 import { fetchApi } from '../client.js'
+import type {
+  PermissionMode,
+  PermissionDecision,
+  DangerLevel,
+  SessionStatus,
+  SessionState,
+} from '@ihui/types'
 
 // ============================================================================
 // 本地类型定义(后续可由主线程统一抽取到 packages/types 共享层)
@@ -498,4 +505,246 @@ export async function executeAgentStream(
     const message = err instanceof Error ? err.message : '网络异常'
     callbacks.onError?.(message)
   }
+}
+
+// ============================================================================
+// /agent-runtime/* 新路径(第十五轮 API + AI-Service 同步暴露)
+// 与上方 /agents/* 旧路径并存,前端各端逐步切换至本组函数。
+// ============================================================================
+
+export interface ExecuteAgentRuntimeParams {
+  message: string
+  mode?: PermissionMode | string
+  sessionId?: string
+  botId?: string
+}
+
+export interface ExecuteAgentRuntimeResult {
+  sessionId: string
+  mode: string
+  received: string
+}
+
+export async function executeAgentRuntime(
+  params: ExecuteAgentRuntimeParams,
+): Promise<ExecuteAgentRuntimeResult> {
+  const res = await fetchApi<ExecuteAgentRuntimeResult>('/agent-runtime/execute', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+  if (!res.success) throw new Error(res.error)
+  return res.data
+}
+
+export interface AgentRuntimeStreamCallbacks {
+  onSession?: (data: { sessionId: string }) => void
+  onPermission?: (data: {
+    mode: string
+    toolName?: string
+    dangerLevel?: DangerLevel | string
+    decision: PermissionDecision | string
+  }) => void
+  onPlan?: (data: { plan: string }) => void
+  onDelta?: (data: { content: string }) => void
+  onDone?: (data: { sessionId: string; status: string; summary?: string }) => void
+  onError?: (data: { message: string }) => void
+  onEvent?: (event: string, data: unknown) => void
+}
+
+export interface AgentRuntimeStreamOptions {
+  lastEventId?: string
+  signal?: AbortSignal
+  baseUrl?: string
+  headers?: Record<string, string>
+}
+
+function parseAgentRuntimeSSEBlock(
+  block: string,
+  callbacks: AgentRuntimeStreamCallbacks,
+): void {
+  let eventName: string | undefined
+  let dataStr = ''
+  for (const rawLine of block.split('\n')) {
+    const line = rawLine.replace(/\r$/, '')
+    if (line.startsWith('event:')) {
+      eventName = line.slice(6).trim()
+    } else if (line.startsWith('data:')) {
+      dataStr += line.slice(5).replace(/^\s/, '')
+    }
+  }
+  if (!eventName || !dataStr) return
+  let data: unknown
+  try {
+    data = JSON.parse(dataStr)
+  } catch {
+    data = dataStr
+  }
+  callbacks.onEvent?.(eventName, data)
+  switch (eventName) {
+    case 'session':
+      callbacks.onSession?.(data as { sessionId: string })
+      break
+    case 'permission':
+      callbacks.onPermission?.(
+        data as {
+          mode: string
+          toolName?: string
+          dangerLevel?: string
+          decision: string
+        },
+      )
+      break
+    case 'plan':
+      callbacks.onPlan?.(data as { plan: string })
+      break
+    case 'delta':
+      callbacks.onDelta?.(data as { content: string })
+      break
+    case 'done':
+      callbacks.onDone?.(data as { sessionId: string; status: string; summary?: string })
+      break
+    case 'error':
+      callbacks.onError?.(data as { message: string })
+      break
+  }
+}
+
+export async function executeAgentRuntimeStream(
+  params: ExecuteAgentRuntimeParams,
+  callbacks: AgentRuntimeStreamCallbacks,
+  options: AgentRuntimeStreamOptions = {},
+): Promise<void> {
+  const url = buildStreamUrl('/agent-runtime/execute/stream', options.baseUrl)
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+    ...(options.headers ?? {}),
+  }
+  if (options.lastEventId) headers['Last-Event-ID'] = options.lastEventId
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(params),
+      signal: options.signal,
+    })
+
+    if (!resp.ok || !resp.body) {
+      const text = await resp.text().catch(() => '')
+      callbacks.onError?.({ message: text || `请求失败(${resp.status})` })
+      return
+    }
+
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let boundary: number
+      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+        const block = buffer.slice(0, boundary)
+        buffer = buffer.slice(boundary + 2)
+        if (block.trim()) parseAgentRuntimeSSEBlock(block, callbacks)
+      }
+    }
+    if (buffer.trim()) parseAgentRuntimeSSEBlock(buffer, callbacks)
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      callbacks.onDone?.({ sessionId: '', status: 'aborted' })
+      return
+    }
+    const message = err instanceof Error ? err.message : '网络异常'
+    callbacks.onError?.({ message })
+  }
+}
+
+export async function listAgentRuntimeSessions(
+  params?: { limit?: number; offset?: number },
+): Promise<{ sessions: SessionState[]; total: number }> {
+  const qs = new URLSearchParams()
+  if (params?.limit !== undefined) qs.set('limit', String(params.limit))
+  if (params?.offset !== undefined) qs.set('offset', String(params.offset))
+  const query = qs.toString()
+  const url = query ? `/agent-runtime/sessions?${query}` : '/agent-runtime/sessions'
+  const res = await fetchApi<{ sessions: SessionState[]; total: number }>(url)
+  if (!res.success) throw new Error(res.error)
+  return res.data
+}
+
+export async function getAgentRuntimeSession(sessionId: string): Promise<SessionState> {
+  const res = await fetchApi<SessionState>(
+    `/agent-runtime/sessions/${encodeURIComponent(sessionId)}`,
+  )
+  if (!res.success) throw new Error(res.error)
+  return res.data
+}
+
+export async function resumeAgentRuntimeSession(
+  sessionId: string,
+): Promise<{ sessionId: string; status: string }> {
+  const res = await fetchApi<{ sessionId: string; status: string }>(
+    `/agent-runtime/sessions/${encodeURIComponent(sessionId)}/resume`,
+    { method: 'POST' },
+  )
+  if (!res.success) throw new Error(res.error)
+  return res.data
+}
+
+export async function getAgentRuntimeStatus(
+  sessionId: string,
+): Promise<{
+  sessionId: string
+  status: SessionStatus | string
+  messageCount: number
+}> {
+  const res = await fetchApi<{
+    sessionId: string
+    status: SessionStatus | string
+    messageCount: number
+  }>(`/agent-runtime/${encodeURIComponent(sessionId)}/status`)
+  if (!res.success) throw new Error(res.error)
+  return res.data
+}
+
+export async function cancelAgentRuntime(
+  sessionId: string,
+): Promise<{ sessionId: string; status: string }> {
+  const res = await fetchApi<{ sessionId: string; status: string }>(
+    `/agent-runtime/${encodeURIComponent(sessionId)}/cancel`,
+    { method: 'POST' },
+  )
+  if (!res.success) throw new Error(res.error)
+  return res.data
+}
+
+export interface CheckAgentRuntimePermissionParams {
+  toolName: string
+  mode?: PermissionMode | string
+  dangerLevel?: DangerLevel | string
+}
+
+export async function checkAgentRuntimePermission(
+  params: CheckAgentRuntimePermissionParams,
+): Promise<{
+  toolName: string
+  mode: string
+  dangerLevel: string
+  decision: PermissionDecision | string
+}> {
+  const qs = new URLSearchParams()
+  qs.set('toolName', params.toolName)
+  if (params.mode !== undefined) qs.set('mode', String(params.mode))
+  if (params.dangerLevel !== undefined) qs.set('dangerLevel', String(params.dangerLevel))
+  const res = await fetchApi<{
+    toolName: string
+    mode: string
+    dangerLevel: string
+    decision: PermissionDecision | string
+  }>(`/agent-runtime/permission/check?${qs.toString()}`)
+  if (!res.success) throw new Error(res.error)
+  return res.data
 }
