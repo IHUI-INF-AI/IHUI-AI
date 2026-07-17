@@ -100,6 +100,31 @@ admin(dashboard),users, roles, permissions, projects, orders, workflows, tags, s
 - 公开端点(topics/resources/live 等)无需认证
 - 管理员端点(`roleId >= 1`)通过 plugin-level preHandler 统一鉴权
 
+### WebSocket 端点(`apps/api/src/plugins/ws-*.ts`,12 端点)
+
+REST 路由之外的实时双向通信,按 plugin 分组:
+
+| Plugin | 端点 | 用途 |
+|--------|------|------|
+| `ws-notifications.ts` | `/ws/notifications` | 全局通知推送(多端同步,Redis Pub/Sub 广播) |
+| `ws-chat.ts` | `/ws/room/:roomId` | 聊天室消息(多用户房间,Redis Pub/Sub) |
+| `ws-customer-service.ts` | `/ws/customer-service` | 客服会话(1对1) |
+| `ws-payment.ts` | `/ws/payment/status/:orderNo` | 支付状态实时更新 |
+| `ws-broadcast.ts` | `/ws/broadcast` | 通用广播 |
+| `ws-ai.ts` | `/ws/agent/stream` | Agent 流式输出(步骤/工具调用/思考,interrupt/continue/cancel) |
+| `ws-ai.ts` | `/ws/tts/stream` | TTS 流式合成(文本→音频,支持中断) |
+| `ws-ai.ts` | `/ws/realtime/pcm` | 双向实时音频(ASR 输入 + TTS 输出,PCM16 16kHz) |
+| `ws-ai.ts` | `/v1/ai/capabilities/ws/stream` | 通用 AI 能力流(capability.start/delta/done,代理到 AI-service SSE) |
+| `ws-ai.ts` | `/ws/stock/stream` | 股票行情流 |
+| `ws-ai.ts` | `/ws/timbre/generate` | 音色克隆生成流 |
+| `ws-ai.ts` | `/ws/coze/chat` | Coze 对话流 |
+
+**鉴权**:所有 WS 端点通过 `wsAuth(socket, token)` 校验 JWT(token 从 query string 读取),失败则关闭连接。
+**心跳**:客户端发送 `ping`/`{"type":"ping"}`,服务端响应 `pong`。
+**多实例**:ws-notifications + ws-chat 通过 Redis Pub/Sub 跨实例广播;其余端点为 1:1 连接(单用户独占),不依赖 Redis。
+
+> WebSocket 端点不纳入 OpenAPI 3.0 spec(协议不兼容),文档化在此处 + 各 plugin 的 JSDoc 注释。如需机器可读规范,建议使用 AsyncAPI。
+
 ---
 
 ## 4. 前端架构
