@@ -6603,7 +6603,17 @@
       "notifications": "通知",
       "orders": "の",
       "realname": "実名認証",
-      "subscription": "サブスクリプション"
+      "subscription": "サブスクリプション",
+      "learn-record": "学習記録",
+      "comment": "マイコメント",
+      "fans": "ファン",
+      "follow": "フォロー",
+      "ask": "マイQ&A",
+      "circle": "マイサークル",
+      "resource": "マイリソース",
+      "point": "マイポイント",
+      "exam": "マイ試験",
+      "sign-up": "マイ申込"
     },
     "profile": {
       "title": "プロフィール",
@@ -6813,6 +6823,66 @@
       "createFirst": "のをく",
       "empty": "まだがありません",
       "deleteSuccess": "しました"
+    },
+    "learn-record": {
+      "title": "学習記録",
+      "empty": "データがありません",
+      "loading": "読み込み中..."
+    },
+    "comment": {
+      "title": "マイコメント",
+      "empty": "データがありません",
+      "loading": "読み込み中..."
+    },
+    "fans": {
+      "title": "ファン",
+      "empty": "データがありません",
+      "loading": "読み込み中...",
+      "follow": "フォロー",
+      "followed": "フォロー中",
+      "followSuccess": "フォローしました"
+    },
+    "follow": {
+      "title": "フォロー",
+      "empty": "データがありません",
+      "loading": "読み込み中...",
+      "unfollow": "フォロー解除",
+      "unfollowSuccess": "フォローを解除しました"
+    },
+    "ask": {
+      "title": "マイQ&A",
+      "empty": "データがありません",
+      "loading": "読み込み中..."
+    },
+    "circle": {
+      "title": "マイサークル",
+      "empty": "データがありません",
+      "loading": "読み込み中..."
+    },
+    "resource": {
+      "title": "マイリソース",
+      "empty": "データがありません",
+      "loading": "読み込み中..."
+    },
+    "point": {
+      "title": "マイポイント",
+      "empty": "データがありません",
+      "loading": "読み込み中...",
+      "total": "合計ポイント",
+      "used": "使用済み",
+      "balance": "利用可能",
+      "records": "明細"
+    },
+    "exam": {
+      "title": "マイ試験",
+      "empty": "データがありません",
+      "loading": "読み込み中...",
+      "continue": "試験を続ける"
+    },
+    "sign-up": {
+      "title": "マイ申込",
+      "empty": "データがありません",
+      "loading": "読み込み中..."
     }
   },
   "settings": {
