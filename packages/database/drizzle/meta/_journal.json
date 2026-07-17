@@ -673,6 +673,13 @@
       "when": 1784267343776,
       "tag": "0095_p1_schema_batch1",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1784267600000,
+      "tag": "0096_clawdbot_agent_tasks",
+      "breakpoints": true
     }
   ]
 }
