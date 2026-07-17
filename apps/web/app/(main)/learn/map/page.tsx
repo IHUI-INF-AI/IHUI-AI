@@ -63,15 +63,15 @@ export default function LearnMapPage() {
 
       <Card>
         <CardContent className="flex items-center gap-4 p-5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <TrendingUp className="h-6 w-6 text-primary" />
           </div>
           <div className="flex-1">
             <div className="text-sm text-muted-foreground">总体进度</div>
             <div className="mt-1 flex items-center gap-3">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+              <div className="h-2 flex-1 overflow-hidden rounded bg-muted">
                 <div
-                  className="h-full rounded-full bg-primary transition-all"
+                  className="h-full rounded-md bg-primary transition-all"
                   style={{ width: `${Math.min(100, Math.max(0, totalProgress))}%` }}
                 />
               </div>
@@ -108,7 +108,7 @@ export default function LearnMapPage() {
                 <CardHeader className="flex flex-row items-start gap-3 p-4 pb-2">
                   <div
                     className={cn(
-                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
                       isCompleted
                         ? 'bg-emerald-500/10 text-emerald-600'
                         : isLocked
@@ -128,7 +128,7 @@ export default function LearnMapPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">第 {idx + 1} 阶段</span>
                       {isCompleted && (
-                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">
+                        <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">
                           已完成
                         </span>
                       )}
@@ -141,10 +141,10 @@ export default function LearnMapPage() {
                 </CardHeader>
                 <CardContent className="space-y-3 p-4 pt-2">
                   <div className="flex items-center gap-3">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded bg-muted">
                       <div
                         className={cn(
-                          'h-full rounded-full transition-all',
+                          'h-full rounded-md transition-all',
                           isCompleted ? 'bg-emerald-500' : 'bg-primary',
                         )}
                         style={{ width: `${Math.min(100, Math.max(0, node.progress))}%` }}

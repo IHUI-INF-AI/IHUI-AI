@@ -14,7 +14,14 @@ interface Props {
   onDelete: (u: MemberUser) => void
 }
 
-export function UserTable({ list, isLoading, patchPending, deletePending, onStatusToggle, onDelete }: Props) {
+export function UserTable({
+  list,
+  isLoading,
+  patchPending,
+  deletePending,
+  onStatusToggle,
+  onDelete,
+}: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -71,7 +78,7 @@ export function UserTable({ list, isLoading, patchPending, deletePending, onStat
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
                         isCancelled
                           ? 'bg-muted text-muted-foreground'
                           : isActive

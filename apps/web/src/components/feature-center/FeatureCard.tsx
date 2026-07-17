@@ -28,7 +28,7 @@ export function FeatureCard({ title, description, badge, footer, onClick }: Feat
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base">{title}</CardTitle>
           {badge && (
-            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
               {badge}
             </span>
           )}

@@ -23,7 +23,7 @@ export default function RechargeFail() {
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="pt-[120rpx] pb-[80rpx] text-center">
-        <View className="w-[160rpx] h-[160rpx] leading-[160rpx] mx-auto rounded-full text-[80rpx] text-white bg-[#dd524d]">
+        <View className="w-[160rpx] h-[160rpx] leading-[160rpx] mx-auto rounded-md text-[80rpx] text-white bg-[#dd524d]">
           ×
         </View>
         <Text className="block text-[36rpx] text-[#333] font-semibold mt-[32rpx]">

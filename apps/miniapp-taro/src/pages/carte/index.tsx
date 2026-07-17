@@ -66,12 +66,12 @@ export default function CartePage() {
         <View className="flex justify-center mb-4">
           {info.avatar ? (
             <Image
-              className="w-20 h-20 rounded-full border-2 border-white/30"
+              className="w-20 h-20 rounded-2xl border-2 border-white/30"
               src={info.avatar}
               mode="aspectFill"
             />
           ) : (
-            <View className="flex items-center justify-center w-20 h-20 rounded-full bg-white/20">
+            <View className="flex items-center justify-center w-20 h-20 rounded-2xl bg-white/20">
               <Text className="text-2xl font-medium">{displayName.charAt(0)}</Text>
             </View>
           )}

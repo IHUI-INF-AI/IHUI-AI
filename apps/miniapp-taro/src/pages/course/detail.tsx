@@ -143,19 +143,19 @@ export default function CourseDetail() {
           <Text className="text-xs text-gray-500 mt-2">{t('course.learningProgress')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowNote(true)}>
-          <View className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center">
+          <View className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center">
             <Text className="text-xl">📝</Text>
           </View>
           <Text className="text-xs text-gray-500 mt-2">{t('course.note')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowRating(true)}>
-          <View className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center">
+          <View className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center">
             <Text className="text-xl">⭐</Text>
           </View>
           <Text className="text-xs text-gray-500 mt-2">{t('course.rating')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowShare(true)}>
-          <View className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center">
+          <View className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center">
             <Text className="text-xl">📤</Text>
           </View>
           <Text className="text-xs text-gray-500 mt-2">{t('course.share')}</Text>
@@ -229,7 +229,7 @@ export default function CourseDetail() {
           <Text className="text-2xl text-[#dd524d] font-bold">{course.price ?? 0}</Text>
         </View>
         <View
-          className="px-7 h-10 leading-10 bg-[#07c160] text-white rounded-full text-sm"
+          className="px-7 h-10 leading-10 bg-[#07c160] text-white rounded-lg text-sm"
           onClick={handleBuy}
         >
           <Text>{t('course.buyNow')}</Text>

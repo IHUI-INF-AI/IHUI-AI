@@ -129,7 +129,7 @@ export default function EduCoursesPage() {
                   <p className="line-clamp-1 font-medium">{c.title}</p>
                   <span
                     className={cn(
-                      'shrink-0 rounded-full px-2 py-0.5 text-xs',
+                      'shrink-0 rounded-md px-2 py-0.5 text-xs',
                       STATUS_STYLE[c.status] ?? STATUS_STYLE.draft,
                     )}
                   >
@@ -141,9 +141,9 @@ export default function EduCoursesPage() {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">{c.instructor}</p>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div className="h-1.5 overflow-hidden rounded bg-muted">
                   <div
-                    className="h-full rounded-full bg-primary transition-all"
+                    className="h-full rounded-md bg-primary transition-all"
                     style={{ width: `${c.progress}%` }}
                   />
                 </div>

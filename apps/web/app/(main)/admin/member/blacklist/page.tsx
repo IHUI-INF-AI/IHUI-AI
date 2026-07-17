@@ -142,7 +142,7 @@ export default function AdminMemberBlacklistPage() {
                   <TableCell>
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
                         b.status === 'active'
                           ? 'bg-red-500/10 text-red-600'
                           : 'bg-muted text-muted-foreground',

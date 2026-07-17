@@ -69,7 +69,7 @@ export default function AnnouncementsPage() {
                       <div className="flex items-center gap-2">
                         <span
                           className={cn(
-                            'rounded-full px-2 py-0.5 text-xs font-medium',
+                            'rounded-md px-2 py-0.5 text-xs font-medium',
                             ANN_TYPE_BADGE[a.type],
                           )}
                         >

@@ -125,7 +125,7 @@ export default function SubscriptionPage() {
           {isVip ? (
             <Card className="border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-950/20">
               <CardContent className="flex items-center gap-4 p-6">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
                   <Crown className="h-6 w-6 text-emerald-600 dark:text-emerald-500" />
                 </div>
                 <div className="space-y-1">
@@ -159,7 +159,7 @@ export default function SubscriptionPage() {
           ) : (
             <Card className="border-muted">
               <CardContent className="flex items-center gap-4 p-6">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted">
                   <Crown className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div className="space-y-1">

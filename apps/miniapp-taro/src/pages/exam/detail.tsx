@@ -69,7 +69,7 @@ export default function ExamDetail() {
 
       {exam.title && (
         <Button
-          className="fixed bottom-4 left-4 right-4 bg-[#07c160] text-white rounded-full text-base"
+          className="fixed bottom-4 left-4 right-4 bg-[#07c160] text-white rounded-md text-base"
           onClick={onStart}
         >
           {t('exam.detail.start')}

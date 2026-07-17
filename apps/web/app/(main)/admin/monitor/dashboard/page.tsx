@@ -152,10 +152,10 @@ export default function AdminMonitorDashboardPage() {
                     {c.unit}
                   </div>
                   {!c.raw && c.max > 0 && (
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-muted">
                       <div
                         className={cn(
-                          'h-full rounded-full',
+                          'h-full rounded-md',
                           c.value > 90
                             ? 'bg-red-500'
                             : c.value > 70

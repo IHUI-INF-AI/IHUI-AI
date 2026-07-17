@@ -152,10 +152,10 @@ export default function BackendHealthPage() {
                 <div key={s.name} className="rounded-md border p-3">
                   <div className="text-xs text-muted-foreground">{s.name}</div>
                   <div className="mt-1 text-xl font-bold">{s.latency}ms</div>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-muted">
                     <div
                       className={cn(
-                        'h-full rounded-full',
+                        'h-full rounded-md',
                         s.latency < 100
                           ? 'bg-emerald-500'
                           : s.latency < 500
@@ -197,7 +197,7 @@ export default function BackendHealthPage() {
                     <td className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                           e.level === 'error'
                             ? 'bg-red-500/10 text-red-600'
                             : e.level === 'warning'
