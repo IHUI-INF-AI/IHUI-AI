@@ -18,6 +18,7 @@ import {
   type AgentPermission,
 } from '@ihui/api-client'
 import { useI18n } from '../i18n'
+import { AgentRuntimePanel } from '../components/AgentRuntimePanel'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Agent'>
@@ -41,6 +42,7 @@ export function AgentScreen(_: Props) {
   const [detail, setDetail] = useState<Agent | null>(null)
   const [permission, setPermission] = useState<AgentPermission | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'detail' | 'runtime'>('detail')
 
   useEffect(() => {
     let cancelled = false
@@ -63,12 +65,14 @@ export function AgentScreen(_: Props) {
     if (!selectedId) {
       setDetail(null)
       setPermission(null)
+      setActiveTab('detail')
       return
     }
     let cancelled = false
     setDetailLoading(true)
     setDetail(null)
     setPermission(null)
+    setActiveTab('detail')
     Promise.all([getAgentDetail(selectedId), getAgentPermission(selectedId)])
       .then(([d, p]) => {
         if (cancelled) return
@@ -94,45 +98,85 @@ export function AgentScreen(_: Props) {
             {detail?.name || ''}
           </Text>
         </View>
+        {!detailLoading && detail ? (
+          <View className="flex-row border-b border-gray-100 px-4">
+            <Pressable
+              onPress={() => setActiveTab('detail')}
+              className="mr-4 py-2"
+              accessibilityRole="tab"
+            >
+              <Text
+                className={
+                  activeTab === 'detail'
+                    ? 'text-sm font-semibold text-gray-900'
+                    : 'text-sm text-gray-500'
+                }
+              >
+                {t('agent.tabDetail')}
+              </Text>
+              {activeTab === 'detail' ? <View className="mt-1 h-0.5 bg-gray-900" /> : null}
+            </Pressable>
+            <Pressable
+              onPress={() => setActiveTab('runtime')}
+              className="py-2"
+              accessibilityRole="tab"
+            >
+              <Text
+                className={
+                  activeTab === 'runtime'
+                    ? 'text-sm font-semibold text-gray-900'
+                    : 'text-sm text-gray-500'
+                }
+              >
+                {t('agent.tabRuntime')}
+              </Text>
+              {activeTab === 'runtime' ? <View className="mt-1 h-0.5 bg-gray-900" /> : null}
+            </Pressable>
+          </View>
+        ) : null}
         {detailLoading ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator />
           </View>
         ) : detail ? (
-          <View className="flex-1 px-4 py-4">
-            <View className="flex-row items-center">
-              {detail.avatar ? (
-                <Image
-                  source={{ uri: detail.avatar }}
-                  className="h-14 w-14 rounded-lg bg-gray-100"
-                  resizeMode="cover"
-                />
-              ) : (
-                <View className="h-14 w-14 items-center justify-center rounded-lg bg-gray-100">
-                  <Text className="text-xl font-semibold text-gray-700">
-                    {getInitial(detail.name)}
+          activeTab === 'runtime' ? (
+            <AgentRuntimePanel />
+          ) : (
+            <View className="flex-1 px-4 py-4">
+              <View className="flex-row items-center">
+                {detail.avatar ? (
+                  <Image
+                    source={{ uri: detail.avatar }}
+                    className="h-14 w-14 rounded-lg bg-gray-100"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View className="h-14 w-14 items-center justify-center rounded-lg bg-gray-100">
+                    <Text className="text-xl font-semibold text-gray-700">
+                      {getInitial(detail.name)}
+                    </Text>
+                  </View>
+                )}
+                <View className="ml-3 flex-1">
+                  <View className="flex-row items-center gap-2">
+                    <Text className="flex-1 text-lg font-semibold text-gray-900" numberOfLines={1}>
+                      {detail.name}
+                    </Text>
+                    {detail.isVipExclusive ? <VipBadge /> : null}
+                  </View>
+                  <Text className="mt-1 text-xs text-gray-500">
+                    {`使用 ${detail.useCount} · 评分 ${detail.rating.toFixed(1)}`}
                   </Text>
                 </View>
-              )}
-              <View className="ml-3 flex-1">
-                <View className="flex-row items-center gap-2">
-                  <Text className="flex-1 text-lg font-semibold text-gray-900" numberOfLines={1}>
-                    {detail.name}
-                  </Text>
-                  {detail.isVipExclusive ? <VipBadge /> : null}
-                </View>
-                <Text className="mt-1 text-xs text-gray-500">
-                  {`使用 ${detail.useCount} · 评分 ${detail.rating.toFixed(1)}`}
+              </View>
+              <Text className="mt-4 text-sm text-gray-700">{detail.description}</Text>
+              <View className="mt-4 rounded-lg bg-gray-50 px-3 py-2">
+                <Text className="text-sm text-gray-700">
+                  {`权限: ${permissionLabel(permission)}`}
                 </Text>
               </View>
             </View>
-            <Text className="mt-4 text-sm text-gray-700">{detail.description}</Text>
-            <View className="mt-4 rounded-lg bg-gray-50 px-3 py-2">
-              <Text className="text-sm text-gray-700">
-                {`权限: ${permissionLabel(permission)}`}
-              </Text>
-            </View>
-          </View>
+          )
         ) : null}
       </View>
     )
