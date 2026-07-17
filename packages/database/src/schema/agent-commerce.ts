@@ -45,7 +45,13 @@ export const zhsAgentWithdrawalDetail = pgTable(
       .notNull(),
     agentId: uuid('agent_id'),
     amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
-    status: varchar('status', { length: 32 }).default('pending').notNull(), // pending/completed/rejected
+    status: varchar('status', { length: 32 }).default('pending').notNull(), // pending/approved/processing/completed/rejected/failed
+    type: integer('type'), // 提现方式: 1=微信 2=支付宝 3=其他
+    outBillNo: varchar('out_bill_no', { length: 255 }), // 提现订单号
+    orderIds: text('order_ids'), // 关联的结算记录 ID,逗号分隔
+    reviewer: uuid('reviewer'), // 审核人 ID
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }), // 审核时间
+    initiateAt: timestamp('initiate_at', { withTimezone: true }), // 发起时间
     bankInfo: text('bank_info'),
     rejectReason: text('reject_reason'),
     processedAt: timestamp('processed_at', { withTimezone: true }),
@@ -55,6 +61,7 @@ export const zhsAgentWithdrawalDetail = pgTable(
   (t) => ({
     userIdx: index('zhs_agent_withdrawal_user_idx').on(t.userId),
     statusIdx: index('zhs_agent_withdrawal_status_idx').on(t.status),
+    outBillNoIdx: index('zhs_agent_withdrawal_out_bill_no_idx').on(t.outBillNo),
   }),
 )
 
