@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type LoginDialogMode = 'login' | 'register'
+export type LoginDialogMode = 'login' | 'register' | 'forgot'
 
 interface LoginDialogState {
   isOpen: boolean
