@@ -4708,6 +4708,39 @@ packages/api-client/
   - **\*\*累计整合****:第一次审计 5 项 P0(Skills/Memory/Codegraph/Hunks/85% 压缩)+ 第二次审计 5 项深化(并行/Cost guard/摘要/限流/重试)= IHUI-AI cli 从 47 项能力 → 57 项能力,Agent 执行层 + 安全治理层双重
   - **\*\*comm***`b0e38f4b`(P36 主体)+`1f3b8f9d``(自动后续整理,误把 P36 文件 squash 进 docs commit,本条目补写以纠正记录缺
 
+- [x] ✅(2026-07-18) cli 第十四轮迁移:多端同步 — 共享层类型 + API 5 mode + Session DB + AI-Service Persona registry(5 subagent 并行,149 新测试)
+  - **审计来源**:第十三轮后用户反馈"不能光想着 CLI 端,其他所有端应该同步能力"。派发 2 个并行 search subagent 深度审计 API/AI-Service/Web/Desktop/Extension/Mobile/Miniapp 八端 Agent 能力,识别 cli 9 项能力中哪些是"平台独占(豁免)"vs"功能层必须同步"vs"呈现层特化"
+  - **审计结论**:
+    - **平台独占(豁免)**:危险命令/readonly/Subagent worktree/Plugins/Hooks(全端)— CLI 本地特有,无需同步
+    - **功能层必须同步**:Permission 5 mode / PlanMode 状态机 / Skills frontmatter / Sessions 持久化 / Personas contracts
+    - **呈现层特化**(留作后续):Web/Desktop/Mobile UI
+  - **5 项同步任务并行完成**(5 subagent 并行,文件路径无冲突):
+    - **Subagent A:共享层类型补全** — 新建 `packages/types/src/agent-runtime.ts`(190 行,24 个类型:PermissionMode/PlanState/HookEvent/PersonaContract/SessionState/SubagentPersona/SkillFrontmatter 等),修改 `packages/types/src/index.ts` re-export。typecheck/lint/test(13)全绿。从 CLI 抽取,供 API/AI-Service/Web 多端复用
+    - **Subagent B:api-client 暴露 Agent 端点** — 新建 `packages/api-client/src/endpoints/agent-runtime.ts`(501 行,20 个函数:executeAgent/executeAgentStream(SSE)/getAgentStatus/cancelAgent/listAgentSessions/resumeAgentSession/sendA2ATask/listMCPTools/callMCPTool/listSkills/executeSkill 等),修改 `packages/api-client/src/index.ts` re-export。typecheck/lint 全绿。打通前端调用 AI-Service Agent 执行能力链路
+    - **Subagent C:API PermissionGuard 5 mode** — 修改 `apps/api/src/services/clawdbot/permission-guard.ts`(新增 PermissionMode 5 种 + PermissionDecision 3 种 + checkPermissionMode 决策矩阵 + parsePermissionMode,保留现有 RBAC 向后兼容)。**35 测试** `apps/api/tests/permission-mode.test.ts`。typecheck/lint/test 全绿
+    - **Subagent D:API SessionManager 对接 DB** — 修改 `apps/api/src/services/clawdbot/session-manager.ts`(in-memory Map → DB 持久化 clawdbot_sessions 表,新增 7 个 async DB 方法 + 状态映射函数 + in-memory 降级机制)。**42 测试** `apps/api/tests/session-manager.test.ts`。typecheck/lint/test 全绿
+    - **Subagent E:AI-Service Persona registry** — 新建 `apps/ai-service/app/services/persona_registry.py`(5 persona contracts 与 CLI 完全对齐)+ `apps/ai-service/app/routers/personas.py`(3 端点:GET /personas + /personas/{name} + /personas/{name}/contract)+ `apps/ai-service/tests/test_persona_registry.py`。**72 测试**,pytest/ruff 全绿
+  - **全量验证**:`pnpm turbo typecheck lint test` = 48/48 tasks 全绿;API 3551/3551 tests passed;CLI 972/972(第十三轮基线);新增 149 测试(35+42+72)
+  - **未同步(平台独占,豁免)**:危险命令列表/readonly 自动批准/Subagent worktree/Plugins/Skills frontmatter 扫描/Hooks 全端 — CLI 本地特有,无需跨端
+  - **未同步(呈现层特化,留作 P2 后续)**:Web/Desktop/Mobile UI — 需先完成 API 端集成(Permission 5 mode 接入路由 / SessionManager 接入路由 / personas router 注册到 main.py)才能让前端调用,属依赖链串行任务
+  - **累计整合**:cli 32 类 → CLI 68 项(第十三轮)+ 多端同步 5 项(共享层 + API + AI-Service),Agent 能力从"CLI 单端"扩展到"共享层 + API + AI-Service 三层",前端各端可通过 @ihui/types + @ihui/api-client 调用
+
+- [x] ✅(2026-07-18) P1 微信配置复用 + VIP 支付链路测试补齐 + 全链路实测(完整收尾)
+  - **历史配置定位**:在 `D:\历史项目存档\ljd-交接文件\ZHS_Server_java\src\main\resources\application.yml` L77-110 找到完整微信支付+小程序配置(appid=wx27028e276ffdbc5d / secret / mchid=1714645682 / v3Key / 证书序列号 / notify URL)
+  - **配置复用策略**:11 项 WX_* 配置写入 `g:\IHUI-AI\.env`(在 .gitignore 中,不会泄露)。**私钥留空**(本地无 apiclient_key.pem 证书文件)→ `isWechatPayConfigured()` 返回 false,支付端点走 mock 模式(不阻塞订单创建);`isWechatMiniConfigured()` 返回 true,openId 链路激活
+  - **notify URL 适配**:历史 `https://bsm.aizhs.top/prod-api/ai/fund/notify` → 当前后端路由 `https://bsm.aizhs.top/prod-api/api/payments/wechat/notify`(对齐 payment-gateway.ts 的 `/payments/wechat/notify` + `/api` 前缀)
+  - **VIP 测试用例补齐**:在 `apps/api/tests/vip-auth-routes.real.test.ts` 追加 14 个新测试用例(原 26 个,合计 40 个,全部通过):
+    - POST /api/vip/order — 9 个用例:未登录 401 / 缺 vipLevelId 400 / 不存在 404 / status=0 404 / 成功创建+payInfo.mock=true / quantity=2 时 amount=price*2 / paymentMethod=wechat_native→method=native / resolveOpenId 无绑定不阻塞 / 显式 openId 仍走 mock
+    - GET /api/vip/order/:orderNo/payinfo — 5 个用例:未登录 401 / 订单不存在 404 / 归属人 403 / paid 订单返回 {status:paid} / pending 订单重新预下单返回 payInfo / cancelled 订单返回 {status:cancelled}
+  - **测试环境 DB schema 修复**:发现 `ihui_test.users` 表缺少 `dept_id` 列(0075_users_dept_id.sql 迁移未应用),所有 40 个测试因 `关系 "users" 的 "dept_id" 字段不存在` 全部失败。手动执行 `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "dept_id" integer REFERENCES "sys_dept"("dept_id") ON DELETE SET NULL` + `CREATE INDEX users_dept_id_idx`,测试从 36 failed → 40 passed
+  - **全链路实测**:三端全链路启动验证 — web 3000 (PID 19816) + api 3001 (PID 27096) + ai-service 8000 (PID 30108)
+    - API 端:`GET /api/health` 200 + `GET /api/vip/levels` 200(返回月度会员 ¥39.90 等 4 个等级)
+    - AI-Service 端:`GET /health` 200 `{"status":"ok","service":"ihui-ai-service"}`
+    - Web 端:`GET /vip` 200 (685KB,页面完整渲染)
+    - 浏览器实测 PASS:VIP 页面主标题"VIP 会员" + 副标题"选择适合您的方案,解锁更多权益" + 4 个"立即订阅"按钮 + 权益列表(unlimitedChat/exclusiveModel/prioritySupport/referral/lifetime)完整渲染,控制台无业务错误,/api/vip/levels 网络请求 200
+  - **测试验证**:`pnpm --filter @ihui/api test:real vip-auth-routes.real` 40/40 passed,Duration 5.34s
+  - **后续工作**:生产部署时把 `apiclient_key.pem` 放到 `/ai_zhs/cert/` 路径(历史 Linux 部署路径),或填入 `WX_PAY_PRIVATE_KEY` 字段(PEM 内容),即可激活真实微信支付链路(替换 mock 模式)
+
 ---
 
 ## P2 — 已知技术
