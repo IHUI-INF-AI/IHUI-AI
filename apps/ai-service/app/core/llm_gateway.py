@@ -192,6 +192,74 @@ def trim_messages(
     return system_msgs + trimmed_turns
 
 
+_VALID_ROLES = {"system", "user", "assistant"}
+
+
+def repair_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int, list[str]]:
+    """修复 messages 数组结构异常(P38 跨端同步,与 @ihui/types/message-repair 同源)。
+
+    防御性兜底:在 trim_messages 之前调用,处理来自 API 的 messages 数组结构异常,
+    避免 LLM 400 错误。注意:本函数过滤 tool role(tool role 只在 agent_loop 内部用,
+    不应出现在 API 入口)。
+
+    修复规则:
+      1. 过滤非法 role(只保留 system/user/assistant)
+      2. 过滤空 content(空字符串/纯空白)
+      3. 去重连续相同 role(合并 content,用 \\n\\n 连接)
+      4. 确保首条是 system 或 user(丢弃开头的 assistant)
+      5. 移除末尾无响应的 user 消息(前面有 assistant 响应时才移除,首轮 user 保留)
+
+    Returns:
+        (repaired, removed, reasons) 三元组。
+    """
+    reasons: list[str] = []
+    removed = 0
+
+    # Rule 1+2:过滤非法 role + 空 content
+    cleaned: list[dict[str, Any]] = []
+    for m in messages:
+        if not isinstance(m, dict):
+            removed += 1
+            continue
+        role = m.get("role")
+        if role not in _VALID_ROLES:
+            reasons.append(f"移除非法 role: {role}")
+            removed += 1
+            continue
+        content = m.get("content")
+        if not isinstance(content, str) or content.strip() == "":
+            reasons.append(f"移除空 content(role={role})")
+            removed += 1
+            continue
+        cleaned.append(dict(m))
+
+    # Rule 3:去重连续相同 role(合并 content)
+    deduped: list[dict[str, Any]] = []
+    for m in cleaned:
+        if deduped and deduped[-1].get("role") == m.get("role"):
+            reasons.append(f"合并连续 {m.get('role')} 消息")
+            deduped[-1]["content"] = f"{deduped[-1].get('content', '')}\n\n{m.get('content', '')}"
+        else:
+            deduped.append(m)
+    cleaned = deduped
+
+    # Rule 4:确保首条是 system 或 user(丢弃开头的 assistant)
+    while cleaned and cleaned[0].get("role") == "assistant":
+        reasons.append("移除开头的 assistant 消息(无前置 user)")
+        cleaned.pop(0)
+        removed += 1
+
+    # Rule 5:移除末尾无响应的 user 消息(前面有 assistant 响应时才移除,首轮 user 保留)
+    if cleaned and cleaned[-1].get("role") == "user":
+        has_assistant = any(m.get("role") == "assistant" for m in cleaned)
+        if has_assistant:
+            reasons.append("移除末尾无 assistant 响应的 user 消息(可能是 interjection 残留)")
+            cleaned.pop()
+            removed += 1
+
+    return cleaned, removed, reasons
+
+
 
 class LLMGateway:
     """LLM 调用网关,封装 LiteLLM 并提供 stub 降级。"""
@@ -311,7 +379,11 @@ class LLMGateway:
             包含 content/model/usage/stub 字段的字典。
         """
         used_model = model or settings.litellm_model
-        trimmed_messages = trim_messages(messages)
+        # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
+        repaired_messages, repair_removed, _ = repair_messages(messages)
+        if repair_removed > 0:
+            logger.info("repair_messages 修复 %d 条异常消息", repair_removed)
+        trimmed_messages = trim_messages(repaired_messages)
 
         # 厂商原生适配器(可选增强):当请求含 tools(function calling)时,
         # 优先用厂商原生 API 以保留格式差异(Anthropic tool_use / Gemini functionDeclarations 等),
@@ -412,7 +484,11 @@ class LLMGateway:
             - {"type": "error", "message": ...}
         """
         used_model = model or settings.litellm_model
-        trimmed_messages = trim_messages(messages)
+        # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
+        repaired_messages, repair_removed, _ = repair_messages(messages)
+        if repair_removed > 0:
+            logger.info("repair_messages 修复 %d 条异常消息(astream)", repair_removed)
+        trimmed_messages = trim_messages(repaired_messages)
 
         # 厂商原生适配器(可选增强):tools 存在时优先用厂商原生流式 API。
         # 流式场景不支持中途 fallback(已发送的 chunk 不可撤回),适配器内部自行处理错误。

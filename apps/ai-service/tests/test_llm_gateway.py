@@ -792,3 +792,109 @@ async def test_complete_real_mode_api_key_missing_returns_error(monkeypatch):
     assert result["error"] is True
     assert "API key" in result["error_message"] or "未配置" in result["error_message"]
     assert result["content"] == ""
+
+
+# =============================================================================
+# repair_messages — P38 跨端同步(messages 数组结构修复)
+# =============================================================================
+
+
+from app.core.llm_gateway import repair_messages
+
+
+def test_repair_messages_filters_invalid_roles():
+    """Rule 1:过滤非法 role(只保留 system/user/assistant)"""
+    msgs = [
+        {"role": "system", "content": "sys"},
+        {"role": "tool", "content": "tool result"},
+        {"role": "function", "content": "fn result"},
+        {"role": "user", "content": "hi"},
+    ]
+    repaired, removed, reasons = repair_messages(msgs)
+    assert len(repaired) == 2
+    assert removed == 2
+    assert any("非法 role" in r for r in reasons)
+
+
+def test_repair_messages_filters_empty_content():
+    """Rule 2:过滤空 content"""
+    msgs = [
+        {"role": "user", "content": ""},
+        {"role": "assistant", "content": "a"},
+    ]
+    repaired, removed, reasons = repair_messages(msgs)
+    # user 被 Rule 2 移除,assistant 被 Rule 4 移除(开头 assistant)
+    assert removed >= 1
+    assert all(m.get("content", "").strip() for m in repaired)
+
+
+def test_repair_messages_dedupes_consecutive_same_role():
+    """Rule 3:合并连续相同 role"""
+    msgs = [
+        {"role": "user", "content": "q1"},
+        {"role": "user", "content": "q2"},
+        {"role": "assistant", "content": "a"},
+    ]
+    repaired, removed, reasons = repair_messages(msgs)
+    assert len(repaired) == 2
+    assert repaired[0]["content"] == "q1\n\nq2"
+
+
+def test_repair_messages_removes_leading_assistant():
+    """Rule 4:丢弃开头的 assistant"""
+    msgs = [
+        {"role": "assistant", "content": "stale"},
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": "a"},
+    ]
+    repaired, removed, reasons = repair_messages(msgs)
+    assert len(repaired) == 2
+    assert repaired[0]["role"] == "user"
+    assert removed == 1
+
+
+def test_repair_messages_removes_trailing_user_with_assistant():
+    """Rule 5:移除末尾无响应的 user(前面有 assistant)"""
+    msgs = [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": "a"},
+        {"role": "user", "content": "interjection"},
+    ]
+    repaired, removed, reasons = repair_messages(msgs)
+    assert len(repaired) == 2
+    assert repaired[-1]["role"] == "assistant"
+    assert removed == 1
+
+
+def test_repair_messages_preserves_first_user_without_assistant():
+    """Rule 5:首轮 user(无 assistant)保留"""
+    msgs = [{"role": "user", "content": "q"}]
+    repaired, removed, reasons = repair_messages(msgs)
+    assert len(repaired) == 1
+    assert removed == 0
+
+
+def test_repair_messages_complex_mix():
+    """复杂混合损坏:多条规则同时触发"""
+    msgs = [
+        {"role": "assistant", "content": "stale"},
+        {"role": "tool", "content": "residue"},
+        {"role": "user", "content": "q1"},
+        {"role": "user", "content": "q2"},
+        {"role": "assistant", "content": "a1"},
+        {"role": "assistant", "content": "a2"},
+        {"role": "user", "content": "interjection"},
+    ]
+    repaired, removed, reasons = repair_messages(msgs)
+    assert removed >= 3
+    assert repaired[0]["role"] == "user"
+    assert repaired[0]["content"] == "q1\n\nq2"
+    assert repaired[1]["content"] == "a1\n\na2"
+    assert len(repaired) == 2
+
+
+def test_repair_messages_empty_input():
+    """空列表返回空"""
+    repaired, removed, reasons = repair_messages([])
+    assert repaired == []
+    assert removed == 0
