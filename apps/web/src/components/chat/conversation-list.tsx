@@ -86,8 +86,13 @@ export function ConversationList({ items }: { items: Conversation[] }) {
     ])
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const res = await fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
+      if (!res.success) throw new Error(res.error)
+      return res
+    },
     onSuccess: () => invalidateAll(),
   })
 
