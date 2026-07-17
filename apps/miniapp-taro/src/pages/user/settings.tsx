@@ -1,29 +1,33 @@
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-
-const menus = [
-  { label: '账号绑定', path: '/pages/user/phone' },
-  { label: '修改密码', path: '/pages/user/password' },
-  { label: '实名认证', path: '/pages/user/realname' },
-  { label: '邮箱绑定', path: '/pages/user/email' },
-  { label: '意见反馈', path: '/pages/user/feedback' },
-  { label: '关于我们', path: '/pages/about/index' },
-  { label: '清除缓存', path: '/pages/setting/cache' },
-]
+import { useI18n } from '../../i18n'
 
 export default function Settings() {
+  const { t } = useI18n()
+
+  const menus = [
+    { label: t('setting.accountBinding'), path: '/pages/user/phone' },
+    { label: t('setting.changePassword'), path: '/pages/user/password' },
+    { label: t('setting.realNameAuth'), path: '/pages/user/realname' },
+    { label: t('setting.emailBinding'), path: '/pages/user/email' },
+    { label: t('setting.feedback'), path: '/pages/user/feedback' },
+    { label: t('setting.language'), path: '/pages/setting/language' },
+    { label: t('setting.aboutUs'), path: '/pages/about/index' },
+    { label: t('setting.clearCache'), path: '/pages/setting/cache' },
+  ]
+
   function navigate(url: string) {
     Taro.navigateTo({ url })
   }
 
   function handleLogout() {
     Taro.showModal({
-      title: '提示',
-      content: '确定退出登录吗？',
+      title: t('common.hint'),
+      content: t('setting.logoutConfirm'),
       success: (res) => {
         if (res.confirm) {
           Taro.clearStorageSync()
-          Taro.showToast({ title: '已退出登录', icon: 'success' })
+          Taro.showToast({ title: t('user.loggedOut'), icon: 'success' })
           setTimeout(() => {
             Taro.reLaunch({ url: '/pages/login/login' })
           }, 1000)
@@ -52,7 +56,7 @@ export default function Settings() {
         className="mx-[12px] mt-[30px] h-[48px] leading-[48px] text-center bg-white rounded-[24px] text-[#dd524d] text-[15px]"
         onClick={handleLogout}
       >
-        <Text>退出登录</Text>
+        <Text>{t('user.logout')}</Text>
       </View>
     </View>
   )

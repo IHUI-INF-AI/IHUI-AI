@@ -16,6 +16,6 @@ export default defineBackground(() => {
     })
 
   chrome.runtime.onInstalled.addListener(() => {
-    console.log('[IHUI AI] 扩展已安装')
+    console.info('[IHUI AI] 扩展已安装')
   })
 })

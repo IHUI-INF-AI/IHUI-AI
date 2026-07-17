@@ -29,12 +29,12 @@ export default function SettingsPage() {
   }
 
   const onClearCache = () => {
-    if (!confirm('确定清空本地缓存吗?')) return
+    if (!confirm(t('setting.clearCacheConfirm'))) return
     try {
       localStorage.clear()
-      alert('已清空')
+      alert(t('setting.cacheCleared'))
     } catch {
-      alert('清空失败')
+      alert(t('setting.clearCacheFailed'))
     }
   }
 
@@ -67,22 +67,22 @@ export default function SettingsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>外观</CardTitle>
+            <CardTitle>{t('setting.appearance')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="setting-row">
-              <span>深色模式</span>
+              <span>{t('setting.darkMode')}</span>
               <Switch checked={dark} onCheckedChange={onToggleTheme} />
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>数据</CardTitle>
+            <CardTitle>{t('setting.data')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="setting-row">
-              <span>清空本地缓存</span>
+              <span>{t('setting.clearCache')}</span>
               <button type="button" onClick={onClearCache}>
                 {t('common.delete')}
               </button>
@@ -91,7 +91,7 @@ export default function SettingsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>账户</CardTitle>
+            <CardTitle>{t('setting.account')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="setting-row">
@@ -111,11 +111,11 @@ export default function SettingsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>关于</CardTitle>
+            <CardTitle>{t('setting.about')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="about">
-              <p>IHUI AI 桌面端</p>
+              <p>{t('setting.desktopApp')}</p>
               <p className="muted">Tauri 2 + React + @ihui/ui + @ihui/api-client</p>
             </div>
           </CardContent>
