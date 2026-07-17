@@ -1,0 +1,38 @@
+export default {
+  common: {
+    save: '保存',
+    cancel: '取消',
+    confirm: '确认',
+    delete: '删除',
+    edit: '编辑',
+    back: '返回',
+    search: '搜索',
+    submit: '提交',
+    loading: '加载中...',
+    empty: '暂无数据',
+    success: '操作成功',
+    failed: '操作失败',
+    networkError: '网络错误',
+  },
+  nav: {
+    home: '首页',
+    chat: 'AI 对话',
+    courses: '课程',
+    orders: '订单',
+    settings: '设置',
+    profile: '个人中心',
+    wallet: '钱包',
+  },
+  auth: {
+    login: '登录',
+    logout: '退出登录',
+  },
+  setting: {
+    language: '语言',
+    zhCN: '简体中文',
+    en: 'English',
+    ja: '日本語',
+    ko: '한국어',
+    zhTW: '繁體中文',
+  },
+}

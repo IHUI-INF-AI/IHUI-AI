@@ -1,0 +1,38 @@
+export default {
+  common: {
+    save: '儲存',
+    cancel: '取消',
+    confirm: '確認',
+    delete: '刪除',
+    edit: '編輯',
+    back: '返回',
+    search: '搜尋',
+    submit: '提交',
+    loading: '載入中...',
+    empty: '暫無資料',
+    success: '操作成功',
+    failed: '操作失敗',
+    networkError: '網路錯誤',
+  },
+  nav: {
+    home: '首頁',
+    chat: 'AI 對話',
+    courses: '課程',
+    orders: '訂單',
+    settings: '設定',
+    profile: '個人中心',
+    wallet: '錢包',
+  },
+  auth: {
+    login: '登入',
+    logout: '登出',
+  },
+  setting: {
+    language: '語言',
+    zhCN: '簡體中文',
+    en: 'English',
+    ja: '日本語',
+    ko: '韓文',
+    zhTW: '繁體中文',
+  },
+}

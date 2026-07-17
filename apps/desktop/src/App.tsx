@@ -4,6 +4,7 @@ import { getProfile, type AuthUser } from '@ihui/api-client'
 import { initApi, getToken } from './lib/token'
 import { useNotificationWebSocket } from './hooks/use-websocket'
 import { NotificationProvider, useNotificationStore } from './stores/notification'
+import { I18nProvider, useI18n } from './i18n'
 import Layout from './components/Layout'
 import NotificationPanel from './components/NotificationPanel'
 import LoginPage from './pages/LoginPage'
@@ -21,6 +22,7 @@ function AppInner() {
   const token = getToken()
   const { connected: wsConnected, lastMessage } = useNotificationWebSocket(token || null)
   const { addFromWs } = useNotificationStore()
+  const { t } = useI18n()
 
   useEffect(() => {
     initApi()
@@ -45,7 +47,7 @@ function AppInner() {
   }, [lastMessage, addFromWs])
 
   if (!ready) {
-    return <div className="app-loading">加载中...</div>
+    return <div className="app-loading">{t('common.loading')}</div>
   }
 
   if (!token) {
@@ -81,9 +83,11 @@ function AppInner() {
 
 export default function App() {
   return (
-    <NotificationProvider>
-      <AppInner />
-    </NotificationProvider>
+    <I18nProvider>
+      <NotificationProvider>
+        <AppInner />
+      </NotificationProvider>
+    </I18nProvider>
   )
 }
 
