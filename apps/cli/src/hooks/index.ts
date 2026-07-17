@@ -53,11 +53,37 @@ export interface HookEntry {
   timeout?: number;
 }
 
+export type HookEvent =
+  | 'preToolCall'
+  | 'postToolCall'
+  | 'sessionStart'
+  | 'sessionEnd'
+  | 'userPromptSubmit'
+  | 'preCompact'
+  | 'postCompact'
+  | 'notification'
+  | 'stop'
+  | 'stopFailure'
+  | 'postToolUseFailure'
+  | 'permissionDenied'
+  | 'subagentStart'
+  | 'subagentStop';
+
 export interface HooksConfig {
   preToolCall?: HookEntry[];
   postToolCall?: HookEntry[];
   sessionStart?: HookEntry[];
   sessionEnd?: HookEntry[];
+  userPromptSubmit?: HookEntry[];
+  preCompact?: HookEntry[];
+  postCompact?: HookEntry[];
+  notification?: HookEntry[];
+  stop?: HookEntry[];
+  stopFailure?: HookEntry[];
+  postToolUseFailure?: HookEntry[];
+  permissionDenied?: HookEntry[];
+  subagentStart?: HookEntry[];
+  subagentStop?: HookEntry[];
 }
 
 export interface HookResult {
@@ -68,6 +94,22 @@ export interface HookResult {
 export interface SessionHookContext {
   workspacePath: string;
   sessionId?: string;
+}
+
+export interface HookContext {
+  workspacePath?: string;
+  sessionId?: string;
+  toolName?: string;
+  toolArgs?: unknown;
+  toolResult?: unknown;
+  prompt?: string;
+  error?: string;
+  reason?: string;
+  subagentId?: string;
+  subagentType?: string;
+  compactedTokensBefore?: number;
+  compactedTokensAfter?: number;
+  notificationText?: string;
 }
 
 /**
@@ -86,7 +128,12 @@ export function buildWebhookBody(template: string, vars: Record<string, string>)
  */
 export function deepMergeHooks(a: HooksConfig, b: HooksConfig): HooksConfig {
   const result: HooksConfig = {};
-  const keys: Array<keyof HooksConfig> = ['preToolCall', 'postToolCall', 'sessionStart', 'sessionEnd'];
+  const keys: Array<keyof HooksConfig> = [
+    'preToolCall', 'postToolCall', 'sessionStart', 'sessionEnd',
+    'userPromptSubmit', 'preCompact', 'postCompact', 'notification',
+    'stop', 'stopFailure', 'postToolUseFailure', 'permissionDenied',
+    'subagentStart', 'subagentStop',
+  ];
   for (const k of keys) {
     const av = a[k];
     const bv = b[k];
@@ -194,6 +241,14 @@ function extractWebhookVars(env: Record<string, string>): Record<string, string>
     sessionId: env.IHUI_SESSION_ID ?? '',
     toolName: env.IHUI_TOOL ?? '',
     toolArgs: env.IHUI_TOOL_INPUT ?? env.IHUI_TOOL_OUTPUT ?? '',
+    prompt: env.IHUI_PROMPT ?? '',
+    error: env.IHUI_ERROR ?? '',
+    reason: env.IHUI_REASON ?? '',
+    subagentId: env.IHUI_SUBAGENT_ID ?? '',
+    subagentType: env.IHUI_SUBAGENT_TYPE ?? '',
+    compactedTokensBefore: env.IHUI_COMPACTED_TOKENS_BEFORE ?? '',
+    compactedTokensAfter: env.IHUI_COMPACTED_TOKENS_AFTER ?? '',
+    notificationText: env.IHUI_NOTIFICATION_TEXT ?? '',
   };
 }
 
@@ -240,7 +295,7 @@ function runWebhookSync(
   return { exitCode: 1, stdout: '', stderr: res.message || 'webhook 网络错误' };
 }
 
-function runHook(
+function runHookEntry(
   entry: HookEntry,
   env: Record<string, string>,
 ): { exitCode: number; stdout: string; stderr: string } {
@@ -271,7 +326,7 @@ export function runPreToolCall(toolName: string, input: unknown): HookResult {
   const hooks = config.preToolCall ?? [];
   for (const entry of hooks) {
     if (!matchesTool(entry, toolName)) continue;
-    const r = runHook(entry, {
+    const r = runHookEntry(entry, {
       IHUI_HOOK_TYPE: 'preToolCall',
       IHUI_TOOL: toolName,
       IHUI_TOOL_INPUT: JSON.stringify(input ?? {}),
@@ -292,7 +347,7 @@ export function runPostToolCall(toolName: string, output: unknown): HookResult {
   const hooks = config.postToolCall ?? [];
   for (const entry of hooks) {
     if (!matchesTool(entry, toolName)) continue;
-    const r = runHook(entry, {
+    const r = runHookEntry(entry, {
       IHUI_HOOK_TYPE: 'postToolCall',
       IHUI_TOOL: toolName,
       IHUI_TOOL_OUTPUT: JSON.stringify(output ?? {}),
@@ -311,7 +366,7 @@ export function runPostToolCall(toolName: string, output: unknown): HookResult {
 export function runSessionStartHooks(config: HooksConfig | null, ctx: SessionHookContext): HookResult {
   if (!config?.sessionStart) return { proceed: true };
   for (const entry of config.sessionStart) {
-    const r = runHook(entry, {
+    const r = runHookEntry(entry, {
       IHUI_HOOK_TYPE: 'sessionStart',
       IHUI_WORKSPACE: ctx.workspacePath,
       IHUI_SESSION_ID: ctx.sessionId ?? '',
@@ -331,7 +386,7 @@ export function runSessionEndHooks(config: HooksConfig | null, ctx: SessionHookC
   if (!config?.sessionEnd) return;
   for (const entry of config.sessionEnd) {
     try {
-      runHook(entry, {
+      runHookEntry(entry, {
         IHUI_HOOK_TYPE: 'sessionEnd',
         IHUI_WORKSPACE: ctx.workspacePath,
         IHUI_SESSION_ID: ctx.sessionId ?? '',
@@ -339,5 +394,60 @@ export function runSessionEndHooks(config: HooksConfig | null, ctx: SessionHookC
     } catch {
       // sessionEnd 失败不阻塞退出
     }
+  }
+}
+
+const TOOL_EVENTS: ReadonlySet<HookEvent> = new Set(['preToolCall', 'postToolCall', 'postToolUseFailure']);
+
+function isToolEvent(event: HookEvent): boolean {
+  return TOOL_EVENTS.has(event);
+}
+
+function defaultBlockOnError(event: HookEvent): boolean {
+  return event === 'preToolCall' || event === 'sessionStart';
+}
+
+function buildHookEnv(event: HookEvent, ctx: HookContext): Record<string, string> {
+  const env: Record<string, string> = { IHUI_HOOK_TYPE: event };
+  if (ctx.workspacePath !== undefined) env.IHUI_WORKSPACE = ctx.workspacePath;
+  if (ctx.sessionId !== undefined) env.IHUI_SESSION_ID = ctx.sessionId;
+  if (ctx.toolName !== undefined) env.IHUI_TOOL = ctx.toolName;
+  if (ctx.toolArgs !== undefined) env.IHUI_TOOL_INPUT = JSON.stringify(ctx.toolArgs ?? {});
+  if (ctx.toolResult !== undefined) env.IHUI_TOOL_OUTPUT = JSON.stringify(ctx.toolResult ?? {});
+  if (ctx.prompt !== undefined) env.IHUI_PROMPT = ctx.prompt;
+  if (ctx.error !== undefined) env.IHUI_ERROR = ctx.error;
+  if (ctx.reason !== undefined) env.IHUI_REASON = ctx.reason;
+  if (ctx.subagentId !== undefined) env.IHUI_SUBAGENT_ID = ctx.subagentId;
+  if (ctx.subagentType !== undefined) env.IHUI_SUBAGENT_TYPE = ctx.subagentType;
+  if (ctx.compactedTokensBefore !== undefined) env.IHUI_COMPACTED_TOKENS_BEFORE = String(ctx.compactedTokensBefore);
+  if (ctx.compactedTokensAfter !== undefined) env.IHUI_COMPACTED_TOKENS_AFTER = String(ctx.compactedTokensAfter);
+  if (ctx.notificationText !== undefined) env.IHUI_NOTIFICATION_TEXT = ctx.notificationText;
+  return env;
+}
+
+/**
+ * 通用 hook 分发:按事件类型加载对应配置并执行所有匹配的钩子。
+ * 钩子失败时按 blockOnError 决定是否阻断(默认 preToolCall/sessionStart 阻断,其余仅通知)。
+ * 任何异常均吞掉返回 proceed=true,确保 hook 故障不影响主流程。
+ */
+export function runHook(event: HookEvent, ctx: HookContext): HookResult {
+  try {
+    const config = loadHooks();
+    const hooks = config[event] ?? [];
+    const env = buildHookEnv(event, ctx);
+    for (const entry of hooks) {
+      if (isToolEvent(event) && ctx.toolName && !matchesTool(entry, ctx.toolName)) continue;
+      const r = runHookEntry(entry, env);
+      const blockOnError = entry.blockOnError ?? defaultBlockOnError(event);
+      if (blockOnError && r.exitCode !== 0) {
+        return {
+          proceed: false,
+          reason: `${event} 钩子 "${entry.name}" 阻断: ${r.stderr || r.stdout || 'exit ' + r.exitCode}`,
+        };
+      }
+    }
+    return { proceed: true };
+  } catch {
+    return { proceed: true };
   }
 }
