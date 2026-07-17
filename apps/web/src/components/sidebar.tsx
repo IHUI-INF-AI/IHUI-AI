@@ -108,17 +108,12 @@ interface NavItem {
   children?: NavItem[]
 }
 
-/**
- * 侧边栏尺寸常量(R73 refactor 之前的仓库原状,2026-07-14 恢复)
- * 后续重构请勿随意修改 — 与设计 token 耦合:
- * - 168px 是中文 4 字导航项不换行的临界宽度(配合 nav item `gap-2.5 px-2.5 + whitespace-nowrap`)
- * - 60px 是折叠态只显图标的临界宽度(h-10 item + 居中)
- * - 240px 是避免主内容区挤压过窄的上限
+/** 侧边栏宽度常量(2026-07-17 统一)
+ * - 150px 是展开态唯一宽度(桌面 + 移动抽屉复用)
+ * - 60px 是折叠态宽度,只显图标
  */
-const SIDEBAR_DEFAULT_WIDTH = 168
-const SIDEBAR_MIN_WIDTH = 60
-const SIDEBAR_MAX_WIDTH = 240
-const SIDEBAR_MOBILE_WIDTH = 168
+const SIDEBAR_WIDTH = 150
+const SIDEBAR_COLLAPSED_WIDTH = 60
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
@@ -467,7 +462,7 @@ function SearchNavItem({
   }
 
   const className = cn(
-    'flex h-10 w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
     active
       ? 'bg-primary text-primary-foreground'
       : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
@@ -652,7 +647,7 @@ function ExpandableNavItem({
             className={childClassName(active)}
           >
             <ChildIcon className="h-4 w-4 shrink-0" />
-            <span>{childLabel}</span>
+            <span className="min-w-0 flex-1 truncate">{childLabel}</span>
           </Link>
         )
       })}
@@ -700,7 +695,7 @@ function ExpandableNavItem({
         className={parentClassName}
       >
         <Icon className="h-5 w-5 shrink-0" />
-        <span>{label}</span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
         <ChevronDown
           className={cn('ml-auto h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')}
         />
@@ -722,101 +717,8 @@ export function Sidebar({
   const pathname = usePathname()
   const user = useAuthStore((s) => s.user)
 
-  const [width, setWidth] = React.useState(SIDEBAR_DEFAULT_WIDTH)
-  const [isResizing, setIsResizing] = React.useState(false)
-
-  React.useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sidebar-width')
-      if (saved !== null) {
-        const w = Number(saved)
-        if (!Number.isNaN(w) && w >= 60 && w <= 240) setWidth(w)
-      }
-    } catch {
-      // localStorage 不可用
-    }
-  }, [])
-
-  React.useEffect(() => {
-    try {
-      localStorage.setItem('sidebar-width', String(width))
-    } catch {
-      // localStorage 不可用
-    }
-  }, [width])
-
   const navRef = React.useRef<HTMLElement>(null)
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
-  const resizeCleanupRef = React.useRef<(() => void) | null>(null)
-
-  const clampWidth = React.useCallback((w: number) => Math.min(Math.max(w, 60), 240), [])
-
-  const stopResize = React.useCallback(() => {
-    resizeCleanupRef.current?.()
-    resizeCleanupRef.current = null
-  }, [])
-
-  const handleResizeStart = React.useCallback(
-    (clientX: number) => {
-      setIsResizing(true)
-      const startX = clientX
-      const startWidth = width
-      const handleMouseMove = (ev: MouseEvent) => {
-        setWidth(clampWidth(startWidth + (ev.clientX - startX)))
-      }
-      const handleMouseUp = () => stopResize()
-      resizeCleanupRef.current = () => {
-        document.removeEventListener('mousemove', handleMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
-        document.body.style.cursor = ''
-        document.body.style.userSelect = ''
-        setIsResizing(false)
-      }
-      document.body.style.cursor = 'col-resize'
-      document.body.style.userSelect = 'none'
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-    },
-    [width, clampWidth, stopResize],
-  )
-
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault()
-    handleResizeStart(e.clientX)
-  }
-
-  const handleResizeKeyDown = (e: React.KeyboardEvent) => {
-    const step = e.shiftKey ? 32 : 8
-    switch (e.key) {
-      case 'ArrowLeft':
-      case 'ArrowDown':
-        e.preventDefault()
-        setWidth(clampWidth(width - step))
-        break
-      case 'ArrowRight':
-      case 'ArrowUp':
-        e.preventDefault()
-        setWidth(clampWidth(width + step))
-        break
-      case 'Home':
-        e.preventDefault()
-        setWidth(SIDEBAR_MIN_WIDTH)
-        break
-      case 'End':
-        e.preventDefault()
-        setWidth(SIDEBAR_MAX_WIDTH)
-        break
-    }
-  }
-
-  React.useEffect(() => {
-    const onBlur = () => stopResize()
-    window.addEventListener('blur', onBlur)
-    return () => {
-      window.removeEventListener('blur', onBlur)
-      stopResize()
-    }
-  }, [stopResize])
 
   const isActive = React.useCallback(
     (href: string) => {
@@ -864,7 +766,7 @@ export function Sidebar({
         ref={navRef}
         id={id}
         aria-label={t('title') ?? '主导航'}
-        className="hover-scroll scroll-fade min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-2"
+        className="hover-scroll scroll-fade min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto px-2 py-2"
       >
         {visibleGroups.map((group, gi) => (
           <div key={group.label} className={gi > 0 ? 'pt-2' : ''}>
@@ -971,30 +873,13 @@ export function Sidebar({
       <aside
         aria-label={t('mainNav')}
         className={cn(
-          'relative hidden h-screen shrink-0 flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar lg:flex',
-          isResizing ? '' : 'transition-[width] duration-200',
-          collapsed && 'w-[60px]',
+          'relative hidden h-screen shrink-0 flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-[width] duration-200 lg:flex',
+          collapsed ? `w-[${SIDEBAR_COLLAPSED_WIDTH}px]` : `w-[${SIDEBAR_WIDTH}px]`,
         )}
-        style={!collapsed ? { width: `${width}px` } : undefined}
       >
         {header}
         {navContent}
         {footer}
-        {!collapsed && (
-          <div
-            role="slider"
-            aria-label={tc('resizeSidebar')}
-            aria-valuenow={width}
-            aria-valuemin={SIDEBAR_MIN_WIDTH}
-            aria-valuemax={SIDEBAR_MAX_WIDTH}
-            tabIndex={0}
-            onMouseDown={handleResizeMouseDown}
-            onKeyDown={handleResizeKeyDown}
-            className="group absolute right-[-1px] top-0 z-10 flex h-full w-1.5 cursor-col-resize items-center outline-none focus-visible:w-2"
-          >
-            <div className="ml-auto h-full w-px bg-transparent transition-colors duration-200 group-hover:bg-border group-focus-visible:bg-border" />
-          </div>
-        )}
       </aside>
 
       {/* 移动端抽屉遮罩 */}
@@ -1011,9 +896,8 @@ export function Sidebar({
         aria-modal="true"
         aria-label={t('mainNav')}
         role="dialog"
-        style={{ width: SIDEBAR_MOBILE_WIDTH }}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex w-[150px] flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
