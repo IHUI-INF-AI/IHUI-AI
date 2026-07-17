@@ -105,7 +105,7 @@ export default function FeaturedAgentsPage() {
                       <Sparkles className="h-8 w-8 text-muted-foreground/40" />
                     </div>
                   )}
-                  <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-xs font-medium text-white">
+                  <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-amber-500/90 px-2 py-0.5 text-xs font-medium text-white">
                     <Star className="h-3 w-3" />
                     精选
                   </span>

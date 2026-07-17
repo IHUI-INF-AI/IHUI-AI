@@ -177,7 +177,7 @@ export function NewsArticleTable(props: Props) {
                     <TableCell className="px-4 py-2.5">
                       <div className="flex items-center gap-2 font-medium">
                         {article.isPinned ? (
-                          <span className="inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-500">
+                          <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-500">
                             {t('pinned')}
                           </span>
                         ) : null}
@@ -199,7 +199,7 @@ export function NewsArticleTable(props: Props) {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                           published
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                             : 'bg-muted text-muted-foreground',

@@ -54,14 +54,14 @@ export function OssConfigTable({ list, isLoading, deletePending, onEdit, onDelet
                   )}
                 </td>
                 <td className="px-4 py-2.5">
-                  <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                  <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
                     {c.driver}
                   </span>
                 </td>
                 <td className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                       c.isEnabled
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                         : 'bg-muted text-muted-foreground',

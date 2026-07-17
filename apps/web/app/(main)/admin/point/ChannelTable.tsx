@@ -59,7 +59,7 @@ export function ChannelTable({ list, isLoading, error, deletePending, onEdit, on
                   <TableCell className="px-4 py-2.5 font-medium">{channel.name}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     {channel.code ? (
-                      <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
+                      <span className="inline-flex items-center rounded-md bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
                         {channel.code}
                       </span>
                     ) : (
@@ -71,7 +71,7 @@ export function ChannelTable({ list, isLoading, error, deletePending, onEdit, on
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                         enabled
                           ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                           : 'bg-muted text-muted-foreground',

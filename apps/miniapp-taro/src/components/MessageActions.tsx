@@ -19,7 +19,7 @@ export default function MessageActions({
   return (
     <View className="relative">
       <View
-        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100"
+        className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100"
         onClick={() => setExpanded(!expanded)}
       >
         <Text className="text-gray-500 text-sm">⋯</Text>

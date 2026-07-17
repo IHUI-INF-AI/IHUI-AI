@@ -100,7 +100,7 @@ export default function Feedback() {
             >
               <Image className="w-full h-full" src={url} mode="aspectFill" />
               <View
-                className="absolute top-0 right-0 w-[20px] h-[20px] bg-[rgba(0,0,0,0.6)] rounded-full flex items-center justify-center"
+                className="absolute top-0 right-0 w-[20px] h-[20px] bg-[rgba(0,0,0,0.6)] rounded-md flex items-center justify-center"
                 onClick={() => onRemoveImage(idx)}
               >
                 <Text className="text-white text-[12px] leading-none">×</Text>

@@ -75,20 +75,25 @@ export default function MaterialPopup({
   return (
     <DrawerComponent visible={visible} onClose={onClose} height="75vh">
       <View className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-        <Text className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('ai.materialPopup.title')}</Text>
+        <Text className="text-base font-semibold text-gray-800 dark:text-gray-100">
+          {t('ai.materialPopup.title')}
+        </Text>
         <View
-          className="px-3 py-1 text-xs rounded-full bg-green-600 text-white active:bg-green-700"
+          className="px-3 py-1 text-xs rounded-md bg-green-600 text-white active:bg-green-700"
           onClick={handleUploadClick}
         >
           <Text>＋ {t('ai.materialPopup.upload')}</Text>
         </View>
       </View>
 
-      <ScrollView scrollX className="whitespace-nowrap px-3 py-2 border-b border-gray-100 dark:border-gray-800">
+      <ScrollView
+        scrollX
+        className="whitespace-nowrap px-3 py-2 border-b border-gray-100 dark:border-gray-800"
+      >
         {TABS.map((tabItem) => (
           <View
             key={tabItem.key}
-            className={`inline-flex items-center px-3 py-1 mr-2 text-xs rounded-full ${tab === tabItem.key ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}
+            className={`inline-flex items-center px-3 py-1 mr-2 text-xs rounded-md ${tab === tabItem.key ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}
             onClick={() => onTabChange?.(tabItem.key)}
           >
             <Text className="mr-1">{tabItem.icon}</Text>
@@ -140,20 +145,28 @@ export default function MaterialPopup({
                     onClick={() => onSelect?.(item)}
                   >
                     <View className="w-12 h-12 mr-3 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xl flex-shrink-0">
-                      <Text>{item.thumbnail ? '' : (isTextTab ? '📝' : tab === 3 ? '🎬' : '🎵')}</Text>
+                      <Text>
+                        {item.thumbnail ? '' : isTextTab ? '📝' : tab === 3 ? '🎬' : '🎵'}
+                      </Text>
                     </View>
                     <View className="flex-1 min-w-0">
                       <View className="flex items-center">
-                        <Text className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{item.title}</Text>
+                        <Text className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+                          {item.title}
+                        </Text>
                         {selectedId === item.id ? (
                           <Text className="ml-2 text-xs text-green-600">✓</Text>
                         ) : null}
                       </View>
                       {isTextTab && item.content ? (
-                        <Text className="block text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{item.content}</Text>
+                        <Text className="block text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                          {item.content}
+                        </Text>
                       ) : null}
                       {item.createdAt ? (
-                        <Text className="block text-xs text-gray-400 mt-1">{formatTime(item.createdAt)}</Text>
+                        <Text className="block text-xs text-gray-400 mt-1">
+                          {formatTime(item.createdAt)}
+                        </Text>
                       ) : null}
                     </View>
                   </View>

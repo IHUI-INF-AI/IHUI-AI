@@ -55,8 +55,8 @@ export function DeveloperLinkTable({ list, isLoading, onEdit, onDelete }: Props)
                   <span
                     className={
                       item.status === 1
-                        ? 'inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600'
-                        : 'inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
+                        ? 'inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600'
+                        : 'inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
                     }
                   >
                     {item.status === 1 ? t('enabled') : t('disabled')}

@@ -68,7 +68,7 @@ export function IntegrationTable({
               </div>
               <span
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                   i.isEnabled
                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                     : 'bg-muted text-muted-foreground',

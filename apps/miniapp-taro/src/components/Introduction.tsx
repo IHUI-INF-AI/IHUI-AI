@@ -30,7 +30,7 @@ export default function Introduction({
             {agents.map((agent) => (
               <View
                 key={agent.id}
-                className="mr-2 mb-1.5 px-2.5 py-1 rounded-full border border-indigo-100 bg-indigo-50"
+                className="mr-2 mb-1.5 px-2.5 py-1 rounded-md border border-indigo-100 bg-indigo-50"
                 onClick={() => onAgentClick?.(agent)}
               >
                 <Text className="text-xs text-indigo-500">{agent.name}</Text>

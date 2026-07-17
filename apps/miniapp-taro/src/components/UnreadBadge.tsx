@@ -17,7 +17,7 @@ export default function UnreadBadge({
     if (!showZero) return null
     return (
       <View
-        className={`flex items-center justify-center bg-gray-300 rounded-full ${
+        className={`flex items-center justify-center bg-gray-300 rounded-md ${
           size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'
         }`}
       >
@@ -36,7 +36,7 @@ export default function UnreadBadge({
 
   return (
     <View
-      className="flex items-center justify-center bg-red-500 rounded-full px-1"
+      className="flex items-center justify-center bg-red-500 rounded-md px-1"
       style={{ minWidth, height: size === 'sm' ? 16 : 20 }}
     >
       <Text className={`text-white ${size === 'sm' ? 'text-[10px]' : 'text-xs'}`}>{display}</Text>

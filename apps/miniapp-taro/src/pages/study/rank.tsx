@@ -42,7 +42,7 @@ export default function StudyRank() {
         <View className="flex items-end justify-center py-4 bg-white">
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[55px] h-[55px] rounded-full bg-[#f5f5f5] border-2 border-[#c0c0c0]"
+              className="w-[55px] h-[55px] rounded-md bg-[#f5f5f5] border-2 border-[#c0c0c0]"
               src={list[1]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
@@ -50,13 +50,13 @@ export default function StudyRank() {
             <Text className="text-xs text-[#07c160] mt-0.5">
               {t('study.rankPage.minutes', { n: list[1]!.minutes })}
             </Text>
-            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#c0c0c0]">
+            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[#c0c0c0]">
               2
             </Text>
           </View>
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[70px] h-[70px] rounded-full bg-[#f5f5f5] border-2 border-[#ffd700]"
+              className="w-[70px] h-[70px] rounded-md bg-[#f5f5f5] border-2 border-[#ffd700]"
               src={list[0]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
@@ -64,13 +64,13 @@ export default function StudyRank() {
             <Text className="text-xs text-[#07c160] mt-0.5">
               {t('study.rankPage.minutes', { n: list[0]!.minutes })}
             </Text>
-            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#ffd700]">
+            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[#ffd700]">
               1
             </Text>
           </View>
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[55px] h-[55px] rounded-full bg-[#f5f5f5] border-2 border-[#cd7f32]"
+              className="w-[55px] h-[55px] rounded-md bg-[#f5f5f5] border-2 border-[#cd7f32]"
               src={list[2]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
@@ -78,7 +78,7 @@ export default function StudyRank() {
             <Text className="text-xs text-[#07c160] mt-0.5">
               {t('study.rankPage.minutes', { n: list[2]!.minutes })}
             </Text>
-            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#cd7f32]">
+            <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[#cd7f32]">
               3
             </Text>
           </View>
@@ -94,7 +94,7 @@ export default function StudyRank() {
             >
               <Text className="w-8 text-sm text-[#999]">{i + 4}</Text>
               <Image
-                className="w-[30px] h-[30px] rounded-full bg-[#f5f5f5]"
+                className="w-[30px] h-[30px] rounded-md bg-[#f5f5f5]"
                 src={u.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />

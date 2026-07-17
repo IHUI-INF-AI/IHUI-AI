@@ -174,7 +174,7 @@ export default function UserLlmConfigsPage() {
       ) : list.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <div className="rounded-full bg-primary/10 p-3">
+            <div className="rounded-md bg-primary/10 p-3">
               <Wand2 className="h-6 w-6 text-primary" />
             </div>
             <div>
@@ -205,7 +205,7 @@ export default function UserLlmConfigsPage() {
                         setForm(templateToForm(t))
                         setOpen(true)
                       }}
-                      className="rounded-full border px-3 py-1 text-xs transition-colors hover:border-primary hover:bg-primary/5"
+                      className="rounded-md border px-3 py-1 text-xs transition-colors hover:border-primary hover:bg-primary/5"
                     >
                       {t.name}
                     </button>

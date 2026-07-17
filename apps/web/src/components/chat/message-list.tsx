@@ -154,7 +154,7 @@ export function MessageList({
             >
               <div
                 className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
                   isUser
                     ? 'bg-primary text-primary-foreground'
                     : m.error

@@ -158,7 +158,7 @@ export default function EduExamTakePage() {
                 >
                   <span
                     className={cn(
-                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs',
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs',
                       selected
                         ? 'border-primary bg-primary text-primary-foreground'
                         : 'text-muted-foreground',

@@ -78,7 +78,7 @@ export default function ModelsPage() {
               type="button"
               onClick={() => setProvider(p)}
               className={
-                'rounded-full border px-3 py-1 text-sm transition-colors ' +
+                'rounded-md border px-3 py-1 text-sm transition-colors ' +
                 (provider === p
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border hover:bg-muted')

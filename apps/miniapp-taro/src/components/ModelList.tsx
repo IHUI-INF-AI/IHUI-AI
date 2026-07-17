@@ -21,7 +21,7 @@ export default function ModelList({
       <View className="px-3 py-2">
         {Array.from({ length: 3 }).map((_, i) => (
           <View key={i} className="flex items-center py-3 animate-pulse">
-            <View className="w-10 h-10 mr-3 rounded-full bg-gray-100" />
+            <View className="w-10 h-10 mr-3 rounded-lg bg-gray-100" />
             <View className="flex-1 space-y-2">
               <View className="h-3 w-1/3 rounded bg-gray-100" />
               <View className="h-2.5 w-2/3 rounded bg-gray-100" />
@@ -52,7 +52,7 @@ export default function ModelList({
             }`}
             onClick={() => onSelect?.(model)}
           >
-            <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-full bg-gray-50">
+            <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-lg bg-gray-50">
               <Text className="text-sm font-medium text-gray-500">{model.name.charAt(0)}</Text>
             </View>
             <View className="flex-1 min-w-0">

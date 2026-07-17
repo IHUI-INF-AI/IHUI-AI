@@ -72,7 +72,7 @@ export default function StudyPlan() {
         </View>
       )}
       <Button
-        className="fixed bottom-4 left-4 right-4 bg-[#07c160] text-white rounded-full text-sm"
+        className="fixed bottom-4 left-4 right-4 bg-[#07c160] text-white rounded-md text-sm"
         onClick={onAdd}
       >
         {t('study.planPage.add')}

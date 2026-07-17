@@ -39,7 +39,7 @@ export default function Avatar() {
   return (
     <View className="min-h-screen bg-[#f7f8fa] px-[16px] pt-[30px]">
       <View
-        className="w-[100px] h-[100px] mx-auto rounded-full overflow-hidden"
+        className="w-[100px] h-[100px] mx-auto rounded-md overflow-hidden"
         style={{ boxShadow: '0 2px 10px rgba(0,0,0,.1)' }}
       >
         <Image

@@ -113,14 +113,14 @@ export default function EduCertificateDetailPage() {
 
       <Card>
         <CardHeader className="text-center">
-          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
             <Award className="h-8 w-8 text-primary" />
           </div>
           <CardTitle className="text-2xl">{cert.name}</CardTitle>
           <p className="text-sm text-muted-foreground">证书编号：{cert.certificateNo}</p>
           <span
             className={cn(
-              'mx-auto mt-2 inline-block rounded-full px-3 py-0.5 text-xs',
+              'mx-auto mt-2 inline-block rounded-md px-3 py-0.5 text-xs',
               cert.status === 1
                 ? 'bg-emerald-500/10 text-emerald-600'
                 : 'bg-muted text-muted-foreground',

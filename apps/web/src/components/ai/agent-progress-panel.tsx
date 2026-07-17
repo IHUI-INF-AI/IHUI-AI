@@ -66,7 +66,7 @@ export function AgentProgressPanel({ steps }: AgentProgressPanelProps) {
               )}
               <span
                 className={cn(
-                  'z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 bg-card',
+                  'z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 bg-card',
                   meta.ring,
                 )}
               >

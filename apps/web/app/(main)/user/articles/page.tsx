@@ -107,7 +107,7 @@ export default function MyArticlesPage() {
                       <h3 className="truncate text-sm font-semibold">{a.title}</h3>
                       {a.status && (
                         <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
+                          className={`shrink-0 rounded-md px-2 py-0.5 text-xs ${
                             STATUS_STYLE[a.status] ?? STATUS_STYLE.draft
                           }`}
                         >

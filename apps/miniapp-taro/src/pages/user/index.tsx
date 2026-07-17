@@ -72,7 +72,7 @@ export default function UserIndex() {
         {userInfo ? (
           <View className="flex items-center">
             <Image
-              className="w-[60px] h-[60px] rounded-full border-[2px] border-solid border-white"
+              className="w-[60px] h-[60px] rounded-md border-[2px] border-solid border-white"
               src={userInfo.avatar || defaultAvatar}
               mode="aspectFill"
             />
@@ -95,7 +95,7 @@ export default function UserIndex() {
         ) : (
           <View className="flex items-center" onClick={goLogin}>
             <Image
-              className="w-[60px] h-[60px] rounded-full border-[2px] border-solid border-white"
+              className="w-[60px] h-[60px] rounded-md border-[2px] border-solid border-white"
               src={defaultAvatar}
               mode="aspectFill"
             />

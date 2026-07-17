@@ -95,7 +95,7 @@ export default function AdminMemberPermissionsPage() {
               <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2">
                 <Lock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-semibold">{resource}</span>
-                <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                   {items.length}
                 </span>
               </header>

@@ -109,7 +109,7 @@ export default function AdminSchedulePage() {
               )}
             >
               <CardContent className="flex items-center gap-3 py-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
                   {t.enabled ? (
                     <Play className="h-3.5 w-3.5 text-emerald-600" />
                   ) : (
@@ -121,7 +121,7 @@ export default function AdminSchedulePage() {
                     <span className="truncate font-medium">{t.name}</span>
                     <span
                       className={cn(
-                        'inline-flex rounded-full px-1.5 py-0.5 text-xs',
+                        'inline-flex rounded-md px-1.5 py-0.5 text-xs',
                         t.enabled
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-muted text-muted-foreground',

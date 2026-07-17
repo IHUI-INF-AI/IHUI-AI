@@ -76,7 +76,7 @@ export function ArrangementsTable({
                 <TableCell className="px-4 py-2.5">{a.room}</TableCell>
                 <TableCell className="px-4 py-2.5">{a.invigilator}</TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{a.status}</span>
+                  <span className="rounded-md bg-muted px-2 py-0.5 text-xs">{a.status}</span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">

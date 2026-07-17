@@ -77,7 +77,7 @@ export function NotificationLogTable({ list, isLoading, onDetail }: Props) {
                   <td className="px-4 py-2.5">{item.type ?? '-'}</td>
                   <td className="px-4 py-2.5">
                     <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs ${
+                      className={`inline-flex rounded-md px-2 py-0.5 text-xs ${
                         STATUS_BADGE[s] ?? 'bg-muted text-muted-foreground'
                       }`}
                     >

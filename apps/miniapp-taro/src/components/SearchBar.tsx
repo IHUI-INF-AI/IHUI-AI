@@ -16,7 +16,7 @@ export default function SearchBar({
   onClear,
 }: SearchBarProps) {
   return (
-    <View className="flex items-center px-3 py-2 mx-3 my-2 bg-gray-50 rounded-full">
+    <View className="flex items-center px-3 py-2 mx-3 my-2 bg-gray-50 rounded-md">
       <Text className="text-sm text-gray-400 mr-2">🔍</Text>
       <Input
         className="flex-1 text-sm"

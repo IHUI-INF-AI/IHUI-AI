@@ -27,7 +27,7 @@ export default function ProgressCircle({
       style={{ width: `${size}px`, height: `${size}px` }}
     >
       <View
-        className="absolute inset-0 rounded-full"
+        className="absolute inset-0 rounded-md"
         style={{
           borderWidth: `${strokeWidth}px`,
           borderStyle: 'solid',
@@ -35,7 +35,7 @@ export default function ProgressCircle({
         }}
       />
       <View
-        className="absolute rounded-full"
+        className="absolute rounded-md"
         style={{
           width: `${size}px`,
           height: `${size}px`,

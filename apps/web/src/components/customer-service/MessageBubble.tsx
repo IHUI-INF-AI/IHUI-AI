@@ -31,7 +31,7 @@ export function MessageBubble({ message, isSelf }: Props) {
     <div className={cn('group flex items-start gap-2', isSelf ? 'flex-row-reverse' : 'flex-row')}>
       <div
         className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium',
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
           isSelf ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
         )}
       >

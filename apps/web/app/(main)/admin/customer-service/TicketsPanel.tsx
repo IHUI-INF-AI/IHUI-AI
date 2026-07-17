@@ -123,7 +123,7 @@ export function TicketsPanel() {
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                         STATUS_BADGE[tk.status],
                       )}
                     >
@@ -133,7 +133,7 @@ export function TicketsPanel() {
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                         PRIORITY_BADGE[tk.priority],
                       )}
                     >

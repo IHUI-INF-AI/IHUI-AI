@@ -25,14 +25,14 @@ export default function BottomActionBar({
     <View className="flex items-center px-3 py-2 bg-white border-t border-gray-100">
       {showAttach && (
         <View
-          className="flex items-center justify-center w-8 h-8 mr-2 rounded-full bg-gray-50"
+          className="flex items-center justify-center w-8 h-8 mr-2 rounded-lg bg-gray-50"
           onClick={onAttach}
         >
           <Text className="text-lg text-gray-400">+</Text>
         </View>
       )}
       <Input
-        className="flex-1 px-3 py-2 text-sm bg-gray-50 rounded-full"
+        className="flex-1 px-3 py-2 text-sm bg-gray-50 rounded-md"
         placeholder={placeholder}
         value={value}
         disabled={disabled}
@@ -41,7 +41,7 @@ export default function BottomActionBar({
       />
       {showSend && (
         <View
-          className={`flex items-center justify-center w-8 h-8 ml-2 rounded-full ${
+          className={`flex items-center justify-center w-8 h-8 ml-2 rounded-lg ${
             value ? 'bg-indigo-500' : 'bg-gray-200'
           }`}
           onClick={() => value && onSend?.()}

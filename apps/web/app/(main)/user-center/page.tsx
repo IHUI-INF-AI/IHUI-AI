@@ -181,11 +181,11 @@ export default function UserCenterPage() {
                     <td className="px-4 py-2">{u.departmentName ?? '-'}</td>
                     <td className="px-4 py-2">
                       {u.status === 1 ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                        <span className="inline-flex items-center rounded-md bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
                           {t('active')}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
+                        <span className="inline-flex items-center rounded-md bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
                           {t('disabled')}
                         </span>
                       )}

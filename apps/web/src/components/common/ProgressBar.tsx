@@ -44,9 +44,12 @@ export function ProgressBar({
           {showLabel && <span className="font-medium">{Math.round(percentage)}%</span>}
         </div>
       )}
-      <div className={cn('w-full overflow-hidden rounded-full bg-muted', sizeMap[size])}>
+      <div className={cn('w-full overflow-hidden rounded-md bg-muted', sizeMap[size])}>
         <div
-          className={cn('h-full rounded-full transition-all duration-300', variantMap[currentVariant])}
+          className={cn(
+            'h-full rounded-md transition-all duration-300',
+            variantMap[currentVariant],
+          )}
           style={{ width: `${percentage}%` }}
         />
       </div>

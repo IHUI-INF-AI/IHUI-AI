@@ -84,7 +84,7 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                         TYPE_BADGE[fb.type],
                       )}
                     >
@@ -107,7 +107,7 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                         STATUS_BADGE[fb.status],
                       )}
                     >
@@ -117,7 +117,7 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                         PRIORITY_BADGE[fb.priority],
                       )}
                     >
