@@ -6,7 +6,7 @@ import { createWebSocketHook, type WebSocketHookResult } from '@/hooks/create-we
 
 export type AIWSProvider = 'qwen' | 'zhipu' | 'deepseek' | 'doubao' | 'generic'
 
-const PROVIDER_PATHS: Record<AIWSProvider, string> = {
+export const PROVIDER_PATHS: Record<AIWSProvider, string> = {
   qwen: '/cozeZhsApi/ws/qwen/stream',
   zhipu: '/cozeZhsApi/ws/zhipu/stream',
   deepseek: '/cozeZhsApi/ws/chatdeepseek/stream',
