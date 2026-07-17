@@ -23,6 +23,7 @@ export const ko = {
     courses: '강의',
     notifications: '알림',
     agents: '에이전트',
+    tabRuntime: 'Agent 실행',
   },
   auth: {
     login: '로그인',
