@@ -49,6 +49,7 @@ const envSchema = z.object({
   // 微信支付 V3(全部 optional,缺失时降级 mock;wechat-pay.ts 仍直接读 process.env,此处仅校验存在性)
   WX_API_BASE: optionalUrl('https://api.mch.weixin.qq.com'),
   WX_MINI_APPID: z.string().optional().default(''),
+  WX_MINI_SECRET: z.string().optional().default(''),
   WX_APP_APPID: z.string().optional().default(''),
   WX_SHOP_ID: z.string().optional().default(''),
   WX_PAY_V3_KEY: z.string().optional().default(''),
