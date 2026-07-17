@@ -23,6 +23,7 @@ export const en = {
     courses: 'Courses',
     notifications: 'Notifications',
     agents: 'Agents',
+    tabRuntime: 'Agent Runtime',
   },
   auth: {
     login: 'Login',

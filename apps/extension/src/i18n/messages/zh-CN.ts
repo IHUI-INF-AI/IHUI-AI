@@ -23,6 +23,7 @@ export const zhCN = {
     courses: '课程',
     notifications: '通知',
     agents: '智能体',
+    tabRuntime: 'Agent 执行',
   },
   auth: {
     login: '登录',

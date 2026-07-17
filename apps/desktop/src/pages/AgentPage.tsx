@@ -9,6 +9,7 @@ import {
   type AgentPermissionType,
 } from '@ihui/api-client'
 import { useI18n } from '../i18n'
+import AgentRuntimePanel from '../components/AgentRuntimePanel'
 
 const PERM_LABEL: Record<AgentPermissionType, string> = {
   free: '免费',
@@ -174,6 +175,7 @@ function AgentDetail({
   const [perm, setPerm] = useState<AgentPermission | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [runtimeOpen, setRuntimeOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -218,41 +220,57 @@ function AgentDetail({
       ) : !agent ? (
         <div className="empty-state">{t('common.empty')}</div>
       ) : (
-        <div style={{ padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <AgentAvatar agent={agent} size={48} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 18, fontWeight: 600 }}>{agent.name}</span>
-                {agent.isVipExclusive ? <VipBadge size="md" /> : null}
+        <>
+          <div style={{ padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <AgentAvatar agent={agent} size={48} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 18, fontWeight: 600 }}>{agent.name}</span>
+                  {agent.isVipExclusive ? <VipBadge size="md" /> : null}
+                </div>
+                {agent.category ? (
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>{agent.category}</span>
+                ) : null}
               </div>
-              {agent.category ? (
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{agent.category}</span>
-              ) : null}
+            </div>
+            <p style={{ margin: '8px 0', lineHeight: 1.6, fontSize: 14 }}>
+              {agent.description || '—'}
+            </p>
+            <dl className="info-list">
+              <div>
+                <dt>使用次数</dt>
+                <dd>{agent.useCount}</dd>
+              </div>
+              <div>
+                <dt>评分</dt>
+                <dd>★ {agent.rating.toFixed(1)}</dd>
+              </div>
+              <div>
+                <dt>收藏数</dt>
+                <dd>{agent.favoriteCount}</dd>
+              </div>
+              <div>
+                <dt>权限</dt>
+                <dd style={{ color: permColor, fontWeight: 600 }}>{permText}</dd>
+              </div>
+            </dl>
+            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setRuntimeOpen((v) => !v)}
+                aria-expanded={runtimeOpen}
+              >
+                {runtimeOpen ? '收起' : t('agent.tabRuntime')}
+              </button>
             </div>
           </div>
-          <p style={{ margin: '8px 0', lineHeight: 1.6, fontSize: 14 }}>
-            {agent.description || '—'}
-          </p>
-          <dl className="info-list">
-            <div>
-              <dt>使用次数</dt>
-              <dd>{agent.useCount}</dd>
+          {runtimeOpen ? (
+            <div style={{ marginTop: 12 }}>
+              <AgentRuntimePanel />
             </div>
-            <div>
-              <dt>评分</dt>
-              <dd>★ {agent.rating.toFixed(1)}</dd>
-            </div>
-            <div>
-              <dt>收藏数</dt>
-              <dd>{agent.favoriteCount}</dd>
-            </div>
-            <div>
-              <dt>权限</dt>
-              <dd style={{ color: permColor, fontWeight: 600 }}>{permText}</dd>
-            </div>
-          </dl>
-        </div>
+          ) : null}
+        </>
       )}
     </div>
   )
