@@ -308,3 +308,141 @@ export function generateOutTradeNo(prefix = 'WX'): string {
   const ts = Date.now().toString()
   return `${prefix}${rand}${ts}`
 }
+
+// =============================================================================
+// V3 周期扣款(连续包月)API — 签约 / 解约 / 查询 / 委托扣款
+// =============================================================================
+
+/** V3 请求内部辅助:统一 buildAuthorization + fetch,供周期扣款 4 函数复用 */
+async function requestV3<T = unknown>(
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  body?: Record<string, unknown>,
+): Promise<T> {
+  const bodyStr = body !== undefined ? JSON.stringify(body) : ''
+  const resp = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: buildAuthorization(method, path, bodyStr),
+    },
+    ...(body !== undefined ? { body: bodyStr } : {}),
+  })
+  if (!resp.ok) {
+    throw new Error(`WechatPay V3 ${method} ${path} failed: ${resp.status} ${await resp.text()}`)
+  }
+  const text = await resp.text()
+  return (text ? JSON.parse(text) : ({} as T)) as T
+}
+
+function ensureRecurringConfigured(): void {
+  if (!isWechatPayConfigured()) {
+    throw new Error('微信支付周期扣款未配置:缺少 WX_SHOP_ID / WX_PAY_V3_KEY / WX_PAY_PRIVATE_KEY')
+  }
+}
+
+/** 签约:申请签约方案(返回 signUrl 供前端跳转签约页面) */
+export async function signContract(params: {
+  planId: string
+  outTradeNo: string
+  notifyUrl: string
+  userId: string
+  openid?: string
+  contractDisplay?: string
+}): Promise<{ signUrl: string; contractId?: string }> {
+  ensureRecurringConfigured()
+  const body: Record<string, unknown> = {
+    plan_id: params.planId,
+    out_contract_code: params.outTradeNo,
+    notification_url: params.notifyUrl,
+  }
+  if (params.openid) body.openid = params.openid
+  if (params.contractDisplay) body.contract_display = params.contractDisplay
+  // TODO: 生产前确认 sign-plan user-notifications 返回字段名,当前按微信支付 V3 文档实现
+  const data = await requestV3<{ sign_url?: string; contract_id?: string }>(
+    'POST',
+    '/v3/payscore/sign-plan/user-notifications',
+    body,
+  )
+  return {
+    signUrl: data.sign_url ?? '',
+    contractId: data.contract_id,
+  }
+}
+
+/** 解约:终止签约 */
+export async function cancelContract(params: {
+  contractId: string
+  reason?: string
+}): Promise<{ cancelled: boolean }> {
+  ensureRecurringConfigured()
+  const body = params.reason ? { cancel_reason: params.reason } : undefined
+  await requestV3(
+    'DELETE',
+    `/v3/payscore/sign-plan/contracts/${encodeURIComponent(params.contractId)}`,
+    body,
+  )
+  return { cancelled: true }
+}
+
+/** 查询签约状态 */
+export async function queryContract(contractId: string): Promise<{
+  contractId: string
+  status: 'active' | 'cancelled' | 'expired' | 'pending'
+  planId: string
+  signedAt?: string
+  cancelledAt?: string
+  nextChargeTime?: string
+}> {
+  ensureRecurringConfigured()
+  // TODO: 生产前确认返回字段映射,当前按微信支付 V3 sign-plan 文档实现
+  const data = await requestV3<Record<string, unknown>>(
+    'GET',
+    `/v3/payscore/sign-plan/contracts/${encodeURIComponent(contractId)}`,
+  )
+  return {
+    contractId: (data.contract_id as string) ?? contractId,
+    status: (data.status as 'active' | 'cancelled' | 'expired' | 'pending') ?? 'pending',
+    planId: (data.plan_id as string) ?? '',
+    signedAt: data.sign_time as string | undefined,
+    cancelledAt: data.cancel_time as string | undefined,
+    nextChargeTime: data.deduct_time as string | undefined,
+  }
+}
+
+/** 委托扣款:触发一次扣款(系统定时调用) */
+export async function deductRecurring(params: {
+  contractId: string
+  outTradeNo: string
+  amount: number
+  description: string
+  notifyUrl: string
+}): Promise<{ deductId: string; status: 'pending' | 'success' | 'failed' }> {
+  ensureRecurringConfigured()
+  const body = {
+    out_trade_no: params.outTradeNo,
+    amount: { total: params.amount, currency: 'CNY' },
+    description: params.description,
+    notify_url: params.notifyUrl,
+  }
+  // TODO: 生产前确认委托扣款 API 路径,当前按微信支付 V3 sign-plan 文档实现
+  const data = await requestV3<{
+    deduct_id?: string
+    transaction_id?: string
+    trade_state?: string
+  }>(
+    'POST',
+    `/v3/payscore/sign-plan/contracts/${encodeURIComponent(params.contractId)}/deduct`,
+    body,
+  )
+  const status: 'pending' | 'success' | 'failed' =
+    data.trade_state === 'SUCCESS'
+      ? 'success'
+      : data.trade_state === 'FAILED'
+        ? 'failed'
+        : 'pending'
+  return {
+    deductId: data.deduct_id ?? data.transaction_id ?? params.outTradeNo,
+    status,
+  }
+}
