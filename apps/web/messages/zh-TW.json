@@ -366,7 +366,9 @@
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "微信小程式",
     "downloadDesktop": "桌面端",
-    "mainNav": "主導航"
+    "mainNav": "主導航",
+    "knowledgeBase": "知識庫",
+    "announcements": "公告"
   },
   "auth": {
     "loginTitle": "歡迎回來",
