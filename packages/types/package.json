@@ -21,18 +21,24 @@
     "./ai": {
       "types": "./src/ai.ts",
       "import": "./dist/ai.js"
+    },
+    "./message-repair": {
+      "types": "./src/message-repair.ts",
+      "import": "./dist/message-repair.js"
     }
   },
   "scripts": {
     "build": "tsc",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rimraf dist .turbo node_modules"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "eslint": "^9.16.0",
     "typescript": "^5.7.2",
-    "rimraf": "^6.0.1"
+    "rimraf": "^6.0.1",
+    "vitest": "^2.1.8"
   }
 }
