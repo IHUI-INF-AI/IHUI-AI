@@ -112,9 +112,9 @@
 
 > 这些路由暂保留空桩 + `NEEDS_NEW_TABLE` 注释,待 schema 补全后激活。涉及前端调用方需在后端真实化后同步检查调用契约。
 
-- [ ] P1 新增 schema 表 `business_cards` + `business_card_favorites`,激活 `/business-card/:id` GET/DELETE/POST、`/business-card/favorites` GET/DELETE、`/business-card/:id/favorite` POST 共 7 个路由。
-- [ ] P1 新增 schema 表 `user_addresses`,激活 `/addresses/:id` PUT/DELETE、`/addresses` POST、`/addresses/:id/default` POST 共 4 个路由。
-- [ ] P1 新增 schema 表 `service_appointments`,激活 `/service-appointment/:id`、`/:id/cancel`、`/:id/confirm`、`/:id/complete` 共 4 个路由。
+- [x] ✅(2026-07-17) P1 新增 schema 表 `business_cards` + `business_card_favorites`,激活 `/business-card/:id` GET/DELETE/POST、`/business-card/favorites` GET/DELETE、`/business-card/:id/favorite` POST 共 7 个路由(frontend-stub-other-routes.ts:355-490 真实 Drizzle 查询 + viewCount 自增 + 收藏联表 + 404/403 处理)。
+- [x] ✅(2026-07-17) P1 新增 schema 表 `user_addresses`,激活 `/addresses/:id` PUT/DELETE、`/addresses` POST、`/addresses/:id/default` POST 共 4 个路由(frontend-stub-other-routes.ts:492-560 真实 Drizzle + Zod 校验 + 默认地址互斥更新)。
+- [x] ✅(2026-07-17) P1 新增 schema 表 `service_appointments`,激活 `/service-appointment/:id`、`/:id/cancel`、`/:id/confirm`、`/:id/complete` 共 4 个路由(frontend-stub-other-routes.ts:562-630 真实 Drizzle + 状态机校验 pending→confirmed→completed/cancelled)。
 - [x] ✅(2026-07-17) P1 新增 schema 表 `point_redeem_items`,激活 `/points/redeem` GET。
 - [x] ✅(2026-07-17) P1 新增 schema 表 `image_gen_favorites`,激活 `/image-gen/favorites` GET。
 - [x] ✅(2026-07-17) P1 新增 schema 表 `notes`,激活 `/notes/:id` PUT。
@@ -17718,6 +17718,51 @@ search agent 扫描 `apps/web` + `packages/ui` 所有 tsx,与 `@theme`/`design-t
 - Edit 工具对本项目 `MainShell.tsx` 再次出现"返回成功但未持久化"问题(与 globals.css 同病),改用 Write 重写整个文件解决。**结论:本项目 Edit 工具不可靠,后续修改优先用 Write。**
 - 侧边栏关闭通路原有三条(遮罩点击 / Esc / 导航链接点击)均正常,本次只补了第四条(菜单按钮 toggle)。
 - OpenPreview 报 HomeBanner 轮播指示点 hydration warning(服务端 `rounded` vs 客户端 `rounded-full`),为预存在问题(非本次引入),不影响功能,留作后续独立任务。
+
+---
+
+## P1 恢复真实品牌 Logo + 排查国旗 SVG 可见性(2026-07-17)✅(2026-07-17)
+
+### 背景
+
+用户反馈"我们自己的 Logo 图片呢?怎么没引用显示呢 而且左下角国旗 svg 图标也没显示啊 你看看原来我们未改架构前的最新代码怎么设定的"。排查发现:
+
+- `apps/web/public/images/logo.svg` 与 `bailogo.svg` 被 commit `ab5e5d0a`("logo 修复")从**真实品牌 Logo**(含图形+渐变+嵌入位图+文字)误改为**纯文字占位 SVG**(仅 278 字节 `<text>IHUI-AI</text>`),用户看到的是"文字占位"而非真实 Logo。
+- 国旗 SVG(`apps/web/public/images/flags/*.svg`)实际**渲染正常**(代码引用 `/images/flags/${locale}.svg` 在 `sidebar.tsx` L271 + L289),用户"看不到"是因 Logo 占位文字 + dev server 未启的连锁错觉。
+
+### 修复
+
+| 文件                                  | 改动                                                                                                                                                                                                                                                 |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/public/images/logo.svg`     | 从 git commit `9e33939c` 恢复真实品牌 Logo(1,181,285 字节,含图形+渐变+嵌入位图+文字),覆盖 278 字节文字占位版                                                                                                                                         |
+| `apps/web/public/images/bailogo.svg`  | 同上,深色模式 Logo 也恢复为真实品牌图(1,181,285 字节)                                                                                                                                                                                                |
+| `apps/web/e2e/sidebar-visual.spec.ts` | 放宽 Logo E2E 断言:删除旧"禁渐变/禁显式色"2 用例(与真实品牌 Logo 冲突),新增 1 用例"logo 渲染且资源可访问"——验证 `aside img[alt="IHUI AI"]` 存在 + `src` 匹配 `/images/(logo\|bailogo).svg?v=` + HTTP 200 + SVG 非空(>100 字节)+ 含 `<svg` 或 `xmlns` |
+
+### 国旗 SVG 排查结论
+
+国旗 SVG **代码引用正确,资源 200,渲染可见**,无需修改:
+
+- 代码引用:`apps/web/src/components/sidebar.tsx` L271(Popover 内语言列表项 `<img src="/images/flags/${lang.code}.svg" class="h-3 w-4 object-cover">`)+ L289(触发按钮当前 locale 国旗 `<img src="/images/flags/${locale}.svg">`)
+- 资源文件:`apps/web/public/images/flags/` 下 5 个 SVG 全存在(`zh-CN` / `zh-TW` / `en` / `ja` / `ko`),HTTP 200
+- Playwright 诊断(已删除临时脚本 `diag-visibility.spec.ts`):`FLAG_0=src:/images/flags/zh-CN.svg vis:true box:{"x":40.5,"y":694,"width":16,"height":12}` —— 国旗在视口内可见
+
+### 验证证据
+
+| 命令                                | 退出码 | 结论                                                                  |
+| ----------------------------------- | ------ | --------------------------------------------------------------------- |
+| `pnpm --filter @ihui/web typecheck` | 0      | ✅ tsc --noEmit 无错误(清 .tsbuildinfo + .turbo 缓存后跑)             |
+| `pnpm --filter @ihui/web lint`      | 0      | ✅ eslint 无错误                                                      |
+| `pnpm --filter @ihui/web test`      | 0      | ✅ 23 文件 210 测试全过(含 color-tokens 3 + MainShell 3 守门单测)     |
+| `Get-Item logo.svg,bailogo.svg`     | -      | ✅ 各 1,181,285 字节(真实品牌图,非 278 字节占位)                      |
+| Playwright 诊断(dev server 运行时)  | -      | ✅ `LOGO_0=src:/images/logo.svg?v=20260717 vis:true` + 国旗 vis:true  |
+| HTTP 资源验证                       | -      | ✅ logo.svg 200(1.18MB)+ bailogo.svg 200(1.18MB)+ flags/zh-CN.svg 200 |
+
+### 注意事项
+
+- `apps/web/src/components/theme-logo.tsx` 的 `ThemeLogo` 组件默认 `lightSrc='/images/logo.svg'` + `darkSrc='/images/bailogo.svg'` + cache-busting `?v=20260717`,引用正确无需改动。
+- Logo 在两处渲染:`header.tsx` L148(顶栏)+ `sidebar.tsx` L846(侧边栏展开态),均通过 `<ThemeLogo />` 组件。
+- `sidebar-visual.spec.ts` 旧断言 `expect(svg).not.toMatch(/linearGradient|a78bfa|8b5cf6|6366f1/)` 是为"文字版 Logo"设计的守门,与用户要求的"真实品牌 Logo(含渐变/图形)"冲突,已删除。
+- 诊断临时文件 `apps/web/e2e/diag-visibility.spec.ts` 与 `apps/web/diag-home.png` 已用 PowerShell `Remove-Item -Force` 清理(DeleteFile 工具报"未能移动到回收站"失败,改用 PowerShell 成功)。
 
 ---
 

@@ -3,16 +3,15 @@ import { test, expect } from '@playwright/test'
 /**
  * Sidebar 视觉守门测试。
  *
- * 防止以下回归(2026-07-16 修复的 4 类问题):
- *   - logo 紫色渐变铺满 header(旧 logo.svg 渐变溢出)
+ * 防止以下回归:
+ *   - logo 不渲染或 404(2026-07-17 恢复真实品牌 Logo,允许渐变/图形/嵌入位图)
  *   - collapse 按钮超出侧边栏右边界
  *   - resize 手柄与 border 出现两条线(对齐偏移)
  *   - resize 手柄 hover 时出现蓝色 3px 粗线(应为 1px 低对比细线)
  *   - resize 手柄 focus 时出现浅蓝背景块
- *   - bailogo.svg 深色模式 logo 消失(currentColor 不继承)
  *
- * 这些都是视觉细节,容易在后续改动中被无意回退。用 boundingBox + computed style
- * 做像素级断言,防止回归。
+ * 注意:2026-07-17 用户要求恢复原始品牌 Logo(含图形+渐变+文字),不再强制文字版。
+ * Logo 断言放宽为:img 存在 + src 指向 logo/bailogo.svg + HTTP 200 + 非空 SVG。
  */
 test.describe('Sidebar 视觉守门', () => {
   test.beforeEach(async ({ page }) => {
@@ -25,37 +24,23 @@ test.describe('Sidebar 视觉守门', () => {
     await expect(page.locator('aside').first()).toBeVisible({ timeout: 15000 })
   })
 
-  test('logo 是 IHUI-AI 文字版(非紫色渐变旧 logo)', async ({ page }) => {
+  test('logo 渲染且资源可访问(真实品牌 Logo,允许渐变/图形)', async ({ page }) => {
     // ThemeLogo 渲染两个 img:浅色 dark:hidden + 深色 hidden dark:block
     const logoImgs = page.locator('aside img[alt="IHUI AI"]')
     const count = await logoImgs.count()
     expect(count).toBeGreaterThanOrEqual(1)
 
-    // 检查 src 指向新 logo 文件 + 带 cache-busting 版本号
+    // 检查 src 指向 logo 文件 + 带 cache-busting 版本号
     const firstSrc = await logoImgs.first().getAttribute('src')
     expect(firstSrc).toMatch(/\/images\/(logo|bailogo)\.svg\?v=/)
 
-    // 拉取 SVG 内容,确认是文字版(含 <text>IHUI-AI</text>),不是旧渐变(<linearGradient>)
+    // 拉取 SVG,确认 HTTP 200 + 非空 + 是合法 SVG(含 <svg 或 xmlns)
     const src = await logoImgs.first().evaluate((img) => img.src)
     const resp = await page.request.get(src)
+    expect(resp.status()).toBe(200)
     const svg = await resp.text()
-    expect(svg).toContain('IHUI-AI')
-    expect(svg).toContain('<text')
-    expect(svg).not.toMatch(/linearGradient|a78bfa|8b5cf6|6366f1/)
-  })
-
-  test('logo 浅色模式显式黑色 / 深色模式显式白色(非 currentColor)', async ({ page }) => {
-    const logoImgs = page.locator('aside img[alt="IHUI AI"]')
-    const count = await logoImgs.count()
-
-    for (let i = 0; i < count; i++) {
-      const src = await logoImgs.nth(i).evaluate((img) => img.src)
-      const resp = await page.request.get(src)
-      const svg = await resp.text()
-      // 两个 SVG 都必须显式色(fill="#0a0a0a" 或 fill="#ffffff"),不能是 currentColor
-      expect(svg).toMatch(/fill="#(0a0a0a|ffffff)"/)
-      expect(svg).not.toMatch(/fill="currentColor"/)
-    }
+    expect(svg.length, 'SVG 不应为空').toBeGreaterThan(100)
+    expect(svg).toMatch(/<svg|xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)
   })
 
   test('collapse 按钮不超出 aside 右边界', async ({ page }) => {
