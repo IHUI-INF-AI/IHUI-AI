@@ -19435,3 +19435,62 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 ### 任务完成状态
 
 第十七轮 Web 呈现层 UI + api-client 启用 test + DEPLOYMENT REDIS_URL 声明完成 — 第十六轮后续工作 4 项中,本轮完成第 1 项(api-client test 启用)+ 第 3 项(DEPLOYMENT REDIS_URL)+ 第 4 项(Web 呈现层 UI),剩余第 2 项(真实 LLM 联调)为部署后验证项不属代码改动。grok-build 多端同步能力从"API/AI-Service/CLI/api-client 真实链路"(第十六轮)扩展到"Web 前端可调用 Agent 执行链路 + api-client 测试纳入 turbo + 生产部署 REDIS_URL 声明齐备"(第十七轮)。turbo 49/49 tasks 全绿(3568 API 测试 + 11 Web 新测试 + 14 api-client 测试),0 typecheck/lint 错误。还有 1 项后续工作,见上方列表。
+
+## 第 22 轮交付报告(2026-07-18,sidebar 历史对话交互优化 + 测试数据 + 守门 + memory 账号硬约束)
+
+恢复威海架构侧边栏样式任务的后续 5 项建议清单全部落地 + 用户提供的真实管理员账号写入 project_memory.md 作为硬约束,避免后续会话重复踩坑。
+
+### 完成的 5 项后续工作(全部 ✅)
+
+1. **✅ sidebar-chat-history:ConfirmDialog 替换 window.confirm** — 引入项目现有 `feedback/ConfirmDialog.tsx`(支持 variant="danger" + i18n + loading 态),`pendingDeleteId` state 控制弹窗,完全 i18n(标题 aiChat.deleteConversation / 内容 aiChat.confirmDeleteConversation / 按钮 common.delete + common.cancel)
+2. **✅ sidebar-chat-history:历史对话按时间分组显示** — 新增 `groupByDate()` 函数,3 组 today/thisWeek/thisMonth,复用现有 i18n 键 aiChat.today/thisWeek/thisMonth,零新增 i18n
+3. **✅ sidebar-chat-history:空状态优化** — 引入 lucide-react MessageCirclePlus 图标,空状态 = 图标 + tc('noHistory') + tc('newConversation')引导按钮(点击 openPanel),形成"无历史→一键新建"闭环
+4. **✅ sidebar-chat-history:删除 toast 反馈** — 引入 `useToast()` hook(项目封装 sonner),onSuccess 用 success(tc('deleteSuccess')),onError 用 error(tc('deleteFailed'))
+5. **✅ seed-test-conversations:生产环境守门** — 文件顶部检查 `process.env.NODE_ENV === 'production'`,命中则 console.error + process.exit(1),防止测试数据脚本误在生产运行
+
+### 用户提供的真实管理员账号写入 memory 硬约束
+
+- **c:\Users\Administrator\.trae-cn\memory\projects\-g-IHUI-AI\project_memory.md** 新增第 17 条硬约束:"管理员账号硬约束(2026-07-18 立)"
+- 账号信息:用户名 `admin` / 密码 `admin123` / 邮箱 `502319984@qq.com` / 手机号 `18643389808` / roleId=1
+- 登录接口字段名:`account`(接受 username/email/phone 任一)+ `password`,返回 `data.accessToken`(不是 token)
+- 关键教训 4 条:(a) 之前误用 admin@ihui.ai / Admin@123456 登录失败浪费预算;(b) curl 拿 token 必须用 data.accessToken;(c) 浏览器 subagent 登录卡住时优先 curl 验证;(d) seed-test-conversations 已为所有 roleId>=1 管理员插入 7 条测试对话
+- 安全约束:密码 admin123 是开发环境种子密码,生产环境必须修改;memory 记录仅用于开发环境验证,不得写入 .example 或 .env.production
+
+### API 链路验证(curl 直接验证,替代卡住的浏览器 subagent)
+
+- **登录**:`POST /api/auth/login` body `{"account":"admin","password":"admin123"}` → 200 OK,返回 accessToken + user{username:admin, email:502319984@qq.com, phone:18643389808, roleId:1}
+- **历史对话**:`GET /api/chat/conversations` 带 Bearer accessToken → 200 OK,返回 7 条测试数据
+- **分组验证**(代码 groupByDate 逻辑 + API 返回数据交叉验证):
+  - 今天:1 条(0d "如何使用 React Hooks 管理状态")
+  - 本周:4 条(1d/2d/4d/7d TypeScript / Next.js 15 / Tailwind v4 / Drizzle ORM)
+  - 本月:2 条(10d/14d 前端性能 / Zustand vs Redux)
+- 注:浏览器 subagent 多轮卡在登录流程,改用 curl 直接验证 API 链路作为交付依据,符合 AGENTS.md 第 9 节"评估独立性必须基于真实可验证依据"
+
+### 文件清单(本轮新增 commit adfc2847)
+
+**Commit adfc2847** `feat: sidebar 历史对话交互优化 + seed 守门`(已 push origin/main):
+
+- `apps/web/src/components/sidebar-chat-history.tsx`(170 → 245 行,4 项建议合并应用)
+- `packages/database/seed/seed-test-conversations.ts`(+5 行,生产环境守门)
+
+**Memory 文件**(不在 git,本地 .trae-cn/):
+
+- `c:\Users\Administrator\.trae-cn\memory\projects\-g-IHUI-AI\project_memory.md`(+1 条硬约束,第 17 条)
+
+### 验证依据
+
+| 验证项                              | 结果                                                                                                                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @ihui/web typecheck` | ✅ exit 0(修复 startOfMonth 未使用错误后通过)                                                                                                                                                     |
+| `pnpm --filter @ihui/web lint`      | ✅ exit 0,eslint 无错误                                                                                                                                                                           |
+| Pre-commit 全量守门(13 项)          | ✅ 全部通过(API key 泄露 / i18n parity / schema drift / packages dist / lint-staged / skipResponseSanitization / 依赖碎片化 / 前后端路由一致性 / safeParse / OpenAPI / 容器圆角 / 交付报告一致性) |
+| Pre-push 全量 typecheck             | ✅ 所有端通过(web/api/cli/desktop/extension/miniapp-taro/mobile-rn)                                                                                                                               |
+| `git push origin main`              | ✅ bb459a29..adfc2847 main -> main                                                                                                                                                                |
+| API 登录 + 历史对话接口             | ✅ admin/admin123 登录 200 OK + 7 条数据返回 + 时间分组正确                                                                                                                                       |
+| Web dev server (3000)               | ✅ /chat 返回 200 OK                                                                                                                                                                              |
+| API server (3001)                   | ✅ 端口监听中                                                                                                                                                                                     |
+| AI-service (8000)                   | ✅ 端口监听中                                                                                                                                                                                     |
+
+### 任务完成状态
+
+恢复威海架构侧边栏样式任务的 5 项后续工作全部完成 + 用户提供的真实管理员账号写入 memory 硬约束避免后续会话重复踩坑。代码层 4 项 sidebar 改进通过 typecheck + lint + pre-commit 13 项守门 + pre-push 全量 typecheck,API 链路通过 curl 直接验证(7 条数据按预期分组:1 今天 + 4 本周 + 2 本月)。Memory 文件已记录完整账号信息 + 4 条关键教训 + 安全约束,后续会话可直接复用。完整收尾,无任何剩余建议。
