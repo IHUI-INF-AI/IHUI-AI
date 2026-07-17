@@ -1,34 +1,49 @@
 /**
- * miniapp-taro WebSocket 协议对齐测试
+ * miniapp-taro WebSocket 接入 @ihui/api-client 协议测试。
  *
- * 背景:2026-07-17 发现 websocket.ts 自写协议与 API 端 ws-notifications.ts 完全不匹配
- * (心跳发 JSON {event:'ping'},消息格式 {event:string},发送冗余 join_system_room)。
- * 本测试锁定:WS 协议必须与 API 端对齐(字符串 ping/pong + {type:'notification',data} 格式)。
+ * 背景:原自写 websocketManager 已下线,改为依赖注入方案 ——
+ * `createNotificationClient({ baseUrl, tokenProvider }, handlers, { webSocketFactory: taroWebSocketFactory })`。
+ * 本测试覆盖 Taro WebSocket 适配器(taroWebSocketFactory)的行为,以及与
+ * @ihui/api-client 真实 createNotificationClient 的集成。
  */
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // === 用 vi.hoisted 提升 mock 状态容器(vi.mock 工厂被 hoist,不能引用外部变量) ===
 const mocks = vi.hoisted(() => {
   return {
     openCallback: null as (() => void) | null,
     messageCallback: null as ((res: { data: string | unknown }) => void) | null,
+    errorCallback: null as ((err: unknown) => void) | null,
+    closeCallback: null as (() => void) | null,
     sentMessages: [] as string[],
-    createdTasks: [] as unknown[],
+    createdSocketArgs: [] as string[],
+    closedTasks: 0,
   }
 })
 
 vi.mock('@tarojs/taro', () => {
-  const connectSocket = () => {
+  const connectSocket = (opts: { url: string }) => {
+    mocks.createdSocketArgs.push(opts.url)
     const task = {
-      readyState: 1,
-      onOpen: (cb: () => void) => { mocks.openCallback = cb },
-      onMessage: (cb: (res: { data: string | unknown }) => void) => { mocks.messageCallback = cb },
-      onError: () => {},
-      onClose: () => {},
-      send: (opts: { data: string; fail?: (err: unknown) => void }) => { mocks.sentMessages.push(opts.data) },
-      close: () => { (task as { readyState: number }).readyState = 3 },
+      onOpen: (cb: () => void) => {
+        mocks.openCallback = cb
+      },
+      onMessage: (cb: (res: { data: string | unknown }) => void) => {
+        mocks.messageCallback = cb
+      },
+      onError: (cb: (err: unknown) => void) => {
+        mocks.errorCallback = cb
+      },
+      onClose: (cb: () => void) => {
+        mocks.closeCallback = cb
+      },
+      send: (o: { data: string; fail?: (err: unknown) => void }) => {
+        mocks.sentMessages.push(o.data)
+      },
+      close: () => {
+        mocks.closedTasks += 1
+      },
     }
-    mocks.createdTasks.push(task)
     return Promise.resolve(task)
   }
   return {
@@ -37,91 +52,116 @@ vi.mock('@tarojs/taro', () => {
   }
 })
 
-// === 加载被测模块 ===
-import websocketManager from '../websocket'
+// === 加载被测模块(必须在 vi.mock 之后) ===
+import { taroWebSocketFactory } from '../taro-websocket-adapter'
+import { createNotificationClient } from '@ihui/api-client'
 
-describe('miniapp-taro WebSocket 协议对齐', () => {
-  beforeAll(() => {
-    vi.useFakeTimers()
+/** Taro.connectSocket 返回 Promise,适配器在 .then 中注册 SocketTask 回调;flush 后回调才注册到位 */
+const flushMicrotasks = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
+
+describe('taroWebSocketFactory — Taro WebSocket 适配器', () => {
+  beforeEach(() => {
+    mocks.openCallback = null
+    mocks.messageCallback = null
+    mocks.errorCallback = null
+    mocks.closeCallback = null
     mocks.sentMessages.length = 0
-    mocks.createdTasks.length = 0
-    websocketManager.connect('ws://test/ws/notifications?token=test-token', {
-      onMessage: () => {},
-    })
+    mocks.createdSocketArgs.length = 0
+    mocks.closedTasks = 0
   })
 
-  afterAll(() => {
-    websocketManager.close()
-    vi.useRealTimers()
+  it('返回符合 WebSocketLike 形状的对象(含 readyState/send/close/四个回调),初始 readyState=0', () => {
+    const ws = taroWebSocketFactory('ws://test/ws')
+    expect(ws).toBeDefined()
+    expect(typeof ws.send).toBe('function')
+    expect(typeof ws.close).toBe('function')
+    expect('onopen' in ws).toBe(true)
+    expect('onmessage' in ws).toBe(true)
+    expect('onclose' in ws).toBe(true)
+    expect('onerror' in ws).toBe(true)
+    expect(ws.readyState).toBe(0)
   })
 
-  it('connect 后应通过 Taro.connectSocket 建立连接', () => {
-    expect(mocks.createdTasks.length).toBeGreaterThanOrEqual(1)
+  it('内部调用 Taro.connectSocket({ url }) 建立连接', async () => {
+    taroWebSocketFactory('ws://test/abc?token=t')
+    await flushMicrotasks()
+    expect(mocks.createdSocketArgs).toContain('ws://test/abc?token=t')
   })
 
-  it('onOpen 触发后应启动心跳,心跳发送字符串 ping(非 JSON)', () => {
+  it('SocketTask.onOpen 触发时调用 adapter.onopen 并将 readyState 置为 1(OPEN)', async () => {
+    const onOpen = vi.fn()
+    const ws = taroWebSocketFactory('ws://t3')
+    ws.onopen = onOpen
+    await flushMicrotasks()
     expect(mocks.openCallback).not.toBeNull()
     mocks.openCallback!()
-    vi.advanceTimersByTime(31000)
-    expect(mocks.sentMessages).toContain('ping')
-    const pingMessages = mocks.sentMessages.filter((m) => m.includes('ping'))
-    expect(pingMessages.some((m) => m === 'ping')).toBe(true)
-    expect(pingMessages.some((m) => m.startsWith('{'))).toBe(false)
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(ws.readyState).toBe(1)
   })
 
-  it('收到字符串 pong 应静默跳过(不触发 onMessage,不报错)', () => {
+  it('SocketTask.onMessage 触发时调用 adapter.onmessage,传 { data: res.data }', async () => {
     const onMessage = vi.fn()
-    websocketManager.connect('ws://test2/ws/notifications?token=t2', { onMessage })
-    mocks.openCallback!()
+    const ws = taroWebSocketFactory('ws://t4')
+    ws.onmessage = onMessage
+    await flushMicrotasks()
     expect(mocks.messageCallback).not.toBeNull()
-    expect(() => mocks.messageCallback!({ data: 'pong' })).not.toThrow()
-    expect(onMessage).not.toHaveBeenCalled()
-  })
-
-  it('收到 { type: "notification", data: {...} } 应触发 onMessage 回调传整个 parsed 对象', () => {
-    const onMessage = vi.fn()
-    websocketManager.connect('ws://test3/ws/notifications?token=t3', { onMessage })
-    mocks.openCallback!()
-    const notification = { type: 'notification', data: { id: 'n1', title: '测试通知' } }
-    mocks.messageCallback!({ data: JSON.stringify(notification) })
+    const payload = { id: 'n1', title: '测试通知' }
+    mocks.messageCallback!({ data: payload })
     expect(onMessage).toHaveBeenCalledTimes(1)
-    expect(onMessage).toHaveBeenCalledWith(notification)
+    expect(onMessage).toHaveBeenCalledWith({ data: payload })
   })
 
-  it('收到非 notification 类型的 JSON 消息应静默跳过', () => {
-    const onMessage = vi.fn()
-    websocketManager.connect('ws://test4/ws/notifications?token=t4', { onMessage })
-    mocks.openCallback!()
-    mocks.messageCallback!({ data: JSON.stringify({ type: 'other', data: 'something' }) })
-    expect(onMessage).not.toHaveBeenCalled()
+  it('SocketTask.onError 触发时调用 adapter.onerror 并将 readyState 置为 3(CLOSED)', async () => {
+    const onError = vi.fn()
+    const ws = taroWebSocketFactory('ws://t5')
+    ws.onerror = onError
+    await flushMicrotasks()
+    expect(mocks.errorCallback).not.toBeNull()
+    const err = new Error('boom')
+    mocks.errorCallback!(err)
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(onError).toHaveBeenCalledWith(err)
+    expect(ws.readyState).toBe(3)
   })
 
-  it('send 方法对字符串参数应原样发送(不 JSON.stringify)', () => {
-    mocks.sentMessages.length = 0
-    websocketManager.send('ping')
+  it('SocketTask.onClose 触发时调用 adapter.onclose 并将 readyState 置为 3(CLOSED)', async () => {
+    const onClose = vi.fn()
+    const ws = taroWebSocketFactory('ws://t6')
+    ws.onclose = onClose
+    await flushMicrotasks()
+    expect(mocks.closeCallback).not.toBeNull()
+    mocks.closeCallback!()
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(ws.readyState).toBe(3)
+  })
+
+  it('adapter.send(data) 调用 task.send({ data })', async () => {
+    const ws = taroWebSocketFactory('ws://t7')
+    await flushMicrotasks()
+    ws.send('ping')
     expect(mocks.sentMessages).toContain('ping')
     expect(mocks.sentMessages[mocks.sentMessages.length - 1]).toBe('ping')
   })
 
-  it('send 方法对对象参数应 JSON.stringify', () => {
-    mocks.sentMessages.length = 0
-    websocketManager.send({ type: 'test' })
-    expect(mocks.sentMessages).toContain(JSON.stringify({ type: 'test' }))
+  it('adapter.close() 调用 task.close({})', async () => {
+    const ws = taroWebSocketFactory('ws://t8')
+    await flushMicrotasks()
+    ws.close()
+    expect(mocks.closedTasks).toBe(1)
   })
 
-  it('不应发送 join_system_room 或其他冗余业务事件', () => {
-    mocks.sentMessages.length = 0
-    mocks.openCallback!()
-    vi.advanceTimersByTime(31000)
-    const redundantEvents = mocks.sentMessages.filter((m) =>
-      m.includes('join_system_room') || m.includes('join_room') || m.includes('subscribe')
+  it('集成:createNotificationClient 注入 taroWebSocketFactory 后 connect,onOpen 回调触发', async () => {
+    const onOpen = vi.fn()
+    const client = createNotificationClient(
+      { baseUrl: 'http://localhost:3000/api', tokenProvider: () => 'test-token' },
+      { onOpen },
+      { webSocketFactory: taroWebSocketFactory },
     )
-    expect(redundantEvents).toEqual([])
-  })
-
-  it('close 后应停止心跳并清理状态', () => {
-    const wsm = (websocketManager as unknown as { heartbeatTimer: ReturnType<typeof setInterval> | null })
-    websocketManager.close()
-    expect(wsm.heartbeatTimer).toBeNull()
+    client.connect()
+    await flushMicrotasks()
+    expect(mocks.openCallback).not.toBeNull()
+    mocks.openCallback!()
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    client.disconnect()
   })
 })
