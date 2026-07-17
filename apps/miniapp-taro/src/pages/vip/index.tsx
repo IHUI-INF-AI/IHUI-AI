@@ -2,7 +2,14 @@ import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getVipInfo, getVipPrivilege, upgradeVip, type VipInfo, type VipPayInfo } from '@/api'
+import {
+  getVipInfo,
+  getVipPrivilege,
+  getVipLevels,
+  upgradeVip,
+  type VipInfo,
+  type VipPayInfo,
+} from '@/api'
 import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
 import {
   VipBenefitsPopup,
@@ -44,14 +51,16 @@ export default function VipIndexPage() {
   const { t } = useI18n()
   const [info, setInfo] = useState<VipInfo>({} as VipInfo)
   const [benefits, setBenefits] = useState<VipBenefit[]>([])
+  const [priceOptions, setPriceOptions] = useState<PriceOption[]>([])
   const [selectedPlan, setSelectedPlan] = useState<PriceOption | null>(null)
   const [showBenefits, setShowBenefits] = useState(false)
   const [showPayConfirm, setShowPayConfirm] = useState(false)
   const [payMethod, setPayMethod] = useState<'wechat' | 'alipay'>('wechat')
 
   const load = useCallback(async () => {
+    Taro.showLoading({ title: '加载中', mask: true })
     try {
-      const [i, p] = await Promise.all([getVipInfo(), getVipPrivilege()])
+      const [i, p, lv] = await Promise.all([getVipInfo(), getVipPrivilege(), getVipLevels()])
       setInfo(i)
       const list = (p.list || []).map((item) => ({
         id: String(item.id),
@@ -59,9 +68,19 @@ export default function VipIndexPage() {
         desc: item.desc,
       })) as VipBenefit[]
       setBenefits(list)
+      const opts = (lv.items || []).map((l) => ({
+        id: String(l.id),
+        name: l.levelName,
+        price: l.price / 100,
+        period: `${l.durationDays}天`,
+      })) as PriceOption[]
+      setPriceOptions(opts)
+      setSelectedPlan((prev) => prev ?? opts[0] ?? null)
     } catch (e) {
       logger.error('vip/index', '获取VIP信息', e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
+    } finally {
+      Taro.hideLoading()
     }
   }, [t])
 
@@ -81,7 +100,7 @@ export default function VipIndexPage() {
     if (!selectedPlan) return
     setShowPayConfirm(false)
     try {
-      const res = await upgradeVip(Number(selectedPlan.id))
+      const res = await upgradeVip(selectedPlan.id)
       dispatchVipPay(res.payInfo, res.orderNo)
     } catch (e) {
       logger.error('vip/index', '开通VIP', e)
@@ -124,27 +143,8 @@ export default function VipIndexPage() {
       <View className="card">
         <View className="card-title">{t('vip.plans')}</View>
         <VipPriceSelector
-          options={[
-            { id: '1', name: '月度', price: 19, period: '1个月' },
-            {
-              id: '2',
-              name: '季度',
-              price: 49,
-              originalPrice: 57,
-              period: '3个月',
-              popular: true,
-              discount: '8.6折',
-            },
-            {
-              id: '3',
-              name: '年度',
-              price: 158,
-              originalPrice: 228,
-              period: '12个月',
-              discount: '6.9折',
-            },
-          ]}
-          selectedId={selectedPlan?.id || '3'}
+          options={priceOptions}
+          selectedId={selectedPlan?.id || ''}
           onSelect={onSelectPlan}
         />
         <Button className="btn" onClick={onUpgradeClick}>

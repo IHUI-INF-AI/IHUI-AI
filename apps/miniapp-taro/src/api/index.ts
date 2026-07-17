@@ -290,7 +290,19 @@ export interface VipInfo {
   originalPrice?: number
 }
 
+export interface VipLevel {
+  id: string
+  levelName: string
+  levelValue: number
+  price: number
+  durationDays: number
+  benefits?: Record<string, unknown> | null
+  status: number
+  sortOrder: number
+}
+
 export const getVipInfo = () => get<VipInfo>('/vip/info')
+export const getVipLevels = () => get<{ items: VipLevel[] }>('/vip/levels')
 export const getVipPrivilege = () =>
   get<{ list: Array<{ id: string; title: string; desc: string }> }>('/vip/privilege')
 export interface VipPayInfo {
@@ -313,7 +325,8 @@ export interface VipOrderResult {
   quantity: number
   payInfo: VipPayInfo
 }
-export const upgradeVip = (level: number) => post<VipOrderResult>('/vip/upgrade', { level })
+export const upgradeVip = (vipLevelId: string) =>
+  post<VipOrderResult>('/vip/order', { vipLevelId, quantity: 1 })
 export const getVipOrderPayInfo = (orderNo: string) =>
   get<{ status: string; payInfo?: VipPayInfo }>(`/vip/order/${orderNo}/payinfo`)
 

@@ -272,7 +272,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                 {}
                 <img
                   src={`/images/flags/${lang.code}.svg`}
-                  className="block h-3 w-4 shrink-0 object-cover"
+                  className="block h-4 w-5 shrink-0 object-cover"
                   alt={lang.name}
                 />
                 <span>{lang.name}</span>
@@ -291,7 +291,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           {}
           <img
             src={`/images/flags/${locale}.svg`}
-            className="block h-3 w-4 shrink-0 object-cover"
+            className="block h-4 w-5 shrink-0 object-cover"
             alt={locale}
           />
         </Button>
@@ -596,21 +596,26 @@ function ExpandableNavItem({
   const children = item.children ?? []
   const parentActive = children.some((child) => isActive(child.href))
   const storageKey = `sidebar-expand-${item.href}`
-  const [open, setOpen] = React.useState(() => {
-    if (parentActive) return true
-    try {
-      return localStorage.getItem(storageKey) === '1'
-    } catch {
-      return false
-    }
-  })
+  // 初始值固定 false,确保 SSR 与客户端首次渲染一致,避免 hydration mismatch。
+  // 真实展开状态在 hydration 后由 useEffect 读取(parentActive 优先,其次 localStorage)。
+  const [open, setOpen] = React.useState(false)
   const controlId = React.useId()
   const listId = `${controlId}-list`
 
+  // hydration 后读取真实展开状态
   React.useEffect(() => {
-    if (parentActive) setOpen(true)
-  }, [parentActive])
+    if (parentActive) {
+      setOpen(true)
+      return
+    }
+    try {
+      setOpen(localStorage.getItem(storageKey) === '1')
+    } catch {
+      // localStorage 不可用
+    }
+  }, [parentActive, storageKey])
 
+  // 持久化展开状态到 localStorage
   React.useEffect(() => {
     try {
       localStorage.setItem(storageKey, open ? '1' : '0')
