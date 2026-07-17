@@ -381,7 +381,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
             />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setPendingRenameId(null)}>
+            <Button variant="ghost" className="bg-muted" onClick={() => setPendingRenameId(null)}>
               {tc('renameDialog.cancel')}
             </Button>
             <Button onClick={confirmRename} disabled={renameMutation.isPending}>
