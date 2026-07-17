@@ -7,6 +7,7 @@ import {
   getVipPrivilege,
   getVipLevels,
   upgradeVip,
+  signRecurringContract,
   type VipInfo,
   type VipPayInfo,
 } from '@/api'
@@ -56,6 +57,7 @@ export default function VipIndexPage() {
   const [showBenefits, setShowBenefits] = useState(false)
   const [showPayConfirm, setShowPayConfirm] = useState(false)
   const [payMethod, setPayMethod] = useState<'wechat' | 'alipay'>('wechat')
+  const [autoRenew, setAutoRenew] = useState(false)
 
   const load = useCallback(async () => {
     Taro.showLoading({ title: '加载中', mask: true })
@@ -100,13 +102,20 @@ export default function VipIndexPage() {
     if (!selectedPlan) return
     setShowPayConfirm(false)
     try {
+      if (autoRenew) {
+        const signRes = await signRecurringContract({ planId: selectedPlan.id })
+        Taro.navigateTo({
+          url: `/pages/webview/index?url=${encodeURIComponent(signRes.signUrl)}`,
+        })
+        return
+      }
       const res = await upgradeVip(selectedPlan.id)
       dispatchVipPay(res.payInfo, res.orderNo)
     } catch (e) {
       logger.error('vip/index', '开通VIP', e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
-  }, [selectedPlan, t])
+  }, [selectedPlan, autoRenew, t])
 
   const onBenefitsClick = useCallback(() => {
     setShowBenefits(true)
@@ -147,6 +156,23 @@ export default function VipIndexPage() {
           selectedId={selectedPlan?.id || ''}
           onSelect={onSelectPlan}
         />
+        <View
+          className="flex items-center mt-[24rpx] py-[8rpx]"
+          onClick={() => setAutoRenew((v) => !v)}
+        >
+          <View
+            className={`w-[36rpx] h-[36rpx] mr-[16rpx] flex items-center justify-center border-[2rpx] rounded-[8rpx] ${autoRenew ? 'bg-[#f2b04a] border-[#f2b04a]' : 'border-[#ccc] bg-white'}`}
+          >
+            {autoRenew && <Text className="text-white text-[24rpx] leading-none">✓</Text>}
+          </View>
+          <Text className="text-[24rpx] text-[#666]">开通自动续费(连续包月,可随时关闭)</Text>
+        </View>
+        <View
+          className="mt-[12rpx] text-[22rpx] text-[#07c160]"
+          onClick={() => Taro.navigateTo({ url: '/pages/subscription/contracts/index' })}
+        >
+          <Text>管理自动续费</Text>
+        </View>
         <Button className="btn" onClick={onUpgradeClick}>
           {t('vip.subscribe')}
           {selectedPlan ? ` ¥${selectedPlan.price}` : ''}

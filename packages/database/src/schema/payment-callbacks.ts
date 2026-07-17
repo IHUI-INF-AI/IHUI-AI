@@ -1,4 +1,13 @@
-import { pgTable, bigserial, varchar, integer, text, timestamp, index, unique } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  bigserial,
+  varchar,
+  integer,
+  text,
+  timestamp,
+  index,
+  unique,
+} from 'drizzle-orm/pg-core'
 
 /**
  * 支付回调原始记录表（payment_callbacks）。
@@ -21,7 +30,7 @@ export const paymentCallbacks = pgTable(
   (t) => ({
     orderIdx: index('payment_callbacks_order_idx').on(t.orderId),
   }),
-);
+)
 
 /**
  * 转账信息表（transfer_infos）。
@@ -42,7 +51,7 @@ export const transferInfos = pgTable(
   (t) => ({
     transferNoUniq: unique('transfer_infos_transfer_no_unique').on(t.transferNo),
   }),
-);
+)
 
 /**
  * 微信支付通知表（wx_pay_notifications）。
@@ -61,7 +70,8 @@ export const wxPayNotifications = pgTable(
     totalFee: integer('total_fee').default(0).notNull(),
     cashFee: integer('cash_fee').default(0).notNull(),
     refundNo: varchar('refund_no', { length: 64 }),
-    notificationType: varchar('notification_type', { length: 32 }),
+    notificationType: varchar('notification_type', { length: 32 }).default('pay'),
+    contractId: varchar('contract_id', { length: 64 }),
     resultCode: varchar('result_code', { length: 16 }),
     rawXml: text('raw_xml'),
     status: integer('status').default(0).notNull(),
@@ -71,11 +81,11 @@ export const wxPayNotifications = pgTable(
     outTradeNoIdx: index('wx_pay_notifications_out_trade_no_idx').on(t.outTradeNo),
     transactionIdIdx: index('wx_pay_notifications_transaction_id_idx').on(t.transactionId),
   }),
-);
+)
 
-export type PaymentCallback = typeof paymentCallbacks.$inferSelect;
-export type NewPaymentCallback = typeof paymentCallbacks.$inferInsert;
-export type TransferInfo = typeof transferInfos.$inferSelect;
-export type NewTransferInfo = typeof transferInfos.$inferInsert;
-export type WxPayNotification = typeof wxPayNotifications.$inferSelect;
-export type NewWxPayNotification = typeof wxPayNotifications.$inferInsert;
+export type PaymentCallback = typeof paymentCallbacks.$inferSelect
+export type NewPaymentCallback = typeof paymentCallbacks.$inferInsert
+export type TransferInfo = typeof transferInfos.$inferSelect
+export type NewTransferInfo = typeof transferInfos.$inferInsert
+export type WxPayNotification = typeof wxPayNotifications.$inferSelect
+export type NewWxPayNotification = typeof wxPayNotifications.$inferInsert

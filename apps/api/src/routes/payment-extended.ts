@@ -17,13 +17,22 @@ import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
 import { authenticate } from '../plugins/auth.js'
-import { orders, withdrawalFlows, plans, userVips, vipLevels } from '@ihui/database'
+import {
+  orders,
+  withdrawalFlows,
+  plans,
+  userVips,
+  vipLevels,
+  wechatPayContracts,
+} from '@ihui/database'
 import { placeOrder, completeOrder } from '../services/order-service.js'
 import {
   verifyCallbackSignature,
   isWechatPayConfigured,
   jsapiPrepay,
   buildJsapiSign,
+  deductRecurring,
+  generateOutTradeNo,
 } from '../services/wechat-pay.js'
 import { isAlipayConfigured, buildSignedUrl } from '../services/alipay.js'
 import { config } from '../config/index.js'
@@ -268,6 +277,37 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, '当前无有效 VIP 订阅，无法续费'))
       }
 
+      // 检查是否有 active 周期扣款签约:有则走委托扣款分支,无则走手动支付流程
+      const [activeContract] = await db
+        .select()
+        .from(wechatPayContracts)
+        .where(
+          and(
+            eq(wechatPayContracts.userId, userId),
+            eq(wechatPayContracts.status, 'active'),
+            eq(wechatPayContracts.planId, planId),
+          ),
+        )
+        .limit(1)
+
+      if (activeContract) {
+        const deductOutTradeNo = generateOutTradeNo('RC')
+        const deductResult = await deductRecurring({
+          contractId: activeContract.contractId,
+          outTradeNo: deductOutTradeNo,
+          amount: plan.price,
+          description: `连续订阅自动续费 - ${plan.name}`,
+          notifyUrl: env.WX_PAY_RECURRING_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? '',
+        })
+        return reply.send(
+          success({
+            recurring: true,
+            deductId: deductResult.deductId,
+            status: deductResult.status,
+          }),
+        )
+      }
+
       // 创建新订单（status=pending）
       const order = await placeOrder({
         userId,
@@ -373,8 +413,39 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
             endTime: null,
             autoRenew: false,
             planName: null,
+            contract: null,
           }),
         )
+      }
+
+      // 若 autoRenew=true,关联查询当前用户的 active 签约(供前端展示下次扣款时间)
+      let contract: {
+        id: number
+        contractId: string
+        status: string
+        nextChargeTime: Date | null
+        lastChargeTime: Date | null
+        lastChargeStatus: string | null
+        signedAt: Date | null
+      } | null = null
+      if (vipRow.userVip.autoRenew === 1) {
+        const [c] = await db
+          .select({
+            id: wechatPayContracts.id,
+            contractId: wechatPayContracts.contractId,
+            status: wechatPayContracts.status,
+            nextChargeTime: wechatPayContracts.nextChargeTime,
+            lastChargeTime: wechatPayContracts.lastChargeTime,
+            lastChargeStatus: wechatPayContracts.lastChargeStatus,
+            signedAt: wechatPayContracts.signedAt,
+          })
+          .from(wechatPayContracts)
+          .where(
+            and(eq(wechatPayContracts.userId, userId), eq(wechatPayContracts.status, 'active')),
+          )
+          .orderBy(desc(wechatPayContracts.signedAt))
+          .limit(1)
+        contract = c ?? null
       }
 
       return reply.send(
@@ -384,6 +455,7 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
           endTime: vipRow.userVip.endTime,
           autoRenew: vipRow.userVip.autoRenew === 1,
           planName: vipRow.levelName,
+          contract,
         }),
       )
     },
