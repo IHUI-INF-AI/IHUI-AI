@@ -4,6 +4,38 @@
 
 ---
 
+## 容器圆角全面修复 + 守门(2026-07-17)✅(2026-07-17)
+
+### 目标
+
+全面彻底修复项目中所有纯圆形/胶囊样式容器违规,不允许再出现。
+
+### 完成记录
+
+- ✅ **TS/TSX 违规批量修复**: 389 文件 596 处 `rounded-full` → 按元素尺寸自动选择规范圆角档位(commit `883b3558`)
+  - 修复策略: 极小(h-1~~h-2 进度条)→ rounded(4px) / 小(h-3~~h-4)→ rounded / 中小(h-5~~h-7)→ rounded-md(6px) / 中等(h-8~~h-10)→ rounded-lg(8px) / 中大(h-11~h-12)→ rounded-xl(12px) / 大(h-14+)→ rounded-2xl(16px) / 无尺寸→ rounded-md(6px 安全默认)
+  - 修复工具: [scripts/fix-rounded-full.mjs](file:///g:/IHUI-AI/scripts/fix-rounded-full.mjs) 自动修复脚本(复用 isExempt 豁免规则 + pickRadius 尺寸推断)
+- ✅ **CSS/SCSS 违规修复**: 17 处 `border-radius: 50%` → 按尺寸 16rpx/8rpx/4rpx(commit `df7a43b5`)
+- ✅ **CSS 上下文感知豁免**: check-rounded-full.mjs 新增 `isCssExempt()` 函数 — 识别 .avatar 选择器(头像图片豁免)/ <=14px 装饰点 / animate 动画 / ::before/::after 伪元素
+- ✅ **守门脚本 EXCLUDE_DIRS 增强**: 排除 .venv/venv/**pycache**/out/.cache/coverage 等第三方依赖和构建产物目录
+- ✅ **pre-commit 第 11 项守门**: 拦截新增 `rounded-full`/`rounded-pill`/`9999px`/`50%` 容器违规(豁免 img/Switch/Radio/Avatar shape/装饰点/红点底/animate-spin)
+- ✅ **全量验证**: typecheck 23/23 + lint 16/16(0 errors) + test 16/16(3455 tests) + pre-push 全量 typecheck 18 workspace 全绿
+
+### 验证依据
+
+- `node scripts/check-rounded-full.mjs` 全量扫描 3605 文件 **0 处违规** ✅(源码违规归零)
+- `git push origin main` 成功 `df7a43b5..883b3558`,pre-push 全量 typecheck 18 workspace 通过
+- 豁免规则验证: Switch.tsx/Radio.tsx/Avatar.tsx/voice-input.tsx/Loading.tsx 等正确豁免
+
+### 守门机制(防止回潮)
+
+1. **pre-commit 第 11 项**: `node scripts/check-rounded-full.mjs --staged` — staged 模式只检查新增行,阻塞新增违规
+2. **8 类豁免规则**: `<img>`/`<Image>`/AvatarImage + Radix Switch Root/Thumb + Radix Radio + Avatar shape='circle' + <=14px 装饰点 + w-0.5/h-0.5 极窄条 + bg-red-500 红点底 + animate-spin/bounce/ping/pulse
+3. **CSS 上下文感知**: `.avatar`/`.card-avatar`/`.agent-avatar` 选择器 + <=14px 装饰点 + 动画 + 伪元素
+4. **自动修复工具**: `scripts/fix-rounded-full.mjs` 可复用,未来如有新违规可一键修复
+
+---
+
 ## 容器圆角守门 + Stash 审查结论(2026-07-17)✅(2026-07-17)
 
 ### 目标
