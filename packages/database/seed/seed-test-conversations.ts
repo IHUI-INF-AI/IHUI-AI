@@ -4,6 +4,12 @@ import { chatConversations, chatMessages } from '../src/schema/chat.js'
 import { users } from '../src/schema/users.js'
 import { sql } from 'drizzle-orm'
 
+// 生产环境守门:测试数据仅用于本地/开发环境,生产环境禁止运行
+if (process.env.NODE_ENV === 'production') {
+  console.error('[seed-test-conversations] 测试数据脚本禁止在生产环境运行 (NODE_ENV=production)')
+  process.exit(1)
+}
+
 const DATABASE_URL =
   process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/ihui'
 
