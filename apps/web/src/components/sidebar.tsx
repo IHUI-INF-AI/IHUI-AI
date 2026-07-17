@@ -791,9 +791,9 @@ export function Sidebar({
         aria-label={t('title') ?? '主导航'}
         className={cn(
           'hover-scroll min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto py-2',
-          // 折叠态:aside 的 border-r(1px)使内容区 59px,nav 居中后图标会偏左 0.5px。
-          // 用 pl-[9px] pr-2 补偿,让图标回到 60px 视觉中心。
-          collapsed ? 'pl-[9px] pr-2' : 'pl-[10px] pr-0',
+          // 滚动条已完全隐藏(globals.css .hover-scroll),不占布局空间。
+          // px-2 左右各 8px 对称,折叠态 aside border-r(1px)用 pl-[9px] pr-2 补偿图标视觉中心。
+          collapsed ? 'pl-[9px] pr-2' : 'px-2',
         )}
       >
         {/* 新建对话按钮(对齐旧架构 .nav-new-chat,黑白对调主题) */}
@@ -897,9 +897,9 @@ export function Sidebar({
   const header = (
     <div
       className={cn(
-        // 与未改架构前 _sidebar-layout.scss 保持一致:header 高 52px。
-        // px-4 mx-1.5 水平内边距让内容区 ~86px,让 logo 自然宽度(max 80)按比例缩放。
-        'flex h-[52px] shrink-0 items-center justify-between gap-2 px-4 mx-1.5 transition-[padding] duration-200',
+        // header 高 52px。px-2 mx-0 与 nav 的 px-2 对齐:logo 左侧 + collapse 按钮右侧与菜单项左右侧各 8px 对齐。
+        // gap-1(4px)让 logo(80) + gap(4) + 按钮(28) = 112px < 内容区 114px,不溢出。
+        'flex h-[52px] shrink-0 items-center justify-between gap-1 px-2 mx-0 transition-[padding] duration-200',
         // 折叠态:aside 的 border-r(1px)使内容区 59px,header 居中后按钮会偏左 0.5px。
         // 用 pl-[9px] pr-2 补偿,让按钮回到 60px 视觉中心。
         collapsed && 'justify-center pl-[9px] pr-2 mx-0',
