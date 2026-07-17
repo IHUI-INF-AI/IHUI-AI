@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { streamChat, formatSSEError } from '@ihui/api-client'
 
@@ -45,6 +46,7 @@ export function useChat(): UseChatReturn {
   const error = useChatStore((s) => s.error)
 
   const router = useRouter()
+  const queryClient = useQueryClient()
   const abortRef = React.useRef<AbortController | null>(null)
 
   const sendMessage = React.useCallback(
@@ -70,6 +72,7 @@ export function useChat(): UseChatReturn {
         const sp = new URLSearchParams(window.location.search)
         sp.set('conversationId', conversationId)
         router.replace(`/chat?${sp.toString()}`, { scroll: false })
+        queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
       }
 
       // 2. 持久化用户消息(后台 fire-and-forget,不阻塞流式响应)
@@ -160,7 +163,7 @@ export function useChat(): UseChatReturn {
         useChatStore.getState().setStreaming(false)
       }
     },
-    [router],
+    [router, queryClient],
   )
 
   const stop = React.useCallback(() => {
