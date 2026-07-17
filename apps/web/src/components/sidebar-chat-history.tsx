@@ -140,8 +140,13 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const res = await fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
+      if (!res.success) throw new Error(res.error)
+      return res
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
       success(tc('deleteSuccess'))
