@@ -315,37 +315,6 @@ body {
   background: color-mix(in srgb, var(--color-muted-foreground) 60%, transparent);
 }
 
-/* 滚动渐隐遮罩:可滚动区域顶部/底部的渐变提示 */
-.scroll-fade {
-  position: relative;
-}
-.scroll-fade::before,
-.scroll-fade::after {
-  content: '';
-  position: sticky;
-  display: block;
-  height: 18px;
-  margin-inline: -0.5rem;
-  pointer-events: none;
-  z-index: 1;
-}
-.scroll-fade::before {
-  top: 0;
-  margin-top: -0.5rem;
-  background: linear-gradient(var(--color-sidebar), transparent);
-}
-.scroll-fade::after {
-  bottom: 0;
-  margin-bottom: -0.5rem;
-  background: linear-gradient(transparent, var(--color-sidebar));
-}
-.dark .scroll-fade::before {
-  background: linear-gradient(var(--color-sidebar), transparent);
-}
-.dark .scroll-fade::after {
-  background: linear-gradient(transparent, var(--color-sidebar));
-}
-
 /* 跳转到主内容链接:键盘用户可见,平时屏幕阅读器外隐藏 — 由 app/(main)/layout.tsx 中的 sr-only 元素承担 */
 
 /* 主内容区焦点可见(配合 skip link 使用) */
@@ -363,10 +332,6 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-  .scroll-fade::before,
-  .scroll-fade::after {
-    display: none;
   }
 }
 
