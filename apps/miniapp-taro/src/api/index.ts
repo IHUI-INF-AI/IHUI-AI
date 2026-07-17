@@ -110,6 +110,9 @@ export interface ChatMessage {
 }
 
 export interface ChatOptions {
+  /** 模型 ID(优先使用,与 AI-service LLMCompleteRequest 对齐) */
+  model?: string
+  /** 向后兼容 alias,优先级低于 model */
   modelId?: string
   agentId?: string
   materialContent?: string
@@ -123,7 +126,13 @@ export interface ChatResult {
 
 /** AI 对话（流式可由后端 SSE 处理，此处提供普通接口） */
 export const chat = (messages: ChatMessage[], sessionId?: string, options?: ChatOptions) =>
-  post<ChatResult>('/ai/chat', { messages, sessionId, ...options })
+  post<ChatResult>('/ai/chat', {
+    messages,
+    sessionId,
+    model: options?.model ?? options?.modelId,
+    agentId: options?.agentId,
+    materialContent: options?.materialContent,
+  })
 
 /** AI 对话 SSE 流式（小程序端 enableChunked / H5 端 fetch ReadableStream 自动降级） */
 export const chatStream = (
@@ -136,6 +145,7 @@ export const chatStream = (
   signal?: AbortSignal,
 ): Promise<void> => {
   let errored = false
+  const resolvedModel = options.model ?? options.modelId
   const dispatch = (evt: SSEEvent) => {
     if (errored) return
     if (evt.type === 'chunk' && evt.content) onChunk(evt.content)
@@ -159,7 +169,13 @@ export const chatStream = (
           Authorization: token ? `Bearer ${token}` : '',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages, sessionId, ...options }),
+        body: JSON.stringify({
+          messages,
+          sessionId,
+          model: resolvedModel,
+          agentId: options.agentId,
+          materialContent: options.materialContent,
+        }),
         signal,
       })
       if (!res.ok || !res.body) throw new Error(`请求失败(${res.status})`)
@@ -193,7 +209,13 @@ export const chatStream = (
     const task = Taro.request({
       url: BASE_URL + '/ai/chat/stream',
       method: 'POST',
-      data: { messages, sessionId, ...options },
+      data: {
+        messages,
+        sessionId,
+        model: resolvedModel,
+        agentId: options.agentId,
+        materialContent: options.materialContent,
+      },
       enableChunked: true,
       responseType: 'text',
       header: {
@@ -773,6 +795,28 @@ export const publishAigc = (data: unknown) => post('/aigc/publish', data)
 
 /* ============ 模型广场 ============ */
 export const getModelPlazaList = () => get('/models/plaza')
+
+/** LLM 模型信息(与 Web 端 @ihui/api-client LlmModel 对齐) */
+export interface LlmModel {
+  id: string
+  name: string
+  provider: string
+  context_length: number
+  input_price: number
+}
+
+/** fetchModels 返回结构(与 Web 端 @ihui/api-client FetchModelsResult 对齐) */
+export interface FetchModelsResult {
+  models: LlmModel[]
+  default: string
+  stub_mode: boolean
+}
+
+/**
+ * 获取可用模型列表 — GET /llm/models (代理到 AI-service)
+ * 与 Web 端 @ihui/api-client fetchModels 对齐
+ */
+export const fetchModels = () => get<FetchModelsResult>('/llm/models')
 
 /* ============ 排行榜 ============ */
 export const getRankingList = (type?: string) => get('/ranking', { type })

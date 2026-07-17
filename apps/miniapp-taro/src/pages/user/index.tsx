@@ -9,6 +9,9 @@ const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
 const menus = [
+  { icon: '⭐', key: 'user.menu.favorites', path: '/pages/favorites/index' },
+  { icon: '👤', key: 'user.menu.following', path: '/pages/following/index' },
+  { icon: '🔔', key: 'user.menu.subscriptions', path: '/pages/subscriptions/index' },
   { icon: '📋', key: 'user.menu.orders', path: '/pages/user/orders' },
   { icon: '⚙️', key: 'user.menu.settings', path: '/pages/user/settings' },
   { icon: '📚', key: 'user.menu.courses', path: '/pages/course/list' },
