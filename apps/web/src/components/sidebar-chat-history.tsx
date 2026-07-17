@@ -28,10 +28,11 @@ async function fetchConversations(): Promise<ConversationItem[]> {
 
 /**
  * 侧边栏内嵌的历史对话卡片(对齐旧架构 SidebarChatHistory.vue 视觉设计)。
- * - 卡片容器:border + rounded-md + bg-card
+ * - 卡片容器:border + rounded-md + bg-card,宽度与上方"新建对话"按钮一致(w-full,无 mx-2)
  * - 列表 max-h-220px 滚动
  * - hover/active 用 ::before 伪元素 inset-x-2 实现悬浮胶囊效果
  * - active 左侧 2px 高亮条
+ * - 删除按钮:group 类在 <li> 上(不是内层 button),hover 整行时显示;hover 删除按钮本身用 destructive 色反馈
  * - 折叠态完全不渲染(避免无文字宽度)
  */
 export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
@@ -54,8 +55,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
       fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] }),
   })
 
   const dateFmt = React.useMemo(
@@ -91,7 +91,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
     <div
       role="region"
       aria-label={t('title')}
-      className="mx-2 mb-1 rounded-md border border-border bg-card p-1.5"
+      className="mb-1 w-full rounded-md border border-border bg-card p-1.5"
     >
       <div className="px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
         {tc('history')}
@@ -111,13 +111,13 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
           {items.map((item) => {
             const active = item.id === currentConversationId
             return (
-              <li key={item.id} className="relative">
+              <li key={item.id} className="group relative">
                 <button
                   type="button"
                   onClick={() => handleSelect(item)}
                   aria-current={active ? 'true' : undefined}
                   className={cn(
-                    'group relative block w-full rounded-sm px-2.5 py-1.5 text-left transition-colors',
+                    'relative block w-full rounded-sm px-2.5 py-1.5 pr-7 text-left transition-colors',
                     'before:absolute before:inset-x-2 before:inset-y-0 before:rounded-sm before:transition-colors',
                     'before:content-[""] before:-z-10',
                     active
@@ -137,7 +137,9 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
                   <span className="relative mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                     <span className="truncate">{item.model}</span>
                     {item.lastMessageAt && (
-                      <span className="shrink-0">{dateFmt.format(new Date(item.lastMessageAt))}</span>
+                      <span className="shrink-0">
+                        {dateFmt.format(new Date(item.lastMessageAt))}
+                      </span>
                     )}
                   </span>
                 </button>
@@ -147,7 +149,12 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
                   disabled={deleteMutation.isPending}
                   aria-label={t('delete')}
                   title={t('delete')}
-                  className="absolute right-1 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+                  className={cn(
+                    'absolute right-0.5 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-all',
+                    'text-muted-foreground opacity-0 group-hover:opacity-100',
+                    'hover:bg-destructive/10 hover:text-destructive',
+                    'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive',
+                  )}
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
