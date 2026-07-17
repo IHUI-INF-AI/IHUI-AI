@@ -366,7 +366,9 @@
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "WeChat Mini Program",
     "downloadDesktop": "Desktop",
-    "mainNav": "Main Navigation"
+    "mainNav": "Main Navigation",
+    "knowledgeBase": "Knowledge Base",
+    "announcements": "Announcements"
   },
   "auth": {
     "loginTitle": "Welcome Back",

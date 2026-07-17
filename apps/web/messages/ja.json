@@ -366,7 +366,9 @@
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "WeChat ミニプログラム",
     "downloadDesktop": "デスクトップ",
-    "mainNav": "メインナビゲーション"
+    "mainNav": "メインナビゲーション",
+    "knowledgeBase": "ナレッジベース",
+    "announcements": "お知らせ"
   },
   "auth": {
     "loginTitle": "おかえりなさい",
