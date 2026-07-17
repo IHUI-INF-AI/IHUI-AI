@@ -1,3 +1,17 @@
 #!/bin/sh
 command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. If you no longer wish to use Git LFS, remove this hook by deleting the 'pre-push' file in the hooks directory (set by 'core.hookspath'; usually '.git/hooks')."; exit 2; }
 git lfs pre-push "$@"
+
+# ─── 全量 typecheck 强制门 ────────────────────────────────────────────
+# 背景:第 11-12 轮发现 subagent 报告"全绿"靠 .tsbuildinfo 缓存假象
+#      pre-push 强制清缓存 + 串行全量 typecheck 修复该问题
+# 跳过的方法:HUSKY_SKIP_TYPECHECK=1(紧急 push 时使用,但建议修复后正常 push)
+if [ "${HUSKY_SKIP_TYPECHECK:-0}" = "1" ]; then
+  echo "⚠️  HUSKY_SKIP_TYPECHECK=1 — 已跳过全量 typecheck 验证(不推荐)"
+else
+  echo ""
+  echo "🔍 全量 typecheck 验证(清 .tsbuildinfo 缓存后)..."
+  cd "$(git rev-parse --show-toplevel)" || { echo "❌ 无法定位仓库根目录"; exit 1; }
+  pnpm typecheck:full || { echo "❌ 全量 typecheck 失败,推送已阻止"; exit 1; }
+  echo "✅ 全量 typecheck 验证通过"
+fi
