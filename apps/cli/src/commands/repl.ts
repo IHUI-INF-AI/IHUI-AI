@@ -41,6 +41,12 @@ import {
 import { runSandboxedAsync } from '../sandbox/index.js';
 import { estimateMessagesTokens } from '../context.js';
 import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '../hooks/index.js';
+import {
+  saveSession as saveSessionState,
+  loadSession as loadSessionState,
+  listSessions as listSessionStates,
+  newSessionId,
+} from '../sessions/index.js';
 
 export interface ReplOptions {
   modelId: string;
@@ -193,6 +199,17 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     interjectionBuffer: [],
     agentRunning: false,
   };
+  // Sessions 模块集成:若 opts.sessionId 提供且 history 为空,尝试从新 sessions 模块加载
+  // (兼容老 session.ts 模块:若老模块已加载 history,新模块不覆盖)
+  if (opts.sessionId && state.history.length === 0) {
+    const loaded = loadSessionState(opts.sessionId);
+    if (loaded?.messages && Array.isArray(loaded.messages) && loaded.messages.length > 0) {
+      state.history = loaded.messages.map((m) => ({ role: m.role, content: m.content }));
+      console.info(chalk.dim(`  📂 已从 sessions 模块恢复 ${loaded.messages.length} 条消息`));
+    } else if (opts.sessionId) {
+      console.info(chalk.yellow(`  session not found: ${opts.sessionId},启动新会话`));
+    }
+  }
   if (state.session) {
     state.checkpoints = new CheckpointManager({
       sessionId: state.session.id,
@@ -251,6 +268,29 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     clearAllLoops();
     clearAllTasks();
     runSessionEndHooks(hooksConfig, sessionHookCtx);
+    // Sessions 模块集成:退出时持久化当前会话状态(静默保存,失败不影响退出)
+    try {
+      if (state.history.length > 0) {
+        const now = new Date().toISOString();
+        const stateId = newSessionId();
+        saveSessionState({
+          id: stateId,
+          sessionId: state.session?.id ?? opts.sessionId ?? stateId,
+          createdAt: now,
+          updatedAt: now,
+          model: opts.modelId,
+          messages: state.history.map((m) => ({
+            role: m.role as 'user' | 'assistant' | 'system' | 'tool',
+            content: m.content,
+          })),
+          status: 'completed',
+          cwd: opts.workspacePath,
+        });
+        console.info(chalk.dim(`session saved: ${stateId}`));
+      }
+    } catch {
+      // 静默失败:session 保存失败不影响退出
+    }
     console.info(chalk.dim('\n再见 👋\n'));
     process.exit(0);
   });
@@ -277,6 +317,45 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       }
       console.info(chalk.green('对话历史已清除'));
       break;
+
+    case 'sessions': {
+      // Sessions 模块集成:列出/恢复历史 session(从新 sessions 模块读取)
+      const sub = args[0] ?? '';
+      if (sub === 'resume') {
+        const id = args[1] ?? '';
+        if (!id) {
+          console.info(chalk.yellow('用法: /sessions resume <id>'));
+          break;
+        }
+        const loaded = loadSessionState(id);
+        if (!loaded || !loaded.messages || loaded.messages.length === 0) {
+          console.info(chalk.yellow(`未找到 session: ${id}(/sessions 查看可用列表)`));
+          break;
+        }
+        state.history = loaded.messages.map((m) => ({ role: m.role, content: m.content }));
+        if (state.session) {
+          state.session.history = state.history;
+          saveSession(state.session);
+        }
+        console.info(chalk.green(`✓ 已恢复 session ${id}(${loaded.messages.length} 条消息)`));
+      } else {
+        const list = listSessionStates();
+        if (list.length === 0) {
+          console.info(chalk.dim('暂无 sessions(退出 REPL 时自动保存)'));
+        } else {
+          console.info(chalk.cyan(`\n历史 sessions(${list.length} 条,显示前 10):`));
+          for (const s of list.slice(0, 10)) {
+            const time = new Date(s.updatedAt).toLocaleString();
+            const loaded = loadSessionState(s.id);
+            const msgCount = loaded?.messages?.length ?? 0;
+            console.info(`  ${chalk.bold(s.id)}  ${chalk.dim(time)}  [${s.status}]  ${msgCount} 条消息`);
+          }
+          console.info(chalk.dim('  /sessions resume <id> 恢复指定 session'));
+          console.info('');
+        }
+      }
+      break;
+    }
 
     case 'model':
       if (args[0]) {
