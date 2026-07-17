@@ -3136,6 +3136,77 @@ i18n 补键:adminTools.notificationChannels(40 键)+ adminTools.notificationPref
 
 ---
 
+### ✅(2026-07-17) goal achieved — P1 收尾(working tree 清理 + preferences schema 端到端 + admin 测试覆盖)
+
+> /goal P1 收尾(第 7 轮):commit working tree 多端开发延续 + notification-preferences 后端 schema 扩展 + notification-admin 测试覆盖。
+
+**结论:7 个硬性指标全部完成,typecheck+lint+test+build 全绿(3313 tests passed)。状态 achieved。**
+
+#### 完成清单
+
+| #   | 硬性指标                                                     | 状态 | 产出                                                                                       |
+| --- | ------------------------------------------------------------ | ---- | ------------------------------------------------------------------------------------------ |
+| 1   | working tree 44+7 文件归类 commit                            | ✅   | e2afe554(52 文件,含多端 i18n + exam cid_list + extension settings + 测试 + migration 0087) |
+| 2   | notification_preferences 表 TS schema 补定义                 | ✅   | notifications.ts 追加 notificationPreferences 表(id/userId/4 enabled/types + 5 新字段)     |
+| 3   | notification_preferences 表 migration 生成                   | ✅   | 0088_notification_preferences_extend.sql(5 字段 ADD COLUMN IF NOT EXISTS)                  |
+| 4   | notification-extended.ts updatePreferencesSchema 扩展 5 字段 | ✅   | Zod: quietHoursEnabled/Start/End + maxPerHour/Day(regex/int/min/max)                       |
+| 5   | 前端 notification-preferences 表单 5 字段持久化              | ✅   | 回填(GET → form,?? 默认值)+ 提交(form → PUT,关闭静默时清空 null)                           |
+| 6   | notification-admin 测试覆盖(403/全量/userId)                 | ✅   | notification-admin.test.ts 5 用例(403/401/全量/userId/分页边界)                            |
+| 7   | typecheck + lint + test 全绿                                 | ✅   | db/api/web typecheck ✅ / api test 3313 passed ✅ / web lint ✅ / web build ✅             |
+
+#### notification_preferences 表扩展(5 字段)
+
+| 字段                | 类型       | 默认值 | 说明                |
+| ------------------- | ---------- | ------ | ------------------- |
+| quiet_hours_enabled | boolean    | false  | 是否启用静默时段    |
+| quiet_hours_start   | varchar(8) | NULL   | 静默时段开始(HH:mm) |
+| quiet_hours_end     | varchar(8) | NULL   | 静默时段结束(HH:mm) |
+| max_per_hour        | integer    | 20     | 每小时通知频率上限  |
+| max_per_day         | integer    | 100    | 每日通知频率上限    |
+
+migration 0088 使用 ADD COLUMN IF NOT EXISTS 幂等语法。
+
+#### notification-admin 测试覆盖(5 用例)
+
+| #   | 场景                         | 断言要点                                                        |
+| --- | ---------------------------- | --------------------------------------------------------------- |
+| 1   | 非 admin 用户访问返回 403    | roleId=0 → statusCode=403, db.execute 未被调用                  |
+| 2   | admin 全量视角               | roleId=1 → statusCode=200, list.length=3, SQL 不含 user_id 过滤 |
+| 3   | 传 userId 时只返回该用户日志 | ?userId=UUID → list.length=1, SQL 含 user_id = UUID             |
+| 4   | 分页参数边界                 | ?page=2&pageSize=10 → SQL 含 LIMIT 10 OFFSET 10                 |
+| 5   | 未登录访问返回 401           | authenticate 抛 401 → statusCode=401                            |
+
+测试用 vi.hoisted + vi.mock 模式,自定义 sqlToText 拍平函数断言 drizzle SQL 对象内容。
+
+#### 验证证据
+
+| 命令                                     | 退出码 | 结论                             |
+| ---------------------------------------- | ------ | -------------------------------- |
+| `pnpm --filter @ihui/database typecheck` | 0      | ✅                               |
+| `pnpm --filter @ihui/api typecheck`      | 0      | ✅                               |
+| `pnpm --filter @ihui/web typecheck`      | 0      | ✅                               |
+| `pnpm --filter @ihui/api test`           | 0      | ✅ 3313 tests passed (221 files) |
+| `pnpm --filter @ihui/web lint`           | 0      | ✅                               |
+| `pnpm --filter @ihui/web build`          | 0      | ✅                               |
+
+#### 残留问题(后续任务)
+
+1. migration 0088 未生成 snapshot(0088_snapshot.json)— 留待后续 db:generate 统一对齐,避免手写 47702 行 snapshot
+2. notification-admin 测试未覆盖 type/channel/status/startDate/endDate 筛选条件 + pageSize>100 的 Zod 边界(应返回 400)
+3. notification-extended.ts 仍用 raw SQL 访问 notification_preferences,未迁移到 Drizzle query builder(本次未做,避免超范围)
+4. ja.json/ko.json 仍有未翻译键(ja 部分合理英文术语保留,ko 剩余约 640 个真正需翻译键)
+5. P2 任务待启动:326 空桩评估 + 双轨统一 + 9 模块 487 端点逐一比对
+
+#### git 信息
+
+- 分支:goal/fix-multiport-p0-batch2
+- commits:
+  - e2afe554:working tree 清理(52 文件,多端开发延续)
+  - 3e9e6caf:preferences schema 端到端 + admin 测试(6 文件)
+- 运行时文件 .trae-cn/goal-runtime/STATE.md + loop-run-log.md 已清理
+
+---
+
 ### 📋(2026-07-16) plan — 多端客户端补齐(桌面 + 移动 + 插件 + CLI 升级)
 
 > 用户决策(2026-07-16):Tauri 2.0(桌面)+ React Native + Expo(移动)+ Chrome MV3 + WXT(插件)+ CLI 升级。要求最优最强架构、最细致最完美。
@@ -12744,17 +12815,17 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 
 ### 7. 分批补写计划(后续 goal 批次)
 
-| 批次         | 优先级         | 内容                                                                                                                                                    | 估时   | 状态                                                                                            |
-| ------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
-| **当前 P34** | P1             | 搜索中文分词 + API 文档 + MIGRATION_GAP_REPORT v3 + PROJECT_PLAN P34                                                                                    | 已完成 | ✅                                                                                              |
-| P35          | P0             | 数据库表/Schema 6 项 + Java 13 项 + Python 16 项(后端 P0 深度核查)                                                                                      | 大批次 | ✅ 已完成                                                                                       |
-| P36          | P0             | 1 项真实缺失(小程序 top-up)+ 2 项 P35 后端缺失(schedule 课程表 + doubao_ws)+ 3 项死代码激活 + 5 项模糊待确认 + i18n 翻译键补齐                          | 中批次 | ✅ 后端补写完成,仅余 i18n 翻译值补齐(83-92% → 95%+)                                             |
-| P37          | P0             | 配置/工具 6 项 + i18n 2 项 + 样式 4 项(全部已等价实现,架构升级,无需补写)                                                                                | —      | ✅ 无需补写                                                                                     |
-| P38          | P0(原 P1 升回) | 35 项 P0 阻断性缺失(v5 字段级核查确认:Dialog 字段降级 + TreeSelect 缺失 + 207 B 端接口空白 + AI 业务方法 100% 缺失 + 3 页面新建)— 4 个 goal 全部完成 ✅ | 大批次 | ✅ 已完成(2026-07-16,4 goal,23+ 文件 + 177 函数 + 38 hook 方法 + 75 i18n 键,后端配套待补非阻塞) |
-| P39          | P1             | 18 项 P1 功能完整性缺失 + 8 项 P2 设计意图待确认 — v5 字段级核查完成(Goal 5-10 已闭合 21/26 项,残留 examPapers cidList 已在 P42 完成 + phonenumber 校验已完成 + 2 项无法识别待用户) | 中批次 | ✅ 基本完成(2026-07-17,P42 补齐 cidList + phonenumber,残留 2 项无法识别)                     |
-| P40          | P2             | 15+ 项 P2 增强(可选,按业务需求)                                                                                                                         | 小批次 | 待启动                                                                                          |
-| P41          | P1             | 跨端能力同步:Repair 共享层抽取(packages/types)+ CLI 委托 + API /chat/stream 接入 + ai-service llm_gateway 兜底接入(AGENTS.md 第 10 节多端同步规则落地)  | 小批次 | ✅ 已完成(2026-07-17,3 新增 + 7 修改,13 TS tests + 8 Python tests,全量验证全绿)                 |
-| P42          | P1             | 多 agent 并行开发:i18n 跨端 P0/P1 接入(5 端)+ 后端测试补齐(agent-extended 42 tests + providers 32 tests)+ examPapers cidList 数组化 + phonenumber 校验 | 大批次 | ✅ 已完成(2026-07-17,4 并行 agent,40+ 文件,74 新增 tests,全量验证 46 tasks 全绿)              |
+| 批次         | 优先级         | 内容                                                                                                                                                                                                                                   | 估时   | 状态                                                                                                                                                               |
+| ------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **当前 P34** | P1             | 搜索中文分词 + API 文档 + MIGRATION_GAP_REPORT v3 + PROJECT_PLAN P34                                                                                                                                                                   | 已完成 | ✅                                                                                                                                                                 |
+| P35          | P0             | 数据库表/Schema 6 项 + Java 13 项 + Python 16 项(后端 P0 深度核查)                                                                                                                                                                     | 大批次 | ✅ 已完成                                                                                                                                                          |
+| P36          | P0             | 1 项真实缺失(小程序 top-up)+ 2 项 P35 后端缺失(schedule 课程表 + doubao_ws)+ 3 项死代码激活 + 5 项模糊待确认 + i18n 翻译键补齐                                                                                                         | 中批次 | ✅ 后端补写完成,仅余 i18n 翻译值补齐(83-92% → 95%+)                                                                                                                |
+| P37          | P0             | 配置/工具 6 项 + i18n 2 项 + 样式 4 项(全部已等价实现,架构升级,无需补写)                                                                                                                                                               | —      | ✅ 无需补写                                                                                                                                                        |
+| P38          | P0(原 P1 升回) | 35 项 P0 阻断性缺失(v5 字段级核查确认:Dialog 字段降级 + TreeSelect 缺失 + 207 B 端接口空白 + AI 业务方法 100% 缺失 + 3 页面新建)— 4 个 goal 全部完成 ✅                                                                                | 大批次 | ✅ 已完成(2026-07-16,4 goal,23+ 文件 + 177 函数 + 38 hook 方法 + 75 i18n 键,后端配套待补非阻塞)                                                                    |
+| P39          | P1             | 18 项 P1 功能完整性缺失 + 8 项 P2 设计意图待确认 — v5 字段级核查完成(Goal 5-10 已闭合 21/26 项,残留 examPapers cidList 已在 P42 完成 + phonenumber 校验已完成 + 2 项无法识别待用户)                                                    | 中批次 | ✅ 基本完成(2026-07-17,P42 补齐 cidList + phonenumber,残留 2 项无法识别)                                                                                           |
+| P40          | P2             | 15+ 项 P2 增强(可选,按业务需求)                                                                                                                                                                                                        | 小批次 | 待启动                                                                                                                                                             |
+| P41          | P1             | 跨端能力同步:Repair 共享层抽取(packages/types)+ CLI 委托 + API /chat/stream 接入 + ai-service llm_gateway 兜底接入(AGENTS.md 第 10 节多端同步规则落地)                                                                                 | 小批次 | ✅ 已完成(2026-07-17,3 新增 + 7 修改,13 TS tests + 8 Python tests,全量验证全绿)                                                                                    |
+| P42          | P1             | 多 agent 并行开发:i18n 跨端 P0/P1 接入(5 端)+ 后端测试补齐(agent-extended 42 tests + providers 32 tests)+ examPapers cidList 数组化 + phonenumber 校验                                                                                 | 大批次 | ✅ 已完成(2026-07-17,4 并行 agent,40+ 文件,74 新增 tests,全量验证 46 tasks 全绿)                                                                                   |
 | P43          | P0             | 9 端一致性第二批 P0:miniapp-taro AI 对话链路(SSO 路径双 /api bug + chatStream 字段名 modelId→model + fetchModels 动态获取)+ extension refresh token 完整流程(chrome.alarms 定时刷新 + inFlightRefresh 防并发 + 401 拦截 + logout 吊销) | 中批次 | ✅ 已完成(2026-07-17,goal/fix-multiport-p0-batch2,2 并行 subagent + 主 agent 补测试,7 sso-path tests + 17 refresh-token tests,全量验证 46 tasks / 3313 tests 全绿) |
 
 ### 8. 验证标准(本 goal)
