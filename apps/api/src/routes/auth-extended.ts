@@ -468,12 +468,59 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ rebound: true }))
   })
 
-  // 企业微信
+  // 企业微信扫码登录 — code 换 session → 查 binding → 查/建用户 → 颁发 JWT
   server.get('/auth/login/enterprise/pc/wxCode', async (request, reply) => {
     const { code } = codeQuery.parse(request.query)
     if (!isWecomConfigured()) return reply.send(success({ mock: true, msg: '企业微信未配置' }))
-    const session = await wecomCode2session(code)
-    return reply.send(success(session))
+    try {
+      const session = await wecomCode2session(code)
+      const binding = await findThirdPartyAccount('enterpriseWechat', session.openUserId)
+      if (!binding) {
+        return reply.send(
+          success({
+            needPhone: true,
+            openId: session.openUserId,
+            unionId: session.openUserId,
+            nick: `企微用户${session.userId.slice(-4)}`,
+          }),
+        )
+      }
+      const user = await findUserById(binding.userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(user)
+      return reply.send(
+        success({
+          accessToken,
+          refreshToken,
+          expiresIn,
+          refreshExpiresIn,
+          user: {
+            id: user.id,
+            phone: user.phone ?? undefined,
+            email: user.email ?? undefined,
+            username: user.username ?? undefined,
+            nickname: user.nickname ?? undefined,
+            avatar: user.avatar ?? undefined,
+            bio: user.bio ?? undefined,
+            gender: user.gender,
+            birthday: user.birthday ?? undefined,
+            familyId: user.familyId ?? undefined,
+            roleId: user.roleId ?? 0,
+            status: user.status,
+            isVip: user.isVip,
+            level: user.level,
+            inviteCode: user.inviteCode ?? undefined,
+            parentId: user.parentId ?? undefined,
+            createdAt: user.createdAt?.toISOString() ?? undefined,
+            updatedAt: user.updatedAt?.toISOString() ?? undefined,
+          },
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '企微登录失败'))
+    }
   })
 
   // 钉钉扫码登录 — 授权 URL
