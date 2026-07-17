@@ -330,8 +330,13 @@ export interface PayParams {
   payType: 'wechat' | 'balance' | 'alipay'
 }
 export const pay = (data: PayParams) => post<{ success: boolean; payUrl?: string }>('/pay', data)
-export const getPayResult = (orderNo: string) =>
-  get<{ status: 'pending' | 'paid' | 'failed'; amount: number }>('/pay/result', { orderNo })
+export const getPayResult = async (orderNo: string) => {
+  const res = await get<{ order: { status: string; amount: number } }>(`/payment/orders/${orderNo}`)
+  const raw = res.order.status
+  const status: 'pending' | 'paid' | 'failed' =
+    raw === 'paid' ? 'paid' : raw === 'pending' ? 'pending' : 'failed'
+  return { status, amount: res.order.amount }
+}
 export const getOrderDetail = (id: string | number) => get<Order>(`/order/${id}`)
 export const refund = (data: { orderNo: string; reason: string }) => post('/order/refund', data)
 export const getRefundList = (params?: { page?: number; pageSize?: number }) =>
