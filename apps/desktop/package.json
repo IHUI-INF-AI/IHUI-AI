@@ -9,6 +9,7 @@
     "build:debug": "powershell -ExecutionPolicy Bypass -File ./scripts/with-rust.ps1 build --debug",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "icons:regen": "powershell -ExecutionPolicy Bypass -File ./scripts/regen-icons.ps1",
     "clean": "rimraf dist node_modules .turbo src-tauri/target"
   },
@@ -32,11 +33,16 @@
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@tauri-apps/cli": "^2.1.0",
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.5.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^29.1.1",
     "rimraf": "^6.0.1",
     "typescript": "^5.7.2",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9"
   }
 }
