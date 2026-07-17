@@ -42,7 +42,7 @@ export function PointsLeaderboard({ isLoading, error, data }: Props) {
               <td className="px-4 py-2">
                 <span
                   className={cn(
-                    'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold',
+                    'inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold',
                     i < 3
                       ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                       : 'bg-muted text-muted-foreground',

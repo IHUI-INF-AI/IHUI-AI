@@ -60,14 +60,14 @@ export default function PayIndex() {
             onClick={() => setPayType(m.value)}
           >
             <View
-              className="w-[60rpx] h-[60rpx] leading-[60rpx] text-center bg-[#f5f5f5] rounded-full text-[28rpx]"
+              className="w-[60rpx] h-[60rpx] leading-[60rpx] text-center bg-[#f5f5f5] rounded-md text-[28rpx]"
               style={{ color: m.color }}
             >
               {m.icon}
             </View>
             <Text className="flex-1 ml-[24rpx] text-[28rpx] text-[#333]">{m.name}</Text>
             <View
-              className={`w-[36rpx] h-[36rpx] rounded-full border-[2rpx] ${payType === m.value ? 'bg-[#07c160] border-[#07c160]' : 'border-[#ccc]'}`}
+              className={`w-[36rpx] h-[36rpx] rounded-md border-[2rpx] ${payType === m.value ? 'bg-[#07c160] border-[#07c160]' : 'border-[#ccc]'}`}
             />
           </View>
         ))}

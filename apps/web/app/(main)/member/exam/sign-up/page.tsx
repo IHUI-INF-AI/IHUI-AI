@@ -4,13 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  ClipboardList,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  CalendarClock,
-} from 'lucide-react'
+import { ClipboardList, Loader2, ChevronLeft, ChevronRight, CalendarClock } from 'lucide-react'
 
 import { getMySignUps, cancelSignUp } from '@/lib/exam-api'
 import { Button } from '@ihui/ui'
@@ -144,7 +138,7 @@ export default function MemberExamSignUpPage() {
                     <td className="px-3 py-2">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                           sc.cls,
                         )}
                       >

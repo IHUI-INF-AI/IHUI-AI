@@ -127,7 +127,7 @@ export default function ActivityPage() {
                       <TableCell>
                         <span
                           className={cn(
-                            'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                            'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                             log.status === 'success'
                               ? 'bg-green-100 text-green-700'
                               : 'bg-red-100 text-red-700',

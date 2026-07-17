@@ -97,9 +97,9 @@ export default function I18nDashboardPage() {
                     <span>已翻译 {lang.translated}</span>
                     <span>缺失 {lang.missing}</span>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
                     <div
-                      className="h-full rounded-full"
+                      className="h-full rounded-md"
                       style={{
                         width: `${lang.completion}%`,
                         background: LOCALE_COLORS[lang.locale] ?? '#3b82f6',

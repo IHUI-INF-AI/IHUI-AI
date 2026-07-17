@@ -172,10 +172,10 @@ export default function DistributionTeamPage() {
                             alt=""
                             width={24}
                             height={24}
-                            className="h-6 w-6 rounded-full"
+                            className="h-6 w-6 rounded-md"
                           />
                         ) : (
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-medium">
                             {(it.nickname ?? 'U')[0]?.toUpperCase()}
                           </div>
                         )}
@@ -185,7 +185,7 @@ export default function DistributionTeamPage() {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                           it.isVip >= 1
                             ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500'
                             : 'bg-muted text-muted-foreground',

@@ -97,13 +97,13 @@ export function ImageViewer({
           <>
             <button
               onClick={prev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md bg-black/60 p-2 text-white hover:bg-black/80"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               onClick={next}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-black/60 p-2 text-white hover:bg-black/80"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -148,7 +148,7 @@ export function ImageViewer({
           </div>
           <button
             onClick={() => setFullscreen(false)}
-            className="absolute top-4 left-4 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+            className="absolute top-4 left-4 rounded-md bg-black/60 p-2 text-white hover:bg-black/80"
           >
             <X className="h-5 w-5" />
           </button>

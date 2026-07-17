@@ -36,7 +36,7 @@ export default function TeacherDetail() {
         <View className="mx-[12px] my-[12px] bg-white rounded-[8px] p-[16px]">
           <View className="flex items-center">
             <Image
-              className="w-[80px] h-[80px] rounded-full bg-[#f5f5f5]"
+              className="w-[80px] h-[80px] rounded-md bg-[#f5f5f5]"
               src={teacher.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />

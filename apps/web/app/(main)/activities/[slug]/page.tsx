@@ -154,7 +154,7 @@ export default function ActivityDetailPage() {
           </div>
           <span
             className={cn(
-              'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium',
+              'shrink-0 rounded-md px-2.5 py-0.5 text-xs font-medium',
               STATUS_STYLE[computedStatus],
             )}
           >

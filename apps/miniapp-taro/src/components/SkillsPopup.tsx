@@ -48,7 +48,8 @@ export default function SkillsPopup({
     const kw = keyword.trim().toLowerCase()
     return agents.filter((a) => {
       const matchCat = category === 'all' || a.category === category
-      const matchKw = !kw || a.name.toLowerCase().includes(kw) || (a.desc || '').toLowerCase().includes(kw)
+      const matchKw =
+        !kw || a.name.toLowerCase().includes(kw) || (a.desc || '').toLowerCase().includes(kw)
       return matchCat && matchKw
     })
   }, [agents, keyword, category])
@@ -67,12 +68,14 @@ export default function SkillsPopup({
   return (
     <DrawerComponent visible={visible} onClose={onClose} height="70vh">
       <View className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-        <Text className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('ai.skillsPopup.title')}</Text>
+        <Text className="text-base font-semibold text-gray-800 dark:text-gray-100">
+          {t('ai.skillsPopup.title')}
+        </Text>
       </View>
 
       <View className="px-4 py-2">
         <Input
-          className="w-full h-9 px-3 text-sm bg-gray-100 dark:bg-gray-800 rounded-full text-gray-800 dark:text-gray-100"
+          className="w-full h-9 px-3 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-800 dark:text-gray-100"
           type="text"
           placeholder={t('ai.skillsPopup.searchPlaceholder')}
           placeholderClass="text-gray-400"
@@ -81,11 +84,14 @@ export default function SkillsPopup({
         />
       </View>
 
-      <ScrollView scrollX className="whitespace-nowrap px-3 py-2 border-b border-gray-100 dark:border-gray-800">
+      <ScrollView
+        scrollX
+        className="whitespace-nowrap px-3 py-2 border-b border-gray-100 dark:border-gray-800"
+      >
         {CATEGORIES.map((c) => (
           <View
             key={c.key}
-            className={`inline-block px-3 py-1 mr-2 text-xs rounded-full ${category === c.key ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}
+            className={`inline-block px-3 py-1 mr-2 text-xs rounded-md ${category === c.key ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}
             onClick={() => setCategory(c.key)}
           >
             <Text>{t(c.labelKey)}</Text>
@@ -107,21 +113,29 @@ export default function SkillsPopup({
                 onClick={() => handleSelect(agent)}
               >
                 {agent.avatar ? (
-                  <Image className="w-10 h-10 rounded-full mr-3 bg-gray-200" src={agent.avatar} mode="aspectFill" />
+                  <Image
+                    className="w-10 h-10 rounded-full mr-3 bg-gray-200"
+                    src={agent.avatar}
+                    mode="aspectFill"
+                  />
                 ) : (
-                  <View className="w-10 h-10 rounded-full mr-3 bg-green-600 flex items-center justify-center text-white text-base font-semibold">
+                  <View className="w-10 h-10 rounded-lg mr-3 bg-green-600 flex items-center justify-center text-white text-base font-semibold">
                     <Text>{agent.name.charAt(0)}</Text>
                   </View>
                 )}
                 <View className="flex-1 min-w-0">
                   <View className="flex items-center">
-                    <Text className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{agent.name}</Text>
+                    <Text className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+                      {agent.name}
+                    </Text>
                     {selectedId === agent.id ? (
                       <Text className="ml-2 text-xs text-green-600">✓</Text>
                     ) : null}
                   </View>
                   {agent.desc ? (
-                    <Text className="block text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{agent.desc}</Text>
+                    <Text className="block text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+                      {agent.desc}
+                    </Text>
                   ) : null}
                 </View>
                 {typeof agent.uses === 'number' ? (

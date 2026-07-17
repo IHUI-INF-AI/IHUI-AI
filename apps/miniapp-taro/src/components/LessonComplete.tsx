@@ -50,10 +50,10 @@ export default function LessonComplete({
         )}
 
         <View className="flex space-x-3">
-          <View className="flex-1 py-2.5 rounded-full bg-gray-100" onClick={onShare}>
+          <View className="flex-1 py-2.5 rounded-md bg-gray-100" onClick={onShare}>
             <Text className="text-sm text-gray-600">分享</Text>
           </View>
-          <View className="flex-1 py-2.5 rounded-full bg-indigo-500" onClick={onContinue}>
+          <View className="flex-1 py-2.5 rounded-md bg-indigo-500" onClick={onContinue}>
             <Text className="text-sm text-white">{nextLessonTitle ? '继续学习' : '完成'}</Text>
           </View>
         </View>

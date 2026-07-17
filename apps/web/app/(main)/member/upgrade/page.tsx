@@ -83,7 +83,7 @@ export default function MemberUpgradePage() {
                 {myVip.levelName ?? '会员'}
                 <span
                   className={cn(
-                    'rounded-full px-2 py-0.5 text-xs',
+                    'rounded-md px-2 py-0.5 text-xs',
                     myVip.status === 1
                       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
                       : 'bg-muted text-muted-foreground',
@@ -127,7 +127,7 @@ export default function MemberUpgradePage() {
                 )}
               >
                 {isPopular && (
-                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-medium text-white shadow">
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-md bg-amber-500 px-2.5 py-0.5 text-xs font-medium text-white shadow">
                     <Sparkles className="mr-1 inline h-2.5 w-2.5" />
                     推荐
                   </span>

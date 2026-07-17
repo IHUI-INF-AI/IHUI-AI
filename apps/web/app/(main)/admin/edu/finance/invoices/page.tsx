@@ -171,7 +171,7 @@ export default function EduFinanceInvoicesPage() {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
                         )}
                       >
                         {t(`type.${inv.type}`)}
@@ -181,7 +181,7 @@ export default function EduFinanceInvoicesPage() {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                           cls,
                         )}
                       >

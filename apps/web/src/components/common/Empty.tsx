@@ -18,8 +18,10 @@ export function Empty({
   className,
 }: EmptyProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center gap-3 py-12 text-center', className)}>
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-muted-foreground">
+    <div
+      className={cn('flex flex-col items-center justify-center gap-3 py-12 text-center', className)}
+    >
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
         <Icon className="h-8 w-8" />
       </div>
       <div className="space-y-1">

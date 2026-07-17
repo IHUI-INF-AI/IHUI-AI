@@ -74,7 +74,7 @@ export default function AppPermissionPage() {
                     <TableCell className="text-center">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                           perm.required
                             ? 'bg-orange-100 text-orange-700'
                             : 'bg-muted text-muted-foreground',

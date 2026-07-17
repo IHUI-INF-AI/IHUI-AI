@@ -92,7 +92,7 @@ export function TaskDeveloperTable({
                   <td className="px-4 py-2.5 text-muted-foreground">{row.nodes}</td>
                   <td className="px-4 py-2.5">
                     <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${st.cls}`}
+                      className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${st.cls}`}
                     >
                       {st.label}
                     </span>

@@ -120,9 +120,9 @@ export default function EduProgressPage() {
                           {cat.completed}/{cat.total}
                         </span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-2 overflow-hidden rounded bg-muted">
                         <div
-                          className="h-full rounded-full bg-primary transition-all"
+                          className="h-full rounded-md bg-primary transition-all"
                           style={{ width: `${cat.progress}%` }}
                         />
                       </div>
@@ -147,7 +147,7 @@ export default function EduProgressPage() {
                         'flex items-center gap-3 rounded-md border p-2 text-sm transition-colors hover:bg-accent',
                       )}
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                         <Award className="h-4 w-4 text-primary" />
                       </div>
                       <div className="flex-1">

@@ -113,10 +113,10 @@ export default function CardFavoritesPage() {
                         alt={card.name}
                         width={48}
                         height={48}
-                        className="h-12 w-12 shrink-0 rounded-full object-cover"
+                        className="h-12 w-12 shrink-0 rounded-xl object-cover"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
                         {getInitials(card.name)}
                       </div>
                     )}

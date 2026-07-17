@@ -162,7 +162,7 @@ export default function ExamAnswer() {
         >
           <View
             className={`w-7 h-7 leading-7 text-center border text-sm ${
-              isMulti ? 'rounded-md' : 'rounded-full'
+              isMulti ? 'rounded-md' : 'rounded-md'
             } ${
               selected ? 'border-[#07c160] bg-[#07c160] text-white' : 'border-[#ccc] text-[#666]'
             }`}
@@ -195,19 +195,16 @@ export default function ExamAnswer() {
 
       <View className="fixed bottom-4 left-4 right-4 flex gap-3">
         {currentIdx > 0 && (
-          <Button className="flex-1 bg-white text-[#333] rounded-full text-sm" onClick={prev}>
+          <Button className="flex-1 bg-white text-[#333] rounded-md text-sm" onClick={prev}>
             {t('exam.answer.prev')}
           </Button>
         )}
         {currentIdx < questions.length - 1 ? (
-          <Button className="flex-1 bg-[#07c160] text-white rounded-full text-sm" onClick={next}>
+          <Button className="flex-1 bg-[#07c160] text-white rounded-md text-sm" onClick={next}>
             {t('exam.answer.next')}
           </Button>
         ) : (
-          <Button
-            className="flex-1 bg-[#07c160] text-white rounded-full text-sm"
-            onClick={onSubmit}
-          >
+          <Button className="flex-1 bg-[#07c160] text-white rounded-md text-sm" onClick={onSubmit}>
             {t('exam.answer.submit')}
           </Button>
         )}

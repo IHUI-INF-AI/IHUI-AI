@@ -105,7 +105,7 @@ export default function AnnouncementDetailPage() {
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={cn('rounded-full px-2 py-0.5 text-xs font-medium', ANN_TYPE_BADGE[a.type])}
+            className={cn('rounded-md px-2 py-0.5 text-xs font-medium', ANN_TYPE_BADGE[a.type])}
           >
             {t(`types.${a.type}`)}
           </span>

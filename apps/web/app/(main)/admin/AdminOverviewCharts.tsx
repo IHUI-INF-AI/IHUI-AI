@@ -45,10 +45,10 @@ export function AdminOverviewCharts({ stats, numFmt }: Props) {
         <CardContent>
           <div className="flex items-center gap-6">
             <div
-              className="relative h-28 w-28 shrink-0 rounded-full"
+              className="relative h-28 w-28 shrink-0 rounded-2xl"
               style={{ background: buildConic(statusItems) }}
             >
-              <div className="absolute inset-[22%] flex flex-col items-center justify-center rounded-full bg-card">
+              <div className="absolute inset-[22%] flex flex-col items-center justify-center rounded-md bg-card">
                 <span className="text-lg font-bold">{numFmt.format(statusTotal)}</span>
                 <span className="text-xs text-muted-foreground">{t('totalLabel')}</span>
               </div>

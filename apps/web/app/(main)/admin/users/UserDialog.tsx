@@ -117,7 +117,7 @@ export function UserDialog({
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
                   aria-label={t('uploadAvatar')}
-                  className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 disabled:opacity-60"
+                  className="absolute inset-0 flex items-center justify-center rounded-md bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 disabled:opacity-60"
                 >
                   {uploading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

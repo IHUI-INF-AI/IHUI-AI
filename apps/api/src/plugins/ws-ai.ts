@@ -322,6 +322,142 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
+  // 6. /v1/ai/capabilities/ws/stream — 通用 AI 能力 WebSocket 流
+  //    客户端发送: {"type":"capability.start","prompt":"...","model":"...","capabilityName":"..."}
+  //                {"type":"capability.cancel"}  取消当前调用
+  //                {"type":"ping"}               心跳
+  //    服务端推送: ready / capability.start / capability.delta / capability.done
+  //                / capability.error / cancelled
+  //    内部实现:代理到 AI-service /api/llm/complete/stream(SSE 透传为 WS 事件)
+  // ==========================================================================
+  server.get('/v1/ai/capabilities/ws/stream', { websocket: true }, (socket, request) => {
+    const query = request.query as { token?: string }
+    ;(async () => {
+      const userId = await wsAuth(socket, query.token)
+      if (!userId) return
+      send(socket, { event: 'ready', user: userId })
+
+      let controller: AbortController | null = null
+
+      socket.on('message', async (data: Buffer) => {
+        const raw = data.toString()
+        if (raw === 'ping') {
+          socket.send('pong')
+          return
+        }
+        let msg: Record<string, unknown>
+        try {
+          msg = JSON.parse(raw) as Record<string, unknown>
+        } catch {
+          return
+        }
+
+        const type = msg.type as string | undefined
+
+        if (type === 'capability.cancel') {
+          controller?.abort()
+          send(socket, { event: 'cancelled' })
+          return
+        }
+
+        if (type !== 'capability.start') return
+
+        const prompt = msg.prompt as string | undefined
+        if (!prompt) {
+          send(socket, { event: 'capability.error', message: '缺少 prompt' })
+          return
+        }
+        const model = msg.model as string | undefined
+        const capabilityName = (msg.capabilityName as string | undefined) ?? 'generic'
+        const metadata = (msg.metadata as Record<string, unknown> | undefined) ?? {}
+
+        controller?.abort()
+        controller = new AbortController()
+        const startTs = Date.now()
+        send(socket, { event: 'capability.start', capabilityName, ts: startTs })
+
+        let accumulated = ''
+        try {
+          const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [{ role: 'user', content: prompt }],
+              model,
+              metadata: { userId, ...metadata },
+            }),
+            signal: controller.signal,
+          })
+          if (!resp.ok || !resp.body) {
+            const errText = await resp.text().catch(() => '')
+            send(socket, {
+              event: 'capability.error',
+              message: `AI service ${resp.status}`,
+              data: { error: errText.slice(0, 200) },
+            })
+            return
+          }
+          const reader = resp.body.getReader()
+          const decoder = new TextDecoder()
+          let buffer = ''
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() ?? ''
+            for (const line of lines) {
+              if (!line.startsWith('data:')) continue
+              const jsonStr = line.slice(5).trim()
+              if (!jsonStr) continue
+              try {
+                const ev = JSON.parse(jsonStr) as Record<string, unknown>
+                const evType = ev.type as string | undefined
+                if (evType === 'chunk' && typeof ev.content === 'string') {
+                  accumulated += ev.content
+                  send(socket, {
+                    event: 'capability.delta',
+                    content: ev.content,
+                    data: { content: ev.content },
+                  })
+                } else if (evType === 'done') {
+                  send(socket, {
+                    event: 'capability.done',
+                    model: ev.model,
+                    usage: ev.usage,
+                    stub: ev.stub,
+                    data: { fullContent: accumulated },
+                  })
+                } else if (evType === 'error') {
+                  send(socket, {
+                    event: 'capability.error',
+                    message: (ev.message as string) ?? 'unknown',
+                    data: { error: ev.message },
+                  })
+                }
+              } catch {
+                /* skip non-JSON SSE line */
+              }
+            }
+          }
+        } catch (e) {
+          if ((e as Error).name !== 'AbortError') {
+            send(socket, {
+              event: 'capability.error',
+              message: (e as Error).message,
+              data: { error: (e as Error).message },
+            })
+          }
+        } finally {
+          controller = null
+        }
+      })
+
+      socket.on('close', () => controller?.abort())
+    })()
+  })
+
+  // ==========================================================================
   // 4. /ws/stock/stream — Stock 流式分析
   //    客户端发送: {"symbol":"600519","question":"最近走势如何?"}
   //    服务端推送: ready / start / delta(分段分析文本) / done / error

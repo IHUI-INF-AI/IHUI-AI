@@ -37,7 +37,7 @@ export function StatisticsTable({ list }: Props) {
           {list.map((s) => (
             <tr key={s.id} className="border-t">
               <td className="px-4 py-2">
-                <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
                   {s.type}
                 </span>
               </td>
