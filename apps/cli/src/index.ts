@@ -46,6 +46,7 @@ import {
   saveSettingsTemplate,
   getSettingsPath,
 } from './commands/settings.js';
+import { queryAuditLog } from './audit.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -508,6 +509,93 @@ program
     process.on('SIGINT', () => connection.close());
     process.on('SIGTERM', () => connection.close());
     await connection.closed;
+  });
+
+// audit 子命令组 — 查询/过滤审计日志(~/.ihui/audit.jsonl)
+const auditCmd = program.command('audit').description('查询/过滤审计日志');
+
+auditCmd
+  .command('query')
+  .description('查询审计日志(支持按工具名/时间/成功状态过滤)')
+  .option('-t, --tool <name>', '按工具名过滤(子串匹配,大小写不敏感)')
+  .option('-s, --since <time>', '起始时间(ISO 字符串或相对时间如 1h/30m/1d)')
+  .option('--success', '只显示成功的调用')
+  .option('--failure', '只显示失败的调用')
+  .option('-l, --limit <n>', '返回条数上限(默认 50)', '50')
+  .option('--json', '以 JSON 格式输出(便于管道处理)')
+  .action((options: {
+    tool?: string;
+    since?: string;
+    success?: boolean;
+    failure?: boolean;
+    limit?: string;
+    json?: boolean;
+  }) => {
+    const success = options.success === true
+      ? true
+      : options.failure === true
+        ? false
+        : undefined;
+    const limit = parseInt(options.limit ?? '50', 10);
+    const result = queryAuditLog({
+      tool: options.tool,
+      since: options.since,
+      success,
+      limit: Number.isFinite(limit) && limit > 0 ? limit : 50,
+    });
+
+    if (options.json) {
+      console.info(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (result.entries.length === 0) {
+      console.info(chalk.dim('无匹配的审计日志(总共 ' + result.total + ' 条)'));
+      return;
+    }
+
+    console.info(chalk.cyan(`\n📋 审计日志(显示 ${result.entries.length} / 匹配 ${result.filtered} / 总共 ${result.total} 条):`));
+    for (const e of result.entries) {
+      const icon = e.success === false ? '✗' : e.success === true ? '✓' : '?';
+      const iconColor = e.success === false ? chalk.red(icon) : e.success === true ? chalk.green(icon) : chalk.dim(icon);
+      const ts = new Date(e.timestamp).toLocaleString('zh-CN', { hour12: false });
+      const duration = e.durationMs !== undefined ? chalk.dim(` ${e.durationMs}ms`) : '';
+      console.info(`  ${iconColor} ${ts} ${chalk.bold(e.tool)}${duration}`);
+      if (e.error) {
+        console.info(chalk.dim(`    error: ${e.error.slice(0, 120)}`));
+      }
+    }
+    console.info('');
+  });
+
+auditCmd
+  .command('stats')
+  .description('统计审计日志(按工具名/成功失败聚合)')
+  .option('-s, --since <time>', '起始时间(ISO 字符串或相对时间如 1h/30m/1d)')
+  .action((options: { since?: string }) => {
+    const result = queryAuditLog({ since: options.since, limit: 100_000 });
+
+    if (result.total === 0) {
+      console.info(chalk.dim('审计日志为空'));
+      return;
+    }
+
+    const stats = new Map<string, { total: number; success: number; failure: number }>();
+    for (const e of result.entries) {
+      const s = stats.get(e.tool) ?? { total: 0, success: 0, failure: 0 };
+      s.total++;
+      if (e.success === true) s.success++;
+      else if (e.success === false) s.failure++;
+      stats.set(e.tool, s);
+    }
+
+    console.info(chalk.cyan(`\n📊 审计统计(总共 ${result.total} 条,匹配 ${result.filtered} 条):`));
+    console.info(`  ${'工具'.padEnd(25)} ${'总数'.padStart(8)} ${'成功'.padStart(8)} ${'失败'.padStart(8)} ${'成功率'.padStart(8)}`);
+    for (const [tool, s] of [...stats.entries()].sort((a, b) => b[1].total - a[1].total)) {
+      const rate = s.total > 0 ? ((s.success / s.total) * 100).toFixed(1) + '%' : 'N/A';
+      console.info(`  ${tool.padEnd(25)} ${String(s.total).padStart(8)} ${String(s.success).padStart(8)} ${String(s.failure).padStart(8)} ${rate.padStart(8)}`);
+    }
+    console.info('');
   });
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
