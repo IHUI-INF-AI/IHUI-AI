@@ -54,7 +54,6 @@ export const vueToNextRedirects = [
   { source: '/about/news-center', destination: '/news', permanent: true },
   { source: '/courses', destination: '/edu/courses', permanent: true },
   { source: '/courses/:id', destination: '/edu/courses/:id', permanent: true },
-  // C 端单数路径 → 复数路径(SEO + 外链保留)
   { source: '/ask', destination: '/asks', permanent: true },
   { source: '/ask/:id', destination: '/asks/:id', permanent: true },
   { source: '/ask/edit', destination: '/asks/edit', permanent: true },
@@ -69,7 +68,6 @@ export const vueToNextRedirects = [
   { source: '/topic', destination: '/topics', permanent: true },
   { source: '/announcement', destination: '/announcements', permanent: true },
   { source: '/announcement/:id', destination: '/announcements/:id', permanent: true },
-  // 兼容旧项目 /login /register 直链,重定向到 SSO 登录注册页
   { source: '/login', destination: '/sso/login', permanent: true },
   { source: '/register', destination: '/sso/register', permanent: true },
 ]
