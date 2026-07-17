@@ -2,8 +2,10 @@
 
 import * as React from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { Check, ChevronDown, Cpu } from 'lucide-react'
+import { Check, ChevronDown, Cpu, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+
+import { fetchModels } from '@ihui/api-client'
 
 import { cn } from '@/lib/utils'
 
@@ -13,19 +15,9 @@ export interface ModelOption {
   descriptionKey?: string
 }
 
-export const MODEL_OPTIONS: ModelOption[] = [
-  { value: 'gpt-4o-mini', label: 'GPT-4o mini', descriptionKey: 'modelDescGpt4oMini' },
-  { value: 'gpt-4o', label: 'GPT-4o', descriptionKey: 'modelDescGpt4o' },
-  {
-    value: 'claude-3-5-sonnet',
-    label: 'Claude 3.5 Sonnet',
-    descriptionKey: 'modelDescClaude35Sonnet',
-  },
-  {
-    value: 'claude-3-5-haiku',
-    label: 'Claude 3.5 Haiku',
-    descriptionKey: 'modelDescClaude35Haiku',
-  },
+const FALLBACK_MODELS: ModelOption[] = [
+  { value: 'stepfun/step-3.7-flash', label: 'Step 3.7 Flash' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o mini' },
 ]
 
 interface ModelSelectorProps {
@@ -37,14 +29,46 @@ interface ModelSelectorProps {
 
 export function ModelSelector({ value, onChange, disabled, label }: ModelSelectorProps) {
   const t = useTranslations('chat')
-  const current = MODEL_OPTIONS.find((m) => m.value === value)
+  const [options, setOptions] = React.useState<ModelOption[]>(FALLBACK_MODELS)
+  const [loading, setLoading] = React.useState(true)
+
+  React.useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetchModels()
+      .then((res) => {
+        if (cancelled) return
+        const models = res?.models ?? []
+        if (models.length === 0) {
+          setOptions(FALLBACK_MODELS)
+          return
+        }
+        setOptions(
+          models.map((m) => ({
+            value: m.id,
+            label: m.name || m.id,
+          })),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setOptions(FALLBACK_MODELS)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const current = options.find((m) => m.value === value)
 
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          disabled={disabled}
+          disabled={disabled || loading}
           aria-label={label}
           className={cn(
             'inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-sm font-medium transition-colors',
@@ -53,7 +77,11 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           )}
         >
           <Cpu className="h-4 w-4 text-muted-foreground" />
-          <span className="hidden sm:inline">{current?.label ?? value}</span>
+          {loading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+          ) : (
+            <span className="hidden sm:inline">{current?.label ?? value}</span>
+          )}
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
       </DropdownMenu.Trigger>
@@ -63,7 +91,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           sideOffset={6}
           className="z-50 min-w-[14rem] overflow-hidden rounded-lg border bg-card p-1 text-card-foreground shadow-md"
         >
-          {MODEL_OPTIONS.map((opt) => {
+          {options.map((opt) => {
             const active = opt.value === value
             return (
               <DropdownMenu.Item
