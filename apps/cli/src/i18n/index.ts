@@ -8,7 +8,12 @@ import { messages as zhTW } from './messages/zh-TW.js';
 
 type Messages = typeof zhCN;
 
-const baseMessages: Record<Locale, Partial<Messages>> = {
+/** 递归 Partial,允许其他语言嵌套对象部分缺省(deepMerge 运行时已兜底 zh-CN) */
+type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
+const baseMessages: Record<Locale, DeepPartial<Messages>> = {
   'zh-CN': zhCN,
   en,
   ja,
