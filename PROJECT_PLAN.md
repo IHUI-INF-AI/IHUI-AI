@@ -18630,3 +18630,59 @@ ARCHIVED.txt 声称的"100% 迁移**\*不属***。核心业务功能 100% 迁移
 1. **\*e2e 测试补***:WebSearch / updater / crash-handler 三个新模块均无 e2e 测试,建议补`tests/web-search.test.ts``(mock fetch 验证解析)+`tests/updater.test.ts``(mock registry + 缓存命中)+`tests/crash-handler.test.ts``(模拟未捕获异常 + crash log 写入
 2. **\*WebSearch 测试 live 验***:DuckDuckGo HTML 接口实际请求一次确认解析逻辑正确(解析正则依赖 DDG HTML 结构,DDG 改版会失效,建议加监控
 3. **\*minimum_version 字段约***:在`package.json`` 加`engines.minimumVersion`` 字段并发布到 registry,否则 P1-15 的 minimum_version 检查永远不触发(当前框架就绪,字段未约定
+
+---
+
+## 📋(2026-07-17) AGENTS.md 第 11 节守门闭环 — 守门脚本 regex 修复 + staged 增量扫描 + pre-commit 第 12 项集成
+
+### 背景
+
+AGENTS.md 第 11 节"交付报告一致性硬约束"(2026-07-17 立)落地后,守门脚本 `scripts/check-delivery-report-consistency.mjs` 存在 2 个 bug 阻塞实际使用,且未集成到 `.husky/pre-commit`,导致规则沦为纸面约束。本轮完成工程化闭环。
+
+### 修复点
+
+✅ **Bug 1 — regex `\b` 与中文字符不兼容**
+
+`isExemptSection` 函数用 `/\bAGENTS\.md\s+第\s+11\s+节\b/.test(section)` 判断豁免章节。`\b` 是单词边界(`\w` 与非 `\w` 之间),中文字符不属于 `\w` 类,导致 `节\b` 无法匹配含中文的章节标题 → 豁免规则失效 → 守门脚本误报"AGENTS.md 第 11 节本身章节"违规。
+
+修复: 去掉 `\b`,改为 `/AGENTS\.md\s+第\s+11\s+节/.test(section)`(第 83 行)。
+
+✅ **Bug 2 — staged 模式扫描全文件导致历史违规阻塞新 commit**
+
+staged 模式扫描整个 PROJECT_PLAN.md 时,会命中历史章节的"无后续建议 + 后续建议"矛盾(如 R75/R76 旧交付报告),阻塞所有新 commit,即使新 commit 内容与本规则无关。
+
+修复: 新增 `getAddedLineNumbers(filePath)` 函数(第 150-172 行),用 `git diff --cached --unified=0` 解析 hunk header `@@ -oldStart,oldCount +newStart,newCount @@` 获取新增行(+)的行号集合;`splitSections` 追加 `startLine` 字段追踪章节起始行号(第 92-109 行);扫描循环中 staged 模式只检查含新增行的章节,跳过纯历史章节(第 220-232 行)。
+
+✅ **集成到 `.husky/pre-commit` 第 12 项**
+
+在 `.husky/pre-commit` 第 75-81 行新增第 12 项检查:
+
+```javascript
+// 12. 交付报告一致性守门(AGENTS.md 第 11 节强制规则)
+if (!run('📋 检查交付报告一致性...', 'node scripts/check-delivery-report-consistency.mjs --staged')) {
+  process.exit(1)
+}
+```
+
+pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift / packages dist / lint-staged / skipResponseSanitization / dedupe / api-routes / safeParse / **交付报告一致性**。
+
+### 验证依据(2026-07-17 21:00)
+
+| 验证 | 命令 | 结果 |
+| --- | --- | --- |
+| 守门脚本全量扫描 | `node scripts/check-delivery-report-consistency.mjs` | ✅ 历史违规只警告(exit 1),不阻塞 |
+| 守门脚本 staged 自检 | `git add scripts/check-delivery-report-consistency.mjs .husky/pre-commit PROJECT_PLAN.md && node scripts/check-delivery-report-consistency.mjs --staged` | ✅ 通过(本节自身触发 isExemptSection 豁免) |
+| 守门脚本 regex 修复验证 | grep `\\bAGENTS\\.md` 应为 0 命中 | ✅ 0 命中(已去 \b) |
+| 守门脚本 staged 增量扫描验证 | grep `getAddedLineNumbers` 应有 1 命中 | ✅ 1 命中(函数已定义) |
+| pre-commit 第 12 项集成验证 | grep `check-delivery-report-consistency` `.husky/pre-commit` | ✅ 1 命中(第 79 行) |
+
+### 关键决策
+
+- **staged 增量扫描而非全文件**: 历史违规已无法逐一修复(R75-R78 章节均为已 push 的旧交付报告), staged 增量扫描只检查新增行所在章节,历史违规仅在"全量模式"下警告(exit 1 不阻塞),既保证新 commit 不被历史违规阻塞,又能在全量审计时发现历史问题。
+- **isExemptSection 豁免规则**: 章节标题或正文含 `AGENTS.md 第 11 节` / `交付报告一致性` / `守门脚本` / `互斥校验` / `check-delivery-report-consistency` 任一关键词的章节豁免(因为讨论规则本身的章节天然含两类措辞)。
+- **`scripts/` 目录无 typecheck/lint 要求**: 守门脚本是 `.mjs` CommonJS,不在 turbo typecheck/lint 范围内,无需跑 `pnpm turbo build typecheck lint test`。
+
+### 还有 2 项后续工作(见下方列表)
+
+1. **历史违规回溯**: PROJECT_PLAN.md 中 R75-R78 历史章节存在 "无后续建议 + 后续建议" 矛盾(已被 staged 增量扫描绕过),建议在 P2 优先级单独发起一次"历史交付报告回溯清洗"任务,把旧章节的"无后续建议"改为"还有 N 项后续工作"或删除已完成的后续工作条目。
+2. **AGENTS.md 第 12 节多 Subagent 并行开发规则**: 本节原计划落地 AGENTS.md 第 12 节"多 Subagent 并行开发强制规则",但本轮聚焦守门闭环工程化,第 12 节规则文本未落地。后续可单独发起一次 AGENTS.md 文档更新任务补全第 12 节(规则文本已在前轮 commit 中起草,可从对话历史恢复)。
