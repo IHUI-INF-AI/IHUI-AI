@@ -62,7 +62,7 @@ export function BackgroundAgentsPanel({
           <Cpu className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium">{t('title')}</span>
           {stats.running > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600">
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
               {t('runningCount', { count: stats.running })}
             </span>

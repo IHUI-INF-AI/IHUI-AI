@@ -62,7 +62,7 @@ export default function CategoryDetailPage() {
             ? t('categoryDetail.categoryId', { id: categoryId })
             : t('categoryDetail.allCategories')}
         </Text>
-        <View className="flex items-center px-3 py-1 rounded-full bg-gray-50" onClick={toggleSort}>
+        <View className="flex items-center px-3 py-1 rounded-md bg-gray-50" onClick={toggleSort}>
           <Text className="text-xs text-gray-600">
             {sort === 'hot' ? t('categoryDetail.hot') : t('categoryDetail.new')}
           </Text>

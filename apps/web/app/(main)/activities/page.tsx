@@ -124,7 +124,7 @@ export default function ActivitiesPage() {
                     <h2 className="text-base font-semibold">{a.title}</h2>
                     <span
                       className={cn(
-                        'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
+                        'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
                         STATUS_STYLE[displayStatus],
                       )}
                     >

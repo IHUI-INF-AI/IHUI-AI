@@ -47,13 +47,13 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       type="button"
       onClick={() => onChange(!checked)}
       className={cn(
-        'relative h-5 w-9 rounded-full transition-colors',
+        'relative h-5 w-9 rounded-lg transition-colors',
         checked ? 'bg-primary' : 'bg-muted',
       )}
     >
       <span
         className={cn(
-          'absolute top-0.5 h-4 w-4 rounded-full bg-background shadow transition-transform',
+          'absolute top-0.5 h-4 w-4 rounded bg-background shadow transition-transform',
           checked ? 'left-4' : 'left-0.5',
         )}
       />

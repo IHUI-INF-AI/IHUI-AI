@@ -193,7 +193,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
               <CardTitle className="text-sm">{t('instructor')}</CardTitle>
             </CardHeader>
             <CardContent className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-medium text-primary">
                 {course.instructor?.slice(0, 2) ?? '?'}
               </div>
               <div className="min-w-0">
@@ -264,7 +264,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
                         {dateFmt.format(new Date(hw.deadline))}
                       </span>
                     )}
-                    <span className={cn('rounded-full px-2 py-0.5 text-xs', st.cls)}>
+                    <span className={cn('rounded-md px-2 py-0.5 text-xs', st.cls)}>
                       {t(st.labelKey)}
                     </span>
                     {hw.score !== null && hw.score !== undefined && (
@@ -315,9 +315,9 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
                       <div key={star} className="flex items-center gap-2">
                         <span className="w-3 text-xs text-muted-foreground">{star}</span>
                         <Star className="h-3 w-3 fill-muted-foreground text-muted-foreground" />
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded bg-muted">
                           <div
-                            className="h-full rounded-full bg-primary"
+                            className="h-full rounded-md bg-primary"
                             style={{
                               width: `${((rating.distribution[i] ?? 0) / rating.total) * 100}%`,
                             }}
@@ -338,7 +338,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
         <TabsContent value="certificate" className="mt-3">
           <Card>
             <CardContent className="space-y-3 p-4 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
                 <Award className="h-8 w-8 text-primary" />
               </div>
               <p className="text-sm font-medium">{t('certTitle')}</p>

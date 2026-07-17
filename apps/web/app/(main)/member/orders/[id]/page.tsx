@@ -136,7 +136,7 @@ export default function MemberOrderDetailPage() {
 
       <span
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium',
+          'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium',
           sc.cls,
         )}
       >

@@ -74,7 +74,7 @@ export default function MemberBenefitsPage() {
                       <span className="text-base font-semibold">{b.levelName}</span>
                     </div>
                     {b.current && (
-                      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
                         当前等级
                       </span>
                     )}

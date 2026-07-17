@@ -38,7 +38,7 @@ export default function LessonListItem({
       onClick={onClick}
     >
       <View
-        className={`flex items-center justify-center w-7 h-7 mr-3 rounded-full text-xs ${
+        className={`flex items-center justify-center w-7 h-7 mr-3 rounded-md text-xs ${
           active ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-500'
         }`}
       >

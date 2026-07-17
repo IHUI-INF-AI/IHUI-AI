@@ -100,7 +100,7 @@ export function TaskLogTable({
                     {l.jobMessage || '-'}
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs', st.cls)}>
+                    <span className={cn('inline-flex rounded-md px-2 py-0.5 text-xs', st.cls)}>
                       {st.label}
                     </span>
                   </td>

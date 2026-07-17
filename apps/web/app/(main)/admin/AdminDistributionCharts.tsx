@@ -51,9 +51,9 @@ export function AdminDistributionCharts({ stats, numFmt, curFmt }: Props) {
                 <span>{f.label}</span>
                 <span className="text-muted-foreground">{numFmt.format(f.value)}</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div className="h-2 overflow-hidden rounded bg-muted">
                 <div
-                  className="h-full rounded-full bg-primary/70 transition-colors hover:bg-primary"
+                  className="h-full rounded-md bg-primary/70 transition-colors hover:bg-primary"
                   style={{ width: `${(f.value / fileMax) * 100}%` }}
                 />
               </div>

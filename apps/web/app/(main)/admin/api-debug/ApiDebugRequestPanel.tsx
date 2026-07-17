@@ -34,7 +34,7 @@ export function ApiDebugRequestPanel({ response, pending }: Props) {
             <div className="flex items-center gap-3">
               <span
                 className={cn(
-                  'inline-flex rounded-full px-2.5 py-0.5 text-sm font-medium',
+                  'inline-flex rounded-md px-2.5 py-0.5 text-sm font-medium',
                   response.status >= 200 && response.status < 300
                     ? 'bg-emerald-500/10 text-emerald-600'
                     : response.status >= 400

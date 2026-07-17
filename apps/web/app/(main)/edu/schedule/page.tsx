@@ -82,7 +82,7 @@ export default function EduSchedulePage() {
                 <CardTitle className="flex items-center justify-between text-sm">
                   <span>{day}</span>
                   {idx === todayIdx && (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
                       今天
                     </span>
                   )}

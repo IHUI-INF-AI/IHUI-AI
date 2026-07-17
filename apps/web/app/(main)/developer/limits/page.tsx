@@ -34,7 +34,7 @@ function UsageBar({ used, total }: { used: number; total: number }) {
   const pct = total > 0 ? Math.min(100, (used / total) * 100) : 0
   const color = pct >= 90 ? 'bg-rose-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+    <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
       <div className={cn('h-full transition-all', color)} style={{ width: `${pct}%` }} />
     </div>
   )

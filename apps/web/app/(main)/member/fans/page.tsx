@@ -78,7 +78,7 @@ export default function MemberFansPage() {
               <CardContent className="flex items-center gap-3 p-3">
                 <div
                   className={cn(
-                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground',
+                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold text-muted-foreground',
                   )}
                 >
                   {getInitials(fan.nickname)}

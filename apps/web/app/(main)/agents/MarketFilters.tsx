@@ -40,7 +40,7 @@ export function MarketFilters({
           type="button"
           onClick={() => setCategoryId('all')}
           className={cn(
-            'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+            'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
             categoryId === 'all'
               ? 'bg-primary text-primary-foreground'
               : 'bg-muted text-muted-foreground hover:text-foreground',
@@ -54,7 +54,7 @@ export function MarketFilters({
             type="button"
             onClick={() => setCategoryId(c.categoryId)}
             className={cn(
-              'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
               categoryId === c.categoryId
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:text-foreground',

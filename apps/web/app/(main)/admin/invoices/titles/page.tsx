@@ -7,15 +7,7 @@ import { toast } from 'sonner'
 import { Loader2, Plus, Edit, Trash2, ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Button,
-} from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 
 import { TitleDialog } from './TitleDialog'
 import {
@@ -119,7 +111,11 @@ export default function AdminInvoiceTitlesPage() {
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const dateFmt = new Intl.DateTimeFormat(locale, { year: 'numeric', month: '2-digit', day: '2-digit' })
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 
   return (
     <div className="space-y-4">
@@ -175,17 +171,21 @@ export default function AdminInvoiceTitlesPage() {
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        t.titleType === 'company' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                        t.titleType === 'company'
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-muted text-muted-foreground',
                       )}
                     >
                       {t.titleType === 'company' ? '企业' : '个人'}
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{t.taxNo || '—'}</TableCell>
+                  <TableCell className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                    {t.taxNo || '—'}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5">
                     {t.isDefault ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                      <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
                         默认
                       </span>
                     ) : (
@@ -222,11 +222,23 @@ export default function AdminInvoiceTitlesPage() {
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

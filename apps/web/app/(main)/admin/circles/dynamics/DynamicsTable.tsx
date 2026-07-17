@@ -135,7 +135,7 @@ export function DynamicsTable({
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                         STATUS_STYLE[item.status],
                       )}
                     >

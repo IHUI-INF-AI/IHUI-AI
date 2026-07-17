@@ -84,7 +84,7 @@ export function NotificationLogDetailDialog({ open, log, onClose }: Props) {
             <label className="text-xs text-muted-foreground">{t('fieldStatus')}</label>
             <div>
               <span
-                className={`inline-flex rounded-full px-2 py-0.5 text-xs ${
+                className={`inline-flex rounded-md px-2 py-0.5 text-xs ${
                   STATUS_BADGE[s] ?? 'bg-muted text-muted-foreground'
                 }`}
               >

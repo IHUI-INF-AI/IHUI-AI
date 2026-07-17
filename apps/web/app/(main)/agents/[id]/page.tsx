@@ -143,14 +143,14 @@ export default function AgentDetailPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                         statusClass,
                       )}
                     >
                       {t(statusKey)}
                     </span>
                     {agent.categoryId && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                         <Tag className="h-3 w-3" />
                         {t('category')}
                       </span>
