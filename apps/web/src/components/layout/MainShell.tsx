@@ -52,7 +52,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
       <React.Suspense fallback={null}>
         <AISidePanel />
       </React.Suspense>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col my-2 mr-2 ml-2 overflow-hidden rounded-xl bg-shell-panel">
         <Header onMenuClick={() => setMobileOpen((o) => !o)} />
         {isAuthenticated && (
           <React.Suspense fallback={null}>
