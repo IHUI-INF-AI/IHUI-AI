@@ -3383,6 +3383,101 @@ PROJECT_PLAN.md L2280 历史"7 桩"记录**完全准确**:
 
 ---
 
+### ✅(2026-07-17) goal achieved — P2 高收益表补齐(business_cards + user_addresses + service_appointments)
+
+> /goal P2 高收益表补齐(第 9 轮):3 组 4 张表 schema + migration + 15 路由真空桩接入真实查询 + 测试覆盖。
+
+**结论:7 个硬性指标全部完成,typecheck+lint+test 全绿(3347 tests passed)。状态 achieved。**
+
+#### 完成清单
+
+| #   | 硬性指标                                                       | 状态 | 产出                                                                  |
+| --- | -------------------------------------------------------------- | ---- | --------------------------------------------------------------------- |
+| 1   | business_cards + business_card_favorites 表 schema + migration | ✅   | business-cards.ts(2 表)+ 0091_business_cards.sql + index 导出        |
+| 2   | user_addresses 表 schema + migration                           | ✅   | user-addresses.ts(1 表)+ 0093_user_addresses.sql + index 导出        |
+| 3   | service_appointments 表 schema + migration                     | ✅   | service-appointments.ts(1 表)+ 0092_service_appointments.sql + index |
+| 4   | 7 个 business-card 路由真空桩接入真实 DB                       | ✅   | 详情/收藏列表/取消收藏/清空/删除/upsert/收藏幂等                      |
+| 5   | 4 个 addresses 路由真空桩接入真实 DB                           | ✅   | 更新/创建/删除/设默认(事务 + isDefault 互斥)                         |
+| 6   | 4 个 service-appointment 路由真空桩接入真实 DB                 | ✅   | 详情/取消/确认/完成(状态机:pending→confirmed→completed;→cancelled)|
+| 7   | typecheck + lint + test 全绿                                   | ✅   | database/api typecheck ✅ / api lint 0 errors ✅ / api test 3347 passed ✅ |
+
+#### 新增表结构(4 张表)
+
+**business_cards(电子名片)**:
+- id/userId(FK→users)/name/title/company/phone/email/avatar/intro/qrCode
+- isPublic(default true)/viewCount(default 0)/createdAt/updatedAt
+- 索引:user_idx
+
+**business_card_favorites(名片收藏)**:
+- id/userId(FK→users)/cardId(FK→business_cards)/createdAt
+- 唯一索引:user_card_unique(防止重复收藏)
+
+**user_addresses(用户收货地址)**:
+- id/userId(FK→users)/recipientName/phone/province/city/district/detail
+- postalCode/isDefault(default false)/createdAt/updatedAt
+- 索引:user_idx
+
+**service_appointments(服务预约)**:
+- id/userId(FK→users)/serviceType/title/description/appointmentTime
+- duration(default 60)/location/contactName/contactPhone/status(default pending)
+- remark/createdAt/updatedAt
+- 索引:user_idx/status_idx/time_idx
+
+#### 路由实现要点
+
+**business-card(7 路由)**:
+- GET /:id:查询 + viewCount +1 + 404
+- GET /favorites:当前用户收藏列表(分页,innerJoin business_cards)
+- DELETE /favorites/:id:取消收藏(by cardId + userId)
+- DELETE /favorites:清空收藏
+- DELETE /:id:删除名片(仅所有者,403/404)
+- POST /:id:upsert(按 userId 查现有,存在 update 否则 insert)
+- POST /:id/favorite:幂等收藏(已收藏返回 existed:true)
+
+**addresses(4 路由)**:
+- PUT /:id:更新(Zod partial + 仅所有者 + 404/403)
+- POST /:创建(Zod 全字段 + isDefault=true 时取消其他默认)
+- DELETE /:id:删除(仅所有者 + 404/403)
+- POST /:id/default:设默认(事务:先清同用户其他默认,再置当前)
+
+**service-appointment(4 路由,状态机)**:
+- GET /:id:详情(404)
+- GET /:id/cancel:pending/confirmed → cancelled(409 状态不允许)
+- GET /:id/confirm:pending → confirmed(409)
+- GET /:id/complete:confirmed → completed(409)
+
+#### 测试覆盖(29 用例)
+
+| 测试文件 | 用例数 | 覆盖场景 |
+|----------|--------|----------|
+| business-cards.test.ts | 10 | 401/200/404/201/201+created:false/幂等收藏/404/403/分页 |
+| user-addresses.test.ts | 11 | 401/201+isDefault/201/200/403/404/200+事务/404/200/404/400 |
+| service-appointments.test.ts | 8 | 401/200/404/200+cancelled/200+confirmed/200+completed/409/409 |
+
+#### 验证证据
+
+| 命令                                | 退出码 | 结果                              |
+| ----------------------------------- | ------ | --------------------------------- |
+| `pnpm --filter @ihui/database typecheck` | 0  | ✅                                |
+| `pnpm --filter @ihui/api typecheck`      | 0  | ✅                                |
+| `pnpm --filter @ihui/api lint`           | 0  | ✅(5 个 pre-existing warnings)   |
+| `pnpm --filter @ihui/api test`           | 0  | ✅ 3347 passed (225 files)        |
+
+#### 残留问题(后续任务)
+
+1. migration 编号调整:0090(exam_questions,前轮)+ 0091(business_cards)+ 0092(service_appointments)+ 0093(user_addresses),journal 已同步
+2. 69 个需新表路由中,本轮完成 15 个(business-card 7 + addresses 4 + service-appointment 4),剩余 54 个需新表路由待后续处理
+3. 测试文件有 5 个 `any` warning(预存在 + 新增 1 个),可作为独立小任务清理
+4. 多端同步:本轮仅后端落地,若产品需要前端展示,需同步 packages/api-client + apps/web/miniapp-taro/mobile-rn
+5. GET /addresses 列表接口未实现(本次任务只要求 4 个路由,但收货地址通常需要列表查询)
+
+#### git 信息
+
+- 分支:goal/fix-multiport-p0-batch3
+- 运行时文件 .trae-cn/goal-runtime/STATE.md + loop-run-log.md 已清理
+
+---
+
 > 用户决策(2026-07-16):Tauri 2.0(桌面)+ React Native + Expo(移动)+ Chrome MV3 + WXT(插件)+ CLI 升级。要求最优最强架构、最细致最完美。
 
 #### 0. 总体架构(多端共享 + 平台特化)
