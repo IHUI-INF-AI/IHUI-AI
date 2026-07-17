@@ -3,7 +3,7 @@
 覆盖:
 - POST /api/agent-runtime/execute — 200 + sessionId/mode/received
 - POST /api/agent-runtime/execute — body 缺 message → 422
-- POST /api/agent-runtime/execute/stream — 200 + text/event-stream + session/permission/done 三事件
+- POST /api/agent-runtime/execute/stream — 200 + text/event-stream + session/plan/delta/done 事件(LangGraph 真实驱动)
 - GET /api/agent-runtime/{sessionId}/status — 200 + status/messageCount
 - GET /api/agent-runtime/{sessionId}/status — 不存在 → 404
 - POST /api/agent-runtime/{sessionId}/cancel — 200 + status cancelled
@@ -13,7 +13,10 @@
 - GET /api/agent-runtime/permission/check?toolName=Read&mode=default&dangerLevel=read — allow
 - GET /api/agent-runtime/permission/check?toolName=Write&mode=plan&dangerLevel=write — deny
 - GET /api/personas — 200 + 5 persona(确认 personas router 已注册到 main.py)
+- /execute/stream 多场景:default mode / plan mode / graph 失败 / Redis 不可用降级 / Redis 可用持久化
 """
+
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -26,6 +29,26 @@ def _clear_sessions():
     agent_runtime._sessions.clear()
     yield
     agent_runtime._sessions.clear()
+
+
+@pytest.fixture(autouse=True)
+def _reset_redis_state():
+    """每个测试前重置 Redis 全局状态,避免跨测试污染。"""
+    agent_runtime._redis_client = None
+    agent_runtime._redis_disabled = False
+    yield
+    agent_runtime._redis_client = None
+    agent_runtime._redis_disabled = False
+
+
+@pytest.fixture
+def mock_llm_gateway():
+    """Mock agent_graph 模块的 llm_gateway,返回固定 content 字符串。"""
+    with patch("app.services.agent_graph.llm_gateway") as mock:
+        mock.complete = AsyncMock(
+            return_value={"content": "mock LLM response", "model": "mock", "stub": False}
+        )
+        yield mock
 
 
 # =============================================================================
@@ -89,8 +112,10 @@ async def test_execute_with_explicit_session_id_reuses_session(client):
 # =============================================================================
 
 
-async def test_execute_stream_returns_sse_with_three_events(client):
-    """POST /api/agent-runtime/execute/stream 返回 SSE + session/permission/done 三事件。"""
+async def test_execute_stream_default_mode_emits_session_plan_delta_done(
+    client, mock_llm_gateway
+):
+    """default mode → session + plan + delta + done 事件,无 permission 事件。"""
     resp = await client.post(
         "/api/agent-runtime/execute/stream",
         json={"message": "stream test", "mode": "default"},
@@ -99,12 +124,15 @@ async def test_execute_stream_returns_sse_with_three_events(client):
     assert "text/event-stream" in resp.headers.get("content-type", "")
     text = resp.text
     assert "event: session" in text
-    assert "event: permission" in text
+    assert "event: plan" in text
+    assert "event: delta" in text
     assert "event: done" in text
+    assert "event: permission" not in text
     assert "data:" in text
+    assert mock_llm_gateway.complete.await_count >= 2
 
 
-async def test_execute_stream_session_event_contains_session_id(client):
+async def test_execute_stream_session_event_contains_session_id(client, mock_llm_gateway):
     """SSE session 事件 data 含 sessionId。"""
     resp = await client.post(
         "/api/agent-runtime/execute/stream",
@@ -115,6 +143,117 @@ async def test_execute_stream_session_event_contains_session_id(client):
     assert session_line is not None
     data_line = text.split("\n")[text.split("\n").index(session_line) + 1]
     assert "sessionId" in data_line
+
+
+async def test_execute_stream_plan_mode_emits_permission_deny(client, mock_llm_gateway):
+    """mode=plan → session + permission(deny) + plan + delta + done 事件。"""
+    resp = await client.post(
+        "/api/agent-runtime/execute/stream",
+        json={"message": "plan mode task", "mode": "plan"},
+    )
+    assert resp.status_code == 200
+    text = resp.text
+    assert "event: session" in text
+    assert "event: permission" in text
+    assert '"decision": "deny"' in text
+    assert "event: plan" in text
+    assert "event: delta" in text
+    assert "event: done" in text
+
+
+async def test_execute_stream_bypass_mode_skips_planning(client, mock_llm_gateway):
+    """mode=bypassPermissions → 跳过规划,plan 事件含 skip-planning 或仍走 execute。"""
+    resp = await client.post(
+        "/api/agent-runtime/execute/stream",
+        json={"message": "bypass task", "mode": "bypassPermissions"},
+    )
+    assert resp.status_code == 200
+    text = resp.text
+    assert "event: session" in text
+    assert "event: delta" in text
+    assert "event: done" in text
+    assert "event: permission" not in text
+
+
+async def test_execute_stream_graph_failure_emits_error(client, mock_llm_gateway):
+    """graph 节点抛异常 → 收到 session + error 事件。"""
+    mock_llm_gateway.complete = AsyncMock(side_effect=RuntimeError("boom"))
+    resp = await client.post(
+        "/api/agent-runtime/execute/stream",
+        json={"message": "will fail", "mode": "default"},
+    )
+    assert resp.status_code == 200
+    text = resp.text
+    assert "event: session" in text
+    assert "event: error" in text
+    assert "event: done" not in text
+
+
+async def test_execute_stream_redis_unavailable_degrades_to_memory(
+    client, mock_llm_gateway, monkeypatch
+):
+    """无 REDIS_URL → 内存降级,execute/stream 仍正常工作。"""
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    agent_runtime._redis_client = None
+    agent_runtime._redis_disabled = False
+
+    resp = await client.post(
+        "/api/agent-runtime/execute/stream",
+        json={"message": "no redis", "mode": "default"},
+    )
+    assert resp.status_code == 200
+    text = resp.text
+    assert "event: session" in text
+    assert "event: done" in text
+    assert agent_runtime._redis_disabled is True
+    assert agent_runtime._redis_client is None
+
+
+async def test_execute_stream_redis_available_persists_session(
+    client, mock_llm_gateway, monkeypatch
+):
+    """REDIS_URL 可用(mock redis client)→ session 持久化到 Redis。"""
+    monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+    agent_runtime._redis_client = None
+    agent_runtime._redis_disabled = False
+
+    fake_redis = MagicMock()
+    fake_redis.ping = MagicMock(return_value=True)
+    fake_redis.set = MagicMock(return_value=True)
+    fake_redis.get = MagicMock(return_value=None)
+
+    with patch("redis.from_url", return_value=fake_redis):
+        resp = await client.post(
+            "/api/agent-runtime/execute/stream",
+            json={"message": "with redis", "mode": "default"},
+        )
+
+    assert resp.status_code == 200
+    text = resp.text
+    assert "event: session" in text
+    assert "event: done" in text
+    assert fake_redis.set.called
+    set_args = fake_redis.set.call_args
+    assert set_args.args[0].startswith("agent_session:")
+    assert "completed" in set_args.args[1] or "running" in set_args.args[1]
+
+
+async def test_execute_stream_done_event_contains_summary(client, mock_llm_gateway):
+    """done 事件 data 含 summary 字段,值与 mock LLM 响应一致。"""
+    import json as _json
+
+    resp = await client.post(
+        "/api/agent-runtime/execute/stream",
+        json={"message": "summary test", "mode": "default"},
+    )
+    text = resp.text
+    done_lines = [
+        ln for ln in text.split("\n") if ln.startswith("data: ") and "summary" in ln
+    ]
+    assert done_lines, "应至少有一条 data 行包含 summary"
+    payload = _json.loads(done_lines[-1][len("data: "):])
+    assert payload["status"] == "completed"
+    assert payload["summary"] == "mock LLM response"
 
 
 # =============================================================================
