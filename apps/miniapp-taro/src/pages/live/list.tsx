@@ -107,7 +107,7 @@ export default function LiveList() {
               <View className="relative w-full h-[160px]">
                 <Image className="w-full h-full" src={item.coverUrl} mode="aspectFill" />
                 <View
-                  className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-xs ${
+                  className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-xs ${
                     item.status === 'living'
                       ? 'bg-[#dd524d] text-white'
                       : item.status === 'upcoming'

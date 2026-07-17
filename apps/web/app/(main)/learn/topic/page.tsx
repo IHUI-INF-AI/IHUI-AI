@@ -7,7 +7,16 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Layers, BookOpen, Loader2, Users, Sparkles, Info } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@ihui/ui'
 
 type TopicType = 'lesson' | 'premium'
 
@@ -165,16 +174,16 @@ export default function LearnTopicPage() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span
-                          className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
+                          className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
                           aria-label={t(`type.${topic.type}.label`)}
                         >
                           {topic.type === 'premium' ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                            <span className="inline-flex items-center gap-1 rounded-md border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300">
                               <Sparkles className="h-3 w-3" />
                               {t('type.premium.label')}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                            <span className="inline-flex items-center gap-1 rounded-md border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300">
                               <Info className="h-3 w-3" />
                               {t('type.lesson.label')}
                             </span>

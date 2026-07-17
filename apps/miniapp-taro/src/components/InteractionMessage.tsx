@@ -58,16 +58,16 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
             {item.userAvatar ? (
               <Image
                 src={item.userAvatar}
-                className="w-10 h-10 rounded-full bg-gray-50"
+                className="w-10 h-10 rounded-lg bg-gray-50"
                 mode="aspectFill"
               />
             ) : (
-              <View className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+              <View className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
                 <Text className="text-sm text-gray-500">{item.userName.charAt(0)}</Text>
               </View>
             )}
             <Text
-              className={`absolute -bottom-1 -right-1 w-4 h-4 text-xs bg-white rounded-full flex items-center justify-center ${
+              className={`absolute -bottom-1 -right-1 w-4 h-4 text-xs bg-white rounded flex items-center justify-center ${
                 TYPE_COLOR[item.type]
               }`}
             >

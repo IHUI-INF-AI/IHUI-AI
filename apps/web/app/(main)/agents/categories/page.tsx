@@ -101,7 +101,7 @@ export default function AgentCategoriesPage() {
                       <h3 className="line-clamp-2 text-sm font-medium">{cat.name}</h3>
                       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         {cat.isPaid && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-600 dark:text-amber-500">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-amber-600 dark:text-amber-500">
                             <CreditCard className="h-3 w-3" />
                             付费
                           </span>

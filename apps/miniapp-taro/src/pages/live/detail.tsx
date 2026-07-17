@@ -56,7 +56,7 @@ export default function LiveDetail() {
             {live.status === 'living' && (
               <View className="absolute inset-0 flex items-center justify-center">
                 <View
-                  className="px-7 py-2.5 bg-[#dd524d] text-white rounded-full text-sm"
+                  className="px-7 py-2.5 bg-[#dd524d] text-white rounded-md text-sm"
                   onClick={enterLive}
                 >
                   <Text>{t('live.detail.enter')}</Text>

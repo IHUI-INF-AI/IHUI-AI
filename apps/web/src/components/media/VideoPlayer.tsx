@@ -100,7 +100,7 @@ export function VideoPlayer({
             max={100}
             value={progress}
             onChange={handleSeek}
-            className="mb-2 h-1 w-full cursor-pointer appearance-none rounded-full bg-white/30 accent-primary"
+            className="mb-2 h-1 w-full cursor-pointer appearance-none rounded bg-white/30 accent-primary"
           />
           <div className="flex items-center gap-2 text-white">
             <button onClick={togglePlay} className="rounded p-1 hover:bg-white/20">

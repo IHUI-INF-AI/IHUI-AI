@@ -110,7 +110,7 @@ export default function LiveDetailPage() {
     const endMs = channel.endTime ? new Date(channel.endTime).getTime() : NaN
     if (channel.isLive) {
       return (
-        <span className="flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-0.5 text-xs font-medium text-white">
+        <span className="flex items-center gap-1 rounded-md bg-red-500 px-2.5 py-0.5 text-xs font-medium text-white">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
           {t('liveNow')}
         </span>
@@ -118,14 +118,14 @@ export default function LiveDetailPage() {
     }
     if (!Number.isNaN(endMs) && now > endMs) {
       return (
-        <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+        <span className="rounded-md bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
           {t('ended')}
         </span>
       )
     }
     if (!Number.isNaN(startMs) && now < startMs) {
       return (
-        <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+        <span className="rounded-md bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
           {t('upcoming')}
         </span>
       )

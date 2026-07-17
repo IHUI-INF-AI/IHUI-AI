@@ -70,7 +70,7 @@ export default function DistributionTeam() {
               className="flex items-center bg-white p-[12px] mb-[12px] rounded-[8px]"
             >
               <Image
-                className="w-[40px] h-[40px] rounded-full bg-[#f5f5f5]"
+                className="w-[40px] h-[40px] rounded-md bg-[#f5f5f5]"
                 src={m.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />

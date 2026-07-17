@@ -88,7 +88,7 @@ export function MemberCard() {
               <button
                 onClick={handleCheckIn}
                 disabled={checkedIn}
-                className={`mt-3 inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs transition-colors ${
+                className={`mt-3 inline-flex items-center gap-1.5 rounded-md border px-4 py-1.5 text-xs transition-colors ${
                   checkedIn
                     ? 'border-border text-muted-foreground'
                     : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'

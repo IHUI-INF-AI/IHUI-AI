@@ -67,7 +67,7 @@ export default function CourseList() {
     <View className="min-h-screen p-3">
       <View className="flex items-center mb-3">
         <Input
-          className="flex-1 h-9 px-3 bg-white rounded-full text-sm"
+          className="flex-1 h-9 px-3 bg-white rounded-lg text-sm"
           type="text"
           placeholder={t('course.list.searchPlaceholder')}
           value={keyword}

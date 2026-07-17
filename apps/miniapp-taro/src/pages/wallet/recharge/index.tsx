@@ -99,13 +99,13 @@ export default function RechargePage() {
           {t('wallet.recharge.method')}
         </Text>
         <View className="flex items-center py-[16rpx]">
-          <View className="w-[60rpx] h-[60rpx] leading-[60rpx] text-center bg-[#f5f5f5] rounded-full text-[28rpx] text-[#09bb07]">
+          <View className="w-[60rpx] h-[60rpx] leading-[60rpx] text-center bg-[#f5f5f5] rounded-md text-[28rpx] text-[#09bb07]">
             微
           </View>
           <Text className="flex-1 ml-[24rpx] text-[28rpx] text-[#333]">
             {t('wallet.recharge.methodWechat')}
           </Text>
-          <View className="w-[36rpx] h-[36rpx] rounded-full border-[2rpx] bg-[#07c160] border-[#07c160]" />
+          <View className="w-[36rpx] h-[36rpx] rounded-md border-[2rpx] bg-[#07c160] border-[#07c160]" />
         </View>
       </View>
 

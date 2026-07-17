@@ -33,7 +33,7 @@ export default function TagInput({
       {value.map((tag, idx) => (
         <View
           key={idx}
-          className="flex items-center mr-2 mb-1.5 px-2.5 py-1 rounded-full bg-indigo-50"
+          className="flex items-center mr-2 mb-1.5 px-2.5 py-1 rounded-md bg-indigo-50"
         >
           <Text className="text-xs text-indigo-600 mr-1">{tag}</Text>
           <Text className="text-xs text-indigo-400" onClick={() => removeTag(idx)}>

@@ -64,7 +64,7 @@ export function SearchBar({
             onChange={(e) => setValue(e.target.value)}
             onFocus={() => setFocused(true)}
             placeholder={resolvedPlaceholder}
-            className="h-10 w-full rounded-full border border-input bg-background pl-9 pr-9 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-9 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           {value && (
             <button

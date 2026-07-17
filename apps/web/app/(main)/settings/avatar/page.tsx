@@ -101,7 +101,7 @@ export default function AvatarPage() {
         <CardContent className="space-y-6">
           <div className="flex items-center gap-6">
             <div className="relative h-24 w-24 shrink-0">
-              <span className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-muted text-2xl font-medium text-muted-foreground">
+              <span className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-muted text-2xl font-medium text-muted-foreground">
                 {displaySrc ? (
                   <Image
                     src={displaySrc}
@@ -119,7 +119,7 @@ export default function AvatarPage() {
                 title={t('avatarUpload')}
                 disabled={uploading}
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
+                className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-lg border bg-background shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
               >
                 {uploading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

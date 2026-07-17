@@ -102,7 +102,7 @@ export default function MemberSubscriptionPage() {
                 </div>
                 <span
                   className={cn(
-                    'rounded-full px-2 py-0.5 text-xs font-medium',
+                    'rounded-md px-2 py-0.5 text-xs font-medium',
                     STATUS_CONFIG[sub.status].cls,
                   )}
                 >

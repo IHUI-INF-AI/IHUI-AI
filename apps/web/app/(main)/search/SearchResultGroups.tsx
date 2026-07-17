@@ -104,7 +104,7 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
               <Link key={u.id} href={`/user/${u.id}`} className="group block">
                 <Card className="transition-colors hover:bg-accent">
                   <CardHeader className="flex-row items-center gap-3 space-y-0 p-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <User className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">

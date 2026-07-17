@@ -211,7 +211,7 @@ export default function ErrorDashboardPage() {
                       <td className="px-4 py-2.5">
                         <span
                           className={cn(
-                            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                            'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                             lv.bg,
                             lv.text,
                           )}
@@ -222,7 +222,7 @@ export default function ErrorDashboardPage() {
                       <td className="px-4 py-2.5">
                         <span
                           className={cn(
-                            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                            'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                             st.bg,
                             st.text,
                           )}

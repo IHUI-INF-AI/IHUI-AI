@@ -35,13 +35,10 @@ export default function ConfirmDialog({
           </Text>
         )}
         <View className="flex space-x-3">
-          <View className="flex-1 py-2.5 rounded-full bg-gray-100 text-center" onClick={onCancel}>
+          <View className="flex-1 py-2.5 rounded-md bg-gray-100 text-center" onClick={onCancel}>
             <Text className="text-sm text-gray-600">{cancelText}</Text>
           </View>
-          <View
-            className="flex-1 py-2.5 rounded-full bg-indigo-500 text-center"
-            onClick={onConfirm}
-          >
+          <View className="flex-1 py-2.5 rounded-md bg-indigo-500 text-center" onClick={onConfirm}>
             <Text className="text-sm text-white">{confirmText}</Text>
           </View>
         </View>

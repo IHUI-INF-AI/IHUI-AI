@@ -125,9 +125,9 @@ export function SecurityScore() {
                       {item.score}/{item.maxScore}
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="h-1.5 overflow-hidden rounded bg-muted">
                     <div
-                      className="h-full rounded-full transition-all"
+                      className="h-full rounded-md transition-all"
                       style={{
                         width: `${(item.score / item.maxScore) * 100}%`,
                         backgroundColor:

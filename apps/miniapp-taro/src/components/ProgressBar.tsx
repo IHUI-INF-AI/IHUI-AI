@@ -18,11 +18,11 @@ export default function ProgressBar({
   return (
     <View className="w-full">
       <View
-        className="w-full bg-gray-100 rounded-full overflow-hidden"
+        className="w-full bg-gray-100 rounded-md overflow-hidden"
         style={{ height: `${height}px` }}
       >
         <View
-          className="rounded-full transition-all"
+          className="rounded-md transition-all"
           style={{ width: `${clamped}%`, height: '100%', backgroundColor: color }}
         />
       </View>

@@ -46,7 +46,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         onCloseMobile={() => setMobileOpen(false)}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header onMenuClick={() => setMobileOpen(true)} />
+        <Header onMenuClick={() => setMobileOpen((o) => !o)} />
         <main
           id="main"
           tabIndex={-1}

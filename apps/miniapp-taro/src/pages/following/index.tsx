@@ -54,7 +54,7 @@ export default function FollowingPage() {
               className="bg-white rounded-[16rpx] p-[24rpx] mb-[24rpx] flex items-center"
             >
               <Image
-                className="w-[100rpx] h-[100rpx] rounded-full mr-[24rpx] bg-[#f0f0f0]"
+                className="w-[100rpx] h-[100rpx] rounded-md mr-[24rpx] bg-[#f0f0f0]"
                 src={item.avatar || defaultAvatar}
                 mode="aspectFill"
               />

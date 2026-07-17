@@ -45,7 +45,7 @@ export default function AgentDetailPage() {
         <View className="mx-[12px] my-[12px] bg-white rounded-[8px] p-[16px]">
           <View className="flex items-center">
             <Image
-              className="w-[80px] h-[80px] rounded-full bg-[#f5f5f5]"
+              className="w-[80px] h-[80px] rounded-md bg-[#f5f5f5]"
               src={agent.avatar || '/static/default-agent.png'}
               mode="aspectFill"
             />

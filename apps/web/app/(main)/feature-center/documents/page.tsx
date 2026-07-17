@@ -80,7 +80,7 @@ export default function DocumentsPage() {
               type="button"
               onClick={() => setCategory(c.value)}
               className={
-                'rounded-full border px-3 py-1 text-sm transition-colors ' +
+                'rounded-md border px-3 py-1 text-sm transition-colors ' +
                 (category === c.value
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border hover:bg-muted')
