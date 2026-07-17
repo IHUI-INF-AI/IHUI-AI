@@ -2898,7 +2898,7 @@ build 错误 `TypeError: e.createContext is not a function` 位于 `apps/web/app
 
 #### 残留问题(后续任务)
 
-1. `completeOrderWithSaga` 调用方(routes/order.ts:693)未传 server 参数,WS 推送处于"已埋点但未激活"状态 — 需后续补一行 `completeOrderWithSaga(orderNo, tradeNo, server)`
+1. ✅(2026-07-17) `completeOrderWithSaga` 调用方(routes/order.ts:693)未传 server 参数,WS 推送处于"已埋点但未激活"状态 — 已修复:补传 `server` 参数 `completeOrderWithSaga(orderNo, tradeNo, server)`,`pnpm --filter @ihui/api typecheck` 退出码 0
 2. demand-square/[id] 详情页 i18n 缺失键(statusPending/statusApproved/statusRejected)— 预存问题,非本次引入
 3. demand-audit/[id] 详情页 API 契约不匹配(id/remark ↔ recordId/reason)— 预存 bug,列表页也有
 4. 历史未提交改动 3 文件(apps/api/frontend-stub-admin-routes.ts、apps/cli/repl.ts、scripts/check-api-routes.mjs)来自前阶段 blocked 任务残留,不属于本次 goal 范围
@@ -15862,3 +15862,109 @@ Running 11 tests using 10 workers
 cli 所有可参考学习的高价值能力已全部整合完毕,剩余 4 项是 P2/P3 边角能力,可按需在未来场景驱动时再做,不构成"未整合"的实质缺口。
 
 **无后续待办,任务真正完整收尾,关闭对话。**
+
+---
+
+## P36 — 第三次深度审计 + 9 项能力整合(4 P0 slash command + 5 P1 智能化)(2026-07-17)✅(2026-07-17) / goal 深度整合
+
+### 背景
+
+承接 P35 收尾后用户再次要求"深度回头重头检查 cli 所有代码重新深度分析还有哪里可以学习抄袭并且融合整合的"。两个并行 search agent 对 cli 全部 Rust crate 重新深度审计,识别出 4 项 P0 slash command 缺口 + 5 项 P1 能力增强(含 P1-4 ErrorType 分级 + P1-5 多格式输出,本轮补完最后 2 项)。
+
+### 交付摘要
+
+#### P0-1 `/cost` 命令(累计成本/token/迭代统计透明化)
+
+- `apps/cli/src/commands/repl.ts` `ReplState` 新增 8 个累计统计字段:`totalCostUsd`/`totalPromptTokens`/`totalCompletionTokens`/`totalTokens`/`totalToolCalls`/`totalToolSuccess`/`totalToolFailure`/`totalIterations`
+- `sendToAgent` 的 `onToolResult` 回调累加工具调用次数与成功/失败计数,尾部累加 LLM usage 与迭代数
+- 新增 `case 'cost'`:展示累计成本(美元,plan 套餐显示 $0)、prompt/completion/total tokens、迭代轮次、工具调用统计(总数/成功/失败)
+
+#### P0-2 `/compact` 命令(手动上下文压缩)
+
+- 新增 `case 'compact'`:调用 `compressContextIfNeeded(history, { contextLimit: 8000 })` 强制压缩
+- 压缩后更新 `state.history` + saveSession,输出 originalTokens → compressedTokens / 8000 + removedCount + trigger
+- 未触发压缩时输出提示(消息数不足 / token 未超阈值)
+
+#### P0-3 `/config` 命令(配置摘要展示)
+
+- 新增 `case 'config'`:展示 loadSettings + sampler(temperature/maxTokens)+ sandbox profile + folderTrust 条目数 + audit 启用状态 + MCP 启用状态
+
+#### P0-4 `/resume` 命令(会话切换)
+
+- 新增 `case 'resume'`:无参数列出最近 20 个 session(id + 时间 + 工作区 + 模型 + 历史条数);有参数切换到指定 session(重置所有累计统计,避免旧会话历史污染新会话计数)
+
+#### P1-1 Plan Mode reject/edit/show 三态扩展
+
+- `/plan reject`:重置 `planApproved=false` + 推入 user 消息要求重新规划(输出 ```plan 块)
+- `/plan edit`:引导用户用 `/rewind` 回退或 `/plan reject` 重新规划
+- `/plan show`:显示 plan 状态 + 最近 plan 块内容(正则 `plan\n([\s\S]*?)` 提取)
+
+#### P1-2 Session 级 dangerous 工具信任缓存
+
+- `apps/cli/src/tools/index.ts` `ToolContext` 新增 `sessionAllowedTools?: Set<string>`
+- `executeToolCall` 中 dangerous 工具首次确认后加入 Set,后续同工具直接放行(不重复确认)
+- `apps/cli/src/commands/agent.ts` `setupAgentTools` 初始化 `sessionAllowedTools: new Set<string>()`
+
+#### P1-3 Audit log query 命令(查询/过滤审计日志)
+
+- `apps/cli/src/audit.ts` 新增 `AuditQueryOptions` / `AuditQueryResult` 接口 + `parseSinceToTimestamp`(ISO + 相对时间 Nh/Nm/Nd/Ns)+ `queryAuditLog` 函数(按工具名子串/时间/成功状态过滤,倒序排列,limit 上限)
+- `apps/cli/src/index.ts` 新增 `ihui audit query`(支持 -t/--tool, -s/--since, --success, --failure, -l/--limit, --json)+ `ihui audit stats`(按工具名聚合 total/success/failure/成功率)
+- 测试:`tests/audit-query.test.ts` 19 tests
+
+#### P1-4 ErrorType 枚举分级处理(network/permission/not_found/timeout/rate_limited/unknown)
+
+- `apps/cli/src/tools/index.ts` 新增 `ErrorType` 类型 + `classifyError(error)` 启发式分类(中英双语关键字匹配)+ `isRetryableErrorType`(network/timeout/rate_limited 可重试)+ `isFatalErrorType`(permission 致命)
+- `ToolResult` 加 `errorType?` 字段;`executeToolCall` 中 unknown_tool=not_found / rate_limited / dangerous_rejected=permission 三处补标记
+- `executeWithRetry` 改用 `isRetryableErrorType` 判定是否重试(替代原"read 固定重试"策略;permission/unknown 立即返回不重试)
+- `apps/cli/src/commands/agent.ts` `runToolLoop` 中工具失败时调 `isFatalErrorType`,permission 类错误立即 `return finalize()` 中止循环
+- 测试:`tests/rate-limit-retry.test.ts` 新增 11 个 ErrorType 测试 + 5 个原测试适配新语义
+
+#### P1-5 Headless `--output-format` 多格式(text|json|markdown|yaml)
+
+- 新增 `apps/cli/src/headless-format.ts`:`OutputFormat` 类型 + `HeadlessEvent` 类型 + `toYaml`(极简 YAML 序列化器,不引入外部依赖,支持 null/bool/num/str/array/object,含特殊字符字符串用 JSON 双引号)+ `eventToMarkdown`(每事件 markdown 片段)+ `parseOutputFormat`(非法值默认 text)+ `formatHeadlessEvent`(统一格式化入口)
+- `apps/cli/src/commands/agent.ts` `AgentOptions` 加 `outputFormat?`,re-export headless-format 公共 API;`runAgent` 中 `emit` 改用 `formatHeadlessEvent(event, outputFormat)`,`isStructured` 判定取代原 `jsonMode`,`silent` / `spinner` / 所有 onDelta/onToolCall/onToolResult/onIteration/onError 分支按 `isStructured` 切换
+- `apps/cli/src/index.ts` 新增 `--output-format <format>` 全局选项,`runAgentAndExit` 透传 `outputFormat: opts.outputFormat ? parseOutputFormat(opts.outputFormat) : undefined`
+- 向后兼容:`outputFormat` 未设置时按 `--json` / TTY 自动决定 text/json
+- 测试:`tests/headless-format.test.ts` 28 tests
+
+### 全量回归验证
+
+| 验证项                              | 命令                             | 退出码 | 结果                                     |
+| ----------------------------------- | -------------------------------- | ------ | ---------------------------------------- |
+| 全量 typecheck                      | `pnpm turbo typecheck`           | 0      | ✅ 23/23 任务全绿(20 cached + 3 miss)    |
+| CLI lint                            | `pnpm --filter @ihui/cli lint`   | 0      | ✅ 零警告                                |
+| CLI test                            | `pnpm --filter @ihui/cli test`   | 0      | ✅ 24 test files / **391 tests** 全绿    |
+| P1-3 audit-query                    | `tests/audit-query.test.ts`      | 0      | ✅ 19 tests                              |
+| P1-4 rate-limit-retry(含 ErrorType) | `tests/rate-limit-retry.test.ts` | 0      | ✅ 27 tests(11 新增 ErrorType + 16 适配) |
+| P1-5 headless-format                | `tests/headless-format.test.ts`  | 0      | ✅ 28 tests                              |
+
+### 改动文件清单
+
+**新增源文件(1 个)**:
+
+- `apps/cli/src/headless-format.ts`(P1-5 多格式输出序列化器)
+
+**新增测试文件(2 个)**:
+
+- `apps/cli/tests/audit-query.test.ts`(P1-3,19 tests)
+- `apps/cli/tests/headless-format.test.ts`(P1-5,28 tests)
+
+**修改源文件(4 个)**:
+
+- `apps/cli/src/commands/repl.ts`(P0-1/P0-2/P0-3/P0-4/P1-1:8 个统计字段 + 4 个 slash command + Plan reject/edit/show)
+- `apps/cli/src/tools/index.ts`(P1-2/P1-4:sessionAllowedTools + ErrorType + classifyError + isRetryableErrorType + isFatalErrorType + executeWithRetry 新语义)
+- `apps/cli/src/commands/agent.ts`(P1-2/P1-4/P1-5:sessionAllowedTools 初始化 + isFatalErrorType 中止循环 + finalize 重构 + OutputFormat 接入 + emit 改用 formatHeadlessEvent)
+- `apps/cli/src/audit.ts`(P1-3:queryAuditLog + parseSinceToTimestamp)
+- `apps/cli/src/index.ts`(P1-3 audit query/stats CLI + P1-5 --output-format 选项)
+
+**修改测试文件(1 个)**:
+
+- `apps/cli/tests/rate-limit-retry.test.ts`(P1-4:新增 ErrorType 分级测试 + 原 executeWithRetry 测试适配新语义)
+
+### 关键审计结论
+
+经第三次深度审计,cli 17 个 slash command 已全部对齐(IHUI 原 13 → P0 补齐 /cost /compact /config /resume 后达 17/17);工具执行链路从"无差别重试"升级为"按 ErrorType 分级路由"(permission 中止 / network/timeout/rate_limited 重试 / not_found/unknown 交 LLM 决策);Headless 输出从单一 NDJSON 扩展为 4 格式(text/json/markdown/yaml),覆盖 CI/CD、报告生成、k8s 配置生态。
+
+### 后续最优建议
+
+本轮 9 项能力(4 P0 + 5 P1)全部整合完毕,代码 + 测试 + 接入三件套完整,391 tests 全绿。cli 在"slash command 完整性 + 工具执行智能化 + Headless 多格式输出"三大主轴上已 100% 整合完毕。剩余 P2/P3 边角能力(HTTP webhook / /rewind+fork / MCP resources/prompts)按需在未来场景驱动时再做。
