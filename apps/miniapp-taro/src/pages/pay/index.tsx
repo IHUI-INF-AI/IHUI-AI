@@ -1,7 +1,8 @@
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
-import { pay } from '@/api'
+import { getVipOrderPayInfo, type VipPayInfo } from '@/api'
+import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
 import { useI18n } from '@/i18n'
 
 export default function PayIndex() {
@@ -9,13 +10,7 @@ export default function PayIndex() {
   const router = useRouter()
   const [orderNo, setOrderNo] = useState('')
   const [amount, setAmount] = useState(0)
-  const [payType, setPayType] = useState<'wechat' | 'balance' | 'alipay'>('wechat')
-
-  const methods = [
-    { value: 'wechat' as const, name: t('pay.wechat'), icon: '微', color: '#09bb07' },
-    { value: 'alipay' as const, name: t('pay.alipay'), icon: '支', color: '#1677ff' },
-    { value: 'balance' as const, name: t('pay.balance'), icon: '余', color: '#ff9a3c' },
-  ]
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     setOrderNo(router.params.orderNo || '')
@@ -27,18 +22,52 @@ export default function PayIndex() {
       Taro.showToast({ title: t('pay.orderAbnormal'), icon: 'none' })
       return
     }
+    if (submitting) return
+    setSubmitting(true)
     try {
-      const res = await pay({ orderNo, payType })
-      if (res.success) {
+      const res = await getVipOrderPayInfo(orderNo)
+      if (res.status === 'paid') {
         Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
-      } else if (res.payUrl) {
-        if (process.env.TARO_ENV === 'h5') {
-          window.location.href = res.payUrl
-        }
+        return
       }
+      if (!res.payInfo) {
+        Taro.showToast({ title: '支付参数缺失', icon: 'none' })
+        return
+      }
+      dispatchPay(res.payInfo, orderNo)
     } catch {
-      // ignore
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+    } finally {
+      setSubmitting(false)
     }
+  }
+
+  function dispatchPay(payInfo: VipPayInfo, no: string) {
+    if (
+      payInfo.method === 'jsapi' &&
+      payInfo.timeStamp &&
+      payInfo.nonceStr &&
+      payInfo.package &&
+      payInfo.signType &&
+      payInfo.paySign
+    ) {
+      requestWxPayment(payInfo as AnyPayParams)
+        .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${no}` }))
+        .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${no}` }))
+      return
+    }
+    if (payInfo.method === 'h5' && payInfo.h5Url && process.env.TARO_ENV === 'h5') {
+      window.location.href = payInfo.h5Url
+      return
+    }
+    if (payInfo.method === 'native') {
+      Taro.showToast({ title: '请使用微信扫码支付', icon: 'none' })
+      return
+    }
+    if (payInfo.mock && payInfo.error) {
+      Taro.showToast({ title: '支付配置未就绪,请联系管理员', icon: 'none' })
+    }
+    Taro.redirectTo({ url: `/pages/pay/result?orderNo=${no}` })
   }
 
   return (
@@ -53,27 +82,18 @@ export default function PayIndex() {
         <View className="text-[28rpx] text-[#333] font-semibold mb-[24rpx]">
           {t('pay.selectMethod')}
         </View>
-        {methods.map((m) => (
-          <View
-            key={m.value}
-            className="flex items-center py-[24rpx] border-b-[2rpx] border-[#f5f5f5]"
-            onClick={() => setPayType(m.value)}
-          >
-            <View
-              className="w-[60rpx] h-[60rpx] leading-[60rpx] text-center bg-[#f5f5f5] rounded-md text-[28rpx]"
-              style={{ color: m.color }}
-            >
-              {m.icon}
-            </View>
-            <Text className="flex-1 ml-[24rpx] text-[28rpx] text-[#333]">{m.name}</Text>
-            <View
-              className={`w-[36rpx] h-[36rpx] rounded-md border-[2rpx] ${payType === m.value ? 'bg-[#07c160] border-[#07c160]' : 'border-[#ccc]'}`}
-            />
+        <View className="flex items-center py-[24rpx]">
+          <View className="w-[60rpx] h-[60rpx] leading-[60rpx] text-center bg-[#f5f5f5] rounded-md text-[28rpx] text-[#09bb07]">
+            微
           </View>
-        ))}
+          <Text className="flex-1 ml-[24rpx] text-[28rpx] text-[#333]">{t('pay.wechat')}</Text>
+          <View className="w-[36rpx] h-[36rpx] rounded-md border-[2rpx] bg-[#07c160] border-[#07c160]" />
+        </View>
       </View>
       <Button
         className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-[#07c160] text-white rounded-[40rpx] text-[32rpx]"
+        loading={submitting}
+        disabled={submitting}
         onClick={onPay}
       >
         {t('pay.confirm')} ¥{amount}
