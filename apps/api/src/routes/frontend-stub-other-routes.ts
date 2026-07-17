@@ -15,7 +15,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { eq, and, desc, asc, sql, or, isNotNull } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, or, isNotNull, count } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db, dbRead } from '../db/index.js'
@@ -40,6 +40,10 @@ import {
   tourContent,
   aiCapabilities,
   aiCapabilityTemplates,
+  businessCards,
+  businessCardFavorites,
+  serviceAppointments,
+  userAddresses,
 } from '@ihui/database'
 import { findActivityById, joinActivity } from '../db/promotion-queries.js'
 import { findAuditLogList } from '../db/oauth-queries.js'
@@ -209,42 +213,180 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 5. 名片模块 /business-card/* (7 个) — NEEDS_NEW_TABLE: business_cards, business_card_favorites
+  // 5. 名片模块 /business-card/* (7 个)
   // ===========================================================================
 
-  server.get('/business-card/:id', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: business_cards
-    return reply.send(success({}))
+  const businessCardCreateSchema = z.object({
+    name: z.string().min(1).max(100),
+    title: z.string().max(100).optional(),
+    company: z.string().max(200).optional(),
+    phone: z.string().max(20).optional(),
+    email: z.string().max(200).optional(),
+    avatar: z.string().max(500).optional(),
+    intro: z.string().optional(),
+    qrCode: z.string().max(500).optional(),
+    isPublic: z.boolean().optional(),
   })
 
-  server.get('/business-card/favorites', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: business_card_favorites
-    return reply.send(success({ list: [], total: 0 }))
+  // GET /business-card/:id — 按 id 查询名片(404 处理)+ viewCount +1
+  server.get('/business-card/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [card] = await dbRead
+      .select()
+      .from(businessCards)
+      .where(eq(businessCards.id, id))
+      .limit(1)
+    if (!card) return reply.status(404).send(error(404, '名片不存在'))
+    await db
+      .update(businessCards)
+      .set({ viewCount: card.viewCount + 1, updatedAt: new Date() })
+      .where(eq(businessCards.id, id))
+    return reply.send(success({ ...card, viewCount: card.viewCount + 1 }))
   })
 
-  server.delete('/business-card/favorites/:id', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: business_card_favorites
+  // GET /business-card/favorites — 当前用户收藏的名片列表(分页,联表 business_cards)
+  server.get('/business-card/favorites', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (q === null) return
+    const offset = (q.page - 1) * q.pageSize
+    const items = await dbRead
+      .select({
+        id: businessCards.id,
+        userId: businessCards.userId,
+        name: businessCards.name,
+        title: businessCards.title,
+        company: businessCards.company,
+        phone: businessCards.phone,
+        email: businessCards.email,
+        avatar: businessCards.avatar,
+        intro: businessCards.intro,
+        qrCode: businessCards.qrCode,
+        isPublic: businessCards.isPublic,
+        viewCount: businessCards.viewCount,
+        createdAt: businessCards.createdAt,
+        updatedAt: businessCards.updatedAt,
+        favoritedAt: businessCardFavorites.createdAt,
+      })
+      .from(businessCardFavorites)
+      .innerJoin(businessCards, eq(businessCardFavorites.cardId, businessCards.id))
+      .where(eq(businessCardFavorites.userId, request.userId!))
+      .orderBy(desc(businessCardFavorites.createdAt))
+      .limit(q.pageSize)
+      .offset(offset)
+    const [totalRow] = await dbRead
+      .select({ count: count() })
+      .from(businessCardFavorites)
+      .where(eq(businessCardFavorites.userId, request.userId!))
+    return reply.send(success({ list: items, total: totalRow?.count ?? 0, page: q.page, pageSize: q.pageSize }))
+  })
+
+  // DELETE /business-card/favorites/:id — 取消收藏(by cardId + userId)
+  server.delete('/business-card/favorites/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [deleted] = await db
+      .delete(businessCardFavorites)
+      .where(
+        and(
+          eq(businessCardFavorites.cardId, id),
+          eq(businessCardFavorites.userId, request.userId!),
+        ),
+      )
+      .returning()
+    if (!deleted) return reply.status(404).send(error(404, '收藏记录不存在'))
     return reply.send(success({ deleted: true }))
   })
 
-  server.delete('/business-card/favorites', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: business_card_favorites
+  // DELETE /business-card/favorites — 清空当前用户所有收藏
+  server.delete('/business-card/favorites', async (request, reply) => {
+    await db
+      .delete(businessCardFavorites)
+      .where(eq(businessCardFavorites.userId, request.userId!))
     return reply.send(success({ deleted: true }))
   })
 
-  server.delete('/business-card/:id', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: business_cards
+  // DELETE /business-card/:id — 删除名片(仅所有者,404/403)
+  server.delete('/business-card/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [existing] = await dbRead
+      .select()
+      .from(businessCards)
+      .where(eq(businessCards.id, id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '名片不存在'))
+    if (existing.userId !== request.userId)
+      return reply.status(403).send(error(403, '无权删除此名片'))
+    await db.delete(businessCards).where(eq(businessCards.id, id))
     return reply.send(success({ deleted: true }))
   })
 
-  server.post('/business-card/:id', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: business_cards
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  // POST /business-card/:id — 创建/更新名片(:id 为用户标识,upsert 该用户的名片)
+  server.post('/business-card/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const body = businessCardCreateSchema.safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId!
+    const [existing] = await dbRead
+      .select()
+      .from(businessCards)
+      .where(eq(businessCards.userId, userId))
+      .limit(1)
+    if (existing) {
+      const [updated] = await db
+        .update(businessCards)
+        .set({ ...body.data, updatedAt: new Date() })
+        .where(eq(businessCards.id, existing.id))
+        .returning()
+      return reply.status(201).send(success({ card: updated, created: false }))
+    }
+    const [created] = await db
+      .insert(businessCards)
+      .values({
+        userId,
+        name: body.data.name,
+        title: body.data.title ?? null,
+        company: body.data.company ?? null,
+        phone: body.data.phone ?? null,
+        email: body.data.email ?? null,
+        avatar: body.data.avatar ?? null,
+        intro: body.data.intro ?? null,
+        qrCode: body.data.qrCode ?? null,
+        isPublic: body.data.isPublic ?? true,
+      })
+      .returning()
+    return reply.status(201).send(success({ card: created, created: true }))
   })
 
-  server.post('/business-card/:id/favorite', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: business_card_favorites
-    return reply.status(201).send(success({ favorited: true }))
+  // POST /business-card/:id/favorite — 收藏名片(幂等,已收藏返回已存在)
+  server.post('/business-card/:id/favorite', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [card] = await dbRead
+      .select()
+      .from(businessCards)
+      .where(eq(businessCards.id, id))
+      .limit(1)
+    if (!card) return reply.status(404).send(error(404, '名片不存在'))
+    const [existing] = await dbRead
+      .select()
+      .from(businessCardFavorites)
+      .where(
+        and(
+          eq(businessCardFavorites.cardId, id),
+          eq(businessCardFavorites.userId, request.userId!),
+        ),
+      )
+      .limit(1)
+    if (existing) return reply.status(201).send(success({ favorited: true, existed: true }))
+    await db
+      .insert(businessCardFavorites)
+      .values({ userId: request.userId!, cardId: id })
+      .returning()
+    return reply.status(201).send(success({ favorited: true, existed: false }))
   })
 
   // ===========================================================================
@@ -676,27 +818,110 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 10. 地址模块 /addresses/* (4 个) — NEEDS_NEW_TABLE: user_addresses
+  // 10. 地址模块 /addresses/* (4 个)
   // ===========================================================================
 
-  server.put('/addresses/:id', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: user_addresses
-    return reply.send(success({ updated: true }))
+  const addressBodySchema = z.object({
+    recipientName: z.string().min(1).max(100),
+    phone: z.string().min(1).max(20),
+    province: z.string().min(1).max(50),
+    city: z.string().min(1).max(50),
+    district: z.string().min(1).max(50),
+    detail: z.string().min(1).max(500),
+    postalCode: z.string().max(20).optional(),
+    isDefault: z.boolean().optional(),
   })
 
-  server.post('/addresses', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: user_addresses
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  // PUT /addresses/:id — 更新地址(仅所有者)
+  server.put('/addresses/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const body = addressBodySchema.partial().safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await dbRead
+      .select()
+      .from(userAddresses)
+      .where(eq(userAddresses.id, id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '地址不存在'))
+    if (existing.userId !== request.userId)
+      return reply.status(403).send(error(403, '无权修改此地址'))
+    const [updated] = await db
+      .update(userAddresses)
+      .set({ ...body.data, updatedAt: new Date() })
+      .where(eq(userAddresses.id, id))
+      .returning()
+    return reply.send(success({ item: updated }))
   })
 
-  server.delete('/addresses/:id', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: user_addresses
+  // POST /addresses — 创建地址(若 isDefault=true 则取消其他默认)
+  server.post('/addresses', async (request, reply) => {
+    const body = addressBodySchema.safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    if (body.data.isDefault) {
+      await db
+        .update(userAddresses)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(and(eq(userAddresses.userId, request.userId!), eq(userAddresses.isDefault, true)))
+    }
+    const [item] = await db
+      .insert(userAddresses)
+      .values({
+        userId: request.userId!,
+        recipientName: body.data.recipientName,
+        phone: body.data.phone,
+        province: body.data.province,
+        city: body.data.city,
+        district: body.data.district,
+        detail: body.data.detail,
+        postalCode: body.data.postalCode ?? null,
+        isDefault: body.data.isDefault ?? false,
+      })
+      .returning()
+    return reply.status(201).send(success({ item }))
+  })
+
+  // DELETE /addresses/:id — 删除地址(仅所有者)
+  server.delete('/addresses/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [existing] = await dbRead
+      .select()
+      .from(userAddresses)
+      .where(eq(userAddresses.id, id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '地址不存在'))
+    if (existing.userId !== request.userId)
+      return reply.status(403).send(error(403, '无权删除此地址'))
+    await db.delete(userAddresses).where(eq(userAddresses.id, id))
     return reply.send(success({ deleted: true }))
   })
 
-  server.post('/addresses/:id/default', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: user_addresses
-    return reply.status(201).send(success({ updated: true }))
+  // POST /addresses/:id/default — 设为默认(事务取消其他默认)
+  server.post('/addresses/:id/default', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [existing] = await dbRead
+      .select()
+      .from(userAddresses)
+      .where(eq(userAddresses.id, id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '地址不存在'))
+    if (existing.userId !== request.userId)
+      return reply.status(403).send(error(403, '无权修改此地址'))
+    await db.transaction(async (tx) => {
+      await tx
+        .update(userAddresses)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(and(eq(userAddresses.userId, request.userId!), eq(userAddresses.isDefault, true)))
+      await tx
+        .update(userAddresses)
+        .set({ isDefault: true, updatedAt: new Date() })
+        .where(eq(userAddresses.id, id))
+    })
+    return reply.send(success({ updated: true }))
   })
 
   // ===========================================================================
@@ -1012,24 +1237,84 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 22. 服务预约 /service-appointment/* (4 个) — NEEDS_NEW_TABLE: service_appointments
+  // 22. 服务预约 /service-appointment/* (4 个)
+  // 状态机: pending → confirmed → completed;pending/confirmed → cancelled
   // ===========================================================================
 
-  server.get('/service-appointment/:id', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: service_appointments
-    return reply.send(success({}))
+  // GET /service-appointment/:id — 预约详情
+  server.get('/service-appointment/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [row] = await dbRead
+      .select()
+      .from(serviceAppointments)
+      .where(eq(serviceAppointments.id, id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '预约不存在'))
+    return reply.send(success(row))
   })
-  server.get('/service-appointment/:id/cancel', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: service_appointments
-    return reply.send(success({ list: [], total: 0 }))
+
+  // GET /service-appointment/:id/cancel — 取消预约(pending/confirmed → cancelled)
+  server.get('/service-appointment/:id/cancel', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [row] = await dbRead
+      .select()
+      .from(serviceAppointments)
+      .where(eq(serviceAppointments.id, id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '预约不存在'))
+    if (row.status !== 'pending' && row.status !== 'confirmed') {
+      return reply.status(409).send(error(409, '当前状态不允许取消'))
+    }
+    const [updated] = await db
+      .update(serviceAppointments)
+      .set({ status: 'cancelled', updatedAt: new Date() })
+      .where(eq(serviceAppointments.id, id))
+      .returning()
+    return reply.send(success(updated))
   })
-  server.get('/service-appointment/:id/confirm', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: service_appointments
-    return reply.send(success({ list: [], total: 0 }))
+
+  // GET /service-appointment/:id/confirm — 确认预约(pending → confirmed)
+  server.get('/service-appointment/:id/confirm', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [row] = await dbRead
+      .select()
+      .from(serviceAppointments)
+      .where(eq(serviceAppointments.id, id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '预约不存在'))
+    if (row.status !== 'pending') {
+      return reply.status(409).send(error(409, '当前状态不允许确认'))
+    }
+    const [updated] = await db
+      .update(serviceAppointments)
+      .set({ status: 'confirmed', updatedAt: new Date() })
+      .where(eq(serviceAppointments.id, id))
+      .returning()
+    return reply.send(success(updated))
   })
-  server.get('/service-appointment/:id/complete', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: service_appointments
-    return reply.send(success({ list: [], total: 0 }))
+
+  // GET /service-appointment/:id/complete — 完成预约(confirmed → completed)
+  server.get('/service-appointment/:id/complete', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [row] = await dbRead
+      .select()
+      .from(serviceAppointments)
+      .where(eq(serviceAppointments.id, id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '预约不存在'))
+    if (row.status !== 'confirmed') {
+      return reply.status(409).send(error(409, '当前状态不允许完成'))
+    }
+    const [updated] = await db
+      .update(serviceAppointments)
+      .set({ status: 'completed', updatedAt: new Date() })
+      .where(eq(serviceAppointments.id, id))
+      .returning()
+    return reply.send(success(updated))
   })
 
   // ===========================================================================
