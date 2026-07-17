@@ -176,10 +176,13 @@ export function AISidePanel() {
   if (!open) return null
 
   return (
+    <div
+      className="relative z-[calc(var(--z-base)+5)] my-2 ml-2 shrink-0"
+      style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
+    >
     <aside
       aria-label={tc('title')}
-      style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
-      className="relative z-[calc(var(--z-base)+5)] flex shrink-0 flex-col my-2 ml-2 overflow-hidden rounded-xl bg-shell-panel"
+      className="flex h-full flex-col overflow-hidden rounded-xl bg-shell-panel"
     >
       {/* 标题栏 */}
       <header className="flex h-14 shrink-0 items-center gap-2 px-3">
@@ -255,20 +258,26 @@ export function AISidePanel() {
         sendLabel={t('send')}
         stopLabel={t('stop')}
       />
-
-      {/* 右侧拖拽手柄 */}
+    </aside>
+    {/* 右侧拖拽手柄:外层 8px 透明命中区跨过 aside 右边缘(right-[-3px]),
+        内层 1px 可见细线 group-hover:bg-primary。
+        手柄置于 aside 外层(父 div),避免 overflow-hidden 裁剪命中区。 */}
+    <div
+      onPointerDown={handleResizeStart}
+      className="group absolute right-[-3px] top-3 bottom-3 z-20 w-2 cursor-col-resize"
+    >
       <div
         role="separator"
         aria-orientation="vertical"
         aria-label={tcommon('resize')}
-        onPointerDown={handleResizeStart}
         className={cn(
-          'absolute right-0 top-3 bottom-3 z-10 w-px cursor-col-resize bg-transparent transition-colors',
-          'hover:bg-primary',
+          'absolute right-0 top-0 bottom-0 w-px bg-transparent transition-colors',
+          'group-hover:bg-primary',
           isResizing && 'bg-primary',
         )}
       />
-    </aside>
+    </div>
+    </div>
   )
 }
 
