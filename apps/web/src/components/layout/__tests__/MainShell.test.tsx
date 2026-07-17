@@ -25,6 +25,9 @@ vi.mock('@/components/common', () => ({
   PWAInstallPrompt: () => null,
   PWAUpdatePrompt: () => null,
 }))
+vi.mock('@/components/ai/ai-side-panel', () => ({
+  AISidePanel: () => null,
+}))
 
 import { MainShell } from '../MainShell'
 

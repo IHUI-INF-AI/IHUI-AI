@@ -252,7 +252,6 @@ body {
 
 /* 自定义滚动条:无背景、无箭头、细滑块 */
 .thin-scroll {
-  scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--color-muted-foreground) 60%, transparent) transparent;
   transition: scrollbar-color 0.2s ease;
 }
@@ -282,7 +281,6 @@ body {
 
 /* 侧边栏:默认透明,hover 时显示 */
 .hover-scroll {
-  scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
 .hover-scroll::-webkit-scrollbar {
