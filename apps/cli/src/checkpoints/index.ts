@@ -17,6 +17,8 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 
+export * from './hunk-tracker.js';
+
 export interface CheckpointMeta {
   id: string;
   sessionId: string;
