@@ -12615,6 +12615,7 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 | P38          | P0(原 P1 升回) | 35 项 P0 阻断性缺失(v5 字段级核查确认:Dialog 字段降级 + TreeSelect 缺失 + 207 B 端接口空白 + AI 业务方法 100% 缺失 + 3 页面新建)— 4 个 goal 全部完成 ✅ | 大批次 | ✅ 已完成(2026-07-16,4 goal,23+ 文件 + 177 函数 + 38 hook 方法 + 75 i18n 键,后端配套待补非阻塞) |
 | P39          | P1             | 18 项 P1 功能完整性缺失 + 8 项 P2 设计意图待确认 — v5 字段级核查完成(8 项真需补写 + 3 项需补写 + 5 项后端配套)                                          | 中批次 | ⏳ 待 goal 补写(2026-07-16 核查完成)                                                            |
 | P40          | P2             | 15+ 项 P2 增强(可选,按业务需求)                                                                                                                         | 小批次 | 待启动                                                                                          |
+| P41          | P1             | 跨端能力同步:Repair 共享层抽取(packages/types)+ CLI 委托 + API /chat/stream 接入 + ai-service llm_gateway 兜底接入(AGENTS.md 第 10 节多端同步规则落地)  | 小批次 | ✅ 已完成(2026-07-17,3 新增 + 7 修改,13 TS tests + 8 Python tests,全量验证全绿)                 |
 
 ### 8. 验证标准(本 goal)
 
@@ -16043,6 +16044,8 @@ grok-build 所有可参考学习的高价值能力已全部整合完毕,剩余 4
 
 ## P37 — 第四次深度审计 + 5 项 grok-build 能力整合(seek_sequence/interject/repair/reminders)(2026-07-17)✅(2026-07-17) / goal 深度整合
 
+> **平台独占标注**(P41 跨端同步核查结论):P37 的 5 项能力(seek_sequence / interject / repair / reminders / fork+rewind)均属 CLI 平台独占能力,5 端(desktop/extension/mobile-rn/miniapp-taro/web)均无本地 agent runtime,不要求跨端同步。其中 Repair 的 5 条结构修复规则属"功能层同步必须"(API /chat/stream 接收 Web 端 messages 数组会原样透传,防御不足),已在 P41 跨端同步中抽取共享层并接入 API/ai-service。
+
 ### 背景
 
 承接 P36 收尾后用户再次要求"剩余的也都要完整开发强化到极致 处理完后 再深度回头重头检查 grok build 所有代码重新深度分析还有哪里可以学习抄袭并且融合整合的"。两个并行 search agent 对 grok-build 的 shell/pager crate + tools/workspace/safety crate 做第四次深度审计,识别出 7 项 P0/P1 + 12 项 P2,本轮整合其中 5 项独立低代价高价值能力(P0-1 seek_sequence / P0-2 Interject / P0-3 Fork+Rewind 已有 / P1-1 Repair / P1-2 Reminders),暂缓高代价的 Background task 体系 + Scheduler + Monitor。
@@ -16135,3 +16138,192 @@ grok-build 所有可参考学习的高价值能力已全部整合完毕,剩余 4
 ### 后续最优建议
 
 本轮 5 项能力(P0-1 seek_sequence / P0-2 Interject / P0-3 Fork+Rewind 已有 / P1-1 Repair / P1-2 Reminders)全部整合完毕,代码 + 测试 + 接入三件套完整,468 tests 全绿。grok-build 在"patch 匹配鲁棒性 + 用户交互流畅性 + 会话历史健壮性 + LLM 状态感知"四大维度上已 100% 整合完毕。剩余暂缓能力(Background task 体系 / Scheduler / Monitor / HTTP webhook / MCP resources/prompts)属高代价或边角能力,按需在未来场景驱动时再做。grok-build 第四次深度审计完成,无更多低代价高价值能力可整合。
+
+## P41 — 跨端能力同步:Repair 共享层抽取 + API/ai-service 接入(2026-07-17)✅(2026-07-17) / 多端同步强制规则落地
+
+### 背景
+
+承接 P37 完成后用户"继续"指令,依据 AGENTS.md 第 10 节"多端同步开发强制规则"对 P37 整合的 5 项能力(seek_sequence / interject / repair / reminders / fork+rewind)做跨端能力同步核查。两个并行 search agent 核查结论:
+
+- **Agent A(5 端核查)**:desktop / extension / mobile-rn / miniapp-taro / web 均无本地 agent runtime(无 LLM tool loop / 无 patch 应用 / 无 interjection 处理),4 项 CLI 能力(seek_sequence / interject / reminders / fork+rewind)属"平台独占",不要求跨端同步。
+- **Agent B(后端核查)**:Repair 的 5 条结构修复规则属"功能层同步必须"——API `/chat/stream` 路由接收 Web 端 POST 的 `messages` 数组后**原样透传**给 ai-service,仅 Zod `z.enum([...])` + `z.string()` 校验(无 `.min(1)` 非空约束),Web 端因前端 bug / 状态竞争 / 网络重试等原因传入结构异常 messages(空 content / 连续相同 role / 末尾无响应 user)时,会一路透传到 LiteLLM 触发 400 错误。**防御不足,需同步**。
+
+### 交付摘要
+
+#### 共享层抽取(packages/types)
+
+- **新增 `packages/types/src/message-repair.ts`**:导出 `repairMessages<T extends RepairableMessage>()` 泛型函数 + `RepairableMessage` / `RepairResult<T>` 类型
+  - 5 条修复规则与 CLI `repairSessionHistory` 同源:Rule 1 过滤非法 role / Rule 2 过滤空 content / Rule 3 去重连续相同 role(合并 content)/ Rule 4 确保首条是 system 或 user(丢弃开头 assistant)/ Rule 5 移除末尾无响应 user(前面有 assistant 时才移除,首轮 user 保留)
+  - 返回 `{ repaired, removed, reasons }` 三元组
+  - 不变性:不修改原数组与原对象(浅拷贝 + spread)
+- **`packages/types/src/index.ts`**:新增 `export * from './message-repair.js'`
+- **`packages/types/package.json`**:新增 `"./message-repair"` exports 路径 + `"vitest": "^2.1.8"` devDependency + `"test": "vitest run"` script
+- **新增 `packages/types/vitest.config.ts`**:标准 node 环境 vitest 配置
+- **新增 `packages/types/tests/message-repair.test.ts`**:13 tests(Rule 1-5 各项 + 不变性 + 组合与边界)
+
+#### CLI 重构(委托共享层,消除重复)
+
+- **`apps/cli/src/commands/session.ts`**:`repairSessionHistory` 函数体替换为单行委托 `repairMessages(history as RepairableMessage[])`,消除 CLI 与共享层的 5 条规则重复代码
+- **`apps/cli/package.json`**:新增 `"@ihui/types": "workspace:*"` 依赖
+- 保留 CLI 的 `tryRecoverSessionFromCorruptedJson`(JSON 文件级恢复,与 messages 结构修复属不同层级,不抽取)
+
+#### API /chat/stream 接入(防御性入口)
+
+- **`apps/api/src/routes/ai-chat-stream.ts`**:Zod 校验后、reply.hijack 前调用 `repairMessages(rawMessages)`
+  - 发生修复时通过 SSE 首事件 `data: {"repair":{"removed":N}}\n\n` 通知前端(前端可据此提示用户"已自动修复 N 条异常消息")
+  - 修复后的 `messages` 数组才进入下游 ai-service 调用,保证透传到 LiteLLM 的 messages 结构合法
+
+#### ai-service llm_gateway.py 接入(防御性兜底)
+
+- **`apps/ai-service/app/core/llm_gateway.py`**:新增 Python 版 `repair_messages()` 函数,5 条规则与 TS 版同源(注释中明确"与 @ihui/types/message-repair 同源")
+  - `LLMGateway.complete()`:在 `trim_messages` 之前调用 `repair_messages`,修复后日志 `logger.info("repair_messages 修复 %d 条异常消息", N)`
+  - `LLMGateway.astream()`:同样接入(日志带 "astream" 后缀区分)
+  - 防御性兜底:即使 API 入口未修复(如其他调用方 / 旧客户端 / 测试直调),ai-service 也能保证 LiteLLM 收到合法 messages
+
+- **`apps/ai-service/tests/test_llm_gateway.py`**:追加 8 个 `repair_messages` 测试(Rule 1-5 + 复杂混合 + 空输入 + 首轮 user 保留),共 44 Python tests
+
+### 全量回归验证
+
+| 验证项                   | 命令                                  | 退出码 | 结果                                              |
+| ------------------------ | ------------------------------------- | ------ | ------------------------------------------------- |
+| packages/types typecheck | `pnpm --filter @ihui/types typecheck` | 0      | ✅ 0 错误                                         |
+| packages/types lint      | `pnpm --filter @ihui/types lint`      | 0      | ✅ 0 警告                                         |
+| packages/types test      | `pnpm --filter @ihui/types test`      | 0      | ✅ **13 tests** 全绿                              |
+| CLI typecheck            | `pnpm --filter @ihui/cli typecheck`   | 0      | ✅ 0 错误                                         |
+| CLI lint                 | `pnpm --filter @ihui/cli lint`        | 0      | ✅ 0 警告                                         |
+| CLI test                 | `pnpm --filter @ihui/cli test`        | 0      | ✅ **468 tests** 全绿(含 P37 4 个新 test files)   |
+| API typecheck            | `pnpm --filter @ihui/api typecheck`   | 0      | ✅ 0 错误                                         |
+| API lint                 | `pnpm --filter @ihui/api lint`        | 0      | ✅ 0 警告                                         |
+| ai-service test          | `pytest tests/test_llm_gateway.py`    | 0      | ✅ **44 tests** 全绿(含 8 个新增 repair_messages) |
+| monorepo turbo typecheck | `pnpm turbo typecheck`                | 0      | ✅ 39 tasks 全绿                                  |
+| monorepo turbo lint      | `pnpm turbo lint`                     | 0      | ✅ 39 tasks 全绿                                  |
+
+### 改动文件清单
+
+**新增源文件(3 个)**:
+
+- `packages/types/src/message-repair.ts`(共享层 repairMessages 函数 + 类型定义)
+- `packages/types/vitest.config.ts`(packages/types vitest 配置)
+- `packages/types/tests/message-repair.test.ts`(13 tests)
+
+**修改源文件(7 个)**:
+
+- `packages/types/src/index.ts`(export message-repair)
+- `packages/types/package.json`(exports 路径 + vitest devDep + test script)
+- `apps/cli/package.json`(@ihui/types 依赖)
+- `apps/cli/src/commands/session.ts`(repairSessionHistory 委托共享层)
+- `apps/api/src/routes/ai-chat-stream.ts`(repairMessages 接入 + SSE 修复通知)
+- `apps/ai-service/app/core/llm_gateway.py`(Python 版 repair_messages + complete/astream 接入)
+- `apps/ai-service/tests/test_llm_gateway.py`(8 个 repair_messages 测试)
+
+**lockfile**:
+
+- `pnpm-lock.yaml`(@ihui/types 新依赖锁定)
+
+### 跨端同步验证清单(AGENTS.md 第 10 节)
+
+| 检查项   | 改动是否涉及? | 同步落地                                                                                                  |
+| -------- | ------------- | --------------------------------------------------------------------------------------------------------- |
+| 接口契约 | 是            | API /chat/stream 行为变更(增加 SSE 修复通知事件),兼容新增,未破坏既有契约                                  |
+| 类型     | 是            | `packages/types` 新增 `RepairableMessage` / `RepairResult<T>` 类型,CLI/API 共用                           |
+| 数据     | 否            | 不涉及数据库 schema                                                                                       |
+| UI 组件  | 否            | 不涉及共享 UI 组件                                                                                        |
+| 业务功能 | 是            | Repair 5 条结构修复规则,CLI/API/ai-service 三端共用同一套规则(共享层抽取)                                 |
+| 文档同步 | 是            | PROJECT_PLAN.md P41 条目(本条)+ P37 平台独占标注                                                          |
+| 全量验证 | 是            | `pnpm turbo typecheck lint` 39 tasks 全绿 + packages/types 13 tests + CLI 468 tests + ai-service 44 tests |
+
+### 关键审计结论
+
+经跨端同步核查,P37 的 5 项能力中 4 项(seek_sequence / interject / reminders / fork+rewind)属 CLI 平台独占,5 端无本地 agent runtime 不需同步;1 项(Repair 的 5 条结构修复规则)属"功能层同步必须",已通过共享层抽取(packages/types/message-repair.ts)+ CLI 委托 + API 入口接入 + ai-service 兜底接入,实现"一份规则三端共用"。API /chat/stream 与 ai-service llm_gateway 形成**双重防御**:API 入口修复(阻断 Web 端异常 messages 透传)+ ai-service 兜底修复(防御其他调用方 / 旧客户端 / 测试直调)。Web 端传入结构异常 messages 时不再触发 LiteLLM 400 错误,且通过 SSE 通知前端可观测可调试。
+
+### 已知遗留(P2,待产品决策)
+
+`trim_messages`(ai-service 既有函数)与 `repair_messages`(P41 新增)对 `tool` role 的处理存在语义冲突:
+
+- `trim_messages` 保留 `tool` role(agent_loop 内部用,需保留以维持 tool_call 配对)
+- `repair_messages` 过滤 `tool` role(API 入口不应出现 tool role,属非法)
+
+当前 ai-service `complete()` 调用顺序为 `repair → trim`,语义上正确(API 入口先修复结构异常,再修剪窗口);但若未来 ai-service 内部 agent_loop 也接入 `repair_messages`,会误过滤合法的 tool 消息。**待产品决策**:是否拆分为 `repair_messages_strict`(过滤 tool,API 入口用)与 `repair_messages_loose`(保留 tool,agent_loop 内部用)两个变体。
+
+### 后续最优建议
+
+P41 跨端同步落地完成,AGENTS.md 第 10 节"多端同步开发强制规则"在 Repair 能力上得到完整实践:共享层抽取 + 三端接入 + 双重防御 + 全量验证。grok-build 第五次审计维度(跨端同步)完成,5 项 P37 能力的跨端归属已明确界定(4 项平台独占 + 1 项功能层同步),无更多跨端同步缺口。剩余 P2 遗留(trim/repair 语义冲突)属未来 agent_loop 接入时才需决策,当前 API 入口路径无影响。grok-build 整合工作进入收尾阶段。
+
+---
+
+## P42 — AI 对话链路 P0 字段名契约修复 + /api/llm/models 路由 + Web 模型选择器动态化(2026-07-17)✅(2026-07-17) / goal
+
+### 背景
+
+9 端一致性深度核查发现 17 项违规(7 P0 + 6 P1 + 4 P2),其中 AI 对话链路存在 3 项 P0 阻断问题:
+
+1. API 端缺少 `/api/llm/models` 路由(AGENTS.md 第 10 节 AI 对话链路同步强制要求),Web/CLI/各端无法动态获取 AI-service 模型清单
+2. `apps/api/src/routes/ai-chat-stream.ts` 传 `modelId` 给 AI-service,但 AI-service `LLMCompleteRequest` 期望 `model` 字段,导致用户切换模型无效
+3. Web `model-selector.tsx` 硬编码 4 个 MODEL_OPTIONS(gpt-4o-mini/gpt-4o/claude-3-5-sonnet/claude-3-5-haiku),与 AI-service 实际模型清单(11 个真实模型)不一致
+
+### 修复内容(goal/fix-ai-chain-p0 第一批)
+
+| 序号 | 修复项       | 文件                                                      | 说明                                                                                                                                                 |
+| ---- | ------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | API 路由新增 | `apps/api/src/routes/llm-models.ts`(NEW)                  | `GET /api/llm/models` 代理转发到 AI-service,authenticate preHandler 校验                                                                             |
+| 1    | 路由注册     | `apps/api/src/server.ts` L96/L679-680                     | `server.register(llmModelsRoutes, { prefix: '/api/llm' })`                                                                                           |
+| 1    | 共享层       | `packages/api-client/src/endpoints/llm.ts`(NEW)           | `fetchModels()` 函数 + `LlmModel` / `FetchModelsResult` 类型                                                                                         |
+| 1    | 共享层导出   | `packages/api-client/src/index.ts` L70                    | `export * from './endpoints/llm.js'`                                                                                                                 |
+| 2    | 字段名修复   | `apps/api/src/routes/ai-chat-stream.ts` L18-19/L54-55/L95 | schema 新增 `model` + 保留 `modelId` alias;`resolvedModel = model ?? modelId`;fetch body 用 `model: resolvedModel`                                   |
+| 3    | 动态化       | `apps/web/src/components/chat/model-selector.tsx`         | 删除 `MODEL_OPTIONS` 硬编码;`fetchModels()` + `useState/useEffect`;`FALLBACK_MODELS` 兜底(stepfun/step-3.7-flash + gpt-4o-mini);`Loader2` loading 态 |
+| 4    | 契约测试     | `apps/api/tests/ai-chain-contract.test.ts`(NEW)           | 6 用例锁定字段名契约 + /api/llm/models 路由回归                                                                                                      |
+
+### 契约测试用例(ai-chain-contract.test.ts)
+
+1. `/api/llm/models` 未登录返回 401
+2. `/api/llm/models` admin 登录后返回模型列表(代理 AI-service,mock fetch)
+3. `/api/llm/models` AI-service 不可用时返回 502
+4. `ai-chat-stream` 接受 `model` 字段(验证传给 AI-service 的 body 含 `model` 非 `modelId`)
+5. `ai-chat-stream` 向后兼容:接受 `modelId` 并映射为 `model`
+6. `ai-chat-stream` `model` 优先于 `modelId`(同时传时 `model` 胜出)
+
+### 多 agent 并行执行
+
+第 1 轮用 3 个 Task subagent 并行处理 3 个子任务(API 路由 + 共享层 / 字段名修复 / Web 动态化),主 agent 整合 + 创建契约测试 + 全量验证 + commit + push。
+
+### 验证依据
+
+- 契约测试:`pnpm --filter @ihui/api test ai-chain-contract` → 6 passed (29ms)
+- 全量验证:`pnpm turbo typecheck lint test --force` → 45 task successful, 3271 tests passed, 0 cached
+- pre-commit 10 项检查全绿:路由一致性 2753 后端 vs 1138 前端调用 ✅ / safeParse 0 silent-ignore 风险 / 依赖去重通过 / OpenAPI spec 跳过(无 spec)
+- git push:`d9fc16d7..8b4260dd goal/fix-ai-chain-p0 -> main`(fast-forward)
+- commit sha:`8b4260dd`(15 files changed, 748 insertions, 78 deletions)
+
+### commit 范围说明
+
+commit 同时包含 P38 message-repair 跨端共享(packages/types/message-repair.ts + CLI 迁移 + ai-chat-stream.ts 调用),因 `ai-chat-stream.ts` 文件同时承载本 goal 的 modelId→model 改动 + P38 的 repairMessages 调用,无法拆分 commit。两部分改动逻辑独立,但文件耦合,合并提交不影响功能正确性。
+
+### 跨端同步验证清单(AGENTS.md 第 10 节)
+
+| 检查项   | 改动是否涉及? | 同步落地                                                                                           |
+| -------- | ------------- | -------------------------------------------------------------------------------------------------- |
+| 接口契约 | 是            | API 新增 `/api/llm/models` 路由 + `/api/ai/chat/stream` 接受 `model` 字段(保留 `modelId` 向后兼容) |
+| 类型     | 是            | `packages/api-client` 新增 `LlmModel` / `FetchModelsResult` 类型,各端可从 `@ihui/api-client` 导入  |
+| 数据     | 否            | 不涉及数据库 schema                                                                                |
+| UI 组件  | 否            | 不涉及共享 UI 组件(model-selector 是 Web 独有)                                                     |
+| 业务功能 | 是            | Web 模型选择器从硬编码改为动态获取,与 AI-service 模型清单实时同步                                  |
+| 文档同步 | 是            | PROJECT_PLAN.md P42 条目(本条)                                                                     |
+| 全量验证 | 是            | `pnpm turbo typecheck lint test --force` 45 task 全绿,3271 tests 通过                              |
+
+### 后续待办(第二批 + 第三批 P0)
+
+本 goal 仅完成第一批 3 项 P0(AI 对话链路 API/Web 端)。剩余 P0 阻断问题:
+
+**第二批 P0(后续 goal):**
+
+- `apps/miniapp-taro` 接入 `@ihui/api-client` 共享层(目前用独立 fetch,未共享契约)
+- `apps/extension` refresh token 流程缺失(token 过期无自动续期)
+
+**第三批 P0(后续 goal):**
+
+- `apps/cli` WebSocket 客户端接入 `packages/api-client/ws-client`(目前用独立 ws 实现)
+- `apps/miniapp-taro` WebSocket 协议迁移到 `buildNotificationWsUrl`(目前用硬编码 URL)
+
+### 后续最优建议
+
+第一批 P0 修复完成,AI 对话链路 API ↔ AI-service 字段名契约已锁定(契约测试 6 用例回归防护),Web 模型选择器与 AI-service 模型清单实时同步。建议立即启动第二批 P0 goal(miniapp-taro 接入共享层 + extension refresh token),完成后再启动第三批(CLI/miniapp-taro WS 迁移)。9 端一致性核查的 17 项违规中,本 goal 已修复 3 项 P0,剩余 4 P0 + 6 P1 + 4 P2 待后续 goal 推进。
