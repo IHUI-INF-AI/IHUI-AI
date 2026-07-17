@@ -114,12 +114,12 @@ export default function SkillsPopup({
               >
                 {agent.avatar ? (
                   <Image
-                    className="w-10 h-10 rounded-full mr-3 bg-gray-200"
+                    className="w-10 h-10 rounded-md mr-3 bg-gray-200"
                     src={agent.avatar}
                     mode="aspectFill"
                   />
                 ) : (
-                  <View className="w-10 h-10 rounded-lg mr-3 bg-green-600 flex items-center justify-center text-white text-base font-semibold">
+                  <View className="w-10 h-10 rounded-md mr-3 bg-green-600 flex items-center justify-center text-white text-base font-semibold">
                     <Text>{agent.name.charAt(0)}</Text>
                   </View>
                 )}
