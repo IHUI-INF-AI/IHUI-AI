@@ -57,6 +57,7 @@ import type { Session } from './session.js';
 import { saveSession } from './session.js';
 import type { PluginRegistry } from '../plugins/index.js';
 import type { PlanMachine } from '../plan/index.js';
+import { DoomLoopDetector, type DoomLoopAlert } from '../doom-loop-detector.js';
 
 // 模块增强:为 StreamChatOptions 添加 sampler 字段(透传给后端 LiteLLM)。
 // 不修改 packages/api-client 源码,在此处以声明合并方式扩展类型。
@@ -391,8 +392,8 @@ type RetryCallback = (
   delayMs: number,
 ) => void;
 
-/** DoomLoopDetector:记录连续相同错误/tool_call 签名,超过阈值判定死循环。 */
-class DoomLoopDetector {
+/** ConsecutiveSignatureDetector:记录连续相同错误/tool_call 签名,超过阈值判定死循环。 */
+class ConsecutiveSignatureDetector {
   private lastErrorSignature = '';
   private consecutiveErrorCount = 0;
   private lastToolCallSignature = '';
@@ -503,9 +504,14 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   const FAILURE_REFLECTION_THRESHOLD = 2;
   // P1-2 Reminders:跨迭代持久化已注入的 reminder 类型(避免重复注入)
   const reminderInjected = new Set<string>();
-  // P0-3 SamplerActor:doom loop 检测器(连续 N 次相同错误签名判定死循环)
+  // P0-3 SamplerActor:连续签名检测器(连续 N 次相同错误签名 / tool_call 模式判定死循环)
+  const signatureDetector = new ConsecutiveSignatureDetector();
+  let signatureDoomDetected = false;
+  // P0-3 DoomLoopDetector(滑动窗口):检测 LLM 重复调用相同工具相同参数的死循环
+  // 灵感来源:cli doom_loop 理念,简化为客户端工具调用层滑动窗口检测
   const doomLoopDetector = new DoomLoopDetector();
-  let doomLoopDetected = false;
+  let consecutiveDoomAlerts = 0;
+  let slidingWindowDoomDetected = false;
 
   // P0-2 Interject:drain pending buffer 并作为新 user 消息追加。返回是否有 interjection 被 drain。
   // P0-4 扩展:支持 image content block,通过 formatInterjectionBlocks 转为文本
@@ -574,9 +580,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         }
         void opts.onError?.(formatted.message);
         // P0-3 记录错误签名,检测 doom loop(连续 N 次相同错误)
-        doomLoopDetector.recordError(samplerResult.error);
-        if (doomLoopDetector.isDoomLoop()) {
-          doomLoopDetected = true;
+        signatureDetector.recordError(samplerResult.error);
+        if (signatureDetector.isDoomLoop()) {
+          signatureDoomDetected = true;
           process.stderr.write(
             chalk.red(`[doom-loop] 连续 ${SAMPLER_DOOM_LOOP_THRESHOLD} 次相同错误签名,判定陷入死循环,终止\n`),
           );
@@ -613,15 +619,15 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         if (drainAndAppendInterjections()) {
           continue;
         }
-        // P0-3 end_turn(LLM 主动结束)时重置 doom loop detector,表示对话正常推进
-        doomLoopDetector.reset();
+        // P0-3 end_turn(LLM 主动结束)时重置连续签名检测器,表示对话正常推进
+        signatureDetector.reset();
         break;
       }
 
       // P0-3 记录 tool_call 签名,检测 doom loop(连续 N 轮相同 tool_call 模式 → 死循环)
-      doomLoopDetector.recordToolCalls(toolCalls);
-      if (doomLoopDetector.isDoomLoop()) {
-        doomLoopDetected = true;
+      signatureDetector.recordToolCalls(toolCalls);
+      if (signatureDetector.isDoomLoop()) {
+        signatureDoomDetected = true;
         process.stderr.write(
           chalk.red(`[doom-loop] 连续 ${SAMPLER_DOOM_LOOP_THRESHOLD} 轮相同的 tool_call 模式,判定陷入死循环,终止\n`),
         );
@@ -657,6 +663,35 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           content: 'plan gathering 中,跳过写操作',
         });
         continue;
+      }
+
+      // P0-3 DoomLoopDetector(滑动窗口):每次执行工具前检测重复调用相同工具相同参数
+      // 灵感来源:cli doom_loop 理念,客户端工具调用层滑动窗口检测
+      // 连续 2 轮触发 alert → 终止循环,返回 stopReason='doom_loop';首轮 alert 注入反思提示
+      const doomAlerts: DoomLoopAlert[] = [];
+      for (const call of toolCalls) {
+        const alert = doomLoopDetector.record(call.name, call.arguments);
+        if (alert) doomAlerts.push(alert);
+      }
+      if (doomAlerts.length > 0) {
+        consecutiveDoomAlerts++;
+        const alertText = doomAlerts
+          .map((a) => `[DOOM_LOOP_ALERT] ${a.message}\n${a.suggestion}`)
+          .join('\n\n');
+        if (consecutiveDoomAlerts >= 2) {
+          slidingWindowDoomDetected = true;
+          process.stderr.write(
+            chalk.red(`[doom-loop] 连续 2 轮触发滑动窗口死循环检测,终止\n`),
+          );
+          void opts.onError?.(`Doom loop detected: ${doomAlerts[0]!.message}`);
+          break;
+        }
+        // 首轮 alert:注入反思提示,跳过本轮工具执行,让 LLM 重新考虑
+        opts.messages.push({ role: 'user', content: alertText });
+        void opts.onError?.(alertText);
+        continue;
+      } else {
+        consecutiveDoomAlerts = 0;
       }
 
       const resultParts: string[] = [];
@@ -790,8 +825,11 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let stopReason: AgentStopReason;
   if (opts.signal?.aborted) {
     stopReason = 'cancelled';
-  } else if (doomLoopDetected) {
-    // P0-3 doom loop:连续相同错误签名,判定死循环,按 error 终止
+  } else if (slidingWindowDoomDetected) {
+    // P0-3 doom_loop:滑动窗口检测到连续 2 轮重复调用相同工具相同参数
+    stopReason = 'doom_loop';
+  } else if (signatureDoomDetected) {
+    // P0-3 doom loop:连续相同错误签名 / tool_call 模式,判定死循环,按 error 终止
     stopReason = 'error';
   } else if (hadError) {
     stopReason = 'error';
@@ -816,6 +854,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   if (stopReason === 'error') {
     runHook('stopFailure', { ...hookCtx, error: lastErrorMessage || 'unknown error' });
     runHook('notification', { ...hookCtx, notificationText: `Agent 因错误终止: ${lastErrorMessage || 'unknown'}` });
+  } else if (stopReason === 'doom_loop') {
+    runHook('notification', { ...hookCtx, notificationText: `Agent 因死循环检测终止 (连续 2 轮重复工具调用)` });
   } else if (stopReason === 'max_iterations') {
     runHook('notification', { ...hookCtx, notificationText: `Agent 达到最大迭代数 ${opts.maxIterations}` });
   } else if (stopReason === 'budget_limited') {
