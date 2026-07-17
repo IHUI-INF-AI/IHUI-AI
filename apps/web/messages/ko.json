@@ -42,7 +42,6 @@
     "followed": "팔로잉",
     "orderNoLabel": "주문 번호",
     "searchPlaceholder": "검색...",
-    "resizeSidebar": "사이드바 너비 조정",
     "orderStatus": {
       "pending": "결제 대기",
       "paid": "결제 완료",
