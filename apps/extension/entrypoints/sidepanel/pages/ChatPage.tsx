@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { streamChat, type StreamChatOptions } from '@ihui/api-client'
+import { streamChat, fetchModels, type StreamChatOptions, type LlmModel } from '@ihui/api-client'
 import { useOutletContext } from 'react-router-dom'
 import type { ChatMessage } from './types'
 
@@ -7,7 +7,11 @@ interface Ctx {
   onLogout: () => void
 }
 
-const MODEL = 'stepfun/step-3.7-flash'
+const FALLBACK_MODELS: LlmModel[] = [
+  { id: 'stepfun/step-3.7-flash', name: 'Step 3.7 Flash', provider: 'stepfun', context_length: 8192, input_price: 0 },
+  { id: 'openai/gpt-4o-mini', name: 'GPT-4o mini', provider: 'openai', context_length: 128000, input_price: 0 },
+  { id: 'anthropic/claude-3.5-haiku', name: 'Claude 3.5 Haiku', provider: 'anthropic', context_length: 200000, input_price: 0 },
+]
 
 export default function ChatPage() {
   const { onLogout } = useOutletContext<Ctx>()
@@ -15,7 +19,27 @@ export default function ChatPage() {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState('')
+  const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
+  const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchModels()
+      .then((res) => {
+        if (cancelled) return
+        const list = res?.models?.length ? res.models : FALLBACK_MODELS
+        setModels(list)
+        const def = res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
+        setModel(def)
+      })
+      .catch(() => {
+        if (!cancelled) setModels(FALLBACK_MODELS)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -39,7 +63,7 @@ export default function ChatPage() {
     const timeoutId = window.setTimeout(() => controller.abort(), 15_000)
 
     const opts: StreamChatOptions = {
-      model: MODEL,
+      model,
       messages: next
         .filter((m) => m.content || m.role === 'user')
         .map(({ role, content }) => ({ role, content: content || ' ' })),
@@ -85,6 +109,19 @@ export default function ChatPage() {
     <div className="sp-chat">
       <div className="sp-page-header">
         <h3>AI 对话</h3>
+        <select
+          className="sp-model-select"
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          disabled={streaming}
+          aria-label="选择模型"
+        >
+          {models.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name || m.id}
+            </option>
+          ))}
+        </select>
         <button type="button" onClick={onLogout} className="link-btn">
           退出
         </button>

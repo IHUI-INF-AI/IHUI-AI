@@ -397,6 +397,26 @@ textarea:focus {
   border-radius: 10px;
 }
 
+.model-select {
+  font-size: 12px;
+  color: var(--fg);
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.model-select:hover {
+  border-color: var(--muted);
+}
+
+.model-select:focus {
+  outline: none;
+  border-color: var(--muted);
+}
+
 .empty-state {
   text-align: center;
   color: var(--muted);
