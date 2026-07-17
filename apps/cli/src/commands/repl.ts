@@ -13,6 +13,7 @@ import { agentsMdExists, writeAgentsMd } from './template.js';
 import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import { setupAgentTools, runToolLoop, type ToolContext, type InterjectionBlock } from './agent.js';
+import { InterjectionBuffer } from '../interjection.js';
 import { renderSlashHelp, suggestSlashCommands } from './slash-registry.js';
 import type { PermissionRules, PermissionMode } from '../tools/permissions.js';
 import { readTodoList } from '../tools/todo-write.js';
@@ -80,9 +81,10 @@ interface ReplState {
   planApproved?: boolean;
   /** /rewind 用历史快照栈,每次 sendToAgent 前压入当前 history 深拷贝 */
   rewindStack: ChatMessage[][];
-  /** P0-2 Interject:agent 运行中用户输入的非斜杠命令进入此 buffer,runToolLoop 在下一轮 drain。
-   *  P0-4 扩展:支持 image content block(text/image 两类块) */
-  interjectionBuffer: InterjectionBlock[];
+  /** InterjectionBuffer:agent 运行中用户输入的非斜杠命令进入此 buffer,按优先级处理。
+   *  机制 1:sendToAgent 调用前 formatForLLM 注入 system 消息(所有 pending)。
+   *  机制 2:agent 完成一轮后自动 pop high/critical 触发新轮次。 */
+  interjectionBuffer: InterjectionBuffer;
   /** P0-2 Interject:agent 是否正在运行(用于 rl.on('line') 路由) */
   agentRunning: boolean;
 }
@@ -196,7 +198,7 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     skills: [],
     memory: [],
     rewindStack: [],
-    interjectionBuffer: [],
+    interjectionBuffer: new InterjectionBuffer(),
     agentRunning: false,
   };
   // Sessions 模块集成:若 opts.sessionId 提供且 history 为空,尝试从新 sessions 模块加载
@@ -249,8 +251,8 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     // 斜杠命令仍立即执行(如 /exit /clear 等紧急命令不能等 agent 完成)
     // P0-4 扩展:输入包装为 text block(支持 image block 的统一数据结构)
     if (state.agentRunning && !input.startsWith('/')) {
-      state.interjectionBuffer.push({ type: 'text', text: input });
-      console.info(chalk.dim(`  ↳ 已追加到 interjection buffer(当前 ${state.interjectionBuffer.length} 条),agent 下一轮处理`));
+      state.interjectionBuffer.push(input);
+      console.info(chalk.dim(`  ↳ 已追加到 interjection buffer(当前 ${state.interjectionBuffer.size()} 条),agent 下一轮处理`));
       rl.prompt();
       return;
     }
@@ -957,7 +959,7 @@ function handleDiff(state: ReplState, args: string[]): void {
   }
 }
 
-async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
+async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise<void> {
   if (!state.agentReady) {
     const result = await setupAgentTools({
       workspacePath: state.opts.workspacePath,
@@ -1006,6 +1008,11 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
     ...state.history.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })),
   ];
 
+  // 机制 1:sendToAgent 调用前,若 buffer 有 pending,formatForLLM 注入 system 消息
+  if (state.interjectionBuffer.hasPending()) {
+    messages.push({ role: 'system', content: state.interjectionBuffer.formatForLLM() });
+  }
+
   // Hook 埋点:userPromptSubmit(REPL 入口埋一次,避免与 agent.ts 重复)
   runHook('userPromptSubmit', {
     workspacePath: state.opts.workspacePath,
@@ -1013,12 +1020,11 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
     prompt,
   });
 
-  // P0-2 Interject:agent 运行期间允许用户输入非斜杠命令到 buffer,runToolLoop 每轮 drain
+  // 机制 1 + 机制 2 已接管 interjection 处理(避免与 formatForLLM/system 注入重复)
+  // drainInterjections 返回空:agent 内部多轮间不再 drain,由 REPL 层统一调度
   state.agentRunning = true;
   const drainInterjections = (): InterjectionBlock[] => {
-    const buf = state.interjectionBuffer;
-    state.interjectionBuffer = [];
-    return buf;
+    return [];
   };
 
   const result = await runToolLoop({
@@ -1052,5 +1058,17 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
   const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
   console.info(chalk.green(`\n\n✨ 完成 (${result.iterations} 轮, ${result.stopReason})`));
   console.info(chalk.dim(`📊 tokens: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens}) — ${cost}\n`));
+
+  // 机制 2:agent 完成一轮后,自动 pop high/critical interjection 触发新轮次
+  // depth 限制防止无限递归(用户连续 push high/critical 的极端场景)
+  if (depth < 5) {
+    while (true) {
+      const next = state.interjectionBuffer.peek();
+      if (!next || (next.priority !== 'high' && next.priority !== 'critical')) break;
+      state.interjectionBuffer.pop();
+      console.info(chalk.dim(`  ↳ 自动处理 [${next.priority}] interjection: ${next.content.slice(0, 50)}`));
+      await sendToAgent(next.content, state, depth + 1);
+    }
+  }
 }
 
