@@ -20,4 +20,5 @@ export interface NotificationLogSearch {
   status: string
   startDate: string
   endDate: string
+  userId: string
 }
