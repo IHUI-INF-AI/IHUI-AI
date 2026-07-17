@@ -58,8 +58,7 @@ export function McpToolParameterForm({
   })
   const [jsonError, setJsonError] = React.useState<string | null>(null)
 
-  const set = (name: string, v: unknown) =>
-    setValues((prev) => ({ ...prev, [name]: v }))
+  const set = (name: string, v: unknown) => setValues((prev) => ({ ...prev, [name]: v }))
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,16 +68,13 @@ export function McpToolParameterForm({
       if (p.type === 'object') {
         try {
           out[p.name] =
-            typeof raw === 'string' && raw.trim() === ''
-              ? {}
-              : JSON.parse(raw as string)
+            typeof raw === 'string' && raw.trim() === '' ? {} : JSON.parse(raw as string)
         } catch (err) {
           setJsonError(`${p.name}: ${(err as Error).message}`)
           return
         }
       } else if (p.type === 'number') {
-        out[p.name] =
-          raw === '' || raw === undefined ? undefined : Number(raw)
+        out[p.name] = raw === '' || raw === undefined ? undefined : Number(raw)
       } else {
         out[p.name] = raw
       }
@@ -93,7 +89,7 @@ export function McpToolParameterForm({
         <p className="text-sm text-muted-foreground">{t('noParameters')}</p>
         <div className="flex justify-end gap-2">
           {onCancel && (
-            <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+            <Button type="button" variant="ghost" size="sm" className="bg-muted" onClick={onCancel}>
               {t('cancel')}
             </Button>
           )}
@@ -112,18 +108,11 @@ export function McpToolParameterForm({
           <Label htmlFor={`param-${p.name}`} className="flex items-center gap-1">
             <span>{p.name}</span>
             {p.required && <span className="text-destructive">*</span>}
-            <span className="text-xs font-normal text-muted-foreground">
-              ({p.type})
-            </span>
+            <span className="text-xs font-normal text-muted-foreground">({p.type})</span>
           </Label>
-          {p.description && (
-            <p className="text-xs text-muted-foreground">{p.description}</p>
-          )}
+          {p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
           {p.enum ? (
-            <Select
-              value={(values[p.name] as string) ?? ''}
-              onValueChange={(v) => set(p.name, v)}
-            >
+            <Select value={(values[p.name] as string) ?? ''} onValueChange={(v) => set(p.name, v)}>
               <SelectTrigger id={`param-${p.name}`}>
                 <SelectValue placeholder={t('selectPlaceholder')} />
               </SelectTrigger>
