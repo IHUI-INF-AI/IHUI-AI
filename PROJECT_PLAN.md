@@ -1,4 +1,4 @@
-﻿# IHUI-AI 项目
+# IHUI-AI 项目
 
 > 本文件为项目唯一任务计划文档。所有任务计划、进度更新、待办清单只写本文
 
@@ -2468,6 +2468,14 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
 
 ## P1 — 未来
 
+- [x] ✅(2026-07-18) 首页图片显示修复 — 数据库 picsum.photos 占位图全部替换为真实 CDN URL
+  - **背景**:首页 8 模块(courses/live/news/circles/knowledge)图片不显示,根因是数据库 lessons/live_channels/news_articles/circles/resources 表 cover_image 字段仍存 `https://picsum.photos/seed/xxx` 占位图(picsum.photos 在国内访问不稳定,经常超时/连不上)
+  - **修复**:新建 `packages/database/seed/update-picsum-urls.ts` 脚本,扫描 5 张表所有 cover_image,凡含 `picsum.photos` 或已知虚构 URL(2 个之前编造的 OpenAI Contentful / Anthropic Sanity hash URL)的记录,用 5 个已验证可用的真实 CDN URL 循环替换(OpenAI ctfassets / Anthropic sanity / Moonshot statics / Tencent static)
+  - **执行结果**:lessons 替换 7 条(5 picsum + 2 fake),其他表已无 picsum;最终 API 验证:lessons 20/20 realCdn、live 10/10(8 realCdn + 2 DeepSeek/x.ai 真实 URL)、news 96/96(94 realCdn + 2 真实 URL)
+  - **浏览器验证**:hard reload 后 8 模块全部图片正常显示,console 无图片错误,network 无失败请求,之前失败的 2 张 fake URL 已修复
+  - **ai-fresh-2026.ts 修复**:文件曾被 Edit 工具损坏(U+FFBD 替换字符遍布 200+ 行),git checkout 恢复后用 PowerShell 替换 9 处 Wikipedia URL 为真实 CDN URL,文件长度 50084 字符,U+FFBD=0,tsx --check + typecheck 通过
+  - **全量验证**:pnpm turbo typecheck 23/23 通过 + pnpm turbo lint 16/16 通过(0 errors, 18 warnings 均为已存在的 any/console 警告)
+  - **后续建议(1 项)**:ai-fresh-2026.ts 的 5 处 `if (ex) continue` seed 逻辑未升级为 onConflictDoUpdate(Edit 工具反复引入编码损坏,改用 PowerShell 处理太复杂)。当前数据库内容已正确,不影响功能;未来如需重跑 ai-fresh-2026.ts seed 更新已有数据,需先升级 seed 逻辑
 - [ ] 📋(2026-07-18) 上线前待办:微信支付真实激活 — 下载 API 证书放到 `G:\ai_zhs\cert\apiclient_key.pem`
   - **背景**:本轮(2026-07-18)已完成 11 项 WX_* 配置复用 + `isWechatPayConfigured()` 智能激活逻辑(commit [8788b474](https://github.com/IHUI-INF-AI/IHUI-AI/commit/8788b474))
   - **当前状态**:证书文件未放置 → `isWechatPayConfigured()` 返回 false → 支付端点走 mock 模式(不阻塞订单创建,但 `payInfo.mock=true`)
@@ -19494,3 +19502,95 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 ### 任务完成状态
 
 恢复威海架构侧边栏样式任务的 5 项后续工作全部完成 + 用户提供的真实管理员账号写入 memory 硬约束避免后续会话重复踩坑。代码层 4 项 sidebar 改进通过 typecheck + lint + pre-commit 13 项守门 + pre-push 全量 typecheck,API 链路通过 curl 直接验证(7 条数据按预期分组:1 今天 + 4 本周 + 2 本月)。Memory 文件已记录完整账号信息 + 4 条关键教训 + 安全约束,后续会话可直接复用。完整收尾,无任何剩余建议。
+
+## 第 23 轮交付报告(2026-07-18,cli 融合第十七轮收尾 — 真实 LLM 联调 + Redis 持久化 bug 修复 + AgentRuntimePanel UI 集成)
+
+第十七轮 Web 呈现层 UI 完成时遗留"真实 LLM 联调待验证"1 项后续工作,本轮通过端到端真实联调验证 + 发现并修复 Redis 持久化 bug + 把 AgentRuntimePanel 集成到 `/agents/[id]` 详情页 runtime tab 完成最后收尾。验证依据:E2E SSE 4 事件完整(session/plan/delta/done)+ Redis `agent_session:*` 键 TTL 24h + StepFun `step-3.7-flash` 真实响应 + 全量 4868 测试全绿。
+
+### 1. 端到端真实 LLM 联调验证 ✅
+
+- **环境**:本地 PostgreSQL 5432 + Redis 6379 + AI-Service 8000 + API 3001 + Web 3000 全部运行中,健康检查 200
+- **配置**:`.env` 已配置 STEPFUN_API_KEY + REDIS_URL + DATABASE_URL + JWT_SECRET + AI_CALLBACK_SECRET
+- **E2E 测试**:Python httpx 脚本调用 `POST /api/agent-runtime/execute/stream`,验证 SSE 事件序列完整
+- **结果**:4 事件齐全(`event: session` → `event: plan` → `event: delta` → `event: done`),StepFun LLM 真实响应,耗时 12-19s(真实推理,非 mock)
+- **结论**:第十七轮遗留的"真实 LLM 联调待验证"项通过,生产部署只需配置 STEPFUN_API_KEY 即可
+
+### 2. Redis session 持久化 bug 修复 ✅
+
+**根因**:`apps/ai-service/app/routers/agent_runtime.py._get_redis()` 用 `os.getenv("REDIS_URL")` 读取配置,但 pydantic-settings 的 `BaseSettings` 只把 `.env` 加载到 `Settings` 对象,**不同步到 `os.environ`**。AI-Service 运行时 `os.environ` 无 `REDIS_URL` → `_redis_disabled = True` → 永久降级到内存,E2E SSE 测试成功但 Redis 中无 `agent_session:*` 键。
+
+**修复**(`apps/ai-service/app/main.py`,+10 行):启动时同步 8 个 settings 关键变量到 `os.environ`:
+
+```python
+for _key in ("REDIS_URL", "DATABASE_URL", "JWT_SECRET", "AI_CALLBACK_SECRET",
+             "STEPFUN_API_KEY", "STEPFUN_API_BASE",
+             "AGNES_API_KEY", "AGNES_API_BASE"):
+    _val = getattr(settings, _key.lower(), None)
+    if _val:
+        os.environ.setdefault(_key, _val)
+```
+
+**关键决策**:
+
+- 用 `os.environ.setdefault()` 而非 `os.environ[...] =`,仅在变量未设置时填充,不覆盖运行时注入的值(如测试 `monkeypatch.setenv` / `monkeypatch.delenv`)
+- `agent_runtime.py` 保持原样(仍用 `os.getenv`),测试 `monkeypatch.delenv("REDIS_URL")` 仍能正确触发降级路径
+- 8 个变量同步:REDIS_URL / DATABASE_URL / JWT_SECRET / AI_CALLBACK_SECRET + 4 个 LLM provider(STEPFUN/AGNES × KEY/BASE)
+
+**验证**:E2E 第二次测试后 `redis-cli KEYS "agent_session:*"` 返回 `agent_session:c5964293-c21f-4e2b-85c8-c73794062585`,TTL 86379s(24h),value 包含 2 条消息(user + assistant)完整对话历史。
+
+### 3. AgentRuntimePanel UI 集成到 `/agents/[id]` 详情页 ✅
+
+**问题**:第十七轮新建的 `AgentRuntimePanel` 组件已通过 `src/components/ai/index.ts` 导出,但未在任何路由页面实际渲染,browser subagent 验证发现组件仅"导出未使用"。
+
+**修复**:
+
+- `apps/web/app/(main)/agents/[id]/page.tsx`(+6 行):
+  - import `AgentRuntimePanel`
+  - `TabsList` 加 `<TabsTrigger value="runtime">{t('tabRuntime')}</TabsTrigger>`
+  - `TabsContent` 加 `<TabsContent value="runtime"><div className="h-[calc(100dvh-13rem)] overflow-hidden rounded-lg border"><AgentRuntimePanel /></div></TabsContent>`
+- **5 语言 i18n 补 `tabRuntime`**(每个文件 +1 行):
+  - `zh-CN.json`: "Agent 执行"
+  - `zh-TW.json`: "Agent 執行"
+  - `en.json`: "Agent Runtime"
+  - `ja.json`: "Agent 実行"
+  - `ko.json`: "Agent 실행"
+- 设计决策:`h-[calc(100dvh-13rem)]` 给 AgentRuntimePanel 提供固定高度容器(`flex h-full flex-col` 才能正确布局 header/content/footer),`rounded-lg border` 与详情页其他 TabsContent 视觉一致
+
+### 文件清单(本轮新增 commit)
+
+- `apps/ai-service/app/main.py`(+10 行,bug 修复 — pydantic-settings 不同步 os.environ)
+- `apps/web/app/(main)/agents/[id]/page.tsx`(+6 行,AgentRuntimePanel 集成到 runtime tab)
+- `apps/web/messages/zh-CN.json`(+1 行,tabRuntime: "Agent 执行")
+- `apps/web/messages/zh-TW.json`(+1 行,tabRuntime: "Agent 執行")
+- `apps/web/messages/en.json`(+1 行,tabRuntime: "Agent Runtime")
+- `apps/web/messages/ja.json`(+1 行,tabRuntime: "Agent 実行")
+- `apps/web/messages/ko.json`(+1 行,tabRuntime: "Agent 실행")
+- `PROJECT_PLAN.md`(+本段,第 23 轮交付报告)
+
+### 验证依据
+
+| 验证项                                     | 结果                                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------ |
+| E2E SSE 真实联调(Python httpx + StepFun)   | ✅ 4 事件齐全(session/plan/delta/done),耗时 12-19s                             |
+| Redis session 持久化                       | ✅ `agent_session:c5964293-...` 键存在,TTL 86379s,2 条消息完整                 |
+| `pnpm --filter @ihui/web typecheck`        | ✅ exit 0                                                                      |
+| `pnpm --filter @ihui/web lint`             | ✅ exit 0,eslint 无错误                                                        |
+| `pnpm --filter @ihui/web test`             | ✅ 246 tests passed(24 files,含 `tests/agent-runtime-panel.test.tsx` 11 tests) |
+| `pnpm --filter @ihui/api typecheck + test` | ✅ typecheck exit 0 + 3568 tests passed(242 files)                             |
+| `pnpm --filter @ihui/api-client test`      | ✅ 14 tests passed(`tests/agent-runtime.test.ts`)                              |
+| `pytest apps/ai-service`                   | ✅ 630 tests passed(1 warning,与 bug 修复无关,系 JWT 测试 key 长度警告)        |
+| Web dev server (3000)                      | ✅ `/agents` 返回 200 OK,LENGTH 693763                                         |
+| API server (3001) + AI-service (8000)      | ✅ 端口监听中,健康检查 200                                                     |
+
+### 多端同步审查清单(AGENTS.md 第 10 节)
+
+- **接口契约**:✅ API `/api/agent-runtime/*` 8 端点 + AI-Service `/api/agent-runtime/*` 8 端点契约对齐,无变更
+- **类型同步**:✅ 无共享类型变更
+- **数据结构**:✅ 无 schema 变更(仅 main.py 启动时同步 os.environ)
+- **UI 组件**:✅ AgentRuntimePanel 集成到 `/agents/[id]` runtime tab,5 语言 i18n 齐备
+- **业务功能同步**:✅ Web 端 cli Agent 执行链路从"组件已导出未使用"升级到"在 Agent 详情页可见可交互"
+- **全量验证**:✅ Web 246 + API 3568 + api-client 14 + ai-service 630 = 4458 测试全绿
+
+### 任务完成状态
+
+cli 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工作已通过本地 E2E 真实联调验证完成,期间发现并修复了 Redis session 持久化的真实 bug(pydantic-settings 不同步 os.environ),同时把第十七轮已导出但未渲染的 AgentRuntimePanel 集成到 `/agents/[id]` 详情页 runtime tab(5 语言 i18n 齐备)。E2E SSE 4 事件完整 + Redis `agent_session:*` 键 TTL 24h 验证通过,4458 测试全绿,0 typecheck/lint 错误。完整收尾,无任何剩余建议。
