@@ -50,6 +50,15 @@ import {
 import { queryAuditLog } from './audit.js';
 import { t, setLocale } from './i18n/index.js';
 import type { Locale } from './i18n/index.js';
+import { parseToolList, type PermissionRules } from './tools/permissions.js';
+
+/** 从 CLI opts 解析 --tools / --disallowed-tools 为 PermissionRules */
+function resolvePermissions(opts: OptionValues): PermissionRules | undefined {
+  const allow = parseToolList(typeof opts.tools === 'string' ? opts.tools : undefined);
+  const deny = parseToolList(typeof opts.disallowedTools === 'string' ? opts.disallowedTools : undefined);
+  if (!allow && !deny) return undefined;
+  return { allow, deny };
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -77,7 +86,9 @@ program
   .option('--temperature <num>', 'LLM 温度(0-2,代码任务推荐 0.2,创意任务推荐 0.7)')
   .option('--max-tokens <num>', '最大生成 token 数')
   .option('--locale <locale>', '界面语言(zh-CN/en/ja/ko/zh-TW)', process.env.IHUI_LOCALE || '')
-  .option('-f, --prompt-file <path>', '从文件读取 prompt(支持超长 PRD,UTF-8 编码)');
+  .option('-f, --prompt-file <path>', '从文件读取 prompt(支持超长 PRD,UTF-8 编码)')
+  .option('--tools <list>', 'P0-7 工具白名单(逗号分隔,如 read_file,grep,glob)。非空时仅允许这些工具')
+  .option('--disallowed-tools <list>', 'P0-7 工具黑名单(逗号分隔,如 delete_file,git_commit)。始终拒绝这些工具');
 
 interface ResolvedSession {
   sessionId?: string;
@@ -215,6 +226,7 @@ async function runAgentAndExit(
       signal: abort.signal,
       planFirst: cfg.planFirst,
       sampler: cfg.sampler,
+      permissions: resolvePermissions(opts),
     });
     process.exitCode = stopReasonToExitCode(result.stopReason);
   } finally {
@@ -278,6 +290,7 @@ program
         enableMcp: cfg.enableMcp,
         allowDangerous: cfg.allowDangerous,
         planFirst: cfg.planFirst,
+        permissions: resolvePermissions(opts),
       });
     }
   });
