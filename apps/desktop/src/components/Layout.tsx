@@ -16,6 +16,7 @@ export default function Layout({ user, wsConnected }: Props) {
 
   const nav = [
     { to: '/chat', label: t('nav.chat') },
+    { to: '/agents', label: t('nav.agents') },
     { to: '/profile', label: t('nav.profile') },
     { to: '/wallet', label: t('nav.wallet') },
     { to: '/orders', label: t('nav.orders') },
