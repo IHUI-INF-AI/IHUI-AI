@@ -138,14 +138,17 @@ export function parseStreamLine(line: string): string | null {
   try {
     const json = JSON.parse(data)
     if (json?.type === 'error' && typeof json?.message === 'string') {
-      const e = new Error(json.message)
-      e.name = 'SSEError'
-      throw e
+      throw attachErrorMeta(new Error(json.message), json)
     }
     if (json?.error === true && typeof json?.error_message === 'string') {
-      const e = new Error(json.error_message)
-      e.name = 'SSEError'
-      throw e
+      throw attachErrorMeta(new Error(json.error_message), json)
+    }
+    if (json?.error && typeof json?.error === 'string') {
+      // OpenAI 错误格式:{ "error": { "message": "...", "code": "..." } } / { "error": "rate limit", "code": 429 }
+      const e = new Error(
+        typeof json.error === 'string' ? json.error : (json.error.message ?? 'AI 服务异常'),
+      )
+      throw attachErrorMeta(e, json)
     }
     if (json?.type === 'reasoning') return null
     const choice = json?.choices?.[0]
@@ -160,6 +163,26 @@ export function parseStreamLine(line: string): string | null {
     if (e instanceof SyntaxError) return data
     throw e
   }
+}
+
+function attachErrorMeta(err: Error, json: Record<string, unknown>): Error {
+  err.name = 'SSEError'
+  const code =
+    typeof json.code === 'number'
+      ? json.code
+      : typeof json.statusCode === 'number'
+        ? json.statusCode
+        : typeof json.status === 'number'
+          ? json.status
+          : undefined
+  if (code !== undefined) (err as Error & { code: number }).code = code
+  if (typeof json.errorCode === 'string') {
+    ;(err as Error & { errorCode: string }).errorCode = json.errorCode
+  }
+  if (typeof json.retryAfter === 'number') {
+    ;(err as Error & { retryAfter: number }).retryAfter = json.retryAfter
+  }
+  return err
 }
 
 export function parseStreamLineReasoning(line: string): string | null {
@@ -194,6 +217,238 @@ export function parseStreamLineReasoning(line: string): string | null {
   }
 }
 
+/**
+ * 错误码元信息 — 从 Error 对象 / 错误 JSON / 状态码中提取的结构化字段。
+ *
+ * 跨端使用:`web` / `mobile-rn` / `desktop` / `extension` / `CLI` / `miniapp-taro`
+ * 都通过 `getSSEErrorInfo` 统一提取,再用 `formatSSEError` 渲染为用户可见文本。
+ */
+export interface SSEErrorInfo {
+  code?: number
+  errorCode?: string
+  retryAfter?: number
+}
+
+/**
+ * 错误严重等级 — 用于决定不同 UI 交互:
+ * - `auth`     → 跳登录弹窗
+ * - `forbidden`→ Toast 提示权限不足
+ * - `ratelimit`→ Toast 提示稍后重试(可能附带 retryAfter)
+ * - `server`   → Toast 提示服务异常,可重试
+ * - `network`  → Toast 提示网络问题
+ * - `unknown`  → 兜底 Toast
+ */
+export type SSEErrorSeverity = 'auth' | 'forbidden' | 'ratelimit' | 'server' | 'network' | 'unknown'
+
+export interface FormattedSSEError {
+  code?: number
+  errorCode?: string
+  retryAfter?: number
+  severity: SSEErrorSeverity
+  title: string
+  message: string
+  rawMessage: string
+  requireReauth: boolean
+}
+
+function asString(v: unknown): string | undefined {
+  if (typeof v === 'string' && v.length > 0) return v
+  return undefined
+}
+
+function asNumber(v: unknown): number | undefined {
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (typeof v === 'string') {
+    const n = Number(v)
+    if (Number.isFinite(n)) return n
+  }
+  return undefined
+}
+
+/**
+ * 从错误对象 / 字符串 / 任意异常中提取 SSE 错误元信息。
+ *
+ * 兼容多种数据源:
+ * 1. `Error` 对象挂载的 `code` / `errorCode` / `retryAfter` 字段(由各端 SSE 解析器填充)
+ * 2. 错误消息文本中的"请求失败(401)"格式回退
+ * 3. 字符串中嵌入的 `code=XXX` / `errorCode=XXX` 模式
+ */
+export function getSSEErrorInfo(err: unknown): SSEErrorInfo | undefined {
+  if (!err) return undefined
+  const out: SSEErrorInfo = {}
+  const sources: unknown[] = []
+  if (err instanceof Error) {
+    sources.push(err)
+    if (err.message) sources.push(err.message)
+    const anyErr = err as Error & Record<string, unknown>
+    if (anyErr.code !== undefined) sources.push({ code: anyErr.code })
+    if (anyErr.statusCode !== undefined) sources.push({ statusCode: anyErr.statusCode })
+    if (anyErr.errorCode !== undefined) sources.push({ errorCode: anyErr.errorCode })
+    if (anyErr.retryAfter !== undefined) sources.push({ retryAfter: anyErr.retryAfter })
+  } else if (typeof err === 'string') {
+    sources.push(err)
+  } else {
+    sources.push(err)
+  }
+
+  for (const src of sources) {
+    if (typeof src === 'string') {
+      const m = src.match(/[（(](\d{3})[)）]/)
+      if (m && out.code === undefined) {
+        const n = Number(m[1])
+        if (Number.isFinite(n)) out.code = n
+      }
+      const codeMatch = src.match(/code=([0-9]{3})/)
+      if (codeMatch && out.code === undefined) {
+        const n = Number(codeMatch[1])
+        if (Number.isFinite(n)) out.code = n
+      }
+      const errCodeMatch = src.match(/errorCode=([A-Z0-9_]+)/)
+      if (errCodeMatch && out.errorCode === undefined) {
+        out.errorCode = errCodeMatch[1]
+      }
+      continue
+    }
+    if (typeof src !== 'object' || src === null) continue
+    const obj = src as Record<string, unknown>
+    if (out.code === undefined) {
+      const c = asNumber(obj.code) ?? asNumber(obj.statusCode) ?? asNumber(obj.status)
+      if (c !== undefined) out.code = c
+    }
+    if (out.errorCode === undefined) {
+      const ec = asString(obj.errorCode) ?? asString(obj.error_code)
+      if (ec) out.errorCode = ec
+    }
+    if (out.retryAfter === undefined) {
+      const r = asNumber(obj.retryAfter) ?? asNumber(obj.retry_after)
+      if (r !== undefined) out.retryAfter = r
+    }
+  }
+
+  if (out.code === undefined && out.errorCode === undefined && out.retryAfter === undefined) {
+    return undefined
+  }
+  return out
+}
+
+/**
+ * 把任意异常/错误消息规范化为用户可见的格式化错误。
+ *
+ * 用法:
+ * ```ts
+ * try {
+ *   await streamChat(...)
+ * } catch (err) {
+ *   const f = formatSSEError(err)
+ *   if (f.severity === 'auth') openLoginDialog()
+ *   toast.error(f.title, { description: f.message })
+ * }
+ * ```
+ */
+export function formatSSEError(err: unknown, fallbackMessage = 'AI 服务异常'): FormattedSSEError {
+  let rawMessage: string
+  if (err instanceof Error) {
+    rawMessage = err.message || fallbackMessage
+  } else if (typeof err === 'string' && err.length > 0) {
+    rawMessage = err
+  } else if (err && typeof err === 'object' && 'message' in err) {
+    const m = (err as { message?: unknown }).message
+    rawMessage = typeof m === 'string' && m.length > 0 ? m : fallbackMessage
+  } else {
+    rawMessage = fallbackMessage
+  }
+
+  const info = getSSEErrorInfo(err)
+  const code = info?.code
+  const errorCode = info?.errorCode
+  const retryAfter = info?.retryAfter
+
+  if (code === 401) {
+    return {
+      code,
+      errorCode,
+      retryAfter,
+      severity: 'auth',
+      title: '登录已过期',
+      message: '登录已过期,请重新登录',
+      rawMessage,
+      requireReauth: true,
+    }
+  }
+  if (code === 403) {
+    return {
+      code,
+      errorCode,
+      retryAfter,
+      severity: 'forbidden',
+      title: '访问被拒绝',
+      message: '当前账户没有使用该 AI 模型的权限',
+      rawMessage,
+      requireReauth: false,
+    }
+  }
+  if (code === 429) {
+    const waitHint = retryAfter ? `${retryAfter} 秒后重试` : '请稍候再试'
+    return {
+      code,
+      errorCode,
+      retryAfter,
+      severity: 'ratelimit',
+      title: '请求过于频繁',
+      message: `AI 服务请求频率超限,${waitHint}`,
+      rawMessage,
+      requireReauth: false,
+    }
+  }
+  if (code !== undefined && code >= 500) {
+    return {
+      code,
+      errorCode,
+      retryAfter,
+      severity: 'server',
+      title: 'AI 服务异常',
+      message: 'AI 服务暂时不可用,请稍后重试',
+      rawMessage,
+      requireReauth: false,
+    }
+  }
+  if (code !== undefined && code >= 400) {
+    return {
+      code,
+      errorCode,
+      retryAfter,
+      severity: 'server',
+      title: '请求失败',
+      message: rawMessage,
+      rawMessage,
+      requireReauth: false,
+    }
+  }
+  if (err instanceof DOMException && err.name === 'AbortError') {
+    return {
+      code,
+      errorCode,
+      retryAfter,
+      severity: 'network',
+      title: '请求已取消',
+      message: '请求已取消',
+      rawMessage,
+      requireReauth: false,
+    }
+  }
+  const isNetwork = /network|fetch|timeout|abort|failed to fetch|err_network/i.test(rawMessage)
+  return {
+    code,
+    errorCode,
+    retryAfter,
+    severity: isNetwork ? 'network' : 'unknown',
+    title: isNetwork ? '网络异常' : 'AI 服务异常',
+    message: isNetwork ? '网络连接失败,请检查网络后重试' : rawMessage,
+    rawMessage,
+    requireReauth: false,
+  }
+}
+
 export async function streamChat(opts: StreamChatOptions): Promise<void> {
   const token = tokenProvider.getToken()
   const url = normalizeUrl('/ai/chat/stream')
@@ -220,7 +475,33 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     })
     if (!resp.ok || !resp.body) {
       const text = await resp.text().catch(() => '')
-      throw new Error(text || `请求失败（${resp.status}）`)
+      let parsedBody: Record<string, unknown> | undefined
+      try {
+        if (text) parsedBody = JSON.parse(text) as Record<string, unknown>
+      } catch {
+        /* 非 JSON 响应忽略 */
+      }
+      const err = new Error(text || `请求失败（${resp.status}）`)
+      ;(err as Error & { name: string }).name = 'SSEError'
+      ;(err as Error & { code: number }).code = resp.status
+      if (parsedBody) {
+        const ec = parsedBody.errorCode
+        if (typeof ec === 'string') {
+          ;(err as Error & { errorCode: string }).errorCode = ec
+        }
+        const msg = parsedBody.message
+        if (typeof msg === 'string' && msg) {
+          err.message = `${msg}（${resp.status}）`
+        }
+      }
+      const retryAfterHeader = resp.headers.get('retry-after')
+      if (retryAfterHeader) {
+        const n = Number(retryAfterHeader)
+        if (Number.isFinite(n)) {
+          ;(err as Error & { retryAfter: number }).retryAfter = n
+        }
+      }
+      throw err
     }
 
     const reader = resp.body.getReader()

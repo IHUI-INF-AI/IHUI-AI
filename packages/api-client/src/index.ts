@@ -5,8 +5,16 @@ export {
   streamChat,
   parseStreamLine,
   parseStreamLineReasoning,
+  getSSEErrorInfo,
+  formatSSEError,
 } from './client.js'
-export type { TokenProvider, StreamChatOptions } from './client.js'
+export type {
+  TokenProvider,
+  StreamChatOptions,
+  SSEErrorInfo,
+  SSEErrorSeverity,
+  FormattedSSEError,
+} from './client.js'
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'
 export { eduApi, buildQs } from './utils.js'
 export type { PageData, PageQuery } from './utils.js'
