@@ -2,7 +2,8 @@ import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { upgradeVip } from '@/api'
+import { upgradeVip, type VipPayInfo } from '@/api'
+import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
 import './upgrade.css'
 
 const plans = [
@@ -12,13 +13,37 @@ const plans = [
 ]
 const rights = ['全部课程免费学', 'AI对话不限次', '专属客服服务', '会员专属折扣', '高清视频下载']
 
+function dispatchVipPay(payInfo: VipPayInfo, orderNo: string) {
+  if (
+    payInfo.method === 'jsapi' &&
+    payInfo.timeStamp &&
+    payInfo.nonceStr &&
+    payInfo.package &&
+    payInfo.signType &&
+    payInfo.paySign
+  ) {
+    requestWxPayment(payInfo as AnyPayParams)
+      .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` }))
+      .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` }))
+    return
+  }
+  if (payInfo.method === 'h5' && payInfo.h5Url && process.env.TARO_ENV === 'h5') {
+    window.location.href = payInfo.h5Url
+    return
+  }
+  if (payInfo.mock && payInfo.error) {
+    Taro.showToast({ title: '支付配置未就绪,请联系管理员', icon: 'none' })
+  }
+  Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
+}
+
 export default function UpgradePage() {
   const [selected, setSelected] = useState(2)
 
   const onUpgrade = useCallback(async () => {
     try {
       const res = await upgradeVip(selected + 1)
-      Taro.navigateTo({ url: `/pages/pay/index?orderNo=${res.orderNo}` })
+      dispatchVipPay(res.payInfo, res.orderNo)
     } catch (e) {
       logger.error('vip/upgrade', '升级VIP', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
