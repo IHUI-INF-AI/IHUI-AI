@@ -17,12 +17,7 @@ export type {
 } from './client.js'
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'
 
-export {
-  CircuitBreaker,
-  CircuitOpenError,
-  serverPreset,
-  clientPreset,
-} from './circuit-breaker.js'
+export { CircuitBreaker, CircuitOpenError, serverPreset, clientPreset } from './circuit-breaker.js'
 export type { CircuitState, CircuitBreakerOptions, CircuitBreakerStats } from './circuit-breaker.js'
 export { eduApi, buildQs } from './utils.js'
 export type { PageData, PageQuery } from './utils.js'
@@ -91,6 +86,7 @@ export * from './endpoints/order.js'
 export * from './endpoints/payment.js'
 export * from './endpoints/resource.js'
 export * from './endpoints/share.js'
+export * from './endpoints/subscription.js'
 export * from './endpoints/system.js'
 export * from './endpoints/token.js'
 export * from './endpoints/user.js'
