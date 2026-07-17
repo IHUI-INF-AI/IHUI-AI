@@ -106,7 +106,7 @@
 .priv-icon-default {
   width: 64rpx;
   height: 64rpx;
-  border-radius: 50%;
+  border-radius: 16rpx;
   background: #fff5e6;
   display: flex;
   align-items: center;

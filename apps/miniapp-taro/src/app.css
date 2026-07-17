@@ -20,7 +20,7 @@ page {
   padding: 0;
   margin: 0;
   background: rgba(7, 193, 96, 0.92);
-  border-radius: 50%;
+  border-radius: 16rpx;
   box-shadow: 0 4rpx 16rpx rgba(7, 193, 96, 0.3);
   display: flex;
   flex-direction: column;
