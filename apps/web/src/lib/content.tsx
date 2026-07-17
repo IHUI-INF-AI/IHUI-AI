@@ -142,7 +142,7 @@ export function extractToc(markdown: string): TocItem[] {
 }
 
 export const markdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
-  h2: ({ children }) => {
+  h2: ({ children }: { children?: React.ReactNode }) => {
     const text = String(children ?? '')
     return (
       <h2 id={slugify(text)} className="mt-8 scroll-mt-20 text-xl font-semibold">
@@ -150,7 +150,7 @@ export const markdownComponents: React.ComponentProps<typeof ReactMarkdown>['com
       </h2>
     )
   },
-  h3: ({ children }) => {
+  h3: ({ children }: { children?: React.ReactNode }) => {
     const text = String(children ?? '')
     return (
       <h3 id={slugify(text)} className="mt-6 scroll-mt-20 text-lg font-semibold">

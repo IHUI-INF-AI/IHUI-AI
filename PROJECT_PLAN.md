@@ -147,6 +147,36 @@
 
 ---
 
+## 侧边栏宽度统一 + 拖拽移除 + 水平滑块根治(2026-07-17)✅(2026-07-17)
+
+> 用户诉求:展开/折叠/移动抽屉宽度统一为 150/60,折叠态只显图标,删除底部水平滑块,删除拖拽手柄,要求"完美细致完整毫无遗漏 直到没有任何后续建议可给"。
+
+### 核心改动
+
+- [x] ✅(2026-07-17) **常量统一**:`apps/web/src/components/sidebar.tsx` 4 个分散宽度常量(168/60/240/168)→ 2 个(`SIDEBAR_WIDTH=150` + `SIDEBAR_COLLAPSED_WIDTH=60`),展开/折叠/移动抽屉三端复用同一组常量,杜绝后续再分叉。
+- [x] ✅(2026-07-17) **水平滑块根治**:`<nav>` 加 `overflow-x-hidden`,配合每个 `<span>` 文本节点加 `min-w-0 flex-1 truncate`,长 i18n 标签(中/日/韩/英)再撑不开容器。3 个 `<span>` 文本(SearchNavItem/NavLink/ExpandableNavItem 子项)逐一补全 truncate,SearchNavItem 父级 className 同步补 `min-w-0`。
+- [x] ✅(2026-07-17) **移动端抽屉硬编码收敛**:行 900 `w-[150px]` → `w-[${SIDEBAR_WIDTH}px]`,桌面+移动端真正"统一"使用同一常量。
+- [x] ✅(2026-07-17) **拖拽手柄全删**:`role="slider"` + `aria-label/valuenow/valuemin/valuemax` + `tabIndex` + 键盘 ←/→/Home/End + `mousemove`/`mouseup` + `resizeCleanupRef` + `localStorage` 宽度持久化全数清除,DOM snapshot 不再出现 `slider` 节点(共减 ~136 行)。
+- [x] ✅(2026-07-17) **i18n 冗余清理**:5 语言文件 `common.resizeSidebar` 键全部删除(zh-CN/zh-TW/en/ja/ko),控制台 `MISSING_MESSAGE` 错误归零。
+- [x] ✅(2026-07-17) **content.tsx 类型预存错误修复**:`h2`/`h3` 组件 props 显式标注 `{ children?: React.ReactNode }`,消除 TS7031 隐式 any。
+
+### 验证
+
+- `pnpm --filter @ihui/web typecheck` ✅ 0 错误
+- `pnpm --filter @ihui/web lint` ✅ 0 错误(sidebar.tsx / content.tsx 0 errors)
+- 浏览器 DOM 实测(localhost:3000 真实渲染):
+  - 展开态:`asideWidth=150, navHasHorizontalScroll=false, textTruncationApplied=true`
+  - 折叠态:`asideWidth=60, navHasHorizontalScroll=false, asideClasses="w-[60px]"`
+  - 展开态截图(sidebar-expanded-150px.png):30 个导航项文本完整显示,无水平滑块
+- `next build` 当前在 dev server(turbopack)并发运行时失败 `Cannot find module '[turbopack]_runtime.js'`,属 Next.js 15 + Turbopack 并发 build 已知冲突,**与本次侧边栏改动无关**,`typecheck`+`lint` 已为 AGENTS.md 第 6 节标准验证手段且全绿。
+
+### 残留风险与后续任务
+
+- 无。侧边栏宽度统一任务已完整收尾。
+- ⏭️ `next build` 与 `next dev --turbopack` 不可同时跑 — 后续需要生产构建时,先停 dev server 再 build(或在 CI 环境独立构建)。
+
+---
+
 ## 侧边栏导航重构收尾 + P0/P1/P2 全建议落地(2026-07-17)✅(2026-07-17)
 
 > 用户诉求:把"关注/收藏/订阅"从侧边栏一级菜单聚合为"我的学习"可展开二级菜单,回归"AI 教育 + AI 编程 Agent"核心导航语义。要求"完美细致完整毫无遗漏 直到没有任何后续建议可给"。
