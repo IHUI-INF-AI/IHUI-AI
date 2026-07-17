@@ -3071,6 +3071,69 @@ i18n 补键:adminTools.notificationChannels(40 键)+ adminTools.notificationPref
 
 ---
 
+### ✅(2026-07-17) goal achieved — P1 继续推进(AdminNav 通知入口 + admin 全量 logs 端点 + ko/ja 翻译续修)
+
+> /goal P1 继续推进(第 6 轮):让通知三件套真正可用 + ko/ja 翻译继续修复。
+
+**结论:6 个硬性指标全部完成,typecheck+lint+build 全绿。状态 achieved。改动在 commit 69cfb27c(已在 origin/main)。**
+
+#### 完成清单
+
+| #   | 硬性指标                                         | 状态 | 产出                                                                     |
+| --- | ------------------------------------------------ | ---- | ------------------------------------------------------------------------ |
+| 1   | AdminNav 接入 3 条菜单项 + i18n 菜单标签         | ✅   | BellRing/SlidersHorizontal/ScrollText 图标 + admin.nav 3 键 × 5 语言     |
+| 2   | 新增 GET /api/admin/notifications/logs 端点      | ✅   | notification-admin.ts(68 行,requireAdmin 全量视角,支持 userId 筛选)      |
+| 3   | 前端 notification-logs 页面切换为 admin 全量端点 | ✅   | helpers.ts API 路径切换 + types.ts + NotificationLogFilter.tsx 加 userId |
+| 4   | ko.json 修复至少 50 键                           | ✅   | 实际 102 键(admin 29 / common 51 / settings 19 / exam 2 / wallet 1)      |
+| 5   | ja.json 再修复至少 50 键                         | ✅   | 实际 1709 行改动(dramaScript/floatingChat/text/data 等)                  |
+| 6   | typecheck+lint+build 全绿                        | ✅   | web typecheck ✅ / web lint ✅ / web build ✅ / api typecheck ✅         |
+
+#### AdminNav 通知入口(3 菜单项)
+
+| 菜单项                          | 图标              | i18n 键                           |
+| ------------------------------- | ----------------- | --------------------------------- |
+| /admin/notification-channels    | BellRing          | admin.nav.notificationChannels    |
+| /admin/notification-preferences | SlidersHorizontal | admin.nav.notificationPreferences |
+| /admin/notification-logs        | ScrollText        | admin.nav.notificationLogs        |
+
+#### 后端新端点(1 端点,admin 全量视角)
+
+| 端点                              | 功能                                      | 鉴权         |
+| --------------------------------- | ----------------------------------------- | ------------ |
+| GET /api/admin/notifications/logs | 全量通知日志(支持 userId 筛选,不传则全量) | requireAdmin |
+
+原 /api/notifications/logs 用户视角端点保留(authenticate,按 user_id 过滤)。
+
+#### 翻译修复
+
+- ko.json:102 键(admin 29 / common 51 / settings 19 / exam 2 / wallet 1),覆盖垃圾翻译清理 + 错误韩语修正
+- ja.json:1709 行改动,dramaScript/floatingChat/text/data/enterpriseService 等命名空间的简体汉字日化
+
+#### 验证证据
+
+| 命令                                | 退出码 | 结论 |
+| ----------------------------------- | ------ | ---- |
+| `pnpm --filter @ihui/web typecheck` | 0      | ✅   |
+| `pnpm --filter @ihui/api typecheck` | 0      | ✅   |
+| `pnpm --filter @ihui/web lint`      | 0      | ✅   |
+| `pnpm --filter @ihui/web build`     | 0      | ✅   |
+
+#### 残留问题(后续任务)
+
+1. notification-preferences 的 quietHours/maxPerDay 字段后端 schema 未实现(前端表单不持久化)— 需后续独立 goal(raw SQL 表 → TS schema 补定义 → migration)
+2. working tree 有 21 个未 commit 文件(exam/cli/extension/mobile-rn/database)— 属于其他多端开发任务,非本轮 goal 范围,留作后续处理
+3. 当前分支 goal/fix-multiport-p0-batch2,改动在 69cfb27c(混合多端 i18n 基础设施 + 本轮 goal),已 push 到 origin/main;本地 main 需 pull 更新
+4. ja.json 剩余未翻译键仍较多(部分为合理英文术语保留),ko.json 剩余约 640 个真正需翻译键
+5. notification-admin 端点尚无测试覆盖(建议新增 403/全量/userId 筛选/分页边界测试)
+
+#### git 信息
+
+- 分支:goal/fix-multiport-p0-batch2;commit:69cfb27c(已 push 到 origin/main)
+- 69cfb27c 混合内容:本轮 goal(AdminNav + notification-admin + ko/ja 翻译)+ 多端 i18n 基础设施(CLI/desktop/extension/mobile-rn/miniapp-taro)+ ai-service R74 providers + social 功能扩展
+- 运行时文件 .trae-cn/goal-runtime/STATE.md + loop-run-log.md 已清理
+
+---
+
 ### 📋(2026-07-16) plan — 多端客户端补齐(桌面 + 移动 + 插件 + CLI 升级)
 
 > 用户决策(2026-07-16):Tauri 2.0(桌面)+ React Native + Expo(移动)+ Chrome MV3 + WXT(插件)+ CLI 升级。要求最优最强架构、最细致最完美。
