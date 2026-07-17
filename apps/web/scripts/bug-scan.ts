@@ -14,8 +14,6 @@ const PAGES = [
   '/',
   '/sso/login',
   '/sso/register',
-  '/login',
-  '/register',
   '/plaza',
   '/chat',
   '/news',
