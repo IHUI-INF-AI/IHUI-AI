@@ -2,13 +2,23 @@ import { useOutletContext } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, Switch } from '@ihui/ui'
 import { clearToken } from '../lib/token'
 import { useState } from 'react'
+import { useI18n, type Locale } from '../i18n'
 
 interface Ctx {
   onLogout: () => void
 }
 
+const localeOptions: { value: Locale; labelKey: string }[] = [
+  { value: 'zh-CN', labelKey: 'setting.zhCN' },
+  { value: 'en', labelKey: 'setting.en' },
+  { value: 'ja', labelKey: 'setting.ja' },
+  { value: 'ko', labelKey: 'setting.ko' },
+  { value: 'zh-TW', labelKey: 'setting.zhTW' },
+]
+
 export default function SettingsPage() {
   const { onLogout } = useOutletContext<Ctx>()
+  const { locale, setLocale, t } = useI18n()
   const [dark, setDark] = useState(
     typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches,
   )
@@ -31,9 +41,30 @@ export default function SettingsPage() {
   return (
     <div className="page page-settings">
       <header className="page-header">
-        <h2>设置</h2>
+        <h2>{t('nav.settings')}</h2>
       </header>
       <div className="settings-list">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('setting.language')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="setting-row">
+              <span>{t('setting.language')}</span>
+              <select
+                value={locale}
+                onChange={(e) => setLocale(e.target.value as Locale)}
+                className="locale-select"
+              >
+                {localeOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {t(opt.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>外观</CardTitle>
@@ -53,7 +84,7 @@ export default function SettingsPage() {
             <div className="setting-row">
               <span>清空本地缓存</span>
               <button type="button" onClick={onClearCache}>
-                清空
+                {t('common.delete')}
               </button>
             </div>
           </CardContent>
@@ -64,7 +95,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             <div className="setting-row">
-              <span>退出登录</span>
+              <span>{t('auth.logout')}</span>
               <button
                 type="button"
                 className="danger"
@@ -73,7 +104,7 @@ export default function SettingsPage() {
                   onLogout()
                 }}
               >
-                退出
+                {t('auth.logout')}
               </button>
             </div>
           </CardContent>

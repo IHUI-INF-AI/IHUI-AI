@@ -47,6 +47,7 @@ import {
   getSettingsPath,
 } from './commands/settings.js';
 import { queryAuditLog } from './audit.js';
+import { t } from './i18n/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -84,10 +85,14 @@ function resolveSession(opts: Record<string, unknown>): ResolvedSession {
   if (opts.continue) {
     const session = getMostRecentSession();
     if (session) {
-      console.info(chalk.dim(`恢复最近会话: ${session.id} (${session.history.length} 条历史)`));
+      console.info(
+        chalk.dim(
+          t('cli.sessionResumed', { id: session.id, count: session.history.length }),
+        ),
+      );
       return { sessionId: session.id, history: session.history };
     }
-    console.info(chalk.yellow('未找到历史会话, 将创建新会话'));
+    console.info(chalk.yellow(t('cli.noSessions')));
     return {};
   }
   if (opts.resume) {
@@ -96,7 +101,7 @@ function resolveSession(opts: Record<string, unknown>): ResolvedSession {
       console.info(chalk.dim(`恢复会话: ${session.id} (${session.history.length} 条历史)`));
       return { sessionId: session.id, history: session.history };
     }
-    console.info(chalk.red(`未找到会话: ${opts.resume}`));
+    console.info(chalk.red(t('common.notFound', { target: opts.resume as string })));
     process.exit(1);
   }
   return {};
@@ -326,7 +331,7 @@ program
   .action(() => {
     const sessions = listSessions();
     if (sessions.length === 0) {
-      console.info(chalk.dim('暂无历史会话'));
+      console.info(chalk.dim(t('cli.noSessions')));
       return;
     }
     console.info(chalk.cyan('\n历史会话:'));

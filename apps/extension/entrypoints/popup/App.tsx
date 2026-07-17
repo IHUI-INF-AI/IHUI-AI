@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import { loginByAccount, getMe, type AuthUser } from '@ihui/api-client'
-import { initApi, setToken, getToken, clearToken } from '../../lib/token'
+import { loginByAccount, getMe, logout, type AuthUser } from '@ihui/api-client'
+import { initApi, setTokenPair, getToken, getRefreshToken, clearAllTokens } from '../../lib/token'
+import { startAutoRefresh, scheduleRefreshAlarm } from '../../lib/token-utils'
+import { useI18n } from '../../src/i18n'
 
 export default function App() {
+  const { t } = useI18n()
   const [ready, setReady] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [account, setAccount] = useState('')
@@ -15,10 +18,11 @@ export default function App() {
       if (getToken()) {
         const res = await getMe()
         if (res.success) setUser(res.data.user)
-        else clearToken()
+        else await clearAllTokens()
       }
       setReady(true)
     })
+    startAutoRefresh()
   }, [])
 
   const onLogin = async (e: React.FormEvent) => {
@@ -31,16 +35,23 @@ export default function App() {
     setError('')
     const res = await loginByAccount(account, password)
     if (res.success) {
-      await setToken(res.data.accessToken)
+      await setTokenPair({
+        accessToken: res.data.accessToken,
+        refreshToken: res.data.refreshToken,
+        expiresIn: res.data.expiresIn,
+      })
+      scheduleRefreshAlarm(res.data.accessToken)
+      startAutoRefresh()
       setUser(res.data.user)
     } else {
-      setError(res.error || '登录失败')
+      setError(res.error || `${t('auth.login')}${t('common.failed')}`)
     }
     setLoading(false)
   }
 
   const onLogout = async () => {
-    clearToken()
+    await logout(getRefreshToken() || '')
+    await clearAllTokens()
     setUser(null)
   }
 
@@ -52,7 +63,7 @@ export default function App() {
   }
 
   if (!ready) {
-    return <div className="popup-loading">加载中...</div>
+    return <div className="popup-loading">{t('common.loading')}</div>
   }
 
   if (!user) {
@@ -78,7 +89,7 @@ export default function App() {
           />
           {error ? <div className="error">{error}</div> : null}
           <button type="submit" className="btn" disabled={loading}>
-            {loading ? '登录中...' : '登录'}
+            {loading ? t('common.loading') : t('auth.login')}
           </button>
         </form>
       </div>
@@ -95,10 +106,10 @@ export default function App() {
         </div>
       </div>
       <button type="button" className="btn" onClick={openSidePanel}>
-        打开 AI 对话
+        {t('nav.chat')}
       </button>
       <button type="button" className="btn btn-logout" onClick={onLogout}>
-        退出登录
+        {t('auth.logout')}
       </button>
     </div>
   )
