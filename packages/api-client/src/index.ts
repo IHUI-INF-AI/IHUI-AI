@@ -67,6 +67,7 @@ export {
 export * from './endpoints/exam.js'
 export * from './endpoints/learn.js'
 export * from './endpoints/live.js'
+export * from './endpoints/llm.js'
 export * from './endpoints/misc.js'
 export * from './endpoints/notification.js'
 export * from './endpoints/order.js'
