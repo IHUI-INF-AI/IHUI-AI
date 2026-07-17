@@ -55,6 +55,8 @@ import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '..
 import { loadSettings, type SamplerSettings } from './settings.js';
 import type { Session } from './session.js';
 import { saveSession } from './session.js';
+import type { PluginRegistry } from '../plugins/index.js';
+import type { PlanMachine } from '../plan/index.js';
 
 // 模块增强:为 StreamChatOptions 添加 sampler 字段(透传给后端 LiteLLM)。
 // 不修改 packages/api-client 源码,在此处以声明合并方式扩展类型。
@@ -272,6 +274,10 @@ export interface RunToolLoopOptions {
    * (当前 streamChat 仅支持 content: string,后续支持多模态时可改为原生传递)。
    */
   drainInterjections?: () => InterjectionBlock[];
+  /** Plugins 注册表(可选)— 若传入,在工具调用前后触发 preToolCall/postToolCall 钩子点 */
+  plugins?: PluginRegistry;
+  /** Plan Machine 状态机(可选)— 若传入,gathering 状态阻断工具执行 */
+  planMachine?: PlanMachine;
 }
 
 /**
@@ -304,6 +310,27 @@ export function formatInterjectionBlocks(blocks: ReadonlyArray<InterjectionBlock
       return `[图片: ${label}, ${sizeKb} KB]`;
     })
     .join('\n\n');
+}
+
+/**
+ * Plugin hook 入口(最小集成)— 若 registry 存在,检查是否有插件声明了 event 钩子。
+ * 做减法:当前不实现 hook 执行语义(plugin 清单只声明 hook 名,无 callback 实现),
+ * 只暴露入口供未来扩展(后续可挂载 hook callback 注册机制)。
+ *
+ * @param registry 插件注册表(可选,未传入直接 return)
+ * @param event 钩子事件名(preToolCall / postToolCall)
+ * @param _context 钩子上下文(工具名 + 参数 + 结果),当前未使用,预留扩展
+ */
+async function runPluginHooks(
+  registry: PluginRegistry | undefined,
+  event: 'preToolCall' | 'postToolCall',
+  _context: { toolName: string; args: Record<string, unknown>; result?: unknown },
+): Promise<void> {
+  if (!registry) return;
+  const hooks = registry.getHookExtensions();
+  const matched = hooks.filter((h) => h === event || h.startsWith(`${event}:`));
+  if (matched.length === 0) return;
+  // 做减法:当前不挂载 hook callback,只暴露入口(后续可挂载)
 }
 
 export interface RunToolLoopResult {
@@ -622,6 +649,16 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         continue;
       }
 
+      // PlanMachine 集成(最小集成):gathering 状态阻断写操作,isWriteBlocked=true 时跳过工具执行
+      // 与 planFirst 并存(planFirst 是软 flag,planMachine 是硬状态机,两者可同时存在)
+      if (opts.planMachine?.isWriteBlocked() && toolCalls.length > 0) {
+        opts.messages.push({
+          role: 'user',
+          content: 'plan gathering 中,跳过写操作',
+        });
+        continue;
+      }
+
       const resultParts: string[] = [];
       // P0-1 Tool parallelism:先按顺序触发 onToolCall,再用 Promise.all 并行执行,最后按顺序处理结果
       // 单工具时 Promise.all 退化为串行,无额外开销,UI 体验与原串行实现一致
@@ -637,6 +674,11 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             subagentType: subType,
           });
         }
+        // Plugin hooks 入口:preToolCall(若 plugins 存在)
+        await runPluginHooks(opts.plugins, 'preToolCall', {
+          toolName: call.name,
+          args: call.arguments,
+        });
       }
       const mode = opts.ctx.permissionMode ?? 'default';
       const parallelResults = await Promise.all(
@@ -709,6 +751,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           }
         }
         await opts.onToolResult?.(call.name, result.success, result.output);
+        // Plugin hooks 入口:postToolCall(若 plugins 存在)
+        await runPluginHooks(opts.plugins, 'postToolCall', {
+          toolName: call.name,
+          args: call.arguments,
+          result,
+        });
         resultParts.push(formatToolResult(call, result));
       }
 
