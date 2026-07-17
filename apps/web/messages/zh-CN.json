@@ -6591,7 +6591,17 @@
       "notifications": "我的通知",
       "orders": "我的订单",
       "realname": "实名认证",
-      "subscription": "订阅管理"
+      "subscription": "订阅管理",
+      "learn-record": "学习记录",
+      "comment": "我的评论",
+      "fans": "我的粉丝",
+      "follow": "我的关注",
+      "ask": "我的问答",
+      "circle": "我的圈子",
+      "resource": "我的资源",
+      "point": "我的积分",
+      "exam": "我的考试",
+      "sign-up": "我的报名"
     },
     "profile": {
       "title": "个人资料",
@@ -6801,6 +6811,66 @@
       "createFirst": "写第一篇",
       "empty": "还没有文章",
       "deleteSuccess": "已删除"
+    },
+    "learn-record": {
+      "title": "学习记录",
+      "empty": "目前还没有数据",
+      "loading": "加载中..."
+    },
+    "comment": {
+      "title": "我的评论",
+      "empty": "目前还没有数据",
+      "loading": "加载中..."
+    },
+    "fans": {
+      "title": "我的粉丝",
+      "empty": "目前还没有数据",
+      "loading": "加载中...",
+      "follow": "关注",
+      "followed": "已关注",
+      "followSuccess": "已关注"
+    },
+    "follow": {
+      "title": "我的关注",
+      "empty": "目前还没有数据",
+      "loading": "加载中...",
+      "unfollow": "取消关注",
+      "unfollowSuccess": "已取消关注"
+    },
+    "ask": {
+      "title": "我的问答",
+      "empty": "目前还没有数据",
+      "loading": "加载中..."
+    },
+    "circle": {
+      "title": "我的圈子",
+      "empty": "目前还没有数据",
+      "loading": "加载中..."
+    },
+    "resource": {
+      "title": "我的资源",
+      "empty": "目前还没有数据",
+      "loading": "加载中..."
+    },
+    "point": {
+      "title": "我的积分",
+      "empty": "目前还没有数据",
+      "loading": "加载中...",
+      "total": "总积分",
+      "used": "已使用",
+      "balance": "可用",
+      "records": "明细"
+    },
+    "exam": {
+      "title": "我的考试",
+      "empty": "目前还没有数据",
+      "loading": "加载中...",
+      "continue": "继续考试"
+    },
+    "sign-up": {
+      "title": "我的报名",
+      "empty": "目前还没有数据",
+      "loading": "加载中..."
     }
   },
   "certificate": {
