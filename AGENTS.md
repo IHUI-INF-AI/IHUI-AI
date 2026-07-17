@@ -146,7 +146,12 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo):
   - `rounded-xl`(12px)→ `top-3 bottom-3` / `left-3 right-3`
   - `rounded-2xl`(16px)→ `top-4 bottom-4` / `left-4 right-4`
   - 父容器**无圆角**(`overflow-visible` 或直角)时,子元素仍可用 `h-full` / `w-full`,不受此规则约束。
-  - 拖拽手柄实现统一规范:容器本身 `w-px`(1px 宽)+ `bg-transparent` 默认不可见 + `hover:bg-primary` 悬停高亮,**禁止**用 `before:` 伪元素方案(`before:opacity-0` 在某些场景会常驻显示颜色)。
+  - 拖拽手柄实现统一规范(双层结构,2026-07-18 立):**禁止**用 `before:` 伪元素方案(`before:opacity-0` 在某些场景会常驻显示颜色)。必须用**外层命中区 + 内层可见细线**的双层 `div` 结构:
+    - 外层:`group absolute right-[-3px] top-<radius> bottom-<radius> z-20 w-2 cursor-col-resize`(8px 宽透明命中区,`right-[-3px]` 跨过父容器右边缘占据与相邻元素的间隙中线,易抓取)。
+    - 内层:`absolute right-0 top-0 bottom-0 w-px bg-transparent transition-colors group-hover:bg-primary`(1px 可见细线,默认透明,悬停时显示 primary 色)。
+    - `isResizing && 'bg-primary'` 拖拽中常驻高亮。
+    - 父容器 `overflow-hidden` + `rounded-xl` 时,手柄**必须置于 aside 外层**(包一个 `relative` 的 `<div>`,aside 和手柄作为兄弟节点),否则 `overflow-hidden` 会裁剪命中区。
+    - 父容器无圆角(`overflow-visible`)时,手柄可直接作为 aside 子节点。
 
 ---
 
