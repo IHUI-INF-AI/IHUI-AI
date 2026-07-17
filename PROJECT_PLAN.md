@@ -86,10 +86,10 @@
 - [x] ✅(2026-07-17) P1 新增 schema 表 `point_redeem_items`,激活 `/points/redeem` GET。
 - [x] ✅(2026-07-17) P1 新增 schema 表 `image_gen_favorites`,激活 `/image-gen/favorites` GET。
 - [x] ✅(2026-07-17) P1 新增 schema 表 `notes`,激活 `/notes/:id` PUT。
-- [ ] P1 新增 schema 表 `llm_call_logs`,激活 `/llm/complete/stream` POST(SSE 流式)。
+- [x] ✅(2026-07-17) P1 新增 schema 表 `llm_call_logs`,激活 `/llm/complete/stream` POST(SSE 流式),异步落库 + AbortController 断开 + Zod 校验。
 - [x] ✅(2026-07-17) P1 新增 schema 表 `knowledge_base_categories`,把当前 `/knowledge-base/categories` 的 distinct 实现替换为分类表查询。
 - [ ] P1 接入 OSS 驱动与 `upload_sessions` 表,激活 `/oss/resource/file` POST。
-- [ ] P1 接入外部 PDF 转换服务,激活 `/tools/pdf/*` 4 个路由 + `/pdf-service/*` 5 个路由共 9 个。
+- [x] ✅(2026-07-17) P1 接入外部 PDF 转换服务,激活 `/tools/pdf/*` 4 个 GET(convert/merge/split/watermark 元数据查询) + `/pdf-service/*` 5 个 POST(convert/merge/split/print/sign/watermark Zod 任务提交)共 9 个路由,9 个路由 + 15 测试。
 - [ ] P1 通过 WebSocket 或 SSE 实现 `/v1/ai/capabilities/ws/stream`(语音/能力流式响应)。
 
 ### 验证
@@ -17612,3 +17612,41 @@ P48 调研发现:11 个 vendor POST 路由(cosyvoice/keling/sora/dashscope/hunyu
 - **删 5**:`apps/web/app/(auth)/login/page.tsx` / `apps/web/app/(auth)/register/page.tsx` / `EmailLogin.tsx` / `PhoneCodeLogin.tsx` / `RegisterForm.tsx`
 - **改 12**:`src/components/login/LoginDialog.tsx` / `src/components/login/LoginFormContent.tsx` / `src/components/login/RegisterFormContent.tsx` / `src/components/login/ForgotPasswordForm.tsx` / `src/lib/api.ts` / `src/lib/tokenUtils.ts` / `middleware.ts` / `app/layout.tsx` / `app/globals.css` / `src/components/home/MemberCard.tsx` / `app/(main)/oauth/authorize/page.tsx` / `src/stores/login-dialog.ts` / `src/components/login/index.ts` / `src/components/sidebar.tsx` / `src/components/header.tsx` / `app/sso/register/page.tsx` / `app/(auth)/forgot-password/page.tsx`(加 `useRouter` import)
 - **新 6**:`src/components/login/LoginRedirectListener.tsx` + 6 个从 `app/(auth)/login/` 迁入 `src/components/login/` 的子组件(EmailCodeLoginForm / PasswordLoginForm / SdkQrLogin / UsernameLoginForm / login-schemas)
+
+---
+
+## P1 浮层容器透明 bug 修复 + 色变量守门(2026-07-17)✅(2026-07-17)
+
+### 根因
+
+`apps/web/app/globals.css` 的 `@theme`(light) 与 `.dark` 块**均未定义** `--color-popover` / `--color-popover-foreground`,导致所有使用 `bg-popover` / `text-popover-foreground` / `fill-popover` 的 Tailwind 类**全部失效**,浮层容器变透明、透出后面内容。
+
+受影响组件(3 个):
+
+- `apps/web/src/components/feedback/Tooltip.tsx` — Hover 提示窗(bg-popover + fill-popover)
+- `apps/web/src/components/feedback/Popover.tsx` — 通知栏外层容器(bg-popover)
+- `apps/web/src/components/feedback/Dropdown.tsx` — 用户头像下拉菜单(bg-popover)
+
+### 修复
+
+| 文件                                              | 改动                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/app/globals.css`                        | `@theme` 块补 `--color-popover: hsl(0 0% 100%)` + `--color-popover-foreground: hsl(0 0% 3.9%)`(light,与 card 一致);`.dark` 块补 `--color-popover: hsl(0 0% 7%)` + `--color-popover-foreground: hsl(0 0% 98%)`(dark,比 background 3.9% 亮一档拉层次,浮层靠 border+shadow+亮度差三重区分) |
+| `apps/web/src/lib/__tests__/color-tokens.test.ts` | 新增守门单测(3 用例):light @theme 30 核心色族全定义 / dark .dark 全定义 / popover 实色非 transparent。防 popover 漏定义复发                                                                                                                                                             |
+
+### 全局体检结论
+
+search agent 扫描 `apps/web` + `packages/ui` 所有 tsx,与 `@theme`/`design-tokens.css`/`theme-presets.css` 中 `--color-*` 做差集:**无其他漏定义色变量**。popover/popover-foreground 已补齐生效。另发现 warning/info/brand-_/rank-_ 等已定义未用 token(留作多端共享/未来扩展,不在本次范围)。
+
+### 验证证据
+
+| 命令                                | 退出码 | 结论                                              |
+| ----------------------------------- | ------ | ------------------------------------------------- |
+| `pnpm --filter @ihui/web typecheck` | 0      | ✅                                                |
+| `pnpm --filter @ihui/web test`      | 0      | ✅ 22 文件 207 测试全过(含新增 color-tokens 3 测) |
+| `pnpm --filter @ihui/web lint`      | 0      | ✅                                                |
+
+### 注意事项
+
+- Edit 工具对本项目 `globals.css` 出现"返回成功但未持久化"问题(疑似 Windows 文件锁定/dev server watch),改用 Write 工具重写整个文件解决。后续修改 `globals.css` 若 Edit 不生效,直接用 Write。
+- dark 模式 `--color-popover` 设为 `hsl(0 0% 7%)` 而非与 card 同值(3.9%),是有意拉开浮层与背景的亮度差,避免暗色下浮层"贴"在背景上边界不清。light 模式保持与 card 一致(100%)。
