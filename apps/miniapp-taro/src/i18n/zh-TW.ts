@@ -141,4 +141,22 @@ export default {
       auto: '跟隨系統',
     },
   },
+  ai: {
+    agentDetail: {
+      tabRuntime: 'Agent 執行',
+      runtimeTitle: 'Agent 執行',
+      runtimeInputPlaceholder: '輸入任務...',
+      runtimeSend: '執行',
+      runtimeStop: '停止',
+      runtimeClear: '清空',
+      runtimePlan: '執行計畫',
+      runtimePermission: '權限決策',
+      runtimePermissionTool: '工具',
+      runtimePermissionLevel: '等級',
+      runtimePermissionMode: '模式',
+      runtimeOutput: '輸出',
+      runtimeError: '錯誤',
+      runtimeEmpty: '輸入任務,開始 Agent 執行',
+    },
+  },
 }
