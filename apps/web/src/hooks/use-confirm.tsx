@@ -32,7 +32,7 @@ function ConfirmDialogInner({
           <DialogTitle>{message}</DialogTitle>
         </DialogHeader>
         <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" size="sm" onClick={onCancel}>
+          <Button variant="ghost" size="sm" className="bg-muted" onClick={onCancel}>
             取消
           </Button>
           <Button size="sm" onClick={onConfirm}>
