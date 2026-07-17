@@ -507,8 +507,35 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
-    const { accessToken, refreshToken } = await buildTokenPair(user)
-    return reply.send(success({ userId: user.id, accessToken, refreshToken }))
+    const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(user)
+    return reply.send(
+      success({
+        accessToken,
+        refreshToken,
+        expiresIn,
+        refreshExpiresIn,
+        user: {
+          id: user.id,
+          phone: user.phone ?? undefined,
+          email: user.email ?? undefined,
+          username: user.username ?? undefined,
+          nickname: user.nickname ?? undefined,
+          avatar: user.avatar ?? undefined,
+          bio: user.bio ?? undefined,
+          gender: user.gender,
+          birthday: user.birthday ?? undefined,
+          familyId: user.familyId ?? undefined,
+          roleId: user.roleId ?? 0,
+          status: user.status,
+          isVip: user.isVip,
+          level: user.level,
+          inviteCode: user.inviteCode ?? undefined,
+          parentId: user.parentId ?? undefined,
+          createdAt: user.createdAt?.toISOString() ?? undefined,
+          updatedAt: user.updatedAt?.toISOString() ?? undefined,
+        },
+      }),
+    )
   })
 
   // 图形验证码
