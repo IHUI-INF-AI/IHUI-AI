@@ -366,7 +366,9 @@
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "WeChat 미니 프로그램",
     "downloadDesktop": "데스크톱",
-    "mainNav": "메인 내비게이션"
+    "mainNav": "메인 내비게이션",
+    "knowledgeBase": "지식 베이스",
+    "announcements": "공지사항"
   },
   "auth": {
     "loginTitle": "돌아오신 것을 환영합니다",
