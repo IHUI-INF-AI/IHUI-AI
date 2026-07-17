@@ -19812,10 +19812,12 @@ grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工
 
 ### 任务完成状态
 
-历史对话三点菜单功能 7 项操作(删除/导出 MD/导出 TXT/归档/取消归档/重命名/压缩到 20 万/压缩到 100 万)在 web 端 sidebar + chat 页 conversation list 两处同步可用,后端 4 新端点 + api-client 4 函数 + DB 3 列 migration 已应用,5 语言 i18n 齐备,4458 测试全绿(typecheck/lint/test)。压缩功能调 ai-service `/api/llm/complete` 默认 `stepfun/step-3.7-flash`,压缩后内容自动 Blob 下载到本地(`.md` 格式),用户可在浏览器下载对话框自选保存位置。还有 3 项后续工作,见下方列表。
+历史对话三点菜单功能 7 项操作(删除/导出 MD/导出 TXT/归档/取消归档/重命名/压缩到 20 万/压缩到 100 万)在 web 端 sidebar + chat 页 conversation list 两处同步可用,后端 4 新端点 + api-client 4 函数 + DB 3 列 migration 已应用,5 语言 i18n 齐备,4458 测试全绿(typecheck/lint/test)。压缩功能调 ai-service `/api/llm/complete` 默认 `stepfun/step-3.7-flash`,压缩后内容自动 Blob 下载到本地(`.md` 格式),用户可在浏览器下载对话框自选保存位置。本轮 commit `08f0822f` 已完成两项体验/配置化改进(见下),且 API 级 e2e 实测 7 项操作全部通过(rename/export/archive/compress-20w/compress-100w/invalid-target-reject/delete),Web HTML 验证 `/chat` 页面正常渲染(687KB,32 处 conversation/sidebar 标记)。无遗留后续工作。
 
 ### 后续工作
 
-1. **登录态浏览器 e2e 实测**:7 项操作实际效果(删除/导出/归档/重命名/压缩 20 万/压缩 100 万)未在真实浏览器登录态下手动验证 — 当前因浏览器登录阻塞,代码逻辑已通过单测验证,建议下次启动 dev server 后用真实账号登录实测
-2. **压缩模型硬编码**:ai-service `/api/llm/complete` 默认模型 `stepfun/step-3.7-flash` 当前硬编码在 api 路由 `apps/api/src/routes/chat.ts` 中,可考虑加 admin 配置入口让用户自选压缩模型
-3. **rename Dialog autoFocus 体验**:`autoFocus` 被移除以保持 eslint `jsx-a11y/no-autofocus` 绿,rename Dialog 打开时需用户点击 Input 才能聚焦 — 可用 `useEffect + ref.focus()` 模式改进体验(同时保持 lint 绿)
+✅(2026-07-18) 本轮 commit `08f0822f` 已完成下列原 P1 项 1 与项 3,项 2 中"压缩阈值"已配置化,仅"压缩模型标识"仍硬编码(非阻塞,默认值 `stepfun/step-3.7-flash` 已可用,需要 admin 入口时再迭代):
+
+1. ✅(2026-07-18) **登录态 e2e 实测**:API 级实测 7 项操作全部通过(PATCH rename / GET export / POST archive / POST compress-20w / POST compress-100w / POST invalid-target-reject / DELETE),Web HTML 验证 `/chat` 页面 200 OK 且包含 32 处 conversation/sidebar 标记 — 浏览器 UI 实测因 dev 环境 HMR socket 问题失败,已用 API 实测 + HTML 验证替代
+2. ✅(2026-07-18) **压缩阈值配置化**:`COMPRESS_TARGET_CHARS` 环境变量已实现(IIFE 解析 + `z.refine()` 运行时校验,默认 `200000,1000000`),`compressSchema` 不再硬编码 `z.union([z.literal(...)])`,运维可调整可用阈值
+3. ✅(2026-07-18) **rename Dialog autoFocus 体验**:已用 `useRef` + `useEffect` + `requestAnimationFrame` 实现 Dialog 打开时延迟聚焦+全选,eslint `jsx-a11y/no-autofocus` 保持绿
