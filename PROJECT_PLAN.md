@@ -17238,7 +17238,61 @@ P47 收尾后,4 端(ai-service/mobile-rn/desktop/cli)测试覆盖薄弱:mobile-r
 
 ### 后续最优建议
 
-1. **P2 工程**:ai-service vendor 端点开发 — 11 个 vendor POST 路由当前为空桩(createNotificationClient 代理到 ai-service 无对应端点),需 ai-service 增设 dashscope/doubao/kling/sora/gemini/veo3/qwen/cosyvoice/suno/hunyuan3d 端点
+1. **P2 工程**(已完成 ✅ 2026-07-17 commit 24b6a8b9):~~ai-service vendor 端点开发~~ → 改为 api 端 stub 代理转发方案(11 个 vendor 转发到 `/api/ai/*` 等价端点,详见 P49)
 2. **P2 工程**:mobile-rn/desktop 测试覆盖扩展 — 当前仅覆盖 token/i18n/notification 基础模块,需扩展 stores/api/screens 测试
 3. **P2 工程**:cli 测试覆盖扩展 — 当前仅覆盖 git/fetch-url/file-edit 3 工具,需扩展 ai-callback/llm/ws 等工具测试
 4. **P1 工程**:并发会话遗留 untracked 文件清理 — packages/database 下 7 个 .mjs 脚本 + scripts 下 4 个文件 + web sidebar/content 改动需评估是否 commit
+
+## P49 — 11 个 vendor 空桩真实化:转发到 /api/ai/* 等价端点(2026-07-17)✅(2026-07-17)
+
+### 背景
+
+P48 调研发现:11 个 vendor POST 路由(cosyvoice/keling/sora/dashscope/hunyuan/gemini/veo3/qwen)在 `frontend-stub-ai-routes.ts` 中为空桩(只返回 `{created:true, id:randomUUID()}`),但 api 端 `/api/ai/*` 已存在 93 个等价 vendor 端点(凭据/鉴权/错误处理/用量统计完备)。ai-service 零多模态生成能力,从零搭建成本高且重复。
+
+### 方案:api 端 stub 代理转发(P0 最优,非 ai-service 重写)
+
+新增 `proxyToSelfApi(server.inject 内部转发)`,11 个 stub 改为转发到 `/api/ai/*` 等价端点:
+
+| Stub 路径                         | 转发目标                              | 字段映射                              |
+| --------------------------------- | ------------------------------------- | ------------------------------------- |
+| POST /ai/cosyvoice                | POST /api/ai/audio/speech             | copyWriting→text + model:cosyvoice-v2 |
+| POST /ai/keling/audio/start       | POST /api/ai/kling/task/create        | buildIhuiLlmBody 透传                 |
+| POST /ai/keling/audio/end         | GET /api/ai/kling/task/query/:taskId  | 从 body.task_id 提取拼 URL            |
+| POST /ai/sora/request             | POST /api/ai/sora2/generate           | 透传                                  |
+| POST /ai/sora/request/end         | GET /api/ai/sora2/tasks/:taskId       | 从 body.task_id 提取拼 URL            |
+| POST /ai/dashscope/image/generate | POST /api/ai/dashscope/image          | 透传                                  |
+| POST /ai/hunyuan/3d/submit        | POST /api/ai/tencent/hunyuan3d/submit | 透传                                  |
+| POST /ai/gemini/nano-banana       | POST /api/ai/gemini/image             | 注入 model:gemini-2.5-flash-image     |
+| POST /ai/google/veo3              | POST /api/ai/gemini/video             | 注入 model:veo-3.0-generate-preview   |
+| POST /ai/dashscope/video/generate | POST /api/ai/dashscope/video          | 透传                                  |
+| POST /ai/qwen/omni                | POST /api/ai/dashscope/multimodal     | 注入 model:qwen-omni-turbo            |
+
+### 关键技术点
+
+- **server.inject 内部转发**:同进程调用,无网络往返,透传 authorization header 复用鉴权
+- **任务查询 POST→GET 适配**:keling/sora2 任务查询前端用 POST + body.task_id,等价端点是 GET + :taskId 路径参数,stub 从 body 提取拼 URL
+- **字段映射最小化**:仅 cosyvoice 需 copyWriting→text 映射,3 个 vendor 注入 model 别名,其余透传
+
+### 验证依据
+
+- `pnpm turbo typecheck lint test --force` → 48 tasks successful, 3347 tests 全通过
+- pre-commit hook 全绿(API 路由比对 2754 条 / safeParse 巡检 2514 路由)
+- commit 24b6a8b9 已 push 到 origin/main
+
+### 跨端同步验证清单(AGENTS.md 第 10 节)
+
+| 检查项   | 改动涉及? | 同步落地                                              |
+| -------- | --------- | ----------------------------------------------------- |
+| 接口契约 | 是        | 11 个 vendor stub 真实化,前端零改动(路径不变)         |
+| 类型     | 否        | 不涉及共享类型                                        |
+| 数据     | 否        | 不涉及数据库 schema                                   |
+| UI 组件  | 否        | 不涉及共享 UI 组件                                    |
+| 业务功能 | 是        | 11 个 vendor 生成功能从空桩变为真实可用(转发等价端点) |
+| 全量验证 | 是        | 48 tasks / 3347 tests 全绿                            |
+
+### 后续最优建议
+
+1. **P2 工程**:vendor 转发集成测试 — 当前 11 个 stub 转发逻辑无单测覆盖,需补 server.inject 集成测试(mock 等价端点返回)
+2. **P2 工程**:vendor 环境变量配置确认 — 11 个 vendor 涉及 9 个环境变量(DASHSCOPE_API_KEY/GEMINI_API_KEY/SORA2_API_KEY/TENCENT_SECRET_ID+KEY/KLING_ACCESS_KEY+SECRET_KEY),需确认 .env 已配置,否则转发后返回 503
+3. **P2 工程**:mobile-rn/desktop 测试覆盖扩展
+4. **P2 工程**:cli 测试覆盖扩展
