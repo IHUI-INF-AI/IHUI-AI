@@ -16,14 +16,19 @@
  *   <repo-root>/.ihui/skills/*.md    — 仓库根(从 cwd 向上找到 .git 止)
  *   ~/.ihui/skills/*.md              — 用户全局(最低优先级)
  *
- * Skill 文件格式:
- *   ---metadata(可选)---
- *   description: <一句话描述>
+ * Skill 文件格式(对齐 cli Skills frontmatter 规范):
+ *   ---
+ *   name: <skill 名>(可选,覆盖文件名 stem)
+ *   description: <一句话描述>(可选)
+ *   allowed-tools: [tool-a, tool-b](可选,工具白名单)
+ *   tools: [tool-c](可选,等价于 allowed-tools,cli 兼容字段)
+ *   model: <模型名>(可选)
+ *   tags: [coding, review](可选,分类标签)
  *   ---
  *   <skill 内容,注入 system prompt>
  *
  * 加载后:
- *   - skill 名(文件名 stem)注册为 slash 命令(/skill <name> 展示内容)
+ *   - skill 名(frontmatter.name 或文件名 stem)注册为 slash 命令(/skill <name> 展示内容)
  *   - 所有 skill 内容合并注入 system prompt(按优先级去重)
  */
 
@@ -31,17 +36,49 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 
+/** Skill frontmatter 元信息(对齐 cli Skills 规范) */
+export interface SkillFrontmatter {
+  /** skill 名(覆盖文件名 stem,缺省回退到文件名) */
+  name?: string;
+  /** 一句话描述 */
+  description?: string;
+  /** 工具白名单(可选,对应 frontmatter 的 allowed-tools) */
+  allowedTools?: string[];
+  /** 工具白名单(cli 兼容字段,等价于 allowedTools,对应 frontmatter 的 tools) */
+  tools?: string[];
+  /** 指定模型(可选) */
+  model?: string;
+  /** 分类标签(可选) */
+  tags?: string[];
+}
+
+/** 解析后的 skill 定义(原始结构,含路径与 frontmatter) */
+export interface SkillDefinition {
+  /** 文件绝对路径 */
+  filePath: string;
+  /** 文件所在目录 */
+  sourceDir: string;
+  /** frontmatter 元信息(无 frontmatter 块时为空对象) */
+  frontmatter: SkillFrontmatter;
+  /** skill 正文(去掉 frontmatter 后的内容) */
+  content: string;
+  /** 是否存在 frontmatter 块(即使块内无字段也为 true) */
+  hasFrontmatter: boolean;
+}
+
 export interface Skill {
-  /** skill 名(文件名 stem,如 "review-code") */
+  /** skill 名(frontmatter.name 或文件名 stem) */
   name: string;
   /** 来源路径(绝对路径) */
   source: string;
-  /** 描述(从 frontmatter 提取,缺省为首行注释) */
+  /** 描述(从 frontmatter 提取,缺省为首行注释或正文截断) */
   description: string;
   /** skill 正文(去掉 frontmatter 后的内容) */
   body: string;
   /** 优先级序号(0 最高) */
   priority: number;
+  /** frontmatter 元信息(无 frontmatter 块时为 undefined) */
+  frontmatter?: SkillFrontmatter;
 }
 
 /** 四级扫描目录(按优先级从高到低) */
@@ -79,27 +116,93 @@ export function findRepoRoot(cwd: string): string {
   return path.resolve(cwd);
 }
 
+/** 从 frontmatter 文本中解析单值字段(支持引号包裹) */
+function parseFrontmatterField(front: string, key: string): string | undefined {
+  const re = new RegExp(`^${key}:\\s*(.+?)\\s*$`, 'm');
+  const m = front.match(re);
+  if (!m) return undefined;
+  return m[1]!.replace(/^["']|["']$/g, '').trim();
+}
+
+/** 从 frontmatter 文本中解析数组字段(支持 inline [a,b,c] 和 block `- a\n- b`) */
+function parseFrontmatterArray(front: string, key: string): string[] | undefined {
+  const inlineRe = new RegExp(`^${key}:\\s*\\[([^\\]]*)\\]\\s*$`, 'm');
+  const inlineMatch = front.match(inlineRe);
+  if (inlineMatch) {
+    return inlineMatch[1]!
+      .split(',')
+      .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+      .filter((s) => s.length > 0);
+  }
+  const blockRe = new RegExp(`^${key}:\\s*$\\n((?:[ \\t]*-\\s+.+\\n?)+)`, 'm');
+  const blockMatch = front.match(blockRe);
+  if (blockMatch) {
+    return blockMatch[1]!
+      .split('\n')
+      .map((l) => l.match(/^[ \t]*-\s+(.+?)\s*$/))
+      .filter((m): m is RegExpMatchArray => m !== null)
+      .map((m) => m[1]!.replace(/^["']|["']$/g, '').trim());
+  }
+  return undefined;
+}
+
+/** 解析 frontmatter 文本块为 SkillFrontmatter 对象(无法识别的内容跳过,不抛错) */
+function parseFrontmatter(front: string): SkillFrontmatter {
+  const fm: SkillFrontmatter = {};
+  const name = parseFrontmatterField(front, 'name');
+  if (name) fm.name = name;
+  const description = parseFrontmatterField(front, 'description');
+  if (description) fm.description = description;
+  const allowedTools = parseFrontmatterArray(front, 'allowed-tools');
+  if (allowedTools) fm.allowedTools = allowedTools;
+  const tools = parseFrontmatterArray(front, 'tools');
+  if (tools) fm.tools = tools;
+  const model = parseFrontmatterField(front, 'model');
+  if (model) fm.model = model;
+  const tags = parseFrontmatterArray(front, 'tags');
+  if (tags) fm.tags = tags;
+  return fm;
+}
+
 /**
- * 解析 skill 文件内容,提取 frontmatter description 和 body。
- * 无 frontmatter 时 description 取首行非空文本(截断 80 字符)。
+ * 解析 skill 文件内容为 SkillDefinition(含 frontmatter + 正文 + 路径信息)。
+ * 无 frontmatter 块时 hasFrontmatter=false,frontmatter={},content=原文 trimmed。
+ * frontmatter 解析失败(无法识别字段)时降级为空 frontmatter,不抛错。
+ * 正则中 \n? 容忍空 frontmatter 块(---\n---\nbody)。
  */
-function parseSkillContent(content: string): { description: string; body: string } {
-  const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
+export function parseSkillDefinition(content: string, filePath: string): SkillDefinition {
+  const sourceDir = path.dirname(filePath);
+  const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n?---\s*\n([\s\S]*)$/);
   if (frontmatterMatch) {
     const front = frontmatterMatch[1]!;
     const body = frontmatterMatch[2]!.trim();
-    const descMatch = front.match(/^description:\s*(.+)$/m);
-    return {
-      description: descMatch ? descMatch[1]!.trim() : body.slice(0, 80),
-      body,
-    };
+    let frontmatter: SkillFrontmatter;
+    try {
+      frontmatter = parseFrontmatter(front);
+    } catch {
+      frontmatter = {};
+    }
+    return { filePath, sourceDir, frontmatter, content: body, hasFrontmatter: true };
   }
-  const trimmed = content.trim();
-  const firstLine = trimmed.split('\n').find((l) => l.trim().length > 0) ?? '';
   return {
-    description: firstLine.slice(0, 80),
-    body: trimmed,
+    filePath,
+    sourceDir,
+    frontmatter: {},
+    content: content.trim(),
+    hasFrontmatter: false,
   };
+}
+
+/**
+ * 获取 skill 的有效工具白名单(合并 allowedTools 和 tools 字段并去重)。
+ * 用于消费方读取合并后的工具列表,实现 allowed-tools 与 tools 的向后兼容。
+ */
+export function getAllowedTools(fm: SkillFrontmatter | undefined): string[] {
+  if (!fm) return [];
+  const set = new Set<string>();
+  for (const t of fm.allowedTools ?? []) set.add(t);
+  for (const t of fm.tools ?? []) set.add(t);
+  return Array.from(set);
 }
 
 /**
@@ -118,19 +221,34 @@ function scanDir(dir: string, priority: number): Skill[] {
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     if (!entry.name.endsWith('.md')) continue;
-    const name = entry.name.slice(0, -3);
-    if (!name || name.startsWith('_')) continue;
+    const fileStem = entry.name.slice(0, -3);
+    if (!fileStem || fileStem.startsWith('_')) continue;
     const fullPath = path.join(dir, entry.name);
     try {
-      const content = fs.readFileSync(fullPath, 'utf-8');
-      const parsed = parseSkillContent(content);
-      skills.push({
+      const raw = fs.readFileSync(fullPath, 'utf-8');
+      const def = parseSkillDefinition(raw, fullPath);
+      const fm = def.frontmatter;
+      const name = fm.name ?? fileStem;
+      let description: string;
+      if (fm.description) {
+        description = fm.description;
+      } else if (def.hasFrontmatter) {
+        description = def.content.slice(0, 80);
+      } else {
+        const firstLine = def.content.split('\n').find((l) => l.trim().length > 0) ?? '';
+        description = firstLine.slice(0, 80);
+      }
+      const skill: Skill = {
         name,
         source: fullPath,
-        description: parsed.description,
-        body: parsed.body,
+        description,
+        body: def.content,
         priority,
-      });
+      };
+      if (def.hasFrontmatter) {
+        skill.frontmatter = fm;
+      }
+      skills.push(skill);
     } catch {
       // 读取失败跳过
     }

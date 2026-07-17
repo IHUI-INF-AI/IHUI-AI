@@ -28,6 +28,7 @@ import {
   type SubagentState,
 } from '../subagents/state-store.js';
 import { createWorktree, removeWorktree } from '../subagents/worktree.js';
+import { PERSONAS_CONTRACTS, type JSONSchema } from '../personas/index.js';
 
 const MAX_SUBAGENT_DEPTH = 3;
 const SUBAGENT_MAX_ITERATIONS = 10;
@@ -45,6 +46,8 @@ export interface PersonaConfig {
   blockedTools?: string[];
   systemPrompt: string;
   maxIterations?: number;
+  input_schema?: JSONSchema;
+  output_schema?: JSONSchema;
 }
 
 export const PERSONAS: Record<SubagentPersona, PersonaConfig> = {
@@ -53,17 +56,23 @@ export const PERSONAS: Record<SubagentPersona, PersonaConfig> = {
     blockedTools: ['write_file', 'edit_file', 'delete_file', 'git_commit', 'git_add', 'run_command'],
     systemPrompt: '你是 researcher 角色,专注信息收集与分析。只读不写,可使用搜索/读取/代码智能/网络抓取/诊断工具。任务完成后给出结构化调研报告,不要执行任何修改操作。',
     maxIterations: 8,
+    input_schema: PERSONAS_CONTRACTS.researcher!.input_schema,
+    output_schema: PERSONAS_CONTRACTS.researcher!.output_schema,
   },
   coder: {
     blockedTools: ['git_commit', 'run_command'],
     systemPrompt: '你是 coder 角色,专注代码实现。优先使用 write_file/edit_file/file-edit 工具,完成后用 get_diagnostics 验证。不执行 git commit 和危险 shell 命令。',
     maxIterations: 15,
+    input_schema: PERSONAS_CONTRACTS.coder!.input_schema,
+    output_schema: PERSONAS_CONTRACTS.coder!.output_schema,
   },
   reviewer: {
     allowedTools: ['read_file', 'list_dir', 'grep', 'glob', 'codegraph', 'goto_definition', 'find_references', 'get_diagnostics'],
     blockedTools: ['write_file', 'edit_file', 'delete_file', 'git_commit', 'git_add', 'run_command'],
     systemPrompt: '你是 reviewer 角色,专注代码审查。只读,给出结构化审查报告:问题严重度(P0/P1/P2)+ 文件:行 + 修复建议。不修改任何代码。',
     maxIterations: 6,
+    input_schema: PERSONAS_CONTRACTS.reviewer!.input_schema,
+    output_schema: PERSONAS_CONTRACTS.reviewer!.output_schema,
   },
   planner: {
     allowedTools: ['read_file', 'list_dir', 'grep', 'glob', 'codegraph', 'goto_definition', 'find_references'],
