@@ -16,6 +16,8 @@ interface NotificationState {
   addMessage: (msg: MessageItem) => void
   markMessageAsRead: (id: string) => void
   clearAll: () => void
+  /** 从 API 初始化未读计数(挂载时调用,避免角标在 WS 推送前始终为 0) */
+  setUnreadCounts: (counts: { notifications: number; messages: number }) => void
   /** 处理 useWebSocket 推送的消息，按 data.type 路由 */
   handleWsMessage: (msg: WSNotification | null) => void
 }
@@ -80,6 +82,9 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     }),
 
   clearAll: () => set({ notifications: [], unreadCount: 0 }),
+
+  setUnreadCounts: (counts) =>
+    set({ unreadCount: counts.notifications, unreadMessageCount: counts.messages }),
 
   handleWsMessage: (msg) => {
     if (!msg || msg.type !== 'notification' || !msg.data) return
