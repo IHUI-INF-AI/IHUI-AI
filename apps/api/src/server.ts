@@ -93,6 +93,7 @@ import { mcpExtendedRoutes } from './routes/mcp-extended.js'
 import miscExtendedRoutes from './routes/misc-extended.js'
 import aiGenerationRoutes from './routes/ai-generation.js'
 import { aiChatStreamRoutes } from './routes/ai-chat-stream.js'
+import { llmModelsRoutes } from './routes/llm-models.js'
 // M-20 补建：14 个 API 模块路由
 import toolsRoutes from './routes/tools.js'
 import rankingRoutes from './routes/ranking.js'
@@ -675,6 +676,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(aiUserModelChatRoutes, { prefix: '/api/ai' })
   // AI 对话 SSE 流式代理（小程序端）：/api/ai/chat/stream
   server.register(aiChatStreamRoutes, { prefix: '/api/ai' })
+  // LLM 模型列表代理：/api/llm/models（转发到 AI-service）
+  server.register(llmModelsRoutes, { prefix: '/api/llm' })
   // FAQ 管理：/api/admin/faq/*
   server.register(adminFaqRoutes, { prefix: '/api/admin/faq' })
   // 区域/分区管理：/api/admin/zones/*
