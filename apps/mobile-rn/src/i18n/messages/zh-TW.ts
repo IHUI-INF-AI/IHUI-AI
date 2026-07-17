@@ -21,6 +21,7 @@ export default {
     orders: '訂單',
     settings: '設定',
     profile: '我的',
+    agents: '智慧體',
   },
   auth: {
     login: '登入',
