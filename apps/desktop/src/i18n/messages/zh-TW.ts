@@ -46,4 +46,7 @@ export default {
     cacheCleared: '已清空',
     clearCacheFailed: '清空失敗',
   },
+  agent: {
+    tabRuntime: 'Agent 執行',
+  },
 }

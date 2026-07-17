@@ -8,13 +8,50 @@ import { authenticate } from '../../plugins/auth.js'
 import { success, error } from '../../utils/response.js'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { db } from '../../db/index.js'
-import { createPost, deletePost, findCircleById, findCircleByIdOrSlug, findCirclePosts, findCircles, findPostById, updatePost } from '../../db/community-queries.js'
-import { circleCategories, circleMembers, circlePostComments, circlePostLikes, circlePosts, circles } from '@ihui/database'
-import { ADMIN_ROLE_ID, circleIdParamSchema, createPostSchema, errRespSchema, listCirclePostsQuery, listCirclesQuery, updatePostSchema, uuidParamSchema } from './_shared.js'
+import {
+  createPost,
+  deletePost,
+  findCircleById,
+  findCircleByIdOrSlug,
+  findCirclePosts,
+  findCircles,
+  findPostById,
+  updatePost,
+} from '../../db/community-queries.js'
+import {
+  circleCategories,
+  circleMembers,
+  circlePostComments,
+  circlePostLikes,
+  circlePosts,
+  circles,
+} from '@ihui/database'
+import {
+  ADMIN_ROLE_ID,
+  circleIdParamSchema,
+  createPostSchema,
+  errRespSchema,
+  listCirclePostsQuery,
+  listCirclesQuery,
+  updatePostSchema,
+  uuidParamSchema,
+} from './_shared.js'
 
 const circlesRoutes: FastifyPluginAsync = async (server) => {
-  // 统一鉴权：所有 circles / asks 路由均需登录
+  // 鉴权:GET /circles(列表)与 GET /circles/:id(详情)公开访问,其他路由需登录
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.method === 'GET') {
+      const path = request.url.split('?')[0]
+      // 公开读取路由:/circles, /circles/:id, /circles/:id/posts, /circles/:id/posts/:pid/comments
+      if (
+        path === '/api/circles' ||
+        /^\/api\/circles\/[^/?]+$/.test(path) ||
+        /^\/api\/circles\/[^/?]+\/posts$/.test(path) ||
+        /^\/api\/circles\/[^/?]+\/posts\/[^/?]+\/comments$/.test(path)
+      ) {
+        return
+      }
+    }
     try {
       await authenticate(request)
     } catch (e) {
@@ -774,6 +811,5 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(circlePosts.id, parsed.data.id))
     return reply.status(201).send(success({ comment: created }))
   })
-
 }
 export default circlesRoutes

@@ -23,6 +23,7 @@ export const ja = {
     courses: 'コース',
     notifications: '通知',
     agents: 'エージェント',
+    tabRuntime: 'Agent 実行',
   },
   auth: {
     login: 'ログイン',

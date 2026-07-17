@@ -941,7 +941,7 @@ export function Sidebar({
       <aside
         aria-label={t('mainNav')}
         className={cn(
-          'relative hidden h-screen shrink-0 flex-col overflow-visible border-r border-border bg-sidebar transition-[width] duration-200 lg:flex',
+          'relative hidden h-screen shrink-0 flex-col overflow-visible border-r border-border bg-background transition-[width] duration-200 lg:flex',
           collapsed && 'w-[60px]',
         )}
         style={collapsed ? { width: SIDEBAR_COLLAPSED_WIDTH } : { width: SIDEBAR_WIDTH }}
@@ -966,7 +966,7 @@ export function Sidebar({
         aria-label={t('mainNav')}
         role="dialog"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col overflow-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex flex-col overflow-visible border-r border-border bg-background transition-transform duration-200 lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
         style={{ width: SIDEBAR_WIDTH }}
