@@ -6,14 +6,13 @@
  * - GET 历史记录查询(9):接入 aiGcContent 表 + 分页,按 gcType 过滤。
  * - MCP 服务器管理(POST/DELETE):接入 mcpServers 表 CRUD。
  * - AI 能力调用代理(POST /ai/llm/chat、POST /ai/mcp/tools/call):代理到 ai-service。
- * - vendor 生成类 POST(dashscope/doubao/kling/sora/gemini/veo3/qwen/cosyvoice/suno/hunyuan3d):
- *   ai-service 无对应端点,保留空桩,待 ai-service 端点开发(后续任务)。
+ * - vendor 生成类 POST(11 个):转发到已存在的 /api/ai/* 等价端点(server.inject 内部调用)。
+ *   字段映射见 vendorStubHandler 各分支。
  *
  * 注:aiGcContent 表无 vendor 列,dashscope/doubao/jimeng4 等同 gcType 路由返回相同数据集,
  *    vendor 维度过滤需后续给 aiGcContent 增加 vendor 列(见交付报告)。
  */
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import { randomUUID } from 'node:crypto'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply, FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { and, count, desc, eq } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
@@ -91,6 +90,42 @@ async function proxyToAiService(
   } catch (e) {
     request.log.error(e)
     return reply.status(502).send(error(502, `ai-service 调用异常: ${(e as Error).message}`))
+  }
+}
+
+/**
+ * 内部路由转发:通过 server.inject 调用同进程已注册的 /api/ai/* 等价端点。
+ * 用于 vendor stub 真实化(11 个 vendor 已有等价实现,仅路径不同)。
+ */
+async function proxyToSelfApi(
+  server: FastifyInstance,
+  method: 'GET' | 'POST',
+  path: string,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  body?: unknown,
+) {
+  try {
+    const injectOpts: {
+      method: 'GET' | 'POST'
+      url: string
+      headers: Record<string, string>
+      payload?: string
+    } = {
+      method,
+      url: path,
+      headers: { authorization: request.headers.authorization ?? '' },
+    }
+    if (method === 'POST' && body !== undefined) {
+      injectOpts.payload = JSON.stringify(body)
+      injectOpts.headers['content-type'] = 'application/json'
+    }
+    const res = await server.inject(injectOpts)
+    const json = res.json()
+    return reply.code(res.statusCode).send(json)
+  } catch (e) {
+    request.log.error(e)
+    return reply.status(502).send(error(502, `内部路由调用异常: ${(e as Error).message}`))
   }
 }
 
@@ -224,22 +259,97 @@ export const frontendStubAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // vendor 生成类 POST — ai-service 无对应端点,保留空桩(后续任务:需 ai-service 端点开发)
-  // 真实等价实现已存在于 /api/ai-vendors/*(proxy-llm.ts / proxy-extended.ts),
-  // 建议前端切换至 /api/ai-vendors/* 路径,或由 ai-service 增设对应端点后在此代理。
+  // vendor 生成类 POST — 转发到已存在的 /api/ai/* 等价端点(server.inject 内部调用)
+  // 字段映射依据:apps/web/src/hooks/use-ai-talk.ts + use-ai-helpers.ts 的 body 构造
   // ==========================================================================
-  const vendorStubHandler = async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
-  }
-  server.post('/ai/keling/audio/end', vendorStubHandler)
-  server.post('/ai/sora/request/end', vendorStubHandler)
-  server.post('/ai/cosyvoice', vendorStubHandler)
-  server.post('/ai/keling/audio/start', vendorStubHandler)
-  server.post('/ai/sora/request', vendorStubHandler)
-  server.post('/ai/dashscope/image/generate', vendorStubHandler)
-  server.post('/ai/hunyuan/3d/submit', vendorStubHandler)
-  server.post('/ai/gemini/nano-banana', vendorStubHandler)
-  server.post('/ai/google/veo3', vendorStubHandler)
-  server.post('/ai/dashscope/video/generate', vendorStubHandler)
-  server.post('/ai/qwen/omni', vendorStubHandler)
+
+  // POST /ai/cosyvoice → /api/ai/audio/speech (CosyVoice TTS)
+  // 前端 body:{copyWriting, chatId, audioId, audioPath} → 等价端点需 {text, model:'cosyvoice-v2'}
+  server.post('/ai/cosyvoice', async (request, reply) => {
+    const b = (request.body ?? {}) as Record<string, unknown>
+    const mapped = {
+      text: (b.copyWriting as string) ?? (b.prompt as string) ?? '',
+      model: 'cosyvoice-v2',
+    }
+    return proxyToSelfApi(server, 'POST', '/api/ai/audio/speech', request, reply, mapped)
+  })
+
+  // POST /ai/keling/audio/start → /api/ai/kling/task/create (Kling 对口型任务创建)
+  // 前端 body:buildIhuiLlmBody 透传
+  server.post('/ai/keling/audio/start', async (request, reply) => {
+    return proxyToSelfApi(server, 'POST', '/api/ai/kling/task/create', request, reply, request.body)
+  })
+
+  // POST /ai/keling/audio/end → GET /api/ai/kling/task/query/:taskId (Kling 任务查询)
+  // 前端 body:{task_id} → 提取 task_id 拼 URL,GET 请求
+  server.post('/ai/keling/audio/end', async (request, reply) => {
+    const b = (request.body ?? {}) as Record<string, unknown>
+    const taskId = (b.task_id as string) ?? (b.taskId as string) ?? ''
+    if (!taskId) return reply.status(400).send(error(400, '缺少 task_id'))
+    return proxyToSelfApi(server, 'GET', `/api/ai/kling/task/query/${taskId}`, request, reply)
+  })
+
+  // POST /ai/sora/request → /api/ai/sora2/generate (Sora2 视频生成)
+  // 前端 body:buildIhuiLlmBody 透传
+  server.post('/ai/sora/request', async (request, reply) => {
+    return proxyToSelfApi(server, 'POST', '/api/ai/sora2/generate', request, reply, request.body)
+  })
+
+  // POST /ai/sora/request/end → GET /api/ai/sora2/tasks/:taskId (Sora2 任务查询)
+  // 前端 body:{task_id} → 提取 task_id 拼 URL,GET 请求
+  server.post('/ai/sora/request/end', async (request, reply) => {
+    const b = (request.body ?? {}) as Record<string, unknown>
+    const taskId = (b.task_id as string) ?? (b.taskId as string) ?? ''
+    if (!taskId) return reply.status(400).send(error(400, '缺少 task_id'))
+    return proxyToSelfApi(server, 'GET', `/api/ai/sora2/tasks/${taskId}`, request, reply)
+  })
+
+  // POST /ai/dashscope/image/generate → /api/ai/dashscope/image (通义万相图像)
+  // 前端 body:buildIhuiLlmBody 透传
+  server.post('/ai/dashscope/image/generate', async (request, reply) => {
+    return proxyToSelfApi(server, 'POST', '/api/ai/dashscope/image', request, reply, request.body)
+  })
+
+  // POST /ai/hunyuan/3d/submit → /api/ai/tencent/hunyuan3d/submit (腾讯混元3D)
+  // 前端 body:buildIhuiLlmBody 透传
+  server.post('/ai/hunyuan/3d/submit', async (request, reply) => {
+    return proxyToSelfApi(
+      server,
+      'POST',
+      '/api/ai/tencent/hunyuan3d/submit',
+      request,
+      reply,
+      request.body,
+    )
+  })
+
+  // POST /ai/gemini/nano-banana → /api/ai/gemini/image (Gemini 2.5 Flash Image)
+  // 前端 body:buildIhuiLlmBody → 注入 model:'gemini-2.5-flash-image'
+  server.post('/ai/gemini/nano-banana', async (request, reply) => {
+    const b = (request.body ?? {}) as Record<string, unknown>
+    const mapped = { ...b, model: 'gemini-2.5-flash-image' }
+    return proxyToSelfApi(server, 'POST', '/api/ai/gemini/image', request, reply, mapped)
+  })
+
+  // POST /ai/google/veo3 → /api/ai/gemini/video (Veo3 视频)
+  // 前端 body:buildIhuiLlmBody → 注入 model:'veo-3.0-generate-preview'
+  server.post('/ai/google/veo3', async (request, reply) => {
+    const b = (request.body ?? {}) as Record<string, unknown>
+    const mapped = { ...b, model: 'veo-3.0-generate-preview' }
+    return proxyToSelfApi(server, 'POST', '/api/ai/gemini/video', request, reply, mapped)
+  })
+
+  // POST /ai/dashscope/video/generate → /api/ai/dashscope/video (通义万相视频)
+  // 前端 body:buildIhuiLlmBody 透传
+  server.post('/ai/dashscope/video/generate', async (request, reply) => {
+    return proxyToSelfApi(server, 'POST', '/api/ai/dashscope/video', request, reply, request.body)
+  })
+
+  // POST /ai/qwen/omni → /api/ai/dashscope/multimodal (Qwen-Omni 多模态)
+  // 前端 body:buildIhuiLlmBody → 注入 model:'qwen-omni-turbo'
+  server.post('/ai/qwen/omni', async (request, reply) => {
+    const b = (request.body ?? {}) as Record<string, unknown>
+    const mapped = { ...b, model: 'qwen-omni-turbo' }
+    return proxyToSelfApi(server, 'POST', '/api/ai/dashscope/multimodal', request, reply, mapped)
+  })
 }
