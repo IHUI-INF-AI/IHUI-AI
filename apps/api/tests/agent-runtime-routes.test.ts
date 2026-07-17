@@ -1,13 +1,26 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
-const { mockAuthenticate } = vi.hoisted(() => ({
+const { mockAuthenticate, mockFetch } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
+  mockFetch: vi.fn(),
 }))
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: mockAuthenticate,
 }))
+
+vi.stubGlobal('fetch', mockFetch)
+
+function buildSseResponse(events: Array<{ event: string; data: unknown }>): Response {
+  const body = events
+    .map((ev) => `event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`)
+    .join('')
+  return new Response(body, {
+    status: 200,
+    headers: { 'Content-Type': 'text/event-stream' },
+  })
+}
 
 function createChainableMock() {
   const thenFn = (resolve: (v: unknown) => void) => Promise.resolve([]).then(resolve)
@@ -75,6 +88,7 @@ describe('agent-runtime routes — /api/agent-runtime/*', () => {
 
   beforeEach(() => {
     mockAuthenticate.mockReset()
+    mockFetch.mockReset()
   })
 
   it('POST /execute 返回 200 + code 0 + sessionId/mode/received', async () => {
@@ -104,8 +118,15 @@ describe('agent-runtime routes — /api/agent-runtime/*', () => {
     expect(body.code).toBe(400)
   })
 
-  it('POST /execute/stream 返回 200 + text/event-stream + session/permission/done 事件', async () => {
+  it('POST /execute/stream 上游 200 + 正常 SSE 流 → 透传 session/permission/done 事件', async () => {
     mockAuthed()
+    mockFetch.mockResolvedValueOnce(
+      buildSseResponse([
+        { event: 'session', data: { sessionId: 'upstream-sess-1' } },
+        { event: 'permission', data: { toolName: 'Read', dangerLevel: 'read' } },
+        { event: 'done', data: { sessionId: 'upstream-sess-1', status: 'completed' } },
+      ]),
+    )
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/execute/stream`,
@@ -118,6 +139,95 @@ describe('agent-runtime routes — /api/agent-runtime/*', () => {
     expect(res.body).toContain('event: done')
     expect(res.body).toContain('"mode":"default"')
     expect(res.body).toContain('"decision":"allow"')
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('POST /execute/stream 上游 500 → 转发为 error 事件 + message 含 upstream error: 500', async () => {
+    mockAuthed()
+    mockFetch.mockResolvedValueOnce(new Response('upstream broken', { status: 500 }))
+    const res = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/execute/stream`,
+      payload: { message: 'test', mode: 'default' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toContain('event: error')
+    expect(res.body).toContain('upstream error: 500')
+  })
+
+  it('POST /execute/stream 上游连接失败(fetch reject) → 转发为 error 事件 + message upstream connection failed', async () => {
+    mockAuthed()
+    mockFetch.mockRejectedValueOnce(new Error('network down'))
+    const res = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/execute/stream`,
+      payload: { message: 'test', mode: 'default' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toContain('event: error')
+    expect(res.body).toContain('upstream connection failed')
+  })
+
+  it('POST /execute/stream permission 事件 toolName=Write + dangerLevel=write + mode=plan → decision=deny', async () => {
+    mockAuthed()
+    mockFetch.mockResolvedValueOnce(
+      buildSseResponse([
+        { event: 'permission', data: { toolName: 'Write', dangerLevel: 'write' } },
+      ]),
+    )
+    const res = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/execute/stream`,
+      payload: { message: 'test', mode: 'plan' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toContain('event: permission')
+    expect(res.body).toContain('"decision":"deny"')
+    expect(res.body).toContain('"mode":"plan"')
+  })
+
+  it('POST /execute/stream permission 事件 toolName=Read + dangerLevel=read + mode=default → decision=allow', async () => {
+    mockAuthed()
+    mockFetch.mockResolvedValueOnce(
+      buildSseResponse([
+        { event: 'permission', data: { toolName: 'Read', dangerLevel: 'read' } },
+      ]),
+    )
+    const res = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/execute/stream`,
+      payload: { message: 'test', mode: 'default' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toContain('event: permission')
+    expect(res.body).toContain('"decision":"allow"')
+  })
+
+  it('POST /execute/stream 上游 SSE 含多个事件 → 全部透传且顺序保持', async () => {
+    mockAuthed()
+    mockFetch.mockResolvedValueOnce(
+      buildSseResponse([
+        { event: 'session', data: { sessionId: 's1' } },
+        { event: 'permission', data: { toolName: 'Read', dangerLevel: 'read' } },
+        { event: 'chunk', data: { content: 'hello' } },
+        { event: 'chunk', data: { content: 'world' } },
+        { event: 'done', data: { sessionId: 's1', status: 'completed' } },
+      ]),
+    )
+    const res = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/execute/stream`,
+      payload: { message: 'test', mode: 'default' },
+    })
+    expect(res.statusCode).toBe(200)
+    const sessionIdx = res.body.indexOf('event: session')
+    const permissionIdx = res.body.indexOf('event: permission')
+    const chunkIdx = res.body.indexOf('event: chunk')
+    const doneIdx = res.body.indexOf('event: done')
+    expect(sessionIdx).toBeGreaterThan(-1)
+    expect(sessionIdx).toBeLessThan(permissionIdx)
+    expect(permissionIdx).toBeLessThan(chunkIdx)
+    expect(chunkIdx).toBeLessThan(doneIdx)
   })
 
   it('GET /:sessionId/status 返回 200 + code 0 + status/messageCount', async () => {
