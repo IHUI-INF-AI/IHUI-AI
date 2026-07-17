@@ -8,15 +8,9 @@ export interface WsCallbacks {
   onClose?: (res: Taro.SocketTask.OnCloseCallbackResult) => void
 }
 
-interface WsMessage {
-  event: string
-  [key: string]: unknown
-}
-
 class WebSocketManager {
   private ws: Taro.SocketTask | null = null
   private url: string | null = null
-  private userUuid: string | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
@@ -26,13 +20,12 @@ class WebSocketManager {
   private isManualClose = false
   private callbacks: WsCallbacks = {}
 
-  connect(url: string, userUuid: string, callbacks: WsCallbacks = {}): void {
-    if (!url || !userUuid) {
+  connect(url: string, callbacks: WsCallbacks = {}): void {
+    if (!url) {
       logger.error('websocket', '连接失败：缺少必要参数', '')
       return
     }
     this.url = url
-    this.userUuid = userUuid
     this.isManualClose = false
     this.reconnectAttempts = 0
     this.callbacks = callbacks
@@ -47,7 +40,6 @@ class WebSocketManager {
         this.ws = task
         task.onOpen(() => {
           this.reconnectAttempts = 0
-          this.sendJoinSystemRoom()
           this.startHeartbeat()
           this.callbacks.onOpen?.()
         })
@@ -59,29 +51,23 @@ class WebSocketManager {
   }
 
   private handleMessage(res: { data: string | unknown }): void {
+    const raw = res.data
+    if (raw === 'pong' || raw === '"pong"') return
+    if (typeof raw !== 'string') return
     try {
-      let data: unknown = res.data
-      if (typeof data === 'string') {
-        data = JSON.parse(data) as WsMessage
-      }
-      const msg = data as WsMessage
-      if (msg?.event === 'pong') return
-      this.callbacks.onMessage?.(data)
+      const parsed = JSON.parse(raw) as { type?: string; data?: unknown }
+      if (parsed?.type !== 'notification') return
+      this.callbacks.onMessage?.(parsed)
     } catch (e) {
       logger.error('websocket', '消息解析失败', e)
     }
-  }
-
-  sendJoinSystemRoom(): void {
-    if (!this.ws || this.ws.readyState !== 1 || !this.userUuid) return
-    this.send({ event: 'join_system_room', user_uuid: this.userUuid })
   }
 
   private startHeartbeat(): void {
     this.stopHeartbeat()
     this.heartbeatTimer = setInterval(() => {
       if (this.ws && this.ws.readyState === 1) {
-        this.send({ event: 'ping' })
+        this.send('ping')
       }
     }, this.heartbeatInterval)
   }
