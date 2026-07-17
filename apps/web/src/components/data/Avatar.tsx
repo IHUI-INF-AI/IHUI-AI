@@ -47,7 +47,7 @@ export function Avatar({
       className={cn(
         'relative inline-flex shrink-0 items-center justify-center overflow-hidden bg-muted font-medium text-muted-foreground',
         sizeMap[size],
-        shape === 'circle' ? 'rounded-full' : 'rounded-lg',
+        shape === 'circle' ? 'rounded-md' : 'rounded-lg',
         className,
       )}
     >
