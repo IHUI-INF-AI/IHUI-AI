@@ -126,8 +126,24 @@ const messageListSchema = z.object({
   after: z.string().uuid().optional(),
 })
 
+const COMPRESS_TARGETS = (() => {
+  const raw = process.env.COMPRESS_TARGET_CHARS
+  if (!raw) return [200000, 1000000]
+  const parsed = raw
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0)
+  return parsed.length > 0 ? parsed : [200000, 1000000]
+})()
+
 const compressSchema = z.object({
-  targetChars: z.union([z.literal(200000), z.literal(1000000)]),
+  targetChars: z
+    .number()
+    .int()
+    .positive()
+    .refine((n) => COMPRESS_TARGETS.includes(n), {
+      message: `targetChars 必须是以下值之一: ${COMPRESS_TARGETS.join(', ')}`,
+    }),
 })
 
 // =============================================================================
