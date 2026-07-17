@@ -95,13 +95,16 @@ test.describe('完整认证流程', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/forgot-password')
+    // /forgot-password 已整合进弹窗:middleware 重定向到 / 并设置 login_redirect cookie
+    // → LoginRedirectListener 触发 LoginDialog(mode='forgot')
     await page.waitForLoadState('domcontentloaded')
+    await expect(page).toHaveURL(/\/(?:$|\?)/)
     expect(
       serverErrors.filter(
         (e) =>
           !e.includes('favicon') &&
           !/\/api\/(ai|llm|agents|tools|mcp|a2a|workflow|llm-tools)\/.*\b(5\d{2})\b/.test(e) &&
-          !/(\/sso\/(login|register)|\/login|\/register).*\b500\b/.test(e),
+          !/(\/sso\/(login|register)|\/login|\/register|\/forgot-password).*\b500\b/.test(e),
       ),
     ).toHaveLength(0)
   })
