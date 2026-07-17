@@ -139,6 +139,7 @@ import { callbackLogRoutes } from './routes/callback-log.js'
 import { chunkedUploadRoutes } from './routes/chunked-upload.js'
 import { financeExtendedRoutes } from './routes/finance-extended.js'
 import { paymentExtendedRoutes } from './routes/payment-extended.js'
+import { paymentRecurringRoutes } from './routes/payment-recurring.js'
 import { authIdentityRoutes } from './routes/auth-identity.js'
 
 // R67 补建：M-55 通知扩展 + M-66 教育平台 + M-72 支付状态 WS
@@ -736,6 +737,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(financeExtendedRoutes, { prefix: '/api' })
   // M-56: 支付扩展（提现回调/同步返回/连续订阅）
   server.register(paymentExtendedRoutes, { prefix: '/api' })
+  // 周期扣款（连续包月）:签约/解约/查询/webhook/定时扣款
+  server.register(paymentRecurringRoutes, { prefix: '/api' })
   // M-67: 实名认证（提交/查询/列表/审核）
   server.register(authIdentityRoutes, { prefix: '/api' })
 

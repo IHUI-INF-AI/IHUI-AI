@@ -1,6 +1,6 @@
-import { eq, asc } from 'drizzle-orm';
-import { db } from './index.js';
-import { plans } from '@ihui/database';
+import { eq, asc } from 'drizzle-orm'
+import { db } from './index.js'
+import { plans } from '@ihui/database'
 
 // =============================================================================
 // 公开字段选择：精确选字段，避免泄露敏感信息
@@ -15,22 +15,30 @@ const planFields = {
   features: plans.features,
   isActive: plans.isActive,
   sortOrder: plans.sortOrder,
+  isRecurring: plans.isRecurring,
+  billingPeriod: plans.billingPeriod,
+  trialDays: plans.trialDays,
+  wechatPlanId: plans.wechatPlanId,
   createdAt: plans.createdAt,
   updatedAt: plans.updatedAt,
-};
+}
 
 export type PlanRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  interval: string;
-  features: unknown;
-  isActive: boolean;
-  sortOrder: number;
-  createdAt: Date;
-  updatedAt: Date;
-};
+  id: string
+  name: string
+  description: string | null
+  price: number
+  interval: string
+  features: unknown
+  isActive: boolean
+  sortOrder: number
+  isRecurring: boolean
+  billingPeriod: string
+  trialDays: number
+  wechatPlanId: string | null
+  createdAt: Date
+  updatedAt: Date
+}
 
 // =============================================================================
 // Plans
@@ -44,13 +52,13 @@ export async function findPlans(): Promise<PlanRow[]> {
     .select(planFields)
     .from(plans)
     .where(eq(plans.isActive, true))
-    .orderBy(asc(plans.sortOrder));
+    .orderBy(asc(plans.sortOrder))
 }
 
 /**
  * 按 id 查询方案。
  */
 export async function findPlanById(id: string): Promise<PlanRow | undefined> {
-  const rows = await db.select(planFields).from(plans).where(eq(plans.id, id)).limit(1);
-  return rows[0];
+  const rows = await db.select(planFields).from(plans).where(eq(plans.id, id)).limit(1)
+  return rows[0]
 }
