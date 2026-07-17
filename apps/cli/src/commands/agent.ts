@@ -29,6 +29,7 @@ import {
   executeToolCall,
   formatToolResult,
   clearTools,
+  getTool,
   type Tool,
   type ToolContext,
 } from '../tools/index.js';
@@ -41,7 +42,7 @@ import { TEST_TOOLS } from '../tools/run-tests.js';
 import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
 import { CODEGRAPH_TOOLS } from '../tools/codegraph.js';
 import { createSubagentTool } from '../tools/subagent.js';
-import type { PermissionRules } from '../tools/permissions.js';
+import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
 import { resolveSandboxOptions } from '../sandbox/index.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens } from '../context.js';
@@ -50,7 +51,7 @@ import { loadMcpTools } from '../tools/mcp-runtime.js';
 import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.js';
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
-import { loadHooks, runSessionStartHooks, runSessionEndHooks } from '../hooks/index.js';
+import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '../hooks/index.js';
 import { loadSettings, type SamplerSettings } from './settings.js';
 import type { Session } from './session.js';
 import { saveSession } from './session.js';
@@ -64,6 +65,13 @@ declare module '@ihui/api-client' {
     topK?: number;
     maxTokens?: number;
     stop?: string[];
+  }
+}
+
+// 模块增强:为 ToolContext 添加 permissionMode 字段(不修改 tools/index.ts 源码)。
+declare module '../tools/index.js' {
+  interface ToolContext {
+    permissionMode?: PermissionMode;
   }
 }
 
@@ -96,6 +104,8 @@ export interface AgentOptions {
   sampler?: SamplerSettings;
   /** P0-7 Permission rules:白名单/黑名单控制(--tools/--disallowed-tools CLI flag 注入) */
   permissions?: PermissionRules;
+  /** 权限模式:default|acceptEdits|bypassPermissions|plan|manual */
+  permissionMode?: PermissionMode;
 }
 
 export type AgentStopReason = 'end_turn' | 'cancelled' | 'max_iterations' | 'budget_limited' | 'doom_loop' | 'error';
@@ -148,6 +158,8 @@ export interface SetupAgentToolsOptions {
   };
   /** P0-7 Permission rules:白名单/黑名单控制(--tools/--disallowed-tools CLI flag 注入) */
   permissions?: PermissionRules;
+  /** 权限模式:default|acceptEdits|bypassPermissions|plan|manual */
+  permissionMode?: PermissionMode;
 }
 
 export interface SetupAgentToolsResult {
@@ -220,6 +232,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     } : undefined,
     folderTrust: settings.folderTrust,
     permissions: opts.permissions,
+    permissionMode: opts.permissionMode,
   };
 
   return { systemPrompt, ctx, skills, memory };
@@ -231,6 +244,8 @@ export interface RunToolLoopOptions {
   ctx: ToolContext;
   maxIterations: number;
   signal?: AbortSignal;
+  /** 关联会话 ID(用于 hook 埋点传递) */
+  sessionId?: string;
   onDelta?: (delta: string) => void | Promise<void>;
   onToolCall?: (name: string, args: Record<string, unknown>) => void | Promise<void>;
   onToolResult?: (name: string, success: boolean, output: string) => void | Promise<void>;
@@ -456,6 +471,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let totalCompletionTokens = 0;
   let totalCostUsd = 0;
   let budgetLimited = false;
+  let lastErrorMessage = '';
   const consecutiveFailures = new Map<string, number>();
   const FAILURE_REFLECTION_THRESHOLD = 2;
   // P1-2 Reminders:跨迭代持久化已注入的 reminder 类型(避免重复注入)
@@ -519,6 +535,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         iterError = true;
         hadError = true;
         const formatted = formatSSEError(new Error(samplerResult.error));
+        lastErrorMessage = formatted.message;
         if (formatted.severity === 'auth' || formatted.severity === 'forbidden') {
           process.stderr.write(chalk.red(`[${formatted.severity}] ${formatted.title}: ${formatted.rawMessage}\n`));
         } else if (formatted.severity === 'ratelimit') {
@@ -610,11 +627,63 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       // 单工具时 Promise.all 退化为串行,无额外开销,UI 体验与原串行实现一致
       for (const call of toolCalls) {
         await opts.onToolCall?.(call.name, call.arguments);
+        if (call.name === 'dispatch_subagent') {
+          const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
+          const subType = String(call.arguments.persona ?? 'general');
+          runHook('subagentStart', {
+            workspacePath: opts.ctx.workspacePath,
+            sessionId: opts.sessionId,
+            subagentId: subId,
+            subagentType: subType,
+          });
+        }
       }
+      const mode = opts.ctx.permissionMode ?? 'default';
       const parallelResults = await Promise.all(
         toolCalls.map(async (call) => {
           const startTime = Date.now();
+          const tool = getTool(call.name);
+          const dangerLevel = tool?.dangerLevel ?? 'read';
+          const decision = checkPermission(call.name, opts.ctx.permissions, mode, dangerLevel);
+          if (decision === 'deny') {
+            return {
+              call,
+              result: {
+                success: false,
+                output: '',
+                error: `工具 ${call.name} 被权限模式 ${mode} 拒绝(dangerLevel=${dangerLevel})`,
+                errorType: 'permission_denied',
+              },
+              durationMs: Date.now() - startTime,
+            };
+          }
+          if (decision === 'ask' && dangerLevel !== 'dangerous') {
+            const allowed = opts.ctx.confirmDangerous
+              ? await opts.ctx.confirmDangerous(tool!, call.arguments)
+              : false;
+            if (!allowed) {
+              return {
+                call,
+                result: {
+                  success: false,
+                  output: '',
+                  error: `工具 ${call.name} 需要用户确认但被拒绝(mode=${mode})`,
+                  errorType: 'permission_denied',
+                },
+                durationMs: Date.now() - startTime,
+              };
+            }
+          }
           const result = await executeToolCall(call, opts.ctx);
+          if (call.name === 'dispatch_subagent') {
+            const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
+            runHook('subagentStop', {
+              workspacePath: opts.ctx.workspacePath,
+              sessionId: opts.sessionId,
+              subagentId: subId,
+              reason: result.success ? 'completed' : 'failed',
+            });
+          }
           return { call, result, durationMs: Date.now() - startTime };
         }),
       );
@@ -665,6 +734,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     } else {
       hadError = true;
       const msg = err instanceof Error ? err.message : String(err);
+      lastErrorMessage = msg;
       await opts.onError?.(msg);
     }
   }
@@ -692,6 +762,18 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     totalTokens,
     estimatedCostUsd: totalCostUsd,
   };
+
+  // Hook 埋点:stop / stopFailure / notification
+  const hookCtx = { workspacePath: opts.ctx.workspacePath, sessionId: opts.sessionId };
+  if (stopReason === 'error') {
+    runHook('stopFailure', { ...hookCtx, error: lastErrorMessage || 'unknown error' });
+    runHook('notification', { ...hookCtx, notificationText: `Agent 因错误终止: ${lastErrorMessage || 'unknown'}` });
+  } else if (stopReason === 'max_iterations') {
+    runHook('notification', { ...hookCtx, notificationText: `Agent 达到最大迭代数 ${opts.maxIterations}` });
+  } else if (stopReason === 'budget_limited') {
+    runHook('notification', { ...hookCtx, notificationText: `Agent 因预算上限停止 (cost >= ${opts.maxCostUsd ?? 'N/A'})` });
+  }
+  runHook('stop', hookCtx);
 
   return { stopReason, assistantText, iterations, usage };
 }
@@ -742,6 +824,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       apiKey: opts.apiKey,
       allowDangerous: opts.allowDangerous,
     },
+    permissions: opts.permissions,
+    permissionMode: opts.permissionMode,
     confirmDangerous: async (tool, args) => {
       if (opts.allowDangerous) {
         if (!silent) console.info(chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name} ${JSON.stringify(args).slice(0, 100)}`));
@@ -781,6 +865,13 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     }
   }
 
+  // Hook 埋点:userPromptSubmit
+  runHook('userPromptSubmit', {
+    workspacePath: opts.workspacePath,
+    sessionId: opts.session?.id,
+    prompt: opts.prompt,
+  });
+
   try {
     const result = await runToolLoop({
       modelId: opts.modelId,
@@ -788,6 +879,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       ctx,
       maxIterations: opts.maxIterations,
       signal: opts.signal,
+      sessionId: opts.session?.id,
       planFirst: opts.planFirst,
       sampler: opts.sampler,
       onDelta: (delta) => {
