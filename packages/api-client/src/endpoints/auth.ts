@@ -176,3 +176,21 @@ export async function changePhone(
     body: JSON.stringify({ phone, code }),
   })
 }
+
+// =============================================================================
+// 钉钉 / 企业微信 扫码登录
+// =============================================================================
+
+export async function getDingtalkAuthUrl(): Promise<ApiResult<{ authUrl: string }>> {
+  return fetchApi<{ authUrl: string }>('/api/auth/dingtalk/auth-url')
+}
+
+export async function dingtalkLogin(code: string): Promise<ApiResult<LoginResult>> {
+  return fetchApi<LoginResult>(`/api/auth/dingtalk/login?code=${encodeURIComponent(code)}`)
+}
+
+export async function wecomLogin(code: string): Promise<ApiResult<LoginResult>> {
+  return fetchApi<LoginResult>(
+    `/api/auth/login/enterprise/pc/wxCode?code=${encodeURIComponent(code)}`,
+  )
+}
