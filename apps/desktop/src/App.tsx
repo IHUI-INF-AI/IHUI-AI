@@ -14,6 +14,7 @@ import WalletPage from './pages/WalletPage'
 import CoursePage from './pages/CoursePage'
 import SettingsPage from './pages/SettingsPage'
 import OrderPage from './pages/OrderPage'
+import AgentPage from './pages/AgentPage'
 import './app.css'
 
 function AppInner() {
@@ -72,6 +73,8 @@ function AppInner() {
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/courses" element={<CoursePage />} />
           <Route path="/orders" element={<OrderPage />} />
+          <Route path="/agents" element={<AgentPage />} />
+          <Route path="/agents/:id" element={<AgentPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Route>
