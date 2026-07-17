@@ -701,6 +701,13 @@
       "when": 1784290646719,
       "tag": "0099_skinny_wallow",
       "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1784297711081,
+      "tag": "0100_light_sleeper",
+      "breakpoints": true
     }
   ]
 }
