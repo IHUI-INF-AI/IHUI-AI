@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { config } from '../config/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { SessionManager } from '../services/clawdbot/session-manager.js'
@@ -48,12 +49,13 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
     reply.raw.setHeader('Content-Type', 'text/event-stream')
     reply.raw.setHeader('Cache-Control', 'no-cache')
     reply.raw.setHeader('Connection', 'keep-alive')
+    reply.raw.setHeader('X-Accel-Buffering', 'no')
     const parsed = executeSchema.safeParse(req.body)
     if (!parsed.success) {
       reply.raw.write(`event: error\ndata: ${JSON.stringify({ message: 'invalid body' })}\n\n`)
       return reply.raw.end()
     }
-    const { message, mode, sessionId } = parsed.data
+    const { message, mode, sessionId, botId } = parsed.data
     const permMode = parsePermissionMode(mode) ?? 'default'
     let session
     if (sessionId) {
@@ -66,17 +68,80 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
         return reply.raw.end()
       }
     } else {
-      session = sessionManager.create('default', req.userId ?? 'anonymous')
+      session = sessionManager.create(botId ?? 'default', req.userId ?? 'anonymous')
     }
     sessionManager.appendMessage(session.id, { role: 'user', content: message })
-    reply.raw.write(`event: session\ndata: ${JSON.stringify({ sessionId: session.id })}\n\n`)
-    reply.raw.write(
-      `event: permission\ndata: ${JSON.stringify({ mode: permMode, decision: 'allow' })}\n\n`,
-    )
-    reply.raw.write(
-      `event: done\ndata: ${JSON.stringify({ sessionId: session.id, status: 'streaming-placeholder' })}\n\n`,
-    )
-    return reply.raw.end()
+
+    const upstreamUrl = `${config.AI_SERVICE_URL}/api/agent-runtime/execute/stream`
+    try {
+      const upstream = await fetch(upstreamUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+        },
+        body: JSON.stringify({ message, mode: permMode, sessionId: session.id, botId }),
+      })
+
+      if (!upstream.ok || !upstream.body) {
+        reply.raw.write(
+          `event: error\ndata: ${JSON.stringify({ message: `upstream error: ${upstream.status}` })}\n\n`,
+        )
+        return reply.raw.end()
+      }
+
+      const reader = upstream.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const events = buffer.split('\n\n')
+        buffer = events.pop() ?? ''
+        for (const evt of events) {
+          const trimmed = evt.trim()
+          if (!trimmed) continue
+          if (trimmed.startsWith('event: permission')) {
+            const dataMatch = trimmed.match(/^data: (.+)$/m)
+            const dataStr = dataMatch?.[1]
+            if (dataStr) {
+              try {
+                const data = JSON.parse(dataStr) as Record<string, unknown>
+                const toolName = typeof data.toolName === 'string' ? data.toolName : 'unknown'
+                const dangerLevel = (
+                  typeof data.dangerLevel === 'string' ? data.dangerLevel : 'read'
+                ) as DangerLevel
+                const decision = checkPermissionMode(toolName, permMode, dangerLevel)
+                reply.raw.write(
+                  `event: permission\ndata: ${JSON.stringify({
+                    ...data,
+                    mode: permMode,
+                    decision,
+                  })}\n\n`,
+                )
+                continue
+              } catch {
+                // 解析失败,透传原事件
+              }
+            }
+          }
+          reply.raw.write(`${trimmed}\n\n`)
+        }
+      }
+      if (buffer.trim()) {
+        reply.raw.write(`${buffer.trim()}\n\n`)
+      }
+      return reply.raw.end()
+    } catch (err) {
+      reply.raw.write(
+        `event: error\ndata: ${JSON.stringify({
+          message: 'upstream connection failed',
+          error: String(err),
+        })}\n\n`,
+      )
+      return reply.raw.end()
+    }
   })
 
   app.get('/sessions', async (req) => {
