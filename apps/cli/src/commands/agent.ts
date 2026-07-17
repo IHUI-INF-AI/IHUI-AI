@@ -95,22 +95,6 @@ export interface AgentOptions {
 
 export type AgentStopReason = 'end_turn' | 'cancelled' | 'max_iterations' | 'budget_limited' | 'error';
 
-/**
- * P1-5 Headless 输出格式 — 4 种可选,覆盖 CI/CD、报告生成、管道处理场景。
- *
- * 灵感来源:cli 的 LeaderOutput/HeadlessFormat(Rust enum,支持 text/json/markdown/yaml)。
- * 简化策略(做减法):
- *   - text(默认):人类可读,带 ANSI 颜色,ora spinner
- *   - json:NDJSON 事件流(向后兼容 --json)
- *   - markdown:每事件输出一段 markdown 片段,适合管道转 md 报告
- *   - yaml:每事件输出一个 yaml 文档(--- 分隔),适合 k8s/CI 配置生态
- *
- * 选择理由:
- *   - 不引入外部 yaml 库,自实现 30 行极简序列化器(只覆盖常见类型)
- *   - 流式输出,不缓冲整个会话(内存友好,长任务不爆)
- */
-export type OutputFormat = 'text' | 'json' | 'markdown' | 'yaml';
-
 export interface AgentResult {
   stopReason: AgentStopReason;
   assistantText: string;
@@ -118,95 +102,13 @@ export interface AgentResult {
   usage: TokenUsage;
 }
 
-type HeadlessEvent =
-  | { type: 'start'; prompt: string; model: string; workspace: string }
-  | { type: 'message_delta'; text: string }
-  | { type: 'tool_call'; name: string; arguments: Record<string, unknown> }
-  | { type: 'tool_result'; name: string; success: boolean; output: string }
-  | { type: 'iteration'; count: number; max: number }
-  | { type: 'error'; message: string }
-  | { type: 'complete'; stopReason: AgentStopReason; iterations: number; usage: TokenUsage };
-
-// ==================== P1-5 Headless 多格式输出 ====================
-
-/**
- * 极简 YAML 序列化器(不引入外部依赖)。
- * 支持类型:null / boolean / number / string / array / object。
- * 缩进 2 空格,数组元素用 `- ` 前缀。
- * 字符串仅在含特殊字符时用双引号(JSON 兼容),其余直接输出。
- */
-function toYaml(obj: unknown, indent = 0): string {
-  const pad = ' '.repeat(indent);
-  if (obj === null || obj === undefined) return 'null';
-  if (typeof obj === 'boolean') return obj ? 'true' : 'false';
-  if (typeof obj === 'number') return Number.isFinite(obj) ? String(obj) : 'null';
-  if (typeof obj === 'string') {
-    // 简单标识符风格字符串直接输出;含特殊字符的用 JSON 双引号(yaml 兼容)
-    if (obj.length === 0) return '""';
-    if (/^[A-Za-z0-9_\-\.\/\p{L}][A-Za-z0-9_\-\.\/\s\p{L}]*$/u.test(obj) && !/^(true|false|null|yes|no|on|off|\d)/.test(obj)) return obj;
-    return JSON.stringify(obj);
-  }
-  if (Array.isArray(obj)) {
-    if (obj.length === 0) return '[]';
-    return obj.map((item) => {
-      const sub = toYaml(item, indent + 2);
-      // 多行子结构(对象/数组)换行后缩进,标量直接跟在 `- ` 后
-      if (sub.includes('\n')) {
-        return `${pad}- ${sub.replace(/\n/g, '\n' + ' '.repeat(indent + 2))}`;
-      }
-      return `${pad}- ${sub}`;
-    }).join('\n');
-  }
-  if (typeof obj === 'object') {
-    const entries = Object.entries(obj as Record<string, unknown>);
-    if (entries.length === 0) return '{}';
-    return entries.map(([k, v]) => {
-      if (v === null || v === undefined) return `${pad}${k}: null`;
-      if (typeof v === 'object') {
-        const sub = toYaml(v, indent + 2);
-        if (sub === '[]' || sub === '{}') return `${pad}${k}: ${sub}`;
-        return `${pad}${k}:\n${sub}`;
-      }
-      return `${pad}${k}: ${toYaml(v, 0)}`;
-    }).join('\n');
-  }
-  return String(obj);
-}
-
-/** 将单个事件转为 markdown 片段(适合拼接成完整 markdown 报告) */
-function eventToMarkdown(event: HeadlessEvent): string {
-  switch (event.type) {
-    case 'start':
-      return `## 🤖 Agent 启动\n\n- **模型**: ${event.model}\n- **工作区**: ${event.workspace}\n- **任务**: ${event.prompt}\n`;
-    case 'message_delta':
-      return event.text;
-    case 'tool_call':
-      return `\n### 🔧 工具调用: \`${event.name}\`\n\n\`\`\`json\n${JSON.stringify(event.arguments, null, 2)}\n\`\`\`\n`;
-    case 'tool_result': {
-      const icon = event.success ? '✓' : '✗';
-      const status = event.success ? '成功' : '失败';
-      const truncated = event.output.length > 1000 ? event.output.slice(0, 1000) + '\n...(truncated)' : event.output;
-      return `\n#### ${icon} 工具结果 [${status}]\n\n\`\`\`\n${truncated}\n\`\`\`\n`;
-    }
-    case 'iteration':
-      return `\n<!-- iteration ${event.count}/${event.max} -->\n`;
-    case 'error':
-      return `\n> ❌ **错误**: ${event.message}\n`;
-    case 'complete': {
-      const u = event.usage;
-      const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
-      return `\n---\n\n## ✨ 完成\n\n- **停止原因**: ${event.stopReason}\n- **迭代轮次**: ${event.iterations}\n- **Tokens**: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens})\n- **成本**: ${cost}\n`;
-    }
-    default:
-      return '';
-  }
-}
-
-/** 解析 outputFormat 字符串,非法值默认 text */
-export function parseOutputFormat(v: unknown): OutputFormat {
-  if (v === 'text' || v === 'json' || v === 'markdown' || v === 'yaml') return v;
-  return 'text';
-}
+// ==================== P1-5 Headless 多格式输出(实现在 src/headless-format.ts,此处仅 re-export)====================
+// 灵感来源:cli 的 LeaderOutput/HeadlessFormat(Rust enum,支持 text/json/markdown/yaml)。
+// 简化策略(做减法):不引入外部 yaml 库,自实现 30 行极简序列化器(只覆盖常见类型),流式输出不缓冲。
+export type { OutputFormat, HeadlessEvent } from '../headless-format.js'
+export { parseOutputFormat, formatHeadlessEvent } from '../headless-format.js'
+import { formatHeadlessEvent } from '../headless-format.js'
+import type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 
 // ==================== 公共函数 ====================
 
@@ -590,15 +492,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
 
   /** P1-5 统一 emit:按 outputFormat 切换序列化方式,流式输出到 stdout */
   const emit = (event: HeadlessEvent): void => {
-    if (outputFormat === 'json') {
-      process.stdout.write(JSON.stringify(event) + '\n');
-    } else if (outputFormat === 'markdown') {
-      process.stdout.write(eventToMarkdown(event));
-    } else if (outputFormat === 'yaml') {
-      // 每事件输出一个 yaml 文档(--- 分隔),适合管道解析
-      process.stdout.write('---\n' + toYaml(event) + '\n');
-    }
-    // text 模式不通过 emit 输出(走 chalk/ora 路径)
+    const line = formatHeadlessEvent(event, outputFormat);
+    if (line) process.stdout.write(line);
   };
 
   const spinner = isStructured ? null : ora({ text: '准备中...', color: 'cyan' }).start();
