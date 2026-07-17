@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { parseStreamLine, parseStreamLineReasoning } from '@ihui/api-client'
+import {
+  parseStreamLine,
+  parseStreamLineReasoning,
+  formatSSEError,
+  getSSEErrorInfo,
+} from '@ihui/api-client'
 
 describe('parseStreamLine SSE 解析器(@ihui/api-client 共享版)', () => {
   it('空行返回 null', () => {
@@ -155,5 +160,157 @@ describe('parseStreamLineReasoning SSE reasoning 解析器', () => {
   it('SSE error 事件抛出 SSEError', () => {
     const line = 'data: {"type":"error","message":"LLM 调用超时"}'
     expect(() => parseStreamLineReasoning(line)).toThrow('LLM 调用超时')
+  })
+})
+
+/** 捕获 parseStreamLine 抛出的 SSEError,返回 Error 实例便于断言 */
+function catchSSEError(line: string): Error {
+  try {
+    parseStreamLine(line)
+  } catch (e) {
+    return e as Error
+  }
+  return new Error('no error thrown')
+}
+
+describe('getSSEErrorInfo 从错误中提取元信息', () => {
+  it('401 错误:从 message 文本括号内提取 code', () => {
+    const e = catchSSEError('data: {"type":"error","message":"登录已过期（401）"}')
+    const info = getSSEErrorInfo(e)
+    expect(info?.code).toBe(401)
+  })
+
+  it('Error 对象挂载的 code 字段透传', () => {
+    const e = new Error('rate limit') as Error & { code: number; retryAfter: number }
+    e.name = 'SSEError'
+    e.code = 429
+    e.retryAfter = 30
+    const info = getSSEErrorInfo(e)
+    expect(info?.code).toBe(429)
+    expect(info?.retryAfter).toBe(30)
+  })
+
+  it('plain object { code, errorCode, retryAfter }', () => {
+    const info = getSSEErrorInfo({ code: 503, errorCode: 'UPSTREAM_DOWN', retryAfter: 60 })
+    expect(info).toEqual({ code: 503, errorCode: 'UPSTREAM_DOWN', retryAfter: 60 })
+  })
+
+  it('字符串 "请求失败(500)" 中文括号也能解析', () => {
+    const info = getSSEErrorInfo('请求失败(500)')
+    expect(info?.code).toBe(500)
+  })
+
+  it('无 code/errorCode/retryAfter 时返回 undefined', () => {
+    expect(getSSEErrorInfo('hello')).toBeUndefined()
+    expect(getSSEErrorInfo(new Error('hi'))).toBeUndefined()
+    expect(getSSEErrorInfo(null)).toBeUndefined()
+    expect(getSSEErrorInfo(undefined)).toBeUndefined()
+  })
+
+  it('parseStreamLine 抛出的 SSEError 自动附带 code', () => {
+    const e = catchSSEError(
+      'data: {"type":"error","message":"too many","code":429,"errorCode":"RATE_LIMITED","retryAfter":60}',
+    )
+    expect(e.name).toBe('SSEError')
+    const info = getSSEErrorInfo(e)
+    expect(info?.code).toBe(429)
+    expect(info?.errorCode).toBe('RATE_LIMITED')
+    expect(info?.retryAfter).toBe(60)
+  })
+
+  it('OpenAI 错误格式 { "error": "rate limit", "code": 429 }', () => {
+    const e = catchSSEError('data: {"error":"rate limit","code":429}')
+    expect(e.name).toBe('SSEError')
+    const info = getSSEErrorInfo(e)
+    expect(info?.code).toBe(429)
+  })
+})
+
+describe('formatSSEError 跨端统一错误格式化', () => {
+  it('401 → severity=auth + requireReauth=true', () => {
+    const e = catchSSEError('data: {"type":"error","message":"登录已过期（401）"}')
+    const f = formatSSEError(e)
+    expect(f.severity).toBe('auth')
+    expect(f.requireReauth).toBe(true)
+    expect(f.title).toBe('登录已过期')
+    expect(f.code).toBe(401)
+  })
+
+  it('403 → severity=forbidden', () => {
+    const e = catchSSEError('data: {"type":"error","message":"无权限","code":403}')
+    const f = formatSSEError(e)
+    expect(f.severity).toBe('forbidden')
+    expect(f.title).toBe('访问被拒绝')
+  })
+
+  it('429 with retryAfter → severity=ratelimit + 提示秒数', () => {
+    const e = catchSSEError(
+      'data: {"type":"error","message":"too many","code":429,"retryAfter":30}',
+    )
+    const f = formatSSEError(e)
+    expect(f.severity).toBe('ratelimit')
+    expect(f.retryAfter).toBe(30)
+    expect(f.message).toContain('30 秒')
+  })
+
+  it('500 → severity=server', () => {
+    const e = catchSSEError('data: {"type":"error","message":"upstream down","code":500}')
+    const f = formatSSEError(e)
+    expect(f.severity).toBe('server')
+    expect(f.title).toBe('AI 服务异常')
+  })
+
+  it('400 业务错误 → severity=server + message 透传 rawMessage', () => {
+    const e = new Error('参数错误') as Error & { code: number }
+    e.name = 'SSEError'
+    e.code = 400
+    const f = formatSSEError(e)
+    expect(f.severity).toBe('server')
+    expect(f.message).toBe('参数错误')
+    expect(f.title).toBe('请求失败')
+  })
+
+  it('DOMException AbortError → severity=network + title=请求已取消', () => {
+    const e = new DOMException('aborted', 'AbortError')
+    const f = formatSSEError(e)
+    expect(f.severity).toBe('network')
+    expect(f.title).toBe('请求已取消')
+  })
+
+  it('网络错误 (Failed to fetch) → severity=network', () => {
+    const f = formatSSEError(new Error('Failed to fetch'))
+    expect(f.severity).toBe('network')
+    expect(f.title).toBe('网络异常')
+  })
+
+  it('纯字符串错误 → fallback message', () => {
+    const f = formatSSEError('some string error', 'AI 服务异常')
+    expect(f.rawMessage).toBe('some string error')
+  })
+
+  it('null / undefined → fallback', () => {
+    const f = formatSSEError(null, 'fallback')
+    expect(f.rawMessage).toBe('fallback')
+    expect(f.severity).toBe('unknown')
+  })
+
+  it('非 Error 对象 (string) 也能正常格式化', () => {
+    const f = formatSSEError('请求失败(503)')
+    expect(f.code).toBe(503)
+    expect(f.severity).toBe('server')
+  })
+
+  it('custom fallback message', () => {
+    const f = formatSSEError(undefined, '服务暂不可用')
+    expect(f.rawMessage).toBe('服务暂不可用')
+  })
+
+  it('errorCode 业务码透传', () => {
+    const e = catchSSEError(
+      'data: {"type":"error","message":"配额用完","code":429,"errorCode":"QUOTA_EXHAUSTED","retryAfter":120}',
+    )
+    const f = formatSSEError(e)
+    expect(f.errorCode).toBe('QUOTA_EXHAUSTED')
+    expect(f.retryAfter).toBe(120)
   })
 })
