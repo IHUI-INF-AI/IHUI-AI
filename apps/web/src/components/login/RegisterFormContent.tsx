@@ -1,8 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -29,13 +27,11 @@ const registerSchema = z
 type RegisterValues = z.infer<typeof registerSchema>
 
 interface RegisterFormContentProps {
-  variant: 'page' | 'dialog'
   onSuccess?: () => void
 }
 
-export function RegisterFormContent({ variant, onSuccess }: RegisterFormContentProps) {
+export function RegisterFormContent({ onSuccess }: RegisterFormContentProps) {
   const t = useTranslations('auth')
-  const router = useRouter()
   const setMode = useLoginDialogStore((s) => s.setMode)
 
   const [submitting, setSubmitting] = React.useState(false)
@@ -117,9 +113,7 @@ export function RegisterFormContent({ variant, onSuccess }: RegisterFormContentP
         return
       }
       setServerInfo(t('registerSuccess'))
-      const handleSuccess =
-        onSuccess ?? (variant === 'dialog' ? () => setMode('login') : () => router.push('/login'))
-      setTimeout(handleSuccess, 800)
+      setTimeout(() => onSuccess?.() ?? setMode('login'), 800)
     } catch {
       setServerError(t('registerFailed'))
     } finally {
@@ -127,25 +121,8 @@ export function RegisterFormContent({ variant, onSuccess }: RegisterFormContentP
     }
   }
 
-  const wrapperCls = variant === 'page' ? 'space-y-4 p-6' : 'space-y-5'
-
-  const toLoginLink =
-    variant === 'page' ? (
-      <Link href="/login" className="font-medium text-primary hover:underline">
-        {t('toLogin')}
-      </Link>
-    ) : (
-      <button
-        type="button"
-        onClick={() => setMode('login')}
-        className="font-medium text-primary hover:underline"
-      >
-        {t('toLogin')}
-      </button>
-    )
-
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className={wrapperCls}>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="space-y-1.5 text-center">
         <h2 className="text-xl font-semibold tracking-tight">{t('registerTitle')}</h2>
         <p className="text-sm text-muted-foreground">{t('registerSubtitle')}</p>
@@ -230,7 +207,14 @@ export function RegisterFormContent({ variant, onSuccess }: RegisterFormContentP
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
-        {t('hasAccount')} {toLoginLink}
+        {t('hasAccount')}{' '}
+        <button
+          type="button"
+          onClick={() => setMode('login')}
+          className="font-medium text-primary hover:underline"
+        >
+          {t('toLogin')}
+        </button>
       </p>
     </form>
   )

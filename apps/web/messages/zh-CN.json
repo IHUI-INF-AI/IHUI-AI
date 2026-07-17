@@ -376,6 +376,7 @@
     "noAccount": "还没有账号？",
     "registerNow": "立即注册",
     "forgotPassword": "忘记密码",
+    "forgotSubtitle": "重置您的密码",
     "registerTitle": "创建账号",
     "registerSubtitle": "注册一个新账号",
     "phonePlaceholder": "请输入手机号",
@@ -10564,6 +10565,8 @@
     "generateCodeFailed": "生成授权码失败",
     "footerHint": "授权后将自动跳转回目标应用，登录态将在各子项目间共享。",
     "registerTitle": "统一注册",
+    "dialogPrompt": "正在为您打开注册弹窗…",
+    "openDialog": "打开注册弹窗",
     "alreadyHaveAccount": "已有账号？",
     "toLogin": "去登录",
     "redirect": {

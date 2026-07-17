@@ -878,8 +878,9 @@ export function Sidebar({
         aria-label={t('mainNav')}
         className={cn(
           'relative hidden h-screen shrink-0 flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-[width] duration-200 lg:flex',
-          collapsed ? `w-[${SIDEBAR_COLLAPSED_WIDTH}px]` : `w-[${SIDEBAR_WIDTH}px]`,
+          collapsed && 'w-[60px]',
         )}
+        style={collapsed ? { width: SIDEBAR_COLLAPSED_WIDTH } : { width: SIDEBAR_WIDTH }}
       >
         {header}
         {navContent}
