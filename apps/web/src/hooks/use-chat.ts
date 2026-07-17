@@ -3,10 +3,11 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { streamChat } from '@ihui/api-client'
+import { streamChat, formatSSEError } from '@ihui/api-client'
 
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 import { createConversation, sendMessage as persistMessage } from '@/lib/chat-api'
 import { logger } from '@/lib/logger'
 
@@ -116,24 +117,42 @@ export function useChat(): UseChatReturn {
             useChatStore.getState().appendReasoningToMessage(assistantId, delta)
           },
           onError: (errMsg) => {
-            useChatStore.getState().setMessageError(assistantId, errMsg)
-            useChatStore.getState().setError(errMsg)
+            const formatted = formatSSEError(errMsg)
+            useChatStore.getState().setMessageError(assistantId, formatted.message)
+            useChatStore.getState().setError(formatted.message)
+            if (formatted.severity === 'auth') {
+              useLoginDialogStore.getState().open('login')
+            }
+            const toastDesc =
+              formatted.severity === 'auth' ? formatted.message : formatted.rawMessage
+            if (formatted.severity === 'ratelimit') {
+              toast.warning(formatted.title, { description: toastDesc })
+            } else {
+              toast.error(formatted.title, { description: toastDesc })
+            }
           },
         })
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {
           if (!firstTokenReceived) {
-            const msg = 'AI 响应超时(15 秒内未收到任何内容),请稍后重试'
-            useChatStore.getState().setMessageError(assistantId, msg)
-            useChatStore.getState().setError(msg)
+            const formatted = formatSSEError(err, 'AI 响应超时(15 秒内未收到任何内容),请稍后重试')
+            useChatStore.getState().setMessageError(assistantId, formatted.message)
+            useChatStore.getState().setError(formatted.message)
           }
-        } else if (err instanceof Error && err.name === 'SSEError') {
-          useChatStore.getState().setMessageError(assistantId, err.message)
-          useChatStore.getState().setError(err.message)
         } else {
-          const message = err instanceof Error ? err.message : '网络异常'
-          useChatStore.getState().setMessageError(assistantId, message)
-          useChatStore.getState().setError(message)
+          const formatted = formatSSEError(err)
+          useChatStore.getState().setMessageError(assistantId, formatted.message)
+          useChatStore.getState().setError(formatted.message)
+          if (formatted.severity === 'auth') {
+            useLoginDialogStore.getState().open('login')
+          }
+          if (formatted.severity === 'ratelimit') {
+            toast.warning(formatted.title, { description: formatted.message })
+          } else if (formatted.severity === 'network') {
+            toast.error(formatted.title, { description: formatted.message })
+          } else {
+            toast.error(formatted.title, { description: formatted.rawMessage })
+          }
         }
       } finally {
         clearTimeout(timeoutId)

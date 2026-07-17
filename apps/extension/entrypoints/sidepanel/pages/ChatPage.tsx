@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { streamChat, fetchModels, type StreamChatOptions, type LlmModel } from '@ihui/api-client'
+import {
+  streamChat,
+  fetchModels,
+  formatSSEError,
+  type StreamChatOptions,
+  type LlmModel,
+} from '@ihui/api-client'
 import { useOutletContext } from 'react-router-dom'
 import type { ChatMessage } from './types'
 
@@ -8,9 +14,27 @@ interface Ctx {
 }
 
 const FALLBACK_MODELS: LlmModel[] = [
-  { id: 'stepfun/step-3.7-flash', name: 'Step 3.7 Flash', provider: 'stepfun', context_length: 8192, input_price: 0 },
-  { id: 'openai/gpt-4o-mini', name: 'GPT-4o mini', provider: 'openai', context_length: 128000, input_price: 0 },
-  { id: 'anthropic/claude-3.5-haiku', name: 'Claude 3.5 Haiku', provider: 'anthropic', context_length: 200000, input_price: 0 },
+  {
+    id: 'stepfun/step-3.7-flash',
+    name: 'Step 3.7 Flash',
+    provider: 'stepfun',
+    context_length: 8192,
+    input_price: 0,
+  },
+  {
+    id: 'openai/gpt-4o-mini',
+    name: 'GPT-4o mini',
+    provider: 'openai',
+    context_length: 128000,
+    input_price: 0,
+  },
+  {
+    id: 'anthropic/claude-3.5-haiku',
+    name: 'Claude 3.5 Haiku',
+    provider: 'anthropic',
+    context_length: 200000,
+    input_price: 0,
+  },
 ]
 
 export default function ChatPage() {
@@ -30,7 +54,8 @@ export default function ChatPage() {
         if (cancelled) return
         const list = res?.models?.length ? res.models : FALLBACK_MODELS
         setModels(list)
-        const def = res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
+        const def =
+          res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
         setModel(def)
       })
       .catch(() => {
@@ -81,14 +106,19 @@ export default function ChatPage() {
       },
       onError: (msg) => {
         window.clearTimeout(timeoutId)
+        const formatted = formatSSEError(new Error(msg))
         setMessages((cur) => {
           const copy = [...cur]
           const last = copy[copy.length - 1]
           if (last?.role === 'assistant') {
-            copy[copy.length - 1] = { ...last, content: last.content || `⚠ ${msg}` }
+            copy[copy.length - 1] = {
+              ...last,
+              content: last.content || `⚠ ${formatted.title}: ${formatted.message}`,
+            }
           }
           return copy
         })
+        setError(formatted.message)
         setStreaming(false)
       },
       onDone: () => {
@@ -100,7 +130,8 @@ export default function ChatPage() {
       await streamChat(opts)
     } catch (err) {
       window.clearTimeout(timeoutId)
-      setError(err instanceof Error ? err.message : '请求失败')
+      const formatted = formatSSEError(err)
+      setError(formatted.message)
       setStreaming(false)
     }
   }

@@ -12,7 +12,7 @@ import { loadMcpConfig } from './mcp-config.js';
 import { agentsMdExists, writeAgentsMd } from './template.js';
 import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
-import { setupAgentTools, runToolLoop, type ToolContext } from './agent.js';
+import { setupAgentTools, runToolLoop, type ToolContext, type InterjectionBlock } from './agent.js';
 import { findSkill, type Skill } from '../skills/index.js';
 import {
   getMemoryStore,
@@ -67,8 +67,9 @@ interface ReplState {
   planApproved?: boolean;
   /** /rewind 用历史快照栈,每次 sendToAgent 前压入当前 history 深拷贝 */
   rewindStack: ChatMessage[][];
-  /** P0-2 Interject:agent 运行中用户输入的非斜杠命令进入此 buffer,runToolLoop 在下一轮 drain */
-  interjectionBuffer: string[];
+  /** P0-2 Interject:agent 运行中用户输入的非斜杠命令进入此 buffer,runToolLoop 在下一轮 drain。
+   *  P0-4 扩展:支持 image content block(text/image 两类块) */
+  interjectionBuffer: InterjectionBlock[];
   /** P0-2 Interject:agent 是否正在运行(用于 rl.on('line') 路由) */
   agentRunning: boolean;
 }
@@ -222,8 +223,9 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     }
     // P0-2 Interject:agent 运行中,非斜杠输入进入 buffer(不取消当前回合)
     // 斜杠命令仍立即执行(如 /exit /clear 等紧急命令不能等 agent 完成)
+    // P0-4 扩展:输入包装为 text block(支持 image block 的统一数据结构)
     if (state.agentRunning && !input.startsWith('/')) {
-      state.interjectionBuffer.push(input);
+      state.interjectionBuffer.push({ type: 'text', text: input });
       console.info(chalk.dim(`  ↳ 已追加到 interjection buffer(当前 ${state.interjectionBuffer.length} 条),agent 下一轮处理`));
       rl.prompt();
       return;
@@ -908,7 +910,7 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
 
   // P0-2 Interject:agent 运行期间允许用户输入非斜杠命令到 buffer,runToolLoop 每轮 drain
   state.agentRunning = true;
-  const drainInterjections = (): string[] => {
+  const drainInterjections = (): InterjectionBlock[] => {
     const buf = state.interjectionBuffer;
     state.interjectionBuffer = [];
     return buf;

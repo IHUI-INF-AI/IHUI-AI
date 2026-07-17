@@ -153,7 +153,16 @@ export const chatStream = (
     else if (evt.type === 'meta' && evt.sessionId) onMeta?.({ sessionId: evt.sessionId })
     else if (evt.type === 'error' && evt.content) {
       errored = true
-      throw new Error(evt.content)
+      const err = new Error(evt.content) as Error & {
+        code?: number
+        errorCode?: string
+        retryAfter?: number
+      }
+      err.name = 'SSEError'
+      if (typeof evt.code === 'number') err.code = evt.code
+      if (typeof evt.errorCode === 'string') err.errorCode = evt.errorCode
+      if (typeof evt.retryAfter === 'number') err.retryAfter = evt.retryAfter
+      throw err
     }
   }
 
@@ -235,8 +244,12 @@ export const chatStream = (
             }
           }
         }
-        if (res.statusCode >= 400) reject(new Error(`请求失败(${res.statusCode})`))
-        else resolve()
+        if (res.statusCode >= 400) {
+          const err = new Error(`请求失败(${res.statusCode})`) as Error & { code: number }
+          err.name = 'SSEError'
+          err.code = res.statusCode
+          reject(err)
+        } else resolve()
       },
       fail: (err) => reject(new Error(err.errMsg || '请求失败')),
     })
