@@ -19,7 +19,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { streamChat, setBaseUrl, setTokenProvider } from '@ihui/api-client';
+import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type SSEErrorSeverity } from '@ihui/api-client';
 import {
   registerTools,
   listTools,
@@ -94,7 +94,7 @@ export interface AgentOptions {
   sampler?: SamplerSettings;
 }
 
-export type AgentStopReason = 'end_turn' | 'cancelled' | 'max_iterations' | 'budget_limited' | 'error';
+export type AgentStopReason = 'end_turn' | 'cancelled' | 'max_iterations' | 'budget_limited' | 'doom_loop' | 'error';
 
 export interface AgentResult {
   stopReason: AgentStopReason;
@@ -279,6 +279,105 @@ function estimateIterationCost(modelId: string, promptTokens: number, completion
   return promptTokens * pricing.input + completionTokens * pricing.output;
 }
 
+// ==================== P0-3 SamplerActor:重试 + doom loop 检测 ====================
+// 灵感来源:cli 的 sampler actor(指数退避重试 + 死循环检测)。
+// 简化策略(做减法):只对可重试错误(ratelimit/network/server)重试,auth/forbidden 立即失败。
+
+const SAMPLER_MAX_RETRIES = 3;
+const SAMPLER_DOOM_LOOP_THRESHOLD = 3;
+const SAMPLER_RETRYABLE_SEVERITIES: ReadonlySet<string> = new Set(['ratelimit', 'network', 'server']);
+
+interface SampleWithRetryOptions {
+  modelId: string;
+  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
+  signal?: AbortSignal;
+  onDelta: (delta: string) => void;
+  sampler?: SamplerSettings;
+}
+
+interface SampleWithRetryResult {
+  error?: string;
+}
+
+type RetryCallback = (
+  attempt: number,
+  errMsg: string,
+  severity: SSEErrorSeverity,
+  delayMs: number,
+) => void;
+
+/** DoomLoopDetector:记录连续相同错误签名,超过阈值判定死循环。 */
+class DoomLoopDetector {
+  private lastSignature = '';
+  private consecutiveCount = 0;
+
+  recordError(errMsg: string): void {
+    const sig = this.signature(errMsg);
+    if (sig === this.lastSignature) {
+      this.consecutiveCount++;
+    } else {
+      this.lastSignature = sig;
+      this.consecutiveCount = 1;
+    }
+  }
+
+  isDoomLoop(): boolean {
+    return this.consecutiveCount >= SAMPLER_DOOM_LOOP_THRESHOLD;
+  }
+
+  private signature(msg: string): string {
+    // 简化签名:取首行 + 去数字(避免 token 计数差异干扰)
+    return msg.split('\n')[0]?.replace(/\d+/g, 'N').trim().slice(0, 120) ?? '';
+  }
+}
+
+/**
+ * sampleWithRetry:包装 streamChat,对可重试错误(ratelimit/network/server)按指数退避重试。
+ * 不可重试错误(auth/forbidden/unknown)立即返回,不重试。
+ * onRetry 回调在每次重试前触发,用于日志输出。
+ */
+async function sampleWithRetry(
+  opts: SampleWithRetryOptions,
+  onRetry?: RetryCallback,
+): Promise<SampleWithRetryResult> {
+  for (let attempt = 0; ; attempt++) {
+    let errMsg: string | undefined;
+    try {
+      await streamChat({
+        model: opts.modelId,
+        messages: opts.messages,
+        signal: opts.signal,
+        onDelta: opts.onDelta,
+        ...(opts.sampler ?? {}),
+      } as Parameters<typeof streamChat>[0]);
+    } catch (e) {
+      errMsg = e instanceof Error ? e.message : String(e);
+    }
+    if (errMsg === undefined) return {};
+    const formatted = formatSSEError(new Error(errMsg));
+    // 不可重试错误立即返回
+    if (!SAMPLER_RETRYABLE_SEVERITIES.has(formatted.severity)) {
+      return { error: errMsg };
+    }
+    // 达到最大重试次数,返回最后一次错误
+    if (attempt >= SAMPLER_MAX_RETRIES) {
+      return { error: errMsg };
+    }
+    // 指数退避:1s, 2s, 4s...(ratelimit 至少 5s)
+    const base = formatted.severity === 'ratelimit' ? 5000 : 1000;
+    const delayMs = base * Math.pow(2, attempt);
+    onRetry?.(attempt + 1, errMsg, formatted.severity, delayMs);
+    await new Promise<void>((resolve) => {
+      const t = setTimeout(resolve, delayMs);
+      opts.signal?.addEventListener('abort', () => {
+        clearTimeout(t);
+        resolve();
+      }, { once: true });
+    });
+    if (opts.signal?.aborted) return { error: 'aborted' };
+  }
+}
+
 /** 执行多轮工具循环,直到 end_turn 或 maxIterations。messages 数组会被原地修改(追加 assistant + tool_result 消息) */
 export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoopResult> {
   let assistantText = '';
@@ -292,6 +391,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   const FAILURE_REFLECTION_THRESHOLD = 2;
   // P1-2 Reminders:跨迭代持久化已注入的 reminder 类型(避免重复注入)
   const reminderInjected = new Set<string>();
+  // P0-3 SamplerActor:doom loop 检测器(连续 N 次相同错误签名判定死循环)
+  const doomLoopDetector = new DoomLoopDetector();
+  let doomLoopDetected = false;
 
   // P0-2 Interject:drain pending buffer 并作为新 user 消息追加。返回是否有 interjection 被 drain。
   function drainAndAppendInterjections(): boolean {
@@ -319,24 +421,51 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       let iterationText = '';
       let iterError = false;
 
-      await streamChat({
-        model: opts.modelId,
-        messages: effectiveMessages,
-        signal: opts.signal,
-        onDelta: (delta) => {
-          iterationText += delta;
-          void opts.onDelta?.(delta);
+      // P0-3 SamplerActor:用 sampleWithRetry 包裹 streamChat,添加指数退避重试 + doom_loop 检测
+      const samplerResult = await sampleWithRetry(
+        {
+          modelId: opts.modelId,
+          messages: effectiveMessages,
+          signal: opts.signal,
+          onDelta: (delta) => {
+            iterationText += delta;
+            void opts.onDelta?.(delta);
+          },
+          sampler: opts.sampler,
         },
-        onError: (err) => {
-          iterError = true;
-          hadError = true;
-          void opts.onError?.(err);
+        (attempt, errMsg, severity, delayMs) => {
+          const formatted = formatSSEError(new Error(errMsg));
+          process.stderr.write(
+            chalk.yellow(`[retry] 第 ${attempt}/${SAMPLER_MAX_RETRIES} 次重试(${severity})${delayMs}ms 后: ${formatted.message}\n`),
+          );
         },
-        onDone: () => {
-          // 由调用方处理
-        },
-        ...(opts.sampler ?? {}),
-      });
+      );
+
+      if (samplerResult.error) {
+        iterError = true;
+        hadError = true;
+        const formatted = formatSSEError(new Error(samplerResult.error));
+        if (formatted.severity === 'auth' || formatted.severity === 'forbidden') {
+          process.stderr.write(chalk.red(`[${formatted.severity}] ${formatted.title}: ${formatted.rawMessage}\n`));
+        } else if (formatted.severity === 'ratelimit') {
+          process.stderr.write(chalk.yellow(`[rate-limit] ${formatted.message}\n`));
+        } else if (formatted.severity === 'server') {
+          process.stderr.write(chalk.red(`[server] ${formatted.title}: ${formatted.rawMessage}\n`));
+        } else {
+          process.stderr.write(chalk.red(`[error] ${formatted.title}: ${formatted.rawMessage}\n`));
+        }
+        void opts.onError?.(formatted.message);
+        // P0-3 记录错误签名,检测 doom loop(连续 N 次相同错误)
+        doomLoopDetector.recordError(samplerResult.error);
+        if (doomLoopDetector.isDoomLoop()) {
+          doomLoopDetected = true;
+          process.stderr.write(
+            chalk.red(`[doom-loop] 连续 ${SAMPLER_DOOM_LOOP_THRESHOLD} 次相同错误签名,判定陷入死循环,终止\n`),
+          );
+          void opts.onError?.(`Doom loop detected: 连续 ${SAMPLER_DOOM_LOOP_THRESHOLD} 次相同错误`);
+          break;
+        }
+      }
 
       if (iterError) break;
 
@@ -456,6 +585,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let stopReason: AgentStopReason;
   if (opts.signal?.aborted) {
     stopReason = 'cancelled';
+  } else if (doomLoopDetected) {
+    // P0-3 doom loop:连续相同错误签名,判定死循环,按 error 终止
+    stopReason = 'error';
   } else if (hadError) {
     stopReason = 'error';
   } else if (budgetLimited) {
