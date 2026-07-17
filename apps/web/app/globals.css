@@ -70,9 +70,9 @@
   --color-primary-foreground: hsl(0 0% 100%);
   --color-secondary: hsl(0 0% 96.1%);
   --color-secondary-foreground: hsl(0 0% 9%);
-  --color-muted: hsl(0 0% 96.1%);
+  --color-muted: hsl(0 0% 92%);
   --color-muted-foreground: hsl(0 0% 40%);
-  --color-accent: hsl(0 0% 96.1%);
+  --color-accent: hsl(0 0% 88%);
   --color-accent-foreground: hsl(0 0% 9%);
   --color-destructive: hsl(0 84.2% 60.2%);
   --color-destructive-foreground: hsl(0 0% 98%);
@@ -102,6 +102,8 @@
   --color-sidebar-hover: hsl(218 14% 92%);
   --color-sidebar-active: hsl(222 13% 86%);
   --color-sidebar-active-hover: hsl(217 11% 80%);
+  /* 侧边栏导航项 hover 背景容器色:亮色纯白,与 sidebar 的 96.1% L 浅灰底形成区分 */
+  --color-sidebar-item-hover-bg: hsl(0 0% 100%);
   --color-shell-panel: hsl(0 0% 100%);
 
   --animate-ripple: ripple 0.6s ease-out;
@@ -132,7 +134,7 @@
 }
 
 .dark {
-  --color-background: hsl(0 0% 6%);
+  --color-background: hsl(0 0% 14%);
   --color-foreground: hsl(0 0% 98%);
   --color-card: hsl(0 0% 6%);
   --color-card-foreground: hsl(0 0% 98%);
@@ -144,7 +146,7 @@
   --color-secondary-foreground: hsl(0 0% 98%);
   --color-muted: hsl(0 0% 14.9%);
   --color-muted-foreground: hsl(0 0% 63.9%);
-  --color-accent: hsl(0 0% 14.9%);
+  --color-accent: hsl(0 0% 17%);
   --color-accent-foreground: hsl(0 0% 98%);
   --color-destructive: hsl(0 62.8% 30.6%);
   --color-destructive-foreground: hsl(0 0% 98%);
@@ -163,7 +165,10 @@
   --color-sidebar-hover: hsl(222 14% 14%);
   --color-sidebar-active: hsl(228 21% 8%);
   --color-sidebar-active-hover: hsl(0 0% 0%);
-  --color-shell-panel: hsl(220 12% 22%);
+  /* 暗色模式:纯黑,与 sidebar 的 14% L 偏白底形成区分 */
+  --color-sidebar-item-hover-bg: hsl(0 0% 0%);
+  /* 暗色模式:深灰色,与 14% L 偏白页面底形成反向对比 */
+  --color-shell-panel: hsl(220 12% 8%);
 }
 
 * {
