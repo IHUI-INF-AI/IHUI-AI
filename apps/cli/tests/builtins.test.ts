@@ -13,8 +13,8 @@ import {
 import type { ToolContext } from '../src/tools/index.js'
 
 describe('BUILTIN_TOOLS', () => {
-  it('注册 9 个核心工具(含 4 个后台任务工具)', () => {
-    expect(BUILTIN_TOOLS).toHaveLength(9)
+  it('注册 10 个核心工具(含 4 个后台任务工具 + todo_write)', () => {
+    expect(BUILTIN_TOOLS).toHaveLength(10)
     const names = BUILTIN_TOOLS.map((t) => t.name).sort()
     expect(names).toEqual([
       'get_command_output',
@@ -25,6 +25,7 @@ describe('BUILTIN_TOOLS', () => {
       'list_dir',
       'read_file',
       'run_command',
+      'todo_write',
       'wait_command',
     ])
   })
