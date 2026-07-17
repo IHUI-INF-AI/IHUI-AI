@@ -1,8 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
@@ -10,9 +8,10 @@ import { Loader2 } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 import { CaptchaCanvas } from '@/components/login'
 import { Alert } from '@/components/feedback'
-import { loginSchema, type LoginValues } from './types'
+import { loginSchema, type LoginValues } from './login-schemas'
 
 interface PasswordLoginFormProps {
   active: boolean
@@ -21,7 +20,6 @@ interface PasswordLoginFormProps {
 
 export function PasswordLoginForm({ active, onSuccess }: PasswordLoginFormProps) {
   const t = useTranslations('auth')
-  const router = useRouter()
   const setToken = useAuthStore((s) => s.setToken)
   const setUser = useAuthStore((s) => s.setUser)
 
@@ -77,8 +75,7 @@ export function PasswordLoginForm({ active, onSuccess }: PasswordLoginFormProps)
       }
       setToken(json.data.accessToken, json.data.refreshToken)
       if (json.data.user) setUser(json.data.user)
-      if (onSuccess) onSuccess()
-      else router.push('/')
+      onSuccess?.()
     } catch {
       setServerError(t('loginFailed'))
     } finally {
@@ -105,12 +102,13 @@ export function PasswordLoginForm({ active, onSuccess }: PasswordLoginFormProps)
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="password">{t('password')}</Label>
-          <Link
-            href="/forgot-password"
+          <button
+            type="button"
+            onClick={() => useLoginDialogStore.getState().open('forgot')}
             className="text-xs text-muted-foreground hover:text-primary"
           >
             {t('forgotPassword')}
-          </Link>
+          </button>
         </div>
         <Input
           id="password"

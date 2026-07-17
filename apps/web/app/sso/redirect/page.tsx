@@ -88,7 +88,11 @@ export default async function SsoRedirectPage({
     }
     ssoCode = data.data.code
   } catch {
-    redirect(`/login?redirect=${encodeURIComponent(targetUrl)}`)
+    // SSO code generation failed — redirect to home with reauth query params
+    // so the frontend LoginRedirectListener opens the login dialog and re-triggers
+    // the SSO flow after successful authentication.
+    const nextPath = `/sso/redirect?redirect=${encodeURIComponent(targetUrl)}&client_id=${clientId}`
+    redirect(`/?reauth=1&next=${encodeURIComponent(nextPath)}`)
   }
 
   if (ssoCode) {

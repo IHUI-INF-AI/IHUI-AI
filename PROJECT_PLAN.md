@@ -3672,6 +3672,54 @@ themes.test.ts:鉴权(403)+ CRUD(201/200/404)+ isCurrent 事务 + current/dark-m
 
 ---
 
+### ✅(2026-07-17) goal achieved — P2 零散 4 admin 路由真实化(0 新表 + 4 路由 + 22 测试)
+
+> /goal 第 12 轮:零散 admin 真空桩真实化(用户决策走"修订版 A-1")
+
+**结论:10 个硬性指标全部完成,typecheck+lint+test 全绿,commit `ab4e3c65` 已推 `origin/main`。状态 achieved。**
+
+#### 完成清单
+
+| #   | 硬性指标                          | 状态 | 产出                                                               |
+| --- | --------------------------------- | ---- | ------------------------------------------------------------------ |
+| 1   | PUT /admin/users/:id 真实化       | ✅   | users 表 + Zod 严格白名单(10 字段,黑名单 email/phone/passwordHash) |
+| 2   | PUT /admin/orders/:id 真实化      | ✅   | eduOrders 表 + status 枚举校验(pending/paid/cancelled/refunded)    |
+| 3   | DELETE /admin/orders/:id 真实化   | ✅   | eduOrders 表 + returning + 404 兜底                                |
+| 4   | POST /admin/customer-service/send | ✅   | customerServiceComments(createComment 复用,isAdmin=true,接口兼容)  |
+| 5   | 新增 ≥ 12 测试用例                | ✅   | apps/api/tests/admin-stub-orders-users-cs.test.ts(22 用例)         |
+| 6   | database typecheck                | ✅   | 0 错误                                                             |
+| 7   | api typecheck(清缓存)             | ✅   | 0 错误(find . -name '*.tsbuildinfo' -delete 后)                    |
+| 8   | api lint                          | ✅   | 0 errors(16 warnings:14 pre-existing + 2 subagent test any)        |
+| 9   | api test                          | ✅   | Test Files 233 passed,Tests 3430 passed(baseline 3408 + 新增 22)   |
+| 10  | commit + push                     | ✅   | ab4e3c65 → origin/main                                             |
+
+#### 关键发现与教训
+
+1. **并发环境 subagent 验证不可信**:subagent 跑测试时工作区有上游 P1 schema batch2 + login 重构 + P2 4 路由混合改动,subagent 报告"全绿"。主线程接手时工作区已被其他 agent reset 到 1572e963,typecheck 出现 3 错误(llmCallLogs export 缺失 + 未使用 config import)。差异根因:多 agent 并发操作污染工作区。
+2. **stash 隔离策略有效**:`git stash push -u` 暂存 24 文件 + 9 untracked → `git reset --hard origin/main` 干净基线 → `git checkout 'stash@{1}' -- <file>` 精准提取 P2 改动,验证可信。
+3. **subagent 漏 export 教训已修复**:第 11 轮教训是"subagent 报告全绿但 schema/index.ts 漏 export",第 12 轮主线程主动清缓存重跑 + 独立 grep 验证,提前发现问题。
+4. **concurrent agent 干扰**:目标执行期间其他 agent 推送了 ed494d62 (UI 风格)、1572e963 (登录重构),并清空 .trae-cn/goal-runtime/ 的检查脚本。
+
+#### 残留问题(后续任务)
+
+- 12 个需新表/外部服务路由待补齐(LLM 流式 1 + OSS 1 + PDF tool × 4 + WS 1 + PDF service × 5)
+- 12 个需 ai-service 集成路由待处理
+- 30 个 admin 保留桩(无对应表无实现)
+- 多端同步:所有新增表 + 路由仅后端落地,前端未同步
+- 测试 warning 清理(16 warnings:14 pre-existing + 2 subagent test any)
+- isCurrent 唯一性:应用层事务,无 DB 层 partial unique index
+- migration 0094/0095/0096/0097/0098 未实际执行(仅生成 SQL,生产部署前需执行)
+
+#### git 信息
+
+- commit:ab4e3c65(feat(api): P2 零散 4 admin 路由真实化 (users/orders/customer-service-send) + 22 测试)
+- 推送:origin/main 已同步(1572e963..ab4e3c65)
+- 起始 commit:1b068728(理论)→ 实际 1572e963(中间被其他 agent 推送了登录重构)
+- 文件变更:2 files changed, 740 insertions(+), 96 deletions(-)
+- 运行时文件 .trae-cn/goal-runtime/STATE.md + loop-run-log.md 已清理
+
+---
+
 > 用户决策(2026-07-16):Tauri 2.0(桌面)+ React Native + Expo(移动)+ Chrome MV3 + WXT(插件)+ CLI 升级。要求最优最强架构、最细致最完美。
 
 #### 0. 总体架构(多端共享 + 平台特化)

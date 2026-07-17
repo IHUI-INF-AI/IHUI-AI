@@ -376,6 +376,7 @@
     "noAccount": "아직 계정이 없으신가요?",
     "registerNow": "신청",
     "forgotPassword": "비밀번호 찾기",
+    "forgotSubtitle": "비밀번호 재설정",
     "registerTitle": "계정 만들기",
     "registerSubtitle": "새 계정 등록",
     "phonePlaceholder": "요청입력휴대전화번호",
@@ -10485,6 +10486,8 @@
     "generateCodeFailed": "인증 코드 생성 실패",
     "footerHint": "인증 후 대상 앱으로 자동 리디렉션됩니다. 로그인 상태는 모든 하위 프로젝트에서 공유됩니다.",
     "registerTitle": "통합 가입",
+    "dialogPrompt": "가입 대화상자를 여는 중…",
+    "openDialog": "가입 대화상자 열기",
     "alreadyHaveAccount": "이미 계정이 있으신가요?",
     "toLogin": "로그인으로",
     "redirect": {

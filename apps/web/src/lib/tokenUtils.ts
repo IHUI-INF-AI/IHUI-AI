@@ -6,7 +6,7 @@
  *
  * 使用方式(在登录成功后):
  *   import { startAutoRefresh, stopAutoRefresh } from '@/lib/tokenUtils'
- *   startAutoRefresh(err => router.push('/login'))
+ *   startAutoRefresh(err => useLoginDialogStore.getState().open('login'))
  *
  * 依赖:useAuthStore 持久化 token + refreshToken(accessToken 必须是 JWT 带 exp 字段)。
  */
