@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { getProfile, type AuthUser } from '@ihui/api-client'
-import { initApi, getToken, setToken, clearToken } from '../../lib/token'
+import { getProfile, logout, type AuthUser, type LoginResult } from '@ihui/api-client'
+import { initApi, getToken, getRefreshToken, setTokenPair, clearAllTokens } from '../../lib/token'
+import { startAutoRefresh, scheduleRefreshAlarm, doRefresh } from '../../lib/token-utils'
 import { useNotificationWebSocket } from '../../lib/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../../lib/notification-store'
 import LoginPage from './pages/LoginPage'
@@ -14,6 +15,11 @@ const TABS = [
   { to: '/courses', label: '课程', icon: '📚' },
   { to: '/settings', label: '设置', icon: '⚙️' },
 ]
+
+function isUnauthorized(res: { success: false; error: string; status?: number }): boolean {
+  if (res.status === 401) return true
+  return /401|未授权|unauthorized/i.test(res.error)
+}
 
 function SidepanelInner() {
   const navigate = useNavigate()
@@ -37,10 +43,28 @@ function SidepanelInner() {
       setTokenState(t)
       setAuthed(!!t)
       if (t) {
-        const res = await getProfile()
+        let res = await getProfile()
         if (cancelled) return
-        if (res.success) setUser(res.data)
+        if (!res.success && isUnauthorized(res)) {
+          const refreshed = await doRefresh()
+          if (cancelled) return
+          if (refreshed) {
+            res = await getProfile()
+          } else {
+            await clearAllTokens()
+            setTokenState(null)
+            setAuthed(false)
+            setReady(true)
+            return
+          }
+        }
+        if (res.success) {
+          setUser(res.data)
+          const cur = getToken()
+          if (cur) scheduleRefreshAlarm(cur)
+        }
       }
+      startAutoRefresh()
       setReady(true)
     })()
     return () => {
@@ -48,16 +72,23 @@ function SidepanelInner() {
     }
   }, [])
 
-  const onLoginSuccess = async (newToken: string) => {
-    await setToken(newToken)
-    setTokenState(newToken)
+  const onLoginSuccess = async (result: LoginResult) => {
+    await setTokenPair({
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      expiresIn: result.expiresIn,
+    })
+    setTokenState(result.accessToken)
     setAuthed(true)
+    scheduleRefreshAlarm(result.accessToken)
+    startAutoRefresh()
     const res = await getProfile()
     if (res.success) setUser(res.data)
   }
 
-  const onLogout = () => {
-    clearToken()
+  const onLogout = async () => {
+    await logout(getRefreshToken() || '')
+    await clearAllTokens()
     setTokenState(null)
     setAuthed(false)
     setUser(null)

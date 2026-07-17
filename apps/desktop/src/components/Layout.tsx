@@ -2,24 +2,26 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { logout as apiLogout, type AuthUser } from '@ihui/api-client'
 import { clearToken, getRefreshToken } from '../lib/token'
 import { useNotificationStore } from '../stores/notification'
+import { useI18n } from '../i18n'
 
 interface Props {
   user: AuthUser | null
   wsConnected: boolean
 }
 
-const NAV = [
-  { to: '/chat', label: 'AI 对话' },
-  { to: '/profile', label: '个人中心' },
-  { to: '/wallet', label: '钱包' },
-  { to: '/orders', label: '订单' },
-  { to: '/courses', label: '课程' },
-  { to: '/settings', label: '设置' },
-]
-
 export default function Layout({ user, wsConnected }: Props) {
   const navigate = useNavigate()
   const { unreadCount, setVisible } = useNotificationStore()
+  const { t } = useI18n()
+
+  const nav = [
+    { to: '/chat', label: t('nav.chat') },
+    { to: '/profile', label: t('nav.profile') },
+    { to: '/wallet', label: t('nav.wallet') },
+    { to: '/orders', label: t('nav.orders') },
+    { to: '/courses', label: t('nav.courses') },
+    { to: '/settings', label: t('nav.settings') },
+  ]
 
   const onLogout = async () => {
     const refreshToken = getRefreshToken()
@@ -39,7 +41,7 @@ export default function Layout({ user, wsConnected }: Props) {
       <aside className="sidebar">
         <div className="brand">IHUI AI</div>
         <nav>
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
