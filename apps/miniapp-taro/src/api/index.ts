@@ -659,9 +659,16 @@ export const generateImage = (data: { prompt: string; size?: string }) =>
 export const voiceChat = (data: { audio: string }) =>
   post<{ reply: string; audio?: string }>('/ai/voice', data)
 export const getAgentList = () =>
-  get<{ list: Array<{ id: string; name: string; desc: string; avatar?: string; uses: number }> }>(
-    '/ai/agent/list',
-  )
+  get<{
+    list: Array<{
+      id: string
+      name: string
+      desc: string
+      avatar?: string
+      uses: number
+      isVipExclusive?: boolean
+    }>
+  }>('/ai/agent/list')
 export const getAgentDetail = (id: string | number) =>
   get<{
     id: string
@@ -670,7 +677,22 @@ export const getAgentDetail = (id: string | number) =>
     avatar?: string
     prompt: string
     config?: Record<string, unknown>
+    isVipExclusive?: boolean
   }>(`/ai/agent/${id}`)
+
+/** Agent 权限类型 — 与后端 AgentPermission.type 对齐 */
+export type AgentPermissionType = 'free' | 'vip' | 'purchased' | 'vip_only'
+
+/** Agent 权限结果 — 与 @ihui/api-client AgentPermission 对齐 */
+export interface AgentPermission {
+  hasPermission: boolean
+  type: AgentPermissionType
+  reason?: string
+}
+
+/** 获取指定 Agent 的访问权限(对接后端 GET /api/agent-ext/:id/permission) */
+export const getAgentPermission = (id: string | number) =>
+  get<AgentPermission>(`/agent-ext/${id}/permission`)
 
 /* ============ 直播扩展 ============ */
 
