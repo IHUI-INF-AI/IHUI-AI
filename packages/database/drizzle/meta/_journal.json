@@ -694,6 +694,13 @@
       "when": 1784288152961,
       "tag": "0098_bright_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1784290646719,
+      "tag": "0099_skinny_wallow",
+      "breakpoints": true
     }
   ]
 }
