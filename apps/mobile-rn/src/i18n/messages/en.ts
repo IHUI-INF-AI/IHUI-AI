@@ -21,6 +21,7 @@ export default {
     orders: 'Orders',
     settings: 'Settings',
     profile: 'Profile',
+    agents: 'Agents',
   },
   auth: {
     login: 'Login',
