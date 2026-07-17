@@ -126,6 +126,13 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo):
 - 状态徽章: draft 灰 / published 绿
 - 积分正数绿色,负数红色
 - 每个页面 < 250 行
+- **禁止纯圆形 / 胶囊形状的容器样式**(强制):任何承载内容或交互的容器(卡片 / 面板 / 按钮 / 输入框 / 弹窗 / 标签条 / 侧栏项 / 操作行 / 列表项 / 气泡 / 工具栏 / 浮层 / 徽章容器 等)**一律不得**使用 `rounded-full`、`rounded-pill`、`border-radius: 9999px`、`border-radius: 50%` 或任何等价的纯圆 / 胶囊圆角;只允许使用本项目规范圆角体系对应 px 值:
+  - web 端(Tailwind v4):基础 `--radius: 0.5rem`(8px),按尺寸梯度使用 `rounded-sm`(2px)/ `rounded`(4px)/ `rounded-md`(6px)/ `rounded-lg`(8px)/ `rounded-xl`(12px)/ `rounded-2xl`(16px),元素越大圆角越大,但不得跨越到胶囊。
+  - miniapp-taro / mobile-rn(Tailwind v3 / NativeWind):同上尺寸梯度,使用 `rounded-sm/md/lg/xl/2xl` 等具名档位,禁止 `rounded-full` / `rounded-pill`。
+  - 直写 CSS:使用 `border-radius: 2px/4px/6px/8px/12px/16px`,禁止 `9999px` / `50%` 用于容器。
+  - **唯一豁免**(仅限非容器装饰元素,不承载主要内容/交互):用户头像图片本身(`Avatar` 的 `<img>`)、纯装饰性状态指示点(`w-2 h-2` 级别连接灯/在线点)、未读消息数字角标的红点底、`Switch` 拇指(`SwitchPrimitives.Thumb`)。其余任何场景一律不得使用纯圆形 / 胶囊。
+  - 头像容器(包裹 Avatar 的外层 div)、徽章背景容器、按钮、输入框、卡片等**不得**借"豁免"名义使用 `rounded-full`。
+  - 既有代码出现违规时,在涉及该文件的修改任务中一并纠正为本项目规范圆角(不单独发起大改)。
 
 ---
 
