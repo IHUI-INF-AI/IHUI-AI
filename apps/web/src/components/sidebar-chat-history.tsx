@@ -152,8 +152,8 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
       success(tc('deleteSuccess'))
       setPendingDeleteId(null)
     },
-    onError: () => {
-      error(tc('deleteFailed'))
+    onError: (err: Error) => {
+      error(err.message || tc('deleteFailed'))
     },
   })
 

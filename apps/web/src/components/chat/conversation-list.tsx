@@ -94,6 +94,9 @@ export function ConversationList({ items }: { items: Conversation[] }) {
       return res
     },
     onSuccess: () => invalidateAll(),
+    onError: (err: Error) => {
+      error(err.message || tc('deleteFailed'))
+    },
   })
 
   const favMutation = useMutation({
