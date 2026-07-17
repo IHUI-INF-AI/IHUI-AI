@@ -1106,7 +1106,31 @@
     "failed": "未通过",
     "correct": "正确",
     "incorrect": "错误",
-    "timeUp": "时间已到，已自动提交"
+    "timeUp": "时间已到，已自动提交",
+    "wrongQuestions": {
+      "title": "错题本",
+      "subtitle": "回顾错题，巩固薄弱知识点",
+      "statsTotal": "错题总数",
+      "statsUnresolved": "未掌握",
+      "statsResolved": "已掌握",
+      "filterAll": "全部",
+      "filterUnresolved": "未掌握",
+      "filterResolved": "已掌握",
+      "examIdPlaceholder": "按试卷 ID 筛选（可选）",
+      "colQuestion": "题目内容",
+      "colSource": "来源试卷",
+      "colTime": "添加时间",
+      "colStatus": "状态",
+      "colActions": "操作",
+      "markAsResolved": "标记已掌握",
+      "markSuccess": "已标记为掌握",
+      "empty": "暂无错题",
+      "loading": "加载中...",
+      "prev": "上一页",
+      "next": "下一页",
+      "pageInfo": "第 {page}/{totalPages} 页",
+      "total": "共 {total} 条"
+    }
   },
   "circles": {
     "title": "圈子",
@@ -5276,7 +5300,10 @@
       "stat_total": "全部",
       "stat_pending": "待审核",
       "stat_approved": "已通过",
-      "stat_rejected": "已驳回"
+      "stat_rejected": "已驳回",
+      "statusPending": "待审核",
+      "statusApproved": "已通过",
+      "statusRejected": "已驳回"
     },
     "agentTask": {
       "title": "Agent任务管理",
@@ -9236,6 +9263,10 @@
     "rechargeFail": "充值失败",
     "rechargeSuccessDesc": "您的充值已到账",
     "rechargeFailDesc": "充值未完成，请重试",
+    "rechargeOrderNo": "订单号",
+    "viewRecords": "查看记录",
+    "retryRecharge": "重新充值",
+    "contactSupport": "联系客服",
     "withdrawTitle": "提现申请",
     "withdrawAmount": "提现金额",
     "withdrawMethod": "提现方式",
