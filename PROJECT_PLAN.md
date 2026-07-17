@@ -19839,9 +19839,27 @@ grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工
 - 🚫 **0 项真实缺失**
 - 🚫 **1 项业务前置**(已包含在 P1-27):连续包月商品 API 需业务评估
 
-#### P3 待推进(12 项,长期优化)
+#### ✅ P3 调研完成(2026-07-18)— 12 项中 4 项已完成,1 项本轮补齐,7 项业务前置/平台独占
 
-- **P3 长期优化**:App 端原生支持评估 + 字体/iconfont/模型 logo 补齐 + Screenfull/拖拽组件核查
+**P3 12 项真实状态**:
+
+- ✅ **4 项已实现(误判为缺失,33%)**:
+  - P3-54 App 端原生支持 — **架构替代**(已用 `apps/mobile-rn`(Expo)+ `apps/desktop`(Tauri)+ `apps/extension`(WXT)三端独立实现,uni-app app-plus 配置无需迁移)
+  - P3-57 H5 隐私协议静态页 — 已实现(`apps/miniapp-taro/src/pages/about/privacy.tsx`,对接 API + RichText 渲染)
+  - P3-60 Screenfull 组件 — 已实现(4 处用原生 `requestFullscreen()` 替代:`UnifiedViewer.tsx:35-40` / `VideoPlayer.tsx:67-71` / `LivePlayer.tsx:149-152` / `chat-mode.ts:9-24`)
+  - P3-61 拖拽组件 — 已实现(`ai-side-panel.tsx:155,266-272` 用原生 PointerEvents 实现侧边栏拖拽)
+- ✅ **1 项本轮补齐**:
+  - P3-55a 小程序自定义字体 — 本轮 commit 补齐(采用 `Taro.loadFontFace` 网络字体方案,复用 web 端 `https://ihui.ai/fonts/HarmonyOS_SansSC_Regular.ttf`,因字体 8MB 无法本地打包)
+- 🚫 **7 项业务前置/平台独占**:
+  - P3-55b 小程序 iconfont — 业务决策(lucide-react SVG vs iconfont 字体路线选择)
+  - P3-55c 300+ 模型 logo — 业务前置(当前代码 0 引用,需评估是否需要展示)
+  - P3-56 小米平台隐私合规 — 平台独占(AGENTS.md 第 10 节豁免,小米是独立小程序平台)
+  - P3-58a learn.vue 课程学习单页 — 业务前置(course/detail 已部分覆盖,需确认是否需独立学习单页)
+  - P3-58b user/window.vue 用户中心弹窗 — 业务前置(需历史项目源码或业务描述)
+  - P3-59 ai_assistant 普通助手独立页 — 业务前置(/pages/ai/agent + /pages/ai/chat 已覆盖,需确认是否需独立分类页)
+  - P3-62 富文本 Base64/视频插入 — 业务前置(TiptapToolbar 已支持图片 URL 插入,需评估是否需 Base64 内联 + 视频插入)
+
+**P3 整体完成度**:5/12 已完成(42%),7/12 业务前置(58%),0 项真实缺失
 
 完整 5 份 subagent 比对报告(含每项文件路径+行号证据)保留在会话上下文中,可作为后续修复任务的输入。
 
