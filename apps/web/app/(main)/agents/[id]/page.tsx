@@ -10,7 +10,7 @@ import Image from 'next/image'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
-import { Avatar } from '@/components/data/Avatar'
+import { Avatar, VipBadge } from '@/components/data'
 import { DescriptionList } from '@/components/data/DescriptionList'
 import { AgentProgressPanel } from '@/components/ai/agent-progress-panel'
 import { PlanReviewPanel } from '@/components/ai/plan-review-panel'
@@ -20,6 +20,7 @@ import { BackgroundAgentsPanel } from '@/components/ai/background-agents-panel'
 import { AgentSwarmMonitor } from '@/components/ai/agent-swarm-monitor'
 import { PermissionConfirmDialog } from '@/components/ai/permission-confirm-dialog'
 import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
+import { getAgentPermission } from '@ihui/api-client'
 
 interface Agent {
   agentId: string
@@ -32,6 +33,7 @@ interface Agent {
   status: string
   price: number
   isFree: boolean
+  isVipExclusive?: boolean | null
   sort: number
   remark: string | null
   createdAt: string
@@ -58,6 +60,14 @@ const STATUS_CLASS: Record<string, string> = {
   offline: 'bg-muted text-muted-foreground',
 }
 
+const PERMISSION_REASON_KEY: Record<string, string> = {
+  free: 'permissionReasonFree',
+  vip: 'permissionReasonVip',
+  purchased: 'permissionReasonPurchased',
+  vip_only: 'permissionReasonVipOnly',
+  paid: 'permissionReasonVip',
+}
+
 export default function AgentDetailPage() {
   const t = useTranslations('agents')
   const tc = useTranslations('common')
@@ -77,6 +87,14 @@ export default function AgentDetailPage() {
     enabled: !!id,
   })
 
+  // 仅在详情页调用 getAgentPermission，避免列表层 N+1 请求
+  const { data: permission, isLoading: permLoading } = useQuery({
+    queryKey: ['agents', 'permission', id],
+    queryFn: () => getAgentPermission(id),
+    enabled: !!id,
+    retry: false,
+  })
+
   const priceFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -87,6 +105,7 @@ export default function AgentDetailPage() {
   })
   const statusKey = agent ? (STATUS_KEY[agent.status] ?? 'statusPending') : ''
   const statusClass = agent ? (STATUS_CLASS[agent.status] ?? STATUS_CLASS.pending) : ''
+  const permInfo = permission?.success ? permission.data : undefined
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -128,6 +147,11 @@ export default function AgentDetailPage() {
                   <Sparkles className="h-10 w-10" />
                 </div>
               )}
+              {agent.isVipExclusive && (
+                <div className="absolute left-2 top-2">
+                  <VipBadge />
+                </div>
+              )}
             </div>
             <div className="space-y-3 p-4">
               <div className="flex items-start gap-3">
@@ -149,6 +173,7 @@ export default function AgentDetailPage() {
                     >
                       {t(statusKey)}
                     </span>
+                    {agent.isVipExclusive && <VipBadge size="md" />}
                     {agent.categoryId && (
                       <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                         <Tag className="h-3 w-3" />
@@ -164,6 +189,27 @@ export default function AgentDetailPage() {
                       {agent.isFree ? t('free') : priceFmt.format(agent.price)}
                     </span>
                   </div>
+                  {/* VIP 权限校验状态（调用 getAgentPermission 实时显示） */}
+                  {permLoading ? (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {t('permissionLoading')}
+                    </div>
+                  ) : permInfo ? (
+                    <div
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium',
+                        permInfo.hasPermission
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
+                      )}
+                    >
+                      {permInfo.hasPermission ? t('permissionAllowed') : t('permissionDenied')}
+                      {permInfo.type &&
+                        PERMISSION_REASON_KEY[permInfo.type] &&
+                        ` · ${t(PERMISSION_REASON_KEY[permInfo.type])}`}
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <p className="whitespace-pre-wrap text-sm leading-relaxed">
