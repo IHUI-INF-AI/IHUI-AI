@@ -764,6 +764,21 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
   })
 
+  server.get('/rules/by-agent/:agentId', async (req, reply) => {
+    const parsed = z.object({ agentId: z.string().min(1) }).safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 agentId'))
+    try {
+      const records = await db
+        .select()
+        .from(agentRule)
+        .where(eq(agentRule.agentId, parsed.data.agentId))
+      return reply.send(success(records))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '按 Agent 查询规则失败'))
+    }
+  })
+
   server.get('/rules/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
@@ -1066,6 +1081,36 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '查询开发者链接失败'))
+    }
+  })
+  server.put('/developer/:id', async (req, reply) => {
+    const parsed = idParamSchema.safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    try {
+      const row = await rawUpdate(
+        'zhs_developer_link',
+        developerLinkCols,
+        parsed.data.id,
+        req.body as Record<string, unknown>,
+      )
+      if (!row) return reply.status(404).send(error(404, '开发者链接不存在或无可更新字段'))
+      return reply.send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '更新开发者链接失败'))
+    }
+  })
+  server.delete('/developer/:id', async (req, reply) => {
+    const parsed = idParamSchema.safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    try {
+      const existing = await rawById('zhs_developer_link', parsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '开发者链接不存在'))
+      await rawDelete('zhs_developer_link', parsed.data.id)
+      return reply.send(success({ deleted: true }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '删除开发者链接失败'))
     }
   })
   server.get('/developer/order/:orderNo', async (req, reply) => {
