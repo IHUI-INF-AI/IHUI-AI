@@ -114,7 +114,7 @@ function matchesGlob(filePath: string, rootPath: string, pattern: string): boole
 
 export const read_file: Tool = {
   name: 'read_file',
-  description: '读取文件内容(带行号,代码语法高亮)。参数:path(文件路径,相对工作区根目录)。',
+  description: '读取文件内容(带行号,代码语法高亮)。参数:path(文件路径,相对工作区根目录)。支持文本文件;PDF/PPTX/image 等二进制文件返回类型提示。',
   dangerLevel: 'read',
   parameters: {
     path: { type: 'string', description: '要读取的文件路径' },
@@ -127,6 +127,10 @@ export const read_file: Tool = {
     if (!fs.existsSync(abs)) return { success: false, output: '', error: `文件不存在: ${filePath}` };
     const stat = fs.statSync(abs);
     if (stat.isDirectory()) return { success: false, output: '', error: `是目录,不是文件: ${filePath}` };
+    // P0-8 二进制文件检测:PDF/PPTX/image 等不强制解析,返回类型化提示(做减法:不引入重依赖)
+    const ext = path.extname(abs).toLowerCase();
+    const binaryHint = detectBinaryFile(abs, ext, stat.size);
+    if (binaryHint) return { success: true, output: binaryHint };
     const content = fs.readFileSync(abs, 'utf-8');
     const allLines = content.split('\n');
     const showLines = allLines.slice(0, MAX_READ_LINES);
@@ -136,6 +140,103 @@ export const read_file: Tool = {
     return { success: true, output: output + truncated };
   },
 };
+
+const BINARY_FILE_KINDS: Record<string, { kind: string; hint: string }> = {
+  '.pdf': { kind: 'PDF 文档', hint: '使用 /bash pdftotext "<path>" - 提取文本,或 /bash pdfinfo "<path>" 查看元数据' },
+  '.docx': { kind: 'Word 文档', hint: '使用 /bash pandoc -t plain "<path>" 提取文本,或 /bash unzip -p "<path>" word/document.xml 查看 XML' },
+  '.doc': { kind: 'Word 文档(旧格式)', hint: '使用 /bash antiword "<path>" 或 /bash catdoc "<path>" 提取文本' },
+  '.pptx': { kind: 'PowerPoint 文档', hint: '使用 /bash unzip -p "<path>" ppt/slides/slide*.xml 提取文本' },
+  '.ppt': { kind: 'PowerPoint 文档(旧格式)', hint: '使用 /bash catppt "<path>" 提取文本' },
+  '.xlsx': { kind: 'Excel 文档', hint: '使用 /bash unzip -p "<path>" xl/sharedStrings.xml 提取文本' },
+  '.xls': { kind: 'Excel 文档(旧格式)', hint: '使用 /bash xls2csv "<path>" 提取文本' },
+  '.png': { kind: 'PNG 图片', hint: '图片无法在终端直接显示;使用 /bash file "<path>" 查看元数据,或 /bash identify "<path>" (ImageMagick)' },
+  '.jpg': { kind: 'JPEG 图片', hint: '图片无法在终端直接显示;使用 /bash file "<path>" 查看元数据' },
+  '.jpeg': { kind: 'JPEG 图片', hint: '图片无法在终端直接显示;使用 /bash file "<path>" 查看元数据' },
+  '.gif': { kind: 'GIF 图片', hint: '图片无法在终端直接显示;使用 /bash file "<path>" 查看元数据' },
+  '.webp': { kind: 'WebP 图片', hint: '图片无法在终端直接显示;使用 /bash file "<path>" 查看元数据' },
+  '.bmp': { kind: 'BMP 图片', hint: '图片无法在终端直接显示;使用 /bash file "<path>" 查看元数据' },
+  '.svg': { kind: 'SVG 矢量图', hint: 'SVG 是 XML 文本,可改为 .xml 后缀读取;或 /bash rsvg-convert "<path>" 转图片' },
+  '.mp3': { kind: 'MP3 音频', hint: '音频无法读取;使用 /bash ffprobe "<path>" 查看元数据' },
+  '.mp4': { kind: 'MP4 视频', hint: '视频无法读取;使用 /bash ffprobe "<path>" 查看元数据' },
+  '.mov': { kind: 'MOV 视频', hint: '视频无法读取;使用 /bash ffprobe "<path>" 查看元数据' },
+  '.zip': { kind: 'ZIP 压缩包', hint: '使用 /bash unzip -l "<path>" 列出内容,或 /bash unzip -p "<path>" <file> 提取单个文件' },
+  '.tar': { kind: 'TAR 压缩包', hint: '使用 /bash tar -tvf "<path>" 列出内容' },
+  '.gz': { kind: 'GZip 压缩文件', hint: '使用 /bash gunzip -c "<path>" 解压输出' },
+  '.rar': { kind: 'RAR 压缩包', hint: '使用 /bash unrar l "<path>" 列出内容' },
+  '.7z': { kind: '7Z 压缩包', hint: '使用 /bash 7z l "<path>" 列出内容' },
+  '.exe': { kind: '可执行文件', hint: '二进制文件无法读取;使用 /bash file "<path>" 查看类型' },
+  '.dll': { kind: '动态链接库', hint: '二进制文件无法读取;使用 /bash file "<path>" 查看类型' },
+  '.so': { kind: '共享对象', hint: '二进制文件无法读取;使用 /bash file "<path>" 查看类型' },
+  '.dylib': { kind: '动态库', hint: '二进制文件无法读取;使用 /bash file "<path>" 查看类型' },
+  '.class': { kind: 'Java 类文件', hint: '使用 /bash javap -p "<path>" 反汇编' },
+  '.jar': { kind: 'Java JAR 包', hint: '使用 /bash unzip -l "<path>" 列出内容' },
+  '.pyc': { kind: 'Python 字节码', hint: '使用 /bash python -m dis "<path>" 反汇编' },
+};
+
+const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46]; // %PDF
+const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47]; // \x89PNG
+const JPG_MAGIC = [0xff, 0xd8, 0xff];
+const GIF_MAGIC = [0x47, 0x49, 0x46, 0x38]; // GIF8
+const ZIP_MAGIC = [0x50, 0x4b, 0x03, 0x04]; // PK\x03\x04 (zip/docx/pptx/xlsx/jar)
+const RAR_MAGIC = [0x52, 0x61, 0x72, 0x21, 0x1a, 0x07]; // Rar!\x1a\x07
+const SEVENZ_MAGIC = [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c]; // 7z\xbc\xaf\x27\x1c
+
+function detectBinaryFile(absPath: string, ext: string, size: number): string | null {
+  // 扩展名优先(快速路径)
+  const byExt = BINARY_FILE_KINDS[ext];
+  if (byExt) {
+    return formatBinaryHint(byExt.kind, absPath, size, byExt.hint);
+  }
+  // Magic number 兜底(无扩展名或扩展名异常)
+  if (size < 4) return null;
+  let fd: number | undefined;
+  try {
+    fd = fs.openSync(absPath, 'r');
+    const buf = Buffer.alloc(8);
+    const bytesRead = fs.readSync(fd, buf, 0, 8, 0);
+    if (bytesRead >= 4 && PDF_MAGIC.every((b, i) => buf[i] === b)) {
+      return formatBinaryHint('PDF 文档(magic)', absPath, size, BINARY_FILE_KINDS['.pdf']!.hint);
+    }
+    if (bytesRead >= 4 && PNG_MAGIC.every((b, i) => buf[i] === b)) {
+      return formatBinaryHint('PNG 图片(magic)', absPath, size, BINARY_FILE_KINDS['.png']!.hint);
+    }
+    if (bytesRead >= 3 && JPG_MAGIC.every((b, i) => buf[i] === b)) {
+      return formatBinaryHint('JPEG 图片(magic)', absPath, size, BINARY_FILE_KINDS['.jpg']!.hint);
+    }
+    if (bytesRead >= 4 && GIF_MAGIC.every((b, i) => buf[i] === b)) {
+      return formatBinaryHint('GIF 图片(magic)', absPath, size, BINARY_FILE_KINDS['.gif']!.hint);
+    }
+    if (bytesRead >= 4 && ZIP_MAGIC.every((b, i) => buf[i] === b)) {
+      return formatBinaryHint('ZIP/Office 文档(magic)', absPath, size, BINARY_FILE_KINDS['.zip']!.hint);
+    }
+    if (bytesRead >= 6 && RAR_MAGIC.every((b, i) => buf[i] === b)) {
+      return formatBinaryHint('RAR 压缩包(magic)', absPath, size, BINARY_FILE_KINDS['.rar']!.hint);
+    }
+    if (bytesRead >= 6 && SEVENZ_MAGIC.every((b, i) => buf[i] === b)) {
+      return formatBinaryHint('7Z 压缩包(magic)', absPath, size, BINARY_FILE_KINDS['.7z']!.hint);
+    }
+    // 检测 NULL 字节(通用二进制检测,前 1024 字节内有 NULL 视为二进制)
+    if (bytesRead >= 1 && buf.slice(0, bytesRead).includes(0)) {
+      return formatBinaryHint('二进制文件(检测到 NULL 字节)', absPath, size, '使用 /bash file "<path>" 查看类型');
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
+function formatBinaryHint(kind: string, absPath: string, size: number, hint: string): string {
+  const sizeStr = size < 1024 ? `${size}B` : size < 1024 * 1024 ? `${(size / 1024).toFixed(1)}KB` : `${(size / (1024 * 1024)).toFixed(1)}MB`;
+  return `[${kind}] ${path.basename(absPath)} (${sizeStr})\n该文件类型当前不支持直接解析(避免引入重依赖)。\n提示:${hint.replace(/<path>/g, absPath)}`;
+}
 
 export const list_dir: Tool = {
   name: 'list_dir',
