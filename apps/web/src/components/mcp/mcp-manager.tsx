@@ -110,7 +110,12 @@ function AddServerDialog({ open, onOpenChange, onSubmit, submitting }: AddServer
             </Select>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              className="bg-muted"
+              onClick={() => onOpenChange(false)}
+            >
               {t('cancel')}
             </Button>
             <Button type="submit" disabled={submitting}>

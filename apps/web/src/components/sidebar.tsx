@@ -481,7 +481,7 @@ function SearchNavItem({
     'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
     active
       ? 'bg-primary text-primary-foreground'
-      : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+      : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     collapsed && 'justify-center',
   )
 
@@ -545,7 +545,7 @@ function NavLink({ item, collapsed, active, label, onCloseMobile, registerRef }:
     'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
     active
       ? 'bg-primary text-primary-foreground'
-      : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+      : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     collapsed && 'justify-center',
   )
   const refCb = (el: HTMLElement | null) => registerRef(item.href, el)
@@ -638,7 +638,7 @@ function ExpandableNavItem({
     'relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
     parentActive
       ? 'bg-primary text-primary-foreground'
-      : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+      : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     collapsed && 'justify-center',
   )
 
@@ -647,7 +647,7 @@ function ExpandableNavItem({
       'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-8 pr-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
       active
         ? 'bg-primary text-primary-foreground'
-        : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+        : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     )
 
   const childList = (
