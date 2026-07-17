@@ -71,7 +71,7 @@ async function configList(
 }
 
 // =============================================================================
-// VIP 预下单共享逻辑(/vip/order、/vip/upgrade、/vip/order/:orderNo/payinfo 复用)
+// VIP 预下单共享逻辑(/vip/order、/vip/order/:orderNo/payinfo 复用)
 // =============================================================================
 
 type VipPayInfo = {
@@ -275,45 +275,6 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
         amount: level.price * quantity,
         vipLevelId: level.id,
         quantity,
-        payInfo,
-      }),
-    )
-  })
-
-  // POST /vip/upgrade — miniapp-taro 别名(接收 { level: number },内部转 /vip/order 逻辑)
-  const vipUpgradeBody = z.object({
-    level: z.coerce.number(),
-    paymentMethod: z.string().optional().default('wechat'),
-    openId: z.string().optional(),
-  })
-  server.post('/vip/upgrade', async (request, reply) => {
-    await authenticate(request)
-    const parsed = vipUpgradeBody.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { level: levelNum, paymentMethod, openId } = parsed.data
-    const vipLevelId = String(levelNum)
-    const level = await findVipLevel(vipLevelId)
-    if (!level || level.status !== 1) {
-      return reply.status(404).send(error(404, 'VIP 等级不存在'))
-    }
-    const order = await createOrder({
-      userId: request.userId!,
-      amount: level.price,
-      orderType: 2,
-      productId: level.id,
-      payType: paymentMethod,
-    })
-    const resolvedOpenId = await resolveOpenId(request.userId!, openId)
-    const payInfo = await createVipPrepay(order, paymentMethod, resolvedOpenId, request.ip)
-    return reply.send(
-      success({
-        orderId: order.id,
-        orderNo: order.orderNo,
-        amount: level.price,
-        vipLevelId: level.id,
-        quantity: 1,
         payInfo,
       }),
     )
