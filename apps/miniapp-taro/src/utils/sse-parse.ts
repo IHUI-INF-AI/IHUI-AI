@@ -2,6 +2,17 @@ export interface SSEEvent {
   type: 'chunk' | 'done' | 'error' | 'reasoning' | 'meta'
   content?: string
   sessionId?: string
+  /** 错误码(对齐 @ihui/api-client SSEErrorInfo 字段) */
+  code?: number
+  errorCode?: string
+  retryAfter?: number
+}
+
+function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
+  if (typeof json.code === 'number') evt.code = json.code
+  if (typeof json.statusCode === 'number' && evt.code === undefined) evt.code = json.statusCode
+  if (typeof json.errorCode === 'string') evt.errorCode = json.errorCode
+  if (typeof json.retryAfter === 'number') evt.retryAfter = json.retryAfter
 }
 
 export function parseSSEChunk(buffer: string): { events: SSEEvent[]; remainder: string } {
@@ -52,13 +63,19 @@ function parseLine(line: string): SSEEvent | null {
   try {
     const json = JSON.parse(data) as Record<string, unknown>
     if (typeof json?.error === 'string') {
-      return { type: 'error', content: json.error }
+      const evt: SSEEvent = { type: 'error', content: json.error }
+      applyErrorMeta(evt, json)
+      return evt
     }
     if (json?.type === 'error' && typeof json?.message === 'string') {
-      return { type: 'error', content: json.message }
+      const evt: SSEEvent = { type: 'error', content: json.message }
+      applyErrorMeta(evt, json)
+      return evt
     }
     if (json?.error === true && typeof json?.error_message === 'string') {
-      return { type: 'error', content: json.error_message }
+      const evt: SSEEvent = { type: 'error', content: json.error_message }
+      applyErrorMeta(evt, json)
+      return evt
     }
     const choices = json?.choices as Array<Record<string, unknown>> | undefined
     const choice = choices?.[0]

@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, FlatList, Pressable, Alert, Share, Modal, TouchableOpacity } from 'react-native'
+import {
+  View,
+  Text,
+  FlatList,
+  Pressable,
+  Alert,
+  Share,
+  Modal,
+  TouchableOpacity,
+} from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { Button, Input } from '@ihui/ui-native'
-import { streamChat, fetchModels, type LlmModel } from '@ihui/api-client'
+import { streamChat, fetchModels, formatSSEError, type LlmModel } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useScreenshot } from '../hooks/use-screenshot'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -16,9 +25,27 @@ interface ChatMessage {
 }
 
 const FALLBACK_MODELS: LlmModel[] = [
-  { id: 'stepfun/step-3.7-flash', name: 'Step 3.7 Flash', provider: 'stepfun', context_length: 8192, input_price: 0 },
-  { id: 'openai/gpt-4o-mini', name: 'GPT-4o mini', provider: 'openai', context_length: 128000, input_price: 0 },
-  { id: 'anthropic/claude-3.5-haiku', name: 'Claude 3.5 Haiku', provider: 'anthropic', context_length: 200000, input_price: 0 },
+  {
+    id: 'stepfun/step-3.7-flash',
+    name: 'Step 3.7 Flash',
+    provider: 'stepfun',
+    context_length: 8192,
+    input_price: 0,
+  },
+  {
+    id: 'openai/gpt-4o-mini',
+    name: 'GPT-4o mini',
+    provider: 'openai',
+    context_length: 128000,
+    input_price: 0,
+  },
+  {
+    id: 'anthropic/claude-3.5-haiku',
+    name: 'Claude 3.5 Haiku',
+    provider: 'anthropic',
+    context_length: 200000,
+    input_price: 0,
+  },
 ]
 
 export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
@@ -41,7 +68,8 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
         if (cancelled) return
         const list = res?.models?.length ? res.models : FALLBACK_MODELS
         setModels(list)
-        const def = res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
+        const def =
+          res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
         setModel(def)
       })
       .catch(() => {
@@ -84,9 +112,20 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
         })
       },
       onError: (err) => {
-        setError(err)
+        const formatted = formatSSEError(new Error(err))
+        setError(formatted.message)
         setIsStreaming(false)
         abortRef.current = null
+        if (formatted.severity === 'auth') {
+          Alert.alert(formatted.title, formatted.message, [
+            { text: '去登录', onPress: () => logout() },
+            { text: '取消', style: 'cancel' },
+          ])
+        } else if (formatted.severity === 'ratelimit') {
+          Alert.alert(formatted.title, formatted.message)
+        } else {
+          Alert.alert(formatted.title, formatted.message)
+        }
       },
       onDone: () => {
         setIsStreaming(false)
@@ -178,7 +217,12 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
         <Text className="text-xs text-gray-500">模型: {currentModelName} ▾</Text>
       </Pressable>
 
-      <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
+      <Modal
+        visible={pickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickerOpen(false)}
+      >
         <TouchableOpacity
           className="flex-1 bg-black/20"
           activeOpacity={1}
@@ -201,7 +245,11 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
                     }}
                     className="px-4 py-3"
                   >
-                    <Text className={active ? 'text-sm font-medium text-gray-900' : 'text-sm text-gray-700'}>
+                    <Text
+                      className={
+                        active ? 'text-sm font-medium text-gray-900' : 'text-sm text-gray-700'
+                      }
+                    >
                       {item.name || item.id}
                     </Text>
                     <Text className="text-xs text-gray-400">{item.provider}</Text>
