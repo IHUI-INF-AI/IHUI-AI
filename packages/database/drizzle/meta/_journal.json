@@ -617,6 +617,13 @@
       "when": 1784260220117,
       "tag": "0087_nosy_gateway",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1784262147439,
+      "tag": "0088_jazzy_speed_demon",
+      "breakpoints": true
     }
   ]
 }
