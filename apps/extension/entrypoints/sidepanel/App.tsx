@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { streamChat, fetchModels, type LlmModel } from '@ihui/api-client'
+import { streamChat, fetchModels, formatSSEError, type LlmModel } from '@ihui/api-client'
 import { initApi, getToken } from '../../lib/token'
 import { useI18n } from '../../src/i18n'
 
@@ -10,9 +10,27 @@ interface ChatMessage {
 }
 
 const FALLBACK_MODELS: LlmModel[] = [
-  { id: 'stepfun/step-3.7-flash', name: 'Step 3.7 Flash', provider: 'stepfun', context_length: 8192, input_price: 0 },
-  { id: 'openai/gpt-4o-mini', name: 'GPT-4o mini', provider: 'openai', context_length: 128000, input_price: 0 },
-  { id: 'anthropic/claude-3.5-haiku', name: 'Claude 3.5 Haiku', provider: 'anthropic', context_length: 200000, input_price: 0 },
+  {
+    id: 'stepfun/step-3.7-flash',
+    name: 'Step 3.7 Flash',
+    provider: 'stepfun',
+    context_length: 8192,
+    input_price: 0,
+  },
+  {
+    id: 'openai/gpt-4o-mini',
+    name: 'GPT-4o mini',
+    provider: 'openai',
+    context_length: 128000,
+    input_price: 0,
+  },
+  {
+    id: 'anthropic/claude-3.5-haiku',
+    name: 'Claude 3.5 Haiku',
+    provider: 'anthropic',
+    context_length: 200000,
+    input_price: 0,
+  },
 ]
 
 export default function App() {
@@ -39,7 +57,8 @@ export default function App() {
         if (cancelled) return
         const list = res?.models?.length ? res.models : FALLBACK_MODELS
         setModels(list)
-        const def = res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
+        const def =
+          res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
         setModel(def)
       })
       .catch(() => {
@@ -81,11 +100,17 @@ export default function App() {
           })
         },
         onError: (err) => {
-          setError(err || t('chat.aiResponseFailed'))
+          const formatted = formatSSEError(new Error(err || t('chat.aiResponseFailed')))
+          setError(formatted.message)
+          if (formatted.severity === 'auth') {
+            setReady(false)
+          }
         },
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('chat.requestFailed'))
+      const formatted = formatSSEError(err)
+      setError(formatted.message)
+      if (formatted.severity === 'auth') setReady(false)
     } finally {
       setStreaming(false)
       abortRef.current = null
