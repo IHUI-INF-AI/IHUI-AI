@@ -71,6 +71,7 @@ import { plazaRoutes } from './routes/plaza.js'
 import { cozeVariablesRoutes } from './routes/coze-variables.js'
 import { cozeRoutes } from './routes/coze.js'
 import { cozeEcosystemRoutes } from './routes/coze-ecosystem.js'
+import { cozeTestRoutes } from './routes/coze-test.js'
 import { agenticServiceRoutes } from './routes/agentic-service.js'
 import { adminEduExtendedRoutes, adminCourseAuditRoutes } from './routes/edu-extended.js'
 import aiCallbackRoutes from './routes/ai-callback.js'
@@ -571,6 +572,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(cozeRoutes, { prefix: '/api/coze' })
   // Coze 生态全量接口(R74 审计 P2 补建):REST 风格 apps/datasets/audio/files 端点
   server.register(cozeEcosystemRoutes, { prefix: '/api/coze' })
+  // Coze 平台连接性测试:/api/coze/test/pat /api-key /workflow/:id /bot/:id /knowledge/:id
+  server.register(cozeTestRoutes, { prefix: '/api' })
   server.register(agenticServiceRoutes, { prefix: '/api/agent' })
 
   // AI 回调端点(由 AI service 推理完成后 POST 调用,入队 aiCallback)
