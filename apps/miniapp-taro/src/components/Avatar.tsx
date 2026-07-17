@@ -23,7 +23,7 @@ export default function Avatar({
   onClick,
 }: AvatarProps) {
   const sizeClass = SIZES[size]
-  const shapeClass = shape === 'circle' ? 'rounded-full' : 'rounded-lg'
+  const shapeClass = shape === 'circle' ? 'rounded-md' : 'rounded-lg'
 
   if (src) {
     return (
