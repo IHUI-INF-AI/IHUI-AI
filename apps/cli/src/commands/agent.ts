@@ -268,11 +268,13 @@ export type InterjectionBlock =
  * P0-4 把 interjection 块数组转为 LLM 可消费的文本(当前 streamChat 仅支持 content: string)。
  * - 文本块:直接拼接
  * - 图片块:转占位符 `[图片: <altText 或 mediaType>, <N> bytes base64]`
+ * - 兼容旧 API(plain string):直接拼接(P0-2 旧测试使用)
  * 后续 streamChat 支持多模态时,可改为返回 ContentBlock[] 原生传递。
  */
-export function formatInterjectionBlocks(blocks: InterjectionBlock[]): string {
+export function formatInterjectionBlocks(blocks: ReadonlyArray<InterjectionBlock | string>): string {
   return blocks
     .map((b) => {
+      if (typeof b === 'string') return b;
       if (b.type === 'text') return b.text;
       const label = b.altText ?? b.source.mediaType;
       const sizeKb = Math.round((b.source.data.length * 3) / 4 / 1024); // base64 → 原始字节数
@@ -508,9 +510,6 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       if (samplerResult.error) {
         iterError = true;
         hadError = true;
-        if (process.env['DEBUG_STOP']) {
-          process.stderr.write(`[debug-iter] iter ${iterations} error: ${samplerResult.error}\n`);
-        }
         const formatted = formatSSEError(new Error(samplerResult.error));
         if (formatted.severity === 'auth' || formatted.severity === 'forbidden') {
           process.stderr.write(chalk.red(`[${formatted.severity}] ${formatted.title}: ${formatted.rawMessage}\n`));
