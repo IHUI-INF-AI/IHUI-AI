@@ -42,16 +42,26 @@ import {
   BookOpen,
   ChevronDown,
   Plus,
+  Home,
+  Newspaper,
+  Megaphone,
+  Bell,
+  Sun,
+  Moon,
+  LogIn,
 } from 'lucide-react'
+import { useTheme } from 'next-themes'
 
 import { cn } from '@/lib/utils'
 import { Button, ThemeLogo } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useLanguageStore, type Language } from '@/stores/language'
+import { useNotificationStore } from '@/stores/notification'
 import { Avatar } from '@/components/data/Avatar'
 import { Tooltip, TooltipProvider, Dropdown, Popover } from '@/components/feedback'
 import { SearchBar } from '@/components/business'
+import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useClickOutside } from '@/hooks/use-click-outside'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
@@ -107,6 +117,8 @@ interface NavItem {
     | 'distribution'
     | 'oauthPlatform'
     | 'myLearning'
+    | 'knowledgeBase'
+    | 'announcements'
   icon: React.ComponentType<{ className?: string }>
   adminOnly?: boolean
   children?: NavItem[]
@@ -153,10 +165,16 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: '教育',
     items: [
+      { href: '/', labelKey: 'home', icon: Home },
       { href: '/learn', labelKey: 'learn', icon: GraduationCap },
       { href: '/live', labelKey: 'live', icon: PlayCircle },
       { href: '/exam', labelKey: 'exam', icon: ScrollText },
+      { href: '/news', labelKey: 'news', icon: Newspaper },
+      { href: '/topics', labelKey: 'topics', icon: FileText },
       { href: '/asks', labelKey: 'asks', icon: MessageSquare },
+      { href: '/circles', labelKey: 'circles', icon: Users },
+      { href: '/knowledge-base', labelKey: 'knowledgeBase', icon: BookOpen },
+      { href: '/announcements', labelKey: 'announcements', icon: Megaphone },
     ],
   },
   {
@@ -429,8 +447,120 @@ function SidebarUserRow({
 }
 
 /**
- * 侧边栏'搜索'导航行:折叠态退化为 Link 跳 /search;展开态承载一个带 SearchBar 的弹层,
- * 提交后跳 /search?q=... 并关闭。点击外部 / Esc 键 / 路由变化均会关闭弹层。
+ * 侧边栏底部额外操作区:消息中心 / 主题切换 / 登录。
+ * 整合自原 Header(已删除),保证路由 + 功能不丢失。
+ */
+function SidebarExtraActions({
+  collapsed,
+  onCloseMobile,
+}: {
+  collapsed: boolean
+  onCloseMobile: () => void
+}) {
+  const t = useTranslations('nav')
+  const tc = useTranslations('common')
+  const tt = useTranslations('themeToggle')
+  const { theme, setTheme } = useTheme()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const openLogin = useLoginDialogStore((s) => s.open)
+  const notifications = useNotificationStore((s) => s.notifications)
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
+  const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
+
+  // store 中的 NotificationItem 映射为 NotificationCenter 所需的 NoticeItem
+  const noticeItems: NoticeItem[] = notifications.map((n) => ({
+    id: n.id,
+    title: n.title,
+    description: n.content,
+    type: n.type === 'warning' || n.type === 'error' || n.type === 'success' ? n.type : 'info',
+    read: n.isRead,
+    createdAt: n.createdAt,
+  }))
+
+  const handleToggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark')
+  }
+
+  const handleLogin = () => {
+    openLogin('login')
+    onCloseMobile()
+  }
+
+  const btnClass = 'h-7 w-7 shrink-0'
+
+  return (
+    <div
+      className={cn(
+        'flex gap-1 rounded-md p-1',
+        collapsed ? 'flex-col items-center pl-[9px] pr-2' : 'flex-row justify-center',
+      )}
+    >
+      {/* 消息中心 */}
+      <Popover
+        position={collapsed ? 'right' : 'top'}
+        className={collapsed ? undefined : 'left-0 translate-x-0'}
+        content={
+          <div className="w-80 max-w-[calc(100vw-2rem)]">
+            <NotificationCenter items={noticeItems} onMarkAllRead={() => markAllAsRead()} />
+          </div>
+        }
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(btnClass, 'relative')}
+          title={collapsed ? t('messages') : undefined}
+          aria-label={t('messages')}
+        >
+          <Bell className="h-4 w-4" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </Button>
+      </Popover>
+
+      {/* 主题切换 */}
+      <Tooltip
+        content={theme === 'dark' ? tt('lightMode') : tt('darkMode')}
+        side={collapsed ? 'right' : 'top'}
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          className={btnClass}
+          onClick={handleToggleTheme}
+          title={collapsed ? (theme === 'dark' ? tt('lightMode') : tt('darkMode')) : undefined}
+          aria-label={theme === 'dark' ? tt('lightMode') : tt('darkMode')}
+        >
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
+      </Tooltip>
+
+      {/* 登录按钮(仅未登录时显示) */}
+      {!isAuthenticated && (
+        <Tooltip content={tc('login')} side={collapsed ? 'right' : 'top'}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={btnClass}
+            onClick={handleLogin}
+            title={collapsed ? tc('login') : undefined}
+            aria-label={tc('login')}
+          >
+            <LogIn className="h-4 w-4" />
+          </Button>
+        </Tooltip>
+      )}
+    </div>
+  )
+}
+
+/**
+ * 侧边栏'搜索'导航行:点击后以从顶部下拉动画弹窗的形式呈现一个 SearchBar,
+ * 提交后跳 /search?q=... 并关闭。折叠态与展开态均使用弹出式(避免直接跳 /search)。
+ * 点击外部 / Esc 键 / 路由变化均会关闭弹层。
  */
 function SearchNavItem({
   collapsed,
@@ -485,44 +615,46 @@ function SearchNavItem({
     collapsed && 'justify-center',
   )
 
-  if (collapsed) {
-    return (
-      <Tooltip content={label} side="right">
-        <Link
-          href="/search"
-          ref={refCb}
-          onClick={onCloseMobile}
-          aria-label={label}
-          aria-current={active ? 'page' : undefined}
-          className={className}
-        >
-          <Search className="h-5 w-5 shrink-0" />
-        </Link>
-      </Tooltip>
-    )
-  }
+  // 折叠态与展开态均使用顶部下拉动画弹窗,差异仅在于弹窗定位
+  const popupClassName = cn(
+    'absolute top-full z-50 mt-2 w-[calc(100vw-2rem)] max-w-80 origin-top rounded-md border bg-popover p-3 text-popover-foreground shadow-md animate-in fade-in-0 slide-in-from-top-2 duration-200',
+    collapsed ? 'left-full ml-2 mt-0' : 'left-0',
+  )
 
   return (
     <div ref={popRef} className="relative">
-      <button
-        type="button"
-        ref={refCb}
-        aria-label={label}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-current={active ? 'page' : undefined}
-        onClick={() => setOpen((o) => !o)}
-        className={className}
-      >
-        <Search className="h-5 w-5 shrink-0" />
-        <span>{label}</span>
-      </button>
-      {open && (
-        <div
-          role="dialog"
-          aria-label={tc('searchPlaceholder')}
-          className="absolute left-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] max-w-80 rounded-md border bg-popover p-3 text-popover-foreground shadow-md lg:left-full lg:top-0 lg:mt-0 lg:ml-2"
+      {collapsed ? (
+        <Tooltip content={label} side="right">
+          <button
+            type="button"
+            ref={refCb}
+            aria-label={label}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-current={active ? 'page' : undefined}
+            onClick={() => setOpen((o) => !o)}
+            className={className}
+          >
+            <Search className="h-5 w-5 shrink-0" />
+          </button>
+        </Tooltip>
+      ) : (
+        <button
+          type="button"
+          ref={refCb}
+          aria-label={label}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-current={active ? 'page' : undefined}
+          onClick={() => setOpen((o) => !o)}
+          className={className}
         >
+          <Search className="h-5 w-5 shrink-0" />
+          <span>{label}</span>
+        </button>
+      )}
+      {open && (
+        <div role="dialog" aria-label={tc('searchPlaceholder')} className={popupClassName}>
           <SearchBar onSearch={handleSearch} placeholder={tc('searchPlaceholder')} focusOnMount />
         </div>
       )}
@@ -932,6 +1064,7 @@ export function Sidebar({
 
   const footer = (
     <div className="shrink-0">
+      <SidebarExtraActions collapsed={collapsed} onCloseMobile={onCloseMobile} />
       <SidebarActions collapsed={collapsed} />
       <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
     </div>
