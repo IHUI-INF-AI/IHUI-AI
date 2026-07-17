@@ -69,4 +69,7 @@ export const vueToNextRedirects = [
   { source: '/topic', destination: '/topics', permanent: true },
   { source: '/announcement', destination: '/announcements', permanent: true },
   { source: '/announcement/:id', destination: '/announcements/:id', permanent: true },
+  // 兼容旧项目 /login /register 直链,重定向到 SSO 登录注册页
+  { source: '/login', destination: '/sso/login', permanent: true },
+  { source: '/register', destination: '/sso/register', permanent: true },
 ]
