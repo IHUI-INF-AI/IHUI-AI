@@ -134,6 +134,13 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo):
   - 头像容器(包裹 Avatar 的外层 div)、徽章背景容器、按钮、输入框、卡片等**不得**借"豁免"名义使用 `rounded-full`。
   - 既有代码出现违规时,在涉及该文件的修改任务中一并纠正为本项目规范圆角(不单独发起大改)。
 - **禁止渐变遮罩**(强制,2026-07-18 立):任何容器(侧边栏 / 列表 / 滚动区 / 卡片 / 面板 / 弹窗 / 工具栏 等)**禁止**使用渐变遮罩作为"还有更多内容可滚动"的视觉提示,包括但不限于:`mask-image` / `-webkit-mask-image` / `linear-gradient` 用作边缘淡出 / `fade-out` / `mask: linear-gradient(...)` 等。侧边栏滚动条已完全隐藏(`.hover-scroll` 用 `scrollbar-width: none`),不得用渐变遮罩补偿可发现性,应保持内容自然结束。若需提示下方有更多内容,用显式 UI 元素(如"查看更多"按钮 / 计数徽章 / 分页)而非渐变遮罩。
+- **禁止使用分割线**(强制,2026-07-18 立):本项目**禁止**使用任何形式的分割线作为模块间视觉分隔,只允许使用**描边**(`border` 四边完整描边 + `border-border` 颜色)或**容器背景色**(`bg-*` 语义色)来区分不同模块。具体禁止项:
+  - HTML `<hr>` 标签(纯样式分割线,无语义)。
+  - Tailwind `divide-y` / `divide-x` / `divide-*` 类(子元素间分隔线)。
+  - 单边 border 当作视觉分割线使用:`border-t` / `border-b` / `border-l` / `border-r`(仅作为容器描边时允许四边 `border` 或对边成对 `border-x` / `border-y`,禁止用作单边分隔线)。
+  - 任何 `border-*` + 颜色组合形成的"线状分隔"视觉效果。
+  - 允许的形式:容器完整描边(`border border-border`)、容器背景色对比(`bg-card` vs `bg-background` / `bg-muted` 等)、间距分隔(`gap-*` / `space-*`)、阴影分层(`shadow-*`)。
+  - 既有代码出现违规时,在涉及该文件的修改任务中一并纠正(不单独发起大改),纠正确认后用描边或容器背景色替代原分割线视觉效果。
 
 ---
 
