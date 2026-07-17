@@ -2,14 +2,16 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Mail, MessageSquare, Bell } from 'lucide-react'
+import { Mail, MessageSquare, Bell, Volume2 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
 import { Container } from '@/components/layout'
 import { Switch } from '@/components/form'
+import { useNotification } from '@/hooks/use-notification'
 
 export default function NotificationsPage() {
   const t = useTranslations('settings')
+  const { soundEnabled, setSoundEnabled } = useNotification()
 
   const [emailEnabled, setEmailEnabled] = React.useState(true)
   const [systemNotif, setSystemNotif] = React.useState(true)
@@ -80,6 +82,21 @@ export default function NotificationsPage() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{t('pushNotifDesc')}</span>
             <Switch checked={pushEnabled} onChange={setPushEnabled} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Volume2 className="h-4 w-4" />
+            {t('labels.notificationSound')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">{t('desc.notificationSound')}</span>
+            <Switch checked={soundEnabled} onChange={setSoundEnabled} />
           </div>
         </CardContent>
       </Card>
