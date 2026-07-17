@@ -72,4 +72,12 @@ if (!run('⭕ 检查容器圆角违规...', 'node scripts/check-rounded-full.mjs
   process.exit(1)
 }
 
+// 12. 交付报告一致性守门(AGENTS.md 第 11 节强制规则)
+// 防止"无后续建议/完整收尾"与"P1-P5/优化项/TODO"在同一份 .md 报告中同时出现
+// 豁免: 讨论 AGENTS.md 第 11 节本身的章节 / check-delivery-report-consistency 守门脚本章节
+// 增量扫描: staged 模式只检查含新增行(+)的章节,历史违规不阻塞新 commit
+if (!run('📋 检查交付报告一致性...', 'node scripts/check-delivery-report-consistency.mjs --staged')) {
+  process.exit(1)
+}
+
 console.log('✅ Pre-commit 检查通过')

@@ -7,8 +7,8 @@
   --card: #ffffff;
   --card-border: #e5e7eb;
   --border: #e5e7eb;
-  --accent: #2563eb;
-  --user-bg: #2563eb;
+  --accent: hsl(142 71% 45%);
+  --user-bg: hsl(142 71% 45%);
   --user-fg: #ffffff;
   --ai-bg: #f3f4f6;
   --ai-fg: #111111;
@@ -27,8 +27,8 @@
     --card: #161616;
     --card-border: #262626;
     --border: #262626;
-    --accent: #60a5fa;
-    --user-bg: #1d4ed8;
+    --accent: hsl(142 65% 50%);
+    --user-bg: hsl(142 65% 50%);
     --ai-bg: #1f1f1f;
     --ai-fg: #f5f5f5;
     --danger: #f87171;
@@ -579,4 +579,125 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+/* ============== Popup（弹窗扩展专用，主色对齐 web 端 green） ============== */
+.popup-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 16px;
+}
+
+.popup-container {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 280px;
+}
+
+.popup-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.popup-container .login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.popup-container .input {
+  width: 100%;
+}
+
+.popup-container .btn {
+  background: var(--accent);
+  color: var(--user-fg);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: opacity 0.15s ease;
+}
+
+.popup-container .btn:hover:not(:disabled) {
+  opacity: 0.9;
+  background: var(--accent);
+}
+
+.popup-container .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.popup-container .btn-logout {
+  background: var(--card);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.popup-container .btn-logout:hover:not(:disabled) {
+  background: var(--danger-bg);
+  opacity: 1;
+}
+
+.popup-container .error {
+  color: var(--danger);
+  background: var(--danger-bg);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  border: 1px solid var(--danger);
+}
+
+.popup-container .user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.popup-container .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--user-fg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.popup-container .user-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.popup-container .nickname {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popup-container .role {
+  font-size: 11px;
+  color: var(--muted);
 }
