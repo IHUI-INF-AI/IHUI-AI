@@ -8,6 +8,7 @@ import {
   timestamp,
   numeric,
   serial,
+  jsonb,
   index,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
@@ -52,12 +53,19 @@ export const resources = pgTable(
     downloadCount: integer('download_count').default(0).notNull(),
     sort: integer('sort').default(0).notNull(),
     status: integer('status').default(1).notNull(),
+    type: varchar('type', { length: 50 }),
+    productId: uuid('product_id'),
+    tagIdList: jsonb('tag_id_list').$type<string[]>(),
+    image: varchar('image', { length: 500 }),
+    introduction: text('introduction'),
+    cidList: jsonb('cid_list').$type<string[]>(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     catIdx: index('resources_category_idx').on(t.categoryId),
     pubIdx: index('resources_published_idx').on(t.isPublished),
+    prodIdx: index('resources_product_idx').on(t.productId),
   }),
 )
 
