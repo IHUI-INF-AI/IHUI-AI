@@ -5,16 +5,15 @@ import { buildQs, type PageData } from '../utils.js'
 
 export interface VipLevel {
   id: string
-  name: string
-  level: number
+  levelName: string
+  levelValue: number
   price: number
-  originalPrice: number | null
-  duration: number
-  durationUnit: string
-  benefits: string[]
-  icon: string | null
-  isPopular: boolean
-  sort: number
+  durationDays: number
+  benefits?: Record<string, unknown> | null
+  status: number
+  sortOrder: number
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface VipBenefit {

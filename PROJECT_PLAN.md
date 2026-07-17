@@ -14130,6 +14130,52 @@ P1-8/P1-9/P1-10/P1-11 完成后识别的 6 项后续工作,本轮全部闭环:
 3. **金额单位对齐**:需确认 `vip_levels.price` 字段单位(元 or 分),与 `billing.orders.amount`(分)对齐,避免 ×100 或 ÷100 转换错误。
 4. **tbox_agent_channel migration 部署**:后续工作 1 的 migration `0100_light_sleeper.sql` 需在生产环境执行 `pnpm --filter @ihui/database db:migrate`。
 
+### P1 深度审计第 3 轮(2026-07-18)— openId 链路 + VIP 价格动态化 + UUID bug 修复 ✅(2026-07-18) / goal
+
+> 承接 P1 后续工作闭环 6 项,本轮针对残留风险第 2/3 项(openId 链路 + 金额单位)做代码层深度审计与修复,并发现 + 修复 /vip/upgrade UUID bug 预存后端漏洞。
+
+- [x] ✅(2026-07-18) **P1a — openId 链路打通(方案 A)**:修复残留风险第 2 项,让 `createVipPrepay` 从 `user_third_party_accounts` 表查真实 openId,不再用 `userId` 兜底。**方案 A 选择理由**:复用现有 `jscode2session` + `user_third_party_accounts` 表 + `findThirdPartyAccount`/`createThirdPartyBinding`,miniapp-taro 零改动,4 文件 ~60 行。**改动**:
+  - `apps/api/src/config/index.ts` envSchema 新增 `WX_MINI_SECRET` 字段(微信小程序 secret,登录时换 openId 必需)。
+  - `apps/api/src/routes/auth.ts` `POST /auth/login/wechat` 从 501 stub 改为真实 jscode2session 链路:`isWechatMiniConfigured()` 检查 → `jscode2session(code)` 换 openId → `findThirdPartyAccount('wechat', openId)` 查绑定 → 已绑定则查用户+状态校验,未绑定则 `createUser`(nickname `微信用户`)+ `createThirdPartyBinding` → `buildTokenPair` + `publicUser` 返回 LoginResult 形状。
+  - `apps/api/src/routes/vip.ts` 新增 `resolveOpenId(userId, bodyOpenId?)` 共享函数(bodyOpenId 优先,否则查 `listUserBindings(userId)` 过滤 `platform==='wechat'` 取 openId,无绑定返回空串),三处 `createVipPrepay` 调用(POST /vip/order、GET /vip/order/:orderNo/payinfo)全部改用 `await resolveOpenId(request.userId!, openId)`,移除 `?? request.userId` 兜底。
+  - `apps/api/tests/success-paths.test.ts` L560 断言从 `toContain('微信登录暂未配置')` 改为 `toContain('微信小程序登录未配置')`(stub 501 错误信息更新)。
+  - `.env.production.example` 末尾补充 `# WX_MINI_SECRET=<your-wechat-mini-secret>`(注释占位符,无真实密钥)。
+
+- [x] ✅(2026-07-18) **P1b — VIP 价格动态化 + api-client VipLevel 接口对齐**:修复残留风险第 3 项(金额单位审计)+ 修复 miniapp-taro VIP 页面硬编码价格与后端 seed 数据脱节(消费者权益风险)。**金额单位审计结论**:`order-service.ts` L101 `order.amount / 100` 显式 ÷100 计算积分,证明 `orders.amount` 单位为"分";`vip_levels.price` 与 `orders.amount` 直接 `level.price * quantity` 传递(vip.ts L264/L275),无 ×100 或 ÷100 转换,单位一致(分),无需修复。**改动**:
+  - `packages/api-client/src/endpoints/vip.ts` `VipLevel` 接口字段从旧字段(name/level/duration/durationUnit/icon/isPopular/originalPrice/sort)改为对齐后端实际返回(levelName/levelValue/price/durationDays/benefits/status/sortOrder/createdAt/updatedAt),`getVipLevels()` 函数保留不变。
+  - `apps/miniapp-taro/src/api/index.ts` 新增本地 `VipLevel` 接口(与后端字段对齐)和 `getVipLevels()` 函数,返回 `Promise<{ items: VipLevel[] }>`。
+  - `apps/miniapp-taro/src/pages/vip/upgrade.tsx` 移除 L9-13 硬编码 `plans`,改为 `useDidShow` + `getVipLevels()` 动态拉取,`price / 100` 转元展示,默认选中第一个。
+  - `apps/miniapp-taro/src/pages/vip/index.tsx` 移除 L128-145 硬编码 options(¥19/¥49/¥158),改为 `useDidShow` + `Promise.all` 调 `getVipLevels()` 动态拉取,`price / 100` 转元展示(如 39.9/299/990),`durationDays` 转"${days}天"。
+  - `apps/web/src/hooks/use-vip-pricing.ts` L28 `res.data.find((l) => l.isPopular)` 改为 `res.data.find((l) => l.sortOrder === 0) ?? res.data[0]`(isPopular 字段已移除,改用 sortOrder=0 作为推荐位判定)。
+
+- [x] ✅(2026-07-18) **/vip/upgrade UUID bug 修复(做减法)**:P1b 修复过程中发现预存后端 bug — `vip_levels.id` 是 UUID,但 `/vip/upgrade` 的 zod schema 是 `level: z.coerce.number()`,内部 `String(levelNum)` 转 id 查询,`Number(UUID)` = NaN → `String(NaN)` = "NaN" → `findVipLevel("NaN")` → 404。miniapp-taro `upgradeVip(Number(plan.id))` 同样传 NaN。**修复方案(选项 B 做减法)**:删除 `/vip/upgrade` 端点(38 行冗余代码,与 `/vip/order` 90% 重复,违反 AGENTS.md §3 零冗余原则),miniapp-taro `upgradeVip` 改为调 `/vip/order` + `quantity: 1`。**改动**:
+  - `apps/api/src/routes/vip.ts` 删除 L283-320 的 `/vip/upgrade` 端点(含 vipUpgradeBody zod schema + server.post 处理函数 + 注释),保留 `/vip/order` 和 `/vip/order/:orderNo/payinfo` 两个端点。
+  - `apps/miniapp-taro/src/api/index.ts` `upgradeVip` 签名从 `(level: number) => post('/vip/upgrade', { level })` 改为 `(vipLevelId: string) => post('/vip/order', { vipLevelId, quantity: 1 })`,函数名保留(语义清晰)。
+  - `apps/miniapp-taro/src/pages/vip/upgrade.tsx` L72 `upgradeVip(Number(plan.id))` 改为 `upgradeVip(plan.id)`(plan.id 已是 string)。
+  - `apps/miniapp-taro/src/pages/vip/index.tsx` L103 `upgradeVip(Number(selectedPlan.id))` 改为 `upgradeVip(selectedPlan.id)`(selectedPlan.id 已是 string)。
+  - **多端同步审查(AGENTS.md §10)**:Web 端 use-vip-payment.ts 直接调 `/vip/order` 未受影响;miniapp-taro 4 处调用方(upgradeVip 签名 + upgrade.tsx + index.tsx + api/index.ts)全部同步;api-client 无 upgradeVip 函数无需改动。
+
+### 本轮验证依据(P1a + P1b + UUID bug 修复)
+
+| 项                     | 命令                                         | 退出码 | 关键输出                                |
+| ---------------------- | -------------------------------------------- | ------ | --------------------------------------- |
+| API typecheck          | `pnpm --filter @ihui/api typecheck`          | 0      | tsc --noEmit 通过                       |
+| API test               | `pnpm --filter @ihui/api test`               | 0      | 239 test files / 3474 tests 全绿        |
+| API lint               | `pnpm --filter @ihui/api lint`               | 0      | 0 errors(18 warnings 全是预存 any 警告) |
+| Web typecheck          | `pnpm --filter @ihui/web typecheck`          | 0      | tsc --noEmit 通过                       |
+| Web test               | `pnpm --filter @ihui/web test`               | 0      | 23 test files / 235 tests 全绿          |
+| miniapp-taro typecheck | `pnpm --filter @ihui/miniapp-taro typecheck` | 0      | tsc --noEmit 通过                       |
+| miniapp-taro test      | `pnpm --filter @ihui/miniapp-taro test`      | 0      | 3 test files / 23 tests 全绿            |
+| miniapp-taro lint      | `pnpm --filter @ihui/miniapp-taro lint`      | 0      | 0 errors(1 warning 预存 useEffect 依赖) |
+
+### 残留风险更新(P1a + P1b 后)
+
+1. **生产部署配置(业务方决策)**:微信支付 8 项 WX_* 配置激活(高危,缺失降级 mock)。**新增**:WX_MINI_SECRET 也需业务方提供,否则 `isWechatMiniConfigured()` 返回 false,`POST /auth/login/wechat` 返回 501,openId 链路无法激活。
+2. ~~openId 获取链路~~ ✅ 已修复(P1a):后端从 `user_third_party_accounts` 表查真实 openId,不再用 userId 兜底。**前置条件**:业务方配置 WX_MINI_SECRET 后才能激活登录链路。
+3. ~~金额单位对齐~~ ✅ 已审计(P1b):`vip_levels.price` 与 `orders.amount` 单位一致(分),`order-service.ts` L101 `order.amount / 100` ÷100 计算积分佐证,无需修复。
+4. **tbox_agent_channel migration 部署**:0100_light_sleeper.sql 需在生产环境执行 db:migrate。
+5. **WebSearch live 验证**:Web 端 WebSearch 功能需 live key 配置后实测,本轮未覆盖。
+
 ### 验证依据
 
 | 项                                     | 命令                                         | 退出码 | 关键输出                                                           |

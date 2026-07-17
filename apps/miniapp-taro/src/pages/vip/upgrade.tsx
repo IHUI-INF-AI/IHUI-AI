@@ -1,16 +1,19 @@
 import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { upgradeVip, type VipPayInfo } from '@/api'
+import { getVipLevels, upgradeVip, type VipPayInfo } from '@/api'
 import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
 import './upgrade.css'
 
-const plans = [
-  { name: '月度VIP', price: 19, origin: 30, tag: '' },
-  { name: '季度VIP', price: 49, origin: 90, tag: '推荐' },
-  { name: '年度VIP', price: 158, origin: 360, tag: '超值' },
-]
+interface Plan {
+  id: string
+  name: string
+  price: number
+  origin: number
+  tag: string
+}
+
 const rights = ['全部课程免费学', 'AI对话不限次', '专属客服服务', '会员专属折扣', '高清视频下载']
 
 function dispatchVipPay(payInfo: VipPayInfo, orderNo: string) {
@@ -38,17 +41,43 @@ function dispatchVipPay(payInfo: VipPayInfo, orderNo: string) {
 }
 
 export default function UpgradePage() {
-  const [selected, setSelected] = useState(2)
+  const [plans, setPlans] = useState<Plan[]>([])
+  const [selected, setSelected] = useState(0)
+
+  const load = useCallback(async () => {
+    Taro.showLoading({ title: '加载中', mask: true })
+    try {
+      const res = await getVipLevels()
+      const list: Plan[] = (res.items || []).map((l) => ({
+        id: String(l.id),
+        name: l.levelName,
+        price: l.price / 100,
+        origin: 0,
+        tag: '',
+      }))
+      setPlans(list)
+      if (list.length && selected >= list.length) setSelected(0)
+    } catch (e) {
+      logger.error('vip/upgrade', '获取VIP等级', e)
+      Taro.showToast({ title: '加载失败', icon: 'none' })
+    } finally {
+      Taro.hideLoading()
+    }
+  }, [selected])
 
   const onUpgrade = useCallback(async () => {
+    const plan = plans[selected]
+    if (!plan) return
     try {
-      const res = await upgradeVip(selected + 1)
+      const res = await upgradeVip(plan.id)
       dispatchVipPay(res.payInfo, res.orderNo)
     } catch (e) {
       logger.error('vip/upgrade', '升级VIP', e)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
-  }, [selected])
+  }, [plans, selected])
+
+  useDidShow(load)
 
   return (
     <View className="page">
@@ -59,7 +88,7 @@ export default function UpgradePage() {
       <View className="plans">
         {plans.map((p, i) => (
           <View
-            key={i}
+            key={p.id}
             className={`plan${selected === i ? ' active' : ''}`}
             onClick={() => setSelected(i)}
           >
@@ -79,7 +108,7 @@ export default function UpgradePage() {
         ))}
       </View>
       <Button className="btn" onClick={onUpgrade}>
-        立即升级 ¥{plans[selected]!.price}
+        立即升级 {plans[selected] ? `¥${plans[selected].price}` : ''}
       </Button>
     </View>
   )
