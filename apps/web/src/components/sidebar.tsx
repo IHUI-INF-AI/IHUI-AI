@@ -837,20 +837,24 @@ export function Sidebar({
   const header = (
     <div
       className={cn(
-        'flex h-10 shrink-0 items-center gap-2 pl-2.5 pr-5 transition-[padding] duration-200',
-        collapsed && 'justify-center px-0',
+        // 与未改架构前 _sidebar-layout.scss 保持一致:header 高 52px,水平 padding 16px,margin-x 6px
+        'flex h-[52px] shrink-0 items-center justify-between gap-2.5 px-4 mx-1.5 transition-[padding] duration-200',
+        collapsed && 'justify-center px-2 mx-0',
       )}
     >
       {!collapsed && (
-        <>
-          <ThemeLogo clickable className="cursor-pointer" />
-        </>
+        <ThemeLogo
+          clickable
+          width={120}
+          height={26}
+          className="h-[26px] max-w-[80px] min-w-0 flex-shrink cursor-pointer transition-opacity hover:opacity-75"
+        />
       )}
       <Button
         variant="ghost"
         size="icon"
         onClick={onToggleCollapse}
-        className={cn('hidden h-7 w-7 lg:flex', !collapsed ? 'ml-auto' : 'mx-auto')}
+        className={cn('h-7 w-7 flex-shrink-0 p-0', 'hidden lg:flex')}
         title={collapsed ? t('expand') : t('collapse')}
         aria-label={collapsed ? t('expand') : t('collapse')}
       >
@@ -860,7 +864,7 @@ export function Sidebar({
         variant="ghost"
         size="icon"
         onClick={onCloseMobile}
-        className="ml-auto h-7 w-7 lg:hidden"
+        className="ml-auto h-7 w-7 flex-shrink-0 p-0 lg:hidden"
         aria-label={tc('close')}
       >
         <X className="h-4 w-4" />
