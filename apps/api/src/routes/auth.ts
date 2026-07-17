@@ -26,6 +26,14 @@ import {
 } from '../services/account-lockout.js'
 import { success, error } from '../utils/response.js'
 import {
+  jscode2session,
+  isWechatMiniConfigured,
+} from '../services/oauth-providers.js'
+import {
+  findThirdPartyAccount,
+  createThirdPartyBinding,
+} from '../db/oauth-queries.js'
+import {
   codeStore,
   CODE_TTL_MS,
   CODE_RESEND_INTERVAL_MS,
@@ -796,10 +804,55 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      // 微信 OAuth 集成未配置 — 诚实返回 501,不假装支持
-      return reply
-        .status(501)
-        .send(error(501, '微信登录暂未配置,请配置 WECHAT_APPID/WECHAT_SECRET 后启用'))
+      if (!isWechatMiniConfigured()) {
+        return reply
+          .status(501)
+          .send(error(501, '微信小程序登录未配置,请配置 WX_MINI_APPID/WX_MINI_SECRET'))
+      }
+      const session = await jscode2session(parsed.data.code).catch(() => null)
+      if (!session) {
+        return reply.status(401).send(error(401, '微信登录失败: invalid code'))
+      }
+      const binding = await findThirdPartyAccount('wechat', session.openId)
+      let user
+      if (binding) {
+        user = await findUserById(binding.userId)
+        if (!user) return reply.status(404).send(error(404, '用户不存在'))
+        if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      } else {
+        try {
+          user = await createUser({
+            nickname: '微信用户',
+            familyId: createFamilyId(),
+            roleId: 0,
+            status: 1,
+          })
+        } catch (e) {
+          request.log.error({ err: e }, '微信登录创建用户失败')
+          return reply.status(500).send(error(500, '微信登录创建用户失败'))
+        }
+        await createThirdPartyBinding({
+          userId: user.id,
+          openId: session.openId,
+          unionId: session.unionId,
+          platform: 'wechat',
+        })
+      }
+      request.skipResponseSanitization = true
+      const familyId = createFamilyId()
+      const tokens = await buildTokenPair({
+        id: user.id,
+        phone: user.phone,
+        roleId: user.roleId,
+        familyId,
+      })
+      const permissions = await resolveUserPermissions(user.id, user.roleId)
+      return reply.send(
+        success({
+          ...tokens,
+          user: publicUser(user, permissions),
+        }),
+      )
     },
   )
 
