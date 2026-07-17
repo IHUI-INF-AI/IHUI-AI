@@ -11,6 +11,8 @@ import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import { formatDate } from '@/lib/date-utils'
+import { useSubscriptionStatus, useSignContract } from '@/hooks/use-subscription'
+import { ContractManager } from '@/components/billing/ContractManager'
 import {
   Button,
   Label,
@@ -69,6 +71,9 @@ export default function SubscriptionPage() {
     queryFn: () => api<SubscriptionStatus>('/api/payments/subscription/status'),
   })
 
+  const sub = useSubscriptionStatus()
+  const signContract = useSignContract()
+
   const {
     handleSubmit,
     setValue,
@@ -103,6 +108,16 @@ export default function SubscriptionPage() {
 
   const plans = status?.plans ?? []
   const isVip = status?.isVip ?? false
+
+  const handleSign = async () => {
+    if (!planId) return toast.error('请先选择订阅方案')
+    try {
+      const res = await signContract.mutateAsync({ planId })
+      if (res.signUrl) window.location.href = res.signUrl
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '开通自动续费失败')
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -222,6 +237,46 @@ export default function SubscriptionPage() {
                   {isVip ? t('subscription.renewNow') : t('subscription.openNow')}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* 自动续费管理 */}
+          <Card id="auto-renew-manager">
+            <CardHeader>
+              <CardTitle className="text-base">自动续费管理</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {sub.data?.autoRenew ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">已开通自动续费</p>
+                    <p className="text-xs text-muted-foreground">
+                      下次扣款：
+                      {sub.data.contract?.nextChargeTime
+                        ? formatDate(sub.data.contract.nextChargeTime)
+                        : '-'}
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" asChild>
+                    <a href="#contracts">管理</a>
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">未开通自动续费</p>
+                  <Button
+                    size="sm"
+                    onClick={handleSign}
+                    disabled={signContract.isPending || !planId}
+                  >
+                    {signContract.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    开通自动续费
+                  </Button>
+                </div>
+              )}
+              <div id="contracts">
+                <ContractManager />
+              </div>
             </CardContent>
           </Card>
         </>

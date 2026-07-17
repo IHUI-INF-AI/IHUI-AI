@@ -132,6 +132,7 @@ export default defineAppConfig({
     'pages/wallet/recharge/success',
     'pages/wallet/recharge/fail',
     'pages/wallet/top-up/index',
+    'pages/subscription/contracts/index',
   ],
   window: {
     backgroundTextStyle: 'light',
