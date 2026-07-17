@@ -22,6 +22,7 @@ export const ja = {
     wallet: 'ウォレット',
     courses: 'コース',
     notifications: '通知',
+    agents: 'エージェント',
   },
   auth: {
     login: 'ログイン',

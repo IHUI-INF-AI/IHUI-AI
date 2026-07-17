@@ -22,6 +22,7 @@ export const zhTW = {
     wallet: '錢包',
     courses: '課程',
     notifications: '通知',
+    agents: '智慧體',
   },
   auth: {
     login: '登入',

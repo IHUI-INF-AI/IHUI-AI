@@ -22,6 +22,7 @@ export default {
     settings: '设置',
     profile: '个人中心',
     wallet: '钱包',
+    agents: '智能体',
   },
   auth: {
     login: '登录',
