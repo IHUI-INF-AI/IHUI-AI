@@ -8,6 +8,7 @@ import { Crown, Check, Loader2, Sparkles } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Badge } from '@/components/data'
 import { cn } from '@/lib/utils'
 
 interface VipLevel {
@@ -27,6 +28,15 @@ interface MyVip {
   startTime: string
   endTime: string
   status: number
+}
+
+interface BillingPlan {
+  id: string
+  name: string
+  price: number
+  isRecurring?: boolean
+  billingPeriod?: string
+  trialDays?: number
 }
 
 async function api<T>(url: string): Promise<T> {
@@ -55,9 +65,18 @@ export default function VipPage() {
     queryKey: ['vip-my'],
     queryFn: () => api<{ vip: MyVip | null }>('/api/vip/my'),
   })
+  const { data: plansData } = useQuery({
+    queryKey: ['billing-plans'],
+    queryFn: () => api<{ plans: BillingPlan[] }>('/api/plans'),
+  })
 
   const levels = levelsData?.items ?? []
   const myVip = myData?.vip ?? null
+  const billingPlans = plansData?.plans ?? []
+  const hasRecurring = billingPlans.some((p) => p.isRecurring === true)
+  const maxTrialDays = billingPlans
+    .filter((p) => p.isRecurring === true)
+    .reduce((m, p) => Math.max(m, p.trialDays ?? 0), 0)
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: '2-digit',
@@ -141,11 +160,19 @@ export default function VipPage() {
                   <CardTitle className="text-xl">{level.levelName}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col p-6 pt-0">
-                  <div className="mb-4 flex items-baseline gap-1">
+                  <div className="mb-4 flex flex-wrap items-baseline gap-1">
                     <span className="text-3xl font-bold">{formatCNY(level.price)}</span>
                     <span className="text-sm text-muted-foreground">
                       {t('durationDays', { days: level.durationDays })}
                     </span>
+                    {hasRecurring && (
+                      <Badge variant="primary" className="ml-1">
+                        连续包月
+                      </Badge>
+                    )}
+                    {maxTrialDays > 0 && (
+                      <span className="text-xs text-primary">前 {maxTrialDays} 天试用</span>
+                    )}
                   </div>
 
                   {benefits.length > 0 && (
