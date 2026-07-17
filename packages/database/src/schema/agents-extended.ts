@@ -14,6 +14,7 @@ import {
  * 智能体（Agent）主表。
  * status: pending(待审核) / published(已发布) / rejected(已驳回) / offline(已下架)。
  * isFree=true 时为免费智能体，price 字段忽略。
+ * isVipExclusive=true 时为 VIP 会员专享智能体（对齐旧架构 zhs_agent_category.group==1），非 VIP 用户无权购买/访问。
  * workspaceId 关联工作空间（外部约定，非 DB 外键）。
  *
  * Coze 配置字段（H-3 补齐）：agentVersion/botId/botName/agentPrompt/agentModel/
@@ -34,6 +35,7 @@ export const agents = pgTable(
     status: varchar('status', { length: 20 }).default('pending').notNull(),
     price: integer('price').default(0).notNull(),
     isFree: boolean('is_free').default(true).notNull(),
+    isVipExclusive: boolean('is_vip_exclusive').default(false).notNull(),
     sort: integer('sort').default(0).notNull(),
     publishedAt: timestamp('published_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
