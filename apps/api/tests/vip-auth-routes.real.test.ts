@@ -486,4 +486,269 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
     expect(body.code).toBe(0)
     expect(body.message).toBe('success')
   })
+
+  // =====================================================================
+  // POST /api/vip/order — VIP 订单创建 + 微信预下单
+  // =====================================================================
+
+  it('POST /api/vip/order — 未登录返回 401', async () => {
+    setMockUnauthorized()
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: '00000000-0000-0000-0000-000000000000' },
+    })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('POST /api/vip/order — 缺 vipLevelId 参数返回 400 (safeParse 失败)', async () => {
+    const user = await createUser('1001', '购买者')
+    setMockUser(user.id)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: {},
+    })
+    expect(res.statusCode).toBe(400)
+    const body = res.json()
+    expect(body.code).toBe(400)
+  })
+
+  it('POST /api/vip/order — 不存在的 VIP 等级返回 404', async () => {
+    const user = await createUser('1001', '购买者')
+    setMockUser(user.id)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: '00000000-0000-0000-0000-000000000000' },
+    })
+    expect(res.statusCode).toBe(404)
+    const body = res.json()
+    expect(body.message).toBe('VIP 等级不存在')
+  })
+
+  it('POST /api/vip/order — status=0 的 VIP 等级返回 404', async () => {
+    const user = await createUser('1001', '购买者')
+    const level = await createVipLevel({ levelName: '已下架', price: 100, status: 0 })
+    setMockUser(user.id)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: level.id },
+    })
+    expect(res.statusCode).toBe(404)
+  })
+
+  it('POST /api/vip/order — 成功创建订单 + payInfo.mock=true (本地无证书走 mock 模式)', async () => {
+    const user = await createUser('1001', '购买者')
+    const level = await createVipLevel({ levelName: '月卡', price: 3000 })
+    setMockUser(user.id)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: level.id },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.code).toBe(0)
+    expect(body.data.orderId).toBeDefined()
+    expect(body.data.orderNo).toBeDefined()
+    expect(body.data.amount).toBe(3000)
+    expect(body.data.vipLevelId).toBe(level.id)
+    expect(body.data.quantity).toBe(1)
+    expect(body.data.payInfo).toBeDefined()
+    expect(body.data.payInfo.mock).toBe(true)
+    expect(body.data.payInfo.method).toBe('jsapi')
+
+    const [orderRow] = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, body.data.orderId))
+      .limit(1)
+    expect(orderRow).toBeDefined()
+    expect(orderRow.userId).toBe(user.id)
+    expect(Number(orderRow.amount)).toBe(3000)
+    expect(orderRow.status).toBe('pending')
+  })
+
+  it('POST /api/vip/order — quantity=2 时 amount = price * 2', async () => {
+    const user = await createUser('1001', '购买者')
+    const level = await createVipLevel({ levelName: '季卡', price: 5000 })
+    setMockUser(user.id)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: level.id, quantity: 2 },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.amount).toBe(10000)
+    expect(body.data.quantity).toBe(2)
+  })
+
+  it('POST /api/vip/order — paymentMethod=wechat_native → payInfo.method=native + mock=true', async () => {
+    const user = await createUser('1001', '购买者')
+    const level = await createVipLevel({ levelName: '月卡', price: 1000 })
+    setMockUser(user.id)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: level.id, paymentMethod: 'wechat_native' },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.payInfo.method).toBe('native')
+    expect(body.data.payInfo.mock).toBe(true)
+  })
+
+  it('POST /api/vip/order — resolveOpenId 无绑定不阻塞订单创建 (不传 openId)', async () => {
+    const user = await createUser('1001', '无微信绑定用户')
+    const level = await createVipLevel({ levelName: '月卡', price: 500 })
+    setMockUser(user.id)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: level.id },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.code).toBe(0)
+    expect(body.data.orderId).toBeDefined()
+    expect(body.data.payInfo.mock).toBe(true)
+  })
+
+  it('POST /api/vip/order — 显式传 openId 时 payInfo 仍走 mock (因无证书)', async () => {
+    const user = await createUser('1001', '购买者')
+    const level = await createVipLevel({ levelName: '月卡', price: 800 })
+    setMockUser(user.id)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: level.id, openId: 'oXXX_mock_openid_XXX' },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.payInfo.mock).toBe(true)
+    expect(body.data.payInfo.method).toBe('jsapi')
+  })
+
+  // =====================================================================
+  // GET /api/vip/order/:orderNo/payinfo — 支付参数查询
+  // =====================================================================
+
+  it('GET /api/vip/order/:orderNo/payinfo — 未登录返回 401', async () => {
+    setMockUnauthorized()
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/vip/order/NOT_EXIST_ORDER/payinfo',
+    })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('GET /api/vip/order/:orderNo/payinfo — 订单不存在返回 404', async () => {
+    const user = await createUser('1001', '用户')
+    setMockUser(user.id)
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/vip/order/NOT_EXIST_ORDER/payinfo',
+    })
+    expect(res.statusCode).toBe(404)
+    const body = res.json()
+    expect(body.message).toBe('订单不存在')
+  })
+
+  it('GET /api/vip/order/:orderNo/payinfo — 归属人校验 403 (他人订单)', async () => {
+    const owner = await createUser('1001', '订单所有者')
+    const intruder = await createUser('1002', '闯入者')
+    const level = await createVipLevel({ levelName: '月卡', price: 1000 })
+    setMockUser(owner.id)
+    const createRes = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: level.id },
+    })
+    const orderNo = createRes.json().data.orderNo
+
+    setMockUser(intruder.id)
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/vip/order/${orderNo}/payinfo`,
+    })
+    expect(res.statusCode).toBe(403)
+    const body = res.json()
+    expect(body.message).toBe('无权查看此订单')
+  })
+
+  it('GET /api/vip/order/:orderNo/payinfo — paid 订单返回 {status:paid}', async () => {
+    const user = await createUser('1001', '购买者')
+    const level = await createVipLevel({ levelName: '月卡', price: 1500 })
+    setMockUser(user.id)
+    const createRes = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: level.id },
+    })
+    const orderNo = createRes.json().data.orderNo
+
+    await db
+      .update(orders)
+      .set({ status: 'paid', paidAt: new Date() })
+      .where(eq(orders.orderNo, orderNo))
+
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/vip/order/${orderNo}/payinfo`,
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.code).toBe(0)
+    expect(body.data.status).toBe('paid')
+    expect(body.data.payInfo).toBeUndefined()
+  })
+
+  it('GET /api/vip/order/:orderNo/payinfo — pending 订单重新预下单返回 payInfo', async () => {
+    const user = await createUser('1001', '购买者')
+    const level = await createVipLevel({ levelName: '月卡', price: 2000 })
+    setMockUser(user.id)
+    const createRes = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: level.id },
+    })
+    const orderNo = createRes.json().data.orderNo
+
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/vip/order/${orderNo}/payinfo`,
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.code).toBe(0)
+    expect(body.data.status).toBe('pending')
+    expect(body.data.payInfo).toBeDefined()
+    expect(body.data.payInfo.mock).toBe(true)
+  })
+
+  it('GET /api/vip/order/:orderNo/payinfo — cancelled 订单返回 {status:cancelled} (不重新预下单)', async () => {
+    const user = await createUser('1001', '购买者')
+    const level = await createVipLevel({ levelName: '月卡', price: 600 })
+    setMockUser(user.id)
+    const createRes = await server.inject({
+      method: 'POST',
+      url: '/api/vip/order',
+      body: { vipLevelId: level.id },
+    })
+    const orderNo = createRes.json().data.orderNo
+
+    await db.update(orders).set({ status: 'cancelled' }).where(eq(orders.orderNo, orderNo))
+
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/vip/order/${orderNo}/payinfo`,
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.status).toBe('cancelled')
+    expect(body.data.payInfo).toBeUndefined()
+  })
 })
