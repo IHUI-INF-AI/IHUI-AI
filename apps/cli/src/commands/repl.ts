@@ -14,6 +14,7 @@ import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import { setupAgentTools, runToolLoop, type ToolContext, type InterjectionBlock } from './agent.js';
 import { renderSlashHelp, suggestSlashCommands } from './slash-registry.js';
+import type { PermissionRules } from '../tools/permissions.js';
 import { findSkill, type Skill } from '../skills/index.js';
 import {
   getMemoryStore,
@@ -52,6 +53,8 @@ export interface ReplOptions {
   allowDangerous?: boolean;
   /** 强制 LLM 先输出 plan 块再执行工具 */
   planFirst?: boolean;
+  /** P0-7 Permission rules:白名单/黑名单(--tools/--disallowed-tools) */
+  permissions?: PermissionRules;
 }
 
 interface ReplState {
@@ -842,6 +845,7 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
       enableMcp: state.opts.enableMcp,
       silent: true,
       planFirst: state.opts.planFirst,
+      permissions: state.opts.permissions,
       subagentParent: {
         modelId: state.opts.modelId,
         apiUrl: state.opts.apiUrl,
