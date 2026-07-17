@@ -33,7 +33,7 @@ async function fetchModels(): Promise<ModelItem[]> {
   return res.data
 }
 
-const PROVIDERS = ['全部', 'openai', 'anthropic', 'google', 'meta', 'local']
+const PROVIDERS = ['全部', 'openai', 'anthropic', 'google', 'groq', 'openrouter', 'meta', 'local']
 
 export default function ModelsPage() {
   const t = useTranslations('featureCenter.models')
