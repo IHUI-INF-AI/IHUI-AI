@@ -45,7 +45,7 @@ export function getSsoLoginUrl(redirectUri: string): string {
 
 export async function exchangeSsoCode(code: string): Promise<SsoTokenData | null> {
   try {
-    const resp = await fetch(`${BASE_URL}/api/auth/sso/exchange`, {
+    const resp = await fetch(`${BASE_URL}/auth/sso/exchange`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, clientId: SSO_CLIENT_ID }),
@@ -61,7 +61,7 @@ export async function exchangeSsoCode(code: string): Promise<SsoTokenData | null
 
 export async function validateToken(token: string): Promise<boolean> {
   try {
-    const resp = await fetch(`${BASE_URL}/api/auth/sso/validate`, {
+    const resp = await fetch(`${BASE_URL}/auth/sso/validate`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!resp.ok) return false
@@ -74,7 +74,7 @@ export async function validateToken(token: string): Promise<boolean> {
 
 export async function ssoLogout(token: string): Promise<boolean> {
   try {
-    const resp = await fetch(`${BASE_URL}/api/auth/sso/logout`, {
+    const resp = await fetch(`${BASE_URL}/auth/sso/logout`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     })

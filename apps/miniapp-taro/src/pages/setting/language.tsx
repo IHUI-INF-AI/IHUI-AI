@@ -5,9 +5,12 @@ import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
 import { useI18n, type Locale } from '@/i18n'
 
-const LANGS: Array<{ value: Locale; key: 'zhCN' | 'en' }> = [
+const LANGS: Array<{ value: Locale; key: 'zhCN' | 'en' | 'ja' | 'ko' | 'zhTW' }> = [
   { value: 'zh-CN', key: 'zhCN' },
   { value: 'en', key: 'en' },
+  { value: 'ja', key: 'ja' },
+  { value: 'ko', key: 'ko' },
+  { value: 'zh-TW', key: 'zhTW' },
 ]
 
 export default function LanguagePage() {
