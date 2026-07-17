@@ -13,6 +13,9 @@ import { CourseScreen } from '../screens/CourseScreen'
 import { OrderScreen } from '../screens/OrderScreen'
 import { WalletScreen } from '../screens/WalletScreen'
 import SettingsScreen from '../screens/SettingsScreen'
+import { FavoritesScreen } from '../screens/FavoritesScreen'
+import { FollowingScreen } from '../screens/FollowingScreen'
+import { SubscriptionsScreen } from '../screens/SubscriptionsScreen'
 
 export type RootStackParamList = {
   Login: undefined
@@ -23,6 +26,9 @@ export type RootStackParamList = {
   Order: undefined
   Wallet: undefined
   Settings: undefined
+  Favorites: undefined
+  Following: undefined
+  Subscriptions: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -60,6 +66,9 @@ function RootNavigatorInner() {
             <Stack.Screen name="Order" component={OrderScreen} />
             <Stack.Screen name="Wallet" component={WalletScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="Favorites" component={FavoritesScreen} />
+            <Stack.Screen name="Following" component={FollowingScreen} />
+            <Stack.Screen name="Subscriptions" component={SubscriptionsScreen} />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />

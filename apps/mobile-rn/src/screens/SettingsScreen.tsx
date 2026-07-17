@@ -6,9 +6,11 @@ import { useClipboard } from '../hooks/use-clipboard'
 import { usePush } from '../hooks/use-push'
 import { useScreenshot } from '../hooks/use-screenshot'
 import { useAuth } from '../context/AuthContext'
+import { useI18n } from '../i18n'
 
 export default function SettingsScreen() {
   const { user, logout } = useAuth()
+  const { t } = useI18n()
   const bio = useBiometrics()
   const clip = useClipboard()
   const push = usePush()
@@ -29,7 +31,9 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView className="flex-1 bg-white p-4 dark:bg-black">
-      <Text className="mb-2 text-xl font-semibold text-neutral-900 dark:text-neutral-50">账户</Text>
+      <Text className="mb-2 text-xl font-semibold text-neutral-900 dark:text-neutral-50">
+        {t('setting.account')}
+      </Text>
       <View className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900">
         <Text className="text-sm text-neutral-500">当前用户</Text>
         <Text className="text-base text-neutral-900 dark:text-neutral-50">
@@ -38,14 +42,14 @@ export default function SettingsScreen() {
       </View>
 
       <Text className="mb-2 text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-        生物识别
+        {t('setting.biometrics')}
       </Text>
       <View className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900">
         <Text className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">
           硬件支持:{bio.supported ? '✓' : '✗'} · 已录入:{bio.enrolled ? '✓' : '✗'}
         </Text>
         <Button onPress={onAuth} variant="default">
-          验证身份
+          {t('setting.verifyIdentity')}
         </Button>
       </View>
 
@@ -104,7 +108,7 @@ export default function SettingsScreen() {
       </View>
 
       <Button onPress={logout} variant="destructive">
-        退出登录
+        {t('auth.logout')}
       </Button>
     </ScrollView>
   )
