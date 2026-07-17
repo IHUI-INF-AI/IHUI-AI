@@ -79,6 +79,7 @@ program
   .option('-m, --model <model_id>', '模型 ID', 'default')
   .option('-w, --workspace <path>', '工作区路径', process.cwd())
   .option('--max-iterations <n>', '最大工具循环次数', '25')
+  .option('--max-turns <n>', '最大工具循环次数(--max-iterations 别名,P1-3 对齐 OpenAI o1/o3 术语)')
   .option('--api-url <url>', '后端 API 地址', process.env.IHUI_API_URL || 'http://localhost:8000')
   .option('--api-key <key>', 'API 密钥', process.env.IHUI_API_KEY || '')
   .option('--resume <session-id>', '恢复之前的会话')
@@ -316,6 +317,7 @@ program
       cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
       cliModel: typeof opts.model === 'string' ? opts.model : undefined,
       cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
+      cliMaxTurns: typeof opts.maxTurns === 'string' ? opts.maxTurns : undefined,
       cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
       cliMcp: opts.mcp === true ? true : undefined,
     });
@@ -539,6 +541,7 @@ program
       cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
       cliModel: typeof opts.model === 'string' ? opts.model : undefined,
       cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
+      cliMaxTurns: typeof opts.maxTurns === 'string' ? opts.maxTurns : undefined,
       cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
       cliMcp: opts.mcp === true ? true : undefined,
     });
