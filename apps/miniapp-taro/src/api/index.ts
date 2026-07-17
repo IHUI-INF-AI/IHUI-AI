@@ -658,27 +658,53 @@ export const generateImage = (data: { prompt: string; size?: string }) =>
   post<{ url: string }>('/ai/image', data)
 export const voiceChat = (data: { audio: string }) =>
   post<{ reply: string; audio?: string }>('/ai/voice', data)
+/** 后端 agents 表原始字段(用于内部映射,不对外暴露) */
+interface AgentRawRow {
+  agentId: string
+  name: string
+  description: string | null
+  avatar: string | null
+  usageCount: number
+  isVipExclusive: boolean | null
+  agentPrompt: string | null
+}
+
+/**
+ * 获取智能体列表(对接后端 GET /api/agents/list)。
+ * 后端返回 { list: Agent[], total, page, pageSize },此处映射为前端 AgentInfo 兼容结构。
+ */
 export const getAgentList = () =>
-  get<{
-    list: Array<{
-      id: string
-      name: string
-      desc: string
-      avatar?: string
-      uses: number
-      isVipExclusive?: boolean
-    }>
-  }>('/ai/agent/list')
+  get<{ list: AgentRawRow[]; total: number; page: number; pageSize: number }>('/agents/list').then(
+    (res) => ({
+      list: (res.list || []).map((a) => ({
+        id: String(a.agentId),
+        name: a.name,
+        desc: a.description ?? '',
+        avatar: a.avatar ?? undefined,
+        uses: a.usageCount,
+        isVipExclusive: a.isVipExclusive ?? false,
+      })),
+      total: res.total,
+      page: res.page,
+      pageSize: res.pageSize,
+    }),
+  )
+
+/**
+ * 获取智能体详情(对接后端 GET /api/agents/:agentId)。
+ * 后端返回 agent 完整行(含 agentId/description/agentPrompt/isVipExclusive 等驼峰字段),
+ * 此处映射为前端 AgentDetail 兼容结构(id/desc/prompt)。
+ */
 export const getAgentDetail = (id: string | number) =>
-  get<{
-    id: string
-    name: string
-    desc: string
-    avatar?: string
-    prompt: string
-    config?: Record<string, unknown>
-    isVipExclusive?: boolean
-  }>(`/ai/agent/${id}`)
+  get<AgentRawRow>(`/agents/${id}`).then((a) => ({
+    id: String(a.agentId),
+    name: a.name,
+    desc: a.description ?? '',
+    avatar: a.avatar ?? undefined,
+    prompt: a.agentPrompt ?? '',
+    config: undefined,
+    isVipExclusive: a.isVipExclusive ?? false,
+  }))
 
 /** Agent 权限类型 — 与后端 AgentPermission.type 对齐 */
 export type AgentPermissionType = 'free' | 'vip' | 'purchased' | 'vip_only'
