@@ -463,8 +463,13 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
         aria-label={t('title')}
         className="mb-1 w-full rounded-md border border-border bg-card p-1.5"
       >
-        <div className="px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-          {tc('history')}
+        <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+          <span>{tc('history')}</span>
+          {items.length > 0 && (
+            <span className="rounded-sm bg-muted px-1 py-0.5 text-[10px] font-medium tabular-nums leading-none text-muted-foreground">
+              {items.length}
+            </span>
+          )}
         </div>
 
         {isLoading ? (
