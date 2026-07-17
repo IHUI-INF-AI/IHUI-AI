@@ -11,8 +11,11 @@ interface Props {
 }
 
 const LOCALES = [
-  { key: 'zh-CN', labelKey: 'langZh' },
-  { key: 'en', labelKey: 'langEn' },
+  { key: 'zh-CN', label: '中文' },
+  { key: 'en', label: 'English' },
+  { key: 'ja', label: '日本語' },
+  { key: 'ko', label: '한국어' },
+  { key: 'zh-TW', label: '繁體中文' },
 ]
 
 export function LanguageCard({ t, locale, onSelect }: Props) {
@@ -40,7 +43,7 @@ export function LanguageCard({ t, locale, onSelect }: Props) {
                 )}
               >
                 <Globe className="h-4 w-4" />
-                {t(item.labelKey)}
+                {item.label}
                 {active && <Check className="h-4 w-4" />}
               </button>
             )

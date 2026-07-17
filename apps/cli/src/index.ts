@@ -45,9 +45,11 @@ import {
   resolveEffectiveConfig,
   saveSettingsTemplate,
   getSettingsPath,
+  loadSettings,
 } from './commands/settings.js';
 import { queryAuditLog } from './audit.js';
-import { t } from './i18n/index.js';
+import { t, setLocale } from './i18n/index.js';
+import type { Locale } from './i18n/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -74,6 +76,7 @@ program
   .option('--plan', '强制 Agent 先输出任务规划(plan 块)再执行工具(长任务推荐)')
   .option('--temperature <num>', 'LLM 温度(0-2,代码任务推荐 0.2,创意任务推荐 0.7)')
   .option('--max-tokens <num>', '最大生成 token 数')
+  .option('--locale <locale>', '界面语言(zh-CN/en/ja/ko/zh-TW)', process.env.IHUI_LOCALE || '')
   .option('-f, --prompt-file <path>', '从文件读取 prompt(支持超长 PRD,UTF-8 编码)');
 
 interface ResolvedSession {
@@ -98,7 +101,11 @@ function resolveSession(opts: Record<string, unknown>): ResolvedSession {
   if (opts.resume) {
     const session = loadSession(opts.resume as string);
     if (session) {
-      console.info(chalk.dim(`恢复会话: ${session.id} (${session.history.length} 条历史)`));
+      console.info(
+        chalk.dim(
+          t('cli.sessionResumedWithId', { id: session.id, count: session.history.length }),
+        ),
+      );
       return { sessionId: session.id, history: session.history };
     }
     console.info(chalk.red(t('common.notFound', { target: opts.resume as string })));
@@ -117,19 +124,19 @@ export function readPromptFile(
   try {
     const stat = statSync(filePath);
     if (stat.isDirectory()) {
-      return { ok: false, error: `路径是目录,不是文件: ${filePath}` };
+      return { ok: false, error: t('cli.errorPathIsDir', { path: filePath }) };
     }
     const raw = readFileSync(filePath, 'utf-8');
     const content = raw.trim();
     if (content.length === 0) {
-      return { ok: false, error: `文件内容为空: ${filePath}` };
+      return { ok: false, error: t('cli.errorFileEmpty', { path: filePath }) };
     }
     return { ok: true, content };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      return { ok: false, error: `文件不存在: ${filePath}` };
+      return { ok: false, error: t('cli.errorFileNotFound', { path: filePath }) };
     }
-    return { ok: false, error: `读取文件失败: ${(err as Error).message}` };
+    return { ok: false, error: t('cli.errorReadFile', { message: (err as Error).message }) };
   }
 }
 
@@ -142,7 +149,7 @@ function resolvePrompt(
   }
   const result = readPromptFile(opts.promptFile as string);
   if (!result.ok) {
-    console.error(chalk.red(`--prompt-file 错误: ${result.error}`));
+    console.error(chalk.red(t('cli.errorPromptFile', { error: result.error })));
     process.exit(1);
   }
   if (positional) {
@@ -217,6 +224,16 @@ async function runAgentAndExit(
 
 program.hook('preAction', () => {
   const opts = program.opts();
+  const settingsLocale = loadSettings().locale;
+  const effectiveLocale =
+    (typeof opts.locale === 'string' && opts.locale) ||
+    process.env.IHUI_LOCALE ||
+    settingsLocale ||
+    '';
+  if (effectiveLocale) {
+    setLocale(effectiveLocale as Locale);
+    if (!process.env.IHUI_LOCALE) process.env.IHUI_LOCALE = effectiveLocale;
+  }
   const cfg = resolveEffectiveConfig({
     cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
     cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
@@ -302,7 +319,7 @@ program
     const opts = program.opts();
     const effectiveTask = resolvePrompt(task, opts);
     if (!effectiveTask) {
-      console.error(chalk.red('用法: ihui agent <task>  或  ihui agent --prompt-file <path>'));
+      console.error(chalk.red(t('cli.agentUsage')));
       process.exit(1);
     }
     const jsonMode = resolveJsonMode(opts);
@@ -317,11 +334,11 @@ program
   .action(async (options: { force?: boolean }) => {
     const workspace = process.cwd();
     if (agentsMdExists(workspace) && !options.force) {
-      console.info(chalk.yellow('AGENTS.md 已存在。使用 --force 覆盖。'));
+      console.info(chalk.yellow(t('cli.agentsMdExists')));
       process.exit(1);
     }
     writeAgentsMd(workspace);
-    console.info(chalk.green(`已创建: ${join(workspace, 'AGENTS.md')}`));
+    console.info(chalk.green(t('cli.agentsMdCreated', { path: join(workspace, 'AGENTS.md') })));
   });
 
 // sessions 子命令
