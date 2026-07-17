@@ -999,19 +999,25 @@ export function Sidebar({
         {header}
         {navContent}
         {footer}
-        {/* 右侧拖拽手柄:仅展开态显示;aside 无圆角(overflow-visible),用 top-0 bottom-0 贴满高度 */}
+        {/* 右侧拖拽手柄:仅展开态显示。
+            外层 w-2(8px)为透明命中区(易抓取),内层 w-px 为可见细线(1px)。
+            right-[-3px] 让命中区跨过 aside 右边缘,占据 sidebar 与 main 之间的 8px 间隙中线。 */}
         {!collapsed && (
           <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={tc('resize')}
             onPointerDown={handleResizeStart}
-            className={cn(
-              'absolute right-0 top-0 bottom-0 z-10 w-px cursor-col-resize bg-transparent transition-colors',
-              'hover:bg-primary',
-              isResizing && 'bg-primary',
-            )}
-          />
+            className="group absolute right-[-3px] top-0 bottom-0 z-20 w-2 cursor-col-resize"
+          >
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={tc('resize')}
+              className={cn(
+                'absolute right-0 top-0 bottom-0 w-px bg-transparent transition-colors',
+                'group-hover:bg-primary',
+                isResizing && 'bg-primary',
+              )}
+            />
+          </div>
         )}
       </aside>
 
