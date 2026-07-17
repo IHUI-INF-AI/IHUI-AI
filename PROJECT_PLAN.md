@@ -88,7 +88,7 @@
 - [x] ✅(2026-07-17) P1 新增 schema 表 `notes`,激活 `/notes/:id` PUT。
 - [x] ✅(2026-07-17) P1 新增 schema 表 `llm_call_logs`,激活 `/llm/complete/stream` POST(SSE 流式),异步落库 + AbortController 断开 + Zod 校验。
 - [x] ✅(2026-07-17) P1 新增 schema 表 `knowledge_base_categories`,把当前 `/knowledge-base/categories` 的 distinct 实现替换为分类表查询。
-- [ ] P1 接入 OSS 驱动与 `upload_sessions` 表,激活 `/oss/resource/file` POST。
+- [x] ✅(2026-07-17) P1 接入 OSS 驱动与 `upload_sessions` 表,激活 `/oss/resource/file` POST(兼容入口等价 /api/chunked-upload/init,Zod 校验 + 写入 uploadSessions + 5 测试)。
 - [x] ✅(2026-07-17) P1 接入外部 PDF 转换服务,激活 `/tools/pdf/*` 4 个 GET(convert/merge/split/watermark 元数据查询) + `/pdf-service/*` 5 个 POST(convert/merge/split/print/sign/watermark Zod 任务提交)共 9 个路由,9 个路由 + 15 测试。
 - [ ] P1 通过 WebSocket 或 SSE 实现 `/v1/ai/capabilities/ws/stream`(语音/能力流式响应)。
 
@@ -17650,3 +17650,64 @@ search agent 扫描 `apps/web` + `packages/ui` 所有 tsx,与 `@theme`/`design-t
 
 - Edit 工具对本项目 `globals.css` 出现"返回成功但未持久化"问题(疑似 Windows 文件锁定/dev server watch),改用 Write 工具重写整个文件解决。后续修改 `globals.css` 若 Edit 不生效,直接用 Write。
 - dark 模式 `--color-popover` 设为 `hsl(0 0% 7%)` 而非与 card 同值(3.9%),是有意拉开浮层与背景的亮度差,避免暗色下浮层"贴"在背景上边界不清。light 模式保持与 card 一致(100%)。
+
+---
+
+## P1 OSS 资源路由真实化 + git rebase 冲突解决(2026-07-17)✅(2026-07-17)
+
+### 背景
+
+pre-push 强制清缓存 + 全量 typecheck + clean stashes 任务执行中,遭遇并发会话 force-push 引发的 git rebase add/add 冲突。冲突解决后,完成 OSS 资源路由从桩 → 真实实现升级,标记 PROJECT_PLAN P1 OSS 任务完成。
+
+### 1. git rebase 冲突解决
+
+- **冲突点**:`packages/database/seed/ai-fresh-2026.ts` 与 `ai-courses-2026.ts` add/add 冲突
+- **根因**:本地 commit `be4b8554`(恢复 seed 文件)与并发会话 commit `bf789826`(P1 schema batch2)同时新增这两个文件
+- **解决**:`git rebase --skip` — 本地 commit 冗余(origin/main 已包含),跳过后 main 与 origin/main 同步
+- **验证**:`git status` 显示 "Your branch is up to date with 'origin/main'"
+
+### 2. OSS 资源路由真实化(P1 任务完成)
+
+**[apps/api/src/routes/frontend-stub-other-routes.ts](file:///g:/IHUI-AI/apps/api/src/routes/frontend-stub-other-routes.ts#L1197-L1247)**
+
+将 `/oss/resource/file` POST 从空桩升级为真实实现:
+
+- 新增 `ossFileInitSchema` Zod 校验(fileName 1-255 字符 / fileSize >=0 / totalChunks >=1 / chunkSize 默认 5MB)
+- 写入 `uploadSessions` 表(uploadId / fileName / fileSize / fileMd5 / totalChunks / chunkSize / mimeType / status='uploading' / userId)
+- 返回三件套 URL:`uploadUrl: /api/chunked-upload/chunk` + `mergeUrl: /api/chunked-upload/merge` + `statusUrl: /api/chunked-upload/status`
+- 兼容入口语义:等价于 `/api/chunked-upload/init`,前端可任选其一
+
+**[apps/api/tests/oss-resource.test.ts](file:///g:/IHUI-AI/apps/api/tests/oss-resource.test.ts)** 新增 5 个测试用例:
+
+| #   | 用例                                    | 期望                        |
+| --- | --------------------------------------- | --------------------------- |
+| 1   | 未登录 POST /oss/resource/file          | 401                         |
+| 2   | 已登录 POST /oss/resource/file 完整参数 | 201 + uploadId + 三件套 URL |
+| 3   | 缺 fileName                             | 400                         |
+| 4   | totalChunks=0                           | 400                         |
+| 5   | fileName 超 255 字符                    | 400                         |
+
+Mock 设计:`vi.hoisted` 提升 `mockAuthenticate` + `mockValues`;`db.insert(...).values(...)` 链式调用 mock 为 `() => ({ values: mockValues })`。
+
+### 3. 验证依据
+
+| 验证项        | 命令                                        | 退出码 | 结果                           |
+| ------------- | ------------------------------------------- | ------ | ------------------------------ |
+| API typecheck | `pnpm --filter @ihui/api typecheck`         | 0      | ✅ tsc --noEmit 无错误         |
+| API 全量测试  | `pnpm --filter @ihui/api test`              | 0      | ✅ 237 files / 3455 tests 全过 |
+| OSS 单测      | `pnpm --filter @ihui/api test oss-resource` | 0      | ✅ 5/5 用例通过                |
+| Web typecheck | `pnpm --filter @ihui/web typecheck`         | 0      | ✅ 无错误                      |
+
+### 4. 改动文件清单
+
+| 类型 | 文件                                                | 关键改动                                                           |
+| ---- | --------------------------------------------------- | ------------------------------------------------------------------ |
+| 修改 | `apps/api/src/routes/frontend-stub-other-routes.ts` | OSS 路由真实化(+50 行,Zod 校验 + 写入 uploadSessions + 三件套 URL) |
+| 新增 | `apps/api/tests/oss-resource.test.ts`               | 5 个 OSS 路由测试用例                                              |
+| 修改 | `apps/web/app/globals.css`                          | +4 行 popover 颜色变量(已在前面 popover 修复条目记录)              |
+| 修改 | `PROJECT_PLAN.md`                                   | OSS 任务 `[ ]` → `[x] ✅(2026-07-17)` + 本条交付记录               |
+
+### 5. 残留风险与后续
+
+- **stash 清理**:8 个 stash 待审查(pre-rebase-stash + 7 个历史 stash),按 AGENTS.md 第 8 节安全规则逐一审查决定命运
+- **OSS 路由完整闭环**:本次仅激活 `/oss/resource/file` POST 初始化;后续 chunk 上传/merge/status 三个端点已在 `/api/chunked-upload/*` 实现,OSS 路由作为兼容入口转发
