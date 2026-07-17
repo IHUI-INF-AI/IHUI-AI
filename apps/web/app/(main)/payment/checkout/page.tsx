@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useRef } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Check, Loader2, ArrowLeft, Tag } from 'lucide-react'
@@ -10,6 +10,8 @@ import { Check, Loader2, ArrowLeft, Tag } from 'lucide-react'
 import { Button, Input } from '@ihui/ui'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { useVipPayment } from '@/hooks/use-vip-payment'
+import { useToast } from '@/hooks/use-toast'
 
 const formatCNY = (n: number) =>
   new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n)
@@ -31,14 +33,17 @@ const METHODS = [
 
 function CheckoutContent() {
   const t = useTranslations('payment')
+  const router = useRouter()
   const searchParams = useSearchParams()
   const planId = searchParams.get('plan') ?? 'pro'
   const plan = PLAN_PRICES[planId] ?? DEFAULT_PLAN
 
-  const [method, setMethod] = React.useState<string>('wechat')
+  const { createOrder, queryOrder, paying, payMethod, setPayMethod } = useVipPayment()
+  const toast = useToast()
   const [coupon, setCoupon] = React.useState('')
   const [discount, setDiscount] = React.useState(0)
-  const [submitting, setSubmitting] = React.useState(false)
+  const [polling, setPolling] = React.useState(false)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const applyCoupon = () => {
     setDiscount(coupon.trim().toUpperCase() === 'IHUI20' ? 0.2 : 0)
@@ -48,10 +53,43 @@ function CheckoutContent() {
   const discountAmount = subtotal * discount
   const total = subtotal - discountAmount
 
-  const handlePay = (e: React.FormEvent) => {
+  const stopPoll = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+    setPolling(false)
+  }
+
+  useEffect(() => () => stopPoll(), [])
+
+  const startPolling = (orderNo: string) => {
+    setPolling(true)
+    let count = 0
+    const MAX = 30
+    pollRef.current = setInterval(async () => {
+      count++
+      const status = await queryOrder(orderNo)
+      if (status === 'paid') {
+        stopPoll()
+        toast.success('支付成功')
+        router.push('/payment')
+        return
+      }
+      if (status === 'cancelled' || status === 'closed' || status === 'refunded' || count >= MAX) {
+        stopPoll()
+        toast.error('支付未完成', count >= MAX ? '支付超时,请重试' : '订单已关闭')
+      }
+    }, 2000)
+  }
+
+  const submitting = paying || polling
+
+  const handlePay = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitting(true)
-    window.setTimeout(() => setSubmitting(false), 1500)
+    const order = await createOrder(planId)
+    if (!order) return
+    startPolling(order.orderNo)
   }
 
   return (
@@ -126,31 +164,31 @@ function CheckoutContent() {
                   key={m.id}
                   className={cn(
                     'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors',
-                    method === m.id
-                      ? 'border-primary bg-primary/5'
-                      : 'hover:bg-accent',
+                    payMethod === m.id ? 'border-primary bg-primary/5' : 'hover:bg-accent',
                   )}
                 >
                   <input
                     type="radio"
                     name="method"
                     value={m.id}
-                    checked={method === m.id}
-                    onChange={() => setMethod(m.id)}
+                    checked={payMethod === m.id}
+                    onChange={() => setPayMethod(m.id)}
                     className="h-4 w-4 accent-primary"
                   />
                   <span className="font-medium">{t(m.labelKey)}</span>
                   <Check
                     className={cn(
                       'ml-auto h-4 w-4 transition-opacity',
-                      method === m.id ? 'opacity-100 text-primary' : 'opacity-0',
+                      payMethod === m.id ? 'opacity-100 text-primary' : 'opacity-0',
                     )}
                   />
                 </label>
               ))}
               <Button type="submit" className="mt-4 w-full" size="lg" disabled={submitting}>
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {submitting ? t('checkout.processing') : `${t('checkout.payNow')} · ${formatCNY(total)}`}
+                {submitting
+                  ? t('checkout.processing')
+                  : `${t('checkout.payNow')} · ${formatCNY(total)}`}
               </Button>
             </CardContent>
           </Card>
