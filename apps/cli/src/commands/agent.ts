@@ -36,6 +36,7 @@ import { BUILTIN_TOOLS } from '../tools/builtins.js';
 import { createFileEditTools } from '../tools/file-edit.js';
 import { GIT_TOOLS } from '../tools/git.js';
 import { FETCH_TOOLS } from '../tools/fetch-url.js';
+import { WEB_SEARCH_TOOLS } from '../tools/web-search.js';
 import { TEST_TOOLS } from '../tools/run-tests.js';
 import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
 import { CODEGRAPH_TOOLS } from '../tools/codegraph.js';
@@ -164,6 +165,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   registerTools(BUILTIN_TOOLS);
   registerTools(GIT_TOOLS);
   registerTools(FETCH_TOOLS);
+  registerTools(WEB_SEARCH_TOOLS);
   registerTools(TEST_TOOLS);
   registerTools(DIAGNOSTIC_TOOLS);
   registerTools(CODEGRAPH_TOOLS);
@@ -217,6 +219,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
       allowedPaths: resolvedSandbox.allowedPaths,
     } : undefined,
     folderTrust: settings.folderTrust,
+    permissions: opts.permissions,
   };
 
   return { systemPrompt, ctx, skills, memory };
