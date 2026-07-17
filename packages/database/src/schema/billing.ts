@@ -25,6 +25,10 @@ export const plans = pgTable('plans', {
   features: jsonb('features').notNull().default([]),
   isActive: boolean('is_active').default(true).notNull(),
   sortOrder: integer('sort_order').default(0).notNull(),
+  wechatPlanId: varchar('wechat_plan_id', { length: 64 }),
+  billingPeriod: varchar('billing_period', { length: 20 }).default('month').notNull(),
+  trialDays: integer('trial_days').default(0).notNull(),
+  isRecurring: boolean('is_recurring').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
