@@ -1,6 +1,12 @@
 import { z } from 'zod'
 import { logger } from '../utils/logger.js'
 
+const optionalUrl = (def: string) =>
+  z.preprocess(
+    (v) => (v === undefined || v === '' ? def : v),
+    z.string().refine((v) => v === '' || /^https?:\/\/.+/.test(v), 'Invalid url'),
+  )
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(8080),
@@ -39,6 +45,21 @@ const envSchema = z.object({
   SMTP_PASS: z.string().default(''),
   SMTP_FROM: z.string().default('noreply@ihui.ai'),
   SMTP_ENABLED: z.coerce.boolean().default(false),
+
+  // 微信支付 V3(全部 optional,缺失时降级 mock;wechat-pay.ts 仍直接读 process.env,此处仅校验存在性)
+  WX_API_BASE: optionalUrl('https://api.mch.weixin.qq.com'),
+  WX_MINI_APPID: z.string().optional().default(''),
+  WX_APP_APPID: z.string().optional().default(''),
+  WX_SHOP_ID: z.string().optional().default(''),
+  WX_PAY_V3_KEY: z.string().optional().default(''),
+  WX_PAY_CERT_SERIAL: z.string().optional().default(''),
+  WX_PAY_PRIVATE_KEY: z.string().optional().default(''),
+  WX_PAY_PRIVATE_KEY_PATH: z.string().optional().default(''),
+  WX_PAY_PLATFORM_CERT: z.string().optional().default(''),
+  WX_PAY_PLATFORM_CERT_PATH: z.string().optional().default(''),
+  WX_PAY_NOTIFY_URL: optionalUrl(''),
+  WX_PAY_COURSE_NOTIFY_URL: optionalUrl(''),
+  WX_ANDROID_NOTIFY_URL: optionalUrl(''),
 
   API_LOG_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
   API_LOG_ENABLED: z.coerce.boolean().default(true),
