@@ -35,6 +35,7 @@ def get_provider(model: str, api_key: str | None, api_base: str | None) -> BaseP
         return GeminiProvider(api_key, api_base)
     if m.startswith("stepfun/"):
         return StepfunProvider(api_key, api_base)
-    if m.startswith(("gpt-", "o1-", "o3-", "openai/")) or "/" not in model:
+    # Groq/OpenRouter 均为 OpenAI 兼容接口,复用 OpenAIProvider 处理 tools 差异
+    if m.startswith(("gpt-", "o1-", "o3-", "openai/", "groq/", "openrouter/")) or "/" not in model:
         return OpenAIProvider(api_key, api_base)
     return None
