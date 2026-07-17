@@ -249,7 +249,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info('  /skills            列出已加载的 skills');
       console.info('  /skill <name>      查看 skill 内容');
       console.info('  /memory [cmd]      管理跨会话记忆(on/off/show/add/clear/search)');
-      console.info('  /plan [cmd]        Plan Mode 控制(on/off/approve/show)');
+      console.info('  /plan [cmd]        Plan Mode 控制(on/off/approve/reject/edit/show)');
       console.info('  /context           显示当前会话 token 用量 + 消息数 + 压缩阈值');
       console.info('  /rewind [N]          回退 N 步(默认 1 步,一步=一对 user+assistant)');
       console.info('  /fork [msg-index]    从指定消息位置 fork 新 session(默认最后一条 user 消息)');
@@ -435,10 +435,41 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       } else if (sub === 'approve') {
         state.planApproved = true;
         console.info(chalk.green('✓ Plan 已批准,后续工具调用将直接执行'));
+      } else if (sub === 'reject') {
+        // 拒绝当前 plan:重置 planApproved,推入 user 消息要求 LLM 重新规划
+        state.planApproved = false;
+        const rejectMsg = '用户拒绝了上一个 plan,请重新规划任务步骤(输出 ```plan 代码块),再执行工具。';
+        state.history.push({ role: 'user', content: rejectMsg });
+        if (state.session) {
+          state.session.history = state.history;
+          saveSession(state.session);
+        }
+        console.info(chalk.yellow('✓ Plan 已拒绝,已要求 LLM 重新规划(下一条消息将触发重新规划)'));
+      } else if (sub === 'edit') {
+        // 简化版 edit:提示用户用 /rewind 回退到 plan 之前重新规划
+        console.info(chalk.cyan('\n编辑 Plan:'));
+        console.info(chalk.dim('  Plan 块已记录在 history 中。要修改:'));
+        console.info(chalk.dim('  1. /rewind 1   回退到 plan 之前的状态'));
+        console.info(chalk.dim('  2. 重新发送你的任务消息'));
+        console.info(chalk.dim('  3. LLM 会重新输出 plan 块'));
+        console.info(chalk.dim('  或者直接 /plan reject 让 LLM 重新规划\n'));
       } else if (sub === 'show') {
-        console.info(`Plan Mode: ${state.opts.planFirst ? 'on' : 'off'}, approved: ${state.planApproved ?? false}`);
+        const planState = state.opts.planFirst
+          ? (state.planApproved ? 'on (approved)' : 'on (pending)')
+          : 'off';
+        console.info(`Plan Mode: ${planState}`);
+        // 尝试显示最近的 plan 块
+        for (let i = state.history.length - 1; i >= 0; i--) {
+          const m = state.history[i]!;
+          const planMatch = m.content.match(/```plan\n([\s\S]*?)```/);
+          if (planMatch) {
+            console.info(chalk.dim(`\n最近的 Plan (来自消息 #${i + 1}):`));
+            console.info(planMatch[1]?.trim() ?? '');
+            break;
+          }
+        }
       } else {
-        console.info(chalk.dim('用法:/plan on|off|approve|show'));
+        console.info(chalk.dim('用法:/plan on|off|approve|reject|edit|show'));
       }
       break;
     }
