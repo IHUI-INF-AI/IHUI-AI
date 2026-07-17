@@ -269,7 +269,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                 {}
                 <img
                   src={`/images/flags/${lang.code}.svg`}
-                  className="h-3 w-4 object-cover"
+                  className="block h-3 w-4 shrink-0 object-cover"
                   alt={lang.name}
                 />
                 <span>{lang.name}</span>
@@ -286,7 +286,11 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           aria-label={t('language')}
         >
           {}
-          <img src={`/images/flags/${locale}.svg`} className="h-3 w-4 object-cover" alt={locale} />
+          <img
+            src={`/images/flags/${locale}.svg`}
+            className="block h-3 w-4 shrink-0 object-cover"
+            alt={locale}
+          />
         </Button>
       </Popover>
 
@@ -696,9 +700,12 @@ function ExpandableNavItem({
         className={parentClassName}
       >
         <Icon className="h-4 w-4 shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-[13px]">{label}</span>
+        <span className="min-w-0 flex-1 truncate pr-4 text-[13px]">{label}</span>
         <ChevronDown
-          className={cn('ml-auto h-3.5 w-3.5 shrink-0 transition-transform', open && 'rotate-180')}
+          className={cn(
+            'absolute right-2 top-1/2 h-3.5 w-3.5 shrink-0 -translate-y-1/2 transition-transform',
+            open && 'rotate-180',
+          )}
         />
       </button>
       {open && <div className="mt-0.5 pl-2">{childList}</div>}
@@ -767,7 +774,12 @@ export function Sidebar({
         ref={navRef}
         id={id}
         aria-label={t('title') ?? '主导航'}
-        className="hover-scroll min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto px-2 py-2"
+        className={cn(
+          'hover-scroll min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto py-2',
+          // 折叠态:aside 的 border-r(1px)使内容区 59px,nav 居中后图标会偏左 0.5px。
+          // 用 pl-[9px] pr-2 补偿,让图标回到 60px 视觉中心。
+          collapsed ? 'pl-[9px] pr-2' : 'px-2',
+        )}
       >
         {visibleGroups.map((group, gi) => (
           <div key={group.label} className={gi > 0 ? 'pt-2' : ''}>
@@ -878,7 +890,7 @@ export function Sidebar({
       <aside
         aria-label={t('mainNav')}
         className={cn(
-          'relative hidden h-screen shrink-0 flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-[width] duration-200 lg:flex',
+          'relative hidden h-screen shrink-0 flex-col overflow-visible border-r border-border bg-sidebar transition-[width] duration-200 lg:flex',
           collapsed && 'w-[60px]',
         )}
         style={collapsed ? { width: SIDEBAR_COLLAPSED_WIDTH } : { width: SIDEBAR_WIDTH }}
@@ -903,7 +915,7 @@ export function Sidebar({
         aria-label={t('mainNav')}
         role="dialog"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex flex-col overflow-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
         style={{ width: SIDEBAR_WIDTH }}

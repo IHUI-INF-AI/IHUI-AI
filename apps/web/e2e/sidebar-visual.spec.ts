@@ -146,4 +146,74 @@ test.describe('Sidebar 视觉守门', () => {
     // 内层细线宽度应是 1px(w-px),不是 3px(旧的 hover:w-[3px])
     expect(lineBox!.width).toBeLessThanOrEqual(2)
   })
+
+  test('语言切换 Popover 弹出后完整可见不被裁剪 + 国旗 img 渲染', async ({ page }) => {
+    // 1. 找到侧边栏底部语言切换按钮(带国旗 img 的 ghost icon button)
+    const langBtn = page
+      .locator('aside button[aria-label]')
+      .filter({ has: page.locator('img[src*="/images/flags/"]') })
+      .first()
+    await expect(langBtn).toBeVisible()
+
+    // 2. 验证触发按钮里的国旗 img 可见且有尺寸(非 0x0)
+    const triggerFlag = langBtn.locator('img')
+    await expect(triggerFlag).toBeVisible()
+    const flagBox = await triggerFlag.boundingBox()
+    expect(flagBox).not.toBeNull()
+    expect(flagBox!.width, '国旗 img 宽度应 > 0').toBeGreaterThan(0)
+    expect(flagBox!.height, '国旗 img 高度应 > 0').toBeGreaterThan(0)
+    // 国旗应是 16x12(h-3 w-4),允许 1px 误差
+    expect(Math.abs(flagBox!.width - 16)).toBeLessThanOrEqual(1)
+    expect(Math.abs(flagBox!.height - 12)).toBeLessThanOrEqual(1)
+
+    // 3. 点击打开 Popover
+    await langBtn.click()
+    await page.waitForTimeout(300)
+
+    // 4. 验证 Popover 内 5 个语言项可见(关键:不被 aside overflow 裁剪)
+    const langItems = page.locator('div.bg-popover button:has(img[src*="/images/flags/"])')
+    await expect(langItems.first()).toBeVisible({ timeout: 3000 })
+    const itemCount = await langItems.count()
+    expect(itemCount, '应显示 5 个语言项').toBe(5)
+
+    // 5. 验证每个语言项的国旗 img 可见
+    const firstItemFlag = langItems.first().locator('img')
+    await expect(firstItemFlag).toBeVisible()
+    const itemFlagBox = await firstItemFlag.boundingBox()
+    expect(itemFlagBox).not.toBeNull()
+    expect(itemFlagBox!.width).toBeGreaterThan(0)
+    expect(itemFlagBox!.height).toBeGreaterThan(0)
+
+    // 6. 验证 Popover 完整在视口内(不被裁剪)
+    const firstItemBox = await langItems.first().boundingBox()
+    expect(firstItemBox).not.toBeNull()
+    expect(firstItemBox!.y, '语言项 y 坐标应 >= 0(不被顶部裁剪)').toBeGreaterThanOrEqual(0)
+    expect(firstItemBox!.x, '语言项 x 坐标应 >= 0(不被左侧裁剪)').toBeGreaterThanOrEqual(0)
+
+    const lastItemBox = await langItems.last().boundingBox()
+    expect(lastItemBox).not.toBeNull()
+    const viewportHeight = page.viewportSize()!.height
+    expect(
+      lastItemBox!.y + lastItemBox!.height,
+      '最后一项底部应 <= 视口高度(不被底部裁剪)',
+    ).toBeLessThanOrEqual(viewportHeight)
+
+    // 7. 验证 Popover 宽度超出 aside 时不被裁剪(w-36=144px > aside 130px)
+    // Popover 居中展开会左右各超 7px,需 overflow-visible 才能显示
+    const popoverContainer = langItems
+      .first()
+      .locator('xpath=ancestor::div[contains(@class,"bg-popover")]')
+    const popoverBox = await popoverContainer.boundingBox()
+    expect(popoverBox).not.toBeNull()
+    // Popover 应完整可见(宽度 = 144px w-36,允许 2px 误差)
+    expect(popoverBox!.width, 'Popover 宽度应为 144px(w-36)').toBeGreaterThanOrEqual(142)
+
+    // 8. 关键断言:Popover 右边缘不应被 aside 右边缘裁剪
+    // aside overflow-visible 时,Popover 可以超出 aside 显示
+    const aside = page.locator('aside').first()
+    const asideBox = await aside.boundingBox()
+    expect(asideBox).not.toBeNull()
+    // Popover 应能在 aside 外显示(至少不被 overflow:hidden 裁剪成更小宽度)
+    expect(popoverBox!.width, 'Popover 不应被裁剪(宽度应完整 144px)').toBeGreaterThanOrEqual(142)
+  })
 })
