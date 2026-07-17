@@ -41,6 +41,7 @@ import {
   PlayCircle,
   BookOpen,
   ChevronDown,
+  Plus,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -51,7 +52,9 @@ import { useLanguageStore, type Language } from '@/stores/language'
 import { Avatar } from '@/components/data/Avatar'
 import { Tooltip, TooltipProvider, Dropdown, Popover } from '@/components/feedback'
 import { SearchBar } from '@/components/business'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { useClickOutside } from '@/hooks/use-click-outside'
+import { SidebarChatHistory } from '@/components/sidebar-chat-history'
 
 interface NavItem {
   href: string
@@ -733,6 +736,9 @@ export function Sidebar({
   const tc = useTranslations('common')
   const pathname = usePathname()
   const user = useAuthStore((s) => s.user)
+  const tchat = useTranslations('aiChat')
+  const aiPanelOpen = useAiPanelStore((s) => s.open)
+  const toggleAiPanel = useAiPanelStore((s) => s.togglePanel)
 
   const navRef = React.useRef<HTMLElement>(null)
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
@@ -790,6 +796,39 @@ export function Sidebar({
           collapsed ? 'pl-[9px] pr-2' : 'px-2',
         )}
       >
+        {/* 新建对话按钮(对齐旧架构 .nav-new-chat,黑白对调主题) */}
+        <div className={cn('mb-1', collapsed && 'flex justify-center')}>
+          {collapsed ? (
+            <Tooltip content={tchat('newConversation')} side="right">
+              <button
+                type="button"
+                onClick={toggleAiPanel}
+                aria-label={tchat('newConversation')}
+                aria-pressed={aiPanelOpen}
+                className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-background transition-colors hover:bg-foreground/90"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          ) : (
+            <button
+              type="button"
+              onClick={toggleAiPanel}
+              aria-pressed={aiPanelOpen}
+              className={cn(
+                'flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
+                'bg-foreground text-background hover:bg-foreground/90',
+              )}
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              <span className="truncate">{tchat('newConversation')}</span>
+            </button>
+          )}
+        </div>
+
+        {/* 侧边栏历史对话卡片(展开态显示) */}
+        <SidebarChatHistory collapsed={collapsed} />
+
         {visibleGroups.map((group, gi) => (
           <div key={group.label} className={gi > 0 ? 'pt-2' : ''}>
             {!collapsed && (
