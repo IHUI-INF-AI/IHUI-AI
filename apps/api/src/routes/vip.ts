@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { sql } from 'drizzle-orm'
+import { env } from 'node:process'
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
@@ -15,7 +16,14 @@ import {
   listUserVips,
   cancelUserVip,
 } from '../db/vip-queries.js'
-import { createOrder } from '../db/payment-queries.js'
+import { createOrder, findOrderByNo } from '../db/payment-queries.js'
+import {
+  isWechatPayConfigured,
+  jsapiPrepay,
+  nativePrepay,
+  h5Prepay,
+  buildJsapiSign,
+} from '../services/wechat-pay.js'
 
 // =============================================================================
 // system_configs JSON 存储辅助（用于无独立表的资源 CRUD，按 category 区分）
@@ -58,6 +66,81 @@ async function configList(
     total,
     page,
     pageSize,
+  }
+}
+
+// =============================================================================
+// VIP 预下单共享逻辑(/vip/order、/vip/upgrade、/vip/order/:orderNo/payinfo 复用)
+// =============================================================================
+
+type VipPayInfo = {
+  mock: boolean
+  method: 'jsapi' | 'native' | 'h5'
+  timeStamp?: string
+  nonceStr?: string
+  package?: string
+  signType?: string
+  paySign?: string
+  codeUrl?: string
+  h5Url?: string
+  error?: string
+}
+
+async function createVipPrepay(
+  order: { orderNo: string; amount: number },
+  paymentMethod: string,
+  openId?: string,
+  clientIp?: string,
+): Promise<VipPayInfo> {
+  const method: 'jsapi' | 'native' | 'h5' =
+    paymentMethod === 'wechat_native' ? 'native' : paymentMethod === 'wechat_h5' ? 'h5' : 'jsapi'
+
+  if (!isWechatPayConfigured()) {
+    return { mock: true, method }
+  }
+
+  const description = 'VIP 会员购买'
+  const notify = env.WX_PAY_NOTIFY_URL ?? ''
+
+  try {
+    if (method === 'jsapi') {
+      const prepayId = await jsapiPrepay({
+        outTradeNo: order.orderNo,
+        amount: order.amount,
+        description,
+        openId: openId ?? '',
+        notifyUrl: notify,
+      })
+      const sign = buildJsapiSign(prepayId)
+      return {
+        mock: false,
+        method: 'jsapi',
+        timeStamp: sign.timestamp,
+        nonceStr: sign.nonceStr,
+        package: sign.package,
+        signType: sign.signType,
+        paySign: sign.paySign,
+      }
+    }
+    if (method === 'native') {
+      const codeUrl = await nativePrepay({
+        outTradeNo: order.orderNo,
+        amount: order.amount,
+        description,
+        notifyUrl: notify,
+      })
+      return { mock: false, method: 'native', codeUrl }
+    }
+    const h5Url = await h5Prepay({
+      outTradeNo: order.orderNo,
+      amount: order.amount,
+      description,
+      notifyUrl: notify,
+      payerClientIp: clientIp ?? '127.0.0.1',
+    })
+    return { mock: false, method: 'h5', h5Url }
+  } catch {
+    return { mock: true, method, error: '预下单失败' }
   }
 }
 
@@ -150,11 +233,12 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // POST /vip/order — 创建 VIP 订单（复用 createOrder 逻辑）
+  // POST /vip/order — 创建 VIP 订单 + 对接微信支付预下单
   const vipOrderBody = z.object({
     vipLevelId: z.string().min(1),
     paymentMethod: z.string().optional().default('wechat'),
     quantity: z.number().int().positive().optional().default(1),
+    openId: z.string().optional(),
   })
   server.post('/vip/order', async (request, reply) => {
     await authenticate(request)
@@ -162,7 +246,7 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { vipLevelId, paymentMethod, quantity } = parsed.data
+    const { vipLevelId, paymentMethod, quantity, openId } = parsed.data
     const level = await findVipLevel(vipLevelId)
     if (!level || level.status !== 1) {
       return reply.status(404).send(error(404, 'VIP 等级不存在'))
@@ -174,6 +258,12 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
       productId: level.id,
       payType: paymentMethod,
     })
+    const payInfo = await createVipPrepay(
+      order,
+      paymentMethod,
+      openId ?? request.userId,
+      request.ip,
+    )
     return reply.send(
       success({
         orderId: order.id,
@@ -181,8 +271,79 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
         amount: level.price * quantity,
         vipLevelId: level.id,
         quantity,
+        payInfo,
       }),
     )
+  })
+
+  // POST /vip/upgrade — miniapp-taro 别名(接收 { level: number },内部转 /vip/order 逻辑)
+  const vipUpgradeBody = z.object({
+    level: z.coerce.number(),
+    paymentMethod: z.string().optional().default('wechat'),
+    openId: z.string().optional(),
+  })
+  server.post('/vip/upgrade', async (request, reply) => {
+    await authenticate(request)
+    const parsed = vipUpgradeBody.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { level: levelNum, paymentMethod, openId } = parsed.data
+    const vipLevelId = String(levelNum)
+    const level = await findVipLevel(vipLevelId)
+    if (!level || level.status !== 1) {
+      return reply.status(404).send(error(404, 'VIP 等级不存在'))
+    }
+    const order = await createOrder({
+      userId: request.userId!,
+      amount: level.price,
+      orderType: 2,
+      productId: level.id,
+      payType: paymentMethod,
+    })
+    const payInfo = await createVipPrepay(
+      order,
+      paymentMethod,
+      openId ?? request.userId,
+      request.ip,
+    )
+    return reply.send(
+      success({
+        orderId: order.id,
+        orderNo: order.orderNo,
+        amount: level.price,
+        vipLevelId: level.id,
+        quantity: 1,
+        payInfo,
+      }),
+    )
+  })
+
+  // GET /vip/order/:orderNo/payinfo — 获取支付参数(prepay_id 2h 有效,过期重新预下单)
+  const orderNoParam = z.object({ orderNo: z.string().min(1) })
+  server.get('/vip/order/:orderNo/payinfo', async (request, reply) => {
+    await authenticate(request)
+    const parsed = orderNoParam.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { orderNo } = parsed.data
+    const order = await findOrderByNo(orderNo)
+    if (!order) {
+      return reply.status(404).send(error(404, '订单不存在'))
+    }
+    if (order.userId && order.userId !== request.userId) {
+      return reply.status(403).send(error(403, '无权查看此订单'))
+    }
+    if (order.status === 'paid') {
+      return reply.send(success({ status: 'paid' }))
+    }
+    if (order.status !== 'pending') {
+      return reply.send(success({ status: order.status }))
+    }
+    const paymentMethod = order.paymentMethod ?? 'wechat'
+    const payInfo = await createVipPrepay(order, paymentMethod, request.userId, request.ip)
+    return reply.send(success({ status: 'pending', payInfo }))
   })
 
   // GET /vip/testimonials — 用户评价列表（从 system_configs category='vip_testimonial' 查询）
