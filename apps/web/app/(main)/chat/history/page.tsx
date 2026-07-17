@@ -29,6 +29,7 @@ export default function ChatHistoryPage() {
 
   const keyword = q.trim().toLowerCase()
   const items = (data ?? []).filter((c) => !keyword || c.title.toLowerCase().includes(keyword))
+  const total = data?.length ?? 0
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -37,11 +38,22 @@ export default function ChatHistoryPage() {
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <Clock className="h-6 w-6 text-primary" />
             {t('title')}
+            {total > 0 && (
+              <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium tabular-nums leading-none text-muted-foreground">
+                {total}
+              </span>
+            )}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-9 w-9" asChild title={t('viewFavorites')}>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            asChild
+            title={t('viewFavorites')}
+          >
             <Link href="/chat/favorites">
               <Star className="h-4 w-4" />
             </Link>
