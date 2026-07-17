@@ -3599,32 +3599,34 @@ themes.test.ts:鉴权(403)+ CRUD(201/200/404)+ isCurrent 事务 + current/dark-m
 
 #### 完成清单
 
-| #   | 硬性指标                                                         | 状态 | 产出                                                                |
-| --- | ---------------------------------------------------------------- | ---- | ------------------------------------------------------------------- |
-| 1   | agentTasks 表 schema + migration                                 | ✅   | agent-tasks.ts(id/agentId/ruleId/name/status/priority/payload 等)   |
-| 2   | clawdbotBots + clawdbotPermissions + clawdbotSessions 表 schema | ✅   | clawdbot.ts(3 表,FK cascade + 索引)                                |
-| 3   | 3 个 agent-task 路由真空桩接入真实 DB                            | ✅   | PUT/DELETE /admin/agent-task/:id + DELETE 路由(404 兜底)            |
-| 4   | 12 个 clawdbot 路由真空桩接入真实 DB                             | ✅   | analytics/summary + bots CRUD(含批量事务)+ stats + permissions CRUD + sessions |
-| 5   | 测试覆盖(agentTask CRUD + clawdbot bots/permissions/sessions)   | ✅   | agent-tasks.test.ts 7 用例 + clawdbot-admin.test.ts 12 用例         |
-| 6   | typecheck + lint + test 全绿                                     | ✅   | database/api typecheck ✅ / api lint 0 errors ✅ / api test 232 files 3408 tests ✅ |
+| #   | 硬性指标                                                        | 状态 | 产出                                                                                |
+| --- | --------------------------------------------------------------- | ---- | ----------------------------------------------------------------------------------- |
+| 1   | agentTasks 表 schema + migration                                | ✅   | agent-tasks.ts(id/agentId/ruleId/name/status/priority/payload 等)                   |
+| 2   | clawdbotBots + clawdbotPermissions + clawdbotSessions 表 schema | ✅   | clawdbot.ts(3 表,FK cascade + 索引)                                                 |
+| 3   | 3 个 agent-task 路由真空桩接入真实 DB                           | ✅   | PUT/DELETE /admin/agent-task/:id + DELETE 路由(404 兜底)                            |
+| 4   | 12 个 clawdbot 路由真空桩接入真实 DB                            | ✅   | analytics/summary + bots CRUD(含批量事务)+ stats + permissions CRUD + sessions      |
+| 5   | 测试覆盖(agentTask CRUD + clawdbot bots/permissions/sessions)   | ✅   | agent-tasks.test.ts 7 用例 + clawdbot-admin.test.ts 12 用例                         |
+| 6   | typecheck + lint + test 全绿                                    | ✅   | database/api typecheck ✅ / api lint 0 errors ✅ / api test 232 files 3408 tests ✅ |
 
 #### 新增 4 张表
 
-| 表名                  | 用途               | 核心字段                                                                              |
-| --------------------- | ------------------ | ------------------------------------------------------------------------------------- |
-| agent_tasks           | 代理任务执行记录   | agentId/ruleId/name/status(pending)/priority/payload(jsonb)/result(jsonb)/scheduledAt |
-| clawdbot_bots         | Clawdbot 机器人    | name/description/avatar/systemPrompt/model(default gpt-4o-mini)/temperature/maxTokens(default 4096)/isActive/config(jsonb) |
-| clawdbot_permissions  | 机器人权限分配     | botId(FK→bots cascade)/userId/role(default user)/permissions(jsonb string[])         |
-| clawdbot_sessions     | 机器人会话         | botId(FK→bots cascade)/userId/title/status(default active)/messageCount/lastMessageAt/metadata(jsonb) |
+| 表名                 | 用途             | 核心字段                                                                                                                   |
+| -------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| agent_tasks          | 代理任务执行记录 | agentId/ruleId/name/status(pending)/priority/payload(jsonb)/result(jsonb)/scheduledAt                                      |
+| clawdbot_bots        | Clawdbot 机器人  | name/description/avatar/systemPrompt/model(default gpt-4o-mini)/temperature/maxTokens(default 4096)/isActive/config(jsonb) |
+| clawdbot_permissions | 机器人权限分配   | botId(FK→bots cascade)/userId/role(default user)/permissions(jsonb string[])                                               |
+| clawdbot_sessions    | 机器人会话       | botId(FK→bots cascade)/userId/title/status(default active)/messageCount/lastMessageAt/metadata(jsonb)                      |
 
 #### 15 路由实现(按分组)
 
 **agentTask(3 路由)**:
+
 - POST /admin/agent-task:创建任务(Zod 校验 + 201)
 - PUT /admin/agent-task/:id:更新任务(404 兜底)
 - DELETE /admin/agent-task/:id:删除任务(404 兜底)
 
 **clawdbot(12 路由)**:
+
 - GET /admin/clawdbot/analytics/summary:4 维度聚合(Promise.all 4 count:botsTotal/botsActive/sessionsTotal/permissionsTotal)
 - GET /admin/clawdbot/bots:列表(分页 + total)
 - PUT /admin/clawdbot/bots/:id:更新机器人(404 兜底)
@@ -3645,12 +3647,12 @@ themes.test.ts:鉴权(403)+ CRUD(201/200/404)+ isCurrent 事务 + current/dark-m
 
 #### 验证证据
 
-| 命令                                     | 退出码 | 结果                                |
-| ---------------------------------------- | ------ | ----------------------------------- |
-| `pnpm --filter @ihui/database typecheck` | 0      | ✅                                  |
-| `pnpm --filter @ihui/api typecheck`      | 0      | ✅                                  |
+| 命令                                     | 退出码 | 结果                                  |
+| ---------------------------------------- | ------ | ------------------------------------- |
+| `pnpm --filter @ihui/database typecheck` | 0      | ✅                                    |
+| `pnpm --filter @ihui/api typecheck`      | 0      | ✅                                    |
 | `pnpm --filter @ihui/api lint`           | 0      | ✅(14 个 pre-existing `any` warnings) |
-| `pnpm --filter @ihui/api test`           | 0      | ✅ 232 files / 3408 tests 通过      |
+| `pnpm --filter @ihui/api test`           | 0      | ✅ 232 files / 3408 tests 通过        |
 
 #### 残留问题(后续任务)
 
@@ -17375,3 +17377,50 @@ P48 调研发现:11 个 vendor POST 路由(cosyvoice/keling/sora/dashscope/hunyu
 2. **P2 工程**:vendor 环境变量配置确认 — 11 个 vendor 涉及 9 个环境变量(DASHSCOPE_API_KEY/GEMINI_API_KEY/SORA2_API_KEY/TENCENT_SECRET_ID+KEY/KLING_ACCESS_KEY+SECRET_KEY),需确认 .env 已配置,否则转发后返回 503
 3. **P2 工程**:mobile-rn/desktop 测试覆盖扩展
 4. **P2 工程**:cli 测试覆盖扩展
+
+## 登录表单重构:删除独立页 + 整合为对话框 + 401 弹窗(2026-07-17)✅(2026-07-17)
+
+### 目标
+
+删除登录 `/login` 和 `/register` 独立页面,统一为 `LoginDialog` 对话框组件;原独立页面的 welcome 图片融合到对话框内;401 自动弹登录;未登录访问受保护路由由 middleware 重定向到 `/` + 设置 `login_redirect` cookie,前端弹对话框 + 登录成功后回调。`ForgotPasswordForm` 整合为对话框 `'forgot'` 模式。
+
+### 改动清单
+
+- **删除独立页**:`apps/web/app/(auth)/login/page.tsx` + `apps/web/app/(auth)/register/page.tsx` (2 个独立页)
+- **删除旧组件**:`EmailLogin.tsx` / `PhoneCodeLogin.tsx` / `RegisterForm.tsx` (3 个旧组件)
+- **删除分支**:`LoginFormContent` / `RegisterFormContent` 移除 `variant='page'` 双模式,统一为对话框模式
+- **对话框增强**:`LoginDialog` 内部融合 welcome 图(亮 / 暗双图 + theme class 切换) + 品牌区(Sparkles icon + IHUI AI + AI SaaS Platform)
+- **忘记密码**:`LoginDialogMode` 增 `'forgot'` 模式,`ForgotPasswordForm` 接入,`PasswordLoginForm` 触发 `open('forgot')`
+- **middleware**:未登录访问受保护路由 → 重定向 `/` + 设置 `login_redirect` cookie(5min 有效)
+- **401 处理**:`src/lib/api.ts` 封装 `fetchApi`,响应 401 时调用 `useLoginDialogStore.open('login', currentPath)`,会话内仅第一次避免弹窗风暴
+- **路径统一**:全站替换 `router.push('/login')` → `useLoginDialogStore.getState().open('login')`(覆盖 `ForgotPasswordForm` / `MemberCard` / OAuth authorize page / `tokenUtils` JSDoc)
+- **迁移结构**:原独立页组件 `app/(auth)/login/*` 全部移入 `src/components/login/`,改用组件 import,`src/components/login/index.ts` 统一导出
+- **挂载**:`app/layout.tsx` 全局挂载 `LoginDialog` + `LoginRedirectListener`,所有页面都可触发
+
+### 主题切换 CSS(globals.css)
+
+```css
+.welcome-img-dark {
+  display: none;
+}
+.dark .welcome-img {
+  display: none;
+}
+.dark .welcome-img-dark {
+  display: block;
+}
+```
+
+### 验证(2026-07-17 实测)
+
+| 验证项        | 命令                                | 退出码 | 结果                         |
+| ------------- | ----------------------------------- | ------ | ---------------------------- |
+| Web typecheck | `pnpm --filter @ihui/web typecheck` | 0      | ✅ 无错误                    |
+| Web lint      | `pnpm --filter @ihui/web lint`      | 0      | ✅ 无错误                    |
+| Web test      | `pnpm --filter @ihui/web test`      | 0      | ✅ 204 tests / 21 files 全绿 |
+
+### 修改文件清单
+
+- **删 5**:`apps/web/app/(auth)/login/page.tsx` / `apps/web/app/(auth)/register/page.tsx` / `EmailLogin.tsx` / `PhoneCodeLogin.tsx` / `RegisterForm.tsx`
+- **改 12**:`src/components/login/LoginDialog.tsx` / `src/components/login/LoginFormContent.tsx` / `src/components/login/RegisterFormContent.tsx` / `src/components/login/ForgotPasswordForm.tsx` / `src/lib/api.ts` / `src/lib/tokenUtils.ts` / `middleware.ts` / `app/layout.tsx` / `app/globals.css` / `src/components/home/MemberCard.tsx` / `app/(main)/oauth/authorize/page.tsx` / `src/stores/login-dialog.ts` / `src/components/login/index.ts` / `src/components/sidebar.tsx` / `src/components/header.tsx` / `app/sso/register/page.tsx` / `app/(auth)/forgot-password/page.tsx`(加 `useRouter` import)
+- **新 6**:`src/components/login/LoginRedirectListener.tsx` + 6 个从 `app/(auth)/login/` 迁入 `src/components/login/` 的子组件(EmailCodeLoginForm / PasswordLoginForm / SdkQrLogin / UsernameLoginForm / login-schemas)

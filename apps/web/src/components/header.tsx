@@ -118,7 +118,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const handleLogout = () => {
     logout()
-    router.push('/login')
+    useLoginDialogStore.getState().open('login')
   }
 
   const handleSearch = (e: React.FormEvent) => {

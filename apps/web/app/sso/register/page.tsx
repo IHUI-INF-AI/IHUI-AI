@@ -2,13 +2,14 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ShieldCheck } from 'lucide-react'
 import { RegisterFormContent } from '@/components/login/RegisterFormContent'
 
 export default function SsoRegisterPage() {
   const t = useTranslations('sso')
+  const router = useRouter()
   const searchParams = useSearchParams()
   const redirectUrl = searchParams.get('redirect') || '/'
   const clientId = searchParams.get('client_id') || 'web'
@@ -24,7 +25,13 @@ export default function SsoRegisterPage() {
           <p className="text-sm text-muted-foreground">{t('subtitle', { clientId })}</p>
         </div>
 
-        <RegisterFormContent variant="page" />
+        <RegisterFormContent
+          onSuccess={() =>
+            router.push(
+              `/sso/login?redirect=${encodeURIComponent(redirectUrl)}&client_id=${clientId}`,
+            )
+          }
+        />
 
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{t('alreadyHaveAccount')}</span>
