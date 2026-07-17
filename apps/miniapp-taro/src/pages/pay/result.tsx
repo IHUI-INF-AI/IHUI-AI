@@ -33,17 +33,32 @@ export default function PayResult() {
 
   useEffect(() => {
     orderNoRef.current = router.params.orderNo || ''
-    check()
+    if (!orderNoRef.current) return
+    setStatus('pending')
+    void check()
+    let count = 1
+    const id = setInterval(async () => {
+      count++
+      const result = await check()
+      if (result === 'paid') {
+        clearInterval(id)
+        Taro.showToast({ title: t('pay.result.paid'), icon: 'success' })
+      } else if (result === 'failed' || count >= 30) {
+        clearInterval(id)
+      }
+    }, 2000)
+    return () => clearInterval(id)
   }, [router.params.orderNo])
 
-  async function check() {
-    if (!orderNoRef.current) return
+  async function check(): Promise<PayStatus> {
+    if (!orderNoRef.current) return 'pending'
     try {
       const res = await getPayResult(orderNoRef.current)
       setStatus(res.status)
       setAmount(res.amount)
+      return res.status
     } catch {
-      // ignore
+      return 'pending'
     }
   }
 

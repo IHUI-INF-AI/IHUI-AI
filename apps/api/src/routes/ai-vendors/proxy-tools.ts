@@ -10,6 +10,12 @@ import { buildSchema } from '../../utils/swagger.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { db } from '../../db/index.js'
 import {
+  createVideoTask,
+  findVideoTasksByUser,
+  findVideoTaskById,
+  updateVideoTask,
+} from '../../db/video-task-queries.js'
+import {
   requireAuth,
   callVendor,
   recordUsage,
@@ -27,6 +33,16 @@ import {
   n8nAgentStore,
   genId,
 } from './_shared.js'
+
+const jimengVideoBody = z.object({
+  prompt: z.string().min(1),
+  model: z.string().default('jimeng_t2v_l30'),
+})
+
+const videoTasksQuery = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+})
 
 const cozeChatBody = z.object({
   botId: z.string().optional(),
@@ -535,6 +551,150 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
         return reply.status(502).send(error(502, `即梦调用异常: ${msg}`))
       }
+    },
+  )
+
+  // POST /jimeng4/video — 即梦文生视频(异步提交,落库 videoGenerationTasks)
+  server.post(
+    '/jimeng4/video',
+    {
+      schema: buildSchema({
+        summary: '即梦文生视频',
+        description: '代理调用火山引擎 CVSync2AsyncSubmitTask 提交即梦 t2v 文生视频任务并落库',
+        tags: ['AI', 'JiMeng4'],
+        body: jimengVideoBody,
+      }),
+    },
+    async (request, reply) => {
+      const body = jimengVideoBody.parse(request.body)
+      const keys = requireVendorKeys('jimeng4', reply)
+      if (!keys) return
+      const submitBody: Record<string, unknown> = {
+        req_key: body.model,
+        prompt: body.prompt,
+        return_url: true,
+      }
+      try {
+        const signed = volcengineSign(
+          { Action: 'CVSync2AsyncSubmitTask', Version: '2022-08-31' },
+          submitBody,
+          keys.key,
+          keys.secret,
+        )
+        const resp = await fetchWithTimeout(
+          signed.url,
+          { method: 'POST', headers: signed.headers, body: signed.body },
+          120_000,
+        )
+        const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+        if (!resp.ok)
+          return reply
+            .status(502)
+            .send(
+              error(502, `即梦视频调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 500)}`),
+            )
+        const dataBlock = data.data as Record<string, unknown> | undefined
+        const volcTaskId = dataBlock?.task_id as string | undefined
+        if (!volcTaskId) return reply.status(502).send(error(502, '即梦视频未返回 task_id'))
+        const row = await createVideoTask({
+          taskId: volcTaskId,
+          userUuid: request.userId!,
+          status: 'accepted',
+          message: body.prompt,
+        })
+        recordUsage(request.userId!, 'jimeng4')
+        return reply.send(success({ taskId: row.id, status: 'accepted' }))
+      } catch (e) {
+        const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
+        return reply.status(502).send(error(502, `即梦视频调用异常: ${msg}`))
+      }
+    },
+  )
+
+  // GET /jimeng4/video/tasks — 当前用户视频任务列表
+  server.get(
+    '/jimeng4/video/tasks',
+    {
+      schema: buildSchema({
+        summary: '即梦视频任务列表',
+        description: '返回当前用户的视频生成任务(分页,按创建时间倒序)',
+        tags: ['AI', 'JiMeng4'],
+        querystring: videoTasksQuery,
+      }),
+    },
+    async (request, reply) => {
+      const query = videoTasksQuery.parse(request.query)
+      const { list, total } = await findVideoTasksByUser(request.userId!, {
+        page: query.page,
+        pageSize: query.pageSize,
+      })
+      return reply.send(success({ list, total, page: query.page, pageSize: query.pageSize }))
+    },
+  )
+
+  // GET /jimeng4/video/tasks/:taskId — 任务详情(主动同步火山引擎状态)
+  server.get(
+    '/jimeng4/video/tasks/:taskId',
+    {
+      schema: buildSchema({
+        summary: '即梦视频任务详情',
+        description: '按 id 查询任务,若未完成则单次查询火山引擎最新状态并更新 DB',
+        tags: ['AI', 'JiMeng4'],
+        params: taskIdParam,
+      }),
+    },
+    async (request, reply) => {
+      const { taskId } = taskIdParam.parse(request.params)
+      const task = await findVideoTaskById(taskId, request.userId!)
+      if (!task) return reply.status(404).send(error(404, '任务不存在'))
+      if (task.status !== 'success' && task.status !== 'failed') {
+        const keys = requireVendorKeys('jimeng4', reply)
+        if (keys) {
+          try {
+            const signed = volcengineSign(
+              { Action: 'CVSync2AsyncGetResult', Version: '2022-08-31' },
+              { req_key: 'jimeng_t2v_l30', task_id: task.taskId },
+              keys.key,
+              keys.secret,
+            )
+            const resp = await fetchWithTimeout(
+              signed.url,
+              { method: 'POST', headers: signed.headers, body: signed.body },
+              60_000,
+            )
+            const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+            const dataBlock = data.data as Record<string, unknown> | undefined
+            const remoteStatus = dataBlock?.status as string | undefined
+            if (remoteStatus === 'done') {
+              const videoUrls: string[] = Array.isArray(dataBlock?.video_urls)
+                ? (dataBlock!.video_urls as string[])
+                : Array.isArray(dataBlock?.resp_data)
+                  ? (dataBlock!.resp_data as string[])
+                  : []
+              const updated = await updateVideoTask(task.id.toString(), {
+                status: 'success',
+                result: JSON.stringify({ video_urls: videoUrls, raw: dataBlock ?? {} }),
+              })
+              return reply.send(success({ task: updated }))
+            }
+            if (remoteStatus === 'not_found' || (data.code && Number(data.code) !== 0)) {
+              const updated = await updateVideoTask(task.id.toString(), {
+                status: 'failed',
+                message: (data.message as string) || '火山引擎任务异常',
+              })
+              return reply.send(success({ task: updated }))
+            }
+            const updated = await updateVideoTask(task.id.toString(), {
+              status: 'running',
+              message: remoteStatus || 'processing',
+            })
+            return reply.send(success({ task: updated }))
+          } catch (e) {
+            return reply.send(success({ task, warning: `状态同步失败: ${(e as Error).message}` }))
+          }
+        }
+      }
+      return reply.send(success({ task }))
     },
   )
 
