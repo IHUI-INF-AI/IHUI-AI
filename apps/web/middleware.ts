@@ -12,8 +12,16 @@ import { decodeUserFromToken, isAdmin, isAuthenticated } from '@/lib/auth-utils'
  * 注意：签名校验由后端 @ihui/auth 完成，此处仅做前端快速拦截，减少敏感页面暴露。
  */
 
-/** 公开路由（精确匹配或前缀匹配） */
-const PUBLIC_PATHS = ['/login', '/register', '/forgot-password']
+/** 公开路由(精确匹配或前缀匹配) */
+const PUBLIC_PATHS = [
+  '/sso/login',
+  '/sso/register',
+  '/sso/redirect',
+  '/forgot-password',
+  '/callback',
+  '/google/callback',
+  '/apple/callback',
+]
 
 /** admin 路由前缀 */
 const ADMIN_PREFIX = '/admin'
@@ -49,20 +57,22 @@ function isAdminRoute(pathname: string): boolean {
 
 /** 从 cookie 读取 token，兼容 auth_token 与 token 两个名称 */
 function getToken(request: NextRequest): string | null {
-  return (
-    request.cookies.get('auth_token')?.value ??
-    request.cookies.get('token')?.value ??
-    null
-  )
+  return request.cookies.get('auth_token')?.value ?? request.cookies.get('token')?.value ?? null
 }
 
-/** 构造重定向到登录页的响应，附带 redirect 回跳参数 */
-function redirectToLogin(request: NextRequest, pathname: string): NextResponse {
+/** 重定向到首页并设置 login_redirect cookie(5min),触发 LoginDialog */
+function redirectToLoginDialog(request: NextRequest, pathname: string): NextResponse {
   const url = request.nextUrl.clone()
-  url.pathname = '/login'
+  url.pathname = '/'
   url.search = ''
-  url.searchParams.set('redirect', pathname)
-  return NextResponse.redirect(url)
+  const res = NextResponse.redirect(url)
+  res.cookies.set('login_redirect', pathname, {
+    path: '/',
+    maxAge: 300,
+    sameSite: 'lax',
+    httpOnly: true,
+  })
+  return res
 }
 
 export function middleware(request: NextRequest): NextResponse {
@@ -78,7 +88,7 @@ export function middleware(request: NextRequest): NextResponse {
   // b. admin 路由：校验登录 + 角色
   if (isAdminRoute(pathname)) {
     if (!token || !isAuthenticated(token)) {
-      return redirectToLogin(request, pathname)
+      return redirectToLoginDialog(request, pathname)
     }
     const user = decodeUserFromToken(token)
     if (!isAdmin(user)) {
@@ -95,7 +105,7 @@ export function middleware(request: NextRequest): NextResponse {
   // c. 其他受保护路由：仅校验登录
   if (isProtected(pathname)) {
     if (!token || !isAuthenticated(token)) {
-      return redirectToLogin(request, pathname)
+      return redirectToLoginDialog(request, pathname)
     }
     return NextResponse.next()
   }
