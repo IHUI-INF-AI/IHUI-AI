@@ -13,10 +13,11 @@ import {
 import type { ToolContext } from '../src/tools/index.js'
 
 describe('BUILTIN_TOOLS', () => {
-  it('注册 10 个核心工具(含 4 个后台任务工具 + todo_write)', () => {
-    expect(BUILTIN_TOOLS).toHaveLength(10)
+  it('注册 11 个核心工具(含 4 个后台任务工具 + todo_write + ask_user_question)', () => {
+    expect(BUILTIN_TOOLS).toHaveLength(11)
     const names = BUILTIN_TOOLS.map((t) => t.name).sort()
     expect(names).toEqual([
+      'ask_user_question',
       'get_command_output',
       'glob',
       'grep',
