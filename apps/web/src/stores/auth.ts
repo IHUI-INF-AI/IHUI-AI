@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AuthUser as ApiAuthUser } from '@ihui/api-client'
+import { logout as apiLogout, type AuthUser as ApiAuthUser } from '@ihui/api-client'
 import { setAuthCookie } from '@/lib/cookie-utils'
 import { createPersistConfig } from './persist-helpers'
 
@@ -26,7 +26,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       token: null,
       refreshToken: null,
       expiresIn: null,
@@ -56,6 +56,10 @@ export const useAuthStore = create<AuthState>()(
       },
       setUser: (user) => set({ user }),
       logout: () => {
+        const { refreshToken } = get()
+        if (refreshToken) {
+          void apiLogout(refreshToken).catch(() => {})
+        }
         setAuthCookie(null)
         set({
           token: null,
