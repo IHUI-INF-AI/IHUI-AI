@@ -622,6 +622,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
     const { botId, userId: targetUserId, query, conversationId } = parsed.data
 
+    // 安全校验:客户端可控的 targetUserId 必须与登录用户一致,防止越权访问他人 Coze 会话
+    if (targetUserId !== request.userId)
+      return reply.status(403).send(error(403, '无权操作其他用户的会话'))
+
     const cozeKey = process.env.COZE_API_KEY
     if (!cozeKey) return reply.status(503).send(error(503, 'Coze 服务未配置'))
 
