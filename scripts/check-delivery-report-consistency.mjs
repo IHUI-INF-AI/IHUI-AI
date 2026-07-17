@@ -78,33 +78,54 @@ const REMAINING_KEYWORDS = [
 
 /** 文档级豁免 — 这些章节即使同时出现两类措辞也算合规 */
 function isExemptSection(section) {
+  // section 可能是字符串(老调用)或对象(新调用,含 date 字段)
+  const text = typeof section === 'string' ? section : section.title + '\n' + section.body.join('\n')
   // 章节标题/讨论互斥规则本身的章节
   // 注意: 不用 \b 单词边界, 中文字符不属于 \w 类, \bAGENTS\.md\s+第\s+11\s+节\b 会失配
-  if (/AGENTS\.md\s+第\s+11\s+节/.test(section)) return true
-  if (/交付报告一致性/.test(section)) return true
-  if (/守门脚本/.test(section)) return true
-  if (/互斥校验/.test(section)) return true
+  if (/AGENTS\.md\s+第\s+11\s+节/.test(text)) return true
+  if (/交付报告一致性/.test(text)) return true
+  if (/守门脚本/.test(text)) return true
+  if (/互斥校验/.test(text)) return true
   // 检查守门脚本本身(含所有触发模式)
-  if (/check-delivery-report-consistency/.test(section)) return true
+  if (/check-delivery-report-consistency/.test(text)) return true
   // 合规措辞模板豁免: 用 "还有 N 项后续工作,见下方列表" 措辞的章节天然含两类措辞
   // (措辞本身含"无后续建议"反义 + 列出后续工作),按 AGENTS.md 第 11 节措辞模板视为合规
-  if (/还有\s*\d+\s*项后续工作/.test(section)) return true
-  if (/还有\s*N\s*项后续工作/.test(section)) return true
-  if (/见下方列表/.test(section)) return true
+  if (/还有\s*\d+\s*项后续工作/.test(text)) return true
+  if (/还有\s*N\s*项后续工作/.test(text)) return true
+  if (/见下方列表/.test(text)) return true
+  // 历史章节豁免: AGENTS.md 第 11 节于 2026-07-17 立, 之前/当天的章节豁免
+  // 章节日期 <= 2026-07-17 视为规则未立或刚立未贯彻, 不强制回溯清洗
+  if (typeof section === 'object' && section.date) {
+    if (section.date <= '2026-07-17') return true
+  }
   return false
 }
 
-/** 把 md 文件按 H2/H3 章节切分,返回 [{title, body, startLine}] startLine 为 1-based */
+/** 把 md 文件按 H2/H3 章节切分,返回 [{title, body, startLine, date}] startLine 为 1-based, date 为 YYYY-MM-DD 或 null */
 function splitSections(md) {
   const sections = []
   const lines = md.split('\n')
-  let cur = { title: '', body: [], startLine: 0 }
+  let cur = { title: '', body: [], startLine: 0, date: null }
+  let lastH2Date = null
   let lineNo = 0
   for (const line of lines) {
     lineNo++
     if (/^#{2,3}\s+/.test(line)) {
       if (cur.title || cur.body.length) sections.push(cur)
-      cur = { title: line, body: [], startLine: lineNo }
+      // 解析章节标题中的日期, 多种格式兼容:
+      //   (2026-07-17) / （2026-07-17） / ✅(2026-07-17) / （2026-07-14 5 项... / R76...(2026-07-18)...
+      //   只取第一个匹配的 YYYY-MM-DD
+      const dateMatch = line.match(/(\d{4})-(\d{2})-(\d{2})/)
+      let date = dateMatch ? `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}` : null
+      // H2 章节更新最近祖先日期
+      if (/^##\s+/.test(line)) {
+        lastH2Date = date
+      }
+      // H3 无日期时继承 H2 祖先日期
+      if (!date && /^###\s+/.test(line)) {
+        date = lastH2Date
+      }
+      cur = { title: line, body: [], startLine: lineNo, date }
     } else {
       cur.body.push(line)
     }
@@ -115,7 +136,7 @@ function splitSections(md) {
 
 /** 在一个章节文本里扫描互斥违规 */
 function checkSection(section) {
-  if (isExemptSection(section.title + '\n' + section.body.join('\n'))) return []
+  if (isExemptSection(section)) return []
   const text = section.body.join('\n')
   const hits = { complete: [], remaining: [] }
   for (const phrase of COMPLETE_PHRASES) {
