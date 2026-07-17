@@ -179,3 +179,35 @@ CORS_ORIGIN=https://yourdomain.com
    - Value: 私钥全文
 4. 同理添加 `DEPLOY_HOST` 和 `DEPLOY_USER`。
 5. 如需区分 staging / production，在 **Settings → Environments** 中创建对应环境，将 Secrets 配置为 Environment Secrets（workflow 通过 `environment: ${{ inputs.environment }}` 自动绑定）。
+
+## Redis 环境变量（AI-Service Agent Runtime）
+
+AI-Service 的 Agent Runtime（LangGraph 状态机 + Session 持久化）依赖 Redis 作为可选持久化层。生产环境部署时需配置 `REDIS_URL`，未配置时自动降级到内存存储（重启丢失 Session 历史，仅适用于开发环境）。
+
+### 需要配置的环境变量
+
+```env
+# AI-Service Redis 连接（agent-runtime session 持久化）
+REDIS_URL=redis://<host>:<port>/<db>
+```
+
+### 行为说明
+
+- **配置 REDIS_URL**：Agent Runtime Session 状态（messages/plan/execution_result/summary）持久化到 Redis，重启后可恢复会话。
+- **未配置 REDIS_URL**：自动降级到进程内存存储（`_redis_disabled = True`），仅当前进程可见，重启丢失。
+- **配置但连接失败**：首次 ping 失败后永久降级到内存存储，并在日志中 `logger.warning` 记录降级原因。
+
+### 关联端点
+
+| 端点                                                 | 说明                                 |
+| ---------------------------------------------------- | ------------------------------------ |
+| POST `/api/agent-runtime/execute/stream`             | SSE 流式执行,Session 状态写入 Redis  |
+| GET `/api/agent-runtime/sessions`                    | 列出当前持久化层所有 Session         |
+| GET `/api/agent-runtime/sessions/:sessionId`         | 查询指定 Session 状态(从 Redis 读取) |
+| POST `/api/agent-runtime/sessions/:sessionId/resume` | 恢复指定 Session(从 Redis 加载历史)  |
+
+### 验证清单
+
+- [ ] 生产环境 `REDIS_URL` 已配置且 `redis-cli ping` 返回 PONG
+- [ ] AI-Service 启动日志无 "Redis unavailable, falling back to in-memory storage" 警告
+- [ ] 执行 `/api/agent-runtime/execute/stream` 后,Redis 中可查到 `session:<sessionId>` 键
