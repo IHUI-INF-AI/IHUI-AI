@@ -7,9 +7,11 @@ import { useToast } from '@/hooks/use-toast'
 
 export interface PaymentOrder {
   orderId: string
-  payUrl: string
-  payMethod: string
+  orderNo: string
   amount: number
+  vipLevelId?: string
+  quantity?: number
+  payUrl?: string
 }
 
 export interface UseVipPaymentReturn {
@@ -17,7 +19,7 @@ export interface UseVipPaymentReturn {
   payMethod: string
   setPayMethod: (method: string) => void
   createOrder: (levelId: string) => Promise<PaymentOrder | null>
-  queryOrder: (orderId: string) => Promise<boolean>
+  queryOrder: (orderNo: string) => Promise<string>
 }
 
 /** VIP 支付 Hook，创建支付订单并轮询支付状态 */
@@ -32,7 +34,7 @@ export function useVipPayment(): UseVipPaymentReturn {
       try {
         const res = await fetchApi<PaymentOrder>('/vip/order', {
           method: 'POST',
-          body: JSON.stringify({ levelId, payMethod }),
+          body: JSON.stringify({ vipLevelId: levelId, paymentMethod: payMethod, quantity: 1 }),
         })
         if (res.success) {
           return res.data
@@ -46,17 +48,13 @@ export function useVipPayment(): UseVipPaymentReturn {
     [payMethod, toast],
   )
 
-  const queryOrder = React.useCallback(
-    async (orderId: string): Promise<boolean> => {
-      const res = await fetchApi<{ status: string }>(`/vip/order/${orderId}`)
-      if (res.success && res.data.status === 'paid') {
-        toast.success('支付成功')
-        return true
-      }
-      return false
-    },
-    [toast],
-  )
+  const queryOrder = React.useCallback(async (orderNo: string): Promise<string> => {
+    const res = await fetchApi<{ order: { status: string } }>(`/payment/orders/${orderNo}`)
+    if (res.success) {
+      return res.data.order.status
+    }
+    return 'pending'
+  }, [])
 
   return { paying, payMethod, setPayMethod, createOrder, queryOrder }
 }
