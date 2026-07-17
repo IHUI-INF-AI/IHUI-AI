@@ -23,6 +23,7 @@ export interface Agent {
   rating: number
   isFavorited: boolean
   isPublic: boolean
+  isVipExclusive: boolean
   version: string
   capabilities: string[]
   createdAt: string
@@ -123,9 +124,7 @@ export async function listAgentWithdrawals(
   return fetchApi<PageData<AgentWithdrawal>>(`${WITHDRAWAL_BASE}/list${buildQs(query)}`)
 }
 
-export async function getAgentWithdrawalSummary(
-  userId?: string,
-): Promise<
+export async function getAgentWithdrawalSummary(userId?: string): Promise<
   ApiResult<{
     totalAmount: number
     totalCount: number
@@ -198,4 +197,26 @@ export async function batchDeleteAgentWithdrawals(
     method: 'POST',
     body: JSON.stringify({ ids }),
   })
+}
+
+// =============================================================================
+// 智能体 VIP 权限（对应后端 /api/agent-ext/permission/:agentId 端点）
+// =============================================================================
+
+export type AgentPermissionType = 'free' | 'vip' | 'purchased' | 'vip_only' | 'paid'
+
+export interface AgentPermission {
+  type: AgentPermissionType
+  accountType: string
+  hasPermission: boolean
+  reason?: string
+}
+
+export async function getAgentPermission(
+  agentId: string,
+  userId?: string,
+): Promise<ApiResult<AgentPermission>> {
+  return fetchApi<AgentPermission>(
+    `/api/agent-ext/permission/${agentId}${buildQs(userId ? { userId } : {})}`,
+  )
 }
