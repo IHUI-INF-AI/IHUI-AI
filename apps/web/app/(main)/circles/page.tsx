@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Users, MessageSquare, Loader2, Circle, Plus } from 'lucide-react'
@@ -13,6 +14,7 @@ interface CircleItem {
   id: string
   name: string
   description?: string
+  coverImage?: string | null
   memberCount: number
   postCount: number
 }
@@ -78,11 +80,22 @@ export default function CirclesPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {circles.map((c) => (
             <Link key={c.id} href={`/circles/${c.id}`}>
-              <Card className="h-full transition-colors hover:bg-accent">
+              <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
+                <div className="relative h-28 bg-gradient-to-br from-primary/10 to-primary/5">
+                  {c.coverImage ? (
+                    <Image
+                      fill
+                      src={c.coverImage}
+                      alt={c.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Circle className="h-10 w-10 text-primary/40" />
+                    </div>
+                  )}
+                </div>
                 <CardHeader className="p-4 pb-2">
-                  <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Circle className="h-5 w-5" />
-                  </div>
                   <CardTitle className="text-base">{c.name}</CardTitle>
                   {c.description && (
                     <CardDescription className="text-xs">{c.description}</CardDescription>

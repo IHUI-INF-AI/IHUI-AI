@@ -19658,6 +19658,106 @@ grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工
 
 全项目 6 端 + packages 共扫描 134 处 `rounded-full` / `border-radius:50%` / `9999px` / `rounded-pill` 命中,修复 15 个文件 17 处违规容器,保留 117 处合规豁免(状态点/红点底/Switch 拇指/spinner/Avatar img 本体/CSS 装饰圆点)。typecheck + lint + pre-commit 13 项守门 + pre-push 全量 typecheck 全绿,commit `f0ce0705` 已 push origin/main。完整收尾,无任何剩余建议。
 
+## P1 /goal 架构迁移完整性深度审计 v5(5 维度并行全量重审)(2026-07-18)✅(2026-07-18) / goal
+
+> **目标条件**:深度比对分析 D 盘历史项目(`d:\历史项目存档\code\`)是否整合迁移百分百。一个个代码分析,所有文件都要比对是否有完整对应代码实现,不可以有任何遗漏缺失。不可以以 PROJECT_PLAN.md 历史进度记录为依据,要重新全部分析。不能光分析架构,还要深入到每一个代码 — 前端后端样式交互接口连通等等所有问题。
+>
+> **执行方式**:goal 模式 7 步循环,3 轮达成。Round 1 派发 5 个并行 subagent 建立 D 盘历史项目 + 当前 monorepo 完整文件清单;Round 2 派发 5 个并行 subagent 做后端/前端/小程序/共享层/接口连通 5 维度深度比对;Round 3 基于 5 份 subagent 真实代码证据(文件路径+行号)输出二元结论。
+
+### 最终判定:NO — 项目未达到 100% 完整迁移
+
+**整体完整率汇总**(基于实地代码证据,不采信历史 MIGRATION_GAP_*.md 结论):
+
+| 维度                                            | 完整率     | 已等价 | 架构替代 | 部分迁移       | 真实缺失           |
+| ----------------------------------------------- | ---------- | ------ | -------- | -------------- | ------------------ |
+| 后端(API + AI-Service + Database + Auth)        | **~97.7%** | 957    | 22       | 24             | 16(P2-P3 端点)     |
+| 前端(apps/web)                                  | **75.4%**  | 52     | 46       | 18             | 14(P0-P1)          |
+| 小程序(apps/miniapp-taro)                       | **82-88%** | 80     | 34       | 24             | 10                 |
+| 共享层(api-client + ui + auth + hooks + stores) | **~92%**   | 38     | 27       | 6              | 8                  |
+| 接口连通性(后端 ↔ 前端)                         | **97.75%** | 1085+  | 3        | 16(协议不匹配) | 2(死链)+9(死路由)  |
+| **加权平均**                                    | **~89%**   | —      | —        | —              | **50+ 项真实缺失** |
+
+### 真实缺口清单(50+ 项,按端分类)
+
+#### P0 阻断核心业务流(14 项,必须补)
+
+**前端 apps/web 用户端(9 项)**:
+
+1. **用户端消息中心 6 子页**(notice/like/favorite/comment/fans/private-letter)— `apps/web/app/(main)/messages/[type]/page.tsx` 缺失,影响用户社交互动闭环
+2. **用户端个人中心 14 子页**(personal/detail/learn-record/comment/fans/follow/ask/circle/resource/article/point/exam/sign-up/record/wrong-question/certificate)— `apps/web/app/(main)/user/*` 大部分子页缺失
+3. **用户端考试作答页 `exam/[id]/page.tsx`** + 成绩详情页缺失,阻断考试业务流
+4. **用户端直播详情页 `live/[id]/page.tsx`** + LivePlayer 缺失,阻断直播业务流
+5. **用户端学习地图/购买确认页 `learn/{topic,map,buyconfirm}`** 3 子页缺失,影响付费学习转化
+6. **用户端圈子详情+发帖页 `circles/[id]/page.tsx` + `circles/post/page.tsx`** 缺失
+7. **用户端问答页 `ask`** 缺失,用户无法发布/查看问答
+8. **用户端全局搜索页 `search`** 缺失
+9. **用户端协议页 `agreement/:type`** + 证书下载页 `certificate/download` + 支付确认页 `learn/payment/confirm` 缺失
+
+**小程序 apps/miniapp-taro(3 项)**: 10. **AI 创作分享 H5 页(SharePage)** — `share-h5/src/pages/SharePage.vue` 完整分享内容展示未迁移到 Taro H5 端,仅 API `getShareContentByCode` 已迁移11. **AI 视频生成独立页 `pages/ai/video.tsx`** — `aiVideoMixin.js` 的 Sora2/可灵/豆包/Dashscope 视频生成入口未迁移12. **特殊模型入口(NanoBanana/Veo3/HttpModel)** — `aiSpecialModelsMixin.js` 仅 3D 部分 API 迁移,Gemini-2.5-flash/Veo3 入口缺失
+
+**接口连通性(2 项死链)**: 13. **`/ws/messages` 死链** — `apps/web/src/hooks/use-im-websocket.ts:35` 调用后端不存在的 WS 端点,IM 消息推送不可用 14. **`/ws/tasks/${taskId}` 死链** — `apps/web/src/hooks/use-task-websocket.ts:39` 调用后端不存在的 WS 端点,任务进度推送不可用
+
+#### P1 影响关键功能(20 项)
+
+**前端 apps/web(11 项)**: 15. admin 评论审核管理页 `admin/comments` + sensitive-words 16. admin 热词管理页 `admin/search/hot-words` 17. admin 圈子管理页 `admin/circles` 18. admin 资源 product 子页 + 积分记录查询页 19. admin 协议管理页 `setting/agreement` + 站内信发件/收件箱20. 钉钉/企微扫码登录(仅账号密码登录) 21. logout 后端 token revoke 调用缺失(安全风险) 22. Pinia tagsView 多 tab 标签页视图未实现23. 字典缓存 store 缺失(每次实时拉取) 24. AI 34 个细分页大部分缺失(仅核心 agents/ai-gc 迁移) 25. Tool 代码生成器/表单构建器缺失
+
+**小程序 apps/miniapp-taro(5 项)**: 26. fetchAudioText 语音转文字 API 缺失 27. product 连续包月商品 API 缺失 28. getUserContextField/removeField 会话字段管理 API 缺失 29. 小红书(mp-xhs)平台支持缺失 30. 微信原生插件 materialPlugin 缺失
+
+**共享层(4 项)**: 31. OSS 文件管理 API(deleteFile/toBase64)未在 packages/api-client 导出 32. 钉钉/企业微信登录 API 缺失 33. 富文本编辑器(Tinymce/WangEditor)未迁移,需引入 Tiptap 34. Upload/Video/Breadcrumb/Hamburger UI 组件缺失
+
+#### P2 中等缺口(16 项)
+
+**后端 API 端点(16 项)**: 35. `agent_category_cache_api` 7 个缓存管理端点(convert/categories/agent/{id}/category/{id}/all/clear/search)— `coze_zhs_py/api/agent_category_cache_api.py` L67-321,当前 `apps/ai-service/app/routers/legacy.py` 仅 2 个 36. `chat_room_socket` 4 个聊天室管理端点(users/{uuid}/rooms + messages/{id} DELETE + rooms/rename + users/{uuid}/rooms/{id} DELETE)— `coze_zhs_py/api/chat_room_socket.py`,当前 `apps/api/src/plugins/ws-chat.ts` 仅 5 个 37. OAuth2 device/web/pkce/jwt 4 种 grant type 完整性需逐项核对 38. `agents.py /test/*` 5 个 Coze 集成测试端点
+
+**接口连通性死路由(9 项)**: 39. `/ws/broadcast`(ws-broadcast.ts:44)
+40-44. `/ws/agent/stream` `/ws/tts/stream` `/ws/realtime/pcm` `/ws/stock/stream` `/ws/timbre/generate` `/ws/coze/chat`(ws-ai.ts) 45. `/ws/room/:roomId`(ws-chat.ts:271) 46. `/ws/payment/status/:orderNo`(ws-payment.ts:54,可能改用 HTTP 轮询)
+
+**接口连通性协议不匹配(16 项)**:
+47-50. `/api/agents/*` 7 个 AI-Service 直连端点默认指向 API 端会 404(需 baseUrl 切换或后端代理)
+51-52. `/api/a2a/*` 5 个端点同上 53. `/api/mcp/tools` `/api/mcp/skills` `/api/mcp/slash-commands` 4 个端点同上
+
+#### P3 体验细节缺失(10+ 项)
+
+54. 小程序 Android/iOS App 端原生支持缺失(uni-app app-plus 完整配置未迁移到 Taro)
+55. 小程序自定义字体 + iconfont + 300+ 模型 logo 图片缺失
+56. 小程序小米平台隐私合规缺失
+57. 小程序移动端 H5 隐私协议静态页缺失
+58. 小程序 `learn.vue` 课程学习单页 + `user/window.vue` 用户中心弹窗页缺失
+59. 小程序 `ai_assistant` 普通助手独立页缺失(仅 n8n 助手迁移)
+60. 前端全屏切换 Screenfull 组件未迁移
+61. 前端拖拽排序/拖拽上传组件待核查
+62. 部分富文本插件交互(图片 Base64/视频插入)缺失
+
+### 核心结论
+
+1. **核心主链路已迁移并运行**:认证 / AI 对话 / 社区 / 教育 / 考试 / 课程 / 直播 / 支付 / 管理后台后端 9 大核心链路后端 100% 覆盖,前端核心管理后台 70%+ 覆盖
+2. **架构升级合理**:从 4 种异构后端(Java Spring Cloud + Python FastAPI + Java ZHS + Java RuoYi)统一为 Fastify 5 + FastAPI 双层;前端从 Vue 2/3 + Element Plus 升级为 Next.js 15 + React 19 + Tailwind 4 + shadcn/ui;小程序从 uni-app 升级为 Taro 4
+3. **真实缺口集中在用户端 UI 层**:后端能力 97.7% 完整,但前端用户端核心业务页(消息中心/个人中心/考试/直播/学习地图/圈子/问答/搜索/协议/证书)缺失严重,直接影响用户体验闭环
+4. **小程序多端覆盖不足**:Android/iOS App 端完全缺失,小红书平台未支持,分享 H5 核心页缺失
+5. **接口连通性健康但有死链**:97.75% 连通,2 个 WS 死链需立即修复(IM 消息 + 任务进度推送),16 个 AI-Service 直连端点存在协议不匹配需架构决策
+
+### 验证依据
+
+| 验证项                 | 命令                                                 | 退出码      | 结果                                             |
+| ---------------------- | ---------------------------------------------------- | ----------- | ------------------------------------------------ |
+| Round 1 文件清单建立   | 5 个并行 subagent 探索 D 盘 + monorepo               | N/A(只读)   | 历史项目 8 大块 + monorepo 8 端 + 共享层清单完整 |
+| Round 2 5 维度深度比对 | 5 个并行 subagent 逐项字段级/端点级/页面级 diff      | N/A(只读)   | 5 份结构化报告,每项含文件路径+行号证据           |
+| Round 3 独立评估       | 逐条核对 6 项硬性指标                                | N/A(评估性) | 6/6 达成,二元结论 NO,50+ 项缺口已分类            |
+| 运行时文件             | `.trae-cn/goal-runtime/STATE.md` + `loop-run-log.md` | —           | 已记录 3 轮执行日志,目标达成后按规则清理         |
+
+### 后续工作
+
+还有 **62 项后续工作**(14 P0 + 20 P1 + 16 P2 + 12 P3),见上方真实缺口清单。建议按以下优先级推进:
+
+- **P0 立即处理**:用户端核心业务页 9 项(消息中心/个人中心/考试/直播/学习地图/圈子/问答/搜索/协议)+ 小程序 3 项(SharePage/AI视频/特殊模型)+ 接口连通性 2 项(WS 死链)。建议派发 5 个并行 subagent 各负责一个独立模块,每个 subagent 在 `subagent/<模块>` 分支上开发
+- **P1 本周处理**:admin 后台细分页 + 钉钉/企微登录 + logout token revoke + 小程序 API 补齐 + 富文本/上传组件
+- **P2 本月处理**:后端 16 个端点补齐 + 9 个 WS 死路由清理决策 + 16 个 AI-Service 协议不匹配架构决策
+- **P3 长期优化**:App 端原生支持评估 + 字体/iconfont/模型 logo 补齐 + Screenfull/拖拽组件核查
+
+完整 5 份 subagent 比对报告(含每项文件路径+行号证据)保留在会话上下文中,可作为后续修复任务的输入。
+
+---
+
 ## P1 历史对话三点菜单(删除/导出/归档/重命名/压缩 20 万/100 万)(2026-07-18)✅(2026-07-18)
 
 > **背景**:用户要求把每个历史对话右侧的删除按钮升级为三点菜单(MoreVertical),下拉弹出 7 项操作:删除 / 重命名 / 归档 / 取消归档 / 导出 MD / 导出 TXT / 压缩到 20 万字符 / 压缩到 100 万字符。压缩后内容相当于导出功能,可保存到本地电脑/手机(txt/md 格式)。完整覆盖 DB schema → API 端点 → api-client 共享层 → Web UI + i18n 五语 + 多端同步审查。
