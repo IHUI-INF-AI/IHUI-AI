@@ -18064,6 +18064,107 @@ Mock 设计:`vi.hoisted` 提升 `mockAuthenticate` + `mockValues`;`db.insert(...
 
 ---
 
+## R77 CLI 工具扩展(P0-7 权限规则 + P0-8 二进制文件检测 + todo_write 任务清单)(2026-07-18) / goal
+
+> **背景**:R76 SSE 错误体系化完成且 AGENTS.md 第 11 节交付报告一致性硬约束落地后,继续推进 CLI 工具智能化基建。本轮三个 P0 任务同步落地:为 Agent 接入权限规则接口、补齐二进制文件读取的鲁棒性、引入任务清单工具对齐 TRAE IDE TodoWrite。
+
+### 1. P0-7 Permission Rules 接入点
+
+| 改动点                 | 文件                                  | 改动                                                    |
+| ---------------------- | ------------------------------------- | ------------------------------------------------------- |
+| 类型定义               | `apps/cli/src/tools/permissions.ts`   | 新增 `PermissionRules` 接口 + `evaluatePermission` 函数 |
+| 透传到 Agent           | `apps/cli/src/commands/agent.ts`      | `AgentOptions.permissions` 字段注入 ctx                 |
+| 透传到 setupAgentTools | `apps/cli/src/commands/agent.ts`      | `SetupAgentToolsOptions.permissions` 同步               |
+| REPL CLI 入口          | `apps/cli/src/commands/repl.ts`       | `startREPL` 读取 settings.permissions 注入              |
+| runAgent 公开 API      | `apps/cli/src/index.ts`               | `runAgent` 接受 `permissions` 参数                      |
+| 工具注册表             | `apps/cli/src/tools/index.ts`         | `ToolContext.permissions` 字段透传                      |
+| i18n 文案              | `apps/cli/src/i18n/messages/zh-CN.ts` | 权限拒绝/允许状态文案(6 句)                             |
+
+**关键设计决策**:
+
+- 接入点与数据模型分离:本轮仅预留类型 + 注入通路,**不**在 builtin 工具内强制校验(避免破坏现有 31 测试套件),为后续 `--tools/--disallowed-tools` CLI flag 接入铺路
+- `evaluatePermission(tool, args, rules)` 返回 `{ allowed, reason? }`,为后续按工具粒度的 allow/deny 列表预留扩展位
+- AGENTS.md 第 5 节"复用现有 authenticate"约束对齐:CLI 端权限是**工具权限**(命令级),与后端 roleId 权限分层,不冲突
+
+### 2. P0-8 二进制文件检测(避免 read_file 在 PDF/PPTX/image 上误解析)
+
+| 改动点               | 文件                             | 改动                                                              |
+| -------------------- | -------------------------------- | ----------------------------------------------------------------- |
+| BINARY_FILE_KINDS 表 | `apps/cli/src/tools/builtins.ts` | 30+ 扩展名映射(kind + hint),含 PDF/Office/JPEG/PNG/ZIP/RAR/7Z 等  |
+| Magic number 兜底    | `apps/cli/src/tools/builtins.ts` | 7 个 magic bytes: PDF/PNG/JPG/GIF/ZIP/RAR/7Z                      |
+| 通用二进制检测       | `apps/cli/src/tools/builtins.ts` | 前 8 字节含 NULL 字节 → 标记为二进制(避免误读 ELF/Mach-O 等)      |
+| read_file 集成       | `apps/cli/src/tools/builtins.ts` | statSync 后调用 detectBinaryFile,有 hint 则返回结构化提示而非乱码 |
+| 提示文案             | `apps/cli/src/tools/builtins.ts` | `formatBinaryHint` 输出 `[类型] 文件名 (大小)\n提示:具体命令`     |
+
+**关键设计决策**:
+
+- 扩展名优先(快路径) + magic bytes 兜底(无扩展名或异常扩展名)
+- 复用 `/bash` 工具推荐外部命令(pdftotext/unzip/ffprobe/file/identify),**不**引入新依赖,做减法
+- 返回 `{ success: true, output: hint }` 而非 throw,保持 Tool 接口一致;Agent 看到 hint 后可决策用 `/bash` 提取
+
+### 3. todo_write 任务清单工具(对齐 TRAE IDE TodoWrite)
+
+| 改动点                | 文件                                | 改动                                                                                      |
+| --------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| TodoItem 类型         | `apps/cli/src/tools/todo-write.ts`  | `id/content/status[pending\|in_progress\|completed]/priority[high\|medium\|low]/summary?` |
+| 持久化                | `apps/cli/src/tools/todo-write.ts`  | `./.ihui/todos.json`(工作区本地,跨会话恢复)                                               |
+| 排序                  | `apps/cli/src/tools/todo-write.ts`  | `in_progress > pending > completed`;同 status 内按 priority 降序                          |
+| 合并模式              | `apps/cli/src/tools/todo-write.ts`  | `merge=true` 保留旧列表中未在新列表出现的 id                                              |
+| 渲染                  | `apps/cli/src/tools/todo-write.ts`  | 按 status 分组,emoji 图标 + 中文标签 + 优先级色点                                         |
+| 校验                  | `apps/cli/src/tools/todo-write.ts`  | id/content 非空 + status/priority 字面量校验                                              |
+| 损坏降级              | `apps/cli/src/tools/todo-write.ts`  | JSON.parse 失败时 readTodoList 返回 `[]`                                                  |
+| BUILTIN_TOOLS 注册    | `apps/cli/src/tools/builtins.ts`    | todo_write 加入 BUILTIN_TOOLS 列表(10 个)                                                 |
+| builtins.test.ts 更新 | `apps/cli/tests/builtins.test.ts`   | 期望长度 9 → 10,加入 `todo_write`                                                         |
+| 单元测试              | `apps/cli/tests/todo-write.test.ts` | 11 用例:空数组/单 todo/校验失败/排序/merge 模式/损坏降级/summary                          |
+
+### 4. typecheck 错误修复
+
+修复 `apps/cli/src/tools/todo-write.ts` 5 个 TS2532 错误(Object is possibly 'undefined',由 `noUncheckedIndexedAccess: true` 触发):
+
+- `Record<string, TodoItem[]>` → `Record<TodoItem['status'], TodoItem[]>`(98 行)
+- `Record<string, string>` → `Record<TodoItem['status'], string>`(101 行)
+- `Record<string, number>` → `Record<TodoItem['status'], number>` + `Record<TodoItem['priority'], number>`(165-166 行)
+- 删除冗余 `!` 断言与 `as TodoItem['status']` cast(因类型已收窄)
+
+### 5. 全量验证(2026-07-18)
+
+| 验证项          | 命令                                                               | 退出码 | 结果                                              |
+| --------------- | ------------------------------------------------------------------ | ------ | ------------------------------------------------- |
+| 全量 typecheck  | `pnpm typecheck`                                                   | 0      | 18/18 workspace 全绿(清 .tsbuildinfo 后)          |
+| 全量 lint       | `pnpm lint`                                                        | 0      | 16/16 workspace 全绿                              |
+| 全量 test       | `pnpm test`                                                        | 0      | 16/16 workspace 全绿(33 个 cli 测试文件 519 用例) |
+| cli 单独 test   | `pnpm --filter @ihui/cli test`                                     | 0      | 32 文件 519 用例全过(11 个 todo_write 新增)       |
+| todo_write 单独 | `pnpm --filter @ihui/cli exec vitest run tests/todo-write.test.ts` | 0      | 1 文件 11 用例全过                                |
+| builtins 单测   | `pnpm --filter @ihui/cli exec vitest run tests/builtins.test.ts`   | 0      | 1 文件 22 用例全过(更新 9→10 期望)                |
+
+### 6. 改动文件清单
+
+| 类型 | 文件                                  | 改动                                                  |
+| ---- | ------------------------------------- | ----------------------------------------------------- |
+| 新增 | `apps/cli/src/tools/todo-write.ts`    | 工具实现(184 行)                                      |
+| 新增 | `apps/cli/tests/todo-write.test.ts`   | 11 用例单测                                           |
+| 新增 | `apps/cli/src/tools/permissions.ts`   | PermissionRules 类型 + evaluatePermission 函数(63 行) |
+| 修改 | `apps/cli/src/tools/builtins.ts`      | +todo_write 集成 + P0-8 二进制检测(143 行)            |
+| 修改 | `apps/cli/src/tools/index.ts`         | ToolContext.permissions 字段透传                      |
+| 修改 | `apps/cli/src/commands/agent.ts`      | AgentOptions/SetupAgentToolsOptions.permissions 注入  |
+| 修改 | `apps/cli/src/commands/repl.ts`       | startREPL 读取 settings.permissions + i18n 调用       |
+| 修改 | `apps/cli/src/index.ts`               | runAgent 接受 permissions 参数                        |
+| 修改 | `apps/cli/src/i18n/messages/zh-CN.ts` | 权限相关 6 句 i18n 文案                               |
+| 修改 | `apps/cli/src/i18n/index.ts`          | 暴露 permissions 相关键                               |
+| 修改 | `apps/cli/tests/builtins.test.ts`     | BUILTIN_TOOLS 期望 9→10(加入 todo_write)              |
+| 修改 | `PROJECT_PLAN.md`                     | R77 章节追加                                          |
+
+### 7. 收尾状态
+
+- P0-7 权限规则接入点落地:`evaluatePermission` + AgentOptions/SetupAgentToolsOptions/runAgent 完整透传链,后续 CLI flag 接入无需重构
+- P0-8 二进制文件检测落地:30+ 扩展名 + 7 magic bytes + 通用 NULL 字节检测,read_file 不再误读二进制
+- todo_write 工具完整接入:11 用例单测 + BUILTIN_TOOLS 注册 + 持久化 + 合并模式 + 排序
+- 5 个 TS2532 错误修复(typecheck 严格性合规)
+- 全量 typecheck/lint/test 18+16+16=50/50 全绿
+- cli 32 测试文件 519 用例全过
+
+---
+
 ## 深度迁移完整性独立审计(2026-07-17)✅(2026-07-17) / goal
 
 ### 目标条件
