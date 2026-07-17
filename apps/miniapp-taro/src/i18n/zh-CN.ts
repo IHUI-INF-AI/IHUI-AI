@@ -215,6 +215,15 @@ export default {
     agentDetail: {
       promptLabel: 'Agent提示词',
       startChat: '开始对话',
+      vipExclusive: 'VIP 专享',
+      vipPermissionDenied: '该智能体为 VIP 专享,请开通 VIP 后使用',
+      permissionLoading: '正在校验权限...',
+      permissionAllowed: '您已拥有该智能体使用权限',
+      permissionDenied: '您暂无该智能体使用权限',
+      reasonFree: '免费智能体,所有用户可用',
+      reasonVip: 'VIP 专享智能体,需开通 VIP',
+      reasonPurchased: '您已购买该智能体',
+      reasonVipOnly: '仅 VIP 用户可用,请开通 VIP',
     },
     chatDrawers: {
       selectModel: '选择模型',

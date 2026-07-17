@@ -215,6 +215,15 @@ export default {
     agentDetail: {
       promptLabel: 'Agent Prompt',
       startChat: 'Start Chat',
+      vipExclusive: 'VIP Exclusive',
+      vipPermissionDenied: 'This agent is VIP-only. Please subscribe to VIP to use it.',
+      permissionLoading: 'Checking permission...',
+      permissionAllowed: 'You have permission to use this agent',
+      permissionDenied: 'You do not have permission to use this agent',
+      reasonFree: 'Free agent, available to all users',
+      reasonVip: 'VIP-exclusive agent, VIP subscription required',
+      reasonPurchased: 'You have purchased this agent',
+      reasonVipOnly: 'VIP-only, please subscribe to VIP',
     },
     chatDrawers: {
       selectModel: 'Select Model',

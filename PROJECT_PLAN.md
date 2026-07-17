@@ -18765,6 +18765,49 @@ ARCHIVED.txt 声称的"100% 迁移**\*不属***。核心业务功能 100% 迁移
 
 ---
 
+## 📋(2026-07-17) grok-build 第十一轮迁移收尾 — 3 项后续工作并行 subagent 闭环(AGENTS.md 第 12 节首次应用)
+
+### 背景
+
+AGENTS.md 第 12 节"多 Subagent 并行开发强制规则"于本会话刚立,本任务为该规则首次应用案例。按规则要求派发 3 个并行 subagent 推进第十一轮迁移记录的 3 项后续工作,主线程负责结果汇总 + 全量验证 + commit + push。
+
+### 完成项
+
+✅ **后续工作 1 — e2e 测试补齐(3 模块并行)**
+
+- **Subagent A — WebSearch 单元测试**:新建 [apps/cli/tests/web-search.test.ts](file:///g:/IHUI-AI/apps/cli/tests/web-search.test.ts),13 个用例全绿(mock fetch 隔离网络,覆盖 HTML 解析 / uddg 参数还原 / 摘要截断 / 标签清理 / execute 成功失败 / URL 编码 / WEB_SEARCH_TOOLS 导出)
+- **Subagent B — updater 测试 + minimum_version 本地化**:新建 [apps/cli/tests/updater.test.ts](file:///g:/IHUI-AI/apps/cli/tests/updater.test.ts),15 个用例全绿(覆盖 compareVersions / getCurrentVersion / checkForUpdates 缓存命中与过期 / fetch 失败 / minimum_version 警告 / notifyUpdates 跳过与输出);同时改 [apps/cli/src/updater.ts](file:///g:/IHUI-AI/apps/cli/src/updater.ts) 把 minimumVersion 从 registry 读取改为本地 package.json engines.minimumVersion 读取(语义更正确,registry 不需暴露此字段);[apps/cli/package.json](file:///g:/IHUI-AI/apps/cli/package.json) engines 加 `"minimumVersion": "1.0.0"`
+- **Subagent C — crash-handler 单元测试**:新建 [apps/cli/tests/crash-handler.test.ts](file:///g:/IHUI-AI/apps/cli/tests/crash-handler.test.ts),12 个用例全绿(vi.mock('node:fs') 隔离文件系统,真实 process.emit 触发事件,覆盖 install/uninstall 幂等 / uncaughtException+unhandledRejection 写 crash log / exitCode 设置差异 / LRU prune 保留 10 个 / 目录自动创建 / 友好提示输出)
+
+✅ **后续工作 3 — minimum_version 字段约定**(随 Subagent B 一并完成)
+
+package.json engines 新增 `"minimumVersion": "1.0.0"` 字段;updater.ts `getMinimumVersion()` 读取该字段;`checkForUpdates` 在 belowMinimum=true 时填充 minimumVersion 字段返回。
+
+### 多 Subagent 并行执行情况(AGENTS.md 第 12 节首次应用)
+
+- **派发模式**:3 个 general_purpose_task subagent 并行(文件路径完全隔离:tests/web-search.test.ts / tests/updater.test.ts + src/updater.ts + package.json / tests/crash-handler.test.ts,无冲突)
+- **并发会话干扰**:派发期间检测到并发会话已 commit 部分 subagent 产出(web-search 测试在 862f54d9 / updater 测试在 300c8b11 / updater minimumVersion 本地化在 e72b7e97),主线程识别后只对剩余未提交的 crash-handler.test.ts 单独提交,不重复提交已 commit 的文件
+- **失败处理**:无 subagent 失败,无需重试
+- **结果汇总**:3 subagent 共新增 40 个测试用例(13+15+12),全绿
+
+### 验证依据
+
+主线程全量验证(AGENTS.md 第 12 节"禁止 subagent 返回后跳过全量验证"):
+
+- `pnpm --filter @ihui/cli typecheck` → exit 0
+- `pnpm --filter @ihui/cli lint` → 6 warnings 0 errors(warnings 为既有代码 any,非本次引入)
+- `pnpm --filter @ihui/cli test` → **559/559 passed (35 test files)**,较上轮 519/519(32 test files)新增 40 个测试 / 3 个测试文件
+
+### 多端同步审查(AGENTS.md 第 10 节)
+
+本次改动仅限 `apps/cli`(单端 CLI 工具),不涉及 API 接口契约 / 共享类型 / 数据库 schema / 共享 UI 组件 / 业务功能跨端同步,属于 AGENTS.md 第 10 节"平台独占(豁免)"范畴,无需多端同步。
+
+### 还有 1 项后续工作(见下方列表)
+
+1. **WebSearch live 验证**:DuckDuckGo HTML 接口实际请求一次确认解析逻辑正确(解析正则依赖 DDG HTML 结构,DDG 改版会失效,建议加监控告警)。本次仅 mock 单元覆盖,未做 live 验证。
+
+---
+
 ## 📋(2026-07-17) AGENTS.md 第 11 节守门闭环 — 守门脚本 regex 修复 + staged 增量扫描 + pre-commit 第 12 项集成
 
 ### 背景

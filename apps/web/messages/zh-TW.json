@@ -9581,7 +9581,16 @@
     "tabActivity": "活動流",
     "tabBackground": "後臺",
     "tabPermission": "權限",
-    "viewPermissionExample": "查看權限確認示例"
+    "viewPermissionExample": "查看權限確認示例",
+    "vipExclusive": "VIP 專享",
+    "vipPermissionDenied": "該智能體為 VIP 專享,請開通 VIP 後使用",
+    "permissionLoading": "正在校驗權限...",
+    "permissionAllowed": "您已擁有該智能體使用權限",
+    "permissionDenied": "您暫無該智能體使用權限",
+    "permissionReasonFree": "免費智能體,所有用戶可用",
+    "permissionReasonVip": "VIP 專享智能體,需開通 VIP",
+    "permissionReasonPurchased": "您已購買該智能體",
+    "permissionReasonVipOnly": "僅 VIP 用戶可用,請開通 VIP"
   },
   "distribution": {
     "title": "分銷中心",
