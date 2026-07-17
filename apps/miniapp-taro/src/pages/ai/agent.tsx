@@ -54,6 +54,7 @@ export default function AgentPage() {
         avatar: a.avatar,
         category: a.category,
         uses: a.uses,
+        isVipExclusive: a.isVipExclusive,
       })) as AgentItem[]
       setList(arr)
     } catch {
