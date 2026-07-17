@@ -690,7 +690,7 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const result = await completeOrderWithSaga(parsed.data.orderNo, parsed.data.tradeNo)
+      const result = await completeOrderWithSaga(parsed.data.orderNo, parsed.data.tradeNo, server)
       if (!result.success) {
         return reply.status(400).send(error(400, result.reason ?? '订单完成失败'))
       }
