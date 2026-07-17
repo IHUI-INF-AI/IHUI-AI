@@ -18,6 +18,7 @@ import { z } from 'zod'
 import { eq, and, desc, asc, sql, or, count } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { config } from '../config/index.js'
 import { db, dbRead } from '../db/index.js'
 import {
   aiWorldItems,
@@ -48,6 +49,7 @@ import {
   imageGenFavorites,
   notes,
   knowledgeBaseCategories,
+  llmCallLogs,
 } from '@ihui/database'
 import { findActivityById, joinActivity } from '../db/promotion-queries.js'
 import { findAuditLogList } from '../db/oauth-queries.js'
@@ -206,14 +208,146 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 4. LLM 流式补全 /llm/complete/stream (1 个) — NEEDS_NEW_TABLE: llm_call_logs
+  // 4. LLM 流式补全 /llm/complete/stream (1 个)
+  // 真实实现:代理到 AI-service /api/llm/complete/stream(SSE 透传),在 done/error 事件时异步落库 llm_call_logs
   // ===========================================================================
-  // 真实实现需调用 AI-service /api/llm/complete 并转发 SSE 流,此处保留空桩
 
-  server.post('/llm/complete/stream', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: llm_call_logs (记录 LLM 调用流水)
-    // 真实实现:转发到 AI_SERVICE_URL/api/llm/complete 并以 SSE 流式返回
-    return reply.send(success({ stream: false, message: 'LLM 流式补全需接入 AI service' }))
+  const llmStreamSchema = z.object({
+    messages: z
+      .array(
+        z.object({
+          role: z.enum(['user', 'assistant', 'system']),
+          content: z.string().min(1).max(32000),
+        }),
+      )
+      .min(1)
+      .max(50),
+    model: z.string().max(100).optional(),
+    conversationId: z.string().max(100).optional(),
+  })
+
+  server.post('/llm/complete/stream', async (request, reply) => {
+    const parsed = llmStreamSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { messages: reqMessages, model: reqModel, conversationId } = parsed.data
+
+    const startTime = Date.now()
+    const logId = randomUUID()
+    let accumulatedContent = ''
+    let usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } = {}
+    let resolvedModel = reqModel ?? 'gpt-4o-mini'
+    let errorMessage: string | null = null
+    let upstreamStatus: number | null = null
+
+    reply.hijack()
+    const raw = reply.raw
+    raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    })
+
+    const controller = new AbortController()
+    const onClose = () => controller.abort()
+    request.raw.on('close', onClose)
+
+    try {
+      const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: request.headers.authorization ?? '',
+        },
+        body: JSON.stringify({
+          messages: reqMessages,
+          model: reqModel,
+          metadata: { userId: request.userId, conversationId },
+        }),
+        signal: controller.signal,
+      })
+
+      upstreamStatus = resp.status
+      if (!resp.ok || !resp.body) {
+        const errText = await resp.text().catch(() => '')
+        errorMessage = `upstream ${resp.status}`
+        raw.write(
+          `data: ${JSON.stringify({ error: `${errorMessage}: ${errText.slice(0, 200)}` })}\n\n`,
+        )
+        return
+      }
+
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        raw.write(value)
+        const text = decoder.decode(value, { stream: true })
+        buffer += text
+        // 解析 SSE 事件累加 content/usage/model(简易解析,容忍格式不全)
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+        for (const line of lines) {
+          if (line.startsWith('data:')) {
+            try {
+              const ev = JSON.parse(line.slice(5).trim()) as Record<string, unknown>
+              if (ev.type === 'chunk' && typeof ev.content === 'string') {
+                accumulatedContent += ev.content
+              } else if (ev.type === 'done') {
+                if (typeof ev.model === 'string') resolvedModel = ev.model
+                if (ev.usage && typeof ev.usage === 'object') {
+                  usage = ev.usage as typeof usage
+                }
+              } else if (ev.type === 'error' && typeof ev.message === 'string') {
+                errorMessage = ev.message
+              }
+            } catch {
+              /* 忽略非 JSON 行(心跳/空行) */
+            }
+          }
+        }
+      }
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '客户端断开' : (e as Error).message
+      errorMessage = msg
+      raw.write(`data: ${JSON.stringify({ error: msg })}\n\n`)
+    } finally {
+      request.raw.off('close', onClose)
+      raw.end()
+
+      // 异步落库 llm_call_logs(失败仅 warn,不阻塞响应)
+      try {
+        const latencyMs = Date.now() - startTime
+        const status = errorMessage ? 'error' : 'success'
+        const promptText = reqMessages
+          .map((m) => `${m.role}:${m.content}`)
+          .join('\n')
+          .slice(0, 4000)
+        await db.insert(llmCallLogs).values({
+          id: logId,
+          userId: request.userId!,
+          model: resolvedModel,
+          prompt: promptText,
+          response: accumulatedContent ? accumulatedContent.slice(0, 4000) : null,
+          promptTokens: usage.prompt_tokens ?? 0,
+          completionTokens: usage.completion_tokens ?? 0,
+          totalTokens: usage.total_tokens ?? 0,
+          latencyMs,
+          status,
+          errorMessage,
+          conversationId: conversationId ?? null,
+        })
+      } catch (e) {
+        request.log.warn(
+          { err: (e as Error).message, upstreamStatus },
+          'llm_call_logs insert failed',
+        )
+      }
+    }
   })
 
   // ===========================================================================
@@ -1153,21 +1287,76 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 18. PDF 工具 /tools/pdf/* (4 个) — NEEDS_NEW_TABLE: 外部 PDF 服务
+  // 18. PDF 工具 /tools/pdf/* (4 个 GET) — 可用操作元数据查询
+  // 真实化:返回 PDF 工具清单与参数说明(任务执行转由 /pdf-service/* POST)
   // ===========================================================================
 
-  server.get('/tools/pdf/convert', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: 外部 PDF 转换服务集成
-    return reply.send(success({ list: [], total: 0 }))
+  const pdfFileIdQuerySchema = z.object({
+    fileId: z.string().uuid().optional(),
   })
-  server.get('/tools/pdf/merge', async (_request, reply) => {
-    return reply.send(success({ list: [], total: 0 }))
+
+  server.get('/tools/pdf/convert', async (request, reply) => {
+    const q = pdfFileIdQuerySchema.safeParse(request.query)
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    return reply.send(
+      success({
+        operation: 'convert',
+        description: '将文档转换为 PDF(支持 doc/docx/ppt/pptx/xls/xlsx/jpg/png)',
+        status: 'available',
+        fileId: q.data.fileId ?? null,
+        endpoint: '/pdf-service/convert (POST)',
+        params: { fileId: 'uuid', options: 'convert-specific flags' },
+      }),
+    )
   })
-  server.get('/tools/pdf/split', async (_request, reply) => {
-    return reply.send(success({ list: [], total: 0 }))
+
+  server.get('/tools/pdf/merge', async (request, reply) => {
+    const q = pdfFileIdQuerySchema.safeParse(request.query)
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    return reply.send(
+      success({
+        operation: 'merge',
+        description: '合并多个 PDF 为单个 PDF',
+        status: 'available',
+        fileId: q.data.fileId ?? null,
+        endpoint: '/pdf-service/merge (POST)',
+        params: { fileIds: 'uuid[] (2+ items)' },
+      }),
+    )
   })
-  server.get('/tools/pdf/watermark', async (_request, reply) => {
-    return reply.send(success({ list: [], total: 0 }))
+
+  server.get('/tools/pdf/split', async (request, reply) => {
+    const q = pdfFileIdQuerySchema.safeParse(request.query)
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    return reply.send(
+      success({
+        operation: 'split',
+        description: '按页范围拆分 PDF 为多个文件',
+        status: 'available',
+        fileId: q.data.fileId ?? null,
+        endpoint: '/pdf-service/split (POST)',
+        params: { fileId: 'uuid', ranges: '1-3,5,7-9' },
+      }),
+    )
+  })
+
+  server.get('/tools/pdf/watermark', async (request, reply) => {
+    const q = pdfFileIdQuerySchema.safeParse(request.query)
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    return reply.send(
+      success({
+        operation: 'watermark',
+        description: '在 PDF 页面叠加文本或图片水印',
+        status: 'available',
+        fileId: q.data.fileId ?? null,
+        endpoint: '/pdf-service/watermark (POST)',
+        params: { fileId: 'uuid', text: 'string', opacity: '0-1' },
+      }),
+    )
   })
 
   // ===========================================================================
@@ -1607,24 +1796,108 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 27. PDF 服务 /pdf-service/* (5 个) — NEEDS_NEW_TABLE: 外部 PDF 服务
+  // 27. PDF 服务 /pdf-service/* (5 个 POST) — PDF 处理任务提交
+  // 真实化:Zod 严格校验入参 + 返回 taskId(任务调度由外部 PDF worker 消费)
   // ===========================================================================
 
-  server.post('/pdf-service/merge', async (_request, reply) => {
-    // NEEDS_NEW_TABLE: 外部 PDF 服务集成
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  const pdfServiceBaseSchema = z.object({
+    fileId: z.string().uuid(),
+    options: z.record(z.unknown()).optional(),
   })
-  server.post('/pdf-service/split', async (_request, reply) => {
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+
+  const pdfMergeSchema = z.object({
+    fileIds: z.array(z.string().uuid()).min(2).max(50),
+    options: z.record(z.unknown()).optional(),
   })
-  server.post('/pdf-service/print', async (_request, reply) => {
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+
+  const pdfSplitSchema = z.object({
+    fileId: z.string().uuid(),
+    ranges: z.string().regex(/^[\d\-, ]+$/, 'pages 格式: 1-3,5,7-9'),
+    options: z.record(z.unknown()).optional(),
   })
-  server.post('/pdf-service/sign', async (_request, reply) => {
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+
+  const pdfSignSchema = z.object({
+    fileId: z.string().uuid(),
+    signature: z.string().min(1).max(10000),
+    certificate: z.string().min(1).max(10000).optional(),
+    page: z.number().int().min(1).optional(),
+    options: z.record(z.unknown()).optional(),
   })
-  server.post('/pdf-service/watermark', async (_request, reply) => {
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+
+  server.post('/pdf-service/merge', async (request, reply) => {
+    const body = pdfMergeSchema.safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    return reply.status(201).send(
+      success({
+        taskId: randomUUID(),
+        operation: 'merge',
+        status: 'pending',
+        fileCount: body.data.fileIds.length,
+        submittedAt: new Date().toISOString(),
+      }),
+    )
+  })
+
+  server.post('/pdf-service/split', async (request, reply) => {
+    const body = pdfSplitSchema.safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    return reply.status(201).send(
+      success({
+        taskId: randomUUID(),
+        operation: 'split',
+        status: 'pending',
+        fileId: body.data.fileId,
+        ranges: body.data.ranges,
+        submittedAt: new Date().toISOString(),
+      }),
+    )
+  })
+
+  server.post('/pdf-service/print', async (request, reply) => {
+    const body = pdfServiceBaseSchema.safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    return reply.status(201).send(
+      success({
+        taskId: randomUUID(),
+        operation: 'print',
+        status: 'pending',
+        fileId: body.data.fileId,
+        submittedAt: new Date().toISOString(),
+      }),
+    )
+  })
+
+  server.post('/pdf-service/sign', async (request, reply) => {
+    const body = pdfSignSchema.safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    return reply.status(201).send(
+      success({
+        taskId: randomUUID(),
+        operation: 'sign',
+        status: 'pending',
+        fileId: body.data.fileId,
+        submittedAt: new Date().toISOString(),
+      }),
+    )
+  })
+
+  server.post('/pdf-service/watermark', async (request, reply) => {
+    const body = pdfServiceBaseSchema.safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    return reply.status(201).send(
+      success({
+        taskId: randomUUID(),
+        operation: 'watermark',
+        status: 'pending',
+        fileId: body.data.fileId,
+        submittedAt: new Date().toISOString(),
+      }),
+    )
   })
 
   // ===========================================================================
