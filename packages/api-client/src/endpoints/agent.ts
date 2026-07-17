@@ -43,6 +43,10 @@ export async function getAgents(query: AgentListQuery = {}): Promise<ApiResult<P
   return fetchApi<PageData<Agent>>(`/agents${buildQs(query)}`)
 }
 
+export async function getAgentDetail(id: string): Promise<ApiResult<Agent>> {
+  return fetchApi<Agent>(`/agents/${id}`)
+}
+
 // =============================================================================
 // 智能体提现明细(对应后端 /api/agent-ext/withdrawal/* 端点)
 // =============================================================================

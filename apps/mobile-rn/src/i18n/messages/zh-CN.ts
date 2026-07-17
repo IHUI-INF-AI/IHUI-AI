@@ -21,6 +21,7 @@ export default {
     orders: '订单',
     settings: '设置',
     profile: '我的',
+    agents: '智能体',
   },
   auth: {
     login: '登录',
