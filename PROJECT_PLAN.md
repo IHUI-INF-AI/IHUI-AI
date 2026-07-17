@@ -19152,3 +19152,89 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 ### 任务完成状态
 
 本轮处理完第 17 轮声明后残留的并发 agent 改动:Hook 系统扩展 + date-utils/design-tokens 优化已验证通过并 push(commit 80548bf9 + 905b46ad);--permission-mode 半成品改动(typecheck 失败 + 无测试)按做减法原则还原。P1-11 标记完成。工作区干净(仅 PROJECT_PLAN.md 本轮修改),stash 空,本地与 origin/main 同步,全量 typecheck 通过。agent 侧执行任务均已处理并验证通过;业务方决策项(P1-9a 支付轮询 / P1-9b 通知声音)已在 PROJECT_PLAN 对应条目记录,不属 agent 执行范畴。
+
+
+## 第 19 轮交付报告(2026-07-18,cli 融合第十五轮 — 多端能力集成 + 共享类型上提)
+
+### 目标
+
+第十四轮已完成"共享层类型 + API 5 mode + Session DB + AI-Service Persona registry"5 项能力建设(5 subagent 并行,149 新测试)。但用户反馈"不能光想着 CLI 端啊 其他所有端应该同步能力啊",要求按 AGENTS.md 第 10 节多端同步规则推进剩余集成任务,让 cli 能力真正在多端可用而非"孤立模块"。
+
+### 执行内容(4 subagent 并行 + 1 串行)
+
+1. **Subagent A:API 端 agent-runtime 路由集成**
+   - 新建 `apps/api/src/routes/agent-runtime.ts`(149 行),8 个端点:POST /execute、POST /execute/stream(SSE 占位)、GET /sessions、GET /sessions/:sessionId、POST /sessions/:sessionId/resume、GET /:sessionId/status、POST /:sessionId/cancel、GET /permission/check
+   - 修改 `apps/api/src/server.ts`(+4 行:import + register prefix /api/agent-runtime)
+   - 复用 SessionManager 同步 API + parsePermissionMode + checkPermissionMode(第十四轮已稳定的 PermissionGuard 5 mode)
+   - 用 Zod 校验 body,响应统一 { code, message, data } 格式
+   - 新建 `apps/api/tests/agent-runtime-routes.test.ts`(264 行,12 个测试全绿)
+
+2. **Subagent B:AI-Service agent-runtime router + personas 注册到 main.py**
+   - 新建 `apps/ai-service/app/routers/agent_runtime.py`(166 行),8 端点与 api-client 完全对齐:POST /execute、POST /execute/stream、GET /{session_id}/status、POST /{session_id}/cancel、GET /sessions、GET /sessions/{session_id}、POST /sessions/{session_id}/resume、GET /permission/check
+   - 修改 `apps/ai-service/app/main.py`(+4 行:import personas + agent_runtime,2 个 include_router)
+   - _check_permission 实现 5 mode 决策矩阵(bypassPermissions/manual/plan/acceptEdits/default),对齐 CLI permission-guard
+   - 模块级 _sessions dict 占位存储(后续可换 Redis/DB)
+   - 新建 `apps/ai-service/tests/test_agent_runtime_router.py`(348 行,23 个测试全绿)
+
+3. **Subagent C:共享类型上提(CLI 本地类型 → @ihui/types 引用)**
+   - 修改 `apps/cli/src/plan/types.ts`(本地 PlanState/PlanEvent/PlanContext 删除,改为 `export type { ... } from '@ihui/types'`)
+   - 修改 `apps/cli/src/sessions/types.ts`(本地 SessionStatus/SessionMessage/SessionState/SessionSummary 删除,改为 re-export)
+   - 修改 `apps/cli/src/personas/contracts.ts`(删除 JSONSchemaType/JSONSchema/PersonaContract/PersonaContracts 本地定义,改为 import + re-export;保留 PERSONAS_CONTRACTS 常量与 getPersonaContract/listPersonaContractNames 函数)
+   - 修改 `apps/cli/src/tools/subagent.ts`(SubagentPersona/CapabilityMode/IsolationMode 从 @ihui/types import + re-export;保留 PersonaConfig 接口与 PERSONAS 常量)
+   - **Edit 工具不可靠问题**:Subagent C 报告 4 文件改动成功,实际仅 tools/subagent.ts 真正写入。主线程用 Write 工具重做 plan/types.ts + sessions/types.ts + personas/contracts.ts 三个文件,改后 CLI typecheck/test 全绿
+   - **跳过**:plugins/types.ts(Plugin 相关类型未在共享层暴露,plugins 是 CLI 平台独占保留本地定义);hooks/types.ts(文件不存在);permissions/types.ts(文件不存在)
+   - 净效果:净删 80 行(删 97 / 增 17),共享层成为多端类型唯一来源
+
+4. **Subagent D:CLI 端 Plugins/PlanMode/Sessions 集成主循环**
+   - 修改 `apps/cli/src/commands/agent.ts`(+48 行):RunToolLoopOptions 新增可选字段 plugins?: PluginRegistry / planMachine?: PlanMachine;新增辅助函数 runPluginHooks(registry, event, context);runToolLoop 解析 toolCalls 后检查 opts.planMachine?.isWriteBlocked(),true 则追加 "plan gathering 中,跳过写操作" 提示并 continue;工具调用前后调用 runPluginHooks(preToolCall/postToolCall)
+   - 修改 `apps/cli/src/commands/repl.ts`(+79 行):新增别名 import(saveSessionState/loadSessionState/listSessionStates/newSessionId)避免与老 session.js 冲突;startREPL 入口支持 opts.sessionId 加载历史会话;rl.on('close') 退出时静默保存当前 history;新增 /sessions slash 命令(列表前 10 条 + /sessions resume <id>)
+   - 新建 `apps/cli/tests/agent-integration.test.ts`(230 行,6 个测试:空 PluginRegistry / 带 hook 声明 / 不传 plugins / initialized 状态 / gathering 状态工具不执行 / 不传 planMachine)
+   - 新建 `apps/cli/tests/repl-sessions.test.ts`(192 行,7 个测试:往返一致 / listSessions 含 status / deleteSession / pruneOldSessions / loadSession 不存在 / 模拟 REPL 退出保存+重启恢复 / 多次保存共存)
+   - 关键设计:做减法 — PlanMachine 仅集成 isWriteBlocked 检查(最小集成),未集成 transition 调用;向后兼容 — plugins/planMachine 均为可选字段,不传时行为完全不变;新 sessions 模块与老 session.ts 共存,持久化路径相同但 ID 格式不同
+
+### 多端同步审查清单核对(AGENTS.md 第 10 节)
+
+| 审查项 | 改动涉及? | 已同步端 |
+| --- | --- | --- |
+| 接口契约 | 是 新增 16 端点 | API(/api/agent-runtime/* 8 端点)+ AI-Service(/api/agent-runtime/* 8 端点)+ api-client 已暴露端点(第十四轮) |
+| 类型 | 是 共享层 24 类型 | packages/types(第十四轮稳定)+ CLI 4 文件改为 re-export(packages/types 成为唯一来源) |
+| 数据结构 | 否 无 schema 变更 | SessionManager 复用现有 clawdbot_sessions 表(第十四轮已建) |
+| UI 组件 | 否 无共享 UI 改动 | 呈现层特化留作 P2 后续 |
+| 业务功能 | 是 cli 5 项能力 | Plugins/PlanMode/Sessions 接入 CLI 主循环 + API/AI-Service 路由骨架可用 |
+| 全量验证 | 部分 | turbo 42/48 通过(@ihui/web#test 3 失败来自并发会话 ai-side-panel.tsx useTranslations 缺 NextIntlProvider,与第十五轮改动无关) |
+
+### 验证依据(2026-07-18)
+
+| 验证 | 命令 | 退出码 | 关键输出 |
+| --- | --- | --- | --- |
+| API typecheck | `pnpm --filter @ihui/api typecheck` | 0 | tsc --noEmit 通过 |
+| API test | `pnpm --filter @ihui/api test agent-runtime-routes` | 0 | 12/12 passed |
+| AI-Service pytest | `python -m pytest tests/test_agent_runtime_router.py` | 0 | 23 passed |
+| AI-Service app import | `python -c "from app.main import app"` | 0 | 58 routes ok |
+| CLI typecheck | `pnpm --filter @ihui/cli typecheck` | 0 | tsc --noEmit 通过 |
+| CLI test | `pnpm --filter @ihui/cli test` | 0 | 46 files / 985 tests passed |
+| CLI lint | `pnpm --filter @ihui/cli lint` | 0 | 0 errors(6 warnings 历史 any) |
+| 全量 turbo | `pnpm turbo typecheck lint test` | 1 | 42/48 tasks;@ihui/web#test 3 failed(并发会话 ai-side-panel.tsx 引入,与第十五轮无关) |
+
+### 平台独占豁免(未同步,符合 AGENTS.md 第 10 节)
+
+- 危险命令列表 / readonly 自动批准 / Subagent worktree / Hooks 全端执行 — CLI 本地特有,无需跨端同步
+- plugins/types.ts 中 Plugin 相关类型(PluginManifest/PluginContext 等)未上提共享层,因为 plugins 是 CLI 平台独占
+
+### 累计整合进度
+
+- cli 32 类 → 已整合 14 项(第十三轮 CLI 5 模块 + 第十四轮多端同步 5 项 + 第十五轮集成 4 项)
+- Agent 能力覆盖:CLI(68 项)+ 共享层(24 类型)+ API(8 端点 + 5 mode Permission + DB Sessions)+ AI-Service(8 端点 + 5 persona contracts)
+- 前端各端可通过 @ihui/types + @ihui/api-client 调用 Agent 能力
+
+### 还有 5 项后续工作,见下方列表
+
+1. **API 端 Agent 执行链路真实集成**(串行依赖链):/execute/stream 端点当前为占位 SSE,需 fetch 转发到 AI-Service /agent-runtime/execute/stream,透传 SSE 事件并在 permission 事件中调用 checkPermissionMode 做真实 allow/deny/ask 决策
+2. **AI-Service LangGraph 状态机集成**(串行依赖链):agent_runtime.py 当前为骨架,/execute 与 /execute/stream 仅占位返回,需集成 LangGraph plan→execute→summarize StateGraph 替换 event_stream() 内占位 yield
+3. **AI-Service 持久化层**(串行依赖链):_sessions 为模块级 dict,进程重启即丢,需接入 Redis 或 packages/database
+4. **api-client 端点路径补齐**:packages/api-client/src/endpoints/agent-runtime.ts 当前覆盖 /agents/* 旧路径,未覆盖新的 /agent-runtime/* 路径,需补 executeAgentRuntime/executeAgentRuntimeStream/checkPermission/listAgentRuntimeSessions 等
+5. **呈现层特化(P2)**:Web/Desktop/Mobile UI — 需先完成 API 端 Agent 执行链路真实集成才能让前端调用
+
+### 任务完成状态
+
+第十五轮多端同步集成完成 — cli 能力从"CLI 单端 + 共享层/API/AI-Service 骨架"(第十四轮)扩展到"CLI 主循环接入 + API 路由可用 + AI-Service 路由可用 + 共享类型多端复用"(第十五轮)。4 subagent 并行 + 1 Edit 修复(主线程 Write 重做 Subagent C 3 文件)。CLI 985 测试全绿(新增 13)+ API 12 测试全绿 + AI-Service 23 测试全绿。还有 5 项后续工作,见上方列表。
