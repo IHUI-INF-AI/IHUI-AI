@@ -242,6 +242,8 @@ import { wsAi } from './plugins/ws-ai.js'
 import { wsChat } from './plugins/ws-chat.js'
 import { wsCustomerService } from './plugins/ws-customer-service.js'
 import wsPayment from './plugins/ws-payment.js'
+import { wsMessages } from './plugins/ws-messages.js'
+import { wsTasks } from './plugins/ws-tasks.js'
 import otelPlugin from './plugins/otel.js'
 import businessMetricsPlugin from './plugins/business-metrics.js'
 import xssProtectionPlugin from './plugins/xss-protection.js'
@@ -397,6 +399,10 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(wsPayment)
   // WebSocket 公共广播推送:/ws/broadcast + server.broadcastToUser 装饰器
   await server.register(wsBroadcast)
+  // WebSocket IM 消息推送:/ws/messages (Redis Pub/Sub 多实例,频道 im:user:{userId})
+  await server.register(wsMessages)
+  // WebSocket 任务进度推送:/ws/tasks/:taskId (Redis Pub/Sub 多实例,频道 task:{taskId})
+  await server.register(wsTasks)
 
   // 审计日志插件：onResponse 异步记录所有 POST/PATCH/PUT/DELETE 写请求
   await server.register(auditPlugin)
