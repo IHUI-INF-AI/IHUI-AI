@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor, act } from '@testing-library/react'
 import type { WSNotification } from '@/hooks/use-websocket'
 
 const mockState = vi.hoisted(() => ({
@@ -117,5 +117,37 @@ describe('useNotification - 桌面通知', () => {
       expect(result.current.desktopPermission).toBe('denied')
     })
     expect(window.localStorage.getItem('ihui-desktop-notification-enabled')).toBeNull()
+  })
+})
+
+describe('useNotification - 通知声音', () => {
+  beforeEach(() => {
+    mockState.lastMessage = null
+    window.localStorage.clear()
+  })
+
+  it('初始状态 soundEnabled 为 false(localStorage 无标记)', () => {
+    const { result } = renderHook(() => useNotification())
+    expect(result.current.soundEnabled).toBe(false)
+  })
+
+  it('setSoundEnabled(true) 后 localStorage 写入 1 且 state 更新为 true', () => {
+    const { result } = renderHook(() => useNotification())
+    act(() => {
+      result.current.setSoundEnabled(true)
+    })
+    expect(result.current.soundEnabled).toBe(true)
+    expect(window.localStorage.getItem('ihui-notification-sound-enabled')).toBe('1')
+  })
+
+  it('setSoundEnabled(false) 后 localStorage 移除标记且 state 更新为 false', () => {
+    window.localStorage.setItem('ihui-notification-sound-enabled', '1')
+    const { result } = renderHook(() => useNotification())
+    expect(result.current.soundEnabled).toBe(true)
+    act(() => {
+      result.current.setSoundEnabled(false)
+    })
+    expect(result.current.soundEnabled).toBe(false)
+    expect(window.localStorage.getItem('ihui-notification-sound-enabled')).toBeNull()
   })
 })
