@@ -14,6 +14,11 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import {
   runHook,
+  runPreToolCall,
+  runPostToolCall,
+  runSessionStartHooks,
+  runSessionEndHooks,
+  loadHooksConfig,
   deepMergeHooks,
   type HookEvent,
   type HookContext,
@@ -338,5 +343,309 @@ describe('deepMergeHooks 新事件键合并', () => {
     expect(merged.preToolCall).toHaveLength(2);
     expect(merged.sessionStart).toHaveLength(1);
     expect(merged.sessionEnd).toHaveLength(1);
+  });
+});
+
+describe('加载 4 events 配置(preToolCall/postToolCall/sessionStart/sessionEnd)', () => {
+  let tmpDir: string;
+  let hooksPath: string;
+  let origConfig: string | undefined;
+  const exit0 = isWindows ? 'cmd /c exit 0' : "sh -c 'exit 0'";
+
+  beforeAll(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-hooks-4evt-'));
+    hooksPath = path.join(tmpDir, 'hooks.json');
+    const hooks: HooksConfig = {
+      preToolCall: [{ name: 'pre-4', command: exit0 }],
+      postToolCall: [{ name: 'post-4', command: exit0 }],
+      sessionStart: [{ name: 'start-4', command: exit0 }],
+      sessionEnd: [{ name: 'end-4', command: exit0 }],
+    };
+    fs.writeFileSync(hooksPath, JSON.stringify(hooks));
+  });
+
+  afterAll(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  beforeEach(() => {
+    origConfig = process.env.IHUI_HOOKS_CONFIG;
+    process.env.IHUI_HOOKS_CONFIG = hooksPath;
+  });
+
+  afterEach(() => {
+    if (origConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
+    else process.env.IHUI_HOOKS_CONFIG = origConfig;
+  });
+
+  it('loadHooksConfig 加载 4 events 全部存在', () => {
+    const config = loadHooksConfig();
+    expect(config.preToolCall).toHaveLength(1);
+    expect(config.postToolCall).toHaveLength(1);
+    expect(config.sessionStart).toHaveLength(1);
+    expect(config.sessionEnd).toHaveLength(1);
+    expect(config.preToolCall?.[0]?.name).toBe('pre-4');
+    expect(config.postToolCall?.[0]?.name).toBe('post-4');
+    expect(config.sessionStart?.[0]?.name).toBe('start-4');
+    expect(config.sessionEnd?.[0]?.name).toBe('end-4');
+  });
+
+  it('4 events 钩子执行均正常(proceed=true 或无异常)', () => {
+    const config = loadHooksConfig();
+    expect(runPreToolCall('bash', {}).proceed).toBe(true);
+    expect(runPostToolCall('bash', {}).proceed).toBe(true);
+    expect(runSessionStartHooks(config, { workspacePath: '/tmp' }).proceed).toBe(true);
+    expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+  });
+});
+
+describe('加载旧 2 events 配置(向后兼容)', () => {
+  let tmpDir: string;
+  let hooksPath: string;
+  let origConfig: string | undefined;
+  const exit0 = isWindows ? 'cmd /c exit 0' : "sh -c 'exit 0'";
+
+  beforeAll(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-hooks-2evt-'));
+    hooksPath = path.join(tmpDir, 'hooks.json');
+    const hooks = {
+      preToolCall: [{ name: 'pre-only', command: exit0 }],
+      postToolCall: [{ name: 'post-only', command: exit0 }],
+    };
+    fs.writeFileSync(hooksPath, JSON.stringify(hooks));
+  });
+
+  afterAll(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  beforeEach(() => {
+    origConfig = process.env.IHUI_HOOKS_CONFIG;
+    process.env.IHUI_HOOKS_CONFIG = hooksPath;
+  });
+
+  afterEach(() => {
+    if (origConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
+    else process.env.IHUI_HOOKS_CONFIG = origConfig;
+  });
+
+  it('loadHooksConfig 仅加载 preToolCall/postToolCall,sessionStart/End 为 undefined', () => {
+    const config = loadHooksConfig();
+    expect(config.preToolCall).toHaveLength(1);
+    expect(config.postToolCall).toHaveLength(1);
+    expect(config.sessionStart).toBeUndefined();
+    expect(config.sessionEnd).toBeUndefined();
+  });
+
+  it('sessionStart/sessionEnd 缺失时不影响 preToolCall/postToolCall 执行', () => {
+    const config = loadHooksConfig();
+    expect(runPreToolCall('bash', {}).proceed).toBe(true);
+    expect(runPostToolCall('bash', {}).proceed).toBe(true);
+    expect(runSessionStartHooks(config, { workspacePath: '/tmp' }).proceed).toBe(true);
+    expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+  });
+});
+
+describe('runSessionStartHooks fail-open(blockOnError: false)', () => {
+  const exit1 = isWindows ? 'cmd /c exit 1' : "sh -c 'exit 1'";
+
+  it('blockOnError: false 时命令失败不阻塞(proceed=true)', () => {
+    const config: HooksConfig = {
+      sessionStart: [{ name: 'fail-open-hook', command: exit1, blockOnError: false }],
+    };
+    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    expect(result.proceed).toBe(true);
+    expect(result.reason).toBeUndefined();
+  });
+
+  it('blockOnError: true 时命令失败阻塞(proceed=false)', () => {
+    const config: HooksConfig = {
+      sessionStart: [{ name: 'fail-closed-hook', command: exit1, blockOnError: true }],
+    };
+    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    expect(result.proceed).toBe(false);
+    expect(result.reason).toContain('fail-closed-hook');
+  });
+
+  it('未设置 blockOnError 时默认阻塞(默认 fail-closed,与现有行为一致)', () => {
+    const config: HooksConfig = {
+      sessionStart: [{ name: 'default-hook', command: exit1 }],
+    };
+    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    expect(result.proceed).toBe(false);
+    expect(result.reason).toContain('default-hook');
+  });
+});
+
+describe('runSessionEndHooks 执行成功', () => {
+  let tmpDir: string;
+  let markerPath: string;
+  const exit0 = isWindows ? 'cmd /c exit 0' : "sh -c 'exit 0'";
+
+  beforeAll(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-hooks-end-ok-'));
+    markerPath = path.join(tmpDir, 'end-marker.txt');
+  });
+
+  afterAll(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  beforeEach(() => {
+    try { fs.unlinkSync(markerPath); } catch { /* 文件不存在忽略 */ }
+  });
+
+  it('单个 hook 成功时无异常且副作用生效', () => {
+    const cmd = isWindows
+      ? `cmd /c echo ended > "${markerPath}"`
+      : `sh -c 'echo ended > "${markerPath}"'`;
+    const config: HooksConfig = {
+      sessionEnd: [{ name: 'mark-end', command: cmd }],
+    };
+    expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+    expect(fs.existsSync(markerPath)).toBe(true);
+    expect(fs.readFileSync(markerPath, 'utf-8')).toContain('ended');
+  });
+
+  it('多个 hook 全部成功时无异常', () => {
+    const config: HooksConfig = {
+      sessionEnd: [
+        { name: 'ok1', command: exit0 },
+        { name: 'ok2', command: exit0 },
+      ],
+    };
+    expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+  });
+});
+
+describe('blockOnError 配置正确(4 events 全覆盖)', () => {
+  const exit0 = isWindows ? 'cmd /c exit 0' : "sh -c 'exit 0'";
+  const exit1 = isWindows ? 'cmd /c exit 1' : "sh -c 'exit 1'";
+
+  describe('preToolCall', () => {
+    it('默认 blockOnError(未设置)时命令失败阻塞(fail-closed)', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-bo-pre-def-'));
+      const hooksPath = path.join(tmpDir, 'hooks.json');
+      fs.writeFileSync(hooksPath, JSON.stringify({
+        preToolCall: [{ name: 'pre-default', command: exit1 }],
+      } as HooksConfig));
+      const origConfig = process.env.IHUI_HOOKS_CONFIG;
+      process.env.IHUI_HOOKS_CONFIG = hooksPath;
+      try {
+        const result = runPreToolCall('bash', {});
+        expect(result.proceed).toBe(false);
+        expect(result.reason).toContain('pre-default');
+      } finally {
+        if (origConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
+        else process.env.IHUI_HOOKS_CONFIG = origConfig;
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('blockOnError: false 时命令失败不阻塞(fail-open)', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-bo-pre-fo-'));
+      const hooksPath = path.join(tmpDir, 'hooks.json');
+      fs.writeFileSync(hooksPath, JSON.stringify({
+        preToolCall: [{ name: 'pre-fo', command: exit1, blockOnError: false }],
+      } as HooksConfig));
+      const origConfig = process.env.IHUI_HOOKS_CONFIG;
+      process.env.IHUI_HOOKS_CONFIG = hooksPath;
+      try {
+        expect(runPreToolCall('bash', {}).proceed).toBe(true);
+      } finally {
+        if (origConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
+        else process.env.IHUI_HOOKS_CONFIG = origConfig;
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('命令成功时始终 proceed=true(无论 blockOnError)', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-bo-pre-ok-'));
+      const hooksPath = path.join(tmpDir, 'hooks.json');
+      fs.writeFileSync(hooksPath, JSON.stringify({
+        preToolCall: [{ name: 'pre-ok', command: exit0, blockOnError: true }],
+      } as HooksConfig));
+      const origConfig = process.env.IHUI_HOOKS_CONFIG;
+      process.env.IHUI_HOOKS_CONFIG = hooksPath;
+      try {
+        expect(runPreToolCall('bash', {}).proceed).toBe(true);
+      } finally {
+        if (origConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
+        else process.env.IHUI_HOOKS_CONFIG = origConfig;
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('postToolCall', () => {
+    it('默认 blockOnError(未设置)时命令失败不阻塞(fail-open)', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-bo-post-def-'));
+      const hooksPath = path.join(tmpDir, 'hooks.json');
+      fs.writeFileSync(hooksPath, JSON.stringify({
+        postToolCall: [{ name: 'post-default', command: exit1 }],
+      } as HooksConfig));
+      const origConfig = process.env.IHUI_HOOKS_CONFIG;
+      process.env.IHUI_HOOKS_CONFIG = hooksPath;
+      try {
+        expect(runPostToolCall('bash', {}).proceed).toBe(true);
+      } finally {
+        if (origConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
+        else process.env.IHUI_HOOKS_CONFIG = origConfig;
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('blockOnError: true 时命令失败阻塞(fail-closed)', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-bo-post-fc-'));
+      const hooksPath = path.join(tmpDir, 'hooks.json');
+      fs.writeFileSync(hooksPath, JSON.stringify({
+        postToolCall: [{ name: 'post-fc', command: exit1, blockOnError: true }],
+      } as HooksConfig));
+      const origConfig = process.env.IHUI_HOOKS_CONFIG;
+      process.env.IHUI_HOOKS_CONFIG = hooksPath;
+      try {
+        const result = runPostToolCall('bash', {});
+        expect(result.proceed).toBe(false);
+        expect(result.reason).toContain('post-fc');
+      } finally {
+        if (origConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
+        else process.env.IHUI_HOOKS_CONFIG = origConfig;
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('sessionStart', () => {
+    it('默认 blockOnError(未设置)时命令失败阻塞(fail-closed)', () => {
+      const config: HooksConfig = {
+        sessionStart: [{ name: 'start-default', command: exit1 }],
+      };
+      const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+      expect(result.proceed).toBe(false);
+      expect(result.reason).toContain('start-default');
+    });
+
+    it('blockOnError: false 时命令失败不阻塞(fail-open)', () => {
+      const config: HooksConfig = {
+        sessionStart: [{ name: 'start-fo', command: exit1, blockOnError: false }],
+      };
+      expect(runSessionStartHooks(config, { workspacePath: '/tmp' }).proceed).toBe(true);
+    });
+  });
+
+  describe('sessionEnd', () => {
+    it('始终不阻塞(即使 blockOnError:true 且命令失败)', () => {
+      const config: HooksConfig = {
+        sessionEnd: [{ name: 'end-always-open', command: exit1, blockOnError: true }],
+      };
+      expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+    });
+
+    it('命令成功时无异常', () => {
+      const config: HooksConfig = {
+        sessionEnd: [{ name: 'end-ok', command: exit0 }],
+      };
+      expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+    });
   });
 });
