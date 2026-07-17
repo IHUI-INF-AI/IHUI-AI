@@ -6,7 +6,7 @@ import { Loader2, Bot, Sparkles } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Card, CardContent } from '@ihui/ui'
 import { Grid } from '@/components/layout'
-import { Avatar } from '@/components/data/Avatar'
+import { Avatar, VipBadge } from '@/components/data'
 import { cn } from '@/lib/utils'
 import type { Agent } from './types'
 
@@ -65,6 +65,11 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
                   <Sparkles className="h-8 w-8" />
                 </div>
               )}
+              {a.isVipExclusive && (
+                <div className="absolute left-2 top-2">
+                  <VipBadge />
+                </div>
+              )}
             </div>
             <CardContent className="flex flex-1 flex-col gap-2 p-4">
               <div className="flex items-center gap-2">
@@ -75,16 +80,18 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
                 {a.description || t('noDescription')}
               </p>
               <div className="flex items-center justify-between pt-1">
-                <span
-                  className={cn(
-                    'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                    a.isFree
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                      : 'bg-primary/10 text-primary',
-                  )}
-                >
-                  {a.isFree ? t('free') : priceFmt.format(a.price)}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                      a.isFree
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                        : 'bg-primary/10 text-primary',
+                    )}
+                  >
+                    {a.isFree ? t('free') : priceFmt.format(a.price)}
+                  </span>
+                </div>
                 <span className="text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
                   {t('viewDetail')}
                 </span>

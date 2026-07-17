@@ -9560,7 +9560,16 @@
     "tabActivity": "Activity Feed",
     "tabBackground": "Background",
     "tabPermission": "Permission",
-    "viewPermissionExample": "View Permission Example"
+    "viewPermissionExample": "View Permission Example",
+    "vipExclusive": "VIP Exclusive",
+    "vipPermissionDenied": "This agent is VIP-only. Please subscribe to VIP to use it.",
+    "permissionLoading": "Checking permission...",
+    "permissionAllowed": "You have permission to use this agent",
+    "permissionDenied": "You do not have permission to use this agent",
+    "permissionReasonFree": "Free agent, available to all users",
+    "permissionReasonVip": "VIP-exclusive agent, VIP subscription required",
+    "permissionReasonPurchased": "You have purchased this agent",
+    "permissionReasonVipOnly": "VIP-only, please subscribe to VIP"
   },
   "distribution": {
     "title": "Distribution Center",
