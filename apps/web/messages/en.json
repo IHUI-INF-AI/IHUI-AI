@@ -376,6 +376,7 @@
     "noAccount": "Don't have an account?",
     "registerNow": "Sign up",
     "forgotPassword": "Forgot password?",
+    "forgotSubtitle": "Reset your password",
     "registerTitle": "Create Account",
     "registerSubtitle": "Register a new account",
     "phonePlaceholder": "Enter your phone number",
@@ -10490,6 +10491,8 @@
     "generateCodeFailed": "Failed to generate authorization code",
     "footerHint": "You will be redirected back to the target app after authorization. The login state will be shared across all sub-projects.",
     "registerTitle": "Unified Register",
+    "dialogPrompt": "Opening the register dialog…",
+    "openDialog": "Open register dialog",
     "alreadyHaveAccount": "Already have an account?",
     "toLogin": "Sign in",
     "redirect": {
