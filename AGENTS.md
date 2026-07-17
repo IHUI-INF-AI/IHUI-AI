@@ -141,6 +141,12 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo):
   - 任何 `border-*` + 颜色组合形成的"线状分隔"视觉效果。
   - 允许的形式:容器完整描边(`border border-border`)、容器背景色对比(`bg-card` vs `bg-background` / `bg-muted` 等)、间距分隔(`gap-*` / `space-*`)、阴影分层(`shadow-*`)。
   - 既有代码出现违规时,在涉及该文件的修改任务中一并纠正(不单独发起大改),纠正确认后用描边或容器背景色替代原分割线视觉效果。
+- **圆角容器内绝对定位子元素的避让规则**(强制,2026-07-18 立):当父容器使用 `rounded-xl`(12px)/ `rounded-2xl`(16px) 等圆角 + `overflow-hidden` 时,内部绝对定位(`absolute`)且需贴边的子元素(如拖拽手柄 `right-0` / `left-0` / `top-0` / `bottom-0`)**禁止**使用 `h-full` / `w-full`,因为圆角区域会与容器边缘产生 1-2px 缝隙(显示为漏底色"小白边")。**必须**用 `top-<radius> bottom-<radius>`(纵向贴边)或 `left-<radius> right-<radius>`(横向贴边)替代,其中 `<radius>` 匹配圆角半径:
+  - `rounded-lg`(8px)→ `top-2 bottom-2` / `left-2 right-2`
+  - `rounded-xl`(12px)→ `top-3 bottom-3` / `left-3 right-3`
+  - `rounded-2xl`(16px)→ `top-4 bottom-4` / `left-4 right-4`
+  - 父容器**无圆角**(`overflow-visible` 或直角)时,子元素仍可用 `h-full` / `w-full`,不受此规则约束。
+  - 拖拽手柄实现统一规范:容器本身 `w-px`(1px 宽)+ `bg-transparent` 默认不可见 + `hover:bg-primary` 悬停高亮,**禁止**用 `before:` 伪元素方案(`before:opacity-0` 在某些场景会常驻显示颜色)。
 
 ---
 
