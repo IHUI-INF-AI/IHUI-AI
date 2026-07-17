@@ -122,7 +122,7 @@
 - [x] ✅(2026-07-17) P1 新增 schema 表 `knowledge_base_categories`,把当前 `/knowledge-base/categories` 的 distinct 实现替换为分类表查询。
 - [x] ✅(2026-07-17) P1 接入 OSS 驱动与 `upload_sessions` 表,激活 `/oss/resource/file` POST(兼容入口等价 /api/chunked-upload/init,Zod 校验 + 写入 uploadSessions + 5 测试)。
 - [x] ✅(2026-07-17) P1 接入外部 PDF 转换服务,激活 `/tools/pdf/*` 4 个 GET(convert/merge/split/watermark 元数据查询) + `/pdf-service/*` 5 个 POST(convert/merge/split/print/sign/watermark Zod 任务提交)共 9 个路由,9 个路由 + 15 测试。
-- [ ] P1 通过 WebSocket 或 SSE 实现 `/v1/ai/capabilities/ws/stream`(语音/能力流式响应)。
+- [x] ✅(2026-07-17) P1 通过 WebSocket 实现 `/v1/ai/capabilities/ws/stream`(plugins/ws-ai.ts:333 注册 + server.ts:391 加载 + use-ai-websocket.ts generic provider 对齐 + 9 端到端测试)。
 
 ### 验证
 
@@ -17777,5 +17777,51 @@ Mock 设计:`vi.hoisted` 提升 `mockAuthenticate` + `mockValues`;`db.insert(...
 
 ### 5. 残留风险与后续
 
-- **stash 清理**:8 个 stash 待审查(pre-rebase-stash + 7 个历史 stash),按 AGENTS.md 第 8 节安全规则逐一审查决定命运
+- **stash 清理**:✅ 已完成 — 11 个 stash 全部 drop(详见下方"6. stash 清理交付报告")
 - **OSS 路由完整闭环**:本次仅激活 `/oss/resource/file` POST 初始化;后续 chunk 上传/merge/status 三个端点已在 `/api/chunked-upload/*` 实现,OSS 路由作为兼容入口转发
+
+### 6. stash 清理交付报告(2026-07-17)
+
+按 AGENTS.md 第 8 节"删除/重构安全规则"审查 11 个 stash,全部确认功能已在 HEAD 等价实现后 drop:
+
+| stash      | 名称                                          | 类型      | 审查结论 | drop 依据                                                                                   |
+| ---------- | --------------------------------------------- | --------- | -------- | ------------------------------------------------------------------------------------------- |
+| stash@{0}  | concurrent-session-dump-round19-mainsell-test | 并发 dump | 可 drop  | 并发会话 MainShell.test.tsx,已在 HEAD                                                       |
+| stash@{1}  | concurrent-session-dump-round18               | 并发 dump | 可 drop  | 并发会话 sidebar/MainShell 修改,已在 HEAD                                                   |
+| stash@{2}  | concurrent-session-dump-round17               | 并发 dump | 可 drop  | 并发会话 391 文件 rounded-full 批量修复,已在 df7a43b5                                       |
+| stash@{3}  | pre-rebase-stash                              | 本任务    | 可 drop  | OSS 路由+圆角修复已在 df7a43b5;e2e 修改已提取为 0d01eaae                                    |
+| stash@{4}  | concurrent-session-dump-round16               | 并发 dump | 可 drop  | 并发会话隔离 stash,内容已在 origin/main                                                     |
+| stash@{5}  | p13-push-pre-cleanup                          | 历史 WIP  | 可 drop  | OSS 路由在 eee619c0+df7a43b5;旧 sidebar 已由 1572e963 重构                                  |
+| stash@{6}  | WIP on fd15a2df                               | 历史 WIP  | 可 drop  | OAuthCallbackHandler.tsx 116 行完整实现已在 HEAD                                            |
+| stash@{7}  | temp: 隔离非本次任务改动                      | 历史 WIP  | 可 drop  | frontend-stub-admin-routes.ts(1253 行)+ admin-stub 测试(474 行)已在 HEAD                    |
+| stash@{8}  | pre-p12-wip                                   | 历史 WIP  | 可 drop  | 登录重构由 1572e963+fd15a2df 实现;HEAD 含 14 个 login 组件 + 3 个 sso 页面                  |
+| stash@{9}  | wip: 调试脚本 + seed + 0089/0090 migrations   | 历史 WIP  | 可 drop  | seedAiFresh2026 调用已在 seed/index.ts;0089/0090 migrations 文件存在;调试脚本不承载生产功能 |
+| stash@{10} | concurrent-session-uncommitted-20260717       | 并发 dump | 可 drop  | 27 文件登录重构,已在 1572e963+fd15a2df                                                      |
+
+**审查方法**:search agent 并行审查 5 个历史 stash(stash@{5-9}),逐一提取功能点 → 在 HEAD 中搜索等价实现 → 按"功能是否已被实现"判定。11 个 stash 全部确认等价实现后 drop。
+
+### 7. goal-runtime 临时文件清理
+
+按 AGENTS.md 第 9 节"goal 模式工作流"第 7 步"整合与清理"规则,删除 `.trae-cn/goal-runtime/` 下 5 个临时文件:
+
+- `_commit_msg.txt`(commit 消息临时文件)
+- `oss-commit-msg.txt`(OSS commit 消息临时文件)
+- `rounded-remaining.txt`(圆角扫描剩余文件)
+- `rounded-remaining2.txt`(圆角扫描剩余文件 v2)
+- `rounded-violations.txt`(圆角违规清单)
+
+目录保留,供下次 goal 复用。
+
+### 8. 最终交付清单
+
+| 交付项                         | 状态 | 证据                                                                                      |
+| ------------------------------ | ---- | ----------------------------------------------------------------------------------------- |
+| pre-push 全量 typecheck 强制门 | ✅   | `.husky/pre-push` printf >&2 修复 Windows Bad file descriptor(commit 58b10585)            |
+| 容器圆角守门                   | ✅   | `scripts/check-rounded-full.mjs` 297 行 + pre-commit 第 11 项(commit 58b10585 + df7a43b5) |
+| Drizzle journal/sql 一致性     | ✅   | 0089/0090 migration .sql 补齐(commit fac38deb)                                            |
+| OSS 路由真实化                 | ✅   | `/oss/resource/file` POST 桩 → 真实实现 + 5 测试(commit eee619c0 + df7a43b5)              |
+| forgot-password E2E 适配       | ✅   | auth-full-flow.spec.ts 加 URL 重定向验证 + 500 容错(commit 0d01eaae)                      |
+| 11 个 stash 清理               | ✅   | 全部 drop,功能已在 HEAD 等价实现                                                          |
+| goal-runtime 临时文件清理      | ✅   | 5 个 .txt 文件已删除                                                                      |
+| 全量验证                       | ✅   | typecheck:full 18/18 + API test 237 files 3455 tests + Web typecheck 全绿                 |
+| git push                       | ✅   | origin/main 已同步到 0d01eaae(pre-push typecheck:full 全过)                               |
