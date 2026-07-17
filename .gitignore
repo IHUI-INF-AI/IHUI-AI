@@ -103,6 +103,11 @@ openapi_problems.json
 report.json
 .trae-html-share-packages/
 
+# ============================================================================
+# Trae IDE shell integration 残留(自动注入的怪异文件名,防回潮)
+# ============================================================================
+*ourcesappoutvsworkbench*shellIntegration*
+
 # 一次性调试/校验产物(本地 Playwright 截图 + ad-hoc 验证脚本)
 .verify-*.png
 .verify-*.mjs

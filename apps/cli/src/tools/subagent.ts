@@ -31,7 +31,7 @@ export interface PersonaConfig {
 
 export const PERSONAS: Record<SubagentPersona, PersonaConfig> = {
   researcher: {
-    allowedTools: ['read_file', 'list_dir', 'grep', 'glob', 'codegraph', 'goto_definition', 'find_references', 'fetch_url', 'get_diagnostics', 'run_tests'],
+    allowedTools: ['read_file', 'list_dir', 'grep', 'glob', 'codegraph', 'goto_definition', 'find_references', 'fetch_url', 'web_search', 'get_diagnostics', 'run_tests'],
     blockedTools: ['write_file', 'edit_file', 'delete_file', 'git_commit', 'git_add', 'run_command'],
     systemPrompt: '你是 researcher 角色,专注信息收集与分析。只读不写,可使用搜索/读取/代码智能/网络抓取/诊断工具。任务完成后给出结构化调研报告,不要执行任何修改操作。',
     maxIterations: 8,

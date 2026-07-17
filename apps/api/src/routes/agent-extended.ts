@@ -12,6 +12,7 @@ import {
   agentHeatStats,
 } from '@ihui/database'
 import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
+import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -484,6 +485,18 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         status: 'pending',
       })
       .returning()
+    if (!order) {
+      return reply.code(500).send({ code: 1, message: 'Failed to create order', data: null })
+    }
+    // 同步到结算表(按月度切分生成结算记录,幂等,失败不影响主业务)
+    await syncAgentBuyToSettlement({
+      id: order.id,
+      agentId: order.agentId,
+      price: order.price,
+      createdAt: order.createdAt,
+      expiresAt: order.expiresAt,
+      paymentId: order.paymentId,
+    })
     return reply.code(201).send(order)
   })
 
@@ -571,6 +584,203 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       .from(zhsAgentWithdrawalDetail)
       .where(userId ? eq(zhsAgentWithdrawalDetail.userId, userId) : sql`TRUE`)
     return result[0] ?? { totalAmount: 0, totalCount: 0, pendingCount: 0, completedCount: 0 }
+  })
+
+  // 创建提现申请
+  const withdrawalCreateSchema = z.object({
+    userId: z.string().uuid(),
+    agentId: z.string().uuid().optional(),
+    amount: z.number().min(0.01).max(100000),
+    type: z.number().int().min(1).max(3),
+    outBillNo: z.string().max(255).optional(),
+    orderIds: z.string().optional(),
+    bankInfo: z.string().optional(),
+  })
+  server.post('/withdrawal/create', async (request, reply) => {
+    const body = withdrawalCreateSchema.parse(request.body)
+    const [row] = await db
+      .insert(zhsAgentWithdrawalDetail)
+      .values({
+        userId: body.userId,
+        agentId: body.agentId,
+        amount: body.amount.toString(),
+        status: 'pending',
+        type: body.type,
+        outBillNo: body.outBillNo,
+        orderIds: body.orderIds,
+        bankInfo: body.bankInfo,
+        initiateAt: new Date(),
+      })
+      .returning()
+    return reply.code(201).send(row)
+  })
+
+  // 提现明细详情
+  server.get('/withdrawal/:id', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params)
+    const rows = await db
+      .select()
+      .from(zhsAgentWithdrawalDetail)
+      .where(eq(zhsAgentWithdrawalDetail.id, id))
+      .limit(1)
+    if (!rows[0]) return reply.code(404).send({ error: '提现记录不存在' })
+    return rows[0]
+  })
+
+  // 更新提现明细
+  const withdrawalUpdateSchema = z.object({
+    amount: z.number().min(0.01).max(100000).optional(),
+    type: z.number().int().min(1).max(3).optional(),
+    bankInfo: z.string().optional(),
+    status: z.string().max(32).optional(),
+  })
+  server.put('/withdrawal/:id', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params)
+    const body = withdrawalUpdateSchema.parse(request.body)
+    const [row] = await db
+      .update(zhsAgentWithdrawalDetail)
+      .set({
+        ...(body.amount !== undefined && { amount: body.amount.toString() }),
+        ...(body.type !== undefined && { type: body.type }),
+        ...(body.bankInfo !== undefined && { bankInfo: body.bankInfo }),
+        ...(body.status !== undefined && { status: body.status }),
+        updatedAt: new Date(),
+      })
+      .where(eq(zhsAgentWithdrawalDetail.id, id))
+      .returning()
+    if (!row) return reply.code(404).send({ error: '提现记录不存在' })
+    return row
+  })
+
+  // 删除提现明细(仅 pending 可删)
+  server.delete('/withdrawal/:id', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params)
+    const rows = await db
+      .select()
+      .from(zhsAgentWithdrawalDetail)
+      .where(eq(zhsAgentWithdrawalDetail.id, id))
+      .limit(1)
+    if (!rows[0]) return reply.code(404).send({ error: '提现记录不存在' })
+    if (rows[0].status !== 'pending') {
+      return reply.code(400).send({ error: '仅待审核状态可删除' })
+    }
+    await db.delete(zhsAgentWithdrawalDetail).where(eq(zhsAgentWithdrawalDetail.id, id))
+    return { id, message: '已删除' }
+  })
+
+  // 审核提现申请(status: approved/rejected)
+  const withdrawalReviewSchema = z.object({
+    status: z.enum(['approved', 'rejected']),
+    reviewer: z.string().uuid(),
+    rejectReason: z.string().optional(),
+  })
+  server.post('/withdrawal/:id/review', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params)
+    const body = withdrawalReviewSchema.parse(request.body)
+    const rows = await db
+      .select()
+      .from(zhsAgentWithdrawalDetail)
+      .where(eq(zhsAgentWithdrawalDetail.id, id))
+      .limit(1)
+    if (!rows[0]) return reply.code(404).send({ error: '提现记录不存在' })
+    if (rows[0].status !== 'pending') {
+      return reply.code(400).send({ error: '仅待审核状态可审核' })
+    }
+    const [row] = await db
+      .update(zhsAgentWithdrawalDetail)
+      .set({
+        status: body.status,
+        reviewer: body.reviewer,
+        reviewedAt: new Date(),
+        ...(body.status === 'rejected' && body.rejectReason && { rejectReason: body.rejectReason }),
+        updatedAt: new Date(),
+      })
+      .where(eq(zhsAgentWithdrawalDetail.id, id))
+      .returning()
+    return row
+  })
+
+  // 处理提现申请(status: processing/completed/failed)
+  const withdrawalProcessSchema = z.object({
+    status: z.enum(['processing', 'completed', 'failed']),
+    rejectReason: z.string().optional(),
+  })
+  server.post('/withdrawal/:id/process', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params)
+    const body = withdrawalProcessSchema.parse(request.body)
+    const rows = await db
+      .select()
+      .from(zhsAgentWithdrawalDetail)
+      .where(eq(zhsAgentWithdrawalDetail.id, id))
+      .limit(1)
+    if (!rows[0]) return reply.code(404).send({ error: '提现记录不存在' })
+    if (!['approved', 'processing'].includes(rows[0].status)) {
+      return reply.code(400).send({ error: '仅已审核或处理中状态可处理' })
+    }
+    const [row] = await db
+      .update(zhsAgentWithdrawalDetail)
+      .set({
+        status: body.status,
+        processedAt: new Date(),
+        ...(body.status === 'failed' && body.rejectReason && { rejectReason: body.rejectReason }),
+        updatedAt: new Date(),
+      })
+      .where(eq(zhsAgentWithdrawalDetail.id, id))
+      .returning()
+    return row
+  })
+
+  // 批量删除提现明细(仅 pending 可删)
+  const withdrawalBatchDeleteSchema = z.object({
+    ids: z.array(z.string().uuid()).min(1).max(100),
+  })
+  server.post('/withdrawal/batch-delete', async (request) => {
+    const { ids } = withdrawalBatchDeleteSchema.parse(request.body)
+    const result = await db
+      .delete(zhsAgentWithdrawalDetail)
+      .where(
+        sql`${zhsAgentWithdrawalDetail.id} IN (${sql.join(
+          ids.map((id) => sql`${id}::uuid`),
+          sql`,`,
+        )}) AND ${zhsAgentWithdrawalDetail.status} = 'pending'`,
+      )
+      .returning({ id: zhsAgentWithdrawalDetail.id })
+    return { deletedCount: result.length, deletedIds: result.map((r) => r.id) }
+  })
+
+  // 提现统计概览
+  server.get('/withdrawal/stats/overview', async (request) => {
+    const { userId } = optionalUserIdQuery.parse(request.query)
+    const where = userId ? eq(zhsAgentWithdrawalDetail.userId, userId) : sql`TRUE`
+    const result = await db
+      .select({
+        totalCount: sql<number>`count(*)::int`,
+        pendingCount: sql<number>`count(*) FILTER (WHERE ${zhsAgentWithdrawalDetail.status} = 'pending')::int`,
+        approvedCount: sql<number>`count(*) FILTER (WHERE ${zhsAgentWithdrawalDetail.status} = 'approved')::int`,
+        processingCount: sql<number>`count(*) FILTER (WHERE ${zhsAgentWithdrawalDetail.status} = 'processing')::int`,
+        completedCount: sql<number>`count(*) FILTER (WHERE ${zhsAgentWithdrawalDetail.status} = 'completed')::int`,
+        failedCount: sql<number>`count(*) FILTER (WHERE ${zhsAgentWithdrawalDetail.status} = 'failed')::int`,
+        rejectedCount: sql<number>`count(*) FILTER (WHERE ${zhsAgentWithdrawalDetail.status} = 'rejected')::int`,
+        totalAmount: sql<number>`COALESCE(SUM(${zhsAgentWithdrawalDetail.amount}::numeric), 0)::float8`,
+        completedAmount: sql<number>`COALESCE(SUM(${zhsAgentWithdrawalDetail.amount}::numeric) FILTER (WHERE ${zhsAgentWithdrawalDetail.status} = 'completed'), 0)::float8`,
+        pendingAmount: sql<number>`COALESCE(SUM(${zhsAgentWithdrawalDetail.amount}::numeric) FILTER (WHERE ${zhsAgentWithdrawalDetail.status} = 'pending'), 0)::float8`,
+      })
+      .from(zhsAgentWithdrawalDetail)
+      .where(where)
+    return (
+      result[0] ?? {
+        totalCount: 0,
+        pendingCount: 0,
+        approvedCount: 0,
+        processingCount: 0,
+        completedCount: 0,
+        failedCount: 0,
+        rejectedCount: 0,
+        totalAmount: 0,
+        completedAmount: 0,
+        pendingAmount: 0,
+      }
+    )
   })
 
   // -------------------------------------------------------------------------
