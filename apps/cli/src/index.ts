@@ -95,6 +95,7 @@ program
   .option('-f, --prompt-file <path>', '从文件读取 prompt(支持超长 PRD,UTF-8 编码)')
   .option('--tools <list>', 'P0-7 工具白名单(逗号分隔,如 read_file,grep,glob)。非空时仅允许这些工具')
   .option('--disallowed-tools <list>', 'P0-7 工具黑名单(逗号分隔,如 delete_file,git_commit)。始终拒绝这些工具')
+  .option('--permission-mode <mode>', '权限模式: default|acceptEdits|bypassPermissions|plan|manual')
   .option('--no-update-check', 'P1-15 禁用启动时版本检查(默认每 24h 检查一次 npm registry)');
 
 interface ResolvedSession {
@@ -193,6 +194,7 @@ async function runAgentAndExit(
     cliMcp: opts.mcp === true ? true : undefined,
     cliTemperature: typeof opts.temperature === 'string' ? opts.temperature : undefined,
     cliMaxTokens: typeof opts.maxTokens === 'string' ? opts.maxTokens : undefined,
+    cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
   });
   const abort = new AbortController();
   let session: ReturnType<typeof createSession> | null = null;
@@ -234,6 +236,7 @@ async function runAgentAndExit(
       planFirst: cfg.planFirst,
       sampler: cfg.sampler,
       permissions: resolvePermissions(opts),
+      permissionMode: cfg.permissionMode,
     });
     process.exitCode = stopReasonToExitCode(result.stopReason);
   } finally {
@@ -288,6 +291,7 @@ program
         cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
     cliPlan: opts.plan === true ? true : undefined,
     cliMcp: opts.mcp === true ? true : undefined,
+    cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
       });
       const session = resolveSession(opts);
       await startREPL({
@@ -302,6 +306,7 @@ program
         allowDangerous: cfg.allowDangerous,
         planFirst: cfg.planFirst,
         permissions: resolvePermissions(opts),
+        permissionMode: cfg.permissionMode,
       });
     }
   });
@@ -320,6 +325,7 @@ program
       cliMaxTurns: typeof opts.maxTurns === 'string' ? opts.maxTurns : undefined,
       cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
       cliMcp: opts.mcp === true ? true : undefined,
+      cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
     });
     const session = resolveSession(opts);
     await startREPL({
@@ -333,6 +339,7 @@ program
       enableMcp: cfg.enableMcp,
       allowDangerous: cfg.allowDangerous,
       planFirst: cfg.planFirst,
+      permissionMode: cfg.permissionMode,
     });
   });
 
@@ -544,6 +551,7 @@ program
       cliMaxTurns: typeof opts.maxTurns === 'string' ? opts.maxTurns : undefined,
       cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
       cliMcp: opts.mcp === true ? true : undefined,
+      cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
     });
     const connection = startAcpServer({
       apiUrl: cfg.apiUrl,

@@ -14,7 +14,7 @@ import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import { setupAgentTools, runToolLoop, type ToolContext, type InterjectionBlock } from './agent.js';
 import { renderSlashHelp, suggestSlashCommands } from './slash-registry.js';
-import type { PermissionRules } from '../tools/permissions.js';
+import type { PermissionRules, PermissionMode } from '../tools/permissions.js';
 import { readTodoList } from '../tools/todo-write.js';
 import { findSkill, type Skill } from '../skills/index.js';
 import {
@@ -40,7 +40,7 @@ import {
 } from '../tools/background-registry.js';
 import { runSandboxedAsync } from '../sandbox/index.js';
 import { estimateMessagesTokens } from '../context.js';
-import { loadHooks, runSessionStartHooks, runSessionEndHooks } from '../hooks/index.js';
+import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '../hooks/index.js';
 
 export interface ReplOptions {
   modelId: string;
@@ -56,6 +56,8 @@ export interface ReplOptions {
   planFirst?: boolean;
   /** P0-7 Permission rules:白名单/黑名单(--tools/--disallowed-tools) */
   permissions?: PermissionRules;
+  /** 权限模式:default|acceptEdits|bypassPermissions|plan|manual */
+  permissionMode?: PermissionMode;
 }
 
 interface ReplState {
@@ -885,6 +887,7 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
       silent: true,
       planFirst: state.opts.planFirst,
       permissions: state.opts.permissions,
+      permissionMode: state.opts.permissionMode,
       subagentParent: {
         modelId: state.opts.modelId,
         apiUrl: state.opts.apiUrl,
@@ -924,6 +927,13 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
     ...state.history.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })),
   ];
 
+  // Hook 埋点:userPromptSubmit(REPL 入口埋一次,避免与 agent.ts 重复)
+  runHook('userPromptSubmit', {
+    workspacePath: state.opts.workspacePath,
+    sessionId: state.session?.id ?? state.opts.sessionId,
+    prompt,
+  });
+
   // P0-2 Interject:agent 运行期间允许用户输入非斜杠命令到 buffer,runToolLoop 每轮 drain
   state.agentRunning = true;
   const drainInterjections = (): InterjectionBlock[] => {
@@ -937,6 +947,7 @@ async function sendToAgent(prompt: string, state: ReplState): Promise<void> {
     messages,
     ctx: state.ctx!,
     maxIterations: state.opts.maxIterations,
+    sessionId: state.session?.id ?? state.opts.sessionId,
     planFirst: state.opts.planFirst,
     planApproved: state.planApproved,
     drainInterjections,
