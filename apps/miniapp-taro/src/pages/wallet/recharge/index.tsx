@@ -39,16 +39,12 @@ export default function RechargePage() {
       if (res.payParams) {
         try {
           await requestWxPayment(res.payParams as AnyPayParams)
-          Taro.redirectTo({
-            url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${finalAmount}`,
-          })
+          Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
         } catch {
           Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
         }
       } else {
-        Taro.redirectTo({
-          url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${finalAmount}`,
-        })
+        Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
       }
     } catch {
       Taro.redirectTo({ url: '/pages/wallet/recharge/fail?orderNo=' })
