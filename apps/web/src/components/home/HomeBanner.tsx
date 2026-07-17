@@ -54,11 +54,11 @@ export function HomeBanner() {
 
   return (
     <div
-      className="relative min-h-[200px] flex-1 p-4 md:min-h-[340px]"
+      className="relative flex min-h-[230px] flex-1 flex-col p-4 md:min-h-[350px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="relative h-full min-h-[180px] overflow-hidden rounded-lg md:min-h-[300px]">
+      <div className="relative flex-1 overflow-hidden rounded-lg">
         {SLIDES.map((slide, idx) => (
           <div
             key={idx}
