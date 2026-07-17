@@ -2476,6 +2476,24 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
   - **ai-fresh-2026.ts 修复**:文件曾被 Edit 工具损坏(U+FFBD 替换字符遍布 200+ 行),git checkout 恢复后用 PowerShell 替换 9 处 Wikipedia URL 为真实 CDN URL,文件长度 50084 字符,U+FFBD=0,tsx --check + typecheck 通过
   - **全量验证**:pnpm turbo typecheck 23/23 通过 + pnpm turbo lint 16/16 通过(0 errors, 18 warnings 均为已存在的 any/console 警告)
   - **后续建议(1 项)**:ai-fresh-2026.ts 的 5 处 `if (ex) continue` seed 逻辑未升级为 onConflictDoUpdate(Edit 工具反复引入编码损坏,改用 PowerShell 处理太复杂)。当前数据库内容已正确,不影响功能;未来如需重跑 ai-fresh-2026.ts seed 更新已有数据,需先升级 seed 逻辑
+- [x] ✅(2026-07-18) 5 个列表页图片显示任务收尾 + 工作树历史遗留整理 + AgentRuntimePanel 集成
+  - **核心任务收尾**:5 个列表页(/learn /live /resources /circles /news)图片显示问题已在上一轮修复(数据库 cover_image 真实 CDN URL 替换),本轮完成 4 项后续建议(浏览器实测 + resources 表 seed 补齐 + git push + 工作树遗留清理)
+  - **浏览器实测**:subagent 验证 5 个页面全部 PASS(真实 CDN 图片显示,console 无错误,network 无失败)
+  - **resources 表 seed**:505 条 NULL cover_image 用 7 条真实 CDN URL 循环填充(临时脚本 fill-resources-cover.ts 执行后删除)
+  - **工作树历史遗留整理**(分主题 commit,All 11 项守门检查全绿):
+    - commit `46a0c05c` feat(api): WebSocket IM 消息推送 + 任务进度推送插件(3 文件,ws-messages + ws-tasks + server.ts)
+    - commit `31ba09f1` feat: P0 修复整合 — 消息中心 + Web 业务页 + Auth logout + 小程序 AI 页 + PROJECT_PLAN 进度(17 文件)
+    - commit `31135f84` feat(miniapp-taro): AgentRuntimePanel 组件 + agent-detail runtime tab 集成 + i18n + 测试(9 文件)
+  - **lint-staged stash 机制事故处理**:期间遭遇 lint-staged stash pop 失败 / 空 commit / HEAD 锁冲突 / HEAD 被 reset 误伤等问题,通过 reflog 恢复 + 重新分组 commit 解决
+  - **全量验证**:pnpm turbo typecheck 18/18 通过(0 errors),git push 到远程(HEAD == origin/main 同步)
+  - **剩余 1 项后续工作**(见下方 P1 条目):AGENTS.md 第 4 节"禁止使用分割线"规则 + globals.css 暗色模式调深 + ThirdPartyLoginButtons.tsx 移除纯分割线 span — 这 3 项改动在 lint-staged stash 机制事故中丢失(reflog 中无 commit 记录),需后续重新创建
+- [ ] 📋(2026-07-18) P1:重新创建丢失的 AGENTS.md 分割线规则 + globals.css 暗色模式 + ThirdPartyLoginButtons.tsx 移除分割线
+  - **背景**:上一轮 lint-staged stash 机制事故导致 3 项改动丢失(reflog 中无 commit 记录)
+  - **丢失内容**:
+    1. `AGENTS.md` 第 4 节:新增"禁止使用分割线"硬规则(禁止 `<hr>` / `divide-*` / 单边 border 当分割线,允许四边描边 / 容器背景色对比 / 间距分隔 / 阴影分层)
+    2. `apps/web/app/globals.css`:暗色 `--color-background` / `--color-card` 由 `hsl(0 0% 3.9%)` 调到 `hsl(0 0% 6%)`(接近黑但稍亮)
+    3. `apps/web/src/components/login/ThirdPartyLoginButtons.tsx`:L122-128 移除纯分割线 span(项目唯一真正违规的分割线元素),改为简单居中文字
+  - **恢复方式**:按上述描述重新创建(参考 reflog 中 `528c2b5c` commit message 描述,但实际改动需重写)
 - [ ] 📋(2026-07-18) 上线前待办:微信支付真实激活 — 下载 API 证书放到 `G:\ai_zhs\cert\apiclient_key.pem`
   - **背景**:本轮(2026-07-18)已完成 11 项 WX_* 配置复用 + `isWechatPayConfigured()` 智能激活逻辑(commit [8788b474](https://github.com/IHUI-INF-AI/IHUI-AI/commit/8788b474))
   - **当前状态**:证书文件未放置 → `isWechatPayConfigured()` 返回 false → 支付端点走 mock 模式(不阻塞订单创建,但 `payInfo.mock=true`)
