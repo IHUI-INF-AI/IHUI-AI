@@ -8,6 +8,7 @@ export interface Agent {
   status: string
   price: number
   isFree: boolean
+  isVipExclusive?: boolean | null
   sort: number
   remark: string | null
   createdAt: string
