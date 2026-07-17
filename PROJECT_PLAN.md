@@ -19000,6 +19000,8 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 
 3. **P1-11 标记完成 + 描述修正**:PROJECT_PLAN.md L14077 P1-11 条目从 `[ ]` 改为 `[x] ✅(2026-07-18)`,4 子项全部完成;修正 miniapp-taro @ihui/types 描述(原描述"4 端均显式声明"不准确,改为"3 端显式声明,miniapp-taro 按做减法不添加冗余依赖")。
 
+4. **--permission-mode 功能扩展还原**:并发 agent 产生了一组 CLI permission mode 扩展改动(`permissions.ts` 5 种 PermissionMode + `settings.ts` permissionMode 配置 + `index.ts` --permission-mode CLI flag + `agent.ts` AgentOptions/ToolContext 扩展),但 `index.ts` 传递 permissionMode 给 `createAgent`/`startREPL` 时,`AgentOptions`/`ReplOptions` 类型未同步更新导致 typecheck 失败(3 个 TS2561 错误),且无测试覆盖、无执行流程消费逻辑。按 AGENTS.md 第 3 节"做减法,最小化代码,零冗余"原则还原全部 4 个文件,保持工作区干净。--permission-mode 功能(对齐 Claude Code)可作为独立任务后续开发,需同步:类型定义 + 执行流程消费(decideWithMode 集成到 executeToolCall)+ 测试覆盖 + 文档。
+
 ### 验证依据(2026-07-18 21:42)
 
 | 验证                    | 命令                                                                                                                       | 退出码 | 关键输出                                         |
@@ -19016,4 +19018,4 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 
 ### 任务完成状态
 
-本轮处理完第 17 轮声明后残留的并发 agent 改动(Hook 系统扩展 + date-utils/design-tokens 优化),均已验证通过并 push。P1-11 标记完成。工作区干净(仅 PROJECT_PLAN.md 本轮修改),stash 空,本地与 origin/main 同步。agent 侧执行任务均已处理并验证通过;业务方决策项(P1-9a 支付轮询 / P1-9b 通知声音)已在 PROJECT_PLAN 对应条目记录,不属 agent 执行范畴。
+本轮处理完第 17 轮声明后残留的并发 agent 改动:Hook 系统扩展 + date-utils/design-tokens 优化已验证通过并 push(commit 80548bf9 + 905b46ad);--permission-mode 半成品改动(typecheck 失败 + 无测试)按做减法原则还原。P1-11 标记完成。工作区干净(仅 PROJECT_PLAN.md 本轮修改),stash 空,本地与 origin/main 同步,全量 typecheck 通过。agent 侧执行任务均已处理并验证通过;业务方决策项(P1-9a 支付轮询 / P1-9b 通知声音)已在 PROJECT_PLAN 对应条目记录,不属 agent 执行范畴。
