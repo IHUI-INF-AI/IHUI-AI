@@ -691,9 +691,6 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   server.post('/admin/oss/files', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.status(201).send(success({ created: true, id: randomUUID() }))
   })
-  server.delete('/admin/oss/files/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ deleted: true }))
-  })
   server.patch('/admin/oss/drivers', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(success({ updated: true }))
   })

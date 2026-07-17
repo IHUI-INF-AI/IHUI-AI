@@ -42,6 +42,23 @@ const ossFilesRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // DELETE /oss/files/:id - 删除单个 OSS 文件(systemConfigs 表 category='oss_file')
+  server.delete('/oss/files/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const rows = await db
+        .delete(systemConfigs)
+        .where(and(eq(systemConfigs.category, 'oss_file'), eq(systemConfigs.id, p.data.id)))
+        .returning({ id: systemConfigs.id })
+      if (rows.length === 0) return reply.status(404).send(error(404, '文件不存在'))
+      return reply.send(success({ id: p.data.id, deleted: true }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '删除 OSS 文件失败'))
+    }
+  })
+
   // POST /oss/files/batch-delete - 批量删除 OSS 文件(systemConfigs 表 category='oss_file')
   const batchDeleteSchema = z.object({ ids: z.array(z.string().min(1)).min(1).max(100) })
   server.post('/oss/files/batch-delete', async (request, reply) => {
