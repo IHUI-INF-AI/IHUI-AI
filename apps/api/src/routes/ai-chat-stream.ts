@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { repairMessages } from '@ihui/types'
 import { config } from '../config/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { error } from '../utils/response.js'
@@ -14,7 +15,8 @@ const chatStreamSchema = z.object({
     )
     .min(1),
   sessionId: z.string().optional(),
-  modelId: z.string().optional(),
+  model: z.string().optional(),
+  modelId: z.string().optional(), // 向后兼容,优先使用 model
   agentId: z.string().optional(),
   materialContent: z.string().optional(),
   metadata: z
@@ -49,7 +51,20 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { messages, sessionId, modelId, agentId, materialContent, metadata } = parsed.data
+    const {
+      messages: rawMessages,
+      sessionId,
+      model,
+      modelId,
+      agentId,
+      materialContent,
+      metadata,
+    } = parsed.data
+    const resolvedModel = model ?? modelId
+
+    // P38 跨端同步:修复 messages 结构异常(非法 role/空 content/连续重复/开头 assistant/末尾无响应 user)
+    // 共享函数 @ihui/types/message-repair,与 CLI repairSessionHistory / ai-service repair_messages 同源
+    const { repaired: messages, removed: repairRemoved } = repairMessages(rawMessages)
 
     reply.hijack()
     const raw = reply.raw
@@ -59,6 +74,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     })
+
+    // 若发生修复,通过 SSE 首事件通知前端(对标 CLI /repair 命令的可见性)
+    if (repairRemoved > 0) {
+      raw.write(`data: ${JSON.stringify({ repair: { removed: repairRemoved } })}\n\n`)
+    }
 
     const controller = new AbortController()
     const onClose = () => controller.abort()
@@ -80,7 +100,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         body: JSON.stringify({
           messages,
           sessionId,
-          modelId,
+          model: resolvedModel,
           agentId,
           materialContent,
           metadata: mergedMetadata,

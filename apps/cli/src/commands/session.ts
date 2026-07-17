@@ -5,6 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { repairMessages, type RepairableMessage } from '@ihui/types';
 
 export interface ChatMessage {
   role: string;
@@ -82,10 +83,10 @@ export function getMostRecentSession(): Session | null {
  * P1-1 会话历史自愈 — 修复 history 结构异常。
  *
  * 灵感来源:grok-build 的 `x.ai/session/repair` 扩展方法。
- * 问题:长期运行的 session 偶发损坏(85% 自动压缩 / checkpoint 频繁操作 / interjection buffer 残留 /
- * 中断恢复)会导致 history 结构异常,触发 LLM 400 错误或语义错乱。
+ * 跨端共享:5 条修复规则实现在 `@ihui/types/message-repair`,CLI/API/ai-service 共用同一套规则。
+ * CLI 本地保留 `tryRecoverSessionFromCorruptedJson`(JSON 文件损坏恢复,CLI 独有)。
  *
- * 修复规则:
+ * 修复规则(详见 `packages/types/src/message-repair.ts`):
  *   1. 过滤非法 role(只保留 system/user/assistant)
  *   2. 过滤空 content(去除空字符串/纯空白)
  *   3. 去重连续相同 role(合并为单条,content 用 \n\n 连接)
@@ -99,59 +100,11 @@ export function repairSessionHistory(history: ChatMessage[]): {
   removed: number;
   reasons: string[];
 } {
-  const reasons: string[] = [];
-  const VALID_ROLES = new Set(['system', 'user', 'assistant']);
-  let removed = 0;
-
-  // Rule 1+2:过滤非法 role + 空 content
-  let cleaned = history.filter((m) => {
-    if (!m || typeof m !== 'object') { removed++; return false; }
-    if (!VALID_ROLES.has(m.role)) {
-      reasons.push(`移除非法 role: ${m.role}`);
-      removed++;
-      return false;
-    }
-    if (typeof m.content !== 'string' || m.content.trim() === '') {
-      reasons.push(`移除空 content(role=${m.role})`);
-      removed++;
-      return false;
-    }
-    return true;
-  });
-
-  // Rule 3:去重连续相同 role(合并 content)
-  const deduped: ChatMessage[] = [];
-  for (const m of cleaned) {
-    const last = deduped[deduped.length - 1];
-    if (last && last.role === m.role) {
-      reasons.push(`合并连续 ${m.role} 消息`);
-      last.content = `${last.content}\n\n${m.content}`;
-    } else {
-      deduped.push({ ...m });
-    }
-  }
-  cleaned = deduped;
-
-  // Rule 4:确保首条是 system 或 user(丢弃开头的 assistant)
-  while (cleaned.length > 0 && cleaned[0]!.role === 'assistant') {
-    reasons.push('移除开头的 assistant 消息(无前置 user)');
-    cleaned.shift();
-    removed++;
-  }
-
-  // Rule 5:移除末尾无响应的 user 消息(interjection 残留)
-  if (cleaned.length > 0 && cleaned[cleaned.length - 1]!.role === 'user') {
-    // 仅当末尾 user 不是首轮(前面有 assistant 响应)时移除
-    // 首轮 user(前面无 assistant)保留
-    const hasAssistant = cleaned.some((m) => m.role === 'assistant');
-    if (hasAssistant) {
-      reasons.push('移除末尾无 assistant 响应的 user 消息(可能是 interjection 残留)');
-      cleaned.pop();
-      removed++;
-    }
-  }
-
-  return { repaired: cleaned, removed, reasons };
+  return repairMessages(history as RepairableMessage[]) as {
+    repaired: ChatMessage[];
+    removed: number;
+    reasons: string[];
+  };
 }
 
 /**
