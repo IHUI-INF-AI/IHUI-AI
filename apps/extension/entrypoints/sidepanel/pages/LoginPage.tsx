@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { loginByAccount } from '@ihui/api-client'
+import { loginByAccount, type LoginResult } from '@ihui/api-client'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
 
 interface Props {
-  onSuccess: (token: string) => void | Promise<void>
+  onSuccess: (result: LoginResult) => void | Promise<void>
 }
 
 export default function LoginPage({ onSuccess }: Props) {
@@ -23,7 +23,7 @@ export default function LoginPage({ onSuccess }: Props) {
     try {
       const res = await loginByAccount(account, password)
       if (res.success) {
-        await onSuccess(res.data.accessToken)
+        await onSuccess(res.data)
       } else {
         setError(res.error || '登录失败')
       }
