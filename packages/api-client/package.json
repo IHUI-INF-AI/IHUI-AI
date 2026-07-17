@@ -32,6 +32,7 @@
     "build": "tsc",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rimraf dist .turbo node_modules"
   },
   "dependencies": {
@@ -40,6 +41,7 @@
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "typescript": "^5.7.2",
-    "rimraf": "^6.0.1"
+    "rimraf": "^6.0.1",
+    "vitest": "^2.1.8"
   }
 }
