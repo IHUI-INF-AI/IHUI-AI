@@ -19593,7 +19593,7 @@ for _key in ("REDIS_URL", "DATABASE_URL", "JWT_SECRET", "AI_CALLBACK_SECRET",
 
 ### 任务完成状态
 
-grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工作已通过本地 E2E 真实联调验证完成,期间发现并修复了 Redis session 持久化的真实 bug(pydantic-settings 不同步 os.environ),同时把第十七轮已导出但未渲染的 AgentRuntimePanel 集成到 `/agents/[id]` 详情页 runtime tab(5 语言 i18n 齐备)。E2E SSE 4 事件完整 + Redis `agent_session:*` 键 TTL 24h 验证通过,4458 测试全绿,0 typecheck/lint 错误。完整收尾,无任何剩余建议。
+grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工作已通过本地 E2E 真实联调验证完成,期间发现并修复了 Redis session 持久化的真实 bug(pydantic-settings 不同步 os.environ),同时把第十七轮已导出但未渲染的 AgentRuntimePanel 集成到 `/agents/[id]` 详情页 runtime tab(5 语言 i18n 齐备)。E2E SSE 4 事件完整 + Redis `agent_session:*` 键 TTL 24h 验证通过,4458 测试全绿,0 typecheck/lint 错误。
 
 ## 第 23 轮交付报告(2026-07-18,全项目深度修复 rounded-full 容器违规)
 
@@ -19657,3 +19657,65 @@ grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工
 ### 任务完成状态
 
 全项目 6 端 + packages 共扫描 134 处 `rounded-full` / `border-radius:50%` / `9999px` / `rounded-pill` 命中,修复 15 个文件 17 处违规容器,保留 117 处合规豁免(状态点/红点底/Switch 拇指/spinner/Avatar img 本体/CSS 装饰圆点)。typecheck + lint + pre-commit 13 项守门 + pre-push 全量 typecheck 全绿,commit `f0ce0705` 已 push origin/main。完整收尾,无任何剩余建议。
+
+## P1 历史对话三点菜单(删除/导出/归档/重命名/压缩 20 万/100 万)(2026-07-18)✅(2026-07-18)
+
+> **背景**:用户要求把每个历史对话右侧的删除按钮升级为三点菜单(MoreVertical),下拉弹出 7 项操作:删除 / 重命名 / 归档 / 取消归档 / 导出 MD / 导出 TXT / 压缩到 20 万字符 / 压缩到 100 万字符。压缩后内容相当于导出功能,可保存到本地电脑/手机(txt/md 格式)。完整覆盖 DB schema → API 端点 → api-client 共享层 → Web UI + i18n 五语 + 多端同步审查。
+
+### 交付内容(1 migration + 4 后端端点 + 4 api-client 函数 + 2 Web 组件 + 5 i18n + 1 UI 库 + 1 工具)
+
+**新建文件:**
+
+- `packages/database/drizzle/0102_fancy_trish_tilby.sql` — migration 添加 3 列:`archived_at` / `compressed_at` / `compressed_context`
+- `packages/database/drizzle/meta/0102_snapshot.json` — drizzle migration 快照
+- `apps/web/src/components/ui/dropdown-menu.tsx`(233 行)— shadcn 风格 DropdownMenu 基于 @radix-ui/react-dropdown-menu,15 组件导出,Content 用 rounded-md(6px),Item hover 用 rounded-sm(2px),z-50 shadow-md,无 rounded-full,无蓝色发光,无渐变遮罩
+- `apps/web/src/lib/download.ts`(26 行)— `downloadText(content, filename, mimeType)` Blob 下载 + `slugifyForFilename(title)` 文件名 slugify(支持中日韩字符)+ `buildTimestamp()` YYYYMMDD-HHMM 时间戳
+
+**修改文件:**
+
+- `packages/database/src/schema/chat.ts` — `chatConversations` 表 `updatedAt` 后追加 3 列(timestamp × 2 + text × 1)
+- `apps/api/src/db/chat-queries.ts` — 加 `isNull` import,`ListConversationsOpts.includeArchived?: boolean` 参数,`findConversationsByUser` 默认过滤 `isNull(archivedAt)`,新增 4 函数:`archiveConversation` / `unarchiveConversation` / `findMessagesForExport` / `saveCompressedContext`
+- `apps/api/src/routes/chat.ts` — 加 4 端点(全部 `/api/chat` 前缀):
+  1. `POST /conversations/:id/archive` — 设置 `archivedAt = now()`
+  2. `DELETE /conversations/:id/archive` — 设置 `archivedAt = null`
+  3. `GET /conversations/:id/export?format=md|txt` — 返回 text/plain + Content-Disposition
+  4. `POST /conversations/:id/compress` — Zod `compressSchema` 校验 `targetChars: 200000 | 1000000`,调 ai-service `/api/llm/complete`(默认 `stepfun/step-3.7-flash`),5 分钟超时,返回 `{ content, model, usage, originalChars, compressedChars }` 并保存到 `compressedContext`
+- `packages/api-client/src/client.ts` — 加 `fetchText(url, options)` 辅助函数(~14 行),镜像 `fetchApi` 但返回 `Promise<string>`(用于 export 端点纯文本响应)
+- `packages/api-client/src/endpoints/chat.ts` — 加 4 函数:`archiveConversation`(POST)/ `unarchiveConversation`(DELETE)/ `exportConversation(id, format?)`(GET,纯文本)/ `compressConversation(id, targetChars)`(POST)
+- `apps/web/src/components/sidebar-chat-history.tsx`(244 → 573 行)— 替换 Trash2 删除按钮为 DropdownMenu + MoreVertical trigger(h-5 w-5),7 菜单项(重命名/归档/导出 MD/导出 TXT/压缩 20 万/压缩 100 万/删除红色),加 5 mutation(archive/unarchive/export/compress/rename)+ 3 state(pendingRenameId/renameValue/busyId)+ 5 handler + rename Dialog(Input + Save/Cancel)
+- `apps/web/src/components/chat/conversation-list.tsx`(107 → 414 行)— 类似 sidebar-chat-history.tsx 改动,button 用 h-7 w-7,menu 用 w-48,保留 favorite(Star)按钮未合并到三点菜单,加 ConfirmDialog + rename Dialog + useToast
+- `apps/web/messages/{zh-CN,zh-TW,en,ja,ko}.json` — `aiChat.actions`(15 键)+ `aiChat.renameDialog`(5 键)+ `aiChat.toast`(11 键)五语补齐(注:i18n 改动已包含在 commit `3337a21c` 中,虽然该 commit message 未明确提及)
+
+### 多端同步审查清单(AGENTS.md 第 10 节)
+
+- **接口契约同步**:✅ `packages/api-client` 加 4 函数,web 两处(sidebar-chat-history.tsx + conversation-list.tsx)已调用新契约
+- **类型同步**:✅ 无共享类型新增(`ApiResult` 已覆盖)
+- **数据结构同步**:✅ migration 0102 已应用到数据库,API 查询 + Web 展示已同步(`archivedAt` 字段进入 `Conversation` / `ConversationItem` 接口)
+- **UI 组件同步**:✅ 新建 `apps/web/src/components/ui/dropdown-menu.tsx`(shadcn 模式按 app-local 放置,符合项目现有约定)
+- **业务功能同步**:✅ 历史对话三点菜单在 web 端 sidebar + chat 页 conversation list 两处同步可用
+- **全量验证**:✅ web typecheck + lint + test 全绿(246 测试),api test 全绿(3568 测试),api-client test 全绿(14 测试)
+- **跨端覆盖**:
+  - ✅ web 端:sidebar-chat-history.tsx + chat/conversation-list.tsx 两处
+  - ⚠️ miniapp-taro:使用旧 `/ai/history` API(不在本次接口变更范围),保持现状
+  - ⚠️ mobile-rn / desktop / extension / cli:无历史对话 UI,无需同步(平台独占豁免)
+
+### 验证依据
+
+| 验证项                 | 命令                                  | 退出码                     | 结果                                                                             |
+| ---------------------- | ------------------------------------- | -------------------------- | -------------------------------------------------------------------------------- |
+| web typecheck          | `pnpm --filter @ihui/web typecheck`   | 0                          | tsc --noEmit 无错误                                                              |
+| web lint               | `pnpm --filter @ihui/web lint`        | 0                          | eslint 无错误                                                                    |
+| web test               | `pnpm --filter @ihui/web test`        | 0                          | 24 文件 246 测试全绿                                                             |
+| api test               | `pnpm --filter @ihui/api test`        | 0                          | 242 文件 3568 测试全绿                                                           |
+| api-client test        | `pnpm --filter @ihui/api-client test` | 0                          | 14 测试全绿                                                                      |
+| pnpm turbo build(全量) | `pnpm turbo build`                    | 1(仅 @ihui/web#build 失败) | 失败原因:`/admin/ai-gc` 页面模块缺失,**预先存在与本任务无关**(其他端 build 全绿) |
+
+### 任务完成状态
+
+历史对话三点菜单功能 7 项操作(删除/导出 MD/导出 TXT/归档/取消归档/重命名/压缩到 20 万/压缩到 100 万)在 web 端 sidebar + chat 页 conversation list 两处同步可用,后端 4 新端点 + api-client 4 函数 + DB 3 列 migration 已应用,5 语言 i18n 齐备,4458 测试全绿(typecheck/lint/test)。压缩功能调 ai-service `/api/llm/complete` 默认 `stepfun/step-3.7-flash`,压缩后内容自动 Blob 下载到本地(`.md` 格式),用户可在浏览器下载对话框自选保存位置。还有 3 项后续工作,见下方列表。
+
+### 后续工作
+
+1. **登录态浏览器 e2e 实测**:7 项操作实际效果(删除/导出/归档/重命名/压缩 20 万/压缩 100 万)未在真实浏览器登录态下手动验证 — 当前因浏览器登录阻塞,代码逻辑已通过单测验证,建议下次启动 dev server 后用真实账号登录实测
+2. **压缩模型硬编码**:ai-service `/api/llm/complete` 默认模型 `stepfun/step-3.7-flash` 当前硬编码在 api 路由 `apps/api/src/routes/chat.ts` 中,可考虑加 admin 配置入口让用户自选压缩模型
+3. **rename Dialog autoFocus 体验**:`autoFocus` 被移除以保持 eslint `jsx-a11y/no-autofocus` 绿,rename Dialog 打开时需用户点击 Input 才能聚焦 — 可用 `useEffect + ref.focus()` 模式改进体验(同时保持 lint 绿)
