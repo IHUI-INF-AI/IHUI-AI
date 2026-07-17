@@ -19,6 +19,8 @@ export { AgentSwarmMonitor } from './agent-swarm-monitor'
 export { BackgroundAgentsPanel } from './background-agents-panel'
 export { PermissionConfirmDialog } from './permission-confirm-dialog'
 export { SubAgentActivityFeed } from './sub-agent-activity-feed'
+export { AgentRuntimePanel } from './agent-runtime-panel'
+export { default as AgentRuntimePanelDefault } from './agent-runtime-panel'
 
 // 语音组件
 export { VoiceInput } from './voice-input'
