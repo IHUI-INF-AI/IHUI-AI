@@ -170,6 +170,12 @@ export interface CreateResourceInput {
   isPublished?: boolean
   sort?: number
   status?: number
+  type?: string | null
+  productId?: string | null
+  tagIdList?: string[] | null
+  image?: string | null
+  introduction?: string | null
+  cidList?: string[] | null
 }
 
 export async function createResource(data: CreateResourceInput): Promise<Resource> {
@@ -186,6 +192,12 @@ export async function createResource(data: CreateResourceInput): Promise<Resourc
       isPublished: data.isPublished,
       sort: data.sort,
       status: data.status,
+      type: data.type,
+      productId: data.productId,
+      tagIdList: data.tagIdList,
+      image: data.image,
+      introduction: data.introduction,
+      cidList: data.cidList,
     })
     .returning()
   const row = rows[0]
@@ -203,6 +215,12 @@ export interface UpdateResourceInput {
   fileSize?: number
   sort?: number
   status?: number
+  type?: string | null
+  productId?: string | null
+  tagIdList?: string[] | null
+  image?: string | null
+  introduction?: string | null
+  cidList?: string[] | null
 }
 
 export async function updateResource(
@@ -221,6 +239,12 @@ export async function updateResource(
       ...(data.fileSize !== undefined ? { fileSize: data.fileSize } : {}),
       ...(data.sort !== undefined ? { sort: data.sort } : {}),
       ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.type !== undefined ? { type: data.type } : {}),
+      ...(data.productId !== undefined ? { productId: data.productId } : {}),
+      ...(data.tagIdList !== undefined ? { tagIdList: data.tagIdList } : {}),
+      ...(data.image !== undefined ? { image: data.image } : {}),
+      ...(data.introduction !== undefined ? { introduction: data.introduction } : {}),
+      ...(data.cidList !== undefined ? { cidList: data.cidList } : {}),
       updatedAt: new Date(),
     })
     .where(eq(resources.id, id))
