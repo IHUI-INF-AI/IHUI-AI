@@ -46,6 +46,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Button, ThemeLogo } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useLanguageStore, type Language } from '@/stores/language'
 import { Avatar } from '@/components/data/Avatar'
 import { Tooltip, TooltipProvider, Dropdown, Popover } from '@/components/feedback'
@@ -109,10 +110,10 @@ interface NavItem {
 }
 
 /** 侧边栏宽度常量(2026-07-17 统一)
- * - 150px 是展开态唯一宽度(桌面 + 移动抽屉复用)
+ * - 130px 是展开态唯一宽度(桌面 + 移动抽屉复用)
  * - 60px 是折叠态宽度,只显图标
  */
-const SIDEBAR_WIDTH = 150
+const SIDEBAR_WIDTH = 130
 const SIDEBAR_COLLAPSED_WIDTH = 60
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
@@ -336,7 +337,7 @@ function SidebarUserRow({
 
   const handleLogout = () => {
     logout()
-    router.push('/login')
+    useLoginDialogStore.getState().open('login')
   }
 
   if (!isAuthenticated) return null
@@ -614,7 +615,7 @@ function ExpandableNavItem({
   const label = t(item.labelKey)
 
   const parentClassName = cn(
-    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    'relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
     parentActive
       ? 'bg-primary text-primary-foreground'
       : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
@@ -695,9 +696,12 @@ function ExpandableNavItem({
         className={parentClassName}
       >
         <Icon className="h-5 w-5 shrink-0" />
-        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="min-w-0 flex-1 truncate pr-5">{label}</span>
         <ChevronDown
-          className={cn('ml-auto h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')}
+          className={cn(
+            'absolute right-2.5 top-1/2 h-4 w-4 shrink-0 -translate-y-1/2 transition-transform',
+            open && 'rotate-180',
+          )}
         />
       </button>
       {open && <div className="mt-0.5 pl-2">{childList}</div>}
@@ -897,9 +901,10 @@ export function Sidebar({
         aria-label={t('mainNav')}
         role="dialog"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[150px] flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex flex-col overflow-y-hidden overflow-x-visible border-r border-border bg-sidebar transition-transform duration-200 lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
+        style={{ width: SIDEBAR_WIDTH }}
       >
         {header}
         {navContent}
