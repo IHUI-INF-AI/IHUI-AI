@@ -72,7 +72,7 @@ export function FeedbackList({ list, isLoading, error }: Props) {
             </div>
             <span
               className={cn(
-                'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                'inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                 TYPE_BADGE[fb.type],
               )}
             >
@@ -80,7 +80,7 @@ export function FeedbackList({ list, isLoading, error }: Props) {
             </span>
             <span
               className={cn(
-                'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                'inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs font-medium',
                 STATUS_BADGE[fb.status],
               )}
             >

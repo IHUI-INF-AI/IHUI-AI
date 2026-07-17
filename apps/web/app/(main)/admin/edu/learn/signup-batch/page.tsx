@@ -4,14 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import {
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Upload,
-  Layers,
-} from 'lucide-react'
+import { Loader2, ChevronLeft, ChevronRight, Download, Upload, Layers } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
@@ -184,12 +177,14 @@ export default function AdminLearnSignupBatchPage() {
                   <TableRow key={r.id} className="hover:bg-muted/30">
                     <TableCell className="px-4 py-2.5 font-mono text-xs">{r.batchNo}</TableCell>
                     <TableCell className="px-4 py-2.5 font-medium">{r.targetTitle}</TableCell>
-                    <TableCell className="px-4 py-2.5 text-muted-foreground">{r.targetType}</TableCell>
+                    <TableCell className="px-4 py-2.5 text-muted-foreground">
+                      {r.targetType}
+                    </TableCell>
                     <TableCell className="px-4 py-2.5">{r.count}</TableCell>
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                           sc.cls,
                         )}
                       >
@@ -210,11 +205,23 @@ export default function AdminLearnSignupBatchPage() {
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

@@ -236,7 +236,7 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
               onChange={(e) => setUserScale(Number(e.target.value))}
               disabled={!loaded}
               aria-label={t('cropScale')}
-              className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-muted accent-primary disabled:opacity-50"
+              className="h-1 flex-1 cursor-pointer appearance-none rounded bg-muted accent-primary disabled:opacity-50"
             />
             <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
               {userScale.toFixed(2)}x
@@ -260,7 +260,7 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
               ref={previewRef}
               width={PREVIEW_SIZE}
               height={PREVIEW_SIZE}
-              className="rounded-full border bg-muted"
+              className="rounded-md border bg-muted"
             />
           </div>
           <p className="text-xs text-muted-foreground">{t('cropHint')}</p>

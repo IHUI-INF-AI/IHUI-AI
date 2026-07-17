@@ -4,13 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import {
-  Search,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  History,
-} from 'lucide-react'
+import { Search, Loader2, ChevronLeft, ChevronRight, History } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -193,7 +187,7 @@ export default function AdminPointRecordsPage() {
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                         typeBadgeClass(rec.type),
                       )}
                     >

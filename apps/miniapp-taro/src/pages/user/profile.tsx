@@ -75,7 +75,7 @@ export default function Profile() {
             <View className="flex items-center text-[13px] text-[#999]">
               {row.isAvatar ? (
                 <Image
-                  className="w-[40px] h-[40px] rounded-full bg-[#f5f5f5]"
+                  className="w-[40px] h-[40px] rounded-md bg-[#f5f5f5]"
                   src={form.avatar || '/static/default-avatar.png'}
                   mode="aspectFill"
                 />

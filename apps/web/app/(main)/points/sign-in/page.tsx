@@ -122,7 +122,7 @@ export default function SignInPage() {
             <div className="flex items-center gap-4">
               <div
                 className={cn(
-                  'flex h-12 w-12 items-center justify-center rounded-full',
+                  'flex h-12 w-12 items-center justify-center rounded-xl',
                   signedIn
                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                     : 'bg-muted text-muted-foreground',
@@ -192,7 +192,7 @@ export default function SignInPage() {
                 <span className="text-xs text-muted-foreground">{t(`day${d}`)}</span>
                 <span
                   className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium',
+                    'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium',
                     isSigned
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground',

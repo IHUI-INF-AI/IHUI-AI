@@ -133,10 +133,10 @@ export default function DistributionTeamDetailPage() {
                 alt={displayName}
                 width={64}
                 height={64}
-                className="h-16 w-16 rounded-full object-cover"
+                className="h-16 w-16 rounded-2xl object-cover"
               />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-xl font-bold text-primary">
                 {initials}
               </div>
             )}
@@ -200,10 +200,10 @@ export default function DistributionTeamDetailPage() {
                     alt=""
                     width={32}
                     height={32}
-                    className="h-8 w-8 rounded-full object-cover"
+                    className="h-8 w-8 rounded-lg object-cover"
                   />
                 ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-xs font-medium">
                     {(sub.nickname ?? sub.username ?? 'U')[0]?.toUpperCase()}
                   </div>
                 )}

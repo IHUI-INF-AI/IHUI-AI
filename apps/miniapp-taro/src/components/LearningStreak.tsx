@@ -54,7 +54,7 @@ export default function LearningStreak({
       </View>
 
       <View
-        className={`w-full py-2 rounded-full text-center text-sm ${
+        className={`w-full py-2 rounded-md text-center text-sm ${
           signedToday
             ? 'bg-gray-100 text-gray-400'
             : 'bg-gradient-to-r from-orange-500 to-red-500 text-white'

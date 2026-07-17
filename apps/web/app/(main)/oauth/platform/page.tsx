@@ -37,12 +37,14 @@ export default function OauthPlatformPage() {
     <div className="mx-auto w-full max-w-5xl space-y-16 py-10">
       {/* Hero */}
       <section className="space-y-6 text-center">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        <div className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
           <KeyRound className="h-3.5 w-3.5" />
           {t('heroBadge')}
         </div>
         <h1 className="text-4xl font-bold tracking-tight md:text-5xl">{t('heroTitle')}</h1>
-        <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">{t('heroSubtitle')}</p>
+        <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
+          {t('heroSubtitle')}
+        </p>
         <div className="flex justify-center">
           <Link href="/oauth/my-authorized">
             <Button size="lg">
@@ -88,7 +90,9 @@ export default function OauthPlatformPage() {
             const Icon = s.icon
             return (
               <div key={s.title} className="relative space-y-3 rounded-lg border p-6">
-                <div className="absolute right-4 top-4 text-3xl font-bold text-muted/30">{i + 1}</div>
+                <div className="absolute right-4 top-4 text-3xl font-bold text-muted/30">
+                  {i + 1}
+                </div>
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>

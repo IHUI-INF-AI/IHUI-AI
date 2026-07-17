@@ -84,7 +84,7 @@ export function TicketDetailDialog({
             状态：
             <span
               className={cn(
-                'ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                'ml-1 inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                 STATUS_BADGE[ticket.status],
               )}
             >

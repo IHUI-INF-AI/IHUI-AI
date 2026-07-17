@@ -54,7 +54,7 @@ export function PapersList({ list, isLoading, error, delPending, onDelete }: Pro
               </div>
               <span
                 className={cn(
-                  'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                  'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                   STATUS_STYLE[paper.status] ?? STATUS_STYLE[0],
                 )}
               >

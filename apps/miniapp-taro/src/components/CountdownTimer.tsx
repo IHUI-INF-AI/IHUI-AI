@@ -48,7 +48,7 @@ export default function CountdownTimer({
       : `${remaining}s`
 
   return (
-    <View className="inline-flex items-center px-3 py-1 rounded-full bg-gray-50">
+    <View className="inline-flex items-center px-3 py-1 rounded-md bg-gray-50">
       <Text className="text-xs text-gray-500">{display}</Text>
     </View>
   )

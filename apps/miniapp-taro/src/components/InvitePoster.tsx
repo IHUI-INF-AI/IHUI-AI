@@ -60,11 +60,11 @@ export default function InvitePoster({
         </Text>
 
         <View className="flex space-x-3">
-          <View className="flex-1 py-2.5 rounded-full bg-gray-100 text-center" onClick={onSave}>
+          <View className="flex-1 py-2.5 rounded-md bg-gray-100 text-center" onClick={onSave}>
             <Text className="text-sm text-gray-600">保存图片</Text>
           </View>
           <View
-            className="flex-1 py-2.5 rounded-full text-center"
+            className="flex-1 py-2.5 rounded-md text-center"
             style={{ background: 'linear-gradient(90deg, #6366f1, #8b5cf6)' }}
             onClick={onShare}
           >

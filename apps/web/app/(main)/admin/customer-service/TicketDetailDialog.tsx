@@ -115,7 +115,7 @@ export function TicketDetailDialog({
             {t('status')}
             <span
               className={cn(
-                'ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                'ml-1 inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                 STATUS_BADGE[ticket.status],
               )}
             >
@@ -124,7 +124,7 @@ export function TicketDetailDialog({
             <span className="ml-2">{t('priority')}</span>
             <span
               className={cn(
-                'ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                'ml-1 inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                 PRIORITY_BADGE[ticket.priority],
               )}
             >

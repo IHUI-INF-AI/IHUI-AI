@@ -46,7 +46,7 @@ export default function LevelBadge({
 
   return (
     <View className="inline-flex items-center">
-      <View className={`${sizeClass} ${colorClass} rounded-full font-medium`}>
+      <View className={`${sizeClass} ${colorClass} rounded-md font-medium`}>
         <Text>{displayTitle}</Text>
       </View>
       {nextLevelTitle && progress > 0 && progress < 100 && (

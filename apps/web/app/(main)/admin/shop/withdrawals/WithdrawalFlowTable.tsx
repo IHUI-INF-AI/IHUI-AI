@@ -187,7 +187,7 @@ export function WithdrawalFlowTable(props: Props) {
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs',
                         FLOW_STATUS_STYLE[w.status] ?? 'bg-muted text-muted-foreground',
                       )}
                     >

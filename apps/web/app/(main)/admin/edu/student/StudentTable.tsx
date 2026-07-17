@@ -62,7 +62,7 @@ export function StudentTable({ rows, isLoading, error, onEdit, onDelete, deleteP
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{s.phone ?? s.email ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
+                  <span className="inline-flex items-center rounded-md bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
                     {LEVEL_MAP[s.level] ? t(`level.${LEVEL_MAP[s.level]}`) : `L${s.level}`}
                   </span>
                 </TableCell>
@@ -71,7 +71,7 @@ export function StudentTable({ rows, isLoading, error, onEdit, onDelete, deleteP
                 <TableCell className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                      'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                       s.status === 1
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                         : 'bg-muted text-muted-foreground',

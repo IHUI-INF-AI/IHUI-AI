@@ -121,9 +121,9 @@ export default function PerformanceDashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{c.value}</div>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-muted">
                     <div
-                      className="h-full rounded-full bg-primary"
+                      className="h-full rounded-md bg-primary"
                       style={{ width: `${c.progress}%` }}
                     />
                   </div>

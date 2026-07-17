@@ -32,7 +32,7 @@ export function MessagesList({ conversations, selectedId, onSelect }: Props) {
                 isActive ? 'bg-accent' : 'hover:bg-muted/50',
               )}
             >
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                 {conv.peerAvatar ? (
                   <Image
                     fill
@@ -58,7 +58,7 @@ export function MessagesList({ conversations, selectedId, onSelect }: Props) {
                     {conv.lastMessage || t('noMessages')}
                   </p>
                   {conv.unread > 0 && (
-                    <span className="shrink-0 rounded-full bg-red-500 px-1.5 text-xs text-white">
+                    <span className="shrink-0 rounded-md bg-red-500 px-1.5 text-xs text-white">
                       {conv.unread}
                     </span>
                   )}
