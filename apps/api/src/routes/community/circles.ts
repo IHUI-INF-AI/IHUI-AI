@@ -41,7 +41,7 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权:GET /circles(列表)与 GET /circles/:id(详情)公开访问,其他路由需登录
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     if (request.method === 'GET') {
-      const path = request.url.split('?')[0]
+      const path = request.url.split('?')[0] ?? ''
       // 公开读取路由:/circles, /circles/:id, /circles/:id/posts, /circles/:id/posts/:pid/comments
       if (
         path === '/api/circles' ||
@@ -61,9 +61,6 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // ===== Circles =====
-
-  // GET /circles - 圈子列表(?page&pageSize&search)
   // ===== Circles =====
 
   // GET /circles - 圈子列表(?page&pageSize&search)
