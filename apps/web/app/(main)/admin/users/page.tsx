@@ -94,12 +94,17 @@ export default function AdminUsersPage() {
     if (!createForm.nickname.trim()) return toast.error('请输入昵称')
     if (!createForm.phone.trim() && !createForm.email.trim())
       return toast.error('手机号和邮箱至少填一个')
+    const phone = createForm.phone.trim()
+    if (phone) {
+      const normalized = phone.replace(/^\+86/, '')
+      if (!/^1[3-9]\d{9}$/.test(normalized)) return toast.error('手机号格式不正确')
+    }
     if (createForm.password.length < 6) return toast.error('密码至少 6 位')
     const body: { nickname: string; phone?: string; email?: string; password: string } = {
       nickname: createForm.nickname.trim(),
       password: createForm.password,
     }
-    if (createForm.phone.trim()) body.phone = createForm.phone.trim()
+    if (phone) body.phone = phone
     if (createForm.email.trim()) body.email = createForm.email.trim()
     createMut.mutate(body, {
       onSuccess: () => {
