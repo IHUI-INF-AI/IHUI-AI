@@ -1006,6 +1006,12 @@ export const getAgentTokens = (params: ApiParams) => get('/agent/tokens', params
 export const postContext = (data: unknown) => post('/agent/context', data)
 /** 获取用户对话上下文 */
 export const getUserContext = (params: ApiParams) => get('/agent/context', params)
+/** 获取用户对话上下文某个字段 */
+export const getUserContextField = (field: string) =>
+  get<{ field: string; value: unknown }>(`/agent/context/${encodeURIComponent(field)}`)
+/** 删除用户对话上下文某个字段 */
+export const removeContextField = (field: string) =>
+  del<{ success: boolean; deleted: number }>(`/agent/context/${encodeURIComponent(field)}`)
 /** 保存聊天记录 */
 export const saveChatHistory = (data: unknown) => post('/chat/history', data)
 /** 删除聊天记录 */
@@ -1016,6 +1022,11 @@ export const queryAgentContext = (params: ApiParams) => get('/agent/context/quer
 export const createModelChat = (data: unknown) => post('/model/chat', data)
 /** 删除模型对话 */
 export const removeModelChat = (id: string) => del(`/model/chat/${id}`)
+
+/* ============ 语音转文字 ============ */
+/** 语音转文字（调用 DashScope Paraformer / qwen3-asr） */
+export const fetchAudioText = (audioUrl: string) =>
+  post<{ text: string }>('/ai/audio/recognize', { audio_url: audioUrl })
 
 /* ============ AIGC 多媒体生成 ============ */
 /** 通义万相 - 图片生成 */
