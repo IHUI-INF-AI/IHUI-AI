@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { eq, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { tboxDevice, tboxCommand } from '@ihui/database'
-import { success, error } from '../utils/response.js'
+import { tboxDevice, tboxCommand, tboxAgentChannel } from '@ihui/database'
+import { success, error, parseOrThrow } from '../utils/response.js'
 import { config as env } from '../config/index.js'
 
 const registerSchema = z.object({
@@ -24,6 +24,13 @@ const eventSchema = z.object({
   eventType: z.string(),
   data: z.record(z.string(), z.unknown()).optional(),
   timestamp: z.string().optional(),
+})
+
+const deploySchema = z.object({
+  deviceId: z.string().min(1),
+  agentId: z.string().min(1),
+  action: z.enum(['deploy', 'undeploy']),
+  payload: z.unknown().optional(),
 })
 
 const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
@@ -128,6 +135,39 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
       })
       .where(eq(tboxDevice.id, device[0].id))
     return reply.send(success({ received: true }))
+  })
+
+  // 智能体上下架回调（X-Signature HMAC-SHA256 签名验证，与 /events 一致）
+  server.post('/agent/channel/deploy', async (req, reply) => {
+    const secret = env.TBOX_WEBHOOK_SECRET
+    if (secret) {
+      const signature = req.headers['x-signature'] as string | undefined
+      if (!signature) return reply.status(401).send(error(401, '缺少签名'))
+
+      const rawBody = (req as FastifyRequest & { rawBody?: string }).rawBody
+      if (!rawBody) return reply.status(401).send(error(401, '无法读取请求体'))
+
+      const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
+      const sigBuf = Buffer.from(signature)
+      const expBuf = Buffer.from(expected)
+      if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+        return reply.status(401).send(error(401, '签名验证失败'))
+      }
+    }
+
+    const body = parseOrThrow(deploySchema, req.body)
+    const [row] = await db
+      .insert(tboxAgentChannel)
+      .values({
+        deviceId: body.deviceId,
+        agentId: body.agentId,
+        action: body.action,
+        payload: body.payload,
+        status: 'pending',
+      })
+      .returning()
+    if (!row) return reply.status(500).send(error(500, '回调记录写入失败'))
+    return reply.send(success({ id: row.id, status: row.status }))
   })
 }
 
