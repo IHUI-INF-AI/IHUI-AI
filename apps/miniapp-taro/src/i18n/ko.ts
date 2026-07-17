@@ -141,4 +141,22 @@ export default {
       auto: '시스템 따라가기',
     },
   },
+  ai: {
+    agentDetail: {
+      tabRuntime: 'Agent 실행',
+      runtimeTitle: 'Agent 실행',
+      runtimeInputPlaceholder: '작업을 입력하세요...',
+      runtimeSend: '실행',
+      runtimeStop: '중지',
+      runtimeClear: '지우기',
+      runtimePlan: '실행 계획',
+      runtimePermission: '권한 결정',
+      runtimePermissionTool: '도구',
+      runtimePermissionLevel: '등급',
+      runtimePermissionMode: '모드',
+      runtimeOutput: '출력',
+      runtimeError: '오류',
+      runtimeEmpty: '작업을 입력하여 Agent 실행을 시작하세요',
+    },
+  },
 }

@@ -141,4 +141,22 @@ export default {
       auto: 'システムに従う',
     },
   },
+  ai: {
+    agentDetail: {
+      tabRuntime: 'Agent 実行',
+      runtimeTitle: 'Agent 実行',
+      runtimeInputPlaceholder: 'タスクを入力...',
+      runtimeSend: '実行',
+      runtimeStop: '停止',
+      runtimeClear: 'クリア',
+      runtimePlan: '実行計画',
+      runtimePermission: '権限決定',
+      runtimePermissionTool: 'ツール',
+      runtimePermissionLevel: 'レベル',
+      runtimePermissionMode: 'モード',
+      runtimeOutput: '出力',
+      runtimeError: 'エラー',
+      runtimeEmpty: 'タスクを入力してAgent実行を開始',
+    },
+  },
 }
