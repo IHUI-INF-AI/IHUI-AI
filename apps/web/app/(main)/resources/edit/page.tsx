@@ -81,27 +81,17 @@ export default function ResourceEditPage() {
         throw new Error('请至少选择一个分类')
       }
 
-      // 后端 createResourceSchema/updateResourceSchema 仅支持:
-      // title/coverImage/intro/categoryId(单)/fileUrl/fileType/fileSize/isPublished/sort/status
-      // TODO(后端): 支持 type / productId / tagIdList / image / introduction / cidList(多)
-      // 未支持字段暂随 body 发送,Zod 会 strip,需后端扩展 schema 后方可持久化
       const body = {
         title: title.trim(),
         description: description.trim(),
-        // TODO(后端): cidList 多选 — 当前仅取首个映射 categoryId
         categoryId: cidArr[0],
         cidList: cidArr,
         url: fileUrl,
         fileName: fileName || file?.name,
-        // TODO(后端): type 字段待支持
         type,
-        // TODO(后端): productId 字段待支持
         productId: productId.trim(),
-        // TODO(后端): tagIdList 字段待支持
         tagIdList: parseIdList(tagIdList),
-        // TODO(后端): image 字段待支持(可映射 coverImage)
         image,
-        // TODO(后端): introduction 字段待支持(可映射 intro)
         introduction,
       }
 
