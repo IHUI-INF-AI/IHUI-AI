@@ -62,6 +62,12 @@ export interface SamplerSettings {
   maxTokens?: number;
   /** 停止序列 */
   stop?: string[];
+  /**
+   * P1-3 reasoning_effort(对齐 OpenAI o1/o3 + Claude Sonnet 4):
+   * - 'minimal' / 'low' / 'medium' / 'high'(部分模型支持)
+   * - 当前 streamChat 协议不直接透传,作为 metadata 字段保留,后续 API 支持后接入
+   */
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
 }
 
 /**
