@@ -376,6 +376,7 @@
     "noAccount": "還沒有賬號？",
     "registerNow": "立即註冊",
     "forgotPassword": "忘記密碼",
+    "forgotSubtitle": "重設您的密碼",
     "registerTitle": "創建賬號",
     "registerSubtitle": "註冊一個新賬號",
     "phonePlaceholder": "請輸入手機號",
@@ -10564,6 +10565,8 @@
     "generateCodeFailed": "生成授權碼失敗",
     "footerHint": "授權後將自動跳轉回目標應用，登入態將在各子項目間共用。",
     "registerTitle": "統一註冊",
+    "dialogPrompt": "正在為您打開註冊彈窗…",
+    "openDialog": "打開註冊彈窗",
     "alreadyHaveAccount": "已有賬號？",
     "toLogin": "去登入",
     "redirect": {
