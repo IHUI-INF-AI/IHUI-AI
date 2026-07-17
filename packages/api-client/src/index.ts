@@ -16,6 +16,14 @@ export type {
   FormattedSSEError,
 } from './client.js'
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'
+
+export {
+  CircuitBreaker,
+  CircuitOpenError,
+  serverPreset,
+  clientPreset,
+} from './circuit-breaker.js'
+export type { CircuitState, CircuitBreakerOptions, CircuitBreakerStats } from './circuit-breaker.js'
 export { eduApi, buildQs } from './utils.js'
 export type { PageData, PageQuery } from './utils.js'
 
