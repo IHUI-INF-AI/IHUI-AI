@@ -19388,3 +19388,50 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 ### 任务完成状态
 
 第十六轮 Agent 执行链路真实集成完成 — cli 能力从"API/AI-Service 占位骨架"(第十五轮)升级到"API SSE 真实转发 + AI-Service LangGraph 真实推理 + api-client 真实调用"(第十六轮)。3 subagent 并行(API + AI-Service + api-client,文件路径无冲突)。API 17 测试 + AI-Service 29 测试 + api-client 14 测试全绿,全量 turbo 48/48 tasks 全绿(4596 测试全绿)。还有 4 项后续工作,见上方列表。
+
+## 第 21 轮交付报告(2026-07-18,cli 融合第十七轮 — Web 呈现层 UI + api-client 启用 test + DEPLOYMENT REDIS_URL)
+
+第十六轮完成后还有 4 项后续工作,本轮推进第 1 + 3 + 4 项:Web 呈现层 UI + api-client 启用 pnpm test + DEPLOYMENT-R65.md 补 REDIS_URL 声明。第 2 项(真实 LLM 联调)需生产环境 STEPFUN_API_KEY,属部署后验证项,不在本轮代码改动范围。
+
+### Subagent A:Web 端 AgentRuntimePanel 呈现层 UI(已合并入并发会话 commit 6c95321d)
+
+- `apps/web/src/components/ai/agent-runtime-panel.tsx`(新建,225 行)— 接入 `executeAgentRuntimeStream`,状态机 idle/running/completed/failed,区域 Plan/Permission/Output/Error/Empty + input footer,AbortController 支持停止,清空按钮重置状态
+- `apps/web/src/components/ai/index.ts`(修改,+2 行)— 导出 `AgentRuntimePanel` + `AgentRuntimePanelDefault`
+- `apps/web/tests/agent-runtime-panel.test.tsx`(新建,180 行,11 测试全绿)— `vi.mock('@ihui/api-client')` + `capturedCallbacks` 捕获模式,显式 cleanup(`afterEach(() => { cleanup(); document.body.innerHTML = '' })`,项目未启用 vitest globals)
+- 设计决策:不用 `useTranslations`(避免测试缺 NextIntlProvider 失败),用硬编码中文;`rounded-md` 非 `rounded-full`(符合 AGENTS.md 第 4 节圆角规范);AbortController 支持停止
+- 验证:`pnpm --filter @ihui/web typecheck` exit 0 / `pnpm exec vitest run tests/agent-runtime-panel.test.tsx` 11/11 passed / `pnpm --filter @ihui/web lint` exit 0
+- 注:本 Subagent A 成果被并发会话以 commit `6c95321d` 提交(合并种子数据 + 字段重命名 + Agent Runtime 面板),按 AGENTS.md 第 12 节"单 Subagent 串行场景豁免",本轮 working tree 中无该 Subagent 的文件改动
+
+### 主线程:packages/api-client 启用 pnpm test
+
+- `packages/api-client/package.json`(修改,+2 行)
+  - scripts 追加 `"test": "vitest run"`
+  - devDependencies 追加 `"vitest": "^2.1.8"`(版本对齐 apps/api/package.json)
+- `pnpm-lock.yaml`(更新,新增 vitest 依赖项)
+- 验证:`pnpm --filter @ihui/api-client test` 14/14 passed / `pnpm --filter @ihui/api-client typecheck` exit 0
+
+### 主线程:DEPLOYMENT-R65.md 补 REDIS_URL 声明
+
+- `DEPLOYMENT-R65.md`(修改,+30 行)— 在 "GitHub Secrets 配置" 段落后追加 "Redis 环境变量(AI-Service Agent Runtime)" 章节:
+  - 需要配置的环境变量:`REDIS_URL=redis://<host>:<port>/<db>`
+  - 行为说明:配置 REDIS_URL 持久化 / 未配置降级内存 / 配置但连接失败 ping 失败后永久降级并 logger.warning
+  - 关联端点表(4 个):POST /api/agent-runtime/execute/stream + GET /api/agent-runtime/sessions + GET /api/agent-runtime/sessions/:sessionId + POST /api/agent-runtime/sessions/:sessionId/resume
+  - 验证清单(3 项):REDIS_URL 配置且 redis-cli ping PONG / AI-Service 启动日志无降级警告 / 执行 SSE 后 Redis 中可查到 session: 键
+
+### 全量验证 + 多端同步审查清单核对
+
+- **turbo 验证**:`pnpm turbo typecheck lint test`(清 `*.tsbuildinfo` + `.turbo` 缓存后跑)= 49/49 tasks 全绿,API 3568 测试全绿(242 test files),0 typecheck/lint 错误
+- **多端同步审查**(AGENTS.md 第 10 节):
+  - **接口契约**:✅ API `/api/agent-runtime/*` 8 端点 + AI-Service `/api/agent-runtime/*` 8 端点契约对齐
+  - **类型同步**:✅ PlanState/PlanEvent/PlanContext/SessionStatus/SessionMessage/SessionState/SessionSummary/PersonaContract 已上提到 @ihui/types 共享层(第十四轮),所有端复用
+  - **数据结构**:✅ 无 schema 变更(SessionManager 用现有 users/agents 表,Redis 持久化为可选)
+  - **UI 组件**:✅ AgentRuntimePanel.tsx 使用 packages/ui Card/Button,`rounded-md` 符合第 4 节圆角规范
+  - **业务功能同步**:API ✅(8 端点 + 17 测试)/ AI-Service ✅(8 端点 + 29 测试 + LangGraph)/ CLI ✅(主循环集成 + Sessions + Plugins + PlanMachine + 13 测试)/ api-client ✅(8 函数 + 14 测试)/ Web ✅(AgentRuntimePanel + 11 测试)/ Desktop/Extension/Mobile/Miniapp:呈现层特化豁免(本批属功能层基础设施,各端 UI 可按需调用 api-client)
+
+### 还有 1 项后续工作,见下方列表
+
+1. **真实 LLM 联调待验证**:当前测试用 mock llm_gateway 验证 graph 调度链路;生产环境需配置 STEPFUN_API_KEY 后做一次端到端 SSE 联调(部署后验证项,不属代码改动)
+
+### 任务完成状态
+
+第十七轮 Web 呈现层 UI + api-client 启用 test + DEPLOYMENT REDIS_URL 声明完成 — 第十六轮后续工作 4 项中,本轮完成第 1 项(api-client test 启用)+ 第 3 项(DEPLOYMENT REDIS_URL)+ 第 4 项(Web 呈现层 UI),剩余第 2 项(真实 LLM 联调)为部署后验证项不属代码改动。cli 多端同步能力从"API/AI-Service/CLI/api-client 真实链路"(第十六轮)扩展到"Web 前端可调用 Agent 执行链路 + api-client 测试纳入 turbo + 生产部署 REDIS_URL 声明齐备"(第十七轮)。turbo 49/49 tasks 全绿(3568 API 测试 + 11 Web 新测试 + 14 api-client 测试),0 typecheck/lint 错误。还有 1 项后续工作,见上方列表。
