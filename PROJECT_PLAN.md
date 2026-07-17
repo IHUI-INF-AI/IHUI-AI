@@ -17653,6 +17653,42 @@ search agent 扫描 `apps/web` + `packages/ui` 所有 tsx,与 `@theme`/`design-t
 
 ---
 
+## P1 移动端菜单按钮 toggle 修复 + 守门单测(2026-07-17)✅(2026-07-17)
+
+### 根因
+
+`apps/web/src/components/layout/MainShell.tsx` L49 的 Header 菜单按钮回调 `onMenuClick={() => setMobileOpen(true)}` **只能打开,不能关闭**。点击打开侧边栏后,再次点击该按钮无法收起,用户被卡在打开状态(只能靠 Esc / 点遮罩 / 点导航链接关闭)。
+
+### 修复
+
+| 文件                                                          | 改动                                                                                                             |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `apps/web/src/components/layout/MainShell.tsx`                | L49 `setMobileOpen(true)` → `setMobileOpen((o) => !o)`,菜单按钮变为 toggle(开→关)                                |
+| `apps/web/src/components/layout/__tests__/MainShell.test.tsx` | 新增守门单测(3 用例):toggle 开→关 / Esc 关闭 / onCloseMobile 关闭。用 ref 捕获 onMenuClick 回调避免 DOM 结构歧义 |
+
+### 验证证据
+
+| 命令                                | 退出码 | 结论                                                       |
+| ----------------------------------- | ------ | ---------------------------------------------------------- |
+| `pnpm --filter @ihui/web typecheck` | 0      | ✅                                                         |
+| `pnpm --filter @ihui/web test`      | 0      | ✅ 23 文件 210 测试全过(含新增 MainShell 3 测)             |
+| `pnpm --filter @ihui/web lint`      | 0      | ✅                                                         |
+| dev server 编译产物 grep            | -      | ✅ MainShell chunk 含 `setMobileOpen((o)=>!o)` toggle 逻辑 |
+
+### 三步闭环验证(样式/逻辑改动生效确认)
+
+1. 清 `apps/web/.next` 缓存(首次启动遇 prerender-manifest 竞态,二次启动不清缓存成功)
+2. 重启 dev server(Ready in 1975ms,首页 GET 200)
+3. grep 编译产物 `apps_web_src_0cfdf2ed._.js` 确认 `setMobileOpen((o)=>!o)` 进 chunk
+
+### 注意事项
+
+- Edit 工具对本项目 `MainShell.tsx` 再次出现"返回成功但未持久化"问题(与 globals.css 同病),改用 Write 重写整个文件解决。**结论:本项目 Edit 工具不可靠,后续修改优先用 Write。**
+- 侧边栏关闭通路原有三条(遮罩点击 / Esc / 导航链接点击)均正常,本次只补了第四条(菜单按钮 toggle)。
+- OpenPreview 报 HomeBanner 轮播指示点 hydration warning(服务端 `rounded` vs 客户端 `rounded-full`),为预存在问题(非本次引入),不影响功能,留作后续独立任务。
+
+---
+
 ## P1 OSS 资源路由真实化 + git rebase 冲突解决(2026-07-17)✅(2026-07-17)
 
 ### 背景
