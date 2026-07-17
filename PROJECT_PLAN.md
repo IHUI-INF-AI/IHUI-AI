@@ -2926,6 +2926,78 @@ build 错误 `TypeError: e.createContext is not a function` 位于 `apps/web/app
 
 ---
 
+### ✅(2026-07-17) goal achieved — P0 残留修复 + P1 任务启动
+
+> /goal P0 残留修复 + P1 任务启动:修复 3 项 P0 残留问题,启动 P1 前端页面 + 后端端点补完。
+
+**结论:6 个硬性指标全部完成,typecheck+lint+build 全绿。状态 achieved。**
+
+#### 完成清单
+
+| #   | 硬性指标                                | 状态 | 产出                                                                               |
+| --- | --------------------------------------- | ---- | ---------------------------------------------------------------------------------- |
+| 1   | completeOrderWithSaga 调用方补传 server | ✅   | order.ts:693 补传 server 参数,激活 WS 推送链路                                     |
+| 2   | demand-audit API 契约统一               | ✅   | 前端 id/remark → 后端 recordId/reason(DemandAuditApprovalDialog + [id]/page)       |
+| 3   | demand-square i18n 补键                 | ✅   | 5 语言文件补 statusPending/Approved/Rejected 3 个键                                |
+| 4   | P1 前端页面补完                         | ✅   | 充值成功页 70 行 + 充值失败页 61 行 + 错题本 238 行                                |
+| 5   | P1 后端端点补完                         | ✅   | 5 端点:zhs-identity/:id + developer DELETE/PUT + rules/by-agent + monitor/backfill |
+| 6   | typecheck+lint+build 全绿               | ✅   | web typecheck ✅ / web lint ✅ / web build ✅ / api typecheck ✅                   |
+
+#### P1 前端页面(3 页)
+
+| 页面       | 路径                                                 | 行数 | 后端 API          |
+| ---------- | ---------------------------------------------------- | ---- | ----------------- |
+| 充值成功页 | apps/web/app/(main)/wallet/recharge/success/page.tsx | 70   | ✅ 已就绪         |
+| 充值失败页 | apps/web/app/(main)/wallet/recharge/fail/page.tsx    | 61   | ✅ 无需           |
+| 错题本     | apps/web/app/(main)/exam/wrong-questions/page.tsx    | 238  | ✅ 已就绪(5 端点) |
+
+i18n 补键:wallet 命名空间 4 个键(rechargeOrderNo/viewRecords/retryRecharge/contactSupport)+ exam.wrongQuestions 命名空间 22 个键,5 语言文件全部同步。
+
+#### P1 后端端点(5 端点)
+
+| 端点                                       | 路径                  | 功能                        |
+| ------------------------------------------ | --------------------- | --------------------------- |
+| GET /api/admin/zhs-identity/:id            | admin/zhs-identity.ts | 身份详情(10-15 行)          |
+| DELETE /api/agent-ext/developer/:id        | agent-extended.ts     | 删除开发者续费(10-15 行)    |
+| PUT /api/agent-ext/developer/:id           | agent-extended.ts     | 更新开发者续费(15-20 行)    |
+| GET /api/agent-ext/rules/by-agent/:agentId | agent-extended.ts     | 按 Agent 查询规则(15-20 行) |
+| POST /api/monitor/backfill                 | monitor.ts            | 执行监控回填(30-40 行)      |
+
+#### 验证证据
+
+| 命令                                | 退出码 | 结论 |
+| ----------------------------------- | ------ | ---- |
+| `pnpm --filter @ihui/web typecheck` | 0      | ✅   |
+| `pnpm --filter @ihui/web lint`      | 0      | ✅   |
+| `pnpm --filter @ihui/web build`     | 0      | ✅   |
+| `pnpm --filter @ihui/api typecheck` | 0      | ✅   |
+
+#### 残留问题(后续任务)
+
+1. 充值成功页"查看记录"按钮链接到 /wallet(项目无独立 /wallet/recharge/records 路由)— 非阻塞
+2. 错题本 examId 筛选是 UUID 文本输入,UX 较差 — 后续可改为下拉选择
+3. monitor/backfill 端点无幂等保护,每次调用扫描全表 — 后续可加 dryRun 选项或复合索引
+4. demand-audit 后端 reject 端点的 reason 校验可优化(Zod optional + 手动 400 → Zod min(1))
+5. ja.json/ko.json 部分键翻译质量差(机翻残缺)— 需单独 P1 任务修复
+
+#### git 信息
+
+- 分支:main;起始 commit:27992d57;结束 commit:待 commit
+- 本次 goal 修改文件:
+  - apps/api/src/routes/order.ts(completeOrderWithSaga 补传 server)
+  - apps/web/app/(main)/admin/demand-audit/DemandAuditApprovalDialog.tsx(API 契约统一)
+  - apps/web/app/(main)/admin/demand-audit/[id]/page.tsx(API 契约统一)
+  - apps/web/messages/*.json × 5(demand-square i18n + wallet i18n + exam.wrongQuestions i18n)
+  - apps/web/app/(main)/wallet/recharge/success/page.tsx(新建)
+  - apps/web/app/(main)/wallet/recharge/fail/page.tsx(新建)
+  - apps/web/app/(main)/exam/wrong-questions/page.tsx(新建)
+  - apps/api/src/routes/admin/zhs-identity.ts(新增 GET /:id)
+  - apps/api/src/routes/agent-extended.ts(新增 DELETE/PUT developer + GET rules/by-agent)
+  - apps/api/src/routes/monitor.ts(新增 POST /backfill)
+- 运行时文件 .trae-cn/goal-runtime/STATE.md + loop-run-log.md 已清理
+
+---
+
 ### 📋(2026-07-16) plan — 多端客户端补齐(桌面 + 移动 + 插件 + CLI 升级)
 
 > 用户决策(2026-07-16):Tauri 2.0(桌面)+ React Native + Expo(移动)+ Chrome MV3 + WXT(插件)+ CLI 升级。要求最优最强架构、最细致最完美。

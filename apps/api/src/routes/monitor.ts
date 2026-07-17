@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, lt } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { monitorAlerts, suppressionRules } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -67,6 +67,22 @@ const monitorRoutes: FastifyPluginAsync = async (server) => {
         status: 'idle',
       }),
     )
+  })
+
+  // POST /backfill — 监控回填:扫描超过 24 小时仍未解决的 firing 告警,自动转为 resolved
+  server.post('/backfill', async (_request, reply) => {
+    try {
+      const threshold = new Date(Date.now() - 24 * 60 * 60 * 1000)
+      const resolved = await db
+        .update(monitorAlerts)
+        .set({ status: 'resolved', resolvedAt: new Date() })
+        .where(and(eq(monitorAlerts.status, 'firing'), lt(monitorAlerts.firedAt, threshold)))
+        .returning()
+      return reply.send(success({ processed: resolved.length }))
+    } catch (e) {
+      _request.log.error(e)
+      return reply.status(500).send(error(500, '执行监控回填失败'))
+    }
   })
 
   // GET /suppression-rules — 抑制规则列表
