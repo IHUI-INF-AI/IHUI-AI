@@ -3,6 +3,9 @@
 import * as React from 'react'
 import { toast } from 'sonner'
 
+import { type AIWSProvider, PROVIDER_PATHS } from '@/hooks/use-ai-websocket'
+import { useAuthStore } from '@/stores/auth'
+
 // TODO: 类型应从 @/hooks/types/ai-talk.ts 导入(use-ai-talk.ts 创建后切换)
 // 当前 use-ai-talk.ts / types/ai-talk.ts 尚未创建,使用本地 stub
 
@@ -67,10 +70,16 @@ export interface WebSocketSendParam {
   [key: string]: unknown
 }
 
-// TODO: 后端目前无 /ihui-ai-api/llm/ws WebSocket 端点,运行时需校准为实际路径
-// 当前后端仅有 SSE POST /chat/stream (apps/api/src/routes/ai-chat-stream.ts)
-// 若后端补建 WS 端点,需同步更新此常量;否则可考虑走 SSE 替代 WS
-const DEFAULT_WS_PATH = '/ihui-ai-api/llm/ws'
+const DEFAULT_WS_PATH = '/v1/ai/capabilities/ws/stream'
+
+/** 模型变体 → WS provider 映射(7 种变体 + 兜底) */
+export function modelToProvider(model: string): AIWSProvider {
+  if (model.startsWith('wan2.5-i2v')) return 'qwen'
+  if (model === 'qwen-plus' || model === 'qwen-omni') return 'qwen'
+  if (model === 'Doubao-1.6') return 'doubao'
+  if (model === 'GLM-4.5') return 'zhipu'
+  return 'generic'
+}
 
 /** Token 余额不足关键词 */
 const TOKEN_BALANCE_KEYWORDS = ['50000', '余额不足', 'token余额'] as const
@@ -506,9 +515,16 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
   const connectWebSocket = React.useCallback(
     (param: WebSocketSendParam, newIndex: number, name: AiModelKey) => {
       if (typeof window === 'undefined') return
+      const token = useAuthStore.getState().token
+      if (!token) {
+        setLoading(false)
+        toast.error('请先登录')
+        return
+      }
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      // TODO: WS 端点 URL 运行时校准 — 后端目前无 /ihui-ai-api/llm/ws,仅有 SSE /chat/stream
-      const socketUrl = `${proto}//${window.location.host}${wsPath}`
+      const provider = modelToProvider(name)
+      const path = wsPath !== DEFAULT_WS_PATH ? wsPath : PROVIDER_PATHS[provider]
+      const socketUrl = `${proto}//${window.location.host}${path}?token=${encodeURIComponent(token)}`
 
       let ws: WebSocket
       try {
