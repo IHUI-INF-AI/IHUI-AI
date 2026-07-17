@@ -13,6 +13,11 @@ import './app.css'
 
 function App({ children }: PropsWithChildren<unknown>) {
   useLaunch(() => {
+    Taro.loadFontFace({
+      family: 'HarmonyOS Sans SC',
+      source: 'url("https://ihui.ai/fonts/HarmonyOS_SansSC_Regular.ttf")',
+      global: true,
+    })
     initPrivacyGuard()
     checkLoginStatus()
     showShareMenu()
