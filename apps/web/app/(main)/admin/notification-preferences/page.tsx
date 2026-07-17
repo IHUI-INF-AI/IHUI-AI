@@ -28,6 +28,11 @@ interface ApiPrefs {
   smsEnabled?: boolean
   inAppEnabled?: boolean
   types?: string[]
+  quietHoursEnabled?: boolean
+  quietHoursStart?: string | null
+  quietHoursEnd?: string | null
+  maxPerHour?: number
+  maxPerDay?: number
 }
 
 const BUSINESS_KEYS = ['order', 'payment', 'exam', 'agent'] as const
@@ -97,11 +102,11 @@ export default function NotificationPreferencesPage() {
       paymentNotification: types.includes('payment'),
       examNotification: types.includes('exam'),
       agentNotification: types.includes('agent'),
-      quietHoursEnabled: DEFAULTS.quietHoursEnabled,
-      quietHoursStart: DEFAULTS.quietHoursStart,
-      quietHoursEnd: DEFAULTS.quietHoursEnd,
-      maxPerHour: DEFAULTS.maxPerHour,
-      maxPerDay: DEFAULTS.maxPerDay,
+      quietHoursEnabled: data.quietHoursEnabled ?? DEFAULTS.quietHoursEnabled,
+      quietHoursStart: data.quietHoursStart ?? DEFAULTS.quietHoursStart,
+      quietHoursEnd: data.quietHoursEnd ?? DEFAULTS.quietHoursEnd,
+      maxPerHour: data.maxPerHour ?? DEFAULTS.maxPerHour,
+      maxPerDay: data.maxPerDay ?? DEFAULTS.maxPerDay,
     })
   }, [data])
 
@@ -116,6 +121,11 @@ export default function NotificationPreferencesPage() {
           smsEnabled: form.smsEnabled,
           inAppEnabled: form.inAppEnabled,
           types,
+          quietHoursEnabled: form.quietHoursEnabled,
+          quietHoursStart: form.quietHoursEnabled ? form.quietHoursStart : null,
+          quietHoursEnd: form.quietHoursEnabled ? form.quietHoursEnd : null,
+          maxPerHour: form.maxPerHour,
+          maxPerDay: form.maxPerDay,
         }),
       })
       if (!r.success) throw new Error(r.error)
