@@ -19594,3 +19594,66 @@ for _key in ("REDIS_URL", "DATABASE_URL", "JWT_SECRET", "AI_CALLBACK_SECRET",
 ### 任务完成状态
 
 grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工作已通过本地 E2E 真实联调验证完成,期间发现并修复了 Redis session 持久化的真实 bug(pydantic-settings 不同步 os.environ),同时把第十七轮已导出但未渲染的 AgentRuntimePanel 集成到 `/agents/[id]` 详情页 runtime tab(5 语言 i18n 齐备)。E2E SSE 4 事件完整 + Redis `agent_session:*` 键 TTL 24h 验证通过,4458 测试全绿,0 typecheck/lint 错误。完整收尾,无任何剩余建议。
+
+## 第 23 轮交付报告(2026-07-18,全项目深度修复 rounded-full 容器违规)
+
+用户发现"登录后的头像框"等多个容器出现圆形/胶囊形样式违规(AGENTS.md 第 4 节硬约束),要求全项目深度检查"一个都不许漏"。
+
+### 全项目扫描结果(grep 全 6 端 + packages)
+
+| 端                | grep 命中数 | 违规容器数 | 合规豁免数 |
+| ----------------- | ----------- | ---------- | ---------- |
+| apps/web          | 105         | 5          | 100        |
+| apps/miniapp-taro | 23          | 12         | 11         |
+| apps/mobile-rn    | 3           | 0          | 3          |
+| apps/desktop      | 1           | 0          | 1          |
+| apps/extension    | 1           | 0          | 1          |
+| packages/ui       | 1           | 0          | 1          |
+| **合计**          | **134**     | **17**     | **117**    |
+
+### 修复 15 个文件 17 处违规(commit `f0ce0705`,已 push origin/main)
+
+**Web 端 4 文件 5 处**:
+
+1. `apps/web/src/components/data/Avatar.tsx:50` — Avatar 外层 `<span>` 容器(用户指出的"登录后头像框")`rounded-full` → `rounded-md`
+2. `apps/web/src/components/common/Skeleton.tsx:40` — 骨架屏头像占位 `<div>` `rounded-full` → `rounded-md`
+3. `apps/web/src/components/common/Skeleton.tsx:55` — 头像列表骨架 `<div>` `rounded-full` → `rounded-md`
+4. `apps/web/src/components/ai/checkpoint-history-panel.tsx:53` — 时间线节点 `<span>` (14x14) `rounded-full` → `rounded-md`
+5. `apps/web/src/components/settings/TwoFactorAuth.tsx:168` — 状态指示点 `<span>` (10x10,略超 w-2 级) `rounded-full` → `rounded-sm`
+
+**Miniapp-taro 端 11 文件 12 处**: 6. `apps/miniapp-taro/src/components/Avatar.tsx:26` — Avatar 外层 `<View>/<Image>` 容器 `rounded-full` → `rounded-md` 7. `apps/miniapp-taro/src/components/SkeletonCard.tsx:18` — 骨架屏头像 `<View>` `rounded-full` → `rounded-md` 8. `apps/miniapp-taro/src/components/SkillsPopup.tsx:117` — agent 头像 Image `rounded-full` → `rounded-md` 9. `apps/miniapp-taro/src/components/SkillsPopup.tsx:122` — agent fallback View `rounded-lg` → `rounded-md`(视觉统一) 10. `apps/miniapp-taro/src/pages/setting/index.css:3` — `.avatar` (120rpx) `border-radius:50%` → `8px` 11. `apps/miniapp-taro/src/pages/ask/detail.css:25` — `.avatar` (50rpx) `50%` → `8px` 12. `apps/miniapp-taro/src/pages/ask/list.css:62` — `.avatar` (40rpx) `50%` → `8px` 13. `apps/miniapp-taro/src/pages/circle/detail.css:14` — `.avatar` (80rpx) `50%` → `8px` 14. `apps/miniapp-taro/src/pages/circle/index.css:40` — `.avatar` (60rpx) `50%` → `8px` 15. `apps/miniapp-taro/src/pages/business-card/index.css:20` — `.card-avatar` (140rpx) `50%` → `8px` 16. `apps/miniapp-taro/src/pages/developer/index.css:56` — `.agent-avatar` (80rpx) `50%` → `8px` 17. `apps/miniapp-taro/src/pages/topic/detail.css:37` — `.avatar` (50rpx) `50%` → `8px`
+
+### 保留合规豁免(117 处,未触碰)
+
+1. **Avatar `<img>` 本体豁免**:TeamMembersList.tsx:23, FollowingScreen.tsx:26
+2. **状态点豁免(w-1.5/w-2 h-1.5/w-2 级装饰点)**:所有 `h-1.5 w-1.5 rounded-full` / `h-2 w-2 rounded-full` 状态点(admin 各 Table 状态列、notification 红点、chat 打字气泡、各种 STATUS_DOT)
+3. **未读角标红点底豁免**:ChatWindow.tsx:109, MessageSystem.tsx:75/120, MessageTabs.tsx:42, PrivateMessageList.tsx:62
+4. **Switch 拇指豁免**:Switch.tsx:40, packages/ui/switch.tsx:21
+5. **Switch 外圈配套豁免**:Switch.tsx:32(与拇指配套,改方形破坏设计语言一致性)
+6. **Radio 外圈配套豁免**:Radio.tsx:62(原生表单控件配套,内点 h-2 w-2 rounded-full 已豁免)
+7. **加载 spinner 豁免**(animate-spin 纯装饰动画):callback/page.tsx:15, Loading.tsx:16, LoadingSpinner.tsx:20, PageLoading.tsx:10
+8. **CSS 装饰圆点豁免(≤8px)**:premium.css:160/169(.premium-pulse-dot 8x8), desktop/app.css:172(.ws-status-dot 8x8), extension/style.css:152(.sp-ws-dot 7x7), miniapp-taro recruitment/index.css:68(.req-dot 6px), vip-trader/index.css:113(.level-radio::after 7px)
+9. **细线/细条豁免(非容器)**:voice-input.tsx:123(w-0.5 细条), MessageTabs.tsx:50(h-0.5 下划线), PrivateMessageList.tsx:49(2.5x2.5 在线点)
+
+### 验证依据
+
+| 验证项                                       | 结果                                                                                                                                                                                              |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @ihui/web typecheck`          | ✅ exit 0                                                                                                                                                                                         |
+| `pnpm --filter @ihui/web lint`               | ✅ exit 0                                                                                                                                                                                         |
+| `pnpm --filter @ihui/miniapp-taro typecheck` | ✅ exit 0                                                                                                                                                                                         |
+| `pnpm --filter @ihui/miniapp-taro lint`      | ✅ exit 0(0 errors,1 pre-existing warning 非本次引入)                                                                                                                                             |
+| Pre-commit 13 项守门                         | ✅ 全部通过(API key 泄露 / i18n parity / schema drift / packages dist / lint-staged / skipResponseSanitization / 依赖碎片化 / 前后端路由一致性 / safeParse / OpenAPI / 容器圆角 / 交付报告一致性) |
+| Pre-push 全量 typecheck                      | ✅ 全 7 端通过(web/api/cli/desktop/extension/miniapp-taro/mobile-rn)                                                                                                                              |
+| `git push origin main`                       | ✅ `3337a21c..f0ce0705 main -> main`                                                                                                                                                              |
+
+### 关键教训(已写入 project_memory.md)
+
+1. **Avatar 组件外层容器是违规高发点**:`<span>`/`<View>` 包裹 `<Image>` 时,容器本身用了 `rounded-full`,看似"头像圆形"实则是容器违规。规则原文"头像容器(包裹 Avatar 的外层 div)不得借豁免名义使用 rounded-full"明确禁止。修复:外层容器改 `rounded-md`(8px),`<Image>` 用 `fill` 模式填充,容器圆角决定显示圆角。
+2. **CSS 文件中的 `.avatar { border-radius: 50% }` 是隐性违规**:miniapp-taro 9 个页面 CSS 都有 `.avatar` 类用 50%,扫描时容易遗漏(因为只 grep `rounded-full` 不够,必须同时 grep `border-radius:\s*50%` 和 `border-radius:\s*9999px`)。
+3. **多 subagent 并行修改同一文件必冲突**:Skeleton.tsx 两处 Edit 在并行批次中第二次覆盖第一次,已通过 git diff 发现并重新修复。印证 AGENTS.md 第 12/13 节:同文件多 Edit 必须串行。
+4. **守门脚本扫描模式**:项目 `scripts/check-rounded-full-violation.mjs` 只扫描 staged 暂存区,要做全项目审查必须用 `Grep` 工具扫描全目录 + 人工判断豁免。
+
+### 任务完成状态
+
+全项目 6 端 + packages 共扫描 134 处 `rounded-full` / `border-radius:50%` / `9999px` / `rounded-pill` 命中,修复 15 个文件 17 处违规容器,保留 117 处合规豁免(状态点/红点底/Switch 拇指/spinner/Avatar img 本体/CSS 装饰圆点)。typecheck + lint + pre-commit 13 项守门 + pre-push 全量 typecheck 全绿,commit `f0ce0705` 已 push origin/main。完整收尾,无任何剩余建议。
