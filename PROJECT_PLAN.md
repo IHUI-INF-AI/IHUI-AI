@@ -3485,6 +3485,81 @@ PROJECT_PLAN.md L2280 历史"7 桩"记录**完全准确**:
 
 ---
 
+### ✅(2026-07-17) goal achieved — P2 themes 系列补齐(5 张表 + 23 路由真实化 + 28 测试)
+
+> /goal P2 themes 系列补齐(第 10 轮):5 张表 schema + migration 0094 + 23 路由真空桩接入真实查询 + 28 测试用例。
+
+**结论:6 个硬性指标全部完成,typecheck+lint+test 全绿。状态 achieved。**
+
+#### 完成清单
+
+| #   | 硬性指标                                                       | 状态 | 产出                                                                  |
+| --- | -------------------------------------------------------------- | ---- | --------------------------------------------------------------------- |
+| 1   | themes 表 schema(主表)                                       | ✅   | themes.ts(themes 表:id/name/isDark/isActive/isCurrent/preset/settings)|
+| 2   | themeColors + themeFonts + themeAssets + themePresets 表 schema| ✅   | 4 子表(FK→themes,onDelete cascade)                                 |
+| 3   | migration 0094 生成(5 张表 CREATE TABLE)                     | ✅   | 0094_themes.sql + journal idx=94                                      |
+| 4   | 23 路由真空桩接入真实 DB                                       | ✅   | themes 8 + colors 5 + fonts 4 + assets 3 + presets 1 + import + apply-preset |
+| 5   | 测试覆盖                                                       | ✅   | themes.test.ts 28 用例                                                |
+| 6   | typecheck + lint + test 全绿                                   | ✅   | database/api typecheck ✅ / api lint 0 errors ✅ / api test ✅        |
+
+#### 新增 5 张表
+
+| 表名 | 用途 | 核心字段 |
+|------|------|----------|
+| themes | 主题主表 | name/isDark/isActive/isCurrent/preset/settings(jsonb) |
+| theme_colors | 颜色变量 | themeId(FK)/key/value/label/sortOrder |
+| theme_fonts | 字体配置 | themeId(FK)/name/family/url/isDefault/sortOrder |
+| theme_assets | 资源(logo/背景) | themeId(FK)/type/url/label/sortOrder |
+| theme_presets | 预设 | name/preset/config(jsonb)/isSystem |
+
+所有子表 FK→themes.id,onDelete cascade。
+
+#### 23 路由实现(按分组)
+
+**themes 主表(8 路由)**:
+- POST /admin/themes:创建(isCurrent=true 时事务清空其他 current)
+- GET /admin/themes:列表(含 colorsCount/fontsCount/assetsCount 聚合)
+- GET /admin/themes/:id:详情(含子表数组)
+- PUT /admin/themes/:id:更新(isCurrent 事务)
+- PATCH /admin/themes/:id:部分更新
+- DELETE /admin/themes/:id:删除(cascade)
+- GET /admin/themes/current:当前主题
+- GET/PUT /admin/themes/dark-mode:暗色模式状态/切换
+- POST /admin/themes/import:导入(含子表批量插入)
+- POST /admin/themes/apply-preset:应用预设
+
+**colors(5 路由)**:GET 列表 + POST 创建 + PUT /:id 更新 + DELETE /:id + PUT 批量更新
+**fonts(4 路由)**:GET 列表 + POST 创建 + PUT /:id 更新 + DELETE /:id
+**assets(3 路由)**:GET 列表 + POST 创建 + DELETE /:id
+**presets(1 路由)**:GET 列表
+
+#### 测试覆盖(28 用例)
+
+themes.test.ts:鉴权(403)+ CRUD(201/200/404)+ isCurrent 事务 + current/dark-mode + colors CRUD + bulk + fonts CRUD + assets CRUD + presets + import + apply-preset(200/404)
+
+#### 验证证据
+
+| 命令 | 退出码 | 结果 |
+|------|--------|------|
+| `pnpm --filter @ihui/database typecheck` | 0 | ✅ |
+| `pnpm --filter @ihui/api typecheck` | 0 | ✅ |
+| `pnpm --filter @ihui/api lint` | 0 | ✅(8 个 pre-existing warnings)|
+| `pnpm --filter @ihui/api test themes` | 0 | ✅ 28/28 通过 |
+
+#### 残留问题(后续任务)
+
+1. 69 个需新表路由中,本轮完成 23 个(themes 系列),剩余 31 个需新表路由待后续处理
+2. migration 0094 未实际执行(仅生成 SQL,生产部署前需执行)
+3. 多端同步:本轮仅后端落地,未涉及前端 UI
+4. isCurrent 唯一性用应用层事务保证(无 DB 层 partial unique index),高并发下可能有竞态
+
+#### git 信息
+
+- 分支:goal/fix-multiport-p0-batch3
+- 运行时文件 .trae-cn/goal-runtime/STATE.md + loop-run-log.md 已清理
+
+---
+
 > 用户决策(2026-07-16):Tauri 2.0(桌面)+ React Native + Expo(移动)+ Chrome MV3 + WXT(插件)+ CLI 升级。要求最优最强架构、最细致最完美。
 
 #### 0. 总体架构(多端共享 + 平台特化)
