@@ -21,7 +21,7 @@ export function useDictType(typeCode: string) {
     queryKey: ['dict', typeCode],
     queryFn: async (): Promise<DictItem[]> => {
       const r = await fetchApi<DictDataResponse>(
-        `/api/admin/dict/data/type/${encodeURIComponent(typeCode)}`,
+        `/api/dict/data/type/${encodeURIComponent(typeCode)}`,
       )
       if (!r.success || !r.data) return []
       return (r.data.list ?? []).map((d) => ({
