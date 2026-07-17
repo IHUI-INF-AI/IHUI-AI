@@ -1,0 +1,1 @@
+ALTER TABLE "agents" ADD COLUMN "is_vip_exclusive" boolean DEFAULT false NOT NULL;
