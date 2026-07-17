@@ -29,17 +29,14 @@ import {
 } from '../subagents/state-store.js';
 import { createWorktree, removeWorktree } from '../subagents/worktree.js';
 import { PERSONAS_CONTRACTS, type JSONSchema } from '../personas/index.js';
+import type { SubagentPersona, CapabilityMode, IsolationMode } from '@ihui/types';
+
+export type { SubagentPersona, CapabilityMode, IsolationMode };
 
 const MAX_SUBAGENT_DEPTH = 3;
 const SUBAGENT_MAX_ITERATIONS = 10;
 
 let subagentDepth = 0;
-
-export type SubagentPersona = 'researcher' | 'coder' | 'reviewer' | 'planner' | 'general';
-
-export type CapabilityMode = 'read-only' | 'read-write' | 'execute' | 'all';
-
-export type IsolationMode = 'none' | 'worktree';
 
 export interface PersonaConfig {
   allowedTools?: string[];

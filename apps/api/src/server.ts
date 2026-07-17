@@ -218,6 +218,7 @@ import { outboundRoutes } from './routes/outbound.js'
 import { aiVideoComposeRoutes } from './routes/ai-video-compose.js'
 import { legacyLangchainRoutes } from './routes/legacy-langchain.js'
 import { rewardedVideoAdRoutes } from './routes/rewarded-video-ad.js'
+import { agentRuntimeRoutes } from './routes/agent-runtime.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
@@ -837,4 +838,7 @@ function registerRoutes(server: FastifyInstance) {
   server.register(legacyLangchainRoutes, { prefix: '/api/langchain' })
   // 激励视频广告回调:/api/rewarded-video-ad/notify|config
   server.register(rewardedVideoAdRoutes, { prefix: '/api/rewarded-video-ad' })
+
+  // Agent Runtime:PermissionGuard 5 mode + SessionManager 集成(/api/agent-runtime/*)
+  server.register(agentRuntimeRoutes, { prefix: '/api/agent-runtime' })
 }
