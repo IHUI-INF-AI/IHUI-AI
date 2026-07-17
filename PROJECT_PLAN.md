@@ -126,7 +126,9 @@
 
 ### 新增 P2 任务(后续跟进)
 
-- [ ] 📋(2026-07-17) plan **小程序/移动端收藏关注订阅功能补齐**:miniapp-taro "我的"tab 菜单仅含订单/设置/课程/AI,无收藏/关注/订阅入口;mobile-rn 仅 7 screen 无对应功能。属独立功能缺失(非导航同步),需补 favorites/following/subscriptions 页面 + API 对接。目标端:miniapp-taro + mobile-rn(平台独占豁免:web 侧边栏聚合不要求跨端)
+- [x] ✅(2026-07-17) **小程序/移动端收藏关注订阅功能补齐**:miniapp-taro 新增 favorites/following/subscriptions 页面(下拉刷新/上拉加载/删除取消)+ API 对接;mobile-rn 新增 FavoritesScreen/FollowingScreen/SubscriptionsScreen(FlatList/RefreshControl/无限滚动)+ API 对接;目标端:miniapp-taro + mobile-rn(平台独占)
+- [x] ✅(2026-07-17) **i18n 跨端对齐**:miniapp-taro/mobile-rn/desktop/extension/cli 五端统一搭建 Context-based i18n 框架,支持 zh-CN/en/ja/ko/zh-TW 五语言 + fallback 回退 + 平台原生存储持久化(Taro 存储/AsyncStorage/localStorage/browser.storage.local/环境变量)
+- [x] ✅(2026-07-17) **LLM provider 扩展(GROQ/GEMINI/OPENROUTER)**:ai-service llm_gateway.py 识别 `groq/`, `gemini/`, `openrouter/` 前缀并透传;API `/llm/models` 暴露新模型;web ModelSelector 新增选项 + 5 语言翻译键;provider 适配器路由同步支持
 
 ### ✅ 任务完成,可关闭对话
 

@@ -5,15 +5,16 @@ import { initApi, getToken, getRefreshToken, setTokenPair, clearAllTokens } from
 import { startAutoRefresh, scheduleRefreshAlarm, doRefresh } from '../../lib/token-utils'
 import { useNotificationWebSocket } from '../../lib/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../../lib/notification-store'
+import { useI18n } from '../../src/i18n'
 import LoginPage from './pages/LoginPage'
 import NotificationPanel from './NotificationPanel'
 
 const TABS = [
-  { to: '/chat', label: '对话', icon: '💬' },
-  { to: '/profile', label: '我的', icon: '👤' },
-  { to: '/wallet', label: '钱包', icon: '💰' },
-  { to: '/courses', label: '课程', icon: '📚' },
-  { to: '/settings', label: '设置', icon: '⚙️' },
+  { to: '/chat', labelKey: 'nav.chat', icon: '💬' },
+  { to: '/profile', labelKey: 'nav.profile', icon: '👤' },
+  { to: '/wallet', labelKey: 'nav.wallet', icon: '💰' },
+  { to: '/courses', labelKey: 'nav.courses', icon: '📚' },
+  { to: '/settings', labelKey: 'nav.settings', icon: '⚙️' },
 ]
 
 function isUnauthorized(res: { success: false; error: string; status?: number }): boolean {
@@ -23,6 +24,7 @@ function isUnauthorized(res: { success: false; error: string; status?: number })
 
 function SidepanelInner() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [ready, setReady] = useState(false)
   const [authed, setAuthed] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -39,10 +41,10 @@ function SidepanelInner() {
     void (async () => {
       await initApi()
       if (cancelled) return
-      const t = getToken()
-      setTokenState(t)
-      setAuthed(!!t)
-      if (t) {
+      const storedToken = getToken()
+      setTokenState(storedToken)
+      setAuthed(!!storedToken)
+      if (storedToken) {
         let res = await getProfile()
         if (cancelled) return
         if (!res.success && isUnauthorized(res)) {
@@ -96,7 +98,7 @@ function SidepanelInner() {
   }
 
   if (!ready) {
-    return <div className="sp-loading">加载中...</div>
+    return <div className="sp-loading">{t('common.loading')}</div>
   }
 
   if (!authed) {
@@ -115,33 +117,33 @@ function SidepanelInner() {
           type="button"
           className="sp-notify-btn"
           onClick={() => setVisible(true)}
-          aria-label="通知"
-          title="通知"
+          aria-label={t('nav.notifications')}
+          title={t('nav.notifications')}
         >
           🔔
           {unreadCount > 0 ? <span className="sp-notify-badge">{unreadCount}</span> : null}
         </button>
         <span
           className={`sp-ws-dot ${wsConnected ? 'connected' : 'disconnected'}`}
-          title={wsConnected ? '实时通知已连接' : '实时通知未连接'}
-          aria-label={wsConnected ? '实时通知已连接' : '实时通知未连接'}
+          title={wsConnected ? t('notification.connected') : t('notification.disconnected')}
+          aria-label={wsConnected ? t('notification.connected') : t('notification.disconnected')}
         />
         <span className="sp-user">{user?.nickname || ''}</span>
       </header>
       <div className="sp-body">
         <nav className="sp-tabs" aria-label="导航">
-          {TABS.map((t) => (
+          {TABS.map((tab) => (
             <NavLink
-              key={t.to}
-              to={t.to}
+              key={tab.to}
+              to={tab.to}
               className={({ isActive }: { isActive: boolean }) =>
                 `sp-tab ${isActive ? 'active' : ''}`
               }
             >
               <span className="sp-tab-icon" aria-hidden>
-                {t.icon}
+                {tab.icon}
               </span>
-              <span className="sp-tab-label">{t.label}</span>
+              <span className="sp-tab-label">{t(tab.labelKey)}</span>
             </NavLink>
           ))}
         </nav>

@@ -96,13 +96,14 @@ export interface PaperWithCategory extends ExamPaper {
 
 /**
  * 分页查询已发布试卷。
- * 仅返回 is_published=true 的试卷，支持关键词搜索(title/description)与 categoryId 筛选。
+ * 仅返回 is_published=true 的试卷，支持关键词搜索(title/description)、categoryId 单值与 cidList 数组筛选。
  */
 export async function findPublishedPapers(opts: {
   page: number
   pageSize: number
   search?: string
   categoryId?: string
+  cidList?: string[]
   paperType?: string
 }): Promise<{ list: PaperWithCategory[]; total: number }> {
   const conds = [eq(examPapers.isPublished, true)]
@@ -112,6 +113,11 @@ export async function findPublishedPapers(opts: {
     )
   }
   if (opts.categoryId) conds.push(eq(examPapers.categoryId, opts.categoryId))
+  if (opts.cidList && opts.cidList.length > 0) {
+    conds.push(
+      sql`${examPapers.cidList} ?| ${sql.raw(`ARRAY[${opts.cidList.map((c) => `'${c}'`).join(',')}]::text[]`)}`,
+    )
+  }
   if (opts.paperType) conds.push(eq(examPapers.paperType, opts.paperType))
   const where = and(...conds)
   const [rows, totalRows] = await Promise.all([
@@ -132,12 +138,13 @@ export async function findPublishedPapers(opts: {
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
-/** 管理员分页查询全部试卷(含未发布),支持 categoryId 筛选。 */
+/** 管理员分页查询全部试卷(含未发布),支持 categoryId 单值与 cidList 数组筛选。 */
 export async function findAllPapers(opts: {
   page: number
   pageSize: number
   search?: string
   categoryId?: string
+  cidList?: string[]
   paperType?: string
 }): Promise<{ list: PaperWithCategory[]; total: number }> {
   const conds = []
@@ -147,6 +154,11 @@ export async function findAllPapers(opts: {
     )
   }
   if (opts.categoryId) conds.push(eq(examPapers.categoryId, opts.categoryId))
+  if (opts.cidList && opts.cidList.length > 0) {
+    conds.push(
+      sql`${examPapers.cidList} ?| ${sql.raw(`ARRAY[${opts.cidList.map((c) => `'${c}'`).join(',')}]::text[]`)}`,
+    )
+  }
   if (opts.paperType) conds.push(eq(examPapers.paperType, opts.paperType))
   const where = conds.length ? and(...conds) : undefined
   const [rows, totalRows] = await Promise.all([
@@ -188,6 +200,7 @@ export interface CreatePaperInput {
   title: string
   description?: string
   categoryId?: string
+  cidList?: string[] | null
   paperType?: string
   totalScore?: string
   passScore?: string
@@ -208,6 +221,7 @@ export async function createPaper(data: CreatePaperInput): Promise<ExamPaper> {
       title: data.title,
       description: data.description,
       categoryId: data.categoryId,
+      cidList: data.cidList,
       totalScore: data.totalScore,
       passScore: data.passScore,
       duration: data.duration,
@@ -229,6 +243,7 @@ export interface UpdatePaperInput {
   title?: string
   description?: string | null
   categoryId?: string | null
+  cidList?: string[] | null
   paperType?: string
   totalScore?: string
   passScore?: string
@@ -252,6 +267,7 @@ export async function updatePaper(
       ...(data.title !== undefined ? { title: data.title } : {}),
       ...(data.description !== undefined ? { description: data.description } : {}),
       ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
+      ...(data.cidList !== undefined ? { cidList: data.cidList } : {}),
       ...(data.paperType !== undefined ? { paperType: data.paperType } : {}),
       ...(data.totalScore !== undefined ? { totalScore: data.totalScore } : {}),
       ...(data.passScore !== undefined ? { passScore: data.passScore } : {}),
