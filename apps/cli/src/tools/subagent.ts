@@ -27,9 +27,15 @@ import {
   loadSubagentState,
   type SubagentState,
 } from '../subagents/state-store.js';
-import { createWorktree, removeWorktree } from '../subagents/worktree.js';
+import { createWorktree, createWorktreeWithFallback, removeWorktree } from '../subagents/worktree.js';
 import { PERSONAS_CONTRACTS, type JSONSchema } from '../personas/index.js';
 import type { SubagentPersona, CapabilityMode, IsolationMode } from '@ihui/types';
+import { resolveEffectiveOverrides } from '../subagents/precedence.js';
+import type {
+  PersonaMap,
+  RoleMap,
+  EffectiveRuntimeConfig,
+} from '../subagents/types.js';
 
 export type { SubagentPersona, CapabilityMode, IsolationMode };
 
@@ -82,6 +88,28 @@ export const PERSONAS: Record<SubagentPersona, PersonaConfig> = {
   },
 };
 
+/**
+ * 把现有 PERSONAS 适配为 precedence 模块所需的 PersonaMap 格式(兜底用)。
+ * 现有 PersonaConfig 不含 model / instructions / defaultIsolation,这些字段留 undefined,
+ * 让 precedence 链在 role / explicit 层未给出值时自然回落到 parent 层(即 parentOpts.modelId 等)。
+ */
+const PERSONAS_AS_PERSONA_MAP: PersonaMap = Object.fromEntries(
+  Object.keys(PERSONAS).map((name) => [name, { name }]),
+);
+
+/**
+ * 默认 role map:5 个内置 subagent_type 各对应一个 SubagentRole,
+ * 让 precedence 链在用户未传 capabilityMode 时能从 role 层兜底(如 researcher → read-only)。
+ * 用户可通过 SubagentParentOptions.customRoles 完全覆盖此映射。
+ */
+const DEFAULT_ROLES: RoleMap = {
+  researcher: { name: 'researcher', defaultCapabilityMode: 'read-only' },
+  coder: { name: 'coder', defaultCapabilityMode: 'read-write' },
+  reviewer: { name: 'reviewer', defaultCapabilityMode: 'read-only' },
+  planner: { name: 'planner', defaultCapabilityMode: 'read-only' },
+  general: { name: 'general', defaultCapabilityMode: 'all' },
+};
+
 export function applyPersona(tools: Tool[], persona: SubagentPersona): Tool[] {
   const config = PERSONAS[persona];
   let result = tools;
@@ -127,6 +155,14 @@ export interface SubagentParentOptions {
   resumeFrom?: string;
   capabilityMode?: CapabilityMode;
   keepWorktree?: boolean;
+  /** 是否启用 worktree CoW 快路径(对应 settings.worktreeFastPath.enabled,默认 false 走原 git worktree add) */
+  worktreeFastPathEnabled?: boolean;
+  /** 启用 precedence 链(默认 false,渐进式启用)。关闭时走原有逻辑,零回归。 */
+  precedenceEnabled?: boolean;
+  /** 自定义 role map(覆盖默认 DEFAULT_ROLES,仅在 precedenceEnabled=true 时生效) */
+  customRoles?: RoleMap;
+  /** 自定义 persona map(覆盖默认 PERSONAS_AS_PERSONA_MAP,仅在 precedenceEnabled=true 时生效) */
+  customPersonas?: PersonaMap;
 }
 
 export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
@@ -187,11 +223,37 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
       const userMaxIterations = args.maxIterations as number | undefined;
       const userTools = args.tools as string[] | undefined;
 
-      const isolation = (args.isolation as IsolationMode | undefined) ?? parentOpts.isolation ?? 'none';
+      let isolation = (args.isolation as IsolationMode | undefined) ?? parentOpts.isolation ?? 'none';
       const resumeFrom = (args.resumeFrom as string | undefined) ?? parentOpts.resumeFrom;
-      const capabilityMode = (args.capabilityMode as CapabilityMode | undefined) ?? parentOpts.capabilityMode;
+      let capabilityMode = (args.capabilityMode as CapabilityMode | undefined) ?? parentOpts.capabilityMode;
       const keepWorktree = (args.keepWorktree as boolean | undefined) ?? parentOpts.keepWorktree ?? false;
       const parentId = parentOpts.sessionId ?? process.env.IHUI_SESSION_ID ?? 'cli';
+
+      // P1-2 Subagent precedence:feature flag 默认关闭,关闭时走原有逻辑(零回归);
+      // 开启时按 4 层短路链(explicit > role > persona > parent)解析 model / capabilityMode / isolation。
+      let modelId = parentOpts.modelId;
+      if (parentOpts.precedenceEnabled === true) {
+        const roleMap = parentOpts.customRoles ?? DEFAULT_ROLES;
+        const personaMap = parentOpts.customPersonas ?? PERSONAS_AS_PERSONA_MAP;
+        const effective: EffectiveRuntimeConfig = resolveEffectiveOverrides(
+          {
+            model: args.model as string | undefined,
+            persona: args.persona as string | undefined,
+            capabilityMode: args.capabilityMode as CapabilityMode | undefined,
+            isolation: args.isolation as IsolationMode | undefined,
+          },
+          roleMap[persona],
+          personaMap,
+          parentOpts.workspacePath,
+          persona,
+        );
+        // 只在 effective 给出值时覆盖(保留 undefined=回落到 parent 层的语义);
+        // isolation 例外:effective 总有值(默认 'none'),但 'subprocess' 在现有代码中
+        // 等同 'none'(不创建 worktree),用 cast 收窄到 @ihui/types 的 IsolationMode 联合。
+        if (effective.model !== undefined) modelId = effective.model;
+        if (effective.capabilityMode !== undefined) capabilityMode = effective.capabilityMode;
+        isolation = effective.isolation as IsolationMode;
+      }
 
       const subagentId = resumeFrom ?? newSubagentId();
 
@@ -214,7 +276,11 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
           effectiveWorkspace = resumedState.worktreePath;
         } else {
           try {
-            const wt = createWorktree(parentId, subagentId, parentOpts.workspacePath);
+            // feature flag 关闭(默认):走原 git worktree add(零回归);启用时走 CoW 快路径+ fallback
+            const useFastPath = parentOpts.worktreeFastPathEnabled === true;
+            const wt = useFastPath
+              ? await createWorktreeWithFallback(parentId, subagentId, parentOpts.workspacePath, true)
+              : createWorktree(parentId, subagentId, parentOpts.workspacePath);
             effectiveWorkspace = wt.path;
             worktreeCreated = true;
           } catch (err) {
@@ -236,7 +302,7 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         worktreePath: isolation === 'worktree' ? effectiveWorkspace : undefined,
         transcript: resumedState?.transcript ?? [],
         toolState: resumedState?.toolState,
-        model: resumedState?.model ?? parentOpts.modelId,
+        model: resumedState?.model ?? modelId,
         status: 'running',
         startedAt: resumedState?.startedAt ?? new Date().toISOString(),
       };
@@ -292,7 +358,7 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
           ];
 
           const result = await runToolLoop({
-            modelId: parentOpts.modelId,
+            modelId,
             messages,
             ctx,
             maxIterations: effectiveMaxIterations,
