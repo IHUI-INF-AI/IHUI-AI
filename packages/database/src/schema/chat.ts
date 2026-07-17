@@ -1,5 +1,14 @@
-import { pgTable, uuid, varchar, text, integer, timestamp, jsonb, unique } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  timestamp,
+  jsonb,
+  unique,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * AI 对话表。
@@ -17,7 +26,10 @@ export const chatConversations = pgTable('chat_conversations', {
   lastMessageAt: timestamp('last_message_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  compressedAt: timestamp('compressed_at', { withTimezone: true }),
+  compressedContext: text('compressed_context'),
+})
 
 /**
  * 对话消息表。
@@ -33,7 +45,7 @@ export const chatMessages = pgTable('chat_messages', {
   tokens: integer('tokens'),
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 收藏对话表。
@@ -54,11 +66,11 @@ export const chatFavorites = pgTable(
   (t) => ({
     uniq: unique().on(t.userId, t.conversationId),
   }),
-);
+)
 
-export type ChatConversation = typeof chatConversations.$inferSelect;
-export type NewChatConversation = typeof chatConversations.$inferInsert;
-export type ChatMessage = typeof chatMessages.$inferSelect;
-export type NewChatMessage = typeof chatMessages.$inferInsert;
-export type ChatFavorite = typeof chatFavorites.$inferSelect;
-export type NewChatFavorite = typeof chatFavorites.$inferInsert;
+export type ChatConversation = typeof chatConversations.$inferSelect
+export type NewChatConversation = typeof chatConversations.$inferInsert
+export type ChatMessage = typeof chatMessages.$inferSelect
+export type NewChatMessage = typeof chatMessages.$inferInsert
+export type ChatFavorite = typeof chatFavorites.$inferSelect
+export type NewChatFavorite = typeof chatFavorites.$inferInsert
