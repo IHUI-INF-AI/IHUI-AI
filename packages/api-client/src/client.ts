@@ -203,7 +203,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const body: Record<string, unknown> = { modelId: opts.model, messages: opts.messages }
+  const body: Record<string, unknown> = { model: opts.model, messages: opts.messages }
   if (opts.metadata) body.metadata = opts.metadata
   if (opts.temperature !== undefined) body.temperature = opts.temperature
   if (opts.topP !== undefined) body.topP = opts.topP
