@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -63,7 +64,6 @@ import { Tooltip, TooltipProvider, Dropdown, Popover } from '@/components/feedba
 import { SearchBar } from '@/components/business'
 import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { useClickOutside } from '@/hooks/use-click-outside'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
 
 interface NavItem {
@@ -558,9 +558,10 @@ function SidebarExtraActions({
 }
 
 /**
- * 侧边栏'搜索'导航行:点击后以从顶部下拉动画弹窗的形式呈现一个 SearchBar,
- * 提交后跳 /search?q=... 并关闭。折叠态与展开态均使用弹出式(避免直接跳 /search)。
- * 点击外部 / Esc 键 / 路由变化均会关闭弹层。
+ * 侧边栏'搜索'导航行:点击后通过 portal 将搜索弹层渲染到右侧工作区(#work-area-portal-root),
+ * 居中于工作区顶部、向下滑出。提交后跳 /search?q=... 并关闭。
+ * 折叠态与展开态行为一致。点击外部 / Esc 键 / 路由变化均会关闭弹层。
+ * 实现:createPortal(dropdown, portalTarget) 将 DOM 节点挂载到工作区容器。
  */
 function SearchNavItem({
   collapsed,
@@ -578,15 +579,23 @@ function SearchNavItem({
   const router = useRouter()
   const tc = useTranslations('common')
   const [open, setOpen] = React.useState(false)
-  const popRef = useClickOutside<HTMLDivElement>(React.useCallback(() => setOpen(false), []))
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const dropdownRef = React.useRef<HTMLDivElement>(null)
+  const [portalTarget, setPortalTarget] = React.useState<HTMLElement | null>(null)
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const searchParamsStr = searchParams?.toString()
 
+  // 挂载后查询右侧工作区容器作为 portal 目标(只在客户端执行)
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return
+    setPortalTarget(document.getElementById('work-area-portal-root'))
+  }, [])
+
   // 路由变化(同路径不同 query 也算)时关闭弹层
   React.useEffect(() => {
     setOpen(false)
-  }, [pathname, searchParamsStr, setOpen])
+  }, [pathname, searchParamsStr])
 
   // Esc 关闭弹层
   React.useEffect(() => {
@@ -599,6 +608,23 @@ function SearchNavItem({
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
+  // 点击外部关闭(需同时检查 trigger 与 dropdown 两个 ref,因为 dropdown 通过 portal 渲染在别处)
+  React.useEffect(() => {
+    if (!open) return
+    const handler = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
   }, [open])
 
   const handleSearch = (kw: string) => {
@@ -615,19 +641,43 @@ function SearchNavItem({
     collapsed && 'justify-center',
   )
 
-  // 折叠态与展开态均使用顶部下拉动画弹窗,差异仅在于弹窗定位
-  const popupClassName = cn(
-    'absolute top-full z-50 mt-2 w-[calc(100vw-2rem)] max-w-80 origin-top rounded-md border bg-popover p-3 text-popover-foreground shadow-md animate-in fade-in-0 slide-in-from-top-2 duration-200',
-    collapsed ? 'left-full ml-2 mt-0' : 'left-0',
-  )
+  // 通过 portal 渲染到右侧工作区容器:绝对定位、水平居中(inset-x-0 + mx-auto,避免
+  // 与 slide-in-from-top 动画的 transform 冲突)、顶部向下滑出。
+  // 工作区容器 overflow-hidden + rounded-xl 会裁剪初始 translateY(-100%) 状态,
+  // 形成从顶部边缘"向下滑出"的视觉效果。
+  const dropdown =
+    open && portalTarget
+      ? createPortal(
+          <div
+            ref={dropdownRef}
+            role="dialog"
+            aria-label={tc('searchPlaceholder')}
+            className="absolute inset-x-0 top-2 z-50 mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-200"
+          >
+            <div className="rounded-md border bg-popover p-3 text-popover-foreground shadow-md">
+              <SearchBar
+                onSearch={handleSearch}
+                placeholder={tc('searchPlaceholder')}
+                focusOnMount
+              />
+            </div>
+          </div>,
+          portalTarget,
+        )
+      : null
+
+  const setTriggerRef = (el: HTMLButtonElement | null) => {
+    triggerRef.current = el
+    refCb(el)
+  }
 
   return (
-    <div ref={popRef} className="relative">
+    <div className="relative">
       {collapsed ? (
         <Tooltip content={label} side="right">
           <button
             type="button"
-            ref={refCb}
+            ref={setTriggerRef}
             aria-label={label}
             aria-haspopup="dialog"
             aria-expanded={open}
@@ -641,7 +691,7 @@ function SearchNavItem({
       ) : (
         <button
           type="button"
-          ref={refCb}
+          ref={setTriggerRef}
           aria-label={label}
           aria-haspopup="dialog"
           aria-expanded={open}
@@ -653,11 +703,7 @@ function SearchNavItem({
           <span>{label}</span>
         </button>
       )}
-      {open && (
-        <div role="dialog" aria-label={tc('searchPlaceholder')} className={popupClassName}>
-          <SearchBar onSearch={handleSearch} placeholder={tc('searchPlaceholder')} focusOnMount />
-        </div>
-      )}
+      {dropdown}
     </div>
   )
 }
@@ -1063,11 +1109,13 @@ export function Sidebar({
   )
 
   const footer = (
-    <div className="shrink-0">
-      <SidebarExtraActions collapsed={collapsed} onCloseMobile={onCloseMobile} />
-      <SidebarActions collapsed={collapsed} />
-      <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
-    </div>
+    <TooltipProvider>
+      <div className="shrink-0">
+        <SidebarExtraActions collapsed={collapsed} onCloseMobile={onCloseMobile} />
+        <SidebarActions collapsed={collapsed} />
+        <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
+      </div>
+    </TooltipProvider>
   )
 
   const header = (
