@@ -23,9 +23,12 @@ import {
   clawdbotBots,
   clawdbotPermissions,
   clawdbotSessions,
+  users,
+  eduOrders,
 } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
+import { createComment, findTicketById } from '../db/customer-service-queries.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -64,6 +67,36 @@ const createUserPlatformSchema = z.object({
   status: z.number().int().optional(),
 })
 const updateUserPlatformSchema = createUserPlatformSchema.partial()
+
+const updateUserSchema = z
+  .object({
+    nickname: z.string().min(1).max(64).optional(),
+    avatar: z.string().max(500).optional(),
+    bio: z.string().max(500).optional(),
+    gender: z.number().int().min(0).max(2).optional(),
+    birthday: z.string().optional(),
+    roleId: z.number().int().min(0).max(10).optional(),
+    deptId: z.number().int().optional(),
+    status: z.number().int().min(0).max(3).optional(),
+    isVip: z.number().int().min(-1).max(2).optional(),
+    level: z.number().int().min(0).max(3).optional(),
+  })
+  .strict()
+
+const updateOrderSchema = z
+  .object({
+    status: z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(),
+    payType: z.string().max(50).optional(),
+    remark: z.string().max(500).optional(),
+    targetTitle: z.string().max(200).optional(),
+  })
+  .strict()
+
+const adminSendCommentSchema = z.object({
+  ticketId: z.string().uuid(),
+  content: z.string().min(1).max(5000),
+  attachments: z.array(z.unknown()).optional(),
+})
 
 const createUserAgentAudioSchema = z.object({
   userUuid: z.string().min(1),
@@ -307,10 +340,17 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     if (!q) return
     const offset = (q.page - 1) * q.pageSize
     const [items, totalRows] = await Promise.all([
-      db.select().from(clawdbotBots).orderBy(desc(clawdbotBots.createdAt)).limit(q.pageSize).offset(offset),
+      db
+        .select()
+        .from(clawdbotBots)
+        .orderBy(desc(clawdbotBots.createdAt))
+        .limit(q.pageSize)
+        .offset(offset),
       db.select({ count: count() }).from(clawdbotBots),
     ])
-    return reply.send(success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }))
+    return reply.send(
+      success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }),
+    )
   })
   server.put('/admin/clawdbot/bots/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
@@ -327,17 +367,24 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     const { bots } = parseOrThrow(bulkUpdateClawdbotBotsSchema, request.body)
     await db.transaction(async (tx) => {
       for (const b of bots) {
-        await tx.update(clawdbotBots).set({ ...b, updatedAt: new Date() }).where(eq(clawdbotBots.id, b.id))
+        await tx
+          .update(clawdbotBots)
+          .set({ ...b, updatedAt: new Date() })
+          .where(eq(clawdbotBots.id, b.id))
       }
     })
     return reply.send(success({ updated: bots.length }))
   })
-  server.delete('/admin/clawdbot/bots/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = parseOrThrow(idParamSchema, request.params)
-    const [row] = await db.delete(clawdbotBots).where(eq(clawdbotBots.id, id)).returning()
-    if (!row) return reply.status(404).send(error(404, '机器人不存在'))
-    return reply.send(success({ id, deleted: true }))
-  })
+  server.delete(
+    '/admin/clawdbot/bots/:id',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = parseOrThrow(idParamSchema, request.params)
+      const [row] = await db.delete(clawdbotBots).where(eq(clawdbotBots.id, id)).returning()
+      if (!row) return reply.status(404).send(error(404, '机器人不存在'))
+      return reply.send(success({ id, deleted: true }))
+    },
+  )
   server.get('/admin/clawdbot/stats', { preHandler: requireAdmin }, async (_request, reply) => {
     const [botTotal, botActive, sessionTotal, permissionTotal] = await Promise.all([
       db.select({ count: count() }).from(clawdbotBots),
@@ -354,34 +401,56 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
       }),
     )
   })
-  server.get('/admin/clawdbot/permissions', { preHandler: requireAdmin }, async (request, reply) => {
-    const q = parseClawdbotPagination(request, reply)
-    if (!q) return
-    const offset = (q.page - 1) * q.pageSize
-    const where = q.botId ? eq(clawdbotPermissions.botId, q.botId) : undefined
-    const [items, totalRows] = await Promise.all([
-      db
-        .select()
-        .from(clawdbotPermissions)
-        .where(where)
-        .orderBy(desc(clawdbotPermissions.createdAt))
-        .limit(q.pageSize)
-        .offset(offset),
-      db.select({ count: count() }).from(clawdbotPermissions).where(where),
-    ])
-    return reply.send(success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }))
-  })
-  server.post('/admin/clawdbot/permissions', { preHandler: requireAdmin }, async (request, reply) => {
-    const body = parseOrThrow(createClawdbotPermissionSchema, request.body)
-    const [row] = await db.insert(clawdbotPermissions).values(body).returning()
-    return reply.status(201).send(success(row))
-  })
-  server.delete('/admin/clawdbot/permissions/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = parseOrThrow(idParamSchema, request.params)
-    const [row] = await db.delete(clawdbotPermissions).where(eq(clawdbotPermissions.id, id)).returning()
-    if (!row) return reply.status(404).send(error(404, '权限不存在'))
-    return reply.send(success({ id, deleted: true }))
-  })
+  server.get(
+    '/admin/clawdbot/permissions',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const q = parseClawdbotPagination(request, reply)
+      if (!q) return
+      const offset = (q.page - 1) * q.pageSize
+      const where = q.botId ? eq(clawdbotPermissions.botId, q.botId) : undefined
+      const [items, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(clawdbotPermissions)
+          .where(where)
+          .orderBy(desc(clawdbotPermissions.createdAt))
+          .limit(q.pageSize)
+          .offset(offset),
+        db.select({ count: count() }).from(clawdbotPermissions).where(where),
+      ])
+      return reply.send(
+        success({
+          list: items,
+          total: totalRows[0]?.count ?? 0,
+          page: q.page,
+          pageSize: q.pageSize,
+        }),
+      )
+    },
+  )
+  server.post(
+    '/admin/clawdbot/permissions',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const body = parseOrThrow(createClawdbotPermissionSchema, request.body)
+      const [row] = await db.insert(clawdbotPermissions).values(body).returning()
+      return reply.status(201).send(success(row))
+    },
+  )
+  server.delete(
+    '/admin/clawdbot/permissions/:id',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = parseOrThrow(idParamSchema, request.params)
+      const [row] = await db
+        .delete(clawdbotPermissions)
+        .where(eq(clawdbotPermissions.id, id))
+        .returning()
+      if (!row) return reply.status(404).send(error(404, '权限不存在'))
+      return reply.send(success({ id, deleted: true }))
+    },
+  )
   server.get('/admin/clawdbot/sessions', { preHandler: requireAdmin }, async (request, reply) => {
     const q = parseClawdbotPagination(request, reply)
     if (!q) return
@@ -402,18 +471,39 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
         .offset(offset),
       db.select({ count: count() }).from(clawdbotSessions).where(where),
     ])
-    return reply.send(success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }))
+    return reply.send(
+      success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }),
+    )
   })
-  server.get('/admin/clawdbot/sessions/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = parseOrThrow(idParamSchema, request.params)
-    const [row] = await db.select().from(clawdbotSessions).where(eq(clawdbotSessions.id, id)).limit(1)
-    if (!row) return reply.status(404).send(error(404, '会话不存在'))
-    return reply.send(success(row))
-  })
+  server.get(
+    '/admin/clawdbot/sessions/:id',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = parseOrThrow(idParamSchema, request.params)
+      const [row] = await db
+        .select()
+        .from(clawdbotSessions)
+        .where(eq(clawdbotSessions.id, id))
+        .limit(1)
+      if (!row) return reply.status(404).send(error(404, '会话不存在'))
+      return reply.send(success(row))
+    },
+  )
   server.post(
     '/admin/customer-service/send',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.status(201).send(success({ created: true, id: randomUUID() }))
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const body = parseOrThrow(adminSendCommentSchema, request.body)
+      const ticket = await findTicketById(body.ticketId)
+      if (!ticket) return reply.status(404).send(error(404, '工单不存在'))
+      const comment = await createComment({
+        ticketId: body.ticketId,
+        userId: request.userId!,
+        content: body.content,
+        isAdmin: true,
+        attachments: body.attachments ?? [],
+      })
+      return reply.status(201).send(success({ created: true, id: comment.id }))
     },
   )
 
@@ -510,8 +600,16 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ id, deleted: true }))
     },
   )
-  server.put('/admin/users/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+  server.put('/admin/users/:id', { preHandler: requireAdmin }, async (request, reply) => {
+    const { id } = parseOrThrow(idParamSchema, request.params)
+    const body = parseOrThrow(updateUserSchema, request.body)
+    const [row] = await db
+      .update(users)
+      .set({ ...body, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    return reply.send(success(row))
   })
   server.post('/admin/users/:id/review', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.status(201).send(success({ created: true, id: randomUUID() }))
@@ -573,11 +671,22 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list: [], total: 0 }))
   })
 
-  server.put('/admin/orders/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+  server.put('/admin/orders/:id', { preHandler: requireAdmin }, async (request, reply) => {
+    const { id } = parseOrThrow(idParamSchema, request.params)
+    const body = parseOrThrow(updateOrderSchema, request.body)
+    const [row] = await db
+      .update(eduOrders)
+      .set({ ...body, updatedAt: new Date() })
+      .where(eq(eduOrders.id, id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '订单不存在'))
+    return reply.send(success(row))
   })
-  server.delete('/admin/orders/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ deleted: true }))
+  server.delete('/admin/orders/:id', { preHandler: requireAdmin }, async (request, reply) => {
+    const { id } = parseOrThrow(idParamSchema, request.params)
+    const [row] = await db.delete(eduOrders).where(eq(eduOrders.id, id)).returning()
+    if (!row) return reply.status(404).send(error(404, '订单不存在'))
+    return reply.send(success({ id, deleted: true }))
   })
   server.post('/admin/oss/files', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.status(201).send(success({ created: true, id: randomUUID() }))
@@ -737,27 +846,39 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /admin/themes/apply-preset — 应用预设(从 themePresets 创建主题)
-  server.post('/admin/themes/apply-preset', { preHandler: requireAdmin }, async (request, reply) => {
-    const body = parseOrThrow(applyPresetSchema, request.body)
-    let preset
-    if (body.presetId) {
-      const [p] = await db.select().from(themePresets).where(eq(themePresets.id, body.presetId)).limit(1)
-      preset = p
-    } else if (body.preset) {
-      const [p] = await db.select().from(themePresets).where(eq(themePresets.preset, body.preset)).limit(1)
-      preset = p
-    }
-    if (!preset) return reply.status(404).send(error(404, '预设不存在'))
-    const [created] = await db
-      .insert(themes)
-      .values({
-        name: body.name ?? preset.name,
-        preset: preset.preset,
-        settings: preset.config,
-      })
-      .returning()
-    return reply.status(201).send(success(created))
-  })
+  server.post(
+    '/admin/themes/apply-preset',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const body = parseOrThrow(applyPresetSchema, request.body)
+      let preset
+      if (body.presetId) {
+        const [p] = await db
+          .select()
+          .from(themePresets)
+          .where(eq(themePresets.id, body.presetId))
+          .limit(1)
+        preset = p
+      } else if (body.preset) {
+        const [p] = await db
+          .select()
+          .from(themePresets)
+          .where(eq(themePresets.preset, body.preset))
+          .limit(1)
+        preset = p
+      }
+      if (!preset) return reply.status(404).send(error(404, '预设不存在'))
+      const [created] = await db
+        .insert(themes)
+        .values({
+          name: body.name ?? preset.name,
+          preset: preset.preset,
+          settings: preset.config,
+        })
+        .returning()
+      return reply.status(201).send(success(created))
+    },
+  )
 
   // --- Theme colors routes (5) ---
 
@@ -777,7 +898,9 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
         .offset(offset),
       db.select({ count: count() }).from(themeColors).where(where),
     ])
-    return reply.send(success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }))
+    return reply.send(
+      success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   // POST /admin/themes/colors — 创建颜色
@@ -792,7 +915,10 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     const { colors } = parseOrThrow(bulkUpdateThemeColorsSchema, request.body)
     await db.transaction(async (tx) => {
       for (const c of colors) {
-        await tx.update(themeColors).set({ ...c, updatedAt: new Date() }).where(eq(themeColors.id, c.id))
+        await tx
+          .update(themeColors)
+          .set({ ...c, updatedAt: new Date() })
+          .where(eq(themeColors.id, c.id))
       }
     })
     return reply.send(success({ updated: colors.length }))
@@ -812,11 +938,15 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /admin/themes/colors/:id — 删除颜色
-  server.delete('/admin/themes/colors/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = parseOrThrow(idParamSchema, request.params)
-    await db.delete(themeColors).where(eq(themeColors.id, id))
-    return reply.send(success({ deleted: true }))
-  })
+  server.delete(
+    '/admin/themes/colors/:id',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = parseOrThrow(idParamSchema, request.params)
+      await db.delete(themeColors).where(eq(themeColors.id, id))
+      return reply.send(success({ deleted: true }))
+    },
+  )
 
   // --- Theme fonts routes (4) ---
 
@@ -836,7 +966,9 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
         .offset(offset),
       db.select({ count: count() }).from(themeFonts).where(where),
     ])
-    return reply.send(success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }))
+    return reply.send(
+      success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   // POST /admin/themes/fonts — 创建字体
@@ -884,7 +1016,9 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
         .offset(offset),
       db.select({ count: count() }).from(themeAssets).where(where),
     ])
-    return reply.send(success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }))
+    return reply.send(
+      success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   // POST /admin/themes/assets — 创建资源
@@ -895,11 +1029,15 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /admin/themes/assets/:id — 删除资源
-  server.delete('/admin/themes/assets/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = parseOrThrow(idParamSchema, request.params)
-    await db.delete(themeAssets).where(eq(themeAssets.id, id))
-    return reply.send(success({ deleted: true }))
-  })
+  server.delete(
+    '/admin/themes/assets/:id',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = parseOrThrow(idParamSchema, request.params)
+      await db.delete(themeAssets).where(eq(themeAssets.id, id))
+      return reply.send(success({ deleted: true }))
+    },
+  )
 
   // --- Theme presets routes (1) ---
 
@@ -909,10 +1047,17 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     if (!q) return
     const offset = (q.page - 1) * q.pageSize
     const [items, totalRows] = await Promise.all([
-      db.select().from(themePresets).orderBy(desc(themePresets.createdAt)).limit(q.pageSize).offset(offset),
+      db
+        .select()
+        .from(themePresets)
+        .orderBy(desc(themePresets.createdAt))
+        .limit(q.pageSize)
+        .offset(offset),
       db.select({ count: count() }).from(themePresets),
     ])
-    return reply.send(success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }))
+    return reply.send(
+      success({ list: items, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }),
+    )
   })
 
   // --- Theme main CRUD (parametric routes last, 8 + import + apply-preset = 10) ---
@@ -931,7 +1076,10 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     }
     if (body.isCurrent) {
       const [created] = await db.transaction(async (tx) => {
-        await tx.update(themes).set({ isCurrent: false, updatedAt: new Date() }).where(eq(themes.isCurrent, true))
+        await tx
+          .update(themes)
+          .set({ isCurrent: false, updatedAt: new Date() })
+          .where(eq(themes.isCurrent, true))
         return tx.insert(themes).values(values).returning()
       })
       return reply.status(201).send(success(created))
@@ -946,9 +1094,17 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     const [theme] = await db.select().from(themes).where(eq(themes.id, id)).limit(1)
     if (!theme) return reply.status(404).send(error(404, '主题不存在'))
     const [colors, fonts, assets] = await Promise.all([
-      db.select().from(themeColors).where(eq(themeColors.themeId, id)).orderBy(themeColors.sortOrder),
+      db
+        .select()
+        .from(themeColors)
+        .where(eq(themeColors.themeId, id))
+        .orderBy(themeColors.sortOrder),
       db.select().from(themeFonts).where(eq(themeFonts.themeId, id)).orderBy(themeFonts.sortOrder),
-      db.select().from(themeAssets).where(eq(themeAssets.themeId, id)).orderBy(themeAssets.sortOrder),
+      db
+        .select()
+        .from(themeAssets)
+        .where(eq(themeAssets.themeId, id))
+        .orderBy(themeAssets.sortOrder),
     ])
     return reply.send(success({ ...theme, colors, fonts, assets }))
   })
@@ -959,8 +1115,15 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     const body = parseOrThrow(updateThemeSchema, request.body)
     if (body.isCurrent) {
       const [updated] = await db.transaction(async (tx) => {
-        await tx.update(themes).set({ isCurrent: false, updatedAt: new Date() }).where(eq(themes.isCurrent, true))
-        return tx.update(themes).set({ ...body, updatedAt: new Date() }).where(eq(themes.id, id)).returning()
+        await tx
+          .update(themes)
+          .set({ isCurrent: false, updatedAt: new Date() })
+          .where(eq(themes.isCurrent, true))
+        return tx
+          .update(themes)
+          .set({ ...body, updatedAt: new Date() })
+          .where(eq(themes.id, id))
+          .returning()
       })
       if (!updated) return reply.status(404).send(error(404, '主题不存在'))
       return reply.send(success(updated))
@@ -980,8 +1143,15 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     const body = parseOrThrow(updateThemeSchema, request.body)
     if (body.isCurrent) {
       const [updated] = await db.transaction(async (tx) => {
-        await tx.update(themes).set({ isCurrent: false, updatedAt: new Date() }).where(eq(themes.isCurrent, true))
-        return tx.update(themes).set({ ...body, updatedAt: new Date() }).where(eq(themes.id, id)).returning()
+        await tx
+          .update(themes)
+          .set({ isCurrent: false, updatedAt: new Date() })
+          .where(eq(themes.isCurrent, true))
+        return tx
+          .update(themes)
+          .set({ ...body, updatedAt: new Date() })
+          .where(eq(themes.id, id))
+          .returning()
       })
       if (!updated) return reply.status(404).send(error(404, '主题不存在'))
       return reply.send(success(updated))
