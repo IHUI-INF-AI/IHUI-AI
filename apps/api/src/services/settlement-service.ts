@@ -327,3 +327,52 @@ export async function getAgentName(agentId: string): Promise<string | null> {
     .limit(1)
   return rows[0]?.name ?? null
 }
+
+// =============================================================================
+// 购买 → 结算 同步（迁移自旧架构 sync_agent_buy_to_settlement）
+// =============================================================================
+
+/**
+ * 将智能体购买记录同步到结算表（按月度切分生成结算记录）。
+ *
+ * 迁移自旧架构 app/utils/settlement_helper.py 的 sync_agent_buy_to_settlement。
+ *
+ * 幂等机制：按 orderNo 去重，已有结算记录则跳过。
+ * 失败处理：try/catch 静默捕获，返回 false，不抛异常（不影响主业务流程）。
+ *
+ * @param buyRecord 购买记录（zhsAgentBuy 行）
+ * @returns 是否同步成功
+ */
+export async function syncAgentBuyToSettlement(buyRecord: {
+  id: string
+  agentId: string
+  price: string | number
+  createdAt: Date
+  expiresAt: Date
+  paymentId?: string | null
+}): Promise<boolean> {
+  try {
+    const orderNo = buyRecord.paymentId ?? buyRecord.id
+    // 幂等检查：同订单号已存在结算记录则跳过
+    const alreadyExists = await hasSettlementForOrder(orderNo)
+    if (alreadyExists) {
+      return true
+    }
+
+    const amountInCents = Math.round(Number(buyRecord.price) * 100)
+    const records = await createSettlementRecordsForRange(
+      buyRecord.agentId,
+      buyRecord.createdAt,
+      buyRecord.expiresAt,
+      {
+        buyRecordId: buyRecord.id,
+        orderNo,
+        amount: amountInCents,
+        status: 'unsettled',
+      },
+    )
+    return records.length > 0
+  } catch {
+    return false
+  }
+}
