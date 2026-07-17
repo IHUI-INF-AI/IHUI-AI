@@ -5,7 +5,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { loadSkills, formatSkillsForPrompt, findSkill, findRepoRoot, type Skill } from '../src/skills/index.js';
+import {
+  loadSkills,
+  formatSkillsForPrompt,
+  findSkill,
+  findRepoRoot,
+  parseSkillDefinition,
+  getAllowedTools,
+  type Skill,
+  type SkillFrontmatter,
+  type SkillDefinition,
+} from '../src/skills/index.js';
 
 describe('Skills 平面加载', () => {
   let tmpDir: string;
@@ -186,5 +196,227 @@ description: 一句话描述
     const names = skills.map((s) => s.name).sort();
     expect(names).toContain('repo-skill');
     expect(names).toContain('cwd-skill');
+  });
+
+  // ===== frontmatter 补全测试(对齐 grok-build Skills 规范)=====
+
+  it('frontmatter 完整解析(name+description+allowed-tools+tools+model+tags 全字段)', () => {
+    const content = `---
+name: full-skill
+description: 完整字段测试
+allowed-tools:
+  - tool-a
+  - tool-b
+tools: ["tool-c", "tool-d"]
+model: gpt-5
+tags: [coding, review]
+---
+正文内容`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'file-name', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills).toHaveLength(1);
+    const s = skills[0]!;
+    expect(s.name).toBe('full-skill');
+    expect(s.description).toBe('完整字段测试');
+    expect(s.body).toBe('正文内容');
+    expect(s.frontmatter).toBeDefined();
+    expect(s.frontmatter!.name).toBe('full-skill');
+    expect(s.frontmatter!.description).toBe('完整字段测试');
+    expect(s.frontmatter!.allowedTools).toEqual(['tool-a', 'tool-b']);
+    expect(s.frontmatter!.tools).toEqual(['tool-c', 'tool-d']);
+    expect(s.frontmatter!.model).toBe('gpt-5');
+    expect(s.frontmatter!.tags).toEqual(['coding', 'review']);
+  });
+
+  it('缺 name 字段时降级用 filename stem', () => {
+    const content = `---
+description: 有描述但无 name
+---
+正文`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'fallback-name', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills[0]!.name).toBe('fallback-name');
+    expect(skills[0]!.frontmatter?.name).toBeUndefined();
+    expect(skills[0]!.frontmatter?.description).toBe('有描述但无 name');
+  });
+
+  it('frontmatter name 覆盖 filename stem', () => {
+    const content = `---
+name: custom-name
+description: 自定义名
+---
+正文`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'file-name', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills).toHaveLength(1);
+    expect(skills[0]!.name).toBe('custom-name');
+    expect(skills[0]!.source).toContain('file-name.md');
+  });
+
+  it('allowed-tools 与 tools 字段合并(向后兼容,去重)', () => {
+    const content = `---
+name: merge-test
+allowed-tools: [tool-a, tool-b]
+tools: [tool-b, tool-c]
+---
+正文`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'merge-test', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    const merged = getAllowedTools(skills[0]!.frontmatter);
+    expect(merged.sort()).toEqual(['tool-a', 'tool-b', 'tool-c']);
+  });
+
+  it('getAllowedTools 对 undefined frontmatter 返回空数组', () => {
+    expect(getAllowedTools(undefined)).toEqual([]);
+  });
+
+  it('getAllowedTools 仅 tools 字段(向后兼容)', () => {
+    const fm: SkillFrontmatter = { tools: ['x', 'y'] };
+    expect(getAllowedTools(fm)).toEqual(['x', 'y']);
+  });
+
+  it('空 frontmatter 块正常加载', () => {
+    const content = `---
+---
+正文内容`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'empty-meta', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills).toHaveLength(1);
+    expect(skills[0]!.name).toBe('empty-meta');
+    expect(skills[0]!.body).toBe('正文内容');
+    expect(skills[0]!.frontmatter).toEqual({});
+  });
+
+  it('无 frontmatter 块时 frontmatter 字段为 undefined', () => {
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'no-meta', 'plain content');
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills[0]!.frontmatter).toBeUndefined();
+  });
+
+  it('frontmatter 含无法识别字段时不报错(降级处理)', () => {
+    const content = `---
+unknown-field: value
+broken: [unclosed bracket
+|||garbage|||
+name: valid-name
+---
+正文内容`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'malformed', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills).toHaveLength(1);
+    expect(skills[0]!.name).toBe('valid-name');
+    expect(skills[0]!.body).toBe('正文内容');
+    expect(skills[0]!.frontmatter?.name).toBe('valid-name');
+  });
+
+  it('frontmatter 未闭合时整体作为正文(无 frontmatter)', () => {
+    const content = `---
+name: unclosed
+description: 没有闭合的 frontmatter
+正文内容`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'unclosed', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills).toHaveLength(1);
+    expect(skills[0]!.name).toBe('unclosed');
+    expect(skills[0]!.frontmatter).toBeUndefined();
+  });
+
+  it('frontmatter 数组支持引号和块格式', () => {
+    const content = `---
+name: array-test
+allowed-tools:
+  - "tool-a"
+  - 'tool-b'
+tags:
+  - coding
+  - testing
+---
+正文`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'array-test', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills[0]!.frontmatter!.allowedTools).toEqual(['tool-a', 'tool-b']);
+    expect(skills[0]!.frontmatter!.tags).toEqual(['coding', 'testing']);
+  });
+
+  it('frontmatter model 字段解析', () => {
+    const content = `---
+name: model-test
+model: claude-opus-4
+---
+正文`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'model-test', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills[0]!.frontmatter!.model).toBe('claude-opus-4');
+  });
+
+  it('只有 frontmatter 没有 body', () => {
+    const content = `---
+name: no-body
+description: 只有元信息
+---
+`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'no-body', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills).toHaveLength(1);
+    expect(skills[0]!.name).toBe('no-body');
+    expect(skills[0]!.description).toBe('只有元信息');
+    expect(skills[0]!.body).toBe('');
+  });
+
+  it('多级目录扫描 + frontmatter name 优先级去重', () => {
+    // 本地 file.md frontmatter name = shared
+    // 全局 other.md frontmatter name = shared
+    // 两者解析后 name 都是 shared,高优先级(本地)覆盖全局
+    const localContent = `---
+name: shared
+description: local version
+---
+local body`;
+    const globalContent = `---
+name: shared
+description: global version
+---
+global body`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'file', localContent);
+    writeSkill(path.join(tmpHome, '.ihui', 'skills'), 'other', globalContent);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills).toHaveLength(1);
+    expect(skills[0]!.description).toBe('local version');
+    expect(skills[0]!.body).toBe('local body');
+  });
+
+  it('parseSkillDefinition 返回完整 SkillDefinition 结构', () => {
+    const content = `---
+name: parsed
+description: 测试 parseSkillDefinition
+---
+body content`;
+    const def = parseSkillDefinition(content, '/abs/path/parsed.md');
+    const expected: SkillDefinition = {
+      filePath: '/abs/path/parsed.md',
+      sourceDir: '/abs/path',
+      frontmatter: { name: 'parsed', description: '测试 parseSkillDefinition' },
+      content: 'body content',
+      hasFrontmatter: true,
+    };
+    expect(def).toEqual(expected);
+  });
+
+  it('parseSkillDefinition 无 frontmatter 时 hasFrontmatter=false', () => {
+    const def = parseSkillDefinition('plain content', '/x/y.md');
+    expect(def.hasFrontmatter).toBe(false);
+    expect(def.frontmatter).toEqual({});
+    expect(def.content).toBe('plain content');
+    expect(def.sourceDir).toBe('/x');
+  });
+
+  it('frontmatter 无 description 字段时降级用 body 截断', () => {
+    const content = `---
+name: empty-desc
+---
+body line 1`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'empty-desc', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills[0]!.description).toBe('body line 1');
   });
 });

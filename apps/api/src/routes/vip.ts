@@ -24,6 +24,7 @@ import {
   h5Prepay,
   buildJsapiSign,
 } from '../services/wechat-pay.js'
+import { listUserBindings } from '../db/oauth-queries.js'
 
 // =============================================================================
 // system_configs JSON 存储辅助（用于无独立表的资源 CRUD，按 category 区分）
@@ -144,6 +145,13 @@ async function createVipPrepay(
   }
 }
 
+async function resolveOpenId(userId: string, bodyOpenId?: string): Promise<string> {
+  if (bodyOpenId) return bodyOpenId
+  const bindings = await listUserBindings(userId)
+  const wechatBinding = bindings.find((b) => b.platform === 'wechat')
+  return wechatBinding?.openId ?? ''
+}
+
 const ADMIN_ROLE_ID = 1
 
 const idParam = z.object({ id: z.string() })
@@ -258,12 +266,8 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
       productId: level.id,
       payType: paymentMethod,
     })
-    const payInfo = await createVipPrepay(
-      order,
-      paymentMethod,
-      openId ?? request.userId,
-      request.ip,
-    )
+    const resolvedOpenId = await resolveOpenId(request.userId!, openId)
+    const payInfo = await createVipPrepay(order, paymentMethod, resolvedOpenId, request.ip)
     return reply.send(
       success({
         orderId: order.id,
@@ -301,12 +305,8 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
       productId: level.id,
       payType: paymentMethod,
     })
-    const payInfo = await createVipPrepay(
-      order,
-      paymentMethod,
-      openId ?? request.userId,
-      request.ip,
-    )
+    const resolvedOpenId = await resolveOpenId(request.userId!, openId)
+    const payInfo = await createVipPrepay(order, paymentMethod, resolvedOpenId, request.ip)
     return reply.send(
       success({
         orderId: order.id,
@@ -342,7 +342,8 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ status: order.status }))
     }
     const paymentMethod = order.paymentMethod ?? 'wechat'
-    const payInfo = await createVipPrepay(order, paymentMethod, request.userId, request.ip)
+    const resolvedOpenId = await resolveOpenId(request.userId!, undefined)
+    const payInfo = await createVipPrepay(order, paymentMethod, resolvedOpenId, request.ip)
     return reply.send(success({ status: 'pending', payInfo }))
   })
 
