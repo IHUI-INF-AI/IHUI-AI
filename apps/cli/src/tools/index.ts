@@ -17,6 +17,7 @@
 
 import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
+import { checkPermission, type PermissionRules } from './permissions.js';
 
 export interface ToolParameter {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
@@ -67,6 +68,8 @@ export interface ToolContext {
   };
   /** 路径信任映射(可选,用于 write/edit/delete 工具的额外路径检查) */
   folderTrust?: FolderTrustMap;
+  /** P0-7 Permission rules:白名单/黑名单控制(--tools/--disallowed-tools CLI flag 注入) */
+  permissions?: PermissionRules;
 }
 
 const registry = new Map<string, Tool>();
@@ -195,6 +198,18 @@ export async function executeToolCall(
   const tool = getTool(call.name);
   if (!tool) {
     return { success: false, output: '', error: `未知工具: ${call.name}`, errorType: 'not_found' };
+  }
+  // P0-7 Permission rules:白名单/黑名单拦截(在 rate limit 之前,避免被限流工具仍消耗配额)
+  if (ctx.permissions) {
+    const perm = checkPermission(call.name, ctx.permissions);
+    if (!perm.allowed) {
+      return {
+        success: false,
+        output: '',
+        error: perm.reason ?? `工具 ${call.name} 被权限规则拒绝`,
+        errorType: 'permission_denied',
+      };
+    }
   }
   // P1-4 Rate limiting:同一工具 10 秒内最多 5 次,超限返回 error
   const rateLimit = checkRateLimit(call.name);
