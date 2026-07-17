@@ -18,7 +18,7 @@ export {
   buildNotificationWsUrl,
   isWSNotification,
 } from './ws-client.js'
-export type { WebSocketClientOptions, WebSocketClientHandlers } from './ws-client.js'
+export type { WebSocketClientOptions, WebSocketClientHandlers, WebSocketLike } from './ws-client.js'
 
 // 通知类型 re-export(各端统一从 @ihui/api-client 导入,无需单独依赖 @ihui/types)
 export type {
