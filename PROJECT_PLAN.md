@@ -19153,7 +19153,6 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 
 本轮处理完第 17 轮声明后残留的并发 agent 改动:Hook 系统扩展 + date-utils/design-tokens 优化已验证通过并 push(commit 80548bf9 + 905b46ad);--permission-mode 半成品改动(typecheck 失败 + 无测试)按做减法原则还原。P1-11 标记完成。工作区干净(仅 PROJECT_PLAN.md 本轮修改),stash 空,本地与 origin/main 同步,全量 typecheck 通过。agent 侧执行任务均已处理并验证通过;业务方决策项(P1-9a 支付轮询 / P1-9b 通知声音)已在 PROJECT_PLAN 对应条目记录,不属 agent 执行范畴。
 
-
 ## 第 19 轮交付报告(2026-07-18,cli 融合第十五轮 — 多端能力集成 + 共享类型上提)
 
 ### 目标
@@ -19194,27 +19193,27 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 
 ### 多端同步审查清单核对(AGENTS.md 第 10 节)
 
-| 审查项 | 改动涉及? | 已同步端 |
-| --- | --- | --- |
-| 接口契约 | 是 新增 16 端点 | API(/api/agent-runtime/* 8 端点)+ AI-Service(/api/agent-runtime/* 8 端点)+ api-client 已暴露端点(第十四轮) |
-| 类型 | 是 共享层 24 类型 | packages/types(第十四轮稳定)+ CLI 4 文件改为 re-export(packages/types 成为唯一来源) |
-| 数据结构 | 否 无 schema 变更 | SessionManager 复用现有 clawdbot_sessions 表(第十四轮已建) |
-| UI 组件 | 否 无共享 UI 改动 | 呈现层特化留作 P2 后续 |
-| 业务功能 | 是 cli 5 项能力 | Plugins/PlanMode/Sessions 接入 CLI 主循环 + API/AI-Service 路由骨架可用 |
-| 全量验证 | 部分 | turbo 42/48 通过(@ihui/web#test 3 失败来自并发会话 ai-side-panel.tsx useTranslations 缺 NextIntlProvider,与第十五轮改动无关) |
+| 审查项   | 改动涉及?              | 已同步端                                                                                                                     |
+| -------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 接口契约 | 是 新增 16 端点        | API(/api/agent-runtime/* 8 端点)+ AI-Service(/api/agent-runtime/* 8 端点)+ api-client 已暴露端点(第十四轮)                   |
+| 类型     | 是 共享层 24 类型      | packages/types(第十四轮稳定)+ CLI 4 文件改为 re-export(packages/types 成为唯一来源)                                          |
+| 数据结构 | 否 无 schema 变更      | SessionManager 复用现有 clawdbot_sessions 表(第十四轮已建)                                                                   |
+| UI 组件  | 否 无共享 UI 改动      | 呈现层特化留作 P2 后续                                                                                                       |
+| 业务功能 | 是 cli 5 项能力 | Plugins/PlanMode/Sessions 接入 CLI 主循环 + API/AI-Service 路由骨架可用                                                      |
+| 全量验证 | 部分                   | turbo 42/48 通过(@ihui/web#test 3 失败来自并发会话 ai-side-panel.tsx useTranslations 缺 NextIntlProvider,与第十五轮改动无关) |
 
 ### 验证依据(2026-07-18)
 
-| 验证 | 命令 | 退出码 | 关键输出 |
-| --- | --- | --- | --- |
-| API typecheck | `pnpm --filter @ihui/api typecheck` | 0 | tsc --noEmit 通过 |
-| API test | `pnpm --filter @ihui/api test agent-runtime-routes` | 0 | 12/12 passed |
-| AI-Service pytest | `python -m pytest tests/test_agent_runtime_router.py` | 0 | 23 passed |
-| AI-Service app import | `python -c "from app.main import app"` | 0 | 58 routes ok |
-| CLI typecheck | `pnpm --filter @ihui/cli typecheck` | 0 | tsc --noEmit 通过 |
-| CLI test | `pnpm --filter @ihui/cli test` | 0 | 46 files / 985 tests passed |
-| CLI lint | `pnpm --filter @ihui/cli lint` | 0 | 0 errors(6 warnings 历史 any) |
-| 全量 turbo | `pnpm turbo typecheck lint test` | 1 | 42/48 tasks;@ihui/web#test 3 failed(并发会话 ai-side-panel.tsx 引入,与第十五轮无关) |
+| 验证                  | 命令                                                  | 退出码 | 关键输出                                                                            |
+| --------------------- | ----------------------------------------------------- | ------ | ----------------------------------------------------------------------------------- |
+| API typecheck         | `pnpm --filter @ihui/api typecheck`                   | 0      | tsc --noEmit 通过                                                                   |
+| API test              | `pnpm --filter @ihui/api test agent-runtime-routes`   | 0      | 12/12 passed                                                                        |
+| AI-Service pytest     | `python -m pytest tests/test_agent_runtime_router.py` | 0      | 23 passed                                                                           |
+| AI-Service app import | `python -c "from app.main import app"`                | 0      | 58 routes ok                                                                        |
+| CLI typecheck         | `pnpm --filter @ihui/cli typecheck`                   | 0      | tsc --noEmit 通过                                                                   |
+| CLI test              | `pnpm --filter @ihui/cli test`                        | 0      | 46 files / 985 tests passed                                                         |
+| CLI lint              | `pnpm --filter @ihui/cli lint`                        | 0      | 0 errors(6 warnings 历史 any)                                                       |
+| 全量 turbo            | `pnpm turbo typecheck lint test`                      | 1      | 42/48 tasks;@ihui/web#test 3 failed(并发会话 ai-side-panel.tsx 引入,与第十五轮无关) |
 
 ### 平台独占豁免(未同步,符合 AGENTS.md 第 10 节)
 
@@ -19238,3 +19237,53 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 ### 任务完成状态
 
 第十五轮多端同步集成完成 — cli 能力从"CLI 单端 + 共享层/API/AI-Service 骨架"(第十四轮)扩展到"CLI 主循环接入 + API 路由可用 + AI-Service 路由可用 + 共享类型多端复用"(第十五轮)。4 subagent 并行 + 1 Edit 修复(主线程 Write 重做 Subagent C 3 文件)。CLI 985 测试全绿(新增 13)+ API 12 测试全绿 + AI-Service 23 测试全绿。还有 5 项后续工作,见上方列表。
+
+## P1 侧边栏历史对话 + AI docked 面板恢复(2026-07-18)(2026-07-18)
+
+> **背景**:用户要求恢复旧架构(`client/` Vue 3,commit `3ee96cf0` 架构迁移前最后一个 commit)的左侧 sidebar 历史对话样式 + AI 对话框作为独立容器紧贴 sidebar 右侧的设计。新架构(`apps/web` Next.js 15 + Tailwind v4 + shadcn/ui)迁移时丢失了这些设计。
+
+### 用户需求(AskUserQuestion 确认)
+
+- **恢复范围**:全部恢复(侧边栏历史对话卡片 + AI 对话框贴左侧 sidebar + 新建对话按钮入口)
+- **AI 对话框定位**:全局 docked 面板(任何路由都可从 sidebar 新建对话按钮打开,贴 sidebar 右侧,`/chat` 路由改为面板的快捷入口)
+
+### 交付内容(3 新建 + 5 修改 + 5 i18n)
+
+**新建文件:**
+
+- `apps/web/src/stores/ai-panel.ts` 全局 AI docked 面板 zustand store(open/close/togglePanel/openPanel/setWidth/setResizing,width 持久化,open 不持久化),导出 `AI_PANEL_DEFAULT_WIDTH=400` / `AI_PANEL_MIN_WIDTH=320` / `AI_PANEL_MAX_WIDTH=720`
+- `apps/web/src/components/sidebar-chat-history.tsx` 侧边栏内嵌历史对话卡片(对齐旧架构 `SidebarChatHistory.vue` 视觉:卡片容器 border + rounded-md + bg-card,列表 max-h-220px 滚动,hover/active 用 ::before 伪元素胶囊效果,active 左侧 2px 高亮条),数据源 `useQuery fetch /api/chat/conversations`,`isAuthenticated && !collapsed` 才启用
+- `apps/web/src/components/ai/ai-side-panel.tsx` 全局 AI docked 侧边面板(对齐旧架构 `.ai-side-panel` 设计),紧贴 Sidebar 右侧(flex 顺序:Sidebar AISidePanel main),默认 `if (!open) return null`,内嵌 ChatHeader + ModelSelector + MessageList + MessageInput,右侧 6px 拖拽手柄调整宽度,监听 URL conversationId 加载历史 + WebSocket ai_response 多端同步 + 全局快捷键 Ctrl+Shift+N
+
+**修改文件:**
+
+- `apps/web/src/components/sidebar.tsx` 5 处修改:(1) lucide-react 导入加 `Plus`;(2) 加 `import { useAiPanelStore }`;(3) 加 `import { SidebarChatHistory }`;(4) Sidebar 函数内加 `tchat/aiPanelOpen/toggleAiPanel` hooks 声明;(5) navContent 内 `{visibleGroups.map}` 之前插入新建对话按钮(黑白对调主题:bg-foreground text-background)+ `<SidebarChatHistory collapsed={collapsed} />`
+- `apps/web/src/components/layout/MainShell.tsx` Sidebar 与 main 之间插入 `<React.Suspense fallback={null}><AISidePanel /></React.Suspense>`(Suspense 必需,AISidePanel 用 useSearchParams)
+- `apps/web/app/(main)/chat/page.tsx` 重写为 ChatEntry 组件,进入路由 `useEffect openPanel()` + 显示 empty 提示
+
+**i18n(5 语言):**
+
+- `apps/web/messages/{zh-CN,zh-TW,en,ja,ko}.json` `chat.resize` 键(zh: 拖动调整宽度 / en: Drag to resize 等)
+
+### 技术要点
+
+- **持久化失败问题**:sidebar.tsx 的 Edit/Write 工具多次返回成功但未实际持久化(项目已知问题),最终用 PowerShell ArrayList 行号插入法(从后往前插入避免索引漂移)成功应用 5 处修改,943982 行
+- **三栏布局**:Sidebar(130px) + AISidePanel(默认 400px,可拖拽 320-720px) + 主内容区(剩余)
+- **AISidePanel 默认隐藏**:`if (!open) return null`,由 sidebar 新建对话按钮 `togglePanel` 控制
+- **React.Suspense 包裹**:AISidePanel 使用 useSearchParams,Next.js 15 要求必须 Suspense 包裹
+
+### 验证
+
+| 验证项     | 命令                                                                                                         | 退出码 | 结果                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------ | ------ | -------------------------------------------- |
+| typecheck  | `pnpm --filter @ihui/web typecheck`                                                                          | 0      | tsc --noEmit 无错误                          |
+| lint       | `pnpm --filter @ihui/web lint`                                                                               | 0      | eslint 无错误                                |
+| test       | `pnpm --filter @ihui/web test`                                                                               | 0      | 23 文件 235 测试全绿                         |
+| dev server | `pnpm --filter @ihui/web dev`                                                                                | 0      | Ready in 2.6s,http://localhost:3000 返回 200 |
+| 浏览器验证 | sidebar 新建对话按钮存在(aria-pressed=true,bg-foreground text-background)+ 点击后 AI 面板展开 + 收起按钮存在 | -      | 核心功能正常                                 |
+
+### 残留说明
+
+- SidebarChatHistory 在未登录态不渲染(`if (collapsed || !isAuthenticated) return null`),这是预期行为(历史对话需要登录后才获取)
+- AISidePanel 的 resize handle 视觉较细(6px 宽 + 1px 灰色线),功能正常但视觉可改进(若用户反馈再调整)
+- ai-service 未启动(Python 服务,本次任务不涉及 AI 对话实际生成,仅恢复 UI 布局)
