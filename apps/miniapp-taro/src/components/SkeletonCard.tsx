@@ -15,7 +15,7 @@ export default function SkeletonCard({
 }: SkeletonCardProps) {
   return (
     <View className={`flex py-3 px-3 ${className}`}>
-      {avatar && <View className="w-10 h-10 mr-3 rounded-full bg-gray-100 animate-pulse" />}
+      {avatar && <View className="w-10 h-10 mr-3 rounded-md bg-gray-100 animate-pulse" />}
       <View className="flex-1 space-y-2">
         {title && <View className="h-3 w-1/2 rounded bg-gray-100 animate-pulse" />}
         {Array.from({ length: lines }).map((_, i) => (
