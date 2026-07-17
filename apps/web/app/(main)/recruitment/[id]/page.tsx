@@ -107,7 +107,7 @@ export default function RecruitmentDetailPage() {
       </Link>
 
       <header className="space-y-3">
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm text-primary">
+        <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary">
           <Target className="h-4 w-4" />
           {data.subtitle ?? '岗位详情'}
         </div>
@@ -125,7 +125,7 @@ export default function RecruitmentDetailPage() {
                 <CardContent className="flex items-center gap-3 p-4">
                   <div
                     className={cn(
-                      'flex h-10 w-10 items-center justify-center rounded-full bg-muted',
+                      'flex h-10 w-10 items-center justify-center rounded-lg bg-muted',
                       color,
                     )}
                   >
@@ -161,7 +161,7 @@ export default function RecruitmentDetailPage() {
                       highlightIdx === i && 'bg-primary/5',
                     )}
                   >
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-medium text-primary">
                       {i + 1}
                     </span>
                     <div>

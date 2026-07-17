@@ -57,7 +57,7 @@ export default function PaymentPage() {
               )}
             >
               {plan.highlighted && (
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-xs font-medium text-primary-foreground">
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-md bg-primary px-3 py-0.5 text-xs font-medium text-primary-foreground">
                   {t('popular')}
                 </span>
               )}

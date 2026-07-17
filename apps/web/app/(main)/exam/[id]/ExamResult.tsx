@@ -30,7 +30,7 @@ export function ExamResult({ paper, result }: Props) {
         <CardHeader className="text-center">
           <div
             className={cn(
-              'mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full',
+              'mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl',
               result.passed
                 ? 'bg-emerald-500/10 text-emerald-600'
                 : 'bg-destructive/10 text-destructive',

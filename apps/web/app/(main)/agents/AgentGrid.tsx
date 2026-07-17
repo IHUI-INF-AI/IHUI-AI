@@ -77,7 +77,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
               <div className="flex items-center justify-between pt-1">
                 <span
                   className={cn(
-                    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                    'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                     a.isFree
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                       : 'bg-primary/10 text-primary',

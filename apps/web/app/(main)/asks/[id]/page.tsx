@@ -51,7 +51,11 @@ export default function AskDetailPage() {
   const params = useParams<{ id: string }>()
   const qc = useQueryClient()
 
-  const { data: askData, isLoading, error } = useQuery({
+  const {
+    data: askData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['ask', params.id],
     queryFn: () => api<{ ask: AskDetail }>(`/api/asks/${params.id}`),
     enabled: !!params.id,
@@ -82,7 +86,11 @@ export default function AskDetailPage() {
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 
   const ask = askData?.ask
@@ -133,7 +141,14 @@ export default function AskDetailPage() {
         <CardHeader className="p-5">
           <div className="flex items-start justify-between gap-3">
             <CardTitle className="text-xl">{ask.title}</CardTitle>
-            <span className={cn('flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', ask.isResolved ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>
+            <span
+              className={cn(
+                'flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                ask.isResolved
+                  ? 'bg-emerald-500/10 text-emerald-600'
+                  : 'bg-amber-500/10 text-amber-600',
+              )}
+            >
               <CheckCircle2 className="h-3.5 w-3.5" />
               {ask.isResolved ? t('resolved') : t('unresolved')}
             </span>
@@ -144,7 +159,12 @@ export default function AskDetailPage() {
           {ask.tags && ask.tags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {ask.tags.map((tag) => (
-                <span key={tag} className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{tag}</span>
+                <span
+                  key={tag}
+                  className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                >
+                  {tag}
+                </span>
               ))}
             </div>
           )}
@@ -184,7 +204,7 @@ export default function AskDetailPage() {
               <Card key={a.id} className={cn(a.isAccepted && 'border-emerald-500/40')}>
                 <CardContent className="p-4">
                   {a.isAccepted && (
-                    <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                    <span className="mb-2 inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
                       <CheckCircle2 className="h-3 w-3" />
                       {tc('accepted')}
                     </span>
@@ -205,7 +225,9 @@ export default function AskDetailPage() {
       <form onSubmit={handleSubmit} className="space-y-3">
         <h2 className="text-lg font-semibold">{t('answerQuestion')}</h2>
         {formError && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{formError}</div>
+          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {formError}
+          </div>
         )}
         <textarea
           value={content}
@@ -215,7 +237,11 @@ export default function AskDetailPage() {
           className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
         <Button type="submit" disabled={answerMut.isPending}>
-          {answerMut.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />}
+          {answerMut.isPending ? (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="mr-1.5 h-4 w-4" />
+          )}
           {tc('submit')}
         </Button>
       </form>

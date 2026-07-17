@@ -73,7 +73,7 @@ export default function Index() {
           style={{ background: 'linear-gradient(135deg, #07c160, #35e683)' }}
         >
           <Image
-            className="w-[36px] h-[36px] rounded-full border-[1px] border-solid border-white"
+            className="w-[36px] h-[36px] rounded-md border-[1px] border-solid border-white"
             src={userInfo.avatar || defaultAvatar}
             mode="aspectFill"
           />
@@ -97,7 +97,7 @@ export default function Index() {
           style={{ background: 'linear-gradient(135deg, #07c160, #35e683)' }}
         >
           <Image
-            className="w-[36px] h-[36px] rounded-full border-[1px] border-solid border-white"
+            className="w-[36px] h-[36px] rounded-md border-[1px] border-solid border-white"
             src={defaultAvatar}
             mode="aspectFill"
           />

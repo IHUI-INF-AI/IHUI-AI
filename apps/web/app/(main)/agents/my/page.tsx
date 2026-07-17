@@ -103,7 +103,7 @@ export default function MyAgentsPage() {
             key={f.value}
             onClick={() => setStatus(f.value)}
             className={cn(
-              'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+              'rounded-md px-3 py-1 text-xs font-medium transition-colors',
               status === f.value
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent',
@@ -152,7 +152,7 @@ export default function MyAgentsPage() {
                       <h3 className="line-clamp-2 text-sm font-medium">{agent.name}</h3>
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                           STATUS_CLASS[agent.status] ?? STATUS_CLASS.offline,
                         )}
                       >

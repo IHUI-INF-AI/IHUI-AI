@@ -92,7 +92,7 @@ export function CoursesSection() {
                     </span>
                     <span className="flex-1 text-sm">{course.name}</span>
                     {course.isNew && (
-                      <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive">
+                      <span className="rounded-md bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive">
                         NEW
                       </span>
                     )}

@@ -80,7 +80,7 @@ export function MessagesChat({
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-4 py-3">
-        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
           {selected.peerAvatar ? (
             <Image
               src={selected.peerAvatar}

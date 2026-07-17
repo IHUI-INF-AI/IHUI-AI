@@ -44,7 +44,7 @@ export default function ExamResult() {
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="py-16 text-center">
         <View
-          className={`w-20 h-20 leading-20 mx-auto rounded-full text-4xl text-white ${info.pass ? 'bg-[#4caf50]' : 'bg-[#dd524d]'}`}
+          className={`w-20 h-20 leading-20 mx-auto rounded-2xl text-4xl text-white ${info.pass ? 'bg-[#4caf50]' : 'bg-[#dd524d]'}`}
         >
           {info.pass ? '✓' : '×'}
         </View>
@@ -80,13 +80,10 @@ export default function ExamResult() {
       </View>
 
       <View className="px-6">
-        <Button
-          className="mt-4 bg-[#07c160] text-white rounded-full text-sm w-full"
-          onClick={goList}
-        >
+        <Button className="mt-4 bg-[#07c160] text-white rounded-md text-sm w-full" onClick={goList}>
           {t('exam.result.goList')}
         </Button>
-        <Button className="mt-4 bg-white text-[#333] rounded-full text-sm w-full" onClick={goStudy}>
+        <Button className="mt-4 bg-white text-[#333] rounded-md text-sm w-full" onClick={goStudy}>
           {t('exam.result.goStudy')}
         </Button>
       </View>

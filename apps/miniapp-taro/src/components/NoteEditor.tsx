@@ -46,13 +46,10 @@ export default function NoteEditor({
         <View className="flex justify-between items-center mt-3">
           <Text className="text-xs text-gray-400">{content.length} 字</Text>
           <View className="flex space-x-2">
-            <View className="px-4 py-2 rounded-full bg-gray-100" onClick={onCancel}>
+            <View className="px-4 py-2 rounded-md bg-gray-100" onClick={onCancel}>
               <Text className="text-sm text-gray-600">取消</Text>
             </View>
-            <View
-              className="px-4 py-2 rounded-full bg-indigo-500"
-              onClick={() => onSave?.(content)}
-            >
+            <View className="px-4 py-2 rounded-md bg-indigo-500" onClick={() => onSave?.(content)}>
               <Text className="text-sm text-white">保存</Text>
             </View>
           </View>

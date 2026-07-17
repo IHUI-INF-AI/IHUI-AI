@@ -132,7 +132,7 @@ export function DeveloperCards({
                       <code className="break-all font-mono text-xs">{w.url}</code>
                       <span
                         className={cn(
-                          'ml-2 inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                          'ml-2 inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                           w.isEnabled
                             ? 'bg-emerald-500/10 text-emerald-600'
                             : 'bg-muted text-muted-foreground',

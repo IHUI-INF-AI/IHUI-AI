@@ -95,7 +95,7 @@ export function RoleAssignDialog({ user, pending, onConfirm, onCancel }: Props) 
               {rbacQ.data.list.map((r) => (
                 <span
                   key={r.id}
-                  className="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-border/60"
+                  className="inline-flex items-center rounded-md bg-background px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-border/60"
                   title={r.name}
                 >
                   {r.displayName}

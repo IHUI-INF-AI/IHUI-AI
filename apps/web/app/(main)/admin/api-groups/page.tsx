@@ -144,7 +144,7 @@ export default function ApiGroupsPage() {
                     {g.description}
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                    <span className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                       {g.apiCount}
                     </span>
                   </td>

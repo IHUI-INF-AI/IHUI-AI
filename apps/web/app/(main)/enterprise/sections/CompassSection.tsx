@@ -59,9 +59,9 @@ export function CompassSection() {
                   ))}
                 </div>
                 <div className="space-y-1">
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
                     <div
-                      className="h-full rounded-full bg-primary transition-all"
+                      className="h-full rounded-md bg-primary transition-all"
                       style={{ width: `${adoption}%` }}
                     />
                   </div>

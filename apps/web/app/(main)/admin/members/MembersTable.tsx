@@ -114,7 +114,7 @@ export function MembersTable({
                   <TableCell className="px-4 py-2.5">{member.nickname ?? '—'}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     {member.companyId ? (
-                      <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
+                      <span className="inline-flex items-center rounded-md bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
                         {t('bound')}
                       </span>
                     ) : (
@@ -123,7 +123,7 @@ export function MembersTable({
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
                     {member.levelId && levelMap.has(member.levelId) ? (
-                      <span className="inline-flex items-center rounded-full bg-violet-500/10 px-2 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
+                      <span className="inline-flex items-center rounded-md bg-violet-500/10 px-2 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
                         {levelMap.get(member.levelId)}
                       </span>
                     ) : (
@@ -133,7 +133,7 @@ export function MembersTable({
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                         statusBadgeClass(status),
                       )}
                     >

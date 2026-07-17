@@ -28,7 +28,7 @@ export const AUDIT_TEXT = [
 
 export const badgeCls = (ok: boolean) =>
   cn(
-    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+    'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
     ok
       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
       : 'bg-muted text-muted-foreground',

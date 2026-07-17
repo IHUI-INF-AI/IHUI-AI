@@ -5,14 +5,7 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Upload,
-  BookCopy,
-} from 'lucide-react'
+import { Loader2, ChevronLeft, ChevronRight, Download, Upload, BookCopy } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
@@ -96,7 +89,8 @@ export default function AdminLearnSignupBatchLessonPage() {
   })
 
   const retryMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/learn/signup-batchlesson/${id}/retry`, { method: 'POST' }),
+    mutationFn: (id: string) =>
+      api(`/api/admin/learn/signup-batchlesson/${id}/retry`, { method: 'POST' }),
     onSuccess: () => {
       toast.success('已重新提交')
       qc.invalidateQueries({ queryKey: ['admin', 'learn', 'signup-batchlesson'] })
@@ -145,7 +139,13 @@ export default function AdminLearnSignupBatchLessonPage() {
           </Link>
         </Button>
         <div className="w-full max-w-[160px]">
-          <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
+          <Select
+            value={status}
+            onValueChange={(v) => {
+              setStatus(v)
+              setPage(1)
+            }}
+          >
             <SelectTrigger className={selectClass} aria-label="状态筛选">
               <SelectValue />
             </SelectTrigger>
@@ -221,7 +221,12 @@ export default function AdminLearnSignupBatchLessonPage() {
                     <TableCell className="px-4 py-2.5">{r.count}</TableCell>
                     <TableCell className="px-4 py-2.5 text-emerald-600">{r.successCount}</TableCell>
                     <TableCell className="px-4 py-2.5">
-                      <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', sc.cls)}>
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                          sc.cls,
+                        )}
+                      >
                         {sc.label}
                       </span>
                     </TableCell>
@@ -253,11 +258,23 @@ export default function AdminLearnSignupBatchLessonPage() {
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

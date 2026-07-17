@@ -135,7 +135,7 @@ export default function DistributionIndex() {
             </View>
           </View>
           <Text
-            className="text-[12px] px-3 py-1 rounded-full bg-white/20"
+            className="text-[12px] px-3 py-1 rounded-md bg-white/20"
             onClick={() => navigate('/pages/distribution/rank')}
           >
             {t('distribution.index.rank')}

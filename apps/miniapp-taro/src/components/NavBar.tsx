@@ -53,7 +53,7 @@ export default function NavBar({
     >
       {showBack && (
         <View
-          className="absolute left-3 flex items-center justify-center w-8 h-8 rounded-full"
+          className="absolute left-3 flex items-center justify-center w-8 h-8 rounded-lg"
           style={{ top: `${statusBarHeight + (navBarHeight - 32) / 2}px` }}
           onClick={handleBack}
         >

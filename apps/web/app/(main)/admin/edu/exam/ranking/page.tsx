@@ -142,7 +142,7 @@ export default function EduExamRankingPage() {
                     {idx < 3 ? (
                       <span
                         className={cn(
-                          'inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold',
+                          'inline-flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold',
                           RANK_BADGE[idx],
                         )}
                       >

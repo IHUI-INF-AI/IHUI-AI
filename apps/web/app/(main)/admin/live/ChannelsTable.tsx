@@ -94,14 +94,14 @@ export function ChannelsTable({
                   <TableCell className="px-4 py-2.5">
                     <div className="flex flex-col gap-1">
                       {live ? (
-                        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-500">
+                        <span className="inline-flex w-fit items-center gap-1 rounded-md bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-500">
                           <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
                           {t('liveNow')}
                         </span>
                       ) : null}
                       <span
                         className={cn(
-                          'inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                           published
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                             : 'bg-muted text-muted-foreground',

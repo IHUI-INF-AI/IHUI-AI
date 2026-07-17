@@ -65,7 +65,7 @@ export default function CourseRating({
         </View>
 
         <View
-          className="w-full py-2.5 rounded-full bg-indigo-500 text-center"
+          className="w-full py-2.5 rounded-md bg-indigo-500 text-center"
           onClick={() => onSubmit?.(rating, comment)}
         >
           <Text className="text-sm text-white">提交评价</Text>
