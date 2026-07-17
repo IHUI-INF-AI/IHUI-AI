@@ -376,6 +376,7 @@
     "noAccount": "まだアカウントをおちでないですか？",
     "registerNow": "しみ",
     "forgotPassword": "パスワードをれた",
+    "forgotSubtitle": "パスワードをリセット",
     "registerTitle": "アカウント",
     "registerSubtitle": "しいアカウントを",
     "phonePlaceholder": "ご",
@@ -10479,6 +10480,8 @@
     "generateCodeFailed": "コードのにしました",
     "footerHint": "にターゲットアプリへからのにリダイレクトされます。ログインはすべてのサブプロジェクトでありされます。",
     "registerTitle": "统月登録",
+    "dialogPrompt": "登録ダイアログをです…",
+    "openDialog": "登録ダイアログを",
     "alreadyHaveAccount": "アカウントをおちですか？",
     "toLogin": "ログインへ",
     "redirect": {
