@@ -14,20 +14,23 @@
  */
 
 import crypto, { createSign, createVerify, randomBytes } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { env } from 'node:process'
 
 const API_BASE = env.WX_API_BASE ?? 'https://api.mch.weixin.qq.com'
 
 export function isWechatPayConfigured(): boolean {
-  return Boolean(
-    env.WX_SHOP_ID && (env.WX_PAY_PRIVATE_KEY || env.WX_PAY_PRIVATE_KEY_PATH) && env.WX_PAY_V3_KEY,
-  )
+  if (!env.WX_SHOP_ID || !env.WX_PAY_V3_KEY) return false
+  if (env.WX_PAY_PRIVATE_KEY) return true
+  if (env.WX_PAY_PRIVATE_KEY_PATH && existsSync(env.WX_PAY_PRIVATE_KEY_PATH)) return true
+  return false
 }
 
 function getPrivateKey(): string {
   if (env.WX_PAY_PRIVATE_KEY) return env.WX_PAY_PRIVATE_KEY
-  if (env.WX_PAY_PRIVATE_KEY_PATH) return readFileSync(env.WX_PAY_PRIVATE_KEY_PATH, 'utf-8')
+  if (env.WX_PAY_PRIVATE_KEY_PATH && existsSync(env.WX_PAY_PRIVATE_KEY_PATH)) {
+    return readFileSync(env.WX_PAY_PRIVATE_KEY_PATH, 'utf-8')
+  }
   return ''
 }
 
