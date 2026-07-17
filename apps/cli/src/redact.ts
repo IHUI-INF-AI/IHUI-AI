@@ -15,8 +15,8 @@ const SENSITIVE_PATTERNS: ReadonlyArray<{ pattern: RegExp; replacement: string }
   { pattern: /(Bearer\s+[A-Za-z0-9_\-\.]{4})[A-Za-z0-9_\-\.]{8,}/gi, replacement: '$1***REDACTED***' },
   // password=xxx / password: xxx / "password":"xxx"
   { pattern: /(password\s*[:=]\s*"?)([^\s"',]{2})[^\s"',]{4,}/gi, replacement: '$1$2***REDACTED***' },
-  // api_key=xxx / api_key: xxx
-  { pattern: /(api[_-]?key\s*[:=]\s*"?)([A-Za-z0-9_\-]{2})[A-Za-z0-9_\-]{8,}/gi, replacement: '$1$2***REDACTED***' },
+  // api_key=xxx / api_key: xxx(与 password 阈值一致:前缀 2 字符 + 后缀至少 4 字符)
+  { pattern: /(api[_-]?key\s*[:=]\s*"?)([A-Za-z0-9_\-]{2})[A-Za-z0-9_\-]{4,}/gi, replacement: '$1$2***REDACTED***' },
   // AWS access key: AKIA...
   { pattern: /\b(AKIA)[A-Z0-9]{12,}\b/g, replacement: '$1***REDACTED***' },
   // Authorization: Basic xxx
