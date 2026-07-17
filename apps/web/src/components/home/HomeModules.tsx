@@ -48,7 +48,7 @@ export function HomeModules() {
           return d.list.map((c) => ({
             id: c.id,
             title: c.title,
-            cover: c.cover,
+            cover: c.coverImage ?? undefined,
             meta: c.teacherName,
             href: `/learn/${c.id}`,
           }))
@@ -65,8 +65,8 @@ export function HomeModules() {
           return d.list.map((l) => ({
             id: l.id,
             title: l.title,
-            cover: l.cover ?? undefined,
-            meta: l.instructor,
+            cover: l.coverImage ?? undefined,
+            meta: l.lecturerName ?? undefined,
             href: `/live/${l.id}`,
           }))
         }}
@@ -99,8 +99,8 @@ export function HomeModules() {
           return d.list.map((n) => ({
             id: n.id,
             title: n.title,
-            cover: n.cover ?? undefined,
-            meta: n.author,
+            cover: n.coverImage ?? undefined,
+            meta: n.authorName ?? undefined,
             href: `/news/${n.id}`,
           }))
         }}
@@ -154,7 +154,7 @@ export function HomeModules() {
           return d.list.map((c) => ({
             id: c.id,
             title: c.name,
-            cover: c.cover ?? undefined,
+            cover: c.coverImage ?? undefined,
             meta: tUnits('members', { count: c.memberCount }),
             href: `/circles/${c.id}`,
           }))
@@ -171,7 +171,7 @@ export function HomeModules() {
           return d.list.map((k) => ({
             id: k.id,
             title: k.title,
-            cover: k.cover as string | undefined,
+            cover: (k.coverImage as string | null | undefined) ?? undefined,
             meta: k.category,
             href: `/resources/${k.id}`,
           }))

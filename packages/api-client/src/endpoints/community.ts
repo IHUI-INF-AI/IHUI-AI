@@ -6,7 +6,7 @@ import { buildQs, type PageData } from '../utils.js'
 export interface Circle {
   id: string
   name: string
-  cover: string | null
+  coverImage: string | null
   description: string
   memberCount: number
   postCount: number
@@ -54,10 +54,10 @@ export interface News {
   id: string
   title: string
   summary: string
-  cover: string | null
+  coverImage: string | null
+  authorName: string | null
+  categoryName: string | null
   content: string
-  author: string
-  category: string
   viewCount: number
   likeCount: number
   isLiked: boolean
