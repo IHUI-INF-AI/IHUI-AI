@@ -3,7 +3,15 @@ import { z } from 'zod'
 import { eq, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
-import { zhsAgentBuy, zhsAgentWithdrawalDetail, agentRule, agentHeatStats } from '@ihui/database'
+import {
+  zhsAgentBuy,
+  zhsAgentWithdrawalDetail,
+  agentRule,
+  agentRuleLink,
+  agentRuleParam,
+  agentHeatStats,
+} from '@ihui/database'
+import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -1207,6 +1215,109 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(500).send(error(500, '更新人设失败'))
     }
   })
+
+  // -------------------------------------------------------------------------
+  // Agent 规则关联 (Drizzle schema agent_rule_link) + 规则参数按 rule 查询
+  // schema 字段: agent_rule_link { id, rule_id, target_type, target_id, created_at }
+  //             target_type='agent' 时 target_id 即 agentId(uuid)
+  // -------------------------------------------------------------------------
+  const ruleLinkAgentIdParam = z.object({ agentId: z.string().uuid() })
+  const ruleIdParam = z.object({ ruleId: z.string().uuid() })
+  const createRuleLinkBody = z.object({
+    ruleId: z.string().uuid(),
+    targetType: z.string().max(32).optional().default('agent'),
+    targetId: z.string().uuid().optional(),
+  })
+
+  /**
+   * 创建 Agent 与 Rule 的关联。
+   * @params agentId Agent ID(uuid),作为 target_id 默认值(target_type='agent')
+   * @body { ruleId, targetType?, targetId? }
+   * @鉴权 authenticate + requireAdmin
+   */
+  server.post(
+    '/developer/:agentId/rule-links',
+    { preHandler: requireAdmin },
+    async (req, reply) => {
+      const paramParsed = ruleLinkAgentIdParam.safeParse(req.params)
+      if (!paramParsed.success) return reply.status(400).send(error(400, '无效的 agentId'))
+      const bodyParsed = createRuleLinkBody.safeParse(req.body)
+      if (!bodyParsed.success) {
+        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { ruleId, targetType, targetId } = bodyParsed.data
+      try {
+        const [row] = await db
+          .insert(agentRuleLink)
+          .values({
+            ruleId,
+            targetType,
+            targetId: targetId ?? paramParsed.data.agentId,
+          })
+          .returning()
+        return reply.status(201).send(success(row))
+      } catch (e) {
+        req.log.error(e)
+        return reply.status(500).send(error(500, '创建规则关联失败'))
+      }
+    },
+  )
+
+  /**
+   * 列出某 Agent 的所有 Rule 关联(含 Rule 基本信息)。
+   * @params agentId Agent ID(uuid)
+   * @query status?, type? 按 rule.status / rule.rule_type 筛选
+   * @鉴权 authenticate
+   */
+  server.get('/developer/:agentId/rule-links', { preHandler: requireAuth }, async (req, reply) => {
+    const paramParsed = ruleLinkAgentIdParam.safeParse(req.params)
+    if (!paramParsed.success) return reply.status(400).send(error(400, '无效的 agentId'))
+    const q = req.query as { status?: string; type?: string }
+    const conds: SQL[] = [
+      eq(agentRuleLink.targetType, 'agent'),
+      eq(agentRuleLink.targetId, paramParsed.data.agentId),
+    ]
+    if (q.status !== undefined) conds.push(eq(agentRule.status, Number(q.status)))
+    if (q.type) conds.push(eq(agentRule.ruleType, q.type))
+    const where = sql.join(conds, sql` AND `)
+    try {
+      const rows = await db
+        .select({ link: agentRuleLink, rule: agentRule })
+        .from(agentRuleLink)
+        .innerJoin(agentRule, eq(agentRuleLink.ruleId, agentRule.id))
+        .where(where)
+        .orderBy(desc(agentRule.priority), desc(agentRuleLink.createdAt))
+      return reply.send(success(rows))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询规则关联失败'))
+    }
+  })
+
+  /**
+   * 查询某 Rule 的所有参数。
+   * @params ruleId Rule ID(uuid)
+   * @鉴权 authenticate
+   */
+  server.get(
+    '/developer/rule-params/by-rule/:ruleId',
+    { preHandler: requireAuth },
+    async (req, reply) => {
+      const paramParsed = ruleIdParam.safeParse(req.params)
+      if (!paramParsed.success) return reply.status(400).send(error(400, '无效的 ruleId'))
+      try {
+        const rows = await db
+          .select()
+          .from(agentRuleParam)
+          .where(eq(agentRuleParam.ruleId, paramParsed.data.ruleId))
+          .orderBy(desc(agentRuleParam.sort), desc(agentRuleParam.createdAt))
+        return reply.send(success(rows))
+      } catch (e) {
+        req.log.error(e)
+        return reply.status(500).send(error(500, '查询规则参数失败'))
+      }
+    },
+  )
 }
 
 export default plugin
