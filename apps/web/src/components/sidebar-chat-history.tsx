@@ -116,6 +116,17 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   const [pendingRenameId, setPendingRenameId] = React.useState<string | null>(null)
   const [renameValue, setRenameValue] = React.useState<string>('')
   const [busyId, setBusyId] = React.useState<string | null>(null)
+  const renameInputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
+    if (pendingRenameId) {
+      const id = requestAnimationFrame(() => {
+        renameInputRef.current?.focus()
+        renameInputRef.current?.select()
+      })
+      return () => cancelAnimationFrame(id)
+    }
+  }, [pendingRenameId])
 
   const {
     data,
@@ -516,6 +527,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
               {tc('renameDialog.label')}
             </label>
             <Input
+              ref={renameInputRef}
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
               placeholder={tc('renameDialog.placeholder')}
