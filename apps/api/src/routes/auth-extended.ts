@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
 import {
   signAccessToken,
   signRefreshToken,
@@ -1111,10 +1111,17 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '授权码无效或已过期'))
     if (!session.codeChallenge || !session.codeChallengeMethod)
       return reply.status(400).send(error(400, '该授权码非 PKCE 流程'))
+    if (session.clientId !== parsed.data.client_id)
+      return reply.status(400).send(error(400, '授权码与 client_id 不匹配'))
     // S256: base64url(sha256(code_verifier)) === code_challenge
+    // 使用 timingSafeEqual 防止时序攻击(长度不等直接判失败,避免抛出异常)
     const { createHash } = await import('node:crypto')
     const computed = createHash('sha256').update(parsed.data.code_verifier).digest('base64url')
-    if (computed !== session.codeChallenge)
+    const expected = session.codeChallenge
+    if (
+      computed.length !== expected.length ||
+      !timingSafeEqual(Buffer.from(computed), Buffer.from(expected))
+    )
       return reply.status(400).send(error(400, 'code_verifier 校验失败'))
     await markSessionUsed(parsed.data.code)
     const user = await findUserById(session.userId)
