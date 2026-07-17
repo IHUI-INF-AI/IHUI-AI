@@ -7,8 +7,8 @@
  *   - 24h 缓存(~/.ihui/.update-check.json),避免每次启动都打 registry
  *   - 超时 3s,失败静默(离线/无网/无包均不报错)
  *   - semver 简单比较(不引入 semver 库,只比 X.Y.Z 三段数字)
- *   - minimum_version:从 registry package.json 的 `engines.minimumVersion` 字段读取
- *     (npm 协议不强制该字段,但可用作"建议最低版本"阈值)
+ *   - minimum_version:从本地 package.json 的 `engines.minimumVersion` 字段读取
+ *     (npm 协议不强制该字段,但可用作"建议最低版本"阈值;与 registry 无关,由本项目维护)
  *
  * 配置:
  *   - IHUI_REGISTRY_URL:覆盖默认 registry(默认 https://registry.npmjs.org)
@@ -31,12 +31,12 @@ export interface UpdateCheckResult {
   hasUpdate: boolean;
   belowMinimum: boolean;
   checkedAt: number;
+  error?: string;
 }
 
 interface CacheShape {
   checkedAt: number;
   latestVersion?: string;
-  minimumVersion?: string;
 }
 
 /**
@@ -51,6 +51,21 @@ export function getCurrentVersion(): string {
     return String(pkg.version ?? '0.0.0');
   } catch {
     return '0.0.0';
+  }
+}
+
+/**
+ * 读取本地 package.json 的 `engines.minimumVersion` 字段(建议最低版本阈值)。
+ * 与 registry 无关,由本项目维护。
+ */
+export function getMinimumVersion(): string | undefined {
+  const pkgPath = path.join(__dirname, '..', 'package.json');
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    const v = pkg?.engines?.minimumVersion;
+    return typeof v === 'string' ? v : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -91,13 +106,12 @@ function writeCache(data: CacheShape): void {
 
 interface RegistryPackageMeta {
   'dist-tags'?: { latest?: string };
-  engines?: { minimumVersion?: string };
 }
 
 async function fetchRegistryInfo(
   packageName: string,
   registryUrl: string,
-): Promise<{ latestVersion?: string; minimumVersion?: string }> {
+): Promise<{ latestVersion?: string; error?: string }> {
   const url = `${registryUrl.replace(/\/$/, '')}/${encodeURIComponent(packageName)}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -106,14 +120,11 @@ async function fetchRegistryInfo(
       signal: controller.signal,
       headers: { 'Accept': 'application/json' },
     });
-    if (!res.ok) return {};
+    if (!res.ok) return { error: `HTTP ${res.status}` };
     const data = (await res.json()) as RegistryPackageMeta;
-    return {
-      latestVersion: data['dist-tags']?.latest,
-      minimumVersion: data.engines?.minimumVersion,
-    };
-  } catch {
-    return {};
+    return { latestVersion: data['dist-tags']?.latest };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
   } finally {
     clearTimeout(timer);
   }
@@ -121,21 +132,24 @@ async function fetchRegistryInfo(
 
 /**
  * 执行一次更新检查(读缓存或 fetch registry)。
- * 不抛异常,失败返回 hasUpdate=false 的默认结果。
+ * 不抛异常,失败返回 hasUpdate=false 的默认结果(并填充 error 字段)。
  */
 export async function checkForUpdates(
   packageName = '@ihui/cli',
   opts: { forceRefresh?: boolean; registryUrl?: string } = {},
 ): Promise<UpdateCheckResult> {
   const currentVersion = getCurrentVersion();
+  const minimumVersion = getMinimumVersion();
   const registryUrl = opts.registryUrl ?? process.env.IHUI_REGISTRY_URL ?? DEFAULT_REGISTRY;
 
   // 环境变量禁用检查
   if (process.env.IHUI_NO_UPDATE_CHECK === '1') {
     return {
       currentVersion,
+      minimumVersion,
       hasUpdate: false,
-      belowMinimum: false,
+      belowMinimum:
+        !!minimumVersion && compareVersions(currentVersion, minimumVersion) < 0,
       checkedAt: Date.now(),
     };
   }
@@ -145,17 +159,16 @@ export async function checkForUpdates(
   const cacheFresh = cache && (now - cache.checkedAt) < CACHE_TTL_MS;
 
   let latestVersion: string | undefined;
-  let minimumVersion: string | undefined;
+  let error: string | undefined;
 
   if (cacheFresh && !opts.forceRefresh) {
     latestVersion = cache?.latestVersion;
-    minimumVersion = cache?.minimumVersion;
   } else {
     const info = await fetchRegistryInfo(packageName, registryUrl);
     latestVersion = info.latestVersion;
-    minimumVersion = info.minimumVersion;
-    if (latestVersion || minimumVersion) {
-      writeCache({ checkedAt: now, latestVersion, minimumVersion });
+    error = info.error;
+    if (latestVersion && !error) {
+      writeCache({ checkedAt: now, latestVersion });
     }
   }
 
@@ -171,6 +184,7 @@ export async function checkForUpdates(
     hasUpdate,
     belowMinimum,
     checkedAt: now,
+    error,
   };
 }
 
