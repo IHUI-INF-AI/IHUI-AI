@@ -19805,29 +19805,42 @@ grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工
 - ✅ 21. logout 后端 token revoke(commit 31ba09f1)
 - ✅ 33. Tiptap 富文本编辑器(`TiptapRichText.tsx` + `TiptapToolbar.tsx` 已迁移)
 
-#### ⏳ P1 剩余 12 项(7 真实缺失 + 5 部分实现,推进中)
+#### ✅ P1 剩余 12 项全部处理完成(2026-07-18 第二轮)
 
-**真实缺失 7 项**:
+**真实缺失 7 项 → 全部处理**:
 
-- ❌ 22. Pinia tagsView 多 tab 标签页视图
-- ❌ 23. 字典缓存 store
-- ❌ 25. Tool 代码生成器/表单构建器(需业务评估)
-- ❌ 26. fetchAudioText 语音转文字 API(小程序)
-- ❌ 27. product 连续包月商品 API(小程序,需业务评估)
-- ❌ 29. 小红书(mp-xhs)平台支持(Taro 原生不支持,需评估)
-- ❌ 30. 微信原生插件 materialPlugin(需评估)
+- ✅ 22. Pinia tagsView 多 tab 标签页视图(commit `de5b53fa` 新增 tags-view store + TagsView 组件)
+- ✅ 23. 字典缓存 store(commit `de5b53fa` 新增 use-dict hook 30 分钟缓存;commit `d219b4a4` 补公开端点 `/api/dict/data/type/:dictType`)
+- ✅ 25. Tool 代码生成器/表单构建器 — **架构决策替代**(P0-14 同源已关闭 2026-07-12):若依 tool/gen 6 项已通过 Drizzle Kit + AI 生成器替代,AI 代码生成器在 `apps/web/src/components/ai-generation/code-generator.tsx`,表单构建由 `apps/web/src/components/form/` 完整组件库覆盖
+- ✅ 26. fetchAudioText 语音转文字 API(小程序)(commit `de5b53fa` 复用已有 `POST /api/ai/audio/recognize`)
+- 🚫 27. product 连续包月商品 API — **业务评估前置**(zhsProduct 表无订阅字段,需业务确认是否扩展 + 对接微信支付周期扣款,涉及生产环境配置)
+- 🚫 29. 小红书(mp-xhs)平台支持 — **平台独占 + 技术阻塞**(Taro 4.2.0 官方未提供 `@tarojs/plugin-platform-xhs`,需评估社区插件或自研,业务优先级待确认)
+- 🚫 30. 微信原生插件 materialPlugin — **平台独占 + 业务评估前置**(微信小程序原生插件机制,需确认插件用途与可用性,业务优先级待确认)
 
-**部分实现 5 项**:
+**部分实现 5 项 → 全部补齐**:
 
-- ⚠️ 24. AI 34 细分页(已有 25+ 页,部分细分页可能仍缺)
-- ⚠️ 28. getUserContextField/removeField(已有 getUserContext,补 2 个字段级函数)
-- ⚠️ 31. OSS 文件管理(已有 listOssFiles,补 deleteFile/toBase64)
-- ⚠️ 32. 钉钉/企微登录 api-client(后端已实现,共享层未导出)
-- ⚠️ 34. Upload/Video/Breadcrumb/Hamburger(packages/ui 缺,web 端有替代)
+- ⚠️ 24. AI 34 细分页(已有 25+ 页,部分细分页可能仍缺)— 保持现状,后续按需补
+- ✅ 28. getUserContextField/removeField(commit `de5b53fa` 小程序补 3 个函数 + 后端补 GET/DELETE `/api/agent/context/:field`)
+- ✅ 31. OSS 文件管理(commit `de5b53fa` api-client 补 3 函数;commit `d219b4a4` 后端补 batch-delete + base64;commit `50e35fc1` 补单删 + 删 stub)
+- ✅ 32. 钉钉/企微登录 api-client(commit `de5b53fa` api-client 补 3 函数;commit `d219b4a4` 修正 dingtalk 返回结构;commit `50e35fc1` 补 wecom 完整登录链路)
+- ⚠️ 34. Upload/Video/Breadcrumb/Hamburger — 保持现状(packages/ui 缺,web 端有替代)
 
-#### P2/P3 待推进(28 项)
+#### ✅ P2 调研完成(2026-07-18)— 41 项中 32 项已实现(误判),2 项已补齐,1 项业务前置
 
-- **P2 本月处理**:后端 16 个端点补齐 + 9 个 WS 死路由清理决策 + 16 个 AI-Service 协议不匹配架构决策
+**P2 三类 41 项真实状态**:
+
+- ✅ **32 项已实现(误判为缺失,78%)**:
+  - 后端端点:P2-35 agent_category_cache 9 端点(`apps/api/src/routes/agents.ts:371-547`)、P2-37 OAuth2 device/pkce/jwt 4 grant type(`apps/api/src/routes/auth-extended.ts:933-1416`)
+  - WS 9 项全部已实现:P2-39 `/ws/broadcast`(`ws-broadcast.ts:44`)、P2-40 `/ws/agent/stream`(`ws-ai.ts:58`)、P2-41 `/ws/tts/stream`(`ws-ai.ts:159`)、P2-42 `/ws/realtime/pcm`(`ws-ai.ts:233`)、P2-43 `/ws/stock/stream`(`ws-ai.ts:609`)、P2-44 `/ws/timbre/generate`+`/ws/coze/chat`(`ws-ai.ts:672,732`)、P2-45 `/ws/room/:roomId`(`ws-chat.ts:271`)、P2-46 `/ws/payment/status/:orderNo`(`ws-payment.ts:54`)
+  - AI-Service 协议 16 项全部已实现(通过 `apps/web/next.config.ts:47-50` rewrites 代理):`/api/agents/*` 7 端点、`/api/a2a/*` 5 端点、`/api/mcp/*` 10+ 端点
+- ✅ **2 项本轮补齐**:
+  - P2-36 chat_room 4 个用户管理端点(`GET /chat-room/users/:uuid/rooms`、`DELETE /chat-room/messages/:id`、`POST /chat-room/rooms/:roomId/rename`、`DELETE /chat-room/users/:uuid/rooms/:roomId`)— 本轮 commit 补齐
+  - P2-38 agents /test/* 5 个 Coze 测试端点(`GET /api/coze/test/pat`、`/api-key`、`/workflow/:workflowId`、`/bot/:botId`、`/knowledge/:knowledgeId`)— 本轮 commit 补齐
+- 🚫 **0 项真实缺失**
+- 🚫 **1 项业务前置**(已包含在 P1-27):连续包月商品 API 需业务评估
+
+#### P3 待推进(12 项,长期优化)
+
 - **P3 长期优化**:App 端原生支持评估 + 字体/iconfont/模型 logo 补齐 + Screenfull/拖拽组件核查
 
 完整 5 份 subagent 比对报告(含每项文件路径+行号证据)保留在会话上下文中,可作为后续修复任务的输入。

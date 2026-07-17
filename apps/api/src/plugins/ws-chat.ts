@@ -268,6 +268,117 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     return reply.send(success({ items, total: items.length }))
   })
 
+  const renameRoomSchema = z.object({ name: z.string().min(1).max(100) })
+
+  // GET /chat-room/users/:uuid/rooms — 用户加入的房间列表(仅本人或 admin)
+  server.get('/chat-room/users/:uuid/rooms', async (request, reply) => {
+    const userId = await httpAuth(request, reply)
+    if (!userId) return
+    const { uuid } = request.params as { uuid: string }
+    if (userId !== uuid && (request.jwtPayload?.roleId ?? 0) < 1) {
+      return reply.status(403).send(error(403, '无权查看他人房间列表'))
+    }
+    const redis = getRedis()
+    if (!redis) return reply.send(success({ items: [], total: 0 }))
+    const roomIds = await redis.smembers(`chatroom:user_rooms:${uuid}`)
+    const items: Record<string, unknown>[] = []
+    for (const roomId of roomIds) {
+      const meta = await redis.hgetall(`chatroom:meta:${roomId}`)
+      if (meta && Object.keys(meta).length > 0) {
+        items.push({
+          roomId: meta.roomId ?? roomId,
+          name: meta.name,
+          description: meta.description,
+          createdBy: meta.createdBy,
+          createdAt: meta.createdAt,
+        })
+      }
+    }
+    return reply.send(success({ items, total: items.length }))
+  })
+
+  // DELETE /chat-room/messages/:id — 删除消息(仅作者或 admin)
+  server.delete('/chat-room/messages/:id', async (request, reply) => {
+    const userId = await httpAuth(request, reply)
+    if (!userId) return
+    const { id } = request.params as { id: string }
+    const redis = getRedis()
+    if (!redis) return reply.status(503).send(error(503, 'Redis 未配置'))
+    const roomIds = await redis.smembers('chatroom:list')
+    let foundRoomId: string | null = null
+    let foundRaw: string | null = null
+    let foundFrom: string | undefined
+    for (const rid of roomIds) {
+      const raws = await redis.lrange(`chatroom:messages:${rid}`, 0, -1)
+      for (const raw of raws) {
+        try {
+          const m = JSON.parse(raw) as Record<string, unknown>
+          if (String(m.id ?? '') === id) {
+            foundRoomId = rid
+            foundRaw = raw
+            foundFrom = m.from as string | undefined
+            break
+          }
+        } catch {
+          continue
+        }
+      }
+      if (foundRoomId) break
+    }
+    if (!foundRoomId || !foundRaw) {
+      return reply.status(404).send(error(404, '消息不存在'))
+    }
+    if (foundFrom !== userId && (request.jwtPayload?.roleId ?? 0) < 1) {
+      return reply.status(403).send(error(403, '无权删除他人消息'))
+    }
+    await redis.lrem(`chatroom:messages:${foundRoomId}`, 0, foundRaw)
+    return reply.send(success({ id, deleted: true }))
+  })
+
+  // POST /chat-room/rooms/:roomId/rename — 重命名房间(仅创建者或 admin)
+  server.post('/chat-room/rooms/:roomId/rename', async (request, reply) => {
+    const userId = await httpAuth(request, reply)
+    if (!userId) return
+    const { roomId } = request.params as { roomId: string }
+    const parsed = renameRoomSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '房间名无效'))
+    }
+    const redis = getRedis()
+    if (!redis) return reply.status(503).send(error(503, 'Redis 未配置'))
+    const meta = await redis.hgetall(`chatroom:meta:${roomId}`)
+    if (!meta || Object.keys(meta).length === 0) {
+      return reply.status(404).send(error(404, '房间不存在'))
+    }
+    if (meta.createdBy !== userId && (request.jwtPayload?.roleId ?? 0) < 1) {
+      return reply.status(403).send(error(403, '无权重命名房间'))
+    }
+    await redis.hset(`chatroom:meta:${roomId}`, { name: parsed.data.name })
+    return reply.send(success({ id: roomId, name: parsed.data.name }))
+  })
+
+  // DELETE /chat-room/users/:uuid/rooms/:roomId — 用户退出房间(房主不能退出)
+  server.delete('/chat-room/users/:uuid/rooms/:roomId', async (request, reply) => {
+    const userId = await httpAuth(request, reply)
+    if (!userId) return
+    const { uuid, roomId } = request.params as { uuid: string; roomId: string }
+    if (userId !== uuid && (request.jwtPayload?.roleId ?? 0) < 1) {
+      return reply.status(403).send(error(403, '无权操作'))
+    }
+    const redis = getRedis()
+    if (!redis) return reply.status(503).send(error(503, 'Redis 未配置'))
+    const meta = await redis.hgetall(`chatroom:meta:${roomId}`)
+    if (!meta || Object.keys(meta).length === 0) {
+      return reply.status(404).send(error(404, '房间不存在'))
+    }
+    if (meta.createdBy === uuid) {
+      return reply.status(400).send(error(400, '房主不能退出,请先转让房主'))
+    }
+    await redis.srem(`chatroom:members:${roomId}`, uuid)
+    await redis.srem(`chatroom:user_rooms:${uuid}`, roomId)
+    return reply.send(success({ success: true }))
+  })
+
   server.get('/ws/room/:roomId', { websocket: true }, (socket, request) => {
     const query = request.query as { token?: string; nickname?: string }
     const roomId = (request.params as { roomId: string }).roomId
@@ -287,6 +398,12 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         member.rooms.add(targetRoom)
         if (!rooms.has(targetRoom)) rooms.set(targetRoom, new Set())
         rooms.get(targetRoom)!.add(member)
+        // 持久化成员关系到 Redis(跨实例共享,支持 HTTP 查询用户房间列表)
+        const r = getRedis()
+        if (r) {
+          void r.sadd(`chatroom:members:${targetRoom}`, userId)
+          void r.sadd(`chatroom:user_rooms:${userId}`, targetRoom)
+        }
         // 通知房间其他成员有新人加入(跨实例广播,排除自己)
         publish(
           targetRoom,
@@ -308,6 +425,12 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         if (members) {
           members.delete(member)
           if (members.size === 0) rooms.delete(targetRoom)
+        }
+        // 同步移除 Redis 成员关系
+        const r = getRedis()
+        if (r) {
+          void r.srem(`chatroom:members:${targetRoom}`, userId)
+          void r.srem(`chatroom:user_rooms:${userId}`, targetRoom)
         }
         // 通知房间其他成员有人离开
         publish(targetRoom, {
@@ -359,6 +482,7 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         if (!ALLOWED_MSG_TYPES.has(mtype)) return
         // 业务消息广播(跨实例)
         const messagePayload = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
           type: mtype,
           from: userId,
           nickname,
