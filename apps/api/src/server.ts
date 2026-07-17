@@ -75,6 +75,7 @@ import { agenticServiceRoutes } from './routes/agentic-service.js'
 import { adminEduExtendedRoutes, adminCourseAuditRoutes } from './routes/edu-extended.js'
 import aiCallbackRoutes from './routes/ai-callback.js'
 import { adminSysRoutes, menuRoutersRoutes } from './routes/admin-sys.js'
+import { dictPublicRoutes } from './routes/dict.js'
 import { eduPublicRoutes } from './routes/edu-public.js'
 import { aiVendorRoutes, adminAiVendorRoutes, aiVendorV2Routes } from './routes/ai-vendors.js'
 import { aiAudioRoutes } from './routes/ai-audio.js'
@@ -560,6 +561,8 @@ function registerRoutes(server: FastifyInstance) {
   // 系统管理后端(迁移自 admin_panel.py):/api/admin/menu /api/admin/logininfor /api/admin/notice /api/admin/job /api/admin/online /api/admin/dept /api/admin/post /api/admin/config /api/admin/dict
   server.register(adminSysRoutes, { prefix: '/api/admin' })
   server.register(menuRoutersRoutes, { prefix: '/api/admin/menu' })
+  // 公开字典查询(登录用户可用,无需 admin):/api/dict/data/type/:dictType
+  server.register(dictPublicRoutes, { prefix: '/api/dict' })
   // 代理 / 广场 / Coze 变量 / Agent 服务
   server.register(agentsRoutes, { prefix: '/api' })
   server.register(plazaRoutes, { prefix: '/api/plaza' })
