@@ -9,6 +9,7 @@
     "zip": "wxt zip",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
     "clean": "rimraf .output .wxt dist .turbo node_modules"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
     "eslint": "^9.16.0",
     "rimraf": "^6.0.1",
     "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
     "wxt": "^0.19.0"
   }
 }
