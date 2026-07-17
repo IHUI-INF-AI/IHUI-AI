@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, ilike, sql, lt, gt } from 'drizzle-orm'
+import { eq, and, desc, asc, ilike, sql, lt, gt, isNull } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   chatConversations,
@@ -42,6 +42,7 @@ export interface ListConversationsOpts {
   page: number
   pageSize: number
   search?: string
+  includeArchived?: boolean
 }
 
 export async function findConversationsByUser(
@@ -53,6 +54,7 @@ export async function findConversationsByUser(
 }> {
   const conds = [eq(chatConversations.userId, userId)]
   if (opts.search) conds.push(ilike(chatConversations.title, `%${opts.search}%`))
+  if (!opts.includeArchived) conds.push(isNull(chatConversations.archivedAt))
   const where = and(...conds)
 
   const [list, totalRows] = await Promise.all([
@@ -67,6 +69,9 @@ export async function findConversationsByUser(
         lastMessageAt: chatConversations.lastMessageAt,
         createdAt: chatConversations.createdAt,
         updatedAt: chatConversations.updatedAt,
+        archivedAt: chatConversations.archivedAt,
+        compressedAt: chatConversations.compressedAt,
+        compressedContext: chatConversations.compressedContext,
         messageCount: sql<number>`(
           SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
         )`,
@@ -130,6 +135,50 @@ export async function updateConversation(
 
 export async function deleteConversation(id: string): Promise<void> {
   await db.delete(chatConversations).where(eq(chatConversations.id, id))
+}
+
+export async function archiveConversation(id: string): Promise<ChatConversation> {
+  const rows = await db
+    .update(chatConversations)
+    .set({ archivedAt: sql`now()`, updatedAt: new Date() })
+    .where(eq(chatConversations.id, id))
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('归档对话失败')
+  return row
+}
+
+export async function unarchiveConversation(id: string): Promise<ChatConversation> {
+  const rows = await db
+    .update(chatConversations)
+    .set({ archivedAt: null, updatedAt: new Date() })
+    .where(eq(chatConversations.id, id))
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('取消归档失败')
+  return row
+}
+
+export async function findMessagesForExport(id: string): Promise<ChatMessage[]> {
+  return db
+    .select()
+    .from(chatMessages)
+    .where(eq(chatMessages.conversationId, id))
+    .orderBy(asc(chatMessages.createdAt))
+}
+
+export async function saveCompressedContext(
+  id: string,
+  compressedContext: string,
+): Promise<ChatConversation> {
+  const rows = await db
+    .update(chatConversations)
+    .set({ compressedContext, compressedAt: sql`now()`, updatedAt: new Date() })
+    .where(eq(chatConversations.id, id))
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('保存压缩上下文失败')
+  return row
 }
 
 // =============================================================================
@@ -382,6 +431,9 @@ export async function findFavoriteConversations(
         lastMessageAt: chatConversations.lastMessageAt,
         createdAt: chatConversations.createdAt,
         updatedAt: chatConversations.updatedAt,
+        archivedAt: chatConversations.archivedAt,
+        compressedAt: chatConversations.compressedAt,
+        compressedContext: chatConversations.compressedContext,
         messageCount: sql<number>`(
           SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
         )`,
