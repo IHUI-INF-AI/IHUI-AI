@@ -2,13 +2,13 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button, Input, Label } from '@ihui/ui'
 import { PasswordStrengthIndicator } from '@/components/login'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 
 const phoneRegex = /^1[3-9]\d{9}$/
 
@@ -88,7 +88,8 @@ export default function ForgotPasswordPage() {
         return
       }
       toast.success(t('resetSuccess'))
-      router.push('/login')
+      router.push('/')
+      useLoginDialogStore.getState().open('login')
     } catch {
       setError(t('registerFailed'))
     } finally {
@@ -174,9 +175,13 @@ export default function ForgotPasswordPage() {
       )}
 
       <p className="text-center text-sm text-muted-foreground">
-        <Link href="/login" className="font-medium text-primary hover:underline">
+        <button
+          type="button"
+          onClick={() => useLoginDialogStore.getState().open('login')}
+          className="font-medium text-primary hover:underline"
+        >
           {t('backToLogin')}
-        </Link>
+        </button>
       </p>
     </div>
   )
