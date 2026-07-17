@@ -2,8 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 对齐 web 端 design-tokens（apps/web/app/globals.css @theme + .dark 块） */
+:root {
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(0 0% 3.9%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(0 0% 3.9%);
+  --color-primary: hsl(142 71% 45%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(0 0% 96.1%);
+  --color-secondary-foreground: hsl(0 0% 9%);
+  --color-muted: hsl(0 0% 96.1%);
+  --color-muted-foreground: hsl(0 0% 40%);
+  --color-accent: hsl(0 0% 96.1%);
+  --color-accent-foreground: hsl(0 0% 9%);
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: hsl(0 0% 89.8%);
+  --color-input: hsl(0 0% 89.8%);
+  --color-ring: hsl(0 0% 70%);
+  --color-success: hsl(142 71% 45%);
+  --color-success-foreground: hsl(0 0% 98%);
+  --color-warning: hsl(38 92% 50%);
+  --color-warning-foreground: hsl(0 0% 98%);
+  --color-info: hsl(199 89% 48%);
+  --color-info-foreground: hsl(0 0% 98%);
+}
+
+.dark {
+  --color-background: hsl(0 0% 3.9%);
+  --color-foreground: hsl(0 0% 98%);
+  --color-card: hsl(0 0% 3.9%);
+  --color-card-foreground: hsl(0 0% 98%);
+  --color-primary: hsl(142 65% 50%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(0 0% 14.9%);
+  --color-secondary-foreground: hsl(0 0% 98%);
+  --color-muted: hsl(0 0% 14.9%);
+  --color-muted-foreground: hsl(0 0% 63.9%);
+  --color-accent: hsl(0 0% 14.9%);
+  --color-accent-foreground: hsl(0 0% 98%);
+  --color-destructive: hsl(0 62.8% 30.6%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: hsl(0 0% 22%);
+  --color-input: hsl(0 0% 22%);
+  --color-ring: hsl(0 0% 35%);
+  --color-success: hsl(142 65% 50%);
+  --color-success-foreground: hsl(0 0% 98%);
+  --color-warning: hsl(38 85% 55%);
+  --color-warning-foreground: hsl(0 0% 98%);
+  --color-info: hsl(199 80% 55%);
+  --color-info-foreground: hsl(0 0% 98%);
+}
+
 page {
-  background-color: #f7f8fa;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
@@ -19,9 +73,9 @@ page {
   height: 96rpx;
   padding: 0;
   margin: 0;
-  background: rgba(7, 193, 96, 0.92);
+  background: var(--color-primary);
   border-radius: 16rpx;
-  box-shadow: 0 4rpx 16rpx rgba(7, 193, 96, 0.3);
+  box-shadow: 0 4rpx 16rpx hsl(142 71% 45% / 0.3);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -40,7 +94,7 @@ page {
 
 .cs-float-label {
   font-size: 20rpx;
-  color: #fff;
+  color: var(--color-primary-foreground);
   margin-top: 4rpx;
   line-height: 1;
 }
