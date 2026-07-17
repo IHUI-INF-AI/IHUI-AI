@@ -263,10 +263,9 @@ export function AISidePanel() {
         aria-label={tcommon('resize')}
         onPointerDown={handleResizeStart}
         className={cn(
-          'absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize',
-          'before:absolute before:left-1/2 before:top-0 before:h-full before:w-px before:-translate-x-1/2 before:bg-transparent before:transition-colors before:content-[""]',
-          'hover:before:bg-primary',
-          isResizing && 'before:bg-primary',
+          'absolute right-0 top-0 z-10 h-full w-px cursor-col-resize bg-transparent transition-colors',
+          'hover:bg-primary',
+          isResizing && 'bg-primary',
         )}
       />
     </aside>
