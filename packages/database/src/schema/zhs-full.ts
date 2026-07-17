@@ -13,6 +13,7 @@ import {
   timestamp,
   real,
   bigint,
+  boolean,
   index,
 } from 'drizzle-orm/pg-core'
 
@@ -218,6 +219,9 @@ export const zhsProduct = pgTable(
     type: varchar('type', { length: 50 }),
     status: integer('status').default(1).notNull(),
     sort: integer('sort').default(0).notNull(),
+    isRecurring: boolean('is_recurring').default(false).notNull(),
+    billingPeriod: varchar('billing_period', { length: 20 }).default('month').notNull(),
+    trialDays: integer('trial_days').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
