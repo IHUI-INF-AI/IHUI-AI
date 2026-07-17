@@ -13,6 +13,7 @@ import { agentsMdExists, writeAgentsMd } from './template.js';
 import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import { setupAgentTools, runToolLoop, type ToolContext, type InterjectionBlock } from './agent.js';
+import { renderSlashHelp, suggestSlashCommands } from './slash-registry.js';
 import { findSkill, type Skill } from '../skills/index.js';
 import {
   getMemoryStore,
@@ -250,45 +251,11 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
 }
 
 async function handleSlashCommand(input: string, state: ReplState, rl: readline.Interface): Promise<void> {
-  const [cmd, ...args] = input.slice(1).split(/\s+/);
+  const [cmdRaw, ...args] = input.slice(1).split(/\s+/);
+  const cmd = cmdRaw ?? '';
   switch (cmd) {
     case 'help':
-      console.info(chalk.cyan('\n可用命令:'));
-      console.info('  /help              显示帮助');
-      console.info('  /exit              退出');
-      console.info('  /clear             清除对话历史');
-      console.info('  /model [id]        切换模型');
-      console.info('  /workspace         显示当前工作区');
-      console.info('  /tools             列出可用工具');
-      console.info('  /init              创建 AGENTS.md 模板');
-      console.info('  /mcp               列出已配置的 MCP 服务器');
-      console.info('  /skills            列出已加载的 skills');
-      console.info('  /skill <name>      查看 skill 内容');
-      console.info('  /memory [cmd]      管理跨会话记忆(on/off/show/add/clear/search)');
-      console.info('  /plan [cmd]        Plan Mode 控制(on/off/approve/reject/edit/show)');
-      console.info('  /context           显示当前会话 token 用量 + 消息数 + 压缩阈值');
-      console.info('  /rewind [N]          回退 N 步(默认 1 步,一步=一对 user+assistant)');
-      console.info('  /fork [msg-index]    从指定消息位置 fork 新 session(默认最后一条 user 消息)');
-      console.info('  /repair             自愈当前会话历史(清理非法 role/空消息/连续重复/interjection 残留)');
-      console.info(chalk.cyan('\n后台任务:'));
-      console.info('  /bg <cmd>          启动后台命令,返回 task_id');
-      console.info('  /bg list           列出后台任务');
-      console.info('  /bg out <id> [N]   获取任务输出(可选最后 N 行)');
-      console.info('  /bg wait <id> [ms] 等待任务结束');
-      console.info('  /bg kill <id>      终止任务');
-      console.info('  /loop <intvl> <c>  周期执行命令(如 /loop 5m pnpm test)');
-      console.info('  /loop list|stop <id>|clear  管理 loop');
-      console.info(chalk.cyan('\n检查点:'));
-      console.info('  /checkpoint [files...]  创建/列出检查点 (别名 /cp)');
-      console.info('  /rollback <id|auto>      回滚到检查点 (别名 /rb)');
-      console.info('  /diff [id]                对比检查点与当前工作区');
-      console.info(chalk.cyan('\n文件操作:'));
-      console.info('  /read <file>       读取文件 (带行号)');
-      console.info('  /ls [dir]          列出目录内容');
-      console.info('  /grep <pat> [path] 递归搜索内容');
-      console.info('  /glob <pattern>    匹配文件名 (如 *.ts)');
-      console.info('  /bash <cmd>        执行 shell 命令');
-      console.info('');
+      console.info(renderSlashHelp());
       break;
 
     case 'exit':
@@ -738,8 +705,14 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       cmdBash(state.opts.workspacePath, args.join(' '), state.checkpoints ?? undefined);
       break;
 
-    default:
+    default: {
       console.info(chalk.yellow(`未知命令: /${cmd}, /help 查看可用命令`));
+      const suggestions = suggestSlashCommands(cmd);
+      if (suggestions.length > 0) {
+        console.info(chalk.dim(`  你是否想用: ${suggestions.map((s) => `/${s.name}`).join(', ')}?`));
+      }
+      break;
+    }
   }
 }
 
