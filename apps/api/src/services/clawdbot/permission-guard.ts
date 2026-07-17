@@ -125,3 +125,52 @@ export function getPermissionGuard(): PermissionGuard {
   if (!instance) instance = new PermissionGuard()
   return instance
 }
+
+export type PermissionMode =
+  | 'default'
+  | 'acceptEdits'
+  | 'bypassPermissions'
+  | 'plan'
+  | 'manual'
+
+export type PermissionDecision = 'allow' | 'deny' | 'ask'
+
+export type DangerLevel = 'read' | 'write' | 'dangerous'
+
+const VALID_PERMISSION_MODES: ReadonlySet<string> = new Set([
+  'default',
+  'acceptEdits',
+  'bypassPermissions',
+  'plan',
+  'manual',
+])
+
+export function parsePermissionMode(
+  s: string | undefined | null,
+): PermissionMode | undefined {
+  if (!s || typeof s !== 'string') return undefined
+  const trimmed = s.trim()
+  if (VALID_PERMISSION_MODES.has(trimmed)) return trimmed as PermissionMode
+  return undefined
+}
+
+export function checkPermissionMode(
+  toolName: string,
+  mode: PermissionMode | undefined,
+  dangerLevel: DangerLevel,
+): PermissionDecision {
+  void toolName
+  const resolvedMode: PermissionMode = mode ?? 'default'
+  switch (resolvedMode) {
+    case 'bypassPermissions':
+      return 'allow'
+    case 'default':
+      return dangerLevel === 'read' ? 'allow' : 'ask'
+    case 'acceptEdits':
+      return dangerLevel === 'dangerous' ? 'ask' : 'allow'
+    case 'plan':
+      return dangerLevel === 'read' ? 'allow' : 'deny'
+    case 'manual':
+      return 'ask'
+  }
+}
