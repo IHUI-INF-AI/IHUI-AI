@@ -63,7 +63,7 @@
 .level-icon-default {
   width: 72rpx;
   height: 72rpx;
-  border-radius: 50%;
+  border-radius: 16rpx;
   background: linear-gradient(135deg, #f8d486, #f2b04a);
   display: flex;
   align-items: center;
@@ -94,7 +94,7 @@
 .level-radio {
   width: 36rpx;
   height: 36rpx;
-  border-radius: 50%;
+  border-radius: 8rpx;
   border: 2rpx solid #ddd;
   flex-shrink: 0;
 }
@@ -136,7 +136,7 @@
 .priv-icon-default {
   width: 56rpx;
   height: 56rpx;
-  border-radius: 50%;
+  border-radius: 16rpx;
   background: #fff5e6;
   display: flex;
   align-items: center;
