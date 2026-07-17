@@ -6603,7 +6603,17 @@
       "notifications": "Notifications",
       "orders": "Orders",
       "realname": "Real Name Verification",
-      "subscription": "Subscription"
+      "subscription": "Subscription",
+      "learn-record": "Study Records",
+      "comment": "My Comments",
+      "fans": "My Fans",
+      "follow": "My Follows",
+      "ask": "My Q&A",
+      "circle": "My Circles",
+      "resource": "My Resources",
+      "point": "My Points",
+      "exam": "My Exams",
+      "sign-up": "My Sign-ups"
     },
     "profile": {
       "title": "Profile",
@@ -6813,6 +6823,66 @@
       "createFirst": "Write the first one",
       "empty": "No articles yet",
       "deleteSuccess": "Deleted"
+    },
+    "learn-record": {
+      "title": "Study Records",
+      "empty": "No data yet",
+      "loading": "Loading..."
+    },
+    "comment": {
+      "title": "My Comments",
+      "empty": "No data yet",
+      "loading": "Loading..."
+    },
+    "fans": {
+      "title": "My Fans",
+      "empty": "No data yet",
+      "loading": "Loading...",
+      "follow": "Follow",
+      "followed": "Following",
+      "followSuccess": "Followed"
+    },
+    "follow": {
+      "title": "My Follows",
+      "empty": "No data yet",
+      "loading": "Loading...",
+      "unfollow": "Unfollow",
+      "unfollowSuccess": "Unfollowed"
+    },
+    "ask": {
+      "title": "My Q&A",
+      "empty": "No data yet",
+      "loading": "Loading..."
+    },
+    "circle": {
+      "title": "My Circles",
+      "empty": "No data yet",
+      "loading": "Loading..."
+    },
+    "resource": {
+      "title": "My Resources",
+      "empty": "No data yet",
+      "loading": "Loading..."
+    },
+    "point": {
+      "title": "My Points",
+      "empty": "No data yet",
+      "loading": "Loading...",
+      "total": "Total",
+      "used": "Used",
+      "balance": "Available",
+      "records": "Records"
+    },
+    "exam": {
+      "title": "My Exams",
+      "empty": "No data yet",
+      "loading": "Loading...",
+      "continue": "Continue Exam"
+    },
+    "sign-up": {
+      "title": "My Sign-ups",
+      "empty": "No data yet",
+      "loading": "Loading..."
     }
   },
   "settings": {

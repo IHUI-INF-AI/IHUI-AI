@@ -6591,7 +6591,17 @@
       "notifications": "我的通知",
       "orders": "我的訂單",
       "realname": "實名認證",
-      "subscription": "訂閱管理"
+      "subscription": "訂閱管理",
+      "learn-record": "學習記錄",
+      "comment": "我的評論",
+      "fans": "我的粉絲",
+      "follow": "我的關注",
+      "ask": "我的問答",
+      "circle": "我的圈子",
+      "resource": "我的資源",
+      "point": "我的積分",
+      "exam": "我的考試",
+      "sign-up": "我的報名"
     },
     "profile": {
       "title": "個人資料",
@@ -6801,6 +6811,66 @@
       "createFirst": "寫第一篇",
       "empty": "還沒有文章",
       "deleteSuccess": "已刪除"
+    },
+    "learn-record": {
+      "title": "學習記錄",
+      "empty": "目前還沒有數據",
+      "loading": "載入中..."
+    },
+    "comment": {
+      "title": "我的評論",
+      "empty": "目前還沒有數據",
+      "loading": "載入中..."
+    },
+    "fans": {
+      "title": "我的粉絲",
+      "empty": "目前還沒有數據",
+      "loading": "載入中...",
+      "follow": "關注",
+      "followed": "已關注",
+      "followSuccess": "已關注"
+    },
+    "follow": {
+      "title": "我的關注",
+      "empty": "目前還沒有數據",
+      "loading": "載入中...",
+      "unfollow": "取消關注",
+      "unfollowSuccess": "已取消關注"
+    },
+    "ask": {
+      "title": "我的問答",
+      "empty": "目前還沒有數據",
+      "loading": "載入中..."
+    },
+    "circle": {
+      "title": "我的圈子",
+      "empty": "目前還沒有數據",
+      "loading": "載入中..."
+    },
+    "resource": {
+      "title": "我的資源",
+      "empty": "目前還沒有數據",
+      "loading": "載入中..."
+    },
+    "point": {
+      "title": "我的積分",
+      "empty": "目前還沒有數據",
+      "loading": "載入中...",
+      "total": "總積分",
+      "used": "已使用",
+      "balance": "可用",
+      "records": "明細"
+    },
+    "exam": {
+      "title": "我的考試",
+      "empty": "目前還沒有數據",
+      "loading": "載入中...",
+      "continue": "繼續考試"
+    },
+    "sign-up": {
+      "title": "我的報名",
+      "empty": "目前還沒有數據",
+      "loading": "載入中..."
     }
   },
   "certificate": {
