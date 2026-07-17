@@ -4,7 +4,24 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { User, Shield, Bell, ShoppingBag, CreditCard, BadgeCheck } from 'lucide-react'
+import {
+  User,
+  Shield,
+  Bell,
+  ShoppingBag,
+  CreditCard,
+  BadgeCheck,
+  BookOpen,
+  MessageSquare,
+  Users,
+  UserPlus,
+  HelpCircle,
+  Circle as CircleIcon,
+  FolderOpen,
+  Coins,
+  FileCheck,
+  ClipboardList,
+} from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
@@ -13,7 +30,23 @@ import { TabBar, type Tab } from './TabBar'
 
 interface UserNavItem {
   href: string
-  labelKey: 'profile' | 'security' | 'notifications' | 'orders' | 'realname' | 'subscription'
+  labelKey:
+    | 'profile'
+    | 'security'
+    | 'notifications'
+    | 'orders'
+    | 'realname'
+    | 'subscription'
+    | 'learn-record'
+    | 'comment'
+    | 'fans'
+    | 'follow'
+    | 'ask'
+    | 'circle'
+    | 'resource'
+    | 'point'
+    | 'exam'
+    | 'sign-up'
   icon: React.ComponentType<{ className?: string }>
 }
 
@@ -24,6 +57,16 @@ const USER_NAV: UserNavItem[] = [
   { href: '/user/orders', labelKey: 'orders', icon: ShoppingBag },
   { href: '/user/realname', labelKey: 'realname', icon: BadgeCheck },
   { href: '/user/subscription', labelKey: 'subscription', icon: CreditCard },
+  { href: '/user/learn-record', labelKey: 'learn-record', icon: BookOpen },
+  { href: '/user/comment', labelKey: 'comment', icon: MessageSquare },
+  { href: '/user/fans', labelKey: 'fans', icon: Users },
+  { href: '/user/follow', labelKey: 'follow', icon: UserPlus },
+  { href: '/user/ask', labelKey: 'ask', icon: HelpCircle },
+  { href: '/user/circle', labelKey: 'circle', icon: CircleIcon },
+  { href: '/user/resource', labelKey: 'resource', icon: FolderOpen },
+  { href: '/user/point', labelKey: 'point', icon: Coins },
+  { href: '/user/exam', labelKey: 'exam', icon: FileCheck },
+  { href: '/user/sign-up', labelKey: 'sign-up', icon: ClipboardList },
 ]
 
 export function UserNav({ children }: { children: React.ReactNode }) {

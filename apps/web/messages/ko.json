@@ -6603,7 +6603,17 @@
       "notifications": "알림",
       "orders": "주의문",
       "realname": "실명 인증",
-      "subscription": "구독 관리"
+      "subscription": "구독 관리",
+      "learn-record": "학습 기록",
+      "comment": "내 댓글",
+      "fans": "팬",
+      "follow": "팔로우",
+      "ask": "내 Q&A",
+      "circle": "내 서클",
+      "resource": "내 자원",
+      "point": "내 포인트",
+      "exam": "내 시험",
+      "sign-up": "내 신청"
     },
     "profile": {
       "title": "개인",
@@ -6813,6 +6823,66 @@
       "createFirst": "첫 글 쓰기",
       "empty": "아직 글이 없습니다",
       "deleteSuccess": "삭제됨"
+    },
+    "learn-record": {
+      "title": "학습 기록",
+      "empty": "데이터가 없습니다",
+      "loading": "로딩 중..."
+    },
+    "comment": {
+      "title": "내 댓글",
+      "empty": "데이터가 없습니다",
+      "loading": "로딩 중..."
+    },
+    "fans": {
+      "title": "팬",
+      "empty": "데이터가 없습니다",
+      "loading": "로딩 중...",
+      "follow": "팔로우",
+      "followed": "팔로우 중",
+      "followSuccess": "팔로우했습니다"
+    },
+    "follow": {
+      "title": "팔로우",
+      "empty": "데이터가 없습니다",
+      "loading": "로딩 중...",
+      "unfollow": "팔로우 취소",
+      "unfollowSuccess": "팔로우가 취소되었습니다"
+    },
+    "ask": {
+      "title": "내 Q&A",
+      "empty": "데이터가 없습니다",
+      "loading": "로딩 중..."
+    },
+    "circle": {
+      "title": "내 서클",
+      "empty": "데이터가 없습니다",
+      "loading": "로딩 중..."
+    },
+    "resource": {
+      "title": "내 자원",
+      "empty": "데이터가 없습니다",
+      "loading": "로딩 중..."
+    },
+    "point": {
+      "title": "내 포인트",
+      "empty": "데이터가 없습니다",
+      "loading": "로딩 중...",
+      "total": "총 포인트",
+      "used": "사용됨",
+      "balance": "사용 가능",
+      "records": "내역"
+    },
+    "exam": {
+      "title": "내 시험",
+      "empty": "데이터가 없습니다",
+      "loading": "로딩 중...",
+      "continue": "시험 계속"
+    },
+    "sign-up": {
+      "title": "내 신청",
+      "empty": "데이터가 없습니다",
+      "loading": "로딩 중..."
     }
   },
   "settings": {
