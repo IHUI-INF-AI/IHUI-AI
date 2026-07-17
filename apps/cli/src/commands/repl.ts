@@ -25,7 +25,13 @@ import {
   addMemoryEntry,
   clearMemory,
   setMemoryEnabled,
+  hybridSearchSync,
+  MockEmbeddingProvider,
+  ApiEmbeddingProvider,
   type MemoryEntry,
+  type MemoryChunk,
+  type MemorySource,
+  type EmbeddingProvider,
 } from '../memory/index.js';
 import {
   registerTask,
@@ -48,6 +54,7 @@ import {
   listSessions as listSessionStates,
   newSessionId,
 } from '../sessions/index.js';
+import { loadSettings, type Settings } from './settings.js';
 
 export interface ReplOptions {
   modelId: string;
@@ -182,6 +189,109 @@ export function forkHistory(
   }
   const forkedHistory = history.slice(0, forkIndex).map((m) => ({ ...m }));
   return { ok: true, forkedHistory };
+}
+
+// === P1-4 Memory Hybrid Search 集成(复用现有 /memory search 子命令) ===
+
+/**
+ * MemoryEntry → MemoryChunk 适配器。
+ * MEMORY.md 无时间戳/accessCount,用默认值填充;category 写入 ancestors[0] 保留分类。
+ */
+export function memoryEntryToChunk(
+  entry: MemoryEntry,
+  source: MemorySource = 'workspace',
+): MemoryChunk {
+  return {
+    id: `${entry.category || 'uncategorized'}:${entry.text.slice(0, 32)}`,
+    text: entry.text,
+    source,
+    createdAt: Date.now(),
+    accessCount: 0,
+    lastAccessed: Date.now(),
+    ancestors: [entry.category || 'uncategorized'],
+  };
+}
+
+/**
+ * 从 settings 解析 embedding provider。
+ * - settings.embeddingEnabled === false → undefined(纯 BM25)
+ * - settings.embeddingApiBase + embeddingApiKey → ApiEmbeddingProvider
+ * - 否则 → MockEmbeddingProvider(默认,零配置)
+ *
+ * 注意:hybridSearchSync 当前忽略 provider(纯 FTS),此函数为后续迁移到 async hybridSearch 预留。
+ */
+export function resolveEmbeddingProvider(): EmbeddingProvider | undefined {
+  const settings = loadSettings() as Settings & {
+    embeddingApiBase?: string;
+    embeddingApiKey?: string;
+    embeddingEnabled?: boolean;
+  };
+  if (settings.embeddingEnabled === false) return undefined;
+  if (settings.embeddingApiBase && settings.embeddingApiKey) {
+    return new ApiEmbeddingProvider({
+      apiBase: settings.embeddingApiBase,
+      apiKey: settings.embeddingApiKey,
+    });
+  }
+  return new MockEmbeddingProvider();
+}
+
+export interface MemorySearchResult {
+  text: string;
+  category: string;
+  source: 'global' | 'project';
+  score: number;
+  matchedBy: string;
+}
+
+/**
+ * 执行 memory 搜索(核心逻辑,从 REPL handler 提取以便测试)。
+ * 优先用 hybridSearchSync(BM25 + 时间衰减 + MMR),失败或返回空则降级到 substring。
+ */
+export function executeMemorySearch(
+  entries: MemoryEntry[],
+  query: string,
+  provider?: EmbeddingProvider,
+): MemorySearchResult[] {
+  if (entries.length === 0) return [];
+
+  try {
+    const chunks = entries.map((e) =>
+      memoryEntryToChunk(e, e.source === 'global' ? 'global' : 'workspace'),
+    );
+    const searchResults = hybridSearchSync({
+      query,
+      chunks,
+      provider,
+      maxResults: 10,
+    });
+    if (searchResults.length === 0) {
+      // hybrid search 返回空 → fallback 到 substring
+      return searchMemory(entries, query).map((e) => ({
+        text: e.text,
+        category: e.category,
+        source: e.source,
+        score: 0,
+        matchedBy: 'substring-fallback',
+      }));
+    }
+    return searchResults.map((r) => ({
+      text: r.chunk.text,
+      category: r.chunk.ancestors?.[0] ?? 'general',
+      source: r.chunk.source === 'global' ? 'global' : 'project',
+      score: r.score,
+      matchedBy: r.matchedBy,
+    }));
+  } catch {
+    // hybridSearchSync 抛错 → fallback 到 substring
+    return searchMemory(entries, query).map((e) => ({
+      text: e.text,
+      category: e.category,
+      source: e.source,
+      score: 0,
+      matchedBy: 'substring-fallback',
+    }));
+  }
 }
 
 export async function startREPL(opts: ReplOptions): Promise<void> {
@@ -470,22 +580,29 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         console.info(chalk.green(`✓ 已清空 ${isGlobal ? '全局' : '项目'} memory`));
         state.memory = loadMemory(state.opts.workspacePath);
       } else if (sub === 'search') {
-        const query = args.slice(1).join(' ');
+        const query = args.slice(1).join(' ').trim();
         if (!query) {
           console.info(chalk.yellow('用法: /memory search <关键词>'));
           break;
         }
         const entries = loadMemory(state.opts.workspacePath);
-        const matched = searchMemory(entries, query);
-        if (matched.length === 0) {
-          console.info(chalk.dim(`未找到匹配 "${query}" 的 memory`));
+        if (entries.length === 0) {
+          console.info(chalk.dim('  memory 为空,先用 /memory add <text> 添加'));
+          break;
+        }
+        const provider = resolveEmbeddingProvider();
+        const results = executeMemorySearch(entries, query, provider);
+        if (results.length === 0) {
+          console.info(chalk.dim(`  未找到匹配 "${query}" 的 memory`));
         } else {
-          console.info(chalk.cyan(`\n找到 ${matched.length} 条匹配:`));
-          for (const e of matched) {
-            const tag = e.source === 'global' ? '🌐' : '📁';
-            console.info(`  ${tag} [${e.category}] ${e.text}`);
+          console.info(chalk.cyan(`  找到 ${results.length} 条匹配(hybrid search):`));
+          for (const r of results) {
+            const tag = r.source === 'global' ? '🌐' : '📁';
+            const scoreStr = r.matchedBy === 'substring-fallback'
+              ? ''
+              : ` (score: ${r.score.toFixed(3)}, ${r.matchedBy})`;
+            console.info(`  ${tag} [${r.category}] ${r.text}${scoreStr}`);
           }
-          console.info('');
         }
       } else {
         console.info(chalk.yellow('用法: /memory [on|off|show|add <text>|clear|search <关键词>]'));
