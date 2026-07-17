@@ -134,7 +134,7 @@ export default function AgentCategoryDetailPage() {
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span
                   className={cn(
-                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5',
+                    'inline-flex items-center gap-1 rounded-md px-2 py-0.5',
                     category.status === '1'
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                       : 'bg-muted text-muted-foreground',
@@ -143,7 +143,7 @@ export default function AgentCategoryDetailPage() {
                   {category.status === '1' ? '启用' : '禁用'}
                 </span>
                 {category.isPaid && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-600 dark:text-amber-500">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-amber-600 dark:text-amber-500">
                     <CreditCard className="h-3 w-3" />
                     付费分类
                   </span>

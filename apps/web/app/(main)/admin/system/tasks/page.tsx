@@ -186,7 +186,7 @@ export default function AdminSystemTasksPage() {
                   <TableCell>
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
                         STATUS_STYLE[t.status],
                       )}
                     >

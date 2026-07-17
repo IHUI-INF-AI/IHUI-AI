@@ -74,7 +74,7 @@ export function LearnTable({ rows, isLoading, error, onEdit, onDelete, deletePen
                   <div className="flex flex-col gap-1">
                     <span
                       className={cn(
-                        'inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                         l.isPublished
                           ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                           : 'bg-muted text-muted-foreground',
@@ -90,7 +90,7 @@ export function LearnTable({ rows, isLoading, error, onEdit, onDelete, deletePen
                     </span>
                     <span
                       className={cn(
-                        'inline-flex w-fit items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex w-fit items-center rounded-md px-2 py-0.5 text-xs font-medium',
                         l.isFree
                           ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
                           : 'bg-amber-500/10 text-amber-600 dark:text-amber-400',

@@ -56,8 +56,11 @@ export function PasswordStrengthIndicator({ password }: { password: string }) {
 
   return (
     <div className="mt-1.5 flex items-center gap-3">
-      <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-        <div className={`h-full rounded-full transition-all ${color.split(' ')[0]}`} style={{ width: `${width}%` }} />
+      <div className="h-1 flex-1 overflow-hidden rounded bg-muted">
+        <div
+          className={`h-full rounded-md transition-all ${color.split(' ')[0]}`}
+          style={{ width: `${width}%` }}
+        />
       </div>
       <span className={`text-xs whitespace-nowrap ${color.split(' ')[1]}`}>{label}</span>
     </div>

@@ -71,7 +71,7 @@ export default function VipPayConfirm({
         </View>
 
         <View
-          className="w-full py-3 rounded-full text-center"
+          className="w-full py-3 rounded-md text-center"
           style={{ background: 'linear-gradient(90deg, #fbbf24, #f59e0b)' }}
           onClick={onConfirm}
         >

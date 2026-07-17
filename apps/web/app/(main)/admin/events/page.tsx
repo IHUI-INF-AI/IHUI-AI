@@ -161,7 +161,7 @@ export default function AdminEventsPage() {
                 <span className="font-medium">{t(`types.${delTarget.type}`)}</span>
                 <span
                   className={cn(
-                    'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                    'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                     LEVEL_BADGE[delTarget.level],
                   )}
                 >

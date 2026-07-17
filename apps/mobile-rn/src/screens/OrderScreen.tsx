@@ -86,7 +86,7 @@ export function OrderScreen() {
                   {item.targetTitle}
                 </Text>
                 <View
-                  className={`rounded-full px-2 py-0.5 ${STATUS_STYLE[item.status] ?? 'bg-neutral-200 text-neutral-600'}`}
+                  className={`rounded-md px-2 py-0.5 ${STATUS_STYLE[item.status] ?? 'bg-neutral-200 text-neutral-600'}`}
                 >
                   <Text className="text-xs">{STATUS_LABEL[item.status] ?? item.status}</Text>
                 </View>

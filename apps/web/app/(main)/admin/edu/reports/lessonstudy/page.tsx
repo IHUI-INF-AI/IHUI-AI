@@ -3,7 +3,15 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, ChevronLeft, ChevronRight, BarChart3, Users, CheckCircle, Clock } from 'lucide-react'
+import {
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  BarChart3,
+  Users,
+  CheckCircle,
+  Clock,
+} from 'lucide-react'
 
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
@@ -166,11 +174,15 @@ export default function EduReportsLessonStudyPage() {
                   <TableCell className="px-4 py-2.5">{r.learnerCount}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+                      <div className="h-1.5 w-20 overflow-hidden rounded-2xl bg-muted">
                         <div
                           className={cn(
-                            'h-full rounded-full',
-                            r.avgProgress >= 100 ? 'bg-emerald-500' : r.avgProgress >= 50 ? 'bg-sky-500' : 'bg-amber-500',
+                            'h-full rounded-md',
+                            r.avgProgress >= 100
+                              ? 'bg-emerald-500'
+                              : r.avgProgress >= 50
+                                ? 'bg-sky-500'
+                                : 'bg-amber-500',
                           )}
                           style={{ width: `${Math.min(100, r.avgProgress)}%` }}
                         />
@@ -190,11 +202,23 @@ export default function EduReportsLessonStudyPage() {
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

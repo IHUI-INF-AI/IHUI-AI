@@ -109,7 +109,7 @@ export default function ClawdbotHealthPage() {
       <div className="flex items-center gap-3 rounded-lg border bg-card p-4">
         <div
           className={cn(
-            'flex h-12 w-12 items-center justify-center rounded-full',
+            'flex h-12 w-12 items-center justify-center rounded-xl',
             STATUS_CONFIG[report.status].bg,
           )}
         >

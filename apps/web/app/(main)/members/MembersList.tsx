@@ -8,7 +8,7 @@ import type { MemberItem } from './types'
 function StatusBadge({ status, t }: { status: number; t: (k: string) => string }) {
   if (status === 1) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
+      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
         <ShieldCheck className="h-3 w-3" />
         {t('statusActive')}
       </span>
@@ -16,14 +16,14 @@ function StatusBadge({ status, t }: { status: number; t: (k: string) => string }
   }
   if (status === 2) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-600">
+      <span className="inline-flex items-center gap-1 rounded-md bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-600">
         <ShieldAlert className="h-3 w-3" />
         {t('statusSealed')}
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
+    <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
       <Clock className="h-3 w-3" />
       {t('statusPending')}
     </span>

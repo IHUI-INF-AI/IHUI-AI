@@ -163,7 +163,7 @@ export function InvoicesTab({
               apps.map((a) => (
                 <tr key={a.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5">
-                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                    <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
                       {t(`invoiceType_${a.invoiceType}`)}
                     </span>
                   </td>
@@ -177,7 +177,7 @@ export function InvoicesTab({
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                         INVOICE_STATUS_CFG[a.status].cls,
                       )}
                     >

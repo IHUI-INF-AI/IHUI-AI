@@ -111,16 +111,16 @@ export default function MyLessonsPage() {
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{t('progress', { value: progress })}</span>
                         </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                        <div className="h-2 w-full overflow-hidden rounded bg-muted">
                           <div
-                            className="h-full rounded-full bg-primary transition-all"
+                            className="h-full rounded-md bg-primary transition-all"
                             style={{ width: `${progress}%` }}
                           />
                         </div>
                       </div>
                       <span
                         className={cn(
-                          'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                           STATUS_STYLE[item.status] ?? STATUS_STYLE[1],
                         )}
                       >

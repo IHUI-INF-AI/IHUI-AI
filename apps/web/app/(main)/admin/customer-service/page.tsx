@@ -138,7 +138,7 @@ export default function AdminCustomerServicePage() {
                     s.id === selectedId ? 'bg-accent' : 'hover:bg-muted/50',
                   )}
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                     {s.userAvatar ? (
                       <img
                         src={s.userAvatar}
@@ -163,7 +163,7 @@ export default function AdminCustomerServicePage() {
                         {s.lastMessage || '暂无消息'}
                       </p>
                       {s.unread > 0 && (
-                        <span className="shrink-0 rounded-full bg-red-500 px-1.5 text-xs text-white">
+                        <span className="shrink-0 rounded-md bg-red-500 px-1.5 text-xs text-white">
                           {s.unread}
                         </span>
                       )}
