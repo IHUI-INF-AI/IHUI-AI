@@ -356,6 +356,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
               disabled={busyId === item.id}
               aria-label={tc('actions.menu')}
               title={tc('actions.menu')}
+              data-testid="conversation-more-menu"
               className={cn(
                 'absolute right-0.5 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-all',
                 'text-muted-foreground opacity-0 group-hover:opacity-100',
@@ -451,6 +452,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
               }}
               disabled={busyId === item.id}
               className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+              data-testid="conversation-delete-action"
             >
               <Trash2 className="mr-2 h-3.5 w-3.5" />
               <span>{tc('actions.delete')}</span>
