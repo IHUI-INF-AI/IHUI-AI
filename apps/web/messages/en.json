@@ -1106,7 +1106,31 @@
     "failed": "Failed",
     "correct": "Correct",
     "incorrect": "Incorrect",
-    "timeUp": "Time is up, submitted automatically"
+    "timeUp": "Time is up, submitted automatically",
+    "wrongQuestions": {
+      "title": "Wrong Questions",
+      "subtitle": "Review mistakes and reinforce weak points",
+      "statsTotal": "Total",
+      "statsUnresolved": "Unresolved",
+      "statsResolved": "Resolved",
+      "filterAll": "All",
+      "filterUnresolved": "Unresolved",
+      "filterResolved": "Resolved",
+      "examIdPlaceholder": "Filter by exam ID (optional)",
+      "colQuestion": "Question",
+      "colSource": "Source Paper",
+      "colTime": "Added",
+      "colStatus": "Status",
+      "colActions": "Actions",
+      "markAsResolved": "Mark as Resolved",
+      "markSuccess": "Marked as resolved",
+      "empty": "No wrong questions",
+      "loading": "Loading...",
+      "prev": "Prev",
+      "next": "Next",
+      "pageInfo": "Page {page}/{totalPages}",
+      "total": "{total} items"
+    }
   },
   "circles": {
     "title": "Circles",
@@ -5288,7 +5312,10 @@
       "stat_total": "Total",
       "stat_pending": "Pending",
       "stat_approved": "Approved",
-      "stat_rejected": "Rejected"
+      "stat_rejected": "Rejected",
+      "statusPending": "Pending",
+      "statusApproved": "Approved",
+      "statusRejected": "Rejected"
     },
     "agentTask": {
       "title": "Agent Task Management",
@@ -9215,6 +9242,10 @@
     "rechargeFail": "Recharge Failed",
     "rechargeSuccessDesc": "Your recharge has been credited",
     "rechargeFailDesc": "Recharge incomplete, please retry",
+    "rechargeOrderNo": "Order No.",
+    "viewRecords": "View Records",
+    "retryRecharge": "Retry Recharge",
+    "contactSupport": "Contact Support",
     "withdrawTitle": "Withdrawal Request",
     "withdrawAmount": "Amount",
     "withdrawMethod": "Method",
