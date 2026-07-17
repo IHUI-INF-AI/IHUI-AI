@@ -244,8 +244,41 @@ export interface RunToolLoopOptions {
    * 语义:在 agent 运行中,用户可向 buffer 追加新指令;runToolLoop 在每轮迭代开始 + end_turn 时 drain,
    * 把累积的 interjection 作为新 user 消息追加(不取消当前回合,而是让 LLM 下一轮处理)。
    * 回调实现应返回并清空 buffer(每次调用返回当前累积内容,然后清空)。
+   *
+   * P0-4 扩展:支持 image content block(多模态),drain 时图片块转为文本占位符
+   * (当前 streamChat 仅支持 content: string,后续支持多模态时可改为原生传递)。
    */
-  drainInterjections?: () => string[];
+  drainInterjections?: () => InterjectionBlock[];
+}
+
+/**
+ * P0-4 Interjection 内容块:支持文本 + 图片(对齐 grok-build 的 interject image content block)。
+ * - 文本块:直接作为 user 消息内容
+ * - 图片块:base64 编码 + mediaType,drain 时转为文本占位符(因 streamChat 暂不支持多模态)
+ */
+export type InterjectionBlock =
+  | { type: 'text'; text: string }
+  | {
+      type: 'image';
+      source: { type: 'base64'; mediaType: string; data: string };
+      altText?: string;
+    };
+
+/**
+ * P0-4 把 interjection 块数组转为 LLM 可消费的文本(当前 streamChat 仅支持 content: string)。
+ * - 文本块:直接拼接
+ * - 图片块:转占位符 `[图片: <altText 或 mediaType>, <N> bytes base64]`
+ * 后续 streamChat 支持多模态时,可改为返回 ContentBlock[] 原生传递。
+ */
+export function formatInterjectionBlocks(blocks: InterjectionBlock[]): string {
+  return blocks
+    .map((b) => {
+      if (b.type === 'text') return b.text;
+      const label = b.altText ?? b.source.mediaType;
+      const sizeKb = Math.round((b.source.data.length * 3) / 4 / 1024); // base64 → 原始字节数
+      return `[图片: ${label}, ${sizeKb} KB]`;
+    })
+    .join('\n\n');
 }
 
 export interface RunToolLoopResult {
@@ -306,23 +339,49 @@ type RetryCallback = (
   delayMs: number,
 ) => void;
 
-/** DoomLoopDetector:记录连续相同错误签名,超过阈值判定死循环。 */
+/** DoomLoopDetector:记录连续相同错误/tool_call 签名,超过阈值判定死循环。 */
 class DoomLoopDetector {
-  private lastSignature = '';
-  private consecutiveCount = 0;
+  private lastErrorSignature = '';
+  private consecutiveErrorCount = 0;
+  private lastToolCallSignature = '';
+  private consecutiveToolCallCount = 0;
 
   recordError(errMsg: string): void {
     const sig = this.signature(errMsg);
-    if (sig === this.lastSignature) {
-      this.consecutiveCount++;
+    if (sig === this.lastErrorSignature) {
+      this.consecutiveErrorCount++;
     } else {
-      this.lastSignature = sig;
-      this.consecutiveCount = 1;
+      this.lastErrorSignature = sig;
+      this.consecutiveErrorCount = 1;
+    }
+  }
+
+  recordToolCalls(toolCalls: Array<{ name: string; arguments: Record<string, unknown> }>): void {
+    const sig = toolCalls
+      .map((tc) => `${tc.name}(${JSON.stringify(tc.arguments)})`)
+      .sort()
+      .join('|');
+    if (sig === this.lastToolCallSignature) {
+      this.consecutiveToolCallCount++;
+    } else {
+      this.lastToolCallSignature = sig;
+      this.consecutiveToolCallCount = 1;
     }
   }
 
   isDoomLoop(): boolean {
-    return this.consecutiveCount >= SAMPLER_DOOM_LOOP_THRESHOLD;
+    return (
+      this.consecutiveErrorCount >= SAMPLER_DOOM_LOOP_THRESHOLD ||
+      this.consecutiveToolCallCount >= SAMPLER_DOOM_LOOP_THRESHOLD
+    );
+  }
+
+  /** end_turn 时重置,表示对话正常推进,清空累积签名 */
+  reset(): void {
+    this.lastErrorSignature = '';
+    this.consecutiveErrorCount = 0;
+    this.lastToolCallSignature = '';
+    this.consecutiveToolCallCount = 0;
   }
 
   private signature(msg: string): string {
@@ -396,11 +455,16 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let doomLoopDetected = false;
 
   // P0-2 Interject:drain pending buffer 并作为新 user 消息追加。返回是否有 interjection 被 drain。
+  // P0-4 扩展:支持 image content block,通过 formatInterjectionBlocks 转为文本
   function drainAndAppendInterjections(): boolean {
     if (!opts.drainInterjections) return false;
     const interjections = opts.drainInterjections();
     if (interjections.length === 0) return false;
-    opts.messages.push({ role: 'user', content: interjections.join('\n\n') });
+    // P0-4 用 formatInterjectionBlocks 把 text/image 块统一转为字符串
+    const content = formatInterjectionBlocks(interjections);
+    if (content.length > 0) {
+      opts.messages.push({ role: 'user', content });
+    }
     return true;
   }
 
@@ -444,6 +508,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       if (samplerResult.error) {
         iterError = true;
         hadError = true;
+        if (process.env['DEBUG_STOP']) {
+          process.stderr.write(`[debug-iter] iter ${iterations} error: ${samplerResult.error}\n`);
+        }
         const formatted = formatSSEError(new Error(samplerResult.error));
         if (formatted.severity === 'auth' || formatted.severity === 'forbidden') {
           process.stderr.write(chalk.red(`[${formatted.severity}] ${formatted.title}: ${formatted.rawMessage}\n`));
@@ -495,6 +562,19 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         if (drainAndAppendInterjections()) {
           continue;
         }
+        // P0-3 end_turn(LLM 主动结束)时重置 doom loop detector,表示对话正常推进
+        doomLoopDetector.reset();
+        break;
+      }
+
+      // P0-3 记录 tool_call 签名,检测 doom loop(连续 N 轮相同 tool_call 模式 → 死循环)
+      doomLoopDetector.recordToolCalls(toolCalls);
+      if (doomLoopDetector.isDoomLoop()) {
+        doomLoopDetected = true;
+        process.stderr.write(
+          chalk.red(`[doom-loop] 连续 ${SAMPLER_DOOM_LOOP_THRESHOLD} 轮相同的 tool_call 模式,判定陷入死循环,终止\n`),
+        );
+        void opts.onError?.(`Doom loop detected: 连续 ${SAMPLER_DOOM_LOOP_THRESHOLD} 轮相同的 tool_call 模式`);
         break;
       }
 
@@ -769,6 +849,7 @@ export function stopReasonToExitCode(reason: AgentStopReason): number {
     case 'error':
       return 1;
     case 'max_iterations':
+    case 'doom_loop':
       return 2;
     case 'cancelled':
       return 130;

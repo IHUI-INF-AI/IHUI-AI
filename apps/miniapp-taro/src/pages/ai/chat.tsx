@@ -9,6 +9,7 @@ import {
   getAgentDetail,
   getAgentList,
 } from '@/api'
+import { formatSSEError } from '@ihui/api-client'
 import {
   type ModelItem,
   InputArea,
@@ -86,24 +87,27 @@ export default function ChatPage() {
     }
   }, [t])
 
-  const loadMaterials = useCallback(async (page = 1, append = false) => {
-    setMaterialsLoading(true)
-    try {
-      const res = (await getAigcList({ page, pageSize: MATERIAL_PAGE_SIZE })) as {
-        list?: MaterialItem[]
-        total?: number
+  const loadMaterials = useCallback(
+    async (page = 1, append = false) => {
+      setMaterialsLoading(true)
+      try {
+        const res = (await getAigcList({ page, pageSize: MATERIAL_PAGE_SIZE })) as {
+          list?: MaterialItem[]
+          total?: number
+        }
+        const list = res?.list || []
+        const total = res?.total ?? 0
+        setMaterials((prev) => (append ? [...prev, ...list] : list))
+        setMaterialPage(page)
+        setMaterialHasMore(page * MATERIAL_PAGE_SIZE < total)
+      } catch {
+        Taro.showToast({ title: t('ai.materialLoadFailed'), icon: 'none' })
+      } finally {
+        setMaterialsLoading(false)
       }
-      const list = res?.list || []
-      const total = res?.total ?? 0
-      setMaterials((prev) => (append ? [...prev, ...list] : list))
-      setMaterialPage(page)
-      setMaterialHasMore(page * MATERIAL_PAGE_SIZE < total)
-    } catch {
-      Taro.showToast({ title: t('ai.materialLoadFailed'), icon: 'none' })
-    } finally {
-      setMaterialsLoading(false)
-    }
-  }, [t])
+    },
+    [t],
+  )
 
   const handleLoadMore = useCallback(async () => {
     if (materialsLoading || !materialHasMore) return
@@ -179,12 +183,14 @@ export default function ChatPage() {
         )
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') {
+          const formatted = formatSSEError(e, t('ai.serviceUnavailable') || 'AI 服务异常')
           setMessages((prev) =>
             prev.map((m, i) => {
               if (i !== prev.length - 1) return m
-              return m.content ? m : { ...m, content: t('ai.serviceUnavailable') }
+              return m.content ? m : { ...m, content: formatted.message }
             }),
           )
+          Taro.showToast({ title: formatted.title, icon: 'none', duration: 2500 })
         }
       } finally {
         abortRef.current = null
