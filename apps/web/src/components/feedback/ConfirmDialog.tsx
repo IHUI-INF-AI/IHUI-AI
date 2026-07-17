@@ -44,7 +44,7 @@ export function ConfirmDialog({
           <button
             onClick={onCancel}
             data-testid="confirm-cancel-button"
-            className="rounded-md bg-muted/50 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="rounded-md bg-muted px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             {cancelText}
           </button>
