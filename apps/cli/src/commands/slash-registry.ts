@@ -31,6 +31,7 @@ export const SLASH_COMMANDS: readonly SlashCommandMeta[] = [
   { name: 'skills', description: '列出已加载的 skills', usage: '/skills', category: 'session' },
   { name: 'skill', description: '查看 skill 内容', usage: '/skill <name>', category: 'session' },
   { name: 'memory', description: '管理跨会话记忆', usage: '/memory [on|off|show|add|clear|search]', category: 'session' },
+  { name: 'todo', description: '管理任务清单(显示/清除)', usage: '/todo [clear]', category: 'session' },
   { name: 'plan', description: 'Plan Mode 控制', usage: '/plan [on|off|approve|reject|edit|show]', category: 'session' },
   { name: 'context', description: '显示当前会话 token 用量', usage: '/context', category: 'session' },
   { name: 'rewind', description: '回退 N 步(一步=一对 user+assistant)', usage: '/rewind [N]', category: 'session' },
