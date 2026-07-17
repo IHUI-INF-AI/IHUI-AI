@@ -35,7 +35,7 @@ export default function EmptyIllustration({
       <Text className="text-sm text-gray-500 mb-1">{text || DEFAULT_TEXTS[type]}</Text>
       {desc && <Text className="text-xs text-gray-400 text-center mb-3">{desc}</Text>}
       {actionText && onAction && (
-        <View className="px-4 py-2 rounded-full bg-indigo-50" onClick={onAction}>
+        <View className="px-4 py-2 rounded-md bg-indigo-50" onClick={onAction}>
           <Text className="text-sm text-indigo-600">{actionText}</Text>
         </View>
       )}

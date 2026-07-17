@@ -3,7 +3,15 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import { Loader2, ChevronLeft, ChevronRight, Award, FileText, CheckCircle, XCircle } from 'lucide-react'
+import {
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Award,
+  FileText,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react'
 
 import { getMyRecords, getResult, type ExamResult, type ExamResultDetail } from '@/lib/exam-api'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui'
@@ -108,18 +116,25 @@ export default function MemberExamRecordPage() {
                     </td>
                     <td className="px-3 py-2 text-right font-semibold">
                       {r.score}
-                      <span className="text-xs font-normal text-muted-foreground"> / {r.totalScore}</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {' '}
+                        / {r.totalScore}
+                      </span>
                     </td>
                     <td className="px-3 py-2">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                           passed
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                             : 'bg-red-500/10 text-red-600 dark:text-red-500',
                         )}
                       >
-                        {passed ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        {passed ? (
+                          <CheckCircle className="h-3 w-3" />
+                        ) : (
+                          <XCircle className="h-3 w-3" />
+                        )}
                         {passed ? '及格' : '不及格'}
                       </span>
                     </td>
@@ -185,16 +200,23 @@ export default function MemberExamRecordPage() {
                   <div className="text-xs text-muted-foreground">得分</div>
                   <div className="mt-0.5 text-lg font-semibold">
                     {detail.score}
-                    <span className="text-xs font-normal text-muted-foreground"> / {detail.totalScore}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {' '}
+                      / {detail.totalScore}
+                    </span>
                   </div>
                 </div>
                 <div className="rounded-md bg-muted/40 px-3 py-2">
                   <div className="text-xs text-muted-foreground">答对</div>
-                  <div className="mt-0.5 text-lg font-semibold text-emerald-600">{detail.correctCount}</div>
+                  <div className="mt-0.5 text-lg font-semibold text-emerald-600">
+                    {detail.correctCount}
+                  </div>
                 </div>
                 <div className="rounded-md bg-muted/40 px-3 py-2">
                   <div className="text-xs text-muted-foreground">答错</div>
-                  <div className="mt-0.5 text-lg font-semibold text-red-600">{detail.wrongCount}</div>
+                  <div className="mt-0.5 text-lg font-semibold text-red-600">
+                    {detail.wrongCount}
+                  </div>
                 </div>
                 <div className="rounded-md bg-muted/40 px-3 py-2">
                   <div className="text-xs text-muted-foreground">未答</div>
@@ -218,7 +240,7 @@ export default function MemberExamRecordPage() {
                         <td className="px-3 py-2">
                           <span
                             className={cn(
-                              'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                              'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                               d.isCorrect
                                 ? 'bg-emerald-500/10 text-emerald-600'
                                 : 'bg-red-500/10 text-red-600',

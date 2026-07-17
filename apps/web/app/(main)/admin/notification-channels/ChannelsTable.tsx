@@ -58,11 +58,11 @@ export function ChannelsTable({ list, isLoading, onEdit, onDelete }: Props) {
                 </td>
                 <td className="px-4 py-2.5">
                   {item.is_active ? (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                       {t('enabled')}
                     </span>
                   ) : (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                       {t('disabled')}
                     </span>
                   )}

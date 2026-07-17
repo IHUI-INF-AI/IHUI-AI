@@ -50,7 +50,7 @@ export default function Comment({
             <View key={item.id} className="py-3 border-b border-gray-50">
               <View className="flex items-start">
                 <Image
-                  className="w-8 h-8 mr-2.5 rounded-full bg-gray-100"
+                  className="w-8 h-8 mr-2.5 rounded-lg bg-gray-100"
                   src={item.avatar || '/static/default-avatar.png'}
                   mode="aspectFill"
                 />
@@ -90,16 +90,14 @@ export default function Comment({
       {inputVisible && (
         <View className="flex items-center px-3 py-2 bg-white border-t border-gray-100">
           <Input
-            className="flex-1 px-3 py-2 text-sm bg-gray-50 rounded-full"
+            className="flex-1 px-3 py-2 text-sm bg-gray-50 rounded-md"
             placeholder="写评论..."
             value={inputValue}
             onInput={(e) => onInput?.(e.detail.value)}
             onConfirm={() => onSubmit?.()}
           />
           <View
-            className={`ml-2 px-4 py-2 rounded-full ${
-              inputValue ? 'bg-indigo-500' : 'bg-gray-200'
-            }`}
+            className={`ml-2 px-4 py-2 rounded-md ${inputValue ? 'bg-indigo-500' : 'bg-gray-200'}`}
             onClick={() => inputValue && onSubmit?.()}
           >
             <Text className="text-sm text-white">发送</Text>

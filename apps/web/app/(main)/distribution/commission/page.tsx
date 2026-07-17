@@ -7,7 +7,17 @@ import { useTranslations, useLocale } from 'next-intl'
 import { DollarSign, Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui'
 
 interface CommissionSummaryData {
   totalAmount: number
@@ -179,14 +189,20 @@ export default function MyCommissionPage() {
                     <TableCell className="px-4 py-2.5 text-right font-medium text-emerald-600 dark:text-emerald-400">
                       {fmtYuan(it.amount)}
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-right text-muted-foreground">{it.token}</TableCell>
+                    <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
+                      {it.token}
+                    </TableCell>
                     <TableCell className="px-4 py-2.5">
-                      <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                      <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                         {it.status === 1 ? t('commissionActive') : t('commissionInvalid')}
                       </span>
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-muted-foreground">{fmtDate(it.createdAt)}</TableCell>
-                    <TableCell className="px-4 py-2.5 text-muted-foreground">{it.remark ?? '-'}</TableCell>
+                    <TableCell className="px-4 py-2.5 text-muted-foreground">
+                      {fmtDate(it.createdAt)}
+                    </TableCell>
+                    <TableCell className="px-4 py-2.5 text-muted-foreground">
+                      {it.remark ?? '-'}
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -198,11 +214,23 @@ export default function MyCommissionPage() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              <span className="text-sm text-muted-foreground">
+                {page} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>

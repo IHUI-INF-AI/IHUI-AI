@@ -38,11 +38,11 @@ export default function MessageDetail({
               (userAvatar ? (
                 <Image
                   src={userAvatar}
-                  className="w-8 h-8 rounded-full mr-2 bg-gray-100"
+                  className="w-8 h-8 rounded-lg mr-2 bg-gray-100"
                   mode="aspectFill"
                 />
               ) : (
-                <View className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-2">
+                <View className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center mr-2">
                   <Text className="text-xs text-gray-500">{userName.charAt(0)}</Text>
                 </View>
               ))}
@@ -67,12 +67,12 @@ export default function MessageDetail({
           value={inputValue}
           onInput={(e) => onInput(e.detail.value)}
           placeholder="输入消息..."
-          className="flex-1 bg-gray-50 rounded-full px-4 py-2 text-sm"
+          className="flex-1 bg-gray-50 rounded-md px-4 py-2 text-sm"
           maxlength={500}
           autoHeight
         />
         <View
-          className={`ml-2 px-4 py-2 rounded-full text-sm ${
+          className={`ml-2 px-4 py-2 rounded-md text-sm ${
             inputValue.trim() ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400'
           }`}
           onClick={() => inputValue.trim() && onSend()}

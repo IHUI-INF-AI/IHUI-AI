@@ -52,7 +52,7 @@ export function OfflineRecordList({ list, isLoading, error, delPending, onEdit, 
               <div className="flex items-center gap-2">
                 <span
                   className={cn(
-                    'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                    'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                     TYPE_COLORS[idx % TYPE_COLORS.length],
                   )}
                 >

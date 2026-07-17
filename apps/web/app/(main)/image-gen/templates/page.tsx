@@ -91,7 +91,7 @@ export default function ImageGenTemplatesPage() {
           <button
             onClick={() => setActiveCat('all')}
             className={cn(
-              'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+              'rounded-md px-3 py-1 text-xs font-medium transition-colors',
               activeCat === 'all'
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent',
@@ -104,7 +104,7 @@ export default function ImageGenTemplatesPage() {
               key={c.id}
               onClick={() => setActiveCat(c.id)}
               className={cn(
-                'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                'rounded-md px-3 py-1 text-xs font-medium transition-colors',
                 activeCat === c.id
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-accent',

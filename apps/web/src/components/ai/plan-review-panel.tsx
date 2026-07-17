@@ -39,7 +39,7 @@ export function PlanReviewPanel({ plan, onApprove, onModify, onReject }: PlanRev
           {plan.steps.map((step, idx) => (
             <li key={step.id} className="rounded-lg border bg-background/50 p-3">
               <div className="flex gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-medium text-primary">
                   {idx + 1}
                 </span>
                 <div className="min-w-0 flex-1">

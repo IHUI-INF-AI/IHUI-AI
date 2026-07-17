@@ -73,7 +73,7 @@ export default function EduExamPage() {
                   {exam.attempted && (
                     <span
                       className={cn(
-                        'shrink-0 rounded-full px-2 py-0.5 text-xs',
+                        'shrink-0 rounded-md px-2 py-0.5 text-xs',
                         (exam.bestScore ?? 0) >= exam.passScore
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-muted text-muted-foreground',

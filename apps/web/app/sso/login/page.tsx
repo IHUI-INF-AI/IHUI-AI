@@ -89,7 +89,7 @@ export default function SsoLoginPage() {
       <div className="flex min-h-screen items-center justify-center bg-muted/30">
         <div className="w-full max-w-md space-y-6 rounded-xl border bg-card p-8 shadow-sm">
           <div className="text-center space-y-2">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
               <ShieldCheck className="h-6 w-6 text-primary" />
             </div>
             <h1 className="text-xl font-semibold">{t('alreadyLoggedIn')}</h1>
@@ -116,7 +116,7 @@ export default function SsoLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/30">
       <div className="w-full max-w-md space-y-6 rounded-xl border bg-card p-8 shadow-sm">
         <div className="text-center space-y-2">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <ShieldCheck className="h-6 w-6 text-primary" />
           </div>
           <h1 className="text-xl font-semibold">{t('title')}</h1>

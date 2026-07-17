@@ -89,7 +89,7 @@ export function HomeBanner() {
           <button
             key={idx}
             onClick={() => goTo(idx)}
-            className={`h-1.5 rounded-full transition-all ${
+            className={`h-1.5 rounded transition-all ${
               idx === current ? 'w-6 bg-primary' : 'w-1.5 bg-muted-foreground/30'
             }`}
             aria-label={t('switchTo', { index: idx + 1 })}

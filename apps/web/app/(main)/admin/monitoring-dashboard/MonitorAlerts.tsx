@@ -20,7 +20,7 @@ export function MonitorAlerts({ alerts, t }: Props) {
           <AlertTriangle className="h-4 w-4" />
           {t('monitor.alerts')}
           {criticalCount > 0 && (
-            <span className="inline-flex rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-600">
+            <span className="inline-flex rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-600">
               {criticalCount} critical
             </span>
           )}

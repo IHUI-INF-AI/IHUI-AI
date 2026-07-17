@@ -58,7 +58,7 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
                 <TableCell className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                      'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                       STATUS_STYLE[item.status] ?? 'bg-muted text-muted-foreground',
                     )}
                   >

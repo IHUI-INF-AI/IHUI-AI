@@ -155,7 +155,7 @@ export default function RefundDetailPage() {
       {statusKey && StatusIcon && (
         <div
           className={cn(
-            'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium',
+            'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium',
             statusKey.cls,
           )}
         >
@@ -208,7 +208,7 @@ export default function RefundDetailPage() {
                 <div key={record.id} className="flex items-start gap-3 rounded-lg border p-3">
                   <div
                     className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                       cfg?.cls ?? PENDING_CLS,
                     )}
                   >

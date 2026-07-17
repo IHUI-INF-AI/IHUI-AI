@@ -109,7 +109,7 @@ export default function CommissionPlanPage() {
               {t('inviteTitle')}
             </h2>
             {inviteCode && (
-              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+              <span className="rounded-md bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
                 {t('inviteCode')}: {inviteCode}
               </span>
             )}

@@ -151,10 +151,10 @@ export default function CardSharePage() {
               alt={card.name}
               width={64}
               height={64}
-              className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white/30"
+              className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-2 ring-white/30"
             />
           ) : (
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/20 text-lg font-bold">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-lg font-bold">
               {getInitials(card.name)}
             </div>
           )}

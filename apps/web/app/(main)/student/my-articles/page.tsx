@@ -169,7 +169,7 @@ export default function MyArticlesPage() {
                         </span>
                         <span>{fmtDate(article.publishedAt ?? article.createdAt)}</span>
                         <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                          className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
                             STATUS_STYLE[article.status] ?? STATUS_STYLE[0]
                           }`}
                         >

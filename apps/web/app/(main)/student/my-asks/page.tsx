@@ -145,7 +145,7 @@ export default function MyAsksPage() {
                         <span>{fmtDate(ask.createdAt)}</span>
                       </div>
                       <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                        className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
                           STATUS_STYLE[ask.status] ?? STATUS_STYLE[0]
                         }`}
                       >

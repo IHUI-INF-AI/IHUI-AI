@@ -26,7 +26,7 @@ function Avatar({ url, nickname }: { url: string | null; nickname: string }) {
     return <Image source={{ uri: url }} className="h-12 w-12 rounded-full bg-neutral-100" />
   }
   return (
-    <View className="h-12 w-12 items-center justify-center rounded-full bg-neutral-200">
+    <View className="h-12 w-12 items-center justify-center rounded-xl bg-neutral-200">
       <Text className="text-base font-semibold text-neutral-600">
         {(nickname || '?').slice(0, 1).toUpperCase()}
       </Text>

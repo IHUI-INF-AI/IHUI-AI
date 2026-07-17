@@ -119,11 +119,11 @@ export default function AdminDocsPage() {
                 <tr key={d.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{d.title}</td>
                   <td className="px-4 py-2.5">
-                    <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{t(`categories.${d.category}`)}</span>
+                    <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{t(`categories.${d.category}`)}</span>
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{d.slug}</td>
                   <td className="px-4 py-2.5">
-                    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', d.status === 'published' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-muted text-muted-foreground')}>
+                    <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium', d.status === 'published' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-muted text-muted-foreground')}>
                       <span className={cn('h-1.5 w-1.5 rounded-full', d.status === 'published' ? 'bg-emerald-500' : 'bg-muted-foreground/50')} />
                       {t(`status_${d.status}`)}
                     </span>

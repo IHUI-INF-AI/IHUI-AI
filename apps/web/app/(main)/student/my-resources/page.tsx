@@ -160,7 +160,7 @@ export default function MyResourcesPage() {
                       <span>{fmtDate(resource.createdAt)}</span>
                     </div>
                     <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                      className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
                         STATUS_STYLE[resource.status] ?? STATUS_STYLE[0]
                       }`}
                     >

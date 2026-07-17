@@ -63,13 +63,13 @@ export default function QrCodeShare({
 
       <View className="flex gap-3 mt-6 w-full">
         <Button
-          className="flex-1 !bg-gray-100 !text-gray-700 text-sm rounded-full"
+          className="flex-1 !bg-gray-100 !text-gray-700 text-sm rounded-md"
           onClick={handleShare}
         >
           分享给好友
         </Button>
         <Button
-          className="flex-1 !bg-green-600 !text-white text-sm rounded-full"
+          className="flex-1 !bg-green-600 !text-white text-sm rounded-md"
           onClick={handleSave}
         >
           保存图片

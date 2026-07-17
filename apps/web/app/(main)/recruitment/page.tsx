@@ -76,7 +76,7 @@ export default function RecruitmentPage() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-8">
       <header className="space-y-3 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm text-primary">
+        <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary">
           <Target className="h-4 w-4" />
           {data.subtitle ?? '招募计划'}
         </div>
@@ -96,7 +96,7 @@ export default function RecruitmentPage() {
                 <CardContent className="flex items-center gap-3 p-5">
                   <div
                     className={cn(
-                      'flex h-10 w-10 items-center justify-center rounded-full bg-muted',
+                      'flex h-10 w-10 items-center justify-center rounded-lg bg-muted',
                       color,
                     )}
                   >
@@ -126,7 +126,7 @@ export default function RecruitmentPage() {
               <ul className="space-y-3">
                 {requirements.map((r, i) => (
                   <li key={r.title} className="flex items-start gap-2 text-sm">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-medium text-primary">
                       {i + 1}
                     </span>
                     <div>

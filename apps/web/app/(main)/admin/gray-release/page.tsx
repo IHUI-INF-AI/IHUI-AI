@@ -132,9 +132,9 @@ export default function GrayReleasePage() {
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+                      <div className="h-1.5 w-20 overflow-hidden rounded-2xl bg-muted">
                         <div
-                          className="h-full rounded-full bg-primary"
+                          className="h-full rounded-md bg-primary"
                           style={{ width: `${r.percentage}%` }}
                         />
                       </div>
@@ -144,7 +144,7 @@ export default function GrayReleasePage() {
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
                         r.isEnabled
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-muted text-muted-foreground',

@@ -84,7 +84,7 @@ export function MapsTable({ rows, isLoading, noEndpoint, onEdit, onDelete, delet
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                         st.cls,
                       )}
                     >

@@ -65,7 +65,7 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
               </div>
               <span
                 className={cn(
-                  'inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
+                  'inline-flex shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
                   STATUS_BADGE[t.status],
                 )}
               >

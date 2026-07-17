@@ -34,7 +34,7 @@ export default function DrawerComponent({
         onClick={handleStop}
       >
         <View className="flex justify-center pt-2 pb-1">
-          <View className="w-9 h-1 rounded-full bg-gray-200" />
+          <View className="w-9 h-1 rounded-lg bg-gray-200" />
         </View>
         {children}
       </View>

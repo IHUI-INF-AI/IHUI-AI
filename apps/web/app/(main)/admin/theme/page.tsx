@@ -106,16 +106,13 @@ export default function ThemeListPage() {
                 <Switch checked={t.isActive} onCheckedChange={() => toggleActive(t)} />
               </div>
               <div className="flex items-center gap-2">
+                <span className="h-4 w-4 rounded border" style={{ backgroundColor: t.baseColor }} />
                 <span
-                  className="h-4 w-4 rounded-full border"
-                  style={{ backgroundColor: t.baseColor }}
-                />
-                <span
-                  className="h-4 w-4 rounded-full border"
+                  className="h-4 w-4 rounded border"
                   style={{ backgroundColor: t.accentColor }}
                 />
                 <span
-                  className="h-4 w-4 rounded-full border"
+                  className="h-4 w-4 rounded border"
                   style={{ backgroundColor: t.borderColor }}
                 />
                 <div className="ml-auto flex gap-1">

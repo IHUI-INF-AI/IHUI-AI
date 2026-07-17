@@ -193,13 +193,10 @@ export default function CreateThemePage() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span
-                  className="h-4 w-4 rounded-full"
-                  style={{ backgroundColor: form.baseColor }}
-                />
+                <span className="h-4 w-4 rounded" style={{ backgroundColor: form.baseColor }} />
                 <span className="text-xs">基础色</span>
                 <span
-                  className="ml-2 h-4 w-4 rounded-full"
+                  className="ml-2 h-4 w-4 rounded"
                   style={{ backgroundColor: form.accentColor }}
                 />
                 <span className="text-xs">强调色</span>

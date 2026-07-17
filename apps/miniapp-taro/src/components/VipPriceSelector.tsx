@@ -49,7 +49,7 @@ export default function VipPriceSelector({
           >
             {opt.popular && (
               <View
-                className="absolute -top-2 left-1/2 px-2 py-0.5 rounded-full bg-red-500"
+                className="absolute -top-2 left-1/2 px-2 py-0.5 rounded-md bg-red-500"
                 style={{ transform: 'translateX(-50%)' }}
               >
                 <Text className="text-[10px] text-white">热门</Text>

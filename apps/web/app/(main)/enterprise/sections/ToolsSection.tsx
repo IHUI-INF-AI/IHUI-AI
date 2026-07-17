@@ -103,9 +103,9 @@ export function ToolsSection() {
             {PARTNERS.map((name) => (
               <div
                 key={name}
-                className="flex items-center gap-2 rounded-full border bg-muted/30 px-3 py-1.5 text-sm transition-colors hover:bg-accent"
+                className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-1.5 text-sm transition-colors hover:bg-accent"
               >
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
                   {name[0]}
                 </span>
                 <span>{name}</span>

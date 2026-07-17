@@ -103,7 +103,7 @@ export default function CompanyPage() {
           <View className="py-4">
             {Array.from({ length: 3 }).map((_, i) => (
               <View key={i} className="flex items-center py-2 animate-pulse">
-                <View className="w-9 h-9 mr-3 rounded-full bg-gray-100" />
+                <View className="w-9 h-9 mr-3 rounded-lg bg-gray-100" />
                 <View className="flex-1 h-3 bg-gray-100 rounded" />
               </View>
             ))}
@@ -121,12 +121,12 @@ export default function CompanyPage() {
             >
               {m.avatar ? (
                 <Image
-                  className="w-9 h-9 mr-3 rounded-full bg-gray-50"
+                  className="w-9 h-9 mr-3 rounded-lg bg-gray-50"
                   src={m.avatar}
                   mode="aspectFill"
                 />
               ) : (
-                <View className="flex items-center justify-center w-9 h-9 mr-3 rounded-full bg-gray-50">
+                <View className="flex items-center justify-center w-9 h-9 mr-3 rounded-lg bg-gray-50">
                   <Text className="text-xs text-gray-500">{m.nickname.charAt(0)}</Text>
                 </View>
               )}

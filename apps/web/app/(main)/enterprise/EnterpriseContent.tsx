@@ -41,7 +41,7 @@ export function EnterpriseContent() {
             {t('header.backHome')}
           </Link>
         </Button>
-        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        <span className="rounded-md bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
           {t('header.badge')}
         </span>
       </div>
@@ -68,7 +68,7 @@ export function EnterpriseContent() {
               <span className="text-2xl font-bold tracking-tight text-primary">
                 <AnimatedNumber value={6000} prefix="¥" duration={2000} />
               </span>
-              <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+              <span className="rounded-md bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
                 -67%
               </span>
             </div>
@@ -111,7 +111,7 @@ export function EnterpriseContent() {
                 {positioningTags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full border bg-muted/50 px-3 py-1 text-xs font-medium"
+                    className="rounded-md border bg-muted/50 px-3 py-1 text-xs font-medium"
                   >
                     {tag}
                   </span>
@@ -137,7 +137,7 @@ export function EnterpriseContent() {
                 }`}
               >
                 {MODULE_FEATURED[i] && (
-                  <span className="absolute right-3 top-3 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+                  <span className="absolute right-3 top-3 rounded-md bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
                     {t('modules.coreServiceBadge')}
                   </span>
                 )}

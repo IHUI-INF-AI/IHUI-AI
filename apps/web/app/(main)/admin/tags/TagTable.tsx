@@ -108,7 +108,7 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
                   </code>
                 </td>
                 <td className="px-4 py-2.5">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
                     {tag.usageCount}
                   </span>
                 </td>

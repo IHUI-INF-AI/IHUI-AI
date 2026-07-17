@@ -37,11 +37,11 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
             {item.userAvatar ? (
               <Image
                 src={item.userAvatar}
-                className="w-11 h-11 rounded-full bg-gray-50"
+                className="w-11 h-11 rounded-xl bg-gray-50"
                 mode="aspectFill"
               />
             ) : (
-              <View className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center">
+              <View className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center">
                 <Text className="text-sm text-gray-500">{item.userName.charAt(0)}</Text>
               </View>
             )}

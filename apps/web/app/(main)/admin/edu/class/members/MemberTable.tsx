@@ -73,7 +73,7 @@ export function MemberTable({ rows, isLoading, error, classId, onRemove, removeP
               <TableCell className="px-4 py-2.5">
                 <span
                   className={cn(
-                    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                    'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                     m.role === 'teacher'
                       ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                       : 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
@@ -88,7 +88,7 @@ export function MemberTable({ rows, isLoading, error, classId, onRemove, removeP
               <TableCell className="px-4 py-2.5">
                 <span
                   className={cn(
-                    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                    'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
                     m.status === 'active'
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                       : 'bg-muted text-muted-foreground',

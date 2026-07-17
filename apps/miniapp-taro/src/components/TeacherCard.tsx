@@ -29,13 +29,9 @@ export default function TeacherCard({
     <View className="bg-white mx-3 my-3 rounded-xl p-4" onClick={onClick}>
       <View className="flex items-center">
         {avatar ? (
-          <Image
-            className="w-12 h-12 mr-3 rounded-full bg-gray-100"
-            src={avatar}
-            mode="aspectFill"
-          />
+          <Image className="w-12 h-12 mr-3 rounded-xl bg-gray-100" src={avatar} mode="aspectFill" />
         ) : (
-          <View className="flex items-center justify-center w-12 h-12 mr-3 rounded-full bg-indigo-50">
+          <View className="flex items-center justify-center w-12 h-12 mr-3 rounded-xl bg-indigo-50">
             <Text className="text-base text-indigo-500">{name.charAt(0)}</Text>
           </View>
         )}
@@ -55,7 +51,7 @@ export default function TeacherCard({
           </View>
         </View>
         <View
-          className={`px-3 py-1.5 rounded-full ${isFollowing ? 'bg-gray-100' : 'bg-indigo-500'}`}
+          className={`px-3 py-1.5 rounded-md ${isFollowing ? 'bg-gray-100' : 'bg-indigo-500'}`}
           onClick={(e) => {
             e.stopPropagation()
             onFollow?.()

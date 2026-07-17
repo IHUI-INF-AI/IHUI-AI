@@ -63,7 +63,7 @@ export function ProfileAvatar({ avatar, nickname, uploading, fileInputRef, onCro
           title={t('avatar')}
           disabled={uploading}
           onClick={() => fileInputRef.current?.click()}
-          className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full border bg-background shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
+          className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-md border bg-background shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
         >
           {uploading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />

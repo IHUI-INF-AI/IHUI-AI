@@ -150,7 +150,7 @@ export function MessageSystem({ className, compact = false }: MessageSystemProps
                 href={cat.href}
                 className="group flex items-center gap-2.5 rounded-lg border border-transparent p-2.5 transition-colors hover:border-border hover:bg-muted/50"
               >
-                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
                   <Icon className="h-4 w-4" />
                   {!loading && count > 0 && <UnreadBadge count={count} />}
                 </span>

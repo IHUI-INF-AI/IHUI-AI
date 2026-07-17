@@ -2,14 +2,7 @@
 
 import { Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { TYPE_LABEL_KEY, STATUS_LABEL_KEY, type BillingRecord } from './types'
 
@@ -77,7 +70,7 @@ export function BillingRecordsTable({ list, isLoading }: Props) {
                 <TableCell>
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
                       r.status === 'success' && 'bg-emerald-500/10 text-emerald-600',
                       r.status === 'pending' && 'bg-amber-500/10 text-amber-600',
                       r.status === 'failed' && 'bg-red-500/10 text-red-600',

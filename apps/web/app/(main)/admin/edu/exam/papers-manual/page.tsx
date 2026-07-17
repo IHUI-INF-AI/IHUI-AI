@@ -173,7 +173,7 @@ export default function EduExamPapersManualPage() {
                     />
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{q.type}</span>
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-xs">{q.type}</span>
                   </TableCell>
                   <TableCell className="max-w-md break-words px-4 py-2.5">{q.title}</TableCell>
                   <TableCell className="px-4 py-2.5">{Number(q.score)}</TableCell>
