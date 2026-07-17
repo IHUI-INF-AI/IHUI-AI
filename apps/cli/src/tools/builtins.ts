@@ -23,6 +23,7 @@ import {
 } from './background-registry.js';
 import type { Tool, ToolContext, ToolResult } from './index.js';
 import { todo_write } from './todo-write.js';
+import { ask_user_question } from './ask-user.js';
 
 const MAX_READ_LINES = 500;
 const MAX_GREP_RESULTS = 50;
@@ -587,4 +588,5 @@ export const BUILTIN_TOOLS: Tool[] = [
   wait_command,
   kill_command,
   todo_write,
+  ask_user_question,
 ];

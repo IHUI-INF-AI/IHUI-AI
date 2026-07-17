@@ -40,8 +40,8 @@ import { TEST_TOOLS } from '../tools/run-tests.js';
 import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
 import { CODEGRAPH_TOOLS } from '../tools/codegraph.js';
 import { createSubagentTool } from '../tools/subagent.js';
-import { resolveSandboxOptions } from '../sandbox/index.js';
 import type { PermissionRules } from '../tools/permissions.js';
+import { resolveSandboxOptions } from '../sandbox/index.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens } from '../context.js';
 import { generateReminders } from '../reminders.js';
@@ -93,7 +93,7 @@ export interface AgentOptions {
   planFirst?: boolean;
   /** LLM 采样参数(透传到 streamChat) */
   sampler?: SamplerSettings;
-  /** P0-7 Permission rules:白名单/黑名单(--tools/--disallowed-tools) */
+  /** P0-7 Permission rules:白名单/黑名单控制(--tools/--disallowed-tools CLI flag 注入) */
   permissions?: PermissionRules;
 }
 
@@ -145,7 +145,7 @@ export interface SetupAgentToolsOptions {
     apiKey?: string;
     allowDangerous?: boolean;
   };
-  /** P0-7 Permission rules:白名单/黑名单(--tools/--disallowed-tools CLI flag 注入) */
+  /** P0-7 Permission rules:白名单/黑名单控制(--tools/--disallowed-tools CLI flag 注入) */
   permissions?: PermissionRules;
 }
 
@@ -217,7 +217,6 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
       allowedPaths: resolvedSandbox.allowedPaths,
     } : undefined,
     folderTrust: settings.folderTrust,
-    permissions: opts.permissions,
   };
 
   return { systemPrompt, ctx, skills, memory };
@@ -740,7 +739,6 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       apiKey: opts.apiKey,
       allowDangerous: opts.allowDangerous,
     },
-    permissions: opts.permissions,
     confirmDangerous: async (tool, args) => {
       if (opts.allowDangerous) {
         if (!silent) console.info(chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name} ${JSON.stringify(args).slice(0, 100)}`));
