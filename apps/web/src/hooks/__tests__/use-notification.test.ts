@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import type { WSNotification } from '@/hooks/use-websocket'
 
 const mockState = vi.hoisted(() => ({
@@ -63,5 +63,59 @@ describe('useNotification - WebSocket 消息过滤', () => {
     expect(result.current.notifications).toHaveLength(1)
     expect(result.current.notifications[0]!.title).toBe('新消息')
     expect(result.current.unreadCount).toBe(1)
+  })
+})
+
+describe('useNotification - 桌面通知', () => {
+  beforeEach(() => {
+    mockState.lastMessage = null
+    // 重置 Notification permission 状态
+    Object.defineProperty(globalThis, 'Notification', {
+      value: class MockNotification {
+        static permission: NotificationPermission = 'default'
+        static requestPermission = vi.fn(async (): Promise<NotificationPermission> => {
+          MockNotification.permission = 'granted'
+          return 'granted'
+        })
+        constructor(_title: string, _options?: NotificationOptions) {}
+      },
+      writable: true,
+      configurable: true,
+    })
+    window.localStorage.clear()
+  })
+
+  it('初始状态:desktopPermission 为 default(Notification API 可用)', () => {
+    const { result } = renderHook(() => useNotification())
+    expect(result.current.desktopPermission).toBe('default')
+  })
+
+  it('requestDesktopPermission 返回 true 且更新 permission 为 granted', async () => {
+    const { result } = renderHook(() => useNotification())
+    const granted = await result.current.requestDesktopPermission()
+    expect(granted).toBe(true)
+    await waitFor(() => {
+      expect(result.current.desktopPermission).toBe('granted')
+    })
+    expect(window.localStorage.getItem('ihui-desktop-notification-enabled')).toBe('1')
+  })
+
+  it('requestDesktopPermission 返回 false 时 localStorage 不写入', async () => {
+    Object.defineProperty(globalThis, 'Notification', {
+      value: class MockNotification {
+        static permission: NotificationPermission = 'denied'
+        static requestPermission = vi.fn(async (): Promise<NotificationPermission> => 'denied')
+        constructor(_title: string, _options?: NotificationOptions) {}
+      },
+      writable: true,
+      configurable: true,
+    })
+    const { result } = renderHook(() => useNotification())
+    const granted = await result.current.requestDesktopPermission()
+    expect(granted).toBe(false)
+    await waitFor(() => {
+      expect(result.current.desktopPermission).toBe('denied')
+    })
+    expect(window.localStorage.getItem('ihui-desktop-notification-enabled')).toBeNull()
   })
 })
