@@ -21,7 +21,7 @@ const buttonVariants = cva(
           'bg-gradient-to-r from-primary to-primary/70 text-primary-foreground shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all px-8 py-3 text-base font-semibold rounded-lg',
         login:
           'w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 rounded-md font-medium',
-        send: 'bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-4 py-2',
+        send: 'bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2',
         'card-action':
           'text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-2 py-1',
         'mobile-login':
