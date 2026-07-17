@@ -133,7 +133,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-50 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="z-50 flex h-14 items-center gap-3 bg-shell-panel px-4">
       <Button
         variant="ghost"
         size="icon"

@@ -179,10 +179,10 @@ export function AISidePanel() {
     <aside
       aria-label={tc('title')}
       style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
-      className="relative z-[calc(var(--z-base)+5)] flex h-screen shrink-0 flex-col border-r border-border bg-background"
+      className="relative z-[calc(var(--z-base)+5)] flex shrink-0 flex-col my-2 ml-2 overflow-hidden rounded-xl bg-shell-panel"
     >
       {/* 标题栏 */}
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3">
+      <header className="flex h-14 shrink-0 items-center gap-2 px-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Sparkles className="h-4 w-4" />
         </div>
@@ -221,7 +221,7 @@ export function AISidePanel() {
       </header>
 
       {/* 工具栏:模型选择 */}
-      <div className="flex items-center gap-2 border-b border-border bg-background/50 px-3 py-2">
+      <div className="flex items-center gap-2 px-3 py-2">
         <ModelSelector
           value={currentModel}
           onChange={setModel}
@@ -263,10 +263,10 @@ export function AISidePanel() {
         aria-label={tcommon('resize')}
         onPointerDown={handleResizeStart}
         className={cn(
-          'absolute right-[-3px] top-0 z-10 h-full w-1.5 cursor-col-resize',
-          'before:absolute before:left-1/2 before:top-0 before:h-full before:w-px before:-translate-x-1/2 before:bg-border before:transition-colors before:content-[""]',
-          'hover:before:w-[3px] hover:before:bg-primary',
-          isResizing && 'before:w-[3px] before:bg-primary',
+          'absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize',
+          'before:absolute before:left-1/2 before:top-0 before:h-full before:w-px before:-translate-x-1/2 before:bg-transparent before:transition-colors before:content-[""]',
+          'hover:before:bg-primary',
+          isResizing && 'before:bg-primary',
         )}
       />
     </aside>
