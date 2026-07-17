@@ -1,10 +1,49 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import { createHash } from 'node:crypto'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
   process.env.REDIS_URL ??= 'redis://localhost:6379/0'
+})
+
+const pkceMocks = vi.hoisted(() => ({
+  findSessionByCode: vi.fn(),
+  markSessionUsed: vi.fn(),
+  createAuditLog: vi.fn(),
+  findUserById: vi.fn(),
+  saveRefreshToken: vi.fn(),
+  signAccessToken: vi.fn(),
+  signRefreshToken: vi.fn(),
+}))
+
+vi.mock('../../db/oauth-queries.js', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    findSessionByCode: pkceMocks.findSessionByCode,
+    markSessionUsed: pkceMocks.markSessionUsed,
+    createAuditLog: pkceMocks.createAuditLog,
+  }
+})
+
+vi.mock('../../db/queries.js', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    findUserById: pkceMocks.findUserById,
+    saveRefreshToken: pkceMocks.saveRefreshToken,
+  }
+})
+
+vi.mock('@ihui/auth', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    signAccessToken: pkceMocks.signAccessToken,
+    signRefreshToken: pkceMocks.signRefreshToken,
+  }
 })
 
 import { authExtendedRoutes } from '../auth-extended.js'
@@ -100,7 +139,11 @@ describe('Auth Extended API', () => {
   })
 
   describe('Endpoints (401 without auth)', () => {
-    const protectedEndpoints: Array<{ method: 'GET' | 'POST' | 'PUT' | 'DELETE'; url: string; payload?: Record<string, unknown> }> = [
+    const protectedEndpoints: Array<{
+      method: 'GET' | 'POST' | 'PUT' | 'DELETE'
+      url: string
+      payload?: Record<string, unknown>
+    }> = [
       { method: 'GET', url: '/api/auth/info' },
       { method: 'PUT', url: '/api/auth/profile', payload: {} },
       { method: 'PUT', url: '/api/auth/profile/password', payload: {} },
@@ -144,5 +187,100 @@ describe('Auth Extended API', () => {
         expect(res.statusCode).toBe(401)
       })
     }
+  })
+
+  describe('PKCE 安全校验', () => {
+    const VALID_VERIFIER = 'valid-verifier'
+    const VALID_CHALLENGE = createHash('sha256').update(VALID_VERIFIER).digest('base64url')
+    const mockSession = {
+      id: 'sess-1',
+      code: 'test-code',
+      isUsed: false,
+      expiresAt: new Date(Date.now() + 60000),
+      codeChallenge: VALID_CHALLENGE,
+      codeChallengeMethod: 'S256',
+      clientId: 'zhs_test_client',
+      userId: 'user-1',
+    }
+    const mockUser = {
+      id: 'user-1',
+      phone: '13800000000',
+      roleId: 0,
+      familyId: 'fam-1',
+    }
+
+    beforeEach(() => {
+      pkceMocks.findSessionByCode.mockResolvedValue({ ...mockSession })
+      pkceMocks.markSessionUsed.mockResolvedValue(undefined)
+      pkceMocks.createAuditLog.mockResolvedValue(undefined)
+      pkceMocks.findUserById.mockResolvedValue({ ...mockUser })
+      pkceMocks.saveRefreshToken.mockResolvedValue(undefined)
+      pkceMocks.signAccessToken.mockResolvedValue('mock-access-token')
+      pkceMocks.signRefreshToken.mockResolvedValue('mock-refresh-token')
+    })
+
+    it('client_id 不匹配返回 400(消息含 client_id)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/oauth/pkce/token',
+        payload: {
+          code: 'test-code',
+          client_id: 'wrong-client',
+          code_verifier: VALID_VERIFIER,
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('client_id')
+    })
+
+    it('code_verifier 错误返回 400(消息含 code_verifier)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/oauth/pkce/token',
+        payload: {
+          code: 'test-code',
+          client_id: 'zhs_test_client',
+          code_verifier: 'invalid-verifier',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('code_verifier')
+    })
+
+    it('code_verifier 正确返回 200(timingSafeEqual 路径正常)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/oauth/pkce/token',
+        payload: {
+          code: 'test-code',
+          client_id: 'zhs_test_client',
+          code_verifier: VALID_VERIFIER,
+        },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.access_token).toBe('mock-access-token')
+      expect(body.data.refresh_token).toBe('mock-refresh-token')
+      expect(body.data.token_type).toBe('Bearer')
+    })
+
+    it('codeChallenge 长度不等时返回 400(不抛异常)', async () => {
+      pkceMocks.findSessionByCode.mockResolvedValue({
+        ...mockSession,
+        codeChallenge: 'short',
+      })
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/oauth/pkce/token',
+        payload: {
+          code: 'test-code',
+          client_id: 'zhs_test_client',
+          code_verifier: VALID_VERIFIER,
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('code_verifier')
+    })
   })
 })
