@@ -2998,6 +2998,79 @@ i18n 补键:wallet 命名空间 4 个键(rechargeOrderNo/viewRecords/retryRechar
 
 ---
 
+### ✅(2026-07-17) goal achieved — P1 继续推进(admin 通知三件套 + agent rule_link 端点 + ja 翻译修复)
+
+> /goal P1 继续推进:admin 通知三件套(渠道/偏好/日志)+ agent rule_link CRUD + rule-params/by-rule 端点 + ja.json 残缺翻译修复。
+
+**结论:7 个硬性指标全部完成,typecheck+lint+build 全绿。状态 achieved。**
+
+#### 完成清单
+
+| #   | 硬性指标                                           | 状态 | 产出                                                                  |
+| --- | -------------------------------------------------- | ---- | --------------------------------------------------------------------- |
+| 1   | admin/notification-channels/page.tsx 创建(CRUD)    | ✅   | page.tsx + helpers.ts + ChannelsTable.tsx + ChannelDialog.tsx(4 文件) |
+| 2   | admin/notification-preferences/page.tsx 创建(表单) | ✅   | page.tsx(4 Card 分组:系统/业务/静默/频率)                             |
+| 3   | admin/notification-logs/page.tsx 创建(只读列表)    | ✅   | page.tsx + types.ts + helpers.ts + Filter/Table/DetailDialog(6 文件)  |
+| 4   | agent rule_link CRUD 端点(POST + GET list)         | ✅   | agent-extended.ts 追加 POST/GET /developer/:agentId/rule-links        |
+| 5   | agent rule-params/by-rule/:ruleId 端点             | ✅   | agent-extended.ts 追加 GET /developer/rule-params/by-rule/:ruleId     |
+| 6   | ja.json 残缺翻译修复(至少 50 键)                   | ✅   | 实际修复 264 键(远超指标)                                             |
+| 7   | typecheck+lint+build 全绿                          | ✅   | web typecheck ✅ / web lint ✅ / web build ✅ / api typecheck ✅      |
+
+#### admin 通知三件套(3 页面 + 10 辅助文件)
+
+| 页面         | 路径                                                | 文件数 | 后端 API(notification-extended.ts)          |
+| ------------ | --------------------------------------------------- | ------ | ------------------------------------------- |
+| 通知渠道管理 | apps/web/app/(main)/admin/notification-channels/    | 4      | GET/POST/PUT/DELETE /notifications/channels |
+| 通知偏好设置 | apps/web/app/(main)/admin/notification-preferences/ | 1      | GET/PUT /notifications/preferences          |
+| 通知日志     | apps/web/app/(main)/admin/notification-logs/        | 6      | GET /notifications/logs                     |
+
+i18n 补键:adminTools.notificationChannels(40 键)+ adminTools.notificationPreferences(22 键)+ admin.notificationLogs(41 键),5 语言文件全部同步。
+
+#### 后端端点(3 端点,agent-extended.ts 追加)
+
+| 端点                                                     | 功能                             | 鉴权                        |
+| -------------------------------------------------------- | -------------------------------- | --------------------------- |
+| POST /api/agent-ext/developer/:agentId/rule-links        | 创建 Agent 与 Rule 关联          | authenticate + requireAdmin |
+| GET /api/agent-ext/developer/:agentId/rule-links         | 列出 Agent 的 Rule 关联(含 JOIN) | authenticate                |
+| GET /api/agent-ext/developer/rule-params/by-rule/:ruleId | 查询 Rule 的所有参数             | authenticate                |
+
+数据库表确认:agent_rule / agent_rule_link / agent_rule_param 三表均存在,无需新建表。
+
+#### ja.json 翻译修复(264 键)
+
+修复范围:admin(38)/ settings(62)/ common-chat-nav-auth(14)/ docs-help(14)/ openPlatform(16)/ dramaScript-floatingChat(17)/ 其他(103)。剩余约 207 个简体汉字键待后续处理。
+
+#### 验证证据
+
+| 命令                                | 退出码 | 结论 |
+| ----------------------------------- | ------ | ---- |
+| `pnpm --filter @ihui/web typecheck` | 0      | ✅   |
+| `pnpm --filter @ihui/api typecheck` | 0      | ✅   |
+| `pnpm --filter @ihui/web lint`      | 0      | ✅   |
+| `pnpm --filter @ihui/web build`     | 0      | ✅   |
+
+#### 残留问题(后续任务)
+
+1. notification-preferences 的 quietHours/maxPerDay 字段后端 schema 未实现,前端表单已呈现但不持久化 — 需后端扩展 updatePreferencesSchema + 表结构 migration
+2. notification-logs 后端按 user_id 过滤(非 admin 全量视角)— 如需 admin 全量查看需新增 admin 专用端点
+3. notification-channels/logs 未接入 AdminNav 侧边栏菜单 — 用户无法从导航进入
+4. agent rule_link 表无 unique 约束,POST 不具备幂等性 — 后续可加 unique index + onConflictDoNothing
+5. ja.json 剩余约 207 个简体汉字键待日化处理(主要是 dramaScript/floatingChat 等低频命名空间)
+6. ko.json 仍有 279 个未翻译键 — 需单独 P1 任务修复
+
+#### git 信息
+
+- 分支:main;起始 commit:744b573e;结束 commit:dbf6f0b3
+- 本次 goal 修改文件(17 文件,+2183 / -265):
+  - apps/web/app/(main)/admin/notification-channels/*(4 文件新建)
+  - apps/web/app/(main)/admin/notification-logs/*(6 文件新建)
+  - apps/web/app/(main)/admin/notification-preferences/page.tsx(新建)
+  - apps/web/messages/*.json × 5(i18n 补键 + ja 翻译修复 264 键)
+  - apps/api/src/routes/agent-extended.ts(追加 3 端点)
+- 运行时文件 .trae-cn/goal-runtime/STATE.md + loop-run-log.md 已清理
+
+---
+
 ### 📋(2026-07-16) plan — 多端客户端补齐(桌面 + 移动 + 插件 + CLI 升级)
 
 > 用户决策(2026-07-16):Tauri 2.0(桌面)+ React Native + Expo(移动)+ Chrome MV3 + WXT(插件)+ CLI 升级。要求最优最强架构、最细致最完美。
