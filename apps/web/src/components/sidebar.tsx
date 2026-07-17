@@ -695,13 +695,10 @@ function ExpandableNavItem({
         aria-controls={listId}
         className={parentClassName}
       >
-        <Icon className="h-5 w-5 shrink-0" />
-        <span className="min-w-0 flex-1 truncate pr-5">{label}</span>
+        <Icon className="h-4 w-4 shrink-0" />
+        <span className="min-w-0 flex-1 truncate text-[13px]">{label}</span>
         <ChevronDown
-          className={cn(
-            'absolute right-2.5 top-1/2 h-4 w-4 shrink-0 -translate-y-1/2 transition-transform',
-            open && 'rotate-180',
-          )}
+          className={cn('ml-auto h-3.5 w-3.5 shrink-0 transition-transform', open && 'rotate-180')}
         />
       </button>
       {open && <div className="mt-0.5 pl-2">{childList}</div>}
