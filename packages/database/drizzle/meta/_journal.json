@@ -687,6 +687,13 @@
       "when": 1784270974054,
       "tag": "0097_p1_schema_batch2",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1784288152961,
+      "tag": "0098_bright_romulus",
+      "breakpoints": true
     }
   ]
 }
