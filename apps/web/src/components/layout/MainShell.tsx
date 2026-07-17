@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Sidebar } from '@/components/sidebar'
 import { Header } from '@/components/header'
+import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
 
 export function MainShell({ children }: { children: React.ReactNode }) {
@@ -45,6 +46,9 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
       />
+      <React.Suspense fallback={null}>
+        <AISidePanel />
+      </React.Suspense>
       <div className="flex min-w-0 flex-1 flex-col">
         <Header onMenuClick={() => setMobileOpen((o) => !o)} />
         <main
