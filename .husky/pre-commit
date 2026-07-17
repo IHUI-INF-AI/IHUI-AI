@@ -65,4 +65,11 @@ run('🔍 safeParse 静默忽略巡检(warn-only)...', 'node scripts/check-safe-
 // 10. OpenAPI spec 存在性检查(informational)
 run('📋 OpenAPI spec 检查(informational)...', 'node scripts/openapi-check.mjs')
 
+// 11. 容器圆角守门(AGENTS.md 第 4 节强制规则)
+// 防止新增 rounded-full / rounded-pill / 9999px / 50% 用于容器
+// 豁免: img / Switch Thumb / Radio / Avatar shape=circle / <=14px 装饰点 / 红点底 / animate-spin
+if (!run('⭕ 检查容器圆角违规...', 'node scripts/check-rounded-full.mjs --staged')) {
+  process.exit(1)
+}
+
 console.log('✅ Pre-commit 检查通过')

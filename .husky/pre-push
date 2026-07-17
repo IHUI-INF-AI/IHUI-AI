@@ -6,12 +6,12 @@ git lfs pre-push "$@"
 # 背景:第 11-12 轮发现 subagent 报告"全绿"靠 .tsbuildinfo 缓存假象
 #      pre-push 强制清缓存 + 串行全量 typecheck 修复该问题
 # 跳过的方法:HUSKY_SKIP_TYPECHECK=1(紧急 push 时使用,但建议修复后正常 push)
+# 注意:用 printf >&2 替代 echo,避免 Windows git hooks stdout 关闭导致 Bad file descriptor
 if [ "${HUSKY_SKIP_TYPECHECK:-0}" = "1" ]; then
-  echo "⚠️  HUSKY_SKIP_TYPECHECK=1 — 已跳过全量 typecheck 验证(不推荐)"
+  printf '%s\n' "⚠️  HUSKY_SKIP_TYPECHECK=1 — 已跳过全量 typecheck 验证(不推荐)" >&2
 else
-  echo ""
-  echo "🔍 全量 typecheck 验证(清 .tsbuildinfo 缓存后)..."
-  cd "$(git rev-parse --show-toplevel)" || { echo "❌ 无法定位仓库根目录"; exit 1; }
-  pnpm typecheck:full || { echo "❌ 全量 typecheck 失败,推送已阻止"; exit 1; }
-  echo "✅ 全量 typecheck 验证通过"
+  printf '\n%s\n' "🔍 全量 typecheck 验证(清 .tsbuildinfo 缓存后)..." >&2
+  cd "$(git rev-parse --show-toplevel)" || { printf '%s\n' "❌ 无法定位仓库根目录" >&2; exit 1; }
+  pnpm typecheck:full || { printf '%s\n' "❌ 全量 typecheck 失败,推送已阻止" >&2; exit 1; }
+  printf '%s\n' "✅ 全量 typecheck 验证通过" >&2
 fi
