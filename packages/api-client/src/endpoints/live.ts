@@ -6,9 +6,9 @@ import { buildQs, type PageData } from '../utils.js'
 export interface Live {
   id: string
   title: string
-  cover: string | null
+  coverImage: string | null
   description: string
-  instructor: string
+  lecturerName: string | null
   instructorAvatar: string | null
   streamUrl: string | null
   status: 'upcoming' | 'living' | 'ended' | 'replay'

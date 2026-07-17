@@ -2468,6 +2468,21 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
 
 ## P1 — 未来
 
+- [ ] 📋(2026-07-18) 上线前待办:微信支付真实激活 — 下载 API 证书放到 `G:\ai_zhs\cert\apiclient_key.pem`
+  - **背景**:本轮(2026-07-18)已完成 11 项 WX_* 配置复用 + `isWechatPayConfigured()` 智能激活逻辑(commit [8788b474](https://github.com/IHUI-INF-AI/IHUI-AI/commit/8788b474))
+  - **当前状态**:证书文件未放置 → `isWechatPayConfigured()` 返回 false → 支付端点走 mock 模式(不阻塞订单创建,但 `payInfo.mock=true`)
+  - **用户指令**:此事项设为上线前待办,本轮不处理,继续做其他后续任务
+  - **激活步骤**(上线前执行):
+    1. 登录微信支付商户平台 https://pay.weixin.qq.com(商户号 1714645682)
+    2. 账户中心 → API 安全 → API 证书 → 下载证书(需管理员扫码)
+    3. 把 `apiclient_key.pem` 放到 `G:\ai_zhs\cert\` 目录
+    4. **放置后自动激活真实微信支付,无需重启 api 服务或改任何代码**(`existsSync` 检查自动切换)
+    5. 验证:调用 `POST /api/vip/order`,响应 `payInfo.mock` 从 `true` 变为 `false`,含真实 `prepay_id`/`nonce_str`/`paySign`
+  - **关联配置**:
+    - `.env`:`WX_PAY_PRIVATE_KEY_PATH=G:\ai_zhs\cert\apiclient_key.pem`
+    - `WX_PAY_PLATFORM_CERT`:生产环境建议配置(用于验签回调),否则 `verifyCallbackSignature()` 在 NODE_ENV=production 时返回 false
+    - `WX_PAY_NOTIFY_URL=https://bsm.aizhs.top/prod-api/api/payments/wechat/notify`:需确保该域名可被微信支付服务器访问(本地电脑作为服务器需有公网 IP 或反向代理)
+
 - [x] ✅(2026-07-14) P1: 清理仓库预先存在的 build lint Error,恢复`pnpm --filter @ihui/web build`` 退出
   - **\*\*第一轮 6 ****:developer/layout.tsx(删除未用 Download import)、ThreeDViewer.tsx(eslint-disable react/no-unknown-property for react-three-fiber)、UnifiedViewer.tsx(video 添加 track 元素)、generation-type-selector.tsx(React.ElementType → React.ComponentType<{className?:string}> 修复 type error)、check-lock.js(CommonJS require → ES module import)、next.config.ts(outputFileTracing: 'without-manifest' 规避 NFT ENOENT bu
   - **\*\*第二轮 7 ***`apps/web/eslint.config.js`(clawdbot 目录 jsx-a11y 规则覆盖)`eslint.config.mjs``(根配置同步覆盖,fix lint-staged 兜底)、clawdbot/sessions/page.tsx(模态框 tabIndex+onKeyDown)、clawdbot/tools/page.tsx(同上 + 类型兜底)、clawdbot/permissions/page.tsx(删除未用 ALL_ACTIONS + self-closing-comp)、admin/agent-task/page.tsx(item.title ?? '')、admin/agents/examine/ExamineChatDialog.tsx(target?.agentName || '')、admin/edu/learn/materials/page.tsx(TYPE_MAP[m.type] as string)、distribution/orders/page.tsx(STATUS_KEY[s] ?? s)、distribution/token/page.tsx(OP_TYPE_KEY[o] ?? String(o))、missing-user-routes.ts(三处 value == null → value === null || value === undefined,eqeqe
@@ -19288,7 +19303,6 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 - AISidePanel 的 resize handle 视觉较细(6px 宽 + 1px 灰色线),功能正常但视觉可改进(若用户反馈再调整)
 - ai-service 未启动(Python 服务,本次任务不涉及 AI 对话实际生成,仅恢复 UI 布局)
 
-
 ## 第 20 轮交付报告(2026-07-18,grok-build 融合第十六轮 — Agent 执行链路真实集成 + api-client 补齐)
 
 ### 目标
@@ -19331,27 +19345,27 @@ pre-commit 守门体系扩展为 12 项: API key / i18n / zh-TW / schema drift /
 
 ### 多端同步审查清单核对(AGENTS.md 第 10 节)
 
-| 审查项 | 改动涉及? | 已同步端 |
-| --- | --- | --- |
-| 接口契约 | 是 /execute/stream 真实链路 | API(fetch 转发到 AI-Service)+ AI-Service(LangGraph 驱动)+ api-client(8 函数暴露给前端) |
-| 类型 | 是 共享层 5 类型 | api-client 从 @ihui/types import(PermissionMode/PermissionDecision/DangerLevel/SessionStatus/SessionState) |
-| 数据结构 | 否 无 schema 变更 | Redis 持久化为可选降级,不阻塞主流程 |
-| UI 组件 | 否 无共享 UI 改动 | 呈现层特化留作 P2 后续 |
-| 业务功能 | 是 Agent 执行链路 | API → AI-Service → LangGraph 真实推理;api-client 暴露给前端调用 |
-| 全量验证 | 是 全绿 | turbo 48/48 tasks 全绿;API 3568 + CLI 985 + AI-Service 29 + api-client 14 = 4596 测试全绿 |
+| 审查项   | 改动涉及?                   | 已同步端                                                                                                   |
+| -------- | --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 接口契约 | 是 /execute/stream 真实链路 | API(fetch 转发到 AI-Service)+ AI-Service(LangGraph 驱动)+ api-client(8 函数暴露给前端)                     |
+| 类型     | 是 共享层 5 类型            | api-client 从 @ihui/types import(PermissionMode/PermissionDecision/DangerLevel/SessionStatus/SessionState) |
+| 数据结构 | 否 无 schema 变更           | Redis 持久化为可选降级,不阻塞主流程                                                                        |
+| UI 组件  | 否 无共享 UI 改动           | 呈现层特化留作 P2 后续                                                                                     |
+| 业务功能 | 是 Agent 执行链路           | API → AI-Service → LangGraph 真实推理;api-client 暴露给前端调用                                            |
+| 全量验证 | 是 全绿                     | turbo 48/48 tasks 全绿;API 3568 + CLI 985 + AI-Service 29 + api-client 14 = 4596 测试全绿                  |
 
 ### 验证依据(2026-07-18)
 
-| 验证 | 命令 | 退出码 | 关键输出 |
-| --- | --- | --- | --- |
-| API typecheck | pnpm --filter @ihui/api typecheck | 0 | tsc --noEmit 通过 |
-| API test | pnpm --filter @ihui/api test agent-runtime-routes | 0 | 17/17 passed |
-| AI-Service pytest | python -m pytest tests/test_agent_runtime_router.py | 0 | 29 passed |
-| AI-Service graph import | python -c "from app.services.agent_graph import get_agent_graph" | 0 | CompiledStateGraph |
-| api-client typecheck | pnpm --filter @ihui/api-client typecheck | 0 | tsc --noEmit 通过 |
-| api-client lint | pnpm --filter @ihui/api-client lint | 0 | eslint src/ 0 errors |
-| api-client test(独立 vitest) | node apps/api/node_modules/vitest/vitest.mjs run packages/api-client/tests/agent-runtime.test.ts | 0 | 14/14 passed |
-| 全量 turbo | pnpm turbo typecheck lint test | 0 | 48/48 tasks 全绿 |
+| 验证                         | 命令                                                                                             | 退出码 | 关键输出             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ | ------ | -------------------- |
+| API typecheck                | pnpm --filter @ihui/api typecheck                                                                | 0      | tsc --noEmit 通过    |
+| API test                     | pnpm --filter @ihui/api test agent-runtime-routes                                                | 0      | 17/17 passed         |
+| AI-Service pytest            | python -m pytest tests/test_agent_runtime_router.py                                              | 0      | 29 passed            |
+| AI-Service graph import      | python -c "from app.services.agent_graph import get_agent_graph"                                 | 0      | CompiledStateGraph   |
+| api-client typecheck         | pnpm --filter @ihui/api-client typecheck                                                         | 0      | tsc --noEmit 通过    |
+| api-client lint              | pnpm --filter @ihui/api-client lint                                                              | 0      | eslint src/ 0 errors |
+| api-client test(独立 vitest) | node apps/api/node_modules/vitest/vitest.mjs run packages/api-client/tests/agent-runtime.test.ts | 0      | 14/14 passed         |
+| 全量 turbo                   | pnpm turbo typecheck lint test                                                                   | 0      | 48/48 tasks 全绿     |
 
 ### 累计整合进度
 
