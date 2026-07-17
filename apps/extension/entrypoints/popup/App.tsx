@@ -28,7 +28,7 @@ export default function App() {
   const onLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!account || !password) {
-      setError('请输入账号和密码')
+      setError(t('auth.loginRequired'))
       return
     }
     setLoading(true)
@@ -75,7 +75,7 @@ export default function App() {
             type="text"
             value={account}
             onChange={(e) => setAccount(e.target.value)}
-            placeholder="手机号 / 邮箱"
+            placeholder={t('auth.phoneOrEmail')}
             className="input"
             disabled={loading}
           />
@@ -83,7 +83,7 @@ export default function App() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="密码"
+            placeholder={t('auth.password')}
             className="input"
             disabled={loading}
           />
@@ -102,7 +102,9 @@ export default function App() {
         <div className="avatar">{user.nickname?.[0] || user.phone?.[0] || '?'}</div>
         <div className="user-detail">
           <div className="nickname">{user.nickname || user.phone}</div>
-          <div className="role">{(user.roleId ?? 0) >= 1 ? '管理员' : '用户'}</div>
+          <div className="role">
+            {(user.roleId ?? 0) >= 1 ? t('auth.roleAdmin') : t('auth.roleUser')}
+          </div>
         </div>
       </div>
       <button type="button" className="btn" onClick={openSidePanel}>
