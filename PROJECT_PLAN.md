@@ -2495,7 +2495,11 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
     3. `apps/web/src/components/login/ThirdPartyLoginButtons.tsx`:L122-128 移除纯分割线 span(项目唯一真正违规的分割线元素),改为简单居中文字
   - **恢复方式**:按上述描述重新创建(参考 reflog 中 `528c2b5c` commit message 描述,但实际改动需重写)
   - **本轮恢复执行**(2026-07-18 第二次):3 个文件改动重新 Edit 应用,PROJECT_PLAN P1 条目标记完成,使用 `git commit --no-verify` 跳过 lint-staged 避免 stash 机制再次污染 commit,手动跑 typecheck + lint + test 验证全绿
-  - **commit**:本次任务独立 commit `feat(web): 暗色模式调深 + 移除登录页纯分割线 + AGENTS.md 新增禁止分割线硬规则`
+  - **commit**:本次任务独立 commit `feat(web): 暗色模式调深 + 移除登录页纯分割线 + AGENTS.md 新增禁止分割线硬规则`(`da7d88b6`)
+- [x] ✅(2026-07-18) AGENTS.md 第 12 节新增"发现并行干扰立即切换独立分支"应急规则
+  - **背景**:用户建议"发现共用 worktree 干扰时,马上自己创建一个新分支单独工作提交",基于本次 lint-staged stash 污染 + HEAD 被 reset 撤销事故(`528c2b5c` 孤儿 commit),把这条作为硬规则加入 AGENTS.md 第 12 节
+  - **改动**:AGENTS.md 第 12 节新增"案例 4 — lint-staged stash 污染 + HEAD 被 reset 撤销"+ "发现并行干扰立即切换独立分支(应急规则)"(6 类干扰迹象识别 + 5 步应急操作流程:`stash push --include-untracked --keep-index` → `checkout -b agent/isolated/<任务>` → `stash pop` → 新分支独立 `commit`+`push` → 报告主 agent 评估合并策略)
+  - **commit**:`docs(agents): 第 12 节新增"发现并行干扰立即切换独立分支"应急规则 + 案例 4`(`a79a5624`)
 - [ ] 📋(2026-07-18) 上线前待办:微信支付真实激活 — 下载 API 证书放到 `G:\ai_zhs\cert\apiclient_key.pem`
   - **背景**:本轮(2026-07-18)已完成 11 项 WX_* 配置复用 + `isWechatPayConfigured()` 智能激活逻辑(commit [8788b474](https://github.com/IHUI-INF-AI/IHUI-AI/commit/8788b474))
   - **当前状态**:证书文件未放置 → `isWechatPayConfigured()` 返回 false → 支付端点走 mock 模式(不阻塞订单创建,但 `payInfo.mock=true`)
@@ -19841,3 +19845,84 @@ grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工
 1. ✅(2026-07-18) **登录态 e2e 实测**:API 级实测 7 项操作全部通过(PATCH rename / GET export / POST archive / POST compress-20w / POST compress-100w / POST invalid-target-reject / DELETE),Web HTML 验证 `/chat` 页面 200 OK 且包含 32 处 conversation/sidebar 标记 — 浏览器 UI 实测因 dev 环境 HMR socket 问题失败,已用 API 实测 + HTML 验证替代
 2. ✅(2026-07-18) **压缩阈值配置化**:`COMPRESS_TARGET_CHARS` 环境变量已实现(IIFE 解析 + `z.refine()` 运行时校验,默认 `200000,1000000`),`compressSchema` 不再硬编码 `z.union([z.literal(...)])`,运维可调整可用阈值
 3. ✅(2026-07-18) **rename Dialog autoFocus 体验**:已用 `useRef` + `useEffect` + `requestAnimationFrame` 实现 Dialog 打开时延迟聚焦+全选,eslint `jsx-a11y/no-autofocus` 保持绿
+
+---
+
+## 第 24 轮交付报告(2026-07-18,grok-build 融合第十八轮 — AgentRuntimePanel 多端同步扩展 desktop/extension/miniapp-taro/mobile-rn)
+
+> **背景**:第 23 轮已将 AgentRuntimePanel 集成到 Web 端 `/agents/[id]` 详情页 runtime tab + 修复 Redis 持久化降级 bug。本轮按 AGENTS.md 第 10 节多端同步规则,把 Agent 执行能力扩展到所有有 Agent 详情页的 4 端(desktop / extension / miniapp-taro / mobile-rn),确保接口契约 + 类型 + 业务功能 + UI 组件在多端同步可用。
+
+### 交付内容(4 端 AgentRuntimePanel 组件 + 4 端 Agent 详情页集成 + 5 语言 i18n × 4 端 = 20 个 i18n 文件 + 4 个测试文件 + 1 个 vitest 配置修复)
+
+**新建文件(4 个组件 + 4 个测试 = 8 个):**
+
+- `apps/desktop/src/components/AgentRuntimePanel.tsx`(316 行)— React + Tauri 适配,inline style 匹配 desktop 风格,复用 `@ihui/api-client` 的 `executeAgentRuntimeStream`,6 类 SSE 事件齐全(session/plan/delta/permission/done/error),idle/running/completed/failed 4 态状态机,圆角全部 `borderRadius: 6/8`(无 `rounded-full`)
+- `apps/desktop/tests/agent-runtime-panel.test.tsx`(51 行)— 4 个最小渲染测试,`@ihui/api-client` 已 mock
+- `apps/extension/entrypoints/sidepanel/components/AgentRuntimePanel.tsx`(357 行)— extension 适配,inline style + 既有 CSS vars,复用 `executeAgentRuntimeStream` 共享层,透传 `agentId` 为 `botId`
+- `apps/extension/tests/agent-runtime-panel.test.tsx`(32 行)— `react-dom/server` 的 `renderToStaticMarkup`(node 环境无需 jsdom)
+- `apps/miniapp-taro/src/components/AgentRuntimePanel.tsx`(194 行)— Taro 适配(View/Text/Textarea/Button/ScrollView,onInput/e.detail.value),复用 `executeAgentRuntimeStream` from `@ihui/api-client`
+- `apps/miniapp-taro/tests/agent-runtime-panel.test.tsx`(52 行)— 3 个 smoke 测试,`vi.mock` 隔离 `@tarojs/components`/`@/i18n`/`@ihui/api-client`
+- `apps/mobile-rn/src/components/AgentRuntimePanel.tsx`(195 行)— React Native + NativeWind 适配(View/Text/TextInput/Pressable/ScrollView/ActivityIndicator),复用 `executeAgentRuntimeStream`,完整状态机 + plan/output/error/permission 展示
+- `apps/mobile-rn/tests/agent-runtime-panel.test.tsx`(51 行)— 3 个 smoke 测试,`vi.mock` 隔离 `react-native`/`@ihui/api-client`
+
+**修改文件(4 端 Agent 详情页 + 20 个 i18n + 2 个 vitest 配置 = 26 个):**
+
+- `apps/desktop/src/pages/AgentPage.tsx` — `AgentDetail` 组件加 `runtimeOpen` 折叠状态和"Agent 执行"按钮,展开后渲染 `<AgentRuntimePanel />`
+- `apps/extension/entrypoints/sidepanel/pages/AgentPage.tsx` — `AgentDetail` 加 tab 切换(详情 / Agent 执行),`activeTab === 'runtime'` 时渲染 `<AgentRuntimePanel agentId={id} />`
+- `apps/miniapp-taro/src/pages/ai/agent-detail.tsx` — import 从 `@/api` 切换到 `@ihui/api-client`(同步缺口修复),unwrap `ApiResult` + 字段映射(`description→desc`、`systemPrompt→prompt`),新增 tab 切换(详情/执行),runtime tab 渲染 `<AgentRuntimePanel>`
+- `apps/mobile-rn/src/screens/AgentScreen.tsx` — `AgentScreen` 加 `activeTab: 'detail' | 'runtime'` state,详情视图头部加 tab 切换栏(详情 / Agent 执行),`activeTab === 'runtime'` 时渲染 `<AgentRuntimePanel />`,`useEffect` 在 selectedId 变化时重置 activeTab 到 'detail'
+- `apps/desktop/src/i18n/messages/{zh-CN,zh-TW,en,ja,ko}.ts`(5 文件)— 各 +3 行,补 `agent.tabRuntime`/`agent.tabDetail`/`agent.runtimeTitle`
+- `apps/extension/src/i18n/messages/{zh-CN,zh-TW,en,ja,ko}.ts`(5 文件)— 各 +1 行,补 `nav.tabRuntime`
+- `apps/miniapp-taro/src/i18n/{zh-CN,zh-TW,en,ja,ko}.ts`(5 文件)— 各 +14~18 行,补 `ai.agentDetail.tabRuntime` + 13 个 runtime 文案
+- `apps/mobile-rn/src/i18n/messages/{zh-CN,zh-TW,en,ja,ko}.ts`(5 文件)— 各 +16 行,补 `agent.tabRuntime`/`agent.tabDetail` + 14 个 runtime 文案
+- `apps/extension/vitest.config.ts` — `include` 加 `tests/**/*.test.tsx` + `entrypoints/**/*.test.tsx`(原配置只匹配 `.test.ts`,导致 `.tsx` 测试被忽略)
+- `apps/miniapp-taro/vitest.config.ts` — `include` 加 `tests/**/*.{test,spec}.{ts,tsx}`(原配置只匹配 `src/**`,导致 `tests/` 目录被忽略)
+
+### 多端同步审查清单(AGENTS.md 第 10 节)
+
+| 检查项       | 状态 | 说明                                                                                                                                                                              |
+| ------------ | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 接口契约同步 | ✅   | 4 端全部调用 `packages/api-client` 的 `executeAgentRuntimeStream`(第十五轮已暴露),无契约偏离                                                                                      |
+| 类型同步     | ✅   | 无新增共享类型,复用 `ExecuteAgentRuntimeParams` + `AgentRuntimeStreamCallbacks`                                                                                                   |
+| 数据结构同步 | ✅   | 无 schema 变更,Redis session 持久化复用第十五轮已实现机制                                                                                                                         |
+| UI 组件同步  | ✅   | 4 端各自实现本端风格的 AgentRuntimePanel(desktop inline style / extension inline style + CSS vars / miniapp-taro Taro 标签 / mobile-rn NativeWind className),功能一致 UI 呈现特化 |
+| 业务功能同步 | ✅   | Agent 执行能力在 web + desktop + extension + miniapp-taro + mobile-rn 5 端同步可用(每端 Agent 详情页都有 runtime tab)                                                             |
+| 全量验证     | ✅   | 5 端 typecheck + lint + test 全绿(354 测试,含 23 个 agent-runtime-panel 测试)                                                                                                     |
+
+### 跨端覆盖清单
+
+| 端        | 路径                                               | 组件                                             | 详情页集成                           | 测试数 | 状态 |
+| --------- | -------------------------------------------------- | ------------------------------------------------ | ------------------------------------ | ------ | ---- |
+| Web       | `apps/web/src/components/ai/`                      | `agent-runtime-panel.tsx`(225 行,第 23 轮已交付) | `/agents/[id]` runtime tab(第 23 轮) | 11     | ✅   |
+| Desktop   | `apps/desktop/src/components/`                     | `AgentRuntimePanel.tsx`(316 行)                  | `AgentPage` AgentDetail 折叠面板     | 4      | ✅   |
+| Extension | `apps/extension/entrypoints/sidepanel/components/` | `AgentRuntimePanel.tsx`(357 行)                  | `AgentPage` tab 切换                 | 2      | ✅   |
+| Miniapp   | `apps/miniapp-taro/src/components/`                | `AgentRuntimePanel.tsx`(194 行)                  | `agent-detail.tsx` tab 切换          | 3      | ✅   |
+| Mobile-RN | `apps/mobile-rn/src/components/`                   | `AgentRuntimePanel.tsx`(195 行)                  | `AgentScreen` tab 切换               | 3      | ✅   |
+| **合计**  | —                                                  | —                                                | —                                    | **23** | ✅   |
+
+### 验证依据
+
+| 验证项              | 命令                                         | 退出码 | 结果                                               |
+| ------------------- | -------------------------------------------- | ------ | -------------------------------------------------- |
+| desktop typecheck   | `pnpm --filter @ihui/desktop typecheck`      | 0      | tsc --noEmit 无错误                                |
+| desktop lint        | `pnpm --filter @ihui/desktop lint`           | 0      | eslint 无错误                                      |
+| desktop test        | `pnpm --filter @ihui/desktop test`           | 0      | 4 文件 30 测试全绿(含 4 个 agent-runtime-panel)    |
+| extension typecheck | `pnpm --filter @ihui/extension typecheck`    | 0      | tsc --noEmit 无错误                                |
+| extension lint      | `pnpm --filter @ihui/extension lint`         | 0      | eslint 无错误                                      |
+| extension test      | `pnpm --filter @ihui/extension test`         | 0      | 2 文件 19 测试全绿(含 2 个 agent-runtime-panel)    |
+| miniapp typecheck   | `pnpm --filter @ihui/miniapp-taro typecheck` | 0      | tsc --noEmit 无错误                                |
+| miniapp lint        | `pnpm --filter @ihui/miniapp-taro lint`      | 0      | eslint 无错误                                      |
+| miniapp test        | `pnpm --filter @ihui/miniapp-taro test`      | 0      | 4 文件 26 测试全绿(含 3 个 agent-runtime-panel)    |
+| mobile-rn typecheck | `pnpm --filter @ihui/mobile-rn typecheck`    | 0      | tsc --noEmit 无错误                                |
+| mobile-rn lint      | `pnpm --filter @ihui/mobile-rn lint`         | 0      | eslint 无错误                                      |
+| mobile-rn test      | `pnpm --filter @ihui/mobile-rn test`         | 0      | 4 文件 33 测试全绿(含 3 个 agent-runtime-panel)    |
+| web test (回归)     | `pnpm --filter @ihui/web test`               | 0      | 24 文件 246 测试全绿(含 11 个 agent-runtime-panel) |
+| **5 端合计**        | —                                            | —      | **354 测试全绿,含 23 个 agent-runtime-panel 测试** |
+
+### 任务完成状态
+
+AgentRuntimePanel 多端同步扩展 100% 完成:Web(第 23 轮)+ Desktop + Extension + Miniapp-Taro + Mobile-RN 5 端全部具备 Agent 执行能力(任务输入 / 执行 / 停止 / 清空 / 执行计划 / 权限决策 / 输出 / 错误 8 项功能),5 语言 i18n 齐备(zh-CN / zh-TW / en / ja / ko),354 测试全绿(含 23 个 agent-runtime-panel 测试),4 端 Agent 详情页(desktop AgentDetail / extension AgentPage tab / miniapp-taro agent-detail tab / mobile-rn AgentScreen tab)均已集成 runtime tab/section。接口契约同步无偏离,UI 呈现按各端风格特化(desktop/extension inline style,miniapp-taro Taro 标签,mobile-rn NativeWind className,web Tailwind className)。AGENTS.md 第 10 节多端同步审查清单全部满足。
+
+### 后续工作
+
+无后续工作。grok-build 融合(第 15-18 轮,跨 4 个会话)全部交付完毕:第十五轮共享类型上提 + 第十六轮 API/AI-Service/api-client 三层补齐 + 第十七轮 Web UI 集成 + Redis 持久化 bug 修复 + 真实 LLM 联调 + 第十八轮多端同步扩展 5 端覆盖。Agent 执行链路从 API → AI-Service → api-client → Web/Desktop/Extension/Miniapp-Taro/Mobile-RN 5 端 UI 全链路打通。
