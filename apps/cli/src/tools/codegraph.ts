@@ -17,6 +17,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Tool, ToolResult } from './index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+import {
+  CodeGraphIndex,
+  IndexManager,
+  loadCache,
+  saveCache,
+  getDefaultCachePath,
+  type FileEvent,
+} from '../codegraph/index.js';
 
 const CODE_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 const IGNORED_DIRS = new Set([
@@ -170,6 +178,75 @@ const DEFINITION_PATTERNS: Array<{ re: RegExp; kind: string }> = [
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ==================== P1-6 增量索引集成 ====================
+// 灵感来源:cli xai-codebase-graph 的增量索引 + 持久化。
+// 集成策略(feature flag + 增量优先 + 全量 fallback):
+//   - settings.codegraphIncremental.enabled 默认关闭,关闭时走原全量扫描路径(零回归)
+//   - 启用时:CLI 启动加载缓存 → 工具查询走增量索引 → 文件变更增量更新 → 退出持久化
+//   - 增量未命中时 fallback 到全量扫描(双保险)
+
+/** 增量索引实例(feature flag 启用时使用) */
+let incrementalIndex: CodeGraphIndex | undefined;
+let incrementalManager: IndexManager | undefined;
+let incrementalEnabled = false;
+
+/** 启用增量索引:加载缓存 + 全量索引一次(后续走增量) */
+export async function enableCodegraphIncremental(workspaceRoot: string): Promise<void> {
+  incrementalEnabled = true;
+  const cachePath = getDefaultCachePath(workspaceRoot);
+  incrementalIndex = (await loadCache(cachePath)) ?? new CodeGraphIndex();
+  incrementalManager = new IndexManager(workspaceRoot, incrementalIndex);
+  // 启动时全量索引一次(后续走增量)
+  await incrementalManager.indexDirectory();
+}
+
+/** 禁用增量索引(清空模块级状态) */
+export function disableCodegraphIncremental(): void {
+  incrementalEnabled = false;
+  incrementalIndex = undefined;
+  incrementalManager = undefined;
+}
+
+/** 通知文件变更(供 hooks 调用,增量更新索引) */
+export function notifyCodegraphFileEvent(event: FileEvent): void {
+  if (incrementalEnabled && incrementalManager) {
+    incrementalManager.handleEvent(event);
+  }
+}
+
+/** 持久化缓存(CLI 退出时调用) */
+export async function persistCodegraphCache(workspaceRoot: string): Promise<void> {
+  if (incrementalEnabled && incrementalIndex) {
+    const cachePath = getDefaultCachePath(workspaceRoot);
+    await saveCache(incrementalIndex, cachePath);
+  }
+}
+
+/** 查询是否启用增量索引 */
+export function isCodegraphIncrementalEnabled(): boolean {
+  return incrementalEnabled;
+}
+
+/**
+ * 读取文件指定行的预览(用于增量索引命中时填充 preview 字段,保持输出格式一致)。
+ * 文件读取失败返回空字符串(不阻塞查询结果)。
+ */
+function readLinePreview(workspacePath: string, relPath: string, line: number): string {
+  try {
+    const abs = path.join(workspacePath, relPath);
+    const content = fs.readFileSync(abs, 'utf-8');
+    const lines = content.split('\n');
+    return (lines[line - 1] ?? '').trim().slice(0, 120);
+  } catch {
+    return '';
+  }
+}
+
+/** 判断一行是否为 import 语句(用于增量索引引用分类为 import/usage) */
+function isImportLine(line: string): boolean {
+  return /^\s*(import\s|const\s+\w+\s*=\s*require\s*\()/.test(line);
 }
 
 function findDefinitions(symbol: string, files: FileEntry[]): DefinitionHit[] {
@@ -375,6 +452,37 @@ export const goto_definition: Tool = {
     const preResult = runPreToolCall('goto_definition', { symbol });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
+    // 增量索引路径(feature flag 启用):用 CodeGraphIndex 替代全量扫描
+    if (incrementalEnabled && incrementalIndex) {
+      const defs = incrementalIndex.findDefinitions(symbol);
+      if (defs.length > 0) {
+        const hits: DefinitionHit[] = [];
+        for (const def of defs) {
+          for (const loc of def.locations) {
+            hits.push({
+              file: loc.filePath,
+              line: loc.line,
+              column: loc.column,
+              kind: def.kind,
+              preview: readLinePreview(ctx.workspacePath, loc.filePath, loc.line),
+            });
+            if (hits.length >= MAX_RESULTS) break;
+          }
+          if (hits.length >= MAX_RESULTS) break;
+        }
+        runPostToolCall('goto_definition', { symbol, hits: hits.length });
+        const lines = hits.map(
+          (h) => `  ${h.file}:${h.line}:${h.column} [${h.kind}] ${h.preview}`,
+        );
+        return {
+          success: true,
+          output: `找到 ${hits.length} 处 "${symbol}" 定义:\n${lines.join('\n')}`,
+        };
+      }
+      // 增量索引未命中 → fallback 到全量扫描
+    }
+
+    // 全量扫描路径(默认)
     const files = scanCodeFiles(ctx.workspacePath);
     const hits = findDefinitions(symbol, files);
     runPostToolCall('goto_definition', { symbol, hits: hits.length });
@@ -410,6 +518,46 @@ export const find_references: Tool = {
     const preResult = runPreToolCall('find_references', { symbol });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
+    // 增量索引路径(feature flag 启用):用 CodeGraphIndex 替代全量扫描
+    if (incrementalEnabled && incrementalIndex) {
+      const refs = incrementalIndex.findReferences(symbol);
+      if (refs.length > 0) {
+        const hits: ReferenceHit[] = [];
+        for (const ref of refs) {
+          for (const loc of ref.locations) {
+            const preview = readLinePreview(ctx.workspacePath, loc.filePath, loc.line);
+            hits.push({
+              file: loc.filePath,
+              line: loc.line,
+              column: loc.column,
+              kind: isImportLine(preview) ? 'import' : 'usage',
+              preview,
+            });
+            if (hits.length >= MAX_RESULTS) break;
+          }
+          if (hits.length >= MAX_RESULTS) break;
+        }
+        runPostToolCall('find_references', { symbol, hits: hits.length });
+        if (hits.length === 0) {
+          return {
+            success: true,
+            output: `符号 "${symbol}" 无引用(可能是未使用符号或定义不存在)`,
+          };
+        }
+        const imports = hits.filter((h) => h.kind === 'import');
+        const usages = hits.filter((h) => h.kind === 'usage');
+        const lines = hits.map(
+          (h) => `  ${h.file}:${h.line}:${h.column} [${h.kind}] ${h.preview}`,
+        );
+        return {
+          success: true,
+          output: `找到 ${hits.length} 处引用(${imports.length} import + ${usages.length} usage):\n${lines.join('\n')}`,
+        };
+      }
+      // 增量索引未命中 → fallback 到全量扫描
+    }
+
+    // 全量扫描路径(默认)
     const files = scanCodeFiles(ctx.workspacePath);
     const hits = findReferences(symbol, files);
     runPostToolCall('find_references', { symbol, hits: hits.length });
