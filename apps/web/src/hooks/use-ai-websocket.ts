@@ -11,7 +11,7 @@ const PROVIDER_PATHS: Record<AIWSProvider, string> = {
   zhipu: '/cozeZhsApi/ws/zhipu/stream',
   deepseek: '/cozeZhsApi/ws/chatdeepseek/stream',
   doubao: '/cozeZhsApi/ws/doubao/streamDou',
-  generic: '/api/v1/ai/capabilities/ws/stream',
+  generic: '/v1/ai/capabilities/ws/stream',
 }
 
 export interface AIWSMessage {
