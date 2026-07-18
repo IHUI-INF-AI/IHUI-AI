@@ -368,7 +368,8 @@
     "downloadDesktop": "デスクトップ",
     "mainNav": "メインナビゲーション",
     "knowledgeBase": "ナレッジベース",
-    "announcements": "お知らせ"
+    "announcements": "お知らせ",
+    "overview": "概覧"
   },
   "auth": {
     "loginTitle": "おかえりなさい",
@@ -24260,7 +24261,18 @@
       "title": "IHUI AI メンバーシップ",
       "subtitle": "ポイント2倍 · 期間限定特価",
       "description": "今すぐメンバーに登録して、すべての AI ツール、専属サポート、高度なモデルアクセスなどの特典を利用して、作業効率を向上させましょう。",
-      "perYear": "/年"
+      "perYear": "/年",
+      "legacyTitle": "IHUI AI コミュニティへようこそ",
+      "legacySubtitle": "AI時代の企業合理的効率サービスと相互支援コミュニティ。意思決定者がAIと企業の関係を深く理解し、人機協同のスーパー組織を構築する支援をします。",
+      "legacyPerYear": "日/年の伴走",
+      "benefits": {
+        "benefit1": "年間すべてのコース無料参加",
+        "benefit2": "探索活動への優先参加",
+        "benefit3": "コミュニティ相互援助無制限",
+        "benefit4": "オンラインコミュニティ専用入り口",
+        "benefit5": "AIアシスタント優先体験",
+        "benefit6": "満足できない場合全額返金"
+      }
     },
     "cta": {
       "title": "IHUI AI の旅を始める準備はできましたか?",

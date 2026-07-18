@@ -368,7 +368,8 @@
     "downloadDesktop": "桌面端",
     "mainNav": "主导航",
     "knowledgeBase": "知识库",
-    "announcements": "公告"
+    "announcements": "公告",
+    "overview": "总览"
   },
   "auth": {
     "loginTitle": "欢迎回来",
@@ -24242,7 +24243,18 @@
       "title": "智汇 AI 会员",
       "subtitle": "双倍积分 · 限时钜惠",
       "description": "立即开通会员,享受全部 AI 工具、专属客服、高级模型访问等专属权益,助你工作更高效。",
-      "perYear": "/年"
+      "perYear": "/年",
+      "legacyTitle": "欢迎来到智汇 AI 社区",
+      "legacySubtitle": "AI 时代企业理性效率服务与互助社群。帮助决策者深度理解 AI 与企业的关系,构建人机协同的超级组织。",
+      "legacyPerYear": "天/年陪伴",
+      "benefits": {
+        "benefit1": "全年所有课程免费参加",
+        "benefit2": "探索活动优先参与",
+        "benefit3": "社群互助无限次",
+        "benefit4": "线上社群专属入口",
+        "benefit5": "AI 助手优先体验",
+        "benefit6": "不满意全额退款"
+      }
     },
     "cta": {
       "title": "准备好开启智汇 AI 之旅了吗?",
