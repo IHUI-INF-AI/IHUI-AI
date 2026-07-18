@@ -1,0 +1,5 @@
+#!/bin/sh
+# 样式改动强制验证守门(AGENTS.md 第 19 节)
+# .css 改动时要求 commit message 附 Verified-DOM trailer
+# 跳过:HUSKY_SKIP_STYLE_VERIFY=1
+node scripts/check-style-verification.mjs "$1"

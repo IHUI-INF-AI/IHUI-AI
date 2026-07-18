@@ -74,7 +74,7 @@
   --color-muted-foreground: hsl(0 0% 40%);
   --color-accent: hsl(0 0% 88%);
   --color-accent-foreground: hsl(0 0% 9%);
-  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
   --color-border: hsl(0 0% 89.8%);
   --color-input: hsl(0 0% 89.8%);
@@ -148,7 +148,7 @@
   --color-muted-foreground: hsl(0 0% 63.9%);
   --color-accent: hsl(0 0% 17%);
   --color-accent-foreground: hsl(0 0% 98%);
-  --color-destructive: hsl(0 62.8% 30.6%);
+  --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
   --color-border: hsl(0 0% 22%);
   --color-input: hsl(0 0% 22%);
@@ -257,7 +257,7 @@ body {
   border-top: 1px solid var(--color-border);
 }
 
-/* 自定义滚动条:无背景、无箭头、细滑块 */
+/* 自定义滚动条:无背景、无箭头、细滑块。用法:加到需要细滚动条的容器/textarea className */
 .thin-scroll {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--color-muted-foreground) 60%, transparent) transparent;
