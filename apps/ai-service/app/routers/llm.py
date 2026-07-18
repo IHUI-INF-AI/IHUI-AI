@@ -11,6 +11,8 @@
 
 import asyncio
 import json
+import logging
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -22,9 +24,48 @@ from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # 持有待完成的回调 task 引用,防止 CPython GC 回收未持有的 task
 _pending_callbacks: set[asyncio.Task] = set()
+
+# 默认模型清单 JSON 文件路径(运行时按需加载,修改无需重启)
+_DEFAULT_MODELS_FILE = Path(__file__).resolve().parent.parent / "data" / "default_models.json"
+
+
+def _load_default_models() -> list[dict[str, Any]]:
+    """从 data/default_models.json 加载默认模型清单,按 id 去重。
+
+    文件不存在或解析失败时返回内置最小兜底列表(避免启动失败)。
+    """
+    fallback_minimal = [
+        {"id": "gpt-4o", "name": "GPT-4o", "provider": "openai", "context_length": 128000, "input_price": 2.5},
+        {"id": "gpt-4o-mini", "name": "GPT-4o mini", "provider": "openai", "context_length": 128000, "input_price": 0.15},
+    ]
+    try:
+        if not _DEFAULT_MODELS_FILE.exists():
+            logger.warning("Default models file not found: %s, using minimal fallback", _DEFAULT_MODELS_FILE)
+            return fallback_minimal
+        raw = _DEFAULT_MODELS_FILE.read_text(encoding="utf-8")
+        data = json.loads(raw)
+        models = data.get("models", [])
+        if not isinstance(models, list) or not models:
+            return fallback_minimal
+        # 按 id 去重(保留首次出现)
+        seen: set[str] = set()
+        unique: list[dict[str, Any]] = []
+        for m in models:
+            if not isinstance(m, dict):
+                continue
+            mid = m.get("id")
+            if not mid or mid in seen:
+                continue
+            seen.add(mid)
+            unique.append(m)
+        return unique
+    except Exception as e:
+        logger.exception("Failed to load default models from %s: %s", _DEFAULT_MODELS_FILE, e)
+        return fallback_minimal
 
 
 class LLMCompleteRequest(BaseModel):
@@ -81,24 +122,11 @@ async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any]:
 async def list_models() -> dict[str, Any]:
     """返回可用模型列表。
 
-    从配置的 LiteLLM 模型派生,stub 模式下返回默认列表。
+    从 data/default_models.json 加载(支持热更新,无需重启),按 id 去重。
+    stub 模式下返回默认列表。
     前端 /models 页面通过 API 代理调用此端点获取动态模型清单。
     """
-    default_models = [
-        # 用户 plan 套餐(已配置,优先使用)
-        {"id": "stepfun/step-3.7-flash", "name": "Step 3.7 Flash (StepFun)", "provider": "meta", "context_length": 128000, "input_price": 0},
-        {"id": "stepfun/step-3.5-flash", "name": "Step 3.5 Flash (StepFun)", "provider": "meta", "context_length": 128000, "input_price": 0},
-        {"id": "stepfun/step-router-v1", "name": "Step Router v1 (StepFun 智能路由)", "provider": "meta", "context_length": 128000, "input_price": 0},
-        {"id": "agnes/gpt-4o", "name": "GPT-4o (Agnes Plan)", "provider": "openai", "context_length": 128000, "input_price": 0},
-        # 免费 provider(备选,需自行注册 key)
-        {"id": "groq/llama-3.3-70b-versatile", "name": "Llama 3.3 70B (Groq 免费)", "provider": "meta", "context_length": 128000, "input_price": 0},
-        {"id": "gemini/gemini-1.5-flash", "name": "Gemini 1.5 Flash (免费)", "provider": "google", "context_length": 1000000, "input_price": 0},
-        {"id": "openrouter/auto", "name": "OpenRouter Auto (免费路由)", "provider": "meta", "context_length": 128000, "input_price": 0},
-        # 付费 provider(需付费 key)
-        {"id": "gpt-4o", "name": "GPT-4o", "provider": "openai", "context_length": 128000, "input_price": 2.5},
-        {"id": "gpt-4o-mini", "name": "GPT-4o mini", "provider": "openai", "context_length": 128000, "input_price": 0.15},
-        {"id": "claude-3-5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "anthropic", "context_length": 200000, "input_price": 3},
-    ]
+    default_models = _load_default_models()
     return {
         "models": default_models,
         "default": settings.litellm_model,
