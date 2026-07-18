@@ -2,8 +2,10 @@
 
 import * as React from 'react'
 import { Code2, Copy, Check } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+// P2 中期增强:按主题切换语法高亮样式(dark → oneDark,其他 → oneLight)
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 import { GenerationFrame, PromptInput, OptionSelect, useGeneration } from './generation-base'
 
@@ -26,6 +28,8 @@ export function CodeGenerator({ onGenerate }: CodeGeneratorProps) {
   const [language, setLanguage] = React.useState<string>('typescript')
   const [copied, setCopied] = React.useState(false)
   const { result, start } = useGeneration<string>()
+  const { resolvedTheme } = useTheme()
+  const syntaxStyle = resolvedTheme === 'dark' ? oneDark : oneLight
 
   const handleGenerate = () => {
     if (!prompt.trim()) return
@@ -67,7 +71,7 @@ export function CodeGenerator({ onGenerate }: CodeGeneratorProps) {
             </button>
             <SyntaxHighlighter
               language={language}
-              style={oneDark}
+              style={syntaxStyle}
               PreTag="div"
               customStyle={{ margin: 0, borderRadius: '0.375rem', fontSize: '0.8rem' }}
             >
