@@ -1,7 +1,7 @@
 /**
- * 前端 admin 模块缺失路由桩。
+ * 前端 admin 模块路由补建。
  * 来源：api-routes-missing.json 中未匹配到后端路由的调用。
- * 策略：统一返回空列表/空对象/操作成功，避免前端 404。
+ * 策略：接入真实 DB 查询与 Drizzle ORM,鉴权后返回真实数据。
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'

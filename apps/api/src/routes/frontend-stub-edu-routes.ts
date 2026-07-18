@@ -1,7 +1,7 @@
 /**
- * 前端 edu 模块缺失路由桩。
+ * 前端 edu 模块路由补建。
  * 来源：api-routes-missing.json 中未匹配到后端路由的调用。
- * 策略：接入真实 DB 查询与业务逻辑,鉴权后返回真实数据。
+ * 策略：接入真实 DB 查询与业务逻辑,鉴权后返回真实数据(含 PDFKit 证书生成)。
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
