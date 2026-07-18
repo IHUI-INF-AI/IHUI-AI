@@ -1,7 +1,7 @@
 /**
  * Codebase Intelligence — 符号依赖图 + 定义跳转 + 引用查找。
  *
- * 灵感来源:cli 的 cli-lsp crate + Codebase Intelligence 系统。
+ * 灵感来源:参考行业 Agent 框架的 LSP crate + Codebase Intelligence 系统设计。
  * 做减法(零外部 LSP 依赖,纯正则解析,覆盖 90% 场景):
  *   - codegraph:扫描 .ts/.tsx/.js/.jsx 文件,解析 import 语句,构建文件依赖图
  *   - goto_definition:基于符号名搜索 function/const/let/var/class/interface/type/enum 定义
@@ -181,7 +181,7 @@ function escapeRegex(s: string): string {
 }
 
 // ==================== P1-6 增量索引集成 ====================
-// 灵感来源:cli xai-codebase-graph 的增量索引 + 持久化。
+// 灵感来源:参考行业 Agent 框架的 codebase-graph 增量索引 + 持久化设计。
 // 集成策略(feature flag + 增量优先 + 全量 fallback):
 //   - settings.codegraphIncremental.enabled 默认关闭,关闭时走原全量扫描路径(零回归)
 //   - 启用时:CLI 启动加载缓存 → 工具查询走增量索引 → 文件变更增量更新 → 退出持久化

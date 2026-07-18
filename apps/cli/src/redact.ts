@@ -1,8 +1,8 @@
 /**
  * 敏感数据脱敏 — 防止 API key / token / 密码泄露到 LLM 或审计日志。
  *
- * 灵感来源:cli 的 `cli-secrets/sanitizer.rs`(10 类正则 + RegexSet 预过滤 + URL query + 用户路径)。
- * 策略(对齐 cli):
+ * 灵感来源:参考行业 Agent 框架的 secrets sanitizer 设计(10 类正则 + RegexSet 预过滤 + URL query + 用户路径)。
+ * 策略(参考行业 Agent 框架实践):
  *   - 10 类正则匹配常见敏感模式:OpenAI/Anthropic/StepFun/Agnes key、Bearer token、password/api_key 赋值、
  *     AWS access key、Authorization Basic、GitHub token、GitLab/Slack vendor token、Google API key、
  *     PEM 私钥、JWT
@@ -29,21 +29,21 @@ const SENSITIVE_PATTERNS: ReadonlyArray<{ pattern: RegExp; replacement: string }
   { pattern: /\b((?:AKIA|ASIA)[A-Z0-9]{4})[A-Z0-9]{12,}\b/g, replacement: '$1***REDACTED***' },
   // 6. Authorization: Basic xxx
   { pattern: /(Authorization\s*:\s*Basic\s+)[A-Za-z0-9+/=]{8,}/gi, replacement: '$1***REDACTED***' },
-  // 7. GitHub Token: ghp_/gho_/ghu_/ghs_/ghr_/github_pat_ (对齐 cli GITHUB_TOKEN_REGEX)
+  // 7. GitHub Token: ghp_/gho_/ghu_/ghs_/ghr_/github_pat_
   { pattern: /\b((?:gh[opusr]_|github_pat_)[A-Za-z0-9_]{4})[A-Za-z0-9_]{16,}\b/g, replacement: '$1***REDACTED***' },
-  // 8. Vendor Token: GitLab glpat- / Slack xox[abp]- / Slack xapp- (对齐 cli VENDOR_TOKEN_REGEX)
+  // 8. Vendor Token: GitLab glpat- / Slack xox[abp]- / Slack xapp-
   { pattern: /\b((?:glpat-|xox[abp]-|xapp-)[A-Za-z0-9\-]{4})[A-Za-z0-9\-]{6,}\b/g, replacement: '$1***REDACTED***' },
-  // 9. Google API Key: AIza + 35 字符 (对齐 cli GOOGLE_API_KEY_REGEX)
+  // 9. Google API Key: AIza + 35 字符
   { pattern: /\b(AIza[A-Za-z0-9_\-]{4})[A-Za-z0-9_\-]{31,}\b/g, replacement: '$1***REDACTED***' },
-  // 10. JWT: eyJ{8+}.{8+}.{8+} (对齐 cli JWT_REGEX,保留 header+payload 前 4 字符可见)
+  // 10. JWT: eyJ{8+}.{8+}.{8+} (保留 header+payload 前 4 字符可见)
   { pattern: /\b(eyJ[A-Za-z0-9_\-]{4})[A-Za-z0-9_\-]{4,}\.[A-Za-z0-9_\-]{4,}\.[A-Za-z0-9_\-]{4,}\b/g, replacement: '$1***REDACTED***.***REDACTED***.***REDACTED***' },
-  // 11. PEM 私钥: -----BEGIN [RSA |EC |OPENSSH |]PRIVATE KEY----- ... -----END ... (对齐 cli PEM_PRIVATE_KEY_REGEX,多行匹配)
+  // 11. PEM 私钥: -----BEGIN [RSA |EC |OPENSSH |]PRIVATE KEY----- ... -----END ... (多行匹配)
   { pattern: /(-{5}BEGIN[A-Z ]*PRIVATE KEY-{5}[\s\S]{0,4096}?-{5}END[A-Z ]*PRIVATE KEY-{5})/g, replacement: '***REDACTED-PRIVATE-KEY***' },
 ];
 
 // ===================== 2. URL query 敏感参数脱敏 =====================
 
-/** 敏感 query 参数名(对齐 cli SENSITIVE_QUERY_PARAMS,大小写不敏感) */
+/** 敏感 query 参数名(大小写不敏感) */
 const SENSITIVE_QUERY_PARAMS: ReadonlySet<string> = new Set([
   'access_token', 'api_key', 'apikey', 'auth', 'authorization',
   'code', 'password', 'passwd', 'refresh_token', 'secret',
@@ -102,7 +102,7 @@ function getUser(): string | null {
  * 脱敏用户绝对路径中的 home / username。
  * - $HOME → ~(POSIX 风格)/ ~ (Windows C:\Users\<name> → ~)
  * - username → <user>
- * 对齐 cli `redact_user_paths`。
+ * 参考行业 Agent 框架的 redact_user_paths 设计。
  */
 export function redactUserPaths(input: string): string {
   let result = input;

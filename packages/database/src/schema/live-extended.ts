@@ -1,5 +1,5 @@
 /**
- * 直播互动扩展 schema（迁移自旧架构 live_models / live_ext_models）。
+ * 直播互动扩展 schema（等价自旧架构 live_models / live_ext_models）。
  * 涵盖：分类关系 / 频道分类 / 频道讲师 / 评论弹幕 / 礼物 / 订阅 / 腾讯云直播流。
  */
 import {

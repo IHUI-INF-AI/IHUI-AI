@@ -4,3 +4,9 @@ export * from './ai.js'
 export * from './notification.js'
 export * from './message-repair.js'
 export * from './agent-runtime.js'
+export * from './workspace.js'
+// 命名冲突解决:agent-runtime.ts 与 workspace.ts 都导出 PermissionMode / PermissionDecision。
+// agent-runtime 版本(camelCase:acceptEdits/bypassPermissions)已被 api-client 等多处引用,
+// 显式 re-export 保持向后兼容;workspace 版本(kebab-case:accept-edits/bypass-permissions)
+// 通过 @ihui/types/workspace subpath 访问。
+export { type PermissionMode, type PermissionDecision } from './agent-runtime.js'

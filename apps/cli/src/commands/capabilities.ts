@@ -1,5 +1,5 @@
 /**
- * Capabilities CLI — 迁移自旧架构 server/app/cli/capabilities.py
+ * Capabilities CLI — 等价自旧架构 server/app/cli/capabilities.py
  * 统一能力查询与调用：local 走已配置后端 (全局 --api-url)，remote 走 --server 指定的远程服务器。
  *
  * 用法:

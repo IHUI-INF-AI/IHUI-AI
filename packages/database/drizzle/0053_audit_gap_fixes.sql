@@ -1,6 +1,6 @@
 -- Migration 0053: 审计缺口修复 (D盘历史项目迁移完整性补齐)
 -- 创建时间: 2026-07-11
--- 描述: 迁移自旧架构的 7 张缺失表，覆盖 agent_rule/certificate/usercenter/system/agents 模块
+-- 描述: 等价自旧架构的 7 张缺失表，覆盖 agent_rule/certificate/usercenter/system/agents 模块
 
 -- ===== 智能体规则关联表 =====
 CREATE TABLE IF NOT EXISTS agent_rule_link (

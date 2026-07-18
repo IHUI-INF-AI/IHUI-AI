@@ -25,6 +25,10 @@
     "./message-repair": {
       "types": "./src/message-repair.ts",
       "import": "./dist/message-repair.js"
+    },
+    "./workspace": {
+      "types": "./src/workspace.ts",
+      "import": "./dist/workspace.js"
     }
   },
   "scripts": {
