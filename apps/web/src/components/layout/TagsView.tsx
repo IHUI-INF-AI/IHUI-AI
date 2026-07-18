@@ -3,13 +3,19 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { X, ChevronDown, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
 import { Dropdown } from '@/components/feedback'
+import { resolvePathLabelSpec } from '@/lib/path-labels'
 
+/**
+ * 兜底标题:取 URL 最后一段。
+ * 仅当 resolvePathLabelSpec 未命中(路由未在 path-labels.ts 注册)时使用。
+ */
 function deriveTitle(pathname: string): string {
-  if (!pathname || pathname === '/') return '首页'
+  if (!pathname || pathname === '/') return '/'
   const seg = pathname.split('/').filter(Boolean).pop() ?? pathname
   try {
     return decodeURIComponent(seg)
@@ -44,6 +50,12 @@ export function TagsView() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
+  // 通过 useTranslations 获取各命名空间翻译函数。
+  // 关键设计:TagsView 在每次渲染时根据 tag.path + 当前 locale 派生标签标题,
+  // 因此语言切换会自动触发重渲染,所有已存在标签立即重新翻译,无需刷新。
+  const tCommon = useTranslations('common')
+  // 各页面命名空间按需懒加载(useTranslations 接受动态 ns),覆盖 EXTRA_PATH_LABELS 中
+  // 指向独立页面命名空间的项(如 about/articles/workflows 等)。
   const tags = useTagsViewStore((s) => s.tags)
   const activePath = useTagsViewStore((s) => s.activePath)
   const addTag = useTagsViewStore((s) => s.addTag)
@@ -54,11 +66,106 @@ export function TagsView() {
   // 订阅 dirtyPaths(Set 引用变化时触发重渲染);各标签用 dirtyPaths.has(path) 判定 dirty
   const dirtyPaths = useTagsViewStore((s) => s.dirtyPaths)
 
+  // 按 ns 分组缓存 useTranslations 实例。
+  // 注意:useTranslations 必须在组件顶层调用(不能在循环/条件中),
+  // 因此先收集所有出现的 ns,再统一调用。
+  // 这里采用"声明所有可能用到的 ns"策略,确保 hook 顺序稳定。
+  const tNav = useTranslations('nav')
+  const tAdmin = useTranslations('admin')
+  const tAbout = useTranslations('about')
+  const tAgreement = useTranslations('agreement')
+  const tAiCareer = useTranslations('aiCareer')
+  const tApiTest = useTranslations('apiTest')
+  const tArticles = useTranslations('articles')
+  const tBiDashboard = useTranslations('biDashboard')
+  const tBusinessCard = useTranslations('businessCard')
+  const tChat = useTranslations('chat')
+  const tDesignSystem = useTranslations('designSystem')
+  const tFeatureCenter = useTranslations('featureCenter')
+  const tInvitations = useTranslations('invitations')
+  const tN8nAgents = useTranslations('n8nAgents')
+  const tRanking = useTranslations('ranking')
+  const tRefund = useTranslations('refund')
+  const tSecurityAudit = useTranslations('securityAudit')
+  const tShare = useTranslations('share')
+  const tTokenValue = useTranslations('tokenValue')
+  const tTools = useTranslations('tools')
+  const tWorkflows = useTranslations('workflows')
+
+  /** ns → useTranslations 实例的查找表(供 resolveTitle 使用) */
+  const nsTranslators = React.useMemo<Record<string, (key: string) => string>>(
+    () => ({
+      nav: tNav,
+      admin: tAdmin,
+      about: tAbout,
+      agreement: tAgreement,
+      aiCareer: tAiCareer,
+      apiTest: tApiTest,
+      articles: tArticles,
+      biDashboard: tBiDashboard,
+      businessCard: tBusinessCard,
+      chat: tChat,
+      designSystem: tDesignSystem,
+      featureCenter: tFeatureCenter,
+      invitations: tInvitations,
+      n8nAgents: tN8nAgents,
+      ranking: tRanking,
+      refund: tRefund,
+      securityAudit: tSecurityAudit,
+      share: tShare,
+      tokenValue: tTokenValue,
+      tools: tTools,
+      workflows: tWorkflows,
+    }),
+    [
+      tNav,
+      tAdmin,
+      tAbout,
+      tAgreement,
+      tAiCareer,
+      tApiTest,
+      tArticles,
+      tBiDashboard,
+      tBusinessCard,
+      tChat,
+      tDesignSystem,
+      tFeatureCenter,
+      tInvitations,
+      tN8nAgents,
+      tRanking,
+      tRefund,
+      tSecurityAudit,
+      tShare,
+      tTokenValue,
+      tTools,
+      tWorkflows,
+    ],
+  )
+
+  /** 根据 path 派生标签标题(渲染时实时计算,语言切换自动更新) */
+  const resolveTitle = React.useCallback(
+    (p: string): string => {
+      const spec = resolvePathLabelSpec(p)
+      if (spec) {
+        const t = nsTranslators[spec.ns]
+        if (t) {
+          try {
+            return t(spec.key)
+          } catch {
+            // 翻译键缺失时回退到 deriveTitle
+          }
+        }
+      }
+      return deriveTitle(p)
+    },
+    [nsTranslators],
+  )
+
+  // 路由切换:把当前 path 加入标签栏(只存 path+query,标题由渲染时派生)
   React.useEffect(() => {
     if (!pathname) return
     addTag({
       path: pathname,
-      title: deriveTitle(pathname),
       query: buildQuery(searchParams),
     })
   }, [pathname, searchParams, addTag])
@@ -172,6 +279,8 @@ export function TagsView() {
           const draggable = !active
           const isOver = overIndex === index && dragIndex !== null
           const isDirty = dirtyPaths.has(tag.path)
+          // 派生式标题:每次渲染根据 path + 当前 locale 实时计算
+          const title = resolveTitle(tag.path)
           return (
             // 标签宽度契约:右侧 = gap-1 (4px) + X (w-5=20px) + pr-1 (4px) = 28px
             // 左侧 pl-7 (28px) 与右侧对称,文字几何居中
@@ -200,11 +309,11 @@ export function TagsView() {
                 draggable && 'cursor-grab active:cursor-grabbing',
               )}
             >
-              <span className="leading-none">{tag.title}</span>
+              <span className="leading-none">{title}</span>
               {/* Feature 5: 未保存指示点 - 文字左侧小圆点,使用 amber-500 与项目主色区分 */}
               {isDirty && (
                 <span
-                  aria-label="未保存"
+                  aria-label={tCommon('unsaved')}
                   data-testid="tag-dirty-dot"
                   className="ml-0.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 motion-reduce:animate-none"
                 />
@@ -227,7 +336,7 @@ export function TagsView() {
                   // 键盘焦点态:补齐 a11y,让 Tab 用户能看到关闭按钮
                   'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                 )}
-                aria-label="关闭标签"
+                aria-label={tCommon('close')}
               >
                 <X className="h-3.5 w-3.5" />
               </span>
@@ -239,14 +348,18 @@ export function TagsView() {
         <Dropdown
           align="end"
           items={[
-            { key: 'other', label: '关闭其他', onSelect: () => closeOther(activePath ?? '') },
-            { key: 'all', label: '关闭全部', onSelect: () => closeAll() },
+            {
+              key: 'other',
+              label: tCommon('closeOther'),
+              onSelect: () => closeOther(activePath ?? ''),
+            },
+            { key: 'all', label: tCommon('closeAll'), onSelect: () => closeAll() },
           ]}
           trigger={
             <button
               type="button"
               className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="更多操作"
+              aria-label={tCommon('moreActions')}
             >
               <ChevronDown className="h-4 w-4" />
             </button>
@@ -271,7 +384,7 @@ export function TagsView() {
             className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
           >
             <X className="h-4 w-4" />
-            关闭
+            {tCommon('close')}
           </button>
           <button
             type="button"
@@ -283,7 +396,7 @@ export function TagsView() {
             className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
           >
             <XCircle className="h-4 w-4" />
-            关闭其他
+            {tCommon('closeOther')}
           </button>
           <div className="my-1 h-px bg-muted" />
           <button
@@ -293,10 +406,10 @@ export function TagsView() {
               closeAll()
               setCtxMenu(null)
             }}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:outline-none"
+            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-destructive/20 focus:bg-destructive/20 focus:outline-none"
           >
             <XCircle className="h-4 w-4" />
-            关闭全部
+            {tCommon('closeAll')}
           </button>
         </div>
       )}
