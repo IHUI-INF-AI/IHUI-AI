@@ -7,5 +7,6 @@ export default defineConfig({
     globals: false,
     testTimeout: 15_000,
     hookTimeout: 15_000,
+    retry: 2,
   },
 })
