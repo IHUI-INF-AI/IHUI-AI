@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm'
 import { config } from '../config/index.js'
 import { resetBulkhead } from '../plugins/resilience-extended.js'
 import { authenticate } from '../plugins/auth.js'
+import { isWechatPayConfigured, isPlatformCertConfigured } from '../services/wechat-pay.js'
 
 interface HealthHistoryEntry {
   timestamp: string
@@ -81,6 +82,31 @@ export const healthRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       checks.aiService = { status: 'unreachable' }
       request.log.warn({ err: e }, 'ai service health check failed (degraded)')
+    }
+
+    // 微信支付配置检查:
+    // - private key:生产环境未配置时,所有支付走 mock,真实支付失败
+    // - platform cert:生产环境未配置时,所有支付回调验签失败,订单永远无法标记为 paid
+    // 两项均不阻塞 ready(降级为 warning),但健康检查中显式暴露,便于监控告警
+    const wxPrivateKey = isWechatPayConfigured()
+    const wxPlatformCert = isPlatformCertConfigured()
+    checks.wechatPay = {
+      status:
+        wxPrivateKey && wxPlatformCert
+          ? 'ok'
+          : wxPrivateKey || wxPlatformCert
+            ? 'partial'
+            : 'missing',
+    }
+    if (config.NODE_ENV === 'production') {
+      if (!wxPrivateKey) {
+        request.log.warn('⚠️ 生产环境未配置微信支付私钥,所有支付走 mock')
+      }
+      if (!wxPlatformCert) {
+        request.log.warn(
+          '⚠️ 生产环境未配置微信支付平台证书,所有支付回调验签失败,订单无法自动标记为 paid',
+        )
+      }
     }
 
     const status = allOk ? 'ready' : 'degraded'
