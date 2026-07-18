@@ -1,4 +1,5 @@
 import type { ApiResult, ApiResponse } from '@ihui/types'
+import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker.js'
 
 export interface TokenProvider {
   getToken(): string | null
@@ -6,6 +7,7 @@ export interface TokenProvider {
 
 let tokenProvider: TokenProvider = { getToken: () => null }
 let baseUrl: string = ''
+let circuitBreaker: CircuitBreaker | null = null
 
 export function setTokenProvider(provider: TokenProvider): void {
   tokenProvider = provider
@@ -13,6 +15,16 @@ export function setTokenProvider(provider: TokenProvider): void {
 
 export function setBaseUrl(url: string): void {
   baseUrl = url.replace(/\/$/, '')
+}
+
+/** 注入全局熔断器(null 表示禁用,所有请求直连) */
+export function setCircuitBreaker(cb: CircuitBreaker | null): void {
+  circuitBreaker = cb
+}
+
+/** 读取当前注入的熔断器实例(测试与诊断用) */
+export function getCircuitBreaker(): CircuitBreaker | null {
+  return circuitBreaker
 }
 
 /** 读取当前 token(供需要原生 fetch 的场景使用,如 SSE 流式) */
@@ -38,6 +50,101 @@ function normalizeUrl(url: string): string {
   return baseUrl ? `${baseUrl}${normalized}` : normalized
 }
 
+/**
+ * 内部:执行一次 fetch 并解析为 ApiResult。
+ *
+ * 失败语义(供 CircuitBreaker 计样本):
+ *   - 5xx 响应:抛 HttpError(带 status / errorCode / retryAfter),由外层转 ApiResult
+ *   - 网络异常:抛原始 Error
+ *   - 4xx 响应:返回 ApiResult(success=false),不抛错(业务错误不算服务不可用)
+ *   - 2xx 但 code !== 0:返回 ApiResult(success=false),不抛错
+ *   - 2xx 且 code === 0:返回 ApiResult(success=true)
+ *
+ * AbortError:抛回给外层统一处理(无论是否有 breaker)。
+ */
+async function fetchOnce<T>(
+  normalizedUrl: string,
+  options: RequestInit,
+  headers: Record<string, string>,
+): Promise<ApiResult<T>> {
+  const response = await fetch(normalizedUrl, { ...options, headers, signal: options.signal })
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    let errorCode: string | undefined
+    let message = text || `请求失败（${response.status}）`
+    try {
+      const parsed = JSON.parse(text)
+      if (parsed && typeof parsed.message === 'string') message = parsed.message
+      if (parsed && typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
+    } catch {
+      // 非 JSON 响应,保留 text 作为 message
+    }
+    const retryAfterHeader = response.headers.get('retry-after')
+    const retryAfter = retryAfterHeader ? Number(retryAfterHeader) : undefined
+    const retryAfterValue = retryAfter && Number.isFinite(retryAfter) ? retryAfter : undefined
+
+    // 5xx 视为服务不可用:有 breaker 时抛错让熔断器计失败样本;无 breaker 时也抛,由外层统一处理
+    if (response.status >= 500) {
+      const err = new Error(message) as Error & {
+        status: number
+        errorCode?: string
+        retryAfter?: number
+      }
+      err.status = response.status
+      if (errorCode) err.errorCode = errorCode
+      if (retryAfterValue !== undefined) err.retryAfter = retryAfterValue
+      throw err
+    }
+
+    // 4xx:业务错误,返回 ApiResult,不计 breaker 失败样本
+    return {
+      success: false,
+      error: message,
+      status: response.status,
+      errorCode,
+      retryAfter: retryAfterValue,
+    }
+  }
+
+  const json = (await response.json()) as ApiResponse<T>
+
+  if (json.code !== 0) {
+    return {
+      success: false,
+      error: json.message || '请求失败',
+      status: response.status,
+      errorCode: json.errorCode,
+    }
+  }
+
+  return { success: true, data: json.data }
+}
+
+/** ApiResult 失败分支类型(用于错误归一化) */
+type ApiFailure = Extract<ApiResult<unknown>, { success: false }>
+
+/** 把内部抛出的错误归一化为 ApiFailure(CircuitOpenError 由调用方处理) */
+function normalizeErrorToResult(err: unknown): ApiFailure {
+  if (err instanceof DOMException && err.name === 'AbortError') {
+    return { success: false, error: '请求已取消' }
+  }
+  const errAny = err as Error & { status?: number; errorCode?: string; retryAfter?: number }
+  if (typeof errAny.status === 'number') {
+    return {
+      success: false,
+      error: errAny.message,
+      status: errAny.status,
+      errorCode: errAny.errorCode,
+      retryAfter: errAny.retryAfter,
+    }
+  }
+  return {
+    success: false,
+    error: err instanceof Error ? err.message : '网络异常',
+  }
+}
+
 export async function fetchApi<T>(url: string, options: RequestInit = {}): Promise<ApiResult<T>> {
   const token = tokenProvider.getToken()
   const normalizedUrl = normalizeUrl(url)
@@ -52,57 +159,38 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const maxRetries = 1
-  let lastError = '网络异常'
+  // 无 breaker:保留原始重试策略(maxRetries=1)
+  if (!circuitBreaker) {
+    const maxRetries = 1
+    let lastError = '网络异常'
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch(normalizedUrl, { ...options, headers, signal: options.signal })
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => '')
-        let errorCode: string | undefined
-        let message = text || `请求失败（${response.status}）`
-        try {
-          const parsed = JSON.parse(text)
-          if (parsed && typeof parsed.message === 'string') message = parsed.message
-          if (parsed && typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
-        } catch {
-          // 非 JSON 响应,保留 text 作为 message
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fetchOnce<T>(normalizedUrl, options, headers)
+      } catch (err) {
+        const result = normalizeErrorToResult(err)
+        // 5xx / 4xx(已带 status):直接返回,不重试
+        if (result.status !== undefined) {
+          return result as ApiResult<T>
         }
-        const retryAfterHeader = response.headers.get('retry-after')
-        const retryAfter = retryAfterHeader ? Number(retryAfterHeader) : undefined
-        return {
-          success: false,
-          error: message,
-          status: response.status,
-          errorCode,
-          retryAfter: retryAfter && Number.isFinite(retryAfter) ? retryAfter : undefined,
-        }
+        // 网络异常 / AbortError:重试或返回 lastError
+        lastError = result.error
+        if (attempt < maxRetries) continue
       }
-
-      const json = (await response.json()) as ApiResponse<T>
-
-      if (json.code !== 0) {
-        return {
-          success: false,
-          error: json.message || '请求失败',
-          status: response.status,
-          errorCode: json.errorCode,
-        }
-      }
-
-      return { success: true, data: json.data }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        return { success: false, error: '请求已取消' }
-      }
-      lastError = err instanceof Error ? err.message : '网络异常'
-      if (attempt < maxRetries) continue
     }
+
+    return { success: false, error: lastError }
   }
 
-  return { success: false, error: lastError }
+  // 有 breaker:每次 fetchApi 计 1 个 breaker 样本(不内部重试,避免重复计样本)
+  try {
+    return await circuitBreaker.execute(async () => {
+      return await fetchOnce<T>(normalizedUrl, options, headers)
+    })
+  } catch (err) {
+    if (err instanceof CircuitOpenError) throw err
+    return normalizeErrorToResult(err) as ApiResult<T>
+  }
 }
 
 export async function fetchText(url: string, options: RequestInit = {}): Promise<string> {
