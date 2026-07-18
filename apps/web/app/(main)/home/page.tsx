@@ -12,6 +12,7 @@ import { HomePage3Magazine } from '@/components/marketing/HomePage3Magazine'
 import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { HomeFeatureGrid } from '@/components/marketing/HomeFeatureGrid'
 import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
+import { useAiPanelStore } from '@/stores/ai-panel'
 
 /**
  * 工作区版首页(/home)
@@ -22,12 +23,20 @@ import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
  * - 移除 PageIndicator / ScrollDownButton(工作区有自身滚动条)
  * - 移除 SiteFooter(工作区不需要 footer)
  * - 各区块用卡片容器 + gap-6 间距,适配工作区 padding
+ *
+ * 进入 /home 时自动展开 AI 对话面板(首页作为用户中心枢纽,AI 助手默认可见)
  */
 export default function WorkAreaHomePage() {
   const t = useTranslations('marketing')
   const router = useRouter()
+  const openPanel = useAiPanelStore((s) => s.openPanel)
 
   const handleJoin = () => router.push('/support?source=landing')
+
+  // 进入首页自动展开 AI 对话面板(首页作为用户中心枢纽)
+  React.useEffect(() => {
+    openPanel()
+  }, [openPanel])
 
   return (
     <div className="mx-auto w-full max-w-[1240px] space-y-6">
