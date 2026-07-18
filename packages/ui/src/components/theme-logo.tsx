@@ -13,6 +13,8 @@ interface ThemeLogoProps {
   className?: string
   /** 是否可点击(带 cursor-pointer + hover 效果) */
   clickable?: boolean
+  /** 点击回调(配合 clickable 使用) */
+  onClick?: () => void
 }
 
 /**
@@ -37,6 +39,7 @@ export function ThemeLogo({
   height = 32,
   className,
   clickable = false,
+  onClick,
 }: ThemeLogoProps) {
   const baseClass = cn(
     'h-8 w-auto object-contain',
@@ -54,6 +57,7 @@ export function ThemeLogo({
         alt={alt}
         width={width}
         height={height}
+        onClick={onClick}
         className={cn(baseClass, 'dark:hidden')}
       />
       <img
@@ -61,6 +65,7 @@ export function ThemeLogo({
         alt={alt}
         width={width}
         height={height}
+        onClick={onClick}
         className={cn(baseClass, 'hidden dark:block')}
       />
     </>
