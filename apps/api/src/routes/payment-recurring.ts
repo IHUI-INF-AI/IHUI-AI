@@ -13,7 +13,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { env } from 'node:process'
 import { z } from 'zod'
-import { eq, and, inArray, lte, isNotNull } from 'drizzle-orm'
+import { eq, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
@@ -21,12 +21,17 @@ import { authenticate } from '../plugins/auth.js'
 import { wechatPayContracts, userVips, plans, orders, wxPayNotifications } from '@ihui/database'
 import { placeOrder, completeOrder } from '../services/order-service.js'
 import {
+  scanAndChargeDueContracts,
+  chargeOneContractNow,
+} from '../services/subscription-service.js'
+import {
   signContract,
   cancelContract,
-  deductRecurring,
+  queryContract,
   verifyCallbackSignature,
   decryptCallback,
   generateOutTradeNo,
+  parseContractExpiredTime,
 } from '../services/wechat-pay.js'
 
 const ADMIN_ROLE_ID = 1
@@ -47,6 +52,13 @@ const idParamSchema = z.object({
 
 const cancelBodySchema = z.object({
   reason: z.string().max(500).optional(),
+})
+
+const scanAndChargeBodySchema = z.object({
+  /** 'async' = 受理后立即返回(批量默认);'wait' = 同步轮询终态,单签约场景 */
+  deduct_mode: z.enum(['async', 'wait']).optional(),
+  /** 并发上限(1-10),默认 3 */
+  concurrency: z.coerce.number().int().min(1).max(10).optional(),
 })
 
 // =============================================================================
@@ -233,15 +245,20 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
 
   // ==========================================================================
   // 3. GET /payments/recurring/contracts/:id - 查询单个签约详情
+  //
+  // 支持 query.refresh=true 时同步拉取微信侧最新签约状态(contractExpiredTime 等),
+  // 并回写本地 DB。默认不刷新,直接返回本地缓存(避免对 WX API 触发限流)。
   // ==========================================================================
   server.get(
     '/payments/recurring/contracts/:id',
     {
       schema: buildSchema({
         summary: '查询单个签约详情',
-        description: '鉴权后按 ID 查询签约详情(仅限当前用户)',
+        description:
+          '鉴权后按 ID 查询签约详情(仅限当前用户)。query.refresh=true 时同步拉取微信侧最新状态并回写本地。',
         tags: ['Payment'],
         params: idParamSchema,
+        querystring: z.object({ refresh: z.coerce.boolean().optional() }),
       }),
     },
     async (request, reply) => {
@@ -251,6 +268,11 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         if (!parsed.success) {
           return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
         }
+
+        const refreshFlag =
+          typeof (request.query as { refresh?: unknown }).refresh === 'string'
+            ? (request.query as { refresh?: string }).refresh === 'true'
+            : Boolean((request.query as { refresh?: boolean }).refresh)
 
         const [contract] = await db
           .select()
@@ -265,6 +287,29 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
 
         if (!contract) {
           return reply.status(404).send(error(404, '签约记录不存在'))
+        }
+
+        if (refreshFlag && contract.wechatPlanId && contract.outContractCode) {
+          try {
+            const remote = await queryContract(
+              Number(contract.wechatPlanId),
+              contract.outContractCode,
+            )
+            const expiredAt = parseContractExpiredTime(remote.contractExpiredTime)
+            if (expiredAt) {
+              await db
+                .update(wechatPayContracts)
+                .set({ contractExpiredAt: expiredAt, updatedAt: new Date() })
+                .where(eq(wechatPayContracts.id, contract.id))
+              contract.contractExpiredAt = expiredAt
+            }
+          } catch (e) {
+            // 拉取失败不影响本地数据返回,仅记录警告
+            request.log.warn(
+              { err: e, contractId: contract.id },
+              'refresh contract from wechat failed',
+            )
+          }
         }
 
         return reply.send(success({ contract }))
@@ -430,6 +475,27 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         const isChargeFailEvent =
           eventType === 'TRANSACTION.FAIL' || eventType === 'recurring.charge.failed'
 
+        // 旧事件名 (contract.signed / contract.cancelled / recurring.charge.*) 已废弃,
+        // 微信支付 V3 2024-09 后下发的官方事件为 PAPAY.* / TRANSACTION.*。
+        // 仍兼容旧事件名处理,但记录 deprecation 警告便于后续移除。
+        const isDeprecatedEventName =
+          eventType === 'contract.signed' ||
+          eventType === 'contract.cancelled' ||
+          eventType === 'recurring.charge.success' ||
+          eventType === 'recurring.charge.failed'
+        if (isDeprecatedEventName) {
+          request.log.warn(
+            { eventType, deprecated: true },
+            'recurring callback received deprecated event_type; migrate to PAPAY.* / TRANSACTION.*',
+          )
+          // 8.3.2: 上报旧事件名到 Prometheus(埋点,后续监控旧事件是否仍在下发)
+          try {
+            server.recordRecurringWebhookDeprecated(eventType)
+          } catch {
+            /* 指标采集失败不影响业务 */
+          }
+        }
+
         const resultCode = isTerminateEvent || isChargeFailEvent ? 'FAIL' : 'SUCCESS'
 
         let notificationType = 'recurring_charge'
@@ -471,6 +537,11 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 ? new Date(existing.trialEndAt.getTime())
                 : calculateNextChargeTime(await getPlanBillingPeriod(existing.planId))
 
+              // 同步微信侧 contract_expired_time(若已下发,记录到本地用于展示/到期判断)
+              const expiredAt = parseContractExpiredTime(
+                (decrypted.contract_expired_time as string | undefined) ?? undefined,
+              )
+
               await db
                 .update(wechatPayContracts)
                 .set({
@@ -479,6 +550,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                   nextChargeTime,
                   contractState: 'SIGNED',
                   ...(contractId && contractId !== existing.contractId ? { contractId } : {}),
+                  ...(expiredAt ? { contractExpiredAt: expiredAt } : {}),
                   updatedAt: now,
                 })
                 .where(eq(wechatPayContracts.id, existing.id))
@@ -600,15 +672,21 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
   // 6. POST /payments/recurring/scan-and-charge - 定时扣款任务
   //
   // Admin 鉴权,扫描 status='active' AND nextChargeTime <= now 的签约,
-  // 对每条调 deductRecurring,返回 { scanned, charged, failed }。
+  // 对每条调 deductRecurring,返回 { scanned, charged, failed, trialExtended }。
+  //
+  // Body (可选): { deduct_mode?: 'async'|'wait', concurrency?: 1-10 }
+  // - deduct_mode='async' (默认): 批量扫扣,受理后立即返回
+  // - deduct_mode='wait': 同步轮询终态,仅单签约场景使用
+  // - concurrency: 并发上限,默认 3,范围 1-10
   // ==========================================================================
   server.post(
     '/payments/recurring/scan-and-charge',
     {
       schema: buildSchema({
         summary: '定时扣款扫描',
-        description: 'Admin 鉴权,扫描到期签约并触发委托扣款',
+        description: 'Admin 鉴权,扫描到期签约并触发委托扣款(支持 deduct_mode/concurrency 调参)',
         tags: ['Payment'],
+        body: scanAndChargeBodySchema,
       }),
     },
     async (request, reply) => {
@@ -620,90 +698,63 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
           throw err
         }
 
-        const now = new Date()
-        const dueContracts = await db
-          .select()
-          .from(wechatPayContracts)
-          .where(
-            and(
-              eq(wechatPayContracts.status, 'active'),
-              isNotNull(wechatPayContracts.nextChargeTime),
-              lte(wechatPayContracts.nextChargeTime, now),
-            ),
-          )
-
-        let charged = 0
-        let failed = 0
-        let skipped = 0
-        const notifyUrl = env.WX_PAY_RECURRING_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? ''
-        const appid = env.WX_MINI_APPID ?? env.WX_APP_APPID ?? ''
-
-        for (const contract of dueContracts) {
-          try {
-            let amount = 0
-            let description = '连续包月自动扣款'
-            if (contract.planId) {
-              const [plan] = await db
-                .select()
-                .from(plans)
-                .where(eq(plans.id, contract.planId))
-                .limit(1)
-              if (plan) {
-                amount = plan.price
-                description = `连续包月自动扣款 - ${plan.name}`
-              }
-            }
-
-            if (amount <= 0) {
-              skipped++
-              continue
-            }
-
-            if (!contract.contractId) {
-              skipped++
-              continue
-            }
-
-            const outTradeNo = generateOutTradeNo('RC')
-            await deductRecurring({
-              appid,
-              contractId: contract.contractId,
-              outTradeNo,
-              amount,
-              description,
-              transactionNotifyUrl: notifyUrl,
-            })
-
-            charged++
-            await db
-              .update(wechatPayContracts)
-              .set({
-                lastChargeTime: now,
-                lastChargeStatus: 'pending',
-                outTradeNo,
-                updatedAt: now,
-              })
-              .where(eq(wechatPayContracts.id, contract.id))
-          } catch (e) {
-            request.log.error(
-              { err: e, contractId: contract.contractId },
-              'deduct recurring failed for contract',
-            )
-            failed++
-          }
+        const parsed = scanAndChargeBodySchema.safeParse(request.body ?? {})
+        const opts: {
+          deductMode?: 'async' | 'wait'
+          concurrency?: number
+        } = {}
+        if (parsed.success) {
+          if (parsed.data.deduct_mode) opts.deductMode = parsed.data.deduct_mode
+          if (parsed.data.concurrency !== undefined) opts.concurrency = parsed.data.concurrency
         }
 
+        const result = await scanAndChargeDueContracts(opts)
         return reply.send(
           success({
-            scanned: dueContracts.length,
-            charged,
-            failed,
-            skipped,
+            scanned: result.scanned,
+            charged: result.charged,
+            failed: result.failed,
+            skipped: result.skipped,
+            trialExtended: result.trialExtended,
           }),
         )
       } catch (e) {
         request.log.error({ err: e }, 'scan and charge failed')
         return reply.status(500).send(error(500, '定时扣款任务执行失败'))
+      }
+    },
+  )
+
+  // ==========================================================================
+  // 7. POST /payments/recurring/contracts/:id/charge - 即时扣款
+  //
+  // 用户主动触发对某条 active 签约的扣款,settleMode 强制 'wait' 同步轮询终态,
+  // 立即返回 SUCCESS/PAYERROR/NOTPAY,适合前端按钮点击后的即时反馈。
+  // ==========================================================================
+  server.post(
+    '/payments/recurring/contracts/:id/charge',
+    {
+      schema: buildSchema({
+        summary: '即时扣款(单签约)',
+        description: '对指定 active 签约发起一次即时扣款,settleMode=wait 同步等终态',
+        tags: ['Payment'],
+        params: idParamSchema,
+      }),
+    },
+    async (request, reply) => {
+      try {
+        const payload = await authenticate(request)
+        const parsed = idParamSchema.safeParse(request.params)
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+
+        const result = await chargeOneContractNow(parsed.data.id, payload.userId)
+        return reply.send(success(result))
+      } catch (e) {
+        request.log.error({ err: e }, 'immediate charge failed')
+        const msg = e instanceof Error ? e.message : '即时扣款失败'
+        return reply.status(400).send(error(400, msg))
       }
     },
   )

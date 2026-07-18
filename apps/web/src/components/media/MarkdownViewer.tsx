@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import dynamic from 'next/dynamic'
+import { useTheme } from 'next-themes'
 import type * as RemarkGfm from 'remark-gfm'
 import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
 import { isMermaidLanguage } from '@/lib/markdown-mermaid-code'
@@ -25,22 +26,33 @@ interface MarkdownViewerProps {
 
 export function MarkdownViewer({ content, className }: MarkdownViewerProps) {
   const [remarkGfm, setRemarkGfm] = React.useState<typeof RemarkGfm.default | null>(null)
-  const [oneDark, setOneDark] = React.useState<unknown>(null)
+  // P2 中期增强:同时加载 dark/light 两份主题,运行时按当前主题切换
+  const [styles, setStyles] = React.useState<{
+    oneDark: Record<string, React.CSSProperties>
+    oneLight: Record<string, React.CSSProperties>
+  } | null>(null)
+  const { resolvedTheme } = useTheme()
 
   React.useEffect(() => {
     let active = true
     Promise.all([
       import('remark-gfm'),
       import('react-syntax-highlighter/dist/esm/styles/prism'),
-    ]).then(([gfm, styles]) => {
+    ]).then(([gfm, prismStyles]) => {
       if (!active) return
       setRemarkGfm(gfm.default)
-      setOneDark(styles.oneDark)
+      setStyles({
+        oneDark: prismStyles.oneDark as Record<string, React.CSSProperties>,
+        oneLight: prismStyles.oneLight as Record<string, React.CSSProperties>,
+      })
     })
     return () => {
       active = false
     }
   }, [])
+
+  const syntaxStyle =
+    resolvedTheme === 'dark' ? styles?.oneDark : (styles?.oneLight ?? styles?.oneDark)
 
   return (
     <div className={cn('prose prose-sm max-w-none dark:prose-invert', className)}>
@@ -64,7 +76,7 @@ export function MarkdownViewer({ content, className }: MarkdownViewerProps) {
             return (
               <SyntaxHighlighter
                 language={match ? match[1] : 'text'}
-                style={(oneDark as Record<string, React.CSSProperties>) ?? undefined}
+                style={syntaxStyle}
                 PreTag="div"
                 customStyle={{ borderRadius: '0.5rem', fontSize: '0.875rem' }}
               >
