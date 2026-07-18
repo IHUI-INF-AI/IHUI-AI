@@ -137,7 +137,7 @@ describe('AgentRuntimePanel', () => {
     expect(screen.getByText('网络异常')).not.toBeNull()
   })
 
-  it('点击停止 → abort signal + status=idle,显示执行按钮', async () => {
+  it('点击停止 → abort signal + status=cancelled,显示执行按钮 + 已取消 banner', async () => {
     mockStream.mockImplementation(async (_params, cbs, options) => {
       capturedCallbacks = cbs
       expect(options?.signal?.aborted).toBe(false)
@@ -155,8 +155,40 @@ describe('AgentRuntimePanel', () => {
     await act(async () => {
       fireEvent.click(stopButton)
     })
+    // P2 中期增强:停止后应进入 cancelled 状态,显示"任务已取消"banner
     expect(screen.queryByTestId('status-running')).toBeNull()
+    expect(screen.getByTestId('status-cancelled')).not.toBeNull()
+    expect(screen.getByTestId('cancelled-banner')).not.toBeNull()
+    expect(screen.getByText('任务已取消')).not.toBeNull()
     expect(screen.getByRole('button', { name: /^执行$/ })).not.toBeNull()
+  })
+
+  it('再次点击清空 → 从 cancelled 回到 idle 初始态', async () => {
+    mockStream.mockImplementation(async (_params, cbs, _options) => {
+      capturedCallbacks = cbs
+      return new Promise<void>(() => {})
+    })
+    render(<AgentRuntimePanel />)
+    const textarea = screen.getByPlaceholderText('输入任务...') as HTMLTextAreaElement
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'cancel-then-clear' } })
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /执行/ }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /停止/ }))
+    })
+    expect(screen.getByTestId('cancelled-banner')).not.toBeNull()
+
+    const clearButton = screen.getByRole('button', { name: /清空/ })
+    await act(async () => {
+      fireEvent.click(clearButton)
+    })
+    // 清空后应回到 idle 态,banner 消失
+    expect(screen.queryByTestId('cancelled-banner')).toBeNull()
+    expect(screen.queryByTestId('status-cancelled')).toBeNull()
+    expect(screen.getByText('输入任务,开始 Agent 执行')).not.toBeNull()
   })
 
   it('点击清空 → 重置所有状态(plan/output 消失)', async () => {
