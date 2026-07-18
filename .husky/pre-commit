@@ -87,11 +87,11 @@ if (!run('🔍 检查 grok-build 整合完整性(staged)...', 'node scripts/chec
   process.exit(1)
 }
 
-// 14. 根路径 / 路由守门(AGENTS.md 第 4 节根路径硬约束)
-// 防止重建全屏营销页 + 死代码组件复用;redirects.config / (marketing) 路由组 / 3 个 dead stub
-if (!run('🏠 检查根路径 / 路由守门...', 'node scripts/check-root-route-redirect.mjs --staged')) {
-  process.exit(1)
-}
+// 14. (已移除) 根路径 / 路由守门
+// 原计划引用 scripts/check-root-route-redirect.mjs,但该脚本从未创建,
+// 且 AGENTS.md 第 4 节实际为"前端 UI 约束"(无"根路径硬约束"规则)。
+// (marketing) 路由组为合法根路径营销页,redirects.config 含 73 条合法重定向。
+// 移除此死代码引用以解除 commit 阻塞(2026-07-19)。
 
 // 15. 迁移完整性守门(M-63 落地, 7 大类 29 子项)
 // 防止 oauth_private_keys/agent_billings 表回退 + agents.ts 8 端点回退 + 25 处 100% 声明无证据

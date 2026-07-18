@@ -55,6 +55,74 @@ vi.mock('@/components/feedback', () => ({
   Dropdown: ({ trigger }: { trigger: React.ReactNode }) => <>{trigger}</>,
 }))
 
+// Mock next-intl:TagsView 用 useTranslations 解析 nav/admin/common 翻译。
+// 单元测试不依赖 messages 文件,只为 common 命名空间提供中文文案(供菜单文案断言用),
+// 其他命名空间直接回传 key 作为字面值(测试只校验样式/交互,不校验文案翻译)。
+// 返回稳定引用(useCallback 依赖 useTranslations 结果,若每次返回新函数会导致 useEffect 重复触发)
+//
+// locale 切换模拟:用 vi.hoisted 提升状态,使 mock 工厂能感知 currentLocale 变化。
+// 切换 locale 时,(ns, locale) 组合键不同 → 返回新引用的 t 函数 →
+// TagsView 中 nsTranslators useMemo 依赖变化 → resolveTitle 重算 → 标签文字更新。
+const { mockLocale, MESSAGES } = vi.hoisted(() => {
+  const messages = {
+    'zh-CN': {
+      common: {
+        close: '关闭',
+        closeOther: '关闭其他',
+        closeAll: '关闭全部',
+        unsaved: '未保存',
+        moreActions: '更多操作',
+      },
+      // zh-CN 下 nav 返回 key 字面值,保持现有断言 toContain('home') 兼容
+      nav: { home: 'home', workspace: 'workspace' },
+    },
+    en: {
+      common: {
+        close: 'Close',
+        closeOther: 'Close others',
+        closeAll: 'Close all',
+        unsaved: 'Unsaved',
+        moreActions: 'More',
+      },
+      nav: { home: 'Home', workspace: 'Workspace' },
+    },
+  }
+  return { mockLocale: { value: 'zh-CN' as 'zh-CN' | 'en' }, MESSAGES: messages }
+})
+
+// 测试用 helper:切换 mock locale(测试用例用 __setMockLocale('en') 模拟语言切换)
+function __setMockLocale(l: 'zh-CN' | 'en') {
+  mockLocale.value = l
+}
+
+vi.mock('next-intl', () => {
+  // 按 (ns, locale) 二维缓存,确保同一 (ns, locale) 返回稳定引用(避免 useEffect 重复触发),
+  // 但 locale 变化时返回新引用(触发 nsTranslators 重建,从而重算 title)
+  const cache = new Map<string, (key: string) => string>()
+  return {
+    useTranslations: (ns: string) => {
+      const locale = mockLocale.value
+      const key = `${ns}:${locale}`
+      let t = cache.get(key)
+      if (!t) {
+        const msgs = (MESSAGES[locale] as Record<string, Record<string, string>>)[ns] ?? {}
+        t = (k: string) => msgs[k] ?? k
+        cache.set(key, t)
+      }
+      return t
+    },
+  }
+})
+
+// Mock path-labels:绕过对 sidebar / AdminNav 的真实导入,
+// 直接提供测试所需的路径 → 标签规格映射。
+vi.mock('@/lib/path-labels', () => ({
+  resolvePathLabelSpec: (pathname: string) => {
+    if (!pathname || pathname === '/') return { ns: 'nav', key: 'home' }
+    return null
+  },
+}))
+
 import { TagsView } from '../TagsView'
 import { useTagsViewStore } from '@/stores/tags-view'
 
@@ -76,6 +144,8 @@ describe('TagsView 视觉守门', () => {
   beforeEach(() => {
     // 重置 store,确保每个 test 独立
     useTagsViewStore.setState({ tags: [], activePath: null, dirtyPaths: new Set() })
+    // 重置 mock locale 为 zh-CN(防止上一条用例切换到 en 后影响下一条)
+    __setMockLocale('zh-CN')
   })
 
   afterEach(() => {
@@ -134,7 +204,7 @@ describe('TagsView 视觉守门', () => {
 
   it('关闭按钮 X 默认占位 w-5 + opacity-0(hover 不拉伸标签宽度,加大到接近文字大小)', () => {
     const outerDiv = renderWithTags()
-    const closeBtn = outerDiv.querySelector('[aria-label="关闭标签"]')
+    const closeBtn = outerDiv.querySelector('[aria-label="关闭"]')
     expect(closeBtn, '应有 X 关闭按钮').not.toBeNull()
     expect(closeBtn!.className, 'X 按钮应始终占位 w-5(加大与文字匹配)').toContain('w-5')
     expect(closeBtn!.className, 'X 按钮应始终占位 h-5(加大与文字匹配)').toContain('h-5')
@@ -144,7 +214,7 @@ describe('TagsView 视觉守门', () => {
 
   it('关闭按钮 X 减少动画偏好的用户始终可见(motion-reduce a11y)', () => {
     const outerDiv = renderWithTags()
-    const closeBtn = outerDiv.querySelector('[aria-label="关闭标签"]')
+    const closeBtn = outerDiv.querySelector('[aria-label="关闭"]')
     expect(closeBtn, '应有 X 关闭按钮').not.toBeNull()
     expect(
       closeBtn!.className,
@@ -154,7 +224,7 @@ describe('TagsView 视觉守门', () => {
 
   it('关闭按钮 X 键盘焦点态可见(focus-visible a11y)', () => {
     const outerDiv = renderWithTags()
-    const closeBtn = outerDiv.querySelector('[aria-label="关闭标签"]')
+    const closeBtn = outerDiv.querySelector('[aria-label="关闭"]')
     expect(closeBtn, '应有 X 关闭按钮').not.toBeNull()
     expect(closeBtn!.className, 'X 按钮键盘焦点应显示').toContain('focus-visible:opacity-100')
     expect(closeBtn!.className, 'X 按钮应无默认 outline').toContain('focus-visible:outline-none')
@@ -176,7 +246,7 @@ describe('TagsView 视觉守门', () => {
 
   it('关闭按钮 X 图标加大到 h-3.5(与文字大小匹配)', () => {
     const outerDiv = renderWithTags()
-    const closeBtn = outerDiv.querySelector('[aria-label="关闭标签"]')
+    const closeBtn = outerDiv.querySelector('[aria-label="关闭"]')
     expect(closeBtn, '应有 X 关闭按钮').not.toBeNull()
     const icon = closeBtn!.querySelector('svg')
     expect(icon, '应有 X 图标').not.toBeNull()
@@ -190,6 +260,50 @@ describe('TagsView 视觉守门', () => {
   it('容器 className 包含 h-9(防止高度被误改)', () => {
     const outerDiv = renderWithTags()
     expect(outerDiv.className, '应有 h-9').toContain('h-9')
+  })
+
+  it('派生式标题:渲染时根据 path + 当前 locale 实时计算,忽略 store 中的 title 字段', () => {
+    // 故意传入错误的 title 字段,验证渲染时不使用此值(派生式优先)
+    act(() => {
+      useTagsViewStore.getState().addTag({ path: '/', title: 'STALE_TITLE_SHOULD_NOT_RENDER' })
+    })
+    const { container } = render(<TagsView />)
+    const link = container.querySelector('a')
+    expect(link, '应有 a 标签').not.toBeNull()
+    // path='/' → resolvePathLabelSpec 返回 {ns:'nav', key:'home'} → tNav('home')
+    // zh-CN mock 下 nav.home 字面值 = 'home'
+    expect(link!.textContent, '应使用派生标题(home),而非 store 中的 STALE_TITLE').toContain('home')
+    expect(link!.textContent, '不应渲染 store 中的 stale title').not.toContain('STALE_TITLE')
+  })
+
+  it('语言切换重译:locale 变化时已存在标签的标题自动重算(无需刷新页面)', () => {
+    // 模拟用户已经在系统中(zh-CN)打开 / 标签
+    act(() => {
+      useTagsViewStore.getState().addTag({ path: '/' })
+    })
+    const { container, rerender } = render(<TagsView />)
+    const linkBefore = container.querySelector('a')!
+    expect(linkBefore, '应有 a 标签').not.toBeNull()
+    expect(linkBefore.textContent, 'zh-CN 下应渲染 home').toContain('home')
+
+    // 切换语言到 en(模拟 sidebar 的 handleLocaleChange 调 setLocale + router.refresh)
+    // mock 行为:next-intl 的 useTranslations 在 locale 变化后返回新引用 t 函数,
+    // TagsView 中 nsTranslators useMemo 依赖变化 → resolveTitle useCallback 重新计算 →
+    // 标签 title 按 en 重译
+    __setMockLocale('en')
+    rerender(<TagsView />)
+
+    const linkAfter = container.querySelector('a')!
+    expect(linkAfter, 'rerender 后应有 a 标签').not.toBeNull()
+    expect(linkAfter.textContent, 'en 下应重译为 Home').toContain('Home')
+    // 验证 store 数据未变(派生式架构本质:store 只存 path,标题在渲染时派生)
+    expect(useTagsViewStore.getState().tags.length, 'store 标签数量应保持 1').toBe(1)
+    expect(useTagsViewStore.getState().tags[0]!.path, 'store 标签 path 仍为 /').toBe('/')
+    // 切回 zh-CN 验证可逆
+    __setMockLocale('zh-CN')
+    rerender(<TagsView />)
+    const linkBack = container.querySelector('a')!
+    expect(linkBack.textContent, '切回 zh-CN 后应重新变为 home').toContain('home')
   })
 
   // ─── Feature 5: 未保存状态指示点 ───
