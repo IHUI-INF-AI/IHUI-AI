@@ -90,11 +90,15 @@ interface ReplState {
   /** /rewind 用历史快照栈,每次 sendToAgent 前压入当前 history 深拷贝 */
   rewindStack: ChatMessage[][];
   /** InterjectionBuffer:agent 运行中用户输入的非斜杠命令进入此 buffer,按优先级处理。
-   *  机制 1:sendToAgent 调用前 formatForLLM 注入 system 消息(所有 pending)。
-   *  机制 2:agent 完成一轮后自动 pop high/critical 触发新轮次。 */
+   *  P2-2 改进:drain 机制在 runToolLoop 循环内注入(每轮 popAll),循环结束后递归消费所有 pending。
+   *  原"机制 1 formatForLLM 注入 system 消息"已删除(避免与 drain 双重注入)。 */
   interjectionBuffer: InterjectionBuffer;
   /** P0-2 Interject:agent 是否正在运行(用于 rl.on('line') 路由) */
   agentRunning: boolean;
+  /** P2-2 REPL Abort:agent 被中止标志(SIGINT 触发),控制 interjection 递归消费 */
+  aborted: boolean;
+  /** P2-2 REPL Abort:当前 agent 运行的 AbortController,SIGINT handler 调用 .abort() */
+  abortController: AbortController | null;
 }
 
 export function formatContextStats(
@@ -295,6 +299,115 @@ export function executeMemorySearch(
   }
 }
 
+// === P2-2 REPL Abort + Drain 增强:可测试的工厂函数 ===
+
+/**
+ * P2-2 创建 REPL SIGINT handler(可测试,不依赖真实 process 信号)。
+ *
+ * 行为契约:
+ * - 两次 SIGINT 间隔 < 1s → 调 onForceExit(由调用方实现 process.exit(130))
+ * - agent 未运行(agentRunning=false)→ 维持 Node 默认行为(不调 abort,Node 自动打印 ^C)
+ * - agent 运行中(agentRunning=true)→ 调 abortController.abort() + onAbort 回调
+ *
+ * 导出供单元测试:测试可注入 now() 假时钟 + mock 回调,无需真实 process 信号。
+ *
+ * @param state REPL 状态(读 agentRunning/abortController,写 aborted)
+ * @param opts.onForceExit 强杀回调(REPL 注入 () => process.exit(130))
+ * @param opts.onAbort 中止成功回调(REPL 注入打印中文提示)
+ * @param opts.now 时间戳获取(测试用假时钟)
+ */
+export function createReplSigintHandler(
+  state: {
+    agentRunning: boolean;
+    aborted: boolean;
+    abortController: AbortController | null;
+  },
+  opts: {
+    onForceExit?: () => void;
+    onAbort?: () => void;
+    now?: () => number;
+  } = {},
+): () => void {
+  let lastSigintTime = 0;
+  return () => {
+    const now = (opts.now ?? Date.now)();
+    // 双击 SIGINT 间隔 < 1s → 强杀退出(标准 SIGINT 退出码 130)
+    if (now - lastSigintTime < 1000) {
+      opts.onForceExit?.();
+      return;
+    }
+    lastSigintTime = now;
+    // agent 未运行:维持 Node 默认行为(不调 abort,Node 自动打印 ^C,等下一次输入或第二次 SIGINT 退出)
+    if (!state.agentRunning) {
+      return;
+    }
+    // agent 运行中:触发 abort + 提示
+    if (state.abortController && !state.abortController.signal.aborted) {
+      state.abortController.abort();
+      state.aborted = true;
+      opts.onAbort?.();
+    }
+  };
+}
+
+/**
+ * P2-2 创建 drainInterjections 回调:从 InterjectionBuffer 弹出所有 pending,
+ * 包装为 InterjectionBlock[] 供 runToolLoop 在循环内注入。
+ *
+ * 不修改 InterjectionBuffer(没有 popAll),用 while + pop 循环模拟。
+ *
+ * 导出供单元测试:验证 drain 真正消费 buffer(不再返回 [])。
+ */
+export function createDrainInterjections(
+  buffer: InterjectionBuffer,
+): () => InterjectionBlock[] {
+  return () => {
+    const blocks: InterjectionBlock[] = [];
+    while (buffer.hasPending()) {
+      const ij = buffer.pop();
+      if (ij) {
+        blocks.push({ type: 'text', text: ij.content });
+      }
+    }
+    return blocks;
+  };
+}
+
+/**
+ * P2-2 消费所有 pending interjection(无论优先级),递归调用 sendFn 触发新轮次。
+ *
+ * 改进点(对比原逻辑只消费 high/critical):
+ * - normal/low 也加入递归消费,避免用户输入堆积在 buffer 等待下次 sendToAgent
+ * - aborted 时停止消费(避免中止后继续触发新轮次)
+ * - depth 限制防止无限递归(用户连续 push 的极端场景)
+ *
+ * 导出供单元测试:测试可注入 mock sendFn 验证递归调用次数 + 优先级覆盖。
+ *
+ * @param state REPL 状态(读 aborted + interjectionBuffer)
+ * @param sendFn 递归发送函数(即 sendToAgent 自身)
+ * @param depth 当前递归深度
+ * @param maxDepth 最大深度(默认 5)
+ * @param onConsume 每条 interjection 被消费时的日志回调(REPL 注入 chalk.dim 打印)
+ */
+export async function consumePendingInterjections(
+  state: ReplState,
+  sendFn: (prompt: string, state: ReplState, depth: number) => Promise<void>,
+  depth: number,
+  maxDepth = 5,
+  onConsume?: (priority: string, content: string) => void,
+): Promise<void> {
+  if (depth >= maxDepth) return;
+  if (state.aborted) return;
+  while (true) {
+    if (state.aborted) break;
+    const next = state.interjectionBuffer.peek();
+    if (!next) break;
+    state.interjectionBuffer.pop();
+    onConsume?.(next.priority, next.content);
+    await sendFn(next.content, state, depth + 1);
+  }
+}
+
 export async function startREPL(opts: ReplOptions): Promise<void> {
   const hooksConfig = loadHooks();
 
@@ -311,6 +424,9 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     rewindStack: [],
     interjectionBuffer: new InterjectionBuffer(),
     agentRunning: false,
+    // P2-2 REPL Abort:初始化中止状态
+    aborted: false,
+    abortController: null,
   };
   // Sessions 模块集成:若 opts.sessionId 提供且 history 为空,尝试从新 sessions 模块加载
   // (兼容老 session.ts 模块:若老模块已加载 history,新模块不覆盖)
@@ -350,6 +466,21 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     process.exit(1);
   }
 
+  // P2-2 REPL Abort:注册 SIGINT handler
+  // - agent 未运行:维持 Node 默认行为(打印 ^C,等下一次输入或第二次 SIGINT 退出)
+  // - agent 运行中:abort + 中文提示,不杀进程
+  // - 两次 SIGINT 间隔 < 1s:强杀退出(标准 SIGINT 退出码 130)
+  const sigintHandler = createReplSigintHandler(state, {
+    onForceExit: () => {
+      console.info(chalk.red('\n⚠ 强制退出'));
+      process.exit(130);
+    },
+    onAbort: () => {
+      console.info(chalk.yellow('\n[正在取消当前任务,请稍候...]'));
+    },
+  });
+  process.on('SIGINT', sigintHandler);
+
   rl.prompt();
 
   rl.on('line', async (line: string) => {
@@ -377,6 +508,8 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   });
 
   rl.on('close', () => {
+    // P2-2 REPL Abort:清理 SIGINT handler,避免内存泄漏
+    process.off('SIGINT', sigintHandler);
     // 清理后台任务和 loop 定时器,避免僵尸进程
     clearAllLoops();
     clearAllTasks();
@@ -1137,10 +1270,9 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     ...state.history.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })),
   ];
 
-  // 机制 1:sendToAgent 调用前,若 buffer 有 pending,formatForLLM 注入 system 消息
-  if (state.interjectionBuffer.hasPending()) {
-    messages.push({ role: 'system', content: state.interjectionBuffer.formatForLLM() });
-  }
+  // P2-2 删除原机制 1(formatForLLM 注入 system 消息):
+  // 改为 drain 机制在 runToolLoop 循环内每轮注入(避免与 formatForLLM 双重注入)
+  // drain 逻辑见下方 createDrainInterjections
 
   // Hook 埋点:userPromptSubmit(REPL 入口埋一次,避免与 agent.ts 重复)
   runHook('userPromptSubmit', {
@@ -1149,55 +1281,68 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     prompt,
   });
 
-  // 机制 1 + 机制 2 已接管 interjection 处理(避免与 formatForLLM/system 注入重复)
-  // drainInterjections 返回空:agent 内部多轮间不再 drain,由 REPL 层统一调度
+  // P2-2 创建 AbortController,SIGINT handler 可调 .abort() 中止当前 agent 运行
+  const controller = new AbortController();
+  state.abortController = controller;
+  state.aborted = false;
   state.agentRunning = true;
-  const drainInterjections = (): InterjectionBlock[] => {
-    return [];
-  };
 
-  const result = await runToolLoop({
-    modelId: state.opts.modelId,
-    messages,
-    ctx: state.ctx!,
-    maxIterations: state.opts.maxIterations,
-    sessionId: state.session?.id ?? state.opts.sessionId,
-    planFirst: state.opts.planFirst,
-    planApproved: state.planApproved,
-    drainInterjections,
-    onDelta: (delta) => { process.stdout.write(delta); },
-    onToolCall: (name, args) => console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`)),
-    onToolResult: (_name, success, output) => {
-      const icon = success ? '✓' : '✗';
-      console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
-    },
-    onError: (err) => console.error(chalk.red(`\n❌ ${err}`)),
-  });
+  // P2-2 恢复 drain 机制:从 InterjectionBuffer 弹出所有 pending,供 runToolLoop 循环内注入
+  // 替代原 `() => []` 禁用代码:agent 循环内每轮调一次 drain,interjection 内容追加到 messages
+  const drainInterjections = createDrainInterjections(state.interjectionBuffer);
 
-  state.agentRunning = false;
+  try {
+    const result = await runToolLoop({
+      modelId: state.opts.modelId,
+      messages,
+      ctx: state.ctx!,
+      maxIterations: state.opts.maxIterations,
+      sessionId: state.session?.id ?? state.opts.sessionId,
+      signal: controller.signal,  // P2-2 传 signal,SIGINT 触发后 runToolLoop 内部响应 abort
+      planFirst: state.opts.planFirst,
+      planApproved: state.planApproved,
+      drainInterjections,
+      onDelta: (delta) => { process.stdout.write(delta); },
+      onToolCall: (name, args) => console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`)),
+      onToolResult: (_name, success, output) => {
+        const icon = success ? '✓' : '✗';
+        console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
+      },
+      onError: (err) => console.error(chalk.red(`\n❌ ${err}`)),
+    });
 
-  if (result.assistantText) {
-    state.history.push({ role: 'assistant', content: result.assistantText });
-  }
-  if (state.session) {
-    state.session.history = state.history;
-    saveSession(state.session);
-  }
-  const u = result.usage;
-  const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
-  console.info(chalk.green(`\n\n✨ 完成 (${result.iterations} 轮, ${result.stopReason})`));
-  console.info(chalk.dim(`📊 tokens: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens}) — ${cost}\n`));
+    state.agentRunning = false;
 
-  // 机制 2:agent 完成一轮后,自动 pop high/critical interjection 触发新轮次
-  // depth 限制防止无限递归(用户连续 push high/critical 的极端场景)
-  if (depth < 5) {
-    while (true) {
-      const next = state.interjectionBuffer.peek();
-      if (!next || (next.priority !== 'high' && next.priority !== 'critical')) break;
-      state.interjectionBuffer.pop();
-      console.info(chalk.dim(`  ↳ 自动处理 [${next.priority}] interjection: ${next.content.slice(0, 50)}`));
-      await sendToAgent(next.content, state, depth + 1);
+    if (result.assistantText) {
+      state.history.push({ role: 'assistant', content: result.assistantText });
     }
+    if (state.session) {
+      state.session.history = state.history;
+      saveSession(state.session);
+    }
+    const u = result.usage;
+    const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
+    console.info(chalk.green(`\n\n✨ 完成 (${result.iterations} 轮, ${result.stopReason})`));
+    console.info(chalk.dim(`📊 tokens: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens}) — ${cost}\n`));
+  } finally {
+    // P2-2 确保无论成功/失败/中止都清理 abort 状态,避免泄漏到下次 sendToAgent
+    state.agentRunning = false;
+    state.abortController = null;
   }
+
+  // P2-2 循环结束后自动消费所有 pending interjection(无论优先级)
+  // 改进:原逻辑只消费 high/critical,normal/low 必须等用户再发新 prompt 才会被 formatForLLM 注入
+  // 现在改为:所有 pending interjection 都自动消费,用 rewindStack 快照保证可回退
+  // aborted 时停止消费(避免中止后继续触发新轮次,语义对齐 SIGINT 用户意图)
+  // depth 限制防止无限递归(用户连续 push 的极端场景)
+  await consumePendingInterjections(
+    state,
+    sendToAgent,
+    depth,
+    5,
+    (priority, content) => {
+      console.info(chalk.dim(`  ↳ 自动处理 [${priority}] interjection: ${content.slice(0, 50)}`));
+    },
+  );
 }
 
