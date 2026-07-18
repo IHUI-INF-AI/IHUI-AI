@@ -1500,6 +1500,8 @@
       "aiGc": "aiコンテンツ",
       "advertise": "広告管理",
       "carousel": "カルーセル",
+      "crew": "Crew マルチエージェント",
+      "knowledgeRag": "RAG ナレッジベース",
       "zhsAgent": "スマートエージェント",
       "zhsUser": "スマートユーザー",
       "zhsActivity": "スマートアクティビティ",
@@ -20400,6 +20402,25 @@
       "joinNow": "今すぐ参加",
       "exploreAgents": "エージェントシナリオを詳しく見る"
     },
+    "carousel": {
+      "brandLabel": "智匯 AI 企業サービス",
+      "switchTo": "第 {index} 枚目のスライドに切り替え",
+      "slide1Title": "企業合理的効率サービス",
+      "slide1Subtitle": "人機協同のスーパー組織を構築し、意思決定者と共に歩む",
+      "slide1Cta": "今すぐ参加",
+      "slide2Title": "地域コミュニティ · オフライン深いつながり",
+      "slide2Subtitle": "体系的なコース、探求活動と互助コミュニティ",
+      "slide2Cta": "コミュニティを見る",
+      "slide3Title": "AIプロフェッショナルサービス",
+      "slide3Subtitle": "大モデルとエージェント相談、深いAI化サポート",
+      "slide3Cta": "相談・提携",
+      "slide4Title": "18席 · アーリーバード ¥6000",
+      "slide4Subtitle": "先着18名限定、アーリーバード席を確保",
+      "slide4Cta": "席を確保",
+      "slide5Title": "不満なら全額返金",
+      "slide5Subtitle": "365日品質保証、安心して参加",
+      "slide5Cta": "今すぐ相談"
+    },
     "positioning": {
       "label": "コアポジショニング",
       "title": "AI時代の企業合理的効率サービスと相互支援コミュニティ",
@@ -23946,5 +23967,125 @@
     "title": "アクセス権限がありません",
     "description": "申し訳ございません、このページにアクセスする権限がありません。権限の付与については管理者にお問い合わせください。",
     "backToHome": "ホームへ戻る"
+  },
+  "marketing": {
+    "header": {
+      "brand": "智匯AI",
+      "login": "ログイン",
+      "dashboard": "ワークスペースへ",
+      "menu": "メニュー",
+      "navEnterprise": "企業サービス",
+      "navCourses": "コース",
+      "navAgents": "エージェント",
+      "navNews": "ニュース",
+      "navAiWorld": "AIワールド"
+    },
+    "hero": {
+      "brandLabel": "智匯AIコミュニティ",
+      "switchTo": "第 {index} 枚に切り替え",
+      "slide1Title": "智匯AIコミュニティ · 企業の意思決定者のための合理的効率パートナー",
+      "slide1Subtitle": "AI時代の企業向け合理的効率サービスと相互支援コミュニティ、人機協同のスーパー組織を構築",
+      "slide1Cta": "企業サービスを知る",
+      "slide2Title": "体系的なAIコース、意思決定者を全面にエンパワー",
+      "slide2Subtitle": "AI新ツールから企業AI文化まで、3段階で段階的に",
+      "slide2Cta": "学習を始める",
+      "slide3Title": "業界ライブ、AI実装の実践をリアルタイムで洞察",
+      "slide3Subtitle": "専門家がライブで実例と第一線の経験を共有",
+      "slide3Cta": "ライブを見る",
+      "slide4Title": "エージェント広場、AI生産性を解放",
+      "slide4Subtitle": "汎用・業界・職能の3種のエージェントをカバー、すぐに利用可能",
+      "slide4Cta": "エージェントを探る",
+      "slide5Title": "智匯ニュース、AI時代の脈動を把握",
+      "slide5Subtitle": "最新の業界ニュースと深い解読、毎日更新",
+      "slide5Cta": "ニュースを見る"
+    },
+    "marquee": {
+      "label": "お知らせ",
+      "items": [
+        "智匯AIコミュニティへようこそ、アーリーバード価格 ¥6000/人/年、限定18席",
+        "企業AI化意思決定者コミュニティが募集を開始、人機協同の実戦コースが年間無料",
+        "先着18名の会員は1対1のAIコンサルティングを享受、不満の場合は全額返金",
+        "今すぐコードをスキャンして智匯AIコミュニティに参加、意思決定者と一緒にAI時代を探索"
+      ]
+    },
+    "welcome": {
+      "title": "智匯AIコミュニティへようこそ",
+      "subtitle": "AI時代の企業向け合理的効率サービスと相互支援コミュニティ。意思決定者がAIと企業の関係を深く理解し、人機協同のスーパー組織を構築するのを支援します。",
+      "perYear": "日/年の伴走",
+      "benefits": {
+        "benefit1": "年間すべてのコースに無料で参加",
+        "benefit2": "探索イベントへの優先参加",
+        "benefit3": "コミュニティ相互支援は無制限",
+        "benefit4": "オンラインコミュニティ専用入口",
+        "benefit5": "AIアシスタントの優先体験",
+        "benefit6": "不満の場合は全額返金"
+      }
+    },
+    "news": {
+      "title": "最新ニュース",
+      "viewMore": "もっと見る",
+      "empty": "ニュースはまだありません"
+    },
+    "cta": {
+      "title": "志を同じくする意思決定者と共に、AI時代の無限の可能性を探索",
+      "subtitle": "先着18名限定 · アーリーバード価格 ¥6000/人/年 · 不満の場合は全額返金",
+      "join": "今すぐ参加",
+      "dashboard": "ワークスペースへ"
+    },
+    "footer": {
+      "brand": "智匯AI",
+      "desc": "AI時代の企業向け合理的効率サービスと相互支援コミュニティ。意思決定者がAIと企業の関係を深く理解し、人機協同のスーパー組織を構築し、企業の合理的効率向上を実現するのを支援します。",
+      "slogan": "人機協同 · 合理的効率 · スーパー組織",
+      "columns": [
+        {
+          "titleKey": "colProduct",
+          "links": [
+            { "labelKey": "enterprise", "href": "/enterprise" },
+            { "labelKey": "courses", "href": "/learn" },
+            { "labelKey": "live", "href": "/live" },
+            { "labelKey": "agents", "href": "/agents" }
+          ]
+        },
+        {
+          "titleKey": "colResource",
+          "links": [
+            { "labelKey": "news", "href": "/news" },
+            { "labelKey": "aiWorld", "href": "/ai-world" },
+            { "labelKey": "articles", "href": "/articles" },
+            { "labelKey": "asks", "href": "/asks" }
+          ]
+        },
+        {
+          "titleKey": "colSupport",
+          "links": [
+            { "labelKey": "support", "href": "/support" },
+            { "labelKey": "agreement", "href": "/agreement" },
+            { "labelKey": "feedback", "href": "/feedback" },
+            { "labelKey": "help", "href": "/help" }
+          ]
+        }
+      ],
+      "colProduct": "製品",
+      "colResource": "リソース",
+      "colSupport": "サポート",
+      "enterprise": "企業サービス",
+      "courses": "コース",
+      "live": "ライブ",
+      "agents": "エージェント",
+      "news": "ニュース",
+      "aiWorld": "AIワールド",
+      "articles": "記事",
+      "asks": "Q&A",
+      "support": "お問い合わせ",
+      "agreement": "サービス規約",
+      "feedback": "フィードバック",
+      "help": "ヘルプセンター",
+      "qr1": "WeChat公式アカウント",
+      "qr2": "Enterprise WeChat",
+      "qr3": "智匯AIコミュニティ",
+      "copyright": "© 2026 智匯AI · 北京 · All rights reserved",
+      "privacy": "プライバシーポリシー",
+      "contactUs": "お問い合わせ"
+    }
   }
 }

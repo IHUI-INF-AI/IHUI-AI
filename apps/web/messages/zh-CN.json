@@ -1488,6 +1488,8 @@
       "aiGc": "AI生成内容",
       "advertise": "广告管理",
       "carousel": "轮播图",
+      "crew": "Crew 多智能体",
+      "knowledgeRag": "RAG 知识库",
       "zhsAgent": "智慧智能体",
       "zhsUser": "智慧用户",
       "zhsActivity": "智慧活动",
@@ -17947,7 +17949,7 @@
     },
     "aizhs": {
       "demo": {
-        "Vue3TypeSc": "Vue 3 + TypeScript + Vite + Tailwind CSS + shadcn/ui (迁移自 React)"
+        "Vue3TypeSc": "Vue 3 + TypeScript + Vite + Tailwind CSS + shadcn/ui (等价自 React)"
       }
     },
     "agent": {
@@ -20387,6 +20389,25 @@
       "earlyBirdSlots": "位早鸟名额",
       "joinNow": "立即加入",
       "exploreAgents": "深入了解智能体场景"
+    },
+    "carousel": {
+      "brandLabel": "智汇 AI 企业服务",
+      "switchTo": "切换到第 {index} 张幻灯片",
+      "slide1Title": "企业理性效率服务",
+      "slide1Subtitle": "构建人机协同的超级组织,与决策者同行",
+      "slide1Cta": "立即加入",
+      "slide2Title": "在地社群 · 线下深度链接",
+      "slide2Subtitle": "系统化课程、探索活动与互助社群",
+      "slide2Cta": "了解社群",
+      "slide3Title": "AI专业服务",
+      "slide3Subtitle": "大模型与智能体咨询,深度AI化支持",
+      "slide3Cta": "咨询合作",
+      "slide4Title": "18席 · 早鸟价 ¥6000",
+      "slide4Subtitle": "限前18位会员,锁定早鸟席位",
+      "slide4Cta": "抢占席位",
+      "slide5Title": "不满意全额退款",
+      "slide5Subtitle": "365天品质承诺,加入无忧",
+      "slide5Cta": "立即咨询"
     },
     "positioning": {
       "label": "核心定位",
@@ -23934,5 +23955,125 @@
     "title": "无权限访问",
     "description": "抱歉，您没有访问该页面的权限。如需开通权限，请联系管理员。",
     "backToHome": "返回首页"
+  },
+  "marketing": {
+    "header": {
+      "brand": "智汇 AI",
+      "login": "登录",
+      "dashboard": "进入工作台",
+      "menu": "菜单",
+      "navEnterprise": "企业服务",
+      "navCourses": "课程",
+      "navAgents": "智能体",
+      "navNews": "资讯",
+      "navAiWorld": "AI 世界"
+    },
+    "hero": {
+      "brandLabel": "智汇 AI 社区",
+      "switchTo": "切换到第 {index} 张",
+      "slide1Title": "智汇 AI 社区 · 企业决策者的理性效率伙伴",
+      "slide1Subtitle": "AI 时代企业理性效率服务与互助社群,构建人机协同的超级组织",
+      "slide1Cta": "了解企业服务",
+      "slide2Title": "系统化 AI 课程,全面赋能决策者",
+      "slide2Subtitle": "从 AI 新工具到企业 AI 文化,三阶段循序渐进",
+      "slide2Cta": "开始学习",
+      "slide3Title": "行业直播,实时洞察 AI 落地实践",
+      "slide3Subtitle": "专家直播分享真实案例与一线经验",
+      "slide3Cta": "观看直播",
+      "slide4Title": "智能体广场,解锁 AI 生产力",
+      "slide4Subtitle": "覆盖通用、行业、职能三大类智能体,即开即用",
+      "slide4Cta": "探索智能体",
+      "slide5Title": "智汇资讯,把握 AI 时代脉搏",
+      "slide5Subtitle": "最新行业资讯与深度解读,每日更新",
+      "slide5Cta": "查看资讯"
+    },
+    "marquee": {
+      "label": "公告",
+      "items": [
+        "欢迎加入智汇 AI 社区,早鸟价 ¥6000/人/年,限 18 席",
+        "企业 AI 化决策者社群开放招募,人机协同实战课程全年免费",
+        "前 18 位会员享受一对一 AI 顾问咨询,不满意全额退款",
+        "立即扫码加入智汇 AI 社区,与决策者一起探索 AI 时代"
+      ]
+    },
+    "welcome": {
+      "title": "欢迎来到智汇 AI 社区",
+      "subtitle": "AI 时代企业理性效率服务与互助社群。帮助决策者深度理解 AI 与企业的关系,构建人机协同的超级组织。",
+      "perYear": "天/年陪伴",
+      "benefits": {
+        "benefit1": "全年所有课程免费参加",
+        "benefit2": "探索活动优先参与",
+        "benefit3": "社群互助无限次",
+        "benefit4": "线上社群专属入口",
+        "benefit5": "AI 助手优先体验",
+        "benefit6": "不满意全额退款"
+      }
+    },
+    "news": {
+      "title": "最新资讯",
+      "viewMore": "查看更多",
+      "empty": "暂无资讯"
+    },
+    "cta": {
+      "title": "与志同道合的决策者一起,探索 AI 时代的无限可能",
+      "subtitle": "仅限前 18 位会员 · 早鸟价 ¥6000/人/年 · 不满意全额退款",
+      "join": "立即加入",
+      "dashboard": "进入工作台"
+    },
+    "footer": {
+      "brand": "智汇 AI",
+      "desc": "AI 时代企业理性效率服务与互助社群。帮助决策者深度理解 AI 与企业的关系,构建人机协同的超级组织,实现企业的理性效率提升。",
+      "slogan": "人机协同 · 理性效率 · 超级组织",
+      "columns": [
+        {
+          "titleKey": "colProduct",
+          "links": [
+            { "labelKey": "enterprise", "href": "/enterprise" },
+            { "labelKey": "courses", "href": "/learn" },
+            { "labelKey": "live", "href": "/live" },
+            { "labelKey": "agents", "href": "/agents" }
+          ]
+        },
+        {
+          "titleKey": "colResource",
+          "links": [
+            { "labelKey": "news", "href": "/news" },
+            { "labelKey": "aiWorld", "href": "/ai-world" },
+            { "labelKey": "articles", "href": "/articles" },
+            { "labelKey": "asks", "href": "/asks" }
+          ]
+        },
+        {
+          "titleKey": "colSupport",
+          "links": [
+            { "labelKey": "support", "href": "/support" },
+            { "labelKey": "agreement", "href": "/agreement" },
+            { "labelKey": "feedback", "href": "/feedback" },
+            { "labelKey": "help", "href": "/help" }
+          ]
+        }
+      ],
+      "colProduct": "产品",
+      "colResource": "资源",
+      "colSupport": "支持",
+      "enterprise": "企业服务",
+      "courses": "课程",
+      "live": "直播",
+      "agents": "智能体",
+      "news": "资讯",
+      "aiWorld": "AI 世界",
+      "articles": "文章",
+      "asks": "问答",
+      "support": "联系我们",
+      "agreement": "服务协议",
+      "feedback": "意见反馈",
+      "help": "帮助中心",
+      "qr1": "微信公众号",
+      "qr2": "企业微信",
+      "qr3": "智汇 AI 社群",
+      "copyright": "© 2026 智汇 AI · 北京 · 保留所有权利",
+      "privacy": "隐私政策",
+      "contactUs": "联系我们"
+    }
   }
 }

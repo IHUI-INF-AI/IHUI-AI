@@ -2916,6 +2916,32 @@
 .animate-selection-highlight {
   animation: selection-highlight 0.5s ease;
 }
+
+/* 营销首页:跑马灯横向滚动 */
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee-scroll 28s linear infinite;
+}
+
+/* 营销首页:Hero 轮播底部进度条 */
+@keyframes hero-progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+.animate-hero-progress {
+  animation: hero-progress 5s linear forwards;
+}
 .animate-toast-appear {
   animation: toast-appear 0.3s ease;
 }
@@ -3115,7 +3141,9 @@
 /* ============ 微交互通用类 ============ */
 
 .card-hover {
-  transition: background-color 0.3s ease, transform 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    transform 0.3s ease;
 }
 .card-hover:hover {
   transform: translateY(-4px);
@@ -3126,7 +3154,9 @@
 }
 
 .input-focus {
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 /* ============ 交错延迟工具类 ============ */
