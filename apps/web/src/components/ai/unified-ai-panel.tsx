@@ -4,7 +4,10 @@ import * as React from 'react'
 import { Send, Square, Sparkles } from 'lucide-react'
 import { Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { MarkdownStream } from './markdown-stream'
+
+const MAX_HEIGHT_PX = 120 // 最大 6 行,超出后滚动(与 hook 默认值一致,用于 textarea style.maxHeight)
 
 interface UnifiedMessage {
   id: string
@@ -30,42 +33,12 @@ export function UnifiedAIPanel({
 }: UnifiedAiPanelProps) {
   const [value, setValue] = React.useState('')
   const bottomRef = React.useRef<HTMLDivElement>(null)
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
-
-  // textarea 无 padding(由外层容器提供)
-  // scrollHeight 阈值:3 行 ≈ 58px,6 行 ≈ 116px(text-sm + leading-snug)
-  const THREE_LINE_PX = 60 // 内容 ≤ 3 行的阈值
-  const MAX_HEIGHT_PX = 120 // 最大 6 行
+  const { ref: textareaRef, resize } = useTextareaAutoHeight<HTMLTextAreaElement>(value)
 
   const lastContent = messages[messages.length - 1]?.content
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages.length, lastContent, isStreaming, streamingContent])
-
-  // 自动调整高度:空内容用 rows={3} 原生渲染,有内容按 scrollHeight 撑高,>6 行保持 6 行 + 滚动
-  const resize = React.useCallback(() => {
-    const el = textareaRef.current
-    if (!el) return
-    if (!el.value) {
-      el.style.height = ''
-      el.style.overflowY = 'hidden'
-      return
-    }
-    el.style.height = 'auto'
-    const sh = el.scrollHeight
-    if (sh < THREE_LINE_PX) {
-      el.style.height = ''
-      el.style.overflowY = 'hidden'
-    } else if (sh <= MAX_HEIGHT_PX) {
-      el.style.height = `${sh}px`
-      el.style.overflowY = 'hidden'
-    } else {
-      el.style.height = `${MAX_HEIGHT_PX}px`
-      el.style.overflowY = 'auto'
-    }
-  }, [])
-
-  React.useEffect(() => resize(), [value, resize])
 
   const submit = () => {
     const text = value.trim()
