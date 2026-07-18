@@ -3,24 +3,23 @@
  * 迁移自 v1.0.2-sealed: server/app/services/knowledge_service.py
  *
  * 提供:
- * - ingestText:  文本切片 + DashScope embedding + 入库
+ * - ingestText:  文本切片 + EmbeddingProvider 向量化 + 入库
  * - search:      语义检索 (cosine 相似度, embedding 不可用时降级为关键词)
  * - getRagContext: 生成标准化 RAG 上下文文本, 供 LLM prompt 直接拼接
  * - listDocs / getDocDetail / getDocChunks / deleteDoc / batchDeleteDocs
  *
- * 环境变量:
- * - DASHSCOPE_API_KEY: 阿里云 DashScope API Key (留空时降级为关键词匹配)
+ * 环境变量 (按优先级, 任意一个即可启用真 embedding):
+ * - DASHSCOPE_API_KEY: 阿里云 DashScope text-embedding-v2
+ * - OPENAI_API_KEY:    OpenAI text-embedding-3-small
+ * - MINIMAX_API_KEY:   MiniMax 内部 embo-01
+ * 留空时降级为关键词匹配, 由 embedding-provider 抽象层管理
  */
 
 import { createHash } from 'node:crypto'
 import { desc, eq, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { knowledgeDoc, knowledgeChunk } from '@ihui/database'
-
-const DASHSCOPE_EMBEDDING_URL =
-  'https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding'
-const EMBEDDING_MODEL = 'text-embedding-v2'
-const EMBEDDING_MAX_INPUT = 2048
+import { getEmbeddingProvider } from './embedding-provider.js'
 
 /** 文本切片: 500 字符, 50 字符重叠, 优先在分隔符处断开 */
 function splitText(text: string, chunkSize = 500, overlap = 50): string[] {
@@ -50,29 +49,16 @@ function splitText(text: string, chunkSize = 500, overlap = 50): string[] {
   return chunks
 }
 
-interface EmbeddingResponse {
-  output?: { embeddings?: Array<{ embedding?: number[] }> }
-}
-
-/** 调用 DashScope 生成 embedding;失败/无 key 时返回 null,触发降级 */
+/**
+ * 调用当前 EmbeddingProvider 生成 embedding.
+ * 失败或未配置时返回 null, 触发降级 (关键词匹配).
+ */
 async function getEmbedding(text: string): Promise<number[] | null> {
-  const apiKey = process.env.DASHSCOPE_API_KEY
-  if (!apiKey) return null
+  const provider = getEmbeddingProvider()
+  if (!provider) return null
   try {
-    const resp = await fetch(DASHSCOPE_EMBEDDING_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: EMBEDDING_MODEL,
-        input: { texts: [text.slice(0, EMBEDDING_MAX_INPUT)] },
-      }),
-    })
-    if (!resp.ok) return null
-    const data = (await resp.json()) as EmbeddingResponse
-    return data.output?.embeddings?.[0]?.embedding ?? null
+    const results = await provider.embed([text])
+    return results[0] ?? null
   } catch {
     return null
   }
