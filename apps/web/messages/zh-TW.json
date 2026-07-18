@@ -369,7 +369,9 @@
     "mainNav": "主導航",
     "knowledgeBase": "知識庫",
     "announcements": "公告",
-    "overview": "總覽"
+    "overview": "總覽",
+    "enterprise": "企業服務",
+    "aiWorld": "AI 世界"
   },
   "auth": {
     "loginTitle": "歡迎回來",
@@ -24047,6 +24049,7 @@
     "welcome": {
       "title": "歡迎來到智匯 AI 社群",
       "subtitle": "AI 時代企業理性效率服務與互助社群。幫助決策者深度理解 AI 與企業的關係,建構人機協同的超級組織。",
+      "description": "立即加入社群,享受全部 AI 工具、專屬客服、高級模型訪問等專屬權益,助你工作更高效。",
       "perYear": "天/年陪伴",
       "benefits": {
         "benefit1": "全年所有課程免費參加",
@@ -24238,29 +24241,6 @@
         "title": "創新",
         "description": "持續技術創新,智能體集群、分層規劃等前沿AI能力"
       }
-    },
-    "welcome": {
-      "title": "智匯 AI 會員",
-      "subtitle": "雙倍積分 · 限時鉅惠",
-      "description": "立即開通會員,享受全部 AI 工具、專屬客服、高級模型訪問等專屬權益,助你工作更高效。",
-      "perYear": "/年",
-      "legacyTitle": "歡迎來到智匯 AI 社區",
-      "legacySubtitle": "AI 時代企業理性效率服務與互助社群。幫助決策者深度理解 AI 與企業的關係,構建人機協同的超級組織。",
-      "legacyPerYear": "天/年陪伴",
-      "benefits": {
-        "benefit1": "全年所有課程免費參加",
-        "benefit2": "探索活動優先參與",
-        "benefit3": "社群互助無限次",
-        "benefit4": "線上社群專屬入口",
-        "benefit5": "AI 助手優先體驗",
-        "benefit6": "不滿意全額退款"
-      }
-    },
-    "cta": {
-      "title": "準備好開啟智匯 AI 之旅了嗎?",
-      "subtitle": "立即加入我們,體驗企業級 AI 服務",
-      "join": "立即開通",
-      "dashboard": "進入工作臺"
     }
   }
 }
