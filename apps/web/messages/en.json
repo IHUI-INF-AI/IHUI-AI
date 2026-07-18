@@ -1500,6 +1500,8 @@
       "aiGc": "AI Generated Content",
       "advertise": "Advertisement",
       "carousel": "Carousel",
+      "crew": "Crew Multi-Agent",
+      "knowledgeRag": "RAG Knowledge Base",
       "zhsAgent": "Smart Agent",
       "zhsUser": "Smart User",
       "zhsActivity": "Smart Activity",
@@ -20416,6 +20418,25 @@
       "joinNow": "Join Now",
       "exploreAgents": "Explore Agent Scenarios"
     },
+    "carousel": {
+      "brandLabel": "Zhihui AI Enterprise Service",
+      "switchTo": "Switch to slide {index}",
+      "slide1Title": "Enterprise Rational Efficiency Service",
+      "slide1Subtitle": "Build a super organization of human-machine collaboration, walking with decision makers",
+      "slide1Cta": "Join Now",
+      "slide2Title": "Local Community · Deep Offline Connections",
+      "slide2Subtitle": "Systematic courses, exploration activities and mutual aid community",
+      "slide2Cta": "Explore Community",
+      "slide3Title": "AI Professional Services",
+      "slide3Subtitle": "Large model and agent consulting, deep AI support",
+      "slide3Cta": "Consult & Collaborate",
+      "slide4Title": "18 Seats · Early Bird ¥6000",
+      "slide4Subtitle": "Limited to first 18 members, lock your early bird seat",
+      "slide4Cta": "Grab Your Seat",
+      "slide5Title": "Full Refund If Unsatisfied",
+      "slide5Subtitle": "365-day quality commitment, join worry-free",
+      "slide5Cta": "Consult Now"
+    },
     "positioning": {
       "label": "Core Positioning",
       "title": "Rational efficiency services and a mutual-aid community for enterprises in the AI era",
@@ -23962,5 +23983,125 @@
     "title": "No Permission",
     "description": "Sorry, you do not have permission to access this page. Please contact the administrator to request access.",
     "backToHome": "Back to Home"
+  },
+  "marketing": {
+    "header": {
+      "brand": "Zhihui AI",
+      "login": "Log in",
+      "dashboard": "Enter Workspace",
+      "menu": "Menu",
+      "navEnterprise": "Enterprise Services",
+      "navCourses": "Courses",
+      "navAgents": "Agents",
+      "navNews": "News",
+      "navAiWorld": "AI World"
+    },
+    "hero": {
+      "brandLabel": "Zhihui AI Community",
+      "switchTo": "Switch to slide {index}",
+      "slide1Title": "Zhihui AI Community · A Rational Efficiency Partner for Enterprise Decision-Makers",
+      "slide1Subtitle": "AI-era rational efficiency services and a mutual-aid community, building a super organization of human-machine collaboration",
+      "slide1Cta": "Learn about enterprise services",
+      "slide2Title": "Systematic AI Courses, Empowering Decision-Makers Across the Board",
+      "slide2Subtitle": "From new AI tools to enterprise AI culture, three progressive stages",
+      "slide2Cta": "Start learning",
+      "slide3Title": "Industry Live Streams, Real-Time Insight into AI Implementation",
+      "slide3Subtitle": "Experts share real cases and frontline experience live",
+      "slide3Cta": "Watch live",
+      "slide4Title": "Agent Square, Unlocking AI Productivity",
+      "slide4Subtitle": "Covering general, industry, and functional agents, ready to use",
+      "slide4Cta": "Explore agents",
+      "slide5Title": "Zhihui News, Keep a Pulse on the AI Era",
+      "slide5Subtitle": "The latest industry news and in-depth analysis, updated daily",
+      "slide5Cta": "View news"
+    },
+    "marquee": {
+      "label": "Announcement",
+      "items": [
+        "Welcome to the Zhihui AI Community, early-bird price ¥6000/person/year, limited to 18 seats",
+        "Enterprise AI Decision-Maker Community is now open for recruitment, with free human-machine collaboration practical courses all year",
+        "The first 18 members enjoy one-on-one AI consultant advice, full refund if not satisfied",
+        "Scan the code now to join the Zhihui AI Community and explore the AI era with decision-makers"
+      ]
+    },
+    "welcome": {
+      "title": "Welcome to the Zhihui AI Community",
+      "subtitle": "AI-era rational efficiency services and a mutual-aid community. We help decision-makers deeply understand the relationship between AI and the enterprise, building a super organization of human-machine collaboration.",
+      "perYear": "days/year of companionship",
+      "benefits": {
+        "benefit1": "Free participation in all courses throughout the year",
+        "benefit2": "Priority access to exploration events",
+        "benefit3": "Unlimited community mutual aid",
+        "benefit4": "Online community exclusive entry",
+        "benefit5": "Priority access to AI assistant",
+        "benefit6": "Full refund if not satisfied"
+      }
+    },
+    "news": {
+      "title": "Latest News",
+      "viewMore": "View more",
+      "empty": "No news yet"
+    },
+    "cta": {
+      "title": "Explore the infinite possibilities of the AI era with like-minded decision-makers",
+      "subtitle": "Limited to the first 18 members · Early-bird price ¥6000/person/year · Full refund if not satisfied",
+      "join": "Join now",
+      "dashboard": "Enter Workspace"
+    },
+    "footer": {
+      "brand": "Zhihui AI",
+      "desc": "AI-era rational efficiency services and a mutual-aid community. We help decision-makers deeply understand the relationship between AI and the enterprise, building a super organization of human-machine collaboration, achieving rational efficiency improvement for the enterprise.",
+      "slogan": "Human-Machine Collaboration · Rational Efficiency · Super Organization",
+      "columns": [
+        {
+          "titleKey": "colProduct",
+          "links": [
+            { "labelKey": "enterprise", "href": "/enterprise" },
+            { "labelKey": "courses", "href": "/learn" },
+            { "labelKey": "live", "href": "/live" },
+            { "labelKey": "agents", "href": "/agents" }
+          ]
+        },
+        {
+          "titleKey": "colResource",
+          "links": [
+            { "labelKey": "news", "href": "/news" },
+            { "labelKey": "aiWorld", "href": "/ai-world" },
+            { "labelKey": "articles", "href": "/articles" },
+            { "labelKey": "asks", "href": "/asks" }
+          ]
+        },
+        {
+          "titleKey": "colSupport",
+          "links": [
+            { "labelKey": "support", "href": "/support" },
+            { "labelKey": "agreement", "href": "/agreement" },
+            { "labelKey": "feedback", "href": "/feedback" },
+            { "labelKey": "help", "href": "/help" }
+          ]
+        }
+      ],
+      "colProduct": "Product",
+      "colResource": "Resources",
+      "colSupport": "Support",
+      "enterprise": "Enterprise Services",
+      "courses": "Courses",
+      "live": "Live",
+      "agents": "Agents",
+      "news": "News",
+      "aiWorld": "AI World",
+      "articles": "Articles",
+      "asks": "Q&A",
+      "support": "Contact Us",
+      "agreement": "Service Agreement",
+      "feedback": "Feedback",
+      "help": "Help Center",
+      "qr1": "WeChat Official Account",
+      "qr2": "Enterprise WeChat",
+      "qr3": "Zhihui AI Community",
+      "copyright": "© 2026 Zhihui AI · Beijing · All rights reserved",
+      "privacy": "Privacy Policy",
+      "contactUs": "Contact Us"
+    }
   }
 }
