@@ -288,11 +288,16 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   // 未挂载时渲染固定占位 (Moon + "深色模式"), 与 SSR 一致; 挂载后再切到真实态。
   const mounted = useMounted()
   const isDark = mounted && theme === 'dark'
+  const router = useRouter()
 
   const handleLocaleChange = (code: Language) => {
+    if (code === locale) return
     document.cookie = `locale=${code};path=/;max-age=31536000`
     setLocale(code)
-    window.location.reload()
+    // 不整页刷新, 让服务端重新读取 cookie + 重渲染当前路由的 server components,
+    // NextIntlClientProvider 的 locale/messages 随之更新, 所有 useTranslations 自动重译。
+    // 客户端状态(zustand store、TagsView 标签等)完整保留, 派生式 title 会按新 locale 重算。
+    router.refresh()
   }
 
   const handleToggleTheme = () => {
