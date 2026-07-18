@@ -8,7 +8,7 @@ import {
   Archive,
   ArchiveRestore,
   Clock,
-  Download,
+  Shrink,
   FileCode,
   FileText,
   Loader2,
@@ -22,6 +22,8 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { downloadText, slugifyForFilename, buildTimestamp } from '@/lib/download'
+import { useAiPanelStore } from '@/stores/ai-panel'
+import { useChatStore } from '@/stores/chat'
 import {
   Button,
   Dialog,
@@ -35,7 +37,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
@@ -222,7 +223,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
 
   return (
     <>
-      <ul className="divide-y rounded-lg border">
+      <ul className="space-y-1 rounded-lg border p-1">
         {items.map((item) => (
           <li
             key={item.id}
@@ -231,7 +232,14 @@ export function ConversationList({ items }: { items: Conversation[] }) {
             <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
             <button
               type="button"
-              onClick={() => router.push(`/chat?conversationId=${encodeURIComponent(item.id)}`)}
+              onClick={() => {
+                // AI 对话是全局 docked 面板,与 Sidebar 同性质:点击历史项只触发
+                // 1) 写入 store 作为当前会话  2) 打开面板
+                // 3) 跳回 /home,让右侧工作区回到主工作流页面
+                useChatStore.getState().setConversationId(item.id)
+                useAiPanelStore.getState().openPanel()
+                router.push('/home')
+              }}
               className="min-w-0 flex-1 text-left"
             >
               <p className="break-words text-sm font-medium">{item.title}</p>
@@ -276,7 +284,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-48 space-y-0.5">
                   <DropdownMenuItem
                     onClick={() => handleRename(item)}
                     disabled={busyId === item.id}
@@ -300,7 +308,6 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                       </>
                     )}
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => handleExport(item, 'md')}
                     disabled={busyId === item.id}
@@ -315,26 +322,24 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                     <FileText className="mr-2 h-3.5 w-3.5" />
                     <span>{tc('actions.exportTxt')}</span>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => handleCompress(item, 200000)}
                     disabled={busyId === item.id}
                   >
-                    <Download className="mr-2 h-3.5 w-3.5" />
+                    <Shrink className="mr-2 h-3.5 w-3.5" />
                     <span>{tc('actions.compressTo200k')}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleCompress(item, 1000000)}
                     disabled={busyId === item.id}
                   >
-                    <Download className="mr-2 h-3.5 w-3.5" />
+                    <Shrink className="mr-2 h-3.5 w-3.5" />
                     <span>{tc('actions.compressTo1m')}</span>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => setPendingDeleteId(item.id)}
                     disabled={busyId === item.id}
-                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    className="text-destructive focus:bg-destructive/20 focus:text-destructive"
                     data-testid="conversation-delete-action"
                   >
                     <Trash2 className="mr-2 h-3.5 w-3.5" />
