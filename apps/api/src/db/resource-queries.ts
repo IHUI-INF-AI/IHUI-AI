@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, ilike, inArray, gt } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ilike, inArray, gt, getTableColumns } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   resourceCategories,
@@ -137,13 +137,23 @@ export async function findResources(
   return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
-/** 资源详情(含 intro),并自增浏览量。 */
-export async function findResourceByIdAndIncrementView(id: string): Promise<Resource | undefined> {
+/** 资源详情(含 intro + categoryName join),并自增浏览量。 */
+export async function findResourceByIdAndIncrementView(
+  id: string,
+): Promise<(Resource & { categoryName: string | null }) | undefined> {
   await db
     .update(resources)
     .set({ viewCount: sql<number>`${resources.viewCount} + 1` })
     .where(eq(resources.id, id))
-  const rows = await db.select().from(resources).where(eq(resources.id, id)).limit(1)
+  const rows = await db
+    .select({
+      ...getTableColumns(resources),
+      categoryName: resourceCategories.name,
+    })
+    .from(resources)
+    .leftJoin(resourceCategories, eq(resources.categoryId, resourceCategories.id))
+    .where(eq(resources.id, id))
+    .limit(1)
   return rows[0]
 }
 
