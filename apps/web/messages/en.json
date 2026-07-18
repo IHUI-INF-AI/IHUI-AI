@@ -13627,7 +13627,17 @@
       "confirmDeleteWebhook": "OKDelete Webhooks？",
       "confirmDeleteHook": "OKDelete Hook？",
       "confirmDeleteChannel": "OKDeleteChannel？",
-      "messages": "Messages"
+      "messages": "Messages",
+      "title": "OpenClaw Console",
+      "subtitle": "Manage OpenClaw gateway, channels, skills and automation",
+      "tabMemory": "Memory",
+      "tabSkills": "Skills",
+      "tabAutomation": "Automation",
+      "tabIntegrations": "Integrations",
+      "tabModels": "Models",
+      "tabVoice": "Voice",
+      "tabCanvas": "Canvas",
+      "tabBrowser": "Browser"
     },
     "goToSystemSettings": "fronttoSystem Settings",
     "copied": "{label} Copied",
@@ -23985,6 +23995,20 @@
     "backToHome": "Back to Home"
   },
   "marketing": {
+    "typewriter": {
+      "content": "Zhihui AI Community, exploring infinite AI possibilities",
+      "explore": "Explore infinite AI possibilities",
+      "brand": "Zhihui AI Community",
+      "connect": "Connect ideas, unleash the unknown",
+      "ctaPrimary": "Try Now",
+      "ctaSecondary": "Learn More",
+      "miniappBtn": "WeChat Mini Program"
+    },
+    "miniappModal": {
+      "title": "WeChat Mini Program",
+      "qrAlt": "Mini Program QR Code",
+      "scanTip": "Open WeChat and scan to enter the mini program"
+    },
     "header": {
       "brand": "Zhihui AI",
       "login": "Log in",
@@ -24022,7 +24046,30 @@
         "Enterprise AI Decision-Maker Community is now open for recruitment, with free human-machine collaboration practical courses all year",
         "The first 18 members enjoy one-on-one AI consultant advice, full refund if not satisfied",
         "Scan the code now to join the Zhihui AI Community and explore the AI era with decision-makers"
-      ]
+      ],
+      "title": "Partners & Ecosystem",
+      "subtitle": "Aggregating mainstream LLMs and platforms to build an open AI ecosystem",
+      "kouzi": "Coze",
+      "bbxLogo": "Baibaoxiang",
+      "openai": "OpenAI",
+      "zhipu": "Zhipu",
+      "gork": "Grok",
+      "brand8": "Brand 8",
+      "ali": "Alibaba",
+      "tencent": "Tencent",
+      "huawei": "Huawei",
+      "baidu": "Baidu",
+      "yuanbaoxiang": "Yuanbaoxiang",
+      "yushu": "Moonshot",
+      "dbsfdx": "Dongfang Shandian",
+      "jldx": "Jingling Daxue",
+      "n8n": "n8n",
+      "titleEn": "PARTNERS & ECOSYSTEM",
+      "joinText": "Welcome more AI enthusiasts to join us and explore the infinite possibilities of AI together",
+      "marqueeSpeedLabel": "Scroll Speed",
+      "wheelSensitivityLabel": "Wheel Sensitivity",
+      "pauseScroll": "Pause",
+      "resumeScroll": "Resume"
     },
     "welcome": {
       "title": "Welcome to the Zhihui AI Community",
@@ -24102,6 +24149,128 @@
       "copyright": "© 2026 Zhihui AI · Beijing · All rights reserved",
       "privacy": "Privacy Policy",
       "contactUs": "Contact Us"
+    },
+    "indicator": {
+      "label": "Page Navigation",
+      "switchTo": "Switch to page {index}",
+      "page1": "Home",
+      "page2": "Welcome",
+      "page3": "Features",
+      "page4": "News",
+      "page5": "Pricing",
+      "page6": "Partners"
+    },
+    "scrollDown": {
+      "label": "Scroll down"
+    },
+    "magazine": {
+      "title": "Latest News",
+      "titleEn": "LATEST NEWS",
+      "subtitle": "Platform updates and AI frontiers",
+      "tabPlatform": "Platform",
+      "tabExternal": "External",
+      "empty": "No content",
+      "viewMore": "View more",
+      "tagHot": "Hot",
+      "tagNews": "News"
+    },
+    "pricing": {
+      "title": "Choose Your Plan",
+      "titleEn": "CHOOSE YOUR PLAN",
+      "subtitle": "Flexible pricing plans for different needs",
+      "period": "/year",
+      "cta": "Subscribe Now",
+      "recommended": "Recommended",
+      "basic": {
+        "name": "Basic",
+        "description": "For individuals and professionals",
+        "feature1": "Unlimited AI chat",
+        "feature2": "Image generation",
+        "feature3": "Voice input",
+        "feature4": "File upload",
+        "feature5": "30-day history",
+        "feature6": "Dedicated support",
+        "feature7": "Advanced model access"
+      },
+      "professional": {
+        "name": "Professional",
+        "description": "For power users and small teams",
+        "feature1": "Unlimited AI chat",
+        "feature2": "Image/video generation",
+        "feature3": "90-day history",
+        "feature4": "150+ AI tools",
+        "feature5": "API access",
+        "feature6": "Data export",
+        "feature7": "Early access to new features"
+      },
+      "enterprise": {
+        "name": "Enterprise",
+        "description": "For advanced users and teams",
+        "feature1": "Unlimited AI chat",
+        "feature2": "Image/video generation",
+        "feature3": "Permanent history",
+        "feature4": "All AI tools",
+        "feature5": "API access",
+        "feature6": "Team collaboration",
+        "feature7": "Dedicated consultant"
+      },
+      "flagship": {
+        "name": "Flagship",
+        "description": "For users seeking the ultimate experience",
+        "feature1": "Unlimited token usage",
+        "feature2": "All AI models access",
+        "feature3": "Ultra-fast response",
+        "feature4": "Dedicated VIP support",
+        "feature5": "Custom development",
+        "feature6": "Dedicated training courses",
+        "feature7": "Priority issue handling"
+      }
+    },
+    "features": {
+      "title": "Powerful Features",
+      "titleEn": "POWERFUL FEATURES",
+      "subtitle": "Explore our comprehensive AI services, from model integration to app store, meeting your every need",
+      "modelIntegration": {
+        "title": "Multi-Model Integration",
+        "description": "Integrate mainstream LLMs, switch on demand, meeting multi-scenario dialogue and reasoning needs"
+      },
+      "appStore": {
+        "title": "Agents",
+        "description": "Massive agents ready to use, covering general, industry, and functional scenarios"
+      },
+      "contentCreation": {
+        "title": "Content Creation",
+        "description": "AI text, image, video one-stop generation, letting ideas land quickly"
+      },
+      "edu": {
+        "title": "AI Education",
+        "description": "Systematic AI courses and practical training, helping you build a complete knowledge system"
+      },
+      "navigation": {
+        "title": "Smart Navigation",
+        "description": "Smart routing and scenario recognition, precisely reaching the capabilities you need"
+      }
+    },
+    "advantages": {
+      "title": "Core Advantages",
+      "titleEn": "CORE ADVANTAGES",
+      "subtitle": "Why choose Zhihui AI",
+      "professional": {
+        "title": "Professional",
+        "description": "Deeply cultivate AI field, providing professional technical solutions and industry-leading products and services"
+      },
+      "efficient": {
+        "title": "Efficient",
+        "description": "Simplify development workflow, rich API interfaces and tools, letting AI applications go live quickly"
+      },
+      "reliable": {
+        "title": "Reliable",
+        "description": "Stable and reliable service guarantee, 99.9% availability, ensuring business continuity"
+      },
+      "innovative": {
+        "title": "Innovative",
+        "description": "Continuous technological innovation, agent clusters, hierarchical planning and other cutting-edge AI capabilities"
+      }
     }
   }
 }

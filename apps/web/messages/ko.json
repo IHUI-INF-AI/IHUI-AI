@@ -13622,7 +13622,17 @@
       "confirmDeleteWebhook": "확인삭제 Webhooks？",
       "confirmDeleteHook": "확인삭제 Hook？",
       "confirmDeleteChannel": "확인삭제채널？",
-      "messages": "메시지"
+      "messages": "메시지",
+      "title": "OpenClaw 콘솔",
+      "subtitle": "OpenClaw 게이트웨이, 채널, 스킬, 자동화 관리",
+      "tabMemory": "메모리",
+      "tabSkills": "스킬",
+      "tabAutomation": "자동화",
+      "tabIntegrations": "연동",
+      "tabModels": "모델",
+      "tabVoice": "음성",
+      "tabCanvas": "캔버스",
+      "tabBrowser": "브라우저"
     },
     "goToSystemSettings": "전향해시스템 설정",
     "copied": "{label} Copied",
@@ -23975,6 +23985,20 @@
     "backToHome": "홈으로"
   },
   "marketing": {
+    "typewriter": {
+      "content": "지후이 AI 커뮤니티, AI의 무한한 가능성 탐색",
+      "explore": "AI의 무한한 가능성을 탐색하세요",
+      "brand": "지후이 AI 커뮤니티",
+      "connect": "아이디어를 연결하고 미지를 해방하세요",
+      "ctaPrimary": "지금 체험",
+      "ctaSecondary": "더 알아보기",
+      "miniappBtn": "WeChat 미니프로그램"
+    },
+    "miniappModal": {
+      "title": "WeChat 미니프로그램",
+      "qrAlt": "미니프로그램 QR 코드",
+      "scanTip": "WeChat을 열고 스캔하여 미니프로그램 진입"
+    },
     "header": {
       "brand": "지후이 AI",
       "login": "로그인",
@@ -24012,7 +24036,30 @@
         "기업 AI화 의사결정자 커뮤니티 모집 개방, 인간-기계 협업 실전 코스 연중 무료",
         "선착순 18명 회원에게 1:1 AI 컨설턴트 상담 제공, 불만족 시 전액 환불",
         "지금 코드를 스캔하여 지후이 AI 커뮤니티에 가입하고 의사결정자와 함께 AI 시대를 탐색하세요"
-      ]
+      ],
+      "title": "파트너와 생태계",
+      "subtitle": "주요 LLM과 플랫폼을 통합하여 개방형 AI 생태계 구축",
+      "kouzi": "Coze",
+      "bbxLogo": "바이바오상",
+      "openai": "OpenAI",
+      "zhipu": "즈푸",
+      "gork": "Grok",
+      "brand8": "브랜드8",
+      "ali": "알리바바",
+      "tencent": "텐센트",
+      "huawei": "화웨이",
+      "baidu": "바이두",
+      "yuanbaoxiang": "위안바오상",
+      "yushu": "Moonshot",
+      "dbsfdx": "둥팡샨뎬",
+      "jldx": "징링대학",
+      "n8n": "n8n",
+      "titleEn": "PARTNERS & ECOSYSTEM",
+      "joinText": "더 많은 AI 애호가들의 참여를 환영하며, 함께 AI의 무한한 가능성을 탐색합시다",
+      "marqueeSpeedLabel": "스크롤 속도",
+      "wheelSensitivityLabel": "휠 감도",
+      "pauseScroll": "일시정지",
+      "resumeScroll": "재개"
     },
     "welcome": {
       "title": "지후이 AI 커뮤니티에 오신 것을 환영합니다",
@@ -24092,6 +24139,128 @@
       "copyright": "© 2026 지후이 AI · 베이징 · All rights reserved",
       "privacy": "개인정보 처리방침",
       "contactUs": "문의하기"
+    },
+    "indicator": {
+      "label": "페이지 내비게이션",
+      "switchTo": "{index}페이지로 전환",
+      "page1": "홈",
+      "page2": "환영",
+      "page3": "기능",
+      "page4": "뉴스",
+      "page5": "요금",
+      "page6": "파트너"
+    },
+    "scrollDown": {
+      "label": "아래로 스크롤"
+    },
+    "magazine": {
+      "title": "최신 뉴스",
+      "titleEn": "LATEST NEWS",
+      "subtitle": "플랫폼 동향과 AI 최전선 파악",
+      "tabPlatform": "플랫폼",
+      "tabExternal": "외부 소식",
+      "empty": "콘텐츠 없음",
+      "viewMore": "더 보기",
+      "tagHot": "인기",
+      "tagNews": "뉴스"
+    },
+    "pricing": {
+      "title": "요금제 선택",
+      "titleEn": "CHOOSE YOUR PLAN",
+      "subtitle": "다양한 요구를 충족하는 유연한 요금제",
+      "period": "/년",
+      "cta": "지금 구독",
+      "recommended": "추천",
+      "basic": {
+        "name": "베이직",
+        "description": "개인 사용자와 전문가용",
+        "feature1": "무제한 AI 채팅",
+        "feature2": "이미지 생성",
+        "feature3": "음성 입력",
+        "feature4": "파일 업로드",
+        "feature5": "30일 히스토리",
+        "feature6": "전용 지원",
+        "feature7": "고급 모델 액세스"
+      },
+      "professional": {
+        "name": "프로페셔널",
+        "description": "파워 유저와 소규모 팀용",
+        "feature1": "무제한 AI 채팅",
+        "feature2": "이미지/비디오 생성",
+        "feature3": "90일 히스토리",
+        "feature4": "150+ AI 도구",
+        "feature5": "API 액세스",
+        "feature6": "데이터 내보내기",
+        "feature7": "신기능 우선 체험"
+      },
+      "enterprise": {
+        "name": "엔터프라이즈",
+        "description": "고급 사용자와 팀용",
+        "feature1": "무제한 AI 채팅",
+        "feature2": "이미지/비디오 생성",
+        "feature3": "영구 히스토리",
+        "feature4": "모든 AI 도구",
+        "feature5": "API 액세스",
+        "feature6": "팀 협업",
+        "feature7": "전용 컨설턴트"
+      },
+      "flagship": {
+        "name": "플래그십",
+        "description": "최고의 경험을 추구하는 사용자용",
+        "feature1": "무제한 토큰 사용",
+        "feature2": "모든 AI 모델 액세스",
+        "feature3": "초고속 응답",
+        "feature4": "전용 VIP 지원",
+        "feature5": "맞춤 개발",
+        "feature6": "전용 교육 과정",
+        "feature7": "우선 문제 처리"
+      }
+    },
+    "features": {
+      "title": "강력한 기능",
+      "titleEn": "POWERFUL FEATURES",
+      "subtitle": "모델 통합부터 앱 스토어까지, 모든 요구를 충족하는 종합 AI 서비스를 만나보세요",
+      "modelIntegration": {
+        "title": "멀티 모델 통합",
+        "description": "주요 LLM을 통합하고 필요에 따라 전환하여 다양한 시나리오의 대화와 추론 요구를 충족"
+      },
+      "appStore": {
+        "title": "에이전트",
+        "description": "범용, 산업, 기능 세 가지 시나리오를 아우르는 즉시 사용 가능한 에이전트"
+      },
+      "contentCreation": {
+        "title": "콘텐츠 생성",
+        "description": "AI 텍스트, 이미지, 비디오 원스톱 생성으로 아이디어를 빠르게 구현"
+      },
+      "edu": {
+        "title": "AI 교육",
+        "description": "체계적인 AI 과정과 실전 훈련으로 완전한 지식 체계 구축"
+      },
+      "navigation": {
+        "title": "스마트 내비게이션",
+        "description": "스마트 라우팅과 시나리오 인식으로 필요한 기능에 정확하게 도달"
+      }
+    },
+    "advantages": {
+      "title": "핵심 장점",
+      "titleEn": "CORE ADVANTAGES",
+      "subtitle": "지후이 AI를 선택하는 이유",
+      "professional": {
+        "title": "전문성",
+        "description": "AI 분야를 깊이 있게 다루며 전문적인 기술 솔루션과 업계 선도 제품 서비스 제공"
+      },
+      "efficient": {
+        "title": "효율성",
+        "description": "개발 워크플로를 단순화하고 풍부한 API 인터페이스와 도구로 AI 애플리케이션을 빠르게 출시"
+      },
+      "reliable": {
+        "title": "신뢰성",
+        "description": "안정적이고 신뢰할 수 있는 서비스 보장, 99.9% 가용성으로 비즈니스 연속성 보장"
+      },
+      "innovative": {
+        "title": "혁신성",
+        "description": "지속적인 기술 혁신, 에이전트 클러스터, 계층적 계획 등 최첨단 AI 역량"
+      }
     }
   }
 }
