@@ -383,36 +383,6 @@ body {
   }
 }
 
-/* 侧边栏破折线指示器首次呼吸动画:从高亮脉冲到稳定值,仅播一次
-   用于引导用户视线到"有二级菜单"的入口,后续保持与元素原始 opacity 一致
-
-   关键设计:关键帧 100% 直接落到"目标稳定值"(0.95),而不是中途回落值(原 0.6)。
-   原因:fill-mode: none 时,动画结束后 opacity 回到 className 决定的原始值(0.95)。
-     如果关键帧 100% ≠ 原始值,0.6 → 0.95 会触发 transition 200ms 渐变,
-     1.6s + 200ms = 1.8s 才稳定,1.9s 等待测试仍有 ~28% 概率读到 transition 中间帧(如 0.7)。
-     关键帧 100% = 0.95 = 原始值时,动画结束后无 transition,opacity 瞬间稳定 0.95。
-   不写 `both` / `forwards`,避免首次加载后 opacity 永久卡在动画最后一帧。 */
-@keyframes sidebar-indicator-pulse-once {
-  0% {
-    opacity: 0.45;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.95;
-  }
-}
-.animate-pulse-once {
-  animation: sidebar-indicator-pulse-once 1.6s ease-out 1;
-}
-/* 无障碍适配:用户系统开启"减少动效"时,直接跳过呼吸动画,
-   指示器立刻稳定到 Tailwind opacity-95/100,避免触发前庭功能不适 */
-@media (prefers-reduced-motion: reduce) {
-  .animate-pulse-once {
-    animation: none;
-  }
-}
 .ihui-ai-fade-in-left {
   animation: ihui-ai-fade-in-left 1s ease-out both;
 }
@@ -510,4 +480,52 @@ h6 {
 }
 .dark .welcome-img-dark {
   display: block;
+}
+
+/* 拖拽手柄可见线:中间蓝色,向上下两端渐变为浅蓝直至透明("消失"效果)。
+   适用于侧边栏与 AI 面板的右侧 resize handle 内层 1px 线条。
+   默认完全隐藏(opacity:0),仅 hover 命中区或拖拽时显现。
+   蓝色可见区域占 10%-90%,中段 45%-55% 为纯蓝,两端渐变为浅蓝直至透明。 */
+.resize-handle-line {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(59, 130, 246, 0.2) 10%,
+    rgba(59, 130, 246, 0.5) 25%,
+    rgba(59, 130, 246, 0.85) 40%,
+    #3b82f6 50%,
+    rgba(59, 130, 246, 0.85) 60%,
+    rgba(59, 130, 246, 0.5) 75%,
+    rgba(59, 130, 246, 0.2) 90%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition:
+    opacity 0.2s ease,
+    filter 0.2s ease;
+}
+/* hover 命中区或拖拽中:线条完全显现并带蓝色光晕 */
+.group:hover .resize-handle-line,
+.resize-handle-line.is-resizing {
+  opacity: 1;
+  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.55));
+}
+/* 暗色模式:中心色偏亮蓝,两端浅蓝,与深色背景形成对比 */
+.dark .resize-handle-line {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(96, 165, 250, 0.2) 10%,
+    rgba(96, 165, 250, 0.5) 25%,
+    rgba(96, 165, 250, 0.85) 40%,
+    #60a5fa 50%,
+    rgba(96, 165, 250, 0.85) 60%,
+    rgba(96, 165, 250, 0.5) 75%,
+    rgba(96, 165, 250, 0.2) 90%,
+    transparent 100%
+  );
+}
+.dark .group:hover .resize-handle-line,
+.dark .resize-handle-line.is-resizing {
+  filter: drop-shadow(0 0 3px rgba(96, 165, 250, 0.65));
 }
