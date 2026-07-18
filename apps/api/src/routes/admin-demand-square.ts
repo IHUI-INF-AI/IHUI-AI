@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, or, ilike, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -69,7 +69,9 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
 
-  server.get('/stats', async (_request, reply) => {
+  // R83 修复: 原 /stats 与 admin.ts:122 Dashboard /stats 冲突 FST_ERR_DUPLICATED_ROUTE
+  // 改为 /demand-square/stats 避免路径冲突
+  server.get('/demand-square/stats', async (_request, reply) => {
     const [stats] = await db
       .select({
         total: sql<number>`count(*)::int`,
