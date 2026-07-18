@@ -9,6 +9,8 @@ import {
   renderMermaid,
   extractMermaidBlocks,
   writeMermaidToWorkspace,
+  getDefaultCache,
+  MermaidRenderCache,
   type MermaidEngine,
 } from '../src/mermaid/index.js';
 
@@ -46,6 +48,8 @@ describe('mermaid 渲染模块', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-mermaid-test-'));
     originalFetch = global.fetch;
     vi.clearAllMocks();
+    // 清空全局缓存(防止测试间互相污染)
+    getDefaultCache().clear();
   });
 
   afterEach(() => {
@@ -268,15 +272,101 @@ describe('mermaid 渲染模块', () => {
         name: 'mermaid-ink',
         render: vi.fn().mockResolvedValue(Buffer.from('<svg/>')),
       };
-      const result = await renderMermaid('graph TD', [inkEngine]);
+      const result = await renderMermaid('graph TD-ink', [inkEngine]);
       expect(result.mimeType).toBe('image/svg+xml');
 
       const mmdcEngine: MermaidEngine = {
         name: 'mmdc-cli',
         render: vi.fn().mockResolvedValue(Buffer.from([0x89, 0x50, 0x4e, 0x47])),
       };
-      const result2 = await renderMermaid('graph TD', [mmdcEngine]);
+      const result2 = await renderMermaid('graph TD-mmdc', [mmdcEngine]);
       expect(result2.mimeType).toBe('image/png');
+    });
+  });
+
+  describe('MermaidRenderCache(LRU 渲染缓存)', () => {
+    it('首次渲染未命中缓存(cached=false),二次命中(cached=true)', async () => {
+      const engine: MermaidEngine = {
+        name: 'test-engine',
+        render: vi.fn().mockResolvedValue(Buffer.from('result-1')),
+      };
+      const result1 = await renderMermaid('cache-test-source', [engine]);
+      expect(result1.cached).toBe(false);
+      expect(engine.render).toHaveBeenCalledTimes(1);
+
+      const result2 = await renderMermaid('cache-test-source', [engine]);
+      expect(result2.cached).toBe(true);
+      // 命中缓存后,引擎不应再次被调用
+      expect(engine.render).toHaveBeenCalledTimes(1);
+      expect(result2.buffer.toString()).toBe('result-1');
+    });
+
+    it('不同 source 不命中缓存(分别渲染)', async () => {
+      const engine: MermaidEngine = {
+        name: 'test-engine',
+        render: vi.fn()
+          .mockResolvedValueOnce(Buffer.from('r1'))
+          .mockResolvedValueOnce(Buffer.from('r2')),
+      };
+      const r1 = await renderMermaid('source-A', [engine]);
+      const r2 = await renderMermaid('source-B', [engine]);
+      expect(r1.cached).toBe(false);
+      expect(r2.cached).toBe(false);
+      expect(r1.buffer.toString()).toBe('r1');
+      expect(r2.buffer.toString()).toBe('r2');
+    });
+
+    it('传 cache=null 禁用缓存(每次都调引擎)', async () => {
+      const engine: MermaidEngine = {
+        name: 'test-engine',
+        render: vi.fn().mockResolvedValue(Buffer.from('r')),
+      };
+      await renderMermaid('no-cache-source', [engine], null);
+      await renderMermaid('no-cache-source', [engine], null);
+      expect(engine.render).toHaveBeenCalledTimes(2);
+    });
+
+    it('LRU 淘汰:超 maxSize 时移除最早条目', () => {
+      const cache = new MermaidRenderCache(2, 60_000);
+      cache.set('s1', Buffer.from('1'), 'image/png', 'e');
+      cache.set('s2', Buffer.from('2'), 'image/png', 'e');
+      expect(cache.size()).toBe(2);
+      // 第 3 个触发淘汰:s1 被移除(LRU)
+      cache.set('s3', Buffer.from('3'), 'image/png', 'e');
+      expect(cache.size()).toBe(2);
+      expect(cache.get('s1')).toBeNull();
+      expect(cache.get('s2')).not.toBeNull();
+      expect(cache.get('s3')).not.toBeNull();
+    });
+
+    it('LRU 更新:get 后该条目变为最新(不被淘汰)', () => {
+      const cache = new MermaidRenderCache(2, 60_000);
+      cache.set('s1', Buffer.from('1'), 'image/png', 'e');
+      cache.set('s2', Buffer.from('2'), 'image/png', 'e');
+      // 访问 s1 → s1 变最新,s2 变最老
+      cache.get('s1');
+      // 新增 s3 → s2(最老)被淘汰
+      cache.set('s3', Buffer.from('3'), 'image/png', 'e');
+      expect(cache.get('s1')).not.toBeNull();
+      expect(cache.get('s2')).toBeNull();
+      expect(cache.get('s3')).not.toBeNull();
+    });
+
+    it('TTL 过期:超过 ttlMs 后 get 返回 null', async () => {
+      const cache = new MermaidRenderCache(10, 50); // 50ms TTL
+      cache.set('s1', Buffer.from('1'), 'image/png', 'e');
+      expect(cache.get('s1')).not.toBeNull();
+      await new Promise((r) => setTimeout(r, 60));
+      expect(cache.get('s1')).toBeNull();
+    });
+
+    it('clear 清空所有条目', () => {
+      const cache = new MermaidRenderCache();
+      cache.set('s1', Buffer.from('1'), 'image/png', 'e');
+      cache.set('s2', Buffer.from('2'), 'image/png', 'e');
+      expect(cache.size()).toBe(2);
+      cache.clear();
+      expect(cache.size()).toBe(0);
     });
   });
 

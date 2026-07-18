@@ -32,6 +32,83 @@ export interface TelemetryEvent {
   timestamp: number;
 }
 
+/**
+ * 敏感字段名匹配模式(用于 redact 过滤)。
+ *
+ * 命中规则:字段名(转小写)包含以下任一关键字时,值替换为 [REDACTED]。
+ * 同时支持驼峰(snake_case 转换后匹配)。
+ */
+const SENSITIVE_KEY_PATTERNS = [
+  'password',
+  'passwd',
+  'pwd',
+  'token',
+  'accesstoken',
+  'refreshtoken',
+  'authorization',
+  'auth',
+  'apikey',
+  'api_key',
+  'secret',
+  'clientsecret',
+  'privatekey',
+  'private_key',
+  'credential',
+  'credentials',
+  'sessionid',
+  'session_id',
+  'cookie',
+  'ssn',
+  'creditcard',
+  'credit_card',
+];
+
+/** 字段名是否敏感(命中任一模式即视为敏感) */
+function isSensitiveKey(key: string): boolean {
+  if (!key) return false;
+  // 统一为小写 + snake_case (驼峰转下划线)
+  const normalized = key
+    .toLowerCase()
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .toLowerCase();
+  return SENSITIVE_KEY_PATTERNS.some((pat) => normalized.includes(pat));
+}
+
+/**
+ * 递归 redact 对象中的敏感字段(返回新对象,不修改入参)。
+ *
+ * - 字符串/数字/布尔值:若 key 敏感则替换为 '[REDACTED]'
+ * - 嵌套对象/数组:递归处理
+ * - 循环引用:通过 WeakSet 检测,遇到循环引用返回 '[Circular]'
+ * - 最大深度 10 层(防止深度嵌套导致栈溢出)
+ */
+export function redactSensitive(
+  value: unknown,
+  depth = 0,
+  seen = new WeakMap<object, true>(),
+): unknown {
+  if (depth > 10) return '[MaxDepth]';
+  if (value === null || typeof value !== 'object') return value;
+  // 循环引用检测
+  if (seen.has(value as object)) return '[Circular]';
+
+  if (Array.isArray(value)) {
+    seen.set(value, true);
+    return value.map((v) => redactSensitive(v, depth + 1, seen));
+  }
+
+  seen.set(value, true);
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (isSensitiveKey(k)) {
+      result[k] = '[REDACTED]';
+    } else {
+      result[k] = redactSensitive(v, depth + 1, seen);
+    }
+  }
+  return result;
+}
+
 /** TelemetryClient 配置 */
 export interface TelemetryConfig {
   /** 上报端点 URL(如 https://api.example.com/v1/telemetry/ingest) */
@@ -97,10 +174,12 @@ export class TelemetryClient {
     }
   }
 
-  /** 入队事件 */
+  /** 入队事件(自动 redact 敏感字段后再入队) */
   trackEvent(name: TelemetryEventType, props?: Record<string, unknown>): void {
     if (!this.config.enabled) return;
-    this.queue.push({ name, props, timestamp: Date.now() });
+    // 隐私保护:递归 redact 敏感字段(password/token/secret/api_key 等)
+    const safeProps = props ? (redactSensitive(props) as Record<string, unknown>) : undefined;
+    this.queue.push({ name, props: safeProps, timestamp: Date.now() });
     if (this.queue.length >= this.config.batchSize) {
       void this.flush().catch(() => {
         // 静默失败
