@@ -9,6 +9,7 @@ import { useChat } from '@/hooks/use-chat'
 import { useWebSocket, type WSNotification, isAIResponse } from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
+import { BrandIcon } from '@/components/ai/brand-icon'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getConversation, getMessages } from '@/lib/chat-api'
@@ -28,8 +29,17 @@ export function AISidePanel() {
   const tcommon = useTranslations('common')
 
   const { open, width, isResizing, closePanel, setWidth, setResizing } = useAiPanelStore()
-  const { messages, currentModel, isStreaming, sendMessage, stop, clearMessages, setModel } =
-    useChat()
+  const {
+    messages,
+    currentModel,
+    currentModelInfo,
+    isStreaming,
+    sendMessage,
+    stop,
+    clearMessages,
+    setModel,
+    setModelWithInfo,
+  } = useChat()
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
   const [loadingHistory, setLoadingHistory] = React.useState(false)
@@ -218,8 +228,20 @@ export function AISidePanel() {
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="break-words text-sm font-semibold">{tc('title')}</span>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Cpu className="h-3 w-3" />
-              <span className="break-words">{currentModel}</span>
+              {currentModelInfo ? (
+                <BrandIcon
+                  vendor={currentModelInfo.vendor}
+                  iconSvg={currentModelInfo.iconSvg}
+                  iconUrl={currentModelInfo.iconUrl}
+                  size={12}
+                  className="text-muted-foreground"
+                />
+              ) : (
+                <Cpu className="h-3 w-3" />
+              )}
+              <span className="break-words">
+                {currentModelInfo?.label ?? currentModel}
+              </span>
               {isStreaming && (
                 <span className="ml-1 inline-flex items-center gap-1 text-primary">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-sm bg-primary" />
@@ -259,6 +281,7 @@ export function AISidePanel() {
             emptyHint={t('emptyHint')}
             assistantLabel={t('assistant')}
             loadingLabel={t('loading')}
+            currentModelInfo={currentModelInfo}
             onTemplateSelect={(content) => {
               useChatStore.setState({ draftInput: content })
             }}
@@ -274,7 +297,19 @@ export function AISidePanel() {
           sendLabel={t('send')}
           stopLabel={t('stop')}
           model={currentModel}
-          onModelChange={setModel}
+          onModelChange={(v, opt) => {
+            if (opt) {
+              setModelWithInfo({
+                value: opt.value,
+                label: opt.label,
+                vendor: opt.vendor,
+                iconSvg: opt.iconSvg,
+                iconUrl: opt.iconUrl,
+              })
+            } else {
+              setModel(v)
+            }
+          }}
           modelLabel={t('model')}
         />
       </aside>
