@@ -26,6 +26,16 @@ import { eduOrders } from '../src/schema/order.js'
 import { userMargins, tokenFlows } from '../src/schema/wallet.js'
 import { lessons } from '../src/schema/learn.js'
 import { examPapers, examQuestions } from '../src/schema/exam.js'
+import { plans, orders, payments, aiPricing } from '../src/schema/billing.js'
+import { wechatPayContracts } from '../src/schema/wechat-pay-contracts.js'
+import {
+  paymentCallbacks,
+  transferInfos,
+  wxPayNotifications,
+} from '../src/schema/payment-callbacks.js'
+import { commissionFlows, withdrawalFlows, identityProportions } from '../src/schema/commission.js'
+import { refundAuditRecords } from '../src/schema/refund-audit.js'
+import { funds, fundNetValues } from '../src/schema/funds.js'
 
 // =============================================================================
 // drizzle pgTable 运行时 introspection 辅助
@@ -391,5 +401,222 @@ describe('exam schema', () => {
   it('examQuestions 关键字段', () => {
     expect(examQuestions.id).toBeDefined()
     expect(examQuestions.paperId).toBeDefined()
+  })
+})
+
+// =============================================================================
+// 11. billing schema (订阅方案 + 订单 + 支付 + AI 定价)
+// =============================================================================
+
+describe('billing schema', () => {
+  it('四张表名正确', () => {
+    expect(getTableName(plans)).toBe('plans')
+    expect(getTableName(orders)).toBe('orders')
+    expect(getTableName(payments)).toBe('payments')
+    expect(getTableName(aiPricing)).toBe('ai_pricing')
+  })
+
+  it('plans 关键字段 + wechatPlanId', () => {
+    expect(plans.name).toBeDefined()
+    expect(isColumnNotNull(plans.name)).toBe(true)
+    expect(plans.price).toBeDefined()
+    expect(isColumnNotNull(plans.price)).toBe(true)
+    expect(getColumnType(plans.price)).toBe('integer')
+    expect(plans.wechatPlanId).toBeDefined()
+    expect(getColumnType(plans.wechatPlanId)).toBe('varchar')
+    expect(hasColumnDefault(plans.isActive)).toBe(true)
+    expect(hasColumnDefault(plans.trialDays)).toBe(true)
+  })
+
+  it('orders.orderNo NOT NULL + UNIQUE + status 默认 pending', () => {
+    expect(orders.orderNo).toBeDefined()
+    expect(isColumnNotNull(orders.orderNo)).toBe(true)
+    expect(getColumnType(orders.orderNo)).toBe('varchar')
+    expect(orders.status).toBeDefined()
+    expect(hasColumnDefault(orders.status)).toBe(true)
+    expect(getColumnType(orders.amount)).toBe('integer')
+  })
+
+  it('payments 关键字段', () => {
+    expect(payments.orderId).toBeDefined()
+    expect(getColumnType(payments.orderId)).toBe('uuid')
+    expect(payments.provider).toBeDefined()
+    expect(isColumnNotNull(payments.provider)).toBe(true)
+    expect(payments.status).toBeDefined()
+    expect(hasColumnDefault(payments.status)).toBe(true)
+  })
+
+  it('aiPricing modelId NOT NULL + 索引', () => {
+    expect(aiPricing.modelId).toBeDefined()
+    expect(isColumnNotNull(aiPricing.modelId)).toBe(true)
+    expect(aiPricing.inputTokenPrice).toBeDefined()
+    expect(aiPricing.outputTokenPrice).toBeDefined()
+  })
+})
+
+// =============================================================================
+// 12. wechat-pay-contracts schema (微信支付周期扣款签约)
+// =============================================================================
+
+describe('wechat-pay-contracts schema', () => {
+  it('表名正确', () => {
+    expect(getTableName(wechatPayContracts)).toBe('wechat_pay_contracts')
+  })
+
+  it('contractId NOT NULL + UNIQUE', () => {
+    expect(wechatPayContracts.contractId).toBeDefined()
+    expect(isColumnNotNull(wechatPayContracts.contractId)).toBe(true)
+    expect(getColumnType(wechatPayContracts.contractId)).toBe('varchar')
+  })
+
+  it('userId 外键 + planId 外键', () => {
+    expect(wechatPayContracts.userId).toBeDefined()
+    expect(getColumnType(wechatPayContracts.userId)).toBe('uuid')
+    expect(isColumnNotNull(wechatPayContracts.userId)).toBe(true)
+    expect(wechatPayContracts.planId).toBeDefined()
+    expect(getColumnType(wechatPayContracts.planId)).toBe('uuid')
+  })
+
+  it('status 默认 pending + lastChargeStatus 状态机', () => {
+    expect(wechatPayContracts.status).toBeDefined()
+    expect(hasColumnDefault(wechatPayContracts.status)).toBe(true)
+    expect(wechatPayContracts.lastChargeStatus).toBeDefined()
+    expect(wechatPayContracts.nextChargeTime).toBeDefined()
+  })
+})
+
+// =============================================================================
+// 13. payment-callbacks schema (支付回调原始记录 + 转账 + 微信通知)
+// =============================================================================
+
+describe('payment-callbacks schema', () => {
+  it('三张表名正确', () => {
+    expect(getTableName(paymentCallbacks)).toBe('payment_callbacks')
+    expect(getTableName(transferInfos)).toBe('transfer_infos')
+    expect(getTableName(wxPayNotifications)).toBe('wx_pay_notifications')
+  })
+
+  it('paymentCallbacks.status 默认 0 (待处理)', () => {
+    expect(paymentCallbacks.orderId).toBeDefined()
+    expect(getColumnType(paymentCallbacks.orderId)).toBe('varchar')
+    expect(paymentCallbacks.status).toBeDefined()
+    expect(hasColumnDefault(paymentCallbacks.status)).toBe(true)
+  })
+
+  it('transferInfos.transferNo NOT NULL + UNIQUE', () => {
+    expect(transferInfos.transferNo).toBeDefined()
+    expect(isColumnNotNull(transferInfos.transferNo)).toBe(true)
+    expect(getColumnType(transferInfos.transferNo)).toBe('varchar')
+    expect(transferInfos.status).toBeDefined()
+    expect(hasColumnDefault(transferInfos.status)).toBe(true)
+  })
+
+  it('wxPayNotifications 关键字段', () => {
+    expect(wxPayNotifications.outTradeNo).toBeDefined()
+    expect(wxPayNotifications.transactionId).toBeDefined()
+    expect(wxPayNotifications.totalFee).toBeDefined()
+    expect(hasColumnDefault(wxPayNotifications.totalFee)).toBe(true)
+    expect(wxPayNotifications.notificationType).toBeDefined()
+    expect(hasColumnDefault(wxPayNotifications.notificationType)).toBe(true)
+  })
+})
+
+// =============================================================================
+// 14. commission schema (佣金流水 + 提现 + 分销比例)
+// =============================================================================
+
+describe('commission schema', () => {
+  it('三张表名正确', () => {
+    expect(getTableName(commissionFlows)).toBe('commission_flows')
+    expect(getTableName(withdrawalFlows)).toBe('withdrawal_flows')
+    expect(getTableName(identityProportions)).toBe('identity_proportions')
+  })
+
+  it('commissionFlows 三外键 + 状态默认值', () => {
+    expect(commissionFlows.beneficiaryId).toBeDefined()
+    expect(getColumnType(commissionFlows.beneficiaryId)).toBe('uuid')
+    expect(isColumnNotNull(commissionFlows.beneficiaryId)).toBe(true)
+    expect(commissionFlows.invitedUserId).toBeDefined()
+    expect(getColumnType(commissionFlows.invitedUserId)).toBe('uuid')
+    expect(commissionFlows.orderId).toBeDefined()
+    expect(getColumnType(commissionFlows.orderId)).toBe('uuid')
+    expect(hasColumnDefault(commissionFlows.type)).toBe(true)
+    expect(hasColumnDefault(commissionFlows.status)).toBe(true)
+  })
+
+  it('withdrawalFlows 关键字段 + 状态', () => {
+    expect(withdrawalFlows.userId).toBeDefined()
+    expect(isColumnNotNull(withdrawalFlows.userId)).toBe(true)
+    expect(withdrawalFlows.amount).toBeDefined()
+    expect(isColumnNotNull(withdrawalFlows.amount)).toBe(true)
+    expect(withdrawalFlows.status).toBeDefined()
+    expect(hasColumnDefault(withdrawalFlows.status)).toBe(true)
+    expect(withdrawalFlows.method).toBeDefined()
+    expect(isColumnNotNull(withdrawalFlows.method)).toBe(true)
+  })
+
+  it('identityProportions 比例字段默认值 0', () => {
+    expect(identityProportions.gift).toBeDefined()
+    expect(hasColumnDefault(identityProportions.gift)).toBe(true)
+    expect(identityProportions.vipProportion).toBeDefined()
+    expect(hasColumnDefault(identityProportions.vipProportion)).toBe(true)
+    expect(identityProportions.traderProportion).toBeDefined()
+    expect(hasColumnDefault(identityProportions.traderProportion)).toBe(true)
+  })
+})
+
+// =============================================================================
+// 15. refund-audit schema (退款审核记录)
+// =============================================================================
+
+describe('refund-audit schema', () => {
+  it('表名正确', () => {
+    expect(getTableName(refundAuditRecords)).toBe('refund_audit_records')
+  })
+
+  it('三外键 + action NOT NULL', () => {
+    expect(refundAuditRecords.orderId).toBeDefined()
+    expect(getColumnType(refundAuditRecords.orderId)).toBe('uuid')
+    expect(isColumnNotNull(refundAuditRecords.orderId)).toBe(true)
+    expect(refundAuditRecords.refundId).toBeDefined()
+    expect(getColumnType(refundAuditRecords.refundId)).toBe('uuid')
+    expect(isColumnNotNull(refundAuditRecords.refundId)).toBe(true)
+    expect(refundAuditRecords.auditorId).toBeDefined()
+    expect(getColumnType(refundAuditRecords.auditorId)).toBe('uuid')
+    expect(isColumnNotNull(refundAuditRecords.auditorId)).toBe(true)
+    expect(refundAuditRecords.action).toBeDefined()
+    expect(isColumnNotNull(refundAuditRecords.action)).toBe(true)
+    expect(getColumnType(refundAuditRecords.action)).toBe('varchar')
+  })
+})
+
+// =============================================================================
+// 16. funds schema (基金基础信息 + 净值)
+// =============================================================================
+
+describe('funds schema', () => {
+  it('两张表名正确', () => {
+    expect(getTableName(funds)).toBe('funds')
+    expect(getTableName(fundNetValues)).toBe('fund_net_values')
+  })
+
+  it('funds.code NOT NULL + 唯一', () => {
+    expect(funds.code).toBeDefined()
+    expect(isColumnNotNull(funds.code)).toBe(true)
+    expect(getColumnType(funds.code)).toBe('varchar')
+    expect(funds.name).toBeDefined()
+    expect(isColumnNotNull(funds.name)).toBe(true)
+    expect(funds.status).toBeDefined()
+    expect(hasColumnDefault(funds.status)).toBe(true)
+  })
+
+  it('fundNetValues 外键 + value numeric(10,4)', () => {
+    expect(fundNetValues.fundId).toBeDefined()
+    expect(isColumnNotNull(fundNetValues.fundId)).toBe(true)
+    expect(getColumnType(fundNetValues.fundId)).toBe('uuid')
+    expect(fundNetValues.value).toBeDefined()
+    expect(getColumnType(fundNetValues.value)).toBe('numeric')
+    expect(fundNetValues.date).toBeDefined()
+    expect(isColumnNotNull(fundNetValues.date)).toBe(true)
   })
 })
