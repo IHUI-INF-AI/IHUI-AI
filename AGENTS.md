@@ -954,3 +954,67 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-jun
 - 在项目外创建证书目录 / 临时文件 / store 的,视为**工作区污染事故**。
 - 在 `G:\` 根目录运行可执行文件导致插件/DLL 释放到根目录的,视为**工作区污染事故**。
 - 硬编码项目外绝对路径的代码,视为**可移植性缺陷**(code review 必须拦截)。
+
+---
+
+## 18. Push 阶段跨 Agent 改动保护规则(强制,2026-07-18 立)
+
+> 适用范围:agent 准备 `git commit` / `git push` 时,发现 working tree 有非本任务相关的其他 agent 改动,如何正确处理。
+> 本规则是对第 14 节(多会话隔离)的补充 — 第 14 节管"文件修改时不被回滚",本节管"push 时不抹除/不混入其他 agent 改动"。
+
+### 触发场景(2026-07-18 真实案例)
+
+- **案例 1 — P1-27 commit 时发现 Coze OAuth in-progress 改动**:P1-27 任务执行 commit + push 时,`git status` 显示 working tree 存在其他 agent 新增的 3 个文件(`coze-oauth.ts` / `coze-auth-utils.ts` / `coze-oauth-apps.ts`)+ 4 个文件 modified(`auth-extended.ts` / `server.ts` / `oauth-providers.ts` / `sidebar.tsx`)。这些改动属于其他 agent 正在推进的 Coze OAuth + 飞书 OAuth 集成任务,与 P1-27 完全无关。
+- **案例 2 — commit_msg.txt 临时文件**:其他 agent 在仓库根目录创建了 `commit_msg.txt`(3412 字节,2026-07-18 13:08 修改),按第 17 节工作区卫生规则本应删除,但**按本节规则必须保留** — 因为该文件可能是其他 agent 未完成 commit 的工作证据,擅自删除会污染他们的状态。
+- **案例 3 — fetch-wechat-platform-cert.mjs 7 字节空文件**:其他 agent 创建了几乎为空的文件(7 字节),看似"垃圾",但可能是其脚手架的第一笔,**禁止抹除**。
+- **教训**:多 agent 并行工作同一 main 分支时,任何 agent 在 push 阶段都不得:
+  1. `git restore <file>` / `git checkout -- <file>` 抹除其他 agent 的修改
+  2. `git add <file>` 把其他 agent 的文件加进自己的 commit
+  3. `git stash` / `git stash drop` 把其他 agent 的工作 stash
+  4. 推送时强制 push 覆盖其他 agent 的 commit
+  5. 手动 `Remove-Item` / `rm` 删除其他 agent 创建的"看着像垃圾"文件
+
+### 必须遵守(强制)
+
+- **禁止抹除其他 agent 的 working tree 改动(红线)**:任何 agent 在 commit + push 阶段,**禁止**对 working tree 中的非本任务相关文件执行破坏性操作:
+  - ❌ `git restore <file>` / `git checkout -- <file>` (抹除 modified)
+  - ❌ `git stash push` / `git stash` (把其他 agent 改动暂存)
+  - ❌ `git clean -f` / `git clean -fd` (删除 untracked)
+  - ❌ `git reset --hard` (回滚整个工作树)
+  - ❌ `Remove-Item` / `rm` (手动删除其他 agent 创建的文件,包括"看着像垃圾"的文件如 `commit_msg.txt` / 临时测试文件 / 调试日志 / 7 字节空脚手架文件等)
+- **禁止混入其他 agent 的改动(红线)**:commit 阶段**只 add 本任务相关的文件**:
+  - ✅ `git add <本任务文件1> <本任务文件2> ...`(精确指定)
+  - ❌ `git add .` / `git add -A` / `git add -u`(会把所有 untracked + modified 全加进去,混入其他 agent 工作)
+  - ❌ `git add <其他 agent 的文件>`(明确禁止)
+- **正确流程(3 步)**:
+  1. **预检**:`git status --porcelain` 列出所有改动,识别 "本任务改动" vs "其他 agent 改动"(以文件路径 + 内容主题为判断依据,不要看到 "M" 或 "??" 就 add)
+  2. **隔离**:仅 `git add <本任务文件清单>`,不触碰其他 agent 改动(用空格分隔多个文件,不要用通配符)
+  3. **验证**:`git status --short` 确认 staged 列表**仅含本任务文件**,working tree 仍有其他 agent 改动保持原样(它们的 ` M` / `??` 状态必须保留)
+- **pre-push hook 失败时的处理**:若 pre-push hook 跑全量 typecheck/lint 失败,错误来自其他 agent 的代码:
+  - ❌ 不得 `--no-verify` 强行 push(绕过硬约束)
+  - ❌ 不得修改其他 agent 的代码"帮他们修"(越权)
+  - ❌ 不得 `git reset --hard HEAD` 或 `git reset --hard origin/main` 回滚 working tree(会抹除其他 agent 改动,违反本节红线)
+  - ✅ 报告用户"pre-push 失败,根因是其他 agent 的 X 文件 Y 错误,请协调其他 agent 修复后再 push"
+  - ✅ 仅回退自己的 staged 改动(`git reset HEAD <本任务文件>` 或 `git restore --staged <本任务文件>`),保留 working tree 中其他 agent 的改动
+  - ✅ 报告时附完整错误片段(文件路径 + 行号 + 错误码),便于协调
+- **不干扰其他 agent 的 commit/push 流程**:本 agent 完成自己的 commit + push 后:
+  - ✅ 不再触碰 working tree(让其他 agent 继续工作)
+  - ❌ 不执行 `git pull` / `git fetch` / `git rebase` 等会改变 working tree 的操作
+  - ❌ 不在原会话内继续修改其他 agent 负责的文件
+  - ❌ 不发起 `git push origin main --force` / `git push --force-with-lease`(即使 push 失败,只能等冲突解决)
+
+### 联动规则
+
+- 与第 14 节(多会话隔离)协同:第 14 节禁止所有破坏性 git 操作,本节细化 push 阶段的具体行为
+- 与第 12 节(多 Subagent 并行)协同:第 12 节要求 subagent 在独立分支工作;若多会话在 main 分支直接 commit,本节提供保护
+- 与第 15 节(文件修改持久化)协同:本节也遵守"修改后立即用 Read 验证"原则
+- 与第 17 节(工作区卫生)协调:第 17 节说"禁止在 G:\ 根目录创建 commit_msg.txt",本节说"但**已经存在**的 commit_msg.txt 不得擅自删除"(等该文件 owner 自行清理)
+
+### 红线
+
+- 抹除其他 agent 改动的(无论是否"看着像垃圾"),视为**协作事故**
+- 把其他 agent 改动混入自己 commit 的,视为**污染事故**(commit 历史被污染,需 revert + cherry-pick 修复)
+- `--no-verify` 强行 push 绕过 pre-push hook 的,视为**流程事故**
+- 修改其他 agent 文件"帮他们修"的,视为**越权事故**
+- `git reset --hard` 回滚整个工作树的,视为**数据丢失事故**
+- 删除 commit_msg.txt / 临时脚手架文件 / 调试日志等"看着像垃圾"文件的,视为**破坏协作事故**
