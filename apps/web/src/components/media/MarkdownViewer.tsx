@@ -4,11 +4,18 @@ import * as React from 'react'
 import dynamic from 'next/dynamic'
 import type * as RemarkGfm from 'remark-gfm'
 import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
+import { isMermaidLanguage } from '@/lib/markdown-mermaid-code'
 import { cn } from '@/lib/utils'
 
 const ReactMarkdown = dynamic(() => import('react-markdown'), {
   ssr: false,
   loading: () => <div className="animate-pulse text-sm text-muted-foreground">…</div>,
+})
+
+// MermaidDiagram 仅在客户端加载,不影响首屏 bundle
+const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse text-xs text-muted-foreground">…</div>,
 })
 
 interface MarkdownViewerProps {
@@ -49,6 +56,10 @@ export function MarkdownViewer({ content, className }: MarkdownViewerProps) {
                   {children}
                 </code>
               )
+            }
+            // mermaid 块交给 MermaidDiagram 渲染,不走 Prism
+            if (isMermaidLanguage(cls)) {
+              return <MermaidDiagram code={String(children).replace(/\n$/, '')} />
             }
             return (
               <SyntaxHighlighter
