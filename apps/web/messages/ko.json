@@ -1033,8 +1033,8 @@
         "category": "요약"
       }
     },
-    "hideReasoning": "Hide Reasoning",
-    "showReasoning": "Show Reasoning"
+    "hideReasoning": "추론 숨기기",
+    "showReasoning": "추론 표시"
   },
   "learn": {
     "title": "AI인마음페이스테스트",
@@ -8661,8 +8661,8 @@
     "empty": "피드백 기록 없음",
     "backToList": "목록으로 돌아가기",
     "notFound": "찾을 수 없음",
-    "field_images": "Images",
-    "imagesPlaceholder": "Paste or drag images here"
+    "field_images": "이미지",
+    "imagesPlaceholder": "이미지를 붙여넣거나 드래그하세요"
   },
   "comments": {
     "replyTitle": "관리자 답변",
