@@ -1,0 +1,905 @@
+{
+  "_comment": "AI-service 默认模型清单(与前端 apps/web/app/(main)/models/helpers.ts FALLBACK_MODELS 保持一致)",
+  "_note": "运行时由 llm.py 按需加载,按 id 去重;修改本文件无需重启 Python 进程",
+  "models": [
+    {
+      "id": "stepfun/step-3.7-flash",
+      "name": "Step 3.7 Flash (StepFun)",
+      "provider": "stepfun",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "stepfun/step-3.5-flash",
+      "name": "Step 3.5 Flash (StepFun)",
+      "provider": "stepfun",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "stepfun/step-router-v1",
+      "name": "Step Router v1 (StepFun 智能路由)",
+      "provider": "stepfun",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "agnes/gpt-4o",
+      "name": "GPT-4o (Agnes Plan)",
+      "provider": "openai",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "groq/llama-3.3-70b-versatile",
+      "name": "Llama 3.3 70B (Groq 免费)",
+      "provider": "groq",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "gemini/gemini-1.5-flash",
+      "name": "Gemini 1.5 Flash (免费)",
+      "provider": "google",
+      "context_length": 1000000,
+      "input_price": 0
+    },
+    {
+      "id": "openrouter/auto",
+      "name": "OpenRouter Auto (免费路由)",
+      "provider": "openrouter",
+      "context_length": 128000,
+      "input_price": 0
+    },
+
+    {
+      "id": "gpt-4o",
+      "name": "GPT-4o",
+      "provider": "openai",
+      "context_length": 128000,
+      "input_price": 2.5
+    },
+    {
+      "id": "gpt-4o-mini",
+      "name": "GPT-4o mini",
+      "provider": "openai",
+      "context_length": 128000,
+      "input_price": 0.15
+    },
+    {
+      "id": "gpt-4.1",
+      "name": "GPT-4.1",
+      "provider": "openai",
+      "context_length": 1047576,
+      "input_price": 2.0
+    },
+    {
+      "id": "gpt-4.1-mini",
+      "name": "GPT-4.1 mini",
+      "provider": "openai",
+      "context_length": 1047576,
+      "input_price": 0.4
+    },
+    {
+      "id": "o3",
+      "name": "o3",
+      "provider": "openai",
+      "context_length": 200000,
+      "input_price": 60.0
+    },
+    {
+      "id": "o3-mini",
+      "name": "o3 mini",
+      "provider": "openai",
+      "context_length": 200000,
+      "input_price": 1.1
+    },
+    {
+      "id": "o4-mini",
+      "name": "o4 mini",
+      "provider": "openai",
+      "context_length": 200000,
+      "input_price": 1.1
+    },
+
+    {
+      "id": "claude-3-5-sonnet",
+      "name": "Claude 3.5 Sonnet",
+      "provider": "anthropic",
+      "context_length": 200000,
+      "input_price": 3.0
+    },
+    {
+      "id": "claude-3-5-haiku",
+      "name": "Claude 3.5 Haiku",
+      "provider": "anthropic",
+      "context_length": 200000,
+      "input_price": 0.8
+    },
+    {
+      "id": "claude-3-7-sonnet",
+      "name": "Claude 3.7 Sonnet",
+      "provider": "anthropic",
+      "context_length": 200000,
+      "input_price": 3.0
+    },
+    {
+      "id": "claude-opus-4",
+      "name": "Claude Opus 4",
+      "provider": "anthropic",
+      "context_length": 200000,
+      "input_price": 15.0
+    },
+    {
+      "id": "claude-sonnet-4",
+      "name": "Claude Sonnet 4",
+      "provider": "anthropic",
+      "context_length": 200000,
+      "input_price": 3.0
+    },
+
+    {
+      "id": "gemini-2.0-flash",
+      "name": "Gemini 2.0 Flash",
+      "provider": "google",
+      "context_length": 1048576,
+      "input_price": 0.1
+    },
+    {
+      "id": "gemini-2.5-pro",
+      "name": "Gemini 2.5 Pro",
+      "provider": "google",
+      "context_length": 1048576,
+      "input_price": 1.25
+    },
+    {
+      "id": "gemini-2.5-flash",
+      "name": "Gemini 2.5 Flash",
+      "provider": "google",
+      "context_length": 1048576,
+      "input_price": 0.075
+    },
+    {
+      "id": "gemma-2-27b-it",
+      "name": "Gemma 2 27B",
+      "provider": "gemma",
+      "context_length": 8192,
+      "input_price": 0.1
+    },
+    {
+      "id": "gemma-2-9b-it",
+      "name": "Gemma 2 9B",
+      "provider": "gemma",
+      "context_length": 8192,
+      "input_price": 0.03
+    },
+
+    {
+      "id": "deepseek-chat",
+      "name": "DeepSeek Chat",
+      "provider": "deepseek",
+      "context_length": 64000,
+      "input_price": 0.27
+    },
+    {
+      "id": "deepseek-reasoner",
+      "name": "DeepSeek Reasoner (R1)",
+      "provider": "deepseek",
+      "context_length": 64000,
+      "input_price": 0.55
+    },
+    {
+      "id": "deepseek-v3",
+      "name": "DeepSeek V3",
+      "provider": "deepseek",
+      "context_length": 64000,
+      "input_price": 0.27
+    },
+
+    {
+      "id": "llama-3.3-70b-versatile",
+      "name": "Llama 3.3 70B",
+      "provider": "meta",
+      "context_length": 128000,
+      "input_price": 0.59
+    },
+    {
+      "id": "llama-3.1-405b-instruct",
+      "name": "Llama 3.1 405B",
+      "provider": "meta",
+      "context_length": 128000,
+      "input_price": 3.0
+    },
+
+    {
+      "id": "mistral-large-latest",
+      "name": "Mistral Large",
+      "provider": "mistral",
+      "context_length": 128000,
+      "input_price": 2.0
+    },
+    {
+      "id": "codestral-latest",
+      "name": "Codestral",
+      "provider": "mistral",
+      "context_length": 256000,
+      "input_price": 0.3
+    },
+    {
+      "id": "pixtral-large-latest",
+      "name": "Pixtral Large",
+      "provider": "mistral",
+      "context_length": 128000,
+      "input_price": 2.0
+    },
+
+    {
+      "id": "grok-2",
+      "name": "Grok 2",
+      "provider": "xai",
+      "context_length": 131072,
+      "input_price": 2.0
+    },
+    {
+      "id": "grok-3",
+      "name": "Grok 3",
+      "provider": "xai",
+      "context_length": 131072,
+      "input_price": 3.0
+    },
+
+    {
+      "id": "command-r-plus",
+      "name": "Command R+",
+      "provider": "cohere",
+      "context_length": 128000,
+      "input_price": 2.5
+    },
+    {
+      "id": "command-a",
+      "name": "Command A",
+      "provider": "cohere",
+      "context_length": 256000,
+      "input_price": 2.5
+    },
+
+    {
+      "id": "nemotron-4-340b-instruct",
+      "name": "Nemotron 4 340B",
+      "provider": "nvidia",
+      "context_length": 4096,
+      "input_price": 0
+    },
+    {
+      "id": "llama-3.1-nemotron-70b-instruct",
+      "name": "Llama 3.1 Nemotron 70B",
+      "provider": "nvidia",
+      "context_length": 128000,
+      "input_price": 0.12
+    },
+
+    {
+      "id": "jamba-1-5-large",
+      "name": "Jamba 1.5 Large",
+      "provider": "ai21",
+      "context_length": 256000,
+      "input_price": 2.0
+    },
+
+    {
+      "id": "phi-4",
+      "name": "Phi 4",
+      "provider": "microsoft",
+      "context_length": 16384,
+      "input_price": 0.07
+    },
+    {
+      "id": "phi-3.5-mini-instruct",
+      "name": "Phi 3.5 Mini",
+      "provider": "microsoft",
+      "context_length": 128000,
+      "input_price": 0.075
+    },
+
+    {
+      "id": "sonar-large",
+      "name": "Sonar Large",
+      "provider": "perplexity",
+      "context_length": 127072,
+      "input_price": 2.0
+    },
+    {
+      "id": "sonar-small",
+      "name": "Sonar Small",
+      "provider": "perplexity",
+      "context_length": 127072,
+      "input_price": 0.2
+    },
+
+    {
+      "id": "amazon-nova-pro",
+      "name": "Amazon Nova Pro",
+      "provider": "aws",
+      "context_length": 300000,
+      "input_price": 0.8
+    },
+    {
+      "id": "amazon-nova-lite",
+      "name": "Amazon Nova Lite",
+      "provider": "aws",
+      "context_length": 300000,
+      "input_price": 0.06
+    },
+
+    {
+      "id": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2",
+      "name": "Bedrock Claude 3.5 Sonnet v2",
+      "provider": "bedrock",
+      "context_length": 200000,
+      "input_price": 3.0
+    },
+    {
+      "id": "bedrock/meta.llama3-1-405b-instruct-v1",
+      "name": "Bedrock Llama 3.1 405B",
+      "provider": "bedrock",
+      "context_length": 128000,
+      "input_price": 3.0
+    },
+
+    {
+      "id": "azure/gpt-4o",
+      "name": "Azure GPT-4o",
+      "provider": "azure",
+      "context_length": 128000,
+      "input_price": 2.5
+    },
+    {
+      "id": "azure/gpt-4o-mini",
+      "name": "Azure GPT-4o mini",
+      "provider": "azure",
+      "context_length": 128000,
+      "input_price": 0.15
+    },
+
+    {
+      "id": "openrouter/anthropic/claude-3.5-sonnet",
+      "name": "OR Claude 3.5 Sonnet",
+      "provider": "openrouter",
+      "context_length": 200000,
+      "input_price": 3.0
+    },
+
+    {
+      "id": "huggingface/meta-llama/Llama-3.3-70B-Instruct",
+      "name": "HF Llama 3.3 70B",
+      "provider": "huggingface",
+      "context_length": 128000,
+      "input_price": 0.59
+    },
+    {
+      "id": "replicate/meta/llama-3-70b-instruct",
+      "name": "Replicate Llama 3 70B",
+      "provider": "replicate",
+      "context_length": 8192,
+      "input_price": 0.6
+    },
+
+    {
+      "id": "stablelm-2-12b-chat",
+      "name": "StableLM 2 12B",
+      "provider": "stability",
+      "context_length": 16384,
+      "input_price": 0
+    },
+
+    {
+      "id": "inflection-3-pi",
+      "name": "Inflection 3 Pi",
+      "provider": "inflection",
+      "context_length": 8000,
+      "input_price": 1.0
+    },
+    {
+      "id": "inflection-3-productivity",
+      "name": "Inflection 3 Productivity",
+      "provider": "inflection",
+      "context_length": 8000,
+      "input_price": 1.0
+    },
+
+    {
+      "id": "watsonx/granite-3-8b-instruct",
+      "name": "Granite 3 8B",
+      "provider": "ibm",
+      "context_length": 128000,
+      "input_price": 0.2
+    },
+    {
+      "id": "watsonx/granite-3-2b-instruct",
+      "name": "Granite 3 2B",
+      "provider": "ibm",
+      "context_length": 128000,
+      "input_price": 0.05
+    },
+
+    {
+      "id": "cerebras/llama3.1-8b",
+      "name": "Cerebras Llama 3.1 8B",
+      "provider": "cerebras",
+      "context_length": 128000,
+      "input_price": 0.1
+    },
+    {
+      "id": "cerebras/llama3.1-70b",
+      "name": "Cerebras Llama 3.1 70B",
+      "provider": "cerebras",
+      "context_length": 128000,
+      "input_price": 0.7
+    },
+
+    {
+      "id": "sambanova/llama-3.1-70b-instruct",
+      "name": "SambaNova Llama 3.1 70B",
+      "provider": "sambanova",
+      "context_length": 128000,
+      "input_price": 0.7
+    },
+    {
+      "id": "sambanova/llama-3.1-405b-instruct",
+      "name": "SambaNova Llama 3.1 405B",
+      "provider": "sambanova",
+      "context_length": 128000,
+      "input_price": 3.0
+    },
+
+    {
+      "id": "snowflake-arctic",
+      "name": "Snowflake Arctic",
+      "provider": "snowflake",
+      "context_length": 4096,
+      "input_price": 0
+    },
+
+    {
+      "id": "deepinfra/meta-llama/Llama-3.3-70B-Instruct",
+      "name": "DeepInfra Llama 3.3 70B",
+      "provider": "deepinfra",
+      "context_length": 128000,
+      "input_price": 0.27
+    },
+
+    {
+      "id": "luminous-base",
+      "name": "Luminous Base",
+      "provider": "alephalpha",
+      "context_length": 2048,
+      "input_price": 0
+    },
+    {
+      "id": "luminous-supreme",
+      "name": "Luminous Supreme",
+      "provider": "alephalpha",
+      "context_length": 2048,
+      "input_price": 0
+    },
+
+    {
+      "id": "nous-hermes-2-mixtral-8x7b-dpo",
+      "name": "Nous Hermes 2 Mixtral 8x7B",
+      "provider": "nous",
+      "context_length": 32768,
+      "input_price": 0.27
+    },
+    {
+      "id": "nous-hermes-3-llama-3.1-405b",
+      "name": "Nous Hermes 3 Llama 3.1 405B",
+      "provider": "nous",
+      "context_length": 128000,
+      "input_price": 3.0
+    },
+
+    {
+      "id": "vertex/claude-3-5-sonnet",
+      "name": "Vertex Claude 3.5 Sonnet",
+      "provider": "vertexai",
+      "context_length": 200000,
+      "input_price": 3.0
+    },
+    {
+      "id": "vertex/gemini-1.5-pro",
+      "name": "Vertex Gemini 1.5 Pro",
+      "provider": "vertexai",
+      "context_length": 2000000,
+      "input_price": 1.25
+    },
+
+    {
+      "id": "microsoft-copilot",
+      "name": "Microsoft Copilot",
+      "provider": "copilot",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "bing-chat-creative",
+      "name": "Bing Chat Creative",
+      "provider": "bing",
+      "context_length": 128000,
+      "input_price": 0
+    },
+
+    {
+      "id": "qwen-plus",
+      "name": "Qwen Plus",
+      "provider": "qwen",
+      "context_length": 131072,
+      "input_price": 0.4
+    },
+    {
+      "id": "qwen-max",
+      "name": "Qwen Max",
+      "provider": "qwen",
+      "context_length": 32768,
+      "input_price": 1.6
+    },
+    {
+      "id": "qwen-turbo",
+      "name": "Qwen Turbo",
+      "provider": "qwen",
+      "context_length": 1000000,
+      "input_price": 0.05
+    },
+    {
+      "id": "qwen2.5-72b-instruct",
+      "name": "Qwen2.5 72B Instruct",
+      "provider": "qwen",
+      "context_length": 32768,
+      "input_price": 0.4
+    },
+
+    {
+      "id": "glm-4-plus",
+      "name": "GLM-4 Plus",
+      "provider": "zhipu",
+      "context_length": 128000,
+      "input_price": 0.7
+    },
+    {
+      "id": "glm-4.5",
+      "name": "GLM-4.5",
+      "provider": "zhipu",
+      "context_length": 128000,
+      "input_price": 0.6
+    },
+    {
+      "id": "glm-4-air",
+      "name": "GLM-4 Air",
+      "provider": "zhipu",
+      "context_length": 128000,
+      "input_price": 0.1
+    },
+
+    {
+      "id": "moonshot-v1-8k",
+      "name": "Moonshot v1 8K",
+      "provider": "moonshot",
+      "context_length": 8192,
+      "input_price": 1.2
+    },
+    {
+      "id": "moonshot-v1-32k",
+      "name": "Moonshot v1 32K",
+      "provider": "moonshot",
+      "context_length": 32768,
+      "input_price": 2.4
+    },
+    {
+      "id": "kimi-k2",
+      "name": "Kimi K2",
+      "provider": "moonshot",
+      "context_length": 131072,
+      "input_price": 0.55
+    },
+
+    {
+      "id": "doubao-1-6-pro",
+      "name": "Doubao 1.6 Pro",
+      "provider": "doubao",
+      "context_length": 32768,
+      "input_price": 0.11
+    },
+    {
+      "id": "doubao-pro-32k",
+      "name": "Doubao Pro 32K",
+      "provider": "doubao",
+      "context_length": 32768,
+      "input_price": 0.05
+    },
+
+    {
+      "id": "hunyuan-pro",
+      "name": "Hunyuan Pro",
+      "provider": "hunyuan",
+      "context_length": 32768,
+      "input_price": 0.45
+    },
+    {
+      "id": "hunyuan-turbo",
+      "name": "Hunyuan Turbo",
+      "provider": "hunyuan",
+      "context_length": 32768,
+      "input_price": 0.1
+    },
+
+    {
+      "id": "ernie-4.0-turbo-8k",
+      "name": "ERNIE 4.0 Turbo",
+      "provider": "wenxin",
+      "context_length": 8192,
+      "input_price": 0.5
+    },
+    {
+      "id": "ernie-speed-128k",
+      "name": "ERNIE Speed 128K",
+      "provider": "wenxin",
+      "context_length": 128000,
+      "input_price": 0.05
+    },
+
+    {
+      "id": "abab6.5s-chat",
+      "name": "ABAB 6.5s Chat",
+      "provider": "minimax",
+      "context_length": 245760,
+      "input_price": 0.1
+    },
+    {
+      "id": "minimax-text-01",
+      "name": "MiniMax Text 01",
+      "provider": "minimax",
+      "context_length": 1000000,
+      "input_price": 0.1
+    },
+
+    {
+      "id": "baichuan-4-turbo",
+      "name": "Baichuan 4 Turbo",
+      "provider": "baichuan",
+      "context_length": 32768,
+      "input_price": 0.4
+    },
+    {
+      "id": "spark-v4",
+      "name": "Spark V4",
+      "provider": "spark",
+      "context_length": 8192,
+      "input_price": 0.4
+    },
+    {
+      "id": "yi-large",
+      "name": "Yi Large",
+      "provider": "yi",
+      "context_length": 32768,
+      "input_price": 0.3
+    },
+    {
+      "id": "sensenova-5",
+      "name": "SenseNova 5",
+      "provider": "sensenova",
+      "context_length": 32768,
+      "input_price": 0.3
+    },
+    {
+      "id": "skywork-4",
+      "name": "Skywork 4",
+      "provider": "skywork",
+      "context_length": 32768,
+      "input_price": 0.2
+    },
+    {
+      "id": "internlm2.5-20b",
+      "name": "InternLM 2.5 20B",
+      "provider": "internlm",
+      "context_length": 32768,
+      "input_price": 0
+    },
+
+    {
+      "id": "novita/meta-llama/llama-3.3-70b-instruct",
+      "name": "Novita Llama 3.3 70B",
+      "provider": "novita",
+      "context_length": 32768,
+      "input_price": 0.39
+    },
+    {
+      "id": "lambda/llama-3.3-70b-instruct",
+      "name": "Lambda Llama 3.3 70B",
+      "provider": "lambda",
+      "context_length": 32768,
+      "input_price": 0.5
+    },
+    {
+      "id": "baseten/llama-3.3-70b-instruct",
+      "name": "Baseten Llama 3.3 70B",
+      "provider": "baseten",
+      "context_length": 32768,
+      "input_price": 0.6
+    },
+    {
+      "id": "crusoe/llama-3.3-70b-instruct",
+      "name": "Crusoe Llama 3.3 70B",
+      "provider": "crusoe",
+      "context_length": 32768,
+      "input_price": 0.55
+    },
+    {
+      "id": "targon/llama-3.3-70b-instruct",
+      "name": "Targon Llama 3.3 70B",
+      "provider": "targon",
+      "context_length": 32768,
+      "input_price": 0.5
+    },
+    {
+      "id": "centml/llama-3.3-70b-instruct",
+      "name": "CentML Llama 3.3 70B",
+      "provider": "centml",
+      "context_length": 32768,
+      "input_price": 0.4
+    },
+    {
+      "id": "nebius/meta-llama/Llama-3.3-70B-Instruct",
+      "name": "Nebius Llama 3.3 70B",
+      "provider": "nebius",
+      "context_length": 32768,
+      "input_price": 0.46
+    },
+    {
+      "id": "ollama/llama3.3:70b",
+      "name": "Ollama Llama 3.3 70B",
+      "provider": "ollama",
+      "context_length": 32768,
+      "input_price": 0
+    },
+    {
+      "id": "upstage/solar-pro",
+      "name": "Solar Pro",
+      "provider": "upstage",
+      "context_length": 32768,
+      "input_price": 0.5
+    },
+    {
+      "id": "leptonai/llama3.3-70b",
+      "name": "LeptonAI Llama 3.3 70B",
+      "provider": "leptonai",
+      "context_length": 32768,
+      "input_price": 0.5
+    },
+    {
+      "id": "hyperbolic/meta-llama/Meta-Llama-3.3-70B-Instruct",
+      "name": "Hyperbolic Llama 3.3 70B",
+      "provider": "hyperbolic",
+      "context_length": 32768,
+      "input_price": 0.4
+    },
+    {
+      "id": "featherless/qwen/Qwen2.5-72B-Instruct",
+      "name": "Featherless Qwen2.5 72B",
+      "provider": "featherless",
+      "context_length": 32768,
+      "input_price": 0.4
+    },
+    {
+      "id": "parasail/llama3.3-70b-instruct",
+      "name": "Parasail Llama 3.3 70B",
+      "provider": "parasail",
+      "context_length": 32768,
+      "input_price": 0.45
+    },
+    {
+      "id": "openwebui/llama3.3-70b",
+      "name": "OpenWebUI Llama 3.3 70B",
+      "provider": "openwebui",
+      "context_length": 32768,
+      "input_price": 0
+    },
+    {
+      "id": "lmstudio/llama-3.3-70b",
+      "name": "LM Studio Llama 3.3 70B",
+      "provider": "lmstudio",
+      "context_length": 32768,
+      "input_price": 0
+    },
+    {
+      "id": "friendli/meta-llama-3.3-70b-instruct",
+      "name": "Friendli Llama 3.3 70B",
+      "provider": "friendli",
+      "context_length": 32768,
+      "input_price": 0.5
+    },
+    {
+      "id": "anyscale/meta-llama/Llama-3.3-70B-Instruct",
+      "name": "Anyscale Llama 3.3 70B",
+      "provider": "anyscale",
+      "context_length": 32768,
+      "input_price": 0.5
+    },
+    {
+      "id": "infermatic/llama-3.3-70b-instruct",
+      "name": "Infermatic Llama 3.3 70B",
+      "provider": "infermatic",
+      "context_length": 32768,
+      "input_price": 0.5
+    },
+    {
+      "id": "replit/replit-code-v1.5-3b",
+      "name": "Replit Code V1.5 3B",
+      "provider": "replit",
+      "context_length": 4096,
+      "input_price": 0.1
+    },
+
+    {
+      "id": "siliconcloud/Qwen/Qwen2.5-72B-Instruct",
+      "name": "SiliconCloud Qwen2.5 72B",
+      "provider": "siliconcloud",
+      "context_length": 32768,
+      "input_price": 0.4
+    },
+    {
+      "id": "modelscope/Qwen/Qwen2.5-72B-Instruct",
+      "name": "ModelScope Qwen2.5 72B",
+      "provider": "modelscope",
+      "context_length": 32768,
+      "input_price": 0
+    },
+    {
+      "id": "ppio/qwen/qwen2.5-72b-instruct",
+      "name": "PPIO Qwen2.5 72B",
+      "provider": "ppio",
+      "context_length": 32768,
+      "input_price": 0.35
+    },
+    {
+      "id": "volcengine/doubao-pro-32k",
+      "name": "Volcengine Doubao Pro 32K",
+      "provider": "volcengine",
+      "context_length": 32768,
+      "input_price": 0.05
+    },
+    {
+      "id": "bailian/qwen-max",
+      "name": "Bailian Qwen Max",
+      "provider": "bailian",
+      "context_length": 32768,
+      "input_price": 1.6
+    },
+    {
+      "id": "baai/aquila2-34b",
+      "name": "Aquila2 34B",
+      "provider": "baai",
+      "context_length": 4096,
+      "input_price": 0
+    },
+    {
+      "id": "tii/falcon3-10b-instruct",
+      "name": "Falcon3 10B Instruct",
+      "provider": "tii",
+      "context_length": 32768,
+      "input_price": 0
+    },
+    {
+      "id": "liquid/lfm-40b",
+      "name": "Liquid LFM 40B MoE",
+      "provider": "liquid",
+      "context_length": 32768,
+      "input_price": 0.5
+    },
+    {
+      "id": "ai2/olmo-2-1124-7b-instruct",
+      "name": "OLMo 2 7B Instruct",
+      "provider": "ai2",
+      "context_length": 4096,
+      "input_price": 0
+    }
+  ]
+}
