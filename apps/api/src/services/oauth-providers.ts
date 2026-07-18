@@ -403,6 +403,98 @@ export async function getAlipayUserInfo(accessToken: string): Promise<AlipayUser
 export { isAlipayPayConfigured }
 
 // ============================================================================
+// 飞书（Feishu / Lark）OAuth 登录
+// 迁移自 v1.0.2-sealed: server/app/services/feishu_auth_service.py
+// 密钥配置（.env）:
+// - FEISHU_APP_ID / FEISHU_APP_SECRET
+// 密钥留空时降级为 mock 模式（DEV）。
+// ============================================================================
+
+const FEISHU_OAUTH_URL = 'https://open.feishu.cn/open-apis/authen/v1/oidc/access_token'
+const FEISHU_USER_INFO_URL = 'https://open.feishu.cn/open-apis/authen/v1/user_info'
+
+export interface FeishuUserInfo {
+  openId: string
+  unionId?: string
+  name: string
+  avatar: string
+  mobile?: string
+}
+
+export function isFeishuConfigured(): boolean {
+  return Boolean(env.FEISHU_APP_ID && env.FEISHU_APP_SECRET)
+}
+
+/** 用授权码 code 换 user_access_token（飞书 OIDC） */
+export async function getFeishuAccessToken(code: string): Promise<{
+  accessToken: string
+  refreshToken?: string
+  expiresIn?: number
+}> {
+  const resp = await fetch(FEISHU_OAUTH_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({
+      grant_type: 'authorization_code',
+      client_id: env.FEISHU_APP_ID ?? '',
+      client_secret: env.FEISHU_APP_SECRET ?? '',
+      code,
+    }),
+  })
+  if (!resp.ok) throw new Error(`Feishu token exchange failed: ${resp.status}`)
+  const body = (await resp.json()) as {
+    code?: number
+    msg?: string
+    access_token?: string
+    refresh_token?: string
+    expires_in?: number
+  }
+  if (body.code !== 0 || !body.access_token) {
+    throw new Error(`Feishu OAuth error: ${body.msg ?? body.code ?? 'no access_token'}`)
+  }
+  return {
+    accessToken: body.access_token,
+    refreshToken: body.refresh_token,
+    expiresIn: body.expires_in,
+  }
+}
+
+/** 用 user_access_token 拉飞书用户信息 */
+export async function getFeishuUserInfo(accessToken: string): Promise<FeishuUserInfo> {
+  const resp = await fetch(FEISHU_USER_INFO_URL, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+  })
+  if (!resp.ok) throw new Error(`Feishu userinfo failed: ${resp.status}`)
+  const body = (await resp.json()) as {
+    code?: number
+    msg?: string
+    data?: {
+      open_id?: string
+      union_id?: string
+      name?: string
+      avatar_url?: string
+      mobile?: string
+    }
+  }
+  if (body.code !== 0) {
+    throw new Error(`Feishu userinfo error: ${body.msg ?? body.code ?? 'failed'}`)
+  }
+  const data = body.data ?? {}
+  const openId = data.open_id ?? ''
+  if (!openId) throw new Error('Feishu userinfo: missing open_id')
+  return {
+    openId,
+    unionId: data.union_id,
+    name: data.name ?? '',
+    avatar: data.avatar_url ?? '',
+    mobile: data.mobile,
+  }
+}
+
+// ============================================================================
 // 公共工具
 // ============================================================================
 
