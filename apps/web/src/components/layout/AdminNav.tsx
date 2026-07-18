@@ -205,6 +205,8 @@ interface AdminNavItem {
     | 'messageOverview'
     | 'visitTracking'
     | 'examMarking'
+    | 'crew'
+    | 'knowledgeRag'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -311,6 +313,9 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/advertise', labelKey: 'advertise', icon: AdIcon },
   { href: '/admin/carousel', labelKey: 'carousel', icon: Images },
   { href: '/admin/ai-gc', labelKey: 'aiGc', icon: Sparkles },
+  // P3: 多智能体协作 + RAG 知识库
+  { href: '/admin/crew', labelKey: 'crew', icon: Bot },
+  { href: '/admin/knowledge-rag', labelKey: 'knowledgeRag', icon: BookOpen },
   { href: '/admin/developer-link', labelKey: 'developerLink', icon: Link2 },
   { href: '/admin/identity-proportion', labelKey: 'identityProportion', icon: Percent },
   { href: '/admin/product-identity', labelKey: 'productIdentity', icon: Box },

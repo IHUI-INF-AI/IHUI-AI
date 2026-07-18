@@ -20,6 +20,8 @@ export type {
   PluginContext,
   PluginManifest,
   PluginDefinition,
+  PluginHookContext,
+  TurnContributorContext,
   LoadPluginsOptions,
 } from './types.js';
 

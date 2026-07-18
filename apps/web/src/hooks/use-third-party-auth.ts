@@ -155,7 +155,7 @@ export interface UseThirdPartyAuthReturn {
 /**
  * 第三方登录 Hook
  *
- * 迁移自旧架构 client/src/features/third-party-login/stores/thirdPartyAuth.ts（Pinia），
+ * 等价自旧架构 client/src/features/third-party-login/stores/thirdPartyAuth.ts（Pinia），
  * 适配新架构 React + Zustand + sonner toast。
  * 覆盖：登录状态管理、账号绑定/解绑、平台启用判断、One Tap 登录、演示模式/本地回退。
  */
