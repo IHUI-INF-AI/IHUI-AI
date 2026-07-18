@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import { useRouteAnalytics } from '@/hooks/use-route-analytics'
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
 import { useGlobalNotification } from '@/hooks/use-global-notification'
@@ -19,6 +20,7 @@ const SHORTCUT_ROUTES: Record<string, string> = {
  * - useRouteAnalytics：路由变化自动埋点（page_view / page_time / route_change）
  * - useGlobalShortcuts：全局快捷键监听（Ctrl+K 命令面板 / Ctrl+P 搜索 / Ctrl+Shift+N 新对话 / Ctrl+/ 帮助）
  * - useGlobalNotification：登录后自动连接 WebSocket 通知,写入 notification store(各 UI 组件按需订阅)
+ * - 主题跨标签页同步:监听 storage 事件,当其他标签页切换主题时,本标签页通过 next-themes setTheme 跟随
  *
  * 帮助面板（Ctrl+/ 触发）以最简 overlay 呈现，避免引入额外依赖。
  */
@@ -28,7 +30,19 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   const { showHelpPanel, toggleHelpPanel, shortcuts } = useGlobalShortcuts()
   // 激活全局通知 WS 连接 + 通知 store(未登录时自动 no-op,登录后自动连接)
   useGlobalNotification()
+  const { setTheme } = useTheme()
   const [showCommandPalette, setShowCommandPalette] = React.useState(false)
+
+  // 主题跨标签页同步:其他标签页修改 localStorage('theme')时,通过 setTheme 跟随
+  // next-themes 自带 localStorage 持久化但不监听 storage 事件,需手动桥接。
+  React.useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'theme' || !e.newValue) return
+      setTheme(e.newValue)
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [setTheme])
 
   React.useEffect(() => {
     const openChatHandler = () => setShowCommandPalette(true)
