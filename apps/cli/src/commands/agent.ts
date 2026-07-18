@@ -1,7 +1,7 @@
 /**
  * Agent 执行模块 — 非交互式执行,支持工具调用循环。
  *
- * 灵感来源:cli 的 `cli-shell` crate(agent runtime + leader/stdio/headless)。
+ * 灵感来源:参考行业 Agent 框架的 agent runtime + leader/stdio/headless 设计。
  * 简化策略(做减法):
  *   - 用 prompt engineering 让 LLM 输出结构化 tool_call 块(不依赖后端 function calling)
  *   - 工具循环:发 tools schema → 解析 tool_calls → 本地执行 → 回传 tool_result → 循环
@@ -31,6 +31,7 @@ import {
   clearTools,
   getTool,
   enableToolHub,
+  setHubRemoteRegistry,
   type Tool,
   type ToolContext,
 } from '../tools/index.js';
@@ -43,13 +44,17 @@ import { TEST_TOOLS } from '../tools/run-tests.js';
 import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
 import { CODEGRAPH_TOOLS, enableCodegraphIncremental, persistCodegraphCache } from '../tools/codegraph.js';
 import { createSubagentTool } from '../tools/subagent.js';
+import { CLIPBOARD_TOOLS } from '../tools/clipboard.js';
 import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
 import { resolveSandboxOptions } from '../sandbox/index.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
-import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens, type CompressionResult } from '../context.js';
+import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
+import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens, type CompressionResult, UsageLedger } from '../context.js';
 import { compressContextV2, type CompactionSampler, type CompactionObserver } from '../compaction-v2.js';
 import { generateReminders } from '../reminders.js';
-import { loadMcpTools } from '../tools/mcp-runtime.js';
+import { loadMcpTools, loadMcpConnections } from '../tools/mcp-runtime.js';
+import { registerMcpToolsToHub } from '../tools/hub/mcp-adapter.js';
+import { InMemoryRegistry } from '../tools/hub/registry.js';
 import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.js';
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
@@ -57,9 +62,20 @@ import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '..
 import { loadSettings, type SamplerSettings, type Settings } from './settings.js';
 import type { Session } from './session.js';
 import { saveSession } from './session.js';
-import type { PluginRegistry } from '../plugins/index.js';
+import { PluginRegistry, loadPlugins, type PluginHookContext } from '../plugins/index.js';
 import type { PlanMachine } from '../plan/index.js';
 import { DoomLoopDetector, type DoomLoopAlert } from '../doom-loop-detector.js';
+import { FsEventSource, type FsEvent } from '../fs-watcher/index.js';
+import {
+  renderMermaid,
+  extractMermaidBlocks,
+  writeMermaidToWorkspace,
+} from '../mermaid/index.js';
+import {
+  initTelemetry,
+  track as trackTelemetry,
+  shutdownTelemetry,
+} from '../telemetry/index.js';
 
 // 模块增强:为 StreamChatOptions 添加 sampler 字段(透传给后端 LiteLLM)。
 // 不修改 packages/api-client 源码,在此处以声明合并方式扩展类型。
@@ -123,7 +139,7 @@ export interface AgentResult {
 }
 
 // ==================== P1-5 Headless 多格式输出(实现在 src/headless-format.ts,此处仅 re-export)====================
-// 灵感来源:cli 的 LeaderOutput/HeadlessFormat(Rust enum,支持 text/json/markdown/yaml)。
+// 灵感来源:参考行业 Agent 框架的 LeaderOutput/HeadlessFormat 设计(支持 text/json/markdown/yaml)。
 // 简化策略(做减法):不引入外部 yaml 库,自实现 30 行极简序列化器(只覆盖常见类型),流式输出不缓冲。
 export type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 export { parseOutputFormat, formatHeadlessEvent } from '../headless-format.js'
@@ -160,11 +176,22 @@ export interface SetupAgentToolsOptions {
     apiUrl: string;
     apiKey?: string;
     allowDangerous?: boolean;
+    /** 透传 HunkTracker 给 subagent(启用 hunk 级冲突检测 + 改动归属追踪) */
+    hunkTracker?: HunkTracker;
   };
   /** P0-7 Permission rules:白名单/黑名单控制(--tools/--disallowed-tools CLI flag 注入) */
   permissions?: PermissionRules;
   /** 权限模式:default|acceptEdits|bypassPermissions|plan|manual */
   permissionMode?: PermissionMode;
+  /** HunkTracker(可选,启用后 write_file/edit_file/delete_file 会记录改动 + 检测冲突) */
+  hunkTracker?: HunkTracker;
+  /** 当前 agent 标识(用于 hunkTracker 归属记录,默认 'main') */
+  agentId?: string;
+  /**
+   * 外部注入的 PluginRegistry(可选,优先于 settings.plugins 自动加载)。
+   * 提供时 setupAgentTools 不再自动 loadPlugins,直接使用此 registry。
+   */
+  pluginRegistry?: PluginRegistry;
 }
 
 export interface SetupAgentToolsResult {
@@ -174,6 +201,8 @@ export interface SetupAgentToolsResult {
   skills: Skill[];
   /** 加载到的 memory 条目(供 REPL /memory 命令使用) */
   memory: MemoryEntry[];
+  /** PluginRegistry(若 settings.plugins.enabled 或外部注入,供 runToolLoop 触发 preToolCall/postToolCall hook) */
+  pluginRegistry?: PluginRegistry;
 }
 
 /** 注册工具 + 构建 system prompt(含 AGENTS.md + skills + memory 注入) */
@@ -186,7 +215,16 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   registerTools(TEST_TOOLS);
   registerTools(DIAGNOSTIC_TOOLS);
   registerTools(CODEGRAPH_TOOLS);
-  registerTools(createFileEditTools({ workspacePath: opts.workspacePath, checkpoints: opts.checkpoints }));
+  // P2-3 剪贴板工具:feature flag 启用时注册(默认关闭,零回归)
+  if (loadSettings().clipboard?.enabled === true) {
+    registerTools(CLIPBOARD_TOOLS);
+  }
+  registerTools(createFileEditTools({
+    workspacePath: opts.workspacePath,
+    checkpoints: opts.checkpoints,
+    hunkTracker: opts.hunkTracker,
+    agentId: opts.agentId,
+  }));
   const settings = loadSettings();
   if (opts.subagentParent) {
     registerTools([createSubagentTool({
@@ -196,17 +234,46 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
       workspacePath: opts.workspacePath,
       allowDangerous: opts.subagentParent.allowDangerous,
       worktreeFastPathEnabled: settings.worktreeFastPath?.enabled === true,
+      hunkTracker: opts.subagentParent.hunkTracker,
+      precedenceEnabled: settings.subagentPrecedence?.enabled === true,
     })]);
   }
   if (opts.enableMcp) {
-    try {
-      const mcpTools = await loadMcpTools({ workspacePath: opts.workspacePath });
-      if (mcpTools.length > 0) {
-        registerTools(mcpTools);
-        if (!opts.silent) console.info(chalk.dim(`  🔌 已加载 ${mcpTools.length} 个 MCP 工具`));
+    // P1-5 hub mcp-adapter:flag 启用时走 hub adapter 路径(MCP 工具注册到 hub remote registry);
+    // 否则走原 mcp-runtime 路径(注册到 registry Map)。两条路径互斥,避免重复注册。
+    const useHubAdapter = settings.toolHub?.mcpAdapter?.enabled === true;
+    if (useHubAdapter) {
+      try {
+        const conns = await loadMcpConnections({ workspacePath: opts.workspacePath });
+        if (conns.length > 0) {
+          const remoteRegistry = new InMemoryRegistry();
+          let total = 0;
+          for (const conn of conns) {
+            total += registerMcpToolsToHub({
+              hub: remoteRegistry,
+              mcpConnection: conn,
+              serverName: conn.server.name,
+              enableDangerous: settings.allowDangerous,
+            });
+          }
+          setHubRemoteRegistry(remoteRegistry);
+          if (total > 0 && !opts.silent) {
+            console.info(chalk.dim(`  🔌 已加载 ${total} 个 MCP 工具 (via hub adapter)`));
+          }
+        }
+      } catch {
+        // MCP 加载失败不阻塞
       }
-    } catch {
-      // MCP 加载失败不阻塞
+    } else {
+      try {
+        const mcpTools = await loadMcpTools({ workspacePath: opts.workspacePath });
+        if (mcpTools.length > 0) {
+          registerTools(mcpTools);
+          if (!opts.silent) console.info(chalk.dim(`  🔌 已加载 ${mcpTools.length} 个 MCP 工具`));
+        }
+      } catch {
+        // MCP 加载失败不阻塞
+      }
     }
   }
 
@@ -214,6 +281,30 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   // local-shadows-remote 调度;flag 关闭时完全等同原有行为(零回归)
   if (settings.toolHub?.enabled === true) {
     enableToolHub();
+  }
+
+  // Plugins 集成:settings.plugins.enabled === true 或外部注入 registry 时,
+  // loadPlugins + registerAll + runSetups(真实接入,消除死代码)。
+  // flag 关闭且未注入时,pluginRegistry=undefined,runToolLoop 内 runPluginHooks 直接 return(零回归)
+  let pluginRegistry: PluginRegistry | undefined = opts.pluginRegistry;
+  if (!pluginRegistry && settings.plugins?.enabled === true) {
+    try {
+      const pluginsDir = settings.plugins.pluginsDir ?? path.join(opts.workspacePath, '.ihui', 'plugins');
+      const defs = loadPlugins({ pluginsDir });
+      if (defs.length > 0) {
+        pluginRegistry = new PluginRegistry({ workingDir: opts.workspacePath });
+        const registered = pluginRegistry.registerAll(defs);
+        if (!opts.silent) {
+          console.info(chalk.dim(`  🧩 已加载 ${registered}/${defs.length} 个插件`));
+        }
+        const failed = await pluginRegistry.runSetups();
+        if (failed.length > 0 && !opts.silent) {
+          console.warn(chalk.yellow(`  ⚠ ${failed.length} 个插件 setup 失败:${failed.join(', ')}`));
+        }
+      }
+    } catch {
+      // 插件加载失败不阻塞 agent 启动
+    }
   }
 
   const tools = listTools();
@@ -247,7 +338,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     permissionMode: opts.permissionMode,
   };
 
-  return { systemPrompt, ctx, skills, memory };
+  return { systemPrompt, ctx, skills, memory, pluginRegistry };
 }
 
 export interface RunToolLoopOptions {
@@ -275,7 +366,7 @@ export interface RunToolLoopOptions {
   maxCostUsd?: number;
   /**
    * P0-2 Interject:drain pending interjection buffer。
-   * 灵感来源:cli 的 `x.ai/interject` 扩展方法。
+   * 灵感来源:参考行业 Agent 框架的 `x.ai/interject` 扩展方法。
    * 语义:在 agent 运行中,用户可向 buffer 追加新指令;runToolLoop 在每轮迭代开始 + end_turn 时 drain,
    * 把累积的 interjection 作为新 user 消息追加(不取消当前回合,而是让 LLM 下一轮处理)。
    * 回调实现应返回并清空 buffer(每次调用返回当前累积内容,然后清空)。
@@ -288,10 +379,21 @@ export interface RunToolLoopOptions {
   plugins?: PluginRegistry;
   /** Plan Machine 状态机(可选)— 若传入,gathering 状态阻断工具执行 */
   planMachine?: PlanMachine;
+  /**
+   * P2-1 fsnotify 文件监听源(可选)— 若传入,每轮迭代把最近 60s 文件变更注入 user 消息。
+   * 让 LLM 感知工作区外部编辑(IDE/编辑器/ci 等触发的文件变更)。
+   */
+  fsEventSource?: FsEventSource;
+  /**
+   * P2-5 UsageLedger(可选)— 若传入,每轮迭代后记录 token 使用(prompt + completion + cost)。
+   * 调用方可通过 ledger.history / getChatState / isOver*Budget 查询详细使用情况。
+   * 不传入时使用内部临时实例(结果通过 usage 字段返回,无历史记录)。
+   */
+  usageLedger?: UsageLedger;
 }
 
 /**
- * P0-4 Interjection 内容块:支持文本 + 图片(对齐 cli 的 interject image content block)。
+ * P0-4 Interjection 内容块:支持文本 + 图片(参考行业 Agent 框架的 interject image content block)。
  * - 文本块:直接作为 user 消息内容
  * - 图片块:base64 编码 + mediaType,drain 时转为文本占位符(因 streamChat 暂不支持多模态)
  */
@@ -323,24 +425,66 @@ export function formatInterjectionBlocks(blocks: ReadonlyArray<InterjectionBlock
 }
 
 /**
- * Plugin hook 入口(最小集成)— 若 registry 存在,检查是否有插件声明了 event 钩子。
- * 做减法:当前不实现 hook 执行语义(plugin 清单只声明 hook 名,无 callback 实现),
- * 只暴露入口供未来扩展(后续可挂载 hook callback 注册机制)。
+ * Plugin hook 入口 — 真实调用 pluginRegistry.runHook。
  *
- * @param registry 插件注册表(可选,未传入直接 return)
+ * 做减法:PluginDefinition.onHook 是程序化回调(JSON 清单无法声明),JSON 加载的插件
+ * 只声明 hooks 数组(无 callback),runHook 内部会通过 logger.info 记录事件(让 registry 真实被使用)。
+ *
+ * @param registry 插件注册表(可选,未传入直接 return — 零回归)
  * @param event 钩子事件名(preToolCall / postToolCall)
- * @param _context 钩子上下文(工具名 + 参数 + 结果),当前未使用,预留扩展
+ * @param context 钩子上下文(工具名 + 参数 + 结果),透传给 plugin.onHook
  */
 async function runPluginHooks(
   registry: PluginRegistry | undefined,
   event: 'preToolCall' | 'postToolCall',
-  _context: { toolName: string; args: Record<string, unknown>; result?: unknown },
+  context: { toolName: string; args: Record<string, unknown>; result?: unknown },
 ): Promise<void> {
   if (!registry) return;
-  const hooks = registry.getHookExtensions();
-  const matched = hooks.filter((h) => h === event || h.startsWith(`${event}:`));
-  if (matched.length === 0) return;
-  // 做减法:当前不挂载 hook callback,只暴露入口(后续可挂载)
+  const hookContext: PluginHookContext = {
+    toolName: context.toolName,
+    args: context.args,
+    result: context.result,
+  };
+  await registry.runHook(event, hookContext);
+}
+
+/**
+ * P2-1 把 fs-watcher 事件格式化为 system prompt 片段。
+ * 事件为空时返回空字符串(避免污染 prompt)。
+ * 事件过多时只保留最近 10 条(避免 context 膨胀)。
+ */
+function formatFsEventsForPrompt(events: FsEvent[]): string {
+  if (events.length === 0) return '';
+  const recent = events.slice(-10);
+  const lines = recent.map((e) => `  - [${e.kind}] ${e.path}`);
+  return `[系统提示] 工作区最近文件变更(60s 内,共 ${events.length} 条,显示最近 ${lines.length} 条):\n${lines.join('\n')}`;
+}
+
+/**
+ * P2-1 附加 checkpoint 自动快照监听器:文件变更事件累计达到 threshold 时,
+ * 对所有受影响路径创建一个 auto_fs_watcher 快照(防数据丢失)。
+ */
+function attachCheckpointAutoSnapshot(
+  src: FsEventSource,
+  checkpoints: CheckpointManager,
+  threshold: number,
+): void {
+  const pendingFiles = new Set<string>();
+  let eventCount = 0;
+  src.on('event', (e: FsEvent) => {
+    eventCount++;
+    pendingFiles.add(e.path);
+    if (eventCount >= threshold) {
+      const files = Array.from(pendingFiles);
+      pendingFiles.clear();
+      eventCount = 0;
+      try {
+        void checkpoints.snapshot(files, 'auto_fs_watcher');
+      } catch {
+        // snapshot 失败不阻塞监听
+      }
+    }
+  });
 }
 
 export interface RunToolLoopResult {
@@ -375,7 +519,7 @@ function estimateIterationCost(modelId: string, promptTokens: number, completion
 }
 
 // ==================== P0-3 SamplerActor:重试 + doom loop 检测 ====================
-// 灵感来源:cli 的 sampler actor(指数退避重试 + 死循环检测)。
+// 灵感来源:参考行业 Agent 框架的 sampler actor(指数退避重试 + 死循环检测)。
 // 简化策略(做减法):只对可重试错误(ratelimit/network/server)重试,auth/forbidden 立即失败。
 
 const SAMPLER_MAX_RETRIES = 3;
@@ -585,10 +729,14 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   const signatureDetector = new ConsecutiveSignatureDetector();
   let signatureDoomDetected = false;
   // P0-3 DoomLoopDetector(滑动窗口):检测 LLM 重复调用相同工具相同参数的死循环
-  // 灵感来源:cli doom_loop 理念,简化为客户端工具调用层滑动窗口检测
+  // 灵感来源:参考行业 Agent 框架的 doom_loop 理念,简化为客户端工具调用层滑动窗口检测
   const doomLoopDetector = new DoomLoopDetector();
   let consecutiveDoomAlerts = 0;
   let slidingWindowDoomDetected = false;
+
+  // P2-5 UsageLedger:使用调用方传入的账本(若无则内部创建临时实例,仅用于结果汇总)
+  // 调用方传入时可通过 ledger.history / getChatState 获取详细使用情况
+  const usageLedger = opts.usageLedger ?? new UsageLedger({ budgetCostUsd: opts.maxCostUsd });
 
   // P0-2 Interject:drain pending buffer 并作为新 user 消息追加。返回是否有 interjection 被 drain。
   // P0-4 扩展:支持 image content block,通过 formatInterjectionBlocks 转为文本
@@ -611,6 +759,14 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     for (let i = 0; i < opts.maxIterations; i++) {
       iterations = i + 1;
       await opts.onIteration?.(iterations, opts.maxIterations);
+
+      // P2-4 agent-lifecycle:turnStart hook(每轮开始触发,粒度细于 sessionStart)
+      runHook('turnStart', {
+        workspacePath: opts.ctx.workspacePath,
+        sessionId: opts.sessionId,
+        turnNumber: iterations,
+        maxTurns: opts.maxIterations,
+      });
 
       // P0-2 Interject:本轮 LLM 调用前 drain,处理上一轮工具执行期间用户输入的 interjection
       // 让 LLM 本轮看到 tool_result + user interjection,自然响应
@@ -672,14 +828,27 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         }
       }
 
-      if (iterError) break;
+      if (iterError) {
+        // P2-4 agent-lifecycle:turnError hook(本轮出错,单轮失败不等于 agent 终止)
+        runHook('turnError', {
+          workspacePath: opts.ctx.workspacePath,
+          sessionId: opts.sessionId,
+          turnNumber: iterations,
+          error: lastErrorMessage,
+        });
+        break;
+      }
 
       // Token 累计:prompt 从压缩后 messages 估算,completion 从 iterationText 估算
       const iterPromptTokens = estimateMessagesTokens(effectiveMessages);
       const iterCompletionTokens = estimateTokens(iterationText);
       totalPromptTokens += iterPromptTokens;
       totalCompletionTokens += iterCompletionTokens;
-      totalCostUsd += estimateIterationCost(opts.modelId, iterPromptTokens, iterCompletionTokens);
+      const iterCostUsd = estimateIterationCost(opts.modelId, iterPromptTokens, iterCompletionTokens);
+      totalCostUsd += iterCostUsd;
+
+      // P2-5 UsageLedger:记录本轮 token 使用(供调用方查询历史/预算状态)
+      usageLedger.recordTurn(iterPromptTokens, iterCompletionTokens, iterCostUsd);
 
       // Cost guard:超阈值立即停止,语义对齐 AGENTS.md 第 9 节 budget_limited
       if (opts.maxCostUsd !== undefined && totalCostUsd >= opts.maxCostUsd) {
@@ -702,6 +871,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         }
         // P0-3 end_turn(LLM 主动结束)时重置连续签名检测器,表示对话正常推进
         signatureDetector.reset();
+        // P2-4 agent-lifecycle:turnEnd hook(本轮成功结束 - end_turn)
+        runHook('turnEnd', {
+          workspacePath: opts.ctx.workspacePath,
+          sessionId: opts.sessionId,
+          turnNumber: iterations,
+        });
         break;
       }
 
@@ -722,6 +897,11 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         if (planBlock) {
           // LLM 输出了 plan 块,自动批准,本迭代跳过工具执行
           opts.planApproved = true;
+          // PlanMachine 联动:gathering → executing(解除写入硬阻断)
+          // canTransition 守门:若 PlanMachine 已在 executing/done 等状态则跳过(避免抛错)
+          if (opts.planMachine?.canTransition('gather_complete')) {
+            opts.planMachine.transition('gather_complete');
+          }
           opts.messages.push({
             role: 'user',
             content: 'Plan 已记录,请按计划逐步执行工具。每完成一步简要说明进度。',
@@ -747,7 +927,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       }
 
       // P0-3 DoomLoopDetector(滑动窗口):每次执行工具前检测重复调用相同工具相同参数
-      // 灵感来源:cli doom_loop 理念,客户端工具调用层滑动窗口检测
+      // 灵感来源:参考行业 Agent 框架的 doom_loop 理念,客户端工具调用层滑动窗口检测
       // 连续 2 轮触发 alert → 终止循环,返回 stopReason='doom_loop';首轮 alert 注入反思提示
       const doomAlerts: DoomLoopAlert[] = [];
       for (const call of toolCalls) {
@@ -855,6 +1035,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           durationMs,
           error: result.error,
         });
+        // P3-2 Telemetry:工具调用完成后上报(失败忽略,不影响主流程)
+        trackTelemetry('tool_call_completed', {
+          toolName: call.name,
+          success: result.success,
+          durationMs,
+        });
         if (result.success) {
           consecutiveFailures.set(call.name, 0);
         } else {
@@ -877,7 +1063,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       }
 
       // P1-2 Reminders:工具结果后自动注入系统提醒(context budget / iteration progress)
-      // 灵感来源:cli 的 reminders crate,让 LLM 被动接收关键状态信息
+      // 灵感来源:参考行业 Agent 框架的 reminders 设计,让 LLM 被动接收关键状态信息
       const reminders = generateReminders({
         iterations,
         maxIterations: opts.maxIterations,
@@ -890,7 +1076,22 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         resultParts.push(r);
       }
 
+      // P2-1 fsnotify:把最近 60s 文件变更事件注入 user 消息(让 LLM 感知外部编辑)
+      if (opts.fsEventSource) {
+        const fsContext = formatFsEventsForPrompt(opts.fsEventSource.getRecentEvents(60_000));
+        if (fsContext) {
+          resultParts.push(fsContext);
+        }
+      }
+
       opts.messages.push({ role: 'user', content: resultParts.join('\n\n') });
+
+      // P2-4 agent-lifecycle:turnEnd hook(本轮成功结束 - 工具调用执行完毕)
+      runHook('turnEnd', {
+        workspacePath: opts.ctx.workspacePath,
+        sessionId: opts.sessionId,
+        turnNumber: iterations,
+      });
     }
   } catch (err) {
     if (opts.signal?.aborted) {
@@ -899,6 +1100,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       hadError = true;
       const msg = err instanceof Error ? err.message : String(err);
       lastErrorMessage = msg;
+      // P2-4 agent-lifecycle:turnError hook(本轮异常 - catch 块)
+      runHook('turnError', {
+        workspacePath: opts.ctx.workspacePath,
+        sessionId: opts.sessionId,
+        turnNumber: iterations,
+        error: msg,
+      });
       await opts.onError?.(msg);
     }
   }
@@ -944,6 +1152,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   }
   runHook('stop', hookCtx);
 
+  // P2-4 agent-lifecycle:turnComplete hook(agent 完成所有轮次,与 stop 配对,携带最终 stopReason)
+  runHook('turnComplete', {
+    ...hookCtx,
+    totalTurns: iterations,
+    stopReason,
+  });
+
   return { stopReason, assistantText, iterations, usage };
 }
 
@@ -981,7 +1196,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
   const isStructured = outputFormat === 'json' || outputFormat === 'markdown' || outputFormat === 'yaml';
   const silent = isStructured;  // 结构化输出时禁用 setupAgentTools 的非结构化日志
 
-  const { systemPrompt, ctx } = await setupAgentTools({
+  const { systemPrompt, ctx, pluginRegistry } = await setupAgentTools({
     workspacePath: opts.workspacePath,
     checkpoints: opts.checkpoints,
     enableMcp: opts.enableMcp,
@@ -1012,6 +1227,47 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       await enableCodegraphIncremental(opts.workspacePath);
     } catch {
       // 增量索引启用失败不阻塞主流程(工具内部会 fallback 到全量扫描)
+    }
+  }
+
+  // P2-1 fsnotify 文件监听:按 feature flag 启用(默认关闭,启用后注入工作区文件变更到 prompt)
+  let fsEventSource: FsEventSource | undefined;
+  if (codegraphSettings.fsWatcher?.enabled === true) {
+    try {
+      fsEventSource = new FsEventSource(
+        opts.workspacePath,
+        codegraphSettings.fsWatcher.ignore ?? [],
+      );
+      fsEventSource.start();
+      // P2-1 checkpoints 集成:文件改动 N 次(N=20)后自动 snapshot 受影响文件
+      if (opts.checkpoints) {
+        attachCheckpointAutoSnapshot(fsEventSource, opts.checkpoints, 20);
+      }
+      if (!silent) {
+        console.info(chalk.dim(`  📂 fsnotify 已启动(监听工作区文件变更)`));
+      }
+    } catch {
+      // 监听启动失败不阻塞主流程
+      fsEventSource = undefined;
+    }
+  }
+
+  // P3-2 Telemetry:按 feature flag 启用(默认关闭,启用后 initTelemetry + session_start 事件)
+  // 关闭时 track 调用 no-op(零回归)
+  if (codegraphSettings.telemetry?.enabled === true) {
+    initTelemetry({
+      enabled: true,
+      endpoint: codegraphSettings.telemetry.endpoint,
+      batchSize: codegraphSettings.telemetry.batchSize,
+      flushIntervalMs: codegraphSettings.telemetry.flushIntervalMs,
+    });
+    trackTelemetry('session_start', {
+      modelId: opts.modelId,
+      workspacePath: opts.workspacePath,
+      hasSession: !!opts.session,
+    });
+    if (!silent) {
+      console.info(chalk.dim(`  📊 telemetry 已启用(上报到 ${codegraphSettings.telemetry.endpoint ?? 'N/A'})`));
     }
   }
 
@@ -1051,6 +1307,10 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     prompt: opts.prompt,
   });
 
+  // P3-2 Telemetry:记录 session 起始时间(用于 finally 块中计算 durationMs)
+  const sessionStartTime = Date.now();
+  let sessionResult: AgentResult | undefined;
+
   try {
     const result = await runToolLoop({
       modelId: opts.modelId,
@@ -1061,6 +1321,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       sessionId: opts.session?.id,
       planFirst: opts.planFirst,
       sampler: opts.sampler,
+      plugins: pluginRegistry,
+      fsEventSource,
       onDelta: (delta) => {
         if (isStructured) emit({ type: 'message_delta', text: delta });
         else {
@@ -1096,6 +1358,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
         }
       },
     });
+    sessionResult = result;
 
     if (spinner?.isSpinning) spinner.stop();
 
@@ -1106,6 +1369,34 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       console.info(chalk.dim(`📊 tokens: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens}) — ${cost}\n`));
     }
     emit({ type: 'complete', stopReason: result.stopReason, iterations: result.iterations, usage: result.usage });
+
+    // P3-1 Mermaid 渲染:feature flag 启用时,LLM 输出包含 ```mermaid 块则自动渲染为图片
+    // 失败不阻塞主流程(只打印警告)
+    if (codegraphSettings.mermaid?.enabled === true && result.assistantText) {
+      const mermaidBlocks = extractMermaidBlocks(result.assistantText);
+      if (mermaidBlocks.length > 0) {
+        for (const source of mermaidBlocks) {
+          try {
+            const renderResult = await renderMermaid(source);
+            const filePath = await writeMermaidToWorkspace(
+              opts.workspacePath,
+              renderResult.buffer,
+              renderResult.mimeType,
+            );
+            if (!isStructured) {
+              console.info(chalk.cyan(`  📊 Mermaid 已渲染 [${renderResult.engine}] → ${filePath}`));
+            } else {
+              emit({ type: 'tool_result', name: 'mermaid_render', success: true, output: filePath });
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (!isStructured) {
+              console.warn(chalk.yellow(`  ⚠ Mermaid 渲染失败: ${msg}`));
+            }
+          }
+        }
+      }
+    }
 
     return result;
   } finally {
@@ -1118,12 +1409,32 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
         // 持久化失败不阻塞退出
       }
     }
+    // P2-1 fsnotify:停止文件监听,释放系统资源
+    if (fsEventSource) {
+      try {
+        fsEventSource.stop();
+      } catch {
+        // 停止失败不阻塞退出
+      }
+    }
     // 任何路径(完成/错误/中断)都持久化 messages 到 session,供 --resume 恢复
     if (opts.session) {
       opts.session.history = messages
         .filter((m) => m.role !== 'system')
         .map((m) => ({ role: m.role, content: m.content }));
       saveSession(opts.session);
+    }
+    // P3-2 Telemetry:session_end + shutdown(失败不阻塞退出)
+    if (codegraphSettings.telemetry?.enabled === true) {
+      try {
+        trackTelemetry('session_end', {
+          totalTokens: sessionResult?.usage.totalTokens ?? 0,
+          durationMs: Date.now() - sessionStartTime,
+        });
+        await shutdownTelemetry();
+      } catch {
+        // telemetry 失败不阻塞退出
+      }
     }
   }
 }

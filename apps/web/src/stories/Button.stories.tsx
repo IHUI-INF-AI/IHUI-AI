@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react'
 import { Button } from '@ihui/ui'
 
 /**
- * Button 组件 stories — 迁移自旧架构 client/src/stories/Button.stories.ts
+ * Button 组件 stories — 等价自旧架构 client/src/stories/Button.stories.ts
  * 覆盖 6 种 variant + 4 种 size
  */
 const meta = {

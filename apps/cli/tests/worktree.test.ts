@@ -306,7 +306,7 @@ describe('createWorktree', () => {
     expect(fs.existsSync(path.join(dst, 'README.md'))).toBe(true)
     expect(fs.readFileSync(path.join(dst, 'README.md'), 'utf-8').replace(/\r\n/g, '\n')).toBe('hello\n')
     expect(fs.existsSync(path.join(dst, '.git'))).toBe(true)
-    expect(fs.existsSync(path.join(dst, '.git', 'grok-worktree-source'))).toBe(true)
+    expect(fs.existsSync(path.join(dst, '.git', 'ihui-worktree-source'))).toBe(true)
     expect(result.gitDirKind).toBe('directory')
     expect(result.copyStats.files).toBeGreaterThanOrEqual(1)
     expect(result.gitDirStats.copiedFiles).toBeGreaterThanOrEqual(1)

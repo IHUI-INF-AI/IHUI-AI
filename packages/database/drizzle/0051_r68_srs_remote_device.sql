@@ -1,6 +1,6 @@
 -- Migration 0051: SRS 媒体服务器 + 远程设备任务管理 (M-85 + M-87)
 -- 创建时间: 2026-07-11
--- 描述: 迁移自旧架构 services/srs_manager.py + Java RemoteDeviceByTaskController
+-- 描述: 等价自旧架构 services/srs_manager.py + Java RemoteDeviceByTaskController
 
 -- ===== SRS 直播流管理 =====
 CREATE TABLE IF NOT EXISTS srs_streams (

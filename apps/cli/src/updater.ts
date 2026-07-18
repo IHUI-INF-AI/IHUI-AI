@@ -1,7 +1,7 @@
 /**
  * Update notifier — 启动时异步检查 npm registry,版本落后提示用户升级。
  *
- * 灵感来源:cli 的 update + minimum_version 强制检查(Rust,启动时同步拉取 manifest)。
+ * 灵感来源:参考行业 Agent 框架的 update + minimum_version 强制检查设计。
  * 简化策略(做减法,符合 project_memory "免费"硬约束):
  *   - 异步检查(setImmediate),不阻塞启动
  *   - 24h 缓存(~/.ihui/.update-check.json),避免每次启动都打 registry

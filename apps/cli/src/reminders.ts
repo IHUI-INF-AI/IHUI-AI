@@ -1,9 +1,9 @@
 /**
  * P1-2 Reminders 系统提醒自动注入。
  *
- * 灵感来源:cli 的 `cli-tools/src/reminders/` crate(task_completion / skill_discovery / lsp_diagnostics)。
+ * 灵感来源:参考行业 Agent 框架的 reminders 设计(task_completion / skill_discovery / lsp_diagnostics)。
  * 问题:LLM 在长任务中可能"迷失方向"——不知道上下文快满了 / 迭代预算快用完了 / 连续失败需要换方案。
- * cli 在工具执行后自动向 prompt 注入 system reminders,让 LLM 被动接收关键状态信息。
+ * 参考行业 Agent 框架在工具执行后自动向 prompt 注入 system reminders,让 LLM 被动接收关键状态信息。
  *
  * 简化策略(做减法):
  *   - 不实现 LSP 自动诊断(代价大,LLM 可主动调 diagnostics 工具)

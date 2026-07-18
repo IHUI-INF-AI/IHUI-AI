@@ -1,6 +1,6 @@
 # 多租户架构指南（Multi-Tenant）
 
-> 迁移自旧架构 `server/docs/MULTI_TENANT.md`，适配新架构（TS Monorepo + Fastify + Drizzle）。
+> 等价自旧架构 `server/docs/MULTI_TENANT.md`，适配新架构（TS Monorepo + Fastify + Drizzle）。
 
 ## 1. 概述
 
