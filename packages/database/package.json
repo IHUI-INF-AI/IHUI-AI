@@ -19,6 +19,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:check": "drizzle-kit check",
     "seed": "tsx seed/index.ts",
     "clean": "rimraf dist .turbo node_modules"
   },
