@@ -165,7 +165,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: '教育',
     items: [
-      { href: '/', labelKey: 'home', icon: Home },
+      { href: '/home', labelKey: 'home', icon: Home },
       { href: '/learn', labelKey: 'learn', icon: GraduationCap },
       { href: '/live', labelKey: 'live', icon: PlayCircle },
       { href: '/exam', labelKey: 'exam', icon: ScrollText },
@@ -1016,7 +1016,6 @@ export function Sidebar({
 
   const isActive = React.useCallback(
     (href: string) => {
-      if (href === '/') return pathname === '/'
       if (!pathname.startsWith(href)) return false
       // 更具体的同前缀项优先高亮，避免 /chat 与 /chat/history 同时高亮
       return !ALL_NAV_HREFS.some((h) => h !== href && h.startsWith(href) && pathname.startsWith(h))
