@@ -46,7 +46,7 @@ const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@lo
 async function seedLive() {
   console.info('[直播] 开始导入 AI 主题直播频道...')
 
-  // 1. 直播分类
+  // 1. 直播分类 (使用 upsertByUnique 工具, 替代 if(ex)/else insert 模式)
   const cats = [
     { name: 'AI 前沿发布', sort: 1 },
     { name: 'AI 学术研究', sort: 2 },
@@ -55,15 +55,13 @@ async function seedLive() {
   ]
   const catMap: Record<string, string> = {}
   for (const c of cats) {
-    const [ex] = await db.select().from(liveCategories).where(eq(liveCategories.name, c.name))
-    if (ex) catMap[c.name] = ex.id
-    else {
-      const [ins] = await db
-        .insert(liveCategories)
-        .values({ name: c.name, sort: c.sort, status: 1 })
-        .returning({ id: liveCategories.id })
-      catMap[c.name] = ins.id
-    }
+    const result = await upsertByUnique(db, {
+      table: liveCategories,
+      uniqueBy: { column: liveCategories.name, value: c.name },
+      insertValues: { name: c.name, sort: c.sort, status: 1 },
+      updateValues: { sort: c.sort, status: 1 },
+    })
+    catMap[c.name] = String(result.id)
   }
 
   // 2. 讲师
