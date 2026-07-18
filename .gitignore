@@ -7,6 +7,10 @@ tmp/
 test_*.json
 test_*.log
 
+# act 本地 CI 演练 secrets(从 .secrets.act.example 复制)
+.secrets.act
+.env.act.local
+
 # /goal 目标驱动模式运行时临时文件位于 .trae-cn/goal-runtime/,
 # 已被上方 .trae-cn/ 整体忽略规则覆盖,无需单独列出。
 

@@ -1,5 +1,5 @@
 /**
- * ZHS 智慧树域完整 schema（迁移自旧架构 course_models / education_ext_models /
+ * ZHS 智慧树域完整 schema（等价自旧架构 course_models / education_ext_models /
  * activity_models / agent_rule_models / app_content_models / resource_models /
  * payment_models / user_models）。
  * 涵盖：课程 / 审核 / 支付 / 活动 / Agent / 内容 / 资源 / 用户 等模块。
@@ -102,7 +102,7 @@ export const zhsAgentNeedTask = pgTable(
   }),
 )
 
-/** AI 模型信息表 */
+/** AI 模型信息表（等价自旧架构 zhs_ai_model_info_unify，16 字段对齐） */
 export const zhsAiModelInfo = pgTable(
   'zhs_ai_model_info',
   {
@@ -113,10 +113,30 @@ export const zhsAiModelInfo = pgTable(
     description: text('description'),
     status: integer('status').default(1).notNull(),
     sort: integer('sort').default(0).notNull(),
+    // 旧架构 zhs_ai_model_info_unify 补齐字段（0106 migration）
+    code: varchar('code', { length: 64 }),
+    type: integer('type').default(0).notNull(),
+    modelCode: varchar('model_code', { length: 100 }),
+    manufacturer: varchar('manufacturer', { length: 100 }),
+    questType: varchar('quest_type', { length: 50 }),
+    variables: text('variables'),
+    openDesc: text('open_desc'),
+    modelDesc: text('model_desc'),
+    grassRoots: boolean('grass_roots').default(false).notNull(),
+    isGratis: boolean('is_gratis').default(false).notNull(),
+    isNew: boolean('is_new').default(false).notNull(),
+    isTop: boolean('is_top').default(false).notNull(),
+    isHot: boolean('is_hot').default(false).notNull(),
+    coursePlatform: varchar('course_platform', { length: 50 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => ({ statusIdx: index('zhs_ai_model_info_status_idx').on(t.status) }),
+  (t) => ({
+    statusIdx: index('zhs_ai_model_info_status_idx').on(t.status),
+    typeIdx: index('zhs_ai_model_info_type_idx').on(t.type),
+    isTopIdx: index('zhs_ai_model_info_is_top_idx').on(t.isTop),
+    coursePlatformIdx: index('zhs_ai_model_info_course_platform_idx').on(t.coursePlatform),
+  }),
 )
 
 /** 开发者-Coze 账号关联表 */
