@@ -6,43 +6,19 @@ import { toast } from 'sonner'
 import { type AIWSProvider, PROVIDER_PATHS } from '@/hooks/use-ai-websocket'
 import { useAuthStore } from '@/stores/auth'
 
-// TODO: 类型应从 @/hooks/types/ai-talk.ts 导入(use-ai-talk.ts 创建后切换)
-// 当前 use-ai-talk.ts / types/ai-talk.ts 尚未创建,使用本地 stub
+// R76 修复: 统一从 types/ai-talk.ts re-export, 避免 use-ai-ws-business.ts 重复定义
+// 此前本地 7 变体 AiModelKey 与 types/ai-talk.ts 的 16 变体产生 TypeScript 冲突, 已闭环。
+// 字段命名也统一为 camelCase (totalTokens / videoRatio), 匹配 types/ai-talk.ts。
+// 文件内部使用的类型必须 import type 引入本地作用域; 其余类型通过下方 export type re-export 给外部消费者。
+import type { AiModelKey, AgentContentListItem } from './types/ai-talk'
 
-/** AI 模型标识(对应旧项目 name 参数,7 种变体 + 兜底) */
-export type AiModelKey =
-  | 'wan2.5-i2v-preview'
-  | 'wan2.5-i2v-previe'
-  | 'qwen-plus'
-  | 'Doubao-1.6'
-  | 'GLM-4.5'
-  | 'qwen-omni'
-  | (string & {})
-
-/** Agent 内容列表项(对应旧项目 agent_content_list[i]) */
-export interface AgentContentListItem {
-  content: string
-  content1: string
-  imgUrlList: string[]
-  videoUrl?: string
-  video_ratio?: string
-  total_tokens: number
-  isHaveSikao: boolean
-  thinkingContent?: string
-}
-
-/**
- * 4 种 WebSocket 消息类型(对应旧项目 aiWebSocketMixin 处理的事件)
- * 1. conversation.message.delta — 思考增量
- * 2. conversation.chat.completed — 回复增量
- * 3. 流式响应完成 — 关闭 socket
- * 4. code:200 + data.type:success — wan2.5 视频结果
- */
-export type WebSocketAiMessage =
-  | { event: 'conversation.message.delta'; data: { content: string } }
-  | { event: 'conversation.chat.completed'; data: { content: string } }
-  | { message: '流式响应完成' }
-  | { code: 200; data: { type: 'success'; url?: string } }
+export type {
+  AiModelKey,
+  AgentContentListItem,
+  WebSocketMessage as WebSocketAiMessage,
+  IHuiLlmBody,
+  TaskPollingResult,
+} from './types/ai-talk'
 
 /** WebSocket 发送参数(7 种变体的联合对象) */
 export interface WebSocketSendParam {
@@ -292,8 +268,8 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
               content: contentText,
               content1: contentText,
               videoUrl,
-              video_ratio: videoRatio,
-              total_tokens: totalTokens,
+              videoRatio: videoRatio,
+              totalTokens: totalTokens,
               isHaveSikao: true,
             }
           } else {
@@ -302,8 +278,8 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
               content1: contentText,
               imgUrlList: [],
               videoUrl,
-              video_ratio: videoRatio,
-              total_tokens: totalTokens,
+              videoRatio: videoRatio,
+              totalTokens: totalTokens,
               isHaveSikao: true,
             })
           }
@@ -319,8 +295,8 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
               content: '视频生成失败,请重试',
               content1: '',
               videoUrl: '',
-              video_ratio: '16:9',
-              total_tokens: 0,
+              videoRatio: '16:9',
+              totalTokens: 0,
               isHaveSikao: false,
             }
           } else {
@@ -329,8 +305,8 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
               content1: '',
               imgUrlList: [],
               videoUrl: '',
-              video_ratio: '16:9',
-              total_tokens: 0,
+              videoRatio: '16:9',
+              totalTokens: 0,
               isHaveSikao: false,
             })
           }
@@ -467,7 +443,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
           const next = [...prev]
           next[newIndex - 1] = {
             ...existing,
-            total_tokens: typeof totalTokens === 'number' ? totalTokens : 0,
+            totalTokens: typeof totalTokens === 'number' ? totalTokens : 0,
             isHaveSikao: true,
           }
           return next
@@ -497,7 +473,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
             content: '发送失败,请重试',
             content1: '',
             imgUrlList: [],
-            total_tokens: 0,
+            totalTokens: 0,
             isHaveSikao: false,
           },
         ])
@@ -537,7 +513,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
             content: '连接失败,请重试',
             content1: '',
             imgUrlList: [],
-            total_tokens: 0,
+            totalTokens: 0,
             isHaveSikao: false,
           },
         ])
@@ -563,7 +539,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
             content: '连接错误,请重试',
             content1: '',
             imgUrlList: [],
-            total_tokens: 0,
+            totalTokens: 0,
             isHaveSikao: false,
           },
         ])
