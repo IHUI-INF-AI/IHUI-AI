@@ -1,0 +1,188 @@
+{
+  "annotations": { "list": [] },
+  "description": "IHUI-AI PG 部署与迁移监控",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "迁移成功率",
+      "type": "gauge",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(pg_migration_success{instance=~\"$instance\"}) / sum(pg_migration_success{instance=~\"$instance\", status=\"total\"})",
+          "legendFormat": "成功率",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red" },
+              { "color": "yellow", "value": 0.85 },
+              { "color": "green", "value": 0.95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "迁移耗时 (秒)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "avg(pg_migration_duration{instance=~\"$instance\"})",
+          "legendFormat": "平均耗时",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "回滚次数",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(pg_rollback_count{instance=~\"$instance\"})",
+          "legendFormat": "回滚",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green" },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "迁移耗时分布",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "expr": "avg(pg_migration_duration{instance=~\"$instance\"}) by (migration)",
+          "legendFormat": "{{migration}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "title": "Schema 漂移检测",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "expr": "sum(pg_schema_drift{instance=~\"$instance\"}) by (database)",
+          "legendFormat": "{{database}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green" }, { "color": "red", "value": 1 }]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "迁移记录明细",
+      "type": "table",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "expr": "pg_migration_duration{instance=~\"$instance\"}",
+          "legendFormat": "{{migration}}",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "title": "回滚次数趋势",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 14 },
+      "targets": [
+        {
+          "expr": "sum(rate(pg_rollback_count{instance=~\"$instance\"}[5m])) by (instance)",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    },
+    {
+      "title": "迁移成功率趋势",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
+      "targets": [
+        {
+          "expr": "sum by (instance) (pg_migration_success{instance=~\"$instance\", status=\"success\"}) / sum by (instance) (pg_migration_success{instance=~\"$instance\", status=\"total\"})",
+          "legendFormat": "{{instance}} 成功率",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["ihui-ai", "domain:pg_deploy", "postgresql", "migration"],
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "Prometheus" },
+        "query": "label_values(pg_migration_success, instance)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "IHUI-AI PG 部署与迁移监控",
+  "uid": "ihui-ai-pg-deploy",
+  "version": 1,
+  "weekStart": ""
+}
