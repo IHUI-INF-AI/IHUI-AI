@@ -341,108 +341,217 @@ function ensureRecurringConfigured(): void {
   }
 }
 
-/** 签约:申请签约方案(返回 signUrl 供前端跳转签约页面) */
+type ContractState = 'SIGNED' | 'TERMINATED' | 'SIGN_FAILED' | 'TO_BE_RENEWED'
+
+interface DeviceInfo {
+  deviceIp: string
+  deviceNumber?: string
+  deviceType?: string
+  merchantNo?: string
+  operator?: string
+  storeNo?: string
+  terminalNo?: string
+  unionStoreNo?: string
+}
+
+/** 签约:委托代扣预签约(返回 pre_entrustweb_id 供前端跳转签约页面,10 分钟有效) */
 export async function signContract(params: {
-  planId: string
-  outTradeNo: string
-  notifyUrl: string
-  userId: string
+  planId: number
+  outContractCode: string
+  appid: string
+  contractDisplayAccount: string
+  contractNotifyUrl: string
+  outUserCode: string
+  signScene: 'SIGN_SCENE_APP' | 'SIGN_SCENE_QRCODE'
+  deviceInfo: DeviceInfo
   openid?: string
-  contractDisplay?: string
-}): Promise<{ signUrl: string; contractId?: string }> {
-  ensureRecurringConfigured()
-  const body: Record<string, unknown> = {
-    plan_id: params.planId,
-    out_contract_code: params.outTradeNo,
-    notification_url: params.notifyUrl,
-  }
-  if (params.openid) body.openid = params.openid
-  if (params.contractDisplay) body.contract_display = params.contractDisplay
-  // TODO: 生产前确认 sign-plan user-notifications 返回字段名,当前按微信支付 V3 文档实现
-  const data = await requestV3<{ sign_url?: string; contract_id?: string }>(
-    'POST',
-    '/v3/payscore/sign-plan/user-notifications',
-    body,
-  )
-  return {
-    signUrl: data.sign_url ?? '',
-    contractId: data.contract_id,
-  }
-}
-
-/** 解约:终止签约 */
-export async function cancelContract(params: {
-  contractId: string
-  reason?: string
-}): Promise<{ cancelled: boolean }> {
-  ensureRecurringConfigured()
-  const body = params.reason ? { cancel_reason: params.reason } : undefined
-  await requestV3(
-    'DELETE',
-    `/v3/payscore/sign-plan/contracts/${encodeURIComponent(params.contractId)}`,
-    body,
-  )
-  return { cancelled: true }
-}
-
-/** 查询签约状态 */
-export async function queryContract(contractId: string): Promise<{
-  contractId: string
-  status: 'active' | 'cancelled' | 'expired' | 'pending'
-  planId: string
-  signedAt?: string
-  cancelledAt?: string
-  nextChargeTime?: string
+  returnUrl?: string
+}): Promise<{
+  preEntrustwebId: string
+  miniProgramUsername?: string
+  miniProgramPath?: string
+  redirectUrl?: string
 }> {
   ensureRecurringConfigured()
-  // TODO: 生产前确认返回字段映射,当前按微信支付 V3 sign-plan 文档实现
-  const data = await requestV3<Record<string, unknown>>(
-    'GET',
-    `/v3/payscore/sign-plan/contracts/${encodeURIComponent(contractId)}`,
-  )
+  const body: Record<string, unknown> = {
+    sign_scene: params.signScene,
+    appid: params.appid,
+    plan_id: params.planId,
+    out_contract_code: params.outContractCode,
+    contract_display_account: params.contractDisplayAccount,
+    contract_notify_url: params.contractNotifyUrl,
+    out_user_code: params.outUserCode,
+    device_info: {
+      device_ip: params.deviceInfo.deviceIp,
+      ...(params.deviceInfo.deviceNumber !== undefined
+        ? { device_number: params.deviceInfo.deviceNumber }
+        : {}),
+      ...(params.deviceInfo.deviceType !== undefined
+        ? { device_type: params.deviceInfo.deviceType }
+        : {}),
+      ...(params.deviceInfo.merchantNo !== undefined
+        ? { merchant_no: params.deviceInfo.merchantNo }
+        : {}),
+      ...(params.deviceInfo.operator !== undefined ? { operator: params.deviceInfo.operator } : {}),
+      ...(params.deviceInfo.storeNo !== undefined ? { store_no: params.deviceInfo.storeNo } : {}),
+      ...(params.deviceInfo.terminalNo !== undefined
+        ? { terminal_no: params.deviceInfo.terminalNo }
+        : {}),
+      ...(params.deviceInfo.unionStoreNo !== undefined
+        ? { union_store_no: params.deviceInfo.unionStoreNo }
+        : {}),
+    },
+  }
+  if (params.openid) body.openid = params.openid
+  if (params.returnUrl) body.return_url = params.returnUrl
+  const data = await requestV3<{
+    pre_entrustweb_id?: string
+    mini_program_username?: string
+    mini_program_path?: string
+    redirect_url?: string
+  }>('POST', '/v3/papay/sign/contracts/pre-entrust-sign', body)
   return {
-    contractId: (data.contract_id as string) ?? contractId,
-    status: (data.status as 'active' | 'cancelled' | 'expired' | 'pending') ?? 'pending',
-    planId: (data.plan_id as string) ?? '',
-    signedAt: data.sign_time as string | undefined,
-    cancelledAt: data.cancel_time as string | undefined,
-    nextChargeTime: data.deduct_time as string | undefined,
+    preEntrustwebId: data.pre_entrustweb_id ?? '',
+    ...(data.mini_program_username !== undefined
+      ? { miniProgramUsername: data.mini_program_username }
+      : {}),
+    ...(data.mini_program_path !== undefined ? { miniProgramPath: data.mini_program_path } : {}),
+    ...(data.redirect_url !== undefined ? { redirectUrl: data.redirect_url } : {}),
   }
 }
 
-/** 委托扣款:触发一次扣款(系统定时调用) */
+/** 解约:委托代扣终止签约(返回完整 contract 对象) */
+export async function cancelContract(params: {
+  planId: number
+  outContractCode: string
+  contractTerminationRemark: string
+}): Promise<{
+  contractId: string
+  contractState: ContractState
+  contractTerminatedTime?: string
+}> {
+  ensureRecurringConfigured()
+  const path = `/v3/papay/sign/contracts/plan-id/${params.planId}/out-contract-code/${encodeURIComponent(
+    params.outContractCode,
+  )}/terminate`
+  const body = { contract_termination_remark: params.contractTerminationRemark }
+  const data = await requestV3<{
+    contract_id?: string
+    contract_state?: string
+    contract_terminate_info?: { contract_terminated_time?: string }
+  }>('POST', path, body)
+  const terminateInfo = data.contract_terminate_info ?? {}
+  return {
+    contractId: data.contract_id ?? '',
+    contractState: (data.contract_state as ContractState) ?? 'TERMINATED',
+    ...(terminateInfo.contract_terminated_time !== undefined
+      ? { contractTerminatedTime: terminateInfo.contract_terminated_time }
+      : {}),
+  }
+}
+
+/** 查询签约状态:委托代扣查询签约(按 plan_id + out_contract_code) */
+export async function queryContract(
+  planId: number,
+  outContractCode: string,
+): Promise<{
+  contractId: string
+  contractState: ContractState
+  planId: number
+  outContractCode: string
+  contractDisplayAccount?: string
+  contractSignedTime?: string
+  contractExpiredTime?: string
+  openid?: string
+  contractTerminateInfo?: {
+    contractTerminationMode: string
+    contractTerminatedTime: string
+    contractTerminationRemark?: string
+  }
+  deductSchedule?: unknown
+}> {
+  ensureRecurringConfigured()
+  const path = `/v3/papay/sign/contracts/plan-id/${planId}/out-contract-code/${encodeURIComponent(
+    outContractCode,
+  )}`
+  const data = await requestV3<{
+    contract_id?: string
+    contract_state?: string
+    plan_id?: number
+    out_contract_code?: string
+    contract_display_account?: string
+    contract_signed_time?: string
+    contract_expired_time?: string
+    openid?: string
+    contract_terminate_info?: {
+      contract_termination_mode?: string
+      contract_terminated_time?: string
+      contract_termination_remark?: string
+    }
+    deduct_schedule?: unknown
+  }>('GET', path)
+  const terminateInfo = data.contract_terminate_info
+  return {
+    contractId: data.contract_id ?? '',
+    contractState: (data.contract_state as ContractState) ?? 'SIGNED',
+    planId: data.plan_id ?? planId,
+    outContractCode: data.out_contract_code ?? outContractCode,
+    ...(data.contract_display_account !== undefined
+      ? { contractDisplayAccount: data.contract_display_account }
+      : {}),
+    ...(data.contract_signed_time !== undefined
+      ? { contractSignedTime: data.contract_signed_time }
+      : {}),
+    ...(data.contract_expired_time !== undefined
+      ? { contractExpiredTime: data.contract_expired_time }
+      : {}),
+    ...(data.openid !== undefined ? { openid: data.openid } : {}),
+    ...(terminateInfo !== undefined
+      ? {
+          contractTerminateInfo: {
+            contractTerminationMode: terminateInfo.contract_termination_mode ?? '',
+            contractTerminatedTime: terminateInfo.contract_terminated_time ?? '',
+            ...(terminateInfo.contract_termination_remark !== undefined
+              ? { contractTerminationRemark: terminateInfo.contract_termination_remark }
+              : {}),
+          },
+        }
+      : {}),
+    ...(data.deduct_schedule !== undefined ? { deductSchedule: data.deduct_schedule } : {}),
+  }
+}
+
+/** 委托扣款:受理一次扣款(同步只返回 out_trade_no + amount,扣款状态通过 webhook 异步通知) */
 export async function deductRecurring(params: {
+  appid: string
   contractId: string
   outTradeNo: string
   amount: number
   description: string
-  notifyUrl: string
-}): Promise<{ deductId: string; status: 'pending' | 'success' | 'failed' }> {
+  transactionNotifyUrl: string
+  goodsTag?: string
+  attach?: string
+}): Promise<{ outTradeNo: string; amount: { total: number; currency: string } }> {
   ensureRecurringConfigured()
-  const body = {
+  const body: Record<string, unknown> = {
+    appid: params.appid,
     out_trade_no: params.outTradeNo,
-    amount: { total: params.amount, currency: 'CNY' },
     description: params.description,
-    notify_url: params.notifyUrl,
+    transaction_notify_url: params.transactionNotifyUrl,
+    contract_id: params.contractId,
+    amount: { total: params.amount, currency: 'CNY' },
   }
-  // TODO: 生产前确认委托扣款 API 路径,当前按微信支付 V3 sign-plan 文档实现
+  if (params.goodsTag !== undefined) body.goods_tag = params.goodsTag
+  if (params.attach !== undefined) body.attach = params.attach
   const data = await requestV3<{
-    deduct_id?: string
-    transaction_id?: string
-    trade_state?: string
-  }>(
-    'POST',
-    `/v3/payscore/sign-plan/contracts/${encodeURIComponent(params.contractId)}/deduct`,
-    body,
-  )
-  const status: 'pending' | 'success' | 'failed' =
-    data.trade_state === 'SUCCESS'
-      ? 'success'
-      : data.trade_state === 'FAILED'
-        ? 'failed'
-        : 'pending'
+    out_trade_no?: string
+    amount?: { total?: number; currency?: string }
+  }>('POST', '/v3/papay/pay/transactions/apply', body)
   return {
-    deductId: data.deduct_id ?? data.transaction_id ?? params.outTradeNo,
-    status,
+    outTradeNo: data.out_trade_no ?? params.outTradeNo,
+    amount: {
+      total: data.amount?.total ?? params.amount,
+      currency: data.amount?.currency ?? 'CNY',
+    },
   }
 }
