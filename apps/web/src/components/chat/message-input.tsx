@@ -14,6 +14,10 @@ import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { Popover } from '@/components/feedback'
 
 const MAX_LENGTH = 2000
+// textarea 无 padding(由外层容器提供)
+// scrollHeight 阈值:3 行 ≈ 58px,6 行 ≈ 116px(text-sm + leading-snug)
+const THREE_LINE_PX = 60 // 内容 ≤ 3 行的阈值,低于此值用 rows={3} 原生渲染
+const MAX_HEIGHT_PX = 120 // 最大 6 行,超出后滚动
 
 interface ReferenceItem {
   id: string
@@ -90,12 +94,31 @@ export function MessageInput({
     category: t(`tpl.${id}.category`),
   }))
 
-  // 自动调整高度
+  // 自动调整高度:空内容用 rows={3} 原生渲染,有内容按 scrollHeight 撑高,>6 行保持 6 行 + 滚动
   const resize = React.useCallback(() => {
     const el = textareaRef.current
     if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+    // 空内容:强制清除 inline height,用 rows={3} 原生渲染(浏览器绝对保证 3 行)
+    if (!el.value) {
+      el.style.height = ''
+      el.style.overflowY = 'hidden'
+      return
+    }
+    el.style.height = 'auto' // 临时重置以测量真实内容
+    const sh = el.scrollHeight
+    if (sh < THREE_LINE_PX) {
+      // 1-3 行:清除 inline height,用 rows={3} 原生渲染(保持 3 行不缩)
+      el.style.height = ''
+      el.style.overflowY = 'hidden'
+    } else if (sh <= MAX_HEIGHT_PX) {
+      // 4-6 行:撑高到内容高度
+      el.style.height = `${sh}px`
+      el.style.overflowY = 'hidden'
+    } else {
+      // 7+ 行:保持最大高度 + 滚动条
+      el.style.height = `${MAX_HEIGHT_PX}px`
+      el.style.overflowY = 'auto'
+    }
   }, [])
 
   React.useEffect(() => {
@@ -214,21 +237,25 @@ export function MessageInput({
           />
           {/* Trae 风格输入容器:描边卡片 + textarea 主区 + 底部工具栏 */}
           <div className="rounded-xl border border-border bg-card transition-colors focus-within:border-foreground/20">
-            <textarea
-              ref={textareaRef}
-              value={value}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              rows={1}
-              disabled={isStreaming}
-              aria-label={placeholder}
-              className={cn(
-                'block max-h-[200px] w-full resize-none bg-transparent px-3 pt-2.5 pb-1.5 text-sm outline-none',
-                'placeholder:text-muted-foreground/70',
-                'disabled:cursor-not-allowed disabled:opacity-60',
-              )}
-            />
+            {/* textarea 容器:padding 由容器提供,避免 textarea 滚动时 padding-top 被吃掉 */}
+            <div className="px-3 pt-2 pb-2">
+              <textarea
+                ref={textareaRef}
+                value={value}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder}
+                rows={3}
+                disabled={isStreaming}
+                aria-label={placeholder}
+                style={{ maxHeight: MAX_HEIGHT_PX }}
+                className={cn(
+                  'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
+                  'placeholder:text-muted-foreground/70',
+                  'disabled:cursor-not-allowed disabled:opacity-60',
+                )}
+              />
+            </div>
             {/* 底部工具栏:左侧功能按钮,右侧模型/语音/发送(挨着) */}
             <div className="flex items-center gap-1 px-2 pb-2 pt-1">
               {isStreaming ? (
@@ -284,7 +311,6 @@ export function MessageInput({
                   onChange={onModelChange}
                   disabled={isStreaming}
                   label={modelLabel}
-                  size="sm"
                 />
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
                 <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming} />
