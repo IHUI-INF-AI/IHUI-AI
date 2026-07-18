@@ -3,13 +3,19 @@
  *
  * 灵感来源:参考行业 Agent 框架的 fsnotify 集成,让 LLM 感知工作区文件变更。
  * 简化策略(做减法):
- *   - 不引入 chokidar,纯 Node 内置 fs.watch(recursive: true 仅 Windows/macOS 原生支持,
- *     Linux 下 fallback 为非递归监听根目录,事件不完整但不抛错)
+ *   - 优先 Node fs.watch(recursive: true 仅 Windows/macOS 原生支持)
+ *   - Linux 下若 recursive 失败,尝试动态 import('chokidar') 作为 fallback;
+ *     chokidar 未安装时降级为非递归监听根目录(事件不完整但不抛错)
  *   - 50ms debounce:同一路径多次变更合并为一次事件,避免编辑器保存触发风暴
  *   - shouldIgnore 基础 glob 匹配(node_modules / .git / dist 等),不引入 ignore 包
  *   - 保留最近 N 条事件供 getRecentEvents(sinceMs) 查询
  *
  * Feature flag:settings.fsWatcher.enabled 默认 false,启用后才注入 agent 上下文。
+ *
+ * Linux fallback 策略:
+ *   1. 尝试 fs.watch(root, { recursive: true }) — Linux 内核通常不支持,抛错
+ *   2. 尝试 await import('chokidar') — 若项目装了 chokidar 则用,递归监听
+ *   3. chokidar 未安装 → fs.watch(root) 非递归监听根目录(子目录变更可能丢失)
  */
 
 import fs from 'node:fs';
@@ -91,15 +97,21 @@ function globToRegExp(pat: string): RegExp {
  * 跨平台文件监听源。
  *
  * - Windows/macOS:fs.watch(root, { recursive: true }) 原生支持递归监听
- * - Linux:recursive 参数被忽略,fallback 监听根目录(子目录变更可能丢失,但不抛错)
+ * - Linux:recursive 参数被忽略,先尝试 chokidar(若已安装),否则降级监听根目录
  * - 50ms debounce:同一路径多次事件合并为一次 modify/create/delete
  * - EventEmitter 派发 'event' (FsEvent) 事件
+ *
+ * chokidar 接入说明:
+ *   - 通过动态 import('chokidar') 加载,若包不存在则 fallback 到 fs.watch
+ *   - 不在 package.json 中硬依赖 chokidar,只在用户主动安装后启用
+ *   - chokidar 提供 add/orchunlink/unlink 事件,统一映射到 FsEventKind
  */
 export class FsEventSource extends EventEmitter {
   private watchers: fs.FSWatcher[] = [];
+  private chokidarWatchers: { close(): void }[] = [];
   private debounceMap = new Map<string, NodeJS.Timeout>();
   private readonly SETTLE_MS = 50;
-  private stats = { totalEvents: 0, droppedByDebounce: 0 };
+  private stats = { totalEvents: 0, droppedByDebounce: 0, chokidarFallback: false };
   private recentEvents: FsEvent[] = [];
   private started = false;
 
@@ -133,24 +145,88 @@ export class FsEventSource extends EventEmitter {
       });
       this.watchers.push(watcher);
     } catch {
-      // recursive 不支持时 fallback 为非递归监听根目录
+      // recursive 不支持时(Linux),尝试 chokidar fallback
+      this.tryChokidarFallback();
+    }
+  }
+
+  /**
+   * Linux fallback:尝试动态加载 chokidar。
+   *
+   * 行为契约:
+   * - 成功加载 chokidar:用 chokidar.watch(root, { ignored, persistent: false }) 递归监听
+   * - chokidar 不存在或加载失败:降级到 fs.watch 非递归监听根目录
+   * - 不抛异常(零回归)
+   */
+  private tryChokidarFallback(): void {
+    // 仅在 Linux 下尝试 chokidar(Windows/macOS 原生支持 recursive 不需要)
+    if (process.platform !== 'linux') {
+      this.fallbackToNonRecursive();
+      return;
+    }
+    // 动态 import(chokidar 不在硬依赖中,只在实际安装后可用)
+    (async () => {
       try {
-        const watcher = fs.watch(
-          this.root,
-          { persistent: false },
-          (eventType, filename) => {
-            if (!filename) return;
-            const rel = String(filename).replace(/\\/g, '/');
-            if (shouldIgnore(rel, this.ignore)) return;
-            this.scheduleDebounce(rel, eventType);
-          },
-        );
-        watcher.on('error', () => {});
-        this.watchers.push(watcher);
+        const chokidarModule = await import('chokidar');
+        const chokidar = chokidarModule.default ?? chokidarModule;
+        const ignoredPatterns = this.ignore.map((pat) => this.chokidarGlobPattern(pat));
+        const watcher = chokidar.watch(this.root, {
+          ignored: ignoredPatterns,
+          persistent: false,
+          ignoreInitial: true,
+          depth: 20,
+        });
+        const handleEvent = (filePath: string, rawEvent: string) => {
+          if (!filePath) return;
+          const rel = path.relative(this.root, filePath).replace(/\\/g, '/');
+          if (shouldIgnore(rel, this.ignore)) return;
+          this.scheduleDebounce(rel, rawEvent);
+        };
+        watcher.on('add', (p: string) => handleEvent(p, 'add'));
+        watcher.on('change', (p: string) => handleEvent(p, 'change'));
+        watcher.on('unlink', (p: string) => handleEvent(p, 'unlink'));
+        watcher.on('error', () => {
+          // chokidar 错误静默
+        });
+        this.chokidarWatchers.push(watcher);
+        this.stats.chokidarFallback = true;
       } catch {
-        // 完全不支持时静默失败(零回归)
-        this.started = false;
+        // chokidar 未安装,降级到非递归
+        this.fallbackToNonRecursive();
       }
+    })().catch(() => {
+      this.fallbackToNonRecursive();
+    });
+  }
+
+  /** 把字面量 ignore pattern 转为 chokidar glob(支持 ** 和 *) */
+  private chokidarGlobPattern(pat: string): string {
+    if (!pat) return '';
+    if (!/[*?]/.test(pat)) {
+      // 字面量段:**/pat/** 匹配目录本身和子文件
+      return `**/${pat}/**`;
+    }
+    return pat;
+  }
+
+  /** 最终 fallback:非递归监听根目录(子目录变更可能丢失,但不抛错) */
+  private fallbackToNonRecursive(): void {
+    try {
+      const watcher = fs.watch(
+        this.root,
+        { persistent: false },
+        (eventType, filename) => {
+          if (!filename) return;
+          const rel = String(filename).replace(/\\/g, '/');
+          if (shouldIgnore(rel, this.ignore)) return;
+          this.scheduleDebounce(rel, eventType);
+        },
+      );
+      watcher.on('error', () => {});
+      this.watchers.push(watcher);
+    } catch {
+      // 完全不支持时静默失败(零回归)
+      this.started = false;
     }
   }
 
@@ -164,6 +240,14 @@ export class FsEventSource extends EventEmitter {
       }
     }
     this.watchers = [];
+    for (const cw of this.chokidarWatchers) {
+      try {
+        cw.close();
+      } catch {
+        // 忽略关闭错误
+      }
+    }
+    this.chokidarWatchers = [];
     for (const t of this.debounceMap.values()) {
       clearTimeout(t);
     }
@@ -171,8 +255,8 @@ export class FsEventSource extends EventEmitter {
     this.started = false;
   }
 
-  /** 获取统计信息(用于调试 + 测试) */
-  getStats(): { totalEvents: number; droppedByDebounce: number } {
+  /** 获取统计信息(用于调试 + 测试,含 chokidarFallback 标记) */
+  getStats(): { totalEvents: number; droppedByDebounce: number; chokidarFallback: boolean } {
     return { ...this.stats };
   }
 

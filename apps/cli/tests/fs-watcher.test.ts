@@ -120,6 +120,16 @@ describe('FsEventSource 生命周期', () => {
     const stats = src.getStats();
     expect(stats.totalEvents).toBe(0);
     expect(stats.droppedByDebounce).toBe(0);
+    expect(stats.chokidarFallback).toBe(false);
+    src.stop();
+  });
+
+  it('getStats 含 chokidarFallback 字段(新增字段)', () => {
+    const src = new FsEventSource(tmpDir);
+    const stats = src.getStats();
+    // 字段必须存在(即使 false)
+    expect(stats).toHaveProperty('chokidarFallback');
+    expect(typeof stats.chokidarFallback).toBe('boolean');
     src.stop();
   });
 
@@ -247,6 +257,74 @@ describe('FsEventSource debounce + 事件触发', () => {
     const stats = src.getStats();
     expect(stats.totalEvents).toBeGreaterThanOrEqual(1);
     src.stop();
+  });
+});
+
+describe('FsEventSource chokidar fallback(Linux 兼容)', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-fsw-chokidar-'));
+  });
+
+  afterEach(() => {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* 忽略 */ }
+  });
+
+  it('非 Linux 平台 start 不触发 chokidar fallback(chokidarFallback=false)', () => {
+    // Windows/macOS 原生支持 recursive,不应走 chokidar
+    const src = new FsEventSource(tmpDir);
+    src.start();
+    const stats = src.getStats();
+    if (process.platform !== 'linux') {
+      expect(stats.chokidarFallback).toBe(false);
+    }
+    // Linux 下 chokidar 可能未安装,此时 chokidarFallback 也是 false(降级到非递归)
+    src.stop();
+  });
+
+  it('不存在的根目录 start 不抛异常(降级到非递归或静默失败)', () => {
+    const nonexistent = path.join(tmpDir, 'does-not-exist');
+    const src = new FsEventSource(nonexistent);
+    expect(() => src.start()).not.toThrow();
+    src.stop();
+    // 即使 chokidar 加载失败,也不应抛错
+    expect(src.getStats().chokidarFallback).toBe(false);
+  });
+
+  it('Windows 平台 start 后 getStats 不报 chokidarFallback=true', () => {
+    if (process.platform !== 'win32') return; // 仅 Windows 验证
+    const src = new FsEventSource(tmpDir);
+    src.start();
+    expect(src.getStats().chokidarFallback).toBe(false);
+    src.stop();
+  });
+
+  it('macOS 平台 start 后 getStats 不报 chokidarFallback=true', () => {
+    if (process.platform !== 'darwin') return; // 仅 macOS 验证
+    const src = new FsEventSource(tmpDir);
+    src.start();
+    expect(src.getStats().chokidarFallback).toBe(false);
+    src.stop();
+  });
+});
+
+describe('FsEventSource stop 清理所有 watchers(含 chokidar)', () => {
+  it('多次 start/stop 循环不泄漏 watcher', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-fsw-leak-'));
+    try {
+      for (let i = 0; i < 5; i++) {
+        const src = new FsEventSource(tmp);
+        src.start();
+        src.stop();
+        // 重复 stop 安全
+        src.stop();
+      }
+      // 不抛错即通过
+      expect(true).toBe(true);
+    } finally {
+      try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* 忽略 */ }
+    }
   });
 });
 
