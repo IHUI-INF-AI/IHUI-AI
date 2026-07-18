@@ -258,10 +258,28 @@ interface SidebarProps {
   onCloseMobile: () => void
 }
 
-/** 侧边栏底部工具栏:语言 / 下载客户端(搜索入口由 Header + 侧边栏搜索行共同承载,见 SearchNavItem) */
-function SidebarActions({ collapsed }: { collapsed: boolean }) {
-  const { locale, setLocale } = useLanguageStore()
+/**
+ * 侧边栏底部统一工具栏(5 按钮单行):语言 / 下载客户端 / 消息中心 / 主题切换 / 登录(未登录时)。
+ * 合并自原 SidebarActions + SidebarExtraActions,确保 130px 默认宽度下单行排开。
+ * 拉伸到 180px 仍单行;极端窄宽时 flex-wrap 兜底换行。
+ */
+function SidebarActions({
+  collapsed,
+  onCloseMobile,
+}: {
+  collapsed: boolean
+  onCloseMobile: () => void
+}) {
   const t = useTranslations('nav')
+  const tc = useTranslations('common')
+  const tt = useTranslations('themeToggle')
+  const { locale, setLocale } = useLanguageStore()
+  const { theme, setTheme } = useTheme()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const openLogin = useLoginDialogStore((s) => s.open)
+  const notifications = useNotificationStore((s) => s.notifications)
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
+  const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
 
   const handleLocaleChange = (code: Language) => {
     document.cookie = `locale=${code};path=/;max-age=31536000`
@@ -269,17 +287,39 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
     window.location.reload()
   }
 
-  const btnClass = 'h-7 w-7 shrink-0'
+  const handleToggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark')
+  }
+
+  const handleLogin = () => {
+    openLogin('login')
+    onCloseMobile()
+  }
+
+  // store 中的 NotificationItem 映射为 NotificationCenter 所需的 NoticeItem
+  const noticeItems: NoticeItem[] = notifications.map((n) => ({
+    id: n.id,
+    title: n.title,
+    description: n.content,
+    type: n.type === 'warning' || n.type === 'error' || n.type === 'success' ? n.type : 'info',
+    read: n.isRead,
+    createdAt: n.createdAt,
+  }))
+
+  // 按钮统一 h-5 w-5 (20×20):5 个 + 4 间隙 (gap-0.5=2px) = 108px,适配 130px 默认宽度。
+  // [&_svg]:size-3.5 覆盖 Button 默认的 [&_svg]:size-4,让 14×14 图标在 20×20 按钮内比例协调。
+  const btnClass = 'h-5 w-5 shrink-0 [&_svg]:size-3.5'
 
   return (
     <div
       className={cn(
-        'flex gap-1 rounded-md p-1',
+        'flex gap-0.5 rounded-md p-1',
         // 折叠态:aside 的 border-r(1px)使内容区 59px,居中后按钮会偏左 0.5px。
         // 用 pl-[9px] pr-2 补偿,让按钮回到 60px 视觉中心。
-        collapsed ? 'flex-col items-center pl-[9px] pr-2' : 'flex-row justify-center',
+        collapsed ? 'flex-col items-center pl-[9px] pr-2' : 'flex-row flex-wrap justify-center',
       )}
     >
+      {/* 语言切换 */}
       <Popover
         position={collapsed ? 'right' : 'top'}
         className={collapsed ? undefined : 'left-0 translate-x-0'}
@@ -316,12 +356,13 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           {}
           <img
             src={`/images/flags/${locale}.svg`}
-            className="block h-5 w-7 shrink-0 object-contain"
+            className="block h-3 w-4 shrink-0 object-contain"
             alt={locale}
           />
         </Button>
       </Popover>
 
+      {/* 下载客户端 */}
       <Popover
         position={collapsed ? 'right' : 'top'}
         className={collapsed ? undefined : 'left-0 translate-x-0'}
@@ -346,9 +387,68 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           title={collapsed ? t('downloadClient') : undefined}
           aria-label={t('downloadClient')}
         >
-          <Download className="h-4 w-4" />
+          <Download className="h-3.5 w-3.5" />
         </Button>
       </Popover>
+
+      {/* 消息中心 */}
+      <Popover
+        position={collapsed ? 'right' : 'top'}
+        className={collapsed ? undefined : 'left-0 translate-x-0'}
+        content={
+          <div className="w-80 max-w-[calc(100vw-2rem)]">
+            <NotificationCenter items={noticeItems} onMarkAllRead={() => markAllAsRead()} />
+          </div>
+        }
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(btnClass, 'relative')}
+          title={collapsed ? t('messages') : undefined}
+          aria-label={t('messages')}
+        >
+          <Bell className="h-3.5 w-3.5" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-medium text-white">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </Button>
+      </Popover>
+
+      {/* 主题切换 */}
+      <Tooltip
+        content={theme === 'dark' ? tt('lightMode') : tt('darkMode')}
+        side={collapsed ? 'right' : 'top'}
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          className={btnClass}
+          onClick={handleToggleTheme}
+          title={collapsed ? (theme === 'dark' ? tt('lightMode') : tt('darkMode')) : undefined}
+          aria-label={theme === 'dark' ? tt('lightMode') : tt('darkMode')}
+        >
+          {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+        </Button>
+      </Tooltip>
+
+      {/* 登录按钮(仅未登录时显示) */}
+      {!isAuthenticated && (
+        <Tooltip content={tc('login')} side={collapsed ? 'right' : 'top'}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={btnClass}
+            onClick={handleLogin}
+            title={collapsed ? tc('login') : undefined}
+            aria-label={tc('login')}
+          >
+            <LogIn className="h-3.5 w-3.5" />
+          </Button>
+        </Tooltip>
+      )}
     </div>
   )
 }
@@ -447,117 +547,6 @@ function SidebarUserRow({
           </span>
         )}
       </div>
-    </div>
-  )
-}
-
-/**
- * 侧边栏底部额外操作区:消息中心 / 主题切换 / 登录。
- * 整合自原 Header(已删除),保证路由 + 功能不丢失。
- */
-function SidebarExtraActions({
-  collapsed,
-  onCloseMobile,
-}: {
-  collapsed: boolean
-  onCloseMobile: () => void
-}) {
-  const t = useTranslations('nav')
-  const tc = useTranslations('common')
-  const tt = useTranslations('themeToggle')
-  const { theme, setTheme } = useTheme()
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const openLogin = useLoginDialogStore((s) => s.open)
-  const notifications = useNotificationStore((s) => s.notifications)
-  const unreadCount = useNotificationStore((s) => s.unreadCount)
-  const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
-
-  // store 中的 NotificationItem 映射为 NotificationCenter 所需的 NoticeItem
-  const noticeItems: NoticeItem[] = notifications.map((n) => ({
-    id: n.id,
-    title: n.title,
-    description: n.content,
-    type: n.type === 'warning' || n.type === 'error' || n.type === 'success' ? n.type : 'info',
-    read: n.isRead,
-    createdAt: n.createdAt,
-  }))
-
-  const handleToggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
-  }
-
-  const handleLogin = () => {
-    openLogin('login')
-    onCloseMobile()
-  }
-
-  const btnClass = 'h-7 w-7 shrink-0'
-
-  return (
-    <div
-      className={cn(
-        'flex gap-1 rounded-md p-1',
-        collapsed ? 'flex-col items-center pl-[9px] pr-2' : 'flex-row justify-center',
-      )}
-    >
-      {/* 消息中心 */}
-      <Popover
-        position={collapsed ? 'right' : 'top'}
-        className={collapsed ? undefined : 'left-0 translate-x-0'}
-        content={
-          <div className="w-80 max-w-[calc(100vw-2rem)]">
-            <NotificationCenter items={noticeItems} onMarkAllRead={() => markAllAsRead()} />
-          </div>
-        }
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(btnClass, 'relative')}
-          title={collapsed ? t('messages') : undefined}
-          aria-label={t('messages')}
-        >
-          <Bell className="h-4 w-4" />
-          {unreadCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          )}
-        </Button>
-      </Popover>
-
-      {/* 主题切换 */}
-      <Tooltip
-        content={theme === 'dark' ? tt('lightMode') : tt('darkMode')}
-        side={collapsed ? 'right' : 'top'}
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          className={btnClass}
-          onClick={handleToggleTheme}
-          title={collapsed ? (theme === 'dark' ? tt('lightMode') : tt('darkMode')) : undefined}
-          aria-label={theme === 'dark' ? tt('lightMode') : tt('darkMode')}
-        >
-          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </Button>
-      </Tooltip>
-
-      {/* 登录按钮(仅未登录时显示) */}
-      {!isAuthenticated && (
-        <Tooltip content={tc('login')} side={collapsed ? 'right' : 'top'}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={btnClass}
-            onClick={handleLogin}
-            title={collapsed ? tc('login') : undefined}
-            aria-label={tc('login')}
-          >
-            <LogIn className="h-4 w-4" />
-          </Button>
-        </Tooltip>
-      )}
     </div>
   )
 }
@@ -827,7 +816,7 @@ function ExpandableNavItem({
 
   const childClassName = (active: boolean) =>
     cn(
-      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-8 pr-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
+      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-2 pr-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
       active
         ? 'bg-primary text-primary-foreground'
         : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
@@ -898,8 +887,8 @@ function ExpandableNavItem({
         aria-controls={listId}
         className={parentClassName}
       >
-        <Icon className="h-4 w-4 shrink-0" />
-        <span className="min-w-0 flex-1 truncate pr-4 text-[13px]">{label}</span>
+        <Icon className="h-5 w-5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate pr-4">{label}</span>
         <ChevronDown
           className={cn(
             'absolute right-2 top-1/2 h-3.5 w-3.5 shrink-0 -translate-y-1/2 transition-transform',
@@ -907,7 +896,7 @@ function ExpandableNavItem({
           )}
         />
       </button>
-      {open && <div className="mt-0.5 pl-2">{childList}</div>}
+      {open && <div className="mt-0.5">{childList}</div>}
     </div>
   )
 }
@@ -1116,8 +1105,7 @@ export function Sidebar({
   const footer = (
     <TooltipProvider>
       <div className="shrink-0">
-        <SidebarExtraActions collapsed={collapsed} onCloseMobile={onCloseMobile} />
-        <SidebarActions collapsed={collapsed} />
+        <SidebarActions collapsed={collapsed} onCloseMobile={onCloseMobile} />
         <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
       </div>
     </TooltipProvider>
