@@ -199,6 +199,8 @@ import { adminShopRoutes } from './routes/admin-shop-routes.js'
 import { adminInvoicesRoutes } from './routes/admin-invoices.js'
 // 前端用户端缺失路由补建（54 个路由：空数据桩）
 import { missingUserRoutes } from './routes/missing-user-routes.js'
+// OpenClaw 控制台 8 面板后端端点（memory/skills/automation/channels/tools/gateway/sessions/stats）
+import { openclawRoutes } from './routes/openclaw-routes.js'
 // 补桩：文章列表 / 用户签到 / 教育课程作业评分证书 / 学习记录上传
 import { articleRoutes } from './routes/articles.js'
 import { userCheckinRoutes } from './routes/user.js'
@@ -836,6 +838,9 @@ function registerRoutes(server: FastifyInstance) {
   // 全部空数据桩，覆盖：文章 / 内容生成 / 知识库 / 技能 / 学习记录 / MCP / OpenClaw
   // 代理类 / 用户设置 / AI 补充 / 开发者扩展 / 分销 / VIP 权益 / 优惠券 / 通知详情 / 消息详情
   server.register(missingUserRoutes, { prefix: '/api' })
+
+  // OpenClaw 控制台 8 面板后端端点
+  server.register(openclawRoutes, { prefix: '/api' })
 
   // ===== 补桩：文章列表 / 用户签到 / 教育课程扩展 / 学习记录上传 =====
   server.register(articleRoutes, { prefix: '/api' })
