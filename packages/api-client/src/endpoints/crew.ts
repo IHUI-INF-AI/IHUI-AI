@@ -71,6 +71,8 @@ export interface CrewStreamEvent {
     | 'task_start'
     | 'task_complete'
     | 'task_error'
+    | 'tool_call'
+    | 'tool_result'
     | 'complete'
     | 'error'
   content?: string
@@ -78,6 +80,17 @@ export interface CrewStreamEvent {
   role?: string
   taskIndex?: number
   tasks?: Array<{ role: string; description: string }>
+  /** tool_call 事件:工具调用信息 */
+  toolCall?: { id: string; name: string; args: Record<string, unknown> }
+  /** tool_result 事件:工具执行结果 */
+  toolResult?: {
+    id: string
+    name: string
+    success: boolean
+    output?: unknown
+    error?: string
+    durationMs: number
+  }
 }
 
 /** 健康检查 */
@@ -91,6 +104,28 @@ export async function checkCrewHealth(): Promise<{ status: string; service: stri
 export async function listCrewAgents(): Promise<CrewAgentRole[]> {
   const res = await fetchApi<CrewAgentRole[]>('/api/crew/agents')
   if (!res.success) throw new Error(res.error || '查询角色失败')
+  return res.data
+}
+
+/** 可用模型(代理 ai-service /api/llm/models) */
+export interface CrewModelItem {
+  id: string
+  name: string
+  provider?: string
+  context_length?: number
+}
+
+export interface CrewModelsResponse {
+  models: CrewModelItem[]
+  default: string
+  stubMode: boolean
+  error?: string
+}
+
+/** 可用模型列表 */
+export async function listCrewModels(): Promise<CrewModelsResponse> {
+  const res = await fetchApi<CrewModelsResponse>('/api/crew/models')
+  if (!res.success) throw new Error(res.error || '查询模型失败')
   return res.data
 }
 
