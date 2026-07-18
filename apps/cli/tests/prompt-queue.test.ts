@@ -12,7 +12,10 @@
  *   8. 事件:enqueued/dequeued/completed/cancelled/cleared
  *   9. 状态机:pending → running → completed/cancelled
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
 import { PromptQueue, type PromptQueueItem } from '../src/prompt-queue.js';
 
 describe('PromptQueue', () => {
@@ -397,6 +400,141 @@ describe('PromptQueue', () => {
       q.removeListener('enqueued', handler);
       // 不抛错即通过
       expect(true).toBe(true);
+    });
+  });
+
+  describe('跨 session 持久化(saveToDisk / loadFromDisk)', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-pq-persist-'));
+    });
+
+    afterEach(() => {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* 忽略 */ }
+    });
+
+    it('saveToDisk 写入文件,loadFromDisk 恢复 pending 项', async () => {
+      const persistPath = path.join(tmpDir, 'prompt-queue.json');
+      const q1 = new PromptQueue();
+      q1.enqueue('task A');
+      q1.enqueue('task B');
+      q1.enqueue('task C');
+      // 标记一条为 running(不应被持久化)
+      const runningItem = q1.dequeue();
+      expect(runningItem?.prompt).toBe('task A');
+      // 标记一条为 completed(不应被持久化)
+      const next = q1.dequeue();
+      q1.complete(next!.id);
+
+      await q1.saveToDisk(persistPath);
+
+      // 新队列从磁盘加载
+      const q2 = new PromptQueue();
+      const loadedCount = await q2.loadFromDisk(persistPath);
+      expect(loadedCount).toBe(1); // 只剩 task C (pending)
+      const snapshot = q2.snapshot();
+      expect(snapshot).toHaveLength(1);
+      expect(snapshot[0]!.prompt).toBe('task C');
+      expect(snapshot[0]!.status).toBe('pending');
+    });
+
+    it('saveToDisk 空队列写入空 pending 数组', async () => {
+      const persistPath = path.join(tmpDir, 'empty.json');
+      const q = new PromptQueue();
+      await q.saveToDisk(persistPath);
+      expect(fs.existsSync(persistPath)).toBe(true);
+      const raw = fs.readFileSync(persistPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      expect(parsed.pending).toEqual([]);
+    });
+
+    it('loadFromDisk 文件不存在时返回 0(不抛错)', async () => {
+      const q = new PromptQueue();
+      const count = await q.loadFromDisk(path.join(tmpDir, 'nonexistent.json'));
+      expect(count).toBe(0);
+    });
+
+    it('loadFromDisk 损坏文件时删除并返回 0', async () => {
+      const persistPath = path.join(tmpDir, 'corrupt.json');
+      fs.writeFileSync(persistPath, '{not valid json', 'utf-8');
+      const q = new PromptQueue();
+      const count = await q.loadFromDisk(persistPath);
+      expect(count).toBe(0);
+      // 损坏文件应被删除
+      expect(fs.existsSync(persistPath)).toBe(false);
+    });
+
+    it('loadFromDisk 去重:已存在的 id 不重复加载', async () => {
+      const persistPath = path.join(tmpDir, 'dedup.json');
+      const q1 = new PromptQueue();
+      const item = q1.enqueue('task A');
+      await q1.saveToDisk(persistPath);
+
+      // q2 已有同 id 的项(模拟)
+      const q2 = new PromptQueue();
+      // 手动注入相同 id(测试去重逻辑)
+      (q2 as unknown as { items: PromptQueueItem[] }).items.push({
+        ...item,
+        status: 'completed', // 已完成,但 id 相同
+      });
+      const loaded = await q2.loadFromDisk(persistPath);
+      expect(loaded).toBe(0); // 已存在 id,跳过
+    });
+
+    it('loadFromDisk 后 counter 取 max(保证 id 单调)', async () => {
+      const persistPath = path.join(tmpDir, 'counter.json');
+      const q1 = new PromptQueue();
+      // 入队 5 次(counter=5)
+      for (let i = 0; i < 5; i++) q1.enqueue(`task-${i}`);
+      await q1.saveToDisk(persistPath);
+
+      const q2 = new PromptQueue();
+      await q2.loadFromDisk(persistPath);
+      // 入队新项,id 应基于 counter=5 继续递增
+      const newItem = q2.enqueue('new-task');
+      // 解析 id 中的 counter 部分(q-xxx-5 后应为 q-xxx-6)
+      const parts = newItem.id.split('-');
+      const counter = parseInt(parts[parts.length - 1]!, 36);
+      expect(counter).toBeGreaterThanOrEqual(6);
+    });
+
+    it('clearDisk 删除持久化文件', async () => {
+      const persistPath = path.join(tmpDir, 'clear.json');
+      const q = new PromptQueue();
+      q.enqueue('task');
+      await q.saveToDisk(persistPath);
+      expect(fs.existsSync(persistPath)).toBe(true);
+      await q.clearDisk(persistPath);
+      expect(fs.existsSync(persistPath)).toBe(false);
+    });
+
+    it('clearDisk 文件不存在时不抛错', async () => {
+      const q = new PromptQueue();
+      await expect(q.clearDisk(path.join(tmpDir, 'never-existed.json'))).resolves.toBeUndefined();
+    });
+
+    it('saveToDisk 写入失败不抛错(只 log warn)', async () => {
+      // 用一个不可能的路径触发写入失败
+      const impossiblePath = path.join('/nonexistent-root', 'no-perm', 'prompt-queue.json');
+      const q = new PromptQueue();
+      q.enqueue('task');
+      await expect(q.saveToDisk(impossiblePath)).resolves.toBeUndefined();
+    });
+
+    it('持久化文件结构正确(version + savedAt + counter + pending)', async () => {
+      const persistPath = path.join(tmpDir, 'structure.json');
+      const q = new PromptQueue();
+      q.enqueue('task A');
+      await q.saveToDisk(persistPath);
+      const raw = fs.readFileSync(persistPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      expect(parsed.version).toBe(1);
+      expect(typeof parsed.savedAt).toBe('number');
+      expect(typeof parsed.counter).toBe('number');
+      expect(Array.isArray(parsed.pending)).toBe(true);
+      expect(parsed.pending[0].prompt).toBe('task A');
+      expect(parsed.pending[0].status).toBe('pending');
     });
   });
 });
