@@ -55,7 +55,7 @@ const PLACEHOLDER_MARK = '__placeholder__'
 
 /**
  * AI Talk 辅助方法 Hook。
- * 迁移自旧项目 ai_index.js (L56-L95 / L807-L873 / L1229-L1330),
+ * 等价自旧项目 ai_index.js (L56-L95 / L807-L873 / L1229-L1330),
  * 提供状态管理、模型编码查询、特殊标记过滤、占位项替换、轮询等 12 个辅助方法。
  */
 export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersReturn {

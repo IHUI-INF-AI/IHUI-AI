@@ -1,7 +1,7 @@
 /**
  * AskUserQuestion 工具 — Agent 向用户提问的多选/单选工具。
  *
- * 灵感来源:TRAE IDE 的 AskUserQuestion + cli 的 ask_user 工具。
+ * 灵感来源:TRAE IDE 的 AskUserQuestion + 参考行业 Agent 框架的 ask_user 工具。
  * 简化策略(做减法):
  *   - 基于 inquirer 的 list/rawlist prompt(已有依赖,不引入新库)
  *   - 支持单选/multiselect/select-or-input 三种模式

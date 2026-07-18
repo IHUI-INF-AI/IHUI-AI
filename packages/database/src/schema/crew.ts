@@ -1,6 +1,6 @@
 /**
  * 多智能体 Crew 系统持久化表。
- * 迁移自 v1.0.2-sealed: server/app/models/crew_models.py
+ * 等价自 v1.0.2-sealed: server/app/models/crew_models.py
  *
  * 3 张表:
  * - zhs_crew_session  会话

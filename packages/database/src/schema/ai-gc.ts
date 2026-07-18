@@ -2,7 +2,7 @@ import { pgTable, uuid, varchar, text, integer, timestamp, index } from 'drizzle
 
 /**
  * AI 生成内容表 (ai_gc_content)。
- * 迁移自旧架构 ai_gc 表，记录用户通过 AI 生成的内容。
+ * 等价自旧架构 ai_gc 表，记录用户通过 AI 生成的内容。
  * gcType: text(文本) / image(图像) / audio(语音) / video(视频)。
  * status: 0=禁用, 1=启用。
  * userUuid / agentId 沿用旧架构字符串标识（非 DB 外键）。
@@ -27,7 +27,7 @@ export const aiGcContent = pgTable(
 
 /**
  * AI 生成任务表 (ai_gc_task)。
- * 迁移自旧架构 ai_gc_user_log 表，记录用户对生成内容的操作行为。
+ * 等价自旧架构 ai_gc_user_log 表，记录用户对生成内容的操作行为。
  * action: view(查看) / copy(复制) / share(分享) / delete(删除)。
  * gcContentId 关联 aiGcContent.id，删除内容时级联删除任务记录。
  */
