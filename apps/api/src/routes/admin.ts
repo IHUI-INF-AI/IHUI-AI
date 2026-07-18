@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { SQL as DrizzleSQL } from 'drizzle-orm'
 import { z } from 'zod'
 import { authenticate, requireActiveUser } from '../plugins/auth.js'
 import {
@@ -601,5 +602,351 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) return reply.status(404).send(error(404, '项目不存在'))
     await deleteProjectAdmin(paramParsed.data.id)
     return reply.send(success({ id: paramParsed.data.id, deleted: true }))
+  })
+
+  // ============================================================================
+  // R77 真实补建:Top 5 最高 ROI 缺失端点(admin-audit-report.md)
+  // ============================================================================
+
+  // POST /users/:id/resetPwd - 管理员重置用户密码(前端 ResetPasswordDialog 使用)
+  // R78 修复: 此前引用未定义的 userIdParamSchema, 改用已定义的 idParamSchema (L64)
+  server.post('/users/:id/resetPwd', async (request, reply) => {
+    const paramParsed = idParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const bodyParsed = z
+      .object({ newPassword: z.string().min(6, '新密码至少 6 位') })
+      .safeParse(request.body)
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const user = await findUserById(paramParsed.data.id)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    const passwordHash = bcrypt.hashSync(bodyParsed.data.newPassword, 10)
+    const { db } = await import('../db/index.js')
+    const { users } = await import('@ihui/database')
+    const { eq } = await import('drizzle-orm')
+    await db
+      .update(users)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(users.id, paramParsed.data.id))
+    return reply.send(success({ id: paramParsed.data.id, reset: true }))
+  })
+
+  // GET /dept/list - 部门列表(前端 users/DeptTree 使用)
+  server.get('/dept/list', async (_request, reply) => {
+    try {
+      const { findDepartments } = await import('../db/usercenter-queries.js')
+      const depts = await findDepartments({})
+      return reply.send(success({ list: depts, total: depts.length }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `部门列表查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /agreements - 协议列表(前端 agreements 页面使用)
+  server.get('/agreements', async (_request, reply) => {
+    try {
+      const { findAllAgreements } = await import('../db/admin-queries.js')
+      const list = await findAllAgreements()
+      return reply.send(success({ list, total: list.length }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `协议列表查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /advertise - 广告列表(前端 advertise 页面使用)
+  server.get('/advertise', async (request, reply) => {
+    try {
+      const { findAdvertisements } = await import('../db/admin-queries.js')
+      const q = (request.query ?? {}) as { page?: string; pageSize?: string }
+      const page = Math.max(1, Math.floor(Number(q.page) || 1))
+      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+      const { list, total } = await findAdvertisements({ page, pageSize })
+      return reply.send(success({ list, total, page, pageSize }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `广告列表查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /article - 文章分页列表(前端 articles 页面使用)
+  server.get('/article', async (request, reply) => {
+    try {
+      const { findArticles } = await import('../db/admin-queries.js')
+      const q = (request.query ?? {}) as { page?: string; pageSize?: string; status?: string }
+      const page = Math.max(1, Math.floor(Number(q.page) || 1))
+      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+      const { list, total } = await findArticles({
+        page,
+        pageSize,
+        ...(q.status ? { status: Number(q.status) } : {}),
+      })
+      return reply.send(success({ list, total, page, pageSize }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `文章列表查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // ============================================================================
+  // R78 真实补建:Top 6-15 缺失端点(admin-audit-report.md)
+  // ============================================================================
+
+  // GET /agent-rule - 智能体规则列表(前端 admin/agent-rule/ 使用,原后端仅有 POST/PUT/DELETE)
+  server.get('/agent-rule', async (request, reply) => {
+    try {
+      const q = (request.query ?? {}) as {
+        page?: string
+        pageSize?: string
+        agentId?: string
+        status?: string
+      }
+      const page = Math.max(1, Math.floor(Number(q.page) || 1))
+      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+      const { db } = await import('../db/index.js')
+      const { agentRule } = await import('@ihui/database')
+      const { and, eq, desc, sql } = await import('drizzle-orm')
+      const conds: DrizzleSQL[] = []
+      if (q.agentId) conds.push(eq(agentRule.agentId, q.agentId))
+      if (q.status !== undefined && q.status !== '')
+        conds.push(eq(agentRule.status, Number(q.status)))
+      const where = conds.length ? and(...conds) : undefined
+      const [list, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(agentRule)
+          .where(where)
+          .orderBy(desc(agentRule.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(agentRule)
+          .where(where),
+      ])
+      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `智能体规则列表查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /agent-task - 智能体任务列表(前端 admin/agent-task/ 使用)
+  server.get('/agent-task', async (request, reply) => {
+    try {
+      const q = (request.query ?? {}) as {
+        page?: string
+        pageSize?: string
+        agentId?: string
+        status?: string
+      }
+      const page = Math.max(1, Math.floor(Number(q.page) || 1))
+      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+      const { db } = await import('../db/index.js')
+      const { agentTasks } = await import('@ihui/database')
+      const { and, eq, desc, sql } = await import('drizzle-orm')
+      const conds: DrizzleSQL[] = []
+      if (q.agentId) conds.push(eq(agentTasks.agentId, q.agentId))
+      if (q.status) conds.push(eq(agentTasks.status, q.status))
+      const where = conds.length ? and(...conds) : undefined
+      const [list, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(agentTasks)
+          .where(where)
+          .orderBy(desc(agentTasks.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(agentTasks)
+          .where(where),
+      ])
+      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `智能体任务列表查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /edu/classes/schedules - 班级课程表(前端 admin/edu/ 使用,schema 暂无)
+  // TODO: 待补 schema `edu_classes_schedules`(当前 edu-extended.ts 仅有 notes/offline_records/uploaded_certs/uploaded_papers)
+  server.get('/edu/classes/schedules', async (request, reply) => {
+    try {
+      const q = (request.query ?? {}) as { page?: string; pageSize?: string; classId?: string }
+      const page = Math.max(1, Math.floor(Number(q.page) || 1))
+      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+      return reply.send(success({ list: [], total: 0, page, pageSize, _stub: true }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `班级课程表查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /certificates - 证书列表(前端 admin/certificate/ 使用,带 user/template 联表)
+  server.get('/certificates', async (request, reply) => {
+    try {
+      const q = (request.query ?? {}) as {
+        page?: string
+        pageSize?: string
+        userId?: string
+        templateId?: string
+        status?: string
+        search?: string
+      }
+      const page = Math.max(1, Math.floor(Number(q.page) || 1))
+      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+      const { findCertificates } = await import('../db/certificate-queries.js')
+      const { list, total } = await findCertificates({
+        page,
+        pageSize,
+        ...(q.userId ? { userId: q.userId } : {}),
+        ...(q.templateId ? { templateId: q.templateId } : {}),
+        ...(q.status ? { status: Number(q.status) } : {}),
+        ...(q.search ? { search: q.search } : {}),
+      })
+      return reply.send(success({ list, total, page, pageSize }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `证书列表查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /certificates/templates - 证书模板列表(前端 admin/certificate/ 使用)
+  server.get('/certificates/templates', async (request, reply) => {
+    try {
+      const q = (request.query ?? {}) as {
+        page?: string
+        pageSize?: string
+        search?: string
+        status?: string
+      }
+      const page = Math.max(1, Math.floor(Number(q.page) || 1))
+      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+      const { findTemplates } = await import('../db/certificate-queries.js')
+      const { list, total } = await findTemplates({
+        page,
+        pageSize,
+        ...(q.search ? { search: q.search } : {}),
+        ...(q.status ? { status: Number(q.status) } : {}),
+      })
+      return reply.send(success({ list, total, page, pageSize }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `证书模板列表查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /edu/classes/:id/members - 班级成员列表(前端 admin/edu/ 使用,schema 暂无)
+  // TODO: 待补 schema `edu_classes_members`(当前 edu-extended.ts 仅有 notes/offline_records/uploaded_certs/uploaded_papers)
+  server.get('/edu/classes/:id/members', async (request, reply) => {
+    try {
+      const idParsed = z
+        .object({ id: z.string().min(1, '班级 ID 不能为空') })
+        .safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      return reply.send(success({ list: [], total: 0, classId: idParsed.data.id, _stub: true }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `班级成员查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /learn/signups - 课程报名列表(前端 admin/learn/signups/ 使用)
+  server.get('/learn/signups', async (request, reply) => {
+    try {
+      const q = (request.query ?? {}) as {
+        page?: string
+        pageSize?: string
+        lessonId?: string
+        status?: string
+        search?: string
+      }
+      const page = Math.max(1, Math.floor(Number(q.page) || 1))
+      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+      const { findAdminSignups } = await import('../db/learn-queries.js')
+      const { list, total } = await findAdminSignups({
+        page,
+        pageSize,
+        ...(q.lessonId ? { lessonId: q.lessonId } : {}),
+        ...(q.status ? { status: Number(q.status) } : {}),
+        ...(q.search ? { search: q.search } : {}),
+      })
+      return reply.send(success({ list, total, page, pageSize }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `课程报名列表查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /learn/invoices - 发票申请列表(前端 admin/learn/invoices/ 使用)
+  server.get('/learn/invoices', async (request, reply) => {
+    try {
+      const q = (request.query ?? {}) as {
+        page?: string
+        pageSize?: string
+        status?: string
+        search?: string
+      }
+      const page = Math.max(1, Math.floor(Number(q.page) || 1))
+      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+      const { findInvoiceApplicationList } = await import('../db/learn-extended-queries.js')
+      const { list, total } = await findInvoiceApplicationList({
+        page,
+        pageSize,
+        ...(q.status ? { status: q.status } : {}),
+        ...(q.search ? { search: q.search } : {}),
+      })
+      return reply.send(success({ list, total, page, pageSize }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `发票申请列表查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /course/pay-logs - 课程支付日志列表(前端 admin/course/ 使用,基于 zhs_course_pay_log)
+  server.get('/course/pay-logs', async (request, reply) => {
+    try {
+      const q = (request.query ?? {}) as {
+        page?: string
+        pageSize?: string
+        payId?: string
+        action?: string
+      }
+      const page = Math.max(1, Math.floor(Number(q.page) || 1))
+      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+      const { db } = await import('../db/index.js')
+      const { zhsCoursePayLog } = await import('@ihui/database')
+      const { and, eq, desc, sql } = await import('drizzle-orm')
+      const conds: DrizzleSQL[] = []
+      if (q.payId) conds.push(eq(zhsCoursePayLog.payId, Number(q.payId)))
+      if (q.action) conds.push(eq(zhsCoursePayLog.action, q.action))
+      const where = conds.length ? and(...conds) : undefined
+      const [list, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(zhsCoursePayLog)
+          .where(where)
+          .orderBy(desc(zhsCoursePayLog.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(zhsCoursePayLog)
+          .where(where),
+      ])
+      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `课程支付日志查询失败: ${(e as Error).message}`))
+    }
+  })
+
+  // GET /reports/signup - 报名统计报表(前端 admin/reports/ 使用,基于 lessonSignUps 聚合)
+  server.get('/reports/signup', async (request, reply) => {
+    try {
+      const q = (request.query ?? {}) as { startDate?: string; endDate?: string }
+      const { findSignupReport } = await import('../db/learn-queries.js')
+      const data = await findSignupReport({
+        ...(q.startDate ? { startDate: q.startDate } : {}),
+        ...(q.endDate ? { endDate: q.endDate } : {}),
+      })
+      return reply.send(success({ report: data }))
+    } catch (e) {
+      return reply.status(500).send(error(500, `报名报表查询失败: ${(e as Error).message}`))
+    }
   })
 }
