@@ -47,7 +47,7 @@ export function NewsList({
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((item) => (
+          {items.map((item, idx) => (
             <Link key={item.id} href={`/news/${item.id}`} className="block">
               <Card className="overflow-hidden transition-colors hover:bg-accent">
                 <CardContent className="flex gap-4 p-4">
@@ -57,6 +57,10 @@ export function NewsList({
                         fill
                         src={item.coverImage}
                         alt={item.title}
+                        // 首条新闻封面是列表 LCP,加 priority 预加载;其余懒加载
+                        priority={idx === 0 && page === 1}
+                        loading={idx === 0 && page === 1 ? 'eager' : 'lazy'}
+                        sizes="(max-width: 640px) 160px, 160px"
                         className="h-full w-full object-cover"
                       />
                     ) : (

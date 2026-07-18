@@ -1,7 +1,7 @@
 /**
  * P1-6 Codebase Graph — 增量索引核心。
  *
- * 灵感来源:grok-build xai-codebase-graph,做减法为扁平符号表版本。
+ * 灵感来源:参考行业 Agent 框架的 codebase-graph 设计,做减法为扁平符号表版本。
  * 简化策略:
  *   - 不存 ScopeGraph 完整图,只存扁平 symbol → locations[] 表
  *   - 增量更新:indexFile 先 removeFile 再添加,保证幂等

@@ -1,6 +1,6 @@
 import { pgTable, serial, varchar, integer, text, timestamp, boolean } from 'drizzle-orm/pg-core'
 
-/** 教育平台对接配置（迁移自 education_platform.py EducationPlatform） */
+/** 教育平台对接配置（等价自 education_platform.py EducationPlatform） */
 export const educationPlatform = pgTable('education_platform', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),
@@ -18,7 +18,7 @@ export const educationPlatform = pgTable('education_platform', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
-/** 教育平台同步日志（迁移自 education_platform.py EducationSyncLog） */
+/** 教育平台同步日志（等价自 education_platform.py EducationSyncLog） */
 export const educationSyncLog = pgTable('education_sync_log', {
   id: serial('id').primaryKey(),
   platformCode: varchar('platform_code', { length: 50 }).notNull(),

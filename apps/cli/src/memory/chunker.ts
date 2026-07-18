@@ -1,7 +1,7 @@
 /**
  * Markdown-aware chunker — 把 MEMORY.md 切成可检索的 chunk。
  *
- * 灵感来源:xai-grok-memory crate 的 chunker 模块。
+ * 灵感来源:参考行业 Agent 框架的 memory chunker 模块。
  * 简化策略(做减法):
  *   - 按行分割,识别 #/##/### heading 层级,记录 ancestors 路径
  *   - 当前 chunk 累积到 maxChunkSize 字符时 flush,保留 overlap 字符的尾部行

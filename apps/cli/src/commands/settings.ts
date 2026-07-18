@@ -1,7 +1,7 @@
 /**
  * 统一配置 — ~/.ihui/settings.json,合并优先级:CLI flag > settings.json > env > 默认。
  *
- * 灵感来源:grok-build 的配置管理 + Claude Code 的 settings.json。
+ * 灵感来源:参考行业 Agent 框架的配置管理 + Claude Code 的 settings.json。
  * 策略:
  *   - 字段全部可选,缺省回退到 env / 默认值
  *   - 加载失败不阻塞启动,降级到默认
@@ -80,6 +80,11 @@ export interface Settings {
   toolHub?: {
     /** 启用 hub(默认 false) */
     enabled?: boolean;
+    /** MCP Adapter 配置(默认关闭,启用后 MCP 工具走 hub adapter 路径,与原 mcp-runtime 路径互斥) */
+    mcpAdapter?: {
+      /** 启用 hub adapter(默认 false,启用后 MCP 工具注册到 hub remote registry,而非 registry Map) */
+      enabled?: boolean;
+    };
   };
   /** Subagent precedence 链配置(默认关闭,启用后用 4 层优先级解析 subagent 配置) */
   subagentPrecedence?: {
@@ -95,6 +100,123 @@ export interface Settings {
   pluginMarketplace?: {
     /** 启用 marketplace(默认 false) */
     enabled?: boolean;
+  };
+  /**
+   * P2-1 fsnotify 文件监听(默认关闭,启用后 runToolLoop 注入最近文件变更到 system prompt)。
+   *
+   * 启用方式:settings.fsWatcher.enabled = true。
+   * 关闭时完全零回归(不创建 FsEventSource,不注入上下文)。
+   */
+  fsWatcher?: {
+    /** 启用文件监听(默认 false) */
+    enabled?: boolean;
+    /** 额外忽略的路径模式(附加到默认 node_modules/.git/dist 等) */
+    ignore?: string[];
+  };
+  /**
+   * P2-2 公告系统(默认关闭,启用后 REPL 启动时拉取并显示未读公告)。
+   *
+   * 启用方式:settings.announcements.enabled = true。
+   * 关闭时所有 IO 静默 no-op(零回归)。
+   */
+  announcements?: {
+    /** 启用公告系统(默认 false) */
+    enabled?: boolean;
+    /** 覆盖后端 API URL(默认用 settings.apiUrl) */
+    apiUrl?: string;
+    /** 缓存 TTL 毫秒(默认 600000=10min) */
+    cacheTtlMs?: number;
+  };
+  /**
+   * P2-6 Voice STT 语音输入(默认关闭,启用后 /voice 命令录音 + 转写)。
+   *
+   * 启用方式:settings.voice.enabled = true。
+   * 关闭时 /voice 命令提示未启用(零回归)。
+   */
+  voice?: {
+    /** 启用语音输入(默认 false) */
+    enabled?: boolean;
+    /** ai-service API URL(默认用 settings.apiUrl) */
+    apiUrl?: string;
+    /** 语言提示(如 zh/en/ja,可选,透传给 STT 后端) */
+    language?: string;
+    /** 默认录音时长(秒,默认 5) */
+    durationSec?: number;
+  };
+  /**
+   * P3-1 Mermaid 图表自动渲染(默认关闭,启用后 LLM 输出 mermaid 代码块自动渲染为 PNG/SVG)。
+   *
+   * 启用方式:settings.mermaid.enabled = true。
+   * 关闭时完全不解析 LLM 输出(零回归)。
+   */
+  mermaid?: {
+    /** 启用 mermaid 渲染(默认 false) */
+    enabled?: boolean;
+    /** 渲染引擎:mmdc-cli(默认,本地)| mermaid-ink(在线 API) */
+    engine?: 'mmdc-cli' | 'mermaid-ink';
+    /** mmdc 渲染超时(毫秒,默认 30000) */
+    timeoutMs?: number;
+  };
+  /**
+   * P3-2 Telemetry 极简上报(默认关闭,启用后批量上报事件到指定 endpoint)。
+   *
+   * 启用方式:settings.telemetry.enabled = true + settings.telemetry.endpoint = <url>。
+   * 关闭时 track 调用直接 no-op(零回归)。
+   */
+  telemetry?: {
+    /** 启用 telemetry(默认 false) */
+    enabled?: boolean;
+    /** 上报端点 URL(POST 请求,接收 { events: TelemetryEvent[] } body) */
+    endpoint?: string;
+    /** 批量大小(默认 50,达到即 flush) */
+    batchSize?: number;
+    /** flush 间隔毫秒(默认 60000=1min) */
+    flushIntervalMs?: number;
+  };
+  /**
+   * P2-3 剪贴板工具(默认关闭,启用后注册 clipboard_read/clipboard_write 两个 Agent 工具)。
+   *
+   * 启用方式:settings.clipboard.enabled = true。
+   * 关闭时 setupAgentTools 不注册剪贴板工具(零回归)。
+   */
+  clipboard?: {
+    /** 启用剪贴板工具(默认 false) */
+    enabled?: boolean;
+  };
+  /** Plugins 系统配置(默认关闭,启用后 setupAgentTools 会 loadPlugins + registerAll + runSetups) */
+  plugins?: {
+    /** 启用 plugins(默认 false,渐进式启用) */
+    enabled?: boolean;
+    /** 插件目录(默认 <workspace>/.ihui/plugins) */
+    pluginsDir?: string;
+  };
+  /**
+   * P1-6 MCP 深化配置(默认关闭,启用后激活 credentials / OAuth / liveness / ACP transport / HTTP backoff)。
+   *
+   * 启用方式:settings.mcp.advanced.enabled = true(总开关)。
+   * 子 flag 默认 true(由 advanced.enabled 总控);显式设 false 可单独关闭某项。
+   *
+   * 关闭时(settings.mcp.advanced.enabled !== true):
+   *   - 原 mcp-runtime 路径不变(零回归)
+   *   - ManagedMcpClient 不注册到 managedClients(ACP MCP 扩展方法返回空)
+   *   - credentials / OAuth 文件不读写
+   */
+  mcp?: {
+    /** 启用 MCP 深化能力(默认 false) */
+    advanced?: {
+      /** 总开关(默认 false) */
+      enabled?: boolean;
+      /** 凭证持久化(默认 true,由 enabled 总控) */
+      credentials?: boolean;
+      /** OAuth flow(默认 true,由 enabled 总控) */
+      oauth?: boolean;
+      /** liveness ping + 自动重连(默认 true,由 enabled 总控) */
+      liveness?: boolean;
+      /** ACP MCP 扩展方法(默认 true,由 enabled 总控) */
+      acpTransport?: boolean;
+      /** HTTP/SSE 重连指数退避(默认 true,由 enabled 总控) */
+      httpBackoff?: boolean;
+    };
   };
 }
 
@@ -242,9 +364,42 @@ export function saveSettingsTemplate(overwrite = false): boolean {
     pluginMarketplace: {
       enabled: false,
     },
+    plugins: {
+      enabled: false,
+    },
+    // P1-6 MCP 深化:默认关闭(零回归)
+    mcp: {
+      advanced: {
+        enabled: false,
+      },
+    },
   };
   fs.writeFileSync(p, JSON.stringify(template, null, 2) + '\n', 'utf-8');
   return true;
+}
+
+/**
+ * P1-6 检查 MCP 深化能力是否启用。
+ *
+ * 启用条件:settings.mcp.advanced.enabled === true(总开关)。
+ * 子 flag(credentials/oauth/liveness/acpTransport/httpBackoff)默认 true;
+ * 总开关开启后,子 flag 显式设 false 才关闭。
+ *
+ * 用法:
+ *   if (isMcpAdvancedEnabled(settings, 'liveness')) { ... }
+ *
+ * @param settings 已加载的 Settings 对象(避免重复读盘)
+ * @param feature 检查的子能力;不传则只检查总开关
+ */
+export function isMcpAdvancedEnabled(
+  settings: Settings,
+  feature?: 'credentials' | 'oauth' | 'liveness' | 'acpTransport' | 'httpBackoff',
+): boolean {
+  const advanced = settings.mcp?.advanced;
+  if (!advanced?.enabled) return false;
+  if (!feature) return true;
+  // 子 flag 默认 true(由 advanced.enabled 总控);显式 false 才关闭
+  return advanced[feature] !== false;
 }
 
 /**

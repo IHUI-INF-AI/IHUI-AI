@@ -1,10 +1,10 @@
 /**
  * Plugins Marketplace 索引解析 — 读取 marketplace.json 并提供插件查找/类型守卫。
  *
- * 灵感来源:grok-build 的 .grok-plugin/marketplace.json + Claude Code 的 .claude-plugin/。
+ * 灵感来源:参考行业 Agent 框架的 .ihui-plugin/marketplace.json + Claude Code 的 .claude-plugin/。
  * 设计:
  *   - 三态 source:相对路径字符串 / { type: 'local', path } / { source: 'url', url, ref?, sha?, path? }
- *   - scanMarketplace 按优先级查找索引文件:.grok-plugin > .claude-plugin > 根
+ *   - scanMarketplace 按优先级查找索引文件:.ihui-plugin > .claude-plugin > 根
  *   - findPluginInIndex 按 name 匹配,可选 qualifier(tags/keywords/domains/category 别名)
  *   - 类型守卫 isLocalSource / isGitSource 便于 installer 分流
  *
@@ -63,7 +63,7 @@ export interface MarketplaceScan {
 
 /** 候选索引文件相对路径(按优先级排序,前者优先) */
 const CANDIDATE_PATHS: readonly (readonly string[])[] = [
-  ['.grok-plugin', 'marketplace.json'],
+  ['.ihui-plugin', 'marketplace.json'],
   ['.claude-plugin', 'marketplace.json'],
   ['marketplace.json'],
 ];
@@ -80,7 +80,7 @@ function isValidIndex(obj: unknown): obj is MarketplaceIndex {
 /**
  * 扫描 marketplace 根目录,按优先级查找并解析索引文件。
  *
- * 优先级:.grok-plugin/marketplace.json > .claude-plugin/marketplace.json > 根 marketplace.json
+ * 优先级:.ihui-plugin/marketplace.json > .claude-plugin/marketplace.json > 根 marketplace.json
  *
  * 返回:
  *   - 命中且解析成功:{ found: true, index, indexPath }

@@ -1,5 +1,5 @@
 /**
- * Plan Mode 状态机 — 4 态主链 + cancelled 终态,对齐 grok-build 强制阻断式 Plan Mode。
+ * Plan Mode 状态机 — 4 态主链 + cancelled 终态,参考行业 Agent 框架的强制阻断式 Plan Mode。
  *
  * 做减法:
  *   - 转移规则用嵌套 Record 表达,零分支

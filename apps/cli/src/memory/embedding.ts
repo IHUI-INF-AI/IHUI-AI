@@ -1,7 +1,7 @@
 /**
  * Embedding Provider — 向量嵌入接口 + Mock 实现 + OpenAI 兼容 API 实现。
  *
- * 灵感来源:xai-grok-memory crate 的 embedding 抽象。
+ * 灵感来源:参考行业 Agent 框架的 memory embedding 抽象。
  * 简化策略(做减法):
  *   - 默认 MockEmbeddingProvider 用 sha256 → 8 维 float(测试零外部依赖)
  *   - ApiEmbeddingProvider 实现 OpenAI /embeddings 协议,用户运行时注入实例

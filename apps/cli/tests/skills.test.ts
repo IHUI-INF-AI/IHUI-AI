@@ -198,7 +198,7 @@ description: 一句话描述
     expect(names).toContain('cwd-skill');
   });
 
-  // ===== frontmatter 补全测试(对齐 grok-build Skills 规范)=====
+  // ===== frontmatter 补全测试(参考行业 Agent 框架的 Skills 规范)=====
 
   it('frontmatter 完整解析(name+description+allowed-tools+tools+model+tags 全字段)', () => {
     const content = `---

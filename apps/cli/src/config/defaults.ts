@@ -1,7 +1,7 @@
 /**
  * 内置默认值层 — 6 层 config merge 的第 1 层(最低优先级)。
  *
- * 灵感来源:grok-build 的 DEFAULT_SETTINGS + Claude Code 的默认配置。
+ * 灵感来源:参考行业 Agent 框架的 DEFAULT_SETTINGS + Claude Code 的默认配置。
  * 所有字段均提供回退值,确保任一上层缺失时仍有可用配置。
  */
 
@@ -20,4 +20,13 @@ export const DEFAULT_SETTINGS: Settings = {
   locale: 'zh-CN',
   permissionMode: 'default',
   compactionV2: { enabled: false },
+  fsWatcher: { enabled: false },
+  announcements: { enabled: false },
+  clipboard: { enabled: false },
+  // P2-6 Voice STT:默认关闭(零回归)
+  voice: { enabled: false, durationSec: 5 },
+  // P3-1 Mermaid 渲染:默认关闭(零回归)
+  mermaid: { enabled: false },
+  // P3-2 Telemetry:默认关闭(零回归)
+  telemetry: { enabled: false },
 }

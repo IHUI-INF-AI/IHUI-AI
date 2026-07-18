@@ -1,9 +1,9 @@
 /**
  * DoomLoopDetector — 滑动窗口检测 LLM 重复调用相同工具相同参数的死循环。
  *
- * 灵感来源:grok-build 的 `xai-grok-sampling-types/src/doom_loop.rs`
+ * 灵感来源:参考行业 Agent 框架的 doom_loop 信号检测设计
  *           (服务端 doom_loop 信号检测 + DoomLoopRecoveryPolicy 阈值策略)
- *           + `xai-grok-sampler/src/doom_loop.rs`(DoomLoopSignalCollector 累积器)。
+ *           + DoomLoopSignalCollector 累积器模式。
  * 简化策略(做减法):
  *   - 服务端 SSE 协议检测不做(我们不是 SSE 代理),改为客户端工具调用层检测
  *   - 不做加密 hash(JSON.stringify 够用,只检测完全相同参数)

@@ -1,7 +1,7 @@
 /**
  * MCP Runtime — MCP 服务器连接与工具调用运行时。
  *
- * 灵感来源:grok-build 的 MCP crate(Rust),实现了完整的 MCP server 连接和工具调用。
+ * 灵感来源:参考行业 Agent 框架的 MCP crate 设计,实现完整的 MCP server 连接和工具调用。
  * 简化策略(做减法):
  *   - stdio transport:spawn 子进程,通过 stdin/stdout 通信(JSON-RPC 2.0 over stdio)
  *   - http transport:用 fetch POST 发送 JSON-RPC,响应即 POST 响应
@@ -292,7 +292,13 @@ function sendSseRpc(
   });
 }
 
-async function connectMcpServer(server: McpServer): Promise<McpConnection> {
+/**
+ * 连接单个 MCP server:按 transport 完成 initialize + tools/list + resources/prompts 预加载。
+ * 失败时调用 disconnectMcpServer 清理资源并抛错。
+ *
+ * P1-6 export 给 ManagedMcpClient 在 reconnect 时复用。
+ */
+export async function connectMcpServer(server: McpServer): Promise<McpConnection> {
   const transport = server.transport ?? 'stdio';
   const conn: McpConnection = {
     server,
@@ -444,7 +450,8 @@ async function sendRpc(
   }
 }
 
-async function callMcpServer(
+// P1-5 hub mcp-adapter:导出供 adapter 转发 tools/call 调用(零行为变更,仅加 export)
+export async function callMcpServer(
   conn: McpConnection,
   method: string,
   params: Record<string, unknown>,
@@ -545,6 +552,11 @@ function disconnectMcpServer(conn: McpConnection): void {
   conn.connected = false;
 }
 
+/** P1-6 export 给 ManagedMcpClient 在 markDead 时清理连接 */
+export function disconnectMcpConnection(conn: McpConnection): void {
+  disconnectMcpServer(conn);
+}
+
 function convertSchema(schema: unknown): Record<string, ToolParameter> {
   if (!schema || typeof schema !== 'object') return {};
   const props = (schema as { properties?: Record<string, unknown> }).properties;
@@ -625,4 +637,326 @@ export async function loadMcpTools(_ctx: ToolContext): Promise<Tool[]> {
   } catch {
     return [];
   }
+}
+
+/**
+ * 加载所有已配置的 MCP server 并返回 McpConnection 列表(不做 mcpToolToTool 转换)。
+ * 供 hub mcp-adapter 路径使用:adapter 直接基于 McpConnection 注册 ToolHandle 到 hub。
+ * 单个 server 连接失败不阻塞其他(只 log warn 由调用方决定)。
+ */
+export async function loadMcpConnections(_ctx: ToolContext): Promise<McpConnection[]> {
+  const configPath = getMcpConfigPath();
+  if (!fs.existsSync(configPath)) return [];
+
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { servers: McpServer[] };
+    const conns: McpConnection[] = [];
+
+    for (const server of config.servers ?? []) {
+      try {
+        const conn = await connectMcpServer(server);
+        conns.push(conn);
+      } catch {
+        // 单个 server 连接失败不阻塞其他
+      }
+    }
+
+    return conns;
+  } catch {
+    return [];
+  }
+}
+
+// ==================== P1-6 MCP 深化:ManagedMcpClient + HTTP backoff ====================
+// feature flag(settings.mcp.advanced.enabled)默认关闭,关闭时完全等同原行为(零回归)。
+// 启用后:ManagedMcpClient 提供 liveness ping + 自动重连 + dead 检测;
+//       createHttpMcpClientWithBackoff 提供 SSE 重连指数退避。
+
+/**
+ * 带指数退避重连的 HTTP MCP 客户端创建器(对齐 grok-build mcp_http_client.rs 思路)。
+ *
+ * 包装 StreamableHttpClientTransport 行为(此处用现有 sendHttpRpc 复用):
+ *   - 初次连接失败 → 等待 backoff(1s)重试
+ *   - 后续失败 → 退避翻倍(1s → 2s → 4s → 8s → 16s → 30s 上限)
+ *   - 成功 → 重置 backoff
+ *   - 达到 maxRetries 仍失败 → 抛最后一次错误
+ *
+ * 与 ManagedMcpClient 的关系:createHttpMcpClientWithBackoff 负责单次连接的退避重试;
+ * ManagedMcpClient 负责"已建立连接后"的 liveness 维护与重连。
+ *
+ * options.connectFn 支持注入连接工厂(测试用,生产默认用 connectMcpServer)。
+ */
+export async function createHttpMcpClientWithBackoff(
+  server: McpServer,
+  options: {
+    maxRetries?: number;
+    initialBackoffMs?: number;
+    maxBackoffMs?: number;
+    /** 连接工厂(测试用,生产默认用 connectMcpServer) */
+    connectFn?: (server: McpServer) => Promise<McpConnection>;
+  } = {},
+): Promise<McpConnection> {
+  const maxRetries = options.maxRetries ?? 5;
+  const initialBackoffMs = options.initialBackoffMs ?? 1000;
+  const maxBackoffMs = options.maxBackoffMs ?? 30_000;
+  const connectFn = options.connectFn ?? ((s) => connectMcpServer(s));
+
+  let lastErr: unknown = null;
+  let backoff = initialBackoffMs;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const conn = await connectFn(server);
+      return conn;
+    } catch (err) {
+      lastErr = err;
+      if (attempt >= maxRetries) break;
+      // 等待退避后重试
+      await new Promise((r) => setTimeout(r, backoff));
+      backoff = Math.min(backoff * 2, maxBackoffMs);
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr ?? 'createHttpMcpClientWithBackoff 失败'));
+}
+
+/**
+ * ManagedMcpClient — 封装 McpConnection + 自动重连 + liveness ping + dead 检测。
+ *
+ * 行为:
+ *   - ensureConnected():无连接或被 markDead → reconnect;存活则直接返回
+ *   - callTool(name, args):ensureConnected 后转发,成功重置 consecutiveFailures;
+ *     失败累计 ≥ DEAD_THRESHOLD → markDead(后续 ensureConnected 触发重连)
+ *   - ping():发送 MCP ping,30s 内已 ping 过则跳过(避免高频)
+ *   - reconnect():指数退避(1s → 2s → 4s → 8s → 16s → 30s 上限)
+ *   - markDead():置 deadMarkedAt,清理 client,下次 ensureConnected 必重连
+ *
+ * 状态查询:
+ *   - isAlive():alive 窗口内(30s)且未 markDead
+ *   - getStatus():返回 liveness 快照(alive/dead/reconnecting + consecutiveFailures + lastPingAt)
+ *
+ * 构造参数 options 支持覆盖 backoff / ping 间隔 / dead 阈值(测试用,生产用默认值)。
+ */
+export class ManagedMcpClient {
+  private conn: McpConnection | null = null;
+  private lastPingAt = 0;
+  private consecutiveFailures = 0;
+  private deadMarkedAt = 0;
+  private reconnectBackoffMs: number;
+  private readonly initialBackoffMs: number;
+  private readonly MAX_BACKOFF_MS: number;
+  private readonly PING_INTERVAL_MS: number;
+  private readonly DEAD_THRESHOLD: number;
+  private readonly connectFn: (server: McpServer) => Promise<McpConnection>;
+
+  constructor(
+    private readonly server: McpServer,
+    options: {
+      initialBackoffMs?: number;
+      maxBackoffMs?: number;
+      pingIntervalMs?: number;
+      deadThreshold?: number;
+      /**
+       * 连接工厂(测试用,生产默认用 connectMcpServer)。
+       * 注入 mock 可控制连接成功/失败,无需真实 MCP server。
+       */
+      connectFn?: (server: McpServer) => Promise<McpConnection>;
+      /**
+       * RPC 调用工厂(测试用,生产默认用 callMcpServer)。
+       * 注入 mock 可控制 tool 调用 / ping 的成功/失败。
+       */
+      callFn?: (conn: McpConnection, method: string, params: Record<string, unknown>) => Promise<unknown>;
+    } = {},
+  ) {
+    this.initialBackoffMs = options.initialBackoffMs ?? 1000;
+    this.reconnectBackoffMs = this.initialBackoffMs;
+    this.MAX_BACKOFF_MS = options.maxBackoffMs ?? 30_000;
+    this.PING_INTERVAL_MS = options.pingIntervalMs ?? 30_000;
+    this.DEAD_THRESHOLD = options.deadThreshold ?? 3;
+    this.connectFn = options.connectFn ?? ((s) => connectMcpServer(s));
+    this.callFn = options.callFn ?? ((c, m, p) => callMcpServer(c, m, p));
+  }
+
+  private readonly callFn: (conn: McpConnection, method: string, params: Record<string, unknown>) => Promise<unknown>;
+
+  /** 确保已连接且存活;否则触发重连 */
+  async ensureConnected(): Promise<McpConnection> {
+    if (this.conn && this.isAlive()) {
+      return this.conn;
+    }
+    await this.reconnect();
+    return this.conn!;
+  }
+
+  /** 调用 MCP tool(经 ensureConnected);失败累计达阈值则 markDead */
+  async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+    const conn = await this.ensureConnected();
+    try {
+      const result = await this.callFn(conn, 'tools/call', { name, arguments: args });
+      this.consecutiveFailures = 0;
+      return result;
+    } catch (err) {
+      this.consecutiveFailures++;
+      if (this.consecutiveFailures >= this.DEAD_THRESHOLD) {
+        this.markDead();
+      }
+      throw err;
+    }
+  }
+
+  /** 发送 MCP ping 检测存活;30s 内已 ping 过则跳过(返回 true) */
+  async ping(): Promise<boolean> {
+    if (Date.now() - this.lastPingAt < this.PING_INTERVAL_MS) {
+      return true;
+    }
+    if (!this.conn || this.deadMarkedAt > 0) {
+      return false;
+    }
+    try {
+      // MCP ping 方法无 params,无 result;成功即存活
+      await this.callFn(this.conn, 'ping', {});
+      this.lastPingAt = Date.now();
+      return true;
+    } catch {
+      this.consecutiveFailures++;
+      if (this.consecutiveFailures >= this.DEAD_THRESHOLD) {
+        this.markDead();
+      }
+      return false;
+    }
+  }
+
+  /** 显式断开,清理资源(进程 kill / SSE abort) */
+  async disconnect(): Promise<void> {
+    if (this.conn) {
+      disconnectMcpConnection(this.conn);
+      this.conn = null;
+    }
+    this.deadMarkedAt = 0;
+    this.consecutiveFailures = 0;
+    this.lastPingAt = 0;
+  }
+
+  /** 当前是否 alive:未 markDead 且 30s 内有 ping 或刚连接 */
+  isAlive(): boolean {
+    if (this.deadMarkedAt > 0) return false;
+    if (!this.conn) return false;
+    return Date.now() - this.lastPingAt < this.PING_INTERVAL_MS;
+  }
+
+  /** 获取 liveness 快照(供 ACP x.ai/mcp/serverStatus 返回) */
+  getStatus(): {
+    serverName: string;
+    alive: boolean;
+    dead: boolean;
+    consecutiveFailures: number;
+    lastPingAt: number;
+    connected: boolean;
+  } {
+    return {
+      serverName: this.server.name,
+      alive: this.isAlive(),
+      dead: this.deadMarkedAt > 0,
+      consecutiveFailures: this.consecutiveFailures,
+      lastPingAt: this.lastPingAt,
+      connected: !!this.conn?.connected,
+    };
+  }
+
+  /** 获取已缓存的 tools 列表(reconnect 后填充) */
+  getTools(): McpToolDef[] {
+    return this.conn?.tools ?? [];
+  }
+
+  /** 获取底层 McpConnection(reconnect 后才有值) */
+  getConnection(): McpConnection | null {
+    return this.conn;
+  }
+
+  /** 获取当前退避值(测试用,验证指数退避) */
+  getCurrentBackoffMs(): number {
+    return this.reconnectBackoffMs;
+  }
+
+  /**
+   * 重连:指数退避 → connectMcpServer → 重置状态。
+   * 失败时继续翻倍 backoff,但不抛错(下次 ensureConnected 会再试)。
+   *
+   * 注意:此处不抛错是为了让 ManagedMcpClient 的调用方在多个 server 中
+   * 一个连接失败时不影响其他 server。状态由 isAlive/getStatus 暴露。
+   */
+  private async reconnect(): Promise<void> {
+    // 等待退避(首次 1s,后续翻倍)
+    await new Promise((r) => setTimeout(r, this.reconnectBackoffMs));
+    this.reconnectBackoffMs = Math.min(this.reconnectBackoffMs * 2, this.MAX_BACKOFF_MS);
+
+    // 清理旧连接
+    if (this.conn) {
+      try {
+        disconnectMcpConnection(this.conn);
+      } catch {
+        // 忽略
+      }
+      this.conn = null;
+    }
+
+    try {
+      this.conn = await this.connectFn(this.server);
+      this.deadMarkedAt = 0;
+      this.consecutiveFailures = 0;
+      this.lastPingAt = Date.now();
+      // 成功后重置 backoff(下次失败从头开始)
+      this.reconnectBackoffMs = this.initialBackoffMs;
+    } catch {
+      // 连接失败:保持 deadMarkedAt = 0 让下次 ensureConnected 再试
+      // consecutiveFailures 不重置,以便累计达 DEAD_THRESHOLD 后 markDead
+      this.consecutiveFailures++;
+      if (this.consecutiveFailures >= this.DEAD_THRESHOLD) {
+        this.markDead();
+      }
+    }
+  }
+
+  /** 标记为 dead:置 deadMarkedAt,清理 client */
+  private markDead(): void {
+    this.deadMarkedAt = Date.now();
+    if (this.conn) {
+      try {
+        disconnectMcpConnection(this.conn);
+      } catch {
+        // 忽略
+      }
+      this.conn = null;
+    }
+  }
+}
+
+/**
+ * P1-6 全局 ManagedMcpClient 注册表(单进程)。
+ * feature flag 启用时,由 setupAgentTools 调用 registerManagedClient;
+ * ACP x.ai/mcp/* 扩展方法通过此注册表查询 server 状态 / 转发 tool 调用。
+ */
+const managedClients = new Map<string, ManagedMcpClient>();
+
+/** 注册 ManagedMcpClient(按 server.name 索引) */
+export function registerManagedClient(client: ManagedMcpClient): void {
+  managedClients.set(client.getStatus().serverName, client);
+}
+
+/** 注销 ManagedMcpClient */
+export function unregisterManagedClient(serverName: string): void {
+  managedClients.delete(serverName);
+}
+
+/** 获取单个 ManagedMcpClient(不存在返回 undefined) */
+export function getManagedClient(serverName: string): ManagedMcpClient | undefined {
+  return managedClients.get(serverName);
+}
+
+/** 列出所有 ManagedMcpClient 状态快照 */
+export function listManagedClients(): Array<ReturnType<ManagedMcpClient['getStatus']>> {
+  return Array.from(managedClients.values()).map((c) => c.getStatus());
+}
+
+/** 清空所有 ManagedMcpClient(测试用) */
+export function clearManagedClients(): void {
+  managedClients.clear();
 }

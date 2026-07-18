@@ -7,7 +7,7 @@
  *   3. persona:按 overrides.persona 名查找的 SubagentPersona 默认配置
  *   4. parent:None — 让下游 shell spawn 时继承父 session 值(TS 中返回 undefined)
  *
- * 设计参考:grok-build xai-grok-subagent-resolution 的 Rust Option::or_else 短路链。
+ * 设计参考:参考行业 Agent 框架的 subagent-resolution Rust Option::or_else 短路链。
  */
 
 /** 隔离模式:none=不隔离 / worktree=git worktree / subprocess=子进程 */

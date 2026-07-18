@@ -1,7 +1,7 @@
 import type { StorybookConfig } from '@storybook/nextjs'
 
 /**
- * Storybook 主配置 — 迁移自旧架构 client/.storybook/main.ts
+ * Storybook 主配置 — 等价自旧架构 client/.storybook/main.ts
  * 框架：@storybook/nextjs（基于 webpack5，适配 Next.js 15 + React 19）
  * stories glob 覆盖 src 下所有 .stories 文件
  *

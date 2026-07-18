@@ -1,7 +1,7 @@
 /**
  * 后台任务注册表 — 管理异步 spawn 进程的生命周期与状态。
  *
- * 灵感来源:grok-build 的 background commands + opencode 的 /loop。
+ * 灵感来源:参考行业 Agent 框架的 background commands + opencode 的 /loop。
  * 简化策略(做减法):
  *   - 模块级 Map 管理任务(不持久化,REPL 退出即丢失)
  *   - 进程退出后保留最近 100 个已完成任务(供 get_command_output 查询)

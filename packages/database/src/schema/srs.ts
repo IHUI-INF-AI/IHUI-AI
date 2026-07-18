@@ -10,7 +10,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 /**
- * SRS 直播流管理表 (迁移自旧架构 services/srs_manager.py)。
+ * SRS 直播流管理表 (等价自旧架构 services/srs_manager.py)。
  * streamKey: 推流唯一标识。pushUrl/playUrl: SRS 生成的推/拉流地址。
  * status: active(推流中)/inactive(空闲)/banned(禁用)。
  */

@@ -1,7 +1,7 @@
 /**
  * Pre/Post Tool Hooks — 用户自定义工具调用钩子。
  *
- * 灵感来源:grok-build 的 hooks 系统(pre/post tool call 可阻断 + sessionStart/sessionEnd 生命周期)。
+ * 灵感来源:参考行业 Agent 框架的 hooks 系统(pre/post tool call 可阻断 + sessionStart/sessionEnd 生命周期)。
  * 简化策略(做减法):
  *   - 多源加载 hooks.json:<cwd>/.{ihui,claude,cursor} → ~/.{ihui,claude,cursor}(高→低,深合并)
  *   - 每个 hook 二选一:command(本地 shell)或 webhook(HTTP POST 通知外部服务)
@@ -67,7 +67,16 @@ export type HookEvent =
   | 'postToolUseFailure'
   | 'permissionDenied'
   | 'subagentStart'
-  | 'subagentStop';
+  | 'subagentStop'
+  // P2-4 agent-lifecycle Turn 级事件(4 种):
+  // - turnStart:每次 LLM 调用 + 工具循环开始(每轮触发,粒度细于 sessionStart)
+  // - turnEnd:每轮成功结束(无论是否调用工具)
+  // - turnError:本轮出错(单轮失败,不等于 agent 终止)
+  // - turnComplete:agent 完成所有轮次(成功或失败都触发,与 stop 配对)
+  | 'turnStart'
+  | 'turnEnd'
+  | 'turnError'
+  | 'turnComplete';
 
 export interface HooksConfig {
   preToolCall?: HookEntry[];
@@ -84,6 +93,11 @@ export interface HooksConfig {
   permissionDenied?: HookEntry[];
   subagentStart?: HookEntry[];
   subagentStop?: HookEntry[];
+  // P2-4 Turn 级事件(4 种,粒度细于 sessionStart/sessionEnd)
+  turnStart?: HookEntry[];
+  turnEnd?: HookEntry[];
+  turnError?: HookEntry[];
+  turnComplete?: HookEntry[];
 }
 
 export interface HookResult {
@@ -110,6 +124,15 @@ export interface HookContext {
   compactedTokensBefore?: number;
   compactedTokensAfter?: number;
   notificationText?: string;
+  // P2-4 Turn 级事件字段
+  /** 当前 turn 序号(1-based) */
+  turnNumber?: number;
+  /** 最大 turn 数(对应 maxIterations) */
+  maxTurns?: number;
+  /** agent 最终完成的轮次总数(turnComplete 事件用) */
+  totalTurns?: number;
+  /** agent 停止原因(turnComplete 事件用,与 AgentStopReason 对齐) */
+  stopReason?: string;
 }
 
 /**
@@ -133,6 +156,8 @@ export function deepMergeHooks(a: HooksConfig, b: HooksConfig): HooksConfig {
     'userPromptSubmit', 'preCompact', 'postCompact', 'notification',
     'stop', 'stopFailure', 'postToolUseFailure', 'permissionDenied',
     'subagentStart', 'subagentStop',
+    // P2-4 Turn 级事件
+    'turnStart', 'turnEnd', 'turnError', 'turnComplete',
   ];
   for (const k of keys) {
     const av = a[k];
@@ -422,6 +447,11 @@ function buildHookEnv(event: HookEvent, ctx: HookContext): Record<string, string
   if (ctx.compactedTokensBefore !== undefined) env.IHUI_COMPACTED_TOKENS_BEFORE = String(ctx.compactedTokensBefore);
   if (ctx.compactedTokensAfter !== undefined) env.IHUI_COMPACTED_TOKENS_AFTER = String(ctx.compactedTokensAfter);
   if (ctx.notificationText !== undefined) env.IHUI_NOTIFICATION_TEXT = ctx.notificationText;
+  // P2-4 Turn 级事件字段
+  if (ctx.turnNumber !== undefined) env.IHUI_TURN_NUMBER = String(ctx.turnNumber);
+  if (ctx.maxTurns !== undefined) env.IHUI_MAX_TURNS = String(ctx.maxTurns);
+  if (ctx.totalTurns !== undefined) env.IHUI_TOTAL_TURNS = String(ctx.totalTurns);
+  if (ctx.stopReason !== undefined) env.IHUI_STOP_REASON = ctx.stopReason;
   return env;
 }
 

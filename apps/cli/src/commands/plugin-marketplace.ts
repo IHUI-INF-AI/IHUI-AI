@@ -1,7 +1,7 @@
 /**
  * Plugin Marketplace slash 命令:/plugin install|uninstall|list|marketplace。
  *
- * 灵感来源:grok-build xai-grok-pager/plugin_cmd。
+ * 灵感来源:参考行业 Agent 框架的 plugin 命令设计。
  * 集成策略:feature flag 控制,默认关闭(settings.pluginMarketplace.enabled)。
  *   - flag 关闭时:所有子命令返回"未启用"提示,不执行实际安装/卸载
  *   - flag 开启时:委托 plugins/installer.ts 执行实际操作

@@ -1,6 +1,6 @@
 /**
  * 主会话 Session 持久化 — 把 REPL/Agent 主会话状态写到 ~/.ihui/sessions/<id>.json,
- * 供跨进程恢复使用(对齐 grok-build Sessions 持久化机制)。
+ * 供跨进程恢复使用(参考行业 Agent 框架的 Sessions 持久化机制)。
  *
  * 做减法:
  *   - 文件即数据库,JSON 直读直写,无锁(单用户场景足够)

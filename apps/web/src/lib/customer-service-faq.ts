@@ -1,5 +1,5 @@
 /**
- * 客服 FAQ 数据 — 迁移自旧架构 client/src/data/customer-service-faq.ts
+ * 客服 FAQ 数据 — 等价自旧架构 client/src/data/customer-service-faq.ts
  * 导出客服常见问题列表常量，供客服中心页面/工单引导使用
  */
 

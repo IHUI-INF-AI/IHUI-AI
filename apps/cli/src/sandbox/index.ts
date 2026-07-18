@@ -1,7 +1,7 @@
 /**
  * 子进程沙盒 — 为命令执行提供资源限制与路径白名单。
  *
- * 灵感来源:grok-build 的 sandbox 模块(命令执行隔离 + 资源上限)。
+ * 灵感来源:参考行业 Agent 框架的 sandbox 模块(命令执行隔离 + 资源上限)。
  * 简化策略(做减法):
  *   - 基于 node:child_process spawnSync(shell 模式)
  *   - 资源限制:超时(timeoutMs)/ 最大输出(maxOutputBytes)/ 内存(maxMemoryBytes,POSIX)/ CPU(maxCpuMs,POSIX)

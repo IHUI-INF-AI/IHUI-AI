@@ -1,7 +1,7 @@
 /**
  * WebSearch 工具 — 让 Agent 具备搜索引擎查询能力。
  *
- * 灵感来源:grok-build 的 WebSearch tool(基于 xai web search API)。
+ * 灵感来源:参考行业 Agent 框架的 WebSearch tool 设计(基于 web search API)。
  * 简化策略(做减法,符合 project_memory "用户要求免费,不想花一分钱"硬约束):
  *   - 使用 DuckDuckGo HTML 接口(https://html.duckduckgo.com/html/?q=...)免费无 key
  *   - HTML 解析提取 top N 结果(标题 + URL + 摘要)

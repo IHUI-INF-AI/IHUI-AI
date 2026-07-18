@@ -2,7 +2,7 @@
  * 第三方登录类型定义
  *
  * 包含 Google Identity Services (GIS) 类型与第三方账号/平台通用类型。
- * 迁移自旧架构 client/src/features/third-party-login/types/google.d.ts，
+ * 等价自旧架构 client/src/features/third-party-login/types/google.d.ts，
  * 适配新架构（React + TypeScript，模块化导出）。
  */
 

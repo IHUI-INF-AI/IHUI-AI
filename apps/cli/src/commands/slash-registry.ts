@@ -1,7 +1,7 @@
 /**
  * Slash 命令注册表 — 元数据驱动,用于 /help 自动渲染 + 未知命令建议。
  *
- * 灵感来源:grok-build 的 SlashCommand 注册表(Rust enum + handler map)。
+ * 灵感来源:参考行业 Agent 框架的 SlashCommand 注册表设计。
  * 简化策略(做减法):只存元数据,handler 仍走 switch,避免大重写。
  * 价值:(1) /help 文本单一来源,新增命令只改注册表;
  *       (2) 未知命令给相似度建议(Levenshtein ≤ 2),降低用户记忆负担。
@@ -34,6 +34,9 @@ export const SLASH_COMMANDS: readonly SlashCommandMeta[] = [
   { name: 'todo', description: '管理任务清单(显示/清除)', usage: '/todo [clear]', category: 'session' },
   { name: 'plan', description: 'Plan Mode 控制', usage: '/plan [on|off|approve|reject|edit|show]', category: 'session' },
   { name: 'context', description: '显示当前会话 token 用量', usage: '/context', category: 'session' },
+  { name: 'announcements', aliases: ['announce'], description: '查看公告', usage: '/announcements [list|unread|read <id>|read-all|refresh]', category: 'session' },
+  { name: 'voice', description: '语音输入(录音+转写)', usage: '/voice [秒数]', category: 'session' },
+  { name: 'queue', description: '提示词排队(agent 完成后自动执行)', usage: '/queue [list|clear|rm <id>|<prompt>]', category: 'session' },
   { name: 'rewind', description: '回退 N 步(一步=一对 user+assistant)', usage: '/rewind [N]', category: 'session' },
   { name: 'fork', description: '从指定消息位置 fork 新 session', usage: '/fork [msg-index]', category: 'session' },
   { name: 'repair', description: '自愈当前会话历史', usage: '/repair', category: 'session' },

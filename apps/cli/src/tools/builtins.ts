@@ -3,7 +3,7 @@
  *
  * 复用 file-ops.ts 的本地实现(read/ls/grep/glob/bash),
  * 包装为 Tool 接口供 Agent 工具循环调用。
- * 灵感来源:grok-build 的 `xai-grok-tools` crate(terminal/file edit/search)。
+ * 灵感来源:参考行业 Agent 框架的 tools crate 设计(terminal/file edit/search)。
  */
 
 import * as fs from 'node:fs';

@@ -1,7 +1,7 @@
 /**
  * 会话管理 — 持久化对话历史到 ~/.ihui/sessions/
  *
- * P0-2 融合:对齐 grok-build 的 `x.ai/session/repair` + `x.ai/rewind/*` ACP 扩展方法。
+ * P0-2 融合:参考行业 Agent 框架的 `x.ai/session/repair` + `x.ai/rewind/*` ACP 扩展方法。
  *   - `repairSessionHistoryReport`:支持 dry_run + 结构化响应(duplicates_removed / stripped_tool_result_ids / synthetic_results_inserted)
  *   - `rewindHistory`:支持 RewindMode(All/UserOnly/AssistantOnly)+ targetPromptIndex + force
  */
@@ -86,7 +86,7 @@ export function getMostRecentSession(): Session | null {
 /**
  * P1-1 会话历史自愈 — 修复 history 结构异常。
  *
- * 灵感来源:grok-build 的 `x.ai/session/repair` 扩展方法。
+ * 灵感来源:参考行业 Agent 框架的 `x.ai/session/repair` 扩展方法。
  * 跨端共享:5 条修复规则实现在 `@ihui/types/message-repair`,CLI/API/ai-service 共用同一套规则。
  * CLI 本地保留 `tryRecoverSessionFromCorruptedJson`(JSON 文件损坏恢复,CLI 独有)。
  *
@@ -112,7 +112,7 @@ export function repairSessionHistory(history: ChatMessage[]): {
 }
 
 /**
- * P0-2 结构化 Repair 响应 — 对齐 grok-build `extensions/repair.rs::RepairSessionResponse`。
+ * P0-2 结构化 Repair 响应 — 参考行业 Agent 框架的 RepairSessionResponse 设计。
  * 用于 ACP `x.ai/session/repair` 扩展方法 + REPL `/repair` 命令统一返回结构。
  */
 export interface RepairSessionResponse {
@@ -134,7 +134,7 @@ export interface RepairSessionResponse {
 
 /**
  * P0-2 会话历史修复报告 — 既返回修复结果也返回结构化响应。
- * 对齐 grok-build 的双轨(居民 actor vs on-disk)+ dry_run 模式。
+ * 参考行业 Agent 框架的双轨(居民 actor vs on-disk)+ dry_run 模式。
  *
  * @param history 待修复的对话历史
  * @param opts.dryRun true=只检测不修改,返回 history 副本 + reasons
@@ -180,7 +180,7 @@ export function repairSessionHistoryReport(
 
 // ==================== P0-2 Rewind ====================
 
-/** Rewind 模式 — 对齐 grok-build `extensions/rewind.rs::RewindMode` */
+/** Rewind 模式 — 参考行业 Agent 框架的 RewindMode 设计 */
 export type RewindMode = 'all' | 'user_only' | 'assistant_only';
 
 export interface RewindRequest {
@@ -218,7 +218,7 @@ export interface RewindResponse {
 
 /**
  * 列出 history 中所有可回退的 rewind 点(user 消息位置)。
- * 对齐 grok-build `extensions/rewind.rs::rewind/points`。
+ * 参考行业 Agent 框架的 rewind/points 设计。
  */
 export function listRewindPoints(history: ChatMessage[]): RewindPoint[] {
   const points: RewindPoint[] = [];
@@ -242,7 +242,7 @@ export function listRewindPoints(history: ChatMessage[]): RewindPoint[] {
 }
 
 /**
- * P0-2 回退 history 到指定 prompt 索引 — 对齐 grok-build `extensions/rewind.rs::rewind/execute`。
+ * P0-2 回退 history 到指定 prompt 索引 — 参考行业 Agent 框架的 rewind/execute 设计。
  *
  * @param history 当前对话历史(会被切片但不原地修改)
  * @param request 回退请求

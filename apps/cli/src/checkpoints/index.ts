@@ -1,7 +1,7 @@
 /**
  * Checkpoints 检查点系统 — 工作区文件状态快照与回滚。
  *
- * 灵感来源:grok-build 的 xai-grok-workspace crate(检查点能力)。
+ * 灵感来源:参考行业 Agent 框架的 workspace crate 设计(检查点能力)。
  * 简化策略(做减法):
  *   - 不复制整个工作区,只快照"被指定的文件"(通常是被工具修改前的版本)
  *   - 按工作区相对路径镜像存储,manifest.json 记录元数据

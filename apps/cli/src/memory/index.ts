@@ -1,7 +1,7 @@
 /**
  * Memory 持久记忆 — 全局 + 项目双层 MEMORY.md + 关键词搜索。
  *
- * 灵感来源:grok-build 的 xai-grok-memory crate(实验性,默认关闭)。
+ * 灵感来源:参考行业 Agent 框架的 memory crate 设计(实验性,默认关闭)。
  * 简化策略(做减法):
  *   - 双层存储:~/.ihui/memory/MEMORY.md(全局)+ ~/.ihui/memory/<project-slug>-<hash8>/MEMORY.md(项目)
  *   - 项目 slug 取 path.basename,hash8 取绝对路径 SHA256 前 8 位(避免重名项目混淆)

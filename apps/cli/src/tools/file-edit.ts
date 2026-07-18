@@ -1,7 +1,7 @@
 /**
  * 文件编辑工具集 — write_file / edit_file / delete_file。
  *
- * 灵感来源:grok-build 的 `xai-grok-tools` crate,port 了 openai/codex 的 apply_patch。
+ * 灵感来源:参考行业 Agent 框架的 tools crate 设计,融合 openai/codex 的 apply_patch。
  * 简化策略(做减法):
  *   - write_file: 全量写入(创建或覆盖)
  *   - edit_file: search-and-replace 块(对标 codex 的 apply_patch 格式)
@@ -22,9 +22,59 @@ import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import { type Tool, type ToolResult, type ToolContext, checkPathWritePermission } from './index.js';
 import { seekSequence, type MatchLevel } from './seek-sequence.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
+import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
 
 interface EditToolContext extends ToolContext {
   checkpoints?: CheckpointManager;
+  /** HunkTracker(可选,启用后记录每次改动的行范围归属 + 写入前检测冲突) */
+  hunkTracker?: HunkTracker;
+  /** 发起改动的 agent 标识(默认 'main',subagent 传入 subagentId) */
+  agentId?: string;
+}
+
+/** 计算改动行范围(1-based, inclusive),用于 hunkTracker 记录与冲突检测 */
+function computeChangedRange(original: string, modified: string): { startLine: number; endLine: number } {
+  const orig = original.split('\n');
+  const mod = modified.split('\n');
+  if (orig.length === 0 && mod.length === 0) return { startLine: 1, endLine: 1 };
+  if (orig.length === 0) return { startLine: 1, endLine: Math.max(1, mod.length) };
+  let start = 0;
+  while (start < orig.length && start < mod.length && orig[start] === mod[start]) start++;
+  let endO = orig.length - 1;
+  let endM = mod.length - 1;
+  while (endO >= start && endM >= start && orig[endO] === mod[endM]) {
+    endO--;
+    endM--;
+  }
+  const startLine = start + 1;
+  const endLine = Math.max(startLine, endM + 1);
+  return { startLine, endLine };
+}
+
+/** 写入前检测冲突(若 hunkTracker 已注入),有冲突 console.warn 不阻塞 */
+function warnConflictIfAny(ctx: EditToolContext, abs: string, startLine: number, endLine: number): void {
+  if (!ctx.hunkTracker) return;
+  try {
+    const conflicts = ctx.hunkTracker.detectConflict(abs, startLine, endLine, ctx.agentId ?? 'main');
+    if (conflicts.length > 0) {
+      const summary = conflicts
+        .map((c) => `[${c.source}${c.agentId ? `:${c.agentId}` : ''}] L${c.startLine}-${c.endLine}`)
+        .join(', ');
+      console.warn(`[hunk-tracker] 检测到 ${conflicts.length} 处冲突 (${abs}): ${summary}`);
+    }
+  } catch {
+    // 冲突检测失败不阻塞编辑
+  }
+}
+
+/** 写入成功后记录 hunk(若 hunkTracker 已注入) */
+function recordHunk(ctx: EditToolContext, abs: string, startLine: number, endLine: number, content?: string): void {
+  if (!ctx.hunkTracker) return;
+  try {
+    ctx.hunkTracker.recordAgentChange(abs, startLine, endLine, ctx.agentId ?? 'main', content);
+  } catch {
+    // 记录失败不阻塞编辑
+  }
 }
 
 function resolvePath(ctx: ToolContext, filePath: string): string {
@@ -90,9 +140,14 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       const abs = resolvePath(ctx, filePath);
       const existed = fs.existsSync(abs);
       const original = existed ? fs.readFileSync(abs, 'utf-8') : '';
+      const { startLine, endLine } = existed
+        ? computeChangedRange(original, content)
+        : { startLine: 1, endLine: Math.max(1, content.split('\n').length) };
+      warnConflictIfAny(ctx, abs, startLine, endLine);
       snapshotBeforeEdit(ctx, [abs], 'auto_pre_write_file');
       fs.mkdirSync(path.dirname(abs), { recursive: true });
       fs.writeFileSync(abs, content, 'utf-8');
+      recordHunk(ctx, abs, startLine, endLine, content);
       runPostToolCall('write_file', { path: filePath, bytes: content.length });
       const lines = content.split('\n').length;
       const diff = existed ? computeUnifiedDiff(original, content, filePath) : '';
@@ -177,7 +232,10 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
         return { success: false, output: '', error: applied.error };
       }
 
+      const { startLine, endLine } = computeChangedRange(original, applied.result);
+      warnConflictIfAny(ctx, abs, startLine, endLine);
       fs.writeFileSync(abs, applied.result, 'utf-8');
+      recordHunk(ctx, abs, startLine, endLine, applied.result);
       runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements });
       const diff = computeUnifiedDiff(original, applied.result, filePath);
       // 非全 exact 匹配时附加级别提示,帮助 LLM 感知 patch 与源文件的差异
@@ -216,8 +274,12 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       if (!fs.existsSync(abs)) return { success: false, output: '', error: `文件不存在: ${filePath}` };
       if (fs.statSync(abs).isDirectory()) return { success: false, output: '', error: `是目录,不是文件: ${filePath}` };
 
+      const original = fs.readFileSync(abs, 'utf-8');
+      const { startLine, endLine } = { startLine: 1, endLine: Math.max(1, original.split('\n').length) };
+      warnConflictIfAny(ctx, abs, startLine, endLine);
       snapshotBeforeEdit(ctx, [abs], 'auto_pre_delete_file');
       fs.unlinkSync(abs);
+      recordHunk(ctx, abs, startLine, endLine, original);
       runPostToolCall('delete_file', { path: filePath });
       return { success: true, output: `已删除 ${filePath}` };
     },

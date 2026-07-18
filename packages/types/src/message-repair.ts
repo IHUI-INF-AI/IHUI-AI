@@ -1,7 +1,7 @@
 /**
  * 会话历史结构修复(messages 数组自愈)。
  *
- * 灵感来源:grok-build 的 `x.ai/session/repair` 扩展方法,CLI P37 第四次深度审计整合。
+ * 参考行业 Agent 框架的 session repair 扩展方法设计,CLI P37 第四次深度审计整合。
  * 跨端共享:CLI(本地 JSON 文件)+ API(/chat/stream 入口)+ ai-service(llm_gateway 兜底)共用同一套规则。
  *
  * 问题:Web/API/ai-service 链路中,messages 数组可能因各种原因出现结构异常,
