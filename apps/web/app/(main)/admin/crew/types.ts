@@ -37,6 +37,8 @@ export type StreamEventType =
   | 'task_start'
   | 'task_complete'
   | 'task_error'
+  | 'tool_call'
+  | 'tool_result'
   | 'complete'
   | 'error'
 
