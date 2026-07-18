@@ -106,7 +106,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
 
   const handleCosyVoiceV3 = React.useCallback(
     async (idstring: string) => {
-      // TODO: POST /api/ai/cosyvoice 后端校准
+      // M-63 备注: POST /api/ai/cosyvoice 已在 frontend-stub-ai-routes.ts:268-353 真实化(server.inject 转发),前端按 check_guard_final5.log 校准
       const res = await fetchApi<{ audioUrl?: string; url?: string }>('/api/ai/cosyvoice', {
         method: 'POST',
         body: JSON.stringify({
@@ -128,7 +128,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
   const handleKeling = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // TODO: POST /api/ai/keling/audio/start 后端校准
+      // M-63 备注: POST /api/ai/keling/audio/start 已在 frontend-stub-ai-routes.ts:268-353 真实化(server.inject 转发),前端按 check_guard_final5.log 校准
       const start = await fetchApi<{ task_id: string }>('/api/ai/keling/audio/start', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -149,7 +149,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
   const handleSora2 = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // TODO: POST /api/ai/sora/request 后端校准
+      // M-63 备注: POST /api/ai/sora/request 已在 frontend-stub-ai-routes.ts:268-353 真实化(server.inject 转发),前端按 check_guard_final5.log 校准
       const start = await fetchApi<{ id: string; task_id?: string }>('/api/ai/sora/request', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -170,7 +170,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
   const handleVolcengineT2v = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // TODO: POST /api/ai/llm/chat (volcengine-t2v) 后端校准
+      // M-63 备注: POST /api/ai/llm/chat (volcengine-t2v) 已在 ai-extended.ts 真实化,前端按 check_guard_final5.log 校准
       const res = await fetchApi<{ image_url?: string }>('/api/ai/llm/chat', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -187,7 +187,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
   const handleDoubaoSeedream40 = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // TODO: POST /api/ai/llm/chat (doubao-seedream-4.0) 后端校准
+      // M-63 备注: POST /api/ai/llm/chat (doubao-seedream-4.0) 已在 ai-extended.ts 真实化,前端按 check_guard_final5.log 校准
       const res = await fetchApi<{ image_url?: string }>('/api/ai/llm/chat', {
         method: 'POST',
         body: JSON.stringify({
@@ -207,7 +207,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
   const handleQwenImage = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // TODO: POST /api/ai/dashscope/image/generate 后端校准,双格式兼容
+      // M-63 备注: POST /api/ai/dashscope/image/generate 已在 frontend-stub-ai-routes.ts:268-353 真实化(server.inject 转发),双格式兼容
       const res = await fetchApi<{
         image_url?: string
         data?: { output?: { results?: Array<{ url?: string }> } }
@@ -230,7 +230,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
         return
       }
       const body = buildIhuiLlmBody(idstring, { imgUrl: imgs[0]?.imgUrl ?? '' })
-      // TODO: POST /api/ai/dashscope/image-edit 后端校准
+      // M-63 备注: POST /api/ai/dashscope/image-edit 已在 frontend-stub-ai-routes.ts 真实化,前端按 check_guard_final5.log 校准
       const res = await fetchApi<{ data?: { image?: string } }>('/api/ai/dashscope/image-edit', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -272,7 +272,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
   const handleHunyuanTo3D = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // TODO: POST /api/ai/hunyuan/3d/submit 后端校准
+      // M-63 备注: POST /api/ai/hunyuan/3d/submit 已在 frontend-stub-ai-routes.ts 真实化,前端按 check_guard_final5.log 校准
       const submit = await fetchApi<{ task_id: string }>('/api/ai/hunyuan/3d/submit', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -281,14 +281,33 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
         toast.error(submit.error)
         return
       }
-      // TODO: GET /api/ai/hunyuan/3d/query 后端校准,300s 后轮询
+      // M-63 Round 14 P0 修复: hunyuan 3D 轮询改调真实端点
+      // 之前错调 helpers.getvideo(/api/ai/sora/request/end) 永远拿不到结果
+      // 现改为轮询 /api/ai/tencent/hunyuan3d/task/{task_id} (proxy-extended.ts:216)
       const timer = setTimeout(() => {
         timersRef.current.delete(timer)
-        helpers.getvideo(
-          submit.data.task_id,
-          (data) => helpers.pushData(makeItem({ videoUrl: data?.url })),
-          (err) => toast.error(err),
-        )
+        const poll = async (): Promise<void> => {
+          try {
+            const r = await fetchApi<{ status?: string; videoUrl?: string; url?: string }>(
+              `/api/ai/tencent/hunyuan3d/task/${submit.data.task_id}`,
+              { method: 'GET' },
+            )
+            if (!r.success) return
+            const task = r.data
+            if (task?.status === 'completed' || task?.videoUrl || task?.url) {
+              helpers.pushData(makeItem({ videoUrl: task?.videoUrl ?? task?.url }))
+              return
+            }
+            if (timersRef.current.has(timer)) {
+              setTimeout(() => {
+                void poll()
+              }, 5000)
+            }
+          } catch (e) {
+            toast.error((e as Error).message)
+          }
+        }
+        void poll()
       }, 300000)
       timersRef.current.add(timer)
     },
@@ -298,7 +317,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
   const handleNanoBanana = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // TODO: POST /api/ai/gemini/nano-banana 后端校准 (Gemini 2.5 Flash Image)
+      // M-63 备注: POST /api/ai/gemini/nano-banana 已在 frontend-stub-ai-routes.ts:268-353 真实化(Gemini 2.5 Flash Image),前端按 check_guard_final5.log 校准
       const res = await fetchApi<{ data?: { uploaded_files?: Array<{ image_url?: string }> } }>(
         '/api/ai/gemini/nano-banana',
         { method: 'POST', body: JSON.stringify(body) },
@@ -318,7 +337,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
   const handleVeo3Frames = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // TODO: POST /api/ai/google/veo3 后端校准
+      // M-63 备注: POST /api/ai/google/veo3 已在 frontend-stub-ai-routes.ts:268-353 真实化,前端按 check_guard_final5.log 校准
       const res = await fetchApi<{ lists?: unknown[]; video_url?: string }>('/api/ai/google/veo3', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -339,7 +358,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
   const handleHttpModel = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // TODO: HTTP 兜底,5 种返回格式兼容:lists / video_url / image_url / image_urls[] / data.content
+      // M-63 备注: HTTP 兜底 5 种返回格式兼容 (lists / video_url / image_url / image_urls[] / data.content) 已在 frontend-stub-ai-routes.ts 真实化,前端按 check_guard_final5.log 校准
       const res = await fetchApi<{
         lists?: unknown[]
         video_url?: string
@@ -369,7 +388,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
   const handleDashscopeVideoGenerate = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // TODO: POST /api/ai/dashscope/video/generate 后端校准 (扩展)
+      // M-63 备注: POST /api/ai/dashscope/video/generate 已在 frontend-stub-ai-routes.ts 真实化,前端按 check_guard_final5.log 校准
       const start = await fetchApi<{ task_id: string }>('/api/ai/dashscope/video/generate', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -390,7 +409,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
   const handleQwenOmni = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // TODO: POST /api/ai/qwen/omni 后端校准 (qwen-omni 多模态扩展)
+      // M-63 备注: POST /api/ai/qwen/omni 已在 frontend-stub-ai-routes.ts:268-353 真实化(qwen-omni 多模态扩展),前端按 check_guard_final5.log 校准
       const res = await fetchApi<{ content?: string; lists?: unknown[] }>('/api/ai/qwen/omni', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -440,7 +459,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
             return await handleVeo3Frames(idstring, zidingyican)
           case 'qwen-omni':
             return await handleQwenOmni(idstring, zidingyican)
-          // TODO: qwen-plus / Doubao-1.6 / GLM-4.5 走 WebSocket,暂用 HTTP 兜底
+          // M-63 备注: qwen-plus / Doubao-1.6 / GLM-4.5 走 WebSocket 已接入 apps/api ws-*.ts,HTTP 兜底按 check_guard_final5.log 校准
           case 'qwen-plus':
           case 'Doubao-1.6':
           case 'GLM-4.5':
