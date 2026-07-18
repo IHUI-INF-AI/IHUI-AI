@@ -41,7 +41,6 @@ import {
   Download,
   PlayCircle,
   BookOpen,
-  ChevronDown,
   Plus,
   Home,
   Newspaper,
@@ -884,13 +883,21 @@ function ExpandableNavItem({
         className={parentClassName}
       >
         <Icon className="h-5 w-5 shrink-0" />
-        <span className="min-w-0 flex-1 truncate">{label}</span>
-        <ChevronDown
-          className={cn(
-            'ml-auto h-3.5 w-3.5 shrink-0 transition-transform',
-            open && 'rotate-180',
-          )}
-        />
+        <span className="flex min-w-0 flex-1 flex-col items-start leading-tight">
+          <span className="whitespace-nowrap">{label}</span>
+          <span
+            aria-hidden="true"
+            className={cn(
+              // 破折线指示器:文字下方一条虚线,暗示有二级菜单
+              // 闭合态:淡色 dashed,展开态:加深 + 实线,200ms 平滑过渡
+              // 用互斥三元避免 Tailwind 中 border-solid 覆盖 border-dashed 的 CSS 优先级问题
+              'mt-0.5 h-px w-full border-b transition-all duration-200',
+              open
+                ? 'border-solid border-current/70'
+                : 'border-dashed border-current/30',
+            )}
+          />
+        </span>
       </button>
       {open && <div className="mt-0.5">{childList}</div>}
     </div>
