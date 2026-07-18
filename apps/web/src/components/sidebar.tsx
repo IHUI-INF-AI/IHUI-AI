@@ -259,24 +259,19 @@ interface SidebarProps {
 }
 
 /**
- * 侧边栏底部统一工具栏(5 按钮单行):语言 / 下载客户端 / 消息中心 / 主题切换 / 登录(未登录时)。
- * 合并自原 SidebarActions + SidebarExtraActions,确保 130px 默认宽度下单行排开。
- * 拉伸到 180px 仍单行;极端窄宽时 flex-wrap 兜底换行。
+ * 侧边栏底部统一工具栏(4 按钮单行):语言 / 下载客户端 / 消息中心 / 主题切换。
+ * 登录按钮独立到下方 SidebarUserRow(与已登录态同位置)。
+ * 130px 默认宽度下单行排开;拉伸到 180px 仍单行;极端窄宽时 flex-wrap 兜底换行。
  */
 function SidebarActions({
   collapsed,
-  onCloseMobile,
 }: {
   collapsed: boolean
-  onCloseMobile: () => void
 }) {
   const t = useTranslations('nav')
-  const tc = useTranslations('common')
   const tt = useTranslations('themeToggle')
   const { locale, setLocale } = useLanguageStore()
   const { theme, setTheme } = useTheme()
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const openLogin = useLoginDialogStore((s) => s.open)
   const notifications = useNotificationStore((s) => s.notifications)
   const unreadCount = useNotificationStore((s) => s.unreadCount)
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
@@ -289,11 +284,6 @@ function SidebarActions({
 
   const handleToggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark')
-  }
-
-  const handleLogin = () => {
-    openLogin('login')
-    onCloseMobile()
   }
 
   // store 中的 NotificationItem 映射为 NotificationCenter 所需的 NoticeItem
@@ -433,22 +423,6 @@ function SidebarActions({
           {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
         </Button>
       </Tooltip>
-
-      {/* 登录按钮(仅未登录时显示) */}
-      {!isAuthenticated && (
-        <Tooltip content={tc('login')} side={collapsed ? 'right' : 'top'}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={btnClass}
-            onClick={handleLogin}
-            title={collapsed ? tc('login') : undefined}
-            aria-label={tc('login')}
-          >
-            <LogIn className="h-3.5 w-3.5" />
-          </Button>
-        </Tooltip>
-      )}
     </div>
   )
 }
@@ -473,7 +447,29 @@ function SidebarUserRow({
     useLoginDialogStore.getState().open('login')
   }
 
-  if (!isAuthenticated) return null
+  // 未登录态:与已登录态占据同一位置(px-1.5 pb-2 + flex items-center gap-1.5 rounded-md p-1),
+  // 渲染为"图标 + 登录文字"单行按钮,折叠态只显图标。
+  if (!isAuthenticated) {
+    return (
+      <div className="px-1.5 pb-2">
+        <button
+          type="button"
+          onClick={() => {
+            useLoginDialogStore.getState().open('login')
+            onCloseMobile()
+          }}
+          aria-label={tc('login')}
+          className={cn(
+            'flex w-full items-center gap-1.5 rounded-md p-1 text-sm font-medium transition-colors hover:bg-sidebar-item-hover-bg hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            collapsed && 'justify-center',
+          )}
+        >
+          <LogIn className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>{tc('login')}</span>}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="px-1.5 pb-2">
@@ -816,7 +812,7 @@ function ExpandableNavItem({
 
   const childClassName = (active: boolean) =>
     cn(
-      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-2 pr-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
+      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-4 pr-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
       active
         ? 'bg-primary text-primary-foreground'
         : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
@@ -887,8 +883,8 @@ function ExpandableNavItem({
         aria-controls={listId}
         className={parentClassName}
       >
-        <Icon className="h-5 w-5 shrink-0" />
-        <span className="min-w-0 flex-1 truncate pr-4">{label}</span>
+        <Icon className="h-4 w-4 shrink-0" />
+        <span className="min-w-0 flex-1 text-[13px]">{label}</span>
         <ChevronDown
           className={cn(
             'absolute right-2 top-1/2 h-3.5 w-3.5 shrink-0 -translate-y-1/2 transition-transform',
@@ -1105,7 +1101,7 @@ export function Sidebar({
   const footer = (
     <TooltipProvider>
       <div className="shrink-0">
-        <SidebarActions collapsed={collapsed} onCloseMobile={onCloseMobile} />
+        <SidebarActions collapsed={collapsed} />
         <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
       </div>
     </TooltipProvider>
