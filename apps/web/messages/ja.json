@@ -2213,13 +2213,13 @@
       "createUser": "ユーザー作成",
       "uploadAvatar": "アバターをアップロード",
       "uploadAvatarHint": "JPG/PNG対応、最大2MB",
-      "dept": "Department",
+      "dept": "部署",
       "noDept": "部署未割当",
-      "ban": "Ban",
-      "unban": "Unban",
+      "ban": "無効化",
+      "unban": "有効化",
       "confirmBan": "このユーザーを無効化しますか?",
       "confirmUnban": "このユーザーを有効化しますか?",
-      "delete": "Delete",
+      "delete": "削除",
       "confirmDeletePrefix": "ユーザー \"",
       "confirmDeleteSuffix": "\"?",
       "resetPassword": "パスワードリセット"
@@ -3416,7 +3416,7 @@
             "random": "ランダム"
           },
           "questionIdListPlaceholder": "問題ID、複数はカンマ区切り",
-          "fieldEnabled": "Enabled"
+          "fieldEnabled": "あり"
         },
         "papersManual": {
           "title": "手動問題作成",
@@ -3651,8 +3651,8 @@
           "lidListPlaceholder": "例: uuid1, uuid2",
           "fieldShowIndex": "トップページ表示",
           "colShowIndex": "トップページ表示",
-          "showIndexYes": "Yes",
-          "showIndexNo": "No"
+          "showIndexYes": "はい",
+          "showIndexNo": "いいえ"
         },
         "maps": {
           "title": "マップ",
@@ -8655,7 +8655,7 @@
     "empty": "フィードバックなし",
     "backToList": "るリスト",
     "notFound": "つかりません",
-    "field_images": "Images",
+    "field_images": "画像",
     "imagesPlaceholder": "画像を貼り付けまたはドラッグしてください"
   },
   "comments": {
