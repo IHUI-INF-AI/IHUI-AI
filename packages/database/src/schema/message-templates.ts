@@ -6,7 +6,7 @@ export const messageTemplates = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     code: varchar('code', { length: 64 }).notNull().unique(), // 模板编码（如 sms_verify_code）
-    channel: varchar('channel', { length: 32 }).notNull(), // sms/email/notification/push
+    channel: varchar('channel', { length: 32 }).notNull(), // sms/email/notification/push/dingtalk/feishu/wechat
     title: varchar('title', { length: 255 }).notNull(),
     content: text('content').notNull(), // 模板内容，支持 {var} 占位符
     variables: jsonb('variables').default([]), // 变量定义数组 [{name,description}]
