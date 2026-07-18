@@ -1,4 +1,4 @@
-﻿import { createDb } from '../src/client.js'
+import { createDb } from '../src/client.js'
 import { eq } from 'drizzle-orm'
 import { liveCategories, liveChannels, liveLecturers } from '../src/schema/live.js'
 import { examCategories, examPapers, examQuestions } from '../src/schema/exam.js'
@@ -1540,11 +1540,36 @@ async function seedResources() {
 
 export async function seedAiFresh2026() {
   console.info('=== 开始导入 2026-07 真实 AI 资讯数据 ===')
-  await seedLive()
-  await seedExam()
-  await seedNews()
-  await seedAsks()
-  await seedCircles()
-  await seedResources()
-  console.info('=== 2026-07 真实 AI 资讯数据导入完成 ===')
+  const startTime = Date.now()
+
+  // 每步独立计时 + 单步容错隔离: 一步失败不影响其他步,便于定位问题
+  // (此前串行 await 任一抛错则整个 seedAiFresh2026 失败,无法定位是直播/考试/资讯/问答/社区/资源哪一步)
+  const steps: Array<{ name: string; fn: () => Promise<void> }> = [
+    { name: '直播 (live)', fn: seedLive },
+    { name: '考试 (exam)', fn: seedExam },
+    { name: '资讯 (news)', fn: seedNews },
+    { name: '问答 (asks)', fn: seedAsks },
+    { name: '社区 (circles)', fn: seedCircles },
+    { name: '资源 (resources)', fn: seedResources },
+  ]
+  let successCount = 0
+  let failedCount = 0
+  for (const step of steps) {
+    const stepStart = Date.now()
+    process.stdout.write(`  → ${step.name} ... `)
+    try {
+      await step.fn()
+      const elapsed = ((Date.now() - stepStart) / 1000).toFixed(1)
+      console.info(`✓ ${elapsed}s`)
+      successCount++
+    } catch (err) {
+      const elapsed = ((Date.now() - stepStart) / 1000).toFixed(1)
+      console.info(`✗ ${elapsed}s (失败: ${(err as Error).message ?? err})`)
+      failedCount++
+    }
+  }
+  const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+  console.info(
+    `=== 2026-07 真实 AI 资讯数据导入完成: 成功 ${successCount}/${steps.length}, 失败 ${failedCount}, 耗时 ${totalElapsed}s ===`,
+  )
 }
