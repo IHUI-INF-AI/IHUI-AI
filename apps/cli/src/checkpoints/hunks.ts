@@ -1,7 +1,7 @@
 /**
  * Hunk 级 Checkpoints — 按代码块(行范围)粒度快照与回滚。
  *
- * 灵感来源:cli 的 git hunk tracker + opencode 的 undo 机制。
+ * 灵感来源:参考行业 Agent 框架的 git hunk tracker + opencode 的 undo 机制。
  * 简化策略(做减法):
  *   - 不实现完整 diff 算法,只按"行号范围"快照原始内容
  *   - 回滚时按行号范围替换,不做位置漂移修正(适合工具刚修改后立即回滚)

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react'
 import { Input } from '@ihui/ui'
 
 /**
- * Input 组件 stories — 迁移自旧架构 client/src/stories/Input.stories.ts
+ * Input 组件 stories — 等价自旧架构 client/src/stories/Input.stories.ts
  * 覆盖默认、禁用、占位符、文件等形态
  */
 const meta = {

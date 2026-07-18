@@ -1,7 +1,7 @@
 /**
  * apply_patch 4 级模糊匹配(seek_sequence)。
  *
- * 灵感来源:cli port 自 openai/codex 的 `apply_patch/seek_sequence.rs`。
+ * 灵感来源:参考行业 Agent 框架对 openai/codex 的 apply_patch/seek_sequence 设计。
  * 问题:LLM 生成 patch 时,SEARCH 块常因源文件含 typographic 标点(– — '' "" nbsp)
  * 或行尾空白差异导致精确匹配失败,触发 "未找到匹配的文本" 错误,迫使用户手动修改。
  *
