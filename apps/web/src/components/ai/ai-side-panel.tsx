@@ -177,106 +177,106 @@ export function AISidePanel() {
 
   return (
     <div
-      className="relative z-[calc(var(--z-base)+5)] my-2 ml-2 shrink-0"
+      className="relative z-[calc(var(--z-base)+5)] my-2 mr-2 shrink-0"
       style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
     >
-    <aside
-      aria-label={tc('title')}
-      className="flex h-full flex-col overflow-hidden rounded-xl bg-shell-panel"
-    >
-      {/* 标题栏 */}
-      <header className="flex h-14 shrink-0 items-center gap-2 px-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Sparkles className="h-4 w-4" />
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="break-words text-sm font-semibold">{tc('title')}</span>
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Cpu className="h-3 w-3" />
-            <span className="break-words">{currentModel}</span>
-            {isStreaming && (
-              <span className="ml-1 inline-flex items-center gap-1 text-primary">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-sm bg-primary" />
-                {t('generating')}
-              </span>
-            )}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={handleNewChat}
-          disabled={isStreaming}
-          aria-label={tc('newConversation')}
-          title={tc('newConversation')}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={closePanel}
-          aria-label={tcommon('close')}
-          title={tcommon('close')}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </header>
+      <aside
+        aria-label={tc('title')}
+        className="flex h-full flex-col overflow-hidden rounded-xl bg-shell-panel"
+      >
+        {/* 标题栏 */}
+        <header className="flex h-14 shrink-0 items-center gap-2 px-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="break-words text-sm font-semibold">{tc('title')}</span>
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Cpu className="h-3 w-3" />
+              <span className="break-words">{currentModel}</span>
+              {isStreaming && (
+                <span className="ml-1 inline-flex items-center gap-1 text-primary">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-sm bg-primary" />
+                  {t('generating')}
+                </span>
+              )}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleNewChat}
+            disabled={isStreaming}
+            aria-label={tc('newConversation')}
+            title={tc('newConversation')}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={closePanel}
+            aria-label={tcommon('close')}
+            title={tcommon('close')}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
 
-      {/* 工具栏:模型选择 */}
-      <div className="flex items-center gap-2 px-3 py-2">
-        <ModelSelector
-          value={currentModel}
-          onChange={setModel}
-          disabled={isStreaming}
-          label={t('model')}
-        />
-      </div>
+        {/* 工具栏:模型选择 */}
+        <div className="flex items-center gap-2 px-3 py-2">
+          <ModelSelector
+            value={currentModel}
+            onChange={setModel}
+            disabled={isStreaming}
+            label={t('model')}
+          />
+        </div>
 
-      {/* 消息区 */}
-      <div className="min-h-0 flex-1">
-        <MessageList
-          messages={messages}
+        {/* 消息区 */}
+        <div className="min-h-0 flex-1">
+          <MessageList
+            messages={messages}
+            isStreaming={isStreaming}
+            isLoading={loadingHistory}
+            emptyTitle={t('empty')}
+            emptyHint={t('emptyHint')}
+            assistantLabel={t('assistant')}
+            loadingLabel={t('loading')}
+            onTemplateSelect={(content) => {
+              useChatStore.setState({ draftInput: content })
+            }}
+          />
+        </div>
+
+        {/* 输入区 */}
+        <MessageInput
+          onSend={sendMessage}
+          onStop={stop}
           isStreaming={isStreaming}
-          isLoading={loadingHistory}
-          emptyTitle={t('empty')}
-          emptyHint={t('emptyHint')}
-          assistantLabel={t('assistant')}
-          loadingLabel={t('loading')}
-          onTemplateSelect={(content) => {
-            useChatStore.setState({ draftInput: content })
-          }}
+          placeholder={t('placeholder')}
+          sendLabel={t('send')}
+          stopLabel={t('stop')}
         />
-      </div>
-
-      {/* 输入区 */}
-      <MessageInput
-        onSend={sendMessage}
-        onStop={stop}
-        isStreaming={isStreaming}
-        placeholder={t('placeholder')}
-        sendLabel={t('send')}
-        stopLabel={t('stop')}
-      />
-    </aside>
-    {/* 右侧拖拽手柄:外层 8px 透明命中区跨过 aside 右边缘(right-[-3px]),
+      </aside>
+      {/* 右侧拖拽手柄:外层 8px 透明命中区跨过 aside 右边缘(right-[-3px]),
         内层 1px 可见细线 group-hover:bg-primary。
         手柄置于 aside 外层(父 div),避免 overflow-hidden 裁剪命中区。 */}
-    <div
-      onPointerDown={handleResizeStart}
-      className="group absolute right-[-3px] top-3 bottom-3 z-20 w-2 cursor-col-resize"
-    >
       <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label={tcommon('resize')}
-        className={cn(
-          'absolute right-0 top-0 bottom-0 w-px bg-transparent transition-colors',
-          'group-hover:bg-primary',
-          isResizing && 'bg-primary',
-        )}
-      />
-    </div>
+        onPointerDown={handleResizeStart}
+        className="group absolute right-[-3px] top-3 bottom-3 z-20 w-2 cursor-col-resize"
+      >
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={tcommon('resize')}
+          className={cn(
+            'absolute right-0 top-0 bottom-0 w-px bg-transparent transition-colors',
+            'group-hover:bg-primary',
+            isResizing && 'bg-primary',
+          )}
+        />
+      </div>
     </div>
   )
 }
