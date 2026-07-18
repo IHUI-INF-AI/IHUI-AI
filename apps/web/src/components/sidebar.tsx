@@ -119,6 +119,7 @@ interface NavItem {
     | 'myLearning'
     | 'knowledgeBase'
     | 'announcements'
+    | 'overview'
   icon: React.ComponentType<{ className?: string }>
   adminOnly?: boolean
   children?: NavItem[]
@@ -967,6 +968,7 @@ export function Sidebar({
   const t = useTranslations('nav')
   const tc = useTranslations('common')
   const pathname = usePathname()
+  const router = useRouter()
   const user = useAuthStore((s) => s.user)
   const tchat = useTranslations('aiChat')
   const aiPanelOpen = useAiPanelStore((s) => s.open)
@@ -1183,6 +1185,7 @@ export function Sidebar({
           width={80}
           height={26}
           className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
+          onClick={() => router.push('/home')}
         />
       )}
       <Button
