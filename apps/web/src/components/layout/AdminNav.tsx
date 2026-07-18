@@ -211,7 +211,7 @@ interface AdminNavItem {
   dynamicLabel?: string
 }
 
-const ADMIN_NAV: AdminNavItem[] = [
+export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin', labelKey: 'dashboard', icon: LayoutDashboard },
   { href: '/admin/users', labelKey: 'users', icon: Users },
   { href: '/admin/members', labelKey: 'members', icon: UserCheck },
