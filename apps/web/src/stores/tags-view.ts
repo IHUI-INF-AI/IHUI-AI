@@ -2,7 +2,19 @@ import { create } from 'zustand'
 
 export interface TagItem {
   path: string
-  title: string
+  /**
+   * 标签显示标题(已废弃派生字段)。
+   *
+   * 历史遗留:早期实现把 deriveTitle(pathname) 计算后的字符串存入 store,
+   * 导致语言切换后已存在的标签无法重新翻译。
+   *
+   * 现已改为派生式:TagsView 在渲染时根据 path + 当前 locale 实时计算标题
+   * (见 src/lib/path-labels.ts + TagsView.resolveTitle),完全忽略此字段。
+   *
+   * 保留为可选字段仅为向后兼容旧调用方;新代码不应再写入此字段。
+   * @deprecated 改由 TagsView 渲染时派生,无需存储。
+   */
+  title?: string
   query?: Record<string, string>
 }
 
