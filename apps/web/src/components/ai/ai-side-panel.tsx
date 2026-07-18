@@ -2,14 +2,14 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Sparkles, X, Plus, Cpu } from 'lucide-react'
+import { Sparkles, X, Plus } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
 import { useWebSocket, type WSNotification, isAIResponse } from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
-import { BrandIcon } from '@/components/ai/brand-icon'
+import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getConversation, getMessages } from '@/lib/chat-api'
@@ -29,17 +29,8 @@ export function AISidePanel() {
   const tcommon = useTranslations('common')
 
   const { open, width, isResizing, closePanel, setWidth, setResizing } = useAiPanelStore()
-  const {
-    messages,
-    currentModel,
-    currentModelInfo,
-    isStreaming,
-    sendMessage,
-    stop,
-    clearMessages,
-    setModel,
-    setModelWithInfo,
-  } = useChat()
+  const { messages, currentModel, isStreaming, sendMessage, stop, clearMessages, setModel } =
+    useChat()
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
   const [loadingHistory, setLoadingHistory] = React.useState(false)
@@ -179,18 +170,26 @@ export function AISidePanel() {
     [setResizing, setWidth],
   )
 
-  // 关闭态:仅渲染拖拽手柄(可拖拽打开),不渲染整个面板内容
+  // 关闭态:仅渲染拖拽手柄(可拖拽打开),不渲染整个面板内容。
+  // 容器 width:0 且无 mr-2,使 Sidebar 与右侧 work-area 之间无间距(gap=0),
+  // 与 open 态(mr-2 在可见面板与 work-area 间形成 8px 间距)形成统一视觉:
+  // 面板可见时,间距用于分隔可见元素;面板隐藏时,不应残留无效间距。
   if (!open) {
     return (
-      <div className="relative my-2 mr-2 shrink-0 z-[calc(var(--z-base)+5)]" style={{ width: 0 }}>
-        {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越容器右边缘,
-          内层 0.5px 线 left-[calc(50%-0.25px)] -translate-x-1/2 居中在命中区中心,与容器右边缘重合。
-          关闭态容器 width:0,命中区相对容器右边定位,线居中在容器右边。
+      <div className="relative my-2 shrink-0 z-[calc(var(--z-base)+5)]" style={{ width: 0 }}>
+        {/* 右侧拖拽手柄(关闭态):命中区 right-[-12px] w-2(8px),完全位于 work-area 一侧
+          (容器右边缘 +4px ~ +12px),与 Sidebar 自身手柄(Sidebar 右边缘 -4px ~ +4px)空间错开,
+          两个手柄各保留完整 8px 命中区,互不重叠冲突。
+          原因:AISidePanel 容器 z-[calc(var(--z-base)+5)]=z-6 创建 stacking context,
+          其内手柄 z-20 只在容器内有效,整体低于 Sidebar 手柄(根 context z-20)。
+          若关闭态手柄与 Sidebar 手柄位置重合(都跨越 Sidebar 右边缘),会被 Sidebar 手柄完全遮挡,
+          "拖拽即打开"失效。空间错开后,关闭态手柄在 work-area 一侧(+4~+12)可正常触发。
+          内层 0.5px 线居中在命中区中心(容器右边缘 +8px 处),hover 时显现提示可拖拽打开 AI 面板。
           0.5px 线在 2x DPR 高分屏渲染为 1 物理像素;子像素 calc 避免奇数像素容器模糊。
           默认 opacity:0 完全隐藏,仅 hover 或拖拽时显现渐变色。 */}
         <div
           onPointerDown={handleResizeStart}
-          className="group absolute right-[-4px] top-3 bottom-3 z-20 w-2 cursor-col-resize"
+          className="group absolute right-[-12px] top-3 bottom-3 z-20 w-2 cursor-col-resize"
         >
           <div
             role="separator"
@@ -228,20 +227,12 @@ export function AISidePanel() {
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="break-words text-sm font-semibold">{tc('title')}</span>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              {currentModelInfo ? (
-                <BrandIcon
-                  vendor={currentModelInfo.vendor}
-                  iconSvg={currentModelInfo.iconSvg}
-                  iconUrl={currentModelInfo.iconUrl}
-                  size={12}
-                  className="text-muted-foreground"
-                />
-              ) : (
-                <Cpu className="h-3 w-3" />
-              )}
-              <span className="break-words">
-                {currentModelInfo?.label ?? currentModel}
-              </span>
+              <BrandIcon
+                vendor={inferVendor(currentModel)}
+                size={12}
+                className="text-muted-foreground"
+              />
+              <span className="break-words">{currentModel}</span>
               {isStreaming && (
                 <span className="ml-1 inline-flex items-center gap-1 text-primary">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-sm bg-primary" />
@@ -281,7 +272,6 @@ export function AISidePanel() {
             emptyHint={t('emptyHint')}
             assistantLabel={t('assistant')}
             loadingLabel={t('loading')}
-            currentModelInfo={currentModelInfo}
             onTemplateSelect={(content) => {
               useChatStore.setState({ draftInput: content })
             }}
@@ -297,19 +287,7 @@ export function AISidePanel() {
           sendLabel={t('send')}
           stopLabel={t('stop')}
           model={currentModel}
-          onModelChange={(v, opt) => {
-            if (opt) {
-              setModelWithInfo({
-                value: opt.value,
-                label: opt.label,
-                vendor: opt.vendor,
-                iconSvg: opt.iconSvg,
-                iconUrl: opt.iconUrl,
-              })
-            } else {
-              setModel(v)
-            }
-          }}
+          onModelChange={setModel}
           modelLabel={t('model')}
         />
       </aside>
