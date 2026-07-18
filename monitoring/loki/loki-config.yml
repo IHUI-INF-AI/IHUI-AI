@@ -1,0 +1,88 @@
+# Loki 配置 — IHUI-AI 日志聚合
+# 参考 grafana/loki:2.9.0 默认 local-config.yaml,扩展为生产可用配置
+# 数据持久化到容器内 /loki-data 目录(通过 docker volume 映射到宿主机)
+
+auth_enabled: false # 单机模式关闭多租户鉴权
+
+server:
+  http_listen_port: 3100 # Loki HTTP API 端口(查询/推送)
+  grpc_listen_port: 9096 # gRPC 端口(单机模式仍监听,集群节点间通信)
+  log_level: info
+
+common:
+  path_prefix: /loki-data # 数据根目录(挂载到 docker volume 实现持久化)
+  replication_factor: 1 # 单机模式副本数=1
+  storage:
+    filesystem:
+      chunks_directory: /loki-data/chunks
+      rules_directory: /loki-data/rules
+  ring:
+    kvstore:
+      store: inmemory # 单机模式用内存 ring,无需 etcd/consul
+
+# 查询结果缓存(提升重复查询性能)
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
+
+# 索引模式:旧数据用 boltdb-shipper,2024 起切到 tsdb(更高效)
+schema_config:
+  configs:
+    # boltdb-shipper 模式(Loki 2.x 默认,兼容历史数据)
+    - from: 2020-10-24
+      store: boltdb-shipper
+      object_store: filesystem
+      schema: v11
+      index:
+        prefix: index_
+        period: 24h
+    # tsdb 模式(Loki 2.8+ 推荐,支持更高效压缩与查询)
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+# 存储后端配置(文件系统)
+storage_config:
+  boltdb_shipper:
+    active_index_directory: /loki-data/boltdb-shipper-active
+    cache_location: /loki-data/boltdb-shipper-cache
+    shared_store: filesystem
+  tsdb:
+    active_index_directory: /loki-data/tsdb-active
+    cache_location: /loki-data/tsdb-cache
+
+# 压缩器 + 日志保留(自动清理 30 天以上日志)
+compactor:
+  working_directory: /loki-data/compactor
+  retention_enabled: true # 启用保留策略
+  retention_delete_delay: 2h # 标记删除后 2 小时真正删除
+  retention_delete_worker_count: 150 # 并发删除 worker 数
+  shared_store: filesystem
+  # 触发频率(S3/文件系统 backend 默认每 10 分钟一次)
+  # compactor_interval: 10m
+
+# 限流与日志保留
+limits_config:
+  reject_old_samples: true # 拒绝超时旧样本(防止回填攻击)
+  reject_old_samples_max_age: 168h # 7 天以上的样本拒绝接收
+  retention_period: 720h # 日志保留 30 天(720 小时)
+  ingestion_rate_mb: 10 # 默认 4MB/s,放宽到 10MB/s
+  ingestion_burst_size_mb: 20 # 突发大小 20MB
+  max_streams_per_user: 0 # 不限制流数
+  max_query_length: 721h # 单次查询最长 30 天+1 小时
+
+# 禁用匿名使用数据上报(生产环境建议关闭)
+analytics:
+  reporting_enabled: false
+
+# Ruler(告警规则,本配置未启用,可后续接入 Alertmanager)
+ruler:
+  alertmanager_url: http://alertmanager:9093
+  enable_api: true
