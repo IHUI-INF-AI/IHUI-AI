@@ -5,6 +5,9 @@
     "logout": "退出登入",
     "cancel": "取消",
     "close": "關閉",
+    "closeOther": "關閉其他",
+    "closeAll": "關閉全部",
+    "unsaved": "未儲存",
     "resize": "拖曳調整寬度",
     "confirm": "確認",
     "search": "搜尋",
@@ -371,7 +374,24 @@
     "announcements": "公告",
     "overview": "總覽",
     "enterprise": "企業服務",
-    "aiWorld": "AI 世界"
+    "aiWorld": "AI 世界",
+    "aiGeneration": "AI 生成",
+    "ask": "提問",
+    "comments": "評論",
+    "developer": "開發者中心",
+    "drama": "短劇",
+    "edu": "教育",
+    "imageGen": "圖像生成",
+    "member": "會員中心",
+    "mobileDashboard": "行動儀錶板",
+    "notifications": "通知",
+    "commission": "佣金",
+    "contact": "聯絡我們",
+    "mcpProjects": "MCP 專案",
+    "openclaw": "OpenClaw",
+    "pricing": "定價",
+    "recruitment": "招募",
+    "support": "客服中心"
   },
   "auth": {
     "loginTitle": "歡迎回來",
@@ -801,18 +821,6 @@
       "news": "資訊"
     },
     "miniappBtn": "微信小程式",
-    "wheelSensitivityLabel": "滾輪靈敏度",
-    "marqueeSpeedLabel": "滾動速度",
-    "clickToResume": "點選繼續滾動",
-    "clickToPause": "點選暫停滾動",
-    "resumeScroll": "繼續滾動",
-    "pauseScroll": "暫停滾動",
-    "sensitivityLow": "低",
-    "sensitivityMid": "中",
-    "sensitivityHigh": "高",
-    "speedSlow": "慢",
-    "speedMid": "中",
-    "speedFast": "快",
     "announcement": {
       "welcomeMessage": "歡迎來到智匯 AI教育平臺，開啟你的智能學習之旅！",
       "close": "關閉公告"
@@ -983,8 +991,13 @@
     "me": "我",
     "promptTemplate": "提示詞模板",
     "addContextReference": "添加為上下文引用",
+    "attachFile": "添加附件(圖片/影片/檔案)",
+    "slashCommand": "調用命令與技能(/)",
+    "mention": "提及檔案/技能/MCP/外掛(@)",
     "voiceRecord": "語音錄製",
     "voiceRecordLabel": "錄音 {duration}s",
+    "voiceInputStart": "語音輸入",
+    "voiceInputStop": "停止語音輸入",
     "modelDescGpt4oMini": "快速 · 經濟",
     "modelDescGpt4o": "均衡 · 高品質",
     "modelDescClaude35Sonnet": "強推理 · 寫作",
@@ -1037,7 +1050,35 @@
       }
     },
     "hideReasoning": "隱藏推理過程",
-    "showReasoning": "顯示推理過程"
+    "showReasoning": "顯示推理過程",
+    "vendors": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "google": "Google",
+      "gemini": "Google Gemini",
+      "deepseek": "DeepSeek",
+      "moonshot": "月之暗面",
+      "kimi": "Kimi",
+      "zhipu": "智譜",
+      "alibaba": "阿里雲",
+      "qwen": "通義千問",
+      "baidu": "百度",
+      "bytedance": "字節跳動",
+      "doubao": "豆包",
+      "stepfun": "階躍星辰",
+      "groq": "Groq",
+      "openrouter": "OpenRouter",
+      "ollama": "Ollama",
+      "local": "本地",
+      "custom": "自訂",
+      "huawei": "華為",
+      "tencent": "騰訊",
+      "minimax": "MiniMax",
+      "baichuan": "百川",
+      "zeroone": "零一萬物",
+      "yi": "零一萬物",
+      "unknown": "模型"
+    }
   },
   "learn": {
     "title": "學習中心",
@@ -1373,18 +1414,35 @@
       "free": {
         "name": "免費版",
         "cta": "開始使用",
-        "features": ["每日 10 次 AI 對話", "基礎模型", "1 個項目", "社區支持"]
+        "features": [
+          "每日 10 次 AI 對話",
+          "基礎模型",
+          "1 個項目",
+          "社區支持"
+        ]
       },
       "pro": {
         "name": "專業版",
         "cta": "立即升級",
-        "features": ["無限 AI 對話", "高級模型", "無限項目", "優先支持", "API 接入"]
+        "features": [
+          "無限 AI 對話",
+          "高級模型",
+          "無限項目",
+          "優先支持",
+          "API 接入"
+        ]
       },
       "enterprise": {
         "name": "企業版",
         "cta": "聯繫我們",
         "contactSales": "聯繫銷售",
-        "features": ["專屬部署", "團隊管理", "SLA 保障", "定製開發", "培訓支持"]
+        "features": [
+          "專屬部署",
+          "團隊管理",
+          "SLA 保障",
+          "定製開發",
+          "培訓支持"
+        ]
       }
     },
     "checkout": {
@@ -7090,9 +7148,24 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "套餐功能",
     "subscribe": "訂閱",
-    "planMonthlyFeatures": ["每月 1000 積分", "基礎 AI 對話", "社區訪問"],
-    "planYearlyFeatures": ["每月 12000 積分", "高級 AI 對話", "優先客服", "去廣告"],
-    "planLifetimeFeatures": ["無限積分", "全部 AI 功能", "專屬客服", "去廣告", "早期功能體驗"],
+    "planMonthlyFeatures": [
+      "每月 1000 積分",
+      "基礎 AI 對話",
+      "社區訪問"
+    ],
+    "planYearlyFeatures": [
+      "每月 12000 積分",
+      "高級 AI 對話",
+      "優先客服",
+      "去廣告"
+    ],
+    "planLifetimeFeatures": [
+      "無限積分",
+      "全部 AI 功能",
+      "專屬客服",
+      "去廣告",
+      "早期功能體驗"
+    ],
     "avatarCurrent": "當前頭像",
     "avatarUpload": "點選相機按鈕選擇圖片",
     "avatarUploadBtn": "上傳頭像",
@@ -15273,13 +15346,23 @@
       "title": "月度會員",
       "days": "30天",
       "select": "選擇",
-      "benefits": ["全部課程免費學習", "專屬學習社區", "每月3次AI答疑", "學習進度追蹤"]
+      "benefits": [
+        "全部課程免費學習",
+        "專屬學習社區",
+        "每月3次AI答疑",
+        "學習進度追蹤"
+      ]
     },
     "yearly": {
       "title": "年度會員",
       "days": "365天",
       "select": "選擇",
-      "benefits": ["全部課程免費學習", "專屬學習社區", "無限AI答疑", "學習進度追蹤+證書"]
+      "benefits": [
+        "全部課程免費學習",
+        "專屬學習社區",
+        "無限AI答疑",
+        "學習進度追蹤+證書"
+      ]
     },
     "monthlyMember": "月度會員",
     "yearlyMember": "年度會員"
@@ -20426,7 +20509,11 @@
       "label": "核心定位",
       "title": "AI時代企業理性效率服務與互助社群",
       "description": "智匯 AI社致力於幫助企業決策者深度理解AI與企業的關係,通過系統化的課程、實踐探索和社群互助,構建人機協同的超級組織,實現企業的理性效率提升。",
-      "tags": ["人機協同", "理性效率", "超級組織"]
+      "tags": [
+        "人機協同",
+        "理性效率",
+        "超級組織"
+      ]
     },
     "modules": {
       "label": "三大服務模塊",
@@ -20436,19 +20523,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"]
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"]
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"]
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ]
         }
       ]
     },
@@ -20580,25 +20679,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"]
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"]
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": ["會議安排", "審批流程"]
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"]
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ]
         }
       ]
     },
@@ -20622,12 +20733,29 @@
       ],
       "infoTitle": "信息世界",
       "infoBasicLabel": "初級信息世界",
-      "infoBasic": ["信息化", "物聯網", "自動化"],
+      "infoBasic": [
+        "信息化",
+        "物聯網",
+        "自動化"
+      ],
       "infoAdvancedLabel": "高級信息世界",
-      "infoAdvanced": ["感知AI", "生成式AI", "智能體AI", "物理AI"],
+      "infoAdvanced": [
+        "感知AI",
+        "生成式AI",
+        "智能體AI",
+        "物理AI"
+      ],
       "effectTitle": "AI化效果",
-      "effectFlow": ["超級員工", "超級團隊", "超級產品/服務"],
-      "effectMetrics": ["成本優化", "效率提升", "體驗升級"]
+      "effectFlow": [
+        "超級員工",
+        "超級團隊",
+        "超級產品/服務"
+      ],
+      "effectMetrics": [
+        "成本優化",
+        "效率提升",
+        "體驗升級"
+      ]
     }
   },
   "drama": {
@@ -24041,10 +24169,10 @@
       "n8n": "n8n",
       "titleEn": "PARTNERS & ECOSYSTEM",
       "joinText": "歡迎更多 AI 發燒友加入我們,共同探索人工智能的無限可能",
-      "marqueeSpeedLabel": "滾動速度",
-      "wheelSensitivityLabel": "滾輪靈敏度",
+      "resumeScroll": "繼續滾動",
       "pauseScroll": "暫停滾動",
-      "resumeScroll": "繼續滾動"
+      "marqueeSpeedLabel": "滾動速度",
+      "wheelSensitivityLabel": "滾輪靈敏度"
     },
     "welcome": {
       "title": "歡迎來到智匯 AI 社群",
@@ -24079,28 +24207,64 @@
         {
           "titleKey": "colProduct",
           "links": [
-            { "labelKey": "enterprise", "href": "/enterprise" },
-            { "labelKey": "courses", "href": "/learn" },
-            { "labelKey": "live", "href": "/live" },
-            { "labelKey": "agents", "href": "/agents" }
+            {
+              "labelKey": "enterprise",
+              "href": "/enterprise"
+            },
+            {
+              "labelKey": "courses",
+              "href": "/learn"
+            },
+            {
+              "labelKey": "live",
+              "href": "/live"
+            },
+            {
+              "labelKey": "agents",
+              "href": "/agents"
+            }
           ]
         },
         {
           "titleKey": "colResource",
           "links": [
-            { "labelKey": "news", "href": "/news" },
-            { "labelKey": "aiWorld", "href": "/ai-world" },
-            { "labelKey": "articles", "href": "/articles" },
-            { "labelKey": "asks", "href": "/asks" }
+            {
+              "labelKey": "news",
+              "href": "/news"
+            },
+            {
+              "labelKey": "aiWorld",
+              "href": "/ai-world"
+            },
+            {
+              "labelKey": "articles",
+              "href": "/articles"
+            },
+            {
+              "labelKey": "asks",
+              "href": "/asks"
+            }
           ]
         },
         {
           "titleKey": "colSupport",
           "links": [
-            { "labelKey": "support", "href": "/support" },
-            { "labelKey": "agreement", "href": "/agreement" },
-            { "labelKey": "feedback", "href": "/feedback" },
-            { "labelKey": "help", "href": "/help" }
+            {
+              "labelKey": "support",
+              "href": "/support"
+            },
+            {
+              "labelKey": "agreement",
+              "href": "/agreement"
+            },
+            {
+              "labelKey": "feedback",
+              "href": "/feedback"
+            },
+            {
+              "labelKey": "help",
+              "href": "/help"
+            }
           ]
         }
       ],
@@ -24218,8 +24382,14 @@
         "title": "內容創作",
         "description": "AI 文本、圖像、視頻一站式生成,讓創意快速落地"
       },
-      "edu": { "title": "AI教育", "description": "系統化 AI 課程與實戰訓練,助你建立完整知識體系" },
-      "navigation": { "title": "智能導航", "description": "智能路由與場景識別,精準直達所需能力" }
+      "edu": {
+        "title": "AI教育",
+        "description": "系統化 AI 課程與實戰訓練,助你建立完整知識體系"
+      },
+      "navigation": {
+        "title": "智能導航",
+        "description": "智能路由與場景識別,精準直達所需能力"
+      }
     },
     "advantages": {
       "title": "核心優勢",

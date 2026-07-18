@@ -5,6 +5,9 @@
     "logout": "ログアウト",
     "cancel": "キャンセル",
     "close": "閉じる",
+    "closeOther": "他を閉じる",
+    "closeAll": "すべて閉じる",
+    "unsaved": "未保存",
     "resize": "ドラッグで幅を調整",
     "confirm": "確認",
     "search": "検索",
@@ -371,7 +374,24 @@
     "announcements": "お知らせ",
     "overview": "概覧",
     "enterprise": "企業サービス",
-    "aiWorld": "AIワールド"
+    "aiWorld": "AIワールド",
+    "aiGeneration": "AI生成",
+    "ask": "質問",
+    "comments": "コメント",
+    "developer": "デベロッパー",
+    "drama": "ドラマ",
+    "edu": "教育",
+    "imageGen": "画像生成",
+    "member": "メンバー",
+    "mobileDashboard": "モバイルダッシュボード",
+    "notifications": "通知",
+    "commission": "コミッション",
+    "contact": "お問い合わせ",
+    "mcpProjects": "MCPプロジェクト",
+    "openclaw": "OpenClaw",
+    "pricing": "料金",
+    "recruitment": "採用",
+    "support": "サポート"
   },
   "auth": {
     "loginTitle": "おかえりなさい",
@@ -801,18 +821,6 @@
       "news": "ニュース"
     },
     "miniappBtn": "WeChatミニプログラム",
-    "wheelSensitivityLabel": "滚轮灵敏度",
-    "marqueeSpeedLabel": "スクロール速度",
-    "clickToResume": "クリック",
-    "clickToPause": "クリック",
-    "resumeScroll": "スクロール再開",
-    "pauseScroll": "スクロール一時停止",
-    "sensitivityLow": "低",
-    "sensitivityMid": "中",
-    "sensitivityHigh": "高",
-    "speedSlow": "遅",
-    "speedMid": "中",
-    "speedFast": "速",
     "announcement": {
       "welcomeMessage": "智匯AI教育プラットフォームへようこそ、スマート学習の旅を始めましょう！",
       "close": "お知らせを閉じる"
@@ -983,8 +991,13 @@
     "me": "マイ",
     "promptTemplate": "プロンプトテンプレート",
     "addContextReference": "コンテキストとして",
+    "attachFile": "添付ファイルを追加(画像/動画/ファイル)",
+    "slashCommand": "コマンド/スキル呼び出し(/)",
+    "mention": "ファイル/スキル/MCP/プラグイン言及(@)",
     "voiceRecord": "音声録音",
     "voiceRecordLabel": "{duration}",
+    "voiceInputStart": "音声入力",
+    "voiceInputStop": "音声入力を停止",
     "modelDescGpt4oMini": "· の",
     "modelDescGpt4o": "バランス ·",
     "modelDescClaude35Sonnet": "い ·",
@@ -1037,7 +1050,35 @@
       }
     },
     "hideReasoning": "推論過程を非表示",
-    "showReasoning": "推論過程を表示"
+    "showReasoning": "推論過程を表示",
+    "vendors": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "google": "Google",
+      "gemini": "Google Gemini",
+      "deepseek": "DeepSeek",
+      "moonshot": "Moonshot",
+      "kimi": "Kimi",
+      "zhipu": "智譜",
+      "alibaba": "Aliyun",
+      "qwen": "通義千問",
+      "baidu": "百度",
+      "bytedance": "字節跳動",
+      "doubao": "豆包",
+      "stepfun": "StepFun",
+      "groq": "Groq",
+      "openrouter": "OpenRouter",
+      "ollama": "Ollama",
+      "local": "ローカル",
+      "custom": "カスタム",
+      "huawei": "Huawei",
+      "tencent": "Tencent",
+      "minimax": "MiniMax",
+      "baichuan": "百川",
+      "zeroone": "01.AI",
+      "yi": "Yi",
+      "unknown": "モデル"
+    }
   },
   "learn": {
     "title": "APIテスト",
@@ -1373,7 +1414,12 @@
       "free": {
         "name": "無料版",
         "cta": "getStarted",
-        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
+        "features": [
+          "10 AI chats per day",
+          "Basic models",
+          "1 project",
+          "Community support"
+        ]
       },
       "pro": {
         "name": "プロフェッショナル",
@@ -7039,9 +7085,24 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "プラン",
     "subscribe": "購読",
-    "planMonthlyFeatures": ["1000クレジット", "aiチャット", "コミュニティアクセス"],
-    "planYearlyFeatures": ["12000クレジット", "さなaiチャット", "サポート", "なし"],
-    "planLifetimeFeatures": ["クレジット", "ai", "サポート", "なし", "アクセス"],
+    "planMonthlyFeatures": [
+      "1000クレジット",
+      "aiチャット",
+      "コミュニティアクセス"
+    ],
+    "planYearlyFeatures": [
+      "12000クレジット",
+      "さなaiチャット",
+      "サポート",
+      "なし"
+    ],
+    "planLifetimeFeatures": [
+      "クレジット",
+      "ai",
+      "サポート",
+      "なし",
+      "アクセス"
+    ],
     "back": "戻る",
     "userCenter": "アカウント",
     "page": {
@@ -15285,13 +15346,23 @@
       "title": "月度会員",
       "days": "30",
       "select": "選択",
-      "benefits": ["すべてコースコース", "コースコミュニティ", "3ai", "コース"]
+      "benefits": [
+        "すべてコースコース",
+        "コースコミュニティ",
+        "3ai",
+        "コース"
+      ]
     },
     "yearly": {
       "title": "年度会員",
       "days": "365",
       "select": "選択",
-      "benefits": ["すべてコースコース", "コースコミュニティ", "ai", "コース+"]
+      "benefits": [
+        "すべてコースコース",
+        "コースコミュニティ",
+        "ai",
+        "コース+"
+      ]
     },
     "monthlyMember": "月度会員",
     "yearlyMember": "年度会員"
@@ -20438,7 +20509,11 @@
       "label": "コアポジショニング",
       "title": "AI時代の企業合理的効率サービスと相互支援コミュニティ",
       "description": "IHUI AIコミュニティは、企業の意思決定者がAIと企業の関係を深く理解できるよう支援することに尽力しています。体系化されたコース、実践的な探求、コミュニティの相互支援を通じて、人機協同のスーパー組織を構築し、企業の合理的効率向上を実現します。",
-      "tags": ["人機協同", "合理的効率", "スーパー組織"]
+      "tags": [
+        "人機協同",
+        "合理的効率",
+        "スーパー組織"
+      ]
     },
     "modules": {
       "label": "三大サービスモジュール",
@@ -20448,19 +20523,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -20592,25 +20679,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },
@@ -20634,12 +20733,29 @@
       ],
       "infoTitle": "情報世界",
       "infoBasicLabel": "初級情報世界",
-      "infoBasic": ["情報化", "IoT", "自動化"],
+      "infoBasic": [
+        "情報化",
+        "IoT",
+        "自動化"
+      ],
       "infoAdvancedLabel": "高度情報世界",
-      "infoAdvanced": ["知覚AI", "生成AI", "エージェントAI", "物理AI"],
+      "infoAdvanced": [
+        "知覚AI",
+        "生成AI",
+        "エージェントAI",
+        "物理AI"
+      ],
       "effectTitle": "AI化の効果",
-      "effectFlow": ["スーパー従業員", "スーパーチーム", "スーパープロダクト/サービス"],
-      "effectMetrics": ["コスト最適化", "効率向上", "体験アップグレード"]
+      "effectFlow": [
+        "スーパー従業員",
+        "スーパーチーム",
+        "スーパープロダクト/サービス"
+      ],
+      "effectMetrics": [
+        "コスト最適化",
+        "効率向上",
+        "体験アップグレード"
+      ]
     }
   },
   "drama": {
@@ -24053,10 +24169,10 @@
       "n8n": "n8n",
       "titleEn": "PARTNERS & ECOSYSTEM",
       "joinText": "より多くのAI愛好家の参加を歓迎し、共にAIの無限の可能性を探索しましょう",
-      "marqueeSpeedLabel": "スクロール速度",
-      "wheelSensitivityLabel": "ホイール感度",
+      "resumeScroll": "再開",
       "pauseScroll": "一時停止",
-      "resumeScroll": "再開"
+      "marqueeSpeedLabel": "スクロール速度",
+      "wheelSensitivityLabel": "ホイール感度"
     },
     "welcome": {
       "title": "智匯AIコミュニティへようこそ",
@@ -24091,28 +24207,64 @@
         {
           "titleKey": "colProduct",
           "links": [
-            { "labelKey": "enterprise", "href": "/enterprise" },
-            { "labelKey": "courses", "href": "/learn" },
-            { "labelKey": "live", "href": "/live" },
-            { "labelKey": "agents", "href": "/agents" }
+            {
+              "labelKey": "enterprise",
+              "href": "/enterprise"
+            },
+            {
+              "labelKey": "courses",
+              "href": "/learn"
+            },
+            {
+              "labelKey": "live",
+              "href": "/live"
+            },
+            {
+              "labelKey": "agents",
+              "href": "/agents"
+            }
           ]
         },
         {
           "titleKey": "colResource",
           "links": [
-            { "labelKey": "news", "href": "/news" },
-            { "labelKey": "aiWorld", "href": "/ai-world" },
-            { "labelKey": "articles", "href": "/articles" },
-            { "labelKey": "asks", "href": "/asks" }
+            {
+              "labelKey": "news",
+              "href": "/news"
+            },
+            {
+              "labelKey": "aiWorld",
+              "href": "/ai-world"
+            },
+            {
+              "labelKey": "articles",
+              "href": "/articles"
+            },
+            {
+              "labelKey": "asks",
+              "href": "/asks"
+            }
           ]
         },
         {
           "titleKey": "colSupport",
           "links": [
-            { "labelKey": "support", "href": "/support" },
-            { "labelKey": "agreement", "href": "/agreement" },
-            { "labelKey": "feedback", "href": "/feedback" },
-            { "labelKey": "help", "href": "/help" }
+            {
+              "labelKey": "support",
+              "href": "/support"
+            },
+            {
+              "labelKey": "agreement",
+              "href": "/agreement"
+            },
+            {
+              "labelKey": "feedback",
+              "href": "/feedback"
+            },
+            {
+              "labelKey": "help",
+              "href": "/help"
+            }
           ]
         }
       ],

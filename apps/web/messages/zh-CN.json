@@ -5,6 +5,9 @@
     "logout": "退出登录",
     "cancel": "取消",
     "close": "关闭",
+    "closeOther": "关闭其他",
+    "closeAll": "关闭全部",
+    "unsaved": "未保存",
     "resize": "拖动调整宽度",
     "confirm": "确认",
     "search": "搜索",
@@ -371,7 +374,24 @@
     "announcements": "公告",
     "overview": "总览",
     "enterprise": "企业服务",
-    "aiWorld": "AI 世界"
+    "aiWorld": "AI 世界",
+    "aiGeneration": "AI 生成",
+    "ask": "提问",
+    "comments": "评论",
+    "developer": "开发者中心",
+    "drama": "短剧",
+    "edu": "教育",
+    "imageGen": "图像生成",
+    "member": "会员中心",
+    "mobileDashboard": "移动仪表盘",
+    "notifications": "通知",
+    "commission": "佣金",
+    "contact": "联系我们",
+    "mcpProjects": "MCP 项目",
+    "openclaw": "OpenClaw",
+    "pricing": "定价",
+    "recruitment": "招募",
+    "support": "客服中心"
   },
   "auth": {
     "loginTitle": "欢迎回来",
@@ -801,18 +821,6 @@
       "news": "资讯"
     },
     "miniappBtn": "微信小程序",
-    "wheelSensitivityLabel": "滚轮灵敏度",
-    "marqueeSpeedLabel": "滚动速度",
-    "clickToResume": "点击继续滚动",
-    "clickToPause": "点击暂停滚动",
-    "resumeScroll": "继续滚动",
-    "pauseScroll": "暂停滚动",
-    "sensitivityLow": "低",
-    "sensitivityMid": "中",
-    "sensitivityHigh": "高",
-    "speedSlow": "慢",
-    "speedMid": "中",
-    "speedFast": "快",
     "announcement": {
       "welcomeMessage": "欢迎来到智汇 AI教育平台，开启你的智能学习之旅！",
       "close": "关闭公告"
@@ -983,8 +991,13 @@
     "me": "我",
     "promptTemplate": "提示词模板",
     "addContextReference": "添加为上下文引用",
+    "attachFile": "添加附件(图片/视频/文件)",
+    "slashCommand": "调用命令与技能(/)",
+    "mention": "提及文件/技能/MCP/插件(@)",
     "voiceRecord": "语音录制",
     "voiceRecordLabel": "录音 {duration}s",
+    "voiceInputStart": "语音输入",
+    "voiceInputStop": "停止语音输入",
     "modelDescGpt4oMini": "快速 · 经济",
     "modelDescGpt4o": "均衡 · 高质量",
     "modelDescClaude35Sonnet": "强推理 · 写作",
@@ -1037,7 +1050,35 @@
       }
     },
     "hideReasoning": "隐藏推理过程",
-    "showReasoning": "显示推理过程"
+    "showReasoning": "显示推理过程",
+    "vendors": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "google": "Google",
+      "gemini": "Google Gemini",
+      "deepseek": "DeepSeek",
+      "moonshot": "月之暗面",
+      "kimi": "Kimi",
+      "zhipu": "智谱",
+      "alibaba": "阿里云",
+      "qwen": "通义千问",
+      "baidu": "百度",
+      "bytedance": "字节跳动",
+      "doubao": "豆包",
+      "stepfun": "阶跃星辰",
+      "groq": "Groq",
+      "openrouter": "OpenRouter",
+      "ollama": "Ollama",
+      "local": "本地",
+      "custom": "自定义",
+      "huawei": "华为",
+      "tencent": "腾讯",
+      "minimax": "MiniMax",
+      "baichuan": "百川",
+      "zeroone": "零一万物",
+      "yi": "零一万物",
+      "unknown": "模型"
+    }
   },
   "learn": {
     "title": "学习中心",
@@ -1373,18 +1414,35 @@
       "free": {
         "name": "免费版",
         "cta": "开始使用",
-        "features": ["每日 10 次 AI 对话", "基础模型", "1 个项目", "社区支持"]
+        "features": [
+          "每日 10 次 AI 对话",
+          "基础模型",
+          "1 个项目",
+          "社区支持"
+        ]
       },
       "pro": {
         "name": "专业版",
         "cta": "立即升级",
-        "features": ["无限 AI 对话", "高级模型", "无限项目", "优先支持", "API 接入"]
+        "features": [
+          "无限 AI 对话",
+          "高级模型",
+          "无限项目",
+          "优先支持",
+          "API 接入"
+        ]
       },
       "enterprise": {
         "name": "企业版",
         "cta": "联系我们",
         "contactSales": "联系销售",
-        "features": ["专属部署", "团队管理", "SLA 保障", "定制开发", "培训支持"]
+        "features": [
+          "专属部署",
+          "团队管理",
+          "SLA 保障",
+          "定制开发",
+          "培训支持"
+        ]
       }
     },
     "checkout": {
@@ -7090,9 +7148,24 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "套餐功能",
     "subscribe": "订阅",
-    "planMonthlyFeatures": ["每月 1000 积分", "基础 AI 对话", "社区访问"],
-    "planYearlyFeatures": ["每月 12000 积分", "高级 AI 对话", "优先客服", "去广告"],
-    "planLifetimeFeatures": ["无限积分", "全部 AI 功能", "专属客服", "去广告", "早期功能体验"],
+    "planMonthlyFeatures": [
+      "每月 1000 积分",
+      "基础 AI 对话",
+      "社区访问"
+    ],
+    "planYearlyFeatures": [
+      "每月 12000 积分",
+      "高级 AI 对话",
+      "优先客服",
+      "去广告"
+    ],
+    "planLifetimeFeatures": [
+      "无限积分",
+      "全部 AI 功能",
+      "专属客服",
+      "去广告",
+      "早期功能体验"
+    ],
     "avatarCurrent": "当前头像",
     "avatarUpload": "点击相机按钮选择图片",
     "avatarUploadBtn": "上传头像",
@@ -15273,13 +15346,23 @@
       "title": "月度会员",
       "days": "30天",
       "select": "选择",
-      "benefits": ["全部课程免费学习", "专属学习社区", "每月3次AI答疑", "学习进度追踪"]
+      "benefits": [
+        "全部课程免费学习",
+        "专属学习社区",
+        "每月3次AI答疑",
+        "学习进度追踪"
+      ]
     },
     "yearly": {
       "title": "年度会员",
       "days": "365天",
       "select": "选择",
-      "benefits": ["全部课程免费学习", "专属学习社区", "无限AI答疑", "学习进度追踪+证书"]
+      "benefits": [
+        "全部课程免费学习",
+        "专属学习社区",
+        "无限AI答疑",
+        "学习进度追踪+证书"
+      ]
     },
     "monthlyMember": "月度会员",
     "yearlyMember": "年度会员"
@@ -20426,7 +20509,11 @@
       "label": "核心定位",
       "title": "AI时代企业理性效率服务与互助社群",
       "description": "智汇 AI社致力于帮助企业决策者深度理解AI与企业的关系,通过系统化的课程、实践探索和社群互助,构建人机协同的超级组织,实现企业的理性效率提升。",
-      "tags": ["人机协同", "理性效率", "超级组织"]
+      "tags": [
+        "人机协同",
+        "理性效率",
+        "超级组织"
+      ]
     },
     "modules": {
       "label": "三大服务模块",
@@ -20436,19 +20523,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"]
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"]
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"]
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ]
         }
       ]
     },
@@ -20580,25 +20679,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"]
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"]
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"]
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"]
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ]
         }
       ]
     },
@@ -20622,12 +20733,29 @@
       ],
       "infoTitle": "信息世界",
       "infoBasicLabel": "初级信息世界",
-      "infoBasic": ["信息化", "物联网", "自动化"],
+      "infoBasic": [
+        "信息化",
+        "物联网",
+        "自动化"
+      ],
       "infoAdvancedLabel": "高级信息世界",
-      "infoAdvanced": ["感知AI", "生成式AI", "智能体AI", "物理AI"],
+      "infoAdvanced": [
+        "感知AI",
+        "生成式AI",
+        "智能体AI",
+        "物理AI"
+      ],
       "effectTitle": "AI化效果",
-      "effectFlow": ["超级员工", "超级团队", "超级产品/服务"],
-      "effectMetrics": ["成本优化", "效率提升", "体验升级"]
+      "effectFlow": [
+        "超级员工",
+        "超级团队",
+        "超级产品/服务"
+      ],
+      "effectMetrics": [
+        "成本优化",
+        "效率提升",
+        "体验升级"
+      ]
     }
   },
   "drama": {
@@ -24041,10 +24169,10 @@
       "n8n": "n8n",
       "titleEn": "PARTNERS & ECOSYSTEM",
       "joinText": "欢迎更多 AI 发烧友加入我们,共同探索人工智能的无限可能",
-      "marqueeSpeedLabel": "滚动速度",
-      "wheelSensitivityLabel": "滚轮灵敏度",
+      "resumeScroll": "继续滚动",
       "pauseScroll": "暂停滚动",
-      "resumeScroll": "继续滚动"
+      "marqueeSpeedLabel": "滚动速度",
+      "wheelSensitivityLabel": "滚轮灵敏度"
     },
     "welcome": {
       "title": "欢迎来到智汇 AI 社区",
@@ -24079,28 +24207,64 @@
         {
           "titleKey": "colProduct",
           "links": [
-            { "labelKey": "enterprise", "href": "/enterprise" },
-            { "labelKey": "courses", "href": "/learn" },
-            { "labelKey": "live", "href": "/live" },
-            { "labelKey": "agents", "href": "/agents" }
+            {
+              "labelKey": "enterprise",
+              "href": "/enterprise"
+            },
+            {
+              "labelKey": "courses",
+              "href": "/learn"
+            },
+            {
+              "labelKey": "live",
+              "href": "/live"
+            },
+            {
+              "labelKey": "agents",
+              "href": "/agents"
+            }
           ]
         },
         {
           "titleKey": "colResource",
           "links": [
-            { "labelKey": "news", "href": "/news" },
-            { "labelKey": "aiWorld", "href": "/ai-world" },
-            { "labelKey": "articles", "href": "/articles" },
-            { "labelKey": "asks", "href": "/asks" }
+            {
+              "labelKey": "news",
+              "href": "/news"
+            },
+            {
+              "labelKey": "aiWorld",
+              "href": "/ai-world"
+            },
+            {
+              "labelKey": "articles",
+              "href": "/articles"
+            },
+            {
+              "labelKey": "asks",
+              "href": "/asks"
+            }
           ]
         },
         {
           "titleKey": "colSupport",
           "links": [
-            { "labelKey": "support", "href": "/support" },
-            { "labelKey": "agreement", "href": "/agreement" },
-            { "labelKey": "feedback", "href": "/feedback" },
-            { "labelKey": "help", "href": "/help" }
+            {
+              "labelKey": "support",
+              "href": "/support"
+            },
+            {
+              "labelKey": "agreement",
+              "href": "/agreement"
+            },
+            {
+              "labelKey": "feedback",
+              "href": "/feedback"
+            },
+            {
+              "labelKey": "help",
+              "href": "/help"
+            }
           ]
         }
       ],
@@ -24218,8 +24382,14 @@
         "title": "内容创作",
         "description": "AI 文本、图像、视频一站式生成,让创意快速落地"
       },
-      "edu": { "title": "AI教育", "description": "系统化 AI 课程与实战训练,助你建立完整知识体系" },
-      "navigation": { "title": "智能导航", "description": "智能路由与场景识别,精准直达所需能力" }
+      "edu": {
+        "title": "AI教育",
+        "description": "系统化 AI 课程与实战训练,助你建立完整知识体系"
+      },
+      "navigation": {
+        "title": "智能导航",
+        "description": "智能路由与场景识别,精准直达所需能力"
+      }
     },
     "advantages": {
       "title": "核心优势",

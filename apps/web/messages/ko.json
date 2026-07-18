@@ -5,6 +5,9 @@
     "logout": "로그아웃",
     "cancel": "취소",
     "close": "닫기",
+    "closeOther": "다른 탭 닫기",
+    "closeAll": "모두 닫기",
+    "unsaved": "저장되지 않음",
     "resize": "드래그하여 너비 조절",
     "confirm": "확인",
     "search": "검색",
@@ -371,7 +374,24 @@
     "announcements": "공지사항",
     "overview": "개요",
     "enterprise": "기업 서비스",
-    "aiWorld": "AI 월드"
+    "aiWorld": "AI 월드",
+    "aiGeneration": "AI 생성",
+    "ask": "질문",
+    "comments": "댓글",
+    "developer": "개발자",
+    "drama": "드라마",
+    "edu": "교육",
+    "imageGen": "이미지 생성",
+    "member": "멤버",
+    "mobileDashboard": "모바일 대시보드",
+    "notifications": "알림",
+    "commission": "커미션",
+    "contact": "문의하기",
+    "mcpProjects": "MCP 프로젝트",
+    "openclaw": "OpenClaw",
+    "pricing": "가격",
+    "recruitment": "모집",
+    "support": "지원"
   },
   "auth": {
     "loginTitle": "돌아오신 것을 환영합니다",
@@ -801,18 +821,6 @@
       "news": "새관리"
     },
     "miniappBtn": "WeChat미니 프로그램",
-    "wheelSensitivityLabel": "滚轮灵敏度",
-    "marqueeSpeedLabel": "滚动速度",
-    "clickToResume": "클릭계속",
-    "clickToPause": "클릭일시정지",
-    "resumeScroll": "계속",
-    "pauseScroll": "일시정지",
-    "sensitivityLow": "낮은",
-    "sensitivityMid": "중",
-    "sensitivityHigh": "높은",
-    "speedSlow": "느린",
-    "speedMid": "중",
-    "speedFast": "빠른",
     "announcement": {
       "welcomeMessage": "지혜AI 교육 플랫폼에 오신 것을 환영합니다. 스마트 학습 여정을 시작하세요!",
       "close": "공지 닫기"
@@ -983,8 +991,13 @@
     "me": "나",
     "promptTemplate": "프롬프트 템플릿",
     "addContextReference": "컨텍스트 참조로 추가",
+    "attachFile": "첨부 파일 추가(이미지/동영상/파일)",
+    "slashCommand": "명령/스킬 호출(/)",
+    "mention": "파일/스킬/MCP/플러그인 언급(@)",
     "voiceRecord": "음성 녹음",
     "voiceRecordLabel": "녹음 {duration}초",
+    "voiceInputStart": "음성 입력",
+    "voiceInputStop": "음성 입력 중지",
     "modelDescGpt4oMini": "빠름 · 경제적",
     "modelDescGpt4o": "균형 · 고품질",
     "modelDescClaude35Sonnet": "강력한 추론 · 작성",
@@ -1037,7 +1050,35 @@
       }
     },
     "hideReasoning": "추론 숨기기",
-    "showReasoning": "추론 표시"
+    "showReasoning": "추론 표시",
+    "vendors": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "google": "Google",
+      "gemini": "Google Gemini",
+      "deepseek": "DeepSeek",
+      "moonshot": "Moonshot",
+      "kimi": "Kimi",
+      "zhipu": "지푸",
+      "alibaba": "알리바바 클라우드",
+      "qwen": "통의천문",
+      "baidu": "바이두",
+      "bytedance": "바이트댄스",
+      "doubao": "더우바오",
+      "stepfun": "StepFun",
+      "groq": "Groq",
+      "openrouter": "OpenRouter",
+      "ollama": "Ollama",
+      "local": "로컬",
+      "custom": "사용자 정의",
+      "huawei": "화웨이",
+      "tencent": "텐센트",
+      "minimax": "MiniMax",
+      "baichuan": "바이촨",
+      "zeroone": "01.AI",
+      "yi": "Yi",
+      "unknown": "모델"
+    }
   },
   "learn": {
     "title": "AI인마음페이스테스트",
@@ -1373,7 +1414,12 @@
       "free": {
         "name": "무료",
         "cta": "getStarted",
-        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
+        "features": [
+          "10 AI chats per day",
+          "Basic models",
+          "1 project",
+          "Community support"
+        ]
       },
       "pro": {
         "name": "프로페셔널",
@@ -7039,8 +7085,17 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "플랜 기능",
     "subscribe": "구독",
-    "planMonthlyFeatures": ["월 1000 크레딧", "기본 AI 채팅", "커뮤니티 접근"],
-    "planYearlyFeatures": ["월 12000 크레딧", "고급 AI 채팅", "우선 지원", "광고 없음"],
+    "planMonthlyFeatures": [
+      "월 1000 크레딧",
+      "기본 AI 채팅",
+      "커뮤니티 접근"
+    ],
+    "planYearlyFeatures": [
+      "월 12000 크레딧",
+      "고급 AI 채팅",
+      "우선 지원",
+      "광고 없음"
+    ],
     "planLifetimeFeatures": [
       "무제한 크레딧",
       "모든 AI 기능",
@@ -15291,13 +15346,23 @@
       "title": "청크월회원",
       "days": "30일",
       "select": "선택",
-      "benefits": ["전체코스관리무료학습", "학습 커뮤니티", "월3ai", "학습 진도"]
+      "benefits": [
+        "전체코스관리무료학습",
+        "학습 커뮤니티",
+        "월3ai",
+        "학습 진도"
+      ]
     },
     "yearly": {
       "title": "청크년회원",
       "days": "365일",
       "select": "선택",
-      "benefits": ["전체코스관리무료학습", "학습 커뮤니티", "없음ai", "학습 진도+인증서"]
+      "benefits": [
+        "전체코스관리무료학습",
+        "학습 커뮤니티",
+        "없음ai",
+        "학습 진도+인증서"
+      ]
     },
     "monthlyMember": "청크월회원",
     "yearlyMember": "청크년회원"
@@ -20444,7 +20509,11 @@
       "label": "핵심 포지셔닝",
       "title": "AI 시대 기업 합리적 효율 서비스 및 상호 지원 커뮤니티",
       "description": "IHUI AI 커뮤니티는 기업 의사결정자가 AI와 기업의 관계를 깊이 이해하도록 돕는 데 전념합니다. 체계적인 과정, 실천 탐구, 커뮤니티 상호 지원을 통해 인간-기계 협업 슈퍼 조직을 구축하고 기업의 합리적 효율 향상을 실현합니다.",
-      "tags": ["인간-기계 협업", "합리적 효율", "슈퍼 조직"]
+      "tags": [
+        "인간-기계 협업",
+        "합리적 효율",
+        "슈퍼 조직"
+      ]
     },
     "modules": {
       "label": "3대 서비스 모듈",
@@ -20454,19 +20523,31 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ]
         }
       ]
     },
@@ -20598,25 +20679,37 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"]
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"]
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"]
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ]
         }
       ]
     },
@@ -20640,12 +20733,29 @@
       ],
       "infoTitle": "정보 세계",
       "infoBasicLabel": "초급 정보 세계",
-      "infoBasic": ["정보화", "IoT", "자동화"],
+      "infoBasic": [
+        "정보화",
+        "IoT",
+        "자동화"
+      ],
       "infoAdvancedLabel": "고급 정보 세계",
-      "infoAdvanced": ["지각 AI", "생성형 AI", "에이전트 AI", "물리 AI"],
+      "infoAdvanced": [
+        "지각 AI",
+        "생성형 AI",
+        "에이전트 AI",
+        "물리 AI"
+      ],
       "effectTitle": "AI화 효과",
-      "effectFlow": ["슈퍼 직원", "슈퍼 팀", "슈퍼 제품/서비스"],
-      "effectMetrics": ["비용 최적화", "효율 향상", "경험 업그레이드"]
+      "effectFlow": [
+        "슈퍼 직원",
+        "슈퍼 팀",
+        "슈퍼 제품/서비스"
+      ],
+      "effectMetrics": [
+        "비용 최적화",
+        "효율 향상",
+        "경험 업그레이드"
+      ]
     }
   },
   "drama": {
@@ -24059,10 +24169,10 @@
       "n8n": "n8n",
       "titleEn": "PARTNERS & ECOSYSTEM",
       "joinText": "더 많은 AI 애호가들의 참여를 환영하며, 함께 AI의 무한한 가능성을 탐색합시다",
-      "marqueeSpeedLabel": "스크롤 속도",
-      "wheelSensitivityLabel": "휠 감도",
+      "resumeScroll": "계속",
       "pauseScroll": "일시정지",
-      "resumeScroll": "재개"
+      "marqueeSpeedLabel": "스크롤 속도",
+      "wheelSensitivityLabel": "휠 감도"
     },
     "welcome": {
       "title": "지후이 AI 커뮤니티에 오신 것을 환영합니다",
@@ -24097,28 +24207,64 @@
         {
           "titleKey": "colProduct",
           "links": [
-            { "labelKey": "enterprise", "href": "/enterprise" },
-            { "labelKey": "courses", "href": "/learn" },
-            { "labelKey": "live", "href": "/live" },
-            { "labelKey": "agents", "href": "/agents" }
+            {
+              "labelKey": "enterprise",
+              "href": "/enterprise"
+            },
+            {
+              "labelKey": "courses",
+              "href": "/learn"
+            },
+            {
+              "labelKey": "live",
+              "href": "/live"
+            },
+            {
+              "labelKey": "agents",
+              "href": "/agents"
+            }
           ]
         },
         {
           "titleKey": "colResource",
           "links": [
-            { "labelKey": "news", "href": "/news" },
-            { "labelKey": "aiWorld", "href": "/ai-world" },
-            { "labelKey": "articles", "href": "/articles" },
-            { "labelKey": "asks", "href": "/asks" }
+            {
+              "labelKey": "news",
+              "href": "/news"
+            },
+            {
+              "labelKey": "aiWorld",
+              "href": "/ai-world"
+            },
+            {
+              "labelKey": "articles",
+              "href": "/articles"
+            },
+            {
+              "labelKey": "asks",
+              "href": "/asks"
+            }
           ]
         },
         {
           "titleKey": "colSupport",
           "links": [
-            { "labelKey": "support", "href": "/support" },
-            { "labelKey": "agreement", "href": "/agreement" },
-            { "labelKey": "feedback", "href": "/feedback" },
-            { "labelKey": "help", "href": "/help" }
+            {
+              "labelKey": "support",
+              "href": "/support"
+            },
+            {
+              "labelKey": "agreement",
+              "href": "/agreement"
+            },
+            {
+              "labelKey": "feedback",
+              "href": "/feedback"
+            },
+            {
+              "labelKey": "help",
+              "href": "/help"
+            }
           ]
         }
       ],
