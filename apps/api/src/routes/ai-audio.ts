@@ -142,6 +142,61 @@ const COSYVOICE_VOICES = [
 ]
 
 // ============================================================================
+// 支持的音频模型列表(TTS / ASR / 声纹)
+// ============================================================================
+
+const AUDIO_MODELS = [
+  {
+    id: 'cosyvoice-v2',
+    name: 'CosyVoice v2',
+    type: 'tts',
+    manufacturer: 'dashscope',
+    sample_rate: 24000,
+    description: 'DashScope CosyVoice v2 语音合成,支持多语言与多音色',
+  },
+  {
+    id: 'cosyvoice-v1',
+    name: 'CosyVoice v1',
+    type: 'tts',
+    manufacturer: 'dashscope',
+    sample_rate: 24000,
+    description: 'DashScope CosyVoice v1 语音合成',
+  },
+  {
+    id: 'paraformer-v2',
+    name: 'Paraformer v2',
+    type: 'asr',
+    manufacturer: 'dashscope',
+    sample_rate: 16000,
+    description: 'DashScope Paraformer v2 语音识别(异步任务模式)',
+  },
+  {
+    id: 'paraformer-v1',
+    name: 'Paraformer v1',
+    type: 'asr',
+    manufacturer: 'dashscope',
+    sample_rate: 16000,
+    description: 'DashScope Paraformer v1 语音识别',
+  },
+  {
+    id: 'qwen3-asr',
+    name: 'Qwen3-ASR',
+    type: 'asr',
+    manufacturer: 'dashscope',
+    sample_rate: 16000,
+    description: 'DashScope Qwen3-ASR 多模态语音识别(走多模态对话端点)',
+  },
+  {
+    id: 'speaker-recognition',
+    name: 'Speaker Recognition',
+    type: 'voiceprint',
+    manufacturer: 'dashscope',
+    sample_rate: 16000,
+    description: 'DashScope 声纹识别(注册 / 比对 / 列表 / 删除)',
+  },
+] as const
+
+// ============================================================================
 // DashScope 声纹识别 API（Speaker Recognition）
 // ============================================================================
 
@@ -804,6 +859,28 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       const msg = (e as Error).name === 'AbortError' ? '删除超时' : (e as Error).message
       reply.status(502).send(error(502, `声纹删除异常: ${msg}`))
     }
+  })
+
+  // ==========================================================================
+  // 11. GET /audio/models — 支持的音频模型列表(TTS / ASR / 声纹)
+  // ==========================================================================
+  server.get('/audio/models', async (_request, reply) => {
+    reply.send(success({ models: AUDIO_MODELS, count: AUDIO_MODELS.length }))
+  })
+
+  // ==========================================================================
+  // 12. GET /audio/health — 音频服务健康检查
+  // ==========================================================================
+  server.get('/audio/health', async (_request, reply) => {
+    const dashscopeConfigured = Boolean(process.env.DASHSCOPE_API_KEY)
+    reply.send(
+      success({
+        status: dashscopeConfigured ? 'ok' : 'degraded',
+        service: 'ai-audio',
+        dashscope_configured: dashscopeConfigured,
+        models_count: AUDIO_MODELS.length,
+      }),
+    )
   })
 
   // ==========================================================================
