@@ -12,7 +12,7 @@ import {
 
 /**
  * 智能体规则表 (agent_rule)。
- * 迁移自旧架构 zhs_agent_rule 表，绑定到具体 Agent 的执行规则。
+ * 等价自旧架构 zhs_agent_rule 表，绑定到具体 Agent 的执行规则。
  * ruleType: text(文本) / regex(正则) / llm(大模型判断)。
  * priority: 优先级，越大越先执行。
  * status: 0=禁用, 1=启用。

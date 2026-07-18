@@ -1,5 +1,5 @@
 /**
- * 文档数据 — 迁移自旧架构 client/src/data/documentation.ts
+ * 文档数据 — 等价自旧架构 client/src/data/documentation.ts
  * 导出文档目录树常量，供「文档中心」页面渲染侧边栏与面包屑
  */
 

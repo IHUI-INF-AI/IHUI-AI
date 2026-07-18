@@ -1,5 +1,5 @@
 /**
- * Agent 归属策略配置 — 迁移自旧架构 client/src/config/owner-agent-policy.ts
+ * Agent 归属策略配置 — 等价自旧架构 client/src/config/owner-agent-policy.ts
  * 定义智能体（Agent）的归属、可见性与协作权限策略
  */
 

@@ -1,7 +1,7 @@
 /**
  * Agent 工具系统 — Tool 接口定义与工具注册器。
  *
- * 灵感来源:cli 的 `cli-tools` crate(Rust),port 了 codex/opencode 的工具实现。
+ * 灵感来源:参考行业 Agent 框架的 tools crate 设计,融合 codex/opencode 的工具实现。
  * 简化策略(做减法):
  *   - 用 prompt engineering 让 LLM 输出结构化 tool_call 块(不依赖后端 function calling 支持)
  *   - Tool 接口最小化:name/description/parameters schema/execute
