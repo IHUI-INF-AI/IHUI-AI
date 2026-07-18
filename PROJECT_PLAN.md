@@ -20813,3 +20813,77 @@ P1 已 100% 完成,后续可选 P2 7 项(中价值):
 15. fsnotify 跨平台文件监听 — inotify/kqueue/ReadDirectoryChangesW 统一抽象(融合自 `xai-fsnotify`)
 
 待用户决策是否继续 P2。
+
+---
+
+## 第 30 轮交付报告(2026-07-18,P2-1/2/3 三项一次性完成 — Streaming markdown / Prompt queue / Mermaid 客户端渲染)
+
+### 交付概览
+
+本轮在 P1 全部完成的基础上,按用户"完整收尾"要求继续执行 P2 高 ROI 三项(Streaming markdown / Prompt queue / Mermaid 客户端渲染),采用三 subagent 并行 + 主线程验证的模式,完美细致完成 3 个模块的代码实现、单元测试、集成接入、零回归验证。
+
+| 任务 | 实现内容 | 测试 | 文件 |
+|------|---------|------|------|
+| P2-1 Streaming markdown | 4 项增强:① 未闭合代码块边界修复(临时闭合 + opacity-60 流式标记)② 语法高亮接入(next/dynamic Prism + oneDark 主题 + ErrorBoundary 降级)③ 复制按钮(absolute top-2 right-2 + useCopy hook + 1.5s 复位 + lucide Copy/Check 图标)④ 增量解析(React.memo + 稳定 key `code-${idx}-${code.slice(0,20)}`) | 7 tests | markdown-stream.tsx(+198) |
+| P2-2 Prompt queue | 3 项增强:① REPL SIGINT handler(单击 abort / 双击 1s 内 process.exit(130) / agentRunning=false 维持默认)② 恢复 drain 机制(删除 `() => []` 禁用代码,真正从 buffer pop)③ normal/low 自动消费(所有优先级递归消费,maxDepth=5 防无限递归) | 17 tests | repl.ts(+245) |
+| P2-3 Mermaid 客户端渲染 | 4 项工作:① 安装 mermaid ^11 依赖(不装 mermaid-cli / puppeteer)② MermaidDiagram 组件(dynamic import + useId 唯一 id + try/catch + next-themes 主题切换 + ErrorBoundary)③ 接入 4 个 markdown 渲染器(MarkdownViewer / markdown-stream / mcp-resource-viewer / vision-analysis)④ 抽公共 helper markdown-mermaid-code.ts + 修正 PROJECT_PLAN.md 不实描述 | 7 tests | 7 文件 |
+
+**累计**:13 个文件改动,+1301 行 / -71 行 / 31 个新测试用例
+
+### 架构决策
+
+#### P2-1 关键设计
+- **边界修复**:用 `hasUnclosedFence()` 统计 ``` 出现次数(奇数=未闭合),预处理时在末尾追加 `\n```\n`,**预处理只用于解析,不修改原 content**
+- **语法高亮**:用 `next/dynamic` 懒加载 `react-syntax-highlighter` 的 Prism,纯文本语言(text/plain/txt/空)fallback 到纯 `<pre><code>` 避免开销,渲染失败用 `CodeBlockErrorBoundary` 类组件降级
+- **复制按钮**:`useCopy` hook 自包含(`useState` + `navigator.clipboard.writeText` + 1.5s setTimeout 复位),`<pre>` 加 `relative` 定位让 absolute 按钮正确定位,hover 用 `hover:bg-zinc-800` / `dark:hover:bg-zinc-700` 浅色背景变化(**无蓝光边框,无纯黑边框**,符合项目 UI 规范)
+- **增量解析**:`React.memo(CodeBlockImpl)` 包裹,`code`/`language`/`isStreaming` 不变时跳过重渲染;稳定 key 用 `code-${idx}-${code.slice(0,20)}`(idx 保唯一性,前 20 字符在结构变化时强制 remount,流式追加时保持稳定)
+
+#### P2-2 关键设计
+- **双击 SIGINT 强杀**:记录上次 SIGINT 时间戳,两次间隔 < 1s 直接 `process.exit(130)`(标准 SIGINT 退出码);单击调 `abortController.abort()` + 设置 `state.aborted=true` + 打印中文提示 `\n[正在取消当前任务,请稍候...]`
+- **drain 机制恢复**:删除原 `drainInterjections = () => []` 禁用代码,改用 `createDrainInterjections(state.interjectionBuffer)` 用 `while (buffer.hasPending()) blocks.push(buffer.pop()!)` 循环模拟 popAll(**不修改 interjection.ts**,用现有 `pop()` + `hasPending()` 接口)
+- **删除原机制 1 的 formatForLLM 注入**:避免与 drain 双重注入(原机制 1 在下次 sendToAgent 调用前用 formatForLLM 把 pending interjection 拼成 system 消息注入,现在 drain 在循环内注入,必须删除否则会双重注入)
+- **normal/low 自动消费**:`consumePendingInterjections` 递归消费**所有优先级**(critical > high > normal > low),`aborted=true` 时停止(语义对齐 SIGINT 用户意图),`maxDepth=5` 防止无限递归
+- **可测试性设计**:提取 3 个工厂函数(`createReplSigintHandler` / `createDrainInterjections` / `consumePendingInterjections`)导出供单元测试,无需真实 readline/process 信号
+
+#### P2-3 关键设计
+- **零服务器端渲染**:不引入 puppeteer / @mermaid-js/mermaid-cli,只做客户端 SVG 渲染(mermaid ^11)
+- **dynamic import**:`MermaidDiagram` 在 `useEffect` 内 dynamic import mermaid,避免 SSR 报错 + 不影响首屏 bundle size;在 4 个渲染器中通过 `next/dynamic` 的 `ssr: false` 加载
+- **错误降级**:`MermaidErrorBoundary` class 组件包裹,渲染失败显示红色边框错误块(`border-destructive/30` + `bg-destructive/5`) + 折叠源码 + 错误消息,单次失败不影响整页
+- **主题跟随**:`useTheme()` 读 `resolvedTheme`,dark mode 用 `theme: 'dark'`,light mode 用 `theme: 'default'`
+- **流式 debounce**:markdown-stream 中 mermaid 代码用 `useDebounce(code, 300)` 减少 token 流入时的 render 调用(代码不完整时的渲染失败由 MermaidDiagram 内部错误降级处理,代码完整后会重新渲染)
+- **公共 helper**:`markdown-mermaid-code.ts` 导出 `isMermaidLanguage(className)`,4 个渲染器共用避免硬编码
+- **修正 PROJECT_PLAN.md 不实描述**:第 20035 行"Web 端已用 mermaid.js 官方库(浏览器原生)" → "Web 端 mermaid 集成 — P2 落地,客户端 SVG 渲染 + 错误降级"
+
+### 验证依据
+
+| 验证项 | 结果 |
+|--------|------|
+| `pnpm typecheck:full`(清 .tsbuildinfo 缓存后串行) | ✅ 18/18 packages 全绿 |
+| `pnpm -F @ihui/cli test` | ✅ 59 files / 1403 tests 全绿(含新增 17 tests) |
+| `pnpm -F @ihui/web test` | ✅ 25 files / 254 tests 全绿(含新增 14 tests:7 markdown-stream + 7 mermaid) |
+| `pnpm -F @ihui/web test src/components/ai/__tests__/markdown-stream.test.tsx` | ✅ 7/7 通过 |
+| `pnpm -F @ihui/web test src/components/media/__tests__/mermaid-diagram.test.tsx` | ✅ 7/7 通过 |
+| `pnpm -F @ihui/cli test tests/repl-abort.test.ts` | ✅ 17/17 通过 |
+| 零回归 | ✅ CLI 测试从 1403 增至 1403(新增 17 + 现有 1386,无回归) |
+
+### P2 完成情况
+
+- P2-10 Mermaid 三引擎:✅ 客户端 SVG 渲染完成(server-side / ASCII 引擎按"零服务器渲染"约束不做,列为远期目标)
+- P2-11 Streaming markdown:✅ 4 项增强完成(代码块边界 / 语法高亮 / 复制按钮 / 增量解析)
+- P2-12 Prompt queue:✅ 3 项增强完成(SIGINT abort / drain 恢复 / normal/low 消费)
+
+### 未完成 P2 项(远期可选)
+
+- P2-9 Voice 输入输出 — 需做语音模型选型,建议先观察用户需求量再启动
+- P2-13 Telemetry 上报 — 需明确 opt-in 策略后再做(隐私敏感)
+- P2-14 System power 管理 — 仅 desktop 包需要
+- P2-15 fsnotify 跨平台文件监听 — codegraph 依赖,等 codegraph 用户反馈后再做
+
+### 后续最优建议
+
+1. **集成测试补充**:P2-2 当前 17 个测试覆盖纯函数逻辑,建议后续加 1-2 个 `sendToAgent` 端到端集成测试(用 vi.mock mock runToolLoop + setupAgentTools),验证 signal 真实透传 + drain 在循环内注入的完整流程
+2. **abort 后的 UI 反馈**:当前 abort 后只打印 `[正在取消当前任务,请稍候...]`,建议后续在 `result.stopReason === 'cancelled'` 时额外打印 `\n✋ 任务已取消` 区分正常完成与中止
+3. **主题动态切换进阶**:P2-1 的 `oneDark` 是硬编码,可接入 `next-themes` 的 `useTheme`,在 light mode 下切换到 `oneLight`,实现完整的 dark/light 适配
+4. **代码块语言自动检测**:对无 language 标注的代码块,可基于内容启发式判断(js/python/etc),让 SyntaxHighlighter 自动选语言
+5. **mermaid 超时保护**:对于超长流程图(>500 节点),可考虑加 `mermaid.render` 的超时(如 5s)避免阻塞 UI
+6. **MermaidDiagram onError 回调**:把渲染失败上报到监控,为后续优化提供数据
