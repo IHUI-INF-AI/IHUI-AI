@@ -12,12 +12,10 @@ import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { Popover } from '@/components/feedback'
+import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 
 const MAX_LENGTH = 2000
-// textarea 无 padding(由外层容器提供)
-// scrollHeight 阈值:3 行 ≈ 58px,6 行 ≈ 116px(text-sm + leading-snug)
-const THREE_LINE_PX = 60 // 内容 ≤ 3 行的阈值,低于此值用 rows={3} 原生渲染
-const MAX_HEIGHT_PX = 120 // 最大 6 行,超出后滚动
+const MAX_HEIGHT_PX = 120 // 最大 6 行,超出后滚动(与 hook 默认值一致,用于 textarea style.maxHeight)
 
 interface ReferenceItem {
   id: string
@@ -71,7 +69,7 @@ export function MessageInput({
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
   const [references, setReferences] = React.useState<ReferenceItem[]>([])
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
+  const { ref: textareaRef, resize } = useTextareaAutoHeight<HTMLTextAreaElement>(value)
 
   const slashCommands = SLASH_COMMAND_IDS.map((id) => ({
     id,
@@ -93,37 +91,6 @@ export function MessageInput({
     content: t(`tpl.${id}.content`),
     category: t(`tpl.${id}.category`),
   }))
-
-  // 自动调整高度:空内容用 rows={3} 原生渲染,有内容按 scrollHeight 撑高,>6 行保持 6 行 + 滚动
-  const resize = React.useCallback(() => {
-    const el = textareaRef.current
-    if (!el) return
-    // 空内容:强制清除 inline height,用 rows={3} 原生渲染(浏览器绝对保证 3 行)
-    if (!el.value) {
-      el.style.height = ''
-      el.style.overflowY = 'hidden'
-      return
-    }
-    el.style.height = 'auto' // 临时重置以测量真实内容
-    const sh = el.scrollHeight
-    if (sh < THREE_LINE_PX) {
-      // 1-3 行:清除 inline height,用 rows={3} 原生渲染(保持 3 行不缩)
-      el.style.height = ''
-      el.style.overflowY = 'hidden'
-    } else if (sh <= MAX_HEIGHT_PX) {
-      // 4-6 行:撑高到内容高度
-      el.style.height = `${sh}px`
-      el.style.overflowY = 'hidden'
-    } else {
-      // 7+ 行:保持最大高度 + 滚动条
-      el.style.height = `${MAX_HEIGHT_PX}px`
-      el.style.overflowY = 'auto'
-    }
-  }, [])
-
-  React.useEffect(() => {
-    resize()
-  }, [value, resize])
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = e.target.value.slice(0, MAX_LENGTH)
