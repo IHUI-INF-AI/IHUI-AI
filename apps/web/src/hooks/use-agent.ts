@@ -31,9 +31,12 @@ export function useAgent(): UseAgentReturn {
   const fetchAgents = React.useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetchApi<Agent[]>('/api/agents')
+      // 后端 GET /api/agents/list 返回 { list, total, page, pageSize }
+      const res = await fetchApi<{ list: Agent[]; total: number; page: number; pageSize: number }>(
+        '/api/agents/list',
+      )
       if (res.success) {
-        setAgents(res.data)
+        setAgents(res.data.list)
       }
     } finally {
       setLoading(false)
@@ -49,7 +52,8 @@ export function useAgent(): UseAgentReturn {
 
   const createAgent = React.useCallback(
     async (data: Omit<Agent, 'id'>): Promise<boolean> => {
-      const res = await fetchApi<Agent>('/api/agents', {
+      // 后端 POST /api/agents/create 返回单个 Agent
+      const res = await fetchApi<Agent>('/api/agents/create', {
         method: 'POST',
         body: JSON.stringify(data),
       })
