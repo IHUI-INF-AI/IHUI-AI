@@ -226,12 +226,12 @@ describe('Plugin Marketplace', () => {
   // ==================== marketplace.ts 测试 ====================
 
   describe('marketplace.ts', () => {
-    it('scanMarketplace 按 .grok-plugin > .claude-plugin > 根 优先级查找', () => {
-      // 三个候选都存在,验证 .grok-plugin 优先
-      fs.mkdirSync(path.join(tmpMarketplace, '.grok-plugin'), { recursive: true });
+    it('scanMarketplace 按 .ihui-plugin > .claude-plugin > 根 优先级查找', () => {
+      // 三个候选都存在,验证 .ihui-plugin 优先
+      fs.mkdirSync(path.join(tmpMarketplace, '.ihui-plugin'), { recursive: true });
       fs.writeFileSync(
-        path.join(tmpMarketplace, '.grok-plugin', 'marketplace.json'),
-        JSON.stringify({ name: 'grok-mp', plugins: [] }),
+        path.join(tmpMarketplace, '.ihui-plugin', 'marketplace.json'),
+        JSON.stringify({ name: 'ihui-mp', plugins: [] }),
       );
       fs.mkdirSync(path.join(tmpMarketplace, '.claude-plugin'), { recursive: true });
       fs.writeFileSync(
@@ -245,11 +245,11 @@ describe('Plugin Marketplace', () => {
 
       let scan = scanMarketplace(tmpMarketplace);
       expect(scan.found).toBe(true);
-      expect(scan.index?.name).toBe('grok-mp');
-      expect(scan.indexPath).toBe(path.join(tmpMarketplace, '.grok-plugin', 'marketplace.json'));
+      expect(scan.index?.name).toBe('ihui-mp');
+      expect(scan.indexPath).toBe(path.join(tmpMarketplace, '.ihui-plugin', 'marketplace.json'));
 
-      // 移除 .grok-plugin,验证 .claude-plugin 接管
-      fs.rmSync(path.join(tmpMarketplace, '.grok-plugin', 'marketplace.json'));
+      // 移除 .ihui-plugin,验证 .claude-plugin 接管
+      fs.rmSync(path.join(tmpMarketplace, '.ihui-plugin', 'marketplace.json'));
       scan = scanMarketplace(tmpMarketplace);
       expect(scan.found).toBe(true);
       expect(scan.index?.name).toBe('claude-mp');
@@ -269,8 +269,8 @@ describe('Plugin Marketplace', () => {
     });
 
     it('scanMarketplace 损坏 JSON 返回 found=false', () => {
-      fs.mkdirSync(path.join(tmpMarketplace, '.grok-plugin'), { recursive: true });
-      const corruptPath = path.join(tmpMarketplace, '.grok-plugin', 'marketplace.json');
+      fs.mkdirSync(path.join(tmpMarketplace, '.ihui-plugin'), { recursive: true });
+      const corruptPath = path.join(tmpMarketplace, '.ihui-plugin', 'marketplace.json');
       fs.writeFileSync(corruptPath, '{ not valid json');
 
       const scan = scanMarketplace(tmpMarketplace);
@@ -490,10 +490,10 @@ describe('Plugin Marketplace', () => {
     });
 
     it('installMarketplacePlugin 通过 marketplace 索引查找并安装', async () => {
-      // 创建 marketplace 索引(.grok-plugin 优先级)
-      fs.mkdirSync(path.join(tmpMarketplace, '.grok-plugin'), { recursive: true });
+      // 创建 marketplace 索引(.ihui-plugin 优先级)
+      fs.mkdirSync(path.join(tmpMarketplace, '.ihui-plugin'), { recursive: true });
       fs.writeFileSync(
-        path.join(tmpMarketplace, '.grok-plugin', 'marketplace.json'),
+        path.join(tmpMarketplace, '.ihui-plugin', 'marketplace.json'),
         JSON.stringify({
           name: 'test-marketplace',
           owner: { name: 'tester' },
@@ -529,9 +529,9 @@ describe('Plugin Marketplace', () => {
     });
 
     it('installMarketplacePlugin qualifier 别名查找', async () => {
-      fs.mkdirSync(path.join(tmpMarketplace, '.grok-plugin'), { recursive: true });
+      fs.mkdirSync(path.join(tmpMarketplace, '.ihui-plugin'), { recursive: true });
       fs.writeFileSync(
-        path.join(tmpMarketplace, '.grok-plugin', 'marketplace.json'),
+        path.join(tmpMarketplace, '.ihui-plugin', 'marketplace.json'),
         JSON.stringify({
           name: 'test-marketplace',
           plugins: [
@@ -561,9 +561,9 @@ describe('Plugin Marketplace', () => {
     });
 
     it('installMarketplacePlugin 插件不存在抛错', async () => {
-      fs.mkdirSync(path.join(tmpMarketplace, '.grok-plugin'), { recursive: true });
+      fs.mkdirSync(path.join(tmpMarketplace, '.ihui-plugin'), { recursive: true });
       fs.writeFileSync(
-        path.join(tmpMarketplace, '.grok-plugin', 'marketplace.json'),
+        path.join(tmpMarketplace, '.ihui-plugin', 'marketplace.json'),
         JSON.stringify({ name: 'test', plugins: [] }),
       );
       await expect(installMarketplacePlugin('nonexistent', tmpMarketplace)).rejects.toThrow(

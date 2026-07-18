@@ -1,0 +1,48 @@
+'use client'
+
+import * as React from 'react'
+import { ChevronDown } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+
+interface ScrollDownButtonProps {
+  /** 当前页索引(0-based) */
+  current: number
+  /** 总页数 */
+  total: number
+  /** 点击跳转下一页 */
+  onNext: () => void
+}
+
+/**
+ * 底部向下滚动按钮
+ * - subtle-bounce 微弹动画提示
+ * - 最后一页自动隐藏
+ * - 点击跳转下一页
+ */
+export function ScrollDownButton({ current, total, onNext }: ScrollDownButtonProps) {
+  const t = useTranslations('marketing.scrollDown')
+  const visible = current < total - 1
+  const [clicking, setClicking] = React.useState(false)
+
+  if (!visible) return null
+
+  const handleClick = () => {
+    if (clicking) return
+    setClicking(true)
+    onNext()
+    window.setTimeout(() => setClicking(false), 400)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      aria-label={t('label')}
+      className={`fixed bottom-8 left-1/2 z-40 flex h-11 w-11 -translate-x-1/2 items-center justify-center rounded-lg border bg-card/90 shadow-sm backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:bg-card ${
+        clicking ? 'scale-95' : ''
+      }`}
+    >
+      <ChevronDown className="h-5 w-5 animate-subtle-bounce text-muted-foreground" />
+    </button>
+  )
+}

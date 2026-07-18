@@ -1,5 +1,5 @@
 /**
- * 精选 MCP 列表数据 — 迁移自旧架构 client/src/data/mcp-curated.ts
+ * 精选 MCP 列表数据 — 等价自旧架构 client/src/data/mcp-curated.ts
  * 导出官方精选的 MCP（Model Context Protocol）服务器列表，供 MCP 市场展示
  */
 

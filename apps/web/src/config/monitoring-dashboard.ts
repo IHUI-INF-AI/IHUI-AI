@@ -1,5 +1,5 @@
 /**
- * 监控仪表盘配置 — 迁移自旧架构 client/src/config/monitoring-dashboard.ts
+ * 监控仪表盘配置 — 等价自旧架构 client/src/config/monitoring-dashboard.ts
  * 定义运维监控仪表盘的图表布局、数据源与刷新策略
  */
 

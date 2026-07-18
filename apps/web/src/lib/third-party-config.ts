@@ -1,7 +1,7 @@
 /**
  * 第三方登录统一配置管理
  *
- * 迁移自旧架构 client/src/features/third-party-login/config/thirdPartyConfig.ts，
+ * 等价自旧架构 client/src/features/third-party-login/config/thirdPartyConfig.ts，
  * 适配新架构（Next.js，使用 NEXT_PUBLIC_* 前缀环境变量）。
  *
  * 生产环境只需在 .env 文件中配置对应的环境变量即可。

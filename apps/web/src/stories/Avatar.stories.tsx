@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react'
 import { Avatar } from '@/components/data/Avatar'
 
 /**
- * Avatar 组件 stories — 迁移自旧架构 client/src/stories/Avatar.stories.ts
+ * Avatar 组件 stories — 等价自旧架构 client/src/stories/Avatar.stories.ts
  * 覆盖 5 种 size + 2 种 shape + 图片回退
  */
 const meta = {

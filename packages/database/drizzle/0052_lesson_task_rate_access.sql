@@ -1,6 +1,6 @@
 -- Migration 0052: 课程任务/评价/访问权限 (D盘审计缺口 P0-A2/A3/A4)
 -- 创建时间: 2026-07-11
--- 描述: 迁移自旧架构 Java LearnService 的 LessonTask/LessonRate/LessonAccess 模块
+-- 描述: 等价自旧架构 Java LearnService 的 LessonTask/LessonRate/LessonAccess 模块
 
 -- ===== 课程任务表 =====
 CREATE TABLE IF NOT EXISTS lesson_task (

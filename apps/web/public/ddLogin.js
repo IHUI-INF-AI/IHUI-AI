@@ -1,6 +1,6 @@
 /**
  * 钉钉扫码登录 iframe 注入器
- * 迁移自历史项目 code/edu/web/web/public/ddLogin.js
+ * 等价自历史项目 code/edu/web/web/public/ddLogin.js
  */
 (function () {
   var DD_LOGIN_URL = 'https://login.dingtalk.com/login/qrcode.htm';

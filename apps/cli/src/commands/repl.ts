@@ -12,10 +12,12 @@ import { loadMcpConfig } from './mcp-config.js';
 import { agentsMdExists, writeAgentsMd } from './template.js';
 import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
+import { PlanMachine } from '../plan/index.js';
 import { setupAgentTools, runToolLoop, type ToolContext, type InterjectionBlock } from './agent.js';
 import { InterjectionBuffer } from '../interjection.js';
 import { renderSlashHelp, suggestSlashCommands } from './slash-registry.js';
 import type { PermissionRules, PermissionMode } from '../tools/permissions.js';
+import type { PluginRegistry } from '../plugins/index.js';
 import { readTodoList } from '../tools/todo-write.js';
 import { findSkill, type Skill } from '../skills/index.js';
 import {
@@ -56,6 +58,24 @@ import {
 } from '../sessions/index.js';
 import { loadSettings, type Settings } from './settings.js';
 import { handlePluginMarketplaceCommand } from './plugin-marketplace.js';
+import {
+  getAnnouncements,
+  refreshAnnouncements,
+  loadSeenIds,
+  markSeen,
+  markAllSeen,
+  countUnread,
+  formatAnnouncements,
+  formatStartupBanner,
+  getDefaultSeenPath,
+} from '../announcements/index.js';
+import {
+  checkMicrophoneAvailable,
+  voiceInput,
+  formatRecordResult,
+  formatTranscribeResult,
+} from '../voice/index.js';
+import { PromptQueue, type PromptQueueItem } from '../prompt-queue.js';
 
 export interface ReplOptions {
   modelId: string;
@@ -87,6 +107,10 @@ interface ReplState {
   memory: MemoryEntry[];
   /** Plan Mode 是否已被批准(/plan approve 后置 true) */
   planApproved?: boolean;
+  /** PlanMachine 状态机(可选,/plan on 后实例化,提供硬阻断:gathering 状态阻止工具执行) */
+  planMachine?: PlanMachine;
+  /** PluginRegistry(可选,setupAgentTools 加载后注入,runToolLoop 触发 preToolCall/postToolCall hook) */
+  pluginRegistry?: PluginRegistry;
   /** /rewind 用历史快照栈,每次 sendToAgent 前压入当前 history 深拷贝 */
   rewindStack: ChatMessage[][];
   /** InterjectionBuffer:agent 运行中用户输入的非斜杠命令进入此 buffer,按优先级处理。
@@ -99,6 +123,8 @@ interface ReplState {
   aborted: boolean;
   /** P2-2 REPL Abort:当前 agent 运行的 AbortController,SIGINT handler 调用 .abort() */
   abortController: AbortController | null;
+  /** P3-3 Prompt Queue:用户在 agent 运行时排队的提示词,agent 完成后自动 drain 顺序执行 */
+  promptQueue: PromptQueue;
 }
 
 export function formatContextStats(
@@ -410,6 +436,7 @@ export async function consumePendingInterjections(
 
 export async function startREPL(opts: ReplOptions): Promise<void> {
   const hooksConfig = loadHooks();
+  const settings = loadSettings();
 
   const state: ReplState = {
     opts,
@@ -427,6 +454,8 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     // P2-2 REPL Abort:初始化中止状态
     aborted: false,
     abortController: null,
+    // P3-3 Prompt Queue:初始化提示词队列
+    promptQueue: new PromptQueue(),
   };
   // Sessions 模块集成:若 opts.sessionId 提供且 history 为空,尝试从新 sessions 模块加载
   // (兼容老 session.ts 模块:若老模块已加载 history,新模块不覆盖)
@@ -453,6 +482,25 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
 
   console.info(chalk.cyan(`\n🤖 IHUI AI (模型: ${opts.modelId}, 工作区: ${opts.workspacePath})\n`));
   console.info(chalk.dim('输入消息开始对话, /help 查看命令, /exit 退出\n'));
+
+  // P2-2 公告系统:启用时异步拉取最新公告 + 显示未读横幅(失败静默,不阻塞 REPL)
+  if (settings.announcements?.enabled === true) {
+    void (async () => {
+      try {
+        const apiUrl = settings.announcements?.apiUrl ?? opts.apiUrl;
+        const list = await getAnnouncements({ apiUrl, cacheTtlMs: settings.announcements?.cacheTtlMs });
+        if (list.length === 0) return;
+        const seen = loadSeenIds(getDefaultSeenPath());
+        const banner = formatStartupBanner(list, seen);
+        if (banner) {
+          console.info(chalk.yellow(banner));
+          console.info('');
+        }
+      } catch {
+        // 公告拉取失败不影响 REPL 启动
+      }
+    })();
+  }
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -798,24 +846,38 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       if (sub === 'on') {
         state.opts.planFirst = true;
         state.planApproved = false;
-        console.info(chalk.green('✓ Plan Mode 已启用:LLM 必须先输出 plan 块再执行工具'));
+        // 实例化 PlanMachine 直接进入 gathering 状态(写入被硬阻断)
+        // 灵感来源:参考行业 Agent 框架的强制阻断式 Plan Mode(gathering 期间所有工具调用跳过)
+        state.planMachine = new PlanMachine('gathering');
+        console.info(chalk.green('✓ Plan Mode 已启用:LLM 必须先输出 plan 块再执行工具(PlanMachine: gathering,写入硬阻断)'));
       } else if (sub === 'off') {
         state.opts.planFirst = false;
         state.planApproved = false;
+        // 销毁 PlanMachine(进入 initialized 终结态,无阻断)
+        state.planMachine = undefined;
         console.info(chalk.green('✓ Plan Mode 已关闭'));
       } else if (sub === 'approve') {
         state.planApproved = true;
-        console.info(chalk.green('✓ Plan 已批准,后续工具调用将直接执行'));
+        // gathering → executing(写入允许)
+        if (state.planMachine && state.planMachine.canTransition('gather_complete')) {
+          state.planMachine.transition('gather_complete');
+        }
+        console.info(chalk.green('✓ Plan 已批准,后续工具调用将直接执行(PlanMachine: executing)'));
       } else if (sub === 'reject') {
         // 拒绝当前 plan:重置 planApproved,推入 user 消息要求 LLM 重新规划
         state.planApproved = false;
+        // 重置 PlanMachine 回到 gathering(再次阻断写入)
+        if (state.planMachine) {
+          state.planMachine.reset();
+          state.planMachine.transition('start');
+        }
         const rejectMsg = '用户拒绝了上一个 plan,请重新规划任务步骤(输出 ```plan 代码块),再执行工具。';
         state.history.push({ role: 'user', content: rejectMsg });
         if (state.session) {
           state.session.history = state.history;
           saveSession(state.session);
         }
-        console.info(chalk.yellow('✓ Plan 已拒绝,已要求 LLM 重新规划(下一条消息将触发重新规划)'));
+        console.info(chalk.yellow('✓ Plan 已拒绝,已要求 LLM 重新规划(PlanMachine: gathering,写入硬阻断)'));
       } else if (sub === 'edit') {
         // 简化版 edit:提示用户用 /rewind 回退到 plan 之前重新规划
         console.info(chalk.cyan('\n编辑 Plan:'));
@@ -828,7 +890,8 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         const planState = state.opts.planFirst
           ? (state.planApproved ? 'on (approved)' : 'on (pending)')
           : 'off';
-        console.info(`Plan Mode: ${planState}`);
+        const machineState = state.planMachine ? state.planMachine.getCurrentState() : 'inactive';
+        console.info(`Plan Mode: ${planState} (PlanMachine: ${machineState})`);
         // 尝试显示最近的 plan 块
         for (let i = state.history.length - 1; i >= 0; i--) {
           const m = state.history[i]!;
@@ -853,6 +916,22 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         memoryCount: state.memory.length,
       }));
       console.info('');
+      break;
+    }
+
+    case 'announcements':
+    case 'announce': {
+      await handleAnnouncements(args, state);
+      break;
+    }
+
+    case 'voice': {
+      await handleVoice(args, state);
+      break;
+    }
+
+    case 'queue': {
+      handleQueue(args, state);
       break;
     }
 
@@ -1134,6 +1213,65 @@ async function handleInit(state: ReplState): Promise<void> {
   console.info(chalk.green(`已创建: ${path.join(wsPath, 'AGENTS.md')}`));
 }
 
+/** P2-2 公告系统命令处理:/announcements [list|unread|read <id>|read-all|refresh] */
+async function handleAnnouncements(args: string[], state: ReplState): Promise<void> {
+  const settings = loadSettings();
+  const flagEnabled = settings.announcements?.enabled === true;
+  const apiUrl = settings.announcements?.apiUrl ?? state.opts.apiUrl;
+  if (!flagEnabled) {
+    console.info(chalk.dim('公告系统未启用(在 settings.announcements.enabled=true 开启)'));
+    return;
+  }
+  const seenPath = getDefaultSeenPath();
+  const sub = args[0] ?? 'list';
+  const opts = { apiUrl, cacheTtlMs: settings.announcements?.cacheTtlMs };
+  try {
+    if (sub === 'refresh') {
+      const list = await refreshAnnouncements(opts);
+      const seen = loadSeenIds(seenPath);
+      console.info(chalk.green(`✓ 已刷新,共 ${list.length} 条公告,未读 ${countUnread(list, seen)} 条`));
+      return;
+    }
+    if (sub === 'read-all') {
+      const list = await getAnnouncements(opts);
+      markAllSeen(seenPath, list);
+      console.info(chalk.green(`✓ 已将 ${list.length} 条公告标记为已读`));
+      return;
+    }
+    if (sub === 'read') {
+      const idx = args[1] ? Number(args[1]) : NaN;
+      if (!Number.isFinite(idx) || idx < 1) {
+        console.info(chalk.yellow('用法: /announcements read <序号>(先用 /announcements 查看序号)'));
+        return;
+      }
+      const list = await getAnnouncements(opts);
+      const target = list[idx - 1];
+      if (!target) {
+        console.info(chalk.yellow(`序号 ${idx} 超出范围(共 ${list.length} 条)`));
+        return;
+      }
+      markSeen(seenPath, target.id);
+      console.info(chalk.green(`✓ 已标记公告 #${idx} 为已读: ${target.title}`));
+      return;
+    }
+    // list / unread / 无参数
+    const onlyUnread = sub === 'unread';
+    const list = await getAnnouncements(opts);
+    if (list.length === 0) {
+      console.info(chalk.dim('暂无公告(后端未返回或网络异常)'));
+      return;
+    }
+    const seen = loadSeenIds(seenPath);
+    console.info(formatAnnouncements(list, seen, { showOnlyUnread: onlyUnread }));
+    console.info(chalk.dim('\n  /announcements read <序号>  标记已读'));
+    console.info(chalk.dim('  /announcements read-all      全部标记已读'));
+    console.info(chalk.dim('  /announcements refresh        强制刷新缓存'));
+    console.info('');
+  } catch {
+    console.info(chalk.yellow('公告获取失败(请检查后端 API 是否可用)'));
+  }
+}
+
 function handleMcpList(): void {
   const config = loadMcpConfig();
   if (config.servers.length > 0) {
@@ -1144,6 +1282,152 @@ function handleMcpList(): void {
     }
   } else {
     console.info(chalk.dim('\n本地无 MCP 服务器配置'));
+  }
+}
+
+/**
+ * P2-6 Voice STT 命令处理:/voice [秒数]
+ *
+ * 行为契约:
+ * - settings.voice.enabled !== true 时提示未启用(零回归)
+ * - 解析秒数参数(默认 settings.voice.durationSec 或 5)
+ * - 检测 ffmpeg 可用性(不可用时友好提示安装)
+ * - 调用 voiceInput({ durationSec, apiUrl, language }) 录音 + 转写
+ * - 显示录音 + 转写结果
+ * - 转写文本注入下一条 user 消息(进入 sendToAgent)
+ *
+ * 灵感来源:参考行业 Agent 框架的 voice input slash 命令。
+ */
+async function handleVoice(args: string[], state: ReplState): Promise<void> {
+  const settings = loadSettings();
+  const flagEnabled = settings.voice?.enabled === true;
+  if (!flagEnabled) {
+    console.info(chalk.dim('语音输入未启用(在 settings.voice.enabled=true 开启)'));
+    return;
+  }
+  // 解析秒数参数:优先命令行参数,其次 settings,最后默认 5
+  const argNum = args[0] ? Number(args[0]) : NaN;
+  const durationSec = Number.isFinite(argNum) && argNum > 0
+    ? Math.min(Math.floor(argNum), 60)  // 限制 1-60 秒
+    : (settings.voice?.durationSec ?? 5);
+  const apiUrl = settings.voice?.apiUrl ?? state.opts.apiUrl;
+  const language = settings.voice?.language;
+
+  // 检测 ffmpeg 可用性
+  if (!checkMicrophoneAvailable()) {
+    console.info(chalk.yellow('✗ 未检测到 ffmpeg(请先安装 ffmpeg 并加入 PATH)'));
+    console.info(chalk.dim('  Windows: choco install ffmpeg'));
+    console.info(chalk.dim('  macOS:   brew install ffmpeg'));
+    console.info(chalk.dim('  Linux:   sudo apt install ffmpeg'));
+    return;
+  }
+
+  console.info(chalk.cyan(`\n🎤 开始录音 ${durationSec} 秒(请对麦克风说话)...`));
+  try {
+    const result = await voiceInput({
+      durationSec,
+      apiUrl,
+      language,
+      apiKey: state.opts.apiKey,
+    });
+    console.info(chalk.green(formatRecordResult(result.record)));
+    console.info(chalk.green(formatTranscribeResult(result.transcribe)));
+    console.info(chalk.dim('\n  ↳ 转写文本将作为下一条 user 消息发送\n'));
+    // 转写文本非空时注入 sendToAgent
+    const text = result.text.trim();
+    if (text.length > 0) {
+      await sendToAgent(text, state);
+    } else {
+      console.info(chalk.yellow('转写结果为空,已跳过'));
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.info(chalk.red(`✗ 语音输入失败: ${msg}`));
+  }
+}
+
+/** P3-3 Prompt Queue:/queue 命令处理器 */
+function handleQueue(args: string[], state: ReplState): void {
+  const sub = args[0] ?? '';
+  // /queue <prompt>  → 入队(子命令 list/clear/rm/help 之外的文本都视为 prompt)
+  // /queue           → 显示队列(默认)
+  // /queue list      → 显示队列(显式)
+  // /queue clear     → 清空所有 pending
+  // /queue rm <id>   → 取消指定 id 的 pending 项
+  // /queue help      → 显示用法
+  if (sub === '' || sub === 'list') {
+    const items = state.promptQueue.snapshot();
+    const pending = items.filter((it) => it.status === 'pending');
+    const running = items.filter((it) => it.status === 'running');
+    const done = items.filter((it) => it.status === 'completed' || it.status === 'cancelled');
+    if (items.length === 0) {
+      console.info(chalk.dim('队列为空(/queue <prompt> 排队新提示词)'));
+      return;
+    }
+    console.info(chalk.cyan(`\n提示词队列(${items.length} 项, ${pending.length} pending, ${running.length} running, ${done.length} done):`));
+    for (const it of items) {
+      const statusLabel = formatQueueStatus(it);
+      const preview = it.prompt.length > 50 ? `${it.prompt.slice(0, 50)}...` : it.prompt;
+      console.info(`  ${chalk.bold(it.id)}  ${statusLabel}  ${chalk.dim(preview)}`);
+    }
+    console.info(chalk.dim('  /queue <prompt> 排队 | /queue rm <id> 取消 | /queue clear 清空'));
+    console.info('');
+    return;
+  }
+  if (sub === 'help') {
+    console.info(chalk.cyan('\n/queue 用法:'));
+    console.info(chalk.dim('  /queue <prompt>   排队新提示词(agent 完成后自动执行)'));
+    console.info(chalk.dim('  /queue            显示队列'));
+    console.info(chalk.dim('  /queue list       显示队列(同上)'));
+    console.info(chalk.dim('  /queue rm <id>    取消指定 id 的 pending 项'));
+    console.info(chalk.dim('  /queue clear      清空所有 pending 项'));
+    console.info('');
+    return;
+  }
+  if (sub === 'clear') {
+    const before = state.promptQueue.size();
+    state.promptQueue.cancel();
+    console.info(chalk.green(`✓ 已取消 ${before} 个 pending 项`));
+    return;
+  }
+  if (sub === 'rm') {
+    const id = args[1] ?? '';
+    if (!id) {
+      console.info(chalk.yellow('用法: /queue rm <id>(/queue 查看可用 id)'));
+      return;
+    }
+    const before = state.promptQueue.snapshot().find((it) => it.id === id);
+    if (!before) {
+      console.info(chalk.yellow(`未找到 id: ${id}(/queue 查看可用 id)`));
+      return;
+    }
+    state.promptQueue.cancel(id);
+    console.info(chalk.green(`✓ 已取消 ${id}`));
+    return;
+  }
+  // 其他文本视为 prompt 入队
+  const prompt = args.join(' ').trim();
+  if (!prompt) {
+    console.info(chalk.yellow('用法: /queue <prompt> | /queue list | /queue clear | /queue rm <id>'));
+    return;
+  }
+  const item = state.promptQueue.enqueue(prompt);
+  console.info(chalk.green(`✓ 已入队 [${item.id}](当前队列 ${state.promptQueue.size()} 项,agent 完成后自动执行)`));
+}
+
+/** 格式化队列项状态标签 */
+function formatQueueStatus(it: PromptQueueItem): string {
+  switch (it.status) {
+    case 'pending':
+      return chalk.yellow('⏳ pending');
+    case 'running':
+      return chalk.cyan('▶ running');
+    case 'completed':
+      return chalk.green('✓ completed');
+    case 'cancelled':
+      return chalk.dim('✗ cancelled');
+    default:
+      return chalk.dim(it.status);
   }
 }
 
@@ -1256,6 +1540,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     state.ctx = result.ctx;
     state.skills = result.skills;
     state.memory = result.memory;
+    state.pluginRegistry = result.pluginRegistry;
     state.agentReady = true;
   }
 
@@ -1301,6 +1586,8 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       signal: controller.signal,  // P2-2 传 signal,SIGINT 触发后 runToolLoop 内部响应 abort
       planFirst: state.opts.planFirst,
       planApproved: state.planApproved,
+      planMachine: state.planMachine,
+      plugins: state.pluginRegistry,
       drainInterjections,
       onDelta: (delta) => { process.stdout.write(delta); },
       onToolCall: (name, args) => console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`)),
@@ -1344,5 +1631,28 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       console.info(chalk.dim(`  ↳ 自动处理 [${priority}] interjection: ${content.slice(0, 50)}`));
     },
   );
+
+  // P3-3 Prompt Queue drain:只在顶层(depth=0)执行,避免递归时重复 drain
+  // aborted 时不 drain(语义对齐 SIGINT 用户意图:用户中止后剩余队列项保留,用户可 /queue 查看)
+  if (depth === 0 && !state.aborted) {
+    while (!state.aborted && state.promptQueue.size() > 0) {
+      const next = state.promptQueue.dequeue();
+      if (!next) break;
+      const preview = next.prompt.length > 80 ? `${next.prompt.slice(0, 80)}...` : next.prompt;
+      console.info(chalk.cyan(`\n▶ 执行队列 [${next.id}]: ${preview}`));
+      try {
+        await sendToAgent(next.prompt, state);
+        state.promptQueue.complete(next.id);
+      } catch {
+        // sendToAgent 内部已处理错误,这里只标记完成避免无限重试
+        state.promptQueue.complete(next.id);
+      }
+      // sendToAgent 不重置 state.aborted(只在 start 时重置),这里检查本次是否被中止
+      if (state.aborted) {
+        console.info(chalk.yellow(`⚠ 已中止,剩余 ${state.promptQueue.size()} 个队列项未执行(/queue 查看)`));
+        break;
+      }
+    }
+  }
 }
 

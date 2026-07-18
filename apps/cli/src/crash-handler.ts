@@ -1,7 +1,7 @@
 /**
  * Crash handler — 全局未捕获异常处理,记录 crash log + 友好提示。
  *
- * 灵感来源:cli 的 crash reporter(Rust,捕获 panic + 写 minidump)。
+ * 灵感来源:参考行业 Agent 框架的 crash reporter(捕获 panic + 写 minidump)。
  * 简化策略(做减法,零依赖):
  *   - 注册 process.on('uncaughtException') + process.on('unhandledRejection')
  *   - 崩溃时写 crash log 到 ~/.ihui/crash-logs/crash-<timestamp>.log

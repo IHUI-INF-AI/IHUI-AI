@@ -58,7 +58,7 @@ ihui-ai-officialsite-interface/
 │   ├── api/              # API 接口定义
 │   ├── assets/           # 静态资源
 │   ├── components/       # Vue 组件
-│   │   └── ui/          # shadcn/ui 组件（迁移自 React）
+│   │   └── ui/          # shadcn/ui 组件（等价自 React）
 │   ├── composables/     # Vue Composables
 │   ├── lib/             # 工具库
 │   │   └── utils.ts    # 工具函数（cn 函数）
@@ -87,7 +87,7 @@ ihui-ai-officialsite-interface/
 - 💎 **VIP系统**: 会员订阅和权益管理
 - 📊 **数据统计**: 使用统计和数据分析
 - 🔌 **MCP集成**: Model Context Protocol 集成
-- 🎨 **shadcn/ui 组件**: 迁移自 React 的 UI 组件库，提供现代化的组件设计
+- 🎨 **shadcn/ui 组件**: 等价自 React 的 UI 组件库，提供现代化的组件设计
 
 ## shadcn/ui 组件使用
 

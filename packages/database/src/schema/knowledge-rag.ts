@@ -1,5 +1,5 @@
 /**
- * RAG 知识库表 (迁移自 v1.0.2-sealed: server/app/models/knowledge_models.py)
+ * RAG 知识库表 (等价自 v1.0.2-sealed: server/app/models/knowledge_models.py)
  * - zhs_knowledge_doc    知识文档
  * - zhs_knowledge_chunk  文档切片 (含向量)
  *

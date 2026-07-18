@@ -119,7 +119,7 @@ export interface UseAiWebSocketReturn {
 }
 
 /**
- * AI WebSocket 业务方法 Hook(迁移自旧项目 aiWebSocketMixin.js)。
+ * AI WebSocket 业务方法 Hook(等价自旧项目 aiWebSocketMixin.js)。
  *
  * 8 业务方法:
  * 1. requestByWebSocket — WebSocket 入口

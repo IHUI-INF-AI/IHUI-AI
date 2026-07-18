@@ -1,7 +1,7 @@
 /**
  * P1-6 Codebase Graph — 正则降级版 AST 解析器(TS/JS)。
  *
- * 灵感来源:cli xai-codebase-graph 的 ScopeGraph,做减法为纯正则版本。
+ * 灵感来源:参考行业 Agent 框架的 ScopeGraph 设计,做减法为纯正则版本。
  * 简化策略:
  *   - 不上 tree-sitter,用正则 + 标记化代替完整 AST
  *   - 支持语言:仅 TypeScript / JavaScript
