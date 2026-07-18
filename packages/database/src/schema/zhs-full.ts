@@ -15,7 +15,10 @@ import {
   bigint,
   boolean,
   index,
+  uuid,
+  smallint,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 // ---------------------------------------------------------------------------
 // 活动与 Agent 模块
@@ -43,10 +46,18 @@ export const zhsActivity = pgTable(
   (t) => ({ statusIdx: index('zhs_activity_status_idx').on(t.status) }),
 )
 
-/** Agent 定价/配置表 */
+/** Agent 定价/配置表 (D 盘 agent_models.py:397-423 ZhsAgentCategory) */
 export const zhsAgentCategory = pgTable('zhs_agent_category', {
   id: serial('id').primaryKey(),
   agentId: varchar('agent_id', { length: 64 }),
+  // D 盘补齐字段
+  agentName: varchar('agent_name', { length: 128 }),
+  createUuid: varchar('create_uuid', { length: 36 }),
+  createName: varchar('create_name', { length: 128 }),
+  agentMainCategory: varchar('agent_main_category', { length: 2 }),
+  agentCategory: varchar('agent_category', { length: 2 }),
+  discountMonth: varchar('discount_month', { length: 5 }),
+  prologue: text('prologue'),
   group: integer('group').default(2).notNull(),
   type: varchar('type', { length: 10 }).default('1').notNull(),
   typeChild: varchar('type_child', { length: 10 }).default('1').notNull(),
@@ -57,13 +68,19 @@ export const zhsAgentCategory = pgTable('zhs_agent_category', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
-/** Agent 开发者关系表 */
+/** Agent 开发者关系表 (D 盘 agent_models.py:426-446 AgentDeveloper) */
 export const zhsAgentDeveloper = pgTable(
   'zhs_agent_developer',
   {
     id: serial('id').primaryKey(),
     agentId: varchar('agent_id', { length: 64 }).notNull(),
     userId: varchar('user_id', { length: 64 }).notNull(),
+    // D 盘补齐字段
+    uuid: varchar('uuid', { length: 36 }),
+    userName: varchar('user_name', { length: 128 }),
+    creatorId: varchar('creator_id', { length: 128 }),
+    creatorName: varchar('creator_name', { length: 128 }),
+    bugTime: timestamp('bug_time', { withTimezone: true }),
     orderNo: varchar('order_no', { length: 64 }),
     status: integer('status').default(1).notNull(),
     price: real('price'),
@@ -713,8 +730,79 @@ export type ZhsActivity = typeof zhsActivity.$inferSelect
 export type NewZhsActivity = typeof zhsActivity.$inferInsert
 export type ZhsAgentCategory = typeof zhsAgentCategory.$inferSelect
 export type NewZhsAgentCategory = typeof zhsAgentCategory.$inferInsert
-export type ZhsAgentDeveloper = typeof zhsAgentDeveloper.$inferSelect
-export type NewZhsAgentDeveloper = typeof zhsAgentDeveloper.$inferInsert
+// =============================================================================
+// M-63 Round 14 P0: 补 D 盘 zhs_agent_buy/Examine/Settlement/WithdrawalDetail 4 张表
+// 迁移自 D:\历史项目存档\ljd-交接文件\coze_zhs_py\models\agent_models.py:327-393
+//                D:\历史项目存档\ljd-交接文件\coze_zhs_py\models\agent_settlement.py:12-35
+//                D:\历史项目存档\ljd-交接文件\coze_zhs_py\models\agent_withdrawal_detail.py:12-43
+// =============================================================================
+// 注: zhsAgentBuy/zhsAgentWithdrawalDetail 的权威定义在 agent-commerce.ts(带外键+规范字段)
+//      D 盘旧版本(Legacy)已彻底移除,避免命名冲突与表名重复(schema drift)
+
+/** 智能体审核记录表(D 盘 AgentExamine 16 字段) */
+export const zhsAgentExamine = pgTable(
+  'zhs_agent_examine',
+  {
+    id: uuid('id')
+      .default(sql`gen_random_uuid()`)
+      .primaryKey(),
+    agentId: varchar('agent_id', { length: 64 }),
+    agentName: varchar('agent_name', { length: 128 }),
+    agentAvatar: varchar('agent_avatar', { length: 500 }),
+    prologue: text('prologue'),
+    categoryId: uuid('category_id'),
+    status: smallint('status'),
+    startTime: timestamp('start_time', { withTimezone: true }),
+    startUser: uuid('start_user'),
+    startPhone: varchar('start_phone', { length: 15 }),
+    startName: varchar('start_name', { length: 128 }),
+    examineUser: varchar('examine_user', { length: 128 }),
+    examineUserId: uuid('examine_user_id'),
+    examineTime: timestamp('examine_time', { withTimezone: true }),
+    desc: text('desc'),
+    follow: text('follow'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    agentIdx: index('idx_zhs_agent_examine_agent_id').on(t.agentId),
+    statusIdx: index('idx_zhs_agent_examine_status').on(t.status),
+    examineUserIdx: index('idx_zhs_agent_examine_examine_user_id').on(t.examineUserId),
+  }),
+)
+
+/** 智能体结算表(D 盘 AgentSettlement 11 字段) */
+export const zhsAgentSettlement = pgTable(
+  'zhs_agent_settlement',
+  {
+    id: uuid('id')
+      .default(sql`gen_random_uuid()`)
+      .primaryKey(),
+    uuid: uuid('uuid'),
+    orderNo: varchar('order_no', { length: 36 }),
+    createTime: timestamp('create_time', { withTimezone: true }).defaultNow(),
+    buyUuid: uuid('buy_uuid'),
+    agentId: varchar('agent_id', { length: 64 }),
+    agentName: varchar('agent_name', { length: 128 }),
+    prologue: text('prologue'),
+    agentAvatar: varchar('agent_avatar', { length: 500 }),
+    expirationDate: timestamp('expiration_date', { withTimezone: true }),
+    settlement: varchar('settlement', { length: 2 }),
+    withdrawal: varchar('withdrawal', { length: 2 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    orderNoIdx: index('idx_settlement_order_no').on(t.orderNo),
+    settlementIdx: index('idx_settlement_status').on(t.settlement),
+    withdrawalIdx: index('idx_settlement_withdrawal').on(t.withdrawal),
+  }),
+)
+
+export type ZhsAgentExamine = typeof zhsAgentExamine.$inferSelect
+export type NewZhsAgentExamine = typeof zhsAgentExamine.$inferInsert
+export type ZhsAgentSettlement = typeof zhsAgentSettlement.$inferSelect
+export type NewZhsAgentSettlement = typeof zhsAgentSettlement.$inferInsert
 export type ZhsAgentNeedTask = typeof zhsAgentNeedTask.$inferSelect
 export type NewZhsAgentNeedTask = typeof zhsAgentNeedTask.$inferInsert
 export type ZhsAiModelInfo = typeof zhsAiModelInfo.$inferSelect
