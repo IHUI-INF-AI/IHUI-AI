@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Mic } from 'lucide-react'
+
 import { cn } from '@/lib/utils'
 
 interface VoiceInputProps {
@@ -33,6 +34,7 @@ function getRecognitionConstructor(): (new () => SpeechRecognitionLike) | null {
 }
 
 export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
+  const t = useTranslations('chat')
   const [recording, setRecording] = React.useState(false)
   const [supported, setSupported] = React.useState(true)
   const recognitionRef = React.useRef<SpeechRecognitionLike | null>(null)
@@ -105,13 +107,13 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
         type="button"
         onClick={toggle}
         disabled={disabled}
-        aria-label={recording ? '停止录音' : '开始录音'}
-        title={recording ? '停止录音' : '开始录音'}
+        aria-label={recording ? t('voiceInputStop') : t('voiceInputStart')}
+        title={recording ? t('voiceInputStop') : t('voiceInputStart')}
         className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
           recording
             ? 'bg-red-500 text-white hover:bg-red-500/90'
-            : 'bg-muted text-muted-foreground hover:bg-accent',
+            : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
           'disabled:cursor-not-allowed disabled:opacity-50',
         )}
       >
