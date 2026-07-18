@@ -3,30 +3,59 @@ import * as React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, fireEvent, waitFor } from '@testing-library/react'
 
+// 提升 vi.fn 引用,便于在 mock 工厂和测试用例中共享(支持运行时改主题)
+// 返回类型用 union 形式,允许测试动态切换 light/dark
+const { mockUseTheme } = vi.hoisted(() => ({
+  mockUseTheme: vi.fn(
+    (): { resolvedTheme: 'light' | 'dark' } => ({ resolvedTheme: 'light' }),
+  ),
+}))
+
 // Mock react-syntax-highlighter 的 Prism 为可检测的 <pre>(避免加载真实高亮库)
 vi.mock('react-syntax-highlighter', async () => {
-  const React = await vi.importActual<typeof import('react')>('react')
+  const ReactActual = (await vi.importActual('react')) as typeof import('react')
   return {
-    Prism: ({ language, children }: { language?: string; children?: string }) =>
-      React.createElement(
+    Prism: ({
+      language,
+      style,
+      children,
+    }: {
+      language?: string
+      style?: unknown
+      children?: string
+    }) => {
+      // P2 中期增强测试:把传入的 style 序列化到 data-* 属性,用于验证主题切换
+      const styleAttr = style ? `__style__:${JSON.stringify(style)}` : ''
+      return ReactActual.createElement(
         'pre',
-        { 'data-testid': 'syntax-highlighter', className: `language-${language ?? ''}` },
+        {
+          'data-testid': 'syntax-highlighter',
+          'data-style-key': styleAttr,
+          className: `language-${language ?? ''}`,
+        },
         children,
-      ),
+      )
+    },
   }
 })
 
+// Mock next-themes:用 vi.hoisted 提供的 vi.fn,支持在用例中动态切换 resolvedTheme
+vi.mock('next-themes', () => ({
+  useTheme: () => mockUseTheme(),
+}))
+
 // Mock 主题对象(避免加载真实样式表)
 vi.mock('react-syntax-highlighter/dist/esm/styles/prism', () => ({
-  oneDark: {},
+  oneDark: { __styleKey: 'oneDark' },
+  oneLight: { __styleKey: 'oneLight' },
 }))
 
 // Mock MermaidDiagram,避免依赖真实 mermaid(测试不依赖真实渲染)
 vi.mock('@/components/media/MermaidDiagram', async () => {
-  const React = await vi.importActual<typeof import('react')>('react')
+  const ReactActual = (await vi.importActual('react')) as typeof import('react')
   return {
-    default: ({ code }: { code: string }) =>
-      React.createElement('div', { 'data-testid': 'mermaid' }, code),
+    default: ({ code }: { code?: string }) =>
+      ReactActual.createElement('div', { 'data-testid': 'mermaid' }, code),
   }
 })
 
@@ -170,5 +199,90 @@ describe('MarkdownStream - P2-1 流式 Markdown 增强', () => {
     })
     // 不应渲染 SyntaxHighlighter
     expect(container.querySelector('[data-testid="syntax-highlighter"]')).toBeNull()
+  })
+})
+
+/**
+ * P2 中期增强:oneDark → oneLight 主题切换测试。
+ *
+ * 验证项:
+ *   - resolvedTheme='light' 时,SyntaxHighlighter 收到 oneLight 样式对象
+ *   - resolvedTheme='dark' 时,SyntaxHighlighter 收到 oneDark 样式对象
+ *   - <pre> 容器背景在 light/dark 下使用不同 bg 类(bg-zinc-100 / dark:bg-zinc-950)
+ */
+describe('MarkdownStream - P2 中期增强 oneDark → oneLight 主题切换', () => {
+  beforeEach(() => {
+    // 每个用例前重置为 light
+    // 用 mockReturnValue(不用 Once),因为单个 render 中 useTheme 会被调用多次
+    // (MarkdownStream 一次 + ThemedCodeBlock 一次),Once 模式只能命中一次
+    mockUseTheme.mockReturnValue({ resolvedTheme: 'light' } as ReturnType<typeof mockUseTheme>)
+  })
+
+  it('resolvedTheme=light 时,SyntaxHighlighter 收到的 style 是 oneLight 对象', async () => {
+    const content = '```js\nconst x = 1\n```'
+    const { container } = render(<MarkdownStream content={content} />)
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="syntax-highlighter"]')).toBeTruthy()
+    })
+
+    const sh = container.querySelector('[data-testid="syntax-highlighter"]') as HTMLElement
+    const styleKey = sh.getAttribute('data-style-key') ?? ''
+    expect(styleKey).toContain('oneLight')
+    expect(styleKey).not.toContain('oneDark')
+  })
+
+  it('resolvedTheme=dark 时,SyntaxHighlighter 收到的 style 是 oneDark 对象', async () => {
+    // 覆盖为 dark(mockReturnValue 覆盖整个 render 期间所有 useTheme 调用)
+    mockUseTheme.mockReturnValue({ resolvedTheme: 'dark' } as ReturnType<typeof mockUseTheme>)
+
+    const content = '```js\nconst x = 1\n```'
+    const { container } = render(<MarkdownStream content={content} />)
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="syntax-highlighter"]')).toBeTruthy()
+    })
+
+    const sh = container.querySelector('[data-testid="syntax-highlighter"]') as HTMLElement
+    const styleKey = sh.getAttribute('data-style-key') ?? ''
+    expect(styleKey).toContain('oneDark')
+    expect(styleKey).not.toContain('oneLight')
+  })
+
+  it('主题从 light 切到 dark 时,样式对象引用切换(触发 SyntaxHighlighter 重渲染)', async () => {
+    // 第一次:light
+    mockUseTheme.mockReturnValue({ resolvedTheme: 'light' } as ReturnType<typeof mockUseTheme>)
+    const content = '```js\nconst x = 1\n```'
+    const { container, rerender } = render(<MarkdownStream content={content} />)
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="syntax-highlighter"]')).toBeTruthy()
+    })
+
+    const sh1 = container.querySelector('[data-testid="syntax-highlighter"]') as HTMLElement
+    expect(sh1.getAttribute('data-style-key')).toContain('oneLight')
+
+    // 第二次:dark(re-render 期间所有 useTheme 调用都返回 dark)
+    mockUseTheme.mockReturnValue({ resolvedTheme: 'dark' } as ReturnType<typeof mockUseTheme>)
+    rerender(<MarkdownStream content={content} />)
+
+    await waitFor(() => {
+      const sh2 = container.querySelector('[data-testid="syntax-highlighter"]') as HTMLElement
+      expect(sh2.getAttribute('data-style-key')).toContain('oneDark')
+    })
+  })
+
+  it('<pre> 容器背景在 light 模式下使用浅色,在 dark 模式下使用深色', async () => {
+    const content = '```js\nconst x = 1\n```'
+    const { container } = render(<MarkdownStream content={content} />)
+
+    await waitFor(() => {
+      expect(container.querySelector('pre')).toBeTruthy()
+    })
+
+    const pre = container.querySelector('pre') as HTMLElement
+    // 容器使用 theme-aware 类:bg-zinc-100(light) + dark:bg-zinc-950
+    expect(pre.className).toContain('bg-zinc-100')
+    expect(pre.className).toContain('dark:bg-zinc-950')
   })
 })
