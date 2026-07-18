@@ -1,6 +1,6 @@
 /**
  * 多智能体编排引擎。
- * 迁移自 v1.0.2-sealed: server/app/services/crew_orchestrator.py
+ * 等价自 v1.0.2-sealed: server/app/services/crew_orchestrator.py
  *
  * 核心职责:
  * 1. 创建多智能体会话
@@ -19,11 +19,42 @@ import { crewSession, crewTask, crewMessage, crewArtifact, type CrewSession } fr
 import { agentRegistry, type AgentRoleConfig } from './crew-agent-registry.js'
 import { getClawdbotGateway } from './clawdbot/gateway.js'
 import { knowledgeRagService } from './knowledge-rag-service.js'
+import { callRealLlm, type LlmMessage } from './crew-llm-adapter.js'
+import { getCrewToolDefinitions, executeCrewTool } from './crew-tools.js'
 
 export interface TaskPlan {
   role: string
   description: string
   expectedOutput: string
+}
+
+/** Crew 流式事件(与 @ihui/api-client/endpoints/crew.ts CrewStreamEvent 同源) */
+export interface CrewStreamEvent {
+  type:
+    | 'start'
+    | 'planning'
+    | 'plan'
+    | 'task_start'
+    | 'task_complete'
+    | 'task_error'
+    | 'tool_call'
+    | 'tool_result'
+    | 'complete'
+    | 'error'
+  content?: string
+  sessionId?: string
+  role?: string
+  taskIndex?: number
+  tasks?: Array<{ role: string; description: string }>
+  toolCall?: { id: string; name: string; args: Record<string, unknown> }
+  toolResult?: {
+    id: string
+    name: string
+    success: boolean
+    output?: unknown
+    error?: string
+    durationMs: number
+  }
 }
 
 export interface SessionConfig {
@@ -50,23 +81,8 @@ export interface SessionDetail {
   completedAt: string | null
 }
 
-/** 流式进度事件 */
-export interface StreamEvent {
-  type:
-    | 'start'
-    | 'planning'
-    | 'plan'
-    | 'task_start'
-    | 'task_complete'
-    | 'task_error'
-    | 'complete'
-    | 'error'
-  content?: string
-  sessionId?: string
-  role?: string
-  taskIndex?: number
-  tasks?: Array<{ role: string; description: string }>
-}
+/** 流式进度事件(已合并到 CrewStreamEvent,保留别名兼容) */
+export type StreamEvent = CrewStreamEvent
 
 class CrewOrchestrator {
   /** 创建多智能体会话 */
@@ -161,13 +177,25 @@ class CrewOrchestrator {
 
         let prompt = this.buildPrompt(plan.role, cfg, plan, context)
         if (plan.role === 'researcher') {
-          const ragContext = await this.getRagContext(session.inputMessage, config, session.userId)
+          const ragContext = await this.getRagContext(session.inputMessage, config)
           if (ragContext) prompt += `\n\n知识库参考信息:\n${ragContext}`
         }
 
         let output: string
         try {
-          output = await this.callLlm(prompt, config)
+          // executor 角色:启用工具调用循环(function calling)
+          if (plan.role === 'executor') {
+            output = yield* this.executeWithTools(
+              prompt,
+              config,
+              session.userId,
+              sessionId,
+              i,
+              taskId,
+            )
+          } else {
+            output = await this.callLlm(prompt, config)
+          }
           await this.updateTaskStatus(taskId, 'completed', output)
         } catch (e) {
           output = `[${plan.role} 执行失败: ${e instanceof Error ? e.message : String(e)}]`
@@ -255,39 +283,165 @@ class CrewOrchestrator {
     return prompt
   }
 
-  /** 获取 RAG 上下文 */
-  private async getRagContext(
-    query: string,
-    config: SessionConfig,
-    userId: string,
-  ): Promise<string> {
+  /** 获取 RAG 上下文(不限定 owner,查询全局知识库) */
+  private async getRagContext(query: string, config: SessionConfig): Promise<string> {
     try {
       return await knowledgeRagService.getRagContext({
         query,
         collectionName: config.collectionName ?? 'default',
         topK: 5,
-        ownerUuid: userId,
+        // 不限定 owner,检索全局知识库(含 system 种子文档)
+        ownerUuid: '',
       })
     } catch {
       return ''
     }
   }
 
-  /** 调用 LLM */
-  private async callLlm(prompt: string, config: SessionConfig): Promise<string> {
-    const gateway = getClawdbotGateway()
-    const response = await gateway.routeCompletion({
-      modelId: config.modelId ?? '',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
+  /**
+   * executor 工具调用循环(function calling)
+   *
+   * 流程:
+   * 1. 发送 prompt + tools 定义给 LLM
+   * 2. 若 LLM 返回 tool_calls,逐个执行工具,把结果作为 tool role 消息追加
+   * 3. 再次调用 LLM,基于工具结果继续推理
+   * 4. 重复直到 LLM 不再发起 tool_call(返回纯 content),或达到最大轮数
+   *
+   * @yields CrewStreamEvent (tool_call / tool_result)
+   * @returns 最终 LLM 输出的文本
+   */
+  private async *executeWithTools(
+    prompt: string,
+    config: SessionConfig,
+    userId: string,
+    sessionId: string,
+    taskIndex: number,
+    taskId: string,
+  ): AsyncGenerator<CrewStreamEvent, string, void> {
+    const tools = getCrewToolDefinitions()
+    const MAX_ROUNDS = 5
+    const messages: LlmMessage[] = [
+      {
+        role: 'system',
+        content:
+          '你是 executor 角色。你可以调用工具完成子任务。当任务完成时,直接输出最终结果文本(不调用工具)。',
+      },
+      { role: 'user', content: prompt },
+    ]
+
+    for (let round = 0; round < MAX_ROUNDS; round++) {
+      const result = await callRealLlm({
+        modelId: config.modelId || undefined,
+        messages,
+        tools,
+        toolChoice: 'auto',
+        temperature: 0.3,
+      })
+
+      // 无工具调用 → 返回最终内容
+      if (!result.toolCalls || result.toolCalls.length === 0) {
+        return result.content
+      }
+
+      // 把 assistant 的 tool_calls 消息追加到历史
+      messages.push({
+        role: 'assistant',
+        content: result.content || '',
+        tool_calls: result.toolCalls,
+      })
+
+      // 逐个执行工具
+      for (const call of result.toolCalls) {
+        const toolName = call.function.name
+        let args: Record<string, unknown> = {}
+        try {
+          args = JSON.parse(call.function.arguments || '{}')
+        } catch {
+          args = { _raw: call.function.arguments }
+        }
+
+        yield {
+          type: 'tool_call',
+          role: 'executor',
+          taskIndex,
+          toolCall: { id: call.id, name: toolName, args },
+        }
+
+        const toolStart = Date.now()
+        const toolResult = await executeCrewTool(toolName, args, {
+          userId,
+          sessionId,
+          taskId,
+        })
+        const durationMs = Date.now() - toolStart
+
+        // 工具结果转字符串(给 LLM 用)
+        const resultStr =
+          typeof toolResult.output === 'string'
+            ? toolResult.output
+            : JSON.stringify(toolResult.output ?? null)
+
+        yield {
+          type: 'tool_result',
+          role: 'executor',
+          taskIndex,
+          toolResult: {
+            id: call.id,
+            name: toolName,
+            success: toolResult.success,
+            output: toolResult.output,
+            error: toolResult.error,
+            durationMs,
+          },
+        }
+
+        // 追加 tool role 消息(OpenAI 格式)
+        messages.push({
+          role: 'tool',
+          content: toolResult.success
+            ? resultStr.slice(0, 8000)
+            : `工具执行失败: ${toolResult.error ?? '未知错误'}`,
+          tool_call_id: call.id,
+          name: toolName,
+        })
+      }
+    }
+
+    // 达到最大轮数,返回最后的内容
+    const finalResult = await callRealLlm({
+      modelId: config.modelId || undefined,
+      messages,
+      temperature: 0.3,
     })
-    return response.content
+    return finalResult.content
+  }
+
+  /** 调用 LLM(优先真实 SDK,失败回退到 clawdbot gateway 占位) */
+  private async callLlm(prompt: string, config: SessionConfig): Promise<string> {
+    try {
+      const result = await callRealLlm({
+        modelId: config.modelId || undefined,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+      })
+      return result.content
+    } catch (err) {
+      // 真实 LLM 调用失败(无配置/key 无效/网络错误),回退到 gateway 占位
+      const reason = err instanceof Error ? err.message : String(err)
+      const gateway = getClawdbotGateway()
+      const response = await gateway.routeCompletion({
+        modelId: config.modelId ?? '',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+      })
+      return `${response.content}\n\n[LLM 真实调用失败,使用占位响应。原因: ${reason}]`
+    }
   }
 
   private async runSimplified(
     sessionId: string,
     inputMessage: string,
-    userId: string,
+    _userId: string,
     config: SessionConfig,
   ): Promise<string> {
     const taskPlan = this.planTasks(inputMessage)
@@ -304,7 +458,7 @@ class CrewOrchestrator {
 
       let prompt = this.buildPrompt(plan.role, cfg, plan, context)
       if (plan.role === 'researcher') {
-        const ragContext = await this.getRagContext(inputMessage, config, userId)
+        const ragContext = await this.getRagContext(inputMessage, config)
         if (ragContext) prompt += `\n\n知识库参考信息:\n${ragContext}`
       }
 
