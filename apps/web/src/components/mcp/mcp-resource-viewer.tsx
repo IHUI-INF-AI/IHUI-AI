@@ -1,10 +1,18 @@
 'use client'
 
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import { Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { isMermaidLanguage } from '@/lib/markdown-mermaid-code'
+
+// MermaidDiagram 仅在客户端加载,不影响首屏 bundle
+const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse text-xs text-muted-foreground">…</div>,
+})
 
 export interface McpResource {
   uri: string
@@ -76,7 +84,33 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
         </pre>
       ) : isMarkdown && content ? (
         <div className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-sm">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code({ className: cls, children, ...props }) {
+                const match = /language-(\w+)/.exec(cls || '')
+                const inline = !match && !String(children).includes('\n')
+                if (inline) {
+                  return (
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-sm" {...props}>
+                      {children}
+                    </code>
+                  )
+                }
+                // mermaid 块交给 MermaidDiagram 渲染
+                if (isMermaidLanguage(cls)) {
+                  return <MermaidDiagram code={String(children).replace(/\n$/, '')} />
+                }
+                return (
+                  <code className={cls} {...props}>
+                    {children}
+                  </code>
+                )
+              },
+            }}
+          >
+            {content}
+          </ReactMarkdown>
         </div>
       ) : isText && content ? (
         <pre className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-xs whitespace-pre-wrap">
