@@ -71,6 +71,7 @@ if (removed.length === 0) {
 }
 
 console.log('\n[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...')
+console.log('[typecheck:full] 注意:apps/ai-service 的 mypy 为 informational,非阻塞(见上 ⚠️ 警告)')
 // 使用 pnpm -r 递归串行运行，避免 turbo 并行/串行时的 .tsbuildinfo 与内存竞态
 const result = spawnSync('pnpm -r run typecheck', {
   cwd: ROOT,
@@ -84,3 +85,4 @@ if (result.status !== 0) {
 }
 
 console.log('\n[typecheck:full] 全量类型检查通过。')
+console.log('[typecheck:full] ⚠️ 注意:apps/ai-service 的 mypy 错误为 informational,不阻塞 push(Python 代码待后续修复)')
