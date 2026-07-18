@@ -816,6 +816,10 @@ export async function findMemberStudyReport(opts: {
 /**
  * 查询用户的学习记录(从 lessonSignUps join lessons 派生)。
  * 返回前端 LearnRecord 期望的字段: id/title/courseTitle/progress/lastStudyAt。
+ *
+ * 注:lessonSignUps 当前 schema 只有 createdAt,没有 updatedAt(避免引入 DB 迁移)。
+ * 这里用 createdAt 作为 lastStudyAt 的代理(progress 字段更新时未独立记时间戳,
+ * 业务上前端可按需显示"加入学习时间"或"最近报名时间")。
  */
 export async function findUserLearnRecords(
   userId: string,
@@ -834,14 +838,21 @@ export async function findUserLearnRecords(
       title: lessons.title,
       courseTitle: learnCategories.name,
       progress: lessonSignUps.progress,
-      lastStudyAt: lessonSignUps.updatedAt,
+      lastStudyAt: lessonSignUps.createdAt,
     })
     .from(lessonSignUps)
     .innerJoin(lessons, eq(lessonSignUps.lessonId, lessons.id))
     .leftJoin(learnCategories, eq(lessons.categoryId, learnCategories.id))
     .where(eq(lessonSignUps.userId, userId))
-    .orderBy(desc(lessonSignUps.updatedAt))
+    .orderBy(desc(lessonSignUps.createdAt))
     .limit(100)
 
-  return rows
+  // drizzle 默认把 timestamp 映射为 Date,前端期望 ISO 字符串;统一转 ISO 字符串
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    courseTitle: r.courseTitle,
+    progress: r.progress,
+    lastStudyAt: r.lastStudyAt ? r.lastStudyAt.toISOString() : null,
+  }))
 }
