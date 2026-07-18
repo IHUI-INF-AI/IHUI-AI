@@ -1,6 +1,12 @@
 import * as React from 'react'
+import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { MainShell } from '@/components/layout/MainShell'
+
+export const metadata: Metadata = {
+  title: { default: '工作区', template: '%s | IHUI AI' },
+  description: 'IHUI AI 工作区 — AI 对话、内容创作、教育学习与社区互动',
+}
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations('common')
