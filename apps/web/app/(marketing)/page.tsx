@@ -4,11 +4,10 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowRight, Check, Menu, Sparkles, LogIn, LayoutDashboard } from 'lucide-react'
+import { ArrowRight, Check, Sparkles } from 'lucide-react'
 import { Button } from '@ihui/ui'
 import { AnimatedNumber } from '@/components/common'
 import { Marquee } from '@/components/marketing/Marquee'
-import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { PageIndicator } from '@/components/marketing/PageIndicator'
 import { ScrollDownButton } from '@/components/marketing/ScrollDownButton'
 import { BrandMarquee } from '@/components/marketing/BrandMarquee'
@@ -17,17 +16,19 @@ import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { HomeFeatureGrid } from '@/components/marketing/HomeFeatureGrid'
 import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
 import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
-import { useAuthStore } from '@/stores/auth'
-import { useMounted } from '@/hooks/use-mounted'
 
-const NAV_LINKS = [
-  { href: '/enterprise', labelKey: 'navEnterprise' },
-  { href: '/learn', labelKey: 'navCourses' },
-  { href: '/agents', labelKey: 'navAgents' },
-  { href: '/news', labelKey: 'navNews' },
-  { href: '/ai-world', labelKey: 'navAiWorld' },
-]
-
+/**
+ * 营销首页(从根 app/page.tsx 迁移而来)
+ *
+ * 变更:
+ * - 移除内联 <header>(由 (marketing)/layout.tsx 的 <MarketingHeader /> 提供)
+ * - 移除内联 <SiteFooter />(由 (marketing)/layout.tsx 提供)
+ * - 移除外层 <div className="flex min-h-screen flex-col bg-background"> 包裹(由 layout 提供)
+ * - 保留全屏分页滚动 main + PageIndicator + ScrollDownButton
+ *
+ * main 高度仍为 calc(100vh - 3.5rem),与 MarketingHeader 的 h-14 (= 3.5rem) 对齐,
+ * 总高度 = 3.5rem + (100vh - 3.5rem) = 100vh,Footer 在视口下方由 body 滚动可见。
+ */
 const BENEFITS_KEYS = ['benefit1', 'benefit2', 'benefit3', 'benefit4', 'benefit5', 'benefit6']
 
 const TOTAL_PAGES = 6
@@ -36,10 +37,6 @@ export default function MarketingHomePage() {
   const t = useTranslations('marketing')
   const te = useTranslations('enterprise')
   const router = useRouter()
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  // hydration-safe: 首屏固定按"未登录"渲染,挂载后才显示真实态
-  const mounted = useMounted()
-  const showAuth = mounted ? isAuthenticated : false
 
   const { section, scrollTo, next } = useFullPageScroll(TOTAL_PAGES)
 
@@ -48,48 +45,7 @@ export default function MarketingHomePage() {
   const benefits = BENEFITS_KEYS.map((k) => t(`welcome.benefits.${k}`))
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      {/* 顶部导航 */}
-      <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 md:px-8">
-          <Link href="/" className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <span className="text-base font-bold tracking-tight">{t('header.brand')}</span>
-          </Link>
-          <nav className="hidden items-center gap-6 md:flex">
-            {NAV_LINKS.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {t(`header.${l.labelKey}`)}
-              </Link>
-            ))}
-          </nav>
-          <div className="flex items-center gap-2">
-            {showAuth ? (
-              <Button size="sm" asChild>
-                <Link href="/dashboard">
-                  <LayoutDashboard className="mr-1 h-3.5 w-3.5" />
-                  {t('header.dashboard')}
-                </Link>
-              </Button>
-            ) : (
-              <Button size="sm" asChild>
-                <Link href="/sso/login">
-                  <LogIn className="mr-1 h-3.5 w-3.5" />
-                  {t('header.login')}
-                </Link>
-              </Button>
-            )}
-            <Button size="sm" variant="ghost" className="md:hidden" aria-label={t('header.menu')}>
-              <Menu className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </header>
-
+    <>
       {/* 全屏分页滚动容器 */}
       <main
         id="home-scroll-container"
@@ -262,9 +218,6 @@ export default function MarketingHomePage() {
 
       {/* 底部向下滚动按钮 */}
       <ScrollDownButton current={section} total={TOTAL_PAGES} onNext={next} />
-
-      {/* Footer */}
-      <SiteFooter />
-    </div>
+    </>
   )
 }
