@@ -312,9 +312,22 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                 charged: result.charged,
                 failed: result.failed,
                 skipped: result.skipped,
+                trialExtended: result.trialExtended,
               },
               'subscription recurring charge done',
             )
+            // 8.3.1: 上报扣款明细到 Prometheus
+            try {
+              server.recordRecurringCharge({
+                scanned: result.scanned,
+                charged: result.charged,
+                failed: result.failed,
+                skipped: result.skipped,
+                trialExtended: result.trialExtended,
+              })
+            } catch (err) {
+              server.log.warn({ err }, 'recordRecurringCharge failed (non-fatal)')
+            }
             try {
               server.recordJobExecution(name, 'success')
             } catch {
