@@ -3,10 +3,12 @@
 import * as React from 'react'
 import dynamic from 'next/dynamic'
 import { Check, Copy } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
-// 语法高亮主题(对象常量,体积小,可静态导入;项目内 CodeViewer 已用同样路径)
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+// 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
+// P2 中期增强:亮色模式用 oneLight,暗色模式用 oneDark(此前固定 oneDark,亮色模式下代码块偏暗)
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 // MermaidDiagram 仅在客户端加载,不影响首屏 bundle
 const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram'), {
@@ -105,10 +107,13 @@ function parseInline(text: string, keyPrefix: string): React.ReactNode[] {
 function useCopy() {
   const [copied, setCopied] = React.useState(false)
   const copy = React.useCallback((text: string) => {
-    navigator.clipboard?.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    }).catch(() => {})
+    navigator.clipboard
+      ?.writeText(text)
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      })
+      .catch(() => {})
   }, [])
   return { copied, copy }
 }
@@ -141,10 +146,14 @@ const CodeBlockImpl = function CodeBlock({
   language,
   code,
   isStreaming,
+  syntaxStyle,
 }: {
   language?: string
   code: string
   isStreaming?: boolean
+  // P2 中期增强:由外层 ThemedCodeBlock 注入(dark → oneDark,其他 → oneLight)
+  // 提升为 prop 让 React.memo 在主题切换时也能正确触发重渲染
+  syntaxStyle: Record<string, React.CSSProperties>
 }): React.ReactElement {
   const { copied, copy } = useCopy()
   // 流式场景下 mermaid 代码会频繁变化,用 debounce 减少 mermaid.render 调用
@@ -180,8 +189,11 @@ const CodeBlockImpl = function CodeBlock({
   )
 
   // 流式中的代码块用 opacity-60 标记(临时闭合位置)
+  // P2 中期增强:背景与文本颜色跟随主题(light → 白底深字, dark → 深底浅字)
   const preClassName = cn(
-    'relative my-2 overflow-x-auto rounded-lg bg-zinc-950 p-3 text-sm',
+    'relative my-2 overflow-x-auto rounded-lg p-3 text-sm',
+    'bg-zinc-100 text-zinc-900',
+    'dark:bg-zinc-950 dark:text-zinc-100',
     isStreaming && 'opacity-60',
   )
 
@@ -190,7 +202,7 @@ const CodeBlockImpl = function CodeBlock({
     return (
       <pre className={preClassName}>
         {copyButton}
-        <code className="font-mono text-zinc-100">{code}</code>
+        <code className="font-mono">{code}</code>
       </pre>
     )
   }
@@ -199,9 +211,7 @@ const CodeBlockImpl = function CodeBlock({
   const fallback = (
     <pre className={preClassName}>
       {copyButton}
-      <code className={cn('font-mono text-zinc-100', language && `language-${language}`)}>
-        {code}
-      </code>
+      <code className={cn('font-mono', language && `language-${language}`)}>{code}</code>
     </pre>
   )
 
@@ -211,7 +221,7 @@ const CodeBlockImpl = function CodeBlock({
         {copyButton}
         <SyntaxHighlighter
           language={lang}
-          style={oneDark}
+          style={syntaxStyle}
           customStyle={{
             margin: 0,
             padding: 0,
@@ -226,8 +236,20 @@ const CodeBlockImpl = function CodeBlock({
   )
 }
 
-// React.memo 包裹:code/language 不变时跳过重渲染(增量解析优化)
+// React.memo 包裹:code/language/syntaxStyle 不变时跳过重渲染(增量解析优化)
+// P2 中期增强:syntaxStyle 提升为 prop,主题切换时(对象引用变化)也能正确触发重渲染
 const CodeBlock = React.memo(CodeBlockImpl)
+
+/**
+ * 主题感知包装层:在 useTheme hook 中读取 resolvedTheme,转成 syntaxStyle 注入 CodeBlock。
+ * 不放在 CodeBlock 内部:React.memo 会因 props(只有 code/language)未变而跳过重渲染,
+ * 导致主题切换时样式不更新。把 syntaxStyle 提升为 prop 后,memo 能在引用变化时正常触发更新。
+ */
+function ThemedCodeBlock(props: { language?: string; code: string; isStreaming?: boolean }) {
+  const { resolvedTheme } = useTheme()
+  const syntaxStyle = resolvedTheme === 'dark' ? oneDark : oneLight
+  return <CodeBlock {...props} syntaxStyle={syntaxStyle} />
+}
 
 function parseTableRow(line: string): string[] {
   return line
@@ -427,7 +449,7 @@ function parseMarkdown(content: string): React.ReactNode[] {
         // idx 保证唯一性,code.slice(0, 20) 在结构变化时强制 remount
         const blockKey = `code-${idx}-${code.slice(0, 20)}`
         blocks.push(
-          <CodeBlock
+          <ThemedCodeBlock
             key={blockKey}
             language={lang}
             code={code}
@@ -446,7 +468,14 @@ function parseMarkdown(content: string): React.ReactNode[] {
 }
 
 export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
-  const nodes = React.useMemo(() => parseMarkdown(content), [content])
+  // P2 中期增强:把 resolvedTheme 加入 useMemo 依赖,主题切换时重新解析节点树
+  // (ThemedCodeBlock 才能感知到主题变化并切换语法高亮)
+  const { resolvedTheme } = useTheme()
+  const nodes = React.useMemo(
+    () => parseMarkdown(content),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- parseMarkdown 不依赖 theme,这里只为了让 memo 在主题切换时失效
+    [content, resolvedTheme],
+  )
 
   return (
     <div className="text-sm">

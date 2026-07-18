@@ -112,6 +112,14 @@ interface BusinessMetrics {
   ttftCount: Map<string, number> // key: model|endpoint
   ttftTotal: Map<string, number> // key: model|result
   ttftAlertsTotal: number
+  // 新增：连续包月扣款明细(8.3.1)
+  // key: result(charged|failed|skipped|trial_extended)
+  recurringChargeTotal: Map<string, number>
+  /** 本次扫扣发现的到期签约数(用于观察随时间增长趋势) */
+  recurringChargeDueGauge: number
+  // 新增：旧事件名 deprecation 计数(8.3.2)
+  // key: deprecated event_type
+  recurringWebhookDeprecatedTotal: Map<string, number>
 }
 
 const LATENCY_BUCKETS = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000] as const
@@ -285,12 +293,17 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     wsDisconnectTotal: 0,
     // 业务异常指标
     errorsTotal: new Map(),
-    // TTFT 指标
+    // 新增：TTFT 指标
     ttftBuckets: new Map(),
     ttftSum: new Map(),
     ttftCount: new Map(),
     ttftTotal: new Map(),
     ttftAlertsTotal: 0,
+    // 新增：连续包月扣款明细(8.3.1)
+    recurringChargeTotal: new Map(),
+    recurringChargeDueGauge: 0,
+    // 新增：旧事件名 deprecation 计数(8.3.2)
+    recurringWebhookDeprecatedTotal: new Map(),
   }
 
   // 自动采集 API 调用成功率与延迟（按路由+状态码）
@@ -425,6 +438,33 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   })
   server.decorate('getTtftStats', (): TtftStats => {
     return ttftMonitor.stats()
+  })
+
+  // ===== 新增：连续包月扣款明细装饰器(8.3.1) =====
+  // 一次 recordRecurringCharge 调用内部按 result 维度拆分累加 4 个 counter,
+  // 同时设置 due_gauge(本次扫扣的到期签约数)。
+  server.decorate(
+    'recordRecurringCharge',
+    (result: {
+      scanned: number
+      charged: number
+      failed: number
+      skipped: number
+      trialExtended: number
+    }) => {
+      counterInc(m.recurringChargeTotal, 'charged', result.charged)
+      counterInc(m.recurringChargeTotal, 'failed', result.failed)
+      counterInc(m.recurringChargeTotal, 'skipped', result.skipped)
+      counterInc(m.recurringChargeTotal, 'trial_extended', result.trialExtended)
+      m.recurringChargeDueGauge = result.scanned
+    },
+  )
+
+  // ===== 新增：旧事件名 deprecation 上报装饰器(8.3.2) =====
+  // 微信支付 V3 旧事件名(contract.signed / contract.cancelled / recurring.charge.*)
+  // 已被 PAPAY.* / TRANSACTION.* 取代,业务仍兼容但记录埋点便于后续移除。
+  server.decorate('recordRecurringWebhookDeprecated', (eventType: string) => {
+    counterInc(m.recurringWebhookDeprecatedTotal, eventType)
   })
 
   server.get('/business-metrics', async (_request, reply: FastifyReply) => {
@@ -698,6 +738,31 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE business_ttft_alerts_total counter')
     lines.push(`business_ttft_alerts_total ${m.ttftAlertsTotal + ttftStats.alertCount}`)
 
+    // 13. 连续包月扣款明细(8.3.1)
+    lines.push(
+      '# HELP business_subscription_recurring_charge_total Subscription recurring charge counter by result',
+    )
+    lines.push('# TYPE business_subscription_recurring_charge_total counter')
+    for (const [result, v] of m.recurringChargeTotal) {
+      lines.push(`business_subscription_recurring_charge_total{result="${result}"} ${v}`)
+    }
+    lines.push(
+      '# HELP business_subscription_recurring_due Last scan-and-charge due contracts (gauge)',
+    )
+    lines.push('# TYPE business_subscription_recurring_due gauge')
+    lines.push(`business_subscription_recurring_due ${m.recurringChargeDueGauge}`)
+
+    // 14. 旧事件名 deprecation 计数(8.3.2)
+    lines.push(
+      '# HELP business_subscription_recurring_webhook_deprecated_total Deprecated recurring webhook event_type counter',
+    )
+    lines.push('# TYPE business_subscription_recurring_webhook_deprecated_total counter')
+    for (const [eventType, v] of m.recurringWebhookDeprecatedTotal) {
+      lines.push(
+        `business_subscription_recurring_webhook_deprecated_total{event_type="${eventType}"} ${v}`,
+      )
+    }
+
     reply.type('text/plain').send(lines.join('\n'))
   })
 }
@@ -774,5 +839,23 @@ declare module 'fastify' {
     recordTtftAlert: () => void
     /** 获取 TTFT 监控统计。 */
     getTtftStats: () => TtftStats
+    /**
+     * 上报连续包月扣款明细(8.3.1)。一次调用内部按 result 维度
+     * 累加 4 个 counter(charged/failed/skipped/trial_extended),
+     * 并设置 due_gauge(本次扫扣发现的到期签约数)。
+     */
+    recordRecurringCharge: (result: {
+      scanned: number
+      charged: number
+      failed: number
+      skipped: number
+      trialExtended: number
+    }) => void
+    /**
+     * 上报旧事件名(8.3.2)。微信 V3 已迁移到 PAPAY.* / TRANSACTION.*,
+     * 旧名(contract.signed / contract.cancelled / recurring.charge.*)
+     * 仍兼容处理,但调用此装饰器记录埋点用于后续移除决策。
+     */
+    recordRecurringWebhookDeprecated: (eventType: string) => void
   }
 }
