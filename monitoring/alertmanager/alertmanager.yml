@@ -1,0 +1,65 @@
+# Alertmanager 主配置 — IHUI-AI
+# 告警通道: Email / 钉钉 / 飞书 / 企业微信
+# 注意: webhook 地址与 SMTP 凭据需通过环境变量或 secret 注入,切勿提交真实凭据.
+
+global:
+  resolve_timeout: 5m
+  # SMTP 邮件网关
+  smtp_smarthost: 'smtp.example.com:465'
+  smtp_from: 'alert@ihui.ai'
+  smtp_auth_username: 'alert@ihui.ai'
+  smtp_auth_password: '<your-smtp-password>'
+  smtp_hello: 'ihui.ai'
+  smtp_require_tls: false
+  # 钉钉 / 飞书 / 企业微信 webhook 占位符 (实际地址由对应 receiver 引用)
+  # 通过环境变量注入: DINGTALK_WEBHOOK_URL / FEISHU_WEBHOOK_URL / WECHAT_WEBHOOK_URL
+
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+route:
+  receiver: 'default-email'
+  group_by: ['alertname', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    # critical: 钉钉 + 邮件 (continue 让告警同时进入下游 receiver)
+    - matchers: ['severity="critical"']
+      receiver: 'dingtalk'
+      continue: true
+    # warning: 飞书
+    - matchers: ['severity="warning"']
+      receiver: 'feishu'
+    # info: 邮件
+    - matchers: ['severity="info"']
+      receiver: 'default-email'
+
+receivers:
+  - name: 'default-email'
+    email_configs:
+      - to: 'ops@ihui.ai'
+        send_resolved: true
+        headers:
+          Subject: '[IHUI-AI Alert] {{ .CommonLabels.alertname }}'
+  - name: 'dingtalk'
+    webhook_configs:
+      - url: 'http://dingtalk-webhook:8060/dingtalk/webhook/send'
+        send_resolved: true
+        max_alerts: 0
+  - name: 'feishu'
+    webhook_configs:
+      - url: 'http://feishu-webhook:8060/feishu/webhook/send'
+        send_resolved: true
+        max_alerts: 0
+  - name: 'wechat'
+    webhook_configs:
+      - url: 'http://wechat-webhook:8060/wechat/webhook/send'
+        send_resolved: true
+        max_alerts: 0
+
+inhibit_rules:
+  # critical 告警抑制同一 alertname + service 的 warning 告警,避免告警风暴
+  - source_matchers: ['severity="critical"']
+    target_matchers: ['severity="warning"']
+    equal: ['alertname', 'service']
