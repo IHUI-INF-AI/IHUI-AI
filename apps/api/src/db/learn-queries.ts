@@ -812,3 +812,36 @@ export async function findMemberStudyReport(opts: {
 
   return { list: rows as Record<string, unknown>[], total, page, pageSize }
 }
+
+/**
+ * 查询用户的学习记录(从 lessonSignUps join lessons 派生)。
+ * 返回前端 LearnRecord 期望的字段: id/title/courseTitle/progress/lastStudyAt。
+ */
+export async function findUserLearnRecords(
+  userId: string,
+): Promise<
+  Array<{
+    id: string
+    title: string
+    courseTitle: string | null
+    progress: number
+    lastStudyAt: string | null
+  }>
+> {
+  const rows = await db
+    .select({
+      id: lessonSignUps.id,
+      title: lessons.title,
+      courseTitle: learnCategories.name,
+      progress: lessonSignUps.progress,
+      lastStudyAt: lessonSignUps.updatedAt,
+    })
+    .from(lessonSignUps)
+    .innerJoin(lessons, eq(lessonSignUps.lessonId, lessons.id))
+    .leftJoin(learnCategories, eq(lessons.categoryId, learnCategories.id))
+    .where(eq(lessonSignUps.userId, userId))
+    .orderBy(desc(lessonSignUps.updatedAt))
+    .limit(100)
+
+  return rows
+}

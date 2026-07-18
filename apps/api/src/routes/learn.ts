@@ -38,6 +38,7 @@ import {
   findLessonStudyReport,
   findSignupReport,
   findMemberStudyReport,
+  findUserLearnRecords,
 } from '../db/learn-queries.js'
 import {
   upsertRecord,
@@ -495,6 +496,36 @@ async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promis
 }
 
 // =============================================================================
+// 字段适配：后端 schema 字段名 → 前端期望字段名
+// =============================================================================
+
+/** 将后端 lessons 行映射为前端期望的字段命名(instructor/description/students/cover)。 */
+function adaptLesson<T extends { lecturerName: string | null; intro: string | null; signupCount: number; coverImage: string | null }>(
+  row: T,
+): T & { instructor: string; description: string; students: number; cover: string | null } {
+  return {
+    ...row,
+    instructor: row.lecturerName ?? '',
+    description: row.intro ?? '',
+    students: row.signupCount,
+    cover: row.coverImage,
+  }
+}
+
+/** 将后端 section 的 duration(integer 秒)格式化为 "mm:ss" 字符串。 */
+function adaptSection<T extends { duration: number | null }>(
+  row: T,
+): Omit<T, 'duration'> & { duration: string | undefined } {
+  const dur = row.duration ?? 0
+  const mins = Math.floor(dur / 60)
+  const secs = dur % 60
+  return {
+    ...row,
+    duration: dur > 0 ? `${mins}:${String(secs).padStart(2, '0')}` : undefined,
+  }
+}
+
+// =============================================================================
 // 公共路由（前缀 /api，浏览类匿名可访问，操作类需登录）
 // =============================================================================
 
@@ -512,10 +543,11 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const result = await findPublishedLessons(parsed.data)
-    return reply.send(success(result))
+    const list = result.list.map(adaptLesson)
+    return reply.send(success({ ...result, list }))
   })
 
-  // GET /learn/lessons/:id - 课程详情（含章节+小节，公开）
+  // GET /learn/lessons/:id - 课程详情（含章节+小节，公开；已登录时附加 signedUp/progress）
   server.get('/learn/lessons/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
@@ -527,15 +559,41 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     }
     // 增加浏览数（不阻塞响应）
     await incrementViewCount(parsed.data.id)
+
+    // 可选认证：已登录则查询报名状态与进度
+    let signedUp = false
+    let progress = 0
+    try {
+      await authenticate(request)
+      if (request.userId) {
+        const signUp = await findSignUp(parsed.data.id, request.userId)
+        if (signUp) {
+          signedUp = true
+          progress = signUp.progress ?? 0
+        }
+      }
+    } catch {
+      // 未登录，保持默认值
+    }
+
     // 查询章节及小节
     const chapters = await findLessonChapters(parsed.data.id)
     const chaptersWithSections = await Promise.all(
       chapters.map(async (c) => {
         const sections = await findLessonSections(c.id)
-        return { ...c, sections }
+        return { ...c, sections: sections.map(adaptSection) }
       }),
     )
-    return reply.send(success({ lesson, chapters: chaptersWithSections }))
+    const adaptedLesson = { ...adaptLesson(lesson), signedUp, progress }
+    return reply.send(success({ lesson: adaptedLesson, chapters: chaptersWithSections }))
+  })
+
+  // GET /learn/records - 用户学习记录（需登录,前端 user/learn-record 页面调用）
+  server.get('/learn/records', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const userId = request.userId!
+    const list = await findUserLearnRecords(userId)
+    return reply.send(success({ list }))
   })
 
   // GET /learn/my-lessons - 我报名的课程（需登录）

@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { th } from './helpers'
-import { DictTag } from './DictTag'
+import { DictTag } from '@/components/DictTag'
 import type { DictType } from './types'
 
 interface DictTableProps {
