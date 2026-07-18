@@ -18,7 +18,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { randomBytes } from 'node:crypto'
 import { eq, and, desc, sql } from 'drizzle-orm'
-import { db, dbRead } from '../db/index.js'
+import { db, dbRead, returningOne } from '../db/index.js'
 import { developerApiKeys } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
@@ -88,22 +88,21 @@ export const userSkRoutes: FastifyPluginAsync = async (server) => {
       // name 编码 type (D 盘 0=系统密钥 1=普通密钥 2=子级密钥)
       const name = `type-${type}`
 
-      const [created] = await db
-        .insert(developerApiKeys)
-        .values({
-          userId: user_uuid,
-          name,
-          key: skKey.slice(0, 24),
-          secret: skKey,
-          permissions: [],
-          status: 'active',
-          rateLimit: max ?? 60,
-        })
-        .returning()
-
-      if (!created) {
-        return reply.status(500).send(error(500, '创建 SK 失败'))
-      }
+      const created = await returningOne(
+        db
+          .insert(developerApiKeys)
+          .values({
+            userId: user_uuid,
+            name,
+            key: skKey.slice(0, 24),
+            secret: skKey,
+            permissions: [],
+            status: 'active',
+            rateLimit: max ?? 60,
+          })
+          .returning(),
+        '创建 SK 失败',
+      )
 
       return reply.send(
         success({
@@ -231,15 +230,10 @@ export const userSkRoutes: FastifyPluginAsync = async (server) => {
       }
       // out_time 在 G 盘 schema 中无对应字段,忽略;实际项目可考虑扩展 schema
 
-      const [updated] = await db
-        .update(developerApiKeys)
-        .set(setData)
-        .where(eq(developerApiKeys.id, sk_id))
-        .returning()
-
-      if (!updated) {
-        return reply.status(500).send(error(500, '更新 SK 失败'))
-      }
+      const updated = await returningOne(
+        db.update(developerApiKeys).set(setData).where(eq(developerApiKeys.id, sk_id)).returning(),
+        '更新 SK 失败',
+      )
 
       const typeMatch = /^type-(\d+)$/.exec(updated.name)
       const type = typeMatch ? Number(typeMatch[1]) : 1

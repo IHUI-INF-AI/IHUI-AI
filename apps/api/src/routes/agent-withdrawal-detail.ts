@@ -19,7 +19,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, asc, gte, lte, sql, inArray } from 'drizzle-orm'
-import { db, dbRead } from '../db/index.js'
+import { db, dbRead, returningOne } from '../db/index.js'
 import { zhsAgentWithdrawalDetail, users } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
@@ -126,19 +126,21 @@ export const agentWithdrawalDetailRoutes: FastifyPluginAsync = async (server) =>
       if (!u) return reply.status(400).send(error(400, '用户不存在'))
 
       // amount 在 G 盘 schema 中为 numeric(10,2) 元; D 盘存分,这里直接存元(对齐 schema)
-      const [created] = await db
-        .insert(zhsAgentWithdrawalDetail)
-        .values({
-          userId: user_id,
-          amount: String(amount),
-          type,
-          outBillNo: null,
-          orderIds: order_ids ?? null,
-          status: 'pending',
-          initiateAt: new Date(),
-        })
-        .returning()
-      if (!created) return reply.status(500).send(error(500, '创建提现记录失败'))
+      const created = await returningOne(
+        db
+          .insert(zhsAgentWithdrawalDetail)
+          .values({
+            userId: user_id,
+            amount: String(amount),
+            type,
+            outBillNo: null,
+            orderIds: order_ids ?? null,
+            status: 'pending',
+            initiateAt: new Date(),
+          })
+          .returning(),
+        '创建提现记录失败',
+      )
 
       return reply.send(
         success({
@@ -303,18 +305,20 @@ export const agentWithdrawalDetailRoutes: FastifyPluginAsync = async (server) =>
       }
       const statusMap: Record<string, string> = { '0': 'pending', '1': 'approved', '5': 'rejected' }
       const newStatus = statusMap[parsed.data.status] ?? 'pending'
-      const [updated] = await db
-        .update(zhsAgentWithdrawalDetail)
-        .set({
-          status: newStatus,
-          reviewer: parsed.data.review_user ?? null,
-          reviewedAt: new Date(),
-          rejectReason: parsed.data.status === '5' ? (parsed.data.review_remark ?? null) : null,
-          updatedAt: new Date(),
-        })
-        .where(eq(zhsAgentWithdrawalDetail.id, id))
-        .returning()
-      if (!updated) return reply.status(500).send(error(500, '审核提现申请失败'))
+      const updated = await returningOne(
+        db
+          .update(zhsAgentWithdrawalDetail)
+          .set({
+            status: newStatus,
+            reviewer: parsed.data.review_user ?? null,
+            reviewedAt: new Date(),
+            rejectReason: parsed.data.status === '5' ? (parsed.data.review_remark ?? null) : null,
+            updatedAt: new Date(),
+          })
+          .where(eq(zhsAgentWithdrawalDetail.id, id))
+          .returning(),
+        '审核提现申请失败',
+      )
       return reply.send(
         success({
           id,
@@ -360,12 +364,14 @@ export const agentWithdrawalDetailRoutes: FastifyPluginAsync = async (server) =>
       } else if (parsed.data.status === '4') {
         setData.rejectReason = parsed.data.failure_reason ?? null
       }
-      const [updated] = await db
-        .update(zhsAgentWithdrawalDetail)
-        .set(setData)
-        .where(eq(zhsAgentWithdrawalDetail.id, id))
-        .returning()
-      if (!updated) return reply.status(500).send(error(500, '处理提现申请失败'))
+      const updated = await returningOne(
+        db
+          .update(zhsAgentWithdrawalDetail)
+          .set(setData)
+          .where(eq(zhsAgentWithdrawalDetail.id, id))
+          .returning(),
+        '处理提现申请失败',
+      )
       const textMap: Record<string, string> = { '2': '提现中', '3': '提现成功', '4': '提现失败' }
       return reply.send(
         success({
