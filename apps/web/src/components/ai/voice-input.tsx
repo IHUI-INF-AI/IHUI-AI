@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Mic } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 
