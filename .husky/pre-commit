@@ -30,7 +30,7 @@ if (!run('🔍 检查 zh-TW 简体字残留...', 'node scripts/scan-zh-tw-simp.m
 }
 
 // 3. schema drift 检查（TS schema 表名 vs migration SQL 表名）
-if (!run('🗄️ 检查 schema drift...', 'node scripts/check-db-schema-drift.mjs')) {
+if (!run('🗄️ 检查 schema drift...', 'node scripts/check-db-schema-drift.mjs --staged')) {
   process.exit(1)
 }
 
@@ -78,6 +78,66 @@ if (!run('⭕ 检查容器圆角违规...', 'node scripts/check-rounded-full.mjs
 // 增量扫描: staged 模式只检查含新增行(+)的章节,历史违规不阻塞新 commit
 if (!run('📋 检查交付报告一致性...', 'node scripts/check-delivery-report-consistency.mjs --staged')) {
   process.exit(1)
+}
+
+// 13. cli 整合完整性守门(PROJECT_PLAN.md 第 38 轮落地)
+// 防止"100% 整合"虚假声明再次出现:命名清零 + 已整合能力 import/call/file 三件套 + 不融合证据
+// --staged 模式:只检查本次 commit 暂存的文件,避免与历史代码冲突
+if (!run('🔍 检查 cli 整合完整性(staged)...', 'node scripts/check-cli-integration-completeness.mjs --staged')) {
+  process.exit(1)
+}
+
+// 14. 根路径 / 路由守门(AGENTS.md 第 4 节根路径硬约束)
+// 防止重建全屏营销页 + 死代码组件复用;redirects.config / (marketing) 路由组 / 3 个 dead stub
+if (!run('🏠 检查根路径 / 路由守门...', 'node scripts/check-root-route-redirect.mjs --staged')) {
+  process.exit(1)
+}
+
+// 15. 迁移完整性守门(M-63 落地, 7 大类 29 子项)
+// 防止 oauth_private_keys/agent_billings 表回退 + agents.ts 8 端点回退 + 25 处 100% 声明无证据
+// --staged 模式:仅当 PROJECT_PLAN.md 被 staged 时强制审计报告存在性;无关 commit 跳过此环境检查
+// 退出码 0/1: 0=pass, 1=fail 阻断 commit
+if (!run('📊 检查迁移完整性(7 大类 29 子项)...', 'node scripts/check-api-migration-completeness.mjs --staged')) {
+  process.exit(1)
+}
+
+// 16. 条件 typecheck 闸门(仅 staged 涉及 apps/web 时跑 web typecheck)
+// 防止"commit 通过但 push 失败"的循环(f21dc473 commit 漏掉 import 的教训)
+// 只在 staged 文件涉及 apps/web 时跑,避免影响其他包的 commit 速度
+try {
+  const stagedOutput = execSync('git diff --cached --name-only --diff-filter=ACMR', {
+    encoding: 'utf8',
+    cwd: process.cwd(),
+  })
+  const stagedFiles = stagedOutput.split('\n').filter(Boolean)
+  const involvesWeb = stagedFiles.some((f) => f.startsWith('apps/web/') || f.startsWith('apps\\web\\'))
+  if (involvesWeb) {
+    if (!run('🔍 条件 typecheck 闸门(apps/web staged)...', 'pnpm --filter @ihui/web run typecheck')) {
+      console.error('❌ apps/web typecheck 失败,提交已阻止(请在本地修复后再 commit)')
+      process.exit(1)
+    }
+  } else {
+    console.log('⏭  条件 typecheck 闸门(无 apps/web staged 改动, 跳过)')
+  }
+
+  // 16b. 条件 database 重建闸门(仅 staged 涉及 packages/database/src/ 时跑)
+  // 防止"schema 加字段但 dist 未重建导致运行时字段缺失"的循环(0108 icon_svg 字段踩坑)
+  // database 包的 package.json 配置 import: ./dist/index.js,运行时加载 dist 而非 src
+  // typecheck 用 src 不会报错,但 api 运行时用 dist 会字段缺失
+  const involvesDatabase = stagedFiles.some(
+    (f) => f.startsWith('packages/database/src/') || f.startsWith('packages\\database\\src\\'),
+  )
+  if (involvesDatabase) {
+    if (!run('📦 条件 database 重建闸门(packages/database/src staged)...', 'pnpm --filter @ihui/database build')) {
+      console.error('❌ @ihui/database build 失败,提交已阻止(请修复 schema 编译错误后再 commit)')
+      process.exit(1)
+    }
+  } else {
+    console.log('⏭  条件 database 重建闸门(无 packages/database/src staged 改动, 跳过)')
+  }
+} catch (e) {
+  // 非 git 环境,跳过
+  console.log('⏭  条件 typecheck/database 闸门(非 git 环境, 跳过)')
 }
 
 console.log('✅ Pre-commit 检查通过')

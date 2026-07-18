@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Sparkles, X, Plus, Cpu } from 'lucide-react'
 
@@ -19,22 +18,18 @@ import { getConversation, getMessages } from '@/lib/chat-api'
  * - 紧贴 Sidebar 右侧(flex 顺序:Sidebar → AISidePanel → main)
  * - 内嵌 ChatHeader + ModelSelector + MessageList + MessageInput
  * - 右侧 6px 拖拽手柄调整宽度(320-720px)
- * - 监听 URL conversationId 自动加载历史
+ * - 当前会话完全由 useChatStore.conversationId 驱动,不再依赖 URL ?conversationId=
+ *   (AI 面板是全局 docked 组件,与 Sidebar 同性质,不应影响 URL 与右侧工作区)
  * - 监听 WebSocket ai_response 多端同步
  */
 export function AISidePanel() {
   const t = useTranslations('chat')
   const tc = useTranslations('aiChat')
   const tcommon = useTranslations('common')
-  const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const urlConversationId = searchParams.get('conversationId')
 
   const { open, width, isResizing, closePanel, setWidth, setResizing } = useAiPanelStore()
   const { messages, currentModel, isStreaming, sendMessage, stop, clearMessages, setModel } =
     useChat()
-
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
   const [loadingHistory, setLoadingHistory] = React.useState(false)
@@ -85,11 +80,14 @@ export function AISidePanel() {
   }, [lastMessage])
 
   const setConversationId = useChatStore((s) => s.setConversationId)
+  // 从 store 订阅当前会话(取代原 URL ?conversationId= 同步逻辑)
+  const storeConversationId = useChatStore((s) => s.conversationId)
 
-  // 监听 URL conversationId 变化加载历史会话
+  // 监听 store.conversationId 变化加载历史会话
+  // (AI 面板是全局 docked 组件,与 Sidebar 同性质;不再依赖 URL ?conversationId=,
+  // 会话 ID 完全由 useChatStore 维护,切换会话由历史项点击 / 新建对话 等动作触发)
   React.useEffect(() => {
     if (!open) return
-    if (urlConversationId === useChatStore.getState().conversationId) return
 
     let cancelled = false
 
@@ -99,7 +97,6 @@ export function AISidePanel() {
         const [convRes, msgRes] = await Promise.all([getConversation(id), getMessages(id)])
         if (cancelled) return
         if (convRes.success && msgRes.success) {
-          setConversationId(id)
           const hydrated: ChatMessage[] = msgRes.data.messages.map((m) => ({
             id: m.id,
             role: m.role,
@@ -121,26 +118,21 @@ export function AISidePanel() {
       }
     }
 
-    if (urlConversationId) {
-      void loadHistory(urlConversationId)
+    if (storeConversationId) {
+      void loadHistory(storeConversationId)
     } else {
-      setConversationId(null)
       useChatStore.setState({ messages: [], error: null })
     }
 
     return () => {
       cancelled = true
     }
-  }, [urlConversationId, setConversationId, open])
+  }, [storeConversationId, setConversationId, open])
 
   const handleNewChat = React.useCallback(() => {
     clearMessages()
     setConversationId(null)
-    // 仅当当前在 /chat 路由时清除 URL(避免影响其他路由)
-    if (pathname?.startsWith('/chat')) {
-      router.replace('/chat', { scroll: false })
-    }
-  }, [clearMessages, setConversationId, router, pathname])
+  }, [clearMessages, setConversationId])
 
   // 全局快捷键 Ctrl+Shift+N:新建对话
   React.useEffect(() => {
@@ -151,12 +143,17 @@ export function AISidePanel() {
   }, [handleNewChat, open])
 
   // 拖拽调整宽度
+  // 关闭态下拖拽手柄:先 openPanel 再开始 resize,实现"拖拽即打开"
   const handleResizeStart = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       e.preventDefault()
+      const store = useAiPanelStore.getState()
+      if (!store.open) {
+        store.openPanel()
+      }
       setResizing(true)
       const startX = e.clientX
-      const startWidth = useAiPanelStore.getState().width
+      const startWidth = store.width
       const onMove = (ev: PointerEvent) => {
         const delta = ev.clientX - startX
         setWidth(startWidth + delta)
@@ -172,11 +169,41 @@ export function AISidePanel() {
     [setResizing, setWidth],
   )
 
-  if (!open) return null
+  // 关闭态:仅渲染拖拽手柄(可拖拽打开),不渲染整个面板内容
+  if (!open) {
+    return (
+      <div className="relative my-2 mr-2 shrink-0 z-[calc(var(--z-base)+5)]" style={{ width: 0 }}>
+        {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越容器右边缘,
+          内层 0.5px 线 left-[calc(50%-0.25px)] -translate-x-1/2 居中在命中区中心,与容器右边缘重合。
+          关闭态容器 width:0,命中区相对容器右边定位,线居中在容器右边。
+          0.5px 线在 2x DPR 高分屏渲染为 1 物理像素;子像素 calc 避免奇数像素容器模糊。
+          默认 opacity:0 完全隐藏,仅 hover 或拖拽时显现渐变色。 */}
+        <div
+          onPointerDown={handleResizeStart}
+          className="group absolute right-[-4px] top-3 bottom-3 z-20 w-2 cursor-col-resize"
+        >
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={tcommon('resize')}
+            className={cn(
+              'absolute left-[calc(50%-0.25px)] top-0 bottom-0 w-0.5 -translate-x-1/2 resize-handle-line',
+              isResizing && 'is-resizing',
+            )}
+          />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
-      className="relative z-[calc(var(--z-base)+5)] my-2 mr-2 shrink-0"
+      // 全局 docked 面板(与 Sidebar 同性质,参与 MainShell 的 flex 布局):
+      // - relative 定位在 flex 容器中占据自身宽度,通过 mr-2 与右侧 work-area 形成可见间距
+      // - shrink-0 防止被 flex 压缩,宽度由 useAiPanelStore.width 控制(320-720px)
+      // - my-2 与 work-area 的 my-2 垂直对齐,顶部/底部留出 8px 间距
+      // - z-[calc(var(--z-base)+5)] 高于常规内容层,低于 modal/PWA 提示层
+      className="relative my-2 mr-2 shrink-0 z-[calc(var(--z-base)+5)]"
       style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
     >
       <aside
@@ -251,21 +278,22 @@ export function AISidePanel() {
           modelLabel={t('model')}
         />
       </aside>
-      {/* 右侧拖拽手柄:外层 8px 透明命中区跨过 aside 右边缘(right-[-3px]),
-        内层 1px 可见细线 group-hover:bg-primary。
-        手柄置于 aside 外层(父 div),避免 overflow-hidden 裁剪命中区。 */}
+      {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越 aside 右边缘(左右各 4px),
+        内层 0.5px 线 left-[calc(50%-0.25px)] -translate-x-1/2 居中在命中区中心,与 aside 右边缘重合。
+        手柄置于 aside 外层(父 div),避免 overflow-hidden 裁剪命中区。
+        0.5px 线在 2x DPR 高分屏渲染为 1 物理像素;子像素 calc 避免奇数像素容器模糊。
+        默认 opacity:0 完全隐藏,仅 hover 或拖拽时显现渐变色。 */}
       <div
         onPointerDown={handleResizeStart}
-        className="group absolute right-[-3px] top-3 bottom-3 z-20 w-2 cursor-col-resize"
+        className="group absolute right-[-4px] top-3 bottom-3 z-20 w-2 cursor-col-resize"
       >
         <div
           role="separator"
           aria-orientation="vertical"
           aria-label={tcommon('resize')}
           className={cn(
-            'absolute right-0 top-0 bottom-0 w-px bg-transparent transition-colors',
-            'group-hover:bg-primary',
-            isResizing && 'bg-primary',
+            'absolute left-[calc(50%-0.25px)] top-0 bottom-0 w-0.5 -translate-x-1/2 resize-handle-line',
+            isResizing && 'is-resizing',
           )}
         />
       </div>
