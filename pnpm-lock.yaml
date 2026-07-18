@@ -55,6 +55,8 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  apps/ai-service: {}
+
   apps/api:
     dependencies:
       '@alicloud/dysmsapi20170525':
@@ -977,6 +979,9 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@3.13.1)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/eslint-config:
     dependencies:
@@ -3010,7 +3015,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {node: '>=0.10.0'}
+    engines: {'0': node >=0.10.0}
 
   '@expo/cli@0.18.31':
     resolution: {integrity: sha512-v9llw9fT3Uv+TCM6Xllo54t672CuYtinEQZ2LPJ2EJsCwuTc4Cd2gXQaouuIVD21VoeGQnr5JtJuWbF97sBKzQ==}
