@@ -76,6 +76,9 @@ import {
   isAlipayLoginConfigured,
   exchangeAlipayCode,
   getAlipayUserInfo,
+  isFeishuConfigured,
+  getFeishuAccessToken,
+  getFeishuUserInfo,
   generateState,
   generateAuthCode,
   generateClientId,
@@ -1667,7 +1670,15 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // ============================================================================
 
   const platformCallbackParam = z.object({
-    platform: z.enum(['google', 'apple', 'dingtalk', 'enterpriseWechat', 'wechat', 'github']),
+    platform: z.enum([
+      'google',
+      'apple',
+      'dingtalk',
+      'enterpriseWechat',
+      'wechat',
+      'feishu',
+      'github',
+    ]),
   })
   const platformCallbackBody = z.object({
     code: z.string().min(1),
@@ -1744,6 +1755,17 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           if (!isWecomConfigured()) return reply.status(400).send(error(400, '企业微信未配置'))
           const session = await wecomCode2session(code)
           openId = session.openUserId
+          break
+        }
+        case 'feishu': {
+          if (!isFeishuConfigured())
+            return reply.status(400).send(error(400, '飞书 OAuth 未配置'))
+          const feishuToken = await getFeishuAccessToken(code)
+          const feishuInfo = await getFeishuUserInfo(feishuToken.accessToken)
+          openId = feishuInfo.openId
+          unionId = feishuInfo.unionId
+          nickname = feishuInfo.name
+          avatar = feishuInfo.avatar
           break
         }
         case 'wechat': {
