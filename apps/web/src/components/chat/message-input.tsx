@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Send, Square, Paperclip, FileText, Mic } from 'lucide-react'
+import { Send, Square, Paperclip, FileText } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -9,8 +9,8 @@ import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceInput } from '@/components/ai/voice-input'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
+import { ModelSelector } from '@/components/chat/model-selector'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
-import { VoiceRecord } from '@/components/ai/voice-record'
 import { Popover } from '@/components/feedback'
 
 const MAX_LENGTH = 2000
@@ -46,6 +46,9 @@ interface MessageInputProps {
   placeholder: string
   sendLabel: string
   stopLabel: string
+  model: string
+  onModelChange: (model: string) => void
+  modelLabel: string
 }
 
 export function MessageInput({
@@ -55,12 +58,14 @@ export function MessageInput({
   placeholder,
   sendLabel,
   stopLabel,
+  model,
+  onModelChange,
+  modelLabel,
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const [value, setValue] = React.useState('')
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
-  const [voiceOpen, setVoiceOpen] = React.useState(false)
   const [references, setReferences] = React.useState<ReferenceItem[]>([])
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 
@@ -119,17 +124,6 @@ export function MessageInput({
       textareaRef.current?.focus()
       resize()
     })
-  }
-
-  const handleRecordComplete = (blob: Blob, duration: number) => {
-    const ref: ReferenceItem = {
-      id: `voice-${Date.now()}`,
-      type: 'file',
-      label: t('voiceRecordLabel', { duration }),
-      preview: URL.createObjectURL(blob),
-    }
-    setReferences((prev) => [...prev, ref])
-    setVoiceOpen(false)
   }
 
   const fillInput = (text: string) => {
@@ -211,11 +205,6 @@ export function MessageInput({
           open={slashOpen}
           onClose={() => setSlashOpen(false)}
         />
-        {voiceOpen && (
-          <div className="mb-2 rounded-xl p-3">
-            <VoiceRecord onRecordComplete={handleRecordComplete} maxDuration={30} />
-          </div>
-        )}
         <div className="relative">
           <FileMentionPopover
             files={MENTION_FILES}
@@ -223,7 +212,8 @@ export function MessageInput({
             onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
           />
-          <div className="flex items-end gap-2 rounded-2xl p-2 focus-within:ring-1 focus-within:ring-ring">
+          {/* Trae 风格输入容器:描边卡片 + textarea 主区 + 底部工具栏 */}
+          <div className="rounded-xl border border-border bg-card transition-colors focus-within:border-foreground/20">
             <textarea
               ref={textareaRef}
               value={value}
@@ -234,99 +224,99 @@ export function MessageInput({
               disabled={isStreaming}
               aria-label={placeholder}
               className={cn(
-                'max-h-[200px] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none',
+                'block max-h-[200px] w-full resize-none bg-transparent px-3 pt-2.5 pb-1.5 text-sm outline-none',
                 'placeholder:text-muted-foreground/70',
                 'disabled:cursor-not-allowed disabled:opacity-60',
               )}
             />
-            {isStreaming ? (
-              <button
-                type="button"
-                disabled
-                aria-label={t('promptTemplate')}
-                title={t('promptTemplate')}
-                className="flex h-9 w-9 shrink-0 cursor-not-allowed items-center justify-center rounded-lg bg-muted text-muted-foreground/50"
-              >
-                <FileText className="h-4 w-4" />
-              </button>
-            ) : (
-              <Popover
-                content={
-                  <div className="w-72">
-                    <PromptTemplates templates={promptTemplates} onSelect={handleTemplateSelect} />
-                  </div>
-                }
-                position="top"
-                trigger="click"
-              >
+            {/* 底部工具栏:左侧功能按钮,右侧模型/语音/发送(挨着) */}
+            <div className="flex items-center gap-1 px-2 pb-2 pt-1">
+              {isStreaming ? (
                 <button
                   type="button"
+                  disabled
                   aria-label={t('promptTemplate')}
                   title={t('promptTemplate')}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors hover:bg-accent"
+                  className="flex h-8 w-8 shrink-0 cursor-not-allowed items-center justify-center rounded-md bg-muted text-muted-foreground/50"
                 >
                   <FileText className="h-4 w-4" />
                 </button>
-              </Popover>
-            )}
-            <button
-              type="button"
-              onClick={addTextReference}
-              disabled={isStreaming || value.trim().length === 0}
-              aria-label={t('addContextReference')}
-              title={t('addContextReference')}
-              className={cn(
-                'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
-                'bg-muted text-muted-foreground hover:bg-accent',
-                'disabled:cursor-not-allowed disabled:opacity-50',
+              ) : (
+                <Popover
+                  content={
+                    <div className="w-72">
+                      <PromptTemplates
+                        templates={promptTemplates}
+                        onSelect={handleTemplateSelect}
+                      />
+                    </div>
+                  }
+                  position="top"
+                  trigger="click"
+                >
+                  <button
+                    type="button"
+                    aria-label={t('promptTemplate')}
+                    title={t('promptTemplate')}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <FileText className="h-4 w-4" />
+                  </button>
+                </Popover>
               )}
-            >
-              <Paperclip className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setVoiceOpen((v) => !v)}
-              disabled={isStreaming}
-              aria-label={t('voiceRecord')}
-              title={t('voiceRecord')}
-              className={cn(
-                'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-                voiceOpen
-                  ? 'bg-accent text-primary'
-                  : 'bg-muted text-muted-foreground hover:bg-accent',
-              )}
-            >
-              <Mic className="h-4 w-4" />
-            </button>
-            <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming} />
-            {isStreaming ? (
               <button
                 type="button"
-                onClick={onStop}
-                aria-label={stopLabel}
-                title={stopLabel}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90"
-              >
-                <Square className="h-4 w-4" fill="currentColor" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={submit}
-                disabled={!canSend}
-                aria-label={sendLabel}
-                title={sendLabel}
+                onClick={addTextReference}
+                disabled={isStreaming || value.trim().length === 0}
+                aria-label={t('addContextReference')}
+                title={t('addContextReference')}
                 className={cn(
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
-                  canSend
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'cursor-not-allowed bg-muted text-muted-foreground/50',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                  'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
                 )}
               >
-                <Send className="h-4 w-4" />
+                <Paperclip className="h-4 w-4" />
               </button>
-            )}
+              <div className="ml-auto flex items-center gap-1">
+                <ModelSelector
+                  value={model}
+                  onChange={onModelChange}
+                  disabled={isStreaming}
+                  label={modelLabel}
+                  size="sm"
+                />
+                {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
+                <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming} />
+                {isStreaming ? (
+                  <button
+                    type="button"
+                    onClick={onStop}
+                    aria-label={stopLabel}
+                    title={stopLabel}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90"
+                  >
+                    <Square className="h-4 w-4" fill="currentColor" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={submit}
+                    disabled={!canSend}
+                    aria-label={sendLabel}
+                    title={sendLabel}
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                      canSend
+                        ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        : 'cursor-not-allowed bg-muted text-muted-foreground/50',
+                    )}
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
         <div className="mt-1.5 flex items-center justify-between px-1 text-xs text-muted-foreground">
