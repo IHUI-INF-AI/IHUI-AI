@@ -544,8 +544,35 @@ export async function queryContract(
   }
 }
 
-/** 委托扣款:受理一次扣款(同步只返回 out_trade_no + amount,扣款状态通过 webhook 异步通知) */
-export async function deductRecurring(params: {
+/**
+ * 从 queryContract 响应中提取 contractExpiredTime 并转为 Date。
+ * 微信返回 ISO8601 字符串(本地时区无 'Z',需包装为 Date 供 PG timestamptz 存储)。
+ * 解析失败返回 null,调用方应保留现有值。
+ */
+export function parseContractExpiredTime(value: string | undefined): Date | null {
+  if (!value) return null
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+/**
+ * 委托扣款:受理一次扣款。
+ *
+ * WeChat Pay V3 委托扣款 API 同步只返回受理结果(out_trade_no + amount),
+ * 实际扣款状态通过 webhook(TRANSACTION.SUCCESS / TRANSACTION.FAIL)异步通知。
+ *
+ * deduct_mode(此处命名为 settleMode):
+ * - 'async' (默认): 受理后立即返回,扣款结果由 webhook 异步处理。
+ *   适合定时扣款场景,扫描 N 条签约 → 全部受理 → webhook 回调时统一更新状态。
+ * - 'wait': 受理后轮询 queryOrder,直到交易终态(SUCCESS/CLOSED/PAYERROR)或超时(默认 5s),
+ *   同步返回最终状态。适合"用户主动点击扣款(即时扣款)"等需要即时反馈的场景。
+ *
+ * 注意:'wait' 模式轮询会增加 1-3 次额外 queryOrder API 调用,
+ * 单签约场景使用,不要在批量扫扣(并发 5+)场景使用,避免触发 WX API 限流。
+ */
+export type DeductSettleMode = 'async' | 'wait'
+
+export interface DeductRecurringParams {
   appid: string
   contractId: string
   outTradeNo: string
@@ -554,8 +581,26 @@ export async function deductRecurring(params: {
   transactionNotifyUrl: string
   goodsTag?: string
   attach?: string
-}): Promise<{ outTradeNo: string; amount: { total: number; currency: string } }> {
+  /** 默认 'async'; 'wait' 模式会同步轮询交易终态,适合单签约即时扣款场景 */
+  settleMode?: DeductSettleMode
+}
+
+export interface DeductRecurringResult {
+  outTradeNo: string
+  amount: { total: number; currency: string }
+  /** 仅 settleMode='wait' 模式有值: SUCCESS / CLOSED / PAYERROR / NOTPAY (超时未轮询到) */
+  tradeState?: string
+}
+
+/** 'wait' 模式轮询配置: 500ms 间隔, 最多 5s 超时 (10 次轮询) */
+const DEDUCT_WAIT_POLL_INTERVAL_MS = 500
+const DEDUCT_WAIT_TIMEOUT_MS = 5000
+
+export async function deductRecurring(
+  params: DeductRecurringParams,
+): Promise<DeductRecurringResult> {
   ensureRecurringConfigured()
+  const settleMode = params.settleMode ?? 'async'
   const body: Record<string, unknown> = {
     appid: params.appid,
     out_trade_no: params.outTradeNo,
@@ -570,11 +615,51 @@ export async function deductRecurring(params: {
     out_trade_no?: string
     amount?: { total?: number; currency?: string }
   }>('POST', '/v3/papay/pay/transactions/apply', body)
-  return {
+
+  const result: DeductRecurringResult = {
     outTradeNo: data.out_trade_no ?? params.outTradeNo,
     amount: {
       total: data.amount?.total ?? params.amount,
       currency: data.amount?.currency ?? 'CNY',
     },
   }
+
+  // 'wait' 模式:轮询 queryOrder 直到终态或超时,即时扣款场景使用
+  if (settleMode === 'wait') {
+    result.tradeState = await pollDeductTradeState(result.outTradeNo, DEDUCT_WAIT_TIMEOUT_MS)
+  }
+
+  return result
+}
+
+/**
+ * 轮询委托扣款交易状态,直到终态或超时。
+ * 终态: SUCCESS / CLOSED / PAYERROR / REVOKED / REFUND
+ * 非终态: NOTPAY / USERPAYING / ACCEPT
+ *
+ * 'wait' 模式内部使用,导出以便测试可独立 mock。
+ */
+async function pollDeductTradeState(outTradeNo: string, timeoutMs: number): Promise<string> {
+  const start = Date.now()
+  let lastState = 'NOTPAY'
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const data = await queryOrder(outTradeNo)
+      const state = (data.trade_state as string) ?? lastState
+      lastState = state
+      if (
+        state === 'SUCCESS' ||
+        state === 'CLOSED' ||
+        state === 'PAYERROR' ||
+        state === 'REVOKED' ||
+        state === 'REFUND'
+      ) {
+        return state
+      }
+    } catch {
+      // queryOrder 失败不立即终止,继续重试(扣款可能仍在进行)
+    }
+    await new Promise((resolve) => setTimeout(resolve, DEDUCT_WAIT_POLL_INTERVAL_MS))
+  }
+  return lastState
 }
