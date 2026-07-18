@@ -2502,11 +2502,12 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
   - **commit**:`docs(agents): 第 12 节新增"发现并行干扰立即切换独立分支"应急规则 + 案例 4`(`a79a5624`)
 - [x] ✅(2026-07-18) 微信支付真实激活 — API 证书已放置,真实支付链路已激活
   - **背景**:本轮(2026-07-18)已完成 11 项 WX_* 配置复用 + `isWechatPayConfigured()` 智能激活逻辑(commit [8788b474](https://github.com/IHUI-INF-AI/IHUI-AI/commit/8788b474))
-  - **完成状态**:用户从微信支付商户平台下载 API 证书(文件名 `1714645682_20260718_cert.zip`),解压后放置到 `G:\ai_zhs\cert\`(仓库外,4 文件:apiclient_key.pem 1704B / apiclient_cert.pem 1517B / apiclient_cert.p12 2782B / README_CN.txt 1774B),并复制 3 个证书文件到项目内 `g:\IHUI-AI\cert\`(本地引用)。`isWechatPayConfigured()` 返回 true,真实支付链路激活
+  - **完成状态**:用户从微信支付商户平台下载 API 证书(文件名 `1714645682_20260718_cert.zip`),解压后 4 文件(apiclient_key.pem 1704B / apiclient_cert.pem 1517B / apiclient_cert.p12 2782B / README_CN.txt 1774B)。`isWechatPayConfigured()` 返回 true,真实支付链路激活
+  - **证书路径迁移(2026-07-18)**:证书已从 `G:\ai_zhs\cert\`(仓库外)迁移到项目内 `g:\IHUI-AI\cert\`(gitignored),`.env` 的 `WX_PAY_PRIVATE_KEY_PATH` 同步更新为 `g:\IHUI-AI\cert\apiclient_key.pem`。消除项目外文件夹依赖,换机器只需改 `.env` 路径
   - **gitignore 防御**:`.gitignore` 追加多重忽略规则(`cert/` + `**/cert/` + `*.pem` + `*.p12` + `*.key` + `apiclient_*`),`git check-ignore -v` 验证 3 个证书文件全部被 `**/cert/` 规则匹配,证书不会上传 git 仓库
   - **测试修复**:`vip-auth-routes.real.test.ts` 添加 wechat-pay mock(强制 `isWechatPayConfigured: () => false`,避免测试发起真实微信支付 API 请求);修复 mock 缺失 `generateOutTradeNo` 导致的 12 个 500 错误(`payment-queries.ts` 的 `createOrder` 依赖此函数生成订单号)。修复后 40/40 测试通过
   - **关联配置**:
-    - `.env`:`WX_PAY_PRIVATE_KEY_PATH=G:\ai_zhs\cert\apiclient_key.pem`(已生效)
+    - `.env`:`WX_PAY_PRIVATE_KEY_PATH=g:\IHUI-AI\cert\apiclient_key.pem`(已生效,项目内路径)
     - `WX_PAY_PLATFORM_CERT`:生产环境建议配置(用于验签回调),否则 `verifyCallbackSignature()` 在 NODE_ENV=production 时返回 false
     - `WX_PAY_NOTIFY_URL=https://bsm.aizhs.top/prod-api/api/payments/wechat/notify`:需确保该域名可被微信支付服务器访问(本地电脑作为服务器需有公网 IP 或反向代理)
 
@@ -19808,7 +19809,7 @@ grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工
 - ✅ 23. 字典缓存 store(commit `de5b53fa` 新增 use-dict hook 30 分钟缓存;commit `d219b4a4` 补公开端点 `/api/dict/data/type/:dictType`)
 - ✅ 25. Tool 代码生成器/表单构建器 — **架构决策替代**(P0-14 同源已关闭 2026-07-12):若依 tool/gen 6 项已通过 Drizzle Kit + AI 生成器替代,AI 代码生成器在 `apps/web/src/components/ai-generation/code-generator.tsx`,表单构建由 `apps/web/src/components/form/` 完整组件库覆盖
 - ✅ 26. fetchAudioText 语音转文字 API(小程序)(commit `de5b53fa` 复用已有 `POST /api/ai/audio/recognize`)
-- ✅ 27. product 连续包月商品 API — **代码实现完成,还有 5 项生产部署前置工作**(commit `60c9ef9c` / 2026-07-18)— database 新建 `wechat_pay_contracts` 签约记录表 + 扩展 `plans`/`zhsProduct`/`wx_pay_notifications` 表 + migration `0103_new_morg.sql`;API 新增 6 端点(签约/列表/详情/解约/webhook/定时扣款)+ 扩展 `wechat-pay.ts` 4 个 V3 周期扣款函数 + renew 端点支持委托扣款分支 + status 端点返回 contract;api-client 新增 `subscription.ts` 5 函数;Web 新增 `use-subscription` hook + `ContractManager` 组件 + `/user/subscription` 自动续费管理区 + `/vip` 连续包月标签;miniapp-taro 新增签约管理页 + VIP 页开通自动续费勾选框。**剩余 5 项生产部署前置工作**(需运维/业务方执行,非 agent 可独立完成):(1) 微信商户平台开通"委托扣款"权限;(2) 申请 plan_id 填入 `plans.wechatPlanId`;(3) 配置 `WX_PAY_RECURRING_NOTIFY_URL` 公网回调地址;(4) 4 处 TODO 标注的 V3 API 路径与微信支付官方文档核对;(5) 为 `scan-and-charge` 端点配置 BullMQ cron 定时任务
+- ✅ 27. product 连续包月商品 API — **代码实现完成,还有 3 项生产部署前置工作**(commit `60c9ef9c` 全栈实现 + commit `1836a120` typecheck 修复 + commit `0ddfbd26` 委托代扣 API 路径修正 + cron 定时扣款 / 2026-07-18)— database 新建 `wechat_pay_contracts` 签约记录表(22 字段)+ 扩展 `plans`/`zhsProduct`/`wx_pay_notifications` 表 + migration `0103_new_morg.sql` + `0104_simple_king_cobra.sql`;API 新增 6 端点(签约/列表/详情/解约/webhook/定时扣款)+ 扩展 `wechat-pay.ts` 4 个 V3 委托代扣(PAPAY)函数(预签约/解约/查询/受理扣款)+ renew 端点支持委托扣款分支 + status 端点返回 contract;api-client 新增 `subscription.ts` 5 函数;Web 新增 `use-subscription` hook + `ContractManager` 组件 + `/user/subscription` 自动续费管理区 + `/vip` 连续包月标签;miniapp-taro 新增签约管理页 + VIP 页开通自动续费勾选框;**定时扣款 cron 任务** `subscription-recurring-charge` 每日 03:00 扫描 `nextChargeTime <= now` 的 active 签约并受理扣款(避开 02:30 PG 备份 + 03:30 对账);webhook 事件类型修正为 `PAPAY.SIGN`/`PAPAY.TERMINATE`/`TRANSACTION.SUCCESS`/`TRANSACTION.FAIL`。**剩余 3 项生产部署前置工作**(需运维/业务方执行,非 agent 可独立完成):(1) 微信商户平台开通"委托代扣"权限;(2) 申请 `plan_id` 填入 `plans.wechatPlanId`;(3) 配置 `WX_PAY_RECURRING_NOTIFY_URL` 公网回调地址
 - 🚫 29. 小红书(mp-xhs)平台支持 — **平台独占 + 技术阻塞**(Taro 4.2.0 官方未提供 `@tarojs/plugin-platform-xhs`,需评估社区插件或自研,业务优先级待确认)
 - 🚫 30. 微信原生插件 materialPlugin — **平台独占 + 业务评估前置**(微信小程序原生插件机制,需确认插件用途与可用性,业务优先级待确认)
 
@@ -19832,7 +19833,7 @@ grok-build 融合第十七轮遗留的"真实 LLM 联调待验证"1 项后续工
   - P2-36 chat_room 4 个用户管理端点(`GET /chat-room/users/:uuid/rooms`、`DELETE /chat-room/messages/:id`、`POST /chat-room/rooms/:roomId/rename`、`DELETE /chat-room/users/:uuid/rooms/:roomId`)— 本轮 commit 补齐
   - P2-38 agents /test/* 5 个 Coze 测试端点(`GET /api/coze/test/pat`、`/api-key`、`/workflow/:workflowId`、`/bot/:botId`、`/knowledge/:knowledgeId`)— 本轮 commit 补齐
 - 🚫 **0 项真实缺失**
-- ✅ **1 项业务前置已实现**(P1-27 连续包月商品 API 全栈实现完成,commit `60c9ef9c`)
+- ✅ **1 项业务前置已实现**(P1-27 连续包月商品 API 全栈实现 + 委托代扣 API 修正 + cron 定时扣款,commit `60c9ef9c` + `1836a120` + `0ddfbd26`)
 
 #### ✅ P3 调研完成(2026-07-18)— 12 项中 4 项已完成,1 项本轮补齐,7 项业务前置/平台独占
 
