@@ -9,11 +9,10 @@ export type ResourceType = 'other' | 'word' | 'excel' | 'ppt' | 'pdf' | 'image' 
 export interface ResourceDetail {
   id?: string
   title: string
-  description: string
+  intro: string
   categoryId?: string
   cidList?: string[]
-  url?: string
-  fileName?: string
+  fileUrl?: string
   type?: ResourceType
   productId?: string
   tagIdList?: string[]

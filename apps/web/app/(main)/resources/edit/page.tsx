@@ -17,7 +17,7 @@ export default function ResourceEditPage() {
   const id = searchParams.get('id') ?? ''
 
   const [title, setTitle] = React.useState('')
-  const [description, setDescription] = React.useState('')
+  const [intro, setIntro] = React.useState('')
   const [cidList, setCidList] = React.useState('')
   const [type, setType] = React.useState<ResourceType>('other')
   const [productId, setProductId] = React.useState('')
@@ -42,15 +42,15 @@ export default function ResourceEditPage() {
       if (!r.success) return null
       const d = r.data
       setTitle(d.title ?? '')
-      setDescription(d.description ?? '')
+      setIntro(d.intro ?? '')
       setCidList(d.cidList ? toIdListString(d.cidList) : (d.categoryId ?? ''))
       setType((d.type ?? 'other') as ResourceType)
       setProductId(d.productId ?? '')
       setTagIdList(toIdListString(d.tagIdList))
       setImage(d.image ?? '')
       setIntroduction(d.introduction ?? '')
-      setFileUrl(d.url ?? '')
-      setFileName(d.fileName ?? d.title ?? '')
+      setFileUrl(d.fileUrl ?? '')
+      setFileName(d.title ?? '')
       return d
     },
     enabled: !!id,
@@ -83,11 +83,11 @@ export default function ResourceEditPage() {
 
       const body = {
         title: title.trim(),
-        description: description.trim(),
+        intro: intro.trim(),
         categoryId: cidArr[0],
         cidList: cidArr,
-        url: fileUrl,
-        fileName: fileName || file?.name,
+        fileUrl,
+        fileType: file?.type ?? undefined,
         type,
         productId: productId.trim(),
         tagIdList: parseIdList(tagIdList),
@@ -164,8 +164,8 @@ export default function ResourceEditPage() {
       <ResourceForm
         title={title}
         setTitle={setTitle}
-        description={description}
-        setDescription={setDescription}
+        intro={intro}
+        setIntro={setIntro}
         cidList={cidList}
         setCidList={setCidList}
         categories={categories ?? []}
