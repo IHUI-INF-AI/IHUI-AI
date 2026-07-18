@@ -262,11 +262,7 @@ interface SidebarProps {
  * 登录按钮独立到下方 SidebarUserRow(与已登录态同位置)。
  * 130px 默认宽度下单行排开;拉伸到 180px 仍单行;极端窄宽时 flex-wrap 兜底换行。
  */
-function SidebarActions({
-  collapsed,
-}: {
-  collapsed: boolean
-}) {
+function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const t = useTranslations('nav')
   const tt = useTranslations('themeToggle')
   const { locale, setLocale } = useLanguageStore()
@@ -802,7 +798,9 @@ function ExpandableNavItem({
   const label = t(item.labelKey)
 
   const parentClassName = cn(
-    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    // group/exp 让 indicator 通过 group-hover/group-focus-visible 同步响应
+    // focus-visible 加 ring 让键盘用户聚焦时有明确指示
+    'group/exp relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
     parentActive
       ? 'bg-primary text-primary-foreground'
       : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
@@ -879,25 +877,54 @@ function ExpandableNavItem({
         data-testid={`nav-${item.labelKey}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
+        aria-haspopup="menu"
         aria-controls={listId}
         className={parentClassName}
       >
         <Icon className="h-5 w-5 shrink-0" />
-        <span className="flex min-w-0 flex-1 flex-col items-start leading-tight">
-          <span className="whitespace-nowrap">{label}</span>
-          <span
-            aria-hidden="true"
-            className={cn(
-              // 破折线指示器:文字下方一条虚线,暗示有二级菜单
-              // 闭合态:淡色 dashed,展开态:加深 + 实线,200ms 平滑过渡
-              // 用互斥三元避免 Tailwind 中 border-solid 覆盖 border-dashed 的 CSS 优先级问题
-              'mt-0.5 h-px w-full border-b transition-all duration-200',
-              open
-                ? 'border-solid border-current/70'
-                : 'border-dashed border-current/30',
-            )}
-          />
+        <span
+          className={cn(
+            // 展开态额外加粗,与破折线指示器同步强化"已激活"反馈
+            'min-w-0 flex-1 whitespace-nowrap transition-all duration-200',
+            open && 'font-semibold',
+          )}
+        >
+          {label}
         </span>
+        {/*
+          二级菜单提示线:横跨整个按钮容器底边,贯穿 icon + 文字 + 右侧空白
+          - 闭合态:repeating-linear-gradient 真正破折线 + 品牌主色 + 60% 透明度
+            (明显但与激活态区分,引导用户感知"这里可展开")
+          - 展开态:实线 + 加粗到 3px + 主色不透明 + scaleX 撑满
+            (强激活反馈,与按钮底色 bg-primary 区分)
+          - 200ms 平滑过渡;hover/focus-visible 时透明度 +10% 增强反馈
+          - 首次加载呼吸动画(全局 CSS 一次,1.6s)
+          - 父级按钮已设 relative,这里 absolute 定位即可
+        */}
+        <span
+          aria-hidden="true"
+          data-testid={`nav-${item.labelKey}-indicator`}
+          className={cn(
+            'pointer-events-none absolute inset-x-0 bottom-0 origin-left transition-all duration-200 ease-out',
+            // 同步响应父按钮 hover/focus-visible:透明度 +10% 让交互反馈更明显
+            'group-hover/exp:opacity-100 group-focus-visible/exp:opacity-100',
+            // 首次渲染呼吸动画(全局 CSS 一次)
+            'animate-pulse-once',
+            open
+              ? // 展开态:实线 + 加粗 + 主色不透明
+                'h-[3px] bg-primary opacity-100 scale-x-100'
+              : // 闭合态:repeating-linear-gradient 真正破折线 + 主色 60% 透明
+                'h-[2px] opacity-60 scale-x-100',
+          )}
+          style={
+            !open
+              ? {
+                  backgroundImage:
+                    'repeating-linear-gradient(to right, hsl(142 71% 45%) 0 5px, transparent 5px 8px)',
+                }
+              : undefined
+          }
+        />
       </button>
       {open && <div className="mt-0.5">{childList}</div>}
     </div>
