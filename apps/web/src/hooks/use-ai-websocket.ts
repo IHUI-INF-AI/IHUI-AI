@@ -130,7 +130,7 @@ export function useAIWebSocket(provider: AIWSProvider): UseAIWebSocketReturn {
 }
 
 // ===================== AI 业务方法扩展(8 方法 + 4 消息类型 + 7 参数变体) =====================
-// 从独立文件 re-export,保持单文件 < 400 行(迁移自旧项目 aiWebSocketMixin.js)
+// 从独立文件 re-export,保持单文件 < 400 行(等价自旧项目 aiWebSocketMixin.js)
 
 export {
   useAiWebSocket,

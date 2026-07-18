@@ -5,7 +5,16 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Bot, CheckCircle2, Loader2, Plus, RefreshCw, Users, Activity } from 'lucide-react'
+import {
+  Bot,
+  CheckCircle2,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Users,
+  Activity,
+  TrendingUp,
+} from 'lucide-react'
 import { Alert } from '@/components/feedback'
 import {
   Button,
@@ -21,6 +30,7 @@ import {
   checkCrewHealth,
   listCrewAgents,
   listCrewSessions,
+  listCrewModels,
   createCrewSession,
 } from '@/lib/crew-api'
 import { EMPTY_FORM, fmtTime, statusBadgeClass } from './helpers'
@@ -45,6 +55,12 @@ export default function CrewPage() {
     queryKey: ['crew', 'agents'],
     queryFn: () => listCrewAgents(),
     staleTime: 60_000,
+  })
+
+  const modelsQ = useQuery({
+    queryKey: ['crew', 'models'],
+    queryFn: () => listCrewModels(),
+    staleTime: 120_000,
   })
 
   const sessionsQ = useQuery({
@@ -86,7 +102,29 @@ export default function CrewPage() {
 
   const health: HealthState = healthQ.data ?? { status: '?', ok: false }
   const agents = agentsQ.data ?? []
+  const models = modelsQ.data?.models ?? []
+  const defaultModel = modelsQ.data?.default ?? 'stepfun/step-3.7-flash'
   const sessions = sessionsQ.data ?? []
+
+  // 最近 10 次会话成功率 + 平均耗时(基于已加载的 sessions 列表)
+  const recentSessions = sessions.slice(0, 10)
+  const completedRecent = recentSessions.filter(
+    (s) => s.status === 'completed' || s.status === 'failed',
+  )
+  const successCount = completedRecent.filter((s) => s.status === 'completed').length
+  const successRate =
+    completedRecent.length > 0 ? Math.round((successCount / completedRecent.length) * 100) : null
+  const completedWithTime = recentSessions.filter((s) => s.createdAt && s.completedAt)
+  const avgDurationMs =
+    completedWithTime.length > 0
+      ? Math.round(
+          completedWithTime.reduce((sum, s) => {
+            const start = new Date(s.createdAt!).getTime()
+            const end = new Date(s.completedAt!).getTime()
+            return sum + (end - start)
+          }, 0) / completedWithTime.length,
+        )
+      : null
 
   return (
     <div className="space-y-4">
@@ -117,7 +155,7 @@ export default function CrewPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
           {health.ok ? (
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
@@ -141,6 +179,20 @@ export default function CrewPage() {
           <div>
             <p className="text-sm font-semibold">{sessions.length} 会话</p>
             <p className="text-xs text-muted-foreground">最近 50 条</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
+          <TrendingUp className="h-5 w-5 text-emerald-600" />
+          <div>
+            <p className="text-sm font-semibold">
+              {successRate !== null ? `${successRate}%` : '-'}
+              {avgDurationMs !== null && (
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                  · {(avgDurationMs / 1000).toFixed(1)}s
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-muted-foreground">最近 {completedRecent.length} 次成功率</p>
           </div>
         </div>
       </div>
@@ -205,7 +257,10 @@ export default function CrewPage() {
                       {s.status}
                     </span>
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  <p
+                    className="mt-0.5 truncate text-xs text-muted-foreground"
+                    suppressHydrationWarning
+                  >
                     {s.userId} · {fmtTime(s.createdAt)}
                   </p>
                 </div>
@@ -266,13 +321,25 @@ export default function CrewPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="modelId">模型 ID</Label>
-                <Input
+                <Label htmlFor="modelId">模型</Label>
+                <select
                   id="modelId"
                   value={form.modelId}
                   onChange={(e) => setForm({ ...form, modelId: e.target.value })}
-                  placeholder="可选,留空用默认"
-                />
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">默认 ({defaultModel})</option>
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.id})
+                    </option>
+                  ))}
+                </select>
+                {modelsQ.data?.stubMode && (
+                  <p className="text-xs text-amber-600">
+                    ⚠ ai-service 为 stub 模式,LLM 返回模拟响应
+                  </p>
+                )}
               </div>
             </div>
             <div className="space-y-1">

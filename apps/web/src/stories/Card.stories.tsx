@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@ihui/ui'
 
 /**
- * Card 组件 stories — 迁移自旧架构 client/src/stories/Card.stories.ts
+ * Card 组件 stories — 等价自旧架构 client/src/stories/Card.stories.ts
  * 展示 Card 各子组件组合形态
  */
 const meta = {

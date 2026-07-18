@@ -1,5 +1,5 @@
 /**
- * 错误码定义 — 迁移自旧架构 client/src/config/error-codes.ts
+ * 错误码定义 — 等价自旧架构 client/src/config/error-codes.ts
  * 业务错误码枚举、判定函数与错误消息映射
  */
 

@@ -1,7 +1,7 @@
 /**
  * P1-5 Computer Hub — Layer 3: CompoundResolver(local-shadows-remote)。
  *
- * 灵感来源:cli 的 `xai-computer-hub-core` CompoundResolver。
+ * 灵感来源:参考行业 Agent 框架的 CompoundResolver 设计。
  * 简化策略(做减法):
  *   - local-shadows-remote:同名工具时 local 胜(允许本地工具覆盖 MCP 工具)
  *   - 不分 session,resolve(toolId) 单参数
