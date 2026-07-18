@@ -193,7 +193,8 @@ export function useNotification(): UseNotificationReturn {
   const markAsRead = React.useCallback(async (id: string) => {
     const prev = notificationsRef.current
     setNotifications((p) => p.map((n) => (n.id === id ? { ...n, read: true } : n)))
-    const res = await fetchApi(`/api/notifications/${id}/read`, { method: 'POST' })
+    // 后端 PATCH /api/notifications/:id/read (notifications.ts:176)
+    const res = await fetchApi(`/api/notifications/${id}/read`, { method: 'PATCH' })
     if (!res.success) setNotifications(prev)
   }, [])
 
