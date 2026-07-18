@@ -292,18 +292,19 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
 
       if (activeContract) {
         const deductOutTradeNo = generateOutTradeNo('RC')
-        const deductResult = await deductRecurring({
+        await deductRecurring({
+          appid: env.WX_MINI_APPID ?? env.WX_APP_APPID ?? '',
           contractId: activeContract.contractId,
           outTradeNo: deductOutTradeNo,
           amount: plan.price,
           description: `连续订阅自动续费 - ${plan.name}`,
-          notifyUrl: env.WX_PAY_RECURRING_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? '',
+          transactionNotifyUrl: env.WX_PAY_RECURRING_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? '',
         })
         return reply.send(
           success({
             recurring: true,
-            deductId: deductResult.deductId,
-            status: deductResult.status,
+            outTradeNo: deductOutTradeNo,
+            status: 'pending',
           }),
         )
       }
