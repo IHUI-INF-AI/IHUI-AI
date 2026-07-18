@@ -149,7 +149,9 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'AI',
     items: [
-      { href: '/chat', labelKey: 'chat', icon: MessageSquare },
+      // /chat 路由已废弃:AI 对话是全局 docked 面板(挂载于 MainShell,与 Sidebar 同级),
+      // 顶部"+"按钮(下方)即 toggle 面板的入口,不再放可点击的 /chat 导航项,
+      // 避免点击后右侧工作区被占位空状态"开始新对话"替换。
       { href: '/chat/history', labelKey: 'chatHistory', icon: MessageSquare },
       { href: '/models', labelKey: 'models', icon: Bot },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
@@ -320,7 +322,6 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
       {/* 语言切换 */}
       <Popover
         position={collapsed ? 'right' : 'top'}
-        className={collapsed ? undefined : 'left-0 translate-x-0'}
         content={
           <div className="w-36 py-1">
             {LANGUAGES.map((lang) => (
@@ -985,6 +986,10 @@ export function Sidebar({
   const handleResizeStart = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       e.preventDefault()
+      // 折叠态下拖拽手柄:先展开再开始 resize,实现"拖拽即展开"
+      if (collapsed) {
+        onToggleCollapse()
+      }
       setIsResizing(true)
       const startX = e.clientX
       const startWidth = sidebarWidth
@@ -1004,7 +1009,7 @@ export function Sidebar({
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
     },
-    [sidebarWidth],
+    [sidebarWidth, collapsed, onToggleCollapse],
   )
 
   const isActive = React.useCallback(
@@ -1222,26 +1227,25 @@ export function Sidebar({
         {header}
         {navContent}
         {footer}
-        {/* 右侧拖拽手柄:仅展开态显示。
-            外层 w-2(8px)为透明命中区(易抓取),内层 w-px 为可见细线(1px)。
-            right-[-3px] 让命中区跨过 aside 右边缘,占据 sidebar 与 main 之间的 8px 间隙中线。 */}
-        {!collapsed && (
+        {/* 右侧拖拽手柄:展开/折叠态均显示(折叠态可拖拽展开)。
+            外层 w-2(8px)为透明命中区,right-[-4px] 让命中区居中跨越 aside 右边缘(左右各 4px)。
+            内层 w-0.5(0.5px)可见细线,left-[calc(50%-0.25px)] -translate-x-1/2 让线居中在命中区中心,正好与 aside 右边缘重合。
+            0.5px 线在 2x DPR 高分屏渲染为 1 物理像素,更纤细精致;子像素 calc 避免 1px 线在奇数像素容器中模糊。
+            默认 opacity:0 完全隐藏,仅 hover 或拖拽时显现渐变色。 */}
+        <div
+          onPointerDown={handleResizeStart}
+          className="group absolute right-[-4px] top-0 bottom-0 z-20 w-2 cursor-col-resize"
+        >
           <div
-            onPointerDown={handleResizeStart}
-            className="group absolute right-[-3px] top-0 bottom-0 z-20 w-2 cursor-col-resize"
-          >
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label={tc('resize')}
-              className={cn(
-                'absolute right-0 top-0 bottom-0 w-px bg-transparent transition-colors',
-                'group-hover:bg-primary',
-                isResizing && 'bg-primary',
-              )}
-            />
-          </div>
-        )}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={tc('resize')}
+            className={cn(
+              'absolute left-[calc(50%-0.25px)] top-0 bottom-0 w-0.5 -translate-x-1/2 resize-handle-line',
+              isResizing && 'is-resizing',
+            )}
+          />
+        </div>
       </aside>
 
       {/* 移动端抽屉遮罩 */}
