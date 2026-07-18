@@ -13,7 +13,7 @@
       "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
       "targets": [
         {
-          "expr": "sum(pg_connections{instance=~\"$instance\"})",
+          "expr": "sum(pg_stat_database_numbackends{instance=~\"$instance\"})",
           "legendFormat": "连接",
           "refId": "A"
         }
@@ -28,7 +28,7 @@
       "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
       "targets": [
         {
-          "expr": "sum(rate(pg_tps{instance=~\"$instance\"}[1m]))",
+          "expr": "sum(rate(pg_stat_database_xact_commit{instance=~\"$instance\"}[1m]) + rate(pg_stat_database_xact_rollback{instance=~\"$instance\"}[1m]))",
           "legendFormat": "TPS",
           "refId": "A"
         }
@@ -43,7 +43,7 @@
       "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
       "targets": [
         {
-          "expr": "sum(pg_slow_queries{instance=~\"$instance\"})",
+          "expr": "sum(pg_stat_statements_mean_time{instance=~\"$instance\"})",
           "legendFormat": "慢查询",
           "refId": "A"
         }
@@ -70,7 +70,11 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
       "targets": [
-        { "expr": "sum(pg_locks{instance=~\"$instance\"})", "legendFormat": "锁等待", "refId": "A" }
+        {
+          "expr": "sum(pg_locks_count{instance=~\"$instance\",mode=\"waiting\"})",
+          "legendFormat": "锁等待",
+          "refId": "A"
+        }
       ],
       "fieldConfig": {
         "defaults": {
@@ -96,7 +100,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
       "targets": [
         {
-          "expr": "sum(rate(pg_tps{instance=~\"$instance\"}[5m])) by (instance)",
+          "expr": "sum(rate(pg_stat_database_xact_commit{instance=~\"$instance\"}[5m]) + rate(pg_stat_database_xact_rollback{instance=~\"$instance\"}[5m])) by (instance)",
           "legendFormat": "{{instance}}",
           "refId": "A"
         }
@@ -110,7 +114,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
       "targets": [
         {
-          "expr": "sum(rate(pg_slow_queries{instance=~\"$instance\"}[5m])) by (instance)",
+          "expr": "sum(rate(pg_stat_statements_calls{instance=~\"$instance\"}[5m])) by (instance)",
           "legendFormat": "{{instance}}",
           "refId": "A"
         }
@@ -124,7 +128,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
       "targets": [
         {
-          "expr": "max(pg_replication_lag{instance=~\"$instance\"}) by (instance)",
+          "expr": "max(pg_stat_replication_lag_seconds{instance=~\"$instance\"}) by (instance)",
           "legendFormat": "{{instance}}",
           "refId": "A"
         }
@@ -138,7 +142,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
       "targets": [
         {
-          "expr": "topk(10, sum(pg_table_size{instance=~\"$instance\"}) by (relname) / 1024 / 1024)",
+          "expr": "topk(10, sum(pg_relation_size_bytes{instance=~\"$instance\",relkind=\"r\"}) by (relname) / 1024 / 1024)",
           "legendFormat": "{{relname}}",
           "refId": "A",
           "format": "table",
@@ -158,7 +162,7 @@
         "name": "instance",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "Prometheus" },
-        "query": "label_values(pg_connections, instance)",
+        "query": "label_values(pg_stat_database_numbackends, instance)",
         "refresh": 2,
         "includeAll": true,
         "multi": true,

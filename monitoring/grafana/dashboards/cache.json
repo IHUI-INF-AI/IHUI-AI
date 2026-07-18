@@ -13,7 +13,7 @@
       "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
       "targets": [
         {
-          "expr": "avg(redis_hit_rate{instance=~\"$instance\"})",
+          "expr": "sum(redis_keyspace_hits_total{instance=~\"$instance\"}) / (sum(redis_keyspace_hits_total{instance=~\"$instance\"}) + sum(redis_keyspace_misses_total{instance=~\"$instance\"}))",
           "legendFormat": "命中率",
           "refId": "A"
         }
@@ -43,7 +43,7 @@
       "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
       "targets": [
         {
-          "expr": "sum(redis_memory_used{instance=~\"$instance\"}) / 1024 / 1024",
+          "expr": "sum(redis_memory_used_bytes{instance=~\"$instance\"}) / 1024 / 1024",
           "legendFormat": "内存",
           "refId": "A"
         }
@@ -88,7 +88,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
       "targets": [
         {
-          "expr": "sum(rate(redis_ops_per_sec{instance=~\"$instance\"}[5m])) by (instance)",
+          "expr": "sum(rate(redis_instantaneous_ops_per_sec{instance=~\"$instance\"}[5m])) by (instance)",
           "legendFormat": "{{instance}}",
           "refId": "A"
         }
@@ -102,7 +102,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
       "targets": [
         {
-          "expr": "sum(rate(redis_slowlog{instance=~\"$instance\"}[5m])) by (instance)",
+          "expr": "sum(rate(redis_slowlog_length{instance=~\"$instance\"}[5m])) by (instance)",
           "legendFormat": "{{instance}}",
           "refId": "A"
         }
@@ -116,7 +116,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
       "targets": [
         {
-          "expr": "sum(redis_memory_used{instance=~\"$instance\"}) by (instance)",
+          "expr": "sum(redis_memory_used_bytes{instance=~\"$instance\"}) by (instance)",
           "legendFormat": "{{instance}}",
           "refId": "A"
         }
