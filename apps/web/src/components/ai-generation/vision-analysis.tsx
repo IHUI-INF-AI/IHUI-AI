@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import dynamic from 'next/dynamic'
 import { Loader2, Upload } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -11,6 +12,13 @@ import remarkGfm from 'remark-gfm'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
 import { fetchApi } from '@/lib/api'
 import { extractText } from '@/lib/ai-media'
+import { isMermaidLanguage } from '@/lib/markdown-mermaid-code'
+
+// MermaidDiagram 仅在客户端加载,不影响首屏 bundle
+const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse text-xs text-muted-foreground">…</div>,
+})
 
 const TEXTAREA_CLS =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
@@ -119,7 +127,33 @@ export function VisionAnalysis() {
           <div className="space-y-2">
             <Label>{t('result')}</Label>
             <div className="prose prose-sm max-w-none rounded-md border p-4 dark:prose-invert">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code({ className: cls, children, ...props }) {
+                    const match = /language-(\w+)/.exec(cls || '')
+                    const inline = !match && !String(children).includes('\n')
+                    if (inline) {
+                      return (
+                        <code className="rounded bg-muted px-1.5 py-0.5 text-sm" {...props}>
+                          {children}
+                        </code>
+                      )
+                    }
+                    // mermaid 块交给 MermaidDiagram 渲染
+                    if (isMermaidLanguage(cls)) {
+                      return <MermaidDiagram code={String(children).replace(/\n$/, '')} />
+                    }
+                    return (
+                      <code className={cls} {...props}>
+                        {children}
+                      </code>
+                    )
+                  },
+                }}
+              >
+                {answer}
+              </ReactMarkdown>
             </div>
           </div>
         ) : null}
