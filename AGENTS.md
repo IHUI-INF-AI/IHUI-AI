@@ -1018,3 +1018,93 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-jun
 - 修改其他 agent 文件"帮他们修"的,视为**越权事故**
 - `git reset --hard` 回滚整个工作树的,视为**数据丢失事故**
 - 删除 commit_msg.txt / 临时脚手架文件 / 调试日志等"看着像垃圾"文件的,视为**破坏协作事故**
+
+---
+
+## 19. 样式改动强制验证规则(强制,2026-07-19 立)
+
+> 适用范围:任何涉及 UI 样式 / 布局 / 交互的代码改动(CSS / className / style / 组件结构 / 页面布局)。本节是对第 16 节"Agent 自主验证强制规则"在样式场景的具体化,**优先级与第 16 节相同**,触发样式改动时本节优先适用。
+> 与 user_profile 中的"启动项目 = 前后端全链路同步启动"硬约束协同执行。
+
+### 触发场景(2026-07-19 真实案例)
+
+- **案例 1 — AI 输入框高度反复修改未启动服务验证**:用户要求优化 AI 输入框默认 3 行 + 动态撑高至 6 行 + 滚动。agent 多轮修改 `message-input.tsx` / `unified-ai-panel.tsx`,每轮都只跑 ESLint + typecheck 就交付,未启动 dev server,未用 browser_use 实际查看效果。结果多轮出现"默认高度不对"、"输入变 1 行"、"贴顶"等回归问题,用户反复反馈后才修对。用户严厉指出:"你总是违反 agent.md 规则,每次改完样式后必须保证启动项目服务让我看到生效的样式界面才可以停止任务"。
+- **根因分析**:agent 把"代码静态验证通过"等同于"样式实际生效正确",忽视了浏览器实际渲染才是样式正确性的唯一判据。CSS / className / 行高 / padding / max-height 等数值在不同字体、浏览器、容器宽度下表现不同,不实际渲染无法确认。
+- **教训**:样式改动的验证闭环**必须**包含"启动 dev server + browser_use 实际渲染 + 截图/JS 验证",ESLint + typecheck 只能保证语法正确,不能保证视觉效果正确。
+
+### 必须遵守(强制红线)
+
+- **样式改动必须启动全链路 dev server(强制红线)**:任何涉及样式 / 布局 / 交互的代码改动完成后,**必须**先启动全链路 dev server 才能进入验证阶段:
+  - web:`pnpm --filter @ihui/web dev`(端口 3000)
+  - api:`pnpm --filter @ihui/api dev`(端口 3001)
+  - ai-service:`pnpm --filter @ihui/ai-service dev`(端口 8000,若启动失败记录原因不阻塞 UI 验证)
+  - 必须放在不同 terminal 并行启动(用 `long_running_process` + `blocking: false`),等所有服务就绪后才能进入下一步。
+  - 若 dev server 已在运行,**必须**用 `CheckCommandStatus` 确认仍在运行 + 检查最近日志确认无编译错误,才能复用。
+- **必须用 browser_use 实际渲染验证(强制红线)**:dev server 就绪后,**必须**启动 `browser_use` subagent 完成以下验证闭环:
+  1. `browser_navigate` 访问改动涉及的页面(如 `/chat`、`/ai-world`)
+  2. 若需登录,先用 `browser_evaluate` 或测试账号自动登录(不得要求用户登录)
+  3. `browser_wait_for` 等待页面渲染稳定
+  4. `browser_take_screenshot` 截图记录初始状态
+  5. `browser_evaluate` 执行 JS 读取关键 DOM 属性(`offsetHeight` / `scrollHeight` / `clientHeight` / `getComputedStyle`),**禁止**只靠截图主观判断,必须用 JS 数值验证
+  6. 若涉及交互(如输入文字撑高 / 滚动条出现),用 `browser_evaluate` 模拟 `input` 事件触发,再次截图 + 读 DOM 属性
+  7. 多个状态(默认 / 4 行 / 7 行滚动等)逐一验证,每个状态都要截图 + 数值证据
+- **验证证据必须写入交付报告(强制红线)**:交付报告必须包含:
+  - 每个状态的截图描述(或 base64 缩略图)
+  - 每个 `browser_evaluate` 返回的关键 DOM 属性数值(offsetHeight / scrollHeight / overflowY)
+  - 与预期值的对照表(如"默认 offsetHeight=76px,预期 3 行 ≈ 74-80px ✅")
+- **未启动服务 + 未 browser_use 验证就交付的,视为交付事故(红线)**:违反本节的样式改动交付,无论代码多么"看起来正确",都视为虚假交付,必须立即补做验证闭环。
+
+### 禁止事项
+
+- **禁止**改完样式只跑 ESLint + typecheck 就交付(必须 browser_use 实际渲染)。
+- **禁止**以"dev server 已在跑"为由跳过 `CheckCommandStatus` 确认(可能已崩溃或编译错误)。
+- **禁止**以"browser_use 不稳定"为由跳过 UI 验证(必须切换 `browser_evaluate` JS 数值验证作为替代)。
+- **禁止**只截图不读 DOM 属性(截图只能看主观效果,数值才是客观证据)。
+- **禁止**只验证默认状态不验证交互状态(如只看默认 3 行,不验证 4 行撑高 + 7 行滚动)。
+- **禁止**在交付报告中写"请你刷新浏览器查看效果" / "请你启动 dev server 验证"等甩锅措辞(违反第 16 节核心禁令)。
+
+### 允许跳过 browser_use 的场景(豁免清单,严格限定)
+
+仅以下场景允许跳过 browser_use,但必须用其他手段补全验证:
+
+1. **纯后端 API 改动**:不涉及任何 UI 渲染,用 `curl` / `Invoke-WebRequest` 验证接口即可。
+2. **纯类型 / 工具函数改动**:不涉及 UI 渲染,用 `typecheck` + `test` 验证即可。
+3. **dev server 启动失败且 30 分钟内无法修复**:记录失败原因,改用 `jest` + `@testing-library/react` 单元测试验证渲染输出(若项目有此能力),并在交付报告中明确标注"dev server 启动失败,降级为单元测试验证"。
+4. **CI 环境**:CI 中无 browser_use 能力,改用 Playwright / Cypress e2e 测试。
+
+### 工作流模板(强制参照)
+
+样式改动的标准交付流程:
+
+```
+1. (代码改动) Edit/Write 修改 CSS / className / style / 组件结构
+2. (静态验证) Read/Grep 确认修改已落地
+3. (语法验证) pnpm --filter @ihui/web exec eslint <file> + typecheck
+4. (启动全链路) 并行启动 web + api + ai-service(若 dev server 已在跑,CheckCommandStatus 确认健康)
+5. (等待就绪) CheckCommandStatus 确认 web 返回 200 + api ws 就绪
+6. (UI 验证) Task: browser_use subagent
+   - navigate 到目标页面
+   - 登录(若需要)
+   - 截图初始状态
+   - evaluate 读取 DOM 数值(offsetHeight / scrollHeight / overflowY)
+   - 模拟交互(输入文字 / 点击)
+   - 截图交互后状态
+   - evaluate 再次读取 DOM 数值
+7. (汇总证据) 把 5-6 步的截图描述 + DOM 数值 + 预期对照表写入交付报告
+8. (commit + push) 第 15 节规则:验证全绿后立即 commit 固化
+```
+
+### 与其他规则的协同
+
+- **第 16 节(自主验证)**: 本节是第 16 节在样式场景的具体化,优先级相同,样式场景本节优先。
+- **第 15 节(文件修改持久化)**: 本节的"验证全绿后 commit"受第 15 节约束。
+- **第 13 节(并行效率)**: browser_use subagent 与 curl API 验证可并行启动。
+- **第 11 节(交付报告一致性)**: 本节的"验证证据写入报告"是第 11 节"必须忠实反映剩余工作"的具体落实。
+
+### 红线
+
+- 样式改动后**未启动 dev server** 就交付的,视为**交付事故**。
+- 样式改动后**未用 browser_use 实际渲染验证** 就交付的,视为**交付事故**(除非符合豁免清单)。
+- 交付报告中**未包含 DOM 数值证据**(只有主观描述)的,视为**虚假验证**。
+- 在交付报告中写"请你刷新浏览器查看效果"的,视为**甩锅事故**(违反第 16 节)。
+- 违反本节导致用户需要自己启动服务 + 自己验证样式的,视为**工作方式事故**。
