@@ -69,7 +69,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
       </React.Suspense>
       <div
         id="work-area-portal-root"
-        className="relative flex min-w-0 flex-1 flex-col my-2 mr-2 ml-2 overflow-hidden rounded-xl bg-shell-panel"
+        className="relative flex min-w-0 flex-1 flex-col my-2 mr-2 overflow-hidden rounded-xl bg-shell-panel"
       >
         {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
         <Button
