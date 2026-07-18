@@ -1,4 +1,4 @@
--- 智能体扩展字段 + 互动表（迁移自 coze_zhs_py/api/agent_models.py）
+-- 智能体扩展字段 + 互动表（等价自 coze_zhs_py/api/agent_models.py）
 -- 对应 schema: packages/database/src/schema/agents-extended.ts
 --   agents.collectCount / publishStatus / suggestedQuestions
 --   zhs_agent_thumbs / zhs_agent_collect / zhs_agent_useDetail

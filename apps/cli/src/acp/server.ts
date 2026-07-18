@@ -6,7 +6,7 @@
  *
  * 启动方式:`ihui acp` (默认 stdio NDJSON 传输)
  *
- * P0-2 扩展方法(对齐 cli 的 `x.ai/*` 私有扩展命名空间,使用 SDK 自定义方法三参数重载):
+ * P0-2 扩展方法(参考行业 Agent 框架的 `x.ai/*` 私有扩展命名空间,使用 SDK 自定义方法三参数重载):
  *   - `x.ai/session/repair`:自愈当前会话历史(清理非法 role / 空消息 / 连续重复 / interjection 残留)
  *   - `x.ai/rewind/points`:列出可回退的 prompt 点(user 消息位置)
  *   - `x.ai/rewind/execute`:回退 history 到指定 prompt 索引(支持 RewindMode + force)
@@ -34,6 +34,10 @@ import {
 } from '../commands/session.js';
 import { setupAgentTools, runToolLoop, type ToolContext } from '../commands/agent.js';
 import { CheckpointManager } from '../checkpoints/index.js';
+import {
+  listManagedClients,
+  getManagedClient,
+} from '../tools/mcp-runtime.js';
 
 export interface AcpServerOptions {
   apiUrl: string;
@@ -73,7 +77,60 @@ interface RewindExecuteParams extends RewindRequest {
   sessionId: string;
 }
 
-class IhuiAcpAgent {
+/** P1-6 `x.ai/mcp/listServers` 请求参数(无参数,sessionId 仅用于上下文校验) */
+interface McpListServersParams {
+  sessionId?: string;
+}
+
+/** P1-6 `x.ai/mcp/serverStatus` 请求参数 */
+interface McpServerStatusParams {
+  sessionId?: string;
+  /** MCP server 名称(对应 mcp.json 中 server.name) */
+  serverName: string;
+}
+
+/** P1-6 `x.ai/mcp/callTool` 请求参数 */
+interface McpCallToolParams {
+  sessionId?: string;
+  /** MCP server 名称 */
+  serverName: string;
+  /** MCP tool 名称(server 的 tools/list 返回的 name) */
+  toolName: string;
+  /** tool 参数(JSON object) */
+  arguments?: Record<string, unknown>;
+}
+
+/** P1-6 单个 MCP server 状态快照(对齐 ManagedMcpClient.getStatus() 返回值) */
+interface McpServerStatus {
+  serverName: string;
+  alive: boolean;
+  dead: boolean;
+  consecutiveFailures: number;
+  lastPingAt: number;
+  connected: boolean;
+}
+
+/** P1-6 `x.ai/mcp/listServers` 响应 */
+interface McpListServersResponse {
+  servers: McpServerStatus[];
+}
+
+/** P1-6 `x.ai/mcp/serverStatus` 响应 */
+interface McpServerStatusResponse {
+  server: McpServerStatus | null;
+}
+
+/** P1-6 `x.ai/mcp/callTool` 响应 */
+interface McpCallToolResponse {
+  success: boolean;
+  /** tool 输出(content 数组中的 text 拼接) */
+  output: string;
+  /** 失败时的错误消息 */
+  error?: string;
+}
+
+// P1-6 export IhuiAcpAgent(供测试直接实例化,不经过 ACP 协议层调用 MCP 扩展方法)
+export class IhuiAcpAgent {
   private readonly opts: AcpServerOptions;
   private readonly sessions = new Map<string, AcpSessionState>();
 
@@ -313,6 +370,65 @@ class IhuiAcpAgent {
     return response;
   }
 
+  // ==================== P1-6 ACP MCP 扩展方法实现 ====================
+  //
+  // 三个方法都委托给 mcp-runtime.ts 的全局 managedClients 注册表:
+  //   - x.ai/mcp/listServers:列出所有 ManagedMcpClient 状态
+  //   - x.ai/mcp/serverStatus:查询单个 server 的 liveness
+  //   - x.ai/mcp/callTool:转发 tool 调用到 ManagedMcpClient
+  //
+  // feature flag 关闭(settings.mcp.advanced.enabled !== true)时,
+  // managedClients 注册表为空,listServers 返回空数组,serverStatus 返回 null,
+  // callTool 返回 success=false + error 提示(对调用方友好降级)。
+
+  /** `x.ai/mcp/listServers` — 列出所有已注册 ManagedMcpClient 的状态快照 */
+  async listMcpServers(_params: McpListServersParams): Promise<McpListServersResponse> {
+    const servers = listManagedClients();
+    return { servers };
+  }
+
+  /** `x.ai/mcp/serverStatus` — 查询单个 server 的 liveness 状态 */
+  async mcpServerStatus(params: McpServerStatusParams): Promise<McpServerStatusResponse> {
+    const client = getManagedClient(params.serverName);
+    if (!client) return { server: null };
+    return { server: client.getStatus() };
+  }
+
+  /**
+   * `x.ai/mcp/callTool` — 转发 tool 调用到指定 MCP server。
+   * - server 未注册 → success=false + error
+   * - server 已注册但调用失败 → success=false + error(不抛异常,降级返回)
+   * - 成功 → 解析 content 数组中的 text 项拼接为 output
+   */
+  async mcpCallTool(params: McpCallToolParams): Promise<McpCallToolResponse> {
+    const client = getManagedClient(params.serverName);
+    if (!client) {
+      return {
+        success: false,
+        output: '',
+        error: `MCP server 未注册: ${params.serverName}`,
+      };
+    }
+    try {
+      const raw = await client.callTool(params.toolName, params.arguments ?? {});
+      const result = raw as { content?: Array<{ type: string; text?: string }> } | null;
+      if (!result?.content) {
+        return { success: true, output: '(无输出)' };
+      }
+      const texts = result.content
+        .filter((c) => c.type === 'text' && c.text)
+        .map((c) => c.text!)
+        .join('\n');
+      return { success: true, output: texts || '(无文本输出)' };
+    } catch (err) {
+      return {
+        success: false,
+        output: '',
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
   /** 内部:根据 sessionId 查找 AcpSessionState,不存在则抛错 */
   private requireSession(sessionId: string): AcpSessionState {
     const state = this.sessions.get(sessionId);
@@ -358,7 +474,7 @@ function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
       agent.closeSession?.(ctx.params);
       return {};
     })
-    // P0-2 ACP 私有扩展方法(x.ai/* 命名空间,对齐 cli)
+    // P0-2 ACP 私有扩展方法(x.ai/* 命名空间,参考行业 Agent 框架实践)
     // 使用 SDK 三参数重载:onRequest<Params, Response>(method, paramsParser, handler)
     .onRequest<RepairSessionParams, RepairSessionResponse>(
       'x.ai/session/repair',
@@ -375,6 +491,24 @@ function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
       castParams<RewindExecuteParams>(),
       (ctx) => agent.rewindExecute(ctx.params),
     )
+    // P1-6 ACP MCP 私有扩展方法(x.ai/mcp/* 命名空间)
+    // 让 Zed/VSCode 等编辑器能通过 ACP 直接查询 MCP server 状态 / 调用 MCP 工具。
+    // feature flag 关闭时 managedClients 注册表为空,方法仍可调用(返回空/null/失败)。
+    .onRequest<McpListServersParams, McpListServersResponse>(
+      'x.ai/mcp/listServers',
+      castParams<McpListServersParams>(),
+      (ctx) => agent.listMcpServers(ctx.params),
+    )
+    .onRequest<McpServerStatusParams, McpServerStatusResponse>(
+      'x.ai/mcp/serverStatus',
+      castParams<McpServerStatusParams>(),
+      (ctx) => agent.mcpServerStatus(ctx.params),
+    )
+    .onRequest<McpCallToolParams, McpCallToolResponse>(
+      'x.ai/mcp/callTool',
+      castParams<McpCallToolParams>(),
+      (ctx) => agent.mcpCallTool(ctx.params),
+    )
     .onNotification('session/cancel', (ctx) => agent.cancel(ctx.params));
 }
 
@@ -386,6 +520,7 @@ export function startAcpServer(opts: AcpServerOptions): acp.AgentConnection {
 }
 
 // P0-2 类型再导出(供 acp 测试 / 其他模块复用)
+// P1-6 MCP 扩展方法类型一并导出(供 acp mcp 测试复用)
 export type {
   RepairSessionResponse,
   RewindRequest,
@@ -393,4 +528,11 @@ export type {
   RewindPoint,
   ChatMessage,
   Session,
+  McpListServersParams,
+  McpListServersResponse,
+  McpServerStatusParams,
+  McpServerStatusResponse,
+  McpCallToolParams,
+  McpCallToolResponse,
+  McpServerStatus,
 };

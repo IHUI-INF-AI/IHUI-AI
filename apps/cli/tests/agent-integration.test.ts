@@ -3,7 +3,7 @@
  *
  * 覆盖:
  *   1. plugins 传入空 PluginRegistry → 行为与不传 plugins 一致(工具正常执行)
- *   2. plugins 传入带 preToolCall hook 声明的注册表 → getHookExtensions 被调用(hook 入口触发)
+ *   2. plugins 传入带 preToolCall hook 声明的注册表 → runHook 被调用(hook 入口触发)
  *   3. planMachine 传入 initialized 状态 → isWriteBlocked=false,工具正常执行
  *   4. planMachine 传入 gathering 状态 → isWriteBlocked=true,工具不执行,追加阻断提示
  *   5. 不传 planMachine → 行为不变(向后兼容,现有测试通过)
@@ -101,7 +101,7 @@ describe('runToolLoop + Plugins 集成', () => {
     expect(registry.size()).toBe(0)
   })
 
-  it('传入带 preToolCall hook 声明的 PluginRegistry → getHookExtensions 被调用(hook 入口触发)', async () => {
+  it('传入带 preToolCall hook 声明的 PluginRegistry → runHook 被调用(hook 入口触发)', async () => {
     setStreamResponses([
       '```tool_call\n{"name":"mock","arguments":{}}\n```',
       '完成。',
@@ -113,7 +113,7 @@ describe('runToolLoop + Plugins 集成', () => {
       hooks: ['preToolCall', 'postToolCall'],
       tools: ['mock'],
     })
-    const spy = vi.spyOn(registry, 'getHookExtensions')
+    const spy = vi.spyOn(registry, 'runHook')
     const result = await runToolLoop({
       modelId: 'test',
       messages: [
@@ -126,12 +126,12 @@ describe('runToolLoop + Plugins 集成', () => {
     })
     expect(result.stopReason).toBe('end_turn')
     expect(toolCallCount).toBe(1)
-    // getHookExtensions 至少被调用 2 次(preToolCall + postToolCall)
+    // runHook 至少被调用 2 次(preToolCall + postToolCall)
     expect(spy.mock.calls.length).toBeGreaterThanOrEqual(2)
-    // hook 扩展名包含 preToolCall / postToolCall
-    const allHooks = spy.mock.results.flatMap((r) => r.value as string[])
-    expect(allHooks).toContain('preToolCall')
-    expect(allHooks).toContain('postToolCall')
+    // 调用事件包含 preToolCall 和 postToolCall
+    const events = spy.mock.calls.map((c) => c[0])
+    expect(events).toContain('preToolCall')
+    expect(events).toContain('postToolCall')
   })
 
   it('不传 plugins → 行为不变(向后兼容,工具正常执行)', async () => {

@@ -1,4 +1,4 @@
-"""Locust 压测脚本 — 迁移自旧架构 server/locustfile.py
+"""Locust 压测脚本 — 等价自旧架构 server/locustfile.py
 
 覆盖 4 类核心端点：
   1. 认证类（/api/auth/*）

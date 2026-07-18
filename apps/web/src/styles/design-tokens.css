@@ -233,7 +233,7 @@
 }
 
 /* ============ Element Plus 兼容变量 ============ */
-/* 用于 header-dropdown-* 等迁移自 Element Plus 定制的样式。
+/* 用于 header-dropdown-* 等等价自 Element Plus 定制的样式。
  * 映射到当前项目的 Tailwind 4 / shadcn 设计 token,保证引用有效。 */
 :root {
   --el-bg-color: var(--color-card);

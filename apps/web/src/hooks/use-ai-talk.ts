@@ -42,7 +42,7 @@ function makePlaceholder(): AgentContentListItem {
 }
 
 /**
- * AI Talk 入口 Hook。迁移自旧项目 aiBase.js 的 talk + 17 handle 方法,简化为 React hook:
+ * AI Talk 入口 Hook。等价自旧项目 aiBase.js 的 talk + 17 handle 方法,简化为 React hook:
  * talk 按 modelNameEN 分发到 14 个 handle 方法,默认走 handleHttpModel 兜底。
  */
 export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {

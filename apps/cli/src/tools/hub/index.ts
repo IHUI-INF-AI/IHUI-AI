@@ -12,3 +12,4 @@
 export * from './registry.js'
 export * from './resolver.js'
 export * from './adapter.js'
+export * from './mcp-adapter.js'

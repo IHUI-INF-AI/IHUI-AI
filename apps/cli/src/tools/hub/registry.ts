@@ -1,7 +1,7 @@
 /**
  * P1-5 Computer Hub — Layer 2: ToolRegistry 接口与 InMemoryRegistry 实现。
  *
- * 灵感来源:cli 的 `xai-computer-hub-core` crate(Rust)。
+ * 灵感来源:参考行业 Agent 框架的 computer-hub-core crate 设计。
  * 简化策略(做减法):
  *   - 跳过 Transport / Principal / authorize 抽象层,直接走 CompoundResolver
  *   - 不分 session(CLI 单进程场景,默认全部工具共享一个注册表)

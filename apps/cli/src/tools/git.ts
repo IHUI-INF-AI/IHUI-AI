@@ -1,7 +1,7 @@
 /**
  * Git 工具集 — 让 Agent 能自主操作 git。
  *
- * 灵感来源:cli 的 `cli-tools` crate 中的 git 操作工具。
+ * 灵感来源:参考行业 Agent 框架的 tools crate 中的 git 操作工具。
  * 简化策略(做减法):
  *   - 5 个核心工具:git_status / git_diff / git_log / git_add / git_commit
  *   - 使用 spawnSync 直接调用(非 shell,避免注入)

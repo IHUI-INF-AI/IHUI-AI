@@ -2,7 +2,7 @@
  * HunkTracker — 按 hunk(行范围)粒度追踪文件改动来源(Agent vs External),
  * 用于多 subagent 并行冲突检测(AGENTS.md §12)。
  *
- * 灵感来源:cli 的 xai-hunk-tracker crate(Actor-based hunk tracking
+ * 灵感来源:参考行业 Agent 框架的 hunk-tracker 设计(Actor-based hunk tracking
  * with Agent/External attribution),TS 简化实现(做减法):
  *   - 不依赖 git,不做 diff 算法,只按行号范围记录
  *   - 调用方在工具修改文件前后主动调用 recordAgentChange / recordExternalChange

@@ -1,6 +1,6 @@
 # 性能基线（Performance Baseline）
 
-> 迁移自旧架构 `server/docs/PERFORMANCE_BASELINE.md`，适配新架构（TS Monorepo + Fastify + Drizzle）。
+> 等价自旧架构 `server/docs/PERFORMANCE_BASELINE.md`，适配新架构（TS Monorepo + Fastify + Drizzle）。
 
 ## 1. 概述
 

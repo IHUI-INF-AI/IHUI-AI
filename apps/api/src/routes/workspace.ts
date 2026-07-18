@@ -32,6 +32,17 @@ import {
 } from '../db/workspace-queries.js'
 import { success, error } from '../utils/response.js'
 import { getBulkhead } from '../plugins/resilience-extended.js'
+// Workspace wire 类型(adjacent tagging,与 ACP 协议对齐)
+import type {
+  BeginPromptData,
+  EndPromptData,
+  CreateSessionData,
+  SessionCreatedData,
+  PromptStartedData,
+  PromptCompletedData,
+  WorkspaceRequest,
+  WorkspaceEvent,
+} from '@ihui/types'
 
 // =============================================================================
 // 上传目录
@@ -674,5 +685,137 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
 
     await restoreFile(id)
     return reply.send(success({ restored: true }))
+  })
+
+  // ===========================================================================
+  // ACP 风格 Workspace wire 端点(使用 @ihui/types 的 workspace 类型)
+  // 渐进式迁移:新端点用 workspace.ts wire 类型,旧端点保持
+  // ===========================================================================
+
+  const beginPromptSchema = z.object({
+    sessionId: z.string().min(1),
+    prompt: z.string().min(1),
+    attachments: z
+      .array(
+        z.object({
+          kind: z.enum(['file', 'image', 'text']),
+          path: z.string().optional(),
+          content: z.string().optional(),
+          mimeType: z.string().optional(),
+        }),
+      )
+      .optional(),
+    mode: z.enum(['default', 'plan', 'accept-edits', 'bypass-permissions']).optional(),
+  })
+
+  const endPromptSchema = z.object({
+    sessionId: z.string().min(1),
+  })
+
+  const createSessionSchemaACP = z.object({
+    workspaceRoot: z.string().min(1),
+    initialPrompt: z.string().optional(),
+    modelId: z.string().optional(),
+    mode: z.enum(['default', 'plan', 'accept-edits', 'bypass-permissions']).optional(),
+  })
+
+  // POST /workspace/acp/sessions - 创建 ACP 会话
+  // 请求:CreateSessionData,响应:SessionCreatedData(adjacent tagging)
+  server.post('/workspace/acp/sessions', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = createSessionSchemaACP.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const data: CreateSessionData = parsed.data
+    const sessionId = randomUUID()
+    const now = Date.now()
+
+    // wire 类型响应(adjacent tagging,与 ACP 协议对齐)
+    const event: WorkspaceEvent = {
+      type: 'session_created',
+      data: {
+        sessionId,
+        workspaceRoot: data.workspaceRoot,
+        createdAt: now,
+      } satisfies SessionCreatedData,
+    }
+
+    return reply.status(201).send(success(event))
+  })
+
+  // POST /workspace/acp/sessions/:id/begin-prompt - 开始 prompt
+  // 请求:BeginPromptData,响应:PromptStartedData
+  server.post('/workspace/acp/sessions/:id/begin-prompt', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const { id } = idParam.parse(request.params)
+    const body = (request.body ?? {}) as Record<string, unknown>
+    const parsed = beginPromptSchema.safeParse({ ...body, sessionId: id })
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const data: BeginPromptData = parsed.data
+    const promptId = randomUUID()
+    const now = Date.now()
+
+    // 构造 WorkspaceRequest wire 类型(用于日志/转发)
+    const wireReq: WorkspaceRequest = {
+      type: 'begin_prompt',
+      data,
+    }
+
+    const event: WorkspaceEvent = {
+      type: 'prompt_started',
+      data: {
+        sessionId: data.sessionId,
+        promptId,
+        prompt: data.prompt,
+        startedAt: now,
+      } satisfies PromptStartedData,
+    }
+
+    request.log.info({ wireReq, event: 'prompt_started' }, 'ACP begin_prompt')
+    return reply.send(success(event))
+  })
+
+  // POST /workspace/acp/sessions/:id/end-prompt - 结束 prompt
+  // 请求:EndPromptData,响应:PromptCompletedData
+  server.post('/workspace/acp/sessions/:id/end-prompt', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const { id } = idParam.parse(request.params)
+    const body = (request.body ?? {}) as Record<string, unknown>
+    const parsed = endPromptSchema.safeParse({ ...body, sessionId: id })
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const data: EndPromptData = parsed.data
+    const promptId = (body.promptId as string | undefined) ?? randomUUID()
+    const now = Date.now()
+
+    const wireReq: WorkspaceRequest = {
+      type: 'end_prompt',
+      data,
+    }
+
+    const event: WorkspaceEvent = {
+      type: 'prompt_completed',
+      data: {
+        sessionId: data.sessionId,
+        promptId,
+        completedAt: now,
+      } satisfies PromptCompletedData,
+    }
+
+    request.log.info({ wireReq, event: 'prompt_completed' }, 'ACP end_prompt')
+    return reply.send(success(event))
   })
 }

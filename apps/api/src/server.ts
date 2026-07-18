@@ -212,6 +212,12 @@ import { frontendStubOtherRoutes } from './routes/frontend-stub-other-routes.js'
 // P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）
 import { adminReportRoutes } from './routes/report.js'
 
+// P2-2 补建：公告系统 CLI 专用端点（/api/cli/announcements/*）
+import { announcementsRoutes } from './routes/announcements.js'
+
+// P3-2 补建：Telemetry 极简上报端点（/api/v1/telemetry/ingest）
+import { telemetryRoutes } from './routes/telemetry.js'
+
 // P1-3 补建：推送服务（FCM + 个推 HTTP API，无 SDK 依赖）
 import { pushRoutes, adminPushRoutes } from './routes/push.js'
 
@@ -844,6 +850,12 @@ function registerRoutes(server: FastifyInstance) {
 
   // ===== P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）=====
   server.register(adminReportRoutes, { prefix: '/api/admin' })
+
+  // ===== P2-2 补建：公告系统 CLI 专用端点（/api/cli/announcements/*）=====
+  server.register(announcementsRoutes, { prefix: '/api' })
+
+  // ===== P3-2 补建：Telemetry 极简上报端点（/api/v1/telemetry/*）=====
+  server.register(telemetryRoutes, { prefix: '/api' })
 
   // ===== P1-3 补建：推送服务（FCM + 个推 HTTP API）=====
   server.register(pushRoutes, { prefix: '/api' })

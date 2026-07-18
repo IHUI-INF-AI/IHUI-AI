@@ -1,7 +1,7 @@
 /**
  * Permission Rules — 工具白名单/黑名单控制 + 5 种 permission mode。
  *
- * 灵感来源:Claude Code 的 --permission-mode + cli 的 Permission Rules。
+ * 灵感来源:Claude Code 的 --permission-mode + 参考行业 Agent 框架的 Permission Rules。
  * 简化策略(做减法):
  *   - 5 种 mode:default / acceptEdits / bypassPermissions / plan / manual
  *   - allow/deny/ask 三态规则列表,规则优先级高于 mode

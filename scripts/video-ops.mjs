@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 视频下载与 OSS 上传工具（迁移自历史项目 scripts/download_videos.ps1 + upload_to_oss.ps1）
+ * 视频下载与 OSS 上传工具（等价自历史项目 scripts/download_videos.ps1 + upload_to_oss.ps1）
  * 用法:
  *   node scripts/video-ops.mjs download          # 下载所有视频到 ./videos
  *   node scripts/video-ops.mjs upload             # 上传 ./videos 到 OSS

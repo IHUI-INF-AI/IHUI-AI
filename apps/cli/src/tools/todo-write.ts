@@ -1,7 +1,7 @@
 /**
  * TodoWrite 工具 — 让 Agent 管理任务清单(对齐 TRAE IDE 的 TodoWrite)。
  *
- * 灵感来源:cli 的 todo_list 工具 + TRAE IDE 的 TodoWrite。
+ * 灵感来源:参考行业 Agent 框架的 todo_list 工具 + TRAE IDE 的 TodoWrite。
  * 简化策略(做减法):
  *   - 仅支持全量替换 todos 数组(对齐 TRAE IDE 的语义)
  *   - 持久化到 ./.ihui/todos.json(工作区本地,跨会话恢复)

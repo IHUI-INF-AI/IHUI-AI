@@ -1,4 +1,4 @@
-# 告警降噪抑制规则 — 迁移自旧架构 server/noise-rules.yml
+# 告警降噪抑制规则 — 等价自旧架构 server/noise-rules.yml
 # 当上游告警触发时,自动抑制下游衍生告警,避免告警风暴
 # 用法: 在 Alertmanager 配置中 include 本文件,或将其内容合并到 alertmanager.yml 的 inhibit_rules 段
 

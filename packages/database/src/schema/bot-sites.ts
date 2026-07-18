@@ -1,8 +1,8 @@
-import { pgTable, serial, varchar, text, integer, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, integer, timestamp, jsonb } from 'drizzle-orm/pg-core'
 
 /**
  * AI 工具站点信息表（aibot_sites）。
- * 迁移自 Java aibot_sites（ai-bot.cn 工具采集表）。
+ * 等价自 Java aibot_sites（ai-bot.cn 工具采集表）。
  * - section/sub_section: 一级/二级分类。
  * - panel_html: 站点详情面板 HTML。
  */
@@ -18,7 +18,7 @@ export const aibotSites = pgTable('aibot_sites', {
   panelHtml: text('panel_html'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 简化智能体配置表（simple_bot_configs）。
@@ -37,9 +37,9 @@ export const simpleBotConfigs = pgTable('simple_bot_configs', {
   variableCount: integer('variable_count').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type AibotSite = typeof aibotSites.$inferSelect;
-export type NewAibotSite = typeof aibotSites.$inferInsert;
-export type SimpleBotConfig = typeof simpleBotConfigs.$inferSelect;
-export type NewSimpleBotConfig = typeof simpleBotConfigs.$inferInsert;
+export type AibotSite = typeof aibotSites.$inferSelect
+export type NewAibotSite = typeof aibotSites.$inferInsert
+export type SimpleBotConfig = typeof simpleBotConfigs.$inferSelect
+export type NewSimpleBotConfig = typeof simpleBotConfigs.$inferInsert

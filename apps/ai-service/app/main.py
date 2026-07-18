@@ -14,7 +14,7 @@ from app import __version__
 from app.core.config import settings
 from app.core.jwt_auth import JWTAuthMiddleware
 from app.core.schema_check import check_schema, log_report
-from app.routers import a2a, agent_runtime, agents, health, llm, mcp, personas, tools
+from app.routers import a2a, agent_runtime, agents, health, llm, mcp, personas, tools, voice_stt
 from app.routers.legacy import router as legacy_router
 from app.telemetry import setup_telemetry, shutdown_telemetry
 
@@ -80,6 +80,7 @@ def create_app() -> FastAPI:
     app.include_router(a2a.router, prefix="/api", tags=["a2a"])
     app.include_router(personas.router, prefix="/api", tags=["personas"])
     app.include_router(agent_runtime.router, prefix="/api", tags=["agent-runtime"])
+    app.include_router(voice_stt.router, prefix="/api", tags=["voice"])
     app.include_router(legacy_router)
 
     # Prometheus 指标(/metrics 端点,由 prometheus-fastapi-instrumentator 自动暴露)

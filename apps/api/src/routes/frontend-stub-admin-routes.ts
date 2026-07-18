@@ -637,9 +637,6 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   server.patch('/admin/help/articles', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(success({ updated: true }))
   })
-  server.put('/admin/invoices/titles', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
-  })
   server.put('/admin/learn/categories', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(success({ updated: true }))
   })
