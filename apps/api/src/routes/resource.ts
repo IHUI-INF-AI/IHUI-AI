@@ -3,6 +3,9 @@ import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { z } from 'zod'
+import { and, eq, desc } from 'drizzle-orm'
+import { auditLogs } from '@ihui/database'
+import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { authenticate } from '../plugins/auth.js'
 import {
@@ -395,6 +398,29 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ tag }))
     },
   )
+
+  // GET /resource/auth-api/member/last-search-record - 当前用户最近一条搜索记录(迁移自 D 盘历史路径)
+  // 复用 audit_logs 表 action='resource.search' 记录,无记录时返回 null
+  server.get('/resource/auth-api/member/last-search-record', async (request, reply) => {
+    let userId: string | undefined
+    try {
+      await authenticate(request)
+      userId = request.userId
+    } catch {
+      return reply.status(401).send(error(401, 'Authentication required'))
+    }
+    const [record] = await db
+      .select({
+        id: auditLogs.id,
+        details: auditLogs.details,
+        createdAt: auditLogs.createdAt,
+      })
+      .from(auditLogs)
+      .where(and(eq(auditLogs.userId, userId!), eq(auditLogs.action, 'resource.search')))
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(1)
+    return reply.send(success({ record: record ?? null }))
+  })
 }
 
 // =============================================================================

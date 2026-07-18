@@ -724,4 +724,10 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ sent, failed, skipped, queued }))
     },
   )
+
+  // GET /notifications/badge - 未读通知角标(返回 count,与 /unread-count 语义一致,路径别名供前端不同模块调用)
+  server.get('/notifications/badge', async (request, reply) => {
+    const count = await countUnread(request.userId!)
+    return reply.send(success({ count }))
+  })
 }
