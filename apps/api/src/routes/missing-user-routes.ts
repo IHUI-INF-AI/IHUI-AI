@@ -338,10 +338,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     })
     return reply.send(
       success({
-        list: result.list.map((item) => ({
-          ...item,
-          category: item.categoryName,
-        })),
+        list: result.list,
         total: result.total,
         page: q.page,
         pageSize: q.pageSize,
