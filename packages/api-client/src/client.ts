@@ -15,6 +15,16 @@ export function setBaseUrl(url: string): void {
   baseUrl = url.replace(/\/$/, '')
 }
 
+/** 读取当前 token(供需要原生 fetch 的场景使用,如 SSE 流式) */
+export function getToken(): string | null {
+  return tokenProvider.getToken()
+}
+
+/** 规范化 URL(供需要原生 fetch 的场景使用) */
+export function normalizeUrlPublic(url: string): string {
+  return normalizeUrl(url)
+}
+
 function normalizeUrl(url: string): string {
   if (/^https?:\/\//i.test(url)) return url
   const normalized = (() => {
