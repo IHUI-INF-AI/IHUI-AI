@@ -24271,6 +24271,18 @@
         "title": "Innovative",
         "description": "Continuous technological innovation, agent clusters, hierarchical planning and other cutting-edge AI capabilities"
       }
+    },
+    "welcome": {
+      "title": "IHUI AI Membership",
+      "subtitle": "Double Points · Limited-Time Offer",
+      "description": "Subscribe now to access all AI tools, dedicated support, advanced models, and other exclusive benefits to boost your productivity.",
+      "perYear": "/year"
+    },
+    "cta": {
+      "title": "Ready to start your IHUI AI journey?",
+      "subtitle": "Join us now and experience enterprise-grade AI service",
+      "join": "Subscribe Now",
+      "dashboard": "Go to Dashboard"
     }
   }
 }
