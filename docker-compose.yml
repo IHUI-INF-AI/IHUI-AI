@@ -89,7 +89,7 @@ services:
     networks:
       - ihui-net
     healthcheck:
-      test: ['CMD', 'node', '-e', 'process.exit(process.connected ? 0 : 1)']
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8081/health']
       interval: 30s
       timeout: 10s
       retries: 3
