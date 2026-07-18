@@ -1,7 +1,7 @@
 apiVersion: 1
 
 # Grafana 数据源 provisioning — IHUI-AI
-# Prometheus（指标默认数据源）+ Jaeger（分布式追踪）
+# Prometheus（指标默认数据源）+ Jaeger（分布式追踪）+ Loki（日志聚合）
 
 datasources:
   - name: Prometheus
@@ -26,3 +26,18 @@ datasources:
         tags:
           - name: 'service'
             value: 'service.name'
+
+  # Loki 日志聚合(由 promtail 采集 docker 容器/系统日志推送)
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: true
+    jsonData:
+      maxLines: 1000
+      # 链路-日志关联:在 Jaeger trace 详情中可跳转查询同时间窗的 Loki 日志
+      derivedFields:
+        - datasourceUid: prometheus
+          name: TraceMetrics
+          matcherRegex: 'trace_id=(\w+)'
+          url: '/explore?orgId=1&left={"datasource":"prometheus","queries":[{"expr":"{$${__value.raw}}"}]}'
