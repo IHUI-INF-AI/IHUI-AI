@@ -72,6 +72,8 @@ import { cozeVariablesRoutes } from './routes/coze-variables.js'
 import { cozeRoutes } from './routes/coze.js'
 import { cozeEcosystemRoutes } from './routes/coze-ecosystem.js'
 import { cozeTestRoutes } from './routes/coze-test.js'
+import { cozeOauthRoutes } from './routes/coze-oauth.js'
+import { knowledgeRagRoutes } from './routes/knowledge-rag.js'
 import { agenticServiceRoutes } from './routes/agentic-service.js'
 import { adminEduExtendedRoutes, adminCourseAuditRoutes } from './routes/edu-extended.js'
 import aiCallbackRoutes from './routes/ai-callback.js'
@@ -575,6 +577,11 @@ function registerRoutes(server: FastifyInstance) {
   server.register(cozeEcosystemRoutes, { prefix: '/api/coze' })
   // Coze 平台连接性测试:/api/coze/test/pat /api-key /workflow/:id /bot/:id /knowledge/:id
   server.register(cozeTestRoutes, { prefix: '/api' })
+  // Coze OAuth client (项目作为 Coze OAuth client 调用 Coze 平台):
+  // /api/coze/oauth/authorize /token /refresh /jwt /config (4 模式: device/web/pkce/jwt)
+  server.register(cozeOauthRoutes, { prefix: '/api/coze/oauth' })
+  // 知识库 RAG:/api/knowledge/health /ingest /search /rag-context /docs /docs/:id /docs/:id/chunks /docs/:id (DELETE) /docs/batch-delete
+  server.register(knowledgeRagRoutes, { prefix: '/api/knowledge' })
   server.register(agenticServiceRoutes, { prefix: '/api/agent' })
 
   // AI 回调端点(由 AI service 推理完成后 POST 调用,入队 aiCallback)
