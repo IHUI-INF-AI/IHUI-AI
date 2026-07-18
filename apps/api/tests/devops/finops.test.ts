@@ -169,4 +169,78 @@ describe('finops — 成本优化', () => {
       expect(notifier).toHaveBeenCalledWith('warning')
     })
   })
+
+  describe('边缘场景 (存储分层 / 跨区流量优化)', () => {
+    it('FinOps 边缘: 存储分层冷数据迁移到归档层后,成本降低 80%', () => {
+      // arrange: 低频访问层的冷数据,90 天+/120 天+ 未访问
+      const coldObjects: StorageObject[] = [
+        {
+          key: 'log-2024-01.gz',
+          size: 100 * 1024 * 1024,
+          lastAccessAt: now - 90 * 86400_000,
+          storageClass: 'infrequent_access',
+        },
+        {
+          key: 'log-2024-02.gz',
+          size: 200 * 1024 * 1024,
+          lastAccessAt: now - 120 * 86400_000,
+          storageClass: 'infrequent_access',
+        },
+      ]
+      // mock: 各存储层级月单价 (元/GB)
+      const priceTable: Record<StorageObject['storageClass'], number> = {
+        standard: 0.12,
+        infrequent_access: 0.05,
+        archive: 0.01,
+      }
+      const computeCost = vi.fn((objs: StorageObject[]) =>
+        objs.reduce(
+          (sum, o) => sum + (o.size / 1024 / 1024 / 1024) * priceTable[o.storageClass],
+          0,
+        ),
+      )
+
+      // act: 迁移前成本 → 冷数据降到 archive → 迁移后成本
+      const costBefore = computeCost(coldObjects)
+      const migrated = coldObjects.map((o) => ({ ...o, storageClass: 'archive' as const }))
+      const costAfter = computeCost(migrated)
+
+      // assert: archive 单价是 infrequent_access 的 20% → 成本降低 80%
+      expect(computeCost).toHaveBeenCalledTimes(2)
+      expect(costAfter).toBeLessThan(costBefore)
+      expect(costAfter / costBefore).toBeCloseTo(0.2, 2)
+      expect((costBefore - costAfter) / costBefore).toBeCloseTo(0.8, 2)
+    })
+
+    it('FinOps 边缘: 跨区流量优化后,流量费下降 60%', () => {
+      // arrange: 优化前 a→b 跨区流量 800MB,同区免费
+      const beforeSamples: TrafficSample[] = [
+        { sourceZone: 'a', destZone: 'b', bytes: 500 * 1024 * 1024 },
+        { sourceZone: 'a', destZone: 'b', bytes: 300 * 1024 * 1024 },
+        { sourceZone: 'a', destZone: 'a', bytes: 800 * 1024 * 1024 },
+      ]
+      // mock: 跨区流量 0.5 元/GB,同区免费
+      const CROSS_ZONE_RATE = 0.5
+      const calcTrafficFee = vi.fn((samples: TrafficSample[]) =>
+        samples
+          .filter((s) => s.sourceZone !== s.destZone)
+          .reduce((sum, s) => sum + (s.bytes / 1024 / 1024 / 1024) * CROSS_ZONE_RATE, 0),
+      )
+
+      // act: 优化前费用 → CDN/缓存回源使 60% 跨区流量转同区 → 优化后费用
+      const feeBefore = calcTrafficFee(beforeSamples)
+      const afterSamples: TrafficSample[] = [
+        { sourceZone: 'a', destZone: 'b', bytes: 200 * 1024 * 1024 }, // 500MB → 200MB (40%)
+        { sourceZone: 'a', destZone: 'b', bytes: 120 * 1024 * 1024 }, // 300MB → 120MB (40%)
+        { sourceZone: 'a', destZone: 'a', bytes: 1280 * 1024 * 1024 }, // 同区累计免费
+      ]
+      const feeAfter = calcTrafficFee(afterSamples)
+
+      // assert: 跨区流量降至 40% → 流量费下降 60%
+      expect(calcTrafficFee).toHaveBeenCalledTimes(2)
+      expect(feeAfter).toBeLessThan(feeBefore)
+      expect(feeAfter / feeBefore).toBeCloseTo(0.4, 2)
+      expect((feeBefore - feeAfter) / feeBefore).toBeCloseTo(0.6, 2)
+    })
+  })
 })
