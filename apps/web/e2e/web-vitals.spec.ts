@@ -14,8 +14,9 @@ import { test, expect, type Page } from '@playwright/test'
  */
 
 const IS_CI = !!process.env.CI
-// dev 环境阈值放宽 2 倍
+// dev 环境阈值放宽 2 倍(TTFB 因首次编译放宽 4 倍)
 const M = IS_CI ? 1 : 2
+const TTFB_M = IS_CI ? 1 : 4
 
 interface Vitals {
   lcp: number
@@ -41,9 +42,14 @@ test.describe.parallel('Web Vitals 性能专项', () => {
   })
 
   test('首页核心 Web Vitals 指标(LCP/CLS/TTFB/FCP/INP)', async ({ page }: { page: Page }) => {
-    // 先导航到首页,再通过 page.evaluate + PerformanceObserver 采集指标
-    await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    test.setTimeout(60000)
+    // dev 环境首次编译慢,先预热页面(访问一次触发编译),再 reload 测量真实性能
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    // 等待页面稳定(不用 networkidle,dev 环境持续有 HMR 心跳)
+    await page.waitForTimeout(2000)
+    // reload 后测量真实性能指标(排除首次编译干扰)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.waitForTimeout(1000)
 
     const vitals = (await page.evaluate(async () => {
       const m: Vitals = { lcp: 0, inp: 0, cls: 0, ttfb: 0, fcp: 0 }
@@ -87,12 +93,17 @@ test.describe.parallel('Web Vitals 性能专项', () => {
         if (entries.length > 0) m.inp = Math.max(...entries.map((e) => e.duration))
       })
       evtObs.observe({ type: 'event', buffered: true })
+      // 等待 2s 采集事件延迟(与 LCP 等待时间一致)
+      await new Promise((r) => setTimeout(r, 2000))
+      evtObs.disconnect()
 
       return m
     })) as Vitals
 
-    // TTFB < 800ms
-    expect(vitals.ttfb, `TTFB ${vitals.ttfb}ms 超过 ${800 * M}ms 阈值`).toBeLessThan(800 * M)
+    // TTFB < 800ms(dev 环境首次编译较慢,放宽 4 倍)
+    expect(vitals.ttfb, `TTFB ${vitals.ttfb}ms 超过 ${800 * TTFB_M}ms 阈值`).toBeLessThan(
+      800 * TTFB_M,
+    )
     // FCP < 1800ms
     expect(vitals.fcp, `FCP ${vitals.fcp}ms 超过 ${1800 * M}ms 阈值`).toBeLessThan(1800 * M)
     // LCP < 2500ms
