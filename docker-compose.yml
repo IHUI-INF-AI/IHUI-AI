@@ -278,6 +278,68 @@ services:
     networks:
       - ihui-net
 
+  # Loki(日志聚合后端,接收 Promtail 推送的日志)
+  # 配置文件挂载到 /etc/loki/local-config.yaml(沿用镜像默认命令路径)
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: ihui-loki
+    restart: unless-stopped
+    command:
+      - '-config.file=/etc/loki/local-config.yaml'
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki-data:/loki-data
+    ports:
+      - '${LOKI_PORT:-3100}:3100'
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q http://localhost:3100/ready || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+
+  # Promtail(日志采集器,抓取 Docker 容器 + Nginx + API 应用日志,推送到 Loki)
+  # 通过 docker_sd_configs 自动发现带 logging=promtail 标签的容器
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: ihui-promtail
+    restart: unless-stopped
+    command:
+      - '-config.file=/etc/promtail/promtail-config.yml'
+    volumes:
+      # 配置文件
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml
+      # Docker 容器日志(只读)
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # 宿主机 /var/log(只读,用于采集 Nginx 等系统日志)
+      - /var/log:/var/log:ro
+      # Docker socket(用于 docker_sd_configs 自动发现容器)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # API 应用日志目录(只读,需要在 docker-compose 服务中通过 volumes 共享 ./apps/api/logs)
+      - ./apps/api/logs:/apps/api/logs:ro
+      # Promtail 读取位置持久化(重启后不重复读取)
+      - promtail-positions:/tmp
+    depends_on:
+      loki:
+        condition: service_started
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q http://localhost:9080/ready || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 networks:
   ihui-net:
     driver: bridge
@@ -287,3 +349,5 @@ volumes:
   redisdata:
   prometheusdata:
   grafanadata:
+  loki-data: # Loki 数据持久化(chunks + index + compactor)
+  promtail-positions: # Promtail 读取位置持久化(positions.yaml)
