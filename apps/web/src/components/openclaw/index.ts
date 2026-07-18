@@ -1,0 +1,8 @@
+export { MemoryPanel } from './memory-panel'
+export { SkillsPanel } from './skills-panel'
+export { AutomationPanel } from './automation-panel'
+export { IntegrationsPanel } from './integrations-panel'
+export { ModelsPanel } from './models-panel'
+export { VoicePanel } from './voice-panel'
+export { CanvasPanel } from './canvas-panel'
+export { BrowserPanel } from './browser-panel'

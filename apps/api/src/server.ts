@@ -195,6 +195,8 @@ import { adminAuthEduRoutes } from './routes/admin-auth-edu-routes.js'
 import { adminMonitoringRoutes } from './routes/admin-monitoring-routes.js'
 // 商城路由（10 个端点，替代空桩）
 import { adminShopRoutes } from './routes/admin-shop-routes.js'
+// 发票抬头路由（4 个端点，替代空桩）
+import { adminInvoicesRoutes } from './routes/admin-invoices.js'
 // 前端用户端缺失路由补建（54 个路由：空数据桩）
 import { missingUserRoutes } from './routes/missing-user-routes.js'
 // 补桩：文章列表 / 用户签到 / 教育课程作业评分证书 / 学习记录上传
@@ -822,6 +824,7 @@ function registerRoutes(server: FastifyInstance) {
   server.register(adminAuthEduRoutes, { prefix: '/api/admin' })
   server.register(adminMonitoringRoutes, { prefix: '/api/admin' })
   server.register(adminShopRoutes, { prefix: '/api/admin' })
+  server.register(adminInvoicesRoutes, { prefix: '/api/admin' })
 
   // ===== 前端用户端缺失路由补建（54 个路由）=====
   // 全部空数据桩，覆盖：文章 / 内容生成 / 知识库 / 技能 / 学习记录 / MCP / OpenClaw
