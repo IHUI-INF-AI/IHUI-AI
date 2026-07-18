@@ -141,7 +141,7 @@ const SIDEBAR_MAX_WIDTH = 180
 const SIDEBAR_COLLAPSED_WIDTH = 60
 const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
 
-const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: '',
     items: [{ href: '/home', labelKey: 'home', icon: Home }],
@@ -242,7 +242,10 @@ function flattenNavItems(items: NavItem[]): NavItem[] {
   return items.flatMap((item) => [item, ...(item.children ? flattenNavItems(item.children) : [])])
 }
 
-const ALL_NAV_HREFS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items)).map((i) => i.href)
+export const ALL_NAV_HREFS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items)).map((i) => i.href)
+
+/** 扁平化主侧边栏导航项,供 TagsView 等复用 path -> labelKey 映射 */
+export const FLAT_NAV_ITEMS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items))
 
 const LANGUAGES: { code: Language; name: string }[] = [
   { code: 'zh-CN', name: '简体中文' },
