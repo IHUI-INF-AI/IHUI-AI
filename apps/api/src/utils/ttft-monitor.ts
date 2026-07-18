@@ -24,6 +24,7 @@
  */
 
 import { logger } from './logger.js'
+import { inferenceLatencyFromTimestamps, type InferenceLatencyStats } from './inference-metrics.js'
 
 // =============================================================================
 // 类型定义
@@ -278,6 +279,8 @@ export class StreamTTFT {
   private gotFirstToken = false
   private ended = false
   private readonly monitor: TtftMonitor
+  /** P47-A:每个 token 的绝对时间戳(秒),end() 时产出 ITL 分布 */
+  private tokenTimestamps: number[] = []
 
   constructor(
     model: string,
@@ -301,6 +304,8 @@ export class StreamTTFT {
       this.gotFirstToken = true
     }
     this.tokenCount++
+    // P47-A:记录绝对时间戳(秒),end() 时产出 ITL 分布
+    this.tokenTimestamps.push(Date.now() / 1000)
   }
 
   /** 设置错误信息。 */
@@ -326,6 +331,23 @@ export class StreamTTFT {
 
     const ttftSec = this.firstTokenTime - this.startTime
     const totalSec = this.endTime - this.startTime
+
+    // P47-A:产出单次推理 stats(ITL p50/p99/max/mean),logger.debug 输出
+    try {
+      const now = Date.now()
+      const stats: InferenceLatencyStats = inferenceLatencyFromTimestamps(
+        this.startTime * 1000,
+        // 用绝对 ms 时间戳构造,避免与 elapsed 重复计算
+        this.tokenTimestamps.map((t) => t * 1000),
+        now,
+      )
+      stats.attempts = 1
+      logger.debug(
+        `[inference-metrics] model=${this.model} endpoint=${this.endpoint} itlP50=${stats.itlP50Ms} itlP99=${stats.itlP99Ms} itlMax=${stats.itlMaxMs} chunks=${stats.chunkCount}`,
+      )
+    } catch {
+      // 推理 stats 失败不阻塞 ttft 上报
+    }
 
     this.monitor.record(
       this.model,
