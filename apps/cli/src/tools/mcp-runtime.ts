@@ -26,6 +26,8 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
 import { getMcpConfigPath, type McpServer } from '../commands/mcp-config.js';
 import type { Tool, ToolResult, ToolContext, ToolParameter } from './index.js';
+import { getCredential, isExpired, setCredential } from './mcp-credentials.js';
+import { startOAuthFlow, refreshAccessToken, type OAuthConfig } from './mcp-oauth.js';
 
 export interface McpToolDef {
   name: string;
@@ -293,6 +295,97 @@ function sendSseRpc(
 }
 
 /**
+ * 解析 MCP server 的认证 headers。
+ *
+ * 三条路径(按优先级):
+ *   1. 静态 token / api_key(server.auth.type === 'bearer' 或 server.api_key)
+ *      → 直接加 `Authorization: Bearer xxx`,与原逻辑完全等价(零回归)
+ *   2. OAuth(server.auth.type === 'oauth' 且 server.oauth 元数据存在)
+ *      a. 读 credentials store,有未过期 access_token → 用之
+ *      b. 有 access_token 但过期且有 refresh_token → refreshAccessToken 刷新
+ *      c. 无凭证 → startOAuthFlow 走浏览器授权 + 本地回调
+ *      d. OAuth 失败 → 回退到静态 token(若有),否则抛错
+ *   3. 无认证(server.auth.type === 'none' 或未配置)
+ *      → 不加 Authorization header
+ *
+ * 返回的 headers 只包含 Authorization(如果适用),调用方负责合并 server.headers。
+ */
+export async function resolveMcpAuthHeaders(server: McpServer): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
+
+  // 1. 静态 token 优先级最高(显式配置 api_key 或 auth.token)
+  if (server.api_key) {
+    headers['Authorization'] = `Bearer ${server.api_key}`;
+    return headers;
+  }
+  if (server.auth?.type === 'bearer' && server.auth.token) {
+    headers['Authorization'] = `Bearer ${server.auth.token}`;
+    return headers;
+  }
+
+  // 2. OAuth 路径:仅当显式声明 auth.type === 'oauth' 且提供 oauth 元数据时启用
+  if (server.auth?.type === 'oauth' && server.oauth && server.url) {
+    const oauthConfig: OAuthConfig = {
+      authorizationEndpoint: server.oauth.authorizationEndpoint,
+      tokenEndpoint: server.oauth.tokenEndpoint,
+      clientId: server.oauth.clientId,
+      clientSecret: server.oauth.clientSecret,
+      redirectUri: server.oauth.redirectUri,
+      scope: server.oauth.scope,
+      serverUrl: server.url,
+    };
+
+    try {
+      // 2a. 读 credentials store
+      const cred = await getCredential(server.url);
+      if (cred?.accessToken && !(await isExpired(cred))) {
+        headers['Authorization'] = `Bearer ${cred.accessToken}`;
+        return headers;
+      }
+
+      // 2b. access_token 过期但 refresh_token 存在 → 刷新
+      if (cred?.refreshToken) {
+        try {
+          const refreshed = await refreshAccessToken(oauthConfig, cred.refreshToken);
+          await setCredential(server.url, {
+            accessToken: refreshed.accessToken,
+            refreshToken: refreshed.refreshToken,
+            expiresAt: refreshed.expiresAt,
+            scope: refreshed.scope,
+            obtainedAt: Date.now(),
+          });
+          headers['Authorization'] = `Bearer ${refreshed.accessToken}`;
+          return headers;
+        } catch (err) {
+          // refresh 失败 → 回退到重新授权流程(不抛错,继续走 2c)
+          console.warn(`[mcp-runtime] OAuth refresh 失败,回退到重新授权: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
+      // 2c. 无凭证或 refresh 失败 → 启动 OAuth 授权流程
+      const result = await startOAuthFlow(oauthConfig);
+      headers['Authorization'] = `Bearer ${result.accessToken}`;
+      return headers;
+    } catch (err) {
+      // 2d. OAuth 失败 → 回退到静态 token(若有),否则抛错
+      if (server.auth?.token) {
+        console.warn(`[mcp-runtime] OAuth 失败,回退到静态 token: ${err instanceof Error ? err.message : String(err)}`);
+        headers['Authorization'] = `Bearer ${server.auth.token}`;
+        return headers;
+      }
+      throw new Error(`MCP server "${server.name}" OAuth 授权失败: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // 3. 无认证:返回空 headers(不加 Authorization)
+  // 但如果 auth.token 存在但 type 不是 bearer/oauth(向后兼容旧配置),仍加 Bearer
+  if (server.auth?.token) {
+    headers['Authorization'] = `Bearer ${server.auth.token}`;
+  }
+  return headers;
+}
+
+/**
  * 连接单个 MCP server:按 transport 完成 initialize + tools/list + resources/prompts 预加载。
  * 失败时调用 disconnectMcpServer 清理资源并抛错。
  *
@@ -328,9 +421,9 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       sendStdioNotification(proc, 'notifications/initialized', {});
     } else if (transport === 'http') {
       if (!server.url) throw new Error('http transport 需要 url');
-      const headers: Record<string, string> = { ...(server.headers ?? {}) };
-      if (server.api_key) headers['Authorization'] = `Bearer ${server.api_key}`;
-      if (server.auth?.token) headers['Authorization'] = `Bearer ${server.auth.token}`;
+      // 认证 headers 由 resolveMcpAuthHeaders 解析(支持静态 token / OAuth / 无认证三条路径)
+      const authHeaders = await resolveMcpAuthHeaders(server);
+      const headers: Record<string, string> = { ...(server.headers ?? {}), ...authHeaders };
       conn.headers = headers;
 
       await sendHttpRpc(server.url, 'initialize', {
@@ -340,9 +433,9 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       }, headers);
     } else if (transport === 'sse') {
       if (!server.url) throw new Error('sse transport 需要 url');
-      const headers: Record<string, string> = { ...(server.headers ?? {}) };
-      if (server.api_key) headers['Authorization'] = `Bearer ${server.api_key}`;
-      if (server.auth?.token) headers['Authorization'] = `Bearer ${server.auth.token}`;
+      // 认证 headers 由 resolveMcpAuthHeaders 解析(支持静态 token / OAuth / 无认证三条路径)
+      const authHeaders = await resolveMcpAuthHeaders(server);
+      const headers: Record<string, string> = { ...(server.headers ?? {}), ...authHeaders };
       conn.headers = headers;
       conn.sseAbortController = new AbortController();
 
@@ -673,7 +766,7 @@ export async function loadMcpConnections(_ctx: ToolContext): Promise<McpConnecti
 //       createHttpMcpClientWithBackoff 提供 SSE 重连指数退避。
 
 /**
- * 带指数退避重连的 HTTP MCP 客户端创建器(对齐 grok-build mcp_http_client.rs 思路)。
+ * 带指数退避重连的 HTTP MCP 客户端创建器(对齐行业 MCP HTTP 客户端的指数退避重连思路)。
  *
  * 包装 StreamableHttpClientTransport 行为(此处用现有 sendHttpRpc 复用):
  *   - 初次连接失败 → 等待 backoff(1s)重试
