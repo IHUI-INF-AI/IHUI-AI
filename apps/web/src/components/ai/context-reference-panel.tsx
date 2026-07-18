@@ -1,16 +1,22 @@
 'use client'
 
 import * as React from 'react'
-import { FileText, Link as LinkIcon, Type, ImageIcon, ChevronDown, X } from 'lucide-react'
+import { FileText, Link as LinkIcon, Type, ImageIcon, Film, ChevronDown, X } from 'lucide-react'
 
 import { Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
+type ReferenceType = 'file' | 'url' | 'text' | 'image' | 'video'
+
 interface ReferenceItem {
   id: string
-  type: 'file' | 'url' | 'text' | 'image'
+  type: ReferenceType
   label: string
   preview?: string
+  /** 图片/视频缩略图 URL(objectURL) */
+  thumbnail?: string
+  /** 原始文件大小(字节) */
+  size?: number
 }
 
 interface ContextReferencePanelProps {
@@ -19,13 +25,14 @@ interface ContextReferencePanelProps {
 }
 
 const TYPE_META: Record<
-  ReferenceItem['type'],
+  ReferenceType,
   { icon: React.ComponentType<{ className?: string }>; cls: string }
 > = {
   file: { icon: FileText, cls: 'text-primary' },
   url: { icon: LinkIcon, cls: 'text-purple-500' },
   text: { icon: Type, cls: 'text-emerald-500' },
   image: { icon: ImageIcon, cls: 'text-amber-500' },
+  video: { icon: Film, cls: 'text-rose-500' },
 }
 
 export function ContextReferencePanel({ references, onRemove }: ContextReferencePanelProps) {
@@ -53,11 +60,29 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
             const meta = TYPE_META[ref.type]
             const Icon = meta.icon
             const isOpen = expanded.has(ref.id)
-            const hasPreview = Boolean(ref.preview)
+            const hasPreview = Boolean(ref.preview) || Boolean(ref.thumbnail)
+            const hasThumbnail = Boolean(ref.thumbnail)
             return (
               <li key={ref.id} className="px-4 py-2.5">
                 <div className="flex items-center gap-2">
-                  <Icon className={cn('h-4 w-4 shrink-0', meta.cls)} />
+                  {/* 图片/视频缩略图优先显示(覆盖默认图标) */}
+                  {hasThumbnail && ref.type === 'image' ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={ref.thumbnail}
+                      alt={ref.label}
+                      className="h-10 w-10 shrink-0 rounded-md border object-cover"
+                    />
+                  ) : hasThumbnail && ref.type === 'video' ? (
+                    <video
+                      src={ref.thumbnail}
+                      className="h-10 w-10 shrink-0 rounded-md border bg-black object-cover"
+                      muted
+                      preload="metadata"
+                    />
+                  ) : (
+                    <Icon className={cn('h-4 w-4 shrink-0', meta.cls)} />
+                  )}
                   <button
                     type="button"
                     onClick={() => hasPreview && toggle(ref.id)}
@@ -87,7 +112,28 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
                     </Button>
                   )}
                 </div>
-                {hasPreview && isOpen && (
+                {hasThumbnail && isOpen && (
+                  <div className="mt-2 overflow-hidden rounded-md bg-muted/40 p-2">
+                    {ref.type === 'image' ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={ref.thumbnail}
+                        alt={ref.label}
+                        className="max-h-64 w-full rounded-md object-contain"
+                      />
+                    ) : (
+                      <video
+                        src={ref.thumbnail}
+                        className="max-h-64 w-full rounded-md"
+                        controls
+                        preload="metadata"
+                      >
+                        <track kind="captions" />
+                      </video>
+                    )}
+                  </div>
+                )}
+                {!hasThumbnail && ref.preview && isOpen && (
                   <p className="mt-1.5 whitespace-pre-wrap rounded-md bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
                     {ref.preview}
                   </p>
