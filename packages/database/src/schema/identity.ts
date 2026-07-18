@@ -1,4 +1,4 @@
-import { pgTable, bigserial, varchar, integer, text, timestamp, bigint, index } from 'drizzle-orm/pg-core';
+import { pgTable, bigserial, varchar, integer, timestamp, bigint, index } from 'drizzle-orm/pg-core';
 
 /**
  * 身份认证主表（zhs_identity）。
@@ -43,31 +43,11 @@ export const zhsOrganization = pgTable(
   }),
 );
 
-/**
- * OAuth 私钥表（oauth_private_keys）。
- * - key_type: rsa/ec/hmac。
- * - key_data: 私钥原文（部署时应加密存储）。
- */
-export const oauthPrivateKeys = pgTable(
-  'oauth_private_keys',
-  {
-    id: bigserial('id', { mode: 'number' }).primaryKey(),
-    appId: varchar('app_id', { length: 64 }).notNull(),
-    keyType: varchar('key_type', { length: 32 }).default('rsa').notNull(),
-    keyData: text('key_data').notNull(),
-    status: integer('status').default(1).notNull(),
-    createTime: timestamp('create_time', { withTimezone: true }).defaultNow().notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    statusIdx: index('ix_oauth_private_keys_status').on(t.status),
-  }),
-);
+// NOTE: oauthPrivateKeys 已迁移到 ./oauth-private-keys.ts (clientId/privateKey/publicKey/isActive 字段)
+// 旧定义 (appId/keyData/status 字段) 已删除,避免与 schema/index.ts 的 re-export 冲突。
+// 类型 OauthPrivateKey / NewOauthPrivateKey 也从该文件统一导出。
 
 export type ZhsIdentity = typeof zhsIdentity.$inferSelect;
 export type NewZhsIdentity = typeof zhsIdentity.$inferInsert;
 export type ZhsOrganization = typeof zhsOrganization.$inferSelect;
 export type NewZhsOrganization = typeof zhsOrganization.$inferInsert;
-export type OAuthPrivateKey = typeof oauthPrivateKeys.$inferSelect;
-export type NewOAuthPrivateKey = typeof oauthPrivateKeys.$inferInsert;
