@@ -369,7 +369,9 @@
     "mainNav": "Main Navigation",
     "knowledgeBase": "Knowledge Base",
     "announcements": "Announcements",
-    "overview": "Overview"
+    "overview": "Overview",
+    "enterprise": "Enterprise Services",
+    "aiWorld": "AI World"
   },
   "auth": {
     "loginTitle": "Welcome Back",
@@ -24075,6 +24077,7 @@
     "welcome": {
       "title": "Welcome to the Zhihui AI Community",
       "subtitle": "AI-era rational efficiency services and a mutual-aid community. We help decision-makers deeply understand the relationship between AI and the enterprise, building a super organization of human-machine collaboration.",
+      "description": "Join the community now to access all AI tools, dedicated support, advanced models, and other exclusive benefits to boost your productivity.",
       "perYear": "days/year of companionship",
       "benefits": {
         "benefit1": "Free participation in all courses throughout the year",
@@ -24272,29 +24275,6 @@
         "title": "Innovative",
         "description": "Continuous technological innovation, agent clusters, hierarchical planning and other cutting-edge AI capabilities"
       }
-    },
-    "welcome": {
-      "title": "IHUI AI Membership",
-      "subtitle": "Double Points · Limited-Time Offer",
-      "description": "Subscribe now to access all AI tools, dedicated support, advanced models, and other exclusive benefits to boost your productivity.",
-      "perYear": "/year",
-      "legacyTitle": "Welcome to IHUI AI Community",
-      "legacySubtitle": "Enterprise rational efficiency services and mutual-aid community in the AI era. Helping decision-makers deeply understand the relationship between AI and enterprise, building human-machine collaborative super organizations.",
-      "legacyPerYear": "days/year companionship",
-      "benefits": {
-        "benefit1": "Free access to all courses for the whole year",
-        "benefit2": "Priority participation in exploration activities",
-        "benefit3": "Unlimited community mutual aid",
-        "benefit4": "Exclusive online community entrance",
-        "benefit5": "Priority experience of AI assistant",
-        "benefit6": "Full refund if not satisfied"
-      }
-    },
-    "cta": {
-      "title": "Ready to start your IHUI AI journey?",
-      "subtitle": "Join us now and experience enterprise-grade AI service",
-      "join": "Subscribe Now",
-      "dashboard": "Go to Dashboard"
     }
   }
 }

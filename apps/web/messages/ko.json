@@ -369,7 +369,9 @@
     "mainNav": "메인 내비게이션",
     "knowledgeBase": "지식 베이스",
     "announcements": "공지사항",
-    "overview": "개요"
+    "overview": "개요",
+    "enterprise": "기업 서비스",
+    "aiWorld": "AI 월드"
   },
   "auth": {
     "loginTitle": "돌아오신 것을 환영합니다",
@@ -24065,6 +24067,7 @@
     "welcome": {
       "title": "지후이 AI 커뮤니티에 오신 것을 환영합니다",
       "subtitle": "AI 시대 기업 합리적 효율 서비스와 상호 지원 커뮤니티. 의사결정자가 AI와 기업의 관계를 깊이 이해하고, 인간-기계 협업의 슈퍼 조직을 구축하도록 돕습니다.",
+      "description": "지금 커뮤니티에 참여하여 모든 AI 도구, 전담 지원, 고급 모델 액세스 등의 혜택을 누려보세요. 업무 효율을 높여줍니다.",
       "perYear": "일/년 동반",
       "benefits": {
         "benefit1": "연중 모든 코스 무료 참여",
@@ -24262,29 +24265,6 @@
         "title": "혁신성",
         "description": "지속적인 기술 혁신, 에이전트 클러스터, 계층적 계획 등 최첨단 AI 역량"
       }
-    },
-    "welcome": {
-      "title": "IHUI AI 멤버십",
-      "subtitle": "포인트 2배 · 한정 특가",
-      "description": "지금 멤버십을 개통하여 모든 AI 도구, 전담 지원, 고급 모델 액세스 등의 혜택을 누려보세요. 업무 효율을 높여줍니다.",
-      "perYear": "/년",
-      "legacyTitle": "IHUI AI 커뮤니티에 오신 것을 환영합니다",
-      "legacySubtitle": "AI 시대 기업 합리적 효율 서비스 및 상호 지원 커뮤니티. 의사결정자가 AI와 기업의 관계를 깊이 이해하고 인간-기계 협력의 슈퍼 조직을 구축하도록 돕습니다.",
-      "legacyPerYear": "일/년 동반",
-      "benefits": {
-        "benefit1": "연중 모든 강의 무료 참가",
-        "benefit2": "탐색 활동 우선 참여",
-        "benefit3": "커뮤니티 상호 지원 무제한",
-        "benefit4": "온라인 커뮤니티 전용 입구",
-        "benefit5": "AI 어시스턴트 우선 체험",
-        "benefit6": "만족하지 않을 경우 전액 환불"
-      }
-    },
-    "cta": {
-      "title": "IHUI AI 여정을 시작할 준비가 되셨나요?",
-      "subtitle": "지금 참여하여 엔터프라이즈급 AI 서비스를 경험하세요",
-      "join": "즉시 개통",
-      "dashboard": "대시보드로"
     }
   }
 }
