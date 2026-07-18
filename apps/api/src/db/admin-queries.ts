@@ -1,6 +1,6 @@
 import { eq, sql, and, or, ilike, isNull, gt, desc, notInArray } from 'drizzle-orm'
 import { db } from './index.js'
-import { users, projects, refreshTokens } from '@ihui/database'
+import { users, projects, refreshTokens, agreements, carousels, newsArticles } from '@ihui/database'
 
 // 公开字段：精确选字段，排除 password_hash
 const userPublicFields = {
@@ -277,4 +277,90 @@ export async function updateProjectAdmin(
 export async function deleteProjectAdmin(id: string): Promise<boolean> {
   const rows = await db.delete(projects).where(eq(projects.id, id)).returning({ id: projects.id })
   return rows.length > 0
+}
+
+/**
+ * 查询全部用户协议(按生效日期倒序)。
+ * 供 /api/admin/agreements GET 使用。
+ */
+export async function findAllAgreements() {
+  return db
+    .select({
+      id: agreements.id,
+      type: agreements.type,
+      title: agreements.title,
+      version: agreements.version,
+      effectiveDate: agreements.effectiveDate,
+      status: agreements.status,
+      publishedBy: agreements.publishedBy,
+      createdAt: agreements.createdAt,
+      updatedAt: agreements.updatedAt,
+    })
+    .from(agreements)
+    .orderBy(desc(agreements.effectiveDate), desc(agreements.createdAt))
+}
+
+/**
+ * 分页查询广告(轮播图)列表。
+ * 供 /api/admin/advertise GET 使用。对应 carousels 表。
+ */
+export async function findAdvertisements({
+  page,
+  pageSize,
+  title,
+}: {
+  page: number
+  pageSize: number
+  title?: string
+}): Promise<{ list: Array<typeof carousels.$inferSelect>; total: number }> {
+  const conds = []
+  if (title) conds.push(ilike(carousels.title, `%${title}%`))
+  const where = conds.length ? and(...conds) : undefined
+  const [list, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(carousels)
+      .where(where)
+      .orderBy(desc(carousels.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(carousels)
+      .where(where),
+  ])
+  return { list, total: totalRows[0]?.count ?? 0 }
+}
+
+/**
+ * 分页查询资讯文章列表。
+ * 供 /api/admin/article GET 使用。对应 news_articles 表。
+ * status 过滤:0=草稿 1=已发布(与 news_articles.status 字段一致)。
+ */
+export async function findArticles({
+  page,
+  pageSize,
+  status,
+}: {
+  page: number
+  pageSize: number
+  status?: number
+}): Promise<{ list: Array<typeof newsArticles.$inferSelect>; total: number }> {
+  const conds = []
+  if (status !== undefined) conds.push(eq(newsArticles.status, status))
+  const where = conds.length ? and(...conds) : undefined
+  const [list, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(newsArticles)
+      .where(where)
+      .orderBy(desc(newsArticles.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(newsArticles)
+      .where(where),
+  ])
+  return { list, total: totalRows[0]?.count ?? 0 }
 }

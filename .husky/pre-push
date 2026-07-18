@@ -7,11 +7,53 @@ git lfs pre-push "$@"
 #      pre-push 强制清缓存 + 串行全量 typecheck 修复该问题
 # 跳过的方法:HUSKY_SKIP_TYPECHECK=1(紧急 push 时使用,但建议修复后正常 push)
 # 注意:用 printf >&2 替代 echo,避免 Windows git hooks stdout 关闭导致 Bad file descriptor
+#
+# 工作区隔离(2026-07-19 优化):
+#   原行为:typecheck 工作区当前状态(含未提交改动),导致工作区未提交的错误
+#           阻塞无关 push(如:工作区有 admin.ts 语法错误,阻塞 ai-side-panel.tsx 修复 push)
+#   新行为:检测工作区是否干净,不干净时 git stash tracked 改动 → typecheck HEAD
+#           (推送的提交)→ 恢复 stash,只验证推送范围
+#   untracked 新建文件不参与 stash(保持原 typecheck 行为),如阻塞请先 commit/stash -u
 if [ "${HUSKY_SKIP_TYPECHECK:-0}" = "1" ]; then
   printf '%s\n' "⚠️  HUSKY_SKIP_TYPECHECK=1 — 已跳过全量 typecheck 验证(不推荐)" >&2
 else
   printf '\n%s\n' "🔍 全量 typecheck 验证(清 .tsbuildinfo 缓存后)..." >&2
   cd "$(git rev-parse --show-toplevel)" || { printf '%s\n' "❌ 无法定位仓库根目录" >&2; exit 1; }
-  pnpm typecheck:full || { printf '%s\n' "❌ 全量 typecheck 失败,推送已阻止" >&2; exit 1; }
+
+  # 检测工作区是否有 tracked 改动(staged + unstaged)
+  # untracked 文件不参与 stash(避免 .tsbuildinfo 等缓存文件干扰 pop)
+  NEED_STASH=0
+  if ! git diff --quiet HEAD --; then
+    NEED_STASH=1
+  fi
+
+  if [ "$NEED_STASH" = "1" ]; then
+    printf '%s\n' "📦 工作区有未提交改动,临时 stash 以只验证推送的提交..." >&2
+    STASH_OUTPUT=$(git stash push -m "pre-push-typecheck-tmp" 2>&1)
+    STASH_EXIT=$?
+    if [ $STASH_EXIT -ne 0 ]; then
+      printf '%s\n' "❌ git stash 失败,中止 push 以保护工作区改动: $STASH_OUTPUT" >&2
+      exit 1
+    fi
+    # "No local changes to save" 表示 stash 实际未保存任何内容(空 stash)
+    if echo "$STASH_OUTPUT" | grep -q "No local changes to save"; then
+      NEED_STASH=0
+    fi
+  fi
+
+  pnpm typecheck:full
+  TYPECHECK_EXIT=$?
+
+  # typecheck 完成后恢复工作区改动(无论 typecheck 成功与否都要恢复)
+  if [ "$NEED_STASH" = "1" ]; then
+    if ! git stash pop 2>&1; then
+      printf '%s\n' "⚠️  git stash pop 失败,请手动运行 'git stash pop' 检查工作区" >&2
+    fi
+  fi
+
+  if [ $TYPECHECK_EXIT -ne 0 ]; then
+    printf '%s\n' "❌ 全量 typecheck 失败,推送已阻塞(工作区改动已恢复)" >&2
+    exit 1
+  fi
   printf '%s\n' "✅ 全量 typecheck 验证通过" >&2
 fi
