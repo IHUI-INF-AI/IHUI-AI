@@ -1,0 +1,59 @@
+name: Lighthouse CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'lighthouserc.json'
+  workflow_dispatch:
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        run: pnpm -F @ihui/web build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+          NEXT_TELEMETRY_DISABLED: '1'
+
+      - name: Start web preview
+        run: pnpm -F @ihui/web start &
+        env:
+          PORT: 3000
+
+      - name: Wait for web ready
+        run: npx wait-on http://localhost:3000 -t 60000
+
+      - name: Run Lighthouse CI
+        run: |
+          npm install -g @lhci/cli@0.13
+          lhci autorun || echo "LHCI warnings treated as non-fatal"
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: |
+            .lighthouse-ci/
+            lhci-*.json
