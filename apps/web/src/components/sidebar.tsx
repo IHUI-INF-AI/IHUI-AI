@@ -376,9 +376,14 @@ function SidebarUserRow({
   if (!isAuthenticated) return null
 
   return (
-    <div className="px-2 pb-2">
+    <div className="px-1.5 pb-2">
       <div
-        className={cn('flex items-center gap-2 rounded-md p-1.5', collapsed && 'justify-center')}
+        className={cn(
+          // 等比缩小:头像 24×24 + gap-1.5 + 文本无截断,确保 5 个汉字完整显示
+          // (130px 宽度下:外 px-1.5(12) + 内 p-1(8) + 头像 24 + gap 6 + 5 字 ~70 = 120,余 9px)
+          'flex items-center gap-1.5 rounded-md p-1',
+          collapsed && 'justify-center',
+        )}
       >
         <Dropdown
           align="start"
@@ -428,11 +433,11 @@ function SidebarUserRow({
           ]}
           trigger={
             <button
-              className="shrink-0 rounded-lg outline-none ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
+              className="shrink-0 rounded-md outline-none ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={user?.nickname ?? 'User'}
               title={user?.nickname ?? 'User'}
             >
-              <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />
+              <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="xs" />
             </button>
           }
         />
