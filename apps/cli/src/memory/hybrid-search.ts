@@ -8,9 +8,97 @@
  *   - 时间衰减:evergreen 来源不衰减,其余 exp(-lambda * ageDays),半衰期默认 30 天
  *   - access boost:1 + log(1 + accessCount) * factor,对数增长
  *   - MMR(Jaccard):lambda * relevance - (1-lambda) * maxSim,O(n²) 可接受
+ *   - 内容过滤:isContentFree + isScaffoldTemplate 排除空 chunk / 脚手架模板
  *   - 零新依赖:全部纯 TS,只用 node:crypto(已在 chunker.ts 引入)
  */
 import type { EmbeddingProvider } from './embedding.js'
+import { extractKeywords, isAllStopWords } from './query-expansion.js'
+
+// ==================== P43 内容过滤(参考 xai-grok-memory/search.rs::is_content_free) ====================
+
+/**
+ * scaffold 模板最大字节数:超过此长度的内容即使包含 marker 也不是 scaffold
+ * (灵感:参考 xai-grok-memory/src/dream.rs::is_scaffold_template 中的 500 阈值)
+ */
+const SCAFFOLD_MAX_LEN = 500
+const SCAFFOLD_MARKERS = [
+  'Auto-populated by dream consolidation',
+  'Add project-specific knowledge here',
+  'Add any cross-project preferences here',
+] as const
+
+/**
+ * 检测是否是空内容(仅 ATX 标题 + 空行,没有实质正文)。
+ *
+ * 启发式:
+ *   - 去除 HTML 注释(`<!-- ... -->`)后再判断(可能跨多行)
+ *   - 不去除 blockquote — 那是真实用户内容
+ *   - 任一非空行不是 ATX 标题(以 # 开头)→ 视为有内容
+ */
+export function isStructurallyEmpty(text: string): boolean {
+  if (!text.includes('<!--')) {
+    return linesAreScaffolding(text)
+  }
+  // 剥离 HTML 注释(可能跨行),未闭合的注释保留为字面文本
+  let buf = ''
+  let rest = text
+  while (true) {
+    const start = rest.indexOf('<!--')
+    if (start === -1) break
+    const end = rest.indexOf('-->', start + 4)
+    if (end === -1) {
+      buf += rest
+      rest = ''
+      break
+    }
+    buf += rest.slice(0, start)
+    rest = rest.slice(end + 3)
+  }
+  buf += rest
+  return linesAreScaffolding(buf)
+}
+
+function linesAreScaffolding(text: string): boolean {
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim()
+    if (trimmed === '') continue
+    if (/^#{1,6}\s/.test(trimmed)) continue // ATX heading
+    return false
+  }
+  return true
+}
+
+/**
+ * 检测是否是 dream scaffold 模板(自动生成的 MEMORY.md 占位内容)。
+ *
+ * 判定:内容短 (< 500 字节) AND 包含任一 marker 字符串。
+ * 灵感:参考 xai-grok-memory/src/dream.rs::is_scaffold_template
+ */
+export function isScaffoldTemplate(content: string): boolean {
+  const trimmed = content.trim()
+  if (trimmed.length >= SCAFFOLD_MAX_LEN) return false
+  return SCAFFOLD_MARKERS.some((m) => trimmed.includes(m))
+}
+
+/**
+ * 检测 chunk 是否是"内容自由"(应从搜索结果中过滤掉)。
+ *
+ * 判定:
+ *   - 结构上空(仅标题/空行) → true
+ *   - 来源是 evergreen(global/workspace) 且是 scaffold 模板 → true
+ *   - 其他情况 → false
+ *
+ * 灵感:参考 xai-grok-memory/src/search.rs::is_content_free
+ * 关键设计:scaffold 模板检测限定在 evergreen 来源,
+ * 避免 session chunk 仅引用 marker 短语被误杀。
+ */
+export function isContentFree(text: string, source: MemorySource): boolean {
+  if (isStructurallyEmpty(text)) return true
+  if ((source === 'global' || source === 'workspace') && isScaffoldTemplate(text)) {
+    return true
+  }
+  return false
+}
 
 export type MemorySource = 'global' | 'workspace' | 'session'
 
@@ -99,12 +187,30 @@ export function tokenizeMmr(text: string): Set<string> {
 // ============ BM25-lite ============
 
 /**
+ * P43 query-expansion 接入:对 query 先做关键词提取(去停用词 + 长度过滤 +
+ * 纯数字过滤),若提取后关键词为空(全停用词)则回退到 tokenizeFts 原文。
+ *
+ * 优势:
+ *   - 噪声 query("that thing we discussed about the API")中"thing" / "discussed"
+ *     被停用词过滤掉,BM25 只对 "api" 命中,精度提升
+ *   - 中文 1-2 字符 n-gram 已在 query-expansion 内做,这里直接复用
+ *   - 全停用词时 isAllStopWords 触发回退 → 不退化原行为(对模糊 query 仍最大召回)
+ */
+function bm25QueryTokens(query: string): string[] {
+  if (isAllStopWords(query)) {
+    return tokenizeFts(query);
+  }
+  const kws = extractKeywords(query);
+  return kws.length > 0 ? kws : tokenizeFts(query);
+}
+
+/**
  * 单 chunk BM25 分数(给定整个语料)。
  * IDF = log((N - df + 0.5) / (df + 0.5) + 1)
  * TF = freq * (k1 + 1) / (freq + k1 * (1 - b + b * chunkLen / avgChunkLen))
  */
 export function bm25Score(query: string, chunk: string, allChunks: string[]): number {
-  const queryTokens = tokenizeFts(query)
+  const queryTokens = bm25QueryTokens(query)
   if (queryTokens.length === 0 || allChunks.length === 0) return 0
 
   const N = allChunks.length
@@ -295,6 +401,8 @@ function hybridSearchCore(
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i]!
+    // P43 内容过滤:搜索时即时排除空 chunk / scaffold 模板(避免重新索引)
+    if (isContentFree(chunk.text, chunk.source)) continue
     const fts = ftsScores[i]!
     const vec = hasVector ? vectorScores[i]! : 0
     const ftsMatched = fts > 0
