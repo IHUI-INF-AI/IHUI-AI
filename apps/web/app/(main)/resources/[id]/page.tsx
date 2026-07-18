@@ -44,8 +44,8 @@ const CODE_EXTENSIONS = [
 interface ResourceDetail {
   id: string
   title: string
-  description?: string | null
-  content?: string | null
+  intro?: string | null
+  introduction?: string | null
   coverImage?: string | null
   fileUrl?: string | null
   fileType?: string | null
@@ -142,9 +142,7 @@ export default function ResourceDetailPage() {
 
       <header className="space-y-3">
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{resource.title}</h1>
-        {resource.description && (
-          <p className="text-sm text-muted-foreground">{resource.description}</p>
-        )}
+        {resource.intro && <p className="text-sm text-muted-foreground">{resource.intro}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {resource.categoryName && (
             <span className="inline-flex items-center gap-1">
@@ -189,11 +187,11 @@ export default function ResourceDetailPage() {
           )}
         </CardHeader>
         <CardContent>
-          {isCodeResource && resource.content ? (
-            <CodeViewer code={resource.content} language={fileExt} showLineNumbers />
-          ) : resource.content ? (
+          {isCodeResource && resource.introduction ? (
+            <CodeViewer code={resource.introduction} language={fileExt} showLineNumbers />
+          ) : resource.introduction ? (
             <SafeHtml
-              html={resource.content}
+              html={resource.introduction}
               className="prose prose-sm max-w-none dark:prose-invert"
             />
           ) : (
