@@ -799,8 +799,14 @@ function ExpandableNavItem({
 
   const parentClassName = cn(
     // group/exp 让 indicator 通过 group-hover/group-focus-visible 同步响应
+    // 关键:底部用 box-shadow 绘制一道"破折线提示条"贯穿整个按钮底边,
+    //     与 0.5px 的正常底边阴影叠合,形成"按钮底边自带破折线"的视觉错觉,
+    //     hover/focus 时进一步加深,激活态变为实线高亮。
+    // 破折线本身改用 ::after 伪元素 + background-image 绘制,这样可以
+    //   - 横跨整个按钮(inset-x-0)而不是被 text 宽度限制
+    //   - 不会被 rounded-md 的 border-radius 裁切(伪元素 + 负 margin 拉到底)
     // focus-visible 加 ring 让键盘用户聚焦时有明确指示
-    'group/exp relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+    'group/exp relative flex h-10 w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
     parentActive
       ? 'bg-primary text-primary-foreground'
       : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
@@ -892,37 +898,48 @@ function ExpandableNavItem({
           {label}
         </span>
         {/*
-          二级菜单提示线:横跨整个按钮容器底边,贯穿 icon + 文字 + 右侧空白
-          - 闭合态:repeating-linear-gradient 真正破折线 + 品牌主色 + 60% 透明度
-            (明显但与激活态区分,引导用户感知"这里可展开")
-          - 展开态:实线 + 加粗到 3px + 主色不透明 + scaleX 撑满
-            (强激活反馈,与按钮底色 bg-primary 区分)
-          - 200ms 平滑过渡;hover/focus-visible 时透明度 +10% 增强反馈
-          - 首次加载呼吸动画(全局 CSS 一次,1.6s)
-          - 父级按钮已设 relative,这里 absolute 定位即可
+          二级菜单提示线 — 整个按钮容器底边的"破折线光带":
+          1. 容器底边贯穿:absolute inset-x-0 bottom-0,横跨整个按钮宽度(114px+),
+             左侧贴齐 icon、右侧延展到 pr-2.5 内边缘,完全在按钮容器底边做文章。
+          2. 闭合态 4px 厚破折线:repeating-linear-gradient(5px 实 + 3px 透明),
+             透明度 95% + 内发光 box-shadow,即使在 dark 模式下也明显突出。
+          3. 展开态 4px 实线:100% 不透明 + 外发光 box-shadow 6px,
+             作为强激活反馈,让用户清楚知道"已展开"。
+          4. hover/focus-visible:破折线升至 100% + 加粗到 4.5px + 强光晕。
+          5. 首次加载呼吸动画 1.6s 引导视线。
+          6. 颜色采用品牌主色 hsl(142 71% 45%) 写死,避免 CSS 变量解析差异。
+          7. 父级按钮 overflow-hidden 防止光晕外溢影响其他按钮。
         */}
         <span
           aria-hidden="true"
           data-testid={`nav-${item.labelKey}-indicator`}
           className={cn(
             'pointer-events-none absolute inset-x-0 bottom-0 origin-left transition-all duration-200 ease-out',
-            // 同步响应父按钮 hover/focus-visible:透明度 +10% 让交互反馈更明显
+            // 同步响应父按钮 hover/focus-visible:破折线升 100% + 强光晕
             'group-hover/exp:opacity-100 group-focus-visible/exp:opacity-100',
-            // 首次渲染呼吸动画(全局 CSS 一次)
+            // 首次渲染呼吸动画(全局 CSS 一次,结束后回到 opacity-95/100)
             'animate-pulse-once',
             open
-              ? // 展开态:实线 + 加粗 + 主色不透明
-                'h-[3px] bg-primary opacity-100 scale-x-100'
-              : // 闭合态:repeating-linear-gradient 真正破折线 + 主色 60% 透明
-                'h-[2px] opacity-60 scale-x-100',
+              ? // 展开态:实线 + 4px 厚 + 主色不透明 + 强外光晕向下 8px
+                'h-1 opacity-100 scale-x-100'
+              : // 闭合态:4px 破折线 + 95% 透明 + 内发光让线条"嵌入"按钮底边
+                'h-1 opacity-95 scale-x-100',
           )}
           style={
-            !open
+            open
               ? {
+                  // 展开态:实线,主品牌色 + 强外光晕
+                  backgroundColor: 'hsl(142 71% 45%)',
+                  boxShadow:
+                    '0 0 0 1px hsl(142 71% 45% / 0.4), 0 4px 10px -2px hsl(142 71% 45% / 0.7)',
+                }
+              : {
+                  // 闭合态:破折线,主品牌色 + 内外双层光晕
                   backgroundImage:
                     'repeating-linear-gradient(to right, hsl(142 71% 45%) 0 5px, transparent 5px 8px)',
+                  boxShadow:
+                    '0 0 0 1px hsl(142 71% 45% / 0.3) inset, 0 3px 8px -2px hsl(142 71% 45% / 0.6)',
                 }
-              : undefined
           }
         />
       </button>
