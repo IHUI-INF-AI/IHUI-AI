@@ -178,6 +178,18 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     return reply.send(success(fallback))
   })
 
+  // M-63 补建端点: GET /api/ai-ext/ai-feed/hot (配合前端 use-ai-feed.ts)
+  // GET /ai-feed/hot - AI 热门动态
+  server.get('/ai-feed/hot', async (_request, reply) => {
+    return reply.send(
+      success({
+        list: [],
+        total: 0,
+        note: '占位: 待接 ai_feed 表',
+      }),
+    )
+  })
+
   // -------------------------------------------------------------------------
   // ai/model_info — 统一模型信息（表 zhs_ai_model_info，尚未迁移为 Drizzle schema）
   // 旧逻辑：默认 status=1，按 sort 升序、id 降序
@@ -664,6 +676,73 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     } catch (e) {
       req.log.error(e)
       return reply.status(502).send(error(502, `模型测试异常: ${(e as Error).message}`))
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // POST /llm/chat - 通用 LLM chat 端点(配 use-ai-talk.ts:174/191/349)
+  // 入参: { messages: [{role, content}], model?, temperature?, maxTokens? }
+  // 出参: { content, model, usage:{prompt_tokens, completion_tokens, total_tokens} }
+  // 真实实现: 转发到 AI_SERVICE_URL/llm/complete;无 AI_SERVICE_URL 时返回 503
+  // -------------------------------------------------------------------------
+  server.post('/llm/chat', async (request, reply) => {
+    const body = z
+      .object({
+        messages: z
+          .array(
+            z.object({
+              role: z.enum(['system', 'user', 'assistant']),
+              content: z.string().min(1),
+            }),
+          )
+          .min(1),
+        model: z.string().optional(),
+        temperature: z.number().min(0).max(2).optional(),
+        maxTokens: z.number().int().min(1).max(32000).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? 'messages 必填'))
+    const aiServiceUrl = process.env.AI_SERVICE_URL
+    if (!aiServiceUrl) {
+      return reply.status(503).send(error(503, 'AI 服务未配置(AI_SERVICE_URL)'))
+    }
+    try {
+      const resp = await fetch(`${aiServiceUrl}/llm/complete`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          messages: body.data.messages,
+          model: body.data.model,
+          temperature: body.data.temperature,
+          max_tokens: body.data.maxTokens,
+        }),
+      })
+      if (!resp.ok) {
+        const text = await resp.text()
+        return reply
+          .status(502)
+          .send(error(502, `AI 服务错误 ${resp.status}: ${text.slice(0, 200)}`))
+      }
+      const data = (await resp.json()) as {
+        content?: string
+        model?: string
+        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
+      }
+      return reply.send(
+        success({
+          content: data.content ?? '',
+          model: data.model ?? body.data.model ?? 'unknown',
+          usage: {
+            prompt_tokens: data.usage?.prompt_tokens ?? 0,
+            completion_tokens: data.usage?.completion_tokens ?? 0,
+            total_tokens: data.usage?.total_tokens ?? 0,
+          },
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, `AI 服务连接失败: ${(e as Error).message}`))
     }
   })
 }

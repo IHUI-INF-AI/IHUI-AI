@@ -17,6 +17,9 @@ import {
   updateHotWord,
   deleteHotWord,
 } from '../db/misc-extended-queries.js'
+import { searchContents } from '@ihui/database'
+import { eq, sql, desc, and } from 'drizzle-orm'
+import { db } from '../db/index.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
 // =============================================================================
@@ -343,5 +346,118 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
     }
     await deleteHotWord(parsed.data.id)
     return reply.send(success({ id: parsed.data.id, deleted: true }))
+  })
+
+  // ===== D 盘 search 微服务 P0 补齐端点（迁移自 cloud-learning-search-service） =====
+
+  // GET /search/public-api/content - 公开内容搜索(查 search_contents 表)
+  server.get('/search/public-api/content', async (request, reply) => {
+    const q = z
+      .object({
+        keyword: z.string().min(1),
+        topicType: z.enum(['article', 'news', 'question', 'resource', 'lesson']).optional(),
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+      })
+      .safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, 'keyword 必填'))
+    const offset = (q.data.page - 1) * q.data.pageSize
+    const conditions = [sql`${searchContents.searchText} ILIKE ${'%' + q.data.keyword + '%'}`]
+    if (q.data.topicType) conditions.push(eq(searchContents.topicType, q.data.topicType))
+    const where = and(...conditions)
+    const list = await db
+      .select()
+      .from(searchContents)
+      .where(where)
+      .orderBy(desc(searchContents.viewCount))
+      .limit(q.data.pageSize)
+      .offset(offset)
+    const [countRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(searchContents)
+      .where(where)
+    return reply.send(
+      success({
+        list,
+        total: countRow?.count ?? 0,
+        page: q.data.page,
+        pageSize: q.data.pageSize,
+        keyword: q.data.keyword,
+      }),
+    )
+  })
+
+  // POST /search/public-api/content - 创建内容索引(由 article/news service 反向同步调用)
+  server.post('/search/public-api/content', async (request, reply) => {
+    await authenticate(request)
+    const body = z
+      .object({
+        topicId: z.string().uuid(),
+        topicType: z.enum(['article', 'news', 'question', 'resource', 'lesson']),
+        topicTitle: z.string().min(1).max(300),
+        topicSummary: z.string().optional(),
+        searchText: z.string().min(1),
+        authorId: z.string().uuid().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db.insert(searchContents).values(body.data).returning()
+    return reply.send(success(row))
+  })
+
+  // PUT /search/public-api/content - 更新内容索引
+  server.put('/search/public-api/content', async (request, reply) => {
+    await authenticate(request)
+    const body = z
+      .object({
+        id: z.string().uuid(),
+        topicTitle: z.string().min(1).max(300).optional(),
+        topicSummary: z.string().optional(),
+        searchText: z.string().min(1).optional(),
+        viewCount: z.number().int().min(0).optional(),
+        likeCount: z.number().int().min(0).optional(),
+        commentCount: z.number().int().min(0).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, 'id 必填'))
+    const { id, ...patch } = body.data
+    const [row] = await db
+      .update(searchContents)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(eq(searchContents.id, id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '内容索引不存在'))
+    return reply.send(success(row))
+  })
+
+  // DELETE /search/public-api/content - 删除内容索引
+  server.delete('/search/public-api/content', async (request, reply) => {
+    await authenticate(request)
+    const body = z
+      .object({
+        id: z.string().uuid().optional(),
+        topicId: z.string().uuid().optional(),
+        topicType: z.string().optional(),
+      })
+      .safeParse(request.body ?? request.query)
+    if (!body.success || (!body.data.id && !body.data.topicId))
+      return reply.status(400).send(error(400, 'id 或 topicId+topicType 必填'))
+    const conditions = []
+    if (body.data.id) conditions.push(eq(searchContents.id, body.data.id))
+    if (body.data.topicId && body.data.topicType)
+      conditions.push(
+        and(
+          eq(searchContents.topicId, body.data.topicId),
+          eq(
+            searchContents.topicType,
+            body.data.topicType as 'article' | 'news' | 'question' | 'resource' | 'lesson',
+          ),
+        )!,
+      )
+    const deleted = await db
+      .delete(searchContents)
+      .where(conditions[0]!)
+      .returning({ id: searchContents.id })
+    return reply.send(success({ deleted: deleted.length, ids: deleted.map((d) => d.id) }))
   })
 }
