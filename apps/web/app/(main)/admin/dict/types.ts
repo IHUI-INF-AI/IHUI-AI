@@ -1,4 +1,5 @@
-export type ListClass = 'default' | 'primary' | 'success' | 'info' | 'warning' | 'danger'
+import type { ListClass } from '@/components/DictTag'
+export type { ListClass }
 
 export interface DictItem {
   id: string
