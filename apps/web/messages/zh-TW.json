@@ -1488,6 +1488,8 @@
       "aiGc": "AI生成內容",
       "advertise": "廣告管理",
       "carousel": "輪播圖",
+      "crew": "Crew 多智能體",
+      "knowledgeRag": "RAG 知識庫",
       "zhsAgent": "智慧智能體",
       "zhsUser": "智慧使用者",
       "zhsActivity": "智慧活動",
@@ -20388,6 +20390,25 @@
       "joinNow": "立即加入",
       "exploreAgents": "深入瞭解智能體場景"
     },
+    "carousel": {
+      "brandLabel": "智匯 AI 企業服務",
+      "switchTo": "切換到第 {index} 張幻燈片",
+      "slide1Title": "企業理性效率服務",
+      "slide1Subtitle": "構建人機協同的超級組織,與決策者同行",
+      "slide1Cta": "立即加入",
+      "slide2Title": "在地社群 · 線下深度鏈接",
+      "slide2Subtitle": "系統化課程、探索活動與互助社群",
+      "slide2Cta": "瞭解社群",
+      "slide3Title": "AI專業服務",
+      "slide3Subtitle": "大模型與智能體諮詢,深度AI化支持",
+      "slide3Cta": "諮詢合作",
+      "slide4Title": "18席 · 早鳥價 ¥6000",
+      "slide4Subtitle": "限前18位會員,鎖定早鳥席位",
+      "slide4Cta": "搶佔席位",
+      "slide5Title": "不滿意全額退款",
+      "slide5Subtitle": "365天品質承諾,加入無憂",
+      "slide5Cta": "立即諮詢"
+    },
     "positioning": {
       "label": "核心定位",
       "title": "AI時代企業理性效率服務與互助社群",
@@ -23934,5 +23955,125 @@
     "title": "無權限造訪",
     "description": "抱歉，您沒有造訪該頁面的權限。如需開通權限，請聯繫管理員。",
     "backToHome": "返回首頁"
+  },
+  "marketing": {
+    "header": {
+      "brand": "智匯 AI",
+      "login": "登入",
+      "dashboard": "進入工作臺",
+      "menu": "選單",
+      "navEnterprise": "企業服務",
+      "navCourses": "課程",
+      "navAgents": "智慧代理人",
+      "navNews": "資訊",
+      "navAiWorld": "AI 世界"
+    },
+    "hero": {
+      "brandLabel": "智匯 AI 社群",
+      "switchTo": "切換到第 {index} 張",
+      "slide1Title": "智匯 AI 社群 · 企業決策者的理性效率夥伴",
+      "slide1Subtitle": "AI 時代企業理性效率服務與互助社群,建構人機協同的超級組織",
+      "slide1Cta": "瞭解企業服務",
+      "slide2Title": "系統化 AI 課程,全面賦能決策者",
+      "slide2Subtitle": "從 AI 新工具到企業 AI 文化,三階段循序漸進",
+      "slide2Cta": "開始學習",
+      "slide3Title": "行業直播,即時洞察 AI 落地實踐",
+      "slide3Subtitle": "專家直播分享真實案例與第一線經驗",
+      "slide3Cta": "觀看直播",
+      "slide4Title": "智慧代理人廣場,解鎖 AI 生產力",
+      "slide4Subtitle": "涵蓋通用、行業、職能三大類智慧代理人,即開即用",
+      "slide4Cta": "探索智慧代理人",
+      "slide5Title": "智匯資訊,掌握 AI 時代脈動",
+      "slide5Subtitle": "最新行業資訊與深度解讀,每日更新",
+      "slide5Cta": "查看資訊"
+    },
+    "marquee": {
+      "label": "公告",
+      "items": [
+        "歡迎加入智匯 AI 社群,早鳥價 ¥6000/人/年,限 18 席",
+        "企業 AI 化決策者社群開放招募,人機協同實戰課程全年免費",
+        "前 18 位會員享有一對一 AI 顧問諮詢,不滿意全額退款",
+        "立即掃碼加入智匯 AI 社群,與決策者一起探索 AI 時代"
+      ]
+    },
+    "welcome": {
+      "title": "歡迎來到智匯 AI 社群",
+      "subtitle": "AI 時代企業理性效率服務與互助社群。幫助決策者深度理解 AI 與企業的關係,建構人機協同的超級組織。",
+      "perYear": "天/年陪伴",
+      "benefits": {
+        "benefit1": "全年所有課程免費參加",
+        "benefit2": "探索活動優先參與",
+        "benefit3": "社群互助無限次",
+        "benefit4": "線上社群專屬入口",
+        "benefit5": "AI 助手優先體驗",
+        "benefit6": "不滿意全額退款"
+      }
+    },
+    "news": {
+      "title": "最新資訊",
+      "viewMore": "查看更多",
+      "empty": "暫無資訊"
+    },
+    "cta": {
+      "title": "與志同道合的決策者一起,探索 AI 時代的無限可能",
+      "subtitle": "僅限前 18 位會員 · 早鳥價 ¥6000/人/年 · 不滿意全額退款",
+      "join": "立即加入",
+      "dashboard": "進入工作臺"
+    },
+    "footer": {
+      "brand": "智匯 AI",
+      "desc": "AI 時代企業理性效率服務與互助社群。幫助決策者深度理解 AI 與企業的關係,建構人機協同的超級組織,實現企業的理性效率提升。",
+      "slogan": "人機協同 · 理性效率 · 超級組織",
+      "columns": [
+        {
+          "titleKey": "colProduct",
+          "links": [
+            { "labelKey": "enterprise", "href": "/enterprise" },
+            { "labelKey": "courses", "href": "/learn" },
+            { "labelKey": "live", "href": "/live" },
+            { "labelKey": "agents", "href": "/agents" }
+          ]
+        },
+        {
+          "titleKey": "colResource",
+          "links": [
+            { "labelKey": "news", "href": "/news" },
+            { "labelKey": "aiWorld", "href": "/ai-world" },
+            { "labelKey": "articles", "href": "/articles" },
+            { "labelKey": "asks", "href": "/asks" }
+          ]
+        },
+        {
+          "titleKey": "colSupport",
+          "links": [
+            { "labelKey": "support", "href": "/support" },
+            { "labelKey": "agreement", "href": "/agreement" },
+            { "labelKey": "feedback", "href": "/feedback" },
+            { "labelKey": "help", "href": "/help" }
+          ]
+        }
+      ],
+      "colProduct": "產品",
+      "colResource": "資源",
+      "colSupport": "支援",
+      "enterprise": "企業服務",
+      "courses": "課程",
+      "live": "直播",
+      "agents": "智慧代理人",
+      "news": "資訊",
+      "aiWorld": "AI 世界",
+      "articles": "文章",
+      "asks": "問答",
+      "support": "聯繫我們",
+      "agreement": "服務協議",
+      "feedback": "意見回饋",
+      "help": "說明中心",
+      "qr1": "微信公眾號",
+      "qr2": "企業微信",
+      "qr3": "智匯 AI 社群",
+      "copyright": "© 2026 智匯 AI · 北京 · 保留所有權利",
+      "privacy": "隱私政策",
+      "contactUs": "聯繫我們"
+    }
   }
 }
