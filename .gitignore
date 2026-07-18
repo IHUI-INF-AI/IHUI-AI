@@ -7,6 +7,11 @@ tmp/
 test_*.json
 test_*.log
 
+# Agent 工具临时产物(守门结果/扫描摘要/验证脚本/commit 消息暂存等)
+# 防止 P44/P45/P46 等会话遗留 __*.txt/__*.md/__*.bat/__*.ps1 回潮
+# 根目录锚定(/__*),避免误伤 apps/**/__tests__/ 等合法测试目录
+/__*
+
 # act 本地 CI 演练 secrets(从 .secrets.act.example 复制)
 .secrets.act
 .env.act.local
@@ -40,6 +45,11 @@ __pycache__/
 **/.env
 **/.env.local
 **/.env.production
+
+# CLI 项目级配置(包含 apiKey 等敏感字段,禁止入库)
+# 但 .ihui/skills/*.md 是团队共享的 skill 定义,允许入库
+.ihui/*
+!.ihui/skills/
 
 # ============================================================================
 # IDE / 编辑器
@@ -118,6 +128,11 @@ report.json
 .tmp_*.html
 .tmp-*
 .tmp-test-out.txt
+
+# Agent 工具隔离诊断临时文件(本地标记, 不入库)
+.iso-test-*.txt
+.iso-test-*.log
+.iso-test-*.json
 
 # ============================================================================
 # 临时补丁和 i18n 扫描产物(不纳入版本库)
