@@ -10,7 +10,6 @@ import { useChat } from '@/hooks/use-chat'
 import { useWebSocket, type WSNotification, isAIResponse } from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
-import { ModelSelector } from '@/components/chat/model-selector'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getConversation, getMessages } from '@/lib/chat-api'
@@ -223,16 +222,6 @@ export function AISidePanel() {
           </button>
         </header>
 
-        {/* 工具栏:模型选择 */}
-        <div className="flex items-center gap-2 px-3 py-2">
-          <ModelSelector
-            value={currentModel}
-            onChange={setModel}
-            disabled={isStreaming}
-            label={t('model')}
-          />
-        </div>
-
         {/* 消息区 */}
         <div className="min-h-0 flex-1">
           <MessageList
@@ -257,6 +246,9 @@ export function AISidePanel() {
           placeholder={t('placeholder')}
           sendLabel={t('send')}
           stopLabel={t('stop')}
+          model={currentModel}
+          onModelChange={setModel}
+          modelLabel={t('model')}
         />
       </aside>
       {/* 右侧拖拽手柄:外层 8px 透明命中区跨过 aside 右边缘(right-[-3px]),
