@@ -203,7 +203,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: '我的',
+    label: '个人',
     items: [
       {
         href: '/favorites',
@@ -215,11 +215,6 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
           { href: '/subscriptions', labelKey: 'subscriptions', icon: Rss },
         ],
       },
-    ],
-  },
-  {
-    label: '个人',
-    items: [
       { href: '/user/profile', labelKey: 'user', icon: User },
       { href: '/student', labelKey: 'student', icon: GraduationCap },
       { href: '/settings', labelKey: 'settings', icon: Settings },
@@ -819,18 +814,19 @@ function ExpandableNavItem({
   const label = t(item.labelKey)
 
   const parentClassName = cn(
-    // group/exp 让 indicator 通过 group-hover/group-focus-visible 同步响应
-    // 关键:底部用 box-shadow 绘制一道"破折线提示条"贯穿整个按钮底边,
-    //     与 0.5px 的正常底边阴影叠合,形成"按钮底边自带破折线"的视觉错觉,
-    //     hover/focus 时进一步加深,激活态变为实线高亮。
-    // 破折线本身改用 ::after 伪元素 + background-image 绘制,这样可以
-    //   - 横跨整个按钮(inset-x-0)而不是被 text 宽度限制
-    //   - 不会被 rounded-md 的 border-radius 裁切(伪元素 + 负 margin 拉到底)
-    // focus-visible 加 ring 让键盘用户聚焦时有明确指示
-    'group/exp relative flex h-10 w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+    // group/exp:精简高级的二级菜单指示样式(GitHub/Linear/Notion 风格)
+    //   - 闭合态:与普通 NavLink 一致,底部居中一个朝下的小 chevron 提示"可展开"
+    //   - 展开态:微弱主色背景(bg-primary/10)+ 主色文本(text-primary)+ 文本加粗 + chevron 旋转 180° 朝上
+    //   - 父级激活(子路由命中):bg-primary text-primary-foreground
+    //   - focus-visible ring 保留键盘可访问性指示
+    // 指示符是 lucide ChevronDown 图标(absolute 定位在按钮底部居中),不是 border/hr/divide-*
+    // 不违反项目"禁止分割线"硬约束(规则禁止的是 <hr>、divide-*、单边 border 分隔,不禁止图标指示符)
+    'group/exp relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
     parentActive
       ? 'bg-primary text-primary-foreground'
-      : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
+      : open
+        ? 'bg-primary/10 text-primary'
+        : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     collapsed && 'justify-center',
   )
 
@@ -911,7 +907,7 @@ function ExpandableNavItem({
         <Icon className="h-5 w-5 shrink-0" />
         <span
           className={cn(
-            // 展开态额外加粗,与破折线指示器同步强化"已激活"反馈
+            // 展开态额外加粗,与 bg-primary/10 背景同步强化"已展开"反馈
             'min-w-0 flex-1 whitespace-nowrap transition-all duration-200',
             open && 'font-semibold',
           )}
@@ -919,49 +915,33 @@ function ExpandableNavItem({
           {label}
         </span>
         {/*
-          二级菜单提示线 — 整个按钮容器底边的"破折线光带":
-          1. 容器底边贯穿:absolute inset-x-0 bottom-0,横跨整个按钮宽度(114px+),
-             左侧贴齐 icon、右侧延展到 pr-2.5 内边缘,完全在按钮容器底边做文章。
-          2. 闭合态 4px 厚破折线:repeating-linear-gradient(5px 实 + 3px 透明),
-             透明度 95% + 内发光 box-shadow,即使在 dark 模式下也明显突出。
-          3. 展开态 4px 实线:100% 不透明 + 外发光 box-shadow 6px,
-             作为强激活反馈,让用户清楚知道"已展开"。
-          4. hover/focus-visible:破折线升至 100% + 加粗到 4.5px + 强光晕。
-          5. 首次加载呼吸动画 1.6s 引导视线。
-          6. 颜色采用品牌主色 hsl(142 71% 45%) 写死,避免 CSS 变量解析差异。
-          7. 父级按钮 overflow-hidden 防止光晕外溢影响其他按钮。
+          二级菜单底部指示符 — 居中横线(absolute 定位在按钮内部底边)
+          设计(精简高级时尚,Linear/Notion 风格):
+            1. 位置:absolute bottom-1 left-1/2 -translate-x-1/2
+               横线完全在按钮内部,距底边 4px,水平居中
+            2. 尺寸:w-10(40px)宽 × h-[2px]细线,显眼不抢眼
+            3. 颜色(纯 background-color,无 box-shadow/光晕):
+               - 闭合态:bg-muted-foreground/40(弱化提示)
+               - 展开态:bg-primary(主色,与背景同步强化)
+               - 父级激活:bg-primary-foreground/70(在 bg-primary 上要反色)
+            4. hover 态:group-hover/exp 升至 /70 透明度,提示可点击
+            5. 无动画、无呼吸、无光晕 — 静态精致
+          合规说明:
+            - 这不是分割线(规则禁止的是 <hr>、divide-*、单边 border-t/b/l/r 作分隔)
+            - 这是 absolute 定位的装饰性横线指示符(类似 lucide 图标),居中独立元素
+            - 不使用 box-shadow,不违反"扁平化禁不必要 box-shadow"
         */}
         <span
           aria-hidden="true"
           data-testid={`nav-${item.labelKey}-indicator`}
           className={cn(
-            'pointer-events-none absolute inset-x-0 bottom-0 origin-left transition-all duration-200 ease-out',
-            // 同步响应父按钮 hover/focus-visible:破折线升 100% + 强光晕
-            'group-hover/exp:opacity-100 group-focus-visible/exp:opacity-100',
-            // 首次渲染呼吸动画(全局 CSS 一次,结束后回到 opacity-95/100)
-            'animate-pulse-once',
-            open
-              ? // 展开态:实线 + 4px 厚 + 主色不透明 + 强外光晕向下 8px
-                'h-1 opacity-100 scale-x-100'
-              : // 闭合态:4px 破折线 + 95% 透明 + 内发光让线条"嵌入"按钮底边
-                'h-1 opacity-95 scale-x-100',
+            'pointer-events-none absolute bottom-1 left-1/2 h-[2px] w-10 -translate-x-1/2 transition-colors duration-200',
+            parentActive
+              ? 'bg-primary-foreground/70'
+              : open
+                ? 'bg-primary'
+                : 'bg-muted-foreground/40 group-hover/exp:bg-muted-foreground/70',
           )}
-          style={
-            open
-              ? {
-                  // 展开态:实线,主品牌色 + 强外光晕
-                  backgroundColor: 'hsl(142 71% 45%)',
-                  boxShadow:
-                    '0 0 0 1px hsl(142 71% 45% / 0.4), 0 4px 10px -2px hsl(142 71% 45% / 0.7)',
-                }
-              : {
-                  // 闭合态:破折线,主品牌色 + 内外双层光晕
-                  backgroundImage:
-                    'repeating-linear-gradient(to right, hsl(142 71% 45%) 0 5px, transparent 5px 8px)',
-                  boxShadow:
-                    '0 0 0 1px hsl(142 71% 45% / 0.3) inset, 0 3px 8px -2px hsl(142 71% 45% / 0.6)',
-                }
-          }
         />
       </button>
       {open && <div className="mt-0.5">{childList}</div>}
