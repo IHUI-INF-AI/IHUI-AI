@@ -18,6 +18,7 @@
       "env": ["NODE_ENV", "DATABASE_URL", "REDIS_URL", "JWT_SECRET"]
     },
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },
