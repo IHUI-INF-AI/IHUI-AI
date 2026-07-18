@@ -13,6 +13,10 @@ vi.mock('@/components/sidebar', () => ({
     capturedCloseMobile = props.onCloseMobile
     return <div data-testid="sidebar" data-open={String(props.mobileOpen)} />
   },
+  // TagsView 经由 path-labels.ts 间接导入 FLAT_NAV_ITEMS,需要在 mock 中提供
+  FLAT_NAV_ITEMS: [],
+  ALL_NAV_HREFS: [],
+  NAV_GROUPS: [],
 }))
 vi.mock('@/components/common', () => ({
   PWAInstallPrompt: () => null,
