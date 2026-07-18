@@ -385,8 +385,13 @@ body {
 
 /* 侧边栏破折线指示器首次呼吸动画:从高亮脉冲到稳定值,仅播一次
    用于引导用户视线到"有二级菜单"的入口,后续保持与元素原始 opacity 一致
-   关键:不写 `both` / `forwards`,让动画结束后 opacity 自然回到 Tailwind opacity-80 / opacity-100
-   避免首次加载后 opacity 永久卡在动画最后一帧 */
+
+   关键设计:关键帧 100% 直接落到"目标稳定值"(0.95),而不是中途回落值(原 0.6)。
+   原因:fill-mode: none 时,动画结束后 opacity 回到 className 决定的原始值(0.95)。
+     如果关键帧 100% ≠ 原始值,0.6 → 0.95 会触发 transition 200ms 渐变,
+     1.6s + 200ms = 1.8s 才稳定,1.9s 等待测试仍有 ~28% 概率读到 transition 中间帧(如 0.7)。
+     关键帧 100% = 0.95 = 原始值时,动画结束后无 transition,opacity 瞬间稳定 0.95。
+   不写 `both` / `forwards`,避免首次加载后 opacity 永久卡在动画最后一帧。 */
 @keyframes sidebar-indicator-pulse-once {
   0% {
     opacity: 0.45;
@@ -395,7 +400,7 @@ body {
     opacity: 1;
   }
   100% {
-    opacity: 0.6;
+    opacity: 0.95;
   }
 }
 .animate-pulse-once {
