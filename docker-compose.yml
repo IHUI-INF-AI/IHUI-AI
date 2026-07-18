@@ -50,6 +50,51 @@ services:
       retries: 3
       start_period: 15s
 
+  # BullMQ Worker 独立进程(消费者)
+  # 生产部署最佳实践:API 进程仅生产(ENABLE_WORKER=false),Worker 进程独立消费
+  # 避免单进程内 HTTP 请求与异步任务互相阻塞,支持独立扩缩
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.api-new
+    image: ihui-api:latest
+    container_name: ihui-worker
+    restart: unless-stopped
+    command: ['node', 'dist/worker-entry.js']
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      - JWT_SECRET=${JWT_SECRET}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
+      - AI_SERVICE_URL=http://ai-service:8000
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-noreply@ihui.ai}
+      - SMTP_ENABLED=${SMTP_ENABLED:-false}
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=ihui-worker
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD', 'node', '-e', 'process.exit(process.connected ? 0 : 1)']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
   # 新前端(Next.js 15 standalone)
   web:
     build:
