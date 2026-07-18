@@ -803,7 +803,7 @@ function ExpandableNavItem({
   const label = t(item.labelKey)
 
   const parentClassName = cn(
-    'relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
     parentActive
       ? 'bg-primary text-primary-foreground'
       : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
@@ -812,7 +812,7 @@ function ExpandableNavItem({
 
   const childClassName = (active: boolean) =>
     cn(
-      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-4 pr-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
+      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-5 pr-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
       active
         ? 'bg-primary text-primary-foreground'
         : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
@@ -883,11 +883,11 @@ function ExpandableNavItem({
         aria-controls={listId}
         className={parentClassName}
       >
-        <Icon className="h-4 w-4 shrink-0" />
-        <span className="min-w-0 flex-1 text-[13px]">{label}</span>
+        <Icon className="h-5 w-5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">{label}</span>
         <ChevronDown
           className={cn(
-            'absolute right-2 top-1/2 h-3.5 w-3.5 shrink-0 -translate-y-1/2 transition-transform',
+            'ml-auto h-3.5 w-3.5 shrink-0 transition-transform',
             open && 'rotate-180',
           )}
         />
