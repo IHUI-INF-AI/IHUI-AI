@@ -10,7 +10,7 @@ import {
   bigint,
   index,
   unique,
-} from 'drizzle-orm/pg-core';
+} from 'drizzle-orm/pg-core'
 
 /**
  * AI 模型配置表（ai_model_config）。
@@ -38,6 +38,8 @@ export const aiModelConfig = pgTable(
     lastTestedAt: varchar('last_tested_at', { length: 32 }),
     lastTestError: text('last_test_error'),
     extraConfig: text('extra_config'),
+    /** 自定义 SVG 图标文本(0108 migration);为空时前端按 providerCode 回退到内置厂商图标 */
+    iconSvg: text('icon_svg'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -46,7 +48,7 @@ export const aiModelConfig = pgTable(
     enabledIdx: index('ix_ai_model_config_enabled').on(t.enabled),
     providerIdx: index('ix_ai_model_config_provider').on(t.providerCode),
   }),
-);
+)
 
 /**
  * 用户 API Key 信息表（user_sk_info）。
@@ -70,7 +72,7 @@ export const userSkInfo = pgTable(
     statusIdx: index('ix_user_sk_info_status').on(t.status),
     userUuidIdx: index('user_sk_info_user_uuid_idx').on(t.userUuid),
   }),
-);
+)
 
 /**
  * 视频生成任务队列表（video_generation_tasks）。
@@ -95,11 +97,11 @@ export const videoGenerationTasks = pgTable(
     taskIdUniq: unique('video_generation_tasks_task_id_unique').on(t.taskId),
     userUuidIdx: index('video_generation_tasks_user_uuid_idx').on(t.userUuid),
   }),
-);
+)
 
-export type AiModelConfig = typeof aiModelConfig.$inferSelect;
-export type NewAiModelConfig = typeof aiModelConfig.$inferInsert;
-export type UserSkInfo = typeof userSkInfo.$inferSelect;
-export type NewUserSkInfo = typeof userSkInfo.$inferInsert;
-export type VideoGenerationTask = typeof videoGenerationTasks.$inferSelect;
-export type NewVideoGenerationTask = typeof videoGenerationTasks.$inferInsert;
+export type AiModelConfig = typeof aiModelConfig.$inferSelect
+export type NewAiModelConfig = typeof aiModelConfig.$inferInsert
+export type UserSkInfo = typeof userSkInfo.$inferSelect
+export type NewUserSkInfo = typeof userSkInfo.$inferInsert
+export type VideoGenerationTask = typeof videoGenerationTasks.$inferSelect
+export type NewVideoGenerationTask = typeof videoGenerationTasks.$inferInsert

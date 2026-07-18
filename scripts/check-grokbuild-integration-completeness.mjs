@@ -271,17 +271,31 @@ function getStagedFiles() {
   }
 }
 
+// 文件内容缓存:避免 countMatches 对同一文件重复 readFileSync(P56 性能修复)
+// 守门项 6 有 14+ 个 claim × 2 次 match = 28+ 次全项目扫描,无缓存时每次都重读 10000+ 文件
+const _fileContentCache = new Map();
+
+function readFileCached(filePath) {
+  let content = _fileContentCache.get(filePath);
+  if (content === undefined) {
+    try {
+      content = readFileSync(filePath, 'utf-8');
+    } catch {
+      content = null; // 读取失败标记为 null(与 undefined 区分,避免重试)
+    }
+    _fileContentCache.set(filePath, content);
+  }
+  return content;
+}
+
 function countMatches(files, pattern) {
   const re = new RegExp(pattern, 'gm');
   let total = 0;
   for (const f of files) {
-    try {
-      const content = readFileSync(f, 'utf-8');
-      const m = content.match(re);
-      if (m) total += m.length;
-    } catch {
-      // ignore
-    }
+    const content = readFileCached(f);
+    if (content === null) continue;
+    const m = content.match(re);
+    if (m) total += m.length;
   }
   return total;
 }
@@ -630,6 +644,130 @@ const CLAIMED_CAPABILITIES = [
     fileCheck: [
       'apps/cli/src/interjection.ts',
       'apps/cli/tests/interjection-format.test.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P46-1',
+    name: 'image struct validate(3 阶段检查:PNG/JPEG/GIF/WebP 的 MIME + magic + 结构完整性)',
+    importCheck: { pattern: "from '.*utils/image-struct-validate\\.js'", mustMatch: 1 },
+    callCheck: { pattern: 'validateImageStructure|crc32', mustMatch: 1 },
+    fileCheck: [
+      'apps/api/src/utils/image-struct-validate.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P46-2',
+    name: 'unified-diff 状态机解析器(Myers LCS + 多 hunk 输出 + standard unified diff format)',
+    importCheck: { pattern: "from '.*diff/unified-diff\\.js'", mustMatch: 1 },
+    callCheck: { pattern: 'generateUnifiedPatch|computeHunks|formatUnifiedDiff|generateHunkPatch|patchLines', mustMatch: 2 },
+    fileCheck: [
+      'apps/cli/src/diff/unified-diff.ts',
+      'apps/cli/src/diff/unified-diff.test.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P46-3',
+    name: 'spawn-isolated 跨平台进程隔离(Unix kill -pid + Windows taskkill /T + 超时 reap + ETXTBSY 重试)',
+    importCheck: { pattern: "from '.*util/spawn-isolated\\.js'", mustMatch: 1 },
+    callCheck: { pattern: 'spawnIsolated|execText|fireAndForget', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/util/spawn-isolated.ts',
+      'apps/cli/src/util/spawn-isolated.test.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P46-3b',
+    name: 'MmdcCliEngine 升级使用 spawnIsolated(替代手写 spawn+SIGTERM,杀掉 mmdc 派生的 Chromium 子进程)',
+    importCheck: { pattern: "from '.*util/spawn-isolated\\.js'", mustMatch: 1 },
+    callCheck: { pattern: 'spawnIsolated\\(', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/mermaid/index.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P46-2b',
+    name: 'file-edit.ts 用 generateUnifiedPatch 替代 prefix-only 旧 computeUnifiedDiff(支持多 hunk)',
+    importCheck: { pattern: "from '.*diff/unified-diff\\.js'", mustMatch: 1 },
+    callCheck: { pattern: 'generateUnifiedPatch', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/tools/file-edit.ts',
+    ],
+  },
+  // === 第 47 轮 P0/P1 4 项能力 + 4 项真实接入(本轮新增)===
+  {
+    id: 'CLAIM-P47-1',
+    name: 'inference-metrics 推理流式延迟分位(TTFB/TTLB + ITL p50/p99/max/mean + chunk timestamps)',
+    importCheck: { pattern: "from '.*inference-metrics\\.js'", mustMatch: 1 },
+    callCheck: { pattern: 'inferenceLatencyFromTimestamps|computePercentiles|itlP50|itlP99|itlMax|itlMean', mustMatch: 1 },
+    fileCheck: [
+      'apps/api/src/utils/inference-metrics.ts',
+      'apps/api/src/utils/inference-metrics.test.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P47-2',
+    name: 'binary-detect 二进制文件内容嗅探(45 扩展名 + null byte + 30% 非可打印比例 + UTF-8 安全)',
+    importCheck: { pattern: "from '.*util/binary-detect\\.js'", mustMatch: 1 },
+    callCheck: { pattern: 'isBinary\\(|isBinaryFile\\(|BINARY_EXTENSIONS', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/util/binary-detect.ts',
+      'apps/cli/src/util/binary-detect.test.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P47-3',
+    name: 'voice/language STT 语言规范化(25 语言 catalog + BCP-47/POSIX locale + auto sentinel + systemSttLanguage)',
+    importCheck: { pattern: "from\\s+['\"].*language\\.js['\"]", mustMatch: 1 },
+    callCheck: { pattern: 'STT_LANGUAGES|canonicalizeSttLanguage|languageForApi|systemSttLanguage', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/voice/language.ts',
+      'apps/cli/src/voice/language.test.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P47-4',
+    name: 'git-events Cooldown 状态机(idle/in_op/cooldown + DEFAULT_COOLDOWN_MS=500 + isInCooldown 抑制)',
+    importCheck: { pattern: "from\\s+['\"].*git-events\\.js['\"]", mustMatch: 1 },
+    callCheck: { pattern: 'enterCooldown|isInCooldown|cooldownUntil|cooldownMs|DEFAULT_COOLDOWN_MS', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/fs-watcher/git-events.ts',
+      'apps/cli/src/fs-watcher/git-events.test.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P47-1b',
+    name: 'ttft-monitor.ts 集成 inference-metrics(tokenTimestamps + end() 时统计 + logger.debug)',
+    importCheck: { pattern: "from '.*inference-metrics\\.js'", mustMatch: 1 },
+    callCheck: { pattern: 'inferenceLatencyFromTimestamps\\(', mustMatch: 1 },
+    fileCheck: [
+      'apps/api/src/utils/ttft-monitor.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P47-2b',
+    name: 'builtins.ts read_file 集成 isBinary(扩展名白名单外做内容嗅探,防止二进制污染 LLM)',
+    importCheck: { pattern: "from '.*util/binary-detect\\.js'", mustMatch: 1 },
+    callCheck: { pattern: 'isBinary\\(', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/tools/builtins.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P47-3b',
+    name: 'voice/index.ts transcribeAudio 集成 languageForApi(替代直接 opts.language 透传)',
+    importCheck: { pattern: "from\\s+['\"].*language\\.js['\"]", mustMatch: 1 },
+    callCheck: { pattern: 'languageForApi\\(', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/voice/index.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P47-4b',
+    name: 'fs-watcher/index.ts metaForwarder 集成 isInCooldown(rebase/revert 残余 writes 抑制 git-meta 事件)',
+    importCheck: { pattern: "from\\s+['\"].*git-events\\.js['\"]", mustMatch: 1 },
+    callCheck: { pattern: 'isInCooldown\\(', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/fs-watcher/index.ts',
     ],
   },
 ];
