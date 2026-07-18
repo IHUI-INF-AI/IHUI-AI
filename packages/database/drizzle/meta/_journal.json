@@ -736,6 +736,13 @@
       "when": 1784345897452,
       "tag": "0104_simple_king_cobra",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1784351800479,
+      "tag": "0105_oval_vulcan",
+      "breakpoints": true
     }
   ]
 }
