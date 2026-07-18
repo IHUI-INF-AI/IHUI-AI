@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { authenticate } from '../../plugins/auth.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
 import {
   acceptAnswer,
@@ -23,7 +23,15 @@ import {
   updateAsk,
   updateCircleShowStatus,
 } from '../../db/community-queries.js'
-import { circlePostComments, circlePosts, circles, users } from '@ihui/database'
+import {
+  askAnswers,
+  asks,
+  circlePostComments,
+  circlePostLikes,
+  circlePosts,
+  circles,
+  users,
+} from '@ihui/database'
 import {
   circleShowSchema,
   createAnswerSchema,
@@ -777,6 +785,244 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       },
     }))
     return reply.send(success({ list, total: Number(totalRows[0]?.count ?? 0), page, pageSize }))
+  })
+
+  // ===== 补建端点:问答批量/列表/采纳/相关 =====
+
+  // GET /asks/question/list/by-ids - 按 ID 批量查询问题(query: ids 逗号分隔)
+  server.get('/asks/question/list/by-ids', async (request, reply) => {
+    const parsed = z.object({ ids: z.string().min(1, 'ids 不能为空') }).safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const ids = parsed.data.ids
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (ids.length === 0) {
+      return reply.send(success({ list: [] }))
+    }
+    const list = await dbRead
+      .select()
+      .from(asks)
+      .where(inArray(asks.id, ids))
+      .orderBy(desc(asks.createdAt))
+    return reply.send(success({ list }))
+  })
+
+  // GET /asks/member/question/list - 当前用户的问题列表(分页)
+  server.get('/asks/member/question/list', async (request, reply) => {
+    const parsed = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+      })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize } = parsed.data
+    const userId = request.userId!
+    const where = eq(asks.userId, userId)
+    const offset = (page - 1) * pageSize
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select()
+        .from(asks)
+        .where(where)
+        .orderBy(desc(asks.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(asks)
+        .where(where),
+    ])
+    return reply.send(success({ list, total: Number(totalRows[0]?.count ?? 0), page, pageSize }))
+  })
+
+  // GET /asks/answer/list/by-ids - 按 ID 批量查询回答(query: ids)
+  server.get('/asks/answer/list/by-ids', async (request, reply) => {
+    const parsed = z.object({ ids: z.string().min(1, 'ids 不能为空') }).safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const ids = parsed.data.ids
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (ids.length === 0) {
+      return reply.send(success({ list: [] }))
+    }
+    const list = await dbRead
+      .select()
+      .from(askAnswers)
+      .where(inArray(askAnswers.id, ids))
+      .orderBy(desc(askAnswers.createdAt))
+    return reply.send(success({ list }))
+  })
+
+  // POST /asks/answer/adopt - 采纳回答(body: answerId)
+  server.post('/asks/answer/adopt', async (request, reply) => {
+    const body = z.object({ answerId: z.string().uuid('无效的 answerId') }).safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const accepted = await acceptAnswer(body.data.answerId, request.userId!)
+    if (!accepted) {
+      return reply.status(404).send(error(404, '答案不存在或无权采纳'))
+    }
+    return reply.send(success({ answer: accepted }))
+  })
+
+  // GET /asks/answer/related-questions - 相关问题列表(query: questionId)
+  server.get('/asks/answer/related-questions', async (request, reply) => {
+    const parsed = z
+      .object({ questionId: z.string().uuid('无效的 questionId') })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const ask = await findAskById(parsed.data.questionId)
+    if (!ask) {
+      return reply.status(404).send(error(404, '问答不存在'))
+    }
+    const list = await dbRead
+      .select()
+      .from(asks)
+      .where(
+        and(
+          sql`${asks.id} <> ${parsed.data.questionId}`,
+          eq(asks.userId, ask.userId),
+          eq(asks.status, 1),
+        ),
+      )
+      .orderBy(desc(asks.createdAt))
+      .limit(10)
+    return reply.send(success({ list }))
+  })
+
+  // ===== 补建端点:圈子动态 =====
+
+  // GET /circles/dynamic/list/by-ids - 按 ID 批量查询动态(query: ids)
+  server.get('/circles/dynamic/list/by-ids', async (request, reply) => {
+    const parsed = z.object({ ids: z.string().min(1, 'ids 不能为空') }).safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const ids = parsed.data.ids
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (ids.length === 0) {
+      return reply.send(success({ list: [] }))
+    }
+    const list = await dbRead
+      .select()
+      .from(circlePosts)
+      .where(inArray(circlePosts.id, ids))
+      .orderBy(desc(circlePosts.createdAt))
+    return reply.send(success({ list }))
+  })
+
+  // GET /circles/member/dynamic/list - 当前用户的动态列表(分页)
+  server.get('/circles/member/dynamic/list', async (request, reply) => {
+    const parsed = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+      })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize } = parsed.data
+    const userId = request.userId!
+    const where = eq(circlePosts.userId, userId)
+    const offset = (page - 1) * pageSize
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select()
+        .from(circlePosts)
+        .where(where)
+        .orderBy(desc(circlePosts.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(circlePosts)
+        .where(where),
+    ])
+    return reply.send(success({ list, total: Number(totalRows[0]?.count ?? 0), page, pageSize }))
+  })
+
+  // POST /circles/dynamic/like - 点赞动态(body: dynamicId,如已存在则取消)
+  server.post('/circles/dynamic/like', async (request, reply) => {
+    const body = z
+      .object({ dynamicId: z.string().uuid('无效的 dynamicId') })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const dynamicId = body.data.dynamicId
+    const post = await findPostById(dynamicId)
+    if (!post) {
+      return reply.status(404).send(error(404, '动态不存在'))
+    }
+    const userId = request.userId!
+    const [existing] = await db
+      .select()
+      .from(circlePostLikes)
+      .where(and(eq(circlePostLikes.postId, dynamicId), eq(circlePostLikes.userId, userId)))
+      .limit(1)
+    if (existing) {
+      await db.delete(circlePostLikes).where(eq(circlePostLikes.id, existing.id))
+      const [updated] = await db
+        .update(circlePosts)
+        .set({ likeCount: Math.max(0, post.likeCount - 1), updatedAt: new Date() })
+        .where(eq(circlePosts.id, dynamicId))
+        .returning()
+      return reply.send(success({ liked: false, likeCount: updated?.likeCount ?? 0 }))
+    }
+    await db.insert(circlePostLikes).values({ postId: dynamicId, userId })
+    const [updated] = await db
+      .update(circlePosts)
+      .set({ likeCount: post.likeCount + 1, updatedAt: new Date() })
+      .where(eq(circlePosts.id, dynamicId))
+      .returning()
+    return reply.send(success({ liked: true, likeCount: updated?.likeCount ?? post.likeCount + 1 }))
+  })
+
+  // DELETE /circles/dynamic/comment - 删除动态评论(query/body: commentId)
+  server.delete('/circles/dynamic/comment', async (request, reply) => {
+    const raw =
+      (request.query as { commentId?: string } | undefined)?.commentId ??
+      (request.body as { commentId?: string } | undefined)?.commentId
+    const parsed = z
+      .object({ commentId: z.string().uuid('无效的 commentId') })
+      .safeParse({ commentId: raw })
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const commentId = parsed.data.commentId
+    const userId = request.userId!
+    const [existing] = await db
+      .select()
+      .from(circlePostComments)
+      .where(eq(circlePostComments.id, commentId))
+      .limit(1)
+    if (!existing) {
+      return reply.status(404).send(error(404, '评论不存在'))
+    }
+    if (existing.userId !== userId) {
+      return reply.status(403).send(error(403, '只能删除自己的评论'))
+    }
+    await db.delete(circlePostComments).where(eq(circlePostComments.id, commentId))
+    await db
+      .update(circlePosts)
+      .set({ replyCount: sql`GREATEST(${circlePosts.replyCount} - 1, 0)`, updatedAt: new Date() })
+      .where(eq(circlePosts.id, existing.postId))
+    return reply.send(success({ id: commentId, deleted: true }))
   })
 }
 export default asksRoutes

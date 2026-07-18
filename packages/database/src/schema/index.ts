@@ -141,3 +141,6 @@ export * from './crew.js'
 export * from './oauth-private-keys.js'
 export * from './search-contents.js'
 export * from './agent-billings.js'
+// R80 补齐: D 盘 coze_zhs_py/models 2 张缺失表
+// 注: video-tasks.ts / simple-bot-configs.ts 与 ai-config.ts / bot-sites.ts 重复定义
+// 已删除 R80 补齐文件,保留原有 ai-config.ts / bot-sites.ts 中的定义(被更多代码依赖)
