@@ -383,21 +383,30 @@ body {
   }
 }
 
-/* 侧边栏破折线指示器首次呼吸动画:从 60% 透明度脉冲到 100% 再回落,仅播一次
-   用于引导用户视线到"有二级菜单"的入口,后续保持静态 */
+/* 侧边栏破折线指示器首次呼吸动画:从高亮脉冲到稳定值,仅播一次
+   用于引导用户视线到"有二级菜单"的入口,后续保持与元素原始 opacity 一致
+   关键:不写 `both` / `forwards`,让动画结束后 opacity 自然回到 Tailwind opacity-80 / opacity-100
+   避免首次加载后 opacity 永久卡在动画最后一帧 */
 @keyframes sidebar-indicator-pulse-once {
   0% {
-    opacity: 0.6;
+    opacity: 0.45;
   }
   50% {
     opacity: 1;
   }
   100% {
-    opacity: 0.45;
+    opacity: 0.6;
   }
 }
 .animate-pulse-once {
-  animation: sidebar-indicator-pulse-once 1.6s ease-out 1 both;
+  animation: sidebar-indicator-pulse-once 1.6s ease-out 1;
+}
+/* 无障碍适配:用户系统开启"减少动效"时,直接跳过呼吸动画,
+   指示器立刻稳定到 Tailwind opacity-95/100,避免触发前庭功能不适 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-once {
+    animation: none;
+  }
 }
 .ihui-ai-fade-in-left {
   animation: ihui-ai-fade-in-left 1s ease-out both;
