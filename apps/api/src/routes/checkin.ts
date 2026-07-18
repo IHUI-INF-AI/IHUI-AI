@@ -220,8 +220,10 @@ export const adminCheckinRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
-  // GET /stats — 签到统计（总签到数 / 今日签到数 / 活跃用户数）
-  server.get('/stats', async (_request, reply) => {
+  // GET /checkin/stats — 签到统计（总签到数 / 今日签到数 / 活跃用户数）
+  // R83 修复: 原 /stats 与 admin.ts:122 Dashboard /stats 冲突 FST_ERR_DUPLICATED_ROUTE
+  // 改为 /checkin/stats 避免路径冲突
+  server.get('/checkin/stats', async (_request, reply) => {
     const today = todayString()
     const [totalRows, todayRows, activeRows] = await Promise.all([
       db.select({ count: sql<number>`count(*)::int` }).from(signInRecords),

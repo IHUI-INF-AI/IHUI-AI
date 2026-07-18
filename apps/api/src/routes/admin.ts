@@ -634,41 +634,14 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ id: paramParsed.data.id, reset: true }))
   })
 
-  // GET /dept/list - 部门列表(前端 users/DeptTree 使用)
-  server.get('/dept/list', async (_request, reply) => {
-    try {
-      const { findDepartments } = await import('../db/usercenter-queries.js')
-      const depts = await findDepartments({})
-      return reply.send(success({ list: depts, total: depts.length }))
-    } catch (e) {
-      return reply.status(500).send(error(500, `部门列表查询失败: ${(e as Error).message}`))
-    }
-  })
+  // 注: GET /dept/list 已在 routes/admin-sys.ts adminSysRoutes 的 /dept 子前缀中定义
+  // 此处历史简化版于 R83 删除, 解决 FST_ERR_DUPLICATED_ROUTE 启动崩溃
 
-  // GET /agreements - 协议列表(前端 agreements 页面使用)
-  server.get('/agreements', async (_request, reply) => {
-    try {
-      const { findAllAgreements } = await import('../db/admin-queries.js')
-      const list = await findAllAgreements()
-      return reply.send(success({ list, total: list.length }))
-    } catch (e) {
-      return reply.status(500).send(error(500, `协议列表查询失败: ${(e as Error).message}`))
-    }
-  })
+  // 注: GET /agreements 已在 routes/admin-agreements.ts adminAgreementsRoutes 中定义
+  // 此处历史简化版于 R83 删除, 解决 FST_ERR_DUPLICATED_ROUTE 启动崩溃
 
-  // GET /advertise - 广告列表(前端 advertise 页面使用)
-  server.get('/advertise', async (request, reply) => {
-    try {
-      const { findAdvertisements } = await import('../db/admin-queries.js')
-      const q = (request.query ?? {}) as { page?: string; pageSize?: string }
-      const page = Math.max(1, Math.floor(Number(q.page) || 1))
-      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-      const { list, total } = await findAdvertisements({ page, pageSize })
-      return reply.send(success({ list, total, page, pageSize }))
-    } catch (e) {
-      return reply.status(500).send(error(500, `广告列表查询失败: ${(e as Error).message}`))
-    }
-  })
+  // 注: GET /advertise 已在 routes/admin-content-routes.ts adminContentRoutes 中定义
+  // 此处历史简化版于 R83 删除, 解决 FST_ERR_DUPLICATED_ROUTE 启动崩溃
 
   // GET /article - 文章分页列表(前端 articles 页面使用)
   server.get('/article', async (request, reply) => {
@@ -767,73 +740,14 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // GET /edu/classes/schedules - 班级课程表(前端 admin/edu/ 使用,schema 暂无)
-  // TODO: 待补 schema `edu_classes_schedules`(当前 edu-extended.ts 仅有 notes/offline_records/uploaded_certs/uploaded_papers)
-  server.get('/edu/classes/schedules', async (request, reply) => {
-    try {
-      const q = (request.query ?? {}) as { page?: string; pageSize?: string; classId?: string }
-      const page = Math.max(1, Math.floor(Number(q.page) || 1))
-      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-      return reply.send(success({ list: [], total: 0, page, pageSize, _stub: true }))
-    } catch (e) {
-      return reply.status(500).send(error(500, `班级课程表查询失败: ${(e as Error).message}`))
-    }
-  })
+  // 注: GET /edu/classes/schedules 已在 routes/admin-auth-edu-routes.ts adminAuthEduRoutes 中定义
+  // 此处历史简化版于 R83 删除, 解决 FST_ERR_DUPLICATED_ROUTE 启动崩溃
 
-  // GET /certificates - 证书列表(前端 admin/certificate/ 使用,带 user/template 联表)
-  server.get('/certificates', async (request, reply) => {
-    try {
-      const q = (request.query ?? {}) as {
-        page?: string
-        pageSize?: string
-        userId?: string
-        templateId?: string
-        status?: string
-        search?: string
-      }
-      const page = Math.max(1, Math.floor(Number(q.page) || 1))
-      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-      const { findCertificates } = await import('../db/certificate-queries.js')
-      const { list, total } = await findCertificates({
-        page,
-        pageSize,
-        ...(q.userId ? { userId: q.userId } : {}),
-        ...(q.templateId ? { templateId: q.templateId } : {}),
-        ...(q.status ? { status: Number(q.status) } : {}),
-        ...(q.search ? { search: q.search } : {}),
-      })
-      return reply.send(success({ list, total, page, pageSize }))
-    } catch (e) {
-      return reply.status(500).send(error(500, `证书列表查询失败: ${(e as Error).message}`))
-    }
-  })
+  // 注: GET /certificates + GET /certificates/templates 已在 routes/certificate.ts adminCertificateRoutes 中定义
+  // 此处历史简化版于 R83 删除, 解决 FST_ERR_DUPLICATED_ROUTE 启动崩溃
 
-  // GET /certificates/templates - 证书模板列表(前端 admin/certificate/ 使用)
-  server.get('/certificates/templates', async (request, reply) => {
-    try {
-      const q = (request.query ?? {}) as {
-        page?: string
-        pageSize?: string
-        search?: string
-        status?: string
-      }
-      const page = Math.max(1, Math.floor(Number(q.page) || 1))
-      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-      const { findTemplates } = await import('../db/certificate-queries.js')
-      const { list, total } = await findTemplates({
-        page,
-        pageSize,
-        ...(q.search ? { search: q.search } : {}),
-        ...(q.status ? { status: Number(q.status) } : {}),
-      })
-      return reply.send(success({ list, total, page, pageSize }))
-    } catch (e) {
-      return reply.status(500).send(error(500, `证书模板列表查询失败: ${(e as Error).message}`))
-    }
-  })
-
-  // GET /edu/classes/:id/members - 班级成员列表(前端 admin/edu/ 使用,schema 暂无)
-  // TODO: 待补 schema `edu_classes_members`(当前 edu-extended.ts 仅有 notes/offline_records/uploaded_certs/uploaded_papers)
+  // GET /edu/classes/:id/members - 班级成员列表(前端 admin/edu/ 使用, R81 真实化)
+  // 真实查 edu_classes_members 表(关联 users 取昵称/邮箱)
   server.get('/edu/classes/:id/members', async (request, reply) => {
     try {
       const idParsed = z
@@ -842,98 +756,54 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       if (!idParsed.success) {
         return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return reply.send(success({ list: [], total: 0, classId: idParsed.data.id, _stub: true }))
+      const { eduClassesMembers, users } = await import('@ihui/database')
+      const { dbRead } = await import('../db/index.js')
+      const { eq, desc, sql } = await import('drizzle-orm')
+      const [list, totalRows] = await Promise.all([
+        dbRead
+          .select({
+            id: eduClassesMembers.id,
+            classId: eduClassesMembers.classId,
+            userId: eduClassesMembers.userId,
+            role: eduClassesMembers.role,
+            joinedAt: eduClassesMembers.joinedAt,
+            status: eduClassesMembers.status,
+            userNickname: users.nickname,
+            userEmail: users.email,
+          })
+          .from(eduClassesMembers)
+          .leftJoin(users, eq(eduClassesMembers.userId, users.id))
+          .where(eq(eduClassesMembers.classId, idParsed.data.id))
+          .orderBy(desc(eduClassesMembers.joinedAt))
+          .limit(100),
+        dbRead
+          .select({ count: sql<number>`count(*)::int` })
+          .from(eduClassesMembers)
+          .where(eq(eduClassesMembers.classId, idParsed.data.id)),
+      ])
+      return reply.send(
+        success({
+          list,
+          total: totalRows[0]?.count ?? 0,
+          classId: idParsed.data.id,
+          _stub: false,
+          _r81: '真实化 edu_classes_members',
+        }),
+      )
     } catch (e) {
       return reply.status(500).send(error(500, `班级成员查询失败: ${(e as Error).message}`))
     }
   })
 
-  // GET /learn/signups - 课程报名列表(前端 admin/learn/signups/ 使用)
-  server.get('/learn/signups', async (request, reply) => {
-    try {
-      const q = (request.query ?? {}) as {
-        page?: string
-        pageSize?: string
-        lessonId?: string
-        status?: string
-        search?: string
-      }
-      const page = Math.max(1, Math.floor(Number(q.page) || 1))
-      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-      const { findAdminSignups } = await import('../db/learn-queries.js')
-      const { list, total } = await findAdminSignups({
-        page,
-        pageSize,
-        ...(q.lessonId ? { lessonId: q.lessonId } : {}),
-        ...(q.status ? { status: Number(q.status) } : {}),
-        ...(q.search ? { search: q.search } : {}),
-      })
-      return reply.send(success({ list, total, page, pageSize }))
-    } catch (e) {
-      return reply.status(500).send(error(500, `课程报名列表查询失败: ${(e as Error).message}`))
-    }
-  })
+  // 注: GET /learn/signups 已在 routes/learn.ts adminLearnRoutes 中定义(zod 严格验证版)
+  // 此处历史简化版于 R83 删除, 解决 FST_ERR_DUPLICATED_ROUTE 启动崩溃
 
-  // GET /learn/invoices - 发票申请列表(前端 admin/learn/invoices/ 使用)
-  server.get('/learn/invoices', async (request, reply) => {
-    try {
-      const q = (request.query ?? {}) as {
-        page?: string
-        pageSize?: string
-        status?: string
-        search?: string
-      }
-      const page = Math.max(1, Math.floor(Number(q.page) || 1))
-      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-      const { findInvoiceApplicationList } = await import('../db/learn-extended-queries.js')
-      const { list, total } = await findInvoiceApplicationList({
-        page,
-        pageSize,
-        ...(q.status ? { status: q.status } : {}),
-        ...(q.search ? { search: q.search } : {}),
-      })
-      return reply.send(success({ list, total, page, pageSize }))
-    } catch (e) {
-      return reply.status(500).send(error(500, `发票申请列表查询失败: ${(e as Error).message}`))
-    }
-  })
+  // 注: GET /learn/invoices 已在 routes/learn.ts adminLearnRoutes 中定义
+  // 此处历史简化版于 R83 删除, 解决 FST_ERR_DUPLICATED_ROUTE 启动崩溃
 
-  // GET /course/pay-logs - 课程支付日志列表(前端 admin/course/ 使用,基于 zhs_course_pay_log)
-  server.get('/course/pay-logs', async (request, reply) => {
-    try {
-      const q = (request.query ?? {}) as {
-        page?: string
-        pageSize?: string
-        payId?: string
-        action?: string
-      }
-      const page = Math.max(1, Math.floor(Number(q.page) || 1))
-      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-      const { db } = await import('../db/index.js')
-      const { zhsCoursePayLog } = await import('@ihui/database')
-      const { and, eq, desc, sql } = await import('drizzle-orm')
-      const conds: DrizzleSQL[] = []
-      if (q.payId) conds.push(eq(zhsCoursePayLog.payId, Number(q.payId)))
-      if (q.action) conds.push(eq(zhsCoursePayLog.action, q.action))
-      const where = conds.length ? and(...conds) : undefined
-      const [list, totalRows] = await Promise.all([
-        db
-          .select()
-          .from(zhsCoursePayLog)
-          .where(where)
-          .orderBy(desc(zhsCoursePayLog.createdAt))
-          .limit(pageSize)
-          .offset((page - 1) * pageSize),
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(zhsCoursePayLog)
-          .where(where),
-      ])
-      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
-    } catch (e) {
-      return reply.status(500).send(error(500, `课程支付日志查询失败: ${(e as Error).message}`))
-    }
-  })
+  // 注: GET /course/pay-logs 已在 routes/zhs-course.ts adminZhsCourseRoutes
+  // (通过 fastify.register(zhsCourseRoutes) 嵌套引入 /pay-logs at L541) 中定义
+  // 此处历史简化版于 R83 删除, 解决 FST_ERR_DUPLICATED_ROUTE 启动崩溃
 
   // GET /reports/signup - 报名统计报表(前端 admin/reports/ 使用,基于 lessonSignUps 聚合)
   server.get('/reports/signup', async (request, reply) => {
