@@ -265,6 +265,122 @@ pnpm turbo typecheck lint test  # 22/22 tasks, 268/268 tests, 0 errors + 0 warni
 
 ---
 
+## 10. 基础设施即代码(IaC)决策
+
+### 决策结论
+
+新架构 **不采用** Kubernetes + Helm + ArgoCD 的重型 IaC 方案,改用 **Docker Compose + shell 脚本** 作为生产部署基底,以 GitOps 工作流(CI/CD via GitHub Actions)替代 ArgoCD。
+
+### 取舍说明
+
+| 维度 | K8s + Helm + ArgoCD | Docker Compose + GitHub Actions(本架构选) |
+|------|---------------------|------------------------------------------|
+| **运维门槛** | 需 K8s 集群管理员 + Helm chart 维护 + ArgoCD 配置 | 单台 VM 即可部署,Docker Compose 通用技能 |
+| **资源开销** | 控制平面 ≥ 2 vCPU / 4GB 内存,小项目浪费 | 仅业务容器,无控制平面开销 |
+| **部署速度** | 镜像推送 → ArgoCD 同步 → 滚动更新(30s-2min) | `docker compose pull && up -d`(10-30s) |
+| **回滚能力** | ArgoCD 一键回滚到任意历史版本 | `docker compose rollback`(需自实现镜像 tag 切换) |
+| **可观测性** | 内置 Prometheus + Grafana + Loki 全栈 | 已用 Prometheus + Grafana + Alertmanager(本架构已就绪) |
+| **横向扩展** | 原生支持 HPA/VPA 自动伸缩 | 需 Nginx upstream + 多实例手动配置 |
+| **故障转移** | Pod 自动重调度 + readiness/liveness probe | Docker `restart: unless-stopped` + healthcheck |
+| **适用规模** | > 10 微服务 / 多团队协作 / 跨集群 | ≤ 5 服务 / 单团队 / 单集群(本架构:api + web + ai-service + db + redis) |
+
+### 本架构已具备的 K8s 替代能力
+
+1. **声明式编排**:`docker-compose.yml` 描述 7 服务(api/web/ai-service/db/redis/migrate/otel-collector)+ 依赖关系 + healthcheck + 资源限制
+2. **配置外置**:`.env.production` + `.env.example` 占位符,不入库敏感数据
+3. **CI/CD**:`.github/workflows/ci.yml` 全量 typecheck + lint + test + build;`.github/workflows/lighthouse-ci.yml` 性能预算门禁
+4. **本地 CI 演练**:`.actrc` + `.env.act` + `.secrets.act.example` 用 nektos/act 在本地完整跑 GitHub Actions
+5. **健康检查**:`/api/health` 端点 + Docker healthcheck + Alertmanager 告警规则
+6. **零停机部署**:DEPLOYMENT_RUNBOOK.md 文档化蓝绿部署流程(镜像 tag 切换 + Nginx upstream 切换)
+7. **可观测性**:Prometheus 抓取 + Grafana 7 dashboard(已在 `monitoring/grafana/dashboards/`)+ Alertmanager 噪声规则
+8. **密钥管理**:`CREDENTIALS_ENCRYPTION_KEY` + AES-256-GCM 加密 + cert/ 目录 .gitignore 忽略
+9. **数据库迁移**:`Dockerfile.migrate` + `docker-compose migrate` 服务,独立容器跑 drizzle migrate 后退出
+10. **回滚**:PostgreSQL pg_dump 备份 + Docker 镜像 tag 历史保留 + drizzle 迁移可回滚
+
+### 何时迁移到 K8s
+
+触发以下任一条件,应评估迁移到 K8s:
+- 业务服务 > 10 个,跨多个独立团队协作
+- 需要跨可用区/跨地域多活
+- 单 VM 资源触顶(CPU > 70% 持续 / 内存 > 80%)
+- 需要基于流量指标的自动伸缩(HPA)
+- 多租户隔离要求提升到 namespace 级别
+
+### 迁移路径(预留)
+
+如未来迁移到 K8s,本架构的 Dockerfile 可直接复用为 K8s 容器镜像,只需新增:
+- `deploy/helm/` Helm chart(values.yaml + deployment.yaml + service.yaml + ingress.yaml)
+- `deploy/argocd/` ArgoCD Application 清单
+- `.github/workflows/build-push.yml` 镜像构建推送 workflow
+- K8s secrets 从 `.env.production` 转换为 SealedSecrets
+
+当前架构已为这一迁移预留:所有配置通过环境变量注入,无硬编码路径;Dockerfile 已是多阶段构建,镜像精简;healthcheck 端点已就绪,可直接作为 K8s readiness/liveness probe。
+
+---
+
+## 11. 部署脚本盘点
+
+### 已有运维脚本(`scripts/` + `apps/api/scripts/`)
+
+#### 部署与发布
+- `scripts/pre-deploy.mjs` — 生产部署前 10 项硬性门禁自检(typecheck + lint + test + i18n parity + migration + 页面/端点存在性 + env vars + gap report + git 状态)
+- `scripts/dev-up.ps1` — 开发环境一键启动(web + api + ai-service + DB + Redis)
+- `scripts/git-push-retry.ps1` — git push 失败自动重试(处理 pre-push hook 不稳定)
+- `scripts/typecheck-full.mjs` — 全量 typecheck(10 包)
+
+#### 数据库运维
+- `apps/api/scripts/pg-backup.mjs` — PostgreSQL 备份
+- `apps/api/scripts/check-db.mjs` — DB 连接 + 关键表存在性检查
+- `apps/api/scripts/check-db-state.mjs` — DB 状态深度检查
+- `apps/api/scripts/check-user-fks.mjs` — 用户表外键完整性
+- `apps/api/scripts/apply-006X.mjs`(7 个) — 历史迁移补丁应用器(已合并到 drizzle,保留作存档)
+- `apps/api/scripts/verify-rls.mjs` / `verify-0066.mjs` / `verify-system-admin.mjs` — RLS 与管理员账号验证
+- `apps/api/scripts/init-vendor-configs.ts` — 厂商 LLM 配置初始化
+- `scripts/grant-ihui-superuser.mjs` — 数据库 superuser 授权
+- `scripts/setup-admin-account.mjs` — 管理员账号初始化
+- `scripts/check-db-schema-drift.mjs` — schema 漂移检测
+
+#### 测试与验证
+- `apps/api/scripts/smoke-test-api.mjs` — API 烟雾测试
+- `apps/api/scripts/seed-test-users.ts` — 测试用户种子
+- `apps/api/scripts/cleanup-test-users.mjs` — 测试用户清理
+- `apps/api/scripts/probe-exp-monitor*.mjs` — 实验性监控探针
+- `scripts/test-admin-e2e.ps1` — 管理员 E2E 测试
+- `scripts/test-llm-connection.mjs` — LLM 连接验证
+- `scripts/verify-cli-*.mjs`(3 个) — CLI 子命令验证
+
+#### 证书与安全
+- `scripts/cert-expiry-check.mjs` — 证书到期检查
+- `scripts/cert-renew-watchdog.mjs` — 证书续期看门狗
+- `scripts/fetch-wechat-platform-cert.mjs` — 微信支付平台证书获取
+- `scripts/check-api-key-leak.mjs` — API key 泄露扫描
+- `scripts/check-sanitizer-bypass.mjs` — XSS sanitizer 绕过检测
+
+#### i18n 与代码质量
+- `scripts/check-i18n-keys.mjs` / `check-i18n-gap.cjs` / `deep-i18n-audit.mjs` — i18n 完整性审计(3 工具)
+- `scripts/fix-i18n-deep.mjs` / `fix-missing-i18n-keys.mjs` / `fix-zh-tw-simp.mjs` / `fix-zhtw-parity.mjs` — i18n 修复(4 工具)
+- `scripts/translate-i18n-batch.mjs` / `apply-i18n-translations.mjs` / `sync-i18n-fixes.mjs` — i18n 翻译工作流
+- `scripts/export-untranslated-i18n.mjs` / `scan-zh-tw-untranslated.mjs` — 未翻译导出
+- `scripts/check-rounded-full.mjs` / `fix-rounded-full.mjs` — rounded-full 违规扫描与修复
+- `scripts/check-api-routes.mjs` / `find-route-conflicts.mjs` / `generate-stub-routes.mjs` — 路由完整性
+- `scripts/check-delivery-report-consistency.mjs` — 交付报告一致性守门(pre-commit hook)
+- `scripts/guard-push-other-agent-changes.mjs` — 跨 Agent 改动保护(pre-push hook)
+- `scripts/openapi-check.mjs` — OpenAPI 规范检查
+- `scripts/check-stale-dist.mjs` — 陈旧 dist 检测
+
+### 旧架构脚本迁移结论
+
+旧架构 `D:\历史项目存档\edu client\scripts\` 共 30 个 .js/.java/.sql 文件,均为一次性数据修复脚本(check_*.js / fix_*.js / create_*.js / update_*.js 等),其功能在新架构中等价物已就绪:
+- 数据校验 → drizzle schema + typecheck + `apps/api/scripts/check-db*.mjs`
+- 数据修复 → drizzle 迁移文件 `packages/database/drizzle/00XX_*.sql`(106 个,覆盖全部历史补丁)
+- 数据初始化 → `packages/database/seed/*`(7 步幂等 seed 流程)
+- 视频上传 → `scripts/video-ops.mjs`(已迁移)
+- SQL 脚本 → drizzle 迁移文件
+
+**结论**: 旧架构脚本无真实遗漏,无需补充迁移。
+
+---
+
 ## 旧架构弃用说明
 
 以下目录为旧架构代码,已弃用,不再维护:
