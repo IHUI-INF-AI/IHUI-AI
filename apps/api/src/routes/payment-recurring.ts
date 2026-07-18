@@ -133,15 +133,18 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         const notifyUrl = env.WX_PAY_RECURRING_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? ''
 
         const signResult = await signContract({
-          planId: plan.wechatPlanId,
-          outTradeNo,
-          notifyUrl,
-          userId,
-          openid,
-          contractDisplay: `连续包月 - ${plan.name}`,
+          planId: Number(plan.wechatPlanId),
+          outContractCode: outTradeNo,
+          appid: env.WX_MINI_APPID ?? env.WX_APP_APPID ?? '',
+          contractDisplayAccount: plan.name,
+          contractNotifyUrl: notifyUrl,
+          outUserCode: userId,
+          signScene: 'SIGN_SCENE_QRCODE',
+          deviceInfo: { deviceIp: '127.0.0.1' },
+          ...(openid !== undefined ? { openid } : {}),
         })
 
-        const contractId = signResult.contractId ?? outTradeNo
+        const contractId = outTradeNo
         const now = new Date()
         const trialEndAt =
           plan.trialDays > 0 ? new Date(now.getTime() + plan.trialDays * 24 * 60 * 60 * 1000) : null
@@ -154,13 +157,39 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
           status: 'pending',
           wechatPlanId: plan.wechatPlanId,
           outTradeNo,
+          outContractCode: outTradeNo,
+          preEntrustwebId: signResult.preEntrustwebId,
           trialEndAt,
-          rawResponse: { signUrl: signResult.signUrl },
+          rawResponse: {
+            preEntrustwebId: signResult.preEntrustwebId,
+            ...(signResult.miniProgramUsername !== undefined
+              ? { miniProgramUsername: signResult.miniProgramUsername }
+              : {}),
+            ...(signResult.miniProgramPath !== undefined
+              ? { miniProgramPath: signResult.miniProgramPath }
+              : {}),
+            ...(signResult.redirectUrl !== undefined
+              ? { redirectUrl: signResult.redirectUrl }
+              : {}),
+          },
           createdAt: now,
           updatedAt: now,
         })
 
-        return reply.send(success({ signUrl: signResult.signUrl, contractId }))
+        return reply.send(
+          success({
+            preEntrustwebId: signResult.preEntrustwebId,
+            ...(signResult.redirectUrl !== undefined
+              ? { redirectUrl: signResult.redirectUrl }
+              : {}),
+            ...(signResult.miniProgramUsername !== undefined
+              ? { miniProgramUsername: signResult.miniProgramUsername }
+              : {}),
+            ...(signResult.miniProgramPath !== undefined
+              ? { miniProgramPath: signResult.miniProgramPath }
+              : {}),
+          }),
+        )
       } catch (e) {
         request.log.error({ err: e }, 'recurring sign failed')
         return reply.status(500).send(error(500, '发起签约失败'))
@@ -300,9 +329,18 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
           return reply.send(success({ cancelled: true }))
         }
 
+        if (!contract.wechatPlanId || !contract.outContractCode) {
+          return reply
+            .status(400)
+            .send(error(400, '签约记录缺少 wechatPlanId / outContractCode,无法解约'))
+        }
+
+        const reason = parsedBody.data.reason ?? '用户主动解约'
+
         await cancelContract({
-          contractId: contract.contractId,
-          reason: parsedBody.data.reason,
+          planId: Number(contract.wechatPlanId),
+          outContractCode: contract.outContractCode,
+          contractTerminationRemark: reason,
         })
 
         const now = new Date()
@@ -311,7 +349,8 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
           .set({
             status: 'cancelled',
             cancelledAt: now,
-            cancelReason: parsedBody.data.reason ?? null,
+            cancelReason: reason,
+            contractState: 'TERMINATED',
             updatedAt: now,
           })
           .where(eq(wechatPayContracts.id, contract.id))
@@ -378,22 +417,25 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
           )
         }
 
-        // TODO: 生产前确认微信 sign-plan 回调 event_type 实际值,当前按任务描述映射
         const contractId = (decrypted.contract_id as string) ?? (body.contract_id as string) ?? ''
         const outTradeNo =
           (decrypted.out_contract_code as string) ?? (decrypted.out_trade_no as string) ?? ''
         const transactionId = (decrypted.transaction_id as string) ?? ''
-        const resultCode =
-          eventType?.includes('success') || eventType?.includes('signed')
-            ? 'SUCCESS'
-            : eventType?.includes('failed') || eventType?.includes('cancel')
-              ? 'FAIL'
-              : 'SUCCESS'
+
+        const isSignEvent = eventType === 'PAPAY.SIGN' || eventType === 'contract.signed'
+        const isTerminateEvent =
+          eventType === 'PAPAY.TERMINATE' || eventType === 'contract.cancelled'
+        const isChargeSuccessEvent =
+          eventType === 'TRANSACTION.SUCCESS' || eventType === 'recurring.charge.success'
+        const isChargeFailEvent =
+          eventType === 'TRANSACTION.FAIL' || eventType === 'recurring.charge.failed'
+
+        const resultCode = isTerminateEvent || isChargeFailEvent ? 'FAIL' : 'SUCCESS'
 
         let notificationType = 'recurring_charge'
-        if (eventType?.includes('signed') || eventType === 'contract.signed') {
+        if (isSignEvent) {
           notificationType = 'contract_signed'
-        } else if (eventType?.includes('cancel') || eventType === 'contract.cancelled') {
+        } else if (isTerminateEvent) {
           notificationType = 'contract_cancelled'
         }
 
@@ -407,12 +449,14 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
           status: 0,
         })
 
-        if (eventType?.includes('signed') || eventType === 'contract.signed') {
+        if (isSignEvent) {
           const matchCondition = outTradeNo
-            ? eq(wechatPayContracts.outTradeNo, outTradeNo)
-            : contractId
-              ? eq(wechatPayContracts.contractId, contractId)
-              : null
+            ? eq(wechatPayContracts.outContractCode, outTradeNo)
+            : outTradeNo
+              ? eq(wechatPayContracts.outTradeNo, outTradeNo)
+              : contractId
+                ? eq(wechatPayContracts.contractId, contractId)
+                : null
 
           if (matchCondition) {
             const [existing] = await db
@@ -433,6 +477,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                   status: 'active',
                   signedAt: now,
                   nextChargeTime,
+                  contractState: 'SIGNED',
                   ...(contractId && contractId !== existing.contractId ? { contractId } : {}),
                   updatedAt: now,
                 })
@@ -441,12 +486,18 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
               await setUserVipAutoRenew(existing.userId, 1)
             }
           }
-        } else if (eventType?.includes('cancel') || eventType === 'contract.cancelled') {
-          if (contractId) {
+        } else if (isTerminateEvent) {
+          const matchCondition = contractId
+            ? eq(wechatPayContracts.contractId, contractId)
+            : outTradeNo
+              ? eq(wechatPayContracts.outContractCode, outTradeNo)
+              : null
+
+          if (matchCondition) {
             const [existing] = await db
               .select()
               .from(wechatPayContracts)
-              .where(eq(wechatPayContracts.contractId, contractId))
+              .where(matchCondition)
               .limit(1)
 
             if (existing && existing.status !== 'cancelled') {
@@ -456,6 +507,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 .set({
                   status: 'cancelled',
                   cancelledAt: now,
+                  contractState: 'TERMINATED',
                   updatedAt: now,
                 })
                 .where(eq(wechatPayContracts.id, existing.id))
@@ -463,15 +515,18 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
               await setUserVipAutoRenew(existing.userId, 0)
             }
           }
-        } else if (
-          eventType?.includes('charge') &&
-          (eventType.includes('success') || eventType === 'recurring.charge.success')
-        ) {
-          if (contractId) {
+        } else if (isChargeSuccessEvent) {
+          const matchCondition = contractId
+            ? eq(wechatPayContracts.contractId, contractId)
+            : outTradeNo
+              ? eq(wechatPayContracts.outTradeNo, outTradeNo)
+              : null
+
+          if (matchCondition) {
             const [existing] = await db
               .select()
               .from(wechatPayContracts)
-              .where(eq(wechatPayContracts.contractId, contractId))
+              .where(matchCondition)
               .limit(1)
 
             if (existing) {
@@ -513,11 +568,14 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 .where(eq(wechatPayContracts.id, existing.id))
             }
           }
-        } else if (
-          eventType?.includes('charge') &&
-          (eventType.includes('failed') || eventType === 'recurring.charge.failed')
-        ) {
-          if (contractId) {
+        } else if (isChargeFailEvent) {
+          const matchCondition = contractId
+            ? eq(wechatPayContracts.contractId, contractId)
+            : outTradeNo
+              ? eq(wechatPayContracts.outTradeNo, outTradeNo)
+              : null
+
+          if (matchCondition) {
             const now = new Date()
             await db
               .update(wechatPayContracts)
@@ -526,7 +584,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 lastChargeStatus: 'failed',
                 updatedAt: now,
               })
-              .where(eq(wechatPayContracts.contractId, contractId))
+              .where(matchCondition)
           }
         }
 
@@ -576,7 +634,9 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
 
         let charged = 0
         let failed = 0
+        let skipped = 0
         const notifyUrl = env.WX_PAY_RECURRING_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? ''
+        const appid = env.WX_MINI_APPID ?? env.WX_APP_APPID ?? ''
 
         for (const contract of dueContracts) {
           try {
@@ -595,33 +655,35 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
             }
 
             if (amount <= 0) {
-              failed++
+              skipped++
+              continue
+            }
+
+            if (!contract.contractId) {
+              skipped++
               continue
             }
 
             const outTradeNo = generateOutTradeNo('RC')
-            const result = await deductRecurring({
+            await deductRecurring({
+              appid,
               contractId: contract.contractId,
               outTradeNo,
               amount,
               description,
-              notifyUrl,
+              transactionNotifyUrl: notifyUrl,
             })
 
-            if (result.status === 'failed') {
-              failed++
-            } else {
-              charged++
-              await db
-                .update(wechatPayContracts)
-                .set({
-                  lastChargeTime: now,
-                  lastChargeStatus: result.status,
-                  outTradeNo,
-                  updatedAt: now,
-                })
-                .where(eq(wechatPayContracts.id, contract.id))
-            }
+            charged++
+            await db
+              .update(wechatPayContracts)
+              .set({
+                lastChargeTime: now,
+                lastChargeStatus: 'pending',
+                outTradeNo,
+                updatedAt: now,
+              })
+              .where(eq(wechatPayContracts.id, contract.id))
           } catch (e) {
             request.log.error(
               { err: e, contractId: contract.contractId },
@@ -636,6 +698,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
             scanned: dueContracts.length,
             charged,
             failed,
+            skipped,
           }),
         )
       } catch (e) {

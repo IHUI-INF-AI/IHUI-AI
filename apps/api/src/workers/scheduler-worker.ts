@@ -24,6 +24,7 @@ import {
   cleanupOauthSessions,
 } from '../services/scheduled-tasks-service.js'
 import { pushAlert } from '../services/alert-notification-service.js'
+import { scanAndChargeDueContracts } from '../services/subscription-service.js'
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -302,6 +303,24 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             if (result.code !== 0)
               throw new Error(`pg-backup.mjs exit ${result.code}: ${result.stderr.slice(-200)}`)
             return { exitCode: result.code }
+          }
+          case 'subscription-recurring-charge': {
+            const result = await scanAndChargeDueContracts()
+            server.log.info(
+              {
+                scanned: result.scanned,
+                charged: result.charged,
+                failed: result.failed,
+                skipped: result.skipped,
+              },
+              'subscription recurring charge done',
+            )
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
           }
           default:
             server.log.warn({ jobName: name }, 'unknown scheduled job')
