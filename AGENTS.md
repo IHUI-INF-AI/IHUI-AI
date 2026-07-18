@@ -1053,6 +1053,9 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-jun
   - 每个 `browser_evaluate` 返回的关键 DOM 属性数值(offsetHeight / scrollHeight / overflowY)
   - 与预期值的对照表(如"默认 offsetHeight=76px,预期 3 行 ≈ 74-80px ✅")
 - **未启动服务 + 未 browser_use 验证就交付的,视为交付事故(红线)**:违反本节的样式改动交付,无论代码多么"看起来正确",都视为虚假交付,必须立即补做验证闭环。
+- **commit message 必须附 Verified-DOM trailer(强制红线,由 commit-msg hook 自动守门)**:涉及 `apps/web/**/*.css` 改动的 commit,message 末尾必须附 `Verified-DOM: <URL> <DOM 数值摘要>` trailer,证明已按本节完成 browser_use 验证。守门脚本 `scripts/check-style-verification.mjs` + `.husky/commit-msg` 自动阻塞违规 commit。跳过方法:`HUSKY_SKIP_STYLE_VERIFY=1 git commit ...`(紧急 commit 时使用,但建议补验证)。
+  - trailer 格式:`Verified-DOM: http://localhost:3000/<path> (<DOM 属性=数值> <DOM 属性=数值> ...)`
+  - 示例:`Verified-DOM: http://localhost:3000/ai-world (textarea offsetHeight=58 scrollHeight=58 overflowY=hidden)`
 
 ### 禁止事项
 
@@ -1092,6 +1095,7 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-jun
    - evaluate 再次读取 DOM 数值
 7. (汇总证据) 把 5-6 步的截图描述 + DOM 数值 + 预期对照表写入交付报告
 8. (commit + push) 第 15 节规则:验证全绿后立即 commit 固化
+9. (附 trailer) 若本次 commit 含 `apps/web/**/*.css` 改动,commit message 末尾附 `Verified-DOM: <URL> <DOM 数值摘要>` trailer(由 commit-msg hook 守门,见上"必须遵守")
 ```
 
 ### 与其他规则的协同
