@@ -14,6 +14,25 @@ export interface MCPAuth {
   token?: string;
 }
 
+/**
+ * OAuth provider 元数据(当 auth.type === 'oauth' 时必填)。
+ * 描述如何与 OAuth 授权服务器交互,对应 mcp-oauth.ts 的 OAuthConfig。
+ */
+export interface McpOAuthConfig {
+  /** 授权页 endpoint,如 https://github.com/login/oauth/authorize */
+  authorizationEndpoint: string;
+  /** 换 token endpoint,如 https://github.com/login/oauth/access_token */
+  tokenEndpoint: string;
+  /** OAuth client_id(注册 OAuth App 时获得) */
+  clientId: string;
+  /** OAuth client_secret(机密,从环境变量读取;可选,PKCE 流程不需要) */
+  clientSecret?: string;
+  /** 本地回调 URL,如 http://localhost:8765/callback(端口必须与 redirectUri 一致) */
+  redirectUri: string;
+  /** 申请的 scope 列表,如 ['repo', 'read:user'] */
+  scope: string[];
+}
+
 export interface McpServer {
   name: string;
   command?: string;
@@ -24,6 +43,8 @@ export interface McpServer {
   headers?: Record<string, string>;
   api_key?: string;
   auth?: MCPAuth;
+  /** OAuth provider 元数据(仅当 auth.type === 'oauth' 时生效) */
+  oauth?: McpOAuthConfig;
 }
 
 export interface McpConfig {
@@ -90,6 +111,7 @@ export interface AddMcpServerOptions {
   headers?: Record<string, string>;
   api_key?: string;
   auth?: MCPAuth;
+  oauth?: McpOAuthConfig;
   env?: Record<string, string>;
 }
 
@@ -107,6 +129,7 @@ export function addMcpServer(
   if (options?.headers) server.headers = options.headers;
   if (options?.api_key) server.api_key = options.api_key;
   if (options?.auth) server.auth = options.auth;
+  if (options?.oauth) server.oauth = options.oauth;
   config.servers.push(server);
   saveMcpConfig(config);
   return server;
