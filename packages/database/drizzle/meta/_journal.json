@@ -743,6 +743,13 @@
       "when": 1784351800479,
       "tag": "0105_oval_vulcan",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1784351800480,
+      "tag": "0106_ai_model_info_extend",
+      "breakpoints": true
     }
   ]
 }
