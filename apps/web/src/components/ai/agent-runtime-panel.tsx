@@ -76,6 +76,10 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
       if (controller.signal.aborted) {
         // P2 中期增强:显示"任务已取消"状态而非静默回到 idle
         setStatus('cancelled')
+        // 8s 后自动回归 idle,避免 banner 长期占位
+        window.setTimeout(() => {
+          setStatus((prev) => (prev === 'cancelled' ? 'idle' : prev))
+        }, 8000)
       } else {
         setError(String(err))
         setStatus('failed')
