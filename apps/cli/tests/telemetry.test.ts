@@ -18,6 +18,7 @@ import {
   shutdownTelemetry,
   getDefaultTelemetryClient,
   _resetDefaultClientForTest,
+  redactSensitive,
 } from '../src/telemetry/index.js';
 
 // === 辅助:构造 mock fetch ===
@@ -477,5 +478,138 @@ describe('全局 API', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(timers1.clearIntervalImpl).toHaveBeenCalledTimes(1);
     expect(timers2.setIntervalImpl).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('redactSensitive(隐私 redact 规则)', () => {
+  it('password 字段被替换为 [REDACTED]', () => {
+    const input = { username: 'alice', password: 'secret123' };
+    const result = redactSensitive(input) as Record<string, unknown>;
+    expect(result.username).toBe('alice');
+    expect(result.password).toBe('[REDACTED]');
+  });
+
+  it('token / api_key / secret 字段被替换', () => {
+    const input = {
+      token: 'tok-abc',
+      api_key: 'key-xyz',
+      secret: 's',
+      normalField: 'normal',
+    };
+    const result = redactSensitive(input) as Record<string, unknown>;
+    expect(result.token).toBe('[REDACTED]');
+    expect(result.api_key).toBe('[REDACTED]');
+    expect(result.secret).toBe('[REDACTED]');
+    expect(result.normalField).toBe('normal');
+  });
+
+  it('驼峰命名字段(apiKey / accessToken)被识别', () => {
+    const input = { apiKey: 'k', accessToken: 't', refreshToken: 'r' };
+    const result = redactSensitive(input) as Record<string, unknown>;
+    expect(result.apiKey).toBe('[REDACTED]');
+    expect(result.accessToken).toBe('[REDACTED]');
+    expect(result.refreshToken).toBe('[REDACTED]');
+  });
+
+  it('嵌套对象的敏感字段被递归 redact', () => {
+    const input = {
+      user: { name: 'alice', password: 'p' },
+      config: { nested: { token: 't' } },
+    };
+    const result = redactSensitive(input) as { user: Record<string, unknown>; config: { nested: Record<string, unknown> } };
+    expect(result.user.name).toBe('alice');
+    expect(result.user.password).toBe('[REDACTED]');
+    expect(result.config.nested.token).toBe('[REDACTED]');
+  });
+
+  it('数组中的敏感字段被递归 redact', () => {
+    const input = { items: [{ name: 'a', password: 'p1' }, { name: 'b', password: 'p2' }] };
+    const result = redactSensitive(input) as { items: Array<Record<string, unknown>> };
+    expect(result.items[0]!.name).toBe('a');
+    expect(result.items[0]!.password).toBe('[REDACTED]');
+    expect(result.items[1]!.password).toBe('[REDACTED]');
+  });
+
+  it('循环引用返回 [Circular](不抛栈溢出)', () => {
+    const input: Record<string, unknown> = { name: 'a' };
+    input.self = input;
+    const result = redactSensitive(input) as Record<string, unknown>;
+    expect(result.name).toBe('a');
+    expect(result.self).toBe('[Circular]');
+  });
+
+  it('深度超过 10 层返回 [MaxDepth]', () => {
+    let deep: Record<string, unknown> = { value: 'leaf' };
+    for (let i = 0; i < 15; i++) {
+      deep = { nested: deep };
+    }
+    const result = redactSensitive(deep) as Record<string, unknown>;
+    // 最外层正常
+    expect(result).toHaveProperty('nested');
+    // 但深处会截断(具体在哪一层截断取决于 depth 计数)
+    let current: unknown = result;
+    let foundMaxDepth = false;
+    for (let i = 0; i < 20; i++) {
+      if (current === '[MaxDepth]') {
+        foundMaxDepth = true;
+        break;
+      }
+      if (current && typeof current === 'object' && current !== null) {
+        current = (current as Record<string, unknown>).nested;
+      } else {
+        break;
+      }
+    }
+    expect(foundMaxDepth).toBe(true);
+  });
+
+  it('原始值(字符串/数字/布尔/null)原样返回', () => {
+    expect(redactSensitive('hello')).toBe('hello');
+    expect(redactSensitive(42)).toBe(42);
+    expect(redactSensitive(true)).toBe(true);
+    expect(redactSensitive(null)).toBe(null);
+  });
+
+  it('authorization / credentials / cookie 字段被识别', () => {
+    const input = {
+      authorization: 'Bearer xyz',
+      credentials: 'c',
+      cookie: 'session=abc',
+    };
+    const result = redactSensitive(input) as Record<string, unknown>;
+    expect(result.authorization).toBe('[REDACTED]');
+    expect(result.credentials).toBe('[REDACTED]');
+    expect(result.cookie).toBe('[REDACTED]');
+  });
+
+  it('trackEvent 调用后队列中的 props 已 redact', () => {
+    const client = new TelemetryClient({
+      enabled: true,
+      endpoint: 'https://example.com/v1/telemetry/ingest',
+      fetchImpl: createMockFetch(),
+      batchSize: 100,
+    });
+    client.trackEvent('session_start', {
+      username: 'alice',
+      password: 'p',
+      api_key: 'k',
+    });
+    // 通过 getQueueSize 验证事件已入队
+    expect(client.getQueueSize()).toBe(1);
+    // 直接调用 flush,从 fetch 请求体中验证 props 已被 redact
+    const fetchFn = createMockFetch(true, 200);
+    const newClient = new TelemetryClient({
+      enabled: true,
+      endpoint: 'https://example.com/v1/telemetry/ingest',
+      fetchImpl: fetchFn,
+      batchSize: 100,
+    });
+    newClient.trackEvent('session_start', { password: 'secret', modelId: 'gpt' });
+    return newClient.flush().then(() => {
+      const call = fetchFn.mock.calls[0];
+      const body = JSON.parse(call![1]!.body as string) as { events: Array<{ props?: Record<string, unknown> }> };
+      expect(body.events[0]!.props!.password).toBe('[REDACTED]');
+      expect(body.events[0]!.props!.modelId).toBe('gpt');
+    });
   });
 });
