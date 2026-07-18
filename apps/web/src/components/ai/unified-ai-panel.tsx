@@ -32,16 +32,37 @@ export function UnifiedAIPanel({
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 
+  // textarea 无 padding(由外层容器提供)
+  // scrollHeight 阈值:3 行 ≈ 58px,6 行 ≈ 116px(text-sm + leading-snug)
+  const THREE_LINE_PX = 60 // 内容 ≤ 3 行的阈值
+  const MAX_HEIGHT_PX = 120 // 最大 6 行
+
   const lastContent = messages[messages.length - 1]?.content
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages.length, lastContent, isStreaming, streamingContent])
 
+  // 自动调整高度:空内容用 rows={3} 原生渲染,有内容按 scrollHeight 撑高,>6 行保持 6 行 + 滚动
   const resize = React.useCallback(() => {
     const el = textareaRef.current
     if (!el) return
+    if (!el.value) {
+      el.style.height = ''
+      el.style.overflowY = 'hidden'
+      return
+    }
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+    const sh = el.scrollHeight
+    if (sh < THREE_LINE_PX) {
+      el.style.height = ''
+      el.style.overflowY = 'hidden'
+    } else if (sh <= MAX_HEIGHT_PX) {
+      el.style.height = `${sh}px`
+      el.style.overflowY = 'hidden'
+    } else {
+      el.style.height = `${MAX_HEIGHT_PX}px`
+      el.style.overflowY = 'auto'
+    }
   }, [])
 
   React.useEffect(() => resize(), [value, resize])
@@ -132,16 +153,20 @@ export function UnifiedAIPanel({
       <div className="border-t bg-background/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto max-w-3xl">
           <div className="flex items-end gap-2 rounded-2xl border bg-card p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
-            <textarea
-              ref={textareaRef}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              rows={1}
-              disabled={isStreaming}
-              className="max-h-[160px] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground/70 disabled:opacity-60"
-            />
+            {/* textarea 容器:padding 由容器提供,避免 textarea 滚动时 padding-top 被吃掉 */}
+            <div className="flex-1 py-1.5 pl-1">
+              <textarea
+                ref={textareaRef}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder}
+                rows={3}
+                disabled={isStreaming}
+                style={{ maxHeight: MAX_HEIGHT_PX }}
+                className="thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none placeholder:text-muted-foreground/70 disabled:opacity-60"
+              />
+            </div>
             {isStreaming ? (
               <Button
                 variant="destructive"
