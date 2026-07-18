@@ -1,7 +1,7 @@
 import { pgTable, uuid, varchar, text, integer, timestamp, index, jsonb } from 'drizzle-orm/pg-core'
 
 /**
- * 远程设备表 (迁移自旧架构 Java RemoteDeviceByTaskController)。
+ * 远程设备表 (等价自旧架构 Java RemoteDeviceByTaskController)。
  * 管理远程 IoT 设备的注册、状态和任务分配。
  * deviceNo: 设备唯一编号。status: online/offline/maintenance。
  */

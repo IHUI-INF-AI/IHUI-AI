@@ -1,7 +1,7 @@
 /**
  * Plugins Marketplace 安装器 — 实现本地/Git 插件的安装、卸载、注册表持久化。
  *
- * 灵感来源:cli cli-plugin-marketplace 的安装流程。
+ * 灵感来源:参考行业 Agent 框架的 plugin marketplace 安装流程。
  * 设计:
  *   - installPlugin(source):自动识别本地路径 vs Git URL,分流安装
  *   - installMarketplacePlugin(name, marketplaceRoot):从 marketplace 索引查找后安装
@@ -413,7 +413,7 @@ function findPluginSubdir(cachePath: string): string | undefined {
  * 通过 marketplace 索引查找并安装插件。
  *
  * @param name 插件名
- * @param marketplaceRoot marketplace 仓库本地路径(含 .grok-plugin/marketplace.json 等)
+ * @param marketplaceRoot marketplace 仓库本地路径(含 .ihui-plugin/marketplace.json 等)
  * @param qualifier 别名限定(tags/keywords/domains/category)
  */
 export async function installMarketplacePlugin(

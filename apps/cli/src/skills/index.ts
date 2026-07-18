@@ -1,7 +1,7 @@
 /**
  * Skills 平面加载 — 四级目录扫描 + flat *.md → slash command。
  *
- * 灵感来源:cli 的 skills 加载机制(四级目录兼容 .grok/.agents/.claude/.cursor)。
+ * 灵感来源:参考行业 Agent 框架的 skills 加载机制(四级目录兼容 .ihui/.agents/.claude/.cursor)。
  * 简化策略(做减法):
  *   - 只扫描 flat *.md 文件(不递归子目录),文件名(去扩展名)→ slash 命令名
  *   - 四级目录优先级:CWD > repo root > user home(高→低,前者覆盖后者同名 skill)
@@ -16,12 +16,12 @@
  *   <repo-root>/.ihui/skills/*.md    — 仓库根(从 cwd 向上找到 .git 止)
  *   ~/.ihui/skills/*.md              — 用户全局(最低优先级)
  *
- * Skill 文件格式(对齐 cli Skills frontmatter 规范):
+ * Skill 文件格式(参考行业 Agent 框架的 Skills frontmatter 规范):
  *   ---
  *   name: <skill 名>(可选,覆盖文件名 stem)
  *   description: <一句话描述>(可选)
  *   allowed-tools: [tool-a, tool-b](可选,工具白名单)
- *   tools: [tool-c](可选,等价于 allowed-tools,cli 兼容字段)
+ *   tools: [tool-c](可选,等价于 allowed-tools,行业兼容字段)
  *   model: <模型名>(可选)
  *   tags: [coding, review](可选,分类标签)
  *   ---
@@ -36,7 +36,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 
-/** Skill frontmatter 元信息(对齐 cli Skills 规范) */
+/** Skill frontmatter 元信息(参考行业 Agent 框架的 Skills 规范) */
 export interface SkillFrontmatter {
   /** skill 名(覆盖文件名 stem,缺省回退到文件名) */
   name?: string;
@@ -44,7 +44,7 @@ export interface SkillFrontmatter {
   description?: string;
   /** 工具白名单(可选,对应 frontmatter 的 allowed-tools) */
   allowedTools?: string[];
-  /** 工具白名单(cli 兼容字段,等价于 allowedTools,对应 frontmatter 的 tools) */
+  /** 工具白名单(行业兼容字段,等价于 allowedTools,对应 frontmatter 的 tools) */
   tools?: string[];
   /** 指定模型(可选) */
   model?: string;

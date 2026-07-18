@@ -1,7 +1,7 @@
 /**
  * Hybrid Search — BM25-lite + 向量检索 + 时间衰减 + access boost + MMR 重排。
  *
- * 灵感来源:cli-memory crate 的 hybrid_search.rs。
+ * 灵感来源:参考行业 Agent 框架的 hybrid_search 设计。
  * 简化策略(做减法):
  *   - BM25-lite:不分词用空格切 + 中文 2-gram fallback,k1=1.5, b=0.75
  *   - 向量检索:可选(注入 EmbeddingProvider),无则纯 FTS

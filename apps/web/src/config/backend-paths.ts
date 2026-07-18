@@ -1,5 +1,5 @@
 /**
- * 后端路径常量 — 迁移自旧架构 client/src/config/backend-paths.ts
+ * 后端路径常量 — 等价自旧架构 client/src/config/backend-paths.ts
  * API 端点路径常量与路由映射。所有路径基于 COZE 前缀（nginx 代理到 Python 后端）
  */
 
