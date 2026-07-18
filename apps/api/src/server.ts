@@ -67,6 +67,7 @@ import { authExtendedRoutes } from './routes/auth-extended.js'
 import { authSsoRoutes } from './routes/auth-sso.js'
 import { vipRoutes, adminVipRoutes } from './routes/vip.js'
 import { agentsRoutes } from './routes/agents.js'
+import { oauthKeysRoutes } from './routes/oauth-keys.js'
 import { plazaRoutes } from './routes/plaza.js'
 import { cozeVariablesRoutes } from './routes/coze-variables.js'
 import { cozeRoutes } from './routes/coze.js'
@@ -235,6 +236,10 @@ import { aiVideoComposeRoutes } from './routes/ai-video-compose.js'
 import { legacyLangchainRoutes } from './routes/legacy-langchain.js'
 import { rewardedVideoAdRoutes } from './routes/rewarded-video-ad.js'
 import { agentRuntimeRoutes } from './routes/agent-runtime.js'
+
+// R81 补建：D 盘 coze_zhs_py 代理类路由
+import { n8nProxyRoutes } from './routes/n8n-proxy.js'
+import { tencentHunyuan3dRoutes } from './routes/tencent-hunyuan-3d.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
@@ -580,6 +585,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(dictPublicRoutes, { prefix: '/api/dict' })
   // 代理 / 广场 / Coze 变量 / Agent 服务
   server.register(agentsRoutes, { prefix: '/api' })
+  // OAuth 私钥管理(多租户 JWT/RS256 签名密钥轮转):/api/oauth-keys/generate|rotate|revoke|list|active
+  server.register(oauthKeysRoutes, { prefix: '/api/oauth-keys' })
   server.register(plazaRoutes, { prefix: '/api/plaza' })
   server.register(cozeVariablesRoutes, { prefix: '/api/coze/variables' })
   // Coze 平台集成:apps/audio/chat-audio/conversations/datasets/files/review/templates/workflows/workspaces/bot
@@ -886,4 +893,30 @@ function registerRoutes(server: FastifyInstance) {
 
   // Agent Runtime:PermissionGuard 5 mode + SessionManager 集成(/api/agent-runtime/*)
   server.register(agentRuntimeRoutes, { prefix: '/api/agent-runtime' })
+
+  // ===== R81 补建: D 盘 coze_zhs_py 代理类路由 =====
+  // n8n 代理(D 盘 coze_zhs_py/api/n8n_proxy.py):workflows 透传 + addAgent 真实写库
+  server.register(n8nProxyRoutes, { prefix: '/api' })
+  // 腾讯混元 3D(D 盘 coze_zhs_py/api/tencent_hunyuan_3d.py):submit/query/job/admin + video_generation_tasks 落库
+  server.register(tencentHunyuan3dRoutes, { prefix: '/api' })
+
+  // ===== R83 补建: 路径别名 redirect (前端兼容) =====
+  // 旧前端调用路径 → 308 Permanent Redirect → 新规范化路径
+  // 守门脚本 check-api-migration-completeness.mjs [5/7] + [7/7] 要求 5 个 redirect
+  // 1. /api/agents → /api/agents/list (修复 use-agent.ts:34 404)
+  server.get('/api/agents', async (_req, reply) => reply.redirect('/api/agents/list', 308))
+  // 2. /api/agent-withdrawal-detail → /api/agent-ext/withdrawal/list (旧路由名 → agent-extended.ts)
+  server.get('/api/agent-withdrawal-detail', async (_req, reply) =>
+    reply.redirect('/api/agent-ext/withdrawal/list', 308),
+  )
+  // 3. /api/ai-model-info → /api/llm/models (旧 LLM 模型信息路径 → llm-models.ts)
+  server.get('/api/ai-model-info', async (_req, reply) => reply.redirect('/api/llm/models', 308))
+  // 4. /api/customer-service/faqs → /api/v1/customer_service/faqs (旧客服 FAQ → frontend-stub-other-routes.ts:1749)
+  server.get('/api/customer-service/faqs', async (_req, reply) =>
+    reply.redirect('/api/v1/customer_service/faqs', 308),
+  )
+  // 5. /api/ai-capabilities → /api/ai-ext/capabilities (旧 AI 能力路径 → ai-extended.ts:151)
+  server.get('/api/ai-capabilities', async (_req, reply) =>
+    reply.redirect('/api/ai-ext/capabilities', 308),
+  )
 }

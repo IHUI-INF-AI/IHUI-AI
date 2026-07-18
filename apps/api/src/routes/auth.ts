@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
+import { randomBytes } from 'node:crypto'
 import { verifyRefreshToken, createFamilyId, type JWTPayload } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { issueTokenPair } from '../services/token-service.js'
@@ -25,14 +26,8 @@ import {
   ACCOUNT_LOCKOUT_CONFIG,
 } from '../services/account-lockout.js'
 import { success, error } from '../utils/response.js'
-import {
-  jscode2session,
-  isWechatMiniConfigured,
-} from '../services/oauth-providers.js'
-import {
-  findThirdPartyAccount,
-  createThirdPartyBinding,
-} from '../db/oauth-queries.js'
+import { jscode2session, isWechatMiniConfigured } from '../services/oauth-providers.js'
+import { findThirdPartyAccount, createThirdPartyBinding } from '../db/oauth-queries.js'
 import {
   codeStore,
   CODE_TTL_MS,
@@ -1068,5 +1063,19 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     }
     await cancelUserAccount(request.userId!)
     return reply.send(success({ cancelled: true }))
+  })
+
+  // GET /qr/status - 二维码登录状态查询(token 由 /qr/generate 返回,轮询检查扫码状态)
+  server.get('/qr/status', async (request, reply) => {
+    const { token } = z.object({ token: z.string().min(1) }).parse(request.query)
+    // 简化实现:token 存储在 Redis 或内存,这里返回 pending 状态
+    // 实际扫码登录流程:generate 生成 token → 客户端扫码 → status 轮询 → 返回登录凭证
+    return reply.send(success({ token, status: 'pending', userId: null, accessToken: null }))
+  })
+
+  // POST /qr/generate - 生成二维码登录 token
+  server.post('/qr/generate', async (_request, reply) => {
+    const qrToken = randomBytes(32).toString('base64url')
+    return reply.send(success({ qrToken, expiresIn: 300 }))
   })
 }

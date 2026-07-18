@@ -3,7 +3,13 @@ import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { db } from '../db/index.js'
-import { examExam, examPaperQuestionRule, examSignUp, examWrongQuestion } from '@ihui/database'
+import {
+  examExam,
+  examPaperQuestionRule,
+  examSignUp,
+  examWrongQuestion,
+  examRecords,
+} from '@ihui/database'
 import { eq, sql, and, desc } from 'drizzle-orm'
 import {
   findPublishedExamCategories,
@@ -252,6 +258,39 @@ const wrongQuestionsQuerySchema = z.object({
 
 const resolveQuestionParamSchema = z.object({
   questionId: z.string().uuid('无效的题目 ID'),
+})
+
+// ----- 试卷分类/题库分类/阅卷 schemas -----
+
+const updateCategoryWithIdSchema = updateExamCategorySchema.extend({
+  id: z.string().uuid('无效的 ID'),
+})
+
+const deleteCategorySchema = z.object({
+  id: z.string().uuid('无效的 ID'),
+})
+
+const autoMarkPaperSchema = z.object({
+  recordId: z.string().uuid('无效的记录 ID'),
+  paperId: z.string().uuid('无效的试卷 ID'),
+})
+
+const manualMarkPaperSchema = z.object({
+  recordId: z.string().uuid('无效的记录 ID'),
+  scores: z
+    .array(
+      z.object({
+        questionId: z.string().uuid(),
+        score: z.number().min(0),
+        isCorrect: z.boolean().optional(),
+      }),
+    )
+    .min(1, '评分项不能为空'),
+})
+
+const checkSubmittedSchema = z.object({
+  recordId: z.string().uuid('无效的记录 ID'),
+  paperId: z.string().uuid('无效的试卷 ID'),
 })
 
 // ----- 章节/小节/排序/报名/待评分 schemas -----
@@ -1028,6 +1067,248 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       .returning()
     if (!updated) return reply.status(404).send(error(404, '错题记录不存在'))
     return reply.send(success({ wrong: updated }))
+  })
+
+  // ===========================================================================
+  // 试卷分类 / 题库分类管理（paper/category & question-lib/category）
+  // 复用 exam_categories 表（无 type 字段，两端点行为对称）
+  // ===========================================================================
+
+  // POST /exam/paper/category - 创建试卷分类（admin）
+  server.post('/exam/paper/category', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = createExamCategorySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const category = await createExamCategory(parsed.data)
+    return reply.status(201).send(success({ category }))
+  })
+
+  // GET /exam/paper/category/list - 试卷分类列表（auth）
+  server.get('/exam/paper/category/list', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const list = await findPublishedExamCategories()
+    return reply.send(success({ list }))
+  })
+
+  // PUT /exam/paper/category - 更新试卷分类（admin, body 含 id）
+  server.put('/exam/paper/category', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = updateCategoryWithIdSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { id, ...data } = parsed.data
+    const existing = await findExamCategoryById(id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '分类不存在'))
+    }
+    const category = await updateExamCategory(id, data)
+    return reply.send(success({ category }))
+  })
+
+  // DELETE /exam/paper/category - 删除试卷分类（admin, query 或 body 含 id）
+  server.delete('/exam/paper/category', { preHandler: requireAdmin }, async (request, reply) => {
+    const bodyObj = (request.body ?? {}) as Record<string, unknown>
+    const queryObj = request.query as Record<string, unknown>
+    const parsed = deleteCategorySchema.safeParse(bodyObj.id ? bodyObj : queryObj)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findExamCategoryById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '分类不存在'))
+    }
+    await deleteExamCategory(parsed.data.id)
+    return reply.send(success({ ok: true }))
+  })
+
+  // POST /exam/question-lib/category - 创建题库分类（admin）
+  server.post(
+    '/exam/question-lib/category',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = createExamCategorySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const category = await createExamCategory(parsed.data)
+      return reply.status(201).send(success({ category }))
+    },
+  )
+
+  // GET /exam/question-lib/category/list - 题库分类列表（auth）
+  server.get('/exam/question-lib/category/list', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const list = await findPublishedExamCategories()
+    return reply.send(success({ list }))
+  })
+
+  // PUT /exam/question-lib/category - 更新题库分类（admin, body 含 id）
+  server.put(
+    '/exam/question-lib/category',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = updateCategoryWithIdSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { id, ...data } = parsed.data
+      const existing = await findExamCategoryById(id)
+      if (!existing) {
+        return reply.status(404).send(error(404, '分类不存在'))
+      }
+      const category = await updateExamCategory(id, data)
+      return reply.send(success({ category }))
+    },
+  )
+
+  // DELETE /exam/question-lib/category - 删除题库分类（admin, query 或 body 含 id）
+  server.delete(
+    '/exam/question-lib/category',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const bodyObj = (request.body ?? {}) as Record<string, unknown>
+      const queryObj = request.query as Record<string, unknown>
+      const parsed = deleteCategorySchema.safeParse(bodyObj.id ? bodyObj : queryObj)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const existing = await findExamCategoryById(parsed.data.id)
+      if (!existing) {
+        return reply.status(404).send(error(404, '分类不存在'))
+      }
+      await deleteExamCategory(parsed.data.id)
+      return reply.send(success({ ok: true }))
+    },
+  )
+
+  // ===========================================================================
+  // 阅卷与提交检查（mark & check-submitted）
+  // ===========================================================================
+
+  // POST /exam/auth-api/mark/paper - 自动阅卷（admin, body 含 recordId/paperId）
+  // 基于记录中已存储的答案重新对客观题判分，更新 score/status
+  server.post('/exam/auth-api/mark/paper', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = autoMarkPaperSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { recordId, paperId } = parsed.data
+    const record = await findExamRecordById(recordId)
+    if (!record) {
+      return reply.status(404).send(error(404, '答题记录不存在'))
+    }
+    if (record.paperId !== paperId) {
+      return reply.status(400).send(error(400, 'recordId 与 paperId 不匹配'))
+    }
+    const questions = await findQuestionsByPaperId(paperId)
+    const storedAnswers =
+      (record.answers as Array<{ questionId: string; answer: unknown }> | null) ?? []
+    let totalScore = 0
+    let hasSubjective = false
+    const graded = questions.map((q) => {
+      const a = storedAnswers.find((sa) => sa.questionId === q.id)
+      let isCorrect = false
+      let score = 0
+      if (a) {
+        if (q.type === 'single_choice' || q.type === 'judgment') {
+          isCorrect = JSON.stringify(a.answer) === JSON.stringify(q.answer)
+        } else if (q.type === 'multi_choice') {
+          const ans = Array.isArray(a.answer) ? [...a.answer].sort() : []
+          const correct = Array.isArray(q.answer) ? [...q.answer].sort() : []
+          isCorrect = JSON.stringify(ans) === JSON.stringify(correct)
+        } else if (q.type === 'fill_blank') {
+          const ans = Array.isArray(a.answer) ? a.answer : [a.answer]
+          const correct = Array.isArray(q.answer) ? q.answer : [q.answer]
+          isCorrect =
+            ans.length === correct.length &&
+            ans.every((v, i) => String(v).trim() === String(correct[i]).trim())
+        } else if (q.type === 'subjective') {
+          hasSubjective = true
+        }
+        score = isCorrect ? Number(q.score) : 0
+      }
+      totalScore += score
+      return { questionId: q.id, answer: a?.answer, isCorrect, score }
+    })
+    const paper = await findPaperById(paperId)
+    const isPassed = totalScore >= Number(paper?.passScore ?? 60)
+    const finalStatus = hasSubjective ? 'graded' : 'submitted'
+    const [updated] = await db
+      .update(examRecords)
+      .set({
+        answers: graded,
+        score: String(totalScore),
+        isPassed,
+        status: finalStatus,
+        submittedAt: record.submittedAt ?? new Date(),
+      })
+      .where(eq(examRecords.id, recordId))
+      .returning()
+    return reply.send(
+      success({
+        record: updated,
+        score: totalScore,
+        isPassed,
+        status: finalStatus,
+        answers: graded,
+      }),
+    )
+  })
+
+  // POST /exam/record/manual/mark/paper - 手动阅卷（admin, body 含 recordId/scores）
+  // 对主观题进行人工评分，复用 gradeSubjectiveAnswers
+  server.post(
+    '/exam/record/manual/mark/paper',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = manualMarkPaperSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { recordId, scores } = parsed.data
+      const existing = await findExamRecordById(recordId)
+      if (!existing) {
+        return reply.status(404).send(error(404, '答题记录不存在'))
+      }
+      try {
+        const result = await gradeSubjectiveAnswers(recordId, scores)
+        return reply.send(success({ result }))
+      } catch (e) {
+        const msg = (e as Error).message
+        if (msg.includes('尚未提交')) {
+          return reply.status(409).send(error(409, msg))
+        }
+        throw e
+      }
+    },
+  )
+
+  // GET /exam/auth-api/record/check-submitted - 检查是否已提交（auth, query 含 recordId/paperId）
+  server.get('/exam/auth-api/record/check-submitted', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = checkSubmittedSchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { recordId, paperId } = parsed.data
+    const record = await findExamRecordById(recordId)
+    if (!record) {
+      return reply.status(404).send(error(404, '答题记录不存在'))
+    }
+    if (record.paperId !== paperId) {
+      return reply.status(400).send(error(400, 'recordId 与 paperId 不匹配'))
+    }
+    const submitted =
+      record.status === 'submitted' || record.status === 'graded' || record.status === 'completed'
+    return reply.send(
+      success({
+        submitted,
+        status: record.status,
+        recordId,
+        paperId,
+      }),
+    )
   })
 
   // ===========================================================================
