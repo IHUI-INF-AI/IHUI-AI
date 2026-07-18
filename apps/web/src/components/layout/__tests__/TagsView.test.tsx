@@ -4,18 +4,40 @@ import React from 'react'
 import { render, cleanup, act } from '@testing-library/react'
 
 // Mock next/link:渲染为原生 a 标签,避免 RSC 边界
+// 透传 draggable + onContextMenu(测试 Feature 3 右键菜单 / Feature 4 拖拽需要)
 vi.mock('next/link', () => ({
   __esModule: true,
   default: ({
     children,
     className,
     href,
+    draggable,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
+    onContextMenu,
   }: {
     children: React.ReactNode
     className?: string
     href: string
+    draggable?: boolean
+    onDragStart?: React.DragEventHandler
+    onDragOver?: React.DragEventHandler
+    onDrop?: React.DragEventHandler
+    onDragEnd?: React.DragEventHandler
+    onContextMenu?: React.MouseEventHandler
   }) => (
-    <a href={href} className={className}>
+    <a
+      href={href}
+      className={className}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      onContextMenu={onContextMenu}
+    >
       {children}
     </a>
   ),
@@ -251,5 +273,148 @@ describe('TagsView 视觉守门', () => {
       useTagsViewStore.getState().closeAll()
     })
     expect(useTagsViewStore.getState().dirtyPaths.size, 'closeAll 后 dirtyPaths 应为空').toBe(0)
+  })
+
+  // ─── Feature 3: 右键上下文菜单 ───
+  it('右键标签弹出 [data-testid="tagsview-context-menu"],含三项操作', () => {
+    const { container } = render(<TagsView />)
+    const link = container.querySelector('a') as HTMLElement
+    expect(link, '应有 a 标签').not.toBeNull()
+    // 用原生 MouseEvent 派发,绕过 React Synthetic 事件的 event-pooling
+    act(() => {
+      link.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100,
+          clientY: 50,
+        }),
+      )
+    })
+    const menu = container.querySelector('[data-testid="tagsview-context-menu"]')
+    expect(menu, '右键应弹出菜单').not.toBeNull()
+    expect(menu!.getAttribute('role'), '菜单应有 menu role').toBe('menu')
+    const items = menu!.querySelectorAll('[role="menuitem"]')
+    expect(items.length, '菜单应有 3 项操作(关闭/关闭其他/关闭全部)').toBe(3)
+    expect(items[0]!.textContent, '第一项应为"关闭"').toContain('关闭')
+    expect(items[1]!.textContent, '第二项应为"关闭其他"').toContain('关闭其他')
+    expect(items[2]!.textContent, '第三项应为"关闭全部"').toContain('关闭全部')
+  })
+
+  it('右键菜单点击外部会关闭(点击 document 触发 close)', () => {
+    const { container } = render(<TagsView />)
+    const link = container.querySelector('a') as HTMLElement
+    act(() => {
+      link.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100,
+          clientY: 50,
+        }),
+      )
+    })
+    expect(
+      container.querySelector('[data-testid="tagsview-context-menu"]'),
+      '右键后菜单应存在',
+    ).not.toBeNull()
+    act(() => {
+      document.body.click()
+    })
+    expect(
+      container.querySelector('[data-testid="tagsview-context-menu"]'),
+      '点击 document 后菜单应消失',
+    ).toBeNull()
+  })
+
+  // ─── Feature 4: HTML5 拖拽排序 ───
+  it('reorderTags 移动非 active 标签到目标位置,active 标签保持不动', () => {
+    act(() => {
+      useTagsViewStore.getState().addTag({ path: '/', title: '首页' })
+      useTagsViewStore.getState().addTag({ path: '/a', title: 'A' })
+      useTagsViewStore.getState().addTag({ path: '/b', title: 'B' })
+    })
+    const before = useTagsViewStore.getState().tags.map((t) => t.path)
+    expect(before, '初始顺序应为 [/ , /a, /b]').toEqual(['/', '/a', '/b'])
+    act(() => {
+      useTagsViewStore.getState().reorderTags(1, 2) // A → B 之后
+    })
+    const after = useTagsViewStore.getState().tags.map((t) => t.path)
+    expect(after, '重排后应为 [/ , /b, /a]').toEqual(['/', '/b', '/a'])
+  })
+
+  it('reorderTags 越界/相同索引直接 return,保持原状', () => {
+    act(() => {
+      useTagsViewStore.getState().addTag({ path: '/', title: '首页' })
+      useTagsViewStore.getState().addTag({ path: '/a', title: 'A' })
+    })
+    const before = useTagsViewStore.getState().tags.map((t) => t.path)
+    act(() => {
+      useTagsViewStore.getState().reorderTags(0, 0) // 相同
+    })
+    expect(
+      useTagsViewStore.getState().tags.map((t) => t.path),
+      '同索引 noop',
+    ).toEqual(before)
+    act(() => {
+      useTagsViewStore.getState().reorderTags(-1, 1) // 越界
+    })
+    expect(
+      useTagsViewStore.getState().tags.map((t) => t.path),
+      '越界 noop',
+    ).toEqual(before)
+    act(() => {
+      useTagsViewStore.getState().reorderTags(0, 99) // 越界
+    })
+    expect(
+      useTagsViewStore.getState().tags.map((t) => t.path),
+      '目标越界 noop',
+    ).toEqual(before)
+  })
+
+  it('非 active 标签的 Link 设置 draggable=true(可拖),active 标签 draggable=false', () => {
+    act(() => {
+      useTagsViewStore.getState().addTag({ path: '/', title: '首页' })
+      useTagsViewStore.getState().addTag({ path: '/a', title: 'A' })
+    })
+    const { container } = render(<TagsView />)
+    const links = container.querySelectorAll('a')
+    expect(links.length, '应有两个 Link').toBe(2)
+    const activeLink = links[0] as HTMLElement // '/' 是 active
+    const inactiveLink = links[1] as HTMLElement
+    expect(activeLink.getAttribute('draggable'), 'active 标签不可拖').toBe('false')
+    expect(inactiveLink.getAttribute('draggable'), '非 active 标签可拖').toBe('true')
+  })
+
+  // ─── Feature 6: Alt+W 快捷键关闭当前 active 标签 ───
+  it('Alt+W 关闭当前 active 标签(Ctrl+W/Cmd+W/Shift+W 不触发,避免与浏览器冲突)', () => {
+    act(() => {
+      useTagsViewStore.getState().addTag({ path: '/', title: '首页' })
+      useTagsViewStore.getState().addTag({ path: '/a', title: 'A' })
+    })
+    render(<TagsView />)
+    // 模拟 Alt+W (按 a 字母对应的 close-all 动作,但我们关闭的是 active tag 即 /a)
+    // 由于 / 路径是 addTag 第一次调用产生的,但我们想让 /a 处于 active。
+    // 重置:重新设置 active 为 /a
+    act(() => {
+      useTagsViewStore.setState({ activePath: '/a' })
+    })
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', altKey: true, bubbles: true }))
+    })
+    const tags = useTagsViewStore.getState().tags.map((t) => t.path)
+    expect(tags.includes('/a'), 'Alt+W 应关闭 active 标签 /a').toBe(false)
+    // 验证 Ctrl+W 不触发关闭
+    act(() => {
+      useTagsViewStore.setState({ activePath: '/' })
+    })
+    const tagsBeforeCtrlW = useTagsViewStore.getState().tags.map((t) => t.path)
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', ctrlKey: true, bubbles: true }))
+    })
+    expect(
+      useTagsViewStore.getState().tags.map((t) => t.path),
+      'Ctrl+W 不应被本组件拦截',
+    ).toEqual(tagsBeforeCtrlW)
   })
 })
