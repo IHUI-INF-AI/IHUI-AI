@@ -382,6 +382,23 @@ body {
     transform: scale(1.2);
   }
 }
+
+/* 侧边栏破折线指示器首次呼吸动画:从 60% 透明度脉冲到 100% 再回落,仅播一次
+   用于引导用户视线到"有二级菜单"的入口,后续保持静态 */
+@keyframes sidebar-indicator-pulse-once {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+.animate-pulse-once {
+  animation: sidebar-indicator-pulse-once 1.6s ease-out 1 both;
+}
 .ihui-ai-fade-in-left {
   animation: ihui-ai-fade-in-left 1s ease-out both;
 }
