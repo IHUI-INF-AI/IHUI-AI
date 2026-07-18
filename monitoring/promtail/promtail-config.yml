@@ -1,0 +1,126 @@
+# Promtail 配置 — IHUI-AI 日志采集
+# 采集 Docker 容器日志、systemd journal(可选)、Nginx 静态日志、API 应用日志
+# 推送到 Loki (http://loki:3100/loki/api/v1/push)
+# pipeline_stages 解析 JSON 日志,提取 level/timestamp/requestId 标签
+
+server:
+  http_listen_port: 9080 # Promtail 自身 HTTP 端口(指标 + 健康检查)
+  grpc_listen_port: 0 # 禁用 gRPC 监听(单机模式不需要)
+  log_level: info
+
+positions:
+  filename: /tmp/positions.yaml # 记录每个日志文件已读取位置,重启后继续
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    backoff_config:
+      min_period: 500ms
+      max_period: 5m
+      max_retries: 10
+
+scrape_configs:
+  # === 1. Docker 容器日志(主要采集方式) ===
+  # 通过 docker_sd_configs 自动发现带 logging=promtail 标签的容器
+  # 容器需在 docker-compose 中添加 labels: ["logging=promtail"]
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: label
+            values: ['logging=promtail']
+    relabel_configs:
+      # 容器名 -> container 标签(去除前导 /)
+      - source_labels: ['__meta_docker_container_name']
+        target_label: 'container'
+        regex: '/(.*)'
+      # 日志流类型(stdout/stderr)
+      - source_labels: ['__meta_docker_container_log_stream']
+        target_label: 'stream'
+      # docker-compose 服务名
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: 'service'
+      # 镜像名
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: 'project'
+    pipeline_stages:
+      # 尝试解析 JSON 日志,提取关键字段
+      - json:
+          expressions:
+            level: level
+            timestamp: timestamp
+            requestId: requestId
+            msg: msg
+            service: service
+      # 把 level 提升为标签,便于 LogQL 过滤
+      - labels:
+          level:
+          requestId:
+      # 使用日志中的 timestamp 作为 Loki 时间戳(若缺失则用抓取时间)
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+          on_missing: skip
+
+  # === 2. systemd journal 日志(可选,Linux 宿主机部署时启用) ===
+  # 需要将宿主机 /var/log/journal 或 /run/log/journal 挂载到容器
+  - job_name: journal
+    journal:
+      path: /var/log/journal
+      labels:
+        job: systemd-journal
+        host: ihui-ai
+    relabel_configs:
+      - source_labels: ['__journal__systemd_unit']
+        target_label: 'unit'
+      - source_labels: ['__journal__hostname']
+        target_label: 'hostname'
+    pipeline_stages:
+      # 丢弃 kernel/systemd 自身噪音日志
+      - drop:
+          source: unit
+          expression: '(kernel|systemd-logind|systemd-journald).+'
+
+  # === 3. Nginx 静态日志(宿主机 Nginx 或反代层) ===
+  # 需要将宿主机 /var/log 挂载到 promtail 容器(已在 docker-compose 配置)
+  - job_name: nginx
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          host: ihui-ai
+          __path__: /var/log/nginx/*.log
+    pipeline_stages:
+      # 解析 Nginx combined log 格式
+      - regex:
+          expression: '(?P<remote_addr>\S+) - (?P<remote_user>\S+) \[(?P<time_local>[^\]]+)\] "(?P<method>\S+) (?P<path>\S+) (?P<protocol>[^"]+)" (?P<status>\d+) (?P<bytes_sent>\d+) "(?P<referer>[^"]*)" "(?P<user_agent>[^"]*)"'
+      - labels:
+          method:
+          status:
+
+  # === 4. API 应用静态日志文件(应用写入的 *.log) ===
+  # 需要将宿主机 ./apps/api/logs 挂载到 promtail 容器(已在 docker-compose 配置)
+  - job_name: api-app-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: api-app
+          host: ihui-ai
+          __path__: /apps/api/logs/*.log
+    pipeline_stages:
+      # 解析 JSON 应用日志,提取 level/timestamp/requestId
+      - json:
+          expressions:
+            level: level
+            timestamp: timestamp
+            requestId: requestId
+            msg: msg
+      - labels:
+          level:
+          requestId:
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+          on_missing: skip
