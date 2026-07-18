@@ -13633,7 +13633,17 @@
       "confirmDeleteWebhook": "确定删除该 Webhook？",
       "confirmDeleteHook": "确定删除该 Hook？",
       "confirmDeleteChannel": "确定删除该渠道？",
-      "messages": "消息"
+      "messages": "消息",
+      "title": "OpenClaw 控制台",
+      "subtitle": "管理 OpenClaw 网关、渠道、技能与自动化",
+      "tabMemory": "记忆",
+      "tabSkills": "技能",
+      "tabAutomation": "自动化",
+      "tabIntegrations": "接入",
+      "tabModels": "模型",
+      "tabVoice": "语音",
+      "tabCanvas": "画布",
+      "tabBrowser": "浏览器"
     },
     "goToSystemSettings": "前往系统设置",
     "copied": "{label} 已复制",
@@ -23957,6 +23967,20 @@
     "backToHome": "返回首页"
   },
   "marketing": {
+    "typewriter": {
+      "content": "智汇AI社区,探索AI无限可能",
+      "explore": "探索 AI 无限可能",
+      "brand": "智汇 AI 社区",
+      "connect": "连接创意释放未知",
+      "ctaPrimary": "立即体验",
+      "ctaSecondary": "了解更多",
+      "miniappBtn": "微信小程序"
+    },
+    "miniappModal": {
+      "title": "微信小程序",
+      "qrAlt": "小程序二维码",
+      "scanTip": "打开微信扫一扫,进入小程序"
+    },
     "header": {
       "brand": "智汇 AI",
       "login": "登录",
@@ -23994,7 +24018,30 @@
         "企业 AI 化决策者社群开放招募,人机协同实战课程全年免费",
         "前 18 位会员享受一对一 AI 顾问咨询,不满意全额退款",
         "立即扫码加入智汇 AI 社区,与决策者一起探索 AI 时代"
-      ]
+      ],
+      "title": "合作伙伴与生态",
+      "subtitle": "聚合主流大模型与平台,构建开放AI生态",
+      "kouzi": "扣子",
+      "bbxLogo": "百宝箱",
+      "openai": "OpenAI",
+      "zhipu": "智谱清言",
+      "gork": "Grok",
+      "brand8": "品牌8",
+      "ali": "阿里",
+      "tencent": "腾讯",
+      "huawei": "华为",
+      "baidu": "百度",
+      "yuanbaoxiang": "元宝箱",
+      "yushu": "月之暗面",
+      "dbsfdx": "东方闪电",
+      "jldx": "精灵大学",
+      "n8n": "n8n",
+      "titleEn": "PARTNERS & ECOSYSTEM",
+      "joinText": "欢迎更多 AI 发烧友加入我们,共同探索人工智能的无限可能",
+      "marqueeSpeedLabel": "滚动速度",
+      "wheelSensitivityLabel": "滚轮灵敏度",
+      "pauseScroll": "暂停滚动",
+      "resumeScroll": "继续滚动"
     },
     "welcome": {
       "title": "欢迎来到智汇 AI 社区",
@@ -24074,6 +24121,122 @@
       "copyright": "© 2026 智汇 AI · 北京 · 保留所有权利",
       "privacy": "隐私政策",
       "contactUs": "联系我们"
+    },
+    "indicator": {
+      "label": "分页导航",
+      "switchTo": "切换到第 {index} 页",
+      "page1": "首页",
+      "page2": "欢迎",
+      "page3": "功能",
+      "page4": "资讯",
+      "page5": "定价",
+      "page6": "合作品牌"
+    },
+    "scrollDown": {
+      "label": "向下滚动"
+    },
+    "magazine": {
+      "title": "最新资讯",
+      "titleEn": "LATEST NEWS",
+      "subtitle": "了解平台动态,掌握AI前沿",
+      "tabPlatform": "平台动态",
+      "tabExternal": "外部资讯",
+      "empty": "暂无内容",
+      "viewMore": "查看更多",
+      "tagHot": "热门",
+      "tagNews": "资讯"
+    },
+    "pricing": {
+      "title": "选择适合您的方案",
+      "titleEn": "CHOOSE YOUR PLAN",
+      "subtitle": "灵活的定价方案,满足不同需求",
+      "period": "/年",
+      "cta": "立即开通",
+      "recommended": "推荐",
+      "basic": {
+        "name": "基础版",
+        "description": "适合个人用户和专业人士",
+        "feature1": "无限次AI对话",
+        "feature2": "图片生成",
+        "feature3": "语音输入",
+        "feature4": "文件上传",
+        "feature5": "30天历史记录",
+        "feature6": "专属客服",
+        "feature7": "高级模型访问"
+      },
+      "professional": {
+        "name": "专业版",
+        "description": "适合专业用户和小型团队",
+        "feature1": "无限次AI对话",
+        "feature2": "图片/视频生成",
+        "feature3": "90天历史记录",
+        "feature4": "150+ AI工具",
+        "feature5": "API访问",
+        "feature6": "数据导出",
+        "feature7": "优先体验新功能"
+      },
+      "enterprise": {
+        "name": "企业版",
+        "description": "适合高级用户和团队",
+        "feature1": "无限次AI对话",
+        "feature2": "图片/视频生成",
+        "feature3": "永久历史记录",
+        "feature4": "全部AI工具",
+        "feature5": "API接口访问",
+        "feature6": "团队协作",
+        "feature7": "专属顾问"
+      },
+      "flagship": {
+        "name": "旗舰版",
+        "description": "适合追求极致体验的用户",
+        "feature1": "无限Token使用",
+        "feature2": "全部AI模型访问",
+        "feature3": "极速响应",
+        "feature4": "专属VIP客服",
+        "feature5": "定制化开发",
+        "feature6": "专属培训课程",
+        "feature7": "优先问题处理"
+      }
+    },
+    "features": {
+      "title": "强大功能",
+      "titleEn": "POWERFUL FEATURES",
+      "subtitle": "探索我们提供的全方位AI服务,从模型集成到应用商店,满足您的各种需求",
+      "modelIntegration": {
+        "title": "多模型集成",
+        "description": "整合主流大模型,按需切换,满足多场景对话与推理需求"
+      },
+      "appStore": {
+        "title": "智能体",
+        "description": "海量智能体即开即用,覆盖通用、行业、职能三大场景"
+      },
+      "contentCreation": {
+        "title": "内容创作",
+        "description": "AI 文本、图像、视频一站式生成,让创意快速落地"
+      },
+      "edu": { "title": "AI教育", "description": "系统化 AI 课程与实战训练,助你建立完整知识体系" },
+      "navigation": { "title": "智能导航", "description": "智能路由与场景识别,精准直达所需能力" }
+    },
+    "advantages": {
+      "title": "核心优势",
+      "titleEn": "CORE ADVANTAGES",
+      "subtitle": "为什么选择智汇AI",
+      "professional": {
+        "title": "专业",
+        "description": "深耕AI领域,提供专业的技术解决方案和行业领先的产品服务"
+      },
+      "efficient": {
+        "title": "高效",
+        "description": "简化开发流程,丰富的API接口和工具,让AI应用快速上线"
+      },
+      "reliable": {
+        "title": "可靠",
+        "description": "稳定可靠的服务保障,99.9%可用性,保障业务连续性"
+      },
+      "innovative": {
+        "title": "创新",
+        "description": "持续技术创新,智能体集群、分层规划等前沿AI能力"
+      }
     }
   }
 }
