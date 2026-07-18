@@ -34,6 +34,7 @@ import {
   Workflow,
   ScrollText,
   LayoutGrid,
+  LayoutDashboard,
   Crown,
   Wallet,
   KeyRound,
@@ -49,6 +50,8 @@ import {
   Sun,
   Moon,
   LogIn,
+  Briefcase,
+  Globe,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -120,6 +123,8 @@ interface NavItem {
     | 'knowledgeBase'
     | 'announcements'
     | 'overview'
+    | 'enterprise'
+    | 'aiWorld'
   icon: React.ComponentType<{ className?: string }>
   adminOnly?: boolean
   children?: NavItem[]
@@ -138,6 +143,10 @@ const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
+    label: '',
+    items: [{ href: '/home', labelKey: 'home', icon: Home }],
+  },
+  {
     label: 'AI',
     items: [
       { href: '/chat', labelKey: 'chat', icon: MessageSquare },
@@ -151,6 +160,8 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: '/plaza', labelKey: 'plaza', icon: LayoutGrid },
       { href: '/agents', labelKey: 'agents', icon: Bot },
+      { href: '/ai-world', labelKey: 'aiWorld', icon: Globe },
+      { href: '/enterprise', labelKey: 'enterprise', icon: Briefcase },
       { href: '/distribution', labelKey: 'distribution', icon: Gift },
       { href: '/lecturers', labelKey: 'lecturers', icon: Users },
       { href: '/teams', labelKey: 'teams', icon: Users },
@@ -166,7 +177,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: '教育',
     items: [
-      { href: '/home', labelKey: 'home', icon: Home },
+      { href: '/dashboard', labelKey: 'overview', icon: LayoutDashboard },
       { href: '/learn', labelKey: 'learn', icon: GraduationCap },
       { href: '/live', labelKey: 'live', icon: PlayCircle },
       { href: '/exam', labelKey: 'exam', icon: ScrollText },
@@ -1102,8 +1113,8 @@ export function Sidebar({
         <SidebarChatHistory collapsed={collapsed} />
 
         {visibleGroups.map((group, gi) => (
-          <div key={group.label} className={gi > 0 ? 'pt-2' : ''}>
-            {!collapsed && (
+          <div key={group.label || `group-${gi}`} className={gi > 0 ? 'pt-2' : ''}>
+            {!collapsed && group.label && (
               <div className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
                 {group.label}
               </div>
