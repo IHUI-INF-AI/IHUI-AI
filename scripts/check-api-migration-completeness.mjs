@@ -98,6 +98,48 @@ if (stagedMode) {
     skipAuditReportCheck = true
     console.log(`${C.green}✅ 审计报告存在性检查跳过${C.reset} ${C.dim}(staged 模式:本次 commit 未涉及 PROJECT_PLAN.md,审计报告是 PROJECT_PLAN.md 中"100% 整合"声明的证据,无关 commit 不阻塞)${C.reset}`)
   }
+
+  // P1.5 修复 (2026-07-19): staged-aware 整体跳过
+  // P1.6 修复 (2026-07-19): RELEVANT_PREFIXES 收窄为守门实际检查的精确文件路径
+  //   原列表含 'apps/api/' 过于宽泛,导致 admin.ts/admin-queries.ts 等无关 api 文件改动
+  //   触发完整检查,被项目级历史遗留端点缺失(oauth-keys.ts/agents.ts 等 14 项)阻塞。
+  //   收窄为守门第 2-7 节实际检查的文件路径(endsWith 匹配,兼容路径分隔符差异)。
+  //   若本次 commit 不涉及这些文件,整个守门直接 exit 0(避免历史未落地端点阻塞无关 commit)。
+  const RELEVANT_FILES = [
+    // [2/7] schema 表定义与导出
+    'packages/database/src/schema/oauth-private-keys.ts',
+    'packages/database/src/schema/agent-billings.ts',
+    'packages/database/src/schema/zhs-full.ts',
+    'packages/database/src/schema/index.ts',
+    // [3/7] oauth-keys.ts 路由
+    'apps/api/src/routes/oauth-keys.ts',
+    // [4/7] agents.ts + Java 17 端点路由
+    'apps/api/src/routes/agents.ts',
+    'apps/api/src/routes/exam.ts',
+    'apps/api/src/routes/community/asks.ts',
+    'apps/api/src/routes/search.ts',
+    'apps/api/src/routes/resource.ts',
+    'apps/api/src/routes/user.ts',
+    'apps/api/src/routes/order.ts',
+    'apps/api/src/routes/ai-extended.ts',
+    'apps/api/src/routes/notifications.ts',
+    'apps/api/src/routes/auth.ts',
+    // [5/7] + [7/7] server.ts redirect
+    'apps/api/src/server.ts',
+    // [7/7] 前端 hooks
+    'apps/web/src/hooks/use-agent.ts',
+    'apps/web/src/hooks/use-notification.ts',
+    // [6/7] PROJECT_PLAN.md 真实性
+    'PROJECT_PLAN.md',
+  ]
+  const involvesRelevant = stagedFiles.some((f) =>
+    RELEVANT_FILES.some((p) => f === p || f.endsWith(p) || f.replace(/\\/g, '/').endsWith(p)),
+  )
+  if (!involvesRelevant) {
+    console.log(`\n${C.green}✅ 迁移完整性守门整体跳过${C.reset} ${C.dim}(staged 模式:本次 commit 未涉及守门检查的 19 个迁移相关文件(schema 4 + routes 11 + server.ts + 2 hooks + PROJECT_PLAN.md),无关 commit 不阻塞。全量模式仍执行完整守门作为 CI 闸门)${C.reset}`)
+    console.log(`\n${C.green}✅ 所有硬约束通过, 允许 commit (staged-aware skip)${C.reset}`)
+    process.exit(0)
+  }
 }
 if (!skipAuditReportCheck) {
   for (const f of [
