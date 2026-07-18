@@ -15,7 +15,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, desc, asc, sql, and, like } from 'drizzle-orm'
-import { db, dbRead } from '../db/index.js'
+import { db, dbRead, returningOne } from '../db/index.js'
 import { zhsAgentDeveloper } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
@@ -90,27 +90,26 @@ export const agentDeveloperRoutes: FastifyPluginAsync = async (server) => {
       const expirationDate = new Date(bugTime.getTime() + days * 24 * 60 * 60 * 1000)
       const orderNo = genOrderNo()
 
-      const [created] = await db
-        .insert(zhsAgentDeveloper)
-        .values({
-          agentId: uuid, // D 盘: agentDeveloper.agent_id 默认等于 uuid
-          userId: creator_id ?? uuid,
-          uuid,
-          userName: user_name ?? null,
-          creatorId: creator_id ?? null,
-          creatorName: creator_name ?? null,
-          bugTime,
-          orderNo,
-          status: 1,
-          type,
-          count,
-          expirationDate,
-        })
-        .returning()
-
-      if (!created) {
-        return reply.status(500).send(error(500, '创建续费记录失败'))
-      }
+      const created = await returningOne(
+        db
+          .insert(zhsAgentDeveloper)
+          .values({
+            agentId: uuid, // D 盘: agentDeveloper.agent_id 默认等于 uuid
+            userId: creator_id ?? uuid,
+            uuid,
+            userName: user_name ?? null,
+            creatorId: creator_id ?? null,
+            creatorName: creator_name ?? null,
+            bugTime,
+            orderNo,
+            status: 1,
+            type,
+            count,
+            expirationDate,
+          })
+          .returning(),
+        '创建续费记录失败',
+      )
 
       return reply.send(
         success({
