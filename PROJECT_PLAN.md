@@ -2530,7 +2530,7 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
     - `verifyCallbackSignature`:3 态(无证书 × 3 环境)
     - `generateOutTradeNo`:4 态(默认前缀/自定义前缀/唯一性/长度)
   - **文档更新**:`.env.production.example` 微信支付段新增"平台证书获取步骤"5 步操作指南(商户平台 → API 安全 → 平台证书 → 下载 → 放置 → 验证 health 端点)
-  - **未完成项(运维阻塞,非代码)**:P0 部署阻塞 — 业务方需从商户平台下载 `platform_cert.pem` 放置到 `G:\ai_zhs\cert\`,配置 `WX_PAY_PLATFORM_CERT_PATH` 后 `checkProductionConfig()` 才允许生产启动。同一阻塞:`WX_PAY_NOTIFY_URL=https://bsm.aizhs.top/prod-api/api/payments/wechat/notify` 需确保微信支付服务器可访问(本地电脑需有公网 IP / frp/ngrok 反向代理),否则支付回调无法到达
+  - **未完成项(运维阻塞,非代码)**:P0 部署阻塞 — 业务方需从商户平台下载 `platform_cert.pem` 放置到项目内 `cert/` 目录(gitignored),配置 `WX_PAY_PLATFORM_CERT_PATH=./cert/platform_cert.pem` 后 `checkProductionConfig()` 才允许生产启动。同一阻塞:`WX_PAY_NOTIFY_URL=https://bsm.aizhs.top/prod-api/api/payments/wechat/notify` 需确保微信支付服务器可访问(本地电脑需有公网 IP / frp/ngrok 反向代理),否则支付回调无法到达
 
 - [x] ✅(2026-07-14) P1: 清理仓库预先存在的 build lint Error,恢复`pnpm --filter @ihui/web build`` 退出
   - **\*\*第一轮 6 ****:developer/layout.tsx(删除未用 Download import)、ThreeDViewer.tsx(eslint-disable react/no-unknown-property for react-three-fiber)、UnifiedViewer.tsx(video 添加 track 元素)、generation-type-selector.tsx(React.ElementType → React.ComponentType<{className?:string}> 修复 type error)、check-lock.js(CommonJS require → ES module import)、next.config.ts(outputFileTracing: 'without-manifest' 规避 NFT ENOENT bu
@@ -4803,7 +4803,7 @@ packages/api-client/
     - Web 端:`GET /vip` 200 (685KB,页面完整渲染)
     - 浏览器实测 PASS:VIP 页面主标题"VIP 会员" + 副标题"选择适合您的方案,解锁更多权益" + 4 个"立即订阅"按钮 + 权益列表(unlimitedChat/exclusiveModel/prioritySupport/referral/lifetime)完整渲染,控制台无业务错误,/api/vip/levels 网络请求 200
   - **测试验证**:`pnpm --filter @ihui/api test:real vip-auth-routes.real` 40/40 passed,Duration 5.34s
-  - **后续工作**:生产部署时把 `apiclient_key.pem` 放到 `/ai_zhs/cert/` 路径(历史 Linux 部署路径),或填入 `WX_PAY_PRIVATE_KEY` 字段(PEM 内容),即可激活真实微信支付链路(替换 mock 模式)
+  - **后续工作**:生产部署时把 `apiclient_key.pem` 放到项目内 `cert/` 目录(gitignored),或填入 `WX_PAY_PRIVATE_KEY` 字段(PEM 内容),即可激活真实微信支付链路(替换 mock 模式)
 
 ---
 
