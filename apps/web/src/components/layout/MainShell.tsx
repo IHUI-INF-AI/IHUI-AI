@@ -7,6 +7,7 @@ import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
 import { TagsView } from '@/components/layout/TagsView'
 import { useAuthStore } from '@/stores/auth'
+import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@ihui/ui'
 
 export function MainShell({ children }: { children: React.ReactNode }) {
@@ -14,6 +15,9 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const sidebarId = React.useId()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  // hydration-safe: 首屏不渲染 TagsView,挂载后再按真实态渲染,避免 SSR/CSR 不一致
+  const mounted = useMounted()
+  const showTagsView = mounted && isAuthenticated
 
   React.useEffect(() => {
     try {
@@ -77,7 +81,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        {isAuthenticated && (
+        {showTagsView && (
           <React.Suspense fallback={null}>
             <TagsView />
           </React.Suspense>

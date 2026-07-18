@@ -64,6 +64,7 @@ import { SearchBar } from '@/components/business'
 import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
+import { useMounted } from '@/hooks/use-mounted'
 
 interface NavItem {
   href: string
@@ -436,6 +437,9 @@ function SidebarUserRow({
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const logout = useAuthStore((s) => s.logout)
+  // hydration-safe: 首屏按"未登录"渲染,挂载后才显示真实态,避免 SSR/CSR 不一致
+  const mounted = useMounted()
+  const showAuthed = mounted && isAuthenticated
 
   const handleLogout = () => {
     logout()
@@ -444,7 +448,7 @@ function SidebarUserRow({
 
   // 未登录态:与已登录态占据同一位置(px-1.5 pb-2 + flex items-center gap-1.5 rounded-md p-1),
   // 渲染为"图标 + 登录文字"单行按钮,折叠态只显图标。
-  if (!isAuthenticated) {
+  if (!showAuthed) {
     return (
       <div className="px-1.5 pb-2">
         <button

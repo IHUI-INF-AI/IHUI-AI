@@ -1500,6 +1500,8 @@
       "aiGc": "AI 생성 콘텐츠",
       "advertise": "광고 관리",
       "carousel": "캐러셀",
+      "crew": "Crew 다중 에이전트",
+      "knowledgeRag": "RAG 지식 베이스",
       "zhsAgent": "스마트 에이전트",
       "zhsUser": "스마트 사용자",
       "zhsActivity": "스마트 활동",
@@ -20406,6 +20408,25 @@
       "joinNow": "지금 가입",
       "exploreAgents": "에이전트 시나리오 자세히 보기"
     },
+    "carousel": {
+      "brandLabel": "즈후이 AI 기업 서비스",
+      "switchTo": "슬라이드 {index}로 전환",
+      "slide1Title": "기업 합리적 효율 서비스",
+      "slide1Subtitle": "인간-기계 협업의 슈퍼 조직을 구축하여 의사결정자와 함께",
+      "slide1Cta": "지금 가입",
+      "slide2Title": "현지 커뮤니티 · 오프라인 깊은 연결",
+      "slide2Subtitle": "체계적 과정, 탐구 활동 및 상호 커뮤니티",
+      "slide2Cta": "커뮤니티 보기",
+      "slide3Title": "AI 전문 서비스",
+      "slide3Subtitle": "대형 모델과 에이전트 컨설팅, 깊은 AI화 지원",
+      "slide3Cta": "상담·협력",
+      "slide4Title": "18석 · 얼리버드 ¥6000",
+      "slide4Subtitle": "선착순 18명 한정, 얼리버드 석 확보",
+      "slide4Cta": "석 확보",
+      "slide5Title": "불만족 시 전액 환불",
+      "slide5Subtitle": "365일 품질 보증, 안심하고 가입",
+      "slide5Cta": "지금 상담"
+    },
     "positioning": {
       "label": "핵심 포지셔닝",
       "title": "AI 시대 기업 합리적 효율 서비스 및 상호 지원 커뮤니티",
@@ -23952,5 +23973,125 @@
     "title": "권한 없음",
     "description": "죄송합니다. 이 페이지에 접근할 권한이 없습니다. 권한 개설은 관리자에게 문의해 주세요.",
     "backToHome": "홈으로"
+  },
+  "marketing": {
+    "header": {
+      "brand": "지후이 AI",
+      "login": "로그인",
+      "dashboard": "워크스페이스로",
+      "menu": "메뉴",
+      "navEnterprise": "기업 서비스",
+      "navCourses": "코스",
+      "navAgents": "에이전트",
+      "navNews": "뉴스",
+      "navAiWorld": "AI 월드"
+    },
+    "hero": {
+      "brandLabel": "지후이 AI 커뮤니티",
+      "switchTo": "제 {index} 장으로 전환",
+      "slide1Title": "지후이 AI 커뮤니티 · 기업 의사결정자를 위한 합리적 효율 파트너",
+      "slide1Subtitle": "AI 시대 기업 합리적 효율 서비스와 상호 지원 커뮤니티, 인간-기계 협업의 슈퍼 조직 구축",
+      "slide1Cta": "기업 서비스 알아보기",
+      "slide2Title": "체계적인 AI 코스, 의사결정자를 전면적으로 역량 강화",
+      "slide2Subtitle": "AI 신규 도구부터 기업 AI 문화까지, 3단계로 점진적으로",
+      "slide2Cta": "학습 시작하기",
+      "slide3Title": "업계 라이브, AI 도입 실천을 실시간으로 통찰",
+      "slide3Subtitle": "전문가가 라이브로 실제 사례와 최전선 경험 공유",
+      "slide3Cta": "라이브 시청",
+      "slide4Title": "에이전트 광장, AI 생산성 잠금 해제",
+      "slide4Subtitle": "범용, 업계, 직능 3가지 에이전트를 포함, 바로 사용 가능",
+      "slide4Cta": "에이전트 탐색",
+      "slide5Title": "지후이 뉴스, AI 시대의 맥박을 파악",
+      "slide5Subtitle": "최신 업계 뉴스와 심층 해설, 매일 업데이트",
+      "slide5Cta": "뉴스 보기"
+    },
+    "marquee": {
+      "label": "공지",
+      "items": [
+        "지후이 AI 커뮤니티에 오신 것을 환영합니다, 얼리버드 가격 ¥6000/인/년, 18석 한정",
+        "기업 AI화 의사결정자 커뮤니티 모집 개방, 인간-기계 협업 실전 코스 연중 무료",
+        "선착순 18명 회원에게 1:1 AI 컨설턴트 상담 제공, 불만족 시 전액 환불",
+        "지금 코드를 스캔하여 지후이 AI 커뮤니티에 가입하고 의사결정자와 함께 AI 시대를 탐색하세요"
+      ]
+    },
+    "welcome": {
+      "title": "지후이 AI 커뮤니티에 오신 것을 환영합니다",
+      "subtitle": "AI 시대 기업 합리적 효율 서비스와 상호 지원 커뮤니티. 의사결정자가 AI와 기업의 관계를 깊이 이해하고, 인간-기계 협업의 슈퍼 조직을 구축하도록 돕습니다.",
+      "perYear": "일/년 동반",
+      "benefits": {
+        "benefit1": "연중 모든 코스 무료 참여",
+        "benefit2": "탐색 이벤트 우선 참여",
+        "benefit3": "커뮤니티 상호 지원 무제한",
+        "benefit4": "온라인 커뮤니티 전용 입구",
+        "benefit5": "AI 어시스턴트 우선 체험",
+        "benefit6": "불만족 시 전액 환불"
+      }
+    },
+    "news": {
+      "title": "최신 뉴스",
+      "viewMore": "더 보기",
+      "empty": "뉴스가 아직 없습니다"
+    },
+    "cta": {
+      "title": "뜻을 같이하는 의사결정자와 함께, AI 시대의 무한한 가능성을 탐색하세요",
+      "subtitle": "선착순 18명 한정 · 얼리버드 가격 ¥6000/인/년 · 불만족 시 전액 환불",
+      "join": "지금 가입",
+      "dashboard": "워크스페이스로"
+    },
+    "footer": {
+      "brand": "지후이 AI",
+      "desc": "AI 시대 기업 합리적 효율 서비스와 상호 지원 커뮤니티. 의사결정자가 AI와 기업의 관계를 깊이 이해하고, 인간-기계 협업의 슈퍼 조직을 구축하여 기업의 합리적 효율 향상을 실현하도록 돕습니다.",
+      "slogan": "인간-기계 협업 · 합리적 효율 · 슈퍼 조직",
+      "columns": [
+        {
+          "titleKey": "colProduct",
+          "links": [
+            { "labelKey": "enterprise", "href": "/enterprise" },
+            { "labelKey": "courses", "href": "/learn" },
+            { "labelKey": "live", "href": "/live" },
+            { "labelKey": "agents", "href": "/agents" }
+          ]
+        },
+        {
+          "titleKey": "colResource",
+          "links": [
+            { "labelKey": "news", "href": "/news" },
+            { "labelKey": "aiWorld", "href": "/ai-world" },
+            { "labelKey": "articles", "href": "/articles" },
+            { "labelKey": "asks", "href": "/asks" }
+          ]
+        },
+        {
+          "titleKey": "colSupport",
+          "links": [
+            { "labelKey": "support", "href": "/support" },
+            { "labelKey": "agreement", "href": "/agreement" },
+            { "labelKey": "feedback", "href": "/feedback" },
+            { "labelKey": "help", "href": "/help" }
+          ]
+        }
+      ],
+      "colProduct": "제품",
+      "colResource": "리소스",
+      "colSupport": "지원",
+      "enterprise": "기업 서비스",
+      "courses": "코스",
+      "live": "라이브",
+      "agents": "에이전트",
+      "news": "뉴스",
+      "aiWorld": "AI 월드",
+      "articles": "기사",
+      "asks": "Q&A",
+      "support": "문의하기",
+      "agreement": "서비스 약관",
+      "feedback": "피드백",
+      "help": "도움말 센터",
+      "qr1": "WeChat 공식 계정",
+      "qr2": "Enterprise WeChat",
+      "qr3": "지후이 AI 커뮤니티",
+      "copyright": "© 2026 지후이 AI · 베이징 · All rights reserved",
+      "privacy": "개인정보 처리방침",
+      "contactUs": "문의하기"
+    }
   }
 }
