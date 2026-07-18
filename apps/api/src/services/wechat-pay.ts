@@ -26,6 +26,29 @@ export function isWechatPayConfigured(): boolean {
   return false
 }
 
+/**
+ * 平台证书是否已配置(用于验签微信支付回调)。
+ * 生产环境必须返回 true,否则所有支付回调验签失败,
+ * verifyCallbackSignature 在无证书时返回 false,导致订单永远无法标记为 paid。
+ *
+ * 优先级:环境变量 PEM 内容 > 文件路径。
+ */
+export function isPlatformCertConfigured(): boolean {
+  if (env.WX_PAY_PLATFORM_CERT && env.WX_PAY_PLATFORM_CERT.trim().length > 0) return true
+  if (env.WX_PAY_PLATFORM_CERT_PATH && existsSync(env.WX_PAY_PLATFORM_CERT_PATH)) return true
+  return false
+}
+
+/**
+ * 微信支付回调验签是否就绪。
+ * DEV 环境无证书允许降级(返回 true),生产环境必须配置平台证书才能验签。
+ */
+export function isCallbackSignatureVerificationReady(): boolean {
+  if (isPlatformCertConfigured()) return true
+  // DEV/test 环境允许无证书(verifyCallbackSignature 会跳过验签)
+  return env.NODE_ENV !== 'production'
+}
+
 function getPrivateKey(): string {
   if (env.WX_PAY_PRIVATE_KEY) return env.WX_PAY_PRIVATE_KEY
   if (env.WX_PAY_PRIVATE_KEY_PATH && existsSync(env.WX_PAY_PRIVATE_KEY_PATH)) {
