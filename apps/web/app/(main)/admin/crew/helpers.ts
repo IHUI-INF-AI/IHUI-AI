@@ -43,6 +43,21 @@ export function eventToLogText(evt: CrewStreamEvent): string {
       return `[任务 ${evt.taskIndex}] ${evt.role} 完成`
     case 'task_error':
       return `[任务 ${evt.taskIndex}] ${evt.role} 出错: ${evt.content ?? ''}`
+    case 'tool_call': {
+      const tc = evt.toolCall
+      if (!tc) return `[任务 ${evt.taskIndex}] 🔧 调用工具`
+      const argsStr = Object.keys(tc.args).length > 0 ? JSON.stringify(tc.args) : '{}'
+      return `[任务 ${evt.taskIndex}] 🔧 调用工具 ${tc.name}(${argsStr})`
+    }
+    case 'tool_result': {
+      const tr = evt.toolResult
+      if (!tr) return `[任务 ${evt.taskIndex}] ✅ 工具结果`
+      const status = tr.success ? '✅' : '❌'
+      const outStr = tr.success
+        ? (typeof tr.output === 'string' ? tr.output : JSON.stringify(tr.output)).slice(0, 200)
+        : (tr.error ?? '失败')
+      return `[任务 ${evt.taskIndex}] ${status} ${tr.name} (${tr.durationMs}ms): ${outStr}`
+    }
     case 'complete':
       return '✅ 会话执行完成'
     case 'error':
