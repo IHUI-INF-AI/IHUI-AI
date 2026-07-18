@@ -17,5 +17,8 @@ export default defineConfig({
     hookTimeout: 15_000,
     // mock 测试不连真实 DB,可并行跑(真实 DB 测试在 vitest.real.config.ts 中串行)
     fileParallelism: true,
+    // 全局重试 2 次:容忍 admin-missing-routes.test.ts 等套件在全量并发时偶发的资源争抢失败
+    // vitest 2.1.9 不支持 it.retry() 方法,只能通过 test.retry 全局配置
+    retry: 2,
   },
 })
