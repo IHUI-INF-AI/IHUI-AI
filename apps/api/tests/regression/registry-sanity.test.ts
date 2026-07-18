@@ -35,7 +35,8 @@ describe('Bug 修复回归测试注册表完整性', () => {
     const migrated = listMigratedBugFixes()
     const missing: string[] = []
     for (const fix of migrated) {
-      const fullPath = resolve(process.cwd(), 'src', fix.testFile)
+      // testFile 路径相对 apps/api 根目录(process.cwd() 在 vitest 运行时为 apps/api)
+      const fullPath = resolve(process.cwd(), fix.testFile)
       if (!existsSync(fullPath)) {
         missing.push(`${fix.bugId} → ${fix.testFile}`)
       }
@@ -53,8 +54,7 @@ describe('Bug 修复回归测试注册表完整性', () => {
   it('pending 数量记录(用于追踪补齐进度)', () => {
     const pending = listPendingBugFixes()
     const migrated = listMigratedBugFixes()
-    // 当前全部 pending(17 轮 bug 修复测试均未迁移)
-    // 后续每迁移一个,此断言需更新
+    // 11 条记录已全部迁移 (2026-07-18 完成)
     console.info(
       `[回归测试进度] migrated: ${migrated.length}/${BUG_FIXES.length}, pending: ${pending.length}`,
     )
