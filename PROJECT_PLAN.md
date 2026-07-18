@@ -2511,6 +2511,27 @@ Web / Desktop / Extension / Mobile-RN 四端 5 个核心页(Chat/Profile/Wallet/
     - `WX_PAY_PLATFORM_CERT`:生产环境建议配置(用于验签回调),否则 `verifyCallbackSignature()` 在 NODE_ENV=production 时返回 false
     - `WX_PAY_NOTIFY_URL=https://bsm.aizhs.top/prod-api/api/payments/wechat/notify`:需确保该域名可被微信支付服务器访问(本地电脑作为服务器需有公网 IP 或反向代理)
 
+- [x] ✅(2026-07-18) P1: 微信支付平台证书配置代码补齐 + 启动期生产环境硬约束
+  - **背景**:微信支付 cert zip 中只有 apiclient_key/cert/p12 三个文件,缺平台证书(platform_cert.pem)。平台证书用于验签微信回调,缺失时 `verifyCallbackSignature()` 在 NODE_ENV=production 返回 false → 所有支付回调验签失败 → 订单永远无法自动标记为 paid
+  - **新增 helper 函数**(`apps/api/src/services/wechat-pay.ts`):
+    - `isPlatformCertConfigured()`:检测 `WX_PAY_PLATFORM_CERT`(PEM 内容)或 `WX_PAY_PLATFORM_CERT_PATH`(文件路径)是否已配置,与 `isWechatPayConfigured()` 对称
+    - `isCallbackSignatureVerificationReady()`:综合判断,生产环境无证书返回 false(硬约束),dev/test 环境允许无证书(降级跳过验签)
+  - **生产环境启动期硬约束**(`apps/api/src/index.ts` 新增 `checkProductionConfig()`):
+    - NODE_ENV=production 启动前检查私钥 + 平台证书
+    - 缺失任一项 → `console.error` 打印详细错误 + `process.exit(1)` 立即退出
+    - 避免带病运行:支付 API 全部 401/500,或订单无法自动 paid
+  - **健康检查端点暴露**(`apps/api/src/routes/health.ts` `/api/health/ready`):
+    - `checks.wechatPay.status`:`ok` / `partial` / `missing`(三项枚举,便于监控告警)
+    - 生产环境缺失时打 `request.log.warn` 但不阻塞 ready(降级运行但显式告警)
+  - **单元测试**(新增 `apps/api/tests/wechat-pay.test.ts`,23 个用例全绿):
+    - `isWechatPayConfigured`:5 态(true/false + 路径/内容 + 路径不存在)
+    - `isPlatformCertConfigured`:6 态(PEM 内容/空白/文件路径/路径不存在/优先级)
+    - `isCallbackSignatureVerificationReady`:5 态(有证书/无证书 × 3 环境)
+    - `verifyCallbackSignature`:3 态(无证书 × 3 环境)
+    - `generateOutTradeNo`:4 态(默认前缀/自定义前缀/唯一性/长度)
+  - **文档更新**:`.env.production.example` 微信支付段新增"平台证书获取步骤"5 步操作指南(商户平台 → API 安全 → 平台证书 → 下载 → 放置 → 验证 health 端点)
+  - **未完成项(运维阻塞,非代码)**:P0 部署阻塞 — 业务方需从商户平台下载 `platform_cert.pem` 放置到 `G:\ai_zhs\cert\`,配置 `WX_PAY_PLATFORM_CERT_PATH` 后 `checkProductionConfig()` 才允许生产启动。同一阻塞:`WX_PAY_NOTIFY_URL=https://bsm.aizhs.top/prod-api/api/payments/wechat/notify` 需确保微信支付服务器可访问(本地电脑需有公网 IP / frp/ngrok 反向代理),否则支付回调无法到达
+
 - [x] ✅(2026-07-14) P1: 清理仓库预先存在的 build lint Error,恢复`pnpm --filter @ihui/web build`` 退出
   - **\*\*第一轮 6 ****:developer/layout.tsx(删除未用 Download import)、ThreeDViewer.tsx(eslint-disable react/no-unknown-property for react-three-fiber)、UnifiedViewer.tsx(video 添加 track 元素)、generation-type-selector.tsx(React.ElementType → React.ComponentType<{className?:string}> 修复 type error)、check-lock.js(CommonJS require → ES module import)、next.config.ts(outputFileTracing: 'without-manifest' 规避 NFT ENOENT bu
   - **\*\*第二轮 7 ***`apps/web/eslint.config.js`(clawdbot 目录 jsx-a11y 规则覆盖)`eslint.config.mjs``(根配置同步覆盖,fix lint-staged 兜底)、clawdbot/sessions/page.tsx(模态框 tabIndex+onKeyDown)、clawdbot/tools/page.tsx(同上 + 类型兜底)、clawdbot/permissions/page.tsx(删除未用 ALL_ACTIONS + self-closing-comp)、admin/agent-task/page.tsx(item.title ?? '')、admin/agents/examine/ExamineChatDialog.tsx(target?.agentName || '')、admin/edu/learn/materials/page.tsx(TYPE_MAP[m.type] as string)、distribution/orders/page.tsx(STATUS_KEY[s] ?? s)、distribution/token/page.tsx(OP_TYPE_KEY[o] ?? String(o))、missing-user-routes.ts(三处 value == null → value === null || value === undefined,eqeqe
@@ -20822,23 +20843,25 @@ P1 已 100% 完成,后续可选 P2 7 项(中价值):
 
 本轮在 P1 全部完成的基础上,按用户"完整收尾"要求继续执行 P2 高 ROI 三项(Streaming markdown / Prompt queue / Mermaid 客户端渲染),采用三 subagent 并行 + 主线程验证的模式,完美细致完成 3 个模块的代码实现、单元测试、集成接入、零回归验证。
 
-| 任务 | 实现内容 | 测试 | 文件 |
-|------|---------|------|------|
-| P2-1 Streaming markdown | 4 项增强:① 未闭合代码块边界修复(临时闭合 + opacity-60 流式标记)② 语法高亮接入(next/dynamic Prism + oneDark 主题 + ErrorBoundary 降级)③ 复制按钮(absolute top-2 right-2 + useCopy hook + 1.5s 复位 + lucide Copy/Check 图标)④ 增量解析(React.memo + 稳定 key `code-${idx}-${code.slice(0,20)}`) | 7 tests | markdown-stream.tsx(+198) |
-| P2-2 Prompt queue | 3 项增强:① REPL SIGINT handler(单击 abort / 双击 1s 内 process.exit(130) / agentRunning=false 维持默认)② 恢复 drain 机制(删除 `() => []` 禁用代码,真正从 buffer pop)③ normal/low 自动消费(所有优先级递归消费,maxDepth=5 防无限递归) | 17 tests | repl.ts(+245) |
-| P2-3 Mermaid 客户端渲染 | 4 项工作:① 安装 mermaid ^11 依赖(不装 mermaid-cli / puppeteer)② MermaidDiagram 组件(dynamic import + useId 唯一 id + try/catch + next-themes 主题切换 + ErrorBoundary)③ 接入 4 个 markdown 渲染器(MarkdownViewer / markdown-stream / mcp-resource-viewer / vision-analysis)④ 抽公共 helper markdown-mermaid-code.ts + 修正 PROJECT_PLAN.md 不实描述 | 7 tests | 7 文件 |
+| 任务                    | 实现内容                                                                                                                                                                                                                                                                                                                                            | 测试     | 文件                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------- |
+| P2-1 Streaming markdown | 4 项增强:① 未闭合代码块边界修复(临时闭合 + opacity-60 流式标记)② 语法高亮接入(next/dynamic Prism + oneDark 主题 + ErrorBoundary 降级)③ 复制按钮(absolute top-2 right-2 + useCopy hook + 1.5s 复位 + lucide Copy/Check 图标)④ 增量解析(React.memo + 稳定 key `code-${idx}-${code.slice(0,20)}`)                                                      | 7 tests  | markdown-stream.tsx(+198) |
+| P2-2 Prompt queue       | 3 项增强:① REPL SIGINT handler(单击 abort / 双击 1s 内 process.exit(130) / agentRunning=false 维持默认)② 恢复 drain 机制(删除 `() => []` 禁用代码,真正从 buffer pop)③ normal/low 自动消费(所有优先级递归消费,maxDepth=5 防无限递归)                                                                                                                 | 17 tests | repl.ts(+245)             |
+| P2-3 Mermaid 客户端渲染 | 4 项工作:① 安装 mermaid ^11 依赖(不装 mermaid-cli / puppeteer)② MermaidDiagram 组件(dynamic import + useId 唯一 id + try/catch + next-themes 主题切换 + ErrorBoundary)③ 接入 4 个 markdown 渲染器(MarkdownViewer / markdown-stream / mcp-resource-viewer / vision-analysis)④ 抽公共 helper markdown-mermaid-code.ts + 修正 PROJECT_PLAN.md 不实描述 | 7 tests  | 7 文件                    |
 
 **累计**:13 个文件改动,+1301 行 / -71 行 / 31 个新测试用例
 
 ### 架构决策
 
 #### P2-1 关键设计
-- **边界修复**:用 `hasUnclosedFence()` 统计 ``` 出现次数(奇数=未闭合),预处理时在末尾追加 `\n```\n`,**预处理只用于解析,不修改原 content**
+
+- **边界修复**:用 `hasUnclosedFence()` 统计 `` 出现次数(奇数=未闭合),预处理时在末尾追加 `\n``\n`,**预处理只用于解析,不修改原 content**
 - **语法高亮**:用 `next/dynamic` 懒加载 `react-syntax-highlighter` 的 Prism,纯文本语言(text/plain/txt/空)fallback 到纯 `<pre><code>` 避免开销,渲染失败用 `CodeBlockErrorBoundary` 类组件降级
 - **复制按钮**:`useCopy` hook 自包含(`useState` + `navigator.clipboard.writeText` + 1.5s setTimeout 复位),`<pre>` 加 `relative` 定位让 absolute 按钮正确定位,hover 用 `hover:bg-zinc-800` / `dark:hover:bg-zinc-700` 浅色背景变化(**无蓝光边框,无纯黑边框**,符合项目 UI 规范)
 - **增量解析**:`React.memo(CodeBlockImpl)` 包裹,`code`/`language`/`isStreaming` 不变时跳过重渲染;稳定 key 用 `code-${idx}-${code.slice(0,20)}`(idx 保唯一性,前 20 字符在结构变化时强制 remount,流式追加时保持稳定)
 
 #### P2-2 关键设计
+
 - **双击 SIGINT 强杀**:记录上次 SIGINT 时间戳,两次间隔 < 1s 直接 `process.exit(130)`(标准 SIGINT 退出码);单击调 `abortController.abort()` + 设置 `state.aborted=true` + 打印中文提示 `\n[正在取消当前任务,请稍候...]`
 - **drain 机制恢复**:删除原 `drainInterjections = () => []` 禁用代码,改用 `createDrainInterjections(state.interjectionBuffer)` 用 `while (buffer.hasPending()) blocks.push(buffer.pop()!)` 循环模拟 popAll(**不修改 interjection.ts**,用现有 `pop()` + `hasPending()` 接口)
 - **删除原机制 1 的 formatForLLM 注入**:避免与 drain 双重注入(原机制 1 在下次 sendToAgent 调用前用 formatForLLM 把 pending interjection 拼成 system 消息注入,现在 drain 在循环内注入,必须删除否则会双重注入)
@@ -20846,6 +20869,7 @@ P1 已 100% 完成,后续可选 P2 7 项(中价值):
 - **可测试性设计**:提取 3 个工厂函数(`createReplSigintHandler` / `createDrainInterjections` / `consumePendingInterjections`)导出供单元测试,无需真实 readline/process 信号
 
 #### P2-3 关键设计
+
 - **零服务器端渲染**:不引入 puppeteer / @mermaid-js/mermaid-cli,只做客户端 SVG 渲染(mermaid ^11)
 - **dynamic import**:`MermaidDiagram` 在 `useEffect` 内 dynamic import mermaid,避免 SSR 报错 + 不影响首屏 bundle size;在 4 个渲染器中通过 `next/dynamic` 的 `ssr: false` 加载
 - **错误降级**:`MermaidErrorBoundary` class 组件包裹,渲染失败显示红色边框错误块(`border-destructive/30` + `bg-destructive/5`) + 折叠源码 + 错误消息,单次失败不影响整页
@@ -20856,15 +20880,15 @@ P1 已 100% 完成,后续可选 P2 7 项(中价值):
 
 ### 验证依据
 
-| 验证项 | 结果 |
-|--------|------|
-| `pnpm typecheck:full`(清 .tsbuildinfo 缓存后串行) | ✅ 18/18 packages 全绿 |
-| `pnpm -F @ihui/cli test` | ✅ 59 files / 1403 tests 全绿(含新增 17 tests) |
-| `pnpm -F @ihui/web test` | ✅ 25 files / 254 tests 全绿(含新增 14 tests:7 markdown-stream + 7 mermaid) |
-| `pnpm -F @ihui/web test src/components/ai/__tests__/markdown-stream.test.tsx` | ✅ 7/7 通过 |
-| `pnpm -F @ihui/web test src/components/media/__tests__/mermaid-diagram.test.tsx` | ✅ 7/7 通过 |
-| `pnpm -F @ihui/cli test tests/repl-abort.test.ts` | ✅ 17/17 通过 |
-| 零回归 | ✅ CLI 测试从 1403 增至 1403(新增 17 + 现有 1386,无回归) |
+| 验证项                                                                           | 结果                                                                        |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `pnpm typecheck:full`(清 .tsbuildinfo 缓存后串行)                                | ✅ 18/18 packages 全绿                                                      |
+| `pnpm -F @ihui/cli test`                                                         | ✅ 59 files / 1403 tests 全绿(含新增 17 tests)                              |
+| `pnpm -F @ihui/web test`                                                         | ✅ 25 files / 254 tests 全绿(含新增 14 tests:7 markdown-stream + 7 mermaid) |
+| `pnpm -F @ihui/web test src/components/ai/__tests__/markdown-stream.test.tsx`    | ✅ 7/7 通过                                                                 |
+| `pnpm -F @ihui/web test src/components/media/__tests__/mermaid-diagram.test.tsx` | ✅ 7/7 通过                                                                 |
+| `pnpm -F @ihui/cli test tests/repl-abort.test.ts`                                | ✅ 17/17 通过                                                               |
+| 零回归                                                                           | ✅ CLI 测试从 1403 增至 1403(新增 17 + 现有 1386,无回归)                    |
 
 ### P2 完成情况
 
