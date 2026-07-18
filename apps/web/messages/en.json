@@ -368,7 +368,8 @@
     "downloadDesktop": "Desktop",
     "mainNav": "Main Navigation",
     "knowledgeBase": "Knowledge Base",
-    "announcements": "Announcements"
+    "announcements": "Announcements",
+    "overview": "Overview"
   },
   "auth": {
     "loginTitle": "Welcome Back",
@@ -24276,7 +24277,18 @@
       "title": "IHUI AI Membership",
       "subtitle": "Double Points · Limited-Time Offer",
       "description": "Subscribe now to access all AI tools, dedicated support, advanced models, and other exclusive benefits to boost your productivity.",
-      "perYear": "/year"
+      "perYear": "/year",
+      "legacyTitle": "Welcome to IHUI AI Community",
+      "legacySubtitle": "Enterprise rational efficiency services and mutual-aid community in the AI era. Helping decision-makers deeply understand the relationship between AI and enterprise, building human-machine collaborative super organizations.",
+      "legacyPerYear": "days/year companionship",
+      "benefits": {
+        "benefit1": "Free access to all courses for the whole year",
+        "benefit2": "Priority participation in exploration activities",
+        "benefit3": "Unlimited community mutual aid",
+        "benefit4": "Exclusive online community entrance",
+        "benefit5": "Priority experience of AI assistant",
+        "benefit6": "Full refund if not satisfied"
+      }
     },
     "cta": {
       "title": "Ready to start your IHUI AI journey?",
