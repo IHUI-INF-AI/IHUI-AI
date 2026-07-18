@@ -6,14 +6,11 @@ import { render, fireEvent, waitFor } from '@testing-library/react'
 // 提升 vi.fn 引用,便于在 mock 工厂和测试用例中共享(支持运行时改主题)
 // 返回类型用 union 形式,允许测试动态切换 light/dark
 const { mockUseTheme } = vi.hoisted(() => ({
-  mockUseTheme: vi.fn(
-    (): { resolvedTheme: 'light' | 'dark' } => ({ resolvedTheme: 'light' }),
-  ),
+  mockUseTheme: vi.fn((): { resolvedTheme: 'light' | 'dark' } => ({ resolvedTheme: 'light' })),
 }))
 
 // Mock react-syntax-highlighter 的 Prism 为可检测的 <pre>(避免加载真实高亮库)
 vi.mock('react-syntax-highlighter', async () => {
-  const ReactActual = (await vi.importActual('react')) as typeof import('react')
   return {
     Prism: ({
       language,
@@ -26,7 +23,7 @@ vi.mock('react-syntax-highlighter', async () => {
     }) => {
       // P2 中期增强测试:把传入的 style 序列化到 data-* 属性,用于验证主题切换
       const styleAttr = style ? `__style__:${JSON.stringify(style)}` : ''
-      return ReactActual.createElement(
+      return React.createElement(
         'pre',
         {
           'data-testid': 'syntax-highlighter',
@@ -52,10 +49,9 @@ vi.mock('react-syntax-highlighter/dist/esm/styles/prism', () => ({
 
 // Mock MermaidDiagram,避免依赖真实 mermaid(测试不依赖真实渲染)
 vi.mock('@/components/media/MermaidDiagram', async () => {
-  const ReactActual = (await vi.importActual('react')) as typeof import('react')
   return {
     default: ({ code }: { code?: string }) =>
-      ReactActual.createElement('div', { 'data-testid': 'mermaid' }, code),
+      React.createElement('div', { 'data-testid': 'mermaid' }, code),
   }
 })
 
@@ -114,9 +110,7 @@ describe('MarkdownStream - P2-1 流式 Markdown 增强', () => {
     const { container } = render(<MarkdownStream content={content} />)
 
     // 复制按钮同步渲染(在 <pre> 中)
-    const button = container.querySelector(
-      'button[data-testid="copy-button"]',
-    ) as HTMLButtonElement
+    const button = container.querySelector('button[data-testid="copy-button"]') as HTMLButtonElement
     expect(button).toBeTruthy()
 
     fireEvent.click(button)
@@ -182,9 +176,7 @@ describe('MarkdownStream - P2-1 流式 Markdown 增强', () => {
     })
 
     // 第一个代码块的 DOM 节点应该被保留(说明 key 稳定 + React.memo 生效)
-    const firstBlockAfter = container.querySelectorAll(
-      '[data-testid="syntax-highlighter"]',
-    )[0]!
+    const firstBlockAfter = container.querySelectorAll('[data-testid="syntax-highlighter"]')[0]!
     expect(firstBlockAfter).toBe(firstBlock)
   })
 
