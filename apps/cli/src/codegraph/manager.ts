@@ -1,7 +1,7 @@
 /**
  * P1-6 Codebase Graph — IndexManager 文件事件处理。
  *
- * 灵感来源:cli xai-codebase-graph 的 IndexManager,做减法为单进程版本。
+ * 灵感来源:参考行业 Agent 框架的 IndexManager 设计,做减法为单进程版本。
  * 简化策略:
  *   - 处理 created/modified/removed/renamed 四类文件事件
  *   - handleEvents 合并事件:created+removed=cancel(取最后操作,remove 对未索引文件是 no-op)

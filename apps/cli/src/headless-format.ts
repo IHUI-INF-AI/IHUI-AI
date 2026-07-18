@@ -1,7 +1,7 @@
 /**
  * P1-5 Headless 多格式输出 — 序列化器与格式解析。
  *
- * 灵感来源:cli 的 LeaderOutput/HeadlessFormat(Rust enum,支持 text/json/markdown/yaml)。
+ * 灵感来源:参考行业 Agent 框架的 LeaderOutput/HeadlessFormat 设计(支持 text/json/markdown/yaml)。
  * 简化策略(做减法):
  *   - 不引入外部 yaml 库,自实现 30 行极简序列化器(只覆盖常见类型)
  *   - 流式输出,不缓冲整个会话(内存友好,长任务不爆)

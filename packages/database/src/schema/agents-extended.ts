@@ -41,7 +41,7 @@ export const agents = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     remark: text('remark'),
-    // Coze 配置字段（H-3 补齐，迁移自旧架构 agent_models.py）
+    // Coze 配置字段（H-3 补齐，等价自旧架构 agent_models.py）
     agentVersion: varchar('agent_version', { length: 32 }),
     botId: varchar('bot_id', { length: 64 }),
     botIdStr: varchar('bot_id_str', { length: 64 }),

@@ -1,7 +1,7 @@
 /**
  * OAuth 工具函数
  *
- * 迁移自旧架构 client/src/features/third-party-login/utils/oauth.ts，
+ * 等价自旧架构 client/src/features/third-party-login/utils/oauth.ts，
  * 适配新架构并扩展：state 生成、存储、校验与授权 URL 构造。
  */
 

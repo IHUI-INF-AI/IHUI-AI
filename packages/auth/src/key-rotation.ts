@@ -1,7 +1,7 @@
 /**
  * JWT 签名密钥周期轮换。
  *
- * 迁移自旧架构 server/app/utils/secret_rotation.py。
+ * 等价自旧架构 server/app/utils/secret_rotation.py。
  *
  * 设计要点：
  * 1. 多版本共存：轮换时旧密钥进入宽限期 (grace period)，仍可验证旧 token。

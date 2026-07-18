@@ -1,7 +1,7 @@
 /**
  * URL fetch 工具 — 让 Agent 具备联网查询能力。
  *
- * 灵感来源:cli 的 URL 抓取能力(Agent 查询最新文档)。
+ * 灵感来源:参考行业 Agent 框架的 URL 抓取能力(Agent 查询最新文档)。
  * 策略:
  *   - 基于 Node 18+ 内置 fetch
  *   - HTML → text 提取:去 script/style/nav/header/footer,保留正文

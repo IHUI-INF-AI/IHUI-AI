@@ -1,5 +1,5 @@
 /**
- * OpenClaw 配置 — 迁移自旧架构 client/src/config/openclaw.config.ts
+ * OpenClaw 配置 — 等价自旧架构 client/src/config/openclaw.config.ts
  * OpenClaw 是客户端 AI 智能体编排引擎，此处定义其运行时配置
  */
 

@@ -271,6 +271,11 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const notifications = useNotificationStore((s) => s.notifications)
   const unreadCount = useNotificationStore((s) => s.unreadCount)
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
+  // hydration-safe: next-themes 的 theme 在 SSR 返回 undefined, 客户端才返回真实值,
+  // 直接用 theme 渲染 aria-label/icon 会触发 "深色模式/浅色模式" 不匹配。
+  // 未挂载时渲染固定占位 (Moon + "深色模式"), 与 SSR 一致; 挂载后再切到真实态。
+  const mounted = useMounted()
+  const isDark = mounted && theme === 'dark'
 
   const handleLocaleChange = (code: Language) => {
     document.cookie = `locale=${code};path=/;max-age=31536000`
@@ -403,9 +408,9 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         </Button>
       </Popover>
 
-      {/* 主题切换 */}
+      {/* 主题切换 — isDark 来自 useMounted 门控, SSR 永远 false (Moon + "深色模式") */}
       <Tooltip
-        content={theme === 'dark' ? tt('lightMode') : tt('darkMode')}
+        content={isDark ? tt('lightMode') : tt('darkMode')}
         side={collapsed ? 'right' : 'top'}
       >
         <Button
@@ -413,10 +418,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           size="icon"
           className={btnClass}
           onClick={handleToggleTheme}
-          title={collapsed ? (theme === 'dark' ? tt('lightMode') : tt('darkMode')) : undefined}
-          aria-label={theme === 'dark' ? tt('lightMode') : tt('darkMode')}
+          title={collapsed ? (isDark ? tt('lightMode') : tt('darkMode')) : undefined}
+          aria-label={isDark ? tt('lightMode') : tt('darkMode')}
         >
-          {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
         </Button>
       </Tooltip>
     </div>

@@ -1,6 +1,6 @@
 # Pre-commit 钩子指南（Pre-commit Guide）
 
-> 迁移自旧架构 `server/docs/PRE_COMMIT_GUIDE.md`，适配新架构（TS Monorepo + Husky + lint-staged）。
+> 等价自旧架构 `server/docs/PRE_COMMIT_GUIDE.md`，适配新架构（TS Monorepo + Husky + lint-staged）。
 
 ## 1. 概述
 

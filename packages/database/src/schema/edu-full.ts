@@ -1,5 +1,5 @@
 /**
- * Edu 教育域完整 schema（迁移自旧架构 edu_platform_models / edu_platform_models_ext）。
+ * Edu 教育域完整 schema（等价自旧架构 edu_platform_models / edu_platform_models_ext）。
  * 涵盖：认证 / 设置 / 内容 / 会员 / 课程 / 考试 / 资源 / 圈子 / 评论 / 问答 / 直播 / 通知 / 访问统计 等模块。
  */
 import {

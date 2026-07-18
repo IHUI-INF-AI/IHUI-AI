@@ -1,5 +1,5 @@
 /**
- * Compaction V2 — 融合 cli `cli-compaction` crate 设计理念的上下文压缩模块。
+ * Compaction V2 — 参考行业 Agent 框架上下文压缩设计理念的压缩模块。
  *
  * 平台独占:CLI 专用(不影响 API / Web / 其他端)。
  *
@@ -156,7 +156,7 @@ function classifyError(err: Error): { transient: boolean; label: string } {
 // ==================== 核心函数 ====================
 
 /**
- * selectTurnsToCompact — 移植自 cli select.rs:60-147。
+ * selectTurnsToCompact — 参考行业 Agent 框架的 select turns 实现。
  * 反向遍历找 split point,使尾部 token 总和 ≤ targetTokens 且至少保留 keepRecent 条。
  * split point 落在 tool 结果上时前移到该 tool-pair run 结束(snapToSafeBoundary)。
  */
@@ -214,7 +214,7 @@ export function selectTurnsToCompact(
 }
 
 /**
- * shouldCompact — 移植自 cli trigger.rs:117-149。
+ * shouldCompact — 参考行业 Agent 框架的 trigger 实现。
  * lastPromptTokens / contextLimit > triggerRatio(默认 0.85)→ 触发。
  */
 export function shouldCompact(
@@ -263,7 +263,7 @@ export function reductionGuard(
 }
 
 /**
- * sampleWithRetry — 移植自 cli sampler.rs:90-104。
+ * sampleWithRetry — 参考行业 Agent 框架的 sampler 实现。
  * 瞬态错误(Timeout/网络/5xx)→ 重试;确定性错误(4xx/解析错误)→ 不重试。
  * 指数退避:1s/2s/4s。最多 maxAttempts 次。
  */

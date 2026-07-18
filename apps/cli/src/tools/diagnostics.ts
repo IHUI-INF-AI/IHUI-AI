@@ -1,7 +1,7 @@
 /**
  * 诊断工具 — 让 Agent 获取 TypeScript 类型错误和 ESLint 诊断。
  *
- * 灵感来源:cli 的 LSP diagnostic 查询 + cargo clippy 集成。
+ * 灵感来源:参考行业 Agent 框架的 LSP diagnostic 查询 + cargo clippy 集成设计。
  * 做减法:直接 spawnSync 调项目自带的 tsc/eslint,解析输出,零依赖。
  */
 
