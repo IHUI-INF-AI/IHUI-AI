@@ -964,7 +964,7 @@
   },
   "chat": {
     "title": "AI Chat",
-    "placeholder": "Type a message...",
+    "placeholder": "Describe your request; type / for skills, plugins, MCP (e.g. /goal /loop)",
     "send": "Send",
     "stop": "Stop generating",
     "clear": "Clear chat",
@@ -1414,12 +1414,7 @@
       "free": {
         "name": "Free",
         "cta": "Get Started",
-        "features": [
-          "10 AI chats per day",
-          "Basic models",
-          "1 project",
-          "Community support"
-        ]
+        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
       },
       "pro": {
         "name": "Pro",
@@ -7085,11 +7080,7 @@
     "planLifetimePrice": "$149.99",
     "planFeatures": "Plan Features",
     "subscribe": "Subscribe",
-    "planMonthlyFeatures": [
-      "1000 credits/month",
-      "Basic AI chat",
-      "Community access"
-    ],
+    "planMonthlyFeatures": ["1000 credits/month", "Basic AI chat", "Community access"],
     "planYearlyFeatures": [
       "12000 credits/month",
       "Advanced AI chat",
@@ -8423,7 +8414,51 @@
       "openai": "OpenAI",
       "anthropic": "Anthropic",
       "google": "Google",
+      "deepseek": "DeepSeek",
+      "qwen": "Qwen",
+      "zhipu": "Zhipu",
+      "moonshot": "Moonshot",
+      "doubao": "Doubao",
+      "stepfun": "StepFun",
       "meta": "Meta",
+      "mistral": "Mistral AI",
+      "xai": "xAI Grok",
+      "cohere": "Cohere",
+      "nvidia": "Nvidia",
+      "ai21": "AI21 Labs",
+      "microsoft": "Microsoft",
+      "perplexity": "Perplexity",
+      "groq": "Groq",
+      "together": "Together",
+      "fireworks": "Fireworks",
+      "aws": "AWS",
+      "bedrock": "AWS Bedrock",
+      "azure": "Azure OpenAI",
+      "openrouter": "OpenRouter",
+      "huggingface": "HuggingFace",
+      "replicate": "Replicate",
+      "stability": "Stability AI",
+      "inflection": "Inflection AI",
+      "ibm": "IBM watsonx",
+      "cerebras": "Cerebras",
+      "sambanova": "SambaNova",
+      "snowflake": "Snowflake",
+      "deepinfra": "DeepInfra",
+      "alephalpha": "Aleph Alpha",
+      "nous": "NousResearch",
+      "vertexai": "Google Vertex AI",
+      "gemma": "Google Gemma",
+      "copilot": "Microsoft Copilot",
+      "bing": "Bing Chat",
+      "hunyuan": "Tencent Hunyuan",
+      "wenxin": "Baidu ERNIE",
+      "minimax": "MiniMax",
+      "baichuan": "Baichuan",
+      "spark": "iFlyTek Spark",
+      "yi": "01.AI Yi",
+      "sensenova": "SenseTime SenseNova",
+      "skywork": "Skywork",
+      "internlm": "InternLM",
       "local": "Local"
     },
     "model": {
@@ -15346,12 +15381,7 @@
       "title": "MonthlyMember",
       "days": "30day",
       "select": "Sel",
-      "benefits": [
-        "AllLessonsFreeStudy",
-        "Learning Community",
-        "M3SubAI",
-        "Learning Progress"
-      ]
+      "benefits": ["AllLessonsFreeStudy", "Learning Community", "M3SubAI", "Learning Progress"]
     },
     "yearly": {
       "title": "YearlyMember",
@@ -20509,11 +20539,7 @@
       "label": "Core Positioning",
       "title": "Rational efficiency services and a mutual-aid community for enterprises in the AI era",
       "description": "IHUI AI Community is dedicated to helping enterprise decision-makers deeply understand the relationship between AI and enterprises. Through systematic courses, hands-on exploration, and community mutual aid, we build human-machine collaborative super organizations and achieve rational efficiency gains for enterprises.",
-      "tags": [
-        "Human-Machine Collaboration",
-        "Rational Efficiency",
-        "Super Organization"
-      ]
+      "tags": ["Human-Machine Collaboration", "Rational Efficiency", "Super Organization"]
     },
     "modules": {
       "label": "Three Service Modules",
@@ -20523,31 +20549,19 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": [
-            "Systematic courses",
-            "Hands-on exploration",
-            "Community mutual aid"
-          ]
+          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": [
-            "Communication platform",
-            "Experience sharing",
-            "Resource matching"
-          ]
+          "features": ["Communication platform", "Experience sharing", "Resource matching"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": [
-            "Professional LLMs",
-            "Agent services",
-            "Consulting services"
-          ]
+          "features": ["Professional LLMs", "Agent services", "Consulting services"]
         }
       ]
     },
@@ -20679,37 +20693,25 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": [
-            "Knowledge Q&A",
-            "Process automation"
-          ]
+          "examples": ["Knowledge Q&A", "Process automation"]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": [
-            "Data analysis",
-            "Decision support"
-          ]
+          "examples": ["Data analysis", "Decision support"]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": [
-            "Meeting scheduling",
-            "Approval workflows"
-          ]
+          "examples": ["Meeting scheduling", "Approval workflows"]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": [
-            "Marketing automation",
-            "Multi-agent collaboration"
-          ]
+          "examples": ["Marketing automation", "Multi-agent collaboration"]
         }
       ]
     },
@@ -20733,29 +20735,12 @@
       ],
       "infoTitle": "Information World",
       "infoBasicLabel": "Basic Information World",
-      "infoBasic": [
-        "Informatization",
-        "IoT",
-        "Automation"
-      ],
+      "infoBasic": ["Informatization", "IoT", "Automation"],
       "infoAdvancedLabel": "Advanced Information World",
-      "infoAdvanced": [
-        "Perceptive AI",
-        "Generative AI",
-        "Agent AI",
-        "Physical AI"
-      ],
+      "infoAdvanced": ["Perceptive AI", "Generative AI", "Agent AI", "Physical AI"],
       "effectTitle": "AI Transformation Effects",
-      "effectFlow": [
-        "Super Employee",
-        "Super Team",
-        "Super Product/Service"
-      ],
-      "effectMetrics": [
-        "Cost Optimization",
-        "Efficiency Improvement",
-        "Experience Upgrade"
-      ]
+      "effectFlow": ["Super Employee", "Super Team", "Super Product/Service"],
+      "effectMetrics": ["Cost Optimization", "Efficiency Improvement", "Experience Upgrade"]
     }
   },
   "drama": {
