@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   FileText,
   Shield,
+  Ban,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
@@ -18,7 +19,9 @@ interface AgentRuntimePanelProps {
   className?: string
 }
 
-type AgentStatus = 'idle' | 'running' | 'completed' | 'failed'
+// P2 中期增强:增加 cancelled 状态,停止后给用户明确的"任务已取消"反馈
+// (此前只 setStatus('idle'),用户不知道停止是否生效)
+type AgentStatus = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 interface PermissionEvent {
   mode: string
@@ -71,7 +74,8 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
       )
     } catch (err) {
       if (controller.signal.aborted) {
-        setStatus('idle')
+        // P2 中期增强:显示"任务已取消"状态而非静默回到 idle
+        setStatus('cancelled')
       } else {
         setError(String(err))
         setStatus('failed')
@@ -83,7 +87,8 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
 
   const handleStop = React.useCallback(() => {
     abortRef.current?.abort()
-    setStatus('idle')
+    // P2 中期增强:停止后置为 cancelled 状态,让用户清楚知道停止操作已生效
+    setStatus('cancelled')
   }, [])
 
   const handleClear = React.useCallback(() => {
@@ -120,6 +125,9 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
         )}
         {status === 'failed' && (
           <AlertCircle data-testid="status-failed" className="h-3.5 w-3.5 text-red-500" />
+        )}
+        {status === 'cancelled' && (
+          <Ban data-testid="status-cancelled" className="h-3.5 w-3.5 text-zinc-500" />
         )}
         <div className="flex-1" />
         <button
@@ -173,7 +181,23 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           </section>
         )}
 
-        {!plan && !output && !error && !permission && (
+        {/* P2 中期增强:任务被取消时显示明确提示,告知用户停止操作已生效 */}
+        {status === 'cancelled' && (
+          <section
+            data-testid="cancelled-banner"
+            className="mb-3 rounded-md border border-zinc-300 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900/30"
+          >
+            <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <Ban className="h-3 w-3" />
+              任务已取消
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              已停止当前执行。如需继续,请修改输入后再次执行。
+            </div>
+          </section>
+        )}
+
+        {!plan && !output && !error && !permission && status !== 'cancelled' && (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             输入任务,开始 Agent 执行
           </div>
