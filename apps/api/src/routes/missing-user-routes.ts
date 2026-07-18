@@ -87,6 +87,9 @@ import {
   createSkill,
   updateSkill,
   deleteSkill,
+  findSkillsByUserId,
+  upsertSkillBySlug,
+  deleteSkillsByAuthorAndSlugs,
 } from '../db/skills-queries.js'
 import {
   findUserPreferences,
@@ -116,7 +119,6 @@ import {
   findAiConversations,
   deleteAiConversation,
   updateAiAigcTaskStatus,
-  toggleAiExtCapability,
   findAiExtReports,
   createAiExtReport,
   findAiCareers,
@@ -175,8 +177,16 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   const taskIdParam = z.object({ taskId: z.string() })
   const botConversationParam = z.object({ botId: z.string(), conversationId: z.string() })
 
-  // 所有路由都需要登录
+  // 知识库文章列表/详情是公开内容(首页教育总览需展示给所有用户),GET 跳过鉴权
+  const isPublicKnowledgeGet = (req: FastifyRequest): boolean => {
+    if (req.method !== 'GET') return false
+    const path = (req.url.split('?')[0] ?? '').replace(/^\/api/, '')
+    return /^\/knowledge\/?$/.test(path) || /^\/knowledge\/[^/]+\/?$/.test(path)
+  }
+
+  // 所有路由都需要登录(知识库 GET 列表/详情除外)
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (isPublicKnowledgeGet(request)) return
     try {
       await authenticate(request)
     } catch (e) {
@@ -327,7 +337,15 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
       search: q.search,
     })
     return reply.send(
-      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+      success({
+        list: result.list.map((item) => ({
+          ...item,
+          category: item.categoryName,
+        })),
+        total: result.total,
+        page: q.page,
+        pageSize: q.pageSize,
+      }),
     )
   })
 
@@ -1523,13 +1541,8 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ success: true, task }))
   })
 
-  server.post('/ai-ext/capabilities/:id/toggle', async (request, reply) => {
-    const id = parseIdParam(request, reply)
-    if (id === null) return
-    const capability = await toggleAiExtCapability(id)
-    if (!capability) return reply.status(404).send(error(404, '能力不存在'))
-    return reply.send(success({ success: true, capability }))
-  })
+  // 注:/ai-ext/capabilities/:id/toggle 已在 ai-extended.ts 注册(显式 enabled body),
+  // 此处不再重复注册,避免 Fastify FST_ERR_DUPLICATED_ROUTE 错误。
 
   server.get('/ai-ext/reports', async (request, reply) => {
     const q = parsePagination(request, reply)
@@ -1795,6 +1808,165 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     if (id === null) return
     await deleteSkill(id)
     return reply.send(success({ success: true }))
+  })
+
+  // ===========================================================================
+  // 20.5 Skills 同步模块(CLI ↔ Web 双向同步,3 个端点)
+  // - POST /api/skills/sync: 双向同步(推送本地 + 拉取远端 + tombstone 处理)
+  // - POST /api/skills/push: 单向推送 CLI → 后端
+  // - POST /api/skills/pull: 单向拉取 后端 → CLI
+  //
+  // tombstone(软删除)机制:
+  // - Web 端删除 skill 时设 deletedAt = NOW()(软删除,不物理删除)
+  // - /skills/sync 时:本地不存在的 slug,远端标记为 tombstone(批量软删除)
+  // - /skills/pull 和 /skills/sync 响应包含 deletedAt,CLI 据此删本地文件
+  // - upsertSkillBySlug 处理"复活":若 existing 已软删除且 contentHash 不同,清空 deletedAt
+  // ===========================================================================
+
+  const skillSyncItemSchema = z.object({
+    slug: z.string().min(1).max(200),
+    name: z.string().min(1).max(100),
+    description: z.string().optional().nullable(),
+    content: z.string().optional().nullable(),
+    contentHash: z.string().optional().nullable(),
+    isPublished: z.boolean().optional(),
+  })
+
+  /** POST /api/skills/push — CLI 推送本地 skills 到后端(upsert,不处理 tombstone) */
+  server.post('/skills/push', async (request, reply) => {
+    if (!request.userId) return reply.status(401).send(error(401, '未登录'))
+    const body = z
+      .object({
+        skills: z.array(skillSyncItemSchema),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+
+    const results: Array<{
+      slug: string
+      status: 'created' | 'updated' | 'unchanged' | 'error'
+      message?: string
+    }> = []
+
+    for (const item of body.data.skills) {
+      try {
+        const { action } = await upsertSkillBySlug({
+          slug: item.slug,
+          name: item.name,
+          description: item.description ?? null,
+          content: item.content ?? null,
+          contentHash: item.contentHash ?? null,
+          isPublished: item.isPublished,
+          syncSource: 'cli',
+          authorId: request.userId,
+        })
+        results.push({ slug: item.slug, status: action })
+      } catch (err) {
+        results.push({
+          slug: item.slug,
+          status: 'error',
+          message: err instanceof Error ? err.message : '未知错误',
+        })
+      }
+    }
+    return reply.send(success({ results, serverTime: new Date().toISOString() }))
+  })
+
+  /** POST /api/skills/pull — CLI 从后端拉取用户的所有 skills(含 tombstone) */
+  server.post('/skills/pull', async (request, reply) => {
+    if (!request.userId) return reply.status(401).send(error(401, '未登录'))
+    const userSkills = await findSkillsByUserId(request.userId)
+    return reply.send(
+      success({
+        skills: userSkills.map((s) => ({
+          id: s.id,
+          slug: s.slug,
+          name: s.name,
+          description: s.description,
+          content: s.content,
+          contentHash: s.contentHash,
+          isPublished: s.isPublished,
+          syncSource: s.syncSource,
+          updatedAt: s.updatedAt.toISOString(),
+          lastSyncedAt: s.lastSyncedAt?.toISOString() ?? null,
+          deletedAt: s.deletedAt?.toISOString() ?? null,
+        })),
+        serverTime: new Date().toISOString(),
+      }),
+    )
+  })
+
+  /**
+   * POST /api/skills/sync — 双向同步(含 tombstone)
+   * 1. 推送本地 skills(upsert,基于 contentHash 跳过未变更;contentHash 不同则复活已软删除的)
+   * 2. tombstone 处理:本地 localSlugs 中不存在的远端活跃 skill,批量软删除
+   * 3. 拉取远端所有 skills(含已软删除的)返回给 CLI,CLI 据此删本地文件
+   */
+  server.post('/skills/sync', async (request, reply) => {
+    if (!request.userId) return reply.status(401).send(error(401, '未登录'))
+    const body = z
+      .object({
+        localSkills: z.array(skillSyncItemSchema),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+
+    // 1. 推送本地 → 远端(upsert,含复活逻辑)
+    const pushResults: Array<{ slug: string; status: string }> = []
+    for (const item of body.data.localSkills) {
+      try {
+        const { action } = await upsertSkillBySlug({
+          slug: item.slug,
+          name: item.name,
+          description: item.description ?? null,
+          content: item.content ?? null,
+          contentHash: item.contentHash ?? null,
+          isPublished: item.isPublished,
+          syncSource: 'cli',
+          authorId: request.userId,
+        })
+        pushResults.push({ slug: item.slug, status: action })
+      } catch {
+        pushResults.push({ slug: item.slug, status: 'error' })
+      }
+    }
+
+    // 2. tombstone:本地不存在的远端活跃 skill,批量软删除
+    const localSlugs = body.data.localSkills.map((s) => s.slug)
+    const remoteActiveSkills = await findSkillsByUserId(request.userId)
+    const remoteActiveSlugs = remoteActiveSkills
+      .filter((s) => s.deletedAt === null && s.slug)
+      .map((s) => s.slug as string)
+    const tombstonedSlugs = remoteActiveSlugs.filter((slug) => !localSlugs.includes(slug))
+    let tombstonedCount = 0
+    if (tombstonedSlugs.length > 0) {
+      tombstonedCount = await deleteSkillsByAuthorAndSlugs(request.userId, tombstonedSlugs)
+    }
+
+    // 3. 拉取远端所有 skills(含已软删除的),CLI 据此删本地文件
+    const remoteSkills = await findSkillsByUserId(request.userId)
+
+    return reply.send(
+      success({
+        pushed: pushResults.filter((r) => r.status !== 'unchanged').map((r) => r.slug),
+        pulled: remoteSkills.map((s) => ({
+          id: s.id,
+          slug: s.slug,
+          name: s.name,
+          description: s.description,
+          content: s.content,
+          contentHash: s.contentHash,
+          isPublished: s.isPublished,
+          syncSource: s.syncSource,
+          updatedAt: s.updatedAt.toISOString(),
+          lastSyncedAt: s.lastSyncedAt?.toISOString() ?? null,
+          deletedAt: s.deletedAt?.toISOString() ?? null,
+        })),
+        tombstoned: tombstonedSlugs,
+        tombstonedCount,
+        serverTime: new Date().toISOString(),
+      }),
+    )
   })
 
   // ===========================================================================
