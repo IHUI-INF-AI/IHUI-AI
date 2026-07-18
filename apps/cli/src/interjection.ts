@@ -1,6 +1,6 @@
 /**
  * InterjectionBuffer — mid-turn interjection buffer + formatting。
- * 灵感来源:cli `xai-interjection-core`(EventQueue + drain_formatted + format_interjection)。
+ * 灵感来源:参考行业 Agent 框架的 interjection-core 设计(EventQueue + drain_formatted + format_interjection)。
  * TS 重写并扩展:支持优先级(low/normal/high/critical)、maxSize 上限剔除最老、maxAgeMs 过期自动清除。
  */
 

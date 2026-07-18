@@ -1,7 +1,7 @@
 /**
  * 测试运行工具 — 让 Agent 能自主运行测试套件并获取结构化结果。
  *
- * 灵感来源:cli 的 TDD 能力(test runner 集成)。
+ * 灵感来源:参考行业 Agent 框架的 TDD 能力(test runner 集成)。
  * 策略:
  *   - 自动检测测试框架:package.json scripts.test 中 jest/vitest/vitest-node
  *   - 执行 `npm test -- --json --reporter=json`(jest)或 `--reporter=json`(vitest)

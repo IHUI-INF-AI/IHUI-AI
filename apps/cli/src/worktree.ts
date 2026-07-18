@@ -1,7 +1,7 @@
 /**
  * P1-8 Fast Worktree CoW — 基于 Copy-on-Write 的快速 git worktree 创建。
  *
- * 灵感来源:cli xai-fast-worktree。
+ * 灵感来源:参考行业开源 Agent 框架的 Fast Worktree(CoW)实现。
  * 简化策略(做减法):
  *   - 单文件实现,零新依赖(仅 Node.js 内置 fs/path/os/child_process)
  *   - CoW 能力检测 + 模块级缓存(可选持久化到 ~/.ihui/cache/)
@@ -470,7 +470,7 @@ function parseLinkedGitFile(gitPath: string): string | undefined {
  *   3. mkdir -p destination.parent + mkdir destination
  *   4. 检测 CowKind(用于返回值统计)
  *   5. 并行:copyGitDir / copyTree / (可选)读 modified files
- *   6. 写 destination/.git/grok-worktree-source marker
+ *   6. 写 destination/.git/ihui-worktree-source marker
  *   7. ref 指定且非 HEAD → git checkout ref
  *   8. preserveWorkingTree=false → git reset --hard
  *   9. 返回 WorktreeResult
@@ -526,7 +526,7 @@ export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeRes
   // 6. 写 marker 文件
   try {
     fs.writeFileSync(
-      path.join(destination, '.git', 'grok-worktree-source'),
+      path.join(destination, '.git', 'ihui-worktree-source'),
       source,
       'utf-8',
     )

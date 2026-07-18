@@ -1,7 +1,7 @@
 /**
  * Subagent 任务分解工具 — 让 Agent 能派生子 agent 执行独立子任务。
  *
- * 灵感来源:cli 的 leader/worker agent 模式(leader 派生 worker,独立 context)。
+ * 灵感来源:参考行业 Agent 框架的 leader/worker agent 模式(leader 派生 worker,独立 context)。
  * 做减法:复用 setupAgentTools + runToolLoop,全局变量跟踪嵌套深度(单用户场景足够)。
  *
  * 使用场景:
@@ -36,6 +36,7 @@ import type {
   RoleMap,
   EffectiveRuntimeConfig,
 } from '../subagents/types.js';
+import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
 
 export type { SubagentPersona, CapabilityMode, IsolationMode };
 
@@ -159,6 +160,8 @@ export interface SubagentParentOptions {
   worktreeFastPathEnabled?: boolean;
   /** 启用 precedence 链(默认 false,渐进式启用)。关闭时走原有逻辑,零回归。 */
   precedenceEnabled?: boolean;
+  /** HunkTracker(可选,透传给子 agent 的 file-edit 工具,启用 hunk 级冲突检测 + 改动归属追踪) */
+  hunkTracker?: HunkTracker;
   /** 自定义 role map(覆盖默认 DEFAULT_ROLES,仅在 precedenceEnabled=true 时生效) */
   customRoles?: RoleMap;
   /** 自定义 persona map(覆盖默认 PERSONAS_AS_PERSONA_MAP,仅在 precedenceEnabled=true 时生效) */
@@ -329,6 +332,15 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
           workspacePath: effectiveWorkspace,
           silent: true,
           confirmDangerous: async () => parentOpts.allowDangerous === true,
+          hunkTracker: parentOpts.hunkTracker,
+          agentId: subagentId,
+          subagentParent: {
+            modelId,
+            apiUrl: parentOpts.apiUrl,
+            apiKey: parentOpts.apiKey,
+            allowDangerous: parentOpts.allowDangerous,
+            hunkTracker: parentOpts.hunkTracker,
+          },
         });
 
         const savedTools = listTools();
