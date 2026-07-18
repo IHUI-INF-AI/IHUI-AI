@@ -32,6 +32,13 @@ class LLMCompleteRequest(BaseModel):
 
     messages: list[dict[str, Any]] = Field(..., description="OpenAI 格式消息列表")
     model: str | None = Field(None, description="模型名称,为空使用默认")
+    # function calling(OpenAI tools 格式,透传给 LiteLLM 或厂商原生 API)
+    tools: list[dict[str, Any]] | None = Field(None, description="OpenAI 格式 tools 定义")
+    tool_choice: str | dict[str, Any] | None = Field(
+        None, description="工具选择策略: auto/none/required 或 {type:'function',function:{name:'xxx'}}"
+    )
+    temperature: float | None = Field(None, description="采样温度")
+    max_tokens: int | None = Field(None, description="最大生成 token 数")
     # Phase 3 集成字段(可选)
     metadata: dict[str, Any] | None = Field(
         None, description="调用方元数据(conversation_id/message_id/user_id 等),原样透传到 done 事件"
@@ -43,9 +50,19 @@ class LLMCompleteRequest(BaseModel):
 
 @router.post("/llm/complete")
 async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any]:
-    """直接调用 LLM 完成对话。"""
+    """直接调用 LLM 完成对话(支持 function calling)。"""
     owner_uuid = (req.metadata or {}).get("userId")
-    result = await llm_gateway.complete(req.messages, model=req.model, owner_uuid=owner_uuid)
+    # 构造透传 kwargs(只透传非 None 的字段)
+    kwargs: dict[str, Any] = {}
+    if req.tools is not None:
+        kwargs["tools"] = req.tools
+    if req.tool_choice is not None:
+        kwargs["tool_choice"] = req.tool_choice
+    if req.temperature is not None:
+        kwargs["temperature"] = req.temperature
+    if req.max_tokens is not None:
+        kwargs["max_tokens"] = req.max_tokens
+    result = await llm_gateway.complete(req.messages, model=req.model, owner_uuid=owner_uuid, **kwargs)
     # 透传 metadata
     if req.metadata:
         result["metadata"] = req.metadata
