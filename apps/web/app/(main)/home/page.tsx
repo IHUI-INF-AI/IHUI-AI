@@ -24,7 +24,8 @@ import { useAiPanelStore } from '@/stores/ai-panel'
  * - 移除 SiteFooter(工作区不需要 footer)
  * - 各区块用卡片容器 + gap-6 间距,适配工作区 padding
  *
- * 进入 /home 时自动展开 AI 对话面板(首页作为用户中心枢纽,AI 助手默认可见)
+ * 首次进入 /home 时自动展开 AI 对话面板(首页作为用户中心枢纽,AI 助手默认可见)
+ * useRef 防止 React StrictMode 双调用重复触发 openPanel
  */
 export default function WorkAreaHomePage() {
   const t = useTranslations('marketing')
@@ -33,15 +34,22 @@ export default function WorkAreaHomePage() {
 
   const handleJoin = () => router.push('/support?source=landing')
 
-  // 进入首页自动展开 AI 对话面板(首页作为用户中心枢纽)
+  // 首次进入 /home 时自动展开 AI 对话面板(首页作为用户中心枢纽)
+  // useRef 防止 React StrictMode 双调用导致重复触发
+  const openedRef = React.useRef(false)
   React.useEffect(() => {
+    if (openedRef.current) return
+    openedRef.current = true
     openPanel()
   }, [openPanel])
 
   return (
     <div className="mx-auto w-full max-w-[1240px] space-y-6">
-      {/* 1. Hero:打字机欢迎语 + 3 CTA + Marquee 公告条 */}
-      <section className="overflow-hidden rounded-xl border bg-gradient-to-br from-primary/5 via-card to-emerald-500/5 shadow-sm">
+      {/* 1. Hero:打字机欢迎语 + Marquee 公告条 */}
+      <section
+        aria-label={t('indicator.page1')}
+        className="overflow-hidden rounded-xl border bg-gradient-to-br from-primary/5 via-card to-emerald-500/5 shadow-sm"
+      >
         <div className="flex flex-col items-center gap-4 px-4 py-8 md:px-8 md:py-10">
           <TypewriterHeroSection />
           <div className="w-full max-w-3xl">
@@ -51,7 +59,10 @@ export default function WorkAreaHomePage() {
       </section>
 
       {/* 2. 欢迎语 + 价格 + Benefits + CTA */}
-      <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+      <section
+        aria-label={t('indicator.page2')}
+        className="overflow-hidden rounded-xl border bg-card shadow-sm"
+      >
         <div className="grid gap-6 p-6 md:grid-cols-2 md:p-8">
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -86,27 +97,42 @@ export default function WorkAreaHomePage() {
       </section>
 
       {/* 3. 5 特性 + 4 优势 */}
-      <section className="rounded-xl border bg-card p-6 shadow-sm md:p-8">
+      <section
+        aria-label={t('indicator.page3')}
+        className="rounded-xl border bg-card p-6 shadow-sm md:p-8"
+      >
         <HomeFeatureGrid />
       </section>
 
       {/* 4. 杂志新闻 */}
-      <section className="rounded-xl border bg-card p-6 shadow-sm md:p-8">
+      <section
+        aria-label={t('indicator.page4')}
+        className="rounded-xl border bg-card p-6 shadow-sm md:p-8"
+      >
         <HomePage3Magazine />
       </section>
 
       {/* 5. 4 定价卡片 */}
-      <section className="rounded-xl border bg-card p-6 shadow-sm md:p-8">
+      <section
+        aria-label={t('indicator.page5')}
+        className="rounded-xl border bg-card p-6 shadow-sm md:p-8"
+      >
         <HomePage4Pricing />
       </section>
 
-      {/* 6. 品牌跑马灯 + CTA */}
-      <section className="rounded-xl border bg-card p-6 shadow-sm md:p-8">
+      {/* 6. 品牌跑马灯 */}
+      <section
+        aria-label={t('indicator.page6')}
+        className="rounded-xl border bg-card p-6 shadow-sm md:p-8"
+      >
         <BrandMarquee />
       </section>
 
       {/* 7. 底部 CTA */}
-      <section className="overflow-hidden rounded-xl border bg-primary/5 p-6 text-center shadow-sm md:p-10">
+      <section
+        aria-label={t('cta.title')}
+        className="overflow-hidden rounded-xl border bg-primary/5 p-6 text-center shadow-sm md:p-10"
+      >
         <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('cta.title')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
           {t('cta.subtitle')}
