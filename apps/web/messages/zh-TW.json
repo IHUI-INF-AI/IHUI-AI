@@ -13633,7 +13633,17 @@
       "confirmDeleteWebhook": "確定刪除該 Webhook？",
       "confirmDeleteHook": "確定刪除該 Hook？",
       "confirmDeleteChannel": "確定刪除該渠道？",
-      "messages": "消息"
+      "messages": "消息",
+      "title": "OpenClaw 控制台",
+      "subtitle": "管理 OpenClaw 閘道、渠道、技能與自動化",
+      "tabMemory": "記憶",
+      "tabSkills": "技能",
+      "tabAutomation": "自動化",
+      "tabIntegrations": "接入",
+      "tabModels": "模型",
+      "tabVoice": "語音",
+      "tabCanvas": "畫布",
+      "tabBrowser": "瀏覽器"
     },
     "goToSystemSettings": "前往系統設置",
     "copied": "{label} 已複製",
@@ -23957,6 +23967,20 @@
     "backToHome": "返回首頁"
   },
   "marketing": {
+    "typewriter": {
+      "content": "智匯AI社群,探索AI無限可能",
+      "explore": "探索 AI 無限可能",
+      "brand": "智匯 AI 社群",
+      "connect": "連接創意釋放未知",
+      "ctaPrimary": "立即體驗",
+      "ctaSecondary": "瞭解更多",
+      "miniappBtn": "微信小程式"
+    },
+    "miniappModal": {
+      "title": "微信小程式",
+      "qrAlt": "小程式QR Code",
+      "scanTip": "打開微信掃一掃,進入小程式"
+    },
     "header": {
       "brand": "智匯 AI",
       "login": "登入",
@@ -23994,7 +24018,30 @@
         "企業 AI 化決策者社群開放招募,人機協同實戰課程全年免費",
         "前 18 位會員享有一對一 AI 顧問諮詢,不滿意全額退款",
         "立即掃碼加入智匯 AI 社群,與決策者一起探索 AI 時代"
-      ]
+      ],
+      "title": "合作夥伴與生態",
+      "subtitle": "聚合主流大模型與平臺,構建開放AI生態",
+      "kouzi": "釦子",
+      "bbxLogo": "百寶箱",
+      "openai": "OpenAI",
+      "zhipu": "智譜清言",
+      "gork": "Grok",
+      "brand8": "品牌8",
+      "ali": "阿里",
+      "tencent": "騰訊",
+      "huawei": "華為",
+      "baidu": "百度",
+      "yuanbaoxiang": "元寶箱",
+      "yushu": "月之暗面",
+      "dbsfdx": "東方閃電",
+      "jldx": "精靈大學",
+      "n8n": "n8n",
+      "titleEn": "PARTNERS & ECOSYSTEM",
+      "joinText": "歡迎更多 AI 發燒友加入我們,共同探索人工智能的無限可能",
+      "marqueeSpeedLabel": "滾動速度",
+      "wheelSensitivityLabel": "滾輪靈敏度",
+      "pauseScroll": "暫停滾動",
+      "resumeScroll": "繼續滾動"
     },
     "welcome": {
       "title": "歡迎來到智匯 AI 社群",
@@ -24074,6 +24121,122 @@
       "copyright": "© 2026 智匯 AI · 北京 · 保留所有權利",
       "privacy": "隱私政策",
       "contactUs": "聯繫我們"
+    },
+    "indicator": {
+      "label": "分頁導航",
+      "switchTo": "切換到第 {index} 頁",
+      "page1": "首頁",
+      "page2": "歡迎",
+      "page3": "功能",
+      "page4": "資訊",
+      "page5": "定價",
+      "page6": "合作品牌"
+    },
+    "scrollDown": {
+      "label": "向下滾動"
+    },
+    "magazine": {
+      "title": "最新資訊",
+      "titleEn": "LATEST NEWS",
+      "subtitle": "瞭解平臺動態,掌握AI前沿",
+      "tabPlatform": "平臺動態",
+      "tabExternal": "外部資訊",
+      "empty": "暫無內容",
+      "viewMore": "查看更多",
+      "tagHot": "熱門",
+      "tagNews": "資訊"
+    },
+    "pricing": {
+      "title": "選擇適合您的方案",
+      "titleEn": "CHOOSE YOUR PLAN",
+      "subtitle": "靈活的定價方案,滿足不同需求",
+      "period": "/年",
+      "cta": "立即開通",
+      "recommended": "推薦",
+      "basic": {
+        "name": "基礎版",
+        "description": "適合個人用戶和專業人士",
+        "feature1": "無限次AI對話",
+        "feature2": "圖片生成",
+        "feature3": "語音輸入",
+        "feature4": "文件上傳",
+        "feature5": "30天歷史記錄",
+        "feature6": "專屬客服",
+        "feature7": "高級模型訪問"
+      },
+      "professional": {
+        "name": "專業版",
+        "description": "適合專業用戶和小型團隊",
+        "feature1": "無限次AI對話",
+        "feature2": "圖片/視頻生成",
+        "feature3": "90天歷史記錄",
+        "feature4": "150+ AI工具",
+        "feature5": "API訪問",
+        "feature6": "數據導出",
+        "feature7": "優先體驗新功能"
+      },
+      "enterprise": {
+        "name": "企業版",
+        "description": "適合高級用戶和團隊",
+        "feature1": "無限次AI對話",
+        "feature2": "圖片/視頻生成",
+        "feature3": "永久歷史記錄",
+        "feature4": "全部AI工具",
+        "feature5": "API接口訪問",
+        "feature6": "團隊協作",
+        "feature7": "專屬顧問"
+      },
+      "flagship": {
+        "name": "旗艦版",
+        "description": "適合追求極致體驗的用戶",
+        "feature1": "無限Token使用",
+        "feature2": "全部AI模型訪問",
+        "feature3": "極速響應",
+        "feature4": "專屬VIP客服",
+        "feature5": "定製化開發",
+        "feature6": "專屬培訓課程",
+        "feature7": "優先問題處理"
+      }
+    },
+    "features": {
+      "title": "強大功能",
+      "titleEn": "POWERFUL FEATURES",
+      "subtitle": "探索我們提供的全方位AI服務,從模型集成到應用商店,滿足您的各種需求",
+      "modelIntegration": {
+        "title": "多模型集成",
+        "description": "整合主流大模型,按需切換,滿足多場景對話與推理需求"
+      },
+      "appStore": {
+        "title": "智能體",
+        "description": "海量智能體即開即用,覆蓋通用、行業、職能三大場景"
+      },
+      "contentCreation": {
+        "title": "內容創作",
+        "description": "AI 文本、圖像、視頻一站式生成,讓創意快速落地"
+      },
+      "edu": { "title": "AI教育", "description": "系統化 AI 課程與實戰訓練,助你建立完整知識體系" },
+      "navigation": { "title": "智能導航", "description": "智能路由與場景識別,精準直達所需能力" }
+    },
+    "advantages": {
+      "title": "核心優勢",
+      "titleEn": "CORE ADVANTAGES",
+      "subtitle": "為什麼選擇智匯AI",
+      "professional": {
+        "title": "專業",
+        "description": "深耕AI領域,提供專業的技術解決方案和行業領先的產品服務"
+      },
+      "efficient": {
+        "title": "高效",
+        "description": "簡化開發流程,豐富的API接口和工具,讓AI應用快速上線"
+      },
+      "reliable": {
+        "title": "可靠",
+        "description": "穩定可靠的服務保障,99.9%可用性,保障業務連續性"
+      },
+      "innovative": {
+        "title": "創新",
+        "description": "持續技術創新,智能體集群、分層規劃等前沿AI能力"
+      }
     }
   }
 }

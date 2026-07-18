@@ -13616,7 +13616,17 @@
       "confirmDeleteWebhook": "このWebhookを削除してもよろしいですか？",
       "confirmDeleteHook": "このHookを削除してもよろしいですか？",
       "confirmDeleteChannel": "このチャネルを削除してもよろしいですか？",
-      "messages": "メッセージ"
+      "messages": "メッセージ",
+      "title": "OpenClaw コンソール",
+      "subtitle": "OpenClaw ゲートウェイ、チャネル、スキル、自動化を管理",
+      "tabMemory": "記憶",
+      "tabSkills": "スキル",
+      "tabAutomation": "オートメーション",
+      "tabIntegrations": "連携",
+      "tabModels": "モデル",
+      "tabVoice": "音声",
+      "tabCanvas": "キャンバス",
+      "tabBrowser": "ブラウザ"
     },
     "goToSystemSettings": "システム設定へ",
     "copied": "{label} をコピーしました",
@@ -23969,6 +23979,20 @@
     "backToHome": "ホームへ戻る"
   },
   "marketing": {
+    "typewriter": {
+      "content": "智匯AIコミュニティ、AIの無限の可能性を探索",
+      "explore": "AIの無限の可能性を探索",
+      "brand": "智匯AIコミュニティ",
+      "connect": "アイデアを繋ぎ、未知を解き放つ",
+      "ctaPrimary": "今すぐ体験",
+      "ctaSecondary": "もっと知る",
+      "miniappBtn": "WeChatミニプログラム"
+    },
+    "miniappModal": {
+      "title": "WeChatミニプログラム",
+      "qrAlt": "ミニプログラムQRコード",
+      "scanTip": "WeChatを開いてスキャンし、ミニプログラムに入る"
+    },
     "header": {
       "brand": "智匯AI",
       "login": "ログイン",
@@ -24006,7 +24030,30 @@
         "企業AI化意思決定者コミュニティが募集を開始、人機協同の実戦コースが年間無料",
         "先着18名の会員は1対1のAIコンサルティングを享受、不満の場合は全額返金",
         "今すぐコードをスキャンして智匯AIコミュニティに参加、意思決定者と一緒にAI時代を探索"
-      ]
+      ],
+      "title": "パートナーとエコシステム",
+      "subtitle": "主要なLLMとプラットフォームを集約し、オープンなAIエコシステムを構築",
+      "kouzi": "Coze",
+      "bbxLogo": "百宝箱",
+      "openai": "OpenAI",
+      "zhipu": "智譜清言",
+      "gork": "Grok",
+      "brand8": "ブランド8",
+      "ali": "アリババ",
+      "tencent": "テンセント",
+      "huawei": "ファーウェイ",
+      "baidu": "バイドゥ",
+      "yuanbaoxiang": "元宝箱",
+      "yushu": "Moonshot",
+      "dbsfdx": "東方閃電",
+      "jldx": "精霊大学",
+      "n8n": "n8n",
+      "titleEn": "PARTNERS & ECOSYSTEM",
+      "joinText": "より多くのAI愛好家の参加を歓迎し、共にAIの無限の可能性を探索しましょう",
+      "marqueeSpeedLabel": "スクロール速度",
+      "wheelSensitivityLabel": "ホイール感度",
+      "pauseScroll": "一時停止",
+      "resumeScroll": "再開"
     },
     "welcome": {
       "title": "智匯AIコミュニティへようこそ",
@@ -24086,6 +24133,128 @@
       "copyright": "© 2026 智匯AI · 北京 · All rights reserved",
       "privacy": "プライバシーポリシー",
       "contactUs": "お問い合わせ"
+    },
+    "indicator": {
+      "label": "ページナビゲーション",
+      "switchTo": "第 {index} ページへ",
+      "page1": "ホーム",
+      "page2": "ようこそ",
+      "page3": "機能",
+      "page4": "ニュース",
+      "page5": "料金",
+      "page6": "パートナー"
+    },
+    "scrollDown": {
+      "label": "下にスクロール"
+    },
+    "magazine": {
+      "title": "最新ニュース",
+      "titleEn": "LATEST NEWS",
+      "subtitle": "プラットフォームの動向とAI最前線を把握",
+      "tabPlatform": "プラットフォーム",
+      "tabExternal": "外部ニュース",
+      "empty": "コンテンツがありません",
+      "viewMore": "もっと見る",
+      "tagHot": "人気",
+      "tagNews": "ニュース"
+    },
+    "pricing": {
+      "title": "プランを選択",
+      "titleEn": "CHOOSE YOUR PLAN",
+      "subtitle": "異なるニーズに応える柔軟な料金プラン",
+      "period": "/年",
+      "cta": "今すぐ登録",
+      "recommended": "おすすめ",
+      "basic": {
+        "name": "ベーシック",
+        "description": "個人ユーザーとプロフェッショナル向け",
+        "feature1": "無制限のAIチャット",
+        "feature2": "画像生成",
+        "feature3": "音声入力",
+        "feature4": "ファイルアップロード",
+        "feature5": "30日間の履歴",
+        "feature6": "専用サポート",
+        "feature7": "高度なモデルアクセス"
+      },
+      "professional": {
+        "name": "プロフェッショナル",
+        "description": "パワーユーザーと小規模チーム向け",
+        "feature1": "無制限のAIチャット",
+        "feature2": "画像/動画生成",
+        "feature3": "90日間の履歴",
+        "feature4": "150+ AIツール",
+        "feature5": "APIアクセス",
+        "feature6": "データエクスポート",
+        "feature7": "新機能の優先体験"
+      },
+      "enterprise": {
+        "name": "エンタープライズ",
+        "description": "上級ユーザーとチーム向け",
+        "feature1": "無制限のAIチャット",
+        "feature2": "画像/動画生成",
+        "feature3": "永久履歴",
+        "feature4": "すべてのAIツール",
+        "feature5": "APIアクセス",
+        "feature6": "チームコラボレーション",
+        "feature7": "専用コンサルタント"
+      },
+      "flagship": {
+        "name": "フラッグシップ",
+        "description": "究極の体験を求めるユーザー向け",
+        "feature1": "無制限トークン使用",
+        "feature2": "すべてのAIモデルアクセス",
+        "feature3": "超高速レスポンス",
+        "feature4": "専用VIPサポート",
+        "feature5": "カスタム開発",
+        "feature6": "専用トレーニングコース",
+        "feature7": "優先問題処理"
+      }
+    },
+    "features": {
+      "title": "強力な機能",
+      "titleEn": "POWERFUL FEATURES",
+      "subtitle": "モデル統合からアプリストアまで、あらゆるニーズに応える包括的なAIサービスをご紹介",
+      "modelIntegration": {
+        "title": "マルチモデル統合",
+        "description": "主流のLLMを統合し、オンデマンドで切り替え、複数シナリオの対話と推論ニーズに対応"
+      },
+      "appStore": {
+        "title": "エージェント",
+        "description": "汎用、業界、機能の3つのシナリオをカバーする即利用可能なエージェント"
+      },
+      "contentCreation": {
+        "title": "コンテンツ作成",
+        "description": "AIテキスト、画像、動画のワンストップ生成でアイデアを迅速に具現化"
+      },
+      "edu": {
+        "title": "AI教育",
+        "description": "体系的なAIコースと実戦訓練で、完全な知識体系を構築"
+      },
+      "navigation": {
+        "title": "スマートナビゲーション",
+        "description": "スマートルーティングとシナリオ認識で、必要な能力に正確に到達"
+      }
+    },
+    "advantages": {
+      "title": "コアアドバンテージ",
+      "titleEn": "CORE ADVANTAGES",
+      "subtitle": "智匯AIを選ぶ理由",
+      "professional": {
+        "title": "プロフェッショナル",
+        "description": "AI分野を深耕し、専門的な技術ソリューションと業界をリードする製品サービスを提供"
+      },
+      "efficient": {
+        "title": "効率的",
+        "description": "開発フローを簡素化し、豊富なAPIインターフェースとツールでAIアプリを迅速に公開"
+      },
+      "reliable": {
+        "title": "信頼性",
+        "description": "安定した信頼できるサービス保証、99.9%の可用性でビジネスの継続性を確保"
+      },
+      "innovative": {
+        "title": "イノベーティブ",
+        "description": "継続的な技術革新、エージェントクラスタ、階層型計画などの最先端AI能力"
+      }
     }
   }
 }
