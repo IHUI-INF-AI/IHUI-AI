@@ -25,8 +25,8 @@ import type { ResourceType } from './types'
 interface Props {
   title: string
   setTitle: (v: string) => void
-  description: string
-  setDescription: (v: string) => void
+  intro: string
+  setIntro: (v: string) => void
   cidList: string
   setCidList: (v: string) => void
   categories: { id: string; name: string }[]
@@ -58,8 +58,8 @@ interface Props {
 export function ResourceForm({
   title,
   setTitle,
-  description,
-  setDescription,
+  intro,
+  setIntro,
   cidList,
   setCidList,
   categories,
@@ -104,11 +104,11 @@ export function ResourceForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="description">描述</Label>
+          <Label htmlFor="intro">描述</Label>
           <textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            id="intro"
+            value={intro}
+            onChange={(e) => setIntro(e.target.value)}
             placeholder="请输入资源描述"
             rows={3}
             className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
