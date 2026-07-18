@@ -5,6 +5,7 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import {
   createOrder,
   findOrderById,
+  findOrderByOrderNo,
   cancelOrder,
   findOrders,
   createPayment,
@@ -36,6 +37,7 @@ const ADMIN_ROLE_ID = 1
 // =============================================================================
 
 const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const orderNoParamSchema = z.object({ orderNo: z.string().min(1, '订单号不能为空') })
 
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
@@ -254,16 +256,19 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /orders/:id - 订单详情（仅本人或管理员）
+  // GET /orders/:orderNo - 订单详情(支持 orderNo 订单号或 UUID id 查询,仅本人或管理员)
   server.get(
-    '/orders/:id',
+    '/orders/:orderNo',
     { schema: { summary: '订单详情', tags: ['order'], response: okResponse } },
     async (request, reply) => {
-      const parsed = idParamSchema.safeParse(request.params)
+      const parsed = orderNoParamSchema.safeParse(request.params)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const order = await findOrderById(parsed.data.id)
+      // 先按 orderNo 查,找不到再按 UUID id 查(兼容历史客户端用 id 调用)
+      const order =
+        (await findOrderByOrderNo(parsed.data.orderNo)) ??
+        (await findOrderById(parsed.data.orderNo))
       if (!order) return reply.status(404).send(error(404, '订单不存在'))
       const roleId = request.jwtPayload?.roleId ?? 0
       if (order.userId !== request.userId && roleId < ADMIN_ROLE_ID) {
