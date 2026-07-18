@@ -15,6 +15,53 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 
+/** 支持的 locale(用于 i18n 渲染) */
+export type AnnouncementLocale = 'zh' | 'en';
+
+/** locale 对应的文案模板 */
+const I18N_STRINGS: Record<AnnouncementLocale, {
+  noUnread: string;
+  noAnnouncements: string;
+  listHeader: (total: number, unread: number) => string;
+  startupBanner: (unread: number, icon: string, title: string) => string;
+  pinned: string;
+  readMark: string;
+  unreadMark: string;
+  defaultTitle: string;
+}> = {
+  zh: {
+    noUnread: '暂无未读公告',
+    noAnnouncements: '暂无公告',
+    listHeader: (total, unread) => `📢 公告列表(共 ${total} 条,未读 ${unread} 条):`,
+    startupBanner: (unread, icon, title) =>
+      `📢 你有 ${unread} 条未读公告,输入 /announcements 查看。最近: ${icon} ${title}`,
+    pinned: '[置顶] ',
+    readMark: '✓',
+    unreadMark: ' ',
+    defaultTitle: '(无标题)',
+  },
+  en: {
+    noUnread: 'No unread announcements',
+    noAnnouncements: 'No announcements',
+    listHeader: (total, unread) =>
+      `📢 Announcements (${total} total, ${unread} unread):`,
+    startupBanner: (unread, icon, title) =>
+      `📢 You have ${unread} unread announcements. Type /announcements to view. Latest: ${icon} ${title}`,
+    pinned: '[Pinned] ',
+    readMark: '✓',
+    unreadMark: ' ',
+    defaultTitle: '(Untitled)',
+  },
+};
+
+/** 解析 locale 字符串(容错:不识别的值降级为 zh) */
+export function parseLocale(input?: string): AnnouncementLocale {
+  if (!input) return 'zh';
+  const lower = input.toLowerCase().trim();
+  if (lower.startsWith('en')) return 'en';
+  return 'zh';
+}
+
 /** 公告类型(与后端 schema 对齐) */
 export type AnnouncementType = 'info' | 'warning' | 'maintenance' | 'update';
 
@@ -223,42 +270,54 @@ function typeIcon(type?: string): string {
   }
 }
 
-/** 格式化单条公告简要(单行) */
-export function formatAnnouncementBrief(a: AnnouncementBrief, seen: Set<string>, index: number): string {
+/** 格式化单条公告简要(单行,支持 i18n) */
+export function formatAnnouncementBrief(
+  a: AnnouncementBrief,
+  seen: Set<string>,
+  index: number,
+  locale: AnnouncementLocale = 'zh',
+): string {
   const icon = typeIcon(a.type);
-  const pin = a.isPinned ? '[置顶] ' : '';
-  const read = seen.has(a.id) ? '✓' : ' ';
-  const title = a.title ?? '(无标题)';
+  const t = I18N_STRINGS[locale];
+  const pin = a.isPinned ? t.pinned : '';
+  const read = seen.has(a.id) ? t.readMark : t.unreadMark;
+  const title = a.title ?? t.defaultTitle;
   const time = a.publishedAt ? new Date(a.publishedAt).toLocaleDateString() : '';
   return `  ${read} ${icon} #${index + 1} ${pin}${title}  ${time}`;
 }
 
-/** 格式化公告列表(多行,用于 REPL /announcements 命令) */
+/** 格式化公告列表(多行,用于 REPL /announcements 命令,支持 i18n) */
 export function formatAnnouncements(
   list: AnnouncementBrief[],
   seen: Set<string>,
-  opts: { showOnlyUnread?: boolean; max?: number } = {},
+  opts: { showOnlyUnread?: boolean; max?: number; locale?: AnnouncementLocale } = {},
 ): string {
+  const locale = opts.locale ?? 'zh';
+  const t = I18N_STRINGS[locale];
   const filtered = opts.showOnlyUnread ? list.filter((a) => !seen.has(a.id)) : list;
   const limited = opts.max ? filtered.slice(0, opts.max) : filtered;
   if (limited.length === 0) {
-    return opts.showOnlyUnread ? '暂无未读公告' : '暂无公告';
+    return opts.showOnlyUnread ? t.noUnread : t.noAnnouncements;
   }
   const unread = countUnread(list, seen);
   const lines: string[] = [];
-  lines.push(`📢 公告列表(共 ${list.length} 条,未读 ${unread} 条):`);
+  lines.push(t.listHeader(list.length, unread));
   for (let i = 0; i < limited.length; i++) {
-    lines.push(formatAnnouncementBrief(limited[i]!, seen, i));
+    lines.push(formatAnnouncementBrief(limited[i]!, seen, i, locale));
   }
   return lines.join('\n');
 }
 
-/** 启动横幅:返回未读公告数 + 最近 1 条标题(用于 REPL 启动时显示) */
-export function formatStartupBanner(list: AnnouncementBrief[], seen: Set<string>): string {
+/** 启动横幅:返回未读公告数 + 最近 1 条标题(用于 REPL 启动时显示,支持 i18n) */
+export function formatStartupBanner(
+  list: AnnouncementBrief[],
+  seen: Set<string>,
+  locale: AnnouncementLocale = 'zh',
+): string {
   const unread = countUnread(list, seen);
   if (unread === 0) return '';
   const firstUnread = list.find((a) => !seen.has(a.id));
   if (!firstUnread) return '';
   const icon = typeIcon(firstUnread.type);
-  return `📢 你有 ${unread} 条未读公告,输入 /announcements 查看。最近: ${icon} ${firstUnread.title}`;
+  return I18N_STRINGS[locale].startupBanner(unread, icon, firstUnread.title ?? I18N_STRINGS[locale].defaultTitle);
 }

@@ -1286,15 +1286,24 @@ function handleMcpList(): void {
 }
 
 /**
- * P2-6 Voice STT 命令处理:/voice [秒数]
+ * P2-6 Voice STT 命令处理:/voice [秒数] [--lang <code>]
  *
  * 行为契约:
  * - settings.voice.enabled !== true 时提示未启用(零回归)
  * - 解析秒数参数(默认 settings.voice.durationSec 或 5)
+ * - 解析 --lang 参数(覆盖 settings.voice.language;支持 --lang en / --lang zh / --lang ja 等)
  * - 检测 ffmpeg 可用性(不可用时友好提示安装)
  * - 调用 voiceInput({ durationSec, apiUrl, language }) 录音 + 转写
  * - 显示录音 + 转写结果
  * - 转写文本注入下一条 user 消息(进入 sendToAgent)
+ *
+ * 多语言支持:
+ *   - 默认语言来自 settings.voice.language(可选)
+ *   - /voice --lang en     强制英文识别
+ *   - /voice --lang zh     强制中文识别
+ *   - /voice --lang ja     强制日文识别
+ *   - /voice 10 --lang en  录音 10 秒 + 强制英文
+ *   - 不传 --lang 时使用 settings.voice.language(可能为 undefined,后端自动检测)
  *
  * 灵感来源:参考行业 Agent 框架的 voice input slash 命令。
  */
@@ -1305,13 +1314,30 @@ async function handleVoice(args: string[], state: ReplState): Promise<void> {
     console.info(chalk.dim('语音输入未启用(在 settings.voice.enabled=true 开启)'));
     return;
   }
-  // 解析秒数参数:优先命令行参数,其次 settings,最后默认 5
-  const argNum = args[0] ? Number(args[0]) : NaN;
+
+  // 解析 --lang 参数(支持 --lang en / --lang=zh 两种格式)
+  let cliLanguage: string | undefined;
+  const positionalArgs: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--lang' && i + 1 < args.length) {
+      cliLanguage = args[i + 1];
+      i += 1; // 跳过下一个
+    } else if (a?.startsWith('--lang=')) {
+      cliLanguage = a.slice('--lang='.length);
+    } else if (a) {
+      positionalArgs.push(a);
+    }
+  }
+
+  // 解析秒数参数:优先命令行位置参数,其次 settings,最后默认 5
+  const argNum = positionalArgs[0] ? Number(positionalArgs[0]) : NaN;
   const durationSec = Number.isFinite(argNum) && argNum > 0
     ? Math.min(Math.floor(argNum), 60)  // 限制 1-60 秒
     : (settings.voice?.durationSec ?? 5);
   const apiUrl = settings.voice?.apiUrl ?? state.opts.apiUrl;
-  const language = settings.voice?.language;
+  // 语言优先级:CLI --lang > settings.voice.language > undefined(后端自动检测)
+  const language = cliLanguage ?? settings.voice?.language;
 
   // 检测 ffmpeg 可用性
   if (!checkMicrophoneAvailable()) {
@@ -1322,7 +1348,8 @@ async function handleVoice(args: string[], state: ReplState): Promise<void> {
     return;
   }
 
-  console.info(chalk.cyan(`\n🎤 开始录音 ${durationSec} 秒(请对麦克风说话)...`));
+  const langTag = language ? ` [语言: ${language}]` : '';
+  console.info(chalk.cyan(`\n🎤 开始录音 ${durationSec} 秒${langTag}(请对麦克风说话)...`));
   try {
     const result = await voiceInput({
       durationSec,
