@@ -32,6 +32,16 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     }
   }, [collapsed])
 
+  // 侧边栏折叠状态跨标签页同步:其他标签页切换折叠时,本标签页跟随
+  React.useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'sidebar-collapsed' || e.newValue === null) return
+      setCollapsed(e.newValue === 'true')
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   React.useEffect(() => {
     if (!mobileOpen) return
     const onKey = (e: KeyboardEvent) => {
