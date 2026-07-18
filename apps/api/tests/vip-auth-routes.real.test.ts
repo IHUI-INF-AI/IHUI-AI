@@ -15,6 +15,19 @@ vi.mock('../src/plugins/auth.js', () => ({
   requireActiveUser: vi.fn(),
 }))
 
+// 测试环境强制 mock 微信支付(即使本地已配置真实证书,也不发起真实微信支付 API 请求)
+// 注意:必须包含 generateOutTradeNo,因为 payment-queries.ts 的 createOrder 依赖它生成订单号
+vi.mock('../src/services/wechat-pay.js', () => ({
+  isWechatPayConfigured: () => false,
+  jsapiPrepay: vi.fn(),
+  nativePrepay: vi.fn(),
+  h5Prepay: vi.fn(),
+  buildJsapiSign: vi.fn(),
+  generateOutTradeNo: vi.fn(
+    (prefix = 'WX') => `${prefix}${Date.now()}${Math.floor(Math.random() * 100000)}`,
+  ),
+}))
+
 process.env.NODE_ENV = 'development'
 
 const { vipRoutes, adminVipRoutes } = await import('../src/routes/vip.js')
