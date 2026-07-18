@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { videoGenerationTasks } from '@ihui/database'
+import { videoGenerationTasks, aiCapabilities } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { listDiscovered } from '../services/ai/ai-capability-discovery.js'
 
@@ -178,16 +178,34 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     return reply.send(success(fallback))
   })
 
-  // M-63 补建端点: GET /api/ai-ext/ai-feed/hot (配合前端 use-ai-feed.ts)
-  // GET /ai-feed/hot - AI 热门动态
+  // -------------------------------------------------------------------------
+  // POST /capabilities/:id/toggle — 切换 AI 能力启用状态
+  // 配 use-ai-capability.ts:51,真实写 ai_capabilities.enabled
+  // -------------------------------------------------------------------------
+  server.post('/capabilities/:id/toggle', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 必填'))
+    const body = z.object({ enabled: z.boolean() }).safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, 'enabled 必填且为 boolean'))
+    try {
+      const [row] = await db
+        .update(aiCapabilities)
+        .set({ enabled: body.data.enabled, updatedAt: new Date() })
+        .where(eq(aiCapabilities.id, p.data.id))
+        .returning({ id: aiCapabilities.id, enabled: aiCapabilities.enabled })
+      if (!row) return reply.status(404).send(error(404, 'AI 能力不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '切换 AI 能力状态失败'))
+    }
+  })
+
+  // M-63 补建端点: GET /api/ai-ext/ai-feed/hot (配合前端 use-ai-hot-news.ts:26)
+  // R76 修复: 原占位桩返回 {list:[], total:0},现 308 redirect 到 ai-feed.ts:75 真实实现
+  // 真实实现: ai-feed.ts:75 listFeedItems(itemsQuerySchema) 查 ai_feed_items 表
   server.get('/ai-feed/hot', async (_request, reply) => {
-    return reply.send(
-      success({
-        list: [],
-        total: 0,
-        note: '占位: 待接 ai_feed 表',
-      }),
-    )
+    return reply.redirect('/api/ai-feed/hot', 308)
   })
 
   // -------------------------------------------------------------------------
@@ -680,70 +698,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   // -------------------------------------------------------------------------
-  // POST /llm/chat - 通用 LLM chat 端点(配 use-ai-talk.ts:174/191/349)
-  // 入参: { messages: [{role, content}], model?, temperature?, maxTokens? }
-  // 出参: { content, model, usage:{prompt_tokens, completion_tokens, total_tokens} }
-  // 真实实现: 转发到 AI_SERVICE_URL/llm/complete;无 AI_SERVICE_URL 时返回 503
+  // POST /llm/chat - 通用 LLM chat 端点
+  // R76 修复: 原注释"配 use-ai-talk.ts:174/191/349"是虚假声明,前端实际调 /api/ai/llm/chat
+  // (frontend-stub-ai-routes.ts:246 真实实现)。本端点此前无任何前端调用,属于死代码。
+  // 现 308 redirect 到 /api/ai/llm/chat 保持接口兼容(若 history 旧调用方存在)。
   // -------------------------------------------------------------------------
-  server.post('/llm/chat', async (request, reply) => {
-    const body = z
-      .object({
-        messages: z
-          .array(
-            z.object({
-              role: z.enum(['system', 'user', 'assistant']),
-              content: z.string().min(1),
-            }),
-          )
-          .min(1),
-        model: z.string().optional(),
-        temperature: z.number().min(0).max(2).optional(),
-        maxTokens: z.number().int().min(1).max(32000).optional(),
-      })
-      .safeParse(request.body)
-    if (!body.success)
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? 'messages 必填'))
-    const aiServiceUrl = process.env.AI_SERVICE_URL
-    if (!aiServiceUrl) {
-      return reply.status(503).send(error(503, 'AI 服务未配置(AI_SERVICE_URL)'))
-    }
-    try {
-      const resp = await fetch(`${aiServiceUrl}/llm/complete`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          messages: body.data.messages,
-          model: body.data.model,
-          temperature: body.data.temperature,
-          max_tokens: body.data.maxTokens,
-        }),
-      })
-      if (!resp.ok) {
-        const text = await resp.text()
-        return reply
-          .status(502)
-          .send(error(502, `AI 服务错误 ${resp.status}: ${text.slice(0, 200)}`))
-      }
-      const data = (await resp.json()) as {
-        content?: string
-        model?: string
-        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
-      }
-      return reply.send(
-        success({
-          content: data.content ?? '',
-          model: data.model ?? body.data.model ?? 'unknown',
-          usage: {
-            prompt_tokens: data.usage?.prompt_tokens ?? 0,
-            completion_tokens: data.usage?.completion_tokens ?? 0,
-            total_tokens: data.usage?.total_tokens ?? 0,
-          },
-        }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(502).send(error(502, `AI 服务连接失败: ${(e as Error).message}`))
-    }
+  server.post('/llm/chat', async (_request, reply) => {
+    return reply.redirect('/api/ai/llm/chat', 308)
   })
 }
 
