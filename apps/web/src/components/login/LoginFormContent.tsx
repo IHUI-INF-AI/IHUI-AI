@@ -11,7 +11,6 @@ import { PasswordLoginForm } from './PasswordLoginForm'
 import { EmailCodeLoginForm } from './EmailCodeLoginForm'
 import { UsernameLoginForm } from './UsernameLoginForm'
 import { SdkQrLogin } from './SdkQrLogin'
-import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
 type LoginTab = 'password' | 'email' | 'username' | 'qr'
@@ -49,6 +48,10 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
             active={tab === 'password'}
             onSuccess={handleSuccess}
             agreed={agreed}
+            onAgreedChange={(v) => {
+              setAgreed(v)
+              if (v) setShowAgreeErr(false)
+            }}
             onRequireAgree={() => setShowAgreeErr(true)}
             showAgreeErr={showAgreeErr}
           />
@@ -59,6 +62,10 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
             active={tab === 'email'}
             onSuccess={handleSuccess}
             agreed={agreed}
+            onAgreedChange={(v) => {
+              setAgreed(v)
+              if (v) setShowAgreeErr(false)
+            }}
             onRequireAgree={() => setShowAgreeErr(true)}
             showAgreeErr={showAgreeErr}
           />
@@ -69,6 +76,10 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
             active={tab === 'username'}
             onSuccess={handleSuccess}
             agreed={agreed}
+            onAgreedChange={(v) => {
+              setAgreed(v)
+              if (v) setShowAgreeErr(false)
+            }}
             onRequireAgree={() => setShowAgreeErr(true)}
             showAgreeErr={showAgreeErr}
           />
@@ -81,15 +92,6 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
 
       <ThirdPartyLoginButtons />
       <SdkQrLogin />
-
-      <AgreementCheckbox
-        checked={agreed}
-        onChange={(v) => {
-          setAgreed(v)
-          if (v) setShowAgreeErr(false)
-        }}
-        error={showAgreeErr && !agreed}
-      />
 
       <p className="text-center text-sm text-muted-foreground">
         {t('noAccount')}{' '}
