@@ -465,11 +465,11 @@ export function BrandIcon({
     )
   }
 
-  // 兜底:项目 logo SVG(/images/logo.svg,仅图标无文字版本)
-  // 当 vendor 未识别或为空时显示项目自带 logo,替代原首字母徽章
+  // 兜底:项目纯图标 logo.png(蝴蝶结 + IHUI INF 弧形,无右侧"智汇AI社区"横向文字)
+  // 全站统一为 logo.png(2026-07-19),仅 sidebar 左上角 ThemeLogo 保留带文字版
   return (
     <Image
-      src="/images/logo.svg"
+      src="/images/logo.png?v=20260719-unify"
       alt=""
       width={size}
       height={size}
