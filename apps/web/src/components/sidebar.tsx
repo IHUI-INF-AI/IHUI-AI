@@ -52,6 +52,11 @@ import {
   LogIn,
   Briefcase,
   Globe,
+  Monitor,
+  Smartphone,
+  Puzzle,
+  Terminal,
+  type LucideIcon,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -307,11 +312,86 @@ const LANGUAGES: { code: Language; name: string }[] = [
   { code: 'ko', name: '한국어' },
 ]
 
-const DOWNLOADS = [
-  { labelKey: 'downloadIOS', href: 'https://apps.apple.com/cn/app/ihui-ai' },
-  { labelKey: 'downloadAndroidApk', href: '/apk/ihui-ai-latest.apk' },
-  { labelKey: 'downloadWechatMiniApp', href: '/minapp' },
-  { labelKey: 'downloadDesktop', href: '/download/desktop' },
+/** Apple 品牌 logo(内联 SVG,确保 iOS / macOS 选项用准确品牌图标) */
+function AppleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M17.05 20.28c-.98.95-2.05.86-3.08.4-1.09-.47-2.09-.49-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+    </svg>
+  )
+}
+
+/** Android 机器人 logo(内联 SVG,品牌色单色) */
+function AndroidIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M17.523 15.341c-.572 0-1.04-.469-1.04-1.04s.468-1.04 1.04-1.04 1.04.469 1.04 1.04-.468 1.04-1.04 1.04m-11.045 0c-.572 0-1.04-.469-1.04-1.04s.468-1.04 1.04-1.04 1.04.469 1.04 1.04-.468 1.04-1.04 1.04m11.461-6.354 2.093-3.625a.479.479 0 0 0-.176-.652.477.477 0 0 0-.652.176l-2.114 3.662C15.683 7.964 13.954 7.5 12 7.5s-3.683.464-5.089 1.048L4.797 4.886a.477.477 0 0 0-.652-.176.479.479 0 0 0-.176.652L6.06 8.987C3.302 10.65 1.5 13.668 1.5 17h21c0-3.332-1.802-6.35-4.561-8.013" />
+    </svg>
+  )
+}
+
+/** 微信小程序 logo(内联 SVG,对话气泡+放大镜混搭) */
+function WechatMiniIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.328.328 0 0 0 .166-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .55-.012.822-.034-.17-.585-.26-1.204-.26-1.844 0-3.97 3.842-7.19 8.583-7.19.235 0 .466.013.696.035C17.917 4.084 13.604 2.188 8.691 2.188zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 10.435 7.17c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-3.94 0-7.135 2.7-7.135 6.027 0 3.328 3.195 6.027 7.135 6.027a8.34 8.34 0 0 0 2.018-.252.578.578 0 0 1 .476.066l1.27.737a.218.218 0 0 0 .11.036.195.195 0 0 0 .194-.197.218.218 0 0 0-.032-.108l-.26-.984a.39.39 0 0 1 .142-.443C21.78 19.39 23 17.78 23 15.885c0-3.328-3.196-6.027-7.062-6.027zm-2.378 3.594c.483 0 .875.395.875.882a.879.879 0 0 1-.875.882.879.879 0 0 1-.875-.882c0-.487.392-.882.875-.882zm4.756 0c.483 0 .875.395.875.882a.879.879 0 0 1-.875.882.879.879 0 0 1-.875-.882c0-.487.392-.882.875-.882z" />
+    </svg>
+  )
+}
+
+/** 项目所有支持的端(7 端),与 apps/* 目录一一对应:
+ *  - Web/PWA:    apps/web (Next.js)        → 当前用户已在用
+ *  - Desktop:    apps/desktop (Tauri)      → 桌面端
+ *  - iOS:        App Store 链接
+ *  - Android:    apps/web/public/apk
+ *  - Mini:       apps/miniapp-taro (Taro)  → 微信小程序
+ *  - Extension:  apps/extension (WXT)      → 浏览器扩展
+ *  - CLI:        apps/cli (Node)           → 命令行
+ * 图标:Web/Desktop/Mobile/Extension/CLI 用 lucide-react,iOS/Android/微信小程序用内联品牌 SVG */
+const DOWNLOADS: {
+  labelKey: string
+  href: string
+  icon: LucideIcon | React.FC<{ className?: string }>
+  descKey?: string
+}[] = [
+  { labelKey: 'downloadWeb', href: '/', icon: Globe, descKey: 'downloadWebDesc' },
+  {
+    labelKey: 'downloadDesktop',
+    href: '/download/desktop',
+    icon: Monitor,
+    descKey: 'downloadDesktopDesc',
+  },
+  {
+    labelKey: 'downloadIOS',
+    href: 'https://apps.apple.com/cn/app/ihui-ai',
+    icon: AppleIcon,
+    descKey: 'downloadIOSDesc',
+  },
+  {
+    labelKey: 'downloadAndroidApk',
+    href: '/apk/ihui-ai-latest.apk',
+    icon: AndroidIcon,
+    descKey: 'downloadAndroidDesc',
+  },
+  {
+    labelKey: 'downloadMobile',
+    href: '/download/mobile',
+    icon: Smartphone,
+    descKey: 'downloadMobileDesc',
+  },
+  {
+    labelKey: 'downloadWechatMiniApp',
+    href: '/minapp',
+    icon: WechatMiniIcon,
+    descKey: 'downloadMiniDesc',
+  },
+  {
+    labelKey: 'downloadExtension',
+    href: '/download/extension',
+    icon: Puzzle,
+    descKey: 'downloadExtensionDesc',
+  },
+  { labelKey: 'downloadCli', href: '/download/cli', icon: Terminal, descKey: 'downloadCliDesc' },
 ]
 
 interface SidebarProps {
@@ -423,21 +503,42 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         </Button>
       </Popover>
 
-      {/* 下载客户端 */}
+      {/* 下载客户端 — portal 模式让弹窗脱离 MainShell overflow-hidden 祖先,
+          从侧边栏右侧弹出,底部对齐 trigger 按钮(避免被裁剪 + 视觉对齐工具栏行) */}
       <Popover
-        position={collapsed ? 'right' : 'top'}
-        className={collapsed ? undefined : 'left-0 translate-x-0'}
+        position="right"
+        align="end"
+        portal
         content={
-          <div className="w-36 py-1">
-            {DOWNLOADS.map((item) => (
-              <a
-                key={item.labelKey}
-                href={item.href}
-                className="block px-2 py-1.5 text-sm hover:bg-accent"
-              >
-                {t(item.labelKey)}
-              </a>
-            ))}
+          <div className="w-56 p-1.5">
+            <div className="px-2 pb-1.5 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {t('downloadTitle')}
+            </div>
+            {DOWNLOADS.map((item) => {
+              const Icon = item.icon
+              const isExternal = /^https?:/.test(item.href)
+              return (
+                <a
+                  key={item.labelKey}
+                  href={item.href}
+                  target={isExternal ? '_blank' : undefined}
+                  rel={isExternal ? 'noopener noreferrer' : undefined}
+                  className="group flex items-start gap-2.5 rounded px-2 py-1.5 text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                >
+                  <Icon className="mt-0.5 h-4 w-4 shrink-0 text-foreground/80 transition-colors group-hover:text-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-foreground">
+                      {t(item.labelKey)}
+                    </span>
+                    {item.descKey && (
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {t(item.descKey)}
+                      </span>
+                    )}
+                  </span>
+                </a>
+              )
+            })}
           </div>
         }
       >
@@ -452,10 +553,11 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         </Button>
       </Popover>
 
-      {/* 消息中心 */}
+      {/* 消息中心 — w-80 远超 130px 侧边栏,必须 portal 到 document.body 才能从右侧弹出不被裁剪 */}
       <Popover
-        position={collapsed ? 'right' : 'top'}
-        className={collapsed ? undefined : 'left-0 translate-x-0'}
+        position="right"
+        align="end"
+        portal
         content={
           <div className="w-80 max-w-[calc(100vw-2rem)]">
             <NotificationCenter items={noticeItems} onMarkAllRead={() => markAllAsRead()} />
@@ -904,20 +1006,22 @@ function ExpandableNavItem({
 
   const parentClassName = cn(
     // group/exp:精简高级的二级菜单指示样式(GitHub/Linear/Notion 风格)
-    //   - 闭合态:与普通 NavLink 一致,底部居中一个朝下的小 chevron 提示"可展开"
-    //   - 展开态:微弱主色背景(bg-primary/10)+ 主色文本(text-primary)+ 文本加粗 + chevron 旋转 180° 朝上
-    //   - 父级激活(子路由命中):bg-primary text-primary-foreground
+    //   - 闭合态:与普通 NavLink 一致,前景色 70% + hover 反馈
+    //   - 展开 / 父级激活(子路由命中):统一为微弱主色背景(bg-primary/10)+ 主色文本(text-primary)+ 文本加粗
+    //     **根因(2026-07-19 二次修复)**:旧逻辑 parentActive → bg-primary + 子级 active → bg-primary
+    //     两者同色,父级深绿底白字 + 子级深绿底白字 = 视觉上"两个绿色容器"垂直堆叠。
+    //     根治:parentActive 状态不再用满色,改用 bg-primary/10(浅薄荷绿)+ text-primary 主色文字;
+    //     满色 bg-primary 仅保留给叶子级(active 子级),保证视觉上只有一个绿色块。
     //   - focus-visible ring 保留键盘可访问性指示
     // 指示符是 lucide ChevronDown 图标(absolute 定位在按钮底部居中),不是 border/hr/divide-*
     // 不违反项目"禁止分割线"硬约束(规则禁止的是 <hr>、divide-*、单边 border 分隔,不禁止图标指示符)
     'group/exp relative',
     NAV_ITEM_BASE_CLASS,
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-    parentActive
-      ? 'bg-primary text-primary-foreground'
-      : open
-        ? 'bg-primary/10 text-primary'
-        : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
+    // 二态优先级:展开/子级激活合一(都是浅绿+主色文字+加粗) vs 闭合态(70% 灰+hover)
+    parentActive || open
+      ? 'bg-primary/10 text-primary font-semibold'
+      : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     collapsed ? NAV_ITEM_COLLAPSED_CLASS : NAV_ITEM_EXPANDED_CLASS,
   )
 
@@ -998,9 +1102,8 @@ function ExpandableNavItem({
         <Icon className="h-5 w-5 shrink-0" />
         <span
           className={cn(
-            // 展开态额外加粗,与 bg-primary/10 背景同步强化"已展开"反馈
+            // 展开/父级激活状态在 parentClassName 已统一 font-semibold,这里只需控制 layout 类
             'min-w-0 flex-1 whitespace-nowrap transition-all duration-200',
-            open && 'font-semibold',
           )}
         >
           {label}
@@ -1027,11 +1130,12 @@ function ExpandableNavItem({
           data-testid={`nav-${item.labelKey}-indicator`}
           className={cn(
             'pointer-events-none absolute bottom-1 left-1/2 h-[2px] w-10 -translate-x-1/2 transition-colors duration-200',
-            parentActive
-              ? 'bg-primary-foreground/70'
-              : open
-                ? 'bg-primary'
-                : 'bg-muted-foreground/40 group-hover/exp:bg-muted-foreground/70',
+            // 展开/父级激活:统一用主色横线(bg-primary)
+            // 旧版 parentActive 用 bg-primary-foreground/70 是因为父级背景是 bg-primary 需要反色,
+            // 但根因修复后父级已改为 bg-primary/10 浅色,主色横线在浅色背景上对比度更高、更精致。
+            parentActive || open
+              ? 'bg-primary'
+              : 'bg-muted-foreground/40 group-hover/exp:bg-muted-foreground/70',
           )}
         />
       </button>
