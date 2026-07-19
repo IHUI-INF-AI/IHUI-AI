@@ -77,6 +77,20 @@ export function AISidePanel() {
     }
   }, [pathname])
 
+  // 同步 AISidePanel 占据宽度(含右侧 8px 视觉间距)到 :root 的 --ai-panel-width CSS 变量。
+  // 注:2026-07-20 已迁移到 GlobalShell 直接订阅 store 计算 padding-left(单一来源),
+  // 本 effect 仅作为兼容回退(防止其他组件未来误读 --ai-panel-width)。
+  // - open=true:占位 = width + 8px(面板宽度 + 右侧间距)
+  // - open=false:占位 = 0(仅渲染 width:0 的拖拽手柄,不占视觉空间)
+  React.useEffect(() => {
+    const occupy = open ? width + 8 : 0
+    document.documentElement.style.setProperty('--ai-panel-width', `${occupy}px`)
+    return () => {
+      // 卸载时复位,避免残留 CSS 变量导致内容区永久避让
+      document.documentElement.style.setProperty('--ai-panel-width', '0px')
+    }
+  }, [open, width])
+
   // WebSocket ai_response 多端同步
   React.useEffect(() => {
     if (!lastMessage || lastMessage === lastWsRef.current) return
@@ -195,16 +209,6 @@ export function AISidePanel() {
     window.addEventListener('global-shortcut:new-chat', onNewChat)
     return () => window.removeEventListener('global-shortcut:new-chat', onNewChat)
   }, [handleNewChat, open])
-
-  // 同步 AISidePanel 实际占用宽度到 :root 的 --ai-panel-width CSS 变量,
-  // 供 MainShell 的 work-area 通过 pl-[var(--ai-panel-width,0px)] 让出左侧被遮挡空间,
-  // 使主内容居中点对齐"可见区域"中心,而非"含被遮挡区"的中心。
-  // - open=true:width + 8px(mr-2 视觉间距,与 panel 自身右边缘对齐 work-area 内容起点)
-  // - open=false:0(work-area 内容铺满 sidebar 右侧全部空间)
-  React.useEffect(() => {
-    const effective = open ? width + 8 : 0
-    document.documentElement.style.setProperty('--ai-panel-width', `${effective}px`)
-  }, [open, width])
 
   // 拖拽调整宽度
   // 关闭态下拖拽手柄:先 openPanel 再开始 resize,实现"拖拽即打开"
