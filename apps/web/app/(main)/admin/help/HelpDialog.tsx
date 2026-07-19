@@ -21,58 +21,61 @@ import {
 } from '@ihui/ui'
 import { selectClass, HELP_CATEGORIES } from './helpers'
 import { slugify } from '@/lib/content'
-import type { HelpArticle, HelpForm } from './types'
+import { useZodForm } from '@/hooks/use-zod-form'
+import { helpSchema, type HelpFormValues } from '@/lib/form-schemas/help'
+import type { HelpArticle } from './types'
 
 interface Props {
   open: boolean
   editing: HelpArticle | null
-  form: HelpForm
-  setForm: React.Dispatch<React.SetStateAction<HelpForm>>
-  slugTouched: boolean
-  setSlugTouched: (v: boolean) => void
-  err: string | null
+  defaultValues: HelpFormValues
   savePending: boolean
-  onSubmit: (e: React.FormEvent) => void
+  onValid: (values: HelpFormValues) => void
   onClose: () => void
 }
 
 export function HelpDialog({
   open,
   editing,
-  form,
-  setForm,
-  slugTouched,
-  setSlugTouched,
-  err,
+  defaultValues,
   savePending,
-  onSubmit,
+  onValid,
   onClose,
 }: Props) {
   const t = useTranslations('admin.help')
   const tc = useTranslations('common')
+  const { form } = useZodForm<HelpFormValues>({
+    schema: helpSchema,
+    defaultValues,
+  })
+  const [slugTouched, setSlugTouched] = React.useState(false)
+  React.useEffect(() => {
+    form.reset(defaultValues)
+    setSlugTouched(!!editing)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id, open])
+
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onValid)} className="space-y-4">
           <DialogHeader>
             <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
             <DialogDescription>{t('createDesc')}</DialogDescription>
           </DialogHeader>
-          {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {err}
-            </div>
-          )}
           <div className="space-y-2">
             <Label htmlFor="h-title">{t('fieldTitle')}</Label>
             <Input
               id="h-title"
-              value={form.title}
+              {...form.register('title')}
+              placeholder={t('titlePlaceholder')}
               onChange={(e) => {
                 const title = e.target.value
-                setForm({ ...form, title, slug: slugTouched ? form.slug : slugify(title) })
+                form.setValue('title', title)
+                if (!slugTouched) {
+                  form.setValue('slug', slugify(title))
+                }
               }}
-              placeholder={t('titlePlaceholder')}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -80,20 +83,22 @@ export function HelpDialog({
               <Label htmlFor="h-slug">{t('fieldSlug')}</Label>
               <Input
                 id="h-slug"
-                value={form.slug}
-                onChange={(e) => {
-                  setSlugTouched(true)
-                  setForm({ ...form, slug: e.target.value })
-                }}
+                {...form.register('slug')}
                 placeholder={t('slugPlaceholder')}
                 className="font-mono text-xs"
+                onChange={(e) => {
+                  setSlugTouched(true)
+                  form.setValue('slug', e.target.value)
+                }}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="h-category">{t('fieldCategory')}</Label>
               <Select
-                value={form.category}
-                onValueChange={(v) => setForm({ ...form, category: v as HelpForm['category'] })}
+                value={form.watch('category')}
+                onValueChange={(v) =>
+                  form.setValue('category', v as HelpFormValues['category'], { shouldDirty: true })
+                }
               >
                 <SelectTrigger className={selectClass}>
                   <SelectValue />
@@ -112,8 +117,7 @@ export function HelpDialog({
             <Label htmlFor="h-content">{t('fieldContent')}</Label>
             <textarea
               id="h-content"
-              value={form.content}
-              onChange={(e) => setForm({ ...form, content: e.target.value })}
+              {...form.register('content')}
               placeholder={t('contentPlaceholder')}
               rows={6}
               className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -122,8 +126,10 @@ export function HelpDialog({
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={form.isPublished}
-              onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
+              checked={form.watch('isPublished')}
+              onChange={(e) =>
+                form.setValue('isPublished', e.target.checked, { shouldDirty: true })
+              }
               className="h-4 w-4 accent-primary"
             />
             {t('fieldPublished')}

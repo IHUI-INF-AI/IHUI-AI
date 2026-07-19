@@ -21,34 +21,50 @@ import {
   Switch,
 } from '@ihui/ui'
 import { textareaClass, LIST_CLASS_OPTIONS } from './helpers'
-import type { DictType, DictItem, TypeForm, ItemForm, ListClass } from './types'
+import { useZodForm } from '@/hooks/use-zod-form'
+import {
+  dictTypeSchema,
+  dictItemSchema,
+  type DictTypeFormValues,
+  type DictItemFormValues,
+} from '@/lib/form-schemas/dict'
+import type { DictType, DictItem } from './types'
 
 interface DictTypeDialogProps {
   open: boolean
   editing: DictType | null
-  form: TypeForm
+  defaultValues: DictTypeFormValues
   isPending: boolean
-  onFormChange: (form: TypeForm) => void
+  onValid: (values: DictTypeFormValues) => void
   onClose: () => void
-  onSubmit: (e: React.FormEvent) => void
 }
 
 export function DictTypeDialog({
   open,
   editing,
-  form,
+  defaultValues,
   isPending,
-  onFormChange,
+  onValid,
   onClose,
-  onSubmit,
 }: DictTypeDialogProps) {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
+  const { form, tValidation } = useZodForm<DictTypeFormValues>({
+    schema: dictTypeSchema,
+    defaultValues,
+  })
+  React.useEffect(() => {
+    form.reset(defaultValues)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id, open])
+
+  const nameErr = form.formState.errors.name?.message
+  const codeErr = form.formState.errors.code?.message
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onValid)} className="space-y-4">
           <DialogHeader>
             <DialogTitle>
               {editing ? t('dict.editTypeTitle') : t('dict.createTypeTitle')}
@@ -58,26 +74,35 @@ export function DictTypeDialog({
             <Label htmlFor="dt-name">{t('dict.fieldName')}</Label>
             <Input
               id="dt-name"
-              value={form.name}
-              onChange={(e) => onFormChange({ ...form, name: e.target.value })}
+              {...form.register('name')}
               placeholder={t('dict.namePlaceholder')}
+              aria-invalid={!!nameErr}
             />
+            {nameErr ? (
+              <p className="text-xs text-destructive">
+                {tValidation(nameErr as Parameters<typeof tValidation>[0])}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="dt-code">{t('dict.fieldCode')}</Label>
             <Input
               id="dt-code"
-              value={form.code}
-              onChange={(e) => onFormChange({ ...form, code: e.target.value })}
+              {...form.register('code')}
               placeholder="order_status"
+              aria-invalid={!!codeErr}
             />
+            {codeErr ? (
+              <p className="text-xs text-destructive">
+                {tValidation(codeErr as Parameters<typeof tValidation>[0])}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="dt-desc">{t('dict.fieldDescription')}</Label>
             <textarea
               id="dt-desc"
-              value={form.description}
-              onChange={(e) => onFormChange({ ...form, description: e.target.value })}
+              {...form.register('description')}
               rows={2}
               className={textareaClass}
               placeholder={t('dict.descriptionPlaceholder')}
@@ -102,30 +127,36 @@ interface DictItemDialogProps {
   open: boolean
   editing: DictItem | null
   parent: DictType | null
-  form: ItemForm
+  defaultValues: DictItemFormValues
   isPending: boolean
-  onFormChange: (form: ItemForm) => void
+  onValid: (values: DictItemFormValues) => void
   onClose: () => void
-  onSubmit: (e: React.FormEvent) => void
 }
 
 export function DictItemDialog({
   open,
   editing,
   parent,
-  form,
+  defaultValues,
   isPending,
-  onFormChange,
+  onValid,
   onClose,
-  onSubmit,
 }: DictItemDialogProps) {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
+  const { form } = useZodForm<DictItemFormValues>({
+    schema: dictItemSchema,
+    defaultValues,
+  })
+  React.useEffect(() => {
+    form.reset(defaultValues)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id, open])
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onValid)} className="space-y-4">
           <DialogHeader>
             <DialogTitle>
               {editing ? t('dict.editItemTitle') : t('dict.createItemTitle')}
@@ -140,8 +171,7 @@ export function DictItemDialog({
             <Label htmlFor="di-label">{t('dict.fieldLabel')}</Label>
             <Input
               id="di-label"
-              value={form.label}
-              onChange={(e) => onFormChange({ ...form, label: e.target.value })}
+              {...form.register('label')}
               placeholder={t('dict.labelPlaceholder')}
             />
           </div>
@@ -149,8 +179,7 @@ export function DictItemDialog({
             <Label htmlFor="di-value">{t('dict.fieldValue')}</Label>
             <Input
               id="di-value"
-              value={form.value}
-              onChange={(e) => onFormChange({ ...form, value: e.target.value })}
+              {...form.register('value')}
               placeholder="pending"
             />
           </div>
@@ -159,16 +188,14 @@ export function DictItemDialog({
             <Input
               id="di-sort"
               type="number"
-              value={form.sort}
-              onChange={(e) => onFormChange({ ...form, sort: Number(e.target.value) })}
+              {...form.register('sort', { valueAsNumber: true })}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="di-dictType">{t('dict.fieldDictType')}</Label>
             <Input
               id="di-dictType"
-              value={form.dictType}
-              onChange={(e) => onFormChange({ ...form, dictType: e.target.value })}
+              {...form.register('dictType')}
               placeholder="order_status"
             />
           </div>
@@ -176,8 +203,12 @@ export function DictItemDialog({
             <div className="space-y-2">
               <Label htmlFor="di-listClass">{t('dict.fieldListClass')}</Label>
               <Select
-                value={form.listClass}
-                onValueChange={(v) => onFormChange({ ...form, listClass: v as ListClass })}
+                value={form.watch('listClass')}
+                onValueChange={(v) =>
+                  form.setValue('listClass', v as DictItemFormValues['listClass'], {
+                    shouldDirty: true,
+                  })
+                }
               >
                 <SelectTrigger id="di-listClass">
                   <SelectValue />
@@ -196,11 +227,15 @@ export function DictItemDialog({
               <div className="flex h-9 items-center gap-2">
                 <Switch
                   id="di-status"
-                  checked={form.status === 1}
-                  onCheckedChange={(checked) => onFormChange({ ...form, status: checked ? 1 : 0 })}
+                  checked={form.watch('status') === 1}
+                  onCheckedChange={(checked) =>
+                    form.setValue('status', checked ? 1 : 0, { shouldDirty: true })
+                  }
                 />
                 <span className="text-sm text-muted-foreground">
-                  {form.status === 1 ? t('dict.statusEnabled') : t('dict.statusDisabled')}
+                  {form.watch('status') === 1
+                    ? t('dict.statusEnabled')
+                    : t('dict.statusDisabled')}
                 </span>
               </div>
             </div>
@@ -209,8 +244,7 @@ export function DictItemDialog({
             <Label htmlFor="di-cssClass">{t('dict.fieldCssClass')}</Label>
             <Input
               id="di-cssClass"
-              value={form.cssClass}
-              onChange={(e) => onFormChange({ ...form, cssClass: e.target.value })}
+              {...form.register('cssClass')}
               placeholder="custom-class"
             />
           </div>
@@ -218,8 +252,7 @@ export function DictItemDialog({
             <Label htmlFor="di-remark">{t('dict.fieldRemark')}</Label>
             <textarea
               id="di-remark"
-              value={form.remark}
-              onChange={(e) => onFormChange({ ...form, remark: e.target.value })}
+              {...form.register('remark')}
               rows={2}
               className={textareaClass}
               placeholder={t('dict.remarkPlaceholder')}

@@ -11,6 +11,7 @@ import { RefundFilter } from './RefundFilter'
 import { RefundTable } from './RefundTable'
 import { RefundDialog } from './RefundDialog'
 import { PAGE_SIZE, api } from './helpers'
+import { useRefundMachine } from '@/lib/workflows'
 import type { ActionState, EduRefund, PageData } from './types'
 
 export default function AdminRefundPage() {
@@ -55,6 +56,7 @@ function RefundList({
   const [action, setAction] = React.useState<ActionState | null>(null)
   const [reason, setReason] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
+  const { state: refundState, can, send: dispatchRefund } = useRefundMachine()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'refund', 'list', status, page, search],
@@ -185,12 +187,23 @@ function RefundList({
         isRejectPending={mut.isPending}
         isApprovePending={approveMut.isPending}
         currencyFmt={currencyFmt}
+        canApprove={can({ type: 'APPROVE_REFUND' })}
+        canReject={can({ type: 'REJECT' })}
+        state={refundState}
         onReasonChange={setReason}
         onClose={close}
         onSubmit={submit}
         onApprove={() => {
           setErr(null)
+          if (can({ type: 'REVIEW' })) dispatchRefund({ type: 'REVIEW', reviewerId: 'admin' })
+          dispatchRefund({ type: 'APPROVE_REFUND' })
           approveMut.mutate()
+        }}
+        onReject={() => {
+          setErr(null)
+          if (can({ type: 'REVIEW' })) dispatchRefund({ type: 'REVIEW', reviewerId: 'admin' })
+          dispatchRefund({ type: 'REJECT', reason: reason.trim() })
+          mut.mutate()
         }}
       />
     </div>
