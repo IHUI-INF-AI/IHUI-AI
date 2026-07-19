@@ -226,11 +226,11 @@ export function AISidePanel() {
   // 关闭态:仅渲染拖拽手柄(可拖拽打开),不渲染整个面板内容。
   // 容器 fixed 定位紧贴 Sidebar 右侧(left:var(--sidebar-width) 由 Sidebar 同步到 :root),
   // width:0 使容器自身不占视觉空间;手柄 right-[-12px] 跨越容器右边缘 8px 命中。
-  // z-40 高于 work-area 内容层,低于 modal/PWA 提示层(modal/PWA 全部 z-50)。
+  // z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)。
   if (!open) {
     return (
       <div
-        className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] z-40"
+        className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] z-sticky"
         style={{ width: 0 }}
       >
         {/* 右侧拖拽手柄(关闭态):命中区 right-[-12px] w-2(8px),完全位于 work-area 一侧
@@ -278,9 +278,9 @@ export function AISidePanel() {
       // - fixed 定位紧贴 Sidebar 右侧(left:var(--sidebar-width) 跟随 Sidebar 折叠/展开/拖拽)
       // - top-2 bottom-2 与 work-area 的 my-2 垂直对齐,顶部/底部留出 8px 间距
       // - mr-2 在可见面板右边缘与 work-area 内容间形成 8px 视觉间距
-      // - z-40 高于 work-area 内容层,低于 modal/PWA 提示层(modal/PWA 全部 z-50)
+      // - z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)
       // - width 由 useAiPanelStore.width 控制(320-720px);不挤压右侧 work-area 宽度
-      className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-40"
+      className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky"
       style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
     >
       <aside

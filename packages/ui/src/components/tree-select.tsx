@@ -197,7 +197,7 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
           />
         </button>
         {open && (
-          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 rounded-md border bg-popover text-popover-foreground shadow-md">
+          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-popover rounded-md border bg-popover text-popover-foreground shadow-md">
             <div className="flex items-center gap-2 border-b px-2 py-1.5">
               <Search className="h-3.5 w-3.5 shrink-0 opacity-50" />
               <input
