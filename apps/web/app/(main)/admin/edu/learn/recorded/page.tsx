@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { exportFromApi } from '@/lib/export-utils'
+import { useBatchMutation } from '@/hooks/use-batch-mutation'
 import { Button } from '@ihui/ui'
 
 import { RecordedFilter } from './RecordedFilter'
@@ -80,14 +81,14 @@ export default function EduLearnRecordedPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   })
-  const batchDeleteMut = useMutation({
-    mutationFn: (ids: string[]) => eduApi(`${API}/${ids.join(',')}`, { method: 'DELETE' }),
-    onSuccess: () => {
-      toast.success(t('batchDeleteSuccess'))
-      setIds([])
-      qc.invalidateQueries({ queryKey: ['edu', 'course-video'] })
-    },
-    onError: (e: Error) => toast.error(e.message),
+  const batchDeleteMut = useBatchMutation({
+    endpoint: API,
+    method: 'DELETE',
+    queryKey: ['edu', 'course-video'],
+    ids,
+    mode: 'url',
+    successMessage: t('batchDeleteSuccess'),
+    onSuccess: () => setIds([]),
   })
 
   function openCreate() {
@@ -147,7 +148,7 @@ export default function EduLearnRecordedPage() {
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
   function handleBatchDelete() {
-    if (window.confirm(t('batchDeleteConfirm', { count: ids.length }))) batchDeleteMut.mutate(ids)
+    if (window.confirm(t('batchDeleteConfirm', { count: ids.length }))) batchDeleteMut.mutate()
   }
   function handleDelete(r: Video) {
     if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(r.id)
