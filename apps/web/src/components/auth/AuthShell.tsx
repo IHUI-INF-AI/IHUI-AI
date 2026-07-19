@@ -16,20 +16,23 @@ interface AuthShellProps {
 }
 
 /**
- * IHUI AI Auth 统一弹窗外壳(2026-07-20 立)
+ * IHUI AI Auth 统一弹窗外壳(2026-07-20 立 / 2026-07-20 修订)
  *
  * 视觉规范:
- *   - 容器:max-w-[420px] rounded-xl border bg-card p-7
+ *   - 容器:max-w-[460px] rounded-xl border bg-card p-7
  *   - 阴影:subtle 双层 0_4px_24px + 0_1px_4px(符合 §4 极简扁平 + subtle 阴影)
- *   - 顶部:单个 logo 图标(44x44 rounded-xl)+ 标题(text-xl)+ 副标题(text-xs)
+ *   - 顶部:logo(52×52 rounded-xl)+ welcome.svg/baiwelcome.svg(浅/深主题切换)左右并排
+ *     · 复用 M-66/M-68/M-69 视觉方案:logo 52 + gap-3 + welcome h-52 等比 w-auto
+ *     · 浅色 welcome.svg / 深色 baiwelcome.svg,globals.css .welcome-img/.welcome-img-dark 切换
+ *     · 标题(text-xl)+ 副标题(text-xs)在并排下方
  *   - 关闭:右上角 X 按钮(onClose 存在时渲染)
  *
  * 使用场景:
  *   1. 主站 LoginDialog:作为 DialogContent 的直接子元素
  *   2. SSO /sso/login、/sso/register 整页:用 AuthShellPage 包裹(全屏遮罩 + 居中)
  *
- * 设计原则:取消 M-66/M-67/M-68/M-69 那套 logo+welcome 双图叠加技术债,
- * 改为单个 logo + 标题 + 副标题的极简结构,主站弹窗与 SSO 整页视觉完全统一。
+ * 历史说明:M-66~M-69 的 logo+welcome 并排方案曾在 ce7d076c 被取消(改单 logo 极简版),
+ * 2026-07-20 经用户确认 3 处(主站弹窗 + /sso/login + /sso/register)全恢复并排显示。
  */
 export function AuthShell({
   title,
@@ -42,7 +45,7 @@ export function AuthShell({
   return (
     <div
       className={cn(
-        'relative w-full max-w-[420px] rounded-xl border border-border bg-card p-7',
+        'relative w-full max-w-[460px] rounded-xl border border-border bg-card p-7',
         'shadow-[0_4px_24px_rgba(0,0,0,0.06),0_1px_4px_rgba(0,0,0,0.04)]',
         className,
       )}
@@ -59,16 +62,44 @@ export function AuthShell({
       )}
 
       <div className="flex flex-col items-center text-center">
-        <Image
-          src="/images/logo-icon.svg?v=20260719-icon-restore-v1"
-          alt="IHUI AI"
-          width={44}
-          height={44}
-          className="h-11 w-11 rounded-xl select-none"
-          draggable={false}
-          unoptimized
-          priority
-        />
+        {/* 顶部 logo + welcome 左右并排(复用 M-66/M-68/M-69 视觉方案,2026-07-20 恢复)
+            - logo 52×52 rounded-xl,绿底白字品牌色,浅/深主题统一
+            - welcome h-[52px] w-auto 等比缩放(原 447×67 → h52 时 w≈347)
+            - gap-3(12px)间距,52+12+347=411 ≤ 内宽 404(p-7 28×2 + max-w-460 - 8px 安全余量)
+            - 浅色 welcome.svg / 深色 baiwelcome.svg 由 globals.css .welcome-img/.welcome-img-dark 切换 */}
+        <div className="flex items-center justify-center gap-3">
+          <Image
+            src="/images/logo-icon.svg?v=20260719-icon-restore-v1"
+            alt="IHUI AI"
+            width={52}
+            height={52}
+            className="h-[52px] w-[52px] shrink-0 select-none rounded-xl"
+            draggable={false}
+            unoptimized
+            priority
+          />
+          <div className="relative h-[52px] w-full max-w-[348px]">
+            <Image
+              src="/images/welcome.svg"
+              alt="Welcome to IHUI AI"
+              width={447}
+              height={67}
+              className="welcome-img absolute inset-0 m-auto h-full w-auto"
+              loading="eager"
+              unoptimized
+            />
+            <Image
+              src="/images/baiwelcome.svg"
+              alt=""
+              aria-hidden="true"
+              width={447}
+              height={67}
+              className="welcome-img-dark absolute inset-0 m-auto h-full w-auto"
+              loading="eager"
+              unoptimized
+            />
+          </div>
+        </div>
         <h1 className="mt-4 text-xl font-semibold tracking-tight text-foreground">{title}</h1>
         {subtitle && <p className="mt-1.5 text-xs text-muted-foreground">{subtitle}</p>}
       </div>
