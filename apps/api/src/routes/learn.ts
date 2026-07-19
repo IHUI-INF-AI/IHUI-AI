@@ -102,6 +102,8 @@ import {
 import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { learnHomework } from '@ihui/database'
+import { eduLessonTopicCategories } from '@ihui/database'
+import { eq, and, sql as dsql } from 'drizzle-orm'
 
 // =============================================================================
 // Zod schemas
@@ -156,6 +158,26 @@ const createLearnCategorySchema = z.object({
 const updateLearnCategorySchema = z.object({
   name: z.string().min(1).max(100).optional(),
   pid: z.string().uuid().nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).max(1).optional(),
+})
+
+// ----- Topic Categories (学习专题分类) -----
+const topicCategoryListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  keyword: z.string().optional(),
+  status: z.coerce.number().int().min(0).max(1).optional(),
+})
+
+const createTopicCategorySchema = z.object({
+  name: z.string().min(1).max(100),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).max(1).optional(),
+})
+
+const updateTopicCategorySchema = z.object({
+  name: z.string().min(1).max(100).optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
@@ -929,6 +951,102 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '分类不存在'))
     }
     await deleteLearnCategory(parsed.data.id)
+    return reply.send(success({ ok: true }))
+  })
+
+  // ----- Topic Categories Admin (学习专题分类) -----
+
+  // GET /learn/topics/categories - 学习专题分类分页列表(支持 keyword / status 筛选)
+  server.get('/learn/topics/categories', async (request, reply) => {
+    const parsed = topicCategoryListQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, keyword, status } = parsed.data
+    const conditions = []
+    if (keyword) {
+      conditions.push(dsql`name ILIKE ${'%' + keyword + '%'}`)
+    }
+    if (status !== undefined) {
+      conditions.push(eq(eduLessonTopicCategories.status, status))
+    }
+    const where = conditions.length > 0 ? (conditions.length === 1 ? conditions[0] : and(...conditions)) : undefined
+    const orderClause = [eduLessonTopicCategories.sort, desc(eduLessonTopicCategories.createdAt)]
+    const offset = (page - 1) * pageSize
+    const baseQuery = where
+      ? db.select().from(eduLessonTopicCategories).where(where)
+      : db.select().from(eduLessonTopicCategories)
+    const [list, totalRows] = await Promise.all([
+      baseQuery.orderBy(...orderClause).limit(pageSize).offset(offset),
+      db.select({ count: dsql`count(*)::int` }).from(eduLessonTopicCategories).where(where ?? dsql`true`),
+    ])
+    const total = totalRows[0]?.count ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+
+  // POST /learn/topics/categories - 创建学习专题分类
+  server.post('/learn/topics/categories', async (request, reply) => {
+    const parsed = createTopicCategorySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [created] = await db
+      .insert(eduLessonTopicCategories)
+      .values({
+        name: parsed.data.name,
+        sort: parsed.data.sort ?? 0,
+        status: parsed.data.status ?? 1,
+      })
+      .returning()
+    return reply.status(201).send(success({ category: created }))
+  })
+
+  // PUT /learn/topics/categories/:id - 更新学习专题分类
+  server.put('/learn/topics/categories/:id', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const parsed = updateTopicCategorySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [existing] = await db
+      .select()
+      .from(eduLessonTopicCategories)
+      .where(eq(eduLessonTopicCategories.id, idParsed.data.id))
+      .limit(1)
+    if (!existing) {
+      return reply.status(404).send(error(404, '分类不存在'))
+    }
+    const [updated] = await db
+      .update(eduLessonTopicCategories)
+      .set({
+        ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
+        ...(parsed.data.sort !== undefined ? { sort: parsed.data.sort } : {}),
+        ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(eduLessonTopicCategories.id, idParsed.data.id))
+      .returning()
+    return reply.send(success({ category: updated }))
+  })
+
+  // DELETE /learn/topics/categories/:id - 删除学习专题分类
+  server.delete('/learn/topics/categories/:id', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [existing] = await db
+      .select()
+      .from(eduLessonTopicCategories)
+      .where(eq(eduLessonTopicCategories.id, idParsed.data.id))
+      .limit(1)
+    if (!existing) {
+      return reply.status(404).send(error(404, '分类不存在'))
+    }
+    await db.delete(eduLessonTopicCategories).where(eq(eduLessonTopicCategories.id, idParsed.data.id))
     return reply.send(success({ ok: true }))
   })
 
