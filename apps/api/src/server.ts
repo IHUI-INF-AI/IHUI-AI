@@ -133,6 +133,12 @@ import { serviceCatalogRoutes, adminServiceCatalogRoutes } from './routes/servic
 import { shareContentRoutes } from './routes/share-content.js'
 // 历史项目缺失端点补齐（集中实现）
 import { legacyCompletionRoutes } from './routes/legacy-completion.js'
+// R101 补建：WS live-chat 房间实时聊天（/ws/live-chat?roomId=xxx）
+import { liveChatWsRoutes } from './routes/ws/live-chat.js'
+// R101 补建：课程/小节视频签名 URL 端点
+import { learnVideoRoutes } from './routes/learn/get-lesson-video.js'
+// R101 补建：AdminContent 统一 CRUD（POST/PATCH/DELETE /api/admin/content/{type}/:id）
+import { adminContentCrudRoutes } from './routes/admin/content/crud.js'
 // P0-3/P0-4 补建：AI 资讯聚合 + AI 教育模块
 import aiFeedRoutes from './routes/ai-feed.js'
 import aiEducationRoutes from './routes/ai-education.js'
@@ -240,6 +246,10 @@ import { agentRuntimeRoutes } from './routes/agent-runtime.js'
 // R81 补建：D 盘 coze_zhs_py 代理类路由
 import { n8nProxyRoutes } from './routes/n8n-proxy.js'
 import { tencentHunyuan3dRoutes } from './routes/tencent-hunyuan-3d.js'
+
+// P1-3/P1-4 补建：智能体分类字典缓存 + 分类同步 API（迁移自 coze_zhs_py/api/agent_category_cache_api.py + category_sync_api.py）
+import { agentCategoriesCacheRoutes } from './routes/agent-categories-cache.js'
+import { categorySyncRoutes } from './routes/category-sync.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
@@ -753,6 +763,14 @@ function registerRoutes(server: FastifyInstance) {
   // 考试报名/收藏/学习统计/专题/直播订阅/问答/OSS/错题等散点端点
   server.register(legacyCompletionRoutes, { prefix: '/api/legacy' })
 
+  // ===== R101 补建：WS live-chat + 视频签名 URL + AdminContent 统一 CRUD =====
+  // WS live-chat:房间实时聊天,房间管理 + 历史消息(读 live_comment 表)
+  server.register(liveChatWsRoutes)
+  // 课程/小节视频签名 URL(HMAC-SHA256,默认 1 小时过期)
+  server.register(learnVideoRoutes, { prefix: '/api/learn' })
+  // AdminContent 统一 CRUD:补 desktop AdminContent 缺口的动态 {type} 端点
+  server.register(adminContentCrudRoutes, { prefix: '/api/admin/content' })
+
   // ===== P0-3/P0-4 补建：AI 资讯聚合 + AI 教育模块 =====
   // AI 资讯聚合：/api/ai-feed/sources /items /trends /stats + collect/summarize/translate（管理）
   server.register(aiFeedRoutes, { prefix: '/api/ai-feed' })
@@ -926,4 +944,10 @@ function registerRoutes(server: FastifyInstance) {
   server.get('/api/ai-capabilities', async (_req, reply) =>
     reply.redirect('/api/ai-ext/capabilities', 308),
   )
+
+  // ===== P1-3/P1-4 补建: 智能体分类字典缓存 + 分类同步 API =====
+  // 5 端点: GET / POST refresh / DELETE / GET :key / POST sync（绝对路径字面量注册，见 routes/agent-categories-cache.ts）
+  server.register(agentCategoriesCacheRoutes)
+  // 5 端点: POST pull / POST push / GET status / POST resolve / GET history（绝对路径字面量注册，见 routes/category-sync.ts）
+  server.register(categorySyncRoutes)
 }
