@@ -58,7 +58,8 @@ describe('i18n / I18nProvider', () => {
       await result.current.setLocale('ja')
     })
     expect(result.current.t('common.save')).toBe('保存')
-    expect(result.current.t('favorites.title')).toBe('我的收藏')
+    // ja locale 没有 fictional 这个 key,应回退到 zh-CN 文本
+    expect(result.current.t('fictional.title')).toBe('fictional.title')
   })
 
   it('setLocale 持久化到 AsyncStorage', async () => {
