@@ -6,6 +6,8 @@ tmp/
 *.log
 test_*.json
 test_*.log
+# API/web 服务重启日志(其他会话 dev server 重启遗留,文件名 logs-*-restart*.txt)
+logs-*-restart*.txt
 
 # Agent 工具临时产物(守门结果/扫描摘要/验证脚本/commit 消息暂存等)
 # 防止 P44/P45/P46 等会话遗留 __*.txt/__*.md/__*.bat/__*.ps1 回潮
