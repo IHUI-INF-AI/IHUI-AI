@@ -4,13 +4,13 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Check, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
 import { PasswordStrengthIndicator } from '@/components/login'
+import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
 const registerSchema = z
@@ -129,49 +129,40 @@ export function RegisterFormContent({ onSuccess }: RegisterFormContentProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div className="space-y-1.5 text-center">
-        <h2 className="text-xl font-semibold tracking-tight">{t('registerTitle')}</h2>
-        <p className="text-sm text-muted-foreground">{t('registerSubtitle')}</p>
-      </div>
-
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {serverError && <Alert variant="danger" description={serverError} />}
       {serverInfo && <Alert variant="success" description={serverInfo} />}
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="phone">{t('phone')}</Label>
-        <div className="input-gradient-wrap rounded-md">
-          <Input
-            id="phone"
-            type="tel"
-            autoComplete="tel"
-            placeholder={t('phonePlaceholder')}
-            className="h-9 rounded-[7px] border border-input bg-background"
-            {...register('phone')}
-          />
-        </div>
+        <Input
+          id="phone"
+          type="tel"
+          autoComplete="tel"
+          placeholder={t('phonePlaceholder')}
+          className="h-10"
+          {...register('phone')}
+        />
         {errors.phone && (
           <p className="text-xs text-destructive">{resolveError(errors.phone.message!)}</p>
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="code">{t('code')}</Label>
         <div className="flex gap-2">
-          <div className="input-gradient-wrap flex-1 rounded-md">
-            <Input
-              id="code"
-              type="text"
-              inputMode="numeric"
-              placeholder={t('codePlaceholder')}
-              className="h-9 rounded-[7px] border border-input bg-background"
-              {...register('code')}
-            />
-          </div>
+          <Input
+            id="code"
+            type="text"
+            inputMode="numeric"
+            placeholder={t('codePlaceholder')}
+            className="h-10 flex-1"
+            {...register('code')}
+          />
           <Button
             type="button"
             variant="outline"
-            className="shrink-0"
+            className="h-10 shrink-0"
             disabled={countdown > 0 || sendingCode}
             onClick={handleSendCode}
           >
@@ -183,36 +174,32 @@ export function RegisterFormContent({ onSuccess }: RegisterFormContentProps) {
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="password">{t('password')}</Label>
-        <div className="input-gradient-wrap rounded-md">
-          <Input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            placeholder={t('passwordPlaceholder')}
-            className="h-9 rounded-[7px] border border-input bg-background"
-            {...register('password')}
-          />
-        </div>
+        <Input
+          id="password"
+          type="password"
+          autoComplete="new-password"
+          placeholder={t('passwordPlaceholder')}
+          className="h-10"
+          {...register('password')}
+        />
         <PasswordStrengthIndicator password={password} />
         {errors.password && (
           <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="confirmPassword">{t('confirmPassword')}</Label>
-        <div className="input-gradient-wrap rounded-md">
-          <Input
-            id="confirmPassword"
-            type="password"
-            autoComplete="new-password"
-            placeholder={t('passwordPlaceholder')}
-            className="h-9 rounded-[7px] border border-input bg-background"
-            {...register('confirmPassword')}
-          />
-        </div>
+        <Input
+          id="confirmPassword"
+          type="password"
+          autoComplete="new-password"
+          placeholder={t('passwordPlaceholder')}
+          className="h-10"
+          {...register('confirmPassword')}
+        />
         {errors.confirmPassword && (
           <p className="text-xs text-destructive">
             {resolveError(errors.confirmPassword.message!)}
@@ -220,69 +207,18 @@ export function RegisterFormContent({ onSuccess }: RegisterFormContentProps) {
         )}
       </div>
 
-      {/* 隐私协议复选框 */}
-      <label className="group flex cursor-pointer items-start gap-2 select-none">
-        <span
-          onClick={(e) => {
-            e.preventDefault()
-            setAgreed(!agreed)
-            if (!agreed) setShowAgreeErr(false)
-          }}
-          className={[
-            'mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-all duration-200',
-            showAgreeErr && !agreed
-              ? 'border-destructive'
-              : agreed
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-input bg-background group-hover:border-foreground/60',
-          ].join(' ')}
-          aria-checked={agreed}
-          role="checkbox"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === ' ' || e.key === 'Enter') {
-              e.preventDefault()
-              setAgreed(!agreed)
-              if (!agreed) setShowAgreeErr(false)
-            }
-          }}
-        >
-          {agreed && <Check className="h-3 w-3" strokeWidth={3} />}
-        </span>
-        <input
-          type="checkbox"
-          className="sr-only"
-          checked={agreed}
-          onChange={(e) => {
-            setAgreed(e.target.checked)
-            if (e.target.checked) setShowAgreeErr(false)
-          }}
-        />
-        <span className="text-xs leading-5 text-muted-foreground">
-          {t('agreePrefix')}
-          <Link
-            href="/agreement/user-agreement"
-            target="_blank"
-            className="text-primary hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {t('termsOfService')}
-          </Link>
-          {t('and')}
-          <Link
-            href="/agreement/privacy-policy"
-            target="_blank"
-            className="text-primary hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {t('privacyPolicy')}
-          </Link>
-        </span>
-      </label>
+      <AgreementCheckbox
+        checked={agreed}
+        onChange={(v) => {
+          setAgreed(v)
+          if (v) setShowAgreeErr(false)
+        }}
+        error={showAgreeErr && !agreed}
+      />
       {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
 
-      <Button type="submit" className="w-full" disabled={submitting || !agreed}>
-        {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+      <Button type="submit" className="h-10 w-full" disabled={submitting || !agreed}>
+        {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('registerBtn')}
       </Button>
 
