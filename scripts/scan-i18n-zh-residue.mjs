@@ -14,13 +14,15 @@
  * 检测逻辑 (按 locale 分支):
  *   - zh-TW: 用 opencc-js 简→繁字形转换检测 (字形变化即简体字残留)
  *       纯简体字残留: converted !== value → exit 1
- *   - ko / ja / 其他非中文 locale: 字符范围检测
+ *   - ko / 其他非中文 locale: 字符范围检测
  *       纯中文残留: value 含汉字 [\u4e00-\u9fff] 且不含该语言本地字符 → exit 1
  *       半翻译:     value 同时含汉字和本地字符 (warn-only) → exit 0
  *       无 localRe 的 locale: 任何含汉字即视为纯中文残留 → exit 1
+ *   - ja (warnOnly 模式): 日文汉字词 (登録/確認/削除等) 数量太多，
+ *       字符范围启发式不可靠 (假阳性海量)，所有汉字只 warn 不阻塞 → exit 0
  *
  * 退出码:
- *   0 = 通过 (无残留 或 仅半翻译 warn-only)
+ *   0 = 通过 (无残留 或 仅 warn-only)
  *   1 = 失败 (有纯中文/简体字残留)
  *   2 = 用法错误 (未指定 locale)
  */
@@ -34,7 +36,9 @@ import * as OpenCC from 'opencc-js'
 const LOCALE_CONFIG = {
   'zh-TW': { mode: 'opencc' },
   ko: { mode: 'charRange', localRe: /[\uac00-\ud7af]/ }, // 韩语 Hangul
-  ja: { mode: 'charRange', localRe: /[\u3040-\u309f\u30a0-\u30ff]/ }, // 平假名 + 片假名
+  // ja: 日文汉字词 (登録/確認/削除等) 太多，charRange 启发式假阳性海量 (4747+ 处)
+  // 改为 warnOnly 模式：所有汉字只 warn 不阻塞，避免无效拦截
+  ja: { mode: 'warnOnly' },
 }
 
 const HAN_RE = /[\u4e00-\u9fff]/
@@ -113,6 +117,22 @@ function scanCharRange(text, localRe) {
   return { pure, half }
 }
 
+// ja 等 warnOnly 模式 locale: 任何含汉字都只 warn 不阻塞 (避免假阳性)
+function scanWarnOnly(text) {
+  const lines = text.split('\n')
+  const half = []
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(LINE_RE)
+    if (!m) continue
+    const key = m[2]
+    const value = m[3]
+    if (!value) continue
+    if (!HAN_RE.test(value)) continue
+    half.push({ line: i + 1, key, value })
+  }
+  return { pure: [], half }
+}
+
 function main() {
   const { locale, isStaged } = parseArgs(process.argv.slice(2))
 
@@ -143,6 +163,8 @@ function main() {
   let result
   if (config.mode === 'opencc') {
     result = scanZhTw(text)
+  } else if (config.mode === 'warnOnly') {
+    result = scanWarnOnly(text)
   } else {
     result = scanCharRange(text, config.localRe)
   }
@@ -163,11 +185,15 @@ function main() {
   }
 
   if (half.length > 0) {
-    console.warn(`⚠️ ${locale}.json 发现 ${half.length} 处半翻译 (本地字符+汉字混合):`)
+    const label =
+      config.mode === 'warnOnly'
+        ? '汉字残留 (warn-only，ja 汉字词启发式不可靠)'
+        : '半翻译 (本地字符+汉字混合)'
+    console.warn(`⚠️ ${locale}.json 发现 ${half.length} 处${label}:`)
     for (const it of half) {
       console.warn(`  L${it.line}: "${it.key}": "${it.value}"`)
     }
-    console.warn('   (半翻译为 warn-only，可能是有意为之如品牌名，不阻塞 commit)')
+    console.warn('   (warn-only，可能是有意为之如日文汉字词/品牌名，不阻塞 commit)')
   }
 
   if (!failed && half.length === 0) {
