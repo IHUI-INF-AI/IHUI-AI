@@ -54,6 +54,15 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo):
 - **唯一豁免**:用户头像 `<img>` 本身、纯装饰点(`w-2 h-2` 连接灯/在线点)、未读角标红点底、`Switch` 拇指。
 - 守门脚本:`scripts/check-rounded-full.mjs` + pre-commit 第 11 项。
 
+### 中文字体 + 图标垂直对齐硬约束(强制,2026-07-19 立)
+
+- **问题**:中文字体(以 HarmonyOS Sans SC 为基准) ascent(≈11px) ≠ descent(≈3px) 不对称,14px 字号下 ink 几何中心比 line-box 中心低 0.4-0.5px。flex `items-center` 时图标与文字视觉不齐,肉眼可见"文字偏下"。
+- **根治方案**:`apps/web/app/globals.css` 建立 `--text-vcenter-offset: 0.3px` CSS 变量 + 第 170 行全局规则 `:where(button, a, [role='button'], [role='menuitem']):has(>svg):has(>span) > span { transform: translateY(var(--text-vcenter-offset)); }`。所有 button/a 内 "icon + 中文 span" 同行布局**自动**应用 0.3px GPU 视觉位移,无需手动加类。
+- **text-xs (12px)** 专用 0.7px 规则(globals.css 第 178-183 行)。
+- **配套常量**:`apps/web/src/lib/nav-styles.ts` 5 个共享类(`NAV_ITEM_BASE_CLASS` / `NAV_CHILD_CLASS` / `BTN_NEW_CONVERSATION_CLASS` / `HEADER_BAR_CLASS` / `MODEL_SELECTOR_TRIGGER_CLASS`)+ 显式 `<CenteredText>` 组件(`apps/web/src/components/common/CenteredText.tsx`)。
+- **守门**:`apps/web/e2e/icon-text-alignment.spec.ts` 5 个 case,阈值 |delta| ≤ 0.15px,跨 6 个关键 nav + 新建任务按钮 + AI panel header + CSS 变量验证。任何漏改 → CI fail。
+- **严禁**:`-mt-px` / `margin-top: -1px` 等"反向微调"hack(实测让 delta 从 0 变 -0.5,反向恶化)。
+
 ### 禁止分割线(强制)
 
 - 禁止 `<hr>` / `divide-y` / `divide-x` / 单边 `border-t/b/l/r` 当分割线。
@@ -310,6 +319,34 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判定工具失联 → 切换 `Start-Process` 派生独立 powershell 窗口 → 仍失败 → 立即告知用户工具故障 + 提供手动命令清单。
 
 任何"工具反复失败"场景必须先 Grep `c:\Users\Administrator\.trae-cn\memory\projects\-g-IHUI-AI\project_memory.md` 查是否已知约束,命中则按已知方案执行,不得重复踩坑。
+
+### Next.js dev server CSS 缓存陷阱(强制,2026-07-19 立)
+
+修改 `apps/web/app/globals.css` / `apps/web/src/styles/*.css` 后,Next.js dev 服务的 HMR **不一定重新编译 CSS chunk**。文件已更新,但浏览器拿到的是旧值(常见现象:`--text-vcenter-offset` 改了但浏览器仍渲染老值)。
+
+**强制守门(2 步必走)**:
+
+1. 改 CSS 后**必须**验证浏览器拿到新值(不是只看磁盘文件):
+   ```bash
+   # 找到 web 当前服务的 CSS chunk
+   ls apps/web/.next/static/chunks/apps_web_app_globals_*.css | tail -1
+   # curl 该 chunk,确认新值已编译进去
+   curl -s "http://localhost:3000/_next/static/chunks/<chunk名>" | grep -c "新值特征"
+   ```
+2. 若 `grep` 返回 0 → 旧 chunk,必须 kill 旧 next-server 后重启 `pnpm --filter @ihui/web dev`(HMR 触发不了完整 CSS 重编译,只能重启):
+   ```bash
+   # 找到 next-server PID
+   Get-Process -Name node | Where-Object {$_.StartTime -gt (Get-Date).AddHours(-1)}
+   # kill
+   Stop-Process -Id <PID> -Force
+   # 重启
+   pnpm --filter @ihui/web dev
+   # 等 15s 编译完成,重新 curl 确认
+   ```
+
+**判断标准**:`grep -c "新值" chunk.css` 返回 ≥1 即新值生效,否则必须重启。
+
+**反面案例**:不验证直接硬刷新 → 浏览器继续渲染老值 → 用户再反馈"改了没生效" → agent 再花几轮重新查根因。
 
 ---
 
