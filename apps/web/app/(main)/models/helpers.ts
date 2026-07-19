@@ -1464,3 +1464,19 @@ export function toggleFavoriteModel(modelId: string): Set<string> {
   setFavoriteModelIds(ids)
   return ids
 }
+
+// LIVE_2026_MODELS:供 AiNewsStrip 兜底渲染的 2026-07 最新发布模型列表
+// 取 FALLBACK_MODELS 前 6 条,字段形态与 AiNewsStrip 中 FallbackItem 期望的 id/name/description/releasedAt/provider 对齐
+export const LIVE_2026_MODELS: Array<{
+  id: string
+  name: string
+  description: string
+  releasedAt?: string
+  provider: string
+}> = FALLBACK_MODELS.slice(0, 6).map((m) => ({
+  id: m.id,
+  name: m.name,
+  description: m.description ?? '',
+  releasedAt: (m as { releasedAt?: string }).releasedAt,
+  provider: m.provider,
+}))
