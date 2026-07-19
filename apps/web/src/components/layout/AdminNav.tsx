@@ -420,7 +420,7 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
         </nav>
       </aside>
 
-      <nav className="flex flex-wrap gap-1 border-b pb-2 lg:hidden">
+      <nav className="flex flex-wrap gap-1 rounded-md bg-muted/40 p-2 pb-2 lg:hidden">
         {navItems.map((item) => renderItem(item, isActive(item.href), true))}
       </nav>
 

@@ -26,17 +26,21 @@ export function TabBar({ tabs, activeTab, onChange, className }: TabBarProps) {
   }, [activeTab, tabs])
 
   return (
-    <div className={cn('relative flex border-b', className)}>
+    <div className={cn('relative flex bg-muted/40', className)}>
       {tabs.map((tab) => (
         <button
           key={tab.key}
-          ref={(el) => { refs.current[tab.key] = el }}
+          ref={(el) => {
+            refs.current[tab.key] = el
+          }}
           onClick={() => !tab.disabled && onChange(tab.key)}
           disabled={tab.disabled}
           className={cn(
             'relative px-4 py-2 text-sm font-medium transition-colors',
             tab.disabled && 'cursor-not-allowed opacity-50',
-            activeTab === tab.key ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+            activeTab === tab.key
+              ? 'text-foreground'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           {tab.label}
