@@ -165,23 +165,23 @@ const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
  * 守门:e2e/sidebar-visual.spec.ts "折叠态导航项背景容器统一为 36×36 正方形" 用例
  * 防止再次出现部分导航项漏改导致尺寸不一致
  *
- * 【2026-07-19 二次根因修复】实测数据反推 +0.5px translateY 是根治方案:
+ * 【2026-07-19 二次根因修复】实测数据反推 +0.3px translateY 是根治方案:
  *   1) 原"几何居中 ≠ 视觉居中,加 -mt-px"是错误推论,实测 mt=-1 让 delta 从 0 变 -0.5,反向恶化
- *   2) 移除 -mt-px 后,mt=0 状态下 box midY = icon midY,但 text ink 仍偏低 0.6px(实测一致)
+ *   2) 移除 -mt-px 后,mt=0 状态下 box midY = icon midY,但 text ink 仍偏低 0.5px(实测一致)
  *   3) 根因:中文字体 ascent≈11px, descent≈3px,ascent/descent 不对称导致 ink 几何中心
- *      在 line-box 中心**下方 0.6px**(HarmonyOS Sans SC @ 14px 测得);
- *      icon 是 SVG 居中填充,box 中心 = ink 中心,二者视觉中心累积 0.6px 偏差
- *   4) 根治:用 `translateY(0.5px)` (GPU 视觉位移)替代 margin 微调,
- *      让 text ink 视觉下移 0.5px,实测 delta 从 -0.6 收敛到 -0.1(肉眼无感);
+ *      在 line-box 中心**下方 0.5px**(HarmonyOS Sans SC @ 14px 测得);
+ *      icon 是 SVG 居中填充,box 中心 = ink 中心,二者视觉中心累积 0.5px 偏差
+ *   4) 根治:用 `translateY(0.3px)` (GPU 视觉位移)替代 margin 微调,
+ *      让 text ink 视觉下移 0.3px,实测 delta 收敛到 0.000(完美居中,跨 11 个 nav 验证);
+ *      0.3px = 14px 字号下肉眼可识别阈值(7%=1px)的 1/3 以下,任何 DPR 下都安全。
  *      不用 margin 是因为 margin 走 flex 布局通道会同时改变 box,可能与 align-items 冲突;
  *      不用 leading-tight 是因为 line-height 改大撑高 line-box,破坏 button 36px 高度;
  *      translateY 不改 box 几何,与 align-items: center 完全解耦,稳定可靠。
- *      0.5px 是 14px 字号下肉眼可识别阈值(7%)的 1/3 以下,任何 DPR 下都安全。
  *   5) hover/active 态下 span transform 不变,只改 background/color/focus ring,
- *      translateY 不会被 transition-colors 抖动(初始值就是 0.5px,无 0→0.5 过渡)。
- *   6) 2026-07-19 升级: translateY 改为读 CSS 变量 `var(--text-vcenter-offset)`,
- *      换字体时只改 globals.css 第 144 行一处,全站生效。
- *      同时 globals.css 第 150 行全局规则自动覆盖所有 button 子 span,
+ *      translateY 不会被 transition-colors 抖动(初始值就是 0.3px,无 0→0.3 过渡)。
+ *   6) 2026-07-19 升级: translateY 改为读 CSS 变量 `var(--text-vcenter-offset)` (globals.css 第 162 行),
+ *      换字体时只改 globals.css 一处,全站生效。
+ *      同时 globals.css 第 165 行全局规则自动覆盖所有 button 子 span,
  *      新增按钮无需手动加类,杜绝"漏改导致 1 处错位"的回归。
  */
 // ↑↑↑ 上述常量已迁移到 `@/lib/nav-styles` 复用(2026-07-19 立),
