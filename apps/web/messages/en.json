@@ -7253,6 +7253,21 @@
         "rejected": "Rejected",
         "paid": "Paid"
       }
+    },
+    "tool": {
+      "gen": {
+        "title": "Code Generator",
+        "description": "Admin backend page code generation tool",
+        "moduleName": "Module Name",
+        "template": "Template Type",
+        "list": "List Page",
+        "page": "Detail Page",
+        "detail": "Detail Dialog",
+        "dialog": "Form Dialog",
+        "generate": "Generate",
+        "success": "Generated successfully",
+        "error": "Please enter a module name"
+      }
     }
   },
   "user": {
@@ -24243,7 +24258,8 @@
         "Enterprise AI Decision-Maker Community is now open for recruitment, with free human-machine collaboration practical courses all year",
         "The first 18 members enjoy one-on-one AI consultant advice, full refund if not satisfied",
         "Scan the code now to join the Zhihui AI Community and explore the AI era with decision-makers"
-      ]
+      ],
+      "title": "Brands"
     },
     "welcome": {
       "title": "Welcome to the Zhihui AI Community",
