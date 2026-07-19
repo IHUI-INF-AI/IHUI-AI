@@ -8521,13 +8521,18 @@
       "subtitle": "AI モデル統合プラットフォーム",
       "groups": {
         "main": "メイン機能",
+        "business": "ビジネス管理",
         "finance": "統計・財務",
         "resources": "リソースセンター"
       },
       "overview": "概覧",
       "market": "モデル市場",
+      "channels": "チャネル管理",
       "keys": "API キー",
       "logs": "呼び出しログ",
+      "chats": "チャット管理",
+      "users": "ユーザー管理",
+      "groupsMgmt": "グループ管理",
       "usage": "使用量統計",
       "billing": "財務帳簿",
       "redeem": "引換コード",
@@ -8609,6 +8614,8 @@
         "time": "時間",
         "model": "モデル",
         "token": "トークン",
+        "key": "API Key",
+        "tokens": "Tokens",
         "inputTokens": "入力 Tokens",
         "outputTokens": "出力 Tokens",
         "cost": "消費",
@@ -8819,6 +8826,75 @@
         "audioTranscribe": { "desc": "音声からテキスト変換、多言語対応" },
         "calendar": { "desc": "スケジュール管理、イベントリマインダー" },
         "databaseQuery": { "desc": "データベースクエリ、SQL と NoSQL をサポート" }
+      }
+    },
+    "groupsMgmt": {
+      "title": "グループ管理",
+      "subtitle": "ユーザーグループ、クォータ、モデル権限を管理",
+      "create": "新規グループ",
+      "members": "メンバー数",
+      "ratio": "レート倍率",
+      "models": "利用可能モデル",
+      "todayCalls": "本日の呼び出し"
+    },
+    "channels": {
+      "title": "チャネル管理",
+      "subtitle": "AI モデルプロバイダーのチャネル設定を管理",
+      "create": "新規チャネル",
+      "listTitle": "チャネル一覧",
+      "table": {
+        "name": "チャネル名",
+        "provider": "プロバイダー",
+        "model": "モデル",
+        "priority": "優先度",
+        "weight": "重み",
+        "qps": "QPS",
+        "todayCalls": "本日の呼び出し",
+        "status": "ステータス"
+      },
+      "statusLabels": {
+        "enabled": "有効",
+        "disabled": "無効"
+      }
+    },
+    "chats": {
+      "title": "チャット管理",
+      "subtitle": "すべてのユーザーのチャット記録を表示",
+      "searchPlaceholder": "チャット ID/ユーザー/タイトルを検索...",
+      "listTitle": "チャット一覧",
+      "table": {
+        "id": "チャット ID",
+        "user": "ユーザー",
+        "title": "タイトル",
+        "model": "モデル",
+        "messages": "メッセージ数",
+        "tokens": "Tokens",
+        "createdAt": "作成日時"
+      }
+    },
+    "users": {
+      "title": "ユーザー管理",
+      "subtitle": "プラットフォームユーザー、ロール、グループを管理",
+      "create": "新規ユーザー",
+      "searchPlaceholder": "メール/名前を検索...",
+      "listTitle": "ユーザー一覧",
+      "table": {
+        "email": "メール",
+        "group": "グループ",
+        "role": "ロール",
+        "balance": "残高",
+        "totalCalls": "総呼び出し",
+        "status": "ステータス",
+        "createdAt": "作成日時"
+      },
+      "roleLabels": {
+        "admin": "管理者",
+        "user": "一般ユーザー",
+        "vip": "VIP"
+      },
+      "statusLabels": {
+        "active": "アクティブ",
+        "disabled": "無効"
       }
     },
     "contact": {
