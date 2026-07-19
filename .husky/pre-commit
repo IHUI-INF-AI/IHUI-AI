@@ -51,8 +51,15 @@ if (!run('🗄️ 检查 schema drift...', 'node scripts/check-db-schema-drift.m
   process.exit(1)
 }
 
-// 4. packages 陈旧 dist 检查（防止 export 缺失导致 module not found）
+// 4. packages 陈旧 dist 检查(防止 export 缺失导致 module not found)
 if (!run('📦 检查 packages 陈旧 dist...', 'node scripts/check-stale-dist.mjs')) {
+  process.exit(1)
+}
+
+// 4b. packages/*/dist UTF-8 BOM 检查(2026-07-19 admin-auth.js 踩坑落地)
+// 防止 PowerShell WriteAllText 默认 UTF-16 LE BOM 编码导致 Turbopack 解析失败
+// 阻断策略:扫描所有 packages/*/dist/** 下的 .js .mjs .cjs .ts .map 文件,前 3 字节含 BOM 则 exit 1
+if (!run('🔤 检查 dist 文件 UTF-8 BOM...', 'node scripts/check-dist-encoding.mjs')) {
   process.exit(1)
 }
 
