@@ -34,10 +34,10 @@ class TestParseTsTableFields:
     """从 TS schema 源码解析指定表的字段定义。"""
 
     def test_parse_ai_model_config_returns_19_fields(self):
-        """ai_model_config 表应该解析出 19 个字段(TS schema 已定义)。"""
+        """ai_model_config 表应该解析出 20 个字段(TS schema 已定义,含 0108 migration icon_svg)。"""
         fields = parse_ts_table_fields(SCHEMA_DIR, "ai_model_config")
         assert fields is not None, "ai_model_config 必须在 TS schema 中定义"
-        assert len(fields) == 19, f"ai_model_config 应有 19 列,实际 {len(fields)}"
+        assert len(fields) == 20, f"ai_model_config 应有 20 列,实际 {len(fields)}"
 
     def test_parse_ai_model_config_has_critical_fields(self):
         """ai_model_config 必须包含 8 个关键字段。"""

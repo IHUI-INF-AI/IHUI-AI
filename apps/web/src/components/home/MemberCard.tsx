@@ -9,6 +9,7 @@ import { Button } from '@ihui/ui'
 import { Avatar } from '@/components/data/Avatar'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 import { getUserStatistics } from '@/lib/user-api'
 import { getBalance } from '@/lib/wallet-api'
 
@@ -119,12 +120,14 @@ export function MemberCard() {
               </div>
               <p className="mt-3 text-base font-medium">{t('welcome')}</p>
               <p className="mt-1 text-xs text-muted-foreground">{t('loginHint')}</p>
-              <Link href="/login" className="mt-4 w-full">
-                <Button size="sm" className="w-full">
-                  <LogIn className="mr-1 h-3.5 w-3.5" />
-                  {t('loginNow')}
-                </Button>
-              </Link>
+              <Button
+                size="sm"
+                className="mt-4 w-full"
+                onClick={() => useLoginDialogStore.getState().open('login')}
+              >
+                <LogIn className="mr-1 h-3.5 w-3.5" />
+                {t('loginNow')}
+              </Button>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
               {quickLinks.map((q) => (
