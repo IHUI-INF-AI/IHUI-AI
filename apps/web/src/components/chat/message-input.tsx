@@ -459,9 +459,13 @@ export function MessageInput({
             </div>
             {/* 底部工具栏:左侧功能按钮,右侧模型/语音/发送(挨着)
                 提示词模板按钮已上移至附加栏(与添加引用并列),此处不再保留
-                overflow-hidden + min-w-0:防止右侧 ModelSelector 文字撑爆容器右边界
-                (AI 面板宽度 320-720px,默认 400px,ModelSelector span max-w 曾达 192px 导致溢出 55px) */}
-            <div className="flex min-w-0 items-center gap-1 overflow-hidden px-2 pb-2 pt-1">
+                ai-input-toolbar + globals.css 原生 CSS container query:
+                面板宽度 320-720px(默认 400px),容器内容宽 288-688px;
+                容器 <= 359px(面板 <= 391px)时隐藏 ModelSelector 文字 + 徽章只显示图标,
+                防止左侧 3 按钮 + ModelSelector + VoiceInput + Send 总宽超过容器右边界。
+                用原生 CSS 不依赖 Tailwind v4 container variant 编译(实测 Tailwind v4
+                仅编译 .@container 类不编译 @sm: 断点规则)。 */}
+            <div className="ai-input-toolbar flex min-w-0 items-center gap-1 overflow-hidden px-2 pb-2 pt-1">
               {/* 独立附件按钮:点击触发 hidden file input,选择图片/视频文件作为附件引用 */}
               <button
                 type="button"
