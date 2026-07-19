@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { exportFromApi } from '@/lib/export-utils'
+import { useBatchMutation } from '@/hooks/use-batch-mutation'
 import { Button } from '@ihui/ui'
 
 import { EMPTY, PAGE_SIZE, API, EXPORT_COLS } from './helpers'
@@ -63,14 +64,14 @@ export default function EduCoursePage() {
     },
     onError: (e: Error) => toast.error(e.message),
   })
-  const batchDeleteMut = useMutation({
-    mutationFn: (ids: string[]) => eduApi(`${API}/${ids.join(',')}`, { method: 'DELETE' }),
-    onSuccess: () => {
-      toast.success(t('batchDeleteSuccess'))
-      setIds([])
-      qc.invalidateQueries({ queryKey: ['edu', 'course'] })
-    },
-    onError: (e: Error) => toast.error(e.message),
+  const batchDeleteMut = useBatchMutation({
+    endpoint: API,
+    method: 'DELETE',
+    queryKey: ['edu', 'course'],
+    ids,
+    mode: 'url',
+    successMessage: t('batchDeleteSuccess'),
+    onSuccess: () => setIds([]),
   })
 
   function openCreate() {
@@ -146,7 +147,7 @@ export default function EduCoursePage() {
         onCreate={openCreate}
         onBatchDelete={() => {
           if (window.confirm(t('confirmBatchDelete', { count: ids.length })))
-            batchDeleteMut.mutate(ids)
+            batchDeleteMut.mutate()
         }}
         onExport={handleExport}
         hasSelection={ids.length > 0}
