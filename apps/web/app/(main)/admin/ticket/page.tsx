@@ -9,6 +9,7 @@ import { fetchApi } from '@/lib/api'
 import { Button, Input } from '@ihui/ui'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useZodForm } from '@/hooks/use-zod-form'
+import { useTicketMachine } from '@/lib/workflows'
 import type { Ticket, TicketListData, TicketStatus, TicketReplyBody } from './types'
 
 const PAGE_SIZE = 15
@@ -31,6 +32,7 @@ export default function AdminTicketPage() {
   const [page, setPage] = React.useState(1)
   const [status, setStatus] = React.useState<'' | TicketStatus>('')
   const [reply, setReply] = React.useState<{ id: string; content: string } | null>(null)
+  const { can, send: dispatchTicket } = useTicketMachine()
 
   const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
   if (status) qs.set('status', status)
@@ -92,12 +94,37 @@ export default function AdminTicketPage() {
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
                       {t.status !== 'closed' && t.status !== 'resolved' && (
-                        <Button size="sm" variant="ghost" disabled={statusMut.isPending}
-                          onClick={() => statusMut.mutate({ id: t.id, s: t.status === 'open' ? 'processing' : 'resolved' })}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={
+                            statusMut.isPending ||
+                            !(t.status === 'open'
+                              ? can({ type: 'ASSIGN' })
+                              : can({ type: 'RESOLVE' }))
+                          }
+                          onClick={() => {
+                            if (t.status === 'open') {
+                              dispatchTicket({ type: 'ASSIGN', assigneeId: 'admin' })
+                            } else {
+                              dispatchTicket({ type: 'RESOLVE', resolution: '已处理' })
+                            }
+                            statusMut.mutate({
+                              id: t.id,
+                              s: t.status === 'open' ? 'processing' : 'resolved',
+                            })
+                          }}
+                        >
                           {t.status === 'open' ? '受理' : '解决'}
                         </Button>
                       )}
-                      <Button size="sm" variant="ghost" onClick={() => setReply({ id: t.id, content: '' })}><Reply className="h-4 w-4" /></Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setReply({ id: t.id, content: '' })}
+                      >
+                        <Reply className="h-4 w-4" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
