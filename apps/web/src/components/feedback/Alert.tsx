@@ -62,7 +62,12 @@ export function Alert({
         {action && <div className="mt-2">{action}</div>}
       </div>
       {closable && (
-        <button onClick={handleClose} className="shrink-0 opacity-70 hover:opacity-100">
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="关闭提示"
+          className="shrink-0 rounded-sm opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
           <X className="h-4 w-4" />
         </button>
       )}
