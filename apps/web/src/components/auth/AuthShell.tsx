@@ -64,8 +64,8 @@ export function AuthShell({
       )}
 
       <div className="flex flex-col items-center text-center">
-        {/* 顶部 logo + welcome 左右并排(复用 M-66/M-68/M-69 视觉方案,2026-07-20 恢复;2026-07-20 修 w-full 塌陷)
-            - logo 52×52 rounded-xl,绿底白字品牌色,浅/深主题统一
+        {/* 顶部 logo + welcome 左右并排(复用 M-66/M-68/M-69 视觉方案,2026-07-20 恢复;2026-07-20 修 w-full 塌陷 + logo 统一)
+            - logo 52×52 rounded-xl object-contain,统一用 /images/logo.png?v=20260719-unify(全站 9 处一致),浅/深主题统一
             - welcome h-[52px] w-auto 等比缩放(原 447×67 → h52 时 w≈347)
             - gap-3(12px)间距,52+12+340=404 ≤ 内宽 404(p-7 28×2 + max-w-460)
             - welcome 容器固定 w-[340px] + shrink-0:flex 子元素 w-full 在 shrink-to-fit 容器里会塌陷为 0,
@@ -73,13 +73,12 @@ export function AuthShell({
             - 浅色 welcome.svg / 深色 baiwelcome.svg 由 globals.css .welcome-img/.welcome-img-dark 切换 */}
         <div className="flex items-center justify-center gap-3">
           <Image
-            src="/images/logo-icon.svg?v=20260719-icon-restore-v1"
+            src="/images/logo.png?v=20260719-unify"
             alt="IHUI AI"
             width={52}
             height={52}
-            className="h-[52px] w-[52px] shrink-0 select-none rounded-xl"
+            className="h-[52px] w-[52px] shrink-0 select-none rounded-xl object-contain"
             draggable={false}
-            unoptimized
             priority
           />
           <div className="relative h-[52px] w-[340px] shrink-0">
