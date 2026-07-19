@@ -13,5 +13,5 @@ export interface PaginatedResponse<T> {
 }
 
 export type ApiResult<T> =
-  | { success: true; data: T }
+  | { success: true; data: T; error?: undefined }
   | { success: false; error: string; status?: number; errorCode?: string; retryAfter?: number }
