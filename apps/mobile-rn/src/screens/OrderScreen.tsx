@@ -2,18 +2,9 @@ import { useEffect, useState } from 'react'
 import { FlatList, Text, View } from 'react-native'
 import { Card } from '@ihui/ui-native'
 import { getOrders, type Order, type OrderStatus } from '@ihui/api-client'
+import { useI18n } from '../i18n'
 
 const PAGE_SIZE = 20
-
-const STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: '待支付',
-  paid: '已支付',
-  cancelled: '已取消',
-  refunding: '退款中',
-  refunded: '已退款',
-  completed: '已完成',
-  failed: '失败',
-}
 
 const STATUS_STYLE: Record<OrderStatus, string> = {
   pending: 'bg-amber-100 text-amber-700',
@@ -30,7 +21,22 @@ function formatAmount(n: number | undefined | null): string {
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function formatTime(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(iso))
+  } catch {
+    return ''
+  }
+}
+
 export function OrderScreen() {
+  const { t } = useI18n()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -43,16 +49,21 @@ export function OrderScreen() {
       const res = await getOrders({ page: 1, pageSize: PAGE_SIZE })
       if (cancelled) return
       if (res.success) setOrders(res.data.list)
-      else setError(res.error || '加载失败')
+      else setError(res.error || t('order.loadFailed'))
       setLoading(false)
     })()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   return (
     <View className="flex-1 bg-white dark:bg-black">
+      <View className="px-4 pt-12 pb-2">
+        <Text className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {t('order.title')}
+        </Text>
+      </View>
       {error ? (
         <View className="px-4 py-2">
           <Text className="text-sm text-red-600">{error}</Text>
@@ -66,16 +77,17 @@ export function OrderScreen() {
         ListEmptyComponent={
           loading ? (
             <View className="items-center py-12">
-              <Text className="text-sm text-neutral-500">加载中...</Text>
+              <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
             </View>
           ) : (
             <View className="items-center py-12">
-              <Text className="text-sm text-neutral-500">暂无订单</Text>
+              <Text className="text-sm text-neutral-500">{t('order.empty')}</Text>
             </View>
           )
         }
         renderItem={({ item }) => {
           const amountClass = item.status === 'refunded' ? 'text-emerald-600' : 'text-red-600'
+          const statusKey = `order.status.${item.status}` as const
           return (
             <Card>
               <View className="flex-row items-center justify-between">
@@ -88,17 +100,17 @@ export function OrderScreen() {
                 <View
                   className={`rounded-md px-2 py-0.5 ${STATUS_STYLE[item.status] ?? 'bg-neutral-200 text-neutral-600'}`}
                 >
-                  <Text className="text-xs">{STATUS_LABEL[item.status] ?? item.status}</Text>
+                  <Text className="text-xs">{t(statusKey)}</Text>
                 </View>
               </View>
               <View className="mt-1 flex-row justify-between">
-                <Text className="text-xs text-neutral-500">订单号:{item.orderNo}</Text>
                 <Text className="text-xs text-neutral-500">
-                  {new Date(item.createdAt).toLocaleString('zh-CN')}
+                  {t('order.orderNo')}:{item.orderNo}
                 </Text>
+                <Text className="text-xs text-neutral-500">{formatTime(item.createdAt)}</Text>
               </View>
               <View className="mt-2 flex-row items-end justify-between">
-                <Text className="text-xs text-neutral-500">实付金额</Text>
+                <Text className="text-xs text-neutral-500">{t('order.payAmount')}</Text>
                 <Text className={`text-lg font-semibold ${amountClass}`}>
                   ¥ {formatAmount(item.payAmount)}
                 </Text>
