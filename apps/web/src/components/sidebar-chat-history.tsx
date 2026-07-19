@@ -486,13 +486,6 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
           <div className="flex flex-col items-center gap-1.5 px-2 py-4 text-center">
             <MessageCirclePlus className="h-5 w-5 text-muted-foreground/50" />
             <span className="text-xs text-muted-foreground">{tc('noHistory')}</span>
-            <button
-              type="button"
-              onClick={openPanel}
-              className="mt-0.5 inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium hover:bg-accent"
-            >
-              {tc('newConversation')}
-            </button>
           </div>
         ) : (
           <div className="thin-scroll max-h-[220px] overflow-y-auto pr-0.5">
