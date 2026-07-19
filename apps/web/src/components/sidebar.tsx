@@ -400,13 +400,13 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         tooltip={t('language')}
         tooltipSide={collapsed ? 'right' : 'top'}
         content={
-          <div className="w-36 py-1">
+          <div className="flex w-36 flex-col gap-px p-1">
             {LANGUAGES.map((lang) => (
               <button
                 key={lang.code}
                 onClick={() => handleLocaleChange(lang.code)}
                 className={cn(
-                  'flex w-full items-center gap-2 px-2 py-1.5 text-sm hover:bg-accent',
+                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent',
                   locale === lang.code && 'bg-accent font-medium',
                 )}
               >
