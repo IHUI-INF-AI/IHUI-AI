@@ -8420,35 +8420,30 @@
       }
     },
     "sort": {
-      "recommended": "Recommended"
+      "recommended": "Recommended",
+      "priceAsc": "Price: Low to High",
+      "priceDesc": "Price: High to Low",
+      "contextDesc": "Context: Long to Short",
+      "nameAsc": "Name: A-Z"
     },
     "view": {
       "grid": "Grid View",
       "list": "List View"
     },
-    "market": {
-      "freeCount": "{count} free",
-      "highlightCount": "{count} featured",
-      "loadMore": "Load More",
-      "resetFilters": "Reset Filters"
+    "quickFilters": {
+      "free": "Free",
+      "longContext": "Long Context",
+      "reasoning": "Reasoning",
+      "vision": "Vision",
+      "coding": "Coding",
+      "chinese": "Chinese-Optimized",
+      "openSource": "Open Source"
     },
     "detail": {
       "highlight": "Featured",
       "estimatedHint": "Estimated Cost",
       "capabilities": "Capabilities",
       "close": "Close"
-    },
-    "nav": {
-      "groups": {
-        "providerInternational": "International",
-        "providerDomestic": "Domestic",
-        "providerInference": "Inference",
-        "providerCloud": "Cloud",
-        "providerAggregator": "Aggregator",
-        "providerLocal": "Local"
-      },
-      "scrollLeft": "Scroll Left",
-      "scrollRight": "Scroll Right"
     },
     "providers": {
       "openai": "OpenAI",
@@ -8573,8 +8568,16 @@
         "main": "Main Features",
         "business": "Business",
         "finance": "Statistics & Finance",
-        "resources": "Resource Center"
+        "resources": "Resource Center",
+        "providerInternational": "International",
+        "providerDomestic": "Domestic",
+        "providerInference": "Inference",
+        "providerCloud": "Cloud",
+        "providerAggregator": "Aggregator",
+        "providerLocal": "Local"
       },
+      "scrollLeft": "Scroll Left",
+      "scrollRight": "Scroll Right",
       "overview": "Overview",
       "market": "Model Market",
       "channels": "Channels",
@@ -8600,7 +8603,12 @@
       "inputPrice": "Input Price",
       "outputPrice": "Output Price",
       "defaultDescription": "AI model services provided by vendors",
-      "tryNow": "Try Now"
+      "tryNow": "Try Now",
+      "freeCount": "{count} free",
+      "favoriteCount": "{count} favorites",
+      "highlightCount": "{count} featured",
+      "loadMore": "Load More ({count} left)",
+      "resetFilters": "Reset Filters"
     },
     "overview": {
       "title": "Console Overview",
