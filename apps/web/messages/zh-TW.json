@@ -1585,7 +1585,20 @@
       "notificationDispatch": "定向通知",
       "messageOverview": "訊息概覽",
       "visitTracking": "造訪追蹤",
-      "examMarking": "考試批閱"
+      "examMarking": "考試批閱",
+      "group": {
+        "operation": "運營管理",
+        "moderation": "內容審核",
+        "finance": "財務管理",
+        "aiAgent": "AI 智能體",
+        "marketing": "營銷直播",
+        "courseExam": "課程考試",
+        "analytics": "監控 BI",
+        "support": "客服工單",
+        "community": "社區圈子",
+        "resource": "資源中心",
+        "developer": "開發者中心"
+      }
     },
     "refund": {
       "title": "退款審核管理",
