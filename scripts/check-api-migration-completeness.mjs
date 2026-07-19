@@ -489,7 +489,7 @@ const runtimeEndpoints = [
   { name: 'agents list', url: 'http://localhost:3001/api/agents/list' },
   { name: 'ai-service health', url: 'http://localhost:8000/health' },
   { name: 'web home', url: 'http://localhost:3000/' },
-  { name: 'oauth keys list', url: 'http://localhost:3001/api/oauth/keys/list' },
+  { name: 'oauth keys list', url: 'http://localhost:3001/api/oauth-keys/list' },
 ];
 
 let runtimeOk = 0;
