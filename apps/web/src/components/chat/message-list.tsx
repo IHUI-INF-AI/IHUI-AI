@@ -89,14 +89,17 @@ export function MessageList({
       : []
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
+        {/* 与 LoginDialog / 全站统一:纯图标版 logo.png(蝴蝶结 + IHUI INF 弧形,无横向文字),非左上角位置统一资产。
+            56px 适配小空状态,加 rounded-xl + select-none + priority + draggable=false 与品牌主视觉一致。 */}
         <Image
-          src="/images/common/ai_default.svg"
-          alt=""
-          aria-hidden
+          src="/images/logo.png?v=20260719-unify"
+          alt="IHUI AI"
           width={56}
           height={56}
-          className="h-14 w-14 opacity-90 dark:invert"
+          className="h-14 w-14 select-none rounded-xl"
+          draggable={false}
           unoptimized
+          priority
         />
         {isLoading && <Loader2 className="h-7 w-7 animate-spin" />}
         {isLoading ? (
