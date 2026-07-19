@@ -3,7 +3,6 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Sparkles } from 'lucide-react'
 
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@ihui/ui'
 import { useTranslations } from 'next-intl'
@@ -58,12 +57,23 @@ export function LoginDialog() {
         </DialogDescription>
 
         <div className="flex flex-col items-center px-6 pt-6 pb-2 text-center bg-gradient-to-b from-background to-muted/40 rounded-t-xl">
+          {/* 顶部 logo:容器无背景色,直接渲染项目 logo.svg(logo.svg 自身已带圆角渐变底+智字)。 */}
+          <Image
+            src="/images/logo.svg?v=20260719"
+            alt="IHUI AI"
+            width={40}
+            height={40}
+            className="h-10 w-10 select-none"
+            draggable={false}
+            unoptimized
+          />
+          {/* 顶部已由 logo.svg 渲染图标,此处欢迎图替代原来的"欢迎回来 登录您的账号"文字。 */}
           <Image
             src="/images/welcome.svg"
             alt="Welcome to IHUI AI"
             width={447}
             height={67}
-            className="welcome-img mb-3 h-auto w-[240px] max-w-full md:w-[280px]"
+            className="welcome-img mt-3 h-auto w-[240px] max-w-full md:w-[280px]"
             loading="eager"
             unoptimized
           />
@@ -73,15 +83,10 @@ export function LoginDialog() {
             aria-hidden="true"
             width={447}
             height={67}
-            className="welcome-img-dark mb-3 h-auto w-[240px] max-w-full md:w-[280px]"
+            className="welcome-img-dark mt-3 h-auto w-[240px] max-w-full md:w-[280px]"
             loading="eager"
             unoptimized
           />
-          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <h1 className="text-base font-bold tracking-tight">IHUI AI</h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">AI SaaS Platform</p>
         </div>
 
         <div className="px-6 pb-6 pt-4">
