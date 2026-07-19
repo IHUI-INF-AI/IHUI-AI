@@ -8412,6 +8412,40 @@
     "price": "價格",
     "free": "免費",
     "perMillion": "/百萬 tokens",
+    "header": {
+      "stats": {
+        "total": "模型總數",
+        "highlight": "推薦模型",
+        "free": "免費模型",
+        "providers": "廠商數量"
+      }
+    },
+    "sort": {
+      "recommended": "推薦排序",
+      "priceAsc": "價格低到高",
+      "priceDesc": "價格高到低",
+      "contextDesc": "上下文長度排序",
+      "nameAsc": "名稱排序"
+    },
+    "view": {
+      "grid": "網格視圖",
+      "list": "列表視圖"
+    },
+    "quickFilters": {
+      "free": "免費",
+      "longContext": "長文",
+      "reasoning": "推理",
+      "vision": "影像",
+      "coding": "程式",
+      "chinese": "中文",
+      "openSource": "開源"
+    },
+    "detail": {
+      "highlight": "推薦",
+      "estimatedHint": "預估費用",
+      "capabilities": "能力標籤",
+      "close": "關閉"
+    },
     "providers": {
       "openai": "OpenAI",
       "anthropic": "Anthropic",
@@ -8535,7 +8569,13 @@
         "main": "主要功能",
         "business": "業務管理",
         "finance": "統計財務",
-        "resources": "資源中心"
+        "resources": "資源中心",
+        "providerInternational": "國際廠商",
+        "providerDomestic": "國內廠商",
+        "providerInference": "推理平臺",
+        "providerCloud": "雲端平臺",
+        "providerAggregator": "聚合平臺",
+        "providerLocal": "本地部署"
       },
       "overview": "概覽",
       "market": "模型市場",
@@ -8552,7 +8592,9 @@
       "openclaw": "OpenClaw 部署",
       "apiDocs": "API 文件",
       "skills": "Skills 市場",
-      "contact": "聯絡我們"
+      "contact": "聯絡我們",
+      "scrollLeft": "向左捲動",
+      "scrollRight": "向右捲動"
     },
     "market": {
       "searchPlaceholder": "模糊搜尋模型名稱",
@@ -8562,7 +8604,11 @@
       "inputPrice": "輸入價",
       "outputPrice": "輸出價",
       "defaultDescription": "廠商提供的 AI 模型服務",
-      "tryNow": "立即體驗"
+      "tryNow": "立即體驗",
+      "freeCount": "{count} 個免費",
+      "highlightCount": "{count} 個推薦",
+      "loadMore": "載入更多",
+      "resetFilters": "重設篩選"
     },
     "overview": {
       "title": "控制台概覽",
