@@ -8533,13 +8533,18 @@
       "subtitle": "AI 模型聚合平臺",
       "groups": {
         "main": "主要功能",
+        "business": "業務管理",
         "finance": "統計財務",
         "resources": "資源中心"
       },
       "overview": "概覽",
       "market": "模型市場",
+      "channels": "渠道管理",
       "keys": "API 金鑰",
       "logs": "呼叫日誌",
+      "chats": "對話管理",
+      "users": "用戶管理",
+      "groupsMgmt": "分組管理",
       "usage": "用量統計",
       "billing": "財務帳務帳單",
       "redeem": "兌換碼",
@@ -8621,6 +8626,8 @@
         "time": "時間",
         "model": "模型",
         "token": "金鑰",
+        "key": "API Key",
+        "tokens": "Tokens",
         "inputTokens": "輸入 Tokens",
         "outputTokens": "輸出 Tokens",
         "cost": "消費",
@@ -8825,6 +8832,75 @@
         "audioTranscribe": { "desc": "音訊轉文字,支援多語言" },
         "calendar": { "desc": "日程管理,事件提醒" },
         "databaseQuery": { "desc": "資料庫查詢,支援 SQL 和 NoSQL" }
+      }
+    },
+    "groupsMgmt": {
+      "title": "分組管理",
+      "subtitle": "管理用戶分組、配額和模型權限",
+      "create": "新建分組",
+      "members": "成員數",
+      "ratio": "費率倍數",
+      "models": "可用模型",
+      "todayCalls": "今日調用"
+    },
+    "channels": {
+      "title": "渠道管理",
+      "subtitle": "管理 AI 模型供應商渠道配置",
+      "create": "新建渠道",
+      "listTitle": "渠道列表",
+      "table": {
+        "name": "渠道名稱",
+        "provider": "供應商",
+        "model": "模型",
+        "priority": "優先級",
+        "weight": "權重",
+        "qps": "QPS",
+        "todayCalls": "今日調用",
+        "status": "狀態"
+      },
+      "statusLabels": {
+        "enabled": "已啟用",
+        "disabled": "已停用"
+      }
+    },
+    "chats": {
+      "title": "對話管理",
+      "subtitle": "查看所有用戶的對話記錄",
+      "searchPlaceholder": "搜尋對話 ID/用戶/標題...",
+      "listTitle": "對話列表",
+      "table": {
+        "id": "對話 ID",
+        "user": "用戶",
+        "title": "標題",
+        "model": "模型",
+        "messages": "訊息數",
+        "tokens": "Tokens",
+        "createdAt": "建立時間"
+      }
+    },
+    "users": {
+      "title": "用戶管理",
+      "subtitle": "管理平臺用戶、角色和分組",
+      "create": "新建用戶",
+      "searchPlaceholder": "搜尋信箱/姓名...",
+      "listTitle": "用戶列表",
+      "table": {
+        "email": "信箱",
+        "group": "分組",
+        "role": "角色",
+        "balance": "餘額",
+        "totalCalls": "總調用",
+        "status": "狀態",
+        "createdAt": "建立時間"
+      },
+      "roleLabels": {
+        "admin": "管理員",
+        "user": "普通用戶",
+        "vip": "VIP"
+      },
+      "statusLabels": {
+        "active": "活躍",
+        "disabled": "已停用"
       }
     },
     "contact": {
