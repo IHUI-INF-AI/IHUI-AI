@@ -3,7 +3,17 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Building2, Cpu, Gift, Sparkles, Tags, Zap } from 'lucide-react'
+import {
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  Cpu,
+  Gift,
+  KeyRound,
+  Sparkles,
+  Tags,
+  Zap,
+} from 'lucide-react'
 
 import {
   Button,
@@ -23,14 +33,29 @@ interface Props {
   model: Model | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** 用户已配置该 provider 的 API Key 且启用 */
+  isConfigured?: boolean
+  /** 该 provider 在 LLM 配置中心有预置模板,可一键配置 */
+  canConfigure?: boolean
+  /** 一键配置回调(弹起 QuickKeyDialog) */
+  onConfigure?: (m: Model) => void
 }
 
 /**
  * 模型详情对话框:展示模型完整信息 + "立即体验" CTA
  * - 立即体验走 SPA: setModel + openPanel + router.push('/chat'),无全页刷新
  * - 价格同时展示输入价 / 输出价(若 outputPrice 缺失,按 inputPrice*3 推算并标注"估算")
+ * - 已配置:header 显示 ✓ 已配置徽章;底部「立即体验」+「更新 Key」(打开 QuickKeyDialog)
+ * - 可配置但未配置:header 显示 ⚠ 可配置;底部「立即体验」+「一键配置 Key」(打开 QuickKeyDialog)
  */
-export function ModelDetailDialog({ model, open, onOpenChange }: Props) {
+export function ModelDetailDialog({
+  model,
+  open,
+  onOpenChange,
+  isConfigured = false,
+  canConfigure = false,
+  onConfigure,
+}: Props) {
   const t = useTranslations('models')
   const router = useRouter()
   const openPanel = useAiPanelStore((s) => s.openPanel)
@@ -43,6 +68,12 @@ export function ModelDetailDialog({ model, open, onOpenChange }: Props) {
     onOpenChange(false)
     router.push('/chat')
   }, [model, setModel, openPanel, router, onOpenChange])
+
+  const handleConfigure = React.useCallback(() => {
+    if (!model || !onConfigure) return
+    onOpenChange(false)
+    onConfigure(model)
+  }, [model, onConfigure, onOpenChange])
 
   if (!model) return null
 
@@ -68,6 +99,13 @@ export function ModelDetailDialog({ model, open, onOpenChange }: Props) {
                     {t('detail.highlight')}
                   </span>
                 )}
+                {/* 配置状态徽章(详情) */}
+                {isConfigured && (
+                  <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                    <CheckCircle2 className="h-2.5 w-2.5" />
+                    {t('quickKey.configured')}
+                  </span>
+                )}
               </DialogTitle>
               <DialogDescription className="flex items-center gap-1 text-xs [&>span]:translate-y-[0.5px]">
                 <Building2 className="h-3 w-3" />
@@ -80,6 +118,23 @@ export function ModelDetailDialog({ model, open, onOpenChange }: Props) {
         </DialogHeader>
 
         <div className="space-y-4 px-5 pb-4">
+          {/* 未配置提示条(可配置时) */}
+          {canConfigure && !isConfigured && (
+            <div className="flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+              <KeyRound className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span className="flex-1">{t('market.configureKeyHint')}</span>
+              {onConfigure && (
+                <button
+                  type="button"
+                  onClick={handleConfigure}
+                  className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-800 transition-colors hover:bg-amber-500/30 dark:bg-amber-500/30 dark:text-amber-200"
+                >
+                  {t('market.configureKey')}
+                </button>
+              )}
+            </div>
+          )}
+
           <p className="text-sm leading-relaxed text-foreground/90">{description}</p>
 
           <div className="grid grid-cols-3 gap-2">
@@ -129,6 +184,17 @@ export function ModelDetailDialog({ model, open, onOpenChange }: Props) {
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             {t('detail.close')}
           </Button>
+          {canConfigure && onConfigure && (
+            <Button
+              variant={isConfigured ? 'outline' : 'outline'}
+              size="sm"
+              className="gap-1.5"
+              onClick={handleConfigure}
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+              {isConfigured ? t('market.updateKey') : t('market.configureKey')}
+            </Button>
+          )}
           <Button size="sm" className="gap-1.5" onClick={handleTry}>
             <Sparkles className="h-3.5 w-3.5" />
             {t('market.tryNow')}
