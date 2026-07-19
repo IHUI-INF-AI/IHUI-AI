@@ -369,6 +369,19 @@
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "WeChat Mini Program",
     "downloadDesktop": "Desktop",
+    "downloadTitle": "Download App",
+    "downloadWeb": "Web App",
+    "downloadWebDesc": "Use in browser, PWA installable",
+    "downloadDesktopDesc": "macOS / Windows / Linux",
+    "downloadIOSDesc": "Search IHUI AI on App Store",
+    "downloadAndroidDesc": "Download APK directly",
+    "downloadMobile": "Mobile App",
+    "downloadMobileDesc": "Native iOS / Android experience",
+    "downloadExtension": "Browser Extension",
+    "downloadExtensionDesc": "Chrome / Edge / Firefox",
+    "downloadCli": "CLI",
+    "downloadCliDesc": "npm i -g @ihui/cli",
+    "downloadMiniDesc": "Scan with WeChat",
     "mainNav": "Main Navigation",
     "knowledgeBase": "Knowledge Base",
     "announcements": "Announcements",
@@ -15352,7 +15365,7 @@
       "reasonStaticGeneral": "FixheadGeneric",
       "reasonTruckRightFollow": "rightheadMain",
       "reasonWideForEnvironment": "Farhead Environmentand Emptybetween",
-      "reasonZoomInFocus": "inOffKeyElement",
+      "reasonZoomInFocus": "Zoom in to focus on key elements",
       "reasonZoomInPressure": "in",
       "shotLabel": "head",
       "suggestionCloseUp": "AddWriteheadout",
@@ -17180,7 +17193,7 @@
     "thirdParty": {
       "or": "or",
       "alipayLogin": "AlipayLogin",
-      "notice": "ApplyOr continue withWatchAgreeIs",
+      "notice": "By using third-party login, you agree to our",
       "privacyPolicy": "Privacy Policy",
       "termsOfService": "Terms of Service",
       "tooltip": {
@@ -17707,7 +17720,7 @@
           "development": "AITech",
           "productivity": "AIProdTool ApplyMethod",
           "toolsIntro": "Main Stream AI Tooland Platform Introduction",
-          "agentBuilding": "Low/noCodeAgentApp",
+          "agentBuilding": "Low/no-code agent app building",
           "structureAnalysis": "Enterprise AI Analysis Method",
           "aiLiteracy": "AIH——"
         },
@@ -17777,7 +17790,7 @@
         "mutualAid": "noSub",
         "onlineCommunity": "Lineupin",
         "aiAssistant": "AI",
-        "refund": "notFullAllRefund"
+        "refund": "Full refund if unsatisfied"
       },
       "cta": "Addin",
       "hint": "ScanorContact Us"
@@ -19901,7 +19914,7 @@
     "h1": "1SmallH",
     "h24": "24SmallH",
     "d7": "7day",
-    "loadDist": "sideAddTimeMin",
+    "loadDist": "Page load time distribution",
     "scoreDist": "Performance Score Min",
     "alerts": "PerformanceAlerts"
   },
@@ -20445,7 +20458,7 @@
     "feature5": "Home<b>agent</b>Feature<b>8</b>offDiscount",
     "feature6": "startpeople<b>MontoMon</b>H",
     "feature7": "<b>AI</b> Deep / <b>AI</b> Expert Main to Main / Lessons / Deep / Stream All Rd Type Lessons / Free View",
-    "feature8": "<b>AI</b>+TypeAccountMachine/Addin<b>MCN</b>Machine",
+    "feature8": "<b>AI</b>+ Vertical account incubation priority coaching / Join <b>MCN</b> opportunity",
     "feature9": "Company in Offline Study Machine",
     "feature10": "<b>AI</b>Min/<b>AI</b>SupportOn"
   },
