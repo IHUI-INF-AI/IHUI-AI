@@ -134,8 +134,8 @@ test.describe('AI 登录框 4 状态自验', () => {
       }
     })
 
-    console.log('\n[state 1: default light]', JSON.stringify(data, null, 2))
-    console.log('[state 1: console errors]', errors)
+    console.warn('\n[state 1: default light]', JSON.stringify(data, null, 2))
+    console.warn('[state 1: console errors]', errors)
 
     // 断言
     expect(data.gradientCount, 'input-gradient-wrap 数量应 ≥ 1').toBeGreaterThanOrEqual(1)
@@ -169,7 +169,7 @@ test.describe('AI 登录框 4 状态自验', () => {
         content: before.content,
       }
     })
-    console.log('\n[state 2: hover light]', JSON.stringify(data, null, 2))
+    console.warn('\n[state 2: hover light]', JSON.stringify(data, null, 2))
     expect(data.opacity, 'hover 态 ::before opacity 应为 1').toBe('1')
     expect(data.animationPlayState, 'hover 态动画应 running').toBe('running')
   })
@@ -207,7 +207,7 @@ test.describe('AI 登录框 4 状态自验', () => {
         })(),
       }
     })
-    console.log('\n[state 3: agreed light]', JSON.stringify(data, null, 2))
+    console.warn('\n[state 3: agreed light]', JSON.stringify(data, null, 2))
     expect(data.ariaChecked, '勾选后 aria-checked 应为 true').toBe('true')
     expect(data.hasCheckIcon, '勾选后应渲染 Check 图标').toBe(true)
   })
@@ -256,7 +256,7 @@ test.describe('AI 登录框 4 状态自验', () => {
         gradientBeforeOpacity: wrap ? getComputedStyle(wrap, '::before').opacity : null,
       }
     })
-    console.log('\n[state 4: dark mode]', JSON.stringify(data, null, 2))
+    console.warn('\n[state 4: dark mode]', JSON.stringify(data, null, 2))
     expect(data.isDark, 'html.dark 应存在').toBe(true)
   })
 })

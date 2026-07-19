@@ -1,6 +1,6 @@
 import { ModelsHeader } from './ModelsHeader'
 import { ModelsNav } from './ModelsNav'
-import { ModelsGrid } from './ModelsGrid'
+import { ModelsMarketplace } from './ModelsMarketplace'
 import { PROVIDERS, fetchModels } from './helpers'
 import type { Provider } from './types'
 
@@ -19,10 +19,10 @@ export default async function ModelsPage({
   const list = active === 'all' ? MODELS : MODELS.filter((m) => m.provider === active)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="space-y-6">
       <ModelsHeader />
       <ModelsNav active={active} />
-      <ModelsGrid list={list} />
+      <ModelsMarketplace list={list} />
     </div>
   )
 }
