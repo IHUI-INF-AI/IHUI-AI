@@ -14,11 +14,13 @@ import CoursePage from './pages/CoursePage'
 import OrderPage from './pages/OrderPage'
 import SettingsPage from './pages/SettingsPage'
 import AgentPage from './pages/AgentPage'
+import VocabularyPage from './pages/VocabularyPage'
 import NotificationPanel from './NotificationPanel'
 
 const TABS = [
   { to: '/chat', labelKey: 'nav.chat', icon: '💬' },
   { to: '/agents', labelKey: 'nav.agents', icon: '🤖' },
+  { to: '/vocabulary', labelKey: 'nav.vocabulary', icon: '📖' },
   { to: '/profile', labelKey: 'nav.profile', icon: '👤' },
   { to: '/wallet', labelKey: 'nav.wallet', icon: '💰' },
   { to: '/courses', labelKey: 'nav.courses', icon: '📚' },
@@ -81,6 +83,34 @@ function SidepanelInner() {
       cancelled = true
     }
   }, [])
+
+  // 监听 popup 通过 chrome.storage.session 写入的 pending route
+  useEffect(() => {
+    if (!ready || !authed) return
+    const tryConsume = () => {
+      void chrome.storage.session
+        ?.get('ihui_pending_route')
+        .then((res) => {
+          const route = res['ihui_pending_route']
+          if (typeof route === 'string' && route.startsWith('/')) {
+            navigate(route, { replace: true })
+            void chrome.storage.session?.remove('ihui_pending_route')
+          }
+        })
+        .catch(() => {})
+    }
+    tryConsume()
+    const listener = (msg: { type?: string; payload?: { route?: string } }) => {
+      if (msg?.type === 'ws.pending_route' && msg.payload?.route) {
+        navigate(msg.payload.route, { replace: true })
+        void chrome.storage.session?.remove('ihui_pending_route')
+      }
+    }
+    chrome.runtime.onMessage.addListener(listener as Parameters<typeof chrome.runtime.onMessage.addListener>[0])
+    return () => {
+      chrome.runtime.onMessage.removeListener(listener as Parameters<typeof chrome.runtime.onMessage.removeListener>[0])
+    }
+  }, [ready, authed, navigate])
 
   const onLoginSuccess = async (result: LoginResult) => {
     await setTokenPair({
@@ -173,6 +203,7 @@ export default function SidepanelApp() {
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/agents" element={<AgentPage />} />
           <Route path="/agents/:id" element={<AgentPage />} />
+          <Route path="/vocabulary" element={<VocabularyPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/courses" element={<CoursePage />} />
