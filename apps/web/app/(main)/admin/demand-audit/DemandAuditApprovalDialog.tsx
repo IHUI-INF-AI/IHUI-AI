@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { Button, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { useChatWs, AGENT_INFO, textareaClass, api } from './helpers'
+import { useApprovalMachine } from '@/lib/workflows'
 import type { DemandRow, ChatMsg } from './types'
 
 interface DemandAuditApprovalDialogProps {
@@ -24,6 +25,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
   const [remark, setRemark] = React.useState('')
   const sendingRef = React.useRef('')
   const { send, isConnected, lastMessage } = useChatWs()
+  const { state: approvalState, can, send: dispatchApproval } = useApprovalMachine()
 
   React.useEffect(() => {
     if (open) {
@@ -157,8 +159,11 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
                 <Button
                   size="sm"
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                  disabled={approveMut.isPending}
-                  onClick={() => approveMut.mutate('pass')}
+                  disabled={approveMut.isPending || !can({ type: 'APPROVE' })}
+                  onClick={() => {
+                    dispatchApproval({ type: 'APPROVE', approverId: 'admin' })
+                    approveMut.mutate('pass')
+                  }}
                 >
                   <Check className="h-4 w-4" />
                   {t('approve')}
@@ -167,13 +172,19 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
                   size="sm"
                   variant="destructive"
                   className="flex-1"
-                  disabled={approveMut.isPending}
-                  onClick={() => approveMut.mutate('reject')}
+                  disabled={approveMut.isPending || !can({ type: 'REJECT' })}
+                  onClick={() => {
+                    dispatchApproval({ type: 'REJECT', approverId: 'admin', reason: remark })
+                    approveMut.mutate('reject')
+                  }}
                 >
                   <X className="h-4 w-4" />
                   {t('reject')}
                 </Button>
               </div>
+              <p className="text-center text-[10px] text-muted-foreground">
+                state: {approvalState}
+              </p>
             </div>
           </div>
         </div>

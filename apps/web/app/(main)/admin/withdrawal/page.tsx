@@ -8,6 +8,7 @@ import { Banknote, ChevronLeft, ChevronRight, Check, X, Search } from 'lucide-re
 import { Input, Button } from '@ihui/ui'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchApi } from '@/lib/api'
+import { useWithdrawalMachine } from '@/lib/workflows'
 import type { Withdrawal, WithdrawalListData, WithdrawalStatus } from './types'
 
 const PAGE_SIZE = 20
@@ -23,6 +24,7 @@ export default function AdminWithdrawalPage() {
   const t = useTranslations('admin.withdrawal')
   const locale = useLocale()
   const qc = useQueryClient()
+  const { can } = useWithdrawalMachine()
   const [search, setSearch] = React.useState('')
   const [status, setStatus] = React.useState<WithdrawalStatus | 'all'>('pending')
   const [page, setPage] = React.useState(1)
@@ -154,7 +156,7 @@ export default function AdminWithdrawalPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={auditMut.isPending}
+                          disabled={auditMut.isPending || !can({ type: 'APPROVE' })}
                           onClick={() => handleAudit(w, 'approved')}
                         >
                           <Check className="h-3.5 w-3.5" />
@@ -163,7 +165,7 @@ export default function AdminWithdrawalPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={auditMut.isPending}
+                          disabled={auditMut.isPending || !can({ type: 'REJECT' })}
                           onClick={() => handleAudit(w, 'rejected')}
                         >
                           <X className="h-3.5 w-3.5" />
