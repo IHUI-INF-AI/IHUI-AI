@@ -131,7 +131,10 @@ export default function SettingsScreen() {
       </View>
 
       <SectionCard title={t('settings.sectionAccount')}>
-        <SettingRow label={t('settings.editProfile')} onPress={() => navigation.navigate('ProfileEdit' as never)} />
+        <SettingRow
+          label={t('settings.editProfile')}
+          onPress={() => navigation.navigate('ProfileEdit' as never)}
+        />
         <SettingRow label={t('settings.changePassword')} onPress={() => setPwdModalVisible(true)} />
       </SectionCard>
 
@@ -201,11 +204,62 @@ export default function SettingsScreen() {
         </View>
       </SectionCard>
 
+      <SectionCard title={t('menu.sectionMore')}>
+        <SettingRow
+          label={t('menu.settingsAccount')}
+          onPress={() => navigation.navigate('SettingsAccount' as never)}
+        />
+        <SettingRow
+          label={t('menu.notificationSettings')}
+          onPress={() => navigation.navigate('NotificationSettings' as never)}
+        />
+        <SettingRow
+          label={t('menu.securitySettings')}
+          onPress={() => navigation.navigate('SecuritySettings' as never)}
+        />
+        <SettingRow
+          label={t('menu.identityVerify')}
+          onPress={() => navigation.navigate('IdentityVerify' as never)}
+        />
+        <SettingRow
+          label={t('menu.privacy')}
+          onPress={() => navigation.navigate('Privacy' as never)}
+        />
+        <SettingRow
+          label={t('menu.agreement')}
+          onPress={() => navigation.navigate('Agreement' as never)}
+        />
+        <SettingRow label={t('menu.about')} onPress={() => navigation.navigate('About' as never)} />
+        <SettingRow label={t('menu.help')} onPress={() => navigation.navigate('Help' as never)} />
+        <SettingRow
+          label={t('menu.feedback')}
+          onPress={() => navigation.navigate('Feedback' as never)}
+        />
+        <SettingRow
+          label={t('menu.feedbackHistory')}
+          onPress={() => navigation.navigate('FeedbackHistory' as never)}
+        />
+        <SettingRow
+          label={t('menu.customerService')}
+          onPress={() => navigation.navigate('CustomerService' as never)}
+        />
+        <SettingRow
+          label={t('menu.announcement')}
+          onPress={() => navigation.navigate('Announcement' as never)}
+        />
+        <SettingRow label={t('menu.debug')} onPress={() => navigation.navigate('Debug' as never)} />
+      </SectionCard>
+
       <Button onPress={onLogout} variant="destructive">
         {t('auth.logout')}
       </Button>
 
-      <Modal visible={pwdModalVisible} transparent animationType="fade" onRequestClose={() => setPwdModalVisible(false)}>
+      <Modal
+        visible={pwdModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPwdModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('settings.changePassword')}</Text>
