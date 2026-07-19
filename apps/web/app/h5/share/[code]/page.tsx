@@ -20,8 +20,8 @@ export default function H5SharePage(): React.JSX.Element {
   })
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-muted/40 to-background">
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col">
+    <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-gradient-to-b from-muted/40 to-background">
+      <div className="mx-auto flex min-h-full w-full max-w-md flex-col">
         {isLoading ? (
           <LoadingView />
         ) : error || !data ? (
