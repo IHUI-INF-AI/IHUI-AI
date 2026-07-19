@@ -59,7 +59,7 @@ export function LoginDialog() {
         <div className="flex flex-col items-center px-6 pt-6 pb-2 text-center bg-gradient-to-b from-background to-muted/40 rounded-t-xl">
           {/* 顶部 logo:容器无背景色,直接渲染项目 logo.svg(logo.svg 自身已带圆角渐变底+智字)。 */}
           <Image
-            src="/images/logo.svg?v=20260719"
+            src="/images/logo.svg?v=20260719-real-logo"
             alt="IHUI AI"
             width={40}
             height={40}
