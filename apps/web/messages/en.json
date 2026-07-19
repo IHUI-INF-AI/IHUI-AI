@@ -8656,6 +8656,16 @@
       "updateKey": "Update Key",
       "configureKeyHint": "This model needs an API Key before use. Click to set it up."
     },
+    "aiNews": {
+      "title": "2026-07 AI News",
+      "subtitle": "Latest releases from seed data flow",
+      "loading": "Loading AI news…",
+      "fallbackHint": "No live feed — showing 2026-07 real new models",
+      "liveTag": "Live",
+      "viewAll": "View All",
+      "relatedModels": "{count} related models",
+      "empty": "No AI news yet"
+    },
     "overview": {
       "title": "Console Overview",
       "subtitle": "View your account, calls, and spending",
@@ -23565,30 +23575,7 @@
         "Enterprise AI Decision-Maker Community is now open for recruitment, with free human-machine collaboration practical courses all year",
         "The first 18 members enjoy one-on-one AI consultant advice, full refund if not satisfied",
         "Scan the code now to join the Zhihui AI Community and explore the AI era with decision-makers"
-      ],
-      "title": "Partners & Ecosystem",
-      "subtitle": "Aggregating mainstream LLMs and platforms to build an open AI ecosystem",
-      "kouzi": "Coze",
-      "bbxLogo": "Baibaoxiang",
-      "openai": "OpenAI",
-      "zhipu": "Zhipu",
-      "gork": "Grok",
-      "brand8": "Brand 8",
-      "ali": "Alibaba",
-      "tencent": "Tencent",
-      "huawei": "Huawei",
-      "baidu": "Baidu",
-      "yuanbaoxiang": "Yuanbaoxiang",
-      "yushu": "Moonshot",
-      "dbsfdx": "Dongfang Shandian",
-      "jldx": "Jingling Daxue",
-      "n8n": "n8n",
-      "titleEn": "PARTNERS & ECOSYSTEM",
-      "joinText": "Welcome more AI enthusiasts to join us and explore the infinite possibilities of AI together",
-      "resumeScroll": "Resume",
-      "pauseScroll": "Pause",
-      "marqueeSpeedLabel": "Scroll Speed",
-      "wheelSensitivityLabel": "Wheel Sensitivity"
+      ]
     },
     "welcome": {
       "title": "Welcome to the Zhihui AI Community",
@@ -23713,8 +23700,7 @@
       "page2": "Welcome",
       "page3": "Features",
       "page4": "News",
-      "page5": "Pricing",
-      "page6": "Partners"
+      "page5": "Pricing"
     },
     "scrollDown": {
       "label": "Scroll down"
@@ -23827,6 +23813,55 @@
         "title": "Innovative",
         "description": "Continuous technological innovation, agent clusters, hierarchical planning and other cutting-edge AI capabilities"
       }
+    }
+  },
+  "aiNews": {
+    "hero": {
+      "label": "AI News Hero",
+      "badge": "July 2026 Real-Time Feed",
+      "title": "AI News",
+      "subtitle": "Curated July 2026 AI industry news: GPT-5.6 / Claude Sonnet 5 / Gemini 3.5 Pro / Kimi K3 / DeepSeek V4 side-by-side, WAIC 2026 live, mega funding rounds and acquisitions.",
+      "updateFreq": "Updated daily",
+      "ctaPrimary": "Open News Plaza",
+      "ctaSecondary": "View Live"
+    },
+    "comparison": {
+      "label": "Comparison Table",
+      "title": "July Flagship LLM Comparison",
+      "subtitle": "Five major vendors, side-by-side parameters, pricing, and highlights",
+      "verified": "Verified July 2026",
+      "colModel": "Dimension",
+      "highlight": "Key Highlight",
+      "footnote": "Pricing per official public API rates, may vary with FX",
+      "footnote2": "Data aggregated from official technical reports and public benchmarks"
+    },
+    "live": {
+      "label": "WAIC 2026 Live Channels",
+      "title": "WAIC 2026 Live Channels",
+      "subtitle": "Richard Sutton keynote, Kevin Kelly embodied AI, three major forums live",
+      "viewMore": "View all",
+      "liveBadge": "LIVE",
+      "empty": "No live channels at the moment, check back soon"
+    },
+    "articles": {
+      "label": "Latest Articles Grid",
+      "title": "Latest AI News",
+      "subtitle": "Model releases, industry moves, academic frontier, AI safety & governance",
+      "viewMore": "View more",
+      "pinned": "Pinned",
+      "empty": "No articles yet. Run ai-fresh-2026 seed first."
+    },
+    "funding": {
+      "label": "Mega Funding & Acquisitions",
+      "title": "Mega Funding & Acquisitions",
+      "subtitle": "July 2026 capital moves: SpaceX acquires Cursor for $60B, DeepSeek raises $7B"
+    },
+    "cta": {
+      "label": "Bottom CTA",
+      "title": "Never miss the next AI milestone",
+      "subtitle": "Subscribe to our daily AI briefing and join the IHUI AI community to stay ahead.",
+      "subscribe": "Subscribe Daily",
+      "community": "Join Community"
     }
   }
 }
