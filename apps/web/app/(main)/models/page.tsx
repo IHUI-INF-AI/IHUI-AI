@@ -18,9 +18,19 @@ export default async function ModelsPage({
 
   const list = active === 'all' ? MODELS : MODELS.filter((m) => m.provider === active)
 
+  const total = list.length
+  const freeCount = list.filter((m) => m.inputPrice === 0).length
+  const providerCount = new Set(list.map((m) => m.provider)).size
+  const highlightCount = list.filter((m) => m.highlight).length
+
   return (
     <div className="space-y-6">
-      <ModelsHeader />
+      <ModelsHeader
+        total={total}
+        freeCount={freeCount}
+        providerCount={providerCount}
+        highlightCount={highlightCount}
+      />
       <ModelsNav active={active} />
       <ModelsMarketplace list={list} />
     </div>
