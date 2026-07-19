@@ -141,6 +141,23 @@ const SIDEBAR_MAX_WIDTH = 180
 const SIDEBAR_COLLAPSED_WIDTH = 60
 const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
 
+/**
+ * 主导航项尺寸常量(2026-07-19 抽出,消除 NavLink / SearchNavItem / ExpandableNavItem 三处重复)
+ *
+ * - NAV_ITEM_BASE_CLASS: 基础类,h-9=36px 统一所有主导航项高度,与新建任务按钮 h-9 一致
+ * - NAV_ITEM_COLLAPSED_CLASS: 折叠态宽度类,w-9=36px 与 h-9 严格相等形成 36×36 正方形,
+ *   与新建任务按钮 h-9 w-9 统一尺寸;mx-auto 在 block 父级 <nav> 中水平居中,
+ *   消除折叠态下 43×36 的非正方形拉伸(原 bug:w-full + px-2.5 在 60px aside 内容区下变成 43px 宽)
+ * - NAV_ITEM_EXPANDED_CLASS: 展开态宽度类,占满父容器宽度,左对齐图标 + 文字
+ *
+ * 守门:e2e/sidebar-visual.spec.ts "折叠态导航项背景容器统一为 36×36 正方形" 用例
+ * 防止再次出现部分导航项漏改导致尺寸不一致
+ */
+const NAV_ITEM_BASE_CLASS =
+  'flex h-9 min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors'
+const NAV_ITEM_COLLAPSED_CLASS = 'w-9 mx-auto justify-center'
+const NAV_ITEM_EXPANDED_CLASS = 'w-full'
+
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: '',
@@ -149,9 +166,9 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'AI',
     items: [
-      // /chat 路由已废弃:AI 对话是全局 docked 面板(挂载于 MainShell,与 Sidebar 同级),
+      // /chat 路由已废弃:AI 任务是全局 docked 面板(挂载于 MainShell,与 Sidebar 同级),
       // 顶部"+"按钮(下方)即 toggle 面板的入口,不再放可点击的 /chat 导航项,
-      // 避免点击后右侧工作区被占位空状态"开始新对话"替换。
+      // 避免点击后右侧工作区被占位空状态"开始新任务"替换。
       { href: '/chat/history', labelKey: 'chatHistory', icon: MessageSquare },
       { href: '/models', labelKey: 'models', icon: Bot },
       { href: '/agents', labelKey: 'agents', icon: Bot },
@@ -314,9 +331,11 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
     createdAt: n.createdAt,
   }))
 
-  // 按钮统一 h-5 w-5 (20×20):5 个 + 4 间隙 (gap-0.5=2px) = 108px,适配 130px 默认宽度。
-  // [&_svg]:size-3.5 覆盖 Button 默认的 [&_svg]:size-4,让 14×14 图标在 20×20 按钮内比例协调。
-  const btnClass = 'h-5 w-5 shrink-0 [&_svg]:size-3.5'
+  // 按钮统一 h-[26px] w-[26px] + svg size-5 (20×20):
+  // 图标尺寸与 NavLink 导航项 (h-5 w-5=20px) 完全一致,避免底部工具栏图标过小不一致;
+  // 4 个按钮 + 3 个 gap-0.5 (6px) = 110px,正好填满 130px 默认宽度 (扣 px-1.5 + p-1 = 20px padding);
+  // [&_svg]:size-5 覆盖 Button 默认的 [&_svg]:size-4,让 svg 渲染为 20×20 与导航项图标尺寸一致。
+  const btnClass = 'h-[26px] w-[26px] shrink-0 p-0 [&_svg]:size-5'
 
   return (
     <div
@@ -469,6 +488,9 @@ function SidebarUserRow({
 
   // 未登录态:与已登录态占据同一位置(px-1.5 pb-2 + flex items-center gap-1.5 rounded-md p-1),
   // 渲染为"图标 + 登录文字"单行按钮,折叠态只显图标。
+  // 默认黑白背景(bg-foreground text-background):亮色模式黑底白字、暗色模式白底黑字,
+  // 居中显示(justify-center 始终生效,展开态文字 + 图标也居中),
+  // hover 保持黑白但稍淡 (bg-foreground/90),不切色相避免视觉跳跃。
   if (!showAuthed) {
     return (
       <div className="px-1.5 pb-2">
@@ -480,8 +502,7 @@ function SidebarUserRow({
           }}
           aria-label={tc('login')}
           className={cn(
-            'flex w-full items-center gap-1.5 rounded-md p-1 text-sm font-medium transition-colors hover:bg-sidebar-item-hover-bg hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-            collapsed && 'justify-center',
+            'flex w-full items-center justify-center gap-1.5 rounded-md p-1 text-sm font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
           <LogIn className="h-4 w-4 shrink-0" />
@@ -493,12 +514,20 @@ function SidebarUserRow({
 
   return (
     <div className="px-1.5 pb-2">
+      {/*
+        group/row:头像+昵称作为整体悬停单元
+        - 父容器 hover:bg-sidebar-item-hover-bg 出现弱色底(亮色纯白/暗色纯黑)
+          与项目内其他导航项(NavLink/二级菜单)hover 行为完全一致,统一 hover 策略
+        - 文本 group-hover/row:text-foreground 变亮(默认 text-foreground/70 弱化)
+        - 不使用 flex-1 在昵称上(会导致头像被挤到左侧,justify-center 失效)
+        - 折叠态 trigger button 加 p-1.5(12px) + 内部 Avatar h-6 w-6(24px) = 36×36 命中区,
+          解决折叠态下小图标难以点中的体验问题
+        - 头像 fallback 加 ring-1 ring-inset ring-border/30,无头像时字符 fallback 有弱边框,
+          在白底/灰底上更易辨识
+      */}
       <div
         className={cn(
-          // 等比缩小:头像 24×24 + gap-1.5 + 文本无截断,确保 5 个汉字完整显示
-          // (130px 宽度下:外 px-1.5(12) + 内 p-1(8) + 头像 24 + gap 6 + 5 字 ~70 = 120,余 9px)
-          'flex items-center gap-1.5 rounded-md p-1',
-          collapsed && 'justify-center',
+          'group/row flex w-full items-center justify-center gap-1.5 rounded-md p-1 transition-colors hover:bg-sidebar-item-hover-bg',
         )}
       >
         <Dropdown
@@ -549,16 +578,25 @@ function SidebarUserRow({
           ]}
           trigger={
             <button
-              className="shrink-0 rounded-md outline-none ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
+              className="shrink-0 rounded-md p-1.5 outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={user?.nickname ?? 'User'}
               title={user?.nickname ?? 'User'}
             >
-              <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="xs" />
+              <Avatar
+                src={user?.avatar ?? undefined}
+                name={user?.nickname ?? 'U'}
+                size="xs"
+                className="ring-1 ring-inset ring-border/30"
+              />
             </button>
           }
         />
         {!collapsed && (
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">
+          <span
+            className={cn(
+              'min-w-0 truncate text-sm font-medium text-foreground/70 transition-colors group-hover/row:text-foreground',
+            )}
+          >
             {user?.nickname ?? 'User'}
           </span>
         )}
@@ -644,11 +682,11 @@ function SearchNavItem({
   }
 
   const className = cn(
-    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    NAV_ITEM_BASE_CLASS,
     active
       ? 'bg-primary text-primary-foreground'
       : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
-    collapsed && 'justify-center',
+    collapsed ? NAV_ITEM_COLLAPSED_CLASS : NAV_ITEM_EXPANDED_CLASS,
   )
 
   // 通过 portal 渲染到右侧工作区容器:绝对定位、水平居中(inset-x-0 + mx-auto,避免
@@ -730,11 +768,11 @@ interface NavLinkProps {
 function NavLink({ item, collapsed, active, label, onCloseMobile, registerRef }: NavLinkProps) {
   const Icon = item.icon
   const className = cn(
-    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    NAV_ITEM_BASE_CLASS,
     active
       ? 'bg-primary text-primary-foreground'
       : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
-    collapsed && 'justify-center',
+    collapsed ? NAV_ITEM_COLLAPSED_CLASS : NAV_ITEM_EXPANDED_CLASS,
   )
   const refCb = (el: HTMLElement | null) => registerRef(item.href, el)
 
@@ -830,13 +868,15 @@ function ExpandableNavItem({
     //   - focus-visible ring 保留键盘可访问性指示
     // 指示符是 lucide ChevronDown 图标(absolute 定位在按钮底部居中),不是 border/hr/divide-*
     // 不违反项目"禁止分割线"硬约束(规则禁止的是 <hr>、divide-*、单边 border 分隔,不禁止图标指示符)
-    'group/exp relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+    'group/exp relative',
+    NAV_ITEM_BASE_CLASS,
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
     parentActive
       ? 'bg-primary text-primary-foreground'
       : open
         ? 'bg-primary/10 text-primary'
         : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
-    collapsed && 'justify-center',
+    collapsed ? NAV_ITEM_COLLAPSED_CLASS : NAV_ITEM_EXPANDED_CLASS,
   )
 
   const childClassName = (active: boolean) =>
@@ -1072,7 +1112,11 @@ export function Sidebar({
           collapsed ? 'pl-[9px] pr-2' : 'px-2',
         )}
       >
-        {/* 新建对话按钮(对齐旧架构 .nav-new-chat,黑白对调主题) */}
+        {/* 新建任务按钮(对齐旧架构 .nav-new-chat,黑白对调主题)
+            2026-07-19 用户反馈:整体偏灰,不再用极端黑/白对比;
+            改用 bg-foreground/10 + text-foreground,保持"亮色暗色反向对比"特性
+            (亮色模式 10% 黑 = 浅灰底 + 黑字 / 暗色模式 10% 白 = 深灰底 + 白字),
+            hover 升至 /20 给出明显反馈,但整体仍不抢眼。 */}
         <div className={cn('mb-1', collapsed && 'flex justify-center')}>
           {collapsed ? (
             <Tooltip content={tchat('newConversation')} side="right">
@@ -1081,7 +1125,7 @@ export function Sidebar({
                 onClick={toggleAiPanel}
                 aria-label={tchat('newConversation')}
                 aria-pressed={aiPanelOpen}
-                className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-background transition-colors hover:bg-foreground/90"
+                className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -1093,7 +1137,7 @@ export function Sidebar({
               aria-pressed={aiPanelOpen}
               className={cn(
                 'flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
-                'bg-foreground text-background hover:bg-foreground/90',
+                'bg-foreground/10 text-foreground hover:bg-foreground/20',
               )}
             >
               <Plus className="h-4 w-4 shrink-0" />
@@ -1102,7 +1146,7 @@ export function Sidebar({
           )}
         </div>
 
-        {/* 侧边栏历史对话卡片(展开态显示) */}
+        {/* 侧边栏任务列表卡片(展开态显示) */}
         <SidebarChatHistory collapsed={collapsed} />
 
         {visibleGroups.map((group, gi) => (
@@ -1196,7 +1240,8 @@ export function Sidebar({
         variant="ghost"
         size="icon"
         onClick={onToggleCollapse}
-        className={cn('h-7 w-7 flex-shrink-0 p-0', 'hidden lg:flex')}
+        // h-[26px] 与底部工具栏 icon 按钮/ThemeLogo 统一(原 h-7=28px)
+        className={cn('h-[26px] w-[26px] flex-shrink-0 p-0', 'hidden lg:flex')}
         title={collapsed ? t('expand') : t('collapse')}
         aria-label={collapsed ? t('expand') : t('collapse')}
       >
@@ -1206,7 +1251,8 @@ export function Sidebar({
         variant="ghost"
         size="icon"
         onClick={onCloseMobile}
-        className="ml-auto h-7 w-7 flex-shrink-0 p-0 lg:hidden"
+        // h-[26px] 与折叠按钮/底部工具栏统一(原 h-7=28px)
+        className="ml-auto h-[26px] w-[26px] flex-shrink-0 p-0 lg:hidden"
         aria-label={tc('close')}
       >
         <X className="h-4 w-4" />
