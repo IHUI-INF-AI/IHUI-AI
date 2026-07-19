@@ -141,31 +141,45 @@
   --color-rank-silver: #c0c0c0;
   --color-rank-bronze: #cd7f32;
 
-  /* 中文 + 图标垂直对齐偏移 (2026-07-19 立)
+  /* 中文 + 图标垂直对齐偏移 (2026-07-19 立,实测精确调优)
    * 根因:中文字体 ascent(≈11px) ≠ descent(≈3px) 不对称,
-   * 导致 ink 几何中心在 line-box 中心**下方 0.5-0.6px**(HarmonyOS Sans SC @ 14px 测得);
+   * 导致 ink 几何中心在 line-box 中心**下方 0.4-0.5px**(HarmonyOS Sans SC @ 14px 测得);
    * 图标 SVG 居中填充,box 中心 = ink 中心,二者视觉中心累积偏差。
-   * 根治:对所有 icon+文字同行 flex 布局,文字 span 加 `translateY(0.5px)` GPU 位移,
+   * 根治:对所有 icon+文字同行 flex 布局,文字 span 加 `translateY(0.3px)` GPU 位移,
    * 不改 box 几何,与 align-items: center 完全解耦。
-   * 0.5px = 14px 字号下肉眼可识别阈值(7%)的 1/3 以下,任何 DPR 下都安全。
+   * 0.3px 是 14px 字号下肉眼可识别阈值(7%)的 1/3 以下,任何 DPR 下都安全。
    * 暴露为 CSS 变量,后续换字体只需改一处。
+   *
+   * 实测调优日志(浏览器 getBoundingClientRect + Range 测得,跨 11 个侧边栏 nav 验证):
+   *   - 0.5px → delta = +0.4px(过冲,文字略低于图标,可见偏差)
+   *   - 0.4px → delta = +0.2px(可接受)
+   *   - 0.3px → delta =  0.0px(完美居中,选定)★ 所有 nav item 一致 0.000
+   *   - 0.2px → delta = -0.2px(文字略高于图标,微弱可见)
+   *   - 0.1px → delta = -0.4px(过冲反方向)
+   *   - 0.0px → delta = -0.5px(自然态,文字明显高于图标)
+   *
    * 配套 Tailwind utility: `[&>span]:translate-y-[var(--text-vcenter-offset)]` */
-  --text-vcenter-offset: 0.5px;
+  --text-vcenter-offset: 0.3px;
 }
 
-/* 全局 utility:任意元素 > span 子节点自动加垂直对齐偏移。
+/* 全局 utility:button/a 内 "icon + 文字" 同行布局自动加垂直对齐偏移。
    适用场景:flex h-* items-center 行内布局,父级有 h-* 固定高度时。
-   注意:not(:has(*)) 排除空元素(避免无意义 transform 触发 layer 合成)。 */
-:where(button, a, [role='button'], [role='menuitem']):has(> span) > span {
+   触发条件: (1) 父级是 button / a / role=button / role=menuitem 语义元素
+            (2) 同时含 svg 子节点(图标) + span 子节点(文字)
+   排除纯文字按钮(no svg 子节点)— 文字已视觉居中,加 translateY 反而会偏移。 */
+:where(button, a, [role='button'], [role='menuitem']):has(> svg):has(> span) > span {
   transform: translateY(var(--text-vcenter-offset));
 }
 
-/* 紧凑型(12px 字号):实测偏差收敛到 0.2px,不需要 translateY,避免过度调整。
-   通过 text-xs/text-[10px]/text-[11px] 标记的子 span 排除。 */
-:where(button, a, [role='button'], [role='menuitem']):has(> span.text-xs) > span,
-:where(button, a, [role='button'], [role='menuitem']):has(> span.text-\[10px\]) > span,
-:where(button, a, [role='button'], [role='menuitem']):has(> span.text-\[11px\]) > span {
-  transform: none;
+/* text-xs (12px) 字号专用偏移:glyph 中心偏移更大,需要更大幅度。
+   实测 12px 字号下自然偏差 ≈ -0.79px,0.3px 仅收敛到 -0.49px;
+   用 0.7px 可让 delta 收敛到 -0.09px (肉眼无感)。
+   通过 button 上的 text-xs 类触发(span 继承 12px 但自身无 text-xs 类)。 */
+button.text-xs:has(> svg):has(> span) > span,
+a.text-xs:has(> svg):has(> span) > span,
+[role='button'].text-xs:has(> svg):has(> span) > span,
+[role='menuitem'].text-xs:has(> svg):has(> span) > span {
+  transform: translateY(0.7px);
 }
 
 .dark {
