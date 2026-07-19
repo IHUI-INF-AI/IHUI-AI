@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro'
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useUserStore } from '@/stores/user'
 import { sendSmsCode, loginBySms, loginByPassword, loginByWechat } from '@/api'
+import { getSsoLoginUrl } from '@/utils/sso'
 import { useI18n } from '@/i18n'
 
 export default function Login() {
@@ -86,6 +87,24 @@ export default function Login() {
     } else {
       Taro.showToast({ title: t('login.wechatOnly'), icon: 'none' })
     }
+  }
+
+  /**
+   * SSO 登录:跳 webview 加载 /sso/login?redirect=...
+   * 用户在 web 端登录后,生成 sso_code 回跳小程序(通过 webview postMessage
+   * 或在 redirect URL 里用 ihui-miniapp:// scheme 触发小程序回跳)。
+   *
+   * 简化实现:打开 webview 让用户登录,登录态会自动通过 web cookie 持久化,
+   * 小程序下次启动时(如果 web cookie 共享)可直接调 /sso/redirect 拿 code。
+   * 当前实现采用最简方案:webview 展示 SSO 登录页,登录成功后提示用户手动返回。
+   * 真正的 code 回传需要 webview postMessage 或 scheme 跳转,留待联调时补完。
+   */
+  function handleSsoLogin() {
+    // 小程序回调地址(用 webview 站内跳转协议)
+    const redirectUri = 'ihui-miniapp://sso/callback'
+    const ssoUrl = getSsoLoginUrl(redirectUri)
+    const encoded = encodeURIComponent(ssoUrl)
+    Taro.navigateTo({ url: `/pages/webview/index?url=${encoded}` })
   }
 
   return (
@@ -174,6 +193,14 @@ export default function Login() {
         onClick={handleWechatLogin}
       >
         <Text>{t('login.wechatLogin')}</Text>
+      </View>
+
+      <View
+        className="mt-[16px] text-center text-[13px] text-[#666] border-t border-[#eee] pt-[16px]"
+        onClick={handleSsoLogin}
+      >
+        <Text>{t('login.ssoLogin')}</Text>
+        <Text className="block mt-[4px] text-[11px] text-[#999]">{t('login.ssoLoginHint')}</Text>
       </View>
 
       <View className="mt-[30px] text-center text-[11px] text-[#999]">
