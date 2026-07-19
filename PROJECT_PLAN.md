@@ -170,6 +170,13 @@
   - 来源:旧 Java 项目硬编码字符串扫描器产物,Java→TS 迁移时原样保留
   - 验证:项目代码(apps/、packages/)0 处 t() 引用(3 处匹配在 migration-audit 静态审计报告 echarts.min.js,无关)
   - 验证:i18n parity 8408 键 5 语言 OK / pnpm --filter @ihui/web typecheck exit 0
+- [x] **en.json 破碎英文守门 + 品牌映射应用脚本**(commit `0f5f7b2e`)
+  - 新增 `scripts/check-i18n-broken-en.mjs`(检测 no-space-concat/case-chaos/possible-pinyin/zh-residue)
+  - 新增 `scripts/apply-brand-glossary.mjs`(应用 brand-glossary.json 到 en/ko/ja,跳过 zh-CN/zh-TW)
+  - pre-commit 第 2e 项接入(阻塞 en.json 破碎英文)
+  - AGENTS.md 第 20 节 + 守门速查表同步
+  - 修复 en.json 6 处破碎英文(reasonZoomInFocus/notice/agentBuilding/refund/loadDist/feature8)
+  - 应用 ja.json 4 处品牌映射(ali/tencent/weibo/douyin)
 
 **后续 P2(本季度内,需多 sprint,非本轮范围)**:
 
