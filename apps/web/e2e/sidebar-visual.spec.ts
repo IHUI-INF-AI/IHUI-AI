@@ -217,3 +217,144 @@ test.describe('Sidebar 视觉守门', () => {
     expect(popoverBox!.width, 'Popover 不应被裁剪(宽度应完整 144px)').toBeGreaterThanOrEqual(142)
   })
 })
+
+/**
+ * Sidebar 折叠态尺寸守门测试 (2026-07-19 立)
+ *
+ * 防止以下回归:
+ *   - 折叠态下 NavLink / SearchNavItem / ExpandableNavItem 父级宽度未统一为 36×36 正方形
+ *   - 部分导航项漏改导致折叠态背景容器尺寸不一致(原 bug:43×36 非正方形拉伸)
+ *
+ * 守门依据:sidebar.tsx 中 NAV_ITEM_COLLAPSED_CLASS = 'w-9 mx-auto justify-center' (36×36)
+ * 与新建任务按钮 h-9 w-9 (36×36) 严格统一,所有主导航项背景容器在折叠态下必须是 36×36 正方形。
+ */
+test.describe('Sidebar 折叠态尺寸守门', () => {
+  test.beforeEach(async ({ page }) => {
+    // 强制侧边栏折叠
+    await page.addInitScript(() => {
+      localStorage.setItem('sidebar-collapsed', 'true')
+    })
+    await page.goto('/')
+    await expect(page.locator('aside').first()).toBeVisible({ timeout: 15000 })
+    // 等 React hydration + 折叠态样式应用
+    await page.waitForTimeout(500)
+  })
+
+  test('折叠态 aside 宽度为 60px', async ({ page }) => {
+    const aside = page.locator('aside').first()
+    const box = await aside.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.width, '折叠态 aside 宽度应为 60px').toBe(60)
+  })
+
+  test('折叠态导航项背景容器统一为 36×36 正方形', async ({ page }) => {
+    // 收集所有主导航项:
+    // - 新建任务按钮 (button.bg-foreground)
+    // - NavLink / SearchNavItem / ExpandableNavItem 父级 (a[href^="/"] 或 button[aria-label])
+    // 排除:collapse 按钮(PanelLeftClose/Open)、关闭按钮(X)、底部工具栏按钮(国旗/下载/铃铛/主题)、用户头像
+    const navItems = await page.evaluate(() => {
+      const aside = document.querySelector('aside')
+      if (!aside) return { error: 'no aside' }
+      const nav = aside.querySelector('nav')
+      if (!nav) return { error: 'no nav' }
+
+      // 排除图标列表(底部工具栏 + 头像 + collapse 按钮等非主导航项)
+      const excludeLabels = ['关闭', '收起', '展开', '菜单']
+
+      const items: Array<{
+        tag: string
+        href: string
+        ariaLabel: string
+        width: number
+        height: number
+        isSquare: boolean
+        classes: string
+      }> = []
+
+      // 新建任务按钮:第一个有 bg-foreground 的 button
+      const newChatBtn = nav.querySelector('button.bg-foreground')
+      if (newChatBtn) {
+        const rect = newChatBtn.getBoundingClientRect()
+        items.push({
+          tag: 'button',
+          href: '',
+          ariaLabel: newChatBtn.getAttribute('aria-label') || 'newChat',
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          isSquare: Math.abs(rect.width - rect.height) < 1,
+          classes: newChatBtn.className,
+        })
+      }
+
+      // 所有 nav 内 a[href^="/"] (NavLink + SearchNavItem 折叠态是 button,展开态是 button,这里也找 button)
+      // 折叠态:NavLink 渲染为 <a>,SearchNavItem 渲染为 <button>,ExpandableNavItem 父级渲染为 <button>
+      const candidates = Array.from(
+        nav.querySelectorAll('a[href^="/"], button[aria-label]'),
+      ) as Array<HTMLElement>
+
+      for (const el of candidates) {
+        const ariaLabel = el.getAttribute('aria-label') || ''
+        // 排除底部工具栏(语言/下载/消息/主题)和用户头像
+        if (excludeLabels.some((l) => ariaLabel.includes(l))) continue
+        // 排除底部 SidebarActions 区的按钮(它们有 h-[26px] w-[26px])
+        if (ariaLabel.includes('语言') || ariaLabel.includes('Language')) continue
+        if (ariaLabel.includes('下载') || ariaLabel.includes('Download')) continue
+        if (ariaLabel.includes('消息') || ariaLabel.includes('Messages')) continue
+        if (
+          ariaLabel.includes('深色') ||
+          ariaLabel.includes('浅色') ||
+          ariaLabel.includes('Dark') ||
+          ariaLabel.includes('Light')
+        )
+          continue
+
+        const rect = el.getBoundingClientRect()
+        if (rect.width === 0 || rect.height === 0) continue
+
+        items.push({
+          tag: el.tagName,
+          href: el.getAttribute('href') || '',
+          ariaLabel,
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          isSquare: Math.abs(rect.width - rect.height) < 1,
+          classes: el.className,
+        })
+      }
+
+      return { items, count: items.length }
+    })
+
+    expect(navItems, `应能读取导航项: ${JSON.stringify(navItems)}`).not.toHaveProperty('error')
+    const data = navItems as {
+      items: Array<{
+        width: number
+        height: number
+        isSquare: boolean
+        ariaLabel: string
+        href: string
+        classes: string
+      }>
+      count: number
+    }
+
+    // 至少应有 10 个主导航项(home/chatHistory/models/agents/aiWorld/workspace/dashboard/learn 等)
+    expect(data.count, `主导航项数量应 >= 10,实际 ${data.count}`).toBeGreaterThanOrEqual(10)
+
+    // 所有项的宽高都应是 36(±1px 误差),且 isSquare=true
+    const failures: string[] = []
+    for (const item of data.items) {
+      if (Math.abs(item.width - 36) > 1 || Math.abs(item.height - 36) > 1 || !item.isSquare) {
+        failures.push(
+          `${item.ariaLabel || item.href || '未命名'}: ${item.width}×${item.height} isSquare=${item.isSquare} classes="${item.classes}"`,
+        )
+      }
+    }
+
+    expect(
+      failures,
+      `以下导航项未通过 36×36 正方形守门:\n${failures.join('\n')}\n\n` +
+        `所有项:\n${data.items.map((i) => `  - ${i.ariaLabel || i.href}: ${i.width}×${i.height}`).join('\n')}`,
+    ).toHaveLength(0)
+  })
+})

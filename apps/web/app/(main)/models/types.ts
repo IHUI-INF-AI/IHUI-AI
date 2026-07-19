@@ -90,5 +90,6 @@ export interface Model {
   description: string
   contextLength: number
   inputPrice: number
+  outputPrice?: number
   features: string[]
 }
