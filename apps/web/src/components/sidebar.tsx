@@ -735,7 +735,7 @@ function SearchNavItem({
             ref={dropdownRef}
             role="dialog"
             aria-label={tc('searchPlaceholder')}
-            className="absolute inset-x-0 top-2 z-50 mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-200"
+            className="absolute inset-x-0 top-2 z-popover mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-200"
           >
             <div className="rounded-md border bg-popover p-3 text-popover-foreground shadow-md">
               <SearchBar
@@ -1365,7 +1365,7 @@ export function Sidebar({
       {/* 移动端抽屉遮罩 */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-modal bg-black/50 lg:hidden"
           onClick={onCloseMobile}
           aria-hidden
         />
@@ -1377,7 +1377,7 @@ export function Sidebar({
         aria-label={t('mainNav')}
         role="dialog"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col overflow-visible bg-background transition-transform duration-200 lg:hidden',
+          'fixed inset-y-0 left-0 z-modal flex flex-col overflow-visible bg-background transition-transform duration-200 lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
         style={{ width: SIDEBAR_WIDTH }}

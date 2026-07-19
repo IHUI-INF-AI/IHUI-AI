@@ -114,7 +114,7 @@ export function ImageViewer({
         <div
           role="button"
           tabIndex={0}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          className="fixed inset-0 z-modal flex items-center justify-center bg-black/90"
           onClick={() => setFullscreen(false)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
