@@ -1,8 +1,22 @@
+/**
+ * Popup — 登录入口 + 用户信息 + 快捷操作(打开侧边栏 / 收藏 / 通知 / 复制 URL / 打开网页版)。
+ *
+ * 快捷操作依赖 background 通过 message-router 提供的 api.proxy + sidePanel.open 能力。
+ */
 import { useEffect, useState } from 'react'
 import { loginByAccount, getMe, logout, type AuthUser } from '@ihui/api-client'
 import { initApi, setTokenPair, getToken, getRefreshToken, clearAllTokens } from '../../lib/token'
 import { startAutoRefresh, scheduleRefreshAlarm } from '../../lib/token-utils'
 import { useI18n } from '../../src/i18n'
+import { sendMessage } from '../../lib/message-router'
+import { QuickActionButton } from '../components/QuickActionButton'
+import { NotificationBell } from '../components/NotificationBell'
+
+interface ActiveTab {
+  tabId?: number
+  url?: string
+  title?: string
+}
 
 export default function App() {
   const { t } = useI18n()
@@ -12,6 +26,8 @@ export default function App() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState<ActiveTab | null>(null)
+  const [copyHint, setCopyHint] = useState('')
 
   useEffect(() => {
     initApi().then(async () => {
@@ -23,6 +39,15 @@ export default function App() {
       setReady(true)
     })
     startAutoRefresh()
+
+    // 查询当前 tab(用于"复制 URL" / "打赏作者" 等)
+    void sendMessage<ActiveTab>({
+      type: 'tab.queryActive',
+      payload: undefined,
+      requestId: `tab-${Date.now()}`,
+    })
+      .then((res) => setActiveTab(res))
+      .catch(() => setActiveTab(null))
   }, [])
 
   const onLogin = async (e: React.FormEvent) => {
@@ -55,11 +80,42 @@ export default function App() {
     setUser(null)
   }
 
-  const openSidePanel = () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tabId = tabs[0]?.id
-      if (tabId) chrome.sidePanel.open({ tabId })
-    })
+  const openSidePanel = async (route: string = '/chat') => {
+    try {
+      const res = await sendMessage<{ opened: boolean }>({
+        type: 'sidePanel.open',
+        payload: { tabId: activeTab?.tabId },
+        requestId: `sp-${Date.now()}`,
+      })
+      if (res?.opened && route !== '/chat') {
+        // 写入待跳转路由(sidepanel 启动时检测)
+        await chrome.storage.session?.set({ ihui_pending_route: route })
+      }
+    } catch (err) {
+      console.warn('[IHUI AI] open side panel failed:', err)
+    }
+    window.close()
+  }
+
+  const copyPageUrl = async () => {
+    const url = activeTab?.url
+    if (!url) {
+      setCopyHint(t('popup.copyFailed'))
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopyHint(t('popup.copySuccess'))
+    } catch {
+      setCopyHint(t('popup.copyFailed'))
+    }
+    setTimeout(() => setCopyHint(''), 2000)
+  }
+
+  const openWeb = () => {
+    const url = 'https://www.ihui.ai/'
+    chrome.tabs.create({ url })
+    window.close()
   }
 
   if (!ready) {
@@ -92,24 +148,73 @@ export default function App() {
             {loading ? t('common.loading') : t('auth.login')}
           </button>
         </form>
+        <QuickActionButton
+          label={t('popup.openWeb')}
+          icon="🌐"
+          onClick={openWeb}
+          variant="default"
+        />
       </div>
     )
   }
 
   return (
     <div className="popup-container">
-      <div className="user-info">
-        <div className="avatar">{user.nickname?.[0] || user.phone?.[0] || '?'}</div>
-        <div className="user-detail">
-          <div className="nickname">{user.nickname || user.phone}</div>
-          <div className="role">
-            {(user.roleId ?? 0) >= 1 ? t('auth.roleAdmin') : t('auth.roleUser')}
+      <div className="popup-header">
+        <div className="user-info">
+          <div className="avatar">{user.nickname?.[0] || user.phone?.[0] || '?'}</div>
+          <div className="user-detail">
+            <div className="nickname">{user.nickname || user.phone}</div>
+            <div className="role">
+              {(user.roleId ?? 0) >= 1 ? t('auth.roleAdmin') : t('auth.roleUser')}
+            </div>
           </div>
         </div>
+        <NotificationBell />
       </div>
-      <button type="button" className="btn" onClick={openSidePanel}>
-        {t('nav.chat')}
-      </button>
+      <div className="popup-section">
+        <div className="popup-section-title">{t('popup.quickActions')}</div>
+        <div className="popup-actions">
+          <QuickActionButton
+            label={t('popup.openChat')}
+            icon="💬"
+            onClick={() => openSidePanel('/chat')}
+            variant="primary"
+          />
+          <QuickActionButton
+            label={t('popup.openSidePanel')}
+            icon="📌"
+            onClick={() => openSidePanel('/chat')}
+          />
+          <QuickActionButton
+            label={t('nav.vocabulary')}
+            icon="📖"
+            onClick={() => openSidePanel('/vocabulary')}
+          />
+          <QuickActionButton
+            label={t('nav.profile')}
+            icon="👤"
+            onClick={() => openSidePanel('/profile')}
+          />
+          <QuickActionButton
+            label={t('nav.wallet')}
+            icon="💰"
+            onClick={() => openSidePanel('/wallet')}
+          />
+          <QuickActionButton
+            label={copyHint || (activeTab?.url ? `${t('popup.copySuccess')} URL` : '—')}
+            icon="🔗"
+            onClick={copyPageUrl}
+            disabled={!activeTab?.url}
+          />
+          <QuickActionButton
+            label={t('popup.openWeb')}
+            icon="🌐"
+            onClick={openWeb}
+            variant="default"
+          />
+        </div>
+      </div>
       <button type="button" className="btn btn-logout" onClick={onLogout}>
         {t('auth.logout')}
       </button>
