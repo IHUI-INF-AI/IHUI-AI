@@ -69,7 +69,13 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         />
         <div
           id="work-area-portal-root"
-          className="relative flex min-w-0 flex-1 flex-col my-2 mr-2 overflow-hidden rounded-xl bg-shell-panel"
+          // pl-[var(--ai-panel-width,0px)]:AISidePanel(fixed, left:var(--sidebar-width), width=panel-width)
+          // 与 work-area 在 [0, panel-width) 区间重叠,遮挡主内容左侧。
+          // 通过 padding-left 让出被遮挡区间,主内容居中点对齐"可见区域"中心,
+          // 消除"内容偏左 + 右侧空间浪费"问题(panel open 时)。
+          // panel close 时 --ai-panel-width=0,pl=0,work-area 内容铺满 sidebar 右侧全部空间。
+          // transition: padding 200ms 与 AISidePanel 的 width 0.2s cubic-bezier 同步平滑过渡。
+          className="relative flex min-w-0 flex-1 flex-col my-2 mr-2 overflow-hidden rounded-xl bg-shell-panel pl-[var(--ai-panel-width,0px)] transition-[padding] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
         >
           {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
           <Button
