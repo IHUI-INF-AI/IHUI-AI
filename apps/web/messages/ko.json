@@ -8651,6 +8651,16 @@
       "updateKey": "Key 업데이트",
       "configureKeyHint": "이 모델은 사용 전에 API Key 설정이 필요합니다. 클릭하여 원클릭 설정하세요."
     },
+    "aiNews": {
+      "title": "2026-07 AI 뉴스",
+      "subtitle": "시드 데이터 흐름의 최신 릴리스",
+      "loading": "AI 뉴스 로드 중…",
+      "fallbackHint": "최신 뉴스 없음 — 2026-07 신모델을 표시 중",
+      "liveTag": "실시간",
+      "viewAll": "전체 보기",
+      "relatedModels": "관련 {count}개 모델",
+      "empty": "AI 뉴스가 아직 없습니다"
+    },
     "overview": {
       "title": "콘솔 개요",
       "subtitle": "계정, 호출 및 소비 현황을 확인하세요",
@@ -23555,30 +23565,7 @@
         "기업 AI화 의사결정자 커뮤니티 모집 개방, 인간-기계 협업 실전 코스 연중 무료",
         "선착순 18명 회원에게 1:1 AI 컨설턴트 상담 제공, 불만족 시 전액 환불",
         "지금 코드를 스캔하여 지후이 AI 커뮤니티에 가입하고 의사결정자와 함께 AI 시대를 탐색하세요"
-      ],
-      "title": "파트너와 생태계",
-      "subtitle": "주요 LLM과 플랫폼을 통합하여 개방형 AI 생태계 구축",
-      "kouzi": "Coze",
-      "bbxLogo": "바이바오상",
-      "openai": "OpenAI",
-      "zhipu": "즈푸",
-      "gork": "Grok",
-      "brand8": "브랜드8",
-      "ali": "알리바바",
-      "tencent": "텐센트",
-      "huawei": "화웨이",
-      "baidu": "바이두",
-      "yuanbaoxiang": "위안바오상",
-      "yushu": "Moonshot",
-      "dbsfdx": "둥팡샨뎬",
-      "jldx": "징링대학",
-      "n8n": "n8n",
-      "titleEn": "PARTNERS & ECOSYSTEM",
-      "joinText": "더 많은 AI 애호가들의 참여를 환영하며, 함께 AI의 무한한 가능성을 탐색합시다",
-      "resumeScroll": "계속",
-      "pauseScroll": "일시정지",
-      "marqueeSpeedLabel": "스크롤 속도",
-      "wheelSensitivityLabel": "휠 감도"
+      ]
     },
     "welcome": {
       "title": "지후이 AI 커뮤니티에 오신 것을 환영합니다",
@@ -23703,8 +23690,7 @@
       "page2": "환영",
       "page3": "기능",
       "page4": "뉴스",
-      "page5": "요금",
-      "page6": "파트너"
+      "page5": "요금"
     },
     "scrollDown": {
       "label": "아래로 스크롤"
@@ -23817,6 +23803,55 @@
         "title": "혁신성",
         "description": "지속적인 기술 혁신, 에이전트 클러스터, 계층적 계획 등 최첨단 AI 역량"
       }
+    }
+  },
+  "aiNews": {
+    "hero": {
+      "label": "AI 뉴스 Hero",
+      "badge": "2026-07 실시간 정보 피드",
+      "title": "AI 뉴스",
+      "subtitle": "2026년 7월 AI 업계 뉴스: GPT-5.6 / Claude Sonnet 5 / Gemini 3.5 Pro / Kimi K3 / DeepSeek V4 비교, WAIC 2026 라이브, 대규모 펀딩과 인수합병.",
+      "updateFreq": "매일 업데이트",
+      "ctaPrimary": "뉴스 광장 열기",
+      "ctaSecondary": "라이브 보기"
+    },
+    "comparison": {
+      "label": "비교표",
+      "title": "7월 플래그십 LLM 비교",
+      "subtitle": "주요 5개 벤더의 파라미터, 가격, 하이라이트, 능력",
+      "verified": "2026-07 실 데이터",
+      "colModel": "비교 항목",
+      "highlight": "핵심 하이라이트",
+      "footnote": "가격은 공식 API 공개 요금, 환율에 따라 변동",
+      "footnote2": "공식 기술 보고서와 주요 벤치마크 종합"
+    },
+    "live": {
+      "label": "WAIC 2026 라이브",
+      "title": "WAIC 2026 라이브 채널",
+      "subtitle": "리처드 서튼 기조연설, 케빈 케일리 휴머노이드 AI, 3대 포럼 동시 생중계",
+      "viewMore": "전체 보기",
+      "liveBadge": "라이브",
+      "empty": "라이브가 없습니다. 잠시 후 다시 확인해 주세요."
+    },
+    "articles": {
+      "label": "최신 기사 그리드",
+      "title": "최신 AI 뉴스",
+      "subtitle": "모델 발표, 산업 동향, 학술 프론티어, AI 안전 거버넌스",
+      "viewMore": "더 보기",
+      "pinned": "고정",
+      "empty": "기사가 없습니다. 먼저 ai-fresh-2026 seed를 실행하세요."
+    },
+    "funding": {
+      "label": "대규모 펀딩 & 인수",
+      "title": "대규모 펀딩 & 인수",
+      "subtitle": "7월:SpaceX가 Cursor를 600억 달러에 인수, DeepSeek가 500억 위안 펀딩 완료"
+    },
+    "cta": {
+      "label": "하단 CTA",
+      "title": "다음 AI 이정표를 놓치지 마세요",
+      "subtitle": "매일 AI 브리핑을 구독하고 IHUI AI 커뮤니티에서 의사결정자와 함께하세요.",
+      "subscribe": "매일 구독",
+      "community": "커뮤니티 가입"
     }
   }
 }
