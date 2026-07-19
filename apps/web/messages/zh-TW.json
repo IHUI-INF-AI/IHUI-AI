@@ -8606,6 +8606,7 @@
       "defaultDescription": "廠商提供的 AI 模型服務",
       "tryNow": "立即體驗",
       "freeCount": "{count} 個免費",
+      "favoriteCount": "{count} 個收藏",
       "highlightCount": "{count} 個推薦",
       "loadMore": "載入更多",
       "resetFilters": "重設篩選"
