@@ -8447,6 +8447,28 @@
       "capabilities": "能力標籤",
       "close": "關閉"
     },
+    "quickKey": {
+      "title": "一鍵配置 API Key",
+      "configured": "已配置",
+      "notConfigured": "未配置",
+      "getApiKey": "取得 API Key",
+      "customBaseUrl": "自訂 Base URL",
+      "apiKeyLabel": "API Key",
+      "apiKeyPlaceholder": "貼上 API Key(加密儲存)",
+      "modelIdLabel": "模型 ID(選填)",
+      "showKey": "顯示金鑰",
+      "hideKey": "隱藏金鑰",
+      "testBtn": "測試",
+      "saveBtn": "儲存並啟用",
+      "updateBtn": "更新配置",
+      "testSuccess": "連通成功",
+      "testFailed": "連通失敗",
+      "saved": "已儲存",
+      "savedDesc": "API Key 已加密儲存,可立即使用該模型",
+      "saveFailed": "儲存失敗",
+      "noTemplate": "該廠商暫無預置範本,請到「設定 → LLM 配置」手動新增",
+      "securityHint": "API Key 使用 AES-256-GCM 加密儲存,僅本帳號可見,不會明文落庫或傳輸到第三方。"
+    },
     "providers": {
       "openai": "OpenAI",
       "anthropic": "Anthropic",
