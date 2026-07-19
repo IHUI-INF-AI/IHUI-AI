@@ -60,10 +60,12 @@ function getToken(request: NextRequest): string | null {
   return request.cookies.get('auth_token')?.value ?? request.cookies.get('token')?.value ?? null
 }
 
-/** 重定向到首页并设置 login_redirect cookie(5min),触发 LoginDialog */
+/** 重定向到营销落地页并设置 login_redirect cookie(5min),触发 LoginDialog
+ *  / 已改为工作台首页(需登录),未登录用户重定向到 /landing 而非 /,避免死循环。
+ */
 function redirectToLoginDialog(request: NextRequest, pathname: string): NextResponse {
   const url = request.nextUrl.clone()
-  url.pathname = '/'
+  url.pathname = '/landing'
   url.search = ''
   const res = NextResponse.redirect(url)
   res.cookies.set('login_redirect', pathname, {
@@ -84,6 +86,15 @@ export function proxy(request: NextRequest): NextResponse {
   }
 
   const token = getToken(request)
+
+  // a2. 工作台首页 / 需要登录:未登录重定向到 /landing(营销落地页)并触发 LoginDialog
+  //     避免未登录用户直接进入工作台看到空数据
+  if (pathname === '/') {
+    if (!token || !isAuthenticated(token)) {
+      return redirectToLoginDialog(request, pathname)
+    }
+    return NextResponse.next()
+  }
 
   // b. admin 路由：校验登录 + 角色
   if (isAdminRoute(pathname)) {
