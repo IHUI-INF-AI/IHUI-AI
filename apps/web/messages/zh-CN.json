@@ -8412,6 +8412,52 @@
     "price": "价格",
     "free": "免费",
     "perMillion": "/百万 tokens",
+    "header": {
+      "stats": {
+        "total": "模型总数",
+        "highlight": "推荐模型",
+        "free": "免费模型",
+        "providers": "厂商数量"
+      }
+    },
+    "sort": {
+      "recommended": "推荐排序",
+      "priceAsc": "价格从低到高",
+      "priceDesc": "价格从高到低",
+      "contextDesc": "上下文从长到短",
+      "nameAsc": "名称 A-Z"
+    },
+    "view": {
+      "grid": "网格视图",
+      "list": "列表视图"
+    },
+    "quickFilters": {
+      "free": "免费",
+      "longContext": "长上下文",
+      "reasoning": "推理",
+      "vision": "视觉",
+      "coding": "编程",
+      "chinese": "中文优化",
+      "openSource": "开源"
+    },
+    "detail": {
+      "highlight": "推荐",
+      "estimatedHint": "预估费用",
+      "capabilities": "能力标签",
+      "close": "关闭"
+    },
+    "nav": {
+      "groups": {
+        "providerInternational": "国际厂商",
+        "providerDomestic": "国内厂商",
+        "providerInference": "推理平台",
+        "providerCloud": "云平台",
+        "providerAggregator": "聚合平台",
+        "providerLocal": "本地部署"
+      },
+      "scrollLeft": "向左滚动",
+      "scrollRight": "向右滚动"
+    },
     "providers": {
       "openai": "OpenAI",
       "anthropic": "Anthropic",
