@@ -1,0 +1,163 @@
+'use client'
+
+import * as React from 'react'
+import { Menu } from 'lucide-react'
+import { Sidebar } from '@/components/sidebar'
+import { AISidePanel } from '@/components/ai/ai-side-panel'
+import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
+import { Button } from '@ihui/ui'
+import { useAiPanelStore, AI_PANEL_DEFAULT_WIDTH } from '@/stores/ai-panel'
+import { useMounted } from '@/hooks/use-mounted'
+
+/**
+ * GlobalShell — 真正的全局外壳(2026-07-19 立)
+ *
+ * 设计目的:
+ * - 把左侧 Sidebar 与右侧 AISidePanel 提升到根 layout.tsx 层级,
+ *   让所有路由组((main) / (marketing) / (auth) / sso / h5 / forbidden 等)
+ *   共享同一套全局组件,符合用户"本项目所有内容都应包含在工作区"的全局设定。
+ * - 取代原先只在 (main) 路由组挂载 MainShell 的做法。
+ *
+ * 结构:
+ *   <div flex h-screen overflow-hidden>
+ *     <Sidebar />                       ← 桌面端固定侧边栏(相对定位,flex 流)
+ *     <div id="work-area-portal-root"   ← 内容区,作为 Sidebar 搜索弹层的 portal 目标
+ *         relative flex-1 flex-col overflow-hidden>
+ *       <Button mobile menu />          ← 移动端浮动菜单按钮(lg:hidden)
+ *       {children}                      ← 各路由组 layout 内容填充此处
+ *     </div>
+ *   </div>
+ *   <AISidePanel />                     ← fixed 定位,紧贴 Sidebar 右侧
+ *   <PWA prompts />                     ← fixed 定位,右下角
+ *
+ * 与 MainShell 的分工:
+ * - GlobalShell:负责全局骨架(Sidebar + 内容槽 + AISidePanel + PWA),所有路由共享
+ * - MainShell:仅负责 (main) 路由组的工作区面板样式(圆角卡片 + padding + TagsView)
+ *   现已精简,不再渲染 Sidebar/AISidePanel,避免与 GlobalShell 重复挂载
+ *
+ * sidebar-collapsed 状态同步:
+ * - localStorage 持久化(桌面端折叠态)
+ * - storage 事件跨标签页同步
+ * - 折叠/展开/拖拽宽度通过 :root --sidebar-width CSS 变量传递给 AISidePanel
+ *   (见 sidebar.tsx 第 1117 行 useEffect)
+ */
+export function GlobalShell({ children }: { children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = React.useState(false)
+  const [mobileOpen, setMobileOpen] = React.useState(false)
+  // 静态 ID(非 useId),避免 React 18 useId 在 SSR/CSR 之间偶尔漂移导致 hydration mismatch。
+  // Sidebar 内部会再派生 desktop/mobile 两个 nav id,确保两个 <nav> 元素不会共享同一 id。
+  const sidebarId = 'main-sidebar'
+
+  // AI 面板占位宽度(直接订阅 store,避免 SSR/初始渲染时 --ai-panel-width CSS 变量未同步导致内容区与 AI 面板重叠)。
+  // - mount 前(SSR + 首次 CSR render):用默认值(open=true, width=400) → occupy=408px
+  //   保证 SSR HTML 与首次 CSR render 一致(无 hydration mismatch),且初始就为 AI 面板留出避让空间。
+  // - mount 后(useEffect 触发):用 store 实际值(rehydrate 后的持久化 width) → occupy=width+8 或 0
+  //   跟随用户拖拽偏好 / 关闭态实时变化。
+  // 之前依赖 AISidePanel 的 useEffect 同步 --ai-panel-width 到 :root,但 useEffect 在 paint 后才执行,
+  // 导致 open=true 默认展开时,首帧 padding-left=0,AI 面板覆盖内容区(2026-07-20 修复"重叠"问题)。
+  const mounted = useMounted()
+  const { open: aiOpen, width: aiWidth } = useAiPanelStore()
+  const aiPanelOccupy = !mounted
+    ? AI_PANEL_DEFAULT_WIDTH + 8
+    : aiOpen
+      ? aiWidth + 8
+      : 0
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sidebar-collapsed')
+      if (saved === 'true') setCollapsed(true)
+    } catch {
+      // localStorage 不可用
+    }
+  }, [])
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('sidebar-collapsed', String(collapsed))
+    } catch {
+      // localStorage 不可用
+    }
+  }, [collapsed])
+
+  // 侧边栏折叠状态跨标签页同步:其他标签页切换折叠时,本标签页跟随
+  React.useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'sidebar-collapsed' || e.newValue === null) return
+      setCollapsed(e.newValue === 'true')
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  React.useEffect(() => {
+    if (!mobileOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [mobileOpen])
+
+  return (
+    <>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar
+          id={sidebarId}
+          collapsed={collapsed}
+          onToggleCollapse={() => setCollapsed((c) => !c)}
+          mobileOpen={mobileOpen}
+          onCloseMobile={() => setMobileOpen(false)}
+        />
+        {/*
+          work-area-portal-root:作为 Sidebar 搜索弹层(SearchNavItem)的 portal 目标。
+          原本只在 MainShell 中存在(仅 (main) 路由可用),现在提升到 GlobalShell,
+          让所有路由都能正确渲染搜索弹层。
+          overflow-hidden 用于裁剪搜索弹层 slide-in-from-top 动画的初始 translateY(-100%),
+          形成从顶部边缘"向下滑出"的视觉效果。
+          flex-1 min-h-0 让内容区在 flex 容器中正确填充并允许子元素滚动。
+          padding-left 由本组件直接计算(见上方 aiPanelOccupy),避让 fixed 定位的 AISidePanel,
+          避免 AISidePanel(紧贴 Sidebar 右侧)覆盖内容区(2026-07-20 修复"重叠"问题)。
+          占位规则:
+          - AI 面板展开:occupy = width + 8(面板宽度 + 右侧 8px 间距)
+          - AI 面板收起:occupy = 0(仅渲染 width:0 的拖拽手柄,不占视觉空间)
+        */}
+        <div
+          id="work-area-portal-root"
+          className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden"
+          style={{ paddingLeft: `${aiPanelOccupy}px` }}
+        >
+          {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileOpen((o) => !o)}
+            className="absolute left-2 top-2 z-30 h-9 w-9 lg:hidden"
+            aria-label="菜单"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          {children}
+        </div>
+      </div>
+      {/* AISidePanel 作为全局 fixed 组件,移出 flex 容器避免挤压内容区宽度。
+          定位样式 left:var(--sidebar-width) 由 Sidebar 同步到 :root,紧贴 Sidebar 右侧。
+          z-sticky(990, 引用 --z-sticky):高于内容层,低于 modal/PWA 提示层(z-modal 2000)。
+          若 AI 面板 z-index 调到 ≥ 1000,登录/客服等弹框会被 AI 面板遮住。 */}
+      <React.Suspense fallback={null}>
+        <AISidePanel />
+      </React.Suspense>
+      {/* PWA 提示:固定悬浮于右下角,不影响主布局。层级 z-modal(2000,引用 --z-modal)。 */}
+      <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
+        <div className="pointer-events-auto">
+          <PWAInstallPrompt />
+        </div>
+        <div className="pointer-events-auto">
+          <PWAUpdatePrompt onUpdate={() => window.location.reload()} />
+        </div>
+      </div>
+    </>
+  )
+}
+
+export default GlobalShell
