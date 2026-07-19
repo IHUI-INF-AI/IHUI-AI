@@ -10,13 +10,39 @@
  *
  * 设计要点:
  * - 兼容 H5 端(无 wx.login 时的友好降级)
- * - 网络失败 / code 失效有清晰错误
+ * - 网络失败 / code 失效有清晰错误(错误信息 i18n 化,根据当前 locale 返回)
  * - 单元测试可独立运行(纯函数 + 注入依赖)
  */
 import Taro from '@tarojs/taro'
 import { loginByWechat } from '../api'
 import { setToken, setRefreshToken, setUserInfo, type UserInfo } from './auth'
 import { useUserStore } from '../stores/user'
+import zhCN from '../i18n/zh-CN'
+import en from '../i18n/en'
+import ja from '../i18n/ja'
+import ko from '../i18n/ko'
+import zhTW from '../i18n/zh-TW'
+
+/** 读取当前 locale 下的 i18n 字典(非 hook 场景,供工具函数使用) */
+function getCurrentDict(): typeof zhCN {
+  try {
+    const stored = Taro.getStorageSync('lang') as string
+    if (stored === 'en') return en as typeof zhCN
+    if (stored === 'ja') return ja as typeof zhCN
+    if (stored === 'ko') return ko as typeof zhCN
+    if (stored === 'zh-TW') return zhTW as typeof zhCN
+  } catch {
+    /* ignore */
+  }
+  return zhCN
+}
+
+function loginT(key: string, fallback: string): string {
+  const value = (getCurrentDict() as Record<string, unknown>).login as
+    | Record<string, string>
+    | undefined
+  return value && typeof value[key] === 'string' ? value[key] : fallback
+}
 
 export interface WechatLoginOptions {
   /** 是否同时获取用户头像/昵称(新版小程序要求 button open-type 触发) */
@@ -65,9 +91,10 @@ export const defaultWechatClient: WechatClient = {
       Taro.login({
         success: (res: LoginSuccessRes) => {
           if (res.code) resolve(res.code)
-          else reject(new Error(res.errMsg || '微信登录失败'))
+          else reject(new Error(res.errMsg || loginT('wechatFailed', '微信登录失败')))
         },
-        fail: (err: { errMsg?: string }) => reject(new Error(err.errMsg || '微信登录失败')),
+        fail: (err: { errMsg?: string }) =>
+          reject(new Error(err.errMsg || loginT('wechatFailed', '微信登录失败'))),
       })
     }),
   getUserProfile: () =>
@@ -75,7 +102,8 @@ export const defaultWechatClient: WechatClient = {
       Taro.getUserProfile({
         desc: '用于完善会员资料',
         success: resolve,
-        fail: (err: { errMsg?: string }) => reject(new Error(err.errMsg || '获取微信资料失败')),
+        fail: (err: { errMsg?: string }) =>
+          reject(new Error(err.errMsg || loginT('profileFailed', '获取微信资料失败'))),
       } as Parameters<typeof Taro.getUserProfile>[0])
     }),
   getEnv: () => Taro.getEnv(),
@@ -95,12 +123,12 @@ export async function wechatLogin(
   client: WechatClient = defaultWechatClient,
 ): Promise<WechatLoginResult> {
   if (!isWechatMiniProgram(client.getEnv())) {
-    throw new Error('请在微信小程序中使用微信登录')
+    throw new Error(loginT('wechatEnvError', '请在微信小程序中使用微信登录'))
   }
 
   // 1. 拿临时 code
   const code = await client.login()
-  if (!code) throw new Error('微信登录 code 为空')
+  if (!code) throw new Error(loginT('codeEmpty', '微信登录 code 为空'))
 
   // 2. (可选)拿用户加密资料
   let profile: UserProfileSuccessRes | undefined
@@ -122,7 +150,7 @@ export async function wechatLogin(
   // 4. 合并微信昵称/头像(若已授权)
   const finalUser: UserInfo = {
     ...user,
-    nickname: user.nickname || profileNick || user.userName || '微信用户',
+    nickname: user.nickname || profileNick || user.userName || loginT('defaultNickname', '微信用户'),
     avatar: user.avatar || profileAvatar,
   }
 
