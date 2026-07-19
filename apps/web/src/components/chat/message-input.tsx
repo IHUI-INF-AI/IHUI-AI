@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Send, Square, FileText, Plus, FilePlus, Slash, AtSign } from 'lucide-react'
+import { Send, Square, SquareSlash, FileText, Plus, FilePlus, AtSign } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -503,7 +503,7 @@ export function MessageInput({
                   'disabled:cursor-not-allowed disabled:opacity-50',
                 )}
               >
-                <Slash className="h-4 w-4" />
+                <SquareSlash className="h-4 w-4" />
               </button>
               {/* @ 独立按钮:点击在 textarea 末尾插入 @ 字符并触发 FileMentionPopover */}
               <button
