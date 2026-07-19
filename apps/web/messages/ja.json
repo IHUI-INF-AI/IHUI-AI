@@ -991,6 +991,7 @@
     "me": "マイ",
     "promptTemplate": "プロンプトテンプレート",
     "addContextReference": "コンテキストとして",
+    "addContextHint": "コンテキストファイルや参照を追加",
     "attachFile": "添付ファイルを追加(画像/動画/ファイル)",
     "slashCommand": "コマンド/スキル呼び出し(/)",
     "mention": "ファイル/スキル/MCP/プラグイン言及(@)",
@@ -8514,6 +8515,343 @@
       },
       "gemini-2-flash": {
         "description": "コンテキストマルチモーダル"
+      }
+    },
+    "nav": {
+      "subtitle": "AI モデル統合プラットフォーム",
+      "groups": {
+        "main": "メイン機能",
+        "finance": "統計・財務",
+        "resources": "リソースセンター"
+      },
+      "overview": "概覧",
+      "market": "モデル市場",
+      "keys": "API キー",
+      "logs": "呼び出しログ",
+      "usage": "使用量統計",
+      "billing": "財務帳簿",
+      "redeem": "引換コード",
+      "referral": "招待報酬",
+      "openclaw": "OpenClaw デプロイ",
+      "apiDocs": "API ドキュメント",
+      "skills": "Skills 市場",
+      "contact": "お問い合わせ"
+    },
+    "market": {
+      "searchPlaceholder": "モデル名をあいまい検索",
+      "allCapabilities": "すべての能力",
+      "resultCount": "全 {count} / {total} モデル",
+      "empty": "一致するモデルが見つかりません",
+      "inputPrice": "入力価格",
+      "outputPrice": "出力価格",
+      "defaultDescription": "ベンダー提供の AI モデルサービス",
+      "tryNow": "今すぐ試す"
+    },
+    "overview": {
+      "title": "コンソール概覧",
+      "subtitle": "アカウント、呼び出し、消費状況を確認",
+      "stats": {
+        "balance": "アカウント残高",
+        "todayCalls": "本日の呼び出し",
+        "todayCost": "本日の消費",
+        "activeModels": "アクティブモデル"
+      },
+      "quickActions": {
+        "title": "クイック操作",
+        "createKey": "キー作成",
+        "browseModels": "モデル閲覧",
+        "viewUsage": "使用量確認",
+        "recharge": "今すぐチャージ"
+      },
+      "recentCalls": {
+        "title": "最近の呼び出し",
+        "time": "時間",
+        "model": "モデル",
+        "tokens": "Tokens",
+        "cost": "消費",
+        "status": "ステータス",
+        "statusLabels": {
+          "success": "成功",
+          "failed": "失敗"
+        }
+      }
+    },
+    "keys": {
+      "title": "API キー",
+      "subtitle": "API 呼び出しに使用するアクセスキーを管理",
+      "create": "キー作成",
+      "listTitle": "キーリスト",
+      "copy": "コピー",
+      "delete": "削除",
+      "table": {
+        "name": "名前",
+        "key": "Key",
+        "usage": "使用量 / 総量",
+        "createdAt": "作成日時",
+        "status": "ステータス",
+        "actions": "操作"
+      },
+      "statusLabels": {
+        "active": "使用中",
+        "expired": "使い切り"
+      }
+    },
+    "logs": {
+      "title": "呼び出しログ",
+      "subtitle": "すべての API 呼び出し記録を確認",
+      "filterTitle": "フィルター",
+      "filterModel": "モデル名",
+      "filterToken": "トークン",
+      "filterStatus": "ステータス",
+      "applyFilter": "フィルター適用",
+      "listTitle": "ログリスト",
+      "table": {
+        "time": "時間",
+        "model": "モデル",
+        "token": "トークン",
+        "inputTokens": "入力 Tokens",
+        "outputTokens": "出力 Tokens",
+        "cost": "消費",
+        "duration": "所要時間",
+        "status": "ステータス"
+      },
+      "statusLabels": {
+        "success": "成功",
+        "failed": "失敗"
+      }
+    },
+    "usage": {
+      "title": "使用量統計",
+      "subtitle": "時間軸で使用量と消費を確認",
+      "ranges": {
+        "today": "今日",
+        "7d": "7 日間",
+        "30d": "30 日間",
+        "90d": "90 日間"
+      },
+      "summary": {
+        "calls": "総呼び出し回数",
+        "tokens": "Tokens 総量",
+        "cost": "総消費",
+        "avgLatency": "平均遅延"
+      },
+      "byModel": {
+        "title": "モデル別",
+        "model": "モデル",
+        "calls": "呼び出し回数",
+        "tokens": "Tokens",
+        "cost": "消費",
+        "share": "割合"
+      }
+    },
+    "billing": {
+      "title": "財務帳簿",
+      "subtitle": "チャージ、帳簿、プランを管理",
+      "currentBalance": "現在の残高",
+      "recharge": "今すぐチャージ",
+      "monthConsume": "今月の消費",
+      "totalRecharge": "累計チャージ",
+      "packages": {
+        "title": "チャージプラン",
+        "starter": "スターター",
+        "starterBonus": "10% ボーナス",
+        "pro": "プロ",
+        "proBonus": "20% ボーナス",
+        "enterprise": "エンタープライズ",
+        "enterpriseBonus": "30% ボーナス",
+        "cta": "今すぐチャージ",
+        "recommended": "おすすめ",
+        "once": "一回限り"
+      },
+      "transactions": {
+        "title": "取引記録",
+        "id": "注文番号",
+        "type": "タイプ",
+        "amount": "金額",
+        "balance": "残高",
+        "time": "時間",
+        "status": "ステータス",
+        "types": {
+          "recharge": "チャージ",
+          "consume": "消費"
+        },
+        "statusLabels": {
+          "success": "成功"
+        }
+      }
+    },
+    "redeem": {
+      "title": "引換コード",
+      "subtitle": "引換コードでアカウント残高をチャージ",
+      "form": {
+        "title": "引換コード",
+        "placeholder": "引換コードを入力してください",
+        "submit": "今すぐ引き換え",
+        "tip": "引換コードは大文字小文字を区別します。提出前に慎重にご確認ください。"
+      },
+      "history": {
+        "title": "引換履歴",
+        "code": "コード",
+        "amount": "金額",
+        "time": "引換時間",
+        "status": "ステータス",
+        "statusLabels": {
+          "success": "引換成功",
+          "failed": "無効"
+        }
+      }
+    },
+    "referral": {
+      "title": "招待報酬",
+      "subtitle": "友人を招待して登録すると、双方に報酬が付与されます",
+      "link": {
+        "title": "私の招待リンク",
+        "tip": "専用の招待リンクを友人に共有",
+        "copy": "リンクをコピー",
+        "reward": "友人が登録し ¥10 以上消費すると、{amount} の報酬を獲得できます"
+      },
+      "stats": {
+        "invited": "招待済み",
+        "activated": "有効化済み",
+        "reward": "累計報酬"
+      },
+      "list": {
+        "title": "招待記録",
+        "user": "ユーザー",
+        "joined": "登録時間",
+        "reward": "報酬",
+        "status": "ステータス",
+        "statusLabels": {
+          "activated": "有効化済み",
+          "pending": "有効化待ち"
+        }
+      }
+    },
+    "openclaw": {
+      "title": "OpenClaw ワンクリックデプロイ",
+      "subtitle": "オープンソース AI ゲートウェイ、マルチモデルルーティング、ロードバランシング、キャッシュ加速をサポート",
+      "hero": {
+        "title": "OpenClaw - AI デプロイをよりシンプルに",
+        "desc": "OpenClaw はオープンソースの AI ゲートウェイで、マルチモデルルーティング、ロードバランシング、キャッシュ加速、監視アラートなどのエンタープライズ級機能を提供します",
+        "deploy": "今すぐデプロイ",
+        "docs": "ドキュメントを見る"
+      },
+      "featuresTitle": "コア機能",
+      "features": {
+        "oneClick": "ワンクリックデプロイ、設定不要で利用可能",
+        "multiModel": "マルチモデルルーティング、80+ AI ベンダーをサポート",
+        "loadBalance": "インテリジェントロードバランシング、自動フェイルオーバー",
+        "cache": "リクエストキャッシュ、重複呼び出しコストを 60% 削減",
+        "monitor": "リアルタイム監視、完全な可観測性",
+        "scale": "弾力的スケーリング、数千万 QPS をサポート"
+      },
+      "stepsTitle": "デプロイ手順",
+      "steps": [
+        {
+          "title": "CLI インストール",
+          "desc": "1 行のコマンドで OpenClaw CLI ツールをインストール"
+        },
+        { "title": "ログイン認証", "desc": "API キーで OpenClaw にログイン" },
+        { "title": "モデル設定", "desc": "デプロイするモデルとリージョンを選択" },
+        {
+          "title": "ワンクリック起動",
+          "desc": "デプロイコマンドを実行し、サービスの準備完了を待機"
+        }
+      ],
+      "cli": {
+        "title": "コマンドライン例"
+      }
+    },
+    "apiDocs": {
+      "title": "API ドキュメント",
+      "subtitle": "完全な API 統合ドキュメントと例",
+      "auth": {
+        "title": "認証方式",
+        "desc": "すべての API リクエストは Header に Bearer Token を含める必要があります。Token は API キーページで作成できます。"
+      },
+      "endpoints": {
+        "title": "エンドポイント一覧",
+        "method": "メソッド",
+        "path": "パス",
+        "desc": "説明",
+        "chat": "チャット補完",
+        "complete": "テキスト補完",
+        "list": "モデルリスト",
+        "embed": "ベクトル埋め込み",
+        "image": "画像生成",
+        "audio": "音声合成"
+      },
+      "example": {
+        "title": "呼び出し例",
+        "curl": "cURL",
+        "python": "Python"
+      }
+    },
+    "skills": {
+      "title": "Skills 市場",
+      "subtitle": "Skills を閲覧・インストールして機能を拡張",
+      "searchPlaceholder": "Skills を検索...",
+      "featuredTitle": "注目の Skills",
+      "allTitle": "すべての Skills",
+      "featured": "注目",
+      "install": "インストール",
+      "installs": "{count} インストール",
+      "categories": {
+        "weather": "天気",
+        "search": "検索",
+        "code": "コード",
+        "productivity": "生産性",
+        "communication": "コミュニケーション",
+        "data": "データ",
+        "media": "メディア",
+        "system": "システム"
+      },
+      "items": {
+        "weather": { "desc": "世界中の任意の場所のリアルタイム天気と未来の予報を照会" },
+        "nodeConnect": { "desc": "MCP プロトコルで外部ノードやサービスに接続" },
+        "healthcheck": { "desc": "サービスの健全性チェック、自動アラート" },
+        "webSearch": { "desc": "インターネットで最新情報を検索、マルチエンジン対応" },
+        "codeRunner": { "desc": "オンラインでコード実行、30+ プログラミング言語をサポート" },
+        "pdfToolkit": { "desc": "PDF 結合、分割、変換、圧縮ツールキット" },
+        "emailSender": { "desc": "SMTP でメール送信、テンプレート対応" },
+        "dataViz": { "desc": "データ可視化、多種グラフ生成" },
+        "imageGen": { "desc": "AI 画像生成、多種スタイル対応" },
+        "audioTranscribe": { "desc": "音声からテキスト変換、多言語対応" },
+        "calendar": { "desc": "スケジュール管理、イベントリマインダー" },
+        "databaseQuery": { "desc": "データベースクエリ、SQL と NoSQL をサポート" }
+      }
+    },
+    "contact": {
+      "title": "お問い合わせ",
+      "subtitle": "ご質問がある場合は、以下の方法でお問い合わせください",
+      "channels": {
+        "qq": "QQ グループ",
+        "qqDesc": "公式 QQ グループに参加して交流",
+        "wechat": "WeChat",
+        "wechatDesc": "公式 WeChat を追加してご相談",
+        "email": "メール",
+        "emailDesc": "メール相談、営業日内 24 時間以内に返信",
+        "phone": "電話",
+        "phoneDesc": "24 時間 365 日サービスホットライン"
+      },
+      "form": {
+        "title": "オンライン相談",
+        "name": "お名前",
+        "namePlaceholder": "お名前を入力してください",
+        "email": "メール",
+        "emailPlaceholder": "メールアドレスを入力してください",
+        "subject": "件名",
+        "subjectPlaceholder": "相談件名を入力してください",
+        "message": "内容",
+        "messagePlaceholder": "問題を詳細に記述してください...",
+        "submit": "相談を送信"
+      },
+      "hours": {
+        "title": "サービス時間",
+        "weekday": "営業日",
+        "weekend": "週末",
+        "holiday": "祝日",
+        "closed": "休業"
       }
     }
   },
@@ -16082,6 +16420,8 @@
     "newConversation": "チャット",
     "noHistory": "なしチャット",
     "emptyWorkspace": "空のワークスペース",
+    "handleHint": "クリックまたは右にドラッグしてAIワークスペースを開く",
+    "resizeHandleHint": "ドラッグして幅を調整",
     "filterByModel": "モデルフィルター",
     "allModels": "ありモデル",
     "today": "今日",

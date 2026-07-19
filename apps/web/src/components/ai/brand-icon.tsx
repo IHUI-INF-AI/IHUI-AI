@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import {
   OpenAI,
   Anthropic,
@@ -451,7 +452,6 @@ export function BrandIcon({
   className,
 }: BrandIconProps) {
   const VendorIcon = vendor ? VENDOR_COMPONENTS[vendor.toLowerCase()] : undefined
-  const fallbackLetter = vendor ? vendor.charAt(0).toUpperCase() : '?'
 
   if (VendorIcon) {
     return (
@@ -465,17 +465,16 @@ export function BrandIcon({
     )
   }
 
-  // 兜底:首字母徽章
+  // 兜底:项目 logo SVG(/images/logo.svg,仅图标无文字版本)
+  // 当 vendor 未识别或为空时显示项目自带 logo,替代原首字母徽章
   return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground font-medium',
-        className,
-      )}
-      style={{ width: size, height: size, fontSize: Math.max(8, size * 0.55) }}
+    <Image
+      src="/images/logo.svg"
+      alt=""
+      width={size}
+      height={size}
       aria-hidden="true"
-    >
-      {fallbackLetter}
-    </span>
+      className={cn('inline-flex shrink-0 object-contain', className)}
+    />
   )
 }
