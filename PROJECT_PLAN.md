@@ -80,6 +80,40 @@
 
 ---
 
+### i18n 收尾:中文残留全量修复 + 通用守门工具(已完成 ✅)
+
+**背景**:多 agent 并发开发期间,ko.json/ja.json/en.json 累积大量未翻译中文残留,且 models 命名空间出现 JSON 重复键 shadowing 问题。
+
+**已完成(2026-07-19,3 轮 commit)**:
+
+- [x] **ko.json 433 处中文残留修复**(384 纯中文 + 49 半翻译),覆盖 dramaScript/settings/openPlatform/humanMachine/home.marquee 等 50+ 命名空间
+- [x] **ja.json 385 处中文残留修复**(260 未翻译 + 86 纯中文 + 39 半翻译),覆盖 api/admin/settings/text/data/apiService 等 60+ 命名空间
+- [x] **en.json 457 处中文残留修复**,品牌名/公司名/字体名/人名/UI 标签全量翻译为英文
+- [x] **品牌名翻译策略落地**:优先官方英文名(智谱清言→Zhipu AI / 百度文心→Baidu ERNIE / 宇树科技→Unitree / 火山引擎→Volcengine / 阿里云→Alibaba Cloud / 腾讯云→Tencent Cloud / 九章智算云→JiuZhang / 百度智能云→Baidu Cloud / 华为云→Huawei Cloud / 致远互联→Seeyon)
+- [x] **字体名翻译策略落地**:优先英文系统名(宋体→SimSun / 黑体→SimHei / 楷体→KaiTi / 微软雅黑→Microsoft YaHei)
+- [x] **通用 i18n 守门工具** `scripts/scan-i18n-zh-residue.mjs`(181 行,配置表驱动,zh-TW/ko/ja/其他)
+  - zh-TW: opencc 字形转换检测(阻塞)
+  - ko: 字符范围检测(阻塞)
+  - ja: warn-only(不阻塞,因日文汉字词易误报)
+  - 未来新增 locale 只需在 LOCALE_CONFIG 加一行
+- [x] **pre-commit 守门切换**:2b/2c 从专用脚本切到通用工具,新增 2d(ja warn-only)
+- [x] **删除旧专用脚本**:scan-zh-tw-simp.mjs + scan-ko-zh-residue.mjs(通用工具已覆盖)
+- [x] **AGENTS.md 第 20 节新增**:i18n 约束规则(翻译文件语言纯度 / JSON 重复键禁止 / 翻译策略 / 守门工具)
+- [x] **守门脚本速查表同步**:2b/2c/2d 全部更新为通用工具调用
+- [x] **fix-zh-tw-simp.mjs 注释同步**:更新配套脚本引用
+
+**验证**:i18n parity 8408 键 OK / ko.json 0 残留 / zh-TW 0 简体 / en.json 0 中文 / ja.json warn-only
+
+**后续 P2(本季度内,需多 sprint,非本轮范围)**:
+
+- [ ] en.json 全量语义校对(仍有破碎机翻英文如 "AgentDevPlatform"/"BigModelAppDev")
+- [ ] data._/text._/title._/return._/hardcoded.* 命名空间 key 含中文问题(需改自动扫描工具)
+- [ ] 维护 docs/i18n-brand-glossary.md 品牌 canonical 映射表
+- [ ] packages/shell-shared 共享层抽取(desktop/extension 业务代码重叠度 85-90%)
+- [ ] Sprint 1 前置对齐(desktop React 18→19 + API Base URL 修复 + Router 切换 + token API 对齐)
+
+---
+
 ## 历史归档摘要(2026-06-29 ~ 2026-07-18)
 
 已完成 24 轮交付,涵盖:
