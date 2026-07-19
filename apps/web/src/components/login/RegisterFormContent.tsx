@@ -4,8 +4,9 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Loader2 } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
@@ -40,6 +41,8 @@ export function RegisterFormContent({ onSuccess }: RegisterFormContentProps) {
 
   const [countdown, setCountdown] = React.useState(0)
   const [sendingCode, setSendingCode] = React.useState(false)
+  const [agreed, setAgreed] = React.useState(false)
+  const [showAgreeErr, setShowAgreeErr] = React.useState(false)
 
   const {
     register,
@@ -100,6 +103,10 @@ export function RegisterFormContent({ onSuccess }: RegisterFormContentProps) {
   const onSubmit = async (values: RegisterValues) => {
     setServerError(null)
     setServerInfo(null)
+    if (!agreed) {
+      setShowAgreeErr(true)
+      return
+    }
     setSubmitting(true)
     try {
       const res = await fetch('/api/auth/register', {
@@ -133,13 +140,16 @@ export function RegisterFormContent({ onSuccess }: RegisterFormContentProps) {
 
       <div className="space-y-2">
         <Label htmlFor="phone">{t('phone')}</Label>
-        <Input
-          id="phone"
-          type="tel"
-          autoComplete="tel"
-          placeholder={t('phonePlaceholder')}
-          {...register('phone')}
-        />
+        <div className="input-gradient-wrap rounded-md">
+          <Input
+            id="phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder={t('phonePlaceholder')}
+            className="h-9 rounded-[7px] border border-input bg-background"
+            {...register('phone')}
+          />
+        </div>
         {errors.phone && (
           <p className="text-xs text-destructive">{resolveError(errors.phone.message!)}</p>
         )}
@@ -148,13 +158,16 @@ export function RegisterFormContent({ onSuccess }: RegisterFormContentProps) {
       <div className="space-y-2">
         <Label htmlFor="code">{t('code')}</Label>
         <div className="flex gap-2">
-          <Input
-            id="code"
-            type="text"
-            inputMode="numeric"
-            placeholder={t('codePlaceholder')}
-            {...register('code')}
-          />
+          <div className="input-gradient-wrap flex-1 rounded-md">
+            <Input
+              id="code"
+              type="text"
+              inputMode="numeric"
+              placeholder={t('codePlaceholder')}
+              className="h-9 rounded-[7px] border border-input bg-background"
+              {...register('code')}
+            />
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -172,13 +185,16 @@ export function RegisterFormContent({ onSuccess }: RegisterFormContentProps) {
 
       <div className="space-y-2">
         <Label htmlFor="password">{t('password')}</Label>
-        <Input
-          id="password"
-          type="password"
-          autoComplete="new-password"
-          placeholder={t('passwordPlaceholder')}
-          {...register('password')}
-        />
+        <div className="input-gradient-wrap rounded-md">
+          <Input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            placeholder={t('passwordPlaceholder')}
+            className="h-9 rounded-[7px] border border-input bg-background"
+            {...register('password')}
+          />
+        </div>
         <PasswordStrengthIndicator password={password} />
         {errors.password && (
           <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>
@@ -187,13 +203,16 @@ export function RegisterFormContent({ onSuccess }: RegisterFormContentProps) {
 
       <div className="space-y-2">
         <Label htmlFor="confirmPassword">{t('confirmPassword')}</Label>
-        <Input
-          id="confirmPassword"
-          type="password"
-          autoComplete="new-password"
-          placeholder={t('passwordPlaceholder')}
-          {...register('confirmPassword')}
-        />
+        <div className="input-gradient-wrap rounded-md">
+          <Input
+            id="confirmPassword"
+            type="password"
+            autoComplete="new-password"
+            placeholder={t('passwordPlaceholder')}
+            className="h-9 rounded-[7px] border border-input bg-background"
+            {...register('confirmPassword')}
+          />
+        </div>
         {errors.confirmPassword && (
           <p className="text-xs text-destructive">
             {resolveError(errors.confirmPassword.message!)}
@@ -201,7 +220,68 @@ export function RegisterFormContent({ onSuccess }: RegisterFormContentProps) {
         )}
       </div>
 
-      <Button type="submit" className="w-full" disabled={submitting}>
+      {/* 隐私协议复选框 */}
+      <label className="group flex cursor-pointer items-start gap-2 select-none">
+        <span
+          onClick={(e) => {
+            e.preventDefault()
+            setAgreed(!agreed)
+            if (!agreed) setShowAgreeErr(false)
+          }}
+          className={[
+            'mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-all duration-200',
+            showAgreeErr && !agreed
+              ? 'border-destructive'
+              : agreed
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-input bg-background group-hover:border-foreground/60',
+          ].join(' ')}
+          aria-checked={agreed}
+          role="checkbox"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault()
+              setAgreed(!agreed)
+              if (!agreed) setShowAgreeErr(false)
+            }
+          }}
+        >
+          {agreed && <Check className="h-3 w-3" strokeWidth={3} />}
+        </span>
+        <input
+          type="checkbox"
+          className="sr-only"
+          checked={agreed}
+          onChange={(e) => {
+            setAgreed(e.target.checked)
+            if (e.target.checked) setShowAgreeErr(false)
+          }}
+        />
+        <span className="text-xs leading-5 text-muted-foreground">
+          {t('agreePrefix')}
+          <Link
+            href="/agreement/user-agreement"
+            target="_blank"
+            className="text-primary hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {t('termsOfService')}
+          </Link>
+          {t('and')}
+          <Link
+            href="/agreement/privacy-policy"
+            target="_blank"
+            className="text-primary hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {t('privacyPolicy')}
+          </Link>
+        </span>
+      </label>
+      {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
+
+      <Button type="submit" className="w-full" disabled={submitting || !agreed}>
         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
         {t('registerBtn')}
       </Button>
