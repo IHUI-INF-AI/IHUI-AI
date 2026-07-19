@@ -8,12 +8,14 @@ import { Button, Input, Label } from '@ihui/ui'
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
+import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { usernameSchema, type TokenResult } from './login-schemas'
 
 interface UsernameLoginFormProps {
   active: boolean
   onSuccess?: () => void
   agreed?: boolean
+  onAgreedChange?: (v: boolean) => void
   onRequireAgree?: () => void
   showAgreeErr?: boolean
 }
@@ -22,6 +24,7 @@ export function UsernameLoginForm({
   active,
   onSuccess,
   agreed = true,
+  onAgreedChange,
   onRequireAgree,
   showAgreeErr,
 }: UsernameLoginFormProps) {
@@ -107,6 +110,11 @@ export function UsernameLoginForm({
           onChange={(e) => setUsernamePassword(e.target.value)}
         />
       </div>
+      <AgreementCheckbox
+        checked={agreed}
+        onChange={(v) => onAgreedChange?.(v)}
+        error={showAgreeErr && !agreed}
+      />
       {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
       <Button type="submit" className="h-10 w-full" disabled={usernameSubmitting || !agreed}>
         {usernameSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
