@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Menu, Sparkles, LogIn, LayoutDashboard } from 'lucide-react'
 import { Button } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useMounted } from '@/hooks/use-mounted'
 
 const NAV_LINKS = [
@@ -63,11 +64,12 @@ export function MarketingHeader() {
               </Link>
             </Button>
           ) : (
-            <Button size="sm" asChild>
-              <Link href="/sso/login">
-                <LogIn className="mr-1 h-3.5 w-3.5" />
-                {t('header.login')}
-              </Link>
+            <Button
+              size="sm"
+              onClick={() => useLoginDialogStore.getState().open('login')}
+            >
+              <LogIn className="mr-1 h-3.5 w-3.5" />
+              {t('header.login')}
             </Button>
           )}
           <Button
