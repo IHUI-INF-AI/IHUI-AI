@@ -148,6 +148,54 @@
 
 ---
 
+## 4 项剩余项调研结论归档(已完成 ✅ 2026-07-20)
+
+**触发**:用户要求推进任务范围外的 4 项剩余项(28 API 设计风格差异 + 234 前端非真实缺失 + i18n parity 问题 + BrandMarquee 模块缺失)。
+
+**调研方法**:派 4 个 search subagent 并行精确调研,基于审计报告 + 5 语言 i18n 文件实测 + D 盘历史项目核查。
+
+**调研结论**:
+
+1. **BrandMarquee 模块缺失**(由并行 subagent 实现 + 自验):
+   - 状态:✅ 已实现 + 4 状态自验通过
+   - 实施:`apps/web/src/components/marketing/BrandMarquee.tsx`(45 行,复用 home.marquee 15 品牌翻译 + animate-marquee CSS)
+   - 同步修复:en.json 7 处破碎翻译 + ja.json 5 处机翻错误
+
+2. **i18n parity 问题**(由并行 subagent 修复):
+   - key parity 已完成(5 语言各 21883 key,无缺失)
+   - 翻译质量问题修复:zh-TW 7 处简体字残留 + en 6 处机翻 + ja 5 处机翻 + ko mcp 15+ 处破碎
+   - 状态:✅ 翻译质量修复完成 + 守门脚本全绿
+
+3. **234 前端非真实缺失**(经核查全部已等价实现):
+   - 状态:✅ 已核实关闭(无需补开发)
+   - 4 类非真实缺失理由:
+     - A. 路径重命名/重组(~90 条):Vue `/member/list` → Next.js `/admin/members` 等
+     - B. Dialog 弹窗模式(~50 条):Vue 独立 edit 页 → Next.js 列表 + Dialog 弹窗
+     - C. 动态路由收敛(~10 条):Vue 5 个题型独立路由 → Next.js 1 个动态路由
+     - D. 重复计数(~85 条):edu client 与 code/edu 同项目两副本重复
+   - 审计报告"30 个 RuoYi 框架页"实际仅 1 条(`/tool/gen-edit` 已废弃)
+   - 审计报告"130 edu 子页 + 76 edu 用户端"去重后实际 94 + 58 = 152 条
+   - 真实需要补开发:0 条
+
+4. **28 API 设计风格差异**(经核查全部功能等价):
+   - 状态:✅ 已核实关闭(无需重构)
+   - 实际清单:86 设计风格差异 + 26 废弃 + 2 已补开发 = 114 unique paths
+   - 86 个设计风格差异端点全部已存在功能等价或更优的实现
+   - IHUI-AI 风格(RESTful + kebab-case)比 D 盘 Java Spring 风格(动作式 + camelCase)更优
+   - 推荐重构:0 个;多端同步影响:0 文件;总工作量:0 文件
+   - 26 个废弃项:验证码 CRUD / Base64 上传 / 旧 AI 业务 / 证书模板独立 CRUD / RuoYi 代码生成器 / 钉钉 / Sora2 / 试卷推荐 / TBox 硬件等(全部已废弃,无需迁移)
+
+**可选优化项(P3,无业务驱动,可不做)**:
+
+- 优化 `scripts/audit-migration-frontend-routes.mjs`:增加重复路径去重 + Dialog 模式识别 + 动态路由收敛识别
+- 优化 `scripts/audit-migration-api-routes.mjs`:增加路径风格等价识别(RESTful query 参数 vs 动作式路径)
+- 增强 `scripts/check-i18n-broken-en.mjs`:增加单单词机翻检测(捕获 `huawei: Why` 类错误)
+- 新增 `scripts/check-i18n-broken-ko.mjs` 和 `check-i18n-broken-ja.mjs`(参考 broken-en 模式)
+
+**结论**:本批 4 项剩余项调研 + 修复 + 归档已完成,任务范围外剩余项全部关闭。
+
+---
+
 ## P2 公共 hook 抽取:useBatchMutation + 7 admin 页面迁移(2026-07-20 完成)
 
 - [x] ✅ (2026-07-20) `apps/web/src/hooks/use-batch-mutation.ts` 新建公共 hook(支持 body / url 两种 ID 传参模式,统一管理 invalidate + toast + isPending + 空数组守卫 + 单行删除 override)
