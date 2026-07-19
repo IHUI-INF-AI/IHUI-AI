@@ -2526,6 +2526,22 @@
       "deleteTitle": "삭제제목",
       "deleteConfirm": "확인필요삭제이개변화수량까？"
     },
+    "validation": {
+      "required": "필수 항목입니다",
+      "min": "최소값은 {min}입니다",
+      "max": "최대값은 {max}입니다",
+      "minLength": "{min}자 이상 입력하세요",
+      "maxLength": "{max}자 이하로 입력하세요",
+      "email": "유효한 이메일을 입력하세요",
+      "url": "유효한 URL을 입력하세요",
+      "uuid": "유효한 UUID를 입력하세요",
+      "number": "숫자여야 합니다",
+      "integer": "정수여야 합니다",
+      "positive": "양수여야 합니다",
+      "pattern": "형식이 올바르지 않습니다",
+      "enum": "유효한 옵션을 선택하세요",
+      "custom": "값이 잘못되었습니다"
+    },
     "settings": {
       "title": "시스템 설정",
       "subtitle": "포괄적인의개발문서및API참조",
@@ -24498,5 +24514,99 @@
       "subscribe": "매일 구독",
       "community": "커뮤니티 가입"
     }
+  },
+  "workflow": {
+    "approval": {
+      "states": {
+        "draft": "초안",
+        "submitted": "제출됨",
+        "approved": "승인됨",
+        "rejected": "거부됨",
+        "cancelled": "취소됨"
+      },
+      "events": {
+        "SUBMIT": "제출",
+        "APPROVE": "승인",
+        "REJECT": "거부",
+        "REVOKE": "철회",
+        "RESUBMIT": "재제출",
+        "CANCEL": "취소"
+      }
+    },
+    "refund": {
+      "states": {
+        "pending": "대기 중",
+        "reviewing": "검토 중",
+        "refunding": "환불 중",
+        "refunded": "환불 완료",
+        "rejected": "거부됨",
+        "failed": "실패",
+        "cancelled": "취소됨"
+      },
+      "events": {
+        "REVIEW": "검토",
+        "APPROVE_REFUND": "환불 승인",
+        "REJECT": "거부",
+        "REFUND_SUCCESS": "환불 성공",
+        "REFUND_FAIL": "환불 실패",
+        "RETRY": "재시도",
+        "CANCEL": "취소"
+      }
+    },
+    "withdrawal": {
+      "states": {
+        "requested": "신청됨",
+        "verifying": "검증 중",
+        "approved": "승인됨",
+        "paying": "송금 중",
+        "paid": "입금 완료",
+        "rejected": "거부됨",
+        "failed": "실패",
+        "cancelled": "취소됨"
+      },
+      "events": {
+        "AUTO_APPROVE": "자동 승인",
+        "START_VERIFY": "검증 시작",
+        "APPROVE": "승인",
+        "REJECT": "거부",
+        "PAY": "송금",
+        "PAY_SUCCESS": "송금 성공",
+        "PAY_FAIL": "송금 실패",
+        "RETRY": "재시도",
+        "CANCEL": "취소"
+      }
+    },
+    "ticket": {
+      "states": {
+        "open": "미할당",
+        "assigned": "할당됨",
+        "in_progress": "처리 중",
+        "resolved": "해결됨",
+        "closed": "종료",
+        "rejected": "거부됨"
+      },
+      "events": {
+        "ASSIGN": "할당",
+        "START_WORK": "처리 시작",
+        "RESOLVE": "해결",
+        "REOPEN": "재개",
+        "CLOSE": "종료",
+        "REJECT": "거부"
+      }
+    }
+  },
+  "chart": {
+    "type": {
+      "line": "꺾은선 그래프",
+      "bar": "막대 그래프",
+      "pie": "원 그래프",
+      "area": "영역 그래프"
+    },
+    "loading": "로딩 중…",
+    "noData": "데이터 없음",
+    "seriesLabel": "범례",
+    "xAxisLabel": "X축",
+    "yAxisLabel": "Y축",
+    "valueSuffix": ""
   }
 }
