@@ -1,11 +1,18 @@
 """IHUI AI 服务 - FastAPI 入口。
 
 提供 LLM 网关、MCP 工具、LangGraph 工作流等 AI 能力。
+
+ASGI 拓扑:
+- FastAPI 处理所有 HTTP 路由(/api/* /health /metrics 等)
+- Socket.IO 处理 /socket.io/* 路径(兼容历史 coze_zhs_py 客户端)
+- 根 ASGI app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app)
+  /socket.io/* → sio,其余 → fastapi_app(含中间件栈)
 """
 import logging
 import os
 from contextlib import asynccontextmanager
 
+import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -17,6 +24,8 @@ from app.core.jwt_auth import JWTAuthMiddleware
 from app.core.schema_check import check_schema, log_report
 from app.routers import a2a, agent_runtime, agents, health, llm, mcp, personas, tools, voice_stt
 from app.routers.legacy import router as legacy_router
+from app.sio import sio
+from app.sio.handlers import register_handlers
 from app.telemetry import setup_telemetry, shutdown_telemetry
 
 logger = logging.getLogger(__name__)
@@ -91,13 +100,21 @@ def create_app() -> FastAPI:
         should_group_status_codes=True,
         should_ignore_untemplated=True,
         should_respect_env_var=False,
-        excluded_handlers=["/health", "/metrics"],
+        excluded_handlers=["/health", "/metrics", "/socket.io"],
     ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
     return app
 
 
-app = create_app()
+# FastAPI 实例(承载所有 HTTP 路由 + 中间件 + OpenTelemetry + Prometheus)
+fastapi_app = create_app()
+
+# 注册 Socket.IO 事件处理器(connect/disconnect/join_room/leave_room/chat_message)
+register_handlers(sio)
+
+# 根 ASGI app: /socket.io/* → sio,其余 → fastapi_app(中间件栈保留)
+# 兼容历史 coze_zhs_py 客户端通过 Socket.IO 协议连接新 ai-service。
+app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app)
 
 
 if __name__ == "__main__":
