@@ -7,6 +7,46 @@
 
 ## 当前活跃任务(2026-07-19)
 
+### 登录框输入栏描边样式修复 + CI 守门(已完成 ✅)
+
+**背景**:用户反馈"登录框所有的输入栏怎么没有显示描边样式呢 之前做好的没生效"。
+
+**根因诊断**:
+
+1. `.input-gradient-wrap` 默认无 border 声明(`animations.css` 仅设了 `padding: 1px`),输入框靠 `::before` 渐变在 hover/focus 时显示描边,**默认态完全无描边**
+2. 历史版本曾尝试 `border: 1px solid hsl(var(--color-input))`,但 Tailwind v4 `@theme` 把 `--color-input` 序列化为 `hsl(0 0% 89.8%)` 形式,外层 `hsl()` 包裹导致 `hsl(hsl(...))` 非法,整条声明被浏览器静默丢弃
+
+**已完成**:
+
+- [x] **根因修复**:`apps/web/src/styles/animations.css:3168-3180` `.input-gradient-wrap` 加 `border: 1px solid var(--color-input);`(直接 var 引用,绕开 hsl() 嵌套陷阱)
+- [x] **CI 守门**:`apps/web/tests/visual/login-dialog-verify.spec.ts` 4 状态硬断言:
+  - state 1 默认态:border 1px solid rgb(229, 229, 229) (#e5e5e5 light 浅灰)
+  - state 2 hover 态:border 仍 1px solid rgb(229, 229, 229) + ::before opacity 1
+  - state 3 active 勾选态:复选框勾选后输入框描边仍 1px solid rgb(229, 229, 229)
+  - state 4 dark mode 态:border 1px solid rgb(56, 56, 56) (#383838 dark 深灰)
+- [x] **守门脚本**:`scripts/check-input-border-var.mjs`(新)+ `.husky/pre-commit` 第 17 项接入
+  - 扫描 4064 文件 0 违规
+  - 同时修复 1 处历史违规:`apps/web/app/(main)/admin/i18n-dashboard/RingChart.tsx` `hsl(var(--muted))` → `var(--muted)`
+  - 禁止 `hsl(var(...))` / `hsla(var(...))` / `rgb(var(...))` / `rgba(var(...))` 嵌套
+  - 豁免:`color-mix(in srgb, var(--xxx) 60%, transparent)`(CSS 4 合法)/ `@theme` 块内变量声明 / 注释行
+- [x] **守门脚本自验误报修复**:`login-dialog-verify.spec.ts` 错误信息字符串中含 `hsl(var(--color-input))` 字面量(用于说明断言原因),守门脚本误报 → 改写为"防止 CSS 颜色 token 嵌套被 Tailwind v4 序列化后静默丢弃"避免误报
+- [x] **visual test 4 passed**:playwright `tests/visual/login-dialog-verify.spec.ts` 4 tests passed(9.0s)
+- [x] **临时散图清理**:`apps/web/tmp/login-dialog-verify-shots/` 本任务副产物,本任务完成时已清理
+
+**未完成 — 需用户协调**:
+
+- [ ] **`git commit` 阻塞**:pre-commit 第 16 项(条件 typecheck 闸门)检测到 staged 涉及 `apps/web/`,触发 `pnpm --filter @ihui/web typecheck`,但 typecheck 失败根因是**其他 agent 的代码**(不在本任务清单):
+  - `apps/web/src/hooks/use-chat.ts(117,13)`: `providerCode` 类型 `string | null` 不匹配 `string | undefined` — 由"模型广场页 / AI 对话"任务的 agent 引入
+  - `apps/web/src/components/chat/model-selector.tsx(18,30/19,40)`: `@/app/(main)/settings/llm/helpers` 路径不存在(实际在 `./app/(main)/...`,而 `@/*` alias 映射到 `./src/*`)
+- **按 AGENTS.md 第 12 节(多会话并行操作同一仓库)**:本 agent **禁止**修改其他 agent 的文件,必须由引入方自行修复
+- **按 AGENTS.md 第 11 节(多 Subagent 并行开发)**:本任务清单只有 6 个文件,use-chat.ts / model-selector.tsx 不在清单内
+- **建议协调路径**:
+  1. 等"模型广场页 / AI 对话"任务的 agent 完成工作并 commit(含 typecheck 修复)
+  2. 或由用户决策:是协调修复 typecheck,还是本任务 commit 时临时 `--no-verify` 跳过 pre-commit 第 16 项
+  3. **禁止** `git reset --hard` / `git checkout .` / 任何抹除其他 agent 工作的破坏性操作
+
+**待办**:无(本 agent 范围内已无待办)
+
 ### 模型广场页深度开发优化 + LLM 安全清洁(进行中)
 
 **背景**:用户反馈"模型广场页功能未完全开发好"+"开发对话中模型总是自己停"。

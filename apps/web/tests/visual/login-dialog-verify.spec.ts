@@ -106,6 +106,16 @@ test.describe('AI 登录框 4 状态自验', () => {
         firstBeforeOpacity: gradients[0]
           ? getComputedStyle(gradients[0], '::before').opacity
           : null,
+        // 描边实测(2026-07-19 登录框描边样式回归落地的硬性证据)
+        // 守门:防止 `.input-gradient-wrap` 默认态无 border,或 hsl(var(--color-input)) 嵌套形式被浏览器静默丢弃
+        wrapBorders: Array.from(gradients).map((g) => {
+          const cs = getComputedStyle(g as HTMLElement)
+          return {
+            borderTopWidth: cs.borderTopWidth,
+            borderTopStyle: cs.borderTopStyle,
+            borderTopColor: cs.borderTopColor,
+          }
+        }),
         checkbox: cb
           ? {
               exists: true,
@@ -142,6 +152,20 @@ test.describe('AI 登录框 4 状态自验', () => {
     expect(data.checkbox?.exists, '复选框应存在').toBe(true)
     expect(data.hasWelcomeTextVisible, '不应有视觉可见的"欢迎回来"h2').toBe(false)
     expect(data.hasLoginSubtitleVisible, '不应有视觉可见的"登录您的账号"文字').toBe(false)
+    // 描边硬性证据(2026-07-19 登录框描边样式回归守门)
+    // 默认态必须呈现 1px solid 浅灰(#e5e5e5 = rgb(229, 229, 229))
+    expect(data.wrapBorders!.length, '每个 .input-gradient-wrap 必须有 border 数值').toBe(
+      data.gradientCount,
+    )
+    data.wrapBorders!.forEach((b, i) => {
+      expect(b.borderTopWidth, `wrap[${i}] border-width 应为 1px`).toBe('1px')
+      expect(b.borderTopStyle, `wrap[${i}] border-style 应为 solid`).toBe('solid')
+      expect(
+        b.borderTopColor,
+        `wrap[${i}] border-color 应为 #e5e5e5 light 浅灰 (防止 CSS 颜色 token 嵌套被 Tailwind v4 序列化后静默丢弃)`,
+      ).toBe('rgb(229, 229, 229)')
+    })
+    expect(data.firstBeforeOpacity, '默认态 ::before 渐变描边应隐藏 (opacity 0)').toBe('0')
   })
 
   test('state 2: hover 态 (light mode) — 输入框渐变描边', async ({ page }) => {
@@ -160,6 +184,7 @@ test.describe('AI 登录框 4 状态自验', () => {
       const wrap = document.querySelector('.input-gradient-wrap') as HTMLElement | null
       if (!wrap) return { error: 'no wrap' }
       const before = getComputedStyle(wrap, '::before')
+      const wrapCs = getComputedStyle(wrap)
       return {
         opacity: before.opacity,
         animationName: before.animationName,
@@ -167,11 +192,22 @@ test.describe('AI 登录框 4 状态自验', () => {
         animationDuration: before.animationDuration,
         background: before.background.substring(0, 120),
         content: before.content,
+        // 描边实测:hover 态默认 border 仍保留(渐变 ::before 是叠加层,不是替换)
+        borderTopWidth: wrapCs.borderTopWidth,
+        borderTopStyle: wrapCs.borderTopStyle,
+        borderTopColor: wrapCs.borderTopColor,
       }
     })
     console.warn('\n[state 2: hover light]', JSON.stringify(data, null, 2))
     expect(data.opacity, 'hover 态 ::before opacity 应为 1').toBe('1')
     expect(data.animationPlayState, 'hover 态动画应 running').toBe('running')
+    // 描边保持(hover 时 ::before 渐变叠加,但底层 border 不变)
+    expect(data.borderTopWidth, 'hover 态 border-width 应仍为 1px').toBe('1px')
+    expect(data.borderTopStyle, 'hover 态 border-style 应仍为 solid').toBe('solid')
+    expect(
+      data.borderTopColor,
+      'hover 态 border-color 应仍为 rgb(229, 229, 229) (底层 1px 描边不因 hover 消失)',
+    ).toBe('rgb(229, 229, 229)')
   })
 
   test('state 3: active/勾选态 — 隐私复选框', async ({ page }) => {
@@ -189,6 +225,7 @@ test.describe('AI 登录框 4 状态自验', () => {
     const data = await page.evaluate(() => {
       const cb = document.querySelector('label.group span[role="checkbox"]') as HTMLElement | null
       if (!cb) return { error: 'no cb' }
+      const wraps = document.querySelectorAll('.input-gradient-wrap')
       return {
         ariaChecked: cb.getAttribute('aria-checked'),
         classes: cb.className,
@@ -205,11 +242,33 @@ test.describe('AI 登录框 4 状态自验', () => {
           const btn = document.querySelector('button[type="submit"]') as HTMLButtonElement | null
           return btn ? { disabled: btn.disabled, text: btn.textContent?.trim() } : null
         })(),
+        // 描边实测:勾选复选框后,输入框描边应保持(勾选是隐私复选框,不是输入框)
+        gradientCount: wraps.length,
+        wrapBorders: Array.from(wraps).map((g) => {
+          const cs = getComputedStyle(g as HTMLElement)
+          return {
+            borderTopWidth: cs.borderTopWidth,
+            borderTopStyle: cs.borderTopStyle,
+            borderTopColor: cs.borderTopColor,
+          }
+        }),
       }
     })
     console.warn('\n[state 3: agreed light]', JSON.stringify(data, null, 2))
     expect(data.ariaChecked, '勾选后 aria-checked 应为 true').toBe('true')
     expect(data.hasCheckIcon, '勾选后应渲染 Check 图标').toBe(true)
+    // 描边硬性证据(active 守门):勾选复选框后,输入框描边应保持
+    expect(data.gradientCount, 'active 态 .input-gradient-wrap 数量应 ≥ 1').toBeGreaterThanOrEqual(
+      1,
+    )
+    data.wrapBorders!.forEach((b, i) => {
+      expect(b.borderTopWidth, `active wrap[${i}] border-width 应为 1px`).toBe('1px')
+      expect(b.borderTopStyle, `active wrap[${i}] border-style 应为 solid`).toBe('solid')
+      expect(
+        b.borderTopColor,
+        `active wrap[${i}] border-color 应仍为 rgb(229, 229, 229) (勾选复选框不影响输入框描边)`,
+      ).toBe('rgb(229, 229, 229)')
+    })
   })
 
   test('state 4: dark mode 态 — 主题切换 + welcome 图切换', async ({ page }) => {
@@ -235,7 +294,8 @@ test.describe('AI 登录框 4 状态自验', () => {
       const d = document.querySelector('[role="dialog"]')
       const welcomeLight = d?.querySelector('img.welcome-img') as HTMLImageElement | null
       const welcomeDark = d?.querySelector('img.welcome-img-dark') as HTMLImageElement | null
-      const wrap = d?.querySelector('.input-gradient-wrap') as HTMLElement | null
+      const wraps = d?.querySelectorAll('.input-gradient-wrap') ?? []
+      const wrap = wraps[0] as HTMLElement | undefined
       const isDark = document.documentElement.classList.contains('dark')
       return {
         isDark,
@@ -254,9 +314,32 @@ test.describe('AI 登录框 4 状态自验', () => {
             : null,
         },
         gradientBeforeOpacity: wrap ? getComputedStyle(wrap, '::before').opacity : null,
+        // 描边实测:dark mode 描边色必须与 light 区分(用 --color-input 在 dark theme 下的值 = #383838 = rgb(56, 56, 56))
+        gradientCount: wraps.length,
+        wrapBorders: Array.from(wraps).map((g) => {
+          const cs = getComputedStyle(g as HTMLElement)
+          return {
+            borderTopWidth: cs.borderTopWidth,
+            borderTopStyle: cs.borderTopStyle,
+            borderTopColor: cs.borderTopColor,
+          }
+        }),
       }
     })
     console.warn('\n[state 4: dark mode]', JSON.stringify(data, null, 2))
     expect(data.isDark, 'html.dark 应存在').toBe(true)
+    // 描边硬性证据(dark mode 守门)
+    expect(
+      data.gradientCount,
+      'dark mode 下 .input-gradient-wrap 数量应 ≥ 1',
+    ).toBeGreaterThanOrEqual(1)
+    data.wrapBorders!.forEach((b, i) => {
+      expect(b.borderTopWidth, `dark wrap[${i}] border-width 应为 1px`).toBe('1px')
+      expect(b.borderTopStyle, `dark wrap[${i}] border-style 应为 solid`).toBe('solid')
+      expect(
+        b.borderTopColor,
+        `dark wrap[${i}] border-color 应为 #383838 dark 深灰 (守门: dark mode 描边色必须与 light 区分)`,
+      ).toBe('rgb(56, 56, 56)')
+    })
   })
 })
