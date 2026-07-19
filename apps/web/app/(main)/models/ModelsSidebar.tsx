@@ -7,14 +7,18 @@ import {
   BarChart3,
   BookOpen,
   Bot,
+  Cable,
   FileText,
   Gift,
   Key,
   LayoutDashboard,
   MessageCircle,
+  MessagesSquare,
   Rocket,
   Sparkles,
   Ticket,
+  Users,
+  UsersRound,
   Wallet,
 } from 'lucide-react'
 
@@ -38,8 +42,17 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/models/overview', labelKey: 'nav.overview', icon: LayoutDashboard },
       { href: '/models', labelKey: 'nav.market', icon: Bot, exact: true },
+      { href: '/models/channels', labelKey: 'nav.channels', icon: Cable },
       { href: '/models/keys', labelKey: 'nav.keys', icon: Key },
       { href: '/models/logs', labelKey: 'nav.logs', icon: FileText },
+    ],
+  },
+  {
+    labelKey: 'nav.groups.business',
+    items: [
+      { href: '/models/chats', labelKey: 'nav.chats', icon: MessagesSquare },
+      { href: '/models/users', labelKey: 'nav.users', icon: Users },
+      { href: '/models/groups', labelKey: 'nav.groupsMgmt', icon: UsersRound },
     ],
   },
   {
