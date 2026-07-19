@@ -170,7 +170,7 @@ export function Select({
             id={listboxId}
             tabIndex={-1}
             onKeyDown={handleListKeyDown}
-            className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none"
+            className="absolute z-popover mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none"
           >
             {searchable && (
               <div className="relative mb-1">
