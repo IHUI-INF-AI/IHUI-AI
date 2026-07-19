@@ -732,3 +732,32 @@ h6 {
     z-index: var(--z-max);
   }
 }
+
+/* ============================================================
+ * AI 输入框底部工具栏 container query (2026-07-20 立)
+ * ============================================================
+ * 背景:AI 面板宽度 320-720px(默认 400px),内容宽 288-688px。
+ * ModelSelector button 内 span max-w-[6rem]=96px + BrandIcon 16 + 徽章 14 + chevron 14
+ * + padding/gap 56 = 总 178px;加上左侧 3 按钮(104px)+ VoiceInput(32)+ Send(32)+ gap(16)
+ * = 总 362px。面板 < 392px(内容 < 360px)时溢出。
+ *
+ * 阈值 359px 选择依据:
+ *   - 内容 <= 359px(面板 <= 391px):隐藏 span + 徽章,只需 252px(104+56+32+32+16),留 107px 余量
+ *   - 内容 >= 360px(面板 >= 392px):显示 span + 徽章,需要 362px,留 -2px... 实际 truncate 生效后 span 收缩到 < 96px,不溢出
+ *
+ * 用原生 CSS 而非 Tailwind v4 container variant:
+ * 实测 Tailwind v4 仅编译 .@container 类(container-type: inline-size),
+ * 但 @sm:/@md: 等 container variant 不会生成对应 @container (min-width: ...) 规则,
+ * 导致 className 中写 @sm:inline 在浏览器中无效。原生 CSS 100% 可靠。
+ *
+ * 选定 359px 而非 360px 是为了避免临界点抖动(用户拖拽到 360px 时反复触发显隐)。 */
+.ai-input-toolbar {
+  container-type: inline-size;
+}
+@container (max-width: 359px) {
+  .ai-input-toolbar .model-selector-text,
+  .ai-input-toolbar .model-selector-badge {
+    display: none;
+  }
+}
+
