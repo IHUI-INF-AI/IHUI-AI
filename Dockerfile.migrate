@@ -6,6 +6,7 @@ WORKDIR /app
 
 # 仅复制 database 包所需文件(最小化镜像)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY tsconfig.base.json ./
 COPY packages/database/package.json ./packages/database/
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/

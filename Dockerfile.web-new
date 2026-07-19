@@ -6,23 +6,35 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/web/package.json ./apps/web/
+# 复制所有 workspace 包的 package.json(--no-frozen-lockfile 需要全部 workspace 声明)
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
 COPY packages/database/package.json ./packages/database/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/ui/package.json ./packages/ui/
-RUN pnpm install --frozen-lockfile
+COPY packages/ui-primitives/package.json ./packages/ui-primitives/
+COPY packages/ui-native/package.json ./packages/ui-native/
+COPY packages/api-client/package.json ./packages/api-client/
+COPY packages/sdk/package.json ./packages/sdk/
+COPY packages/eslint-config/package.json ./packages/eslint-config/
+COPY packages/tsconfig/package.json ./packages/tsconfig/
+# --no-frozen-lockfile: 允许安装 package.json 中新增的 @lobehub/icons 依赖
+RUN pnpm install --no-frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+# 复制 deps 阶段整个 /app(含所有 workspace 包的 node_modules + package.json)
+# .dockerignore 已排除本地 node_modules,后续 COPY . . 不会覆盖
+COPY --from=deps /app/ ./
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 # 构建期固化 rewrites 代理地址为 Docker 内网地址(next.config.ts rewrites 在 build 时求值)
 ENV API_URL=http://api:8080
 ENV AI_SERVICE_URL=http://ai-service:8000
-RUN pnpm --filter @ihui/web run build
+# next build 需要大内存(默认 ~2GB 会 OOM);16GB 宿主机降到 4096 避免 OOM
+ENV NODE_OPTIONS=--max-old-space-size=4096
+# --filter @ihui/web... :先 build @ihui/web 的所有 workspace 依赖(@ihui/ui / @ihui/ui-primitives / @ihui/api-client 等),再 build web
+RUN pnpm --filter @ihui/web... run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
