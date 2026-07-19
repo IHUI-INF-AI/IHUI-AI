@@ -17,18 +17,21 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://ihui.ai'),
   manifest: '/manifest.json',
   icons: {
-    icon: [{ url: '/images/logo.svg', type: 'image/svg+xml' }],
-    apple: [{ url: '/images/logo.png' }],
+    // 浏览器 favicon 与 apple-touch:统一用无文字版 logo.png(2026-07-19 全站统一)
+    icon: [{ url: '/images/logo.png?v=20260719-unify', type: 'image/png' }],
+    apple: [{ url: '/images/logo.png?v=20260719-unify' }],
   },
   openGraph: {
     type: 'website',
     locale: 'zh_CN',
     siteName: 'IHUI AI',
-    images: [{ url: '/images/logo.png', width: 1200, height: 630, alt: 'IHUI AI' }],
+    images: [
+      { url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: 'IHUI AI' },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    images: ['/images/logo.png'],
+    images: ['/images/logo.png?v=20260719-unify'],
   },
   robots: { index: true, follow: true },
 }
