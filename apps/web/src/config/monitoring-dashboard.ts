@@ -50,7 +50,7 @@ export interface DashboardConfig {
 /** API 服务监控仪表盘 */
 export const API_DASHBOARD: DashboardConfig = {
   id: 'api-overview',
-  title: 'API 服务总览',
+  title: 'API 服务概览',
   defaultRefreshSec: 15,
   defaultTimeRangeMin: 60,
   panels: [
@@ -117,7 +117,7 @@ export const API_DASHBOARD: DashboardConfig = {
 /** 数据库监控仪表盘 */
 export const DATABASE_DASHBOARD: DashboardConfig = {
   id: 'database-overview',
-  title: '数据库总览',
+  title: '数据库概览',
   defaultRefreshSec: 15,
   defaultTimeRangeMin: 60,
   panels: [
@@ -187,7 +187,7 @@ export const DATABASE_DASHBOARD: DashboardConfig = {
 /** WebSocket 监控仪表盘 */
 export const WEBSOCKET_DASHBOARD: DashboardConfig = {
   id: 'websocket-overview',
-  title: 'WebSocket 总览',
+  title: 'WebSocket 概览',
   defaultRefreshSec: 10,
   defaultTimeRangeMin: 30,
   panels: [
