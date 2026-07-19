@@ -8532,13 +8532,18 @@
       "subtitle": "AI Model Aggregation Platform",
       "groups": {
         "main": "Main Features",
+        "business": "Business",
         "finance": "Statistics & Finance",
         "resources": "Resource Center"
       },
       "overview": "Overview",
       "market": "Model Market",
+      "channels": "Channels",
       "keys": "API Keys",
       "logs": "Call Logs",
+      "chats": "Chats",
+      "users": "Users",
+      "groupsMgmt": "Groups",
       "usage": "Usage Statistics",
       "billing": "Billing",
       "redeem": "Redeem Code",
@@ -8620,6 +8625,8 @@
         "time": "Time",
         "model": "Model",
         "token": "Token",
+        "key": "API Key",
+        "tokens": "Tokens",
         "inputTokens": "Input Tokens",
         "outputTokens": "Output Tokens",
         "cost": "Cost",
@@ -8831,6 +8838,75 @@
         "audioTranscribe": { "desc": "Audio to text transcription, supports multiple languages" },
         "calendar": { "desc": "Schedule management, event reminders" },
         "databaseQuery": { "desc": "Database queries, supports SQL and NoSQL" }
+      }
+    },
+    "groupsMgmt": {
+      "title": "Groups",
+      "subtitle": "Manage user groups, quotas and model permissions",
+      "create": "New Group",
+      "members": "Members",
+      "ratio": "Rate Multiplier",
+      "models": "Available Models",
+      "todayCalls": "Today's Calls"
+    },
+    "channels": {
+      "title": "Channels",
+      "subtitle": "Manage AI model provider channel configurations",
+      "create": "New Channel",
+      "listTitle": "Channel List",
+      "table": {
+        "name": "Channel Name",
+        "provider": "Provider",
+        "model": "Model",
+        "priority": "Priority",
+        "weight": "Weight",
+        "qps": "QPS",
+        "todayCalls": "Today's Calls",
+        "status": "Status"
+      },
+      "statusLabels": {
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      }
+    },
+    "chats": {
+      "title": "Chats",
+      "subtitle": "View all user conversation records",
+      "searchPlaceholder": "Search chat ID/user/title...",
+      "listTitle": "Chat List",
+      "table": {
+        "id": "Chat ID",
+        "user": "User",
+        "title": "Title",
+        "model": "Model",
+        "messages": "Messages",
+        "tokens": "Tokens",
+        "createdAt": "Created At"
+      }
+    },
+    "users": {
+      "title": "Users",
+      "subtitle": "Manage platform users, roles and groups",
+      "create": "New User",
+      "searchPlaceholder": "Search email/name...",
+      "listTitle": "User List",
+      "table": {
+        "email": "Email",
+        "group": "Group",
+        "role": "Role",
+        "balance": "Balance",
+        "totalCalls": "Total Calls",
+        "status": "Status",
+        "createdAt": "Created At"
+      },
+      "roleLabels": {
+        "admin": "Admin",
+        "user": "User",
+        "vip": "VIP"
+      },
+      "statusLabels": {
+        "active": "Active",
+        "disabled": "Disabled"
       }
     },
     "contact": {
