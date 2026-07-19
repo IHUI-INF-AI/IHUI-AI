@@ -31,8 +31,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # 构建期固化 rewrites 代理地址为 Docker 内网地址(next.config.ts rewrites 在 build 时求值)
 ENV API_URL=http://api:8080
 ENV AI_SERVICE_URL=http://ai-service:8000
-# next build 需要大内存(默认 ~2GB 会 OOM);16GB 宿主机降到 4096 避免 OOM
-ENV NODE_OPTIONS=--max-old-space-size=4096
+# next build 需要大内存(默认 ~2GB 会 OOM);4096 仍会 OOM,恢复到 8192(2026-07-20)
+ENV NODE_OPTIONS=--max-old-space-size=8192
+# 清理可能残留的 .tsbuildinfo(2026-07-20 修复:避免 tsc 增量编译跳过文件,
+# 导致 @ihui/api-client/dist/endpoints 等产物缺失,引发 next build 模块解析失败)
+RUN find packages apps -name "*.tsbuildinfo" -type f -delete 2>/dev/null || true
 # --filter @ihui/web... :先 build @ihui/web 的所有 workspace 依赖(@ihui/ui / @ihui/ui-primitives / @ihui/api-client 等),再 build web
 RUN pnpm --filter @ihui/web... run build
 

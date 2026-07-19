@@ -1,4 +1,4 @@
-﻿# Docker 构建上下文排除(Monorepo 新架构)
+# Docker 构建上下文排除(Monorepo 新架构)
 
 # 版本控制
 .git/
@@ -20,6 +20,9 @@
 **/.ruff_cache/
 **/.next/
 **/.turbo/
+# TypeScript 增量编译缓存(2026-07-20 修复:避免本地 .tsbuildinfo 被复制到容器,
+# 导致 tsc 增量编译跳过某些文件,造成 dist/endpoints 等产物缺失)
+**/*.tsbuildinfo
 
 # 测试产物
 **/test-results/
