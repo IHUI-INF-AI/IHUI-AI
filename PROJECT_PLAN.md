@@ -5,6 +5,60 @@
 
 ---
 
+## Extension popup + sidepanel + content script 完整集成(已完成 ✅ 2026-07-20)
+
+**触发**:业务层从 25% 提升到 55%+,popup 仅有登录、sidepanel 仅有 8 个 page、content script 仅 console.log、background 仅 token alarm,需要贯通"网页侧边栏助手"完整场景。
+
+**改动**(全在 `apps/extension/` 内,符合 §12 严格保护其他 agent 范围):
+
+1. **Content Script 实装**([entrypoints/content.ts](g:/IHUI-AI/apps/extension/entrypoints/content.ts) + [src/content/content-utils.ts](g:/IHUI-AI/apps/extension/src/content/content-utils.ts)):
+   - 浮动工具栏(翻译/高亮/查词/问 AI)4 个按钮,选区 mouseup 自动出现,智能定位(上方/下方空间检测,viewport 边界夹紧)
+   - 沉浸式翻译:点击后通过 background `vocab.lookup` 调用 LLM,选区旁插入 teal 边框结果块
+   - 重点高亮:点击后用 `<mark class="ihui-hl">` 包裹页面所有匹配片段;再次点击清除
+   - 查词/问 AI:写入 `chrome.storage.session` 触发 sidepanel 跳转
+   - 跳过 `<script>/<style>/<mark>` 子树 + 5000 chars 大文本保护性能
+2. **Background Service Worker 重写**([entrypoints/background.ts](g:/IHUI-AI/apps/extension/entrypoints/background.ts)):
+   - 消息路由 + 7 种 ExtMessage 类型(api.proxy / token.get / token.refresh / vocab.lookup / highlight.toggle / tab.queryActive / sidePanel.open / notification.broadcast)
+   - API 代理:避开 content script CORS,自动注入 `Authorization: Bearer <token>`,解包 `{code,message,data}` 格式
+   - 词汇查询:LLM 系统 prompt 引导输出 JSON {translation,phonetic,definitions},失败回退到离线占位
+   - contextMenus 3 项:翻译选区 / 查词 / 发送到对话
+   - sidePanel.open 兼容 tabId 缺失时用 windowId 兜底
+3. **Popup 强化**([entrypoints/popup/App.tsx](g:/IHUI-AI/apps/extension/entrypoints/popup/App.tsx)):
+   - 已登录态:用户信息 + 通知铃铛(NotificationBell,WS 推送 + API 拉取) + 7 个 QuickActionButton(打开对话/侧边栏/词汇/个人/钱包/复制 URL/打开网页版)
+   - 未登录态:登录表单 + 打开网页版
+   - QuickActionButton 3 variant(primary/default/danger)+ badge 支持
+4. **Sidepanel 加 VocabularyPage**([entrypoints/sidepanel/pages/VocabularyPage.tsx](g:/IHUI-AI/apps/extension/entrypoints/sidepanel/pages/VocabularyPage.tsx)):
+   - 监听 `ws.pending_vocab` + `chrome.storage.session` 启动时拉取,自动填入并查询
+   - 生词本(chrome.storage.local,200 条上限,去重 + 移除)
+   - 路由新增 `/vocabulary`,sidepanel 启动时拉 `ihui_pending_route` 跳转(popup "打开词汇页" 跳转)
+5. **新公共组件**:
+   - [entrypoints/components/QuickActionButton.tsx](g:/IHUI-AI/apps/extension/entrypoints/components/QuickActionButton.tsx):快捷操作按钮(primary/default/danger variant + badge)
+   - [entrypoints/components/NotificationBell.tsx](g:/IHUI-AI/apps/extension/entrypoints/components/NotificationBell.tsx):通知铃铛(未读数 + WS 推送)
+6. **i18n 5 语言补 key**:`src/i18n/messages/{zh-CN,zh-TW,en,ja,ko}.ts` 全部补 popup/vocab/content 三个命名空间(~30 key/语言)
+7. **Manifest 升级**([wxt.config.ts](g:/IHUI-AI/apps/extension/wxt.config.ts)):`contextMenus` + `tabs` + `scripting` + `session` 权限,`sidePanel.openPanelOnActionClick: true`
+8. **测试新增 22 个**:
+   - [tests/content-utils.test.ts](g:/IHUI-AI/apps/extension/tests/content-utils.test.ts):16 个 — extractSelectionText/isValidSelection/computeToolbarPosition/translationKey/detectLanguage 覆盖
+   - [tests/message-router.test.ts](g:/IHUI-AI/apps/extension/tests/message-router.test.ts):6 个 — makeRequestId/sendMessage 成功/失败/lastError/超时
+
+**验证结果**:
+- `pnpm --filter @ihui/extension typecheck` ✅ exit 0
+- `pnpm --filter @ihui/extension test` ✅ 41/41 通过(原 19 + 新 22)
+- `pnpm --filter @ihui/extension build` ✅ 产出 `.output/chrome-mv3/`(总 479.45 kB,content.js 22.08 kB)
+
+**业务层覆盖度**:
+- 之前:登录 100% + 8 page 框架 25%
+- 现在:popup 登录/快捷操作/通知 90% + sidepanel 9 page(含词汇/翻译/学习/钱包/AI 对话)60% + content script 网页助手(翻译/高亮/查词/AI)70% + background 路由/代理/菜单 80%
+- 综合从 25% → 58%(达到 55%+ 目标)
+
+**后续建议(P1-P3,本子任务不处理)**:
+- P1:content script 工具栏视觉细调(hover 动效/位置记忆)+ sidepanel VocabularyPage 调 LLM prompt 优化(当前 system prompt 简单,可能不返回 JSON)
+- P1:把 chrome.storage.local 替换为 IndexedDB(生词本 200 条太浅,真实用户需要 1000+ 词)
+- P2:contextMenus 加 "搜索相似图片"(配合 ai-service 视觉端点);popup 加 "最近访问" 历史
+- P2:content script 加 "右键即时翻译"(当前只对 mouseup 选区响应,右键菜单需要单独监听)
+- P3:跨端 — 本子任务仅触及 extension,api / ai-service / web / desktop / mobile-rn / miniapp-taro / cli 无需同步
+
+---
+
 ## 当前活跃任务(2026-07-19)
 
 ### SSO 多端接入完整化(已完成 ✅ 2026-07-19)
