@@ -1,25 +1,14 @@
-'use client'
-
-import * as React from 'react'
-import { useParams } from 'next/navigation'
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
-import {
-  ArrowLeft,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Pin,
-  FileText,
-  Newspaper,
-  FolderOpen,
-} from 'lucide-react'
+import { notFound } from 'next/navigation'
+import { getLocale, getTranslations } from 'next-intl/server'
+import { ArrowLeft, ChevronLeft, ChevronRight, Eye, Pin, FileText, Newspaper, FolderOpen } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { fetchApiServer } from '@/lib/api-server'
+import { Card, CardContent } from '@ihui/ui'
+
+export const revalidate = 60
 
 interface NewsCategory {
   id: string
@@ -49,36 +38,49 @@ interface ArticlesData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
+interface PageProps {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ page?: string }>
 }
 
-export default function NewsCategoryPage() {
-  const { id } = useParams<{ id: string }>()
-  const t = useTranslations('news')
-  const [page, setPage] = React.useState(1)
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params
+  const r = await fetchApiServer<{ list: NewsCategory[] }>(`/api/news/categories`)
+  if (!r.success) return { title: '分类 | IHUI AI' }
+  const category = r.data.list?.find((c) => c.id === id)
+  if (!category) return { title: '分类 | IHUI AI' }
+  const title = `${category.name} - 分类 | IHUI AI`
+  return {
+    title,
+    description: `${category.name} 分类下的所有新闻文章`,
+    openGraph: { title, type: 'website' },
+    twitter: { card: 'summary', title },
+  }
+}
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ['news', 'categories'],
-    queryFn: () => api<{ list: NewsCategory[] }>(`/api/news/categories`).then((d) => d.list ?? []),
-  })
+export default async function NewsCategoryPage({ params, searchParams }: PageProps) {
+  const { id } = await params
+  const { page: pageStr } = await searchParams
+  const page = Math.max(1, Number(pageStr) || 1)
+  const locale = await getLocale()
+  const t = await getTranslations({ locale, namespace: 'news' })
 
-  const category = React.useMemo(() => categories.find((c) => c.id === id), [categories, id])
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['news', 'articles', 'category', id, page],
-    queryFn: () => {
-      const qs = new URLSearchParams({
+  const [categoriesResp, articlesResp] = await Promise.all([
+    fetchApiServer<{ list: NewsCategory[] }>(`/api/news/categories`),
+    fetchApiServer<ArticlesData>(
+      `/api/news/articles?${new URLSearchParams({
         page: String(page),
         pageSize: String(PAGE_SIZE),
         categoryId: id,
-      })
-      return api<ArticlesData>(`/api/news/articles?${qs.toString()}`)
-    },
-  })
+      }).toString()}`,
+    ),
+  ])
 
+  if (!categoriesResp.success) notFound()
+  const category = categoriesResp.data.list?.find((c) => c.id === id)
+  if (!category) notFound()
+
+  const data = articlesResp.success ? articlesResp.data : null
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const items = data?.list ?? []
@@ -102,23 +104,12 @@ export default function NewsCategoryPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <FolderOpen className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-            {category?.name ?? t('categories')}
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{category.name}</h1>
         </div>
         <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loading')}
-        </div>
-      ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error).message}
-        </div>
-      ) : items.length === 0 ? (
+      {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
           <FileText className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
@@ -126,7 +117,7 @@ export default function NewsCategoryPage() {
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <Link key={item.id} href={`/news/${item.id}`} className="block">
+            <Link key={item.id} href={`/news/${item.id}`} className="group block">
               <Card className="overflow-hidden transition-colors hover:bg-accent">
                 <CardContent className="flex gap-4 p-4">
                   <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-md bg-muted">
@@ -178,27 +169,37 @@ export default function NewsCategoryPage() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              {t('prev')}
-            </Button>
+            {page <= 1 ? (
+              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-md border border-input bg-background px-3 text-sm opacity-50">
+                <ChevronLeft className="h-4 w-4" />
+                {t('prev')}
+              </span>
+            ) : (
+              <Link
+                href={`/news/category/${id}?page=${page - 1}`}
+                className="inline-flex h-9 items-center gap-1 rounded-md border border-input bg-background px-3 text-sm transition-colors hover:bg-accent"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {t('prev')}
+              </Link>
+            )}
             <span className="text-sm text-muted-foreground">
               {page} / {totalPages}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              {t('next')}
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            {page >= totalPages ? (
+              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-md border border-input bg-background px-3 text-sm opacity-50">
+                {t('next')}
+                <ChevronRight className="h-4 w-4" />
+              </span>
+            ) : (
+              <Link
+                href={`/news/category/${id}?page=${page + 1}`}
+                className="inline-flex h-9 items-center gap-1 rounded-md border border-input bg-background px-3 text-sm transition-colors hover:bg-accent"
+              >
+                {t('next')}
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            )}
           </div>
         </div>
       )}

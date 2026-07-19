@@ -244,9 +244,10 @@ test.describe('AI 对话框 - 提示词模板按钮 4 状态自验', () => {
     const count = await chipBtns.count()
     expect(count, `空状态 chips 应有 5 个按钮,实际 ${count}`).toBe(5)
 
-    // 验证 chips 风格:rounded-full 胶囊
+    // 验证 chips 风格:圆角 (项目规则:禁止 rounded-full 胶囊,改用 rounded-md)
     const firstChipClass = await chipBtns.first().getAttribute('class')
-    expect(firstChipClass, 'chips 应有 rounded-full 胶囊样式').toContain('rounded-full')
+    expect(firstChipClass, 'chips 应使用 rounded-md 圆角').toContain('rounded-md')
+    expect(firstChipClass, 'chips 不得使用 rounded-full 胶囊').not.toContain('rounded-full')
 
     // 截图存档
     await page.screenshot({

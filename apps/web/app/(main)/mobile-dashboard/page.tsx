@@ -107,7 +107,7 @@ export default function MobileDashboardPage() {
                   <span className="font-medium">{d.name}</span>
                   <span className="text-muted-foreground">{d.percent}%</span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-2 w-full overflow-hidden rounded-sm bg-muted">
                   <div className={`h-full ${d.color}`} style={{ width: `${d.percent}%` }} />
                 </div>
               </div>
@@ -146,7 +146,7 @@ export default function MobileDashboardPage() {
                   <tr key={p.rank} className="border-b last:border-0">
                     <td className="px-5 py-2.5">
                       <span
-                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold ${
                           p.rank === 1
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted text-muted-foreground'

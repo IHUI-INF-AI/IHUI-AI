@@ -206,9 +206,11 @@ export default function AgentDetailPage() {
                       )}
                     >
                       {permInfo.hasPermission ? t('permissionAllowed') : t('permissionDenied')}
-                      {permInfo.type &&
-                        PERMISSION_REASON_KEY[permInfo.type] &&
-                        ` · ${t(PERMISSION_REASON_KEY[permInfo.type])}`}
+                      {(() => {
+                        const reasonKey =
+                          permInfo.type && PERMISSION_REASON_KEY[permInfo.type]
+                        return reasonKey ? ` · ${t(reasonKey)}` : ''
+                      })()}
                     </div>
                   ) : null}
                 </div>

@@ -1,14 +1,14 @@
-'use client'
-
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
-import { GraduationCap, PlayCircle, Eye, Loader2, ArrowLeft } from 'lucide-react'
+import { notFound } from 'next/navigation'
+import { getLocale, getTranslations } from 'next-intl/server'
+import { PlayCircle, Eye, ArrowLeft } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { fetchApiServer } from '@/lib/api-server'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { Avatar } from '@/components/data/Avatar'
+
+export const revalidate = 60
 
 interface Lecturer {
   id: string
@@ -39,31 +39,48 @@ interface ChannelsResp {
   pageSize: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
+interface PageProps {
+  params: Promise<{ id: string }>
 }
 
-export default function LecturerDetailPage() {
-  const { id } = useParams<{ id: string }>()
-  const t = useTranslations('lecturer')
-  const tl = useTranslations('live')
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params
+  const r = await fetchApiServer<LecturerResp>(`/api/live/lecturers/${id}`)
+  if (!r.success || !r.data.lecturer) return { title: '讲师详情 | IHUI AI' }
+  const lecturer = r.data.lecturer
+  const title = `${lecturer.name} - ${lecturer.title ?? 'AI 行业分析师'} | IHUI AI`
+  const description = lecturer.intro ?? `${lecturer.name} 的讲师详情`
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'profile',
+      images: lecturer.avatar ? [{ url: lecturer.avatar }] : undefined,
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+    },
+  }
+}
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['lecturer', id],
-    queryFn: () => api<LecturerResp>(`/api/live/lecturers/${id}`),
-  })
+export default async function LecturerDetailPage({ params }: PageProps) {
+  const { id } = await params
+  const locale = await getLocale()
+  const t = await getTranslations({ locale, namespace: 'lecturer' })
+  const tl = await getTranslations({ locale, namespace: 'live' })
 
-  const lecturer = data?.lecturer ?? null
+  const lecturerResp = await fetchApiServer<LecturerResp>(`/api/live/lecturers/${id}`)
+  if (!lecturerResp.success || !lecturerResp.data.lecturer) notFound()
+  const lecturer = lecturerResp.data.lecturer
 
-  const { data: channelsData, isLoading: channelsLoading } = useQuery({
-    queryKey: ['live', 'channels', 'lecturer', id],
-    queryFn: () => api<ChannelsResp>(`/api/live/channels?lecturerId=${encodeURIComponent(id)}`),
-    enabled: !!lecturer,
-  })
-
-  const channels = channelsData?.list ?? []
+  const channelsResp = await fetchApiServer<ChannelsResp>(
+    `/api/live/channels?lecturerId=${encodeURIComponent(id)}`,
+  )
+  const channels = channelsResp.success ? channelsResp.data.list : []
 
   const backLink = (
     <Link
@@ -74,37 +91,6 @@ export default function LecturerDetailPage() {
       {t('backToList')}
     </Link>
   )
-
-  if (isLoading)
-    return (
-      <div className="mx-auto w-full max-w-6xl space-y-6">
-        {backLink}
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loading')}
-        </div>
-      </div>
-    )
-
-  const errMsg = (error as Error | null)?.message ?? ''
-  const isNotFound = !lecturer || /不存在|not found|404/i.test(errMsg)
-
-  if (error || !lecturer)
-    return (
-      <div className="mx-auto w-full max-w-6xl space-y-6">
-        {backLink}
-        {isNotFound ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
-            <GraduationCap className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('notFound')}</p>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-            {errMsg}
-          </div>
-        )}
-      </div>
-    )
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
@@ -132,12 +118,7 @@ export default function LecturerDetailPage() {
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">{t('courses')}</h2>
-        {channelsLoading ? (
-          <div className="flex items-center justify-center py-10 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            {t('loading')}
-          </div>
-        ) : channels.length === 0 ? (
+        {channels.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12">
             <PlayCircle className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('noCourses')}</p>

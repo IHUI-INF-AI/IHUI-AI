@@ -51,8 +51,23 @@ if (!run('🗄️ 检查 schema drift...', 'node scripts/check-db-schema-drift.m
   process.exit(1)
 }
 
-// 4. packages 陈旧 dist 检查（防止 export 缺失导致 module not found）
+// 4. packages 陈旧 dist 检查(防止 export 缺失导致 module not found)
 if (!run('📦 检查 packages 陈旧 dist...', 'node scripts/check-stale-dist.mjs')) {
+  process.exit(1)
+}
+
+// 4b. packages/*/dist UTF-8 BOM 检查(2026-07-19 admin-auth.js 踩坑落地)
+// 防止 PowerShell WriteAllText 默认 UTF-16 LE BOM 编码导致 Turbopack 解析失败
+// 阻断策略:扫描所有 packages/*/dist/** 下的 .js .mjs .cjs .ts .map 文件,前 3 字节含 BOM 则 exit 1
+if (!run('🔤 检查 dist 文件 UTF-8 BOM...', 'node scripts/check-dist-encoding.mjs')) {
+  process.exit(1)
+}
+
+// 4c. packages/api-client 源码字节级 UTF-8 完整性检查(2026-07-19 share.ts 损坏踩坑落地)
+// 防止 endpoints/*.ts 中文注释字符级丢失(如"内容 *"丢失换行符导致 source map vlq 异常,
+// Turbopack rope 合并时 "invalid utf-8 sequence" build 失败)
+// 守门:扫描 src/endpoints/*.ts 字节序列,检测非法 UTF-8 continuation bytes
+if (!run('🔤 检查 api-client 源码 UTF-8 完整性...', 'node scripts/check-api-client-utf8.mjs')) {
   process.exit(1)
 }
 
