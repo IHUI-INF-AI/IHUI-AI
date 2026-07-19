@@ -25,14 +25,21 @@ if (!run('🌐 检查 i18n 键完整性...', 'node scripts/check-i18n-keys.mjs -
 }
 
 // 2b. zh-TW 简体字残留检查（opencc-js cn→tw 对比）
-if (!run('🔍 检查 zh-TW 简体字残留...', 'node scripts/scan-zh-tw-simp.mjs --staged')) {
+// 通用 i18n 守门工具，替代专用脚本 scan-zh-tw-simp.mjs
+if (!run('🔍 检查 zh-TW 简体字残留...', 'node scripts/scan-i18n-zh-residue.mjs zh-TW --staged')) {
   process.exit(1)
 }
 
 // 2c. ko.json 中文残留检查（防止韩语翻译文件出现未翻译的中文）
-if (!run('🔍 检查 ko.json 中文残留...', 'node scripts/scan-ko-zh-residue.mjs --staged')) {
+// 通用 i18n 守门工具，替代专用脚本 scan-ko-zh-residue.mjs
+if (!run('🔍 检查 ko.json 中文残留...', 'node scripts/scan-i18n-zh-residue.mjs ko --staged')) {
   process.exit(1)
 }
+
+// 2d. ja.json 中文残留检查（warn-only，不阻塞但提醒）
+// 日文汉字词（登録/確認/削除等）太多，charRange 启发式假阳性海量，
+// 改为 warnOnly 模式：所有汉字只 warn 不阻塞，避免无效拦截
+run('🔍 检查 ja.json 中文残留(warn-only)...', 'node scripts/scan-i18n-zh-residue.mjs ja --staged')
 
 // 3. schema drift 检查（TS schema 表名 vs migration SQL 表名）
 if (!run('🗄️ 检查 schema drift...', 'node scripts/check-db-schema-drift.mjs --staged')) {
