@@ -27,6 +27,7 @@
    - [screens/LoginScreen.tsx](file:///g:/IHUI-AI/apps/mobile-rn/src/screens/LoginScreen.tsx) 加"使用网页账号登录" outline 按钮(分隔用 "或" 文字,符合 §4 禁止分割线规则)
 
 **SSO 完整流程**:
+
 ```
 miniapp-taro / mobile-rn → web /sso/login?redirect=ihui://sso/callback&client_id=xxx
                        → 用户在 web 登录 → 调 /api/auth/sso/code 生成 30s code
@@ -36,6 +37,7 @@ miniapp-taro / mobile-rn → web /sso/login?redirect=ihui://sso/callback&client_
 ```
 
 **验证**:
+
 - `pnpm --filter @ihui/web typecheck` 0
 - `pnpm --filter @ihui/miniapp-taro typecheck` 0
 - `pnpm --filter @ihui/mobile-rn typecheck` 0
@@ -251,3 +253,50 @@ miniapp-taro / mobile-rn → web /sso/login?redirect=ihui://sso/callback&client_
 - P2:`useBatchMutation` 增加 `useConfirm` 集成(`onConfirm: () => boolean` 选项),把"confirm → mutate"两步合并为一步,减少组件内联 `if (confirm(...)) mutate()` 模板
 - P3:`useBatchMutation` 衍生 `useBatchPost` / `useBatchPut`(当前 method 选项已支持,但成功/失败 toast 文案差异大,后续可拆 3 个语义化 hook)
 - P3:跨端 — 本任务为 web 端纯前端 hook,api / ai-service / desktop / extension / mobile-rn / miniapp-taro / cli 无需同步
+
+---
+
+## ai-service 完整业务流实装(2026-07-20 完成)
+
+**触发**:用户要求为 `apps/ai-service` 实装完整的 LangGraph + LiteLLM + MCP 业务流(对话/智能体/工具调用/RAG),使 ai-service 业务层从 60% 提升到 95%+。
+
+**实施**:
+
+- [x] ✅ (2026-07-20) `app/services/conversation.py` 对话服务(完整流程:意图分类 → 工具选择 → LLM 调用 → 工具执行 → 汇总回复,带 JSON 解析 + 关键词 fallback + trace)
+- [x] ✅ (2026-07-20) `app/services/rag.py` RAG 服务(检索 → 重排 → context 拼接 → LLM 生成,带向量检索 + 关键词 fallback + score_threshold + token 估算)
+- [x] ✅ (2026-07-20) `app/services/agent_orchestrator.py` 多智能体编排器(5 个默认 agent:researcher/coder/reviewer/architect/debugger,支持 invoke / pipeline / parallel)
+- [x] ✅ (2026-07-20) `app/api/v1/{chat,agent,rag,router}.py` 统一 `/api/v1/ai/*` 路由(POST chat / agent/invoke / agent/pipeline / agent/parallel / agent/list / agent/register / rag / rag/documents)
+- [x] ✅ (2026-07-20) `app/main.py` 挂载 `api_v1_router` 到 `/api/v1` 前缀
+- [x] ✅ (2026-07-20) `tests/test_conversation.py` 单元测试 20 case(JSON 解析 / 意图 fallback / 工具选择 / chat 流程 / 序列化)
+- [x] ✅ (2026-07-20) `tests/test_rag.py` 单元测试 19 case(关键词打分 / rerank / context 拼接 / 序列化)
+- [x] ✅ (2026-07-20) `tests/test_agent_orchestrator.py` 单元测试 20 case(registry / invoke / pipeline / parallel / 序列化)
+- [x] ✅ (2026-07-20) `tests/test_api_v1.py` 集成测试 20 case(FastAPI TestClient 全端点 + e2e 串联 chat→agent→rag)
+
+**业务流总览**:
+
+```
+POST /api/v1/ai/chat         对话: intent→tool_select→llm→tool_exec→response (max_iterations 循环)
+POST /api/v1/ai/agent/invoke 单 agent 调用
+POST /api/v1/ai/agent/pipeline  串行 pipeline({input} {prev_output} 模板替换)
+POST /api/v1/ai/agent/parallel  并行多 agent
+GET  /api/v1/ai/agent/list      列出所有 agent
+POST /api/v1/ai/agent/register  注册自定义 agent
+POST /api/v1/ai/rag             RAG: retrieve→rerank→context→generate
+POST /api/v1/ai/rag/documents   添加 RAG 文档
+```
+
+**验证(2026-07-20 自验)**:
+
+- [x] ✅ `uv run pytest tests/test_conversation.py tests/test_rag.py tests/test_agent_orchestrator.py tests/test_api_v1.py` 79/79 passed
+- [x] ✅ `uv run pytest tests/ --ignore=tests/test_schema_check.py` 679/679 passed(2 个 pre-existing schema_check 失败与本任务无关,已确认 stash 后 main 分支同样失败)
+- [x] ✅ `uv run mypy app/services/conversation.py app/services/rag.py app/services/agent_orchestrator.py app/api/v1/chat.py app/api/v1/agent.py app/api/v1/rag.py app/api/v1/router.py` 0 errors(剩余 20 errors 全部在 pre-existing 文件:providers/base_provider / providers/* / core/llm_gateway / services/mcp_server,本任务文件清单外,§12 严格保护)
+
+**后续建议(本子任务不处理,等用户明确指示)**:
+
+- P2:api-client 包同步导出 ai-service 端点(当前 `packages/types/src/api-contracts.ts` 的 AiServiceContracts 命名空间为占位,后续在 `packages/api-client/src/endpoints/ai.ts` 加 8 个端点类型导出)
+- P2:流式响应 — `agent_orchestrator` / `conversation_service` 现有 SSE buffer(已存在 `app/services/sse_buffer.py`),后续把 chat 端点改为 `EventSourceResponse` 流式 token + tool_call 事件
+- P3:RAG 增强 — 加 query rewriting(LLM 改写用户问题后检索) + cross-encoder rerank(提升 top-k 准确率) + chunk-level retrieval(支持长文档)
+- P3:多智能体 supervisor 模式 — 当前 pipeline/parallel 是固定步骤,后续可引入 supervisor agent 动态决定下一步调谁
+- P3:跨端 — 本任务为 ai-service 后端业务流,web 端需在 `apps/web/app/(main)/ai/**` 新增 Chat / Agent Studio / RAG 管理页(独立任务,非本子任务范围)
+
+---
