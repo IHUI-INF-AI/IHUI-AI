@@ -481,12 +481,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           </div>
         }
       >
-        <Button
-          variant="ghost"
-          size="icon"
-          className={btnClass}
-          aria-label={t('downloadClient')}
-        >
+        <Button variant="ghost" size="icon" className={btnClass} aria-label={t('downloadClient')}>
           <Download className="h-3.5 w-3.5" />
         </Button>
       </Popover>
@@ -1351,8 +1346,11 @@ export function Sidebar({
         variant="ghost"
         size="icon"
         onClick={onToggleCollapse}
-        // h-[26px] 与底部工具栏 icon 按钮/ThemeLogo 统一(原 h-7=28px)
-        className={cn('h-[26px] w-[26px] flex-shrink-0 p-0', 'hidden lg:flex')}
+        // h-9 w-9 (36×36) 与新建任务按钮/主导航项统一;hover 用 foreground/20 与新建任务按钮一致(2026-07-20 用户反馈:原 h-[26px] + hover:bg-accent 太弱且尺寸不统一)
+        className={cn(
+          'flex-shrink-0 p-0 bg-foreground/10 text-foreground hover:bg-foreground/20',
+          'hidden lg:flex',
+        )}
         title={collapsed ? t('expand') : t('collapse')}
         aria-label={collapsed ? t('expand') : t('collapse')}
       >
@@ -1362,8 +1360,8 @@ export function Sidebar({
         variant="ghost"
         size="icon"
         onClick={onCloseMobile}
-        // h-[26px] 与折叠按钮/底部工具栏统一(原 h-7=28px)
-        className="ml-auto h-[26px] w-[26px] flex-shrink-0 p-0 lg:hidden"
+        // h-9 w-9 与展开/折叠按钮 + 新建任务按钮统一;hover foreground/20 与全局按钮规范一致
+        className="ml-auto flex-shrink-0 p-0 bg-foreground/10 text-foreground hover:bg-foreground/20 lg:hidden"
         aria-label={tc('close')}
       >
         <X className="h-4 w-4" />
