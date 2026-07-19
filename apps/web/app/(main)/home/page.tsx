@@ -121,7 +121,7 @@ export default function WorkAreaHomePage() {
 
       {/* 6. 底部 CTA */}
       <section
-        aria-label={t('cta.title')}
+        aria-label={t('cta.sectionLabel')}
         className="overflow-hidden rounded-xl border bg-primary/5 p-6 text-center shadow-sm md:p-10"
       >
         <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('cta.title')}</h2>

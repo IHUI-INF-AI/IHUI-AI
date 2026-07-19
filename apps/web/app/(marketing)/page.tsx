@@ -188,7 +188,7 @@ export default function MarketingHomePage() {
           id="home-page-6"
           className="snap-start"
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
-          aria-label={t('cta.title')}
+          aria-label={t('cta.sectionLabel')}
         >
           <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-center px-4 py-6 md:px-8 md:py-8">
             <section className="w-full rounded-2xl border bg-primary/5 p-6 text-center md:p-10">
