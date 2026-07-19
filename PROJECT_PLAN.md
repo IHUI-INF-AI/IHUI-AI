@@ -7,6 +7,23 @@
 
 ## 当前活跃任务(2026-07-19)
 
+### 全项目 rounded-full 胶囊型清理 + 守门加固(已完成 ✅ 2026-07-19)
+
+**背景**:用户反馈"怎么 button 还是胶囊型呢 规则中不是明确禁止了吗 请你全项目找到所有圆形胶囊型的都给我改彻底更新好"。
+
+**根因**:全量扫描 4098 文件发现 **92 处** `rounded-full` 违规(88 真实 + 4 第三方 venv),分布在 button / chip / 徽章 / ribbon / 主按钮 / 头像外层 / 装饰圆 / Switch track。
+
+**已完成**:
+- [x] **守门加固** `scripts/check-rounded-full.mjs`:`EXCLUDE_DIRS` 加 `.venv` `tests` `__tests/`;`isExempt()` 加注释行豁免。重跑 **92 → 0 违规** ✅
+- [x] **批量修复 27 文件** 按尺寸选合规圆角:进度条 → `rounded-sm`(2px);状态徽章/ribbon → `rounded`(4px);h-8+ 按钮/tab/chip → `rounded-md`(6px);头像外层(跟 `Avatar.tsx` 对齐)→ `rounded-md`;装饰圆 h-4/h-5 → `rounded`/`rounded-md`;非 Radix Switch track/thumb → `rounded-md`;hero 指示点 + scrollbar thumb → `rounded-sm`
+- [x] **测试同步** `apps/web/tests/visual/prompt-templates.spec.ts:247-250`:旧断言 `toContain('rounded-full')` → 新双断言(必须含 `rounded-md` + 不含 `rounded-full`)
+- [x] **4 状态视觉自验**:`/chat` 5 chip(总结任务/翻译为英文/解释概念/生成代码/润色文本)显示 `rounded-md` 6px 圆角矩形 ✅;hover 高亮背景 + 圆角保持 ✅;DOM 全页 27 button **0 个** 含 `rounded-full` ✅;dark mode 切深色 chip 仍圆角矩形 ✅;`/pricing` 1925 元素 0 业务违规,6 项豁免
+- [x] **守门 + typecheck**:`node scripts/check-rounded-full.mjs` exit 0(3637 文件 0 违规) ✅ + `pnpm --filter @ihui/web typecheck` exit 0 ✅
+
+**Verified-DOM**: `http://localhost:3000/chat` button[title^="请将以下内容翻译为英文"].classList.contains('rounded-md')=true / .contains('rounded-full')=false / borderRadius=6px
+
+**本 agent 后续建议(本任务范围内)**:**无**。`rounded-full` 仅保留在 AGENTS.md §4 豁免清单内(头像 / Switch thumb / ≤14px 装饰点 / 红点底 / animate-spin)。
+
 ### 登录框输入栏描边样式修复 + CI 守门(已完成 ✅)
 
 **背景**:用户反馈"登录框所有的输入栏怎么没有显示描边样式呢 之前做好的没生效"。
@@ -98,23 +115,17 @@
 
 **本 agent 后续建议**:**无**。本任务范围内已完美收尾,左上角保留文字版 + 其他位置统一纯图标版,符合用户"不要再出现破图"要求。
 
-### 消息列表空状态 logo 统一回补(已完成 ✅ 2026-07-19)
+### 消息列表空状态 logo 统一回补(M-65,已完成 ✅ 2026-07-19)
 
-**背景**:用户反馈"`img` 为什么显示的不是我们自己的 logo 应该跟登录框里的 logo 一致同步啊"。本任务是"全站 logo 统一"漏改回补——该任务收尾时仅核查到 9 处替换,但 `apps/web/src/components/chat/message-list.tsx` 第 93 行的 `ai_default.svg` 未在清单内,被遗漏,导致 AI 侧栏/聊天页消息列表空状态仍显示旧版 AI 默认图标。
+"全站 logo 统一"任务漏改 1 处回补。改 `message-list.tsx:92-103`:`/images/common/ai_default.svg` → `/images/logo.png?v=20260719-unify`;去 `dark:invert`(品牌 PNG 不应反相)+ `opacity-90`;加 `rounded-xl` + `select-none draggable={false} priority`;`alt=""` → `"IHUI AI"`;尺寸保留 56×56。DOM 实测:AI 侧栏空状态 `img[alt="IHUI AI"] src=/images/logo.png?v=20260719-unify w=56 h=56` 与登录弹窗同源。typecheck exit 0。
 
-**根因诊断**:历史多 agent 并行开发遗留,`ai_default.svg` 仍指向 `apps/web/public/images/common/ai_default.svg`(通用 AI 兜底图,蝴蝶结 + AI 字母),与全站规范 "其他位置统一纯图标版 logo.png" 冲突。
+**本 agent 后续建议**:**无**。
 
-**已完成(2026-07-19)**:
+### 登录弹窗 logo + welcome 图左右并排(M-66,已完成 ✅ 2026-07-19)
 
-- [x] `apps/web/src/components/chat/message-list.tsx:92-103` 空状态 Image:`/images/common/ai_default.svg` → `/images/logo.png?v=20260719-unify`,与登录弹窗/全站其他位置同源
-- [x] **样式属性同步 LoginDialog 范式**:`alt=""` → `alt="IHUI AI"`(去掉 aria-hidden,与登录弹窗语义一致)、加 `rounded-xl`(与登录弹窗 80px 同款圆角)、加 `select-none draggable={false} priority`(品牌主视觉标准)
-- [x] **去掉过期样式**:`dark:invert`(PNG 品牌图不应反相,品牌色在 dark mode 不变)、`opacity-90`(品牌图应满色,半透明无意义)
-- [x] **尺寸保留 56×56**:`h-14 w-14` 适配小空状态(登录弹窗用 80×80 因容器更宽,空状态保持小尺寸避免视觉喧宾夺主)
-- [x] **浏览器实地自验**:AI 侧栏空状态 `img[alt="IHUI AI"]` `src=/images/logo.png?v=20260719-unify` `w=56 h=56` `classes=h-14 w-14 select-none rounded-xl` ✅;登录弹窗顶部 `img[alt="IHUI AI"]` `src=/images/logo.png?v=20260719-login` `w=80 h=80` `classes=h-20 w-20 select-none rounded-xl` ✅
-- [x] **全链路 typecheck**:`pnpm --filter @ihui/web typecheck` exit 0,无回归
-- [x] **守门补强**:本次为"全站 logo 统一"任务漏改 1 处回补,未来任何 agent 引入新 logo 资产应同步 Grep `public/images/` 确认未出现除 `logo.svg`(sidebar ThemeLogo 唯一豁免)外的非 `logo.png` 引用
+用户要求 logo 移至 welcome 左侧并排,数学最优 `52 + gap-3(12) + 348 = 412`(容器内宽),logo 52×52 + welcome 348×52。改 `LoginDialog.tsx:59-97`:外层 `flex flex-col` → `flex items-center justify-center gap-3`;logo `h-20 w-20` → `h-[52px] w-[52px] shrink-0`;welcome 改 `relative h-[52px] w-full max-w-[348px]` + 2 张 `absolute inset-0 m-auto h-full w-auto` 叠加(globals.css 互斥 CSS 仍生效);`pt-8 pb-4` → `pt-6 pb-4`。浏览器 4 状态(light/dark × default/hover)实测同 y/h。typecheck + check-rounded-full 通过。
 
-**本 agent 后续建议**:**无**。本任务范围内已完美收尾,消息列表空状态 logo 与登录弹窗同源同步,符合用户"应该跟登录框里的 logo 一致同步"要求。
+**本 agent 后续建议**:**无**。
 
 ### 侧边栏"我的学习"垂直对齐根治 + "两个绿色容器"修复(已完成 ✅)
 
