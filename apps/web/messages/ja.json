@@ -695,10 +695,10 @@
       "kouzi": "アイコン",
       "bbxLogo": "ロゴ",
       "brand4": "アイコン",
-      "zhipu": "智谱清言",
+      "zhipu": "Zhipu AI",
       "brand8": "8",
       "ali": "阿里云",
-      "baidu": "百度文心",
+      "baidu": "Baidu ERNIE",
       "dbsfdx": "東北師範大学",
       "gork": "Grok",
       "huawei": "です",
@@ -706,7 +706,7 @@
       "openai": "OpenAI",
       "tencent": "腾讯云",
       "yuanbaoxiang": "元宝象",
-      "yushu": "宇树科技"
+      "yushu": "Unitree"
     },
     "promotionModal": {
       "title": "！",
@@ -1006,6 +1006,8 @@
     "modelDescGemini15Flash": "長い文脈 · マルチモーダル",
     "modelDescGroqLlama3370B": "高速推論 · 無料枠",
     "modelDescOpenRouterAuto": "スマートルーティング · 複数ベンダー",
+    "modelConfigured": "現在のモデルの API Key は設定済みです",
+    "modelNotConfigured": "現在のモデルの API Key が未設定です。モデル広場ページでワンクリック設定できます",
     "slashCmd": {
       "summary": "のを",
       "translate": "テキストを",
@@ -18884,9 +18886,9 @@
       "默认": "デフォルト",
       "默认1": "デフォルト",
       "微软雅黑2": "Microsoft YaHei",
-      "宋体3": "宋体",
-      "黑体4": "黑体",
-      "楷体5": "楷体"
+      "宋体3": "SimSun",
+      "黑体4": "SimHei",
+      "楷体5": "KaiTi"
     },
     "universal_third_party_auth": {
       "Google登录": "Googleログインログイン",
@@ -18898,8 +18900,8 @@
     },
     "about": {
       "张明远": "張明遠",
-      "李思涵1": "李思涵",
-      "王晓峰2": "王晓峰"
+      "李思涵1": "リ・スハン",
+      "王晓峰2": "ワン・シャオフォン"
     },
     "agents_create": {
       "AI助手": "ai"
@@ -18934,13 +18936,13 @@
       "AI工具课程19": "aiツールコース",
       "思维类课程20": "コース",
       "文化类课程21": "コース",
-      "火山引擎22": "火山引擎",
-      "阿里云23": "阿里云",
-      "腾讯云24": "腾讯云",
-      "九章智算云25": "9章智算云",
-      "致远互联26": "致遠互聯",
-      "百度智能云27": "百度智能云",
-      "华为云28": "です",
+      "火山引擎22": "Volcengine",
+      "阿里云23": "Alibaba Cloud",
+      "腾讯云24": "Tencent Cloud",
+      "九章智算云25": "JiuZhang",
+      "致远互联26": "Seeyon",
+      "百度智能云27": "Baidu Cloud",
+      "华为云28": "Huawei Cloud",
       "httpswei29": "https://weixin.qq.com/ai",
       "企业服务30": "エンタープライズサービス"
     },
@@ -19228,7 +19230,7 @@
       "扣子图标": "アイコン",
       "百宝箱logo1": "ロゴ",
       "品牌图标2": "アイコン",
-      "智谱清言3": "智谱清言",
+      "智谱清言3": "Zhipu AI",
       "品牌84": "8"
     },
     "api_test_page": {
