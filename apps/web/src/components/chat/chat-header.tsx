@@ -38,7 +38,8 @@ export function ChatHeader({
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+      {/* 图标容器:与 ai-side-panel.tsx 保持一致,2026-07-19 去掉背景色让内部图标自然显示 */}
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/80">
         <Sparkles className="h-4 w-4" />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
