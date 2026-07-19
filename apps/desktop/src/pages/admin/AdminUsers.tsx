@@ -1,11 +1,19 @@
 /**
- * AdminUsers — 用户管理列表。
+ * AdminUsers — 用户管理(列表 + 创建/编辑/删除 + 状态切换)。
  *
- * 数据源:`listAdminUsers({ search, role, status, page, pageSize })`。
- * 仅读 + 关键字搜索 + 状态筛选;变更/创建走 web 后台(本子任务范围内不重复实装)。
+ * 数据源:`listAdminUsers / addAdminUser / updateAdminUser / delAdminUser`(来自 @ihui/api-client)。
+ * 状态机由 useAdminCrud 统一管理,弹窗通过 UserDialog 复用。
  */
-import { useEffect, useMemo, useState } from 'react'
-import { listAdminUsers, type MemberUser } from '@ihui/api-client'
+import { useMemo, useState } from 'react'
+import {
+  listAdminUsers,
+  addAdminUser,
+  updateAdminUser,
+  delAdminUser,
+  type MemberUser,
+  type PageData,
+} from '@ihui/api-client'
+import type { ApiResult } from '@ihui/types'
 import {
   Card,
   CardContent,
@@ -18,32 +26,36 @@ import {
   TableHeader,
   TableRow,
 } from '@ihui/ui'
+import { useAdminCrud } from '../../hooks/use-admin-crud'
+import { useI18n } from '../../i18n'
+import { UserDialog, type UserDialogMode, type UserFormValues } from '../../components/admin/UserDialog'
 
 type StatusFilter = 'all' | 'active' | 'disabled'
 
-const STATUS_LABEL: Record<StatusFilter, string> = {
-  all: '全部',
-  active: '正常',
-  disabled: '禁用',
+interface UserListParams {
+  page: number
+  pageSize: number
+  search: string | undefined
+  status: number | undefined
+  [key: string]: string | number | undefined | null
 }
 
-const STATUS_CLASS: Record<StatusFilter, string> = {
-  all: '',
-  active: 'admin-badge-ok',
-  disabled: 'admin-badge-muted',
-}
+const DATE_FORMATTER = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' })
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState<MemberUser[]>([])
-  const [total, setTotal] = useState(0)
+  const { t } = useI18n()
   const [page, setPage] = useState(1)
   const [pageSize] = useState(20)
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogMode, setDialogMode] = useState<UserDialogMode>('create')
+  const [editingUser, setEditingUser] = useState<MemberUser | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
-  const params = useMemo(
+  const params = useMemo<UserListParams>(
     () => ({
       page,
       pageSize,
@@ -53,35 +65,99 @@ export default function AdminUsers() {
     [page, pageSize, keyword, status],
   )
 
-  const load = () => {
-    setLoading(true)
-    setError('')
-    void (async () => {
-      const res = await listAdminUsers(params)
-      if (res.success) {
-        setUsers(res.data.list)
-        setTotal(res.data.total)
-      } else {
-        setError(res.error || '加载失败')
-      }
-      setLoading(false)
-    })()
-  }
-
-  useEffect(() => {
-    load()
-  }, [params])
+  const { rows, total, loading, error, mutate } = useAdminCrud<UserListParams, MemberUser>({
+    fetcher: async (p) => {
+      const res: ApiResult<PageData<MemberUser>> = await listAdminUsers(p)
+      if (!res.success) throw new Error(res.error || t('admin.common.loadFailed'))
+      return { list: res.data.list, total: res.data.total }
+    },
+    params,
+  })
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  const openCreate = () => {
+    setDialogMode('create')
+    setEditingUser(null)
+    setDialogOpen(true)
+    setActionError('')
+  }
+
+  const openEdit = (u: MemberUser) => {
+    setDialogMode('edit')
+    setEditingUser(u)
+    setDialogOpen(true)
+    setActionError('')
+  }
+
+  const closeDialog = () => {
+    setDialogOpen(false)
+    setEditingUser(null)
+  }
+
+  const handleSubmit = async (values: UserFormValues) => {
+    setActionError('')
+    setSuccessMessage('')
+    try {
+      if (dialogMode === 'create') {
+        const res = await addAdminUser({
+          nickname: values.nickname.trim(),
+          phone: values.phone.trim() || undefined,
+          email: values.email.trim() || undefined,
+          password: values.password,
+          roleId: values.roleId,
+          status: values.status,
+        })
+        if (!res.success) {
+          setActionError(res.error || t('admin.users.createSuccess').replace('成功', '失败'))
+          return
+        }
+        setSuccessMessage(t('admin.users.createSuccess'))
+      } else if (editingUser) {
+        const res = await updateAdminUser(editingUser.id, {
+          role: values.roleId,
+          status: values.status,
+        })
+        if (!res.success) {
+          setActionError(res.error || t('admin.users.updateSuccess').replace('成功', '失败'))
+          return
+        }
+        setSuccessMessage(t('admin.users.updateSuccess'))
+      }
+      await mutate(async () => Promise.resolve())
+      closeDialog()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : '操作失败')
+    }
+  }
+
+  const handleDelete = async (u: MemberUser) => {
+    if (deletingId) return
+    if (!window.confirm(t('admin.users.deleteConfirm'))) return
+    setDeletingId(u.id)
+    setActionError('')
+    setSuccessMessage('')
+    try {
+      const res = await delAdminUser(u.id)
+      if (!res.success) {
+        setActionError(res.error || t('admin.users.deleteSuccess').replace('成功', '失败'))
+        return
+      }
+      setSuccessMessage(t('admin.users.deleteSuccess'))
+      await mutate(async () => Promise.resolve())
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <div className="admin-page" data-testid="admin-users">
       <header className="admin-page-header">
-        <h2>用户管理</h2>
+        <h2>{t('admin.users.title')}</h2>
         <div className="admin-toolbar">
           <input
             type="search"
-            placeholder="搜索昵称/手机/邮箱"
+            placeholder={t('admin.users.searchPlaceholder')}
             value={keyword}
             onChange={(e) => {
               setPage(1)
@@ -99,57 +175,103 @@ export default function AdminUsers() {
             className="admin-select"
             data-testid="admin-users-status"
           >
-            {(['all', 'active', 'disabled'] as StatusFilter[]).map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
+            <option value="all">{t('admin.users.filterAll')}</option>
+            <option value="active">{t('admin.users.filterActive')}</option>
+            <option value="disabled">{t('admin.users.filterDisabled')}</option>
           </select>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="admin-refresh-btn"
+            data-testid="admin-users-create"
+          >
+            {t('admin.users.create')}
+          </button>
         </div>
       </header>
 
       {error ? <div className="error-banner">{error}</div> : null}
+      {actionError ? <div className="error-banner" data-testid="admin-users-action-error">{actionError}</div> : null}
+      {successMessage ? (
+        <div className="admin-muted" data-testid="admin-users-success" style={{ marginLeft: 0 }}>
+          {successMessage}
+        </div>
+      ) : null}
 
       <Card>
         <CardHeader>
           <CardTitle>
-            用户列表 <span className="admin-muted">共 {total} 条</span>
+            {t('admin.users.title')}{' '}
+            <span className="admin-muted">
+              {t('admin.common.totalCount', { count: total })}
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="empty-state">加载中...</div>
-          ) : users.length === 0 ? (
-            <div className="empty-state">暂无用户</div>
+            <div className="empty-state">{t('common.loading')}</div>
+          ) : rows.length === 0 ? (
+            <div className="empty-state">{t('admin.common.noData')}</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>昵称</TableHead>
-                  <TableHead>账号</TableHead>
-                  <TableHead>角色</TableHead>
-                  <TableHead>等级</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>注册时间</TableHead>
+                  <TableHead>{t('admin.users.colNickname')}</TableHead>
+                  <TableHead>{t('admin.users.colAccount')}</TableHead>
+                  <TableHead>{t('admin.users.colRole')}</TableHead>
+                  <TableHead>{t('admin.users.colLevel')}</TableHead>
+                  <TableHead>{t('admin.users.colStatus')}</TableHead>
+                  <TableHead>{t('admin.users.colCreatedAt')}</TableHead>
+                  <TableHead>{t('admin.users.colActions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell>{u.nickname || '—'}</TableCell>
-                    <TableCell className="admin-mono">{u.phone || u.email || u.username || '—'}</TableCell>
-                    <TableCell>{u.isSystemAdmin ? '超管' : u.roleId ? '管理员' : '用户'}</TableCell>
-                    <TableCell>L{u.level}</TableCell>
-                    <TableCell>
-                      <span className={`admin-badge ${u.status === 1 ? STATUS_CLASS.active : STATUS_CLASS.disabled}`}>
-                        {u.status === 1 ? '正常' : '禁用'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="admin-muted">
-                      {new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(u.createdAt))}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {rows.map((u) => {
+                  const roleLabel = u.isSystemAdmin
+                    ? t('admin.users.roleSystem')
+                    : u.roleId
+                      ? t('admin.users.roleAdmin')
+                      : t('admin.users.roleUser')
+                  const statusLabel = u.status === 1 ? t('admin.users.statusActive') : t('admin.users.statusDisabled')
+                  return (
+                    <TableRow key={u.id} data-testid={`admin-users-row-${u.id}`}>
+                      <TableCell>{u.nickname || '—'}</TableCell>
+                      <TableCell className="admin-mono">{u.phone || u.email || u.username || '—'}</TableCell>
+                      <TableCell>{roleLabel}</TableCell>
+                      <TableCell>L{u.level}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`admin-badge ${u.status === 1 ? 'admin-badge-ok' : 'admin-badge-muted'}`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </TableCell>
+                      <TableCell className="admin-muted">
+                        {DATE_FORMATTER.format(new Date(u.createdAt))}
+                      </TableCell>
+                      <TableCell>
+                        <div className="admin-row-actions">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(u)}
+                            data-testid={`admin-users-edit-${u.id}`}
+                          >
+                            {t('common.edit')}
+                          </button>
+                          <button
+                            type="button"
+                            className="danger"
+                            onClick={() => void handleDelete(u)}
+                            disabled={deletingId === u.id}
+                            data-testid={`admin-users-delete-${u.id}`}
+                          >
+                            {t('common.delete')}
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}
@@ -158,19 +280,27 @@ export default function AdminUsers() {
 
       <div className="pagination">
         <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-          上一页
+          {t('admin.common.prevPage')}
         </button>
         <span>
-          第 {page} / {totalPages} 页
+          {t('admin.common.pageIndicator', { page, total: totalPages })}
         </span>
         <button
           type="button"
           disabled={page >= totalPages}
           onClick={() => setPage((p) => p + 1)}
         >
-          下一页
+          {t('admin.common.nextPage')}
         </button>
       </div>
+
+      <UserDialog
+        open={dialogOpen}
+        mode={dialogMode}
+        user={editingUser}
+        onClose={closeDialog}
+        onSubmit={handleSubmit}
+      />
     </div>
   )
 }
