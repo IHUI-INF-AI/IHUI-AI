@@ -347,11 +347,13 @@ export interface SSEErrorInfo {
  * - `auth`     → 跳登录弹窗
  * - `forbidden`→ Toast 提示权限不足
  * - `ratelimit`→ Toast 提示稍后重试(可能附带 retryAfter)
+ * - `safety`   → Toast 提示内容被 AI 厂商安全策略拦截(非项目违规判定)
  * - `server`   → Toast 提示服务异常,可重试
  * - `network`  → Toast 提示网络问题
  * - `unknown`  → 兜底 Toast
  */
-export type SSEErrorSeverity = 'auth' | 'forbidden' | 'ratelimit' | 'server' | 'network' | 'unknown'
+export type SSEErrorSeverity =
+  'auth' | 'forbidden' | 'ratelimit' | 'safety' | 'server' | 'network' | 'unknown'
 
 export interface FormattedSSEError {
   code?: number
@@ -476,6 +478,23 @@ export function formatSSEError(err: unknown, fallbackMessage = 'AI 服务异常'
   const errorCode = info?.errorCode
   const retryAfter = info?.retryAfter
 
+  // 优先识别 LLM 厂商内容安全策略拦截关键词
+  // 这些错误来自上游 LLM(Gemini/OpenAI/Anthropic),不是项目本身的违规判定
+  // 识别后给出清晰提示,避免用户误以为是项目违规判定导致对话被自动结束
+  const safetyHit = detectSafetyViolation(rawMessage, errorCode)
+  if (safetyHit) {
+    return {
+      code,
+      errorCode,
+      retryAfter,
+      severity: 'safety',
+      title: '内容被 AI 厂商安全策略拦截',
+      message: safetyHit,
+      rawMessage,
+      requireReauth: false,
+    }
+  }
+
   if (code === 401) {
     return {
       code,
@@ -560,6 +579,58 @@ export function formatSSEError(err: unknown, fallbackMessage = 'AI 服务异常'
     rawMessage,
     requireReauth: false,
   }
+}
+
+/**
+ * 识别 LLM 厂商内容安全策略拦截关键词。
+ *
+ * 主流 LLM 厂商在内容被判定违规时会返回特定错误码/消息:
+ * - OpenAI:    `content_policy_violation` / `content_policy` / 400 + "Your request was rejected as a result of our safety system"
+ * - Anthropic: `output_length_stop` + "content filter" / 400 + "content that is unsafe"
+ * - Gemini:    `SAFETY` / `RECITATION` / `BLOCKLIST` finishReason
+ * - 通用:      "safety" / "policy" / "filtered" / "blocked" / "审查" / "违规"
+ *
+ * 命中返回清晰提示文案,未命中返回 null。
+ * 该识别只针对上游 LLM 厂商的安全策略拦截,不是项目本身的违规判定。
+ */
+function detectSafetyViolation(message: string, errorCode?: string): string | null {
+  const text = message.toLowerCase()
+  const ec = (errorCode ?? '').toLowerCase()
+
+  // Gemini finishReason
+  if (/finishreason\s*=\s*safety/i.test(message)) {
+    return '内容被 Gemini 安全策略拦截(SAFETY),请调整提问方式后重试'
+  }
+  if (/finishreason\s*=\s*recitation/i.test(message)) {
+    return '内容被 Gemini 引用安全策略拦截(RECITATION),请减少大段引用后重试'
+  }
+  // OpenAI content_policy_violation
+  if (ec === 'content_policy_violation' || text.includes('content_policy_violation')) {
+    return '内容被 OpenAI 内容策略拦截,请调整提问方式后重试'
+  }
+  // Anthropic safety
+  if (ec === 'safety_block' || (text.includes('"type":"error"') && text.includes('"safety"'))) {
+    return '内容被 Anthropic 安全策略拦截,请调整提问方式后重试'
+  }
+  // 通用关键词兜底(需组合出现,避免误判普通错误)
+  const safetyKeywords = [
+    'safety',
+    'content policy',
+    'content filter',
+    'safety system',
+    'safety filter',
+  ]
+  const blockedKeywords = ['blocked', 'rejected', 'filtered']
+  for (const sk of safetyKeywords) {
+    if (text.includes(sk)) {
+      for (const bk of blockedKeywords) {
+        if (text.includes(bk)) {
+          return '内容被 AI 厂商安全策略拦截,请调整提问方式后重试'
+        }
+      }
+    }
+  }
+  return null
 }
 
 export async function streamChat(opts: StreamChatOptions): Promise<void> {
