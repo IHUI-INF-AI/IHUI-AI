@@ -84,36 +84,32 @@ export function UsernameLoginForm({
   return (
     <form onSubmit={onUsernameSubmit} className="space-y-4 pt-2">
       {usernameErr && <Alert variant="danger" description={usernameErr} />}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="username">{t('username')}</Label>
-        <div className="input-gradient-wrap rounded-md">
-          <Input
-            id="username"
-            autoComplete="username"
-            placeholder={t('usernamePlaceholder')}
-            className="h-9 rounded-[7px] border border-input bg-background"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </div>
+        <Input
+          id="username"
+          autoComplete="username"
+          placeholder={t('usernamePlaceholder')}
+          className="h-10"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="username-password">{t('password')}</Label>
-        <div className="input-gradient-wrap rounded-md">
-          <Input
-            id="username-password"
-            type="password"
-            autoComplete="current-password"
-            placeholder={t('passwordPlaceholder')}
-            className="h-9 rounded-[7px] border border-input bg-background"
-            value={usernamePassword}
-            onChange={(e) => setUsernamePassword(e.target.value)}
-          />
-        </div>
+        <Input
+          id="username-password"
+          type="password"
+          autoComplete="current-password"
+          placeholder={t('passwordPlaceholder')}
+          className="h-10"
+          value={usernamePassword}
+          onChange={(e) => setUsernamePassword(e.target.value)}
+        />
       </div>
       {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
-      <Button type="submit" className="w-full" disabled={usernameSubmitting || !agreed}>
-        {usernameSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+      <Button type="submit" className="h-10 w-full" disabled={usernameSubmitting || !agreed}>
+        {usernameSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('loginBtn')}
       </Button>
     </form>
