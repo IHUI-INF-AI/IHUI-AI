@@ -177,7 +177,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   const taskIdParam = z.object({ taskId: z.string() })
   const botConversationParam = z.object({ botId: z.string(), conversationId: z.string() })
 
-  // 知识库文章列表/详情是公开内容(首页教育总览需展示给所有用户),GET 跳过鉴权
+  // 知识库文章列表/详情是公开内容(首页教育概览需展示给所有用户),GET 跳过鉴权
   const isPublicKnowledgeGet = (req: FastifyRequest): boolean => {
     if (req.method !== 'GET') return false
     const path = (req.url.split('?')[0] ?? '').replace(/^\/api/, '')
