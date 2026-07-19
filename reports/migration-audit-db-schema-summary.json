@@ -1,0 +1,501 @@
+{
+  "generated_at": "2026-07-19T12:48:45.794Z",
+  "old_project": {
+    "root": "D:\\历史项目存档",
+    "sources": {
+      "edu-init_database.sql": 186,
+      "zhs-java-@Table": 9,
+      "zhs-py-sql": 10,
+      "ry-sql (RuoYi/Quartz)": 13
+    },
+    "total_unique": 217
+  },
+  "new_project": {
+    "repo": "G:\\IHUI-AI",
+    "schema_dir": "G:\\IHUI-AI\\packages\\database\\src\\schema",
+    "total_tables": 153
+  },
+  "categories": {
+    "migrated": 80,
+    "partial": 91,
+    "missing": 46,
+    "new": 92
+  },
+  "coverage_pct": 78.8,
+  "critical_business_coverage": [
+    {
+      "keyword": "user",
+      "old_count": 8,
+      "new_count": 8,
+      "migrated_count": 4,
+      "partial_count": 4,
+      "missing_count": 0,
+      "coverage_pct": 100
+    },
+    {
+      "keyword": "order",
+      "old_count": 7,
+      "new_count": 2,
+      "migrated_count": 5,
+      "partial_count": 2,
+      "missing_count": 0,
+      "coverage_pct": 100
+    },
+    {
+      "keyword": "course",
+      "old_count": 0,
+      "new_count": 5,
+      "migrated_count": 0,
+      "partial_count": 0,
+      "missing_count": 0,
+      "coverage_pct": 100
+    },
+    {
+      "keyword": "payment",
+      "old_count": 2,
+      "new_count": 1,
+      "migrated_count": 0,
+      "partial_count": 2,
+      "missing_count": 0,
+      "coverage_pct": 100
+    },
+    {
+      "keyword": "pay",
+      "old_count": 0,
+      "new_count": 2,
+      "migrated_count": 0,
+      "partial_count": 0,
+      "missing_count": 0,
+      "coverage_pct": 100
+    },
+    {
+      "keyword": "ai",
+      "old_count": 0,
+      "new_count": 2,
+      "migrated_count": 0,
+      "partial_count": 0,
+      "missing_count": 0,
+      "coverage_pct": 100
+    },
+    {
+      "keyword": "member",
+      "old_count": 14,
+      "new_count": 9,
+      "migrated_count": 5,
+      "partial_count": 9,
+      "missing_count": 0,
+      "coverage_pct": 100
+    },
+    {
+      "keyword": "exam",
+      "old_count": 23,
+      "new_count": 12,
+      "migrated_count": 13,
+      "partial_count": 9,
+      "missing_count": 1,
+      "coverage_pct": 95.7
+    },
+    {
+      "keyword": "learn",
+      "old_count": 20,
+      "new_count": 5,
+      "migrated_count": 7,
+      "partial_count": 10,
+      "missing_count": 3,
+      "coverage_pct": 85
+    },
+    {
+      "keyword": "message",
+      "old_count": 6,
+      "new_count": 2,
+      "migrated_count": 3,
+      "partial_count": 3,
+      "missing_count": 0,
+      "coverage_pct": 100
+    },
+    {
+      "keyword": "notification",
+      "old_count": 0,
+      "new_count": 3,
+      "migrated_count": 0,
+      "partial_count": 0,
+      "missing_count": 0,
+      "coverage_pct": 100
+    },
+    {
+      "keyword": "circle",
+      "old_count": 9,
+      "new_count": 3,
+      "migrated_count": 4,
+      "partial_count": 4,
+      "missing_count": 1,
+      "coverage_pct": 88.9
+    },
+    {
+      "keyword": "live",
+      "old_count": 8,
+      "new_count": 3,
+      "migrated_count": 2,
+      "partial_count": 2,
+      "missing_count": 4,
+      "coverage_pct": 50
+    },
+    {
+      "keyword": "content",
+      "old_count": 4,
+      "new_count": 1,
+      "migrated_count": 2,
+      "partial_count": 0,
+      "missing_count": 2,
+      "coverage_pct": 50
+    },
+    {
+      "keyword": "resource",
+      "old_count": 12,
+      "new_count": 6,
+      "migrated_count": 3,
+      "partial_count": 5,
+      "missing_count": 4,
+      "coverage_pct": 66.7
+    },
+    {
+      "keyword": "point",
+      "old_count": 6,
+      "new_count": 2,
+      "migrated_count": 1,
+      "partial_count": 5,
+      "missing_count": 0,
+      "coverage_pct": 100
+    }
+  ],
+  "missing_analysis": {
+    "merged_into_drizzle_relation": 1,
+    "merged_into_main_table": 0,
+    "real_missing": 45,
+    "details": [
+      {
+        "old_table": "circle_dynamic",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "dynamic",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "exam_sign_up",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "sign_up",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "learn_homework",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "homework",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "learn_homework_record",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "homework_record",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "learn_sign_up",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "sign_up",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "live_channel_lecturer",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "channel_lecturer",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "live_subscribe",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "subscribe",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "live_tencent_cloud_live_stream",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "tencent_cloud_live_stream",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "resource_resource_download",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "resource_download",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "resource_resource_search_record",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "resource_search_record",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "search_content",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "content",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_certificate",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "certificate",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_certificate_template",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "certificate_template",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_channel_lecturer",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "channel_lecturer",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_check_in",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "check_in",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_check_in_record",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "check_in_record",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_company_department_relation",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "company_department_relation",
+        "analysis": "merged_into_drizzle_relation"
+      },
+      {
+        "old_table": "t_content",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "content",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_department",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "department",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_department_department",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "department_department",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_dynamic",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "dynamic",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_favorite",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "favorite",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_follow",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "follow",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_homework",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "homework",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_homework_record",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "homework_record",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_lecturer",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "lecturer",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_like",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "like",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_manager",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "manager",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_private_letter",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "private_letter",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_resource_download",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "resource_download",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_resource_search_record",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "resource_search_record",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_sensitive_word",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "sensitive_word",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_sign_up",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "sign_up",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_subscribe",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "subscribe",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_template",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "template",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_tencent_cloud_live_stream",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "tencent_cloud_live_stream",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "t_watch",
+        "old_source": "edu-init_database.sql",
+        "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+        "normalized": "watch",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "zhs_developer_link",
+        "old_source": "zhs-py-sql",
+        "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\coze_zhs_py\\sql\\zhs_developer_link.sql",
+        "normalized": "developer_link",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "group_capacity",
+        "old_source": "ry-sql",
+        "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ai-smart-society-java\\sql\\ry_config_20250224.sql",
+        "normalized": "group_capacity",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "his_config_info",
+        "old_source": "ry-sql",
+        "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ai-smart-society-java\\sql\\ry_config_20250224.sql",
+        "normalized": "his_config_info",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "zhs_exchange_rate",
+        "old_source": "zhs-java-@Table",
+        "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ZHS_Server_java\\src\\main\\java\\com\\ai\\manager\\small\\domain\\ExchangeRate.java",
+        "normalized": "exchange_rate",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "zhs_withdrawal_flow",
+        "old_source": "zhs-java-@Table",
+        "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ZHS_Server_java\\src\\main\\java\\com\\ai\\manager\\small\\domain\\WithdrawalFlow.java",
+        "normalized": "withdrawal_flow",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "zhs_banner_carousel",
+        "old_source": "zhs-java-@Table",
+        "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ZHS_Server_java\\src\\main\\java\\com\\ai\\manager\\small\\domain\\BannerCarousel.java",
+        "normalized": "banner_carousel",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "zhs_knowledge_planet",
+        "old_source": "zhs-java-@Table",
+        "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ZHS_Server_java\\src\\main\\java\\com\\ai\\manager\\small\\domain\\KnowledgePlanet.java",
+        "normalized": "knowledge_planet",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "zhs_operate_token_flow",
+        "old_source": "zhs-java-@Table",
+        "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ZHS_Server_java\\src\\main\\java\\com\\ai\\manager\\small\\domain\\OperateTokenFlow.java",
+        "normalized": "operate_token_flow",
+        "analysis": "real_missing"
+      },
+      {
+        "old_table": "zhs_product",
+        "old_source": "zhs-java-@Table",
+        "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ZHS_Server_java\\src\\main\\java\\com\\ai\\manager\\small\\domain\\Product.java",
+        "normalized": "product",
+        "analysis": "real_missing"
+      }
+    ]
+  },
+  "csv_path": "G:\\IHUI-AI\\reports\\migration-audit-db-schema-2026-07-19T12-48-44.csv"
+}

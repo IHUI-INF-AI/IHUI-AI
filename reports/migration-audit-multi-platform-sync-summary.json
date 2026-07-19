@@ -1,0 +1,788 @@
+{
+  "generatedAt": "2026-07-19T15:17:49.492Z",
+  "script": "scripts/audit-multi-platform-sync.mjs",
+  "rule": "AGENTS.md §9 多端同步开发强制规则",
+  "platforms": [
+    {
+      "id": "web",
+      "dir": "apps/web",
+      "lang": "ts/tsx",
+      "exists": true,
+      "exemption": null
+    },
+    {
+      "id": "api",
+      "dir": "apps/api",
+      "lang": "ts",
+      "exists": true,
+      "exemption": null
+    },
+    {
+      "id": "ai-service",
+      "dir": "apps/ai-service",
+      "lang": "python",
+      "exists": true,
+      "exemption": null
+    },
+    {
+      "id": "desktop",
+      "dir": "apps/desktop",
+      "lang": "ts/tsx",
+      "exists": true,
+      "exemption": "系统托盘(Tauri 原生集成)"
+    },
+    {
+      "id": "extension",
+      "dir": "apps/extension",
+      "lang": "ts/tsx",
+      "exists": true,
+      "exemption": "浏览器上下文菜单(WXT)"
+    },
+    {
+      "id": "mobile-rn",
+      "dir": "apps/mobile-rn",
+      "lang": "ts/tsx",
+      "exists": true,
+      "exemption": null
+    },
+    {
+      "id": "miniapp-taro",
+      "dir": "apps/miniapp-taro",
+      "lang": "ts/tsx",
+      "exists": true,
+      "exemption": "微信支付(小程序原生)"
+    },
+    {
+      "id": "cli",
+      "dir": "apps/cli",
+      "lang": "ts",
+      "exists": true,
+      "exemption": "终端集成(ACP/REPL)"
+    }
+  ],
+  "newEndpoints": [
+    {
+      "path": "/api/private-letters",
+      "keyword": "private-letters",
+      "desc": "私信管理(7 端点)"
+    },
+    {
+      "path": "/api/wrong-questions",
+      "keyword": "wrong-questions",
+      "desc": "错题本(3 端点)"
+    },
+    {
+      "path": "/api/check-in",
+      "keyword": "check-in",
+      "desc": "每日签到(2 主端点 + 2 辅助)"
+    },
+    {
+      "path": "/api/mail",
+      "keyword": "api/mail",
+      "desc": "邮件发送(2 端点)"
+    },
+    {
+      "path": "/api/auth-codes",
+      "keyword": "auth-codes",
+      "desc": "验证码(2 端点)"
+    },
+    {
+      "path": "/api/exam-marking",
+      "keyword": "exam-marking",
+      "desc": "阅卷评分(1 端点)"
+    }
+  ],
+  "newSchemaGroups": [
+    {
+      "group": "social-supplement",
+      "files": [
+        "social-supplement.ts"
+      ],
+      "tables": 6
+    },
+    {
+      "group": "live-supplement",
+      "files": [
+        "live-supplement.ts"
+      ],
+      "tables": 4
+    },
+    {
+      "group": "learn-homework",
+      "files": [
+        "learn-homework.ts"
+      ],
+      "tables": 5
+    },
+    {
+      "group": "resource-download",
+      "files": [
+        "resource-download.ts"
+      ],
+      "tables": 4
+    },
+    {
+      "group": "admin-extended",
+      "files": [
+        "admin-extended.ts"
+      ],
+      "tables": 8
+    }
+  ],
+  "callMatrix": [
+    {
+      "platform": "web",
+      "endpoint": "/api/private-letters",
+      "desc": "私信管理(7 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 2,
+      "sampleLines": [
+        "g:\\IHUI-AI\\apps\\web\\app\\(main)\\admin\\message-overview\\page.tsx:    queryFn: () => api<PageList<unknown>>('/api/admin/private-letters?pageSize=100'),",
+        "g:\\IHUI-AI\\apps\\web\\app\\(main)\\admin\\private-letters\\page.tsx:    queryFn: () => api<{ list: PrivateLetter[] }>('/api/admin/private-letters'),"
+      ],
+      "syncNeeded": "review",
+      "reason": "已通过等价旧路径调用(2 处),建议评估是否迁移至新顶级路径"
+    },
+    {
+      "platform": "web",
+      "endpoint": "/api/wrong-questions",
+      "desc": "错题本(3 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 3,
+      "sampleLines": [
+        "g:\\IHUI-AI\\apps\\web\\app\\(main)\\exam\\wrong-questions\\page.tsx:    queryFn: () => api<{ stats: WrongQuestionStats }>('/api/exam/wrong-questions/stats'),",
+        "g:\\IHUI-AI\\apps\\web\\app\\(main)\\exam\\wrong-questions\\page.tsx:    queryFn: () => api<WrongQuestionListData>(`/api/exam/wrong-questions?${qs}`),",
+        "g:\\IHUI-AI\\apps\\web\\app\\(main)\\exam\\wrong-questions\\page.tsx:      api(`/api/exam/wrong-questions/${questionId}/resolve`, { method: 'PUT' }),"
+      ],
+      "syncNeeded": "review",
+      "reason": "已通过等价旧路径调用(3 处),建议评估是否迁移至新顶级路径"
+    },
+    {
+      "platform": "web",
+      "endpoint": "/api/check-in",
+      "desc": "每日签到(2 主端点 + 2 辅助)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 2,
+      "sampleLines": [
+        "g:\\IHUI-AI\\apps\\web\\src\\components\\home\\MemberCard.tsx:    fetchApi<{ signedIn: boolean }>('/api/user/check-in/status')",
+        "g:\\IHUI-AI\\apps\\web\\src\\components\\home\\MemberCard.tsx:    const r = await fetchApi('/api/user/check-in', { method: 'POST' })"
+      ],
+      "syncNeeded": "review",
+      "reason": "已通过等价旧路径调用(2 处),建议评估是否迁移至新顶级路径"
+    },
+    {
+      "platform": "web",
+      "endpoint": "/api/mail",
+      "desc": "邮件发送(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "review",
+      "reason": "web 端无调用方,需评估是否需要补开发 UI 调用方(若功能在 web 端需要)"
+    },
+    {
+      "platform": "web",
+      "endpoint": "/api/auth-codes",
+      "desc": "验证码(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "review",
+      "reason": "web 端无调用方,需评估是否需要补开发 UI 调用方(若功能在 web 端需要)"
+    },
+    {
+      "platform": "web",
+      "endpoint": "/api/exam-marking",
+      "desc": "阅卷评分(1 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "review",
+      "reason": "web 端无调用方,需评估是否需要补开发 UI 调用方(若功能在 web 端需要)"
+    },
+    {
+      "platform": "api",
+      "endpoint": "/api/private-letters",
+      "desc": "私信管理(7 端点)",
+      "topLevelCalls": 1,
+      "legacyEquivalentCalls": 1,
+      "sampleLines": [
+        "g:\\IHUI-AI\\apps\\api\\src\\server.ts:  server.register(privateLetterRoutes, { prefix: '/api/private-letters' })",
+        "g:\\IHUI-AI\\apps\\api\\src\\server.ts:  // 私信管理：/api/admin/private-letters 列表"
+      ],
+      "syncNeeded": "no",
+      "reason": "API 实现端,已注册 6 个新端点(server.ts:943-954)"
+    },
+    {
+      "platform": "api",
+      "endpoint": "/api/wrong-questions",
+      "desc": "错题本(3 端点)",
+      "topLevelCalls": 1,
+      "legacyEquivalentCalls": 7,
+      "sampleLines": [
+        "g:\\IHUI-AI\\apps\\api\\src\\server.ts:  server.register(wrongQuestionRoutes, { prefix: '/api/wrong-questions' })",
+        "g:\\IHUI-AI\\apps\\api\\src\\routes\\exam.ts:  // GET /exam/wrong-questions/stats - 错题统计(必须在 :questionId 动态路由前注册)",
+        "g:\\IHUI-AI\\apps\\api\\src\\routes\\exam.ts:  server.get('/exam/wrong-questions/stats', async (request, reply) => {"
+      ],
+      "syncNeeded": "no",
+      "reason": "API 实现端,已注册 6 个新端点(server.ts:943-954)"
+    },
+    {
+      "platform": "api",
+      "endpoint": "/api/check-in",
+      "desc": "每日签到(2 主端点 + 2 辅助)",
+      "topLevelCalls": 1,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [
+        "g:\\IHUI-AI\\apps\\api\\src\\server.ts:  server.register(checkInRoutes, { prefix: '/api/check-in' })"
+      ],
+      "syncNeeded": "no",
+      "reason": "API 实现端,已注册 6 个新端点(server.ts:943-954)"
+    },
+    {
+      "platform": "api",
+      "endpoint": "/api/mail",
+      "desc": "邮件发送(2 端点)",
+      "topLevelCalls": 1,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [
+        "g:\\IHUI-AI\\apps\\api\\src\\server.ts:  server.register(mailRoutes, { prefix: '/api/mail' })"
+      ],
+      "syncNeeded": "no",
+      "reason": "API 实现端,已注册 6 个新端点(server.ts:943-954)"
+    },
+    {
+      "platform": "api",
+      "endpoint": "/api/auth-codes",
+      "desc": "验证码(2 端点)",
+      "topLevelCalls": 1,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [
+        "g:\\IHUI-AI\\apps\\api\\src\\server.ts:  server.register(authCodeRoutes, { prefix: '/api/auth-codes' })"
+      ],
+      "syncNeeded": "no",
+      "reason": "API 实现端,已注册 6 个新端点(server.ts:943-954)"
+    },
+    {
+      "platform": "api",
+      "endpoint": "/api/exam-marking",
+      "desc": "阅卷评分(1 端点)",
+      "topLevelCalls": 1,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [
+        "g:\\IHUI-AI\\apps\\api\\src\\server.ts:  server.register(examMarkingRoutes, { prefix: '/api/exam-marking' })"
+      ],
+      "syncNeeded": "no",
+      "reason": "API 实现端,已注册 6 个新端点(server.ts:943-954)"
+    },
+    {
+      "platform": "ai-service",
+      "endpoint": "/api/private-letters",
+      "desc": "私信管理(7 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "Python 服务,不通过 HTTP 调用本仓库 API 端点"
+    },
+    {
+      "platform": "ai-service",
+      "endpoint": "/api/wrong-questions",
+      "desc": "错题本(3 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "Python 服务,不通过 HTTP 调用本仓库 API 端点"
+    },
+    {
+      "platform": "ai-service",
+      "endpoint": "/api/check-in",
+      "desc": "每日签到(2 主端点 + 2 辅助)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "Python 服务,不通过 HTTP 调用本仓库 API 端点"
+    },
+    {
+      "platform": "ai-service",
+      "endpoint": "/api/mail",
+      "desc": "邮件发送(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "Python 服务,不通过 HTTP 调用本仓库 API 端点"
+    },
+    {
+      "platform": "ai-service",
+      "endpoint": "/api/auth-codes",
+      "desc": "验证码(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "Python 服务,不通过 HTTP 调用本仓库 API 端点"
+    },
+    {
+      "platform": "ai-service",
+      "endpoint": "/api/exam-marking",
+      "desc": "阅卷评分(1 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "Python 服务,不通过 HTTP 调用本仓库 API 端点"
+    },
+    {
+      "platform": "desktop",
+      "endpoint": "/api/private-letters",
+      "desc": "私信管理(7 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):系统托盘(Tauri 原生集成);无业务需求调用本端点"
+    },
+    {
+      "platform": "desktop",
+      "endpoint": "/api/wrong-questions",
+      "desc": "错题本(3 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):系统托盘(Tauri 原生集成);无业务需求调用本端点"
+    },
+    {
+      "platform": "desktop",
+      "endpoint": "/api/check-in",
+      "desc": "每日签到(2 主端点 + 2 辅助)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):系统托盘(Tauri 原生集成);无业务需求调用本端点"
+    },
+    {
+      "platform": "desktop",
+      "endpoint": "/api/mail",
+      "desc": "邮件发送(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):系统托盘(Tauri 原生集成);无业务需求调用本端点"
+    },
+    {
+      "platform": "desktop",
+      "endpoint": "/api/auth-codes",
+      "desc": "验证码(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):系统托盘(Tauri 原生集成);无业务需求调用本端点"
+    },
+    {
+      "platform": "desktop",
+      "endpoint": "/api/exam-marking",
+      "desc": "阅卷评分(1 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):系统托盘(Tauri 原生集成);无业务需求调用本端点"
+    },
+    {
+      "platform": "extension",
+      "endpoint": "/api/private-letters",
+      "desc": "私信管理(7 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):浏览器上下文菜单(WXT);无业务需求调用本端点"
+    },
+    {
+      "platform": "extension",
+      "endpoint": "/api/wrong-questions",
+      "desc": "错题本(3 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):浏览器上下文菜单(WXT);无业务需求调用本端点"
+    },
+    {
+      "platform": "extension",
+      "endpoint": "/api/check-in",
+      "desc": "每日签到(2 主端点 + 2 辅助)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):浏览器上下文菜单(WXT);无业务需求调用本端点"
+    },
+    {
+      "platform": "extension",
+      "endpoint": "/api/mail",
+      "desc": "邮件发送(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):浏览器上下文菜单(WXT);无业务需求调用本端点"
+    },
+    {
+      "platform": "extension",
+      "endpoint": "/api/auth-codes",
+      "desc": "验证码(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):浏览器上下文菜单(WXT);无业务需求调用本端点"
+    },
+    {
+      "platform": "extension",
+      "endpoint": "/api/exam-marking",
+      "desc": "阅卷评分(1 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):浏览器上下文菜单(WXT);无业务需求调用本端点"
+    },
+    {
+      "platform": "mobile-rn",
+      "endpoint": "/api/private-letters",
+      "desc": "私信管理(7 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "review",
+      "reason": "本端无调用方,需评估是否需要补开发(若功能在本端需要)"
+    },
+    {
+      "platform": "mobile-rn",
+      "endpoint": "/api/wrong-questions",
+      "desc": "错题本(3 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "review",
+      "reason": "本端无调用方,需评估是否需要补开发(若功能在本端需要)"
+    },
+    {
+      "platform": "mobile-rn",
+      "endpoint": "/api/check-in",
+      "desc": "每日签到(2 主端点 + 2 辅助)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "review",
+      "reason": "本端无调用方,需评估是否需要补开发(若功能在本端需要)"
+    },
+    {
+      "platform": "mobile-rn",
+      "endpoint": "/api/mail",
+      "desc": "邮件发送(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "review",
+      "reason": "本端无调用方,需评估是否需要补开发(若功能在本端需要)"
+    },
+    {
+      "platform": "mobile-rn",
+      "endpoint": "/api/auth-codes",
+      "desc": "验证码(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "review",
+      "reason": "本端无调用方,需评估是否需要补开发(若功能在本端需要)"
+    },
+    {
+      "platform": "mobile-rn",
+      "endpoint": "/api/exam-marking",
+      "desc": "阅卷评分(1 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "review",
+      "reason": "本端无调用方,需评估是否需要补开发(若功能在本端需要)"
+    },
+    {
+      "platform": "miniapp-taro",
+      "endpoint": "/api/private-letters",
+      "desc": "私信管理(7 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):微信支付(小程序原生);无业务需求调用本端点"
+    },
+    {
+      "platform": "miniapp-taro",
+      "endpoint": "/api/wrong-questions",
+      "desc": "错题本(3 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 1,
+      "sampleLines": [
+        "g:\\IHUI-AI\\apps\\miniapp-taro\\src\\api\\index.ts:  del<{ deleted: boolean }>(`/exam/wrong-questions/${id}`)"
+      ],
+      "syncNeeded": "review",
+      "reason": "已通过等价旧路径调用(1 处),建议评估是否迁移至新顶级路径"
+    },
+    {
+      "platform": "miniapp-taro",
+      "endpoint": "/api/check-in",
+      "desc": "每日签到(2 主端点 + 2 辅助)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):微信支付(小程序原生);无业务需求调用本端点"
+    },
+    {
+      "platform": "miniapp-taro",
+      "endpoint": "/api/mail",
+      "desc": "邮件发送(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):微信支付(小程序原生);无业务需求调用本端点"
+    },
+    {
+      "platform": "miniapp-taro",
+      "endpoint": "/api/auth-codes",
+      "desc": "验证码(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):微信支付(小程序原生);无业务需求调用本端点"
+    },
+    {
+      "platform": "miniapp-taro",
+      "endpoint": "/api/exam-marking",
+      "desc": "阅卷评分(1 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):微信支付(小程序原生);无业务需求调用本端点"
+    },
+    {
+      "platform": "cli",
+      "endpoint": "/api/private-letters",
+      "desc": "私信管理(7 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):终端集成(ACP/REPL);无业务需求调用本端点"
+    },
+    {
+      "platform": "cli",
+      "endpoint": "/api/wrong-questions",
+      "desc": "错题本(3 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):终端集成(ACP/REPL);无业务需求调用本端点"
+    },
+    {
+      "platform": "cli",
+      "endpoint": "/api/check-in",
+      "desc": "每日签到(2 主端点 + 2 辅助)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):终端集成(ACP/REPL);无业务需求调用本端点"
+    },
+    {
+      "platform": "cli",
+      "endpoint": "/api/mail",
+      "desc": "邮件发送(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):终端集成(ACP/REPL);无业务需求调用本端点"
+    },
+    {
+      "platform": "cli",
+      "endpoint": "/api/auth-codes",
+      "desc": "验证码(2 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):终端集成(ACP/REPL);无业务需求调用本端点"
+    },
+    {
+      "platform": "cli",
+      "endpoint": "/api/exam-marking",
+      "desc": "阅卷评分(1 端点)",
+      "topLevelCalls": 0,
+      "legacyEquivalentCalls": 0,
+      "sampleLines": [],
+      "syncNeeded": "no",
+      "reason": "平台独占豁免(AGENTS.md §9):终端集成(ACP/REPL);无业务需求调用本端点"
+    }
+  ],
+  "schemaDeps": [
+    {
+      "platform": "web",
+      "importsDatabase": 0,
+      "referencesNewSchemaFiles": 0,
+      "assessment": "不直接 import @ihui/database,仅通过 API 端点间接消费"
+    },
+    {
+      "platform": "api",
+      "importsDatabase": 340,
+      "referencesNewSchemaFiles": 6,
+      "assessment": "直接消费 schema(API 路由 + DB 查询)"
+    },
+    {
+      "platform": "ai-service",
+      "importsDatabase": 0,
+      "referencesNewSchemaFiles": 0,
+      "assessment": "Python 服务,通过 HTTP/SQL 间接消费,不直接 import TS schema"
+    },
+    {
+      "platform": "desktop",
+      "importsDatabase": 0,
+      "referencesNewSchemaFiles": 0,
+      "assessment": "不直接 import @ihui/database,仅通过 API 端点间接消费"
+    },
+    {
+      "platform": "extension",
+      "importsDatabase": 0,
+      "referencesNewSchemaFiles": 0,
+      "assessment": "不直接 import @ihui/database,仅通过 API 端点间接消费"
+    },
+    {
+      "platform": "mobile-rn",
+      "importsDatabase": 0,
+      "referencesNewSchemaFiles": 0,
+      "assessment": "不直接 import @ihui/database,仅通过 API 端点间接消费"
+    },
+    {
+      "platform": "miniapp-taro",
+      "importsDatabase": 0,
+      "referencesNewSchemaFiles": 0,
+      "assessment": "不直接 import @ihui/database,仅通过 API 端点间接消费"
+    },
+    {
+      "platform": "cli",
+      "importsDatabase": 0,
+      "referencesNewSchemaFiles": 0,
+      "assessment": "不直接 import @ihui/database,仅通过 API 端点间接消费"
+    }
+  ],
+  "stats": {
+    "totalPlatforms": 8,
+    "platformsExists": 8,
+    "totalEndpoints": 6,
+    "totalSchemaTables": 27,
+    "syncNeeded": {
+      "no": 35,
+      "review": 13,
+      "unknown": 0
+    },
+    "perPlatform": {
+      "web": {
+        "no": 0,
+        "review": 6,
+        "unknown": 0,
+        "exemption": null
+      },
+      "api": {
+        "no": 6,
+        "review": 0,
+        "unknown": 0,
+        "exemption": null
+      },
+      "ai-service": {
+        "no": 6,
+        "review": 0,
+        "unknown": 0,
+        "exemption": null
+      },
+      "desktop": {
+        "no": 6,
+        "review": 0,
+        "unknown": 0,
+        "exemption": "系统托盘(Tauri 原生集成)"
+      },
+      "extension": {
+        "no": 6,
+        "review": 0,
+        "unknown": 0,
+        "exemption": "浏览器上下文菜单(WXT)"
+      },
+      "mobile-rn": {
+        "no": 0,
+        "review": 6,
+        "unknown": 0,
+        "exemption": null
+      },
+      "miniapp-taro": {
+        "no": 5,
+        "review": 1,
+        "unknown": 0,
+        "exemption": "微信支付(小程序原生)"
+      },
+      "cli": {
+        "no": 6,
+        "review": 0,
+        "unknown": 0,
+        "exemption": "终端集成(ACP/REPL)"
+      }
+    }
+  },
+  "conclusion": {
+    "platformsNeedingReview": [
+      {
+        "platform": "web",
+        "reviewCount": 6
+      },
+      {
+        "platform": "mobile-rn",
+        "reviewCount": 6
+      },
+      {
+        "platform": "miniapp-taro",
+        "reviewCount": 1
+      }
+    ],
+    "platformsExempted": [
+      {
+        "platform": "desktop",
+        "exemption": "系统托盘(Tauri 原生集成)"
+      },
+      {
+        "platform": "extension",
+        "exemption": "浏览器上下文菜单(WXT)"
+      },
+      {
+        "platform": "miniapp-taro",
+        "exemption": "微信支付(小程序原生)"
+      },
+      {
+        "platform": "cli",
+        "exemption": "终端集成(ACP/REPL)"
+      }
+    ],
+    "schemaSyncNeeded": "27 张新表 schema 仅 packages/database/src/schema/ 中定义,API 端直接消费,其他 7 端不直接 import,无需多端同步",
+    "apiClientLayer": "packages/api-client 仅 check-in 有 9 个 CRUD 函数(且无调用方),其他 5 个新端点 api-client 缺失,建议补开发 api-client 共享函数作为多端同步对接的统一入口"
+  }
+}

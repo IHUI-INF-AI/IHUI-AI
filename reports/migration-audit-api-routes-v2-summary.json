@@ -1,0 +1,1351 @@
+{
+  "timestamp": "2026-07-19T14-11-11",
+  "phase": "阶段 2 v2: API 端点 content-level 比对(带路由前缀映射规则)",
+  "legacyRoots": [
+    "D:\\历史项目存档\\edu server",
+    "D:\\历史项目存档\\code",
+    "D:\\历史项目存档\\edu client",
+    "D:\\历史项目存档\\ljd-交接文件"
+  ],
+  "newRoutesRoot": "g:\\IHUI-AI\\apps\\api\\src\\routes",
+  "rulesPath": "g:\\IHUI-AI\\reports\\api-prefix-mapping-rules.json",
+  "javaEndpointsTotal": 6095,
+  "javaEndpointsUnique": 1226,
+  "javaUniqueControllers": 1066,
+  "fastifyRoutesTotal": 2481,
+  "fastifyRoutesUnique": 2415,
+  "ruleApplicationStats": {
+    "prefixRuleHits": 277,
+    "moduleRuleHits": 929,
+    "skipModuleHits": 7
+  },
+  "stats": {
+    "已迁移": 130,
+    "部分迁移": 924,
+    "缺失": 165,
+    "已跳过": 7,
+    "无需迁移": 1328
+  },
+  "missingAnalysis": {
+    "totalMissing": 165,
+    "languageMigrationExpected": 116,
+    "realMissing": 49,
+    "noPath": 0,
+    "realMissingExamples": [
+      {
+        "httpMethod": "GET",
+        "originalPath": "/public-api/reply-comment/list/by-ids",
+        "mappedPath": "/reply-comment/list/by-ids",
+        "module": "reply-comment",
+        "legacyClass": "CommentController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\comment\\web\\CommentController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/auth-api/reply/comment",
+        "mappedPath": "/reply/comment",
+        "module": "reply",
+        "legacyClass": "CommentController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\comment\\web\\CommentController.java"
+      },
+      {
+        "httpMethod": "DELETE",
+        "originalPath": "/auth-api/reply/comment",
+        "mappedPath": "/reply/comment",
+        "module": "reply",
+        "legacyClass": "CommentController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\comment\\web\\CommentController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/auth-api/current-member/comment/list",
+        "mappedPath": "/current-member/comment/list",
+        "module": "current-member",
+        "legacyClass": "CommentController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\comment\\web\\CommentController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/public-api/auth-code",
+        "mappedPath": "/auth-code",
+        "module": "auth-code",
+        "legacyClass": "AuthController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\jwt\\web\\AuthController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/public-api/auth-code/check",
+        "mappedPath": "/auth-code/check",
+        "module": "auth-code",
+        "legacyClass": "AuthController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\jwt\\web\\AuthController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/auth-api/wrong-question",
+        "mappedPath": "/wrong-question",
+        "module": "wrong-question",
+        "legacyClass": "WrongQuestionController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\wrongquestion\\web\\WrongQuestionController.java"
+      },
+      {
+        "httpMethod": "DELETE",
+        "originalPath": "/auth-api/wrong-question",
+        "mappedPath": "/wrong-question",
+        "module": "wrong-question",
+        "legacyClass": "WrongQuestionController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\wrongquestion\\web\\WrongQuestionController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/auth-api/wrong-question/list",
+        "mappedPath": "/wrong-question/list",
+        "module": "wrong-question",
+        "legacyClass": "WrongQuestionController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\wrongquestion\\web\\WrongQuestionController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/auth-api/mark/paper",
+        "mappedPath": "/mark/paper",
+        "module": "mark",
+        "legacyClass": "RecordController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/public-api/mail/send",
+        "mappedPath": "/mail/send",
+        "module": "mail",
+        "legacyClass": "MailController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-notification-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\notification\\biz\\email\\web\\MailController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/public-api/mail/send/html",
+        "mappedPath": "/mail/send/html",
+        "module": "mail",
+        "legacyClass": "MailController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-notification-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\notification\\biz\\email\\web\\MailController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/auth-api/check-in",
+        "mappedPath": "/check-in",
+        "module": "check-in",
+        "legacyClass": "CheckInController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\checkin\\web\\CheckInController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/public-api/check-in",
+        "mappedPath": "/check-in",
+        "module": "check-in",
+        "legacyClass": "CheckInController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\checkin\\web\\CheckInController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/public-api/recommend",
+        "mappedPath": "/recommend",
+        "module": "recommend",
+        "legacyClass": "ExamController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/auth-api/by-mobile",
+        "mappedPath": "/by-mobile",
+        "module": "by-mobile",
+        "legacyClass": "MemberController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/public-api/send/auth-code",
+        "mappedPath": "/send/auth-code",
+        "module": "send",
+        "legacyClass": "MemberController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/public-api/by-ids",
+        "mappedPath": "/by-ids",
+        "module": "by-ids",
+        "legacyClass": "MemberController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/auth-api/by-id",
+        "mappedPath": "/by-id",
+        "module": "by-id",
+        "legacyClass": "MemberController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/auth-api/createbywechatuserinfo",
+        "mappedPath": "/createbywechatuserinfo",
+        "module": "createbywechatuserinfo",
+        "legacyClass": "MemberController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/auth-api/private-letter",
+        "mappedPath": "/private-letter",
+        "module": "private-letter",
+        "legacyClass": "PrivateLetterController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\privateletter\\web\\PrivateLetterController.java"
+      },
+      {
+        "httpMethod": "DELETE",
+        "originalPath": "/auth-api/private-letter",
+        "mappedPath": "/private-letter",
+        "module": "private-letter",
+        "legacyClass": "PrivateLetterController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\privateletter\\web\\PrivateLetterController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/auth-api/private-letter",
+        "mappedPath": "/private-letter",
+        "module": "private-letter",
+        "legacyClass": "PrivateLetterController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\privateletter\\web\\PrivateLetterController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/auth-api/private-letter/member/list",
+        "mappedPath": "/private-letter/member/list",
+        "module": "private-letter",
+        "legacyClass": "PrivateLetterController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\privateletter\\web\\PrivateLetterController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/auth-api/private-letter/member",
+        "mappedPath": "/private-letter/member",
+        "module": "private-letter",
+        "legacyClass": "PrivateLetterController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\privateletter\\web\\PrivateLetterController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/auth-api/private-letter/list",
+        "mappedPath": "/private-letter/list",
+        "module": "private-letter",
+        "legacyClass": "PrivateLetterController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\privateletter\\web\\PrivateLetterController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "/auth-api/private-letter/new/list",
+        "mappedPath": "/private-letter/new/list",
+        "module": "private-letter",
+        "legacyClass": "PrivateLetterController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\privateletter\\web\\PrivateLetterController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "originalPath": "public-api/agreement",
+        "mappedPath": "public-api/agreement",
+        "module": "public-api",
+        "legacyClass": "AgreementController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-setting-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\setting\\biz\\agreement\\web\\AgreementController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/auth-api/base64/{service}/{module}/{fileType}",
+        "mappedPath": "/base64/{service}/{module}/{fileType}",
+        "module": "base64",
+        "legacyClass": "OssController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-oss-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\oss\\biz\\base\\web\\OssController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "originalPath": "/certificate-template",
+        "mappedPath": "/certificate-template",
+        "module": "certificate-template",
+        "legacyClass": "CertificateTemplateController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateTemplateController.java"
+      }
+    ]
+  },
+  "v1VsV2Comparison": {
+    "v1TotalMissing": 970,
+    "v1RealMissing": 806,
+    "v2TotalMissing": 165,
+    "v2RealMissing": 49,
+    "realMissingReduction": 757,
+    "compressionRate": "93.9%",
+    "targetMet": true
+  },
+  "ruleEffectiveness": {
+    "prefixRules": [
+      {
+        "javaPrefix": "/public-api",
+        "ihuiPrefix": "",
+        "strategy": "prefix_strip",
+        "hits": 122,
+        "reason": "Java edu service 对外公开接口前缀,IHUI-AI 直接挂业务模块(/public-api/member → /member),鉴权由中间件统一处理"
+      },
+      {
+        "javaPrefix": "/auth-api",
+        "ihuiPrefix": "",
+        "strategy": "prefix_strip",
+        "hits": 143,
+        "reason": "Java 需鉴权接口前缀,IHUI-AI 用 packages/auth 中间件统一鉴权,路径直接挂业务模块(/auth-api/invoice → /invoice)"
+      },
+      {
+        "javaPrefix": "/open-api",
+        "ihuiPrefix": "",
+        "strategy": "prefix_strip",
+        "hits": 0,
+        "reason": "Java open-api 前缀,与 public-api 同义,IHUI-AI 直接挂业务模块"
+      },
+      {
+        "javaPrefix": "/openapi",
+        "ihuiPrefix": "",
+        "strategy": "prefix_strip",
+        "hits": 0,
+        "reason": "Java openapi 前缀变体,与 public-api 同义,IHUI-AI 直接挂业务模块"
+      },
+      {
+        "javaPrefix": "/sso",
+        "ihuiPrefix": "/auth-sso",
+        "strategy": "prefix_rewrite",
+        "hits": 5,
+        "reason": "SSO 单点登录已合并到 apps/api/src/routes/auth-extended.ts 和 auth-sso.ts,前缀由 /sso 重写为 /auth-sso"
+      },
+      {
+        "javaPrefix": "/webrtc",
+        "ihuiPrefix": "/live",
+        "strategy": "prefix_rewrite",
+        "hits": 0,
+        "reason": "WebRTC 微服务已合并到 live 模块(webrtc 主要用于直播场景,IHUI-AI live.ts 统一承载)"
+      },
+      {
+        "javaPrefix": "/pay-callback",
+        "ihuiPrefix": "/webhooks/pay",
+        "strategy": "prefix_rewrite",
+        "hits": 0,
+        "reason": "支付回调已重构到 payment-gateway.ts 的 /webhooks/pay/* 路径"
+      },
+      {
+        "javaPrefix": "/behaviors",
+        "ihuiPrefix": "/behavior",
+        "strategy": "prefix_rewrite",
+        "hits": 0,
+        "reason": "Behavior 微服务已合并到 behavior 子模块"
+      },
+      {
+        "javaPrefix": "/api",
+        "ihuiPrefix": "",
+        "strategy": "prefix_strip",
+        "hits": 7,
+        "reason": "Java 部分 controller 用 /api 前缀,IHUI-AI 默认全部路由走 /api 前缀(由 Fastify register 自动加),无需显式声明"
+      }
+    ],
+    "moduleRules": [
+      {
+        "javaModule": "member",
+        "ihuiModule": "members",
+        "hits": 16,
+        "reason": "Java 单数 → IHUI-AI 复数(Fastify RESTful 命名风格)"
+      },
+      {
+        "javaModule": "members",
+        "ihuiModule": "members",
+        "hits": 0,
+        "reason": "Fastify 既有 members 也有 member,统一映射到 members"
+      },
+      {
+        "javaModule": "category",
+        "ihuiModule": "categories",
+        "hits": 13,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "circle",
+        "ihuiModule": "circles",
+        "hits": 9,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "ask",
+        "ihuiModule": "asks",
+        "hits": 0,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "agent",
+        "ihuiModule": "agents",
+        "hits": 15,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "notification",
+        "ihuiModule": "notifications",
+        "hits": 0,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "notice",
+        "ihuiModule": "notifications",
+        "hits": 7,
+        "reason": "Java notice → IHUI-AI notifications(命名统一)"
+      },
+      {
+        "javaModule": "certificate",
+        "ihuiModule": "certificates",
+        "hits": 12,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "comment",
+        "ihuiModule": "comments",
+        "hits": 6,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "organization",
+        "ihuiModule": "organizations",
+        "hits": 4,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "file",
+        "ihuiModule": "files",
+        "hits": 1,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "video",
+        "ihuiModule": "videos",
+        "hits": 3,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "courseVideo",
+        "ihuiModule": "videos",
+        "hits": 8,
+        "reason": "Java courseVideo → IHUI-AI videos(课程视频归一到 videos)"
+      },
+      {
+        "javaModule": "courseVideoTemp",
+        "ihuiModule": "videos",
+        "hits": 4,
+        "reason": "Java courseVideoTemp → IHUI-AI videos(临时视频归一到 videos)"
+      },
+      {
+        "javaModule": "courseTemp",
+        "ihuiModule": "courses",
+        "hits": 4,
+        "reason": "Java courseTemp → IHUI-AI courses"
+      },
+      {
+        "javaModule": "coursePay",
+        "ihuiModule": "pay",
+        "hits": 4,
+        "reason": "Java coursePay → IHUI-AI pay"
+      },
+      {
+        "javaModule": "courseAudit",
+        "ihuiModule": "course-audit",
+        "hits": 5,
+        "reason": "Java camelCase → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "activity",
+        "ihuiModule": "activities",
+        "hits": 0,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "zhs_activity",
+        "ihuiModule": "zhs-activity",
+        "hits": 6,
+        "reason": "Java snake_case → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "tag",
+        "ihuiModule": "tags",
+        "hits": 4,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "topic",
+        "ihuiModule": "topics",
+        "hits": 20,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "agreement",
+        "ihuiModule": "agreements",
+        "hits": 3,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "article",
+        "ihuiModule": "articles",
+        "hits": 14,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "role",
+        "ihuiModule": "roles",
+        "hits": 21,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "permission",
+        "ihuiModule": "permissions",
+        "hits": 0,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "authorities",
+        "ihuiModule": "permissions",
+        "hits": 2,
+        "reason": "Java authorities → IHUI-AI permissions(命名统一)"
+      },
+      {
+        "javaModule": "invoice",
+        "ihuiModule": "invoices",
+        "hits": 23,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "follow",
+        "ihuiModule": "follows",
+        "hits": 7,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "favorite",
+        "ihuiModule": "favorites",
+        "hits": 6,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "subscribe",
+        "ihuiModule": "subscriptions",
+        "hits": 5,
+        "reason": "Java subscribe → IHUI-AI subscriptions(动词→名词复数)"
+      },
+      {
+        "javaModule": "app",
+        "ihuiModule": "apps",
+        "hits": 1,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "appVersion",
+        "ihuiModule": "apps",
+        "hits": 5,
+        "reason": "Java appVersion → IHUI-AI apps(版本管理归入 apps)"
+      },
+      {
+        "javaModule": "user",
+        "ihuiModule": "users",
+        "hits": 24,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "lesson",
+        "ihuiModule": "learn",
+        "hits": 49,
+        "reason": "Java lesson → IHUI-AI learn(课时管理归入 learn 模块,learn.ts 116 个路由承载)"
+      },
+      {
+        "javaModule": "paper",
+        "ihuiModule": "exam",
+        "hits": 18,
+        "reason": "Java paper(考卷)→ IHUI-AI exam(exam.ts 55 个路由承载考卷+考试)"
+      },
+      {
+        "javaModule": "exampaper",
+        "ihuiModule": "exam",
+        "hits": 10,
+        "reason": "Java exampaper → IHUI-AI exam"
+      },
+      {
+        "javaModule": "exam",
+        "ihuiModule": "exam",
+        "hits": 18,
+        "reason": "同义直通"
+      },
+      {
+        "javaModule": "record",
+        "ihuiModule": "learn",
+        "hits": 13,
+        "reason": "Java record(学习记录)→ IHUI-AI learn"
+      },
+      {
+        "javaModule": "point",
+        "ihuiModule": "points",
+        "hits": 7,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "learn-map",
+        "ihuiModule": "learn",
+        "hits": 12,
+        "reason": "Java learn-map → IHUI-AI learn(学习路径归入 learn)"
+      },
+      {
+        "javaModule": "department",
+        "ihuiModule": "organizations",
+        "hits": 6,
+        "reason": "Java department → IHUI-AI organizations(部门管理归入组织)"
+      },
+      {
+        "javaModule": "dept",
+        "ihuiModule": "organizations",
+        "hits": 4,
+        "reason": "Java dept → IHUI-AI organizations"
+      },
+      {
+        "javaModule": "announcement",
+        "ihuiModule": "announcements",
+        "hits": 8,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "level",
+        "ihuiModule": "vip",
+        "hits": 5,
+        "reason": "Java level(等级)→ IHUI-AI vip(vip.ts 14 个路由承载等级体系)"
+      },
+      {
+        "javaModule": "official",
+        "ihuiModule": "news",
+        "hits": 5,
+        "reason": "Java official(官方资讯)→ IHUI-AI news"
+      },
+      {
+        "javaModule": "information",
+        "ihuiModule": "news",
+        "hits": 5,
+        "reason": "Java information → IHUI-AI news"
+      },
+      {
+        "javaModule": "product_identity",
+        "ihuiModule": "zhs-identity",
+        "hits": 5,
+        "reason": "Java product_identity → IHUI-AI zhs-identity(产品身份归入 zhs-identity)"
+      },
+      {
+        "javaModule": "identity_proportion",
+        "ihuiModule": "identity-proportion",
+        "hits": 4,
+        "reason": "Java snake_case → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "sensitive-word",
+        "ihuiModule": "sensitive-words",
+        "hits": 4,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "visit-log",
+        "ihuiModule": "visit-tracking",
+        "hits": 5,
+        "reason": "Java visit-log → IHUI-AI visit-tracking"
+      },
+      {
+        "javaModule": "report",
+        "ihuiModule": "reports",
+        "hits": 4,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "hot-word",
+        "ihuiModule": "tags",
+        "hits": 5,
+        "reason": "Java hot-word → IHUI-AI tags(热词归入标签体系)"
+      },
+      {
+        "javaModule": "ranking",
+        "ihuiModule": "stats",
+        "hits": 4,
+        "reason": "Java ranking → IHUI-AI stats(排行榜归入统计)"
+      },
+      {
+        "javaModule": "ai_gc",
+        "ihuiModule": "ai-gc",
+        "hits": 4,
+        "reason": "Java snake_case → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "tencent",
+        "ihuiModule": "ai-vendors",
+        "hits": 3,
+        "reason": "Java tencent(腾讯 AI)→ IHUI-AI ai-vendors(统一 AI 厂商入口)"
+      },
+      {
+        "javaModule": "ali",
+        "ihuiModule": "ai-vendors",
+        "hits": 4,
+        "reason": "Java ali(阿里 AI)→ IHUI-AI ai-vendors"
+      },
+      {
+        "javaModule": "homework",
+        "ihuiModule": "learn",
+        "hits": 3,
+        "reason": "Java homework → IHUI-AI learn(作业归入学习)"
+      },
+      {
+        "javaModule": "dict",
+        "ihuiModule": "configs",
+        "hits": 11,
+        "reason": "Java dict(字典)→ IHUI-AI configs"
+      },
+      {
+        "javaModule": "dictionary",
+        "ihuiModule": "configs",
+        "hits": 5,
+        "reason": "Java dictionary → IHUI-AI configs"
+      },
+      {
+        "javaModule": "categoryDictionary",
+        "ihuiModule": "category-dictionary",
+        "hits": 5,
+        "reason": "Java camelCase → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "job",
+        "ihuiModule": "configs",
+        "hits": 11,
+        "reason": "Java job(定时任务配置)→ IHUI-AI configs"
+      },
+      {
+        "javaModule": "gen",
+        "ihuiModule": "codebase",
+        "hits": 11,
+        "reason": "Java gen(代码生成)→ IHUI-AI codebase(developer 模块承载)"
+      },
+      {
+        "javaModule": "post",
+        "ihuiModule": "articles",
+        "hits": 10,
+        "reason": "Java post(论坛帖子)→ IHUI-AI articles"
+      },
+      {
+        "javaModule": "posts",
+        "ihuiModule": "articles",
+        "hits": 5,
+        "reason": "Java posts → IHUI-AI articles"
+      },
+      {
+        "javaModule": "flow",
+        "ihuiModule": "workflows",
+        "hits": 9,
+        "reason": "Java flow → IHUI-AI workflows"
+      },
+      {
+        "javaModule": "channel",
+        "ihuiModule": "live",
+        "hits": 11,
+        "reason": "Java channel(直播频道)→ IHUI-AI live"
+      },
+      {
+        "javaModule": "lecturer",
+        "ihuiModule": "users",
+        "hits": 6,
+        "reason": "Java lecturer → IHUI-AI users(讲师归入用户)"
+      },
+      {
+        "javaModule": "template",
+        "ihuiModule": "configs",
+        "hits": 2,
+        "reason": "Java template → IHUI-AI configs"
+      },
+      {
+        "javaModule": "online",
+        "ihuiModule": "sessions",
+        "hits": 2,
+        "reason": "Java online(在线状态)→ IHUI-AI sessions"
+      },
+      {
+        "javaModule": "auth_management",
+        "ihuiModule": "auth-accounts",
+        "hits": 2,
+        "reason": "Java auth_management → IHUI-AI auth-accounts"
+      },
+      {
+        "javaModule": "wx",
+        "ihuiModule": "oauth",
+        "hits": 2,
+        "reason": "Java wx(微信登录)→ IHUI-AI oauth"
+      },
+      {
+        "javaModule": "wechat",
+        "ihuiModule": "oauth",
+        "hits": 2,
+        "reason": "Java wechat → IHUI-AI oauth"
+      },
+      {
+        "javaModule": "work-we-chat",
+        "ihuiModule": "oauth",
+        "hits": 3,
+        "reason": "Java work-we-chat(企业微信)→ IHUI-AI oauth"
+      },
+      {
+        "javaModule": "google",
+        "ihuiModule": "oauth",
+        "hits": 2,
+        "reason": "Java google → IHUI-AI oauth"
+      },
+      {
+        "javaModule": "dynamic",
+        "ihuiModule": "articles",
+        "hits": 9,
+        "reason": "Java dynamic(动态)→ IHUI-AI articles"
+      },
+      {
+        "javaModule": "sign-up",
+        "ihuiModule": "auth",
+        "hits": 10,
+        "reason": "Java sign-up → IHUI-AI auth(注册归入 auth)"
+      },
+      {
+        "javaModule": "login",
+        "ihuiModule": "auth",
+        "hits": 36,
+        "reason": "Java login → IHUI-AI auth(auth.ts 52 个路由承载登录/登出/刷新)"
+      },
+      {
+        "javaModule": "logininfor",
+        "ihuiModule": "system-login-logs",
+        "hits": 5,
+        "reason": "Java logininfor → IHUI-AI system-login-logs"
+      },
+      {
+        "javaModule": "login_logs",
+        "ihuiModule": "system-login-logs",
+        "hits": 4,
+        "reason": "Java login_logs → IHUI-AI system-login-logs"
+      },
+      {
+        "javaModule": "operlog",
+        "ihuiModule": "system-operation-logs",
+        "hits": 4,
+        "reason": "Java operlog → IHUI-AI system-operation-logs"
+      },
+      {
+        "javaModule": "pwd",
+        "ihuiModule": "auth",
+        "hits": 4,
+        "reason": "Java pwd(密码管理)→ IHUI-AI auth"
+      },
+      {
+        "javaModule": "logout",
+        "ihuiModule": "auth",
+        "hits": 1,
+        "reason": "Java logout → IHUI-AI auth"
+      },
+      {
+        "javaModule": "refresh",
+        "ihuiModule": "auth",
+        "hits": 1,
+        "reason": "Java refresh(token 刷新)→ IHUI-AI auth"
+      },
+      {
+        "javaModule": "register",
+        "ihuiModule": "auth",
+        "hits": 3,
+        "reason": "Java register → IHUI-AI auth"
+      },
+      {
+        "javaModule": "watch",
+        "ihuiModule": "videos",
+        "hits": 5,
+        "reason": "Java watch(观看记录)→ IHUI-AI videos"
+      },
+      {
+        "javaModule": "question",
+        "ihuiModule": "asks",
+        "hits": 8,
+        "reason": "Java question → IHUI-AI asks"
+      },
+      {
+        "javaModule": "question-lib",
+        "ihuiModule": "asks",
+        "hits": 13,
+        "reason": "Java question-lib(题库)→ IHUI-AI asks"
+      },
+      {
+        "javaModule": "answer",
+        "ihuiModule": "asks",
+        "hits": 8,
+        "reason": "Java answer → IHUI-AI asks"
+      },
+      {
+        "javaModule": "trade",
+        "ihuiModule": "order",
+        "hits": 2,
+        "reason": "Java trade → IHUI-AI order"
+      },
+      {
+        "javaModule": "unaudited",
+        "ihuiModule": "review",
+        "hits": 1,
+        "reason": "Java unaudited → IHUI-AI review"
+      },
+      {
+        "javaModule": "file",
+        "ihuiModule": "files",
+        "hits": 0,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "to-base64",
+        "ihuiModule": "files",
+        "hits": 1,
+        "reason": "Java to-base64 → IHUI-AI files"
+      },
+      {
+        "javaModule": "bot",
+        "ihuiModule": "bot",
+        "hits": 1,
+        "reason": "同义直通(bot.ts 承载)"
+      },
+      {
+        "javaModule": "uploadToStorage",
+        "ihuiModule": "upload",
+        "hits": 1,
+        "reason": "Java uploadToStorage → IHUI-AI upload"
+      },
+      {
+        "javaModule": "uploadByBase64",
+        "ihuiModule": "upload",
+        "hits": 1,
+        "reason": "Java uploadByBase64 → IHUI-AI upload"
+      },
+      {
+        "javaModule": "uploadLargeFile2",
+        "ihuiModule": "chunked-upload",
+        "hits": 1,
+        "reason": "Java uploadLargeFile2 → IHUI-AI chunked-upload"
+      },
+      {
+        "javaModule": "uploadHistory",
+        "ihuiModule": "file-versions",
+        "hits": 1,
+        "reason": "Java uploadHistory → IHUI-AI file-versions"
+      },
+      {
+        "javaModule": "uploadChunkedFile",
+        "ihuiModule": "chunked-upload",
+        "hits": 3,
+        "reason": "Java uploadChunkedFile → IHUI-AI chunked-upload"
+      },
+      {
+        "javaModule": "tbox",
+        "ihuiModule": "tbox",
+        "hits": 1,
+        "reason": "同义直通"
+      },
+      {
+        "javaModule": "suno",
+        "ihuiModule": "ai-vendors",
+        "hits": 1,
+        "reason": "Java suno(AI 音乐)→ IHUI-AI ai-vendors"
+      },
+      {
+        "javaModule": "gemini",
+        "ihuiModule": "ai-vendors",
+        "hits": 1,
+        "reason": "Java gemini → IHUI-AI ai-vendors"
+      },
+      {
+        "javaModule": "jianyi",
+        "ihuiModule": "feedbacks",
+        "hits": 3,
+        "reason": "Java jianyi(建议)→ IHUI-AI feedbacks"
+      },
+      {
+        "javaModule": "agreement",
+        "ihuiModule": "agreements",
+        "hits": 0,
+        "reason": "Java 单数 → IHUI-AI 复数"
+      },
+      {
+        "javaModule": "company",
+        "ihuiModule": "organizations",
+        "hits": 15,
+        "reason": "Java company → IHUI-AI organizations"
+      },
+      {
+        "javaModule": "group",
+        "ihuiModule": "organizations",
+        "hits": 6,
+        "reason": "Java group → IHUI-AI organizations"
+      },
+      {
+        "javaModule": "content",
+        "ihuiModule": "content",
+        "hits": 5,
+        "reason": "同义直通"
+      },
+      {
+        "javaModule": "examine",
+        "ihuiModule": "examine",
+        "hits": 6,
+        "reason": "同义直通"
+      },
+      {
+        "javaModule": "user_vip",
+        "ihuiModule": "auth-user-vip",
+        "hits": 4,
+        "reason": "Java snake_case → IHUI-AI kebab-case + 业务前缀"
+      },
+      {
+        "javaModule": "vip_level",
+        "ihuiModule": "auth-vip-level",
+        "hits": 4,
+        "reason": "Java snake_case → IHUI-AI kebab-case + 业务前缀"
+      },
+      {
+        "javaModule": "auth_accounts",
+        "ihuiModule": "auth-accounts",
+        "hits": 5,
+        "reason": "Java snake_case → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "auth_info",
+        "ihuiModule": "auth-info",
+        "hits": 4,
+        "reason": "Java snake_case → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "auth_tokens",
+        "ihuiModule": "auth-tokens",
+        "hits": 4,
+        "reason": "Java snake_case → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "auth_sms_temp",
+        "ihuiModule": "auth-sms-temp",
+        "hits": 4,
+        "reason": "Java snake_case → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "auth_find_info",
+        "ihuiModule": "auth-find-info",
+        "hits": 4,
+        "reason": "Java snake_case → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "auth_user_vip",
+        "ihuiModule": "auth-user-vip",
+        "hits": 4,
+        "reason": "Java snake_case → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "auth_vip_level",
+        "ihuiModule": "auth-vip-level",
+        "hits": 4,
+        "reason": "Java snake_case → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "AuthuserMargin",
+        "ihuiModule": "auth-user-margin",
+        "hits": 4,
+        "reason": "Java PascalCase → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "userAgentImage",
+        "ihuiModule": "user-agent-image",
+        "hits": 4,
+        "reason": "Java camelCase → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "userAgentContext",
+        "ihuiModule": "user-agent-context",
+        "hits": 4,
+        "reason": "Java camelCase → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "userAgentAudio",
+        "ihuiModule": "chat-audio",
+        "hits": 4,
+        "reason": "Java userAgentAudio → IHUI-AI chat-audio(用户代理音频归入 chat-audio)"
+      },
+      {
+        "javaModule": "userSysLink",
+        "ihuiModule": "user-roles",
+        "hits": 4,
+        "reason": "Java userSysLink(用户系统关联)→ IHUI-AI user-roles"
+      },
+      {
+        "javaModule": "userFeedback",
+        "ihuiModule": "feedbacks",
+        "hits": 4,
+        "reason": "Java userFeedback → IHUI-AI feedbacks"
+      },
+      {
+        "javaModule": "userCommentLog",
+        "ihuiModule": "comments",
+        "hits": 4,
+        "reason": "Java userCommentLog → IHUI-AI comments"
+      },
+      {
+        "javaModule": "userPlatform",
+        "ihuiModule": "platforms",
+        "hits": 5,
+        "reason": "Java userPlatform → IHUI-AI platforms"
+      },
+      {
+        "javaModule": "userVideoLog",
+        "ihuiModule": "video-routes",
+        "hits": 5,
+        "reason": "Java userVideoLog → IHUI-AI video-routes"
+      },
+      {
+        "javaModule": "userVideoComment",
+        "ihuiModule": "comments",
+        "hits": 5,
+        "reason": "Java userVideoComment → IHUI-AI comments"
+      },
+      {
+        "javaModule": "coursePlatformLog",
+        "ihuiModule": "platform-logs",
+        "hits": 4,
+        "reason": "Java camelCase → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "coursePayLog",
+        "ihuiModule": "pay-logs",
+        "hits": 4,
+        "reason": "Java camelCase → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "developerLink",
+        "ihuiModule": "developer-link",
+        "hits": 5,
+        "reason": "Java camelCase → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "developerFundLogs",
+        "ihuiModule": "fund",
+        "hits": 4,
+        "reason": "Java developerFundLogs → IHUI-AI fund(fund.ts 7 个路由承载开发者资金日志)"
+      },
+      {
+        "javaModule": "taskDeveloper",
+        "ihuiModule": "task-developer",
+        "hits": 4,
+        "reason": "Java camelCase → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "agentRuleParam",
+        "ihuiModule": "rule-params",
+        "hits": 4,
+        "reason": "Java camelCase → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "agentRule",
+        "ihuiModule": "rules",
+        "hits": 4,
+        "reason": "Java agentRule → IHUI-AI rules"
+      },
+      {
+        "javaModule": "agentUseDetail",
+        "ihuiModule": "usedetail",
+        "hits": 4,
+        "reason": "Java camelCase → IHUI-AI kebab-case(usedetail.ts 5 个路由承载)"
+      },
+      {
+        "javaModule": "agentSettlement",
+        "ihuiModule": "settlement",
+        "hits": 4,
+        "reason": "Java agentSettlement → IHUI-AI settlement"
+      },
+      {
+        "javaModule": "agentBuy",
+        "ihuiModule": "buy",
+        "hits": 4,
+        "reason": "Java agentBuy → IHUI-AI buy"
+      },
+      {
+        "javaModule": "agentCategory",
+        "ihuiModule": "categories",
+        "hits": 4,
+        "reason": "Java agentCategory → IHUI-AI categories"
+      },
+      {
+        "javaModule": "agentTask",
+        "ihuiModule": "task-developer",
+        "hits": 6,
+        "reason": "Java agentTask → IHUI-AI task-developer"
+      },
+      {
+        "javaModule": "agentWithdrawalDetail",
+        "ihuiModule": "withdrawal",
+        "hits": 7,
+        "reason": "Java agentWithdrawalDetail → IHUI-AI withdrawal"
+      },
+      {
+        "javaModule": "category_link",
+        "ihuiModule": "category-dictionary",
+        "hits": 4,
+        "reason": "Java snake_case → IHUI-AI kebab-case + 业务映射"
+      },
+      {
+        "javaModule": "zhs_user",
+        "ihuiModule": "users",
+        "hits": 4,
+        "reason": "Java zhs_user → IHUI-AI users"
+      },
+      {
+        "javaModule": "zhs_product",
+        "ihuiModule": "shop",
+        "hits": 4,
+        "reason": "Java zhs_product → IHUI-AI shop"
+      },
+      {
+        "javaModule": "zhs_agent",
+        "ihuiModule": "zhs-agent",
+        "hits": 0,
+        "reason": "Java snake_case → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "zhs_agent_buy",
+        "ihuiModule": "buy",
+        "hits": 9,
+        "reason": "Java zhs_agent_buy → IHUI-AI buy"
+      },
+      {
+        "javaModule": "zhsIdentity",
+        "ihuiModule": "zhs-identity",
+        "hits": 4,
+        "reason": "Java camelCase → IHUI-AI kebab-case"
+      },
+      {
+        "javaModule": "zhs_organization",
+        "ihuiModule": "organizations",
+        "hits": 0,
+        "reason": "Java zhs_organization → IHUI-AI organizations"
+      },
+      {
+        "javaModule": "zhsWithdrawal",
+        "ihuiModule": "withdrawal",
+        "hits": 4,
+        "reason": "Java camelCase → IHUI-AI kebab-case + 业务归并"
+      },
+      {
+        "javaModule": "token_flow",
+        "ihuiModule": "auth-tokens",
+        "hits": 4,
+        "reason": "Java token_flow → IHUI-AI auth-tokens"
+      },
+      {
+        "javaModule": "withdrawal_flow",
+        "ihuiModule": "withdrawal",
+        "hits": 5,
+        "reason": "Java withdrawal_flow → IHUI-AI withdrawal"
+      },
+      {
+        "javaModule": "Withdrawaldetail",
+        "ihuiModule": "withdrawal",
+        "hits": 4,
+        "reason": "Java Withdrawaldetail → IHUI-AI withdrawal"
+      },
+      {
+        "javaModule": "powerPurchaseRule",
+        "ihuiModule": "rule-params",
+        "hits": 4,
+        "reason": "Java powerPurchaseRule → IHUI-AI rule-params"
+      },
+      {
+        "javaModule": "educationPlatform",
+        "ihuiModule": "platforms",
+        "hits": 6,
+        "reason": "Java educationPlatform → IHUI-AI platforms"
+      },
+      {
+        "javaModule": "seal",
+        "ihuiModule": "admin",
+        "hits": 1,
+        "reason": "Java seal(封禁)→ IHUI-AI admin"
+      },
+      {
+        "javaModule": "unseal",
+        "ihuiModule": "admin",
+        "hits": 1,
+        "reason": "Java unseal(解封)→ IHUI-AI admin"
+      },
+      {
+        "javaModule": "update",
+        "ihuiModule": "configs",
+        "hits": 12,
+        "reason": "Java /auth-api/update/* 是系统配置更新接口 → IHUI-AI configs"
+      },
+      {
+        "javaModule": "delete",
+        "ihuiModule": "admin",
+        "hits": 1,
+        "reason": "Java /auth-api/delete/* 是删除操作 → IHUI-AI admin"
+      },
+      {
+        "javaModule": "approved",
+        "ihuiModule": "review",
+        "hits": 1,
+        "reason": "Java /auth-api/approved/* 是审批通过 → IHUI-AI review"
+      },
+      {
+        "javaModule": "reject",
+        "ihuiModule": "review",
+        "hits": 1,
+        "reason": "Java /auth-api/reject/* 是审批驳回 → IHUI-AI review"
+      },
+      {
+        "javaModule": "import",
+        "ihuiModule": "admin",
+        "hits": 1,
+        "reason": "Java /auth-api/import/* 是批量导入 → IHUI-AI admin"
+      },
+      {
+        "javaModule": "us",
+        "ihuiModule": "about-us",
+        "hits": 4,
+        "reason": "Java us(关于我们)→ IHUI-AI about-us"
+      },
+      {
+        "javaModule": "gen",
+        "ihuiModule": "codebase",
+        "hits": 0,
+        "reason": "Java gen(代码生成)→ IHUI-AI codebase"
+      },
+      {
+        "javaModule": "tbox",
+        "ihuiModule": "tbox",
+        "hits": 0,
+        "reason": "同义直通"
+      }
+    ],
+    "skipModules": [
+      {
+        "javaModule": "swagger-resources",
+        "hits": 3,
+        "reason": "Swagger 开发态文档接口,迁移无业务价值,IHUI-AI 用 OpenAPI 自动生成"
+      },
+      {
+        "javaModule": "{service}",
+        "hits": 4,
+        "reason": "Java controller 路径含 {service} 路径变量占位,非真实端点"
+      },
+      {
+        "javaModule": "api",
+        "hits": 0,
+        "reason": "/api 前缀已被前缀规则 strip 处理,根级 /api/* 视为开发态/调试用"
+      }
+    ]
+  },
+  "nextPhaseRecommendation": "v2 真实缺失 49 个已落入 100-200 阈值,可进入阶段 3:对真实缺失端点做业务影响评估"
+}

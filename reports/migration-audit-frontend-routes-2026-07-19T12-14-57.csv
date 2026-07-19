@@ -1,0 +1,844 @@
+category,vue_path,vue_normalized,vue_name,vue_component,vue_source,vue_project,vue_type,match_type,next_path,next_normalized,next_file,analysis
+已迁移,/,/,,Layout,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,exact,/admin,/,g:\IHUI-AI\apps\web\app\(main)\admin\page.tsx,
+已迁移,/user/profile,/user/profile,Profile,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,exact,/user/profile,/user/profile,g:\IHUI-AI\apps\web\app\(main)\user\profile\page.tsx,
+已迁移,/unauthorized,/unauthorized,unauthorized,Unauthorized,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,exact,/admin/unauthorized,/unauthorized,g:\IHUI-AI\apps\web\app\(main)\admin\unauthorized\page.tsx,
+已迁移,/member/unaudited,/member/unaudited,memberUnauditedList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,exact,/admin/member/unaudited,/member/unaudited,g:\IHUI-AI\apps\web\app\(main)\admin\member\unaudited\page.tsx,
+已迁移,/learn,/learn,learnIndex,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,exact,/admin/learn,/learn,g:\IHUI-AI\apps\web\app\(main)\admin\learn\page.tsx,
+已迁移,/learn/topic,/learn/topic,learnTopic,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,exact,/learn/topic,/learn/topic,g:\IHUI-AI\apps\web\app\(main)\learn\topic\page.tsx,
+已迁移,/exam,/exam,examIndex,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,exact,/admin/exam,/exam,g:\IHUI-AI\apps\web\app\(main)\admin\exam\page.tsx,
+已迁移,/live,/live,liveIndex,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,exact,/admin/live,/live,g:\IHUI-AI\apps\web\app\(main)\admin\live\page.tsx,
+已迁移,/news,/news,news,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,exact,/admin/news,/news,g:\IHUI-AI\apps\web\app\(main)\admin\news\page.tsx,
+已迁移,/article,/article,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,exact,/admin/article,/article,g:\IHUI-AI\apps\web\app\(main)\admin\article\page.tsx,
+已迁移,/ask,/ask,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,exact,/ask,/ask,g:\IHUI-AI\apps\web\app\(main)\ask\page.tsx,
+已迁移,/point,/point,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,exact,/admin/point,/point,g:\IHUI-AI\apps\web\app\(main)\admin\point\page.tsx,
+已迁移,/search,/search,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,exact,/search,/search,g:\IHUI-AI\apps\web\app\(main)\search\page.tsx,
+已迁移,/agreement/:type,/agreement/:type,agreement,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,exact,/agreement/[type],/agreement/:type,g:\IHUI-AI\apps\web\app\(main)\agreement\[type]\page.tsx,
+已迁移,/certificate/download,/certificate/download,certificateDownload,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,exact,/certificate/download,/certificate/download,g:\IHUI-AI\apps\web\app\(main)\certificate\download\page.tsx,
+已迁移,/member/favorites,/member/favorites,memberFavorites,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,exact,/member/favorites,/member/favorites,g:\IHUI-AI\apps\web\app\(main)\member\favorites\page.tsx,
+已迁移,/member/fans,/member/fans,memberFans,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,exact,/member/fans,/member/fans,g:\IHUI-AI\apps\web\app\(main)\member\fans\page.tsx,
+已迁移,/about,/about,aboutIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,exact,/about,/about,g:\IHUI-AI\apps\web\app\(main)\about\page.tsx,
+已迁移,/help,/help,helpIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,exact,/admin/help,/help,g:\IHUI-AI\apps\web\app\(main)\admin\help\page.tsx,
+已迁移,/feedback,/feedback,feedbackIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,exact,/feedback,/feedback,g:\IHUI-AI\apps\web\app\(main)\feedback\page.tsx,
+已迁移,/help,/help,helpIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,exact,/help,/help,g:\IHUI-AI\apps\web\app\(main)\help\page.tsx,
+已迁移,/,/,,,D:\历史项目存档\zhs_app-ZZ\share-h5\src\router\index.js,share-h5/src,vue-router,exact,/,/,g:\IHUI-AI\apps\web\app\(marketing)\page.tsx,
+部分迁移,/system/user-auth/role/:userId(\d+),/system/user-auth/role/:userId,AuthRole,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,keyword,/admin/system/login-logs,/system/login-logs,g:\IHUI-AI\apps\web\app\(main)\admin\system\login-logs\page.tsx,
+部分迁移,/system/role-auth/user/:roleId(\d+),/system/role-auth/user/:roleId,AuthUser,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,keyword,/admin/system/monitor,/system/monitor,g:\IHUI-AI\apps\web\app\(main)\admin\system\monitor\page.tsx,
+部分迁移,/system/dict-data/index/:dictId(\d+),/system/dict-data/index/:dictId,Data,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,keyword,/admin/system/operation-logs,/system/operation-logs,g:\IHUI-AI\apps\web\app\(main)\admin\system\operation-logs\page.tsx,
+部分迁移,/monitor/job-log/index/:jobId(\d+),/monitor/job-log/index/:jobId,JobLog,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,keyword,/admin/monitor/alerts,/monitor/alerts,g:\IHUI-AI\apps\web\app\(main)\admin\monitor\alerts\page.tsx,
+部分迁移,/member,/member,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,prefix,/member/upgrade,/member/upgrade,g:\IHUI-AI\apps\web\app\(main)\member\upgrade\page.tsx,
+部分迁移,/member/list,/member/list,memberList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/member/blacklist,/member/blacklist,g:\IHUI-AI\apps\web\app\(main)\admin\member\blacklist\page.tsx,
+部分迁移,/member/level,/member/level,memberLevel,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/member/companies,/member/companies,g:\IHUI-AI\apps\web\app\(main)\admin\member\companies\page.tsx,
+部分迁移,/member/edit,/member/edit,memberEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/member/company-types,/member/company-types,g:\IHUI-AI\apps\web\app\(main)\admin\member\company-types\page.tsx,
+部分迁移,/member/group,/member/group,memberGroup,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/member/departments,/member/departments,g:\IHUI-AI\apps\web\app\(main)\admin\member\departments\page.tsx,
+部分迁移,/member/tag,/member/tag,memberTag,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/member/logs,/member/logs,g:\IHUI-AI\apps\web\app\(main)\admin\member\logs\page.tsx,
+部分迁移,/member/post,/member/post,memberPost,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/member/permissions,/member/permissions,g:\IHUI-AI\apps\web\app\(main)\admin\member\permissions\page.tsx,
+部分迁移,/member/company,/member/company,memberCompany,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/member/roles,/member/roles,g:\IHUI-AI\apps\web\app\(main)\admin\member\roles\page.tsx,
+部分迁移,/member/company/type,/member/company/type,memberCompanyType,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/member/users,/member/users,g:\IHUI-AI\apps\web\app\(main)\admin\member\users\page.tsx,
+部分迁移,/learn/lesson,/learn/lesson,learnLesson,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,prefix,/learn,/learn,g:\IHUI-AI\apps\web\app\(main)\learn\page.tsx,
+部分迁移,/learn/lesson/category,/learn/lesson/category,learnCategory,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/learn/categories,/learn/categories,g:\IHUI-AI\apps\web\app\(main)\admin\learn\categories\page.tsx,
+部分迁移,/learn/lesson/trash,/learn/lesson/trash,learnLessonTrash,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/learn/chapters,/learn/chapters,g:\IHUI-AI\apps\web\app\(main)\admin\learn\chapters\page.tsx,
+部分迁移,/learn/lesson/edit,/learn/lesson/edit,learnLessonEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/learn/signups,/learn/signups,g:\IHUI-AI\apps\web\app\(main)\admin\learn\signups\page.tsx,
+部分迁移,/learn/topic/edit,/learn/topic/edit,learnTopicEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/learn/buyconfirm,/learn/buyconfirm,g:\IHUI-AI\apps\web\app\(main)\learn\buyconfirm\page.tsx,
+部分迁移,/learn/topic/category,/learn/topic/category,learnTopicCategory,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/learn/map,/learn/map,g:\IHUI-AI\apps\web\app\(main)\learn\map\page.tsx,
+部分迁移,/learn/certificate/template,/learn/certificate/template,certificateTemplateList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/learn/payment/confirm,/learn/payment/confirm,g:\IHUI-AI\apps\web\app\(main)\learn\payment\confirm\page.tsx,
+部分迁移,/learn/certificate/template/edit,/learn/certificate/template/edit,certificateTemplateEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/learn/topic/[id],/learn/topic/:id,g:\IHUI-AI\apps\web\app\(main)\learn\topic\[id]\page.tsx,
+部分迁移,/learn/certificate,/learn/certificate,certificateList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/learn/[id]/homework,/learn/:id/homework,g:\IHUI-AI\apps\web\app\(main)\learn\[id]\homework\page.tsx,
+部分迁移,/learn/order,/learn/order,orderList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/learn/[id],/learn/:id,g:\IHUI-AI\apps\web\app\(main)\learn\[id]\page.tsx,
+部分迁移,/learn/order/invoice/application,/learn/order/invoice/application,invoiceApplication,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/learn/[id]/rate,/learn/:id/rate,g:\IHUI-AI\apps\web\app\(main)\learn\[id]\rate\page.tsx,
+部分迁移,/exam/question-lib/category,/exam/question-lib/category,examQuestionLibCategory,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,prefix,/exam,/exam,g:\IHUI-AI\apps\web\app\(main)\exam\page.tsx,
+部分迁移,/exam/question-lib,/exam/question-lib,examQuestionLibList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/exam/categories,/exam/categories,g:\IHUI-AI\apps\web\app\(main)\admin\exam\categories\page.tsx,
+部分迁移,/exam/question-lib/single-choice,/exam/question-lib/single-choice,singleChoiceEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/exam/questions,/exam/questions,g:\IHUI-AI\apps\web\app\(main)\admin\exam\questions\page.tsx,
+部分迁移,/exam/question-lib/multi-choice,/exam/question-lib/multi-choice,multiChoiceEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/exam/records,/exam/records,g:\IHUI-AI\apps\web\app\(main)\admin\exam\records\page.tsx,
+部分迁移,/exam/question-lib/judgment,/exam/question-lib/judgment,judgmentEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/exam/wrong-questions,/exam/wrong-questions,g:\IHUI-AI\apps\web\app\(main)\exam\wrong-questions\page.tsx,
+部分迁移,/exam/question-lib/fill-blank,/exam/question-lib/fill-blank,fillBlankEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/exam/[id],/exam/:id,g:\IHUI-AI\apps\web\app\(main)\exam\[id]\page.tsx,
+部分迁移,/exam/question-lib/subjective,/exam/question-lib/subjective,subjectiveEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/exam/[id]/result,/exam/:id/result,g:\IHUI-AI\apps\web\app\(main)\exam\[id]\result\page.tsx,
+部分迁移,/live/channel,/live/channel,channelList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,prefix,/live,/live,g:\IHUI-AI\apps\web\app\(main)\live\page.tsx,
+部分迁移,/live/channel/edit,/live/channel/edit,channelEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/live/categories,/live/categories,g:\IHUI-AI\apps\web\app\(main)\admin\live\categories\page.tsx,
+部分迁移,/live/channel/category,/live/channel/category,channelCategory,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/live/lecturers,/live/lecturers,g:\IHUI-AI\apps\web\app\(main)\admin\live\lecturers\page.tsx,
+部分迁移,/live/lecturer/list,/live/lecturer/list,lecturerList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/live/[id],/live/:id,g:\IHUI-AI\apps\web\app\(main)\live\[id]\page.tsx,
+部分迁移,/live/lecturer/edit,/live/lecturer/edit,lecturerEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/live/[id]/play,/live/:id/play,g:\IHUI-AI\apps\web\app\(main)\live\[id]\play\page.tsx,
+部分迁移,/news/list,/news/list,newsList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,prefix,/news,/news,g:\IHUI-AI\apps\web\app\(main)\news\page.tsx,
+部分迁移,/news/edit,/news/edit,newsEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/news/categories,/news/categories,g:\IHUI-AI\apps\web\app\(main)\admin\news\categories\page.tsx,
+部分迁移,/point/list,/point/list,pointList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/point/records,/point/records,g:\IHUI-AI\apps\web\app\(main)\admin\point\records\page.tsx,
+部分迁移,/point/channel,/point/channel,pointChannel,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/admin/point/rules,/point/rules,g:\IHUI-AI\apps\web\app\(main)\admin\point\rules\page.tsx,
+部分迁移,/search/hot-word,/search/hot-word,searchHotWord,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,keyword,/search/history,/search/history,g:\IHUI-AI\apps\web\app\(main)\search\history\page.tsx,
+部分迁移,/news,/news,newsIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,prefix,/news/[id],/news/:id,g:\IHUI-AI\apps\web\app\(main)\news\[id]\page.tsx,
+部分迁移,/news/detail,/news/detail,newsDetail,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/news/category/[id],/news/category/:id,g:\IHUI-AI\apps\web\app\(main)\news\category\[id]\page.tsx,
+部分迁移,/member/personal,/member/personal,memberPersonal,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/addresses,/member/addresses,g:\IHUI-AI\apps\web\app\(main)\member\addresses\page.tsx,
+部分迁移,/member/detail,/member/detail,memberDetail,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/benefits,/member/benefits,g:\IHUI-AI\apps\web\app\(main)\member\benefits\page.tsx,
+部分迁移,/member/learn-record,/member/learn-record,memberLearnRecord,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/coupons,/member/coupons,g:\IHUI-AI\apps\web\app\(main)\member\coupons\page.tsx,
+部分迁移,/member/setting,/member/setting,memberSetting,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/dashboard,/member/dashboard,g:\IHUI-AI\apps\web\app\(main)\member\dashboard\page.tsx,
+部分迁移,/member/comment,/member/comment,memberComment,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/exam/record,/member/exam/record,g:\IHUI-AI\apps\web\app\(main)\member\exam\record\page.tsx,
+部分迁移,/member/follow,/member/follow,memberFollow,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/exam/sign-up,/member/exam/sign-up,g:\IHUI-AI\apps\web\app\(main)\member\exam\sign-up\page.tsx,
+部分迁移,/member/ask,/member/ask,memberAsk,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/feedback,/member/feedback,g:\IHUI-AI\apps\web\app\(main)\member\feedback\page.tsx,
+部分迁移,/member/circle,/member/circle,memberCircle,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/help,/member/help,g:\IHUI-AI\apps\web\app\(main)\member\help\page.tsx,
+部分迁移,/member/resource,/member/resource,memberResource,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/history,/member/history,g:\IHUI-AI\apps\web\app\(main)\member\history\page.tsx,
+部分迁移,/member/article,/member/article,memberArticle,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/invitations,/member/invitations,g:\IHUI-AI\apps\web\app\(main)\member\invitations\page.tsx,
+部分迁移,/member/point,/member/point,memberPoint,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/orders,/member/orders,g:\IHUI-AI\apps\web\app\(main)\member\orders\page.tsx,
+部分迁移,/member/exam/sign-up,/member/exam/sign-up,memberExamSignUp,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/orders/[id],/member/orders/:id,g:\IHUI-AI\apps\web\app\(main)\member\orders\[id]\page.tsx,
+部分迁移,/member/exam/record,/member/exam/record,memberExamRecord,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/points,/member/points,g:\IHUI-AI\apps\web\app\(main)\member\points\page.tsx,
+部分迁移,/member/exam/wrong-question,/member/exam/wrong-question,memberExamWrongQuestion,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/refunds,/member/refunds,g:\IHUI-AI\apps\web\app\(main)\member\refunds\page.tsx,
+部分迁移,/member/certificate,/member/certificate,memberCertificate,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,keyword,/member/settings,/member/settings,g:\IHUI-AI\apps\web\app\(main)\member\settings\page.tsx,
+部分迁移,/member,/member,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,prefix,/member/subscription,/member/subscription,g:\IHUI-AI\apps\web\app\(main)\member\subscription\page.tsx,
+部分迁移,/agreement/:type,/agreement/:type,agreement,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,prefix,/agreement,/agreement,g:\IHUI-AI\apps\web\app\(main)\agreement\page.tsx,
+部分迁移,/certificate/download,/certificate/download,certificateDownload,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,prefix,/admin/certificate,/certificate,g:\IHUI-AI\apps\web\app\(main)\admin\certificate\page.tsx,
+部分迁移,/feedback,/feedback,feedbackIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,prefix,/feedback/[id],/feedback/:id,g:\IHUI-AI\apps\web\app\(main)\feedback\[id]\page.tsx,
+部分迁移,/share/:code?,/share/:code?,ShareWithPath,SharePage,D:\历史项目存档\zhs_app-ZZ\share-h5\src\router\index.js,share-h5/src,vue-router,prefix,/share/[code],/share/:code,g:\IHUI-AI\apps\web\app\(main)\share\[code]\page.tsx,
+缺失,/redirect/:path(.*),/redirect/:path,,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,none,,,,"语言迁移(SSO/错误页/重定向,Next.js 中通过其他机制实现)"
+缺失,/login,/login,,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/register,/register,,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/404,/404,,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,none,,,,"语言迁移(SSO/错误页/重定向,Next.js 中通过其他机制实现)"
+缺失,/401,/401,,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,none,,,,"语言迁移(SSO/错误页/重定向,Next.js 中通过其他机制实现)"
+缺失,/index,/index,,Layout,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/demandSquare/demandSquare,/demandSquare/demandSquare,DemandSquare,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/demandSquare/review,/demandSquare/review,DemandSquareReview,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/tool/gen-edit/index/:tableId(\d+),/tool/gen-edit/index/:tableId,GenEdit,<inline>,D:\历史项目存档\ihui-ai-admin-frontend\src\router\index.ts,src/router,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/work-we-chat,/work-we-chat,workWeChatLogin,workWeChatLogin,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,"语言迁移(SSO/错误页/重定向,Next.js 中通过其他机制实现)"
+缺失,/ding-talk,/ding-talk,dingTalk,dingTalkLogin,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,"语言迁移(SSO/错误页/重定向,Next.js 中通过其他机制实现)"
+缺失,/index,/index,Index,Index,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/account,/account,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,语言迁移(账号中心已合并到 user-center / settings)
+缺失,/account/security,/account/security,accountSecurity,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,语言迁移(账号中心已合并到 user-center / settings)
+缺失,/auth,/auth,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/auth/organizational,/auth/organizational,organizationalIndex,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/auth/organizational/user,/auth/organizational/user,organizationalUser,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/auth/organizational/department,/auth/organizational/department,organizationalDepartment,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/auth/role,/auth/role,authorityRole,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/auth/authority,/auth/authority,authorityAuthority,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/setting,/setting,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/setting/carousel,/setting/carousel,settingCarousel,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/setting/agreement,/setting/agreement,settingAgreement,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/order/invoice/title,/learn/order/invoice/title,invoiceTitle,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/data/sign,/learn/data/sign,learnData,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/data/lessonstudy,/learn/data/lessonstudy,lessonStudyReport,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/data/memberstudy,/learn/data/memberstudy,memberStudyReport,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/data/companystudy,/learn/data/companystudy,companyStudyReport,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper/category,/exam/paper/category,examPaperCategory,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper,/exam/paper,examPaperList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper/normal,/exam/paper/normal,examPaperNormal,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper/random,/exam/paper/random,examPaperRandom,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/exam/category,/exam/exam/category,examCategory,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/exam,/exam/exam,examList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/exam/edit,/exam/exam/edit,examEdit,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/answer,/exam/answer,examAnswerList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/answer/mark,/exam/answer/mark,examAnswerMark,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/article/list,/article/list,articleList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/article/category,/article/category,contentCategory,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/ask/question,/ask/question,questionList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/ask/category,/ask/category,questionCategory,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle,/circle,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle/dynamics,/circle/dynamics,dynamicsList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle/list,/circle/list,circleList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle/category,/circle/category,circleCategory,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource,/resource,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/list,/resource/list,resourceList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/category,/resource/category,resourceCategory,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/product,/resource/product,resourceProduct,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/tag,/resource/tag,resourceTag,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/point/record,/point/record,pointRecord,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/comment,/comment,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/comment/list,/comment/list,commentList,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/comment/sensitive-word,/comment/sensitive-word,commentSensitiveSetting,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message,/message,,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/announcement,/message/announcement,announcement,<inline>,D:\历史项目存档\edu client\admin\admin\src\router\index.js,admin/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/index,/index,index,Index,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/payment,/learn/payment,learnPayment,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/payment/confirm,/learn/payment/confirm,learnPaymentConfirm,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/forget/pwd,/forget/pwd,forgetPwd,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/search,/search,searchIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/buyconfirm,/learn/buyconfirm,learnBuyConfirm,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/topic,/learn/topic,learnTopic,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/topic/detail,/learn/topic/detail,learnTopicDetail,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/map,/learn/map,learnMap,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/detail,/learn/detail,learnDetail,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/list,/learn/list,learnList,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn,/learn,learnIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live,/live,liveIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live/detail,/live/detail,liveDetail,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live/play,/live/play,livePlay,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper,/exam/paper,examPaper,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper/detail,/exam/paper/detail,examPaperDetail,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/detail,/exam/detail,examDetail,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/list,/exam/list,examList,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam,/exam,examIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/article,/article,articleIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/article/detail,/article/detail,articleDetail,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/ask,/ask,askIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/ask/question,/ask/question,askQuestion,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message,/message,memberMessage,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/notice,/message/notice,memberNotice,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/like,/message/like,memberMessageLike,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/favorite,/message/favorite,memberMessageFavorite,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/comment,/message/comment,memberMessageComment,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/fans,/message/fans,memberMessageFans,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/private-letter,/message/private-letter,memberPrivateLetter,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle,/circle,circleIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle/detail,/circle/detail,circleDetail,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource,/resource,resourceIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/detail,/resource/detail,resourceDetail,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/edit,/resource/edit,resourceEdit,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/announcement,/announcement,announcementIndex,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/announcement/detail,/announcement/detail,announcementDetail,<inline>,D:\历史项目存档\edu client\web\web\src\router\index.js,web/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/work-we-chat,/work-we-chat,workWeChatLogin,workWeChatLogin,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,"语言迁移(SSO/错误页/重定向,Next.js 中通过其他机制实现)"
+缺失,/ding-talk,/ding-talk,dingTalk,dingTalkLogin,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,"语言迁移(SSO/错误页/重定向,Next.js 中通过其他机制实现)"
+缺失,/unauthorized,/unauthorized,unauthorized,Unauthorized,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,"语言迁移(SSO/错误页/重定向,Next.js 中通过其他机制实现)"
+缺失,/index,/index,Index,Index,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/account,/account,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,语言迁移(账号中心已合并到 user-center / settings)
+缺失,/account/security,/account/security,accountSecurity,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,语言迁移(账号中心已合并到 user-center / settings)
+缺失,/member/list,/member/list,memberList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/unaudited,/member/unaudited,memberUnauditedList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/level,/member/level,memberLevel,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/edit,/member/edit,memberEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/group,/member/group,memberGroup,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/tag,/member/tag,memberTag,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/post,/member/post,memberPost,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/company,/member/company,memberCompany,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/company/type,/member/company/type,memberCompanyType,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/auth,/auth,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/auth/organizational,/auth/organizational,organizationalIndex,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/auth/organizational/user,/auth/organizational/user,organizationalUser,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/auth/organizational/department,/auth/organizational/department,organizationalDepartment,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/auth/role,/auth/role,authorityRole,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/auth/authority,/auth/authority,authorityAuthority,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/setting,/setting,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/setting/carousel,/setting/carousel,settingCarousel,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/setting/agreement,/setting/agreement,settingAgreement,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn,/learn,learnIndex,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/lesson,/learn/lesson,learnLesson,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/lesson/category,/learn/lesson/category,learnCategory,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/lesson/trash,/learn/lesson/trash,learnLessonTrash,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/lesson/edit,/learn/lesson/edit,learnLessonEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/topic,/learn/topic,learnTopic,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/topic/edit,/learn/topic/edit,learnTopicEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/topic/category,/learn/topic/category,learnTopicCategory,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/certificate/template,/learn/certificate/template,certificateTemplateList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/certificate/template/edit,/learn/certificate/template/edit,certificateTemplateEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/certificate,/learn/certificate,certificateList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/order,/learn/order,orderList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/order/invoice/application,/learn/order/invoice/application,invoiceApplication,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/order/invoice/title,/learn/order/invoice/title,invoiceTitle,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/data/sign,/learn/data/sign,learnData,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/data/lessonstudy,/learn/data/lessonstudy,lessonStudyReport,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/data/memberstudy,/learn/data/memberstudy,memberStudyReport,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/data/companystudy,/learn/data/companystudy,companyStudyReport,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam,/exam,examIndex,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/question-lib/category,/exam/question-lib/category,examQuestionLibCategory,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/question-lib,/exam/question-lib,examQuestionLibList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/question-lib/single-choice,/exam/question-lib/single-choice,singleChoiceEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/question-lib/multi-choice,/exam/question-lib/multi-choice,multiChoiceEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/question-lib/judgment,/exam/question-lib/judgment,judgmentEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/question-lib/fill-blank,/exam/question-lib/fill-blank,fillBlankEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/question-lib/subjective,/exam/question-lib/subjective,subjectiveEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper/category,/exam/paper/category,examPaperCategory,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper,/exam/paper,examPaperList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper/normal,/exam/paper/normal,examPaperNormal,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper/random,/exam/paper/random,examPaperRandom,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/exam/category,/exam/exam/category,examCategory,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/exam,/exam/exam,examList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/exam/edit,/exam/exam/edit,examEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/answer,/exam/answer,examAnswerList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/answer/mark,/exam/answer/mark,examAnswerMark,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live,/live,liveIndex,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live/channel,/live/channel,channelList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live/channel/edit,/live/channel/edit,channelEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live/channel/category,/live/channel/category,channelCategory,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live/lecturer/list,/live/lecturer/list,lecturerList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live/lecturer/edit,/live/lecturer/edit,lecturerEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/news,/news,news,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/news/list,/news/list,newsList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/news/edit,/news/edit,newsEdit,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/article,/article,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/article/list,/article/list,articleList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/article/category,/article/category,contentCategory,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/ask,/ask,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/ask/question,/ask/question,questionList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/ask/category,/ask/category,questionCategory,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle,/circle,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle/dynamics,/circle/dynamics,dynamicsList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle/list,/circle/list,circleList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle/category,/circle/category,circleCategory,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource,/resource,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/list,/resource/list,resourceList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/category,/resource/category,resourceCategory,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/product,/resource/product,resourceProduct,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/tag,/resource/tag,resourceTag,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/point,/point,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/point/list,/point/list,pointList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/point/channel,/point/channel,pointChannel,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/point/record,/point/record,pointRecord,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/comment,/comment,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/comment/list,/comment/list,commentList,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/comment/sensitive-word,/comment/sensitive-word,commentSensitiveSetting,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/search,/search,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/search/hot-word,/search/hot-word,searchHotWord,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message,/message,,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/announcement,/message/announcement,announcement,<inline>,D:\历史项目存档\code\edu\admin\admin\src\router\index.js,edu/admin,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/index,/index,index,Index,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/payment,/learn/payment,learnPayment,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/payment/confirm,/learn/payment/confirm,learnPaymentConfirm,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/forget/pwd,/forget/pwd,forgetPwd,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/search,/search,searchIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/buyconfirm,/learn/buyconfirm,learnBuyConfirm,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/topic,/learn/topic,learnTopic,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/topic/detail,/learn/topic/detail,learnTopicDetail,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/map,/learn/map,learnMap,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/detail,/learn/detail,learnDetail,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn/list,/learn/list,learnList,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/learn,/learn,learnIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live,/live,liveIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live/detail,/live/detail,liveDetail,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/live/play,/live/play,livePlay,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/news,/news,newsIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/news/detail,/news/detail,newsDetail,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper,/exam/paper,examPaper,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/paper/detail,/exam/paper/detail,examPaperDetail,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/detail,/exam/detail,examDetail,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam/list,/exam/list,examList,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/exam,/exam,examIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/article,/article,articleIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/article/detail,/article/detail,articleDetail,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/ask,/ask,askIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/ask/question,/ask/question,askQuestion,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message,/message,memberMessage,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/notice,/message/notice,memberNotice,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/like,/message/like,memberMessageLike,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/favorite,/message/favorite,memberMessageFavorite,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/comment,/message/comment,memberMessageComment,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/fans,/message/fans,memberMessageFans,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/message/private-letter,/message/private-letter,memberPrivateLetter,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/personal,/member/personal,memberPersonal,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/detail,/member/detail,memberDetail,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/favorites,/member/favorites,memberFavorites,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/learn-record,/member/learn-record,memberLearnRecord,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/setting,/member/setting,memberSetting,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/comment,/member/comment,memberComment,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/fans,/member/fans,memberFans,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/follow,/member/follow,memberFollow,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/ask,/member/ask,memberAsk,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/circle,/member/circle,memberCircle,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/resource,/member/resource,memberResource,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/article,/member/article,memberArticle,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/point,/member/point,memberPoint,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/exam/sign-up,/member/exam/sign-up,memberExamSignUp,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/exam/record,/member/exam/record,memberExamRecord,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/exam/wrong-question,/member/exam/wrong-question,memberExamWrongQuestion,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/member/certificate,/member/certificate,memberCertificate,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle,/circle,circleIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/circle/detail,/circle/detail,circleDetail,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource,/resource,resourceIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/detail,/resource/detail,resourceDetail,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/resource/edit,/resource/edit,resourceEdit,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/announcement,/announcement,announcementIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/announcement/detail,/announcement/detail,announcementDetail,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/about,/about,aboutIndex,<inline>,D:\历史项目存档\code\edu\web\web\src\router\index.js,edu/web,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/error,/error,Error,ErrorPage,D:\历史项目存档\zhs_app-ZZ\share-h5\src\router\index.js,share-h5/src,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+缺失,/:code?,/:code?,Share,SharePage,D:\历史项目存档\zhs_app-ZZ\share-h5\src\router\index.js,share-h5/src,vue-router,none,,,,真实缺失(Vue 业务页面在 Next.js 中未找到对应)
+Next.js独有,,,,,,,,,/apple/callback,/apple/callback,g:\IHUI-AI\apps\web\app\(auth)\apple\callback\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/callback,/callback,g:\IHUI-AI\apps\web\app\(auth)\callback\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/forgot-password,/forgot-password,g:\IHUI-AI\apps\web\app\(auth)\forgot-password\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/google/callback,/google/callback,g:\IHUI-AI\apps\web\app\(auth)\google\callback\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/activities,/activities,g:\IHUI-AI\apps\web\app\(main)\activities\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/activities/[slug],/activities/:slug,g:\IHUI-AI\apps\web\app\(main)\activities\[slug]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/about-us,/about-us,g:\IHUI-AI\apps\web\app\(main)\admin\about-us\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/activity,/activity,g:\IHUI-AI\apps\web\app\(main)\admin\activity\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/advertise,/advertise,g:\IHUI-AI\apps\web\app\(main)\admin\advertise\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/agent-category,/agent-category,g:\IHUI-AI\apps\web\app\(main)\admin\agent-category\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/agent-examine,/agent-examine,g:\IHUI-AI\apps\web\app\(main)\admin\agent-examine\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/agent-rule,/agent-rule,g:\IHUI-AI\apps\web\app\(main)\admin\agent-rule\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/agent-rules,/agent-rules,g:\IHUI-AI\apps\web\app\(main)\admin\agent-rules\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/agent-task,/agent-task,g:\IHUI-AI\apps\web\app\(main)\admin\agent-task\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/agents/categories,/agents/categories,g:\IHUI-AI\apps\web\app\(main)\admin\agents\categories\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/agents/examine,/agents/examine,g:\IHUI-AI\apps\web\app\(main)\admin\agents\examine\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/agents,/agents,g:\IHUI-AI\apps\web\app\(main)\admin\agents\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/agents/settlement,/agents/settlement,g:\IHUI-AI\apps\web\app\(main)\admin\agents\settlement\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/agreements,/agreements,g:\IHUI-AI\apps\web\app\(main)\admin\agreements\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/ai-gc,/ai-gc,g:\IHUI-AI\apps\web\app\(main)\admin\ai-gc\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/ai-models,/ai-models,g:\IHUI-AI\apps\web\app\(main)\admin\ai-models\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/ai-world/sites,/ai-world/sites,g:\IHUI-AI\apps\web\app\(main)\admin\ai-world\sites\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/admin/announcements,/announcements,g:\IHUI-AI\apps\web\app\(main)\admin\announcements\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/api-debug,/api-debug,g:\IHUI-AI\apps\web\app\(main)\admin\api-debug\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/api-groups,/api-groups,g:\IHUI-AI\apps\web\app\(main)\admin\api-groups\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/api-logs,/api-logs,g:\IHUI-AI\apps\web\app\(main)\admin\api-logs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/api-platform/apps,/api-platform/apps,g:\IHUI-AI\apps\web\app\(main)\admin\api-platform\apps\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/api-platform/billing,/api-platform/billing,g:\IHUI-AI\apps\web\app\(main)\admin\api-platform\billing\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/api-platform/packages,/api-platform/packages,g:\IHUI-AI\apps\web\app\(main)\admin\api-platform\packages\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/api-platform/usage,/api-platform/usage,g:\IHUI-AI\apps\web\app\(main)\admin\api-platform\usage\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/api-usage,/api-usage,g:\IHUI-AI\apps\web\app\(main)\admin\api-usage\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/articles,/articles,g:\IHUI-AI\apps\web\app\(main)\admin\articles\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/asks,/asks,g:\IHUI-AI\apps\web\app\(main)\admin\asks\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/auth-accounts,/auth-accounts,g:\IHUI-AI\apps\web\app\(main)\admin\auth-accounts\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/auth-dept,/auth-dept,g:\IHUI-AI\apps\web\app\(main)\admin\auth-dept\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/auth-find-info,/auth-find-info,g:\IHUI-AI\apps\web\app\(main)\admin\auth-find-info\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/auth-role,/auth-role,g:\IHUI-AI\apps\web\app\(main)\admin\auth-role\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/auth-user-vip,/auth-user-vip,g:\IHUI-AI\apps\web\app\(main)\admin\auth-user-vip\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/auth-veri-codes,/auth-veri-codes,g:\IHUI-AI\apps\web\app\(main)\admin\auth-veri-codes\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/backend-health,/backend-health,g:\IHUI-AI\apps\web\app\(main)\admin\backend-health\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/banner,/banner,g:\IHUI-AI\apps\web\app\(main)\admin\banner\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/behavior,/behavior,g:\IHUI-AI\apps\web\app\(main)\admin\behavior\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/bi-dashboard,/bi-dashboard,g:\IHUI-AI\apps\web\app\(main)\admin\bi-dashboard\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/admin/cache-monitor,/cache-monitor,g:\IHUI-AI\apps\web\app\(main)\admin\cache-monitor\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/carousel,/carousel,g:\IHUI-AI\apps\web\app\(main)\admin\carousel\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/certificate/templates,/certificate/templates,g:\IHUI-AI\apps\web\app\(main)\admin\certificate\templates\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/admin/circles/dynamics,/circles/dynamics,g:\IHUI-AI\apps\web\app\(main)\admin\circles\dynamics\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/circles,/circles,g:\IHUI-AI\apps\web\app\(main)\admin\circles\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/clawdbot/analytics,/clawdbot/analytics,g:\IHUI-AI\apps\web\app\(main)\admin\clawdbot\analytics\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/clawdbot/bots,/clawdbot/bots,g:\IHUI-AI\apps\web\app\(main)\admin\clawdbot\bots\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/clawdbot/health,/clawdbot/health,g:\IHUI-AI\apps\web\app\(main)\admin\clawdbot\health\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/clawdbot/messages,/clawdbot/messages,g:\IHUI-AI\apps\web\app\(main)\admin\clawdbot\messages\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/clawdbot,/clawdbot,g:\IHUI-AI\apps\web\app\(main)\admin\clawdbot\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/clawdbot/permissions,/clawdbot/permissions,g:\IHUI-AI\apps\web\app\(main)\admin\clawdbot\permissions\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/clawdbot/sessions,/clawdbot/sessions,g:\IHUI-AI\apps\web\app\(main)\admin\clawdbot\sessions\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/clawdbot/tools,/clawdbot/tools,g:\IHUI-AI\apps\web\app\(main)\admin\clawdbot\tools\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/comment-logs,/comment-logs,g:\IHUI-AI\apps\web\app\(main)\admin\comment-logs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/comments,/comments,g:\IHUI-AI\apps\web\app\(main)\admin\comments\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/commission,/commission,g:\IHUI-AI\apps\web\app\(main)\admin\commission\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/config,/config,g:\IHUI-AI\apps\web\app\(main)\admin\config\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/configs,/configs,g:\IHUI-AI\apps\web\app\(main)\admin\configs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/contact,/contact,g:\IHUI-AI\apps\web\app\(main)\admin\contact\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/content-stat,/content-stat,g:\IHUI-AI\apps\web\app\(main)\admin\content-stat\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/coupon,/coupon,g:\IHUI-AI\apps\web\app\(main)\admin\coupon\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/course,/course,g:\IHUI-AI\apps\web\app\(main)\admin\course\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/course-chapter,/course-chapter,g:\IHUI-AI\apps\web\app\(main)\admin\course-chapter\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/course-section,/course-section,g:\IHUI-AI\apps\web\app\(main)\admin\course-section\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/crew,/crew,g:\IHUI-AI\apps\web\app\(main)\admin\crew\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/crew/[id],/crew/:id,g:\IHUI-AI\apps\web\app\(main)\admin\crew\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/customer-service,/customer-service,g:\IHUI-AI\apps\web\app\(main)\admin\customer-service\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/dashboard-stat,/dashboard-stat,g:\IHUI-AI\apps\web\app\(main)\admin\dashboard-stat\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/database-optimization,/database-optimization,g:\IHUI-AI\apps\web\app\(main)\admin\database-optimization\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/db-monitor,/db-monitor,g:\IHUI-AI\apps\web\app\(main)\admin\db-monitor\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/demand-audit,/demand-audit,g:\IHUI-AI\apps\web\app\(main)\admin\demand-audit\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/demand-audit/[id],/demand-audit/:id,g:\IHUI-AI\apps\web\app\(main)\admin\demand-audit\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/demand-square,/demand-square,g:\IHUI-AI\apps\web\app\(main)\admin\demand-square\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/demand-square/[id],/demand-square/:id,g:\IHUI-AI\apps\web\app\(main)\admin\demand-square\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/developer,/developer,g:\IHUI-AI\apps\web\app\(main)\admin\developer\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/developer-link,/developer-link,g:\IHUI-AI\apps\web\app\(main)\admin\developer-link\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/dict,/dict,g:\IHUI-AI\apps\web\app\(main)\admin\dict\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/distribution/orders,/distribution/orders,g:\IHUI-AI\apps\web\app\(main)\admin\distribution\orders\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/distribution,/distribution,g:\IHUI-AI\apps\web\app\(main)\admin\distribution\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/distribution/rules,/distribution/rules,g:\IHUI-AI\apps\web\app\(main)\admin\distribution\rules\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/distribution/settlements,/distribution/settlements,g:\IHUI-AI\apps\web\app\(main)\admin\distribution\settlements\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/distribution/withdrawals,/distribution/withdrawals,g:\IHUI-AI\apps\web\app\(main)\admin\distribution\withdrawals\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/docs,/docs,g:\IHUI-AI\apps\web\app\(main)\admin\docs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/answer/card,/edu/answer/card,g:\IHUI-AI\apps\web\app\(main)\admin\edu\answer\card\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/answer/online,/edu/answer/online,g:\IHUI-AI\apps\web\app\(main)\admin\edu\answer\online\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/answer/programming,/edu/answer/programming,g:\IHUI-AI\apps\web\app\(main)\admin\edu\answer\programming\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/certificate/issued,/edu/certificate/issued,g:\IHUI-AI\apps\web\app\(main)\admin\edu\certificate\issued\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/certificate,/edu/certificate,g:\IHUI-AI\apps\web\app\(main)\admin\edu\certificate\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/certificate/templates,/edu/certificate/templates,g:\IHUI-AI\apps\web\app\(main)\admin\edu\certificate\templates\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/class/members,/edu/class/members,g:\IHUI-AI\apps\web\app\(main)\admin\edu\class\members\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/class,/edu/class,g:\IHUI-AI\apps\web\app\(main)\admin\edu\class\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/class/schedule,/edu/class/schedule,g:\IHUI-AI\apps\web\app\(main)\admin\edu\class\schedule\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/course/audit,/edu/course/audit,g:\IHUI-AI\apps\web\app\(main)\admin\edu\course\audit\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/course/categories,/edu/course/categories,g:\IHUI-AI\apps\web\app\(main)\admin\edu\course\categories\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/course/chapters,/edu/course/chapters,g:\IHUI-AI\apps\web\app\(main)\admin\edu\course\chapters\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/course,/edu/course,g:\IHUI-AI\apps\web\app\(main)\admin\edu\course\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/course/pay,/edu/course/pay,g:\IHUI-AI\apps\web\app\(main)\admin\edu\course\pay\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/course/platform-log,/edu/course/platform-log,g:\IHUI-AI\apps\web\app\(main)\admin\edu\course\platform-log\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/course/trash,/edu/course/trash,g:\IHUI-AI\apps\web\app\(main)\admin\edu\course\trash\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/exam/arrangements,/edu/exam/arrangements,g:\IHUI-AI\apps\web\app\(main)\admin\edu\exam\arrangements\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/exam/categories,/edu/exam/categories,g:\IHUI-AI\apps\web\app\(main)\admin\edu\exam\categories\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/exam/grades,/edu/exam/grades,g:\IHUI-AI\apps\web\app\(main)\admin\edu\exam\grades\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/exam,/edu/exam,g:\IHUI-AI\apps\web\app\(main)\admin\edu\exam\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/exam/papers-manual,/edu/exam/papers-manual,g:\IHUI-AI\apps\web\app\(main)\admin\edu\exam\papers-manual\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/exam/papers-random,/edu/exam/papers-random,g:\IHUI-AI\apps\web\app\(main)\admin\edu\exam\papers-random\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/exam/papers-template,/edu/exam/papers-template,g:\IHUI-AI\apps\web\app\(main)\admin\edu\exam\papers-template\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/exam/questions,/edu/exam/questions,g:\IHUI-AI\apps\web\app\(main)\admin\edu\exam\questions\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/exam/questions/[type],/edu/exam/questions/:type,g:\IHUI-AI\apps\web\app\(main)\admin\edu\exam\questions\[type]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/exam/ranking,/edu/exam/ranking,g:\IHUI-AI\apps\web\app\(main)\admin\edu\exam\ranking\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/exam/records,/edu/exam/records,g:\IHUI-AI\apps\web\app\(main)\admin\edu\exam\records\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/finance/invoices,/edu/finance/invoices,g:\IHUI-AI\apps\web\app\(main)\admin\edu\finance\invoices\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/finance,/edu/finance,g:\IHUI-AI\apps\web\app\(main)\admin\edu\finance\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/finance/statistics,/edu/finance/statistics,g:\IHUI-AI\apps\web\app\(main)\admin\edu\finance\statistics\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/community,/edu/learn/community,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\community\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/homework,/edu/learn/homework,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\homework\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/live,/edu/learn/live,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\live\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/maps,/edu/learn/maps,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\maps\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/materials,/edu/learn/materials,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\materials\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn,/edu/learn,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/plan,/edu/learn/plan,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\plan\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/progress,/edu/learn/progress,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\progress\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/ranking,/edu/learn/ranking,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\ranking\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/recorded,/edu/learn/recorded,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\recorded\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/records,/edu/learn/records,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\records\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/remind,/edu/learn/remind,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\remind\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/signup-batch,/edu/learn/signup-batch,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\signup-batch\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/learn/signup-batchlesson,/edu/learn/signup-batchlesson,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\signup-batchlesson\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/admin/edu/learn/topics,/edu/learn/topics,g:\IHUI-AI\apps\web\app\(main)\admin\edu\learn\topics\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/admin/edu/organization,/edu/organization,g:\IHUI-AI\apps\web\app\(main)\admin\edu\organization\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu,/edu,g:\IHUI-AI\apps\web\app\(main)\admin\edu\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/platform,/edu/platform,g:\IHUI-AI\apps\web\app\(main)\admin\edu\platform\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/reports/companystudy,/edu/reports/companystudy,g:\IHUI-AI\apps\web\app\(main)\admin\edu\reports\companystudy\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/reports/lessonstudy,/edu/reports/lessonstudy,g:\IHUI-AI\apps\web\app\(main)\admin\edu\reports\lessonstudy\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/admin/edu/reports/memberstudy,/edu/reports/memberstudy,g:\IHUI-AI\apps\web\app\(main)\admin\edu\reports\memberstudy\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/reports/signup,/edu/reports/signup,g:\IHUI-AI\apps\web\app\(main)\admin\edu\reports\signup\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/student/detail,/edu/student/detail,g:\IHUI-AI\apps\web\app\(main)\admin\edu\student\detail\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/student/levels,/edu/student/levels,g:\IHUI-AI\apps\web\app\(main)\admin\edu\student\levels\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/student,/edu/student,g:\IHUI-AI\apps\web\app\(main)\admin\edu\student\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/teacher/detail,/edu/teacher/detail,g:\IHUI-AI\apps\web\app\(main)\admin\edu\teacher\detail\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/teacher,/edu/teacher,g:\IHUI-AI\apps\web\app\(main)\admin\edu\teacher\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/teacher/review,/edu/teacher/review,g:\IHUI-AI\apps\web\app\(main)\admin\edu\teacher\review\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/user-platform,/edu/user-platform,g:\IHUI-AI\apps\web\app\(main)\admin\edu\user-platform\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu/zhs-identity,/edu/zhs-identity,g:\IHUI-AI\apps\web\app\(main)\admin\edu\zhs-identity\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/edu-settings,/edu-settings,g:\IHUI-AI\apps\web\app\(main)\admin\edu-settings\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/error-dashboard,/error-dashboard,g:\IHUI-AI\apps\web\app\(main)\admin\error-dashboard\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/event-bus-monitor,/event-bus-monitor,g:\IHUI-AI\apps\web\app\(main)\admin\event-bus-monitor\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/events,/events,g:\IHUI-AI\apps\web\app\(main)\admin\events\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/exam-answer,/exam-answer,g:\IHUI-AI\apps\web\app\(main)\admin\exam-answer\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/exam-category,/exam-category,g:\IHUI-AI\apps\web\app\(main)\admin\exam-category\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/exam-marking,/exam-marking,g:\IHUI-AI\apps\web\app\(main)\admin\exam-marking\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/exam-paper,/exam-paper,g:\IHUI-AI\apps\web\app\(main)\admin\exam-paper\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/exam-question,/exam-question,g:\IHUI-AI\apps\web\app\(main)\admin\exam-question\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/exchange-rates,/exchange-rates,g:\IHUI-AI\apps\web\app\(main)\admin\exchange-rates\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/feedback-msg,/feedback-msg,g:\IHUI-AI\apps\web\app\(main)\admin\feedback-msg\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/feedbacks,/feedbacks,g:\IHUI-AI\apps\web\app\(main)\admin\feedbacks\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/gen,/gen,g:\IHUI-AI\apps\web\app\(main)\admin\gen\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/gray-release,/gray-release,g:\IHUI-AI\apps\web\app\(main)\admin\gray-release\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/i18n-dashboard/compare,/i18n-dashboard/compare,g:\IHUI-AI\apps\web\app\(main)\admin\i18n-dashboard\compare\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/i18n-dashboard/missing,/i18n-dashboard/missing,g:\IHUI-AI\apps\web\app\(main)\admin\i18n-dashboard\missing\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/i18n-dashboard,/i18n-dashboard,g:\IHUI-AI\apps\web\app\(main)\admin\i18n-dashboard\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/identity-proportion,/identity-proportion,g:\IHUI-AI\apps\web\app\(main)\admin\identity-proportion\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/integrations,/integrations,g:\IHUI-AI\apps\web\app\(main)\admin\integrations\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/invitation,/invitation,g:\IHUI-AI\apps\web\app\(main)\admin\invitation\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/invoices/applications,/invoices/applications,g:\IHUI-AI\apps\web\app\(main)\admin\invoices\applications\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/invoices/titles,/invoices/titles,g:\IHUI-AI\apps\web\app\(main)\admin\invoices\titles\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/job,/job,g:\IHUI-AI\apps\web\app\(main)\admin\job\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/knowledge-rag,/knowledge-rag,g:\IHUI-AI\apps\web\app\(main)\admin\knowledge-rag\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/learn-map,/learn-map,g:\IHUI-AI\apps\web\app\(main)\admin\learn-map\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/lecturer,/lecturer,g:\IHUI-AI\apps\web\app\(main)\admin\lecturer\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/live-channel,/live-channel,g:\IHUI-AI\apps\web\app\(main)\admin\live-channel\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/live-record,/live-record,g:\IHUI-AI\apps\web\app\(main)\admin\live-record\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/llm-config,/llm-config,g:\IHUI-AI\apps\web\app\(main)\admin\llm-config\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/login-logs,/login-logs,g:\IHUI-AI\apps\web\app\(main)\admin\login-logs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/logininfor,/logininfor,g:\IHUI-AI\apps\web\app\(main)\admin\logininfor\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/logs,/logs,g:\IHUI-AI\apps\web\app\(main)\admin\logs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/member-groups,/member-groups,g:\IHUI-AI\apps\web\app\(main)\admin\member-groups\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/members/levels,/members/levels,g:\IHUI-AI\apps\web\app\(main)\admin\members\levels\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/members,/members,g:\IHUI-AI\apps\web\app\(main)\admin\members\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/menu,/menu,g:\IHUI-AI\apps\web\app\(main)\admin\menu\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/message-overview,/message-overview,g:\IHUI-AI\apps\web\app\(main)\admin\message-overview\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/message-templates,/message-templates,g:\IHUI-AI\apps\web\app\(main)\admin\message-templates\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/mobile-adapter,/mobile-adapter,g:\IHUI-AI\apps\web\app\(main)\admin\mobile-adapter\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/monitor/dashboard,/monitor/dashboard,g:\IHUI-AI\apps\web\app\(main)\admin\monitor\dashboard\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/admin/monitor/funnel,/monitor/funnel,g:\IHUI-AI\apps\web\app\(main)\admin\monitor\funnel\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/admin/monitoring-dashboard,/monitoring-dashboard,g:\IHUI-AI\apps\web\app\(main)\admin\monitoring-dashboard\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/notice,/notice,g:\IHUI-AI\apps\web\app\(main)\admin\notice\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/notification-channels,/notification-channels,g:\IHUI-AI\apps\web\app\(main)\admin\notification-channels\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/notification-dispatch,/notification-dispatch,g:\IHUI-AI\apps\web\app\(main)\admin\notification-dispatch\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/notification-logs,/notification-logs,g:\IHUI-AI\apps\web\app\(main)\admin\notification-logs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/notification-preferences,/notification-preferences,g:\IHUI-AI\apps\web\app\(main)\admin\notification-preferences\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/oauth/apps,/oauth/apps,g:\IHUI-AI\apps\web\app\(main)\admin\oauth\apps\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/oauth/audit,/oauth/audit,g:\IHUI-AI\apps\web\app\(main)\admin\oauth\audit\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/oauth/tokens,/oauth/tokens,g:\IHUI-AI\apps\web\app\(main)\admin\oauth\tokens\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/oauth-apps,/oauth-apps,g:\IHUI-AI\apps\web\app\(main)\admin\oauth-apps\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/oauth-audit-dashboard,/oauth-audit-dashboard,g:\IHUI-AI\apps\web\app\(main)\admin\oauth-audit-dashboard\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/online,/online,g:\IHUI-AI\apps\web\app\(main)\admin\online\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/online-users,/online-users,g:\IHUI-AI\apps\web\app\(main)\admin\online-users\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/operlog,/operlog,g:\IHUI-AI\apps\web\app\(main)\admin\operlog\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/orders,/orders,g:\IHUI-AI\apps\web\app\(main)\admin\orders\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/oss/files,/oss/files,g:\IHUI-AI\apps\web\app\(main)\admin\oss\files\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/oss,/oss,g:\IHUI-AI\apps\web\app\(main)\admin\oss\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/performance-dashboard,/performance-dashboard,g:\IHUI-AI\apps\web\app\(main)\admin\performance-dashboard\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/permissions,/permissions,g:\IHUI-AI\apps\web\app\(main)\admin\permissions\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/post,/post,g:\IHUI-AI\apps\web\app\(main)\admin\post\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/private-letters,/private-letters,g:\IHUI-AI\apps\web\app\(main)\admin\private-letters\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/product-identity,/product-identity,g:\IHUI-AI\apps\web\app\(main)\admin\product-identity\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/projects,/projects,g:\IHUI-AI\apps\web\app\(main)\admin\projects\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/question-category,/question-category,g:\IHUI-AI\apps\web\app\(main)\admin\question-category\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/realname-audit,/realname-audit,g:\IHUI-AI\apps\web\app\(main)\admin\realname-audit\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/recommendation-config,/recommendation-config,g:\IHUI-AI\apps\web\app\(main)\admin\recommendation-config\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/refund,/refund,g:\IHUI-AI\apps\web\app\(main)\admin\refund\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/refund/[id],/refund/:id,g:\IHUI-AI\apps\web\app\(main)\admin\refund\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/resources/categories,/resources/categories,g:\IHUI-AI\apps\web\app\(main)\admin\resources\categories\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/resources,/resources,g:\IHUI-AI\apps\web\app\(main)\admin\resources\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/resources/products,/resources/products,g:\IHUI-AI\apps\web\app\(main)\admin\resources\products\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/resources/tags,/resources/tags,g:\IHUI-AI\apps\web\app\(main)\admin\resources\tags\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/admin/revenue-stat,/revenue-stat,g:\IHUI-AI\apps\web\app\(main)\admin\revenue-stat\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/roles/auth-user,/roles/auth-user,g:\IHUI-AI\apps\web\app\(main)\admin\roles\auth-user\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/roles,/roles,g:\IHUI-AI\apps\web\app\(main)\admin\roles\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/roles/select-user,/roles/select-user,g:\IHUI-AI\apps\web\app\(main)\admin\roles\select-user\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/schedule/logs,/schedule/logs,g:\IHUI-AI\apps\web\app\(main)\admin\schedule\logs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/schedule,/schedule,g:\IHUI-AI\apps\web\app\(main)\admin\schedule\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/search-hot-words,/search-hot-words,g:\IHUI-AI\apps\web\app\(main)\admin\search-hot-words\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/sensitive-word,/sensitive-word,g:\IHUI-AI\apps\web\app\(main)\admin\sensitive-word\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/sensitive-words,/sensitive-words,g:\IHUI-AI\apps\web\app\(main)\admin\sensitive-words\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/shop/funds,/shop/funds,g:\IHUI-AI\apps\web\app\(main)\admin\shop\funds\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/shop/payments,/shop/payments,g:\IHUI-AI\apps\web\app\(main)\admin\shop\payments\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/shop/products,/shop/products,g:\IHUI-AI\apps\web\app\(main)\admin\shop\products\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/shop/withdrawals,/shop/withdrawals,g:\IHUI-AI\apps\web\app\(main)\admin\shop\withdrawals\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/signin-rule,/signin-rule,g:\IHUI-AI\apps\web\app\(main)\admin\signin-rule\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/sms,/sms,g:\IHUI-AI\apps\web\app\(main)\admin\sms\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/statistics,/statistics,g:\IHUI-AI\apps\web\app\(main)\admin\statistics\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/system/tasks/log,/system/tasks/log,g:\IHUI-AI\apps\web\app\(main)\admin\system\tasks\log\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/admin/system/tasks,/system/tasks,g:\IHUI-AI\apps\web\app\(main)\admin\system\tasks\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/admin/tags,/tags,g:\IHUI-AI\apps\web\app\(main)\admin\tags\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/admin/task-developer,/task-developer,g:\IHUI-AI\apps\web\app\(main)\admin\task-developer\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/theme/assets,/theme/assets,g:\IHUI-AI\apps\web\app\(main)\admin\theme\assets\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/theme/colors,/theme/colors,g:\IHUI-AI\apps\web\app\(main)\admin\theme\colors\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/theme/create,/theme/create,g:\IHUI-AI\apps\web\app\(main)\admin\theme\create\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/theme/dark-mode,/theme/dark-mode,g:\IHUI-AI\apps\web\app\(main)\admin\theme\dark-mode\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/theme/edit/[id],/theme/edit/:id,g:\IHUI-AI\apps\web\app\(main)\admin\theme\edit\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/theme/export,/theme/export,g:\IHUI-AI\apps\web\app\(main)\admin\theme\export\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/theme/fonts,/theme/fonts,g:\IHUI-AI\apps\web\app\(main)\admin\theme\fonts\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/theme,/theme,g:\IHUI-AI\apps\web\app\(main)\admin\theme\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/theme/presets,/theme/presets,g:\IHUI-AI\apps\web\app\(main)\admin\theme\presets\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/user-agent-audio,/user-agent-audio,g:\IHUI-AI\apps\web\app\(main)\admin\user-agent-audio\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/user-agent-context,/user-agent-context,g:\IHUI-AI\apps\web\app\(main)\admin\user-agent-context\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/user-agent-image,/user-agent-image,g:\IHUI-AI\apps\web\app\(main)\admin\user-agent-image\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/user-center,/user-center,g:\IHUI-AI\apps\web\app\(main)\admin\user-center\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/user-margin,/user-margin,g:\IHUI-AI\apps\web\app\(main)\admin\user-margin\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/user-stat,/user-stat,g:\IHUI-AI\apps\web\app\(main)\admin\user-stat\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/users,/users,g:\IHUI-AI\apps\web\app\(main)\admin\users\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/variables,/variables,g:\IHUI-AI\apps\web\app\(main)\admin\variables\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/video-logs,/video-logs,g:\IHUI-AI\apps\web\app\(main)\admin\video-logs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/visit-tracking,/visit-tracking,g:\IHUI-AI\apps\web\app\(main)\admin\visit-tracking\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/visit-trend,/visit-trend,g:\IHUI-AI\apps\web\app\(main)\admin\visit-trend\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/wallet,/wallet,g:\IHUI-AI\apps\web\app\(main)\admin\wallet\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/withdrawal,/withdrawal,g:\IHUI-AI\apps\web\app\(main)\admin\withdrawal\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/workflows,/workflows,g:\IHUI-AI\apps\web\app\(main)\admin\workflows\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/admin/zhs-activity,/zhs-activity,g:\IHUI-AI\apps\web\app\(main)\admin\zhs-activity\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/zhs-agent,/zhs-agent,g:\IHUI-AI\apps\web\app\(main)\admin\zhs-agent\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/admin/zhs-user,/zhs-user,g:\IHUI-AI\apps\web\app\(main)\admin\zhs-user\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/agents/categories,/agents/categories,g:\IHUI-AI\apps\web\app\(main)\agents\categories\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/agents/categories/[id],/agents/categories/:id,g:\IHUI-AI\apps\web\app\(main)\agents\categories\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/agents/create,/agents/create,g:\IHUI-AI\apps\web\app\(main)\agents\create\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/agents/edit/[id],/agents/edit/:id,g:\IHUI-AI\apps\web\app\(main)\agents\edit\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/agents/featured,/agents/featured,g:\IHUI-AI\apps\web\app\(main)\agents\featured\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/agents/my,/agents/my,g:\IHUI-AI\apps\web\app\(main)\agents\my\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/agents,/agents,g:\IHUI-AI\apps\web\app\(main)\agents\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/agents/stats,/agents/stats,g:\IHUI-AI\apps\web\app\(main)\agents\stats\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/agents/[id],/agents/:id,g:\IHUI-AI\apps\web\app\(main)\agents\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/ai-career,/ai-career,g:\IHUI-AI\apps\web\app\(main)\ai-career\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/ai-generation,/ai-generation,g:\IHUI-AI\apps\web\app\(main)\ai-generation\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/ai-generation/video-tasks,/ai-generation/video-tasks,g:\IHUI-AI\apps\web\app\(main)\ai-generation\video-tasks\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/ai-news,/ai-news,g:\IHUI-AI\apps\web\app\(main)\ai-news\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/ai-world/create,/ai-world/create,g:\IHUI-AI\apps\web\app\(main)\ai-world\create\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/ai-world/edit/[id],/ai-world/edit/:id,g:\IHUI-AI\apps\web\app\(main)\ai-world\edit\[id]\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/ai-world/favorites,/ai-world/favorites,g:\IHUI-AI\apps\web\app\(main)\ai-world\favorites\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/ai-world/history,/ai-world/history,g:\IHUI-AI\apps\web\app\(main)\ai-world\history\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/ai-world,/ai-world,g:\IHUI-AI\apps\web\app\(main)\ai-world\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/ai-world/share/[id],/ai-world/share/:id,g:\IHUI-AI\apps\web\app\(main)\ai-world\share\[id]\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/ai-world/[id],/ai-world/:id,g:\IHUI-AI\apps\web\app\(main)\ai-world\[id]\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/announcements,/announcements,g:\IHUI-AI\apps\web\app\(main)\announcements\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/announcements/[id],/announcements/:id,g:\IHUI-AI\apps\web\app\(main)\announcements\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/api-test,/api-test,g:\IHUI-AI\apps\web\app\(main)\api-test\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/articles/edit,/articles/edit,g:\IHUI-AI\apps\web\app\(main)\articles\edit\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/articles/hot,/articles/hot,g:\IHUI-AI\apps\web\app\(main)\articles\hot\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/articles,/articles,g:\IHUI-AI\apps\web\app\(main)\articles\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/articles/[id],/articles/:id,g:\IHUI-AI\apps\web\app\(main)\articles\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/asks/edit,/asks/edit,g:\IHUI-AI\apps\web\app\(main)\asks\edit\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/asks/edit/[id],/asks/edit/:id,g:\IHUI-AI\apps\web\app\(main)\asks\edit\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/asks,/asks,g:\IHUI-AI\apps\web\app\(main)\asks\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/asks/[id],/asks/:id,g:\IHUI-AI\apps\web\app\(main)\asks\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/bi-dashboard,/bi-dashboard,g:\IHUI-AI\apps\web\app\(main)\bi-dashboard\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/business-card/edit,/business-card/edit,g:\IHUI-AI\apps\web\app\(main)\business-card\edit\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/business-card/favorites,/business-card/favorites,g:\IHUI-AI\apps\web\app\(main)\business-card\favorites\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/business-card,/business-card,g:\IHUI-AI\apps\web\app\(main)\business-card\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/business-card/share/[id],/business-card/share/:id,g:\IHUI-AI\apps\web\app\(main)\business-card\share\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/chat/favorites,/chat/favorites,g:\IHUI-AI\apps\web\app\(main)\chat\favorites\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/chat/history,/chat/history,g:\IHUI-AI\apps\web\app\(main)\chat\history\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/chat,/chat,g:\IHUI-AI\apps\web\app\(main)\chat\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/chat/settings,/chat/settings,g:\IHUI-AI\apps\web\app\(main)\chat\settings\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/chat/share/[id],/chat/share/:id,g:\IHUI-AI\apps\web\app\(main)\chat\share\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/chat/templates,/chat/templates,g:\IHUI-AI\apps\web\app\(main)\chat\templates\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/circles,/circles,g:\IHUI-AI\apps\web\app\(main)\circles\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/circles/post,/circles/post,g:\IHUI-AI\apps\web\app\(main)\circles\post\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/circles/[id],/circles/:id,g:\IHUI-AI\apps\web\app\(main)\circles\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/comments,/comments,g:\IHUI-AI\apps\web\app\(main)\comments\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/commission/plan,/commission/plan,g:\IHUI-AI\apps\web\app\(main)\commission\plan\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/contact,/contact,g:\IHUI-AI\apps\web\app\(main)\contact\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/dashboard,/dashboard,g:\IHUI-AI\apps\web\app\(main)\dashboard\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/design-system,/design-system,g:\IHUI-AI\apps\web\app\(main)\design-system\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/api-docs,/developer/api-docs,g:\IHUI-AI\apps\web\app\(main)\developer\api-docs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/billing,/developer/billing,g:\IHUI-AI\apps\web\app\(main)\developer\billing\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/keys,/developer/keys,g:\IHUI-AI\apps\web\app\(main)\developer\keys\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/limits,/developer/limits,g:\IHUI-AI\apps\web\app\(main)\developer\limits\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/logs,/developer/logs,g:\IHUI-AI\apps\web\app\(main)\developer\logs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/notifications,/developer/notifications,g:\IHUI-AI\apps\web\app\(main)\developer\notifications\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer,/developer,g:\IHUI-AI\apps\web\app\(main)\developer\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/sandbox,/developer/sandbox,g:\IHUI-AI\apps\web\app\(main)\developer\sandbox\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/settings,/developer/settings,g:\IHUI-AI\apps\web\app\(main)\developer\settings\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/subscription,/developer/subscription,g:\IHUI-AI\apps\web\app\(main)\developer\subscription\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/team,/developer/team,g:\IHUI-AI\apps\web\app\(main)\developer\team\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/versions,/developer/versions,g:\IHUI-AI\apps\web\app\(main)\developer\versions\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/developer/webhooks,/developer/webhooks,g:\IHUI-AI\apps\web\app\(main)\developer\webhooks\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/distribution/commission,/distribution/commission,g:\IHUI-AI\apps\web\app\(main)\distribution\commission\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/distribution/company,/distribution/company,g:\IHUI-AI\apps\web\app\(main)\distribution\company\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/distribution/orders,/distribution/orders,g:\IHUI-AI\apps\web\app\(main)\distribution\orders\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/distribution,/distribution,g:\IHUI-AI\apps\web\app\(main)\distribution\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/distribution/team,/distribution/team,g:\IHUI-AI\apps\web\app\(main)\distribution\team\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/distribution/team/[id],/distribution/team/:id,g:\IHUI-AI\apps\web\app\(main)\distribution\team\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/distribution/token,/distribution/token,g:\IHUI-AI\apps\web\app\(main)\distribution\token\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/distribution/withdraw,/distribution/withdraw,g:\IHUI-AI\apps\web\app\(main)\distribution\withdraw\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/distribution/withdraw/records,/distribution/withdraw/records,g:\IHUI-AI\apps\web\app\(main)\distribution\withdraw\records\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/docs,/docs,g:\IHUI-AI\apps\web\app\(main)\docs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/docs/[...slug],/docs/:slug*,g:\IHUI-AI\apps\web\app\(main)\docs\[...slug]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/drama,/drama,g:\IHUI-AI\apps\web\app\(main)\drama\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/certificates,/edu/certificates,g:\IHUI-AI\apps\web\app\(main)\edu\certificates\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/certificates/[id],/edu/certificates/:id,g:\IHUI-AI\apps\web\app\(main)\edu\certificates\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/courses,/edu/courses,g:\IHUI-AI\apps\web\app\(main)\edu\courses\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/courses/[id]/learn,/edu/courses/:id/learn,g:\IHUI-AI\apps\web\app\(main)\edu\courses\[id]\learn\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/courses/[id],/edu/courses/:id,g:\IHUI-AI\apps\web\app\(main)\edu\courses\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/dashboard,/edu/dashboard,g:\IHUI-AI\apps\web\app\(main)\edu\dashboard\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/exam,/edu/exam,g:\IHUI-AI\apps\web\app\(main)\edu\exam\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/exam/[id],/edu/exam/:id,g:\IHUI-AI\apps\web\app\(main)\edu\exam\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/exam/[id]/result,/edu/exam/:id/result,g:\IHUI-AI\apps\web\app\(main)\edu\exam\[id]\result\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/notes,/edu/notes,g:\IHUI-AI\apps\web\app\(main)\edu\notes\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu,/edu,g:\IHUI-AI\apps\web\app\(main)\edu\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/progress,/edu/progress,g:\IHUI-AI\apps\web\app\(main)\edu\progress\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/qa,/edu/qa,g:\IHUI-AI\apps\web\app\(main)\edu\qa\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu/schedule,/edu/schedule,g:\IHUI-AI\apps\web\app\(main)\edu\schedule\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/edu-points,/edu-points,g:\IHUI-AI\apps\web\app\(main)\edu-points\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/enterprise,/enterprise,g:\IHUI-AI\apps\web\app\(main)\enterprise\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/favorites,/favorites,g:\IHUI-AI\apps\web\app\(main)\favorites\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/feature-center/agents,/feature-center/agents,g:\IHUI-AI\apps\web\app\(main)\feature-center\agents\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/feature-center/apis,/feature-center/apis,g:\IHUI-AI\apps\web\app\(main)\feature-center\apis\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/feature-center/documents,/feature-center/documents,g:\IHUI-AI\apps\web\app\(main)\feature-center\documents\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/feature-center/models,/feature-center/models,g:\IHUI-AI\apps\web\app\(main)\feature-center\models\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/feature-center,/feature-center,g:\IHUI-AI\apps\web\app\(main)\feature-center\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/feature-center/sdks,/feature-center/sdks,g:\IHUI-AI\apps\web\app\(main)\feature-center\sdks\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/following,/following,g:\IHUI-AI\apps\web\app\(main)\following\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/help/[slug],/help/:slug,g:\IHUI-AI\apps\web\app\(main)\help\[slug]\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/home,/home,g:\IHUI-AI\apps\web\app\(main)\home\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/image-gen/favorites,/image-gen/favorites,g:\IHUI-AI\apps\web\app\(main)\image-gen\favorites\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/image-gen/gallery,/image-gen/gallery,g:\IHUI-AI\apps\web\app\(main)\image-gen\gallery\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/image-gen/history,/image-gen/history,g:\IHUI-AI\apps\web\app\(main)\image-gen\history\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/image-gen,/image-gen,g:\IHUI-AI\apps\web\app\(main)\image-gen\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/image-gen/templates,/image-gen/templates,g:\IHUI-AI\apps\web\app\(main)\image-gen\templates\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/invitations,/invitations,g:\IHUI-AI\apps\web\app\(main)\invitations\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/knowledge-base/edit,/knowledge-base/edit,g:\IHUI-AI\apps\web\app\(main)\knowledge-base\edit\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/knowledge-base/edit/[id],/knowledge-base/edit/:id,g:\IHUI-AI\apps\web\app\(main)\knowledge-base\edit\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/knowledge-base,/knowledge-base,g:\IHUI-AI\apps\web\app\(main)\knowledge-base\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/knowledge-base/search,/knowledge-base/search,g:\IHUI-AI\apps\web\app\(main)\knowledge-base\search\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/knowledge-base/[id],/knowledge-base/:id,g:\IHUI-AI\apps\web\app\(main)\knowledge-base\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/lecturers,/lecturers,g:\IHUI-AI\apps\web\app\(main)\lecturers\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/lecturers/[id],/lecturers/:id,g:\IHUI-AI\apps\web\app\(main)\lecturers\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/mcp-projects,/mcp-projects,g:\IHUI-AI\apps\web\app\(main)\mcp-projects\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/members,/members,g:\IHUI-AI\apps\web\app\(main)\members\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/messages,/messages,g:\IHUI-AI\apps\web\app\(main)\messages\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/messages/[type],/messages/:type,g:\IHUI-AI\apps\web\app\(main)\messages\[type]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/mobile-dashboard,/mobile-dashboard,g:\IHUI-AI\apps\web\app\(main)\mobile-dashboard\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/api-docs,/models/api-docs,g:\IHUI-AI\apps\web\app\(main)\models\api-docs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/billing,/models/billing,g:\IHUI-AI\apps\web\app\(main)\models\billing\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/channels,/models/channels,g:\IHUI-AI\apps\web\app\(main)\models\channels\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/chats,/models/chats,g:\IHUI-AI\apps\web\app\(main)\models\chats\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/contact,/models/contact,g:\IHUI-AI\apps\web\app\(main)\models\contact\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/groups,/models/groups,g:\IHUI-AI\apps\web\app\(main)\models\groups\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/keys,/models/keys,g:\IHUI-AI\apps\web\app\(main)\models\keys\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/logs,/models/logs,g:\IHUI-AI\apps\web\app\(main)\models\logs\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/openclaw,/models/openclaw,g:\IHUI-AI\apps\web\app\(main)\models\openclaw\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/overview,/models/overview,g:\IHUI-AI\apps\web\app\(main)\models\overview\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models,/models,g:\IHUI-AI\apps\web\app\(main)\models\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/redeem,/models/redeem,g:\IHUI-AI\apps\web\app\(main)\models\redeem\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/referral,/models/referral,g:\IHUI-AI\apps\web\app\(main)\models\referral\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/skills,/models/skills,g:\IHUI-AI\apps\web\app\(main)\models\skills\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/usage,/models/usage,g:\IHUI-AI\apps\web\app\(main)\models\usage\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/models/users,/models/users,g:\IHUI-AI\apps\web\app\(main)\models\users\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/n8n-agents,/n8n-agents,g:\IHUI-AI\apps\web\app\(main)\n8n-agents\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/notifications,/notifications,g:\IHUI-AI\apps\web\app\(main)\notifications\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/oauth/authorize,/oauth/authorize,g:\IHUI-AI\apps\web\app\(main)\oauth\authorize\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/oauth/my-authorized,/oauth/my-authorized,g:\IHUI-AI\apps\web\app\(main)\oauth\my-authorized\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/oauth/platform,/oauth/platform,g:\IHUI-AI\apps\web\app\(main)\oauth\platform\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/openclaw,/openclaw,g:\IHUI-AI\apps\web\app\(main)\openclaw\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/orders,/orders,g:\IHUI-AI\apps\web\app\(main)\orders\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/orders/[id],/orders/:id,g:\IHUI-AI\apps\web\app\(main)\orders\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/payment/checkout,/payment/checkout,g:\IHUI-AI\apps\web\app\(main)\payment\checkout\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/payment,/payment,g:\IHUI-AI\apps\web\app\(main)\payment\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/plaza,/plaza,g:\IHUI-AI\apps\web\app\(main)\plaza\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/points,/points,g:\IHUI-AI\apps\web\app\(main)\points\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/points/sign-in,/points/sign-in,g:\IHUI-AI\apps\web\app\(main)\points\sign-in\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/pricing,/pricing,g:\IHUI-AI\apps\web\app\(main)\pricing\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/ranking,/ranking,g:\IHUI-AI\apps\web\app\(main)\ranking\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/recruitment,/recruitment,g:\IHUI-AI\apps\web\app\(main)\recruitment\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/recruitment/[id],/recruitment/:id,g:\IHUI-AI\apps\web\app\(main)\recruitment\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/refund,/refund,g:\IHUI-AI\apps\web\app\(main)\refund\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/refund/[id],/refund/:id,g:\IHUI-AI\apps\web\app\(main)\refund\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/resources/edit,/resources/edit,g:\IHUI-AI\apps\web\app\(main)\resources\edit\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/resources,/resources,g:\IHUI-AI\apps\web\app\(main)\resources\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/resources/[id],/resources/:id,g:\IHUI-AI\apps\web\app\(main)\resources\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/schedule,/schedule,g:\IHUI-AI\apps\web\app\(main)\schedule\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/security-audit,/security-audit,g:\IHUI-AI\apps\web\app\(main)\security-audit\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/account-deletion,/settings/account-deletion,g:\IHUI-AI\apps\web\app\(main)\settings\account-deletion\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/activity,/settings/activity,g:\IHUI-AI\apps\web\app\(main)\settings\activity\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/app-permission,/settings/app-permission,g:\IHUI-AI\apps\web\app\(main)\settings\app-permission\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/authorizations,/settings/authorizations,g:\IHUI-AI\apps\web\app\(main)\settings\authorizations\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/avatar,/settings/avatar,g:\IHUI-AI\apps\web\app\(main)\settings\avatar\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/billing,/settings/billing,g:\IHUI-AI\apps\web\app\(main)\settings\billing\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/business-license,/settings/business-license,g:\IHUI-AI\apps\web\app\(main)\settings\business-license\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/change-phone,/settings/change-phone,g:\IHUI-AI\apps\web\app\(main)\settings\change-phone\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/connected-accounts,/settings/connected-accounts,g:\IHUI-AI\apps\web\app\(main)\settings\connected-accounts\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/dashboard,/settings/dashboard,g:\IHUI-AI\apps\web\app\(main)\settings\dashboard\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/data-export,/settings/data-export,g:\IHUI-AI\apps\web\app\(main)\settings\data-export\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/icp-record,/settings/icp-record,g:\IHUI-AI\apps\web\app\(main)\settings\icp-record\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/llm,/settings/llm,g:\IHUI-AI\apps\web\app\(main)\settings\llm\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/model-record,/settings/model-record,g:\IHUI-AI\apps\web\app\(main)\settings\model-record\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/notifications,/settings/notifications,g:\IHUI-AI\apps\web\app\(main)\settings\notifications\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings,/settings,g:\IHUI-AI\apps\web\app\(main)\settings\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/preferences,/settings/preferences,g:\IHUI-AI\apps\web\app\(main)\settings\preferences\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/privacy,/settings/privacy,g:\IHUI-AI\apps\web\app\(main)\settings\privacy\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/profile,/settings/profile,g:\IHUI-AI\apps\web\app\(main)\settings\profile\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/security-log,/settings/security-log,g:\IHUI-AI\apps\web\app\(main)\settings\security-log\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/subscription,/settings/subscription,g:\IHUI-AI\apps\web\app\(main)\settings\subscription\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/settings/usage-rules,/settings/usage-rules,g:\IHUI-AI\apps\web\app\(main)\settings\usage-rules\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/student/certificates,/student/certificates,g:\IHUI-AI\apps\web\app\(main)\student\certificates\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/student/my-articles,/student/my-articles,g:\IHUI-AI\apps\web\app\(main)\student\my-articles\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/student/my-asks,/student/my-asks,g:\IHUI-AI\apps\web\app\(main)\student\my-asks\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/student/my-circles,/student/my-circles,g:\IHUI-AI\apps\web\app\(main)\student\my-circles\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/student/my-comments,/student/my-comments,g:\IHUI-AI\apps\web\app\(main)\student\my-comments\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/student/my-lessons,/student/my-lessons,g:\IHUI-AI\apps\web\app\(main)\student\my-lessons\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/student/my-resources,/student/my-resources,g:\IHUI-AI\apps\web\app\(main)\student\my-resources\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/student/notes,/student/notes,g:\IHUI-AI\apps\web\app\(main)\student\notes\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/student/offline-records,/student/offline-records,g:\IHUI-AI\apps\web\app\(main)\student\offline-records\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/student,/student,g:\IHUI-AI\apps\web\app\(main)\student\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/student/papers,/student/papers,g:\IHUI-AI\apps\web\app\(main)\student\papers\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/student/wrong-book,/student/wrong-book,g:\IHUI-AI\apps\web\app\(main)\student\wrong-book\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/subscriptions,/subscriptions,g:\IHUI-AI\apps\web\app\(main)\subscriptions\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/support,/support,g:\IHUI-AI\apps\web\app\(main)\support\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/tags,/tags,g:\IHUI-AI\apps\web\app\(main)\tags\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/tags/[slug],/tags/:slug,g:\IHUI-AI\apps\web\app\(main)\tags\[slug]\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/teams,/teams,g:\IHUI-AI\apps\web\app\(main)\teams\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/teams/[id],/teams/:id,g:\IHUI-AI\apps\web\app\(main)\teams\[id]\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/token-value,/token-value,g:\IHUI-AI\apps\web\app\(main)\token-value\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/tools,/tools,g:\IHUI-AI\apps\web\app\(main)\tools\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/tools/pdf/convert,/tools/pdf/convert,g:\IHUI-AI\apps\web\app\(main)\tools\pdf\convert\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/tools/pdf/merge,/tools/pdf/merge,g:\IHUI-AI\apps\web\app\(main)\tools\pdf\merge\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/tools/pdf,/tools/pdf,g:\IHUI-AI\apps\web\app\(main)\tools\pdf\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/tools/pdf/split,/tools/pdf/split,g:\IHUI-AI\apps\web\app\(main)\tools\pdf\split\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/tools/pdf/watermark,/tools/pdf/watermark,g:\IHUI-AI\apps\web\app\(main)\tools\pdf\watermark\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/topics,/topics,g:\IHUI-AI\apps\web\app\(main)\topics\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/user/articles,/user/articles,g:\IHUI-AI\apps\web\app\(main)\user\articles\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/ask,/user/ask,g:\IHUI-AI\apps\web\app\(main)\user\ask\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/circle,/user/circle,g:\IHUI-AI\apps\web\app\(main)\user\circle\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/comment,/user/comment,g:\IHUI-AI\apps\web\app\(main)\user\comment\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/exam,/user/exam,g:\IHUI-AI\apps\web\app\(main)\user\exam\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/fans,/user/fans,g:\IHUI-AI\apps\web\app\(main)\user\fans\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/follow,/user/follow,g:\IHUI-AI\apps\web\app\(main)\user\follow\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/learn-record,/user/learn-record,g:\IHUI-AI\apps\web\app\(main)\user\learn-record\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/notifications,/user/notifications,g:\IHUI-AI\apps\web\app\(main)\user\notifications\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/orders,/user/orders,g:\IHUI-AI\apps\web\app\(main)\user\orders\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/point,/user/point,g:\IHUI-AI\apps\web\app\(main)\user\point\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/realname,/user/realname,g:\IHUI-AI\apps\web\app\(main)\user\realname\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/resource,/user/resource,g:\IHUI-AI\apps\web\app\(main)\user\resource\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/security,/user/security,g:\IHUI-AI\apps\web\app\(main)\user\security\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/sign-up,/user/sign-up,g:\IHUI-AI\apps\web\app\(main)\user\sign-up\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/subscription,/user/subscription,g:\IHUI-AI\apps\web\app\(main)\user\subscription\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user/[id],/user/:id,g:\IHUI-AI\apps\web\app\(main)\user\[id]\page.tsx,Next.js 新增(同模块下的新页面)
+Next.js独有,,,,,,,,,/user-center,/user-center,g:\IHUI-AI\apps\web\app\(main)\user-center\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/vip/details,/vip/details,g:\IHUI-AI\apps\web\app\(main)\vip\details\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/vip,/vip,g:\IHUI-AI\apps\web\app\(main)\vip\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/vip/trader,/vip/trader,g:\IHUI-AI\apps\web\app\(main)\vip\trader\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/vip-membership,/vip-membership,g:\IHUI-AI\apps\web\app\(main)\vip-membership\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/wallet,/wallet,g:\IHUI-AI\apps\web\app\(main)\wallet\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/wallet/recharge/fail,/wallet/recharge/fail,g:\IHUI-AI\apps\web\app\(main)\wallet\recharge\fail\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/wallet/recharge,/wallet/recharge,g:\IHUI-AI\apps\web\app\(main)\wallet\recharge\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/wallet/recharge/success,/wallet/recharge/success,g:\IHUI-AI\apps\web\app\(main)\wallet\recharge\success\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/wallet/withdraw,/wallet/withdraw,g:\IHUI-AI\apps\web\app\(main)\wallet\withdraw\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/wallet/withdraw/records,/wallet/withdraw/records,g:\IHUI-AI\apps\web\app\(main)\wallet\withdraw\records\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/workflows/instances/[id],/workflows/instances/:id,g:\IHUI-AI\apps\web\app\(main)\workflows\instances\[id]\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/workflows,/workflows,g:\IHUI-AI\apps\web\app\(main)\workflows\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/workflows/[id],/workflows/:id,g:\IHUI-AI\apps\web\app\(main)\workflows\[id]\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/workspace,/workspace,g:\IHUI-AI\apps\web\app\(main)\workspace\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/workspace/[id],/workspace/:id,g:\IHUI-AI\apps\web\app\(main)\workspace\[id]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/forbidden,/forbidden,g:\IHUI-AI\apps\web\app\forbidden\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/h5/share/[code],/h5/share/:code,g:\IHUI-AI\apps\web\app\h5\share\[code]\page.tsx,Next.js 新增页面
+Next.js独有,,,,,,,,,/sso/login,/sso/login,g:\IHUI-AI\apps\web\app\sso\login\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/sso/redirect,/sso/redirect,g:\IHUI-AI\apps\web\app\sso\redirect\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"
+Next.js独有,,,,,,,,,/sso/register,/sso/register,g:\IHUI-AI\apps\web\app\sso\register\page.tsx,"Next.js 新增(新业务模块,Vue 中无对应)"

@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-07-19T12-05-10",
+  "phase": "阶段 2: API 端点 content-level 比对",
+  "legacyRoots": [
+    "D:\\历史项目存档\\edu server",
+    "D:\\历史项目存档\\code",
+    "D:\\历史项目存档\\edu client",
+    "D:\\历史项目存档\\ljd-交接文件"
+  ],
+  "newRoutesRoot": "g:\\IHUI-AI\\apps\\api\\src\\routes",
+  "javaEndpointsTotal": 6095,
+  "javaEndpointsUnique": 1226,
+  "javaUniqueControllers": 1066,
+  "fastifyRoutesTotal": 2481,
+  "fastifyRoutesUnique": 2415,
+  "stats": {
+    "已迁移": 14,
+    "部分迁移": 242,
+    "缺失": 970,
+    "无需迁移": 2079
+  },
+  "percentages": {
+    "已迁移": "1.1%",
+    "部分迁移": "19.7%",
+    "缺失": "79.1%(相对 Java 端点)",
+    "无需迁移": "86.1%(相对 Fastify 路由)"
+  },
+  "missingAnalysis": {
+    "totalMissing": 970,
+    "languageMigrationExpected": 164,
+    "realMissing": 806,
+    "noPath": 0,
+    "realMissingExamples": [
+      {
+        "httpMethod": "POST",
+        "path": "/public-api/watch",
+        "module": "public-api",
+        "legacyClass": "WatchController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\watch\\web\\WatchController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "path": "/public-api/watch/count",
+        "module": "public-api",
+        "legacyClass": "WatchController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\watch\\web\\WatchController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "path": "/auth-api/watch/page/list",
+        "module": "auth-api",
+        "legacyClass": "WatchController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\watch\\web\\WatchController.java"
+      },
+      {
+        "httpMethod": "GET",
+        "path": "/public-api/watch/count/group-by",
+        "module": "public-api",
+        "legacyClass": "WatchController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\watch\\web\\WatchController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "path": "/sso/admin/login",
+        "module": "sso",
+        "legacyClass": "SsoController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\sso\\web\\SsoController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "path": "/sso/member/login",
+        "module": "sso",
+        "legacyClass": "SsoController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\sso\\web\\SsoController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "path": "/sso/uuid/login",
+        "module": "sso",
+        "legacyClass": "SsoController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\sso\\web\\SsoController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "path": "/sso/admin/create",
+        "module": "sso",
+        "legacyClass": "SsoController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\sso\\web\\SsoController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "path": "/sso/member/create",
+        "module": "sso",
+        "legacyClass": "SsoController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\sso\\web\\SsoController.java"
+      },
+      {
+        "httpMethod": "POST",
+        "path": "/auth-api/question",
+        "module": "auth-api",
+        "legacyClass": "QuestionController",
+        "legacyFile": "edu service\\edu service\\ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\question\\web\\QuestionController.java"
+      }
+    ]
+  },
+  "nextPhaseRecommendation": "需要阶段 3:对真实缺失端点做业务影响评估(是否需要补齐)"
+}
