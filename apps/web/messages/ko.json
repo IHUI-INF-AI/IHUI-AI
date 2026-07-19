@@ -8527,13 +8527,18 @@
       "subtitle": "AI 모델 통합 플랫폼",
       "groups": {
         "main": "주요 기능",
+        "business": "비즈니스 관리",
         "finance": "통계 재무",
         "resources": "리소스 센터"
       },
       "overview": "개요",
       "market": "모델 마켓",
+      "channels": "채널 관리",
       "keys": "API 키",
       "logs": "호출 로그",
+      "chats": "채팅 관리",
+      "users": "사용자 관리",
+      "groupsMgmt": "그룹 관리",
       "usage": "사용량 통계",
       "billing": "재무 청구서",
       "redeem": "상품권 코드",
@@ -8615,6 +8620,8 @@
         "time": "시간",
         "model": "모델",
         "token": "토큰",
+        "key": "API Key",
+        "tokens": "Tokens",
         "inputTokens": "입력 Tokens",
         "outputTokens": "출력 Tokens",
         "cost": "소비",
@@ -8819,6 +8826,75 @@
         "audioTranscribe": { "desc": "오디오를 텍스트로 변환, 다국어 지원" },
         "calendar": { "desc": "일정 관리, 이벤트 알림" },
         "databaseQuery": { "desc": "데이터베이스 쿼리, SQL 및 NoSQL 지원" }
+      }
+    },
+    "groupsMgmt": {
+      "title": "그룹 관리",
+      "subtitle": "사용자 그룹, 할당량, 모델 권한 관리",
+      "create": "새 그룹",
+      "members": "멤버 수",
+      "ratio": "요금 배수",
+      "models": "사용 가능 모델",
+      "todayCalls": "오늘 호출"
+    },
+    "channels": {
+      "title": "채널 관리",
+      "subtitle": "AI 모델 공급자 채널 구성 관리",
+      "create": "새 채널",
+      "listTitle": "채널 목록",
+      "table": {
+        "name": "채널 이름",
+        "provider": "공급자",
+        "model": "모델",
+        "priority": "우선순위",
+        "weight": "가중치",
+        "qps": "QPS",
+        "todayCalls": "오늘 호출",
+        "status": "상태"
+      },
+      "statusLabels": {
+        "enabled": "활성화됨",
+        "disabled": "비활성화됨"
+      }
+    },
+    "chats": {
+      "title": "채팅 관리",
+      "subtitle": "모든 사용자의 대화 기록 보기",
+      "searchPlaceholder": "채팅 ID/사용자/제목 검색...",
+      "listTitle": "채팅 목록",
+      "table": {
+        "id": "채팅 ID",
+        "user": "사용자",
+        "title": "제목",
+        "model": "모델",
+        "messages": "메시지 수",
+        "tokens": "Tokens",
+        "createdAt": "생성 시간"
+      }
+    },
+    "users": {
+      "title": "사용자 관리",
+      "subtitle": "플랫폼 사용자, 역할 및 그룹 관리",
+      "create": "새 사용자",
+      "searchPlaceholder": "이메일/이름 검색...",
+      "listTitle": "사용자 목록",
+      "table": {
+        "email": "이메일",
+        "group": "그룹",
+        "role": "역할",
+        "balance": "잔액",
+        "totalCalls": "총 호출",
+        "status": "상태",
+        "createdAt": "생성 시간"
+      },
+      "roleLabels": {
+        "admin": "관리자",
+        "user": "일반 사용자",
+        "vip": "VIP"
+      },
+      "statusLabels": {
+        "active": "활성",
+        "disabled": "비활성화됨"
       }
     },
     "contact": {
