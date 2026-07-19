@@ -8438,7 +8438,8 @@
       "vision": "影像",
       "coding": "程式",
       "chinese": "中文",
-      "openSource": "開源"
+      "openSource": "開源",
+      "favorite": "收藏"
     },
     "detail": {
       "highlight": "推薦",
