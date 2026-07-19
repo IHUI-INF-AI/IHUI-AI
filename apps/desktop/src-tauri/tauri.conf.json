@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "IHUI AI 桌面端",
         "width": 1100,
         "height": 720,
@@ -20,6 +21,19 @@
         "resizable": true,
         "fullscreen": false,
         "center": true
+      },
+      {
+        "label": "admin",
+        "title": "IHUI AI 管理后台",
+        "url": "/admin",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "visible": false
       }
     ],
     "security": {
