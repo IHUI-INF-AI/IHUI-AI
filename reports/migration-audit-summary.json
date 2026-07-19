@@ -1,0 +1,51 @@
+{
+  "timestamp": "2026-07-19T11-24-09",
+  "legacyRoots": [
+    "D:\\历史项目存档\\ihui-ai-admin-frontend",
+    "D:\\历史项目存档\\zhs_app-ZZ",
+    "D:\\历史项目存档\\ljd-交接文件",
+    "D:\\历史项目存档\\edu server",
+    "D:\\历史项目存档\\edu client",
+    "D:\\历史项目存档\\code"
+  ],
+  "newRoots": [
+    "g:\\IHUI-AI\\apps",
+    "g:\\IHUI-AI\\packages"
+  ],
+  "legacyFilesTotal": 31491,
+  "newFilesTotal": 4435,
+  "stats": {
+    "已迁移": 0,
+    "已迁移(重写)": 1512,
+    "部分迁移": 827,
+    "缺失": 29152
+  },
+  "skippedCount": 0,
+  "gDriveExists": false,
+  "dDriveRoots": [
+    {
+      "name": "ihui-ai-admin-frontend",
+      "exists": true
+    },
+    {
+      "name": "zhs_app-ZZ",
+      "exists": true
+    },
+    {
+      "name": "ljd-交接文件",
+      "exists": true
+    },
+    {
+      "name": "edu-server",
+      "exists": true
+    },
+    {
+      "name": "edu-client",
+      "exists": true
+    },
+    {
+      "name": "code",
+      "exists": true
+    }
+  ]
+}

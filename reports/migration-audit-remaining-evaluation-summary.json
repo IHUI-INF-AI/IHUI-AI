@@ -1,0 +1,792 @@
+{
+  "timestamp": "2026-07-19T15-11-55",
+  "generatedBy": "audit-remaining-evaluate.mjs",
+  "inputs": {
+    "apiRoutesCsv": "g:\\IHUI-AI\\reports\\migration-audit-api-routes-v2-2026-07-19T14-11-11.csv",
+    "excludedSupplementedModules": [
+      "private-letter",
+      "private_letter",
+      "privateLetter",
+      "wrong-question",
+      "wrong_question",
+      "wrongQuestion",
+      "check-in",
+      "check_in",
+      "checkIn",
+      "mail",
+      "auth-code",
+      "auth_code",
+      "authCode",
+      "mark/paper",
+      "mark_paper",
+      "markPaper"
+    ]
+  },
+  "apiEndpoints": {
+    "totalRows": 147,
+    "uniquePaths": 114,
+    "stats": {
+      "补开发": 2,
+      "设计风格差异": 86,
+      "废弃": 26
+    },
+    "supplementList": [
+      {
+        "path": "/ai-vendors/get/digital/{param}",
+        "legacyClass": "AliAIController",
+        "reason": "AliAIController 数字人获取(/ai-vendors/get/digital/{type}),IHUI-AI 当前未实现数字人(Digital Human)功能,需补开发"
+      },
+      {
+        "path": "/ai-vendors/video/to/digital",
+        "legacyClass": "AliAIController",
+        "reason": "AliAIController 视频转数字人(/ai-vendors/video/to/digital),IHUI-AI 当前未实现视频转数字人功能,需补开发"
+      }
+    ],
+    "deprecatedList": [
+      {
+        "path": "/auth_veri_codes/{param}",
+        "legacyClass": "VerificationCodesController",
+        "reason": "验证码短期内存一次性消费,新 /api/auth-codes 模块(send + check)已覆盖,无需 admin CRUD"
+      },
+      {
+        "path": "/auth_veri_codes/export",
+        "legacyClass": "VerificationCodesController",
+        "reason": "验证码短期内存一次性消费,新 /api/auth-codes 模块(send + check)已覆盖,无需 admin CRUD"
+      },
+      {
+        "path": "/auth_veri_codes/list",
+        "legacyClass": "VerificationCodesController",
+        "reason": "验证码短期内存一次性消费,新 /api/auth-codes 模块(send + check)已覆盖,无需 admin CRUD"
+      },
+      {
+        "path": "/base64/{param}/{param}/{param}",
+        "legacyClass": "OssController",
+        "reason": "Base64 上传已被 /api/upload + /api/files 完整覆盖,Java OSS /base64 路径无需补"
+      },
+      {
+        "path": "/bot/sites/kind",
+        "legacyClass": "AiBotSitesController",
+        "reason": "AiBotSites 旧 AI 站点业务已下线,不在 IHUI-AI 产品路线"
+      },
+      {
+        "path": "/certificate-template",
+        "legacyClass": "CertificateTemplateController",
+        "reason": "证书模板独立 CRUD 已废弃,字段已并入 /learn(certificateTemplateId 引用)+ /certificates 模块"
+      },
+      {
+        "path": "/certificate-template/active",
+        "legacyClass": "CertificateTemplateController",
+        "reason": "证书模板独立 CRUD 已废弃,字段已并入 /learn(certificateTemplateId 引用)+ /certificates 模块"
+      },
+      {
+        "path": "/certificate-template/inactive",
+        "legacyClass": "CertificateTemplateController",
+        "reason": "证书模板独立 CRUD 已废弃,字段已并入 /learn(certificateTemplateId 引用)+ /certificates 模块"
+      },
+      {
+        "path": "/certificate-template/list",
+        "legacyClass": "CertificateTemplateController",
+        "reason": "证书模板独立 CRUD 已废弃,字段已并入 /learn(certificateTemplateId 引用)+ /certificates 模块"
+      },
+      {
+        "path": "/codebase/{param}",
+        "legacyClass": "GenController",
+        "reason": "RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移"
+      },
+      {
+        "path": "/codebase/batchGenCode",
+        "legacyClass": "GenController",
+        "reason": "RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移"
+      },
+      {
+        "path": "/codebase/column/{param}",
+        "legacyClass": "GenController",
+        "reason": "RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移"
+      },
+      {
+        "path": "/codebase/db/list",
+        "legacyClass": "GenController",
+        "reason": "RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移"
+      },
+      {
+        "path": "/codebase/download/{param}",
+        "legacyClass": "GenController",
+        "reason": "RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移"
+      },
+      {
+        "path": "/codebase/genCode/{param}",
+        "legacyClass": "GenController",
+        "reason": "RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移"
+      },
+      {
+        "path": "/codebase/importTable",
+        "legacyClass": "GenController",
+        "reason": "RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移"
+      },
+      {
+        "path": "/codebase/list",
+        "legacyClass": "GenController",
+        "reason": "RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移"
+      },
+      {
+        "path": "/codebase/preview/{param}",
+        "legacyClass": "GenController",
+        "reason": "RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移"
+      },
+      {
+        "path": "/codebase/synchDb/{param}",
+        "legacyClass": "GenController",
+        "reason": "RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移"
+      },
+      {
+        "path": "/ding-talk/config",
+        "legacyClass": "DingTalkController",
+        "reason": "钉钉公开接口仅在 services/oauth-providers.ts 保留配置,无产品需求暴露公开端点"
+      },
+      {
+        "path": "/ding-talk/user/by-code",
+        "legacyClass": "DingTalkController",
+        "reason": "钉钉公开接口仅在 services/oauth-providers.ts 保留配置,无产品需求暴露公开端点"
+      },
+      {
+        "path": "/feedbacks/sora2/generate/video",
+        "legacyClass": "Sora2Controller",
+        "reason": "feedbacks 模块功能已废弃,当前仓库无对应需求"
+      },
+      {
+        "path": "/feedbacks/sora2/video/info",
+        "legacyClass": "Sora2Controller",
+        "reason": "feedbacks 模块功能已废弃,当前仓库无对应需求"
+      },
+      {
+        "path": "/feedbacks/sora2/video/info/{param}",
+        "legacyClass": "Sora2Controller",
+        "reason": "feedbacks 模块功能已废弃,当前仓库无对应需求"
+      },
+      {
+        "path": "/recommend",
+        "legacyClass": "ExamController",
+        "reason": "试卷推荐功能 IHUI-AI 未实现,/learn/maps/recommend 是不同业务(学习地图推荐)"
+      },
+      {
+        "path": "/tbox/agent/channel/deploy",
+        "legacyClass": "TBoxController",
+        "reason": "TBox 是 AI Box 硬件特定功能,不在 IHUI-AI 软件平台路线"
+      }
+    ],
+    "designStyleDiffList": [
+      {
+        "path": "/ai-vendors/3/generate",
+        "legacyClass": "Gemini3ProPreviewController",
+        "reason": "Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)"
+      },
+      {
+        "path": "/ai-vendors/audio/sys",
+        "legacyClass": "AliAIController",
+        "reason": "Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)"
+      },
+      {
+        "path": "/ai-vendors/cloud/live/callback/templates",
+        "legacyClass": "TencentCloudLiveStreamController",
+        "reason": "Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)"
+      },
+      {
+        "path": "/ai-vendors/cloud/live/stream",
+        "legacyClass": "TencentCloudLiveStreamController",
+        "reason": "Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)"
+      },
+      {
+        "path": "/ai-vendors/cloud/live/stream/channel-id",
+        "legacyClass": "TencentCloudLiveStreamController",
+        "reason": "Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)"
+      },
+      {
+        "path": "/ai-vendors/generate/music",
+        "legacyClass": "SunoController",
+        "reason": "Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)"
+      },
+      {
+        "path": "/ai-vendors/generate/timbre",
+        "legacyClass": "AliAIController",
+        "reason": "Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)"
+      },
+      {
+        "path": "/alipay/notify",
+        "legacyClass": "AliPayNotifyController",
+        "reason": "Java /alipay/notify,IHUI-AI 重构到 /payments/alipay/notify(payment-gateway.ts)"
+      },
+      {
+        "path": "/auth-sso/admin/create",
+        "legacyClass": "SsoController",
+        "reason": "Java /auth-sso/admin/login /member/login /uuid/login 多入口,IHUI-AI 统一到 /sso/code (auth-sso.ts 单 SSO 端点设计)"
+      },
+      {
+        "path": "/auth-sso/admin/login",
+        "legacyClass": "SsoController",
+        "reason": "Java /auth-sso/admin/login /member/login /uuid/login 多入口,IHUI-AI 统一到 /sso/code (auth-sso.ts 单 SSO 端点设计)"
+      },
+      {
+        "path": "/auth-sso/member/create",
+        "legacyClass": "SsoController",
+        "reason": "Java /auth-sso/admin/login /member/login /uuid/login 多入口,IHUI-AI 统一到 /sso/code (auth-sso.ts 单 SSO 端点设计)"
+      },
+      {
+        "path": "/auth-sso/member/login",
+        "legacyClass": "SsoController",
+        "reason": "Java /auth-sso/admin/login /member/login /uuid/login 多入口,IHUI-AI 统一到 /sso/code (auth-sso.ts 单 SSO 端点设计)"
+      },
+      {
+        "path": "/auth-sso/uuid/login",
+        "legacyClass": "SsoController",
+        "reason": "Java /auth-sso/admin/login /member/login /uuid/login 多入口,IHUI-AI 统一到 /sso/code (auth-sso.ts 单 SSO 端点设计)"
+      },
+      {
+        "path": "/buy/{param}",
+        "legacyClass": "ZhsAgentBuyController",
+        "reason": "Java /zhs_agent_buy,IHUI-AI 用 /buy(zhs 前缀剥离)"
+      },
+      {
+        "path": "/buy/expired",
+        "legacyClass": "ZhsAgentBuyController",
+        "reason": "Java /zhs_agent_buy,IHUI-AI 用 /buy(zhs 前缀剥离)"
+      },
+      {
+        "path": "/buy/export",
+        "legacyClass": "ZhsAgentBuyController",
+        "reason": "Java /zhs_agent_buy,IHUI-AI 用 /buy(zhs 前缀剥离)"
+      },
+      {
+        "path": "/buy/unsettled",
+        "legacyClass": "ZhsAgentBuyController",
+        "reason": "Java /zhs_agent_buy,IHUI-AI 用 /buy(zhs 前缀剥离)"
+      },
+      {
+        "path": "/buy/user/{param}/agent/{param}",
+        "legacyClass": "ZhsAgentBuyController",
+        "reason": "Java /zhs_agent_buy,IHUI-AI 用 /buy(zhs 前缀剥离)"
+      },
+      {
+        "path": "/by-id",
+        "legacyClass": "MemberController",
+        "reason": "Java 用 /by-id,IHUI-AI 用 /members/:id RESTful 路径"
+      },
+      {
+        "path": "/by-ids",
+        "legacyClass": "MemberController",
+        "reason": "Java 用 /by-ids,IHUI-AI 用 /members?ids= 批量查询"
+      },
+      {
+        "path": "/by-mobile",
+        "legacyClass": "MemberController",
+        "reason": "Java 用查询动作为首段(/by-mobile),IHUI-AI 用 RESTful /members?mobile= 查询"
+      },
+      {
+        "path": "/chat-audio/{param}",
+        "legacyClass": "ZhsUserAgentAudioController",
+        "reason": "Java /userAgentAudio,IHUI-AI 用 /chat-audio(语义化命名)"
+      },
+      {
+        "path": "/chat-audio/export",
+        "legacyClass": "ZhsUserAgentAudioController",
+        "reason": "Java /userAgentAudio,IHUI-AI 用 /chat-audio(语义化命名)"
+      },
+      {
+        "path": "/chat-audio/list",
+        "legacyClass": "ZhsUserAgentAudioController",
+        "reason": "Java /userAgentAudio,IHUI-AI 用 /chat-audio(语义化命名)"
+      },
+      {
+        "path": "/chunked-upload/joint",
+        "legacyClass": "SysFileController",
+        "reason": "Java /uploadChunkedFile,IHUI-AI 用 /chunked-upload(命名规范化)"
+      },
+      {
+        "path": "/chunked-upload/pc",
+        "legacyClass": "SysFileController",
+        "reason": "Java /uploadChunkedFile,IHUI-AI 用 /chunked-upload(命名规范化)"
+      },
+      {
+        "path": "/content/type",
+        "legacyClass": "ContentController",
+        "reason": "Java /content/type,IHUI-AI 用 /content 模块(content.ts 承载)"
+      },
+      {
+        "path": "/createbywechatuserinfo",
+        "legacyClass": "MemberController",
+        "reason": "Java 用 /createbywechatuserinfo,IHUI-AI 用 /members/register + OAuth 微信登录"
+      },
+      {
+        "path": "/current-member/comment/list",
+        "legacyClass": "CommentController",
+        "reason": "Java /current-member/comment/list,IHUI-AI 用 /comments?userId=me"
+      },
+      {
+        "path": "/feedbacks/{param}",
+        "legacyClass": "AiUserFeedbackController",
+        "reason": "Java /userFeedback /jianyi,IHUI-AI 统一用 /feedbacks"
+      },
+      {
+        "path": "/feedbacks/export",
+        "legacyClass": "AiUserFeedbackController",
+        "reason": "Java /userFeedback /jianyi,IHUI-AI 统一用 /feedbacks"
+      },
+      {
+        "path": "/feedbacks/list",
+        "legacyClass": "AiUserFeedbackController",
+        "reason": "Java /userFeedback /jianyi,IHUI-AI 统一用 /feedbacks"
+      },
+      {
+        "path": "/file-versions/{param}",
+        "legacyClass": "SysFileController",
+        "reason": "Java /uploadHistory,IHUI-AI 用 /file-versions(语义化命名)"
+      },
+      {
+        "path": "/follows/fans/list",
+        "legacyClass": "FollowController",
+        "reason": "Java /follows/list /fans/list,IHUI-AI 用 /follows RESTful + query 参数"
+      },
+      {
+        "path": "/follows/list",
+        "legacyClass": "FollowController",
+        "reason": "Java /follows/list /fans/list,IHUI-AI 用 /follows RESTful + query 参数"
+      },
+      {
+        "path": "/follows/member/count",
+        "legacyClass": "FollowController",
+        "reason": "Java /follows/list /fans/list,IHUI-AI 用 /follows RESTful + query 参数"
+      },
+      {
+        "path": "/invoices/application",
+        "legacyClass": "InvoiceApplicationController",
+        "reason": "Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)"
+      },
+      {
+        "path": "/invoices/application/approved",
+        "legacyClass": "InvoiceApplicationController",
+        "reason": "Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)"
+      },
+      {
+        "path": "/invoices/application/canceled",
+        "legacyClass": "InvoiceApplicationController",
+        "reason": "Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)"
+      },
+      {
+        "path": "/invoices/application/invoiced",
+        "legacyClass": "InvoiceApplicationController",
+        "reason": "Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)"
+      },
+      {
+        "path": "/invoices/application/invoicing",
+        "legacyClass": "InvoiceApplicationController",
+        "reason": "Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)"
+      },
+      {
+        "path": "/invoices/application/list",
+        "legacyClass": "InvoiceApplicationController",
+        "reason": "Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)"
+      },
+      {
+        "path": "/invoices/application/rejected",
+        "legacyClass": "InvoiceApplicationController",
+        "reason": "Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)"
+      },
+      {
+        "path": "/invoices/title",
+        "legacyClass": "InvoiceTitleController",
+        "reason": "Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)"
+      },
+      {
+        "path": "/invoices/title/list",
+        "legacyClass": "InvoiceTitleController",
+        "reason": "Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)"
+      },
+      {
+        "path": "/like",
+        "legacyClass": "LikeController",
+        "reason": "Java /auth-api/like (PUT),IHUI-AI 用 /api/interactions/like (POST)(interactions.ts 统一入口)"
+      },
+      {
+        "path": "/notifications/{param}",
+        "legacyClass": "SysNoticeController",
+        "reason": "Java /notice/list,IHUI-AI 用 /notifications(notice→notifications 命名统一)"
+      },
+      {
+        "path": "/notifications/list",
+        "legacyClass": "NoticeController",
+        "reason": "Java /notice/list,IHUI-AI 用 /notifications(notice→notifications 命名统一)"
+      },
+      {
+        "path": "/notifications/read",
+        "legacyClass": "NoticeController",
+        "reason": "Java /notice/list,IHUI-AI 用 /notifications(notice→notifications 命名统一)"
+      },
+      {
+        "path": "/permissions/tree",
+        "legacyClass": "AuthorityController",
+        "reason": "Java /authorities/tree,IHUI-AI 用 /permissions(已迁移)+ /permissions/tree 子路径"
+      },
+      {
+        "path": "/reply-comment/list/by-ids",
+        "legacyClass": "CommentController",
+        "reason": "Java 拆分 reply/comment 路径,IHUI-AI 统一在 /comments 模块(parentCommentId 字段)"
+      },
+      {
+        "path": "/reply/comment",
+        "legacyClass": "CommentController",
+        "reason": "Java /reply/comment 拆分,IHUI-AI 统一在 /comments 模块"
+      },
+      {
+        "path": "/reports/company/member/signup",
+        "legacyClass": "ReportController",
+        "reason": "Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化)"
+      },
+      {
+        "path": "/reports/lesson/sign",
+        "legacyClass": "ReportController",
+        "reason": "Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化)"
+      },
+      {
+        "path": "/reports/lesson/study",
+        "legacyClass": "ReportController",
+        "reason": "Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化)"
+      },
+      {
+        "path": "/reports/member/study",
+        "legacyClass": "ReportController",
+        "reason": "Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化)"
+      },
+      {
+        "path": "/review/list",
+        "legacyClass": "MemberController",
+        "reason": "Java /unaudited/list,IHUI-AI 用 /review 或 /admin/members/unaudited"
+      },
+      {
+        "path": "/settlement/{param}",
+        "legacyClass": "ZhsAgentSettlementController",
+        "reason": "Java /agentSettlement,IHUI-AI 用 /settlement(命名规范化)"
+      },
+      {
+        "path": "/settlement/export",
+        "legacyClass": "ZhsAgentSettlementController",
+        "reason": "Java /agentSettlement,IHUI-AI 用 /settlement(命名规范化)"
+      },
+      {
+        "path": "/system-login-logs/{param}",
+        "legacyClass": "SysLogininforController",
+        "reason": "Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested)"
+      },
+      {
+        "path": "/system-login-logs/clean",
+        "legacyClass": "SysLogininforController",
+        "reason": "Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested)"
+      },
+      {
+        "path": "/system-login-logs/export",
+        "legacyClass": "SysLogininforController",
+        "reason": "Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested)"
+      },
+      {
+        "path": "/system-login-logs/list",
+        "legacyClass": "SysLogininforController",
+        "reason": "Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested)"
+      },
+      {
+        "path": "/system-login-logs/unlock/{param}",
+        "legacyClass": "SysLogininforController",
+        "reason": "Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested)"
+      },
+      {
+        "path": "/system-operation-logs/{param}",
+        "legacyClass": "SysOperlogController",
+        "reason": "Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts)"
+      },
+      {
+        "path": "/system-operation-logs/clean",
+        "legacyClass": "SysOperlogController",
+        "reason": "Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts)"
+      },
+      {
+        "path": "/system-operation-logs/export",
+        "legacyClass": "SysOperlogController",
+        "reason": "Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts)"
+      },
+      {
+        "path": "/system-operation-logs/list",
+        "legacyClass": "SysOperlogController",
+        "reason": "Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts)"
+      },
+      {
+        "path": "/vip/list",
+        "legacyClass": "MemberLevelController",
+        "reason": "Java /level/list,IHUI-AI 用 /vip 模块(vip.ts 14 个路由承载等级体系)"
+      },
+      {
+        "path": "/visit-tracking/day/pv/list",
+        "legacyClass": "VisitLogController",
+        "reason": "Java /visit-tracking/summary /day/pv/list 等,IHUI-AI 用 /visit-tracking/* + /traces/* (拆分基础记录与统计聚合)"
+      },
+      {
+        "path": "/visit-tracking/day/uv/list",
+        "legacyClass": "VisitLogController",
+        "reason": "Java /visit-tracking/summary /day/pv/list 等,IHUI-AI 用 /visit-tracking/* + /traces/* (拆分基础记录与统计聚合)"
+      },
+      {
+        "path": "/visit-tracking/ip-city/summary/list",
+        "legacyClass": "VisitLogController",
+        "reason": "Java /visit-tracking/summary /day/pv/list 等,IHUI-AI 用 /visit-tracking/* + /traces/* (拆分基础记录与统计聚合)"
+      },
+      {
+        "path": "/visit-tracking/summary",
+        "legacyClass": "VisitLogController",
+        "reason": "Java /visit-tracking/summary /day/pv/list 等,IHUI-AI 用 /visit-tracking/* + /traces/* (拆分基础记录与统计聚合)"
+      },
+      {
+        "path": "/wechatpay/notify",
+        "legacyClass": "WechatpayNotifyController",
+        "reason": "Java /wechatpay/notify,IHUI-AI 重构到 /payments/wechat/notify(payment-gateway.ts)"
+      },
+      {
+        "path": "/wechatpay/notify/v3",
+        "legacyClass": "WechatpayNotifyController",
+        "reason": "Java /wechatpay/notify,IHUI-AI 重构到 /payments/wechat/notify(payment-gateway.ts)"
+      },
+      {
+        "path": "/workflows/{param}",
+        "legacyClass": "ZhsCommissionFlowController",
+        "reason": "Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)"
+      },
+      {
+        "path": "/workflows/export",
+        "legacyClass": "ZhsCommissionFlowController",
+        "reason": "Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)"
+      },
+      {
+        "path": "/workflows/getStatistics",
+        "legacyClass": "ZhsCommissionFlowController",
+        "reason": "Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)"
+      },
+      {
+        "path": "/workflows/getTraderTeam",
+        "legacyClass": "ZhsCommissionFlowController",
+        "reason": "Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)"
+      },
+      {
+        "path": "/workflows/getTraderTeamByCenter",
+        "legacyClass": "ZhsCommissionFlowController",
+        "reason": "Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)"
+      },
+      {
+        "path": "/workflows/list",
+        "legacyClass": "ZhsCommissionFlowController",
+        "reason": "Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)"
+      },
+      {
+        "path": "/workflows/orderList",
+        "legacyClass": "ZhsCommissionFlowController",
+        "reason": "Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)"
+      },
+      {
+        "path": "/zhsAgent/{param}",
+        "legacyClass": "ZhsAgentController",
+        "reason": "Java /zhsAgent (camelCase),IHUI-AI 用 /api/admin/zhs-agent (kebab-case,admin/zhs-agent.ts CRUD)"
+      },
+      {
+        "path": "/zhsAgent/export",
+        "legacyClass": "ZhsAgentController",
+        "reason": "Java /zhsAgent (camelCase),IHUI-AI 用 /api/admin/zhs-agent (kebab-case,admin/zhs-agent.ts CRUD)"
+      },
+      {
+        "path": "auth-api/homework/record",
+        "legacyClass": "HomeworkRecordController",
+        "reason": "Java /homework/record,IHUI-AI 整合到 /learn/homework (learn.ts 9 个 homework 路由)"
+      },
+      {
+        "path": "public-api/agreement",
+        "legacyClass": "AgreementController",
+        "reason": "Java public-api/agreement (无前导 /,路径非规范),IHUI-AI 用 /agreements (单复数规范化,admin-agreements.ts)"
+      }
+    ]
+  },
+  "zhsTables": {
+    "total": 6,
+    "stats": {
+      "补迁移": 0,
+      "已迁移": 6,
+      "废弃": 0
+    },
+    "supplementList": [],
+    "migratedList": [
+      {
+        "table": "zhs_knowledge_planet",
+        "reason": "已在 packages/database/src/schema/zhs-full.ts 中迁移(zhsKnowledgePlanet),字段在 Java 基础上扩展(如 16 → 11 字段)",
+        "javaFields": 16,
+        "schemaFields": 11,
+        "schemaFile": "packages/database/src/schema/zhs-full.ts"
+      },
+      {
+        "table": "zhs_exchange_rate",
+        "reason": "已在 packages/database/src/schema/zhs-full.ts 中迁移(zhsExchangeRate),字段在 Java 基础上扩展(如 4 → 8 字段)",
+        "javaFields": 4,
+        "schemaFields": 8,
+        "schemaFile": "packages/database/src/schema/zhs-full.ts"
+      },
+      {
+        "table": "zhs_banner_carousel",
+        "reason": "已在 packages/database/src/schema/zhs-full.ts 中迁移(zhsBannerCarousel),字段在 Java 基础上扩展(如 7 → 11 字段)",
+        "javaFields": 7,
+        "schemaFields": 11,
+        "schemaFile": "packages/database/src/schema/zhs-full.ts"
+      },
+      {
+        "table": "zhs_operate_token_flow",
+        "reason": "已在 packages/database/src/schema/zhs-full.ts 中迁移(zhsOperateTokenFlow),字段在 Java 基础上扩展(如 8 → 9 字段)",
+        "javaFields": 8,
+        "schemaFields": 9,
+        "schemaFile": "packages/database/src/schema/zhs-full.ts"
+      },
+      {
+        "table": "zhs_product",
+        "reason": "已在 packages/database/src/schema/zhs-full.ts 中迁移(zhsProduct),字段在 Java 基础上扩展(如 11 → 13 字段)",
+        "javaFields": 11,
+        "schemaFields": 13,
+        "schemaFile": "packages/database/src/schema/zhs-full.ts"
+      },
+      {
+        "table": "zhs_withdrawal_flow",
+        "reason": "已在 packages/database/src/schema/commission.ts 中迁移(withdrawalFlows, 表名 withdrawal_flows),字段在 Java 基础上扩展(如 8 → 14 字段)",
+        "javaFields": 8,
+        "schemaFields": 14,
+        "schemaFile": "packages/database/src/schema/commission.ts"
+      }
+    ],
+    "deprecatedList": []
+  },
+  "ruoyiTables": {
+    "total": 2,
+    "stats": {
+      "已迁移": 0,
+      "废弃": 2
+    },
+    "items": [
+      {
+        "table": "group_capacity",
+        "decision": "废弃",
+        "reason": "group_capacity(RuoYi Quartz 调度组容量配置)为 RuoYi 框架专用,IHUI-AI 不使用 Quartz/RuoYi 框架,无需迁移"
+      },
+      {
+        "table": "his_config_info",
+        "decision": "废弃",
+        "reason": "his_config_info(RuoYi Quartz 调度历史配置信息(Nacos 配置中心历史版本))为 RuoYi 框架专用,IHUI-AI 不使用 Quartz/RuoYi 框架,无需迁移"
+      }
+    ]
+  },
+  "ruoyiPages": {
+    "total": 18,
+    "stats": {
+      "已迁移": 13,
+      "废弃": 5
+    },
+    "migratedList": [
+      {
+        "path": "/system/user",
+        "purpose": "用户管理",
+        "ihuiEquivalent": "admin/users"
+      },
+      {
+        "path": "/system/role",
+        "purpose": "角色管理",
+        "ihuiEquivalent": "admin/roles + admin/auth-role"
+      },
+      {
+        "path": "/system/menu",
+        "purpose": "菜单管理",
+        "ihuiEquivalent": "admin/menu"
+      },
+      {
+        "path": "/system/dept",
+        "purpose": "部门管理",
+        "ihuiEquivalent": "admin/auth-dept"
+      },
+      {
+        "path": "/system/dict",
+        "purpose": "字典管理",
+        "ihuiEquivalent": "admin/dict"
+      },
+      {
+        "path": "/system/config",
+        "purpose": "参数配置",
+        "ihuiEquivalent": "admin/configs"
+      },
+      {
+        "path": "/system/notice",
+        "purpose": "通知公告",
+        "ihuiEquivalent": "admin/notice"
+      },
+      {
+        "path": "/system/operlog",
+        "purpose": "操作日志",
+        "ihuiEquivalent": "admin/operlog"
+      },
+      {
+        "path": "/system/logininfor",
+        "purpose": "登录日志",
+        "ihuiEquivalent": "admin/logs + admin/api-logs"
+      },
+      {
+        "path": "/system/post",
+        "purpose": "岗位管理",
+        "ihuiEquivalent": "admin/post"
+      },
+      {
+        "path": "/monitor/online",
+        "purpose": "在线用户",
+        "ihuiEquivalent": "admin/online"
+      },
+      {
+        "path": "/monitor/job",
+        "purpose": "定时任务",
+        "ihuiEquivalent": "admin/schedule"
+      },
+      {
+        "path": "/monitor/server",
+        "purpose": "服务监控",
+        "ihuiEquivalent": "admin/api-usage"
+      }
+    ],
+    "deprecatedList": [
+      {
+        "path": "/monitor/druid",
+        "purpose": "Druid 数据源监控",
+        "reason": "/monitor/druid(Druid 数据源监控)为 RuoYi/Java 生态专用,IHUI-AI 用 Next.js + OpenAPI 替代,无需迁移"
+      },
+      {
+        "path": "/monitor/cache",
+        "purpose": "缓存监控",
+        "reason": "/monitor/cache(缓存监控)为 RuoYi/Java 生态专用,IHUI-AI 用 Next.js + OpenAPI 替代,无需迁移"
+      },
+      {
+        "path": "/tool/gen",
+        "purpose": "代码生成",
+        "reason": "/tool/gen(代码生成)为 RuoYi/Java 生态专用,IHUI-AI 用 Next.js + OpenAPI 替代,无需迁移"
+      },
+      {
+        "path": "/tool/swagger",
+        "purpose": "Swagger 文档",
+        "reason": "/tool/swagger(Swagger 文档)为 RuoYi/Java 生态专用,IHUI-AI 用 Next.js + OpenAPI 替代,无需迁移"
+      },
+      {
+        "path": "/tool/build",
+        "purpose": "表单构建",
+        "reason": "/tool/build(表单构建)为 RuoYi/Java 生态专用,IHUI-AI 用 Next.js + OpenAPI 替代,无需迁移"
+      }
+    ]
+  },
+  "overall": {
+    "apiEndpointUniquePaths": 114,
+    "apiEndpointTotalRows": 147,
+    "zhsTablesTotal": 6,
+    "ruoyiTablesTotal": 2,
+    "ruoyiPagesTotal": 18,
+    "totalEvaluated": 140
+  }
+}

@@ -1,0 +1,183 @@
+{
+  "timestamp": "2026-07-19T12-14-57",
+  "phase": "阶段 4: 前端页面/路由 content-level 比对",
+  "legacyRoots": [
+    "D:\\历史项目存档\\ihui-ai-admin-frontend",
+    "D:\\历史项目存档\\edu client",
+    "D:\\历史项目存档\\code",
+    "D:\\历史项目存档\\zhs_app-ZZ",
+    "D:\\历史项目存档\\ljd-交接文件"
+  ],
+  "newAppRoot": "g:\\IHUI-AI\\apps\\web\\app",
+  "vueRoutesTotal": 333,
+  "nextRoutesTotal": 595,
+  "stats": {
+    "已迁移": 22,
+    "部分迁移": 63,
+    "缺失": 248,
+    "Next.js独有": 510
+  },
+  "percentages": {
+    "已迁移": "6.6%",
+    "部分迁移": "18.9%",
+    "缺失": "74.5%(相对 Vue 路由)",
+    "Next.js独有": "85.7%(相对 Next.js 路由)"
+  },
+  "missingAnalysis": {
+    "totalMissing": 248,
+    "languageMigrationExpected": 12,
+    "realMissing": 236,
+    "realMissingExamples": [
+      {
+        "path": "/login",
+        "module": "login",
+        "name": "",
+        "component": "<inline>",
+        "sourceProject": "src/router",
+        "sourceFile": "D:\\历史项目存档\\ihui-ai-admin-frontend\\src\\router\\index.ts"
+      },
+      {
+        "path": "/register",
+        "module": "register",
+        "name": "",
+        "component": "<inline>",
+        "sourceProject": "src/router",
+        "sourceFile": "D:\\历史项目存档\\ihui-ai-admin-frontend\\src\\router\\index.ts"
+      },
+      {
+        "path": "/index",
+        "module": "index",
+        "name": "",
+        "component": "Layout",
+        "sourceProject": "src/router",
+        "sourceFile": "D:\\历史项目存档\\ihui-ai-admin-frontend\\src\\router\\index.ts"
+      },
+      {
+        "path": "/demandSquare/demandSquare",
+        "module": "demandSquare",
+        "name": "DemandSquare",
+        "component": "<inline>",
+        "sourceProject": "src/router",
+        "sourceFile": "D:\\历史项目存档\\ihui-ai-admin-frontend\\src\\router\\index.ts"
+      },
+      {
+        "path": "/demandSquare/review",
+        "module": "demandSquare",
+        "name": "DemandSquareReview",
+        "component": "<inline>",
+        "sourceProject": "src/router",
+        "sourceFile": "D:\\历史项目存档\\ihui-ai-admin-frontend\\src\\router\\index.ts"
+      },
+      {
+        "path": "/tool/gen-edit/index/:tableId(\\d+)",
+        "module": "tool",
+        "name": "GenEdit",
+        "component": "<inline>",
+        "sourceProject": "src/router",
+        "sourceFile": "D:\\历史项目存档\\ihui-ai-admin-frontend\\src\\router\\index.ts"
+      },
+      {
+        "path": "/index",
+        "module": "index",
+        "name": "Index",
+        "component": "Index",
+        "sourceProject": "admin/admin",
+        "sourceFile": "D:\\历史项目存档\\edu client\\admin\\admin\\src\\router\\index.js"
+      },
+      {
+        "path": "/auth",
+        "module": "auth",
+        "name": "",
+        "component": "<inline>",
+        "sourceProject": "admin/admin",
+        "sourceFile": "D:\\历史项目存档\\edu client\\admin\\admin\\src\\router\\index.js"
+      },
+      {
+        "path": "/auth/organizational",
+        "module": "auth",
+        "name": "organizationalIndex",
+        "component": "<inline>",
+        "sourceProject": "admin/admin",
+        "sourceFile": "D:\\历史项目存档\\edu client\\admin\\admin\\src\\router\\index.js"
+      },
+      {
+        "path": "/auth/organizational/user",
+        "module": "auth",
+        "name": "organizationalUser",
+        "component": "<inline>",
+        "sourceProject": "admin/admin",
+        "sourceFile": "D:\\历史项目存档\\edu client\\admin\\admin\\src\\router\\index.js"
+      }
+    ]
+  },
+  "keyPagesCheck": [
+    {
+      "keyword": "login",
+      "hasVueRoute": true,
+      "hasNextRoute": true,
+      "status": "both"
+    },
+    {
+      "keyword": "dashboard",
+      "hasVueRoute": false,
+      "hasNextRoute": true,
+      "status": "next_only"
+    },
+    {
+      "keyword": "index",
+      "hasVueRoute": true,
+      "hasNextRoute": false,
+      "status": "vue_only"
+    },
+    {
+      "keyword": "user",
+      "hasVueRoute": true,
+      "hasNextRoute": true,
+      "status": "both"
+    },
+    {
+      "keyword": "member",
+      "hasVueRoute": true,
+      "hasNextRoute": true,
+      "status": "both"
+    },
+    {
+      "keyword": "admin",
+      "hasVueRoute": false,
+      "hasNextRoute": false,
+      "status": "neither"
+    },
+    {
+      "keyword": "role",
+      "hasVueRoute": true,
+      "hasNextRoute": true,
+      "status": "both"
+    },
+    {
+      "keyword": "order",
+      "hasVueRoute": true,
+      "hasNextRoute": true,
+      "status": "both"
+    },
+    {
+      "keyword": "article",
+      "hasVueRoute": true,
+      "hasNextRoute": true,
+      "status": "both"
+    },
+    {
+      "keyword": "course",
+      "hasVueRoute": false,
+      "hasNextRoute": true,
+      "status": "next_only"
+    },
+    {
+      "keyword": "ai",
+      "hasVueRoute": false,
+      "hasNextRoute": true,
+      "status": "next_only"
+    }
+  ],
+  "nextPhaseRecommendation": "需要阶段 5:对真实缺失前端页面做业务影响评估(是否需要补齐页面/组件)",
+  "csvFile": "g:\\IHUI-AI\\reports\\migration-audit-frontend-routes-2026-07-19T12-14-57.csv"
+}

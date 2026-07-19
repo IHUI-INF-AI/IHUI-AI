@@ -38,3 +38,27 @@ export const eduLessonTopics = pgTable(
 
 export type EduLessonTopic = typeof eduLessonTopics.$inferSelect;
 export type NewEduLessonTopic = typeof eduLessonTopics.$inferInsert;
+
+/**
+ * 学习专题分类表(对齐 D 盘 t_learn_topic_category)。
+ * - 用于管理学习专题下的分类组织,支持排序与状态切换。
+ * - status: 1=启用 0=禁用。
+ */
+export const eduLessonTopicCategories = pgTable(
+  'edu_lesson_topic_categories',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 100 }).notNull(),
+    sort: integer('sort').default(0).notNull(),
+    status: integer('status').default(1).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    statusIdx: index('edu_lesson_topic_categories_status_idx').on(t.status),
+    sortIdx: index('edu_lesson_topic_categories_sort_idx').on(t.sort),
+  }),
+);
+
+export type EduLessonTopicCategory = typeof eduLessonTopicCategories.$inferSelect;
+export type NewEduLessonTopicCategory = typeof eduLessonTopicCategories.$inferInsert;
