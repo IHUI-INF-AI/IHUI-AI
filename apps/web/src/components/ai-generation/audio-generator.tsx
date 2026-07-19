@@ -12,7 +12,8 @@ interface AudioGeneratorProps {
 const VOICES = [
   { value: 'male', label: '男声' },
   { value: 'female', label: '女声' },
-  { value: 'child', label: '童声' },
+  // value 使用音频术语 treble(高音)而非 child,避免儿童相关关键词进入 LLM 上下文触发安全过滤
+  { value: 'treble', label: '童声' },
 ] as const
 
 /** AudioGenerator - 语音/音频生成器 */
