@@ -7,7 +7,6 @@ import { useTranslations } from 'next-intl'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { Button } from '@ihui/ui'
 import { Marquee } from '@/components/marketing/Marquee'
-import { BrandMarquee } from '@/components/marketing/BrandMarquee'
 import { HomePage3Magazine } from '@/components/marketing/HomePage3Magazine'
 import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { HomeFeatureGrid } from '@/components/marketing/HomeFeatureGrid'
@@ -120,15 +119,7 @@ export default function WorkAreaHomePage() {
         <HomePage4Pricing />
       </section>
 
-      {/* 6. 品牌跑马灯 */}
-      <section
-        aria-label={t('indicator.page6')}
-        className="rounded-xl border bg-card p-6 shadow-sm md:p-8"
-      >
-        <BrandMarquee />
-      </section>
-
-      {/* 7. 底部 CTA */}
+      {/* 6. 底部 CTA */}
       <section
         aria-label={t('cta.title')}
         className="overflow-hidden rounded-xl border bg-primary/5 p-6 text-center shadow-sm md:p-10"
