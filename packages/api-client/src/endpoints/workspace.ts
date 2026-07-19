@@ -147,3 +147,40 @@ export async function uploadFile(
     { method: 'POST', body: formData },
   )
 }
+
+/**
+ * 最近文件轻量结构(用于聊天 @ 提及面板)。
+ *
+ * 后端 GET /api/files/recent 与 GET /api/files/search 返回的 serializeFile 结构,
+ * 不含 path 字段(数据库中 path 仅在 workspace 项目文件表中存在);
+ * 调用方按需用 name/mimeType/size 组装展示文本。
+ */
+export interface RecentFile {
+  id: string
+  projectId: string
+  name: string
+  size: number
+  mimeType: string
+  uploadedBy: string | null
+  createdAt: string
+}
+
+/**
+ * 获取当前用户最近上传的文件(按 createdAt 倒序)。
+ * 用于 AI 输入框 @ 提及面板的初始列表。
+ */
+export async function getRecentFilesForMention(
+  limit = 20,
+): Promise<ApiResult<{ files: RecentFile[] }>> {
+  return fetchApi<{ files: RecentFile[] }>(`/api/files/recent?limit=${limit}`)
+}
+
+/**
+ * 按关键字搜索当前用户的文件(支持按文件名/mimeType 等匹配)。
+ * 用于 @ 提及面板输入关键字时的实时筛选。
+ */
+export async function searchFilesForMention(
+  q: string,
+): Promise<ApiResult<{ files: RecentFile[] }>> {
+  return fetchApi<{ files: RecentFile[] }>(`/api/files/search?q=${encodeURIComponent(q)}`)
+}
