@@ -8633,17 +8633,27 @@
       "empty": "一致するモデルが見つかりません",
       "inputPrice": "入力価格",
       "outputPrice": "出力価格",
-      "defaultDescription": "ベンダー提供の AI モデルサービス",
-      "tryNow": "今すぐ試す",
-      "freeCount": "{count} 件無料",
-      "favoriteCount": "{count} 件お気に入り",
-      "highlightCount": "{count} 件おすすめ",
-      "configuredCount": "{count} 件設定済み",
-      "loadMore": "もっと見る",
-      "resetFilters": "フィルターリセット",
-      "configureKey": "API Key を設定",
-      "updateKey": "Key を更新",
-      "configureKeyHint": "このモデルは使用前に API Key の設定が必要です。クリックしてワンクリック設定。"
+      "defaultDescription": "ベンダーが提供する AI モデルサービス",
+      "tryNow": "今すぐ体験",
+      "freeCount": "{count} 無料",
+      "favoriteCount": "{count} お気に入り",
+      "highlightCount": "{count} おすすめ",
+      "configuredCount": "{count} 設定済み",
+      "loadMore": "もっと読み込む",
+      "resetFilters": "フィルターをリセット",
+      "configureKey": "API キーを設定",
+      "updateKey": "キーを更新",
+      "configureKeyHint": "このモデルは使用前に API キーの設定が必要です。クリックして簡単設定。"
+    },
+    "aiNews": {
+      "title": "2026-07 AI ニュース",
+      "subtitle": "シードデータフローから最新リリース",
+      "loading": "AI ニュースを読み込み中…",
+      "fallbackHint": "最新ニュースなし — 2026-07 新モデルを表示中",
+      "liveTag": "ライブ",
+      "viewAll": "すべて表示",
+      "relatedModels": "関連 {count} モデル",
+      "empty": "AI ニュースはまだありません"
     },
     "overview": {
       "title": "コンソール概覧",
@@ -23549,30 +23559,7 @@
         "企業AI化意思決定者コミュニティが募集を開始、人機協同の実戦コースが年間無料",
         "先着18名の会員は1対1のAIコンサルティングを享受、不満の場合は全額返金",
         "今すぐコードをスキャンして智匯AIコミュニティに参加、意思決定者と一緒にAI時代を探索"
-      ],
-      "title": "パートナーとエコシステム",
-      "subtitle": "主要なLLMとプラットフォームを集約し、オープンなAIエコシステムを構築",
-      "kouzi": "Coze",
-      "bbxLogo": "百宝箱",
-      "openai": "OpenAI",
-      "zhipu": "智譜清言",
-      "gork": "Grok",
-      "brand8": "ブランド8",
-      "ali": "アリババ",
-      "tencent": "テンセント",
-      "huawei": "ファーウェイ",
-      "baidu": "バイドゥ",
-      "yuanbaoxiang": "元宝箱",
-      "yushu": "Moonshot",
-      "dbsfdx": "東方閃電",
-      "jldx": "精霊大学",
-      "n8n": "n8n",
-      "titleEn": "PARTNERS & ECOSYSTEM",
-      "joinText": "より多くのAI愛好家の参加を歓迎し、共にAIの無限の可能性を探索しましょう",
-      "resumeScroll": "再開",
-      "pauseScroll": "一時停止",
-      "marqueeSpeedLabel": "スクロール速度",
-      "wheelSensitivityLabel": "ホイール感度"
+      ]
     },
     "welcome": {
       "title": "智匯AIコミュニティへようこそ",
@@ -23697,8 +23684,7 @@
       "page2": "ようこそ",
       "page3": "機能",
       "page4": "ニュース",
-      "page5": "料金",
-      "page6": "パートナー"
+      "page5": "料金"
     },
     "scrollDown": {
       "label": "下にスクロール"
@@ -23811,6 +23797,55 @@
         "title": "イノベーティブ",
         "description": "継続的な技術革新、エージェントクラスタ、階層型計画などの最先端AI能力"
       }
+    }
+  },
+  "aiNews": {
+    "hero": {
+      "label": "AI ニュース Hero",
+      "badge": "2026-07 リアル情報フィード",
+      "title": "AI ニュース",
+      "subtitle": "2026年7月のAI業界ニュース:GPT-5.6 / Claude Sonnet 5 / Gemini 3.5 Pro / Kimi K3 / DeepSeek V4 の横並び比較、WAIC 2026 ライブ、大型資金調達と買収。",
+      "updateFreq": "毎日更新",
+      "ctaPrimary": "ニュース広場へ",
+      "ctaSecondary": "ライブを見る"
+    },
+    "comparison": {
+      "label": "横並び比較表",
+      "title": "7月の主力大規模モデル横並び比較",
+      "subtitle": "主要ベンダー5社のパラメータ、価格、特徴、能力",
+      "verified": "2026-07 実データ",
+      "colModel": "比較項目",
+      "highlight": "主な特徴",
+      "footnote": "価格は公式 API の公開レート、為替により変動",
+      "footnote2": "データ:公式技術レポートと主要ベンチマーク"
+    },
+    "live": {
+      "label": "WAIC 2026 ライブ",
+      "title": "WAIC 2026 ライブ",
+      "subtitle": "リチャード・サットン基調講演、ケヴィン・ケリーのエンボディド AI、3 大フォーラム",
+      "viewMore": "すべて見る",
+      "liveBadge": "ライブ",
+      "empty": "ライブがありません、少してからご確認ください"
+    },
+    "articles": {
+      "label": "最新ニュースカード",
+      "title": "最新 AI ニュース",
+      "subtitle": "モデル発表、産業動向、学術フロンティア、安全ガバナンス",
+      "viewMore": "もっと見る",
+      "pinned": "ピン",
+      "empty": "記事がありません。ai-fresh-2026 seed を先に実行してください。"
+    },
+    "funding": {
+      "label": "大型資金調達と買収",
+      "title": "大型資金調達と買収",
+      "subtitle": "7月:SpaceX が Cursor を600億ドルで買収、DeepSeek が500億元を調達"
+    },
+    "cta": {
+      "label": "ボトム CTA",
+      "title": "次の AI マイルストーンを見逃さない",
+      "subtitle": "毎日の AI ブリーフィングを購読し、IHUI AI コミュニティで意思決定者と共に。",
+      "subscribe": "毎日を購読",
+      "community": "コミュニティに参加"
     }
   }
 }
