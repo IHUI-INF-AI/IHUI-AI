@@ -113,6 +113,14 @@ if (!run('📊 检查迁移完整性(7 大类 29 子项)...', 'node scripts/chec
   process.exit(1)
 }
 
+// 17. CSS 颜色 token 嵌套守门(2026-07-19 登录框描边样式回归落地)
+// 防止新增 `hsl(var(--xxx))` / `rgb(var(--xxx))` 嵌套形式
+// 根因: Tailwind v4 @theme 把 --color-* 序列化为 hsl(),外层包裹会变成 hsl(hsl(...)) 非法被浏览器静默丢弃
+// 正确写法: 直接 var(--color-*) 引用,需要透明度用 color-mix(in srgb, var(--xxx) 60%, transparent)
+if (!run('🎨 检查 CSS 颜色 token 嵌套...', 'node scripts/check-input-border-var.mjs --staged')) {
+  process.exit(1)
+}
+
 // 16. 条件 typecheck 闸门(仅 staged 涉及 apps/web 时跑 web typecheck)
 // 防止"commit 通过但 push 失败"的循环(f21dc473 commit 漏掉 import 的教训)
 // 只在 staged 文件涉及 apps/web 时跑,避免影响其他包的 commit 速度
