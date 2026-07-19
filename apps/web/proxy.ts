@@ -75,7 +75,7 @@ function redirectToLoginDialog(request: NextRequest, pathname: string): NextResp
   return res
 }
 
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl
 
   // a. 公开路由放行
