@@ -98,6 +98,17 @@ export const zhCN = {
     copied: '已复制',
     highlightOn: '高亮已开启',
     highlightOff: '高亮已关闭',
+    saveToWordbook: '保存到生词本',
+    savedToWordbook: '已保存',
+    closePopup: '关闭',
+    contextMenuResult: '即时翻译结果',
+  },
+  wordbook: {
+    title: '生词本',
+    searchPlaceholder: '搜索生词...',
+    countLabel: '{{count}} 词',
+    emptyHint: '空',
+    noMatchHint: '无匹配',
   },
 } as const
 

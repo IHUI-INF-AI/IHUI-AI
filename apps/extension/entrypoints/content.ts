@@ -3,141 +3,76 @@
  *
  * 设计:
  * 1. 监听 mouseup / keyup,在用户完成选区时显示浮动工具栏
- * 2. 工具栏:翻译 / 高亮 / 查词 / 发送到 AI
+ * 2. 工具栏(由 ContentToolbar 提供):翻译 / 高亮 / 查词 / 发送到 AI
+ *    - hover 动效(fade + scale,subtle 颜色变化)
+ *    - 位置记忆(viewport 边缘自动 flip,同选区防抖)
  * 3. 沉浸式翻译:点击翻译后,选区上方/下方插入翻译结果(用 ihui-tx 类)
  * 4. 重点高亮:点击高亮后,在当前页面内所有匹配文本用 <mark class="ihui-hl"> 包裹
- * 5. 通过 background 中转 API(避免 content script 直连受 CORS 限制)
+ * 5. 右键即时翻译:监听 background 派发的 `vocab.result`,在选区旁弹 popup
+ * 6. 通过 background 中转 API(避免 content script 直连受 CORS 限制)
  */
 import {
   extractSelectionText,
   isValidSelection,
-  computeToolbarPosition,
   highlightInElement,
   clearHighlights,
   detectLanguage,
-  type ToolbarPosition,
 } from '../src/content/content-utils'
 import { sendMessage } from '../lib/message-router'
+import { ContentToolbar } from './content/content-toolbar'
+import {
+  computePositionWithMemory,
+  type RectLike,
+} from '../src/content/position-memory'
 
-interface ToolbarElements {
-  root: HTMLDivElement
-  translateBtn: HTMLButtonElement
-  highlightBtn: HTMLButtonElement
-  vocabBtn: HTMLButtonElement
-  sendBtn: HTMLButtonElement
-}
-
-const TOOLBAR_ID = 'ihui-content-toolbar'
 const TX_CLASS = 'ihui-tx'
-const HL_CLASS = 'ihui-hl'
+const CTX_POPUP_ID = 'ihui-ctx-popup'
+const CTX_POPUP_TTL_MS = 6000
 
 let hideTimer: ReturnType<typeof setTimeout> | null = null
 let highlightEnabled = false
 const translationCache = new Map<string, string>()
+let toolbar: ContentToolbar | null = null
+let lastSelectionRect: RectLike | null = null
 
-function ensureToolbar(doc: Document): ToolbarElements {
-  const existing = doc.getElementById(TOOLBAR_ID) as HTMLDivElement | null
-  if (existing) {
-    return {
-      root: existing,
-      translateBtn: existing.querySelector<HTMLButtonElement>('[data-act="translate"]')!,
-      highlightBtn: existing.querySelector<HTMLButtonElement>('[data-act="highlight"]')!,
-      vocabBtn: existing.querySelector<HTMLButtonElement>('[data-act="vocab"]')!,
-      sendBtn: existing.querySelector<HTMLButtonElement>('[data-act="send"]')!,
-    }
+function getToolbar(doc: Document): ContentToolbar {
+  if (!toolbar) {
+    toolbar = new ContentToolbar(doc)
+    toolbar.setLabels({
+      translate: '翻译',
+      highlight: '高亮',
+      vocab: '查词',
+      send: '问 AI',
+    })
+    toolbar.bindHandlers({
+      translate: () => void handleTranslate(),
+      highlight: () => void handleHighlight(),
+      vocab: () => void handleVocab(),
+      send: () => void handleSendToAI(),
+    })
   }
-  const root = doc.createElement('div')
-  root.id = TOOLBAR_ID
-  root.setAttribute('data-ihui', 'content-toolbar')
-  root.style.cssText = [
-    'position:fixed',
-    'z-index:2147483646',
-    'display:none',
-    'gap:4px',
-    'padding:4px',
-    'background:#161616',
-    'color:#f5f5f5',
-    'border:1px solid #262626',
-    'border-radius:6px',
-    'box-shadow:0 4px 16px rgba(0,0,0,0.18)',
-    'font:12px/1 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif',
-    'pointer-events:auto',
-    'user-select:none',
-  ].join(';')
-
-  const mkBtn = (act: string, label: string): HTMLButtonElement => {
-    const b = doc.createElement('button')
-    b.dataset.act = act
-    b.textContent = label
-    b.type = 'button'
-    b.style.cssText = [
-      'appearance:none',
-      'background:transparent',
-      'color:inherit',
-      'border:1px solid #404040',
-      'border-radius:4px',
-      'padding:4px 8px',
-      'font:inherit',
-      'cursor:pointer',
-    ].join(';')
-    return b
-  }
-
-  const translateBtn = mkBtn('translate', '翻译')
-  const highlightBtn = mkBtn('highlight', '高亮')
-  const vocabBtn = mkBtn('vocab', '查词')
-  const sendBtn = mkBtn('send', '问 AI')
-
-  root.append(translateBtn, highlightBtn, vocabBtn, sendBtn)
-  doc.body.appendChild(root)
-
-  const els: ToolbarElements = { root, translateBtn, highlightBtn, vocabBtn, sendBtn }
-  bindToolbarHandlers(els)
-  return els
-}
-
-function bindToolbarHandlers(els: ToolbarElements) {
-  els.translateBtn.addEventListener('click', (e) => {
-    e.stopPropagation()
-    void handleTranslate()
-  })
-  els.highlightBtn.addEventListener('click', (e) => {
-    e.stopPropagation()
-    void handleHighlight()
-  })
-  els.vocabBtn.addEventListener('click', (e) => {
-    e.stopPropagation()
-    void handleVocab()
-  })
-  els.sendBtn.addEventListener('click', (e) => {
-    e.stopPropagation()
-    void handleSendToAI()
-  })
+  return toolbar
 }
 
 function showToolbar(selection: Selection) {
   const doc = selection.anchorNode?.ownerDocument ?? document
-  const tb = ensureToolbar(doc)
+  const tb = getToolbar(doc)
   const range = selection.getRangeAt(0)
   const rect = range.getBoundingClientRect()
-  const pos: ToolbarPosition = computeToolbarPosition(
-    rect,
-    tb.root.offsetWidth || 200,
-    tb.root.offsetHeight || 32,
-    { width: window.innerWidth, height: window.innerHeight },
-  )
-  if (!pos.visible) {
-    hideToolbar()
-    return
+  lastSelectionRect = toRect(rect)
+  const viewport = { width: window.innerWidth, height: window.innerHeight }
+  const placement = tb.show(lastSelectionRect, viewport)
+  if (!placement.visible) {
+    tb.hide()
   }
-  tb.root.style.top = `${pos.top}px`
-  tb.root.style.left = `${pos.left}px`
-  tb.root.style.display = 'flex'
+}
+
+function toRect(r: DOMRect): RectLike {
+  return { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height }
 }
 
 function hideToolbar() {
-  const existing = document.getElementById(TOOLBAR_ID)
-  if (existing) existing.style.display = 'none'
+  toolbar?.hide()
 }
 
 function getActiveSelectionText(): string {
@@ -201,7 +136,6 @@ async function handleHighlight() {
   if (!text) return
   highlightEnabled = !highlightEnabled
   try {
-    // 本地立即应用:对当前页面所有匹配项加 mark
     if (highlightEnabled) {
       highlightInElement(document.body, text, document)
     } else {
@@ -216,8 +150,6 @@ async function handleHighlight() {
 async function handleVocab() {
   const text = getActiveSelectionText()
   if (!text) return
-  // 词汇查询:把选中文本写入 session storage,
-  // sidepanel VocabularyPage 启动时检测并展示
   try {
     await chrome.storage.session?.set({ ihui_pending_vocab: text })
   } catch (err) {
@@ -234,7 +166,6 @@ async function handleSendToAI() {
   } catch {
     // ignore
   }
-  // 通过 runtime 打开 sidepanel
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     const tabId = tabs[0]?.id
@@ -269,24 +200,107 @@ function scheduleHide() {
   hideTimer = setTimeout(() => hideToolbar(), 200)
 }
 
-function injectStyle(doc: Document) {
-  if (doc.getElementById('ihui-content-style')) return
-  const style = doc.createElement('style')
-  style.id = 'ihui-content-style'
-  style.textContent = `
-    mark.${HL_CLASS} { background: rgba(250, 204, 21, 0.45); color: inherit; padding: 0 1px; border-radius: 2px; }
-    .${TX_CLASS} { animation: ihui-tx-fade 240ms ease-out; }
-    @keyframes ihui-tx-fade { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
-    #${TOOLBAR_ID} button:hover { background: #262626 !important; }
-  `
-  ;(doc.head || doc.documentElement).appendChild(style)
+// ===== 右键即时翻译:在选区旁显示 popup =====
+
+interface CtxVocabResult {
+  word: string
+  translation: string
+  phonetic?: string
+  definitions?: string[]
+}
+
+function showContextResultPopup(payload: CtxVocabResult, rect: RectLike | null) {
+  // 移除旧 popup
+  const old = document.getElementById(CTX_POPUP_ID)
+  if (old) old.remove()
+
+  const popup = document.createElement('div')
+  popup.id = CTX_POPUP_ID
+  popup.className = 'ihui-ctx-popup'
+  popup.setAttribute('data-ihui', 'context-result')
+
+  const head = document.createElement('div')
+  const word = document.createElement('span')
+  word.className = 'ihui-ctx-word'
+  word.textContent = payload.word
+  head.appendChild(word)
+  if (payload.phonetic) {
+    const ph = document.createElement('span')
+    ph.className = 'ihui-ctx-phonetic'
+    ph.textContent = `/${payload.phonetic}/`
+    head.appendChild(ph)
+  }
+  popup.appendChild(head)
+
+  const tr = document.createElement('div')
+  tr.className = 'ihui-ctx-translation'
+  tr.textContent = payload.translation
+  popup.appendChild(tr)
+
+  if (payload.definitions && payload.definitions.length > 0) {
+    const ul = document.createElement('ul')
+    ul.className = 'ihui-ctx-defs'
+    for (const d of payload.definitions.slice(0, 5)) {
+      const li = document.createElement('li')
+      li.textContent = d
+      ul.appendChild(li)
+    }
+    popup.appendChild(ul)
+  }
+
+  const actions = document.createElement('div')
+  actions.className = 'ihui-ctx-actions'
+  const saveBtn = document.createElement('button')
+  saveBtn.type = 'button'
+  saveBtn.className = 'ihui-ctx-btn'
+  saveBtn.textContent = '保存到生词本'
+  saveBtn.addEventListener('click', async () => {
+    try {
+      const { addWord } = await import('../src/idb/vocab-db')
+      await addWord({ word: payload.word, translation: payload.translation, source: 'context-menu' })
+      saveBtn.textContent = '已保存'
+    } catch (err) {
+      console.warn('[IHUI AI] save word failed:', err)
+    }
+  })
+  const closeBtn = document.createElement('button')
+  closeBtn.type = 'button'
+  closeBtn.className = 'ihui-ctx-btn'
+  closeBtn.textContent = '关闭'
+  closeBtn.addEventListener('click', () => popup.remove())
+  actions.append(saveBtn, closeBtn)
+  popup.appendChild(actions)
+
+  document.body.appendChild(popup)
+
+  // 定位:有 rect 用 rect(选区),没有就 viewport 中央
+  const viewport = { width: window.innerWidth, height: window.innerHeight }
+  const w = popup.offsetWidth
+  const h = popup.offsetHeight
+  const targetRect: RectLike =
+    rect ?? {
+      top: viewport.height / 2 - h / 2,
+      left: viewport.width / 2 - w / 2,
+      right: viewport.width / 2 + w / 2,
+      bottom: viewport.height / 2 + h / 2,
+      width: w,
+      height: h,
+    }
+  const placement = computePositionWithMemory(targetRect, w, h, viewport, { margin: 12, offset: 8 })
+  popup.style.top = `${placement.top}px`
+  popup.style.left = `${placement.left}px`
+
+  // 自动消失(可被 close 按钮提前关掉)
+  setTimeout(() => {
+    const current = document.getElementById(CTX_POPUP_ID)
+    if (current) current.remove()
+  }, CTX_POPUP_TTL_MS)
 }
 
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_idle',
   main(ctx) {
-    injectStyle(document)
     document.addEventListener('mouseup', () => {
       setTimeout(onSelectionChange, 10)
     })
@@ -295,20 +309,39 @@ export default defineContentScript({
     })
     document.addEventListener('mousedown', (e) => {
       const target = e.target as HTMLElement | null
-      if (target && target.closest(`#${TOOLBAR_ID}`)) return
+      if (!target) return
+      if (target.closest(`#${'ihui-content-toolbar'}`)) return
+      if (target.closest(`#${CTX_POPUP_ID}`)) return
       scheduleHide()
     })
 
     // 接收 background 主动消息
     chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (!msg || typeof msg !== 'object') return false
-      const m = msg as { type?: string; payload?: { word?: string; matches?: number } }
+      const m = msg as {
+        type?: string
+        payload?: { word?: string; matches?: number; text?: string; rect?: RectLike } & CtxVocabResult
+      }
       if (m.type === 'highlight.applied' && m.payload?.word) {
         if (m.payload.matches === 0) {
           clearHighlights(document.body)
         } else {
           highlightInElement(document.body, m.payload.word, document)
         }
+        sendResponse({ ok: true })
+        return true
+      }
+      // 右键菜单触发的查询结果 → 弹 popup
+      if (m.type === 'vocab.result' && m.payload?.word && m.payload?.translation) {
+        showContextResultPopup(
+          {
+            word: m.payload.word,
+            translation: m.payload.translation,
+            phonetic: m.payload.phonetic,
+            definitions: m.payload.definitions,
+          },
+          m.payload.rect ?? lastSelectionRect,
+        )
         sendResponse({ ok: true })
         return true
       }
