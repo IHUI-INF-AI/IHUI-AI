@@ -8448,7 +8448,9 @@
       "coding": "코드",
       "chinese": "중국어",
       "openSource": "오픈소스",
-      "favorite": "즐겨찾기"
+      "favorite": "즐겨찾기",
+      "configured": "설정됨",
+      "notConfigured": "미설정"
     },
     "detail": {
       "highlight": "추천",
@@ -8476,7 +8478,9 @@
       "savedDesc": "API Key가 암호화되어 저장되었습니다. 모델을 바로 사용할 수 있습니다.",
       "saveFailed": "저장 실패",
       "noTemplate": "이 공급자에 대한 템플릿이 없습니다. 「설정 → LLM 설정」에서 수동 추가하세요.",
-      "securityHint": "API Key는 AES-256-GCM으로 암호화 저장되며 계정만 볼 수 있습니다. 평문 저장·제3자 전송되지 않습니다."
+      "securityHint": "API Key는 AES-256-GCM으로 암호화 저장되며 계정만 볼 수 있습니다. 평문 저장·제3자 전송되지 않습니다.",
+      "fullConfigHint": "문맥 길이 / 메모 / 사용자 정의 Base URL을 수정하려면",
+      "openFullConfig": "전체 설정 페이지 →"
     },
     "providers": {
       "openai": "OpenAI",
@@ -8640,8 +8644,12 @@
       "freeCount": "{count}개 무료",
       "favoriteCount": "{count}개 즐겨찾기",
       "highlightCount": "{count}개 추천",
+      "configuredCount": "{count}개 설정됨",
       "loadMore": "더 보기",
-      "resetFilters": "필터 초기화"
+      "resetFilters": "필터 초기화",
+      "configureKey": "API Key 설정",
+      "updateKey": "Key 업데이트",
+      "configureKeyHint": "이 모델은 사용 전에 API Key 설정이 필요합니다. 클릭하여 원클릭 설정하세요."
     },
     "overview": {
       "title": "콘솔 개요",
