@@ -194,13 +194,19 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
           <Pressable onPress={() => navigation.navigate('Wallet')} hitSlop={8}>
             <Text className="text-sm text-gray-500">钱包</Text>
           </Pressable>
-          <Pressable onPress={() => navigation.navigate('Course')} hitSlop={8}>
+          <Pressable
+            onPress={() => navigation.getParent()?.navigate('Tabs' as never)}
+            hitSlop={8}
+          >
             <Text className="text-sm text-gray-500">课程</Text>
           </Pressable>
           <Pressable onPress={() => navigation.navigate('Order')} hitSlop={8}>
             <Text className="text-sm text-gray-500">订单</Text>
           </Pressable>
-          <Pressable onPress={() => navigation.navigate('Profile')} hitSlop={8}>
+          <Pressable
+            onPress={() => navigation.getParent()?.navigate('Tabs' as never)}
+            hitSlop={8}
+          >
             <Text className="text-sm text-gray-500">我的</Text>
           </Pressable>
           <Pressable onPress={() => navigation.navigate('Settings')} hitSlop={8}>
