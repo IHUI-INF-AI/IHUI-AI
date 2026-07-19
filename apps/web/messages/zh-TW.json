@@ -991,6 +991,7 @@
     "me": "我",
     "promptTemplate": "提示詞模板",
     "addContextReference": "添加為上下文引用",
+    "addContextHint": "添加上下文檔案或引用",
     "attachFile": "添加附件(圖片/影片/檔案)",
     "slashCommand": "調用命令與技能(/)",
     "mention": "提及檔案/技能/MCP/外掛(@)",
@@ -8526,6 +8527,337 @@
       },
       "gemini-2-flash": {
         "description": "超長上下文多模態"
+      }
+    },
+    "nav": {
+      "subtitle": "AI 模型聚合平臺",
+      "groups": {
+        "main": "主要功能",
+        "finance": "統計財務",
+        "resources": "資源中心"
+      },
+      "overview": "概覽",
+      "market": "模型市場",
+      "keys": "API 金鑰",
+      "logs": "呼叫日誌",
+      "usage": "用量統計",
+      "billing": "財務帳務帳單",
+      "redeem": "兌換碼",
+      "referral": "邀請獎勵",
+      "openclaw": "OpenClaw 部署",
+      "apiDocs": "API 文件",
+      "skills": "Skills 市場",
+      "contact": "聯絡我們"
+    },
+    "market": {
+      "searchPlaceholder": "模糊搜尋模型名稱",
+      "allCapabilities": "全部能力",
+      "resultCount": "共 {count} / {total} 個模型",
+      "empty": "未找到匹配的模型",
+      "inputPrice": "輸入價",
+      "outputPrice": "輸出價",
+      "defaultDescription": "廠商提供的 AI 模型服務",
+      "tryNow": "立即體驗"
+    },
+    "overview": {
+      "title": "控制台概覽",
+      "subtitle": "檢視您的帳戶、呼叫和消費情況",
+      "stats": {
+        "balance": "帳戶餘額",
+        "todayCalls": "今日呼叫",
+        "todayCost": "今日消費",
+        "activeModels": "活躍模型"
+      },
+      "quickActions": {
+        "title": "快速操作",
+        "createKey": "建立金鑰",
+        "browseModels": "瀏覽模型",
+        "viewUsage": "檢視用量",
+        "recharge": "立即儲值"
+      },
+      "recentCalls": {
+        "title": "最近呼叫",
+        "time": "時間",
+        "model": "模型",
+        "tokens": "Tokens",
+        "cost": "消費",
+        "status": "狀態",
+        "statusLabels": {
+          "success": "成功",
+          "failed": "失敗"
+        }
+      }
+    },
+    "keys": {
+      "title": "API 金鑰",
+      "subtitle": "管理用於呼叫 API 的存取金鑰",
+      "create": "建立金鑰",
+      "listTitle": "金鑰列表",
+      "copy": "複製",
+      "delete": "刪除",
+      "table": {
+        "name": "名稱",
+        "key": "Key",
+        "usage": "已用 / 總額",
+        "createdAt": "建立時間",
+        "status": "狀態",
+        "actions": "操作"
+      },
+      "statusLabels": {
+        "active": "使用中",
+        "expired": "已用盡"
+      }
+    },
+    "logs": {
+      "title": "呼叫日誌",
+      "subtitle": "檢視所有 API 呼叫記錄",
+      "filterTitle": "篩選",
+      "filterModel": "模型名稱",
+      "filterToken": "金鑰",
+      "filterStatus": "狀態",
+      "applyFilter": "套用篩選",
+      "listTitle": "日誌列表",
+      "table": {
+        "time": "時間",
+        "model": "模型",
+        "token": "金鑰",
+        "inputTokens": "輸入 Tokens",
+        "outputTokens": "輸出 Tokens",
+        "cost": "消費",
+        "duration": "耗時",
+        "status": "狀態"
+      },
+      "statusLabels": {
+        "success": "成功",
+        "failed": "失敗"
+      }
+    },
+    "usage": {
+      "title": "用量統計",
+      "subtitle": "按時間維度檢視用量和消費",
+      "ranges": {
+        "today": "今日",
+        "7d": "7 天",
+        "30d": "30 天",
+        "90d": "90 天"
+      },
+      "summary": {
+        "calls": "總呼叫次數",
+        "tokens": "Tokens 總量",
+        "cost": "總消費",
+        "avgLatency": "平均延遲"
+      },
+      "byModel": {
+        "title": "按模型分組",
+        "model": "模型",
+        "calls": "呼叫次數",
+        "tokens": "Tokens",
+        "cost": "消費",
+        "share": "佔比"
+      }
+    },
+    "billing": {
+      "title": "財務帳務帳單",
+      "subtitle": "管理儲值、帳單和套餐",
+      "currentBalance": "目前餘額",
+      "recharge": "立即儲值",
+      "monthConsume": "本月消費",
+      "totalRecharge": "累計儲值",
+      "packages": {
+        "title": "儲值套餐",
+        "starter": "入門包",
+        "starterBonus": "送 10% 額度",
+        "pro": "專業包",
+        "proBonus": "送 20% 額度",
+        "enterprise": "企業包",
+        "enterpriseBonus": "送 30% 額度",
+        "cta": "立即儲值",
+        "recommended": "推薦",
+        "once": "一次性"
+      },
+      "transactions": {
+        "title": "交易記錄",
+        "id": "訂單號",
+        "type": "類型",
+        "amount": "金額",
+        "balance": "餘額",
+        "time": "時間",
+        "status": "狀態",
+        "types": {
+          "recharge": "儲值",
+          "consume": "消費"
+        },
+        "statusLabels": {
+          "success": "成功"
+        }
+      }
+    },
+    "redeem": {
+      "title": "兌換碼",
+      "subtitle": "使用兌換碼儲值帳戶餘額",
+      "form": {
+        "title": "兌換碼",
+        "placeholder": "請輸入兌換碼",
+        "submit": "立即兌換",
+        "tip": "兌換碼區分大小寫,請仔細核對後再提交"
+      },
+      "history": {
+        "title": "兌換記錄",
+        "code": "兌換碼",
+        "amount": "金額",
+        "time": "兌換時間",
+        "status": "狀態",
+        "statusLabels": {
+          "success": "兌換成功",
+          "failed": "已失效"
+        }
+      }
+    },
+    "referral": {
+      "title": "邀請獎勵",
+      "subtitle": "邀請好友註冊,雙方均可獲得獎勵",
+      "link": {
+        "title": "我的邀請連結",
+        "tip": "分享您的專屬邀請連結給好友",
+        "copy": "複製連結",
+        "reward": "好友註冊並消費滿 ¥10 後,您將獲得 {amount} 獎勵"
+      },
+      "stats": {
+        "invited": "已邀請",
+        "activated": "已啟用",
+        "reward": "累計獎勵"
+      },
+      "list": {
+        "title": "邀請記錄",
+        "user": "使用者",
+        "joined": "註冊時間",
+        "reward": "獎勵",
+        "status": "狀態",
+        "statusLabels": {
+          "activated": "已啟用",
+          "pending": "待啟用"
+        }
+      }
+    },
+    "openclaw": {
+      "title": "OpenClaw 一鍵部署",
+      "subtitle": "開源 AI 閘道,支援多模型路由、負載平衡和快取加速",
+      "hero": {
+        "title": "OpenClaw - 讓 AI 部署更簡單",
+        "desc": "OpenClaw 是一款開源的 AI 閘道,提供多模型路由、負載平衡、快取加速、監控告警等企業級特性",
+        "deploy": "立即部署",
+        "docs": "檢視文件"
+      },
+      "featuresTitle": "核心特性",
+      "features": {
+        "oneClick": "一鍵部署,無需設定即可使用",
+        "multiModel": "多模型路由,支援 80+ AI 廠商",
+        "loadBalance": "智慧負載平衡,自動故障轉移",
+        "cache": "請求快取,降低 60% 重複呼叫成本",
+        "monitor": "即時監控,可觀測性完整",
+        "scale": "彈性擴縮容,支援千萬級 QPS"
+      },
+      "stepsTitle": "部署步驟",
+      "steps": [
+        { "title": "安裝 CLI", "desc": "透過一行命令安裝 OpenClaw CLI 工具" },
+        { "title": "登入認證", "desc": "使用您的 API 金鑰登入 OpenClaw" },
+        { "title": "設定模型", "desc": "選擇需要部署的模型和區域" },
+        { "title": "一鍵啟動", "desc": "執行部署命令,等待服務就緒" }
+      ],
+      "cli": {
+        "title": "命令列範例"
+      }
+    },
+    "apiDocs": {
+      "title": "API 文件",
+      "subtitle": "完整的 API 接入文件和範例",
+      "auth": {
+        "title": "鑑權方式",
+        "desc": "所有 API 請求需在 Header 中攜帶 Bearer Token,Token 可在 API 金鑰頁面建立"
+      },
+      "endpoints": {
+        "title": "介面列表",
+        "method": "方法",
+        "path": "路徑",
+        "desc": "說明",
+        "chat": "對話補全",
+        "complete": "文字補全",
+        "list": "模型列表",
+        "embed": "向量嵌入",
+        "image": "圖像生成",
+        "audio": "語音合成"
+      },
+      "example": {
+        "title": "呼叫範例",
+        "curl": "cURL",
+        "python": "Python"
+      }
+    },
+    "skills": {
+      "title": "Skills 市場",
+      "subtitle": "瀏覽和安裝 Skills 擴展能力",
+      "searchPlaceholder": "搜尋 Skills...",
+      "featuredTitle": "精選 Skills",
+      "allTitle": "全部 Skills",
+      "featured": "精選",
+      "install": "安裝",
+      "installs": "{count} 安裝",
+      "categories": {
+        "weather": "天氣",
+        "search": "搜尋",
+        "code": "程式碼",
+        "productivity": "效率",
+        "communication": "通訊",
+        "data": "資料",
+        "media": "媒體",
+        "system": "系統"
+      },
+      "items": {
+        "weather": { "desc": "查詢全球任意地點的即時天氣和未來預報" },
+        "nodeConnect": { "desc": "透過 MCP 協定連接外部節點和服務" },
+        "healthcheck": { "desc": "對服務進行健康檢查,自動告警" },
+        "webSearch": { "desc": "聯網搜尋最新資訊,支援多引擎" },
+        "codeRunner": { "desc": "線上執行程式碼,支援 30+ 程式語言" },
+        "pdfToolkit": { "desc": "PDF 合併、拆分、轉換、壓縮工具集" },
+        "emailSender": { "desc": "透過 SMTP 傳送郵件,支援範本" },
+        "dataViz": { "desc": "資料視覺化,生成多種圖表" },
+        "imageGen": { "desc": "AI 圖像生成,支援多種風格" },
+        "audioTranscribe": { "desc": "音訊轉文字,支援多語言" },
+        "calendar": { "desc": "日程管理,事件提醒" },
+        "databaseQuery": { "desc": "資料庫查詢,支援 SQL 和 NoSQL" }
+      }
+    },
+    "contact": {
+      "title": "聯絡我們",
+      "subtitle": "如有任何問題,歡迎透過以下方式聯絡我們",
+      "channels": {
+        "qq": "QQ 群",
+        "qqDesc": "加入官方 QQ 群交流",
+        "wechat": "微信",
+        "wechatDesc": "新增官方微信諮詢",
+        "email": "信箱",
+        "emailDesc": "郵件諮詢,工作日 24 小時回覆",
+        "phone": "電話",
+        "phoneDesc": "7x24 小時服務熱線"
+      },
+      "form": {
+        "title": "線上諮詢",
+        "name": "您的姓名",
+        "namePlaceholder": "請輸入您的姓名",
+        "email": "信箱",
+        "emailPlaceholder": "請輸入您的信箱",
+        "subject": "主題",
+        "subjectPlaceholder": "請輸入諮詢主題",
+        "message": "內容",
+        "messagePlaceholder": "請詳細描述您的問題...",
+        "submit": "提交諮詢"
+      },
+      "hours": {
+        "title": "服務時間",
+        "weekday": "工作日",
+        "weekend": "週末",
+        "holiday": "國定假日",
+        "closed": "休息"
       }
     }
   },
@@ -16070,6 +16402,8 @@
     "newConversation": "新建對話",
     "noHistory": "暫無歷史對話",
     "emptyWorkspace": "空工作區",
+    "handleHint": "點擊或向右拉出AI工作區",
+    "resizeHandleHint": "拖曳調整寬度",
     "filterByModel": "按模型篩選",
     "allModels": "所有模型",
     "today": "今天",
