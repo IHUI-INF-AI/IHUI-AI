@@ -97,13 +97,13 @@ export function MainShell({ children }: { children: React.ReactNode }) {
       </div>
       {/* AISidePanel 作为全局 fixed 组件,移出 flex 容器避免挤压 work-area 宽度。
           定位样式 left:var(--sidebar-width) 由 Sidebar 同步到 :root,紧贴 Sidebar 右侧。
-          z-40 高于 work-area 内容层,低于 modal/PWA 提示层(modal/PWA 全部 z-50)。
-          若 AI 面板 z-index 调到 ≥ 50,登录/客服等弹框会被 AI 面板遮住。 */}
+          z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)。
+          若 AI 面板 z-index 调到 ≥ 1000,登录/客服等弹框会被 AI 面板遮住。 */}
       <React.Suspense fallback={null}>
         <AISidePanel />
       </React.Suspense>
-      {/* PWA 提示:固定悬浮于右下角,不影响主布局 */}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
+      {/* PWA 提示:固定悬浮于右下角,不影响主布局。层级 z-modal(2000,引用 --z-modal)。 */}
+      <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
         <div className="pointer-events-auto">
           <PWAInstallPrompt />
         </div>

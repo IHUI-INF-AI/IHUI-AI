@@ -136,7 +136,7 @@ export function ThemeBackupSync() {
 
         {/* 过渡遮罩 */}
         {transitioning && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm transition-opacity">
+          <div className="fixed inset-0 z-modal flex items-center justify-center bg-background/60 backdrop-blur-sm transition-opacity">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         )}

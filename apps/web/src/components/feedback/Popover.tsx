@@ -93,7 +93,7 @@ export function Popover({
           aria-label={ariaLabel}
           tabIndex={-1}
           className={cn(
-            'absolute z-50 rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none',
+            'absolute z-popover rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none',
             'focus-visible:ring-2 focus-visible:ring-ring',
             posClass[position],
             className,
