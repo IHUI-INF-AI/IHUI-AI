@@ -8432,7 +8432,8 @@
       "vision": "이미지",
       "coding": "코드",
       "chinese": "중국어",
-      "openSource": "오픈소스"
+      "openSource": "오픈소스",
+      "favorite": "즐겨찾기"
     },
     "detail": {
       "highlight": "추천",
