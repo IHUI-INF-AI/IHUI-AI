@@ -98,6 +98,17 @@ export const ko = {
     copied: '복사됨',
     highlightOn: '하이라이트 켜짐',
     highlightOff: '하이라이트 꺼짐',
+    saveToWordbook: '단어장에 저장',
+    savedToWordbook: '저장됨',
+    closePopup: '닫기',
+    contextMenuResult: '즉시 번역 결과',
+  },
+  wordbook: {
+    title: '단어장',
+    searchPlaceholder: '단어 검색...',
+    countLabel: '{{count}} 개',
+    emptyHint: '비어 있음',
+    noMatchHint: '일치 없음',
   },
 } as const
 
