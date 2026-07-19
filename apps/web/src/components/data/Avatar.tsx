@@ -12,6 +12,8 @@ interface AvatarProps {
   fallback?: string
   name?: string
   size?: AvatarSize
+  /** 保留 prop 以兼容现有调用方;按项目规则"禁止纯圆形/胶囊形状容器样式",
+   * 头像外层容器不再使用 rounded-full,统一 rounded-md。 */
   shape?: AvatarShape
   className?: string
 }
@@ -31,14 +33,7 @@ export function getInitials(name?: string | null): string {
   return trimmed.slice(0, 2).toUpperCase()
 }
 
-export function Avatar({
-  src,
-  fallback,
-  name,
-  size = 'md',
-  shape = 'circle',
-  className,
-}: AvatarProps) {
+export function Avatar({ src, fallback, name, size = 'md', className }: AvatarProps) {
   const [error, setError] = React.useState(false)
   const initials = fallback ?? getInitials(name)
 
@@ -47,7 +42,8 @@ export function Avatar({
       className={cn(
         'relative inline-flex shrink-0 items-center justify-center overflow-hidden bg-muted font-medium text-muted-foreground',
         sizeMap[size],
-        shape === 'circle' ? 'rounded-md' : 'rounded-lg',
+        // 项目规则:头像外层容器禁止 rounded-full,统一 rounded-md
+        'rounded-md',
         className,
       )}
     >
