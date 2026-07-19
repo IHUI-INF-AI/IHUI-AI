@@ -126,36 +126,32 @@ export function EmailCodeLoginForm({
   return (
     <form onSubmit={onEmailSubmit} className="space-y-4 pt-2">
       {emailErr && <Alert variant="danger" description={emailErr} />}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="email">{t('email')}</Label>
-        <div className="input-gradient-wrap rounded-md">
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder={t('emailPlaceholder')}
-            className="h-9 rounded-[7px] border border-input bg-background"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          placeholder={t('emailPlaceholder')}
+          className="h-10"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="email-code">{t('code')}</Label>
         <div className="flex gap-2">
-          <div className="input-gradient-wrap flex-1 rounded-md">
-            <Input
-              id="email-code"
-              placeholder={t('codePlaceholder')}
-              className="h-9 rounded-[7px] border border-input bg-background"
-              value={emailCode}
-              onChange={(e) => setEmailCode(e.target.value)}
-            />
-          </div>
+          <Input
+            id="email-code"
+            placeholder={t('codePlaceholder')}
+            className="h-10 flex-1"
+            value={emailCode}
+            onChange={(e) => setEmailCode(e.target.value)}
+          />
           <Button
             type="button"
             variant="outline"
-            className="shrink-0"
+            className="h-10 shrink-0"
             disabled={sendingEmail || emailCountdown > 0}
             onClick={onSendEmailCode}
           >
@@ -164,8 +160,8 @@ export function EmailCodeLoginForm({
         </div>
       </div>
       {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
-      <Button type="submit" className="w-full" disabled={emailSubmitting || !agreed}>
-        {emailSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+      <Button type="submit" className="h-10 w-full" disabled={emailSubmitting || !agreed}>
+        {emailSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('loginBtn')}
       </Button>
     </form>
