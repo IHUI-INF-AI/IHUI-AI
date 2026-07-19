@@ -62,7 +62,7 @@ export function useWorkflowMachine<M extends AnyStateMachine>(
     (event: { type: EventFromLogic<M>['type'] }): boolean => {
       const actor = actorRef.current
       if (!actor) return false
-      const snap = actor.getSnapshot()
+      const snap = actor.getSnapshot() as unknown as { value: string | object } | undefined
       if (!snap) return false
       const stateValue = snap.value
       if (typeof stateValue !== 'string') {
