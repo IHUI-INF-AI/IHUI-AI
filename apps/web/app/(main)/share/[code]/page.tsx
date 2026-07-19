@@ -22,7 +22,7 @@ export default function ShareCodePage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="mt-4 text-sm text-muted-foreground">加载中...</p>
       </div>
@@ -31,7 +31,7 @@ export default function ShareCodePage() {
 
   if (error || !data) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-10 text-center">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center bg-background px-10 text-center">
         <AlertCircle className="mb-6 h-16 w-16 text-muted-foreground/50" />
         <p className="mb-8 text-sm text-muted-foreground">
           {(error as Error)?.message || '分享链接无效'}
