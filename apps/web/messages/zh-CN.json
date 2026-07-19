@@ -963,18 +963,18 @@
     }
   },
   "chat": {
-    "title": "AI 对话",
+    "title": "AI 任务",
     "placeholder": "详细描述需求，输入 / 调用技能、插件、MCP（如 /goal /loop）",
     "send": "发送",
     "stop": "停止生成",
-    "clear": "清空对话",
-    "clearConfirm": "确定清空当前对话吗？",
+    "clear": "清空任务",
+    "clearConfirm": "确定清空当前任务吗？",
     "model": "模型",
-    "empty": "开始新的对话",
-    "emptyHint": "在下方输入消息，与 AI 开始对话",
+    "empty": "开始新的任务",
+    "emptyHint": "在下方输入消息，与 AI 开始任务",
     "promptTemplates": "常用模板",
-    "tplSummary": "总结对话",
-    "tplSummaryContent": "请总结以上对话内容，提炼关键信息",
+    "tplSummary": "总结任务",
+    "tplSummaryContent": "请总结以上任务内容，提炼关键信息",
     "tplTranslate": "翻译为英文",
     "tplTranslateContent": "请将以下内容翻译为英文：",
     "tplExplain": "解释概念",
@@ -985,12 +985,13 @@
     "tplPolishContent": "请润色以下文本，使其更专业流畅：",
     "history": "历史记录",
     "assistant": "AI 助手",
-    "loading": "加载会话中...",
+    "loading": "加载任务中...",
     "enterToSend": "Enter 发送 · Shift+Enter 换行",
     "generating": "生成中",
     "me": "我",
     "promptTemplate": "提示词模板",
     "addContextReference": "添加为上下文引用",
+    "addContextHint": "添加上下文文件或引用",
     "attachFile": "添加附件(图片/视频/文件)",
     "slashCommand": "调用命令与技能(/)",
     "mention": "提及文件/技能/MCP/插件(@)",
@@ -8526,6 +8527,337 @@
       },
       "gemini-2-flash": {
         "description": "超长上下文多模态"
+      }
+    },
+    "nav": {
+      "subtitle": "AI 模型聚合平台",
+      "groups": {
+        "main": "主要功能",
+        "finance": "统计财务",
+        "resources": "资源中心"
+      },
+      "overview": "概览",
+      "market": "模型市场",
+      "keys": "API 令牌",
+      "logs": "调用日志",
+      "usage": "用量统计",
+      "billing": "财务账单",
+      "redeem": "兑换码",
+      "referral": "邀请奖励",
+      "openclaw": "OpenClaw 部署",
+      "apiDocs": "API 文档",
+      "skills": "Skills 市场",
+      "contact": "联系我们"
+    },
+    "market": {
+      "searchPlaceholder": "模糊搜索模型名称",
+      "allCapabilities": "全部能力",
+      "resultCount": "共 {count} / {total} 个模型",
+      "empty": "未找到匹配的模型",
+      "inputPrice": "输入价",
+      "outputPrice": "输出价",
+      "defaultDescription": "厂商提供的 AI 模型服务",
+      "tryNow": "立即体验"
+    },
+    "overview": {
+      "title": "控制台概览",
+      "subtitle": "查看您的账户、调用和消费情况",
+      "stats": {
+        "balance": "账户余额",
+        "todayCalls": "今日调用",
+        "todayCost": "今日消费",
+        "activeModels": "活跃模型"
+      },
+      "quickActions": {
+        "title": "快速操作",
+        "createKey": "创建令牌",
+        "browseModels": "浏览模型",
+        "viewUsage": "查看用量",
+        "recharge": "立即充值"
+      },
+      "recentCalls": {
+        "title": "最近调用",
+        "time": "时间",
+        "model": "模型",
+        "tokens": "Tokens",
+        "cost": "消费",
+        "status": "状态",
+        "statusLabels": {
+          "success": "成功",
+          "failed": "失败"
+        }
+      }
+    },
+    "keys": {
+      "title": "API 令牌",
+      "subtitle": "管理用于调用 API 的访问令牌",
+      "create": "创建令牌",
+      "listTitle": "令牌列表",
+      "copy": "复制",
+      "delete": "删除",
+      "table": {
+        "name": "名称",
+        "key": "Key",
+        "usage": "已用 / 总额",
+        "createdAt": "创建时间",
+        "status": "状态",
+        "actions": "操作"
+      },
+      "statusLabels": {
+        "active": "使用中",
+        "expired": "已用尽"
+      }
+    },
+    "logs": {
+      "title": "调用日志",
+      "subtitle": "查看所有 API 调用记录",
+      "filterTitle": "筛选",
+      "filterModel": "模型名称",
+      "filterToken": "令牌",
+      "filterStatus": "状态",
+      "applyFilter": "应用筛选",
+      "listTitle": "日志列表",
+      "table": {
+        "time": "时间",
+        "model": "模型",
+        "token": "令牌",
+        "inputTokens": "输入 Tokens",
+        "outputTokens": "输出 Tokens",
+        "cost": "消费",
+        "duration": "耗时",
+        "status": "状态"
+      },
+      "statusLabels": {
+        "success": "成功",
+        "failed": "失败"
+      }
+    },
+    "usage": {
+      "title": "用量统计",
+      "subtitle": "按时间维度查看用量和消费",
+      "ranges": {
+        "today": "今日",
+        "7d": "7 天",
+        "30d": "30 天",
+        "90d": "90 天"
+      },
+      "summary": {
+        "calls": "总调用次数",
+        "tokens": "Tokens 总量",
+        "cost": "总消费",
+        "avgLatency": "平均延迟"
+      },
+      "byModel": {
+        "title": "按模型分组",
+        "model": "模型",
+        "calls": "调用次数",
+        "tokens": "Tokens",
+        "cost": "消费",
+        "share": "占比"
+      }
+    },
+    "billing": {
+      "title": "财务账单",
+      "subtitle": "管理充值、账单和套餐",
+      "currentBalance": "当前余额",
+      "recharge": "立即充值",
+      "monthConsume": "本月消费",
+      "totalRecharge": "累计充值",
+      "packages": {
+        "title": "充值套餐",
+        "starter": "入门包",
+        "starterBonus": "送 10% 额度",
+        "pro": "专业包",
+        "proBonus": "送 20% 额度",
+        "enterprise": "企业包",
+        "enterpriseBonus": "送 30% 额度",
+        "cta": "立即充值",
+        "recommended": "推荐",
+        "once": "一次性"
+      },
+      "transactions": {
+        "title": "交易记录",
+        "id": "订单号",
+        "type": "类型",
+        "amount": "金额",
+        "balance": "余额",
+        "time": "时间",
+        "status": "状态",
+        "types": {
+          "recharge": "充值",
+          "consume": "消费"
+        },
+        "statusLabels": {
+          "success": "成功"
+        }
+      }
+    },
+    "redeem": {
+      "title": "兑换码",
+      "subtitle": "使用兑换码充值账户余额",
+      "form": {
+        "title": "兑换码",
+        "placeholder": "请输入兑换码",
+        "submit": "立即兑换",
+        "tip": "兑换码区分大小写,请仔细核对后再提交"
+      },
+      "history": {
+        "title": "兑换记录",
+        "code": "兑换码",
+        "amount": "金额",
+        "time": "兑换时间",
+        "status": "状态",
+        "statusLabels": {
+          "success": "兑换成功",
+          "failed": "已失效"
+        }
+      }
+    },
+    "referral": {
+      "title": "邀请奖励",
+      "subtitle": "邀请好友注册,双方均可获得奖励",
+      "link": {
+        "title": "我的邀请链接",
+        "tip": "分享您的专属邀请链接给好友",
+        "copy": "复制链接",
+        "reward": "好友注册并消费满 ¥10 后,您将获得 {amount} 奖励"
+      },
+      "stats": {
+        "invited": "已邀请",
+        "activated": "已激活",
+        "reward": "累计奖励"
+      },
+      "list": {
+        "title": "邀请记录",
+        "user": "用户",
+        "joined": "注册时间",
+        "reward": "奖励",
+        "status": "状态",
+        "statusLabels": {
+          "activated": "已激活",
+          "pending": "待激活"
+        }
+      }
+    },
+    "openclaw": {
+      "title": "OpenClaw 一键部署",
+      "subtitle": "开源 AI 网关,支持多模型路由、负载均衡和缓存加速",
+      "hero": {
+        "title": "OpenClaw - 让 AI 部署更简单",
+        "desc": "OpenClaw 是一款开源的 AI 网关,提供多模型路由、负载均衡、缓存加速、监控告警等企业级特性",
+        "deploy": "立即部署",
+        "docs": "查看文档"
+      },
+      "featuresTitle": "核心特性",
+      "features": {
+        "oneClick": "一键部署,无需配置即可使用",
+        "multiModel": "多模型路由,支持 80+ AI 厂商",
+        "loadBalance": "智能负载均衡,自动故障转移",
+        "cache": "请求缓存,降低 60% 重复调用成本",
+        "monitor": "实时监控,可观测性完整",
+        "scale": "弹性扩缩容,支持千万级 QPS"
+      },
+      "stepsTitle": "部署步骤",
+      "steps": [
+        { "title": "安装 CLI", "desc": "通过一行命令安装 OpenClaw CLI 工具" },
+        { "title": "登录认证", "desc": "使用您的 API 令牌登录 OpenClaw" },
+        { "title": "配置模型", "desc": "选择需要部署的模型和区域" },
+        { "title": "一键启动", "desc": "执行部署命令,等待服务就绪" }
+      ],
+      "cli": {
+        "title": "命令行示例"
+      }
+    },
+    "apiDocs": {
+      "title": "API 文档",
+      "subtitle": "完整的 API 接入文档和示例",
+      "auth": {
+        "title": "鉴权方式",
+        "desc": "所有 API 请求需在 Header 中携带 Bearer Token,Token 可在 API 令牌页面创建"
+      },
+      "endpoints": {
+        "title": "接口列表",
+        "method": "方法",
+        "path": "路径",
+        "desc": "说明",
+        "chat": "对话补全",
+        "complete": "文本补全",
+        "list": "模型列表",
+        "embed": "向量嵌入",
+        "image": "图像生成",
+        "audio": "语音合成"
+      },
+      "example": {
+        "title": "调用示例",
+        "curl": "cURL",
+        "python": "Python"
+      }
+    },
+    "skills": {
+      "title": "Skills 市场",
+      "subtitle": "浏览和安装 Skills 扩展能力",
+      "searchPlaceholder": "搜索 Skills...",
+      "featuredTitle": "精选 Skills",
+      "allTitle": "全部 Skills",
+      "featured": "精选",
+      "install": "安装",
+      "installs": "{count} 安装",
+      "categories": {
+        "weather": "天气",
+        "search": "搜索",
+        "code": "代码",
+        "productivity": "效率",
+        "communication": "通信",
+        "data": "数据",
+        "media": "媒体",
+        "system": "系统"
+      },
+      "items": {
+        "weather": { "desc": "查询全球任意地点的实时天气和未来预报" },
+        "nodeConnect": { "desc": "通过 MCP 协议连接外部节点和服务" },
+        "healthcheck": { "desc": "对服务进行健康检查,自动告警" },
+        "webSearch": { "desc": "联网搜索最新信息,支持多引擎" },
+        "codeRunner": { "desc": "在线运行代码,支持 30+ 编程语言" },
+        "pdfToolkit": { "desc": "PDF 合并、拆分、转换、压缩工具集" },
+        "emailSender": { "desc": "通过 SMTP 发送邮件,支持模板" },
+        "dataViz": { "desc": "数据可视化,生成多种图表" },
+        "imageGen": { "desc": "AI 图像生成,支持多种风格" },
+        "audioTranscribe": { "desc": "音频转文字,支持多语言" },
+        "calendar": { "desc": "日程管理,事件提醒" },
+        "databaseQuery": { "desc": "数据库查询,支持 SQL 和 NoSQL" }
+      }
+    },
+    "contact": {
+      "title": "联系我们",
+      "subtitle": "如有任何问题,欢迎通过以下方式联系我们",
+      "channels": {
+        "qq": "QQ 群",
+        "qqDesc": "加入官方 QQ 群交流",
+        "wechat": "微信",
+        "wechatDesc": "添加官方微信咨询",
+        "email": "邮箱",
+        "emailDesc": "邮件咨询,工作日 24 小时回复",
+        "phone": "电话",
+        "phoneDesc": "7x24 小时服务热线"
+      },
+      "form": {
+        "title": "在线咨询",
+        "name": "您的姓名",
+        "namePlaceholder": "请输入您的姓名",
+        "email": "邮箱",
+        "emailPlaceholder": "请输入您的邮箱",
+        "subject": "主题",
+        "subjectPlaceholder": "请输入咨询主题",
+        "message": "内容",
+        "messagePlaceholder": "请详细描述您的问题...",
+        "submit": "提交咨询"
+      },
+      "hours": {
+        "title": "服务时间",
+        "weekday": "工作日",
+        "weekend": "周末",
+        "holiday": "节假日",
+        "closed": "休息"
       }
     }
   },
@@ -16070,6 +16402,8 @@
     "newConversation": "新建任务",
     "noHistory": "暂无任务",
     "emptyWorkspace": "空工作区",
+    "handleHint": "点击或向右拉出AI工作区",
+    "resizeHandleHint": "拖拽调整宽度",
     "filterByModel": "按模型筛选",
     "allModels": "所有模型",
     "today": "今天",

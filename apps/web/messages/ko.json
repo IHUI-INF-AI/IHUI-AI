@@ -991,6 +991,7 @@
     "me": "나",
     "promptTemplate": "프롬프트 템플릿",
     "addContextReference": "컨텍스트 참조로 추가",
+    "addContextHint": "컨텍스트 파일 또는 참조 추가",
     "attachFile": "첨부 파일 추가(이미지/동영상/파일)",
     "slashCommand": "명령/스킬 호출(/)",
     "mention": "파일/스킬/MCP/플러그인 언급(@)",
@@ -8520,6 +8521,337 @@
       },
       "gemini-2-flash": {
         "description": "초장문 컨텍스트 멀티모달"
+      }
+    },
+    "nav": {
+      "subtitle": "AI 모델 통합 플랫폼",
+      "groups": {
+        "main": "주요 기능",
+        "finance": "통계 재무",
+        "resources": "리소스 센터"
+      },
+      "overview": "개요",
+      "market": "모델 마켓",
+      "keys": "API 키",
+      "logs": "호출 로그",
+      "usage": "사용량 통계",
+      "billing": "재무 청구서",
+      "redeem": "상품권 코드",
+      "referral": "초대 보상",
+      "openclaw": "OpenClaw 배포",
+      "apiDocs": "API 문서",
+      "skills": "Skills 마켓",
+      "contact": "문의하기"
+    },
+    "market": {
+      "searchPlaceholder": "모델 이름 퍼지 검색",
+      "allCapabilities": "모든 기능",
+      "resultCount": "총 {count} / {total} 모델",
+      "empty": "일치하는 모델을 찾을 수 없습니다",
+      "inputPrice": "입력 가격",
+      "outputPrice": "출력 가격",
+      "defaultDescription": "벤더가 제공하는 AI 모델 서비스",
+      "tryNow": "지금 체험"
+    },
+    "overview": {
+      "title": "콘솔 개요",
+      "subtitle": "계정, 호출 및 소비 현황을 확인하세요",
+      "stats": {
+        "balance": "계정 잔액",
+        "todayCalls": "오늘 호출",
+        "todayCost": "오늘 소비",
+        "activeModels": "활성 모델"
+      },
+      "quickActions": {
+        "title": "빠른 작업",
+        "createKey": "키 생성",
+        "browseModels": "모델 탐색",
+        "viewUsage": "사용량 보기",
+        "recharge": "즉시 충전"
+      },
+      "recentCalls": {
+        "title": "최근 호출",
+        "time": "시간",
+        "model": "모델",
+        "tokens": "Tokens",
+        "cost": "소비",
+        "status": "상태",
+        "statusLabels": {
+          "success": "성공",
+          "failed": "실패"
+        }
+      }
+    },
+    "keys": {
+      "title": "API 키",
+      "subtitle": "API 호출에 사용되는 액세스 키 관리",
+      "create": "키 생성",
+      "listTitle": "키 목록",
+      "copy": "복사",
+      "delete": "삭제",
+      "table": {
+        "name": "이름",
+        "key": "Key",
+        "usage": "사용량 / 총량",
+        "createdAt": "생성 시간",
+        "status": "상태",
+        "actions": "작업"
+      },
+      "statusLabels": {
+        "active": "사용 중",
+        "expired": "소진됨"
+      }
+    },
+    "logs": {
+      "title": "호출 로그",
+      "subtitle": "모든 API 호출 기록을 확인하세요",
+      "filterTitle": "필터",
+      "filterModel": "모델 이름",
+      "filterToken": "토큰",
+      "filterStatus": "상태",
+      "applyFilter": "필터 적용",
+      "listTitle": "로그 목록",
+      "table": {
+        "time": "시간",
+        "model": "모델",
+        "token": "토큰",
+        "inputTokens": "입력 Tokens",
+        "outputTokens": "출력 Tokens",
+        "cost": "소비",
+        "duration": "소요 시간",
+        "status": "상태"
+      },
+      "statusLabels": {
+        "success": "성공",
+        "failed": "실패"
+      }
+    },
+    "usage": {
+      "title": "사용량 통계",
+      "subtitle": "시간별로 사용량과 소비를 확인하세요",
+      "ranges": {
+        "today": "오늘",
+        "7d": "7일",
+        "30d": "30일",
+        "90d": "90일"
+      },
+      "summary": {
+        "calls": "총 호출 수",
+        "tokens": "총 Tokens",
+        "cost": "총 소비",
+        "avgLatency": "평균 지연"
+      },
+      "byModel": {
+        "title": "모델별",
+        "model": "모델",
+        "calls": "호출 수",
+        "tokens": "Tokens",
+        "cost": "소비",
+        "share": "비율"
+      }
+    },
+    "billing": {
+      "title": "재무 청구서",
+      "subtitle": "충전, 청구서 및 패키지를 관리하세요",
+      "currentBalance": "현재 잔액",
+      "recharge": "즉시 충전",
+      "monthConsume": "이번 달 소비",
+      "totalRecharge": "누적 충전",
+      "packages": {
+        "title": "충전 패키지",
+        "starter": "스타터",
+        "starterBonus": "10% 보너스",
+        "pro": "프로",
+        "proBonus": "20% 보너스",
+        "enterprise": "엔터프라이즈",
+        "enterpriseBonus": "30% 보너스",
+        "cta": "즉시 충전",
+        "recommended": "추천",
+        "once": "1회성"
+      },
+      "transactions": {
+        "title": "거래 기록",
+        "id": "주문 번호",
+        "type": "유형",
+        "amount": "금액",
+        "balance": "잔액",
+        "time": "시간",
+        "status": "상태",
+        "types": {
+          "recharge": "충전",
+          "consume": "소비"
+        },
+        "statusLabels": {
+          "success": "성공"
+        }
+      }
+    },
+    "redeem": {
+      "title": "상품권 코드",
+      "subtitle": "상품권 코드로 계정 잔액을 충전하세요",
+      "form": {
+        "title": "상품권 코드",
+        "placeholder": "상품권 코드를 입력하세요",
+        "submit": "즉시 교환",
+        "tip": "상품권 코드는 대소문자를 구분합니다. 제출 전에 신중하게 확인하세요."
+      },
+      "history": {
+        "title": "교환 기록",
+        "code": "코드",
+        "amount": "금액",
+        "time": "교환 시간",
+        "status": "상태",
+        "statusLabels": {
+          "success": "교환 성공",
+          "failed": "만료됨"
+        }
+      }
+    },
+    "referral": {
+      "title": "초대 보상",
+      "subtitle": "친구를 초대하면 양쪽 모두 보상을 받을 수 있습니다",
+      "link": {
+        "title": "내 초대 링크",
+        "tip": "전용 초대 링크를 친구에게 공유하세요",
+        "copy": "링크 복사",
+        "reward": "친구가 가입하고 ¥10 이상 소비하면 {amount} 보상을 받습니다"
+      },
+      "stats": {
+        "invited": "초대됨",
+        "activated": "활성화됨",
+        "reward": "누적 보상"
+      },
+      "list": {
+        "title": "초대 기록",
+        "user": "사용자",
+        "joined": "가입 시간",
+        "reward": "보상",
+        "status": "상태",
+        "statusLabels": {
+          "activated": "활성화됨",
+          "pending": "활성화 대기"
+        }
+      }
+    },
+    "openclaw": {
+      "title": "OpenClaw 원클릭 배포",
+      "subtitle": "오픈소스 AI 게이트웨이, 다중 모델 라우팅, 로드 밸런싱 및 캐시 가속 지원",
+      "hero": {
+        "title": "OpenClaw - AI 배포를 더 간편하게",
+        "desc": "OpenClaw는 오픈소스 AI 게이트웨이로, 다중 모델 라우팅, 로드 밸런싱, 캐시 가속, 모니터링 알림 등 엔터프라이즈급 기능을 제공합니다",
+        "deploy": "즉시 배포",
+        "docs": "문서 보기"
+      },
+      "featuresTitle": "핵심 기능",
+      "features": {
+        "oneClick": "원클릭 배포, 설정 없이 바로 사용 가능",
+        "multiModel": "다중 모델 라우팅, 80+ AI 벤더 지원",
+        "loadBalance": "지능형 로드 밸런싱, 자동 장애 조치",
+        "cache": "요청 캐시, 중복 호출 비용 60% 절감",
+        "monitor": "실시간 모니터링, 완전한 관측 가능성",
+        "scale": "탄력적 스케일링, 수천만 QPS 지원"
+      },
+      "stepsTitle": "배포 단계",
+      "steps": [
+        { "title": "CLI 설치", "desc": "한 줄 명령으로 OpenClaw CLI 도구 설치" },
+        { "title": "로그인 인증", "desc": "API 키로 OpenClaw에 로그인" },
+        { "title": "모델 설정", "desc": "배포할 모델과 리전 선택" },
+        { "title": "원클릭 시작", "desc": "배포 명령을 실행하고 서비스 준비를 대기" }
+      ],
+      "cli": {
+        "title": "명령줄 예시"
+      }
+    },
+    "apiDocs": {
+      "title": "API 문서",
+      "subtitle": "완전한 API 통합 문서와 예시",
+      "auth": {
+        "title": "인증 방식",
+        "desc": "모든 API 요청은 Header에 Bearer Token을 포함해야 합니다. Token은 API 키 페이지에서 생성할 수 있습니다."
+      },
+      "endpoints": {
+        "title": "엔드포인트 목록",
+        "method": "메서드",
+        "path": "경로",
+        "desc": "설명",
+        "chat": "채팅 완성",
+        "complete": "텍스트 완성",
+        "list": "모델 목록",
+        "embed": "벡터 임베딩",
+        "image": "이미지 생성",
+        "audio": "오디오 합성"
+      },
+      "example": {
+        "title": "호출 예시",
+        "curl": "cURL",
+        "python": "Python"
+      }
+    },
+    "skills": {
+      "title": "Skills 마켓",
+      "subtitle": "Skills를 탐색하고 설치하여 기능을 확장하세요",
+      "searchPlaceholder": "Skills 검색...",
+      "featuredTitle": "추천 Skills",
+      "allTitle": "전체 Skills",
+      "featured": "추천",
+      "install": "설치",
+      "installs": "{count} 설치",
+      "categories": {
+        "weather": "날씨",
+        "search": "검색",
+        "code": "코드",
+        "productivity": "생산성",
+        "communication": "통신",
+        "data": "데이터",
+        "media": "미디어",
+        "system": "시스템"
+      },
+      "items": {
+        "weather": { "desc": "전 세계 모든 위치의 실시간 날씨와 향후 예보 조회" },
+        "nodeConnect": { "desc": "MCP 프로토콜로 외부 노드와 서비스에 연결" },
+        "healthcheck": { "desc": "서비스 상태 확인, 자동 알림" },
+        "webSearch": { "desc": "인터넷에서 최신 정보 검색, 다중 엔진 지원" },
+        "codeRunner": { "desc": "온라인 코드 실행, 30+ 프로그래밍 언어 지원" },
+        "pdfToolkit": { "desc": "PDF 병합, 분할, 변환, 압축 툴킷" },
+        "emailSender": { "desc": "SMTP로 이메일 발송, 템플릿 지원" },
+        "dataViz": { "desc": "데이터 시각화, 다양한 차트 생성" },
+        "imageGen": { "desc": "AI 이미지 생성, 다양한 스타일 지원" },
+        "audioTranscribe": { "desc": "오디오를 텍스트로 변환, 다국어 지원" },
+        "calendar": { "desc": "일정 관리, 이벤트 알림" },
+        "databaseQuery": { "desc": "데이터베이스 쿼리, SQL 및 NoSQL 지원" }
+      }
+    },
+    "contact": {
+      "title": "문의하기",
+      "subtitle": "질문이 있으시면 아래 방법으로 문의해 주세요",
+      "channels": {
+        "qq": "QQ 그룹",
+        "qqDesc": "공식 QQ 그룹에 가입하여 소통",
+        "wechat": "WeChat",
+        "wechatDesc": "공식 WeChat을 추가하여 문의",
+        "email": "이메일",
+        "emailDesc": "이메일 문의, 영업일 24시간 이내 회신",
+        "phone": "전화",
+        "phoneDesc": "24시간 연중무휴 서비스 핫라인"
+      },
+      "form": {
+        "title": "온라인 상담",
+        "name": "이름",
+        "namePlaceholder": "이름을 입력하세요",
+        "email": "이메일",
+        "emailPlaceholder": "이메일을 입력하세요",
+        "subject": "제목",
+        "subjectPlaceholder": "문의 제목을 입력하세요",
+        "message": "내용",
+        "messagePlaceholder": "문제를 자세히 설명해 주세요...",
+        "submit": "문의 제출"
+      },
+      "hours": {
+        "title": "서비스 시간",
+        "weekday": "영업일",
+        "weekend": "주말",
+        "holiday": "공휴일",
+        "closed": "휴무"
       }
     }
   },
@@ -16088,6 +16420,8 @@
     "newConversation": "새 대화",
     "noHistory": "없음채팅",
     "emptyWorkspace": "빈 작업공간",
+    "handleHint": "클릭하거나 오른쪽으로 드래그해 AI 작업공간 열기",
+    "resizeHandleHint": "드래그하여 너비 조정",
     "filterByModel": "모델필터",
     "allModels": "모델",
     "today": "오늘",
