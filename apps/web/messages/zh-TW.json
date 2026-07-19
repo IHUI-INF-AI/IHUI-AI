@@ -2526,6 +2526,22 @@
       "deleteTitle": "刪除標籤",
       "deleteConfirm": "該操作不可撤銷，請確認是否刪除該標籤？關聯的資源將自動解除標籤關聯。"
     },
+    "validation": {
+      "required": "此項為必填",
+      "min": "最小值為 {min}",
+      "max": "最大值為 {max}",
+      "minLength": "最少 {min} 個字元",
+      "maxLength": "最多 {max} 個字元",
+      "email": "請輸入有效的電子郵件",
+      "url": "請輸入有效的 URL",
+      "uuid": "請輸入有效的 UUID",
+      "number": "必須為數字",
+      "integer": "必須為整數",
+      "positive": "必須為正數",
+      "pattern": "格式不正確",
+      "enum": "請選擇有效選項",
+      "custom": "值無效"
+    },
     "settings": {
       "title": "系統設置",
       "subtitle": "管理平臺系統配置",
@@ -24498,5 +24514,99 @@
       "subscribe": "訂閱每日簡報",
       "community": "加入智匯 AI 社群"
     }
+  },
+  "workflow": {
+    "approval": {
+      "states": {
+        "draft": "草稿",
+        "submitted": "已提交",
+        "approved": "已通過",
+        "rejected": "已駁回",
+        "cancelled": "已撤銷"
+      },
+      "events": {
+        "SUBMIT": "提交",
+        "APPROVE": "通過",
+        "REJECT": "駁回",
+        "REVOKE": "撤回",
+        "RESUBMIT": "重新提交",
+        "CANCEL": "取消"
+      }
+    },
+    "refund": {
+      "states": {
+        "pending": "待處理",
+        "reviewing": "審核中",
+        "refunding": "退款中",
+        "refunded": "已退款",
+        "rejected": "已拒絕",
+        "failed": "失敗",
+        "cancelled": "已取消"
+      },
+      "events": {
+        "REVIEW": "審核",
+        "APPROVE_REFUND": "批准退款",
+        "REJECT": "拒絕",
+        "REFUND_SUCCESS": "退款成功",
+        "REFUND_FAIL": "退款失敗",
+        "RETRY": "重試",
+        "CANCEL": "取消"
+      }
+    },
+    "withdrawal": {
+      "states": {
+        "requested": "已申請",
+        "verifying": "審核中",
+        "approved": "已批准",
+        "paying": "付款中",
+        "paid": "已到帳",
+        "rejected": "已拒絕",
+        "failed": "失敗",
+        "cancelled": "已取消"
+      },
+      "events": {
+        "AUTO_APPROVE": "自動審核",
+        "START_VERIFY": "開始審核",
+        "APPROVE": "批准",
+        "REJECT": "拒絕",
+        "PAY": "付款",
+        "PAY_SUCCESS": "付款成功",
+        "PAY_FAIL": "付款失敗",
+        "RETRY": "重試",
+        "CANCEL": "取消"
+      }
+    },
+    "ticket": {
+      "states": {
+        "open": "待分配",
+        "assigned": "已分配",
+        "in_progress": "處理中",
+        "resolved": "已解決",
+        "closed": "已關閉",
+        "rejected": "已拒絕"
+      },
+      "events": {
+        "ASSIGN": "分配",
+        "START_WORK": "開始處理",
+        "RESOLVE": "標記解決",
+        "REOPEN": "重新開啟",
+        "CLOSE": "關閉",
+        "REJECT": "拒絕"
+      }
+    }
+  },
+  "chart": {
+    "type": {
+      "line": "折線圖",
+      "bar": "柱狀圖",
+      "pie": "圓餅圖",
+      "area": "面積圖"
+    },
+    "loading": "載入中…",
+    "noData": "暫無資料",
+    "seriesLabel": "圖例",
+    "xAxisLabel": "橫軸",
+    "yAxisLabel": "縱軸",
+    "valueSuffix": ""
   }
 }
