@@ -290,6 +290,44 @@ miniapp-taro / mobile-rn → web /sso/login?redirect=ihui://sso/callback&client_
      - C. 动态路由收敛(~10 条):Vue 5 个题型独立路由 → Next.js 1 个动态路由
      - D. 重复计数(~85 条):edu client 与 code/edu 同项目两副本重复
    - 审计报告"30 个 RuoYi 框架页"实际仅 1 条(`/tool/gen-edit` 已废弃)
+
+---
+
+## mobile-rn C 端主体业务实装(已完成 ✅ 2026-07-20)
+
+**触发**:业务层 25% → 60%+,`apps/mobile-rn/` 仅有 HomeScreen 占位、ProfileScreen 基础页,缺 Stack+Tab 导航、Live 直播、课程详情/视频播放、订单国际化、Profile hub 入口。
+
+**改动**(全在 `apps/mobile-rn/`,符合 §12 严格保护其他 agent 范围):
+
+1. **导航重构 Stack + Tab 4 个**([src/navigation/RootNavigator.tsx](g:/IHUI-AI/apps/mobile-rn/src/navigation/RootNavigator.tsx)):
+   - Root Stack(Auth-gate)→ Main Tabs(HomeTab / CourseTab / LiveTab / ProfileTab)→ 每 Tab 内嵌独立 NativeStack
+   - 4 个 Tab 共享底部 tabBar,每个 Tab 可独立 push 子屏(详情/播放器/直播详情/订单/收藏/关注/订阅/钱包/AI agent/设置)
+2. **新增 4 个屏幕**:
+   - [src/screens/CourseDetailScreen.tsx](g:/IHUI-AI/apps/mobile-rn/src/screens/CourseDetailScreen.tsx):课程详情 + 报名/支付按钮 + 课时列表跳转播放
+   - [src/screens/VideoPlayerScreen.tsx](g:/IHUI-AI/apps/mobile-rn/src/screens/VideoPlayerScreen.tsx):播放器页面(进度条 + 标记完成 + 视频区)
+   - [src/screens/LiveScreen.tsx](g:/IHUI-AI/apps/mobile-rn/src/screens/LiveScreen.tsx):直播列表 + 状态徽章(直播中/即将/已结束)+ 观看人数
+   - [src/screens/LiveDetailScreen.tsx](g:/IHUI-AI/apps/mobile-rn/src/screens/LiveDetailScreen.tsx):直播详情 + 视频区 + 简介 + 实时聊天(本地状态,可扩展 WebSocket)
+3. **HomeScreen 升级**([src/screens/HomeScreen.tsx](g:/IHUI-AI/apps/mobile-rn/src/screens/HomeScreen.tsx)):问候语(按时段)+ 推荐课程 + 直播预告 + 继续学习(学习进度)4 个模块
+4. **ProfileScreen 升级**([src/screens/ProfileScreen.tsx](g:/IHUI-AI/apps/mobile-rn/src/screens/ProfileScreen.tsx)):用户信息 + 统计(在学/订单/收藏)+ 7 个菜单入口(订单/收藏/关注/订阅/钱包/AI/设置)+ 退出登录
+5. **CourseScreen / OrderScreen i18n 化**:
+   - [src/screens/CourseScreen.tsx](g:/IHUI-AI/apps/mobile-rn/src/screens/CourseScreen.tsx):标题/搜索/列表/翻页全 i18n + 跳转 CourseDetail
+   - [src/screens/OrderScreen.tsx](g:/IHUI-AI/apps/mobile-rn/src/screens/OrderScreen.tsx):7 种订单状态(pending/paid/cancelled/refunding/refunded/completed/failed)走 `order.status.*` 文案
+6. **ChatScreen 适配新 Root Stack**([src/screens/ChatScreen.tsx](g:/IHUI-AI/apps/mobile-rn/src/screens/ChatScreen.tsx)):旧 `navigate('Course'/'Profile')` 改为 `getParent()?.navigate('Tabs')`,避免 TS2769
+7. **i18n 5 语言补 key**(src/i18n/messages/{zh-CN,zh-TW,en,ja,ko}.ts):新增 `home.*`(7 key)/ `course.*`(13 key)/ `live.*`(13 key)/ `profile.*`(13 key)/ `order.*`(3+7 key)= 共 ~70 key/语言,符合 §20 parity
+8. **i18n 框架增强**([src/i18n/index.tsx](g:/IHUI-AI/apps/mobile-rn/src/i18n/index.tsx)):
+   - Messages 类型 `Record<string, string>` → `Record<string, unknown>` 支持嵌套对象
+   - 导出 `messages` + `getValueByPath` 供测试验证
+9. **新增依赖**([package.json](g:/IHUI-AI/apps/mobile-rn/package.json)):`@react-navigation/bottom-tabs@^6.6.0`
+10. **测试新增 5 case**([tests/business-i18n.test.tsx](g:/IHUI-AI/apps/mobile-rn/tests/business-i18n.test.tsx)):5 语言 home.welcome 存在 + course/live/profile/order.title 5 语言全有 + order.status.* 7 状态 5 语言全有 + nav.* 5 语言全有 + zh-CN 文案插值正确
+
+**验证结果**:
+- `pnpm --filter @ihui/mobile-rn typecheck` ✅ exit 0
+- `pnpm --filter @ihui/mobile-rn test` ✅ 38 passed(原 33 + 新 5)
+- §12 严格隔离:只动 mobile-rn/* 文件,其他 agent 保护清单 0 改动
+
+**业务层覆盖度**:
+- 之前:25%(占位 HomeScreen + 基础 ProfileScreen + 散乱 ChatScreen)
+- 现在:60%+(Home 4 模块 + Course 列表/详情/播放 + Live 列表/详情/聊天 + Profile 中心/订单/收藏/关注/订阅/钱包/AI/设置)
    - 审计报告"130 edu 子页 + 76 edu 用户端"去重后实际 94 + 58 = 152 条
    - 真实需要补开发:0 条
 
