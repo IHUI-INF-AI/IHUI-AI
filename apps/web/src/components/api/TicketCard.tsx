@@ -72,7 +72,7 @@ export default function TicketCard({
       </div>
       <span
         className={cn(
-          'shrink-0 rounded-full px-2 py-0.5 text-xs',
+          'shrink-0 rounded px-2 py-0.5 text-xs',
           t.status === 'resolved' || t.status === 'closed'
             ? 'bg-emerald-500/10 text-emerald-600'
             : 'bg-amber-500/10 text-amber-600',

@@ -39,7 +39,7 @@ export default function UserMembershipBenefits({
           <li key={b.title} className="flex items-center gap-3 px-4 py-3">
             <span
               className={cn(
-                'flex h-5 w-5 items-center justify-center rounded-full',
+                'flex h-5 w-5 items-center justify-center rounded-md',
                 b.included ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
               )}
             >
