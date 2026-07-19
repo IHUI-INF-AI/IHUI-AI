@@ -991,6 +991,7 @@
     "me": "Me",
     "promptTemplate": "Prompt Template",
     "addContextReference": "Add as Context Reference",
+    "addContextHint": "Add context file or reference",
     "attachFile": "Add attachment (image/video/file)",
     "slashCommand": "Invoke command/skill (/)",
     "mention": "Mention file/skill/MCP/plugin (@)",
@@ -8525,6 +8526,344 @@
       },
       "gemini-2-flash": {
         "description": "Ultra-long context multimodal"
+      }
+    },
+    "nav": {
+      "subtitle": "AI Model Aggregation Platform",
+      "groups": {
+        "main": "Main Features",
+        "finance": "Statistics & Finance",
+        "resources": "Resource Center"
+      },
+      "overview": "Overview",
+      "market": "Model Market",
+      "keys": "API Keys",
+      "logs": "Call Logs",
+      "usage": "Usage Statistics",
+      "billing": "Billing",
+      "redeem": "Redeem Code",
+      "referral": "Referral Rewards",
+      "openclaw": "OpenClaw Deployment",
+      "apiDocs": "API Docs",
+      "skills": "Skills Market",
+      "contact": "Contact Us"
+    },
+    "market": {
+      "searchPlaceholder": "Fuzzy search model name",
+      "allCapabilities": "All Capabilities",
+      "resultCount": "{count} / {total} models",
+      "empty": "No matching models found",
+      "inputPrice": "Input Price",
+      "outputPrice": "Output Price",
+      "defaultDescription": "AI model services provided by vendors",
+      "tryNow": "Try Now"
+    },
+    "overview": {
+      "title": "Console Overview",
+      "subtitle": "View your account, calls, and spending",
+      "stats": {
+        "balance": "Account Balance",
+        "todayCalls": "Today's Calls",
+        "todayCost": "Today's Spending",
+        "activeModels": "Active Models"
+      },
+      "quickActions": {
+        "title": "Quick Actions",
+        "createKey": "Create Key",
+        "browseModels": "Browse Models",
+        "viewUsage": "View Usage",
+        "recharge": "Recharge Now"
+      },
+      "recentCalls": {
+        "title": "Recent Calls",
+        "time": "Time",
+        "model": "Model",
+        "tokens": "Tokens",
+        "cost": "Cost",
+        "status": "Status",
+        "statusLabels": {
+          "success": "Success",
+          "failed": "Failed"
+        }
+      }
+    },
+    "keys": {
+      "title": "API Keys",
+      "subtitle": "Manage access keys used to call the API",
+      "create": "Create Key",
+      "listTitle": "Key List",
+      "copy": "Copy",
+      "delete": "Delete",
+      "table": {
+        "name": "Name",
+        "key": "Key",
+        "usage": "Used / Total",
+        "createdAt": "Created At",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "statusLabels": {
+        "active": "Active",
+        "expired": "Exhausted"
+      }
+    },
+    "logs": {
+      "title": "Call Logs",
+      "subtitle": "View all API call records",
+      "filterTitle": "Filter",
+      "filterModel": "Model Name",
+      "filterToken": "Token",
+      "filterStatus": "Status",
+      "applyFilter": "Apply Filter",
+      "listTitle": "Log List",
+      "table": {
+        "time": "Time",
+        "model": "Model",
+        "token": "Token",
+        "inputTokens": "Input Tokens",
+        "outputTokens": "Output Tokens",
+        "cost": "Cost",
+        "duration": "Duration",
+        "status": "Status"
+      },
+      "statusLabels": {
+        "success": "Success",
+        "failed": "Failed"
+      }
+    },
+    "usage": {
+      "title": "Usage Statistics",
+      "subtitle": "View usage and spending by time",
+      "ranges": {
+        "today": "Today",
+        "7d": "7 Days",
+        "30d": "30 Days",
+        "90d": "90 Days"
+      },
+      "summary": {
+        "calls": "Total Calls",
+        "tokens": "Total Tokens",
+        "cost": "Total Cost",
+        "avgLatency": "Avg Latency"
+      },
+      "byModel": {
+        "title": "By Model",
+        "model": "Model",
+        "calls": "Calls",
+        "tokens": "Tokens",
+        "cost": "Cost",
+        "share": "Share"
+      }
+    },
+    "billing": {
+      "title": "Billing",
+      "subtitle": "Manage recharges, bills, and packages",
+      "currentBalance": "Current Balance",
+      "recharge": "Recharge Now",
+      "monthConsume": "This Month's Spending",
+      "totalRecharge": "Total Recharge",
+      "packages": {
+        "title": "Recharge Packages",
+        "starter": "Starter",
+        "starterBonus": "+10% Bonus",
+        "pro": "Pro",
+        "proBonus": "+20% Bonus",
+        "enterprise": "Enterprise",
+        "enterpriseBonus": "+30% Bonus",
+        "cta": "Recharge Now",
+        "recommended": "Recommended",
+        "once": "One-time"
+      },
+      "transactions": {
+        "title": "Transactions",
+        "id": "Order ID",
+        "type": "Type",
+        "amount": "Amount",
+        "balance": "Balance",
+        "time": "Time",
+        "status": "Status",
+        "types": {
+          "recharge": "Recharge",
+          "consume": "Consume"
+        },
+        "statusLabels": {
+          "success": "Success"
+        }
+      }
+    },
+    "redeem": {
+      "title": "Redeem Code",
+      "subtitle": "Use a redeem code to recharge your account balance",
+      "form": {
+        "title": "Redeem Code",
+        "placeholder": "Please enter the redeem code",
+        "submit": "Redeem Now",
+        "tip": "Redeem codes are case-sensitive. Please verify carefully before submitting."
+      },
+      "history": {
+        "title": "Redeem History",
+        "code": "Code",
+        "amount": "Amount",
+        "time": "Redeem Time",
+        "status": "Status",
+        "statusLabels": {
+          "success": "Redeemed Successfully",
+          "failed": "Invalid"
+        }
+      }
+    },
+    "referral": {
+      "title": "Referral Rewards",
+      "subtitle": "Invite friends to register, both of you will receive rewards",
+      "link": {
+        "title": "My Referral Link",
+        "tip": "Share your exclusive referral link with friends",
+        "copy": "Copy Link",
+        "reward": "When a friend registers and spends ¥10 or more, you will receive {amount} reward"
+      },
+      "stats": {
+        "invited": "Invited",
+        "activated": "Activated",
+        "reward": "Total Rewards"
+      },
+      "list": {
+        "title": "Referral Records",
+        "user": "User",
+        "joined": "Joined At",
+        "reward": "Reward",
+        "status": "Status",
+        "statusLabels": {
+          "activated": "Activated",
+          "pending": "Pending"
+        }
+      }
+    },
+    "openclaw": {
+      "title": "OpenClaw One-Click Deployment",
+      "subtitle": "Open-source AI gateway, supports multi-model routing, load balancing, and caching",
+      "hero": {
+        "title": "OpenClaw - Making AI Deployment Easier",
+        "desc": "OpenClaw is an open-source AI gateway that provides multi-model routing, load balancing, caching, monitoring and alerting, and other enterprise-grade features",
+        "deploy": "Deploy Now",
+        "docs": "View Docs"
+      },
+      "featuresTitle": "Core Features",
+      "features": {
+        "oneClick": "One-click deployment, ready to use without configuration",
+        "multiModel": "Multi-model routing, supports 80+ AI providers",
+        "loadBalance": "Intelligent load balancing, automatic failover",
+        "cache": "Request caching, reduces 60% of duplicate call costs",
+        "monitor": "Real-time monitoring, full observability",
+        "scale": "Elastic scaling, supports tens of millions of QPS"
+      },
+      "stepsTitle": "Deployment Steps",
+      "steps": [
+        { "title": "Install CLI", "desc": "Install the OpenClaw CLI tool with a single command" },
+        { "title": "Login Authentication", "desc": "Log in to OpenClaw using your API key" },
+        { "title": "Configure Models", "desc": "Select the models and regions to deploy" },
+        {
+          "title": "One-Click Launch",
+          "desc": "Execute the deploy command and wait for the service to be ready"
+        }
+      ],
+      "cli": {
+        "title": "Command Line Example"
+      }
+    },
+    "apiDocs": {
+      "title": "API Documentation",
+      "subtitle": "Complete API integration documentation and examples",
+      "auth": {
+        "title": "Authentication",
+        "desc": "All API requests must include a Bearer Token in the Header. Tokens can be created on the API Keys page."
+      },
+      "endpoints": {
+        "title": "Endpoints",
+        "method": "Method",
+        "path": "Path",
+        "desc": "Description",
+        "chat": "Chat Completion",
+        "complete": "Text Completion",
+        "list": "Model List",
+        "embed": "Embeddings",
+        "image": "Image Generation",
+        "audio": "Audio Synthesis"
+      },
+      "example": {
+        "title": "Call Example",
+        "curl": "cURL",
+        "python": "Python"
+      }
+    },
+    "skills": {
+      "title": "Skills Market",
+      "subtitle": "Browse and install Skills to extend capabilities",
+      "searchPlaceholder": "Search Skills...",
+      "featuredTitle": "Featured Skills",
+      "allTitle": "All Skills",
+      "featured": "Featured",
+      "install": "Install",
+      "installs": "{count} installs",
+      "categories": {
+        "weather": "Weather",
+        "search": "Search",
+        "code": "Code",
+        "productivity": "Productivity",
+        "communication": "Communication",
+        "data": "Data",
+        "media": "Media",
+        "system": "System"
+      },
+      "items": {
+        "weather": {
+          "desc": "Query real-time weather and future forecasts for any location worldwide"
+        },
+        "nodeConnect": { "desc": "Connect to external nodes and services via the MCP protocol" },
+        "healthcheck": { "desc": "Perform health checks on services with automatic alerts" },
+        "webSearch": {
+          "desc": "Search the internet for the latest information, supports multiple engines"
+        },
+        "codeRunner": { "desc": "Run code online, supports 30+ programming languages" },
+        "pdfToolkit": { "desc": "PDF merge, split, convert, and compress toolkit" },
+        "emailSender": { "desc": "Send emails via SMTP, supports templates" },
+        "dataViz": { "desc": "Data visualization, generates multiple chart types" },
+        "imageGen": { "desc": "AI image generation, supports multiple styles" },
+        "audioTranscribe": { "desc": "Audio to text transcription, supports multiple languages" },
+        "calendar": { "desc": "Schedule management, event reminders" },
+        "databaseQuery": { "desc": "Database queries, supports SQL and NoSQL" }
+      }
+    },
+    "contact": {
+      "title": "Contact Us",
+      "subtitle": "If you have any questions, please contact us via the following methods",
+      "channels": {
+        "qq": "QQ Group",
+        "qqDesc": "Join the official QQ group to communicate",
+        "wechat": "WeChat",
+        "wechatDesc": "Add official WeChat for inquiries",
+        "email": "Email",
+        "emailDesc": "Email inquiry, replied within 24 hours on business days",
+        "phone": "Phone",
+        "phoneDesc": "24/7 service hotline"
+      },
+      "form": {
+        "title": "Online Consultation",
+        "name": "Your Name",
+        "namePlaceholder": "Please enter your name",
+        "email": "Email",
+        "emailPlaceholder": "Please enter your email",
+        "subject": "Subject",
+        "subjectPlaceholder": "Please enter the subject",
+        "message": "Message",
+        "messagePlaceholder": "Please describe your issue in detail...",
+        "submit": "Submit"
+      },
+      "hours": {
+        "title": "Service Hours",
+        "weekday": "Weekdays",
+        "weekend": "Weekends",
+        "holiday": "Holidays",
+        "closed": "Closed"
       }
     }
   },
@@ -16098,6 +16437,8 @@
     "newConversation": "New Chat",
     "noHistory": "NoneHistoryChat",
     "emptyWorkspace": "Empty Workspace",
+    "handleHint": "Click or drag right to open AI workspace",
+    "resizeHandleHint": "Drag to resize width",
     "filterByModel": "ModelFilter",
     "allModels": "haveModel",
     "today": "Today",
