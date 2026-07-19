@@ -156,6 +156,79 @@ _SQL_KEYWORDS = frozenset({
 })
 
 
+def _find_table_end(content: str, start: int) -> int:
+    """找到 pgTable 调用匹配的结束位置。
+
+    从 start 开始(start 已在 pgTable 的 `{{` 之后),跟踪括号深度,
+    跳过字符串/注释,返回与 pgTable( 配对的右括号位置 + 1。
+    处理 schema 注释中包含的 `);`(如 migration 注释)。
+
+    Args:
+        content: TS 源文件全文
+        start: pgTable 第一个 `{` 之后的位置(已在 pgTable 调用体内)
+
+    Returns:
+        匹配的结束位置(右括号后一位);未找到返回 start + 5000
+    """
+    # 已经在 pgTable(...) 内部,深度从 1 起
+    depth = 1
+    i = start
+    n = len(content)
+    in_string: str | None = None
+    in_block_comment = False
+    in_line_comment = False
+
+    while i < n:
+        ch = content[i]
+        nxt = content[i + 1] if i + 1 < n else ""
+
+        if in_line_comment:
+            if ch == "\n":
+                in_line_comment = False
+            i += 1
+            continue
+
+        if in_block_comment:
+            if ch == "*" and nxt == "/":
+                in_block_comment = False
+                i += 2
+                continue
+            i += 1
+            continue
+
+        if in_string is not None:
+            if ch == "\\" and nxt:
+                i += 2
+                continue
+            if ch == in_string:
+                in_string = None
+            i += 1
+            continue
+
+        if ch == "/" and nxt == "/":
+            in_line_comment = True
+            i += 2
+            continue
+        if ch == "/" and nxt == "*":
+            in_block_comment = True
+            i += 2
+            continue
+        if ch in ('"', "'", "`"):
+            in_string = ch
+            i += 1
+            continue
+
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+
+    return start + 5000
+
+
 def parse_ts_table_fields(schema_dir: Path, table_name: str) -> Optional[dict[str, str]]:
     """从 TS schema 源码解析指定表的字段定义。
 
@@ -186,11 +259,8 @@ def parse_ts_table_fields(schema_dir: Path, table_name: str) -> Optional[dict[st
 
         # 找到表定义位置,向后扫描直到 ); 闭合或下一个 pgTable
         start = match.end()
-        end_marker = content.find("\n);", start)
-        if end_marker == -1:
-            end_marker = content.find(");", start)
-        if end_marker == -1:
-            end_marker = start + 5000
+        # 找到 pgTable 调用的结束位置(匹配的右括号,不在注释/字符串中)
+        end_marker = _find_table_end(content, start)
         block = content[start:end_marker]
 
         fields: dict[str, str] = {}
