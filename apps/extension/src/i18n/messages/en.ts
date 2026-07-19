@@ -98,6 +98,17 @@ export const en = {
     copied: 'Copied',
     highlightOn: 'Highlight on',
     highlightOff: 'Highlight off',
+    saveToWordbook: 'Save to wordbook',
+    savedToWordbook: 'Saved',
+    closePopup: 'Close',
+    contextMenuResult: 'Translation result',
+  },
+  wordbook: {
+    title: 'Wordbook',
+    searchPlaceholder: 'Search words...',
+    countLabel: '{{count}} words',
+    emptyHint: 'Empty',
+    noMatchHint: 'No matches',
   },
 } as const
 
