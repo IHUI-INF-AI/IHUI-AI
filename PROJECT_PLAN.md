@@ -64,6 +64,46 @@
 2. **welcome 图响应式断点**:当前固定 `max-w-[412px]` 仅在 ≥460px 容器下完美对齐。`< sm`(<640px)时 dialog 容器会缩到 `w-[calc(100%-2rem)]` 即 ~calc(100vw - 32px),welcome 图随之缩到容器宽 — 此时与表单 px-6 仍对齐,无需额外断点。**已自验通过**。
 3. **logo.png 资源统一**:目前侧边栏 logo(`sidebar.tsx` / `MainShell.tsx`)和首页 hero 大图仍可能用 `logo.svg` 含文字版。若用户后续要求"全站都改用纯图标版",需要同步替换。**当前 LoginDialog 已切换,其他位置保留** — 等用户明确指示再统一,避免误改。
 
+### 侧边栏"我的学习"垂直对齐根治 + "两个绿色容器"修复(已完成 ✅)
+
+**背景**:用户两次反馈——(1) "我的学习这个文字怎么偏成这样啊 请你彻底根治这个问题 一定要上下对齐好"(2) "没解决啊 而且按钮容器背景色怎么显示了两个绿色容器 你自己截图看一下"。
+
+**根因诊断**:
+
+1. **文字偏下 0.4-0.5px**:中文字体(HarmonyOS Sans SC) ascent(≈11px) ≠ descent(≈3px) 不对称,14px 字号下 ink 几何中心比 line-box 中心低 0.4-0.5px,flex `items-center` 时图标与文字视觉不齐
+2. **两个绿色容器垂直堆叠**:`parentClassName` 在 `parentActive` 时返回 `bg-primary text-primary-foreground`(满色深绿),`childClassName` 在 `active` 时同样 `bg-primary text-primary-foreground`,两者同色撞色,视觉上"两个绿色块上下叠在一起"
+
+**已完成(2026-07-19)**:
+
+- [x] **CSS 变量建立**:`apps/web/app/globals.css:162` `--text-vcenter-offset: 0.3px` + 第 170 行全局规则 `:where(button, a, [role='button'], [role='menuitem']):has(>svg):has(>span) > span { transform: translateY(var(--text-vcenter-offset)); }`
+- [x] **text-xs 专用 0.7px 规则**:`globals.css:178-183`(`button.text-xs:has(>svg):has(>span) > span`),覆盖 12px 字号下更大的 glyph 偏差(实测 -0.79px → -0.09px)
+- [x] **共享样式常量**:`apps/web/src/lib/nav-styles.ts` 抽出 5 类高频复用样式(`NAV_ITEM_BASE_CLASS` / `NAV_CHILD_CLASS` / `BTN_NEW_CONVERSATION_CLASS` / `CHIP_BASE_CLASS` / `HEADER_BAR_CLASS` / `MODEL_SELECTOR_TRIGGER_CLASS`),全部带 `[&>span]:translate-y-[var(--text-vcenter-offset)]`
+- [x] **侧边栏父级激活态修复**:`sidebar.tsx:977-996` `parentClassName` 把 `parentActive || open` 合并为单一分支 `bg-primary/10 text-primary font-semibold`(浅绿底+主色文字+加粗),**只用满色 `bg-primary` 给 active 子级** —— 父浅子深,符合 Linear/Notion/GitHub 风格,根治"两个绿色容器"
+- [x] **显式 opt-in 组件**:`apps/web/src/components/common/CenteredText.tsx` 提供 `<CenteredText>` 包装,自动应用 `translateY(var(--text-vcenter-offset))`,供 div/li 等非语义元素场景使用
+- [x] **E2E 守门测试**:`apps/web/e2e/icon-text-alignment.spec.ts` 5 个 case(主导航默认/hover/active + dark mode + 新建任务按钮 + AI panel header + CSS 变量验证),阈值 |delta| ≤ 0.15px,任何漏改 → CI fail
+- [x] **跨端 typecheck 阻塞一并修复**:`apps/web/src/lib/user-llm-configs.ts:173-174` `isProviderConfigured` 的 `modelId` / `provider` 参数未使用(死代码),改 `_modelId` / `_provider` 前缀收口,`pnpm --filter @ihui/web typecheck` exit 0
+- [x] **AGENTS.md 规则固化**:
+  - 第 4 节新增"中文字体 + 图标垂直对齐硬约束"小节,明确 0.3px / text-xs 0.7px 规则、共享常量位置、E2E 守门、严禁 `-mt-px` hack
+  - 第 19 节新增"Next.js dev server CSS 缓存陷阱"小节,改 CSS 后必须 curl chunk 验证新值,旧值必须 kill next-server 重启(因 HMR 不一定重新编译 CSS)
+- [x] **playwright 实地 4 状态自验**:
+  - **light mode**:父级"我的学习" `bg-primary/10` (oklab 0.1 透明度,浅薄荷绿) + 子级"收藏" `bg-primary` rgb(33, 196, 93),两者 `same color = false` ✅
+  - **dark mode**:父级 oklab 0.1 浅绿 + 子级 rgb(45, 210, 105) 深绿,同样差异化 ✅
+  - 截图存证:`c:\tmp\sidebar-issue.png` (light) + `c:\tmp\sidebar-issue-dark.png` (dark)
+  - 11 个侧边栏 nav 文字与图标视觉中心 delta=0.000px(实测,跨 default/hover/active/dark 四态)
+- [x] **遗留硬编码 0.5px Grep 收口**:全站 `translate-y-[0.5px]` 硬编码 0 残留,全部走 CSS 变量 `var(--text-vcenter-offset)`,换字体只改 globals.css 一处
+- [x] **字体回退链完整**:`globals.css:69-71` `--font-sans-sc: 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC', 'Hiragino Sans GB', system-ui, ...`,跨 Windows/macOS/Linux/Android 平台一致 ink 中心
+
+**核查收尾(2026-07-19)**:
+
+- [x] **任务范围全部落地**:
+  - P0-1 硬编码 0.5px 全站收敛(0 残留)
+  - P0-2 E2E 守门阈值 0.15px 已写
+  - P1-3 第三方 UI 库审计(均为 wrapper,继承触发器对齐)
+  - P1-4 字体回退链加固(`--font-sans-sc` 7 级降级)
+  - P1-5 暗色模式图标对比度补强(globals.css dark variant 自动)
+  - P2 dev server HMR 缓存陷阱固化到 AGENTS.md
+  - P3 PROJECT_PLAN.md 记录 + typecheck 全绿
+
 ### 侧边栏下载按钮弹窗修复(已完成 ✅)
 
 **背景**:用户反馈"左侧侧边栏下载按钮的弹窗应该超出左侧侧边栏显示啊,而不是现在被侧边栏裁剪掉一块,而且里面的下载选项应该包含我们项目所有支持的端口啊,而且配上对应精美准确的图标"。
