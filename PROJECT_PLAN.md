@@ -187,6 +187,29 @@ miniapp-taro / mobile-rn → web /sso/login?redirect=ihui://sso/callback&client_
 
 ---
 
+## P3 状态机接入 + P2 Dialog Zod 抽取(2026-07-20 完成)
+
+- [x] `apps/web/src/lib/workflows/use-workflow-machine.ts` 通用 React hook 包装器(3-tuple 返回 `(snapshot, send, can)`,`can()` 宽松检查只看 transition 表)
+- [x] `apps/web/src/lib/workflows/{approval,refund,withdrawal,ticket}-machine.ts` 4 状态机定义 + 合法路径单测(每个 ≥13 case)
+- [x] `apps/web/src/lib/workflows/use-{approval,refund,withdrawal,ticket}-machine.ts` 4 hook(`can: (event: { type: T }) => boolean`)
+- [x] 4 admin 流程接入状态机:
+  - `demand-audit/DemandAuditApprovalDialog.tsx`:APPROVE/REJECT 补 approverId
+  - `refund/page.tsx`:APPROVE→APPROVE_REFUND,补 REVIEW 前置 dispatch,移除非法 operatorId
+  - `ticket/page.tsx`:CLAIM→ASSIGN (assigneeId),RESOLVE 补 resolution
+  - `withdrawal/page.tsx`:补缺失的 `useWithdrawalMachine()` 调用
+- [x] `apps/web/src/lib/form-schemas/{dict,tag,help,ask}.ts` 4 Zod schema + EMPTY_FORM 常量 + 派生类型
+- [x] DictDialog / TagDialog / HelpDialog / AskDialog 4 Dialog 接入 useZodForm + 4 admin page 传 defaultValues
+- [x] `apps/web/src/lib/form-schemas/{dict,tag,help,ask}.test.ts` 4 schema 单测(各 ≥8 case,覆盖合法/必填/maxLength/pattern/enum/EMPTY_FORM 契约)
+- [x] `apps/web/src/lib/workflows/use-workflow-machine.test.ts` 11 case(can 4 状态机 + send 状态推进 + context 累加)
+- [x] `pnpm --filter @ihui/web typecheck` exit 0
+- [x] `pnpm --filter @ihui/web test` 402 passed(原 341,新增 61)
+- [x] `pnpm --filter @ihui/web lint` 0 errors(25 pre-existing warnings)
+- [x] `node scripts/check-i18n-keys.mjs` parity OK(本任务未改 i18n,ja/ko/zh-TW 未译键为预存问题)
+
+**协作事故 ⚠️ §12 违规**:另一个 agent 在我 `git add` 之后抢先 `git add .` + `git commit -m "test(ai-service): 修 schema_check 解析 + 加端到端业务流集成测试"` + `git push`,把我 staged 的 29 个 web/admin 文件全部捕获到其 commit 中(1355 insertions / 262 deletions),且 commit 实际内容全部是 web/admin 文件,**无任何 ai-service 改动**,另一 agent 自己的 ai-service schema_check 改动丢失(未在 commit / 未在工作树 / 未在 stash)。结果:我的工作已在 origin/main,但 commit message 误归类为 ai-service。修复需用户决定是否 force-push 改 message 或追加 correction commit。
+
+---
+
 ## 4 项剩余项调研结论归档(已完成 ✅ 2026-07-20)
 
 **触发**:用户要求推进任务范围外的 4 项剩余项(28 API 设计风格差异 + 234 前端非真实缺失 + i18n parity 问题 + BrandMarquee 模块缺失)。
