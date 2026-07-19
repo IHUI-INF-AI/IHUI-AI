@@ -98,6 +98,17 @@ export const zhTW = {
     copied: '已複製',
     highlightOn: '高亮已開啟',
     highlightOff: '高亮已關閉',
+    saveToWordbook: '儲存到生字本',
+    savedToWordbook: '已儲存',
+    closePopup: '關閉',
+    contextMenuResult: '即時翻譯結果',
+  },
+  wordbook: {
+    title: '生字本',
+    searchPlaceholder: '搜尋生字...',
+    countLabel: '{{count}} 詞',
+    emptyHint: '空',
+    noMatchHint: '無符合',
   },
 } as const
 
