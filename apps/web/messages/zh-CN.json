@@ -1585,7 +1585,20 @@
       "notificationDispatch": "定向通知",
       "messageOverview": "消息概览",
       "visitTracking": "访问追踪",
-      "examMarking": "考试批阅"
+      "examMarking": "考试批阅",
+      "group": {
+        "operation": "运营管理",
+        "moderation": "内容审核",
+        "finance": "财务管理",
+        "aiAgent": "AI 智能体",
+        "marketing": "营销直播",
+        "courseExam": "课程考试",
+        "analytics": "监控 BI",
+        "support": "客服工单",
+        "community": "社区圈子",
+        "resource": "资源中心",
+        "developer": "开发者中心"
+      }
     },
     "refund": {
       "title": "退款审核管理",
