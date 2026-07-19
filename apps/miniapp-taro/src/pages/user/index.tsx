@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
 import { logout } from '@/api'
@@ -8,14 +8,17 @@ import { useI18n } from '@/i18n'
 const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
-const menus = [
+const quickEntries = [
+  { icon: '📋', key: 'user.menu.orders', path: '/pages/user/orders' },
   { icon: '⭐', key: 'user.menu.favorites', path: '/pages/favorites/index' },
   { icon: '👤', key: 'user.menu.following', path: '/pages/following/index' },
   { icon: '🔔', key: 'user.menu.subscriptions', path: '/pages/subscriptions/index' },
-  { icon: '📋', key: 'user.menu.orders', path: '/pages/user/orders' },
-  { icon: '⚙️', key: 'user.menu.settings', path: '/pages/user/settings' },
+]
+
+const menus = [
   { icon: '📚', key: 'user.menu.courses', path: '/pages/course/list' },
   { icon: '🤖', key: 'user.menu.ai', path: '/pages/ai/chat' },
+  { icon: '⚙️', key: 'user.menu.settings', path: '/pages/user/settings' },
 ]
 
 export default function UserIndex() {
@@ -61,6 +64,16 @@ export default function UserIndex() {
   useDidShow(() => {
     refresh()
   })
+
+  useShareAppMessage(() => ({
+    title: t('share.appTitle'),
+    path: '/pages/index/index',
+    imageUrl: '/static/share.png',
+  }))
+  useShareTimeline(() => ({
+    title: t('share.timelineTitle'),
+    query: '',
+  }))
 
   return (
     <View className="min-h-screen">
@@ -109,6 +122,22 @@ export default function UserIndex() {
             </View>
           </View>
         )}
+      </View>
+
+      {/* 快捷入口(订单/收藏/关注/订阅) */}
+      <View className="mx-[16px] my-[12px] bg-white rounded-[8px] py-[14px]">
+        <View className="flex">
+          {quickEntries.map((entry) => (
+            <View
+              key={entry.path}
+              className="flex-1 flex flex-col items-center"
+              onClick={() => goPage(entry.path)}
+            >
+              <Text className="text-[22px]">{entry.icon}</Text>
+              <Text className="mt-[3px] text-[12px] text-[#333]">{t(entry.key)}</Text>
+            </View>
+          ))}
+        </View>
       </View>
 
       {/* 功能列表 */}
