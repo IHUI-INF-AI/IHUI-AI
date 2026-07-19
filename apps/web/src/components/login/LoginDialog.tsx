@@ -64,22 +64,26 @@ export function LoginDialog() {
               - 52 + gap-3(12) + 348 = 412,刚好等于 dialog 容器 460 - 2*24 内宽
               - 欢迎图自然宽 52*447/67 ≈ 347px,正好填满 348 容器且不变形
               - (M-67,2026-07-19) logo 加 translate-y 微调,精确计算:
-                  · logo.png 是 2534×2534 黑底方形,内容范围 23.5%-76.4%,内容高度 52.9% 容器高度
+                  · 原 logo.png 是 2534×2534 黑底方形,内容范围 23.5%-76.4%,内容高度 52.9% 容器高度
                   · welcome.svg 主文字 y 范围 20.625-55(占 viewBox 67 高度的 30.8%-82.1%,偏下 14.9%)
                   · welcome 文字在 52 容器中:顶 16px 留白,底 9.3px 留白 → 文字中心 70.4
-                  · logo 内容在 52 容器中:顶 12.2px 留白,底 12.3px 留白 → 内容中心 50%(box 中心)
-                  · box 顶 baseline 对齐(translate-y=0):logo 顶 41 = welcome 顶 41,但内容中心差 4.9px(logo 内容靠上)
+                  · 原 logo 内容在 52 容器中:顶 12.2px 留白,底 12.3px 留白 → 内容中心 50%(box 中心)
+                  · box 顶 baseline 对齐(translate-y=0):原 logo 顶 41 = welcome 顶 41,但内容中心差 4.9px(logo 内容靠上)
                   · (M-68,2026-07-19) 改为 translate-y-[5px] 二次调优:
-                      logo 顶 46,box 中心 72.1,内容中心 70.5 ≈ welcome 文字中心 70.4
+                      原 logo 顶 46,box 中心 72.1,内容中心 70.5 ≈ welcome 文字中心 70.4
                       让 box 整体下移 5px("logo 偏高"反馈 → 整体下沉),同时让 logo 内部内容与 welcome 文字**几乎完美对齐**(0.1px)
                       box 中心差 5px = "logo 整体略低 5px",与 box 内容中心差 0.1px 的视觉对齐形成"差不多高度"双指标平衡
-                  · 父级 padding 同步改 pt-5 pb-5 对称,腾出 5px 让 logo 下移不溢出 */}
+                  · 父级 padding 同步改 pt-5 pb-5 对称,腾出 5px 让 logo 下移不溢出
+              - (M-69,2026-07-19) 替换左侧 logo.png(2534×2534 黑底白色智字)→ logo-icon.svg(品牌绿底白色智字):
+                  · 用户反馈"暗色模式下左侧 logo 全白要恢复"——原 PNG 黑底与对话框背景同色,只看到白色智字符浮在背景上,视觉割裂
+                  · 新 SVG:绿色圆角方形(rx=22,占比 22%) + 白色 智 字,品牌色固定不随主题变化,无论浅/深模式都是统一绿底白字
+                  · 由于新 SVG 整图都是有效内容(无黑底 padding),translate-y 微调可取消,box 中心自然与 welcome 文字中心对齐,无需再下沉 */}
           <Image
-            src="/images/logo.png?v=20260719-login"
+            src="/images/logo-icon.svg?v=20260719-icon-restore-v1"
             alt="IHUI AI"
             width={52}
             height={52}
-            className="h-[52px] w-[52px] shrink-0 select-none rounded-xl translate-y-[5px]"
+            className="h-[52px] w-[52px] shrink-0 select-none rounded-xl"
             draggable={false}
             unoptimized
             priority
