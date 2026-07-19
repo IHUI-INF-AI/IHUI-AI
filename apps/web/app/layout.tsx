@@ -10,6 +10,7 @@ import { QueryProvider } from '@/providers/query-provider'
 import { GlobalHooksProvider } from '@/providers/global-hooks-provider'
 import { LoginDialog } from '@/components/login/LoginDialog'
 import { LoginRedirectListener } from '@/components/login/LoginRedirectListener'
+import { GlobalShell } from '@/components/layout/GlobalShell'
 
 export const metadata: Metadata = {
   title: { default: 'IHUI AI', template: '%s | IHUI AI' },
@@ -60,7 +61,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <NextIntlClientProvider locale={locale} messages={messages}>
             <QueryProvider>
               <GlobalHooksProvider>
-                {children}
+                {/*
+                  GlobalShell 提供真全局骨架:左侧 Sidebar + 内容槽 + 右侧 AISidePanel + PWA 提示。
+                  所有路由组((main)/(marketing)/(auth)/sso/h5/forbidden)共享同一套全局组件,
+                  符合"本项目所有内容都应包含在工作区"的全局设定(2026-07-19)。
+                  各路由组 layout 在内容槽内填充自己的样式((main) 用 MainShell 工作区面板,
+                  (marketing) 用 Header+Footer,(auth) 用居中表单等)。
+                */}
+                <GlobalShell>{children}</GlobalShell>
                 <LoginRedirectListener />
                 <LoginDialog />
               </GlobalHooksProvider>
