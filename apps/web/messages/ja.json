@@ -8426,7 +8426,8 @@
       "vision": "画像",
       "coding": "コード",
       "chinese": "中国語",
-      "openSource": "オープンソース"
+      "openSource": "オープンソース",
+      "favorite": "お気に入り"
     },
     "detail": {
       "highlight": "おすすめ",
