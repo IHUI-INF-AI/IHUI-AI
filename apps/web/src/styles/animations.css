@@ -3159,6 +3159,82 @@
     box-shadow 0.3s ease;
 }
 
+/* ============ 输入框渐变描边(AI 登录框专用)============
+ * 目的:重构前登录框 Input 在 hover/focus 时有 conic-gradient 描边动画。
+ * 实现:用 wrapper 包裹 input,通过伪元素 ::before 渲染旋转渐变描边层。
+ *       默认隐藏;hover/focus 时显示,渐变以 4s 速度缓慢旋转。
+ * 颜色:亮色为浅灰渐变(避免蓝色发光,符合用户规则),暗色为深灰渐变。
+ */
+.input-gradient-wrap {
+  position: relative;
+  border-radius: 8px;
+  padding: 1px;
+  background: transparent;
+  transition:
+    background 0.35s ease,
+    box-shadow 0.35s ease;
+}
+.input-gradient-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--gradient-angle, 0deg),
+    hsl(0 0% 70%),
+    hsl(0 0% 95%),
+    hsl(0 0% 70%),
+    hsl(0 0% 90%),
+    hsl(0 0% 70%)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  animation: inputGradientSpin 4s linear infinite;
+  animation-play-state: paused;
+}
+.input-gradient-wrap:hover::before,
+.input-gradient-wrap:focus-within::before,
+.input-gradient-wrap:has(:hover)::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+.dark .input-gradient-wrap::before {
+  background: conic-gradient(
+    from var(--gradient-angle, 0deg),
+    hsl(0 0% 30%),
+    hsl(0 0% 55%),
+    hsl(0 0% 30%),
+    hsl(0 0% 45%),
+    hsl(0 0% 30%)
+  );
+}
+.input-gradient-wrap > input {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.input-gradient-wrap > input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+@keyframes inputGradientSpin {
+  to {
+    --gradient-angle: 360deg;
+  }
+}
+@property --gradient-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
 /* ============ 交错延迟工具类 ============ */
 
 .delay-1 {
