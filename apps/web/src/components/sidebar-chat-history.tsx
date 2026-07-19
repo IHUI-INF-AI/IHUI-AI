@@ -36,7 +36,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import {
   Dialog,
@@ -88,8 +87,8 @@ function groupByDate(items: ConversationItem[]): { key: GroupKey; items: Convers
 }
 
 /**
- * 侧边栏内嵌的历史对话卡片(对齐旧架构 SidebarChatHistory.vue 视觉设计)。
- * - 卡片容器:border + rounded-md + bg-card,宽度与上方"新建对话"按钮一致(w-full,无 mx-2)
+ * 侧边栏内嵌的任务列表卡片(对齐旧架构 SidebarChatHistory.vue 视觉设计)。
+ * - 卡片容器:border + rounded-md + bg-card,宽度与上方"新建任务"按钮一致(w-full,无 mx-2)
  * - 列表 max-h-220px 滚动
  * - hover/active 用 ::before 伪元素 inset-x-2 实现悬浮胶囊效果
  * - active 左侧 2px 高亮条
@@ -97,7 +96,7 @@ function groupByDate(items: ConversationItem[]): { key: GroupKey; items: Convers
  * - 删除确认:用 ConfirmDialog,删除成功/失败用 sonner toast 反馈
  * - 重命名:用 Dialog + Input
  * - 按时间分组:今天 / 本周(7天内)/ 本月(30天内)
- * - 空状态:图标 + 文案 + "新建对话"引导按钮
+ * - 空状态:图标 + 文案 + "新建任务"引导按钮
  * - 折叠态完全不渲染(避免无文字宽度)
  */
 export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
@@ -402,7 +401,6 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
                 </>
               )}
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()
@@ -423,7 +421,6 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
               <FileText className="mr-2 h-3.5 w-3.5" />
               <span>{tc('actions.exportTxt')}</span>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()
@@ -444,7 +441,6 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
               <Download className="mr-2 h-3.5 w-3.5" />
               <span>{tc('actions.compressTo1m')}</span>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()
