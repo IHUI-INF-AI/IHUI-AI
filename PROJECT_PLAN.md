@@ -98,6 +98,24 @@
 
 **本 agent 后续建议**:**无**。本任务范围内已完美收尾,左上角保留文字版 + 其他位置统一纯图标版,符合用户"不要再出现破图"要求。
 
+### 消息列表空状态 logo 统一回补(已完成 ✅ 2026-07-19)
+
+**背景**:用户反馈"`img` 为什么显示的不是我们自己的 logo 应该跟登录框里的 logo 一致同步啊"。本任务是"全站 logo 统一"漏改回补——该任务收尾时仅核查到 9 处替换,但 `apps/web/src/components/chat/message-list.tsx` 第 93 行的 `ai_default.svg` 未在清单内,被遗漏,导致 AI 侧栏/聊天页消息列表空状态仍显示旧版 AI 默认图标。
+
+**根因诊断**:历史多 agent 并行开发遗留,`ai_default.svg` 仍指向 `apps/web/public/images/common/ai_default.svg`(通用 AI 兜底图,蝴蝶结 + AI 字母),与全站规范 "其他位置统一纯图标版 logo.png" 冲突。
+
+**已完成(2026-07-19)**:
+
+- [x] `apps/web/src/components/chat/message-list.tsx:92-103` 空状态 Image:`/images/common/ai_default.svg` → `/images/logo.png?v=20260719-unify`,与登录弹窗/全站其他位置同源
+- [x] **样式属性同步 LoginDialog 范式**:`alt=""` → `alt="IHUI AI"`(去掉 aria-hidden,与登录弹窗语义一致)、加 `rounded-xl`(与登录弹窗 80px 同款圆角)、加 `select-none draggable={false} priority`(品牌主视觉标准)
+- [x] **去掉过期样式**:`dark:invert`(PNG 品牌图不应反相,品牌色在 dark mode 不变)、`opacity-90`(品牌图应满色,半透明无意义)
+- [x] **尺寸保留 56×56**:`h-14 w-14` 适配小空状态(登录弹窗用 80×80 因容器更宽,空状态保持小尺寸避免视觉喧宾夺主)
+- [x] **浏览器实地自验**:AI 侧栏空状态 `img[alt="IHUI AI"]` `src=/images/logo.png?v=20260719-unify` `w=56 h=56` `classes=h-14 w-14 select-none rounded-xl` ✅;登录弹窗顶部 `img[alt="IHUI AI"]` `src=/images/logo.png?v=20260719-login` `w=80 h=80` `classes=h-20 w-20 select-none rounded-xl` ✅
+- [x] **全链路 typecheck**:`pnpm --filter @ihui/web typecheck` exit 0,无回归
+- [x] **守门补强**:本次为"全站 logo 统一"任务漏改 1 处回补,未来任何 agent 引入新 logo 资产应同步 Grep `public/images/` 确认未出现除 `logo.svg`(sidebar ThemeLogo 唯一豁免)外的非 `logo.png` 引用
+
+**本 agent 后续建议**:**无**。本任务范围内已完美收尾,消息列表空状态 logo 与登录弹窗同源同步,符合用户"应该跟登录框里的 logo 一致同步"要求。
+
 ### 侧边栏"我的学习"垂直对齐根治 + "两个绿色容器"修复(已完成 ✅)
 
 **背景**:用户两次反馈——(1) "我的学习这个文字怎么偏成这样啊 请你彻底根治这个问题 一定要上下对齐好"(2) "没解决啊 而且按钮容器背景色怎么显示了两个绿色容器 你自己截图看一下"。
