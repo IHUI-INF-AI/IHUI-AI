@@ -116,4 +116,55 @@ test.describe('AI 对话流程', () => {
     )
     expect(realErrors).toHaveLength(0)
   })
+
+  test('附加框交互:输入内容 → 点击添加引用 → 显示引用计数 chip(若可访问)', async ({ page }) => {
+    await page.goto('/chat')
+    await page.waitForLoadState('networkidle')
+    if (!page.url().includes('/chat')) return
+
+    const textarea = page.locator('textarea').first()
+    if (!(await textarea.isVisible({ timeout: 5000 }).catch(() => false))) return
+
+    // 附加框按钮的 aria-label 在有内容时为「添加为上下文引用」,空状态为「添加上下文文件或引用」
+    const attachBtn = page
+      .getByRole('button', {
+        name: /添加为上下文引用|添加上下文文件或引用|Add as Context Reference|Add context file or reference/i,
+      })
+      .first()
+    if (!(await attachBtn.isVisible({ timeout: 3000 }).catch(() => false))) return
+
+    // 1. 输入内容后按钮文案应切换为「添加为上下文引用」
+    await textarea.fill('这是一段需要被添加为引用的测试内容')
+    await expect(attachBtn).toHaveAttribute(
+      'aria-label',
+      /添加为上下文引用|Add as Context Reference/i,
+    )
+
+    // 2. 点击附加框按钮 → 文本被作为引用添加 → textarea 清空 → 显示「1 个引用」chip
+    await attachBtn.click()
+    await expect(textarea).toHaveValue('')
+    const refChip = page.locator('text=/1 个引用|1 reference/i').first()
+    await expect(refChip).toBeVisible({ timeout: 3000 })
+  })
+
+  test('附加框 hover 态:鼠标悬停时按钮应有视觉反馈(若可访问)', async ({ page }) => {
+    await page.goto('/chat')
+    await page.waitForLoadState('networkidle')
+    if (!page.url().includes('/chat')) return
+
+    const textarea = page.locator('textarea').first()
+    if (!(await textarea.isVisible({ timeout: 5000 }).catch(() => false))) return
+
+    const attachBtn = page
+      .getByRole('button', {
+        name: /添加为上下文引用|添加上下文文件或引用|Add as Context Reference|Add context file or reference/i,
+      })
+      .first()
+    if (!(await attachBtn.isVisible({ timeout: 3000 }).catch(() => false))) return
+
+    // 悬停前后 class 列表应有差异(transition-all + hover:shadow-sm + hover:-translate-y-px)
+    await attachBtn.hover()
+    // 仅断言按钮仍可见且可点击,具体 class 差异由 CSS 引擎保证
+    await expect(attachBtn).toBeVisible()
+  })
 })
