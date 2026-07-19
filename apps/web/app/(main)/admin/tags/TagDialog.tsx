@@ -16,31 +16,41 @@ import {
   Label,
 } from '@ihui/ui'
 
-import type { TagItem, TagForm } from './types'
+import { useZodForm } from '@/hooks/use-zod-form'
+import { tagSchema, type TagFormValues } from '@/lib/form-schemas/tag'
+import type { TagItem } from './types'
 
 interface FormProps {
   open: boolean
   editing: TagItem | null
-  form: TagForm
-  setForm: React.Dispatch<React.SetStateAction<TagForm>>
-  err: string | null
+  defaultValues: TagFormValues
   savePending: boolean
-  onSubmit: (e: React.FormEvent) => void
+  onValid: (values: TagFormValues) => void
   onClose: () => void
 }
 
 export function TagFormDialog({
   open,
   editing,
-  form,
-  setForm,
-  err,
+  defaultValues,
   savePending,
-  onSubmit,
+  onValid,
   onClose,
 }: FormProps) {
   const t = useTranslations('admin.tags')
   const tc = useTranslations('common')
+  const { form, tValidation } = useZodForm<TagFormValues>({
+    schema: tagSchema,
+    defaultValues,
+  })
+  // 每次 defaultValues 变更(切换 editing)时重置表单
+  React.useEffect(() => {
+    form.reset(defaultValues)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id, open])
+
+  const nameErr = form.formState.errors.name?.message
+
   return (
     <Dialog
       open={open}
@@ -53,23 +63,30 @@ export function TagFormDialog({
           <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           <DialogDescription>{editing ? t('editDesc') : t('createDesc')}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form
+          onSubmit={form.handleSubmit(onValid)}
+          className="space-y-4"
+        >
           <div className="space-y-1.5">
             <Label htmlFor="tag-name">{t('name')}</Label>
             <Input
               id="tag-name"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              {...form.register('name')}
               placeholder={t('namePlaceholder')}
               maxLength={64}
+              aria-invalid={!!nameErr}
             />
+            {nameErr ? (
+              <p className="text-xs text-destructive">
+                {tValidation(nameErr as Parameters<typeof tValidation>[0])}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="tag-desc">{t('description')}</Label>
             <Input
               id="tag-desc"
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              {...form.register('description')}
               placeholder={t('descPlaceholder')}
               maxLength={500}
             />
@@ -79,20 +96,18 @@ export function TagFormDialog({
             <div className="flex items-center gap-2">
               <Input
                 id="tag-color"
-                value={form.color}
-                onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+                {...form.register('color')}
                 placeholder="#3b82f6"
                 className="flex-1"
               />
-              {form.color ? (
+              {form.watch('color') ? (
                 <span
                   className="h-9 w-9 shrink-0 rounded-md border"
-                  style={{ backgroundColor: form.color }}
+                  style={{ backgroundColor: form.watch('color') }}
                 />
               ) : null}
             </div>
           </div>
-          {err ? <p className="text-sm text-destructive">{err}</p> : null}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
               {tc('cancel')}
