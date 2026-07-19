@@ -109,7 +109,7 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
 
   return (
     <div className="space-y-5">
-      {/* 顶部已由 welcome.svg / logo.svg 渲染,此处不再放文字标题,避免与图片重复 */}
+      {/* 顶部已由 logo.png + welcome.svg 渲染图标和欢迎图,此处不再放文字标题,避免与图片重复 */}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as LoginTab)}>
         <TabsList className="grid w-full grid-cols-4">

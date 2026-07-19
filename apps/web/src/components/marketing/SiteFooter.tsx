@@ -46,7 +46,12 @@ export function SiteFooter() {
           {/* 品牌区 */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Image src="/images/logo.svg" alt={t('brand')} width={28} height={28} />
+              <Image
+                src="/images/logo.png?v=20260719-unify"
+                alt={t('brand')}
+                width={28}
+                height={28}
+              />
               <span className="text-base font-semibold">{t('brand')}</span>
             </div>
             <p className="text-xs leading-relaxed text-muted-foreground">{t('desc')}</p>

@@ -63,6 +63,40 @@
 1. **弹窗背景色温一致性核查**:dark mode 下 dialog 背景偏中性灰,深色模式用户可能希望纯黑(#000)或品牌紫渐变。如果用户进一步要求"dark mode 弹窗也要有黑色背景"或"加一层 radial gradient",可在 LoginDialog.tsx 的 `bg-gradient-to-b from-background to-muted/40` 处替换为更深色色阶。**风险:无**。
 2. **welcome 图响应式断点**:当前固定 `max-w-[412px]` 仅在 ≥460px 容器下完美对齐。`< sm`(<640px)时 dialog 容器会缩到 `w-[calc(100%-2rem)]` 即 ~calc(100vw - 32px),welcome 图随之缩到容器宽 — 此时与表单 px-6 仍对齐,无需额外断点。**已自验通过**。
 3. **logo.png 资源统一**:目前侧边栏 logo(`sidebar.tsx` / `MainShell.tsx`)和首页 hero 大图仍可能用 `logo.svg` 含文字版。若用户后续要求"全站都改用纯图标版",需要同步替换。**当前 LoginDialog 已切换,其他位置保留** — 等用户明确指示再统一,避免误改。
+4. **已升级为下方"全站 logo 统一"任务**:用户已明确"只有左上角的图带文字,其他的都统一为这个无文字的图",本项升级为 P0 任务执行。
+
+### 全站 logo 统一(已完成 ✅ 2026-07-19)
+
+**背景**:用户要求"只有左上角的图带文字,其他的都统一为这个无文字的图,不要再出现之前你给我做的破图了"。
+
+**根因诊断**:历史多 agent 并行开发时期,各页面/组件硬编码不同 logo 资产:`logo.svg`(带"智汇AI社区"横向文字)、`bailogo.svg`、`Dlogoedu.svg`、`promotion-logo.svg`,导致同一品牌在不同位置出现 4 种不一致的 logo 形态,违反"左上角完整品牌 + 其他位置纯图标"统一规范。
+
+**统一规范(2026-07-19 立)**:
+
+- **左上角 sidebar ThemeLogo**:保留带文字版 `logo.svg`(`1527×493px`,渐变底 + 智字 + IHUI 弧形),是完整品牌主入口
+- **其他所有位置**:统一用纯图标版 `logo.png`(`2534×2534px` 方形,蝴蝶结 + IHUI INF 弧形,无横向文字)
+- **缓存破除**:所有 url 加 `?v=20260719-unify`(全站统一) / `?v=20260719-login`(登录弹窗专用) cache-busting
+
+**已完成(7 文件)**:
+
+- [x] `apps/web/src/components/ai/brand-icon.tsx:472` 兜底 logo:logo.svg → logo.png
+- [x] `apps/web/src/components/marketing/SiteFooter.tsx:49` 站点 footer logo:logo.svg → logo.png
+- [x] `apps/web/app/layout.tsx:21-32` 浏览器 favicon + apple-touch + OpenGraph + Twitter Card 4 处:logo.svg → logo.png
+- [x] `apps/web/app/(main)/distribution/page.tsx:117` 分销中心卡片 logo:promotion-logo.svg → logo.png
+- [x] `apps/web/app/(main)/edu/layout.tsx:41` 教育中心 sidebar 顶部 logo:Dlogoedu.svg → logo.png
+- [x] `apps/web/src/components/login/LoginFormContent.tsx:112` 注释更新(logo.svg → logo.png + welcome.svg)
+- [x] `apps/web/e2e/sidebar-visual.spec.ts:13-14` 注释明确"左上角 logo.svg vs 其他位置 logo.png"双重规范
+- [x] **assets 端唯一例外保留**:`apps/web/public/images/logo.svg`(sidebar ThemeLogo 默认浅/深色 lightSrc/darkSrc)、`packages/ui/src/components/theme-logo.tsx` 默认 prop 仍指向 logo.svg —— 这是规范允许的"左上角带文字"位置
+- [x] **page 总数核查**:Grep `/images/(logo|bailogo|promotion-logo|Dlogoedu)` 全仓,排除 ThemeLogo 默认值后,非左上角位置 9 处全部已切换为 logo.png
+- [x] **全链路 typecheck**:`pnpm --filter @ihui/web typecheck` exit 0,`pnpm --filter @ihui/api typecheck` exit 0,无回归
+- [x] **lint 自验**:`pnpm --filter @ihui/web lint` 0 errors(5 warnings 全为 pre-existing react-hooks/exhaustive-deps,与本任务无关)
+- [x] **浏览器实地自验**:
+  - sidebar top-left:DOM `img[alt="IHUI AI"]` `src=logo.svg?v=20260719-real-logo` `naturalW=1527 naturalH=493` 带文字版 ✅
+  - /enterprise footer:DOM `img[alt="智汇 AI"]` `src=logo.png?v=20260719-unify` `w=28 h=28` 纯图标版 ✅
+  - LoginDialog:DOM `img[alt="IHUI AI"]` `src=logo.png?v=20260719-login` 80×80 纯图标版 ✅
+  - 截图存证:登录弹窗纯图标顶部 + sidebar 带文字左上角(见对话截图)
+
+**本 agent 后续建议**:**无**。本任务范围内已完美收尾,左上角保留文字版 + 其他位置统一纯图标版,符合用户"不要再出现破图"要求。
 
 ### 侧边栏"我的学习"垂直对齐根治 + "两个绿色容器"修复(已完成 ✅)
 

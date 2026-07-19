@@ -38,7 +38,7 @@ export default function EduLayout({ children }: { children: React.ReactNode }) {
         <div className="sticky top-4 space-y-1">
           <div className="mb-4 flex items-center gap-2 px-3">
             <Image
-              src="/images/Dlogoedu.svg"
+              src="/images/logo.png?v=20260719-unify"
               alt="学习中心"
               width={28}
               height={28}
