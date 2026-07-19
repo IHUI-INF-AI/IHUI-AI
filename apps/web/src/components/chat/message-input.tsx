@@ -432,7 +432,7 @@ export function MessageInput({
                 <span>{value.trim() ? t('addContextReference') : t('addContextHint')}</span>
               </button>
               {references.length > 0 && (
-                <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                   {references.length} 个引用
                 </span>
               )}
