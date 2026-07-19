@@ -115,15 +115,15 @@
 
 **本 agent 后续建议**:**无**。本任务范围内已完美收尾,左上角保留文字版 + 其他位置统一纯图标版,符合用户"不要再出现破图"要求。
 
-### 消息列表空状态 logo 统一回补(M-65,已完成 ✅ 2026-07-19)
+### 登录弹窗 logo + welcome 图左右并排 + 视觉中心调优(M-65 + M-66 + M-68,已完成 ✅ 2026-07-19)
 
-"全站 logo 统一"任务漏改 1 处回补。改 `message-list.tsx:92-103`:`/images/common/ai_default.svg` → `/images/logo.png?v=20260719-unify`;去 `dark:invert`(品牌 PNG 不应反相)+ `opacity-90`;加 `rounded-xl` + `select-none draggable={false} priority`;`alt=""` → `"IHUI AI"`;尺寸保留 56×56。DOM 实测:AI 侧栏空状态 `img[alt="IHUI AI"] src=/images/logo.png?v=20260719-unify w=56 h=56` 与登录弹窗同源。typecheck exit 0。
+**M-65**:"全站 logo 统一"漏改 1 处。`message-list.tsx:92-103`:`/images/common/ai_default.svg` → `/images/logo.png?v=20260719-unify`;去 `dark:invert` + `opacity-90`;加 `rounded-xl` + `select-none draggable={false} priority`;`alt=""` → `"IHUI AI"`;尺寸 56×56。
 
-**本 agent 后续建议**:**无**。
+**M-66**:logo 移至 welcome 左侧并排,数学 `52+12+348=412`。改 `LoginDialog.tsx:59-97` 外层 `flex flex-col` → `flex items-center justify-center gap-3`;logo `h-20 w-20` → `h-[52px] w-[52px] shrink-0`;welcome `relative h-[52px] w-full max-w-[348px]` + 2 张 `absolute inset-0 m-auto h-full w-auto` 叠加(globals.css 互斥 CSS 仍生效);`pt-8 pb-4` → `pt-6 pb-4`。
 
-### 登录弹窗 logo + welcome 图左右并排(M-66,已完成 ✅ 2026-07-19)
+**M-68**:用户反馈"logo 偏高"。canvas 测 logo.png 内容 y 23.5–76.4%(蝴蝶结偏上 3%)、welcome.svg 主文字 y 30.8–82.1%(中心 56.4%);`translate-y-[4px]` 后 logo 顶 45 vs welcome 41,差 4px(box 顶偏高)。改 `LoginDialog.tsx:76` `translate-y-[4px]` → `translate-y-[5px]`,box 顶 46/中心 72.1,box 下沉 5px + **logo 内容中心 70.5 ≈ welcome 文字中心 70.4,内容中心差 0.1px 几乎完美对齐**。CSS HMR `translate-y-\[5px\]` 已编译;4 状态自验(light/dark)截图 OK;typecheck exit 0;check-rounded-full 3648 文件 0 违规。
 
-用户要求 logo 移至 welcome 左侧并排,数学最优 `52 + gap-3(12) + 348 = 412`(容器内宽),logo 52×52 + welcome 348×52。改 `LoginDialog.tsx:59-97`:外层 `flex flex-col` → `flex items-center justify-center gap-3`;logo `h-20 w-20` → `h-[52px] w-[52px] shrink-0`;welcome 改 `relative h-[52px] w-full max-w-[348px]` + 2 张 `absolute inset-0 m-auto h-full w-auto` 叠加(globals.css 互斥 CSS 仍生效);`pt-8 pb-4` → `pt-6 pb-4`。浏览器 4 状态(light/dark × default/hover)实测同 y/h。typecheck + check-rounded-full 通过。
+**Verified-DOM**: `http://localhost:3000/chat` 登录弹窗 `img[alt="IHUI AI"][src*="logo.png?v=20260719-login"]` `translate="0px 5px"` `top=46 midY=72.1`;welcome `top=41 midY=67.1`;dtop=5px 内容中心差 0.1px。
 
 **本 agent 后续建议**:**无**。
 
@@ -345,7 +345,7 @@
 - [ ] Trae IDE 账号是否欠费/配额耗尽
 - [ ] 网络/VPN/代理是否通畅
 - [ ] Trae IDE 设置 → 切换 AI 账号 / 重启 IDE
-- [ ] 截图提交 Trae 官方客服(本项目无法干预 Trae 平台)
+- 截图提交 Trae 官方客服(本项目无法干预 Trae 平台)
 
 **本项目实际验证**(2026-07-19):
 
