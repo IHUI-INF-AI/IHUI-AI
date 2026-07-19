@@ -299,7 +299,7 @@ export function AISidePanel() {
     >
       <aside
         aria-label={tc('title')}
-        className="flex h-full flex-col overflow-hidden rounded-xl bg-background"
+        className="flex h-full flex-col overflow-hidden rounded-xl bg-shell-panel"
       >
         {/* 标题栏 */}
         <header
