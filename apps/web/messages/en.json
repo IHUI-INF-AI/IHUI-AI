@@ -8411,6 +8411,45 @@
     "price": "Price",
     "free": "Free",
     "perMillion": "/M tokens",
+    "header": {
+      "stats": {
+        "total": "Total Models",
+        "highlight": "Featured",
+        "free": "Free Models",
+        "providers": "Providers"
+      }
+    },
+    "sort": {
+      "recommended": "Recommended"
+    },
+    "view": {
+      "grid": "Grid View",
+      "list": "List View"
+    },
+    "market": {
+      "freeCount": "{count} free",
+      "highlightCount": "{count} featured",
+      "loadMore": "Load More",
+      "resetFilters": "Reset Filters"
+    },
+    "detail": {
+      "highlight": "Featured",
+      "estimatedHint": "Estimated Cost",
+      "capabilities": "Capabilities",
+      "close": "Close"
+    },
+    "nav": {
+      "groups": {
+        "providerInternational": "International",
+        "providerDomestic": "Domestic",
+        "providerInference": "Inference",
+        "providerCloud": "Cloud",
+        "providerAggregator": "Aggregator",
+        "providerLocal": "Local"
+      },
+      "scrollLeft": "Scroll Left",
+      "scrollRight": "Scroll Right"
+    },
     "providers": {
       "openai": "OpenAI",
       "anthropic": "Anthropic",
