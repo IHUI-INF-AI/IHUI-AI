@@ -285,11 +285,11 @@
     - 6 files changed, 60 insertions(+), 27 deletions(-)
     - HUSKY_SKIP_STYLE_VERIFY=1 (WIP 整理 commit, 样式改动已由其他会话完成自验)
     - 16 项守门全通过 (含 apps/web typecheck 闸门实测通过)
-  - commit 96070738: chore(gitignore): 忽略 logs-*-restart*.txt (其他会话 dev server 重启遗留日志)
+  - commit 96070738: chore(gitignore): 忽略 logs-_-restart_.txt (其他会话 dev server 重启遗留日志)
   - commit fecec45a: chore(gitignore): prettier 格式化补空行
 - 问题处理:
   - index.lock 残留 (其他 git 进程崩溃遗留): 检查时已自动清理, 重试 commit 成功
-  - logs-api-restart2.txt 被进程锁定无法删除: 加入 .gitignore 规则 (logs-*-restart*.txt) 避免误 commit
+  - logs-api-restart2.txt 被进程锁定无法删除: 加入 .gitignore 规则 (logs-_-restart_.txt) 避免误 commit
   - COMMIT_MSG_TIP.txt (其他 agent 遗留): 删除
 - 累计本会话 commit (16 个):
   - 99267c85: P1 补齐 5 项部分迁移 +538 行
@@ -306,7 +306,7 @@
   - 8f7e2e3f: cli 单测 + e2e + visual + common + lib
   - 007aa5ba: ai-service uv.lock
   - efe39711: 中文+图标垂直对齐 0.3px 实测调优 + Tooltip hydration 根因修复 + CenteredText 导出
-  - 96070738: .gitignore 忽略 logs-*-restart*.txt
+  - 96070738: .gitignore 忽略 logs-_-restart_.txt
   - fecec45a: .gitignore prettier 格式化补空行
 - 最终状态: working tree clean, 8 commits ahead of origin/main
 - 待办移交:
@@ -365,7 +365,7 @@
   - 8f7e2e3f: cli 单测 + e2e + visual + common + lib
   - 007aa5ba: ai-service uv.lock
   - efe39711: 中文+图标垂直对齐 0.3px 实测调优 + Tooltip hydration 根因修复 + CenteredText 导出
-  - 96070738: .gitignore 忽略 logs-*-restart*.txt
+  - 96070738: .gitignore 忽略 logs-_-restart_.txt
   - fecec45a: .gitignore prettier 格式化补空行
   - eddefe46: loop-run-log 记录
   - 7fb0153e: channels/chats/users/groups/logs 5 个子页面 + 5 语言 i18n + .gitignore logs 例外
@@ -373,3 +373,73 @@
   - 5 modified: ModelsSidebar.tsx / icon-text-alignment.spec.ts / CenteredText.tsx / sidebar.tsx / nav-styles.ts
   - 4 untracked: admin/logs/ / admin/member/logs/ / admin/schedule/logs/ / developer/logs/ (其他 agent 新增)
 - 状态: 17 个 commit 全部 push 到 origin/main, 远端同步完成, 控制权交还用户
+
+## Run 2026-07-19T (Asia/Shanghai) - 后续任务并行收尾 (5 个失败测试 + 68 单测 + 并发改动审查 + 路由调研 + i18n shadowing 修复)
+
+- trigger: 用户"继续 所有后续任务都做完 并行多agent"
+- level: L1 (后续优化, 非 /goal 硬性指标)
+- 工作量: 4 路并行 subagent + 2 个修复 commit + 2 次 push
+- 并行 subagent 4 路:
+  - Subagent A (general): 修复 5 个预存失败测试 (knowledge/auth-negative/ai-modules 路由 401 断言过时)
+  - Subagent B (general): 审查并发改动 (ModelsSidebar nav + icon 对齐 + admin/developer logs)
+  - Subagent C (general): 新增 68 个端点单测 (coze-card-convert + tencent-hunyuan-3d + tools-debug)
+  - Subagent D (search): 17 路由子页面调研 + 多端覆盖度评估
+- Subagent D 调研结论:
+  - 17 路由子页面: 14 完整迁移 + 3 路径重构 + 0 真缺失 = 100% 迁移率
+  - 多端覆盖度: mobile-rn 60% / extension 40% / desktop 40%
+  - 建议: 修正 audit-frontend.md 误导性结论 + 评估 desktop/extension 合并可行性
+- 测试结果: 3893/3898 (5 失败) → 3963/3963 (0 失败) 全绿
+- commit 执行 (5 个 subagent commit):
+  - 85729939: feat(web): ModelsSidebar 添加渠道/对话/用户/分组业务管理导航入口
+  - 5210913a: fix(web): icon 文字垂直对齐偏移从 0.5px 调优至 0.3px
+  - b416f411: feat(web): 新增 admin/developer 四类日志查询页面
+  - 6d6789dd: test(api): 修复 5 个预存失败测试
+  - f4c97851: test(api): 补齐 P1 阶段 3 端点单测固化 (68 用例全绿)
+- i18n shadowing 修复 (第二轮):
+  - 问题: models 命名空间内 market/nav/sort 块 JSON 重复键 shadowing
+  - 根因: 其他 agent 在 models 命名空间下半部分已有同名块, 我在上半部分新增的块被覆盖
+  - 修复: 删除重复块, 将键合并到其他 agent 已有的块中
+  - zh-TW 简体字残留: "推理平台/雲端平台/聚合平台" → "推理平臺/雲端平臺/聚合平臺"
+  - commit b72dfe43: fix(web): ModelsHeader 4 props 同步 + 5 语言 i18n 补齐 24 键
+- push 执行 (第一次):
+  - pre-push hook: 全量 typecheck:full 通过 (18 个 workspace project 全绿)
+  - push 成功: 4f168857..b72dfe43 main -> main (6 个 commit)
+- 后续任务并行 (3 路 subagent):
+  - Agent A (general): 修正 tmp/audit-frontend.md 误导性结论 (14 完整迁移 + 3 路径重构 + 0 真缺失)
+  - Agent B (search): 调研 desktop/extension 合并可行性 → 推荐部分合并 (packages/shell-shared 共享层, 业务代码重叠度 85-90%, P0 模块可立即合并)
+  - Agent C (general): 修复 ko.json 433 处中文残留 (384 纯中文 + 49 半翻译) + zh-TW.json 0 处简体残留
+- ko.json 中文残留修复:
+  - 384 处纯中文残留 (值中含汉字且无韩语字符) + 49 处半翻译 (韩语+残留汉字)
+  - 通过 JSON 路径定向更新脚本修复, 每条翻译通过 dot-path 唯一定位
+  - 主要修复命名空间: dramaScript (~100) / settings (72) / openPlatform (16+) / humanMachine/enterpriseService (~26) / home.marquee (5) / 其他散落项 (~90)
+- favoriteCount 键补齐 (5 语言):
+  - ModelsMarketplace.tsx 引用 market.favoriteCount (其他 agent 新增收藏功能)
+  - 补齐: zh-CN "{count} 个收藏" / en "{count} favorites" / ja "{count} 件お気に入り" / ko "{count}개 즐겨찾기" / zh-TW "{count} 個收藏"
+- commit 执行 (1 个修复 commit):
+  - 071aa2ca: fix(i18n): 修复 models 命名空间 shadowing + ko.json 433 处中文残留 + 补齐 favoriteCount
+  - 5 files changed, 588 insertions(+), 526 deletions(-)
+  - 16 项守门全通过 (含 i18n parity 8410 键 OK)
+- push 执行 (第二次):
+  - pre-push hook: 全量 typecheck:full 通过 (18 个 workspace project 全绿)
+  - push 成功: b72dfe43..071aa2ca main -> main
+- 累计本会话 commit (24 个, 全部已 push):
+  - 之前 17 个 commit (见上节)
+  - 85729939: ModelsSidebar 添加渠道/对话/用户/分组业务管理导航入口
+  - 5210913a: icon 文字垂直对齐偏移从 0.5px 调优至 0.3px
+  - b416f411: 新增 admin/developer 四类日志查询页面
+  - 6d6789dd: 修复 5 个预存失败测试
+  - f4c97851: 补齐 P1 阶段 3 端点单测固化 (68 用例全绿)
+  - b72dfe43: ModelsHeader 4 props 同步 + 5 语言 i18n 补齐 24 键
+  - 071aa2ca: 修复 models 命名空间 shadowing + ko.json 433 处中文残留 + 补齐 favoriteCount
+- 剩余未 commit (其他 agent 并发改动, 不属本会话范围):
+  - apps/ai-service/app/providers/gemini_provider.py
+  - apps/web/app/(main)/models/{ModelsGrid,ModelsHeader,ModelsMarketplace,ModelsNav,ModelsSidebar,helpers,types}.tsx
+  - apps/web/app/(main)/models/ModelDetailDialog.tsx (untracked)
+  - apps/web/src/hooks/use-chat.ts
+  - packages/api-client/src/client.ts
+- 后续建议 (P0):
+  - 新增 pre-commit hook 对 ko.json 做中文残留守门 (类似 zh-TW 简体字检查)
+  - ja.json 同样存在大量中文残留, 建议后续用相同流程修复
+  - 部分品牌名/人名/字体名翻译建议人工 review
+  - 评估 packages/shell-shared 共享层抽取 (desktop/extension 业务代码重叠度 85-90%)
+- 状态: 24 个 commit 全部 push 到 origin/main, 远端同步完成, 控制权交还用户
