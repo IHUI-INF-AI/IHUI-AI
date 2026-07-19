@@ -16,7 +16,7 @@ export interface UseDistributionStatsReturn {
   fetchStats: () => Promise<void>
 }
 
-/** 分销统计 Hook，汇总总览与排行榜数据 */
+/** 分销统计 Hook，汇总概览与排行榜数据 */
 export function useDistributionStats(): UseDistributionStatsReturn {
   const [overview, setOverview] = React.useState<CommissionOverview | null>(null)
   const [ranking, setRanking] = React.useState<CommissionRanking[]>([])

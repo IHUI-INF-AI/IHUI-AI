@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { Info, KeyRound, Loader2, Plus, Sparkles, Wand2 } from 'lucide-react'
 
@@ -25,6 +26,15 @@ import type { PlatformTemplate, UserLlmConfig } from './types'
 
 export default function UserLlmConfigsPage() {
   const qc = useQueryClient()
+  const searchParams = useSearchParams()
+  // URL 深链预填:?template=openai&model=gpt-4o&name=我的 OpenAI&action=create
+  // - 用于从模型广场 / 详情对话框 / QuickKeyDialog 关闭后跳到完整配置页继续编辑
+  const urlTemplate = searchParams.get('template') || ''
+  const urlModel = searchParams.get('model') || ''
+  const urlName = searchParams.get('name') || ''
+  const urlAction = searchParams.get('action') || ''
+  const urlPrefillHandled = React.useRef(false)
+
   const [open, setOpen] = React.useState(false)
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM)
 
@@ -39,6 +49,24 @@ export default function UserLlmConfigsPage() {
     () => Object.fromEntries(templates.map((t) => [t.code, t])),
     [templates],
   )
+
+  // URL 深链预填:模板加载完成 + 含有效 template 时 → 自动打开 dialog
+  React.useEffect(() => {
+    if (urlPrefillHandled.current) return
+    if (!urlTemplate || !templates.length) return
+    const tpl = templateMap[urlTemplate]
+    if (!tpl) return
+    const pre: FormState = {
+      ...templateToForm(tpl),
+      modelId: urlModel || tpl.defaultModelId,
+      name: urlName || tpl.name,
+    }
+    setForm(pre)
+    if (urlAction === 'create' || urlAction === 'edit' || !urlAction) {
+      setOpen(true)
+    }
+    urlPrefillHandled.current = true
+  }, [urlTemplate, urlModel, urlName, urlAction, templates, templateMap])
 
   // 加载用户配置
   const { data, isLoading } = useQuery({
