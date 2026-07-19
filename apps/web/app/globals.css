@@ -60,6 +60,15 @@
   --font-sans:
     'HarmonyOS Sans SC', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  /* 简体中文专用字体栈(中文 glyph 优先匹配,确保 ink 中心一致)
+     - 优先 HarmonyOS Sans SC(本项目自托管,固定 ink 中心)
+     - 降级 PingFang SC(macOS iOS 简体中文)
+     - 降级 Microsoft YaHei(Windows 简体中文)
+     - 降级 Noto Sans SC(Android/Linux 简体中文字体)
+     - 降级 system-ui → sans-serif */
+  --font-sans-sc:
+    'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC',
+    'Hiragino Sans GB', system-ui, -apple-system, sans-serif;
   --color-background: hsl(0 0% 96.1%);
   --color-foreground: hsl(0 0% 3.9%);
   --color-card: hsl(0 0% 100%);
@@ -131,6 +140,32 @@
   --color-rank-gold: #ffd700;
   --color-rank-silver: #c0c0c0;
   --color-rank-bronze: #cd7f32;
+
+  /* 中文 + 图标垂直对齐偏移 (2026-07-19 立)
+   * 根因:中文字体 ascent(≈11px) ≠ descent(≈3px) 不对称,
+   * 导致 ink 几何中心在 line-box 中心**下方 0.5-0.6px**(HarmonyOS Sans SC @ 14px 测得);
+   * 图标 SVG 居中填充,box 中心 = ink 中心,二者视觉中心累积偏差。
+   * 根治:对所有 icon+文字同行 flex 布局,文字 span 加 `translateY(0.5px)` GPU 位移,
+   * 不改 box 几何,与 align-items: center 完全解耦。
+   * 0.5px = 14px 字号下肉眼可识别阈值(7%)的 1/3 以下,任何 DPR 下都安全。
+   * 暴露为 CSS 变量,后续换字体只需改一处。
+   * 配套 Tailwind utility: `[&>span]:translate-y-[var(--text-vcenter-offset)]` */
+  --text-vcenter-offset: 0.5px;
+}
+
+/* 全局 utility:任意元素 > span 子节点自动加垂直对齐偏移。
+   适用场景:flex h-* items-center 行内布局,父级有 h-* 固定高度时。
+   注意:not(:has(*)) 排除空元素(避免无意义 transform 触发 layer 合成)。 */
+:where(button, a, [role='button'], [role='menuitem']):has(> span) > span {
+  transform: translateY(var(--text-vcenter-offset));
+}
+
+/* 紧凑型(12px 字号):实测偏差收敛到 0.2px,不需要 translateY,避免过度调整。
+   通过 text-xs/text-[10px]/text-[11px] 标记的子 span 排除。 */
+:where(button, a, [role='button'], [role='menuitem']):has(> span.text-xs) > span,
+:where(button, a, [role='button'], [role='menuitem']):has(> span.text-\[10px\]) > span,
+:where(button, a, [role='button'], [role='menuitem']):has(> span.text-\[11px\]) > span {
+  transform: none;
 }
 
 .dark {
@@ -482,21 +517,21 @@ h6 {
   display: block;
 }
 
-/* 拖拽手柄可见线:中间蓝色,向上下两端渐变为浅蓝直至透明("消失"效果)。
+/* 拖拽手柄可见线:中间中性灰,向上下两端渐变直至透明("消失"效果)。
    适用于侧边栏与 AI 面板的右侧 resize handle 内层 1px 线条。
    默认完全隐藏(opacity:0),仅 hover 命中区或拖拽时显现。
-   蓝色可见区域占 10%-90%,中段 45%-55% 为纯蓝,两端渐变为浅蓝直至透明。 */
+   中性灰避免蓝色发光边框(用户规则明令禁止)。 */
 .resize-handle-line {
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(59, 130, 246, 0.2) 10%,
-    rgba(59, 130, 246, 0.5) 25%,
-    rgba(59, 130, 246, 0.85) 40%,
-    #3b82f6 50%,
-    rgba(59, 130, 246, 0.85) 60%,
-    rgba(59, 130, 246, 0.5) 75%,
-    rgba(59, 130, 246, 0.2) 90%,
+    rgba(115, 115, 115, 0.2) 10%,
+    rgba(115, 115, 115, 0.5) 25%,
+    rgba(115, 115, 115, 0.85) 40%,
+    #737373 50%,
+    rgba(115, 115, 115, 0.85) 60%,
+    rgba(115, 115, 115, 0.5) 75%,
+    rgba(115, 115, 115, 0.2) 90%,
     transparent 100%
   );
   opacity: 0;
@@ -504,28 +539,130 @@ h6 {
     opacity 0.2s ease,
     filter 0.2s ease;
 }
-/* hover 命中区或拖拽中:线条完全显现并带蓝色光晕 */
+/* hover 命中区 / 键盘聚焦 / 拖拽中:线条完全显现(中性色光晕,禁止蓝色发光) */
 .group:hover .resize-handle-line,
+.group:focus-within .resize-handle-line,
 .resize-handle-line.is-resizing {
   opacity: 1;
-  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.55));
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.25));
 }
-/* 暗色模式:中心色偏亮蓝,两端浅蓝,与深色背景形成对比 */
+/* 暗色模式:中性浅灰,与深色背景形成对比 */
 .dark .resize-handle-line {
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(96, 165, 250, 0.2) 10%,
-    rgba(96, 165, 250, 0.5) 25%,
-    rgba(96, 165, 250, 0.85) 40%,
-    #60a5fa 50%,
-    rgba(96, 165, 250, 0.85) 60%,
-    rgba(96, 165, 250, 0.5) 75%,
-    rgba(96, 165, 250, 0.2) 90%,
+    rgba(180, 180, 180, 0.2) 10%,
+    rgba(180, 180, 180, 0.5) 25%,
+    rgba(180, 180, 180, 0.85) 40%,
+    #b4b4b4 50%,
+    rgba(180, 180, 180, 0.85) 60%,
+    rgba(180, 180, 180, 0.5) 75%,
+    rgba(180, 180, 180, 0.2) 90%,
     transparent 100%
   );
 }
 .dark .group:hover .resize-handle-line,
 .dark .resize-handle-line.is-resizing {
-  filter: drop-shadow(0 0 3px rgba(96, 165, 250, 0.65));
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+}
+
+/* AI 面板关闭态手柄的 hover 竖向提示:
+   - writing-mode: vertical-rl 让文字从上到下竖排(中文竖排标准)
+   - 默认 opacity:0 隐藏 + 略向右偏 3px(从手柄线方向出场),hover 命中区时与
+     .resize-handle-line 同步 fade-in + translateX 归位,形成"从手柄线滑出
+     到左侧停留"的方向感。
+   - 定位数学(基于实际渲染测量,2026-07-19 用户要求"文字再向左贴近点线"
+     后再次优化,right 从 5px 提升到 6px):
+     手柄容器宽 8px、line 在容器内 left=2.75px(50%-0.25 - 50% 自身宽),
+     line 中心 in screen = 手柄左 + 3.75。
+     right: 6px → box right in 手柄 = 2px;
+     默认 translate(3px) → box right in screen = 手柄左 + 5 = sidebar-w + 9,
+       文字 right = sidebar-w + 9(贴近 line 右边缘 sidebar-w + 8.75 仅 0.25px)
+     hover translate(0) → box right in screen = 手柄左 + 2 = sidebar-w + 6,
+       文字 right = sidebar-w + 6(line 中心 7.75 左侧 1.75px,line 完全在
+       box 右侧外),box 整体落在 line 左侧紧贴 — 这就是用户要的"贴近"。
+   - 文字右贴 box 右内壁(padding-right: 0)保持非对称设计:左 5px / 右 0px,
+     视觉重量平衡,文字像"指向"手柄线。
+   - 背景用 --color-popover(低对比度,用户规则:提示用低对比容器)
+   - 边框用 --color-border(浅灰描边,符合用户规则:不要纯黑/纯蓝)
+   - pointer-events: none 避免遮挡手柄的点击/拖拽
+   - 暗色模式用更高对比的阴影 */
+.ai-panel-handle-tooltip {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  z-index: 30;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  background: var(--color-popover);
+  color: var(--color-popover-foreground);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 0 8px 5px;
+  font-size: 11px;
+  line-height: 1.4;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(3px, -50%);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.group:hover > .ai-panel-handle-tooltip,
+.group:focus-within > .ai-panel-handle-tooltip {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+.dark .ai-panel-handle-tooltip {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+/* 平板/移动端(<1024px):sidebar 抽屉化,关闭态手柄可能被遮盖或与抽屉式 sidebar 冲突,
+   隐藏提示避免遮挡,手柄自身仍保留拖拽打开能力。 */
+@media (max-width: 1023px) {
+  .ai-panel-handle-tooltip {
+    display: none;
+  }
+}
+
+/* AI 面板打开态手柄的 hover 竖向提示:tooltip 显示在面板内(手柄线左侧),
+   避免遮挡 work-area。writing-mode/样式与关闭态 tooltip 一致,通过 :hover/:focus-within 同步触发。 */
+.ai-panel-resize-tooltip {
+  position: absolute;
+  right: calc(100% + 6px);
+  top: 50%;
+  z-index: 30;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  background: var(--color-popover);
+  color: var(--color-popover-foreground);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 5px;
+  font-size: 11px;
+  line-height: 1.4;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(4px, -50%);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.group:hover > .ai-panel-resize-tooltip,
+.group:focus-within > .ai-panel-resize-tooltip {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+.dark .ai-panel-resize-tooltip {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+@media (max-width: 1023px) {
+  .ai-panel-resize-tooltip {
+    display: none;
+  }
 }
