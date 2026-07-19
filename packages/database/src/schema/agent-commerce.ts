@@ -11,6 +11,9 @@ import {
 import { users } from './users.js'
 
 // 智能体购买记录表
+// R81 补齐: D 盘 coze_zhs_py/models/agent_models.py:227-275 ZhsAgentBuy 5 字段
+//   agent_name / bug_name / category_id / discount / prologue
+//   (旧 D 盘为 String/Integer/Text 类型, G 盘对应 varchar/integer/text/numeric/text)
 export const zhsAgentBuy = pgTable(
   'zhs_agent_buy',
   {
@@ -25,6 +28,12 @@ export const zhsAgentBuy = pgTable(
     status: varchar('status', { length: 32 }).default('pending').notNull(), // pending/active/expired/cancelled
     paymentMethod: varchar('payment_method', { length: 32 }),
     paymentId: varchar('payment_id', { length: 128 }),
+    // R81 补齐 5 字段 (D 盘 ZhsAgentBuy 业务信息)
+    agentName: varchar('agent_name', { length: 128 }), // 智能体名称(冗余便于列表展示)
+    bugName: varchar('bug_name', { length: 128 }), // 购买者昵称(冗余)
+    categoryId: integer('category_id'), // 智能体分类 ID(冗余)
+    discount: numeric('discount', { precision: 5, scale: 2 }).default('1.00'), // 折扣(0-1, 1.00=无折扣)
+    prologue: text('prologue'), // 智能体开场白(冗余便于审计)
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -32,6 +41,7 @@ export const zhsAgentBuy = pgTable(
     agentIdx: index('zhs_agent_buy_agent_idx').on(t.agentId),
     userIdx: index('zhs_agent_buy_user_idx').on(t.userId),
     statusIdx: index('zhs_agent_buy_status_idx').on(t.status),
+    categoryIdx: index('zhs_agent_buy_category_idx').on(t.categoryId),
   }),
 )
 
