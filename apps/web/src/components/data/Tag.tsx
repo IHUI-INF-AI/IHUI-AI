@@ -21,8 +21,17 @@ const sizeMap: Record<TagSize, string> = {
   lg: 'px-3 py-1 text-sm',
 }
 
-export function Tag({ children, closable = false, onClose, color, size = 'md', className }: TagProps) {
-  const style = color ? { backgroundColor: `${color}1a`, color, borderColor: `${color}40` } : undefined
+export function Tag({
+  children,
+  closable = false,
+  onClose,
+  color,
+  size = 'md',
+  className,
+}: TagProps) {
+  const style = color
+    ? { backgroundColor: `${color}1a`, color, borderColor: `${color}40` }
+    : undefined
   return (
     <span
       style={style}
@@ -35,7 +44,12 @@ export function Tag({ children, closable = false, onClose, color, size = 'md', c
     >
       {children}
       {closable && (
-        <button onClick={onClose} className="ml-0.5 inline-flex items-center hover:opacity-70">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="关闭标签"
+          className="ml-0.5 inline-flex items-center rounded-sm hover:opacity-70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
           <X className="h-3 w-3" />
         </button>
       )}

@@ -13,7 +13,10 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, '
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, icon: Icon, prefix, suffix, className, containerClassName, id, ...props }, ref) => {
+  (
+    { label, error, icon: Icon, prefix, suffix, className, containerClassName, id, ...props },
+    ref,
+  ) => {
     const reactId = React.useId()
     const inputId = id ?? reactId
     return (
@@ -27,10 +30,14 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {Icon && (
             <Icon className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground" />
           )}
-          {prefix && <span className="absolute left-3 text-sm text-muted-foreground">{prefix}</span>}
+          {prefix && (
+            <span className="absolute left-3 text-sm text-muted-foreground">{prefix}</span>
+          )}
           <input
             ref={ref}
             id={inputId}
+            aria-invalid={error ? 'true' : undefined}
+            aria-describedby={error ? `${inputId}-error` : undefined}
             className={cn(
               'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors',
               'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -43,9 +50,15 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             )}
             {...props}
           />
-          {suffix && <span className="absolute right-3 text-sm text-muted-foreground">{suffix}</span>}
+          {suffix && (
+            <span className="absolute right-3 text-sm text-muted-foreground">{suffix}</span>
+          )}
         </div>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && (
+          <p id={`${inputId}-error`} className="text-xs text-destructive" role="alert">
+            {error}
+          </p>
+        )}
       </div>
     )
   },

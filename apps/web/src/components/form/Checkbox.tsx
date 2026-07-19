@@ -10,17 +10,23 @@ interface CheckboxProps {
   onChange?: (checked: boolean) => void
   label?: React.ReactNode
   disabled?: boolean
+  /** 复选框原生 a11y 标签;不传时回退到 label 文本/aria-labelledby 关联 */
+  'aria-label'?: string
   className?: string
 }
 
-export function Checkbox({
-  checked = false,
-  indeterminate = false,
-  onChange,
-  label,
-  disabled = false,
-  className,
-}: CheckboxProps) {
+export const Checkbox = React.forwardRef<HTMLSpanElement, CheckboxProps>(function Checkbox(
+  {
+    checked = false,
+    indeterminate = false,
+    onChange,
+    label,
+    disabled = false,
+    className,
+    'aria-label': ariaLabel,
+  },
+  ref,
+) {
   const handleToggle = () => {
     if (!disabled) onChange?.(!checked)
   }
@@ -41,10 +47,13 @@ export function Checkbox({
       )}
     >
       <span
+        ref={ref}
         role="checkbox"
         tabIndex={disabled ? -1 : 0}
         aria-checked={indeterminate ? 'mixed' : checked}
         aria-disabled={disabled || undefined}
+        aria-label={ariaLabel}
+        aria-invalid={indeterminate || undefined}
         onClick={handleToggle}
         onKeyDown={handleKeyDown}
         className={cn(
@@ -62,4 +71,4 @@ export function Checkbox({
       {label && <span className="text-sm">{label}</span>}
     </label>
   )
-}
+})
