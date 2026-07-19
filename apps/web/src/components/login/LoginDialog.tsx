@@ -62,7 +62,7 @@ export function LoginDialog() {
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{subtitle}</DialogDescription>
 
-        <AuthShell title={title} subtitle={subtitle}>
+        <AuthShell>
           {mode === 'login' ? (
             <LoginFormContent onSuccess={handleLoginSuccess} />
           ) : mode === 'register' ? (
