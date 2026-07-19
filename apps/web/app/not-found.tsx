@@ -13,7 +13,7 @@ export default function NotFoundPage() {
     <NotFound
       title={t('notFoundTitle')}
       description={t('notFoundDescription')}
-      className="min-h-screen"
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto"
       action={
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => window.history.back()}>
