@@ -1,0 +1,315 @@
+{
+  "generatedAt": "2026-07-19T15:24:29.670Z",
+  "sourceCsv": "g:/IHUI-AI/reports/migration-audit-frontend-routes-2026-07-19T12-14-57.csv",
+  "totalEduEditSubpages": 117,
+  "sampleSize": 30,
+  "decisionCount": {
+    "已迁移": 18,
+    "部分迁移": 11,
+    "真实缺失": 1
+  },
+  "moduleStat": {
+    "exam": {
+      "已迁移": 8,
+      "部分迁移": 2,
+      "真实缺失": 0,
+      "total": 10
+    },
+    "learn": {
+      "已迁移": 3,
+      "部分迁移": 4,
+      "真实缺失": 1,
+      "total": 8
+    },
+    "live": {
+      "已迁移": 1,
+      "部分迁移": 3,
+      "真实缺失": 0,
+      "total": 4
+    },
+    "member": {
+      "已迁移": 4,
+      "部分迁移": 1,
+      "真实缺失": 0,
+      "total": 5
+    },
+    "order": {
+      "已迁移": 2,
+      "部分迁移": 1,
+      "真实缺失": 0,
+      "total": 3
+    }
+  },
+  "samples": [
+    {
+      "vuePath": "/exam/question-lib/single-choice",
+      "module": "exam",
+      "desc": "单选题编辑",
+      "decision": "已迁移",
+      "matchType": "dynamic-route-match",
+      "matchEvidence": "path slug \"[type]\" 命中 admin/edu/exam/questions/[type]/page.tsx",
+      "nextPath": "/admin/edu/exam/questions/[type]"
+    },
+    {
+      "vuePath": "/exam/question-lib/multi-choice",
+      "module": "exam",
+      "desc": "多选题编辑",
+      "decision": "已迁移",
+      "matchType": "dynamic-route-match",
+      "matchEvidence": "path slug \"[type]\" 命中 admin/edu/exam/questions/[type]/page.tsx",
+      "nextPath": "/admin/edu/exam/questions/[type]"
+    },
+    {
+      "vuePath": "/exam/question-lib/judgment",
+      "module": "exam",
+      "desc": "判断题编辑",
+      "decision": "已迁移",
+      "matchType": "dynamic-route-match",
+      "matchEvidence": "path slug \"[type]\" 命中 admin/edu/exam/questions/[type]/page.tsx",
+      "nextPath": "/admin/edu/exam/questions/[type]"
+    },
+    {
+      "vuePath": "/exam/question-lib/fill-blank",
+      "module": "exam",
+      "desc": "填空题编辑",
+      "decision": "已迁移",
+      "matchType": "dynamic-route-match",
+      "matchEvidence": "path slug \"[type]\" 命中 admin/edu/exam/questions/[type]/page.tsx",
+      "nextPath": "/admin/edu/exam/questions/[type]"
+    },
+    {
+      "vuePath": "/exam/question-lib/subjective",
+      "module": "exam",
+      "desc": "主观题编辑",
+      "decision": "已迁移",
+      "matchType": "dynamic-route-match",
+      "matchEvidence": "path slug \"[type]\" 命中 admin/edu/exam/questions/[type]/page.tsx",
+      "nextPath": "/admin/edu/exam/questions/[type]"
+    },
+    {
+      "vuePath": "/exam/paper/normal",
+      "module": "exam",
+      "desc": "正常试卷编辑",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"papers-manual\" 命中 admin/edu/exam/papers-manual/page.tsx",
+      "nextPath": "/admin/edu/exam/papers-manual"
+    },
+    {
+      "vuePath": "/exam/paper/random",
+      "module": "exam",
+      "desc": "随机试卷编辑",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"papers-random\" 命中 admin/edu/exam/papers-random/page.tsx",
+      "nextPath": "/admin/edu/exam/papers-random"
+    },
+    {
+      "vuePath": "/exam/paper/category",
+      "module": "exam",
+      "desc": "试卷分类",
+      "decision": "部分迁移",
+      "matchType": "admin-page-keyword-match",
+      "matchEvidence": "keyword \"exam/categories\" 命中 page 路径 admin/edu/exam/categories/page.tsx",
+      "nextPath": "/admin/edu/exam/categories"
+    },
+    {
+      "vuePath": "/exam/exam/edit",
+      "module": "exam",
+      "desc": "考试编辑",
+      "decision": "部分迁移",
+      "matchType": "admin-component-name-match",
+      "matchEvidence": "keyword \"ExamDialog\" 命中组件文件名 admin/edu/exam/examdialog.tsx",
+      "nextPath": "/admin/edu/exam"
+    },
+    {
+      "vuePath": "/exam/answer/mark",
+      "module": "exam",
+      "desc": "阅卷",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"mark\" 命中 admin/exam-marking/page.tsx",
+      "nextPath": "/admin/exam-marking"
+    },
+    {
+      "vuePath": "/learn/lesson/edit",
+      "module": "learn",
+      "desc": "课时编辑",
+      "decision": "部分迁移",
+      "matchType": "admin-component-name-match",
+      "matchEvidence": "keyword \"LearnDialog\" 命中组件文件名 admin/edu/learn/learndialog.tsx",
+      "nextPath": "/admin/edu/learn"
+    },
+    {
+      "vuePath": "/learn/lesson/category",
+      "module": "learn",
+      "desc": "课时分类",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"learn/categories\" 命中 admin/learn/categories/page.tsx",
+      "nextPath": "/admin/learn/categories"
+    },
+    {
+      "vuePath": "/learn/lesson/trash",
+      "module": "learn",
+      "desc": "课时回收站",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"trash\" 命中 admin/edu/course/trash/page.tsx",
+      "nextPath": "/admin/edu/course/trash"
+    },
+    {
+      "vuePath": "/learn/topic/edit",
+      "module": "learn",
+      "desc": "专题编辑",
+      "decision": "部分迁移",
+      "matchType": "admin-component-name-match",
+      "matchEvidence": "keyword \"TopicsDialog\" 命中组件文件名 admin/edu/learn/topics/topicsdialog.tsx",
+      "nextPath": "/admin/edu/learn/topics"
+    },
+    {
+      "vuePath": "/learn/topic/category",
+      "module": "learn",
+      "desc": "专题分类",
+      "decision": "真实缺失",
+      "matchType": "no-match",
+      "matchEvidence": "rg + path slug + component name + dialog pattern 全部未命中",
+      "nextPath": ""
+    },
+    {
+      "vuePath": "/learn/certificate/template",
+      "module": "learn",
+      "desc": "证书模板列表",
+      "decision": "部分迁移",
+      "matchType": "admin-component-name-match",
+      "matchEvidence": "keyword \"CertTemplate\" 命中组件文件名 admin/edu/certificate/templates/certtemplatedialog.tsx",
+      "nextPath": "/admin/edu/certificate/templates"
+    },
+    {
+      "vuePath": "/learn/certificate/template/edit",
+      "module": "learn",
+      "desc": "证书模板编辑",
+      "decision": "部分迁移",
+      "matchType": "admin-component-name-match",
+      "matchEvidence": "keyword \"CertTemplateDialog\" 命中组件文件名 admin/edu/certificate/templates/certtemplatedialog.tsx",
+      "nextPath": "/admin/edu/certificate/templates"
+    },
+    {
+      "vuePath": "/learn/data/sign",
+      "module": "learn",
+      "desc": "学习签到数据",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"sign\" 命中 admin/edu/learn/signup-batch/page.tsx",
+      "nextPath": "/admin/edu/learn/signup-batch"
+    },
+    {
+      "vuePath": "/live/channel/edit",
+      "module": "live",
+      "desc": "频道编辑",
+      "decision": "部分迁移",
+      "matchType": "admin-component-name-match",
+      "matchEvidence": "keyword \"ChannelFormDialog\" 命中组件文件名 admin/live/channelformdialog.tsx",
+      "nextPath": "/admin/live"
+    },
+    {
+      "vuePath": "/live/channel/category",
+      "module": "live",
+      "desc": "频道分类",
+      "decision": "部分迁移",
+      "matchType": "admin-component-name-match",
+      "matchEvidence": "keyword \"LiveCategory\" 命中组件文件名 admin/live/categories/livecategorydialog.tsx",
+      "nextPath": "/admin/live/categories"
+    },
+    {
+      "vuePath": "/live/lecturer/list",
+      "module": "live",
+      "desc": "讲师列表",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"lecturers\" 命中 admin/live/lecturers/page.tsx",
+      "nextPath": "/admin/live/lecturers"
+    },
+    {
+      "vuePath": "/live/lecturer/edit",
+      "module": "live",
+      "desc": "讲师编辑",
+      "decision": "部分迁移",
+      "matchType": "admin-component-name-match",
+      "matchEvidence": "keyword \"LecturerDialog\" 命中组件文件名 admin/live/lecturers/lecturerdialog.tsx",
+      "nextPath": "/admin/live/lecturers"
+    },
+    {
+      "vuePath": "/member/edit",
+      "module": "member",
+      "desc": "会员编辑",
+      "decision": "部分迁移",
+      "matchType": "admin-component-name-match",
+      "matchEvidence": "keyword \"MemberDialog\" 命中组件文件名 admin/edu/class/members/memberdialog.tsx",
+      "nextPath": "/admin/edu/class/members"
+    },
+    {
+      "vuePath": "/member/group",
+      "module": "member",
+      "desc": "会员分组",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"member-group\" 命中 admin/member-groups/page.tsx",
+      "nextPath": "/admin/member-groups"
+    },
+    {
+      "vuePath": "/member/level",
+      "module": "member",
+      "desc": "会员等级",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"levels\" 命中 admin/edu/student/levels/page.tsx",
+      "nextPath": "/admin/edu/student/levels"
+    },
+    {
+      "vuePath": "/member/tag",
+      "module": "member",
+      "desc": "会员标签",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"admin/tags\" 命中 admin/tags/page.tsx",
+      "nextPath": "/admin/tags"
+    },
+    {
+      "vuePath": "/member/company",
+      "module": "member",
+      "desc": "会员公司",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"companies\" 命中 admin/member/companies/page.tsx",
+      "nextPath": "/admin/member/companies"
+    },
+    {
+      "vuePath": "/learn/order",
+      "module": "order",
+      "desc": "订单列表",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"orders\" 命中 admin/distribution/orders/page.tsx",
+      "nextPath": "/admin/distribution/orders"
+    },
+    {
+      "vuePath": "/learn/order/invoice/application",
+      "module": "order",
+      "desc": "发票申请",
+      "decision": "已迁移",
+      "matchType": "path-slug-match",
+      "matchEvidence": "path slug \"invoices\" 命中 admin/edu/finance/invoices/page.tsx",
+      "nextPath": "/admin/edu/finance/invoices"
+    },
+    {
+      "vuePath": "/learn/order/invoice/title",
+      "module": "order",
+      "desc": "发票抬头",
+      "decision": "部分迁移",
+      "matchType": "admin-content-keyword-match",
+      "matchEvidence": "rg -i \"invoice-title\" 命中 admin/invoices/titles/page.tsx",
+      "nextPath": "/admin/invoices/titles"
+    }
+  ]
+}

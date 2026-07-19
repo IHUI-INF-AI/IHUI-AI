@@ -399,6 +399,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         portal
         tooltip={t('language')}
         tooltipSide={collapsed ? 'right' : 'top'}
+        className="p-0"
         content={
           <div className="flex w-36 flex-col gap-px p-1">
             {LANGUAGES.map((lang) => (
@@ -445,9 +446,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         portal
         tooltip={t('downloadClient')}
         tooltipSide={collapsed ? 'right' : 'top'}
+        className="p-0"
         content={
-          <div className="w-56 p-1.5">
-            <div className="px-2 pb-1.5 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+          <div className="w-56 p-1">
+            <div className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
               {t('downloadTitle')}
             </div>
             {DOWNLOADS.map((item) => {

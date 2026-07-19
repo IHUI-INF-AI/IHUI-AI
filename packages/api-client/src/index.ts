@@ -96,6 +96,13 @@ export * from './endpoints/vip.js'
 export * from './endpoints/wallet.js'
 export * from './endpoints/workspace.js'
 
+// 架构迁移审计 P2 v2 补开发:5 个新端点共享封装(private-letters / wrong-questions / mail / auth-codes / exam-marking)
+export * from './endpoints/auth-codes.js'
+export * from './endpoints/exam-marking.js'
+export * from './endpoints/mail.js'
+export * from './endpoints/private-letters.js'
+export * from './endpoints/wrong-questions.js'
+
 // Explicit re-exports to resolve naming conflicts between modules.
 // 同名函数签名/用途不同,显式指定主来源以消除 export * 歧义(TS2308)。
 // 仍可通过子路径 @ihui/api-client/endpoints/<name> 访问任一模块的同名导出。

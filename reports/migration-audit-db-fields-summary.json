@@ -1,0 +1,1462 @@
+{
+  "generated_at": "2026-07-19T14:11:52.826Z",
+  "stage": "field-level",
+  "stage3_csv": "G:\\IHUI-AI\\reports\\migration-audit-db-schema-2026-07-19T12-48-44.csv",
+  "stage3_migrated_total": 80,
+  "sample_size": 20,
+  "sample_modules": [
+    "user",
+    "order",
+    "member",
+    "message",
+    "ai",
+    "role",
+    "permission",
+    "exam",
+    "comment"
+  ],
+  "sample_tables": [
+    {
+      "module": "user",
+      "old_table": "t_user",
+      "new_table": "edu_user",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\edu-full.ts",
+      "old_field_count": 21,
+      "new_field_count": 9,
+      "matched": 5,
+      "type_matched": 4,
+      "not_null_matched": 2,
+      "pk_matched": 5
+    },
+    {
+      "module": "user",
+      "old_table": "users",
+      "new_table": "edu_user",
+      "old_source": "ry-sql",
+      "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ai-smart-society-java\\sql\\ry_config_20250224.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\edu-full.ts",
+      "old_field_count": 3,
+      "new_field_count": 9,
+      "matched": 1,
+      "type_matched": 1,
+      "not_null_matched": 0,
+      "pk_matched": 1
+    },
+    {
+      "module": "user",
+      "old_table": "t_user_job",
+      "new_table": "user_jobs",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\usercenter.ts",
+      "old_field_count": 5,
+      "new_field_count": 4,
+      "matched": 3,
+      "type_matched": 3,
+      "not_null_matched": 3,
+      "pk_matched": 3
+    },
+    {
+      "module": "order",
+      "old_table": "order_order",
+      "new_table": "orders",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\billing.ts",
+      "old_field_count": 12,
+      "new_field_count": 14,
+      "matched": 3,
+      "type_matched": 1,
+      "not_null_matched": 3,
+      "pk_matched": 3
+    },
+    {
+      "module": "order",
+      "old_table": "zhs_order",
+      "new_table": "orders",
+      "old_source": "zhs-java-@Table",
+      "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ZHS_Server_java\\src\\main\\java\\com\\ai\\manager\\small\\domain\\Order.java",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\billing.ts",
+      "old_field_count": 19,
+      "new_field_count": 14,
+      "matched": 8,
+      "type_matched": 2,
+      "not_null_matched": 2,
+      "pk_matched": 7
+    },
+    {
+      "module": "order",
+      "old_table": "t_order_item",
+      "new_table": "edu_order_items",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\order.ts",
+      "old_field_count": 11,
+      "new_field_count": 8,
+      "matched": 4,
+      "type_matched": 4,
+      "not_null_matched": 2,
+      "pk_matched": 4
+    },
+    {
+      "module": "member",
+      "old_table": "t_member_group",
+      "new_table": "member_groups",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\member-extended.ts",
+      "old_field_count": 6,
+      "new_field_count": 7,
+      "matched": 3,
+      "type_matched": 2,
+      "not_null_matched": 3,
+      "pk_matched": 3
+    },
+    {
+      "module": "member",
+      "old_table": "t_member_post",
+      "new_table": "member_posts",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\member-extended.ts",
+      "old_field_count": 6,
+      "new_field_count": 7,
+      "matched": 3,
+      "type_matched": 2,
+      "not_null_matched": 3,
+      "pk_matched": 3
+    },
+    {
+      "module": "member",
+      "old_table": "t_member_tag",
+      "new_table": "member_tags",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\member-extended.ts",
+      "old_field_count": 5,
+      "new_field_count": 6,
+      "matched": 2,
+      "type_matched": 1,
+      "not_null_matched": 2,
+      "pk_matched": 2
+    },
+    {
+      "module": "message",
+      "old_table": "t_announcement",
+      "new_table": "announcements",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\content.ts",
+      "old_field_count": 7,
+      "new_field_count": 11,
+      "matched": 3,
+      "type_matched": 2,
+      "not_null_matched": 3,
+      "pk_matched": 3
+    },
+    {
+      "module": "message",
+      "old_table": "t_notice",
+      "new_table": "sys_notice",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\admin-sys.ts",
+      "old_field_count": 10,
+      "new_field_count": 10,
+      "matched": 1,
+      "type_matched": 1,
+      "not_null_matched": 0,
+      "pk_matched": 1
+    },
+    {
+      "module": "message",
+      "old_table": "t_system_notice",
+      "new_table": "message_system_notice",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\relation-tables.ts",
+      "old_field_count": 4,
+      "new_field_count": 4,
+      "matched": 2,
+      "type_matched": 2,
+      "not_null_matched": 2,
+      "pk_matched": 2
+    },
+    {
+      "module": "ai",
+      "old_table": "zhs_agent_category",
+      "new_table": "zhs_agent_category",
+      "old_source": "zhs-py-sql",
+      "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\coze_zhs_py\\sql\\zhs_agent_category.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\zhs-full.ts",
+      "old_field_count": 15,
+      "new_field_count": 16,
+      "matched": 14,
+      "type_matched": 12,
+      "not_null_matched": 10,
+      "pk_matched": 14
+    },
+    {
+      "module": "ai",
+      "old_table": "zhs_user_agent_free_times",
+      "new_table": "zhs_user_agent_free_time",
+      "old_source": "zhs-java-@Table",
+      "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ZHS_Server_java\\src\\main\\java\\com\\ai\\manager\\small\\domain\\UserAgentFreeTimes.java",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\zhs-full.ts",
+      "old_field_count": 8,
+      "new_field_count": 8,
+      "matched": 4,
+      "type_matched": 1,
+      "not_null_matched": 1,
+      "pk_matched": 3
+    },
+    {
+      "module": "role",
+      "old_table": "t_role",
+      "new_table": "edu_role",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\edu-full.ts",
+      "old_field_count": 6,
+      "new_field_count": 7,
+      "matched": 3,
+      "type_matched": 3,
+      "not_null_matched": 3,
+      "pk_matched": 3
+    },
+    {
+      "module": "role",
+      "old_table": "t_role_authority",
+      "new_table": "edu_role_authority",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\edu-full.ts",
+      "old_field_count": 5,
+      "new_field_count": 5,
+      "matched": 3,
+      "type_matched": 3,
+      "not_null_matched": 3,
+      "pk_matched": 3
+    },
+    {
+      "module": "permission",
+      "old_table": "permissions",
+      "new_table": "permissions",
+      "old_source": "ry-sql",
+      "old_file": "D:\\历史项目存档\\code\\ljd-交接文件\\ai-smart-society-java\\sql\\ry_config_20250224.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\rbac.ts",
+      "old_field_count": 3,
+      "new_field_count": 7,
+      "matched": 2,
+      "type_matched": 2,
+      "not_null_matched": 2,
+      "pk_matched": 2
+    },
+    {
+      "module": "exam",
+      "old_table": "t_paper",
+      "new_table": "exam_papers",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\exam.ts",
+      "old_field_count": 14,
+      "new_field_count": 14,
+      "matched": 5,
+      "type_matched": 1,
+      "not_null_matched": 4,
+      "pk_matched": 5
+    },
+    {
+      "module": "exam",
+      "old_table": "t_question",
+      "new_table": "exam_questions",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\exam.ts",
+      "old_field_count": 15,
+      "new_field_count": 6,
+      "matched": 4,
+      "type_matched": 2,
+      "not_null_matched": 3,
+      "pk_matched": 4
+    },
+    {
+      "module": "comment",
+      "old_table": "t_comment",
+      "new_table": "comments",
+      "old_source": "edu-init_database.sql",
+      "old_file": "D:\\历史项目存档\\code\\edu\\service\\service\\init_database.sql",
+      "new_file": "G:\\IHUI-AI\\packages\\database\\src\\schema\\comments.ts",
+      "old_field_count": 7,
+      "new_field_count": 10,
+      "matched": 2,
+      "type_matched": 0,
+      "not_null_matched": 2,
+      "pk_matched": 2
+    }
+  ],
+  "overall": {
+    "total_old_fields": 182,
+    "total_new_fields": 176,
+    "total_matched_fields": 75,
+    "field_coverage_pct": 41.2,
+    "type_match_pct": 65.3,
+    "not_null_match_pct": 70.7,
+    "default_match_pct": 50.7,
+    "unique_match_pct": 100,
+    "pk_match_pct": 97.3,
+    "missing_fields_count": 107,
+    "new_fields_count": 101
+  },
+  "module_stats": {
+    "user": {
+      "tables": 3,
+      "oldFields": 29,
+      "newFields": 22,
+      "matched": 9,
+      "typeMatched": 8,
+      "notNullMatched": 5,
+      "pkMatched": 9
+    },
+    "order": {
+      "tables": 3,
+      "oldFields": 42,
+      "newFields": 36,
+      "matched": 15,
+      "typeMatched": 7,
+      "notNullMatched": 7,
+      "pkMatched": 14
+    },
+    "member": {
+      "tables": 3,
+      "oldFields": 17,
+      "newFields": 20,
+      "matched": 8,
+      "typeMatched": 5,
+      "notNullMatched": 8,
+      "pkMatched": 8
+    },
+    "message": {
+      "tables": 3,
+      "oldFields": 21,
+      "newFields": 25,
+      "matched": 6,
+      "typeMatched": 5,
+      "notNullMatched": 5,
+      "pkMatched": 6
+    },
+    "ai": {
+      "tables": 2,
+      "oldFields": 23,
+      "newFields": 24,
+      "matched": 18,
+      "typeMatched": 13,
+      "notNullMatched": 11,
+      "pkMatched": 17
+    },
+    "role": {
+      "tables": 2,
+      "oldFields": 11,
+      "newFields": 12,
+      "matched": 6,
+      "typeMatched": 6,
+      "notNullMatched": 6,
+      "pkMatched": 6
+    },
+    "permission": {
+      "tables": 1,
+      "oldFields": 3,
+      "newFields": 7,
+      "matched": 2,
+      "typeMatched": 2,
+      "notNullMatched": 2,
+      "pkMatched": 2
+    },
+    "exam": {
+      "tables": 2,
+      "oldFields": 29,
+      "newFields": 20,
+      "matched": 9,
+      "typeMatched": 3,
+      "notNullMatched": 7,
+      "pkMatched": 9
+    },
+    "comment": {
+      "tables": 1,
+      "oldFields": 7,
+      "newFields": 10,
+      "matched": 2,
+      "typeMatched": 0,
+      "notNullMatched": 2,
+      "pkMatched": 2
+    }
+  },
+  "missing_fields": [
+    {
+      "table": "t_user",
+      "field": "username",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_user",
+      "field": "code",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_user",
+      "field": "gender",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_user",
+      "field": "telephone",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_user",
+      "field": "email",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_user",
+      "field": "birthday",
+      "old_type": "date"
+    },
+    {
+      "table": "t_user",
+      "field": "id_card",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_user",
+      "field": "nation",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_user",
+      "field": "native_place",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_user",
+      "field": "id_card_address",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_user",
+      "field": "current_address",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_user",
+      "field": "marital_status",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_user",
+      "field": "contract_start_date",
+      "old_type": "date"
+    },
+    {
+      "table": "t_user",
+      "field": "contract_end_date",
+      "old_type": "date"
+    },
+    {
+      "table": "t_user",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_user",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "users",
+      "field": "username",
+      "old_type": "varchar"
+    },
+    {
+      "table": "users",
+      "field": "enabled",
+      "old_type": "boolean"
+    },
+    {
+      "table": "t_user_job",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_user_job",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "order_order",
+      "field": "no",
+      "old_type": "varchar"
+    },
+    {
+      "table": "order_order",
+      "field": "remark",
+      "old_type": "varchar"
+    },
+    {
+      "table": "order_order",
+      "field": "freight_amount",
+      "old_type": "decimal"
+    },
+    {
+      "table": "order_order",
+      "field": "item_amount",
+      "old_type": "decimal"
+    },
+    {
+      "table": "order_order",
+      "field": "payment_amount",
+      "old_type": "decimal"
+    },
+    {
+      "table": "order_order",
+      "field": "department_id",
+      "old_type": "bigint"
+    },
+    {
+      "table": "order_order",
+      "field": "company_id",
+      "old_type": "bigint"
+    },
+    {
+      "table": "order_order",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "order_order",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "zhs_order",
+      "field": "out_trade_no",
+      "old_type": "varchar"
+    },
+    {
+      "table": "zhs_order",
+      "field": "open_id",
+      "old_type": "varchar"
+    },
+    {
+      "table": "zhs_order",
+      "field": "payment_status",
+      "old_type": "integer"
+    },
+    {
+      "table": "zhs_order",
+      "field": "refund_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "zhs_order",
+      "field": "refund_reason",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "zhs_order",
+      "field": "activity_id",
+      "old_type": "varchar"
+    },
+    {
+      "table": "zhs_order",
+      "field": "product_identity_id",
+      "old_type": "varchar"
+    },
+    {
+      "table": "zhs_order",
+      "field": "product_name",
+      "old_type": "varchar"
+    },
+    {
+      "table": "zhs_order",
+      "field": "images",
+      "old_type": "varchar"
+    },
+    {
+      "table": "zhs_order",
+      "field": "platform_type",
+      "old_type": "varchar"
+    },
+    {
+      "table": "zhs_order",
+      "field": "pay_type",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_order_item",
+      "field": "item_id",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_order_item",
+      "field": "title",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_order_item",
+      "field": "image",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_order_item",
+      "field": "original_price",
+      "old_type": "decimal"
+    },
+    {
+      "table": "t_order_item",
+      "field": "payment_amount",
+      "old_type": "decimal"
+    },
+    {
+      "table": "t_order_item",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_order_item",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_member_group",
+      "field": "sort_order",
+      "old_type": "integer"
+    },
+    {
+      "table": "t_member_group",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_member_group",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_member_post",
+      "field": "sort_order",
+      "old_type": "integer"
+    },
+    {
+      "table": "t_member_post",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_member_post",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_member_tag",
+      "field": "sort_order",
+      "old_type": "integer"
+    },
+    {
+      "table": "t_member_tag",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_member_tag",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_announcement",
+      "field": "status",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_announcement",
+      "field": "publish_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_announcement",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_announcement",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_notice",
+      "field": "id",
+      "old_type": "bigint"
+    },
+    {
+      "table": "t_notice",
+      "field": "topic_id",
+      "old_type": "bigint"
+    },
+    {
+      "table": "t_notice",
+      "field": "topic_type",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_notice",
+      "field": "to_member_id",
+      "old_type": "bigint"
+    },
+    {
+      "table": "t_notice",
+      "field": "type",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_notice",
+      "field": "browsed",
+      "old_type": "boolean"
+    },
+    {
+      "table": "t_notice",
+      "field": "member_id",
+      "old_type": "bigint"
+    },
+    {
+      "table": "t_notice",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_notice",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_system_notice",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_system_notice",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "zhs_agent_category",
+      "field": "agent_name",
+      "old_type": "varchar"
+    },
+    {
+      "table": "zhs_user_agent_free_times",
+      "field": "user_id",
+      "old_type": "integer"
+    },
+    {
+      "table": "zhs_user_agent_free_times",
+      "field": "agent_user_id",
+      "old_type": "bigint"
+    },
+    {
+      "table": "zhs_user_agent_free_times",
+      "field": "times",
+      "old_type": "integer"
+    },
+    {
+      "table": "zhs_user_agent_free_times",
+      "field": "degree",
+      "old_type": "integer"
+    },
+    {
+      "table": "t_role",
+      "field": "remark",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_role",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_role",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_role_authority",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_role_authority",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "permissions",
+      "field": "role",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_paper",
+      "field": "code",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_paper",
+      "field": "type",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_paper",
+      "field": "score",
+      "old_type": "double"
+    },
+    {
+      "table": "t_paper",
+      "field": "limit_time",
+      "old_type": "bigint"
+    },
+    {
+      "table": "t_paper",
+      "field": "question_disordered",
+      "old_type": "boolean"
+    },
+    {
+      "table": "t_paper",
+      "field": "option_disordered",
+      "old_type": "boolean"
+    },
+    {
+      "table": "t_paper",
+      "field": "difficulty",
+      "old_type": "integer"
+    },
+    {
+      "table": "t_paper",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_paper",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_question",
+      "field": "title",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_question",
+      "field": "note",
+      "old_type": "text"
+    },
+    {
+      "table": "t_question",
+      "field": "score",
+      "old_type": "decimal"
+    },
+    {
+      "table": "t_question",
+      "field": "reference_answer",
+      "old_type": "text"
+    },
+    {
+      "table": "t_question",
+      "field": "reference_answer_note",
+      "old_type": "text"
+    },
+    {
+      "table": "t_question",
+      "field": "status",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_question",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_question",
+      "field": "update_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_question",
+      "field": "member_id",
+      "old_type": "bigint"
+    },
+    {
+      "table": "t_question",
+      "field": "content",
+      "old_type": "text"
+    },
+    {
+      "table": "t_question",
+      "field": "image",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_comment",
+      "field": "topic_id",
+      "old_type": "bigint"
+    },
+    {
+      "table": "t_comment",
+      "field": "topic_type",
+      "old_type": "varchar"
+    },
+    {
+      "table": "t_comment",
+      "field": "member_id",
+      "old_type": "bigint"
+    },
+    {
+      "table": "t_comment",
+      "field": "create_time",
+      "old_type": "timestamp"
+    },
+    {
+      "table": "t_comment",
+      "field": "update_time",
+      "old_type": "timestamp"
+    }
+  ],
+  "new_fields": [
+    {
+      "table": "edu_user",
+      "field": "company_id",
+      "new_type": "integer"
+    },
+    {
+      "table": "edu_user",
+      "field": "department_id",
+      "new_type": "integer"
+    },
+    {
+      "table": "edu_user",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "edu_user",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "edu_user",
+      "field": "id",
+      "new_type": "integer"
+    },
+    {
+      "table": "edu_user",
+      "field": "mobile",
+      "new_type": "varchar"
+    },
+    {
+      "table": "edu_user",
+      "field": "name",
+      "new_type": "varchar"
+    },
+    {
+      "table": "edu_user",
+      "field": "company_id",
+      "new_type": "integer"
+    },
+    {
+      "table": "edu_user",
+      "field": "department_id",
+      "new_type": "integer"
+    },
+    {
+      "table": "edu_user",
+      "field": "status",
+      "new_type": "integer"
+    },
+    {
+      "table": "edu_user",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "edu_user",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "user_jobs",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "orders",
+      "field": "order_no",
+      "new_type": "varchar"
+    },
+    {
+      "table": "orders",
+      "field": "plan_id",
+      "new_type": "uuid"
+    },
+    {
+      "table": "orders",
+      "field": "amount",
+      "new_type": "integer"
+    },
+    {
+      "table": "orders",
+      "field": "currency",
+      "new_type": "varchar"
+    },
+    {
+      "table": "orders",
+      "field": "payment_method",
+      "new_type": "varchar"
+    },
+    {
+      "table": "orders",
+      "field": "order_type",
+      "new_type": "integer"
+    },
+    {
+      "table": "orders",
+      "field": "product_id",
+      "new_type": "varchar"
+    },
+    {
+      "table": "orders",
+      "field": "paid_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "orders",
+      "field": "expires_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "orders",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "orders",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "orders",
+      "field": "order_no",
+      "new_type": "varchar"
+    },
+    {
+      "table": "orders",
+      "field": "plan_id",
+      "new_type": "uuid"
+    },
+    {
+      "table": "orders",
+      "field": "currency",
+      "new_type": "varchar"
+    },
+    {
+      "table": "orders",
+      "field": "payment_method",
+      "new_type": "varchar"
+    },
+    {
+      "table": "orders",
+      "field": "expires_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "orders",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "edu_order_items",
+      "field": "product_id",
+      "new_type": "integer"
+    },
+    {
+      "table": "edu_order_items",
+      "field": "product_name",
+      "new_type": "varchar"
+    },
+    {
+      "table": "edu_order_items",
+      "field": "subtotal",
+      "new_type": "decimal"
+    },
+    {
+      "table": "edu_order_items",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "member_groups",
+      "field": "description",
+      "new_type": "text"
+    },
+    {
+      "table": "member_groups",
+      "field": "sort",
+      "new_type": "integer"
+    },
+    {
+      "table": "member_groups",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "member_groups",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "member_posts",
+      "field": "code",
+      "new_type": "varchar"
+    },
+    {
+      "table": "member_posts",
+      "field": "sort",
+      "new_type": "integer"
+    },
+    {
+      "table": "member_posts",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "member_posts",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "member_tags",
+      "field": "color",
+      "new_type": "varchar"
+    },
+    {
+      "table": "member_tags",
+      "field": "sort",
+      "new_type": "integer"
+    },
+    {
+      "table": "member_tags",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "member_tags",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "announcements",
+      "field": "type",
+      "new_type": "varchar"
+    },
+    {
+      "table": "announcements",
+      "field": "is_pinned",
+      "new_type": "boolean"
+    },
+    {
+      "table": "announcements",
+      "field": "is_published",
+      "new_type": "boolean"
+    },
+    {
+      "table": "announcements",
+      "field": "published_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "announcements",
+      "field": "expires_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "announcements",
+      "field": "created_by",
+      "new_type": "uuid"
+    },
+    {
+      "table": "announcements",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "announcements",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "sys_notice",
+      "field": "notice_id",
+      "new_type": "integer"
+    },
+    {
+      "table": "sys_notice",
+      "field": "notice_title",
+      "new_type": "varchar"
+    },
+    {
+      "table": "sys_notice",
+      "field": "notice_type",
+      "new_type": "varchar"
+    },
+    {
+      "table": "sys_notice",
+      "field": "notice_content",
+      "new_type": "text"
+    },
+    {
+      "table": "sys_notice",
+      "field": "create_by",
+      "new_type": "varchar"
+    },
+    {
+      "table": "sys_notice",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "sys_notice",
+      "field": "update_by",
+      "new_type": "varchar"
+    },
+    {
+      "table": "sys_notice",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "sys_notice",
+      "field": "remark",
+      "new_type": "varchar"
+    },
+    {
+      "table": "message_system_notice",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "message_system_notice",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "zhs_agent_category",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "zhs_agent_category",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "zhs_user_agent_free_time",
+      "field": "user_uuid",
+      "new_type": "varchar"
+    },
+    {
+      "table": "zhs_user_agent_free_time",
+      "field": "free_count",
+      "new_type": "integer"
+    },
+    {
+      "table": "zhs_user_agent_free_time",
+      "field": "used_count",
+      "new_type": "integer"
+    },
+    {
+      "table": "zhs_user_agent_free_time",
+      "field": "expire_time",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "edu_role",
+      "field": "description",
+      "new_type": "text"
+    },
+    {
+      "table": "edu_role",
+      "field": "status",
+      "new_type": "integer"
+    },
+    {
+      "table": "edu_role",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "edu_role",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "edu_role_authority",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "edu_role_authority",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "permissions",
+      "field": "id",
+      "new_type": "uuid"
+    },
+    {
+      "table": "permissions",
+      "field": "name",
+      "new_type": "varchar"
+    },
+    {
+      "table": "permissions",
+      "field": "display_name",
+      "new_type": "varchar"
+    },
+    {
+      "table": "permissions",
+      "field": "description",
+      "new_type": "text"
+    },
+    {
+      "table": "permissions",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "exam_papers",
+      "field": "category_id",
+      "new_type": "uuid"
+    },
+    {
+      "table": "exam_papers",
+      "field": "cid_list",
+      "new_type": "jsonb"
+    },
+    {
+      "table": "exam_papers",
+      "field": "paper_type",
+      "new_type": "varchar"
+    },
+    {
+      "table": "exam_papers",
+      "field": "total_score",
+      "new_type": "decimal"
+    },
+    {
+      "table": "exam_papers",
+      "field": "duration",
+      "new_type": "integer"
+    },
+    {
+      "table": "exam_papers",
+      "field": "is_random",
+      "new_type": "boolean"
+    },
+    {
+      "table": "exam_papers",
+      "field": "created_by",
+      "new_type": "uuid"
+    },
+    {
+      "table": "exam_papers",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "exam_papers",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "exam_questions",
+      "field": "paper_id",
+      "new_type": "uuid"
+    },
+    {
+      "table": "exam_questions",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "comments",
+      "field": "user_id",
+      "new_type": "uuid"
+    },
+    {
+      "table": "comments",
+      "field": "resource_type",
+      "new_type": "varchar"
+    },
+    {
+      "table": "comments",
+      "field": "resource_id",
+      "new_type": "varchar"
+    },
+    {
+      "table": "comments",
+      "field": "parent_id",
+      "new_type": "uuid"
+    },
+    {
+      "table": "comments",
+      "field": "mentions",
+      "new_type": "jsonb"
+    },
+    {
+      "table": "comments",
+      "field": "is_deleted",
+      "new_type": "boolean"
+    },
+    {
+      "table": "comments",
+      "field": "created_at",
+      "new_type": "timestamp"
+    },
+    {
+      "table": "comments",
+      "field": "updated_at",
+      "new_type": "timestamp"
+    }
+  ],
+  "type_mapping_rules": {
+    "INT/int": "integer",
+    "BIGINT": "bigint",
+    "TINYINT(1)": "boolean",
+    "VARCHAR(N)": "varchar",
+    "TEXT/LONGTEXT/MEDIUMTEXT": "text",
+    "TIMESTAMP/DATETIME": "timestamp",
+    "DATE": "date",
+    "BOOLEAN/BOOL": "boolean",
+    "JSON": "jsonb",
+    "DECIMAL/NUMERIC": "decimal",
+    "FLOAT": "real",
+    "UUID": "uuid"
+  },
+  "constraint_mapping_rules": {
+    "NOT NULL": "notNull()",
+    "DEFAULT xxx": "default(xxx)",
+    "UNIQUE": "unique()",
+    "PRIMARY KEY": "primaryKey()",
+    "AUTO_INCREMENT": "serial/autoincrement()"
+  },
+  "csv_path": "G:\\IHUI-AI\\reports\\migration-audit-db-fields-2026-07-19T14-11-52.csv"
+}

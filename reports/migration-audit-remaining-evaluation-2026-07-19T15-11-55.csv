@@ -1,0 +1,141 @@
+category,name,methods,legacyClass,decision,reason,rowCount
+API,/ai-vendors/3/generate,POST,Gemini3ProPreviewController,设计风格差异,"Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)",1
+API,/ai-vendors/audio/sys,GET,AliAIController,设计风格差异,"Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)",1
+API,/ai-vendors/cloud/live/callback/templates,GET,TencentCloudLiveStreamController,设计风格差异,"Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)",1
+API,/ai-vendors/cloud/live/stream,GET,TencentCloudLiveStreamController,设计风格差异,"Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)",1
+API,/ai-vendors/cloud/live/stream/channel-id,GET,TencentCloudLiveStreamController,设计风格差异,"Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)",1
+API,/ai-vendors/generate/music,POST,SunoController,设计风格差异,"Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)",1
+API,/ai-vendors/generate/timbre,POST,AliAIController,设计风格差异,"Java /tencent /ali /suno /gemini 统一前缀 /ai-vendors,IHUI-AI 拆为 /api/ai/{vendor}/* (dashscope/suno/gemini/tencent/volcengine/coze 等)",1
+API,/ai-vendors/get/digital/{param},GET,AliAIController,补开发,"AliAIController 数字人获取(/ai-vendors/get/digital/{type}),IHUI-AI 当前未实现数字人(Digital Human)功能,需补开发",1
+API,/ai-vendors/video/to/digital,POST,AliAIController,补开发,"AliAIController 视频转数字人(/ai-vendors/video/to/digital),IHUI-AI 当前未实现视频转数字人功能,需补开发",1
+API,/alipay/notify,POST,AliPayNotifyController,设计风格差异,"Java /alipay/notify,IHUI-AI 重构到 /payments/alipay/notify(payment-gateway.ts)",1
+API,/auth_veri_codes/{param},GET/DELETE,VerificationCodesController,废弃,"验证码短期内存一次性消费,新 /api/auth-codes 模块(send + check)已覆盖,无需 admin CRUD",2
+API,/auth_veri_codes/export,POST,VerificationCodesController,废弃,"验证码短期内存一次性消费,新 /api/auth-codes 模块(send + check)已覆盖,无需 admin CRUD",1
+API,/auth_veri_codes/list,GET,VerificationCodesController,废弃,"验证码短期内存一次性消费,新 /api/auth-codes 模块(send + check)已覆盖,无需 admin CRUD",1
+API,/auth-sso/admin/create,POST,SsoController,设计风格差异,"Java /auth-sso/admin/login /member/login /uuid/login 多入口,IHUI-AI 统一到 /sso/code (auth-sso.ts 单 SSO 端点设计)",1
+API,/auth-sso/admin/login,POST,SsoController,设计风格差异,"Java /auth-sso/admin/login /member/login /uuid/login 多入口,IHUI-AI 统一到 /sso/code (auth-sso.ts 单 SSO 端点设计)",1
+API,/auth-sso/member/create,POST,SsoController,设计风格差异,"Java /auth-sso/admin/login /member/login /uuid/login 多入口,IHUI-AI 统一到 /sso/code (auth-sso.ts 单 SSO 端点设计)",1
+API,/auth-sso/member/login,POST,SsoController,设计风格差异,"Java /auth-sso/admin/login /member/login /uuid/login 多入口,IHUI-AI 统一到 /sso/code (auth-sso.ts 单 SSO 端点设计)",1
+API,/auth-sso/uuid/login,POST,SsoController,设计风格差异,"Java /auth-sso/admin/login /member/login /uuid/login 多入口,IHUI-AI 统一到 /sso/code (auth-sso.ts 单 SSO 端点设计)",1
+API,/base64/{param}/{param}/{param},POST,OssController,废弃,"Base64 上传已被 /api/upload + /api/files 完整覆盖,Java OSS /base64 路径无需补",1
+API,/bot/sites/kind,GET,AiBotSitesController,废弃,"AiBotSites 旧 AI 站点业务已下线,不在 IHUI-AI 产品路线",1
+API,/buy/{param},DELETE,ZhsAgentBuyController,设计风格差异,"Java /zhs_agent_buy,IHUI-AI 用 /buy(zhs 前缀剥离)",2
+API,/buy/expired,GET,ZhsAgentBuyController,设计风格差异,"Java /zhs_agent_buy,IHUI-AI 用 /buy(zhs 前缀剥离)",1
+API,/buy/export,POST,ZhsAgentBuyController,设计风格差异,"Java /zhs_agent_buy,IHUI-AI 用 /buy(zhs 前缀剥离)",1
+API,/buy/unsettled,GET,ZhsAgentBuyController,设计风格差异,"Java /zhs_agent_buy,IHUI-AI 用 /buy(zhs 前缀剥离)",1
+API,/buy/user/{param}/agent/{param},GET,ZhsAgentBuyController,设计风格差异,"Java /zhs_agent_buy,IHUI-AI 用 /buy(zhs 前缀剥离)",1
+API,/by-id,GET,MemberController,设计风格差异,"Java 用 /by-id,IHUI-AI 用 /members/:id RESTful 路径",1
+API,/by-ids,GET,MemberController,设计风格差异,"Java 用 /by-ids,IHUI-AI 用 /members?ids= 批量查询",1
+API,/by-mobile,GET,MemberController,设计风格差异,"Java 用查询动作为首段(/by-mobile),IHUI-AI 用 RESTful /members?mobile= 查询",1
+API,/certificate-template,POST/PUT/GET/DELETE,CertificateTemplateController,废弃,"证书模板独立 CRUD 已废弃,字段已并入 /learn(certificateTemplateId 引用)+ /certificates 模块",5
+API,/certificate-template/active,PUT,CertificateTemplateController,废弃,"证书模板独立 CRUD 已废弃,字段已并入 /learn(certificateTemplateId 引用)+ /certificates 模块",1
+API,/certificate-template/inactive,PUT,CertificateTemplateController,废弃,"证书模板独立 CRUD 已废弃,字段已并入 /learn(certificateTemplateId 引用)+ /certificates 模块",1
+API,/certificate-template/list,GET,CertificateTemplateController,废弃,"证书模板独立 CRUD 已废弃,字段已并入 /learn(certificateTemplateId 引用)+ /certificates 模块",1
+API,/chat-audio/{param},GET/DELETE,ZhsUserAgentAudioController,设计风格差异,"Java /userAgentAudio,IHUI-AI 用 /chat-audio(语义化命名)",2
+API,/chat-audio/export,POST,ZhsUserAgentAudioController,设计风格差异,"Java /userAgentAudio,IHUI-AI 用 /chat-audio(语义化命名)",1
+API,/chat-audio/list,GET,ZhsUserAgentAudioController,设计风格差异,"Java /userAgentAudio,IHUI-AI 用 /chat-audio(语义化命名)",1
+API,/chunked-upload/joint,POST,SysFileController,设计风格差异,"Java /uploadChunkedFile,IHUI-AI 用 /chunked-upload(命名规范化)",1
+API,/chunked-upload/pc,POST,SysFileController,设计风格差异,"Java /uploadChunkedFile,IHUI-AI 用 /chunked-upload(命名规范化)",1
+API,/codebase/{param},GET/DELETE,GenController,废弃,"RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移",2
+API,/codebase/batchGenCode,GET,GenController,废弃,"RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移",1
+API,/codebase/column/{param},GET,GenController,废弃,"RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移",1
+API,/codebase/db/list,GET,GenController,废弃,"RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移",1
+API,/codebase/download/{param},GET,GenController,废弃,"RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移",1
+API,/codebase/genCode/{param},GET,GenController,废弃,"RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移",1
+API,/codebase/importTable,POST,GenController,废弃,"RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移",1
+API,/codebase/list,GET,GenController,废弃,"RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移",1
+API,/codebase/preview/{param},GET,GenController,废弃,"RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移",1
+API,/codebase/synchDb/{param},GET,GenController,废弃,"RuoYi 代码生成器为 Java 专用,IHUI-AI 用 OpenAPI 自动生成 + CLI 脚本,无需迁移",1
+API,/content/type,GET,ContentController,设计风格差异,"Java /content/type,IHUI-AI 用 /content 模块(content.ts 承载)",1
+API,/createbywechatuserinfo,POST,MemberController,设计风格差异,"Java 用 /createbywechatuserinfo,IHUI-AI 用 /members/register + OAuth 微信登录",1
+API,/current-member/comment/list,GET,CommentController,设计风格差异,"Java /current-member/comment/list,IHUI-AI 用 /comments?userId=me",1
+API,/ding-talk/config,GET,DingTalkController,废弃,"钉钉公开接口仅在 services/oauth-providers.ts 保留配置,无产品需求暴露公开端点",1
+API,/ding-talk/user/by-code,GET,DingTalkController,废弃,"钉钉公开接口仅在 services/oauth-providers.ts 保留配置,无产品需求暴露公开端点",1
+API,/feedbacks/{param},DELETE,AiUserFeedbackController,设计风格差异,"Java /userFeedback /jianyi,IHUI-AI 统一用 /feedbacks",1
+API,/feedbacks/export,POST,AiUserFeedbackController,设计风格差异,"Java /userFeedback /jianyi,IHUI-AI 统一用 /feedbacks",1
+API,/feedbacks/list,GET,AiUserFeedbackController,设计风格差异,"Java /userFeedback /jianyi,IHUI-AI 统一用 /feedbacks",1
+API,/feedbacks/sora2/generate/video,POST,Sora2Controller,废弃,"feedbacks 模块功能已废弃,当前仓库无对应需求",1
+API,/feedbacks/sora2/video/info,POST,Sora2Controller,废弃,"feedbacks 模块功能已废弃,当前仓库无对应需求",1
+API,/feedbacks/sora2/video/info/{param},GET,Sora2Controller,废弃,"feedbacks 模块功能已废弃,当前仓库无对应需求",1
+API,/file-versions/{param},GET,SysFileController,设计风格差异,"Java /uploadHistory,IHUI-AI 用 /file-versions(语义化命名)",1
+API,/follows/fans/list,GET,FollowController,设计风格差异,"Java /follows/list /fans/list,IHUI-AI 用 /follows RESTful + query 参数",1
+API,/follows/list,GET,FollowController,设计风格差异,"Java /follows/list /fans/list,IHUI-AI 用 /follows RESTful + query 参数",1
+API,/follows/member/count,GET,FollowController,设计风格差异,"Java /follows/list /fans/list,IHUI-AI 用 /follows RESTful + query 参数",1
+API,/invoices/application,POST/PUT/GET/DELETE,InvoiceApplicationController,设计风格差异,"Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)",7
+API,/invoices/application/approved,POST,InvoiceApplicationController,设计风格差异,"Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)",1
+API,/invoices/application/canceled,POST,InvoiceApplicationController,设计风格差异,"Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)",1
+API,/invoices/application/invoiced,POST,InvoiceApplicationController,设计风格差异,"Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)",1
+API,/invoices/application/invoicing,POST,InvoiceApplicationController,设计风格差异,"Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)",1
+API,/invoices/application/list,GET,InvoiceApplicationController,设计风格差异,"Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)",2
+API,/invoices/application/rejected,POST,InvoiceApplicationController,设计风格差异,"Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)",1
+API,/invoices/title,POST/PUT/GET/DELETE,InvoiceTitleController,设计风格差异,"Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)",7
+API,/invoices/title/list,GET,InvoiceTitleController,设计风格差异,"Java /invoice/*,IHUI-AI 用 /invoices(invoice→invoices 单复数规范化)",2
+API,/like,PUT,LikeController,设计风格差异,"Java /auth-api/like (PUT),IHUI-AI 用 /api/interactions/like (POST)(interactions.ts 统一入口)",1
+API,/notifications/{param},GET/DELETE,SysNoticeController,设计风格差异,"Java /notice/list,IHUI-AI 用 /notifications(notice→notifications 命名统一)",2
+API,/notifications/list,GET,NoticeController,设计风格差异,"Java /notice/list,IHUI-AI 用 /notifications(notice→notifications 命名统一)",2
+API,/notifications/read,PUT,NoticeController,设计风格差异,"Java /notice/list,IHUI-AI 用 /notifications(notice→notifications 命名统一)",1
+API,/permissions/tree,GET,AuthorityController,设计风格差异,"Java /authorities/tree,IHUI-AI 用 /permissions(已迁移)+ /permissions/tree 子路径",1
+API,/recommend,GET,ExamController,废弃,"试卷推荐功能 IHUI-AI 未实现,/learn/maps/recommend 是不同业务(学习地图推荐)",1
+API,/reply-comment/list/by-ids,GET,CommentController,设计风格差异,"Java 拆分 reply/comment 路径,IHUI-AI 统一在 /comments 模块(parentCommentId 字段)",1
+API,/reply/comment,POST/DELETE,CommentController,设计风格差异,"Java /reply/comment 拆分,IHUI-AI 统一在 /comments 模块",2
+API,/reports/company/member/signup,GET,ReportController,设计风格差异,"Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化)",1
+API,/reports/lesson/sign,GET,ReportController,设计风格差异,"Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化)",1
+API,/reports/lesson/study,GET,ReportController,设计风格差异,"Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化)",1
+API,/reports/member/study,GET,ReportController,设计风格差异,"Java /report/*,IHUI-AI 用 /reports(report→reports 单复数规范化)",1
+API,/review/list,GET,MemberController,设计风格差异,"Java /unaudited/list,IHUI-AI 用 /review 或 /admin/members/unaudited",1
+API,/settlement/{param},DELETE,ZhsAgentSettlementController,设计风格差异,"Java /agentSettlement,IHUI-AI 用 /settlement(命名规范化)",1
+API,/settlement/export,POST,ZhsAgentSettlementController,设计风格差异,"Java /agentSettlement,IHUI-AI 用 /settlement(命名规范化)",1
+API,/system-login-logs/{param},DELETE/GET,SysLogininforController,设计风格差异,"Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested)",3
+API,/system-login-logs/clean,DELETE,SysLogininforController,设计风格差异,"Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested)",1
+API,/system-login-logs/export,POST,SysLogininforController,设计风格差异,"Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested)",2
+API,/system-login-logs/list,GET,SysLogininforController,设计风格差异,"Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested)",2
+API,/system-login-logs/unlock/{param},GET,SysLogininforController,设计风格差异,"Java /system-login-logs/*,IHUI-AI 用 /system/login-logs(admin/system-login-logs.ts,kebab→nested)",1
+API,/system-operation-logs/{param},DELETE,SysOperlogController,设计风格差异,"Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts)",1
+API,/system-operation-logs/clean,DELETE,SysOperlogController,设计风格差异,"Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts)",1
+API,/system-operation-logs/export,POST,SysOperlogController,设计风格差异,"Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts)",1
+API,/system-operation-logs/list,GET,SysOperlogController,设计风格差异,"Java /system-operation-logs/*,IHUI-AI 用 /system/operation-logs(admin/system-operation-logs.ts)",1
+API,/tbox/agent/channel/deploy,POST,TBoxController,废弃,"TBox 是 AI Box 硬件特定功能,不在 IHUI-AI 软件平台路线",1
+API,/vip/list,GET,MemberLevelController,设计风格差异,"Java /level/list,IHUI-AI 用 /vip 模块(vip.ts 14 个路由承载等级体系)",1
+API,/visit-tracking/day/pv/list,GET,VisitLogController,设计风格差异,"Java /visit-tracking/summary /day/pv/list 等,IHUI-AI 用 /visit-tracking/* + /traces/* (拆分基础记录与统计聚合)",1
+API,/visit-tracking/day/uv/list,GET,VisitLogController,设计风格差异,"Java /visit-tracking/summary /day/pv/list 等,IHUI-AI 用 /visit-tracking/* + /traces/* (拆分基础记录与统计聚合)",1
+API,/visit-tracking/ip-city/summary/list,GET,VisitLogController,设计风格差异,"Java /visit-tracking/summary /day/pv/list 等,IHUI-AI 用 /visit-tracking/* + /traces/* (拆分基础记录与统计聚合)",1
+API,/visit-tracking/summary,GET,VisitLogController,设计风格差异,"Java /visit-tracking/summary /day/pv/list 等,IHUI-AI 用 /visit-tracking/* + /traces/* (拆分基础记录与统计聚合)",1
+API,/wechatpay/notify,POST,WechatpayNotifyController,设计风格差异,"Java /wechatpay/notify,IHUI-AI 重构到 /payments/wechat/notify(payment-gateway.ts)",1
+API,/wechatpay/notify/v3,POST,WechatpayNotifyController,设计风格差异,"Java /wechatpay/notify,IHUI-AI 重构到 /payments/wechat/notify(payment-gateway.ts)",1
+API,/workflows/{param},DELETE,ZhsCommissionFlowController,设计风格差异,"Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)",1
+API,/workflows/export,POST,ZhsCommissionFlowController,设计风格差异,"Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)",1
+API,/workflows/getStatistics,GET,ZhsCommissionFlowController,设计风格差异,"Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)",1
+API,/workflows/getTraderTeam,GET,ZhsCommissionFlowController,设计风格差异,"Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)",1
+API,/workflows/getTraderTeamByCenter,GET,ZhsCommissionFlowController,设计风格差异,"Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)",1
+API,/workflows/list,GET,ZhsCommissionFlowController,设计风格差异,"Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)",1
+API,/workflows/orderList,GET,ZhsCommissionFlowController,设计风格差异,"Java /flow,IHUI-AI 用 /workflows(flow→workflows 业务化命名)",1
+API,/zhsAgent/{param},GET/DELETE,ZhsAgentController,设计风格差异,"Java /zhsAgent (camelCase),IHUI-AI 用 /api/admin/zhs-agent (kebab-case,admin/zhs-agent.ts CRUD)",3
+API,/zhsAgent/export,POST,ZhsAgentController,设计风格差异,"Java /zhsAgent (camelCase),IHUI-AI 用 /api/admin/zhs-agent (kebab-case,admin/zhs-agent.ts CRUD)",1
+API,auth-api/homework/record,POST/PUT/GET,HomeworkRecordController,设计风格差异,"Java /homework/record,IHUI-AI 整合到 /learn/homework (learn.ts 9 个 homework 路由)",3
+API,public-api/agreement,GET,AgreementController,设计风格差异,"Java public-api/agreement (无前导 /,路径非规范),IHUI-AI 用 /agreements (单复数规范化,admin-agreements.ts)",1
+ZHS_TABLE,zhs_knowledge_planet,,KnowledgePlanet.java,已迁移,"已在 packages/database/src/schema/zhs-full.ts 中迁移(zhsKnowledgePlanet),字段在 Java 基础上扩展(如 16 → 11 字段)",1
+ZHS_TABLE,zhs_exchange_rate,,ExchangeRate.java,已迁移,"已在 packages/database/src/schema/zhs-full.ts 中迁移(zhsExchangeRate),字段在 Java 基础上扩展(如 4 → 8 字段)",1
+ZHS_TABLE,zhs_banner_carousel,,BannerCarousel.java,已迁移,"已在 packages/database/src/schema/zhs-full.ts 中迁移(zhsBannerCarousel),字段在 Java 基础上扩展(如 7 → 11 字段)",1
+ZHS_TABLE,zhs_operate_token_flow,,OperateTokenFlow.java,已迁移,"已在 packages/database/src/schema/zhs-full.ts 中迁移(zhsOperateTokenFlow),字段在 Java 基础上扩展(如 8 → 9 字段)",1
+ZHS_TABLE,zhs_product,,Product.java,已迁移,"已在 packages/database/src/schema/zhs-full.ts 中迁移(zhsProduct),字段在 Java 基础上扩展(如 11 → 13 字段)",1
+ZHS_TABLE,zhs_withdrawal_flow,,WithdrawalFlow.java,已迁移,"已在 packages/database/src/schema/commission.ts 中迁移(withdrawalFlows, 表名 withdrawal_flows),字段在 Java 基础上扩展(如 8 → 14 字段)",1
+RuoYi_TABLE,group_capacity,,RuoYi,废弃,"group_capacity(RuoYi Quartz 调度组容量配置)为 RuoYi 框架专用,IHUI-AI 不使用 Quartz/RuoYi 框架,无需迁移",1
+RuoYi_TABLE,his_config_info,,RuoYi,废弃,"his_config_info(RuoYi Quartz 调度历史配置信息(Nacos 配置中心历史版本))为 RuoYi 框架专用,IHUI-AI 不使用 Quartz/RuoYi 框架,无需迁移",1
+RuoYi_PAGE,/system/user,,RuoYi,已迁移,"RuoYi /system/user(用户管理)已在 IHUI-AI /admin/users 重新实现",1
+RuoYi_PAGE,/system/role,,RuoYi,已迁移,"RuoYi /system/role(角色管理)已在 IHUI-AI /admin/roles + admin/auth-role 重新实现",1
+RuoYi_PAGE,/system/menu,,RuoYi,已迁移,"RuoYi /system/menu(菜单管理)已在 IHUI-AI /admin/menu 重新实现",1
+RuoYi_PAGE,/system/dept,,RuoYi,已迁移,"RuoYi /system/dept(部门管理)已在 IHUI-AI /admin/auth-dept 重新实现",1
+RuoYi_PAGE,/system/dict,,RuoYi,已迁移,"RuoYi /system/dict(字典管理)已在 IHUI-AI /admin/dict 重新实现",1
+RuoYi_PAGE,/system/config,,RuoYi,已迁移,"RuoYi /system/config(参数配置)已在 IHUI-AI /admin/configs 重新实现",1
+RuoYi_PAGE,/system/notice,,RuoYi,已迁移,"RuoYi /system/notice(通知公告)已在 IHUI-AI /admin/notice 重新实现",1
+RuoYi_PAGE,/system/operlog,,RuoYi,已迁移,"RuoYi /system/operlog(操作日志)已在 IHUI-AI /admin/operlog 重新实现",1
+RuoYi_PAGE,/system/logininfor,,RuoYi,已迁移,"RuoYi /system/logininfor(登录日志)已在 IHUI-AI /admin/logs + admin/api-logs 重新实现",1
+RuoYi_PAGE,/system/post,,RuoYi,已迁移,"RuoYi /system/post(岗位管理)已在 IHUI-AI /admin/post 重新实现",1
+RuoYi_PAGE,/monitor/online,,RuoYi,已迁移,"RuoYi /monitor/online(在线用户)已在 IHUI-AI /admin/online 重新实现",1
+RuoYi_PAGE,/monitor/job,,RuoYi,已迁移,"RuoYi /monitor/job(定时任务)已在 IHUI-AI /admin/schedule 重新实现",1
+RuoYi_PAGE,/monitor/druid,,RuoYi,废弃,"/monitor/druid(Druid 数据源监控)为 RuoYi/Java 生态专用,IHUI-AI 用 Next.js + OpenAPI 替代,无需迁移",1
+RuoYi_PAGE,/monitor/server,,RuoYi,已迁移,"RuoYi /monitor/server(服务监控)已在 IHUI-AI /admin/api-usage 重新实现",1
+RuoYi_PAGE,/monitor/cache,,RuoYi,废弃,"/monitor/cache(缓存监控)为 RuoYi/Java 生态专用,IHUI-AI 用 Next.js + OpenAPI 替代,无需迁移",1
+RuoYi_PAGE,/tool/gen,,RuoYi,废弃,"/tool/gen(代码生成)为 RuoYi/Java 生态专用,IHUI-AI 用 Next.js + OpenAPI 替代,无需迁移",1
+RuoYi_PAGE,/tool/swagger,,RuoYi,废弃,"/tool/swagger(Swagger 文档)为 RuoYi/Java 生态专用,IHUI-AI 用 Next.js + OpenAPI 替代,无需迁移",1
+RuoYi_PAGE,/tool/build,,RuoYi,废弃,"/tool/build(表单构建)为 RuoYi/Java 生态专用,IHUI-AI 用 Next.js + OpenAPI 替代,无需迁移",1

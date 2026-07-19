@@ -1,0 +1,260 @@
+{
+  "timestamp": "2026-07-19T12-24-24",
+  "phase": "阶段 5: i18n key content-level 比对",
+  "legacyRoots": [
+    "D:\\历史项目存档\\edu server",
+    "D:\\历史项目存档\\code",
+    "D:\\历史项目存档\\edu client",
+    "D:\\历史项目存档\\ljd-交接文件",
+    "D:\\历史项目存档\\ihui-ai-admin-frontend",
+    "D:\\历史项目存档\\zhs_app-ZZ"
+  ],
+  "newZhCnFile": "g:\\IHUI-AI\\apps\\web\\messages\\zh-CN.json",
+  "legacyI18nFilesTotal": 5,
+  "legacyI18nFilesUnique": 5,
+  "legacyFilesByType": {
+    "properties": 0,
+    "json": 0,
+    "ts": 5
+  },
+  "legacyKeysTotal": 2976,
+  "newKeysTotal": 20427,
+  "stats": {
+    "已迁移": 183,
+    "部分迁移": 1309,
+    "缺失": 1484,
+    "无需迁移": 14331
+  },
+  "percentages": {
+    "已迁移": "6.1%",
+    "部分迁移": "44.0%",
+    "缺失": "49.9%(相对 D 盘 key)",
+    "无需迁移": "70.2%(相对当前仓库 key)"
+  },
+  "missingAnalysis": {
+    "totalMissing": 1484,
+    "languageMigrationExpected": 507,
+    "realMissing": 977,
+    "noModule": 0,
+    "realMissingExamples": [
+      {
+        "legacyKey": "common.systemTip",
+        "module": "system_tip",
+        "sourceFiles": "ihui-ai-admin-frontend/src/locales/lang/en.ts | ihui-ai-admin-frontend/src/locales/lang/ja.ts | ihui-ai-admin-frontend/src/locales/lang/ko.ts | ihui-ai-admin-frontend/src/locales/lang/zh-CN.ts | ihui-ai-admin-frontend/src/locales/lang/zh-TW.ts"
+      },
+      {
+        "legacyKey": "common.serialNumber",
+        "module": "serial_number",
+        "sourceFiles": "ihui-ai-admin-frontend/src/locales/lang/en.ts | ihui-ai-admin-frontend/src/locales/lang/zh-CN.ts"
+      },
+      {
+        "legacyKey": "common.dataItem",
+        "module": "data_item",
+        "sourceFiles": "ihui-ai-admin-frontend/src/locales/lang/en.ts | ihui-ai-admin-frontend/src/locales/lang/zh-CN.ts"
+      },
+      {
+        "legacyKey": "common.modifySuccess",
+        "module": "modify_success",
+        "sourceFiles": "ihui-ai-admin-frontend/src/locales/lang/en.ts | ihui-ai-admin-frontend/src/locales/lang/zh-CN.ts"
+      },
+      {
+        "legacyKey": "headerSearch",
+        "module": "header_search",
+        "sourceFiles": "ihui-ai-admin-frontend/src/locales/lang/en.ts | ihui-ai-admin-frontend/src/locales/lang/ja.ts | ihui-ai-admin-frontend/src/locales/lang/ko.ts | ihui-ai-admin-frontend/src/locales/lang/zh-CN.ts | ihui-ai-admin-frontend/src/locales/lang/zh-TW.ts"
+      },
+      {
+        "legacyKey": "unifiedLoginButton",
+        "module": "unified_login_button",
+        "sourceFiles": "ihui-ai-admin-frontend/src/locales/lang/en.ts | ihui-ai-admin-frontend/src/locales/lang/ja.ts | ihui-ai-admin-frontend/src/locales/lang/ko.ts | ihui-ai-admin-frontend/src/locales/lang/zh-CN.ts | ihui-ai-admin-frontend/src/locales/lang/zh-TW.ts"
+      },
+      {
+        "legacyKey": "unifiedLoginButton.logoutConfirm",
+        "module": "unified_login_button",
+        "sourceFiles": "ihui-ai-admin-frontend/src/locales/lang/en.ts | ihui-ai-admin-frontend/src/locales/lang/ja.ts | ihui-ai-admin-frontend/src/locales/lang/ko.ts | ihui-ai-admin-frontend/src/locales/lang/zh-CN.ts | ihui-ai-admin-frontend/src/locales/lang/zh-TW.ts"
+      },
+      {
+        "legacyKey": "unifiedLoginButton.noPermission",
+        "module": "unified_login_button",
+        "sourceFiles": "ihui-ai-admin-frontend/src/locales/lang/en.ts | ihui-ai-admin-frontend/src/locales/lang/ja.ts | ihui-ai-admin-frontend/src/locales/lang/ko.ts | ihui-ai-admin-frontend/src/locales/lang/zh-CN.ts | ihui-ai-admin-frontend/src/locales/lang/zh-TW.ts"
+      },
+      {
+        "legacyKey": "unifiedLoginButton.redirectFail",
+        "module": "unified_login_button",
+        "sourceFiles": "ihui-ai-admin-frontend/src/locales/lang/en.ts | ihui-ai-admin-frontend/src/locales/lang/ja.ts | ihui-ai-admin-frontend/src/locales/lang/ko.ts | ihui-ai-admin-frontend/src/locales/lang/zh-CN.ts | ihui-ai-admin-frontend/src/locales/lang/zh-TW.ts"
+      },
+      {
+        "legacyKey": "unifiedLoginButton.parseFail",
+        "module": "unified_login_button",
+        "sourceFiles": "ihui-ai-admin-frontend/src/locales/lang/en.ts | ihui-ai-admin-frontend/src/locales/lang/ja.ts | ihui-ai-admin-frontend/src/locales/lang/ko.ts | ihui-ai-admin-frontend/src/locales/lang/zh-CN.ts | ihui-ai-admin-frontend/src/locales/lang/zh-TW.ts"
+      }
+    ]
+  },
+  "criticalKeyCheck": [
+    {
+      "key": "login",
+      "newRepoCount": 88,
+      "legacyCount": 30,
+      "migrated": true,
+      "examples": [
+        "common.login",
+        "login.selectProject",
+        "login.subtitle"
+      ]
+    },
+    {
+      "key": "save",
+      "newRepoCount": 1,
+      "legacyCount": 3,
+      "migrated": true,
+      "examples": [
+        "common.save"
+      ]
+    },
+    {
+      "key": "cancel",
+      "newRepoCount": 1,
+      "legacyCount": 3,
+      "migrated": true,
+      "examples": [
+        "common.cancel"
+      ]
+    },
+    {
+      "key": "confirm",
+      "newRepoCount": 1,
+      "legacyCount": 3,
+      "migrated": true,
+      "examples": [
+        "common.confirm"
+      ]
+    },
+    {
+      "key": "delete",
+      "newRepoCount": 1,
+      "legacyCount": 4,
+      "migrated": true,
+      "examples": [
+        "common.delete"
+      ]
+    },
+    {
+      "key": "edit",
+      "newRepoCount": 1,
+      "legacyCount": 4,
+      "migrated": true,
+      "examples": [
+        "common.edit"
+      ]
+    },
+    {
+      "key": "add",
+      "newRepoCount": 1,
+      "legacyCount": 4,
+      "migrated": true,
+      "examples": [
+        "common.add"
+      ]
+    },
+    {
+      "key": "error",
+      "newRepoCount": 124,
+      "legacyCount": 9,
+      "migrated": true,
+      "examples": [
+        "common.error",
+        "error.news_crawler.rss2jsonPa",
+        "error.news_crawler.JSON解析失败6"
+      ]
+    },
+    {
+      "key": "success",
+      "newRepoCount": 1,
+      "legacyCount": 1,
+      "migrated": true,
+      "examples": [
+        "common.success"
+      ]
+    },
+    {
+      "key": "warning",
+      "newRepoCount": 1,
+      "legacyCount": 1,
+      "migrated": true,
+      "examples": [
+        "common.warning"
+      ]
+    },
+    {
+      "key": "loading",
+      "newRepoCount": 1,
+      "legacyCount": 6,
+      "migrated": true,
+      "examples": [
+        "common.loading"
+      ]
+    },
+    {
+      "key": "search",
+      "newRepoCount": 16,
+      "legacyCount": 3,
+      "migrated": true,
+      "examples": [
+        "common.search",
+        "nav.search",
+        "search.loading"
+      ]
+    },
+    {
+      "key": "submit",
+      "newRepoCount": 1,
+      "legacyCount": 3,
+      "migrated": true,
+      "examples": [
+        "common.submit"
+      ]
+    },
+    {
+      "key": "logout",
+      "newRepoCount": 1,
+      "legacyCount": 1,
+      "migrated": true,
+      "examples": [
+        "common.logout"
+      ]
+    },
+    {
+      "key": "register",
+      "newRepoCount": 50,
+      "legacyCount": 0,
+      "migrated": true,
+      "examples": [
+        "common.register",
+        "register.brand",
+        "register.sidebar.title"
+      ]
+    },
+    {
+      "key": "password",
+      "newRepoCount": 8,
+      "legacyCount": 2,
+      "migrated": true,
+      "examples": [
+        "auth.password",
+        "user.security.password",
+        "sso.password"
+      ]
+    },
+    {
+      "key": "username",
+      "newRepoCount": 10,
+      "legacyCount": 2,
+      "migrated": true,
+      "examples": [
+        "auth.username",
+        "members.username",
+        "userCenter.username"
+      ]
+    }
+  ],
+  "nextPhaseRecommendation": "需要阶段 6:对真实缺失 key 做业务影响评估(是否需要补齐)"
+}
