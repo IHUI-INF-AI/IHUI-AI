@@ -2,7 +2,7 @@
 /**
  * 修复 zh-TW.json 中的简体字残留。
  * 用 opencc-js 'cn' → 'tw' 转换每个 value，自动写回原文件。
- * 与 scan-zh-tw-simp.mjs 配套使用（仅做字形转换，不改用词）。
+ * 与 scan-i18n-zh-residue.mjs zh-TW 配套使用（仅做字形转换，不改用词）。
  */
 import fs from 'node:fs'
 import path from 'node:path'
