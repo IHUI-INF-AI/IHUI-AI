@@ -11,12 +11,14 @@ import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { CaptchaCanvas } from '@/components/login'
 import { Alert } from '@/components/feedback'
+import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { loginSchema, type LoginValues } from './login-schemas'
 
 interface PasswordLoginFormProps {
   active: boolean
   onSuccess?: () => void
   agreed?: boolean
+  onAgreedChange?: (v: boolean) => void
   onRequireAgree?: () => void
   showAgreeErr?: boolean
 }
@@ -25,6 +27,7 @@ export function PasswordLoginForm({
   active,
   onSuccess,
   agreed = true,
+  onAgreedChange,
   onRequireAgree,
   showAgreeErr,
 }: PasswordLoginFormProps) {
@@ -150,6 +153,11 @@ export function PasswordLoginForm({
           <CaptchaCanvas value={captchaValue} onVerify={setCaptchaOk} />
         </div>
       </div>
+      <AgreementCheckbox
+        checked={agreed}
+        onChange={(v) => onAgreedChange?.(v)}
+        error={showAgreeErr && !agreed}
+      />
       {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
       <Button type="submit" className="h-10 w-full" disabled={submitting || !agreed}>
         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

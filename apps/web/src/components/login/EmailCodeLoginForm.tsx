@@ -8,12 +8,14 @@ import { Button, Input, Label } from '@ihui/ui'
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
+import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { emailSchema, type TokenResult } from './login-schemas'
 
 interface EmailCodeLoginFormProps {
   active: boolean
   onSuccess?: () => void
   agreed?: boolean
+  onAgreedChange?: (v: boolean) => void
   onRequireAgree?: () => void
   showAgreeErr?: boolean
 }
@@ -22,6 +24,7 @@ export function EmailCodeLoginForm({
   active,
   onSuccess,
   agreed = true,
+  onAgreedChange,
   onRequireAgree,
   showAgreeErr,
 }: EmailCodeLoginFormProps) {
@@ -159,6 +162,11 @@ export function EmailCodeLoginForm({
           </Button>
         </div>
       </div>
+      <AgreementCheckbox
+        checked={agreed}
+        onChange={(v) => onAgreedChange?.(v)}
+        error={showAgreeErr && !agreed}
+      />
       {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
       <Button type="submit" className="h-10 w-full" disabled={emailSubmitting || !agreed}>
         {emailSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
