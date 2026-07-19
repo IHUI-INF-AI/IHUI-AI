@@ -8406,6 +8406,45 @@
     "price": "가격",
     "free": "무료",
     "perMillion": "/백만 토큰",
+    "header": {
+      "stats": {
+        "total": "모델 총수",
+        "highlight": "추천 모델",
+        "free": "무료 모델",
+        "providers": "공급자 수"
+      }
+    },
+    "sort": {
+      "recommended": "추천 순"
+    },
+    "view": {
+      "grid": "그리드 보기",
+      "list": "리스트 보기"
+    },
+    "market": {
+      "freeCount": "{count}개 무료",
+      "highlightCount": "{count}개 추천",
+      "loadMore": "더 보기",
+      "resetFilters": "필터 초기화"
+    },
+    "detail": {
+      "highlight": "추천",
+      "estimatedHint": "예상 비용",
+      "capabilities": "기능 태그",
+      "close": "닫기"
+    },
+    "nav": {
+      "groups": {
+        "providerInternational": "국제 공급자",
+        "providerDomestic": "국내 공급자",
+        "providerInference": "추론 플랫폼",
+        "providerCloud": "클라우드 플랫폼",
+        "providerAggregator": "집계 플랫폼",
+        "providerLocal": "로컬 배포"
+      },
+      "scrollLeft": "왼쪽으로 스크롤",
+      "scrollRight": "오른쪽으로 스크롤"
+    },
     "providers": {
       "openai": "OpenAI",
       "anthropic": "Anthropic",
