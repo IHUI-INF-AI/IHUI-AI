@@ -152,9 +152,9 @@ const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
  * 主导航项尺寸常量(2026-07-19 抽出,消除 NavLink / SearchNavItem / ExpandableNavItem 三处重复)
  *
  * 2026-07-19 升级:常量已迁移到 `apps/web/src/lib/nav-styles.ts` 共享模块,
- * 配套 globals.css 第 144 行 `--text-vcenter-offset` CSS 变量 +
- * 第 150 行 `:where(button):has(>span) > span` 全局规则,
- * 所有 button/a/[role=button] 子 span 自动应用 0.5px translateY,无需逐处加类。
+ * 配套 globals.css 第 162 行 `--text-vcenter-offset: 0.3px` CSS 变量 +
+ * 第 170 行 `:where(button,a,[role=button],[role=menuitem]):has(>svg):has(>span) > span` 全局规则,
+ * 所有 button/a/[role=button]/[role=menuitem] 子 span 自动应用 0.3px translateY,纯文字按钮自动排除。
  *
  * - NAV_ITEM_BASE_CLASS: 基础类,h-9=36px 统一所有主导航项高度,与新建任务按钮 h-9 一致
  * - NAV_ITEM_COLLAPSED_CLASS: 折叠态宽度类,w-9=36px 与 h-9 严格相等形成 36×36 正方形,
@@ -169,8 +169,8 @@ const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
  *   1) 原"几何居中 ≠ 视觉居中,加 -mt-px"是错误推论,实测 mt=-1 让 delta 从 0 变 -0.5,反向恶化
  *   2) 移除 -mt-px 后,mt=0 状态下 box midY = icon midY,但 text ink 仍偏低 0.5px(实测一致)
  *   3) 根因:中文字体 ascent≈11px, descent≈3px,ascent/descent 不对称导致 ink 几何中心
- *      在 line-box 中心**下方 0.5px**(HarmonyOS Sans SC @ 14px 测得);
- *      icon 是 SVG 居中填充,box 中心 = ink 中心,二者视觉中心累积 0.5px 偏差
+ *      在 line-box 中心**下方 0.4-0.5px**(HarmonyOS Sans SC @ 14px 测得);
+ *      icon 是 SVG 居中填充,box 中心 = ink 中心,二者视觉中心累积 0.4-0.5px 偏差
  *   4) 根治:用 `translateY(0.3px)` (GPU 视觉位移)替代 margin 微调,
  *      让 text ink 视觉下移 0.3px,实测 delta 收敛到 0.000(完美居中,跨 11 个 nav 验证);
  *      0.3px = 14px 字号下肉眼可识别阈值(7%=1px)的 1/3 以下,任何 DPR 下都安全。
@@ -181,7 +181,7 @@ const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
  *      translateY 不会被 transition-colors 抖动(初始值就是 0.3px,无 0→0.3 过渡)。
  *   6) 2026-07-19 升级: translateY 改为读 CSS 变量 `var(--text-vcenter-offset)` (globals.css 第 162 行),
  *      换字体时只改 globals.css 一处,全站生效。
- *      同时 globals.css 第 165 行全局规则自动覆盖所有 button 子 span,
+ *      同时 globals.css 第 170 行全局规则自动覆盖所有 button 子 span,
  *      新增按钮无需手动加类,杜绝"漏改导致 1 处错位"的回归。
  */
 // ↑↑↑ 上述常量已迁移到 `@/lib/nav-styles` 复用(2026-07-19 立),
