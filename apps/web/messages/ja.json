@@ -8442,7 +8442,9 @@
       "coding": "コード",
       "chinese": "中国語",
       "openSource": "オープンソース",
-      "favorite": "お気に入り"
+      "favorite": "お気に入り",
+      "configured": "設定済み",
+      "notConfigured": "未設定"
     },
     "detail": {
       "highlight": "おすすめ",
@@ -8470,7 +8472,9 @@
       "savedDesc": "API Key は暗号化保存されました。モデルをすぐ使用できます。",
       "saveFailed": "保存失敗",
       "noTemplate": "このプロバイダにはテンプレートがありません。「設定 → LLM 設定」で手動追加してください。",
-      "securityHint": "API Key は AES-256-GCM で暗号化保存され、アカウントのみ閲覧可能。平文で保存・第三者送信されません。"
+      "securityHint": "API Key は AES-256-GCM で暗号化保存され、アカウントのみ閲覧可能。平文で保存・第三者送信されません。",
+      "fullConfigHint": "コンテキスト長 / メモ / カスタム Base URL を編集するには",
+      "openFullConfig": "詳細設定ページ →"
     },
     "providers": {
       "openai": "OpenAI",
@@ -8634,8 +8638,12 @@
       "freeCount": "{count} 件無料",
       "favoriteCount": "{count} 件お気に入り",
       "highlightCount": "{count} 件おすすめ",
+      "configuredCount": "{count} 件設定済み",
       "loadMore": "もっと見る",
-      "resetFilters": "フィルターリセット"
+      "resetFilters": "フィルターリセット",
+      "configureKey": "API Key を設定",
+      "updateKey": "Key を更新",
+      "configureKeyHint": "このモデルは使用前に API Key の設定が必要です。クリックしてワンクリック設定。"
     },
     "overview": {
       "title": "コンソール概覧",
