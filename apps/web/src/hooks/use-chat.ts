@@ -130,6 +130,9 @@ export function useChat(): UseChatReturn {
               formatted.severity === 'auth' ? formatted.message : formatted.rawMessage
             if (formatted.severity === 'ratelimit') {
               toast.warning(formatted.title, { description: toastDesc })
+            } else if (formatted.severity === 'safety') {
+              // 内容被 AI 厂商安全策略拦截,用 warning 级别提示用户调整提问方式
+              toast.warning(formatted.title, { description: formatted.message })
             } else {
               toast.error(formatted.title, { description: toastDesc })
             }
@@ -149,7 +152,7 @@ export function useChat(): UseChatReturn {
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
-          if (formatted.severity === 'ratelimit') {
+          if (formatted.severity === 'ratelimit' || formatted.severity === 'safety') {
             toast.warning(formatted.title, { description: formatted.message })
           } else if (formatted.severity === 'network') {
             toast.error(formatted.title, { description: formatted.message })
