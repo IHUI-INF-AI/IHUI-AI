@@ -2526,6 +2526,22 @@
       "deleteTitle": "删除标签",
       "deleteConfirm": "该操作不可撤销，请确认是否删除该标签？关联的资源将自动解除标签关联。"
     },
+    "validation": {
+      "required": "此项为必填",
+      "min": "最小值为 {min}",
+      "max": "最大值为 {max}",
+      "minLength": "最少 {min} 个字符",
+      "maxLength": "最多 {max} 个字符",
+      "email": "请输入有效的邮箱",
+      "url": "请输入有效的 URL",
+      "uuid": "请输入有效的 UUID",
+      "number": "必须为数字",
+      "integer": "必须为整数",
+      "positive": "必须为正数",
+      "pattern": "格式不正确",
+      "enum": "请选择有效选项",
+      "custom": "值无效"
+    },
     "settings": {
       "title": "系统设置",
       "subtitle": "管理平台系统配置",
@@ -24498,5 +24514,99 @@
       "subscribe": "订阅每日简报",
       "community": "加入智汇 AI 社区"
     }
+  },
+  "workflow": {
+    "approval": {
+      "states": {
+        "draft": "草稿",
+        "submitted": "已提交",
+        "approved": "已通过",
+        "rejected": "已驳回",
+        "cancelled": "已撤销"
+      },
+      "events": {
+        "SUBMIT": "提交",
+        "APPROVE": "通过",
+        "REJECT": "驳回",
+        "REVOKE": "撤回",
+        "RESUBMIT": "重新提交",
+        "CANCEL": "取消"
+      }
+    },
+    "refund": {
+      "states": {
+        "pending": "待处理",
+        "reviewing": "审核中",
+        "refunding": "退款中",
+        "refunded": "已退款",
+        "rejected": "已拒绝",
+        "failed": "失败",
+        "cancelled": "已取消"
+      },
+      "events": {
+        "REVIEW": "审核",
+        "APPROVE_REFUND": "批准退款",
+        "REJECT": "拒绝",
+        "REFUND_SUCCESS": "退款成功",
+        "REFUND_FAIL": "退款失败",
+        "RETRY": "重试",
+        "CANCEL": "取消"
+      }
+    },
+    "withdrawal": {
+      "states": {
+        "requested": "已申请",
+        "verifying": "审核中",
+        "approved": "已批准",
+        "paying": "打款中",
+        "paid": "已到账",
+        "rejected": "已拒绝",
+        "failed": "失败",
+        "cancelled": "已取消"
+      },
+      "events": {
+        "AUTO_APPROVE": "自动审核",
+        "START_VERIFY": "开始审核",
+        "APPROVE": "批准",
+        "REJECT": "拒绝",
+        "PAY": "打款",
+        "PAY_SUCCESS": "打款成功",
+        "PAY_FAIL": "打款失败",
+        "RETRY": "重试",
+        "CANCEL": "取消"
+      }
+    },
+    "ticket": {
+      "states": {
+        "open": "待分配",
+        "assigned": "已分配",
+        "in_progress": "处理中",
+        "resolved": "已解决",
+        "closed": "已关闭",
+        "rejected": "已拒绝"
+      },
+      "events": {
+        "ASSIGN": "分配",
+        "START_WORK": "开始处理",
+        "RESOLVE": "标记解决",
+        "REOPEN": "重新打开",
+        "CLOSE": "关闭",
+        "REJECT": "拒绝"
+      }
+    }
+  },
+  "chart": {
+    "type": {
+      "line": "折线图",
+      "bar": "柱状图",
+      "pie": "饼图",
+      "area": "面积图"
+    },
+    "loading": "加载中…",
+    "noData": "暂无数据",
+    "seriesLabel": "图例",
+    "xAxisLabel": "横轴",
+    "yAxisLabel": "纵轴",
+    "valueSuffix": ""
   }
 }
