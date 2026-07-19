@@ -398,7 +398,7 @@ export function TagsView() {
             <XCircle className="h-4 w-4" />
             {tCommon('closeOther')}
           </button>
-          <div className="my-1 h-px bg-muted" />
+          <div className="my-1" aria-hidden="true" />
           <button
             type="button"
             role="menuitem"

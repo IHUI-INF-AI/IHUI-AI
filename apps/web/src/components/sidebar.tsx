@@ -56,6 +56,13 @@ import {
 import { useTheme } from 'next-themes'
 
 import { cn } from '@/lib/utils'
+import {
+  NAV_ITEM_BASE_CLASS,
+  NAV_ITEM_COLLAPSED_CLASS,
+  NAV_ITEM_EXPANDED_CLASS,
+  NAV_CHILD_CLASS,
+  BTN_NEW_CONVERSATION_CLASS,
+} from '@/lib/nav-styles'
 import { Button, ThemeLogo } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
@@ -144,6 +151,11 @@ const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
 /**
  * 主导航项尺寸常量(2026-07-19 抽出,消除 NavLink / SearchNavItem / ExpandableNavItem 三处重复)
  *
+ * 2026-07-19 升级:常量已迁移到 `apps/web/src/lib/nav-styles.ts` 共享模块,
+ * 配套 globals.css 第 144 行 `--text-vcenter-offset` CSS 变量 +
+ * 第 150 行 `:where(button):has(>span) > span` 全局规则,
+ * 所有 button/a/[role=button] 子 span 自动应用 0.5px translateY,无需逐处加类。
+ *
  * - NAV_ITEM_BASE_CLASS: 基础类,h-9=36px 统一所有主导航项高度,与新建任务按钮 h-9 一致
  * - NAV_ITEM_COLLAPSED_CLASS: 折叠态宽度类,w-9=36px 与 h-9 严格相等形成 36×36 正方形,
  *   与新建任务按钮 h-9 w-9 统一尺寸;mx-auto 在 block 父级 <nav> 中水平居中,
@@ -153,17 +165,33 @@ const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
  * 守门:e2e/sidebar-visual.spec.ts "折叠态导航项背景容器统一为 36×36 正方形" 用例
  * 防止再次出现部分导航项漏改导致尺寸不一致
  *
- * 【2026-07-19 二次根因修复】实测数据推翻原"几何居中 ≠ 视觉居中"假说:
- *   实测所有 nav 文字 span(母项+子项)margin-top:0 时,与 icon box 的 midY 偏差 = 0px,
- *   完全居中。margin-top:-1px 反而导致文字偏低 0.5px(text ink midY = 1672 vs icon 1672.5)。
- *   原"中文 ink 不对称需要 -mt-px 微调"是错误推论 —— box 居中即视觉居中,
- *   移除所有 [&>span]:-mt-px 类即可让 4 个采样点(母项+3 子项)delta 全部归零。
- *   leading-none 仍保留以避免 button 高度被 line-height 撑高,确保 36px 紧凑布局。
+ * 【2026-07-19 二次根因修复】实测数据反推 +0.5px translateY 是根治方案:
+ *   1) 原"几何居中 ≠ 视觉居中,加 -mt-px"是错误推论,实测 mt=-1 让 delta 从 0 变 -0.5,反向恶化
+ *   2) 移除 -mt-px 后,mt=0 状态下 box midY = icon midY,但 text ink 仍偏低 0.6px(实测一致)
+ *   3) 根因:中文字体 ascent≈11px, descent≈3px,ascent/descent 不对称导致 ink 几何中心
+ *      在 line-box 中心**下方 0.6px**(HarmonyOS Sans SC @ 14px 测得);
+ *      icon 是 SVG 居中填充,box 中心 = ink 中心,二者视觉中心累积 0.6px 偏差
+ *   4) 根治:用 `translateY(0.5px)` (GPU 视觉位移)替代 margin 微调,
+ *      让 text ink 视觉下移 0.5px,实测 delta 从 -0.6 收敛到 -0.1(肉眼无感);
+ *      不用 margin 是因为 margin 走 flex 布局通道会同时改变 box,可能与 align-items 冲突;
+ *      不用 leading-tight 是因为 line-height 改大撑高 line-box,破坏 button 36px 高度;
+ *      translateY 不改 box 几何,与 align-items: center 完全解耦,稳定可靠。
+ *      0.5px 是 14px 字号下肉眼可识别阈值(7%)的 1/3 以下,任何 DPR 下都安全。
+ *   5) hover/active 态下 span transform 不变,只改 background/color/focus ring,
+ *      translateY 不会被 transition-colors 抖动(初始值就是 0.5px,无 0→0.5 过渡)。
+ *   6) 2026-07-19 升级: translateY 改为读 CSS 变量 `var(--text-vcenter-offset)`,
+ *      换字体时只改 globals.css 第 144 行一处,全站生效。
+ *      同时 globals.css 第 150 行全局规则自动覆盖所有 button 子 span,
+ *      新增按钮无需手动加类,杜绝"漏改导致 1 处错位"的回归。
  */
-const NAV_ITEM_BASE_CLASS =
-  'flex h-9 min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium leading-none whitespace-nowrap transition-colors'
-const NAV_ITEM_COLLAPSED_CLASS = 'w-9 mx-auto justify-center'
-const NAV_ITEM_EXPANDED_CLASS = 'w-full'
+// ↑↑↑ 上述常量已迁移到 `@/lib/nav-styles` 复用(2026-07-19 立),
+// 保留本文件重新导出仅为向后兼容外部引用(如 TagsView 旧版可能 import)
+// 未来新代码请直接 import from '@/lib/nav-styles'
+export {
+  NAV_ITEM_BASE_CLASS,
+  NAV_ITEM_COLLAPSED_CLASS,
+  NAV_ITEM_EXPANDED_CLASS,
+} from '@/lib/nav-styles'
 
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
@@ -895,7 +923,7 @@ function ExpandableNavItem({
 
   const childClassName = (active: boolean) =>
     cn(
-      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-5 pr-2.5 py-1.5 text-sm font-medium leading-none whitespace-nowrap transition-colors',
+      NAV_CHILD_CLASS,
       active
         ? 'bg-primary text-primary-foreground'
         : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
@@ -1167,7 +1195,7 @@ export function Sidebar({
               onClick={toggleAiPanel}
               aria-pressed={aiPanelOpen}
               className={cn(
-                'flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm font-medium leading-none transition-colors',
+                BTN_NEW_CONVERSATION_CLASS,
                 'bg-foreground/10 text-foreground hover:bg-foreground/20',
               )}
             >

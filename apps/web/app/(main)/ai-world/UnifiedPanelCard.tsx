@@ -10,6 +10,7 @@ import type { ChatMessage } from './types'
 interface Props {
   messages: ChatMessage[]
   onSend: (text: string) => void
+  onStop?: () => void
   isStreaming: boolean
   streamingContent: string
   toolbar?: React.ReactNode
@@ -18,6 +19,7 @@ interface Props {
 export function UnifiedPanelCard({
   messages,
   onSend,
+  onStop,
   isStreaming,
   streamingContent,
   toolbar,
@@ -42,6 +44,7 @@ export function UnifiedPanelCard({
           <UnifiedAIPanel
             messages={messages}
             onSend={onSend}
+            onStop={onStop}
             isStreaming={isStreaming}
             streamingContent={streamingContent}
             placeholder={t('unifiedAiPanelPlaceholder')}
