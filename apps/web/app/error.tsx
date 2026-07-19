@@ -19,7 +19,7 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 text-center">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-4 text-center">
       <AlertCircle className="h-12 w-12 text-destructive" />
       <div className="space-y-1">
         <h1 className="text-xl font-semibold">{t('errorTitle')}</h1>
