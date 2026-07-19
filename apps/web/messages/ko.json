@@ -695,10 +695,10 @@
       "kouzi": "아이콘",
       "bbxLogo": "로고",
       "brand4": "아이콘",
-      "zhipu": "즈푸 칭옌",
+      "zhipu": "Zhipu AI",
       "brand8": "8",
       "ali": "내",
-      "baidu": "바이두 원신",
+      "baidu": "Baidu ERNIE",
       "dbsfdx": "대",
       "gork": "Grok",
       "huawei": "화웨이 클라우드",
@@ -706,7 +706,7 @@
       "openai": "OpenAI",
       "tencent": "텐센트 클라우드",
       "yuanbaoxiang": "위안바오샹",
-      "yushu": "위수 테크"
+      "yushu": "Unitree"
     },
     "promotionModal": {
       "title": "새회원！",
@@ -1006,6 +1006,8 @@
     "modelDescGemini15Flash": "긴 컨텍스트 · 멀티모달",
     "modelDescGroqLlama3370B": "고속 추론 · 무제 한도",
     "modelDescOpenRouterAuto": "스마트 라우팅 · 다중 벤더",
+    "modelConfigured": "현재 모델의 API Key가 설정되어 있습니다",
+    "modelNotConfigured": "현재 모델의 API Key가 설정되지 않았습니다. 모델 광장 페이지에서 원클릭 설정 가능",
     "slashCmd": {
       "summary": "현재 대화 요약",
       "translate": "텍스트 번역",
@@ -8532,7 +8534,7 @@
       "liquid": "Liquid AI",
       "ai2": "Ai2 Allen",
       "hunyuan": "텐센트 혼위안",
-      "wenxin": "바이두 원신",
+      "wenxin": "Baidu ERNIE",
       "minimax": "MiniMax",
       "baichuan": "바이촨",
       "spark": "iFlyTek 스파크",
@@ -18889,10 +18891,10 @@
     "index": {
       "默认": "기본",
       "默认1": "기본",
-      "微软雅黑2": "부드러움",
-      "宋体3": "송체",
-      "黑体4": "흑체",
-      "楷体5": "해서체"
+      "微软雅黑2": "Microsoft YaHei",
+      "宋体3": "SimSun",
+      "黑体4": "SimHei",
+      "楷体5": "KaiTi"
     },
     "universal_third_party_auth": {
       "Google登录": "Google 로그인로그인",
@@ -19234,7 +19236,7 @@
       "扣子图标": "아이콘",
       "百宝箱logo1": "로고",
       "品牌图标2": "아이콘",
-      "智谱清言3": "즈푸 칭옌",
+      "智谱清言3": "Zhipu AI",
       "品牌84": "8"
     },
     "api_test_page": {
