@@ -5,6 +5,11 @@ export interface TokenProvider {
   getToken(): string | null
 }
 
+/** fetchApi 扩展选项:在 RequestInit 基础上追加 `params`(自动拼 query string) */
+export type FetchApiOptions = RequestInit & {
+  params?: Record<string, string | number | boolean | undefined | null>
+}
+
 let tokenProvider: TokenProvider = { getToken: () => null }
 let baseUrl: string = ''
 let circuitBreaker: CircuitBreaker | null = null
@@ -145,14 +150,30 @@ function normalizeErrorToResult(err: unknown): ApiFailure {
   }
 }
 
-export async function fetchApi<T>(url: string, options: RequestInit = {}): Promise<ApiResult<T>> {
+export async function fetchApi<T>(
+  url: string,
+  options: FetchApiOptions = {},
+): Promise<ApiResult<T>> {
   const token = tokenProvider.getToken()
-  const normalizedUrl = normalizeUrl(url)
+  const { params, ...restOptions } = options
+  let normalizedUrl = normalizeUrl(url)
+  if (params) {
+    const qs = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== '') {
+        qs.append(key, String(value))
+      }
+    }
+    const qsString = qs.toString()
+    if (qsString) {
+      normalizedUrl += (normalizedUrl.includes('?') ? '&' : '?') + qsString
+    }
+  }
 
-  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
+  const isFormData = typeof FormData !== 'undefined' && restOptions.body instanceof FormData
   const headers: Record<string, string> = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-    ...(options.headers as Record<string, string> | undefined),
+    ...(restOptions.headers as Record<string, string> | undefined),
   }
 
   if (token) {
@@ -166,7 +187,7 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        return await fetchOnce<T>(normalizedUrl, options, headers)
+        return await fetchOnce<T>(normalizedUrl, restOptions, headers)
       } catch (err) {
         const result = normalizeErrorToResult(err)
         // 5xx / 4xx(已带 status):直接返回,不重试
@@ -185,7 +206,7 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
   // 有 breaker:每次 fetchApi 计 1 个 breaker 样本(不内部重试,避免重复计样本)
   try {
     return await circuitBreaker.execute(async () => {
-      return await fetchOnce<T>(normalizedUrl, options, headers)
+      return await fetchOnce<T>(normalizedUrl, restOptions, headers)
     })
   } catch (err) {
     if (err instanceof CircuitOpenError) throw err
