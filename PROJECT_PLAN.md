@@ -145,3 +145,24 @@
 - P2:Dialog 表单 zod schema 抽取 — 目前 `DictDialog` / `TagDialog` / `HelpDialog` / `AskDialog` 等 10+ Dialog 内部仍用 `useState` + `onChange`,可统一抽到 `apps/web/src/lib/form-schemas/{dict,tag,help,ask}.ts` + `useZodForm` 集成
 - P2:Skeleton Storybook 文档 — `apps/web/src/components/ui/skeleton.tsx` 7 个 variant 未配 story,后续接入 Storybook 时补 1-2 故事
 - P3:跨端 i18n 同步 — `apps/web/messages/*.json` 新增 `admin.validation.*` 14 key 暂时只 web 端有;api / ai-service / desktop 等其他端如需展示验证错误文案,可复用同一命名空间
+
+---
+
+## P2 公共 hook 抽取:useBatchMutation + 7 admin 页面迁移(2026-07-20 完成)
+
+- [x] ✅ (2026-07-20) `apps/web/src/hooks/use-batch-mutation.ts` 新建公共 hook(支持 body / url 两种 ID 传参模式,统一管理 invalidate + toast + isPending + 空数组守卫 + 单行删除 override)
+- [x] ✅ (2026-07-20) `apps/web/src/hooks/use-batch-mutation.test.ts` 单元测试 11 case(body / url / empty / loading / error / network / override / onSuccess / onError / no-successMessage / dynamic-ids)全绿
+- [x] ✅ (2026-07-20) 迁移 7 admin 页面:post / system/login-logs / system/operation-logs / system/tasks/log / edu/course / edu/learn/recorded / edu/course/categories
+- [x] ✅ (2026-07-20) `pnpm --filter @ihui/web typecheck`(本任务文件范围 0 errors;1 pre-existing 错误在 `app/(main)/admin/ticket/page.tsx` 与其他 agent 工作相关,本任务不触及)
+- [x] ✅ (2026-07-20) `pnpm --filter @ihui/web test use-batch-mutation` 11/11 通过
+- [x] ✅ (2026-07-20) `pnpm --filter @ihui/web exec eslint <本任务 11 文件>` 0 errors / 0 warnings
+- [x] ✅ (2026-07-20) `node scripts/check-i18n-keys.mjs --staged` parity OK(本任务无 i18n 改动,沿用页面原有 hardcoded 中文 toast)
+- [x] ✅ (2026-07-20) `node scripts/check-api-routes.mjs` 通过(hook 注释示例路径已改为占位符 `<resource>`,避免 false positive)
+- [x] ✅ (2026-07-20) commit `e70e0e87 feat(admin): extract useBatchMutation common hook, unify batch ops pattern` 已 push 到 `origin/main`(HEAD 与 origin/main 对齐)
+
+**后续建议(本子任务不处理,等用户明确指示)**:
+
+- P2:迁移剩余 ~270 admin 页面到 `useBatchMutation`(body 模式 + url 模式),每页减少 ~15 行 mutation 样板,预计总减少 ~4000 行重复代码;按目录分批(优先 `edu/*`、`system/*`、`roles/*`)
+- P2:`useBatchMutation` 增加 `useConfirm` 集成(`onConfirm: () => boolean` 选项),把"confirm → mutate"两步合并为一步,减少组件内联 `if (confirm(...)) mutate()` 模板
+- P3:`useBatchMutation` 衍生 `useBatchPost` / `useBatchPut`(当前 method 选项已支持,但成功/失败 toast 文案差异大,后续可拆 3 个语义化 hook)
+- P3:跨端 — 本任务为 web 端纯前端 hook,api / ai-service / desktop / extension / mobile-rn / miniapp-taro / cli 无需同步
