@@ -22,6 +22,21 @@ import { FavoritesScreen } from '../screens/FavoritesScreen'
 import { FollowingScreen } from '../screens/FollowingScreen'
 import { SubscriptionsScreen } from '../screens/SubscriptionsScreen'
 import { AgentScreen } from '../screens/AgentScreen'
+import { RegisterScreen } from '../screens/RegisterScreen'
+import { OrderRefundScreen } from '../screens/OrderRefundScreen'
+import { PaymentScreen } from '../screens/PaymentScreen'
+import { VipScreen } from '../screens/VipScreen'
+import { CertificateScreen } from '../screens/CertificateScreen'
+import { FollowScreen } from '../screens/FollowScreen'
+import { FavoriteScreen } from '../screens/FavoriteScreen'
+import { MessageCenterScreen } from '../screens/MessageCenterScreen'
+import { ProfileEditScreen } from '../screens/ProfileEditScreen'
+import { AIMultimodalScreen } from '../screens/AIMultimodalScreen'
+import { CourseEnrollScreen } from '../screens/CourseEnrollScreen'
+import { LivePlaybackScreen } from '../screens/LivePlaybackScreen'
+import { NoteScreen } from '../screens/NoteScreen'
+import { StudyRecordScreen } from '../screens/StudyRecordScreen'
+import { ExamScreen } from '../screens/ExamScreen'
 import { useI18n } from '../i18n'
 
 export type RootStackParamList = {
@@ -38,6 +53,22 @@ export type RootStackParamList = {
   Following: undefined
   Subscriptions: undefined
   Agent: undefined
+  Register: undefined
+  OrderRefund: undefined
+  Payment: undefined
+  Vip: undefined
+  Certificate: undefined
+  Follow: undefined
+  Favorite: undefined
+  MessageCenter: undefined
+  ProfileEdit: undefined
+  AIMultimodal: undefined
+  CourseEnroll: undefined
+  LivePlayback: undefined
+  Note: undefined
+  StudyRecord: undefined
+  Exam: undefined
+  LecturerDetail: { id: string }
 }
 
 export type HomeStackParamList = {
@@ -67,6 +98,11 @@ export type ProfileStackParamList = {
   Wallet: undefined
   Settings: undefined
   Agent: undefined
+  Certificate: undefined
+  Follow: undefined
+  Favorite: undefined
+  MessageCenter: undefined
+  ProfileEdit: undefined
 }
 
 const RootStack = createNativeStackNavigator<RootStackParamList>()
@@ -117,6 +153,11 @@ function ProfileTabStack() {
       <ProfileStack.Screen name="Wallet" component={WalletScreen} />
       <ProfileStack.Screen name="Settings" component={SettingsScreen} />
       <ProfileStack.Screen name="Agent" component={AgentScreen} />
+      <ProfileStack.Screen name="Certificate" component={CertificateScreen} />
+      <ProfileStack.Screen name="Follow" component={FollowScreen} />
+      <ProfileStack.Screen name="Favorite" component={FavoriteScreen} />
+      <ProfileStack.Screen name="MessageCenter" component={MessageCenterScreen} />
+      <ProfileStack.Screen name="ProfileEdit" component={ProfileEditScreen} />
     </ProfileStack.Navigator>
   )
 }
@@ -185,9 +226,21 @@ function RootNavigatorInner() {
           <>
             <RootStack.Screen name="Tabs" component={MainTabs} />
             <RootStack.Screen name="Chat" component={ChatScreen} />
+            <RootStack.Screen name="OrderRefund" component={OrderRefundScreen} />
+            <RootStack.Screen name="Payment" component={PaymentScreen} />
+            <RootStack.Screen name="Vip" component={VipScreen} />
+            <RootStack.Screen name="AIMultimodal" component={AIMultimodalScreen} />
+            <RootStack.Screen name="CourseEnroll" component={CourseEnrollScreen} />
+            <RootStack.Screen name="LivePlayback" component={LivePlaybackScreen} />
+            <RootStack.Screen name="Note" component={NoteScreen} />
+            <RootStack.Screen name="StudyRecord" component={StudyRecordScreen} />
+            <RootStack.Screen name="Exam" component={ExamScreen} />
           </>
         ) : (
-          <RootStack.Screen name="Login" component={LoginScreen} />
+          <>
+            <RootStack.Screen name="Login" component={LoginScreen} />
+            <RootStack.Screen name="Register" component={RegisterScreen} />
+          </>
         )}
       </RootStack.Navigator>
       <NotificationPanel />
