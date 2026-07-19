@@ -1,93 +1,143 @@
-import type { Provider, Model } from './types'
+import type { Provider, Model, ProviderGroup, PresetPrompt } from './types'
+import { FAVORITE_MODELS_STORAGE_KEY } from './types'
 
 /**
- * 内置厂商列表(49 个厂商,用于 ModelsNav 渲染所有厂商 Tab)
+ * 厂商分组定义:用于 ModelsNav 按分组展示 provider,降低 80+ 厂商的认知负担
+ * - 显示顺序: international → domestic → inference → cloud → aggregator → local
  */
-export const PROVIDERS: Provider[] = [
-  // 国际原厂
-  'openai',
-  'anthropic',
-  'google',
-  'deepseek',
-  'meta',
-  'mistral',
-  'xai',
-  'cohere',
-  'nvidia',
-  'ai21',
-  'microsoft',
-  'perplexity',
-  // 国际推理平台
-  'groq',
-  'together',
-  'fireworks',
-  // 国际云平台/聚合平台
-  'aws',
-  'bedrock',
-  'azure',
-  'openrouter',
-  'huggingface',
-  'replicate',
-  'stability',
-  'inflection',
-  'ibm',
-  'cerebras',
-  'sambanova',
-  'snowflake',
-  'deepinfra',
-  'alephalpha',
-  'nous',
-  'vertexai',
-  'gemma',
-  'copilot',
-  'bing',
-  // 国际推理/云平台扩展
-  'novita',
-  'lambda',
-  'baseten',
-  'crusoe',
-  'targon',
-  'centml',
-  'nebius',
-  'ollama',
-  'upstage',
-  'leptonai',
-  'hyperbolic',
-  'featherless',
-  'parasail',
-  'openwebui',
-  'lmstudio',
-  'friendli',
-  'anyscale',
-  'infermatic',
-  'replit',
-  // 国内推理/云平台扩展
-  'siliconcloud',
-  'modelscope',
-  'ppio',
-  'volcengine',
-  'bailian',
-  'baai',
-  'tii',
-  'liquid',
-  'ai2',
-  // 国内厂商
-  'qwen',
-  'zhipu',
-  'moonshot',
-  'doubao',
-  'stepfun',
-  'hunyuan',
-  'wenxin',
-  'minimax',
-  'baichuan',
-  'spark',
-  'yi',
-  'sensenova',
-  'skywork',
-  'internlm',
-  'local',
+export const PROVIDER_GROUPS: { key: ProviderGroup; providers: Provider[] }[] = [
+  {
+    key: 'international',
+    providers: [
+      'openai',
+      'anthropic',
+      'google',
+      'deepseek',
+      'meta',
+      'mistral',
+      'xai',
+      'cohere',
+      'nvidia',
+      'ai21',
+      'microsoft',
+      'perplexity',
+    ],
+  },
+  {
+    key: 'domestic',
+    providers: [
+      'qwen',
+      'zhipu',
+      'moonshot',
+      'doubao',
+      'stepfun',
+      'hunyuan',
+      'wenxin',
+      'minimax',
+      'baichuan',
+      'spark',
+      'yi',
+      'sensenova',
+      'skywork',
+      'internlm',
+    ],
+  },
+  {
+    key: 'inference',
+    providers: [
+      'groq',
+      'together',
+      'fireworks',
+      'novita',
+      'lambda',
+      'baseten',
+      'crusoe',
+      'targon',
+      'centml',
+      'nebius',
+      'upstage',
+      'leptonai',
+      'hyperbolic',
+      'featherless',
+      'parasail',
+      'friendli',
+      'anyscale',
+      'infermatic',
+      'replit',
+    ],
+  },
+  {
+    key: 'cloud',
+    providers: [
+      'aws',
+      'bedrock',
+      'azure',
+      'vertexai',
+      'huggingface',
+      'replicate',
+      'stability',
+      'inflection',
+      'ibm',
+      'cerebras',
+      'sambanova',
+      'snowflake',
+      'deepinfra',
+      'alephalpha',
+      'nous',
+      'gemma',
+      'copilot',
+      'bing',
+      'siliconcloud',
+      'modelscope',
+      'ppio',
+      'volcengine',
+      'bailian',
+      'baai',
+      'tii',
+      'liquid',
+      'ai2',
+    ],
+  },
+  {
+    key: 'aggregator',
+    providers: ['openrouter'],
+  },
+  {
+    key: 'local',
+    providers: ['ollama', 'openwebui', 'lmstudio', 'local'],
+  },
 ]
+
+/**
+ * 内置厂商列表(展开 PROVIDER_GROUPS,保留扁平 export 以兼容旧引用)
+ */
+export const PROVIDERS: Provider[] = PROVIDER_GROUPS.flatMap((g) => g.providers)
+
+/**
+ * 推荐模型 id 集合:用于 highlight 标记 + "推荐排序" 加权
+ * 选取标准:plan 套餐已接入 / 行业旗舰 / 项目默认模型
+ */
+export const HIGHLIGHT_MODEL_IDS = new Set<string>([
+  'stepfun/step-3.7-flash',
+  'stepfun/step-3.5-flash',
+  'stepfun/step-router-v1',
+  'gpt-4o',
+  'gpt-4o-mini',
+  'o3',
+  'claude-3-7-sonnet',
+  'claude-opus-4',
+  'claude-sonnet-4',
+  'gemini-2.5-pro',
+  'gemini-2.0-flash',
+  'deepseek-chat',
+  'deepseek-reasoner',
+  'qwen-max',
+  'qwen-plus',
+  'glm-4.5',
+  'kimi-k2',
+  'grok-3',
+  'llama-3.3-70b-versatile',
+])
 
 /**
  * 内置兜底模型列表(50+ 厂商最新模型,fetchModels 失败时使用)
@@ -1294,6 +1344,25 @@ export const MODEL_DESCRIPTIONS: Record<string, { description: string; features:
   },
 }
 
+/**
+ * 为 FALLBACK_MODELS / API 返回的模型统一补充 highlight / popularity 元数据
+ * - highlight: 命中 HIGHLIGHT_MODEL_IDS 标记为 true(用于"推荐位"徽章 + 推荐排序加权)
+ * - popularity: highlight 模型 88,其余 50(用于稳定排序,避免随机)
+ */
+function enrichModel(m: Model): Model {
+  const highlight = HIGHLIGHT_MODEL_IDS.has(m.id)
+  return {
+    ...m,
+    highlight,
+    popularity: highlight ? 88 : 50,
+  }
+}
+
+/** 应用 highlight/popularity 元数据到模型列表(纯函数,不修改入参) */
+export function enrichModels(list: Model[]): Model[] {
+  return list.map(enrichModel)
+}
+
 export async function fetchModels(): Promise<Model[]> {
   try {
     const res = await fetch('/api/llm/models', {
@@ -1309,7 +1378,7 @@ export async function fetchModels(): Promise<Model[]> {
         input_price: number
       }>
     }
-    return data.models.map((m) => {
+    const list: Model[] = data.models.map((m) => {
       const desc = MODEL_DESCRIPTIONS[m.id] ?? { description: '', features: [] }
       return {
         id: m.id,
@@ -1321,7 +1390,77 @@ export async function fetchModels(): Promise<Model[]> {
         features: desc.features,
       }
     })
+    return enrichModels(list)
   } catch {
-    return FALLBACK_MODELS
+    return enrichModels(FALLBACK_MODELS)
   }
+}
+
+/**
+ * 预设 prompt:用于详情对话框"快捷试用"区,降低用户试用门槛
+ * 选取跨模型、跨场景的 4 个常见 prompt,覆盖"打招呼/创意写作/翻译/编程"
+ */
+export const PRESET_PROMPTS: PresetPrompt[] = [
+  {
+    key: 'greet',
+    label: '打招呼',
+    content: '你好,请简单介绍一下你自己,以及你最擅长处理哪类任务?',
+  },
+  {
+    key: 'creative',
+    label: '创意写作',
+    content: '请用 200 字以内,写一段关于"清晨海边"的散文,要求意境优美,语言精炼。',
+  },
+  {
+    key: 'translate',
+    label: '中英翻译',
+    content: '请将下面这句中文翻译成英文:"科技的发展应当服务于人类福祉,而非取代人类的判断与情感。"',
+  },
+  {
+    key: 'code',
+    label: '编程示例',
+    content:
+      '请用 TypeScript 写一个函数 debounce,接受函数和等待时间,返回防抖后的函数。要求含类型注解。',
+  },
+]
+
+/**
+ * 收藏模型工具:基于 localStorage 持久化用户收藏的模型 id 集合
+ *
+ * 设计:
+ * - 仅在客户端调用(SSR 场景由调用方判断 typeof window)
+ * - 读取失败/空时返回空集合,不抛错
+ * - 写入失败静默(隐私模式可能禁用 localStorage)
+ */
+export function getFavoriteModelIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const raw = window.localStorage.getItem(FAVORITE_MODELS_STORAGE_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return new Set()
+    return new Set(arr.filter((x): x is string => typeof x === 'string'))
+  } catch {
+    return new Set()
+  }
+}
+
+export function setFavoriteModelIds(ids: Set<string>): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(FAVORITE_MODELS_STORAGE_KEY, JSON.stringify(Array.from(ids)))
+  } catch {
+    // 隐私模式禁用 localStorage 时静默失败
+  }
+}
+
+export function toggleFavoriteModel(modelId: string): Set<string> {
+  const ids = getFavoriteModelIds()
+  if (ids.has(modelId)) {
+    ids.delete(modelId)
+  } else {
+    ids.add(modelId)
+  }
+  setFavoriteModelIds(ids)
+  return ids
 }

@@ -13,7 +13,9 @@ import {
 
 const ADMIN_ROLE_ID = 1
 
-const CATEGORIES = ['default', 'politics', 'porn', 'ads', 'abuse'] as const
+// 分类 ID 使用中性英文标识符,避免敏感词进入 LLM 上下文(同步前端 helpers.ts)
+// 历史 DB 数据若含旧值(porn/abuse),需运行迁移:UPDATE sensitive_words SET category='explicit' WHERE category='porn'; SET category='harassment' WHERE category='abuse';
+const CATEGORIES = ['default', 'politics', 'explicit', 'ads', 'harassment'] as const
 
 const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
 
