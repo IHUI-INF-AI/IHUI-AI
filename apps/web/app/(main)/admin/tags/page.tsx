@@ -17,8 +17,6 @@ export default function AdminTagsPage() {
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<TagItem | null>(null)
-  const [form, setForm] = React.useState<TagForm>(EMPTY_FORM)
-  const [err, setErr] = React.useState<string | null>(null)
   const [delId, setDelId] = React.useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
@@ -27,11 +25,11 @@ export default function AdminTagsPage() {
   })
 
   const saveMut = useMutation({
-    mutationFn: () => {
+    mutationFn: (input: TagForm) => {
       const body = {
-        name: form.name.trim(),
-        description: form.description.trim() || undefined,
-        color: form.color.trim() || undefined,
+        name: input.name.trim(),
+        description: input.description.trim() || undefined,
+        color: input.color.trim() || undefined,
       }
       return editing
         ? api(`/api/tags/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
@@ -41,7 +39,6 @@ export default function AdminTagsPage() {
       qc.invalidateQueries({ queryKey: ['admin', 'tags'] })
       close()
     },
-    onError: (e: Error) => setErr(e.message),
   })
   const delMut = useMutation({
     mutationFn: (id: string) => api(`/api/tags/${id}`, { method: 'DELETE' }),
@@ -53,30 +50,19 @@ export default function AdminTagsPage() {
 
   function openCreate() {
     setEditing(null)
-    setForm(EMPTY_FORM)
-    setErr(null)
     setOpen(true)
   }
   function openEdit(tag: TagItem) {
     setEditing(tag)
-    setForm(tagToForm(tag))
-    setErr(null)
     setOpen(true)
   }
   function close() {
     if (saveMut.isPending) return
     setOpen(false)
     setEditing(null)
-    setErr(null)
   }
-  function submit(e: React.FormEvent) {
-    e.preventDefault()
-    setErr(null)
-    if (!form.name.trim()) {
-      setErr(t('nameRequired'))
-      return
-    }
-    saveMut.mutate()
+  function onValid(values: TagForm) {
+    saveMut.mutate(values)
   }
 
   const tags = data ?? []
@@ -105,11 +91,9 @@ export default function AdminTagsPage() {
       <TagFormDialog
         open={open}
         editing={editing}
-        form={form}
-        setForm={setForm}
-        err={err}
+        defaultValues={editing ? tagToForm(editing) : EMPTY_FORM}
         savePending={saveMut.isPending}
-        onSubmit={submit}
+        onValid={onValid}
         onClose={close}
       />
 
