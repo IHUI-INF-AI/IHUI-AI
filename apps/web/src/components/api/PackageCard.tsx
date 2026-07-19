@@ -54,7 +54,7 @@ export default function PackageCard({
       )}
     >
       {pkg.popular && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+        <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded bg-primary px-2 py-0.5 text-xs text-primary-foreground">
           <Crown className="mr-1 inline h-3 w-3" />
           热门
         </span>
@@ -70,7 +70,7 @@ export default function PackageCard({
           <li key={i} className="flex items-center gap-2 text-sm">
             <span
               className={cn(
-                'flex h-4 w-4 items-center justify-center rounded-full',
+                'flex h-4 w-4 items-center justify-center rounded',
                 f.included !== false
                   ? 'bg-primary/10 text-primary'
                   : 'bg-muted text-muted-foreground/40',

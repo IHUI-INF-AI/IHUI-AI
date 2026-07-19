@@ -31,6 +31,10 @@ interface PopoverProps {
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+// useLayoutEffect 在 'use client' 模块下同步算坐标,避免弹层首次渲染闪烁;
+// SSR 时退化为 useEffect 避免警告
+const useIsoLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect
+
 export function Popover({
   content,
   children,
@@ -48,41 +52,60 @@ export function Popover({
   const ref = useClickOutside<HTMLDivElement>(React.useCallback(() => setOpen(false), []))
 
   // portal 模式:动态计算 fixed 坐标(随 trigger 滚动/resize 同步)
+  // 直接计算最终 left/top(已含 align 平移)+ 视口边界 clamp,避免弹层超出视口
   const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null)
   const updateCoords = React.useCallback(() => {
     if (!portal || !triggerElRef.current) return
     const r = triggerElRef.current.getBoundingClientRect()
     const gap = 8
+    const pad = 8 // 视口安全 padding
+    const VW = window.innerWidth
+    const VH = window.innerHeight
+
+    // 读已渲染弹层尺寸(首次渲染时 contentRef 可能尚未赋值 → popW/H=0,跳过 clamp)
+    const popRect = contentRef.current?.getBoundingClientRect()
+    const popW = popRect?.width ?? 0
+    const popH = popRect?.height ?? 0
+
+    // 计算 anchor 坐标(已包含 align 平移;主方向决定外缘,align 决定正交方向)
     let top = 0
     let left = 0
-    // 主方向
     if (position === 'right') {
       left = r.right + gap
-      // 对齐
       if (align === 'start') top = r.top
-      else if (align === 'end') top = r.bottom
-      else top = r.top + r.height / 2
+      else if (align === 'end') top = r.bottom - popH
+      else top = r.top + r.height / 2 - popH / 2
     } else if (position === 'left') {
-      left = r.left - gap
+      left = r.left - gap - popW
       if (align === 'start') top = r.top
-      else if (align === 'end') top = r.bottom
-      else top = r.top + r.height / 2
+      else if (align === 'end') top = r.bottom - popH
+      else top = r.top + r.height / 2 - popH / 2
     } else if (position === 'top') {
-      top = r.top - gap
+      top = r.top - gap - popH
       if (align === 'start') left = r.left
-      else if (align === 'end') left = r.right
-      else left = r.left + r.width / 2
+      else if (align === 'end') left = r.right - popW
+      else left = r.left + r.width / 2 - popW / 2
     } else {
       // bottom
       top = r.bottom + gap
       if (align === 'start') left = r.left
-      else if (align === 'end') left = r.right
-      else left = r.left + r.width / 2
+      else if (align === 'end') left = r.right - popW
+      else left = r.left + r.width / 2 - popW / 2
     }
-    setCoords({ top, left })
+
+    // 视口 clamp(仅在已读到 popRect 时)
+    let finalTop = top
+    let finalLeft = left
+    if (popW > 0 && popH > 0) {
+      finalLeft = Math.max(pad, Math.min(finalLeft, VW - popW - pad))
+      finalTop = Math.max(pad, Math.min(finalTop, VH - popH - pad))
+    }
+
+    setCoords({ top: finalTop, left: finalLeft })
   }, [portal, position, align])
 
-  React.useEffect(() => {
+  // useLayoutEffect 同步算坐标,避免首次渲染时弹层在 (0,0) 闪烁
+  useIsoLayoutEffect(() => {
     if (!open || !portal) return
     updateCoords()
     // 同步 trigger 位置变化(滚动/resize)
@@ -91,10 +114,15 @@ export function Popover({
     // 监听 trigger 自身尺寸变化(Sidebar 折叠/展开)
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
     if (ro && triggerElRef.current) ro.observe(triggerElRef.current)
+    // 监听弹层尺寸变化(通知中心图片懒加载后高度变化触发重算)
+    const roContent =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
+    if (roContent && contentRef.current) roContent.observe(contentRef.current)
     return () => {
       window.removeEventListener('scroll', updateCoords, true)
       window.removeEventListener('resize', updateCoords)
       ro?.disconnect()
+      roContent?.disconnect()
     }
   }, [open, portal, updateCoords])
 
@@ -103,14 +131,6 @@ export function Popover({
     right: 'left-full top-0 ml-2',
     bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
     left: 'right-full top-0 mr-2',
-  }
-
-  // portal 模式下 transform 由坐标计算替代;非 portal 模式保留原 translate
-  const portalPositionClass = {
-    top: '-translate-y-full',
-    right: '',
-    bottom: '',
-    left: '-translate-x-full',
   }
 
   // ESC 关闭 + Tab 焦点陷阱 + 关闭后焦点回归 trigger
@@ -184,30 +204,16 @@ export function Popover({
         'focus-visible:ring-2 focus-visible:ring-ring',
         // z-popover 来自设计 tokens,与 Dropdown/Tooltip 同级
         portal ? 'fixed z-popover' : 'absolute z-popover',
-        // 非 portal:用预设定位类;portal:由内联 style 定位 + transform 调整对齐
+        // 非 portal:用预设定位类;portal:由内联 style 定位(left/top 已含 align 平移 + 视口 clamp)
         !portal && posClass[position],
         className,
       )}
       style={
-        portal && coords
+        portal
           ? {
-              top: coords.top,
-              left: coords.left,
-              // 组合 translate:portalPositionClass 修正主方向;align=center 用 -50% 居中;
-              // align=end(right/left position)用 -100% 让 popover 底边对齐 trigger 底边,避免向下溢出视口。
-              transform: `${portalPositionClass[position]} ${
-                align === 'center' && (position === 'top' || position === 'bottom')
-                  ? '-translate-x-1/2'
-                  : ''
-              } ${
-                align === 'center' && (position === 'left' || position === 'right')
-                  ? '-translate-y-1/2'
-                  : ''
-              } ${
-                align === 'end' && (position === 'left' || position === 'right')
-                  ? '-translate-y-full'
-                  : ''
-              }`.trim(),
+              // coords=null 时藏到屏幕外,useLayoutEffect 会同步算出真正坐标避免 (0,0) 闪烁
+              top: coords?.top ?? -9999,
+              left: coords?.left ?? -9999,
             }
           : undefined
       }

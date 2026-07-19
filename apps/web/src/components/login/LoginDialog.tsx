@@ -56,40 +56,55 @@ export function LoginDialog() {
               : t('forgotSubtitle')}
         </DialogDescription>
 
-        <div className="flex flex-col items-center px-6 pt-8 pb-4 text-center bg-gradient-to-b from-background to-muted/40 rounded-t-xl">
-          {/* 顶部 logo:用户提供的纯图标版 logo.png(2534×2534 方形,蝴蝶结 + IHUI INF 弧形标识,无右侧"智汇AI社区"横向文字)。
-              比 logo.svg 简洁,适合登录弹窗顶部主视觉。 */}
+        <div className="flex items-center justify-center gap-3 px-6 pt-5 pb-5 bg-gradient-to-b from-background to-muted/40 rounded-t-xl">
+          {/* 顶部 logo 与 welcome 图左右并排布局(M-66,2026-07-19):
+              - flex row,items-center 让 logo 与 welcome 视觉中心对齐
+              - logo 固定 52×52(w-[52px] h-[52px],与原 80×80 同比缩小以腾出 welcome 横向空间)
+              - welcome 区 h-[52px] w-full max-w-[348px] 绝对定位叠加 light/dark 两版本
+              - 52 + gap-3(12) + 348 = 412,刚好等于 dialog 容器 460 - 2*24 内宽
+              - 欢迎图自然宽 52*447/67 ≈ 347px,正好填满 348 容器且不变形
+              - (M-67,2026-07-19) logo 加 translate-y 微调,精确计算:
+                  · logo.png 是 2534×2534 黑底方形,内容范围 23.5%-76.4%,内容高度 52.9% 容器高度
+                  · welcome.svg 主文字 y 范围 20.625-55(占 viewBox 67 高度的 30.8%-82.1%,偏下 14.9%)
+                  · welcome 文字在 52 容器中:顶 16px 留白,底 9.3px 留白 → 文字中心 70.4
+                  · logo 内容在 52 容器中:顶 12.2px 留白,底 12.3px 留白 → 内容中心 50%(box 中心)
+                  · box 顶 baseline 对齐(translate-y=0):logo 顶 41 = welcome 顶 41,但内容中心差 4.9px(logo 内容靠上)
+                  · (M-68,2026-07-19) 改为 translate-y-[5px] 二次调优:
+                      logo 顶 46,box 中心 72.1,内容中心 70.5 ≈ welcome 文字中心 70.4
+                      让 box 整体下移 5px("logo 偏高"反馈 → 整体下沉),同时让 logo 内部内容与 welcome 文字**几乎完美对齐**(0.1px)
+                      box 中心差 5px = "logo 整体略低 5px",与 box 内容中心差 0.1px 的视觉对齐形成"差不多高度"双指标平衡
+                  · 父级 padding 同步改 pt-5 pb-5 对称,腾出 5px 让 logo 下移不溢出 */}
           <Image
             src="/images/logo.png?v=20260719-login"
             alt="IHUI AI"
-            width={80}
-            height={80}
-            className="h-20 w-20 select-none rounded-xl"
+            width={52}
+            height={52}
+            className="h-[52px] w-[52px] shrink-0 select-none rounded-xl translate-y-[5px]"
             draggable={false}
             unoptimized
             priority
           />
-          {/* 顶部已由 logo.png 渲染图标,此处欢迎图替代原来的"欢迎回来 登录您的账号"文字。
-              宽度拉到与下面 LoginForm 内容对齐(460 - 2*24 = 412px),实现左右两侧竖向拉齐。 */}
-          <Image
-            src="/images/welcome.svg"
-            alt="Welcome to IHUI AI"
-            width={447}
-            height={67}
-            className="welcome-img mt-4 h-auto w-full max-w-[412px]"
-            loading="eager"
-            unoptimized
-          />
-          <Image
-            src="/images/baiwelcome.svg"
-            alt=""
-            aria-hidden="true"
-            width={447}
-            height={67}
-            className="welcome-img-dark mt-4 h-auto w-full max-w-[412px]"
-            loading="eager"
-            unoptimized
-          />
+          <div className="relative h-[52px] w-full max-w-[348px]">
+            <Image
+              src="/images/welcome.svg"
+              alt="Welcome to IHUI AI"
+              width={447}
+              height={67}
+              className="welcome-img absolute inset-0 m-auto h-full w-auto"
+              loading="eager"
+              unoptimized
+            />
+            <Image
+              src="/images/baiwelcome.svg"
+              alt=""
+              aria-hidden="true"
+              width={447}
+              height={67}
+              className="welcome-img-dark absolute inset-0 m-auto h-full w-auto"
+              loading="eager"
+              unoptimized
+            />
+          </div>
         </div>
 
         <div className="px-6 pb-6 pt-4">
