@@ -78,7 +78,7 @@ export default function AdminMonitorDashboardPage() {
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <LayoutDashboard className="h-6 w-6 text-primary" />
-          系统监控总览
+          系统监控概览
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">CPU / 内存 / 请求 / QPS 实时监控</p>
       </div>

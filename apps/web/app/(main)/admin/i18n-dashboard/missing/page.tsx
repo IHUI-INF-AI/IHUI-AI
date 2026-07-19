@@ -91,7 +91,7 @@ export default function I18nMissingPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回总览
+        返回概览
       </Link>
 
       <header className="space-y-1">
