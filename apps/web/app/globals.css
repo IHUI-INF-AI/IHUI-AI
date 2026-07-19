@@ -608,13 +608,22 @@ h6 {
   z-index: 30;
   writing-mode: vertical-rl;
   text-orientation: mixed;
+  /* vertical-rl 下 flex + align-items 在不同浏览器对 cross axis(物理水平)居中
+     行为不一致(flex-direction: row 的主轴在 vertical-rl 下变成垂直,容易出现
+     文字框被推到物理右边的"偏右"现象)。改用 display: grid + place-items: center,
+     grid 在 writing-mode 下行为是规范化的,跨浏览器一致,真正把内容放在物理中心。
+     再叠加 text-align: center 兜底,处理 line-box 内部的字形居中。 */
+  display: grid;
+  place-items: center;
+  text-align: center;
   letter-spacing: 0.12em;
   white-space: nowrap;
   background: var(--color-popover);
   color: var(--color-popover-foreground);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  padding: 8px 0 8px 5px;
+  /* 居中交给 grid 处理,这里用对称 padding(8/4/8/4)避免视觉偏移。 */
+  padding: 8px 4px;
   font-size: 11px;
   line-height: 1.4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -650,13 +659,19 @@ h6 {
   z-index: 30;
   writing-mode: vertical-rl;
   text-orientation: mixed;
+  /* 同 .ai-panel-handle-tooltip:vertical-rl 下用 grid + place-items: center
+     强制物理水平 + 垂直双居中(规范定义清晰,跨浏览器一致)。 */
+  display: grid;
+  place-items: center;
+  text-align: center;
   letter-spacing: 0.12em;
   white-space: nowrap;
   background: var(--color-popover);
   color: var(--color-popover-foreground);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  padding: 8px 5px;
+  /* 对称 padding,居中由 grid 处理。 */
+  padding: 8px 4px;
   font-size: 11px;
   line-height: 1.4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -709,12 +724,28 @@ h6 {
  * 单一来源:design-tokens.css 第 152-164 行的 :root { --z-* } 定义,
  * 修改任何 z-index 数值只需改 design-tokens.css,全站自动联动。 */
 @layer utilities {
-  .z-sticky { z-index: var(--z-sticky); }
-  .z-dropdown { z-index: var(--z-dropdown); }
-  .z-overlay { z-index: var(--z-overlay); }
-  .z-modal { z-index: var(--z-modal); }
-  .z-popover { z-index: var(--z-popover); }
-  .z-notification { z-index: var(--z-notification); }
-  .z-loading { z-index: var(--z-loading); }
-  .z-max { z-index: var(--z-max); }
+  .z-sticky {
+    z-index: var(--z-sticky);
+  }
+  .z-dropdown {
+    z-index: var(--z-dropdown);
+  }
+  .z-overlay {
+    z-index: var(--z-overlay);
+  }
+  .z-modal {
+    z-index: var(--z-modal);
+  }
+  .z-popover {
+    z-index: var(--z-popover);
+  }
+  .z-notification {
+    z-index: var(--z-notification);
+  }
+  .z-loading {
+    z-index: var(--z-loading);
+  }
+  .z-max {
+    z-index: var(--z-max);
+  }
 }
