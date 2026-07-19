@@ -458,8 +458,10 @@ export function MessageInput({
               />
             </div>
             {/* 底部工具栏:左侧功能按钮,右侧模型/语音/发送(挨着)
-                提示词模板按钮已上移至附加栏(与添加引用并列),此处不再保留 */}
-            <div className="flex items-center gap-1 px-2 pb-2 pt-1">
+                提示词模板按钮已上移至附加栏(与添加引用并列),此处不再保留
+                overflow-hidden + min-w-0:防止右侧 ModelSelector 文字撑爆容器右边界
+                (AI 面板宽度 320-720px,默认 400px,ModelSelector span max-w 曾达 192px 导致溢出 55px) */}
+            <div className="flex min-w-0 items-center gap-1 overflow-hidden px-2 pb-2 pt-1">
               {/* 独立附件按钮:点击触发 hidden file input,选择图片/视频文件作为附件引用 */}
               <button
                 type="button"
@@ -545,7 +547,7 @@ export function MessageInput({
                 aria-hidden="true"
                 tabIndex={-1}
               />
-              <div className="ml-auto flex items-center gap-1">
+              <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
                 <ModelSelector
                   value={model}
                   onChange={onModelChange}
