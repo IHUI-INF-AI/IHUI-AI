@@ -80,6 +80,10 @@ import {
   Files,
   Bell,
   BellRing,
+  Eye,
+  RotateCcw,
+  Settings,
+  ChevronDown,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -359,32 +363,333 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/message-overview', labelKey: 'messageOverview', icon: BarChart3 },
   { href: '/admin/visit-tracking', labelKey: 'visitTracking', icon: BarChart3 },
   { href: '/admin/exam-marking', labelKey: 'examMarking', icon: ClipboardCheck },
+  // P1: 73 个运营域模块（audit 新增）
+  // 运营管理
+  { href: '/admin/operlog', labelKey: 'dashboard', icon: Activity, dynamicLabel: 'Operation Log' },
+  { href: '/admin/logininfor', labelKey: 'dashboard', icon: History, dynamicLabel: 'Login Info' },
+  { href: '/admin/online', labelKey: 'dashboard', icon: Users, dynamicLabel: 'Online Users' },
+  { href: '/admin/notice', labelKey: 'dashboard', icon: Megaphone, dynamicLabel: 'Notice' },
+  { href: '/admin/config', labelKey: 'dashboard', icon: SlidersHorizontal, dynamicLabel: 'Config' },
+  { href: '/admin/job', labelKey: 'dashboard', icon: CalendarClock, dynamicLabel: 'Scheduled Job' },
+  { href: '/admin/gen', labelKey: 'dashboard', icon: Code2, dynamicLabel: 'Code Generator' },
+  // 内容审核
+  { href: '/admin/article', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Article Review' },
+  { href: '/admin/course', labelKey: 'dashboard', icon: GraduationCap, dynamicLabel: 'Course Review' },
+  { href: '/admin/examPaper', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Exam Paper Review' },
+  { href: '/admin/examQuestion', labelKey: 'dashboard', icon: HelpCircle, dynamicLabel: 'Exam Question Review' },
+  { href: '/admin/liveChannel', labelKey: 'dashboard', icon: Radio, dynamicLabel: 'Live Channel Review' },
+  { href: '/admin/sensitiveWord', labelKey: 'dashboard', icon: AlertTriangle, dynamicLabel: 'Sensitive Words' },
+  { href: '/admin/feedbackMsg', labelKey: 'dashboard', icon: MessageSquare, dynamicLabel: 'Feedback Messages' },
+  // 财务管理
+  { href: '/admin/wallet', labelKey: 'dashboard', icon: Wallet, dynamicLabel: 'Wallet' },
+  { href: '/admin/withdrawal', labelKey: 'dashboard', icon: Banknote, dynamicLabel: 'Withdrawal' },
+  { href: '/admin/commission', labelKey: 'dashboard', icon: Percent, dynamicLabel: 'Commission' },
+  { href: '/admin/invoice', labelKey: 'dashboard', icon: Receipt, dynamicLabel: 'Invoice' },
+  { href: '/admin/tax', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Tax' },
+  // AI 智能体
+  { href: '/admin/agentCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Agent Category' },
+  { href: '/admin/agentRule', labelKey: 'dashboard', icon: Shield, dynamicLabel: 'Agent Rule' },
+  { href: '/admin/agentExamine', labelKey: 'dashboard', icon: ShieldCheck, dynamicLabel: 'Agent Examine' },
+  { href: '/admin/llmConfig', labelKey: 'dashboard', icon: SlidersHorizontal, dynamicLabel: 'LLM Config' },
+  // 营销直播
+  { href: '/admin/activity', labelKey: 'dashboard', icon: Sparkles, dynamicLabel: 'Activity' },
+  { href: '/admin/coupon', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Coupon' },
+  { href: '/admin/banner', labelKey: 'dashboard', icon: Images, dynamicLabel: 'Banner' },
+  { href: '/admin/invitation', labelKey: 'dashboard', icon: UserPlus, dynamicLabel: 'Invitation' },
+  { href: '/admin/signinRule', labelKey: 'dashboard', icon: CalendarClock, dynamicLabel: 'Sign-in Rule' },
+  { href: '/admin/lecturer', labelKey: 'dashboard', icon: UserCheck, dynamicLabel: 'Lecturer' },
+  { href: '/admin/liveRecord', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Live Record' },
+  { href: '/admin/liveGift', labelKey: 'dashboard', icon: Award, dynamicLabel: 'Live Gift' },
+  { href: '/admin/lecturerGrade', labelKey: 'dashboard', icon: Award, dynamicLabel: 'Lecturer Grade' },
+  // 课程考试
+  { href: '/admin/courseChapter', labelKey: 'dashboard', icon: BookOpen, dynamicLabel: 'Course Chapter' },
+  { href: '/admin/courseSection', labelKey: 'dashboard', icon: ListChecks, dynamicLabel: 'Course Section' },
+  { href: '/admin/learnMap', labelKey: 'dashboard', icon: Network, dynamicLabel: 'Learn Map' },
+  { href: '/admin/certificate', labelKey: 'dashboard', icon: Award, dynamicLabel: 'Certificate' },
+  { href: '/admin/examAnswer', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Exam Answer' },
+  { href: '/admin/examCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Exam Category' },
+  { href: '/admin/questionCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Question Category' },
+  { href: '/admin/examRandomPaper', labelKey: 'dashboard', icon: LayoutGrid, dynamicLabel: 'Exam Random Paper' },
+  { href: '/admin/examMockPaper', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Exam Mock Paper' },
+  { href: '/admin/examRecord', labelKey: 'dashboard', icon: History, dynamicLabel: 'Exam Record' },
+  { href: '/admin/questionImport', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Question Import' },
+  { href: '/admin/paperTemplate', labelKey: 'dashboard', icon: LayoutGrid, dynamicLabel: 'Paper Template' },
+  // 监控 BI
+  { href: '/admin/dashboardStat', labelKey: 'dashboard', icon: BarChart3, dynamicLabel: 'Dashboard Stat' },
+  { href: '/admin/userStat', labelKey: 'dashboard', icon: Users, dynamicLabel: 'User Stat' },
+  { href: '/admin/revenueStat', labelKey: 'dashboard', icon: Banknote, dynamicLabel: 'Revenue Stat' },
+  { href: '/admin/contentStat', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Content Stat' },
+  { href: '/admin/cacheMonitor', labelKey: 'dashboard', icon: Server, dynamicLabel: 'Cache Monitor' },
+  { href: '/admin/dbMonitor', labelKey: 'dashboard', icon: Database, dynamicLabel: 'DB Monitor' },
+  { href: '/admin/visitTrend', labelKey: 'dashboard', icon: BarChart3, dynamicLabel: 'Visit Trend' },
+  { href: '/admin/redisMonitor', labelKey: 'dashboard', icon: Server, dynamicLabel: 'Redis Monitor' },
+  // 客服工单
+  { href: '/admin/ticket', labelKey: 'dashboard', icon: MessageSquare, dynamicLabel: 'Ticket' },
+  { href: '/admin/ticketReply', labelKey: 'dashboard', icon: MessageSquareReply, dynamicLabel: 'Ticket Reply' },
+  { href: '/admin/fileTag', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'File Tag' },
+  { href: '/admin/fileShare', labelKey: 'dashboard', icon: Link2, dynamicLabel: 'File Share' },
+  { href: '/admin/fileRecycle', labelKey: 'dashboard', icon: RotateCcw, dynamicLabel: 'File Recycle' },
+  { href: '/admin/filePreview', labelKey: 'dashboard', icon: Eye, dynamicLabel: 'File Preview' },
+  { href: '/admin/ossConfig', labelKey: 'dashboard', icon: Server, dynamicLabel: 'OSS Config' },
+  // 社区圈子
+  { href: '/admin/circleCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Circle Category' },
+  { href: '/admin/circleMember', labelKey: 'dashboard', icon: Users, dynamicLabel: 'Circle Member' },
+  { href: '/admin/circleTopic', labelKey: 'dashboard', icon: MessageSquare, dynamicLabel: 'Circle Topic' },
+  { href: '/admin/circleDynamic', labelKey: 'dashboard', icon: Activity, dynamicLabel: 'Circle Dynamic' },
+  { href: '/admin/askCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Ask Category' },
+  { href: '/admin/articleCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Article Category' },
+  { href: '/admin/newsCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'News Category' },
+  // 资源中心
+  { href: '/admin/resourceTag', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Resource Tag' },
+  { href: '/admin/resourceProduct', labelKey: 'dashboard', icon: Package, dynamicLabel: 'Resource Product' },
+  // 开发者中心
+  { href: '/admin/devFund', labelKey: 'dashboard', icon: Banknote, dynamicLabel: 'Dev Fund' },
+  { href: '/admin/devProduct', labelKey: 'dashboard', icon: Code2, dynamicLabel: 'Dev Product' },
+  { href: '/admin/commissionRule', labelKey: 'dashboard', icon: Percent, dynamicLabel: 'Commission Rule' },
+  { href: '/admin/menuPermission', labelKey: 'dashboard', icon: Lock, dynamicLabel: 'Menu Permission' },
+  { href: '/admin/dataScope', labelKey: 'dashboard', icon: Lock, dynamicLabel: 'Data Scope' },
 ]
+
+/**
+ * 11 大运营域可折叠分组
+ * - 73 个 audit 新增 item 归属到对应分组
+ * - 默认全部展开
+ * - localStorage key `adminNav.collapsed` 记忆用户折叠偏好
+ */
+type AdminGroupKey =
+  | 'operation'
+  | 'moderation'
+  | 'finance'
+  | 'aiAgent'
+  | 'marketing'
+  | 'courseExam'
+  | 'analytics'
+  | 'support'
+  | 'community'
+  | 'resource'
+  | 'developer'
+
+export interface AdminNavGroup {
+  groupKey: AdminGroupKey
+  icon: React.ComponentType<{ className?: string }>
+  items: AdminNavItem[]
+}
+
+export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
+  // 运营管理
+  {
+    groupKey: 'operation',
+    icon: Settings,
+    items: [
+      { href: '/admin/operlog', labelKey: 'dashboard', icon: Activity, dynamicLabel: 'Operation Log' },
+      { href: '/admin/logininfor', labelKey: 'dashboard', icon: History, dynamicLabel: 'Login Info' },
+      { href: '/admin/online', labelKey: 'dashboard', icon: Users, dynamicLabel: 'Online Users' },
+      { href: '/admin/notice', labelKey: 'dashboard', icon: Megaphone, dynamicLabel: 'Notice' },
+      { href: '/admin/config', labelKey: 'dashboard', icon: SlidersHorizontal, dynamicLabel: 'Config' },
+      { href: '/admin/job', labelKey: 'dashboard', icon: CalendarClock, dynamicLabel: 'Scheduled Job' },
+      { href: '/admin/gen', labelKey: 'dashboard', icon: Code2, dynamicLabel: 'Code Generator' },
+    ],
+  },
+  // 内容审核
+  {
+    groupKey: 'moderation',
+    icon: ShieldCheck,
+    items: [
+      { href: '/admin/article', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Article Review' },
+      { href: '/admin/course', labelKey: 'dashboard', icon: GraduationCap, dynamicLabel: 'Course Review' },
+      { href: '/admin/examPaper', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Exam Paper Review' },
+      { href: '/admin/examQuestion', labelKey: 'dashboard', icon: HelpCircle, dynamicLabel: 'Exam Question Review' },
+      { href: '/admin/liveChannel', labelKey: 'dashboard', icon: Radio, dynamicLabel: 'Live Channel Review' },
+      { href: '/admin/sensitiveWord', labelKey: 'dashboard', icon: AlertTriangle, dynamicLabel: 'Sensitive Words' },
+      { href: '/admin/feedbackMsg', labelKey: 'dashboard', icon: MessageSquare, dynamicLabel: 'Feedback Messages' },
+    ],
+  },
+  // 财务管理
+  {
+    groupKey: 'finance',
+    icon: Wallet,
+    items: [
+      { href: '/admin/wallet', labelKey: 'dashboard', icon: Wallet, dynamicLabel: 'Wallet' },
+      { href: '/admin/withdrawal', labelKey: 'dashboard', icon: Banknote, dynamicLabel: 'Withdrawal' },
+      { href: '/admin/commission', labelKey: 'dashboard', icon: Percent, dynamicLabel: 'Commission' },
+      { href: '/admin/invoice', labelKey: 'dashboard', icon: Receipt, dynamicLabel: 'Invoice' },
+      { href: '/admin/tax', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Tax' },
+    ],
+  },
+  // AI 智能体
+  {
+    groupKey: 'aiAgent',
+    icon: Bot,
+    items: [
+      { href: '/admin/agentCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Agent Category' },
+      { href: '/admin/agentRule', labelKey: 'dashboard', icon: Shield, dynamicLabel: 'Agent Rule' },
+      { href: '/admin/agentExamine', labelKey: 'dashboard', icon: ShieldCheck, dynamicLabel: 'Agent Examine' },
+      { href: '/admin/llmConfig', labelKey: 'dashboard', icon: SlidersHorizontal, dynamicLabel: 'LLM Config' },
+    ],
+  },
+  // 营销直播
+  {
+    groupKey: 'marketing',
+    icon: Megaphone,
+    items: [
+      { href: '/admin/activity', labelKey: 'dashboard', icon: Sparkles, dynamicLabel: 'Activity' },
+      { href: '/admin/coupon', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Coupon' },
+      { href: '/admin/banner', labelKey: 'dashboard', icon: Images, dynamicLabel: 'Banner' },
+      { href: '/admin/invitation', labelKey: 'dashboard', icon: UserPlus, dynamicLabel: 'Invitation' },
+      { href: '/admin/signinRule', labelKey: 'dashboard', icon: CalendarClock, dynamicLabel: 'Sign-in Rule' },
+      { href: '/admin/lecturer', labelKey: 'dashboard', icon: UserCheck, dynamicLabel: 'Lecturer' },
+      { href: '/admin/liveRecord', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Live Record' },
+      { href: '/admin/liveGift', labelKey: 'dashboard', icon: Award, dynamicLabel: 'Live Gift' },
+      { href: '/admin/lecturerGrade', labelKey: 'dashboard', icon: Award, dynamicLabel: 'Lecturer Grade' },
+    ],
+  },
+  // 课程考试
+  {
+    groupKey: 'courseExam',
+    icon: GraduationCap,
+    items: [
+      { href: '/admin/courseChapter', labelKey: 'dashboard', icon: BookOpen, dynamicLabel: 'Course Chapter' },
+      { href: '/admin/courseSection', labelKey: 'dashboard', icon: ListChecks, dynamicLabel: 'Course Section' },
+      { href: '/admin/learnMap', labelKey: 'dashboard', icon: Network, dynamicLabel: 'Learn Map' },
+      { href: '/admin/certificate', labelKey: 'dashboard', icon: Award, dynamicLabel: 'Certificate' },
+      { href: '/admin/examAnswer', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Exam Answer' },
+      { href: '/admin/examCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Exam Category' },
+      { href: '/admin/questionCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Question Category' },
+      { href: '/admin/examRandomPaper', labelKey: 'dashboard', icon: LayoutGrid, dynamicLabel: 'Exam Random Paper' },
+      { href: '/admin/examMockPaper', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Exam Mock Paper' },
+      { href: '/admin/examRecord', labelKey: 'dashboard', icon: History, dynamicLabel: 'Exam Record' },
+      { href: '/admin/questionImport', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Question Import' },
+      { href: '/admin/paperTemplate', labelKey: 'dashboard', icon: LayoutGrid, dynamicLabel: 'Paper Template' },
+    ],
+  },
+  // 监控 BI
+  {
+    groupKey: 'analytics',
+    icon: BarChart3,
+    items: [
+      { href: '/admin/dashboardStat', labelKey: 'dashboard', icon: BarChart3, dynamicLabel: 'Dashboard Stat' },
+      { href: '/admin/userStat', labelKey: 'dashboard', icon: Users, dynamicLabel: 'User Stat' },
+      { href: '/admin/revenueStat', labelKey: 'dashboard', icon: Banknote, dynamicLabel: 'Revenue Stat' },
+      { href: '/admin/contentStat', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Content Stat' },
+      { href: '/admin/cacheMonitor', labelKey: 'dashboard', icon: Server, dynamicLabel: 'Cache Monitor' },
+      { href: '/admin/dbMonitor', labelKey: 'dashboard', icon: Database, dynamicLabel: 'DB Monitor' },
+      { href: '/admin/visitTrend', labelKey: 'dashboard', icon: BarChart3, dynamicLabel: 'Visit Trend' },
+      { href: '/admin/redisMonitor', labelKey: 'dashboard', icon: Server, dynamicLabel: 'Redis Monitor' },
+    ],
+  },
+  // 客服工单
+  {
+    groupKey: 'support',
+    icon: MessageSquare,
+    items: [
+      { href: '/admin/ticket', labelKey: 'dashboard', icon: MessageSquare, dynamicLabel: 'Ticket' },
+      { href: '/admin/ticketReply', labelKey: 'dashboard', icon: MessageSquareReply, dynamicLabel: 'Ticket Reply' },
+      { href: '/admin/fileTag', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'File Tag' },
+      { href: '/admin/fileShare', labelKey: 'dashboard', icon: Link2, dynamicLabel: 'File Share' },
+      { href: '/admin/fileRecycle', labelKey: 'dashboard', icon: RotateCcw, dynamicLabel: 'File Recycle' },
+      { href: '/admin/filePreview', labelKey: 'dashboard', icon: Eye, dynamicLabel: 'File Preview' },
+      { href: '/admin/ossConfig', labelKey: 'dashboard', icon: Server, dynamicLabel: 'OSS Config' },
+    ],
+  },
+  // 社区圈子
+  {
+    groupKey: 'community',
+    icon: Users,
+    items: [
+      { href: '/admin/circleCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Circle Category' },
+      { href: '/admin/circleMember', labelKey: 'dashboard', icon: Users, dynamicLabel: 'Circle Member' },
+      { href: '/admin/circleTopic', labelKey: 'dashboard', icon: MessageSquare, dynamicLabel: 'Circle Topic' },
+      { href: '/admin/circleDynamic', labelKey: 'dashboard', icon: Activity, dynamicLabel: 'Circle Dynamic' },
+      { href: '/admin/askCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Ask Category' },
+      { href: '/admin/articleCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Article Category' },
+      { href: '/admin/newsCategory', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'News Category' },
+    ],
+  },
+  // 资源中心
+  {
+    groupKey: 'resource',
+    icon: Package,
+    items: [
+      { href: '/admin/resourceTag', labelKey: 'dashboard', icon: Tag, dynamicLabel: 'Resource Tag' },
+      { href: '/admin/resourceProduct', labelKey: 'dashboard', icon: Package, dynamicLabel: 'Resource Product' },
+    ],
+  },
+  // 开发者中心
+  {
+    groupKey: 'developer',
+    icon: Code2,
+    items: [
+      { href: '/admin/devFund', labelKey: 'dashboard', icon: Banknote, dynamicLabel: 'Dev Fund' },
+      { href: '/admin/devProduct', labelKey: 'dashboard', icon: Code2, dynamicLabel: 'Dev Product' },
+      { href: '/admin/commissionRule', labelKey: 'dashboard', icon: Percent, dynamicLabel: 'Commission Rule' },
+      { href: '/admin/menuPermission', labelKey: 'dashboard', icon: Lock, dynamicLabel: 'Menu Permission' },
+      { href: '/admin/dataScope', labelKey: 'dashboard', icon: Lock, dynamicLabel: 'Data Scope' },
+    ],
+  },
+]
+
+const STORAGE_KEY = 'adminNav.collapsed'
+const GROUPED_HREFS = new Set<string>(
+  ADMIN_NAV_GROUPS.flatMap((g) => g.items.map((i) => i.href)),
+)
+
+function loadCollapsed(): Set<AdminGroupKey> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (!raw) return new Set()
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return new Set()
+    return new Set(parsed.filter((v): v is AdminGroupKey => typeof v === 'string'))
+  } catch {
+    return new Set()
+  }
+}
 
 export function AdminNav({ children }: { children: React.ReactNode }) {
   const t = useTranslations('admin')
   const pathname = usePathname()
   const { list: dynamicList, loaded } = useAdminRouters()
+  const [collapsed, setCollapsed] = React.useState<Set<AdminGroupKey>>(() => new Set())
+
+  React.useEffect(() => {
+    setCollapsed(loadCollapsed())
+  }, [])
+
+  const toggleGroup = React.useCallback((key: AdminGroupKey) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]))
+      } catch {
+        // localStorage 写入失败时静默忽略(隐私模式 / 配额超限)
+      }
+      return next
+    })
+  }, [])
 
   const isActive = (href: string) =>
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
 
-  const navItems: AdminNavItem[] =
-    loaded && dynamicList.length > 0
-      ? dynamicList
-          .filter((r) => r.visible !== 0 && r.path)
-          .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
-          .map((r) => ({
-            href: r.path,
-            labelKey: 'dashboard' as const,
-            icon: LayoutDashboard,
-            dynamicLabel: r.name,
-          }))
-          .map((r) => {
-            const matched = ADMIN_NAV.find((n) => n.href === r.href)
-            return matched ?? r
-          })
-      : ADMIN_NAV
+  // 旧版扁平 nav items:仅保留未归入分组的条目
+  const flatItems: AdminNavItem[] = React.useMemo(() => {
+    if (loaded && dynamicList.length > 0) {
+      const dynItems = dynamicList
+        .filter((r) => r.visible !== 0 && r.path)
+        .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+        .map((r) => ({
+          href: r.path,
+          labelKey: 'dashboard' as const,
+          icon: LayoutDashboard,
+          dynamicLabel: r.name,
+        }))
+        .filter((r) => !GROUPED_HREFS.has(r.href))
+      return dynItems
+    }
+    return ADMIN_NAV.filter((n) => !GROUPED_HREFS.has(n.href))
+  }, [loaded, dynamicList])
 
   const renderItem = (item: AdminNavItem, active: boolean, compact = false) => {
     const Icon = item.icon
@@ -406,6 +711,48 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
     )
   }
 
+  const renderGroup = (group: AdminNavGroup) => {
+    const GroupIcon = group.icon
+    const isCollapsed = collapsed.has(group.groupKey)
+    const hasActive = group.items.some((i) => isActive(i.href))
+    return (
+      <div key={group.groupKey} className="space-y-1">
+        <button
+          type="button"
+          aria-expanded={!isCollapsed}
+          aria-controls={`admin-nav-group-${group.groupKey}`}
+          onClick={() => toggleGroup(group.groupKey)}
+          className={cn(
+            'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors',
+            hasActive
+              ? 'text-primary'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          )}
+        >
+          <GroupIcon className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1 text-left">{t(`nav.group.${group.groupKey}`)}</span>
+          <span className="text-[10px] tabular-nums text-muted-foreground/70">
+            {group.items.length}
+          </span>
+          <ChevronDown
+            className={cn(
+              'h-3.5 w-3.5 shrink-0 transition-transform duration-200',
+              isCollapsed && '-rotate-90',
+            )}
+          />
+        </button>
+        {!isCollapsed && (
+          <div
+            id={`admin-nav-group-${group.groupKey}`}
+            className="ml-2 space-y-1 rounded-md bg-muted/30 p-1.5"
+          >
+            {group.items.map((item) => renderItem(item, isActive(item.href)))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
       <aside className="hidden w-52 shrink-0 self-start lg:sticky lg:top-4 lg:block">
@@ -415,13 +762,19 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
           </div>
           <span className="text-base font-semibold tracking-tight">{t('title')}</span>
         </div>
-        <nav className="space-y-1">
-          {navItems.map((item) => renderItem(item, isActive(item.href)))}
+        <nav className="space-y-3">
+          <div className="space-y-1">
+            {flatItems.map((item) => renderItem(item, isActive(item.href)))}
+          </div>
+          {ADMIN_NAV_GROUPS.map(renderGroup)}
         </nav>
       </aside>
 
       <nav className="flex flex-wrap gap-1 rounded-md bg-muted/40 p-2 pb-2 lg:hidden">
-        {navItems.map((item) => renderItem(item, isActive(item.href), true))}
+        {flatItems.map((item) => renderItem(item, isActive(item.href), true))}
+        {ADMIN_NAV_GROUPS.flatMap((g) => g.items).map((item) =>
+          renderItem(item, isActive(item.href), true),
+        )}
       </nav>
 
       <div className="min-w-0 flex-1">{children}</div>
