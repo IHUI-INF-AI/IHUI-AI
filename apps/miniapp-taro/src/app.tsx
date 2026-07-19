@@ -5,6 +5,8 @@ import { exchangeSsoCode } from './utils/sso'
 import { showShareMenu } from './utils/share'
 import { initPrivacyGuard } from './utils/privacy'
 import { initPushSubscription } from './utils/push-init'
+import { isWechatMiniProgram } from './utils/wechat-login'
+import { useUserStore } from './stores/user'
 import { createNotificationClient } from '@ihui/api-client'
 import { taroWebSocketFactory } from './utils/taro-websocket-adapter'
 import { BASE_URL } from './utils/request'
@@ -52,9 +54,21 @@ function App({ children }: PropsWithChildren<unknown>) {
     showShareMenu()
     initPushSubscription()
 
-    // SSO 场景:外部带 sso_code 进入小程序,自动换 token 登录
+    // 启动时主流程:
+    // 1) 优先消费外部 SSO code(已登录 web 扫码进入)
+    // 2) 否则在微信小程序环境,未登录则尝试静默微信登录(wx.login 拿 code → 后端换 token)
+    // 3) 登录态就绪后建立 WebSocket 通知连接
     const launchQuery = (options?.query ?? {}) as Record<string, unknown>
-    void consumeSsoCodeFromLaunch(launchQuery).then(() => {
+    void (async () => {
+      await consumeSsoCodeFromLaunch(launchQuery)
+      // 未登录且是微信环境 → 静默微信登录
+      if (!getToken() && isWechatMiniProgram()) {
+        try {
+          await useUserStore.getState().trySilentWechatLogin()
+        } catch {
+          // 静默失败:用户首次进入可能拒绝授权,留作手动登录
+        }
+      }
       checkLoginStatus()
       const token = getToken()
       const userInfo = getUserInfo()
@@ -67,7 +81,7 @@ function App({ children }: PropsWithChildren<unknown>) {
           { webSocketFactory: taroWebSocketFactory },
         ).connect()
       }
-    })
+    })()
   })
   return (
     <I18nProvider>
