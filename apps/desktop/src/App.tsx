@@ -7,6 +7,13 @@ import { NotificationProvider, useNotificationStore } from './stores/notificatio
 import { I18nProvider, useI18n } from './i18n'
 import Layout from './components/Layout'
 import NotificationPanel from './components/NotificationPanel'
+import AdminLayout from './components/admin/AdminLayout'
+import AdminGuard from './components/admin/AdminGuard'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminUsers from './pages/admin/AdminUsers'
+import AdminContent from './pages/admin/AdminContent'
+import AdminOrders from './pages/admin/AdminOrders'
+import AdminSettings from './pages/admin/AdminSettings'
 import LoginPage from './pages/LoginPage'
 import ChatPage from './pages/ChatPage'
 import ProfilePage from './pages/ProfilePage'
@@ -56,6 +63,7 @@ function AppInner() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin/*" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
@@ -77,6 +85,21 @@ function AppInner() {
           <Route path="/agents/:id" element={<AgentPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />
+        </Route>
+        <Route
+          path="/admin"
+          element={
+            <AdminGuard user={user}>
+              <AdminLayout />
+            </AdminGuard>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="content" element={<AdminContent />} />
+          <Route path="orders" element={<AdminOrders />} />
+          <Route path="settings" element={<AdminSettings />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Routes>
       <NotificationPanel />
