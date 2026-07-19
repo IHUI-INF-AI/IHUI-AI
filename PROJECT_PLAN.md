@@ -7,6 +7,24 @@
 
 ## 当前活跃任务(2026-07-19)
 
+### 登录弹窗左侧 logo 暗色模式全白修复(已完成 ✅ 2026-07-19)
+
+**触发**:用户反馈"图内左侧 logo 全白 要恢复",登录弹窗顶部的旧 logo.png(2534×2534 黑底白字)在暗色模式下黑色背景与弹窗同色融合,只剩白色"智"字悬浮,视觉割裂。
+
+**修复**:
+
+- 新建 `apps/web/public/images/logo-icon.svg`(276 字节,绿底圆角方形 + 白色"智"字,固定色不随主题变化,浅/深模式都清晰)
+- `apps/web/src/components/login/LoginDialog.tsx`:logo `<Image>` src 改为 `logo-icon.svg?v=20260719-icon-restore-v1`,移除 translate-y 微调(新 SVG 无黑底 padding,box 中心自然对齐)
+- 右侧 `welcome.svg` / `baiwelcome.svg` 文字未动(用户明确"右侧文字颜色满意不要改")
+
+**验证**:
+
+- `pnpm --filter @ihui/web typecheck` 退出码 0
+- 重启 next dev server 后 browser 访问 `/sso/register`(不依赖 landing 路由,绕开其他 agent 的 BrandMarquee 编译错误),截图:绿底白字"智"+ WELCOME 文字清晰可见
+- 独立访问 `/images/logo-icon.svg` 直链:绿底白字正常渲染
+
+**清理**:删除调试用临时文件 `logo-svg-count.txt`(原 1 字节无用)
+
 ### P2-P4 残余优化项 audit 复核 + 诚实交付(已完成 ✅ 2026-07-19)
 
 **触发**:本轮 audit 任务要求推进 P2-P3-P4 残余优化(9 项 + 5-10 个子路由 + 77 页 useQuery 加 Skeleton 等),本子任务负责按 §3 零冗余 / §12 严格保护 / §21 诚实交付 复核与执行。
@@ -93,9 +111,9 @@
 
 | 文档                                       | 说明                                  |
 | ------------------------------------------ | ------------------------------------- |
-| [PROJECT_PLAN.md](./PROJECT_PLAN.md)       | **本文件** — 唯一任务计划文档(精简版)|
-| [AGENTS.md](./AGENTS.md)                   | 项目 Agent 行为规范(强制规则)        |
-| [`.trae-cn/archive/`](./.trae-cn/archive/) | 历史归档(audit / 交接 / 迁移报告)    |
+| [PROJECT_PLAN.md](./PROJECT_PLAN.md)       | **本文件** — 唯一任务计划文档(精简版) |
+| [AGENTS.md](./AGENTS.md)                   | 项目 Agent 行为规范(强制规则)         |
+| [`.trae-cn/archive/`](./.trae-cn/archive/) | 历史归档(audit / 交接 / 迁移报告)     |
 | `docs/architecture.md`                     | 系统架构文档                          |
 
 ## 后续建议(本对话外、可作下一轮 plan 输入)
