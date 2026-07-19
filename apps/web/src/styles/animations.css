@@ -3170,6 +3170,10 @@
   border-radius: 8px;
   padding: 1px;
   background: transparent;
+  /* 默认描边:让 Input 在默认态就有清晰的浅灰/深灰描边。
+     注意:Tailwind v4 @theme 把 --color-input 序列化为 hsl(0 0% 89.8%),
+     必须直接用 var(--color-input),不能再用 hsl() 包裹,否则 hsl(hsl(...)) 非法被浏览器静默丢弃 */
+  border: 1px solid var(--color-input);
   transition:
     background 0.35s ease,
     box-shadow 0.35s ease;
