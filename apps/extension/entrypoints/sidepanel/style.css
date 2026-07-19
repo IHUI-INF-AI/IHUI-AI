@@ -686,6 +686,7 @@ textarea:focus {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1;
 }
 
 .popup-container .nickname {
@@ -700,4 +701,37 @@ textarea:focus {
 .popup-container .role {
   font-size: 11px;
   color: var(--muted);
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.popup-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.popup-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.popup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .popup-header .sp-notify-btn {
+    color: var(--fg);
+  }
 }
