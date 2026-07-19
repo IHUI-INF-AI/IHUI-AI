@@ -8437,7 +8437,8 @@
       "vision": "Vision",
       "coding": "Coding",
       "chinese": "Chinese-Optimized",
-      "openSource": "Open Source"
+      "openSource": "Open Source",
+      "favorite": "Favorites"
     },
     "detail": {
       "highlight": "Featured",

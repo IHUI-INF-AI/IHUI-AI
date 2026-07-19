@@ -4,6 +4,13 @@
 - function calling 用 OpenAPI schema(functionDeclarations)
 - safety_settings(内容安全策略,OpenAI 无此概念)
 - generation_config(temperature/topP/maxOutputTokens 统一封装)
+
+safety_settings 默认策略(2026-07-19 修订):
+- 旧版默认 BLOCK_MEDIUM_AND_ABOVE(Gemini 默认值),对中等概率违规内容即拦截,
+  导致大量正常对话被误判为"违规"并返回空文本/finishReason=SAFETY,
+  用户感知为"模型报错自动结束对话"。
+- 现默认 BLOCK_ONLY_HIGH(仅拦截高概率违规内容),与 OpenAI/Anthropic 默认策略对齐,
+  避免误判。调用方仍可通过 safety_settings 参数覆盖。
 """
 
 from __future__ import annotations
@@ -14,6 +21,16 @@ from typing import Any, AsyncIterator
 import httpx
 
 from .base_provider import BaseProvider, ProviderError
+
+
+# Gemini 4 个安全类别,默认全部设为 BLOCK_ONLY_HIGH(仅拦截高概率违规)
+# 与 OpenAI/Anthropic 默认内容策略对齐,避免误判正常对话
+DEFAULT_SAFETY_SETTINGS: list[dict[str, str]] = [
+    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
+    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
+    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
+    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
+]
 
 
 class GeminiProvider(BaseProvider):
@@ -94,15 +111,22 @@ class GeminiProvider(BaseProvider):
         if converted_tools:
             payload["tools"] = converted_tools
         # safety_settings:Gemini 独有,控制内容安全策略
-        if safety_settings:
-            payload["safetySettings"] = safety_settings
+        # 调用方未显式传入时,使用 DEFAULT_SAFETY_SETTINGS(BLOCK_ONLY_HIGH),
+        # 避免使用 Gemini 默认的 BLOCK_MEDIUM_AND_ABOVE 误判正常对话
+        payload["safetySettings"] = safety_settings or DEFAULT_SAFETY_SETTINGS
         return payload
 
-    def _parse_candidates(self, data: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
-        """解析 Gemini candidates → (text, tool_calls)。"""
+    def _parse_candidates(self, data: dict[str, Any]) -> tuple[str, list[dict[str, Any]], str | None]:
+        """解析 Gemini candidates → (text, tool_calls, finish_reason)。
+
+        返回 finish_reason 用于上层检测 SAFETY 拦截,以便返回明确错误而非空文本。
+        """
         text_parts: list[str] = []
         tool_calls: list[dict[str, Any]] = []
+        finish_reason: str | None = None
         for candidate in data.get("candidates", []):
+            if finish_reason is None:
+                finish_reason = candidate.get("finishReason")
             content = candidate.get("content", {})
             for part in content.get("parts", []):
                 if "text" in part:
@@ -117,7 +141,7 @@ class GeminiProvider(BaseProvider):
                             "arguments": json.dumps(fc.get("args", {}), ensure_ascii=False),
                         },
                     })
-        return "".join(text_parts), tool_calls
+        return "".join(text_parts), tool_calls, finish_reason
 
     async def complete(
         self,
@@ -132,7 +156,18 @@ class GeminiProvider(BaseProvider):
         real_model = self._strip_prefix(model)
         url = f"{self.base_url}/v1beta/models/{real_model}:generateContent?key={self.api_key}"
         data = await self._request("POST", url, json=payload)
-        text, tool_calls = self._parse_candidates(data)
+        text, tool_calls, finish_reason = self._parse_candidates(data)
+        # SAFETY/RECITATION 拦截:Gemini 返回空文本 + finishReason=SAFETY,
+        # 上抛明确错误避免前端看到空回复(用户感知为"对话被自动结束")
+        if not text and finish_reason in ("SAFETY", "RECITATION", "BLOCKLIST"):
+            return {
+                "content": "",
+                "model": real_model,
+                "usage": data.get("usageMetadata", {}),
+                "stub": False,
+                "error": True,
+                "error_message": f"内容被 Gemini 安全策略拦截(finishReason={finish_reason}),请调整提问方式",
+            }
         result: dict[str, Any] = {
             "content": text,
             "model": real_model,
@@ -164,6 +199,7 @@ class GeminiProvider(BaseProvider):
                             f"Gemini 流式调用失败: {resp.status_code} {body[:300]!r}",
                             resp.status_code,
                         )
+                    saw_chunk = False
                     async for line in resp.aiter_lines():
                         if not line.startswith("data: "):
                             continue
@@ -171,11 +207,21 @@ class GeminiProvider(BaseProvider):
                             event = json.loads(line[6:])
                         except json.JSONDecodeError:
                             continue
-                        text, tool_calls = self._parse_candidates(event)
+                        text, tool_calls, finish_reason = self._parse_candidates(event)
                         if text:
+                            saw_chunk = True
                             yield {"type": "chunk", "content": text}
                         if tool_calls:
                             yield {"type": "tool_call", "tool_calls": tool_calls}
+                        # 流式末尾检测 SAFETY 拦截:整段没产出过 chunk 且 finishReason 是 SAFETY
+                        if (
+                            not saw_chunk
+                            and finish_reason in ("SAFETY", "RECITATION", "BLOCKLIST")
+                        ):
+                            yield {
+                                "type": "error",
+                                "message": f"内容被 Gemini 安全策略拦截(finishReason={finish_reason}),请调整提问方式",
+                            }
                         if event.get("usageMetadata"):
                             yield {
                                 "type": "done",

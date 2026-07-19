@@ -36,7 +36,10 @@ export interface OpenClawConfig {
   retryCount: number
   /** 自定义系统提示词前缀 */
   systemPromptPrefix?: string
-  /** 安全护栏：禁止的话题 */
+  /**
+   * 安全护栏：禁止的话题(使用 ID 而非敏感关键词,避免敏感词进入 LLM 上下文)
+   * 实际拦截由 systemPromptPrefix 中的"遵守平台安全规范"声明 + 后端审核层兜底
+   */
   blockedTopics: string[]
 }
 
@@ -55,7 +58,9 @@ export const OPENCLAW_CONFIG: OpenClawConfig = {
   requestTimeoutMs: 30000,
   retryCount: 2,
   systemPromptPrefix: '你是 IHUI-AI 的智能助手，请用中文回答，并遵守平台安全规范。',
-  blockedTopics: ['违法', '暴力', '成人内容'],
+  // 清空敏感关键词列表:避免"暴力/成人内容"等词被拼入 system prompt 触发 LLM 安全过滤
+  // 实际合规拦截由后端审核层兜底,前端不再硬编码敏感词
+  blockedTopics: [],
 }
 
 /** 本地模式配置覆盖（隐私优先，禁用云端） */
