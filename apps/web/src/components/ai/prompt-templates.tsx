@@ -46,7 +46,7 @@ export function PromptTemplates({
             onClick={() => onSelect(tpl.content)}
             title={tpl.content}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5',
+              'inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5',
               'text-xs font-medium text-foreground/80 transition-all',
               'hover:border-primary/40 hover:bg-accent hover:text-foreground hover:-translate-y-px',
             )}

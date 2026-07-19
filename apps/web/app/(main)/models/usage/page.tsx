@@ -118,7 +118,7 @@ export default async function UsagePage() {
                     <td className="px-4 py-2.5">¥ {m.cost.toFixed(2)}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+                        <div className="h-1.5 w-24 overflow-hidden rounded-sm bg-muted">
                           <div className="h-full bg-primary" style={{ width: `${m.pct}%` }} />
                         </div>
                         <span className="text-muted-foreground">{m.pct}%</span>
