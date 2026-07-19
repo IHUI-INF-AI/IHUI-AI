@@ -13,9 +13,18 @@ import { usernameSchema, type TokenResult } from './login-schemas'
 interface UsernameLoginFormProps {
   active: boolean
   onSuccess?: () => void
+  agreed?: boolean
+  onRequireAgree?: () => void
+  showAgreeErr?: boolean
 }
 
-export function UsernameLoginForm({ active, onSuccess }: UsernameLoginFormProps) {
+export function UsernameLoginForm({
+  active,
+  onSuccess,
+  agreed = true,
+  onRequireAgree,
+  showAgreeErr,
+}: UsernameLoginFormProps) {
   const t = useTranslations('auth')
   const setToken = useAuthStore((s) => s.setToken)
   const setUser = useAuthStore((s) => s.setUser)
@@ -32,6 +41,10 @@ export function UsernameLoginForm({ active, onSuccess }: UsernameLoginFormProps)
   const onUsernameSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setUsernameErr(null)
+    if (!agreed) {
+      onRequireAgree?.()
+      return
+    }
     const up = usernameSchema.safeParse(username)
     if (!up.success) {
       setUsernameErr(t('invalidUsername'))
@@ -73,26 +86,33 @@ export function UsernameLoginForm({ active, onSuccess }: UsernameLoginFormProps)
       {usernameErr && <Alert variant="danger" description={usernameErr} />}
       <div className="space-y-2">
         <Label htmlFor="username">{t('username')}</Label>
-        <Input
-          id="username"
-          autoComplete="username"
-          placeholder={t('usernamePlaceholder')}
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
+        <div className="input-gradient-wrap rounded-md">
+          <Input
+            id="username"
+            autoComplete="username"
+            placeholder={t('usernamePlaceholder')}
+            className="h-9 rounded-[7px] border border-input bg-background"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="username-password">{t('password')}</Label>
-        <Input
-          id="username-password"
-          type="password"
-          autoComplete="current-password"
-          placeholder={t('passwordPlaceholder')}
-          value={usernamePassword}
-          onChange={(e) => setUsernamePassword(e.target.value)}
-        />
+        <div className="input-gradient-wrap rounded-md">
+          <Input
+            id="username-password"
+            type="password"
+            autoComplete="current-password"
+            placeholder={t('passwordPlaceholder')}
+            className="h-9 rounded-[7px] border border-input bg-background"
+            value={usernamePassword}
+            onChange={(e) => setUsernamePassword(e.target.value)}
+          />
+        </div>
       </div>
-      <Button type="submit" className="w-full" disabled={usernameSubmitting}>
+      {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
+      <Button type="submit" className="w-full" disabled={usernameSubmitting || !agreed}>
         {usernameSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
         {t('loginBtn')}
       </Button>
