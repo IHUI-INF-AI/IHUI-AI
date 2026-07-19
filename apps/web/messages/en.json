@@ -1597,7 +1597,20 @@
       "notificationDispatch": "Targeted Notification",
       "messageOverview": "Message Overview",
       "visitTracking": "Visit Tracking",
-      "examMarking": "Exam Marking"
+      "examMarking": "Exam Marking",
+      "group": {
+        "operation": "Operation",
+        "moderation": "Moderation",
+        "finance": "Finance",
+        "aiAgent": "AI Agents",
+        "marketing": "Marketing",
+        "courseExam": "Courses",
+        "analytics": "Analytics",
+        "support": "Support",
+        "community": "Community",
+        "resource": "Resources",
+        "developer": "Developer"
+      }
     },
     "refund": {
       "title": "Refund Audit Management",
