@@ -5,6 +5,8 @@ import { db } from '../db/index.js'
 import { tools, toolFavorites } from '@ihui/database'
 import { requireAuth, requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { getToolRunner, ToolExecutorError } from '../services/clawdbot/tool-executor.js'
+import { logger } from '../utils/logger.js'
 
 // =============================================================================
 // Zod schemas
@@ -176,6 +178,139 @@ const toolsRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(tools.id, idParsed.data.id))
     }
     return reply.send(success({ favorited: false }))
+  })
+
+  // ===========================================================================
+  // 调试端点（dry-run，无副作用，对应源 tools.py timeout/exception/log）
+  // - 不调用真实业务工具，不调外部 API，不写 DB
+  // - 仅测试 ToolRunner 的超时/异常机制和日志记录
+  // ===========================================================================
+
+  const debugTimeoutSchema = z.object({
+    timeout: z.number().int().positive().max(60000).default(10000),
+  })
+
+  const debugExceptionSchema = z.object({
+    errorType: z.enum(['client', 'server', 'request', 'other']),
+  })
+
+  const debugLogSchema = z.object({
+    message: z.string().min(1).max(2000),
+    level: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  })
+
+  const exceptionErrorMap = {
+    client: { code: 'forbidden' as const, message: '模拟的客户端错误' },
+    server: { code: 'failed' as const, message: '模拟的服务器错误' },
+    request: { code: 'failed' as const, message: '模拟的请求错误' },
+    other: { code: 'failed' as const, message: '模拟的一般错误' },
+  }
+
+  // POST /debug/timeout — 工具超时机制测试（dry-run）
+  server.post('/debug/timeout', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = debugTimeoutSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { timeout } = parsed.data
+    const runner = getToolRunner()
+    const toolName = `__debug_timeout_${Date.now()}`
+    runner.register(
+      {
+        name: toolName,
+        description: 'debug timeout',
+        category: 'debug',
+        timeout,
+        requiredPermissions: [],
+      },
+      async () => {
+        await new Promise((r) => setTimeout(r, timeout * 2))
+        return 'ok'
+      },
+    )
+    try {
+      const result = await runner.execute(
+        toolName,
+        {},
+        {
+          userId: 'debug',
+          permissions: [],
+        },
+      )
+      return reply.send(
+        success({
+          success: result.success,
+          timeoutSet: timeout,
+          elapsedTime: result.durationMs,
+          message: result.timedOut ? `操作超时(${timeout}ms)` : '操作在超时前成功完成',
+          errorType: result.timedOut ? 'timeout' : undefined,
+        }),
+      )
+    } finally {
+      runner.unregister(toolName)
+    }
+  })
+
+  // POST /debug/exception — 工具异常处理测试（dry-run）
+  server.post('/debug/exception', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = debugExceptionSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { errorType } = parsed.data
+    const err = exceptionErrorMap[errorType]
+    const runner = getToolRunner()
+    const toolName = `__debug_exception_${Date.now()}`
+    runner.register(
+      {
+        name: toolName,
+        description: 'debug exception',
+        category: 'debug',
+        timeout: 5000,
+        requiredPermissions: [],
+      },
+      async () => {
+        throw new ToolExecutorError(err.message, err.code)
+      },
+    )
+    try {
+      const result = await runner.execute(
+        toolName,
+        {},
+        {
+          userId: 'debug',
+          permissions: [],
+        },
+      )
+      return reply.send(
+        success({
+          errorType,
+          success: result.success,
+          message: result.error ?? '',
+          details: err.message,
+        }),
+      )
+    } finally {
+      runner.unregister(toolName)
+    }
+  })
+
+  // POST /debug/log — 日志级别测试（dry-run，仅记录日志）
+  server.post('/debug/log', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = debugLogSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { message, level } = parsed.data
+    logger[level](`[debug/log] ${message}`, { source: 'debug-endpoint' })
+    return reply.send(
+      success({
+        success: true,
+        level,
+        message,
+        timestamp: new Date().toISOString(),
+      }),
+    )
   })
 }
 

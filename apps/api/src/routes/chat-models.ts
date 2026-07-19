@@ -1143,6 +1143,15 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
+  // 7.1 Zhipu health — GET /zhipu/health
+  //    返回智谱服务探活状态(与其他 health 端点风格一致, 不依赖上游, 不需要鉴权)
+  // ==========================================================================
+
+  server.get('/zhipu/health', async (_request, reply) => {
+    return reply.send({ status: 'ok', provider: 'zhipu', timestamp: Date.now() })
+  })
+
+  // ==========================================================================
   // 8. History — POST /history/create, POST /history/query,
   //              PUT /history/:chatId/mark, DELETE /history/:chatId
   //    增强版:支持 mark 文本搜索

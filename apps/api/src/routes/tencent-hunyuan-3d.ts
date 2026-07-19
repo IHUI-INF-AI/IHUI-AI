@@ -17,7 +17,7 @@
  *  - query/job: 真实调用 QueryHunyuanTo3DJob 查询任务状态
  *  - clear-cache/active-jobs: 真实清空/读取 activeJobs 内存 + video_generation_tasks DB
  *  - 配置: TENCENT_SECRET_ID / TENCENT_SECRET_KEY 通过环境变量注入
- *  - 简化签名: TC3-HMAC-SHA256 (实际接入需要完整签名实现, 此处提供代码骨架 + 真实 DB 落库)
+ *  - 签名: TC3-HMAC-SHA256 (接入 services/vendor-auth-strategies.ts 的 TencentTc3AuthStrategy, 真实调用腾讯云 SubmitHunyuanTo3DJob)
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
@@ -79,6 +79,77 @@ interface ActiveJob {
 
 const activeJobs = new Map<string, ActiveJob>()
 
+// ==================== Tencent QueryHunyuanTo3DJob helper ====================
+
+/**
+ * 腾讯云 QueryHunyuanTo3DJob 响应类型 (字段均为可选, 腾讯不同状态返回字段不同)。
+ * 与 submit 端点的响应字段对称 (JobId/Status/ErrorMsg), 额外含 ResultFile3Ds。
+ */
+interface TencentQueryResponse {
+  JobId?: string
+  Status?: string
+  ResultFile3Ds?: unknown
+  ErrorMsg?: string
+  RequestId?: string
+  [key: string]: unknown
+}
+
+/**
+ * 调用腾讯云 QueryHunyuanTo3DJob 查询任务状态。
+ *
+ * 守卫 (跳过腾讯调用):
+ *  - 未配置 TENCENT_SECRET_ID/KEY → 返回 null
+ *  - JobId 以 `stub_` 开头 → 返回 null (本地 stub, 腾讯不认识)
+ *
+ * 降级 (失败时返回 null, 由 caller 降级到 DB+内存查询):
+ *  - 任何失败 (网络/签名/超时/JSON 解析等) → 返回 null
+ *
+ * 响应解包:
+ *  - 腾讯云响应通常包裹在 `Response` 字段中, 取 `raw.Response ?? raw`
+ */
+async function queryTencentJob(jobId: string): Promise<TencentQueryResponse | null> {
+  const hasTencentConfig = Boolean(process.env.TENCENT_SECRET_ID && process.env.TENCENT_SECRET_KEY)
+  if (!hasTencentConfig) return null
+  if (jobId.startsWith('stub_')) return null
+
+  try {
+    const { authStrategyFactory } = await import('../services/vendor-auth-strategies.js')
+    const strategy = authStrategyFactory.getStrategy('tencent_tc3')
+    const requestBody = { JobId: jobId }
+    const authResult = strategy.buildHeaders(
+      {
+        key: process.env.TENCENT_SECRET_ID!,
+        secret: process.env.TENCENT_SECRET_KEY!,
+      },
+      {
+        method: 'POST',
+        url: 'https://ai3d.tencentcloudapi.com/',
+        body: requestBody,
+        config: {
+          service: 'ai3d',
+          host: 'ai3d.tencentcloudapi.com',
+          version: '2025-05-13',
+          region: 'ap-guangzhou',
+          action: 'QueryHunyuanTo3DJob',
+        },
+      },
+    )
+    const tencentRes = await fetch('https://ai3d.tencentcloudapi.com/', {
+      method: 'POST',
+      headers: authResult.headers,
+      body: authResult.body,
+    })
+    const raw = (await tencentRes.json()) as TencentQueryResponse & {
+      Response?: TencentQueryResponse
+    }
+    // 腾讯云响应通常包裹在 Response 字段中, 取 Response ?? raw
+    return raw.Response ?? raw
+  } catch {
+    // 腾讯调用失败 (网络/签名/超时/JSON 解析等), 降级到 DB+内存查询
+    return null
+  }
+}
+
 // ==================== Routes ====================
 
 export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
@@ -133,22 +204,91 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
       const hasTencentConfig = Boolean(
         process.env.TENCENT_SECRET_ID && process.env.TENCENT_SECRET_KEY,
       )
+
+      // 真实调用腾讯云 SubmitHunyuanTo3DJob (TC3-HMAC-SHA256 签名)
+      // 失败时降级到 stub JobId, 不阻塞端点
+      let tencentResponse: { JobId?: string; Status?: string; ErrorMsg?: string } | null = null
+      let finalJobId: string = jobIdStub
+      if (hasTencentConfig) {
+        try {
+          const { authStrategyFactory } = await import('../services/vendor-auth-strategies.js')
+          const strategy = authStrategyFactory.getStrategy('tencent_tc3')
+          // 剥离 user_uuid (非腾讯 API 字段), 仅传腾讯 API 规范字段
+          const tencentRequestBody = {
+            Prompt: parsed.data.Prompt,
+            ImageBase64: parsed.data.ImageBase64,
+            ImageUrl: parsed.data.ImageUrl,
+            MultiViewImages: parsed.data.MultiViewImages,
+            ResultFormat: parsed.data.ResultFormat,
+            EnablePBR: parsed.data.EnablePBR,
+          }
+          const authResult = strategy.buildHeaders(
+            {
+              key: process.env.TENCENT_SECRET_ID!,
+              secret: process.env.TENCENT_SECRET_KEY!,
+            },
+            {
+              method: 'POST',
+              url: 'https://ai3d.tencentcloudapi.com/',
+              body: tencentRequestBody,
+              config: {
+                service: 'ai3d',
+                host: 'ai3d.tencentcloudapi.com',
+                version: '2025-05-13',
+                region: 'ap-guangzhou',
+                action: 'SubmitHunyuanTo3DJob',
+              },
+            },
+          )
+          const tencentRes = await fetch('https://ai3d.tencentcloudapi.com/', {
+            method: 'POST',
+            headers: authResult.headers,
+            body: authResult.body,
+          })
+          tencentResponse = (await tencentRes.json()) as {
+            JobId?: string
+            Status?: string
+            ErrorMsg?: string
+          }
+          // 腾讯返回真实 JobId 时, 用真实 JobId 替换 stub
+          if (tencentResponse?.JobId) {
+            const stubEntry = activeJobs.get(jobIdStub)
+            if (stubEntry) {
+              activeJobs.delete(jobIdStub)
+              activeJobs.set(tencentResponse.JobId, {
+                ...stubEntry,
+                status: tencentResponse.Status ?? 'PENDING',
+              })
+            }
+            finalJobId = tencentResponse.JobId
+          }
+        } catch {
+          // 腾讯调用失败 (网络/签名/超时等), 降级到 stub JobId
+          tencentResponse = null
+        }
+      }
+
+      const message = hasTencentConfig
+        ? tencentResponse?.JobId
+          ? '已调用腾讯混元 3D API (TC3-HMAC-SHA256 签名 + SubmitHunyuanTo3DJob), 任务已落库'
+          : '腾讯混元 3D API 调用失败, 降级 stub。任务已落库 video_generation_tasks。'
+        : '调用腾讯混元 3D API 待接入 (未配置 TENCENT_SECRET_ID/KEY), 当前为 stub。任务已落库 video_generation_tasks。'
+
       return reply.send(
         success({
-          stub: !hasTencentConfig,
-          live: hasTencentConfig,
-          message: hasTencentConfig
-            ? '已调用腾讯混元 3D API (TC3-HMAC-SHA256 签名 + SubmitHunyuanTo3DJob), 任务已落库'
-            : '调用腾讯混元 3D API 待接入,当前为 stub。任务已落库 video_generation_tasks。',
+          stub: !hasTencentConfig || !tencentResponse?.JobId,
+          live: hasTencentConfig && !!tencentResponse?.JobId,
+          message,
           data: {
-            JobId: jobIdStub,
-            Status: 'PENDING',
+            JobId: finalJobId,
+            Status: tencentResponse?.Status ?? 'PENDING',
             ResultFormat: parsed.data.ResultFormat,
             EnablePBR: parsed.data.EnablePBR,
             user_uuid: parsed.data.user_uuid,
             persistedTaskId,
             persistence: persistedTaskId ? 'video_generation_tasks' : 'memory_only',
             tencentConfig: hasTencentConfig,
+            tencent_response: tencentResponse,
           },
         }),
       )
@@ -157,7 +297,7 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 2. POST /tencent/hunyuan3d/query — 真实查 video_generation_tasks (R81)
+  // 2. POST /tencent/hunyuan3d/query — 真实查 video_generation_tasks + 腾讯 QueryHunyuanTo3DJob (R81)
   server.post(`${PREFIX}/query`, async (request, reply) => {
     try {
       const parsed = querySchema.safeParse(request.body)
@@ -180,22 +320,46 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
         dbTask = null
       }
       const job = activeJobs.get(parsed.data.JobId)
+
+      // R81: hasTencentConfig=true 且 JobId 非 stub 时, 真实调用腾讯 QueryHunyuanTo3DJob
+      // 失败时 queryTencentJob 返回 null, 降级到 DB+内存查询
+      const tencentResponse = await queryTencentJob(parsed.data.JobId)
+      // 腾讯返回时, 用腾讯的 Status/ResultFile3Ds/ErrorMsg 覆盖 DB/内存状态
+      const status =
+        tencentResponse?.Status ??
+        (dbTask?.status as string | undefined) ??
+        job?.status ??
+        'UNKNOWN'
+      const resultFile3Ds = tencentResponse?.ResultFile3Ds ?? []
+      const errorMsg = tencentResponse?.ErrorMsg ?? ''
+
+      const hasTencentConfig = Boolean(
+        process.env.TENCENT_SECRET_ID && process.env.TENCENT_SECRET_KEY,
+      )
+      const isStubJobId = parsed.data.JobId.startsWith('stub_')
+      const tencentAttempted = hasTencentConfig && !isStubJobId
+
       return reply.send(
         success({
-          stub: !dbTask && !job,
-          live: Boolean(dbTask || job),
-          message: dbTask
-            ? '已从 video_generation_tasks 查询任务状态'
-            : job
-              ? '已从内存 activeJobs 查询任务状态(任务未落库)'
-              : '调用腾讯混元 3D API 待接入,当前为 stub。',
+          stub: !dbTask && !job && !tencentResponse,
+          live: Boolean(dbTask || job || tencentResponse),
+          message: tencentResponse
+            ? '已调用腾讯 QueryHunyuanTo3DJob, 状态以腾讯返回为准'
+            : dbTask
+              ? '已从 video_generation_tasks 查询任务状态'
+              : job
+                ? '已从内存 activeJobs 查询任务状态(任务未落库)'
+                : tencentAttempted
+                  ? '腾讯 QueryHunyuanTo3DJob 调用失败, 降级到 DB+内存查询(均无记录)'
+                  : '未配置腾讯凭证或 JobId 为 stub, 仅查 DB+内存(均无记录)',
           data: {
             JobId: parsed.data.JobId,
-            Status: dbTask?.status ?? job?.status ?? 'UNKNOWN',
-            ResultFile3Ds: [],
-            ErrorMsg: '',
+            Status: status,
+            ResultFile3Ds: resultFile3Ds,
+            ErrorMsg: errorMsg,
             dbTask,
             memoryJob: job ?? null,
+            tencent_response: tencentResponse,
           },
         }),
       )
@@ -204,7 +368,7 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 3. GET /tencent/hunyuan3d/job/:job_id — 真实查 video_generation_tasks (R81)
+  // 3. GET /tencent/hunyuan3d/job/:job_id — 真实查 video_generation_tasks + 腾讯 QueryHunyuanTo3DJob (R81)
   server.get(`${PREFIX}/job/:job_id`, async (request, reply) => {
     try {
       const { job_id } = request.params as { job_id: string }
@@ -223,19 +387,46 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
         dbTask = null
       }
       const job = activeJobs.get(job_id)
+
+      // R81: 与 query 端点对称, 用 job_id 路径参数作为 JobId 真实调用腾讯 QueryHunyuanTo3DJob
+      // 失败时 queryTencentJob 返回 null, 降级到 DB+内存查询
+      const tencentResponse = await queryTencentJob(job_id)
+      // 腾讯返回时, 用腾讯的 Status/ResultFile3Ds/ErrorMsg 覆盖 DB/内存状态
+      const status =
+        tencentResponse?.Status ??
+        (dbTask?.status as string | undefined) ??
+        job?.status ??
+        'UNKNOWN'
+      const resultFile3Ds = tencentResponse?.ResultFile3Ds ?? []
+      const errorMsg = tencentResponse?.ErrorMsg ?? ''
+
+      const hasTencentConfig = Boolean(
+        process.env.TENCENT_SECRET_ID && process.env.TENCENT_SECRET_KEY,
+      )
+      const isStubJobId = job_id.startsWith('stub_')
+      const tencentAttempted = hasTencentConfig && !isStubJobId
+
       return reply.send(
         success({
-          stub: !dbTask && !job,
-          live: Boolean(dbTask || job),
-          message: dbTask
-            ? '已从 video_generation_tasks 查询任务状态'
-            : '调用腾讯混元 3D API 待接入,当前为 stub。',
+          stub: !dbTask && !job && !tencentResponse,
+          live: Boolean(dbTask || job || tencentResponse),
+          message: tencentResponse
+            ? '已调用腾讯 QueryHunyuanTo3DJob, 状态以腾讯返回为准'
+            : dbTask
+              ? '已从 video_generation_tasks 查询任务状态'
+              : job
+                ? '已从内存 activeJobs 查询任务状态(任务未落库)'
+                : tencentAttempted
+                  ? '腾讯 QueryHunyuanTo3DJob 调用失败, 降级到 DB+内存查询(均无记录)'
+                  : '未配置腾讯凭证或 JobId 为 stub, 仅查 DB+内存(均无记录)',
           data: {
             JobId: job_id,
-            Status: dbTask?.status ?? job?.status ?? 'UNKNOWN',
-            ResultFile3Ds: [],
+            Status: status,
+            ResultFile3Ds: resultFile3Ds,
+            ErrorMsg: errorMsg,
             dbTask,
             memoryJob: job ?? null,
+            tencent_response: tencentResponse,
           },
         }),
       )
