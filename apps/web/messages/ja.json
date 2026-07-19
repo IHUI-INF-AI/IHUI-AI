@@ -2526,6 +2526,22 @@
       "deleteTitle": "タイトル",
       "deleteConfirm": "これ？"
     },
+    "validation": {
+      "required": "必須項目です",
+      "min": "最小値は {min} です",
+      "max": "最大値は {max} です",
+      "minLength": "{min} 文字以上で入力してください",
+      "maxLength": "{max} 文字以下で入力してください",
+      "email": "有効なメールアドレスを入力してください",
+      "url": "有効な URL を入力してください",
+      "uuid": "有効な UUID を入力してください",
+      "number": "数値である必要があります",
+      "integer": "整数である必要があります",
+      "positive": "正の数である必要があります",
+      "pattern": "形式が正しくありません",
+      "enum": "有効なオプションを選択してください",
+      "custom": "値が無効です"
+    },
     "settings": {
       "title": "システム",
       "subtitle": "のなドキュメントとAPIリファレンス",
@@ -24498,5 +24514,99 @@
       "subscribe": "毎日を購読",
       "community": "コミュニティに参加"
     }
+  },
+  "workflow": {
+    "approval": {
+      "states": {
+        "draft": "下書き",
+        "submitted": "提出済み",
+        "approved": "承認済み",
+        "rejected": "却下",
+        "cancelled": "取消"
+      },
+      "events": {
+        "SUBMIT": "提出",
+        "APPROVE": "承認",
+        "REJECT": "却下",
+        "REVOKE": "取り消し",
+        "RESUBMIT": "再提出",
+        "CANCEL": "キャンセル"
+      }
+    },
+    "refund": {
+      "states": {
+        "pending": "保留中",
+        "reviewing": "審査中",
+        "refunding": "返金中",
+        "refunded": "返金済み",
+        "rejected": "拒否",
+        "failed": "失敗",
+        "cancelled": "取消済み"
+      },
+      "events": {
+        "REVIEW": "審査",
+        "APPROVE_REFUND": "返金承認",
+        "REJECT": "拒否",
+        "REFUND_SUCCESS": "返金成功",
+        "REFUND_FAIL": "返金失敗",
+        "RETRY": "再試行",
+        "CANCEL": "キャンセル"
+      }
+    },
+    "withdrawal": {
+      "states": {
+        "requested": "申請済み",
+        "verifying": "審査中",
+        "approved": "承認済み",
+        "paying": "送金中",
+        "paid": "着金済み",
+        "rejected": "拒否",
+        "failed": "失敗",
+        "cancelled": "取消済み"
+      },
+      "events": {
+        "AUTO_APPROVE": "自動承認",
+        "START_VERIFY": "審査開始",
+        "APPROVE": "承認",
+        "REJECT": "拒否",
+        "PAY": "送金",
+        "PAY_SUCCESS": "送金成功",
+        "PAY_FAIL": "送金失敗",
+        "RETRY": "再試行",
+        "CANCEL": "キャンセル"
+      }
+    },
+    "ticket": {
+      "states": {
+        "open": "未割り当て",
+        "assigned": "割り当て済み",
+        "in_progress": "対応中",
+        "resolved": "解決済み",
+        "closed": "完了",
+        "rejected": "拒否"
+      },
+      "events": {
+        "ASSIGN": "割り当て",
+        "START_WORK": "対応開始",
+        "RESOLVE": "解決",
+        "REOPEN": "再開",
+        "CLOSE": "完了",
+        "REJECT": "拒否"
+      }
+    }
+  },
+  "chart": {
+    "type": {
+      "line": "折れ線グラフ",
+      "bar": "棒グラフ",
+      "pie": "円グラフ",
+      "area": "エリアグラフ"
+    },
+    "loading": "読み込み中…",
+    "noData": "データなし",
+    "seriesLabel": "凡例",
+    "xAxisLabel": "X軸",
+    "yAxisLabel": "Y軸",
+    "valueSuffix": ""
   }
 }
