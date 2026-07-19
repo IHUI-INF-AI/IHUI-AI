@@ -531,21 +531,23 @@ h6 {
   display: block;
 }
 
-/* 拖拽手柄可见线:中间中性灰,向上下两端渐变直至透明("消失"效果)。
+/* 拖拽手柄可见线:中间蓝色,向上下两端渐变为浅蓝直至透明("消失"效果)。
    适用于侧边栏与 AI 面板的右侧 resize handle 内层 1px 线条。
    默认完全隐藏(opacity:0),仅 hover 命中区或拖拽时显现。
-   中性灰避免蓝色发光边框(用户规则明令禁止)。 */
+   明暗双主题统一使用品牌蓝(#3b82f6 / blue-500),不做 dark 模式 override。
+   例外说明:"不要蓝色发光边框"规则约束输入框/按钮 hover 描边,
+   resize 手柄是品牌色装饰元素,不在此规则范围内。 */
 .resize-handle-line {
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(115, 115, 115, 0.2) 10%,
-    rgba(115, 115, 115, 0.5) 25%,
-    rgba(115, 115, 115, 0.85) 40%,
-    #737373 50%,
-    rgba(115, 115, 115, 0.85) 60%,
-    rgba(115, 115, 115, 0.5) 75%,
-    rgba(115, 115, 115, 0.2) 90%,
+    rgba(59, 130, 246, 0.2) 10%,
+    rgba(59, 130, 246, 0.5) 25%,
+    rgba(59, 130, 246, 0.85) 40%,
+    #3b82f6 50%,
+    rgba(59, 130, 246, 0.85) 60%,
+    rgba(59, 130, 246, 0.5) 75%,
+    rgba(59, 130, 246, 0.2) 90%,
     transparent 100%
   );
   opacity: 0;
@@ -553,31 +555,12 @@ h6 {
     opacity 0.2s ease,
     filter 0.2s ease;
 }
-/* hover 命中区 / 键盘聚焦 / 拖拽中:线条完全显现(中性色光晕,禁止蓝色发光) */
+/* hover 命中区 / 键盘聚焦 / 拖拽中:线条完全显现并带蓝色光晕(明暗统一) */
 .group:hover .resize-handle-line,
 .group:focus-within .resize-handle-line,
 .resize-handle-line.is-resizing {
   opacity: 1;
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.25));
-}
-/* 暗色模式:中性浅灰,与深色背景形成对比 */
-.dark .resize-handle-line {
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(180, 180, 180, 0.2) 10%,
-    rgba(180, 180, 180, 0.5) 25%,
-    rgba(180, 180, 180, 0.85) 40%,
-    #b4b4b4 50%,
-    rgba(180, 180, 180, 0.85) 60%,
-    rgba(180, 180, 180, 0.5) 75%,
-    rgba(180, 180, 180, 0.2) 90%,
-    transparent 100%
-  );
-}
-.dark .group:hover .resize-handle-line,
-.dark .resize-handle-line.is-resizing {
-  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.55));
 }
 
 /* AI 面板关闭态手柄的 hover 竖向提示:
