@@ -30,11 +30,9 @@ export default function DictPage() {
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set(['1']))
   const [typeOpen, setTypeOpen] = React.useState(false)
   const [editingType, setEditingType] = React.useState<DictType | null>(null)
-  const [typeForm, setTypeForm] = React.useState(EMPTY_TYPE)
   const [itemOpen, setItemOpen] = React.useState(false)
   const [itemParent, setItemParent] = React.useState<DictType | null>(null)
   const [editingItem, setEditingItem] = React.useState<DictItem | null>(null)
-  const [itemForm, setItemForm] = React.useState(EMPTY_ITEM)
   const [search, setSearch] = React.useState('')
 
   const { data: list, isLoading } = useQuery({
@@ -43,11 +41,11 @@ export default function DictPage() {
   })
 
   const saveTypeMut = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (input: { name: string; code: string; description: string }) => {
       const body = {
-        dictName: typeForm.name,
-        dictType: typeForm.code,
-        remark: typeForm.description,
+        dictName: input.name,
+        dictType: input.code,
+        remark: input.description,
       }
       const r = editingType
         ? await fetchApi(`/api/admin/dict/type/${editingType.id}`, {
@@ -74,16 +72,25 @@ export default function DictPage() {
     },
   })
   const saveItemMut = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (input: {
+      label: string
+      value: string
+      sort: number
+      dictType: string
+      cssClass: string
+      listClass: string
+      status: 0 | 1
+      remark: string
+    }) => {
       const body = {
-        dictLabel: itemForm.label,
-        dictValue: itemForm.value,
-        dictSort: itemForm.sort,
-        dictType: itemForm.dictType || itemParent?.code,
-        cssClass: itemForm.cssClass,
-        listClass: itemForm.listClass,
-        status: itemForm.status,
-        remark: itemForm.remark,
+        dictLabel: input.label,
+        dictValue: input.value,
+        dictSort: input.sort,
+        dictType: input.dictType || itemParent?.code,
+        cssClass: input.cssClass,
+        listClass: input.listClass,
+        status: input.status,
+        remark: input.remark,
       }
       const r = editingItem
         ? await fetchApi(`/api/admin/dict/data/${editingItem.id}`, {
@@ -120,47 +127,40 @@ export default function DictPage() {
   }
   function openCreateType() {
     setEditingType(null)
-    setTypeForm(EMPTY_TYPE)
     setTypeOpen(true)
   }
   function openEditType(d: DictType) {
     setEditingType(d)
-    setTypeForm({ name: d.name, code: d.code, description: d.description })
     setTypeOpen(true)
   }
   function closeType() {
     if (saveTypeMut.isPending) return
     setTypeOpen(false)
     setEditingType(null)
-    setTypeForm(EMPTY_TYPE)
   }
-  function submitType(e: React.FormEvent) {
-    e.preventDefault()
-    if (!typeForm.name.trim() || !typeForm.code.trim()) {
-      toast.error(t('dict.nameRequired'))
-      return
-    }
-    saveTypeMut.mutate()
+  function onValidType(v: { name: string; code: string; description: string }) {
+    saveTypeMut.mutate(v)
+  }
+  function onValidItem(v: {
+    label: string
+    value: string
+    sort: number
+    dictType: string
+    cssClass: string
+    listClass: 'default' | 'primary' | 'success' | 'info' | 'warning' | 'danger'
+    status: 0 | 1
+    remark: string
+  }) {
+    saveItemMut.mutate(v)
   }
   function openCreateItem(d: DictType) {
     setItemParent(d)
     setEditingItem(null)
-    setItemForm({ ...EMPTY_ITEM, dictType: d.code })
     setItemOpen(true)
   }
   function openEditItem(d: DictType, it: DictItem) {
     setItemParent(d)
     setEditingItem(it)
-    setItemForm({
-      label: it.label,
-      value: it.value,
-      sort: it.sort,
-      cssClass: it.cssClass,
-      listClass: it.listClass,
-      status: it.status,
-      remark: it.remark,
-      dictType: it.dictType || d.code,
-    })
     setItemOpen(true)
   }
   function closeItem() {
@@ -168,25 +168,28 @@ export default function DictPage() {
     setItemOpen(false)
     setItemParent(null)
     setEditingItem(null)
-    setItemForm(EMPTY_ITEM)
-  }
-  function submitItem(e: React.FormEvent) {
-    e.preventDefault()
-    if (!itemForm.label.trim() || !itemForm.value.trim()) {
-      toast.error(t('dict.itemRequired'))
-      return
-    }
-    if (!itemForm.dictType.trim()) {
-      toast.error(t('dict.dictTypeRequired'))
-      return
-    }
-    saveItemMut.mutate()
   }
   function handleExport() {
     exportToExcel(t('dict.exportName'), EXPORT_COLUMNS, buildDictExportRows(filteredList))
   }
 
   const filteredList = filterDictList(list ?? [], search)
+
+  const typeDefault: { name: string; code: string; description: string } = editingType
+    ? { name: editingType.name, code: editingType.code, description: editingType.description }
+    : EMPTY_TYPE
+  const itemDefault = editingItem
+    ? {
+        label: editingItem.label,
+        value: editingItem.value,
+        sort: editingItem.sort,
+        cssClass: editingItem.cssClass,
+        listClass: editingItem.listClass,
+        status: editingItem.status,
+        remark: editingItem.remark,
+        dictType: editingItem.dictType || itemParent?.code || '',
+      }
+    : { ...EMPTY_ITEM, dictType: itemParent?.code ?? '' }
 
   return (
     <div className="space-y-6">
@@ -231,22 +234,20 @@ export default function DictPage() {
       <DictTypeDialog
         open={typeOpen}
         editing={editingType}
-        form={typeForm}
+        defaultValues={typeDefault}
         isPending={saveTypeMut.isPending}
-        onFormChange={setTypeForm}
+        onValid={onValidType}
         onClose={closeType}
-        onSubmit={submitType}
       />
 
       <DictItemDialog
         open={itemOpen}
         editing={editingItem}
         parent={itemParent}
-        form={itemForm}
+        defaultValues={itemDefault}
         isPending={saveItemMut.isPending}
-        onFormChange={setItemForm}
+        onValid={onValidItem}
         onClose={closeItem}
-        onSubmit={submitItem}
       />
     </div>
   )

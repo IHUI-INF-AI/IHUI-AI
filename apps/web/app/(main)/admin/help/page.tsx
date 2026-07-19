@@ -16,9 +16,6 @@ export default function AdminHelpPage() {
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<HelpArticle | null>(null)
-  const [slugTouched, setSlugTouched] = React.useState(false)
-  const [form, setForm] = React.useState<HelpForm>(EMPTY_FORM)
-  const [err, setErr] = React.useState<string | null>(null)
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['admin', 'help'],
@@ -26,13 +23,13 @@ export default function AdminHelpPage() {
   })
 
   const saveMut = useMutation({
-    mutationFn: () => {
+    mutationFn: (input: HelpForm) => {
       const body = {
-        title: form.title,
-        slug: form.slug || slugify(form.title),
-        category: form.category,
-        content: form.content,
-        isPublished: form.isPublished,
+        title: input.title,
+        slug: input.slug || slugify(input.title),
+        category: input.category,
+        content: input.content,
+        isPublished: input.isPublished,
       }
       return editing
         ? api(`/api/admin/help/articles/${editing.id}`, {
@@ -45,7 +42,6 @@ export default function AdminHelpPage() {
       qc.invalidateQueries({ queryKey: ['admin', 'help'] })
       close()
     },
-    onError: (e: Error) => setErr(e.message),
   })
   const delMut = useMutation({
     mutationFn: (id: string) => api(`/api/admin/help/articles/${id}`, { method: 'DELETE' }),
@@ -54,33 +50,19 @@ export default function AdminHelpPage() {
 
   function openCreate() {
     setEditing(null)
-    setForm(EMPTY_FORM)
-    setSlugTouched(false)
-    setErr(null)
     setOpen(true)
   }
   function openEdit(h: HelpArticle) {
     setEditing(h)
-    setForm(articleToForm(h))
-    setSlugTouched(true)
-    setErr(null)
     setOpen(true)
   }
   function close() {
     if (saveMut.isPending) return
     setOpen(false)
     setEditing(null)
-    setSlugTouched(false)
-    setErr(null)
   }
-  function submit(e: React.FormEvent) {
-    e.preventDefault()
-    setErr(null)
-    if (!form.title.trim()) {
-      setErr(t('titleRequired'))
-      return
-    }
-    saveMut.mutate()
+  function onValid(values: HelpForm) {
+    saveMut.mutate(values)
   }
   function handleDelete(h: HelpArticle) {
     if (confirm(t('deleteConfirm'))) delMut.mutate(h.id)
@@ -101,13 +83,9 @@ export default function AdminHelpPage() {
       <HelpDialog
         open={open}
         editing={editing}
-        form={form}
-        setForm={setForm}
-        slugTouched={slugTouched}
-        setSlugTouched={setSlugTouched}
-        err={err}
+        defaultValues={editing ? articleToForm(editing) : EMPTY_FORM}
         savePending={saveMut.isPending}
-        onSubmit={submit}
+        onValid={onValid}
         onClose={close}
       />
     </div>
