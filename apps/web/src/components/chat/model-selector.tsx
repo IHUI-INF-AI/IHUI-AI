@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { Check, ChevronDown, Loader2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Check, CheckCircle2, ChevronDown, Loader2, TriangleAlert } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { fetchModels } from '@ihui/api-client'
@@ -14,6 +15,8 @@ import {
   VENDOR_LABEL,
   type FallbackModel,
 } from '@/components/chat/fallback-models'
+import { fetchConfigs } from '@/lib/user-llm-configs'
+import { providerToTemplateCode } from '@/lib/llm-templates'
 
 export interface ModelOption {
   value: string
@@ -62,6 +65,25 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
   const [options, setOptions] = React.useState<ModelOption[]>(() => FALLBACK_MODELS.map(toOption))
   const [loading, setLoading] = React.useState(true)
 
+  // 拉取用户已保存的 LLM 配置(用于在 model-selector 里显示 ✓/⚠ 配置感知徽章)
+  // retry: false + throwOnError: false:未登录或网络异常时静默失败,不阻塞选择器渲染
+  const { data: cfgData } = useQuery({
+    queryKey: ['user-llm-configs'],
+    queryFn: () => fetchConfigs(),
+    retry: false,
+    throwOnError: false,
+    staleTime: 60_000,
+  })
+  // 已配置(且启用)的 templateCode 集合,用于快速 O(1) 查询
+  const configuredTemplateCodes = React.useMemo(() => {
+    const set = new Set<string>()
+    const list = cfgData?.list ?? []
+    for (const c of list) {
+      if (c.enabled) set.add(c.providerCode)
+    }
+    return set
+  }, [cfgData])
+
   React.useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -95,6 +117,16 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
   const current = options.find((m) => m.value === value)
   const grouped = groupByVendor(options)
 
+  // 当前选中模型是否已配置(根据 vendor 映射到 templateCode 后查 configuredTemplateCodes)
+  const currentTemplateCode = current?.vendor
+    ? providerToTemplateCode(current.vendor)
+    : null
+  const currentConfigured = currentTemplateCode
+    ? configuredTemplateCodes.has(currentTemplateCode)
+    : false
+  // cfgData 加载完成才显示徽章(避免登录前闪烁)
+  const showConfigBadge = cfgData !== undefined
+
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -123,6 +155,21 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               {current?.label ?? value}
             </span>
           )}
+          {/* 配置感知徽章:已配置 → 绿色 ✓,未配置 → 琥珀 ⚠
+              引导用户到模型广场页 /settings/llm 或模型详情对话框里配置 */}
+          {showConfigBadge && !loading && (
+            currentConfigured ? (
+              <CheckCircle2
+                className="h-3.5 w-3.5 shrink-0 text-emerald-500"
+                aria-label={t('modelConfigured')}
+              />
+            ) : (
+              <TriangleAlert
+                className="h-3.5 w-3.5 shrink-0 text-amber-500"
+                aria-label={t('modelNotConfigured')}
+              />
+            )
+          )}
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
       </DropdownMenu.Trigger>
@@ -131,7 +178,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           align="end"
           sideOffset={6}
           className={cn(
-            'z-50 max-h-[60vh] min-w-[16rem] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-md',
+            'z-popover max-h-[60vh] min-w-[16rem] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-md',
             ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
           )}
         >
@@ -148,6 +195,13 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               </DropdownMenu.Label>
               {items.map((opt) => {
                 const active = opt.value === value
+                // 计算当前模型选项的配置状态(根据 vendor 映射到 templateCode)
+                const optTemplateCode = opt.vendor
+                  ? providerToTemplateCode(opt.vendor)
+                  : null
+                const optConfigured = optTemplateCode
+                  ? configuredTemplateCodes.has(optTemplateCode)
+                  : false
                 return (
                   <DropdownMenu.Item
                     key={opt.value}
@@ -174,6 +228,15 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                         </span>
                       )}
                     </div>
+                    {/* 配置感知徽章:已配置 → 绿色 ✓,未配置 → 琥珀 ⚠
+                        (仅在 cfgData 加载完成后显示,避免登录前闪烁) */}
+                    {showConfigBadge && (
+                      optConfigured ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                      ) : (
+                        <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                      )
+                    )}
                   </DropdownMenu.Item>
                 )
               })}
