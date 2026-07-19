@@ -14,6 +14,7 @@ import {
 import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
 import { calculateAgentPermission } from '../services/agent-service.js'
+import { getConversationHistory } from '../services/context-manager-service.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -1439,6 +1440,38 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '更新人设失败'))
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // 用户智能体上下文查询 (调用 context-manager-service.ts 现有方法)
+  //   GET /agents/:agentId/context?limit=5
+  //   注: service 现有 getConversationHistory 按 userUuid 查询,
+  //       agentId 用于响应回显与未来扩展, 当前不参与数据库过滤。
+  // -------------------------------------------------------------------------
+  const contextAgentIdParam = z.object({ agentId: z.string().min(1) })
+  const contextQuerySchema = z.object({
+    limit: z.coerce.number().int().min(1).max(100).optional().default(5),
+  })
+
+  server.get('/agents/:agentId/context', { preHandler: requireAuth }, async (request, reply) => {
+    const paramParsed = contextAgentIdParam.safeParse(request.params)
+    if (!paramParsed.success) return reply.status(400).send(error(400, '无效的 agentId'))
+    const queryParsed = contextQuerySchema.safeParse(request.query)
+    if (!queryParsed.success) {
+      return reply.status(400).send(error(400, queryParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userUuid = request.userId
+    if (!userUuid) return reply.status(401).send(error(401, 'Authentication required'))
+    try {
+      const messages = await getConversationHistory({
+        userUuid,
+        limit: queryParsed.data.limit,
+      })
+      return reply.send(success({ agentId: paramParsed.data.agentId, messages }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询智能体上下文失败'))
     }
   })
 
