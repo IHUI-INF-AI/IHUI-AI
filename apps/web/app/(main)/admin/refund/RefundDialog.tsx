@@ -24,10 +24,14 @@ interface RefundDialogProps {
   isRejectPending: boolean
   isApprovePending: boolean
   currencyFmt: Intl.NumberFormat
+  canApprove: boolean
+  canReject: boolean
+  state: string
   onReasonChange: (v: string) => void
   onClose: () => void
   onSubmit: (e: React.FormEvent) => void
   onApprove: () => void
+  onReject: () => void
 }
 
 export function RefundDialog({
@@ -37,10 +41,14 @@ export function RefundDialog({
   isRejectPending,
   isApprovePending,
   currencyFmt,
+  canApprove,
+  canReject,
+  state,
   onReasonChange,
   onClose,
   onSubmit,
   onApprove,
+  onReject,
 }: RefundDialogProps) {
   const t = useTranslations('admin.refund')
   const tc = useTranslations('common')
@@ -95,24 +103,41 @@ export function RefundDialog({
                     e.preventDefault()
                     onApprove()
                   }}
-                  disabled={isApprovePending}
+                  disabled={isApprovePending || !canApprove}
                 >
                   {isApprovePending && <Loader2 className="h-4 w-4 animate-spin" />}
                   <Check className="mr-1 h-4 w-4" />
                   {t('approve')}
                 </Button>
-                <Button type="submit" variant="destructive" disabled={isRejectPending}>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={isRejectPending || !canReject}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    onReject()
+                  }}
+                >
                   {isRejectPending && <Loader2 className="h-4 w-4 animate-spin" />}
                   <X className="mr-1 h-4 w-4" />
                   {t('reject')}
                 </Button>
               </>
             ) : (
-              <Button type="submit" variant="destructive" disabled={isRejectPending}>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isRejectPending || !canReject}
+                onClick={(e) => {
+                  e.preventDefault()
+                  onReject()
+                }}
+              >
                 {isRejectPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 {t('reject')}
               </Button>
             )}
+            <span className="text-xs text-muted-foreground">state: {state}</span>
           </DialogFooter>
         </form>
       </DialogContent>
