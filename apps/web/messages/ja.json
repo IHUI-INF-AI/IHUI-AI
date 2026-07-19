@@ -8409,35 +8409,30 @@
       }
     },
     "sort": {
-      "recommended": "おすすめ順"
+      "recommended": "おすすめ順",
+      "priceAsc": "価格安順",
+      "priceDesc": "価格高順",
+      "contextDesc": "コンテキスト長順",
+      "nameAsc": "名前順"
     },
     "view": {
       "grid": "グリッド表示",
       "list": "リスト表示"
     },
-    "market": {
-      "freeCount": "{count} 件無料",
-      "highlightCount": "{count} 件おすすめ",
-      "loadMore": "もっと見る",
-      "resetFilters": "フィルターリセット"
+    "quickFilters": {
+      "free": "無料",
+      "longContext": "長文",
+      "reasoning": "推論",
+      "vision": "画像",
+      "coding": "コード",
+      "chinese": "中国語",
+      "openSource": "オープンソース"
     },
     "detail": {
       "highlight": "おすすめ",
       "estimatedHint": "概算費用",
       "capabilities": "能力タグ",
       "close": "閉じる"
-    },
-    "nav": {
-      "groups": {
-        "providerInternational": "国際プロバイダー",
-        "providerDomestic": "国内プロバイダー",
-        "providerInference": "推論プラットフォーム",
-        "providerCloud": "クラウドプラットフォーム",
-        "providerAggregator": "集約プラットフォーム",
-        "providerLocal": "ローカルデプロイ"
-      },
-      "scrollLeft": "左にスクロール",
-      "scrollRight": "右にスクロール"
     },
     "providers": {
       "openai": "OpenAI",
@@ -8562,7 +8557,13 @@
         "main": "メイン機能",
         "business": "ビジネス管理",
         "finance": "統計・財務",
-        "resources": "リソースセンター"
+        "resources": "リソースセンター",
+        "providerInternational": "国際プロバイダー",
+        "providerDomestic": "国内プロバイダー",
+        "providerInference": "推論プラットフォーム",
+        "providerCloud": "クラウドプラットフォーム",
+        "providerAggregator": "集約プラットフォーム",
+        "providerLocal": "ローカルデプロイ"
       },
       "overview": "概覧",
       "market": "モデル市場",
@@ -8579,7 +8580,9 @@
       "openclaw": "OpenClaw デプロイ",
       "apiDocs": "API ドキュメント",
       "skills": "Skills 市場",
-      "contact": "お問い合わせ"
+      "contact": "お問い合わせ",
+      "scrollLeft": "左にスクロール",
+      "scrollRight": "右にスクロール"
     },
     "market": {
       "searchPlaceholder": "モデル名をあいまい検索",
@@ -8589,7 +8592,12 @@
       "inputPrice": "入力価格",
       "outputPrice": "出力価格",
       "defaultDescription": "ベンダー提供の AI モデルサービス",
-      "tryNow": "今すぐ試す"
+      "tryNow": "今すぐ試す",
+      "freeCount": "{count} 件無料",
+      "favoriteCount": "{count} 件お気に入り",
+      "highlightCount": "{count} 件おすすめ",
+      "loadMore": "もっと見る",
+      "resetFilters": "フィルターリセット"
     },
     "overview": {
       "title": "コンソール概覧",
