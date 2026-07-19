@@ -8446,18 +8446,6 @@
       "capabilities": "能力标签",
       "close": "关闭"
     },
-    "nav": {
-      "groups": {
-        "providerInternational": "国际厂商",
-        "providerDomestic": "国内厂商",
-        "providerInference": "推理平台",
-        "providerCloud": "云平台",
-        "providerAggregator": "聚合平台",
-        "providerLocal": "本地部署"
-      },
-      "scrollLeft": "向左滚动",
-      "scrollRight": "向右滚动"
-    },
     "providers": {
       "openai": "OpenAI",
       "anthropic": "Anthropic",
@@ -8581,8 +8569,16 @@
         "main": "主要功能",
         "business": "业务管理",
         "finance": "统计财务",
-        "resources": "资源中心"
+        "resources": "资源中心",
+        "providerInternational": "国际厂商",
+        "providerDomestic": "国内厂商",
+        "providerInference": "推理平台",
+        "providerCloud": "云平台",
+        "providerAggregator": "聚合平台",
+        "providerLocal": "本地部署"
       },
+      "scrollLeft": "向左滚动",
+      "scrollRight": "向右滚动",
       "overview": "概览",
       "market": "模型市场",
       "channels": "渠道管理",
@@ -8608,7 +8604,12 @@
       "inputPrice": "输入价",
       "outputPrice": "输出价",
       "defaultDescription": "厂商提供的 AI 模型服务",
-      "tryNow": "立即体验"
+      "tryNow": "立即体验",
+      "freeCount": "{count} 个免费",
+      "favoriteCount": "{count} 个收藏",
+      "highlightCount": "{count} 个推荐",
+      "loadMore": "加载更多（剩 {count} 个）",
+      "resetFilters": "重置筛选"
     },
     "overview": {
       "title": "控制台概览",
