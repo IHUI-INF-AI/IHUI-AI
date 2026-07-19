@@ -695,18 +695,18 @@
       "kouzi": "아이콘",
       "bbxLogo": "로고",
       "brand4": "아이콘",
-      "zhipu": "智谱清言",
+      "zhipu": "즈푸 칭옌",
       "brand8": "8",
       "ali": "내",
-      "baidu": "百度文心",
+      "baidu": "바이두 원신",
       "dbsfdx": "대",
       "gork": "Grok",
-      "huawei": "华为云",
+      "huawei": "화웨이 클라우드",
       "jldx": "대",
       "openai": "OpenAI",
-      "tencent": "腾讯云",
-      "yuanbaoxiang": "위안宝象",
-      "yushu": "宇树科技"
+      "tencent": "텐센트 클라우드",
+      "yuanbaoxiang": "위안바오샹",
+      "yushu": "위수 테크"
     },
     "promotionModal": {
       "title": "새회원！",
@@ -7643,78 +7643,78 @@
     "icpRecordDesc": "플랫폼 ICP 신고 등록 정보 보기",
     "icpRecordCardTitle": "신고 등록 정보",
     "icpRecordNumber": "신고 번호",
-    "icpRecordEntity": "备案主体",
-    "icpRecordEntityType": "主体性质",
-    "icpRecordTime": "备案时间",
-    "icpRecordUrl": "备案查询",
-    "icpRecordScope": "服务范围",
-    "icpRecordScopeValue": "互联网信息服务",
-    "icpRecordNotice": "本平台已依法完成ICP备案登记,备案信息以上述公示为准,如有疑问请联系客服。",
-    "modelRecordTitle": "模型备案信息",
-    "modelRecordDesc": "查看AI大模型算法备案登记信息",
-    "modelRecordCardTitle": "模型备案登记",
-    "modelRecordModelName": "模型名称",
-    "modelRecordNumber": "备案号",
-    "modelRecordAlgorithmType": "算法类型",
-    "modelRecordAlgorithmTypeValue": "生成合成类",
-    "modelRecordApplicant": "备案主体",
-    "modelRecordApplyDate": "备案日期",
-    "modelRecordStatus": "备案状态",
-    "modelRecordStatusFiled": "已备案",
-    "modelRecordScope": "应用范围",
-    "modelRecordScopeValue": "面向中国境内用户的文本生成与对话服务",
-    "modelRecordNotice": "本平台AI模型已依据《生成式人工智能服务管理暂行办法》完成算法备案,持续接受监管。",
-    "usageRulesTitle": "使用规范",
-    "usageRulesDesc": "查看平台使用规范条款",
-    "usageRulesCardTitle": "平台使用规范",
-    "usageRulesSection1Title": "账号使用",
-    "usageRulesSection1Content": "用户应使用真实信息注册账号,妥善保管账号密码;账号仅限本人使用,不得出借、转让或售卖;因账号保管不当造成的损失由用户自行承担。",
-    "usageRulesSection2Title": "内容规范",
-    "usageRulesSection2Content": "用户发布的内容须遵守法律法规,不得包含违法、侵权、色情、暴力、歧视等不良信息;平台有权对违规内容进行删除或屏蔽处理。",
-    "usageRulesSection3Title": "禁止行为",
-    "usageRulesSection3Content": "禁止利用平台从事以下行为:破坏系统安全、批量爬取数据、发送垃圾信息、恶意攻击接口、滥用AI生成违法违规内容;一经发现,平台有权限制或终止服务。",
-    "usageRulesSection4Title": "知识产权",
-    "usageRulesSection4Content": "平台内容版权归原权利人所有,未经授权不得复制、转载、传播;用户使用AI生成的内容应遵守相关法律法规及平台政策。",
-    "usageRulesSection5Title": "免责声明",
-    "usageRulesSection5Content": "平台提供的AI生成内容仅供参考,不构成专业建议;平台不对内容的准确性、完整性作出保证,用户应自行判断并承担使用风险。",
-    "appPermissionTitle": "应用权限说明",
-    "appPermissionDesc": "查看APP使用的权限及用途",
-    "appPermissionCardTitle": "权限清单",
-    "appPermissionName": "权限名称",
-    "appPermissionPurpose": "用途说明",
-    "appPermissionRequired": "是否必须",
-    "appPermissionRequiredYes": "必须",
-    "appPermissionRequiredNo": "可选",
-    "appPermissionCameraPurpose": "用于拍照上传、头像设置及图像生成场景",
-    "appPermissionAlbumPurpose": "用于从相册选择图片上传、头像设置及图像生成",
-    "appPermissionMicPurpose": "用于语音输入及语音对话功能",
-    "appPermissionNotificationPurpose": "用于接收订单、消息及活动提醒推送",
-    "appPermissionStoragePurpose": "用于缓存数据、保存生成的文件及离线内容",
-    "appPermissionNetworkPurpose": "用于访问网络服务、加载内容及同步数据",
-    "appPermissionDeviceIdPurpose": "用于设备识别、安全风控及账号保护",
-    "changePhoneTitle": "更换手机号",
-    "changePhoneDesc": "验证当前手机号后绑定新手机号",
-    "changePhoneIntroTitle": "更换说明",
-    "changePhoneIntroDesc": "为保障账号安全,需先验证当前绑定的手机号,再绑定新号码;流程简单,几步即可完成。",
-    "changePhoneStep1Label": "1. 验证当前手机号",
-    "changePhoneStep2Label": "2. 绑定新手机号",
-    "changePhoneCurrentPhone": "当前手机号",
-    "changePhoneOldCodePlaceholder": "请输入当前手机号收到的验证码",
-    "changePhoneSendCode": "获取验证码",
-    "changePhoneCodeSent": "验证码已发送",
-    "changePhoneNextStep": "下一步",
-    "changePhoneStep1DoneTip": "当前手机号已通过验证:",
-    "changePhoneNewPhoneLabel": "新手机号",
-    "changePhoneNewPhonePlaceholder": "请输入新手机号",
-    "changePhoneNewCodePlaceholder": "请输入新手机号收到的验证码",
-    "changePhoneSubmit": "确认更换",
-    "changePhoneSubmitting": "提交中...",
-    "changePhoneNoticeTitle": "更换后影响",
-    "changePhoneNoticeDesc": "更换成功后,登录、找回密码、消息通知等将使用新手机号;旧手机号将无法再用于本账号登录,请确认后再操作。",
-    "changePhoneSuccess": "更换成功",
-    "changePhoneInvalidNewPhone": "请输入正确的新手机号",
-    "changePhoneInvalidCode": "请输入6位验证码",
-    "changePhoneVerifyFailed": "验证失败,请重试"
+    "icpRecordEntity": "신고 주체",
+    "icpRecordEntityType": "주체 성격",
+    "icpRecordTime": "신고 시간",
+    "icpRecordUrl": "신고 조회",
+    "icpRecordScope": "서비스 범위",
+    "icpRecordScopeValue": "인터넷 정보 서비스",
+    "icpRecordNotice": "본 플랫폼은 법에 따라 ICP 신고 등록을 완료하였으며, 신고 정보는 위에 공시된 내용을 따릅니다. 궁금한 점이 있으시면 고객 지원에 문의해 주세요.",
+    "modelRecordTitle": "모델 신고 정보",
+    "modelRecordDesc": "AI 대형 모델 알고리즘 신고 등록 정보 보기",
+    "modelRecordCardTitle": "모델 신고 등록",
+    "modelRecordModelName": "모델 이름",
+    "modelRecordNumber": "신고 번호",
+    "modelRecordAlgorithmType": "알고리즘 유형",
+    "modelRecordAlgorithmTypeValue": "생성 합성류",
+    "modelRecordApplicant": "신고 주체",
+    "modelRecordApplyDate": "신고 일자",
+    "modelRecordStatus": "신고 상태",
+    "modelRecordStatusFiled": "신고 완료",
+    "modelRecordScope": "적용 범위",
+    "modelRecordScopeValue": "중국 내 사용자를 위한 텍스트 생성 및 대화 서비스",
+    "modelRecordNotice": "본 플랫폼의 AI 모델은 「생성형 인공지능 서비스 관리 잠정 방법」에 따라 알고리즘 신고를 완료했으며, 지속적으로 감독을 받고 있습니다.",
+    "usageRulesTitle": "이용 규정",
+    "usageRulesDesc": "플랫폼 이용 규정 및 약관 보기",
+    "usageRulesCardTitle": "플랫폼 이용 규정",
+    "usageRulesSection1Title": "계정 사용",
+    "usageRulesSection1Content": "사용자는 실명 정보로 계정을 등록하고 계정 비밀번호를 안전하게 보관해야 합니다. 계정은 본인만 사용할 수 있으며 대여, 양도 또는 판매할 수 없습니다. 계정 관리 부주의로 인한 손실은 사용자 본인이 부담합니다.",
+    "usageRulesSection2Title": "콘텐츠 규정",
+    "usageRulesSection2Content": "사용자가 게시하는 콘텐츠는 법률을 준수해야 하며, 위법, 권리 침해, 음란, 폭력, 차별 등의 불량 정보를 포함해서는 안 됩니다. 플랫폼은 위반 콘텐츠를 삭제하거나 차단할 권리가 있습니다.",
+    "usageRulesSection3Title": "금지 행위",
+    "usageRulesSection3Content": "다음 행위는 금지됩니다: 시스템 보안 파괴, 대량 데이터 스크래핑, 스팸 정보 발송, API 악의적 공격, AI를 악용한 위법 위규 콘텐츠 생성. 적발 시 플랫폼은 서비스를 제한하거나 종료할 권리가 있습니다.",
+    "usageRulesSection4Title": "지적 재산권",
+    "usageRulesSection4Content": "플랫폼 콘텐츠의 저작권은 원 권리자에게 귀속되며, 무단 복제, 전재, 전송을 금합니다. 사용자가 AI 생성 콘텐츠를 사용할 때는 관련 법률 및 플랫폼 정책을 준수해야 합니다.",
+    "usageRulesSection5Title": "면책 선언",
+    "usageRulesSection5Content": "플랫폼이 제공하는 AI 생성 콘텐츠는 참고용일 뿐 전문적 조언을 구성하지 않습니다. 플랫폼은 콘텐츠의 정확성과 완전성을 보장하지 않으며, 사용자는 자체 판단하여 사용 위험을 부담해야 합니다.",
+    "appPermissionTitle": "앱 권한 안내",
+    "appPermissionDesc": "앱이 사용하는 권한 및 용도 보기",
+    "appPermissionCardTitle": "권한 목록",
+    "appPermissionName": "권한 이름",
+    "appPermissionPurpose": "용도 설명",
+    "appPermissionRequired": "필수 여부",
+    "appPermissionRequiredYes": "필수",
+    "appPermissionRequiredNo": "선택",
+    "appPermissionCameraPurpose": "촬영 업로드, 아바타 설정 및 이미지 생성에 사용",
+    "appPermissionAlbumPurpose": "앨범에서 이미지 선택 업로드, 아바타 설정 및 이미지 생성에 사용",
+    "appPermissionMicPurpose": "음성 입력 및 음성 대화 기능에 사용",
+    "appPermissionNotificationPurpose": "주문, 메시지 및 활동 알림 수신에 사용",
+    "appPermissionStoragePurpose": "데이터 캐싱, 생성 파일 저장 및 오프라인 콘텐츠에 사용",
+    "appPermissionNetworkPurpose": "네트워크 서비스 접속, 콘텐츠 로딩 및 데이터 동기화에 사용",
+    "appPermissionDeviceIdPurpose": "기기 식별, 보안 리스크 관리 및 계정 보호에 사용",
+    "changePhoneTitle": "휴대전화 번호 변경",
+    "changePhoneDesc": "현재 휴대전화 번호 인증 후 새 번호 연결",
+    "changePhoneIntroTitle": "변경 안내",
+    "changePhoneIntroDesc": "계정 보안을 위해 현재 연결된 휴대전화 번호를 먼저 인증한 후 새 번호를 연결합니다. 간단한 몇 단계로 완료됩니다.",
+    "changePhoneStep1Label": "1. 현재 휴대전화 번호 인증",
+    "changePhoneStep2Label": "2. 새 휴대전화 번호 연결",
+    "changePhoneCurrentPhone": "현재 휴대전화 번호",
+    "changePhoneOldCodePlaceholder": "현재 휴대전화 번호로 받은 인증 코드를 입력하세요",
+    "changePhoneSendCode": "인증 코드 받기",
+    "changePhoneCodeSent": "인증 코드가 발송되었습니다",
+    "changePhoneNextStep": "다음",
+    "changePhoneStep1DoneTip": "현재 휴대전화 번호 인증 완료:",
+    "changePhoneNewPhoneLabel": "새 휴대전화 번호",
+    "changePhoneNewPhonePlaceholder": "새 휴대전화 번호를 입력하세요",
+    "changePhoneNewCodePlaceholder": "새 휴대전화 번호로 받은 인증 코드를 입력하세요",
+    "changePhoneSubmit": "변경 확인",
+    "changePhoneSubmitting": "제출 중...",
+    "changePhoneNoticeTitle": "변경 후 영향",
+    "changePhoneNoticeDesc": "변경 완료 후 로그인, 비밀번호 찾기, 메시지 알림 등은 새 휴대전화 번호를 사용합니다. 이전 번호로는 본 계정에 로그인할 수 없습니다. 작업 전 확인해 주세요.",
+    "changePhoneSuccess": "변경 성공",
+    "changePhoneInvalidNewPhone": "올바른 새 휴대전화 번호를 입력하세요",
+    "changePhoneInvalidCode": "6자리 인증 코드를 입력하세요",
+    "changePhoneVerifyFailed": "인증 실패, 다시 시도해 주세요"
   },
   "help": {
     "title": "AI인마음페이스테스트",
@@ -7997,8 +7997,8 @@
     },
     "apiDocs": {
       "nav": {
-        "overview": "概述",
-        "authentication": "身份认证",
+        "overview": "개요",
+        "authentication": "신원 인증",
         "endpoints": "API끝",
         "models": "사용 가능모델",
         "chatCompletions": "일전체",
@@ -8025,7 +8025,7 @@
         "title": "프로젝트Info",
         "projectName": "프로젝트 이름",
         "version": "버전",
-        "license": "许可证",
+        "license": "라이선스",
         "node": "Node 버전",
         "description": "설명"
       },
@@ -8105,7 +8105,7 @@
       },
       "tags": {
         "register": "가입",
-        "billing": "计费",
+        "billing": "과금",
         "security": "보안",
         "prompt": "프롬프트"
       },
@@ -8128,7 +8128,7 @@
       },
       "sectionLabels": {
         "knowledgeNodes": "노드",
-        "uplinkChannels": "联络通道"
+        "uplinkChannels": "연락 채널"
       },
       "faqs": {
         "register": {
@@ -8149,7 +8149,7 @@
         },
         "beginner": "새",
         "recharge": "충전",
-        "optimize": "优化"
+        "optimize": "최적화"
       }
     },
     "knowledgeBase": {
@@ -8252,8 +8252,8 @@
       "pageRange": "범위",
       "copies": "인쇄",
       "duplex": "이중면인쇄",
-      "header": "페이지眉",
-      "footer": "페이지脚"
+      "header": "머리말",
+      "footer": "꼬리말"
     },
     "pdfTools": {
       "presetWatermark": "프리셋 워터마크",
@@ -8415,35 +8415,30 @@
       }
     },
     "sort": {
-      "recommended": "추천 순"
+      "recommended": "추천 순",
+      "priceAsc": "가격 낮은순",
+      "priceDesc": "가격 높은순",
+      "contextDesc": "컨텍스트 길이순",
+      "nameAsc": "이름순"
     },
     "view": {
       "grid": "그리드 보기",
       "list": "리스트 보기"
     },
-    "market": {
-      "freeCount": "{count}개 무료",
-      "highlightCount": "{count}개 추천",
-      "loadMore": "더 보기",
-      "resetFilters": "필터 초기화"
+    "quickFilters": {
+      "free": "무료",
+      "longContext": "긴 문맥",
+      "reasoning": "추론",
+      "vision": "이미지",
+      "coding": "코드",
+      "chinese": "중국어",
+      "openSource": "오픈소스"
     },
     "detail": {
       "highlight": "추천",
       "estimatedHint": "예상 비용",
       "capabilities": "기능 태그",
       "close": "닫기"
-    },
-    "nav": {
-      "groups": {
-        "providerInternational": "국제 공급자",
-        "providerDomestic": "국내 공급자",
-        "providerInference": "추론 플랫폼",
-        "providerCloud": "클라우드 플랫폼",
-        "providerAggregator": "집계 플랫폼",
-        "providerLocal": "로컬 배포"
-      },
-      "scrollLeft": "왼쪽으로 스크롤",
-      "scrollRight": "오른쪽으로 스크롤"
     },
     "providers": {
       "openai": "OpenAI",
@@ -8568,7 +8563,13 @@
         "main": "주요 기능",
         "business": "비즈니스 관리",
         "finance": "통계 재무",
-        "resources": "리소스 센터"
+        "resources": "리소스 센터",
+        "providerInternational": "국제 공급자",
+        "providerDomestic": "국내 공급자",
+        "providerInference": "추론 플랫폼",
+        "providerCloud": "클라우드 플랫폼",
+        "providerAggregator": "집계 플랫폼",
+        "providerLocal": "로컬 배포"
       },
       "overview": "개요",
       "market": "모델 마켓",
@@ -8585,7 +8586,9 @@
       "openclaw": "OpenClaw 배포",
       "apiDocs": "API 문서",
       "skills": "Skills 마켓",
-      "contact": "문의하기"
+      "contact": "문의하기",
+      "scrollLeft": "왼쪽으로 스크롤",
+      "scrollRight": "오른쪽으로 스크롤"
     },
     "market": {
       "searchPlaceholder": "모델 이름 퍼지 검색",
@@ -8595,7 +8598,12 @@
       "inputPrice": "입력 가격",
       "outputPrice": "출력 가격",
       "defaultDescription": "벤더가 제공하는 AI 모델 서비스",
-      "tryNow": "지금 체험"
+      "tryNow": "지금 체험",
+      "freeCount": "{count}개 무료",
+      "favoriteCount": "{count}개 즐겨찾기",
+      "highlightCount": "{count}개 추천",
+      "loadMore": "더 보기",
+      "resetFilters": "필터 초기화"
     },
     "overview": {
       "title": "콘솔 개요",
@@ -8799,10 +8807,22 @@
       },
       "stepsTitle": "배포 단계",
       "steps": [
-        { "title": "CLI 설치", "desc": "한 줄 명령으로 OpenClaw CLI 도구 설치" },
-        { "title": "로그인 인증", "desc": "API 키로 OpenClaw에 로그인" },
-        { "title": "모델 설정", "desc": "배포할 모델과 리전 선택" },
-        { "title": "원클릭 시작", "desc": "배포 명령을 실행하고 서비스 준비를 대기" }
+        {
+          "title": "CLI 설치",
+          "desc": "한 줄 명령으로 OpenClaw CLI 도구 설치"
+        },
+        {
+          "title": "로그인 인증",
+          "desc": "API 키로 OpenClaw에 로그인"
+        },
+        {
+          "title": "모델 설정",
+          "desc": "배포할 모델과 리전 선택"
+        },
+        {
+          "title": "원클릭 시작",
+          "desc": "배포 명령을 실행하고 서비스 준비를 대기"
+        }
       ],
       "cli": {
         "title": "명령줄 예시"
@@ -8853,18 +8873,42 @@
         "system": "시스템"
       },
       "items": {
-        "weather": { "desc": "전 세계 모든 위치의 실시간 날씨와 향후 예보 조회" },
-        "nodeConnect": { "desc": "MCP 프로토콜로 외부 노드와 서비스에 연결" },
-        "healthcheck": { "desc": "서비스 상태 확인, 자동 알림" },
-        "webSearch": { "desc": "인터넷에서 최신 정보 검색, 다중 엔진 지원" },
-        "codeRunner": { "desc": "온라인 코드 실행, 30+ 프로그래밍 언어 지원" },
-        "pdfToolkit": { "desc": "PDF 병합, 분할, 변환, 압축 툴킷" },
-        "emailSender": { "desc": "SMTP로 이메일 발송, 템플릿 지원" },
-        "dataViz": { "desc": "데이터 시각화, 다양한 차트 생성" },
-        "imageGen": { "desc": "AI 이미지 생성, 다양한 스타일 지원" },
-        "audioTranscribe": { "desc": "오디오를 텍스트로 변환, 다국어 지원" },
-        "calendar": { "desc": "일정 관리, 이벤트 알림" },
-        "databaseQuery": { "desc": "데이터베이스 쿼리, SQL 및 NoSQL 지원" }
+        "weather": {
+          "desc": "전 세계 모든 위치의 실시간 날씨와 향후 예보 조회"
+        },
+        "nodeConnect": {
+          "desc": "MCP 프로토콜로 외부 노드와 서비스에 연결"
+        },
+        "healthcheck": {
+          "desc": "서비스 상태 확인, 자동 알림"
+        },
+        "webSearch": {
+          "desc": "인터넷에서 최신 정보 검색, 다중 엔진 지원"
+        },
+        "codeRunner": {
+          "desc": "온라인 코드 실행, 30+ 프로그래밍 언어 지원"
+        },
+        "pdfToolkit": {
+          "desc": "PDF 병합, 분할, 변환, 압축 툴킷"
+        },
+        "emailSender": {
+          "desc": "SMTP로 이메일 발송, 템플릿 지원"
+        },
+        "dataViz": {
+          "desc": "데이터 시각화, 다양한 차트 생성"
+        },
+        "imageGen": {
+          "desc": "AI 이미지 생성, 다양한 스타일 지원"
+        },
+        "audioTranscribe": {
+          "desc": "오디오를 텍스트로 변환, 다국어 지원"
+        },
+        "calendar": {
+          "desc": "일정 관리, 이벤트 알림"
+        },
+        "databaseQuery": {
+          "desc": "데이터베이스 쿼리, SQL 및 NoSQL 지원"
+        }
       }
     },
     "groupsMgmt": {
@@ -9850,7 +9894,7 @@
       "typeRefund": "환불",
       "typeAgent": "에이전트",
       "typeMarketing": "마케팅",
-      "typeSite": "站点",
+      "typeSite": "사이트",
       "typeOther": "기타",
       "detailTitle": "알림상세",
       "loadFailed": "로딩 실패",
@@ -11010,7 +11054,7 @@
     "phone": "전화",
     "address": "주소",
     "addressValue": "중꺼짐부드러움",
-    "website": "网址",
+    "website": "웹사이트",
     "noContact": "없음Contact",
     "versionInfo": "버전Info",
     "version": "버전",
@@ -11078,7 +11122,7 @@
     "subtitle": "나출 Question",
     "delete": "삭제",
     "deleteConfirm": "확인삭제Question？",
-    "statusPending": "待解答",
+    "statusPending": "답변 대기",
     "statusResolved": "해결됨",
     "statusClosed": "종료됨"
   },
@@ -11825,7 +11869,7 @@
       "viewAll": "모두 보기"
     },
     "tags": {
-      "stableVersion": "稳定版",
+      "stableVersion": "안정 버전",
       "openApi": "오픈 API",
       "selfDeveloped": "자체 개발"
     },
@@ -11867,12 +11911,12 @@
     "sale": {
       "navAriaLabel": "구매및내",
       "navIntro": "상품 관리설명",
-      "navWho": "适合谁",
+      "navWho": "대상",
       "navUseCases": "애플사용",
       "navWhy": "선택나",
-      "navPricing": "定价",
+      "navPricing": "가격",
       "navAdvantages": "상품 관리",
-      "navCases": "客户案例",
+      "navCases": "고객 사례",
       "navRules": "판매 규칙",
       "navCompare": "에게설명",
       "navFaq": "FAQ",
@@ -11888,13 +11932,13 @@
       "whyChoose5": "기업：단일/Community support、SLA 및선택 가능",
       "whyChoose6": "에서 IHUI ai ：에서까지다중모달에서，비공개Deployment및화켜짐",
       "whyChoose7": "API（IHUI API）월켜짐：스트림、월입、낮은지연높은사용 가능",
-      "pricingTitle": "定价",
+      "pricingTitle": "가격",
       "pricingSubtitle": "，선택；에게기능。",
       "planFree": "무료",
       "planFreeDesc": "플랫폼，가입값。",
-      "planFreeCta": "立即体验",
-      "planStandardCta": "联系상담",
-      "planEnterpriseCta": "联系报价",
+      "planFreeCta": "지금 체험",
+      "planStandardCta": "상담 문의",
+      "planEnterpriseCta": "견적 문의",
       "planStandard": "표준",
       "planStandardDesc": "+ 문서 + Community support，팀및중소기업。",
       "recommended": "추천",
@@ -11902,9 +11946,9 @@
       "planEnterpriseDesc": "비공개Deployment、SLA 및，。",
       "planPriceFree": "¥0",
       "planPriceStandard": "¥9,999 year",
-      "planPriceEnterprise": "联系报价",
+      "planPriceEnterprise": "견적 문의",
       "contactPrice": "가격및할인통과하「」또는 GitHub 설명。",
-      "contactBusiness": "联系비즈니스",
+      "contactBusiness": "비즈니스 문의",
       "viewGitHub": "보기 GitHub",
       "pricingFeaturesTitle": "기능",
       "rulesTitle": "판매 규칙",
@@ -11944,10 +11988,10 @@
       "useCase5": "및：중범위내예정플랫폼、및",
       "casesTitle": "및행",
       "casesSubtitle": "및（교체）",
-      "case1Tag": "金融",
+      "case1Tag": "금융",
       "case1Title": "및분석",
       "case1Desc": "Swarm 및문서 API，에게입행초해설및，검토및。",
-      "case2Tag": "电商",
+      "case2Tag": "이커머스",
       "case2Title": "전체상담원및프로젝트",
       "case2Desc": "생성및음성，에서프로젝트까지전후상담원월，낮은、。",
       "case3Tag": "/",
@@ -12028,9 +12072,9 @@
       "dashboard": "기능중",
       "publicDocs": "공개문서및빠른시작",
       "basicChatApi": "채팅 API",
-      "usageConsole": "用量控制台",
+      "usageConsole": "사용량 콘솔",
       "communitySupport": "커뮤니티및도움말문서",
-      "fullSourceCode": "完整源码访问",
+      "fullSourceCode": "전체 소스 코드 액세스",
       "multiEndpoints": "다중끝（PC + 미니 프로그램 + H5 + APP）",
       "backendAndApis": "후끝및 Swarm/문서//음성/업무스트림 API",
       "officialSdks": "다중언어 SDK",
@@ -12048,12 +12092,12 @@
     "capabilityTags": {
       "all": "전체",
       "ariaFilterLabel": "카테고리필터 API",
-      "core": "核心",
+      "core": "코어",
       "powerful": "문서",
-      "vision": "视觉",
+      "vision": "비전",
       "audio": "오디오",
       "workflow": "업무스트림",
-      "support": "支撑"
+      "support": "지원"
     },
     "featureRef": {
       "title": "전체기능",
@@ -12089,7 +12133,7 @@
       "apiDocsDesc": "API 설명및엔드포인트목록",
       "knowledgeDocs": "문서",
       "knowledgeDocsDesc": "개발게 관리및가이드",
-      "console": "관리控制台",
+      "console": "관리 콘솔",
       "consoleDesc": "、및",
       "workflowPlugins": "업무스트림및문서",
       "workflowPluginsDesc": "및문서",
@@ -12130,7 +12174,7 @@
     "solutions": {
       "title": "행솔루션",
       "subtitleEn": "솔루션",
-      "explore": "探索"
+      "explore": "탐색"
     },
     "featureHub": {
       "title": "기능중",
@@ -12258,7 +12302,7 @@
     "documentCenter": "문서",
     "newsCenter": "ai피드",
     "aboutUs": "회사 소개",
-    "becomeSupplier": "成为供应商",
+    "becomeSupplier": "공급업체 되기",
     "noMoreItems": "없음더보기기능"
   },
   "register": {
@@ -12424,7 +12468,7 @@
     "privacyPolicy": "개인정보 처리방침",
     "requirementSquare": "요구광장",
     "plaza": "요구광장",
-    "xuqiu": "需求",
+    "xuqiu": "요구",
     "openPlatform": "오픈플랫폼",
     "openPlatformDocs": "문서",
     "openPlatformDashboard": "기능중",
@@ -12465,7 +12509,7 @@
     "aiWorldDetail": "ai상세",
     "aiWorldBannerDetail": "플랫폼",
     "aboutUs": "회사 소개",
-    "becomeSupplier": "成为供应商",
+    "becomeSupplier": "공급업체 되기",
     "messageCenter": "메시지중",
     "notificationCenter": "알림중",
     "pointCenter": "포인트 센터",
@@ -12491,7 +12535,7 @@
     "distributionOrders": "유통주문",
     "refundManagement": "환불",
     "refundDetail": "환불상세",
-    "keyManagement": "密钥관리",
+    "keyManagement": "키 관리",
     "becomeTrader": "트레이더",
     "personalCard": "개인",
     "invitedTeam": "나초대 팀",
@@ -12567,7 +12611,7 @@
     "adminExamQuestionMulti": "객관식(다수)",
     "adminExamQuestionJudgment": "O/X",
     "adminExamQuestionFill": "빈칸 채우기",
-    "adminExamQuestionSubjective": "主观문제",
+    "adminExamQuestionSubjective": "주관식 문제",
     "adminExamAnswer": "답변 관리",
     "adminExamAnswerDetail": "답안 상세",
     "adminLiveChannel": "라이브채널",
@@ -12667,7 +12711,7 @@
     "adminBackendHealth": "백엔드 상태 확인"
   },
   "footer": {
-    "acknowledgments": "致谢",
+    "acknowledgments": "감사의 말",
     "companyName": "회사",
     "addressLabel": "주소:",
     "addressLine1": "긴높은새도달107",
@@ -12869,7 +12913,7 @@
     "share": "공유",
     "refreshDetails": "새로고침상세",
     "detailedInfo": "정보",
-    "overview": "概述",
+    "overview": "개요",
     "platformInfo": "플랫폼Info",
     "usageStats": "생각사용통계",
     "agentId": "에이전트ID",
@@ -12878,7 +12922,7 @@
     "updateTime": "업데이트시간",
     "usageCount": "생각사용 횟수",
     "rating": "점수",
-    "ratingCount": "평가명数",
+    "ratingCount": "평가 명수",
     "tags": "라벨",
     "platformSource": "플랫폼출처",
     "cozeBotId": "에이전트ID",
@@ -12891,7 +12935,7 @@
     "baseUrl": "URL",
     "totalUsageCount": "생각사용 횟수",
     "averageRating": "점수",
-    "reviewCount": "평가명数",
+    "reviewCount": "리뷰 명수",
     "daysOnline": "게시일",
     "userReviews": "사용자",
     "noReviews": "없음",
@@ -13030,7 +13074,7 @@
       "trafficFissionDesc": "스트림중ai하긴，및",
       "globalRestructure": "전체무거움",
       "globalRestructureDesc": "ai，시스템무거움행및",
-      "dawnEra": "破晓纪위안",
+      "dawnEra": "여명기",
       "dawnEraDesc": "오래된시간낮은，켜짐ai 새",
       "functionTag": "핵심 기능",
       "functionTitle": "전체기능및서비스",
@@ -13047,7 +13091,7 @@
       "tenThousandPlus": "+",
       "fn1Title": "에이전트켜짐플랫폼",
       "fn1Desc": "、및Deployment에이전트，코드빠른ai",
-      "fn2Title": "지식 베이스构建引擎",
+      "fn2Title": "지식 베이스 구축 엔진",
       "fn2Desc": "행，ai，Q&A",
       "fn3Title": "Data분석",
       "fn3Desc": "ai드라이버다중Data분석，값，",
@@ -13103,7 +13147,7 @@
       "dev1Item1": "완료ai기술및플랫폼",
       "dev1Item2": "에이전트및켜짐커뮤니티",
       "dev1Item3": "첫행인증",
-      "dev2Title": "生态拓展期",
+      "dev2Title": "생태 확장기",
       "dev2Item1": "다중행ai솔루션",
       "dev2Item2": "및",
       "dev2Item3": "ai만및",
@@ -13163,7 +13207,7 @@
       "image": "이미지",
       "video": "동영상",
       "audio": "오디오",
-      "music": "音乐",
+      "music": "음악",
       "article": "글",
       "code": "코드"
     },
@@ -13287,7 +13331,7 @@
       "image": "이미지",
       "video": "동영상",
       "audio": "오디오",
-      "music": "音乐",
+      "music": "음악",
       "article": "글",
       "code": "코드"
     },
@@ -13326,7 +13370,7 @@
     "customDescPlaceholder": "입력해 주세요사용자 정의설명",
     "shareType": "공유유형",
     "public": "공개",
-    "private": "私密",
+    "private": "비공개",
     "password": "비밀번호",
     "expireTime": "만료 시간",
     "selectExpire": "선택만료 시간",
@@ -13337,9 +13381,9 @@
     "scanQRCode": "화",
     "downloadQRCode": "다운로드화",
     "wechat": "WeChat",
-    "weibo": "微博",
+    "weibo": "웨이보",
     "qq": "QQ",
-    "douyin": "抖音",
+    "douyin": "더우인",
     "douyinShareTip": "애플사용스캔공유",
     "linkCopied": "링크Copied",
     "copyFailed": "복생각 실패",
@@ -13399,7 +13443,7 @@
     "title": "ai팀",
     "searchPlaceholder": "검색에이전트이름",
     "categories": "카테고리",
-    "oldEmployee": "老员工",
+    "oldEmployee": "시니어 직원",
     "newEmployee": "새",
     "noDescription": "없음설명석",
     "noAgents": "없음ai",
@@ -13555,7 +13599,7 @@
     "utilitiesDemo": "도구데모",
     "utilitiesUsage": "도구애플사용",
     "useUtilities": "애플사용도구",
-    "hoverEffect": "悬停效果",
+    "hoverEffect": "호버 효과",
     "flexboxUtilities": "Flexbox 도구",
     "action": "작업",
     "primaryButton": "버튼",
@@ -13642,9 +13686,9 @@
     "totalMembers": "총계Members",
     "totalCommission": "총계수수료",
     "noMembers": "없음Members",
-    "transactionVolume": "거래体积",
+    "transactionVolume": "거래 규모",
     "commission": "수수료",
-    "orderCount": "顺序计数",
+    "orderCount": "순서 카운트",
     "inviteTime": "무효viteTime",
     "tabAll": "Tab전체",
     "tabActive": "Tab활동",
@@ -13774,7 +13818,7 @@
         "promptPlaceholder": "설명동영상내용..."
       },
       "buttons": {
-        "identify": "识别",
+        "identify": "인식",
         "generate": "생성",
         "checkStatus": "상태",
         "checking": "중..."
@@ -13974,7 +14018,7 @@
   },
   "visionAnalysis": {
     "title": "Qwen - 분석",
-    "tag": "视觉理解",
+    "tag": "시각 이해",
     "form": {
       "upload": "수익 업로드",
       "selectImage": "선택이미지",
@@ -14107,7 +14151,7 @@
       "noContext": "없음컨텍스트",
       "addMemory": "추가",
       "addMemoryPlaceholder": "입력 내용",
-      "typeFact": "事实",
+      "typeFact": "사실",
       "typePreference": "좋음",
       "typeEvent": "이벤트",
       "clearMemory": "비우기현재 세션",
@@ -14145,7 +14189,7 @@
       "browserQuickActions": "빠른작업",
       "browserUrlPlaceholder": "입력， https://example.com",
       "browserOpen": "열기",
-      "browserScreenshot": "截图",
+      "browserScreenshot": "스크린샷",
       "browserCurrentPage": "현재 페이지면",
       "browserView": "찾아보기",
       "browserBackendTools": "후끝이미가입 찾아보기도구",
@@ -14242,8 +14286,8 @@
     "modeAgent": "에이전트",
     "modeAgentic": "AgenticAI",
     "modeMCP": "MCP도구",
-    "modeHybrid": "混合模式",
-    "modeAuto": "智能模式",
+    "modeHybrid": "하이브리드 모드",
+    "modeAuto": "스마트 모드",
     "modeGeneration": "ai생성",
     "selectAgent": "선택에이전트...",
     "promptTemplates": "프롬프트 템플릿",
@@ -14310,7 +14354,7 @@
       "canvas": "워크스페이스",
       "canvasDesc": "비주얼 디자인크리에이티브",
       "skills": "스킬",
-      "skillsDesc": "扩展能力插건",
+      "skillsDesc": "확장 능력 플러그인",
       "browser": "찾아보기",
       "browserDesc": "에서작업",
       "models": "모델",
@@ -14324,7 +14368,7 @@
     "mcpToolsIntro": "MCP 도구채팅：파일、검색、Data、、이미지생성등，선택후중채팅중。",
     "noMCPTools": "없음사용 가능MCP도구",
     "generation": "ai생성",
-    "generationTypeAuto": "智能识别",
+    "generationTypeAuto": "스마트 인식",
     "generationTypeImage": "이미지생성",
     "generationTypeVideo": "동영상생성",
     "generationType3D": "3D모델",
@@ -14379,8 +14423,8 @@
     "videoGenerationFailed": "동영상Generation failed：{error}",
     "editKeyword1": "편집",
     "editKeyword2": "수정",
-    "editKeyword3": "调整",
-    "editKeyword4": "优化",
+    "editKeyword3": "조정",
+    "editKeyword4": "최적화",
     "videoGenerationStartFailed": "동영상생성시작실패：{error}",
     "visionAnalysisRequiresImage": "분석수익 업로드",
     "model3DGenerationFailed": "3D모델Generation failed",
@@ -14395,14 +14439,14 @@
     "downloadLink": "다운로드링크",
     "pleaseAnalyzeThisImage": "분석이미지",
     "visionAnalysisFailed": "분석실패",
-    "thinkingProcess": "思考过程",
+    "thinkingProcess": "사고 과정",
     "analysisResult": "분석결과",
     "analysisResultImage": "분석결과이미지",
     "capabilityModel": "모델",
     "capabilityAgent": "에이전트",
     "capabilityAgentic": "에이전트",
     "capabilityMCP": "MCP도구",
-    "capabilityHybrid": "混合模式",
+    "capabilityHybrid": "하이브리드 모드",
     "pleaseEditThisImage": "편집이미지",
     "exportTimeLabel": "내보내기시간",
     "model": "모델",
@@ -14463,13 +14507,13 @@
     "import": "가져오기Excel",
     "generateNext": "원클릭생성하동영상",
     "sequence": "아니오",
-    "character": "명物",
+    "character": "캐릭터",
     "scene": "장면",
     "description": "설명",
     "reasoning": "에서",
     "firstFramePrompt": "첫",
     "videoPrompt": "동영상생성프롬프트",
-    "characterAppearance": "명物形象",
+    "characterAppearance": "캐릭터 외형",
     "voice": "소리",
     "video": "동영상",
     "lastFrame": "꼬리",
@@ -14483,7 +14527,7 @@
     "extractFrame": "꼬리",
     "firstFrameModelRemarkMissing": "첫모델미엔드포인트",
     "firstFrameWsNotSupported": "첫아님WebSocket생성",
-    "appearance": "명物形象",
+    "appearance": "외형",
     "appearancePlaceholder": "설명（：년가벼움여성，긴，등）",
     "voicePlaceholder": "설명（：여성、남성등）",
     "voiceIdPlaceholder": "ID（선택 가능）",
@@ -14498,7 +14542,7 @@
     "enhancedMode": "ai강함",
     "enhancedModeOn": "ai강함활성화됨，예정애플사용컨텍스트분석및",
     "enhancedModeOff": "ai강함종료됨，애플사용생성프롬프트",
-    "qualityScore": "质量",
+    "qualityScore": "품질",
     "lowQualityWarning": "{sequence} 점수낮음：{score}/100，무거움새생성",
     "autoRetryScheduled": "{sequence} 예정중 {delay} 초후에서다시 시도",
     "optimizingPromptForRetry": "프롬프트다시 시도...",
@@ -14526,17 +14570,17 @@
     "confidence": "신뢰도",
     "apply": "앱",
     "recommendationReason": "추천에서",
-    "expectedEffect": "预期效果",
+    "expectedEffect": "예상 효과",
     "noRecommendations": "클릭「추천」ai",
     "recommendationsLoaded": "성공 Count추천",
     "recommendationsFailed": "추천실패",
     "recommendationApplied": "추천이미앱",
-    "detectConflicts": "检测충돌",
+    "detectConflicts": "충돌 감지",
     "conflictType": {
-      "character": "명物충돌",
+      "character": "캐릭터 충돌",
       "timeline": "타임라인",
       "scene": "장면 충돌",
-      "logic": "逻辑충돌"
+      "logic": "논리 충돌"
     },
     "noConflicts": "클릭「」Question",
     "noConflictsDetected": "미까지",
@@ -14567,20 +14611,20 @@
       "slow": "느린"
     },
     "phases": {
-      "setup": "铺垫",
+      "setup": "도입부",
       "rising": "상",
       "climax": "높은",
       "falling": "하",
-      "resolution": "结局"
+      "resolution": "결말"
     },
     "plotTypes": {
       "twist": "할인",
       "conflict": "충돌",
-      "resolution": "解决",
+      "resolution": "해결",
       "climax": "높은",
-      "transition": "过渡"
+      "transition": "전환"
     },
-    "emotion": "情感",
+    "emotion": "감정",
     "auto": "에서",
     "subtitlesGenerated": "생성 성공",
     "scenes": "개장면",
@@ -14589,7 +14633,7 @@
       "character": "역할",
       "scene": "장면",
       "timeline": "타임라인",
-      "logic": "逻辑"
+      "logic": "논리"
     },
     "severity": {
       "error": "오류",
@@ -14623,7 +14667,7 @@
       "promptCharacterInfo": "역할Info：",
       "promptCharacterName": "역할 이름",
       "promptCharacters": "역할",
-      "promptColorPalette": "主色",
+      "promptColorPalette": "메인 색상",
       "promptConfidence": "（0-1）",
       "promptContext": "컨텍스트：",
       "promptContinuation": "전생성쓰기：",
@@ -14632,11 +14676,11 @@
       "promptDescription": "설명",
       "promptDialogue": "채팅내용",
       "promptDialogueRequest": "하생성채팅：",
-      "promptDominantEmotion": "主导情感",
+      "promptDominantEmotion": "주도 감정",
       "promptDramaTitle": "제목",
-      "promptEmotion": "情感",
+      "promptEmotion": "감정",
       "promptEmotionIntensity": "강함（0-1）",
-      "promptEmotionalTone": "情感基调",
+      "promptEmotionalTone": "감정 톤",
       "promptEpisodeSummary": "요약",
       "promptEpisodeTitle": "분제목",
       "promptEpisodes": "대。",
@@ -14645,39 +14689,39 @@
       "promptGenerateDialogue": "생성역할채팅：",
       "promptGenerateOutline": "생성",
       "promptKeyScenes": "꺼짐Key",
-      "promptLighting": "光线",
-      "promptMood": "氛围",
+      "promptLighting": "조명",
+      "promptMood": "분위기",
       "promptNextScene": "하월",
       "promptProgressionFalling": "하",
-      "promptProgressionFluctuating": "波动",
+      "promptProgressionFluctuating": "변동",
       "promptProgressionRising": "상",
-      "promptProgressionStable": "稳定",
-      "promptReasoning": "推理过程",
+      "promptProgressionStable": "안정",
+      "promptReasoning": "추론 과정",
       "promptRecentPlot": "가까운：",
       "promptReturnFormat": "뒤로：",
       "promptReturnJson": "JSON 형식뒤로。",
       "promptReturnJsonOnly": "뒤로 JSON，아님기타내용。",
       "promptScene": "：",
       "promptSceneDescription": "설명",
-      "promptSoundscape": "音效",
-      "promptSuggestedAdjustment": "调整建议",
+      "promptSoundscape": "음향",
+      "promptSuggestedAdjustment": "조정 제안",
       "promptSuggestedCharacter": "역할",
       "promptSynopsis": "소개",
       "promptTheme": "테마：",
       "promptTitle": "제목",
       "promptTypeClimax": "높은",
       "promptTypeConflict": "충돌",
-      "promptTypeResolution": "解决",
-      "promptTypeTransition": "过渡",
+      "promptTypeResolution": "해결",
+      "promptTypeTransition": "전환",
       "promptTypeTwist": "뒤집기",
-      "promptVoiceTone": "语调",
+      "promptVoiceTone": "음성 톤",
       "characterArc": {
         "arcNegative": "역할",
         "arcNeutral": "역할",
         "arcPositive": "역할",
-        "emotionNegative": "消极",
+        "emotionNegative": "부정적",
         "emotionNeutral": "중",
-        "emotionPositive": "积极",
+        "emotionPositive": "긍정적",
         "stageConflict": "단계",
         "stageDevelopment": "단계",
         "stageGrowth": "긴단계",
@@ -14709,15 +14753,15 @@
         "startFirstScene": "시작첫 번째"
       },
       "defaultCameraStyle": "중，머리",
-      "defaultColorPalette1": "暖色调",
+      "defaultColorPalette1": "난색조",
       "defaultColorPalette2": "중",
-      "defaultEmotion": "平静",
+      "defaultEmotion": "평온",
       "defaultLighting": "및에서",
       "defaultMood": "및",
       "defaultSoundscape": "가벼움"
     },
     "aiCreationLoadFailed": "추가aiData실패",
-    "storyArc": "故事弧线",
+    "storyArc": "스토리 아크",
     "continuation": "쓰기",
     "applySuggestion": "앱",
     "suggestionApplied": "쓰기이미앱",
@@ -14730,21 +14774,21 @@
       "bgm": {
         "adventure": {
           "genre": "어드벤처",
-          "mood": "激动",
+          "mood": "스릴",
           "name": "어드벤처 여정"
         },
         "cafe": {
-          "genre": "爵士",
-          "mood": "放松",
+          "genre": "재즈",
+          "mood": "릴랙스",
           "name": "시간"
         },
         "comedy": {
           "genre": "팝",
           "mood": "빠른",
-          "name": "欢乐喜剧"
+          "name": "해피 코미디"
         },
         "epic": {
-          "genre": "交响乐",
+          "genre": "교향곡",
           "mood": "웅장함",
           "name": "시간"
         },
@@ -14755,27 +14799,27 @@
         },
         "mysterious": {
           "genre": "일렉트로닉",
-          "mood": "神秘",
-          "name": "神秘氛围"
+          "mood": "미스터리",
+          "name": "미스터리 분위기"
         },
         "night": {
-          "genre": "环境音乐",
-          "mood": "宁静",
+          "genre": "앰비언트",
+          "mood": "고요",
           "name": "고요한 밤"
         },
         "romantic": {
           "genre": "클래식",
-          "mood": "浪漫",
+          "mood": "로맨틱",
           "name": "시간"
         },
         "sad": {
-          "genre": "钢琴",
-          "mood": "悲伤",
-          "name": "忧伤旋律"
+          "genre": "피아노",
+          "mood": "슬픔",
+          "name": "우울한 선율"
         },
         "tense": {
           "genre": "일렉트로닉",
-          "mood": "紧张",
+          "mood": "긴장",
           "name": "시간"
         }
       },
@@ -14799,12 +14843,12 @@
       },
       "sfx": {
         "birds": {
-          "description": "鸟鸣声",
-          "name": "鸟鸣"
+          "description": "새 소리",
+          "name": "새 울음"
         },
         "boom": {
           "description": "낮은",
-          "name": "轰鸣"
+          "name": "굉음"
         },
         "cafe": {
           "description": "카페 환경음",
@@ -14824,35 +14868,35 @@
         },
         "door": {
           "description": "켜짐꺼짐",
-          "name": "门声"
+          "name": "문 소리"
         },
         "footsteps": {
-          "description": "脚步声",
-          "name": "脚步"
+          "description": "발소리",
+          "name": "발걸음"
         },
         "gasp": {
-          "description": "惊讶的숨소리声",
+          "description": "놀란 숨소리",
           "name": "숨소리"
         },
         "heartbeat": {
-          "description": "心跳声",
-          "name": "心跳"
+          "description": "심장 소리",
+          "name": "심장 박동"
         },
         "laugh": {
-          "description": "笑声",
-          "name": "笑声"
+          "description": "웃음소리",
+          "name": "웃음소리"
         },
         "phone": {
           "description": "전화",
           "name": "전화"
         },
         "rain": {
-          "description": "雨声",
-          "name": "雨声"
+          "description": "빗소리",
+          "name": "빗소리"
         },
         "thunder": {
-          "description": "雷声",
-          "name": "雷声"
+          "description": "천둥 소리",
+          "name": "천둥"
         },
         "typing": {
           "description": "Key입력",
@@ -14860,39 +14904,39 @@
         },
         "whoosh": {
           "description": "빠른",
-          "name": "风声"
+          "name": "휙"
         },
         "wind": {
-          "description": "风声",
-          "name": "风声"
+          "description": "바람 소리",
+          "name": "바람 소리"
         }
       },
       "sfxCategory": {
         "action": "액션",
-        "emotion": "情感",
-        "environment": "环境",
-        "transition": "转场"
+        "emotion": "감정",
+        "environment": "환경",
+        "transition": "전환"
       },
       "sfxTag": {
-        "communication": "通讯",
+        "communication": "통신",
         "daily": "일",
         "dynamic": "피드",
-        "emotion": "情感",
+        "emotion": "감정",
         "fresh": "새",
         "indoor": "내",
         "joy": "기쁨",
-        "leisure": "休闲",
-        "modern": "现代",
+        "leisure": "레저",
+        "modern": "모던",
         "movement": "이동",
         "nature": "에서",
         "noisy": "소란",
         "office": "오피스",
         "outdoor": "외",
         "prompt": "팁",
-        "sadness": "悲伤",
-        "shock": "震撼",
-        "surprise": "惊讶",
-        "tension": "紧张",
+        "sadness": "슬픔",
+        "shock": "임팩트",
+        "surprise": "놀람",
+        "tension": "긴장",
         "urban": "모두",
         "weather": "일"
       },
@@ -14916,7 +14960,7 @@
         "romantic": "스타일"
       },
       "transition": {
-        "dissolve": "溶解",
+        "dissolve": "디졸브",
         "fadeLong": "긴입출",
         "fadeMedium": "중입출",
         "fadeShort": "짧은입출",
@@ -14938,7 +14982,7 @@
     "subtitlesExported": "내보내기 성공",
     "subtitleStyle": "스타일",
     "bgm": "배경",
-    "sfx": "音效",
+    "sfx": "효과음",
     "exportSettings": "내보내기설정",
     "versionManager": "버전",
     "createVersion": "생성버전",
@@ -14953,52 +14997,52 @@
     "enterComment": "입력댓글...",
     "addComment": "추가댓글",
     "commentAdded": "댓글이미추가",
-    "resolve": "解决",
+    "resolve": "해결",
     "commentResolved": "댓글해결됨",
     "noComments": "없음댓글",
-    "totalFragments": "总片段数",
+    "totalFragments": "총 프래그먼트 수",
     "completedFragments": "완료됨",
     "failedFragments": "실패",
     "successRate": "성공률",
     "qualityAnalysis": "분석",
-    "averageQuality": "平均质量",
+    "averageQuality": "평균 품질",
     "qualityRange": "범위",
-    "qualityExcellent": "优秀",
+    "qualityExcellent": "우수",
     "qualityGood": "양호",
     "qualityAverage": "일반",
-    "qualityPoor": "较差",
+    "qualityPoor": "다소 부족",
     "qualityBreakdown": "분",
-    "clarity": "清晰度",
+    "clarity": "선명도",
     "colorSaturation": "및",
     "motionSmoothness": "스트림",
     "characterConsistency": "월",
-    "efficiencyMetrics": "效率指标",
+    "efficiencyMetrics": "효율 지표",
     "fragmentsPerHour": "소시간생성",
     "firstAttemptSuccess": "첫성공률",
     "retryEfficiency": "다시 시도",
     "avgPromptLength": "프롬프트긴",
-    "costEstimate": "成本估算",
+    "costEstimate": "비용 추정",
     "videoGenerations": "동영상생성",
     "imageGenerations": "이미지생성",
     "totalTokens": "토큰",
-    "estimatedCost": "预估成本",
+    "estimatedCost": "예상 비용",
     "characterStats": "역할통계",
     "characterName": "역할 이름",
-    "fragmentCount": "片段数",
-    "avgQuality": "平均质量",
+    "fragmentCount": "프래그먼트 수",
+    "avgQuality": "평균 품질",
     "totalDuration": "소요 시간",
     "timeTrend": "시간Trend",
     "date": "날짜",
     "created": "생성",
     "videoPreview": "동영상미리보기",
-    "play": "播放",
+    "play": "재생",
     "pause": "일시정지",
     "restart": "무거움",
     "captureFrame": "전",
     "frameCaptured": "이미꼬리",
     "frameCapturedFailed": "실패",
     "keyframes": "꺼짐Key",
-    "transitionEffect": "转场效果",
+    "transitionEffect": "전환 효과",
     "fragmentInfo": "Info",
     "duration": "소요 시간",
     "videoGenerated": "{sequence} 동영상생성 성공",
@@ -15135,7 +15179,7 @@
     "exportProject": "내보내기프로젝트",
     "selectFormat": "선택",
     "exported": "내보내기 성공",
-    "continuityCheck": "连续性检查",
+    "continuityCheck": "연속성 검사",
     "continuityCheckTitle": "결과",
     "noContinuityIssues": "미Question",
     "continuityIssuesFound": "CountQuestion",
@@ -15144,7 +15188,7 @@
     "noCharacterData": "캐릭마음가 없습니다데이마음",
     "firstAppearance": "첫출",
     "lastAppearance": "마지막출",
-    "scenesInvolved": "涉及장면",
+    "scenesInvolved": "관련 장면",
     "exportPreview": "미리보기",
     "exportPreviewTitle": "내보내기미리보기",
     "copyToClipboard": "복사",
@@ -15156,7 +15200,7 @@
     "overview": "개요",
     "characterList": "역할목록",
     "sceneList": "목록",
-    "suggestion": "建议",
+    "suggestion": "제안",
     "fragmentsCount": "프래그먼트",
     "generatePrompt": "생성팁",
     "charactersCount": "문자",
@@ -15190,7 +15234,7 @@
     "validationDescriptionTooShort": "인증설명TooShort",
     "validationNoPrompt": "인증아니오팁",
     "excelHeader": "아니오",
-    "excelHeaderCharacter": "명物",
+    "excelHeaderCharacter": "캐릭터",
     "excelHeaderScene": "장면",
     "excelHeaderDescription": "설명",
     "excelHeaderFirstFramePrompt": "동영상첫이미지",
@@ -15227,18 +15271,18 @@
       "exportDirectorNotes": "메모",
       "exportDuration": "소요 시간",
       "exportKeyElements": "꺼짐Key요소",
-      "exportMovement": "运镜",
+      "exportMovement": "카메라 워크",
       "exportShotCount": "머리Count",
       "exportShotLabel": "머리",
       "exportSuggestions": "제안",
       "exportTitle": "분내보내기",
       "exportTotalDuration": "소요 시간",
       "exportType": "유형",
-      "impactBalanced": "平衡感",
+      "impactBalanced": "균형감",
       "impactDynamicTension": "피드",
       "impactEmotionalResonance": "총",
       "impactGrandScale": "대면",
-      "impactIntimacy": "亲密感",
+      "impactIntimacy": "친밀감",
       "impactMajesty": "위엄",
       "impactSpatialRelation": "빈간꺼짐",
       "impactVisualInstability": "아님",
@@ -15252,7 +15296,7 @@
       "promptDesignRequest": "하분：",
       "promptDuration": "소요 시간（초）",
       "promptKeyElements": "꺼짐Key요소",
-      "promptLightingMood": "灯光氛围",
+      "promptLightingMood": "조명 분위기",
       "promptLightingType": "유형",
       "promptNotes": "메모",
       "promptPictureDescription": "면설명",
@@ -15289,15 +15333,15 @@
       "unitSeconds": "초"
     },
     "canvasContextError": "Canvas 컨텍스트데이마음를 가져오지 못했습니다",
-    "clarityLabel": "清晰度",
+    "clarityLabel": "선명도",
     "continuityCharacterDisappear": "역할 {character} 중후중",
     "continuityMissingCharacter": "{sequence} 역할Info",
     "continuityMissingDescription": "{sequence} 설명Info",
     "continuitySceneJump": "에서 {prevScene} 까지 {currentScene}，중Question",
     "deleteHistoryDesc": "삭제 Count",
-    "downloadFragmentPrefix": "片段",
+    "downloadFragmentPrefix": "프래그먼트",
     "duplicateHistoryDesc": "복사 Count",
-    "frameLabel": "帧",
+    "frameLabel": "프레임",
     "generatingStatus": "생성 중...",
     "imageUploadFailedError": "이미지 업로드 실패",
     "importHistoryDesc": "가져오기 Count",
@@ -15367,7 +15411,7 @@
         "scenesUnit": "개장면",
         "totalScenes": "총",
         "unnamed": "이름 없음",
-        "voice": "配音"
+        "voice": "더빙"
       },
       "markdown": {
         "appearance": "외",
@@ -15386,7 +15430,7 @@
         "totalScenes": "총",
         "unnamedScene": "이름 없음",
         "videoPrompt": "동영상프롬프트",
-        "voice": "配音"
+        "voice": "더빙"
       },
       "scriptParse": {
         "dialogueLabel": "채팅",
@@ -15396,12 +15440,12 @@
         "promptCharacters": "출역할",
         "promptDescription": "설명",
         "promptDialogueCharacter": "역할",
-        "promptDialogueEmotion": "情感",
+        "promptDialogueEmotion": "감정",
         "promptDialogueLine": "대사",
         "promptDialogues": "대화 목록",
         "promptDuration": "소요 시간（초）",
         "promptLocation": "장소",
-        "promptMood": "氛围",
+        "promptMood": "분위기",
         "promptNotSpecified": "미",
         "promptReturnJson": "JSON 뒤로。",
         "promptSceneNumber": "아니오",
@@ -15444,7 +15488,7 @@
     "projectInfo": "프로젝트Info",
     "projectLocation": "프로젝트위치",
     "languageSupport": "언어",
-    "license": "许可证",
+    "license": "라이선스",
     "status": "상태",
     "integrated": "이미",
     "quickLinks": "빠른링크",
@@ -15498,7 +15542,7 @@
     "coordinationMode": "조정 모드",
     "coordinationHierarchical": "분",
     "coordinationPeerToPeer": "에게",
-    "coordinationMarketBased": "市场机制",
+    "coordinationMarketBased": "시장 메커니즘",
     "maxIterations": "대반복",
     "autoOptimize": "에서（경험）",
     "createAndExecute": "생성행",
@@ -16072,20 +16116,20 @@
       },
       "classLevel": {
         "normal": "일반",
-        "advanced": "尖子班"
+        "advanced": "심화반"
       },
       "scoreRangePlaceholder": "입력해 주세요점수범위，：80-90",
       "languageDifficulty": {
         "readingSpeed": "읽음가져오기",
-        "comprehension": "理解能力",
-        "vocabulary": "词汇量",
+        "comprehension": "이해력",
+        "vocabulary": "어휘량",
         "writing": "도달"
       },
       "scienceCharacteristicsPlaceholder": "입력해 주세요...",
       "learningObstacle": {
-        "gameAddiction": "孩子痴迷游戏",
+        "gameAddiction": "게임 중독 아이",
         "daydreaming": "학습시간",
-        "procrastination": "拖延症",
+        "procrastination": "미루는 습관",
         "lowEfficiency": "학습낮은"
       },
       "hobbiesPlaceholder": "：，",
@@ -16101,7 +16145,7 @@
       },
       "pressureTolerance": {
         "light": "가벼움",
-        "challenging": "适合有挑战性的训练",
+        "challenging": "도전적인 훈련에 적합",
         "moderate": "중"
       },
       "learningGoal": {
@@ -16141,7 +16185,7 @@
       "learningObstacle": "학습",
       "personality": "꺼짐및",
       "extraTime": "외학습",
-      "pressureTolerance": "压力承受度",
+      "pressureTolerance": "스트레스 내성",
       "learningGoal": "학습 목표",
       "personalityTest1": "테스트1",
       "personalityTest2": "테스트2",
@@ -16186,7 +16230,7 @@
           "title": "이미지생성",
           "desc": "ai생성높은이미지",
           "tag1": "이미지",
-          "tag2": "设计"
+          "tag2": "디자인"
         },
         "video": {
           "title": "동영상생성",
@@ -16197,13 +16241,13 @@
         "copy": {
           "title": "생성",
           "desc": "ai",
-          "tag1": "文案",
+          "tag1": "카피",
           "tag2": "작문"
         },
         "edit": {
           "title": "동영상편집",
           "desc": "동영상도구",
-          "tag1": "剪辑",
+          "tag1": "편집",
           "tag2": "편집"
         },
         "live": {
@@ -16216,7 +16260,7 @@
           "title": "숫자명",
           "desc": "ai생성",
           "tag1": "숫자명",
-          "tag2": "虚拟形象"
+          "tag2": "가상 아바타"
         }
       }
     }
@@ -16254,7 +16298,7 @@
     "create": "생성",
     "edit": "편집",
     "name": "이름",
-    "mode": "模式",
+    "mode": "모드",
     "export": "내보내기",
     "import": "가져오기",
     "reset": "재설정기본",
@@ -16317,11 +16361,11 @@
   "themeTransition": {
     "title": "테마",
     "preview": "미리보기",
-    "presets": "预设效果",
+    "presets": "프리셋 효과",
     "customConfig": "사용자 정의",
     "type": "유형",
     "direction": "방향",
-    "speed": "速度",
+    "speed": "속도",
     "easing": "함수",
     "duration": "시간",
     "enableOverlay": "활성화마스크",
@@ -16330,10 +16374,10 @@
     "previewComplete": "미리보기완료",
     "types": {
       "fade": "입출",
-      "slide": "滑动",
+      "slide": "슬라이드",
       "zoom": "스케일",
-      "flip": "翻转",
-      "ripple": "波纹",
+      "flip": "플립",
+      "ripple": "리플",
       "none": "없음"
     },
     "directions": {
@@ -16349,8 +16393,8 @@
       "instant": "시간"
     },
     "easings": {
-      "bounce": "弹跳",
-      "smooth": "平滑",
+      "bounce": "바운스",
+      "smooth": "부드럽게",
       "swift": "빠른"
     },
     "playDemo": "데모 재생",
@@ -16390,7 +16434,7 @@
       "description": "까지로컬 데이터및끝Data중，선택해 주세요처리。",
       "keepLocal": "로컬 데이터버전",
       "useCloud": "애플사용끝버전",
-      "merge": "智能合并",
+      "merge": "스마트 병합",
       "mergeDesc": "에서선택최신",
       "thisDevice": "기기",
       "cloudBackup": "끝",
@@ -16466,7 +16510,7 @@
     "search": "검색설정...",
     "tabs": {
       "basic": "설정",
-      "presets": "预设관리",
+      "presets": "프리셋 관리",
       "schedule": "스케줄",
       "sync": "동기",
       "advanced": "고급옵션"
@@ -16484,7 +16528,7 @@
       "add": "추가계획",
       "label": "라벨",
       "time": "시간",
-      "mode": "模式",
+      "mode": "모드",
       "days": "무거움날짜",
       "nextSwitch": "하"
     },
@@ -16509,7 +16553,7 @@
       "announceChanges": "테마",
       "keyboardNav": "Key",
       "voiceControl": "음성",
-      "focusIndicator": "焦点指示器",
+      "focusIndicator": "포커스 표시기",
       "focusDefault": "기본",
       "focusHighContrast": "높은에게",
       "focusLarge": "대Size",
@@ -16618,7 +16662,7 @@
       "generateFailed": "generate실패",
       "tabs": {
         "template": "템플릿",
-        "script": "脚本",
+        "script": "스크립트",
         "style": "스타일",
         "documentation": "문서"
       }
@@ -16627,7 +16671,7 @@
       "title": "제목",
       "agentStatus": "에이전트상태",
       "taskPlanning": "작업",
-      "strategicLayer": "策略层",
+      "strategicLayer": "전략 계층",
       "tacticalLayer": "Tactical",
       "operationalLayer": "Operational",
       "reflectionResults": "회고 결과",
@@ -16670,7 +16714,7 @@
     "pleaseLogin": "로그인이 필요합니다",
     "pleaseInput": "내용을 입력하세요다시클릭전송",
     "allInOneExpert": "전체 전문가",
-    "pan": "平移",
+    "pan": "팬",
     "streamComplete": "스트림응답완료",
     "chatTitle": "채팅 {id}",
     "unlogged": "미로그인",
@@ -16772,16 +16816,16 @@
   },
   "chatMode": {
     "agentMode": "에이전트",
-    "normalMode": "常规模式",
+    "normalMode": "일반 모드",
     "enterAgentMode": "에이전트 진입",
     "exitAgentMode": "에이전트 종료"
   },
   "becomeSupplier": {
-    "title": "成为供应商",
+    "title": "공급업체 되기",
     "subtitle": "추가입나 네트워크，총긴",
     "benefits": {
       "market": {
-        "title": "广阔市场",
+        "title": "넓은 시장",
         "description": "입나 플랫폼，도달기업사용자"
       },
       "support": {
@@ -16808,7 +16852,7 @@
       "emailPlaceholder": "이메일을 입력하세요",
       "address": "회사주소",
       "addressPlaceholder": "입력해 주세요회사주소",
-      "business": "主营业务",
+      "business": "주요 사업",
       "businessPlaceholder": "설명회사",
       "intention": "향해",
       "intentionPlaceholder": "설명 향해및",
@@ -16831,7 +16875,7 @@
         "description": "승인후，나 팀예정및"
       },
       "signAgreement": {
-        "title": "签署약관",
+        "title": "약관 서명",
         "description": "이중확인，중"
       },
       "onlineDocking": {
@@ -16943,7 +16987,7 @@
     },
     "teamMembers": {
       "founder": {
-        "name": "李总",
+        "name": "이 대표",
         "role": "CTOCEO",
         "description": "ai 및시스템전문가，다중및，기술및플랫폼"
       }
@@ -16977,9 +17021,9 @@
     "description": "설명",
     "use": "사용",
     "platform": "플랫폼",
-    "performance": "表现",
-    "capability": "能力",
-    "callCount": "호출计数",
+    "performance": "성능",
+    "capability": "능력",
+    "callCount": "호출 수",
     "successCount": "성공",
     "avgLatency": "Avg지연",
     "templates": "템플릿",
@@ -17144,11 +17188,11 @@
     "hasAccount": "계정이 있습니다"
   },
   "designer": {
-    "mode": "模式",
+    "mode": "모드",
     "labels": {
-      "strategy": "设计策略",
+      "strategy": "디자인 전략",
       "audit": "검토",
-      "blueprint": "设计蓝图",
+      "blueprint": "디자인 청사진",
       "code": "코드"
     },
     "model": "모델",
@@ -17178,9 +17222,9 @@
       "generateFailed": "생성 실패"
     },
     "expect": {
-      "strategy": "设计策略",
+      "strategy": "디자인 전략",
       "audit": "검토",
-      "blueprint": "设计蓝图",
+      "blueprint": "디자인 청사진",
       "code": "코드"
     }
   },
@@ -17278,7 +17322,7 @@
     },
     "home": {
       "advantages": {
-        "title": "核心优势",
+        "title": "핵심 강점",
         "subtitle": "선택나 API서비스",
         "noProxy": "없음상",
         "noProxyDesc": "내，없음，켜짐",
@@ -17290,7 +17334,7 @@
         "fastConnectionDesc": "네트워크，초응답",
         "lowLatency": "낮은지연높은동시",
         "lowLatencyDesc": "높은동시요청，지연낮은까지100밀리초",
-        "payAsYouGo": "按量计费更经济",
+        "payAsYouGo": "종량제 과금으로 더 경제적",
         "payAsYouGoDesc": "애플사용，"
       },
       "quickStart": {
@@ -17361,7 +17405,7 @@
       "addHeader": "추가Header",
       "body": "요청시스템",
       "bodyPlaceholder": "입력해 주세요JSON 요청시스템",
-      "format": "格式化",
+      "format": "포맷",
       "responseTime": "응답시간",
       "responseBody": "ResponseBody",
       "responseHeaders": "ResponseHeaders"
@@ -17369,7 +17413,7 @@
     "groups": {
       "comparison": {
         "feature": "기능",
-        "scenarios": "适用장면",
+        "scenarios": "적용 시나리오",
         "recommendation": "선택",
         "recommendationText": "애플사용및선택 그룹유형。만Test애플사용，선택；애플사용，선택표준또는고급；기업앱，선택엔터프라이즈。"
       },
@@ -17445,8 +17489,8 @@
   },
   "apiDocs": {
     "nav": {
-      "overview": "概述",
-      "authentication": "身份认证",
+      "overview": "개요",
+      "authentication": "신원 인증",
       "endpoints": "API끝",
       "models": "사용 가능모델",
       "chatCompletions": "일전체",
@@ -17482,7 +17526,7 @@
     "stats": {
       "priceLabel": "/ year 표준가격",
       "earlyBirdLabel": "/ year",
-      "seatsLabel": "位早鸟名额"
+      "seatsLabel": "명 얼리버드"
     },
     "positioning": {
       "title": "ai시간기업서비스및",
@@ -17494,8 +17538,8 @@
         "description": "오프라인코스관리、활동및，깊은링크",
         "features": {
           "courses": "시스템코스관리",
-          "exploration": "实践探索",
-          "mutualAid": "社群互助"
+          "exploration": "실천 탐구",
+          "mutualAid": "커뮤니티 상호 지원"
         }
       },
       "onlineCommunity": {
@@ -17524,7 +17568,7 @@
       "title": "기업ai서비스경로및",
       "description": "에서까지Info， 기업",
       "physicalWorld": {
-        "title": "物理世界",
+        "title": "물리 세계",
         "structure": {
           "title": "조직",
           "description": "도움말기업조직，정의"
@@ -17544,7 +17588,7 @@
           "label": "초급Info",
           "items": {
             "informatization": "정보",
-            "iot": "物联网",
+            "iot": "사물인터넷",
             "automation": "에서"
           }
         },
@@ -17560,13 +17604,13 @@
       },
       "aiEffect": {
         "title": "ai",
-        "superEmployee": "超级员工",
+        "superEmployee": "슈퍼 직원",
         "superTeam": "팀",
         "superProduct": "상품 관리/서비스",
         "metrics": {
-          "cost": "成本优化",
-          "efficiency": "效率提升",
-          "experience": "体验업그레이드"
+          "cost": "비용 최적화",
+          "efficiency": "효율 향상",
+          "experience": "경험 업그레이드"
         }
       }
     },
@@ -17593,7 +17637,7 @@
           }
         },
         "decision": {
-          "title": "智慧顾问",
+          "title": "스마트 어드바이저",
           "description": "복잡 + 간단행，깊은분석및",
           "examples": {
             "analysis": "Data분석",
@@ -17675,12 +17719,12 @@
       "function": {
         "title": "에이전트",
         "sales": "마케팅상담원",
-        "production": "生产制造",
+        "production": "생산 제조",
         "rd": "새",
         "office": "오피스 협업"
       },
       "partners": {
-        "title": "生态合作伙伴"
+        "title": "생태계 파트너"
       }
     },
     "join": {
@@ -17688,7 +17732,7 @@
       "description": "및 기업월，ai시간 없음",
       "originalPrice": "원가",
       "earlyBird": "할인",
-      "currentPrice": "现价",
+      "currentPrice": "현재 가격",
       "perYear": "/ year",
       "seatsNote": "전18회원",
       "benefits": {
@@ -17707,7 +17751,7 @@
       "company": "ai",
       "location": "중 ·",
       "agentScenario": "에이전트",
-      "humanMachine": "명机协作",
+      "humanMachine": "인간-기계 협업",
       "contact": "문의하기"
     },
     "badgeNew": "New 배지",
@@ -17745,7 +17789,7 @@
     "overview": {
       "title": "에이전트",
       "description": "에이전트월도움말기업및ai에이전트앱 분석。통과작업행복잡및에서，예정에이전트앱분목，도움말기업에서선택 경로。",
-      "keyPoint": "核心洞察",
+      "keyPoint": "핵심 인사이트",
       "keyPointText": "아님 에이전트에게기술、Deployment및 아님。기업에서좌하（간단+간단행）시작，경험후다시향해기타。"
     },
     "axes": {
@@ -17761,7 +17805,7 @@
       }
     },
     "characteristics": {
-      "title": "特征"
+      "title": "특징"
     },
     "examples": {
       "title": "앱"
@@ -17816,7 +17860,7 @@
         "title": "행전문가 - 복잡행에이전트",
         "fullDescription": "에이전트 우하，에서낮은、하지만작업행복잡높은。사용자비，하지만완료작업다중시스템、다중API、행복잡 스트림。",
         "chars": {
-          "clearIntent": "意图明确",
+          "clearIntent": "명확한 의도",
           "multiStep": "다중단계스트림",
           "multiAPI": "다중API",
           "crossSystem": "시스템"
@@ -17861,11 +17905,11 @@
       "intro": "에이전트，나기업입 ai，에서간단시작，경험및。",
       "steps": {
         "identify": {
-          "title": "识别장면",
+          "title": "시나리오 식별",
           "desc": "스트림， ai앱，입행카테고리"
         },
         "evaluate": {
-          "title": "评估能力",
+          "title": "역량 평가",
           "desc": "기업전 기술、Data및조직"
         },
         "pilot": {
@@ -17873,7 +17917,7 @@
           "desc": "선택1-2간단입행，인증값경험"
         },
         "scale": {
-          "title": "规模扩展",
+          "title": "규모 확장",
           "desc": "경험，까지더보기및복잡"
         }
       }
@@ -17882,11 +17926,11 @@
       "title": "켜짐 ai에이전트",
       "description": "추가입ai，및프로월기업 에이전트경로",
       "learnMore": "기업서비스",
-      "contact": "联系顾问"
+      "contact": "어드바이저 문의"
     },
     "footer": {
       "enterprise": "기업서비스",
-      "humanMachine": "명机协作",
+      "humanMachine": "인간-기계 협업",
       "contact": "문의하기"
     }
   },
@@ -17895,7 +17939,7 @@
     "heroSubtitle": "에서까지Info， 기업。도움말기업ai시간 조직、스트림및값。",
     "architecture": {
       "physicalWorld": {
-        "title": "物理世界",
+        "title": "물리 세계",
         "description": "조직、스트림、"
       },
       "infoWorld": {
@@ -17904,7 +17948,7 @@
       },
       "superEnterprise": {
         "title": "기업",
-        "description": "명机协同的终极形态"
+        "description": "인간-기계 협업의 궁극적 형태"
       }
     },
     "physicalWorld": {
@@ -17914,8 +17958,8 @@
         "title": "조직",
         "description": "기업조직，정의및ai 꺼짐",
         "features": {
-          "mapping": "岗位能力映射",
-          "digital": "숫자员工定位",
+          "mapping": "직무 역량 매핑",
+          "digital": "디지털 직원 포지셔닝",
           "hybrid": "팀"
         }
       },
@@ -17940,8 +17984,8 @@
         "values": {
           "culture": "기업 문화",
           "mission": "시킴",
-          "critical": "批判性思维",
-          "humility": "谦卑态度"
+          "critical": "비판적 사고",
+          "humility": "겸손한 태도"
         }
       }
     },
@@ -17958,7 +18002,7 @@
             "desc": "Data 스토리지및"
           },
           "iot": {
-            "name": "物联网",
+            "name": "사물인터넷",
             "desc": "및 Connect"
           },
           "automation": {
@@ -17998,7 +18042,7 @@
         "description": "ai하 개인，모두",
         "features": {
           "productivity": "10",
-          "decision": "智能决策",
+          "decision": "스마트 의사결정",
           "creativity": "강함"
         }
       },
@@ -18007,7 +18051,7 @@
         "description": "팀높은 및강함대",
         "features": {
           "collaboration": "없음",
-          "intelligence": "集体智慧",
+          "intelligence": "집단 지성",
           "agility": "조직"
         }
       },
@@ -18015,18 +18059,18 @@
         "title": "상품 관리/서비스",
         "description": "ai드라이버 상품 관리및서비스전미 및",
         "features": {
-          "personalized": "极致개性化",
+          "personalized": "극강의 개인화",
           "intelligent": "에서",
           "iterative": "빠른반복"
         }
       },
       "metrics": {
-        "title": "效果衡量维度",
-        "cost": "成本优化",
+        "title": "효과 측정 차원",
+        "cost": "비용 최적화",
         "costDesc": "낮은，높은Resource",
-        "efficiency": "效率提升",
+        "efficiency": "효율 향상",
         "efficiencyDesc": "짧은스트림주기，높은출",
-        "experience": "体验업그레이드",
+        "experience": "경험 업그레이드",
         "experienceDesc": "및가득"
       }
     },
@@ -18035,11 +18079,11 @@
       "intro": "에서까지，도움말기업ai",
       "steps": {
         "assessment": {
-          "title": "现状评估",
+          "title": "현황 평가",
           "desc": "기업전 가로、ai앱및조직"
         },
         "planning": {
-          "title": "战略规划",
+          "title": "전략 기획",
           "desc": "ai，목표:、내및Resource"
         },
         "pilot": {
@@ -18047,11 +18091,11 @@
           "desc": "선택무거움입행，인증솔루션행경험"
         },
         "scale": {
-          "title": "规模프로모션",
+          "title": "규모 확대",
           "desc": "경험，까지더보기및"
         },
         "optimize": {
-          "title": "持续优化",
+          "title": "지속적 최적화",
           "desc": "개선，아님ai앱및조직"
         }
       }
@@ -18060,7 +18104,7 @@
       "title": "기업",
       "description": "추가입ai，및프로월기업 ai",
       "learnMore": "기업서비스",
-      "contact": "联系顾问"
+      "contact": "어드바이저 문의"
     },
     "footer": {
       "enterprise": "기업서비스",
@@ -18244,7 +18288,7 @@
       "agentNamePlaceholder": "agentName입력해 주세요",
       "descriptionPlaceholder": "설명입력해 주세요",
       "modelPlaceholder": "모델입력해 주세요",
-      "temperature": "温度",
+      "temperature": "온도",
       "toolsPlaceholder": "tools입력해 주세요",
       "toolsTip": "tools팁",
       "serverIdRequired": "serverId필수",
@@ -18448,13 +18492,13 @@
       "recording": {
         "animation": {
           "智汇 AI": "ai",
-          "提供": "提供",
+          "提供": "제공",
           "服务": "서비스",
           "点击": "클릭",
-          "麦克风": "麦克风",
+          "麦克风": "마이크",
           "图标": "아이콘",
           "完成": "완료",
-          "录音": "录音"
+          "录音": "녹음"
         }
       }
     },
@@ -18550,14 +18594,14 @@
       "scenario": {
         "应用象限": "앱",
         "企业已部署Q1": "기업이미DeploymentQ1",
-        "效率提升": "效率提升"
+        "效率提升": "효율 향상"
       }
     },
     "human": {
       "machine": {
         "collaboration": {
           "成本降低": "낮은",
-          "效率提升": "效率提升",
+          "效率提升": "효율 향상",
           "满意度": "가득"
         }
       }
@@ -18567,7 +18611,7 @@
     },
     "a_i_chat": {
       "voiceAud": "메시지 입력...",
-      "isAudioP1": "播放",
+      "isAudioP1": "재생",
       "删除2": "삭제"
     },
     "prompt_templates": {
@@ -18740,9 +18784,9 @@
     "a_i_chat": {
       "视频": "동영상",
       "图片1": "이미지",
-      "识别2": "识别",
+      "识别2": "인식",
       "语音3": "음성",
-      "音乐4": "音乐"
+      "音乐4": "음악"
     },
     "prompt_templates": {
       "通用": "범용",
@@ -18782,7 +18826,7 @@
       "团队协作": "팀",
       "优先体验新功能13": "새기능",
       "专属技术支持": "기술",
-      "定制化配置": "定制化구성",
+      "定制化配置": "맞춤형 구성",
       "高级数据分析": "고급Data분석",
       "无限Token使14": "없음Token애플사용",
       "全部AI模型访问": "전체ai모델",
@@ -18823,9 +18867,9 @@
       "默认": "기본",
       "默认1": "기본",
       "微软雅黑2": "부드러움",
-      "宋体3": "宋体",
-      "黑体4": "黑体",
-      "楷体5": "楷体"
+      "宋体3": "송체",
+      "黑体4": "흑체",
+      "楷体5": "해서체"
     },
     "universal_third_party_auth": {
       "Google登录": "Google 로그인로그인",
@@ -18837,8 +18881,8 @@
     },
     "about": {
       "张明远": "먼",
-      "李思涵1": "李思涵",
-      "王晓峰2": "王晓峰"
+      "李思涵1": "리쓰한",
+      "王晓峰2": "왕샤오펑"
     },
     "agents_create": {
       "AI助手": "ai"
@@ -18863,23 +18907,23 @@
       "AI专业服务9": "ai프로서비스",
       "专业大模型与智能10": "프로대모델및에이전트서비스",
       "首页11": "홈",
-      "定位12": "定位",
+      "定位12": "포지셔닝",
       "服务13": "서비스",
-      "架构14": "架构",
-      "罗盘15": "罗盘",
+      "架构14": "아키텍처",
+      "罗盘15": "나침반",
       "课程16": "코스관리",
       "工具17": "도구",
       "加入18": "추가입",
       "AI工具课程19": "ai도구코스관리",
       "思维类课程20": "코스관리",
       "文化类课程21": "코스관리",
-      "火山引擎22": "火山引擎",
+      "火山引擎22": "화산 엔진",
       "阿里云23": "내",
-      "腾讯云24": "腾讯云",
-      "九章智算云25": "9章智算云",
+      "腾讯云24": "텐센트 클라우드",
+      "九章智算云25": "구장 지산운",
       "致远互联26": "먼",
-      "百度智能云27": "百度智能云",
-      "华为云28": "华为云",
+      "百度智能云27": "바이두 스마트 클라우드",
+      "华为云28": "화웨이 클라우드",
       "httpswei29": "https://weixin.qq.com/ai",
       "企业服务30": "기업서비스"
     },
@@ -18918,13 +18962,13 @@
       "K12在线教育31": "K12 온라인",
       "新员工入职培训32": "새입",
       "专业知识博主33": "프로",
-      "职业资格认证34": "직업资格认证",
+      "职业资格认证34": "직업 자격 인증",
       "LangChai35": "LangChain",
       "阿里云36": "내",
       "AI助教37": "ai",
       "AI知识库38": "ai",
       "AI写作39": "ai 작문",
-      "智能组卷40": "智能组卷"
+      "智能组卷40": "스마트 문제 생성"
     },
     "open_platform": {
       "系统吞吐量REQ": "시스템 (REQS)",
@@ -18936,7 +18980,7 @@
       "图文建模6": "텍스트 이미지 모델링",
       "文书比对7": "에게",
       "phrase2": "Agentic",
-      "phrase3": "工业级智能化",
+      "phrase3": "산업급 지능화",
       "phrase4": "전체모달처리",
       "pricingFeaturesTitle": "기능",
       "planFreeFeature1": "가입값， API",
@@ -18962,7 +19006,7 @@
       "planEnterpriseFeature5": "켜짐및Training support",
       "planEnterpriseFeature6": "및보안",
       "planPriceStandard": "¥9,999 year",
-      "planPriceEnterprise": "联系报价",
+      "planPriceEnterprise": "견적 문의",
       "advantagesTitle": "상품 관리전체및",
       "advantagesSubtitle": "다중끝월 · 후끝이중 · 켜짐",
       "advantagesIntro": "오픈플랫폼월다중끝월、전후끝분 ai 켜짐，전끝、Java/FastAPI 후끝및 UniApp 다중끝앱，기업화켜짐및비공개Deployment。",
@@ -18976,7 +19020,7 @@
       "advantagesModulesItem2": "기술및 API ：Swarm 、전체문서、다중모달、오디오、업무스트림（n8n/Dify）、보기",
       "advantagesModulesItem3": "에이전트및：Agent 、MCP 、다중언어 SDK（Python/Node/Go/Rust/Java）、및",
       "advantagesModulesItem4": "및사용자：VIP 주의소/주문、결제（WeChat/알리페이）、타사 로그인、다중끝기기및세션 관리",
-      "advantagesHighlightsTitle": "核心优势",
+      "advantagesHighlightsTitle": "핵심 강점",
       "advantagesHighlight1": "다중끝월：PC + WeChat/알리페이미니 프로그램 + H5 + APP + Electron， Web 및이동",
       "advantagesHighlight2": "후끝이중：Java 、Python 강함 ai，분、및Deployment",
       "advantagesHighlight3": "반켜짐：전끝및오픈 API ，및화켜짐",
@@ -19027,7 +19071,7 @@
       "智汇 AI获得A轮16": "aiA，추가상품 관리및"
     },
     "apple_login": {
-      "正在跳转": "正在跳转",
+      "正在跳转": "리디렉션 중",
       "登录成功1": "로그인 성공",
       "登录失败2": "로그인 실패",
       "登录失败3": "로그인 실패",
@@ -19037,7 +19081,7 @@
       "正在验证": "인증",
       "登录成功1": "로그인 성공",
       "登录失败2": "로그인 실패",
-      "正在跳转3": "正在跳转",
+      "正在跳转3": "리디렉션 중",
       "登录成功4": "로그인 성공",
       "登录失败5": "로그인 실패",
       "登录失败6": "로그인 실패",
@@ -19075,9 +19119,9 @@
       "用户中心18": "생각사용게 센마음",
       "系统设置19": "시스템 설정",
       "搜索服务20": "검색서비스",
-      "访问追踪21": "访问追踪",
+      "访问追踪21": "방문 추적",
       "AI智能助手22": "ai",
-      "知识图谱23": "知识图谱",
+      "知识图谱23": "지식 그래프",
       "AI内容生成24": "AI 콘텐츠 생성",
       "智能分析25": "분석",
       "语音交互26": "음성",
@@ -19091,7 +19135,7 @@
       "完整技术文档34": "기술문서",
       "999可用性35": "99.9% 사용 가능",
       "AI平台白皮书36": "ai 플랫폼",
-      "客户案例集37": "客户案例集",
+      "客户案例集37": "고객 사례집",
       "技术架构文档38": "기술문서",
       "产品演示视频39": "상품 관리데모동영상",
       "AI智能教学平台40": "ai 플랫폼",
@@ -19102,7 +19146,7 @@
       "身份认证安全45": "보안",
       "接口访问控制46": "엔드포인트",
       "日志审计追踪47": "로그",
-      "防攻击防护48": "防攻击防护",
+      "防攻击防护48": "공격 방어",
       "数据备份恢复49": "Data복원"
     },
     "open_platform": {
@@ -19110,7 +19154,7 @@
       "集群分发1": "분",
       "深度协作2": "깊은",
       "质量回溯3": "돌아",
-      "智能金融风控10": "智能金融风控",
+      "智能金融风控10": "스마트 금융 리스크 관리",
       "电商全链路闭环11": "전체",
       "法律文档审计12": "문서",
       "数据看板13": "Data보기",
@@ -19122,7 +19166,7 @@
       "文件管理22": "파일 관리",
       "权限管理23": "권한관리",
       "审计日志24": "감사로그",
-      "管理控制台19": "관리控制台",
+      "管理控制台19": "관리 콘솔",
       "工作流商店20": "업무스트림",
       "GitHub仓库21": "GitHub"
     },
@@ -19167,7 +19211,7 @@
       "扣子图标": "아이콘",
       "百宝箱logo1": "로고",
       "品牌图标2": "아이콘",
-      "智谱清言3": "智谱清言",
+      "智谱清言3": "즈푸 칭옌",
       "品牌84": "8"
     },
     "api_test_page": {
@@ -19754,7 +19798,7 @@
       "缺少必要参数1": "매개변수1",
       "缺少必要参数2": "매개변수2",
       "缺少必要参数3": "매개변수3",
-      "缺少访问令牌": "缺少访问令牌",
+      "缺少访问令牌": "액세스 토큰 누락",
       "缺少访问令牌1": "1",
       "设备未连接6": "기기연결되지 않음6",
       "设备未配对5": "기기미에게5",
@@ -19809,7 +19853,7 @@
       "缺少必要参数3": "매개변수",
       "缺少必要参数4": "매개변수",
       "缺少必要参数5": "매개변수",
-      "缺少必要的配置1": "缺少必要的구성"
+      "缺少必要的配置1": "필수 구성 누락"
     },
     "file_service": {
       "下载失败": "다운로드 실패"
@@ -20003,7 +20047,7 @@
     },
     "use_notification_center": {
       "重试": "다시 시도",
-      "忽略1": "忽略"
+      "忽略1": "무시"
     },
     "use_user_settings": {
       "未命名对话": "이름 없음채팅"
@@ -20020,7 +20064,7 @@
       "享受更快的响应速3": "빠른 응답",
       "专属模型4": "모델",
       "访问最新最强的A5": "최신강함 ai모델",
-      "专属福利6": "专属福利",
+      "专属福利6": "전용 혜택",
       "丰富的会员专属福7": "회원",
       "专属客服8": "전담 지원",
       "724小时专属客9": "7×24소시간전담 지원",
@@ -20052,7 +20096,7 @@
       "自定义模型": "사용자 정의모델",
       "团队协作": "팀",
       "数据导出": "데이터 내보내기",
-      "专属顾问": "专属顾问",
+      "专属顾问": "전담 어드바이저",
       "全部AI工具": "전체ai도구",
       "企业模板库": "기업템플릿",
       "无限文件上传": "없음파일업로드",
@@ -20064,21 +20108,21 @@
     "ai_toolbox": {
       "title": "ai 도구",
       "返回对话": "뒤로채팅",
-      "记忆": "记忆",
+      "记忆": "메모리",
       "知识存储": "스토리지",
       "语音": "음성",
       "语音对话": "음성채팅",
-      "画布": "画布",
+      "画布": "캔버스",
       "可视化设计": "비주얼 디자인",
       "技能": "스킬",
-      "能力扩展": "能力扩展",
+      "能力扩展": "능력 확장",
       "浏览器": "찾아보기",
       "网页自动化": "에서",
       "自动化": "에서",
       "定时任务": "Schedule작업",
       "模型": "모델",
       "AI模型切换": "ai모델",
-      "集成": "集成",
+      "集成": "통합",
       "第三方服务": "수서비스",
       "仪表板": "대시보드",
       "总览与数据": "개요및Data",
@@ -20111,8 +20155,8 @@
       "常见问题15": "게주의 묻는 질문",
       "快速开始16": "빠른시작",
       "开发者平台介绍17": "개발게 관리",
-      "环境配置18": "环境구성",
-      "身份认证19": "身份认证",
+      "环境配置18": "환경 구성",
+      "身份认证19": "신원 인증",
       "API文档20": "API문서",
       "API概览21": "API개요",
       "对话API22": "채팅API",
@@ -20127,7 +20171,7 @@
       "OAuth集成31": "OAuth",
       "第三方登录32": "타사 로그인",
       "最佳实践33": "모범 사례",
-      "故障排查34": "故障排查"
+      "故障排查34": "트러블슈팅"
     },
     "swagger_endpoints": {
       "AI程序模块包含1": "ai 프로그램모듈 - 에이전트、사용자、주문등",
@@ -20192,7 +20236,7 @@
       "是否只预览不应用13": "아니오만미리보기아님앱",
       "是否等待响应41": "아니오등응답",
       "最大Token数4": "대Token",
-      "格式20": "格式",
+      "格式20": "형식",
       "消息ID48": "메시지ID",
       "消息内容39": "메시지내용",
       "温度参数8": "매개변수",
@@ -20200,10 +20244,10 @@
       "目标AgentI38": "목표:AgentI",
       "目标文件路径12": "목표:파일 경로",
       "系统提示词7": "시스템프롬프트",
-      "纬度34": "纬度",
-      "经度35": "经度",
+      "纬度34": "위도",
+      "经度35": "경도",
       "获取或设置地理位31": "또는설정",
-      "表情符号49": "表情符号",
+      "表情符号49": "이모티콘",
       "要执行的命令15": "행",
       "要执行的子任务描1": "행 작업",
       "语音消息TTS26": "음성메시지TTS",
@@ -20280,8 +20324,8 @@
       "重试": "다시 시도"
     },
     "plot_advisor_service": {
-      "温馨的咖啡厅阳光1": "温馨的咖啡厅阳光",
-      "现代化的办公室繁2": "现代化的오피스室繁",
+      "温馨的咖啡厅阳光1": "아늑한 카페의 햇살",
+      "现代化的办公室繁2": "현대적인 오피스",
       "繁华的城市街道人": "도시"
     },
     "error_handler": {
@@ -20337,7 +20381,7 @@
       "title": "구매",
       "orderNo": "주의문번호",
       "viewDetails": "보기상세",
-      "applyInvoice": "申请청구서",
+      "applyInvoice": "청구서 신청",
       "empty": "없음구매",
       "status": {
         "completed": "완료됨",
@@ -20403,7 +20447,7 @@
       "themeDesc": "선택 면테마",
       "notifications": "알림",
       "notificationsDesc": "수신시스템및활동알림",
-      "soundEffects": "音效",
+      "soundEffects": "효과음",
       "soundEffectsDesc": "켜짐또는닫기면"
     },
     "privacy": {
@@ -20567,7 +20611,7 @@
       "typeOther": "기타",
       "detail": "상세",
       "process": "처리",
-      "resolve": "解决",
+      "resolve": "해결",
       "close": "닫기",
       "detailTitle": "피드백상세",
       "labelId": "피드백ID",
@@ -20577,7 +20621,7 @@
       "labelPriority": "우선순위",
       "labelCreatedAt": "생성 시간",
       "labelContent": "내용",
-      "screenshots": "截图",
+      "screenshots": "스크린샷",
       "colUser": "사용자",
       "colContent": "내용",
       "colPriority": "우선순위",
@@ -20648,7 +20692,7 @@
       "colType": "유형",
       "colPrice": "가격",
       "colStock": "재고",
-      "colSales": "销量",
+      "colSales": "판매량",
       "colCreatedAt": "생성 시간",
       "onShelfSuccess": "게시됨",
       "offShelfSuccess": "게시 중단",
@@ -20669,7 +20713,7 @@
     "rejected": "거절",
     "purchaseStats": "구매통계",
     "totalPurchases": "구매",
-    "totalRevenue": "总매출",
+    "totalRevenue": "총 매출",
     "uniqueBuyers": "월구매",
     "uniqueAgents": "월에이전트",
     "settlementStats": "정산통계",
@@ -20696,8 +20740,8 @@
     "pageRange": "범위",
     "copies": "인쇄",
     "duplex": "이중면인쇄",
-    "header": "페이지眉",
-    "footer": "페이지脚"
+    "header": "머리말",
+    "footer": "꼬리말"
   },
   "grayRelease": {
     "ongoing": "진행 중게시",
@@ -20871,7 +20915,7 @@
     "agree": "내완료채점읽음동시함께의"
   },
   "keyManagement": {
-    "title": "密钥관리",
+    "title": "키 관리",
     "tip": "저장，표시월。",
     "createdTitle": "API Key 이미생성",
     "iKnow": "나",
@@ -20934,7 +20978,7 @@
   },
   "unifiedQr": {
     "loginRequired": "로그인",
-    "auth": "认证",
+    "auth": "인증",
     "qrFailed": "생성화실패：후끝서비스，엔드포인트아님로그인",
     "needLoginFirst": "먼저 로그인해 주세요"
   },
@@ -21215,7 +21259,7 @@
     "addCharDesc": "（설명）",
     "coherent": "및상월및，에서，월",
     "transition": "전환",
-    "sceneTransition": "转场",
+    "sceneTransition": "전환",
     "confirmCharContinue": "확인역할아니오후출",
     "editor": {
       "title": "숏드라마 에디터",
@@ -21259,12 +21303,12 @@
   },
   "unifiedViewer": {
     "cadFile": "CAD파일",
-    "format": "格式",
+    "format": "형식",
     "cadHint": "추천애플사용 AutoCAD 또는 FreeCAD 열기",
     "archiveFile": "파일",
     "loading": "로딩 중...",
     "notSupport": "아님미리보기파일 유형",
-    "extension": "扩展名",
+    "extension": "확장자",
     "mimeType": "MIME유형",
     "fullscreen": "전체",
     "download": "다운로드",
@@ -21437,15 +21481,15 @@
   },
   "viewerModel3DViewer": {
     "model3dFile": "3D모델파일",
-    "format": "格式",
-    "supportedFormat": "支持格式",
+    "format": "형식",
+    "supportedFormat": "지원 형식",
     "useBlenderHint": "추천애플사용 Blender 또는온라인보기열기"
   },
   "featureCallback": {
     "expired": "만료",
     "verifyFailed": "인증실패",
-    "missing": "缺少",
-    "attack": "攻击"
+    "missing": "누락",
+    "attack": "공격"
   },
   "DistributionCenter": {
     "copyImage": "복사이미지",
@@ -21676,9 +21720,9 @@
   },
   "viewerMediaViewer": {
     "mediaLoadFailed": "로딩 실패",
-    "playSpeed": "播放速度",
+    "playSpeed": "재생 속도",
     "loop": "루프",
-    "mute": "静音",
+    "mute": "음소거",
     "download": "다운로드"
   },
   "featureGoogleLogin": {
@@ -21793,7 +21837,7 @@
       "title": "프로젝트Info",
       "projectName": "프로젝트 이름",
       "version": "버전",
-      "license": "许可证",
+      "license": "라이선스",
       "node": "Node 버전",
       "description": "설명"
     },
@@ -21863,7 +21907,7 @@
     "success": "성공",
     "time": "시간",
     "title": "작업 로그",
-    "totalLogs": "总기록数",
+    "totalLogs": "총 로그 수",
     "userId": "사용자 ID"
   },
   "cacheDashboard": {
@@ -22147,8 +22191,8 @@
       "warning": "경고"
     },
     "anomalyTypes": {
-      "spike": "激增",
-      "drop": "骤降",
+      "spike": "급증",
+      "drop": "급락",
       "trend_change": "트렌드",
       "outlier": "비정상값"
     },
@@ -22274,7 +22318,7 @@
     "retryFailed": "다시 시도실패",
     "updating": "업데이트",
     "failed": "실패",
-    "items": "条",
+    "items": "개",
     "canRetryHint": "클릭\"다시 시도실패\"무거움새업데이트",
     "label": {
       "activityId": "활동ID",
@@ -22285,7 +22329,7 @@
       "category": "카테고리",
       "completed": "완료됨",
       "description": "설명",
-      "design": "设计",
+      "design": "디자인",
       "device": "기기",
       "disabled": "비활성화됨",
       "draft": "초안",
@@ -22315,7 +22359,7 @@
       "autoPromote": "에서",
       "byDevice": "기기",
       "byPercentage": "분",
-      "byRegion": "按地区",
+      "byRegion": "지역별",
       "byUserGroup": "사용자",
       "completionThreshold": "완료값",
       "currentPhase": "전단계",
@@ -22375,7 +22419,7 @@
       "neverTriggered": "에서미트리거",
       "normal": "정상",
       "occurrenceTime": "시간",
-      "officialSite": "官网",
+      "officialSite": "공식 사이트",
       "officialUrl": "링크",
       "page": "면",
       "pageUrl": "면링크",
@@ -22392,7 +22436,7 @@
       "retryCount": "다시 시도",
       "retryInterval": "다시 시도간",
       "retryStrategy": "다시 시도",
-      "section": "板块",
+      "section": "섹션",
       "sequential": "직렬",
       "sessionId": "ID",
       "shortDesc": "짧은설명",
@@ -22411,7 +22455,7 @@
       "title": "제목",
       "totalEarnings": "총 수익",
       "transactions": "거래 기록",
-      "unfreeze": "解冻",
+      "unfreeze": "해동",
       "updatedAt": "업데이트시간",
       "userAgent": "사용자",
       "userId": "사용자 ID"
@@ -22528,7 +22572,7 @@
       "moduleNameFeedback": "피드백 관리",
       "moduleNameOrders": "주의문관리",
       "moduleNameProducts": "상품 관리",
-      "moduleNamePromotion": "促销관리",
+      "moduleNamePromotion": "프로모션 관리",
       "moduleNameSettings": "시스템 설정",
       "moduleNameTool": "도구",
       "moduleNameUsers": "사용자 관리",
@@ -22586,9 +22630,9 @@
       "title": "백엔드 상태 확인",
       "status": "상태",
       "overallStatus": "상태",
-      "healthy": "健康",
+      "healthy": "정상",
       "unhealthy": "아님",
-      "degraded": "降级",
+      "degraded": "성능 저하",
       "normal": "정상",
       "abnormal": "비정상",
       "database": "Data",
@@ -22794,7 +22838,7 @@
     "modules": "모듈",
     "subscribed": "이미구독",
     "subscribe": "구독",
-    "slope": "斜率",
+    "slope": "기울기",
     "method": "메서드",
     "subscribeReport": "구독",
     "loadFailed": "로딩 실패",
@@ -22835,8 +22879,8 @@
     "filterOrder": "주문",
     "filterSystem": "시스템",
     "noActivity": "활동 없음",
-    "envProduction": "生产环境",
-    "envStaging": "预发环境",
+    "envProduction": "프로덕션 환경",
+    "envStaging": "스테이징 환경",
     "envDevelopment": "켜짐",
     "weekSun": "일",
     "weekMon": "월",
@@ -22858,7 +22902,7 @@
     "statUsers": "총생각사용게역량",
     "statOrders": "주문 수",
     "statRevenue": "매출",
-    "statConversations": "会话数",
+    "statConversations": "세션 수",
     "statDau": "일",
     "statTickets": "단일",
     "unitOrder": "단일",
@@ -22880,8 +22924,8 @@
     "statusStorage": "스토리지",
     "statusSearch": "검색서비스",
     "statusNormal": "정상",
-    "statusBusy": "繁忙",
-    "statusDegraded": "降级",
+    "statusBusy": "사용량 많음",
+    "statusDegraded": "성능 저하",
     "statusApiDetail": "응답시간 45밀리초",
     "statusDbDetail": "Connect 128/500",
     "statusCacheDetail": "중 96.8%",
@@ -22955,7 +22999,7 @@
     "typeRefund": "환불",
     "typeAgent": "에이전트",
     "typeMarketing": "마케팅",
-    "typeSite": "站点",
+    "typeSite": "사이트",
     "typeOther": "기타",
     "detailTitle": "알림상세",
     "loadFailed": "로딩 실패",
@@ -23053,7 +23097,7 @@
     "featuredArticles": "선택",
     "pageDesc": "깊은좋음 · 실전경험 · 행",
     "top": "고정됨",
-    "essence": "精",
+    "essence": "정선",
     "anonymous": "익명",
     "read": "읽음가져오기",
     "like": "좋아요",
@@ -23122,7 +23166,7 @@
     "enterpriseUnit": "기업단일",
     "freeDownload": "무료다운로드",
     "industryGrade": "행",
-    "labGradeSpecs": "实验室级规格",
+    "labGradeSpecs": "연구실급 사양",
     "learnMore": "더보기",
     "microservices": "서비스",
     "microservicesName": "서비스이름",
@@ -23174,14 +23218,14 @@
     "标准版": "표준",
     "核心能力对比矩阵": "에게",
     "深度整合主流AI大模": "깊은스트림ai대",
-    "用": "用",
+    "用": "용도",
     "用AI重新定义每一个": "ai무거움새정의월",
     "申请商业授权": "승인",
     "电话": "전화",
     "痛点": "페인포인트",
     "立即体验AI能力获取": "ai",
     "等各行业实现智能化转": "등행",
-    "能力项": "能力项",
+    "能力项": "역량 항목",
     "荣誉资质": "수상 자격",
     "获取解决方案": "솔루션",
     "解答您关心的问题": "꺼짐 Question",
