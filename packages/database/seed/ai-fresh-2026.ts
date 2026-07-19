@@ -6,6 +6,7 @@ import { newsCategories, newsArticles } from '../src/schema/news.js'
 import { askCategories } from '../src/schema/ask-extra.js'
 import { asks, circles } from '../src/schema/community.js'
 import { resources, resourceCategories } from '../src/schema/resource.js'
+import { upsertByUnique } from './_utils/upsert-by-unique.js'
 
 const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui')
 
@@ -84,15 +85,13 @@ async function seedLive() {
   ]
   const lectMap: Record<string, string> = {}
   for (const l of lecturers) {
-    const [ex] = await db.select().from(liveLecturers).where(eq(liveLecturers.name, l.name))
-    if (ex) lectMap[l.name] = ex.id
-    else {
-      const [ins] = await db
-        .insert(liveLecturers)
-        .values({ ...l, status: 1 })
-        .returning({ id: liveLecturers.id })
-      lectMap[l.name] = ins.id
-    }
+    // R82 升级:upsertByUnique 替代 if (ex) ... else insert,返回 id 直接写入 map
+    const { id } = await upsertByUnique(db, {
+      table: liveLecturers,
+      uniqueBy: { column: liveLecturers.name, value: l.name },
+      insertValues: { ...l, status: 1 },
+    })
+    lectMap[l.name] = String(id)
   }
 
   // 3. 直播频道(2026-07 真实热点)
@@ -207,23 +206,27 @@ async function seedLive() {
 
   let count = 0
   for (const ch of channels) {
-    const [ex] = await db.select().from(liveChannels).where(eq(liveChannels.title, ch.title))
-    if (ex) continue
-    await db.insert(liveChannels).values({
-      title: ch.title,
-      coverImage: ch.cover,
-      intro: ch.intro,
-      categoryId: catMap[ch.category] ?? null,
-      lecturerId: lectMap[ch.lecturer] ?? null,
-      lecturerName: ch.lecturer,
-      isLive: ch.isLive,
-      isPublished: true,
-      viewCount: Math.floor(Math.random() * 5000) + 500,
-      sort: ch.sort,
-      status: 1,
-      startTime: new Date(Date.now() - Math.random() * 30 * 86400 * 1000),
+    // R82 升级:onConflictDoNothing 替代 if (ex) continue,基于 live_channels_title_uniq 唯一索引
+    const { id, action } = await upsertByUnique(db, {
+      table: liveChannels,
+      uniqueBy: { column: liveChannels.title, value: ch.title },
+      insertValues: {
+        title: ch.title,
+        coverImage: ch.cover,
+        intro: ch.intro,
+        categoryId: catMap[ch.category] ?? null,
+        lecturerId: lectMap[ch.lecturer] ?? null,
+        lecturerName: ch.lecturer,
+        isLive: ch.isLive,
+        isPublished: true,
+        viewCount: Math.floor(Math.random() * 5000) + 500,
+        sort: ch.sort,
+        status: 1,
+        startTime: new Date(Date.now() - Math.random() * 30 * 86400 * 1000),
+      },
     })
-    count++
+    if (action === 'inserted') count++
+    void id
   }
   console.info(`[直播] 完成,新增 ${count} 条`)
 }
@@ -240,15 +243,13 @@ async function seedExam() {
   ]
   const catMap: Record<string, string> = {}
   for (const c of cats) {
-    const [ex] = await db.select().from(examCategories).where(eq(examCategories.name, c.name))
-    if (ex) catMap[c.name] = ex.id
-    else {
-      const [ins] = await db
-        .insert(examCategories)
-        .values({ name: c.name, sort: c.sort, status: 1 })
-        .returning({ id: examCategories.id })
-      catMap[c.name] = ins.id
-    }
+    // R82 升级:upsertByUnique 替代 if (ex) ... else insert
+    const { id } = await upsertByUnique(db, {
+      table: examCategories,
+      uniqueBy: { column: examCategories.name, value: c.name },
+      insertValues: { name: c.name, sort: c.sort, status: 1 },
+    })
+    catMap[c.name] = String(id)
   }
 
   // 2. 试卷(基于真实 2026-07 热点)
@@ -454,45 +455,44 @@ async function seedExam() {
   let paperCount = 0
   let questionCount = 0
   for (const p of papers) {
-    const [ex] = await db.select().from(examPapers).where(eq(examPapers.title, p.title))
-    let paperId: string
-    if (ex) {
-      paperId = ex.id
-    } else {
-      const [ins] = await db
-        .insert(examPapers)
-        .values({
-          title: p.title,
-          description: p.description,
-          categoryId: catMap[p.category] ?? null,
-          totalScore: String(p.questions.reduce((s, q) => s + Number(q.score), 0)),
-          passScore: '60',
-          duration: p.duration,
-          isPublished: true,
-          difficulty: p.difficulty,
-          questionCount: p.questions.length,
-          status: 1,
-        })
-        .returning({ id: examPapers.id })
-      paperId = ins.id
-      paperCount++
-    }
+    // R82 升级:upsertByUnique 替代 if (ex) ... else insert
+    const { id: paperId, action: paperAction } = await upsertByUnique(db, {
+      table: examPapers,
+      uniqueBy: { column: examPapers.title, value: p.title },
+      insertValues: {
+        title: p.title,
+        description: p.description,
+        categoryId: catMap[p.category] ?? null,
+        totalScore: String(p.questions.reduce((s, q) => s + Number(q.score), 0)),
+        passScore: '60',
+        duration: p.duration,
+        isPublished: true,
+        difficulty: p.difficulty,
+        questionCount: p.questions.length,
+        status: 1,
+      },
+    })
+    if (paperAction === 'inserted') paperCount++
     for (let i = 0; i < p.questions.length; i++) {
       const q = p.questions[i]
-      const [qex] = await db.select().from(examQuestions).where(eq(examQuestions.title, q.title))
-      if (qex) continue
-      await db.insert(examQuestions).values({
-        paperId,
-        type: q.type,
-        title: q.title,
-        options: q.options,
-        answer: q.answer,
-        analysis: q.analysis,
-        score: q.score,
-        difficulty: p.difficulty,
-        sortOrder: i + 1,
+      // R82 升级:upsertByUnique 替代 if (qex) continue
+      const { id: qId, action: qAction } = await upsertByUnique(db, {
+        table: examQuestions,
+        uniqueBy: { column: examQuestions.title, value: q.title },
+        insertValues: {
+          paperId: String(paperId),
+          type: q.type,
+          title: q.title,
+          options: q.options,
+          answer: q.answer,
+          analysis: q.analysis,
+          score: q.score,
+          difficulty: p.difficulty,
+          sortOrder: i + 1,
+        },
       })
-      questionCount++
+      if (qAction === 'inserted') questionCount++
+      void qId
     }
   }
   console.info(`[考试] 完成,新增 ${paperCount} 张试卷 / ${questionCount} 道题`)
@@ -509,15 +509,13 @@ async function seedNews() {
   ]
   const catMap: Record<string, string> = {}
   for (const c of cats) {
-    const [ex] = await db.select().from(newsCategories).where(eq(newsCategories.name, c.name))
-    if (ex) catMap[c.name] = ex.id
-    else {
-      const [ins] = await db
-        .insert(newsCategories)
-        .values({ name: c.name, sort: c.sort, status: 1 })
-        .returning({ id: newsCategories.id })
-      catMap[c.name] = ins.id
-    }
+    // R82 升级:upsertByUnique 替代 if (ex) ... else insert
+    const { id } = await upsertByUnique(db, {
+      table: newsCategories,
+      uniqueBy: { column: newsCategories.name, value: c.name },
+      insertValues: { name: c.name, sort: c.sort, status: 1 },
+    })
+    catMap[c.name] = String(id)
   }
 
   const articles = [
@@ -1075,23 +1073,27 @@ LinkedIn 报告同时指出,**AI 工程师将可能是十年内需求最高的�
 
   let count = 0
   for (const a of articles) {
-    const [ex] = await db.select().from(newsArticles).where(eq(newsArticles.title, a.title))
-    if (ex) continue
-    await db.insert(newsArticles).values({
-      title: a.title,
-      summary: a.summary,
-      content: a.content,
-      coverImage: a.cover,
-      categoryId: catMap[a.category] ?? null,
-      authorName: a.author,
-      isPublished: true,
-      isPinned: a.isPinned,
-      viewCount: Math.floor(Math.random() * 10000) + 1000,
-      sort: a.sort,
-      status: 1,
-      publishedAt: new Date(),
+    // R82 升级:onConflictDoNothing 替代 if (ex) continue,基于 news_articles_title_uniq 唯一索引
+    const { id, action } = await upsertByUnique(db, {
+      table: newsArticles,
+      uniqueBy: { column: newsArticles.title, value: a.title },
+      insertValues: {
+        title: a.title,
+        summary: a.summary,
+        content: a.content,
+        coverImage: a.cover,
+        categoryId: catMap[a.category] ?? null,
+        authorName: a.author,
+        isPublished: true,
+        isPinned: a.isPinned,
+        viewCount: Math.floor(Math.random() * 10000) + 1000,
+        sort: a.sort,
+        status: 1,
+        publishedAt: new Date(),
+      },
     })
-    count++
+    if (action === 'inserted') count++
+    void id
   }
   console.info(`[资讯/文章] 完成,新增 ${count} 条`)
 }
@@ -1108,15 +1110,19 @@ async function seedAsks() {
   ]
   const catMap: Record<string, string> = {}
   for (const c of cats) {
-    const [ex] = await db.select().from(askCategories).where(eq(askCategories.name, c.name))
-    if (ex) catMap[c.name] = ex.id
-    else {
-      const [ins] = await db
-        .insert(askCategories)
-        .values({ name: c.name, sortOrder: c.sort, isShow: true, isShowIndex: c.show, level: 1 })
-        .returning({ id: askCategories.id })
-      catMap[c.name] = ins.id
-    }
+    // R82 升级:upsertByUnique 替代 if (ex) ... else insert
+    const { id } = await upsertByUnique(db, {
+      table: askCategories,
+      uniqueBy: { column: askCategories.name, value: c.name },
+      insertValues: {
+        name: c.name,
+        sortOrder: c.sort,
+        isShow: true,
+        isShowIndex: c.show,
+        level: 1,
+      },
+    })
+    catMap[c.name] = String(id)
   }
 
   // 2. 用户(问答需要 userId 引用)。查 admin 用户
@@ -1258,20 +1264,24 @@ async function seedAsks() {
 
   let count = 0
   for (const q of questions) {
-    const [ex] = await db.select().from(asks).where(eq(asks.title, q.title))
-    if (ex) continue
-    await db.insert(asks).values({
-      userId,
-      title: q.title,
-      content: q.content,
-      tags: q.tags,
-      viewCount: Math.floor(Math.random() * 3000) + 200,
-      answerCount: q.answers,
-      likeCount: Math.floor(Math.random() * 100) + 5,
-      isResolved: q.isResolved,
-      status: 1,
+    // R82 升级:upsertByUnique 替代 if (ex) continue,基于 asks_title_uniq 唯一索引
+    const { id, action } = await upsertByUnique(db, {
+      table: asks,
+      uniqueBy: { column: asks.title, value: q.title },
+      insertValues: {
+        userId,
+        title: q.title,
+        content: q.content,
+        tags: q.tags,
+        viewCount: Math.floor(Math.random() * 3000) + 200,
+        answerCount: q.answers,
+        likeCount: Math.floor(Math.random() * 100) + 5,
+        isResolved: q.isResolved,
+        status: 1,
+      },
     })
-    count++
+    if (action === 'inserted') count++
+    void id
   }
   console.info(`[问答] 完成,新增 ${count} 条`)
 }
@@ -1370,19 +1380,23 @@ async function seedCircles() {
 
   let count = 0
   for (const c of circlesData) {
-    const [ex] = await db.select().from(circles).where(eq(circles.slug, c.slug))
-    if (ex) continue
-    await db.insert(circles).values({
-      name: c.name,
-      slug: c.slug,
-      description: c.description,
-      coverImage: c.cover,
-      memberCount: c.members,
-      postCount: Math.floor(c.members * 0.05),
-      isPublished: true,
-      status: 1,
+    // R82 升级:onConflictDoNothing 替代 if (ex) continue,基于 circles.slug 原生 unique 约束
+    const { id, action } = await upsertByUnique(db, {
+      table: circles,
+      uniqueBy: { column: circles.slug, value: c.slug },
+      insertValues: {
+        name: c.name,
+        slug: c.slug,
+        description: c.description,
+        coverImage: c.cover,
+        memberCount: c.members,
+        postCount: Math.floor(c.members * 0.05),
+        isPublished: true,
+        status: 1,
+      },
     })
-    count++
+    if (action === 'inserted') count++
+    void id
   }
   console.info(`[社区] 完成,新增 ${count} 个圈子`)
 }
@@ -1501,37 +1515,41 @@ async function seedResources() {
 
   let count = 0
   for (const r of resourcesData) {
-    const [ex] = await db.select().from(resources).where(eq(resources.title, r.title))
-    if (ex) continue
-    await db.insert(resources).values({
-      title: r.title,
-      intro: r.intro,
-      coverImage: r.title.includes('GPT')
-        ? 'https://images.ctfassets.net/kftzwdyauwt9/3T0kxQLJk1VcXVxMwXF97J/4345df401f2b08ed6a1eef88c9588d2e/OAI_ChatGPTWork_ModelBlog_OpenGraph_16x9_1200x630.png?w=1600&h=900&fit=fill'
-        : r.title.includes('Claude')
-          ? 'https://cdn.sanity.io/images/4zrzovbb/website/2039cc549c023bc855671308211d20d3382828a9-2880x1620.jpg'
-          : r.title.includes('Kimi')
-            ? 'https://statics.moonshot.cn/kimi-blogs/kimi-k3/game-cases/01-open-world.png'
-            : r.title.includes('Grok')
-              ? 'https://x.ai/images/news/grok-4-5-og.png'
-              : r.title.includes('DeepSeek')
-                ? 'https://cdn.deepseek.com/images/deepseek-chat-open-graph-image.jpeg'
-                : r.title.includes('混元') || r.title.includes('Hunyuan')
-                  ? 'https://static.www.tencent.com/uploads/2026/07/06/10c8b5b34b4793c92e448b2656379b6e.png!article.cover'
-                  : r.title.includes('GLM') || r.title.includes('智谱')
-                    ? 'https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/bench_52.png'
-                    : 'https://images.ctfassets.net/kftzwdyauwt9/3T0kxQLJk1VcXVxMwXF97J/4345df401f2b08ed6a1eef88c9588d2e/OAI_ChatGPTWork_ModelBlog_OpenGraph_16x9_1200x630.png?w=1600&h=900&fit=fill',
-      categoryId: catId,
-      fileUrl: r.url,
-      fileType: r.type,
-      fileSize: 0,
-      isPublished: true,
-      viewCount: Math.floor(Math.random() * 5000) + 500,
-      downloadCount: Math.floor(Math.random() * 1000) + 100,
-      sort: 200 + count,
-      status: 1,
+    // R82 升级:onConflictDoNothing 替代 if (ex) continue,基于 resources_title_uniq 唯一索引
+    const { id, action } = await upsertByUnique(db, {
+      table: resources,
+      uniqueBy: { column: resources.title, value: r.title },
+      insertValues: {
+        title: r.title,
+        intro: r.intro,
+        coverImage: r.title.includes('GPT')
+          ? 'https://images.ctfassets.net/kftzwdyauwt9/3T0kxQLJk1VcXVxMwXF97J/4345df401f2b08ed6a1eef88c9588d2e/OAI_ChatGPTWork_ModelBlog_OpenGraph_16x9_1200x630.png?w=1600&h=900&fit=fill'
+          : r.title.includes('Claude')
+            ? 'https://cdn.sanity.io/images/4zrzovbb/website/2039cc549c023bc855671308211d20d3382828a9-2880x1620.jpg'
+            : r.title.includes('Kimi')
+              ? 'https://statics.moonshot.cn/kimi-blogs/kimi-k3/game-cases/01-open-world.png'
+              : r.title.includes('Grok')
+                ? 'https://x.ai/images/news/grok-4-5-og.png'
+                : r.title.includes('DeepSeek')
+                  ? 'https://cdn.deepseek.com/images/deepseek-chat-open-graph-image.jpeg'
+                  : r.title.includes('混元') || r.title.includes('Hunyuan')
+                    ? 'https://static.www.tencent.com/uploads/2026/07/06/10c8b5b34b4793c92e448b2656379b6e.png!article.cover'
+                    : r.title.includes('GLM') || r.title.includes('智谱')
+                      ? 'https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/bench_52.png'
+                      : 'https://images.ctfassets.net/kftzwdyauwt9/3T0kxQLJk1VcXVxMwXF97J/4345df401f2b08ed6a1eef88c9588d2e/OAI_ChatGPTWork_ModelBlog_OpenGraph_16x9_1200x630.png?w=1600&h=900&fit=fill',
+        categoryId: catId,
+        fileUrl: r.url,
+        fileType: r.type,
+        fileSize: 0,
+        isPublished: true,
+        viewCount: Math.floor(Math.random() * 5000) + 500,
+        downloadCount: Math.floor(Math.random() * 1000) + 100,
+        sort: 200 + count,
+        status: 1,
+      },
     })
-    count++
+    if (action === 'inserted') count++
+    void id
   }
   console.info(`[知识库] 完成,新增 ${count} 条`)
 }

@@ -1,5 +1,14 @@
-import { pgTable, uuid, varchar, text, boolean, integer, timestamp } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  boolean,
+  integer,
+  timestamp,
+  index,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 课程笔记表。
@@ -14,7 +23,7 @@ export const eduNotes = pgTable('edu_notes', {
   isPublic: boolean('is_public').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 线下学习记录表。
@@ -30,7 +39,7 @@ export const eduOfflineRecords = pgTable('edu_offline_records', {
   occurredAt: timestamp('occurred_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 用户上传证书表。
@@ -49,7 +58,7 @@ export const eduUploadedCerts = pgTable('edu_uploaded_certs', {
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 用户上传论文表。
@@ -67,13 +76,81 @@ export const eduUploadedPapers = pgTable('edu_uploaded_papers', {
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type EduNote = typeof eduNotes.$inferSelect;
-export type NewEduNote = typeof eduNotes.$inferInsert;
-export type EduOfflineRecord = typeof eduOfflineRecords.$inferSelect;
-export type NewEduOfflineRecord = typeof eduOfflineRecords.$inferInsert;
-export type EduUploadedCert = typeof eduUploadedCerts.$inferSelect;
-export type NewEduUploadedCert = typeof eduUploadedCerts.$inferInsert;
-export type EduUploadedPaper = typeof eduUploadedPapers.$inferSelect;
-export type NewEduUploadedPaper = typeof eduUploadedPapers.$inferInsert;
+export type EduNote = typeof eduNotes.$inferSelect
+export type NewEduNote = typeof eduNotes.$inferInsert
+export type EduOfflineRecord = typeof eduOfflineRecords.$inferSelect
+export type NewEduOfflineRecord = typeof eduOfflineRecords.$inferInsert
+export type EduUploadedCert = typeof eduUploadedCerts.$inferSelect
+export type NewEduUploadedCert = typeof eduUploadedCerts.$inferInsert
+export type EduUploadedPaper = typeof eduUploadedPapers.$inferSelect
+export type NewEduUploadedPaper = typeof eduUploadedPapers.$inferInsert
+
+/**
+ * 班级课程表 (R81 补建)。
+ * D 盘 coze_zhs_py/models 暂未找到对应表(迁移目标: edu_classes_schedules 班级课程排期)。
+ * 字段说明:
+ *  - classId: 班级 ID(可对应 lessons/team 等)
+ *  - lessonId: 课程 ID(关联 lessons 表)
+ *  - lessonName: 课程名称(冗余)
+ *  - teacherName: 教师姓名(冗余)
+ *  - scheduledAt: 开课时间
+ *  - durationMinutes: 课程时长(分钟)
+ *  - location: 教室/地点
+ *  - status: scheduled / ongoing / completed / cancelled
+ */
+export const eduClassesSchedules = pgTable(
+  'edu_classes_schedules',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    classId: varchar('class_id', { length: 64 }).notNull(),
+    lessonId: varchar('lesson_id', { length: 64 }),
+    lessonName: varchar('lesson_name', { length: 200 }),
+    teacherName: varchar('teacher_name', { length: 100 }),
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
+    durationMinutes: integer('duration_minutes').default(60).notNull(),
+    location: varchar('location', { length: 200 }),
+    status: varchar('status', { length: 20 }).default('scheduled').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    classIdx: index('edu_classes_schedules_class_idx').on(t.classId),
+    scheduledIdx: index('edu_classes_schedules_scheduled_idx').on(t.scheduledAt),
+    statusIdx: index('edu_classes_schedules_status_idx').on(t.status),
+  }),
+)
+
+/**
+ * 班级成员表 (R81 补建)。
+ * 字段说明:
+ *  - classId: 班级 ID
+ *  - userId: 学员 ID
+ *  - role: student / assistant / teacher
+ *  - joinedAt: 加入时间
+ *  - status: active / inactive / graduated
+ */
+export const eduClassesMembers = pgTable(
+  'edu_classes_members',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    classId: varchar('class_id', { length: 64 }).notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    role: varchar('role', { length: 20 }).default('student').notNull(),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).defaultNow().notNull(),
+    status: varchar('status', { length: 20 }).default('active').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    classIdx: index('edu_classes_members_class_idx').on(t.classId),
+    userIdx: index('edu_classes_members_user_idx').on(t.userId),
+    statusIdx: index('edu_classes_members_status_idx').on(t.status),
+  }),
+)
+
+export type EduClassesSchedule = typeof eduClassesSchedules.$inferSelect
+export type NewEduClassesSchedule = typeof eduClassesSchedules.$inferInsert
+export type EduClassesMember = typeof eduClassesMembers.$inferSelect
+export type NewEduClassesMember = typeof eduClassesMembers.$inferInsert
