@@ -2,7 +2,7 @@ import { View, Text, Image, Swiper, SwiperItem, ScrollView } from '@tarojs/compo
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
-import { getHomePage, getCourseList, getLiveList, getStudyInfo, type Banner, type Course, type Live } from '@/api'
+import { getHomePage, getCourseList, getLiveList, getStudyInfo, getBannerList, type Banner, type Course, type Live } from '@/api'
 import { useI18n } from '@/i18n'
 
 const defaultAvatar =
@@ -59,8 +59,11 @@ export default function Index() {
 
   const loadData = useCallback(async () => {
     try {
-      const [home, courses, lives, studyRes] = await Promise.all([
-        getHomePage().catch(() => ({ banner: [] as Banner[] })),
+      const [banners, courses, lives, studyRes, home] = await Promise.all([
+        // 运营 banner 独立接口优先(支持精细化运营配置)
+        getBannerList({ position: 'home', status: 1 })
+          .then((res) => res.list || [])
+          .catch(() => null),
         getCourseList({ page: 1, pageSize: 6 }).catch(() => ({ list: [] as Course[], total: 0 })),
         getLiveList({ page: 1, pageSize: 4, status: 'upcoming' }).catch(
           () => ({ list: [] as Live[], total: 0 }),
@@ -68,8 +71,12 @@ export default function Index() {
         getStudyInfo().catch(
           () => ({ todayMinutes: 0, totalMinutes: 0, continuousDays: 0, courses: 0 }),
         ),
+        // 兜底:home 聚合接口里的 banner
+        getHomePage().catch(() => null),
       ])
-      setBannerList(home.banner || [])
+      const list =
+        banners ?? (home?.banner as Banner[] | undefined) ?? []
+      setBannerList(list)
       setCourseList(courses.list || [])
       setLivePreview(lives.list || [])
       setStudy(studyRes as StudyStats)
