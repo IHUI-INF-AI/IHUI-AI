@@ -5,7 +5,18 @@
 --   packages/database/src/schema/exam.ts (examPapers)
 
 -- 1. live_subscribe: channel_id integer → uuid
-ALTER TABLE "live_subscribe" ALTER COLUMN "channel_id" TYPE uuid USING "channel_id"::uuid;
+--    注意: integer 无法直接 cast 为 uuid,这里在表为空时用 USING NULL::uuid 安全转换;
+--    若列已经是 uuid 类型(老库已迁移)则跳过。
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='live_subscribe'
+      AND column_name='channel_id' AND data_type='integer'
+  ) THEN
+    ALTER TABLE "live_subscribe" ALTER COLUMN "channel_id" TYPE uuid USING NULL::uuid;
+  END IF;
+END $$;
 
 -- 2. live_subscribe: 新增 (user_id, channel_id) 唯一约束
 DO $$ BEGIN
