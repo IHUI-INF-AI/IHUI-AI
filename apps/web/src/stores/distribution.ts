@@ -8,7 +8,7 @@ import {
   type CommissionRanking,
 } from '@/lib/distribution-api'
 
-/** 分销总览（复用 distribution-api 的 CommissionOverview） */
+/** 分销概览（复用 distribution-api 的 CommissionOverview） */
 export type DistributionOverview = CommissionOverview
 /** 排行榜用户（复用 distribution-api 的 CommissionRanking） */
 export type RankUser = CommissionRanking
