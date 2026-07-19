@@ -48,6 +48,11 @@ export default {
     loginSuccess: 'Logged in',
     wechatFailed: 'WeChat login failed',
     wechatOnly: 'Please use in WeChat Mini Program',
+    ssoLogin: 'Sign in with web account',
+    ssoLoginHint: 'Authorize with an IHUI AI account already signed in on the web',
+    ssoRedirecting: 'Redirecting to web login...',
+    ssoLoginFailed: 'SSO authorization failed',
+    ssoLoginSuccess: 'SSO login successful',
   },
   register: {
     title: 'Register',
