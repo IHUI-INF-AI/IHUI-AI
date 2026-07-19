@@ -10,8 +10,9 @@ import { Button } from '@ihui/ui'
 import { AsksFilter } from './AsksFilter'
 import { AsksTable } from './AsksTable'
 import { AskDialog } from './AskDialog'
-import { api, EMPTY_FORM, PAGE_SIZE, askToForm, fetchAsks, parseTags } from './helpers'
+import { api, PAGE_SIZE, askToForm, fetchAsks, parseTags } from './helpers'
 import type { AskForm, AskItem } from './types'
+import { EMPTY_ASK_FORM, type AskFormValues } from '@/lib/form-schemas/ask'
 
 export default function AdminAsksPage() {
   const t = useTranslations('admin.asks')
@@ -22,8 +23,6 @@ export default function AdminAsksPage() {
   const [page, setPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<AskItem | null>(null)
-  const [form, setForm] = React.useState<AskForm>(EMPTY_FORM)
-  const [err, setErr] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     const tm = setTimeout(() => {
@@ -40,13 +39,13 @@ export default function AdminAsksPage() {
   })
 
   const saveMut = useMutation({
-    mutationFn: () => {
+    mutationFn: (input: AskForm) => {
       const body = {
-        title: form.title.trim(),
-        content: form.content.trim(),
-        tags: parseTags(form.tags),
-        status: form.status,
-        isResolved: form.isResolved,
+        title: input.title.trim(),
+        content: input.content.trim(),
+        tags: parseTags(input.tags),
+        status: input.status,
+        isResolved: input.isResolved,
       }
       return editing
         ? api(`/api/admin/asks/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
@@ -57,7 +56,6 @@ export default function AdminAsksPage() {
       qc.invalidateQueries({ queryKey: ['admin', 'asks'] })
       closeDialog()
     },
-    onError: (e: Error) => setErr(e.message),
   })
 
   const auditMut = useMutation({
@@ -80,28 +78,19 @@ export default function AdminAsksPage() {
 
   function openCreate() {
     setEditing(null)
-    setForm(EMPTY_FORM)
-    setErr(null)
     setOpen(true)
   }
   function openEdit(item: AskItem) {
     setEditing(item)
-    setForm(askToForm(item))
-    setErr(null)
     setOpen(true)
   }
   function closeDialog() {
     if (saveMut.isPending) return
     setOpen(false)
     setEditing(null)
-    setErr(null)
   }
-  function submit(e: React.FormEvent) {
-    e.preventDefault()
-    setErr(null)
-    if (!form.title.trim()) return setErr(t('titleRequired'))
-    if (!form.content.trim()) return setErr(t('contentRequired'))
-    saveMut.mutate()
+  function onValid(values: AskForm) {
+    saveMut.mutate(values)
   }
   function handleAudit(item: AskItem) {
     if (window.confirm(t('auditConfirm'))) auditMut.mutate(item.id)
@@ -114,6 +103,19 @@ export default function AdminAsksPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const list = data?.list ?? []
   const mockMode = !!error && list.length === 0
+
+  const askDefault: AskFormValues = editing
+    ? (() => {
+        const f = askToForm(editing)
+        return {
+          ...f,
+          status: (f.status === 0 || f.status === 1 || f.status === -1 ? f.status : 1) as
+            | 0
+            | 1
+            | -1,
+        }
+      })()
+    : EMPTY_ASK_FORM
 
   return (
     <div className="space-y-4">
@@ -155,11 +157,9 @@ export default function AdminAsksPage() {
       <AskDialog
         open={open}
         editing={editing}
-        form={form}
-        setForm={setForm}
-        err={err}
+        defaultValues={askDefault}
         savePending={saveMut.isPending}
-        onSubmit={submit}
+        onValid={onValid}
         onClose={closeDialog}
       />
     </div>
