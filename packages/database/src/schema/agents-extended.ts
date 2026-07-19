@@ -7,7 +7,9 @@ import {
   bigint,
   integer,
   timestamp,
+  decimal,
   index,
+  unique,
 } from 'drizzle-orm/pg-core'
 
 /**
@@ -59,6 +61,8 @@ export const agents = pgTable(
     publishStatus: varchar('publish_status', { length: 20 }).default('published'),
     suggestedQuestions: text('suggested_questions'),
     cozeAccountId: varchar('coze_account_id', { length: 64 }),
+    /** 智能体创建者用户名 (P0-5 补齐,冗余字段用于查询,避免 JOIN users 表) */
+    userName: varchar('user_name', { length: 100 }),
   },
   (t) => ({
     userIdx: index('agents_user_idx').on(t.userId),
@@ -145,6 +149,7 @@ export const agentExamines = pgTable(
 /**
  * 智能体热度统计表 (历史 agent_heat_stats)。
  * hitCount: 命中次数。dateStr: 日期字符串 YYYY-MM-DD。
+ * P1-5 补齐: totalCalls/successCalls/failedCalls/avgDurationMs/lastCallAt 用于调用统计。
  */
 export const agentHeatStats = pgTable(
   'agent_heat_stats',
@@ -153,17 +158,39 @@ export const agentHeatStats = pgTable(
     agentId: uuid('agent_id').notNull(),
     hitCount: bigint('hit_count', { mode: 'number' }).default(0).notNull(),
     dateStr: varchar('date_str', { length: 10 }),
+    /** 总调用次数 (P1-5 补齐) */
+    totalCalls: bigint('total_calls', { mode: 'number' }).default(0).notNull(),
+    /** 成功调用次数 (P1-5 补齐) */
+    successCalls: bigint('success_calls', { mode: 'number' }).default(0).notNull(),
+    /** 失败调用次数 (P1-5 补齐) */
+    failedCalls: bigint('failed_calls', { mode: 'number' }).default(0).notNull(),
+    /** 平均耗时(毫秒) (P1-5 补齐) */
+    avgDurationMs: integer('avg_duration_ms'),
+    /** 最后调用时间 (P1-5 补齐) */
+    lastCallAt: timestamp('last_call_at', { withTimezone: true }),
+    /** 95 百分位耗时(毫秒) (P2-11 补齐,审计 Medium) */
+    p95DurationMs: integer('p95_duration_ms'),
+    /** 错误率 0.0000-1.0000 (P2-11 补齐,审计 Medium) */
+    errorRate: decimal('error_rate', { precision: 4, scale: 4 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     agentIdx: index('agent_heat_stats_agent_idx').on(t.agentId),
+    dateStrIdx: index('agent_heat_stats_date_str_idx').on(t.dateStr),
+    agentDateIdx: index('agent_heat_stats_agent_date_idx').on(t.agentId, t.dateStr),
+    totalCallsIdx: index('agent_heat_stats_total_calls_idx').on(t.totalCalls),
+    successCallsIdx: index('agent_heat_stats_success_calls_idx').on(t.successCalls),
+    lastCallAtIdx: index('agent_heat_stats_last_call_at_idx').on(t.lastCallAt),
+    agentLastCallAtIdx: index('agent_heat_stats_agent_last_call_at_idx').on(t.agentId, t.lastCallAt),
+    agentDateUniq: unique('agent_heat_stats_agent_date_unique').on(t.agentId, t.dateStr),
   }),
 )
 
 /**
  * 智能体回调配置表 (历史 agent_callbacks)。
  * callbackUrl: 回调地址。callbackData1/2/3: 回调扩展数据。
+ * P1-6 补齐: method/headers/timeout/retryCount/retryInterval/status/lastCallbackAt 用于回调执行控制。
  */
 export const agentCallbacks = pgTable(
   'agent_callbacks',
@@ -174,6 +201,20 @@ export const agentCallbacks = pgTable(
     callbackData1: varchar('callback_data_1', { length: 500 }),
     callbackData2: varchar('callback_data_2', { length: 500 }),
     callbackData3: varchar('callback_data_3', { length: 500 }),
+    /** HTTP 方法 GET/POST/PUT 等 (P1-6 补齐) */
+    method: varchar('method', { length: 20 }),
+    /** HTTP 请求头 JSON 文本 (P1-6 补齐) */
+    headers: text('headers'),
+    /** 超时时间(毫秒) (P1-6 补齐) */
+    timeout: integer('timeout'),
+    /** 重试次数 (P1-6 补齐) */
+    retryCount: integer('retry_count'),
+    /** 重试间隔(毫秒) (P1-6 补齐) */
+    retryInterval: integer('retry_interval'),
+    /** 状态 enabled/disabled (P1-6 补齐) */
+    status: varchar('status', { length: 20 }),
+    /** 最后回调时间 (P1-6 补齐) */
+    lastCallbackAt: timestamp('last_callback_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
