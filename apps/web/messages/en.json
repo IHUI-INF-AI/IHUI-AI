@@ -1006,6 +1006,8 @@
     "modelDescGemini15Flash": "Long Context · Multimodal",
     "modelDescGroqLlama3370B": "Fast Inference · Free Tier",
     "modelDescOpenRouterAuto": "Smart Routing · Multi-vendor",
+    "modelConfigured": "API Key for current model is configured",
+    "modelNotConfigured": "API Key for current model is not configured, set it up in one click on the Models page",
     "slashCmd": {
       "summary": "Summarize current conversation",
       "translate": "Translate text",

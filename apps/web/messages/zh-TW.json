@@ -1006,6 +1006,8 @@
     "modelDescGemini15Flash": "長上下文 · 多模態",
     "modelDescGroqLlama3370B": "高速推理 · 免費額度",
     "modelDescOpenRouterAuto": "智能路由 · 多廠商",
+    "modelConfigured": "當前模型 API Key 已配置",
+    "modelNotConfigured": "當前模型 API Key 未配置,前往模型廣場頁一鍵配置",
     "slashCmd": {
       "summary": "總結當前對話",
       "translate": "翻譯文本",
