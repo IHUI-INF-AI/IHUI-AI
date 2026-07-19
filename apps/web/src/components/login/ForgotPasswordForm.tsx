@@ -111,28 +111,24 @@ export function ForgotPasswordForm() {
         </TabsList>
 
         <TabsContent value="phone" className="pt-4">
-          <div className="input-gradient-wrap rounded-md">
-            <Input
-              type="tel"
-              autoComplete="tel"
-              placeholder={t('enterPhone')}
-              className="h-9 rounded-[7px] border border-input bg-background"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
+          <Input
+            type="tel"
+            autoComplete="tel"
+            placeholder={t('enterPhone')}
+            className="h-10"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
         </TabsContent>
         <TabsContent value="email" className="pt-4">
-          <div className="input-gradient-wrap rounded-md">
-            <Input
-              type="email"
-              autoComplete="email"
-              placeholder={t('emailPlaceholder')}
-              className="h-9 rounded-[7px] border border-input bg-background"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
+          <Input
+            type="email"
+            autoComplete="email"
+            placeholder={t('emailPlaceholder')}
+            className="h-10"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </TabsContent>
       </Tabs>
 
@@ -142,23 +138,21 @@ export function ForgotPasswordForm() {
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="fp-code">{t('code')}</Label>
         <div className="flex gap-2">
-          <div className="input-gradient-wrap flex-1 rounded-md">
-            <Input
-              id="fp-code"
-              inputMode="numeric"
-              placeholder={t('enterCode')}
-              className="h-9 rounded-[7px] border border-input bg-background"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-          </div>
+          <Input
+            id="fp-code"
+            inputMode="numeric"
+            placeholder={t('enterCode')}
+            className="h-10 flex-1"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
           <Button
             type="button"
             variant="outline"
-            className="shrink-0"
+            className="h-10 shrink-0"
             disabled={sending || countdown > 0}
             onClick={handleSendCode}
           >
@@ -167,39 +161,35 @@ export function ForgotPasswordForm() {
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="fp-new">{t('newPassword')}</Label>
-        <div className="input-gradient-wrap rounded-md">
-          <Input
-            id="fp-new"
-            type="password"
-            autoComplete="new-password"
-            placeholder={t('enterNewPassword')}
-            className="h-9 rounded-[7px] border border-input bg-background"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-        </div>
+        <Input
+          id="fp-new"
+          type="password"
+          autoComplete="new-password"
+          placeholder={t('enterNewPassword')}
+          className="h-10"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+        />
         <PasswordStrengthIndicator password={newPassword} />
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="fp-confirm">{t('confirmPassword')}</Label>
-        <div className="input-gradient-wrap rounded-md">
-          <Input
-            id="fp-confirm"
-            type="password"
-            autoComplete="new-password"
-            placeholder={t('enterNewPassword')}
-            className="h-9 rounded-[7px] border border-input bg-background"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-        </div>
+        <Input
+          id="fp-confirm"
+          type="password"
+          autoComplete="new-password"
+          placeholder={t('enterNewPassword')}
+          className="h-10"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+        />
       </div>
 
-      <Button type="button" className="w-full" disabled={submitting} onClick={handleReset}>
-        {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+      <Button type="button" className="h-10 w-full" disabled={submitting} onClick={handleReset}>
+        {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('resetPassword')}
       </Button>
     </div>

@@ -8,7 +8,19 @@ import { fetchApi } from '@/lib/api'
 import { Button, Input, Label } from '@ihui/ui'
 import { Loader2, ShieldCheck, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { AuthShell, AuthShellPage } from '@/components/auth/AuthShell'
 
+/**
+ * SSO 统一登录页(2026-07-20 重做:整页弹窗化,与主站 LoginDialog 视觉统一)
+ *
+ * 设计:
+ * - 路由保留(/sso/login),外部子项目跳转链接无需改
+ * - 视觉改为"全屏遮罩 + 居中弹窗卡片"(AuthShellPage + AuthShell)
+ * - 与主站 LoginDialog 共用 AuthShell 外壳,视觉完全统一
+ * - 登录流程不变:账号密码登录 → 调 /api/auth/sso/code → 跳回 redirect?sso_code=xxx
+ *
+ * 关闭策略:右上 X 按钮 → 跳转 redirect 或首页
+ */
 export default function SsoLoginPage() {
   const t = useTranslations('sso')
   const router = useRouter()
@@ -21,6 +33,10 @@ export default function SsoLoginPage() {
   const [password, setPassword] = React.useState('')
   const [loading, setLoading] = React.useState(false)
   const [exchanging, setExchanging] = React.useState(false)
+
+  const handleClose = React.useCallback(() => {
+    router.push(redirectUrl)
+  }, [router, redirectUrl])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -84,19 +100,17 @@ export default function SsoLoginPage() {
     }
   }
 
+  // 已登录分支:授权跳转卡片
   if (token && user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30">
-        <div className="w-full max-w-md space-y-6 rounded-xl border bg-card p-8 shadow-sm">
-          <div className="text-center space-y-2">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <ShieldCheck className="h-6 w-6 text-primary" />
-            </div>
-            <h1 className="text-xl font-semibold">{t('alreadyLoggedIn')}</h1>
-            <p className="text-sm text-muted-foreground">{t('authorizing', { clientId })}</p>
-          </div>
+      <AuthShellPage>
+        <AuthShell
+          title={t('alreadyLoggedIn')}
+          subtitle={t('authorizing', { clientId })}
+          onClose={handleClose}
+        >
           <Button
-            className="w-full"
+            className="h-10 w-full"
             onClick={() => generateCodeAndRedirect()}
             disabled={exchanging}
           >
@@ -107,22 +121,19 @@ export default function SsoLoginPage() {
             )}
             {t('authorizeAndRedirect')}
           </Button>
-        </div>
-      </div>
+        </AuthShell>
+      </AuthShellPage>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30">
-      <div className="w-full max-w-md space-y-6 rounded-xl border bg-card p-8 shadow-sm">
-        <div className="text-center space-y-2">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <ShieldCheck className="h-6 w-6 text-primary" />
-          </div>
-          <h1 className="text-xl font-semibold">{t('title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('subtitle', { clientId })}</p>
-        </div>
-
+    <AuthShellPage>
+      <AuthShell
+        title={t('title')}
+        subtitle={t('subtitle', { clientId })}
+        onClose={handleClose}
+        footer={t('footerHint')}
+      >
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1.5">
             <Label>{t('account')}</Label>
@@ -131,6 +142,7 @@ export default function SsoLoginPage() {
               onChange={(e) => setAccount(e.target.value)}
               placeholder={t('accountPlaceholder')}
               autoComplete="username"
+              className="h-10"
             />
           </div>
           <div className="space-y-1.5">
@@ -141,16 +153,19 @@ export default function SsoLoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t('passwordPlaceholder')}
               autoComplete="current-password"
+              className="h-10"
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading || exchanging}>
-            {loading || exchanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          <Button type="submit" className="h-10 w-full" disabled={loading || exchanging}>
+            {loading || exchanging ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="mr-2 h-4 w-4" />
+            )}
             {t('loginBtn')}
           </Button>
         </form>
-
-        <p className="text-center text-xs text-muted-foreground">{t('footerHint')}</p>
-      </div>
-    </div>
+      </AuthShell>
+    </AuthShellPage>
   )
 }
