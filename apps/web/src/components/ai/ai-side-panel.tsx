@@ -1,8 +1,9 @@
 'use client'
 
 import * as React from 'react'
+import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Sparkles, X, Plus } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
@@ -13,6 +14,7 @@ import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getConversation, getMessages } from '@/lib/chat-api'
+import { fetchApi } from '@/lib/api'
 
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
  * - 默认 display:none,由 useAiPanelStore.open 控制
@@ -34,6 +36,43 @@ export function AISidePanel() {
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
   const [loadingHistory, setLoadingHistory] = React.useState(false)
+  const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
+  const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
+  const pathname = usePathname()
+
+  // 从 URL 检测当前是否处于 workspace 项目页(/workspace/[id]),并拉取项目名
+  // 用于 AI 面板标题显示"项目文件夹名"(用户规则:选择项目文件时显示项目文件夹名)
+  React.useEffect(() => {
+    if (!pathname) {
+      setWorkspaceName(null)
+      return
+    }
+    const m = pathname.match(/^\/workspace\/([^/]+)/)
+    if (!m) {
+      setWorkspaceName(null)
+      return
+    }
+    const projectId = m[1]!
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetchApi<{ project: { id: string; name: string } }>(
+          `/api/workspace/projects/${encodeURIComponent(projectId)}`,
+        )
+        if (cancelled) return
+        if (res.success && res.data?.project?.name) {
+          setWorkspaceName(res.data.project.name)
+        } else {
+          setWorkspaceName(null)
+        }
+      } catch {
+        if (!cancelled) setWorkspaceName(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [pathname])
 
   // WebSocket ai_response 多端同步
   React.useEffect(() => {
@@ -105,14 +144,17 @@ export function AISidePanel() {
             createdAt: new Date(m.createdAt).getTime(),
           }))
           useChatStore.setState({ messages: hydrated, error: null })
+          setConversationTitle(convRes.data.conversation.title || null)
         } else {
           setConversationId(null)
           useChatStore.setState({ messages: [], error: null })
+          setConversationTitle(null)
         }
       } catch {
         if (!cancelled) {
           setConversationId(null)
           useChatStore.setState({ messages: [], error: null })
+          setConversationTitle(null)
         }
       } finally {
         if (!cancelled) setLoadingHistory(false)
@@ -123,6 +165,7 @@ export function AISidePanel() {
       void loadHistory(storeConversationId)
     } else {
       useChatStore.setState({ messages: [], error: null })
+      setConversationTitle(null)
     }
 
     return () => {
@@ -133,9 +176,16 @@ export function AISidePanel() {
   const handleNewChat = React.useCallback(() => {
     clearMessages()
     setConversationId(null)
+    setConversationTitle(null)
   }, [clearMessages, setConversationId])
 
-  // 全局快捷键 Ctrl+Shift+N:新建对话
+  // 标题显示优先级(用户规则):
+  //   1. workspace 项目页 → 显示项目文件夹名(选择项目文件时显示项目文件夹名)
+  //   2. 已加载任务 → 显示任务名称(只是单纯对话时显示对话任务命名)
+  //   3. 兜底 → 显示"空工作区"(没有选择项目时显示空工作区)
+  const displayTitle = workspaceName ?? conversationTitle ?? tc('emptyWorkspace')
+
+  // 全局快捷键 Ctrl+Shift+N:新建任务
   React.useEffect(() => {
     if (!open) return
     const onNewChat = () => handleNewChat()
@@ -221,11 +271,18 @@ export function AISidePanel() {
       >
         {/* 标题栏 */}
         <header className="flex h-14 shrink-0 items-center gap-2 px-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Sparkles className="h-4 w-4" />
+          {/* 图标:使用当前模型对应的厂商图标(替代通用 Sparkles)
+              用户规则:这个图标应该显示对应项目图标或者模型图标
+              容器去掉背景色,只显示内部图标本体(2026-07-19 用户反馈) */}
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/80">
+            <BrandIcon
+              vendor={inferVendor(currentModel)}
+              size={18}
+              className="text-foreground/80"
+            />
           </div>
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="break-words text-sm font-semibold">{tc('title')}</span>
+            <span className="break-words text-sm font-semibold">{displayTitle}</span>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <BrandIcon
                 vendor={inferVendor(currentModel)}
