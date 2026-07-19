@@ -1,0 +1,43 @@
+# AI Service Python 依赖(本文件由 pyproject.toml 派生,仅列出运行时关键依赖;
+# 完整依赖图见 uv.lock。新增依赖必须同时更新 pyproject.toml 与本文件)。
+
+# --- Web 框架 ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
+
+# --- Socket.IO 兼容协议层(2026-07-20 新增)---
+# 兼容历史 coze_zhs_py 客户端通过 Socket.IO 协议连接新 ai-service。
+# ASGI 集成:socketio.ASGIApp(sio, other_asgi_app=fastapi_app)
+python-socketio>=5.11.0
+python-engineio>=4.9.0
+
+# --- 数据存储 ---
+asyncpg>=0.30.0
+cryptography>=43.0.0
+redis[hiredis]>=5.2.0
+
+# --- AI / LLM ---
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+langchain-anthropic>=0.2.0
+litellm>=1.55.0
+mcp>=1.0.0
+
+# --- 网络 / 序列化 / 重试 ---
+httpx>=0.28.0
+orjson>=3.10.0
+tenacity>=9.0.0
+structlog>=24.4.0
+tiktoken>=0.8.0
+numpy>=2.1.0
+
+# --- 鉴权 / 可观测性 ---
+pyjwt>=2.10.0
+prometheus-fastapi-instrumentator>=7.0.0
+opentelemetry-sdk>=1.30.0
+opentelemetry-exporter-otlp>=1.30.0
+opentelemetry-instrumentation-fastapi>=0.51b0

@@ -37,6 +37,38 @@ import { LivePlaybackScreen } from '../screens/LivePlaybackScreen'
 import { NoteScreen } from '../screens/NoteScreen'
 import { StudyRecordScreen } from '../screens/StudyRecordScreen'
 import { ExamScreen } from '../screens/ExamScreen'
+import { FinanceScreen } from '../screens/FinanceScreen'
+import { WithdrawScreen } from '../screens/WithdrawScreen'
+import { BankCardScreen } from '../screens/BankCardScreen'
+import { RealNameAuthScreen } from '../screens/RealNameAuthScreen'
+import { IdentityVerifyScreen } from '../screens/IdentityVerifyScreen'
+import { SecuritySettingsScreen } from '../screens/SecuritySettingsScreen'
+import { PrivacyScreen } from '../screens/PrivacyScreen'
+import { AgreementScreen } from '../screens/AgreementScreen'
+import { AboutScreen } from '../screens/AboutScreen'
+import { HelpScreen } from '../screens/HelpScreen'
+import { FeedbackScreen } from '../screens/FeedbackScreen'
+import { CustomerServiceScreen } from '../screens/CustomerServiceScreen'
+import { AnnouncementScreen } from '../screens/AnnouncementScreen'
+import { ActivityScreen } from '../screens/ActivityScreen'
+import { PromotionScreen } from '../screens/PromotionScreen'
+import { ReferrerScreen } from '../screens/ReferrerScreen'
+import { InviteScreen } from '../screens/InviteScreen'
+import { QrCodeScreen } from '../screens/QrCodeScreen'
+import { DebugScreen } from '../screens/DebugScreen'
+import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen'
+import { CourseFilterScreen } from '../screens/CourseFilterScreen'
+import { LiveListScreen } from '../screens/LiveListScreen'
+import { LecturerDetailScreen } from '../screens/LecturerDetailScreen'
+import { CouponScreen } from '../screens/CouponScreen'
+import { PointsMallScreen } from '../screens/PointsMallScreen'
+import { PointsRecordScreen } from '../screens/PointsRecordScreen'
+import { TaskCenterScreen } from '../screens/TaskCenterScreen'
+import { CheckInScreen } from '../screens/CheckInScreen'
+import { RankingScreen } from '../screens/RankingScreen'
+import { PromoteScreen } from '../screens/PromoteScreen'
+import { DistributionScreen } from '../screens/DistributionScreen'
+import { TeamScreen } from '../screens/TeamScreen'
 import { useI18n } from '../i18n'
 
 export type RootStackParamList = {
@@ -68,7 +100,38 @@ export type RootStackParamList = {
   Note: undefined
   StudyRecord: undefined
   Exam: undefined
+  CourseFilter: undefined
+  LiveList: undefined
   LecturerDetail: { id: string }
+  Coupon: undefined
+  PointsMall: undefined
+  PointsRecord: undefined
+  TaskCenter: undefined
+  CheckIn: undefined
+  Ranking: undefined
+  Promote: undefined
+  Distribution: undefined
+  Team: undefined
+  Finance: undefined
+  Withdraw: undefined
+  BankCard: undefined
+  RealNameAuth: undefined
+  IdentityVerify: undefined
+  SecuritySettings: undefined
+  Privacy: undefined
+  Agreement: undefined
+  About: undefined
+  Help: undefined
+  Feedback: undefined
+  CustomerService: undefined
+  Announcement: undefined
+  Activity: undefined
+  Promotion: undefined
+  Referrer: undefined
+  Invite: undefined
+  QrCode: undefined
+  Debug: undefined
+  NotificationSettings: undefined
 }
 
 export type HomeStackParamList = {
@@ -235,6 +298,38 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Note" component={NoteScreen} />
             <RootStack.Screen name="StudyRecord" component={StudyRecordScreen} />
             <RootStack.Screen name="Exam" component={ExamScreen} />
+            <RootStack.Screen name="CourseFilter" component={CourseFilterScreen} />
+            <RootStack.Screen name="LiveList" component={LiveListScreen} />
+            <RootStack.Screen name="LecturerDetail" component={LecturerDetailScreen} />
+            <RootStack.Screen name="Coupon" component={CouponScreen} />
+            <RootStack.Screen name="PointsMall" component={PointsMallScreen} />
+            <RootStack.Screen name="PointsRecord" component={PointsRecordScreen} />
+            <RootStack.Screen name="TaskCenter" component={TaskCenterScreen} />
+            <RootStack.Screen name="CheckIn" component={CheckInScreen} />
+            <RootStack.Screen name="Ranking" component={RankingScreen} />
+            <RootStack.Screen name="Promote" component={PromoteScreen} />
+            <RootStack.Screen name="Distribution" component={DistributionScreen} />
+            <RootStack.Screen name="Team" component={TeamScreen} />
+            <RootStack.Screen name="Finance" component={FinanceScreen} />
+            <RootStack.Screen name="Withdraw" component={WithdrawScreen} />
+            <RootStack.Screen name="BankCard" component={BankCardScreen} />
+            <RootStack.Screen name="RealNameAuth" component={RealNameAuthScreen} />
+            <RootStack.Screen name="IdentityVerify" component={IdentityVerifyScreen} />
+            <RootStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
+            <RootStack.Screen name="Privacy" component={PrivacyScreen} />
+            <RootStack.Screen name="Agreement" component={AgreementScreen} />
+            <RootStack.Screen name="About" component={AboutScreen} />
+            <RootStack.Screen name="Help" component={HelpScreen} />
+            <RootStack.Screen name="Feedback" component={FeedbackScreen} />
+            <RootStack.Screen name="CustomerService" component={CustomerServiceScreen} />
+            <RootStack.Screen name="Announcement" component={AnnouncementScreen} />
+            <RootStack.Screen name="Activity" component={ActivityScreen} />
+            <RootStack.Screen name="Promotion" component={PromotionScreen} />
+            <RootStack.Screen name="Referrer" component={ReferrerScreen} />
+            <RootStack.Screen name="Invite" component={InviteScreen} />
+            <RootStack.Screen name="QrCode" component={QrCodeScreen} />
+            <RootStack.Screen name="Debug" component={DebugScreen} />
+            <RootStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
           </>
         ) : (
           <>
