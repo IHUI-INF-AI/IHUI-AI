@@ -57,7 +57,7 @@ function ErrorView({
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-1.5 rounded-full bg-primary px-6 py-2.5 text-sm text-primary-foreground transition-colors hover:bg-primary/90"
+        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-6 py-2.5 text-sm text-primary-foreground transition-colors hover:bg-primary/90"
       >
         <RotateCcw className="h-4 w-4" />
         重试
@@ -125,7 +125,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
             )}
           </div>
           {data.tokenCost !== undefined && data.tokenCost > 0 && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
               {data.tokenCost} tokens
             </span>
           )}
@@ -223,7 +223,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
       </article>
 
       {shareTip && (
-        <div className="fixed inset-x-0 top-4 z-popover mx-auto w-fit max-w-[80%] rounded-full bg-black/80 px-4 py-2 text-center text-xs text-white">
+        <div className="fixed inset-x-0 top-4 z-popover mx-auto w-fit max-w-[80%] rounded-md bg-black/80 px-4 py-2 text-center text-xs text-white">
           {shareTip}
         </div>
       )}
@@ -234,7 +234,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
             type="button"
             onClick={copyLink}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 rounded-full border px-4 py-2.5 text-sm transition-colors',
+              'flex flex-1 items-center justify-center gap-1.5 rounded-md border px-4 py-2.5 text-sm transition-colors',
               copied ? 'border-emerald-500 text-emerald-500' : 'hover:bg-muted',
             )}
           >
@@ -244,7 +244,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
           <button
             type="button"
             onClick={wechatShare}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#07c160] px-4 py-2.5 text-sm text-white transition-opacity hover:opacity-90"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-[#07c160] px-4 py-2.5 text-sm text-white transition-opacity hover:opacity-90"
           >
             <Share2 className="h-4 w-4" />
             微信分享
