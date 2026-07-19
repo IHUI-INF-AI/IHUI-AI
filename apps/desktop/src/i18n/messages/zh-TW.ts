@@ -49,4 +49,17 @@ export default {
   agent: {
     tabRuntime: 'Agent 執行',
   },
+  admin: {
+    title: '管理後台',
+    forbidden: '無管理員權限',
+    loginAsAdmin: '請使用管理員帳號登入',
+    openWindow: '開啟管理後台',
+    nav: {
+      dashboard: '儀表板',
+      users: '使用者',
+      content: '內容',
+      orders: '訂單',
+      settings: '設定',
+    },
+  },
 }

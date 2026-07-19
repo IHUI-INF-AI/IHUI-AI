@@ -3,6 +3,8 @@ import { logout as apiLogout, type AuthUser } from '@ihui/api-client'
 import { clearToken, getRefreshToken } from '../lib/token'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
+import { isAdminUser } from '../lib/admin-guard'
+import { openAdminWindow } from '../lib/admin-window'
 
 interface Props {
   user: AuthUser | null
@@ -13,6 +15,7 @@ export default function Layout({ user, wsConnected }: Props) {
   const navigate = useNavigate()
   const { unreadCount, setVisible } = useNotificationStore()
   const { t } = useI18n()
+  const showAdminEntry = isAdminUser(user)
 
   const nav = [
     { to: '/chat', label: t('nav.chat') },
@@ -37,6 +40,10 @@ export default function Layout({ user, wsConnected }: Props) {
     navigate('/login', { replace: true })
   }
 
+  const onOpenAdmin = () => {
+    void openAdminWindow()
+  }
+
   return (
     <div className="desktop-layout">
       <aside className="sidebar">
@@ -51,6 +58,16 @@ export default function Layout({ user, wsConnected }: Props) {
               {n.label}
             </NavLink>
           ))}
+          {showAdminEntry ? (
+            <button
+              type="button"
+              className="nav-item nav-item-button"
+              onClick={onOpenAdmin}
+              data-testid="sidebar-open-admin"
+            >
+              {t('admin.openWindow')}
+            </button>
+          ) : null}
         </nav>
         <div className="sidebar-footer">
           <button
