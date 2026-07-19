@@ -196,6 +196,16 @@ export function AISidePanel() {
     return () => window.removeEventListener('global-shortcut:new-chat', onNewChat)
   }, [handleNewChat, open])
 
+  // 同步 AISidePanel 实际占用宽度到 :root 的 --ai-panel-width CSS 变量,
+  // 供 MainShell 的 work-area 通过 pl-[var(--ai-panel-width,0px)] 让出左侧被遮挡空间,
+  // 使主内容居中点对齐"可见区域"中心,而非"含被遮挡区"的中心。
+  // - open=true:width + 8px(mr-2 视觉间距,与 panel 自身右边缘对齐 work-area 内容起点)
+  // - open=false:0(work-area 内容铺满 sidebar 右侧全部空间)
+  React.useEffect(() => {
+    const effective = open ? width + 8 : 0
+    document.documentElement.style.setProperty('--ai-panel-width', `${effective}px`)
+  }, [open, width])
+
   // 拖拽调整宽度
   // 关闭态下拖拽手柄:先 openPanel 再开始 resize,实现"拖拽即打开"
   const handleResizeStart = React.useCallback(
@@ -285,7 +295,7 @@ export function AISidePanel() {
     >
       <aside
         aria-label={tc('title')}
-        className="flex h-full flex-col overflow-hidden rounded-xl bg-shell-panel"
+        className="flex h-full flex-col overflow-hidden rounded-xl bg-background"
       >
         {/* 标题栏 */}
         <header
