@@ -65,6 +65,8 @@ export const userSkInfo = pgTable(
     type: integer('type'),
     max: bigint('max', { mode: 'number' }),
     outTime: timestamp('out_time', { withTimezone: true }),
+    /** 用户会话密钥过期时间 (P0-4 补齐) */
+    expireAt: timestamp('expire_at', { withTimezone: true }),
     createdTime: timestamp('created_time', { withTimezone: true }).defaultNow().notNull(),
     updatedTime: timestamp('updated_time', { withTimezone: true }).defaultNow().notNull(),
   },
