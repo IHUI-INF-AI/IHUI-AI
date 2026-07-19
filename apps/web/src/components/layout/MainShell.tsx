@@ -1,123 +1,57 @@
 'use client'
 
 import * as React from 'react'
-import { Menu } from 'lucide-react'
-import { Sidebar } from '@/components/sidebar'
-import { AISidePanel } from '@/components/ai/ai-side-panel'
-import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
 import { TagsView } from '@/components/layout/TagsView'
 import { useAuthStore } from '@/stores/auth'
 import { useMounted } from '@/hooks/use-mounted'
-import { Button } from '@ihui/ui'
 
+/**
+ * MainShell — (main) 路由组的工作区面板容器(2026-07-19 重构)
+ *
+ * 重构说明:
+ * - 原 MainShell 同时承担"全局骨架(Sidebar + AISidePanel + PWA)"与"工作区面板样式"两职责,
+ *   且仅在 (main) 路由组的 layout 中挂载,导致 (marketing)/(auth)/sso/h5/forbidden 等路由
+ *   无法享用左侧 Sidebar 与右侧 AI 对话框这两个全局组件。
+ * - 现已将"全局骨架"职责拆分到新组件 GlobalShell(挂载于根 layout.tsx),
+ *   让所有路由共享 Sidebar + AISidePanel。
+ * - 本 MainShell 仅保留"工作区面板样式"职责:圆角卡片容器 + TagsView + 可滚动 main + padding。
+ * - 仅 (main) 路由组使用本组件(由 app/(main)/layout.tsx 套用)。
+ *
+ * 结构(填充在 GlobalShell 的内容槽内):
+ *   <div flex-1 flex-col my-2 mr-2 rounded-xl bg-shell-panel>   ← 圆角卡片容器
+ *     <TagsView />                                              ← 已登录才显示
+ *     <main id="main" flex-1 overflow-y-auto p-4 md:p-6 lg:p-8>
+ *       {children}
+ *     </main>
+ *   </div>
+ *
+ * 工作区面板样式说明:
+ * - my-2 mr-2:与 GlobalShell 的 Sidebar 之间留 8px 间距,与视口顶部/底部留 8px 间距
+ * - rounded-xl bg-shell-panel:圆角卡片背景,营造"工作区"的视觉容器感
+ * - main 的 p-4 md:p-6 lg:p-8:响应式 padding,内容不贴边
+ * - main 的 thin-scroll flex-1 overflow-y-auto:细滚动条 + 独立滚动
+ */
 export function MainShell({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = React.useState(false)
-  const [mobileOpen, setMobileOpen] = React.useState(false)
-  // 静态 ID(非 useId),避免 React 18 useId 在 SSR/CSR 之间偶尔漂移导致 hydration mismatch。
-  // Sidebar 内部会再派生 desktop/mobile 两个 nav id,确保两个 <nav> 元素不会共享同一 id。
-  const sidebarId = 'main-sidebar'
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   // hydration-safe: 首屏不渲染 TagsView,挂载后再按真实态渲染,避免 SSR/CSR 不一致
   const mounted = useMounted()
   const showTagsView = mounted && isAuthenticated
 
-  React.useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sidebar-collapsed')
-      if (saved === 'true') setCollapsed(true)
-    } catch {
-      // localStorage 不可用
-    }
-  }, [])
-
-  React.useEffect(() => {
-    try {
-      localStorage.setItem('sidebar-collapsed', String(collapsed))
-    } catch {
-      // localStorage 不可用
-    }
-  }, [collapsed])
-
-  // 侧边栏折叠状态跨标签页同步:其他标签页切换折叠时,本标签页跟随
-  React.useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== 'sidebar-collapsed' || e.newValue === null) return
-      setCollapsed(e.newValue === 'true')
-    }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
-
-  React.useEffect(() => {
-    if (!mobileOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMobileOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [mobileOpen])
-
   return (
-    <>
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar
-          id={sidebarId}
-          collapsed={collapsed}
-          onToggleCollapse={() => setCollapsed((c) => !c)}
-          mobileOpen={mobileOpen}
-          onCloseMobile={() => setMobileOpen(false)}
-        />
-        <div
-          id="work-area-portal-root"
-          // pl-[var(--ai-panel-width,0px)]:AISidePanel(fixed, left:var(--sidebar-width), width=panel-width)
-          // 与 work-area 在 [0, panel-width) 区间重叠,遮挡主内容左侧。
-          // 通过 padding-left 让出被遮挡区间,主内容居中点对齐"可见区域"中心,
-          // 消除"内容偏左 + 右侧空间浪费"问题(panel open 时)。
-          // panel close 时 --ai-panel-width=0,pl=0,work-area 内容铺满 sidebar 右侧全部空间。
-          // transition: padding 200ms 与 AISidePanel 的 width 0.2s cubic-bezier 同步平滑过渡。
-          className="relative flex min-w-0 flex-1 flex-col my-2 mr-2 overflow-hidden rounded-xl bg-shell-panel pl-[var(--ai-panel-width,0px)] transition-[padding] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
-        >
-          {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen((o) => !o)}
-            className="absolute left-2 top-2 z-30 h-9 w-9 lg:hidden"
-            aria-label="菜单"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          {showTagsView && (
-            <React.Suspense fallback={null}>
-              <TagsView />
-            </React.Suspense>
-          )}
-          <main
-            id="main"
-            tabIndex={-1}
-            className="thin-scroll flex-1 overflow-y-auto p-4 md:p-6 lg:p-8"
-          >
-            {children}
-          </main>
-        </div>
-      </div>
-      {/* AISidePanel 作为全局 fixed 组件,移出 flex 容器避免挤压 work-area 宽度。
-          定位样式 left:var(--sidebar-width) 由 Sidebar 同步到 :root,紧贴 Sidebar 右侧。
-          z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)。
-          若 AI 面板 z-index 调到 ≥ 1000,登录/客服等弹框会被 AI 面板遮住。 */}
-      <React.Suspense fallback={null}>
-        <AISidePanel />
-      </React.Suspense>
-      {/* PWA 提示:固定悬浮于右下角,不影响主布局。层级 z-modal(2000,引用 --z-modal)。 */}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
-        <div className="pointer-events-auto">
-          <PWAInstallPrompt />
-        </div>
-        <div className="pointer-events-auto">
-          <PWAUpdatePrompt onUpdate={() => window.location.reload()} />
-        </div>
-      </div>
-    </>
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-shell-panel my-2 mr-2">
+      {showTagsView && (
+        <React.Suspense fallback={null}>
+          <TagsView />
+        </React.Suspense>
+      )}
+      <main
+        id="main"
+        tabIndex={-1}
+        className="thin-scroll flex-1 overflow-y-auto p-4 md:p-6 lg:p-8"
+      >
+        {children}
+      </main>
+    </div>
   )
 }
 
