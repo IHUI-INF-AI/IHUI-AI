@@ -73,7 +73,7 @@ export function PricingContent({ fallbackPlans }: { fallbackPlans: Plan[] }): Re
     <main className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:py-16">
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           会员定价
         </div>
@@ -100,7 +100,7 @@ export function PricingContent({ fallbackPlans }: { fallbackPlans: Plan[] }): Re
               }`}
             >
               {plan.highlighted && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
                   限时早鸟
                 </div>
               )}

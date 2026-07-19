@@ -29,9 +29,9 @@ export default function UserStudyBar({
           {unit !== '%' ? ` / ${total} ${unit}` : ` ${unit}`}
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div className="h-2 w-full overflow-hidden rounded-sm bg-muted">
         <div
-          className="h-full rounded-full bg-primary transition-all"
+          className="h-full rounded-sm bg-primary transition-all"
           style={{ width: `${percent}%` }}
           role="progressbar"
           aria-valuenow={Math.round(percent)}
