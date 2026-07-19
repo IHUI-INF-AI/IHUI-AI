@@ -4,10 +4,11 @@ import { Button, Card, Input } from '@ihui/ui-native'
 import { useAuth } from '../context/AuthContext'
 
 export function LoginScreen() {
-  const { login } = useAuth()
+  const { login, loginBySso } = useAuth()
   const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [ssoLoading, setSsoLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleLogin = async () => {
@@ -22,6 +23,16 @@ export function LoginScreen() {
       setError(res.error ?? '登录失败')
     }
     setLoading(false)
+  }
+
+  const handleSsoLogin = async () => {
+    setSsoLoading(true)
+    setError('')
+    const res = await loginBySso()
+    if (!res.success) {
+      setError(res.error ?? 'SSO 登录失败')
+    }
+    setSsoLoading(false)
   }
 
   return (
@@ -43,9 +54,18 @@ export function LoginScreen() {
           className="mb-2"
         />
         {error ? <Text className="text-red-600 text-sm mb-2">{error}</Text> : null}
-        <Button onPress={handleLogin} disabled={loading}>
+        <Button onPress={handleLogin} disabled={loading || ssoLoading}>
           {loading ? '登录中...' : '登录'}
         </Button>
+
+        <Text className="text-xs text-gray-400 text-center my-4">或</Text>
+
+        <Button onPress={handleSsoLogin} disabled={loading || ssoLoading} variant="outline">
+          {ssoLoading ? '打开网页登录...' : '使用网页账号登录'}
+        </Button>
+        <Text className="text-xs text-gray-500 text-center mt-2">
+          在 IHUI AI 网页端已登录的账号,可一键授权登录移动端
+        </Text>
       </Card>
     </View>
   )

@@ -48,6 +48,11 @@ export default {
     loginSuccess: 'ログインに成功しました',
     wechatFailed: 'WeChatログインに失敗しました',
     wechatOnly: 'WeChatミニプログラムでご利用ください',
+    ssoLogin: 'ウェブアカウントでログイン',
+    ssoLoginHint: 'ウェブでログイン済みのIHUI AIアカウントで認証',
+    ssoRedirecting: 'ウェブログインへ遷移中...',
+    ssoLoginFailed: 'SSO認証失敗',
+    ssoLoginSuccess: 'SSOログイン成功',
   },
   user: {
     title: 'マイページ',
