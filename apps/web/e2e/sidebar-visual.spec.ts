@@ -10,8 +10,8 @@ import { test, expect } from '@playwright/test'
  *   - resize 手柄 hover 时出现蓝色 3px 粗线(应为 1px 低对比细线)
  *   - resize 手柄 focus 时出现浅蓝背景块
  *
- * 注意:2026-07-17 用户要求恢复原始品牌 Logo(含图形+渐变+文字),不再强制文字版。
- * Logo 断言放宽为:img 存在 + src 指向 logo/bailogo.svg + HTTP 200 + 非空 SVG。
+ * 2026-07-19:左上角 sidebar 仍是带文字的 ThemeLogo(完整品牌),与页面内其他位置(footer/edu/distribution/brand-icon)用的纯图标 logo.png 区分。
+ * Logo 断言:img 存在 + src 指向 logo.svg/bailogo.svg(均带 cache-busting 版本号)+ HTTP 200 + 非空 SVG。
  */
 test.describe('Sidebar 视觉守门', () => {
   test.beforeEach(async ({ page }) => {
