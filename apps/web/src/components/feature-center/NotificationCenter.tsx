@@ -28,7 +28,8 @@ const TYPE_COLORS: Record<NoticeItem['type'], string> = {
   error: 'bg-red-500',
 }
 
-/** 通知中心组件，展示通知列表并提供全部已读与关闭操作 */
+/** 通知中心组件,展示通知列表并提供全部已读与关闭操作。
+ *  设计为"裸内容"组件:不带外层 border/bg-card/shadow,由外层容器(Popover/Dialog)提供卡片外观。 */
 export function NotificationCenter({
   items,
   onMarkAllRead,
@@ -38,8 +39,8 @@ export function NotificationCenter({
   const unreadCount = items.filter((n) => !n.read).length
 
   return (
-    <div className="flex h-full w-full flex-col rounded-lg border bg-card shadow-lg">
-      <div className="flex items-center justify-between border-b p-3">
+    <div className="flex w-full flex-col">
+      <div className="flex items-center justify-between p-3">
         <div className="flex items-center gap-2">
           <Bell className="h-4 w-4 text-primary" />
           <span className="font-semibold">通知中心</span>
@@ -63,7 +64,7 @@ export function NotificationCenter({
           )}
         </div>
       </div>
-      <div className="flex-1 overflow-auto">
+      <div className="max-h-[60vh] flex-1 overflow-auto">
         {items.length === 0 ? (
           <div className="flex h-full items-center justify-center py-12 text-sm text-muted-foreground">
             暂无通知
