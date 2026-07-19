@@ -1,8 +1,8 @@
 import { View, Text, Image, Swiper, SwiperItem, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useEffect } from 'react'
+import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
+import { useState, useEffect, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
-import { getHomePage, getCourseList, type Banner, type Course } from '@/api'
+import { getHomePage, getCourseList, getLiveList, getStudyInfo, type Banner, type Course, type Live } from '@/api'
 import { useI18n } from '@/i18n'
 
 const defaultAvatar =
@@ -16,12 +16,21 @@ const entries = [
   { icon: '⚙️', key: 'home.entry.setting', path: '/pages/user/settings' },
 ]
 
+interface StudyStats {
+  todayMinutes: number
+  totalMinutes: number
+  continuousDays: number
+  courses: number
+}
+
 export default function Index() {
   const { t } = useI18n()
   const [isLogin, setIsLogin] = useState(false)
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [bannerList, setBannerList] = useState<Banner[]>([])
   const [courseList, setCourseList] = useState<Course[]>([])
+  const [livePreview, setLivePreview] = useState<Live[]>([])
+  const [study, setStudy] = useState<StudyStats | null>(null)
 
   function refreshUser() {
     setIsLogin(isLoggedIn())
@@ -40,72 +49,84 @@ export default function Index() {
     Taro.navigateTo({ url: `/pages/course/detail?id=${id}` })
   }
 
+  function goLiveDetail(id: string | number) {
+    Taro.navigateTo({ url: `/pages/live/detail?id=${id}` })
+  }
+
   function onBannerClick(item: Banner) {
     if (item.link) Taro.navigateTo({ url: item.link })
   }
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
-      const [home, courses] = await Promise.all([
-        getHomePage().catch(() => ({ banner: [] })),
-        getCourseList({ page: 1, pageSize: 6 }).catch(() => ({ list: [], total: 0 })),
+      const [home, courses, lives, studyRes] = await Promise.all([
+        getHomePage().catch(() => ({ banner: [] as Banner[] })),
+        getCourseList({ page: 1, pageSize: 6 }).catch(() => ({ list: [] as Course[], total: 0 })),
+        getLiveList({ page: 1, pageSize: 4, status: 'upcoming' }).catch(
+          () => ({ list: [] as Live[], total: 0 }),
+        ),
+        getStudyInfo().catch(
+          () => ({ todayMinutes: 0, totalMinutes: 0, continuousDays: 0, courses: 0 }),
+        ),
       ])
       setBannerList(home.banner || [])
       setCourseList(courses.list || [])
+      setLivePreview(lives.list || [])
+      setStudy(studyRes as StudyStats)
     } catch {
-      // 静默处理，首页可离线展示
+      // 静默处理,首页可离线展示
     }
-  }
+  }, [])
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [loadData])
   useDidShow(() => {
     refreshUser()
   })
 
+  // 微信分享配置(转发给好友/朋友圈)
+  useShareAppMessage(() => ({
+    title: t('share.appTitle'),
+    path: '/pages/index/index',
+    imageUrl: '/static/share.png',
+  }))
+  useShareTimeline(() => ({
+    title: t('share.timelineTitle'),
+    query: '',
+  }))
+
+  const showLearningSection = isLogin && study && study.courses > 0
+
   return (
     <View className="min-h-screen pb-[20px]">
       {/* 顶部用户信息条 */}
-      {isLogin && userInfo ? (
-        <View
-          className="flex items-center pt-[60px] px-[16px] pb-[12px]"
-          style={{ background: 'linear-gradient(135deg, #07c160, #35e683)' }}
-        >
-          <Image
-            className="w-[36px] h-[36px] rounded-md border-[1px] border-solid border-white"
-            src={userInfo.avatar || defaultAvatar}
-            mode="aspectFill"
-          />
-          <View className="ml-[10px] flex items-center">
-            <Text className="text-white text-[15px] font-semibold">
-              {userInfo.userName || userInfo.nickname || t('common.user')}
+      <View
+        className="flex items-center pt-[60px] px-[16px] pb-[16px]"
+        style={{ background: 'linear-gradient(135deg, #07c160, #35e683)' }}
+      >
+        <Image
+          className="w-[40px] h-[40px] rounded-md border-[1px] border-solid border-white"
+          src={userInfo?.avatar || defaultAvatar}
+          mode="aspectFill"
+        />
+        <View className="ml-[10px] flex flex-col">
+          <Text className="text-white text-[15px] font-semibold">
+            {userInfo?.userName || userInfo?.nickname || (isLogin ? t('common.user') : t('home.tapLogin'))}
+          </Text>
+          {isLogin ? (
+            <Text className="text-white text-[11px] opacity-90">
+              {study
+                ? `${t('home.todayMinutes', { n: study.todayMinutes })} · ${t('home.continuousDays', { n: study.continuousDays })}`
+                : t('home.slogan')}
             </Text>
-            {userInfo.isVip ? (
-              <Text className="ml-[6px] px-[6px] py-[1px] bg-[#f0ad4e] text-white text-[10px] rounded-[10px]">
-                VIP
-              </Text>
-            ) : null}
-          </View>
-          <Text className="ml-auto text-white text-[13px]" onClick={goLogin}>
-            {t('home.goLogin')}
-          </Text>
+          ) : (
+            <Text className="text-white text-[11px] opacity-90" onClick={goLogin}>
+              {t('home.slogan')}
+            </Text>
+          )}
         </View>
-      ) : (
-        <View
-          className="flex items-center pt-[60px] px-[16px] pb-[12px]"
-          style={{ background: 'linear-gradient(135deg, #07c160, #35e683)' }}
-        >
-          <Image
-            className="w-[36px] h-[36px] rounded-md border-[1px] border-solid border-white"
-            src={defaultAvatar}
-            mode="aspectFill"
-          />
-          <Text className="ml-[10px] text-white text-[15px] font-semibold" onClick={goLogin}>
-            {t('home.tapLogin')}
-          </Text>
-        </View>
-      )}
+      </View>
 
       {/* 轮播图 */}
       <Swiper
@@ -129,24 +150,109 @@ export default function Index() {
         ) : null}
       </Swiper>
 
-      {/* 功能入口 */}
-      <View className="flex flex-wrap px-[16px] py-[8px] bg-white mx-[16px] rounded-[8px]">
+      {/* 学习进度(登录后) */}
+      {showLearningSection && study ? (
+        <View className="mx-[16px] mb-[12px] bg-white rounded-[8px] px-[12px] py-[12px]">
+          <View className="flex justify-between items-center">
+            <Text className="text-[15px] text-[#333] font-semibold">
+              {t('home.learningProgress')}
+            </Text>
+            <Text
+              className="text-[12px] text-[#999]"
+              onClick={() => Taro.navigateTo({ url: '/pages/study/my-study/index' })}
+            >
+              {t('home.more')} {'>'}
+            </Text>
+          </View>
+          <View className="flex mt-[10px]">
+            <View className="flex-1 text-center">
+              <Text className="block text-[18px] text-[#07c160] font-bold">
+                {study.todayMinutes}
+              </Text>
+              <Text className="text-[11px] text-[#999] mt-[2px]">
+                {t('home.todayMinutes', { n: '' })}
+              </Text>
+            </View>
+            <View className="flex-1 text-center">
+              <Text className="block text-[18px] text-[#07c160] font-bold">
+                {study.totalMinutes}
+              </Text>
+              <Text className="text-[11px] text-[#999] mt-[2px]">
+                {t('home.totalMinutes', { n: '' })}
+              </Text>
+            </View>
+            <View className="flex-1 text-center">
+              <Text className="block text-[18px] text-[#07c160] font-bold">
+                {study.continuousDays}
+              </Text>
+              <Text className="text-[11px] text-[#999] mt-[2px]">
+                {t('home.continuousDays', { n: '' })}
+              </Text>
+            </View>
+            <View className="flex-1 text-center">
+              <Text className="block text-[18px] text-[#07c160] font-bold">{study.courses}</Text>
+              <Text className="text-[11px] text-[#999] mt-[2px]">
+                {t('home.coursesCount', { n: '' })}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {/* 直播预告 */}
+      {livePreview.length > 0 ? (
+        <View className="mx-[16px] my-[12px] bg-white rounded-[8px] px-[12px] py-[12px]">
+          <View className="flex justify-between items-center">
+            <Text className="text-[15px] text-[#333] font-semibold">{t('home.livePreview')}</Text>
+            <Text className="text-[12px] text-[#999]" onClick={() => goPage('/pages/live/list')}>
+              {t('home.more')} {'>'}
+            </Text>
+          </View>
+          <ScrollView scrollX className="mt-[10px]">
+            <View className="flex">
+              {livePreview.map((live) => (
+                <View
+                  key={live.id}
+                  className="inline-block w-[160px] mr-[10px] flex-shrink-0"
+                  onClick={() => goLiveDetail(live.id)}
+                >
+                  <View className="relative w-[160px] h-[90px] rounded-[6px] overflow-hidden">
+                    <Image className="w-full h-full" src={live.coverUrl} mode="aspectFill" />
+                    <View className="absolute top-1 right-1 px-[4px] py-[1px] bg-[#f0ad4e] text-white text-[10px] rounded-[3px]">
+                      <Text>{t('live.preview')}</Text>
+                    </View>
+                  </View>
+                  <Text className="block mt-[6px] text-[12px] text-[#333] truncate">
+                    {live.title}
+                  </Text>
+                  <Text className="block text-[10px] text-[#999] truncate">
+                    {live.startTime ? `${t('home.startTime')}: ${live.startTime}` : ''}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {/* 快捷入口 */}
+      <View className="flex flex-wrap px-[16px] py-[10px] bg-white mx-[16px] rounded-[8px]">
         {entries.map((entry) => (
           <View
             key={entry.path}
-            className="w-1/5 flex flex-col items-center py-[12px]"
+            className="w-1/5 flex flex-col items-center py-[8px]"
             onClick={() => goPage(entry.path)}
           >
-            <Text className="text-[24px]">{entry.icon}</Text>
-            <Text className="mt-[4px] text-[12px] text-[#333]">{t(entry.key)}</Text>
+            <Text className="text-[22px]">{entry.icon}</Text>
+            <Text className="mt-[3px] text-[11px] text-[#333]">{t(entry.key)}</Text>
           </View>
         ))}
       </View>
 
       {/* 推荐课程 */}
-      <View className="mx-[16px] my-[16px]">
+      <View className="mx-[16px] my-[12px]">
         <View className="flex justify-between items-center mb-[10px]">
-          <Text className="text-[16px] font-semibold text-[#333]">{t('home.hotCourses')}</Text>
+          <Text className="text-[15px] font-semibold text-[#333]">{t('home.hotCourses')}</Text>
           <Text className="text-[12px] text-[#999]" onClick={() => goPage('/pages/course/list')}>
             {t('home.more')} {'>'}
           </Text>
@@ -160,10 +266,10 @@ export default function Index() {
                 onClick={() => goCourseDetail(c.id)}
               >
                 <Image className="w-full h-[80px]" src={c.coverUrl} mode="aspectFill" />
-                <Text className="block px-[6px] pt-[6px] text-[13px] text-[#333] truncate">
+                <Text className="block px-[6px] pt-[6px] text-[12px] text-[#333] truncate">
                   {c.title}
                 </Text>
-                <Text className="block px-[6px] pb-[6px] text-[14px] text-[#dd524d] font-semibold">
+                <Text className="block px-[6px] pb-[6px] text-[13px] text-[#dd524d] font-semibold">
                   ¥{c.price ?? 0}
                 </Text>
               </View>
