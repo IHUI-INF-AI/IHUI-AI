@@ -13,9 +13,18 @@ import { emailSchema, type TokenResult } from './login-schemas'
 interface EmailCodeLoginFormProps {
   active: boolean
   onSuccess?: () => void
+  agreed?: boolean
+  onRequireAgree?: () => void
+  showAgreeErr?: boolean
 }
 
-export function EmailCodeLoginForm({ active, onSuccess }: EmailCodeLoginFormProps) {
+export function EmailCodeLoginForm({
+  active,
+  onSuccess,
+  agreed = true,
+  onRequireAgree,
+  showAgreeErr,
+}: EmailCodeLoginFormProps) {
   const t = useTranslations('auth')
   const setToken = useAuthStore((s) => s.setToken)
   const setUser = useAuthStore((s) => s.setUser)
@@ -74,6 +83,10 @@ export function EmailCodeLoginForm({ active, onSuccess }: EmailCodeLoginFormProp
   const onEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setEmailErr(null)
+    if (!agreed) {
+      onRequireAgree?.()
+      return
+    }
     const ep = emailSchema.safeParse(email)
     if (!ep.success) {
       setEmailErr(t('invalidEmail'))
@@ -115,24 +128,30 @@ export function EmailCodeLoginForm({ active, onSuccess }: EmailCodeLoginFormProp
       {emailErr && <Alert variant="danger" description={emailErr} />}
       <div className="space-y-2">
         <Label htmlFor="email">{t('email')}</Label>
-        <Input
-          id="email"
-          type="email"
-          autoComplete="email"
-          placeholder={t('emailPlaceholder')}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <div className="input-gradient-wrap rounded-md">
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            placeholder={t('emailPlaceholder')}
+            className="h-9 rounded-[7px] border border-input bg-background"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="email-code">{t('code')}</Label>
         <div className="flex gap-2">
-          <Input
-            id="email-code"
-            placeholder={t('codePlaceholder')}
-            value={emailCode}
-            onChange={(e) => setEmailCode(e.target.value)}
-          />
+          <div className="input-gradient-wrap flex-1 rounded-md">
+            <Input
+              id="email-code"
+              placeholder={t('codePlaceholder')}
+              className="h-9 rounded-[7px] border border-input bg-background"
+              value={emailCode}
+              onChange={(e) => setEmailCode(e.target.value)}
+            />
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -144,7 +163,8 @@ export function EmailCodeLoginForm({ active, onSuccess }: EmailCodeLoginFormProp
           </Button>
         </div>
       </div>
-      <Button type="submit" className="w-full" disabled={emailSubmitting}>
+      {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
+      <Button type="submit" className="w-full" disabled={emailSubmitting || !agreed}>
         {emailSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
         {t('loginBtn')}
       </Button>
