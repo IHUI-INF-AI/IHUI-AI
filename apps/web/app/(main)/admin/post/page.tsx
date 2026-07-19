@@ -7,6 +7,7 @@ import { Briefcase, Plus, Trash2, Download, ChevronLeft, ChevronRight } from 'lu
 
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { useBatchMutation } from '@/hooks/use-batch-mutation'
 import { Button } from '@ihui/ui'
 import { PostFilter } from './PostFilter'
 import { PostTable } from './PostTable'
@@ -57,15 +58,13 @@ export default function PostPage() {
     },
     onError: (e: Error) => setErr(e.message),
   })
-  const delMut = useMutation({
-    mutationFn: (ids: string[]) =>
-      api(RESOURCE, { method: 'DELETE', body: JSON.stringify({ ids }) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'posts'] })
-      toast.success('删除成功')
-      setSelected(new Set())
-    },
-    onError: (e: Error) => toast.error(e.message),
+  const delMut = useBatchMutation({
+    endpoint: RESOURCE,
+    method: 'DELETE',
+    queryKey: ['admin', 'posts'],
+    ids: [...selected],
+    successMessage: '删除成功',
+    onSuccess: () => setSelected(new Set()),
   })
 
   const handleSearch = () => {
@@ -152,7 +151,7 @@ export default function PostPage() {
             variant="outline"
             disabled={selected.size === 0 || delMut.isPending}
             onClick={() => {
-              if (confirm(`确认删除选中的 ${selected.size} 条记录？`)) delMut.mutate([...selected])
+              if (confirm(`确认删除选中的 ${selected.size} 条记录？`)) delMut.mutate()
             }}
           >
             <Trash2 className="h-4 w-4" />
