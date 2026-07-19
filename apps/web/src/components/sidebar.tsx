@@ -378,7 +378,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   // 图标尺寸与 NavLink 导航项 (h-5 w-5=20px) 完全一致,避免底部工具栏图标过小不一致;
   // 4 个按钮 + 3 个 gap-0.5 (6px) = 110px,正好填满 130px 默认宽度 (扣 px-1.5 + p-1 = 20px padding);
   // [&_svg]:size-5 覆盖 Button 默认的 [&_svg]:size-4,让 svg 渲染为 20×20 与导航项图标尺寸一致。
-  const btnClass = 'h-[26px] w-[26px] shrink-0 p-0 [&_svg]:size-5'
+  // hover 用 foreground/20 与新建任务按钮/展开按钮统一(2026-07-20 用户反馈:原 ghost hover:bg-accent 太弱);
+  // 尺寸保持 26×26 不改 36×36(130px 宽度约束,改大溢出);默认态保持透明(次要工具按钮语义,与展开按钮 bg-foreground/10 区分层级)。
+  const btnClass =
+    'h-[26px] w-[26px] shrink-0 p-0 [&_svg]:size-5 text-foreground hover:bg-foreground/20'
 
   return (
     <div
@@ -873,7 +876,19 @@ function NavLink({ item, collapsed, active, label, onCloseMobile, registerRef }:
       className={className}
     >
       <Icon className="h-5 w-5 shrink-0" />
-      <span>{label}</span>
+      {/*
+        文字 span 与 ExpandableNavItem 完全一致写法(min-w-0 whitespace-nowrap text-left):
+        - 不用 flex-1:避免 span 被 blockify 后宽度 100%,被父级 text-align 继承居中
+        - text-left:防御性显式声明,即使 NAV_ITEM_BASE_CLASS 已有 text-left,
+          span 自身也声明一次,跨 a/button 元素类型永久一致
+        - whitespace-nowrap:与 ExpandableNavItem 一致,防换行
+        - min-w-0:防溢出
+        根因(2026-07-19 三次修复):NavLink 是 <a>(默认 text-align:left),
+        ExpandableNavItem 是 <button>(默认 text-align:center),两者 user agent 默认不同,
+        即使 NAV_ITEM_BASE_CLASS 加了 text-left 仍可能因 HMR 缓存/特异性问题反复出现偏差。
+        统一 span 写法是根治,跨元素类型永久一致。
+      */}
+      <span className="min-w-0 whitespace-nowrap text-left">{label}</span>
     </Link>
   )
 }
