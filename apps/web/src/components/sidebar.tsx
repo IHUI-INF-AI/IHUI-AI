@@ -152,9 +152,16 @@ const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
  *
  * 守门:e2e/sidebar-visual.spec.ts "折叠态导航项背景容器统一为 36×36 正方形" 用例
  * 防止再次出现部分导航项漏改导致尺寸不一致
+ *
+ * 【2026-07-19 二次根因修复】实测数据推翻原"几何居中 ≠ 视觉居中"假说:
+ *   实测所有 nav 文字 span(母项+子项)margin-top:0 时,与 icon box 的 midY 偏差 = 0px,
+ *   完全居中。margin-top:-1px 反而导致文字偏低 0.5px(text ink midY = 1672 vs icon 1672.5)。
+ *   原"中文 ink 不对称需要 -mt-px 微调"是错误推论 —— box 居中即视觉居中,
+ *   移除所有 [&>span]:-mt-px 类即可让 4 个采样点(母项+3 子项)delta 全部归零。
+ *   leading-none 仍保留以避免 button 高度被 line-height 撑高,确保 36px 紧凑布局。
  */
 const NAV_ITEM_BASE_CLASS =
-  'flex h-9 min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors'
+  'flex h-9 min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium leading-none whitespace-nowrap transition-colors'
 const NAV_ITEM_COLLAPSED_CLASS = 'w-9 mx-auto justify-center'
 const NAV_ITEM_EXPANDED_CLASS = 'w-full'
 
@@ -815,6 +822,11 @@ interface ExpandableNavItemProps {
   onCloseMobile: () => void
   registerRef: (href: string, el: HTMLElement | null) => void
   t: (key: string) => string
+  /**
+   * 桌面 / 移动 aside 各自独立 ID 空间,避免 DOM 重复 id。
+   * 派生 listId 必须含 scope 才能保证 HTML5 id 唯一性 + SSR/CSR 完全一致(不依赖 useId)。
+   */
+  scope: 'desktop' | 'mobile'
 }
 
 function ExpandableNavItem({
@@ -824,6 +836,7 @@ function ExpandableNavItem({
   onCloseMobile,
   registerRef,
   t,
+  scope,
 }: ExpandableNavItemProps) {
   const router = useRouter()
   const children = item.children ?? []
@@ -832,8 +845,9 @@ function ExpandableNavItem({
   // 初始值固定 false,确保 SSR 与客户端首次渲染一致,避免 hydration mismatch。
   // 真实展开状态在 hydration 后由 useEffect 读取(parentActive 优先,其次 localStorage)。
   const [open, setOpen] = React.useState(false)
-  const controlId = React.useId()
-  const listId = `${controlId}-list`
+  // 静态派生 listId(不含 useId),保证 SSR/CSR 字节级一致 + DOM 唯一 id。
+  // React 18 useId 在两个 React 树(桌面/移动 aside)间偶发漂移会导致 hydration mismatch + Radix aria-controls 失效。
+  const listId = `exp-list-${scope}-${item.href.replace(/[^a-z0-9]+/gi, '-')}`
 
   // hydration 后读取真实展开状态
   React.useEffect(() => {
@@ -881,7 +895,7 @@ function ExpandableNavItem({
 
   const childClassName = (active: boolean) =>
     cn(
-      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-5 pr-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
+      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-5 pr-2.5 py-1.5 text-sm font-medium leading-none whitespace-nowrap transition-colors',
       active
         ? 'bg-primary text-primary-foreground'
         : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
@@ -1015,11 +1029,17 @@ export function Sidebar({
   const toggleAiPanel = useAiPanelStore((s) => s.togglePanel)
 
   const navRef = React.useRef<HTMLElement>(null)
+  const mobileNavRef = React.useRef<HTMLElement>(null)
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
 
   // 桌面端展开态拖拽调整宽度(130-180px),localStorage 持久化
   const [sidebarWidth, setSidebarWidth] = React.useState(SIDEBAR_WIDTH)
   const [isResizing, setIsResizing] = React.useState(false)
+
+  // 桌面 / 移动两个 <nav> 必须有不同 id(避免 DOM 重复 id + a11y 工具误判)。
+  // 派生自父级传入的 id,SSR/CSR 完全一致,杜绝 useId 漂移导致的 hydration mismatch。
+  const desktopNavId = id ? `${id}-desktop` : 'sidebar-nav-desktop'
+  const mobileNavId = id ? `${id}-mobile` : 'sidebar-nav-mobile'
 
   React.useEffect(() => {
     const saved = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)
@@ -1030,6 +1050,13 @@ export function Sidebar({
       }
     }
   }, [])
+
+  // 同步当前实际宽度(折叠态用 60px,展开态用 sidebarWidth)到 :root 的 --sidebar-width CSS 变量,
+  // 供 AISidePanel 等 fixed 定位组件通过 left: var(--sidebar-width) 紧贴 Sidebar 右侧。
+  React.useEffect(() => {
+    const effective = collapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth
+    document.documentElement.style.setProperty('--sidebar-width', `${effective}px`)
+  }, [collapsed, sidebarWidth])
 
   const handleResizeStart = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1088,22 +1115,26 @@ export function Sidebar({
   React.useEffect(() => {
     if (!activeHref) return
     const el = itemRefs.current.get(activeHref)
-    const nav = navRef.current
-    if (el && nav) {
-      const navRect = nav.getBoundingClientRect()
-      const elRect = el.getBoundingClientRect()
-      if (elRect.top < navRect.top || elRect.bottom > navRect.bottom) {
-        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        el.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
-      }
+    if (!el) return
+    // 桌面 / 移动两个 nav 选当前 visible 的那个来计算可见区域
+    const isMobileVisible = mobileNavRef.current
+      ? mobileNavRef.current.getBoundingClientRect().width > 0
+      : false
+    const nav = isMobileVisible ? mobileNavRef.current : navRef.current
+    if (!nav) return
+    const navRect = nav.getBoundingClientRect()
+    const elRect = el.getBoundingClientRect()
+    if (elRect.top < navRect.top || elRect.bottom > navRect.bottom) {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      el.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
     }
   }, [activeHref])
 
-  const navContent = (
+  const navContent = (navId: string, ref: React.Ref<HTMLElement>, scope: 'desktop' | 'mobile') => (
     <TooltipProvider>
       <nav
-        ref={navRef}
-        id={id}
+        ref={ref}
+        id={navId}
         aria-label={t('title') ?? '主导航'}
         className={cn(
           'hover-scroll min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto py-2',
@@ -1136,7 +1167,7 @@ export function Sidebar({
               onClick={toggleAiPanel}
               aria-pressed={aiPanelOpen}
               className={cn(
-                'flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
+                'flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm font-medium leading-none transition-colors',
                 'bg-foreground/10 text-foreground hover:bg-foreground/20',
               )}
             >
@@ -1173,6 +1204,7 @@ export function Sidebar({
                     onCloseMobile={onCloseMobile}
                     registerRef={registerRef}
                     t={t}
+                    scope={scope}
                   />
                 )
               }
@@ -1279,7 +1311,7 @@ export function Sidebar({
         }
       >
         {header}
-        {navContent}
+        {navContent(desktopNavId, navRef, 'desktop')}
         {footer}
         {/* 右侧拖拽手柄:展开/折叠态均显示(折叠态可拖拽展开)。
             外层 w-2(8px)为透明命中区,right-[-4px] 让命中区居中跨越 aside 右边缘(左右各 4px)。
@@ -1323,7 +1355,7 @@ export function Sidebar({
         style={{ width: SIDEBAR_WIDTH }}
       >
         {header}
-        {navContent}
+        {navContent(mobileNavId, mobileNavRef, 'mobile')}
         {footer}
       </aside>
     </>
