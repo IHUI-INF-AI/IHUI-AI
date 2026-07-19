@@ -128,7 +128,7 @@ export default function DocumentsPage() {
       )}
 
       {previewDoc && (
-        <Card className="fixed inset-4 z-50 overflow-auto md:inset-x-1/4 md:top-1/4 md:bottom-1/4">
+        <Card className="fixed inset-4 z-modal overflow-auto md:inset-x-1/4 md:top-1/4 md:bottom-1/4">
           <CardContent className="space-y-3 p-6">
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-lg font-semibold">

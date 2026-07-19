@@ -78,7 +78,7 @@ export function SearchBar({
         </div>
       </form>
       {showDropdown && (
-        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+        <div className="absolute z-popover mt-1 w-full overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
           {!value && history.length > 0 && (
             <div className="mb-1">
               <div className="flex items-center justify-between px-2 py-1">
