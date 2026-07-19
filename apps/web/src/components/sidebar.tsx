@@ -389,9 +389,13 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         collapsed ? 'flex-col items-center pl-[9px] pr-2' : 'flex-row flex-wrap justify-center',
       )}
     >
-      {/* 语言切换 */}
+      {/* 语言切换 — portal 让弹窗脱离 MainShell overflow-hidden 祖先避免被裁剪,
+          align: 折叠态用 end(底边对齐 trigger 底边,与下载/消息中心一致),
+                展开态用 center(水平居中在 trigger 上方) */}
       <Popover
         position={collapsed ? 'right' : 'top'}
+        align={collapsed ? 'end' : 'center'}
+        portal
         content={
           <div className="w-36 py-1">
             {LANGUAGES.map((lang) => (
@@ -980,7 +984,13 @@ function ExpandableNavItem({
             className={childClassName(active)}
           >
             <ChildIcon className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">{childLabel}</span>
+            {/*
+              同父按钮,故意不用 flex-1 — 避免被 blockify 后被父级 text-align:center 居中,
+              跨级继承问题在父按钮根因修复后理论上更安全(子级 Link 是 <a> 而非 flex item),
+              但为防御性 + 与父按钮策略一致仍显式去掉 flex-1,统一处理。
+              truncate 仍保留,二级菜单文本过长截断。
+            */}
+            <span className="min-w-0 truncate text-left">{childLabel}</span>
           </Link>
         )
       })}
@@ -1029,14 +1039,17 @@ function ExpandableNavItem({
         className={parentClassName}
       >
         <Icon className="h-5 w-5 shrink-0" />
-        <span
-          className={cn(
-            // 展开/父级激活状态在 parentClassName 已统一 font-semibold,这里只需控制 layout 类
-            'min-w-0 flex-1 whitespace-nowrap transition-all duration-200',
-          )}
-        >
-          {label}
-        </span>
+        {/*
+          文字 span 故意**不**用 `flex-1`:
+          - flex-1 会让 span 被 blockified 为 display:block,内容宽度 100% 占用剩余空间
+          - 一旦父级 flex 容器或祖先元素出现 `text-align: center`(如登录按钮 / 全局规则),
+            inline text 会被居中在 span 内,导致 first-char 位置偏移(实测 29px,反复出现的对齐 bug 根因)
+          - 父级 button 已是 flex 容器,左对齐由 justify-content:flex-start 默认保证
+          - 与 NavLink 完全一致,text 始终从 icon + gap 处开始,字符越多越往右但首字符位置稳定
+          - 展开/父级激活的 font-semibold 在 parentClassName 已统一,这里只保留 min-w-0 防溢出
+            与 whitespace-nowrap 避免换行
+        */}
+        <span className="min-w-0 whitespace-nowrap text-left">{label}</span>
         {/*
           二级菜单底部指示符 — 居中横线(absolute 定位在按钮内部底边)
           设计(精简高级时尚,Linear/Notion 风格):
