@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
+import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getCourseDetail, type Course } from '@/api'
 import { useI18n } from '@/i18n'
@@ -48,6 +48,16 @@ export default function CourseDetail() {
     const id = router.params.id || ''
     if (id) loadDetail(id)
   }, [router.params.id, loadDetail])
+
+  useShareAppMessage(() => ({
+    title: course ? t('share.courseTitle', { title: course.title }) : t('share.appTitle'),
+    path: router.path ? `${router.path}?id=${router.params.id || ''}` : '/pages/course/detail',
+    imageUrl: course?.coverUrl || '/static/share.png',
+  }))
+  useShareTimeline(() => ({
+    title: course ? t('share.courseTitle', { title: course.title }) : t('share.timelineTitle'),
+    query: `id=${router.params.id || ''}`,
+  }))
 
   const handleBuy = useCallback(() => {
     Taro.showToast({ title: t('course.buyDeveloping'), icon: 'none' })

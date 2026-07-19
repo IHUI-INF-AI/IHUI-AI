@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
+import Taro, { usePullDownRefresh, useReachBottom, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveList, type Live } from '@/api'
 import { useI18n } from '@/i18n'
@@ -81,6 +81,16 @@ export default function LiveList() {
   useEffect(() => {
     load(true)
   }, [load])
+
+  useShareAppMessage(() => ({
+    title: t('share.appTitle'),
+    path: '/pages/live/list',
+    imageUrl: '/static/share.png',
+  }))
+  useShareTimeline(() => ({
+    title: t('share.timelineTitle'),
+    query: '',
+  }))
 
   return (
     <View className="min-h-screen p-3">
