@@ -6,7 +6,9 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface AuthShellProps {
-  title: string
+  /** 标题(sr-only,视觉由 logo+welcome 表达,仅给 a11y 读屏用) */
+  title?: string
+  /** 副标题(sr-only,视觉由 logo+welcome 表达,仅给 a11y 读屏用) */
   subtitle?: React.ReactNode
   /** 提供 onClose 则显示右上角关闭按钮 */
   onClose?: () => void
@@ -100,8 +102,12 @@ export function AuthShell({
             />
           </div>
         </div>
-        <h1 className="mt-4 text-xl font-semibold tracking-tight text-foreground">{title}</h1>
-        {subtitle && <p className="mt-1.5 text-xs text-muted-foreground">{subtitle}</p>}
+        {/* 标题/副标题 sr-only:视觉由 logo + welcome 并排表达(2026-07-20 修订)
+            - 主站 LoginDialog 已有 sr-only DialogTitle/DialogDescription,不传 title/subtitle
+            - SSO 整页传 title/subtitle,此处 sr-only h1/p 承担 a11y 读屏角色
+            - 视觉统一:3 处都只有 logo + welcome + 表单,无"欢迎回来 登录您的账号"文字 */}
+        {title && <h1 className="sr-only">{title}</h1>}
+        {subtitle && <p className="sr-only">{subtitle}</p>}
       </div>
 
       <div className="mt-6">{children}</div>
