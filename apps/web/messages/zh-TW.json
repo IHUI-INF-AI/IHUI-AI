@@ -385,7 +385,7 @@
     "mainNav": "主導航",
     "knowledgeBase": "知識庫",
     "announcements": "公告",
-    "overview": "總覽",
+    "overview": "概覽",
     "enterprise": "企業服務",
     "aiWorld": "AI 世界",
     "aiGeneration": "AI 生成",
@@ -6964,7 +6964,7 @@
   "settings": {
     "title": "設置",
     "subtitle": "管理您的偏好設置",
-    "dashboardTitle": "設置總覽",
+    "dashboardTitle": "設置概覽",
     "dashboardDesc": "快速造訪所有設置選項",
     "preferencesTitle": "通用偏好",
     "preferencesDesc": "自定義您的應用體驗",
