@@ -106,6 +106,8 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
             'inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-sm font-medium transition-colors',
             'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             'disabled:cursor-not-allowed disabled:opacity-60',
+            // 2026-07-19 中文 + 图标垂直对齐:文字 span 视觉居中
+            '[&>span]:translate-y-[var(--text-vcenter-offset)]',
           )}
         >
           <BrandIcon
