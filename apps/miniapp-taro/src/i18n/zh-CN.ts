@@ -48,6 +48,11 @@ export default {
     loginSuccess: '登录成功',
     wechatFailed: '微信登录失败',
     wechatOnly: '请在微信小程序中使用',
+    ssoLogin: '使用网页账号登录',
+    ssoLoginHint: '在 IHUI AI 网页端已登录的账号,可一键授权登录小程序',
+    ssoRedirecting: '正在跳转网页登录...',
+    ssoLoginFailed: 'SSO 授权失败',
+    ssoLoginSuccess: 'SSO 登录成功',
   },
   register: {
     title: '注册账号',
