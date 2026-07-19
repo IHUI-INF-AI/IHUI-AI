@@ -30,7 +30,7 @@ interface AiPanelState {
 export const useAiPanelStore = create<AiPanelState>()(
   persist(
     (set) => ({
-      open: false,
+      open: true, // DEV-TEMP: 验证 z-sticky
       width: AI_PANEL_DEFAULT_WIDTH,
       isResizing: false,
 

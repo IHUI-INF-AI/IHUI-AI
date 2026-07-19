@@ -118,9 +118,20 @@ export interface Model {
  * - chinese: features 含 Chinese-Optimized 或 Bilingual
  * - openSource: features 含 Open Source
  * - favorite: 用户收藏(localStorage 持久化)
+ * - configured: 用户已在 LLM 配置中心配置该 provider 的 API Key 且启用
+ * - notConfigured: 用户未配置该 provider 的 API Key
  */
 export type QuickFilter =
-  'free' | 'longContext' | 'reasoning' | 'vision' | 'coding' | 'chinese' | 'openSource' | 'favorite'
+  | 'free'
+  | 'longContext'
+  | 'reasoning'
+  | 'vision'
+  | 'coding'
+  | 'chinese'
+  | 'openSource'
+  | 'favorite'
+  | 'configured'
+  | 'notConfigured'
 
 /** 排序方式 */
 export type SortKey = 'recommended' | 'priceAsc' | 'priceDesc' | 'contextDesc' | 'nameAsc'
