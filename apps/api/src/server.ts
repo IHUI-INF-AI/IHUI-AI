@@ -359,7 +359,14 @@ async function registerPlugins(server: FastifyInstance) {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
-  await server.register(rateLimit, { max: 100, timeWindow: '1 minute' })
+  // 全局 IP 限流:按 NODE_ENV 分级(防止开发期热点路由反复触发 429)
+  // - production: 100 req/min/IP(生产安全,DoS 防护)
+  // - development: 1000 req/min/IP(单人开发几乎不触发,避免误伤 dev 体验)
+  const isDev = process.env.NODE_ENV !== 'production'
+  await server.register(rateLimit, {
+    max: isDev ? 1000 : 100,
+    timeWindow: '1 minute',
+  })
   await server.register(underPressure, { maxEventLoopDelay: 1000 })
   await server.register(swagger, {
     openapi: {
