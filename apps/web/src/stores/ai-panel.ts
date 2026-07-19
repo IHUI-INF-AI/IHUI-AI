@@ -24,13 +24,15 @@ interface AiPanelState {
 
 /**
  * 全局 AI docked 面板状态。
- * - open 不持久化:每次刷新默认收起,避免遮挡主内容
+ * - open 不持久化:每次刷新默认展开(2026-07-19 改,符合"AI 对话框默认弹出"的全局设定)
+ *   merge 函数强制覆盖 rehydrate 后的 open=true,防止旧版本 localStorage 残留的 open=false 干扰
  * - width 持久化:保留用户拖拽偏好
  */
 export const useAiPanelStore = create<AiPanelState>()(
   persist(
     (set) => ({
-      open: true, // DEV-TEMP: 验证 z-sticky
+      // open=true:AI 对话框默认弹出展开(用户规则 2026-07-20 确认)
+      open: true,
       width: AI_PANEL_DEFAULT_WIDTH,
       isResizing: false,
 
@@ -43,8 +45,17 @@ export const useAiPanelStore = create<AiPanelState>()(
         }),
       setResizing: (v) => set({ isResizing: v }),
     }),
-    createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({
-      width: s.width,
-    })),
+    {
+      ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({
+        width: s.width,
+      })),
+      // 强制 open=true:rehydrate 时即使 localStorage 残留旧版本 open=false 也覆盖为 true。
+      // 保证"AI 对话框默认弹出"规则在所有刷新场景下生效。
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...((persistedState as Partial<AiPanelState>) || {}),
+        open: true,
+      }),
+    },
   ),
 )
