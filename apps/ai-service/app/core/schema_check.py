@@ -31,7 +31,12 @@ _APP_DIR = Path(__file__).resolve().parent.parent  # apps/ai-service/app
 
 # packages/database/src/schema 目录(用于解析 TS schema)
 # 从 apps/ai-service/app/core/ 回溯到 monorepo 根,再进入 packages/database
-_SCHEMA_DIR = Path(__file__).resolve().parents[4] / "packages" / "database" / "src" / "schema"
+# 容器部署时 ai-service 镜像只 COPY app/,没有 monorepo 完整结构,parents[4] 会 IndexError
+# 此时 _SCHEMA_DIR 指向不存在路径,后续 is_dir() 返回 False,自动走 FALLBACK_EXPECTED_COLUMNS
+try:
+    _SCHEMA_DIR = Path(__file__).resolve().parents[4] / "packages" / "database" / "src" / "schema"
+except IndexError:
+    _SCHEMA_DIR = Path("/nonexistent/packages/database/src/schema")
 
 # 硬编码 fallback(当 TS 源码不可访问时使用,确保关键字段始终校验)
 FALLBACK_EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
