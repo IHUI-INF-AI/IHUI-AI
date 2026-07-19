@@ -680,3 +680,41 @@ h6 {
     display: none;
   }
 }
+
+/* ============================================================
+ * z-index utility 暴露层 (2026-07-19 立,根因修复登录框被 AI 面板遮盖)
+ * ============================================================
+ * 背景:Tailwind v4 内置 z-* utility 仅覆盖 z-0/z-10/z-20/z-30/z-40/z-50/z-auto,
+ * 不会为自定义 --z-modal 之类的 CSS 变量自动生成 z-modal utility。
+ * 之前 :root 定义了 --z-modal: 2000 但 utility 未生成,导致 className 含 z-modal
+ * 的元素实际 z-index=auto,被 z-40 元素(AI 面板)遮住。
+ *
+ * 解法:用 @layer utilities 显式定义 8 个语义化 utility class,
+ * z-index 绑定 design-tokens.css 的 :root CSS 变量(单一来源,值与 design-tokens.css 同步)。
+ *
+ * 层级语义(从低到高):
+ *   z-sticky       990   全局 fixed 常驻面板(AI 工作区面板)
+ *   z-dropdown     1000  下拉菜单
+ *   z-overlay      1000  遮罩层
+ *   z-modal        2000  弹层(Modal/Drawer/Dialog/ImageViewer 全屏/PWA 提示/客服按钮/登录框/移动侧边栏)
+ *   z-popover      2001  弹出层(高于 modal,Tooltip/Popover/右键菜单)
+ *   z-notification 9999  通知/提示
+ *   z-loading      10000 全屏加载
+ *   z-max          10003 最大层级(全屏覆盖)
+ *
+ * 跨组件 fixed 元素冲突守门:任何新增 z-modal/z-sticky 引用前,
+ * 必须确认该组件 z-index > 全局 fixed 常驻面板(z-sticky=990),
+ * 否则会被 AI 工作区面板遮盖。
+ *
+ * 单一来源:design-tokens.css 第 152-164 行的 :root { --z-* } 定义,
+ * 修改任何 z-index 数值只需改 design-tokens.css,全站自动联动。 */
+@layer utilities {
+  .z-sticky { z-index: var(--z-sticky); }
+  .z-dropdown { z-index: var(--z-dropdown); }
+  .z-overlay { z-index: var(--z-overlay); }
+  .z-modal { z-index: var(--z-modal); }
+  .z-popover { z-index: var(--z-popover); }
+  .z-notification { z-index: var(--z-notification); }
+  .z-loading { z-index: var(--z-loading); }
+  .z-max { z-index: var(--z-max); }
+}

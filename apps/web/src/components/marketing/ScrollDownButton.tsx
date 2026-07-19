@@ -38,7 +38,7 @@ export function ScrollDownButton({ current, total, onNext }: ScrollDownButtonPro
       type="button"
       onClick={handleClick}
       aria-label={t('label')}
-      className={`fixed bottom-8 left-1/2 z-40 flex h-11 w-11 -translate-x-1/2 items-center justify-center rounded-lg border bg-card/90 shadow-sm backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:bg-card ${
+      className={`fixed bottom-8 left-1/2 z-sticky flex h-11 w-11 -translate-x-1/2 items-center justify-center rounded-lg border bg-card/90 shadow-sm backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:bg-card ${
         clicking ? 'scale-95' : ''
       }`}
     >

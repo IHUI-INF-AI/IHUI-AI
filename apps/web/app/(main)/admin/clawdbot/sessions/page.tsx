@@ -112,7 +112,7 @@ export default function ClawdbotSessionsPage() {
 
       {selected && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-4"
           tabIndex={0}
           onClick={() => setSelected(null)}
           onKeyDown={(e) => {
