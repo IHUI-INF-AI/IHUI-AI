@@ -29,6 +29,10 @@
     "./workspace": {
       "types": "./src/workspace.ts",
       "import": "./dist/workspace.js"
+    },
+    "./api-contracts": {
+      "types": "./src/api-contracts.ts",
+      "import": "./dist/api-contracts.js"
     }
   },
   "scripts": {
