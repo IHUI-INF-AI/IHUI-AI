@@ -56,40 +56,44 @@ export function LoginDialog() {
               : t('forgotSubtitle')}
         </DialogDescription>
 
-        <div className="flex flex-col items-center px-6 pt-8 pb-4 text-center bg-gradient-to-b from-background to-muted/40 rounded-t-xl">
-          {/* 顶部 logo:用户提供的纯图标版 logo.png(2534×2534 方形,蝴蝶结 + IHUI INF 弧形标识,无右侧"智汇AI社区"横向文字)。
-              比 logo.svg 简洁,适合登录弹窗顶部主视觉。 */}
+        <div className="flex items-center justify-center gap-3 px-6 pt-6 pb-4 bg-gradient-to-b from-background to-muted/40 rounded-t-xl">
+          {/* 顶部 logo 与 welcome 图左右并排布局(M-66,2026-07-19):
+              - flex row,items-center 让 logo 与 welcome 视觉中心对齐
+              - logo 固定 52×52(w-[52px] h-[52px],与原 80×80 同比缩小以腾出 welcome 横向空间)
+              - welcome 区 h-[52px] w-full max-w-[348px] 绝对定位叠加 light/dark 两版本
+              - 52 + gap-3(12) + 348 = 412,刚好等于 dialog 容器 460 - 2*24 内宽
+              - 欢迎图自然宽 52*447/67 ≈ 347px,正好填满 348 容器且不变形 */}
           <Image
             src="/images/logo.png?v=20260719-login"
             alt="IHUI AI"
-            width={80}
-            height={80}
-            className="h-20 w-20 select-none rounded-xl"
+            width={52}
+            height={52}
+            className="h-[52px] w-[52px] shrink-0 select-none rounded-xl"
             draggable={false}
             unoptimized
             priority
           />
-          {/* 顶部已由 logo.png 渲染图标,此处欢迎图替代原来的"欢迎回来 登录您的账号"文字。
-              宽度拉到与下面 LoginForm 内容对齐(460 - 2*24 = 412px),实现左右两侧竖向拉齐。 */}
-          <Image
-            src="/images/welcome.svg"
-            alt="Welcome to IHUI AI"
-            width={447}
-            height={67}
-            className="welcome-img mt-4 h-auto w-full max-w-[412px]"
-            loading="eager"
-            unoptimized
-          />
-          <Image
-            src="/images/baiwelcome.svg"
-            alt=""
-            aria-hidden="true"
-            width={447}
-            height={67}
-            className="welcome-img-dark mt-4 h-auto w-full max-w-[412px]"
-            loading="eager"
-            unoptimized
-          />
+          <div className="relative h-[52px] w-full max-w-[348px]">
+            <Image
+              src="/images/welcome.svg"
+              alt="Welcome to IHUI AI"
+              width={447}
+              height={67}
+              className="welcome-img absolute inset-0 m-auto h-full w-auto"
+              loading="eager"
+              unoptimized
+            />
+            <Image
+              src="/images/baiwelcome.svg"
+              alt=""
+              aria-hidden="true"
+              width={447}
+              height={67}
+              className="welcome-img-dark absolute inset-0 m-auto h-full w-auto"
+              loading="eager"
+              unoptimized
+            />
+          </div>
         </div>
 
         <div className="px-6 pb-6 pt-4">
