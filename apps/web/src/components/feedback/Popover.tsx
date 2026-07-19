@@ -4,6 +4,7 @@ import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { useClickOutside } from '@/hooks/use-click-outside'
+import { Tooltip } from './Tooltip'
 
 interface PopoverProps {
   content: React.ReactNode
@@ -26,6 +27,13 @@ interface PopoverProps {
    * { side: 'right', align: 'bottom', gap: 8 }。
    */
   align?: 'start' | 'center' | 'end'
+  /**
+   * 可选:hover 时显示的轻量文字提示(用 Radix Tooltip 实现,需外层 TooltipProvider)。
+   * 与 click 弹出的 content 弹层并存:hover → tooltip,click → popover。
+   * 适合侧边栏图标按钮:鼠标悬停显示按钮名称,点击展开功能菜单。
+   */
+  tooltip?: React.ReactNode
+  tooltipSide?: 'top' | 'right' | 'bottom' | 'left'
 }
 
 const FOCUSABLE_SELECTOR =
@@ -44,6 +52,8 @@ export function Popover({
   className,
   portal = false,
   align = 'center',
+  tooltip,
+  tooltipSide = 'top',
 }: PopoverProps) {
   const [open, setOpen] = React.useState(false)
   const contentRef = React.useRef<HTMLDivElement | null>(null)
@@ -192,6 +202,14 @@ export function Popover({
     },
   })
 
+  // 可选:用 Radix Tooltip 包裹 trigger,实现 hover 提示(与 click Popover 共存)
+  // Radix Slot 会合并 ref + onClick,与上方 cloneElement 注入的 ref/onClick 链式透传不冲突
+  const finalChild = tooltip ? (
+    <Tooltip content={tooltip} side={tooltipSide}>
+      {childWithRef}
+    </Tooltip>
+  ) : childWithRef
+
   // 弹层节点(非 portal: 走原 absolute; portal: 走 fixed + 坐标)
   const overlay = open ? (
     <div
@@ -225,7 +243,7 @@ export function Popover({
   if (portal) {
     return (
       <div ref={ref} className="relative inline-block" {...triggerProps}>
-        {childWithRef}
+        {finalChild}
         {typeof document !== 'undefined' && createPortal(overlay, document.body)}
       </div>
     )
@@ -233,7 +251,7 @@ export function Popover({
 
   return (
     <div ref={ref} className="relative inline-block" {...triggerProps}>
-      {childWithRef}
+      {finalChild}
       {overlay}
     </div>
   )
