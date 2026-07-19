@@ -33,7 +33,7 @@ export default function I18nDashboardPage() {
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">国际化数据看板</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          5 种语言翻译进度总览 · 平均完成度 {avgCompletion}%
+          5 种语言翻译进度概览 · 平均完成度 {avgCompletion}%
         </p>
       </header>
 

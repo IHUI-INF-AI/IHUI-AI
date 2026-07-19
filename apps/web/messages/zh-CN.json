@@ -385,7 +385,7 @@
     "mainNav": "主导航",
     "knowledgeBase": "知识库",
     "announcements": "公告",
-    "overview": "总览",
+    "overview": "概览",
     "enterprise": "企业服务",
     "aiWorld": "AI 世界",
     "aiGeneration": "AI 生成",
@@ -1585,7 +1585,20 @@
       "notificationDispatch": "定向通知",
       "messageOverview": "消息概览",
       "visitTracking": "访问追踪",
-      "examMarking": "考试批阅"
+      "examMarking": "考试批阅",
+      "group": {
+        "operation": "运营管理",
+        "moderation": "内容审核",
+        "finance": "财务管理",
+        "aiAgent": "AI 智能体",
+        "marketing": "营销直播",
+        "courseExam": "课程考试",
+        "analytics": "监控 BI",
+        "support": "客服工单",
+        "community": "社区圈子",
+        "resource": "资源中心",
+        "developer": "开发者中心"
+      }
     },
     "refund": {
       "title": "退款审核管理",
@@ -6964,7 +6977,7 @@
   "settings": {
     "title": "设置",
     "subtitle": "管理您的偏好设置",
-    "dashboardTitle": "设置总览",
+    "dashboardTitle": "设置概览",
     "dashboardDesc": "快速访问所有设置选项",
     "preferencesTitle": "通用偏好",
     "preferencesDesc": "自定义您的应用体验",
@@ -8454,7 +8467,9 @@
       "coding": "编程",
       "chinese": "中文优化",
       "openSource": "开源",
-      "favorite": "收藏"
+      "favorite": "收藏",
+      "configured": "已配置",
+      "notConfigured": "未配置"
     },
     "detail": {
       "highlight": "推荐",
@@ -8482,7 +8497,9 @@
       "savedDesc": "API Key 已加密存储,可立即使用该模型",
       "saveFailed": "保存失败",
       "noTemplate": "该厂商暂无预置模板,请到「设置 → LLM 配置」手动添加",
-      "securityHint": "API Key 使用 AES-256-GCM 加密存储,仅本账号可见,不会明文落库或传输到第三方。"
+      "securityHint": "API Key 使用 AES-256-GCM 加密存储,仅本账号可见,不会明文落库或传输到第三方。",
+      "fullConfigHint": "如需修改上下文长度 / 备注 / 自定义 Base URL,请前往",
+      "openFullConfig": "完整配置页 →"
     },
     "providers": {
       "openai": "OpenAI",
@@ -8646,8 +8663,22 @@
       "freeCount": "{count} 个免费",
       "favoriteCount": "{count} 个收藏",
       "highlightCount": "{count} 个推荐",
+      "configuredCount": "{count} 个已配置",
       "loadMore": "加载更多（剩 {count} 个）",
-      "resetFilters": "重置筛选"
+      "resetFilters": "重置筛选",
+      "configureKey": "配置 API Key",
+      "updateKey": "更新 Key",
+      "configureKeyHint": "该模型需要先配置 API Key 才能使用,点此一键配置。"
+    },
+    "aiNews": {
+      "title": "2026-07 AI 资讯",
+      "subtitle": "基于 seed 数据流的最新发布",
+      "loading": "加载 AI 资讯中…",
+      "fallbackHint": "暂无最新资讯,显示 2026-07 真实新模型",
+      "liveTag": "实时",
+      "viewAll": "查看全部",
+      "relatedModels": "关联 {count} 个模型",
+      "empty": "暂无 AI 资讯"
     },
     "overview": {
       "title": "控制台概览",
@@ -23529,30 +23560,7 @@
         "企业 AI 化决策者社群开放招募,人机协同实战课程全年免费",
         "前 18 位会员享受一对一 AI 顾问咨询,不满意全额退款",
         "立即扫码加入智汇 AI 社区,与决策者一起探索 AI 时代"
-      ],
-      "title": "合作伙伴与生态",
-      "subtitle": "聚合主流大模型与平台,构建开放AI生态",
-      "kouzi": "扣子",
-      "bbxLogo": "百宝箱",
-      "openai": "OpenAI",
-      "zhipu": "智谱清言",
-      "gork": "Grok",
-      "brand8": "品牌8",
-      "ali": "阿里",
-      "tencent": "腾讯",
-      "huawei": "华为",
-      "baidu": "百度",
-      "yuanbaoxiang": "元宝箱",
-      "yushu": "月之暗面",
-      "dbsfdx": "东方闪电",
-      "jldx": "精灵大学",
-      "n8n": "n8n",
-      "titleEn": "PARTNERS & ECOSYSTEM",
-      "joinText": "欢迎更多 AI 发烧友加入我们,共同探索人工智能的无限可能",
-      "resumeScroll": "继续滚动",
-      "pauseScroll": "暂停滚动",
-      "marqueeSpeedLabel": "滚动速度",
-      "wheelSensitivityLabel": "滚轮灵敏度"
+      ]
     },
     "welcome": {
       "title": "欢迎来到智汇 AI 社区",
@@ -23574,6 +23582,7 @@
       "empty": "暂无资讯"
     },
     "cta": {
+      "sectionLabel": "底部行动号召区",
       "title": "与志同道合的决策者一起,探索 AI 时代的无限可能",
       "subtitle": "仅限前 18 位会员 · 早鸟价 ¥6000/人/年 · 不满意全额退款",
       "join": "立即加入",
@@ -23677,8 +23686,7 @@
       "page2": "欢迎",
       "page3": "功能",
       "page4": "资讯",
-      "page5": "定价",
-      "page6": "合作品牌"
+      "page5": "定价"
     },
     "scrollDown": {
       "label": "向下滚动"
@@ -23791,6 +23799,55 @@
         "title": "创新",
         "description": "持续技术创新,智能体集群、分层规划等前沿AI能力"
       }
+    }
+  },
+  "aiNews": {
+    "hero": {
+      "label": "AI 资讯 Hero",
+      "badge": "2026-07 真实资讯流",
+      "title": "AI 资讯",
+      "subtitle": "聚合 2026 年 7 月最热 AI 行业动态:GPT-5.6 / Claude Sonnet 5 / Gemini 3.5 Pro / Kimi K3 / DeepSeek V4 横向对比,WAIC 2026 直播入口,重磅融资与收购。",
+      "updateFreq": "每日更新",
+      "ctaPrimary": "进入资讯广场",
+      "ctaSecondary": "查看直播"
+    },
+    "comparison": {
+      "label": "横向对比表",
+      "title": "7 月旗舰大模型横向对比",
+      "subtitle": "5 大厂商 7 月发布的核心参数、定价、亮点与能力",
+      "verified": "2026-07 真实数据",
+      "colModel": "对比维度",
+      "highlight": "核心亮点",
+      "footnote": "价格按官方 API 公开报价,可能因汇率波动",
+      "footnote2": "数据综合官方技术报告 + 主流评测榜单"
+    },
+    "live": {
+      "label": "WAIC 2026 直播入口",
+      "title": "WAIC 2026 直播入口",
+      "subtitle": "理查德·萨顿主旨演讲、凯文·凯利具身智能、3 大论坛同步直播",
+      "viewMore": "查看全部",
+      "liveBadge": "直播中",
+      "empty": "暂无直播,稍后回来"
+    },
+    "articles": {
+      "label": "最新资讯卡片流",
+      "title": "最新 AI 资讯",
+      "subtitle": "涵盖模型发布、产业动态、学术前沿、安全治理",
+      "viewMore": "查看更多",
+      "pinned": "置顶",
+      "empty": "暂无最新资讯,请先跑 ai-fresh-2026 seed"
+    },
+    "funding": {
+      "label": "重磅融资与收购",
+      "title": "重磅融资与收购",
+      "subtitle": "7 月 AI 行业资本动作:SpaceX 600 亿美元收购 Cursor、DeepSeek 500 亿元融资"
+    },
+    "cta": {
+      "label": "底部 CTA",
+      "title": "不错过下一个 AI 里程碑",
+      "subtitle": "订阅每日 AI 资讯简报,加入智汇 AI 社区与决策者一起把握 AI 时代脉搏。",
+      "subscribe": "订阅每日简报",
+      "community": "加入智汇 AI 社区"
     }
   }
 }

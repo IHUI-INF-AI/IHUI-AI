@@ -1,18 +1,22 @@
 'use client'
 
 import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import {
   ArrowRight,
+  CheckCircle2,
   Cpu,
   Gift,
   Grid2x2,
   Heart,
+  KeyRound,
   List,
   RotateCcw,
   Search,
   Sparkles,
+  TriangleAlert,
   Zap,
 } from 'lucide-react'
 
@@ -28,9 +32,12 @@ import {
 import { BrandIcon } from '@/components/ai/brand-icon'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
+import { fetchConfigs, type UserLlmConfig } from '@/lib/user-llm-configs'
+import { providerToTemplateCode, hasPresetTemplate } from '@/lib/llm-templates'
 import { cn } from '@/lib/utils'
 
 import { ModelDetailDialog } from './ModelDetailDialog'
+import { QuickKeyDialog } from './QuickKeyDialog'
 import { getFavoriteModelIds, toggleFavoriteModel } from './helpers'
 import type { Model, QuickFilter, SortKey, ViewMode } from './types'
 
@@ -40,6 +47,8 @@ interface Props {
 
 const QUICK_FILTERS: QuickFilter[] = [
   'favorite',
+  'configured',
+  'notConfigured',
   'free',
   'longContext',
   'reasoning',
@@ -86,10 +95,40 @@ export function ModelsMarketplace({ list }: Props) {
   const [visibleCount, setVisibleCount] = React.useState(INITIAL_PAGE_SIZE)
   const [selected, setSelected] = React.useState<Model | null>(null)
   const [dialogOpen, setDialogOpen] = React.useState(false)
+  // 一键配置 API Key 弹窗
+  const [qkTarget, setQkTarget] = React.useState<Model | null>(null)
+  const [qkOpen, setQkOpen] = React.useState(false)
   // 收藏模型 id 集合(localStorage 持久化)
   const [favoriteIds, setFavoriteIds] = React.useState<Set<string>>(() => getFavoriteModelIds())
   // 收藏状态变更标记,触发筛选重算
   const [favoriteTick, setFavoriteTick] = React.useState(0)
+
+  // 拉取用户 LLM 配置(用于配置感知徽章 + configured/notConfigured 筛选)
+  // retry: false + throwOnError: false:未登录或网络异常时静默失败,不阻塞渲染
+  const { data: cfgData } = useQuery({
+    queryKey: ['user-llm-configs'],
+    queryFn: () => fetchConfigs(),
+    retry: false,
+    throwOnError: false,
+    staleTime: 60_000,
+  })
+  const userConfigs: UserLlmConfig[] = cfgData?.list ?? []
+  // 已配置(且启用)的 templateCode 集合,用于 O(1) 查询
+  const configuredTemplateCodes = React.useMemo(() => {
+    const set = new Set<string>()
+    for (const c of userConfigs) {
+      if (c.enabled) set.add(c.providerCode)
+    }
+    return set
+  }, [userConfigs])
+  // 某个模型是否已配置(根据 provider 推 templateCode)
+  const isModelConfigured = React.useCallback(
+    (m: Model): boolean => {
+      const code = providerToTemplateCode(m.provider)
+      return code ? configuredTemplateCodes.has(code) : false
+    },
+    [configuredTemplateCodes],
+  )
 
   // 收集所有能力标签(用于卡片 tag 展示,不再单独提供筛选,filter 由 quickFilter 承担)
   const allCapabilities = React.useMemo(() => {
@@ -118,13 +157,16 @@ export function ModelsMarketplace({ list }: Props) {
           return m.features.some((f) => f === 'Open Source')
         case 'favorite':
           return favoriteIds.has(m.id)
+        case 'configured':
+          return isModelConfigured(m)
+        case 'notConfigured':
+          return !isModelConfigured(m)
         default:
           return true
       }
     },
     // favoriteTick 用于在 favoriteIds 变化时让 useMemo/useCallback 重新计算
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [favoriteTick],
+    [favoriteTick, isModelConfigured],
   )
 
   const handleToggleFavorite = React.useCallback((modelId: string) => {
@@ -147,7 +189,6 @@ export function ModelsMarketplace({ list }: Props) {
       return matchQuery && matchFilter
     })
   }, [list, query, quickFilter, matchesQuickFilter, t])
-
   const sorted = React.useMemo(() => {
     const arr = [...filtered]
     switch (sortKey) {
@@ -193,6 +234,10 @@ export function ModelsMarketplace({ list }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [list, favoriteTick],
   )
+  const configuredTotal = React.useMemo(
+    () => list.filter((m) => isModelConfigured(m)).length,
+    [list, isModelConfigured],
+  )
 
   const handleTryModel = React.useCallback(
     (m: Model) => {
@@ -206,6 +251,11 @@ export function ModelsMarketplace({ list }: Props) {
   const handleCardClick = React.useCallback((m: Model) => {
     setSelected(m)
     setDialogOpen(true)
+  }, [])
+
+  const handleOpenQuickKey = React.useCallback((m: Model) => {
+    setQkTarget(m)
+    setQkOpen(true)
   }, [])
 
   const handleResetFilters = React.useCallback(() => {
@@ -285,15 +335,25 @@ export function ModelsMarketplace({ list }: Props) {
           onClick={() => setQuickFilter('all')}
           label={t('market.allCapabilities')}
         />
-        {QUICK_FILTERS.map((f) => (
-          <FilterChip
-            key={f}
-            active={quickFilter === f}
-            onClick={() => setQuickFilter(f)}
-            label={t(`quickFilters.${f}`)}
-            icon={f === 'favorite' ? <Heart className="h-3 w-3" /> : undefined}
-          />
-        ))}
+        {QUICK_FILTERS.map((f) => {
+          const icon =
+            f === 'favorite' ? (
+              <Heart className="h-3 w-3" />
+            ) : f === 'configured' ? (
+              <CheckCircle2 className="h-3 w-3" />
+            ) : f === 'notConfigured' ? (
+              <TriangleAlert className="h-3 w-3" />
+            ) : undefined
+          return (
+            <FilterChip
+              key={f}
+              active={quickFilter === f}
+              onClick={() => setQuickFilter(f)}
+              label={t(`quickFilters.${f}`)}
+              icon={icon}
+            />
+          )
+        })}
       </div>
 
       {/* 结果统计 */}
@@ -309,6 +369,15 @@ export function ModelsMarketplace({ list }: Props) {
           <Sparkles className="h-3 w-3 text-amber-500" />
           {t('market.highlightCount', { count: highlightTotal })}
         </span>
+        {cfgData && (
+          <>
+            <span className="text-muted-foreground/60">·</span>
+            <span className="inline-flex items-center gap-0.5">
+              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+              {t('market.configuredCount', { count: configuredTotal })}
+            </span>
+          </>
+        )}
         {favoriteTotal > 0 && (
           <>
             <span className="text-muted-foreground/60">·</span>
@@ -331,9 +400,12 @@ export function ModelsMarketplace({ list }: Props) {
               model={m}
               allCapabilities={allCapabilities}
               isFavorite={favoriteIds.has(m.id)}
+              isConfigured={isModelConfigured(m)}
+              canConfigure={hasPresetTemplate(m.provider)}
               onCardClick={handleCardClick}
               onTry={handleTryModel}
               onToggleFavorite={handleToggleFavorite}
+              onConfigure={handleOpenQuickKey}
             />
           ))}
         </div>
@@ -344,9 +416,12 @@ export function ModelsMarketplace({ list }: Props) {
               key={m.id}
               model={m}
               isFavorite={favoriteIds.has(m.id)}
+              isConfigured={isModelConfigured(m)}
+              canConfigure={hasPresetTemplate(m.provider)}
               onCardClick={handleCardClick}
               onTry={handleTryModel}
               onToggleFavorite={handleToggleFavorite}
+              onConfigure={handleOpenQuickKey}
             />
           ))}
         </div>
@@ -363,7 +438,24 @@ export function ModelsMarketplace({ list }: Props) {
       )}
 
       {/* 详情对话框 */}
-      <ModelDetailDialog model={selected} open={dialogOpen} onOpenChange={setDialogOpen} />
+      <ModelDetailDialog
+        model={selected}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        isConfigured={selected ? isModelConfigured(selected) : false}
+        canConfigure={selected ? hasPresetTemplate(selected.provider) : false}
+        onConfigure={handleOpenQuickKey}
+      />
+
+      {/* 一键配置 API Key 弹窗 */}
+      <QuickKeyDialog
+        model={qkTarget}
+        open={qkOpen}
+        onOpenChange={setQkOpen}
+        onSaved={() => {
+          // 保存成功后刷新 cfgData(query 已 invalidate,useQuery 自动重取)
+        }}
+      />
     </div>
   )
 }
@@ -402,16 +494,22 @@ function ModelCardGrid({
   model,
   allCapabilities: _allCapabilities,
   isFavorite,
+  isConfigured,
+  canConfigure,
   onCardClick,
   onTry,
   onToggleFavorite,
+  onConfigure,
 }: {
   model: Model
   allCapabilities: string[]
   isFavorite: boolean
+  isConfigured: boolean
+  canConfigure: boolean
   onCardClick: (m: Model) => void
   onTry: (m: Model) => void
   onToggleFavorite: (id: string) => void
+  onConfigure: (m: Model) => void
 }) {
   const t = useTranslations('models')
   const outputPrice = model.outputPrice ?? model.inputPrice * 3
@@ -461,6 +559,17 @@ function ModelCardGrid({
         </div>
       </div>
 
+      {/* 配置状态徽章(右上角已配置 ✓ / 右上角可配置 ⚠) */}
+      <ConfiguredBadge
+        isConfigured={isConfigured}
+        canConfigure={canConfigure}
+        onConfigure={(e) => {
+          e.stopPropagation()
+          onConfigure(model)
+        }}
+        variant="absolute"
+      />
+
       <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">{description}</p>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
@@ -505,19 +614,49 @@ function ModelCardGrid({
         </div>
       )}
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="mt-auto h-8 w-full gap-1.5 text-xs [&>span]:translate-y-[0.5px]"
-        onClick={(e) => {
-          e.stopPropagation()
-          onTry(model)
-        }}
-      >
-        <Sparkles className="h-3.5 w-3.5" />
-        <span>{t('market.tryNow')}</span>
-        <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-      </Button>
+      {/* 操作区:立即体验为主;若可配置且未配置,显示「配置 API Key」次按钮 */}
+      {canConfigure && !isConfigured ? (
+        <div className="mt-auto flex items-stretch gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 flex-1 gap-1.5 text-xs [&>span]:translate-y-[0.5px]"
+            onClick={(e) => {
+              e.stopPropagation()
+              onConfigure(model)
+            }}
+          >
+            <KeyRound className="h-3.5 w-3.5" />
+            <span>{t('market.configureKey')}</span>
+          </Button>
+          <Button
+            size="sm"
+            className="h-8 flex-1 gap-1.5 text-xs [&>span]:translate-y-[0.5px]"
+            onClick={(e) => {
+              e.stopPropagation()
+              onTry(model)
+            }}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>{t('market.tryNow')}</span>
+            <ArrowRight className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          variant={isConfigured ? 'outline' : 'outline'}
+          size="sm"
+          className="mt-auto h-8 w-full gap-1.5 text-xs [&>span]:translate-y-[0.5px]"
+          onClick={(e) => {
+            e.stopPropagation()
+            onTry(model)
+          }}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span>{t('market.tryNow')}</span>
+          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+        </Button>
+      )}
     </Card>
   )
 }
@@ -525,15 +664,21 @@ function ModelCardGrid({
 function ModelCardList({
   model,
   isFavorite,
+  isConfigured,
+  canConfigure,
   onCardClick,
   onTry,
   onToggleFavorite,
+  onConfigure,
 }: {
   model: Model
   isFavorite: boolean
+  isConfigured: boolean
+  canConfigure: boolean
   onCardClick: (m: Model) => void
   onTry: (m: Model) => void
   onToggleFavorite: (id: string) => void
+  onConfigure: (m: Model) => void
 }) {
   const t = useTranslations('models')
   const vendorLabel = t(`providers.${model.provider}`)
@@ -567,6 +712,16 @@ function ModelCardList({
             />
           )}
           <span className="truncate text-xs text-muted-foreground">{vendorLabel}</span>
+          {/* 配置状态 inline 徽章 */}
+          {isConfigured && (
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+              title={t('quickKey.configured')}
+            >
+              <CheckCircle2 className="h-2.5 w-2.5" />
+              {t('quickKey.configured')}
+            </span>
+          )}
         </div>
         <div className="mt-0.5 flex items-center gap-3 text-[11px] text-muted-foreground [&>span]:translate-y-[0.5px]">
           <span className="inline-flex items-center gap-0.5">
@@ -597,6 +752,23 @@ function ModelCardList({
         }}
         className="shrink-0"
       />
+
+      {/* List 视图操作区:可配置且未配置时,显示「配置 API Key」小按钮 */}
+      {canConfigure && !isConfigured && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[0.5px]"
+          onClick={(e) => {
+            e.stopPropagation()
+            onConfigure(model)
+          }}
+          title={t('market.configureKey')}
+        >
+          <KeyRound className="h-3 w-3" />
+          <span>{t('market.configureKey')}</span>
+        </Button>
+      )}
 
       <Button
         variant="outline"
@@ -643,6 +815,74 @@ function FavoriteStar({
       />
     </button>
   )
+}
+
+/**
+ * 配置状态徽章:
+ * - 已配置: 绿色 ✓「已配置」
+ * - 可配置但未配置: 黄色 ⚠「可配置」(点击 → 一键配置)
+ * - 无预置模板: 不渲染
+ *
+ * variant=absolute: 右上角浮层(grid 视图,绝对定位避开收藏按钮 right-3)
+ * variant=inline: 内嵌一行(list 视图或详情对话框 header)
+ */
+function ConfiguredBadge({
+  isConfigured,
+  canConfigure,
+  onConfigure,
+  variant = 'inline',
+}: {
+  isConfigured: boolean
+  canConfigure: boolean
+  onConfigure?: (e: React.MouseEvent) => void
+  variant?: 'absolute' | 'inline'
+}) {
+  const t = useTranslations('models')
+
+  if (isConfigured) {
+    const baseCls =
+      'inline-flex items-center gap-0.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+    return (
+      <span
+        className={cn(baseCls, variant === 'absolute' && 'absolute left-3 top-3 z-10')}
+        title={t('quickKey.configured')}
+      >
+        <CheckCircle2 className="h-2.5 w-2.5" />
+        {t('quickKey.configured')}
+      </span>
+    )
+  }
+
+  if (canConfigure && onConfigure) {
+    const baseCls =
+      'inline-flex h-5 items-center gap-0.5 rounded bg-amber-50 px-1.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-950/60'
+    if (variant === 'absolute') {
+      return (
+        <button
+          type="button"
+          className={cn(baseCls, 'absolute left-3 top-3 z-10')}
+          onClick={onConfigure}
+          title={t('market.configureKey')}
+        >
+          <TriangleAlert className="h-2.5 w-2.5" />
+          {t('quickKey.notConfigured')}
+        </button>
+      )
+    }
+    return (
+      <button
+        type="button"
+        className={baseCls}
+        onClick={onConfigure}
+        title={t('market.configureKey')}
+      >
+        <TriangleAlert className="h-2.5 w-2.5" />
+        {t('quickKey.notConfigured')}
+      </button>
+    )
+  }
+
+  return null
 }
 
 function EmptyState({ onReset }: { onReset: () => void }) {
