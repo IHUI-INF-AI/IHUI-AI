@@ -13,10 +13,12 @@ RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+# 复制 deps 阶段整个 /app(含所有 workspace 包的 node_modules + package.json)
+# .dockerignore 已排除本地 node_modules,后续 COPY . . 不会覆盖
+COPY --from=deps /app/ ./
 COPY . .
-RUN pnpm --filter @ihui/api run build
+# 用 ... 递归构建 @ihui/api 及其 workspace 依赖(@ihui/database/@ihui/auth/@ihui/types 等)
+RUN pnpm --filter @ihui/api... run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
@@ -24,10 +26,15 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 apijs
 # 创建 uploads 目录(@fastify/static 注册时验证 root 存在)
 RUN mkdir -p /app/uploads && chown apijs:nodejs /app/uploads
+# 复制 api 应用代码
 COPY --from=builder --chown=apijs:nodejs /app/apps/api/dist ./apps/api/dist
 COPY --from=builder --chown=apijs:nodejs /app/apps/api/package.json ./apps/api/package.json
+# 复制根 node_modules(api 的直接依赖)和 api 的 node_modules
 COPY --from=builder --chown=apijs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=apijs:nodejs /app/apps/api/node_modules ./apps/api/node_modules
+# 复制 workspace 依赖包(@ihui/database/@ihui/auth/@ihui/types/@ihui/config)
+# Node.js 解析 workspace 包时需要 packages/<name>/package.json + dist + node_modules
+COPY --from=builder --chown=apijs:nodejs /app/packages ./packages
 USER apijs
 EXPOSE 8080
 CMD ["node", "apps/api/dist/index.js"]
