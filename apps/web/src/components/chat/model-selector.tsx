@@ -179,7 +179,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           sideOffset={6}
           className={cn(
             'z-popover max-h-[60vh] min-w-[16rem] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-md',
-            ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
+            ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
           )}
         >
           {grouped.map(([vendor, items]) => (
