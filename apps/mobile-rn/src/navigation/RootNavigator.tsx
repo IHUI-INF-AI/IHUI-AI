@@ -69,6 +69,73 @@ import { RankingScreen } from '../screens/RankingScreen'
 import { PromoteScreen } from '../screens/PromoteScreen'
 import { DistributionScreen } from '../screens/DistributionScreen'
 import { TeamScreen } from '../screens/TeamScreen'
+import { AgentReviewDetailScreen } from '../screens/AgentReviewDetailScreen'
+import { AgentReviewListScreen } from '../screens/AgentReviewListScreen'
+import { AgentStatScreen } from '../screens/AgentStatScreen'
+import { AgentSettingScreen } from '../screens/AgentSettingScreen'
+import { CourseAnnexScreen } from '../screens/CourseAnnexScreen'
+import { CourseResourceScreen } from '../screens/CourseResourceScreen'
+import { CourseQAListScreen } from '../screens/CourseQAListScreen'
+import { CourseQAAskScreen } from '../screens/CourseQAAskScreen'
+import { LivePreviewScreen } from '../screens/LivePreviewScreen'
+import { LivePlaybackListScreen } from '../screens/LivePlaybackListScreen'
+import { OrderLogScreen } from '../screens/OrderLogScreen'
+import { OrderTrackScreen } from '../screens/OrderTrackScreen'
+import { RefundDetailScreen } from '../screens/RefundDetailScreen'
+import { RefundHistoryScreen } from '../screens/RefundHistoryScreen'
+import { PointRuleScreen } from '../screens/PointRuleScreen'
+import { PointHistoryScreen } from '../screens/PointHistoryScreen'
+import { VipLevelScreen } from '../screens/VipLevelScreen'
+import { VipBenefitScreen } from '../screens/VipBenefitScreen'
+import { VipCompareScreen } from '../screens/VipCompareScreen'
+import { CertListScreen } from '../screens/CertListScreen'
+import { CertApplyScreen } from '../screens/CertApplyScreen'
+import { MessageSystemScreen } from '../screens/MessageSystemScreen'
+import { MessageDirectScreen } from '../screens/MessageDirectScreen'
+import { MessageGroupScreen } from '../screens/MessageGroupScreen'
+import { AnnouncementDetailScreen } from '../screens/AnnouncementDetailScreen'
+import { ActivityDetailScreen } from '../screens/ActivityDetailScreen'
+import { HelpDetailScreen } from '../screens/HelpDetailScreen'
+import { FeedbackHistoryScreen } from '../screens/FeedbackHistoryScreen'
+import { FeedbackDetailScreen } from '../screens/FeedbackDetailScreen'
+import { SettingsAccountScreen } from '../screens/SettingsAccountScreen'
+import { OrderDetailScreen } from '../screens/OrderDetailScreen'
+import { CourseChapterScreen } from '../screens/CourseChapterScreen'
+import { CourseCommentScreen } from '../screens/CourseCommentScreen'
+import { CourseCatalogScreen } from '../screens/CourseCatalogScreen'
+import { LiveChatScreen } from '../screens/LiveChatScreen'
+import { AgentDetailScreen } from '../screens/AgentDetailScreen'
+import { AgentChatScreen } from '../screens/AgentChatScreen'
+import { AgentMarketScreen } from '../screens/AgentMarketScreen'
+import { AgentCreateScreen } from '../screens/AgentCreateScreen'
+import { ArticleDetailScreen } from '../screens/ArticleDetailScreen'
+import { ArticleListScreen } from '../screens/ArticleListScreen'
+import { PostDetailScreen } from '../screens/PostDetailScreen'
+import { PostCreateScreen } from '../screens/PostCreateScreen'
+import { CircleDetailScreen } from '../screens/CircleDetailScreen'
+import { CircleCreateScreen } from '../screens/CircleCreateScreen'
+import { CircleMemberScreen } from '../screens/CircleMemberScreen'
+import { CircleChatScreen } from '../screens/CircleChatScreen'
+import { AskDetailScreen } from '../screens/AskDetailScreen'
+import { AskCreateScreen } from '../screens/AskCreateScreen'
+import { AskListScreen } from '../screens/AskListScreen'
+import { NoteDetailScreen } from '../screens/NoteDetailScreen'
+import { NoteCreateScreen } from '../screens/NoteCreateScreen'
+import { NoteListScreen } from '../screens/NoteListScreen'
+import { StudyPlanScreen } from '../screens/StudyPlanScreen'
+import { StudyProgressScreen } from '../screens/StudyProgressScreen'
+import { ExamResultScreen } from '../screens/ExamResultScreen'
+import { ExamHistoryScreen } from '../screens/ExamHistoryScreen'
+import { ExamQuestionScreen } from '../screens/ExamQuestionScreen'
+import { CertDetailScreen } from '../screens/CertDetailScreen'
+import { CertVerifyScreen } from '../screens/CertVerifyScreen'
+import { MessageDetailScreen } from '../screens/MessageDetailScreen'
+import { MessageChatScreen } from '../screens/MessageChatScreen'
+import { NotificationListScreen } from '../screens/NotificationListScreen'
+import { SearchScreen } from '../screens/SearchScreen'
+import { HistoryScreen } from '../screens/HistoryScreen'
+import { BookmarkScreen } from '../screens/BookmarkScreen'
+import { ShareScreen } from '../screens/ShareScreen'
 import { useI18n } from '../i18n'
 
 export type RootStackParamList = {
@@ -132,6 +199,73 @@ export type RootStackParamList = {
   QrCode: undefined
   Debug: undefined
   NotificationSettings: undefined
+  AgentReviewDetail: { id: string }
+  AgentReviewList: undefined
+  AgentStat: undefined
+  AgentSetting: undefined
+  CourseAnnex: undefined
+  CourseResource: undefined
+  CourseQAList: undefined
+  CourseQAAsk: undefined
+  LivePreview: { id: string }
+  LivePlaybackList: undefined
+  OrderLog: undefined
+  OrderTrack: undefined
+  RefundDetail: { id: string }
+  RefundHistory: undefined
+  PointRule: undefined
+  PointHistory: undefined
+  VipLevel: { id: string }
+  VipBenefit: undefined
+  VipCompare: undefined
+  CertList: undefined
+  CertApply: undefined
+  MessageSystem: undefined
+  MessageDirect: undefined
+  MessageGroup: undefined
+  AnnouncementDetail: { id: string }
+  ActivityDetail: { id: string }
+  HelpDetail: { id: string }
+  FeedbackHistory: undefined
+  FeedbackDetail: { id: string }
+  SettingsAccount: undefined
+  OrderDetail: { id: string }
+  CourseChapter: { courseId: string }
+  CourseComment: { courseId: string }
+  CourseCatalog: { courseId: string }
+  LiveChat: { liveId: string }
+  AgentDetail: { id: string }
+  AgentChat: { agentId: string; name: string }
+  AgentMarket: undefined
+  AgentCreate: undefined
+  ArticleDetail: { id: string }
+  ArticleList: undefined
+  PostDetail: { id: string }
+  PostCreate: { circleId?: string }
+  CircleDetail: { id: string }
+  CircleCreate: undefined
+  CircleMember: { circleId: string }
+  CircleChat: { circleId: string; name: string }
+  AskDetail: { id: string }
+  AskCreate: undefined
+  AskList: undefined
+  NoteDetail: { id: string }
+  NoteCreate: { courseId?: string }
+  NoteList: undefined
+  StudyPlan: undefined
+  StudyProgress: undefined
+  ExamResult: { id: string }
+  ExamHistory: undefined
+  ExamQuestion: { examId: string }
+  CertDetail: { id: string }
+  CertVerify: { certNo?: string }
+  MessageDetail: { id: string }
+  MessageChat: { peerId: string; name: string }
+  NotificationList: undefined
+  Search: undefined
+  History: undefined
+  Bookmark: undefined
+  Share: { targetType: string; targetId: string; title: string }
 }
 
 export type HomeStackParamList = {
@@ -330,6 +464,73 @@ function RootNavigatorInner() {
             <RootStack.Screen name="QrCode" component={QrCodeScreen} />
             <RootStack.Screen name="Debug" component={DebugScreen} />
             <RootStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+            <RootStack.Screen name="AgentReviewDetail" component={AgentReviewDetailScreen} />
+            <RootStack.Screen name="AgentReviewList" component={AgentReviewListScreen} />
+            <RootStack.Screen name="AgentStat" component={AgentStatScreen} />
+            <RootStack.Screen name="AgentSetting" component={AgentSettingScreen} />
+            <RootStack.Screen name="CourseAnnex" component={CourseAnnexScreen} />
+            <RootStack.Screen name="CourseResource" component={CourseResourceScreen} />
+            <RootStack.Screen name="CourseQAList" component={CourseQAListScreen} />
+            <RootStack.Screen name="CourseQAAsk" component={CourseQAAskScreen} />
+            <RootStack.Screen name="LivePreview" component={LivePreviewScreen} />
+            <RootStack.Screen name="LivePlaybackList" component={LivePlaybackListScreen} />
+            <RootStack.Screen name="OrderLog" component={OrderLogScreen} />
+            <RootStack.Screen name="OrderTrack" component={OrderTrackScreen} />
+            <RootStack.Screen name="RefundDetail" component={RefundDetailScreen} />
+            <RootStack.Screen name="RefundHistory" component={RefundHistoryScreen} />
+            <RootStack.Screen name="PointRule" component={PointRuleScreen} />
+            <RootStack.Screen name="PointHistory" component={PointHistoryScreen} />
+            <RootStack.Screen name="VipLevel" component={VipLevelScreen} />
+            <RootStack.Screen name="VipBenefit" component={VipBenefitScreen} />
+            <RootStack.Screen name="VipCompare" component={VipCompareScreen} />
+            <RootStack.Screen name="CertList" component={CertListScreen} />
+            <RootStack.Screen name="CertApply" component={CertApplyScreen} />
+            <RootStack.Screen name="MessageSystem" component={MessageSystemScreen} />
+            <RootStack.Screen name="MessageDirect" component={MessageDirectScreen} />
+            <RootStack.Screen name="MessageGroup" component={MessageGroupScreen} />
+            <RootStack.Screen name="AnnouncementDetail" component={AnnouncementDetailScreen} />
+            <RootStack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
+            <RootStack.Screen name="HelpDetail" component={HelpDetailScreen} />
+            <RootStack.Screen name="FeedbackHistory" component={FeedbackHistoryScreen} />
+            <RootStack.Screen name="FeedbackDetail" component={FeedbackDetailScreen} />
+            <RootStack.Screen name="SettingsAccount" component={SettingsAccountScreen} />
+            <RootStack.Screen name="OrderDetail" component={OrderDetailScreen} />
+            <RootStack.Screen name="CourseChapter" component={CourseChapterScreen} />
+            <RootStack.Screen name="CourseComment" component={CourseCommentScreen} />
+            <RootStack.Screen name="CourseCatalog" component={CourseCatalogScreen} />
+            <RootStack.Screen name="LiveChat" component={LiveChatScreen} />
+            <RootStack.Screen name="AgentDetail" component={AgentDetailScreen} />
+            <RootStack.Screen name="AgentChat" component={AgentChatScreen} />
+            <RootStack.Screen name="AgentMarket" component={AgentMarketScreen} />
+            <RootStack.Screen name="AgentCreate" component={AgentCreateScreen} />
+            <RootStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
+            <RootStack.Screen name="ArticleList" component={ArticleListScreen} />
+            <RootStack.Screen name="PostDetail" component={PostDetailScreen} />
+            <RootStack.Screen name="PostCreate" component={PostCreateScreen} />
+            <RootStack.Screen name="CircleDetail" component={CircleDetailScreen} />
+            <RootStack.Screen name="CircleCreate" component={CircleCreateScreen} />
+            <RootStack.Screen name="CircleMember" component={CircleMemberScreen} />
+            <RootStack.Screen name="CircleChat" component={CircleChatScreen} />
+            <RootStack.Screen name="AskDetail" component={AskDetailScreen} />
+            <RootStack.Screen name="AskCreate" component={AskCreateScreen} />
+            <RootStack.Screen name="AskList" component={AskListScreen} />
+            <RootStack.Screen name="NoteDetail" component={NoteDetailScreen} />
+            <RootStack.Screen name="NoteCreate" component={NoteCreateScreen} />
+            <RootStack.Screen name="NoteList" component={NoteListScreen} />
+            <RootStack.Screen name="StudyPlan" component={StudyPlanScreen} />
+            <RootStack.Screen name="StudyProgress" component={StudyProgressScreen} />
+            <RootStack.Screen name="ExamResult" component={ExamResultScreen} />
+            <RootStack.Screen name="ExamHistory" component={ExamHistoryScreen} />
+            <RootStack.Screen name="ExamQuestion" component={ExamQuestionScreen} />
+            <RootStack.Screen name="CertDetail" component={CertDetailScreen} />
+            <RootStack.Screen name="CertVerify" component={CertVerifyScreen} />
+            <RootStack.Screen name="MessageDetail" component={MessageDetailScreen} />
+            <RootStack.Screen name="MessageChat" component={MessageChatScreen} />
+            <RootStack.Screen name="NotificationList" component={NotificationListScreen} />
+            <RootStack.Screen name="Search" component={SearchScreen} />
+            <RootStack.Screen name="History" component={HistoryScreen} />
+            <RootStack.Screen name="Bookmark" component={BookmarkScreen} />
+            <RootStack.Screen name="Share" component={ShareScreen} />
           </>
         ) : (
           <>
