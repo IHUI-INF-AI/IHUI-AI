@@ -25,7 +25,8 @@ import type { HomeStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<HomeStackParamList>
 
-function greetingKey(): 'home.greetingMorning' | 'home.greetingNoon' | 'home.greetingAfternoon' | 'home.greetingEvening' {
+function greetingKey():
+  'home.greetingMorning' | 'home.greetingNoon' | 'home.greetingAfternoon' | 'home.greetingEvening' {
   const h = new Date().getHours()
   if (h < 11) return 'home.greetingMorning'
   if (h < 13) return 'home.greetingNoon'
@@ -100,8 +101,7 @@ export function HomeScreen() {
       <View className="flex-row items-center justify-between px-4 pt-12">
         <View className="flex-1">
           <Text className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-            {t(greetingKey())},
-            {user?.nickname || user?.phone || '访客'}
+            {t(greetingKey())},{user?.nickname || user?.phone || '访客'}
           </Text>
           <Text className="mt-1 text-xs text-neutral-500">{t('home.welcome')}</Text>
         </View>
@@ -133,9 +133,7 @@ export function HomeScreen() {
         </Text>
         {firstProgress ? (
           <TouchableOpacity
-            onPress={() =>
-              navigation.navigate('CourseDetail', { id: firstProgress.courseId })
-            }
+            onPress={() => navigation.navigate('CourseDetail', { id: firstProgress.courseId })}
             activeOpacity={0.7}
           >
             <Card>
@@ -264,6 +262,40 @@ export function HomeScreen() {
             </TouchableOpacity>
           ))
         )}
+      </View>
+
+      <View className="px-4 mt-4">
+        <Text className="mb-2 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+          {t('menu.sectionDiscover')}
+        </Text>
+        <View className="rounded-lg bg-neutral-50 dark:bg-neutral-900 p-1">
+          {[
+            { key: 'Search', labelKey: 'menu.search', icon: '🔍' },
+            { key: 'History', labelKey: 'menu.history', icon: '🕘' },
+            { key: 'Bookmark', labelKey: 'menu.bookmark', icon: '🔖' },
+            { key: 'CourseFilter', labelKey: 'menu.courseFilter', icon: '🎯' },
+            { key: 'LiveList', labelKey: 'menu.liveList', icon: '📡' },
+            { key: 'LivePlaybackList', labelKey: 'menu.livePlaybackList', icon: '🎬' },
+            { key: 'CourseAnnex', labelKey: 'menu.courseAnnex', icon: '📎' },
+            { key: 'CourseResource', labelKey: 'menu.courseResource', icon: '📚' },
+            { key: 'CourseQAList', labelKey: 'menu.courseQAList', icon: '❓' },
+          ].map((m) => (
+            <TouchableOpacity
+              key={m.key}
+              onPress={() => navigation.getParent()?.navigate(m.key as never)}
+              activeOpacity={0.7}
+              className="p-3"
+            >
+              <View className="flex-row items-center">
+                <Text className="text-lg">{m.icon}</Text>
+                <Text className="ml-3 flex-1 text-sm text-neutral-900 dark:text-neutral-50">
+                  {t(m.labelKey)}
+                </Text>
+                <Text className="text-neutral-400">›</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
     </ScrollView>
   )
