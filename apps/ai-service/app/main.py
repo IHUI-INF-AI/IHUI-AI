@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app import __version__
+from app.api.v1.router import api_v1_router
 from app.core.config import settings
 from app.core.jwt_auth import JWTAuthMiddleware
 from app.core.schema_check import check_schema, log_report
@@ -81,6 +82,8 @@ def create_app() -> FastAPI:
     app.include_router(personas.router, prefix="/api", tags=["personas"])
     app.include_router(agent_runtime.router, prefix="/api", tags=["agent-runtime"])
     app.include_router(voice_stt.router, prefix="/api", tags=["voice"])
+    # v1 业务流路由(对话/智能体/RAG,2026-07-20 新增)
+    app.include_router(api_v1_router, prefix="/api/v1", tags=["v1"])
     app.include_router(legacy_router)
 
     # Prometheus 指标(/metrics 端点,由 prometheus-fastapi-instrumentator 自动暴露)
