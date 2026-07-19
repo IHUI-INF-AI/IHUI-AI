@@ -11,7 +11,7 @@ export interface UseDistributionTabsReturn {
 }
 
 const TABS: { key: DistributionTab; label: string }[] = [
-  { key: 'overview', label: '总览' },
+  { key: 'overview', label: '概览' },
   { key: 'invites', label: '邀请记录' },
   { key: 'commission', label: '佣金明细' },
   { key: 'withdraw', label: '提现记录' },

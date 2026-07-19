@@ -37,7 +37,7 @@ const C = {
   reset: '\x1b[0m',
 }
 
-const EXCLUDE_DIRS = new Set(['node_modules', '.git', '.next', '.turbo', 'dist', 'build', '.worktrees'])
+const EXCLUDE_DIRS = new Set(['node_modules', '.git', '.next', '.turbo', 'dist', 'build', '.worktrees', '.venv', 'tests', '__tests__'])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss']
 
@@ -55,6 +55,9 @@ const VIOLATION_PATTERNS = [
  */
 function isExempt(line) {
   const trimmed = line.trim()
+
+  // 豁免 0: 纯注释行(// 或 /* 或 * 开头,提到 rounded-full 只是在说明规则)
+  if (/^\s*(\/\/|\/\*|\*)/.test(trimmed)) return true
 
   // 豁免 1: <img> / AvatarImage / next/image 上的 rounded-full(头像图片本身)
   if (/<img\b[^>]*\brounded-full\b/.test(trimmed)) return true

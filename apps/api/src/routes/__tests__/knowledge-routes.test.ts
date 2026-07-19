@@ -28,7 +28,7 @@ describe('Knowledge Routes API (知识库模块真实化端点)', () => {
     })
   })
 
-  // 注:GET /api/knowledge 列表/详情是公开内容(首页教育总览需展示给所有用户),
+  // 注:GET /api/knowledge 列表/详情是公开内容(首页教育概览需展示给所有用户),
   // missing-user-routes.ts 中 isPublicKnowledgeGet 显式跳过鉴权,因此 GET 不返回 401。
   describe('知识库模块 4 端点 (401 without auth, GET 公开访问)', () => {
     const knowledgeEndpoints: Array<{
