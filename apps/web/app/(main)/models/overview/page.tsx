@@ -167,8 +167,8 @@ export default async function OverviewPage() {
                       <span
                         className={
                           c.status === 'success'
-                            ? 'inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400'
-                            : 'inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:text-rose-400'
+                            ? 'inline-flex items-center rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400'
+                            : 'inline-flex items-center rounded bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:text-rose-400'
                         }
                       >
                         {t(`overview.recentCalls.statusLabels.${c.status}`)}

@@ -148,7 +148,7 @@ export default async function BillingPage() {
               className={p.highlighted ? 'relative border-primary shadow-md' : 'relative'}
             >
               {p.highlighted && (
-                <span className="absolute -top-2 left-4 inline-flex items-center rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                <span className="absolute -top-2 left-4 inline-flex items-center rounded bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
                   {t('billing.packages.recommended')}
                 </span>
               )}
@@ -210,8 +210,8 @@ export default async function BillingPage() {
                       <span
                         className={
                           tx.type === 'recharge'
-                            ? 'inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400'
-                            : 'inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
+                            ? 'inline-flex items-center rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400'
+                            : 'inline-flex items-center rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
                         }
                       >
                         {t(`billing.transactions.types.${tx.type}`)}
@@ -229,7 +229,7 @@ export default async function BillingPage() {
                     <td className="px-4 py-2.5 text-muted-foreground">¥ {tx.balance.toFixed(2)}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{tx.time}</td>
                     <td className="px-4 py-2.5">
-                      <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                      <span className="inline-flex items-center rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
                         {t(`billing.transactions.statusLabels.${tx.status}`)}
                       </span>
                     </td>
