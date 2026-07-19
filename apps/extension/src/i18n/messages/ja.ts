@@ -98,6 +98,17 @@ export const ja = {
     copied: 'コピーしました',
     highlightOn: 'ハイライト ON',
     highlightOff: 'ハイライト OFF',
+    saveToWordbook: '単語帳に保存',
+    savedToWordbook: '保存しました',
+    closePopup: '閉じる',
+    contextMenuResult: '即時翻訳結果',
+  },
+  wordbook: {
+    title: '単語帳',
+    searchPlaceholder: '単語を検索...',
+    countLabel: '{{count}} 件',
+    emptyHint: '空',
+    noMatchHint: '該当なし',
   },
 } as const
 
