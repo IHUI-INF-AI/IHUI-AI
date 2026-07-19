@@ -45,6 +45,8 @@ interface ChatState {
   setStreaming: (v: boolean) => void
   setError: (e: string | null) => void
   setConversationId: (id: string | null) => void
+  /** MessageInput 消费 draftInput 后调用,置 null 避免重复填充 */
+  clearDraftInput: () => void
 }
 
 function genId(): string {
@@ -106,6 +108,8 @@ export const useChatStore = create<ChatState>()(
       setError: (e) => set({ error: e }),
 
       setConversationId: (id) => set({ conversationId: id }),
+
+      clearDraftInput: () => set({ draftInput: null }),
     }),
     createPersistConfig<ChatState>('ihui-chat', (s) => ({
       currentModel: s.currentModel,
