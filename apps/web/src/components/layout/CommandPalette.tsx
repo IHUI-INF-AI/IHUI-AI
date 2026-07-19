@@ -126,7 +126,7 @@ export function CommandPalette({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl gap-0 p-0">
-        <div className="flex items-center gap-2 border-b px-4 py-3">
+        <div className="flex items-center gap-2 bg-muted/30 px-4 py-3">
           <Search className="h-4 w-4 text-muted-foreground" />
           <input
             ref={inputRef}
@@ -171,7 +171,7 @@ export function CommandPalette({
             })
           )}
         </div>
-        <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
           <span>↑↓ 导航 · Enter 选择</span>
           <span>{filtered.length} 个结果</span>
         </div>
