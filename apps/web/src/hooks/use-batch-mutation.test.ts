@@ -118,7 +118,10 @@ describe('useBatchMutation', () => {
   it('请求中 isPending 为 true', async () => {
     let resolveFn: (v: unknown) => void = () => {}
     mockedFetchApi.mockImplementation(
-      () => new Promise((resolve) => { resolveFn = resolve }) as never,
+      () =>
+        new Promise((resolve) => {
+          resolveFn = resolve
+        }) as never,
     )
     const { result } = renderHook(
       () =>
