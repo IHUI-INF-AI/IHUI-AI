@@ -23,7 +23,7 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
   if (total <= 1) return null
   return (
     <div
-      className="fixed right-6 top-1/2 z-40 hidden -translate-y-1/2 flex-col gap-2.5 md:flex"
+      className="fixed right-6 top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-2.5 md:flex"
       aria-label={t('label')}
     >
       {Array.from({ length: total }).map((_, idx) => {
