@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react'
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native'
+import { FlatList, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { getCourses, type Course } from '@ihui/api-client'
+import { useI18n } from '../i18n'
+import type { CourseStackParamList } from '../navigation/RootNavigator'
 
 const PAGE_SIZE = 12
 
+type NavigationProp = NativeStackNavigationProp<CourseStackParamList>
+
 export function CourseScreen() {
+  const { t } = useI18n()
+  const navigation = useNavigation<NavigationProp>()
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -28,19 +36,24 @@ export function CourseScreen() {
         setCourses(res.data.list)
         setTotal(res.data.total)
       } else {
-        setError(res.error || '加载失败')
+        setError(res.error || t('course.loadFailed'))
       }
       setLoading(false)
     })()
     return () => {
       cancelled = true
     }
-  }, [page, keyword])
+  }, [page, keyword, t])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
     <View className="flex-1 bg-white dark:bg-black">
+      <View className="px-4 pt-12 pb-2">
+        <Text className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {t('course.title')}
+        </Text>
+      </View>
       <View className="border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
         <TextInput
           value={keyword}
@@ -48,7 +61,7 @@ export function CourseScreen() {
             setKeyword(v)
             setPage(1)
           }}
-          placeholder="搜索课程..."
+          placeholder={t('course.searchPlaceholder')}
           className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-50"
           placeholderTextColor="#9ca3af"
           returnKeyType="search"
@@ -69,38 +82,48 @@ export function CourseScreen() {
         ListEmptyComponent={
           loading ? (
             <View className="items-center py-12">
-              <Text className="text-sm text-neutral-500">加载中...</Text>
+              <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
             </View>
           ) : (
             <View className="items-center py-12">
-              <Text className="text-sm text-neutral-500">暂无课程</Text>
+              <Text className="text-sm text-neutral-500">{t('course.empty')}</Text>
             </View>
           )
         }
         renderItem={({ item }) => (
-          <Card>
-            <Text className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
-              {item.title}
-            </Text>
-            <View className="mt-1 flex-row gap-3">
-              <Text className="text-xs text-neutral-500">{item.instructor}</Text>
-              <Text className="text-xs text-neutral-500">{item.level}</Text>
-            </View>
-            {item.description ? (
+          <TouchableOpacity
+            onPress={() => navigation.navigate('CourseDetail', { id: item.id })}
+            activeOpacity={0.7}
+          >
+            <Card>
               <Text
-                className="mt-2 text-sm text-neutral-600 dark:text-neutral-400"
-                numberOfLines={2}
+                className="text-base font-semibold text-neutral-900 dark:text-neutral-50"
+                numberOfLines={1}
               >
-                {item.description}
+                {item.title}
               </Text>
-            ) : null}
-            <View className="mt-2 flex-row items-center justify-between">
-              <Text className="text-sm font-semibold text-emerald-600">
-                {item.isFree ? '免费' : `¥${item.price.toFixed(2)}`}
-              </Text>
-              <Text className="text-xs text-neutral-500">{item.studentCount} 人学过</Text>
-            </View>
-          </Card>
+              <View className="mt-1 flex-row gap-3">
+                <Text className="text-xs text-neutral-500">{item.instructor}</Text>
+                <Text className="text-xs text-neutral-500">{item.level}</Text>
+              </View>
+              {item.description ? (
+                <Text
+                  className="mt-2 text-sm text-neutral-600 dark:text-neutral-400"
+                  numberOfLines={2}
+                >
+                  {item.description}
+                </Text>
+              ) : null}
+              <View className="mt-2 flex-row items-center justify-between">
+                <Text className="text-sm font-semibold text-emerald-600">
+                  {item.isFree ? t('course.free') : `¥${item.price.toFixed(2)}`}
+                </Text>
+                <Text className="text-xs text-neutral-500">
+                  {t('course.studentCount', { count: item.studentCount })}
+                </Text>
+              </View>
+            </Card>
+          </TouchableOpacity>
         )}
         ListFooterComponent={
           totalPages > 1 ? (
@@ -111,7 +134,9 @@ export function CourseScreen() {
                 className={page <= 1 ? 'opacity-40' : ''}
                 hitSlop={8}
               >
-                <Text className="text-sm text-neutral-700 dark:text-neutral-300">上一页</Text>
+                <Text className="text-sm text-neutral-700 dark:text-neutral-300">
+                  {t('common.back')}
+                </Text>
               </Pressable>
               <Text className="text-xs text-neutral-500">
                 {page} / {totalPages}
@@ -122,7 +147,9 @@ export function CourseScreen() {
                 className={page >= totalPages ? 'opacity-40' : ''}
                 hitSlop={8}
               >
-                <Text className="text-sm text-neutral-700 dark:text-neutral-300">下一页</Text>
+                <Text className="text-sm text-neutral-700 dark:text-neutral-300">
+                  {t('home.livePreviewMore')}
+                </Text>
               </Pressable>
             </View>
           ) : null
