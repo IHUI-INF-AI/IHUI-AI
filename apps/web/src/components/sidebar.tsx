@@ -391,11 +391,14 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
     >
       {/* 语言切换 — portal 让弹窗脱离 MainShell overflow-hidden 祖先避免被裁剪,
           align: 折叠态用 end(底边对齐 trigger 底边,与下载/消息中心一致),
-                展开态用 center(水平居中在 trigger 上方) */}
+                展开态用 center(水平居中在 trigger 上方)
+          tooltip: hover 显示按钮名称(与主题切换按钮一致),click 弹语言菜单 */}
       <Popover
         position={collapsed ? 'right' : 'top'}
         align={collapsed ? 'end' : 'center'}
         portal
+        tooltip={t('language')}
+        tooltipSide={collapsed ? 'right' : 'top'}
         content={
           <div className="w-36 py-1">
             {LANGUAGES.map((lang) => (
@@ -423,7 +426,6 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           variant="ghost"
           size="icon"
           className={cn(btnClass, 'p-0')}
-          title={collapsed ? t('language') : undefined}
           aria-label={t('language')}
         >
           {}
@@ -441,6 +443,8 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         position="right"
         align="end"
         portal
+        tooltip={t('downloadClient')}
+        tooltipSide={collapsed ? 'right' : 'top'}
         content={
           <div className="w-56 p-1.5">
             <div className="px-2 pb-1.5 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -479,29 +483,28 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           variant="ghost"
           size="icon"
           className={btnClass}
-          title={collapsed ? t('downloadClient') : undefined}
           aria-label={t('downloadClient')}
         >
           <Download className="h-3.5 w-3.5" />
         </Button>
       </Popover>
 
-      {/* 消息中心 — w-80 远超 130px 侧边栏,必须 portal 到 document.body 才能从右侧弹出不被裁剪 */}
+      {/* 消息中心 — w-80 远超 130px 侧边栏,必须 portal 到 document.body 才能从右侧弹出不被裁剪。
+          NotificationCenter 设计为"裸内容",不带自己的卡片容器,由 Popover 当唯一卡片:
+          className 提供 w-80 宽度 + 保留默认 border/bg-popover/shadow,p-0 让 NotificationCenter 自己控 padding */}
       <Popover
         position="right"
         align="end"
         portal
-        content={
-          <div className="w-80 max-w-[calc(100vw-2rem)]">
-            <NotificationCenter items={noticeItems} onMarkAllRead={() => markAllAsRead()} />
-          </div>
-        }
+        tooltip={t('messages')}
+        tooltipSide={collapsed ? 'right' : 'top'}
+        className="w-80 max-w-[calc(100vw-2rem)] p-0"
+        content={<NotificationCenter items={noticeItems} onMarkAllRead={() => markAllAsRead()} />}
       >
         <Button
           variant="ghost"
           size="icon"
           className={cn(btnClass, 'relative')}
-          title={collapsed ? t('messages') : undefined}
           aria-label={t('messages')}
         >
           <Bell className="h-3.5 w-3.5" />
