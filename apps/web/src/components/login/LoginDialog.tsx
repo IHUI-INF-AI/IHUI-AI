@@ -56,24 +56,27 @@ export function LoginDialog() {
               : t('forgotSubtitle')}
         </DialogDescription>
 
-        <div className="flex flex-col items-center px-6 pt-6 pb-2 text-center bg-gradient-to-b from-background to-muted/40 rounded-t-xl">
-          {/* 顶部 logo:容器无背景色,直接渲染项目 logo.svg(logo.svg 自身已带圆角渐变底+智字)。 */}
+        <div className="flex flex-col items-center px-6 pt-8 pb-4 text-center bg-gradient-to-b from-background to-muted/40 rounded-t-xl">
+          {/* 顶部 logo:用户提供的纯图标版 logo.png(2534×2534 方形,蝴蝶结 + IHUI INF 弧形标识,无右侧"智汇AI社区"横向文字)。
+              比 logo.svg 简洁,适合登录弹窗顶部主视觉。 */}
           <Image
-            src="/images/logo.svg?v=20260719-real-logo"
+            src="/images/logo.png?v=20260719-login"
             alt="IHUI AI"
-            width={40}
-            height={40}
-            className="h-10 w-10 select-none"
+            width={80}
+            height={80}
+            className="h-20 w-20 select-none rounded-xl"
             draggable={false}
             unoptimized
+            priority
           />
-          {/* 顶部已由 logo.svg 渲染图标,此处欢迎图替代原来的"欢迎回来 登录您的账号"文字。 */}
+          {/* 顶部已由 logo.png 渲染图标,此处欢迎图替代原来的"欢迎回来 登录您的账号"文字。
+              宽度拉到与下面 LoginForm 内容对齐(460 - 2*24 = 412px),实现左右两侧竖向拉齐。 */}
           <Image
             src="/images/welcome.svg"
             alt="Welcome to IHUI AI"
             width={447}
             height={67}
-            className="welcome-img mt-3 h-auto w-[240px] max-w-full md:w-[280px]"
+            className="welcome-img mt-4 h-auto w-full max-w-[412px]"
             loading="eager"
             unoptimized
           />
@@ -83,7 +86,7 @@ export function LoginDialog() {
             aria-hidden="true"
             width={447}
             height={67}
-            className="welcome-img-dark mt-3 h-auto w-[240px] max-w-full md:w-[280px]"
+            className="welcome-img-dark mt-4 h-auto w-full max-w-[412px]"
             loading="eager"
             unoptimized
           />
