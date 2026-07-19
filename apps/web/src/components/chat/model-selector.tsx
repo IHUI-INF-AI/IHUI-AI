@@ -151,29 +151,36 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           {loading ? (
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
           ) : (
-            /* 2026-07-20 修复底部工具栏溢出:span max-w 从 12rem(192px) 收缩到 6rem(96px),
-               在 AI 面板 320-400px 窄宽度下不挤占其他按钮(语音/发送)空间;
-               min-w-0 + truncate 让文字可被压缩,父级 flex 已加 overflow-hidden 兜底。 */
-            <span className="hidden min-w-0 max-w-[6rem] truncate sm:inline">
+            /* 2026-07-20 修复底部工具栏溢出(双策略):
+               1. span max-w 从 12rem(192px) 收缩到 6rem(96px),常规宽度下不挤占其他按钮
+               2. 原生 CSS container query(在 globals.css .ai-input-toolbar 规则中):
+                  工具栏容器 <= 359px(对应面板 <= 391px)时 .model-selector-text 隐藏,
+                  只显示 BrandIcon + chevron,保证最窄 320px 面板也能完整显示所有按钮。
+               不用 Tailwind hidden sm:inline 模式:
+               实测 Tailwind v4 把 sm:inline 编译为裸类(无 @media 包裹)且顺序在 .hidden 之后,
+               导致 specificity 相同时由顺序决定胜负,400px 默认宽度下 span 仍隐藏。
+               改为不带任何 Tailwind display 类,默认 span inline,container query 决定隐藏。 */
+            <span className="model-selector-text min-w-0 max-w-[6rem] truncate">
               {current?.label ?? value}
             </span>
           )}
           {/* 配置感知徽章:已配置 → 绿色 ✓,未配置 → 琥珀 ⚠
-              引导用户到模型广场页 /settings/llm 或模型详情对话框里配置 */}
+              引导用户到模型广场页 /settings/llm 或模型详情对话框里配置
+              2026-07-20 原生 CSS container query:窄面板(<= 391px)时与 span 同步隐藏 */}
           {showConfigBadge && !loading && (
             currentConfigured ? (
               <CheckCircle2
-                className="h-3.5 w-3.5 shrink-0 text-emerald-500"
+                className="model-selector-badge h-3.5 w-3.5 shrink-0 text-emerald-500"
                 aria-label={t('modelConfigured')}
               />
             ) : (
               <TriangleAlert
-                className="h-3.5 w-3.5 shrink-0 text-amber-500"
+                className="model-selector-badge h-3.5 w-3.5 shrink-0 text-amber-500"
                 aria-label={t('modelNotConfigured')}
               />
             )
           )}
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
