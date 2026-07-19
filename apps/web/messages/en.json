@@ -8446,6 +8446,28 @@
       "capabilities": "Capabilities",
       "close": "Close"
     },
+    "quickKey": {
+      "title": "One-Click API Key Setup",
+      "configured": "Configured",
+      "notConfigured": "Not Configured",
+      "getApiKey": "Get API Key",
+      "customBaseUrl": "Custom Base URL",
+      "apiKeyLabel": "API Key",
+      "apiKeyPlaceholder": "Paste API Key (encrypted)",
+      "modelIdLabel": "Model ID (optional)",
+      "showKey": "Show key",
+      "hideKey": "Hide key",
+      "testBtn": "Test",
+      "saveBtn": "Save & Enable",
+      "updateBtn": "Update",
+      "testSuccess": "Connection OK",
+      "testFailed": "Connection failed",
+      "saved": "Saved",
+      "savedDesc": "API Key encrypted & stored. Model is ready to use.",
+      "saveFailed": "Save failed",
+      "noTemplate": "No template for this provider. Please add manually in Settings → LLM Config.",
+      "securityHint": "API Key is encrypted with AES-256-GCM, visible only to your account, never stored in plaintext."
+    },
     "providers": {
       "openai": "OpenAI",
       "anthropic": "Anthropic",
