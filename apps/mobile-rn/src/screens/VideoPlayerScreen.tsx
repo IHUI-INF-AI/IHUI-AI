@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -6,15 +6,23 @@ import { Button } from '@ihui/ui-native'
 import { completeLesson, getProgress, type CourseProgress } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { HomeStackParamList } from '../navigation/RootNavigator'
+import { VideoPlayer } from '../components/VideoPlayer'
 
 type Route = RouteProp<HomeStackParamList, 'VideoPlayer'>
 type NavigationProp = NativeStackNavigationProp<HomeStackParamList>
+
+/** 路由 params 扩展:课程播放器在 root 导航里未声明 videoUrl,这里做结构兼容 */
+type VideoPlayerRouteParams = HomeStackParamList['VideoPlayer'] & {
+  videoUrl?: string
+  duration?: number
+}
 
 export function VideoPlayerScreen() {
   const { t } = useI18n()
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
-  const { courseId, lessonId, title } = route.params
+  const params = route.params as VideoPlayerRouteParams
+  const { courseId, lessonId, title, videoUrl } = params
   const [progress, setProgress] = useState<CourseProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -42,7 +50,7 @@ export function VideoPlayerScreen() {
     }
   }, [courseId, lessonId, t])
 
-  const onComplete = async () => {
+  const onCompleteLesson = useCallback(async () => {
     setCompleting(true)
     const res = await completeLesson({ courseId, lessonId })
     setCompleting(false)
@@ -57,7 +65,14 @@ export function VideoPlayerScreen() {
     } else {
       setError(res.error || t('common.failed'))
     }
-  }
+  }, [courseId, lessonId, progress, t])
+
+  const onPlayerComplete = useCallback(() => {
+    // 真视频播完时自动标记完成(若尚未完成)
+    if (!completed) {
+      void onCompleteLesson()
+    }
+  }, [completed, onCompleteLesson])
 
   if (loading) {
     return (
@@ -69,7 +84,7 @@ export function VideoPlayerScreen() {
 
   return (
     <View className="flex-1 bg-black">
-      <View className="flex-row items-center justify-between px-4 pt-12 pb-3">
+      <View className="flex-row items-center justify-between bg-black px-4 pt-12 pb-3">
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text className="text-base text-white">{t('common.back')}</Text>
         </TouchableOpacity>
@@ -79,11 +94,19 @@ export function VideoPlayerScreen() {
         <View className="w-10" />
       </View>
 
-      <View className="aspect-video w-full items-center justify-center bg-neutral-900">
-        <Text className="text-base text-neutral-400">▶</Text>
-        <Text className="mt-2 text-xs text-neutral-500">{t('course.player')}</Text>
-        {error ? <Text className="mt-2 text-xs text-red-400">{error}</Text> : null}
-      </View>
+      {videoUrl ? (
+        <VideoPlayer
+          url={videoUrl}
+          title={title}
+          onComplete={onPlayerComplete}
+          onError={setError}
+        />
+      ) : (
+        <View className="aspect-video w-full items-center justify-center bg-neutral-900">
+          <Text className="text-base text-neutral-400">{t('player.noUrl')}</Text>
+          <Text className="mt-2 text-xs text-neutral-500">{t('course.player')}</Text>
+        </View>
+      )}
 
       <View className="flex-1 bg-white p-4">
         <Text className="text-lg font-semibold text-neutral-900">{t('course.progress')}</Text>
@@ -106,13 +129,15 @@ export function VideoPlayerScreen() {
           </View>
         ) : null}
 
+        {error ? <Text className="mt-2 text-xs text-red-500">{error}</Text> : null}
+
         <View className="mt-6">
           {completed ? (
             <View className="rounded-md bg-emerald-50 p-3">
               <Text className="text-sm text-emerald-700">✓ {t('course.completed')}</Text>
             </View>
           ) : (
-            <Button loading={completing} onPress={onComplete}>
+            <Button loading={completing} onPress={onCompleteLesson}>
               {t('course.complete')}
             </Button>
           )}

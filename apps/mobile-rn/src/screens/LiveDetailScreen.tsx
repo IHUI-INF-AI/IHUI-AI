@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
@@ -15,15 +15,45 @@ import { Button, Card } from '@ihui/ui-native'
 import { getLiveById, subscribeLive, type Live } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { LiveStackParamList } from '../navigation/RootNavigator'
+import { getToken } from '../lib/token'
+import { API_BASE_URL } from '../lib/config'
+import {
+  LiveChatClient,
+  type ChatMessage,
+  type ChatStatus,
+} from '../lib/ws/chat-client'
 
 type Route = RouteProp<LiveStackParamList, 'LiveDetail'>
 type NavigationProp = NativeStackNavigationProp<LiveStackParamList>
 
-interface ChatMessage {
-  id: string
-  nickname: string
-  content: string
-  createdAt: string
+/** 状态标签颜色:connecting=灰 / open=绿 / reconnecting=黄 / error=红 / closed=灰 */
+function statusLabelKey(status: ChatStatus): 'live.chatConnecting' | 'live.chatConnected' | 'live.chatReconnecting' | 'live.chatDisconnected' | 'live.chatError' {
+  switch (status) {
+    case 'connecting':
+      return 'live.chatConnecting'
+    case 'open':
+      return 'live.chatConnected'
+    case 'reconnecting':
+      return 'live.chatReconnecting'
+    case 'error':
+      return 'live.chatError'
+    default:
+      return 'live.chatDisconnected'
+  }
+}
+
+function statusDotClass(status: ChatStatus): string {
+  switch (status) {
+    case 'open':
+      return 'bg-emerald-500'
+    case 'connecting':
+    case 'reconnecting':
+      return 'bg-amber-500'
+    case 'error':
+      return 'bg-red-500'
+    default:
+      return 'bg-neutral-300'
+  }
 }
 
 function formatTime(iso: string): string {
@@ -38,7 +68,7 @@ function formatTime(iso: string): string {
 }
 
 export function LiveDetailScreen() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
   const { id } = route.params
@@ -49,8 +79,12 @@ export function LiveDetailScreen() {
   const [subscribing, setSubscribing] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
+  const [chatStatus, setChatStatus] = useState<ChatStatus>('idle')
+  const [chatError, setChatError] = useState('')
   const listRef = useRef<FlatList<ChatMessage> | null>(null)
+  const clientRef = useRef<LiveChatClient | null>(null)
 
+  // 加载直播详情
   useEffect(() => {
     let cancelled = false
     void (async () => {
@@ -70,7 +104,36 @@ export function LiveDetailScreen() {
     }
   }, [id, t])
 
-  const onSubscribe = async () => {
+  // 建立聊天 WebSocket 连接
+  useEffect(() => {
+    if (loading) return
+    const client = new LiveChatClient({
+      baseUrl: API_BASE_URL,
+      tokenProvider: () => getToken(),
+    })
+    clientRef.current = client
+    const unsub = client.subscribe({
+      onStatusChange: setChatStatus,
+      onMessage: (msg) => {
+        setMessages((prev) => [...prev, msg])
+        // 微任务后滚到底部(避免键盘弹起抢焦点)
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80)
+      },
+      onHistory: (history) => {
+        setMessages(history)
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 80)
+      },
+      onError: (err) => setChatError(err),
+    })
+    client.connect(id)
+    return () => {
+      unsub()
+      client.disconnect()
+      clientRef.current = null
+    }
+  }, [id, loading])
+
+  const onSubscribe = useCallback(async () => {
     if (!live) return
     setSubscribing(true)
     const res = await subscribeLive(live.id)
@@ -80,21 +143,27 @@ export function LiveDetailScreen() {
     } else {
       setError(res.error || t('common.failed'))
     }
-  }
+  }, [live, t])
 
-  const onSend = () => {
+  const onSend = useCallback(() => {
     const text = input.trim()
     if (!text) return
-    const msg: ChatMessage = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      nickname: t('common.confirm') === '确认' ? '我' : 'me',
-      content: text,
-      createdAt: new Date().toISOString(),
+    const client = clientRef.current
+    if (!client) return
+    const ok = client.send(text)
+    if (ok) {
+      // 服务端会把消息回推;本地不直接 append,避免重复
+      setInput('')
+    } else {
+      setChatError(t('live.chatNotReady'))
     }
-    setMessages((prev) => [...prev, msg])
-    setInput('')
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80)
-  }
+  }, [input, t])
+
+  // 本地参与者昵称(根据 locale 简单决定)
+  const meLabel = useMemo(
+    () => (locale === 'zh-CN' ? '我' : locale === 'zh-TW' ? '我' : 'me'),
+    [locale],
+  )
 
   if (loading) {
     return (
@@ -154,6 +223,11 @@ export function LiveDetailScreen() {
       <View className="aspect-video w-full items-center justify-center bg-black">
         <Text className="text-2xl text-white">▶</Text>
         <Text className="mt-1 text-xs text-neutral-400">{t('live.title')}</Text>
+        {live.playUrl ? (
+          <Text className="mt-1 text-[10px] text-neutral-500" numberOfLines={1}>
+            {live.playUrl}
+          </Text>
+        ) : null}
       </View>
 
       <View className="px-4 py-3">
@@ -178,6 +252,10 @@ export function LiveDetailScreen() {
       </View>
 
       <View className="flex-1 px-4 mt-2">
+        <View className="mb-1 flex-row items-center gap-2">
+          <View className={`h-2 w-2 rounded-md ${statusDotClass(chatStatus)}`} />
+          <Text className="text-xs text-neutral-500">{t(statusLabelKey(chatStatus))}</Text>
+        </View>
         <Text className="mb-1 text-base font-semibold text-neutral-900 dark:text-neutral-50">
           {t('live.chat')}
         </Text>
@@ -209,6 +287,11 @@ export function LiveDetailScreen() {
             )}
           />
         </Card>
+        {chatError ? (
+          <Text className="mt-1 text-[10px] text-red-500">{chatError}</Text>
+        ) : null}
+        {/* 本地参与者身份提示(测试用) */}
+        {meLabel ? null : null}
       </View>
 
       <View className="flex-row items-center gap-2 px-4 py-2">
@@ -216,12 +299,13 @@ export function LiveDetailScreen() {
           value={input}
           onChangeText={setInput}
           placeholder={t('live.chatPlaceholder')}
+          editable={chatStatus === 'open'}
           className="flex-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-50"
           placeholderTextColor="#9ca3af"
           returnKeyType="send"
           onSubmitEditing={onSend}
         />
-        <Button size="sm" onPress={onSend} disabled={!input.trim()}>
+        <Button size="sm" onPress={onSend} disabled={!input.trim() || chatStatus !== 'open'}>
           {t('live.chatSend')}
         </Button>
       </View>
