@@ -74,7 +74,7 @@ export function MessageBubble({ message, isSelf }: Props) {
       </div>
       {zoomed && message.type === 'image' && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-modal flex items-center justify-center bg-black/70 p-4"
           onClick={() => setZoomed(false)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') setZoomed(false)
