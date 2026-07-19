@@ -1,6 +1,6 @@
 import { createDb } from '../src/client.js'
-import { eq } from 'drizzle-orm'
 import { newsCategories, newsArticles } from '../src/schema/news.js'
+import { upsertByUnique } from './_utils/upsert-by-unique.js'
 
 const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui')
 
@@ -28,15 +28,13 @@ export async function seedCrossDomain() {
   ]
   const catMap: Record<string, string> = {}
   for (const c of cats) {
-    const [ex] = await db.select().from(newsCategories).where(eq(newsCategories.name, c.name))
-    if (ex) catMap[c.name] = ex.id
-    else {
-      const [ins] = await db
-        .insert(newsCategories)
-        .values({ name: c.name, sort: c.sort, status: 1 })
-        .returning({ id: newsCategories.id })
-      catMap[c.name] = ins.id
-    }
+    // R82 升级:upsertByUnique 替代 if (ex) ... else insert
+    const { id } = await upsertByUnique(db, {
+      table: newsCategories,
+      uniqueBy: { column: newsCategories.name, value: c.name },
+      insertValues: { name: c.name, sort: c.sort, status: 1 },
+    })
+    catMap[c.name] = String(id)
   }
 
   const articles = [
@@ -3193,23 +3191,27 @@ NIST AI RMF 仍是美国 AI 治理的事实标准,2025 年继续更新。`,
 
   let count = 0
   for (const a of articles) {
-    const [ex] = await db.select().from(newsArticles).where(eq(newsArticles.title, a.title))
-    if (ex) continue
-    await db.insert(newsArticles).values({
-      title: a.title,
-      summary: a.summary,
-      content: a.content,
-      coverImage: a.cover,
-      categoryId: catMap[a.category] ?? null,
-      authorName: a.author,
-      isPublished: true,
-      isPinned: a.isPinned,
-      viewCount: Math.floor(Math.random() * 10000) + 1000,
-      sort: a.sort,
-      status: 1,
-      publishedAt: new Date(),
+    // R82 升级:upsertByUnique 替代 if (ex) continue,基于 news_articles_title_uniq 唯一索引
+    const { id, action } = await upsertByUnique(db, {
+      table: newsArticles,
+      uniqueBy: { column: newsArticles.title, value: a.title },
+      insertValues: {
+        title: a.title,
+        summary: a.summary,
+        content: a.content,
+        coverImage: a.cover,
+        categoryId: catMap[a.category] ?? null,
+        authorName: a.author,
+        isPublished: true,
+        isPinned: a.isPinned,
+        viewCount: Math.floor(Math.random() * 10000) + 1000,
+        sort: a.sort,
+        status: 1,
+        publishedAt: new Date(),
+      },
     })
-    count++
+    if (action === 'inserted') count++
+    void id
   }
   console.info(`[跨领域] 完成,新增 ${count} 条`)
 }

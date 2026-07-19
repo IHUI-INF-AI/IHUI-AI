@@ -164,6 +164,14 @@ export const zhsDeveloperLink = pgTable(
     userId: varchar('user_id', { length: 64 }).notNull(),
     cozeAccountId: varchar('coze_account_id', { length: 64 }),
     cozeAccountName: varchar('coze_account_name', { length: 200 }),
+    // R80 补齐: D 盘 coze_zhs_py/models/agent_models.py:449 DeveloperLink 字段
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    field1: varchar('field1', { length: 500 }),
+    field2: varchar('field2', { length: 500 }),
+    assigner: varchar('assigner', { length: 64 }),
+    allocateTime: timestamp('allocate_time', { withTimezone: true }),
+    isDel: integer('is_del').default(0).notNull(),
+    type: integer('type').default(0).notNull(),
     status: integer('status').default(1).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -789,6 +797,8 @@ export const zhsAgentSettlement = pgTable(
     expirationDate: timestamp('expiration_date', { withTimezone: true }),
     settlement: varchar('settlement', { length: 2 }),
     withdrawal: varchar('withdrawal', { length: 2 }),
+    // R80 补齐: D 盘 coze_zhs_py/models/agent_models.py:479 AgentSettlement.issue_no 期号
+    issueNo: integer('issue_no'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -796,6 +806,7 @@ export const zhsAgentSettlement = pgTable(
     orderNoIdx: index('idx_settlement_order_no').on(t.orderNo),
     settlementIdx: index('idx_settlement_status').on(t.settlement),
     withdrawalIdx: index('idx_settlement_withdrawal').on(t.withdrawal),
+    agentIdIdx: index('zhs_agent_settlement_agent_id_idx').on(t.agentId),
   }),
 )
 
