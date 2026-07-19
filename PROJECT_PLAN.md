@@ -44,6 +44,26 @@
 - [x] **全链路 typecheck**:`pnpm turbo typecheck` exit 0,17/23 successful(6 cached)
 - [x] **本 agent 后续建议**:**无**。本任务范围内已完美收尾,无需任何追加改动
 
+### 登录弹窗 logo 修正 + welcome 图放大(已完成 ✅)
+
+**背景**:用户反馈"这回图标对了 但是登录弹窗的logo图太小了 而且应该是另外一个我之前给你的图 只有我们真实的图标的不带右侧智汇ai社区文字的那个图 welcome 图片也应该放大到左右两侧能跟下面内容竖向拉齐大小为止"。
+
+**已完成(2026-07-19)**:
+
+- [x] **logo 资产切换**:`logo.svg`(含"智汇AI社区"横向文字)→ `logo.png`(2534×2534 方形,蝴蝶结 + IHUI INF 弧形标识,**无横向文字**,纯图标版)
+- [x] **logo 尺寸放大**:40×40px → 80×80px(`h-20 w-20`),加 `rounded-xl` + `priority` 让浏览器优先加载
+- [x] **welcome 图拉满对齐**:`w-[240px] md:w-[280px]` → `w-full max-w-[412px]`,与下方 LoginForm 容器宽度 (460-2*24) **左右两侧竖向拉齐**
+- [x] **容器 padding 适配**:`pt-6 pb-2` → `pt-8 pb-4` 适配更大的 logo
+- [x] **缓存破除**:url 加 `?v=20260719-login` 强制刷浏览器/代理缓存
+- [x] **commit + push**:`c8d4d15b fix(login): 弹窗 logo 改用纯图标版 logo.png 并放大到 80px,welcome 图拉满至 412px 与表单对齐` → main 已就位
+- [x] **全链路 typecheck**:`pnpm turbo typecheck` exit 0,apps/web/apps/api/miniapp-taro/cli/mobile-rn/extension/desktop 全绿(ai-service informational 警告不阻塞)
+
+**本 agent 后续建议**:
+
+1. **弹窗背景色温一致性核查**:dark mode 下 dialog 背景偏中性灰,深色模式用户可能希望纯黑(#000)或品牌紫渐变。如果用户进一步要求"dark mode 弹窗也要有黑色背景"或"加一层 radial gradient",可在 LoginDialog.tsx 的 `bg-gradient-to-b from-background to-muted/40` 处替换为更深色色阶。**风险:无**。
+2. **welcome 图响应式断点**:当前固定 `max-w-[412px]` 仅在 ≥460px 容器下完美对齐。`< sm`(<640px)时 dialog 容器会缩到 `w-[calc(100%-2rem)]` 即 ~calc(100vw - 32px),welcome 图随之缩到容器宽 — 此时与表单 px-6 仍对齐,无需额外断点。**已自验通过**。
+3. **logo.png 资源统一**:目前侧边栏 logo(`sidebar.tsx` / `MainShell.tsx`)和首页 hero 大图仍可能用 `logo.svg` 含文字版。若用户后续要求"全站都改用纯图标版",需要同步替换。**当前 LoginDialog 已切换,其他位置保留** — 等用户明确指示再统一,避免误改。
+
 ### 模型广场页深度开发优化 + LLM 安全清洁(进行中)
 
 **背景**:用户反馈"模型广场页功能未完全开发好"+"开发对话中模型总是自己停"。
