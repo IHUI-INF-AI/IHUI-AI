@@ -64,6 +64,43 @@
 2. **welcome 图响应式断点**:当前固定 `max-w-[412px]` 仅在 ≥460px 容器下完美对齐。`< sm`(<640px)时 dialog 容器会缩到 `w-[calc(100%-2rem)]` 即 ~calc(100vw - 32px),welcome 图随之缩到容器宽 — 此时与表单 px-6 仍对齐,无需额外断点。**已自验通过**。
 3. **logo.png 资源统一**:目前侧边栏 logo(`sidebar.tsx` / `MainShell.tsx`)和首页 hero 大图仍可能用 `logo.svg` 含文字版。若用户后续要求"全站都改用纯图标版",需要同步替换。**当前 LoginDialog 已切换,其他位置保留** — 等用户明确指示再统一,避免误改。
 
+### 侧边栏下载按钮弹窗修复(已完成 ✅)
+
+**背景**:用户反馈"左侧侧边栏下载按钮的弹窗应该超出左侧侧边栏显示啊,而不是现在被侧边栏裁剪掉一块,而且里面的下载选项应该包含我们项目所有支持的端口啊,而且配上对应精美准确的图标"。
+
+**根因诊断**:
+
+1. **弹窗被裁剪**:`MainShell.tsx` 主容器是 `h-screen overflow-hidden`(必须,否则 sticky 定位错乱),侧边栏 `aside` 是其子节点,`Popover` 沿用 absolute 定位,被祖先 `overflow:hidden` 裁掉
+2. **下载选项不全**:历史版本 `DOWNLOADS` 数组仅 2-3 个端口,未对齐项目 `apps/*` 目录已落地的 8 个端
+3. **图标粗糙**:历史版本用统一的 `Download` 图标,无法区分 iOS / Android / 微信小程序 / CLI 等品牌端
+
+**已完成(2026-07-19)**:
+
+- [x] **Popover 组件升级 `portal` 模式**:`apps/web/src/components/feedback/Popover.tsx` 新增 `portal?: boolean` + `align?: 'start'|'center'|'end'` props
+  - portal=true 时用 `createPortal` 把弹层挂到 `document.body`,`fixed` 定位 + `getBoundingClientRect()` 动态计算坐标
+  - 同步 `scroll` / `resize` / `ResizeObserver(triggerEl)` 三个事件,trigger 位置变化时弹层跟随
+  - **弹层底边对齐 trigger 底边**:当 `align="end"` 且 `position="left"|"right"` 时,加 `-translate-y-full` 让弹层向上收回,避免向下溢出视口
+  - 保留非 portal 模式的 `absolute` 行为向后兼容
+- [x] **侧边栏下载按钮接入 portal**:`apps/web/src/components/sidebar.tsx` 下载 Popover 改 `portal position="right" align="end"`,弹层底边对齐 trigger 底边,严格不超出视口下沿
+- [x] **下载选项扩展为 8 端**:
+  - Web 版 → `Globe` (lucide)
+  - Desktop → `Monitor` (lucide)
+  - iOS App → 内联 `AppleIcon` SVG(品牌苹果 logo)
+  - Android APK → 内联 `AndroidIcon` SVG(品牌机器人)
+  - Mobile App → `Smartphone` (lucide)
+  - 微信小程序 → 内联 `WechatMiniIcon` SVG(微信对话气泡)
+  - 浏览器扩展 → `Puzzle` (lucide)
+  - CLI → `Terminal` (lucide)
+- [x] **i18n 5 语言同步新增下载 key**:`zh-CN / en / zh-TW / ja / ko` 同步新增 `downloadTitle` + 8 端 label + 8 端 desc
+- [x] **DOM 样式自验**:弹层用 `getComputedStyle` 读 `position: fixed` 生效,`getBoundingClientRect()` 坐标超出侧边栏右沿,符合预期
+
+**本 agent 后续建议**:
+
+1. **下载入口收口**:`/download/desktop`、`/download/mobile`、`/download/extension`、`/download/cli` 4 个路由目前是占位页(若有),可补一个统一 `pages/download/[platform].tsx` 动态路由展示安装包列表、版本号、changelog、SHA256 校验值,**风险:中**(需要后端提供下载元数据 API 或静态 JSON)
+2. **真实下载链接**:当前 8 个端大多用占位 href(`/download/desktop` 等),后续可对接真实 CDN / App Store / apk 路径,在 `DOWNLOADS` 数组里加 `version` 字段 + 单独的 `lib/downloads.ts` 配置层,**风险:低**
+3. **下载埋点**:点击 `<a>` 可加 `onClick` 触发 `analytics.track('download_click', { platform, href })`,与后端 `download_events` 表打通,统计各端下载转化率,**风险:低**(纯前端加事件)
+4. **App Store 真实 ID**:AppleIcon 的 href 当前是占位 `https://apps.apple.com/cn/app/ihui-ai`,后续上架后替换为真实 App Store ID,**风险:无**
+
 ### 模型广场页深度开发优化 + LLM 安全清洁(进行中)
 
 **背景**:用户反馈"模型广场页功能未完全开发好"+"开发对话中模型总是自己停"。
