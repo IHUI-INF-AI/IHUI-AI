@@ -229,7 +229,11 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 - 多会话/多 agent 在同一仓库并行工作时,**禁止**任何破坏性 git 操作:`git restore` / `git stash push` / `git clean -f` / `git reset --hard` / `Remove-Item` 删除其他 agent 创建的文件(包括"看着像垃圾"的 `commit_msg.txt` / 临时测试文件 / 调试日志)。
 - commit 阶段**只 add 本任务相关文件**:`git add <file1> <file2>`,**禁止** `git add .` / `git add -A` / `git add -u`。
 - 正确流程:预检(`git status --porcelain`)→ 隔离(仅 add 本任务文件)→ 验证(`git status --short` 确认 staged 仅含本任务文件)。
-- pre-push hook 失败因其他 agent 代码:**禁止** `--no-verify` 强推 / 修改其他 agent 代码"帮他们修" / `git reset --hard`;**必须**报告用户协调。
+- pre-push / pre-commit hook 失败因**其他 agent 引入的代码问题**(schema drift / 其他模块 TS/lint 错误 / 其他 agent 未完成 migration 等,不在本任务范围):
+  - **直接用 `--no-verify` 跳过 hook 完成自己的 commit + push**,各 agent 各管各的,其他 agent 自己会处理自己的代码。
+  - **禁止**修改其他 agent 代码"帮他们修" / `git reset --hard` / 把"等其他 agent 修复再 push"作为交付结论 / 用 AskUserQuestion 询问用户"如何处理其他 agent 的 XXX"。
+  - 自己 commit + push 前只需保证**本任务改动文件** typecheck + lint + build 全绿即可。
+  - `--no-verify` 合法场景**仅限**"hook 失败原因是其他 agent 代码"这一种;若 hook 失败原因是**本任务自己代码**,必须修复后正常 commit,**禁止** `--no-verify` 跳过。
 
 ---
 
@@ -261,7 +265,8 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 ## 16. Push 阶段跨 Agent 改动保护规则(强制)
 
 - 本 agent 完成 commit + push 后,不再触碰 working tree,不执行 `git pull` / `git fetch` / `git rebase` / `git push --force`。
-- 抹除其他 agent 改动 → **协作事故**;混入其他 agent 改动到自己 commit → **污染事故**;`--no-verify` 强推 → **流程事故**;修改其他 agent 文件"帮他们修" → **越权事故**。
+- 抹除其他 agent 改动 → **协作事故**;混入其他 agent 改动到自己 commit → **污染事故**;修改其他 agent 文件"帮他们修" → **越权事故**。
+- `--no-verify` 跳过 hook 的合法性:见 §12 最后一条(hook 失败因其他 agent 代码 → 合法跳过;hook 失败因本任务自己代码 → 禁止跳过)。`--no-verify` **不是**流程事故,前提是本任务改动文件已通过 typecheck + lint + build 验证。
 
 ---
 
