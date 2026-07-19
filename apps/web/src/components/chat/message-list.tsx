@@ -76,38 +76,15 @@ export function MessageList({
   }, [messages.length, lastContent, isStreaming])
 
   if (messages.length === 0) {
+    // 空状态引导模板与附加栏 Popover 共用同一组 5 个核心模板(i18n key 一致)。
+    // category 字段已废弃(PromptTemplates 不再分组),做减法移除。
     const templates = onTemplateSelect
       ? [
-          {
-            id: 'summary',
-            name: t('tplSummary'),
-            content: t('tplSummaryContent'),
-            category: t('promptTemplates'),
-          },
-          {
-            id: 'translate',
-            name: t('tplTranslate'),
-            content: t('tplTranslateContent'),
-            category: t('promptTemplates'),
-          },
-          {
-            id: 'explain',
-            name: t('tplExplain'),
-            content: t('tplExplainContent'),
-            category: t('promptTemplates'),
-          },
-          {
-            id: 'code',
-            name: t('tplCode'),
-            content: t('tplCodeContent'),
-            category: t('promptTemplates'),
-          },
-          {
-            id: 'polish',
-            name: t('tplPolish'),
-            content: t('tplPolishContent'),
-            category: t('promptTemplates'),
-          },
+          { id: 'summary', name: t('tplSummary'), content: t('tplSummaryContent') },
+          { id: 'translate', name: t('tplTranslate'), content: t('tplTranslateContent') },
+          { id: 'explain', name: t('tplExplain'), content: t('tplExplainContent') },
+          { id: 'code', name: t('tplCode'), content: t('tplCodeContent') },
+          { id: 'polish', name: t('tplPolish'), content: t('tplPolishContent') },
         ]
       : []
     return (
@@ -131,8 +108,9 @@ export function MessageList({
           </div>
         )}
         {!isLoading && templates.length > 0 && (
+          // 空状态使用 chips variant:水平胶囊按钮,与附加栏 Popover 视觉风格协调。
           <div className="w-full max-w-2xl">
-            <PromptTemplates templates={templates} onSelect={onTemplateSelect!} />
+            <PromptTemplates templates={templates} onSelect={onTemplateSelect!} variant="chips" />
           </div>
         )}
       </div>
