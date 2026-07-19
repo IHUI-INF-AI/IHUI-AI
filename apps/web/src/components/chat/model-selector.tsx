@@ -135,7 +135,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           disabled={disabled || loading}
           aria-label={label}
           className={cn(
-            'inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-sm font-medium transition-colors',
+            'inline-flex h-9 min-w-0 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-sm font-medium transition-colors',
             'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             'disabled:cursor-not-allowed disabled:opacity-60',
             // 2026-07-19 中文 + 图标垂直对齐:文字 span 视觉居中
@@ -146,12 +146,15 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
             vendor={current?.vendor}
             iconUrl={current?.iconUrl}
             size={16}
-            className="text-muted-foreground"
+            className="shrink-0 text-muted-foreground"
           />
           {loading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
           ) : (
-            <span className="hidden max-w-[12rem] truncate sm:inline">
+            /* 2026-07-20 修复底部工具栏溢出:span max-w 从 12rem(192px) 收缩到 6rem(96px),
+               在 AI 面板 320-400px 窄宽度下不挤占其他按钮(语音/发送)空间;
+               min-w-0 + truncate 让文字可被压缩,父级 flex 已加 overflow-hidden 兜底。 */
+            <span className="hidden min-w-0 max-w-[6rem] truncate sm:inline">
               {current?.label ?? value}
             </span>
           )}
