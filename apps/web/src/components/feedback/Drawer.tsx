@@ -85,7 +85,7 @@ export function Drawer({
   const isHorizontal = side === 'left' || side === 'right'
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-modal">
       <button
         type="button"
         aria-label="关闭"
