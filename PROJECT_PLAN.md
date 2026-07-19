@@ -122,3 +122,26 @@
 - **P2(下一轮排期)**:281 admin 页面抽取 useBatchMutation hook(从 `string[]` 数组 mutation 抽轻量 hook,选 5-10 页面迁移);Form 实时校验 Zod 试点(orders/refund);`Skeleton` 最小实现 + 3-5 页面迁移;admin-smoke spec 合并入 admin-crud
 - **P3(后续排期)**:XState 状态机驱动审批 / 退款 / 提现 / 工单;ECharts 引入 BI dashboard 编辑器(本轮已 require echarts + echarts-for-react,见 apps/web/package.json:60-61)
 - **跨端**:本子任务未触及 api / ai-service / desktop / extension / mobile-rn / miniapp-taro / cli,无需跨端同步
+
+---
+
+## P2 体验优化:Form Zod 实时校验 + Skeleton 重数据页迁移(2026-07-20 完成)
+
+- [x] `apps/web/src/lib/form-schema.ts` 新建 Zod schema 工具(VALIDATION_NS + VALIDATION_KEYS + DEFAULT_VALIDATION_MESSAGES)
+- [x] `apps/web/src/hooks/use-zod-form.ts` 新建 react-hook-form + zod 一体化 hook(暴露 `tValidation(key, vars)` helper)
+- [x] `apps/web/src/hooks/use-zod-form.test.ts` 单元测试 9 case(schema safeParse + 提交流程 + RHF 接口兼容)
+- [x] `apps/web/src/components/ui/skeleton.tsx` 新建 Shadcn 标准 Skeleton(variant: default/text/avatar/card/table-row/list/stat)
+- [x] i18n:5 语言文件 `admin.validation.{required/min/max/minLength/maxLength/email/url/uuid/number/integer/positive/pattern/enum/custom}` 14 key parity OK(`check-i18n-keys` 守门通过,zh-TW 无简体检 / ko 无中文残留)
+- [x] useZodForm 迁移 6 页:operlog / wallet / menu-permission / sensitive-word / ticket(reply form) / signin-rule
+- [x] Skeleton 迁移 9 页:operlog / wallet / menu-permission / sensitive-word / ticket / withdrawal / user-stat / visit-trend / revenue-stat
+- [x] `pnpm --filter @ihui/web typecheck` exit 0
+- [x] `pnpm --filter @ihui/web test` 341 passed (含新 9 case)
+- [x] `pnpm --filter @ihui/web lint` 0 errors(25 pre-existing warnings 与本任务无关)
+- [x] `node scripts/check-i18n-keys.mjs` parity OK
+- [x] `node scripts/scan-i18n-zh-residue.mjs zh-TW` exit 0 / `ko` exit 0
+
+**后续建议(本子任务不处理,等用户明确指示)**:
+
+- P2:Dialog 表单 zod schema 抽取 — 目前 `DictDialog` / `TagDialog` / `HelpDialog` / `AskDialog` 等 10+ Dialog 内部仍用 `useState` + `onChange`,可统一抽到 `apps/web/src/lib/form-schemas/{dict,tag,help,ask}.ts` + `useZodForm` 集成
+- P2:Skeleton Storybook 文档 — `apps/web/src/components/ui/skeleton.tsx` 7 个 variant 未配 story,后续接入 Storybook 时补 1-2 故事
+- P3:跨端 i18n 同步 — `apps/web/messages/*.json` 新增 `admin.validation.*` 14 key 暂时只 web 端有;api / ai-service / desktop 等其他端如需展示验证错误文案,可复用同一命名空间
