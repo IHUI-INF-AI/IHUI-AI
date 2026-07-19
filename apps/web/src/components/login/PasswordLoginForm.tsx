@@ -99,23 +99,21 @@ export function PasswordLoginForm({
   return (
     <form onSubmit={handleSubmit(onPasswordSubmit)} className="space-y-4 pt-2">
       {serverError && <Alert variant="danger" description={serverError} />}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="phone">{t('phone')}</Label>
-        <div className="input-gradient-wrap rounded-md">
-          <Input
-            id="phone"
-            type="tel"
-            autoComplete="tel"
-            placeholder={t('phonePlaceholder')}
-            className="h-9 rounded-[7px] border border-input bg-background"
-            {...register('phone')}
-          />
-        </div>
+        <Input
+          id="phone"
+          type="tel"
+          autoComplete="tel"
+          placeholder={t('phonePlaceholder')}
+          className="h-10"
+          {...register('phone')}
+        />
         {errors.phone && (
           <p className="text-xs text-destructive">{resolveError(errors.phone.message!)}</p>
         )}
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label htmlFor="password">{t('password')}</Label>
           <button
@@ -126,39 +124,35 @@ export function PasswordLoginForm({
             {t('forgotPassword')}
           </button>
         </div>
-        <div className="input-gradient-wrap rounded-md">
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder={t('passwordPlaceholder')}
-            className="h-9 rounded-[7px] border border-input bg-background"
-            {...register('password')}
-          />
-        </div>
+        <Input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          placeholder={t('passwordPlaceholder')}
+          className="h-10"
+          {...register('password')}
+        />
         {errors.password && (
           <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>
         )}
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="captcha">{t('captcha')}</Label>
         <div className="flex items-center gap-2">
-          <div className="input-gradient-wrap flex-1 rounded-md">
-            <Input
-              id="captcha"
-              placeholder={t('captchaPlaceholder')}
-              autoComplete="off"
-              className="h-9 rounded-[7px] border border-input bg-background"
-              value={captchaValue}
-              onChange={(e) => setCaptchaValue(e.target.value)}
-            />
-          </div>
+          <Input
+            id="captcha"
+            placeholder={t('captchaPlaceholder')}
+            autoComplete="off"
+            className="h-10 flex-1"
+            value={captchaValue}
+            onChange={(e) => setCaptchaValue(e.target.value)}
+          />
           <CaptchaCanvas value={captchaValue} onVerify={setCaptchaOk} />
         </div>
       </div>
       {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
-      <Button type="submit" className="w-full" disabled={submitting || !agreed}>
-        {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+      <Button type="submit" className="h-10 w-full" disabled={submitting || !agreed}>
+        {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('loginBtn')}
       </Button>
     </form>
