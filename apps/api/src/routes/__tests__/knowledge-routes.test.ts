@@ -28,14 +28,14 @@ describe('Knowledge Routes API (知识库模块真实化端点)', () => {
     })
   })
 
-  describe('知识库模块 6 端点 (401 without auth)', () => {
+  // 注:GET /api/knowledge 列表/详情是公开内容(首页教育总览需展示给所有用户),
+  // missing-user-routes.ts 中 isPublicKnowledgeGet 显式跳过鉴权,因此 GET 不返回 401。
+  describe('知识库模块 4 端点 (401 without auth, GET 公开访问)', () => {
     const knowledgeEndpoints: Array<{
       method: 'GET' | 'POST' | 'PUT' | 'DELETE'
       url: string
       payload?: Record<string, unknown>
     }> = [
-      { method: 'GET', url: '/api/knowledge' },
-      { method: 'GET', url: '/api/knowledge/00000000-0000-0000-0000-000000000000' },
       {
         method: 'POST',
         url: '/api/knowledge/00000000-0000-0000-0000-000000000000/like',
@@ -57,15 +57,22 @@ describe('Knowledge Routes API (知识库模块真实化端点)', () => {
     }
   })
 
-  describe('401 响应格式', () => {
-    it('GET /api/knowledge 返回标准 { code, message } 格式', async () => {
+  describe('GET /api/knowledge 公开访问 (无需 auth)', () => {
+    it('GET /api/knowledge 无 auth 返回 200 (公开列表)', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/knowledge' })
-      expect(res.statusCode).toBe(401)
-      const body = res.json()
-      expect(body).toHaveProperty('code', 401)
-      expect(body).toHaveProperty('message')
+      expect(res.statusCode).toBe(200)
     })
 
+    it('GET /api/knowledge/:id 无 auth 返回 404 (公开详情,资源不存在)', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/knowledge/00000000-0000-0000-0000-000000000000',
+      })
+      expect(res.statusCode).toBe(404)
+    })
+  })
+
+  describe('401 响应格式', () => {
     it('POST /api/knowledge 返回标准 { code, message } 格式', async () => {
       const res = await app.inject({
         method: 'POST',
