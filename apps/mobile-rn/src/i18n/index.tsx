@@ -8,9 +8,13 @@ import zhTW from './messages/zh-TW'
 
 export type Locale = 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'
 
-type Messages = Record<string, Record<string, string>>
+type Messages = Record<string, unknown>
 
 const STORAGE_KEY = 'ihui_locale'
+
+function isMessagesObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
 
 const messages: Record<Locale, Messages> = {
   'zh-CN': zhCN as Messages,
@@ -20,6 +24,8 @@ const messages: Record<Locale, Messages> = {
   'zh-TW': { ...zhCN, ...zhTW } as Messages,
 }
 
+export { messages }
+
 interface I18nContextValue {
   locale: Locale
   setLocale: (locale: Locale) => Promise<void>
@@ -28,12 +34,12 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue | null>(null)
 
-function getValueByPath(obj: unknown, path: string): string | undefined {
+export function getValueByPath(obj: unknown, path: string): string | undefined {
   const parts = path.split('.')
   let current: unknown = obj
   for (const part of parts) {
-    if (current === null || typeof current !== 'object') return undefined
-    current = (current as Record<string, unknown>)[part]
+    if (!isMessagesObject(current)) return undefined
+    current = current[part]
   }
   return typeof current === 'string' ? current : undefined
 }
