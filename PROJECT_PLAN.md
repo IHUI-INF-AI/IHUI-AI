@@ -104,11 +104,20 @@
 
 **验证**:i18n parity 8408 键 OK / ko.json 0 残留 / zh-TW 0 简体 / en.json 0 中文 / ja.json warn-only
 
+**第二轮收尾(2026-07-19,3 轮追加 commit)**:
+
+- [x] **品牌 canonical 映射表** `scripts/brand-glossary.json`(56 brands + 21 fonts + 18 terms),机器可读,供翻译脚本引用
+- [x] **en.json 1323 处破碎英文修复**(1267 自动检测 + 56 manualOverrides),覆盖 AgentDevPlatform/BigModelAppDev/startpeopleCTOCEO 等机翻拼接
+- [x] **5 个孤键命名空间删除** `scripts/prune-orphan-i18n-namespaces.mjs`(commit `8e8d2319`)
+  - 删除 hardcoded(27 keys)/data(16)/text(40)/title(10)/return(3) 共 96 个 key × 5 语言 = 480 entries
+  - 来源:旧 Java 项目硬编码字符串扫描器产物,Java→TS 迁移时原样保留
+  - 验证:项目代码(apps/、packages/)0 处 t() 引用(3 处匹配在 migration-audit 静态审计报告 echarts.min.js,无关)
+  - 验证:i18n parity 8408 键 5 语言 OK / pnpm --filter @ihui/web typecheck exit 0
+
 **后续 P2(本季度内,需多 sprint,非本轮范围)**:
 
-- [ ] en.json 全量语义校对(仍有破碎机翻英文如 "AgentDevPlatform"/"BigModelAppDev")
-- [ ] data._/text._/title._/return._/hardcoded.* 命名空间 key 含中文问题(需改自动扫描工具)
-- [ ] 维护 docs/i18n-brand-glossary.md 品牌 canonical 映射表
+- [ ] en.json 全量语义校对(1323 处已修,可能仍有遗漏机翻)
+- [ ] 维护 docs/i18n-brand-glossary.md 品牌 canonical 映射表(目前 scripts/brand-glossary.json 是机器可读源)
 - [ ] packages/shell-shared 共享层抽取(desktop/extension 业务代码重叠度 85-90%)
 - [ ] Sprint 1 前置对齐(desktop React 18→19 + API Base URL 修复 + Router 切换 + token API 对齐)
 
@@ -158,20 +167,20 @@
   await server.register(rateLimit, { max: isDev ? 1000 : 100, timeWindow: '1 minute' })
   ```
 - [ ] **git 持久化失败**:**本会话期间,本文件被外部进程持续还原**(Read 5 次确认:SHA `6D46B5E48BB716DB`,git diff 始终为空,git add 不入 staged)。**可能原因**:
-  - 1) Fast Refresh / file watcher 触发的自动化 lint-format hook
-  - 2) 其他 agent / IDE 后台同步进程(违反 AGENTS.md §11 跨 agent 改动保护)
-  - 3) Trae IDE 工作区快照还原机制
+  - 1. Fast Refresh / file watcher 触发的自动化 lint-format hook
+  - 2. 其他 agent / IDE 后台同步进程(违反 AGENTS.md §11 跨 agent 改动保护)
+  - 3. Trae IDE 工作区快照还原机制
   - **影响**:本修改**当前未入库**,需要用户在 Trae IDE 关闭自动 lint-format 后手动应用,或停掉其他 agent 后重做
 
-**附:验证过程中发现的新 UX bug(非本任务范围,转交)**:
+**附:验证过程中发现的新 UX bug(非本任务范围,转交 P2)**:
 
-- [ ] **chat panel 用户消息不渲染**:浏览器实测在未登录态下输入并发送消息,POST `/api/chat/conversations` 成功,但 **chat 区域无用户消息气泡,无 LLM 调用发起(`/api/chat/...stream` 未被触发)**。可能是未登录时 SSE 流程提前终止,需在登录态复测;**与"系统错误"无关**,仅作为后续 P2 观察项
+- [ ] **chat panel 用户消息不渲染**:浏览器实测在未登录态下输入并发送消息,POST `/api/chat/conversations` 成功,但 **chat 区域无用户消息气泡,无 LLM 调用发起(`/api/chat/...stream` 未被触发)**。可能是未登录时 SSE 流程提前终止,需在登录态复测;**与"系统错误"无关**
 
-**完整收尾**:
+**本任务收尾状态(2026-07-19)**:
 
 - [x] 本任务范围 0 阻塞项
 - [x] 工作区无未提交残留(本任务未 commit,因 server.ts 修改未持久化)
-- [x] **本 agent 后续建议**:**无**。Trae IDE 报错需用户侧排查;P2 dev 限流放宽需用户手动应用(因文件被还原);chat panel 消息不渲染需登录后复测
+- [x] **本任务范围内**:Trae IDE 报错需用户侧排查;P2 dev 限流放宽需用户手动应用(因文件被还原);chat panel 消息不渲染需登录后复测
 
 ---
 
