@@ -37,7 +37,13 @@ export function ChatHeader({
   }
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header
+      className={cn(
+        'flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60',
+        // 2026-07-19 中文 + 图标垂直对齐:主标题 span 视觉居中
+        '[&>div>span:first-child]:translate-y-[var(--text-vcenter-offset)]',
+      )}
+    >
       {/* 图标容器:与 ai-side-panel.tsx 保持一致,2026-07-19 去掉背景色让内部图标自然显示 */}
       <div className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/80">
         <Sparkles className="h-4 w-4" />
