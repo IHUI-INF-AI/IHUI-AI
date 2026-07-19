@@ -52,6 +52,7 @@ export function AgreementCheckbox({ checked, onChange, error }: AgreementCheckbo
       <input
         type="checkbox"
         className="sr-only"
+        tabIndex={-1}
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
       />
