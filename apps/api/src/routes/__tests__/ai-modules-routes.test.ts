@@ -29,6 +29,9 @@ describe('AI Modules Routes API (ai/ai-ext 真实化端点)', () => {
   })
 
   describe('AI 模块端点 (401 without auth)', () => {
+    // 注:POST /api/ai-ext/capabilities/:id/toggle 已在 ai-extended.ts 注册,
+    // missing-user-routes.ts 不重复注册(避免 Fastify 重复路由错误),
+    // 本测试只挂载 missingUserRoutes,故该端点不在此列表中断言 401。
     const endpoints: Array<{
       method: 'GET' | 'POST' | 'DELETE'
       url: string
@@ -45,10 +48,6 @@ describe('AI Modules Routes API (ai/ai-ext 真实化端点)', () => {
       { method: 'GET', url: '/api/ai/chat/conversations' },
       { method: 'DELETE', url: '/api/ai/chat/conversations/00000000-0000-0000-0000-000000000000' },
       { method: 'POST', url: '/api/ai/aigc/tasks/task-1/cancel' },
-      {
-        method: 'POST',
-        url: '/api/ai-ext/capabilities/00000000-0000-0000-0000-000000000000/toggle',
-      },
       { method: 'GET', url: '/api/ai-ext/reports' },
       {
         method: 'POST',

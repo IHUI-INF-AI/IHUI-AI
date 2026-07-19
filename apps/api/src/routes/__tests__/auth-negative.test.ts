@@ -22,12 +22,13 @@ describe('Auth Negative Tests (无 Bearer token → 401)', () => {
     await app.close()
   })
 
+  // 注:GET /api/knowledge 列表/详情是公开访问(见 missing-user-routes.ts isPublicKnowledgeGet),
+  // 不在此处断言 401。
   const endpoints: Array<{ method: 'GET' | 'POST'; url: string }> = [
     { method: 'GET', url: '/api/article/list' },
     { method: 'GET', url: '/api/commission/overview' },
     { method: 'GET', url: '/api/course/my' },
     { method: 'GET', url: '/api/settings/notifications' },
-    { method: 'GET', url: '/api/knowledge' },
     { method: 'GET', url: '/api/mcp' },
     { method: 'GET', url: '/api/fund' },
     { method: 'GET', url: '/api/ai/index' },
