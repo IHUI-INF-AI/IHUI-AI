@@ -118,6 +118,12 @@ export default function AiWorldPage() {
     [],
   )
 
+  // 流式生成中用户点击"停止"按钮时调用
+  const handleStop = React.useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+  }, [])
+
   const fallbackData = React.useMemo<AiWorldData>(
     () => ({
       categories: [
@@ -233,6 +239,7 @@ export default function AiWorldPage() {
           <UnifiedPanelCard
             messages={messages}
             onSend={handleSend}
+            onStop={handleStop}
             isStreaming={isStreaming}
             streamingContent={streamingContent}
             toolbar={

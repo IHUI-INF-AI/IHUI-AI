@@ -19,6 +19,8 @@ interface UnifiedMessage {
 interface UnifiedAiPanelProps {
   messages: UnifiedMessage[]
   onSend: (text: string) => void
+  /** 流式生成中点击停止按钮的回调;未提供时按钮禁用 */
+  onStop?: () => void
   isStreaming?: boolean
   streamingContent?: string
   placeholder?: string
@@ -27,6 +29,7 @@ interface UnifiedAiPanelProps {
 export function UnifiedAIPanel({
   messages,
   onSend,
+  onStop,
   isStreaming,
   streamingContent,
   placeholder = '输入消息...',
@@ -62,7 +65,7 @@ export function UnifiedAIPanel({
           {messages.length === 0 && !isStreaming && (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
               <Sparkles className="h-8 w-8" />
-              <p className="text-sm">开始一段新对话</p>
+              <p className="text-sm">开始一段新任务</p>
             </div>
           )}
           {messages.map((m) => {
@@ -144,7 +147,8 @@ export function UnifiedAIPanel({
               <Button
                 variant="destructive"
                 size="icon"
-                onClick={() => onSend('')}
+                onClick={() => onStop?.()}
+                disabled={!onStop}
                 aria-label="停止"
                 className="h-9 w-9 shrink-0"
               >

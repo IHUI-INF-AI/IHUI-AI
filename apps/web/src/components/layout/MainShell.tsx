@@ -13,7 +13,9 @@ import { Button } from '@ihui/ui'
 export function MainShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
-  const sidebarId = React.useId()
+  // 静态 ID(非 useId),避免 React 18 useId 在 SSR/CSR 之间偶尔漂移导致 hydration mismatch。
+  // Sidebar 内部会再派生 desktop/mobile 两个 nav id,确保两个 <nav> 元素不会共享同一 id。
+  const sidebarId = 'main-sidebar'
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   // hydration-safe: 首屏不渲染 TagsView,挂载后再按真实态渲染,避免 SSR/CSR 不一致
   const mounted = useMounted()
@@ -56,44 +58,50 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   }, [mobileOpen])
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        id={sidebarId}
-        collapsed={collapsed}
-        onToggleCollapse={() => setCollapsed((c) => !c)}
-        mobileOpen={mobileOpen}
-        onCloseMobile={() => setMobileOpen(false)}
-      />
+    <>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar
+          id={sidebarId}
+          collapsed={collapsed}
+          onToggleCollapse={() => setCollapsed((c) => !c)}
+          mobileOpen={mobileOpen}
+          onCloseMobile={() => setMobileOpen(false)}
+        />
+        <div
+          id="work-area-portal-root"
+          className="relative flex min-w-0 flex-1 flex-col my-2 mr-2 overflow-hidden rounded-xl bg-shell-panel"
+        >
+          {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileOpen((o) => !o)}
+            className="absolute left-2 top-2 z-30 h-9 w-9 lg:hidden"
+            aria-label="菜单"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          {showTagsView && (
+            <React.Suspense fallback={null}>
+              <TagsView />
+            </React.Suspense>
+          )}
+          <main
+            id="main"
+            tabIndex={-1}
+            className="thin-scroll flex-1 overflow-y-auto p-4 md:p-6 lg:p-8"
+          >
+            {children}
+          </main>
+        </div>
+      </div>
+      {/* AISidePanel 作为全局 fixed 组件,移出 flex 容器避免挤压 work-area 宽度。
+          定位样式 left:var(--sidebar-width) 由 Sidebar 同步到 :root,紧贴 Sidebar 右侧。
+          z-40 高于 work-area 内容层,低于 modal/PWA 提示层(modal/PWA 全部 z-50)。
+          若 AI 面板 z-index 调到 ≥ 50,登录/客服等弹框会被 AI 面板遮住。 */}
       <React.Suspense fallback={null}>
         <AISidePanel />
       </React.Suspense>
-      <div
-        id="work-area-portal-root"
-        className="relative flex min-w-0 flex-1 flex-col my-2 mr-2 overflow-hidden rounded-xl bg-shell-panel"
-      >
-        {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setMobileOpen((o) => !o)}
-          className="absolute left-2 top-2 z-30 h-9 w-9 lg:hidden"
-          aria-label="菜单"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-        {showTagsView && (
-          <React.Suspense fallback={null}>
-            <TagsView />
-          </React.Suspense>
-        )}
-        <main
-          id="main"
-          tabIndex={-1}
-          className="thin-scroll flex-1 overflow-y-auto p-4 md:p-6 lg:p-8"
-        >
-          {children}
-        </main>
-      </div>
       {/* PWA 提示:固定悬浮于右下角,不影响主布局 */}
       <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
         <div className="pointer-events-auto">
@@ -103,7 +111,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           <PWAUpdatePrompt onUpdate={() => window.location.reload()} />
         </div>
       </div>
-    </div>
+    </>
   )
 }
 
