@@ -8,6 +8,7 @@ import { Activity, Trash2, Eraser, Download, ChevronLeft, ChevronRight } from 'l
 import { Button } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { exportFromApi } from '@/lib/export-utils'
+import { useBatchMutation } from '@/hooks/use-batch-mutation'
 import { OperationLogsFilter } from './OperationLogsFilter'
 import { OperationLogsTable } from './OperationLogsTable'
 import { OperationLogsDetailDialog } from './OperationLogsDetailDialog'
@@ -49,15 +50,13 @@ export default function OperationLogsPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  const delMut = useMutation({
-    mutationFn: (ids: string[]) =>
-      api(RESOURCE, { method: 'DELETE', body: JSON.stringify({ ids }) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'operation-logs'] })
-      toast.success('删除成功')
-      setSelected(new Set())
-    },
-    onError: (e: Error) => toast.error(e.message),
+  const delMut = useBatchMutation({
+    endpoint: RESOURCE,
+    method: 'DELETE',
+    queryKey: ['admin', 'operation-logs'],
+    ids: [...selected],
+    successMessage: '删除成功',
+    onSuccess: () => setSelected(new Set()),
   })
   const cleanMut = useMutation({
     mutationFn: () => api(`${RESOURCE}/clean`, { method: 'DELETE' }),
@@ -129,7 +128,7 @@ export default function OperationLogsPage() {
             variant="outline"
             disabled={selected.size === 0 || delMut.isPending}
             onClick={() => {
-              if (confirm(`确认删除选中的 ${selected.size} 条记录？`)) delMut.mutate([...selected])
+              if (confirm(`确认删除选中的 ${selected.size} 条记录？`)) delMut.mutate()
             }}
           >
             <Trash2 className="h-4 w-4" />
