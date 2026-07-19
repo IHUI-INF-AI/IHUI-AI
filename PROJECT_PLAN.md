@@ -7,6 +7,43 @@
 
 ## 当前活跃任务(2026-07-19)
 
+### SSO 多端接入完整化(已完成 ✅ 2026-07-19)
+
+**触发**:用户深度询问"项目里几个登录弹窗、几个登录页、SSO 怎么走的",经分析发现 web `/sso/register` 与 `/sso/login` 体验不对称(弹窗 vs 整页),且小程序 sso.ts 工具函数完整但无业务调用方,mobile-rn 完全没接入 SSO。
+
+**改动**(跨 3 端同步,符合 §9 多端同步规则):
+
+1. **web `/sso/register` 重写为整页**([app/sso/register/page.tsx](file:///g:/IHUI-AI/apps/web/app/sso/register/page.tsx)):与 `/sso/login` 对称的 ShieldCheck 整页注册表单,注册成功自动调 `/api/auth/sso/code` 生成 30s code 跳回 `redirect?sso_code=xxx`,不再走主站 LoginDialog 弹窗
+2. **web i18n 5 语言补 18 个 sso 新 key**(`apps/web/messages/{zh-CN,zh-TW,en,ko,ja}.json`):phone/code/confirmPassword/getCode/registerBtn/invalidPhone/codeSent/passwordMismatch/agreeTerms 等
+3. **miniapp-taro 启动检测 sso_code**([app.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/app.tsx)):`useLaunch` 拿 entry query 的 `sso_code` → 调 `exchangeSsoCode` 换 token → 写 storage → showToast,实现外部 H5/扫码携带 sso_code 进小程序自动登录
+4. **miniapp-taro login.tsx 加 SSO 入口按钮**:跳 webview 加载 web `/sso/login?redirect=ihui-miniapp://sso/callback&client_id=miniapp-taro`(webview 内完成登录后通过 URL scheme 回跳)
+5. **miniapp-taro i18n 5 语言补 5 个 ssoLogin key**(`src/i18n/*.ts`)
+6. **mobile-rn 新增 SSO 完整链路**:
+   - 装依赖 `expo-web-browser` + `expo-linking`
+   - `app.json` 加 `"scheme": "ihui"` 注册 deep link
+   - 新建 [lib/sso.ts](file:///g:/IHUI-AI/apps/mobile-rn/src/lib/sso.ts):`getSsoLoginUrl` / `exchangeSsoCode` / `openSsoLogin` / `extractSsoCode` / `subscribeSsoDeepLink` / `getInitialSsoCode`
+   - [lib/config.ts](file:///g:/IHUI-AI/apps/mobile-rn/src/lib/config.ts) 加 `WEB_BASE_URL` / `SSO_CLIENT_ID` / `SSO_REDIRECT_URI`
+   - [context/AuthContext.tsx](file:///g:/IHUI-AI/apps/mobile-rn/src/context/AuthContext.tsx) 加 `loginBySso` 方法 + `applySsoCode` + 冷启动 `getInitialSsoCode` + 运行时 `subscribeSsoDeepLink`
+   - [screens/LoginScreen.tsx](file:///g:/IHUI-AI/apps/mobile-rn/src/screens/LoginScreen.tsx) 加"使用网页账号登录" outline 按钮(分隔用 "或" 文字,符合 §4 禁止分割线规则)
+
+**SSO 完整流程**:
+```
+miniapp-taro / mobile-rn → web /sso/login?redirect=ihui://sso/callback&client_id=xxx
+                       → 用户在 web 登录 → 调 /api/auth/sso/code 生成 30s code
+                       → 跳回 ihui://sso/callback?sso_code=xxx
+                       → app 拦截 deep link → 调 /api/auth/sso/exchange(code, clientId)
+                       → 拿 token + user → 写 storage → 自动登录完成
+```
+
+**验证**:
+- `pnpm --filter @ihui/web typecheck` 0
+- `pnpm --filter @ihui/miniapp-taro typecheck` 0
+- `pnpm --filter @ihui/mobile-rn typecheck` 0
+- 5 语言 i18n JSON 合法性 `node JSON.parse` 全 OK
+- 后端 `/api/auth/sso/{code,exchange,refresh,logout,validate}` 6 端点未改(已完整)
+
+**D2 评估结论**:`/sso/redirect`(SSR 中转)保留,跨域 cookie 场景必需,不可删
+
 ### 登录弹窗左侧 logo 暗色模式全白修复(已完成 ✅ 2026-07-19)
 
 **触发**:用户反馈"图内左侧 logo 全白 要恢复",登录弹窗顶部的旧 logo.png(2534×2534 黑底白字)在暗色模式下黑色背景与弹窗同色融合,只剩白色"智"字悬浮,视觉割裂。

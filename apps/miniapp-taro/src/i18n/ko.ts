@@ -48,6 +48,11 @@ export default {
     loginSuccess: '로그인 성공',
     wechatFailed: 'WeChat 로그인 실패',
     wechatOnly: 'WeChat 미니 프로그램에서 이용해 주세요',
+    ssoLogin: '웹 계정으로 로그인',
+    ssoLoginHint: '웹에서 이미 로그인한 IHUI AI 계정으로 인증',
+    ssoRedirecting: '웹 로그인으로 이동 중...',
+    ssoLoginFailed: 'SSO 인증 실패',
+    ssoLoginSuccess: 'SSO 로그인 성공',
   },
   user: {
     title: '마이',
