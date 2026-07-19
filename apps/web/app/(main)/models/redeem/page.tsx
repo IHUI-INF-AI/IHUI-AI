@@ -74,8 +74,8 @@ export default async function RedeemPage() {
                       <span
                         className={
                           h.status === 'success'
-                            ? 'inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400'
-                            : 'inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:text-rose-400'
+                            ? 'inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400'
+                            : 'inline-flex items-center gap-1 rounded bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:text-rose-400'
                         }
                       >
                         {h.status === 'success' && <CheckCircle2 className="h-3 w-3" />}

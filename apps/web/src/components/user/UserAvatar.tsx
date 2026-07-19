@@ -34,7 +34,7 @@ export default function UserAvatar({
 
   return (
     <div
-      className={cn('group relative inline-block overflow-hidden rounded-full bg-muted', className)}
+      className={cn('group relative inline-block overflow-hidden rounded-md bg-muted', className)}
       style={{ width: size, height: size }}
     >
       {src ? (
