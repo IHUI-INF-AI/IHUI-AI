@@ -52,11 +52,6 @@ import {
   LogIn,
   Briefcase,
   Globe,
-  Monitor,
-  Smartphone,
-  Puzzle,
-  Terminal,
-  type LucideIcon,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -80,6 +75,8 @@ import { NotificationCenter, type NoticeItem } from '@/components/feature-center
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
 import { useMounted } from '@/hooks/use-mounted'
+import { useAnalytics } from '@/hooks/use-analytics'
+import { DOWNLOADS, isExternalDownloadHref } from '@/lib/downloads'
 
 interface NavItem {
   href: string
@@ -312,87 +309,17 @@ const LANGUAGES: { code: Language; name: string }[] = [
   { code: 'ko', name: '한국어' },
 ]
 
-/** Apple 品牌 logo(内联 SVG,确保 iOS / macOS 选项用准确品牌图标) */
-function AppleIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
-      <path d="M17.05 20.28c-.98.95-2.05.86-3.08.4-1.09-.47-2.09-.49-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-    </svg>
-  )
-}
-
-/** Android 机器人 logo(内联 SVG,品牌色单色) */
-function AndroidIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
-      <path d="M17.523 15.341c-.572 0-1.04-.469-1.04-1.04s.468-1.04 1.04-1.04 1.04.469 1.04 1.04-.468 1.04-1.04 1.04m-11.045 0c-.572 0-1.04-.469-1.04-1.04s.468-1.04 1.04-1.04 1.04.469 1.04 1.04-.468 1.04-1.04 1.04m11.461-6.354 2.093-3.625a.479.479 0 0 0-.176-.652.477.477 0 0 0-.652.176l-2.114 3.662C15.683 7.964 13.954 7.5 12 7.5s-3.683.464-5.089 1.048L4.797 4.886a.477.477 0 0 0-.652-.176.479.479 0 0 0-.176.652L6.06 8.987C3.302 10.65 1.5 13.668 1.5 17h21c0-3.332-1.802-6.35-4.561-8.013" />
-    </svg>
-  )
-}
-
-/** 微信小程序 logo(内联 SVG,对话气泡+放大镜混搭) */
-function WechatMiniIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
-      <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.328.328 0 0 0 .166-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .55-.012.822-.034-.17-.585-.26-1.204-.26-1.844 0-3.97 3.842-7.19 8.583-7.19.235 0 .466.013.696.035C17.917 4.084 13.604 2.188 8.691 2.188zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 10.435 7.17c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-3.94 0-7.135 2.7-7.135 6.027 0 3.328 3.195 6.027 7.135 6.027a8.34 8.34 0 0 0 2.018-.252.578.578 0 0 1 .476.066l1.27.737a.218.218 0 0 0 .11.036.195.195 0 0 0 .194-.197.218.218 0 0 0-.032-.108l-.26-.984a.39.39 0 0 1 .142-.443C21.78 19.39 23 17.78 23 15.885c0-3.328-3.196-6.027-7.062-6.027zm-2.378 3.594c.483 0 .875.395.875.882a.879.879 0 0 1-.875.882.879.879 0 0 1-.875-.882c0-.487.392-.882.875-.882zm4.756 0c.483 0 .875.395.875.882a.879.879 0 0 1-.875.882.879.879 0 0 1-.875-.882c0-.487.392-.882.875-.882z" />
-    </svg>
-  )
-}
-
-/** 项目所有支持的端(7 端),与 apps/* 目录一一对应:
+/** 项目所有支持的端(8 端),与 apps/* 目录一一对应:
  *  - Web/PWA:    apps/web (Next.js)        → 当前用户已在用
  *  - Desktop:    apps/desktop (Tauri)      → 桌面端
  *  - iOS:        App Store 链接
  *  - Android:    apps/web/public/apk
+ *  - Mobile:     移动 App
  *  - Mini:       apps/miniapp-taro (Taro)  → 微信小程序
  *  - Extension:  apps/extension (WXT)      → 浏览器扩展
  *  - CLI:        apps/cli (Node)           → 命令行
- * 图标:Web/Desktop/Mobile/Extension/CLI 用 lucide-react,iOS/Android/微信小程序用内联品牌 SVG */
-const DOWNLOADS: {
-  labelKey: string
-  href: string
-  icon: LucideIcon | React.FC<{ className?: string }>
-  descKey?: string
-}[] = [
-  { labelKey: 'downloadWeb', href: '/', icon: Globe, descKey: 'downloadWebDesc' },
-  {
-    labelKey: 'downloadDesktop',
-    href: '/download/desktop',
-    icon: Monitor,
-    descKey: 'downloadDesktopDesc',
-  },
-  {
-    labelKey: 'downloadIOS',
-    href: 'https://apps.apple.com/cn/app/ihui-ai',
-    icon: AppleIcon,
-    descKey: 'downloadIOSDesc',
-  },
-  {
-    labelKey: 'downloadAndroidApk',
-    href: '/apk/ihui-ai-latest.apk',
-    icon: AndroidIcon,
-    descKey: 'downloadAndroidDesc',
-  },
-  {
-    labelKey: 'downloadMobile',
-    href: '/download/mobile',
-    icon: Smartphone,
-    descKey: 'downloadMobileDesc',
-  },
-  {
-    labelKey: 'downloadWechatMiniApp',
-    href: '/minapp',
-    icon: WechatMiniIcon,
-    descKey: 'downloadMiniDesc',
-  },
-  {
-    labelKey: 'downloadExtension',
-    href: '/download/extension',
-    icon: Puzzle,
-    descKey: 'downloadExtensionDesc',
-  },
-  { labelKey: 'downloadCli', href: '/download/cli', icon: Terminal, descKey: 'downloadCliDesc' },
-]
+ * 数据源已抽取到 `@/lib/downloads` 共享模块,纯数据 + 类型,无 React/JSX 依赖。
+ * 图标:Web/Desktop/Mobile/Extension/CLI 用 lucide-react,iOS/Android/微信小程序用内联品牌 SVG(同模块内 export)。*/
 
 interface SidebarProps {
   collapsed: boolean
@@ -410,6 +337,7 @@ interface SidebarProps {
 function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const t = useTranslations('nav')
   const tt = useTranslations('themeToggle')
+  const { trackClick } = useAnalytics()
   const { locale, setLocale } = useLanguageStore()
   const { theme, setTheme } = useTheme()
   const notifications = useNotificationStore((s) => s.notifications)
@@ -516,13 +444,14 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
             </div>
             {DOWNLOADS.map((item) => {
               const Icon = item.icon
-              const isExternal = /^https?:/.test(item.href)
+              const isExternal = isExternalDownloadHref(item.href)
               return (
                 <a
-                  key={item.labelKey}
+                  key={item.platform}
                   href={item.href}
                   target={isExternal ? '_blank' : undefined}
                   rel={isExternal ? 'noopener noreferrer' : undefined}
+                  onClick={() => trackClick(`download_${item.platform}`, 'download_popover')}
                   className="group flex items-start gap-2.5 rounded px-2 py-1.5 text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
                 >
                   <Icon className="mt-0.5 h-4 w-4 shrink-0 text-foreground/80 transition-colors group-hover:text-foreground" />
