@@ -10,7 +10,6 @@ import { AnimatedNumber } from '@/components/common'
 import { Marquee } from '@/components/marketing/Marquee'
 import { PageIndicator } from '@/components/marketing/PageIndicator'
 import { ScrollDownButton } from '@/components/marketing/ScrollDownButton'
-import { BrandMarquee } from '@/components/marketing/BrandMarquee'
 import { HomePage3Magazine } from '@/components/marketing/HomePage3Magazine'
 import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { HomeFeatureGrid } from '@/components/marketing/HomeFeatureGrid'
@@ -184,17 +183,15 @@ export default function MarketingHomePage() {
           </div>
         </section>
 
-        {/* Page 6: 15 品牌跑马灯 + CTA + Footer */}
+        {/* Page 6: 底部 CTA */}
         <section
           id="home-page-6"
           className="snap-start"
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
-          aria-label={t('marquee.title', { fallback: 'Brands' })}
+          aria-label={t('cta.title')}
         >
-          <div className="mx-auto flex h-full w-full max-w-7xl flex-col justify-between px-4 py-6 md:px-8 md:py-8">
-            <BrandMarquee />
-            {/* 底部 CTA */}
-            <section className="rounded-2xl border bg-primary/5 p-6 text-center md:p-10">
+          <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-center px-4 py-6 md:px-8 md:py-8">
+            <section className="w-full rounded-2xl border bg-primary/5 p-6 text-center md:p-10">
               <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('cta.title')}</h2>
               <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
                 {t('cta.subtitle')}
