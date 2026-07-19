@@ -49,4 +49,17 @@ export default {
   agent: {
     tabRuntime: 'Agent 実行',
   },
+  admin: {
+    title: '管理コンソール',
+    forbidden: '管理者権限がありません',
+    loginAsAdmin: '管理者アカウントでログインしてください',
+    openWindow: '管理コンソールを開く',
+    nav: {
+      dashboard: 'ダッシュボード',
+      users: 'ユーザー',
+      content: 'コンテンツ',
+      orders: '注文',
+      settings: '設定',
+    },
+  },
 }

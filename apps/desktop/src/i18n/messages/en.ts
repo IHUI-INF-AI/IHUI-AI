@@ -49,4 +49,17 @@ export default {
   agent: {
     tabRuntime: 'Agent Runtime',
   },
+  admin: {
+    title: 'Admin Console',
+    forbidden: 'No Admin Permission',
+    loginAsAdmin: 'Please sign in with an admin account',
+    openWindow: 'Open Admin Console',
+    nav: {
+      dashboard: 'Dashboard',
+      users: 'Users',
+      content: 'Content',
+      orders: 'Orders',
+      settings: 'Settings',
+    },
+  },
 }
