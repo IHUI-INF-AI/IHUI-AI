@@ -1,181 +1,319 @@
 /**
- * AdminContent — 内容运营总览(4 个子模块:AI 生成内容 / 轮播图 / 评论 / 资讯)。
+ * AdminContent — 内容运营总览(4 个子模块:announcement / help-article / article / advertise)。
  *
- * 单页内嵌 4 个子区块 + Tab 切换,每个区块独立调一个 admin-content 端点;
- * 复用 Card + Table,变更操作去 web 后台。
+ * 单页内嵌 4 Tab + CRUD 按钮,统一调 `/api/admin/content/:type/:id` 端点
+ * (subagent A 实装的统一内容 CRUD 路由,支持 10 种 type,本页面用 4 种)。
+ * 复用 useAdminCrud + ContentDialog + AdminDialog 模板,实现完整化(从 80% → 95%+)。
  */
-import { useEffect, useState } from 'react'
-import {
-  listAiGc,
-  listCarousel,
-  listAdminComments,
-  listNewsInformation,
-  type PageData,
-} from '@ihui/api-client'
+import { useMemo, useState } from 'react'
+import type { ApiResult } from '@ihui/types'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui'
+import { useAdminCrud } from '../../hooks/use-admin-crud'
+import { useI18n } from '../../i18n'
+import {
+  CONTENT_TYPES,
+  listAdminContent,
+  createAdminContent,
+  updateAdminContent,
+  deleteAdminContent,
+  type ContentType,
+  type ContentRow,
+} from '../../lib/api/admin-content'
+import {
+  ContentDialog,
+  type ContentDialogMode,
+  type ContentFormValues,
+} from '../../components/admin/ContentDialog'
 
-type Section = 'ai-gc' | 'carousel' | 'comments' | 'news'
-
-const SECTION_LABEL: Record<Section, string> = {
-  'ai-gc': 'AI 生成内容',
-  carousel: '轮播图',
-  comments: '评论',
-  news: '资讯文章',
+interface ContentListParams {
+  page: number
+  pageSize: number
+  search: string | undefined
+  [key: string]: string | number | undefined | null
 }
 
-function asRows<T extends { id: string | number }>(data: PageData<T> | undefined): T[] {
-  return data?.list ?? []
-}
+const DATE_FORMATTER = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' })
 
-function TableView<T extends { id: string | number; createdAt?: string }>({
-  rows,
-  empty,
-  columns,
-}: {
-  rows: T[]
-  empty: string
-  columns: { header: string; render: (row: T) => string }[]
-}) {
-  if (rows.length === 0) return <div className="empty-state">{empty}</div>
-  return (
-    <table className="admin-table">
-      <thead>
-        <tr>
-          {columns.map((c, i) => (
-            <th key={i}>{c.header}</th>
-          ))}
-          <th>创建时间</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={String(r.id)}>
-            {columns.map((c, i) => (
-              <td key={i}>{c.render(r)}</td>
-            ))}
-            <td className="admin-muted">
-              {r.createdAt
-                ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(r.createdAt))
-                : '—'}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
+function tabKey(t: ContentType): string {
+  return `admin.content.tab${t.replace(/-(.)/g, (_, c) => c.toUpperCase()).replace(/^./, (c) => c.toUpperCase())}`
 }
 
 export default function AdminContent() {
-  const [section, setSection] = useState<Section>('ai-gc')
-  const [aiGc, setAiGc] = useState<PageData<{ id: string | number; createdAt?: string; [k: string]: unknown }>>()
-  const [carousel, setCarousel] = useState<PageData<{ id: string | number; createdAt?: string; [k: string]: unknown }>>()
-  const [comments, setComments] = useState<PageData<{ id: string | number; createdAt?: string; [k: string]: unknown }>>()
-  const [news, setNews] = useState<PageData<{ id: string | number; createdAt?: string; [k: string]: unknown }>>()
-  const [loading, setLoading] = useState(false)
+  const { t } = useI18n()
+  const [activeTab, setActiveTab] = useState<ContentType>('announcement')
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(20)
+  const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    setLoading(true)
-    void (async () => {
-      const [a, c, m, n] = await Promise.all([
-        listAiGc({ page: 1, pageSize: 10 }),
-        listCarousel({ page: 1, pageSize: 10 }),
-        listAdminComments({ page: 1, pageSize: 10 }),
-        listNewsInformation({ page: 1, pageSize: 10 }),
-      ])
-      if (a.success) setAiGc(a.data)
-      if (c.success) setCarousel(c.data)
-      if (m.success) setComments(m.data)
-      if (n.success) setNews(n.data)
-      setLoading(false)
-    })()
-  }, [])
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogMode, setDialogMode] = useState<ContentDialogMode>('create')
+  const [editingRow, setEditingRow] = useState<ContentRow | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+
+  const params = useMemo<ContentListParams>(
+    () =>
+      ({
+        page,
+        pageSize,
+        search: search.trim() || undefined,
+        _tab: activeTab,
+      }) as ContentListParams,
+    [page, pageSize, search, activeTab],
+  )
+
+  const { rows, total, loading, error, mutate } = useAdminCrud<ContentListParams, ContentRow>({
+    fetcher: async (p) => {
+      const tab: ContentType = (p as ContentListParams & { _tab: ContentType })._tab || activeTab
+      const res: ApiResult<{ list: ContentRow[]; total: number }> = await listAdminContent(tab, p)
+      if (!res.success) throw new Error(res.error || t('admin.common.loadFailed'))
+      return { list: res.data.list, total: res.data.total }
+    },
+    params,
+  })
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  const openCreate = () => {
+    setDialogMode('create')
+    setEditingRow(null)
+    setDialogOpen(true)
+    setActionError('')
+  }
+
+  const openEdit = (row: ContentRow) => {
+    setDialogMode('edit')
+    setEditingRow(row)
+    setDialogOpen(true)
+    setActionError('')
+  }
+
+  const closeDialog = () => {
+    setDialogOpen(false)
+    setEditingRow(null)
+  }
+
+  const handleSubmit = async (values: ContentFormValues) => {
+    setActionError('')
+    setSuccessMessage('')
+    try {
+      if (dialogMode === 'create') {
+        const res = await createAdminContent(values.type, {
+          title: values.title.trim(),
+          content: values.content.trim(),
+          isPublished: values.isPublished,
+          sortOrder: values.sortOrder,
+        })
+        if (!res.success) {
+          setActionError(res.error || t('admin.content.createSuccess').replace('创建', '创建失败'))
+          return
+        }
+        setSuccessMessage(t('admin.content.createSuccess'))
+      } else if (editingRow) {
+        const res = await updateAdminContent(activeTab, String(editingRow.id), {
+          title: values.title.trim(),
+          content: values.content.trim(),
+          isPublished: values.isPublished,
+          sortOrder: values.sortOrder,
+        })
+        if (!res.success) {
+          setActionError(res.error || t('admin.content.updateSuccess').replace('更新', '更新失败'))
+          return
+        }
+        setSuccessMessage(t('admin.content.updateSuccess'))
+      }
+      await mutate(async () => Promise.resolve())
+      closeDialog()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : '操作失败')
+    }
+  }
+
+  const handleDelete = async (row: ContentRow) => {
+    if (deletingId) return
+    if (!window.confirm(t('admin.content.deleteConfirm'))) return
+    setDeletingId(String(row.id))
+    setActionError('')
+    setSuccessMessage('')
+    try {
+      const res = await deleteAdminContent(activeTab, String(row.id))
+      if (!res.success) {
+        setActionError(res.error || t('admin.content.deleteSuccess').replace('删除', '删除失败'))
+        return
+      }
+      setSuccessMessage(t('admin.content.deleteSuccess'))
+      await mutate(async () => Promise.resolve())
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <div className="admin-page" data-testid="admin-content">
       <header className="admin-page-header">
-        <h2>内容运营</h2>
+        <h2>{t('admin.content.title')}</h2>
+        <div className="admin-toolbar">
+          <input
+            type="search"
+            placeholder={t('admin.content.searchPlaceholder')}
+            value={search}
+            onChange={(e) => {
+              setPage(1)
+              setSearch(e.target.value)
+            }}
+            className="admin-search"
+            data-testid="admin-content-search"
+          />
+          <button
+            type="button"
+            onClick={openCreate}
+            className="admin-refresh-btn"
+            data-testid="admin-content-create"
+          >
+            {t('admin.content.create')}
+          </button>
+        </div>
       </header>
+
+      {error ? <div className="error-banner">{error}</div> : null}
+      {actionError ? (
+        <div className="error-banner" data-testid="admin-content-action-error">
+          {actionError}
+        </div>
+      ) : null}
+      {successMessage ? (
+        <div className="admin-muted" data-testid="admin-content-success" style={{ marginLeft: 0 }}>
+          {successMessage}
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader>
-          <CardTitle>子模块一览</CardTitle>
+          <CardTitle>
+            {t('admin.content.title')}{' '}
+            <span className="admin-muted">{t('admin.common.totalCount', { count: total })}</span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={section} onValueChange={(v) => setSection(v as Section)}>
-            <TabsList>
-              {(Object.keys(SECTION_LABEL) as Section[]).map((s) => (
-                <TabsTrigger key={s} value={s} data-testid={`admin-content-tab-${s}`}>
-                  {SECTION_LABEL[s]}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <TabsContent value="ai-gc">
-              {loading ? (
-                <div className="empty-state">加载中...</div>
-              ) : (
-                <TableView
-                  rows={asRows(aiGc)}
-                  empty="暂无 AI 生成内容"
-                  columns={[
-                    { header: 'ID', render: (r) => String(r.id) },
-                    { header: '标题', render: (r) => String((r as { title?: string }).title ?? '—') },
-                  ]}
-                />
-              )}
-            </TabsContent>
-            <TabsContent value="carousel">
-              {loading ? (
-                <div className="empty-state">加载中...</div>
-              ) : (
-                <TableView
-                  rows={asRows(carousel)}
-                  empty="暂无轮播图"
-                  columns={[
-                    { header: 'ID', render: (r) => String(r.id) },
-                    { header: '标题', render: (r) => String((r as { title?: string }).title ?? '—') },
-                  ]}
-                />
-              )}
-            </TabsContent>
-            <TabsContent value="comments">
-              {loading ? (
-                <div className="empty-state">加载中...</div>
-              ) : (
-                <TableView
-                  rows={asRows(comments)}
-                  empty="暂无评论"
-                  columns={[
-                    { header: 'ID', render: (r) => String(r.id) },
-                    { header: '内容', render: (r) => String((r as { content?: string }).content ?? '—').slice(0, 60) },
-                  ]}
-                />
-              )}
-            </TabsContent>
-            <TabsContent value="news">
-              {loading ? (
-                <div className="empty-state">加载中...</div>
-              ) : (
-                <TableView
-                  rows={asRows(news)}
-                  empty="暂无资讯"
-                  columns={[
-                    { header: 'ID', render: (r) => String(r.id) },
-                    { header: '标题', render: (r) => String((r as { title?: string }).title ?? '—') },
-                  ]}
-                />
-              )}
-            </TabsContent>
-          </Tabs>
+          <div className="admin-tabs" role="tablist" data-testid="admin-content-tabs">
+            {CONTENT_TYPES.map((tp) => (
+              <button
+                key={tp}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tp}
+                className={`admin-tab ${activeTab === tp ? 'admin-tab-active' : ''}`}
+                onClick={() => {
+                  setPage(1)
+                  setActiveTab(tp)
+                }}
+                data-testid={`admin-content-tab-${tp}`}
+              >
+                {t(tabKey(tp))}
+              </button>
+            ))}
+          </div>
+          {loading ? (
+            <div className="empty-state">{t('common.loading')}</div>
+          ) : rows.length === 0 ? (
+            <div className="empty-state">{t('admin.common.noData')}</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('admin.content.colTitle')}</TableHead>
+                  <TableHead>{t('admin.content.colContent')}</TableHead>
+                  <TableHead>{t('admin.content.colStatus')}</TableHead>
+                  <TableHead>{t('admin.content.colSort')}</TableHead>
+                  <TableHead>{t('admin.content.colCreatedAt')}</TableHead>
+                  <TableHead>{t('admin.content.colActions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => {
+                  const published = row.isPublished === true
+                  return (
+                    <TableRow key={String(row.id)} data-testid={`admin-content-row-${row.id}`}>
+                      <TableCell>{row.title || '—'}</TableCell>
+                      <TableCell className="admin-muted">
+                        {typeof row.content === 'string'
+                          ? `${row.content.slice(0, 60)}${row.content.length > 60 ? '…' : ''}`
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`admin-badge ${published ? 'admin-badge-ok' : 'admin-badge-muted'}`}
+                        >
+                          {published
+                            ? t('admin.content.statusPublished')
+                            : t('admin.content.statusDraft')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="admin-num">
+                        {String(row.sortOrder ?? row.sort ?? '—')}
+                      </TableCell>
+                      <TableCell className="admin-muted">
+                        {row.createdAt ? DATE_FORMATTER.format(new Date(row.createdAt)) : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="admin-row-actions">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(row)}
+                            data-testid={`admin-content-edit-${row.id}`}
+                          >
+                            {t('common.edit')}
+                          </button>
+                          <button
+                            type="button"
+                            className="danger"
+                            onClick={() => void handleDelete(row)}
+                            disabled={deletingId === String(row.id)}
+                            data-testid={`admin-content-delete-${row.id}`}
+                          >
+                            {t('common.delete')}
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+
+      <div className="pagination">
+        <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+          {t('admin.common.prevPage')}
+        </button>
+        <span>{t('admin.common.pageIndicator', { page, total: totalPages })}</span>
+        <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          {t('admin.common.nextPage')}
+        </button>
+      </div>
+
+      <ContentDialog
+        open={dialogOpen}
+        mode={dialogMode}
+        row={editingRow}
+        defaultType={activeTab}
+        onClose={closeDialog}
+        onSubmit={handleSubmit}
+      />
     </div>
   )
 }
