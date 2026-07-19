@@ -1,6 +1,7 @@
 import { createDb } from '../src/client.js'
 import { lessons, learnCategories } from '../src/schema/learn.js'
 import { eq, sql } from 'drizzle-orm'
+import { upsertByUnique } from './_utils/upsert-by-unique.js'
 
 const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui')
 
@@ -289,7 +290,7 @@ async function upsert2026AiLessons() {
   let added = 0
   let updated = 0
   for (const c of courses) {
-    const [ex] = await db.select().from(lessons).where(eq(lessons.title, c.title))
+    // R82 升级:upsertByUnique 替代 if (ex) { update } else { insert } 模式
     const commonFields = {
       title: c.title,
       coverImage: c.image,
@@ -303,19 +304,24 @@ async function upsert2026AiLessons() {
       lessonCount: 12,
       status: 1,
     }
-    if (ex) {
-      await db.update(lessons).set(commonFields).where(eq(lessons.id, ex.id))
-      updated++
-      console.log(`  更新: ${c.title}`)
-    } else {
-      await db.insert(lessons).values({
+    const { id, action } = await upsertByUnique(db, {
+      table: lessons,
+      uniqueBy: { column: lessons.title, value: c.title },
+      insertValues: {
         ...commonFields,
         viewCount: Math.floor(Math.random() * 3000) + 500,
         signupCount: Math.floor(Math.random() * 500) + 50,
-      })
+      },
+      updateValues: commonFields,
+    })
+    if (action === 'inserted') {
       added++
       console.log(`  新增: ${c.title}`)
+    } else {
+      updated++
+      console.log(`  更新: ${c.title}`)
     }
+    void id
   }
   console.log(`  共新增 ${added} 条,更新 ${updated} 条 2026-07 真实 AI 课程`)
 }
