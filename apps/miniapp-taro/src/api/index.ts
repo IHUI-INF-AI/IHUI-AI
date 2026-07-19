@@ -37,10 +37,30 @@ export interface Banner {
   title: string
   coverUrl: string
   link?: string
+  /** 运营位位置:home / discover / activity */
+  position?: string
+  /** 跳转类型:webview / page / none */
+  linkType?: 'webview' | 'page' | 'none'
+  /** 排序权重,数值越大越靠前 */
+  sortOrder?: number
+  /** 生效时间(ISO 字符串) */
+  startTime?: string
+  /** 失效时间(ISO 字符串) */
+  endTime?: string
+  /** 状态:0 草稿 / 1 已发布 / 2 已下线 */
+  status?: number
 }
 
-/** 首页资源（轮播、工具栏等） */
+/** 首页资源(轮播、工具栏等) */
 export const getHomePage = () => get<{ banner: Banner[] }>('/content/home')
+
+/**
+ * 运营 banner 列表(独立接口,支持按位置筛选)。
+ * 对接后端 GET /content/banner/list?position=home&status=1
+ * 返回结构: { list: Banner[], total: number }
+ */
+export const getBannerList = (params?: { position?: string; status?: number }) =>
+  get<{ list: Banner[]; total: number }>('/content/banner/list', params)
 
 /* ============ 课程 ============ */
 
