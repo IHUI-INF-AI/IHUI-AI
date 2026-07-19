@@ -16,9 +16,18 @@ import { loginSchema, type LoginValues } from './login-schemas'
 interface PasswordLoginFormProps {
   active: boolean
   onSuccess?: () => void
+  agreed?: boolean
+  onRequireAgree?: () => void
+  showAgreeErr?: boolean
 }
 
-export function PasswordLoginForm({ active, onSuccess }: PasswordLoginFormProps) {
+export function PasswordLoginForm({
+  active,
+  onSuccess,
+  agreed = true,
+  onRequireAgree,
+  showAgreeErr,
+}: PasswordLoginFormProps) {
   const t = useTranslations('auth')
   const setToken = useAuthStore((s) => s.setToken)
   const setUser = useAuthStore((s) => s.setUser)
@@ -49,6 +58,10 @@ export function PasswordLoginForm({ active, onSuccess }: PasswordLoginFormProps)
 
   const onPasswordSubmit = async (values: LoginValues) => {
     setServerError(null)
+    if (!agreed) {
+      onRequireAgree?.()
+      return
+    }
     if (!captchaOk) {
       setServerError(t('captchaPlaceholder'))
       return
@@ -88,13 +101,16 @@ export function PasswordLoginForm({ active, onSuccess }: PasswordLoginFormProps)
       {serverError && <Alert variant="danger" description={serverError} />}
       <div className="space-y-2">
         <Label htmlFor="phone">{t('phone')}</Label>
-        <Input
-          id="phone"
-          type="tel"
-          autoComplete="tel"
-          placeholder={t('phonePlaceholder')}
-          {...register('phone')}
-        />
+        <div className="input-gradient-wrap rounded-md">
+          <Input
+            id="phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder={t('phonePlaceholder')}
+            className="h-9 rounded-[7px] border border-input bg-background"
+            {...register('phone')}
+          />
+        </div>
         {errors.phone && (
           <p className="text-xs text-destructive">{resolveError(errors.phone.message!)}</p>
         )}
@@ -110,13 +126,16 @@ export function PasswordLoginForm({ active, onSuccess }: PasswordLoginFormProps)
             {t('forgotPassword')}
           </button>
         </div>
-        <Input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          placeholder={t('passwordPlaceholder')}
-          {...register('password')}
-        />
+        <div className="input-gradient-wrap rounded-md">
+          <Input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder={t('passwordPlaceholder')}
+            className="h-9 rounded-[7px] border border-input bg-background"
+            {...register('password')}
+          />
+        </div>
         {errors.password && (
           <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>
         )}
@@ -124,17 +143,21 @@ export function PasswordLoginForm({ active, onSuccess }: PasswordLoginFormProps)
       <div className="space-y-2">
         <Label htmlFor="captcha">{t('captcha')}</Label>
         <div className="flex items-center gap-2">
-          <Input
-            id="captcha"
-            placeholder={t('captchaPlaceholder')}
-            autoComplete="off"
-            value={captchaValue}
-            onChange={(e) => setCaptchaValue(e.target.value)}
-          />
+          <div className="input-gradient-wrap flex-1 rounded-md">
+            <Input
+              id="captcha"
+              placeholder={t('captchaPlaceholder')}
+              autoComplete="off"
+              className="h-9 rounded-[7px] border border-input bg-background"
+              value={captchaValue}
+              onChange={(e) => setCaptchaValue(e.target.value)}
+            />
+          </div>
           <CaptchaCanvas value={captchaValue} onVerify={setCaptchaOk} />
         </div>
       </div>
-      <Button type="submit" className="w-full" disabled={submitting}>
+      {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
+      <Button type="submit" className="w-full" disabled={submitting || !agreed}>
         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
         {t('loginBtn')}
       </Button>

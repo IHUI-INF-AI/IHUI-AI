@@ -111,22 +111,28 @@ export function ForgotPasswordForm() {
         </TabsList>
 
         <TabsContent value="phone" className="pt-4">
-          <Input
-            type="tel"
-            autoComplete="tel"
-            placeholder={t('enterPhone')}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
+          <div className="input-gradient-wrap rounded-md">
+            <Input
+              type="tel"
+              autoComplete="tel"
+              placeholder={t('enterPhone')}
+              className="h-9 rounded-[7px] border border-input bg-background"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
         </TabsContent>
         <TabsContent value="email" className="pt-4">
-          <Input
-            type="email"
-            autoComplete="email"
-            placeholder={t('emailPlaceholder')}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          <div className="input-gradient-wrap rounded-md">
+            <Input
+              type="email"
+              autoComplete="email"
+              placeholder={t('emailPlaceholder')}
+              className="h-9 rounded-[7px] border border-input bg-background"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -139,13 +145,16 @@ export function ForgotPasswordForm() {
       <div className="space-y-2">
         <Label htmlFor="fp-code">{t('code')}</Label>
         <div className="flex gap-2">
-          <Input
-            id="fp-code"
-            inputMode="numeric"
-            placeholder={t('enterCode')}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-          />
+          <div className="input-gradient-wrap flex-1 rounded-md">
+            <Input
+              id="fp-code"
+              inputMode="numeric"
+              placeholder={t('enterCode')}
+              className="h-9 rounded-[7px] border border-input bg-background"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -160,27 +169,33 @@ export function ForgotPasswordForm() {
 
       <div className="space-y-2">
         <Label htmlFor="fp-new">{t('newPassword')}</Label>
-        <Input
-          id="fp-new"
-          type="password"
-          autoComplete="new-password"
-          placeholder={t('enterNewPassword')}
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-        />
+        <div className="input-gradient-wrap rounded-md">
+          <Input
+            id="fp-new"
+            type="password"
+            autoComplete="new-password"
+            placeholder={t('enterNewPassword')}
+            className="h-9 rounded-[7px] border border-input bg-background"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+        </div>
         <PasswordStrengthIndicator password={newPassword} />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="fp-confirm">{t('confirmPassword')}</Label>
-        <Input
-          id="fp-confirm"
-          type="password"
-          autoComplete="new-password"
-          placeholder={t('enterNewPassword')}
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
+        <div className="input-gradient-wrap rounded-md">
+          <Input
+            id="fp-confirm"
+            type="password"
+            autoComplete="new-password"
+            placeholder={t('enterNewPassword')}
+            className="h-9 rounded-[7px] border border-input bg-background"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+        </div>
       </div>
 
       <Button type="button" className="w-full" disabled={submitting} onClick={handleReset}>
