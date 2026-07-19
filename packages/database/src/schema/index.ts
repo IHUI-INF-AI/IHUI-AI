@@ -144,3 +144,10 @@ export * from './agent-billings.js'
 // R80 补齐: D 盘 coze_zhs_py/models 2 张缺失表
 // 注: video-tasks.ts / simple-bot-configs.ts 与 ai-config.ts / bot-sites.ts 重复定义
 // 已删除 R80 补齐文件,保留原有 ai-config.ts / bot-sites.ts 中的定义(被更多代码依赖)
+// 27 张 D 盘表补迁移（2026-07-19）
+// 5 个 supplement 文件，共 17 张新表 + 10 张已在其他文件迁移（live-extended.ts 3 / learn-extended.ts 1 / learn-extra-extended.ts 1 / relation-tables.ts 5）
+export * from './social-supplement.js'
+export * from './live-supplement.js'
+export * from './learn-homework.js'
+export * from './resource-download.js'
+export * from './admin-extended.js'

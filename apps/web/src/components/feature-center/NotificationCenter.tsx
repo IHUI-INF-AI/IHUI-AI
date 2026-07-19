@@ -40,7 +40,7 @@ export function NotificationCenter({
 
   return (
     <div className="flex w-full flex-col">
-      <div className="flex items-center justify-between p-3">
+      <div className="flex items-center justify-between p-2">
         <div className="flex items-center gap-2">
           <Bell className="h-4 w-4 text-primary" />
           <span className="font-semibold">通知中心</span>
@@ -84,7 +84,7 @@ export function NotificationCenter({
                   }
                 }}
                 className={
-                  'flex gap-3 p-3 transition-colors hover:bg-muted/50 ' +
+                  'flex gap-3 p-2 transition-colors hover:bg-muted/50 ' +
                   (onItemClick ? 'cursor-pointer' : '') +
                   (item.read ? ' opacity-60' : '')
                 }
