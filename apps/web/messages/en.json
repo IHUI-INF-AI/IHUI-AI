@@ -8453,7 +8453,9 @@
       "coding": "Coding",
       "chinese": "Chinese-Optimized",
       "openSource": "Open Source",
-      "favorite": "Favorites"
+      "favorite": "Favorites",
+      "configured": "Configured",
+      "notConfigured": "Not Configured"
     },
     "detail": {
       "highlight": "Featured",
@@ -8481,7 +8483,9 @@
       "savedDesc": "API Key encrypted & stored. Model is ready to use.",
       "saveFailed": "Save failed",
       "noTemplate": "No template for this provider. Please add manually in Settings → LLM Config.",
-      "securityHint": "API Key is encrypted with AES-256-GCM, visible only to your account, never stored in plaintext."
+      "securityHint": "API Key is encrypted with AES-256-GCM, visible only to your account, never stored in plaintext.",
+      "fullConfigHint": "Need to tweak context length / notes / custom Base URL? Go to",
+      "openFullConfig": "full config page →"
     },
     "providers": {
       "openai": "OpenAI",
@@ -8645,8 +8649,12 @@
       "freeCount": "{count} free",
       "favoriteCount": "{count} favorites",
       "highlightCount": "{count} featured",
+      "configuredCount": "{count} configured",
       "loadMore": "Load More ({count} left)",
-      "resetFilters": "Reset Filters"
+      "resetFilters": "Reset Filters",
+      "configureKey": "Set API Key",
+      "updateKey": "Update Key",
+      "configureKeyHint": "This model needs an API Key before use. Click to set it up."
     },
     "overview": {
       "title": "Console Overview",

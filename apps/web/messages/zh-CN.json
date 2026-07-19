@@ -8454,7 +8454,9 @@
       "coding": "编程",
       "chinese": "中文优化",
       "openSource": "开源",
-      "favorite": "收藏"
+      "favorite": "收藏",
+      "configured": "已配置",
+      "notConfigured": "未配置"
     },
     "detail": {
       "highlight": "推荐",
@@ -8482,7 +8484,9 @@
       "savedDesc": "API Key 已加密存储,可立即使用该模型",
       "saveFailed": "保存失败",
       "noTemplate": "该厂商暂无预置模板,请到「设置 → LLM 配置」手动添加",
-      "securityHint": "API Key 使用 AES-256-GCM 加密存储,仅本账号可见,不会明文落库或传输到第三方。"
+      "securityHint": "API Key 使用 AES-256-GCM 加密存储,仅本账号可见,不会明文落库或传输到第三方。",
+      "fullConfigHint": "如需修改上下文长度 / 备注 / 自定义 Base URL,请前往",
+      "openFullConfig": "完整配置页 →"
     },
     "providers": {
       "openai": "OpenAI",
@@ -8646,8 +8650,12 @@
       "freeCount": "{count} 个免费",
       "favoriteCount": "{count} 个收藏",
       "highlightCount": "{count} 个推荐",
+      "configuredCount": "{count} 个已配置",
       "loadMore": "加载更多（剩 {count} 个）",
-      "resetFilters": "重置筛选"
+      "resetFilters": "重置筛选",
+      "configureKey": "配置 API Key",
+      "updateKey": "更新 Key",
+      "configureKeyHint": "该模型需要先配置 API Key 才能使用,点此一键配置。"
     },
     "overview": {
       "title": "控制台概览",
