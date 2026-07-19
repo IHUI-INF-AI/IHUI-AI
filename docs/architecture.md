@@ -1,7 +1,50 @@
 # 系统架构文档(IHUI-AI 新架构)
 
-> 更新时间:2026-07-09(完整迁移至新 TypeScript Monorepo 架构)
+> 更新时间:2026-07-19(明确 Monorepo 两 app 职责边界,防止审计视角局限误判)
 > 旧架构(Python FastAPI `server/` + Vue 3 `client/`)已弃用,见文末"旧架构弃用说明"
+
+---
+
+## 0. Monorepo 两 app 职责边界(审计必读)
+
+> ⚠️ **重要**: 审计 AI 能力迁移完整性时,**必须同时看 `apps/ai-service` + `apps/api`**,不可仅看单一 app。
+> 历史教训(2026-07-19): 仅看 `apps/ai-service` 单 app 视角会得出"端点迁移率 16.62%, 58 项缺失"的错误结论,实际合并视角下真实缺失为 0 项(详见 `tmp/api-endpoint-cross-check.md`)。
+
+### 0.1 职责分工
+
+| App | 技术栈 | 职责 | 端点数 |
+|-----|--------|------|--------|
+| `apps/ai-service` | Python FastAPI + LangGraph + LiteLLM + MCP | **AI 推理网关** — LLM 调用、Agent 执行、MCP 工具、A2A 协议、Persona、Voice STT | ~55 |
+| `apps/api` | TypeScript Fastify + Drizzle ORM | **业务管理 + 多厂商代理 + 认证 + WebSocket** — 智能体业务、Coze SDK、OAuth、计费、文件、外呼、聊天室、多模型 WS | ~1080 |
+
+### 0.2 为什么拆分两 app
+
+- **Python 适合 AI 推理**: LangGraph(工作流)、LiteLLM(多模型统一接口)、MCP 协议原生支持
+- **TypeScript 适合业务 CRUD**: Fastify 性能 + Drizzle ORM 类型安全 + 共享 Zod schema
+- **协议分层**: SSE(ai-service Agent 流式) + WebSocket(apps/api 聊天室/多模型流式) + HTTP REST(同步业务)
+- **SSO 跨服务**: 共享 `JWT_SECRET`,两 app 通过 @ihui/auth 共享包统一签发/验证
+
+### 0.3 源项目 `coze_zhs_py` 的能力拆分映射
+
+源项目是单体 Python FastAPI(331 端点),按能力拆分到两 app:
+
+| 源能力域 | 源端点数 | 目标归属 | 目标端点数 |
+|---------|---------|---------|---------|
+| 智能体业务管理(购买/审核/结算/提现/分类/开发者) | 91 | apps/api | 200+ |
+| Coze SDK 代理(Bot/对话/工作流/数据集/模板/变量/工作空间) | 32 | apps/api | 46+ |
+| OAuth 2.0 + 用户 SK + PAT + SMS | 32 | apps/api | 30+ |
+| 多模型 WebSocket 流式(豆包/通义/智谱/DeepSeek/Qwen-Omni) | 53 | apps/api(WS) + ai-service(SSE) | 22+ WS + SSE |
+| 第三方厂商代理(Kling/n8n/sms/即梦/火山/通义/腾讯/Luyala) | 38 | apps/api | 60+ |
+| 工作流 + 工具 + 用户 | 23 | apps/api + ai-service(MCP) | 50+ |
+| 文件 + 应用 + 杂项 | 24 | apps/api | 30+ |
+| LLM 网关 + Agent 执行 + MCP + A2A | (新增) | apps/ai-service | 55 |
+
+### 0.4 审计规则
+
+1. **审计 AI 能力迁移**: 必须同时 grep `apps/ai-service` + `apps/api/src/routes/`
+2. **审计端点总数**: ai-service(~55) + apps/api(~1080) = ~1135,远超源项目 331
+3. **协议变更不算缺失**: WebSocket→SSE / SQLAlchemy→Drizzle / Python SDK→直接 HTTP 都是合理架构变更
+4. **多个文件头有"1:1 迁移 D 盘"注释**: n8n-proxy / tencent-hunyuan-3d / user-sk / outbound / coze-oauth / legacy-langchain
 
 ---
 
