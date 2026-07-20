@@ -290,6 +290,9 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
   return (
     <Popover
+      portal
+      position="top"
+      align="center"
       content={
         <div className="w-72">
           {/* 标题 */}
@@ -400,9 +403,6 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
           </p>
         </div>
       }
-      position="bottom"
-      align="end"
-      portal
       aria-label={triggerLabel}
     >
       <button
