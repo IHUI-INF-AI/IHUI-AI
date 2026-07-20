@@ -1497,6 +1497,124 @@ class PermissionManager {
     const pattern = ruleStr.slice(idx + 1, ruleStr.lastIndexOf(')'))
     return { tool, pattern, action }
   }
+
+  /**
+   * 基于 DB 持久化的权限配置 + 规则进行校验。
+   * 后续 fsBridge enforcement 调用此方法,自动从 DB 查 mode + rules。
+   *
+   * @returns allowed=true 直接放行 / allowed=false + requestId 需人工确认 / allowed=false 无 requestId 拒绝
+   */
+  async checkWithDb(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    args: Record<string, unknown>
+  }): Promise<{ allowed: boolean; requestId?: string; mode?: string; reason?: string }> {
+    const { getPermission, listRules, appendAuditLog } = await import(
+      '../db/workspace-permission-queries.js'
+    )
+    const perm = await getPermission(params.userId, params.workspacePath)
+    if (!perm) {
+      // 未配置权限 → 视为 default 模式(最严格),要求人工确认
+      const result = this.requestConfirmation({
+        userId: params.userId,
+        tool: params.tool,
+        args: params.args,
+      })
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'ask',
+        reason: 'workspace permission not configured',
+        requestId: result.requestId,
+      } as never)
+      return { allowed: false, requestId: result.requestId, mode: 'default' }
+    }
+
+    // bypass-permissions → 直接放行
+    if (perm.mode === 'bypass-permissions') {
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'allow',
+        reason: 'bypass-permissions mode',
+      })
+      return { allowed: true, mode: perm.mode }
+    }
+
+    // accept-edits → 先查 DB 规则
+    if (perm.mode === 'accept-edits') {
+      const dbRules = await listRules(params.userId, params.workspacePath)
+      for (const r of dbRules) {
+        const action = r.decision === 'allow' ? 'allow' : 'deny'
+        const rule: PermissionRule = {
+          tool: r.ruleType === 'command' ? 'Bash' : r.ruleType === 'path' ? 'Read' : r.pattern,
+          pattern: r.pattern,
+          action: action as PermissionAction,
+        }
+        if (this.matches(rule, params.tool, params.args)) {
+          if (rule.action === 'allow') {
+            await appendAuditLog({
+              userId: params.userId,
+              workspacePath: params.workspacePath,
+              toolName: params.tool,
+              args: JSON.stringify(params.args).slice(0, 1000),
+              decision: 'allow',
+              reason: `rule matched: ${r.pattern}`,
+            })
+            return { allowed: true, mode: perm.mode }
+          }
+          // deny
+          await appendAuditLog({
+            userId: params.userId,
+            workspacePath: params.workspacePath,
+            toolName: params.tool,
+            args: JSON.stringify(params.args).slice(0, 1000),
+            decision: 'deny',
+            reason: `rule denied: ${r.pattern}`,
+          })
+          return { allowed: false, mode: perm.mode, reason: `规则拒绝: ${r.pattern}` }
+        }
+      }
+      // 无匹配 → 走人工
+      const result = this.requestConfirmation({
+        userId: params.userId,
+        tool: params.tool,
+        args: params.args,
+      })
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'ask',
+        reason: 'no rule matched in accept-edits mode',
+        requestId: result.requestId,
+      } as never)
+      return { allowed: false, requestId: result.requestId, mode: perm.mode }
+    }
+
+    // default → 全部人工确认
+    const result = this.requestConfirmation({
+      userId: params.userId,
+      tool: params.tool,
+      args: params.args,
+    })
+    await appendAuditLog({
+      userId: params.userId,
+      workspacePath: params.workspacePath,
+      toolName: params.tool,
+      args: JSON.stringify(params.args).slice(0, 1000),
+      decision: 'ask',
+      reason: 'default mode requires confirmation',
+      requestId: result.requestId,
+    } as never)
+    return { allowed: false, requestId: result.requestId, mode: perm.mode }
+  }
 }
 
 export const permissionManager = new PermissionManager()
