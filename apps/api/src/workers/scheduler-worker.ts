@@ -25,6 +25,11 @@ import {
 } from '../services/scheduled-tasks-service.js'
 import { pushAlert } from '../services/alert-notification-service.js'
 import { scanAndChargeDueContracts } from '../services/subscription-service.js'
+import {
+  refreshWorkWechatToken,
+  refreshWechatToken,
+  refreshDingTalkToken,
+} from '../services/token-refresh-service.js'
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -330,6 +335,60 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             }
             try {
               server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'workwechat-token-refresh': {
+            const result = await refreshWorkWechatToken()
+            server.log.info(
+              {
+                provider: result.provider,
+                refreshed: result.refreshed,
+                expiresAt: result.expiresAt,
+                reason: result.reason,
+              },
+              'workwechat token refresh done',
+            )
+            try {
+              server.recordJobExecution(name, result.reason ? 'failed' : 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'wechat-token-refresh': {
+            const result = await refreshWechatToken()
+            server.log.info(
+              {
+                provider: result.provider,
+                refreshed: result.refreshed,
+                expiresAt: result.expiresAt,
+                reason: result.reason,
+              },
+              'wechat token refresh done',
+            )
+            try {
+              server.recordJobExecution(name, result.reason ? 'failed' : 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'dingtalk-token-refresh': {
+            const result = await refreshDingTalkToken()
+            server.log.info(
+              {
+                provider: result.provider,
+                refreshed: result.refreshed,
+                expiresAt: result.expiresAt,
+                reason: result.reason,
+              },
+              'dingtalk token refresh done',
+            )
+            try {
+              server.recordJobExecution(name, result.reason ? 'failed' : 'success')
             } catch {
               /* 指标采集失败不影响业务 */
             }
