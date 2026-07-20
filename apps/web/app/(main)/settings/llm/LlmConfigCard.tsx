@@ -16,7 +16,8 @@ import {
 } from 'lucide-react'
 
 import { Button, Card, CardContent, Switch } from '@ihui/ui'
-import { Alert } from '@/components/feedback'
+import { Alert, Tooltip } from '@/components/feedback'
+import { TruncatedText } from '@/components/common'
 
 import { testConfig, toggleConfig, fetchUpstreamModels, deleteConfig, maskKey } from './helpers'
 import { formatDate } from '@/lib/date-utils'
@@ -131,9 +132,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
         <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
           <div>
             <p className="text-muted-foreground">{t('model')}</p>
-            <p className="truncate font-mono" title={config.modelIdForTest ?? ''}>
-              {config.modelIdForTest ?? '—'}
-            </p>
+            <TruncatedText value={config.modelIdForTest ?? '—'} mono className="font-mono" />
           </div>
           <div>
             <p className="text-muted-foreground">{t('context')}</p>
@@ -152,9 +151,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
         <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
           <div className="min-w-0">
             <p className="text-muted-foreground">{t('baseUrl')}</p>
-            <p className="truncate font-mono" title={config.baseUrl}>
-              {config.baseUrl}
-            </p>
+            <TruncatedText value={config.baseUrl} mono className="font-mono" />
           </div>
           <div>
             <p className="text-muted-foreground">{t('lastTest')}</p>
@@ -240,36 +237,38 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
         {/* Actions */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2">
           <div className="flex flex-wrap items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => testMut.mutate()}
-              disabled={testMut.isPending || !config.hasApiKey}
-              title={!config.hasApiKey ? t('needKeyFirst') : t('test')}
-            >
-              {testMut.isPending ? (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              ) : (
-                <ShieldCheck className="mr-1 h-3 w-3" />
-              )}
-              {t('test')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => {
-                setShowModels((s) => !s)
-                if (!showModels && models.length === 0 && !modelsLoaded) {
-                  fetchMut.mutate()
-                }
-              }}
-              title={t('fetchModels')}
-            >
-              <Sparkles className="mr-1 h-3 w-3" />
-              {showModels ? t('hideModels') : t('fetchModels')}
-            </Button>
+            <Tooltip content={!config.hasApiKey ? t('needKeyFirst') : t('test')}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => testMut.mutate()}
+                disabled={testMut.isPending || !config.hasApiKey}
+              >
+                {testMut.isPending ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <ShieldCheck className="mr-1 h-3 w-3" />
+                )}
+                {t('test')}
+              </Button>
+            </Tooltip>
+            <Tooltip content={t('fetchModels')}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => {
+                  setShowModels((s) => !s)
+                  if (!showModels && models.length === 0 && !modelsLoaded) {
+                    fetchMut.mutate()
+                  }
+                }}
+              >
+                <Sparkles className="mr-1 h-3 w-3" />
+                {showModels ? t('hideModels') : t('fetchModels')}
+              </Button>
+            </Tooltip>
             <Button
               variant="outline"
               size="sm"
@@ -280,20 +279,21 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
               {t('edit')}
             </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
-            onClick={handleDelete}
-            disabled={deleteMut.isPending}
-            title={t('delete')}
-          >
-            {deleteMut.isPending ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Trash2 className="h-3 w-3" />
-            )}
-          </Button>
+          <Tooltip content={t('delete')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+              onClick={handleDelete}
+              disabled={deleteMut.isPending}
+            >
+              {deleteMut.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Trash2 className="h-3 w-3" />
+              )}
+            </Button>
+          </Tooltip>
         </div>
       </CardContent>
     </Card>

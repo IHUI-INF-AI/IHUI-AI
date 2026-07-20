@@ -3,6 +3,8 @@
 import * as React from 'react'
 import { RefreshCw } from 'lucide-react'
 
+import { Tooltip } from '@/components/feedback'
+
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 /**
@@ -78,17 +80,18 @@ export function CaptchaCanvas({
   }, [value, onVerify])
 
   return (
-    <button
-      type="button"
-      onClick={draw}
-      title="点击刷新验证码"
-      className="relative shrink-0 overflow-hidden rounded-md border"
-      style={{ width, height }}
-    >
-      <canvas ref={canvasRef} width={width} height={height} className="block" />
-      <span className="absolute right-0.5 top-0.5 text-muted-foreground/60">
-        <RefreshCw className="h-3 w-3" />
-      </span>
-    </button>
+    <Tooltip content="点击刷新验证码">
+      <button
+        type="button"
+        onClick={draw}
+        className="relative shrink-0 overflow-hidden rounded-md border"
+        style={{ width, height }}
+      >
+        <canvas ref={canvasRef} width={width} height={height} className="block" />
+        <span className="absolute right-0.5 top-0.5 text-muted-foreground/60">
+          <RefreshCw className="h-3 w-3" />
+        </span>
+      </button>
+    </Tooltip>
   )
 }

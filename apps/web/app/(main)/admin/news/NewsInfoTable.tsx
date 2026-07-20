@@ -13,6 +13,7 @@ import {
 
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import {
   Table,
   TableHeader,
@@ -23,6 +24,7 @@ import {
   Button,
   Input,
 } from '@ihui/ui'
+import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 import { inputSm } from './types'
@@ -204,9 +206,7 @@ export function NewsInfoTable(props: Props) {
                     {info.id}
                   </TableCell>
                   <TableCell className="px-3 py-2">
-                    <div className="max-w-[200px] truncate font-medium" title={info.title}>
-                      {info.title}
-                    </div>
+                    <TruncatedText value={info.title} className="max-w-[200px] font-medium" />
                   </TableCell>
                   <TableCell className="px-3 py-2 text-xs">
                     {info.type ?? <span className="text-muted-foreground">—</span>}
@@ -238,26 +238,28 @@ export function NewsInfoTable(props: Props) {
                   <TableCell className="px-3 py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <HasPermi code="ai:information:edit">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditInfo(info)}
-                          title="编辑"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <Tooltip content="编辑">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditInfo(info)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </Tooltip>
                       </HasPermi>
                       <HasPermi code="ai:information:remove">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteInfo(info)}
-                          title="删除"
-                          className="text-destructive hover:text-destructive"
-                          disabled={deleteInfoMut.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Tooltip content="删除">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteInfo(info)}
+                            className="text-destructive hover:text-destructive"
+                            disabled={deleteInfoMut.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </Tooltip>
                       </HasPermi>
                     </div>
                   </TableCell>

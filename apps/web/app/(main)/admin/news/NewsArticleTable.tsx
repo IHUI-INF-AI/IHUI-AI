@@ -15,6 +15,7 @@ import { useTranslations } from 'next-intl'
 
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import {
   Table,
   TableHeader,
@@ -220,26 +221,28 @@ export function NewsArticleTable(props: Props) {
                     <TableCell className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <HasPermi code="system:news:edit">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEdit(article)}
-                            title={t('edit')}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          <Tooltip content={t('edit')}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(article)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
                         </HasPermi>
                         <HasPermi code="system:news:remove">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(article)}
-                            title={t('delete')}
-                            className="text-destructive hover:text-destructive"
-                            disabled={deleteMut.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <Tooltip content={t('delete')}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(article)}
+                              className="text-destructive hover:text-destructive"
+                              disabled={deleteMut.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
                         </HasPermi>
                       </div>
                     </TableCell>

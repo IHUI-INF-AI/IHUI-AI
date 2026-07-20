@@ -3,6 +3,7 @@
 import { Loader2, Eye } from 'lucide-react'
 import { Button, Checkbox } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { th, STATUS_LABEL } from './helpers'
 import type { JobLog, SortState } from './types'
@@ -87,17 +88,11 @@ export function TaskLogTable({
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.id}</td>
                   <td className="px-4 py-2.5 font-medium">{l.jobName}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{l.jobGroup}</td>
-                  <td
-                    className="max-w-[180px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground"
-                    title={l.invokeTarget}
-                  >
-                    {l.invokeTarget}
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <TruncatedText value={l.invokeTarget} className="max-w-[180px]" mono />
                   </td>
-                  <td
-                    className="max-w-[180px] truncate px-4 py-2.5 text-xs text-muted-foreground"
-                    title={l.jobMessage}
-                  >
-                    {l.jobMessage || '-'}
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <TruncatedText value={l.jobMessage || '-'} className="max-w-[180px]" />
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={cn('inline-flex rounded-md px-2 py-0.5 text-xs', st.cls)}>

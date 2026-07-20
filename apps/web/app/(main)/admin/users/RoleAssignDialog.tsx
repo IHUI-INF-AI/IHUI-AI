@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { KeyRound, Loader2 } from 'lucide-react'
 import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
 import { Modal } from '@/components/feedback'
+import { TruncatedText } from '@/components/common'
 import { api } from './helpers'
 import type { AdminUser } from './types'
 
@@ -93,13 +94,11 @@ export function RoleAssignDialog({ user, pending, onConfirm, onCancel }: Props) 
           ) : rbacQ.data?.list?.length ? (
             <div className="mt-1.5 flex flex-wrap gap-1">
               {rbacQ.data.list.map((r) => (
-                <span
+                <TruncatedText
                   key={r.id}
-                  className="inline-flex items-center rounded-md bg-background px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-border/60"
-                  title={r.name}
-                >
-                  {r.displayName}
-                </span>
+                  value={r.displayName}
+                  className="inline-flex max-w-[200px] items-center rounded-md bg-background px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-border/60"
+                />
               ))}
             </div>
           ) : (

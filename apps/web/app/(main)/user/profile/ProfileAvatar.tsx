@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Loader2, Camera } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Avatar } from '@/components/data/Avatar'
+import { Tooltip } from '@/components/feedback'
 import { AvatarCropper } from './AvatarCropper'
 
 interface Props {
@@ -58,19 +59,20 @@ export function ProfileAvatar({ avatar, nickname, uploading, fileInputRef, onCro
           onChange={handleFileChange}
           className="hidden"
         />
-        <button
-          type="button"
-          title={t('avatar')}
-          disabled={uploading}
-          onClick={() => fileInputRef.current?.click()}
-          className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-md border bg-background shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
-        >
-          {uploading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Camera className="h-3.5 w-3.5" />
-          )}
-        </button>
+        <Tooltip content={t('avatar')}>
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-md border bg-background shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
+          >
+            {uploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Camera className="h-3.5 w-3.5" />
+            )}
+          </button>
+        </Tooltip>
       </div>
       <p className="text-xs text-muted-foreground">{t('avatarHint')}</p>
       <AvatarCropper

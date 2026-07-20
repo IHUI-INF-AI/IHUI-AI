@@ -20,6 +20,7 @@ import {
   TableHead,
   TableCell,
 } from '@ihui/ui'
+import { TruncatedText } from '@/components/common'
 
 interface VisitStats {
   pv?: number
@@ -253,11 +254,8 @@ export default function VisitTrackingPage() {
                       <TableCell className="px-3 py-2">
                         {row.ipCityName ?? row.city ?? '-'}
                       </TableCell>
-                      <TableCell
-                        className="max-w-[220px] truncate px-3 py-2 text-muted-foreground"
-                        title={row.url}
-                      >
-                        {row.url ?? '-'}
+                      <TableCell className="px-3 py-2 text-muted-foreground">
+                        <TruncatedText value={row.url ?? '-'} className="max-w-[220px]" />
                       </TableCell>
                       <TableCell className="px-3 py-2 text-muted-foreground">
                         {row.referer ?? '-'}

@@ -14,6 +14,7 @@ import {
   Button,
   Switch,
 } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import type { Category } from './types'
 
 interface CategoryTableProps {
@@ -128,25 +129,27 @@ export function CategoryTable({
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onEdit(c)}
-                        title={tc('edit')}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          if (window.confirm(t('deleteConfirm'))) onDelete(c)
-                        }}
-                        disabled={deletePending}
-                        title={tc('delete')}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={tc('edit')}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onEdit(c)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content={tc('delete')}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            if (window.confirm(t('deleteConfirm'))) onDelete(c)
+                          }}
+                          disabled={deletePending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>

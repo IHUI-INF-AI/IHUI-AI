@@ -5,6 +5,7 @@ import { Loader2, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button, Checkbox } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { TruncatedText } from '@/components/common'
 import { th } from './helpers'
 import type { Post } from './types'
 import { formatDate } from '@/lib/date-utils'
@@ -87,11 +88,8 @@ export function PostTable({
                     {p.status === 0 ? '正常' : '停用'}
                   </span>
                 </td>
-                <td
-                  className="max-w-[160px] truncate px-4 py-2.5 text-xs text-muted-foreground"
-                  title={p.remark}
-                >
-                  {p.remark || '-'}
+                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TruncatedText value={p.remark || '-'} className="max-w-[160px]" />
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
                   {p.createdAt ? formatDate(p.createdAt) : '-'}

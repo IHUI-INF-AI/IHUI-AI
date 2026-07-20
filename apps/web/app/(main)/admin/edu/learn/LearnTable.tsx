@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Edit, Trash2, Loader2, BookOpen, ListOrdered } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import type { Lesson } from './types'
 
 const COLSPAN = 6
@@ -107,19 +108,22 @@ export function LearnTable({ rows, isLoading, error, onEdit, onDelete, deletePen
                         <ListOrdered className="h-4 w-4" />
                       </Link>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(l)} title={t('edit')}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(l)}
-                      title={t('delete')}
-                      className="text-destructive hover:text-destructive"
-                      disabled={deletePending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <Tooltip content={t('edit')}>
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(l)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={t('delete')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDelete(l)}
+                        className="text-destructive hover:text-destructive"
+                        disabled={deletePending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </TableCell>
               </TableRow>

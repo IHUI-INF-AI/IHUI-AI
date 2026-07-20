@@ -8,6 +8,7 @@ import { TrendingUp, Users, Eye, Timer, Globe, FileText, ArrowDownUp } from 'luc
 import { fetchApi } from '@/lib/api'
 import { StatCard } from '@/components/data'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import type { TrendGranularity, VisitTrendResponse } from './types'
 
@@ -106,11 +107,12 @@ export default function VisitTrendPage() {
             {stats.trend.map((p) => (
               <div key={p.date} className="flex flex-col items-center gap-1.5">
                 <div className="flex h-32 w-full items-end rounded-md bg-muted/30 px-1">
-                  <div
-                    className="w-full rounded-md bg-primary/70 transition-all"
-                    style={{ height: `${(p.pv / peak) * 100}%` }}
-                    title={`${p.date} PV ${p.pv} UV ${p.uv}`}
-                  />
+                  <Tooltip content={`${p.date} PV ${p.pv} UV ${p.uv}`}>
+                    <div
+                      className="w-full rounded-md bg-primary/70 transition-all"
+                      style={{ height: `${(p.pv / peak) * 100}%` }}
+                    />
+                  </Tooltip>
                 </div>
                 <span className="text-xs text-muted-foreground tabular-nums">{p.date.slice(5)}</span>
                 <span className="text-xs font-semibold tabular-nums">{numFmt.format(p.pv)}</span>
