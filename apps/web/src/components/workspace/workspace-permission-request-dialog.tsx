@@ -32,9 +32,12 @@ const TOOL_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   'fs.run': ChevronRight,
 }
 
-function renderArgsSummary(
-  args: Record<string, unknown>,
-): { label: string; value: string }[] {
+/** 把 `fs.read` 转为 i18n flat key `fsRead`(next-intl namespace key 不允许包含 '.') */
+function toolNameToI18nKey(tool: string): string {
+  return tool.replace(/\.([a-z])/g, (_, c: string) => c.toUpperCase())
+}
+
+function renderArgsSummary(args: Record<string, unknown>): { label: string; value: string }[] {
   const items: { label: string; value: string }[] = []
   const path = args.path
   if (typeof path === 'string' && path) items.push({ label: 'path', value: path })
@@ -103,16 +106,13 @@ export function WorkspacePermissionRequestDialog({
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="text-muted-foreground">{t('tool')}</span>
                 <span className="font-medium">
-                  {t(`toolNames.${current.tool}` as never) || current.tool}
+                  {t(`toolNames.${toolNameToI18nKey(current.tool)}` as never) || current.tool}
                 </span>
               </div>
               {current.workspacePath && (
                 <div className="flex items-start justify-between gap-3 text-sm">
                   <span className="shrink-0 text-muted-foreground">{t('workspace')}</span>
-                  <span
-                    className="truncate font-mono text-xs"
-                    title={current.workspacePath}
-                  >
+                  <span className="truncate font-mono text-xs" title={current.workspacePath}>
                     {current.workspacePath}
                   </span>
                 </div>
@@ -149,12 +149,12 @@ export function WorkspacePermissionRequestDialog({
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
                 {t('deny')}
               </Button>
-              <Button
-                type="button"
-                disabled={busy}
-                onClick={() => void handleDecision(true)}
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              <Button type="button" disabled={busy} onClick={() => void handleDecision(true)}>
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
                 {t('allow')}
               </Button>
             </DialogFooter>

@@ -1023,7 +1023,24 @@
       "selected": "選択済み:",
       "cancel": "キャンセル",
       "opening": "開いています...",
-      "selectAndOpen": "選択して開く"
+      "selectAndOpen": "選択して開く",
+      "manualPathLabel": "パス(直接入力)",
+      "manualPathPlaceholder": "例:G:\\Projects\\my-app または /home/user/projects",
+      "manualPathHint": "完全な絶対パスを入力し、Enter キーまたは「開く」をクリック",
+      "manualPathHintWithNative": "システムピッカーでフォルダ名を選択しました。下に完全な絶対パス(エクスプローラーからコピー)を入力して Enter キーで開いてください",
+      "openPath": "開く",
+      "orBrowse": "またはディレクトリを閲覧",
+      "nativePick": "フォルダを選択",
+      "nativePickHint": "クリックするとシステムネイティブのフォルダ選択ダイアログ(Windows エクスプローラー風)が開きます",
+      "nativePicking": "ピッカーを開いています...",
+      "nativeSelected": "システムピッカーで選択:",
+      "nativeChildren": "含まれる内容",
+      "nativePickError": "システムフォルダピッカーを開けませんでした",
+      "reselect": "再選択",
+      "webkitPick": "フォルダを選択(ブラウザー)",
+      "webkitPickHint": "クリックするとブラウザー純正のフォルダ選択ダイアログが開きます",
+      "webkitNoRoot": "選択したフォルダ名を取得できません。手動でフルパスを入力してください",
+      "noNativeSupport": "お使いのブラウザーはシステムフォルダピッカーに対応していません。下の手動入力またはバックエンド閲覧をご利用ください"
     },
     "permission": {
       "title": "ワークスペースアクセス権限",
@@ -1081,13 +1098,13 @@
         "expired": "リクエストがタイムアウトしました",
         "queue": "キューに {count} 件の追加リクエスト",
         "toolNames": {
-          "fs.read": "ファイル読み取り",
-          "fs.write": "ファイル書き込み",
-          "fs.edit": "ファイル編集",
-          "fs.delete": "ファイル削除",
-          "fs.grep": "コンテンツ検索",
-          "fs.glob": "ファイル検索",
-          "fs.run": "コマンド実行"
+          "fsRead": "ファイル読み取り",
+          "fsWrite": "ファイル書き込み",
+          "fsEdit": "ファイル編集",
+          "fsDelete": "ファイル削除",
+          "fsGrep": "コンテンツ検索",
+          "fsGlob": "ファイル検索",
+          "fsRun": "コマンド実行"
         }
       }
     },
