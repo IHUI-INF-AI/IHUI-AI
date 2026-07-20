@@ -196,7 +196,11 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
         >
           {/* 自定义配置模型入口(置顶):跳转 /settings/llm 配置 API Key
               2026-07-20 用户反馈"丢失了自定义配置模型的选项按钮",补回此入口,
-              位置由原先埋在某个模型组中改为整张下拉的最顶部,确保一键可达。 */}
+              位置由原先埋在某个模型组中改为整张下拉的最顶部,确保一键可达。
+              2026-07-20 视觉强化:Settings 图标用 bg-primary/10 + text-primary 圆角小色块包裹,
+              与下方普通模型选项(纯 muted-foreground svg)形成区分,语义上更明确表达
+              "这是配置入口,不是模型选项"。色块用 div 而非 span 包裹,避免被
+              [&>span]:translate-y-[var(--text-vcenter-offset)] 规则错误偏移图标。 */}
           <DropdownMenu.Group>
             <DropdownMenu.Item
               onSelect={() => router.push('/settings/llm')}
@@ -207,7 +211,9 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                 '[&>span]:translate-y-[var(--text-vcenter-offset)]',
               )}
             >
-              <Settings className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <Settings className="h-3.5 w-3.5" />
+              </div>
               <span className="flex-1 truncate font-medium">{t('manageModels')}</span>
             </DropdownMenu.Item>
             {grouped.length > 0 && (
