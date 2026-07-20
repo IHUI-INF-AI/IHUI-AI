@@ -439,7 +439,103 @@
     "openclaw": "OpenClaw",
     "pricing": "Pricing",
     "recruitment": "Recruitment",
-    "support": "Support"
+    "support": "Support",
+    "modelsOverview": "Models Overview",
+    "modelsMarket": "Models Market",
+    "modelsChannels": "Channels",
+    "modelsKeys": "API Keys",
+    "modelsLogs": "API Logs",
+    "modelsChats": "Chat History",
+    "modelsUsers": "Users",
+    "modelsGroups": "User Groups",
+    "modelsUsage": "Usage Stats",
+    "modelsBilling": "Billing",
+    "modelsRedeem": "Redeem Codes",
+    "modelsReferral": "Referral Rewards",
+    "modelsOpenclaw": "OpenClaw",
+    "modelsApiDocs": "API Docs",
+    "modelsSkills": "Skills Market",
+    "messagesNotice": "Notifications",
+    "messagesLike": "Likes",
+    "messagesFavorite": "Favorites",
+    "messagesComment": "Comments",
+    "messagesFans": "Fans",
+    "messagesPrivateLetter": "Private Messages",
+    "userProfile": "Profile",
+    "userSecurity": "Security",
+    "userNotifications": "Notifications",
+    "userOrders": "Orders",
+    "userRealname": "Real Name Verification",
+    "userSubscription": "Subscriptions",
+    "userLearnRecord": "Learning Records",
+    "userComment": "My Comments",
+    "userFans": "My Fans",
+    "userFollow": "Following",
+    "userAsk": "My Questions",
+    "userCircle": "My Circles",
+    "userResource": "My Resources",
+    "userPoint": "Points",
+    "userExam": "My Exams",
+    "userSignUp": "Sign-up Records",
+    "eduDashboard": "Learning Dashboard",
+    "eduCourses": "My Courses",
+    "eduExam": "Online Exams",
+    "eduCertificates": "My Certificates",
+    "eduSchedule": "Schedule",
+    "eduNotes": "Notes",
+    "eduQa": "Q&A Center",
+    "eduProgress": "Learning Progress",
+    "memberDashboard": "Member Dashboard",
+    "memberOrders": "Orders",
+    "memberBenefits": "Member Benefits",
+    "memberPoints": "Points",
+    "memberCoupons": "Coupons",
+    "memberSubscription": "Subscription",
+    "memberRefunds": "Refunds",
+    "memberAddresses": "Addresses",
+    "memberFavorites": "Favorites",
+    "memberHistory": "Browsing History",
+    "memberInvitations": "Invitations",
+    "memberFeedback": "Feedback",
+    "memberHelp": "Help Center",
+    "memberSettings": "Settings",
+    "memberUpgrade": "Upgrade",
+    "developerApiDocs": "API Docs",
+    "developerKeys": "API Keys",
+    "developerWebhooks": "Webhooks",
+    "developerSandbox": "Sandbox",
+    "developerLimits": "Rate Limits",
+    "developerLogs": "Logs",
+    "developerVersions": "Versions",
+    "developerSubscription": "Subscription",
+    "developerNotifications": "Notifications",
+    "developerTeam": "Team",
+    "developerBilling": "Billing",
+    "developerSettings": "Settings",
+    "adminTheme": "Theme Management",
+    "adminThemeList": "Theme List",
+    "adminThemeCreate": "Create Theme",
+    "adminThemeColors": "Colors",
+    "adminThemeFonts": "Fonts",
+    "adminThemeDarkMode": "Dark Mode",
+    "adminThemeAssets": "Brand Assets",
+    "adminThemePresets": "Preset Themes",
+    "adminThemeExport": "Export",
+    "adminConfigs": "System Config",
+    "adminDynamic": "Dynamic",
+    "adminGroup": {
+      "operation": "Operation",
+      "moderation": "Moderation",
+      "finance": "Finance",
+      "aiAgent": "AI Agents",
+      "marketing": "Marketing",
+      "courseExam": "Course & Exam",
+      "analytics": "Analytics BI",
+      "support": "Support Tickets",
+      "community": "Community",
+      "resource": "Resources",
+      "developer": "Developer"
+    }
   },
   "auth": {
     "loginTitle": "Welcome Back",
@@ -24423,10 +24519,10 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "8-Platform Coverage · Industry First",
-      "explore": "100+ LLMs Unified Access",
-      "brand": "Self-Developed CLI, Claude Code Alternative",
-      "connect": "LangGraph + MCP + A2A Triple Stack",
+      "content": "8-Platform Coverage · Industry's Only Full-Stack AI Platform",
+      "explore": "100+ LLMs · One API Key for All",
+      "brand": "Self-Developed CLI vs. Claude Code · ACP Editor Embedding",
+      "connect": "LangGraph + MCP + A2A Triple Stack · 1029+ API Endpoints",
       "ctaPrimary": "Try Now",
       "ctaSecondary": "Learn More",
       "miniappBtn": "WeChat Mini Program"
@@ -24469,11 +24565,11 @@
     "marquee": {
       "label": "Announcement",
       "items": [
-        "8-Platform AI Platform · 100+ LLMs Unified Access · Self-Developed CLI, Claude Code Alternative",
-        "Welcome to the Zhihui AI Community, early-bird price ¥6000/person/year, limited to 18 seats",
-        "Enterprise AI Decision-Maker Community is now open for recruitment, with free human-machine collaboration practical courses all year",
-        "The first 18 members enjoy one-on-one AI consultant advice, full refund if not satisfied",
-        "Scan the code now to join the Zhihui AI Community and explore the AI era with decision-makers"
+        "8-Platform Coverage · 100+ LLMs · 1029+ API Endpoints · Self-Developed CLI vs. Claude Code",
+        "LangGraph + MCP + A2A Triple Stack · 11 MCP Tools + 5 A2A Endpoints + 6 ACP Extensions",
+        "17 Pre-Commit Guardrails + 122+ Migrations · Industrial-Grade Engineering Rigor",
+        "Limited to 18 Decision-Maker Seats · Early-Bird ¥6000/year (Original ¥18000, 67% Off) · Full Refund If Not Satisfied",
+        "1v1 AI Consultant + Free Year-Round Courses + AI Culture Implementation Coaching · Join the Zhihui AI Community Today"
       ],
       "title": "Brands"
     },
@@ -24482,10 +24578,10 @@
       "subtitle": "AI-era rational efficiency services and a mutual-aid community. We help decision-makers deeply understand the relationship between AI and the enterprise, building a super organization of human-machine collaboration.",
       "description": "Join the community now to access all AI tools, dedicated support, advanced models, and other exclusive benefits to boost your productivity.",
       "brandTitle": "Zhihui AI Community",
-      "brandSubtitle": "8-Platform Enterprise-Grade AI Platform",
-      "seats": "Limited to 18 Decision-Maker Seats",
-      "earlyBird": "Early-Bird ¥6000/year",
-      "multiEnd": "8-Platform Coverage",
+      "brandSubtitle": "8 Platforms · 100+ LLMs · 1029+ API Endpoints",
+      "seats": "Limited to 18 Seats · Decision-Makers Only",
+      "earlyBird": "Early-Bird ¥6000/year · 67% Off",
+      "multiEnd": "8-Platform Coverage · Industry's Only",
       "perYear": "days/year of companionship",
       "benefits": {
         "benefit1": "Free participation in all courses throughout the year",
@@ -24497,9 +24593,9 @@
       }
     },
     "stats": {
-      "platforms": "Platform Coverage",
-      "models": "LLMs Integrated",
-      "seats": "Seats · Decision-Makers"
+      "platforms": "Platform Coverage · Industry's Only",
+      "models": "+ LLMs Integrated",
+      "seats": "Seats Limited · Decision-Makers Only"
     },
     "news": {
       "title": "Latest News",
@@ -24545,7 +24641,7 @@
       "recommended": "Recommended",
       "basic": {
         "name": "Basic",
-        "description": "For individual developers exploring AI",
+        "description": "Individual developers · Entry-level AI platform core capabilities",
         "feature1": "Unlimited AI chat",
         "feature2": "Image generation",
         "feature3": "Voice input",
@@ -24556,7 +24652,7 @@
       },
       "professional": {
         "name": "Professional",
-        "description": "For enterprise decision-makers, in-depth use",
+        "description": "Enterprise decision-makers · Deep use of 100+ LLMs + self-developed CLI",
         "feature1": "Unlimited AI chat",
         "feature2": "Image/video generation",
         "feature3": "90-day history",
@@ -24567,7 +24663,7 @@
       },
       "enterprise": {
         "name": "Enterprise",
-        "description": "For SMB teams, human-machine collaboration",
+        "description": "SMB teams · Human-machine collaboration + team coordination + dedicated consultant",
         "feature1": "Unlimited AI chat",
         "feature2": "Image/video generation",
         "feature3": "Permanent history",
@@ -24578,7 +24674,7 @@
       },
       "flagship": {
         "name": "Flagship",
-        "description": "For decision-makers seeking the ultimate AI experience",
+        "description": "Ultimate AI experience · 1v1 consultant + AI culture implementation coaching",
         "feature1": "Unlimited token usage",
         "feature2": "All AI models access",
         "feature3": "Ultra-fast response",
@@ -24593,24 +24689,24 @@
       "titleEn": "POWERFUL FEATURES",
       "subtitle": "8-platform enterprise-grade AI platform, from model integration to self-developed CLI, meeting your every need",
       "modelIntegration": {
-        "title": "8-Platform Coverage",
-        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Browser Extension, unified account seamless switching"
+        "title": "8-Platform Full-Stack Architecture",
+        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension 6 + API/AI-Service 2, industry's only full-stack, unified account seamless switching"
       },
       "appStore": {
         "title": "100+ LLMs",
-        "description": "OpenAI/Claude/Gemini/DeepSeek/Qwen/GLM, one API key for all"
+        "description": "International 30+ (OpenAI/Claude/Gemini/Llama) + China 15+ (Qwen/GLM/DeepSeek) + Cloud 40+ providers, one API key for all"
       },
       "contentCreation": {
-        "title": "Self-Developed CLI",
-        "description": "Claude Code alternative, ACP Server + 6 tools one-click import"
+        "title": "Self-Developed CLI vs. Claude Code",
+        "description": "ACP Server embedded in Zed/VSCode/Cursor + 6 private extension methods + 6-source config one-click import"
       },
       "edu": {
         "title": "Full-Stack AI Education",
-        "description": "Courses/Live/Exams/Certificates, free all year"
+        "description": "Courses/Live/Exams/Certificates/Instructors/Classes 6 modules, free year-round courses"
       },
       "navigation": {
-        "title": "AI Workspace",
-        "description": "3 permission modes + 7 runtime interception endpoints, enterprise-grade security"
+        "title": "Enterprise-Grade Workspace",
+        "description": "3 permission modes + 7 runtime interception endpoints + 60s timeout rejection + RBAC fine-grained access control"
       }
     },
     "advantages": {
@@ -24618,20 +24714,20 @@
       "titleEn": "CORE ADVANTAGES",
       "subtitle": "Why choose Zhihui AI",
       "professional": {
-        "title": "Professional",
-        "description": "8-platform coverage + 17 guardrail scripts + full-stack observability, industry's first enterprise-grade AI engineering"
+        "title": "Engineering Rigor · Industry Benchmark",
+        "description": "17 pre-commit guardrails + 4 husky hooks + 122+ migrations + 12 shared packages, industrial-grade code quality"
       },
       "efficient": {
-        "title": "Efficient",
-        "description": "LiteLLM smart routing + 60% cache cost reduction + LangGraph orchestration, accelerating AI app deployment"
+        "title": "Smart Routing · Ultimate Cost Reduction",
+        "description": "LiteLLM 100+ model smart routing + 60% cache hit cost reduction + LangGraph orchestration, accelerating AI deployment"
       },
       "reliable": {
-        "title": "Reliable",
-        "description": "99.9% SLA + 60s timeout rejection + RBAC + AES-256-GCM encryption, enterprise-grade security"
+        "title": "Enterprise-Grade Security · Zero Risk",
+        "description": "99.9% SLA + AES-256-GCM encryption + RBAC + 5-language i18n parity + full refund if not satisfied"
       },
       "innovative": {
-        "title": "Innovative",
-        "description": "LangGraph + MCP + A2A triple stack, industry's first inter-agent communication protocol"
+        "title": "Triple Stack · Industry Frontier",
+        "description": "LangGraph workflow + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, surpassing Claude Code across the board"
       }
     }
   },
