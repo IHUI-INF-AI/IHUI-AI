@@ -118,12 +118,17 @@ export const PROMOTIONS: readonly Icon[] = [
 // 底部二维码:
 // - footer-icon-2.png:官方应用二维码(主题感知,白底深码)
 // - wechat-vx.png:微信个人号二维码(2026-07-20 加,源图来自用户百度同步盘 VX.png)。
-//   点击拉起 `weixin://` 协议,浏览器会询问是否打开微信,确认后启动电脑微信。
-//   用户可在电脑微信中用「扫一扫」扫描屏幕上的二维码添加好友。
+//   点击拉起 `weixin://contacts/profile/ok502319984` 协议 → 浏览器询问是否打开微信
+//   → 启动电脑微信并直接跳转到微信号 ok502319984 的个人资料页 → 用户点「添加到通讯录」即可。
+//   (备用:手机号 18643389808,但 weixin:// 协议出于隐私保护不支持用手机号拉起加好友界面)
 //   原 footer-icon-3.png 是 2534×2534 全空白色块 → 弃用。
 export const QRS: readonly Qr[] = [
   { src: '/footer/erweima/footer-icon-2.png', altKey: 'officialApp' },
-  { src: '/footer/erweima/wechat-vx.png', altKey: 'contactUs', href: 'weixin://' },
+  {
+    src: '/footer/erweima/wechat-vx.png',
+    altKey: 'contactUs',
+    href: 'weixin://contacts/profile/ok502319984',
+  },
 ]
 
 // 跑马灯专用:模型 + 推广平台拼接(24 张无缝循环)
