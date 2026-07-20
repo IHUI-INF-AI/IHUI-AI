@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui'
+import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 interface ApiGroup {
@@ -137,11 +138,8 @@ export default function ApiGroupsPage() {
               {list.map((g) => (
                 <tr key={g.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{g.name}</td>
-                  <td
-                    className="max-w-[280px] break-words px-4 py-2.5 text-muted-foreground"
-                    title={g.description}
-                  >
-                    {g.description}
+                  <td className="px-4 py-2.5 text-muted-foreground">
+                    <TruncatedText value={g.description} className="max-w-[280px]" />
                   </td>
                   <td className="px-4 py-2.5">
                     <span className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">

@@ -47,6 +47,7 @@ import {
 } from '@ihui/ui'
 
 import { BrandIcon } from '@/components/ai/brand-icon'
+import { Tooltip } from '@/components/feedback'
 import {
   createConfig,
   fetchConfigs,
@@ -258,14 +259,15 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
                     autoComplete="off"
                     className="pr-10 font-mono text-sm"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey((s) => !s)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    title={showKey ? t('quickKey.hideKey') : t('quickKey.showKey')}
-                  >
-                    {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  </button>
+                  <Tooltip content={showKey ? t('quickKey.hideKey') : t('quickKey.showKey')}>
+                    <button
+                      type="button"
+                      onClick={() => setShowKey((s) => !s)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 

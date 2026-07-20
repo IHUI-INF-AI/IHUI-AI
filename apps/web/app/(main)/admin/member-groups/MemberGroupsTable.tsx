@@ -3,6 +3,7 @@
 import { Loader2, Users, Pencil, Trash2, UserPlus } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { formatTime } from './helpers'
 import type { MemberGroup } from './types'
 
@@ -74,26 +75,30 @@ export function MemberGroupsTable({ list, isLoading, onEdit, onDelete, onMembers
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onMembers(item)}
-                      title="成员管理"
-                    >
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(item)} title="编辑">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(item.id)}
-                      title="删除"
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <Tooltip content="成员管理">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onMembers(item)}
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content="编辑">
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content="删除">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDelete(item.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </TableCell>
               </TableRow>

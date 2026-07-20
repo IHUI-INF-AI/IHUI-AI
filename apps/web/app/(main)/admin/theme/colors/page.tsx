@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui'
-import { Alert } from '@/components/feedback/Alert'
+import { Alert, Tooltip } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
 
 interface ColorScheme {
@@ -102,12 +102,12 @@ export default function ColorsPage() {
               </div>
               <div className="flex gap-1">
                 {c.colors.map((color, i) => (
-                  <div
-                    key={i}
-                    className="h-8 flex-1 rounded border"
-                    style={{ backgroundColor: color }}
-                    title={color}
-                  />
+                  <Tooltip key={i} content={color}>
+                    <div
+                      className="h-8 flex-1 rounded border"
+                      style={{ backgroundColor: color }}
+                    />
+                  </Tooltip>
                 ))}
               </div>
             </CardContent>

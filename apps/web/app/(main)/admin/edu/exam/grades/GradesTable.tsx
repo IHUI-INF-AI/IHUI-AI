@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { Loader2, ClipboardList, CheckCircle2 } from 'lucide-react'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import type { MarkRecord } from './types'
 
 const COLSPAN = 5
@@ -61,15 +62,16 @@ export function GradesTable({ records, isLoading, error, onGrade }: Props) {
                   {r.submittedAt ?? '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onGrade(r.id)}
-                    title={t('grade')}
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    {t('grade')}
-                  </Button>
+                  <Tooltip content={t('grade')}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onGrade(r.id)}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      {t('grade')}
+                    </Button>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))

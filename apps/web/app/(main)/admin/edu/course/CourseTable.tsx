@@ -13,6 +13,8 @@ import {
   Button,
   Checkbox,
 } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
+import { TruncatedText } from '@/components/common'
 import { useTranslations } from 'next-intl'
 import { PERM, badgeCls } from './helpers'
 import type { Course } from './types'
@@ -101,20 +103,10 @@ export function CourseTable({
                 <TableCell className="px-4 py-2.5 font-medium">{r.title}</TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{r.subtitle ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <div
-                    className="max-w-[120px] truncate text-xs text-muted-foreground"
-                    title={r.content}
-                  >
-                    {r.content ?? '-'}
-                  </div>
+                  <TruncatedText value={r.content ?? '-'} className="max-w-[120px] text-xs text-muted-foreground" />
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <div
-                    className="max-w-[120px] truncate text-xs text-muted-foreground"
-                    title={r.remark}
-                  >
-                    {r.remark ?? '-'}
-                  </div>
+                  <TruncatedText value={r.remark ?? '-'} className="max-w-[120px] text-xs text-muted-foreground" />
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{r.remarkFile ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
@@ -145,26 +137,28 @@ export function CourseTable({
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <HasPermi code={`${PERM}edit`}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(r)}
-                        title={t('editTitle')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('editTitle')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(r)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                     <HasPermi code={`${PERM}remove`}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(r)}
-                        title={t('deleteTitle')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deletePending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('deleteTitle')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(r)}
+                          className="text-destructive hover:text-destructive"
+                          disabled={deletePending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                     <Button asChild variant="ghost" size="sm" title={t('videoManageTitle')}>
                       <Link href={`/admin/edu/learn/recorded?courseId=${r.id}`}>

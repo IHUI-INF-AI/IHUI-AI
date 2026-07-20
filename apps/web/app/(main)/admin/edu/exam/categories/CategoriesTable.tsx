@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Edit, Trash2, Loader2, FolderTree } from 'lucide-react'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import type { Category } from './types'
 
 const COLSPAN = 4
@@ -83,21 +84,24 @@ export function CategoriesTable({
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(c)} title={t('edit')}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        if (window.confirm(t('confirmDelete'))) onDelete(c.id)
-                      }}
-                      title={t('delete')}
-                      className="text-destructive hover:text-destructive"
-                      disabled={deletePending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <Tooltip content={t('edit')}>
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(c)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={t('delete')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (window.confirm(t('confirmDelete'))) onDelete(c.id)
+                        }}
+                        className="text-destructive hover:text-destructive"
+                        disabled={deletePending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </TableCell>
               </TableRow>

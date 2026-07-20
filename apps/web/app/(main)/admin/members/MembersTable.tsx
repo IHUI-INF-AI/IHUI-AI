@@ -8,6 +8,7 @@ import { Users, CheckCircle2, XCircle, Ban, Unlock, KeyRound, Trash2 } from 'luc
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 import { type Member, type MemberAction, api, statusBadgeClass, statusDotClass } from './types'
 
 export function MembersTable({
@@ -145,66 +146,72 @@ export function MembersTable({
                     <div className="flex items-center justify-end gap-1">
                       {status === 0 ? (
                         <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => actionMut.mutate({ action: 'approved', id: member.id })}
-                            title={t('approve')}
-                            disabled={actionMut.isPending}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => actionMut.mutate({ action: 'reject', id: member.id })}
-                            title={t('reject')}
-                            disabled={actionMut.isPending}
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
+                          <Tooltip content={t('approve')}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => actionMut.mutate({ action: 'approved', id: member.id })}
+                              disabled={actionMut.isPending}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
+                          <Tooltip content={t('reject')}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => actionMut.mutate({ action: 'reject', id: member.id })}
+                              disabled={actionMut.isPending}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
                         </>
                       ) : null}
                       {status === 1 ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => actionMut.mutate({ action: 'seal', id: member.id })}
-                          title={t('seal')}
-                          disabled={actionMut.isPending}
-                        >
-                          <Ban className="h-4 w-4" />
-                        </Button>
+                        <Tooltip content={t('seal')}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => actionMut.mutate({ action: 'seal', id: member.id })}
+                            disabled={actionMut.isPending}
+                          >
+                            <Ban className="h-4 w-4" />
+                          </Button>
+                        </Tooltip>
                       ) : null}
                       {status === 2 ? (
+                        <Tooltip content={t('unseal')}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => actionMut.mutate({ action: 'unseal', id: member.id })}
+                            disabled={actionMut.isPending}
+                          >
+                            <Unlock className="h-4 w-4" />
+                          </Button>
+                        </Tooltip>
+                      ) : null}
+                      <Tooltip content={t('resetPwd')}>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => actionMut.mutate({ action: 'unseal', id: member.id })}
-                          title={t('unseal')}
-                          disabled={actionMut.isPending}
+                          onClick={() => onReset(member)}
                         >
-                          <Unlock className="h-4 w-4" />
+                          <KeyRound className="h-4 w-4" />
                         </Button>
-                      ) : null}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onReset(member)}
-                        title={t('resetPwd')}
-                      >
-                        <KeyRound className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(member)}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </Tooltip>
+                      <Tooltip content={t('delete')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(member)}
+                          className="text-destructive hover:text-destructive"
+                          disabled={deleteMut.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>

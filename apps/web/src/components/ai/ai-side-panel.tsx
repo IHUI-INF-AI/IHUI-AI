@@ -15,6 +15,7 @@ import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
+import { Tooltip } from '@/components/feedback'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getConversation, getMessages } from '@/lib/chat-api'
@@ -351,25 +352,27 @@ export function AISidePanel() {
               )}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={handleNewChat}
-            disabled={isStreaming}
-            aria-label={tc('newConversation')}
-            title={tc('newConversation')}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={closePanel}
-            aria-label={tcommon('close')}
-            title={tcommon('close')}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <Tooltip content={tc('newConversation')}>
+            <button
+              type="button"
+              onClick={handleNewChat}
+              disabled={isStreaming}
+              aria-label={tc('newConversation')}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </Tooltip>
+          <Tooltip content={tcommon('close')}>
+            <button
+              type="button"
+              onClick={closePanel}
+              aria-label={tcommon('close')}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </header>
 
         {/* 消息区 */}

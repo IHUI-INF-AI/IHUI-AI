@@ -3,6 +3,7 @@ import { Edit, Trash2, Loader2, CalendarDays } from 'lucide-react'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { useTranslations } from 'next-intl'
 import { isNotFound } from '@/lib/api-error'
+import { Tooltip } from '@/components/feedback'
 import type { Schedule } from './types'
 
 interface Props {
@@ -68,19 +69,22 @@ export function ScheduleTable({ rows, isLoading, error, onEdit, onDelete, delete
                 <TableCell className="px-4 py-2.5">{s.location ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(s)} title={t('edit')}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(s)}
-                      title={t('delete')}
-                      className="text-destructive hover:text-destructive"
-                      disabled={deletePending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <Tooltip content={t('edit')}>
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(s)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={t('delete')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDelete(s)}
+                        className="text-destructive hover:text-destructive"
+                        disabled={deletePending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </TableCell>
               </TableRow>

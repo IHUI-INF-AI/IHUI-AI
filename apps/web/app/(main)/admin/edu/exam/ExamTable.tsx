@@ -4,6 +4,7 @@ import { Edit, Trash2, Loader2, FileText, ListChecks } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { useTranslations } from 'next-intl'
+import { Tooltip } from '@/components/feedback'
 import type { Paper } from './types'
 
 interface Props {
@@ -94,24 +95,26 @@ export function ExamTable({ rows, isLoading, error, onEdit, onDelete, deletePend
                         <ListChecks className="h-4 w-4" />
                       </Link>
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEdit(p)}
-                      title={t('editTitle')}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(p)}
-                      title={t('deleteTitle')}
-                      className="text-destructive hover:text-destructive"
-                      disabled={deletePending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <Tooltip content={t('editTitle')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(p)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={t('deleteTitle')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDelete(p)}
+                        className="text-destructive hover:text-destructive"
+                        disabled={deletePending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </TableCell>
               </TableRow>

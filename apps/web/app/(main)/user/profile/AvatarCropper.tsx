@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { RotateCcw, RotateCw } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Button } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 
 interface Props {
   open: boolean
@@ -214,18 +215,19 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
             className="max-w-full cursor-move touch-none rounded-md border bg-muted"
           />
           <div className="flex w-full items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => setRotation((r) => (r + 270) % 360)}
-              disabled={!loaded}
-              title={t('cropRotateLeft')}
-              aria-label={t('cropRotateLeft')}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </Button>
+            <Tooltip content={t('cropRotateLeft')}>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setRotation((r) => (r + 270) % 360)}
+                disabled={!loaded}
+                aria-label={t('cropRotateLeft')}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+            </Tooltip>
             <span className="text-xs text-muted-foreground">{t('cropScale')}</span>
             <input
               type="range"
@@ -241,18 +243,19 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
             <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
               {userScale.toFixed(2)}x
             </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => setRotation((r) => (r + 90) % 360)}
-              disabled={!loaded}
-              title={t('cropRotateRight')}
-              aria-label={t('cropRotateRight')}
-            >
-              <RotateCw className="h-3.5 w-3.5" />
-            </Button>
+            <Tooltip content={t('cropRotateRight')}>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setRotation((r) => (r + 90) % 360)}
+                disabled={!loaded}
+                aria-label={t('cropRotateRight')}
+              >
+                <RotateCw className="h-3.5 w-3.5" />
+              </Button>
+            </Tooltip>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{t('cropPreview')}</span>

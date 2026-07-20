@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui'
+import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 interface GrayRule {
@@ -124,11 +125,8 @@ export default function GrayReleasePage() {
                     <div className="font-medium">{r.name}</div>
                     <div className="text-xs text-muted-foreground">{r.target}</div>
                   </td>
-                  <td
-                    className="max-w-[280px] break-words px-4 py-2.5 text-muted-foreground"
-                    title={r.description}
-                  >
-                    {r.description}
+                  <td className="px-4 py-2.5 text-muted-foreground">
+                    <TruncatedText value={r.description} className="max-w-[280px]" />
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">

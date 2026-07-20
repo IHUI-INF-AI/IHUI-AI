@@ -11,6 +11,7 @@ import {
   Type,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { PDFTextLayer } from './PDFTextLayer'
 
 interface PDFViewerProps {
@@ -155,52 +156,57 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
     <div className={cn('flex flex-col bg-muted/30', className)}>
       <div className="flex items-center justify-between border-b bg-background px-3 py-1.5">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
-            title="上一页"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
+          <Tooltip content="上一页">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </Tooltip>
           <span className="text-xs">
             {page} / {numPages}
           </span>
-          <button
-            onClick={() => setPage((p) => Math.min(numPages, p + 1))}
-            disabled={page >= numPages}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
-            title="下一页"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+          <Tooltip content="下一页">
+            <button
+              onClick={() => setPage((p) => Math.min(numPages, p + 1))}
+              disabled={page >= numPages}
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
-            title="缩小"
-          >
-            <ZoomOut className="h-4 w-4" />
-          </button>
+          <Tooltip content="缩小">
+            <button
+              onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </button>
+          </Tooltip>
           <span className="w-12 text-center text-xs">{Math.round(scale * 100)}%</span>
-          <button
-            onClick={() => setScale((s) => Math.min(3, s + 0.2))}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
-            title="放大"
-          >
-            <ZoomIn className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => setTextSelectable((v) => !v)}
-            className={cn(
-              'rounded p-1 transition-colors hover:bg-accent',
-              textSelectable ? 'bg-primary/10 text-primary' : 'text-muted-foreground',
-            )}
-            title={textSelectable ? '关闭文本选择' : '开启文本选择'}
-          >
-            <Type className="h-4 w-4" />
-          </button>
+          <Tooltip content="放大">
+            <button
+              onClick={() => setScale((s) => Math.min(3, s + 0.2))}
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </button>
+          </Tooltip>
+          <Tooltip content={textSelectable ? '关闭文本选择' : '开启文本选择'}>
+            <button
+              onClick={() => setTextSelectable((v) => !v)}
+              className={cn(
+                'rounded p-1 transition-colors hover:bg-accent',
+                textSelectable ? 'bg-primary/10 text-primary' : 'text-muted-foreground',
+              )}
+            >
+              <Type className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
       </div>
       <div className="relative flex-1 overflow-auto">

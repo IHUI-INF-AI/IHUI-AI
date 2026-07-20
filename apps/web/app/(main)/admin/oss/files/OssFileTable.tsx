@@ -3,6 +3,7 @@
 import { Loader2, Eye, Trash2 } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import { formatSize } from './helpers'
 import type { OssFile } from './types'
 
@@ -59,21 +60,24 @@ export function OssFileTable({ list, isLoading, deletePending, onPreview, onDele
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
                     {f.url && (
-                      <Button variant="ghost" size="sm" onClick={() => onPreview(f)} title="预览">
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content="预览">
+                        <Button variant="ghost" size="sm" onClick={() => onPreview(f)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     )}
                     <HasPermi code="system:oss:remove">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        disabled={deletePending}
-                        onClick={() => onDelete(f)}
-                        title="删除"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content="删除">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          disabled={deletePending}
+                          onClick={() => onDelete(f)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                   </div>
                 </TableCell>

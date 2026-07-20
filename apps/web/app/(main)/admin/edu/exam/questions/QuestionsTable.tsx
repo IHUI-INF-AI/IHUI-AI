@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { TYPE_BADGE } from './helpers'
+import { Tooltip } from '@/components/feedback'
 import type { Question } from './types'
 
 interface Props {
@@ -86,19 +87,22 @@ export function QuestionsTable({
                 <TableCell className="px-4 py-2.5">{q.sortOrder}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(q)} title={t('edit')}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(q)}
-                      title={t('delete')}
-                      className="text-destructive hover:text-destructive"
-                      disabled={deletePending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <Tooltip content={t('edit')}>
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(q)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={t('delete')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDelete(q)}
+                        className="text-destructive hover:text-destructive"
+                        disabled={deletePending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </TableCell>
               </TableRow>

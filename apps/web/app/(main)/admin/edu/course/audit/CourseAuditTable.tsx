@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import { PERM, fmt, statusClass } from './helpers'
 import type { Audit } from './types'
 
@@ -88,14 +89,15 @@ export function CourseAuditTable({ list, isLoading, error, onAudit }: Props) {
                 <TableCell className="px-4 py-2.5">{r.updator ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <HasPermi code={`${PERM}edit`}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onAudit(r)}
-                      title={t('auditCompare')}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <Tooltip content={t('auditCompare')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onAudit(r)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
                   </HasPermi>
                 </TableCell>
               </TableRow>

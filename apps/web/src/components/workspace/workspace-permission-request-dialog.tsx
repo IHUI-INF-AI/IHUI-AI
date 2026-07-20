@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from '@ihui/ui'
 import { usePermissionRequest, type PermissionRequestPayload } from '@/hooks/use-permission-request'
+import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 interface WorkspacePermissionRequestDialogProps {
@@ -112,9 +113,7 @@ export function WorkspacePermissionRequestDialog({
               {current.workspacePath && (
                 <div className="flex items-start justify-between gap-3 text-sm">
                   <span className="shrink-0 text-muted-foreground">{t('workspace')}</span>
-                  <span className="truncate font-mono text-xs" title={current.workspacePath}>
-                    {current.workspacePath}
-                  </span>
+                  <TruncatedText value={current.workspacePath} className="font-mono text-xs" />
                 </div>
               )}
               {argsSummary.length > 0 && (
