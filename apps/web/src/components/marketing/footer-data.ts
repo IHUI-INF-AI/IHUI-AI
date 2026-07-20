@@ -58,41 +58,46 @@ export const PAYMENTS: readonly Icon[] = [
 ]
 
 // 云数据库
+// 5.png (AWS) 白底"aws"字 + 橙色箭头,黑底大背景 → mono
 export const DATABASES: readonly Icon[] = [
   { nameKey: 'databases.mysql', src: '/footer/shujuku/1.png' },
   { nameKey: 'databases.postgresql', src: '/footer/shujuku/2.png' },
   { nameKey: 'databases.mongodb', src: '/footer/shujuku/3.png' },
   { nameKey: 'databases.redis', src: '/footer/shujuku/4.png' },
-  { nameKey: 'databases.sqlite', src: '/footer/shujuku/5.png' },
+  { nameKey: 'databases.sqlite', src: '/footer/shujuku/5.png', mono: true },
 ]
 
-// 官方推广平台(16 槽位,跳号 13/18 素材不存在)
-// 3/5/11.png 经 PIL top3 颜色采样确认是纯白前景 + 透明背景 → 标 mono 应用 invert
+// 官方推广平台(16 槽位,跳号 13/18 素材不存在或未引用)
+// 视觉确认(2026-07-20 第二轮):白前景 + 深/透明背景 的图 → mono
+//   - 3/4/5/6/7/8/10/11/12/14/15/17 视觉为白色 logo/字符/图标,需 invert 才在白卡上可见
+// 黑前景 / 已有色 / 自带深色背景 → 不标 mono
+//   - 1 (小红书彩) / 2 (抖音彩) / 9 (X 黑鸟) / 16 (GitHub 黑猫)
 export const PROMOTIONS: readonly Icon[] = [
   { nameKey: 'promos.promo1', src: '/footer/tuiguangpingtai/1.png' },
   { nameKey: 'promos.promo2', src: '/footer/tuiguangpingtai/2.png' },
   { nameKey: 'promos.promo3', src: '/footer/tuiguangpingtai/3.png', mono: true },
-  { nameKey: 'promos.promo4', src: '/footer/tuiguangpingtai/4.png' },
+  { nameKey: 'promos.promo4', src: '/footer/tuiguangpingtai/4.png', mono: true },
   { nameKey: 'promos.promo5', src: '/footer/tuiguangpingtai/5.png', mono: true },
-  { nameKey: 'promos.promo6', src: '/footer/tuiguangpingtai/6.png' },
-  { nameKey: 'promos.promo7', src: '/footer/tuiguangpingtai/7.png' },
-  { nameKey: 'promos.promo8', src: '/footer/tuiguangpingtai/8.png' },
+  { nameKey: 'promos.promo6', src: '/footer/tuiguangpingtai/6.png', mono: true },
+  { nameKey: 'promos.promo7', src: '/footer/tuiguangpingtai/7.png', mono: true },
+  { nameKey: 'promos.promo8', src: '/footer/tuiguangpingtai/8.png', mono: true },
   { nameKey: 'promos.x', src: '/footer/tuiguangpingtai/9.png', href: 'https://x.com/ok502319984' },
   {
     nameKey: 'promos.facebook',
     src: '/footer/tuiguangpingtai/10.png',
+    mono: true,
     href: 'https://www.facebook.com/share/17kQMPNhQb/',
   },
   { nameKey: 'promos.promo11', src: '/footer/tuiguangpingtai/11.png', mono: true },
-  { nameKey: 'promos.promo12', src: '/footer/tuiguangpingtai/12.png' },
-  { nameKey: 'promos.promo14', src: '/footer/tuiguangpingtai/14.png' },
-  { nameKey: 'promos.promo15', src: '/footer/tuiguangpingtai/15.png' },
+  { nameKey: 'promos.promo12', src: '/footer/tuiguangpingtai/12.png', mono: true },
+  { nameKey: 'promos.promo14', src: '/footer/tuiguangpingtai/14.png', mono: true },
+  { nameKey: 'promos.promo15', src: '/footer/tuiguangpingtai/15.png', mono: true },
   {
     nameKey: 'promos.github',
     src: '/footer/tuiguangpingtai/16.png',
     href: 'https://github.com/AIZHS2025',
   },
-  { nameKey: 'promos.promo17', src: '/footer/tuiguangpingtai/17.png' },
+  { nameKey: 'promos.promo17', src: '/footer/tuiguangpingtai/17.png', mono: true },
 ]
 
 // 底部二维码(仅官方应用;原 footer-icon-3.png 是 2534×2534 全空白色块,
@@ -104,10 +109,24 @@ export const QRS: readonly Qr[] = [
 // 跑马灯专用:模型 + 推广平台拼接(24 张无缝循环)
 export const MARQUEE_BRANDS: readonly Icon[] = [...MODELS, ...PROMOTIONS]
 
-// 2026-07-20 加:学校相关品牌(原未改架构前的跑马灯图片)
-// 仅 2 个学校:dbsfdx(东北师范大学)+ jldx(吉林大学),i18n 走 footer.marquee.dbsfdx / jldx。
-// 单独成行,与 MARQUEE_BRANDS 形成"主品牌行 + 学校行"双行跑马灯。
+// 2026-07-20 恢复:原未改架构前的跑马灯图片(15 槽位,brand4.svg 已丢失 → 实际 14 张)
+// 单一数据源:public/brands/* + footer.marquee.* i18n(5 语言已 parity)。
+// 与 MARQUEE_BRANDS 形成"主品牌行 + 原版品牌行"双行跑马灯。
+// 注:bbx.svg → bbxLogo, ybx.png → yuanbaoxiang, brand8.png → brand8 (非学校但原版就有)。
 export const SCHOOL_BRANDS: readonly Icon[] = [
+  { nameKey: 'marquee.kouzi', src: '/brands/kouzi.png' },
+  { nameKey: 'marquee.bbxLogo', src: '/brands/bbx.svg' },
+  // brand4.svg 在架构变更中丢失,跳过
+  { nameKey: 'marquee.zhipu', src: '/brands/zhipu.png' },
+  { nameKey: 'marquee.brand8', src: '/brands/brand8.png' },
+  { nameKey: 'marquee.ali', src: '/brands/ali.png' },
+  { nameKey: 'marquee.baidu', src: '/brands/baidu.svg' },
   { nameKey: 'marquee.dbsfdx', src: '/brands/dbsfdx.png' },
+  { nameKey: 'marquee.gork', src: '/brands/gork.png' },
+  { nameKey: 'marquee.huawei', src: '/brands/huawei.svg' },
   { nameKey: 'marquee.jldx', src: '/brands/jldx.png' },
+  { nameKey: 'marquee.openai', src: '/brands/openai.png' },
+  { nameKey: 'marquee.tencent', src: '/brands/tencent.png' },
+  { nameKey: 'marquee.yuanbaoxiang', src: '/brands/ybx.png' },
+  { nameKey: 'marquee.yushu', src: '/brands/yushu.png' },
 ]
