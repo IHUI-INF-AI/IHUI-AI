@@ -46,6 +46,27 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       : null
   if (pushFn) permissionManager.setPushFn(pushFn)
 
+  // workspace_permissions 系统运行时拦截 helper
+  // 返回 null → 放行;返回 Error → 拒绝(已写 403 响应)
+  const assertWorkspacePermission = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    ctx: { workspacePath: string; tool: string; args: Record<string, unknown> },
+  ): Promise<Error | null> => {
+    if (!request.userId) return new Error('未登录')
+    const decision = await permissionManager.checkWorkspace({
+      userId: request.userId,
+      workspacePath: ctx.workspacePath,
+      tool: ctx.tool,
+      args: ctx.args,
+    })
+    if (decision.allowed) return null
+    // mode=unset → 401 引导用户先调 /fs/open 完成 setup;其他 → 403
+    const statusCode = decision.mode === 'unset' ? 401 : 403
+    reply.status(statusCode).send(error(statusCode, decision.reason))
+    return new Error(decision.reason)
+  }
+
   const idParam = z.object({ id: z.string() })
   const swarmIdParam = z.object({ swarmId: z.string() })
   const taskIdParam = z.object({ taskId: z.string() })
@@ -119,6 +140,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
     if (!body.path || !body.workspacePath)
       return reply.status(400).send(error(400, 'path 和 workspacePath 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.read',
+        args: { path: body.path, startLine: body.startLine, endLine: body.endLine },
+      })) !== null
+    )
+      return
     try {
       const result = fsBridge.read(body)
       return reply.send(success(result))
@@ -140,6 +169,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
     if (!body.path || !body.workspacePath)
       return reply.status(400).send(error(400, 'path 和 workspacePath 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.write',
+        args: { path: body.path, createDirs: body.createDirs },
+      })) !== null
+    )
+      return
     try {
       const result = fsBridge.write(body)
       return reply.send(success(result))
@@ -161,6 +198,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
     if (!body.path || !body.workspacePath)
       return reply.status(400).send(error(400, 'path 和 workspacePath 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.edit',
+        args: { path: body.path },
+      })) !== null
+    )
+      return
     try {
       const result = fsBridge.edit(body)
       return reply.send(success(result))
@@ -177,6 +222,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
     if (!body.path || !body.workspacePath)
       return reply.status(400).send(error(400, 'path 和 workspacePath 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.delete',
+        args: { path: body.path, recursive: body.recursive },
+      })) !== null
+    )
+      return
     try {
       const result = fsBridge.delete(body)
       return reply.send(success(result))
@@ -199,6 +252,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
     if (!body.path || !body.workspacePath || !body.pattern)
       return reply.status(400).send(error(400, 'path/workspacePath/pattern 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.grep',
+        args: { path: body.path, pattern: body.pattern, glob: body.glob },
+      })) !== null
+    )
+      return
     try {
       const result = fsBridge.grep({
         ...body,
@@ -218,6 +279,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
     if (!body.path || !body.workspacePath || !body.pattern)
       return reply.status(400).send(error(400, 'path/workspacePath/pattern 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.glob',
+        args: { path: body.path, pattern: body.pattern },
+      })) !== null
+    )
+      return
     try {
       const result = fsBridge.glob(body)
       return reply.send(success(result))
@@ -239,6 +308,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
     if (!body.command || !body.workspacePath)
       return reply.status(400).send(error(400, 'command 和 workspacePath 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.run',
+        args: { command: body.command, cwd: body.cwd, timeoutMs: body.timeoutMs },
+      })) !== null
+    )
+      return
     try {
       const result = await fsBridge.run(body)
       return reply.send(success(result))
