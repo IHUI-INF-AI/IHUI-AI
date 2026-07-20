@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { HelpCircle, Loader2, Plus, Search, MessageSquare, Eye, CheckCircle2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -48,6 +48,7 @@ type Tab = 'all' | 'mine' | 'hot'
 function initials(name: string): string {
   if (!name) return '?'
   const parts = name.trim().split(/\s+/)
+
   const first = parts[0]
   const last = parts[parts.length - 1]
   if (!first || !last) return '?'
@@ -56,6 +57,7 @@ function initials(name: string): string {
 }
 
 export default function AskPage() {
+  const t = useTranslations('ask')
   const locale = useLocale()
   const qc = useQueryClient()
   const [tab, setTab] = React.useState<Tab>('all')
@@ -93,11 +95,11 @@ export default function AskPage() {
     mutationFn: async () => {
       setFormError(null)
       if (!newTitle.trim()) {
-        setFormError('请输入问题标题')
+        setFormError(t('titleRequired'))
         throw new Error('empty title')
       }
       if (!newContent.trim()) {
-        setFormError('请输入问题内容')
+        setFormError(t('contentRequired'))
         throw new Error('empty content')
       }
       const tags = newTags
@@ -133,9 +135,9 @@ export default function AskPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'all', label: '全部' },
-    { key: 'mine', label: '我的' },
-    { key: 'hot', label: '热门' },
+    { key: 'all', label: t('tabAll') },
+    { key: 'mine', label: t('tabMine') },
+    { key: 'hot', label: t('tabHot') },
   ]
 
   return (
@@ -144,13 +146,13 @@ export default function AskPage() {
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
             <HelpCircle className="h-7 w-7 text-primary" />
-            问答
+            {t('title')}
           </h1>
-          <p className="text-sm text-muted-foreground">提问与解答，共同学习成长</p>
+          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4" />
-          提问
+          {t('askButton')}
         </Button>
       </header>
 
@@ -176,7 +178,7 @@ export default function AskPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索问题"
+            placeholder={t('searchInput')}
             className="h-9 pl-8"
           />
         </div>
@@ -185,7 +187,7 @@ export default function AskPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : error ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -195,7 +197,7 @@ export default function AskPage() {
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
           <HelpCircle className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            {tab === 'mine' ? '你还没有提问过' : '暂无问题'}
+            {tab === 'mine' ? t('emptyMine') : t('emptyAll')}
           </p>
         </div>
       ) : (
@@ -208,7 +210,7 @@ export default function AskPage() {
                     {a.isResolved && (
                       <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
                         <CheckCircle2 className="h-3 w-3" />
-                        已解决
+                        {t('resolved')}
                       </span>
                     )}
                     <p className="break-words text-sm font-medium">{a.title}</p>
@@ -247,7 +249,7 @@ export default function AskPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">共 {total} 条</span>
+          <span className="text-sm text-muted-foreground">{t('totalCount', { total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -255,7 +257,7 @@ export default function AskPage() {
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              上一页
+              {t('prev')}
             </Button>
             <span className="text-sm text-muted-foreground">
               {page} / {totalPages}
@@ -266,7 +268,7 @@ export default function AskPage() {
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
             >
-              下一页
+              {t('next')}
             </Button>
           </div>
         </div>
@@ -275,38 +277,38 @@ export default function AskPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>提出问题</DialogTitle>
+            <DialogTitle>{t('dialogTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <Input
-              label="标题"
+              label={t('titleLabel')}
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="一句话描述你的问题"
+              placeholder={t('titlePlaceholder')}
               maxLength={100}
             />
             <Textarea
-              label="内容"
+              label={t('contentLabel')}
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
-              placeholder="详细描述问题背景、已尝试的方案等"
+              placeholder={t('contentPlaceholder')}
               rows={6}
             />
             <Input
-              label="标签"
+              label={t('tagsLabel')}
               value={newTags}
               onChange={(e) => setNewTags(e.target.value)}
-              placeholder="多个标签用逗号分隔"
+              placeholder={t('tagsPlaceholder')}
               maxLength={100}
             />
             {formError && <p className="text-sm text-destructive">{formError}</p>}
             <div className="flex items-center gap-3 pt-1">
               <Button onClick={() => createMut.mutate()} disabled={createMut.isPending}>
                 {createMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                发布
+                {t('publish')}
               </Button>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                取消
+                {t('cancel')}
               </Button>
             </div>
           </div>
