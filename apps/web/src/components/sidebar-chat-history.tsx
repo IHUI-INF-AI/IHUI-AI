@@ -29,7 +29,6 @@ import {
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAuthStore } from '@/stores/auth'
-import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import {
@@ -220,7 +219,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   if (collapsed) return null
 
   // 未登录态:仍渲染容器(保持视觉占位,避免用户以为"任务列表丢了"),
-  // 内容为"请先登录"引导,点击触发登录弹窗。不发起 API 请求(useQuery enabled 已门控)。
+  // 内容为"请先登录"纯提示文字(登录入口由底部 SidebarUserRow 提供,不重复造按钮)。
   if (!isAuthenticated) {
     return (
       <div
@@ -231,14 +230,10 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
         <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span>{tc('history')}</span>
         </div>
-        <button
-          type="button"
-          onClick={() => useLoginDialogStore.getState().open('login')}
-          className="flex w-full items-center gap-1.5 rounded-sm px-2 py-3 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
+        <div className="flex items-center gap-1.5 px-2 py-3 text-xs text-muted-foreground">
           <LogIn className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{t('loginRequired')}</span>
-        </button>
+        </div>
       </div>
     )
   }
