@@ -3,7 +3,6 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Mail } from 'lucide-react'
 import {
   DATABASES,
   IMG_EAGER,
@@ -22,7 +21,7 @@ import {
  * 布局:3 栏 grid(md+)
  *   1. 公司信息(名称/地址/电话/邮箱) + 6 快速链接
  *   2. 4 类生态平台 Logo(支持 2 / 模型 8 / 支付 5 / 数据库 5)
- *   3. 官方推广平台 16 槽位 + 1 官方应用 QR + 1 联系卡片
+ *   3. 官方推广平台 16 槽位 + 官方应用 QR + 微信联系 QR
  * 底部:ICP 备案 + 版权 + 协议链接
  *
  * 图片数据集中在 `footer-data.ts`,与 BrandMarquee 共享单一来源。
@@ -32,7 +31,8 @@ import {
  * - ICON_BOX 背景从 bg-white 改 bg-foreground/[0.04],让 model/3x(Claude 白底透明)
  *   + awsp/n8n(白底透明)+ tuiguangpingtai/3/5/11(白底透明)等图标在白卡上可见。
  * - QR_BOX 改 bg-zinc-900(始终深色),让 footer-icon-2.png 的白色 QR 码在亮/暗模式都可见。
- * - footer-icon-3.png 是 2534×2534 全空白色块(无 QR 数据),改用 Mail 图标 + 联系卡片。
+ * - 联系二维码改用 wechat-vx.png(用户个人微信二维码),点击拉起 `weixin://` 协议
+ *   → 浏览器询问是否打开微信 → 启动电脑微信,用户用「扫一扫」扫描屏幕二维码添加好友。
  */
 
 type Link_ = { readonly labelKey: string; readonly href: string }
@@ -59,9 +59,6 @@ const QR_BOX = 'h-24 w-24 overflow-hidden rounded-md border border-zinc-900 bg-z
 const QR_IMG = 'h-full w-full object-contain'
 const COMPANY_LINK = 'text-muted-foreground transition-colors hover:text-primary'
 const FOOTER_BOTTOM_LINK = 'transition-colors hover:text-primary'
-// 2026-07-20 改:bg-card(同 ICON_BOX,主题感知)
-const CONTACT_CARD =
-  'flex h-24 w-24 flex-col items-center justify-center gap-1.5 rounded-md border bg-card transition-colors hover:border-primary/40'
 
 // 2026-07-20 加:mono 图标的 filter 适配类
 // 亮色模式: invert(100%) → 白图变黑(白底白图 → 黑底白图)
@@ -132,30 +129,43 @@ function PlatformGroup({
 }
 
 function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'footer'>> }) {
+  const img = (
+    <img src={qr.src} alt={t(qr.altKey)} width={88} height={88} className={QR_IMG} {...IMG_EAGER} />
+  )
+  const box = <div className={QR_BOX}>{img}</div>
+  // 有 href 时(如 weixin:// 拉起电脑微信)用 <a> 包裹,无 href 时保持纯展示
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <div className={QR_BOX}>
-        <img
-          src={qr.src}
-          alt={t(qr.altKey)}
-          width={88}
-          height={88}
-          className={QR_IMG}
-          {...IMG_EAGER}
-        />
-      </div>
+      {qr.href ? (
+        <a href={qr.href} title={t(qr.altKey)} className="transition-opacity hover:opacity-80">
+          {box}
+        </a>
+      ) : (
+        box
+      )}
       <span className="text-xs text-muted-foreground">{t(qr.altKey)}</span>
     </div>
   )
 }
 
-export function SiteFooter() {
+export function SiteFooter({ className }: { className?: string }) {
   const t = useTranslations('footer')
   const tRoutes = useTranslations('routes')
 
   return (
-    <footer className="mt-12 border-t bg-card/50">
-      <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-8">
+    // 2026-07-20 改(根因修复):footer 自身加 px-4 md:px-8,内部最外层 div 改 w-full
+    // 去掉 max-w-7xl + mx-auto。原 max-w-7xl (1280px) 在大屏下让内容居中、左右留空,
+    // 导致 footer 内部 div 边缘 != footer 标签边缘,与 page 4 magazine 容器
+    // (flex-1 + px-4 md:px-8) 左右不匹配。改后 footer 内容 = magazine 内容
+    // 横向缩进位置,左右完全吻合。
+    <footer
+      className={`border-t bg-card/50 px-4 pt-6 pb-1 md:px-8 md:pt-8 md:pb-2${
+        className ? ` ${className}` : ''
+      }`}
+    >
+      {/* 内部最外层 div 改 w-full,撑满 footer 自身 padding 后的空间,无 max-w 限制。
+          这样 footer 内部 div 左右边界 = footer 标签内容区左右边界 = 视觉吻合 footer。 */}
+      <div className="flex w-full flex-col gap-6">
         <div className="grid gap-8 md:grid-cols-3">
           {/* 公司信息 + 快速链接 */}
           <div className="space-y-3">
@@ -187,20 +197,13 @@ export function SiteFooter() {
             <PlatformGroup title={t('cloudDatabases')} items={DATABASES} t={t} />
           </div>
 
-          {/* 推广平台 + 二维码 + 联系卡片 */}
+          {/* 推广平台 + 二维码 */}
           <div className="space-y-3">
             <PlatformGroup title={t('officialPromotion')} items={PROMOTIONS} t={t} />
             <div className="flex gap-5 pt-2">
               {QRS.map((q) => (
                 <QrItem key={q.src} qr={q} t={t} />
               ))}
-              {/* 联系卡片(替代空白色块 footer-icon-3.png) */}
-              <div className="flex flex-col items-center gap-1.5">
-                <Link href="/support" className={CONTACT_CARD} title={t('contactUs')}>
-                  <Mail className="h-7 w-7 text-foreground/70" aria-hidden="true" />
-                </Link>
-                <span className="text-xs text-muted-foreground">{t('contactUs')}</span>
-              </div>
             </div>
           </div>
         </div>
