@@ -68,24 +68,22 @@ export const DATABASES: readonly Icon[] = [
 ]
 
 // 官方推广平台(16 槽位,跳号 13/18 素材不存在或未引用)
-// 2026-07-20 第三轮校正:取消 1.png mono 标记。1.png 是"小红书"深底白字
-// (实际像素 81% 黑色背景 RGB(44,44,44) + 13% 白色文字),invert 后背景
-// 变浅灰 RGB(211,211,211) + 文字变黑,放在白底容器上背景融为白,只剩
-// 模糊"小红书"字,用户报"图标还是没显示为黑色"。修正:深底白字本身就有
-// 强对比,直接放白底就清晰,不 invert。
-// - mono: 纯白前景 + 透明背景(图整体白,invert 变黑,亮色下从白变黑)
-// - 不标 mono: 深底白字 / 彩色 / 已有黑色,亮色下天然可见
-// 1 (小红书深底白字) / 2 (抖音彩) / 9 (X 黑鸟) / 16 (GitHub 黑猫) — 不标 mono
+// 2026-07-20 第四轮校正:PIL 像素数据为准(浏览器 canvas 验证易被
+// alpha 合成误导,Read tool 把白底透明图反衬在黑底,看起来像"黑图")。
+// - 1 (小红书深底白字 81% 黑底 + 13% 白字) → 不标 mono
+// - 2 (抖音浅底彩边 51% 近白) → 标 mono(白前景+透明边)
+// - 9 (X 黑鸟 100% 白前景) → 标 mono
+// - 16 (GitHub 黑猫 100% 白前景) → 标 mono
 export const PROMOTIONS: readonly Icon[] = [
   { nameKey: 'promos.promo1', src: '/footer/tuiguangpingtai/1.png' },
-  { nameKey: 'promos.promo2', src: '/footer/tuiguangpingtai/2.png' },
+  { nameKey: 'promos.promo2', src: '/footer/tuiguangpingtai/2.png', mono: true },
   { nameKey: 'promos.promo3', src: '/footer/tuiguangpingtai/3.png', mono: true },
   { nameKey: 'promos.promo4', src: '/footer/tuiguangpingtai/4.png', mono: true },
   { nameKey: 'promos.promo5', src: '/footer/tuiguangpingtai/5.png', mono: true },
   { nameKey: 'promos.promo6', src: '/footer/tuiguangpingtai/6.png', mono: true },
   { nameKey: 'promos.promo7', src: '/footer/tuiguangpingtai/7.png', mono: true },
   { nameKey: 'promos.promo8', src: '/footer/tuiguangpingtai/8.png', mono: true },
-  { nameKey: 'promos.x', src: '/footer/tuiguangpingtai/9.png', href: 'https://x.com/ok502319984' },
+  { nameKey: 'promos.x', src: '/footer/tuiguangpingtai/9.png', mono: true, href: 'https://x.com/ok502319984' },
   {
     nameKey: 'promos.facebook',
     src: '/footer/tuiguangpingtai/10.png',
@@ -96,11 +94,7 @@ export const PROMOTIONS: readonly Icon[] = [
   { nameKey: 'promos.promo12', src: '/footer/tuiguangpingtai/12.png', mono: true },
   { nameKey: 'promos.promo14', src: '/footer/tuiguangpingtai/14.png', mono: true },
   { nameKey: 'promos.promo15', src: '/footer/tuiguangpingtai/15.png', mono: true },
-  {
-    nameKey: 'promos.github',
-    src: '/footer/tuiguangpingtai/16.png',
-    href: 'https://github.com/AIZHS2025',
-  },
+  { nameKey: 'promos.github', src: '/footer/tuiguangpingtai/16.png', mono: true, href: 'https://github.com/AIZHS2025' },
   { nameKey: 'promos.promo17', src: '/footer/tuiguangpingtai/17.png', mono: true },
 ]
 
