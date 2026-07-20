@@ -30,8 +30,6 @@ const PRICING_PLANS: PricingPlan[] = [
       'basic.feature3',
       'basic.feature4',
       'basic.feature5',
-      'basic.feature6',
-      'basic.feature7',
     ],
   },
   {
@@ -47,8 +45,6 @@ const PRICING_PLANS: PricingPlan[] = [
       'professional.feature3',
       'professional.feature4',
       'professional.feature5',
-      'professional.feature6',
-      'professional.feature7',
     ],
   },
   {
@@ -64,8 +60,6 @@ const PRICING_PLANS: PricingPlan[] = [
       'enterprise.feature3',
       'enterprise.feature4',
       'enterprise.feature5',
-      'enterprise.feature6',
-      'enterprise.feature7',
     ],
   },
   {
@@ -81,8 +75,6 @@ const PRICING_PLANS: PricingPlan[] = [
       'flagship.feature3',
       'flagship.feature4',
       'flagship.feature5',
-      'flagship.feature6',
-      'flagship.feature7',
     ],
   },
 ]
@@ -92,16 +84,16 @@ export function HomePage4Pricing() {
 
   return (
     // 2026-07-20 改:去掉 max-w-7xl mx-auto,容器改 w-full 撑满营销区域
-    <section className="w-full px-4 py-12 sm:py-16">
-      <div className="mb-8 text-center sm:mb-10">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('title')}</h2>
-        <h3 className="font-edix mt-1 text-xs uppercase tracking-wider text-muted-foreground">
+    <section className="w-full px-4 py-4 sm:py-6">
+      <div className="mb-4 text-center sm:mb-5">
+        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{t('title')}</h2>
+        <h3 className="font-edix mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
           {t('titleEn')}
         </h3>
-        <p className="mt-2 text-sm text-muted-foreground sm:text-base">{t('subtitle')}</p>
+        <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{t('subtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3">
         {PRICING_PLANS.map((plan) => {
           const isRecommended = plan.recommended
           return (
@@ -114,40 +106,40 @@ export function HomePage4Pricing() {
               }
             >
               {isRecommended && (
-                <div className="absolute right-3 top-3 z-10">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground shadow-sm">
+                <div className="absolute right-2 top-2 z-10">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
                     <Sparkles className="h-3 w-3" />
                     {t('recommended')}
                   </span>
                 </div>
               )}
 
-              <div className="flex flex-1 flex-col p-5">
-                <div className="mb-3">
-                  <h3 className="text-lg font-bold leading-tight tracking-tight">
+              <div className="flex flex-1 flex-col p-4">
+                <div className="mb-2">
+                  <h3 className="text-base font-bold leading-tight tracking-tight">
                     {t(plan.nameKey)}
                   </h3>
-                  <p className="mt-1 text-xs text-muted-foreground">{t(plan.descKey)}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">{t(plan.descKey)}</p>
                 </div>
 
-                <div className="mb-4 flex items-baseline gap-1">
-                  <span className="text-base font-semibold text-muted-foreground">¥</span>
-                  <span className="text-3xl font-bold leading-none tracking-tight">
+                <div className="mb-3 flex items-baseline gap-1">
+                  <span className="text-sm font-semibold text-muted-foreground">¥</span>
+                  <span className="text-2xl font-bold leading-none tracking-tight">
                     {plan.price}
                   </span>
-                  <span className="text-sm text-muted-foreground">{t('period')}</span>
+                  <span className="text-xs text-muted-foreground">{t('period')}</span>
                 </div>
 
-                <ul className="mb-5 flex-1 space-y-2">
+                <ul className="mb-3 flex-1 space-y-1.5">
                   {plan.featureKeys.map((featureKey) => (
-                    <li key={featureKey} className="flex items-start gap-2 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+                    <li key={featureKey} className="flex items-start gap-1.5 text-xs">
+                      <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary" />
                       <span className="text-muted-foreground">{t(featureKey)}</span>
                     </li>
                   ))}
                 </ul>
 
-                <Button asChild className="w-full rounded-md">
+                <Button asChild className="w-full rounded-md" size="sm">
                   <Link href={plan.href}>{t('cta')}</Link>
                 </Button>
               </div>
