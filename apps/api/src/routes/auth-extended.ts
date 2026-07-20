@@ -309,9 +309,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       // dev stub 模式下回传验证码,便于本地联调(生产环境 stub 不会触发,因为生产应配置真实 provider)
       const isDev = process.env.NODE_ENV !== 'production'
       return reply.send(
-        success(
-          isDev && result.stub ? { sent: true, devCode: code } : { sent: true },
-        ),
+        success(isDev && result.stub ? { sent: true, devCode: code } : { sent: true }),
       )
     },
   )
@@ -387,47 +385,106 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // 更新资料
+  // 更新资料 (Phase 5 P0 修复:接受前端 api-client 全部字段)
   server.put('/auth/profile', async (request, reply) => {
     await authenticate(request)
-    const { nickname, email, gender } = z
+    const parsed = z
       .object({
-        nickname: z.string().optional(),
-        email: z.string().optional(),
-        gender: z.number().optional(),
+        // 兼容两种风格:后端原 snake_case (nickname/email/gender) + 前端 camelCase (avatar/bio/birthday)
+        nickname: z.string().min(1).max(64).optional(),
+        email: z.string().email().optional(),
+        gender: z.number().int().min(0).max(2).optional(),
+        avatar: z
+          .string()
+          .max(500)
+          .refine((s) => s.startsWith('/') || s.startsWith('http://') || s.startsWith('https://'), {
+            message: 'avatar 必须是 URL 或以 / 开头的相对路径',
+          })
+          .optional(),
+        bio: z.string().max(500).optional(),
+        birthday: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}/, 'birthday 格式应为 YYYY-MM-DD')
+          .optional()
+          .nullable(),
       })
-      .parse(request.body)
-    if (nickname !== undefined || email !== undefined) {
-      await updateUser(request.userId!, { nickname, email })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    if (gender !== undefined) {
-      const { db } = await import('../db/index.js')
-      const { users } = await import('@ihui/database')
-      const { eq } = await import('drizzle-orm')
-      await db
-        .update(users)
-        .set({ gender, updatedAt: new Date() })
-        .where(eq(users.id, request.userId!))
+    const d = parsed.data
+    const { nickname, email, gender, avatar, bio, birthday } = d
+    if (
+      nickname === undefined &&
+      email === undefined &&
+      gender === undefined &&
+      avatar === undefined &&
+      bio === undefined &&
+      birthday === undefined
+    ) {
+      return reply.status(400).send(error(400, '至少提供一个要更新的字段'))
     }
-    return reply.send(success({ updated: true }))
+    // 基础字段走 users 表
+    await updateUser(request.userId!, {
+      ...(nickname !== undefined ? { nickname } : {}),
+      ...(email !== undefined ? { email } : {}),
+    })
+    // 扩展字段直写 users (avatar/bio/birthday/gender)
+    const { db } = await import('../db/index.js')
+    const { users } = await import('@ihui/database')
+    const { eq } = await import('drizzle-orm')
+    const updates: Record<string, unknown> = { updatedAt: new Date() }
+    if (avatar !== undefined) updates.avatar = avatar
+    if (bio !== undefined) updates.bio = bio
+    if (birthday !== undefined) updates.birthday = birthday ? new Date(birthday) : null
+    if (gender !== undefined) updates.gender = gender
+    if (Object.keys(updates).length > 0) {
+      await db.update(users).set(updates).where(eq(users.id, request.userId!))
+    }
+    // 拉取最新用户信息
+    const fresh = await findUserById(request.userId!)
+    return reply.send(
+      success({
+        id: fresh?.id,
+        nickname: fresh?.nickname ?? nickname ?? null,
+        avatar: fresh?.avatar ?? avatar ?? null,
+        email: fresh?.email ?? email ?? null,
+        bio: fresh?.bio ?? bio ?? null,
+        gender: fresh?.gender ?? gender ?? null,
+        birthday: fresh?.birthday ?? (birthday ? new Date(birthday).toISOString() : null),
+        updated: true,
+      }),
+    )
   })
 
-  // 修改密码
+  // 修改密码 (Phase 5 P0 修复:同时接受 camelCase 与 snake_case 字段)
   server.put('/auth/profile/password', async (request, reply) => {
     await authenticate(request)
-    const { old_password, new_password } = z
+    const parsed = z
       .object({
-        old_password: z.string(),
-        new_password: z.string(),
+        // 前端 api-client 使用 camelCase
+        oldPassword: z.string().min(1).max(128).optional(),
+        newPassword: z.string().min(6).max(128).optional(),
+        // 兼容旧接口 snake_case
+        old_password: z.string().min(1).max(128).optional(),
+        new_password: z.string().min(6).max(128).optional(),
       })
-      .parse(request.body)
-    if (new_password.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const oldPwd = parsed.data.oldPassword ?? parsed.data.old_password
+    const newPwd = parsed.data.newPassword ?? parsed.data.new_password
+    if (!oldPwd || !newPwd) {
+      return reply.status(400).send(error(400, '缺少 oldPassword/newPassword'))
+    }
+    if (newPwd.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
     const user = await findUserById(request.userId!)
-    if (!user?.passwordHash || !bcrypt.compareSync(old_password, user.passwordHash)) {
+    if (!user?.passwordHash || !bcrypt.compareSync(oldPwd, user.passwordHash)) {
       return reply.status(400).send(error(400, '旧密码错误'))
     }
-    await updateUser(request.userId!, { passwordHash: bcrypt.hashSync(new_password, 10) })
-    return reply.send(success({ updated: true }))
+    await updateUser(request.userId!, { passwordHash: bcrypt.hashSync(newPwd, 10) })
+    return reply.send(success({ success: true, updated: true }))
   })
 
   // 注销
@@ -1830,8 +1887,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           break
         }
         case 'feishu': {
-          if (!isFeishuConfigured())
-            return reply.status(400).send(error(400, '飞书 OAuth 未配置'))
+          if (!isFeishuConfigured()) return reply.status(400).send(error(400, '飞书 OAuth 未配置'))
           const feishuToken = await getFeishuAccessToken(code)
           const feishuInfo = await getFeishuUserInfo(feishuToken.accessToken)
           openId = feishuInfo.openId
