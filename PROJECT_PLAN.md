@@ -7,6 +7,29 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### M-64 AI 面板手柄竖向提示文字水平居中 + dist UTF-8 BOM 守门(2026-07-20)
+
+**触发**:用户反馈"AI 面板手柄竖向提示文字水平居中"问题(关闭态 `.ai-panel-handle-tooltip` 和打开态 `.ai-panel-resize-tooltip` 文字框垂直竖排,但水平居中数学需真实验证);`check-dist-encoding.mjs` 已加入 pre-commit #4b 但仅覆盖 `packages/*/dist/**`,需扩展到 `apps/*/dist`(Next.js 构建产物也可能被 PowerShell WriteAllText 污染)。
+
+**改动**:
+
+1. **globals.css 竖向 tooltip 居中数学复核**:
+   - `.ai-panel-handle-tooltip` / `.ai-panel-resize-tooltip` 当前用 `display: grid; place-items: center; text-align: center;` — 物理居中理论上成立
+   - 真实验证 dev server 渲染:浏览器访问 AI 面板页 → hover 关闭态手柄 + 打开态手柄 → 读 DOM `offsetWidth/offsetHeight` + `getBoundingClientRect` 确认文字在 box 内物理居中
+   - 如实际仍偏左/偏右:补 `text-orientation: upright` 关闭字符旋转 OR 改用 `inline-size: max-content` + 显式 `margin: auto` 兜底
+2. **check-dist-encoding.mjs 扩展检测范围**:
+   - 增加 `apps/*/dist/**` 扫描(Next.js 构建产物)
+   - 可选:增加 `.css` `.json` `.html` 检测(Turbopack 解析同样会失败)
+   - 退出码 0/1 保持不变
+3. **pre-commit 联动**:如脚本增强无需改 pre-commit(已在 #4b 行)
+
+**验证**:
+
+- `node scripts/check-dist-encoding.mjs` 跑通(扩展范围后无 BOM 通过)
+- browser DOM 验证:hover 关闭态/打开态手柄 → tooltip 文字物理居中(|delta| ≤ 0.5px)
+- pre-commit 跑通
+- typecheck + lint 全绿
+
 ### SiteFooter 全量 i18n 化(已完成 ✅ 2026-07-20,commit 89297a9)
 
 **触发**:用户从浏览器选中 footer 看到 `marketing.footer.*` key 字符串未解析成译文(根因排查中),并指出"footer 这里所有的内容请你做好i18n 不可以有任何遗漏"——经审查 `SiteFooter.tsx` 仍有以下硬编码/非 i18n 化的中文/品牌名:
@@ -30,6 +53,75 @@
 ---
 
 ## 2026-07-20 已完成任务
+
+### 首页 6 个 UI 修复(指示器竖向+灰 / 跑马灯+Footer 图标可见 / QR 深底 / 联系我们卡片)(已完成 ✅ 2026-07-20)
+
+**触发**:用户在[E:\桌面\交付报告问题修复与验证.md]指出前一轮 commit 2498669d 后仍有 6 个 UI 问题:
+
+1. 右侧指示器圆点 active 拉长方向错(应该竖向,当前是横向)+ 颜色用了 `bg-primary` 蓝色(用户要"只有黑白灰")
+2. 跑马灯 logo 没有全部显示,还有很多空白区域
+3. 底部 footer 也有很多图标没显示出来
+4. 支持接入平台第 1 个图(n8n)看不到
+5. 模型的第 2 个图(Claude 3x)看不到
+6. 官方平台除小红书跟抖音外其他都看不到
+7. 官方应用二维码 + 联系我们二维码在亮色模式下看不到(因为图也是白色的)
+
+**根因分析**(Python PIL 像素采样验证):
+
+- `apps/web/public/footer/awsp/n8n.png`、`model/3x.png`(Claude)、`tuiguangpingtai/3/5/11.png` 等大量 PNG 图标的**前景色是纯白色,背景透明**(top3 颜色: `(0,0,0,0)` 透明 + `(255,255,255,255)` 白)→ 放在 `bg-white` 容器上**白底白图=不可见**
+- `footer-icon-2.png`(430×430):白色 QR + 中央黑色"AI 智能" logo + 角落绿色 WeChat → 需要深色背景才能让白色 QR 可见
+- `footer-icon-3.png`(2534×2534,**235KB 全空白色块**):Python 扫描 0 个非白像素 → **完全没有 QR 数据,空文件**
+- `PageIndicator` `bg-primary`(亮蓝)不符合用户"颜色只有黑白灰"要求
+
+**改动**(只动 web 端,符合 §9 平台独占豁免:首页营销页是 web 专属):
+
+1. **PageIndicator v4**([PageIndicator.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/PageIndicator.tsx)):
+   - active dot:`h-1.5 w-4`(横向 6×16)→ `h-4 w-1.5`(竖向 16×6)
+   - 颜色:`bg-primary` 蓝 → `bg-foreground` 灰(默认 + active + hover 全部去色,只留黑白灰)
+   - 默认点 hover 6→8 圆形,`bg-foreground/30` → `bg-foreground/60`
+   - button 命中区 16×10 → 16×16(配合新 active 高度)
+2. **BrandMarquee**([BrandMarquee.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/BrandMarquee.tsx)):
+   - 图标容器 `bg-white` → `bg-foreground/[0.04]`(极浅灰底,让白底透明 PNG 全部可见,同时不破坏"light mode whiter"偏好)
+3. **SiteFooter ICON_BOX**([SiteFooter.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/SiteFooter.tsx)):
+   - 4 类生态平台 + 16 推广平台 = 36 个图标容器:`bg-white` → `bg-foreground/[0.04]`
+   - 让 Claude/N8N/tuiguangpingtai 3/5/11 等白底透明 logo 全部可见
+4. **SiteFooter QR_BOX**:
+   - `bg-white` → `bg-zinc-900`(始终深色,亮/暗模式都让白色 QR 可见)
+   - `border-white` → `border-zinc-900`(边框跟随背景)
+5. **footer-data.ts**([footer-data.ts](file:///g:/IHUI-AI/apps/web/src/components/marketing/footer-data.ts)):
+   - 从 `QRS` 数组移除空白色块 `footer-icon-3.png`(无 QR 数据)
+6. **SiteFooter 联系卡片**:
+   - 在 QR 旁边新增"联系我们"卡片(Mail 图标 + Link to /support),替代空 QR
+   - 容器 `bg-foreground/[0.04]` 与 ICON_BOX 风格统一
+7. **新增 `Mail` 图标 import**(lucide-react)
+
+**验证证据**(Playwright Chromium + 4 状态对比表):
+
+| #   | 修复项                         | DOM 证据                                                                           | 状态                   |
+| --- | ------------------------------ | ---------------------------------------------------------------------------------- | ---------------------- |
+| 1   | PageIndicator active 竖向 6×16 | dot[0]: w=6 h=16 bg=rgb(10,10,10) classList=[h-4,w-1.5,bg-foreground]              | ✅                     |
+| 1   | 非 active 6×6 圆 + 灰          | dot[1-3]: w=6 h=6 bg=oklab(0.144 0.3) bg-foreground/30                             | ✅                     |
+| 1   | hover 8×8 + 60% 黑             | classList 含 group-hover:h-2 group-hover:w-2 group-hover:bg-foreground/60          | ✅                     |
+| 1   | 圆角 rounded-full 装饰点豁免   | border-radius=3.35544e+07px(符合 AGENTS.md §4)                                     | ✅                     |
+| 2   | BrandMarquee 24 张可见         | 48 imgs (24×2 loop),parent bg=oklab(0.144 0.04) = bg-foreground/[0.04]             | ✅                     |
+| 3   | Footer 36 iconBox 全浅灰底     | 36 iconBox 全 oklab(0.144 0.04),含 n8n/coze/gpt/claude/gemini/deepseek/qwen/doubao | ✅                     |
+| 4   | QR 深色锌900                   | qrBox[0] bg=zinc-900 (light)                                                       | zinc-900 (dark) 都生效 | ✅  |
+| 5   | 联系卡片 Mail + /support       | count=2, hasMailIcon=true, title=联系我们                                          | ✅                     |
+| 6   | dark mode 验证                 | dot[0] bg=rgb(250,250,250) 白色,iconBox 底色反色 oklab(0.985 0.04)                 | ✅                     |
+
+**4 张关键截图**(已嵌入浏览器验证报告):
+
+- `page1-light.png`:Page 1 顶部 + 指示器 active 竖向拉长
+- `01-default-page3-marquee.png`:Page 3 跑马灯 24 张图标全部可见
+- `footer-light.png`:Page 4 footer (36 icon 浅灰底 + QR 深色 + Mail 卡片)
+- `footer-dark.png`:Page 4 footer dark mode (iconBox 反色 + QR 仍深色)
+
+**已知遗留**(与本任务无关,不阻塞):
+
+- i18n `workspace.permission.auditRequest.toolNames` 嵌套 key 含 `fs.read` 等点号,违反 next-intl 规则 → dev server overlay 拦截。建议后续安排 P1 任务修复。
+- `apps/web/src/components/workspace/local-folder-picker.tsx` 引用 `percent` 变量未提供 → dev overlay 拦截。建议 P1 任务修复。
+
+**净改动**:4 文件,+44 / -27 行(代码减法 + 新增 Mail 卡片)。
 
 ### 侧边栏顶级分组默认折叠 + 管理分组移到第二位(已完成 ✅ 2026-07-20 commit e9415d5 + e3918e3)
 
