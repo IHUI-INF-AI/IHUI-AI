@@ -54,7 +54,15 @@ async def lifespan(app: FastAPI):
         log_report(result)
     except Exception as e:
         logger.warning("[schema_check] 启动校验异常(忽略): %s", e)
+
+    # 启动自媒体定时任务调度器(由 SELF_MEDIA_CRON_ENABLED 环境变量控制开关,
+    # 默认 false,显式开启后才挂载 asyncio task)
+    from app.services.self_media_scheduler import self_media_scheduler
+    self_media_scheduler.start()
+
     yield
+
+    await self_media_scheduler.stop()
     shutdown_telemetry()
 
 
