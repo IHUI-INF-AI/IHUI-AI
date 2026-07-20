@@ -23,6 +23,7 @@ from app.core.config import settings
 from app.core.jwt_auth import JWTAuthMiddleware
 from app.core.schema_check import check_schema, log_report
 from app.routers import a2a, agent_runtime, agents, health, llm, mcp, personas, tools, voice_stt
+from app.routers import self_media
 from app.routers.legacy import router as legacy_router
 from app.sio import sio
 from app.sio.handlers import register_handlers
@@ -91,6 +92,8 @@ def create_app() -> FastAPI:
     app.include_router(personas.router, prefix="/api", tags=["personas"])
     app.include_router(agent_runtime.router, prefix="/api", tags=["agent-runtime"])
     app.include_router(voice_stt.router, prefix="/api", tags=["voice"])
+    # 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
+    app.include_router(self_media.router, prefix="/api", tags=["self-media"])
     # v1 业务流路由(对话/智能体/RAG,2026-07-20 新增)
     app.include_router(api_v1_router, prefix="/api/v1", tags=["v1"])
     app.include_router(legacy_router)
