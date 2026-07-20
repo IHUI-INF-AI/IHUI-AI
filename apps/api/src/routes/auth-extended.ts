@@ -25,6 +25,7 @@ import {
   createUser,
   updateUser,
   checkPhoneExists,
+  checkEmailExists,
   cancelUserAccount,
   saveRefreshToken,
   findRefreshToken,
@@ -53,6 +54,15 @@ import {
   createAuditLog,
 } from '../db/oauth-queries.js'
 import { sendSmsCode, isSmsConfigured } from '../services/sms.js'
+import { sendVerificationEmail, type EmailCodeScene } from '../services/email-service.js'
+import {
+  codeStore,
+  generateCode,
+  cleanupExpiredCodes,
+  verifyCode,
+  CODE_TTL_MS,
+  CODE_RESEND_INTERVAL_MS,
+} from '../utils/code-store.js'
 import {
   generateCaptchaKey,
   generateCaptchaCode,
@@ -133,6 +143,7 @@ const loginByUsernameSchema = z.object({
 
 const emailCodeSchema = z.object({
   email: z.string().email(),
+  scene: z.enum(['register', 'login', 'reset']).default('login'),
 })
 
 const smsCodeSchema = z.object({
@@ -279,9 +290,70 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const parsed = emailCodeSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      const result = await sendSmsCode(parsed.data.email)
-      if (!result.success) return reply.status(429).send(error(429, result.msg))
-      return reply.send(success({ sent: true }))
+      const { email, scene } = parsed.data
+      cleanupExpiredCodes()
+      const existing = codeStore.get(email)
+      if (existing && Date.now() - existing.sentAt < CODE_RESEND_INTERVAL_MS) {
+        return reply.status(429).send(error(429, '请稍候再试'))
+      }
+      const code = generateCode()
+      codeStore.set(email, {
+        code,
+        expiresAt: Date.now() + CODE_TTL_MS,
+        sentAt: Date.now(),
+      })
+      const result = await sendVerificationEmail(email, code, scene as EmailCodeScene)
+      if (!result.sent && !result.stub) {
+        return reply.status(500).send(error(500, '验证码发送失败'))
+      }
+      // dev stub 模式下回传验证码,便于本地联调(生产环境 stub 不会触发,因为生产应配置真实 provider)
+      const isDev = process.env.NODE_ENV !== 'production'
+      return reply.send(
+        success(
+          isDev && result.stub ? { sent: true, devCode: code } : { sent: true },
+        ),
+      )
+    },
+  )
+
+  // 邮箱注册新用户
+  server.post(
+    '/auth/register/email',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const bodySchema = z.object({
+        email: z.string().email(),
+        code: z.string().length(6),
+        password: z.string().min(6).max(64),
+        nickname: z.string().min(1).max(50).optional(),
+      })
+      const parsed = bodySchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { email, code, password, nickname } = parsed.data
+      if (!verifyCode(email, code)) {
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      }
+      if (await checkEmailExists(email)) {
+        return reply.status(409).send(error(409, '该邮箱已注册'))
+      }
+      const emailPrefix = email.split('@')[0] ?? 'user'
+      const user = await createUser({
+        email,
+        passwordHash: bcrypt.hashSync(password, 10),
+        nickname: nickname ?? `用户${emailPrefix.slice(0, 12)}`,
+        roleId: 0,
+        status: 1,
+      })
+      return reply.status(201).send(
+        success({
+          userId: user.id,
+          email: user.email,
+          message: '注册成功,请登录',
+        }),
+      )
     },
   )
 

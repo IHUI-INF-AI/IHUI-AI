@@ -433,6 +433,8 @@
     "sendCode": "Send Code",
     "resendCode": "Resend in {seconds}s",
     "registerBtn": "Sign Up",
+    "phoneRegister": "Phone",
+    "emailRegister": "Email",
     "hasAccount": "Already have an account?",
     "toLogin": "Sign in",
     "thirdPartyLogin": "Or continue with",
