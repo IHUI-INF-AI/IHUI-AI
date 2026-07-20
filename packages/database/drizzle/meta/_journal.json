@@ -1,1 +1,833 @@
-{"version":"7","dialect":"postgresql","entries":[{"idx":0,"version":"7","when":1783482284103,"tag":"0000_naive_barracuda","breakpoints":true},{"idx":1,"version":"7","when":1783484583494,"tag":"0001_mature_captain_america","breakpoints":true},{"idx":2,"version":"7","when":1783485419702,"tag":"0002_lucky_hiroim","breakpoints":true},{"idx":3,"version":"7","when":1783486340053,"tag":"0003_easy_the_hood","breakpoints":true},{"idx":4,"version":"7","when":1783487221914,"tag":"0004_cuddly_wind_dancer","breakpoints":true},{"idx":5,"version":"7","when":1783488323955,"tag":"0005_tranquil_killmonger","breakpoints":true},{"idx":6,"version":"7","when":1783489648270,"tag":"0006_aberrant_the_enforcers","breakpoints":true},{"idx":7,"version":"7","when":1783574400000,"tag":"0007_levels_seed","breakpoints":true},{"idx":8,"version":"7","when":1783574401000,"tag":"0008_announcement_reads","breakpoints":true},{"idx":9,"version":"7","when":1783574402000,"tag":"0009_files_soft_delete","breakpoints":true},{"idx":10,"version":"7","when":1783574403000,"tag":"0010_fulltext_search_indexes","breakpoints":true},{"idx":11,"version":"7","when":1783574404000,"tag":"0011_file_versions","breakpoints":true},{"idx":12,"version":"7","when":1783574405000,"tag":"0012_learn_module","breakpoints":true},{"idx":13,"version":"7","when":1783574406000,"tag":"0013_exam_module","breakpoints":true},{"idx":14,"version":"7","when":1783574407000,"tag":"0014_community_module","breakpoints":true},{"idx":15,"version":"7","when":1783574408000,"tag":"0015_order_module","breakpoints":true},{"idx":16,"version":"7","when":1783574409000,"tag":"0016_live_module","breakpoints":true},{"idx":17,"version":"7","when":1783574410000,"tag":"0017_member_module","breakpoints":true},{"idx":18,"version":"7","when":1783574411000,"tag":"0018_resource_module","breakpoints":true},{"idx":19,"version":"7","when":1783574412000,"tag":"0019_point_module","breakpoints":true},{"idx":20,"version":"7","when":1783574413000,"tag":"0020_usercenter_module","breakpoints":true},{"idx":21,"version":"7","when":1783574414000,"tag":"0021_schedule_module","breakpoints":true},{"idx":22,"version":"7","when":1783574415000,"tag":"0022_statistics_module","breakpoints":true},{"idx":23,"version":"7","when":1783574416000,"tag":"0023_message_module","breakpoints":true},{"idx":24,"version":"7","when":1783574417000,"tag":"0024_topic_module","breakpoints":true},{"idx":25,"version":"7","when":1783574418000,"tag":"0025_behavior_module","breakpoints":true},{"idx":26,"version":"7","when":1783574419000,"tag":"0026_visit_tracking_module","breakpoints":true},{"idx":27,"version":"7","when":1783574420000,"tag":"0027_oss_module","breakpoints":true},{"idx":28,"version":"7","when":1783574421000,"tag":"0028_setting_module","breakpoints":true},{"idx":29,"version":"7","when":1783574422000,"tag":"0029_drop_legacy_file_tags","breakpoints":true},{"idx":30,"version":"7","when":1783574423000,"tag":"0030_chat_favorites_unique","breakpoints":true},{"idx":31,"version":"7","when":1783574424000,"tag":"0031_users_bio","breakpoints":true},{"idx":32,"version":"7","when":1783574425000,"tag":"0032_exam_categories","breakpoints":true},{"idx":33,"version":"7","when":1783574426000,"tag":"0033_member_companies_departments","breakpoints":true},{"idx":34,"version":"7","when":1783574427000,"tag":"0034_news_certificate_modules","breakpoints":true},{"idx":35,"version":"7","when":1783574428000,"tag":"0035_wallet_commission","breakpoints":true},{"idx":36,"version":"7","when":1783574429000,"tag":"0036_oauth_third_party","breakpoints":true},{"idx":37,"version":"7","when":1783574430000,"tag":"0037_vip_captcha","breakpoints":true},{"idx":38,"version":"7","when":1783574431000,"tag":"0038_missing_tables","breakpoints":true},{"idx":39,"version":"7","when":1783574432000,"tag":"0039_circle_ask_search_extra","breakpoints":true},{"idx":40,"version":"7","when":1783574433000,"tag":"0040_orders_type_product","breakpoints":true},{"idx":41,"version":"7","when":1783574434000,"tag":"0041_agents_coze_fields","breakpoints":true},{"idx":42,"version":"7","when":1783574435000,"tag":"0042_missing_tables_h2","breakpoints":true},{"idx":43,"version":"7","when":1783735124774,"tag":"0043_neat_the_spike","breakpoints":true},{"idx":44,"version":"7","when":1783738796460,"tag":"0044_silky_banshee","breakpoints":true},{"idx":45,"version":"7","when":1783739243840,"tag":"0045_simple_black_bolt","breakpoints":true},{"idx":46,"version":"7","when":1783744942357,"tag":"0046_missing_tables_h3","breakpoints":true},{"idx":47,"version":"7","when":1783751040000,"tag":"0047_r65_upload_auth_renew","breakpoints":true},{"idx":48,"version":"7","when":1783751041000,"tag":"0048_r66_certificate_fields","breakpoints":true},{"idx":49,"version":"7","when":1783751042000,"tag":"0049_dead_tables_cleanup","breakpoints":true},{"idx":50,"version":"7","when":1783766400000,"tag":"0050_drop_search_hot_keywords_private_letters","breakpoints":true},{"idx":51,"version":"7","when":1783776000000,"tag":"0051_r68_srs_remote_device","breakpoints":true},{"idx":52,"version":"7","when":1783776001000,"tag":"0052_lesson_task_rate_access","breakpoints":true},{"idx":53,"version":"7","when":1783776002000,"tag":"0053_audit_gap_fixes","breakpoints":true},{"idx":54,"version":"7","when":1783862400000,"tag":"0054_missing_relation_tables","breakpoints":true},{"idx":55,"version":"7","when":1783948800000,"tag":"0055_remaining_11_tables","breakpoints":true},{"idx":56,"version":"7","when":1784035200000,"tag":"0056_ai_vendor_configs","breakpoints":true},{"idx":57,"version":"7","when":1784092800000,"tag":"0057_phase5_6_new_tables","breakpoints":true},{"idx":58,"version":"7","when":1784179200000,"tag":"0058_r68_live_subscribe_exam_papertype","breakpoints":true},{"idx":59,"version":"7","when":1784180000000,"tag":"0059_r69_sys_role_menu","breakpoints":true},{"idx":60,"version":"7","when":1784265600000,"tag":"0060_r70_audit_logs_partition","breakpoints":true},{"idx":61,"version":"7","when":1784265601000,"tag":"0061_r70_sys_role_menu_index","breakpoints":true},{"idx":62,"version":"7","when":1784352000000,"tag":"0062_developer_subscriptions","breakpoints":true},{"idx":63,"version":"7","when":1784438400000,"tag":"0063_learn_community_post","breakpoints":true},{"idx":64,"version":"7","when":1784524800000,"tag":"0064_agents_extension","breakpoints":true},{"idx":65,"version":"7","when":1784524801000,"tag":"0065_users_level","breakpoints":true},{"idx":66,"version":"7","when":1784611200000,"tag":"0066_rls_tenant_isolation","breakpoints":true},{"idx":67,"version":"7","when":1784697600000,"tag":"0067_system_admin","breakpoints":true},{"idx":68,"version":"7","when":1784697700000,"tag":"0068_rls_policies","breakpoints":true},{"idx":69,"version":"7","when":1784697900000,"tag":"0070_rls_safe_tenant_id","breakpoints":true},{"idx":70,"version":"7","when":1784784300000,"tag":"0071_restore_admin_immutability","breakpoints":true},{"idx":71,"version":"7","when":1784784400000,"tag":"0072_drop_0066_rls_policies","breakpoints":true},{"idx":72,"version":"7","when":1784784500000,"tag":"0073_refresh_tokens_cascade","breakpoints":true},{"idx":73,"version":"7","when":1784784600000,"tag":"0074_reapply_tenant_rls","breakpoints":true},{"idx":74,"version":"7","when":1784870400000,"tag":"0075_users_dept_id","breakpoints":true},{"idx":75,"version":"7","when":1784956800000,"tag":"0076_exam_papers_3_fields","breakpoints":true},{"idx":76,"version":"7","when":1784956801000,"tag":"0077_certificate_templates_4_fields","breakpoints":true},{"idx":77,"version":"7","when":1784956802000,"tag":"0078_resource_tags_pid","breakpoints":true},{"idx":78,"version":"7","when":1785043200000,"tag":"0079_circles_cid_list","breakpoints":true},{"idx":79,"version":"7","when":1784183615830,"tag":"0079_lowly_zombie","breakpoints":true},{"idx":80,"version":"7","when":1785129600000,"tag":"0080_sys_operlog","breakpoints":true},{"idx":81,"version":"7","when":1785216000000,"tag":"0081_learn_topic_slug_sort","breakpoints":true},{"idx":82,"version":"7","when":1785302400000,"tag":"0082_learn_topic_slug_unique","breakpoints":true},{"idx":83,"version":"7","when":1784199956684,"tag":"0083_create_id_mapping","breakpoints":true},{"idx":84,"version":"7","when":1784201820031,"tag":"0084_flaky_roulette","breakpoints":true},{"idx":85,"version":"7","when":1784208848938,"tag":"0085_exam_wrong_unique","breakpoints":true},{"idx":86,"version":"7","when":1784210114000,"tag":"0086_learn_topic_show_index","breakpoints":true},{"idx":87,"version":"7","when":1784260220117,"tag":"0087_nosy_gateway","breakpoints":true},{"idx":88,"version":"7","when":1784262147439,"tag":"0088_jazzy_speed_demon","breakpoints":true},{"idx":89,"version":"7","when":1784264000000,"tag":"0089_exam_papers_cid_list","breakpoints":true},{"idx":90,"version":"7","when":1784264100000,"tag":"0090_exam_questions_difficulty_kpids","breakpoints":true},{"idx":91,"version":"7","when":1784264200000,"tag":"0091_business_cards","breakpoints":true},{"idx":92,"version":"7","when":1784264300000,"tag":"0092_service_appointments","breakpoints":true},{"idx":93,"version":"7","when":1784264400000,"tag":"0093_user_addresses","breakpoints":true},{"idx":94,"version":"7","when":1784264500000,"tag":"0094_themes","breakpoints":true},{"idx":95,"version":"7","when":1784267343776,"tag":"0095_p1_schema_batch1","breakpoints":true},{"idx":96,"version":"7","when":1784267600000,"tag":"0096_clawdbot_agent_tasks","breakpoints":true},{"idx":97,"version":"7","when":1784270974054,"tag":"0097_p1_schema_batch2","breakpoints":true},{"idx":98,"version":"7","when":1784288152961,"tag":"0098_bright_romulus","breakpoints":true},{"idx":99,"version":"7","when":1784290646719,"tag":"0099_skinny_wallow","breakpoints":true},{"idx":100,"version":"7","when":1784297711081,"tag":"0100_light_sleeper","breakpoints":true},{"idx":101,"version":"7","when":1784297711082,"tag":"0101_breezy_secret_warriors","breakpoints":true},{"idx":102,"version":"7","when":1784311350923,"tag":"0102_fancy_trish_tilby","breakpoints":true},{"idx":103,"version":"7","when":1784323217115,"tag":"0103_new_morg","breakpoints":true},{"idx":104,"version":"7","when":1784345897452,"tag":"0104_simple_king_cobra","breakpoints":true},{"idx":105,"version":"7","when":1784351800479,"tag":"0105_oval_vulcan","breakpoints":true},{"idx":106,"version":"7","when":1784351800480,"tag":"0106_ai_model_info_extend","breakpoints":true},{"idx":107,"version":"7","when":1784448000000,"tag":"0107_sensitive_words_category_neutral","breakpoints":true},{"idx":108,"version":"7","when":1784388301180,"tag":"0109_missing_migrations","breakpoints":true},{"idx":109,"version":"7","when":1784392979580,"tag":"0110_skills_tombstone","breakpoints":true},{"idx":110,"version":"7","when":1784440300245,"tag":"0111_r76_indexes","breakpoints":true},{"idx":111,"version":"7","when":1784440300252,"tag":"0112_r80_new_tables","breakpoints":true},{"idx":112,"version":"7","when":1784440300255,"tag":"0113_r81_zhs_agent_buy_fields","breakpoints":true},{"idx":113,"version":"7","when":1784440300259,"tag":"0114_r81_edu_classes_tables","breakpoints":true},{"idx":114,"version":"7","when":1784440300263,"tag":"0115_r82_seed_unique_indexes","breakpoints":true},{"idx":115,"version":"7","when":1784473149681,"tag":"0108_r83_supplement_27_tables","breakpoints":true},{"idx":116,"version":"7","when":1784476000000,"tag":"0116_topic_categories","breakpoints":true}]}
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1783482284103,
+      "tag": "0000_naive_barracuda",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783484583494,
+      "tag": "0001_mature_captain_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783485419702,
+      "tag": "0002_lucky_hiroim",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783486340053,
+      "tag": "0003_easy_the_hood",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783487221914,
+      "tag": "0004_cuddly_wind_dancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783488323955,
+      "tag": "0005_tranquil_killmonger",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783489648270,
+      "tag": "0006_aberrant_the_enforcers",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783574400000,
+      "tag": "0007_levels_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783574401000,
+      "tag": "0008_announcement_reads",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783574402000,
+      "tag": "0009_files_soft_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783574403000,
+      "tag": "0010_fulltext_search_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1783574404000,
+      "tag": "0011_file_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783574405000,
+      "tag": "0012_learn_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783574406000,
+      "tag": "0013_exam_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1783574407000,
+      "tag": "0014_community_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1783574408000,
+      "tag": "0015_order_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1783574409000,
+      "tag": "0016_live_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1783574410000,
+      "tag": "0017_member_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1783574411000,
+      "tag": "0018_resource_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1783574412000,
+      "tag": "0019_point_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1783574413000,
+      "tag": "0020_usercenter_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1783574414000,
+      "tag": "0021_schedule_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1783574415000,
+      "tag": "0022_statistics_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1783574416000,
+      "tag": "0023_message_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783574417000,
+      "tag": "0024_topic_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1783574418000,
+      "tag": "0025_behavior_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1783574419000,
+      "tag": "0026_visit_tracking_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1783574420000,
+      "tag": "0027_oss_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1783574421000,
+      "tag": "0028_setting_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1783574422000,
+      "tag": "0029_drop_legacy_file_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1783574423000,
+      "tag": "0030_chat_favorites_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1783574424000,
+      "tag": "0031_users_bio",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1783574425000,
+      "tag": "0032_exam_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1783574426000,
+      "tag": "0033_member_companies_departments",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1783574427000,
+      "tag": "0034_news_certificate_modules",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1783574428000,
+      "tag": "0035_wallet_commission",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1783574429000,
+      "tag": "0036_oauth_third_party",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1783574430000,
+      "tag": "0037_vip_captcha",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1783574431000,
+      "tag": "0038_missing_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1783574432000,
+      "tag": "0039_circle_ask_search_extra",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1783574433000,
+      "tag": "0040_orders_type_product",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1783574434000,
+      "tag": "0041_agents_coze_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1783574435000,
+      "tag": "0042_missing_tables_h2",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1783735124774,
+      "tag": "0043_neat_the_spike",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1783738796460,
+      "tag": "0044_silky_banshee",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1783739243840,
+      "tag": "0045_simple_black_bolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1783744942357,
+      "tag": "0046_missing_tables_h3",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1783751040000,
+      "tag": "0047_r65_upload_auth_renew",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1783751041000,
+      "tag": "0048_r66_certificate_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1783751042000,
+      "tag": "0049_dead_tables_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1783766400000,
+      "tag": "0050_drop_search_hot_keywords_private_letters",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1783776000000,
+      "tag": "0051_r68_srs_remote_device",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1783776001000,
+      "tag": "0052_lesson_task_rate_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1783776002000,
+      "tag": "0053_audit_gap_fixes",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1783862400000,
+      "tag": "0054_missing_relation_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1783948800000,
+      "tag": "0055_remaining_11_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1784035200000,
+      "tag": "0056_ai_vendor_configs",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1784092800000,
+      "tag": "0057_phase5_6_new_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1784179200000,
+      "tag": "0058_r68_live_subscribe_exam_papertype",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1784180000000,
+      "tag": "0059_r69_sys_role_menu",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1784265600000,
+      "tag": "0060_r70_audit_logs_partition",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1784265601000,
+      "tag": "0061_r70_sys_role_menu_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1784352000000,
+      "tag": "0062_developer_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1784438400000,
+      "tag": "0063_learn_community_post",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1784524800000,
+      "tag": "0064_agents_extension",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1784524801000,
+      "tag": "0065_users_level",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1784611200000,
+      "tag": "0066_rls_tenant_isolation",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1784697600000,
+      "tag": "0067_system_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1784697700000,
+      "tag": "0068_rls_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1784697900000,
+      "tag": "0070_rls_safe_tenant_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1784784300000,
+      "tag": "0071_restore_admin_immutability",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1784784400000,
+      "tag": "0072_drop_0066_rls_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1784784500000,
+      "tag": "0073_refresh_tokens_cascade",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1784784600000,
+      "tag": "0074_reapply_tenant_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1784870400000,
+      "tag": "0075_users_dept_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1784956800000,
+      "tag": "0076_exam_papers_3_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1784956801000,
+      "tag": "0077_certificate_templates_4_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1784956802000,
+      "tag": "0078_resource_tags_pid",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1785043200000,
+      "tag": "0079_circles_cid_list",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1784183615830,
+      "tag": "0079_lowly_zombie",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1785129600000,
+      "tag": "0080_sys_operlog",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1785216000000,
+      "tag": "0081_learn_topic_slug_sort",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1785302400000,
+      "tag": "0082_learn_topic_slug_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1784199956684,
+      "tag": "0083_create_id_mapping",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1784201820031,
+      "tag": "0084_flaky_roulette",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1784208848938,
+      "tag": "0085_exam_wrong_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1784210114000,
+      "tag": "0086_learn_topic_show_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1784260220117,
+      "tag": "0087_nosy_gateway",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1784262147439,
+      "tag": "0088_jazzy_speed_demon",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1784264000000,
+      "tag": "0089_exam_papers_cid_list",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1784264100000,
+      "tag": "0090_exam_questions_difficulty_kpids",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1784264200000,
+      "tag": "0091_business_cards",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1784264300000,
+      "tag": "0092_service_appointments",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1784264400000,
+      "tag": "0093_user_addresses",
+      "breakpoints": true
+    },
+    { "idx": 94, "version": "7", "when": 1784264500000, "tag": "0094_themes", "breakpoints": true },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1784267343776,
+      "tag": "0095_p1_schema_batch1",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1784267600000,
+      "tag": "0096_clawdbot_agent_tasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1784270974054,
+      "tag": "0097_p1_schema_batch2",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1784288152961,
+      "tag": "0098_bright_romulus",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1784290646719,
+      "tag": "0099_skinny_wallow",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1784297711081,
+      "tag": "0100_light_sleeper",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1784297711082,
+      "tag": "0101_breezy_secret_warriors",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1784311350923,
+      "tag": "0102_fancy_trish_tilby",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1784323217115,
+      "tag": "0103_new_morg",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1784345897452,
+      "tag": "0104_simple_king_cobra",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1784351800479,
+      "tag": "0105_oval_vulcan",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1784351800480,
+      "tag": "0106_ai_model_info_extend",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1784448000000,
+      "tag": "0107_sensitive_words_category_neutral",
+      "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1784388301180,
+      "tag": "0109_missing_migrations",
+      "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1784392979580,
+      "tag": "0110_skills_tombstone",
+      "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1784440300245,
+      "tag": "0111_r76_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "7",
+      "when": 1784440300252,
+      "tag": "0112_r80_new_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "7",
+      "when": 1784440300255,
+      "tag": "0113_r81_zhs_agent_buy_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1784440300259,
+      "tag": "0114_r81_edu_classes_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1784440300263,
+      "tag": "0115_r82_seed_unique_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1784473149681,
+      "tag": "0108_r83_supplement_27_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1784476000000,
+      "tag": "0116_topic_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1784548800000,
+      "tag": "20260720120000_add_missing_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1784552400000,
+      "tag": "20260720130000_add_2_minor_fields",
+      "breakpoints": true
+    }
+  ]
+}
