@@ -433,6 +433,8 @@
     "sendCode": "获取验证码",
     "resendCode": "{seconds}s 后重发",
     "registerBtn": "注册",
+    "phoneRegister": "手机注册",
+    "emailRegister": "邮箱注册",
     "hasAccount": "已有账号？",
     "toLogin": "去登录",
     "thirdPartyLogin": "第三方登录",
