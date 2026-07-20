@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import {
   DATABASES,
   IMG_EAGER,
@@ -98,11 +99,59 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
   const img = (
     <img src={qr.src} alt={t(qr.altKey)} width={48} height={48} className={QR_IMG} {...IMG_EAGER} />
   )
+
+  // 2026-07-20:action='copy' → 点击复制 copyValue(如微信号)到剪贴板 + sonner toast 引导
+  // 历史:曾用 weixin:// 协议,PC 微信 4.x 已关闭协议跳转,改用复制最稳
+  const handleCopy = React.useCallback(async () => {
+    if (qr.action !== 'copy' || !qr.copyValue) return
+    const val = qr.copyValue
+    try {
+      await navigator.clipboard.writeText(val)
+      toast.success(`已复制微信号 ${val}`, {
+        description: '打开微信 → 顶部搜索框粘贴 → 添加到通讯录',
+        duration: 4000,
+      })
+    } catch {
+      // 兜底:旧浏览器/非 HTTPS 环境(localhost 用 execCommand)
+      const ta = document.createElement('textarea')
+      ta.value = val
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      try {
+        document.execCommand('copy')
+        toast.success(`已复制微信号 ${val}`, {
+          description: '打开微信 → 顶部搜索框粘贴 → 添加到通讯录',
+          duration: 4000,
+        })
+      } catch {
+        toast.error('复制失败,请手动输入微信号')
+      } finally {
+        document.body.removeChild(ta)
+      }
+    }
+  }, [qr.action, qr.copyValue])
+
+  // action='copy' 用 <button>(无障碍 + 键盘 Enter 触发);普通二维码用 <div>
+  const trigger = qr.action === 'copy' ? (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={`点击复制微信号: ${qr.copyValue ?? ''}`}
+      className="cursor-pointer transition-opacity hover:opacity-80"
+    >
+      <div className={QR_BOX}>{img}</div>
+    </button>
+  ) : (
+    <div title={t(qr.altKey)} className="cursor-pointer transition-opacity hover:opacity-80">
+      <div className={QR_BOX}>{img}</div>
+    </div>
+  )
+
   return (
     <div className="group/qr relative flex flex-col items-center gap-0.5">
-      <div title={t(qr.altKey)} className="cursor-pointer transition-opacity hover:opacity-80">
-        <div className={QR_BOX}>{img}</div>
-      </div>
+      {trigger}
       {/*
         2026-07-20 加:hover 放大弹窗(240px 二维码大图),扫码更友好。
         - v6 缩略图 48px(从 56px 减 8px,配合 QR_BOX 56px),扫码距离屏幕较远时难识别,
