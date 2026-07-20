@@ -399,6 +399,7 @@
     "distribution": "유통",
     "oauthPlatform": "오픈플랫폼",
     "selfMediaWechat": "위챗 공식계정 글",
+    "publishPlatform": "게시 플랫폼",
     "selfMediaKoubo": "나레이션 대본",
     "selfMediaAutomation": "자동화",
     "downloadIOS": "ｉＯＳ",
@@ -11969,6 +11970,117 @@
     "automationPage": {
       "historyTitle": "실행 히스토리",
       "historyEmpty": "실행 기록 없음"
+    }
+  },
+  "publish": {
+    "title": "멀티 플랫폼 게시",
+    "subtitle": "md/docx/html/pdf/이미지/비디오 지원 → 14 플랫폼 원클릭 게시",
+    "tabs": {
+      "accounts": "계정 관리",
+      "new": "새 게시",
+      "history": "게시 기록"
+    },
+    "platforms": {
+      "title": "지원 플랫폼",
+      "wordpress": "WordPress",
+      "medium": "Medium",
+      "youtube": "YouTube",
+      "bilibili": "Bilibili",
+      "wechat": "WeChat",
+      "toutiao": "Toutiao",
+      "douyin": "Douyin",
+      "kuaishou": "Kuaishou",
+      "weibo": "Weibo",
+      "zhihu": "Zhihu",
+      "csdn": "CSDN",
+      "juejin": "Juejin",
+      "xiaohongshu": "Xiaohongshu",
+      "shipinhao": "WeChat Channels"
+    },
+    "accounts": {
+      "title": "플랫폼 계정 관리",
+      "subtitle": "각 플랫폼의 로그인 자격 증명 구성(암호화 저장)",
+      "add": "계정 추가",
+      "edit": "편집",
+      "delete": "삭제",
+      "verify": "연결 테스트",
+      "verifySuccess": "연결 성공",
+      "verifyFailed": "연결 실패",
+      "deleteConfirm": "이 계정을 삭제하시겠습니까?",
+      "platform": "플랫폼",
+      "nickname": "닉네임",
+      "credentials": "자격 증명",
+      "status": "상태",
+      "lastVerified": "최근 인증",
+      "statusActive": "활성",
+      "statusDisabled": "비활성",
+      "statusExpired": "만료",
+      "noAccounts": "계정이 없습니다. 먼저 추가하세요",
+      "credentialsHint": "자격 증명 JSON(플랫폼별: token/cookie/appId+secret)"
+    },
+    "new": {
+      "title": "새 게시 작업",
+      "subtitle": "콘텐츠 업로드 → 플랫폼 선택 → 즉시/예약 게시",
+      "titleField": "제목",
+      "titlePlaceholder": "제목을 입력하세요(필수)",
+      "contentFormat": "콘텐츠 형식",
+      "contentFormatMd": "Markdown",
+      "contentFormatDocx": "Word (docx)",
+      "contentFormatHtml": "HTML",
+      "contentFormatPdf": "PDF",
+      "contentFormatImage": "이미지",
+      "contentFormatVideo": "비디오",
+      "contentText": "콘텐츠(md/html 직접 붙여넣기)",
+      "contentTextPlaceholder": "markdown 또는 html 콘텐츠를 붙여넣으세요...",
+      "uploadFile": "파일 업로드",
+      "uploadFileHint": "docx/pdf/이미지/비디오 지원, 드래그 또는 클릭하여 업로드",
+      "coverImage": "표지 이미지(선택)",
+      "selectPlatforms": "대상 플랫폼 선택",
+      "selectPlatformsHint": "최소 1개 플랫폼 선택",
+      "selectAll": "전체 선택",
+      "clearAll": "전체 해제",
+      "schedule": "예약 게시",
+      "scheduleAt": "예약 시간",
+      "submitNow": "즉시 게시",
+      "submitSchedule": "예약 게시",
+      "submitting": "제출 중...",
+      "submitSuccess": "작업이 제출되었습니다. 게시 중",
+      "submitFailed": "제출 실패"
+    },
+    "history": {
+      "title": "게시 기록",
+      "subtitle": "모든 게시 작업의 실행 결과 보기",
+      "taskTitle": "작업 제목",
+      "platform": "플랫폼",
+      "status": "상태",
+      "publishedUrl": "게시 URL",
+      "duration": "소요 시간",
+      "time": "시간",
+      "errorMessage": "오류 메시지",
+      "filterPlatform": "플랫폼 필터",
+      "filterStatus": "상태 필터",
+      "allPlatforms": "전체 플랫폼",
+      "allStatus": "전체 상태",
+      "statusSuccess": "성공",
+      "statusFailed": "실패",
+      "statusSkipped": "건너뜀",
+      "noHistory": "게시 기록이 없습니다",
+      "viewDetail": "상세 보기",
+      "openUrl": "URL 열기"
+    },
+    "stats": {
+      "title": "게시 통계",
+      "totalTasks": "전체 작업",
+      "totalSuccess": "성공 횟수",
+      "totalFailed": "실패 횟수",
+      "successRate": "성공률",
+      "platformDistribution": "플랫폼 분포"
+    },
+    "notifications": {
+      "publishComplete": "게시 완료",
+      "publishCompleteBody": "작업 「{title}」 게시 완료: {success} 성공, {failed} 실패",
+      "publishFailed": "게시 실패",
+      "publishFailedBody": "작업 「{title}」 게시 실패: {error}"
     }
   },
   "privateMessages": {
@@ -25281,6 +25393,160 @@
       "previewTestSuccess": "연결 성공",
       "previewTestFailed": "연결 실패",
       "saveBeforeFetchErr": "먼저 설정을 저장하세요"
+    }
+  },
+  "pricingPage": {
+    "metadata": {
+      "title": "요금제",
+      "description": "IHUI AI 커뮤니티 멤버십 요금: 얼리버드 ¥6000/인/년, 정가 ¥18000. 연간 모든 강의 무료 참여, 이벤트 우선 참여, 커뮤니티 지원 무제한."
+    },
+    "hero": {
+      "badge": "멤버십 요금",
+      "title": "적합한 요금제를 선택하세요",
+      "subtitle": "얼리버드 ¥6000/인/년, 18석 한정. 모든 요금제에 전액 환불 보장 포함."
+    },
+    "loading": "로딩 중...",
+    "badge": "한정 얼리버드",
+    "refundTitle": "전액 환불 보장",
+    "refundDesc": "모든 멤버에게 약속합니다: 가입 후 언제든 가치가 기대에 미치지 못하면, 이유 없이 전액 환불을 신청할 수 있습니다.",
+    "earlyBird": {
+      "name": "얼리버드 멤버",
+      "price": "¥6000",
+      "originalPrice": "¥18000",
+      "period": "/인/년",
+      "desc": "선착순 18석 한정, 품절 시 정가로 복귀",
+      "features": ["연간 모든 강의 무료 참여", "이벤트 우선 참여", "커뮤니티 지원 무제한", "온라인 커뮤니티 전용 입장", "AI 어시스턴트 우선 체험", "불만족 전액 환불"],
+      "cta": "지금 참여"
+    },
+    "standard": {
+      "name": "일반 멤버",
+      "price": "¥18000",
+      "period": "/인/년",
+      "desc": "얼리버드 품절 후 자동으로 이 요금제로 전환",
+      "features": ["연간 모든 강의 무료 참여", "이벤트 우선 참여", "커뮤니티 지원 무제한", "온라인 커뮤니티 전용 입장", "AI 어시스턴트 우선 체험"],
+      "cta": "자세히 보기"
+    },
+    "enterprise": {
+      "name": "기업 서비스",
+      "price": "영업팀 문의",
+      "period": "",
+      "desc": "기업 의사결정자 팀을 위한 맞춤형 플랜",
+      "features": ["팀 다중 좌석 패키지", "1:1 AI 컨설팅", "기업 AI 문화 정착 지원", "전용 맞춤 강의", "프라이빗 폐쇄 행사"],
+      "cta": "영업팀 문의"
+    }
+  },
+  "enterpriseTools": {
+    "sectionLabel": "기업 AI 도구 한눈에 보기",
+    "title": "범용 AI 도구부터 산업 특화 에이전트까지",
+    "subtitle": "기업 AI화 니즈를 종합적으로 지원",
+    "partnersTitle": "생태계 파트너",
+    "categories": {
+      "general": "범용 AI 도구",
+      "industry": "산업 에이전트",
+      "function": "직능 에이전트"
+    },
+    "items": {
+      "textGeneration": "텍스트 생성",
+      "imageGeneration": "이미지 생성",
+      "voiceProcessing": "음성 처리",
+      "videoGeneration": "동영상 생성",
+      "manufacturing": "제조업",
+      "education": "교육 산업",
+      "healthcare": "의료 건강",
+      "government": "정무 서비스",
+      "marketingService": "마케팅 고객지원",
+      "productionManufacturing": "생산 제조",
+      "rdInnovation": "R&D 혁신",
+      "officeCollaboration": "오피스 협업"
+    }
+  },
+  "mobileDashboardPage": {
+    "title": "모바일 대시보드",
+    "subtitle": "모바일 핵심 운영 지표를 모니터링합니다. 데이터는 목 데모 데이터입니다.",
+    "stats": {
+      "dau": "DAU",
+      "newUsers": "신규 사용자",
+      "sessions": "세션 수",
+      "crashRate": "크래시율",
+      "trendSuffix": "전일 대비"
+    },
+    "dauTrend": {
+      "title": "최근 7일 DAU 추이",
+      "subtitle": "일일 활성 사용자 수 변화 곡선"
+    },
+    "devices": {
+      "title": "기기 분포",
+      "subtitle": "iOS / Android / 기타 비율",
+      "others": "기타"
+    },
+    "topPages": {
+      "title": "Top 5 페이지",
+      "subtitle": "방문수 상위 5개 모바일 페이지",
+      "rankHeader": "순위",
+      "pathHeader": "페이지 경로",
+      "visitsHeader": "방문수",
+      "ratioHeader": "비율"
+    },
+    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+  },
+  "pdfWatermarkPage": {
+    "title": "PDF 워터마크",
+    "description": "PDF에 텍스트 워터마크 추가. 텍스트, 위치, 색상, 회전 각도를 사용자 정의",
+    "uploadLabel": "클릭 또는 PDF 파일을 여기로 드래그하여 업로드",
+    "remove": "제거",
+    "fileSizeUnit": "KB",
+    "text": "워터마크 텍스트",
+    "fontSize": "글꼴 크기",
+    "color": "색상",
+    "opacity": "불투명도",
+    "rotation": "회전 각도",
+    "position": "위치",
+    "preview": "미리보기",
+    "placeholder": "워터마크",
+    "defaultText": "기밀",
+    "submitting": "추가 중...",
+    "submit": "워터마크 추가",
+    "positions": {
+      "topLeft": "왼쪽 상단",
+      "topCenter": "상단 중앙",
+      "topRight": "오른쪽 상단",
+      "middleLeft": "중간 왼쪽",
+      "middleCenter": "중앙",
+      "middleRight": "중간 오른쪽",
+      "bottomLeft": "왼쪽 하단",
+      "bottomCenter": "하단 중앙",
+      "bottomRight": "오른쪽 하단"
+    }
+  },
+  "businessCardEditPage": {
+    "editTitle": "명함 편집",
+    "createTitle": "명함 새로 만들기",
+    "subtitle": "명함 정보를 입력하고 템플릿 스타일을 선택하세요",
+    "back": "목록으로 돌아가기",
+    "loading": "로딩 중...",
+    "cardInfo": "명함 정보",
+    "templateLabel": "템플릿",
+    "bioLabel": "소개",
+    "bioPlaceholder": "한 줄로 자신을 소개...",
+    "errors": {
+      "nameRequired": "이름을 입력해주세요"
+    },
+    "cancel": "취소",
+    "save": "저장",
+    "templates": {
+      "minimal": "미니멀",
+      "business": "비즈니스",
+      "creative": "크리에이티브"
+    },
+    "fields": {
+      "name": { "label": "이름 *", "placeholder": "장산" },
+      "title": { "label": "직책", "placeholder": "프로덕트 매니저" },
+      "company": { "label": "회사", "placeholder": "XX 테크놀로지 주식회사" },
+      "phone": { "label": "전화", "placeholder": "13800138000" },
+      "email": { "label": "이메일", "placeholder": "zhangsan@example.com" },
+      "wechat": { "label": "WeChat", "placeholder": "zhangsan_wx" },
+      "address": { "label": "주소", "placeholder": "서울특별시 강남구..." },
+      "avatar": { "label": "아바타 URL", "placeholder": "https://..." }
     }
   }
 }
