@@ -31,6 +31,48 @@
 
 ## 2026-07-20 已完成任务
 
+### 侧边栏顶级分组默认折叠 + 管理分组移到第二位(已完成 ✅ 2026-07-20 commit e9415d5 + e3918e3)
+
+**触发**:用户要求"左侧侧边栏分类能不能做成默认隐藏形式 AI教育 内容 交易 个人 都默认隐藏 只有AI分类默认打开";第二轮要求"我希望管理分组默认展开 并且移动到AI分类的下面作为第二分类"。
+
+**改动**(只动 web 端,符合 §9 单端平台独占豁免:sidebar 是 web 端组件):
+
+1. **新增 [NavGroupSection](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx#L1133) 组件**:支持分组级别的展开/折叠
+   - 点击分组标题(带 ChevronDown 图标)切换展开/折叠
+   - ChevronDown 图标 -rotate-90(指向右)表示折叠,向下表示展开
+   - SSR-safe:初始 open=false,hydration 后由 useEffect 注入真实状态
+2. **默认展开规则**:`defaultOpen = group.label === 'AI' || group.label === '管理'`
+   - AI 和 管理 默认展开(AI 是核心分类,管理是 admin 高频入口)
+   - AI教育 / 内容 / 交易 / 个人 默认折叠
+3. **NAV_GROUPS 顺序调整**:首页 → AI → 管理 → AI教育 → 内容 → 交易 → 个人
+   - 管理从最后移到第二位,admin 用户的核心入口与 AI 同属高频区
+   - 非 admin 用户管理分组被 visibleGroups 过滤掉,不影响视觉
+4. **路由命中自动展开**:用户访问某分组内任意页面时,该分组自动展开(覆盖上次折叠偏好)
+5. **localStorage 持久化**:key `sidebar-group-v3-<label>`,只在用户主动 toggle 时写,首次访问默认值可靠生效
+6. **折叠态(collapsed)沿用旧行为**:不显示 label,所有 items 直接铺开
+7. **分组折叠动画**:CSS grid-template-rows 0fr↔1fr 现代方案(比 max-height 更平滑,内容自适应高度,无"快进-慢停"问题),200ms ease-out
+
+**关键技术决策**:
+
+- v3 storageKey:旧实现用 useEffect 在 open 变化时回写 localStorage,导致首次挂载 setOpen(defaultOpen) 触发写入,污染测试环境。新实现只在用户主动 toggle 时写,首次访问 localStorage 保持空,默认值可靠生效
+- 两个独立 useEffect:第一个只在挂载时读一次(默认值/localStorage/groupActive 三择一),第二个监听 groupActive 路由变化触发自动展开
+- 折叠态不参与分组折叠(因为折叠态不渲染 label,无法承载点击切换)
+
+**验证证据**:
+
+- typecheck + lint:sidebar.tsx 自身无错误(其他 agent 的 desktop/ai-side-panel 代码 hook 失败,按 §12 用 --no-verify 跳过)
+- browser_use DOM 验证:默认态 AI=true, AI教育/内容/交易/个人=false(非 admin 视角,管理不可见)
+- SSR HTML curl 验证:分组顺序正确(AI→AI教育→内容→交易→个人,管理对非 admin 不可见)
+- active/dark 状态因 browser_click 工具持续 "Index out of bounds" 故障,降级为代码 review
+
+**Git 同步**:
+
+- commit 1 (e9415d5):首轮改动 — 顶级分组默认折叠,仅 AI 默认展开
+- commit 2 (e3918e3):第二轮改动 — 管理分组移到第二位 + 默认展开 + grid-rows 动画
+- local HEAD === origin/main HEAD ✅
+
+---
+
 ### CLI 配置无缝导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)(已完成 ✅ 2026-07-20 commit 478d31ff)
 
 **触发**:用户要求"深度分析 cc-switch 和 codex++ 两个项目,IHUI-AI 支持这两个项目的所有配置可以无缝导入,有按钮可以直接对接本地这两个项目的配置文件",并要求"细化方案 优化细化到极致 不可任何冲突 bug"。
