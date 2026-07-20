@@ -155,9 +155,8 @@ describe('fetchApi', () => {
     const r = await promise
     expect(r.success).toBe(false)
     if (!r.success) expect(r.error).toBe('请求已取消')
-    // fetchApi 内部对 AbortError 与网络异常同等对待,会重试一次(被已 abort 的 signal 立即拒绝),
-    // 故实际调用次数为 2;语义上首次失败即满足"请求已取消"返回,不影响调用方使用。
-    expect(global.fetch).toHaveBeenCalledTimes(2)
+    // AbortError 早返回,不重试,实际调用次数为 1
+    expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 
   it('首次请求网络失败时重试一次', async () => {
