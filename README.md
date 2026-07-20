@@ -13,6 +13,7 @@
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml/badge.svg" alt="Build" /></a>
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml/badge.svg" alt="E2E" /></a>
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/knip.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/knip.yml/badge.svg" alt="Knip" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0" /></a>
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI"><img src="https://img.shields.io/github/stars/IHUI-INF-AI/IHUI-AI?style=social" alt="Stars" /></a>
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/issues"><img src="https://img.shields.io/github/issues/IHUI-INF-AI/IHUI-AI.svg" alt="Issues" /></a>
@@ -23,6 +24,15 @@
 
 <p align="center">
   <strong>8 端全覆盖</strong> · <strong>100+ 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈协同</strong> · <strong>15+ 业务模块</strong> · <strong>5 语言 i18n</strong>
+</p>
+
+<p align="center">
+  <sub>
+    <a href="README.md">简体中文</a> ·
+    <a href="README.en.md">English</a> ·
+    <a href="README.ko.md">한국어</a> ·
+    <a href="README.ja.md">日本語</a>
+  </sub>
 </p>
 
 ---
@@ -50,7 +60,12 @@
 - [技术栈](#技术栈)
 - [8 端架构](#8-端架构)
 - [项目结构](#项目结构)
-- [核心能力详解(15 大模块)](#核心能力详解15-大模块)
+- [核心能力详解(15 大模块 · 按用户角色分组)](#核心能力详解15-大模块--按用户角色分组)
+  - [A. AI 能力层](#a-ai-能力层面向最终用户)
+  - [B. AI 工作流与开发者](#b-ai-工作流与开发者面向开发者)
+  - [C. 内容创作与教育](#c-内容创作与教育面向创作者与教育者)
+  - [D. 企业与运营](#d-企业与运营面向企业管理者与运营)
+  - [E. 工程基础设施](#e-工程基础设施面向运维与架构师)
 - [快速开始](#快速开始)
 - [API 与协议](#api-与协议)
 - [数据库](#数据库)
@@ -78,67 +93,72 @@
 | **AI 对话与模型** | 多模型对话 | 100+ 模型 / 智能路由 / 60% 缓存命中 / 流式 SSE + WebSocket / 对话收藏 / 历史记录 / 分享 / 模板 |
 | | AI 图像生成 | 文生图 / 图像编辑 / 多分辨率 / 多模型(Stable Diffusion / DALL-E / 通义万相) |
 | | AI 音频 | TTS 流式合成 / ASR 语音识别 / 音色克隆 / 双向实时语音(WebRTC PCM16 16kHz) |
-| | AI 视频合成 | 文生视频 / 视频编辑 / 多模型混编 |
+| | AI 视频合成 | 文生视频 / 视频编辑 / 多模型混编 / 转码 / 视频任务管理 |
 | | AI 数字人 | 腾讯混元 3D / AI 世界 / 数字人交互 |
 | | AI 职业 | AI 求职助手 / 简历优化 / 模拟面试 |
-| | AI 新闻 | AI 资讯聚合 / 智能摘要 |
+| | AI 资讯 | AI 资讯聚合 / 智能摘要 / ai-feed |
 | **AI 工作流** | LangGraph | StateGraph 工作流(plan → execute → summarize)+ stub 模式 |
-| | MCP 工具协议 | 11 内置工具 + 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP |
+| | MCP 工具协议 | 11 内置工具 + 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended |
 | | A2A 协议 | Agent-to-Agent 互通 / Redis 持久化 + 内存降级 |
-| | 知识库 RAG | 文档向量化 / 语义搜索 / 引用追溯 |
-| | 工作流编排 | 可视化工作流 / CrewAI 集成 / N8N 代理 |
-| **多智能体生态** | 智能体市场 | 购买 / 审核 / 结算 / 提现 / 分类 / 推荐 / 排行 |
-| | 开发者中心 | API Keys / 调用日志 / 团队管理 / 收益分析 |
+| | 知识库 RAG | 文档向量化 / 语义搜索 / 引用追溯 / knowledge-base + knowledge-rag |
+| | 工作流编排 | 可视化工作流 / CrewAI 集成 / N8N 代理 / workflows |
+| | 向量记忆 | 余弦相似度语义搜索 / 跨会话长期记忆 / vector-memory |
+| **多智能体生态** | 智能体市场 | 购买 / 审核 / 结算 / 提现 / 分类 / 推荐 / 排行 / 精选 |
+| | 开发者中心 | API Keys / 调用日志 / 团队管理 / 收益分析 / 13 子页 |
 | | Coze SDK 代理 | Bot / 对话 / 工作流 / 数据集 / 模板 / 变量 / 工作空间 / OAuth |
-| | OpenClaw | 开源 Agent 框架接入 |
-| **8 端框架** | Web | Next.js 15 / 83+ 页面 / PWA / SEO / 暗黑模式 / 5 语言 |
-| | API | Fastify 5 / ~1080 端点 / 12 WebSocket 端点 / OpenAPI |
-| | AI 服务 | FastAPI / LangGraph / LiteLLM / MCP / A2A |
-| | CLI | Node.js / ACP Server / 6 内置工具 / 6 源配置导入 |
-| | 桌面 | Tauri 2 / 系统托盘 / 本地文件访问 |
-| | 浏览器扩展 | WXT / 上下文菜单 / 侧边栏 |
-| | 移动 RN | React Native + Expo / iOS + Android |
-| | 小程序 | Taro 4 / 微信支付原生集成 |
-| **企业级能力** | 工作空间权限 | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 |
-| | RBAC + 多租户 | 角色 / 部门 / 组织 / 租户隔离 / 菜单权限 |
-| | SSO 单点登录 | OAuth 2.0 / Apple / Google / SSO 中转登录 |
-| | 计费与订阅 | VIP 等级 / 订阅 recurring / 钱包 / 积分 / 退款审计 / 发票 / 汇率 |
-| | 灰度发布 | Canary / 灰度规则 / A/B 测试 |
-| | 数据合规 | GDPR / 敏感词过滤 / 内容审核 / 审计日志 |
-| **内容创作** | 自媒体工作台 | 公众号文章 + 口播稿双流水线 / 斜杠命令 |
-| | 14 平台自动发布 | 文章 9 + 图片 2 + 视频 5 平台 / 凭证 AES-256-GCM 加密 |
-| | 资讯新闻 | 文章 / 新闻 / 专题 / 标签 / 评论 / 点赞 / 收藏 |
-| | 短剧 | 短剧创作与管理 |
-| **AI 教育全栈** | 课程学习 | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 |
-| | 题库与考试 | 多题型 / 自动批改 / 章节练习 / 错题本 / 试卷上传 |
+| | OpenClaw | 开源 Agent 框架接入 / clawdbot / openclaw-routes |
+| | Skills 系统 | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline)+ koubo_workflow(10+ tools) |
+| **8 端框架** | Web | Next.js 15 / 200+ 页面 / PWA / SEO / 暗黑模式 / 5 语言 |
+| | API | Fastify 5 / ~1080 端点 / 12 WebSocket 端点 / 95+ 路由文件 / OpenAPI |
+| | AI 服务 | FastAPI + LangGraph + LiteLLM + MCP + A2A / 55+ 端点 / 5 provider 适配 |
+| | CLI | Node.js / 17 命令 / 13 内置工具 / 6 源配置导入 / ACP Server |
+| | 桌面 | Tauri 2 + Rust / 系统托盘 / 本地文件访问 |
+| | 浏览器扩展 | WXT / 上下文菜单 / 侧边栏 / Chrome + Edge + Firefox |
+| | 移动 RN | React Native + Expo EAS / iOS + Android / SSO |
+| | 小程序 | Taro 4 / 微信支付原生集成 / 3 语言(i18n) |
+| **企业级能力** | 工作空间权限 | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + workspace-ai-tasks |
+| | RBAC + 多租户 | 角色 / 部门 / 组织 / 租户隔离 / 菜单权限 / data-scope 5 级 |
+| | SSO 单点登录 | OAuth 2.0 / Apple / Google / SSO 中转登录 / PKCE |
+| | 计费与订阅 | VIP 等级 / 订阅 recurring / 钱包 / 积分 / 退款审计 / 发票 / 汇率 / 8 支付网关 |
+| | 灰度发布 | Canary / 灰度规则 / A/B 测试 / canary + ab-tests |
+| | 数据合规 | GDPR / 敏感词过滤 / 内容审核 / 审计日志 / 数据导出 |
+| **内容创作** | 自媒体工作台 | 公众号文章 + 口播稿双流水线 / 斜杠命令 / self-media-automation |
+| | 14 平台自动发布 | 文章 9 + 图片 2 + 视频 5 平台 / 凭证 AES-256-GCM 加密 / 14 adapter |
+| | 资讯新闻 | 文章 / 新闻 / 专题 / 标签 / 评论 / 点赞 / 收藏 / news-crawler |
+| | 短剧 | 短剧创作与管理 / drama |
+| | 业务名片 | 名片创建 / 编辑 / 收藏 / 分享 / business-cards |
+| **AI 教育全栈** | 课程学习 | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / zhs-course |
+| | 题库与考试 | 多题型 / 自动批改 / 章节练习 / 错题本 / 试卷上传 / exam-marking |
 | | SRS 间隔重复 | 艾宾浩斯遗忘曲线 / 智能复习调度 |
-| | 直播教学 | 签到 / 互动 / 回放 / AI 辅助 |
+| | 直播教学 | 签到 / 互动 / 回放 / AI 辅助 / live-chat |
 | | 学习报告 | 行为分析 / 个性化建议 / 证书发放 |
-| | 讲师管理 | 讲师主页 / 课程关联 |
-| **社区互动** | 圈子广场 | 圈子 / 广场 / 问答 / 帖子 / 话题 |
-| | 私信消息 | 1 对 1 私信 / 系统通知 / 多端同步 |
+| | 讲师管理 | 讲师主页 / 课程关联 / education-platform |
+| | 学生端 | 12 子页(问答 / 文章 / 圈子 / 评论 / 课程 / 资源 / 笔记 / 离线 / 试卷 / 错题本 / 证书) |
+| **社区互动** | 圈子广场 | 圈子 / 广场 / 问答 / 帖子 / 话题 / 标签 |
+| | 私信消息 | 1 对 1 私信 / 系统通知 / 多端同步 / private-letters |
 | | 关注粉丝 | 关注 / 粉丝 / 用户主页 / 名片 |
-| | 分享邀请 | 邀请码 / 分享码 / H5 分享 / 推荐返佣 |
-| **运营增长** | 积分签到 | 每日签到 / 任务积分 / 积分商城 / 兑换 |
-| | 排行榜 | 多维度排行 / 周月榜 / 用户排名 |
-| | 抽奖活动 | 抽奖 / 红包 / 奖励视频广告 |
-| | 分销佣金 | 分销体系 / 佣金计划 / 提现 |
-| | 活动公告 | 活动管理 / 公告推送 / Banner 轮播 |
-| **客服支持** | 工单系统 | 工单提交 / 处理 / 评价 / FAQ |
-| | 在线客服 | WebSocket 实时客服 / 1 对 1 会话 |
+| | 分享邀请 | 邀请码 / 分享码 / H5 分享 / 推荐返佣 / visit-tracking |
+| **运营增长** | 积分签到 | 每日签到 / 任务积分 / 积分商城 / 兑换 / point-redeem-items |
+| | 排行榜 | 多维度排行 / 周月榜 / 用户排名 / ranking |
+| | 抽奖活动 | 抽奖 / 红包 / 奖励视频广告 / rewarded-video-ad |
+| | 分销佣金 | 分销体系 / 佣金计划 / 提现 / 8 子页 / commission |
+| | 活动公告 | 活动管理 / 公告推送 / Banner 轮播 / carousels |
+| **客服支持** | 工单系统 | 工单提交 / 处理 / 评价 / FAQ / admin-asks + admin-faq |
+| | 在线客服 | WebSocket 实时客服 / 1 对 1 会话 / customer-service |
 | | 反馈中心 | 用户反馈 / 处理状态 / 追踪 |
-| **运维监控** | BI 仪表盘 | 业务指标可视化 / 数据分析 |
-| | 错误仪表盘 | 错误聚合 / 告警 / 追踪 |
-| | 操作日志 | 登录日志 / 操作日志 / 回调日志 |
-| | 监控告警 | Prometheus + Grafana + Loki + Jaeger + OpenTelemetry |
-| **工程基础设施** | 数据库 | PostgreSQL 15 / 96+ 表 / 32+ 迁移 / Drizzle ORM |
-| | 队列缓存 | Redis 7 + BullMQ / 独立 worker |
-| | 对象存储 | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 |
-| | 邮件短信 | SMTP / 短信网关 / 邮件模板 / 验证码 |
-| | 国际化 | 5 语言 parity(zh-CN / zh-TW / en / ko / ja)+ 4 守门脚本 |
-| | 工程守门 | 17 pre-commit 钩子 + post-commit 自动 push |
-| | 测试覆盖 | 268 + 400+ 用例 / Vitest + Playwright + pytest |
-| | 部署运维 | Docker Compose / 蓝绿部署 / 健康检查 / 回滚 / 备份 |
+| **运维监控** | BI 仪表盘 | 业务指标可视化 / 数据分析 / bi-dashboard |
+| | 错误仪表盘 | 错误聚合 / 告警 / 追踪 / security-audit |
+| | 操作日志 | 登录日志 / 操作日志 / 回调日志 / audit + security-logs |
+| | 监控告警 | Prometheus + Grafana(20 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager |
+| **工程基础设施** | 数据库 | PostgreSQL 15 / **338+ 表** / 100 schema 文件 / **120+ 迁移** / Drizzle ORM + RLS + 租户路由 |
+| | 队列缓存 | Redis 7 + BullMQ / 独立 worker 进程(:8081) |
+| | 对象存储 | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 / chunked-upload |
+| | 邮件短信 | SMTP / 短信网关 / 邮件模板 / 验证码 / mail + message-templates |
+| | 国际化 | 5 语言 parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 4 守门脚本 |
+| | 工程守门 | 17 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动 |
+| | 测试覆盖 | 268 + 400+ 用例 / Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 |
+| | 部署运维 | Docker Compose(14 服务)/ 蓝绿部署 / Nginx upstream 切换 / 健康检查 / 回滚 / 备份 / 证书续期 cron |
+| | 性能 CI | Knip 未使用代码检测 + Lighthouse CI 性能预算 + GitHub Act 本地 CI |
 
 ---
 
@@ -149,16 +169,19 @@
 | **端覆盖** | Web / API / AI 服务 / CLI / 桌面 / 扩展 / 移动 RN / 小程序 Taro | 行业首个 8 端全覆盖 AI 全栈平台 |
 | **模型接入** | LiteLLM 网关统一 100+ 模型(国际 30+ / 国产 15+ / 云厂商 10+) | 一站式接入,智能路由 + 60% 缓存 |
 | **AI 编排三栈** | LangGraph(工作流)+ MCP(工具协议)+ A2A(Agent 互通) | 工作流、工具、智能体协同一体化 |
-| **自研 CLI** | ACP Server + 6 内置工具,对标 Claude Code | 命令行原生 AI 编程体验 |
+| **自研 CLI** | 17 命令 + 13 内置工具 + ACP Server,对标 Claude Code | 命令行原生 AI 编程体验 |
 | **CLI 配置无缝导入** | cc-switch / codex++ / Claude / Codex / Gemini / Hermes 6 源一键导入 | 跨 CLI 工具配置零迁移成本 |
 | **企业级安全** | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 | 决策者级风险控制 |
 | **数据加密** | AES-256-GCM(credentials 加密)+ JWT token-family 旋转 + refresh 黑名单 | 金融级数据保护 |
-| **可观测性** | Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry | 全链路指标 / 日志 / 追踪 |
-| **工程守门** | 17 个 pre-commit 守门脚本 + post-commit 自动 push + git-push-guard | 杜绝协作事故,99.9% SLA |
-| **国际化** | zh-CN / zh-TW / en / ko / ja 5 语言 parity | 5 语言键集合强一致性 |
-| **数据库** | 96+ 表 + 32+ 迁移 + Drizzle ORM 类型安全 | 单库 PostgreSQL 15,schema 隔离 |
-| **API 规模** | ~1135 端点(api 1080 + ai-service 55)+ 12 WebSocket 端点 | 远超源项目 331 端点 |
-| **业务覆盖** | 15 大模块 / 50+ 子功能 / 83+ Web 页面 | 一个平台覆盖所有 AI 应用场景 |
+| **可观测性** | Prometheus + Grafana(**20 仪表盘**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager | 全链路指标 / 日志 / 追踪 / 告警 |
+| **工程守门** | 17 pre-commit + post-commit 自动 push + git-push-guard + 11 迁移审计 | 杜绝协作事故,99.9% SLA |
+| **国际化** | zh-CN / zh-TW / en / ko / ja 5 语言 parity + 19 i18n 工具链 | 5 语言键集合强一致性 |
+| **数据库** | **338+ 表 + 120+ 迁移** + 100 schema 文件 + Drizzle ORM + RLS + 租户路由 | 单库 PostgreSQL 15,schema 隔离 |
+| **API 规模** | ~1135 端点(api 1080 + ai-service 55)+ 12 WebSocket + 95+ 路由文件 | 远超源项目 331 端点 |
+| **业务覆盖** | 15 大模块 / 50+ 子功能 / **200+ Web 页面** | 一个平台覆盖所有 AI 应用场景 |
+| **共享包** | 13 packages(auth/database/types/ui/i18n/sdk/api-client/context-compaction 等) | 跨端类型安全 + 复用 |
+| **性能保障** | Knip 未使用代码 + Lighthouse CI + Locust 压测 | 性能预算 + 容量预估 |
+| **部署成熟度** | Docker Compose(14 服务)+ 蓝绿 + Nginx upstream + 证书续期 cron | 生产级运维 |
 
 ---
 
@@ -169,16 +192,18 @@
 | **端覆盖** | 8 端(Web/API/AI/CLI/桌面/扩展/移动/小程序) | 2 端(Web/Server) | 2 端(Web/Server) | 1 端(Web) | 1 端(Web) |
 | **模型接入** | 100+ 模型 + LiteLLM 网关 | 50+ 模型 | 30+ 模型 | LangChain 适配器 | 仅 OpenAI |
 | **工作流引擎** | LangGraph + MCP + A2A 三栈 | 自研工作流 | 简单工作流 | Langflow DAG | 无 |
-| **多租户 + RBAC** | 完整(租户/角色/部门/菜单) | 基础 | 基础 | 无 | 无 |
-| **计费订阅** | 完整(VIP/订阅/钱包/积分/退款/发票) | 无 | 基础 | 无 | 无 |
-| **AI 教育** | 全栈(课程/题库/考试/SRS/直播) | 无 | 无 | 无 | 无 |
-| **内容发布** | 14 平台一键自动发布 | 无 | 无 | 无 | 无 |
-| **CLI 工具** | 自研 ACP Server + 6 工具 | 无 | 无 | 无 | 无 |
-| **可观测性** | 三支柱完整(指标/日志/追踪) | 基础 | 基础 | 无 | 无 |
-| **工程守门** | 17 pre-commit 钩子 | 基础 | 基础 | 基础 | 无 |
-| **i18n** | 5 语言 parity + 4 守门 | 中英文 | 中英文 | 英文 | 多语言 |
+| **多租户 + RBAC** | 完整(租户/角色/部门/菜单/data-scope 5 级) | 基础 | 基础 | 无 | 无 |
+| **计费订阅** | 完整(VIP/订阅/钱包/积分/退款/发票/8 支付网关) | 无 | 基础 | 无 | 无 |
+| **AI 教育** | 全栈(课程/题库/考试/SRS/直播/学生端 12 子页) | 无 | 无 | 无 | 无 |
+| **内容发布** | 14 平台一键自动发布 + 14 adapter | 无 | 无 | 无 | 无 |
+| **CLI 工具** | 自研 ACP Server + 17 命令 + 13 工具 | 无 | 无 | 无 | 无 |
+| **可观测性** | 三支柱 + 20 Grafana 仪表盘 + Alertmanager | 基础 | 基础 | 无 | 无 |
+| **工程守门** | 17 pre-commit + 11 迁移审计 + 9 PowerShell | 基础 | 基础 | 基础 | 无 |
+| **i18n** | 5 语言 parity + 19 i18n 工具链 + 4 守门 | 中英文 | 中英文 | 英文 | 多语言 |
+| **数据库** | 338+ 表 + 120+ 迁移 + RLS + 租户路由 | 基础 | 基础 | 简单 | 简单 |
+| **性能 CI** | Knip + Lighthouse + Locust 压测 | 无 | 无 | 无 | 无 |
 | **License** | Apache 2.0(商用友好) | Apache 2.0 | FastGPT Open License | MIT | MIT |
-| **生产级部署** | Docker Compose + 蓝绿 + 回滚 + 备份 | Docker | Docker | Docker | Docker |
+| **生产级部署** | Docker Compose(14 服务)+ 蓝绿 + 回滚 + 备份 + 证书 cron | Docker | Docker | Docker | Docker |
 
 **IHUI-AI 不是要替代谁,而是把"搭建一个完整 AI 应用"所需的所有基础设施都开源出来。**
 
@@ -254,23 +279,24 @@ cd IHUI-AI && docker compose up -d
 |---|---|---|
 | Monorepo | pnpm workspace + Turborepo | pnpm 9.15 / turbo 2.3 |
 | 后端 API | Fastify + @fastify/jwt + @fastify/websocket + Drizzle ORM + PostgreSQL | Fastify 5.1 / Drizzle 0.38 / PG 15 |
-| 缓存与队列 | Redis 7 + BullMQ | 独立 worker 进程 |
+| 缓存与队列 | Redis 7 + BullMQ | 独立 worker 进程(:8081) |
 | 前端 Web | Next.js + React + Tailwind CSS + shadcn/ui | Next 15.1 / React 19 / Tailwind 4 |
 | 前端状态 | @tanstack/react-query 5 + Zustand | 服务端 + 客户端状态分离 |
 | 国际化 | next-intl | zh-CN / zh-TW / en / ko / ja 5 语言 |
-| AI 服务 | FastAPI + LangGraph + LiteLLM + MCP + A2A | FastAPI 0.115 / LangGraph 0.2 |
+| AI 服务 | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO | FastAPI 0.115 / LangGraph 0.2 |
 | AI 协议 | SSE(Agent 流式)+ WebSocket(聊天室 / 多模型流式)+ REST | 三协议分层 |
-| 桌面端 | Tauri 2 + React 19 | 跨平台原生体验 |
+| 桌面端 | Tauri 2 + React 19 + Rust | 跨平台原生体验 |
 | 浏览器扩展 | WXT + React | Chrome / Edge / Firefox |
 | 移动端 | React Native + Expo EAS | iOS / Android |
 | 小程序 | Taro 4 + React | 微信小程序 |
 | CLI | Node.js + Commander + Inquirer | 对标 Claude Code |
-| 认证 | @ihui/auth 共享包(JWT HS256 + token-family + OAuth2 + RBAC) | 跨端统一签发 |
+| 认证 | @ihui/auth 共享包(JWT HS256 + token-family + OAuth2 + RBAC + data-scope 5 级) | 跨端统一签发 |
 | 验证 | Zod 3.24(后端)+ React Hook Form(前端) | 端到端类型安全 |
 | 日志 | Pino 9.5(后端)+ Python logging(AI 服务)+ Loki + Promtail | 结构化 + 聚合 |
 | 追踪 | OpenTelemetry + Jaeger | 分布式全链路 |
-| 监控 | Prometheus + Grafana + Node Exporter | 主机 + 应用指标 |
-| 测试 | Vitest(后端)+ Playwright(E2E)+ pytest(AI 服务) | 268 + 400+ 用例 |
+| 监控 | Prometheus + Grafana(20 仪表盘)+ Node Exporter + Alertmanager | 主机 + 应用 + 告警 |
+| 测试 | Vitest(后端)+ Playwright(E2E)+ pytest(AI 服务)+ Locust(压测)+ Lighthouse(性能) | 268 + 400+ 用例 |
+| 未使用代码检测 | Knip | CI 守门 |
 | Node | >=20.10.0 | - |
 | Python | 3.12+(仅 AI 服务) | - |
 
@@ -279,47 +305,48 @@ cd IHUI-AI && docker compose up -d
 ## 8 端架构
 
 ```
-                    ┌─────────────────────────────────────────┐
-                    │          用户 / 企业 / 开发者              │
-                    └────────────┬───────────────────┬────────┘
-                                 │                   │
-        ┌────────────────────────┼───────────────────┼────────────────────────┐
-        │                        │                   │                        │
-   ┌────▼─────┐  ┌──────────┐  ┌─▼────────┐  ┌──────▼─────┐  ┌──────────┐  ┌─▼────────┐
-   │  Web     │  │ Desktop  │  │ Extension│  │ Mobile RN │  │ Miniapp  │  │   CLI    │
-   │ Next 15  │  │ Tauri 2  │  │  WXT     │  │  Expo     │  │ Taro 4   │  │ Node.js  │
-   │ :3000    │  │          │  │          │  │           │  │          │  │          │
-   └────┬─────┘  └────┬─────┘  └────┬─────┘  └─────┬────┘  └────┬─────┘  └────┬─────┘
-        │             │             │              │            │             │
-        └─────────────┴─────────────┴──────┬───────┴────────────┴─────────────┘
-                                           │  HTTPS / WebSocket / SSE
+                    ┌─────────────────────────────────────────────────┐
+                    │          用户 / 企业 / 开发者 / 教育机构             │
+                    └────────────┬───────────────────────┬────────────┘
+                                 │                       │
+        ┌────────────────────────┼───────────────────────┼────────────────────────┐
+        │                        │                       │                        │
+   ┌────▼─────┐  ┌──────────┐  ┌─▼────────┐  ┌──────────▼───┐  ┌──────────┐  ┌─▼────────┐
+   │  Web     │  │ Desktop  │  │ Extension│  │  Mobile RN  │  │ Miniapp  │  │   CLI    │
+   │ Next 15  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
+   │ :3000    │  │ + Rust   │  │          │  │ iOS/Android │  │ 微信小程序 │  │ ACP+Skl │
+   └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬─────┘  └────┬─────┘  └────┬─────┘
+        │             │             │               │             │             │
+        └─────────────┴─────────────┴───────┬───────┴─────────────┴─────────────┘
+                                           │  HTTPS / WebSocket / SSE / ACP
                                   ┌────────▼─────────┐
                                   │   apps/api       │  Fastify 5 + Drizzle ORM
-                                  │   :8080          │  ~1080 端点 + 12 WS 端点
+                                  │   :8080          │  ~1080 端点 + 12 WS + 95 路由文件
                                   └────┬───────┬─────┘
                                        │       │
                           ┌────────────▼─┐   ┌─▼──────────────┐
-                          │  PostgreSQL  │   │  apps/ai-service│  FastAPI
-                          │  15 (96 表)  │   │  :8000          │  LangGraph + LiteLLM + MCP + A2A
-                          └──────────────┘   └────┬────────────┘
+                          │  PostgreSQL  │   │  apps/ai-service│  FastAPI + Socket.IO
+                          │  15 (338 表) │   │  :8000          │  LangGraph + LiteLLM + MCP + A2A
+                          └──────────────┘   └────┬────────────┘  5 provider + 14 publish adapter
                                                   │
-                                            ┌─────▼─────┐
-                                            │  Redis 7  │  Pub/Sub + 缓存 + BullMQ
-                                            └───────────┘
+                                            ┌─────▼─────┐  ┌──────────┐
+                                            │  Redis 7  │  │ Worker   │  BullMQ 独立进程
+                                            │ Pub/Sub   │  │ :8081    │  异步任务调度
+                                            └───────────┘  └──────────┘
 ```
 
 ### 8 端职责
 
 | 端 | 目录 | 技术栈 | 职责 |
 |---|---|---|---|
-| **Web** | `apps/web/` | Next.js 15 + React 19 | 主前端,83+ 页面,5 语言 i18n,PWA,SEO |
-| **API** | `apps/api/` | Fastify 5 + Drizzle | 业务管理 + 多厂商代理 + 认证 + WebSocket,~1080 端点 |
-| **AI 服务** | `apps/ai-service/` | FastAPI + LangGraph | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议,~55 端点 |
-| **CLI** | `apps/cli/` | Node.js + Commander | 自研命令行 AI 编程助手,ACP Server + 6 工具 + 6 源配置导入 |
-| **桌面** | `apps/desktop/` | Tauri 2 + React | 跨平台桌面应用,系统托盘 + 本地文件访问 |
-| **扩展** | `apps/extension/` | WXT + React | 浏览器扩展,上下文菜单 + 侧边栏 |
-| **移动** | `apps/mobile-rn/` | React Native + Expo | iOS / Android 原生应用 |
-| **小程序** | `apps/miniapp-taro/` | Taro 4 + React | 微信小程序,微信支付原生集成 |
+| **Web** | `apps/web/` | Next.js 15 + React 19 | 主前端,200+ 页面,5 语言 i18n,PWA,SEO |
+| **API** | `apps/api/` | Fastify 5 + Drizzle | 业务管理 + 多厂商代理 + 认证 + WebSocket,~1080 端点 / 95+ 路由文件 |
+| **AI 服务** | `apps/ai-service/` | FastAPI + LangGraph + Socket.IO | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议 + 14 发布 adapter,~55 端点 |
+| **CLI** | `apps/cli/` | Node.js + Commander | 自研命令行 AI 编程助手,17 命令 + 13 工具 + ACP Server + 6 源配置导入 |
+| **桌面** | `apps/desktop/` | Tauri 2 + Rust + React | 跨平台桌面应用,系统托盘 + 本地文件访问 |
+| **扩展** | `apps/extension/` | WXT + React | 浏览器扩展,上下文菜单 + 侧边栏 + Chrome/Edge/Firefox |
+| **移动** | `apps/mobile-rn/` | React Native + Expo EAS | iOS / Android 原生应用 + SSO |
+| **小程序** | `apps/miniapp-taro/` | Taro 4 + React | 微信小程序,微信支付原生集成 + 3 语言 i18n |
 
 ---
 
@@ -328,78 +355,136 @@ cd IHUI-AI && docker compose up -d
 ```
 IHUI-AI/
 ├── apps/
-│   ├── ai-service/          # AI 服务 (FastAPI + LangGraph + LiteLLM + MCP + A2A)
-│   ├── api/                 # 后端 API (Fastify 5 + Drizzle ORM, ~1080 端点, 37 路由文件)
-│   ├── cli/                 # 自研 CLI (ACP Server + 6 工具, 对标 Claude Code)
-│   ├── desktop/             # 桌面端 (Tauri 2 + React)
-│   ├── extension/           # 浏览器扩展 (WXT + React)
+│   ├── ai-service/          # AI 服务 (FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO)
+│   ├── api/                 # 后端 API (Fastify 5 + Drizzle, ~1080 端点, 95+ 路由文件)
+│   ├── cli/                 # 自研 CLI (17 命令 + 13 工具 + ACP Server, 对标 Claude Code)
+│   ├── desktop/             # 桌面端 (Tauri 2 + Rust + React)
+│   ├── extension/           # 浏览器扩展 (WXT + React, Chrome/Edge/Firefox)
 │   ├── miniapp-taro/        # 微信小程序 (Taro 4 + React)
-│   ├── mobile-rn/           # 移动端 (React Native + Expo)
-│   └── web/                 # 前端 (Next.js 15 + React 19, 83+ 页面)
-├── packages/
-│   ├── auth/                # @ihui/auth 共享认证 (JWT + token-family + OAuth2 + RBAC)
-│   ├── config/              # @ihui/config 共享配置
-│   ├── database/            # @ihui/database Drizzle schema (96 表 + 32 迁移)
+│   ├── mobile-rn/           # 移动端 (React Native + Expo EAS)
+│   └── web/                 # 前端 (Next.js 15 + React 19, 200+ 页面)
+├── packages/                # 13 个共享包
+│   ├── api-client/          # @ihui/api-client (40+ endpoints 自动生成 SDK)
+│   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
+│   ├── config/              # @ihui/config
+│   ├── context-compaction/  # @ihui/context-compaction (上下文压缩)
+│   ├── database/            # @ihui/database (Drizzle, 338+ 表, 120+ 迁移, RLS, 租户路由)
 │   ├── eslint-config/       # @ihui/eslint-config
-│   ├── i18n/                # @ihui/i18n 共享国际化
-│   ├── sdk/                 # @ihui/sdk 自动生成的 SDK
+│   ├── i18n/                # @ihui/i18n (5 语言 + brand-glossary)
+│   ├── sdk/                 # @ihui/sdk (自动生成)
 │   ├── tsconfig/            # @ihui/tsconfig
-│   ├── types/               # @ihui/types 共享类型定义
-│   ├── ui/                  # @ihui/ui Web 端 shadcn/ui 组件库
-│   └── ui-native/           # @ihui/ui-native React Native 组件库
+│   ├── types/               # @ihui/types
+│   ├── ui/                  # @ihui/ui (Web shadcn/ui)
+│   ├── ui-native/           # @ihui/ui-native (React Native)
+│   └── ui-primitives/       # @ihui/ui-primitives (cn + 原语)
 ├── deploy/
-│   ├── nginx/               # Nginx 反向代理配置
-│   └── scripts/             # 部署 / 备份 / 回滚 / 健康检查脚本
-├── docs/                    # 架构 / 贡献 / 部署 / 安全 / 邮件 / i18n / 变更日志
-├── monitoring/              # Grafana / Loki / Prometheus / Promtail / otel-collector
-├── scripts/                 # 17+ 守门脚本 + 运维工具
-├── .github/workflows/       # CI (build / ci / e2e / knip)
-├── .husky/                  # Git hooks (pre-commit 17 项 + post-commit 自动 push)
-├── docker-compose.yml       # 编排 (api + web + ai-service + db + redis + 监控栈)
-├── Dockerfile.api-new       # 后端镜像
-├── Dockerfile.web-new       # 前端镜像
+│   ├── nginx/               # Nginx 反向代理 + 蓝绿 upstream + SSL/security/rate-limit
+│   ├── scripts/             # deploy.sh / rollback.sh / health-check.sh / backup-db.sh / restore-db.sh / deploy_certs.sh
+│   ├── cron/                # Let's Encrypt 证书自动续期
+│   └── setup-github-secrets.sh  # GitHub Actions secrets 批量配置
+├── docs/                    # 9 个文档:architecture / CHANGELOG / CONTRIBUTING / DEPLOYMENT_RUNBOOK / SECURITY / EMAIL_SETUP / I18N / INCIDENTS / README
+├── monitoring/              # Grafana(20 仪表盘)+ Loki + Prometheus + Promtail + otel-collector + Alertmanager
+├── scripts/                 # 17 守门 + 19 i18n + 11 迁移审计 + 9 PowerShell 启动 + 运维工具
+├── server-docs/             # 多租户设计文档(MULTI_TENANT.md)
+├── .github/workflows/       # 4 个 CI:build / ci / e2e / knip + GitHub Act 本地 CI
+├── .husky/                  # Git hooks (commit-msg + post-commit + pre-commit + pre-push + post-checkout + post-merge)
+├── docker-compose.yml       # 14 服务编排(7 业务 + 7 监控)
+├── Dockerfile.api-new       # 后端镜像(api + worker 共用)
+├── Dockerfile.web-new       # 前端镜像(Next.js standalone)
 ├── Dockerfile.migrate       # 迁移一次性服务镜像
-├── AGENTS.md                # AI Agent 协作规范(强制规则)
+├── locustfile.py            # Locust 压测脚本
+├── lighthouserc.json        # Lighthouse CI 性能预算
+├── knip.jsonc               # Knip 未使用代码检测配置
+├── noise-rules.yml          # Alertmanager 噪音抑制规则
+├── s3-lifecycle.yml         # S3 对象存储生命周期规则
+├── AGENTS.md                # AI Agent 协作规范(21 节强制规则)
 ├── PROJECT_PLAN.md          # 项目唯一任务计划文档
 ├── LICENSE                  # Apache 2.0
-└── package.json
+├── README.md                # 简体中文(本文件)
+├── README.en.md             # English
+├── README.ko.md             # 한국어
+└── README.ja.md             # 日本語
 ```
 
 ---
 
-## 核心能力详解(15 大模块)
+## 核心能力详解(15 大模块 · 按用户角色分组)
 
-### 1. 100+ 大模型一站式接入
+### A. AI 能力层(面向最终用户)
+
+#### A1. 100+ 大模型一站式接入
 
 通过 LiteLLM 网关统一接入,智能路由 + 60% 缓存命中:
 
 | 类别 | 模型 |
 |---|---|
-| **国际模型** | OpenAI GPT / Anthropic Claude / Google Gemini / xAI Grok / Groq / OpenRouter / Mistral |
+| **国际模型** | OpenAI GPT / Anthropic Claude / Google Gemini / xAI Grok / Groq / OpenRouter / Mistral / StepFun |
 | **国产模型** | 智谱 GLM / 通义千问 Qwen / 豆包 Doubao / DeepSeek / 月之暗面 Kimi / 阶跃星辰 StepFun / 百川 / Yi / MiniMax |
 | **云厂商** | 阿里云 / 腾讯云 / 华为云 / 火山引擎 / 百度智能云 / AWS Bedrock / Azure OpenAI |
 | **多模态** | 文本 / 图像 / 语音(STT + TTS)/ 视频 / 嵌入向量 / 3D 数字人(腾讯混元) |
 
-### 2. LangGraph + MCP + A2A 三栈协同
+**ai-service providers 适配**(`apps/ai-service/app/providers/`):base_provider + openai_provider + anthropic_provider + gemini_provider + stepfun_provider 5 个适配器。
 
-| 栈 | 能力 |
+#### A2. LangGraph + MCP + A2A 三栈协同
+
+| 栈 | 能力 | 实现位置 |
+|---|---|---|
+| **LangGraph** | StateGraph 工作流(plan → execute → summarize),支持 stub 模式无 API key 也能开发 | `services/langgraph_service.py` + `agent_graph.py` + `agent_loop.py` + `agent_orchestrator.py` |
+| **MCP** | 11 内置工具(search_codebase / read_file / write_file / run_command / web_search / git_operations / db_query / analyze_code / generate_test / refactor_code / file_search)+ 3 资源 + 3 提示词 + 项目级 MCP + mcp-extended | `routers/mcp.py` + `services/mcp_server.py` |
+| **A2A** | Agent-to-Agent 协议,Redis 持久化 + 内存降级,智能体之间互相调用 | `routers/a2a.py` + `services/a2a_service.py` |
+| **向量记忆** | 嵌入 + 余弦相似度语义搜索,跨会话长期记忆 | `services/vector_memory.py` + `memory.py` + `project_memory.py` |
+| **知识库 RAG** | 文档向量化 / 语义搜索 / 引用追溯 | `services/rag.py` + `api/v1/rag.py` + schema `knowledge-base.ts` |
+| **Persona** | 角色定义注册表,自定义 Agent 人设 | `routers/personas.py` + `services/persona_registry.py` |
+| **Agent Runtime** | SSE 流式 + WebSocket,plan/execute/summarize + interrupt/continue/cancel | `routers/agent_runtime.py` |
+
+#### A3. 多模态 AI 创作
+
+| 能力 | 端点 / 实现 |
 |---|---|
-| **LangGraph** | StateGraph 工作流(plan → execute → summarize),支持 stub 模式无 API key 也能开发 |
-| **MCP** | 11 内置工具(search_codebase / read_file / write_file / run_command / web_search / git_operations / db_query / analyze_code / generate_test / refactor_code / file_search)+ 3 资源 + 3 提示词 + 项目级 MCP |
-| **A2A** | Agent-to-Agent 协议,Redis 持久化 + 内存降级,智能体之间互相调用 |
-| **向量记忆** | 嵌入 + 余弦相似度语义搜索,跨会话长期记忆 |
-| **知识库 RAG** | 文档向量化 / 语义搜索 / 引用追溯 |
+| **文生图** | 多模型(Stable Diffusion / DALL-E / 通义万相)/ 多分辨率 / 批量 / image-gen-favorites |
+| **图像编辑** | 局部重绘 / 风格迁移 / 背景移除 / 高清放大 |
+| **TTS 流式合成** | 12+ 音色 / 多语言 / WebSocket 流式 / 中断控制 / `ws/tts/stream` |
+| **ASR 语音识别** | 实时转写 / 文件转写 / 多语言 / `voice_stt.py` |
+| **音色克隆** | 短音频样本 → 自定义音色 / `ws/timbre/generate` |
+| **双向实时语音** | WebRTC PCM16 16kHz / ASR + LLM + TTS 闭环 / `webrtc-voice.ts` |
+| **文生视频** | 多模型混编 / 视频编辑 / 视频合成 / 转码 / ai-generation/video-tasks |
+| **AI 数字人** | 腾讯混元 3D / AI 世界 / 数字人交互 / `tencent-hunyuan-3d.ts` |
+| **AI 求职** | 简历优化 / 模拟面试 / 职业建议 / `ai-career/` |
+| **AI 资讯** | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` |
 
-### 3. 自研 CLI(对标 Claude Code)
+### B. AI 工作流与开发者(面向开发者)
 
-`apps/cli/` 提供 ACP(Agentic Coding Protocol)Server + 6 内置工具,支持:
+#### B1. 自研 CLI(对标 Claude Code)
 
-- **斜杠命令**:`/goal` 目标驱动模式 + `/loop` 自动迭代 + `/skill` 工具调用 + `/plan` 计划等 12 命令
-- **Skills 系统**:code-review / bug-fix / feature-plan / refactor-helper / api-designer / test-writer
-- **配置无缝导入**:cc-switch / codex++ / Claude / Codex / Gemini / Hermes 6 源一键导入
-- **多端联动**:与 Web / API 共享认证 + 会话 + 工作空间
+`apps/cli/` 提供 ACP(Agentic Coding Protocol)Server + 17 命令 + 13 内置工具:
 
-### 4. 企业级工作空间权限
+**命令清单:**
+
+| 命令 | 用途 |
+|---|---|
+| `ihui` (无参) | 交互式 REPL |
+| `ihui "<prompt>"` | 直接执行任务(单轮) |
+| `ihui chat` | 多轮对话模式 |
+| `ihui agent [task]` | Agent 自主多步执行(--json headless) |
+| `ihui init` | 创建 AGENTS.md 模板(--force 覆盖) |
+| `ihui sessions` | 列出历史会话 |
+| `ihui mcp list/add/remove` | MCP 服务器管理(stdio/http/sse) |
+| `ihui capabilities` | 能力子命令 |
+| `ihui checkpoint` | 检查点子命令 |
+| `ihui hooks` | Git hooks 子命令 |
+| `ihui import` | 6 源配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes) |
+| `ihui skills list/show` | 加载 .ihui/.agents/.claude/.cursor 四级目录平面 skills |
+| `ihui settings init/path` | ~/.ihui/settings.json 统一配置 |
+| `ihui acp` | 启动 ACP Server(Zed/VSCode/Cursor 编辑器嵌入) |
+| `ihui audit query/stats` | 审计日志查询/统计 |
+
+**13 内置工具**(`apps/cli/src/tools/`):ask-user / builtins / clipboard / codegraph / fetch-url / file-edit / git / hub/adapter / mcp-oauth / run-tests / subagent / todo-write / web-search
+
+**Skills 系统**:四级目录平面加载(`.ihui` / `.agents` / `.claude` / `.cursor`)
+
+**其他模块**:acp/server / checkpoints / codegraph / commands / config / fs-watcher / hooks / i18n / memory / mermaid / personas / plan / plugins / sandbox / sessions / subagents / telemetry / tools / util / voice + audit / compaction-v2 / context / crash-handler / headless-format / highlight / interjection / prompt-queue / redact / reminders / stream-chunk / updater / worktree
+
+#### B2. 企业级工作空间权限
 
 3 种权限模式 + 7 端点运行时拦截 + 60s 审计超时:
 
@@ -411,25 +496,31 @@ IHUI-AI/
 
 - 7 个 FS 端点全部接入:`/fs/read` `/fs/write` `/fs/edit` `/fs/delete` `/fs/grep` `/fs/glob` `/fs/run`
 - WebSocket 实时推送权限请求,60s 不响应自动拒绝
+- workspace-ai-tasks schema 支持任务级权限隔离
 
-### 5. 多模态 AI 创作
+#### B3. 多智能体业务管理
 
-| 能力 | 端点 / 实现 |
+完整的智能体市场 + 开发者生态:
+
+| 模块 | 能力 |
 |---|---|
-| **文生图** | 多模型(Stable Diffusion / DALL-E / 通义万相)/ 多分辨率 / 批量 |
-| **图像编辑** | 局部重绘 / 风格迁移 / 背景移除 / 高清放大 |
-| **TTS 流式合成** | 12+ 音色 / 多语言 / WebSocket 流式 / 中断控制 |
-| **ASR 语音识别** | 实时转写 / 文件转写 / 多语言 |
-| **音色克隆** | 短音频样本 → 自定义音色 / ws/timbre/generate |
-| **双向实时语音** | WebRTC PCM16 16kHz / ASR + LLM + TTS 闭环 |
-| **文生视频** | 多模型混编 / 视频编辑 / 视频合成 |
-| **AI 数字人** | 腾讯混元 3D / AI 世界 / 数字人交互 |
-| **AI 求职** | 简历优化 / 模拟面试 / 职业建议 |
+| **智能体市场** | 购买 / 审核 / 结算 / 提现 / 分类 / 推荐 / 排行 / 精选 / agent-commerce + agent-billings + agent-reviews |
+| **开发者中心** | API Keys / 调用日志 / 团队管理 / 收益分析 / 开发者认证 / 13 子页 |
+| **Coze SDK 代理** | Bot / 对话 / 工作流 / 数据集 / 模板 / 变量 / 工作空间 / OAuth / coze-test + coze-ecosystem + coze-variables |
+| **OpenClaw** | 开源 Agent 框架接入 / clawdbot + openclaw-routes + openclaw-items |
+| **Crew 集成** | CrewAI 多智能体协作 / crew.ts |
+| **N8N 代理** | N8N 工作流平台反向代理 / n8n-proxy.ts |
+| **Skills 系统** | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline)+ koubo_workflow(10+ tools 含 koubo_quality_gate / koubo_validate / hot_topic_coverage_gate / archive_daily / project_hygiene / pre_publish_check / topic_pool / x_sources) |
+| **MCP 扩展** | mcp-servers schema + mcp-extended 路由 + 自定义工具注册 |
+| **Persona** | 角色定义注册表 / personas.py + persona_registry.py |
+| **Socket.IO 兼容层** | sio/handlers.py 兼容旧 coze_zhs_py 客户端 |
 
-### 6. 内容创作与多平台发布
+### C. 内容创作与教育(面向创作者与教育者)
+
+#### C1. 内容创作与多平台发布
 
 - **自媒体工作台**:公众号文章 + 口播稿双流水线,通过 AI 对话框斜杠命令(`/wechat-article` / `/koubo-script`)或附加栏按钮双入口调用
-- **14 平台一键自动发布**:
+- **14 平台一键自动发布**(14 adapter 在 `apps/ai-service/app/services/publish/`):
 
 | 类型 | 平台 |
 |---|---|
@@ -437,58 +528,28 @@ IHUI-AI/
 | 图片 2 平台 | 小红书 / 微博 |
 | 视频 5 平台 | YouTube / B 站 / 抖音 / 快手 / 视频号 |
 
-- **凭证 AES-256-GCM 加密存储**,发布完成 WebSocket 实时通知 + 完整记录
-- **资讯新闻系统**:文章 / 新闻 / 专题 / 标签 / 评论 / 点赞 / 收藏 / 热门
+- **凭证 AES-256-GCM 加密存储**(`credentials_crypto.py`),发布完成 WebSocket 实时通知 + 完整记录
+- **资讯新闻系统**:文章 / 新闻 / 专题 / 标签 / 评论 / 点赞 / 收藏 / 热门 + news-crawler 爬虫
 - **短剧创作与管理**:`apps/web/app/(main)/drama/`
+- **业务名片**:名片创建 / 编辑 / 收藏 / 分享 / business-cards schema
 
-### 7. AI 教育全栈
-
-| 模块 | 能力 |
-|---|---|
-| **课程学习** | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / 问答 |
-| **题库与考试** | 多题型枚举双向映射 / 自动批改 / 章节练习 / 错题本 / 试卷上传 |
-| **SRS 间隔重复** | 基于艾宾浩斯遗忘曲线的智能复习调度 |
-| **直播教学** | 直播 / 签到 / 互动 / 回放 / AI 辅助 |
-| **学习报告** | 学习行为分析 + 个性化建议 |
-| **证书发放** | 完成课程 / 考试通过自动发证 |
-| **讲师管理** | 讲师主页 / 课程关联 |
-| **学生端** | 我的问答 / 笔记 / 试卷 |
-
-### 8. 多智能体业务管理
-
-完整的智能体市场 + 开发者生态:
+#### C2. AI 教育全栈
 
 | 模块 | 能力 |
 |---|---|
-| **智能体市场** | 购买 / 审核 / 结算 / 提现 / 分类 / 推荐 / 排行 / 精选 |
-| **开发者中心** | API Keys / 调用日志 / 团队管理 / 收益分析 / 开发者认证 |
-| **Coze SDK 代理** | Bot / 对话 / 工作流 / 数据集 / 模板 / 变量 / 工作空间 / OAuth |
-| **OpenClaw** | 开源 Agent 框架接入 |
-| **Crew 集成** | CrewAI 多智能体协作 |
-| **N8N 代理** | N8N 工作流平台反向代理 |
+| **课程学习** | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / 问答 / zhs-course + zhs-organization |
+| **题库与考试** | 多题型枚举双向映射 / 自动批改 / 章节练习 / 错题本 / 试卷上传 / exam-marking |
+| **SRS 间隔重复** | 基于艾宾浩斯遗忘曲线的智能复习调度 / srs.ts + srs.py |
+| **直播教学** | 直播 / 签到 / 互动 / 回放 / AI 辅助 / live-chat + live-extended + live-supplement |
+| **学习报告** | 学习行为分析 + 个性化建议 / analytics-events + behavior |
+| **证书发放** | 完成课程 / 考试通过自动发证 / certificate.ts + certificate/download |
+| **讲师管理** | 讲师主页 / 课程关联 / education-platform |
+| **学生端 12 子页** | 问答 / 文章 / 圈子 / 评论 / 课程 / 资源 / 笔记 / 离线记录 / 试卷 / 错题本 / 证书 / 学习记录 |
+| **edu-full schema** | 45 张表(最大 schema),覆盖课程/章节/课时/笔记/问答/作业/批改/学习记录/班级/讲师/学员/认证 |
 
-### 9. 社区与互动
+### D. 企业与运营(面向企业管理者与运营)
 
-| 模块 | 能力 |
-|---|---|
-| **圈子广场** | 圈子 / 广场 / 问答 / 帖子 / 话题 / 标签 |
-| **私信消息** | 1 对 1 私信 / 系统通知 / 多端同步 / WebSocket 实时推送 |
-| **关注粉丝** | 关注 / 粉丝 / 用户主页 / 名片 / 用户文章 / 问答 / 评论 |
-| **分享邀请** | 邀请码 / 分享码 / H5 分享 / 推荐返佣 / 分销体系 |
-| **互动反馈** | 评论 / 点赞 / 收藏 / 举报 / 用户反馈中心 |
-
-### 10. 运营增长体系
-
-| 模块 | 能力 |
-|---|---|
-| **积分签到** | 每日签到 / 任务积分 / 积分商城 / 兑换 / 积分明细 |
-| **排行榜** | 多维度排行 / 周月榜 / 用户排名 |
-| **抽奖活动** | 抽奖 / 红包 / 奖励视频广告 |
-| **分销佣金** | 分销体系 / 佣金计划 / 提现 / 邀请返佣 |
-| **活动公告** | 活动管理 / 公告推送 / Banner 轮播 / 推广位 |
-| **VIP 会员** | VIP 等级 / 会员权益 / 优惠券 / 粉丝 / 升级 |
-
-### 11. 计费与交易
+#### D1. 计费与交易
 
 完整的交易闭环:
 
@@ -498,71 +559,164 @@ IHUI-AI/
             分销佣金 ← 邀请返佣
 ```
 
-- **VIP 等级**:多级会员 / 权益配置 / 升级流程
-- **订阅 recurring**:周期扣款 / 自动续费 / 取消订阅
-- **钱包**:充值 / 提现 / 余额 / 流水
-- **积分**:签到获取 / 任务获取 / 消费抵扣 / 兑换商品
-- **退款审计**:申请 / 审核 / 退款 / 银行流水
+- **VIP 等级**:多级会员 / 权益配置 / 升级流程 / vip-membership
+- **订阅 recurring**:周期扣款 / 自动续费 / 取消订阅 / payment-recurring
+- **钱包**:充值 / 提现 / 余额 / 流水 / wallet.ts + funds.ts
+- **积分**:签到获取 / 任务获取 / 消费抵扣 / 兑换商品 / point + point-redeem-items
+- **退款审计**:申请 / 审核 / 退款 / 银行流水 / refund-audit
 - **发票**:增值税普票 / 专票 / 邮寄
 - **汇率**:多币种 / 实时汇率
+- **8 支付网关**:payment-gateway + payment-extended + wechat-pay-contracts + payment-callbacks
 
-### 12. 客服与支持
-
-| 模块 | 能力 |
-|---|---|
-| **工单系统** | 工单提交 / 处理 / 评价 / FAQ / 工单列表 |
-| **在线客服** | WebSocket 实时客服 / 1 对 1 会话 / ws/customer-service |
-| **反馈中心** | 用户反馈 / 处理状态 / 追踪 |
-| **帮助中心** | 文档 / 教程 / `[...slug]` 动态路由 |
-
-### 13. 运维与监控
+#### D2. 社区与互动
 
 | 模块 | 能力 |
 |---|---|
-| **BI 仪表盘** | 业务指标可视化 / 数据分析 / 报表 |
-| **错误仪表盘** | 错误聚合 / 告警 / 追踪 / admin-error-dashboard |
-| **操作日志** | 登录日志 / 操作日志 / 回调日志 / 系统操作日志 |
-| **API 调试** | API Debug / API 日志 / API 用量 / API 平台 |
-| **灰度发布** | Canary / 灰度规则 / A/B 测试 / admin-gray-release |
-| **监控告警** | Prometheus + Grafana + Loki + Jaeger + OpenTelemetry 三支柱 |
-| **健康检查** | `/api/health` / `live` / `ready` + AI 服务 `/health` |
+| **圈子广场** | 圈子 / 广场 / 问答 / 帖子 / 话题 / 标签 / community + circle-extra |
+| **私信消息** | 1 对 1 私信 / 系统通知 / 多端同步 / WebSocket 实时推送 / private-letters |
+| **关注粉丝** | 关注 / 粉丝 / 用户主页 / 名片 / 用户文章 / 问答 / 评论 / social + social-supplement |
+| **分享邀请** | 邀请码 / 分享码 / H5 分享 / 推荐返佣 / visit-tracking |
+| **互动反馈** | 评论 / 点赞 / 收藏 / 举报 / 用户反馈中心 / interactions + comments |
 
-### 14. 安全与合规
+#### D3. 运营增长体系
+
+| 模块 | 能力 |
+|---|---|
+| **积分签到** | 每日签到 / 任务积分 / 积分商城 / 兑换 / 积分明细 / check-in + checkin |
+| **排行榜** | 多维度排行 / 周月榜 / 用户排名 / ranking |
+| **抽奖活动** | 抽奖 / 红包 / 奖励视频广告 / rewarded-video-ad |
+| **分销佣金** | 分销体系 / 佣金计划 / 提现 / 邀请返佣 / 8 子页 / distribution |
+| **活动公告** | 活动管理 / 公告推送 / Banner 轮播 / 推广位 / carousels + zone + promotions |
+| **游戏化** | 等级 / 成就 / 勋章 / gamification |
+| **VIP 会员** | VIP 等级 / 会员权益 / 优惠券 / 粉丝 / 升级 |
+
+#### D4. 客服与支持
+
+| 模块 | 能力 |
+|---|---|
+| **工单系统** | 工单提交 / 处理 / 评价 / FAQ / 工单列表 / admin-asks + admin-faq |
+| **在线客服** | WebSocket 实时客服 / 1 对 1 会话 / `ws/customer-service` |
+| **反馈中心** | 用户反馈 / 处理状态 / 追踪 / support |
+| **帮助中心** | 文档 / 教程 / `[...slug]` 动态路由 / docs |
+
+#### D5. 运营与监控
+
+| 模块 | 能力 |
+|---|---|
+| **BI 仪表盘** | 业务指标可视化 / 数据分析 / bi-dashboard |
+| **错误仪表盘** | 错误聚合 / 告警 / 追踪 / security-audit |
+| **操作日志** | 登录日志 / 操作日志 / 回调日志 / 系统操作日志 / audit + security-logs |
+| **API 调试** | API Debug / API 日志 / API 用量 / API 平台 / llm-call-logs |
+| **灰度发布** | Canary / 灰度规则 / A/B 测试 / canary + ab-tests |
+| **i18n 仪表盘** | i18n-dashboard 翻译进度可视化 |
+| **访问追踪** | visit-tracking + telemetry + behavior |
+| **告警监控** | Alertmanager + noise-rules 噪音抑制 |
+
+### E. 工程基础设施(面向运维与架构师)
+
+#### E1. 安全与合规
 
 | 维度 | 实现 |
 |---|---|
 | **认证** | JWT HS256 + token-family 旋转(防盗用)+ refresh token 黑名单 |
-| **SSO 单点登录** | OAuth 2.0 / Apple / Google / SSO 中转登录 / 第三方登录 |
+| **SSO 单点登录** | OAuth 2.0 + PKCE / Apple / Google / SSO 中转登录 / auth-sso + auth-identity |
 | **限流** | 全局 100/min,auth login/register 10/min,分层 rate-limit |
-| **加密** | AES-256-GCM 加密 credentials(OSS + 教育 + 发布平台) |
+| **加密** | AES-256-GCM 加密 credentials(OSS + 教育 + 发布平台 + OAuth private keys) |
 | **密码** | bcryptjs 哈希(member 表 SHA256 兼容旧 Java 数据) |
 | **数据脱敏** | password / passwordHash 字段在 API 响应中解构剥离 |
 | **GDPR** | 数据导出 / 数据删除 / 数据可携 / gdpr 路由 |
-| **敏感词** | 敏感词过滤 / 内容审核 / admin-sensitive-words |
-| **审计日志** | 登录日志 / 操作日志 / 系统操作日志 / 审计追溯 |
+| **敏感词** | 敏感词过滤 / 内容审核 / admin-sensitive-words + sensitive-words schema |
+| **审计日志** | 登录日志 / 操作日志 / 系统操作日志 / 审计追溯 / audit + security-logs |
 | **事务安全** | DB 事务化:order 支付/退款 + social tag + gamification 积分 + chat 清空 |
 | **行锁** | `.for('update')` 行锁防 TOCTOU 竞态 |
 | **CSRF** | `@fastify/csrf-protection` 双 token 模式 |
 | **XSS** | sanitizer 绕过检测脚本守门(pre-commit 第 6 项) |
 | **API key 泄露** | `check-api-key-leak.mjs` 守门(pre-commit 第 1 项) |
-| **RBAC** | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 |
-| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 |
-| **多租户** | 租户隔离 / 组织 / 部门 / 菜单权限 |
+| **RBAC** | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 + data-scope 5 级 |
+| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + workspace-ai-tasks |
+| **多租户** | 租户隔离 + 组织 + 部门 + 菜单权限 + tenant-router + RLS(Row Level Security) |
+| **OAuth 私钥** | oauth-private-keys schema 加密存储 |
+| **验证码** | auth-codes + captcha schema |
+| **2FA** | user-auth-info schema 支持 |
 
-### 15. 工程基础设施
+#### E2. 数据库与共享包
 
-| 模块 | 能力 |
-|---|---|
-| **数据库** | PostgreSQL 15 / 96+ 表 / 32+ 迁移 / Drizzle ORM 0.38 |
-| **队列缓存** | Redis 7 + BullMQ / 独立 worker 进程 |
-| **对象存储** | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 |
-| **邮件短信** | SMTP / 短信网关 / 邮件模板 / 验证码 / auth-codes |
-| **国际化** | 5 语言 parity + 4 守门脚本 + 品牌翻译策略 |
-| **工程守门** | 17 pre-commit 钩子 + post-commit 自动 push |
-| **测试覆盖** | 268 + 400+ 用例 / Vitest + Playwright + pytest |
-| **部署运维** | Docker Compose / 蓝绿部署 / 健康检查 / 回滚 / 备份 |
-| **App 版本** | app-version 管理 / 多端版本控制 |
-| **Webhooks** | 事件订阅 / 第三方集成 / callback-log |
+- **单库设计**:PostgreSQL 15,单库 `ihui`,通过 schema 隔离业务域
+- **338+ 表**:100 个 schema 模块文件,覆盖 30+ 业务域
+- **120+ 迁移**:`packages/database/drizzle/`,drizzle-kit generate 生成 + 手动增量
+- **7 步幂等 seed**:`packages/database/seed/`,模式化 + 容错隔离
+- **行级安全**:RLS(Row Level Security)在关键字段启用,多租户隔离
+- **读副本**:read-replica + tenant-router 路由查询
+- **类型安全**:Drizzle ORM 0.38,TypeScript strict 模式,端到端类型推导
+- **13 共享包**:`packages/` 下 13 个 TypeScript 包,跨端复用
+
+#### E3. 国际化(5 语言 parity)
+
+5 语言 parity(键集合强一致性),由 4 守门脚本 + 19 i18n 工具链保证质量:
+
+| 语言 | 文件 | 守门 |
+|---|---|---|
+| zh-CN | `apps/web/messages/zh-CN.json` | 基准语言 |
+| zh-TW | `apps/web/messages/zh-TW.json` | opencc 字形转换检测简体字残留(阻塞) |
+| en | `apps/web/messages/en.json` | 破碎机翻英文检测(阻塞) |
+| ko | `apps/web/messages/ko.json` | 字符范围检测中文残留(阻塞) |
+| ja | `apps/web/messages/ja.json` | 中文残留检测(warn-only,日文汉字词易误报) |
+
+**19 i18n 工具链脚本**(`scripts/`):apply-brand-glossary / apply-i18n-translations / apply-translation-fallback / audit-i18n-missing-evaluate / deep-i18n-audit / export-untranslated-i18n / fix-i18n-deep / fix-missing-i18n-keys / fix-zh-tw-simp / fix-zhtw-parity / generate-i18n / prune-orphan-i18n-namespaces / scan-hardcoded-zh / scan-i18n-zh-residue / scan-zh-tw-untranslated / sync-i18n-fixes / translate-i18n-batch / analyze-unique-i18n-values / verify-i18n
+
+**品牌翻译策略**:优先官方英文名(智谱清言 → Zhipu AI,百度文心 → Baidu ERNIE,火山引擎 → Volcengine 等),机器可读映射表见 `scripts/brand-glossary.json`。
+
+#### E4. 工程守门(17 pre-commit + post-commit + 11 迁移审计)
+
+项目通过 17 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计脚本杜绝协作事故:
+
+| # | 脚本 | 用途 |
+|---|---|---|
+| 1 | check-api-key-leak.mjs | API key 泄露检测 |
+| 2 | check-i18n-keys.mjs | i18n 键完整性 + parity |
+| 2b | scan-i18n-zh-residue.mjs zh-TW | zh-TW 简体字残留(opencc 字形转换) |
+| 2c | scan-i18n-zh-residue.mjs ko | ko.json 中文残留(字符范围检测) |
+| 2d | scan-i18n-zh-residue.mjs ja | ja.json 中文残留(warn-only) |
+| 2e | check-i18n-broken-en.mjs | en.json 破碎机翻英文守门 |
+| 3 | check-db-schema-drift.mjs | schema drift 检测 |
+| 4 | check-stale-dist.mjs | packages 陈旧 dist 检测 |
+| 4b | check-dist-encoding.mjs | packages dist UTF-8 BOM 守门 |
+| 4c | check-api-client-utf8.mjs | api-client 源码字节级 UTF-8 完整性 |
+| 5 | lint-staged | eslint + prettier |
+| 6 | check-sanitizer-bypass.mjs | XSS sanitizer 绕过检测 |
+| 7 | check-dedupe.mjs | 依赖碎片化检测 |
+| 8 | check-api-routes.mjs | 前后端路由一致性 |
+| 9 | check-safe-parse.mjs | safeParse 静默忽略(warn-only) |
+| 11 | check-rounded-full.mjs | 容器圆角违规(强制尺寸梯度) |
+| 12 | check-delivery-report-consistency.mjs | 交付报告一致性 |
+| 13 | check-grokbuild-integration-completeness.mjs | grok-build 整合完整性 |
+| 13b | check-project-plan-size.mjs | PROJECT_PLAN.md 体积 < 50KB |
+| 13c | check-project-plan-archive.mjs | PROJECT_PLAN.md 已完成任务条目防误删 |
+| 15 | check-api-migration-completeness.mjs | 迁移完整性 |
+| 16 | 条件 typecheck | apps/web staged 时跑 typecheck |
+| 16b | 条件 database build | packages/database/src staged 时跑 build |
+| 17 | check-input-border-var.mjs | CSS 颜色 token 嵌套(hsl(var()))防护 |
+| 18 | check-native-title-tooltip.mjs | 原生 title tooltip 违规(强制用项目 Tooltip) |
+| 17-post | git-push-guard.mjs(post-commit) | 自动 push + 验证 local == remote(防遗漏) |
+
+**11 迁移审计脚本**:`audit-migration-api-routes-v2.mjs` / `audit-migration-api-routes.mjs` / `audit-migration-db-fields.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-migration-frontend-routes.mjs` / `audit-migration-i18n.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs`
+
+**9 PowerShell 启动脚本**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-trae-workspace.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1` / `cleanup-memory-topics.ps1`
+
+#### E5. 测试与性能
+
+| 类型 | 框架 | 规模 | 命令 |
+|---|---|---|---|
+| 后端单元 | Vitest | 38 文件,268 用例 | `pnpm --filter @ihui/api test` |
+| 前端 E2E | Playwright | 17 spec 文件 | `pnpm test:e2e` |
+| AI 服务 | pytest | 13 文件,400+ 用例 | `cd apps/ai-service && pytest` |
+| CLI 单元 | Vitest | 13 文件 | `pnpm --filter @ihui/cli test` |
+| 压测 | Locust | `locustfile.py` | `locust -f locustfile.py` |
+| 性能预算 | Lighthouse CI | `lighthouserc.json` | CI 自动跑 |
+| 未使用代码 | Knip | `knip.jsonc` + CI workflow | `pnpm knip` |
+| 全量验证 | turbo | 22 tasks | `pnpm turbo typecheck lint test` |
+
+**测试策略**:Fastify inject 模式(不监听端口)+ Mock 数据库层 + 覆盖 auth / billing / content / success-paths / business-logic / edge-cases。
 
 ---
 
@@ -590,7 +744,7 @@ git clone https://github.com/IHUI-INF-AI/IHUI-AI.git IHUI-AI && cd IHUI-AI
 cp .env.example .env
 # 编辑 .env,填入 JWT_SECRET / DB_PASSWORD / CREDENTIALS_ENCRYPTION_KEY 等
 
-# 3. 一键启动全栈(api + web + ai-service + db + redis + 监控栈)
+# 3. 一键启动全栈(7 业务 + 7 监控 = 14 服务)
 docker compose up -d
 ```
 
@@ -600,10 +754,13 @@ docker compose up -d
 |---|---|---|
 | Web | http://localhost:3000 | Next.js 前端 |
 | API | http://localhost:8080/api/health | Fastify 后端健康检查 |
+| Worker | http://localhost:8081 | BullMQ 异步任务进程 |
 | AI 服务 | http://localhost:8000/health | FastAPI AI 服务健康检查 |
-| Grafana | http://localhost:3001 | 默认账号 admin / 修改密码 |
+| Grafana | http://localhost:3001 | 默认账号 admin / 修改密码(20 仪表盘自动 provision) |
 | Prometheus | http://localhost:9091 | 指标采集 |
 | Jaeger UI | http://localhost:16686 | 分布式追踪 |
+| Loki | http://localhost:3100 | 日志聚合 |
+| Alertmanager | http://localhost:9093 | 告警路由 |
 
 ### 开发模式(本地)
 
@@ -631,14 +788,18 @@ pnpm dev
 pnpm turbo build typecheck lint test
 ```
 
-### Windows 一键启动
+### Windows 一键启动(9 PowerShell 脚本)
 
 ```powershell
-# 同时启动 web + api + ai-service + 数据库 + Redis
-.\scripts\dev-up.ps1
-
-# 或仅启动 dev server(数据库已在跑)
-.\scripts\dev-all.ps1
+.\scripts\dev-up.ps1                    # 启动 web + api + ai-service + 数据库 + Redis
+.\scripts\dev-all.ps1                   # 仅启动 dev server(数据库已在跑)
+.\scripts\dev-web.mjs                   # 仅启动 web
+.\scripts\kill-dev-servers.ps1          # 停止所有 dev server
+.\scripts\restart-dev-server.ps1        # 重启 dev server
+.\scripts\test-admin-e2e.ps1            # admin E2E 测试
+.\scripts\setup-token-refresh-task.ps1  # 配置 token 刷新定时任务
+.\scripts\cleanup-external-junk.ps1     # 清理外部垃圾文件
+.\scripts\cleanup-memory-topics.ps1     # 清理 memory topics
 ```
 
 ---
@@ -647,10 +808,10 @@ pnpm turbo build typecheck lint test
 
 ### REST API(~1135 端点)
 
-| 服务 | 端点数 | 前缀 | 覆盖域 |
-|---|---|---|---|
-| **apps/api** | ~1080 | `/api` + `/api/admin` | 37 路由文件,涵盖 auth / users / billing / content / chat / teams / workspace / agents / coze / oss / order / vip / exam / learn / live / news / topic / search / drama / stock / gdpr / rbac / tenant 等 |
-| **apps/ai-service** | ~55 | `/api` | a2a(5)/ agents(9)/ health(4)/ llm(2)/ mcp(10)/ tools(3)/ self_media / publish |
+| 服务 | 端点数 | 前缀 | 路由文件数 | 覆盖域 |
+|---|---|---|---|---|
+| **apps/api** | ~1080 | `/api` + `/api/admin` | 95+ | 30+ 业务域(auth/users/billing/content/chat/teams/workspace/agents/coze/oss/order/vip/exam/learn/live/news/topic/search/drama/stock/gdpr/rbac/tenant/community/edu/payment/wallet/point/ranking/distribution/developer/workflows/business-card/customer-service 等) |
+| **apps/ai-service** | ~55 | `/api` | 12 routers | a2a(5)/ agents(9)/ health(4)/ llm(2)/ mcp(10)/ tools(3)/ personas(4)/ voice_stt(3)/ self_media(6)/ publish(8)/ agent_runtime(6)/ legacy |
 
 **统一响应格式:**
 
@@ -687,22 +848,49 @@ pnpm turbo build typecheck lint test
 ## 数据库
 
 - **单库设计**:PostgreSQL 15,单库 `ihui`,通过 schema 隔离业务域
-- **96+ 表**:34 个 schema 模块文件,覆盖 users / projects / files / billing / audit / chat / teams / rbac / workflow / comments / promotions / gamification / content / social / community / learn / exam / order / live / member / resource / point / schedule / statistics / message / topic / behavior / oss / setting / self-media / publish / drama / stock / certificate 等
-- **32+ 迁移**:`packages/database/drizzle/`,drizzle-kit generate 生成 + 手动增量
+- **338+ 表**:100 个 schema 模块文件,覆盖 30+ 业务域
+- **120+ 迁移**:`packages/database/drizzle/`,drizzle-kit generate 生成 + 手动增量
 - **7 步幂等 seed**:`packages/database/seed/`,模式化 + 容错隔离
 - **行级安全**:RLS(Row Level Security)在关键字段启用,多租户隔离
+- **读副本**:read-replica + tenant-router 路由查询
 - **类型安全**:Drizzle ORM 0.38,TypeScript strict 模式,端到端类型推导
+- **关键 schema 模块**:users / auth-identity / oauth-private-keys / agents-extended / agent-commerce / ai-capabilities / ai-cost / learn(45 表)/ exam / certificate / content / news-crawler / self-media / publish-platform / community / order / billing / wechat-pay-contracts / refund-audit / point / wallet / funds / commission / member / teams / tenant / rbac / workspace-permissions / system / canary / ab-tests / live / customer-service / business-cards / stock / trader / developer / sdks / webhooks / workflow / projects / knowledge-base / knowledge-rag / search-contents / cli-provider-imports / email-logs / sensitive-words / audit / visit-tracking / behavior / analytics-events / gamification
 
 ---
 
 ## 可观测性
 
-全栈可观测性,三支柱(指标 / 日志 / 追踪)完整就绪:
+全栈可观测性,三支柱(指标 / 日志 / 追踪)+ 告警完整就绪:
 
-### 指标(Prometheus + Grafana)
+### 指标(Prometheus + Grafana 20 仪表盘)
 
-- **Prometheus**(:9091):抓取 api `/metrics` + ai-service `/metrics` + node-exporter 主机指标
-- **Grafana**(:3001):IHUI-AI 总览仪表盘自动 provision,包含请求 QPS / 响应时间 / 错误率 / 状态码分布 / 主机 CPU/内存/磁盘
+- **Prometheus**(:9091):抓取 api `/metrics` + ai-service `/metrics` + node-exporter 主机指标 + alerts.yml 告警规则
+- **Grafana**(:3001):**20 个仪表盘 JSON 自动 provision**,包含:
+
+| # | 仪表盘 | 用途 |
+|---|---|---|
+| 1 | ihui-ai-overview | 总览 |
+| 2 | ai-cost | AI 成本 |
+| 3 | ai-latency | AI 延迟 |
+| 4 | alert_history | 告警历史 |
+| 5 | auth-security | 认证安全 |
+| 6 | bullmq | 队列健康 |
+| 7 | business-funnel | 业务漏斗 |
+| 8 | cache | 缓存命中 |
+| 9 | exam-usage | 考试使用率 |
+| 10 | hls | HLS 流媒体 |
+| 11 | jaeger | 追踪 |
+| 12 | live-room | 直播间 |
+| 13 | monitor_health | 监控健康 |
+| 14 | nginx | Nginx |
+| 15 | oss-storage | OSS 存储 |
+| 16 | payment-flow | 支付流 |
+| 17 | pg_deploy | PostgreSQL 部署 |
+| 18 | postgresql | PostgreSQL |
+| 19 | redis-cluster | Redis 集群 |
+| 20 | tenant-usage | 租户使用 |
+| 21 | ws | WebSocket |
+
 - **Node Exporter**(:9100):主机 CPU / 内存 / 磁盘 / 网络指标
 
 ### 日志(Loki + Promtail)
@@ -714,6 +902,11 @@ pnpm turbo build typecheck lint test
 
 - **OpenTelemetry Collector**(:4318):接收 OTLP 追踪 / 指标,导出到 Jaeger + Prometheus
 - **Jaeger UI**(:16686):分布式追踪可视化,API ↔ AI 服务 ↔ 数据库全链路
+
+### 告警(Alertmanager + noise-rules)
+
+- **Alertmanager**(:9093):告警路由 + 噪音抑制
+- **noise-rules.yml**:告警噪音抑制规则(根目录 + monitoring/alertmanager/ 双份同步)
 
 ### 健康检查
 
@@ -731,69 +924,39 @@ pnpm turbo build typecheck lint test
 | 维度 | 实现 |
 |---|---|
 | **认证** | JWT HS256 + token-family 旋转(防盗用)+ refresh token 黑名单 |
-| **SSO** | OAuth 2.0 / Apple / Google / SSO 中转登录 |
+| **SSO** | OAuth 2.0 + PKCE / Apple / Google / SSO 中转登录 |
 | **限流** | 全局 100/min,auth login/register 10/min,分层 rate-limit |
-| **加密** | AES-256-GCM 加密 credentials(OSS 驱动凭证 + 教育设置凭证 + 发布平台账号) |
+| **加密** | AES-256-GCM 加密 credentials(OSS 驱动凭证 + 教育设置凭证 + 发布平台账号 + OAuth 私钥) |
 | **密码** | bcryptjs 哈希(member 表 SHA256 兼容旧 Java 数据) |
 | **数据脱敏** | password / passwordHash 字段在 API 响应中解构剥离 |
 | **GDPR** | 数据导出 / 删除 / 可携 / gdpr 路由 |
 | **敏感词** | 敏感词过滤 + 内容审核 + admin-sensitive-words |
 | **审计日志** | 登录日志 / 操作日志 / 系统操作日志 / 审计追溯 |
-| **事务安全** | DB 事务化:order 支付/退款 + social tag + gamification 积分 + chat 清空消息 |
+| **事务安全** | DB 事务化:order 支付/退款 + social tag + gamification 积分 + chat 清空 |
 | **行锁** | `.for('update')` 行锁防 TOCTOU 竞态 |
 | **CSRF** | `@fastify/csrf-protection` 双 token 模式 |
 | **XSS** | sanitizer 绕过检测脚本守门(pre-commit 第 6 项) |
 | **API key 泄露** | `check-api-key-leak.mjs` 守门(pre-commit 第 1 项) |
-| **RBAC** | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 |
+| **RBAC** | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 + data-scope 5 级 |
 | **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 |
-| **多租户** | 租户隔离 + 组织 + 部门 + 菜单权限 |
+| **多租户** | 租户隔离 + 组织 + 部门 + 菜单权限 + tenant-router + RLS |
+| **OAuth 私钥** | oauth-private-keys schema 加密存储 |
+| **2FA** | user-auth-info schema 支持 |
+| **验证码** | auth-codes + captcha schema |
 
 ---
 
 ## 工程守门(17 个 pre-commit 钩子)
 
-项目通过 17 个 pre-commit 钩子 + post-commit 自动 push 杜绝协作事故:
+项目通过 17 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动脚本杜绝协作事故:
 
-| # | 脚本 | 用途 |
-|---|---|---|
-| 1 | check-api-key-leak.mjs | API key 泄露检测 |
-| 2 | check-i18n-keys.mjs | i18n 键完整性 + parity |
-| 2b | scan-i18n-zh-residue.mjs zh-TW | zh-TW 简体字残留(opencc 字形转换) |
-| 2c | scan-i18n-zh-residue.mjs ko | ko.json 中文残留(字符范围检测) |
-| 2d | scan-i18n-zh-residue.mjs ja | ja.json 中文残留(warn-only) |
-| 2e | check-i18n-broken-en.mjs | en.json 破碎机翻英文守门 |
-| 3 | check-db-schema-drift.mjs | schema drift 检测 |
-| 4 | check-stale-dist.mjs | packages 陈旧 dist 检测 |
-| 4b | check-dist-encoding.mjs | packages dist UTF-8 BOM 守门 |
-| 4c | check-api-client-utf8.mjs | api-client 源码字节级 UTF-8 完整性 |
-| 5 | lint-staged | eslint + prettier |
-| 6 | check-sanitizer-bypass.mjs | XSS sanitizer 绕过检测 |
-| 7 | check-dedupe.mjs | 依赖碎片化检测 |
-| 8 | check-api-routes.mjs | 前后端路由一致性 |
-| 9 | check-safe-parse.mjs | safeParse 静默忽略(warn-only) |
-| 11 | check-rounded-full.mjs | 容器圆角违规(强制尺寸梯度) |
-| 12 | check-delivery-report-consistency.mjs | 交付报告一致性 |
-| 13 | check-grokbuild-integration-completeness.mjs | grok-build 整合完整性 |
-| 13b | check-project-plan-size.mjs | PROJECT_PLAN.md 体积 < 50KB |
-| 13c | check-project-plan-archive.mjs | PROJECT_PLAN.md 已完成任务条目防误删 |
-| 15 | check-api-migration-completeness.mjs | 迁移完整性 |
-| 16 | 条件 typecheck | apps/web staged 时跑 typecheck |
-| 16b | 条件 database build | packages/database/src staged 时跑 build |
-| 17 | git-push-guard.mjs(post-commit) | 自动 push + 验证 local == remote(防遗漏) |
+详细清单见 [核心能力 E4 节](#e4-工程守门17-pre-commit--post-commit--11-迁移审计)。
 
 ---
 
 ## 测试
 
-| 类型 | 框架 | 规模 | 命令 |
-|---|---|---|---|
-| 后端单元 | Vitest | 38 文件,268 用例 | `pnpm --filter @ihui/api test` |
-| 前端 E2E | Playwright | 17 spec 文件 | `pnpm test:e2e` |
-| AI 服务 | pytest | 13 文件,400+ 用例 | `cd apps/ai-service && pytest` |
-| CLI 单元 | Vitest | 13 文件 | `pnpm --filter @ihui/cli test` |
-| 全量验证 | turbo | 22 tasks | `pnpm turbo typecheck lint test` |
-
-**测试策略**:Fastify inject 模式(不监听端口)+ Mock 数据库层 + 覆盖 auth / billing / content / success-paths / business-logic / edge-cases。
+详细测试矩阵见 [核心能力 E5 节](#e5-测试与性能)。
 
 ---
 
@@ -806,28 +969,28 @@ pnpm turbo build typecheck lint test
 cp .env.production.example .env.production
 # 编辑 JWT_SECRET / DB_PASSWORD / CREDENTIALS_ENCRYPTION_KEY / 微信支付证书 / SMTP 等
 
-# 一键启动(api + web + ai-service + worker + db + redis + migrate + 监控栈)
+# 一键启动(7 业务 + 7 监控 = 14 服务)
 docker compose up -d
 ```
 
-**服务清单(7 业务 + 7 监控):**
+**服务清单(14 服务):**
 
-| 服务 | 端口 | 用途 |
-|---|---|---|
-| api | 8080 | Fastify 后端 |
-| worker | 8081 | BullMQ 独立 worker 进程 |
-| web | 3000 | Next.js 前端(standalone) |
-| ai-service | 8000 | FastAPI AI 服务 |
-| db | 5432 | PostgreSQL 15 |
-| redis | 6379 | Redis 7 |
-| migrate | - | 一次性迁移服务(完成后退出) |
-| jaeger | 16686 | 分布式追踪 UI |
-| otel-collector | 4318 | OpenTelemetry Collector |
-| prometheus | 9091 | 指标采集 |
-| grafana | 3001 | 可视化仪表盘 |
-| node-exporter | 9100 | 主机指标 |
-| loki | 3100 | 日志聚合 |
-| promtail | - | 日志采集 |
+| 类型 | 服务 | 端口 | 用途 |
+|---|---|---|---|
+| 业务 | api | 8080 | Fastify 后端 |
+| 业务 | worker | 8081 | BullMQ 独立 worker 进程 |
+| 业务 | web | 3000 | Next.js 前端(standalone) |
+| 业务 | ai-service | 8000 | FastAPI AI 服务 |
+| 业务 | db | 5432 | PostgreSQL 15 |
+| 业务 | redis | 6379 | Redis 7 |
+| 业务 | migrate | - | 一次性迁移服务(完成后退出) |
+| 监控 | jaeger | 16686 | 分布式追踪 UI |
+| 监控 | otel-collector | 4318 | OpenTelemetry Collector |
+| 监控 | prometheus | 9091 | 指标采集 |
+| 监控 | grafana | 3001 | 可视化(20 仪表盘) |
+| 监控 | node-exporter | 9100 | 主机指标 |
+| 监控 | loki | 3100 | 日志聚合 |
+| 监控 | promtail | - | 日志采集 |
 
 ### 生产部署
 
@@ -845,6 +1008,12 @@ node apps/api/scripts/pg-backup.mjs
 
 # 回滚
 ./deploy/scripts/rollback.sh
+
+# 证书续期(deploy/cron/cert-renew.cron 自动调度)
+./deploy/cron/cert-renew.sh
+
+# GitHub Actions secrets 批量配置
+./deploy/setup-github-secrets.sh
 ```
 
 ### IaC 决策
@@ -862,17 +1031,9 @@ node apps/api/scripts/pg-backup.mjs
 
 ## 国际化
 
-5 语言 parity(键集合强一致性),由 4 个守门脚本保证质量:
+5 语言 parity(键集合强一致性),由 4 守门脚本 + 19 i18n 工具链保证质量:
 
-| 语言 | 文件 | 守门 |
-|---|---|---|
-| zh-CN | `apps/web/messages/zh-CN.json` | 基准语言 |
-| zh-TW | `apps/web/messages/zh-TW.json` | opencc 字形转换检测简体字残留(阻塞) |
-| en | `apps/web/messages/en.json` | 破碎机翻英文检测(阻塞) |
-| ko | `apps/web/messages/ko.json` | 字符范围检测中文残留(阻塞) |
-| ja | `apps/web/messages/ja.json` | 中文残留检测(warn-only,日文汉字词易误报) |
-
-**品牌翻译策略**:优先官方英文名(智谱清言 → Zhipu AI,百度文心 → Baidu ERNIE,火山引擎 → Volcengine 等),机器可读映射表见 `scripts/brand-glossary.json`。
+详细清单见 [核心能力 E3 节](#e3-国际化5-语言-parity)。
 
 ---
 
@@ -890,11 +1051,12 @@ node apps/api/scripts/pg-backup.mjs
 IHUI-AI 不只是 AI 对话平台,而是**完整的 AI 应用基础设施**:
 
 - 8 端覆盖(其他项目仅 1-2 端)
-- 完整计费订阅 + VIP + 钱包 + 积分(其他项目无)
-- AI 教育全栈(其他项目无)
-- 14 平台一键发布(其他项目无)
-- 自研 CLI(其他项目无)
-- 工程守门 17 钩子(其他项目基础)
+- 完整计费订阅 + VIP + 钱包 + 积分 + 8 支付网关(其他项目无)
+- AI 教育全栈 + 学生端 12 子页(其他项目无)
+- 14 平台一键发布 + 14 adapter(其他项目无)
+- 自研 CLI 17 命令 + 13 工具(其他项目无)
+- 工程守门 17 钩子 + 11 迁移审计 + 9 PowerShell(其他项目基础)
+- 20 Grafana 仪表盘 + Alertmanager(其他项目基础)
 
 详见上方 [与同类项目对比](#与同类项目对比) 表。
 </details>
@@ -942,6 +1104,18 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - cc-switch / codex++ / Claude / Codex / Gemini / Hermes
 
 详见 `apps/cli/` 实现。
+</details>
+
+<details>
+<summary><strong>Q9:数据库为什么用 338+ 表?会不会过度设计?</strong></summary>
+
+338+ 表分布在 100 个 schema 文件,覆盖 30+ 业务域,每域平均 11 张表,密度合理。本项目是商业化生产级 AI 平台(智汇 AI 集团主平台),不是 demo,因此表结构按真实业务复杂度设计。如果你只用其中一部分功能(如仅 AI 对话),只需关注 chat / users / billing 三个 schema,其他表不影响运行。
+</details>
+
+<details>
+<summary><strong>Q10:20 个 Grafana 仪表盘会不会太重?</strong></summary>
+
+不会。20 仪表盘覆盖业务漏斗 / 支付流 / AI 成本延迟 / 考试使用率 / PostgreSQL / Redis / BullMQ / Nginx / HLS / 直播间 / 租户使用 / WebSocket / 认证安全等,每个仪表盘独立 provision,可按需启用。开发环境关掉 Grafana / Loki / Jaeger / Alertmanager 4 个监控容器,可节省 1GB 内存。
 </details>
 
 ---
@@ -994,6 +1168,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划 |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | 变更日志 |
 | [docs/INCIDENTS.md](docs/INCIDENTS.md) | 历史事故复盘 |
+| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md) | 多租户设计文档(RLS + 租户路由) |
 | [AGENTS.md](AGENTS.md) | AI Agent 协作规范(21 节强制规则,可选阅读:展示本项目如何与 AI 协作开发) |
 | [PROJECT_PLAN.md](PROJECT_PLAN.md) | 项目任务计划与历史归档(内部开发记录,了解演进轨迹) |
 
@@ -1004,23 +1179,24 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 ### 已交付(2026-07-20)
 
 - 8 端全覆盖(Web / API / AI 服务 / CLI / 桌面 / 扩展 / 移动 RN / 小程序 Taro)
-- 100+ 大模型 LiteLLM 统一接入
-- LangGraph + MCP + A2A 三栈协同
-- 自研 CLI + 6 源配置无缝导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)
+- 100+ 大模型 LiteLLM 统一接入 + 5 provider 适配
+- LangGraph + MCP + A2A 三栈协同 + Persona + Agent Runtime + 向量记忆
+- 自研 CLI 17 命令 + 13 工具 + ACP Server + 6 源配置无缝导入
 - 工作空间权限 3 模式 + 7 端点运行时拦截 + 60s 审计超时
-- 自媒体工作台(公众号文章 + 口播稿双流水线)
-- 14 平台一键自动发布平台
-- AI 教育全栈(课程 / 题库 / 考试 / SRS / 直播 / 报告 / 证书 / 讲师)
-- 多智能体市场 + 开发者中心 + Coze SDK 代理
+- 自媒体工作台(公众号文章 + 口播稿双流水线)+ Skills 系统(content_engine + koubo_workflow)
+- 14 平台一键自动发布平台 + 14 adapter + AES-256-GCM 凭证加密
+- AI 教育全栈(课程 / 题库 / 考试 / SRS / 直播 / 报告 / 证书 / 讲师 / 学生端 12 子页)
+- 多智能体市场 + 开发者中心(13 子页)+ Coze SDK 代理 + OpenClaw + Crew + N8N
 - 社区互动(圈子 / 广场 / 私信 / 关注 / 分享)
-- 运营增长(积分 / 签到 / 排行 / 抽奖 / 分销 / 邀请)
-- 计费交易闭环(VIP / 订阅 / 钱包 / 积分 / 退款 / 发票 / 汇率)
+- 运营增长(积分 / 签到 / 排行 / 抽奖 / 分销 / 邀请 / 游戏化)
+- 计费交易闭环(VIP / 订阅 / 钱包 / 积分 / 退款 / 发票 / 汇率 / 8 支付网关)
 - 客服支持(工单 / 在线客服 / 反馈 / 帮助中心)
-- BI 仪表盘 + 错误仪表盘 + 灰度发布
-- 5 语言 i18n parity(zh-CN / zh-TW / en / ko / ja)
-- 全栈可观测性(Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry)
-- 17 pre-commit 守门脚本 + post-commit 自动 push
-- 企业级安全(RBAC + 多租户 + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR)
+- BI 仪表盘 + 错误仪表盘 + 灰度发布 + i18n 仪表盘
+- 5 语言 i18n parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 4 守门
+- 全栈可观测性(Prometheus + Grafana 20 仪表盘 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager)
+- 17 pre-commit 守门 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动
+- 企业级安全(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR + 2FA)
+- 338+ 数据库表 + 120+ 迁移 + 13 共享包 + Knip + Lighthouse + Locust 压测
 
 ### 进行中
 
@@ -1133,9 +1309,10 @@ IHUI-AI 的诞生离不开以下开源项目的启发与支持:
 - [Next.js](https://nextjs.org/) / [React](https://react.dev/) / [Tailwind CSS](https://tailwindcss.com/) / [shadcn/ui](https://ui.shadcn.com/)
 - [Fastify](https://fastify.dev/) / [Drizzle ORM](https://orm.drizzle.team/) / [FastAPI](https://fastapi.tocloud.com/)
 - [LangGraph](https://langchain-ai.github.io/langgraph/) / [LiteLLM](https://litellm.vercel.app/) / [MCP](https://modelcontextprotocol.io/)
-- [Turborepo](https://turbo.build/) / [pnpm](https://pnpm.io/) / [Vitest](https://vitest.dev/) / [Playwright](https://playwright.dev/)
+- [Turborepo](https://turbo.build/) / [pnpm](https://pnpm.io/) / [Vitest](https://vitest.dev/) / [Playwright](https://playwright.dev/) / [Locust](https://locust.io/)
 - [Tauri](https://tauri.app/) / [Taro](https://taro-docs.jd.com/) / [WXT](https://wxt.dev/) / [Expo](https://expo.dev/)
-- [Prometheus](https://prometheus.io/) / [Grafana](https://grafana.com/) / [Loki](https://grafana.com/loki) / [Jaeger](https://www.jaegertracing.io/) / [OpenTelemetry](https://opentelemetry.io/)
+- [Prometheus](https://prometheus.io/) / [Grafana](https://grafana.com/) / [Loki](https://grafana.com/loki) / [Jaeger](https://www.jaegertracing.io/) / [OpenTelemetry](https://opentelemetry.io/) / [Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/)
+- [Knip](https://knip.dev/) / [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci)
 
 感谢每一位贡献者,让这个项目持续演进。
 
