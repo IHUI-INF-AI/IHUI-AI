@@ -7,6 +7,25 @@ import type { FastifyInstance } from 'fastify'
 import type { EmailJobData } from '../plugins/queue.js'
 
 /**
+ * 腾讯云 SES SendEmail API 不允许直接传 HTML/Text 字符串,
+ * Simple.Html / Simple.Text 字段必须 base64 编码(UTF-8)。
+ */
+function base64Utf8(str: string): string {
+  return Buffer.from(str, 'utf8').toString('base64')
+}
+
+/**
+ * 验证码场景 → 腾讯云 SES Template ID 映射。
+ * 配置了对应 scene 的 template id 才走 Template 模式(腾讯云默认权限)。
+ */
+function resolveTemplateId(scene?: string): number | undefined {
+  if (scene === 'register') return config.TENCENT_SES_TEMPLATE_REGISTER
+  if (scene === 'login') return config.TENCENT_SES_TEMPLATE_LOGIN
+  if (scene === 'reset') return config.TENCENT_SES_TEMPLATE_RESET
+  return undefined
+}
+
+/**
  * 邮件发送服务。
  *
  * 支持的 provider:
@@ -35,6 +54,12 @@ export interface SendEmailOptions {
   templateSlug?: string
   /** 模板变量(用于重发或回溯) */
   metadata?: Record<string, unknown>
+  /**
+   * 腾讯云 SES 模板变量(走 Template 模式时使用)。
+   * 例如验证码场景:{ code: '123456', nickname: '张三' }
+   * 腾讯云模板正文里用 {{code}} / {{nickname}} 占位符引用。
+   */
+  templateVariables?: Record<string, unknown>
 }
 
 export interface SendEmailResult {
@@ -104,7 +129,8 @@ export function isDomesticEmail(email: string): boolean {
 export function resolveProvider(email: string): 'resend' | 'tencent' | 'smtp' | 'stub' {
   const forced = config.MAIL_PROVIDER
   if (forced === 'resend' && config.RESEND_API_KEY) return 'resend'
-  if (forced === 'tencent' && config.TENCENT_SES_SECRET_ID && config.TENCENT_SES_SECRET_KEY) return 'tencent'
+  if (forced === 'tencent' && config.TENCENT_SES_SECRET_ID && config.TENCENT_SES_SECRET_KEY)
+    return 'tencent'
   if (forced === 'smtp' && config.SMTP_ENABLED && config.SMTP_HOST) return 'smtp'
 
   // auto:按收件域名智能路由
@@ -176,10 +202,7 @@ async function dispatch(
  * 写 email_logs 审计记录。
  * 失败仅 warn,不抛错(邮件主流程已结束,审计失败不应回滚)。
  */
-async function recordEmailLog(
-  options: SendEmailOptions,
-  result: SendEmailResult,
-): Promise<void> {
+async function recordEmailLog(options: SendEmailOptions, result: SendEmailResult): Promise<void> {
   const status: 'sent' | 'stub' | 'failed' = result.sent ? 'sent' : result.stub ? 'stub' : 'failed'
   await db.insert(emailLogs).values({
     toEmail: options.to,
@@ -267,6 +290,12 @@ async function sendViaResend(options: SendEmailOptions): Promise<SendEmailResult
 /**
  * 腾讯云 SES 通道(SubmitSignUrl 风格的 V3 签名 + SendEmail API)。
  * 文档:https://cloud.tencent.com/document/product/1288/51034
+ *
+ * 发件模式(自动选择):
+ * - Template 模式(默认推荐):scene ∈ {register, login, reset} 且配置了对应 TENCENT_SES_TEMPLATE_*
+ *   → 走 Template,腾讯云默认权限即可使用,正文由腾讯云模板 + TemplateVariables 渲染
+ * - Simple 模式(fallback):无对应 template id 时走 Simple,Simple.Html/Text base64 编码
+ *   ⚠️ Simple 需在腾讯云控制台申请"自定义发送权限",否则返回 FailedOperation.WithOutPermission
  */
 async function sendViaTencentSes(options: SendEmailOptions): Promise<SendEmailResult> {
   if (!config.TENCENT_SES_SECRET_ID || !config.TENCENT_SES_SECRET_KEY) {
@@ -277,17 +306,28 @@ async function sendViaTencentSes(options: SendEmailOptions): Promise<SendEmailRe
   const host = `ses.${region}.tencentcloudapi.com`
   const endpoint = `https://${host}`
 
+  // 选择发件模式:验证码场景优先 Template,其他场景 fallback Simple
+  const templateId = resolveTemplateId(options.scene)
+  const useTemplate = templateId !== undefined
+
   try {
-    const payload = JSON.stringify({
+    const body: Record<string, unknown> = {
       FromEmailAddress: from,
       Destination: [options.to],
       Subject: options.subject,
-      Template: undefined,
-      Simple: {
-        Html: options.html,
-        Text: options.text ?? '',
-      },
-    })
+    }
+    if (useTemplate) {
+      body.Template = {
+        TemplateID: templateId,
+        TemplateVariables: JSON.stringify(options.templateVariables ?? {}),
+      }
+    } else {
+      body.Simple = {
+        Html: base64Utf8(options.html),
+        Text: base64Utf8(options.text ?? ''),
+      }
+    }
+    const payload = JSON.stringify(body)
 
     const { SignedHeaders, Authorization } = await buildTencentV3Signature({
       secretId: config.TENCENT_SES_SECRET_ID,
@@ -322,13 +362,15 @@ async function sendViaTencentSes(options: SendEmailOptions): Promise<SendEmailRe
         error: `tencent ${res.status}: ${errText.slice(0, 200)}`,
       }
     }
-    const json = (await res.json().catch(() => ({}))) as { Response?: { Error?: { Message?: string } } }
+    const json = (await res.json().catch(() => ({}))) as {
+      Response?: { Error?: { Message?: string; Code?: string } }
+    }
     if (json.Response?.Error?.Message) {
       return {
         sent: false,
         stub: false,
         provider: 'tencent',
-        error: json.Response.Error.Message,
+        error: `[${json.Response.Error.Code ?? 'Unknown'}] ${json.Response.Error.Message}`,
       }
     }
     return { sent: true, stub: false, provider: 'tencent' }
@@ -405,8 +447,7 @@ function renderVerificationEmailHtml(
   scene: EmailCodeScene,
   nickname?: string,
 ): string {
-  const sceneText =
-    scene === 'register' ? '注册账号' : scene === 'reset' ? '重置密码' : '登录账号'
+  const sceneText = scene === 'register' ? '注册账号' : scene === 'reset' ? '重置密码' : '登录账号'
   const greeting = nickname ? `Hi ${nickname},` : 'Hi,'
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -428,6 +469,8 @@ function renderVerificationEmailHtml(
 
 /**
  * 发送验证码邮件(场景化)。
+ * 腾讯云 SES Template 模式下,code/nickname 通过 templateVariables 传给腾讯云模板,
+ * 模板正文里用 {{code}} / {{nickname}} 占位符引用。
  */
 export async function sendVerificationEmail(
   email: string,
@@ -449,6 +492,7 @@ export async function sendVerificationEmail(
     scene,
     templateSlug: 'verify_code',
     metadata: nickname ? { nickname } : undefined,
+    templateVariables: { code, nickname: nickname ?? '', scene },
   })
 }
 
