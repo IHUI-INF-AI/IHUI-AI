@@ -110,23 +110,26 @@ export const QRS: readonly Qr[] = [
 export const MARQUEE_BRANDS: readonly Icon[] = [...MODELS, ...PROMOTIONS]
 
 // 2026-07-20 恢复:原未改架构前的跑马灯图片(15 槽位,brand4.svg 已丢失 → 实际 14 张)
-// 单一数据源:public/brands/* + footer.marquee.* i18n(5 语言已 parity)。
+// 单一数据源:public/brands/* + home.marquee.* i18n(5 语言已 parity)。
 // 与 MARQUEE_BRANDS 形成"主品牌行 + 原版品牌行"双行跑马灯。
-// 注:bbx.svg → bbxLogo, ybx.png → yuanbaoxiang, brand8.png → brand8 (非学校但原版就有)。
-export const SCHOOL_BRANDS: readonly Icon[] = [
-  { nameKey: 'marquee.kouzi', src: '/brands/kouzi.png' },
-  { nameKey: 'marquee.bbxLogo', src: '/brands/bbx.svg' },
+// 注:bbx.svg → bbxLogo, ybx.png → yuanbaoxiang, brand8.png → brand8。
+// nameKey 已是 `marquee.X` 形式的复合 key,但 useTranslations('home.marquee')
+// 会再拼一层 → 解析成 home.marquee.marquee.X 报错。
+// 解法:BrandMarquee 的 MarqueeRow 组件在取名时去掉 `marquee.` 前缀。
+export const SCHOOL_BRANDS: readonly (Omit<Icon, 'nameKey'> & { nameKey: string })[] = [
+  { nameKey: 'kouzi', src: '/brands/kouzi.png' },
+  { nameKey: 'bbxLogo', src: '/brands/bbx.svg' },
   // brand4.svg 在架构变更中丢失,跳过
-  { nameKey: 'marquee.zhipu', src: '/brands/zhipu.png' },
-  { nameKey: 'marquee.brand8', src: '/brands/brand8.png' },
-  { nameKey: 'marquee.ali', src: '/brands/ali.png' },
-  { nameKey: 'marquee.baidu', src: '/brands/baidu.svg' },
-  { nameKey: 'marquee.dbsfdx', src: '/brands/dbsfdx.png' },
-  { nameKey: 'marquee.gork', src: '/brands/gork.png' },
-  { nameKey: 'marquee.huawei', src: '/brands/huawei.svg' },
-  { nameKey: 'marquee.jldx', src: '/brands/jldx.png' },
-  { nameKey: 'marquee.openai', src: '/brands/openai.png' },
-  { nameKey: 'marquee.tencent', src: '/brands/tencent.png' },
-  { nameKey: 'marquee.yuanbaoxiang', src: '/brands/ybx.png' },
-  { nameKey: 'marquee.yushu', src: '/brands/yushu.png' },
+  { nameKey: 'zhipu', src: '/brands/zhipu.png' },
+  { nameKey: 'brand8', src: '/brands/brand8.png' },
+  { nameKey: 'ali', src: '/brands/ali.png' },
+  { nameKey: 'baidu', src: '/brands/baidu.svg' },
+  { nameKey: 'dbsfdx', src: '/brands/dbsfdx.png' },
+  { nameKey: 'gork', src: '/brands/gork.png' },
+  { nameKey: 'huawei', src: '/brands/huawei.svg' },
+  { nameKey: 'jldx', src: '/brands/jldx.png' },
+  { nameKey: 'openai', src: '/brands/openai.png' },
+  { nameKey: 'tencent', src: '/brands/tencent.png' },
+  { nameKey: 'yuanbaoxiang', src: '/brands/ybx.png' },
+  { nameKey: 'yushu', src: '/brands/yushu.png' },
 ]
