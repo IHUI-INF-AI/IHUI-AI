@@ -5,7 +5,7 @@
  *
  * 核心策略(做减法,不引入新依赖,不扩展 ChatMessage 类型):
  *   - selectTurnsToCompact:反向遍历找 split point,tool-pair safe boundary 对齐
- *   - shouldCompact:百分比阈值触发(默认 0.85)
+ *   - shouldCompact:百分比阈值触发(默认 0.88,跨端统一)
  *   - isDegenerateSummary:退化摘要检测(默认 < 500 字符视为退化)
  *   - reductionGuard:压缩后 token > before * 0.8 则拒绝
  *   - sampleWithRetry:瞬态错误重试(指数退避 1s/2s/4s),确定性错误不重试
@@ -22,6 +22,8 @@ import {
   type ChatMessage,
   type CompressionResult,
 } from './context.js';
+// 阈值常量从共享包引用(跨端统一 0.88,与 context.ts / API / ai-service 一致)
+import { DEFAULT_TRIGGER_RATIO, DEFAULT_TARGET_RATIO } from '@ihui/context-compaction';
 
 // ==================== 类型定义 ====================
 
@@ -51,7 +53,7 @@ export interface CompactionObserver {
 export interface CompactionV2Options {
   /** 模型上下文窗口大小(tokens) */
   contextLimit: number;
-  /** 触发压缩的占用率(0-1,默认 0.85) */
+  /** 触发压缩的占用率(0-1,默认 0.88,跨端统一) */
   triggerRatio?: number;
   /** 压缩后的目标占用率(0-1,默认 0.6) */
   targetRatio?: number;
@@ -88,8 +90,6 @@ export interface SelectTurnsResult {
 
 // ==================== 常量与默认值 ====================
 
-const DEFAULT_TRIGGER_RATIO = 0.85;
-const DEFAULT_TARGET_RATIO = 0.6;
 const DEFAULT_KEEP_RECENT = 6;
 const DEFAULT_MIN_MESSAGES = 10;
 const DEFAULT_MIN_COMPACTABLE_TOKENS = 1000;
@@ -215,7 +215,7 @@ export function selectTurnsToCompact(
 
 /**
  * shouldCompact — 参考行业 Agent 框架的 trigger 实现。
- * lastPromptTokens / contextLimit > triggerRatio(默认 0.85)→ 触发。
+ * lastPromptTokens / contextLimit > triggerRatio(默认 0.88,跨端统一)→ 触发。
  */
 export function shouldCompact(
   lastPromptTokens: number,
