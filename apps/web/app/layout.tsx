@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
+import localFont from 'next/font/local'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getLocale } from 'next-intl/server'
 import { Toaster } from 'sonner'
@@ -11,6 +12,17 @@ import { GlobalHooksProvider } from '@/providers/global-hooks-provider'
 import { LoginDialog } from '@/components/login/LoginDialog'
 import { LoginRedirectListener } from '@/components/login/LoginRedirectListener'
 import { GlobalShell } from '@/components/layout/GlobalShell'
+
+// next/font/local 接入 (MIGRATION_INTEGRITY_REPORT §6.2 P0-1 修复)
+// 优势:self-host + 字体 display 优化 + CSS variable 集成 + 消除布局抖动
+// EDIX 是拉丁字符字体(已 woff2 + 4016 chars 子集),作为基础字体栈首选
+const edix = localFont({
+  src: '../public/fonts/EDIX.woff2',
+  variable: '--font-edix',
+  display: 'swap',
+  weight: '400',
+  style: 'normal',
+})
 
 export const metadata: Metadata = {
   title: { default: 'IHUI AI', template: '%s | IHUI AI' },
@@ -50,8 +62,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const [messages, locale] = await Promise.all([getMessages(), getLocale()])
 
   return (
-    <html lang={locale} suppressHydrationWarning>
-      <body className="font-sans antialiased">
+    <html lang={locale} className={edix.variable} suppressHydrationWarning>
+      <body className={`${edix.className} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
