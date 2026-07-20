@@ -3,7 +3,8 @@
 import * as React from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useQuery } from '@tanstack/react-query'
-import { Check, CheckCircle2, ChevronDown, Loader2, TriangleAlert } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Check, CheckCircle2, ChevronDown, Loader2, Settings, TriangleAlert } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { fetchModels } from '@ihui/api-client'
@@ -62,6 +63,7 @@ function groupByVendor(options: ModelOption[]): Array<[string, ModelOption[]]> {
 
 export function ModelSelector({ value, onChange, disabled, label }: ModelSelectorProps) {
   const t = useTranslations('chat')
+  const router = useRouter()
   const [options, setOptions] = React.useState<ModelOption[]>(() => FALLBACK_MODELS.map(toOption))
   const [loading, setLoading] = React.useState(true)
 
@@ -192,6 +194,26 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
             ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
           )}
         >
+          {/* 自定义配置模型入口(置顶):跳转 /settings/llm 配置 API Key
+              2026-07-20 用户反馈"丢失了自定义配置模型的选项按钮",补回此入口,
+              位置由原先埋在某个模型组中改为整张下拉的最顶部,确保一键可达。 */}
+          <DropdownMenu.Group>
+            <DropdownMenu.Item
+              onSelect={() => router.push('/settings/llm')}
+              className={cn(
+                'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
+                'focus:bg-accent focus:text-accent-foreground',
+                // 2026-07-19 中文 + 图标垂直对齐:文字 span 视觉居中
+                '[&>span]:translate-y-[var(--text-vcenter-offset)]',
+              )}
+            >
+              <Settings className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="flex-1 truncate font-medium">{t('manageModels')}</span>
+            </DropdownMenu.Item>
+            {grouped.length > 0 && (
+              <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+            )}
+          </DropdownMenu.Group>
           {grouped.map(([vendor, items]) => (
             <DropdownMenu.Group key={vendor}>
               <DropdownMenu.Label

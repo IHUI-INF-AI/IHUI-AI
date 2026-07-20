@@ -1167,6 +1167,7 @@
     "modelDescOpenRouterAuto": "スマートルーティング · 複数ベンダー",
     "modelConfigured": "現在のモデルの API Key は設定済みです",
     "modelNotConfigured": "現在のモデルの API Key が未設定です。モデル広場ページでワンクリック設定できます",
+    "manageModels": "カスタムモデル設定",
     "slashCmd": {
       "summary": "のを",
       "translate": "テキストを",
@@ -13566,8 +13567,9 @@
     "officialPromotion": "公式プロモートプラットフォーム",
     "officialApp": "公式アプリ",
     "contactUs": "お問い合わせ",
+    "communityGroup": "コミュニティグループ",
     "icp": "吉ICP備2025027274号",
-    "copyright": "© 2026 智匯 AI · 北京 · 全著作権所有",
+    "copyright": "© 2025 智匯AIグループ · 中国",
     "platforms": {
       "n8n": "n8n",
       "coze": "Coze"
@@ -24348,10 +24350,10 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "智匯AIコミュニティ、AIの無限の可能性を探索",
-      "explore": "AIの無限の可能性を探索",
-      "brand": "智匯AIコミュニティ",
-      "connect": "アイデアを繋ぎ、未知を解き放つ",
+      "content": "8プラットフォーム全面カバー · 業界初",
+      "explore": "100+ LLMワンストップアクセス",
+      "brand": "独自 CLI、Claude Code 対抗",
+      "connect": "LangGraph + MCP + A2A トリプルスタック",
       "ctaPrimary": "今すぐ体験",
       "ctaSecondary": "もっと知る",
       "miniappBtn": "WeChatミニプログラム"
@@ -24394,6 +24396,7 @@
     "marquee": {
       "label": "お知らせ",
       "items": [
+        "8プラットフォーム AI プラットフォーム · 100+ LLMワンストップアクセス · 独自 CLI、Claude Code 対抗",
         "智匯AIコミュニティへようこそ、アーリーバード価格 ¥6000/人/年、限定18席",
         "企業AI化意思決定者コミュニティが募集を開始、人機協同の実戦コースが年間無料",
         "先着18名の会員は1対1のAIコンサルティングを享受、不満の場合は全額返金",
@@ -24405,6 +24408,11 @@
       "title": "智匯AIコミュニティへようこそ",
       "subtitle": "AI時代の企業向け合理的効率サービスと相互支援コミュニティ。意思決定者がAIと企業の関係を深く理解し、人機協同のスーパー組織を構築するのを支援します。",
       "description": "今すぐコミュニティに参加して、すべての AI ツール、専属サポート、高度なモデルアクセスなどの特典を利用して、作業効率を向上させましょう。",
+      "brandTitle": "智匯AIコミュニティ",
+      "brandSubtitle": "8プラットフォーム企業級 AI プラットフォーム",
+      "seats": "18席限定 意思決定者",
+      "earlyBird": "アーリーバード ¥6000/年",
+      "multiEnd": "8プラットフォーム全面カバー",
       "perYear": "日/年の伴走",
       "benefits": {
         "benefit1": "年間すべてのコースに無料で参加",
@@ -24414,6 +24422,11 @@
         "benefit5": "AIアシスタントの優先体験",
         "benefit6": "不満の場合は全額返金"
       }
+    },
+    "stats": {
+      "platforms": "プラットフォームカバー",
+      "models": "LLM統合",
+      "seats": "席 · 意思決定者"
     },
     "news": {
       "title": "最新ニュース",
@@ -24459,7 +24472,7 @@
       "recommended": "おすすめ",
       "basic": {
         "name": "ベーシック",
-        "description": "個人ユーザーとプロフェッショナル向け",
+        "description": "AIを体験する個人開発者向け",
         "feature1": "無制限のAIチャット",
         "feature2": "画像生成",
         "feature3": "音声入力",
@@ -24470,7 +24483,7 @@
       },
       "professional": {
         "name": "プロフェッショナル",
-        "description": "パワーユーザーと小規模チーム向け",
+        "description": "企業の意思決定者深度使用向け",
         "feature1": "無制限のAIチャット",
         "feature2": "画像/動画生成",
         "feature3": "90日間の履歴",
@@ -24481,7 +24494,7 @@
       },
       "enterprise": {
         "name": "エンタープライズ",
-        "description": "上級ユーザーとチーム向け",
+        "description": "中小チーム人機協同向け",
         "feature1": "無制限のAIチャット",
         "feature2": "画像/動画生成",
         "feature3": "永久履歴",
@@ -24492,7 +24505,7 @@
       },
       "flagship": {
         "name": "フラッグシップ",
-        "description": "究極の体験を求めるユーザー向け",
+        "description": "究極の AI 体験を追求する意思決定者向け",
         "feature1": "無制限トークン使用",
         "feature2": "すべてのAIモデルアクセス",
         "feature3": "超高速レスポンス",
@@ -24505,26 +24518,26 @@
     "features": {
       "title": "強力な機能",
       "titleEn": "強力な機能",
-      "subtitle": "モデル統合からアプリストアまで、あらゆるニーズに応える包括的なAIサービスをご紹介",
+      "subtitle": "8プラットフォーム企業級 AI プラットフォーム、モデル統合から独自 CLI まであらゆるニーズに応える",
       "modelIntegration": {
-        "title": "マルチモデル統合",
-        "description": "主流のLLMを統合し、オンデマンドで切り替え、複数シナリオの対話と推論ニーズに対応"
+        "title": "8プラットフォーム全面カバー",
+        "description": "Web/デスクトップ/モバイル/ミニプログラム/CLI/ブラウザ拡張、統一アカウントシームレス切替"
       },
       "appStore": {
-        "title": "エージェント",
-        "description": "汎用、業界、機能の3つのシナリオをカバーする即利用可能なエージェント"
+        "title": "100+ LLM",
+        "description": "OpenAI/Claude/Gemini/DeepSeek/Qwen/GLM、1つの API キーで全部アクセス"
       },
       "contentCreation": {
-        "title": "コンテンツ作成",
-        "description": "AIテキスト、画像、動画のワンストップ生成でアイデアを迅速に具現化"
+        "title": "独自 CLI",
+        "description": "Claude Code 対抗、ACP Server + 6 ツールワンクリック導入"
       },
       "edu": {
-        "title": "AI教育",
-        "description": "体系的なAIコースと実戦訓練で、完全な知識体系を構築"
+        "title": "フルスタック AI 教育",
+        "description": "コース/ライブ/試験/証明書、年間無料参加"
       },
       "navigation": {
-        "title": "スマートナビゲーション",
-        "description": "スマートルーティングとシナリオ認識で、必要な能力に正確に到達"
+        "title": "AI ワークスペース",
+        "description": "3つの権限モード + 7エンドポイントランタイムブロック、企業級セキュリティ"
       }
     },
     "advantages": {
@@ -24533,19 +24546,19 @@
       "subtitle": "智匯AIを選ぶ理由",
       "professional": {
         "title": "プロフェッショナル",
-        "description": "AI分野を深耕し、専門的な技術ソリューションと業界をリードする製品サービスを提供"
+        "description": "8プラットフォーム全面カバー + 17ガードレールスクリプト + フルスタック観測性、業界初企業級 AI エンジニアリング"
       },
       "efficient": {
         "title": "効率的",
-        "description": "開発フローを簡素化し、豊富なAPIインターフェースとツールでAIアプリを迅速に公開"
+        "description": "LiteLLMスマートルーティング + 60%キャッシュコスト削減 + LangGraphオーケストレーション、AI アプリ展開加速"
       },
       "reliable": {
         "title": "信頼性",
-        "description": "安定した信頼できるサービス保証、99.9%の可用性でビジネスの継続性を確保"
+        "description": "99.9% SLA + 60秒タイムアウト拒否 + RBAC + AES-256-GCM暗号化、企業級セキュリティ"
       },
       "innovative": {
         "title": "イノベーティブ",
-        "description": "継続的な技術革新、エージェントクラスタ、階層型計画などの最先端AI能力"
+        "description": "LangGraph + MCP + A2A トリプルスタック、業界初エージェント間通信プロトコル"
       }
     }
   },

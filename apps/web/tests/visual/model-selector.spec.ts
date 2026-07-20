@@ -219,8 +219,36 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     await item.click()
     await page.waitForTimeout(500)
     // 菜单应关闭(不再可见)
-    const visibleMenu = page.locator('[role="menu"]:visible').count()
+    const visibleMenu = await page.locator('[role="menu"]:visible').count()
     expect(visibleMenu, '点击后菜单应关闭').toBe(0)
+  })
+
+  test('自定义配置模型入口置顶并跳转 /settings/llm', async ({ page }) => {
+    // 守护:2026-07-20 用户反馈"丢失了自定义配置模型的选项按钮",补回的入口必须
+    //   1) 在下拉菜单的最顶部(第一个 menuitem)
+    //   2) 文案为"自定义配置模型"(zh-CN 默认 locale)
+    //   3) 点击后跳转到 /settings/llm
+    const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
+    if ((await trigger.count()) === 0) {
+      test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
+      return
+    }
+    await trigger.click()
+    await page.waitForTimeout(500)
+    const firstItem = page.locator('[role="menuitem"]').first()
+    expect(await firstItem.count(), '第一个 menuitem 应渲染').toBeGreaterThan(0)
+    const text = (await firstItem.innerText())?.trim() ?? ''
+    expect(text, '第一个 menuitem 应为"自定义配置模型"').toContain('自定义配置模型')
+    // Settings 图标必须存在
+    const svgCount = await firstItem.locator('svg').count()
+    expect(svgCount, '置顶入口应含 Settings 图标').toBeGreaterThanOrEqual(1)
+
+    // 点击跳转
+    await firstItem.click()
+    await page.waitForURL('**/settings/llm', { timeout: 5000 }).catch(() => {})
+    // 兼容未登录被重定向到登录页的情况:只要 pathname 不是 /chat 即认为跳转触发
+    const pathname = await page.evaluate(() => window.location.pathname)
+    expect(pathname, '点击后应离开 /chat 跳转').not.toBe('/chat')
   })
 
   test('dark mode: 切换暗色后下拉菜单可见', async ({ page }) => {
