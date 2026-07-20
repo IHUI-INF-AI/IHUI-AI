@@ -1012,6 +1012,8 @@
     "openLocalFolder": "打开本地文件夹",
     "openedWorkspace": "已打开的工作区",
     "reopenPermission": "重新配置权限",
+    "selectWorkspace": "选择工作区",
+    "recentWorkspaces": "最近的工作区",
     "folderPicker": {
       "title": "选择本地项目文件夹",
       "description": "浏览本地磁盘选择项目文件夹,首次打开将配置访问权限",
@@ -17431,6 +17433,9 @@
     "newConversation": "新建任务",
     "noHistory": "暂无任务",
     "emptyWorkspace": "空工作区",
+    "addWorkspace": "添加工作区",
+    "clearWorkspace": "清除工作区",
+    "noRecentWorkspaces": "暂无最近工作区",
     "handleHint": "点击或向右拉出AI工作区",
     "resizeHandleHint": "拖拽调整宽度",
     "filterByModel": "按模型筛选",

@@ -1012,6 +1012,8 @@
     "openLocalFolder": "ローカルフォルダを開く",
     "openedWorkspace": "開かれたワークスペース",
     "reopenPermission": "権限を再設定",
+    "selectWorkspace": "ワークスペースを選択",
+    "recentWorkspaces": "最近のワークスペース",
     "folderPicker": {
       "title": "ローカルプロジェクトフォルダを選択",
       "description": "ローカルディスクを閲覧してプロジェクトフォルダを選択します。初回オープン時にアクセス権限を設定します。",
@@ -17443,6 +17445,9 @@
     "newConversation": "チャット",
     "noHistory": "なしチャット",
     "emptyWorkspace": "空のワークスペース",
+    "addWorkspace": "ワークスペースを追加",
+    "clearWorkspace": "ワークスペースを解除",
+    "noRecentWorkspaces": "最近のワークスペースがありません",
     "handleHint": "クリックまたは右にドラッグしてAIワークスペースを開く",
     "resizeHandleHint": "ドラッグして幅を調整",
     "filterByModel": "モデルフィルター",
