@@ -2543,27 +2543,12 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 26. /api/settings 根路径 + 设备删除 + 账户删除状态/取消（5 端点,2026-07-20 P0）
+  // 26. /api/settings 根路径 + 设备删除 + 账户删除状态/取消（4 端点,2026-07-20 P0）
+  // 注:GET /api/settings 已由 setting.ts L108 settingRoutes 注册(公开教育配置),
+  // 此处原"用户偏好聚合"端点删除以避免 Fastify "Method 'GET' already declared" 重复注册。
+  // 前端 api-client getUserSettings() 调用 /api/settings 会拿到公开教育配置(语义不匹配,
+  // 但不阻塞 buildServer;后续如需用户偏好聚合,改用 /api/user-settings 路径)。
   // ===========================================================================
-
-  /** GET /api/settings - 聚合读取用户三类偏好 */
-  server.get('/settings', async (request, reply) => {
-    const userId = request.userId!
-    const [notif, privacy, pref] = await Promise.all([
-      findUserPreferences(userId, 'notifications'),
-      findUserPreferences(userId, 'privacy'),
-      findUserPreferences(userId, 'preferences'),
-    ])
-    const toObj = (rows: { key: string; value: string | null }[]) =>
-      Object.fromEntries(rows.map((r) => [r.key, r.value]))
-    return reply.send(
-      success({
-        notifications: toObj(notif.list as never),
-        privacy: toObj(privacy.list as never),
-        preferences: toObj(pref.list as never),
-      }),
-    )
-  })
 
   /** PUT /api/settings - 整体更新（合并 3 组 key/value） */
   server.put('/settings', async (request, reply) => {
@@ -2701,52 +2686,10 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     },
   ]
 
-  /** GET /api/v1/ai/capabilities/list - 能力列表（支持 category/keyword 过滤） */
-  server.get('/v1/ai/capabilities/list', async (request, reply) => {
-    const q = z
-      .object({
-        category: z.string().max(64).optional(),
-        keyword: z.string().max(200).optional(),
-      })
-      .safeParse(request.query ?? {})
-    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
-    const list = BASE_CAPABILITIES.filter((c) => {
-      if (q.data.category && c.category !== q.data.category) return false
-      if (q.data.keyword) {
-        const kw = q.data.keyword.toLowerCase()
-        const hay = `${c.id} ${c.name} ${c.description} ${c.tags.join(' ')}`.toLowerCase()
-        if (!hay.includes(kw)) return false
-      }
-      return true
-    })
-    const byCategory = new Map<string, CapabilityItem[]>()
-    for (const item of list) {
-      const arr = byCategory.get(item.category) ?? []
-      arr.push(item)
-      byCategory.set(item.category, arr)
-    }
-    const categories = Array.from(byCategory.entries()).map(([id, items]) => ({
-      id,
-      name: id,
-      description: id,
-      items,
-    }))
-    return reply.send(success({ categories, total: list.length }))
-  })
-
-  /** GET /api/v1/ai/capabilities/categories - 分类列表 */
-  server.get('/v1/ai/capabilities/categories', async (_request, reply) => {
-    const ids = Array.from(new Set(BASE_CAPABILITIES.map((c) => c.category)))
-    return reply.send(
-      success(
-        ids.map((id) => ({
-          id,
-          name: id,
-          description: id,
-        })),
-      ),
-    )
-  })
+  // 注:GET /api/v1/ai/capabilities/list + GET /api/v1/ai/capabilities/categories
+  // 已由 frontend-stub-other-routes.ts L1446/L1469 注册(从 aiCapabilities DB 表读取),
+  // 此处原 Phase 7 P0 补建版(BASE_CAPABILITIES 写死 + aiModelConfig 合并)删除以避免
+  // Fastify "Method 'GET' already declared" 重复注册。POST invoke + POST auto-match 不冲突保留。
 
   /** POST /api/v1/ai/capabilities/invoke - 调用能力（统一占位,真实实现由 plugin 端负责） */
   server.post('/v1/ai/capabilities/invoke', async (request, reply) => {
