@@ -313,7 +313,23 @@
     "modifySuccess": "修改成功"
   },
   "a11y": {
-    "menu": "菜单"
+    "menu": "菜单",
+    "more": "更多",
+    "close": "关闭",
+    "copy": "复制",
+    "copyResponse": "复制响应",
+    "barChart": "柱状图",
+    "heatmap": "热力图",
+    "lineChart": "折线图",
+    "pieChart": "饼图",
+    "radarChart": "雷达图",
+    "openCustomerService": "打开客服",
+    "minimize": "最小化",
+    "send": "发送",
+    "closeTag": "关闭标签",
+    "closeAlert": "关闭提示",
+    "searchOption": "搜索选项",
+    "uploadAvatar": "上传头像"
   },
   "nav": {
     "title": "主导航",
@@ -982,6 +998,74 @@
       "tasks": "任务清单",
       "routines": "例行程序",
       "folders": "文件夹"
+    },
+    "openLocalFolder": "打开本地文件夹",
+    "openedWorkspace": "已打开的工作区",
+    "reopenPermission": "重新配置权限",
+    "folderPicker": {
+      "title": "选择本地项目文件夹",
+      "description": "浏览本地磁盘选择项目文件夹,首次打开将配置访问权限",
+      "root": "根目录",
+      "loading": "加载目录中...",
+      "noDirectories": "此目录下无子文件夹",
+      "selected": "已选择:",
+      "cancel": "取消",
+      "opening": "打开中...",
+      "selectAndOpen": "选择并打开"
+    },
+    "permission": {
+      "title": "工作区访问权限",
+      "description": "选择 AI 对此工作区的访问权限模式",
+      "path": "路径",
+      "techStack": "技术栈",
+      "selectMode": "选择权限模式",
+      "highRisk": "高风险",
+      "whitelistRules": "白名单规则",
+      "manageRules": "管理规则",
+      "collapseRules": "收起规则",
+      "bypassWarning": "完全访问权限将允许 AI 执行任何操作,包括删除文件、执行任意命令。请仅在完全信任的私有项目中使用。",
+      "cancel": "取消",
+      "saveAndOpen": "保存并打开",
+      "saving": "保存中...",
+      "add": "添加",
+      "patternPlaceholder": "输入匹配模式(如 src/**, *.ts)",
+      "loadingRules": "加载规则中...",
+      "noRules": "暂无规则,点击重置按钮加载预置安全模板",
+      "deleteRule": "删除规则",
+      "builtin": "内置",
+      "resetToDefaults": "重置为默认模板",
+      "mode": {
+        "default": {
+          "title": "人工审计",
+          "desc": "每次操作均需用户确认,最安全"
+        },
+        "accept-edits": {
+          "title": "白名单放行",
+          "desc": "仅允许白名单规则内的操作,其他需确认"
+        },
+        "bypass-permissions": {
+          "title": "完全访问",
+          "desc": "AI 可执行任何操作,无需确认"
+        }
+      },
+      "ruleType": {
+        "path": "路径",
+        "command": "命令",
+        "tool": "工具"
+      },
+      "decision": {
+        "allow": "允许",
+        "deny": "拒绝"
+      }
+    },
+    "permissionsPage": {
+      "title": "工作区权限管理",
+      "subtitle": "管理所有本地工作区的访问权限",
+      "loading": "加载中...",
+      "empty": "暂无工作区权限配置",
+      "goToWorkspace": "返回工作区",
+      "edit": "编辑",
+      "confirmDelete": "确定要删除此工作区的权限配置吗?"
     }
   },
   "chat": {
@@ -7629,6 +7713,8 @@
     "connectedAccountsDesc": "管理您关联的第三方账号",
     "llmConfigsTitle": "我的 LLM 配置",
     "llmConfigsDesc": "管理各 AI 平台的 API Key、模型 ID 与上下文",
+    "cliImportTitle": "CLI 配置导入",
+    "cliImportDesc": "从 cc-switch / codex++ / Claude / Codex / Gemini / Hermes 等本地工具一键导入",
     "securityTitle": "账户安全",
     "securityDesc": "保护您的账户安全",
     "activityLoading": "加载中...",
@@ -24668,5 +24754,57 @@
     "xAxisLabel": "横轴",
     "yAxisLabel": "纵轴",
     "valueSuffix": ""
+  },
+  "cliImport": {
+    "title": "CLI 配置导入",
+    "desc": "从 cc-switch / codex++ / Claude / Codex / Gemini / Hermes 等本地工具一键导入",
+    "sources": "支持的来源",
+    "sourceCcSwitch": "cc-switch",
+    "sourceCodexPlus": "codex++",
+    "sourceClaudeCli": "Claude Code",
+    "sourceCodexCli": "Codex CLI",
+    "sourceGeminiCli": "Gemini CLI",
+    "sourceHermes": "Hermes",
+    "upload": "上传文件",
+    "uploadHint": "选择本地配置文件(.db / .json / .toml / .yaml / .env)",
+    "dragDrop": "拖拽文件到此处,或点击选择",
+    "fileSelected": "已选择:{name} ({size})",
+    "parse": "解析",
+    "parsing": "解析中...",
+    "parseFailed": "解析失败:{error}",
+    "parseSuccess": "解析成功,共 {count} 个供应商",
+    "previewTitle": "解析预览",
+    "selectAll": "全选",
+    "deselectAll": "全不选",
+    "selected": "已选 {count}/{total}",
+    "conflictStrategy": "重复处理策略",
+    "overwrite": "覆盖",
+    "skip": "跳过",
+    "clone": "克隆",
+    "overwriteDesc": "删除旧配置,导入新的",
+    "skipDesc": "保留旧配置,跳过新的",
+    "cloneDesc": "保留旧配置,新配置加序号后缀",
+    "commit": "确认导入",
+    "committing": "导入中...",
+    "commitSuccess": "导入完成:成功 {imported},跳过 {skipped},失败 {failed}",
+    "commitFailed": "导入失败:{error}",
+    "noApiKey": "(需手动补全)",
+    "warning": "警告",
+    "historyTitle": "导入历史",
+    "historyEmpty": "暂无导入记录",
+    "historySource": "来源",
+    "historyPath": "路径",
+    "historyImported": "成功",
+    "historySkipped": "跳过",
+    "historyFailed": "失败",
+    "historyStatus": "状态",
+    "historyTime": "时间",
+    "statusSuccess": "成功",
+    "statusPartial": "部分成功",
+    "statusFailed": "失败",
+    "errorNoFile": "请上传配置文件",
+    "errorNoSource": "请选择导入来源",
+    "errorPreviewExpired": "预览已过期,请重新解析",
+    "errorParseFailed": "解析失败"
   }
 }
