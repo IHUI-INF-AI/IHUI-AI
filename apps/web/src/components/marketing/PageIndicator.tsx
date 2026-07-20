@@ -13,21 +13,21 @@ interface PageIndicatorProps {
 }
 
 /**
- * 右侧固定分页指示器
- * - 紧凑点列:点 4px / 间距 6px / active 变 12px 长条但仅 2px 宽
- * - hover 放大,点击跳转
- * - 移动端隐藏
+ * 右侧固定分页指示器 — 现代圆点风
  *
- * 2026-07-20 改:容器从 h-6 gap-2.5(高 24/间距 10)缩到 h-3 gap-1.5(高 12/间距 6),
- * 点从 1.5×1.5 缩到 1×1,active 从 h-6 w-1.5(24×6)缩到 h-3 w-0.5(12×2),
- * 整体更紧凑精致,符合用户"间距太大、太难看"反馈。
+ * 2026-07-20 v3 重设计:之前矩形点太小太细反而难看。
+ * 改为主流现代风格:
+ *   - 默认点:6×6 圆形(rounded-full 装饰点豁免) bg-muted-foreground/40
+ *   - active:16×6 椭圆 rounded-full bg-primary
+ *   - hover:默认点变 muted-foreground/80 + 微放大到 8×8
+ *   - 容器 gap 8px,button 命中区 16×10(命中精度 + 视觉紧凑)
  */
 export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
   const t = useTranslations('marketing.indicator')
   if (total <= 1) return null
   return (
     <div
-      className="fixed right-6 top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1.5 md:flex"
+      className="fixed right-6 top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-2 md:flex"
       aria-label={t('label')}
     >
       {Array.from({ length: total }).map((_, idx) => {
@@ -39,15 +39,14 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
             onClick={() => onClick(idx)}
             aria-label={t('switchTo', { index: idx + 1 })}
             aria-current={isActive ? 'true' : undefined}
-            className="group flex h-3 w-2 items-center justify-center"
+            className="group flex h-2.5 w-4 items-center justify-center"
           >
             <span
-              className={`block transition-all duration-300 ${
+              className={`block rounded-full transition-all duration-300 ${
                 isActive
-                  ? 'h-3 w-0.5 bg-primary'
-                  : 'h-1 w-1 bg-muted-foreground/40 group-hover:bg-muted-foreground/70'
+                  ? 'h-1.5 w-4 bg-primary'
+                  : 'h-1.5 w-1.5 bg-muted-foreground/40 group-hover:h-1.5 group-hover:w-2 group-hover:bg-muted-foreground/80'
               }`}
-              style={{ borderRadius: '1px' }}
             />
           </button>
         )
