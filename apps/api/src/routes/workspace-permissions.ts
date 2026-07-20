@@ -18,11 +18,14 @@
  *   DELETE /permissions/rules/:id                删除规则
  *   POST   /permissions/rules/reset              重置为预置安全模板
  *   GET    /permissions/audit-log                获取审计日志
+ *   GET    /permission/requests                 列出待决人工审计请求
+ *   POST   /permission/requests/:requestId/resolve  决策(允许/拒绝)解锁审计 Promise
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { permissionManager } from '../services/workspace-ai-service.js'
 import {
   getPermission,
   listPermissionsByUser,
@@ -63,6 +66,8 @@ const SAFE_TEMPLATES: RuleTemplate[] = [
   { ruleType: 'path', pattern: 'tests/**', operation: 'write', decision: 'allow' },
   { ruleType: 'path', pattern: 'scripts/**', operation: 'read', decision: 'allow' },
   { ruleType: 'path', pattern: 'scripts/**', operation: 'write', decision: 'allow' },
+  { ruleType: 'path', pattern: '**/桌面/**', operation: 'read', decision: 'allow' },
+  { ruleType: 'path', pattern: '**/桌面/**', operation: 'write', decision: 'allow' },
   // 路径放行:配置文件
   { ruleType: 'path', pattern: '*.json', operation: 'read', decision: 'allow' },
   { ruleType: 'path', pattern: '*.md', operation: 'read', decision: 'allow' },
@@ -277,5 +282,34 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.query)
     const logs = await listAuditLogs(request.userId, workspacePath, limit ?? 50)
     return reply.send(success({ logs }))
+  })
+
+  // GET /permission/requests — 列出当前用户的待决人工审计请求(前端可调用刷新)
+  server.get('/permission/requests', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.send(success({ requests: permissionManager.listWorkspacePending(request.userId) }))
+  })
+
+  // POST /permission/requests/:requestId/resolve — 用户决策(允许/拒绝)解锁审计 Promise
+  const resolveSchema = z.object({
+    approved: z.boolean(),
+    reason: z.string().max(200).optional(),
+  })
+  server.post('/permission/requests/:requestId/resolve', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { requestId } = z.object({ requestId: z.string() }).parse(request.params)
+    const parsed = resolveSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const ok = permissionManager.resolveWorkspace(
+      requestId,
+      request.userId,
+      parsed.data.approved,
+      parsed.data.reason,
+    )
+    if (!ok) return reply.status(404).send(error(404, '请求不存在、已超时或不属于当前用户'))
+    return reply.send(success({ resolved: true }))
   })
 }
