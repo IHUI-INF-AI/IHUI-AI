@@ -53,6 +53,45 @@ import {
   LogIn,
   Briefcase,
   Globe,
+  Mic,
+  Code,
+  Key,
+  Terminal,
+  FlaskConical,
+  Gauge,
+  GitBranch,
+  Webhook,
+  Download,
+  Palette,
+  Paintbrush,
+  Type,
+  Image as ImageIcon,
+  LayoutTemplate,
+  Plus,
+  FileCheck,
+  CalendarDays,
+  NotebookPen,
+  ShoppingBag,
+  Ticket,
+  RotateCcw,
+  MapPin,
+  Heart,
+  History,
+  ArrowUp,
+  MessageCircle,
+  Mail,
+  ShieldCheck,
+  Receipt,
+  Coins,
+  Sparkles,
+  Cable,
+  Rocket,
+  UsersRound,
+  MessagesSquare,
+  UserPlus,
+  ClipboardList,
+  CheckCircle2,
+  Circle as CircleIcon,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -78,66 +117,20 @@ import { SidebarChatHistory } from '@/components/sidebar-chat-history'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { DOWNLOADS, isExternalDownloadHref } from '@/lib/downloads'
+import { ADMIN_NAV, ADMIN_NAV_GROUPS, type AdminNavItem, type AdminNavGroup } from '@/components/layout/AdminNav'
+import { useAdminRouters } from '@/hooks/use-admin-routers'
 
 interface NavItem {
   href: string
-  labelKey:
-    | 'home'
-    | 'chat'
-    | 'chatHistory'
-    | 'models'
-    | 'workspace'
-    | 'teams'
-    | 'learn'
-    | 'exam'
-    | 'circles'
-    | 'plaza'
-    | 'asks'
-    | 'docs'
-    | 'payment'
-    | 'vip'
-    | 'user'
-    | 'settings'
-    | 'admin'
-    | 'help'
-    | 'search'
-    | 'favorites'
-    | 'following'
-    | 'subscriptions'
-    | 'tags'
-    | 'activities'
-    | 'feedback'
-    | 'points'
-    | 'orders'
-    | 'live'
-    | 'members'
-    | 'resources'
-    | 'eduPoints'
-    | 'schedule'
-    | 'adminStatistics'
-    | 'userCenter'
-    | 'messages'
-    | 'topics'
-    | 'adminWorkflows'
-    | 'adminTags'
-    | 'adminLogs'
-    | 'wallet'
-    | 'oauthMyAuthorized'
-    | 'news'
-    | 'lecturers'
-    | 'student'
-    | 'agents'
-    | 'distribution'
-    | 'oauthPlatform'
-    | 'myLearning'
-    | 'knowledgeBase'
-    | 'announcements'
-    | 'overview'
-    | 'enterprise'
-    | 'aiWorld'
+  /** i18n key,通过 useTranslations('nav') 解析。改为 string 类型以支持 admin 等动态命名空间。 */
+  labelKey: string
   icon: React.ComponentType<{ className?: string }>
   adminOnly?: boolean
   children?: NavItem[]
+  /** 动态标签,优先级高于 labelKey。用于 admin 后端动态加载的路由名(如 'Operation Log')。 */
+  dynamicLabel?: string
+  /** 未读数 badge 来源:'messages' 私信未读 / 'notification' 通知未读。 */
+  badge?: 'messages' | 'notification'
 }
 
 /** 侧边栏宽度常量(2026-07-17 统一)
@@ -196,6 +189,137 @@ export {
   NAV_ITEM_EXPANDED_CLASS,
 } from '@/lib/nav-styles'
 
+/**
+ * 将 AdminNavGroup(11 个运营域分组)转换为 NavItem(二级可展开项)。
+ * 每个 group 的 items 作为三级子菜单。
+ */
+function adminGroupToNavItem(group: AdminNavGroup): NavItem {
+  const GroupIcon = group.icon
+  return {
+    href: group.items[0]?.href ?? '/admin',
+    labelKey: `adminGroup.${group.groupKey}`,
+    icon: GroupIcon,
+    adminOnly: true,
+    children: group.items.map((item) => ({
+      href: item.href,
+      labelKey: 'adminDynamic',
+      icon: item.icon,
+      adminOnly: true,
+      dynamicLabel: item.dynamicLabel,
+    })),
+  }
+}
+
+/** /admin/theme 9 项作为可展开子菜单(消除 /admin/theme/layout.tsx 双 aside 嵌套) */
+const ADMIN_THEME_CHILDREN: NavItem[] = [
+  { href: '/admin/theme', labelKey: 'adminThemeList', icon: Palette, adminOnly: true },
+  { href: '/admin/theme/create', labelKey: 'adminThemeCreate', icon: Plus, adminOnly: true },
+  { href: '/admin/theme/colors', labelKey: 'adminThemeColors', icon: Paintbrush, adminOnly: true },
+  { href: '/admin/theme/fonts', labelKey: 'adminThemeFonts', icon: Type, adminOnly: true },
+  { href: '/admin/theme/dark-mode', labelKey: 'adminThemeDarkMode', icon: Moon, adminOnly: true },
+  { href: '/admin/theme/assets', labelKey: 'adminThemeAssets', icon: ImageIcon, adminOnly: true },
+  { href: '/admin/theme/presets', labelKey: 'adminThemePresets', icon: LayoutTemplate, adminOnly: true },
+  { href: '/admin/theme/export', labelKey: 'adminThemeExport', icon: Download, adminOnly: true },
+  { href: '/admin/configs', labelKey: 'adminConfigs', icon: Settings, adminOnly: true },
+]
+
+/** /models 15 项作为 /models 的三级子菜单 */
+const MODELS_CHILDREN: NavItem[] = [
+  { href: '/models/overview', labelKey: 'modelsOverview', icon: LayoutDashboard },
+  { href: '/models/market', labelKey: 'modelsMarket', icon: Bot },
+  { href: '/models/channels', labelKey: 'modelsChannels', icon: Cable },
+  { href: '/models/keys', labelKey: 'modelsKeys', icon: Key },
+  { href: '/models/logs', labelKey: 'modelsLogs', icon: FileText },
+  { href: '/models/chats', labelKey: 'modelsChats', icon: MessagesSquare },
+  { href: '/models/users', labelKey: 'modelsUsers', icon: Users },
+  { href: '/models/groups', labelKey: 'modelsGroups', icon: UsersRound },
+  { href: '/models/usage', labelKey: 'modelsUsage', icon: BarChart3 },
+  { href: '/models/billing', labelKey: 'modelsBilling', icon: Wallet },
+  { href: '/models/redeem', labelKey: 'modelsRedeem', icon: Ticket },
+  { href: '/models/referral', labelKey: 'modelsReferral', icon: Gift },
+  { href: '/models/openclaw', labelKey: 'modelsOpenclaw', icon: Rocket },
+  { href: '/models/api-docs', labelKey: 'modelsApiDocs', icon: BookOpen },
+  { href: '/models/skills', labelKey: 'modelsSkills', icon: Sparkles },
+]
+
+/** /messages 6 项作为 /messages 的三级子菜单(带未读数 badge) */
+const MESSAGES_CHILDREN: NavItem[] = [
+  { href: '/messages/notice', labelKey: 'messagesNotice', icon: Bell, badge: 'notification' },
+  { href: '/messages/like', labelKey: 'messagesLike', icon: Heart },
+  { href: '/messages/favorite', labelKey: 'messagesFavorite', icon: Star },
+  { href: '/messages/comment', labelKey: 'messagesComment', icon: MessageSquare },
+  { href: '/messages/fans', labelKey: 'messagesFans', icon: Users },
+  { href: '/messages/private-letter', labelKey: 'messagesPrivateLetter', icon: Mail, badge: 'messages' },
+]
+
+/** /user 16 项作为 /user/profile 的三级子菜单 */
+const USER_CHILDREN: NavItem[] = [
+  { href: '/user/profile', labelKey: 'userProfile', icon: User },
+  { href: '/user/security', labelKey: 'userSecurity', icon: Shield },
+  { href: '/user/notifications', labelKey: 'userNotifications', icon: Bell },
+  { href: '/user/orders', labelKey: 'userOrders', icon: ShoppingBag },
+  { href: '/user/realname', labelKey: 'userRealname', icon: ShieldCheck },
+  { href: '/user/subscription', labelKey: 'userSubscription', icon: CreditCard },
+  { href: '/user/learn-record', labelKey: 'userLearnRecord', icon: BookOpen },
+  { href: '/user/comment', labelKey: 'userComment', icon: MessageSquare },
+  { href: '/user/fans', labelKey: 'userFans', icon: Users },
+  { href: '/user/follow', labelKey: 'userFollow', icon: UserPlus },
+  { href: '/user/ask', labelKey: 'userAsk', icon: HelpCircle },
+  { href: '/user/circle', labelKey: 'userCircle', icon: CircleIcon },
+  { href: '/user/resource', labelKey: 'userResource', icon: FolderOpen },
+  { href: '/user/point', labelKey: 'userPoint', icon: Coins },
+  { href: '/user/exam', labelKey: 'userExam', icon: FileCheck },
+  { href: '/user/sign-up', labelKey: 'userSignUp', icon: ClipboardList },
+]
+
+/** /edu 8 项整合到 AI教育 组下 */
+const EDU_ITEMS: NavItem[] = [
+  { href: '/edu/dashboard', labelKey: 'eduDashboard', icon: LayoutDashboard },
+  { href: '/edu/courses', labelKey: 'eduCourses', icon: BookOpen },
+  { href: '/edu/exam', labelKey: 'eduExam', icon: FileCheck },
+  { href: '/edu/certificates', labelKey: 'eduCertificates', icon: Award },
+  { href: '/edu/schedule', labelKey: 'eduSchedule', icon: CalendarDays },
+  { href: '/edu/notes', labelKey: 'eduNotes', icon: NotebookPen },
+  { href: '/edu/qa', labelKey: 'eduQa', icon: HelpCircle },
+  { href: '/edu/progress', labelKey: 'eduProgress', icon: BarChart3 },
+]
+
+/** /member 15 项整合到交易组下 */
+const MEMBER_ITEMS: NavItem[] = [
+  { href: '/member/dashboard', labelKey: 'memberDashboard', icon: LayoutDashboard },
+  { href: '/member/orders', labelKey: 'memberOrders', icon: ShoppingBag },
+  { href: '/member/benefits', labelKey: 'memberBenefits', icon: Award },
+  { href: '/member/points', labelKey: 'memberPoints', icon: Coins },
+  { href: '/member/coupons', labelKey: 'memberCoupons', icon: Ticket },
+  { href: '/member/subscription', labelKey: 'memberSubscription', icon: CreditCard },
+  { href: '/member/refunds', labelKey: 'memberRefunds', icon: RotateCcw },
+  { href: '/member/addresses', labelKey: 'memberAddresses', icon: MapPin },
+  { href: '/member/favorites', labelKey: 'memberFavorites', icon: Heart },
+  { href: '/member/history', labelKey: 'memberHistory', icon: History },
+  { href: '/member/invitations', labelKey: 'memberInvitations', icon: Users },
+  { href: '/member/feedback', labelKey: 'memberFeedback', icon: MessageSquare },
+  { href: '/member/help', labelKey: 'memberHelp', icon: HelpCircle },
+  { href: '/member/settings', labelKey: 'memberSettings', icon: Settings },
+  { href: '/member/upgrade', labelKey: 'memberUpgrade', icon: ArrowUp },
+]
+
+/** /developer 14 项整合到新增"开发者"组下 */
+const DEVELOPER_ITEMS: NavItem[] = [
+  { href: '/developer', labelKey: 'developer', icon: Terminal },
+  { href: '/developer/api-docs', labelKey: 'developerApiDocs', icon: Code },
+  { href: '/developer/keys', labelKey: 'developerKeys', icon: Key },
+  { href: '/developer/webhooks', labelKey: 'developerWebhooks', icon: Webhook },
+  { href: '/developer/sandbox', labelKey: 'developerSandbox', icon: FlaskConical },
+  { href: '/developer/limits', labelKey: 'developerLimits', icon: Gauge },
+  { href: '/developer/logs', labelKey: 'developerLogs', icon: FileText },
+  { href: '/developer/versions', labelKey: 'developerVersions', icon: GitBranch },
+  { href: '/developer/subscription', labelKey: 'developerSubscription', icon: CreditCard },
+  { href: '/developer/notifications', labelKey: 'developerNotifications', icon: Bell },
+  { href: '/developer/team', labelKey: 'developerTeam', icon: Users },
+  { href: '/developer/billing', labelKey: 'developerBilling', icon: Receipt },
+  { href: '/developer/settings', labelKey: 'developerSettings', icon: Settings },
+]
+
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: '',
@@ -208,16 +332,17 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       // 顶部"+"按钮(下方)即 toggle 面板的入口,不再放可点击的 /chat 导航项,
       // 避免点击后右侧工作区被占位空状态"开始新任务"替换。
       { href: '/chat/history', labelKey: 'chatHistory', icon: MessageSquare },
-      { href: '/models', labelKey: 'models', icon: Bot },
+      // /models 整合原 ModelsSidebar 15 项(主功能/业务/财务/资源四组扁平化为三级子菜单)
+      { href: '/models', labelKey: 'models', icon: Bot, children: MODELS_CHILDREN },
       { href: '/agents', labelKey: 'agents', icon: Bot },
       { href: '/ai-world', labelKey: 'aiWorld', icon: Globe },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
     ],
   },
-  // 管理 分组移到 AI 下面作为第二分类(2026-07-20 立):
-  // admin 用户的核心入口与 AI 同属高频区,放第二位便于快速访问。
-  // 仅 admin 用户可见(items 全部 adminOnly),非 admin 用户此分组被 visibleGroups 过滤掉,
-  // 不影响其他用户视觉。默认展开(见 NavGroupSection.defaultOpen)。
+  // 管理 分组(2026-07-20 重构):
+  // 整合原 AdminNav.tsx 的 11 个运营域分组(作为二级可展开项)+ /admin/theme 9 项(作为二级可展开项)。
+  // admin 扁平 80 项通过 useAdminRouters() 动态加载,在 Sidebar 组件中合并到本组 items 前部。
+  // 仅 admin 用户可见(items 全部 adminOnly),默认展开(见 NavGroupSection.defaultOpen)。
   {
     label: '管理',
     items: [
@@ -228,6 +353,16 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/admin/workflows', labelKey: 'adminWorkflows', icon: Workflow, adminOnly: true },
       { href: '/admin/tags', labelKey: 'adminTags', icon: Tag, adminOnly: true },
       { href: '/admin/logs', labelKey: 'adminLogs', icon: ScrollText, adminOnly: true },
+      // /admin/theme 9 项作为可展开子菜单(消除 /admin/theme/layout.tsx 双 aside 嵌套)
+      {
+        href: '/admin/theme',
+        labelKey: 'adminTheme',
+        icon: Palette,
+        adminOnly: true,
+        children: ADMIN_THEME_CHILDREN,
+      },
+      // 11 个 admin 运营域分组(运营/内容审核/财务/AI智能体/营销直播/课程考试/监控BI/客服工单/社区圈子/资源中心/开发者中心)
+      ...ADMIN_NAV_GROUPS.map(adminGroupToNavItem),
     ],
   },
   {
@@ -246,6 +381,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/resources', labelKey: 'resources', icon: Package },
       { href: '/news', labelKey: 'news', icon: Newspaper },
       { href: '/announcements', labelKey: 'announcements', icon: Megaphone },
+      // /edu 8 项整合(原 /edu/layout.tsx 页面级菜单栏)
+      ...EDU_ITEMS,
     ],
   },
   {
@@ -255,11 +392,25 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/enterprise', labelKey: 'enterprise', icon: Briefcase },
       { href: '/distribution', labelKey: 'distribution', icon: Gift },
       { href: '/teams', labelKey: 'teams', icon: Users },
-      { href: '/messages', labelKey: 'messages', icon: MessageSquare },
+      // /messages 6 项作为可展开子菜单(原 /messages/layout.tsx 页面级菜单栏,带未读数 badge)
+      {
+        href: '/messages',
+        labelKey: 'messages',
+        icon: MessageSquare,
+        children: MESSAGES_CHILDREN,
+      },
       { href: '/docs', labelKey: 'docs', icon: FileText },
       { href: '/search', labelKey: 'search', icon: Search },
       { href: '/tags', labelKey: 'tags', icon: Tag },
       { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
+    ],
+  },
+  // 自媒体分组(2026-07-20 新增):公众号文章 + 口播稿生成 skill
+  {
+    label: '自媒体',
+    items: [
+      { href: '/self-media/wechat', labelKey: 'selfMediaWechat', icon: Newspaper },
+      { href: '/self-media/koubo', labelKey: 'selfMediaKoubo', icon: Mic },
     ],
   },
   {
@@ -273,6 +424,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/points', labelKey: 'points', icon: Star },
       { href: '/edu-points', labelKey: 'eduPoints', icon: Award },
       { href: '/oauth/my-authorized', labelKey: 'oauthMyAuthorized', icon: KeyRound },
+      // /member 15 项整合(原 /member/layout.tsx 页面级菜单栏)
+      ...MEMBER_ITEMS,
     ],
   },
   {
@@ -288,12 +441,23 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
           { href: '/subscriptions', labelKey: 'subscriptions', icon: Rss },
         ],
       },
-      { href: '/user/profile', labelKey: 'user', icon: User },
+      // /user 16 项作为可展开子菜单(原 UserNav.tsx 页面级菜单栏)
+      {
+        href: '/user/profile',
+        labelKey: 'user',
+        icon: User,
+        children: USER_CHILDREN,
+      },
       { href: '/student', labelKey: 'student', icon: GraduationCap },
       { href: '/settings', labelKey: 'settings', icon: Settings },
       { href: '/feedback', labelKey: 'feedback', icon: MessageSquare },
       { href: '/help', labelKey: 'help', icon: HelpCircle },
     ],
+  },
+  // 开发者分组(2026-07-20 新增):整合原 /developer/layout.tsx 14 项页面级菜单栏
+  {
+    label: '开发者',
+    items: DEVELOPER_ITEMS,
   },
 ]
 
@@ -594,10 +758,15 @@ function SidebarUserRow({
     <div className="px-1.5 pb-2">
       {/*
         group/row:头像+昵称作为整体悬停单元
+        - 2026-07-20 改:容器从 `w-full + justify-center` 改为 `w-fit + mx-auto`
+          (user_profile 规则:"containers adjust width according to content width without leaving
+          large empty background spaces")。原 w-full 在 118px 父内容区中只装 112px 内容
+          (button 36 + gap 6 + 文字 70),左右各 3px 空白,视觉上文字"几乎贴右"。
+          改 w-fit 后容器宽度自适应内容,在父 div 中 mx-auto 水平居中,左右空白对称分布,
+          hover 背景也只覆盖头像+文字组不溢出。
         - 父容器 hover:bg-sidebar-item-hover-bg 出现弱色底(亮色纯白/暗色纯黑)
           与项目内其他导航项(NavLink/二级菜单)hover 行为完全一致,统一 hover 策略
         - 文本 group-hover/row:text-foreground 变亮(默认 text-foreground/70 弱化)
-        - 不使用 flex-1 在昵称上(会导致头像被挤到左侧,justify-center 失效)
         - 折叠态 trigger button 加 p-1.5(12px) + 内部 Avatar h-6 w-6(24px) = 36×36 命中区,
           解决折叠态下小图标难以点中的体验问题
         - 外层容器不设独立 padding,直接由 button 的 36×36 自然撑起行高,严格与
@@ -607,7 +776,7 @@ function SidebarUserRow({
       */}
       <div
         className={cn(
-          'group/row flex h-9 w-full items-center justify-center gap-1.5 rounded-md transition-colors hover:bg-sidebar-item-hover-bg',
+          'group/row mx-auto flex h-9 w-fit items-center gap-1.5 rounded-md transition-colors hover:bg-sidebar-item-hover-bg',
         )}
       >
         <Dropdown
@@ -934,6 +1103,15 @@ function ExpandableNavItem({
   // React 18 useId 在两个 React 树(桌面/移动 aside)间偶发漂移会导致 hydration mismatch + Radix aria-controls 失效。
   const listId = `exp-list-${scope}-${item.href.replace(/[^a-z0-9]+/gi, '-')}`
 
+  // 未读数 badge:/messages 子项显示未读私信/通知数(从 useNotificationStore 获取)
+  const notifUnread = useNotificationStore((s) => s.unreadCount)
+  const msgUnread = useNotificationStore((s) => s.notifications.filter((n) => n.type === 'message').length)
+  const getBadgeCount = (badge?: 'messages' | 'notification'): number => {
+    if (badge === 'messages') return msgUnread
+    if (badge === 'notification') return notifUnread
+    return 0
+  }
+
   // hydration 后读取真实展开状态
   React.useEffect(() => {
     if (parentActive) {
@@ -957,7 +1135,8 @@ function ExpandableNavItem({
   }, [open, storageKey])
 
   const Icon = item.icon
-  const label = t(item.labelKey)
+  // label 优先级:dynamicLabel(admin 动态加载的路由名)> t(labelKey)(i18n 翻译)
+  const label = item.dynamicLabel ?? t(item.labelKey)
 
   const parentClassName = cn(
     // group/exp:精简高级的二级菜单指示样式(GitHub/Linear/Notion 风格)
@@ -1209,9 +1388,10 @@ function NavGroupSection({
   }, [storageKey])
 
   // 渲染单个 nav item(三种分支:可展开 / 搜索行 / 普通 Link)
+  // label 优先级:dynamicLabel(admin 动态加载的路由名)> t(labelKey)(i18n 翻译)
   const renderItem = (item: NavItem) => {
     const active = isActive(item.href)
-    const label = t(item.labelKey)
+    const label = item.dynamicLabel ?? t(item.labelKey)
     if (item.children && item.children.length > 0) {
       return (
         <ExpandableNavItem
