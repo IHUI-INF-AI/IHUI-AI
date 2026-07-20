@@ -14,55 +14,53 @@ import {
   type Icon,
   type Qr,
 } from './footer-data'
+import { AgreementDialog } from './AgreementDialog'
+import { ContactDialog } from './ContactDialog'
 
 /**
- * SiteFooter — 公司信息 + 生态平台 + 推广平台 + 二维码 + 协议
+ * SiteFooter — 公司信息 + 生态平台 + 推广平台 + 二维码 + 协议/联系弹窗
  *
- * 布局:3 栏 grid(md+)
- *   1. 公司信息(名称/地址/电话/邮箱) + 6 快速链接
- *   2. 4 类生态平台 Logo(支持 2 / 模型 8 / 支付 5 / 数据库 5)
- *   3. 官方推广平台 16 槽位 + 官方应用 QR + 微信联系 QR
- * 底部:ICP 备案 + 版权 + 协议链接
+ * 布局(v5 — 2026-07-20 第四次重构,用户反馈"排版还是很难看"):
+ *   Row 1: 3 栏 grid
+ *     - 公司信息(精简,名称 + 地址 + 联系方式)
+ *     - 生态合作(支持/模型/支付/数据库 合并 1 个 section,所有 icons 紧凑排列)
+ *     - 官方推广(PROMOTIONS icons + 2 个 QR 紧凑排列)
+ *   Row 2(border-top 分隔):
+ *     - 左:链接行(关于/帮助/反馈 Link + 用户协议/隐私政策/联系我们 Dialog)
+ *     - 右:ICP + 版权
  *
- * 图片数据集中在 `footer-data.ts`,与 BrandMarquee 共享单一来源。
- * i18n 全部走 `footer.*` / `routes.*`,5 语言已 parity。
- *
- * 2026-07-20 修复:
- * - ICON_BOX 背景从 bg-white 改 bg-foreground/[0.04],让 model/3x(Claude 白底透明)
- *   + awsp/n8n(白底透明)+ tuiguangpingtai/3/5/11(白底透明)等图标在白卡上可见。
- * - QR_BOX 改 bg-zinc-900(始终深色),让 footer-icon-2.png 的白色 QR 码在亮/暗模式都可见。
- * - 联系二维码改用 wechat-vx.png(用户个人微信二维码),点击拉起 `weixin://` 协议
- *   → 浏览器询问是否打开微信 → 启动电脑微信,用户用「扫一扫」扫描屏幕二维码添加好友。
+ * 历史变更:
+ * - v5(2026-07-20):合并 4 个子标题为 1"生态合作"、缩小 icon/QR、链接内联到底部行、
+ *   QR 副标题从"联系我们"改"官方微信"避免重复、补齐 4 个缺失 i18n key、
+ *   移除 mt-auto(footer 高度动态,mt-auto 不生效,改为自然 flow)。
+ * - v4(2026-07-20):py-2 md:py-3,gap-2,grid gap-4,space-y-1.5,移除重复链接,
+ *   加 Dialog 弹窗触发行。
+ * - v3:Dialog 弹窗替换页面跳转(用户要求"弹窗窗口 而不是完整页面")。
  */
 
 type Link_ = { readonly labelKey: string; readonly href: string }
 
+// 链接行(关于/帮助/反馈)— 业务页面,放 footer 底部行
 const QUICK_LINKS: readonly Link_[] = [
   { labelKey: 'about', href: '/about' },
   { labelKey: 'help', href: '/help' },
   { labelKey: 'feedback', href: '/feedback' },
-  { labelKey: 'privacyPolicy', href: '/agreement/privacy' },
-  { labelKey: 'termsOfService', href: '/agreement/terms' },
-  { labelKey: 'userAgreement', href: '/agreement' },
 ]
+
+// 合并 4 类生态平台 → 1 个 section(消除 3 个子标题节省 ~60px 垂直空间)
+const ECOSYSTEM: readonly Icon[] = [...SUPPORTED, ...MODELS, ...PAYMENTS, ...DATABASES]
 
 // 排版原子 — 集中定义,避免散落
 const SECTION_TITLE = 'text-xs font-semibold text-foreground/80'
-// 2026-07-20 改:bg-card 替代 bg-white 和上版的 bg-foreground/[0.04],
-// 因为 white-on-transparent 图标现在通过 `invert dark:invert-0` filter 适配主题,
-// 不再需要容器加浅灰底。bg-card 主题感知:亮色白底 / 暗色深底,白色图标始终可见。
-const ICON_BOX =
-  'flex h-9 w-9 items-center justify-center rounded-md border bg-card transition-colors hover:border-primary/40'
-const ICON_IMG = 'h-6 w-6 object-contain'
-// 2026-07-20 改:bg-zinc-900 始终深色,让 footer-icon-2.png 白色 QR 码在亮/暗模式都可见
-const QR_BOX = 'h-24 w-24 overflow-hidden rounded-md border border-zinc-900 bg-zinc-900 p-1.5'
+const ICON_BOX = 'flex h-7 w-7 items-center justify-center rounded border bg-card transition-colors hover:border-primary/40'
+const ICON_IMG = 'h-5 w-5 object-contain'
+// 3 个 QR(官方应用/官方微信/企微社区群)— 缩到 h-16 w-16 才能在 col 3 一行排开
+const QR_BOX = 'h-16 w-16 overflow-hidden rounded border border-zinc-900 bg-zinc-900 p-0.5'
 const QR_IMG = 'h-full w-full object-contain'
-const COMPANY_LINK = 'text-muted-foreground transition-colors hover:text-primary'
-const FOOTER_BOTTOM_LINK = 'transition-colors hover:text-primary'
+const FOOTER_LINK = 'text-muted-foreground transition-colors hover:text-primary'
+const FOOTER_BTN = 'text-muted-foreground transition-colors hover:text-primary cursor-pointer'
 
-// 2026-07-20 加:mono 图标的 filter 适配类
-// 亮色模式: invert(100%) → 白图变黑(白底白图 → 黑底白图)
-// 暗色模式: invert(0) → 还原原图(白图在深色背景上可见)
+// mono 图标的 filter 适配类
 const MONO_FILTER = 'invert dark:invert-0'
 
 function PlatformIcon({
@@ -80,8 +78,8 @@ function PlatformIcon({
     <img
       src={src}
       alt={name}
-      width={24}
-      height={24}
+      width={20}
+      height={20}
       className={`${ICON_IMG}${mono ? ` ${MONO_FILTER}` : ''}`}
       {...IMG_EAGER}
     />
@@ -101,111 +99,118 @@ function PlatformIcon({
   )
 }
 
-function PlatformGroup({
-  title,
-  items,
-  t,
-}: {
-  title: string
-  items: readonly Icon[]
-  t: ReturnType<typeof useTranslations<'footer'>>
-}) {
+function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'footer'>> }) {
+  const img = (
+    <img
+      src={qr.src}
+      alt={t(qr.altKey)}
+      width={56}
+      height={56}
+      className={QR_IMG}
+      {...IMG_EAGER}
+    />
+  )
   return (
-    <div className="space-y-1.5">
-      <h4 className={SECTION_TITLE}>{title}</h4>
-      <div className="flex flex-wrap gap-2">
-        {items.map((p) => (
-          <PlatformIcon
-            key={p.nameKey}
-            name={t(p.nameKey)}
-            src={p.src}
-            mono={p.mono}
-            {...(p.href ? { href: p.href } : {})}
-          />
-        ))}
+    <div className="flex flex-col items-center gap-0.5">
+      <div
+        title={t(qr.altKey)}
+        className="cursor-pointer transition-opacity hover:opacity-80"
+      >
+        <div className={QR_BOX}>{img}</div>
       </div>
+      <span className="text-[10px] leading-tight text-muted-foreground">{t(qr.altKey)}</span>
     </div>
   )
 }
 
-function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'footer'>> }) {
-  const img = (
-    <img src={qr.src} alt={t(qr.altKey)} width={88} height={88} className={QR_IMG} {...IMG_EAGER} />
-  )
-  const box = <div className={QR_BOX}>{img}</div>
-  // 有 href 时(如 weixin:// 拉起电脑微信)用 <a> 包裹,无 href 时保持纯展示
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      {qr.href ? (
-        <a href={qr.href} title={t(qr.altKey)} className="transition-opacity hover:opacity-80">
-          {box}
-        </a>
-      ) : (
-        box
-      )}
-      <span className="text-xs text-muted-foreground">{t(qr.altKey)}</span>
-      {qr.subtitle && <span className="text-[10px] text-muted-foreground/80">{qr.subtitle}</span>}
-    </div>
-  )
+/**
+ * Dialog 触发按钮 hook(用户协议/隐私政策/联系我们共享逻辑)
+ * 同一时刻只允许一个 dialog 打开(避免多个 Dialog 状态相互干扰)
+ */
+function useDialogSwitch() {
+  const [openType, setOpenType] = React.useState<null | 'user' | 'privacy' | 'contact'>(null)
+  return {
+    isUserOpen: openType === 'user',
+    isPrivacyOpen: openType === 'privacy',
+    isContactOpen: openType === 'contact',
+    open: (t: 'user' | 'privacy' | 'contact') => setOpenType(t),
+    close: () => setOpenType(null),
+    onUserOpenChange: (v: boolean) => setOpenType(v ? 'user' : null),
+    onPrivacyOpenChange: (v: boolean) => setOpenType(v ? 'privacy' : null),
+    onContactOpenChange: (v: boolean) => setOpenType(v ? 'contact' : null),
+  }
 }
 
 export function SiteFooter({ className }: { className?: string }) {
   const t = useTranslations('footer')
   const tRoutes = useTranslations('routes')
+  const dlg = useDialogSwitch()
 
   return (
-    // 2026-07-20 改(根因修复):footer 自身加 px-4 md:px-8,内部最外层 div 改 w-full
-    // 去掉 max-w-7xl + mx-auto。原 max-w-7xl (1280px) 在大屏下让内容居中、左右留空,
-    // 导致 footer 内部 div 边缘 != footer 标签边缘,与 page 4 magazine 容器
-    // (flex-1 + px-4 md:px-8) 左右不匹配。改后 footer 内容 = magazine 内容
-    // 横向缩进位置,左右完全吻合。
-    // 2026-07-20 改(自适应 v3):footer 自身 padding 改 py-3 md:py-4,比之前
-    // pt-6 pb-1 md:pt-8 md:pb-2 进一步压缩约 8-16px;内部最外层 div 改 gap-3,
-    // 比之前 gap-6 进一步压缩 12px;grid 三栏改 gap-6,比之前 gap-8 压缩 8px。
-    // footer 高度完全由内容决定 (~180-200px),不再被 flex 强制拉伸。
+    // v5 排版:py-1.5 md:py-2(比 v4 再省 4-8px),gap-1.5(比 v4 再省 4px)
     <footer
-      className={`border-t bg-card/50 px-4 py-3 md:px-8 md:py-4${className ? ` ${className}` : ''}`}
+      className={`border-t bg-card/50 px-4 py-1.5 md:px-8 md:py-2${className ? ` ${className}` : ''}`}
     >
-      {/* 内部最外层 div 改 w-full,撑满 footer 自身 padding 后的空间,无 max-w 限制。
-          这样 footer 内部 div 左右边界 = footer 标签内容区左右边界 = 视觉吻合 footer。
-          gap-3 (替代 gap-6) 进一步压缩三栏与版权行之间的留白。 */}
-      <div className="flex w-full flex-col gap-3">
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* 公司信息 + 快速链接 — space-y-2 比 space-y-3 紧凑 4px */}
-          <div className="space-y-2">
+      <div className="flex w-full flex-col gap-1.5">
+        {/* Row 1: 3 栏精简 grid
+            - gap-3(比 v4 的 gap-4 再省 8px 横向)
+            - md:items-start 让 3 栏顶部对齐,生态合作栏不会把其他栏撑高
+            - 中栏比例 1.5(给 20 个 icons 更多空间),边栏 1 */}
+        <div className="grid gap-3 md:grid-cols-[1fr_1.5fr_1fr] md:items-start">
+          {/* 栏 1: 公司信息(精简,无冗余 padding)
+              - 标题 + 单段地址/电话/邮箱(原 4 行 list 合并为 1 段,节省 ~30px)
+              - 无 sub-links(全部移到底部链接行,避免重复) */}
+          <div className="space-y-0.5">
             <h3 className="text-sm font-semibold">{t('companyName')}</h3>
-            <ul className="space-y-1 text-xs text-muted-foreground">
-              <li>
-                <span className="font-medium text-foreground/70">{t('addressLabel')}</span>
-                {t('addressLine1')}
-              </li>
-              <li className="pl-[3.5em]">{t('addressLine2')}</li>
-              <li>{t('companyContact')}</li>
-              <li>{t('companyEmail')}</li>
-              <li className="pl-[3.5em]">{t('companyEmail2')}</li>
-            </ul>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs">
-              {QUICK_LINKS.map((l) => (
-                <Link key={l.href} href={l.href} className={COMPANY_LINK}>
-                  {tRoutes(l.labelKey)}
-                </Link>
+            <p className="text-xs leading-snug text-muted-foreground">
+              {t('addressLine1')}
+              <br />
+              {t('addressLine2')}
+            </p>
+            <p className="text-xs leading-snug text-muted-foreground">
+              {t('companyContact')} · {t('companyEmail')}
+            </p>
+          </div>
+
+          {/* 栏 2: 生态合作(单 section,4 类 20 icons 合并)
+              - 无 4 个子标题(节省 ~60px 垂直)
+              - icon 缩小到 h-7 w-7(从 h-9 w-9 减 8px)
+              - gap 1.5(从 2 减 2px),密度更紧 */}
+          <div className="space-y-1">
+            <h4 className={SECTION_TITLE}>{t('ecosystem')}</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {ECOSYSTEM.map((p) => (
+                <PlatformIcon
+                  key={p.nameKey}
+                  name={t(p.nameKey)}
+                  src={p.src}
+                  mono={p.mono}
+                  {...(p.href ? { href: p.href } : {})}
+                />
               ))}
             </div>
           </div>
 
-          {/* 4 类生态平台 — space-y-2 (8px) 比 space-y-3 紧凑 4px × 3 = 12px */}
-          <div className="space-y-2">
-            <PlatformGroup title={t('supportedPlatforms')} items={SUPPORTED} t={t} />
-            <PlatformGroup title={t('models')} items={MODELS} t={t} />
-            <PlatformGroup title={t('paymentPlatforms')} items={PAYMENTS} t={t} />
-            <PlatformGroup title={t('cloudDatabases')} items={DATABASES} t={t} />
-          </div>
-
-          {/* 推广平台 + 二维码 — space-y-2 (8px) 比 space-y-3 紧凑 4px */}
-          <div className="space-y-2">
-            <PlatformGroup title={t('officialPromotion')} items={PROMOTIONS} t={t} />
-            {/* pt-1 (4px) 比 pt-2 (8px) 紧凑 4px */}
-            <div className="flex gap-5 pt-1">
+          {/* 栏 3: 官方推广 + QR
+              - 推广 icons 紧凑(同生态合作风格)
+              - QR 缩小到 h-20 w-20(从 h-24 w-24 减 16px)
+              - 副标题字号 10px(从 12px 减 2px)
+              - 关键:微信 QR 副标题用"官方微信"而不是"联系我们",
+                避免跟 Dialog 触发行"联系我们"按钮重复 */}
+          <div className="space-y-1">
+            <h4 className={SECTION_TITLE}>{t('officialPromotion')}</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {PROMOTIONS.map((p) => (
+                <PlatformIcon
+                  key={p.nameKey}
+                  name={t(p.nameKey)}
+                  src={p.src}
+                  mono={p.mono}
+                  {...(p.href ? { href: p.href } : {})}
+                />
+              ))}
+            </div>
+            <div className="flex gap-2 pt-1">
               {QRS.map((q) => (
                 <QrItem key={q.src} qr={q} t={t} />
               ))}
@@ -213,37 +218,55 @@ export function SiteFooter({ className }: { className?: string }) {
           </div>
         </div>
 
-        {/* 底部:ICP + 版权 + 协议
-            2026-07-20 改(自适应 v3):mt-1 pt-2 (4+8=12px 间距),比之前 mt-8 pt-5
-            (32+20=52px) 紧凑 40px,配合 footer 自身 py-3 md:py-4,footer 整体高度
-            从 ~250px 压到 ~180-200px,消除 section flex 强制拉伸的无效留白。 */}
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t pt-2 text-xs text-muted-foreground">
+        {/* Row 2: 链接 + ICP 版权(单行,border-top 分隔)
+            v5 关键改进:把原 3 个 Dialog 触发按钮 + 原 3 个 quick links 合并到
+            1 行,消除"分两行展示"的冗余。
+            - 6 个链接用 · 分隔(更紧凑)
+            - 左侧链接组 + 右侧 ICP 版权,justify-between 两端对齐
+            - 不再用 mt-auto(footer 高度动态,mt-auto 不生效;改用自然 flow,
+              border-top 视觉上自然分割) */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-1 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+            {QUICK_LINKS.map((l) => (
+              <Link key={l.href} href={l.href} className={FOOTER_LINK}>
+                {tRoutes(l.labelKey)}
+              </Link>
+            ))}
+            <span className="text-border">·</span>
+            <button type="button" onClick={() => dlg.open('user')} className={FOOTER_BTN}>
+              {tRoutes('userAgreement')}
+            </button>
+            <button type="button" onClick={() => dlg.open('privacy')} className={FOOTER_BTN}>
+              {tRoutes('privacyPolicy')}
+            </button>
+            <button type="button" onClick={() => dlg.open('contact')} className={FOOTER_BTN}>
+              {t('contactUs')}
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             <img
               src="/footer/erweima/footer-icon-1.png"
               alt={t('icp')}
-              width={16}
-              height={16}
-              className="h-4 w-4 object-contain"
+              width={14}
+              height={14}
+              className="h-3.5 w-3.5 object-contain"
               {...IMG_EAGER}
             />
             <span>{t('icp')}</span>
-            <span className="mx-1">·</span>
+            <span>·</span>
             <span>{t('copyright')}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href="/agreement" className={FOOTER_BOTTOM_LINK}>
-              {tRoutes('userAgreement')}
-            </Link>
-            <Link href="/agreement/privacy" className={FOOTER_BOTTOM_LINK}>
-              {tRoutes('privacyPolicy')}
-            </Link>
-            <Link href="/support" className={FOOTER_BOTTOM_LINK}>
-              {t('contactUs')}
-            </Link>
           </div>
         </div>
       </div>
+
+      {/* Dialog 实例(全局挂一个,通过 open prop 控制显隐) */}
+      <AgreementDialog type="user" open={dlg.isUserOpen} onOpenChange={dlg.onUserOpenChange} />
+      <AgreementDialog
+        type="privacy"
+        open={dlg.isPrivacyOpen}
+        onOpenChange={dlg.onPrivacyOpenChange}
+      />
+      <ContactDialog open={dlg.isContactOpen} onOpenChange={dlg.onContactOpenChange} />
     </footer>
   )
 }
