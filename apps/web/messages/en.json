@@ -1023,7 +1023,24 @@
       "selected": "Selected:",
       "cancel": "Cancel",
       "opening": "Opening...",
-      "selectAndOpen": "Select and Open"
+      "selectAndOpen": "Select and Open",
+      "manualPathLabel": "Path (direct input)",
+      "manualPathPlaceholder": "e.g. G:\\Projects\\my-app or /home/user/projects",
+      "manualPathHint": "Enter the full absolute path, then press Enter or click Open",
+      "manualPathHintWithNative": "Folder name selected via system picker. Enter the full absolute path below (copy from File Explorer), then press Enter to open",
+      "openPath": "Open",
+      "orBrowse": "or browse directory",
+      "nativePick": "Choose Folder",
+      "nativePickHint": "Click to open the system-native folder picker (Windows Explorer style)",
+      "nativePicking": "Opening picker...",
+      "nativeSelected": "Selected via system picker:",
+      "nativeChildren": "Contains",
+      "nativePickError": "Cannot open the system folder picker",
+      "reselect": "Reselect",
+      "webkitPick": "Choose Folder (Browser)",
+      "webkitPickHint": "Click to open the browser-native folder picker",
+      "webkitNoRoot": "Cannot get selected folder name, please enter the full path manually",
+      "noNativeSupport": "Your browser does not support the system folder picker. Use the manual input or backend browse below"
     },
     "permission": {
       "title": "Workspace Access Permission",
@@ -1081,13 +1098,13 @@
         "expired": "Request expired",
         "queue": "{count} more requests in queue",
         "toolNames": {
-          "fs.read": "Read File",
-          "fs.write": "Write File",
-          "fs.edit": "Edit File",
-          "fs.delete": "Delete File",
-          "fs.grep": "Search Content",
-          "fs.glob": "Find Files",
-          "fs.run": "Run Command"
+          "fsRead": "Read File",
+          "fsWrite": "Write File",
+          "fsEdit": "Edit File",
+          "fsDelete": "Delete File",
+          "fsGrep": "Search Content",
+          "fsGlob": "Find Files",
+          "fsRun": "Run Command"
         }
       }
     },
