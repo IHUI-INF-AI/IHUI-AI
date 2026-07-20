@@ -24,18 +24,19 @@ interface PageIndicatorProps {
  *   - 颜色:仅黑白灰(2026-07-20 v4 要求,去蓝)
  *
  * 2026-07-20 v6 毛玻璃容器:用户反馈"圆点裸浮在内容上缺少承载感"。
- *   - 容器加 rounded-xl + bg-background/65 + backdrop-blur-md
+ *   - 容器加 rounded-md + bg-background/65 + backdrop-blur-md
  *   - 极轻 border-foreground/8 + shadow-sm
- *   - p-2(8px) 内边距,容器内圆点自然成组
- *   - hover 容器:背景/边框加深,subtle 而不抢戏
+ *   - px-1(4px) + py-2(8px):水平贴圆点,垂直保持呼吸
+ *   - hover 容器:背景/边框/阴影 subtle 加深
  *   - group/indicator 命名空间避免与按钮内 group 冲突
+ *   - v6.1:p-2 → px-1.5 (38→34px) 还是宽,v6.2 → px-1 (28px) 紧凑
  */
 export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
   const t = useTranslations('marketing.indicator')
   if (total <= 1) return null
   return (
     <div
-      className="group/indicator fixed right-6 top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1.5 rounded-xl border border-foreground/8 bg-background/65 p-2 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md md:flex"
+      className="group/indicator fixed right-6 top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1.5 rounded-md border border-foreground/8 bg-background/65 px-1 py-2 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md md:flex"
       aria-label={t('label')}
     >
       {Array.from({ length: total }).map((_, idx) => {
