@@ -185,15 +185,20 @@ export default function WorkspacePage() {
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div className="min-w-0 flex-1 space-y-0.5">
             <p className="text-sm font-medium text-destructive">{t('loadErrorTitle')}</p>
-            <p className="text-xs text-destructive/80">
-              {(error as Error).message || t('loadErrorDesc')}
-            </p>
+            <p className="text-xs text-destructive/80">{t('loadErrorDesc')}</p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => void refetch()}
+              onClick={() => {
+                // 后端原始 message 仅写入 console 供调试,不出现在 UI
+                if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+                  // eslint-disable-next-line no-console
+                  console.error('[workspace] load projects failed:', error)
+                }
+                void refetch()
+              }}
               className="h-7 gap-1 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
             >
               <RefreshCw className="h-3.5 w-3.5" />
