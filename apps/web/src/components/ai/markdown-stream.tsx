@@ -3,6 +3,7 @@
 import * as React from 'react'
 import dynamic from 'next/dynamic'
 import { Check, Copy } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
@@ -155,6 +156,7 @@ const CodeBlockImpl = function CodeBlock({
   // 提升为 prop 让 React.memo 在主题切换时也能正确触发重渲染
   syntaxStyle: Record<string, React.CSSProperties>
 }): React.ReactElement {
+  const tA11y = useTranslations('a11y')
   const { copied, copy } = useCopy()
   // 流式场景下 mermaid 代码会频繁变化,用 debounce 减少 mermaid.render 调用
   // 代码不完整时的渲染失败由 MermaidDiagram 内部错误降级处理,代码完整后会重新渲染
@@ -182,7 +184,7 @@ const CodeBlockImpl = function CodeBlock({
         'dark:text-zinc-500 dark:hover:bg-zinc-700 dark:hover:text-zinc-100',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400',
       )}
-      aria-label={copied ? '已复制' : '复制代码'}
+      aria-label={copied ? tA11y('codeCopied') : tA11y('copyCode')}
     >
       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
     </button>
