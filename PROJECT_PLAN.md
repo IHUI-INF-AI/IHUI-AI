@@ -79,6 +79,37 @@
 
 ---
 
+### M-72 /workspace 收尾:错误条去中英混排 + i18n 孤儿 key 清理 + check-lock 重建(已完成 ✅ 2026-07-20,commit 2d1bd7f2)
+
+**触发**:M-71 交付后自查发现的 3 处遗留瑕疵 — 错误条 `error.message` 直渲染(中英混排)、`workspace.developerTools` + `workspace.mentionFile` 5 语言孤儿 key、`scripts/check-lock.js` 缺失导致 `predev` 死引用。
+
+**改动**:
+1. `apps/web/app/(main)/workspace/page.tsx`:
+   - 错误条不再渲染后端 `error.message`(英文),改用 `t('loadErrorTitle')` + `t('loadErrorDesc')` 兜底纯中文
+   - 后端原始 message 仅在 dev 模式 `console.error('[workspace] load projects failed:', error)` 供调试,生产环境静默
+2. `apps/web/messages/{zh-CN,en,zh-TW,ko,ja}.json`:删除 `workspace.developerTools` + `workspace.mentionFile` 2 个孤儿 key(主页已不引用);同时修复 zh-TW 简体字"提及文件"残留
+3. `scripts/check-lock.mjs` 重建(原 check-lock.js 已被其他 agent 删):
+   - 锁文件 mtime > 2h 自动 WARN,提示用户跑 `pnpm dev:clean`
+   - 防止 next dev 与 next build 并发
+   - 进程退出自动释放锁(SIGINT/SIGTERM/exit)
+4. `apps/web/package.json`:`predev` / `prebuild` / `dev:clean` / `dev:stable` 4 处 `check-lock.js` → `check-lock.mjs`(修死引用)
+
+**验证**:
+- `pnpm --filter @ihui/web typecheck` exit 0
+- `pnpm --filter @ihui/web lint` page.tsx 0 警告
+- `node scripts/check-i18n-keys.mjs` exit 0
+- `node scripts/check-lock.mjs dev` / `build` exit 0
+- browser 验证:错误条 textContent = `加载项目失败无法连接到服务器,请检查网络或稍后重试重试`,**不再**含 `Authentication required` 等英文后端消息
+- Git 同步:local `2d1bd7f2` == origin/main `2d1bd7f2` ✅
+
+**未做(按用户规则"严格围绕本任务")**:
+- `apps/web/src/components/ai/ContextUsageRing.tsx` 缺 `percent`/`used`/`max` 参数警告 — 其他文件
+- `ContextUsageRing.tsx` 提示`IntlError: FORMATTING_ERROR`(PROJECT_PLAN.md 第 175 行 P1 条目) — 其他文件
+- React Query `retry: 1` 优化(API 客户端双重 retry)— 性能优化,非本任务
+- 其他页面 `/models` 等也可能有 `error.message` 直渲染 — 由后续任务统一整改
+
+---
+
 ## 2026-07-20 已完成任务
 
 ### M-65 v2:mono 图标 invert filter + PageIndicator 放大紧凑(已完成 ✅ 2026-07-20)
