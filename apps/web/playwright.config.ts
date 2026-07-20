@@ -8,7 +8,13 @@ import { defineConfig, devices } from '@playwright/test'
  * 复用已有 server:`PLAYWRIGHT_REUSE_SERVER=1 pnpm test:e2e`
  */
 export default defineConfig({
-  testDir: './e2e',
+  // 覆盖默认 testDir + testMatch:同时发现 e2e/ 与 tests/visual/ 两个目录下的 spec。
+  // - e2e/ 已有 ~50 case(主 e2e 套件)
+  // - tests/visual/ 5 个 visual 回归 spec(login-dialog / model-selector / prompt-templates /
+  //   sidebar-height-verify / sidebar-history)。这两个目录之前需要切换不同 config 才能跑,
+  //   统一到默认 config 后,`pnpm test:e2e` 与 `playwright test tests/visual/` 都能发现。
+  testDir: '.',
+  testMatch: ['e2e/**/*.spec.ts', 'e2e/**/*.setup.ts', 'tests/visual/**/*.spec.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
