@@ -293,7 +293,7 @@ async function sendViaResend(options: SendEmailOptions): Promise<SendEmailResult
  *
  * 发件模式(自动选择):
  * - Template 模式(默认推荐):scene ∈ {register, login, reset} 且配置了对应 TENCENT_SES_TEMPLATE_*
- *   → 走 Template,腾讯云默认权限即可使用,正文由腾讯云模板 + TemplateVariables 渲染
+ *   → 走 Template,腾讯云默认权限即可使用,正文由腾讯云模板 + TemplateData 渲染
  * - Simple 模式(fallback):无对应 template id 时走 Simple,Simple.Html/Text base64 编码
  *   ⚠️ Simple 需在腾讯云控制台申请"自定义发送权限",否则返回 FailedOperation.WithOutPermission
  */
@@ -319,7 +319,7 @@ async function sendViaTencentSes(options: SendEmailOptions): Promise<SendEmailRe
     if (useTemplate) {
       body.Template = {
         TemplateID: templateId,
-        TemplateVariables: JSON.stringify(options.templateVariables ?? {}),
+        TemplateData: JSON.stringify(options.templateVariables ?? {}),
       }
     } else {
       body.Simple = {
