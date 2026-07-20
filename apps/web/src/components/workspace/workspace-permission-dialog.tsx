@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Trash2,
+  type LucideIcon,
 } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
@@ -44,14 +45,14 @@ interface WorkspacePermissionDialogProps {
   workspacePath: string
   workspaceName: string
   techStack?: string[]
-  /** 已有权限(编辑场景);首次打开时为 null */
+  /** 已有权限(编辑场景);首次打开时为 undefined */
   existingPermission?: WorkspacePermission | null
   onSaved?: (perm: WorkspacePermission) => void
 }
 
 const MODE_OPTIONS: Array<{
   value: WorkspacePermissionMode
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   risk: 'low' | 'medium' | 'high'
 }> = [
   { value: 'default', icon: ShieldAlert, risk: 'low' },

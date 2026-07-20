@@ -3,13 +3,7 @@
 import * as React from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import {
-  AlertTriangle,
-  Check,
-  ChevronRight,
-  Folder,
-  Loader2,
-} from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, Folder, Loader2 } from 'lucide-react'
 
 import { Button } from '@ihui/ui'
 import {

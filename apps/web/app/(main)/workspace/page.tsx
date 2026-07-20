@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Loader2, Plus } from 'lucide-react'
+import { FolderOpen, Loader2, Plus, Shield } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Input, Label } from '@ihui/ui'
@@ -21,6 +21,7 @@ import { DiffPreview, InlineDiffViewer } from '@/components/ai'
 import { WorkspaceFolderSelector } from '@/components/ai/workspace-folder-selector'
 import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
+import { LocalFolderPicker } from '@/components/workspace/local-folder-picker'
 
 interface ProjectItem {
   id: string
@@ -61,6 +62,11 @@ export default function WorkspacePage() {
   const [formError, setFormError] = React.useState<string | null>(null)
   const [mentionOpen, setMentionOpen] = React.useState(false)
   const [selectedFolder, setSelectedFolder] = React.useState<string>()
+  const [folderPickerOpen, setFolderPickerOpen] = React.useState(false)
+  const [openedWorkspace, setOpenedWorkspace] = React.useState<{
+    path: string
+    name: string
+  } | null>(null)
 
   const createMutation = useMutation({
     mutationFn: createProject,
@@ -101,13 +107,18 @@ export default function WorkspacePage() {
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4" />
-              {t('newProject')}
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setFolderPickerOpen(true)}>
+            <FolderOpen className="h-4 w-4" />
+            {t('openLocalFolder')}
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4" />
+                {t('newProject')}
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <DialogHeader>
@@ -162,6 +173,7 @@ export default function WorkspacePage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {isLoading ? (
@@ -184,6 +196,39 @@ export default function WorkspacePage() {
           <p className="text-sm text-muted-foreground">{t('noProjects')}</p>
         </div>
       )}
+
+      {/* 已打开的本地工作区展示 */}
+      {openedWorkspace && (
+        <section className="space-y-3">
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <Shield className="h-4 w-4 text-emerald-500" />
+            {t('openedWorkspace')}
+          </h2>
+          <div className="rounded-lg border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">{openedWorkspace.name}</p>
+                <p className="font-mono text-xs text-muted-foreground">
+                  {openedWorkspace.path}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFolderPickerOpen(true)}
+              >
+                {t('reopenPermission')}
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <LocalFolderPicker
+        open={folderPickerOpen}
+        onOpenChange={setFolderPickerOpen}
+        onWorkspaceOpened={(path, name) => setOpenedWorkspace({ path, name })}
+      />
 
       {/* 开发者工具预览 */}
       <section className="space-y-4">

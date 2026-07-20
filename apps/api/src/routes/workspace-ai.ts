@@ -80,7 +80,21 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const name = body.name ?? body.path.split(/[\\/]/).pop() ?? 'workspace'
       const techStack = fsBridge.detectTechStack(body.path)
       fsBridge.addRecent({ path: body.path, name, techStack })
-      return reply.send(success({ path: body.path, name, techStack }))
+      // 同步查询当前用户的权限配置,前端据此决定是否弹窗
+      const { getPermission, touchLastAccessed } = await import(
+        '../db/workspace-permission-queries.js'
+      )
+      const perm = await getPermission(request.userId, body.path)
+      if (perm) await touchLastAccessed(request.userId, body.path)
+      return reply.send(
+        success({
+          path: body.path,
+          name,
+          techStack,
+          permission: perm,
+          needsPermissionSetup: perm === null,
+        }),
+      )
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
     }
@@ -703,14 +717,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     return reply.send(success({ requests: permissionManager.listPending(request.userId) }))
-  })
-
-  server.get('/permissions/rules', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-    const query = workspacePathQuery.parse(request.query)
-    if (!query.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
-    return reply.send(success({ rules: permissionManager.loadRules(query.workspacePath) }))
   })
 
   // ===========================================================================

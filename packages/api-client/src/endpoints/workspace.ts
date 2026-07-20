@@ -184,3 +184,220 @@ export async function searchFilesForMention(
 ): Promise<ApiResult<{ files: RecentFile[] }>> {
   return fetchApi<{ files: RecentFile[] }>(`/api/files/search?q=${encodeURIComponent(q)}`)
 }
+
+// =============================================================================
+// FS Bridge — 本地文件系统桥接
+// =============================================================================
+
+export interface BrowseEntry {
+  name: string
+  path: string
+  isDir: boolean
+  size: number
+  modified: number
+}
+
+export interface RecentWorkspace {
+  path: string
+  name: string
+  lastOpened: number
+}
+
+export interface OpenWorkspaceResult {
+  path: string
+  name: string
+  techStack: string[]
+  permission: WorkspacePermission | null
+  needsPermissionSetup: boolean
+}
+
+/** 浏览服务器本地目录(根路径返回盘符列表) */
+export async function browseDirectory(path?: string): Promise<ApiResult<{ entries: BrowseEntry[] }>> {
+  return fetchApi<{ entries: BrowseEntry[] }>('/api/workspace/fs/browse', {
+    method: 'POST',
+    body: JSON.stringify({ path: path ?? '' }),
+  })
+}
+
+/** 打开工作区(写入 recent,检测技术栈,返回权限配置) */
+export async function openWorkspace(
+  path: string,
+  name?: string,
+): Promise<ApiResult<OpenWorkspaceResult>> {
+  return fetchApi<OpenWorkspaceResult>('/api/workspace/fs/open', {
+    method: 'POST',
+    body: JSON.stringify({ path, name }),
+  })
+}
+
+/** 列出最近打开的工作区 */
+export async function getRecentWorkspaces(): Promise<ApiResult<{ workspaces: RecentWorkspace[] }>> {
+  return fetchApi<{ workspaces: RecentWorkspace[] }>('/api/workspace/fs/recent')
+}
+
+// =============================================================================
+// Workspace Permissions — 工作区权限治理
+// =============================================================================
+
+export type WorkspacePermissionMode = 'default' | 'accept-edits' | 'bypass-permissions'
+
+export type PermissionRuleType = 'path' | 'command' | 'tool'
+export type PermissionOperation = 'read' | 'write' | 'edit' | 'delete' | 'run' | 'grep' | 'glob'
+export type PermissionDecision = 'allow' | 'deny'
+
+export interface WorkspacePermission {
+  id: string
+  userId: string
+  workspacePath: string
+  name: string
+  techStack: string | null
+  mode: WorkspacePermissionMode
+  lastAccessedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WorkspacePermissionRule {
+  id: string
+  workspacePath: string
+  userId: string
+  ruleType: PermissionRuleType
+  pattern: string
+  operation: PermissionOperation | null
+  decision: PermissionDecision
+  builtin: boolean
+  createdAt: string
+}
+
+export interface WorkspacePermissionAuditLog {
+  id: string
+  userId: string
+  workspacePath: string
+  toolName: string | null
+  args: string | null
+  decision: string
+  reason: string | null
+  createdAt: string
+}
+
+export interface RuleTemplate {
+  ruleType: PermissionRuleType
+  pattern: string
+  operation?: PermissionOperation
+  decision: PermissionDecision
+  description: string
+}
+
+/** 查询单个工作区权限配置 */
+export async function getWorkspacePermission(
+  path: string,
+): Promise<ApiResult<{ permission: WorkspacePermission | null }>> {
+  return fetchApi<{ permission: WorkspacePermission | null }>(
+    `/api/workspace/permission?workspacePath=${encodeURIComponent(path)}`,
+  )
+}
+
+/** 列出当前用户所有工作区权限 */
+export async function listAllWorkspacePermissions(): Promise<
+  ApiResult<{ permissions: WorkspacePermission[] }>
+> {
+  return fetchApi<{ permissions: WorkspacePermission[] }>('/api/workspace/permissions')
+}
+
+/** 设置/更新权限模式(首次打开时调用) */
+export async function setWorkspacePermission(input: {
+  workspacePath: string
+  name: string
+  techStack?: string
+  mode: WorkspacePermissionMode
+  initializeDefaults?: boolean
+}): Promise<ApiResult<{ permission: WorkspacePermission }>> {
+  return fetchApi<{ permission: WorkspacePermission }>('/api/workspace/permissions', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+}
+
+/** 删除权限配置 + 级联规则 */
+export async function deleteWorkspacePermission(
+  path: string,
+): Promise<ApiResult<{ deleted: boolean }>> {
+  return fetchApi<{ deleted: boolean }>(
+    `/api/workspace/permission?workspacePath=${encodeURIComponent(path)}`,
+    { method: 'DELETE' },
+  )
+}
+
+/** 列出白名单规则 */
+export async function listPermissionRules(
+  path: string,
+): Promise<ApiResult<{ rules: WorkspacePermissionRule[] }>> {
+  return fetchApi<{ rules: WorkspacePermissionRule[] }>(
+    `/api/workspace/permissions/rules?workspacePath=${encodeURIComponent(path)}`,
+  )
+}
+
+/** 添加规则 */
+export async function addPermissionRule(input: {
+  workspacePath: string
+  ruleType: PermissionRuleType
+  pattern: string
+  operation?: PermissionOperation | null
+  decision: PermissionDecision
+}): Promise<ApiResult<{ rule: WorkspacePermissionRule }>> {
+  return fetchApi<{ rule: WorkspacePermissionRule }>('/api/workspace/permissions/rules', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** 更新规则 */
+export async function updatePermissionRule(
+  id: string,
+  patch: Partial<{
+    ruleType: PermissionRuleType
+    pattern: string
+    operation: PermissionOperation | null
+    decision: PermissionDecision
+  }>,
+): Promise<ApiResult<{ rule: WorkspacePermissionRule }>> {
+  return fetchApi<{ rule: WorkspacePermissionRule }>(
+    `/api/workspace/permissions/rules/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+  )
+}
+
+/** 删除规则 */
+export async function deletePermissionRule(
+  id: string,
+): Promise<ApiResult<{ deleted: boolean }>> {
+  return fetchApi<{ deleted: boolean }>(
+    `/api/workspace/permissions/rules/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  )
+}
+
+/** 重置为默认安全模板 */
+export async function resetPermissionRules(
+  workspacePath: string,
+): Promise<ApiResult<{ rules: WorkspacePermissionRule[] }>> {
+  return fetchApi<{ rules: WorkspacePermissionRule[] }>(
+    '/api/workspace/permissions/rules/reset',
+    { method: 'POST', body: JSON.stringify({ workspacePath }) },
+  )
+}
+
+/** 审计日志 */
+export async function getPermissionAuditLog(
+  path: string,
+  limit = 50,
+): Promise<ApiResult<{ logs: WorkspacePermissionAuditLog[] }>> {
+  return fetchApi<{ logs: WorkspacePermissionAuditLog[] }>(
+    `/api/workspace/permissions/audit-log?workspacePath=${encodeURIComponent(path)}&limit=${limit}`,
+  )
+}
+
+/** 获取预置安全模板(只读) */
+export async function getPermissionTemplates(): Promise<ApiResult<{ templates: RuleTemplate[] }>> {
+  return fetchApi<{ templates: RuleTemplate[] }>('/api/workspace/templates')
+}
