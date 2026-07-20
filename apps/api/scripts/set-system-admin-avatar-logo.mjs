@@ -1,6 +1,6 @@
 // ============================================================================
 // 一次性脚本: 把最高系统管理员(users.is_system_admin = true)头像改为
-//           登录栏中的 /images/logo.svg。
+//           登录栏 / 顶栏统一使用的 /images/logo.png。
 //
 // 背景:
 //   - 0067_system_admin.sql 给 users 加了 is_system_admin + 触发器,
@@ -11,14 +11,21 @@
 // 应急流程(与 0071 一致):
 //   停服 → postgres 超级用户 → DISABLE TRIGGER → UPDATE → ENABLE TRIGGER
 //
-// 幂等: 已是 '/images/logo.svg' 时不重复更新。
+// 幂等: 已是 '/images/logo.png?v=20260719-unify' 时不重复更新。
 // 安全: 仅修改 is_system_admin = true 的行;触发器使用 ALTER TABLE ... DISABLE
 //       TRIGGER (会话级),结束立即恢复;若中途异常,finally 兜底 ENABLE。
+//
+// 2026-07-20 修正: 之前脚本里设置的是 /images/logo.svg,与全站统一资源
+//   (apps/web/src/components/ai/brand-icon.tsx + layout.tsx + AuthShell +
+//    message-list + edu + distribution 等 9 处)不一致,导致 admin 头像不显示。
+//   改用 /images/logo.png?v=20260719-unify(纯图标版,蝴蝶结+IHUI INF 弧形,无横向文字)
+//   与全站保持一致,cache-busting 版本号防旧头像缓存。
 // ============================================================================
 import postgres from 'postgres'
 
 const url = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ihui'
-const AVATAR = '/images/logo.svg'
+// 关键(2026-07-20):必须与全站统一资源保持一致,见 brand-icon.tsx 第 472 行
+const AVATAR = '/images/logo.png?v=20260719-unify'
 
 const sql = postgres(url, { max: 1, onnotice: () => {} })
 let triggerDisabled = false
