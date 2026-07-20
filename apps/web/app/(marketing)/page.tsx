@@ -107,8 +107,11 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* 底部固定区:6 Benefits(去掉 marquee,已上移到顶部) */}
-          <div className="flex w-full flex-col gap-2 px-4 pb-4 md:px-8 md:pb-6">
+          {/* 底部固定区:6 Benefits(去掉 marquee,已上移到顶部)
+              2026-07-20 改:pb-4 md:pb-6 -> pb-12 md:pb-14
+              给 fixed 定位的 ScrollDownButton (bottom-4, h-5=20px) 留出 20-28px 视觉间距,
+              避免 chevron 跟 6 benefits ul 在视口底部同一条 y 轴重叠 */}
+          <div className="flex w-full flex-col gap-2 px-4 pb-12 md:px-8 md:pb-14">
             <ul className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 sm:grid-cols-3 md:gap-3 lg:grid-cols-6">
               {benefits.map((b, i) => (
                 <li
