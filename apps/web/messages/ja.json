@@ -746,7 +746,7 @@
       "zhipu": "智譜ＡＩ",
       "brand8": "ブランド8",
       "ali": "アリババクラウド",
-      "baidu": "百度文心",
+      "baidu": "Baidu ERNIE",
       "dbsfdx": "東北師範大学",
       "gork": "グロック",
       "huawei": "華為雲",
@@ -1066,6 +1066,27 @@
       "decision": {
         "allow": "許可",
         "deny": "拒否"
+      },
+      "auditRequest": {
+        "title": "権限確認",
+        "description": "AI が次の操作の実行をリクエストしています。許可してください。",
+        "workspace": "ワークスペース",
+        "tool": "ツール",
+        "details": "操作詳細",
+        "allow": "今回のみ許可",
+        "deny": "拒否",
+        "pending": "ユーザーの確認待ち...",
+        "expired": "リクエストがタイムアウトしました",
+        "queue": "キューに {count} 件の追加リクエスト",
+        "toolNames": {
+          "fs.read": "ファイル読み取り",
+          "fs.write": "ファイル書き込み",
+          "fs.edit": "ファイル編集",
+          "fs.delete": "ファイル削除",
+          "fs.grep": "コンテンツ検索",
+          "fs.glob": "ファイル検索",
+          "fs.run": "コマンド実行"
+        }
       }
     },
     "permissionsPage": {
@@ -1554,7 +1575,12 @@
       "free": {
         "name": "無料版",
         "cta": "getStarted",
-        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
+        "features": [
+          "10 AI chats per day",
+          "Basic models",
+          "1 project",
+          "Community support"
+        ]
       },
       "pro": {
         "name": "プロフェッショナル",
@@ -7822,9 +7848,24 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "プラン",
     "subscribe": "購読",
-    "planMonthlyFeatures": ["1000クレジット", "aiチャット", "コミュニティアクセス"],
-    "planYearlyFeatures": ["12000クレジット", "さなaiチャット", "サポート", "なし"],
-    "planLifetimeFeatures": ["クレジット", "ai", "サポート", "なし", "アクセス"],
+    "planMonthlyFeatures": [
+      "1000クレジット",
+      "aiチャット",
+      "コミュニティアクセス"
+    ],
+    "planYearlyFeatures": [
+      "12000クレジット",
+      "さなaiチャット",
+      "サポート",
+      "なし"
+    ],
+    "planLifetimeFeatures": [
+      "クレジット",
+      "ai",
+      "サポート",
+      "なし",
+      "アクセス"
+    ],
     "back": "戻る",
     "userCenter": "アカウント",
     "page": {
@@ -9266,14 +9307,14 @@
       "siliconcloud": "シリコンクラウド",
       "modelscope": "モデルスコープ",
       "ppio": "ＰＰＩＯ",
-      "volcengine": "火山引擎",
+      "volcengine": "Volcengine",
       "bailian": "百錬",
       "baai": "ＢＡＡＩ",
       "tii": "ＴＩＩ Ｆａｌｃｏｎ",
       "liquid": "Ｌｉｑｕｉｄ ＡＩ",
       "ai2": "Ａｉ２ Allen",
       "hunyuan": "テンセント 混元",
-      "wenxin": "百度文心",
+      "wenxin": "Baidu ERNIE",
       "minimax": "ＭｉｎｉＭａｘ",
       "baichuan": "百川",
       "spark": "ｉＦｌｙＴｅｋ Ｓｐａｒｋ",
@@ -13507,23 +13548,69 @@
     "adminBackendHealth": "バックエンドヘルスチェック"
   },
   "footer": {
-    "acknowledgments": "致谢",
-    "companyName": "あり",
-    "addressLabel": ":",
-    "addressLine1": "107",
-    "addressLine2": "のみ",
-    "companyContact": ":18643389808",
-    "companyEmail": "メール:502319984{'@'}qq.com",
-    "companyEmail2": "lizong{'@'}aizhs.top",
-    "supportedPlatforms": "プラットフォーム",
+    "acknowledgments": "謝辞",
+    "companyName": "吉林省愛智匯AI科技有限公司",
+    "addressLabel": "住所:",
+    "addressLine1": "長春市高新区越達路107号",
+    "addressLine2": "人工知能人材インキュベーション基地",
+    "companyContact": "電話: 18643389808",
+    "companyEmail": "メール: 502319984 [at] qq.com",
+    "companyEmail2": "lizong [at] aizhs.top",
+    "supportedPlatforms": "対応プラットフォーム",
     "models": "モデル",
-    "paymentPlatforms": "いプラットフォーム",
-    "cloudDatabases": "Data",
-    "officialPromotion": "プラットフォーム",
-    "officialApp": "アプリ",
-    "contactUs": "おいわせ",
-    "icp": "ICP2025027274",
-    "copyright": "Copyright © 2025 ai あり"
+    "paymentPlatforms": "決済プラットフォーム",
+    "cloudDatabases": "クラウドデータベース",
+    "officialPromotion": "公式プロモートプラットフォーム",
+    "officialApp": "公式アプリ",
+    "contactUs": "お問い合わせ",
+    "icp": "吉ICP備2025027274号",
+    "copyright": "© 2026 智匯 AI · 北京 · 全著作権所有",
+    "platforms": {
+      "n8n": "n8n",
+      "coze": "Coze"
+    },
+    "modelItems": {
+      "gpt": "GPT",
+      "claude": "Claude",
+      "gemini": "Gemini",
+      "deepseek": "DeepSeek",
+      "qwen": "Qwen",
+      "doubao": "Doubao",
+      "llama": "Llama",
+      "mistral": "Mistral"
+    },
+    "payments": {
+      "wechat": "WeChat Pay",
+      "alipay": "Alipay",
+      "douyin": "Douyin支付",
+      "unionpay": "銀聯",
+      "visa": "VISA"
+    },
+    "databases": {
+      "mysql": "MySQL",
+      "postgresql": "PostgreSQL",
+      "mongodb": "MongoDB",
+      "redis": "Redis",
+      "sqlite": "SQLite"
+    },
+    "promos": {
+      "promo1": "プロモート 1",
+      "promo2": "プロモート 2",
+      "promo3": "プロモート 3",
+      "promo4": "プロモート 4",
+      "promo5": "プロモート 5",
+      "promo6": "プロモート 6",
+      "promo7": "プロモート 7",
+      "promo8": "プロモート 8",
+      "promo11": "プロモート 11",
+      "promo12": "プロモート 12",
+      "promo14": "プロモート 14",
+      "promo15": "プロモート 15",
+      "promo17": "プロモート 17",
+      "x": "X",
+      "facebook": "Facebook",
+      "github": "GitHub"
+    }
   },
   "agentCategory": {
     "title": "エージェント",
@@ -14177,9 +14264,9 @@
     "scanQRCode": "QRコードをスキャン",
     "downloadQRCode": "ダウンロード",
     "wechat": "微信",
-    "weibo": "微博",
+    "weibo": "Weibo",
     "qq": "ＱＱ",
-    "douyin": "抖音",
+    "douyin": "Douyin",
     "douyinShareTip": "せるスキャン",
     "linkCopied": "リンクCopied",
     "copyFailed": "コピー",
@@ -16691,13 +16778,23 @@
       "title": "月度会員",
       "days": "30",
       "select": "選択",
-      "benefits": ["すべてコースコース", "コースコミュニティ", "3ai", "コース"]
+      "benefits": [
+        "すべてコースコース",
+        "コースコミュニティ",
+        "3ai",
+        "コース"
+      ]
     },
     "yearly": {
       "title": "年度会員",
       "days": "365",
       "select": "選択",
-      "benefits": ["すべてコースコース", "コースコミュニティ", "ai", "コース+"]
+      "benefits": [
+        "すべてコースコース",
+        "コースコミュニティ",
+        "ai",
+        "コース+"
+      ]
     },
     "monthlyMember": "月度会員",
     "yearlyMember": "年度会員"
@@ -20710,7 +20807,11 @@
       "label": "コアポジショニング",
       "title": "AI時代の企業合理的効率サービスと相互支援コミュニティ",
       "description": "IHUI AIコミュニティは、企業の意思決定者がAIと企業の関係を深く理解できるよう支援することに尽力しています。体系化されたコース、実践的な探求、コミュニティの相互支援を通じて、人機協同のスーパー組織を構築し、企業の合理的効率向上を実現します。",
-      "tags": ["人機協同", "合理的効率", "スーパー組織"]
+      "tags": [
+        "人機協同",
+        "合理的効率",
+        "スーパー組織"
+      ]
     },
     "modules": {
       "label": "三大サービスモジュール",
@@ -20720,19 +20821,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -20864,25 +20977,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },
@@ -20906,12 +21031,29 @@
       ],
       "infoTitle": "情報世界",
       "infoBasicLabel": "初級情報世界",
-      "infoBasic": ["情報化", "IoT", "自動化"],
+      "infoBasic": [
+        "情報化",
+        "IoT",
+        "自動化"
+      ],
       "infoAdvancedLabel": "高度情報世界",
-      "infoAdvanced": ["知覚AI", "生成AI", "エージェントAI", "物理AI"],
+      "infoAdvanced": [
+        "知覚AI",
+        "生成AI",
+        "エージェントAI",
+        "物理AI"
+      ],
       "effectTitle": "AI化の効果",
-      "effectFlow": ["スーパー従業員", "スーパーチーム", "スーパープロダクト/サービス"],
-      "effectMetrics": ["コスト最適化", "効率向上", "体験アップグレード"]
+      "effectFlow": [
+        "スーパー従業員",
+        "スーパーチーム",
+        "スーパープロダクト/サービス"
+      ],
+      "effectMetrics": [
+        "コスト最適化",
+        "効率向上",
+        "体験アップグレード"
+      ]
     }
   },
   "drama": {

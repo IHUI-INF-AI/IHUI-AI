@@ -1066,6 +1066,27 @@
       "decision": {
         "allow": "允許",
         "deny": "拒絕"
+      },
+      "auditRequest": {
+        "title": "權限確認",
+        "description": "AI 正在請求執行以下操作,請確認是否允許",
+        "workspace": "工作區",
+        "tool": "工具",
+        "details": "操作詳情",
+        "allow": "允許本次",
+        "deny": "拒絕",
+        "pending": "等待使用者確認中...",
+        "expired": "請求已超時",
+        "queue": "佇列中還有 {count} 個請求",
+        "toolNames": {
+          "fs.read": "讀取檔案",
+          "fs.write": "寫入檔案",
+          "fs.edit": "編輯檔案",
+          "fs.delete": "刪除檔案",
+          "fs.grep": "搜尋內容",
+          "fs.glob": "尋找檔案",
+          "fs.run": "執行命令"
+        }
       }
     },
     "permissionsPage": {
@@ -13597,9 +13618,9 @@
     "addressLabel": "地址:",
     "addressLine1": "長春市高新區越達路107號",
     "addressLine2": "人工智能人才孵化基地",
-    "companyContact": "電話:18643389808",
-    "companyEmail": "郵箱:502319984{'@'}qq.com",
-    "companyEmail2": "lizong{'@'}aizhs.top",
+    "companyContact": "電話: 18643389808",
+    "companyEmail": "郵箱: 502319984 [at] qq.com",
+    "companyEmail2": "lizong [at] aizhs.top",
     "supportedPlatforms": "支持接入平臺",
     "models": "模型",
     "paymentPlatforms": "支付平臺",
@@ -13608,7 +13629,53 @@
     "officialApp": "官方應用",
     "contactUs": "聯繫我們",
     "icp": "吉ICP備2025027274號",
-    "copyright": "Copyright © 2025 智匯 AI集團 版權所有"
+    "copyright": "© 2026 智匯 AI · 北京 · 保留所有權利",
+    "platforms": {
+      "n8n": "n8n",
+      "coze": "Coze"
+    },
+    "modelItems": {
+      "gpt": "GPT",
+      "claude": "Claude",
+      "gemini": "Gemini",
+      "deepseek": "DeepSeek",
+      "qwen": "Qwen",
+      "doubao": "Doubao",
+      "llama": "Llama",
+      "mistral": "Mistral"
+    },
+    "payments": {
+      "wechat": "微信支付",
+      "alipay": "支付寶",
+      "douyin": "抖音支付",
+      "unionpay": "銀聯",
+      "visa": "VISA"
+    },
+    "databases": {
+      "mysql": "MySQL",
+      "postgresql": "PostgreSQL",
+      "mongodb": "MongoDB",
+      "redis": "Redis",
+      "sqlite": "SQLite"
+    },
+    "promos": {
+      "promo1": "推廣平臺 1",
+      "promo2": "推廣平臺 2",
+      "promo3": "推廣平臺 3",
+      "promo4": "推廣平臺 4",
+      "promo5": "推廣平臺 5",
+      "promo6": "推廣平臺 6",
+      "promo7": "推廣平臺 7",
+      "promo8": "推廣平臺 8",
+      "promo11": "推廣平臺 11",
+      "promo12": "推廣平臺 12",
+      "promo14": "推廣平臺 14",
+      "promo15": "推廣平臺 15",
+      "promo17": "推廣平臺 17",
+      "x": "X",
+      "facebook": "Facebook",
+      "github": "GitHub"
+    }
   },
   "agentCategory": {
     "title": "智能體收費配置管理",
