@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Boxes, MoreHorizontal } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 export interface AppCardItem {
@@ -26,6 +27,7 @@ export default function AppCard({
   onMenu,
   className,
 }: AppCardProps): React.JSX.Element {
+  const t = useTranslations('a11y')
   const a = app ?? { id: '', name: '', desc: '', status: 'active' as const }
   return (
     <div className={cn('rounded-xl border bg-card p-4 text-card-foreground shadow', className)}>
@@ -48,7 +50,7 @@ export default function AppCard({
             type="button"
             onClick={() => onMenu('more')}
             className="shrink-0 text-muted-foreground hover:text-foreground"
-            aria-label="更多"
+            aria-label={t('more')}
           >
             <MoreHorizontal className="h-4 w-4" />
           </button>
