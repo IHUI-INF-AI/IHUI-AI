@@ -228,6 +228,7 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     //   1) 在下拉菜单的最顶部(第一个 menuitem)
     //   2) 文案为"自定义配置模型"(zh-CN 默认 locale)
     //   3) 点击后跳转到 /settings/llm
+    //   4) Settings 图标外包 bg-primary/10 + text-primary 圆角小色块,视觉区分于普通模型选项
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
       test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
@@ -242,6 +243,29 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     // Settings 图标必须存在
     const svgCount = await firstItem.locator('svg').count()
     expect(svgCount, '置顶入口应含 Settings 图标').toBeGreaterThanOrEqual(1)
+
+    // 图标色块 div 验证(2026-07-20 视觉强化):
+    //   - className 必须含 bg-primary/10 + text-primary + rounded-md
+    //   - computedStyle.backgroundColor 不能是 transparent(色块必须实际渲染)
+    //   - computedStyle.color 应为 primary 色(rgb 非 muted gray)
+    const iconWrapper = firstItem.locator('div.bg-primary\\/10, div[class*="bg-primary/10"]').first()
+    expect(await iconWrapper.count(), '图标色块应含 bg-primary/10 类').toBeGreaterThan(0)
+    const wrapperClass = (await iconWrapper.getAttribute('class')) ?? ''
+    expect(wrapperClass, '色块应含 text-primary').toContain('text-primary')
+    expect(wrapperClass, '色块应含 rounded-md(圆角守门禁用 rounded-full)').toContain('rounded-md')
+    const iconStyles = await iconWrapper.evaluate((el) => {
+      const cs = getComputedStyle(el)
+      return {
+        backgroundColor: cs.backgroundColor,
+        color: cs.color,
+        width: el.offsetWidth,
+        height: el.offsetHeight,
+      }
+    })
+    expect(iconStyles.backgroundColor, '色块背景色不能为 transparent').not.toBe('rgba(0, 0, 0, 0)')
+    expect(iconStyles.backgroundColor, '色块背景色不能为 transparent').not.toBe('transparent')
+    expect(iconStyles.width, '色块尺寸 24px(h-6 w-6)').toBe(24)
+    expect(iconStyles.height, '色块尺寸 24px(h-6 w-6)').toBe(24)
 
     // 点击跳转
     await firstItem.click()
