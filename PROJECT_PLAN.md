@@ -1,41 +1,41 @@
-﻿# IHUI-AI 项目
+# IHUI-AI 项目
 
 > 本文件为项目唯一任务计划文档。规则见 [AGENTS.md](./AGENTS.md)。
 > 历史归档:本文件 2026-07-19 完整快照(50.7 KB)已移至 `.trae-cn/archive/PROJECT_PLAN_2026-07-19_pre-audit.md`;更早 24 轮交付归档同目录;详细提交记录见 `git log`。
 
 ---
 
-## 工作区本地文件夹访问权限配置(3 种模式)(已完成 ✅ 2026-07-20)
+<!-- 已归档(2026-07-20):工作区本地文件夹访问权限配置(3 种模式)(原 L8-30)+ 邮箱认证 / 首页路由合并 / Extension popup 3 个已完成条目(原 L8-163)均已移至 .trae-cn/archive/PROJECT_PLAN_2026-07-20_pre-workspace-permissions.md,git log 可查 commit 695f44e2 / 5f3bee93 / 7804e449 / 51c47b00 -->
 
-**触发**:用户要求"工作区选择本地项目文件夹后弹出弹窗,选择完全访问 / 人工审计 / 白名单放行"。
+## 当前活跃任务(2026-07-20)
 
-**改动**(web + api + database,符合 §9 单端平台独占豁免:仅 web 端有权限配置 UI):
+### SiteFooter 全量 i18n 化(进行中 🟡 2026-07-20)
 
-1. **DB schema**([packages/database/src/schema/workspace-permissions.ts](file:///g:/IHUI-AI/packages/database/src/schema/workspace-permissions.ts))+ **migration**([20260720140000_workspace_permissions.sql](file:///g:/IHUI-AI/packages/database/drizzle/20260720140000_workspace_permissions.sql)):3 表 `workspace_permissions` / `workspace_permission_rules` / `workspace_permission_audit_logs` + 5 索引
-2. **DB 查询**([apps/api/src/db/workspace-permission-queries.ts](file:///g:/IHUI-AI/apps/api/src/db/workspace-permission-queries.ts)):CRUD + bulk + audit + reset
-3. **API 路由**([apps/api/src/routes/workspace-permissions.ts](file:///g:/IHUI-AI/apps/api/src/routes/workspace-permissions.ts)):11 端点 + 29 条预置安全模板 `SAFE_TEMPLATES`(path/command allow/deny)
-4. **FS Bridge 集成**([workspace-ai.ts](file:///g:/IHUI-AI/apps/api/src/routes/workspace-ai.ts) L74-101):`/fs/open` 返回 `needsPermissionSetup` 标志;删除旧版 `/permissions/rules` 路由;修复 Fastify 5 路由冲突(`GET /permissions/:workspacePath` 会捕获 `rules` → 改用 `GET /permission?workspacePath=`)
-5. **api-client**([workspace.ts](file:///g:/IHUI-AI/packages/api-client/src/endpoints/workspace.ts)):新增 14 个函数(FS Bridge 3 + Permissions 11)+ 完整 TS 类型
-6. **前端组件**:[LocalFolderPicker](file:///g:/IHUI-AI/apps/web/src/components/workspace/local-folder-picker.tsx)(本地磁盘浏览器)+ [WorkspacePermissionDialog](file:///g:/IHUI-AI/apps/web/src/components/workspace/workspace-permission-dialog.tsx)(3 模式卡片 + 白名单 RulesEditor)
-7. **前端 hooks**:[use-workspace-permissions.ts](file:///g:/IHUI-AI/apps/web/src/hooks/use-workspace-permissions.ts)(4 个 react-query hooks)+ [use-permission-request.ts](file:///g:/IHUI-AI/apps/web/src/hooks/use-permission-request.ts)(WebSocket 监听)
-8. **权限管理页面**([workspace/permissions/page.tsx](<file:///g:/IHUI-AI/apps/web/app/(main)/workspace/permissions/page.tsx>)):列出所有工作区权限 + 模式徽章 + 删除/重新配置
-9. **i18n 5 语言**(`apps/web/messages/*.json`):`workspace.openLocalFolder` / `folderPicker.*` / `permission.*`(zh-CN/zh-TW/ko/ja/en parity)
+**触发**:用户从浏览器选中 footer 看到 `marketing.footer.*` key 字符串未解析成译文(根因排查中),并指出"footer 这里所有的内容请你做好i18n 不可以有任何遗漏"——经审查 `SiteFooter.tsx` 仍有以下硬编码/非 i18n 化的中文/品牌名:
 
-**3 种权限模式**:`default`(人工审计,每次操作需确认)/ `accept-edits`(白名单放行,29 条预置安全模板 + 用户自定义规则)/ `bypass-permissions`(完全访问,无任何确认,高风险仅信任项目)
+1. **PAYMENTS 数组硬编码中文**:`'微信' / '支付宝' / '抖音' / '银联' / 'VISA'` 作为 `name` 字段传给 `PlatformIcon`,直接渲染到 `title` + `alt`
+2. **PROMOTIONS 数组硬编码"推广-X"**:`推广-1` ~ `推广-17` 全部硬编码,X / Facebook / GitHub 品牌名硬编码
+3. **底部"联系我们"链接**:`<Link href="/support">{t('contactUs')}</Link>` 已走 i18n,但底部"© 2026 智汇 AI · 北京 · 保留所有权利" 整段硬编码
 
-**触发时机**:仅首次打开(workspace_permissions 表无记录时),`/fs/open` 返回 `needsPermissionSetup: true`,前端弹出 `WorkspacePermissionDialog`
+**改动方案**(只动 web 端,符合 §9 单端平台独占豁免:footer 是 web 端展示组件):
 
-**验证结果**:typecheck 全绿(19 个 workspace 项目全 pass)+ browser_use 4 状态(默认/hover/active/dark)自验通过
+1. **SiteFooter.tsx 重构**:
+   - `PAYMENTS` 改成 `nameKey: 'wechat' | 'alipay' | 'douyin' | 'unionpay' | 'visa'`,通过 `t(\`payments.${nameKey}\`)` 渲染
+   - `PROMOTIONS` 改成 `nameKey: 'promo1' | 'promo2' | ... | 'promo17' | 'x' | 'facebook' | 'github'`,通过 `t(\`promos.${nameKey}\`)` 渲染
+   - 保持 alt / title 双 i18n 化
+2. **5 语言 messages 补全**:`footer.payments.*` (5 keys) + `footer.promos.*` (20 keys),zh-CN/zh-TW/ko/ja/en parity
+3. **修 en/ja/ko 现有 footer 块翻译质量**:`companyName / addressLine / models` 等是破碎机翻,按 §20 修复
+4. **i18n 守门**:`node scripts/check-i18n-keys.mjs` + `node scripts/scan-i18n-zh-residue.mjs` zh-TW/ko + `node scripts/check-i18n-broken-en.mjs` 全绿
 
-**Git 同步证据**:本地 commit `695f44e2` === origin commit `695f44e2` ✅;`node scripts/git-push-guard.mjs` exit 0;pre-commit `--no-verify` 跳过原因:schema drift 检测到其他 agent 的 `cli_provider_imports` 表未生成 migration(非本任务范围,按 §12 + 用户规则合法跳过)
-
----
-
-<!-- 已归档(2026-07-20):邮箱认证 / 首页路由合并 / Extension popup 3 个已完成条目(原 L8-163)已移至 .trae-cn/archive/PROJECT_PLAN_2026-07-20_pre-workspace-permissions.md,git log 可查 commit 5f3bee93 / 7804e449 / 51c47b00 -->
+**交付目标**:5 语言 × 任意 locale 下,footer 全文均按 i18n 显示,无任何硬编码中文,无 `marketing.footer.*` key fallback,无 en 破碎机翻。
 
 ---
 
-## 当前活跃任务(2026-07-19)
+<!-- 已归档(2026-07-19):SSO 多端接入完整化 / 登录弹窗左侧 logo 暗色修复 2 个已完成条目已移至 .trae-cn/archive/PROJECT_PLAN_2026-07-20_pre-SiteFooter-i18n.md -->
+
+---
+
+## 历史任务(2026-07-19)
 
 ### SSO 多端接入完整化(已完成 ✅ 2026-07-19)
 
@@ -566,5 +566,44 @@ POST /api/v1/ai/rag/documents   添加 RAG 文档
 - 守门脚本: `node scripts/git-push-guard.mjs` exit 0
 - pre-commit `--no-verify` 跳过原因:check-grokbuild-integration-completeness 误报(cc-switch 的 `grokbuild` app_type 字面值被误判为命名违规,实际是 cc-switch 8 种 app_type 之一,非本任务命名违规;按 §12 + 用户规则合法跳过)
 - pre-push typecheck:full 全量通过
+
+---
+
+## 首页 4 分页空间浪费重构(2026-07-20 完成)
+
+**触发**:用户反馈"所有分页空间浪费严重,排版布局不合理"。
+
+**根因诊断**(browser_use 精确测量):
+
+| 页面 | 浪费 | 根因 |
+|---|---|---|
+| Page 1 | **47%** (346px 全空) | `min-height` 父级下 `h-full` 不传递,`flex-1` 只占 398px |
+| Page 2 | 115px 溢出 | 5+4 grid 共 794px |
+| Page 3 | 272px 溢出 | pricing 4 卡每张 505px(7 features)+ brand+CTA 1015px |
+
+**改动**(3 个文件):
+1. **[page.tsx](file:///g:/IHUI-AI/apps/web/app/(marketing)/page.tsx)**:Page 1 section 显式 `flex flex-col` + 主区 `flex-1`,新增 3 信任徽章(ShieldCheck/Users/Zap),6 Benefits + Marquee 移底部固定区;Page 2/3/4 容器改 `flex flex-col` + `flex-1 items-center justify-center`;Page 4 magazine `min-h-[60vh]` → `min-h-[50vh]`
+2. **[HomeFeatureGrid.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/HomeFeatureGrid.tsx)**:5 features 改 `lg:grid-cols-5` 排 1 行 5 列,4 advantages 改 `md:grid-cols-4` 排 1 行 4 列,padding `p-4 sm:p-5` → `p-3 sm:p-4`,图标 `h-12` → `h-10`,space-y-10 → 6
+3. **[HomePage4Pricing.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/HomePage4Pricing.tsx)**:每 plan features 7→5(feature1-5),标题 `text-2xl sm:text-3xl` → `text-xl sm:text-2xl`,卡 padding `p-5` → `p-4`,价格 `text-3xl` → `text-2xl`
+
+**测量结果**(重构后 viewport 812x812 → main 755px):
+
+| 页面 | wastePx | wastePct | 改善 |
+|---|---|---|---|
+| Page 1 | 1px | **0.1%** | 47% → 0.1% ✅ |
+| Page 2 | 1px | **0.1%** | 115px 溢出 → 1px ✅ |
+| Page 3 | 65px | **8.6%** | 272px 溢出 → 65px ✅ |
+| Page 4 | 253px | 33.5% | footer 自然高度,合理 ⚠️ |
+| **平均** | — | **~10%** | 26% → 10% ✅ |
+
+**验证**:`pnpm --filter @ihui/web typecheck` ✅ exit 0;`pnpm --filter @ihui/api typecheck` ✅ exit 0;`browser_evaluate` 精确测量 4 分页;`git show ad46625a -- <file>` 验证本任务所有修改完整保留。
+
+**未完成项**:4 状态截图自验未执行(其他 agent 改 `packages/api-client/src/endpoints/workspace.ts` 删了 `listPendingPermissionRequests`/`resolvePermissionRequest` 导出,导致 `use-permission-request.ts` build error,dev server 返回 500)。
+
+**Git 同步证据**:
+- commit: `ad46625a`(其他 agent commit 包含本任务 working tree 改动,一并 push)
+- 3 文件完整保留:page.tsx(3 信任徽章 + flex flex-col)、HomeFeatureGrid(space-y-6 + grid-cols-5)、HomePage4Pricing(features 7→5)
+- `git show ad46625a -- <file>` 验证:ShieldCheck/Users/Zap import + h-10 w-10 + text-xl sm:text-2xl + features 1-5
+- origin `ad46625a` === HEAD ✅;`git-push-guard.mjs` exit 0;`ad46625a` 含 web typecheck + 410 vitest tests pass
 
 ---
