@@ -193,6 +193,8 @@ import { userLlmConfigRoutes } from './routes/user-llm-configs.js'
 import { cliImportRoutes } from './routes/cli-import.js'
 // 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
 import { selfMediaRoutes } from './routes/self-media-routes.js'
+// 多平台发布代理(账号/任务/历史/统计,代理到 ai-service,2026-07-20 新增)
+import { publishRoutes } from './routes/publish-routes.js'
 import { adminGrayReleaseRoutes } from './routes/admin-gray-release.js'
 import { adminErrorDashboardRoutes } from './routes/admin-error-dashboard.js'
 import { adminApiPlatformRoutes } from './routes/admin-api-platform.js'
@@ -863,6 +865,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(cliImportRoutes, { prefix: '/api/user' })
   // 自媒体 skill(公众号文章 + 口播稿,代理到 ai-service,2026-07-20 新增)
   server.register(selfMediaRoutes, { prefix: '/api' })
+  // 多平台发布代理(账号/任务/历史/统计,代理到 ai-service,2026-07-20 新增)
+  server.register(publishRoutes, { prefix: '/api' })
   server.register(adminGrayReleaseRoutes, { prefix: '/api/admin' })
   server.register(adminErrorDashboardRoutes, { prefix: '/api/admin' })
   server.register(adminApiPlatformRoutes, { prefix: '/api/admin' })
