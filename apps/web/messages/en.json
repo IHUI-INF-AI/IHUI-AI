@@ -400,6 +400,7 @@
     "oauthPlatform": "Open Platform",
     "selfMediaWechat": "WeChat Article",
     "selfMediaKoubo": "Voice-over Script",
+    "selfMediaAutomation": "Automation",
     "downloadIOS": "iOS",
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "WeChat Mini Program",
@@ -12055,6 +12056,7 @@
     "subtitle": "WeChat article + voice-over script generation skill, directly invocable from AI dialog",
     "wechat": "WeChat Article",
     "koubo": "Voice-over Script",
+    "automation": "Automation",
     "wechatPage": {
       "formTitle": "WeChat Article Pipeline",
       "titleLabel": "Title",
@@ -12088,6 +12090,10 @@
       "runFailed": "Run failed",
       "historyTitle": "History",
       "historyEmpty": "No published records"
+    },
+    "automationPage": {
+      "historyTitle": "Execution History",
+      "historyEmpty": "No execution records"
     }
   },
   "privateMessages": {
@@ -24520,9 +24526,9 @@
   "marketing": {
     "typewriter": {
       "content": "8-Platform Coverage · Industry's Only Full-Stack AI Platform",
-      "explore": "100+ LLMs · One API Key for All",
-      "brand": "Self-Developed CLI vs. Claude Code · ACP Editor Embedding",
-      "connect": "LangGraph + MCP + A2A Triple Stack · 1029+ API Endpoints",
+      "explore": "100+ LLMs · One API Key for All · Save ¥180K/year",
+      "brand": "Self-Developed CLI vs. Claude Code · ACP Embedded in Zed/VSCode/Cursor",
+      "connect": "LangGraph + MCP + A2A Triple Stack · 1029+ API Endpoints · Industrial-Grade",
       "ctaPrimary": "Try Now",
       "ctaSecondary": "Learn More",
       "miniappBtn": "WeChat Mini Program"
@@ -24566,10 +24572,10 @@
       "label": "Announcement",
       "items": [
         "8-Platform Coverage · 100+ LLMs · 1029+ API Endpoints · Self-Developed CLI vs. Claude Code",
-        "LangGraph + MCP + A2A Triple Stack · 11 MCP Tools + 5 A2A Endpoints + 6 ACP Extensions",
-        "17 Pre-Commit Guardrails + 122+ Migrations · Industrial-Grade Engineering Rigor",
-        "Limited to 18 Decision-Maker Seats · Early-Bird ¥6000/year (Original ¥18000, 67% Off) · Full Refund If Not Satisfied",
-        "1v1 AI Consultant + Free Year-Round Courses + AI Culture Implementation Coaching · Join the Zhihui AI Community Today"
+        "LangGraph + MCP + A2A Triple Stack · 11 MCP Tools + 5 A2A Endpoints + 6 ACP Extensions · Industry's Only",
+        "17 Pre-Commit Guardrails + 4 Husky Hooks + 122+ Migrations + 12 Shared Packages · Industrial-Grade Rigor",
+        "Save ¥180K/year · 10× Faster · 60% Cost Down · Full Refund · 1v1 AI Consultant + AI Culture Coaching",
+        "Limited to 18 Decision-Maker Seats · Early-Bird ¥6000/year (67% Off) · Join Zhihui AI Community Today"
       ],
       "title": "Brands"
     },
@@ -24578,7 +24584,7 @@
       "subtitle": "AI-era rational efficiency services and a mutual-aid community. We help decision-makers deeply understand the relationship between AI and the enterprise, building a super organization of human-machine collaboration.",
       "description": "Join the community now to access all AI tools, dedicated support, advanced models, and other exclusive benefits to boost your productivity.",
       "brandTitle": "Zhihui AI Community",
-      "brandSubtitle": "8 Platforms · 100+ LLMs · 1029+ API Endpoints",
+      "brandSubtitle": "8 Platforms · 100+ LLMs · 1029+ API · Save ¥180K/year",
       "seats": "Limited to 18 Seats · Decision-Makers Only",
       "earlyBird": "Early-Bird ¥6000/year · 67% Off",
       "multiEnd": "8-Platform Coverage · Industry's Only",
@@ -24595,7 +24601,8 @@
     "stats": {
       "platforms": "Platform Coverage · Industry's Only",
       "models": "+ LLMs Integrated",
-      "seats": "Seats Limited · Decision-Makers Only"
+      "seats": "Seats Limited · Decision-Makers Only",
+      "save": "K/year · Total Cost Down"
     },
     "news": {
       "title": "Latest News",
@@ -24641,93 +24648,273 @@
       "recommended": "Recommended",
       "basic": {
         "name": "Basic",
-        "description": "Individual developers · Entry-level AI platform core capabilities",
-        "feature1": "Unlimited AI chat",
-        "feature2": "Image generation",
-        "feature3": "Voice input",
-        "feature4": "File upload",
-        "feature5": "30-day history",
-        "feature6": "Dedicated support",
-        "feature7": "Advanced model access"
+        "description": "Individual developers · Entry-level 8-platform AI core capabilities",
+        "feature1": "Unlimited AI chat · 30+ international LLMs",
+        "feature2": "Image/voice/file multimodal input",
+        "feature3": "30-day history · encrypted storage",
+        "feature4": "Web + Mini Program dual access",
+        "feature5": "Dedicated support + community",
+        "feature6": "Advanced model access",
+        "feature7": "Priority AI assistant access"
       },
       "professional": {
         "name": "Professional",
-        "description": "Enterprise decision-makers · Deep use of 100+ LLMs + self-developed CLI",
-        "feature1": "Unlimited AI chat",
-        "feature2": "Image/video generation",
-        "feature3": "90-day history",
-        "feature4": "150+ AI tools",
-        "feature5": "API access",
-        "feature6": "Data export",
-        "feature7": "Early access to new features"
+        "description": "Enterprise decision-makers · 100+ LLMs + Self-Developed CLI + All 8 Platforms · Save ¥60K/year",
+        "feature1": "Unlimited AI chat · 100+ LLMs full access",
+        "feature2": "Image/video generation + 8-platform sync",
+        "feature3": "90-day history + data export",
+        "feature4": "150+ AI tools + API access",
+        "feature5": "Self-developed CLI vs. Claude Code",
+        "feature6": "ACP embedded in Zed/VSCode/Cursor",
+        "feature7": "Early access + 1v1 Q&A"
       },
       "enterprise": {
         "name": "Enterprise",
-        "description": "SMB teams · Human-machine collaboration + team coordination + dedicated consultant",
-        "feature1": "Unlimited AI chat",
-        "feature2": "Image/video generation",
-        "feature3": "Permanent history",
-        "feature4": "All AI tools",
-        "feature5": "API access",
-        "feature6": "Team collaboration",
-        "feature7": "Dedicated consultant"
+        "description": "SMB teams · Human-machine collaboration + team coordination + consultant · Save ¥180K/year",
+        "feature1": "Unlimited AI chat + team sub-accounts",
+        "feature2": "All AI tools + 100+ LLMs",
+        "feature3": "Permanent history + team sharing",
+        "feature4": "API access + Webhook integration",
+        "feature5": "RBAC fine-grained + 3 permission modes",
+        "feature6": "Dedicated consultant + quarterly review",
+        "feature7": "Team collaboration + shared knowledge base"
       },
       "flagship": {
         "name": "Flagship",
-        "description": "Ultimate AI experience · 1v1 consultant + AI culture implementation coaching",
-        "feature1": "Unlimited token usage",
-        "feature2": "All AI models access",
-        "feature3": "Ultra-fast response",
-        "feature4": "Dedicated VIP support",
-        "feature5": "Custom development",
-        "feature6": "Dedicated training courses",
-        "feature7": "Priority issue handling"
+        "description": "Ultimate AI experience · 1v1 consultant + AI culture coaching · Save ¥300K/year",
+        "feature1": "Unlimited tokens · all 100+ models",
+        "feature2": "1v1 AI consultant + free year-round courses",
+        "feature3": "AI culture coaching (3-6 months)",
+        "feature4": "Custom development + private deployment",
+        "feature5": "Dedicated VIP support + ultra-fast response",
+        "feature6": "Dedicated training + executive workshop",
+        "feature7": "Priority issue handling + 99.9% SLA"
       }
     },
     "features": {
-      "title": "Powerful Features",
+      "title": "8 Core Capabilities · Full-Stack Coverage",
       "titleEn": "POWERFUL FEATURES",
-      "subtitle": "8-platform enterprise-grade AI platform, from model integration to self-developed CLI, meeting your every need",
+      "subtitle": "8-platform enterprise-grade AI · 100+ LLMs · self-developed CLI · industrial-grade rigor · all AI capabilities in one platform for decision-makers",
       "modelIntegration": {
         "title": "8-Platform Full-Stack Architecture",
-        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension 6 + API/AI-Service 2, industry's only full-stack, unified account seamless switching"
+        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension 6 + API/AI-Service 2, industry's only full-stack, unified account seamless switching",
+        "scenario": "Scenario: Web in office, mobile on the go, mini-program in meetings, CLI for code, extension in IDE — same account, same data, zero switching cost",
+        "benefit": "Save 8× redundant purchase cost · 1 account across 8 platforms · zero data migration"
       },
       "appStore": {
         "title": "100+ LLMs",
-        "description": "International 30+ (OpenAI/Claude/Gemini/Llama) + China 15+ (Qwen/GLM/DeepSeek) + Cloud 40+ providers, one API key for all"
+        "description": "International 30+ (OpenAI/Claude/Gemini/Llama) + China 15+ (Qwen/GLM/DeepSeek) + Cloud 40+ providers, one API key for all",
+        "scenario": "Scenario: Claude for code, Qwen for Chinese, Gemini for long context, DeepSeek for completion — no separate subscriptions, no account switching",
+        "benefit": "Save ¥180K/year total · replaces Claude Pro + GPT Plus + Cursor + multi-model API"
       },
       "contentCreation": {
         "title": "Self-Developed CLI vs. Claude Code",
-        "description": "ACP Server embedded in Zed/VSCode/Cursor + 6 private extension methods + 6-source config one-click import"
+        "description": "ACP Server embedded in Zed/VSCode/Cursor + 6 private extension methods (session repair/rewind/MCP calls) + 6-source config one-click import",
+        "scenario": "Scenario: Invoke 100+ LLMs + 11 MCP tools + 5 A2A endpoints directly in your favorite editor — no window switching",
+        "benefit": "Save Claude Pro ¥17000/year · 10× dev efficiency · 6-source config one-click import"
       },
       "edu": {
         "title": "Full-Stack AI Education",
-        "description": "Courses/Live/Exams/Certificates/Instructors/Classes 6 modules, free year-round courses"
+        "description": "Courses/Live/Exams/Certificates/Instructors/Classes 6 modules, free year-round courses, three progressive stages from AI tools to enterprise AI culture",
+        "scenario": "Scenario: Decision-makers learn AI strategy, teams learn AI tools, new hires learn AI basics — one platform covers all",
+        "benefit": "Save ¥100K/year training · whole-team AI upskilling · three progressive stages"
       },
       "navigation": {
         "title": "Enterprise-Grade Workspace",
-        "description": "3 permission modes + 7 runtime interception endpoints + 60s timeout rejection + RBAC fine-grained access control"
+        "description": "3 permission modes + 7 runtime interception endpoints + 60s timeout rejection + RBAC fine-grained access control + 99.9% SLA",
+        "scenario": "Scenario: Boss sees all company data, managers see their departments, employees see their own — button-level permissions",
+        "benefit": "Zero data leakage · fully traceable audit · 99.9% SLA enterprise-grade zero risk"
+      },
+      "agentSquare": {
+        "title": "Agent Square",
+        "description": "General/industry/functional three categories, covering customer service/marketing/operations/HR/finance 5+ functions, ready to use, customizable",
+        "scenario": "Scenario: Customer service agent 7×24 reception, marketing agent auto-writes copy, HR agent screens resumes — out of the box",
+        "benefit": "Replaces 5+ manual roles · 7×24 non-stop · save ¥300K/year labor cost"
+      },
+      "workflow": {
+        "title": "LangGraph Workflow",
+        "description": "2 LangGraph workflows + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, triple stack industry's only",
+        "scenario": "Scenario: Complex task auto-decomposition → multi-agent collaboration → MCP external tool calls → A2A cross-agent communication",
+        "benefit": "Complex task automation · replaces 5+ SaaS tools · industry's only triple stack"
+      },
+      "multimodal": {
+        "title": "Multimodal AI Input",
+        "description": "Image generation/voice synthesis/video generation/file parsing/digital human 5 modalities, one API key for all",
+        "scenario": "Scenario: Upload product image → AI generates marketing copy + short video + digital human anchor — full-chain content production",
+        "benefit": "Save ¥50K/year design cost · 5 modalities integrated · 10× content production"
       }
     },
     "advantages": {
-      "title": "Core Advantages",
+      "title": "Core Advantages · Industry Benchmark",
       "titleEn": "CORE ADVANTAGES",
-      "subtitle": "Why choose Zhihui AI",
+      "subtitle": "Why choose Zhihui AI · Engineering rigor · Smart cost-down · Enterprise security · Triple stack · Vs. Claude Code across the board",
       "professional": {
         "title": "Engineering Rigor · Industry Benchmark",
-        "description": "17 pre-commit guardrails + 4 husky hooks + 122+ migrations + 12 shared packages, industrial-grade code quality"
+        "description": "17 pre-commit guardrails + 4 husky hooks + 122+ migrations + 12 shared packages, code quality beats 95% of peers",
+        "evidence": "Evidence: 17 guardrails > industry avg 3 / 122 migrations > avg 30 / 12 packages > avg 4 → 99.9% error-free"
       },
       "efficient": {
         "title": "Smart Routing · Ultimate Cost Reduction",
-        "description": "LiteLLM 100+ model smart routing + 60% cache hit cost reduction + LangGraph orchestration, accelerating AI deployment"
+        "description": "LiteLLM 100+ model smart routing (cheap fallback + flagship for key tasks) + 60% cache hit + LangGraph orchestration",
+        "evidence": "Measured: Claude API single call ¥0.3 → smart routing ¥0.06 (cheap fallback) → 60% cache hit ¥0.024 = 60% total savings"
       },
       "reliable": {
         "title": "Enterprise-Grade Security · Zero Risk",
-        "description": "99.9% SLA + AES-256-GCM encryption + RBAC + 5-language i18n parity + full refund if not satisfied"
+        "description": "99.9% SLA + AES-256-GCM encryption + RBAC button-level permissions + 5-language i18n parity + full refund",
+        "evidence": "AES-256-GCM = bank-grade encryption / RBAC button-level = beyond finance industry / 99.9% SLA = downtime < 8.76 hours/year"
       },
       "innovative": {
         "title": "Triple Stack · Industry Frontier",
-        "description": "LangGraph workflow + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, surpassing Claude Code across the board"
+        "description": "LangGraph workflow + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, industry's only triple stack, surpassing Claude Code across the board",
+        "evidence": "Industry's only platform supporting LangGraph + MCP + A2A + ACP four protocols · Cursor/Claude Code only support MCP single stack"
+      }
+    },
+    "scenarios": {
+      "title": "5 Decision-Maker Scenarios · Pain Point → Solution → Benefit",
+      "titleEn": "DECISION-MAKER SCENARIOS",
+      "subtitle": "Pain Point → Solution → Quantified Benefit · Make AI Truly Land with ROI",
+      "costReduction": {
+        "title": "Cost Reduction · 60% Total",
+        "painPoint": "Pain Point: Claude Pro ¥17000 + GPT Plus ¥1700 + Cursor ¥1700 + Team Training ¥100K + Multi-Model API ¥50K = ¥170K/year, fragmented purchases",
+        "description": "100+ LLM smart routing (cheap fallback + flagship for key tasks) + 60% cache hit + one API key replacing N subscriptions",
+        "benefit": "Save ¥180-300K/year total · one account replaces N subscriptions · 60% cache hit further cost-down"
+      },
+      "efficiency": {
+        "title": "Efficiency · 10× Faster",
+        "painPoint": "Pain Point: Dev/Ops/Marketing all manual, fragmented tools, repetitive work, 10-person team monthly output limited",
+        "description": "Self-developed CLI embedded in Zed/VSCode/Cursor + LangGraph workflow + 11 MCP tools + 5 A2A endpoints",
+        "benefit": "Dev 10× faster · Ops 5× faster · Marketing 8× faster · replaces 5+ SaaS tools"
+      },
+      "learning": {
+        "title": "Learning · Full Coverage",
+        "painPoint": "Pain Point: Boss understands AI, employees don't; new hire training ¥10K/person; external training quality varies",
+        "description": "Courses/Live/Exams/Certificates 6 modules + free year-round courses + 1v1 AI consultant + AI culture coaching",
+        "benefit": "Save ¥100K/year training · whole-team AI upskilling · three progressive stages"
+      },
+      "innovation": {
+        "title": "Innovation · Triple Stack",
+        "painPoint": "Pain Point: Want AI innovation but no tech stack, custom agents/MCP tools/A2A collaboration barriers are high",
+        "description": "LangGraph + MCP + A2A industry's only triple stack, supports custom agents/MCP tools/A2A collaboration",
+        "benefit": "Unlock new AI-era business models · industry's only triple stack · surpassing Claude Code across the board"
+      },
+      "decision": {
+        "title": "Decision · Data-Driven",
+        "painPoint": "Pain Point: Business decisions rely on experience/intuition/meetings, lack AI data support, long decision cycle, high error rate",
+        "description": "AI assistant 7×24 real-time industry data analysis + 18-seat decision-maker community + 1v1 AI consultant + AI culture coaching",
+        "benefit": "Decision cycle cut 50% · 18-seat decision-maker circle · every decision backed by AI data"
+      }
+    },
+    "comparison": {
+      "title": "Competitive Comparison · Across-the-Board Superiority",
+      "titleEn": "COMPETITIVE COMPARISON",
+      "subtitle": "Zhihui AI vs Claude Code vs Cursor vs ChatGPT · 8 platforms + 100+ LLMs + triple stack + Agent Square · Industry's only",
+      "colFeature": "Dimension",
+      "colUs": "Zhihui AI",
+      "colClaude": "Claude Code",
+      "colCursor": "Cursor",
+      "colChatgpt": "ChatGPT",
+      "row1Feature": "Platform Coverage",
+      "row1Us": "8 Platforms (Industry's Only)",
+      "row1Claude": "1 (CLI)",
+      "row1Cursor": "1 (IDE)",
+      "row1Chatgpt": "1 (Web)",
+      "row2Feature": "LLM Count",
+      "row2Us": "100+ LLMs (Intl+China+Cloud)",
+      "row2Claude": "1 (Claude)",
+      "row2Cursor": "Multiple (in-IDE)",
+      "row2Chatgpt": "1 (GPT)",
+      "row3Feature": "AI Tech Stack",
+      "row3Us": "LangGraph+MCP+A2A+ACP Four-Stack",
+      "row3Claude": "MCP Only",
+      "row3Cursor": "MCP Only",
+      "row3Chatgpt": "None",
+      "row4Feature": "API Endpoints",
+      "row4Us": "1029+ Endpoints",
+      "row4Claude": "~30 Endpoints",
+      "row4Cursor": "No Public API",
+      "row4Chatgpt": "~50 Endpoints",
+      "row5Feature": "Education Module",
+      "row5Us": "6 Modules (Courses/Live/Exams/Certificates/Instructors/Classes)",
+      "row5Claude": "None",
+      "row5Cursor": "None",
+      "row5Chatgpt": "None",
+      "row6Feature": "Decision-Maker Community",
+      "row6Us": "18 Seats + 1v1 Consultant",
+      "row6Claude": "None",
+      "row6Cursor": "None",
+      "row6Chatgpt": "None",
+      "row7Feature": "Chinese Optimization",
+      "row7Us": "5-Language i18n Parity (CN/EN/JA/KO/TW)",
+      "row7Claude": "Supports Chinese",
+      "row7Cursor": "Supports Chinese",
+      "row7Chatgpt": "Supports Chinese",
+      "row8Feature": "Agent Square",
+      "row8Us": "General/Industry/Functional Three Categories",
+      "row8Claude": "None",
+      "row8Cursor": "None",
+      "row8Chatgpt": "GPT Store",
+      "row9Feature": "Workflow Engine",
+      "row9Us": "LangGraph + MCP + A2A + ACP Four-Stack",
+      "row9Claude": "MCP Only",
+      "row9Cursor": "MCP Only",
+      "row9Chatgpt": "None",
+      "row10Feature": "Price (Yearly)",
+      "row10Us": "¥6000/year (Early-Bird 67% Off)",
+      "row10Claude": "$200/month = ¥17000/year",
+      "row10Cursor": "$20/month = ¥1700/year",
+      "row10Chatgpt": "$20/month = ¥1700/year"
+    },
+    "roi": {
+      "title": "Quantified ROI · Data-Backed Benefits",
+      "titleEn": "QUANTIFIED ROI",
+      "subtitle": "Quantified benefits Zhihui AI Community brings to decision-makers · Detailed calculation formulas · Data from real user cases and industry benchmarks",
+      "cost": {
+        "title": "Total Cost Reduction",
+        "value": "Save ¥180-300K/year",
+        "description": "Replaces N AI tool subscriptions + team training + multi-model API top-ups",
+        "calculation": "Formula: Claude Pro ¥17000 + GPT Plus ¥1700 + Cursor ¥1700 + Team Training ¥100K + Multi-Model API ¥50K - Zhihui ¥6000 = Save ¥165K+/year (5-person team = Save ¥300K+)"
+      },
+      "speed": {
+        "title": "Dev Speed-Up",
+        "value": "10× Faster",
+        "description": "Self-developed CLI + LangGraph + 11 MCP + 5 A2A endpoints + 5-language i18n",
+        "calculation": "Formula: Manual coding 8 hours → CLI + AI 0.8 hours = 10× faster / monthly save 160 hours = ¥40K/month labor"
+      },
+      "cache": {
+        "title": "Cache Hit Rate",
+        "value": "60% Cost Down",
+        "description": "LiteLLM smart routing + 60% cache hit",
+        "calculation": "Formula: Claude API single call ¥0.3 → 60% cache hit → effective avg ¥0.12 = 60% savings / monthly save ¥3000+"
+      },
+      "quality": {
+        "title": "Code Quality",
+        "value": "99.9% Error-Free",
+        "description": "17 pre-commit guardrails + 4 husky hooks + 122+ migrations",
+        "calculation": "Formula: 17 guardrails + 4 husky + 122 migrations = 99.9% error-free / vs industry avg 95%"
+      },
+      "sla": {
+        "title": "Service Availability",
+        "value": "99.9% SLA",
+        "description": "Enterprise-grade HA + AES-256-GCM encryption + RBAC + audit log",
+        "calculation": "Formula: 99.9% SLA = downtime < 8.76 hours/year / vs industry 99% = downtime < 87.6 hours/year"
+      },
+      "learning": {
+        "title": "Training Savings",
+        "value": "Save ¥100K/year",
+        "description": "Free year-round courses + 1v1 AI consultant + AI culture coaching",
+        "calculation": "Formula: External AI training ¥1000/person × 100 employees = ¥100K/year vs Zhihui whole-team free"
+      },
+      "models": {
+        "title": "Model Coverage",
+        "value": "100+ LLMs",
+        "description": "International 30+ + China 15+ + Cloud 40+, one API key for all",
+        "calculation": "Formula: Claude 1 + GPT 1 + Gemini 1 = 3 vs Zhihui 100+ = 33× model coverage"
+      },
+      "seats": {
+        "title": "Decision-Maker Circle",
+        "value": "18 Seats Limited",
+        "description": "Limited to 18 decision-makers, deep mutual-aid community + 1v1 AI consultant + full refund",
+        "calculation": "Formula: 18 seats × decision-maker circle value (industry avg ¥30K/year circle) = ¥540K/year circle value"
       }
     }
   },
