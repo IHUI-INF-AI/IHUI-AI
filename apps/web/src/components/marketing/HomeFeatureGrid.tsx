@@ -6,11 +6,10 @@ import {
   Award,
   Boxes,
   GraduationCap,
+  Laptop,
   Lightbulb,
-  Navigation,
-  PenTool,
   ShieldCheck,
-  Store,
+  Terminal,
   Zap,
   type LucideIcon,
 } from 'lucide-react'
@@ -33,17 +32,17 @@ export function HomeFeatureGrid() {
 
   const features: FeatureItem[] = [
     {
-      icon: Boxes,
+      icon: Laptop,
       title: t('modelIntegration.title'),
       description: t('modelIntegration.description'),
     },
     {
-      icon: Store,
+      icon: Boxes,
       title: t('appStore.title'),
       description: t('appStore.description'),
     },
     {
-      icon: PenTool,
+      icon: Terminal,
       title: t('contentCreation.title'),
       description: t('contentCreation.description'),
     },
@@ -53,7 +52,7 @@ export function HomeFeatureGrid() {
       description: t('edu.description'),
     },
     {
-      icon: Navigation,
+      icon: ShieldCheck,
       title: t('navigation.title'),
       description: t('navigation.description'),
     },
