@@ -30,7 +30,7 @@ export interface ReminderContext {
   injected: Set<string>;
 }
 
-/** 70% 阈值提醒(与 85% 强制压缩互补) */
+/** 70% 阈值提醒(与 88% 强制压缩互补,跨端统一阈值) */
 const CONTEXT_BUDGET_THRESHOLD = 0.7;
 /** 每 5 轮迭代提醒一次进度 */
 const ITERATION_PROGRESS_INTERVAL = 5;
@@ -51,7 +51,7 @@ export function generateReminders(ctx: ReminderContext): string[] {
   ) {
     const pct = Math.round((totalTokens / ctx.contextLimit) * 100);
     reminders.push(
-      `[系统提醒] 上下文窗口已用 ${pct}%(tokens ${totalTokens}/${ctx.contextLimit})。建议尽快收尾,或用 /compact 手动压缩。达 85% 将自动压缩。`,
+      `[系统提醒] 上下文窗口已用 ${pct}%(tokens ${totalTokens}/${ctx.contextLimit})。建议尽快收尾,或用 /compact 手动压缩。达 88% 将自动压缩。`,
     );
     ctx.injected.add('context_budget');
   }
