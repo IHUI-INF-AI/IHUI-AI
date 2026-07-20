@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
   CheckCircle2,
@@ -54,15 +55,16 @@ function TemplateGrid({
   current: string
   onPick: (t: PlatformTemplate) => void
 }) {
+  const t = useTranslations('llmSettings.dialog')
   return (
     <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3">
-      {templates.map((t) => {
-        const active = t.code === current
+      {templates.map((tpl) => {
+        const active = tpl.code === current
         return (
           <button
-            key={t.code}
+            key={tpl.code}
             type="button"
-            onClick={() => onPick(t)}
+            onClick={() => onPick(tpl)}
             className={cn(
               'group flex flex-col gap-1 rounded-lg border p-2.5 text-left transition-colors',
               active
@@ -71,19 +73,19 @@ function TemplateGrid({
             )}
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{t.name}</span>
-              {t.isOfficial ? (
+              <span className="text-sm font-medium">{tpl.name}</span>
+              {tpl.isOfficial ? (
                 <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-                  官方
+                  {t('official')}
                 </span>
               ) : (
                 <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                  自建
+                  {t('self')}
                 </span>
               )}
             </div>
-            <p className="line-clamp-1 text-xs text-muted-foreground">{t.description}</p>
-            <p className="truncate font-mono text-xs text-muted-foreground/70">{t.baseUrl}</p>
+            <p className="line-clamp-1 text-xs text-muted-foreground">{tpl.description}</p>
+            <p className="truncate font-mono text-xs text-muted-foreground/70">{tpl.baseUrl}</p>
           </button>
         )
       })}
@@ -93,6 +95,7 @@ function TemplateGrid({
 
 /** 拉取到的模型列表 */
 function ModelsList({ models }: { models: UpstreamModel[] }) {
+  const t = useTranslations('llmSettings.dialog')
   const [filter, setFilter] = React.useState('')
   const filtered = React.useMemo(() => {
     if (!filter) return models
@@ -107,13 +110,13 @@ function ModelsList({ models }: { models: UpstreamModel[] }) {
         <Input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="过滤模型..."
+          placeholder={t('filterModels')}
           className="h-8 pl-8 text-xs"
         />
       </div>
       <div className="max-h-48 overflow-y-auto rounded-md border">
         {filtered.length === 0 ? (
-          <div className="p-3 text-center text-xs text-muted-foreground">无匹配模型</div>
+          <div className="p-3 text-center text-xs text-muted-foreground">{t('noMatch')}</div>
         ) : (
           <ul className="divide-y">
             {filtered.map((m) => (
@@ -133,10 +136,10 @@ function ModelsList({ models }: { models: UpstreamModel[] }) {
                   type="button"
                   onClick={() => {
                     void navigator.clipboard.writeText(m.id)
-                    toast.success(`已复制: ${m.id}`)
+                    toast.success(t('copied', { id: m.id }))
                   }}
                   className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
-                  title="复制模型 ID"
+                  title={t('copyModelId')}
                 >
                   <Copy className="h-3 w-3" />
                 </button>
@@ -145,9 +148,7 @@ function ModelsList({ models }: { models: UpstreamModel[] }) {
           </ul>
         )}
       </div>
-      <p className="text-xs text-muted-foreground">
-        点击模型 ID 旁的复制按钮,可填入「模型 ID」字段
-      </p>
+      <p className="text-xs text-muted-foreground">{t('copyTip')}</p>
     </div>
   )
 }
@@ -161,24 +162,26 @@ export function LlmConfigDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('llmSettings.dialog')
+  const tCard = useTranslations('llmSettings.card')
   const [showKey, setShowKey] = React.useState(false)
   const [models, setModels] = React.useState<UpstreamModel[]>([])
 
   const tpl = React.useMemo(
-    () => templates.find((t) => t.code === form.templateCode) ?? templates[0],
+    () => templates.find((tplItem) => tplItem.code === form.templateCode) ?? templates[0],
     [templates, form.templateCode],
   )
 
   // 切换模板 → 自动套默认值
-  function pickTemplate(t: PlatformTemplate) {
+  function pickTemplate(tpl: PlatformTemplate) {
     setForm({
       ...form,
-      templateCode: t.code,
-      modelId: form.modelId || t.defaultModelId,
+      templateCode: tpl.code,
+      modelId: form.modelId || tpl.defaultModelId,
       contextLength: String(
-        form.contextLength === '32000' ? t.defaultContextLength : form.contextLength,
+        form.contextLength === '32000' ? tpl.defaultContextLength : form.contextLength,
       ),
-      baseUrlOverride: t.code === 'custom' ? form.baseUrlOverride : '',
+      baseUrlOverride: tpl.code === 'custom' ? form.baseUrlOverride : '',
     })
     setModels([])
   }
@@ -186,9 +189,9 @@ export function LlmConfigDialog({
   // 预览测试(未保存也能用)
   const previewMut = useMutation({
     mutationFn: () => {
-      if (!tpl) throw new Error('请选择平台模板')
-      if (!form.apiKey) throw new Error('请先填写 API Key')
-      if (!form.modelId.trim()) throw new Error('请先填写模型 ID')
+      if (!tpl) throw new Error(t('previewTestSelect'))
+      if (!form.apiKey) throw new Error(t('previewTestKey'))
+      if (!form.modelId.trim()) throw new Error(t('previewTestModel'))
       return previewTest({
         templateCode: form.templateCode,
         apiKey: form.apiKey,
@@ -197,13 +200,13 @@ export function LlmConfigDialog({
       })
     },
     onSuccess: (res) => {
-      toast.success(res.message || '连通成功', {
-        description: `耗时 ${res.responseMs ?? 0}ms${res.modelEcho ? ` · 模型 ${res.modelEcho}` : ''}`,
+      toast.success(res.message || t('previewTestSuccess'), {
+        description: `${tCard('testTimeOnly', { ms: res.responseMs ?? 0 })}${res.modelEcho ? ` · ${res.modelEcho}` : ''}`,
         icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
       })
     },
     onError: (e: Error) => {
-      toast.error('连通失败', {
+      toast.error(t('previewTestFailed'), {
         description: e.message,
         icon: <XCircle className="h-4 w-4 text-red-600" />,
       })
@@ -213,17 +216,17 @@ export function LlmConfigDialog({
   // 拉取模型(仅已保存的配置可用)
   const fetchMut = useMutation({
     mutationFn: () => {
-      if (!form.id) throw new Error('请先保存配置,再拉取模型')
+      if (!form.id) throw new Error(t('saveBeforeFetchErr'))
       return fetchUpstreamModels(form.id)
     },
     onSuccess: (res) => {
       setModels(res.models)
-      toast.success(res.message || `已拉取 ${res.total} 个模型`, {
+      toast.success(res.message || tCard('fetchSuccess', { total: res.total }), {
         icon: <Sparkles className="h-4 w-4 text-amber-500" />,
       })
     },
     onError: (e: Error) => {
-      toast.error('拉取失败', { description: e.message })
+      toast.error(tCard('fetchFailed'), { description: e.message })
       setModels([])
     },
   })
@@ -237,11 +240,9 @@ export function LlmConfigDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-4 w-4 text-primary" />
-            {form.id ? '编辑 LLM 配置' : '新增 LLM 配置'}
+            {form.id ? t('editTitle') : t('newTitle')}
           </DialogTitle>
-          <DialogDescription>
-            选择平台模板,只需填写 API Key、模型 ID 与上下文长度,系统自动按平台协议调用。
-          </DialogDescription>
+          <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
@@ -249,17 +250,17 @@ export function LlmConfigDialog({
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5 text-sm">
               <Sparkles className="h-3.5 w-3.5" />
-              平台模板
+              {t('templateLabel')}
             </Label>
             <TemplateGrid templates={templates} current={form.templateCode} onPick={pickTemplate} />
             {tpl ? (
               <p className="text-xs text-muted-foreground">
-                Base URL:{' '}
+                {t('baseUrlLabel')}{' '}
                 <code className="font-mono">
-                  {form.baseUrlOverride || tpl.baseUrl || '(需自填)'}
+                  {form.baseUrlOverride || tpl.baseUrl || t('needSelfUrl')}
                 </code>
                 {' · '}
-                协议: <code className="font-mono">{tpl.apiFormat}</code>
+                {t('protocolLabel')} <code className="font-mono">{tpl.apiFormat}</code>
                 {tpl.docsUrl ? (
                   <>
                     {' · '}
@@ -269,7 +270,7 @@ export function LlmConfigDialog({
                       rel="noreferrer"
                       className="text-primary hover:underline"
                     >
-                      文档
+                      {t('docsLabel')}
                     </a>
                   </>
                 ) : null}
@@ -281,19 +282,19 @@ export function LlmConfigDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="llm-name" className="text-sm">
-                配置名称
+                {t('nameLabel')}
               </Label>
               <Input
                 id="llm-name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder={tpl?.name ?? '我的配置'}
+                placeholder={tpl?.name ?? t('namePlaceholder')}
                 maxLength={64}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="llm-ctx" className="text-sm">
-                上下文长度
+                {t('contextLabel')}
               </Label>
               <Input
                 id="llm-ctx"
@@ -312,9 +313,9 @@ export function LlmConfigDialog({
           <div className="space-y-1.5">
             <Label htmlFor="llm-key" className="flex items-center gap-1.5 text-sm">
               <KeyRound className="h-3.5 w-3.5" />
-              API Key
+              {t('apiKeyLabel')}
               {form.id ? (
-                <span className="text-xs text-muted-foreground">(留空不修改)</span>
+                <span className="text-xs text-muted-foreground">{t('keepEmpty')}</span>
               ) : null}
             </Label>
             <div className="relative">
@@ -323,7 +324,7 @@ export function LlmConfigDialog({
                 type={showKey ? 'text' : 'password'}
                 value={form.apiKey}
                 onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-                placeholder={form.id ? '•••••••(已加密存储)' : 'sk-...'}
+                placeholder={form.id ? t('keyPlaceholderEdit') : t('keyPlaceholderNew')}
                 autoComplete="off"
                 className="pr-10 font-mono text-sm"
               />
@@ -331,7 +332,7 @@ export function LlmConfigDialog({
                 type="button"
                 onClick={() => setShowKey((s) => !s)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                title={showKey ? '隐藏' : '显示'}
+                title={showKey ? t('hideKey') : t('showKey')}
               >
                 {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               </button>
@@ -342,7 +343,7 @@ export function LlmConfigDialog({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="llm-model" className="text-sm">
-                模型 ID
+                {t('modelIdLabel')}
               </Label>
               {form.id ? (
                 <Button
@@ -358,10 +359,10 @@ export function LlmConfigDialog({
                   ) : (
                     <Search className="mr-1 h-3 w-3" />
                   )}
-                  获取上游模型
+                  {t('fetchUpstream')}
                 </Button>
               ) : (
-                <span className="text-xs text-muted-foreground">保存后可拉取上游模型</span>
+                <span className="text-xs text-muted-foreground">{t('saveBeforeFetch')}</span>
               )}
             </div>
             <Input
@@ -378,7 +379,7 @@ export function LlmConfigDialog({
           {showBaseUrl || isCustom ? (
             <div className="space-y-1.5">
               <Label htmlFor="llm-url" className="text-sm">
-                Base URL{!isCustom ? '(可选,覆盖默认)' : '(必填)'}
+                {isCustom ? t('baseUrlRequired') : t('baseUrlOptional')}
               </Label>
               <Input
                 id="llm-url"
@@ -393,13 +394,13 @@ export function LlmConfigDialog({
           {/* 描述 */}
           <div className="space-y-1.5">
             <Label htmlFor="llm-desc" className="text-sm">
-              备注(可选)
+              {t('descriptionLabel')}
             </Label>
             <Input
               id="llm-desc"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="用途说明..."
+              placeholder={t('descriptionPlaceholder')}
               maxLength={500}
             />
           </div>
@@ -413,7 +414,7 @@ export function LlmConfigDialog({
                 onCheckedChange={(v) => setForm({ ...form, enabled: v })}
               />
               <Label htmlFor="llm-enabled" className="text-sm">
-                启用此配置
+                {t('enableConfig')}
               </Label>
             </div>
           ) : null}
@@ -431,15 +432,15 @@ export function LlmConfigDialog({
               ) : (
                 <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
               )}
-              测试连通
+              {t('previewTest')}
             </Button>
             <div className="flex items-center gap-2">
               <Button type="button" variant="ghost" onClick={onClose} disabled={savePending}>
-                取消
+                {t('cancel')}
               </Button>
               <Button type="submit" disabled={savePending}>
                 {savePending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                {form.id ? '保存' : '创建'}
+                {form.id ? t('save') : t('create')}
               </Button>
             </div>
           </DialogFooter>
