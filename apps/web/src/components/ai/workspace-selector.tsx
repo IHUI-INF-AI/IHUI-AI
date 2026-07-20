@@ -5,10 +5,15 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Check, ChevronDown, Folder, FolderPlus, Loader2, X } from 'lucide-react'
-import { getRecentWorkspaces, type RecentWorkspace } from '@ihui/api-client/endpoints/workspace'
+import {
+  browseDirectory,
+  getRecentWorkspaces,
+  type RecentWorkspace,
+  type WorkspacePermission,
+} from '@ihui/api-client/endpoints/workspace'
 
 import { cn } from '@/lib/utils'
-import { useAiPanelStore, type ActiveWorkspace } from '@/stores/ai-panel'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { LocalFolderPicker } from '@/components/workspace/local-folder-picker'
 
 /** AI 面板顶部"工作区选择器"(参考 Trae/Codex/Claude Code 顶部 project selector 设计)
@@ -32,6 +37,29 @@ export function WorkspaceSelector() {
   const [pickerOpen, setPickerOpen] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
 
+  // 持久化的 activeWorkspace 在挂载时校验路径是否仍存在(跨机器/移动硬盘等场景)。
+  // 不存在则自动解绑,避免后续 AI 调用 fs 工具时因路径无效报错。
+  React.useEffect(() => {
+    const ws = useAiPanelStore.getState().activeWorkspace
+    if (!ws?.path) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await browseDirectory(ws.path)
+        if (cancelled) return
+        if (!res.success) {
+          // 路径不存在或无权限 → 自动解绑
+          setActiveWorkspace(null)
+        }
+      } catch {
+        // 网络错误不解绑(避免离线时误清空用户选择)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [setActiveWorkspace])
+
   // 拉取最近打开的工作区列表(menuOpen 时启用,避免面板打开就请求)
   const { data: recentData, isLoading: recentLoading } = useQuery({
     queryKey: ['workspace', 'recent'],
@@ -52,8 +80,18 @@ export function WorkspaceSelector() {
     setMenuOpen(false)
   }
 
-  const handlePickerOpened = (path: string, name: string) => {
-    setActiveWorkspace({ path, name })
+  const handlePickerOpened = (path: string, name: string, perm: WorkspacePermission | null) => {
+    setActiveWorkspace({
+      path,
+      name,
+      mode: perm?.mode,
+      techStack: perm?.techStack
+        ? perm.techStack
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined,
+    })
   }
 
   const triggerLabel = hasActive ? tw('selectWorkspace') : t('addWorkspace')
@@ -68,6 +106,8 @@ export function WorkspaceSelector() {
           <button
             type="button"
             aria-label={triggerLabel}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
             title={triggerTitle}
             className={cn(
               'inline-flex h-6 shrink-0 items-center gap-0.5 rounded px-1.5 text-xs font-medium transition-colors',
@@ -183,5 +223,3 @@ export function WorkspaceSelector() {
     </>
   )
 }
-
-export type { ActiveWorkspace }
