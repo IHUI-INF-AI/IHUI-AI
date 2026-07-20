@@ -54,6 +54,11 @@ const envSchema = z.object({
   TENCENT_SES_SECRET_KEY: z.string().default(''),
   TENCENT_SES_FROM: z.string().default(''),
   TENCENT_SES_REGION: z.string().default('ap-hongkong'),
+  // 腾讯云 SES 邮件模板 ID(数字,在腾讯云 SES 控制台 → 邮件模板 创建审核通过后获得)
+  // 配置后验证码邮件走 Template 模式(腾讯云默认权限);未配置则 fallback Simple(需申请权限)
+  TENCENT_SES_TEMPLATE_REGISTER: z.coerce.number().optional(),
+  TENCENT_SES_TEMPLATE_LOGIN: z.coerce.number().optional(),
+  TENCENT_SES_TEMPLATE_RESET: z.coerce.number().optional(),
 
   // 微信支付 V3(全部 optional,缺失时降级 mock;wechat-pay.ts 仍直接读 process.env,此处仅校验存在性)
   WX_API_BASE: optionalUrl('https://api.mch.weixin.qq.com'),
