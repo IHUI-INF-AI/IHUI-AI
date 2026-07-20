@@ -439,7 +439,103 @@
     "openclaw": "OpenClaw",
     "pricing": "定價",
     "recruitment": "招募",
-    "support": "客服中心"
+    "support": "客服中心",
+    "modelsOverview": "模型概覽",
+    "modelsMarket": "模型市場",
+    "modelsChannels": "通道管理",
+    "modelsKeys": "API 金鑰",
+    "modelsLogs": "呼叫日誌",
+    "modelsChats": "對話記錄",
+    "modelsUsers": "用戶管理",
+    "modelsGroups": "用戶分組",
+    "modelsUsage": "使用統計",
+    "modelsBilling": "帳單管理",
+    "modelsRedeem": "兌換碼",
+    "modelsReferral": "推薦獎勵",
+    "modelsOpenclaw": "OpenClaw",
+    "modelsApiDocs": "API 文檔",
+    "modelsSkills": "技能市場",
+    "messagesNotice": "通知",
+    "messagesLike": "點讚",
+    "messagesFavorite": "收藏",
+    "messagesComment": "評論",
+    "messagesFans": "粉絲",
+    "messagesPrivateLetter": "私信",
+    "userProfile": "個人資料",
+    "userSecurity": "帳號安全",
+    "userNotifications": "通知設定",
+    "userOrders": "我的訂單",
+    "userRealname": "實名認證",
+    "userSubscription": "訂閱管理",
+    "userLearnRecord": "學習記錄",
+    "userComment": "我的評論",
+    "userFans": "我的粉絲",
+    "userFollow": "我的關注",
+    "userAsk": "我的提問",
+    "userCircle": "我的圈子",
+    "userResource": "我的資源",
+    "userPoint": "積分中心",
+    "userExam": "我的考試",
+    "userSignUp": "報名記錄",
+    "eduDashboard": "學習概覽",
+    "eduCourses": "我的課程",
+    "eduExam": "在線考試",
+    "eduCertificates": "我的證書",
+    "eduSchedule": "課程表",
+    "eduNotes": "學習筆記",
+    "eduQa": "問答中心",
+    "eduProgress": "學習進度",
+    "memberDashboard": "會員儀錶板",
+    "memberOrders": "我的訂單",
+    "memberBenefits": "會員權益",
+    "memberPoints": "積分中心",
+    "memberCoupons": "優惠券",
+    "memberSubscription": "訂閱管理",
+    "memberRefunds": "退款記錄",
+    "memberAddresses": "收貨地址",
+    "memberFavorites": "收藏夾",
+    "memberHistory": "瀏覽歷史",
+    "memberInvitations": "邀請記錄",
+    "memberFeedback": "意見反饋",
+    "memberHelp": "幫助中心",
+    "memberSettings": "會員設定",
+    "memberUpgrade": "會員升級",
+    "developerApiDocs": "API 文檔",
+    "developerKeys": "金鑰管理",
+    "developerWebhooks": "Webhook",
+    "developerSandbox": "沙箱環境",
+    "developerLimits": "呼叫限額",
+    "developerLogs": "呼叫日誌",
+    "developerVersions": "版本管理",
+    "developerSubscription": "訂閱管理",
+    "developerNotifications": "通知設定",
+    "developerTeam": "團隊管理",
+    "developerBilling": "帳單管理",
+    "developerSettings": "開發者設定",
+    "adminTheme": "主題管理",
+    "adminThemeList": "主題列表",
+    "adminThemeCreate": "創建主題",
+    "adminThemeColors": "顏色方案",
+    "adminThemeFonts": "字體配置",
+    "adminThemeDarkMode": "暗色模式",
+    "adminThemeAssets": "品牌資產",
+    "adminThemePresets": "預設主題",
+    "adminThemeExport": "匯出",
+    "adminConfigs": "系統配置",
+    "adminDynamic": "動態",
+    "adminGroup": {
+      "operation": "運營管理",
+      "moderation": "內容審核",
+      "finance": "財務管理",
+      "aiAgent": "AI 智能體",
+      "marketing": "營銷直播",
+      "courseExam": "課程考試",
+      "analytics": "監控 BI",
+      "support": "客服工單",
+      "community": "社區圈子",
+      "resource": "資源中心",
+      "developer": "開發者中心"
+    }
   },
   "auth": {
     "loginTitle": "歡迎回來",
@@ -7743,7 +7839,7 @@
     }
   },
   "selfMedia": {
-    "title": "自媒體工作台",
+    "title": "自媒體工作臺",
     "subtitle": "公眾號文章 + 口播稿生成 skill,支援 AI 對話框直接呼叫",
     "wechat": "公眾號文章",
     "koubo": "口播稿",
@@ -13700,7 +13796,7 @@
     "models": "模型",
     "paymentPlatforms": "支付平臺",
     "cloudDatabases": "雲資料庫",
-    "officialPromotion": "官方推廣平台",
+    "officialPromotion": "官方推廣平臺",
     "officialApp": "官方應用",
     "officialWechat": "官方微信",
     "contactUs": "聯繫我們",
@@ -24395,10 +24491,10 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "8 端全覆蓋 · 行業首個",
-      "explore": "100+ 大模型一站式接入",
-      "brand": "自研 CLI 對標 Claude Code",
-      "connect": "LangGraph + MCP + A2A 三棧合一",
+      "content": "8 端全覆蓋 · 行業唯一全棧 AI 平臺",
+      "explore": "100+ LLM 模型 · 一個 API Key 全部訪問",
+      "brand": "自研 CLI 對標 Claude Code · ACP 編輯器嵌入",
+      "connect": "LangGraph + MCP + A2A 三棧 · 1029+ API 端點",
       "ctaPrimary": "立即體驗",
       "ctaSecondary": "瞭解更多",
       "miniappBtn": "微信小程式"
@@ -24441,11 +24537,11 @@
     "marquee": {
       "label": "公告",
       "items": [
-        "8 端全覆蓋 AI 平台 · 100+ 大模型一站式接入 · 自研 CLI 對標 Claude Code",
-        "歡迎加入智匯 AI 社群,早鳥價 ¥6000/人/年,限 18 席",
-        "企業 AI 化決策者社群開放招募,人機協同實戰課程全年免費",
-        "前 18 位會員享有一對一 AI 顧問諮詢,不滿意全額退款",
-        "立即掃碼加入智匯 AI 社群,與決策者一起探索 AI 時代"
+        "8 端全覆蓋 · 100+ LLM 大模型 · 1029+ API 端點 · 自研 CLI 對標 Claude Code",
+        "LangGraph + MCP + A2A 三棧合一 · 11 MCP 工具 + 5 A2A 端點 + 6 ACP 擴展",
+        "17 項 pre-commit 守門 + 122+ migrations · 工業級工程嚴謹",
+        "限 18 席決策者 · 早鳥價 ¥6000/年(原價 ¥18000,3.3 折)· 不滿意全額退款",
+        "1v1 AI 顧問 + 全年課程免費 + AI 文化落地陪跑 · 立即加入智匯 AI 社群"
       ],
       "title": "合作品牌"
     },
@@ -24454,10 +24550,10 @@
       "subtitle": "AI 時代企業理性效率服務與互助社群。幫助決策者深度理解 AI 與企業的關係,建構人機協同的超級組織。",
       "description": "立即加入社群,享受全部 AI 工具、專屬客服、高級模型訪問等專屬權益,助你工作更高效。",
       "brandTitle": "智匯 AI 社群",
-      "brandSubtitle": "8 端全覆蓋的企業級 AI 平臺",
-      "seats": "限 18 席決策者",
-      "earlyBird": "早鳥價 ¥6000/年",
-      "multiEnd": "8 端全覆蓋",
+      "brandSubtitle": "8 端全覆蓋 · 100+ 大模型 · 1029+ API 端點",
+      "seats": "限 18 席 · 決策者專屬",
+      "earlyBird": "早鳥價 ¥6000/年 · 3.3 折",
+      "multiEnd": "8 端全覆蓋 · 行業唯一",
       "perYear": "天/年陪伴",
       "benefits": {
         "benefit1": "全年所有課程免費參加",
@@ -24469,9 +24565,9 @@
       }
     },
     "stats": {
-      "platforms": "端全覆蓋",
-      "models": "大模型接入",
-      "seats": "席限位 · 決策者"
+      "platforms": "端全覆蓋 · 行業唯一",
+      "models": "+ LLM 大模型接入",
+      "seats": "席限量 · 決策者專屬"
     },
     "news": {
       "title": "最新資訊",
@@ -24517,44 +24613,44 @@
       "recommended": "推薦",
       "basic": {
         "name": "基礎版",
-        "description": "適合個人開發者體驗 AI 平臺",
-        "feature1": "無限次AI對話",
+        "description": "個人開發者 · 入門體驗 AI 平臺核心能力",
+        "feature1": "無限次 AI 對話",
         "feature2": "圖片生成",
         "feature3": "語音輸入",
         "feature4": "文件上傳",
-        "feature5": "30天歷史記錄",
+        "feature5": "30 天歷史記錄",
         "feature6": "專屬客服",
         "feature7": "高級模型訪問"
       },
       "professional": {
         "name": "專業版",
-        "description": "適合企業決策者深度使用",
-        "feature1": "無限次AI對話",
+        "description": "企業決策者 · 深度使用 100+ 大模型 + 自研 CLI",
+        "feature1": "無限次 AI 對話",
         "feature2": "圖片/視頻生成",
-        "feature3": "90天歷史記錄",
-        "feature4": "150+ AI工具",
-        "feature5": "API訪問",
+        "feature3": "90 天歷史記錄",
+        "feature4": "150+ AI 工具",
+        "feature5": "API 訪問",
         "feature6": "數據導出",
         "feature7": "優先體驗新功能"
       },
       "enterprise": {
         "name": "企業版",
-        "description": "適閤中小團隊人機協同",
-        "feature1": "無限次AI對話",
+        "description": "中小團隊 · 人機協同 + 團隊協作 + 專屬顧問",
+        "feature1": "無限次 AI 對話",
         "feature2": "圖片/視頻生成",
         "feature3": "永久歷史記錄",
-        "feature4": "全部AI工具",
-        "feature5": "API接口訪問",
+        "feature4": "全部 AI 工具",
+        "feature5": "API 接口訪問",
         "feature6": "團隊協作",
         "feature7": "專屬顧問"
       },
       "flagship": {
         "name": "旗艦版",
-        "description": "適合追求極致 AI 體驗的決策者",
-        "feature1": "無限Token使用",
-        "feature2": "全部AI模型訪問",
+        "description": "追求極致 AI 體驗 · 1v1 顧問 + AI 文化落地陪跑",
+        "feature1": "無限 Token 使用",
+        "feature2": "全部 AI 模型訪問",
         "feature3": "極速響應",
-        "feature4": "專屬VIP客服",
+        "feature4": "專屬 VIP 客服",
         "feature5": "定製化開發",
         "feature6": "專屬培訓課程",
         "feature7": "優先問題處理"
@@ -24565,24 +24661,24 @@
       "titleEn": "POWERFUL FEATURES",
       "subtitle": "8 端全覆蓋的企業級 AI 平臺,從模型集成到自研 CLI,滿足您的各種需求",
       "modelIntegration": {
-        "title": "8 端全覆蓋",
-        "description": "Web/桌面/移動/小程式/CLI/瀏覽器擴展,統一帳號無縫切換"
+        "title": "8 端全覆蓋架構",
+        "description": "Web/桌面/移動/小程式/CLI/擴展 6 端 + API/AI-Service 2 端,行業唯一全棧,統一帳號無縫切換"
       },
       "appStore": {
-        "title": "100+ 大模型",
-        "description": "OpenAI/Claude/Gemini/DeepSeek/Qwen/GLM,一個 API Key 訪問全部"
+        "title": "100+ LLM 大模型",
+        "description": "國際 30+ (OpenAI/Claude/Gemini/Llama) + 國產 15+ (Qwen/GLM/DeepSeek) + 雲 40+ 提供商,一個 API Key 全訪問"
       },
       "contentCreation": {
-        "title": "自研 CLI",
-        "description": "對標 Claude Code,ACP Server + 6 工具一鍵導入"
+        "title": "自研 CLI 對標 Claude Code",
+        "description": "ACP Server 嵌入 Zed/VSCode/Cursor + 6 私有擴展方法 + 6 來源配置一鍵導入"
       },
       "edu": {
         "title": "AI 教育全棧",
-        "description": "課程/直播/考試/證書,全年免費參加"
+        "description": "課程/直播/考試/證書/講師/班級 6 大模組,全年所有課程免費參加"
       },
       "navigation": {
-        "title": "AI 工作空間",
-        "description": "3 種權限模式 + 7 端點運行時攔截,企業級安全"
+        "title": "企業級工作空間",
+        "description": "3 權限模式 + 7 端點運行時攔截 + 60s 超時拒絕 + RBAC 細粒度權限管控"
       }
     },
     "advantages": {
@@ -24590,20 +24686,20 @@
       "titleEn": "CORE ADVANTAGES",
       "subtitle": "為什麼選擇智匯AI",
       "professional": {
-        "title": "專業",
-        "description": "8 端全覆蓋 + 17 守門腳本 + 全棧可觀測性,行業首個企業級 AI 工程實踐"
+        "title": "工程嚴謹 · 行業標竿",
+        "description": "17 項 pre-commit 守門 + 4 husky 鉤子 + 122+ migrations + 12 共享 packages,工業級代碼質量"
       },
       "efficient": {
-        "title": "高效",
-        "description": "LiteLLM 智能路由 + 60% 緩存降本 + LangGraph 圖調度,加速 AI 應用落地"
+        "title": "智能路由 · 極致降本",
+        "description": "LiteLLM 100+ 模型智能路由 + 60% 緩存命中降本 + LangGraph 圖調度,加速 AI 落地"
       },
       "reliable": {
-        "title": "可靠",
-        "description": "99.9% SLA + 60s 超時拒絕 + RBAC + AES-256-GCM 加密,企業級安全"
+        "title": "企業級安全 · 零風險",
+        "description": "99.9% SLA + AES-256-GCM 加密 + RBAC + 5 語言 i18n parity + 不滿意全額退款"
       },
       "innovative": {
-        "title": "創新",
-        "description": "LangGraph + MCP + A2A 三棧合一,行業首個 Agent 間通信協議"
+        "title": "三棧合一 · 行業前沿",
+        "description": "LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端點 + 6 ACP 擴展,對標 Claude Code 全維度超越"
       }
     }
   },
