@@ -1066,6 +1066,27 @@
       "decision": {
         "allow": "允许",
         "deny": "拒绝"
+      },
+      "auditRequest": {
+        "title": "权限确认",
+        "description": "AI 正在请求执行以下操作,请确认是否允许",
+        "workspace": "工作区",
+        "tool": "工具",
+        "details": "操作详情",
+        "allow": "允许本次",
+        "deny": "拒绝",
+        "pending": "等待用户确认中...",
+        "expired": "请求已超时",
+        "queue": "队列中还有 {count} 个请求",
+        "toolNames": {
+          "fs.read": "读取文件",
+          "fs.write": "写入文件",
+          "fs.edit": "编辑文件",
+          "fs.delete": "删除文件",
+          "fs.grep": "搜索内容",
+          "fs.glob": "查找文件",
+          "fs.run": "执行命令"
+        }
       }
     },
     "permissionsPage": {
@@ -13597,9 +13618,9 @@
     "addressLabel": "地址:",
     "addressLine1": "长春市高新区越达路107号",
     "addressLine2": "人工智能人才孵化基地",
-    "companyContact": "电话:18643389808",
-    "companyEmail": "邮箱:502319984{'@'}qq.com",
-    "companyEmail2": "lizong{'@'}aizhs.top",
+    "companyContact": "电话: 18643389808",
+    "companyEmail": "邮箱: 502319984 [at] qq.com",
+    "companyEmail2": "lizong [at] aizhs.top",
     "supportedPlatforms": "支持接入平台",
     "models": "模型",
     "paymentPlatforms": "支付平台",
@@ -13608,7 +13629,53 @@
     "officialApp": "官方应用",
     "contactUs": "联系我们",
     "icp": "吉ICP备2025027274号",
-    "copyright": "Copyright © 2025 智汇 AI集团 版权所有"
+    "copyright": "© 2026 智汇 AI · 北京 · 保留所有权利",
+    "platforms": {
+      "n8n": "n8n",
+      "coze": "Coze"
+    },
+    "modelItems": {
+      "gpt": "GPT",
+      "claude": "Claude",
+      "gemini": "Gemini",
+      "deepseek": "DeepSeek",
+      "qwen": "Qwen",
+      "doubao": "Doubao",
+      "llama": "Llama",
+      "mistral": "Mistral"
+    },
+    "payments": {
+      "wechat": "微信支付",
+      "alipay": "支付宝",
+      "douyin": "抖音支付",
+      "unionpay": "银联",
+      "visa": "VISA"
+    },
+    "databases": {
+      "mysql": "MySQL",
+      "postgresql": "PostgreSQL",
+      "mongodb": "MongoDB",
+      "redis": "Redis",
+      "sqlite": "SQLite"
+    },
+    "promos": {
+      "promo1": "推广平台 1",
+      "promo2": "推广平台 2",
+      "promo3": "推广平台 3",
+      "promo4": "推广平台 4",
+      "promo5": "推广平台 5",
+      "promo6": "推广平台 6",
+      "promo7": "推广平台 7",
+      "promo8": "推广平台 8",
+      "promo11": "推广平台 11",
+      "promo12": "推广平台 12",
+      "promo14": "推广平台 14",
+      "promo15": "推广平台 15",
+      "promo17": "推广平台 17",
+      "x": "X",
+      "facebook": "Facebook",
+      "github": "GitHub"
+    }
   },
   "agentCategory": {
     "title": "智能体收费配置管理",
