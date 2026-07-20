@@ -1167,18 +1167,28 @@
     "modelDescOpenRouterAuto": "Smart Routing · Multi-vendor",
     "modelConfigured": "API Key for current model is configured",
     "modelNotConfigured": "API Key for current model is not configured, set it up in one click on the Models page",
+    "manageModels": "Customize model configurations",
     "slashCmd": {
       "summary": "Summarize current conversation",
       "translate": "Translate text",
       "explain": "Explain concept",
       "code": "Generate code",
-      "polish": "Polish text"
+      "polish": "Polish text",
+      "wechat-article": "Generate WeChat article",
+      "koubo-script": "Generate voice-over script"
     },
     "cmdSummary": "Please summarize the above conversation and extract key information",
     "cmdTranslate": "Please translate the following content to English:",
     "cmdExplain": "Please explain the following concept in detail:",
     "cmdCode": "Please implement the following feature with code and comments:",
     "cmdPolish": "Please polish the following text to make it more professional and fluent:",
+    "cmdWechatArticle": "Please help me generate a WeChat official account article. Requirements:\n1. Topic:\n2. Summary:\n3. Highlight markers (quote card / tip block / citation / code block / subheading)\n4. Image suggestions:\nRun the content-engine pipeline (Moyu Green theme + 22-check self-validation + draft box push).",
+    "cmdKouboScript": "Please help me generate 8 daily Douyin voice-over scripts. Requirements:\n1. Date: MMDD\n2. Topic direction:\n3. Dual-gate validation (ambiguity compression / cross-script vocabulary / full validation / grammar / hot-topic coverage)\nRun the koubo-workflow pipeline (constraint-first writing method).",
+    "selfMediaSkill": "Self-Media Skill",
+    "wechatArticle": "WeChat Article",
+    "wechatArticleDesc": "Moyu Green layout + 22-check validation + draft box push",
+    "kouboScript": "Voice-over Script",
+    "kouboScriptDesc": "8 daily Douyin voice-over scripts + dual-gate validation",
     "tpl": {
       "email": {
         "name": "Email Draft",
@@ -13576,9 +13586,16 @@
     "cloudDatabases": "Cloud Databases",
     "officialPromotion": "Official Promotion Platforms",
     "officialApp": "Official App",
+    "officialWechat": "Official WeChat",
     "contactUs": "Contact Us",
+    "communityGroup": "Community Group",
+    "agreementSubtitle": "Please read the following agreement terms carefully",
+    "contactSubtitle": "Reach us through the following channels",
+    "contactWechat": "WeChat QR Code",
+    "contactWechatHint": "Scan to add customer service WeChat, or search ID ok502319984",
+    "ecosystem": "Ecosystem Partners",
     "icp": "Ji ICP No. 2025027274",
-    "copyright": "© 2026 Zhihui AI · Beijing · All rights reserved",
+    "copyright": "© 2025 Zhihui AI Group · China",
     "platforms": {
       "n8n": "n8n",
       "coze": "Coze"
@@ -24364,10 +24381,10 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "Zhihui AI Community, exploring infinite AI possibilities",
-      "explore": "Explore infinite AI possibilities",
-      "brand": "Zhihui AI Community",
-      "connect": "Connect ideas, unleash the unknown",
+      "content": "8-Platform Coverage · Industry First",
+      "explore": "100+ LLMs Unified Access",
+      "brand": "Self-Developed CLI, Claude Code Alternative",
+      "connect": "LangGraph + MCP + A2A Triple Stack",
       "ctaPrimary": "Try Now",
       "ctaSecondary": "Learn More",
       "miniappBtn": "WeChat Mini Program"
@@ -24410,6 +24427,7 @@
     "marquee": {
       "label": "Announcement",
       "items": [
+        "8-Platform AI Platform · 100+ LLMs Unified Access · Self-Developed CLI, Claude Code Alternative",
         "Welcome to the Zhihui AI Community, early-bird price ¥6000/person/year, limited to 18 seats",
         "Enterprise AI Decision-Maker Community is now open for recruitment, with free human-machine collaboration practical courses all year",
         "The first 18 members enjoy one-on-one AI consultant advice, full refund if not satisfied",
@@ -24421,6 +24439,11 @@
       "title": "Welcome to the Zhihui AI Community",
       "subtitle": "AI-era rational efficiency services and a mutual-aid community. We help decision-makers deeply understand the relationship between AI and the enterprise, building a super organization of human-machine collaboration.",
       "description": "Join the community now to access all AI tools, dedicated support, advanced models, and other exclusive benefits to boost your productivity.",
+      "brandTitle": "Zhihui AI Community",
+      "brandSubtitle": "8-Platform Enterprise-Grade AI Platform",
+      "seats": "Limited to 18 Decision-Maker Seats",
+      "earlyBird": "Early-Bird ¥6000/year",
+      "multiEnd": "8-Platform Coverage",
       "perYear": "days/year of companionship",
       "benefits": {
         "benefit1": "Free participation in all courses throughout the year",
@@ -24430,6 +24453,11 @@
         "benefit5": "Priority access to AI assistant",
         "benefit6": "Full refund if not satisfied"
       }
+    },
+    "stats": {
+      "platforms": "Platform Coverage",
+      "models": "LLMs Integrated",
+      "seats": "Seats · Decision-Makers"
     },
     "news": {
       "title": "Latest News",
@@ -24475,7 +24503,7 @@
       "recommended": "Recommended",
       "basic": {
         "name": "Basic",
-        "description": "For individuals and professionals",
+        "description": "For individual developers exploring AI",
         "feature1": "Unlimited AI chat",
         "feature2": "Image generation",
         "feature3": "Voice input",
@@ -24486,7 +24514,7 @@
       },
       "professional": {
         "name": "Professional",
-        "description": "For power users and small teams",
+        "description": "For enterprise decision-makers, in-depth use",
         "feature1": "Unlimited AI chat",
         "feature2": "Image/video generation",
         "feature3": "90-day history",
@@ -24497,7 +24525,7 @@
       },
       "enterprise": {
         "name": "Enterprise",
-        "description": "For advanced users and teams",
+        "description": "For SMB teams, human-machine collaboration",
         "feature1": "Unlimited AI chat",
         "feature2": "Image/video generation",
         "feature3": "Permanent history",
@@ -24508,7 +24536,7 @@
       },
       "flagship": {
         "name": "Flagship",
-        "description": "For users seeking the ultimate experience",
+        "description": "For decision-makers seeking the ultimate AI experience",
         "feature1": "Unlimited token usage",
         "feature2": "All AI models access",
         "feature3": "Ultra-fast response",
@@ -24521,26 +24549,26 @@
     "features": {
       "title": "Powerful Features",
       "titleEn": "POWERFUL FEATURES",
-      "subtitle": "Explore our comprehensive AI services, from model integration to app store, meeting your every need",
+      "subtitle": "8-platform enterprise-grade AI platform, from model integration to self-developed CLI, meeting your every need",
       "modelIntegration": {
-        "title": "Multi-Model Integration",
-        "description": "Integrate mainstream LLMs, switch on demand, meeting multi-scenario dialogue and reasoning needs"
+        "title": "8-Platform Coverage",
+        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Browser Extension, unified account seamless switching"
       },
       "appStore": {
-        "title": "Agents",
-        "description": "Massive agents ready to use, covering general, industry, and functional scenarios"
+        "title": "100+ LLMs",
+        "description": "OpenAI/Claude/Gemini/DeepSeek/Qwen/GLM, one API key for all"
       },
       "contentCreation": {
-        "title": "Content Creation",
-        "description": "AI text, image, video one-stop generation, letting ideas land quickly"
+        "title": "Self-Developed CLI",
+        "description": "Claude Code alternative, ACP Server + 6 tools one-click import"
       },
       "edu": {
-        "title": "AI Education",
-        "description": "Systematic AI courses and practical training, helping you build a complete knowledge system"
+        "title": "Full-Stack AI Education",
+        "description": "Courses/Live/Exams/Certificates, free all year"
       },
       "navigation": {
-        "title": "Smart Navigation",
-        "description": "Smart routing and scenario recognition, precisely reaching the capabilities you need"
+        "title": "AI Workspace",
+        "description": "3 permission modes + 7 runtime interception endpoints, enterprise-grade security"
       }
     },
     "advantages": {
@@ -24549,19 +24577,19 @@
       "subtitle": "Why choose Zhihui AI",
       "professional": {
         "title": "Professional",
-        "description": "Deeply cultivate AI field, providing professional technical solutions and industry-leading products and services"
+        "description": "8-platform coverage + 17 guardrail scripts + full-stack observability, industry's first enterprise-grade AI engineering"
       },
       "efficient": {
         "title": "Efficient",
-        "description": "Simplify development workflow, rich API interfaces and tools, letting AI applications go live quickly"
+        "description": "LiteLLM smart routing + 60% cache cost reduction + LangGraph orchestration, accelerating AI app deployment"
       },
       "reliable": {
         "title": "Reliable",
-        "description": "Stable and reliable service guarantee, 99.9% availability, ensuring business continuity"
+        "description": "99.9% SLA + 60s timeout rejection + RBAC + AES-256-GCM encryption, enterprise-grade security"
       },
       "innovative": {
         "title": "Innovative",
-        "description": "Continuous technological innovation, agent clusters, hierarchical planning and other cutting-edge AI capabilities"
+        "description": "LangGraph + MCP + A2A triple stack, industry's first inter-agent communication protocol"
       }
     }
   },
