@@ -63,20 +63,20 @@ export function BrandMarquee() {
         <Sparkles className="h-3 w-3 text-primary" />
         <span>TRUSTED BY 24+ BRANDS</span>
       </header>
-      <div className="relative overflow-hidden rounded-lg border bg-card px-3 py-2">
+      <div className="relative overflow-hidden rounded-lg border bg-card px-3 py-3">
         <div className="flex whitespace-nowrap will-change-transform animate-marquee">
           {loop.map((brand, idx) => (
             <div
               key={`${brand.nameKey}-${idx}`}
-              className="mx-2 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-white transition-colors hover:border-primary/40"
+              className="mx-3 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md border bg-white transition-colors hover:border-primary/40"
               title={t(brand.nameKey)}
             >
               <img
                 src={brand.src}
                 alt={t(brand.nameKey)}
-                width={20}
-                height={20}
-                className="h-5 w-5 object-contain"
+                width={36}
+                height={36}
+                className="h-9 w-9 object-contain"
                 loading="eager"
                 decoding="sync"
               />
