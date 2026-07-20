@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Menu } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
@@ -44,6 +45,7 @@ import { useMounted } from '@/hooks/use-mounted'
 export function GlobalShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
+  const t = useTranslations('a11y')
   // 静态 ID(非 useId),避免 React 18 useId 在 SSR/CSR 之间偶尔漂移导致 hydration mismatch。
   // Sidebar 内部会再派生 desktop/mobile 两个 nav id,确保两个 <nav> 元素不会共享同一 id。
   const sidebarId = 'main-sidebar'
@@ -133,7 +135,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             size="icon"
             onClick={() => setMobileOpen((o) => !o)}
             className="absolute left-2 top-2 z-30 h-9 w-9 lg:hidden"
-            aria-label="菜单"
+            aria-label={t('menu')}
           >
             <Menu className="h-5 w-5" />
           </Button>
