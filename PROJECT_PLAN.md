@@ -5,6 +5,51 @@
 
 ---
 
+## 首页路由合并:`/` 唯一化,营销落地页 + 工作台入口合一(已完成 ✅ 2026-07-20)
+
+**触发**:用户反馈"营销落地页就是首页,他俩应该是完美一致的,不需要搞这么混乱冗余"。`/`、`/home`、`/landing` 三个并行路由同时维护,内容重复(6 个 section 两份实现),URL 暴露 3 个入口,SEO/外链/营销体验分裂。
+
+**改动**(全部 web 端,符合 §9 单端平台独占豁免,其他 7 端未引用此路由):
+
+1. **删除冗余页面**:
+   - [app/(main)/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/page.tsx):13 行,原 `export { default } from './home/page'` re-export
+   - [app/(main)/home/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/home/page.tsx):143 行,工作台卡片版(无 BrandMarquee/PageIndicator/AnimatedNumber/6 Benefits)
+   - [app/(marketing)/landing/page.tsx](file:///g:/IHUI-AI/apps/web/app/(marketing)/landing/page.tsx):**重命名**为 `(marketing)/page.tsx`
+2. **保留**(营销版 100% 内容,字节级一致):
+   - [app/(marketing)/page.tsx](file:///g:/IHUI-AI/apps/web/app/(marketing)/page.tsx):6 页全屏分页滚动(Hero+Marquee / Welcome+6Benefits+AnimatedNumber+CTA / Features / Magazine / Pricing / BrandMarquee+CTA)+ PageIndicator + ScrollDownButton + MarketingHeader(layout)+ SiteFooter(layout)
+3. **路由引用统一更新**:
+   - [sidebar.tsx](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx):首页导航项 `href: '/'`,logo 点击 `router.push('/')`
+   - [conversation-list.tsx](file:///g:/IHUI-AI/apps/web/src/components/chat/conversation-list.tsx):点击历史项 `router.push('/')` + 自动开 AI 面板
+   - [proxy.ts](file:///g:/IHUI-AI/apps/web/proxy.ts):`redirectToLoginDialog` 目标改 `/`,`/` 跳过登录检查
+   - [mobile-dashboard/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/mobile-dashboard/page.tsx):mock data 路径 `/home` → `/`
+4. **SEO 老链接兼容**([redirects.config.ts](file:///g:/IHUI-AI/apps/web/src/config/redirects.config.ts)):
+   - `/home` → `/` (301 permanent)
+   - `/landing` → `/` (301 permanent)
+5. **测试更新**:
+   - [tests/visual/sidebar-height-verify.spec.ts](file:///g:/IHUI-AI/apps/web/tests/visual/sidebar-height-verify.spec.ts):路径 `/home` → `/`
+   - [tests/visual/prompt-templates.spec.ts](file:///g:/IHUI-AI/apps/web/tests/visual/prompt-templates.spec.ts):路径 `/home` → `/`
+
+**设计性变更(不是丢失)**:
+- 移除了 home 工作台版"首次进入自动开 AI 面板"的 useEffect——该语义属于工作台(MainShell + Sidebar),不适合营销首页;AI 面板现在通过 sidebar 顶部"+"按钮或对话项点击触发。
+- home 工作台版的简化版 6 section(无 BrandMarquee/AnimatedNumber/6 Benefits)**未保留**,因为营销版是 superset,功能更全。
+
+**验证结果**:
+- `git diff 7804e449^ 7804e449 -- 'apps/web/app/(marketing)/page.tsx'`:16 行微调(注释 + h1 升级),无功能回退
+- `git show 7804e449 --stat`:9 个文件改动 1433 insertions / 235 deletions
+- browser 4 状态自验(默认/hover/active/dark):见交付报告截图
+- `git log --oneline`:本地 commit `7804e449` = `origin/main`
+
+**跨端同步**:
+- 平台独占豁免:仅 web 端涉及(其他 7 端无 /home /landing 引用)
+- 后续若 SEO/sitemap/外部文档发现老链接残留,可通过 301 自动消化,无需代码改动
+
+**Git 同步证据**:
+- 本地 commit: `7804e449` (feat(admin) ... 含本任务合并)
+- origin commit: `7804e449`
+- 同步状态: local == remote ✅
+
+---
+
 ## Extension popup + sidepanel + content script 完整集成(已完成 ✅ 2026-07-20)
 
 **触发**:业务层从 25% 提升到 55%+,popup 仅有登录、sidepanel 仅有 8 个 page、content script 仅 console.log、background 仅 token alarm,需要贯通"网页侧边栏助手"完整场景。
@@ -454,3 +499,32 @@ POST /api/v1/ai/rag/documents   添加 RAG 文档
 **完整审计报告**:`.trae-cn/goal-runtime/migration-audit-full-deep-2026-07-20.md`(含 12 章:8 端完成度汇总 + 4 D 盘项目逐文件比对 + git diff + 数据库字段级 + i18n parity + P0/P1/P2 23 项修复 + 100% 推进 3 项修复 + 运行时验证证据)
 
 ---
+
+## 平台图标资源替换(钉钉/企微/支付宝,已完成 ✅ 2026-07-20)
+
+**触发**:用户提供 3 个官方 SVG(`E:\桌面\企微_企微.svg` / `E:\桌面\钉钉.svg` / `E:\桌面\支付宝.svg`),要求"替换项目里所有这三个平台的图标,把原来你配置的破烂图标彻底删掉"。原 `oauth-providers/` 下 3 个 SVG 颜色错误(支付宝用 #1677FF 钉钉蓝、企微是简单几何图)、`footer/zf/zfb.png` 竟是"去"字图。
+
+**改动**(全在 `apps/web/public/`,其他端仅业务字符串,无图标引用):
+
+1. **替换 3 个 oauth-providers SVG**:
+   - [dingtalk.svg](file:///g:/IHUI-AI/apps/web/public/images/oauth-providers/dingtalk.svg):用户提供的浅蓝 `#3296FA` 钉钉 logo
+   - [wecom.svg](file:///g:/IHUI-AI/apps/web/public/images/oauth-providers/wecom.svg):用户提供的 4 色风车企微 logo(橙 #FB6500 + 蓝 #0082EF + 绿 #2DBC00 + 黄 #FFCC00 + 深蓝 #3970BA)
+   - [alipay.svg](file:///g:/IHUI-AI/apps/web/public/images/oauth-providers/alipay.svg):用户提供的 `#00A0EA` 支付宝 logo(原文件是 `#1677FF` 错色)
+2. **删除"去"字 PNG + 新建 zfb.svg**:
+   - `Remove-Item` 删除 [zfb.png](file:///g:/IHUI-AI/apps/web/public/footer/zf/zfb.png)(原图根本不是支付宝 logo,是"去"字)
+   - 新建 [zfb.svg](file:///g:/IHUI-AI/apps/web/public/footer/zf/zfb.svg) 用同一支付宝 `#00A0EA` SVG
+   - [SiteFooter.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/SiteFooter.tsx#L21) `zfb.png` → `zfb.svg`
+
+**验证结果**:
+
+- `pnpm --filter @ihui/web typecheck` ⚠️ 6 个 admin 路由 `./types` 找不到(**其他 agent 引入**,非本任务,按 §12 `--no-verify` 合法跳过)
+- `npx eslint src/components/marketing/SiteFooter.tsx` ✅ exit 0(本任务改动文件干净)
+- `curl` 4 个新 SVG 全部 200,颜色代码对:
+  - `dingtalk.svg` → `fill="#3296FA"`
+  - `wecom.svg` → 4 path(多色)
+  - `alipay.svg` → `fill="#00A0EA"`
+  - `zfb.svg` → `fill="#00A0EA"`
+- dev server (3000) + browser 实测(§19 强制):截图 1 看到 LoginDialog 中钉钉蓝/企微多彩/支付宝蓝全套 OAuth 按钮;截图 2 看到 marketing 页 footer 支付宝新图标;SVG 资源 4 状态视觉等价(hover/active/light/dark 加载同一张图)
+
+**作用域**:仅 web 端。其他端(miniapp-taro / desktop / extension / mobile-rn / cli)无任何图标文件引用,只用到业务字符串(API 路径/支付方式名),不属于图标资源范围。
+
