@@ -1,6 +1,29 @@
 # IHUI-AI
 
-> 让每个人都拥有自己的 AI 程序 —— 一个全栈、全端、全场景的开源 AI 应用共建平台。
+<p align="center">
+  <img src="apps/web/public/images/logo.png" width="120" alt="IHUI-AI Logo" />
+</p>
+
+<p align="center">
+  <strong>让每个人都拥有自己的 AI 程序 —— 一个全栈、全端、全场景的开源 AI 应用共建平台。</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml/badge.svg" alt="Build" /></a>
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml/badge.svg" alt="E2E" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0" /></a>
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI"><img src="https://img.shields.io/github/stars/IHUI-INF-AI/IHUI-AI?style=social" alt="Stars" /></a>
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/issues"><img src="https://img.shields.io/github/issues/IHUI-INF-AI/IHUI-AI.svg" alt="Issues" /></a>
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" /></a>
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI"><img src="https://img.shields.io/github/last-commit/IHUI-INF-AI/IHUI-AI.svg" alt="Last Commit" /></a>
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI"><img src="https://img.shields.io/github/repo-size/IHUI-INF-AI/IHUI-AI.svg" alt="Repo Size" /></a>
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/graphs/contributors"><img src="https://img.shields.io/github/contributors/IHUI-INF-AI/IHUI-AI.svg" alt="Contributors" /></a>
+</p>
+
+<p align="center">
+  <strong>8 端全覆盖</strong> · <strong>100+ 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈协同</strong> · <strong>5 语言 i18n parity</strong>
+</p>
 
 IHUI-AI 是一套企业级全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)架构,横跨 **8 个端**(Web / API / AI 服务 / CLI / 桌面 / 浏览器扩展 / 移动 React Native / 小程序 Taro),统一接入 **100+ 大模型**,内置 **LangGraph + MCP + A2A** 三栈协同,提供从认证、计费、内容、工作空间到 AI 工作流编排的完整能力。
 
@@ -259,7 +282,7 @@ IHUI-AI/
 
 ```bash
 # 1. 克隆
-git clone <repo-url> IHUI-AI && cd IHUI-AI
+git clone https://github.com/IHUI-INF-AI/IHUI-AI.git IHUI-AI && cd IHUI-AI
 
 # 2. 配置环境变量
 cp .env.example .env
@@ -588,8 +611,8 @@ node apps/api/scripts/pg-backup.mjs
 | [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划                                                   |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md)                       | 变更日志                                                         |
 | [docs/INCIDENTS.md](docs/INCIDENTS.md)                       | 历史事故复盘                                                     |
-| [AGENTS.md](AGENTS.md)                                       | AI Agent 协作规范(21 节强制规则)                                 |
-| [PROJECT_PLAN.md](PROJECT_PLAN.md)                           | 项目唯一任务计划文档                                             |
+| [AGENTS.md](AGENTS.md)                                       | AI Agent 协作规范(21 节强制规则,可选阅读:展示本项目如何与 AI 协作开发) |
+| [PROJECT_PLAN.md](PROJECT_PLAN.md)                           | 项目任务计划与历史归档(内部开发记录,了解演进轨迹)              |
 
 ---
 
