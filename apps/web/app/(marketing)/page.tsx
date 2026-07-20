@@ -27,7 +27,7 @@ import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
  *   2) 5 Features + 4 Advantages(原 Page 3,内容高度足够)
  *   3) Pricing 4 卡 + BrandMarquee + CTA + 4 个 Stat 数据条(三段 justify-between 撑满)
  *   4) Magazine 新闻 grid + Footer(footer 自然高度,snap 即可)
- * - 顶部 MarketingHeader(由 marketing layout 提供)+ 底部 SiteFooter
+ * - 顶部 MarketingHeader 已移除(sidebar 统一导航,2026-07-20)+ 底部 SiteFooter
  * - 不再使用 /home 工作区版首页,统一为营销体验
  *
  * 2026-07-20 重构(从 7 页减为 4 页):
@@ -64,7 +64,7 @@ export default function HomePage() {
       <main
         id="home-scroll-container"
         className="snap-y snap-mandatory overflow-x-hidden overflow-y-scroll"
-        style={{ height: 'calc(100vh - 3.5rem)' }}
+        style={{ height: 'calc(100vh - 1rem)' }}
       >
         {/* Page 1: Hero typewriter + 4 信任徽章 + 6 Benefits 横向 grid + 通知跑马灯
             - 2026-07-20 重构(根因修复):section 显式 flex flex-col,内层主区改 flex-1
@@ -75,7 +75,7 @@ export default function HomePage() {
         <section
           id="home-page-1"
           className="flex snap-start flex-col"
-          style={{ minHeight: 'calc(100vh - 3.5rem)' }}
+          style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('indicator.page1', { fallback: 'Hero' })}
         >
           {/* 主区:hero + 信任行,flex-1 占满所有剩余空间 */}
@@ -125,7 +125,7 @@ export default function HomePage() {
         <section
           id="home-page-2"
           className="flex snap-start flex-col"
-          style={{ minHeight: 'calc(100vh - 3.5rem)' }}
+          style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('features.title', { fallback: 'Features' })}
         >
           <div className="flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
@@ -143,7 +143,7 @@ export default function HomePage() {
         <section
           id="home-page-3"
           className="snap-start"
-          style={{ minHeight: 'calc(100vh - 3.5rem)' }}
+          style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('pricing.title', { fallback: 'Pricing' })}
         >
           <div className="flex h-full w-full flex-col justify-between gap-4 px-4 py-4 md:px-8 md:py-6">
