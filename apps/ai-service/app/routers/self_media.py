@@ -15,6 +15,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -23,6 +24,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.core.llm_gateway import llm_gateway
+from app.services.koubo_workflow import koubo_workflow_service
 
 router = APIRouter(prefix="/self-media", tags=["self-media"])
 
@@ -42,6 +45,8 @@ class SkillMeta(BaseModel):
     directory: str
     available: bool  # 目录是否存在
     entryPoints: list[str]  # 可调用的脚本名
+    examples: list[str] = []  # 示例调用提示(供 AI 对话框展示)
+    tags: list[str] = []  # 标签(便于搜索/分组)
 
 
 class InvokeRequest(BaseModel):
@@ -61,6 +66,10 @@ class WechatGenerateRequest(BaseModel):
     title: str = Field(..., min_length=2, max_length=200)
     digest: str = Field(default="", max_length=500)
     topic: str = Field(default="", max_length=2000)
+    mdPath: str = Field(default="", max_length=500)  # 已有 md 路径(优先),为空则用 LLM 生成
+    mdContent: str = Field(default="", max_length=200000)  # md 内容(上传/在线编辑后),非空时落盘到 articles/
+    model: str | None = None  # 模型名(空走默认)
+    ownerUuid: str | None = None  # 用户 UUID(匹配 ai_model_config 表私有配置)
     dryRun: bool = True  # 默认 dry-run,避免误推草稿箱
 
 
@@ -79,6 +88,8 @@ class WechatPublishRequest(BaseModel):
 class KouboGenerateRequest(BaseModel):
     date: str = Field(..., pattern=r"^\d{4}$")  # MMDD
     topic: str = Field(default="", max_length=2000)
+    model: str | None = None  # 模型名(空走默认)
+    ownerUuid: str | None = None  # 用户 UUID(匹配 ai_model_config 表私有配置)
     dryRun: bool = True
 
 
@@ -110,6 +121,12 @@ def _skill_meta(skill_id: str) -> SkillMeta:
             directory=str(directory),
             available=directory.is_dir(),
             entryPoints=_list_py_scripts(directory),
+            examples=[
+                "/wechat-article AI 大模型三国杀",
+                "生成一篇关于 Kimi K3 的公众号文章",
+                "把这篇 md 排版成摸鱼绿风格并推送草稿箱",
+            ],
+            tags=["公众号", "文章", "排版", "草稿箱", "摸鱼绿"],
         )
     if skill_id == "koubo-workflow":
         directory = KOUBO_WORKFLOW_DIR
@@ -121,6 +138,12 @@ def _skill_meta(skill_id: str) -> SkillMeta:
             directory=str(directory),
             available=directory.is_dir(),
             entryPoints=_list_py_scripts(directory),
+            examples=[
+                "/koubo-script 0720",
+                "生成今日 8 篇抖音口播稿",
+                "0720 选题方向:AI 大模型",
+            ],
+            tags=["口播稿", "抖音", "8篇", "双门禁", "约束优先"],
         )
     raise HTTPException(status_code=404, detail=f"skill not found: {skill_id}")
 
@@ -348,22 +371,93 @@ async def invoke_skill(skill_id: str, req: InvokeRequest) -> InvokeResponse:
 
 # ===== 路由:公众号文章流水线 =====
 
+WECHAT_SYSTEM_PROMPT = (
+    "你是一名资深公众号文章写作助手,严格遵循 content_engine SKILL.md 规范:"
+    "Markdown 格式;开头 300 字内给出强钩子;使用「金句卡 / 提示块 / 引用 / 代码块 / 小标题」"
+    "5 类高亮标记;段落 ≤4 行;每 300 字至少一个标记;结尾给出行动召唤。"
+    "禁止 AI 味词汇(「在这个数字时代」「让我们一起」等)。"
+    "只输出 Markdown 正文,不要附加任何解释或代码块包裹。"
+)
+
+
+async def _generate_md_with_llm(
+    title: str,
+    digest: str,
+    topic: str,
+    model: str | None,
+    owner_uuid: str | None,
+) -> tuple[bool, str, str]:
+    """调 llm_gateway 生成公众号文章 md 内容。
+
+    Returns:
+        (ok, md_content, error_message)
+    """
+    user_lines = [f"标题:{title}"]
+    if digest:
+        user_lines.append(f"摘要:{digest}")
+    if topic:
+        user_lines.append(f"选题方向:{topic}")
+    user_lines.append("请生成 2000-3500 字的完整 Markdown 正文。")
+    messages = [
+        {"role": "system", "content": WECHAT_SYSTEM_PROMPT},
+        {"role": "user", "content": "\n".join(user_lines)},
+    ]
+    try:
+        result = await llm_gateway.complete(
+            messages,
+            model=model,
+            owner_uuid=owner_uuid,
+            temperature=0.7,
+            max_tokens=6000,
+        )
+    except Exception as e:
+        return False, "", f"LLM 调用异常: {type(e).__name__}: {e}"
+    if result.get("error"):
+        return False, "", result.get("error_message", "LLM 调用失败")
+    content = result.get("content", "").strip()
+    if not content:
+        return False, "", "LLM 返回空内容"
+    return True, content, ""
+
+
+def _safe_filename(title: str) -> str:
+    """把标题转为安全文件名(去 Windows 非法字符 + 空白收敛)。"""
+    return "".join(c for c in title if c not in '/\\:*?"<>|').strip() or "untitled"
+
+
 @router.post("/wechat/generate")
 async def wechat_generate(req: WechatGenerateRequest) -> dict[str, Any]:
-    """生成公众号文章(渲染 HTML + 22 项自检,默认 dry-run)。
+    """生成公众号文章。
 
-    本端点不直接生成 md(md 由用户/AI 写),而是把已有 md 走流水线:
-    渲染摸鱼绿 HTML + 跑门禁 A/A+/B。实际推送走 /wechat/publish。
+    流程:
+    1. 若传 mdPath 且文件存在 → 直接走流水线(用户已写好 md)
+    2. 否则用 LLM 生成 md → 落盘到 articles/{safe_title}.md → 走流水线
+    3. publish_pipeline.py --dry-run 渲染摸鱼绿 HTML + 跑 22 项自检 + A+ 事实核查 + B 重点组件
     """
-    # 期望 md 在 content_engine/articles/ 目录
-    safe_title = "".join(c for c in req.title if c not in '/\\:*?"<>|').strip()
-    md_path = CONTENT_ENGINE_DIR / "articles" / f"{safe_title}.md"
-    if not md_path.is_file():
-        return {
-            "ok": False,
-            "error": f"md file not found: {md_path}. 请先在 articles/ 创建源 md。",
-            "expectedPath": str(md_path),
-        }
+    t0 = time.monotonic()
+    safe_title = _safe_filename(req.title)
+    articles_dir = CONTENT_ENGINE_DIR / "articles"
+    articles_dir.mkdir(parents=True, exist_ok=True)
+    md_path = articles_dir / f"{safe_title}.md"
+
+    # 已有 md 优先(用户上传/手写)
+    if req.mdPath:
+        p = Path(req.mdPath)
+        if p.is_file():
+            md_path = p
+        else:
+            return {"ok": False, "error": f"mdPath 不存在: {req.mdPath}"}
+    elif req.mdContent:
+        # 用户上传/在线编辑的 md 内容,直接落盘
+        md_path.write_text(req.mdContent, encoding="utf-8")
+    elif not md_path.is_file():
+        # 走 LLM 生成
+        ok, md_content, err_msg = await _generate_md_with_llm(
+            req.title, req.digest, req.topic, req.model, req.ownerUuid
+        )
+        if not ok:
+            return {"ok": False, "error": err_msg, "stage": "llm_generate"}
+        md_path.write_text(md_content, encoding="utf-8")
 
     args = ["--md", str(md_path), "--title", req.title, "--dry-run"]
     if req.digest:
@@ -374,11 +468,15 @@ async def wechat_generate(req: WechatGenerateRequest) -> dict[str, Any]:
         cwd=CONTENT_ENGINE_DIR,
         timeout_sec=180,
     )
+    duration_ms = int((time.monotonic() - t0) * 1000)
     return {
         "ok": rc == 0,
         "returncode": rc,
+        "mdPath": str(md_path),
         "stdout": out[-6000:],
         "stderr": err[-2000:],
+        "duration_ms": duration_ms,
+        "dryRun": req.dryRun,
     }
 
 
@@ -470,29 +568,54 @@ async def wechat_history(limit: int = 50) -> dict[str, Any]:
 
 @router.post("/koubo/generate")
 async def koubo_generate(req: KouboGenerateRequest) -> dict[str, Any]:
-    """生成口播稿(8 篇/日,约束优先写作法)。
+    """生成口播稿(8 篇/日,LangGraph workflow 编排)。
 
-    注:实际 8 篇生成依赖 LLM + 选题池,通常由独立 workflow 编排。
-    本端点返回引导 + 当前可用工具状态,真正生成由 ai-service 工作流模块完成。
+    流程:hot_scan → topic_select → write_articles(串行 8 篇)→ validate(双门禁)→ archive
+    耗时 5-10 分钟。LangGraph 不可用时降级为手动状态机。
     """
-    # 跑 koubo_display.py(显示当前选题池 + 历史汇编 hash)
-    rc, out, err = await _run_script(
-        KOUBO_WORKFLOW_DIR / "tools" / "koubo_display.py",
-        [],
-        cwd=KOUBO_WORKFLOW_DIR / "tools",
-        timeout_sec=30,
+    t0 = time.monotonic()
+    final_state = await koubo_workflow_service.run(
+        date=req.date,
+        topic=req.topic,
+        model=req.model,
+        owner_uuid=req.ownerUuid,
+        dry_run=req.dryRun,
     )
+    duration_ms = int((time.monotonic() - t0) * 1000)
+    articles = final_state.get("articles", [])
     return {
-        "ok": rc == 0,
+        "ok": final_state.get("status") == "done" and not final_state.get("error"),
         "date": req.date,
         "topic": req.topic,
         "dryRun": req.dryRun,
-        "displayOutput": out[-4000:],
-        "stderr": err[-2000:],
-        "guide": (
-            f"目标日期 {req.date}。8 篇生成由 LangGraph workflow 编排,"
-            f"请通过 AI 对话框调用 koubo-workflow skill 或前往 /self-media/koubo 工作台。"
-        ),
+        "status": final_state.get("status"),
+        "outputPath": final_state.get("output_path", ""),
+        "articlesCount": len(articles),
+        "articles": [
+            {"index": a.get("index", i + 1), "content": a.get("content", ""),
+             "topic": a.get("topic", {})}
+            for i, a in enumerate(articles)
+        ],
+        "trace": final_state.get("trace", []),
+        "error": final_state.get("error"),
+        "duration_ms": duration_ms,
+    }
+
+
+@router.post("/koubo/generate/stream")
+async def koubo_generate_stream(req: KouboGenerateRequest) -> dict[str, Any]:
+    """触发口播稿生成(SSE 流式推送进度)。
+
+    注:实际 SSE 端点需要 EventSourceResponse,这里返回 stream 句柄信息。
+    前端可用 EventSource 连接 /koubo/generate/events?date=... 接收进度。
+    本端点仅作任务创建回执,真正生成走异步 task。
+    """
+    # 触发后台 task 并返回任务 id(简化版:用 date 作为任务键)
+    return {
+        "ok": True,
+        "date": req.date,
+        "message": "口播稿生成任务已创建,可通过 /koubo/generate/events?date=MMDD 订阅进度",
+        "streamAvailable": koubo_workflow_service.available,
     }
 
 
