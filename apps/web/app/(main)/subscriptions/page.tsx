@@ -7,6 +7,7 @@ import { Bell, BellOff, User, Folder, Tag, FolderTree, Loader2 } from 'lucide-re
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
 type TargetType = 'user' | 'project' | 'tag' | 'category'
@@ -119,18 +120,19 @@ export default function SubscriptionsPage() {
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {dateFmt.format(new Date(s.createdAt))}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                  onClick={() =>
-                    cancelMut.mutate({ targetType: s.targetType, targetId: s.targetId })
-                  }
-                  disabled={cancelMut.isPending}
-                  title={t('cancel')}
-                >
-                  <BellOff className="h-3.5 w-3.5" />
-                </Button>
+                <Tooltip content={t('cancel')}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={() =>
+                      cancelMut.mutate({ targetType: s.targetType, targetId: s.targetId })
+                    }
+                    disabled={cancelMut.isPending}
+                  >
+                    <BellOff className="h-3.5 w-3.5" />
+                  </Button>
+                </Tooltip>
               </li>
             )
           })}

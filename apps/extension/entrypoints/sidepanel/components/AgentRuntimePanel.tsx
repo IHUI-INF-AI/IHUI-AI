@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState, type CSSProperties } from 'react'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui'
 import { useI18n } from '../../../src/i18n'
 
 type AgentStatus = 'idle' | 'running' | 'completed' | 'failed'
@@ -255,9 +256,16 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
       <div style={headerStyle}>
         <span style={titleStyle}>{t('nav.tabRuntime')}</span>
         {sessionId && (
-          <span style={sessionIdStyle} title={sessionId} data-testid="session-id">
-            #{sessionId.slice(0, 8)}
-          </span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span style={sessionIdStyle} data-testid="session-id">
+                  #{sessionId.slice(0, 8)}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{sessionId}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
         <span style={statusRowStyle}>
           <span style={statusDotStyle} aria-hidden />

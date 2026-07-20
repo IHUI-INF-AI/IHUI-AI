@@ -34,6 +34,7 @@ import {
 import { previewTest, fetchUpstreamModels } from './helpers'
 import type { FormState, PlatformTemplate, UpstreamModel } from './types'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 interface Props {
   open: boolean
@@ -132,17 +133,18 @@ function ModelsList({ models }: { models: UpstreamModel[] }) {
                     </span>
                   ) : null}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(m.id)
-                    toast.success(t('copied', { id: m.id }))
-                  }}
-                  className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
-                  title={t('copyModelId')}
-                >
-                  <Copy className="h-3 w-3" />
-                </button>
+                <Tooltip content={t('copyModelId')}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(m.id)
+                      toast.success(t('copied', { id: m.id }))
+                    }}
+                    className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </button>
+                </Tooltip>
               </li>
             ))}
           </ul>
@@ -328,14 +330,15 @@ export function LlmConfigDialog({
                 autoComplete="off"
                 className="pr-10 font-mono text-sm"
               />
-              <button
-                type="button"
-                onClick={() => setShowKey((s) => !s)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                title={showKey ? t('hideKey') : t('showKey')}
-              >
-                {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              </button>
+              <Tooltip content={showKey ? t('hideKey') : t('showKey')}>
+                <button
+                  type="button"
+                  onClick={() => setShowKey((s) => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </Tooltip>
             </div>
           </div>
 
