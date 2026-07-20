@@ -563,14 +563,14 @@ describe('email-service — 腾讯云 SES Template 模式 + Simple base64 修复
 
     const init = fetchMock.mock.calls[0]![1] as RequestInit
     const body = JSON.parse(init.body as string) as {
-      Template?: { TemplateID: number; TemplateVariables: string }
+      Template?: { TemplateID: number; TemplateData: string }
       Simple?: { Html: string; Text: string }
     }
     expect(body.Template).toBeDefined()
     expect(body.Template!.TemplateID).toBe(12345)
     expect(body.Simple).toBeUndefined()
-    // TemplateVariables 是 JSON 字符串
-    expect(JSON.parse(body.Template!.TemplateVariables)).toEqual({
+    // TemplateData 是 JSON 字符串
+    expect(JSON.parse(body.Template!.TemplateData)).toEqual({
       code: '123456',
       nickname: '张三',
     })
@@ -670,7 +670,7 @@ describe('email-service — 腾讯云 SES Template 模式 + Simple base64 修复
     const init = fetchMock.mock.calls[0]![1] as RequestInit
     const body = JSON.parse(init.body as string)
     expect(body.Template.TemplateID).toBe(99999)
-    expect(JSON.parse(body.Template.TemplateVariables)).toEqual({
+    expect(JSON.parse(body.Template.TemplateData)).toEqual({
       code: '654321',
       nickname: '李四',
       scene: 'login',
