@@ -104,21 +104,21 @@ describe('compressContext', () => {
 })
 
 describe('compressContextIfNeeded', () => {
-  it('未达 85% 阈值时不压缩', () => {
+  it('未达 88% 阈值时不压缩', () => {
     const messages = [
       { role: 'system' as const, content: 'sys' },
       { role: 'user' as const, content: 'hello' },
       { role: 'assistant' as const, content: 'hi' },
     ]
-    // 8000 * 0.85 = 6800, 当前 token 远小于
+    // 8000 * 0.88 = 7040, 当前 token 远小于
     const r = compressContextIfNeeded(messages, { contextLimit: 8000 })
     expect(r.compressed).toBe(false)
     expect(r.trigger).toBe('none')
-    expect(r.usageRatio).toBeLessThan(0.85)
+    expect(r.usageRatio).toBeLessThan(0.88)
   })
 
-  it('达 85% 阈值时自动压缩', () => {
-    // 构造大量消息使 token 数超过 85% * 8000 = 6800
+  it('达 88% 阈值时自动压缩', () => {
+    // 构造大量消息使 token 数超过 88% * 8000 = 7040
     const longContent = 'A'.repeat(1000) // ~130 tokens
     const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
       { role: 'system', content: 'sys' },
@@ -129,7 +129,7 @@ describe('compressContextIfNeeded', () => {
     const r = compressContextIfNeeded(messages, { contextLimit: 8000 })
     expect(r.compressed).toBe(true)
     expect(r.trigger).toBe('ratio')
-    expect(r.usageRatio).toBeGreaterThanOrEqual(0.85)
+    expect(r.usageRatio).toBeGreaterThanOrEqual(0.88)
     expect(r.removedCount).toBeGreaterThan(0)
   })
 
@@ -144,10 +144,10 @@ describe('compressContextIfNeeded', () => {
     const r = compressContextIfNeeded(messages, { contextLimit: 8000 })
     if (r.compressed) {
       const newRatio = r.compressedTokens / 8000
-      // 应该显著低于 85%,接近或低于 60%
+      // 应该显著低于 88%,接近或低于 60%
       expect(newRatio).toBeLessThan(r.usageRatio!)
-      // 理想情况下低于 60%,但受 keepRecent 下限约束,至少应该低于 85%
-      expect(newRatio).toBeLessThan(0.85)
+      // 理想情况下低于 60%,但受 keepRecent 下限约束,至少应该低于 88%
+      expect(newRatio).toBeLessThan(0.88)
     }
   })
 
@@ -229,7 +229,7 @@ describe('compressContextIfNeeded', () => {
   })
 
   it('小 contextLimit 也能正常工作', () => {
-    // contextLimit=1000, 85% = 850 tokens
+    // contextLimit=1000, 88% = 880 tokens
     const longContent = 'U'.repeat(500) // ~65 tokens
     const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
       { role: 'system', content: 'sys' },
@@ -238,8 +238,8 @@ describe('compressContextIfNeeded', () => {
       messages.push({ role: i % 2 === 0 ? 'user' : 'assistant', content: longContent + `_${i}` })
     }
     const r = compressContextIfNeeded(messages, { contextLimit: 1000 })
-    // 30 * 65 = 1950 tokens, 1950/1000 = 1.95 > 0.85 触发
-    expect(r.usageRatio!).toBeGreaterThan(0.85)
+    // 30 * 65 = 1950 tokens, 1950/1000 = 1.95 > 0.88 触发
+    expect(r.usageRatio!).toBeGreaterThan(0.88)
     expect(r.compressed).toBe(true)
   })
 
