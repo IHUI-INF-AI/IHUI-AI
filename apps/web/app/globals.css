@@ -220,19 +220,36 @@ a.text-xs:has(> svg):has(> span) > span,
   --color-shell-panel: hsl(220 12% 5%);
 }
 
-/* 登录栏 hover 高亮(2026-07-20 立)
+/* 登录栏 hover 高亮(2026-07-20 立,2026-07-20 M-70 增强版)
  * 浅色模式:登录栏(.login-scope)内所有 hover:bg-accent / hover:bg-muted 按钮,
  *   hover 背景色强制为纯白(与 sidebar-item-hover-bg 同逻辑:高亮凸出);
- * 暗色模式:恢复 .dark 默认的 --color-accent / --color-muted,行为与改前一致(不变)。
+ *   + --color-accent-foreground 改为与 --color-foreground 一致,让 hover:text-accent-foreground
+ *     不改变文字颜色 → 与第三方按钮 icon(始终保持品牌色)视觉一致。
+ * 暗色模式:.dark .login-scope 显式恢复默认 --color-accent / --color-muted,
+ *   但 --color-accent 从默认 17% 提到 22%(14% bg-background → 22% hover,8% L 跳跃更明显);
+ *   + muted 同理提到 22%,保持与 accent 同步。
+ *   accent-foreground 暗色下默认 #fafafa 与 foreground 同色,无需调整。
  * 作用域:AuthShell 弹窗外壳(主站 LoginDialog + /sso/login + /sso/register)+ LoginPopup。
- * 不影响主"登录"按钮(bg-primary / hover:bg-primary/90,因为它们不读 accent/muted)。 */
+ * 不影响主"登录"按钮(bg-primary / hover:bg-primary/90,因为它们不读 accent/muted)。
+ *
+ * outline 按钮 hover 边框(.login-scope .border-input:hover):
+ *   默认 border-input 在浅色 = 89.8% L 极浅灰、暗色 = 22% L 深灰,hover 时视觉无变化。
+ *   改为 foreground/20:浅色下 = #0a0a0a / 0.2 微微变深,暗色下 = #fafafa / 0.2 微微变浅,
+ *   与 bg-accent hover 行为同步,提供边框级 hover 反馈。 */
 .login-scope {
   --color-accent: hsl(0 0% 100%);
+  --color-accent-foreground: hsl(0 0% 3.9%);
   --color-muted: hsl(0 0% 100%);
 }
 .dark .login-scope {
-  --color-accent: hsl(0 0% 17%);
-  --color-muted: hsl(0 0% 14.9%);
+  --color-accent: hsl(0 0% 22%);
+  --color-muted: hsl(0 0% 22%);
+}
+.login-scope .border-input:hover {
+  border-color: hsl(0 0% 3.9% / 0.2);
+}
+.dark .login-scope .border-input:hover {
+  border-color: hsl(0 0% 98% / 0.2);
 }
 
 * {
@@ -620,8 +637,11 @@ h6 {
   color: var(--color-popover-foreground);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  /* 居中交给 grid 处理,这里用对称 padding(8/4/8/4)避免视觉偏移。 */
-  padding: 8px 4px;
+  /* 居中交给 grid 处理,这里用对称 padding(8/6/8/6)让 box 物理宽 = text 13 + 12 = 25 整数。
+     实测 4px 时 box 渲染为 25.39 (sub-pixel),grid 居中后 text 中心相对 box 中心偏 0.195px
+     (肉眼无感但严格不绝对 0);改 6px 后 box 25 (整数),text 严格 6/6 对称,delta = 0。
+     padding 仍对称保留视觉呼吸空间,无功能差异。 */
+  padding: 8px 6px;
   font-size: 11px;
   line-height: 1.4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -668,8 +688,9 @@ h6 {
   color: var(--color-popover-foreground);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  /* 对称 padding,居中由 grid 处理。 */
-  padding: 8px 4px;
+  /* 对称 padding(8/6/8/6)与关闭态 tooltip 一致,box 物理宽 25 整数,text 居中 delta = 0。
+     关闭态注释:padding 4 时 box 渲染 25.39 sub-pixel 致 0.195px 偏心,改 6 整数化。 */
+  padding: 8px 6px;
   font-size: 11px;
   line-height: 1.4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -775,4 +796,3 @@ h6 {
     display: none;
   }
 }
-

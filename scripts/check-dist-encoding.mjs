@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// packages/*/dist 文件 UTF-8 BOM 守门脚本(2026-07-19 立)
+// packages/* + apps/* dist 文件 UTF-8 BOM 守门脚本(2026-07-19 立,2026-07-20 扩展 apps)
 //
 // 背景:2026-07-19 Next.js 16 Turbopack 构建报
 //   "failed to convert rope into string
@@ -9,10 +9,13 @@
 //      Turbopack 按 UTF-8 解析到第 27 字节触发非法序列。
 // 修复:重新编码为 UTF-8 无 BOM 后构建恢复。
 //
-// 守门策略:扫描所有 packages/*/dist/** 下的 .js .mjs .cjs .ts .map 文件,
+// 守门策略:扫描所有 packages/*/dist/** 与 apps/*/dist/** 下的 .js .mjs .cjs .ts .map 文件,
 //          检测前 3 字节是否为 UTF-8 BOM(0xEF 0xBB 0xBF)或
 //          UTF-16 LE BOM(0xFF 0xFE)/ BE BOM(0xFE 0xFF)。
 //          任何 dist 文件含 BOM → 报错并 exit 1,阻断 commit。
+// apps/*/dist 扩展根因:apps/api tsc 编译产物同样可能因 PowerShell WriteAllText 污染
+//                       (1779 个 js/d.ts,2026-07-20 M-64 落地);.next 由 Turbopack 自管
+//                       且 gitignore,无需扫描。
 //
 // 用法: node scripts/check-dist-encoding.mjs
 //   exit 0 = 所有 dist 文件都是 UTF-8 无 BOM
@@ -22,6 +25,7 @@ import { join, relative } from 'node:path'
 
 const ROOT = process.cwd()
 const PACKAGES_DIR = join(ROOT, 'packages')
+const APPS_DIR = join(ROOT, 'apps')
 
 const C = {
   red: '\x1b[31m',
@@ -91,30 +95,34 @@ function detectBom(filePath) {
   return null
 }
 
-function main() {
-  if (!existsSync(PACKAGES_DIR)) {
-    console.warn(`${C.yellow}⚠${C.reset} 未找到 packages 目录,跳过`)
-    process.exit(0)
-  }
-
-  // 收集所有 packages/*/dist/** 下的目标文件
-  const distFiles = []
-  for (const pkgEntry of readdirSync(PACKAGES_DIR)) {
-    const pkgDir = join(PACKAGES_DIR, pkgEntry)
+// 收集指定顶层目录下所有 * / dist / ** / 目标文件
+function collectAllDistFiles(rootDir) {
+  const out = []
+  if (!existsSync(rootDir)) return out
+  for (const topEntry of readdirSync(rootDir)) {
+    const topDir = join(rootDir, topEntry)
     let st
     try {
-      st = statSync(pkgDir)
+      st = statSync(topDir)
     } catch {
       continue
     }
     if (!st.isDirectory()) continue
-    const distDir = join(pkgDir, 'dist')
+    const distDir = join(topDir, 'dist')
     if (!existsSync(distDir)) continue
-    distFiles.push(...collectFiles(distDir))
+    out.push(...collectFiles(distDir))
   }
+  return out
+}
+
+function main() {
+  const distFiles = [
+    ...collectAllDistFiles(PACKAGES_DIR),
+    ...collectAllDistFiles(APPS_DIR),
+  ]
 
   if (distFiles.length === 0) {
-    console.warn(`${C.yellow}⚠${C.reset} 未找到任何 packages/*/dist 文件,跳过`)
+    console.warn(`${C.yellow}⚠${C.reset} 未找到任何 packages/*/dist 或 apps/*/dist 文件,跳过`)
     process.exit(0)
   }
 
@@ -131,7 +139,7 @@ function main() {
   }
 
   console.info(
-    `${C.cyan}📦${C.reset} 扫描 ${distFiles.length} 个 packages/*/dist 文件的编码\n`,
+    `${C.cyan}📦${C.reset} 扫描 ${distFiles.length} 个 packages/*/dist + apps/*/dist 文件的编码\n`,
   )
 
   console.info(`${C.green}✓${C.reset} 无 BOM: ${okCount} 个文件`)
