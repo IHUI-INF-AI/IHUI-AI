@@ -14,6 +14,7 @@ import { useWebSocket, type WSNotification, isAIResponse } from '@/hooks/use-web
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
+import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getConversation, getMessages } from '@/lib/chat-api'
@@ -336,6 +337,7 @@ export function AISidePanel() {
               )}
             </span>
           </div>
+          <ContextUsageRing model={currentModel} isStreaming={isStreaming} />
           <button
             type="button"
             onClick={handleNewChat}
