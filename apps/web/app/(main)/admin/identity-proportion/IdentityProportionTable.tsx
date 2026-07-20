@@ -4,6 +4,7 @@ import { Loader2, Edit, Trash2, Percent } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import type { IdentityProportion } from './types'
 
 interface Props {
@@ -75,25 +76,27 @@ export function IdentityProportionTable({ list, isLoading, onEdit, onDelete }: P
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
                     <HasPermi code="ai:identity_proportion:edit">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(item)}
-                        title={tc('edit')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={tc('edit')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(item)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                     <HasPermi code="ai:identity_proportion:remove">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(item)}
-                        title={tc('delete')}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={tc('delete')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(item)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                   </div>
                 </TableCell>

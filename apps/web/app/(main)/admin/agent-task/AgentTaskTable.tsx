@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, CheckCircle, XCircle, ClipboardList } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import { STATUS_STYLE } from './helpers'
 import type { AgentTask } from './types'
 
@@ -77,49 +78,53 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
                     {item.status === 0 && (
                       <>
                         <HasPermi code="ai:agenttask:edit">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onApprove(item.id)}
-                            title={t('approve')}
-                            className="text-emerald-600"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </Button>
+                          <Tooltip content={t('approve')}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onApprove(item.id)}
+                              className="text-emerald-600"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
                         </HasPermi>
                         <HasPermi code="ai:agenttask:edit">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onReject(item.id)}
-                            title={t('reject')}
-                            className="text-amber-600"
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
+                          <Tooltip content={t('reject')}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onReject(item.id)}
+                              className="text-amber-600"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
                         </HasPermi>
                       </>
                     )}
                     <HasPermi code="ai:agenttask:edit">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(item)}
-                        title={t('edit')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('edit')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(item)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                     <HasPermi code="ai:agenttask:remove">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(item)}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('delete')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(item)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                   </div>
                 </TableCell>

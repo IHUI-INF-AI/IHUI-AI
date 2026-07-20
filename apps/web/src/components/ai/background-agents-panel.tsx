@@ -7,6 +7,7 @@ import { Button } from '@ihui/ui'
 
 import { cn } from '@/lib/utils'
 import { formatTimeOnly } from '@/lib/date-utils'
+import { Tooltip } from '@/components/feedback'
 import type { BackgroundAgent, AgentStatus } from './types'
 
 interface BackgroundAgentsPanelProps {
@@ -122,9 +123,11 @@ export function BackgroundAgentsPanel({
                       )}
                   </div>
 
-                  <p className="mt-0.5 break-words text-sm" title={agent.prompt}>
-                    {truncate(agent.prompt, 80)}
-                  </p>
+                  <Tooltip content={agent.prompt} side="bottom">
+                    <p className="mt-0.5 break-words text-sm">
+                      {truncate(agent.prompt, 80)}
+                    </p>
+                  </Tooltip>
 
                   {agent.status === 'running' && agent.progress?.text_preview && (
                     <p className="mt-0.5 break-words text-xs text-muted-foreground">

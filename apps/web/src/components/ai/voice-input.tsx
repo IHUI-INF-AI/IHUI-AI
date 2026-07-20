@@ -5,6 +5,7 @@ import { Mic } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void
@@ -104,38 +105,39 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
           to { transform: scaleY(1); }
         }
       `}</style>
-      <button
-        type="button"
-        onClick={toggle}
-        disabled={disabled}
-        aria-label={recording ? t('voiceInputStop') : t('voiceInputStart')}
-        title={recording ? t('voiceInputStop') : t('voiceInputStart')}
-        className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-          recording
-            ? 'bg-red-500 text-white hover:bg-red-500/90'
-            : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-        )}
-      >
-        {recording ? (
-          <span className="flex h-4 items-center gap-0.5">
-            {[0, 1, 2, 3].map((i) => (
-              <span
-                key={`bar-${i}`}
-                className="w-0.5 rounded-full bg-white"
-                style={{
-                  height: '100%',
-                  transformOrigin: 'center',
-                  animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
-                }}
-              />
-            ))}
-          </span>
-        ) : (
-          <Mic className="h-4 w-4" />
-        )}
-      </button>
+      <Tooltip content={recording ? t('voiceInputStop') : t('voiceInputStart')}>
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={disabled}
+          aria-label={recording ? t('voiceInputStop') : t('voiceInputStart')}
+          className={cn(
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+            recording
+              ? 'bg-red-500 text-white hover:bg-red-500/90'
+              : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          {recording ? (
+            <span className="flex h-4 items-center gap-0.5">
+              {[0, 1, 2, 3].map((i) => (
+                <span
+                  key={`bar-${i}`}
+                  className="w-0.5 rounded-full bg-white"
+                  style={{
+                    height: '100%',
+                    transformOrigin: 'center',
+                    animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
+                  }}
+                />
+              ))}
+            </span>
+          ) : (
+            <Mic className="h-4 w-4" />
+          )}
+        </button>
+      </Tooltip>
     </>
   )
 }

@@ -4,6 +4,7 @@ import * as React from 'react'
 import Image from 'next/image'
 import { Download, Maximize2, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { OfficeViewer } from './OfficeViewer'
 import { ThreeDViewer } from './ThreeDViewer'
 import { PDFViewer } from './PDFViewer'
@@ -72,13 +73,14 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
           >
             <Download className="h-4 w-4" />
           </a>
-          <button
-            onClick={toggleFullscreen}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            title="全屏"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </button>
+          <Tooltip content="全屏">
+            <button
+              onClick={toggleFullscreen}
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
       </div>
       <div className="relative flex-1 overflow-hidden">

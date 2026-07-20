@@ -3,6 +3,7 @@
 import { Loader2 } from 'lucide-react'
 import { Checkbox } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { TruncatedText } from '@/components/common'
 import { th } from './helpers'
 import type { LoginLog } from './types'
 import { formatDate } from '@/lib/date-utils'
@@ -81,20 +82,14 @@ export function LoginLogTable({
                 <td className="px-4 py-2.5 text-muted-foreground">{l.platform}</td>
                 <td className="px-4 py-2.5 font-mono text-xs">{l.ip}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{l.location}</td>
-                <td
-                  className="max-w-[200px] truncate px-4 py-2.5 text-xs text-muted-foreground"
-                  title={l.userAgent}
-                >
-                  {l.userAgent}
+                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TruncatedText value={l.userAgent} className="max-w-[200px]" />
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
                   {l.loginTime ? formatDate(l.loginTime) : '-'}
                 </td>
-                <td
-                  className="max-w-[200px] truncate px-4 py-2.5 text-xs text-muted-foreground"
-                  title={l.message}
-                >
-                  {l.message}
+                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TruncatedText value={l.message} className="max-w-[200px]" />
                 </td>
               </tr>
             ))

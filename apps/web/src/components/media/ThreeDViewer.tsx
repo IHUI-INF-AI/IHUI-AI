@@ -8,6 +8,7 @@ import { Loader2, RotateCcw } from 'lucide-react'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 interface ThreeDViewerProps {
   url: string
@@ -83,16 +84,17 @@ function ThreeDViewerImpl({ url, format = 'glb', className }: ThreeDViewerProps)
           maxDistance={20}
         />
       </Canvas>
-      <button
-        onClick={() => setAutoRotate((v) => !v)}
-        className={cn(
-          'absolute right-2 top-2 rounded-md border border-input bg-background/90 p-1.5 shadow-sm transition-colors hover:bg-accent',
-          autoRotate && 'text-primary',
-        )}
-        title={autoRotate ? '停止旋转' : '自动旋转'}
-      >
-        <RotateCcw className="h-4 w-4" />
-      </button>
+      <Tooltip content={autoRotate ? '停止旋转' : '自动旋转'}>
+        <button
+          onClick={() => setAutoRotate((v) => !v)}
+          className={cn(
+            'absolute right-2 top-2 rounded-md border border-input bg-background/90 p-1.5 shadow-sm transition-colors hover:bg-accent',
+            autoRotate && 'text-primary',
+          )}
+        >
+          <RotateCcw className="h-4 w-4" />
+        </button>
+      </Tooltip>
     </div>
   )
 }

@@ -95,9 +95,6 @@ export function WorkspaceSelector() {
   }
 
   const triggerLabel = hasActive ? tw('selectWorkspace') : t('addWorkspace')
-  const triggerTitle = activeWorkspace
-    ? `${activeWorkspace.name}\n${activeWorkspace.path}`
-    : t('addWorkspace')
 
   return (
     <>
@@ -108,7 +105,6 @@ export function WorkspaceSelector() {
             aria-label={triggerLabel}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            title={triggerTitle}
             className={cn(
               'inline-flex h-6 shrink-0 items-center gap-0.5 rounded px-1.5 text-xs font-medium transition-colors',
               'bg-muted/60 text-foreground/70 hover:bg-accent hover:text-accent-foreground',

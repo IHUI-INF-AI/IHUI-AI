@@ -52,6 +52,11 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
+    if (process.env.NODE_ENV !== 'production' && 'title' in props) {
+      console.warn(
+        '[Button] 不要使用 title 属性作为 hover 提示,请改用 <Tooltip content="..."><Button>...</Button></Tooltip> 包裹。详见 AGENTS.md 第 4 节前端 UI 约束 + pre-commit 第 18 项守门。',
+      );
+    }
     const Comp = asChild ? Slot : 'button';
     return (
       <Comp

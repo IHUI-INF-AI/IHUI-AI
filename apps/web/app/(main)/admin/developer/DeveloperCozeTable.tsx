@@ -14,6 +14,7 @@ import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import {
   Button,
   Input,
@@ -148,29 +149,31 @@ export function DeveloperCozeTable({
                   <TableCell className="px-3 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <HasPermi code="ai:developer:edit">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(c)}
-                          title={t('edit')}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <Tooltip content={t('edit')}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onEdit(c)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </Tooltip>
                       </HasPermi>
                       <HasPermi code="ai:developer:remove">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          disabled={deletePending}
-                          onClick={() => {
-                            if (confirm(t('cozeDeleteConfirm', { cozeId: c.cozeId })))
-                              onDelete(c.id)
-                          }}
-                          title={t('delete')}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Tooltip content={t('delete')}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            disabled={deletePending}
+                            onClick={() => {
+                              if (confirm(t('cozeDeleteConfirm', { cozeId: c.cozeId })))
+                                onDelete(c.id)
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </Tooltip>
                       </HasPermi>
                     </div>
                   </TableCell>
