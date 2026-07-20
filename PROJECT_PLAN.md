@@ -54,6 +54,59 @@
 
 ## 2026-07-20 已完成任务
 
+### M-65 v2:mono 图标 invert filter + PageIndicator 放大紧凑(已完成 ✅ 2026-07-20)
+
+**触发**:用户纠正前一轮 v1(commit 4512d93)的妥协方案——
+
+1. "跑马灯跟footer的白色svg图你应该在亮色模式下把图改成黑色才能显示出来才对 而不是继续用白色"
+2. "右侧指示器太小了 每个圆之间的间距太大了"
+
+v1 用 `bg-foreground/[0.04]` 浅灰底让白色图标可见是 workaround,正确做法是用 CSS `filter: invert` 让白图在亮色模式变黑,暗色模式还原。
+
+**改动**(4 文件,组件 +18/-15 行,footer-data +6 行,PIL 像素级确认 5 个 mono 标记):
+
+1. **footer-data.ts** [footer-data.ts](file:///g:/IHUI-AI/apps/web/src/components/marketing/footer-data.ts):
+   - `Icon` 类型加 `readonly mono?: boolean` 字段
+   - 标 `mono: true` 的 5 个图标(PIL top3 颜色采样确认前景仅含 `(255,255,255,255)` + `(0,0,0,0)` 透明):
+     - `awsp/n8n.png`(n8n)
+     - `model/3x.png`(Claude)
+     - `tuiguangpingtai/3.png`、`5.png`、`11.png`
+2. **SiteFooter.tsx** [SiteFooter.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/SiteFooter.tsx):
+   - `PlatformIcon` 加 `mono?: boolean` prop
+   - `MONO_FILTER = 'invert dark:invert-0'` 常量,mono 图标 img className 拼接该类
+   - `PlatformGroup` 传递 `mono={p.mono}` 到 PlatformIcon
+   - `ICON_BOX` 和 `CONTACT_CARD` 从 `bg-foreground/[0.04]` 还原为 `bg-card`(主题感知:亮色白底/暗色深底)
+3. **BrandMarquee.tsx** [BrandMarquee.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/BrandMarquee.tsx):
+   - 图标容器 `bg-foreground/[0.04]` → `bg-card`
+   - img className 条件拼接 `invert dark:invert-0`
+4. **PageIndicator.tsx** v5 [PageIndicator.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/PageIndicator.tsx):
+   - 默认点:6×6 → **8×8** (`h-2 w-2`)
+   - active 圆点:6×16 → **8×20** 竖向胶囊 (`h-5 w-2`)
+   - hover:8×8 → **10×10** (`h-2.5 w-2.5`)
+   - 容器 gap:8px → **6px** (`gap-1.5`)
+   - button 命中区:16×16 → **20×20** (`h-5 w-5`)
+   - 颜色保持 v4 仅黑白灰(`bg-foreground/30/60/100`)
+
+**验证证据**(Playwright Chromium 4 状态 + DOM 数值):
+
+| #   | 修复项                         | DOM 证据                                                                                          | 状态 |
+| --- | ------------------------------ | ------------------------------------------------------------------------------------------------- | ---- |
+| 1   | mono 图标 invert filter(亮→黑) | n8n/Claude/tuiguangpingtai 3/5/11 className 含 `invert dark:invert-0`,computed filter=`invert(1)` | ✅   |
+| 1   | 非 mono 图标无 invert          | GPT/Gemini/DeepSeek/WeChat(绿)/Alipay(蓝)无 invert 类,保持原色                                    | ✅   |
+| 2   | 容器 bg-card 还原              | ICON_BOX/CONTACT_CARD/Marquee 容器 bg=`rgb(255,255,255)` (light)                                  | ✅   |
+| 3   | PageIndicator 新尺寸           | active 8×20,default 8×8,hover 10×10,gap 6px,btn 20×20                                             | ✅   |
+| 4   | dark mode mono 还原白色        | 深色下 filter=`none`,白图在深色背景上可见                                                         | ✅   |
+| 4   | PageIndicator 颜色反相         | 深色下 bg=`rgb(250,250,250)` 浅灰(原本亮色是 `rgb(10,10,10)`)                                     | ✅   |
+
+**4 张关键截图**(已嵌入浏览器验证报告):
+
+- `page1-light.png`:Page 1 顶部 + PageIndicator 放大紧凑(8×20 active + 6px gap)
+- `page3-marquee-light.png`:跑马灯 mono 图标(Claude/n8n/tuiguangpingtai 3/5/11)在亮色下显示为**黑色**
+- `footer-light.png`:Footer mono 图标变黑,容器还原白底
+- `footer-dark.png`:dark mode mono 图标还原白色,容器自动切深色
+
+**净改动**:4 文件,组件 +18/-15,footer-data +6 行。
+
 ### 首页 6 个 UI 修复(指示器竖向+灰 / 跑马灯+Footer 图标可见 / QR 深底 / 联系我们卡片)(已完成 ✅ 2026-07-20)
 
 **触发**:用户在[E:\桌面\交付报告问题修复与验证.md]指出前一轮 commit 2498669d 后仍有 6 个 UI 问题:
