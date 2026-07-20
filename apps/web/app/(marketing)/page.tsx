@@ -15,6 +15,7 @@ import { HomePage3Magazine } from '@/components/marketing/HomePage3Magazine'
 import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { HomeFeatureGrid } from '@/components/marketing/HomeFeatureGrid'
 import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
+import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
 
 /**
@@ -218,6 +219,14 @@ export default function HomePage() {
             </section>
           </div>
         </section>
+
+        {/* Page 7: 底部 Footer(跟随 main 滚动,滚到最底部才可见,不悬浮)
+            - 2026-07-20 修复:原 SiteFooter 在 layout 中作为 main 的 sibling,
+              但 main 用 height: calc(100vh - 3.5rem) + overflow-y-scroll 锁定,
+              占满视口剩余空间,layout 无可滚动空间,footer 永远不可见(视觉上"悬浮")。
+            - 现移入 main 末尾作为最后一个 snap-start section,跟随 main 滚动流,
+              滚到第 6 页继续向下拉即可见,符合"滑动到最底部才拉出 footer"的预期。 */}
+        <SiteFooter />
       </main>
 
       {/* 右侧分页指示器 */}
