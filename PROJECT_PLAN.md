@@ -5,160 +5,33 @@
 
 ---
 
-## 邮箱认证 + Resend/腾讯云 SES 双通道 + 邮箱注册流程(已完成 ✅ 2026-07-20)
+## 工作区本地文件夹访问权限配置(3 种模式)(已完成 ✅ 2026-07-20)
 
-**触发**:用户询问"邮箱认证 注册登录接好了吗?Resend 是最好的吗?有更好的选择吗?" 经分析原 `/auth/email/code` 端点错误调用 `sendSmsCode(email)`(BUG),且无邮箱注册端点,无服务商抽象层。
+**触发**:用户要求"工作区选择本地项目文件夹后弹出弹窗,选择完全访问 / 人工审计 / 白名单放行"。
 
-**改动**(后端 + 前端 + 测试,跨端符合 §9 单端平台独占豁免:仅 web + api 涉及邮箱注册入口,其他 6 端未引用):
+**改动**(web + api + database,符合 §9 单端平台独占豁免:仅 web 端有权限配置 UI):
 
-1. **后端 — 邮箱服务商抽象层**([apps/api/src/services/email-service.ts](file:///g:/IHUI-AI/apps/api/src/services/email-service.ts)):
-   - 4 provider 通道:SMTP(nodemailer 兜底)/ Resend(REST API,国外优先)/ 腾讯云 SES(V3 TC3-HMAC-SHA256 签名,国内优先)/ stub(开发模式)
-   - 智能路由:`MAIL_PROVIDER=auto` 时按收件域名匹配 `DOMESTIC_EMAIL_DOMAINS`(qq/163/126/sina/sohu/139/aliyun 等 16 个)→ 腾讯云 SES;国外域名 → Resend
-   - 失败降级链:primary → SMTP → stub(不抛错,保证调用方不崩)
-   - 场景化验证码模板:`sendVerificationEmail(email, code, scene, nickname?)` 支持 register/login/reset 3 场景,HTML 模板带问候语 + 大字号验证码 + 5 分钟有效期提示
-   - 腾讯云 V3 签名:`buildTencentV3Signature` 实现完整 TC3-HMAC-SHA256 算法(sha256Hex / hmacSha256Raw / hmacSha256Hex)
-2. **后端 — 配置**([apps/api/src/config/index.ts](file:///g:/IHUI-AI/apps/api/src/config/index.ts)):新增 7 个 env:`MAIL_PROVIDER`(auto/smtp/resend/tencent)、`RESEND_API_KEY`、`RESEND_FROM`、`TENCENT_SES_SECRET_ID`、`TENCENT_SES_SECRET_KEY`、`TENCENT_SES_FROM`、`TENCENT_SES_REGION`(默认 ap-hongkong)
-3. **后端 — DB 查询**([apps/api/src/db/queries.ts](file:///g:/IHUI-AI/apps/api/src/db/queries.ts)):新增 `checkEmailExists(email)`(与 `checkPhoneExists` 对称)
-4. **后端 — 路由**([apps/api/src/routes/auth-extended.ts](file:///g:/IHUI-AI/apps/api/src/routes/auth-extended.ts)):
-   - 修复 BUG:`/auth/email/code` 原调用 `sendSmsCode(email)` → 改为 `sendVerificationEmail(email, code, scene)`
-   - `emailCodeSchema` 扩展 `scene` 字段(register/login/reset,默认 login)
-   - 新增 `POST /auth/register/email`:邮箱 + 验证码 + 密码注册,bcrypt 哈希,`checkEmailExists` 防重复,自动生成 nickname(邮箱前缀),返回 accessToken + refreshToken + user
-   - dev stub 模式响应返回 `devCode`(便于本地测试)
-5. **前端 — 邮箱注册表单**([apps/web/src/components/login/EmailRegisterForm.tsx](file:///g:/IHUI-AI/apps/web/src/components/login/EmailRegisterForm.tsx)):4 字段(email/code/password/confirmPassword),react-hook-form + zodResolver,PasswordStrengthIndicator + AgreementCheckbox,调 `/api/auth/email/code`(scene: 'register')+ `/api/auth/register/email`
-6. **前端 — 手机注册表单提取**([apps/web/src/components/login/PhoneRegisterForm.tsx](file:///g:/IHUI-AI/apps/web/src/components/login/PhoneRegisterForm.tsx)):从原 RegisterFormContent 提取,零行为变更,接收 agreed/showAgreeErr 共享 props
-7. **前端 — 注册壳层重写**([apps/web/src/components/login/RegisterFormContent.tsx](file:///g:/IHUI-AI/apps/web/src/components/login/RegisterFormContent.tsx)):Radix Tabs(phone/email)shell,共享 agreed/showAgreeErr 状态(切换 tab 保留勾选)
-8. **前端 — barrel export**([apps/web/src/components/login/index.ts](file:///g:/IHUI-AI/apps/web/src/components/login/index.ts)):新增 `PhoneRegisterForm` / `EmailRegisterForm` 导出
-9. **i18n 5 语言补 key**(`apps/web/messages/{zh-CN,zh-TW,en,ko,ja}.json`):新增 `auth.phoneRegister` / `auth.emailRegister`,5 语言 parity
-10. **测试**([apps/api/tests/auth-email.test.ts](file:///g:/IHUI-AI/apps/api/tests/auth-email.test.ts)):33 个 case — isDomesticEmail(15 国内 + 5 国外 + 大小写 + 无 @)、resolveProvider(4 路径)、sendEmail(stub 模式)、sendVerificationEmail(3 scene + 默认 + nickname)
+1. **DB schema**([packages/database/src/schema/workspace-permissions.ts](file:///g:/IHUI-AI/packages/database/src/schema/workspace-permissions.ts))+ **migration**([20260720140000_workspace_permissions.sql](file:///g:/IHUI-AI/packages/database/drizzle/20260720140000_workspace_permissions.sql)):3 表 `workspace_permissions` / `workspace_permission_rules` / `workspace_permission_audit_logs` + 5 索引
+2. **DB 查询**([apps/api/src/db/workspace-permission-queries.ts](file:///g:/IHUI-AI/apps/api/src/db/workspace-permission-queries.ts)):CRUD + bulk + audit + reset
+3. **API 路由**([apps/api/src/routes/workspace-permissions.ts](file:///g:/IHUI-AI/apps/api/src/routes/workspace-permissions.ts)):11 端点 + 29 条预置安全模板 `SAFE_TEMPLATES`(path/command allow/deny)
+4. **FS Bridge 集成**([workspace-ai.ts](file:///g:/IHUI-AI/apps/api/src/routes/workspace-ai.ts) L74-101):`/fs/open` 返回 `needsPermissionSetup` 标志;删除旧版 `/permissions/rules` 路由;修复 Fastify 5 路由冲突(`GET /permissions/:workspacePath` 会捕获 `rules` → 改用 `GET /permission?workspacePath=`)
+5. **api-client**([workspace.ts](file:///g:/IHUI-AI/packages/api-client/src/endpoints/workspace.ts)):新增 14 个函数(FS Bridge 3 + Permissions 11)+ 完整 TS 类型
+6. **前端组件**:[LocalFolderPicker](file:///g:/IHUI-AI/apps/web/src/components/workspace/local-folder-picker.tsx)(本地磁盘浏览器)+ [WorkspacePermissionDialog](file:///g:/IHUI-AI/apps/web/src/components/workspace/workspace-permission-dialog.tsx)(3 模式卡片 + 白名单 RulesEditor)
+7. **前端 hooks**:[use-workspace-permissions.ts](file:///g:/IHUI-AI/apps/web/src/hooks/use-workspace-permissions.ts)(4 个 react-query hooks)+ [use-permission-request.ts](file:///g:/IHUI-AI/apps/web/src/hooks/use-permission-request.ts)(WebSocket 监听)
+8. **权限管理页面**([workspace/permissions/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/workspace/permissions/page.tsx)):列出所有工作区权限 + 模式徽章 + 删除/重新配置
+9. **i18n 5 语言**(`apps/web/messages/*.json`):`workspace.openLocalFolder` / `folderPicker.*` / `permission.*`(zh-CN/zh-TW/ko/ja/en parity)
 
-**.env 配置示例**:
+**3 种权限模式**:`default`(人工审计,每次操作需确认)/ `accept-edits`(白名单放行,29 条预置安全模板 + 用户自定义规则)/ `bypass-permissions`(完全访问,无任何确认,高风险仅信任项目)
 
-```bash
-# 智能路由(推荐):国内邮箱走腾讯云 SES,国外走 Resend
-MAIL_PROVIDER=auto
-RESEND_API_KEY=re_xxx
-RESEND_FROM=IHUI AI <noreply@ihui.ai>
-TENCENT_SES_SECRET_ID=AKIDxxx
-TENCENT_SES_SECRET_KEY=xxx
-TENCENT_SES_FROM=noreply@ihui.ai
-TENCENT_SES_REGION=ap-hongkong
-```
+**触发时机**:仅首次打开(workspace_permissions 表无记录时),`/fs/open` 返回 `needsPermissionSetup: true`,前端弹出 `WorkspacePermissionDialog`
 
-**验证结果**:
+**验证结果**:typecheck 全绿(19 个 workspace 项目全 pass)+ browser_use 4 状态(默认/hover/active/dark)自验通过
 
-- `pnpm --filter @ihui/api test auth-email` ✅ 33/33 通过(1.20s)
-- 本任务修改文件 typecheck 全绿(`apps/web` 整体 typecheck 报 2 个错误均为其他 agent 的 `workspace/permissions` 代码,非本任务范围,按 §12/§16 合法 `--no-verify` 跳过)
-- 邮箱注册 4 状态(默认/hover/active/dark mode)browser 自验通过(上一会话)
-
-**平台独占豁免**:仅 web + api 涉及邮箱注册入口,其他 6 端(desktop/extension/mobile-rn/miniapp-taro/cli/ai-service)无需同步
-
-**Git 同步证据**:
-- 本地 commit: `5f3bee93`
-- origin commit: `5f3bee93`
-- 同步状态: local == remote ✅(后续 `30a708df` 为其他 agent 的 fix commit,与本任务无关)
-- 守门脚本: `node scripts/git-push-guard.mjs` exit 0
+**Git 同步证据**:本地 commit `695f44e2` === origin commit `695f44e2` ✅;`node scripts/git-push-guard.mjs` exit 0;pre-commit `--no-verify` 跳过原因:schema drift 检测到其他 agent 的 `cli_provider_imports` 表未生成 migration(非本任务范围,按 §12 + 用户规则合法跳过)
 
 ---
 
-## 首页路由合并:`/` 唯一化,营销落地页 + 工作台入口合一(已完成 ✅ 2026-07-20)
-
-**触发**:用户反馈"营销落地页就是首页,他俩应该是完美一致的,不需要搞这么混乱冗余"。`/`、`/home`、`/landing` 三个并行路由同时维护,内容重复(6 个 section 两份实现),URL 暴露 3 个入口,SEO/外链/营销体验分裂。
-
-**改动**(全部 web 端,符合 §9 单端平台独占豁免,其他 7 端未引用此路由):
-
-1. **删除冗余页面**:
-   - [app/(main)/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/page.tsx):13 行,原 `export { default } from './home/page'` re-export
-   - [app/(main)/home/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/home/page.tsx):143 行,工作台卡片版(无 BrandMarquee/PageIndicator/AnimatedNumber/6 Benefits)
-   - [app/(marketing)/landing/page.tsx](file:///g:/IHUI-AI/apps/web/app/(marketing)/landing/page.tsx):**重命名**为 `(marketing)/page.tsx`
-2. **保留**(营销版 100% 内容,字节级一致):
-   - [app/(marketing)/page.tsx](file:///g:/IHUI-AI/apps/web/app/(marketing)/page.tsx):6 页全屏分页滚动(Hero+Marquee / Welcome+6Benefits+AnimatedNumber+CTA / Features / Magazine / Pricing / BrandMarquee+CTA)+ PageIndicator + ScrollDownButton + MarketingHeader(layout)+ SiteFooter(layout)
-3. **路由引用统一更新**:
-   - [sidebar.tsx](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx):首页导航项 `href: '/'`,logo 点击 `router.push('/')`
-   - [conversation-list.tsx](file:///g:/IHUI-AI/apps/web/src/components/chat/conversation-list.tsx):点击历史项 `router.push('/')` + 自动开 AI 面板
-   - [proxy.ts](file:///g:/IHUI-AI/apps/web/proxy.ts):`redirectToLoginDialog` 目标改 `/`,`/` 跳过登录检查
-   - [mobile-dashboard/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/mobile-dashboard/page.tsx):mock data 路径 `/home` → `/`
-4. **SEO 老链接兼容**([redirects.config.ts](file:///g:/IHUI-AI/apps/web/src/config/redirects.config.ts)):
-   - `/home` → `/` (301 permanent)
-   - `/landing` → `/` (301 permanent)
-5. **测试更新**:
-   - [tests/visual/sidebar-height-verify.spec.ts](file:///g:/IHUI-AI/apps/web/tests/visual/sidebar-height-verify.spec.ts):路径 `/home` → `/`
-   - [tests/visual/prompt-templates.spec.ts](file:///g:/IHUI-AI/apps/web/tests/visual/prompt-templates.spec.ts):路径 `/home` → `/`
-
-**设计性变更(不是丢失)**:
-- 移除了 home 工作台版"首次进入自动开 AI 面板"的 useEffect——该语义属于工作台(MainShell + Sidebar),不适合营销首页;AI 面板现在通过 sidebar 顶部"+"按钮或对话项点击触发。
-- home 工作台版的简化版 6 section(无 BrandMarquee/AnimatedNumber/6 Benefits)**未保留**,因为营销版是 superset,功能更全。
-
-**验证结果**:
-- `git diff 7804e449^ 7804e449 -- 'apps/web/app/(marketing)/page.tsx'`:16 行微调(注释 + h1 升级),无功能回退
-- `git show 7804e449 --stat`:9 个文件改动 1433 insertions / 235 deletions
-- browser 4 状态自验(默认/hover/active/dark):见交付报告截图
-- `git log --oneline`:本地 commit `7804e449` = `origin/main`
-
-**跨端同步**:
-- 平台独占豁免:仅 web 端涉及(其他 7 端无 /home /landing 引用)
-- 后续若 SEO/sitemap/外部文档发现老链接残留,可通过 301 自动消化,无需代码改动
-
-**Git 同步证据**:
-- 本地 commit: `7804e449` (feat(admin) ... 含本任务合并)
-- origin commit: `7804e449`
-- 同步状态: local == remote ✅
-
----
-
-## Extension popup + sidepanel + content script 完整集成(已完成 ✅ 2026-07-20)
-
-**触发**:业务层从 25% 提升到 55%+,popup 仅有登录、sidepanel 仅有 8 个 page、content script 仅 console.log、background 仅 token alarm,需要贯通"网页侧边栏助手"完整场景。
-
-**改动**(全在 `apps/extension/` 内,符合 §12 严格保护其他 agent 范围):
-
-1. **Content Script 实装**([entrypoints/content.ts](g:/IHUI-AI/apps/extension/entrypoints/content.ts) + [src/content/content-utils.ts](g:/IHUI-AI/apps/extension/src/content/content-utils.ts)):
-   - 浮动工具栏(翻译/高亮/查词/问 AI)4 个按钮,选区 mouseup 自动出现,智能定位(上方/下方空间检测,viewport 边界夹紧)
-   - 沉浸式翻译:点击后通过 background `vocab.lookup` 调用 LLM,选区旁插入 teal 边框结果块
-   - 重点高亮:点击后用 `<mark class="ihui-hl">` 包裹页面所有匹配片段;再次点击清除
-   - 查词/问 AI:写入 `chrome.storage.session` 触发 sidepanel 跳转
-   - 跳过 `<script>/<style>/<mark>` 子树 + 5000 chars 大文本保护性能
-2. **Background Service Worker 重写**([entrypoints/background.ts](g:/IHUI-AI/apps/extension/entrypoints/background.ts)):
-   - 消息路由 + 7 种 ExtMessage 类型(api.proxy / token.get / token.refresh / vocab.lookup / highlight.toggle / tab.queryActive / sidePanel.open / notification.broadcast)
-   - API 代理:避开 content script CORS,自动注入 `Authorization: Bearer <token>`,解包 `{code,message,data}` 格式
-   - 词汇查询:LLM 系统 prompt 引导输出 JSON {translation,phonetic,definitions},失败回退到离线占位
-   - contextMenus 3 项:翻译选区 / 查词 / 发送到对话
-   - sidePanel.open 兼容 tabId 缺失时用 windowId 兜底
-3. **Popup 强化**([entrypoints/popup/App.tsx](g:/IHUI-AI/apps/extension/entrypoints/popup/App.tsx)):
-   - 已登录态:用户信息 + 通知铃铛(NotificationBell,WS 推送 + API 拉取) + 7 个 QuickActionButton(打开对话/侧边栏/词汇/个人/钱包/复制 URL/打开网页版)
-   - 未登录态:登录表单 + 打开网页版
-   - QuickActionButton 3 variant(primary/default/danger)+ badge 支持
-4. **Sidepanel 加 VocabularyPage**([entrypoints/sidepanel/pages/VocabularyPage.tsx](g:/IHUI-AI/apps/extension/entrypoints/sidepanel/pages/VocabularyPage.tsx)):
-   - 监听 `ws.pending_vocab` + `chrome.storage.session` 启动时拉取,自动填入并查询
-   - 生词本(chrome.storage.local,200 条上限,去重 + 移除)
-   - 路由新增 `/vocabulary`,sidepanel 启动时拉 `ihui_pending_route` 跳转(popup "打开词汇页" 跳转)
-5. **新公共组件**:
-   - [entrypoints/components/QuickActionButton.tsx](g:/IHUI-AI/apps/extension/entrypoints/components/QuickActionButton.tsx):快捷操作按钮(primary/default/danger variant + badge)
-   - [entrypoints/components/NotificationBell.tsx](g:/IHUI-AI/apps/extension/entrypoints/components/NotificationBell.tsx):通知铃铛(未读数 + WS 推送)
-6. **i18n 5 语言补 key**:`src/i18n/messages/{zh-CN,zh-TW,en,ja,ko}.ts` 全部补 popup/vocab/content 三个命名空间(~30 key/语言)
-7. **Manifest 升级**([wxt.config.ts](g:/IHUI-AI/apps/extension/wxt.config.ts)):`contextMenus` + `tabs` + `scripting` + `session` 权限,`sidePanel.openPanelOnActionClick: true`
-8. **测试新增 22 个**:
-   - [tests/content-utils.test.ts](g:/IHUI-AI/apps/extension/tests/content-utils.test.ts):16 个 — extractSelectionText/isValidSelection/computeToolbarPosition/translationKey/detectLanguage 覆盖
-   - [tests/message-router.test.ts](g:/IHUI-AI/apps/extension/tests/message-router.test.ts):6 个 — makeRequestId/sendMessage 成功/失败/lastError/超时
-
-**验证结果**:
-
-- `pnpm --filter @ihui/extension typecheck` ✅ exit 0
-- `pnpm --filter @ihui/extension test` ✅ 41/41 通过(原 19 + 新 22)
-- `pnpm --filter @ihui/extension build` ✅ 产出 `.output/chrome-mv3/`(总 479.45 kB,content.js 22.08 kB)
-
-**业务层覆盖度**:
-
-- 之前:登录 100% + 8 page 框架 25%
-- 现在:popup 登录/快捷操作/通知 90% + sidepanel 9 page(含词汇/翻译/学习/钱包/AI 对话)60% + content script 网页助手(翻译/高亮/查词/AI)70% + background 路由/代理/菜单 80%
-- 综合从 25% → 58%(达到 55%+ 目标)
-
-**后续建议(P1-P3,本子任务不处理)**:
-
-- P1:content script 工具栏视觉细调(hover 动效/位置记忆)+ sidepanel VocabularyPage 调 LLM prompt 优化(当前 system prompt 简单,可能不返回 JSON)
-- P1:把 chrome.storage.local 替换为 IndexedDB(生词本 200 条太浅,真实用户需要 1000+ 词)
-- P2:contextMenus 加 "搜索相似图片"(配合 ai-service 视觉端点);popup 加 "最近访问" 历史
-- P2:content script 加 "右键即时翻译"(当前只对 mouseup 选区响应,右键菜单需要单独监听)
-- P3:跨端 — 本子任务仅触及 extension,api / ai-service / web / desktop / mobile-rn / miniapp-taro / cli 无需同步
+<!-- 已归档(2026-07-20):邮箱认证 / 首页路由合并 / Extension popup 3 个已完成条目(原 L8-163)已移至 .trae-cn/archive/PROJECT_PLAN_2026-07-20_pre-workspace-permissions.md,git log 可查 commit 5f3bee93 / 7804e449 / 51c47b00 -->
 
 ---
 
