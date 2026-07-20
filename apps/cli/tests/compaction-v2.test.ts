@@ -125,14 +125,14 @@ describe('selectTurnsToCompact', () => {
 // ==================== shouldCompact ====================
 
 describe('shouldCompact', () => {
-  it('tokens < 0.85 limit 不触发', () => {
+  it('tokens < 0.88 limit 不触发', () => {
     const r = shouldCompact(7000, 10000);
     expect(r.shouldCompact).toBe(false);
     expect(r.trigger).toBe('none');
     expect(r.percent).toBeCloseTo(0.7, 5);
   });
 
-  it('tokens > 0.85 limit 触发', () => {
+  it('tokens > 0.88 limit 触发', () => {
     const r = shouldCompact(9000, 10000);
     expect(r.shouldCompact).toBe(true);
     expect(r.trigger).toBe('ratio');
@@ -308,10 +308,10 @@ describe('compressContextV2 端到端', () => {
   });
 
   it('sampler 未提供 → fallback 到 compressContextIfNeeded', async () => {
-    // 触发压缩但无 sampler(100 条 ~13000 tokens 远超 8000*0.85=6800)
+    // 触发压缩但无 sampler(100 条 ~13000 tokens 远超 8000*0.88=7040)
     const messages = buildLargeMessages(100, 1000);
     const r = await compressContextV2(messages, { contextLimit: 8000 });
-    // fallback 走 v1,v1 会压缩(因为 token 远超 85%)
+    // fallback 走 v1,v1 会压缩(因为 token 远超 88%)
     const v1Result = compressContextIfNeeded(messages, { contextLimit: 8000 });
     expect(r.compressed).toBe(v1Result.compressed);
     expect(r.messages).toEqual(v1Result.messages);
@@ -362,7 +362,7 @@ describe('compressContextV2 端到端', () => {
   });
 
   it('正常压缩 → 返回 summary + tail,observer.onSuccess 被调用', async () => {
-    // 100 条 ~13000 tokens 远超 8000*0.85=6800,触发压缩
+    // 100 条 ~13000 tokens 远超 8000*0.88=7040,触发压缩
     const messages = buildLargeMessages(100, 1000);
     const goodSummary = makeSummary(700); // 700 字符 ~ 200 tokens,远小于 head
     const sampler = new MockCompactionSampler(goodSummary);
@@ -397,7 +397,7 @@ describe('compressContextV2 端到端', () => {
     // 触发阈值但消息数不足 minMessages(用小 contextLimit + 小内容避免 tokenizer 慢)
     const messages: ChatMessage[] = [
       { role: 'system', content: 'sys' },
-      { role: 'user', content: 'X'.repeat(1000) }, // ~130 tokens > 85 (0.85*100)
+      { role: 'user', content: 'X'.repeat(1000) }, // ~130 tokens > 88 (0.88*100)
     ];
     const sampler = new MockCompactionSampler(makeSummary());
     const r = await compressContextV2(messages, {
