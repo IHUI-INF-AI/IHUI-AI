@@ -160,8 +160,14 @@ export function HomePage3Magazine() {
       ? 'rounded-md border border-border bg-background px-5 py-2 text-sm font-medium text-foreground shadow-sm'
       : 'rounded-md border border-transparent px-5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground'
 
+  // 2026-07-20 改(自适应 v4,根因):根 section 改 flex flex-1 flex-col,让它在 page4
+  // wrapper (flex-1 min-h-0) 内撑开 = 视口 - footer 自然高度。
+  // - 中间 Card / grid 区域继承 flex-1,占满 magazine 容器剩余空间;
+  // - "查看更多" 链接用 mt-auto 贴底,跟 footer 顶边无缝衔接;
+  // - 之前缺 flex-1,根 section 高度 = 内容自然高度 (~140px),container 撑到
+  //   ~500px,导致 Card 下方 ~360px 大空白 (用户反馈"大量空余空间" 根因)。
   return (
-    <section className="space-y-4">
+    <section className="flex flex-1 flex-col space-y-4">
       <header className="flex flex-col items-center gap-3 text-center">
         <div className="flex flex-col items-center gap-1">
           <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h2>
@@ -191,11 +197,13 @@ export function HomePage3Magazine() {
       {isLoading ? (
         <Skeleton />
       ) : items.length === 0 ? (
-        <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+        // 2026-07-20 改:Card 加 flex-1 min-h-0,让"暂无内容"占满 magazine 容器
+        // 剩余空间,不再留下方大空隙;h-40 (固定 160px) 已删除,改由 flex-1 撑开。
+        <Card className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
           {t('empty')}
         </Card>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-1 flex-col gap-4">
           <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
             {hero && <HeroCard item={hero} tag={t('tagHot')} />}
             <div className="flex flex-col gap-4">
@@ -212,7 +220,10 @@ export function HomePage3Magazine() {
         </div>
       )}
 
-      <div className="flex justify-end">
+      {/* 2026-07-20 改:mt-auto 推到底部,贴齐 magazine 容器底边 = footer 顶边,
+          配合根 section flex-1,空数据时 Card 已占满中间空间,链接紧跟 Card 下方
+          不再悬空。 */}
+      <div className="mt-auto flex justify-end pt-2">
         <Link
           href="/news"
           className="flex items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-primary"
