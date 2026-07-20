@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
+from ..services.project_memory import build_system_prompt
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -31,6 +32,43 @@ _pending_callbacks: set[asyncio.Task] = set()
 
 # 默认模型清单 JSON 文件路径(运行时按需加载,修改无需重启)
 _DEFAULT_MODELS_FILE = Path(__file__).resolve().parent.parent / "data" / "default_models.json"
+
+
+def _inject_workspace_memory(
+    messages: list[dict[str, Any]], workspace_path: str | None
+) -> list[dict[str, Any]]:
+    """将工作区项目记忆(CLAUDE.md/AGENTS.md/.ihui/memory.md)注入为 system message。
+
+    行为(参考 Claude Code CLAUDE.md 机制):
+    - workspace_path 为 None 或路径无项目记忆文件 → 原样返回 messages
+    - messages[0].role == 'system' → 把项目记忆追加到现有 system content 后面
+    - messages 无 system → 在开头插入新 system message
+
+    Args:
+        messages: 原始消息列表
+        workspace_path: 工作区路径(None 时跳过注入)
+
+    Returns:
+        注入项目记忆后的新消息列表(不修改原列表)
+    """
+    if not workspace_path:
+        return messages
+    memory_content = build_system_prompt(workspace_path=workspace_path)
+    # 项目记忆服务返回的内容已包含默认 system prompt 前缀,直接拼接即可
+    if not memory_content:
+        return messages
+    new_messages = list(messages)
+    if new_messages and new_messages[0].get("role") == "system":
+        existing = new_messages[0].get("content", "")
+        # 避免重复注入(同一 workspace_path 已注入过则跳过)
+        marker = f"<!-- workspace:{workspace_path} -->"
+        if marker in str(existing):
+            return messages
+        merged = f"{existing}\n\n{marker}\n{memory_content}" if existing else memory_content
+        new_messages[0] = {**new_messages[0], "content": merged}
+    else:
+        new_messages.insert(0, {"role": "system", "content": memory_content})
+    return new_messages
 
 
 def _load_default_models() -> list[dict[str, Any]]:
@@ -87,12 +125,18 @@ class LLMCompleteRequest(BaseModel):
     callback_url: str | None = Field(
         None, description="推理完成后回调该 URL(POST 完整结果),默认由 api_service_url 构造"
     )
+    # 当前绑定的本地工作区路径,用于注入 CLAUDE.md/AGENTS.md 项目记忆作为 system prompt
+    workspace_path: str | None = Field(
+        None, description="工作区路径,自动加载并注入项目记忆文件(CLAUDE.md/AGENTS.md/.ihui/memory.md)"
+    )
 
 
 @router.post("/llm/complete")
 async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any]:
     """直接调用 LLM 完成对话(支持 function calling)。"""
     owner_uuid = (req.metadata or {}).get("userId")
+    # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
+    messages = _inject_workspace_memory(req.messages, req.workspace_path)
     # 构造透传 kwargs(只透传非 None 的字段)
     kwargs: dict[str, Any] = {}
     if req.tools is not None:
@@ -103,7 +147,7 @@ async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any]:
         kwargs["temperature"] = req.temperature
     if req.max_tokens is not None:
         kwargs["max_tokens"] = req.max_tokens
-    result = await llm_gateway.complete(req.messages, model=req.model, owner_uuid=owner_uuid, **kwargs)
+    result = await llm_gateway.complete(messages, model=req.model, owner_uuid=owner_uuid, **kwargs)
     # 透传 metadata
     if req.metadata:
         result["metadata"] = req.metadata
@@ -146,10 +190,12 @@ async def complete_stream(req: LLMCompleteRequest) -> StreamingResponse:
 
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     owner_uuid = (req.metadata or {}).get("userId")
+    # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
+    messages = _inject_workspace_memory(req.messages, req.workspace_path)
 
     async def gen():
         try:
-            async for event in llm_gateway.astream(req.messages, model=req.model, owner_uuid=owner_uuid):
+            async for event in llm_gateway.astream(messages, model=req.model, owner_uuid=owner_uuid):
                 event_type = event.get("type", "message")
                 # 累积内容用于回调
                 if event_type in ("chunk", "message"):
