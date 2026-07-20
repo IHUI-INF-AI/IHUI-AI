@@ -65,11 +65,13 @@ export function AuthShell({
 
       <div className="flex flex-col items-center text-center">
         {/* 顶部 logo + welcome 左右并排(复用 M-66/M-68/M-69 视觉方案,2026-07-20 恢复;2026-07-20 修 w-full 塌陷 + logo 统一 + logo 高度对齐 welcome 文字)
-            - logo 36×36 rounded-lg object-contain,统一用 /images/logo.png?v=20260719-unify(全站 9 处一致),浅/深主题统一
-              高度 36px:welcome 字 path 像素高 26.68px(实测),logo 内容占比 93.76% → 视觉高 33.75px,welcome 字 26.68px,
-              之前 40px 视觉高 37.5px 用户反馈「超出文字顶部」,下调到 36px 让 logo 视觉高与 welcome 字视觉高齐平
+            - logo 29×29 rounded-md object-contain + translate-y-[4px],统一用 /images/logo.png?v=20260719-unify(全站 9 处一致)
+              关键洞察(2026-07-20 第 5 次调整):logo 顶部"高出"问题不是高度,是对齐。
+              welcome.svg 文字在 52px 容器内顶部偏移 16px(SVG 自身 30.8% top padding);
+              logo 居中后顶部偏移 11.5px → 比文字顶部高 4.5px。
+              解法:logo 29px(内容 27.2px ≈ 字 26.68px)+ translate-y-[4px] 下移 → logo 内容顶部 16px 与文字顶部 16px 对齐。
             - welcome h-[52px] w-auto 等比缩放(原 447×67 → h52 时 w≈347)
-            - gap-3(12px)间距,36+12+340=388 ≤ 内宽 404(p-7 28×2 + max-w-460),余 16px 由 flex justify-center 自动居中
+            - gap-3(12px)间距,29+12+340=381 ≤ 内宽 404(p-7 28×2 + max-w-460),余 23px 由 flex justify-center 自动居中
             - welcome 容器固定 w-[340px] + shrink-0:flex 子元素 w-full 在 shrink-to-fit 容器里会塌陷为 0,
               且 absolute Image 无 in-flow 内容,父容器直接缩成 0 → welcome 不显示。固定宽度修复。
             - 浅色 welcome.svg / 深色 baiwelcome.svg 由 globals.css .welcome-img/.welcome-img-dark 切换 */}
@@ -77,9 +79,9 @@ export function AuthShell({
           <Image
             src="/images/logo.png?v=20260719-unify"
             alt="IHUI AI"
-            width={36}
-            height={36}
-            className="h-[36px] w-[36px] shrink-0 select-none rounded-lg object-contain"
+            width={29}
+            height={29}
+            className="h-[29px] w-[29px] shrink-0 translate-y-[4px] select-none rounded-md object-contain"
             draggable={false}
             priority
           />
