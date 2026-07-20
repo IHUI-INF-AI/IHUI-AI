@@ -70,4 +70,8 @@ export const vueToNextRedirects = [
   { source: '/announcement/:id', destination: '/announcements/:id', permanent: true },
   { source: '/login', destination: '/sso/login', permanent: true },
   { source: '/register', destination: '/sso/register', permanent: true },
+  // 2026-07-20 首页路由合并:`/` 是营销落地页(原 /landing 与 /home 工作台版合并)。
+  // 外部老链接 /home /landing 走 301 永久重定向,避免 SEO 流量流失 + 404。
+  { source: '/home', destination: '/', permanent: true },
+  { source: '/landing', destination: '/', permanent: true },
 ]
