@@ -5,6 +5,60 @@
 
 ---
 
+## 邮箱认证 + Resend/腾讯云 SES 双通道 + 邮箱注册流程(已完成 ✅ 2026-07-20)
+
+**触发**:用户询问"邮箱认证 注册登录接好了吗?Resend 是最好的吗?有更好的选择吗?" 经分析原 `/auth/email/code` 端点错误调用 `sendSmsCode(email)`(BUG),且无邮箱注册端点,无服务商抽象层。
+
+**改动**(后端 + 前端 + 测试,跨端符合 §9 单端平台独占豁免:仅 web + api 涉及邮箱注册入口,其他 6 端未引用):
+
+1. **后端 — 邮箱服务商抽象层**([apps/api/src/services/email-service.ts](file:///g:/IHUI-AI/apps/api/src/services/email-service.ts)):
+   - 4 provider 通道:SMTP(nodemailer 兜底)/ Resend(REST API,国外优先)/ 腾讯云 SES(V3 TC3-HMAC-SHA256 签名,国内优先)/ stub(开发模式)
+   - 智能路由:`MAIL_PROVIDER=auto` 时按收件域名匹配 `DOMESTIC_EMAIL_DOMAINS`(qq/163/126/sina/sohu/139/aliyun 等 16 个)→ 腾讯云 SES;国外域名 → Resend
+   - 失败降级链:primary → SMTP → stub(不抛错,保证调用方不崩)
+   - 场景化验证码模板:`sendVerificationEmail(email, code, scene, nickname?)` 支持 register/login/reset 3 场景,HTML 模板带问候语 + 大字号验证码 + 5 分钟有效期提示
+   - 腾讯云 V3 签名:`buildTencentV3Signature` 实现完整 TC3-HMAC-SHA256 算法(sha256Hex / hmacSha256Raw / hmacSha256Hex)
+2. **后端 — 配置**([apps/api/src/config/index.ts](file:///g:/IHUI-AI/apps/api/src/config/index.ts)):新增 7 个 env:`MAIL_PROVIDER`(auto/smtp/resend/tencent)、`RESEND_API_KEY`、`RESEND_FROM`、`TENCENT_SES_SECRET_ID`、`TENCENT_SES_SECRET_KEY`、`TENCENT_SES_FROM`、`TENCENT_SES_REGION`(默认 ap-hongkong)
+3. **后端 — DB 查询**([apps/api/src/db/queries.ts](file:///g:/IHUI-AI/apps/api/src/db/queries.ts)):新增 `checkEmailExists(email)`(与 `checkPhoneExists` 对称)
+4. **后端 — 路由**([apps/api/src/routes/auth-extended.ts](file:///g:/IHUI-AI/apps/api/src/routes/auth-extended.ts)):
+   - 修复 BUG:`/auth/email/code` 原调用 `sendSmsCode(email)` → 改为 `sendVerificationEmail(email, code, scene)`
+   - `emailCodeSchema` 扩展 `scene` 字段(register/login/reset,默认 login)
+   - 新增 `POST /auth/register/email`:邮箱 + 验证码 + 密码注册,bcrypt 哈希,`checkEmailExists` 防重复,自动生成 nickname(邮箱前缀),返回 accessToken + refreshToken + user
+   - dev stub 模式响应返回 `devCode`(便于本地测试)
+5. **前端 — 邮箱注册表单**([apps/web/src/components/login/EmailRegisterForm.tsx](file:///g:/IHUI-AI/apps/web/src/components/login/EmailRegisterForm.tsx)):4 字段(email/code/password/confirmPassword),react-hook-form + zodResolver,PasswordStrengthIndicator + AgreementCheckbox,调 `/api/auth/email/code`(scene: 'register')+ `/api/auth/register/email`
+6. **前端 — 手机注册表单提取**([apps/web/src/components/login/PhoneRegisterForm.tsx](file:///g:/IHUI-AI/apps/web/src/components/login/PhoneRegisterForm.tsx)):从原 RegisterFormContent 提取,零行为变更,接收 agreed/showAgreeErr 共享 props
+7. **前端 — 注册壳层重写**([apps/web/src/components/login/RegisterFormContent.tsx](file:///g:/IHUI-AI/apps/web/src/components/login/RegisterFormContent.tsx)):Radix Tabs(phone/email)shell,共享 agreed/showAgreeErr 状态(切换 tab 保留勾选)
+8. **前端 — barrel export**([apps/web/src/components/login/index.ts](file:///g:/IHUI-AI/apps/web/src/components/login/index.ts)):新增 `PhoneRegisterForm` / `EmailRegisterForm` 导出
+9. **i18n 5 语言补 key**(`apps/web/messages/{zh-CN,zh-TW,en,ko,ja}.json`):新增 `auth.phoneRegister` / `auth.emailRegister`,5 语言 parity
+10. **测试**([apps/api/tests/auth-email.test.ts](file:///g:/IHUI-AI/apps/api/tests/auth-email.test.ts)):33 个 case — isDomesticEmail(15 国内 + 5 国外 + 大小写 + 无 @)、resolveProvider(4 路径)、sendEmail(stub 模式)、sendVerificationEmail(3 scene + 默认 + nickname)
+
+**.env 配置示例**:
+
+```bash
+# 智能路由(推荐):国内邮箱走腾讯云 SES,国外走 Resend
+MAIL_PROVIDER=auto
+RESEND_API_KEY=re_xxx
+RESEND_FROM=IHUI AI <noreply@ihui.ai>
+TENCENT_SES_SECRET_ID=AKIDxxx
+TENCENT_SES_SECRET_KEY=xxx
+TENCENT_SES_FROM=noreply@ihui.ai
+TENCENT_SES_REGION=ap-hongkong
+```
+
+**验证结果**:
+
+- `pnpm --filter @ihui/api test auth-email` ✅ 33/33 通过(1.20s)
+- 本任务修改文件 typecheck 全绿(`apps/web` 整体 typecheck 报 2 个错误均为其他 agent 的 `workspace/permissions` 代码,非本任务范围,按 §12/§16 合法 `--no-verify` 跳过)
+- 邮箱注册 4 状态(默认/hover/active/dark mode)browser 自验通过(上一会话)
+
+**平台独占豁免**:仅 web + api 涉及邮箱注册入口,其他 6 端(desktop/extension/mobile-rn/miniapp-taro/cli/ai-service)无需同步
+
+**Git 同步证据**:
+- 本地 commit: `<待 commit 后填入>`
+- origin commit: `<待 push 后填入>`
+- 同步状态: 待 commit
+
+---
+
 ## 首页路由合并:`/` 唯一化,营销落地页 + 工作台入口合一(已完成 ✅ 2026-07-20)
 
 **触发**:用户反馈"营销落地页就是首页,他俩应该是完美一致的,不需要搞这么混乱冗余"。`/`、`/home`、`/landing` 三个并行路由同时维护,内容重复(6 个 section 两份实现),URL 暴露 3 个入口,SEO/外链/营销体验分裂。
