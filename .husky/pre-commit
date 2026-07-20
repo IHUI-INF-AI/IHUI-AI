@@ -126,6 +126,14 @@ if (!run('📐 检查 PROJECT_PLAN.md 体积...', 'node scripts/check-project-pl
   process.exit(1)
 }
 
+// 13c. PROJECT_PLAN.md 已完成任务条目防误删守门(2026-07-20 立)
+// 防止归档精简操作误删已完成任务条目(CLI 配置导入任务条目历史上被两次误删)
+// 规则: ### XXX(已完成 ✅ ...) 标题行被删除时,必须在 diff 中有 <!-- 已归档 占位注释
+// 合规操作: 移动完整条目到 .trae-cn/archive/ + 在原位置留归档占位注释
+if (!run('🗂️  检查 PROJECT_PLAN.md 已完成任务防误删...', 'node scripts/check-project-plan-archive.mjs --staged')) {
+  process.exit(1)
+}
+
 // 14. (已移除) 根路径 / 路由守门
 // 原计划引用 scripts/check-root-route-redirect.mjs,但该脚本从未创建,
 // 且 AGENTS.md 第 4 节实际为"前端 UI 约束"(无"根路径硬约束"规则)。
