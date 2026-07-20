@@ -12092,7 +12092,26 @@
     "ourMission": "我们的使命",
     "missionDesc1": "让 AI 技术惠及每一位学习者，打破知识获取的壁垒。",
     "missionDesc2": "构建开放、共享、智能的教育生态，推动终身学习。",
-    "icpPlaceholder": "京ICP备00000000号"
+    "icpPlaceholder": "京ICP备00000000号",
+    "marketingBadge": "关于智汇 AI",
+    "marketingHeroTitle": "AI 时代企业理性效率伙伴",
+    "marketingHeroDesc": "智汇 AI 社区是 AI 时代企业理性效率服务与互助社群。我们帮助决策者深度理解 AI 与企业的关系，构建人机协同的超级组织，实现企业的理性效率提升。",
+    "marketingFallbackSiteName": "智汇 AI 社区",
+    "marketingFallbackDescription": "智汇 AI 社区是 AI 时代企业理性效率服务与互助社群。我们帮助决策者深度理解 AI 与企业的关系，构建人机协同的超级组织，实现企业的理性效率提升。",
+    "valuesSection": "价值观",
+    "valueMissionTitle": "我们的使命",
+    "valueMissionDesc": "帮助决策者深度理解 AI 与企业的关系，推动企业理性效率提升。",
+    "valueCommunityTitle": "我们的社群",
+    "valueCommunityDesc": "汇聚 AI 时代企业决策者，构建人机协同的超级组织，互助共进。",
+    "valuePromiseTitle": "我们的承诺",
+    "valuePromiseDesc": "不满意全额退款。前 18 位会员享受一对一 AI 顾问咨询。",
+    "valueDirectionTitle": "我们的方向",
+    "valueDirectionDesc": "从 AI 新工具到企业 AI 文化，三阶段循序渐进，持续演进。",
+    "marketingCtaTitle": "加入智汇 AI 社区",
+    "marketingCtaDesc": "仅限前 18 位会员 · 早鸟价 ¥6000/人/年 · 不满意全额退款",
+    "marketingJoinNow": "立即加入",
+    "marketingViewPricing": "查看定价",
+    "metaDescription": "智汇 AI 社区是 AI 时代企业理性效率服务与互助社群，帮助决策者深度理解 AI 与企业的关系，构建人机协同的超级组织。"
   },
   "agreement": {
     "title": "协议与政策",
@@ -13790,6 +13809,7 @@
     "adminBackendHealth": "后端健康检查"
   },
   "footer": {
+    "aboutUs": "关于我们",
     "acknowledgments": "致谢",
     "companyName": "吉林省爱智汇人工智能科技有限公司",
     "addressLabel": "地址:",
