@@ -1023,7 +1023,24 @@
       "selected": "선택됨:",
       "cancel": "취소",
       "opening": "여는 중...",
-      "selectAndOpen": "선택하고 열기"
+      "selectAndOpen": "선택하고 열기",
+      "manualPathLabel": "경로(직접 입력)",
+      "manualPathPlaceholder": "예: G:\\Projects\\my-app 또는 /home/user/projects",
+      "manualPathHint": "전체 절대 경로를 입력하고 Enter 또는 열기 클릭",
+      "manualPathHintWithNative": "시스템 선택기로 폴더 이름이 선택되었습니다. 아래에 전체 절대 경로(파일 탐색기에서 복사)를 입력하고 Enter로 여세요",
+      "openPath": "열기",
+      "orBrowse": "또는 디렉토리 탐색",
+      "nativePick": "폴더 선택",
+      "nativePickHint": "클릭하면 시스템 네이티브 폴더 선택 대화상자(Windows 탐색기 스타일)가 열립니다",
+      "nativePicking": "선택기 여는 중...",
+      "nativeSelected": "시스템 선택기로 선택됨:",
+      "nativeChildren": "포함된 내용",
+      "nativePickError": "시스템 폴더 선택기를 열 수 없습니다",
+      "reselect": "다시 선택",
+      "webkitPick": "폴더 선택(브라우저)",
+      "webkitPickHint": "클릭하면 브라우저 네이티브 폴더 선택 대화상자가 열립니다",
+      "webkitNoRoot": "선택한 폴더 이름을 가져올 수 없습니다. 수동으로 전체 경로를 입력해 주세요",
+      "noNativeSupport": "현재 브라우저는 시스템 폴더 선택기를 지원하지 않습니다. 아래의 수동 입력 또는 백엔드 탐색을 사용해 주세요"
     },
     "permission": {
       "title": "워크스페이스 접근 권한",
@@ -1081,13 +1098,13 @@
         "expired": "요청 시간 초과",
         "queue": "대기열에 {count}개 요청 더 있음",
         "toolNames": {
-          "fs.read": "파일 읽기",
-          "fs.write": "파일 쓰기",
-          "fs.edit": "파일 편집",
-          "fs.delete": "파일 삭제",
-          "fs.grep": "내용 검색",
-          "fs.glob": "파일 찾기",
-          "fs.run": "명령 실행"
+          "fsRead": "파일 읽기",
+          "fsWrite": "파일 쓰기",
+          "fsEdit": "파일 편집",
+          "fsDelete": "파일 삭제",
+          "fsGrep": "내용 검색",
+          "fsGlob": "파일 찾기",
+          "fsRun": "명령 실행"
         }
       }
     },
