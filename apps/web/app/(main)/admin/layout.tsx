@@ -1,6 +1,5 @@
 import * as React from 'react'
-import { AdminNav } from '@/components/layout/AdminNav'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return <AdminNav>{children}</AdminNav>
+  return <div className="mx-auto w-full max-w-7xl px-4 py-6">{children}</div>
 }
