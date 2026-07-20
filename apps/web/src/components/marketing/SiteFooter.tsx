@@ -144,6 +144,7 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
         box
       )}
       <span className="text-xs text-muted-foreground">{t(qr.altKey)}</span>
+      {qr.subtitle && <span className="text-[10px] text-muted-foreground/80">{qr.subtitle}</span>}
     </div>
   )
 }
@@ -158,17 +159,20 @@ export function SiteFooter({ className }: { className?: string }) {
     // 导致 footer 内部 div 边缘 != footer 标签边缘,与 page 4 magazine 容器
     // (flex-1 + px-4 md:px-8) 左右不匹配。改后 footer 内容 = magazine 内容
     // 横向缩进位置,左右完全吻合。
+    // 2026-07-20 改(自适应 v3):footer 自身 padding 改 py-3 md:py-4,比之前
+    // pt-6 pb-1 md:pt-8 md:pb-2 进一步压缩约 8-16px;内部最外层 div 改 gap-3,
+    // 比之前 gap-6 进一步压缩 12px;grid 三栏改 gap-6,比之前 gap-8 压缩 8px。
+    // footer 高度完全由内容决定 (~180-200px),不再被 flex 强制拉伸。
     <footer
-      className={`border-t bg-card/50 px-4 pt-6 pb-1 md:px-8 md:pt-8 md:pb-2${
-        className ? ` ${className}` : ''
-      }`}
+      className={`border-t bg-card/50 px-4 py-3 md:px-8 md:py-4${className ? ` ${className}` : ''}`}
     >
       {/* 内部最外层 div 改 w-full,撑满 footer 自身 padding 后的空间,无 max-w 限制。
-          这样 footer 内部 div 左右边界 = footer 标签内容区左右边界 = 视觉吻合 footer。 */}
-      <div className="flex w-full flex-col gap-6">
-        <div className="grid gap-8 md:grid-cols-3">
-          {/* 公司信息 + 快速链接 */}
-          <div className="space-y-3">
+          这样 footer 内部 div 左右边界 = footer 标签内容区左右边界 = 视觉吻合 footer。
+          gap-3 (替代 gap-6) 进一步压缩三栏与版权行之间的留白。 */}
+      <div className="flex w-full flex-col gap-3">
+        <div className="grid gap-6 md:grid-cols-3">
+          {/* 公司信息 + 快速链接 — space-y-2 比 space-y-3 紧凑 4px */}
+          <div className="space-y-2">
             <h3 className="text-sm font-semibold">{t('companyName')}</h3>
             <ul className="space-y-1 text-xs text-muted-foreground">
               <li>
@@ -189,18 +193,19 @@ export function SiteFooter({ className }: { className?: string }) {
             </div>
           </div>
 
-          {/* 4 类生态平台 */}
-          <div className="space-y-3">
+          {/* 4 类生态平台 — space-y-2 (8px) 比 space-y-3 紧凑 4px × 3 = 12px */}
+          <div className="space-y-2">
             <PlatformGroup title={t('supportedPlatforms')} items={SUPPORTED} t={t} />
             <PlatformGroup title={t('models')} items={MODELS} t={t} />
             <PlatformGroup title={t('paymentPlatforms')} items={PAYMENTS} t={t} />
             <PlatformGroup title={t('cloudDatabases')} items={DATABASES} t={t} />
           </div>
 
-          {/* 推广平台 + 二维码 */}
-          <div className="space-y-3">
+          {/* 推广平台 + 二维码 — space-y-2 (8px) 比 space-y-3 紧凑 4px */}
+          <div className="space-y-2">
             <PlatformGroup title={t('officialPromotion')} items={PROMOTIONS} t={t} />
-            <div className="flex gap-5 pt-2">
+            {/* pt-1 (4px) 比 pt-2 (8px) 紧凑 4px */}
+            <div className="flex gap-5 pt-1">
               {QRS.map((q) => (
                 <QrItem key={q.src} qr={q} t={t} />
               ))}
@@ -208,8 +213,11 @@ export function SiteFooter({ className }: { className?: string }) {
           </div>
         </div>
 
-        {/* 底部:ICP + 版权 + 协议 */}
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-5 text-xs text-muted-foreground">
+        {/* 底部:ICP + 版权 + 协议
+            2026-07-20 改(自适应 v3):mt-1 pt-2 (4+8=12px 间距),比之前 mt-8 pt-5
+            (32+20=52px) 紧凑 40px,配合 footer 自身 py-3 md:py-4,footer 整体高度
+            从 ~250px 压到 ~180-200px,消除 section flex 强制拉伸的无效留白。 */}
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t pt-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <img
               src="/footer/erweima/footer-icon-1.png"
