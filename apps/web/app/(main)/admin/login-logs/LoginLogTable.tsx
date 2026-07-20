@@ -3,6 +3,7 @@
 import { Loader2, LogIn } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { TruncatedText } from '@/components/common'
 import { th, PERM } from './helpers'
 import type { LoginLog } from './types'
 
@@ -56,11 +57,8 @@ export function LoginLogTable({ list, isLoading, onEdit, onDelete }: Props) {
                 <td className="px-4 py-2.5">{item.platform ?? '-'}</td>
                 <td className="px-4 py-2.5 text-xs text-muted-foreground">{item.ip ?? '-'}</td>
                 <td className="px-4 py-2.5">{item.location ?? '-'}</td>
-                <td
-                  className="px-4 py-2.5 max-w-32 truncate text-xs text-muted-foreground"
-                  title={item.userAgent}
-                >
-                  {item.userAgent ?? '-'}
+                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TruncatedText value={item.userAgent ?? '-'} className="max-w-32" />
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">{item.loginTime ?? '-'}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{item.message ?? '-'}</td>

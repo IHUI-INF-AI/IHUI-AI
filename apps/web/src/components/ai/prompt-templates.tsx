@@ -3,6 +3,7 @@
 import { FileText } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 interface Template {
   id: string
@@ -40,20 +41,20 @@ export function PromptTemplates({
     return (
       <div className="flex flex-wrap items-center justify-center gap-2">
         {templates.map((tpl) => (
-          <button
-            key={tpl.id}
-            type="button"
-            onClick={() => onSelect(tpl.content)}
-            title={tpl.content}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5',
-              'text-xs font-medium text-foreground/80 transition-all',
-              'hover:border-primary/40 hover:bg-accent hover:text-foreground hover:-translate-y-px',
-            )}
-          >
-            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>{tpl.name}</span>
-          </button>
+          <Tooltip key={tpl.id} content={tpl.content}>
+            <button
+              type="button"
+              onClick={() => onSelect(tpl.content)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5',
+                'text-xs font-medium text-foreground/80 transition-all',
+                'hover:border-primary/40 hover:bg-accent hover:text-foreground hover:-translate-y-px',
+              )}
+            >
+              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>{tpl.name}</span>
+            </button>
+          </Tooltip>
         ))}
       </div>
     )

@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
+import { Tooltip } from '@/components/feedback'
 import { useToast } from '@/hooks/use-toast'
 import {
   archiveConversation,
@@ -253,19 +254,20 @@ export function ConversationList({ items }: { items: Conversation[] }) {
               </p>
             </button>
             <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => favMutation.mutate(item.id)}
-                disabled={favMutation.isPending}
-                title={item.favorite ? t('unfavorite') : t('favorite')}
-                aria-label={item.favorite ? t('unfavorite') : t('favorite')}
-              >
-                <Star
-                  className={cn('h-3.5 w-3.5', item.favorite && 'fill-amber-400 text-amber-400')}
-                />
-              </Button>
+              <Tooltip content={item.favorite ? t('unfavorite') : t('favorite')}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => favMutation.mutate(item.id)}
+                  disabled={favMutation.isPending}
+                  aria-label={item.favorite ? t('unfavorite') : t('favorite')}
+                >
+                  <Star
+                    className={cn('h-3.5 w-3.5', item.favorite && 'fill-amber-400 text-amber-400')}
+                  />
+                </Button>
+              </Tooltip>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -274,7 +276,6 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                     className="h-7 w-7"
                     disabled={busyId === item.id}
                     aria-label={tc('actions.menu')}
-                    title={tc('actions.menu')}
                     data-testid="conversation-more-menu"
                   >
                     {busyId === item.id ? (

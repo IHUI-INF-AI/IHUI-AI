@@ -7,6 +7,7 @@ import { Bug, AlertTriangle, AlertOctagon, CheckCircle2, Loader2, Filter } from 
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui'
+import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 interface ErrorStats {
@@ -202,8 +203,8 @@ export default function ErrorDashboardPage() {
                       <td className="px-4 py-2.5">
                         <code className="font-mono text-xs">{e.type}</code>
                       </td>
-                      <td className="max-w-[260px] break-words px-4 py-2.5" title={e.message}>
-                        {e.message}
+                      <td className="px-4 py-2.5">
+                        <TruncatedText value={e.message} className="max-w-[260px]" />
                       </td>
                       <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
                         {e.endpoint}

@@ -13,7 +13,7 @@ import { ModelSelector } from '@/components/chat/model-selector'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SelfMediaSkillPicker } from '@/components/chat/self-media-skill-picker'
-import { Popover } from '@/components/feedback'
+import { Popover, Tooltip } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { getRecentFilesForMention } from '@/lib/workspace-api'
 import { useChatStore } from '@/stores/chat'
@@ -392,16 +392,17 @@ export function MessageInput({
                 与空状态 chips 共用同一组 5 个核心模板源,视觉风格协调。 */}
             <div className="flex items-center gap-1 border-b border-border/60 px-2 py-1.5">
               {isStreaming ? (
-                <button
-                  type="button"
-                  disabled
-                  aria-label={t('promptTemplate')}
-                  title={t('promptTemplate')}
-                  className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  <span>{t('promptTemplate')}</span>
-                </button>
+                <Tooltip content={t('promptTemplate')}>
+                  <button
+                    type="button"
+                    disabled
+                    aria-label={t('promptTemplate')}
+                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>{t('promptTemplate')}</span>
+                  </button>
+                </Tooltip>
               ) : (
                 <Popover
                   content={
@@ -414,11 +415,11 @@ export function MessageInput({
                   }
                   position="bottom"
                   trigger="click"
+                  tooltip={t('promptTemplate')}
                 >
                   <button
                     type="button"
                     aria-label={t('promptTemplate')}
-                    title={t('promptTemplate')}
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
                       'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
@@ -429,44 +430,46 @@ export function MessageInput({
                   </button>
                 </Popover>
               )}
-              <button
-                type="button"
-                onClick={addTextReference}
-                disabled={isStreaming}
-                aria-label={value.trim() ? t('addContextReference') : t('addContextHint')}
-                title={value.trim() ? t('addContextReference') : t('addContextHint')}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
-                  'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
-                  'disabled:cursor-not-allowed disabled:opacity-50',
-                )}
-              >
-                <FilePlus className="h-3.5 w-3.5" />
-                <span>{value.trim() ? t('addContextReference') : t('addContextHint')}</span>
-              </button>
+              <Tooltip content={value.trim() ? t('addContextReference') : t('addContextHint')}>
+                <button
+                  type="button"
+                  onClick={addTextReference}
+                  disabled={isStreaming}
+                  aria-label={value.trim() ? t('addContextReference') : t('addContextHint')}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
+                    'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
+                >
+                  <FilePlus className="h-3.5 w-3.5" />
+                  <span>{value.trim() ? t('addContextReference') : t('addContextHint')}</span>
+                </button>
+              </Tooltip>
               {/* 自媒体 skill 入口(2026-07-20 新增):Popover 展示 2 个 skill,
                   选中后填充模板到 textarea,与斜杠命令 /wechat-article /koubo-script 同源 */}
               {isStreaming ? (
-                <button
-                  type="button"
-                  disabled
-                  aria-label={t('selfMediaSkill')}
-                  title={t('selfMediaSkill')}
-                  className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
-                >
-                  <Newspaper className="h-3.5 w-3.5" />
-                  <span>{t('selfMediaSkill')}</span>
-                </button>
+                <Tooltip content={t('selfMediaSkill')}>
+                  <button
+                    type="button"
+                    disabled
+                    aria-label={t('selfMediaSkill')}
+                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
+                  >
+                    <Newspaper className="h-3.5 w-3.5" />
+                    <span>{t('selfMediaSkill')}</span>
+                  </button>
+                </Tooltip>
               ) : (
                 <Popover
                   content={<SelfMediaSkillPicker onSelect={fillInput} onClose={() => {}} />}
                   position="bottom"
                   trigger="click"
+                  tooltip={t('selfMediaSkill')}
                 >
                   <button
                     type="button"
                     aria-label={t('selfMediaSkill')}
-                    title={t('selfMediaSkill')}
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
                       'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
@@ -513,80 +516,83 @@ export function MessageInput({
                 仅编译 .@container 类不编译 @sm: 断点规则)。 */}
             <div className="ai-input-toolbar flex min-w-0 items-center gap-1 overflow-hidden px-2 pb-2 pt-1">
               {/* 独立附件按钮:点击触发 hidden file input,选择图片/视频文件作为附件引用 */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isStreaming}
-                aria-label={tA11y('addAttachment')}
-                title={tA11y('addAttachment')}
-                className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                  'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  'disabled:cursor-not-allowed disabled:opacity-50',
-                )}
-              >
-                <Plus className="h-4 w-4" />
-              </button>
+              <Tooltip content={tA11y('addAttachment')}>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isStreaming}
+                  aria-label={tA11y('addAttachment')}
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                    'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </Tooltip>
               {/* / 独立按钮:点击在 textarea 末尾插入 / 字符并触发 SlashCommandPalette */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (isStreaming) return
-                  const el = textareaRef.current
-                  if (!el) return
-                  const next = (
-                    value.endsWith(' ') || value === '' ? `${value}/` : `${value} /`
-                  ).slice(0, MAX_LENGTH)
-                  setValue(next)
-                  setSlashOpen(true)
-                  requestAnimationFrame(() => {
-                    el.focus()
-                    const pos = next.length
-                    el.setSelectionRange(pos, pos)
-                    resize()
-                  })
-                }}
-                disabled={isStreaming}
-                aria-label={tA11y('slashCommand')}
-                title={tA11y('slashCommand')}
-                className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                  'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  'disabled:cursor-not-allowed disabled:opacity-50',
-                )}
-              >
-                <SquareSlash className="h-4 w-4" />
-              </button>
+              <Tooltip content={tA11y('slashCommand')}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isStreaming) return
+                    const el = textareaRef.current
+                    if (!el) return
+                    const next = (
+                      value.endsWith(' ') || value === '' ? `${value}/` : `${value} /`
+                    ).slice(0, MAX_LENGTH)
+                    setValue(next)
+                    setSlashOpen(true)
+                    requestAnimationFrame(() => {
+                      el.focus()
+                      const pos = next.length
+                      el.setSelectionRange(pos, pos)
+                      resize()
+                    })
+                  }}
+                  disabled={isStreaming}
+                  aria-label={tA11y('slashCommand')}
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                    'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
+                >
+                  <SquareSlash className="h-4 w-4" />
+                </button>
+              </Tooltip>
               {/* @ 独立按钮:点击在 textarea 末尾插入 @ 字符并触发 FileMentionPopover */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (isStreaming) return
-                  const el = textareaRef.current
-                  if (!el) return
-                  const next = (
-                    value.endsWith(' ') || value === '' ? `${value}@` : `${value} @`
-                  ).slice(0, MAX_LENGTH)
-                  setValue(next)
-                  setMentionOpen(true)
-                  requestAnimationFrame(() => {
-                    el.focus()
-                    const pos = next.length
-                    el.setSelectionRange(pos, pos)
-                    resize()
-                  })
-                }}
-                disabled={isStreaming}
-                aria-label={tA11y('mentionFile')}
-                title={tA11y('mentionFile')}
-                className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                  'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  'disabled:cursor-not-allowed disabled:opacity-50',
-                )}
-              >
-                <AtSign className="h-4 w-4" />
-              </button>
+              <Tooltip content={tA11y('mentionFile')}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isStreaming) return
+                    const el = textareaRef.current
+                    if (!el) return
+                    const next = (
+                      value.endsWith(' ') || value === '' ? `${value}@` : `${value} @`
+                    ).slice(0, MAX_LENGTH)
+                    setValue(next)
+                    setMentionOpen(true)
+                    requestAnimationFrame(() => {
+                      el.focus()
+                      const pos = next.length
+                      el.setSelectionRange(pos, pos)
+                      resize()
+                    })
+                  }}
+                  disabled={isStreaming}
+                  aria-label={tA11y('mentionFile')}
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                    'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
+                >
+                  <AtSign className="h-4 w-4" />
+                </button>
+              </Tooltip>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -608,31 +614,33 @@ export function MessageInput({
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
                 <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming} />
                 {isStreaming ? (
-                  <button
-                    type="button"
-                    onClick={onStop}
-                    aria-label={stopLabel}
-                    title={stopLabel}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90"
-                  >
-                    <Square className="h-4 w-4" fill="currentColor" />
-                  </button>
+                  <Tooltip content={stopLabel}>
+                    <button
+                      type="button"
+                      onClick={onStop}
+                      aria-label={stopLabel}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90"
+                    >
+                      <Square className="h-4 w-4" fill="currentColor" />
+                    </button>
+                  </Tooltip>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={submit}
-                    disabled={!canSend}
-                    aria-label={sendLabel}
-                    title={sendLabel}
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                      canSend
-                        ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                        : 'cursor-not-allowed bg-muted text-muted-foreground/50',
-                    )}
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
+                  <Tooltip content={sendLabel}>
+                    <button
+                      type="button"
+                      onClick={submit}
+                      disabled={!canSend}
+                      aria-label={sendLabel}
+                      className={cn(
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                        canSend
+                          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                          : 'cursor-not-allowed bg-muted text-muted-foreground/50',
+                      )}
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
                 )}
               </div>
             </div>
