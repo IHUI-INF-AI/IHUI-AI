@@ -11,7 +11,18 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/lib/api/admin-content', () => ({
-  CONTENT_TYPES: ['announcement', 'help-article', 'article', 'advertise'],
+  CONTENT_TYPES: [
+    'announcement',
+    'help-article',
+    'help-category',
+    'doc',
+    'article',
+    'advertise',
+    'about-us',
+    'contact',
+    'recommendation',
+    'mobile-adapter',
+  ],
   listAdminContent: mocks.listAdminContent,
   createAdminContent: mocks.createAdminContent,
   updateAdminContent: mocks.updateAdminContent,
@@ -27,22 +38,18 @@ vi.mock('../src/components/admin/ContentDialog', () => ({
   }: {
     open: boolean
     mode: 'create' | 'edit'
-    onSubmit: (v: {
-      type: string
-      title: string
-      content: string
-      isPublished: boolean
-      sortOrder: number
-    }) => void
+    onSubmit: (v: { type: string; values: Record<string, string | number | boolean> }) => void
     onClose: () => void
   }) => {
     if (!open) return null
     const stubValues = {
       type: 'announcement',
-      title: 'Stub Title',
-      content: 'Stub content body',
-      isPublished: true,
-      sortOrder: 7,
+      values: {
+        title: 'Stub Title',
+        content: 'Stub content body',
+        isPublished: true,
+        sortOrder: 7,
+      },
     }
     return createElement(
       'div',
@@ -89,6 +96,19 @@ const SAMPLE_ROWS = [
   },
 ]
 
+const ALL_TYPES = [
+  'announcement',
+  'help-article',
+  'help-category',
+  'doc',
+  'article',
+  'advertise',
+  'about-us',
+  'contact',
+  'recommendation',
+  'mobile-adapter',
+] as const
+
 beforeEach(() => {
   localStorage.clear()
   vi.clearAllMocks()
@@ -105,13 +125,12 @@ beforeEach(() => {
 })
 
 describe('AdminContent', () => {
-  it('renders the four tabs and lists rows for the default tab', async () => {
+  it('renders all 10 tabs and lists rows for the default tab', async () => {
     render(wrap(createElement(AdminContent)))
     await waitFor(() => expect(screen.getByTestId('admin-content')).toBeTruthy())
-    expect(screen.getByTestId('admin-content-tab-announcement')).toBeTruthy()
-    expect(screen.getByTestId('admin-content-tab-help-article')).toBeTruthy()
-    expect(screen.getByTestId('admin-content-tab-article')).toBeTruthy()
-    expect(screen.getByTestId('admin-content-tab-advertise')).toBeTruthy()
+    for (const tp of ALL_TYPES) {
+      expect(screen.getByTestId(`admin-content-tab-${tp}`)).toBeTruthy()
+    }
     expect(screen.getByText('系统维护通知')).toBeTruthy()
     expect(screen.getByText('春节活动')).toBeTruthy()
   })
@@ -123,7 +142,7 @@ describe('AdminContent', () => {
     expect(screen.getByTestId('content-dialog-stub-create')).toBeTruthy()
   })
 
-  it('submits createAdminContent and reloads', async () => {
+  it('submits createAdminContent with body from form values and reloads', async () => {
     mocks.createAdminContent.mockResolvedValue({
       success: true,
       data: { item: SAMPLE_ROWS[0], type: 'announcement' },
@@ -218,6 +237,68 @@ describe('AdminContent', () => {
     fireEvent.click(screen.getByTestId('content-dialog-stub-create-submit'))
     await waitFor(() =>
       expect(screen.getByTestId('admin-content-action-error').textContent).toContain('权限不足'),
+    )
+  })
+
+  // ============ 10 type tab coverage ============
+
+  it('switches to help-category tab and refetches with that type', async () => {
+    render(wrap(createElement(AdminContent)))
+    await waitFor(() => expect(screen.getByTestId('admin-content')).toBeTruthy())
+    mocks.listAdminContent.mockClear()
+    fireEvent.click(screen.getByTestId('admin-content-tab-help-category'))
+    await waitFor(() =>
+      expect(mocks.listAdminContent).toHaveBeenCalledWith('help-category', expect.anything()),
+    )
+  })
+
+  it('switches to doc tab and refetches with that type', async () => {
+    render(wrap(createElement(AdminContent)))
+    await waitFor(() => expect(screen.getByTestId('admin-content')).toBeTruthy())
+    mocks.listAdminContent.mockClear()
+    fireEvent.click(screen.getByTestId('admin-content-tab-doc'))
+    await waitFor(() =>
+      expect(mocks.listAdminContent).toHaveBeenCalledWith('doc', expect.anything()),
+    )
+  })
+
+  it('switches to about-us tab and refetches with that type', async () => {
+    render(wrap(createElement(AdminContent)))
+    await waitFor(() => expect(screen.getByTestId('admin-content')).toBeTruthy())
+    mocks.listAdminContent.mockClear()
+    fireEvent.click(screen.getByTestId('admin-content-tab-about-us'))
+    await waitFor(() =>
+      expect(mocks.listAdminContent).toHaveBeenCalledWith('about-us', expect.anything()),
+    )
+  })
+
+  it('switches to contact tab and refetches with that type', async () => {
+    render(wrap(createElement(AdminContent)))
+    await waitFor(() => expect(screen.getByTestId('admin-content')).toBeTruthy())
+    mocks.listAdminContent.mockClear()
+    fireEvent.click(screen.getByTestId('admin-content-tab-contact'))
+    await waitFor(() =>
+      expect(mocks.listAdminContent).toHaveBeenCalledWith('contact', expect.anything()),
+    )
+  })
+
+  it('switches to recommendation tab and refetches with that type', async () => {
+    render(wrap(createElement(AdminContent)))
+    await waitFor(() => expect(screen.getByTestId('admin-content')).toBeTruthy())
+    mocks.listAdminContent.mockClear()
+    fireEvent.click(screen.getByTestId('admin-content-tab-recommendation'))
+    await waitFor(() =>
+      expect(mocks.listAdminContent).toHaveBeenCalledWith('recommendation', expect.anything()),
+    )
+  })
+
+  it('switches to mobile-adapter tab and refetches with that type', async () => {
+    render(wrap(createElement(AdminContent)))
+    await waitFor(() => expect(screen.getByTestId('admin-content')).toBeTruthy())
+    mocks.listAdminContent.mockClear()
+    fireEvent.click(screen.getByTestId('admin-content-tab-mobile-adapter'))
+    await waitFor(() =>
+      expect(mocks.listAdminContent).toHaveBeenCalledWith('mobile-adapter', expect.anything()),
     )
   })
 })
