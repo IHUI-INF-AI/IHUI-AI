@@ -439,7 +439,103 @@
     "openclaw": "オープンＣｌａｗ",
     "pricing": "料金",
     "recruitment": "採用",
-    "support": "サポート"
+    "support": "サポート",
+    "modelsOverview": "モデル概覧",
+    "modelsMarket": "モデル市場",
+    "modelsChannels": "チャネル管理",
+    "modelsKeys": "API キー",
+    "modelsLogs": "API ログ",
+    "modelsChats": "チャット履歴",
+    "modelsUsers": "ユーザー管理",
+    "modelsGroups": "ユーザーグループ",
+    "modelsUsage": "使用統計",
+    "modelsBilling": "請求管理",
+    "modelsRedeem": "引換コード",
+    "modelsReferral": "紹介報酬",
+    "modelsOpenclaw": "OpenClaw",
+    "modelsApiDocs": "API ドキュメント",
+    "modelsSkills": "スキル市場",
+    "messagesNotice": "通知",
+    "messagesLike": "いいね",
+    "messagesFavorite": "お気に入り",
+    "messagesComment": "コメント",
+    "messagesFans": "ファン",
+    "messagesPrivateLetter": "個人メッセージ",
+    "userProfile": "プロフィール",
+    "userSecurity": "アカウントセキュリティ",
+    "userNotifications": "通知設定",
+    "userOrders": "注文履歴",
+    "userRealname": "実名認証",
+    "userSubscription": "サブスクリプション",
+    "userLearnRecord": "学習記録",
+    "userComment": "マイコメント",
+    "userFans": "マイファン",
+    "userFollow": "フォロー",
+    "userAsk": "マイ質問",
+    "userCircle": "マイサークル",
+    "userResource": "マイリソース",
+    "userPoint": "ポイントセンター",
+    "userExam": "マイ試験",
+    "userSignUp": "申込記録",
+    "eduDashboard": "学習概覧",
+    "eduCourses": "マイコース",
+    "eduExam": "オンライン試験",
+    "eduCertificates": "マイ資格",
+    "eduSchedule": "時間割",
+    "eduNotes": "学習ノート",
+    "eduQa": "Q&A センター",
+    "eduProgress": "学習進捗",
+    "memberDashboard": "会員ダッシュボード",
+    "memberOrders": "注文履歴",
+    "memberBenefits": "会員特典",
+    "memberPoints": "ポイントセンター",
+    "memberCoupons": "クーポン",
+    "memberSubscription": "サブスクリプション",
+    "memberRefunds": "返金記録",
+    "memberAddresses": "配送先",
+    "memberFavorites": "お気に入り",
+    "memberHistory": "閲覧履歴",
+    "memberInvitations": "招待記録",
+    "memberFeedback": "フィードバック",
+    "memberHelp": "ヘルプセンター",
+    "memberSettings": "会員設定",
+    "memberUpgrade": "会員アップグレード",
+    "developerApiDocs": "API ドキュメント",
+    "developerKeys": "API キー",
+    "developerWebhooks": "Webhook",
+    "developerSandbox": "サンドボックス",
+    "developerLimits": "呼出制限",
+    "developerLogs": "ログ",
+    "developerVersions": "バージョン管理",
+    "developerSubscription": "サブスクリプション",
+    "developerNotifications": "通知設定",
+    "developerTeam": "チーム管理",
+    "developerBilling": "請求管理",
+    "developerSettings": "開発者設定",
+    "adminTheme": "テーマ管理",
+    "adminThemeList": "テーマ一覧",
+    "adminThemeCreate": "テーマ作成",
+    "adminThemeColors": "カラースキーム",
+    "adminThemeFonts": "フォント設定",
+    "adminThemeDarkMode": "ダークモード",
+    "adminThemeAssets": "ブランド資産",
+    "adminThemePresets": "プリセットテーマ",
+    "adminThemeExport": "エクスポート",
+    "adminConfigs": "システム設定",
+    "adminDynamic": "ダイナミック",
+    "adminGroup": {
+      "operation": "運営管理",
+      "moderation": "コンテンツ審査",
+      "finance": "財務管理",
+      "aiAgent": "AI エージェント",
+      "marketing": "マーケティング配信",
+      "courseExam": "コース試験",
+      "analytics": "監視 BI",
+      "support": "カスタマーサポート",
+      "community": "コミュニティ",
+      "resource": "リソースセンター",
+      "developer": "デベロッパーセンター"
+    }
   },
   "auth": {
     "loginTitle": "おかえりなさい",
@@ -24407,10 +24503,10 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "8プラットフォーム全面カバー · 業界初",
-      "explore": "100+ LLMワンストップアクセス",
-      "brand": "独自 CLI、Claude Code 対抗",
-      "connect": "LangGraph + MCP + A2A トリプルスタック",
+      "content": "8プラットフォーム全面カバー · 業界唯一フルスタック AI プラットフォーム",
+      "explore": "100+ LLMモデル · 1つの API キーで全部アクセス",
+      "brand": "独自 CLI、Claude Code 対抗 · ACP エディタ埋め込み",
+      "connect": "LangGraph + MCP + A2A トリプルスタック · 1029+ API エンドポイント",
       "ctaPrimary": "今すぐ体験",
       "ctaSecondary": "もっと知る",
       "miniappBtn": "WeChatミニプログラム"
@@ -24453,11 +24549,11 @@
     "marquee": {
       "label": "お知らせ",
       "items": [
-        "8プラットフォーム AI プラットフォーム · 100+ LLMワンストップアクセス · 独自 CLI、Claude Code 対抗",
-        "智匯AIコミュニティへようこそ、アーリーバード価格 ¥6000/人/年、限定18席",
-        "企業AI化意思決定者コミュニティが募集を開始、人機協同の実戦コースが年間無料",
-        "先着18名の会員は1対1のAIコンサルティングを享受、不満の場合は全額返金",
-        "今すぐコードをスキャンして智匯AIコミュニティに参加、意思決定者と一緒にAI時代を探索"
+        "8プラットフォーム全面カバー · 100+ LLM大モデル · 1029+ APIエンドポイント · 独自 CLI、Claude Code 対抗",
+        "LangGraph + MCP + A2A トリプルスタック · 11 MCPツール + 5 A2Aエンドポイント + 6 ACP拡張",
+        "17項目 pre-commit ガード + 122+ migrations · 工業級エンジニアリング厳格さ",
+        "18席限定 意思決定者 · アーリーバード ¥6000/年(元価格 ¥18000、67%オフ)· 不満の場合は全額返金",
+        "1v1 AIコンサルタント + 年間無料コース + AI文化落地伴走 · 今すぐ智匯AIコミュニティに参加"
       ],
       "title": "ブランド"
     },
@@ -24466,10 +24562,10 @@
       "subtitle": "AI時代の企業向け合理的効率サービスと相互支援コミュニティ。意思決定者がAIと企業の関係を深く理解し、人機協同のスーパー組織を構築するのを支援します。",
       "description": "今すぐコミュニティに参加して、すべての AI ツール、専属サポート、高度なモデルアクセスなどの特典を利用して、作業効率を向上させましょう。",
       "brandTitle": "智匯AIコミュニティ",
-      "brandSubtitle": "8プラットフォーム企業級 AI プラットフォーム",
-      "seats": "18席限定 意思決定者",
-      "earlyBird": "アーリーバード ¥6000/年",
-      "multiEnd": "8プラットフォーム全面カバー",
+      "brandSubtitle": "8プラットフォーム · 100+ 大モデル · 1029+ APIエンドポイント",
+      "seats": "18席限定 · 意思決定者専用",
+      "earlyBird": "アーリーバード ¥6000/年 · 67%オフ",
+      "multiEnd": "8プラットフォーム全面カバー · 業界唯一",
       "perYear": "日/年の伴走",
       "benefits": {
         "benefit1": "年間すべてのコースに無料で参加",
@@ -24481,9 +24577,9 @@
       }
     },
     "stats": {
-      "platforms": "プラットフォームカバー",
-      "models": "LLM統合",
-      "seats": "席 · 意思決定者"
+      "platforms": "プラットフォームカバー · 業界唯一",
+      "models": "+ LLM大モデル統合",
+      "seats": "席限定 · 意思決定者専用"
     },
     "news": {
       "title": "最新ニュース",
@@ -24529,8 +24625,8 @@
       "recommended": "おすすめ",
       "basic": {
         "name": "ベーシック",
-        "description": "AIを体験する個人開発者向け",
-        "feature1": "無制限のAIチャット",
+        "description": "個人開発者 · AI プラットフォームコア能力の入門体験",
+        "feature1": "無制限の AI チャット",
         "feature2": "画像生成",
         "feature3": "音声入力",
         "feature4": "ファイルアップロード",
@@ -24540,33 +24636,33 @@
       },
       "professional": {
         "name": "プロフェッショナル",
-        "description": "企業の意思決定者深度使用向け",
-        "feature1": "無制限のAIチャット",
+        "description": "企業意思決定者 · 100+ 大モデル + 独自 CLI の深い活用",
+        "feature1": "無制限の AI チャット",
         "feature2": "画像/動画生成",
         "feature3": "90日間の履歴",
-        "feature4": "150+ AIツール",
-        "feature5": "APIアクセス",
+        "feature4": "150+ AI ツール",
+        "feature5": "API アクセス",
         "feature6": "データエクスポート",
         "feature7": "新機能の優先体験"
       },
       "enterprise": {
         "name": "エンタープライズ",
-        "description": "中小チーム人機協同向け",
-        "feature1": "無制限のAIチャット",
+        "description": "中小チーム · 人機協同 + チームコラボ + 専用コンサルタント",
+        "feature1": "無制限の AI チャット",
         "feature2": "画像/動画生成",
         "feature3": "永久履歴",
-        "feature4": "すべてのAIツール",
-        "feature5": "APIアクセス",
+        "feature4": "すべての AI ツール",
+        "feature5": "API アクセス",
         "feature6": "チームコラボレーション",
         "feature7": "専用コンサルタント"
       },
       "flagship": {
         "name": "フラッグシップ",
-        "description": "究極の AI 体験を追求する意思決定者向け",
+        "description": "究極の AI 体験 · 1v1 コンサルタント + AI 文化落地伴走",
         "feature1": "無制限トークン使用",
-        "feature2": "すべてのAIモデルアクセス",
+        "feature2": "すべての AI モデルアクセス",
         "feature3": "超高速レスポンス",
-        "feature4": "専用VIPサポート",
+        "feature4": "専用 VIP サポート",
         "feature5": "カスタム開発",
         "feature6": "専用トレーニングコース",
         "feature7": "優先問題処理"
@@ -24577,24 +24673,24 @@
       "titleEn": "強力な機能",
       "subtitle": "8プラットフォーム企業級 AI プラットフォーム、モデル統合から独自 CLI まであらゆるニーズに応える",
       "modelIntegration": {
-        "title": "8プラットフォーム全面カバー",
-        "description": "Web/デスクトップ/モバイル/ミニプログラム/CLI/ブラウザ拡張、統一アカウントシームレス切替"
+        "title": "8プラットフォームフルスタックアーキテクチャ",
+        "description": "Web/デスクトップ/モバイル/ミニプログラム/CLI/拡張 6 + API/AI-Service 2、業界唯一フルスタック、統一アカウントシームレス切替"
       },
       "appStore": {
-        "title": "100+ LLM",
-        "description": "OpenAI/Claude/Gemini/DeepSeek/Qwen/GLM、1つの API キーで全部アクセス"
+        "title": "100+ LLM 大モデル",
+        "description": "国際 30+ (OpenAI/Claude/Gemini/Llama) + 国産 15+ (Qwen/GLM/DeepSeek) + クラウド 40+ プロバイダー、1つの API キーで全アクセス"
       },
       "contentCreation": {
-        "title": "独自 CLI",
-        "description": "Claude Code 対抗、ACP Server + 6 ツールワンクリック導入"
+        "title": "独自 CLI、Claude Code 対抗",
+        "description": "ACP Server が Zed/VSCode/Cursor に埋め込み + 6 プライベート拡張メソッド + 6 ソース設定ワンクリック導入"
       },
       "edu": {
         "title": "フルスタック AI 教育",
-        "description": "コース/ライブ/試験/証明書、年間無料参加"
+        "description": "コース/ライブ/試験/証明書/講師/クラス 6 大モジュール、年間すべてのコース無料参加"
       },
       "navigation": {
-        "title": "AI ワークスペース",
-        "description": "3つの権限モード + 7エンドポイントランタイムブロック、企業級セキュリティ"
+        "title": "企業級ワークスペース",
+        "description": "3 権限モード + 7 エンドポイントランタイムブロック + 60秒タイムアウト拒否 + RBAC 細粒度権限管理"
       }
     },
     "advantages": {
@@ -24602,20 +24698,20 @@
       "titleEn": "コア優位性",
       "subtitle": "智匯AIを選ぶ理由",
       "professional": {
-        "title": "プロフェッショナル",
-        "description": "8プラットフォーム全面カバー + 17ガードレールスクリプト + フルスタック観測性、業界初企業級 AI エンジニアリング"
+        "title": "エンジニアリング厳格 · 業界標竿",
+        "description": "17 項目 pre-commit ガード + 4 husky フック + 122+ migrations + 12 共有 packages、工業級コード品質"
       },
       "efficient": {
-        "title": "効率的",
-        "description": "LiteLLMスマートルーティング + 60%キャッシュコスト削減 + LangGraphオーケストレーション、AI アプリ展開加速"
+        "title": "スマートルーティング · 極致コスト削減",
+        "description": "LiteLLM 100+ モデルスマートルーティング + 60% キャッシュ命中コスト削減 + LangGraph オーケストレーション、AI 落地加速"
       },
       "reliable": {
-        "title": "信頼性",
-        "description": "99.9% SLA + 60秒タイムアウト拒否 + RBAC + AES-256-GCM暗号化、企業級セキュリティ"
+        "title": "企業級セキュリティ · ゼロリスク",
+        "description": "99.9% SLA + AES-256-GCM 暗号化 + RBAC + 5 言語 i18n parity + 不満の場合は全額返金"
       },
       "innovative": {
-        "title": "イノベーティブ",
-        "description": "LangGraph + MCP + A2A トリプルスタック、業界初エージェント間通信プロトコル"
+        "title": "トリプルスタック · 業界最先端",
+        "description": "LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント + 6 ACP 拡張、Claude Code を全次元で超越"
       }
     }
   },
