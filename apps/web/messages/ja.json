@@ -312,6 +312,9 @@
     "dataItem": "データ項目",
     "modifySuccess": "変更成功"
   },
+  "a11y": {
+    "menu": "メニュー"
+  },
   "nav": {
     "title": "メインナビゲーション",
     "home": "ホーム",

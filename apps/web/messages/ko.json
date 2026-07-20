@@ -312,6 +312,9 @@
     "dataItem": "데이터 항목",
     "modifySuccess": "수정 성공"
   },
+  "a11y": {
+    "menu": "메뉴"
+  },
   "nav": {
     "title": "메인 내비게이션",
     "home": "홈",

@@ -312,6 +312,9 @@
     "dataItem": "数据项",
     "modifySuccess": "修改成功"
   },
+  "a11y": {
+    "menu": "菜单"
+  },
   "nav": {
     "title": "主导航",
     "home": "首页",
