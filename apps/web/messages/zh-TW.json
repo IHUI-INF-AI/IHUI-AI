@@ -398,6 +398,8 @@
     "agents": "智能體",
     "distribution": "分銷",
     "oauthPlatform": "開放平臺",
+    "selfMediaWechat": "公眾號文章",
+    "selfMediaKoubo": "口播稿",
     "downloadIOS": "iOS",
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "微信小程式",
@@ -1167,18 +1169,28 @@
     "modelDescOpenRouterAuto": "智能路由 · 多廠商",
     "modelConfigured": "當前模型 API Key 已配置",
     "modelNotConfigured": "當前模型 API Key 未配置,前往模型廣場頁一鍵配置",
+    "manageModels": "自訂配置模型",
     "slashCmd": {
       "summary": "總結當前對話",
       "translate": "翻譯文本",
       "explain": "解釋概念",
       "code": "生成程式碼",
-      "polish": "潤色文本"
+      "polish": "潤色文本",
+      "wechat-article": "生成公眾號文章",
+      "koubo-script": "生成口播稿"
     },
     "cmdSummary": "請總結以上對話內容，提煉關鍵信息",
     "cmdTranslate": "請將以下內容翻譯為英文：",
     "cmdExplain": "請詳細解釋以下概念：",
     "cmdCode": "請用程式碼實現以下功能，並添加註釋：",
     "cmdPolish": "請潤色以下文本，使其更專業流暢：",
+    "cmdWechatArticle": "請幫我生成一篇公眾號文章。要求:\n1. 主題:\n2. 摘要:\n3. 重點標記(金句卡 / 提示塊 / 引用 / 程式碼塊 / 小標題)\n4. 配圖建議:\n請走 content-engine 流水線(摸魚綠主題 + 22 項自檢 + 草稿箱推送)。",
+    "cmdKouboScript": "請幫我生成今日 8 篇抖音口播稿。要求:\n1. 日期:MMDD\n2. 選題方向:\n3. 雙門禁驗證(歧義壓縮 / 跨稿詞表 / 全量驗證 / 語病 / 熱點覆蓋)\n請走 koubo-workflow 流水線(約束優先寫作法)。",
+    "selfMediaSkill": "自媒體 Skill",
+    "wechatArticle": "公眾號文章",
+    "wechatArticleDesc": "摸魚綠排版 + 22 項自檢 + 草稿箱推送",
+    "kouboScript": "口播稿",
+    "kouboScriptDesc": "每日 8 篇抖音口播稿 + 雙門禁驗證",
     "tpl": {
       "email": {
         "name": "郵件起草",
@@ -7730,6 +7742,46 @@
       "certText": "茲證明 {name} 通過相關考核，特發此證。"
     }
   },
+  "selfMedia": {
+    "title": "自媒體工作台",
+    "subtitle": "公眾號文章 + 口播稿生成 skill,支援 AI 對話框直接呼叫",
+    "wechat": "公眾號文章",
+    "koubo": "口播稿",
+    "wechatPage": {
+      "formTitle": "公眾號文章流水線",
+      "titleLabel": "標題",
+      "titlePlaceholder": "請輸入文章標題",
+      "digestLabel": "摘要",
+      "digestPlaceholder": "一段話概括文章核心",
+      "mdPathLabel": "源 md 路徑",
+      "mdPathPlaceholder": "articles/xxx.md(留空則按標題自動定位)",
+      "coverLabel": "封面圖路徑",
+      "coverPlaceholder": "output/images/cover.jpg(可選)",
+      "generate": "生成(dry-run)",
+      "validate": "22 項自檢",
+      "publishDryRun": "推送草稿箱(dry-run)",
+      "resultTitle": "執行結果",
+      "runSuccess": "執行成功",
+      "runFailed": "執行失敗",
+      "historyTitle": "歷史記錄",
+      "historyEmpty": "暫無發布記錄"
+    },
+    "kouboPage": {
+      "formTitle": "口播稿流水線",
+      "dateLabel": "日期(MMDD)",
+      "topicLabel": "選題方向",
+      "topicPlaceholder": "如:AI 大模型發布潮",
+      "filePathLabel": "口播稿路徑",
+      "filePathPlaceholder": "Output/0720.txt",
+      "generate": "生成引導",
+      "validate": "雙門禁驗證",
+      "resultTitle": "執行結果",
+      "runSuccess": "執行成功",
+      "runFailed": "執行失敗",
+      "historyTitle": "歷史記錄",
+      "historyEmpty": "暫無發布記錄"
+    }
+  },
   "settings": {
     "title": "設置",
     "subtitle": "管理您的偏好設置",
@@ -13648,11 +13700,18 @@
     "models": "模型",
     "paymentPlatforms": "支付平臺",
     "cloudDatabases": "雲資料庫",
-    "officialPromotion": "官方推廣平臺",
+    "officialPromotion": "官方推廣平台",
     "officialApp": "官方應用",
+    "officialWechat": "官方微信",
     "contactUs": "聯繫我們",
+    "communityGroup": "企微社區群",
+    "agreementSubtitle": "請仔細閱讀以下協議條款",
+    "contactSubtitle": "通過以下方式聯繫我們",
+    "contactWechat": "微信二維碼",
+    "contactWechatHint": "掃碼添加客服微信,或搜索微信號 ok502319984",
+    "ecosystem": "生態合作",
     "icp": "吉ICP備2025027274號",
-    "copyright": "© 2026 智匯 AI · 北京 · 保留所有權利",
+    "copyright": "© 2025 智匯AI集團 · 中國",
     "platforms": {
       "n8n": "n8n",
       "coze": "Coze"
@@ -24336,10 +24395,10 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "智匯AI社群,探索AI無限可能",
-      "explore": "探索 AI 無限可能",
-      "brand": "智匯 AI 社群",
-      "connect": "連接創意釋放未知",
+      "content": "8 端全覆蓋 · 行業首個",
+      "explore": "100+ 大模型一站式接入",
+      "brand": "自研 CLI 對標 Claude Code",
+      "connect": "LangGraph + MCP + A2A 三棧合一",
       "ctaPrimary": "立即體驗",
       "ctaSecondary": "瞭解更多",
       "miniappBtn": "微信小程式"
@@ -24382,6 +24441,7 @@
     "marquee": {
       "label": "公告",
       "items": [
+        "8 端全覆蓋 AI 平台 · 100+ 大模型一站式接入 · 自研 CLI 對標 Claude Code",
         "歡迎加入智匯 AI 社群,早鳥價 ¥6000/人/年,限 18 席",
         "企業 AI 化決策者社群開放招募,人機協同實戰課程全年免費",
         "前 18 位會員享有一對一 AI 顧問諮詢,不滿意全額退款",
@@ -24393,6 +24453,11 @@
       "title": "歡迎來到智匯 AI 社群",
       "subtitle": "AI 時代企業理性效率服務與互助社群。幫助決策者深度理解 AI 與企業的關係,建構人機協同的超級組織。",
       "description": "立即加入社群,享受全部 AI 工具、專屬客服、高級模型訪問等專屬權益,助你工作更高效。",
+      "brandTitle": "智匯 AI 社群",
+      "brandSubtitle": "8 端全覆蓋的企業級 AI 平臺",
+      "seats": "限 18 席決策者",
+      "earlyBird": "早鳥價 ¥6000/年",
+      "multiEnd": "8 端全覆蓋",
       "perYear": "天/年陪伴",
       "benefits": {
         "benefit1": "全年所有課程免費參加",
@@ -24402,6 +24467,11 @@
         "benefit5": "AI 助手優先體驗",
         "benefit6": "不滿意全額退款"
       }
+    },
+    "stats": {
+      "platforms": "端全覆蓋",
+      "models": "大模型接入",
+      "seats": "席限位 · 決策者"
     },
     "news": {
       "title": "最新資訊",
@@ -24447,7 +24517,7 @@
       "recommended": "推薦",
       "basic": {
         "name": "基礎版",
-        "description": "適合個人用戶和專業人士",
+        "description": "適合個人開發者體驗 AI 平臺",
         "feature1": "無限次AI對話",
         "feature2": "圖片生成",
         "feature3": "語音輸入",
@@ -24458,7 +24528,7 @@
       },
       "professional": {
         "name": "專業版",
-        "description": "適合專業用戶和小型團隊",
+        "description": "適合企業決策者深度使用",
         "feature1": "無限次AI對話",
         "feature2": "圖片/視頻生成",
         "feature3": "90天歷史記錄",
@@ -24469,7 +24539,7 @@
       },
       "enterprise": {
         "name": "企業版",
-        "description": "適合高級用戶和團隊",
+        "description": "適閤中小團隊人機協同",
         "feature1": "無限次AI對話",
         "feature2": "圖片/視頻生成",
         "feature3": "永久歷史記錄",
@@ -24480,7 +24550,7 @@
       },
       "flagship": {
         "name": "旗艦版",
-        "description": "適合追求極致體驗的用戶",
+        "description": "適合追求極致 AI 體驗的決策者",
         "feature1": "無限Token使用",
         "feature2": "全部AI模型訪問",
         "feature3": "極速響應",
@@ -24493,26 +24563,26 @@
     "features": {
       "title": "強大功能",
       "titleEn": "POWERFUL FEATURES",
-      "subtitle": "探索我們提供的全方位AI服務,從模型集成到應用商店,滿足您的各種需求",
+      "subtitle": "8 端全覆蓋的企業級 AI 平臺,從模型集成到自研 CLI,滿足您的各種需求",
       "modelIntegration": {
-        "title": "多模型集成",
-        "description": "整合主流大模型,按需切換,滿足多場景對話與推理需求"
+        "title": "8 端全覆蓋",
+        "description": "Web/桌面/移動/小程式/CLI/瀏覽器擴展,統一帳號無縫切換"
       },
       "appStore": {
-        "title": "智能體",
-        "description": "海量智能體即開即用,覆蓋通用、行業、職能三大場景"
+        "title": "100+ 大模型",
+        "description": "OpenAI/Claude/Gemini/DeepSeek/Qwen/GLM,一個 API Key 訪問全部"
       },
       "contentCreation": {
-        "title": "內容創作",
-        "description": "AI 文本、圖像、視頻一站式生成,讓創意快速落地"
+        "title": "自研 CLI",
+        "description": "對標 Claude Code,ACP Server + 6 工具一鍵導入"
       },
       "edu": {
-        "title": "AI教育",
-        "description": "系統化 AI 課程與實戰訓練,助你建立完整知識體系"
+        "title": "AI 教育全棧",
+        "description": "課程/直播/考試/證書,全年免費參加"
       },
       "navigation": {
-        "title": "智能導航",
-        "description": "智能路由與場景識別,精準直達所需能力"
+        "title": "AI 工作空間",
+        "description": "3 種權限模式 + 7 端點運行時攔截,企業級安全"
       }
     },
     "advantages": {
@@ -24521,19 +24591,19 @@
       "subtitle": "為什麼選擇智匯AI",
       "professional": {
         "title": "專業",
-        "description": "深耕AI領域,提供專業的技術解決方案和行業領先的產品服務"
+        "description": "8 端全覆蓋 + 17 守門腳本 + 全棧可觀測性,行業首個企業級 AI 工程實踐"
       },
       "efficient": {
         "title": "高效",
-        "description": "簡化開發流程,豐富的API接口和工具,讓AI應用快速上線"
+        "description": "LiteLLM 智能路由 + 60% 緩存降本 + LangGraph 圖調度,加速 AI 應用落地"
       },
       "reliable": {
         "title": "可靠",
-        "description": "穩定可靠的服務保障,99.9%可用性,保障業務連續性"
+        "description": "99.9% SLA + 60s 超時拒絕 + RBAC + AES-256-GCM 加密,企業級安全"
       },
       "innovative": {
         "title": "創新",
-        "description": "持續技術創新,智能體集群、分層規劃等前沿AI能力"
+        "description": "LangGraph + MCP + A2A 三棧合一,行業首個 Agent 間通信協議"
       }
     }
   },
