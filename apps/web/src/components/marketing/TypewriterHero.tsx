@@ -26,6 +26,7 @@ const SWITCH_PAUSE = 500
 
 function TypewriterHero() {
   const t = useTranslations('marketing.typewriter')
+  const tw = useTranslations('marketing.welcome')
   const mounted = useMounted()
 
   // 打字机短语列表(SSR 期间用空数组,挂载后才取真实文案,避免 hydration mismatch)
@@ -98,6 +99,9 @@ function TypewriterHero() {
       <h1 className="font-edix text-3xl font-bold tracking-tight text-primary md:text-5xl lg:text-6xl">
         WELCOME IHUI INF . AI
       </h1>
+      <p className="mt-2 text-sm font-semibold tracking-tight text-foreground/90 md:mt-3 md:text-base">
+        {tw('brandSubtitle')}
+      </p>
       <p className="mt-4 min-h-[1.75rem] text-base text-foreground/80 md:mt-6 md:text-lg">
         <span>{text}</span>
         {!reduceMotionRef.current && (
