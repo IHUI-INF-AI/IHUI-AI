@@ -157,3 +157,7 @@ export * from './admin-extended.js'
 export * from './workspace-permissions.js'
 // 自媒体已发布内容记忆(2026-07-20 新增,迁移自源项目 JSON 文件)
 export * from './self-media.js'
+// 多平台一键发布系统(2026-07-20 新增,14 平台 + 凭证加密 + 任务调度 + 历史记录)
+export * from './publish-platform.js'
+// 搜索热词表(2026-07-20 补建,迁移报告 P0 缺失项)
+export * from './search-hot-words.js'
