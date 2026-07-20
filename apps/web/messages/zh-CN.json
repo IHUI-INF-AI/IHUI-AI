@@ -398,6 +398,8 @@
     "agents": "智能体",
     "distribution": "分销",
     "oauthPlatform": "开放平台",
+    "selfMediaWechat": "公众号文章",
+    "selfMediaKoubo": "口播稿",
     "downloadIOS": "iOS",
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "微信小程序",
@@ -1167,18 +1169,28 @@
     "modelDescOpenRouterAuto": "智能路由 · 多厂商",
     "modelConfigured": "当前模型 API Key 已配置",
     "modelNotConfigured": "当前模型 API Key 未配置,前往模型广场页一键配置",
+    "manageModels": "自定义配置模型",
     "slashCmd": {
       "summary": "总结当前对话",
       "translate": "翻译文本",
       "explain": "解释概念",
       "code": "生成代码",
-      "polish": "润色文本"
+      "polish": "润色文本",
+      "wechat-article": "生成公众号文章",
+      "koubo-script": "生成口播稿"
     },
     "cmdSummary": "请总结以上对话内容，提炼关键信息",
     "cmdTranslate": "请将以下内容翻译为英文：",
     "cmdExplain": "请详细解释以下概念：",
     "cmdCode": "请用代码实现以下功能，并添加注释：",
     "cmdPolish": "请润色以下文本，使其更专业流畅：",
+    "cmdWechatArticle": "请帮我生成一篇公众号文章。要求:\n1. 主题:\n2. 摘要:\n3. 重点标记(金句卡 / 提示块 / 引用 / 代码块 / 小标题)\n4. 配图建议:\n请走 content-engine 流水线(摸鱼绿主题 + 22 项自检 + 草稿箱推送)。",
+    "cmdKouboScript": "请帮我生成今日 8 篇抖音口播稿。要求:\n1. 日期:MMDD\n2. 选题方向:\n3. 双门禁验证(歧义压缩 / 跨稿词表 / 全量验证 / 语病 / 热点覆盖)\n请走 koubo-workflow 流水线(约束优先写作法)。",
+    "selfMediaSkill": "自媒体 Skill",
+    "wechatArticle": "公众号文章",
+    "wechatArticleDesc": "摸鱼绿排版 + 22 项自检 + 草稿箱推送",
+    "kouboScript": "口播稿",
+    "kouboScriptDesc": "每日 8 篇抖音口播稿 + 双门禁验证",
     "tpl": {
       "email": {
         "name": "邮件起草",
@@ -7730,6 +7742,46 @@
       "certText": "兹证明 {name} 通过相关考核，特发此证。"
     }
   },
+  "selfMedia": {
+    "title": "自媒体工作台",
+    "subtitle": "公众号文章 + 口播稿生成 skill,支持 AI 对话框直接调用",
+    "wechat": "公众号文章",
+    "koubo": "口播稿",
+    "wechatPage": {
+      "formTitle": "公众号文章流水线",
+      "titleLabel": "标题",
+      "titlePlaceholder": "请输入文章标题",
+      "digestLabel": "摘要",
+      "digestPlaceholder": "一段话概括文章核心",
+      "mdPathLabel": "源 md 路径",
+      "mdPathPlaceholder": "articles/xxx.md(留空则按标题自动定位)",
+      "coverLabel": "封面图路径",
+      "coverPlaceholder": "output/images/cover.jpg(可选)",
+      "generate": "生成(dry-run)",
+      "validate": "22 项自检",
+      "publishDryRun": "推送草稿箱(dry-run)",
+      "resultTitle": "运行结果",
+      "runSuccess": "运行成功",
+      "runFailed": "运行失败",
+      "historyTitle": "历史记录",
+      "historyEmpty": "暂无发布记录"
+    },
+    "kouboPage": {
+      "formTitle": "口播稿流水线",
+      "dateLabel": "日期(MMDD)",
+      "topicLabel": "选题方向",
+      "topicPlaceholder": "如:AI 大模型发布潮",
+      "filePathLabel": "口播稿路径",
+      "filePathPlaceholder": "Output/0720.txt",
+      "generate": "生成引导",
+      "validate": "双门禁验证",
+      "resultTitle": "运行结果",
+      "runSuccess": "运行成功",
+      "runFailed": "运行失败",
+      "historyTitle": "历史记录",
+      "historyEmpty": "暂无发布记录"
+    }
+  },
   "settings": {
     "title": "设置",
     "subtitle": "管理您的偏好设置",
@@ -13650,9 +13702,16 @@
     "cloudDatabases": "云数据库",
     "officialPromotion": "官方推广平台",
     "officialApp": "官方应用",
+    "officialWechat": "官方微信",
     "contactUs": "联系我们",
+    "communityGroup": "企微社区群",
+    "agreementSubtitle": "请仔细阅读以下协议条款",
+    "contactSubtitle": "通过以下方式联系我们",
+    "contactWechat": "微信二维码",
+    "contactWechatHint": "扫码添加客服微信,或搜索微信号 ok502319984",
+    "ecosystem": "生态合作",
     "icp": "吉ICP备2025027274号",
-    "copyright": "© 2026 智汇 AI · 北京 · 保留所有权利",
+    "copyright": "© 2025 智汇AI集团 · 中国",
     "platforms": {
       "n8n": "n8n",
       "coze": "Coze"
@@ -24336,10 +24395,10 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "智汇AI社区,探索AI无限可能",
-      "explore": "探索 AI 无限可能",
-      "brand": "智汇 AI 社区",
-      "connect": "连接创意释放未知",
+      "content": "8 端全覆盖 · 行业首个",
+      "explore": "100+ 大模型一站式接入",
+      "brand": "自研 CLI 对标 Claude Code",
+      "connect": "LangGraph + MCP + A2A 三栈合一",
       "ctaPrimary": "立即体验",
       "ctaSecondary": "了解更多",
       "miniappBtn": "微信小程序"
@@ -24382,6 +24441,7 @@
     "marquee": {
       "label": "公告",
       "items": [
+        "8 端全覆盖 AI 平台 · 100+ 大模型一站式接入 · 自研 CLI 对标 Claude Code",
         "欢迎加入智汇 AI 社区,早鸟价 ¥6000/人/年,限 18 席",
         "企业 AI 化决策者社群开放招募,人机协同实战课程全年免费",
         "前 18 位会员享受一对一 AI 顾问咨询,不满意全额退款",
@@ -24393,6 +24453,11 @@
       "title": "欢迎来到智汇 AI 社区",
       "subtitle": "AI 时代企业理性效率服务与互助社群。帮助决策者深度理解 AI 与企业的关系,构建人机协同的超级组织。",
       "description": "立即加入社区,享受全部 AI 工具、专属客服、高级模型访问等专属权益,助你工作更高效。",
+      "brandTitle": "智汇 AI 社区",
+      "brandSubtitle": "8 端全覆盖的企业级 AI 平台",
+      "seats": "限 18 席决策者",
+      "earlyBird": "早鸟价 ¥6000/年",
+      "multiEnd": "8 端全覆盖",
       "perYear": "天/年陪伴",
       "benefits": {
         "benefit1": "全年所有课程免费参加",
@@ -24402,6 +24467,11 @@
         "benefit5": "AI 助手优先体验",
         "benefit6": "不满意全额退款"
       }
+    },
+    "stats": {
+      "platforms": "端全覆盖",
+      "models": "大模型接入",
+      "seats": "席限位 · 决策者"
     },
     "news": {
       "title": "最新资讯",
@@ -24447,7 +24517,7 @@
       "recommended": "推荐",
       "basic": {
         "name": "基础版",
-        "description": "适合个人用户和专业人士",
+        "description": "适合个人开发者体验 AI 平台",
         "feature1": "无限次AI对话",
         "feature2": "图片生成",
         "feature3": "语音输入",
@@ -24458,7 +24528,7 @@
       },
       "professional": {
         "name": "专业版",
-        "description": "适合专业用户和小型团队",
+        "description": "适合企业决策者深度使用",
         "feature1": "无限次AI对话",
         "feature2": "图片/视频生成",
         "feature3": "90天历史记录",
@@ -24469,7 +24539,7 @@
       },
       "enterprise": {
         "name": "企业版",
-        "description": "适合高级用户和团队",
+        "description": "适合中小团队人机协同",
         "feature1": "无限次AI对话",
         "feature2": "图片/视频生成",
         "feature3": "永久历史记录",
@@ -24480,7 +24550,7 @@
       },
       "flagship": {
         "name": "旗舰版",
-        "description": "适合追求极致体验的用户",
+        "description": "适合追求极致 AI 体验的决策者",
         "feature1": "无限Token使用",
         "feature2": "全部AI模型访问",
         "feature3": "极速响应",
@@ -24493,26 +24563,26 @@
     "features": {
       "title": "强大功能",
       "titleEn": "POWERFUL FEATURES",
-      "subtitle": "探索我们提供的全方位AI服务,从模型集成到应用商店,满足您的各种需求",
+      "subtitle": "8 端全覆盖的企业级 AI 平台,从模型集成到自研 CLI,满足您的各种需求",
       "modelIntegration": {
-        "title": "多模型集成",
-        "description": "整合主流大模型,按需切换,满足多场景对话与推理需求"
+        "title": "8 端全覆盖",
+        "description": "Web/桌面/移动/小程序/CLI/浏览器扩展,统一账号无缝切换"
       },
       "appStore": {
-        "title": "智能体",
-        "description": "海量智能体即开即用,覆盖通用、行业、职能三大场景"
+        "title": "100+ 大模型",
+        "description": "OpenAI/Claude/Gemini/DeepSeek/Qwen/GLM,一个 API Key 访问全部"
       },
       "contentCreation": {
-        "title": "内容创作",
-        "description": "AI 文本、图像、视频一站式生成,让创意快速落地"
+        "title": "自研 CLI",
+        "description": "对标 Claude Code,ACP Server + 6 工具一键导入"
       },
       "edu": {
-        "title": "AI教育",
-        "description": "系统化 AI 课程与实战训练,助你建立完整知识体系"
+        "title": "AI 教育全栈",
+        "description": "课程/直播/考试/证书,全年免费参加"
       },
       "navigation": {
-        "title": "智能导航",
-        "description": "智能路由与场景识别,精准直达所需能力"
+        "title": "AI 工作空间",
+        "description": "3 种权限模式 + 7 端点运行时拦截,企业级安全"
       }
     },
     "advantages": {
@@ -24521,19 +24591,19 @@
       "subtitle": "为什么选择智汇AI",
       "professional": {
         "title": "专业",
-        "description": "深耕AI领域,提供专业的技术解决方案和行业领先的产品服务"
+        "description": "8 端全覆盖 + 17 守门脚本 + 全栈可观测性,行业首个企业级 AI 工程实践"
       },
       "efficient": {
         "title": "高效",
-        "description": "简化开发流程,丰富的API接口和工具,让AI应用快速上线"
+        "description": "LiteLLM 智能路由 + 60% 缓存降本 + LangGraph 图调度,加速 AI 应用落地"
       },
       "reliable": {
         "title": "可靠",
-        "description": "稳定可靠的服务保障,99.9%可用性,保障业务连续性"
+        "description": "99.9% SLA + 60s 超时拒绝 + RBAC + AES-256-GCM 加密,企业级安全"
       },
       "innovative": {
         "title": "创新",
-        "description": "持续技术创新,智能体集群、分层规划等前沿AI能力"
+        "description": "LangGraph + MCP + A2A 三栈合一,行业首个 Agent 间通信协议"
       }
     }
   },
