@@ -1575,12 +1575,7 @@
       "free": {
         "name": "無料版",
         "cta": "getStarted",
-        "features": [
-          "10 AI chats per day",
-          "Basic models",
-          "1 project",
-          "Community support"
-        ]
+        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
       },
       "pro": {
         "name": "プロフェッショナル",
@@ -7848,24 +7843,9 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "プラン",
     "subscribe": "購読",
-    "planMonthlyFeatures": [
-      "1000クレジット",
-      "aiチャット",
-      "コミュニティアクセス"
-    ],
-    "planYearlyFeatures": [
-      "12000クレジット",
-      "さなaiチャット",
-      "サポート",
-      "なし"
-    ],
-    "planLifetimeFeatures": [
-      "クレジット",
-      "ai",
-      "サポート",
-      "なし",
-      "アクセス"
-    ],
+    "planMonthlyFeatures": ["1000クレジット", "aiチャット", "コミュニティアクセス"],
+    "planYearlyFeatures": ["12000クレジット", "さなaiチャット", "サポート", "なし"],
+    "planLifetimeFeatures": ["クレジット", "ai", "サポート", "なし", "アクセス"],
     "back": "戻る",
     "userCenter": "アカウント",
     "page": {
@@ -13554,8 +13534,8 @@
     "addressLine1": "長春市高新区越達路107号",
     "addressLine2": "人工知能人材インキュベーション基地",
     "companyContact": "電話: 18643389808",
-    "companyEmail": "メール: 502319984 [at] qq.com",
-    "companyEmail2": "lizong [at] aizhs.top",
+    "companyEmail": "メール: 502319984@qq.com",
+    "companyEmail2": "lizong@aizhs.top",
     "supportedPlatforms": "対応プラットフォーム",
     "models": "モデル",
     "paymentPlatforms": "決済プラットフォーム",
@@ -16778,23 +16758,13 @@
       "title": "月度会員",
       "days": "30",
       "select": "選択",
-      "benefits": [
-        "すべてコースコース",
-        "コースコミュニティ",
-        "3ai",
-        "コース"
-      ]
+      "benefits": ["すべてコースコース", "コースコミュニティ", "3ai", "コース"]
     },
     "yearly": {
       "title": "年度会員",
       "days": "365",
       "select": "選択",
-      "benefits": [
-        "すべてコースコース",
-        "コースコミュニティ",
-        "ai",
-        "コース+"
-      ]
+      "benefits": ["すべてコースコース", "コースコミュニティ", "ai", "コース+"]
     },
     "monthlyMember": "月度会員",
     "yearlyMember": "年度会員"
@@ -20807,11 +20777,7 @@
       "label": "コアポジショニング",
       "title": "AI時代の企業合理的効率サービスと相互支援コミュニティ",
       "description": "IHUI AIコミュニティは、企業の意思決定者がAIと企業の関係を深く理解できるよう支援することに尽力しています。体系化されたコース、実践的な探求、コミュニティの相互支援を通じて、人機協同のスーパー組織を構築し、企業の合理的効率向上を実現します。",
-      "tags": [
-        "人機協同",
-        "合理的効率",
-        "スーパー組織"
-      ]
+      "tags": ["人機協同", "合理的効率", "スーパー組織"]
     },
     "modules": {
       "label": "三大サービスモジュール",
@@ -20821,31 +20787,19 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": [
-            "体系化コース",
-            "実践探求",
-            "コミュニティ相互支援"
-          ]
+          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": [
-            "交流プラットフォーム",
-            "経験共有",
-            "リソースマッチング"
-          ]
+          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": [
-            "プロの大規模モデル",
-            "エージェントサービス",
-            "コンサルティングサービス"
-          ]
+          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
         }
       ]
     },
@@ -20977,37 +20931,25 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": [
-            "ナレッジQ&A",
-            "プロセス自動化"
-          ]
+          "examples": ["ナレッジQ&A", "プロセス自動化"]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": [
-            "データ分析",
-            "意思決定サポート"
-          ]
+          "examples": ["データ分析", "意思決定サポート"]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": [
-            "会議調整",
-            "承認プロセス"
-          ]
+          "examples": ["会議調整", "承認プロセス"]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": [
-            "マーケティング自動化",
-            "マルチエージェント連携"
-          ]
+          "examples": ["マーケティング自動化", "マルチエージェント連携"]
         }
       ]
     },
@@ -21031,29 +20973,12 @@
       ],
       "infoTitle": "情報世界",
       "infoBasicLabel": "初級情報世界",
-      "infoBasic": [
-        "情報化",
-        "IoT",
-        "自動化"
-      ],
+      "infoBasic": ["情報化", "IoT", "自動化"],
       "infoAdvancedLabel": "高度情報世界",
-      "infoAdvanced": [
-        "知覚AI",
-        "生成AI",
-        "エージェントAI",
-        "物理AI"
-      ],
+      "infoAdvanced": ["知覚AI", "生成AI", "エージェントAI", "物理AI"],
       "effectTitle": "AI化の効果",
-      "effectFlow": [
-        "スーパー従業員",
-        "スーパーチーム",
-        "スーパープロダクト/サービス"
-      ],
-      "effectMetrics": [
-        "コスト最適化",
-        "効率向上",
-        "体験アップグレード"
-      ]
+      "effectFlow": ["スーパー従業員", "スーパーチーム", "スーパープロダクト/サービス"],
+      "effectMetrics": ["コスト最適化", "効率向上", "体験アップグレード"]
     }
   },
   "drama": {
