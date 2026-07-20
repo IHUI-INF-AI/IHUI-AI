@@ -996,8 +996,6 @@
     "uploadFailed": "Upload failed",
     "downloadFailed": "Download failed",
     "deleteConfirm": "Are you sure you want to delete {name}? This cannot be undone.",
-    "developerTools": "Developer Tools",
-    "mentionFile": "Mention File",
     "detail": {
       "previewFailed": "Preview failed"
     },
