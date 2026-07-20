@@ -76,6 +76,14 @@ export async function checkPhoneExists(phone: string): Promise<boolean> {
 }
 
 /**
+ * 检查邮箱是否已注册。
+ */
+export async function checkEmailExists(email: string): Promise<boolean> {
+  const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
+  return rows.length > 0
+}
+
+/**
  * 软注销账户（status=3）。
  */
 export async function cancelUserAccount(id: string): Promise<void> {
