@@ -88,18 +88,38 @@ describe('场景 1: 全 8 项 INTEGRATED_CLAIMS 都有真实接入 → 守门通
       'apps/api/src/middleware/image-validate.test.ts': 'export const t = 1',
       'apps/cli/src/compaction-v2.ts': 'export const compactionV2 = 1',
       'apps/cli/src/compaction-v2.test.ts': 'export const t = 1',
-      'apps/cli/src/checkpoints/hunk-tracker.ts': 'export const hunkTracker = 1',
+      'apps/cli/src/checkpoints/hunk-tracker.ts': 'export const HunkTracker = 1',
       'apps/cli/src/checkpoints/hunk-tracker.test.ts': 'export const t = 1',
       'apps/cli/src/doom-loop-detector.ts': 'export const doomLoopDetector = 1',
       'apps/cli/src/doom-loop-detector.test.ts': 'export const t = 1',
       'apps/cli/src/interjection.ts': 'export const interjection = 1',
       'apps/cli/src/interjection.test.ts': 'export const t = 1',
+      // P33-1/2/3/4 真实文件 + 大写 import token(必须含 CircuitBreaker/HunkTracker/PlanMachine/PluginRegistry)
+      'packages/api-client/src/circuit-breaker.ts':
+        'export class CircuitBreaker { state = "closed" }',
+      'apps/cli/src/plan/machine.ts': 'export class PlanMachine { transitions = [] }',
+      'apps/cli/src/plugins/registry.ts': 'export class PluginRegistry { plugins = [] }',
+      // NI-1/2/3/4 证据文件:含所有 requiredTokens
+      'scripts/audit-grokbuild-crates.md': `# Audit: 不融合 crate 决策记录
+
+## xai-grok-markdown (checkpoint-based freezing)
+不融合: 理念借鉴(独立实现 freeze 语义)
+
+## xai-fast-worktree (SQLite metadata + pool)
+不融合: BTRFS 技术栈,跨平台兼容性问题
+
+## xai-ink-async-stdin (TUI 异步输入)
+不融合: TUI 框架未引入,本项目用 Ink
+
+## xai-tui (Rust TUI 框架)
+不融合: Rust 与 Ink 冲突
+`,
     })
   })
   afterAll(() => cleanup(root))
 
   it('exit code 0 + 报告通过', () => {
-    const r = runGatekeeper(root)
+    const r = runGatekeeper(root, ['--skip-claimed', '--skip-plan'])
     expect(r.code).toBe(0)
     expect(r.stdout).toMatch(/守门通过|gate.*pass|CLAIMED.*8.*PASS/i)
   })
@@ -107,6 +127,12 @@ describe('场景 1: 全 8 项 INTEGRATED_CLAIMS 都有真实接入 → 守门通
 
 /**
  * 场景 2:CLAIMED 项 1 个文件缺失 → 守门失败。
+ *
+ * 用 CLAIM-P33-1(CircuitBreaker,未 deferred)作为触发项 — 故意不创建
+ * `packages/api-client/src/circuit-breaker.ts`,守门脚本应报告该文件缺失。
+ *
+ * 注:CLAIM-P0-3(image-validate)在 DEFERRED_INTEGRATED_IDS 中(历史虚假声明),
+ * 缺失其文件不会触发守门报告,故不可用于本场景。
  */
 describe('场景 2: CLAIMED 项 1 个文件缺失 → 守门失败', () => {
   let root: string
@@ -119,23 +145,34 @@ describe('场景 2: CLAIMED 项 1 个文件缺失 → 守门失败', () => {
       'apps/api/src/middleware/json-repair.ts': 'export const jsonRepair = 1',
       'apps/api/src/middleware/json-repair.test.ts': 'export const t = 1',
       'apps/api/src/middleware/image-validate.ts': 'export const imageValidate = 1',
-      // 故意少 .test.ts
+      'apps/api/src/middleware/image-validate.test.ts': 'export const t = 1',
       'apps/cli/src/compaction-v2.ts': 'export const compactionV2 = 1',
       'apps/cli/src/compaction-v2.test.ts': 'export const t = 1',
-      'apps/cli/src/checkpoints/hunk-tracker.ts': 'export const hunkTracker = 1',
+      'apps/cli/src/checkpoints/hunk-tracker.ts': 'export const HunkTracker = 1',
       'apps/cli/src/checkpoints/hunk-tracker.test.ts': 'export const t = 1',
       'apps/cli/src/doom-loop-detector.ts': 'export const doomLoopDetector = 1',
       'apps/cli/src/doom-loop-detector.test.ts': 'export const t = 1',
       'apps/cli/src/interjection.ts': 'export const interjection = 1',
       'apps/cli/src/interjection.test.ts': 'export const t = 1',
+      // P33-1/3/4 真实文件(故意不创建 circuit-breaker.ts 以触发 P33-1 file 缺失)
+      'apps/cli/src/plan/machine.ts': 'export class PlanMachine { transitions = [] }',
+      'apps/cli/src/plugins/registry.ts': 'export class PluginRegistry { plugins = [] }',
+      // NI-1/2/3/4 证据文件
+      'scripts/audit-grokbuild-crates.md': `# Audit
+
+## xai-grok-markdown 不融合 理念借鉴
+## xai-fast-worktree 不融合 BTRFS
+## xai-ink-async-stdin TUI 不融合
+## xai-tui Rust Ink
+`,
     })
   })
   afterAll(() => cleanup(root))
 
-  it('exit code 1 + 报告缺 image-validate.test.ts', () => {
-    const r = runGatekeeper(root)
+  it('exit code 1 + 报告缺 circuit-breaker.ts', () => {
+    const r = runGatekeeper(root, ['--skip-claimed', '--skip-plan'])
     expect(r.code).toBe(1)
-    expect(r.stdout).toMatch(/image-validate\.test\.ts|FAIL/)
+    expect(r.stdout).toMatch(/circuit-breaker\.ts|FAIL/)
   })
 })
 
