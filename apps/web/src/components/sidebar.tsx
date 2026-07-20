@@ -17,6 +17,7 @@ import {
   User,
   PanelLeftClose,
   PanelLeftOpen,
+  ChevronDown,
   LogOut,
   Gift,
   Shield,
@@ -1101,6 +1102,185 @@ function ExpandableNavItem({
   )
 }
 
+/**
+ * 顶级分组渲染器(2026-07-20 立):支持分组级别的展开/折叠。
+ *
+ * 业务诉求:AI教育 / 内容 / 交易 / 个人 / 管理 等次要分类默认折叠(只显示分组标题),
+ * 仅 "AI" 核心分类默认展开,降低视觉噪音。点击分组标题切换。
+ *
+ * 行为细则:
+ *  - 折叠态(collapsed=true):沿用旧行为(不显示 label,所有 items 直接铺开),
+ *    因为折叠态下分组标题本就不渲染,无法承载点击切换。
+ *  - 无 label 分组(首页):不参与折叠,沿用旧行为(items 直接铺开)。
+ *  - 有 label 分组(展开态):
+ *      · 默认值:label === 'AI' → true,其他 → false
+ *      · hydration 后真实状态优先级:命中当前路由 > localStorage > 默认值
+ *      · localStorage 持久化用户切换结果,跨会话保留偏好
+ *  - SSR 安全:初始 open 固定 false(hydration 一致),真实状态由 useEffect 注入,
+ *    避免与 ExpandableNavItem 同型的 hydration mismatch。
+ */
+interface NavGroupSectionProps {
+  group: { label: string; items: NavItem[] }
+  collapsed: boolean
+  isActive: (href: string) => boolean
+  onCloseMobile: () => void
+  registerRef: (href: string, el: HTMLElement | null) => void
+  t: (key: string) => string
+  scope: 'desktop' | 'mobile'
+  isFirst: boolean
+}
+
+function NavGroupSection({
+  group,
+  collapsed,
+  isActive,
+  onCloseMobile,
+  registerRef,
+  t,
+  scope,
+  isFirst,
+}: NavGroupSectionProps) {
+  // 分组是否参与折叠:展开态 + 有 label
+  const isCollapsible = !collapsed && group.label !== ''
+  // 默认仅 "AI" 分组展开,其余折叠
+  const defaultOpen = group.label === 'AI'
+  // v3 后缀:版本化 key。重要:旧实现用 useEffect 在 open 变化时写 localStorage,
+  // 导致首次挂载 setOpen(defaultOpen) 触发写入,污染了测试环境的 localStorage。
+  // 新实现只在用户主动 toggle 时写,首次挂载只读不写,因此 localStorage 在用户切换前保持空,
+  // 默认值才能可靠生效。v3 key 同时让 v2 旧测试残留失效。
+  const storageKey = `sidebar-group-v3-${group.label}`
+
+  // 命中当前路由 → 强制展开(用户在用该分组的某个页面时,不应被折叠隐藏)
+  const groupActive = group.items.some((item) => {
+    if (isActive(item.href)) return true
+    if (item.children) return item.children.some((c) => isActive(c.href))
+    return false
+  })
+
+  // SSR-safe: 初始 false,hydration 后读真实状态
+  const [open, setOpen] = React.useState(false)
+
+  // 仅在挂载后读一次真实状态(默认值 / localStorage / groupActive 三者择一)。
+  // 不在 open 变化时回写 localStorage — 那会让"默认值生效"被误判为"用户切换",污染下次访问。
+  // 用户主动 toggle 时,由 handleToggle 显式写入 localStorage。
+  React.useEffect(() => {
+    if (groupActive) {
+      setOpen(true)
+      return
+    }
+    try {
+      const stored = window.localStorage.getItem(storageKey)
+      if (stored === '1') setOpen(true)
+      else if (stored === '0') setOpen(false)
+      else setOpen(defaultOpen)
+    } catch {
+      setOpen(defaultOpen)
+    }
+    // 故意只跑一次:依赖项固定为挂载时常量。groupActive/storageKey/defaultOpen 在挂载后不变,
+    // 即便变化(如路由切换导致 groupActive 变化)也由下方 groupActive effect 单独处理。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 路由切换后,若新路由命中本组,强制展开(覆盖用户上次折叠的偏好)
+  React.useEffect(() => {
+    if (groupActive) setOpen(true)
+  }, [groupActive])
+
+  // 用户主动 toggle:切换 open + 持久化(只此处写 localStorage)
+  const handleToggle = React.useCallback(() => {
+    setOpen((prev) => {
+      const next = !prev
+      try {
+        window.localStorage.setItem(storageKey, next ? '1' : '0')
+      } catch {
+        // localStorage 不可用
+      }
+      return next
+    })
+  }, [storageKey])
+
+  // 渲染单个 nav item(三种分支:可展开 / 搜索行 / 普通 Link)
+  const renderItem = (item: NavItem) => {
+    const active = isActive(item.href)
+    const label = t(item.labelKey)
+    if (item.children && item.children.length > 0) {
+      return (
+        <ExpandableNavItem
+          key={item.href}
+          item={item}
+          collapsed={collapsed}
+          isActive={isActive}
+          onCloseMobile={onCloseMobile}
+          registerRef={registerRef}
+          t={t}
+          scope={scope}
+        />
+      )
+    }
+    if (item.labelKey === 'search') {
+      return (
+        <SearchNavItem
+          key={item.href}
+          collapsed={collapsed}
+          active={active}
+          label={label}
+          onCloseMobile={onCloseMobile}
+          refCb={(el) => registerRef(item.href, el)}
+        />
+      )
+    }
+    return (
+      <NavLink
+        key={item.href}
+        item={item}
+        collapsed={collapsed}
+        active={active}
+        label={label}
+        onCloseMobile={onCloseMobile}
+        registerRef={registerRef}
+      />
+    )
+  }
+
+  // 不参与折叠:沿用旧行为(折叠态或无 label 分组)
+  if (!isCollapsible) {
+    return (
+      <div className={isFirst ? '' : 'pt-2'}>
+        {!collapsed && group.label && (
+          <div className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+            {group.label}
+          </div>
+        )}
+        {group.items.map(renderItem)}
+      </div>
+    )
+  }
+
+  // 可折叠分组(展开态 + 有 label)
+  return (
+    <div className={isFirst ? '' : 'pt-2'}>
+      <button
+        type="button"
+        onClick={handleToggle}
+        aria-expanded={open}
+        aria-label={group.label}
+        data-testid={`nav-group-${group.label}-toggle`}
+        className="group/grp flex w-full items-center gap-1 px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+      >
+        <ChevronDown
+          className={cn(
+            'h-3 w-3 shrink-0 transition-transform duration-200',
+            !open && '-rotate-90',
+          )}
+          aria-hidden="true"
+        />
+        <span className="min-w-0 whitespace-nowrap text-left">{group.label}</span>
+      </button>
+      {open && <div className="flex flex-col gap-0.5">{group.items.map(renderItem)}</div>}
+    </div>
+  )
+}
+
 export function Sidebar({
   id,
   collapsed,
@@ -1269,61 +1449,25 @@ export function Sidebar({
         {/* 侧边栏任务列表卡片(展开态显示) */}
         <SidebarChatHistory collapsed={collapsed} />
 
-        {visibleGroups.map((group, gi) => (
-          <div key={group.label || `group-${gi}`} className={gi > 0 ? 'pt-2' : ''}>
-            {!collapsed && group.label && (
-              <div className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
-                {group.label}
-              </div>
-            )}
-            {group.items.map((item) => {
-              const active = isActive(item.href)
-              const label = t(item.labelKey)
-              const registerRef = (href: string, el: HTMLElement | null) => {
-                if (el) itemRefs.current.set(href, el)
-                else itemRefs.current.delete(href)
-              }
-              if (item.children && item.children.length > 0) {
-                return (
-                  <ExpandableNavItem
-                    key={item.href}
-                    item={item}
-                    collapsed={collapsed}
-                    isActive={isActive}
-                    onCloseMobile={onCloseMobile}
-                    registerRef={registerRef}
-                    t={t}
-                    scope={scope}
-                  />
-                )
-              }
-              // 搜索行:展开态承载弹层 + SearchBar,折叠态保留 Link 跳 /search
-              if (item.labelKey === 'search') {
-                return (
-                  <SearchNavItem
-                    key={item.href}
-                    collapsed={collapsed}
-                    active={active}
-                    label={label}
-                    onCloseMobile={onCloseMobile}
-                    refCb={(el) => registerRef(item.href, el)}
-                  />
-                )
-              }
-              return (
-                <NavLink
-                  key={item.href}
-                  item={item}
-                  collapsed={collapsed}
-                  active={active}
-                  label={label}
-                  onCloseMobile={onCloseMobile}
-                  registerRef={registerRef}
-                />
-              )
-            })}
-          </div>
-        ))}
+        {visibleGroups.map((group, gi) => {
+          const registerRef = (href: string, el: HTMLElement | null) => {
+            if (el) itemRefs.current.set(href, el)
+            else itemRefs.current.delete(href)
+          }
+          return (
+            <NavGroupSection
+              key={group.label || `group-${gi}`}
+              group={group}
+              collapsed={collapsed}
+              isActive={isActive}
+              onCloseMobile={onCloseMobile}
+              registerRef={registerRef}
+              t={t}
+              scope={scope}
+              isFirst={gi === 0}
+            />
+          )
+        })}
       </nav>
     </TooltipProvider>
   )
