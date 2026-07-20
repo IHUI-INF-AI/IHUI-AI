@@ -189,12 +189,16 @@ export async function fetchApi<T>(
       try {
         return await fetchOnce<T>(normalizedUrl, restOptions, headers)
       } catch (err) {
+        // AbortError:用户主动取消,直接返回,不重试
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return { success: false, error: '请求已取消' }
+        }
         const result = normalizeErrorToResult(err)
         // 5xx / 4xx(已带 status):直接返回,不重试
         if (result.status !== undefined) {
           return result as ApiResult<T>
         }
-        // 网络异常 / AbortError:重试或返回 lastError
+        // 网络异常:重试或返回 lastError
         lastError = result.error
         if (attempt < maxRetries) continue
       }
