@@ -214,6 +214,22 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
     ],
   },
+  // 管理 分组移到 AI 下面作为第二分类(2026-07-20 立):
+  // admin 用户的核心入口与 AI 同属高频区,放第二位便于快速访问。
+  // 仅 admin 用户可见(items 全部 adminOnly),非 admin 用户此分组被 visibleGroups 过滤掉,
+  // 不影响其他用户视觉。默认展开(见 NavGroupSection.defaultOpen)。
+  {
+    label: '管理',
+    items: [
+      { href: '/admin', labelKey: 'admin', icon: Shield, adminOnly: true },
+      { href: '/admin/statistics', labelKey: 'adminStatistics', icon: BarChart3, adminOnly: true },
+      { href: '/user-center', labelKey: 'userCenter', icon: UserCircle, adminOnly: true },
+      { href: '/members', labelKey: 'members', icon: Users, adminOnly: true },
+      { href: '/admin/workflows', labelKey: 'adminWorkflows', icon: Workflow, adminOnly: true },
+      { href: '/admin/tags', labelKey: 'adminTags', icon: Tag, adminOnly: true },
+      { href: '/admin/logs', labelKey: 'adminLogs', icon: ScrollText, adminOnly: true },
+    ],
+  },
   {
     label: 'AI教育',
     items: [
@@ -277,18 +293,6 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/settings', labelKey: 'settings', icon: Settings },
       { href: '/feedback', labelKey: 'feedback', icon: MessageSquare },
       { href: '/help', labelKey: 'help', icon: HelpCircle },
-    ],
-  },
-  {
-    label: '管理',
-    items: [
-      { href: '/admin', labelKey: 'admin', icon: Shield, adminOnly: true },
-      { href: '/admin/statistics', labelKey: 'adminStatistics', icon: BarChart3, adminOnly: true },
-      { href: '/user-center', labelKey: 'userCenter', icon: UserCircle, adminOnly: true },
-      { href: '/members', labelKey: 'members', icon: Users, adminOnly: true },
-      { href: '/admin/workflows', labelKey: 'adminWorkflows', icon: Workflow, adminOnly: true },
-      { href: '/admin/tags', labelKey: 'adminTags', icon: Tag, adminOnly: true },
-      { href: '/admin/logs', labelKey: 'adminLogs', icon: ScrollText, adminOnly: true },
     ],
   },
 ]
@@ -1142,8 +1146,11 @@ function NavGroupSection({
 }: NavGroupSectionProps) {
   // 分组是否参与折叠:展开态 + 有 label
   const isCollapsible = !collapsed && group.label !== ''
-  // 默认仅 "AI" 分组展开,其余折叠
-  const defaultOpen = group.label === 'AI'
+  // 默认展开的分组(2026-07-20 立):
+  //   - AI:核心分类,所有用户高频入口
+  //   - 管理:admin 用户的核心入口(非 admin 用户此分组被 visibleGroups 过滤掉,此设置不影响)
+  // 其余分组(AI教育/内容/交易/个人)默认折叠,降低视觉噪音。
+  const defaultOpen = group.label === 'AI' || group.label === '管理'
   // v3 后缀:版本化 key。重要:旧实现用 useEffect 在 open 变化时写 localStorage,
   // 导致首次挂载 setOpen(defaultOpen) 触发写入,污染了测试环境的 localStorage。
   // 新实现只在用户主动 toggle 时写,首次挂载只读不写,因此 localStorage 在用户切换前保持空,
@@ -1276,7 +1283,25 @@ function NavGroupSection({
         />
         <span className="min-w-0 whitespace-nowrap text-left">{group.label}</span>
       </button>
-      {open && <div className="flex flex-col gap-0.5">{group.items.map(renderItem)}</div>}
+      {/*
+        分组折叠动画(2026-07-20 立):用 CSS grid-template-rows 0fr↔1fr 现代方案。
+        优势 vs max-height:
+          - 内容自适应高度,无需设固定 max-height 值(避免内容少时"快进-慢停")
+          - transition-[grid-template-rows] 浏览器原生支持,流畅无抖动
+        实现:外层 grid 容器过渡 rows,内层 overflow-hidden 裁剪 0fr 时的内容。
+        折叠态(grid-rows-[0fr]):内容高度 0,被 overflow-hidden 裁剪不可见。
+        展开态(grid-rows-[1fr]):内容高度自适应,可见。
+      */}
+      <div
+        className={cn(
+          'grid transition-[grid-template-rows] duration-200 ease-out',
+          open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-0.5">{group.items.map(renderItem)}</div>
+        </div>
+      </div>
     </div>
   )
 }
