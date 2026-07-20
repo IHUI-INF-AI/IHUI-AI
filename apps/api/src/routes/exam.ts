@@ -78,6 +78,56 @@ const QUESTION_TYPES = [
   'subjective',
 ] as const
 
+// 前端 api-client 'single' | 'multiple' | 'judge' | 'fill' | 'essay'
+// 数据库     single_choice | multi_choice | judgment | fill_blank | subjective
+const QUESTION_TYPE_TO_API: Record<
+  (typeof QUESTION_TYPES)[number],
+  'single' | 'multiple' | 'judge' | 'fill' | 'essay'
+> = {
+  single_choice: 'single',
+  multi_choice: 'multiple',
+  judgment: 'judge',
+  fill_blank: 'fill',
+  subjective: 'essay',
+}
+
+const QUESTION_TYPE_FROM_API: Record<
+  'single' | 'multiple' | 'judge' | 'fill' | 'essay',
+  (typeof QUESTION_TYPES)[number]
+> = {
+  single: 'single_choice',
+  multiple: 'multi_choice',
+  judge: 'judgment',
+  fill: 'fill_blank',
+  essay: 'subjective',
+}
+
+function toApiQuestionType(t: string): 'single' | 'multiple' | 'judge' | 'fill' | 'essay' {
+  return (QUESTION_TYPE_TO_API as Record<string, 'single' | 'multiple' | 'judge' | 'fill' | 'essay'>)[
+    t
+  ] ?? 'single'
+}
+
+function fromApiQuestionType(
+  t: 'single' | 'multiple' | 'judge' | 'fill' | 'essay',
+): (typeof QUESTION_TYPES)[number] {
+  return QUESTION_TYPE_FROM_API[t] ?? 'single_choice'
+}
+
+// 题目选项:DB 存 [{key,text}] 或 [{key,value}],前端 api-client 期望 {key,value}[] 或 null
+function normalizeOptionsForApi(raw: unknown): { key: string; value: string }[] | null {
+  if (!Array.isArray(raw)) return null
+  return raw.map((o) => {
+    if (o && typeof o === 'object') {
+      const obj = o as Record<string, unknown>
+      const key = String(obj.key ?? '')
+      const value = String(obj.value ?? obj.text ?? '')
+      return { key, value }
+    }
+    return { key: String(o), value: String(o) }
+  })
+}
+
 const paperTypeSchema = z.enum(['normal', 'random', 'mock', 'exam'])
 
 // =============================================================================
@@ -85,12 +135,6 @@ const paperTypeSchema = z.enum(['normal', 'random', 'mock', 'exam'])
 // =============================================================================
 
 const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
-
-const paginationQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  search: z.string().max(200).optional(),
-})
 
 const papersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -187,7 +231,10 @@ const updatePaperSchema = z.object({
 })
 
 const createQuestionSchema = z.object({
-  type: z.enum(QUESTION_TYPES),
+  // 兼容:前端 api-client 用 'single' | 'multiple' | 'judge' | 'fill' | 'essay'
+  type: z
+    .union([z.enum(QUESTION_TYPES), z.enum(['single', 'multiple', 'judge', 'fill', 'essay'])])
+    .transform((t) => (QUESTION_TYPES as readonly string[]).includes(t) ? (t as (typeof QUESTION_TYPES)[number]) : fromApiQuestionType(t as 'single' | 'multiple' | 'judge' | 'fill' | 'essay')),
   title: z.string().min(1),
   options: z.unknown().optional(),
   answer: z.unknown().optional(),
@@ -197,7 +244,10 @@ const createQuestionSchema = z.object({
 })
 
 const updateQuestionSchema = z.object({
-  type: z.enum(QUESTION_TYPES).optional(),
+  type: z
+    .union([z.enum(QUESTION_TYPES), z.enum(['single', 'multiple', 'judge', 'fill', 'essay'])])
+    .transform((t) => (QUESTION_TYPES as readonly string[]).includes(t) ? (t as (typeof QUESTION_TYPES)[number]) : fromApiQuestionType(t as 'single' | 'multiple' | 'judge' | 'fill' | 'essay'))
+    .optional(),
   title: z.string().min(1).optional(),
   options: z.unknown().nullable().optional(),
   answer: z.unknown().nullable().optional(),
@@ -209,10 +259,17 @@ const updateQuestionSchema = z.object({
 const submitExamSchema = z.object({
   answers: z
     .array(
-      z.object({
-        questionId: z.string().uuid(),
-        answer: z.unknown(),
-      }),
+      z
+        .object({
+          questionId: z.string().uuid(),
+          // 兼容:前端 api-client submitAnswer 用 answer,原 userAnswer 保留
+          userAnswer: z.unknown().optional(),
+          answer: z.unknown().optional(),
+        })
+        .transform((a) => ({
+          questionId: a.questionId,
+          answer: a.answer ?? a.userAnswer,
+        })),
     )
     .min(1, '答案不能为空'),
 })
@@ -229,12 +286,19 @@ const randomQuestionsSchema = z.object({
 const submitAnswersSchema = z.object({
   examId: z.string().uuid('无效的试卷 ID'),
   examRecordId: z.string().uuid().optional(),
+  // 兼容:前端 api-client submitAnswer 用 answer,原 userAnswer 保留
   answers: z
     .array(
-      z.object({
-        questionId: z.string().uuid(),
-        userAnswer: z.unknown(),
-      }),
+      z
+        .object({
+          questionId: z.string().uuid(),
+          userAnswer: z.unknown().optional(),
+          answer: z.unknown().optional(),
+        })
+        .transform((a) => ({
+          questionId: a.questionId,
+          userAnswer: a.userAnswer ?? a.answer,
+        })),
     )
     .min(1, '答案不能为空'),
 })
@@ -456,6 +520,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /exam/papers/:id/questions - 试卷题目(不含正确答案,用于答题)
+  // 响应: { exam: Exam, questions: ExamQuestion[] }  匹配前端 api-client getExamById
   server.get('/exam/papers/:id/questions', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
@@ -467,17 +532,33 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '试卷不存在'))
     }
     const questions = await findQuestionsByPaperId(parsed.data.id)
-    // 剥离正确答案与解析,仅返回答题所需字段
+    // 剥离正确答案与解析,仅返回答题所需字段 + 题型映射
     const safeQuestions = questions.map((q) => ({
       id: q.id,
-      paperId: q.paperId,
-      type: q.type,
+      examId: q.paperId,
+      type: toApiQuestionType(q.type),
       title: q.title,
-      options: q.options,
-      score: q.score,
+      options: normalizeOptionsForApi(q.options),
+      score: Number(q.score),
       sortOrder: q.sortOrder,
     }))
-    return reply.send(success({ list: safeQuestions }))
+    const exam = {
+      id: paper.id,
+      title: paper.title,
+      description: paper.description ?? '',
+      courseId: null as string | null,
+      duration: paper.duration,
+      totalScore: Number(paper.totalScore),
+      passScore: Number(paper.passScore),
+      questionCount: paper.questionCount,
+      attemptCount: 0,
+      maxAttempts: 999,
+      startTime: null as string | null,
+      endTime: null as string | null,
+      status: paper.isPublished ? 'published' : 'draft',
+      createdAt: paper.createdAt.toISOString(),
+    }
+    return reply.send(success({ exam, questions: safeQuestions }))
   })
 
   // POST /exam/papers/:id/start - 开始答题(创建 pending 记录)
@@ -528,9 +609,16 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /exam/records - 我的答题记录(分页)
+  // 响应: PageData<ExamRecord>,匹配前端 api-client getMyRecords
   server.get('/exam/records', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const parsed = paginationQuerySchema.safeParse(request.query)
+    const parsed = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+        examId: z.string().uuid().optional(),
+      })
+      .safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
@@ -549,7 +637,41 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
+  // GET /exam/records/check-submitted - 检查用户是否已提交某考试(扁平 boolean)
+  // 响应: boolean,匹配前端 api-client checkSubmitted
+  server.get('/exam/records/check-submitted', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = z
+      .object({
+        examId: z.string().uuid('无效的试卷 ID'),
+      })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    // 查询最新一条该试卷的已提交记录
+    const rows = await db
+      .select()
+      .from(examRecords)
+      .where(
+        and(
+          eq(examRecords.userId, userId),
+          eq(examRecords.paperId, parsed.data.examId),
+        ),
+      )
+      .orderBy(desc(examRecords.submittedAt))
+      .limit(1)
+    const submitted = rows[0]
+      ? rows[0].status === 'submitted' ||
+        rows[0].status === 'graded' ||
+        rows[0].status === 'completed'
+      : false
+    return reply.send(success(submitted))
+  })
+
   // GET /exam/records/:id - 答题记录详情(含正确答案)
+  // 响应: ExamResult 形状(扁平),匹配前端 api-client getResult
   server.get('/exam/records/:id', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
@@ -562,7 +684,39 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '答题记录不存在'))
     }
     const questions = await findQuestionsByPaperId(record.paperId)
-    return reply.send(success({ record, questions }))
+    const qMap = new Map(questions.map((q) => [q.id, q]))
+    const paper = await findPaperById(record.paperId)
+    const storedAnswers =
+      (record.answers as Array<{ questionId: string; answer: unknown; isCorrect?: boolean; score?: number }> | null) ?? []
+    const totalScore = Number(record.score ?? 0)
+    const correctCount = storedAnswers.filter((a) => a.isCorrect).length
+    const wrongCount = storedAnswers.filter((a) => a.isCorrect === false).length
+    const unansweredCount = Math.max(0, questions.length - storedAnswers.length)
+    // 扁平 ExamResult 形状
+    const result = {
+      examId: record.paperId,
+      score: totalScore,
+      totalScore: paper ? Number(paper.totalScore) : totalScore,
+      isPassed: !!record.isPassed,
+      correctCount,
+      wrongCount,
+      unansweredCount,
+      duration: record.duration ?? 0,
+      submittedAt: record.submittedAt ? new Date(record.submittedAt).toISOString() : new Date(record.createdAt).toISOString(),
+      details: storedAnswers.map((a) => {
+        const q = qMap.get(a.questionId)
+        return {
+          questionId: a.questionId,
+          title: q?.title ?? '',
+          userAnswer: (a.answer ?? null) as string | string[],
+          correctAnswer: (q?.answer ?? null) as string | string[],
+          isCorrect: !!a.isCorrect,
+          score: a.score ?? 0,
+          analysis: q?.analysis ?? null,
+        }
+      }),
+    }
+    return reply.send(success(result))
   })
 
   // POST /exam/random-questions - 随机抽题(按题型/难度/知识点池筛选 + seed 可重现)
@@ -587,7 +741,117 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // Wrong Questions 错题本端点（需登录）— 自动入库 + 列表 + 统计 + 标记掌握
   // ===========================================================================
 
-  // POST /exam/submit-answers - 提交答案(含自动错题判定)
+  // POST /exam/papers/:examId/submit-answers - 通过 examId 提交答案(含自动错题判定)
+  // 路径含 examId,匹配前端 api-client submitAnswer(/exam/records/{examId}/submit)
+  // 响应: ExamResult 形状(扁平),匹配前端 api-client ExamResult
+  server.post('/exam/papers/:examId/submit-answers', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const examParam = z.object({ examId: z.string().uuid('无效的试卷 ID') }).safeParse(request.params)
+    if (!examParam.success) {
+      return reply.status(400).send(error(400, examParam.error.issues[0]?.message ?? '参数错误'))
+    }
+    const parsed = z
+      .object({
+        answers: z
+          .array(
+            z
+              .object({
+                questionId: z.string().uuid(),
+                answer: z.unknown().optional(),
+                userAnswer: z.unknown().optional(),
+              })
+              .transform((a) => ({ questionId: a.questionId, answer: a.answer ?? a.userAnswer })),
+          )
+          .min(1, '答案不能为空'),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const { examId } = examParam.data
+    const { answers } = parsed.data
+
+    const paper = await findPaperById(examId)
+    if (!paper) {
+      return reply.status(404).send(error(404, '试卷不存在'))
+    }
+
+    const questions = await findQuestionsByPaperId(examId)
+    const qMap = new Map(questions.map((q) => [q.id, q]))
+
+    let totalScore = 0
+    const wrongRecords: CreateOrUpdateWrongQuestionInput[] = []
+    const gradedAnswers = answers.map((a) => {
+      const q = qMap.get(a.questionId)
+      if (!q) {
+        return { questionId: a.questionId, userAnswer: a.answer, isCorrect: false, score: 0 }
+      }
+      let isCorrect = false
+      if (q.type === 'single_choice' || q.type === 'judgment') {
+        isCorrect = JSON.stringify(a.answer) === JSON.stringify(q.answer)
+      } else if (q.type === 'multi_choice') {
+        const ans = Array.isArray(a.answer) ? [...a.answer].sort() : []
+        const correct = Array.isArray(q.answer) ? [...q.answer].sort() : []
+        isCorrect = JSON.stringify(ans) === JSON.stringify(correct)
+      } else if (q.type === 'fill_blank') {
+        const ans = Array.isArray(a.answer) ? a.answer : [a.answer]
+        const correct = Array.isArray(q.answer) ? q.answer : [q.answer]
+        isCorrect =
+          ans.length === correct.length &&
+          ans.every((v, i) => String(v).trim() === String(correct[i]).trim())
+      }
+      // subjective 不自动判分,不计入错题
+      const score = isCorrect ? Number(q.score) : 0
+      totalScore += score
+      if (!isCorrect && q.type !== 'subjective') {
+        wrongRecords.push({
+          userId,
+          questionId: a.questionId,
+          paperId: examId,
+          paperTitle: paper.title,
+          userAnswer: JSON.stringify(a.answer),
+          rightAnswer: JSON.stringify(q.answer),
+        })
+      }
+      return { questionId: a.questionId, userAnswer: a.answer, isCorrect, score }
+    })
+
+    await batchCreateWrongQuestions(wrongRecords)
+
+    const correctCount = gradedAnswers.filter((a) => a.isCorrect).length
+    const wrongCount = wrongRecords.length
+    const unansweredCount = questions.length - answers.length
+    const isPassed = totalScore >= Number(paper.passScore)
+    // 响应: 扁平 ExamResult 形状,匹配 api-client ExamResult
+    const result = {
+      examId,
+      score: totalScore,
+      totalScore: Number(paper.totalScore),
+      isPassed,
+      correctCount,
+      wrongCount,
+      unansweredCount: Math.max(0, unansweredCount),
+      duration: 0,
+      submittedAt: new Date().toISOString(),
+      details: gradedAnswers.map((a) => {
+        const q = qMap.get(a.questionId)
+        return {
+          questionId: a.questionId,
+          title: q?.title ?? '',
+          userAnswer: (a.userAnswer ?? null) as string | string[],
+          correctAnswer: (q?.answer ?? null) as string | string[],
+          isCorrect: a.isCorrect,
+          score: a.score,
+          analysis: q?.analysis ?? null,
+        }
+      }),
+    }
+    return reply.send(success(result))
+  })
+
+  // POST /exam/submit-answers - 提交答案(含自动错题判定)  body 含 examId
+  // 兼容老接口
   server.post('/exam/submit-answers', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
     const parsed = submitAnswersSchema.safeParse(request.body)
@@ -889,6 +1153,41 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list }))
   })
 
+  // GET /exam/papers/:examId/chapters - 试卷章节列表(public)
+  // 响应: ExamChapter[]  直接数组,匹配前端 api-client getExamChapters
+  server.get('/exam/papers/:examId/chapters', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return
+    const parsed = z.object({ examId: z.string().uuid('无效的试卷 ID') }).safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const rows = await findChapterList(parsed.data.examId)
+    // 统计每个章节的题目数(从 sections.questionIds 累加)
+    const chapterIds = rows.map((r) => r.id)
+    const sectionCountByChapter = new Map<string, number>()
+    if (chapterIds.length > 0) {
+      const sections = await Promise.all(
+        chapterIds.map((cid) => findSectionList(cid)),
+      ).then((arr) => arr.flat())
+      for (const s of sections) {
+        const ids = Array.isArray(s.questionIds) ? (s.questionIds as string[]) : []
+        sectionCountByChapter.set(
+          s.chapterId,
+          (sectionCountByChapter.get(s.chapterId) ?? 0) + ids.length,
+        )
+      }
+    }
+    const result = rows.map((c) => ({
+      id: c.id,
+      examId: c.paperId,
+      title: c.title,
+      description: c.description ?? '',
+      questionCount: sectionCountByChapter.get(c.id) ?? 0,
+      sort: c.sort,
+    }))
+    return reply.send(success(result))
+  })
+
   // ----- Composition signup 报名 -----
   // GET /exam/composition/signup/list - 报名列表
   server.get('/exam/composition/signup/list', async (request, reply) => {
@@ -918,15 +1217,48 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /exam/composition/signup/my - 我的报名列表
+  // 响应: PageData<ExamSignUp>(list, total, page, pageSize),匹配前端 api-client getMySignUps
   server.get('/exam/composition/signup/my', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { memberId } = z.object({ memberId: z.coerce.number().optional() }).parse(request.query)
+    const { memberId, page = 1, pageSize = 20 } = z
+      .object({
+        memberId: z.coerce.number().optional(),
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+      })
+      .parse(request.query)
+    // 从已认证用户推断 memberId
+    const effectiveMemberId = memberId || Number(request.userId) || 0
+    const where = effectiveMemberId
+      ? eq(examSignUp.memberId, effectiveMemberId)
+      : sql`TRUE`
     const list = await db
       .select()
       .from(examSignUp)
-      .where(eq(examSignUp.memberId, Number(memberId)))
+      .where(where)
       .orderBy(desc(examSignUp.createdAt))
-    return reply.send(success({ list }))
+      .limit(Number(pageSize))
+      .offset((Number(page) - 1) * Number(pageSize))
+    const totalRows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(examSignUp)
+      .where(where)
+    // 响应: PageData<ExamSignUp> 扁平形状
+    const flatList = list.map((s) => ({
+      id: String(s.id),
+      examId: String(s.examId),
+      userId: String(s.memberId),
+      status: s.status,
+      signedAt: s.createdAt.toISOString(),
+    }))
+    return reply.send(
+      success({
+        list: flatList,
+        total: Number(totalRows[0]?.count ?? 0),
+        page: Number(page),
+        pageSize: Number(pageSize),
+      }),
+    )
   })
 
   // GET /exam/composition/signup/:sid - 报名详情
@@ -943,24 +1275,51 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /exam/composition/signup - 创建报名
+  // body 兼容:前端 api-client saveSignUp 传 { eid };后端原生用 { examId, memberId, status }
+  // 响应: 扁平 ExamSignUp,匹配前端 api-client ExamSignUp
   server.post('/exam/composition/signup', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
     const body = z
       .object({
-        examId: z.number().int(),
-        memberId: z.number().int(),
+        eid: z.union([z.number().int(), z.string()]).optional(),
+        examId: z.number().int().optional(),
+        memberId: z.number().int().optional(),
         status: z.string().max(50).default('pending'),
       })
+      .transform((b) => ({
+        examId: b.examId ?? (typeof b.eid === 'number' ? b.eid : Number(b.eid)),
+        memberId: b.memberId ?? 0, // 历史表用 integer memberId,新用户用 uuid,这里从 auth 取
+        status: b.status,
+      }))
       .parse(request.body)
+    if (!Number.isFinite(body.examId)) {
+      return reply.status(400).send(error(400, '无效的考试 ID'))
+    }
+    // 从已认证用户推断 memberId
+    const memberId = body.memberId || Number(request.userId) || 0
+    if (!memberId) {
+      return reply.status(400).send(error(400, '无效的 memberId'))
+    }
     const [created] = await db
       .insert(examSignUp)
       .values({
-        memberId: body.memberId,
+        memberId,
         examId: body.examId,
         status: body.status,
       })
       .returning()
-    return reply.status(201).send(success({ signup: created }))
+    if (!created) {
+      return reply.status(500).send(error(500, '创建报名失败'))
+    }
+    // 响应: 扁平 ExamSignUp 形状
+    const result = {
+      id: String(created.id),
+      examId: String(created.examId),
+      userId: String(created.memberId),
+      status: created.status,
+      signedAt: created.createdAt.toISOString(),
+    }
+    return reply.status(201).send(success(result))
   })
 
   // PUT /exam/composition/signup/:sid - 修改报名
@@ -1593,16 +1952,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     })
 
     // ----- Chapters 章节管理 -----
-
-    // GET /exam/papers/:id/chapters - 章节列表
-    child.get('/exam/papers/:id/chapters', async (request, reply) => {
-      const parsed = idParamSchema.safeParse(request.params)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const list = await findChapterList(parsed.data.id)
-      return reply.send(success({ list }))
-    })
+    // (章节列表由顶层公共 /exam/papers/:examId/chapters 提供,避免与 admin 重复)
 
     // POST /exam/papers/:id/chapters - 创建章节
     child.post('/exam/papers/:id/chapters', async (request, reply) => {

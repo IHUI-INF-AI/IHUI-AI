@@ -996,8 +996,6 @@
     "uploadFailed": "업로드실패",
     "downloadFailed": "다운로드 실패",
     "deleteConfirm": "이 항목을 삭제하시겠습니까?",
-    "developerTools": "개발자 도구",
-    "mentionFile": "파일 멘션",
     "detail": {
       "previewFailed": "미리보기 실패"
     },
