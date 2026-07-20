@@ -29,15 +29,24 @@ import type { Metadata } from 'next'
  */
 export const metadata: Metadata = {
   title: {
-    default: '智汇 AI 社区 — 8 端全覆盖的企业级 AI 平台',
+    default: '智汇 AI 社区 — 8 端全覆盖 · 100+ LLM · 自研 CLI 对标 Claude Code · 省 ¥18 万/年',
     template: '%s | 智汇 AI',
   },
   description:
-    '8 端全覆盖(Web/桌面/移动/小程序/CLI/扩展),100+ 大模型一站式接入,自研 CLI 对标 Claude Code,LangGraph + MCP + A2A 三栈合一。AI 时代企业决策者社群,限 18 席早鸟价 ¥6000/年,不满意全额退款。',
+    '行业唯一 8 端全覆盖(Web/桌面/移动/小程序/CLI/扩展/API/AI-Service)企业级 AI 平台。100+ LLM 大模型一个 API Key 全访问(国际 30+/国产 15+/云 40+),LangGraph+MCP+A2A 三栈合一,11 MCP 工具+5 A2A 端点+6 ACP 扩展,17 项 pre-commit 守门+122+ migrations 工业级严谨。5 大决策者场景(降本/提效/学习/创新/决策)· 8 项可量化 ROI(省 ¥18-30 万/年 · 10× 加速 · 60% 降本 · 99.9% SLA)· 8 行竞品对比全维度超越 Claude Code/Cursor/ChatGPT。限 18 席决策者 · 早鸟价 ¥6000/年(3.3 折)· 不满意全额退款 · 1v1 AI 顾问 + AI 文化落地陪跑。',
+  keywords: [
+    'AI 平台', '8 端全覆盖', '100+ LLM', 'LangGraph', 'MCP', 'A2A', 'ACP Server',
+    '自研 CLI', 'Claude Code 替代', 'Cursor 替代', 'ChatGPT 替代', '企业 AI',
+    '决策者社群', 'AI 文化落地', '人机协同', 'Qwen', 'DeepSeek', 'GLM', 'Llama',
+    'AI 降本', 'AI 提效', 'ROI', 'AI 教育', 'AI 培训', 'AI 课程', 'AI 直播',
+    '企业 AI 平台', '决策者 AI 顾问', '18 席决策者', 'AI 工作流', '智能体',
+  ],
   openGraph: {
     type: 'website',
     locale: 'zh_CN',
     siteName: '智汇 AI 社区',
+    title: '智汇 AI 社区 — 8 端全覆盖 · 100+ LLM · 自研 CLI · 省 ¥18 万/年',
+    description: '行业唯一 8 端全覆盖企业级 AI 平台 · 5 大决策者场景 · 8 项可量化 ROI · 8 行竞品对比全维度超越 · 限 18 席 · 早鸟价 ¥6000/年 · 不满意全额退款',
   },
 }
 

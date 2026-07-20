@@ -8,6 +8,7 @@ import { History, Trash2, Clock, Loader2, Search } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 
 interface HistoryItem {
   id: string
@@ -113,16 +114,17 @@ export default function HistoryPage() {
                   {t('resultCount', { count: item.resultsCount })}
                 </p>
               </button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                onClick={() => deleteOneMutation.mutate(item.id)}
-                disabled={deleteOneMutation.isPending}
-                title={t('delete')}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+              <Tooltip content={t('delete')}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  onClick={() => deleteOneMutation.mutate(item.id)}
+                  disabled={deleteOneMutation.isPending}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </Tooltip>
             </li>
           ))}
         </ul>

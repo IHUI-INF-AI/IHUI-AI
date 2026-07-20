@@ -8,6 +8,7 @@ import Image from 'next/image'
 
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui'
 import { Container } from '@/components/layout'
+import { Tooltip } from '@/components/feedback'
 import { useAuth } from '@/hooks/use-auth'
 import { useAuthStore } from '@/stores/auth'
 
@@ -114,19 +115,20 @@ export default function AvatarPage() {
                   displayName.slice(0, 2)
                 )}
               </span>
-              <button
-                type="button"
-                title={t('avatarUpload')}
-                disabled={uploading}
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-lg border bg-background shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
-              >
-                {uploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Camera className="h-4 w-4" />
-                )}
-              </button>
+              <Tooltip content={t('avatarUpload')}>
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-lg border bg-background shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
+                </button>
+              </Tooltip>
               <input
                 ref={fileInputRef}
                 type="file"
