@@ -14,6 +14,7 @@ import { useWebSocket, type WSNotification, isAIResponse } from '@/hooks/use-web
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
+import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getConversation, getMessages } from '@/lib/chat-api'
@@ -34,6 +35,7 @@ export function AISidePanel() {
   const tcommon = useTranslations('common')
 
   const { open, width, isResizing, closePanel, setWidth, setResizing } = useAiPanelStore()
+  const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   const { messages, currentModel, isStreaming, sendMessage, stop, clearMessages, setModel } =
     useChat()
   const { lastMessage } = useWebSocket()
@@ -197,10 +199,12 @@ export function AISidePanel() {
   }, [clearMessages, setConversationId])
 
   // 标题显示优先级(用户规则):
-  //   1. workspace 项目页 → 显示项目文件夹名(选择项目文件时显示项目文件夹名)
-  //   2. 已加载任务 → 显示任务名称(只是单纯对话时显示对话任务命名)
-  //   3. 兜底 → 显示"空工作区"(没有选择项目时显示空工作区)
-  const displayTitle = workspaceName ?? conversationTitle ?? tc('emptyWorkspace')
+  //   1. 用户在 AI 面板手动添加的本地工作区 → 显示 workspace.name(参考 Trae/Codex 顶部 project selector)
+  //   2. workspace 项目页 → 显示项目文件夹名(选择项目文件时显示项目文件夹名)
+  //   3. 已加载任务 → 显示任务名称(只是单纯对话时显示对话任务命名)
+  //   4. 兜底 → 显示"空工作区"(没有选择项目时显示空工作区)
+  const displayTitle =
+    activeWorkspace?.name ?? workspaceName ?? conversationTitle ?? tc('emptyWorkspace')
 
   // 全局快捷键 Ctrl+Shift+N:新建任务
   React.useEffect(() => {
@@ -320,7 +324,12 @@ export function AISidePanel() {
             />
           </div>
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="break-words text-sm font-semibold">{displayTitle}</span>
+            <span className="flex min-w-0 items-center gap-1">
+              <span className="break-words text-sm font-semibold">{displayTitle}</span>
+              {/* 工作区选择器(参考 Trae/Codex 顶部 project selector):
+                  空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除 */}
+              <WorkspaceSelector />
+            </span>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <BrandIcon
                 vendor={inferVendor(currentModel)}
