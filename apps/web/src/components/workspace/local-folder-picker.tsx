@@ -1,18 +1,29 @@
 'use client'
 
 import * as React from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { AlertTriangle, Check, ChevronRight, Folder, FolderOpen, Loader2, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowUp,
+  CornerDownLeft,
+  Folder,
+  FolderOpen,
+  HardDrive,
+  Keyboard,
+  Loader2,
+  RefreshCw,
+  Search,
+  X,
+} from 'lucide-react'
 
-import { Button, Input } from '@ihui/ui'
+import { Button, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@ihui/ui'
 import {
   browseDirectory,
@@ -29,101 +40,377 @@ interface LocalFolderPickerProps {
   onWorkspaceOpened?: (path: string, name: string, perm: WorkspacePermission | null) => void
 }
 
-/**
- * 浏览器能力检测:
- * - showDirectoryPicker:Chrome/Edge 86+(win/mac/linux/Android),弹**系统原生**文件夹选择对话框
- * - webkitdirectory:<input type=file> 属性,弹**系统原生**"选择文件夹"对话框(所有 Chromium 系 + Safari 14+)
- * - 都不支持:只能降级到 web 内置 browse 或手动输入
- */
+// =============================================================================
+// 浏览器能力检测 & 原生选择器
+// =============================================================================
+
+/** 浏览器能力检测:仅识别 showDirectoryPicker(主路径) */
 function detectPickerCapability(): {
   showDirectoryPicker: boolean
-  webkitdirectory: boolean
 } {
-  if (typeof window === 'undefined') return { showDirectoryPicker: false, webkitdirectory: false }
+  if (typeof window === 'undefined') {
+    return { showDirectoryPicker: false }
+  }
   const w = window as unknown as {
     showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>
   }
   return {
     showDirectoryPicker: typeof w.showDirectoryPicker === 'function',
-    webkitdirectory: 'webkitdirectory' in document.createElement('input'),
   }
 }
 
-/** 用 showDirectoryPicker 弹系统原生选择器 */
-async function pickDirectoryNative(): Promise<FileSystemDirectoryHandle | null> {
+/** 弹系统原生选择器,只返回 handle.name(浏览器安全模型不暴露真实绝对路径) */
+async function pickDirectoryNative(): Promise<string | null> {
   const w = window as unknown as {
-    showDirectoryPicker?: (options?: {
+    showDirectoryPicker?: (opts?: {
       mode?: 'read' | 'readwrite'
     }) => Promise<FileSystemDirectoryHandle>
   }
   if (typeof w.showDirectoryPicker !== 'function') return null
   try {
     const handle = await w.showDirectoryPicker({ mode: 'read' })
-    return handle
+    return handle.name
   } catch (err) {
-    // 用户取消(AbortError)→ 当作 null 处理,不抛错
     if (err instanceof Error && err.name === 'AbortError') return null
     throw err
   }
 }
 
-/** 列出 handle 内的一级子项(名称 + 类型 + 大小) */
-async function listHandleChildren(
-  handle: FileSystemDirectoryHandle,
-): Promise<Array<{ name: string; kind: 'file' | 'directory'; size?: number }>> {
-  const items: Array<{ name: string; kind: 'file' | 'directory'; size?: number }> = []
-  // 限制最多 20 项,避免拖慢
-  let count = 0
-  // FileSystemDirectoryHandle 在 Chromium 实现中是 AsyncIterable<[string, FileSystemHandle]>,
-  // 但 TS 标准库类型未声明;经 unknown 转型强制断言
-  const asyncIterable = handle as unknown as AsyncIterable<[string, FileSystemHandle]>
-  for await (const [name, child] of asyncIterable) {
-    if (count >= 20) break
-    if (child.kind === 'file') {
-      try {
-        const file = await (child as FileSystemFileHandle).getFile()
-        items.push({ name, kind: 'file', size: file.size })
-      } catch {
-        items.push({ name, kind: 'file' })
-      }
-    } else {
-      items.push({ name, kind: 'directory' })
-    }
-    count++
-  }
-  // 文件夹在前
-  return items.sort((a, b) => {
-    if (a.kind === b.kind) return a.name.localeCompare(b.name)
-    return a.kind === 'directory' ? -1 : 1
-  })
+// =============================================================================
+// 路径工具
+// =============================================================================
+
+function isWindowsPath(p: string): boolean {
+  return /^[A-Za-z]:[\\/]?/.test(p)
 }
 
-/** 从 webkitdirectory 提取选定文件夹的根名(所有 file.webkitRelativePath 的公共前缀) */
-function extractWebkitRootName(files: FileList): string | null {
-  if (files.length === 0) return null
-  const first = files[0]
-  const rel = (first as File & { webkitRelativePath?: string }).webkitRelativePath
-  if (!rel) return null
-  const segs = rel.split('/')
-  return segs[0] || null
+function isUnixPath(p: string): boolean {
+  return p.startsWith('/')
+}
+
+function normalizeSep(p: string): string {
+  return isWindowsPath(p) ? p.replace(/\//g, '\\') : p
+}
+
+function parentPath(path: string): string {
+  if (!path) return ''
+  const p = normalizeSep(path).replace(/[\\/]+$/, '')
+  if (isWindowsPath(p)) {
+    if (/^[A-Za-z]:$/.test(p)) return ''
+    const idx = Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'))
+    if (idx < 0) return ''
+    if (idx === 2) return p.slice(0, 3)
+    return p.slice(0, idx)
+  }
+  if (isUnixPath(p)) {
+    if (p === '/') return ''
+    const idx = p.lastIndexOf('/')
+    if (idx === 0) return '/'
+    return p.slice(0, idx)
+  }
+  return ''
+}
+
+function buildBreadcrumbs(path: string): Array<{ label: string; path: string }> {
+  if (!path) return []
+  const p = normalizeSep(path)
+  if (isWindowsPath(p)) {
+    const m = p.match(/^([A-Za-z]:)([\\\/])(.*)$/)
+    if (!m) return []
+    const drive = m[1] ?? ''
+    const rest = m[3] ?? ''
+    const sep = '\\'
+    const parts = rest.split(/[\\/]/).filter(Boolean)
+    const items: Array<{ label: string; path: string }> = []
+    items.push({ label: drive, path: `${drive}${sep}` })
+    let acc = `${drive}${sep}`
+    for (const part of parts) {
+      acc = `${acc}${part}${sep}`
+      items.push({ label: part, path: acc })
+    }
+    return items
+  }
+  if (isUnixPath(p)) {
+    const parts = p.split('/').filter(Boolean)
+    const items: Array<{ label: string; path: string }> = [{ label: '/', path: '/' }]
+    let acc = ''
+    for (const part of parts) {
+      acc = `${acc}/${part}`
+      items.push({ label: part, path: acc })
+    }
+    return items
+  }
+  return []
+}
+
+function basenameOf(p: string): string {
+  if (!p) return ''
+  const trimmed = normalizeSep(p).replace(/[\\/]+$/, '')
+  const parts = trimmed.split(/[\\/]/).filter(Boolean)
+  return parts[parts.length - 1] ?? trimmed
+}
+
+// =============================================================================
+// 子组件:PathNav — 面包屑 / 路径输入 二合一
+// =============================================================================
+
+interface PathNavProps {
+  currentPath: string
+  onNavigate: (path: string) => void
+  onRefresh: () => void
+  isRefreshing: boolean
+  t: ReturnType<typeof useTranslations<'workspace.folderPicker'>>
 }
 
 /**
- * 本地文件夹选择器 — 三级方案,确保**真正弹出系统原生文件夹选择器**:
+ * 位置栏 — 两种模式:
+ *   - breadcrumb: 可点击面包屑(默认)
+ *   - input: 输入框(回车跳转,Esc 取消)
+ * 通过右侧 ⌨ 按钮切换。
+ */
+function PathNav({ currentPath, onNavigate, onRefresh, isRefreshing, t }: PathNavProps) {
+  const [mode, setMode] = React.useState<'breadcrumb' | 'input'>('breadcrumb')
+  const [draft, setDraft] = React.useState(currentPath)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  // 跟随 currentPath 同步草稿
+  React.useEffect(() => {
+    setDraft(currentPath)
+  }, [currentPath])
+
+  // 切到 input 模式自动聚焦
+  React.useEffect(() => {
+    if (mode === 'input') {
+      const id = window.setTimeout(() => {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      }, 0)
+      return () => window.clearTimeout(id)
+    }
+    return
+  }, [mode])
+
+  const crumbs = React.useMemo(() => buildBreadcrumbs(currentPath), [currentPath])
+  const isAtRoot = !currentPath
+
+  const commitInput = () => {
+    const p = draft.trim()
+    if (p && p !== currentPath) {
+      onNavigate(normalizeSep(p))
+    }
+    setMode('breadcrumb')
+  }
+
+  const cancelInput = () => {
+    setDraft(currentPath)
+    setMode('breadcrumb')
+  }
+
+  if (mode === 'input') {
+    return (
+      <div className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 ring-1 ring-amber-500/30">
+        <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              commitInput()
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              cancelInput()
+            }
+          }}
+          placeholder={t('manualPathPlaceholder')}
+          spellCheck={false}
+          autoComplete="off"
+          className="h-6 min-w-0 flex-1 bg-transparent font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground/60"
+        />
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={cancelInput}
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label={t('cancel')}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Esc</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-md border bg-muted/30 px-2 py-1.5">
+      {/* 此电脑 / 根 入口 */}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => onNavigate('')}
+              className={cn(
+                'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors',
+                isAtRoot
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
+              aria-label={t('computer')}
+            >
+              <HardDrive className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{t('computer')}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      {crumbs.length > 0 && (
+        <>
+          <span className="select-none text-muted-foreground/30">/</span>
+          <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
+            {crumbs.map((bc, idx) => {
+              const isLast = idx === crumbs.length - 1
+              return (
+                <React.Fragment key={bc.path}>
+                  {idx > 0 && (
+                    <span className="select-none text-muted-foreground/30">/</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onNavigate(bc.path)}
+                    title={bc.path}
+                    className={cn(
+                      'inline-flex h-6 max-w-[12rem] shrink-0 items-center truncate rounded px-1.5 text-xs transition-colors',
+                      isLast
+                        ? 'font-medium text-foreground'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    {bc.label}
+                  </button>
+                </React.Fragment>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {isAtRoot && (
+        <span className="flex-1 truncate text-xs text-muted-foreground/80">
+          {t('rootHint')}
+        </span>
+      )}
+
+      {/* 切换到路径输入 */}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setMode('input')}
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label={t('advancedPath')}
+            >
+              <Keyboard className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{t('advancedPath')}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      {/* 刷新 */}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+              aria-label={t('refresh')}
+            >
+              <RefreshCw
+                className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')}
+              />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{t('refresh')}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  )
+}
+
+// =============================================================================
+// 子组件:列表项
+// =============================================================================
+
+interface EntryRowProps {
+  entry: BrowseEntry
+  isSelected: boolean
+  onSelect: (entry: BrowseEntry) => void
+  onOpen: (entry: BrowseEntry) => void
+}
+
+function EntryRow({ entry, isSelected, onSelect, onOpen }: EntryRowProps) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onSelect(entry)}
+        onDoubleClick={() => onOpen(entry)}
+        data-selected={isSelected}
+        title={entry.path}
+        className={cn(
+          'group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors',
+          isSelected
+            ? 'bg-amber-500/15 text-foreground'
+            : 'text-foreground hover:bg-muted/60',
+        )}
+      >
+        <Folder
+          className={cn(
+            'h-4 w-4 shrink-0 transition-colors',
+            isSelected ? 'text-amber-500' : 'text-amber-500/70 group-hover:text-amber-500',
+          )}
+        />
+        <span className="flex-1 truncate font-medium">{entry.name}</span>
+        <span
+          className={cn(
+            'inline-flex h-5 shrink-0 items-center gap-0.5 rounded px-1.5 text-[10px] font-medium transition-colors',
+            isSelected
+              ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+              : 'text-muted-foreground/50 group-hover:text-muted-foreground',
+          )}
+        >
+          <CornerDownLeft className="h-2.5 w-2.5" />
+          open
+        </span>
+      </button>
+    </li>
+  )
+}
+
+// =============================================================================
+// 主组件
+// =============================================================================
+
+/**
+ * 本地文件夹选择器 — Finder / Explorer 风格:
  *
- *   1. showDirectoryPicker()(首选,Chrome/Edge 86+)
- *      - 弹**真正的系统原生对话框**(Windows 资源管理器风格)
- *      - 拿到 FileSystemDirectoryHandle,name 即选中文件夹名
- *      - 由于浏览器安全模型,handle **不暴露真实绝对路径** → 用户从资源管理器复制粘贴
- *      - 列出 handle 内的子目录(最多 20 项)作为确认
- *
- *   2. <input type=file webkitdirectory>(降级,所有 Chromium 系 + Safari)
- *      - 弹系统原生"选择文件夹"对话框
- *      - 同样不暴露绝对路径,但能确认根文件夹名
- *
- *   3. 手动输入完整绝对路径(最终降级)
- *
- * 选完后调 /api/workspace/fs/open(后端需要绝对路径才能定位工作区)
+ *   1. 位置栏(置顶) — 面包屑 / 路径输入 二合一,⌨ 切换
+ *   2. 工具栏 — 筛选(实时过滤) + 父级(常驻,根时禁用) + 系统选择器
+ *   3. 文件夹列表 — 单击选中(amber 高亮),双击进入,Enter 进入/打开,Backspace 上一级
+ *   4. 错误条 — 统一展示(amber 警告 / destructive 错误)
+ *   5. Footer(背景对比) — 左侧选中信息,右侧 取消 / 打开
  */
 export function LocalFolderPicker({
   open,
@@ -131,37 +418,43 @@ export function LocalFolderPicker({
   onWorkspaceOpened,
 }: LocalFolderPickerProps) {
   const t = useTranslations('workspace.folderPicker')
+  const queryClient = useQueryClient()
 
   const [currentPath, setCurrentPath] = React.useState<string>('')
   const [selectedPath, setSelectedPath] = React.useState<string>('')
-  const [manualPath, setManualPath] = React.useState<string>('')
+  const [filter, setFilter] = React.useState<string>('')
   const [permDialogPath, setPermDialogPath] = React.useState<{
     path: string
     name: string
     techStack: string[]
-    needsSetup: boolean
   } | null>(null)
+  const [nativeHint, setNativeHint] = React.useState<string | null>(null)
 
-  // 系统原生 handle 状态
-  const [nativeHandle, setNativeHandle] = React.useState<FileSystemDirectoryHandle | null>(null)
-  const [nativeChildren, setNativeChildren] = React.useState<
-    Array<{ name: string; kind: 'file' | 'directory'; size?: number }>
-  >([])
-  const [nativeError, setNativeError] = React.useState<string | null>(null)
-  const [pickingNative, setPickingNative] = React.useState(false)
+  const listRef = React.useRef<HTMLUListElement>(null)
 
-  // 浏览器能力(SSR 安全)
   const capability = React.useMemo(
-    () =>
-      open ? detectPickerCapability() : { showDirectoryPicker: false, webkitdirectory: false },
+    () => (open ? detectPickerCapability() : { showDirectoryPicker: false }),
     [open],
   )
 
-  // webkitdirectory 隐藏 input 的 ref
-  const webkitInputRef = React.useRef<HTMLInputElement | null>(null)
+  // 重置:每次打开从根开始
+  React.useEffect(() => {
+    if (open) {
+      setCurrentPath('')
+      setSelectedPath('')
+      setFilter('')
+      setNativeHint(null)
+    }
+  }, [open])
 
   // 浏览当前目录
-  const { data: browseData, isLoading: browsing } = useQuery({
+  const {
+    data: browseData,
+    isLoading: browsing,
+    isFetching: fetching,
+    refetch: refetchBrowse,
+    error: browseError,
+  } = useQuery({
     queryKey: ['workspace', 'fs-browse', currentPath],
     queryFn: async () => {
       const res = await browseDirectory(currentPath || undefined)
@@ -169,9 +462,11 @@ export function LocalFolderPicker({
       return res.data
     },
     enabled: open,
+    staleTime: 5_000,
+    retry: 1,
   })
 
-  // 打开工作区(写入 recent + 检测技术栈 + 返回权限配置)
+  // 打开工作区
   const openMutation = useMutation({
     mutationFn: async (path: string) => {
       const res = await openWorkspace(path)
@@ -179,417 +474,418 @@ export function LocalFolderPicker({
       return res.data
     },
     onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: ['workspace', 'recent'] })
       if (data.needsPermissionSetup) {
-        // 首次打开 → 弹权限配置弹窗
         setPermDialogPath({
           path: data.path,
           name: data.name,
           techStack: data.techStack,
-          needsSetup: true,
         })
       } else {
-        // 已有权限配置 → 直接放行
         onWorkspaceOpened?.(data.path, data.name, data.permission)
         onOpenChange(false)
       }
     },
   })
 
-  const entries: BrowseEntry[] = browseData?.entries ?? []
-  const directories = entries.filter((e) => e.isDir)
+  const sortedDirs = React.useMemo(() => {
+    const list = browseData?.entries ?? []
+    return list
+      .filter((e) => e.isDir)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [browseData])
+  const filteredDirs = React.useMemo(() => {
+    if (!filter.trim()) return sortedDirs
+    const f = filter.toLowerCase()
+    return sortedDirs.filter((d) => d.name.toLowerCase().includes(f))
+  }, [sortedDirs, filter])
 
-  const handleSelect = (path: string) => {
-    setSelectedPath(path)
-  }
+  const parent = React.useMemo(() => parentPath(currentPath), [currentPath])
+  const canGoParent = !!parent && parent !== currentPath
 
-  const handleConfirm = () => {
-    if (!selectedPath) return
-    openMutation.mutate(selectedPath)
-  }
+  const selectedEntry = React.useMemo(
+    () => sortedDirs.find((d) => d.path === selectedPath) ?? null,
+    [sortedDirs, selectedPath],
+  )
 
-  // 主按钮:弹系统原生选择器
-  const handleNativePick = async () => {
-    setNativeError(null)
-    setPickingNative(true)
-    try {
-      const handle = await pickDirectoryNative()
-      if (!handle) {
-        // 用户取消,静默返回
+  // 浏览路径变化时清空选中(旧选中的文件夹已不在视图)
+  React.useEffect(() => {
+    if (selectedPath && !sortedDirs.some((d) => d.path === selectedPath)) {
+      setSelectedPath('')
+    }
+  }, [sortedDirs, selectedPath])
+
+  // 滚动到顶部
+  React.useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = 0
+  }, [currentPath])
+
+  // 当 selectedPath 变化时,确保可见
+  React.useEffect(() => {
+    if (!listRef.current || !selectedPath) return
+    const btn = listRef.current.querySelector<HTMLElement>(
+      `[data-selected="true"]`,
+    )
+    btn?.scrollIntoView({ block: 'nearest' })
+  }, [selectedPath])
+
+  // 导航(面包屑 / 此电脑 / 路径输入回车)
+  const navigateTo = React.useCallback((path: string) => {
+    setCurrentPath(path)
+    setSelectedPath('')
+    setFilter('')
+    setNativeHint(null)
+  }, [])
+
+  // 进入文件夹(双击 / Enter on selected)
+  const enterDirectory = React.useCallback((entry: BrowseEntry) => {
+    setCurrentPath(entry.path)
+    setSelectedPath('')
+    setFilter('')
+  }, [])
+
+  // 选中文件夹(单击 / 键盘 ↑↓)
+  const selectEntry = React.useCallback((entry: BrowseEntry) => {
+    setSelectedPath(entry.path)
+  }, [])
+
+  // 上一级
+  const goParent = React.useCallback(() => {
+    if (canGoParent) navigateTo(parent)
+  }, [canGoParent, parent, navigateTo])
+
+  // 打开(底部按钮 / Enter on list when no selection)
+  const openTarget = selectedPath || currentPath
+  const openSelected = React.useCallback(() => {
+    if (openTarget) openMutation.mutate(openTarget)
+  }, [openTarget, openMutation])
+
+  // 列表键盘导航
+  const handleListKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLUListElement>) => {
+      if (filteredDirs.length === 0) {
+        if (e.key === 'Backspace') {
+          e.preventDefault()
+          goParent()
+        }
         return
       }
-      setNativeHandle(handle)
-      // 列出 handle 内子项作为确认
-      const children = await listHandleChildren(handle)
-      setNativeChildren(children)
-      // 自动填入手动输入框,引导用户补全绝对路径
-      setManualPath(handle.name)
+      const currentIdx = filteredDirs.findIndex((d) => d.path === selectedPath)
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        const next = currentIdx < 0 ? 0 : Math.min(currentIdx + 1, filteredDirs.length - 1)
+        const nextEntry = filteredDirs[next]
+        if (nextEntry) setSelectedPath(nextEntry.path)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        const next = currentIdx < 0 ? filteredDirs.length - 1 : Math.max(currentIdx - 1, 0)
+        const nextEntry = filteredDirs[next]
+        if (nextEntry) setSelectedPath(nextEntry.path)
+      } else if (e.key === 'Home') {
+        e.preventDefault()
+        const first = filteredDirs[0]
+        if (first) setSelectedPath(first.path)
+      } else if (e.key === 'End') {
+        e.preventDefault()
+        const last = filteredDirs[filteredDirs.length - 1]
+        if (last) setSelectedPath(last.path)
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        if (selectedEntry) {
+          enterDirectory(selectedEntry)
+        } else if (openTarget) {
+          openSelected()
+        }
+      } else if (e.key === 'Backspace') {
+        e.preventDefault()
+        goParent()
+      }
+    },
+    [filteredDirs, selectedPath, selectedEntry, enterDirectory, openSelected, goParent, openTarget],
+  )
+
+  // 系统原生选择器(只填文件夹名,提示用户补全)
+  const handleNativePick = async () => {
+    setNativeHint(null)
+    try {
+      const name = await pickDirectoryNative()
+      if (name) {
+        setNativeHint(t('nativePickHint', { name }))
+      }
     } catch (err) {
-      setNativeError((err as Error).message || t('nativePickError'))
-    } finally {
-      setPickingNative(false)
+      setNativeHint((err as Error).message)
     }
-  }
-
-  // 降级:触发 webkitdirectory 隐藏 input
-  const handleWebkitTrigger = () => {
-    webkitInputRef.current?.click()
-  }
-
-  // webkitdirectory 选中后
-  const handleWebkitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-    const rootName = extractWebkitRootName(files)
-    if (rootName) {
-      setManualPath(rootName)
-      setNativeError(null)
-    } else {
-      setNativeError(t('webkitNoRoot'))
-    }
-    // 允许重复选同一个文件夹
-    e.target.value = ''
-  }
-
-  // 直接输入路径:不走 browse,直接调 openWorkspace
-  const handleManualOpen = () => {
-    const trimmed = manualPath.trim()
-    if (!trimmed) return
-    setSelectedPath(trimmed)
-    openMutation.mutate(trimmed)
-  }
-
-  // 清除已选 handle
-  const handleClearNative = () => {
-    setNativeHandle(null)
-    setNativeChildren([])
-    setNativeError(null)
-    setManualPath('')
   }
 
   const handlePermissionSaved = (perm: WorkspacePermission) => {
     onWorkspaceOpened?.(perm.workspacePath, perm.name, perm)
     setPermDialogPath(null)
     onOpenChange(false)
-    setSelectedPath('')
-    setCurrentPath('')
-    setNativeHandle(null)
-    setNativeChildren([])
-    setManualPath('')
   }
 
-  // 关闭时重置状态
-  const handleOpenChange = (next: boolean) => {
-    if (!next) {
-      setSelectedPath('')
-      setCurrentPath('')
-      setManualPath('')
-      setNativeHandle(null)
-      setNativeChildren([])
-      setNativeError(null)
-    }
-    onOpenChange(next)
-  }
+  const canOpen = !!openTarget && !openMutation.isPending
+  const selectedName = selectedEntry?.name ?? (currentPath ? basenameOf(currentPath) : '')
+
+  // 错误信息
+  const errorMessage = browseError
+    ? (browseError as Error).message
+    : openMutation.isError
+      ? (openMutation.error as Error).message
+      : null
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Folder className="h-5 w-5 text-amber-500" />
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="max-w-2xl gap-0 p-0"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          {/* Header */}
+          <DialogHeader className="px-5 pb-4 pt-5">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <FolderOpen className="h-4 w-4 text-amber-500" />
               <span>{t('title')}</span>
             </DialogTitle>
-            <DialogDescription>{t('description')}</DialogDescription>
+            <DialogDescription className="text-xs">{t('description')}</DialogDescription>
           </DialogHeader>
 
-          {/* ===== 1. 系统原生选择器(主路径) ===== */}
-          {capability.showDirectoryPicker && (
-            <div className="rounded-lg border border-border bg-card p-4">
-              {nativeHandle ? (
-                // 已选中状态
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <FolderOpen className="h-4 w-4 shrink-0 text-amber-500" />
-                      <div className="min-w-0">
-                        <p className="text-xs text-muted-foreground">{t('nativeSelected')}</p>
-                        <p className="truncate text-sm font-medium" title={nativeHandle.name}>
-                          {nativeHandle.name}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleClearNative}
-                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      aria-label={t('reselect')}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
+          {/* Body */}
+          <div className="space-y-2.5 px-5 pb-4">
+            {/* 位置栏 */}
+            <PathNav
+              currentPath={currentPath}
+              onNavigate={navigateTo}
+              onRefresh={() => void refetchBrowse()}
+              isRefreshing={fetching && !browsing}
+              t={t}
+            />
 
-                  {/* 列出 handle 内一级子项(确认选对了) */}
-                  {nativeChildren.length > 0 && (
-                    <div className="rounded-md bg-muted/40 p-2">
-                      <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">
-                        {t('nativeChildren')} ({Math.min(nativeChildren.length, 20)})
-                      </p>
-                      <ul className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
-                        {nativeChildren.map((c) => (
-                          <li
-                            key={c.name}
-                            className="flex items-center gap-1.5 truncate"
-                            title={c.name}
-                          >
-                            {c.kind === 'directory' ? (
-                              <Folder className="h-3 w-3 shrink-0 text-amber-500" />
-                            ) : (
-                              <span className="h-3 w-3 shrink-0 rounded-sm bg-muted-foreground/30" />
-                            )}
-                            <span className="truncate">{c.name}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                // 未选中状态:大主按钮
-                <div className="space-y-2 text-center">
-                  <Button
-                    type="button"
-                    onClick={handleNativePick}
-                    disabled={pickingNative || openMutation.isPending}
-                    className="h-11 w-full"
-                    size="lg"
-                  >
-                    {pickingNative ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {t('nativePicking')}
-                      </>
-                    ) : (
-                      <>
-                        <FolderOpen className="mr-2 h-4 w-4" />
-                        {t('nativePick')}
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    {t('nativePickHint')}
-                  </p>
-                </div>
-              )}
-
-              {nativeError && (
-                <div className="mt-2 flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>{nativeError}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ===== 2. webkitdirectory 降级(无 showDirectoryPicker 但支持 webkitdirectory) ===== */}
-          {!capability.showDirectoryPicker && capability.webkitdirectory && (
-            <div className="rounded-lg border border-border bg-card p-4">
-              <div className="space-y-2 text-center">
-                <Button
-                  type="button"
-                  onClick={handleWebkitTrigger}
-                  disabled={openMutation.isPending}
-                  className="h-11 w-full"
-                  size="lg"
-                >
-                  <FolderOpen className="mr-2 h-4 w-4" />
-                  {t('webkitPick')}
-                </Button>
-                <p className="text-[11px] leading-snug text-muted-foreground">
-                  {t('webkitPickHint')}
-                </p>
-                {/* 隐藏的 webkitdirectory input */}
-                <input
-                  ref={webkitInputRef}
-                  type="file"
-                  // @ts-expect-error - webkitdirectory 是非标准 HTML 属性,Chromium/Firefox 实现
-                  webkitdirectory=""
-                  multiple
-                  onChange={handleWebkitChange}
-                  className="hidden"
-                  aria-hidden="true"
+            {/* 工具栏:筛选 + 父级 + 系统选择器 */}
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  placeholder={t('filterPlaceholder')}
+                  className="h-8 pl-8 pr-8 text-xs"
+                  autoComplete="off"
+                  spellCheck={false}
                 />
+                {filter && (
+                  <button
+                    type="button"
+                    onClick={() => setFilter('')}
+                    className="absolute right-1.5 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={t('clearFilter')}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
               </div>
-            </div>
-          )}
 
-          {/* ===== 3. 都不支持时的提示 ===== */}
-          {!capability.showDirectoryPicker && !capability.webkitdirectory && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{t('noNativeSupport')}</span>
-            </div>
-          )}
+              {/* 父级(常驻,根时禁用) */}
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={goParent}
+                      disabled={!canGoParent || openMutation.isPending}
+                      aria-label={t('parent')}
+                      className="h-8 w-8 shrink-0"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('parent')}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-          {/* ===== 手动输入完整路径(始终可用,系统原生选择器的下游) ===== */}
-          <div className="flex items-end gap-2">
-            <div className="flex-1 space-y-1.5">
-              <label
-                htmlFor="workspace-manual-path"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                {t('manualPathLabel')}
-              </label>
-              <Input
-                id="workspace-manual-path"
-                value={manualPath}
-                onChange={(e) => setManualPath(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && manualPath.trim() && !openMutation.isPending) {
-                    e.preventDefault()
-                    handleManualOpen()
-                  }
-                }}
-                placeholder={t('manualPathPlaceholder')}
-                disabled={openMutation.isPending}
-                className="font-mono"
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                {nativeHandle ? t('manualPathHintWithNative') : t('manualPathHint')}
-              </p>
-            </div>
-            <Button
-              type="button"
-              onClick={handleManualOpen}
-              disabled={!manualPath.trim() || openMutation.isPending}
-              className="shrink-0"
-            >
-              {openMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {openMutation.isPending ? t('opening') : t('openPath')}
-            </Button>
-          </div>
-
-          {/* 手动输入与后端浏览的过渡(用间距分隔,符合 AGENTS §4 禁止分割线约束) */}
-          <p className="text-center text-xs text-muted-foreground">{t('orBrowse')}</p>
-
-          {/* ===== 4. 后端 browse(降级) ===== */}
-          {/* 面包屑导航 */}
-          {currentPath && (
-            <div className="flex items-center gap-1 rounded-md bg-muted/40 px-3 py-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setCurrentPath('')}
-                className="text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {t('root')}
-              </button>
-              {currentPath
-                .split(/[\\/]/)
-                .filter(Boolean)
-                .map((seg, idx, arr) => {
-                  const fullPath = arr.slice(0, idx + 1).join('\\') + (idx === 0 ? ':' : '')
-                  return (
-                    <React.Fragment key={fullPath}>
-                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                      <button
+              {/* 系统选择器 */}
+              {capability.showDirectoryPicker && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
                         type="button"
-                        onClick={() => setCurrentPath(fullPath)}
-                        className="text-muted-foreground transition-colors hover:text-foreground"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => void handleNativePick()}
+                        disabled={openMutation.isPending}
+                        aria-label={t('nativePick')}
+                        className="h-8 w-8 shrink-0"
                       >
-                        {seg}
-                      </button>
-                    </React.Fragment>
-                  )
-                })}
+                        <HardDrive className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t('nativePick')}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
-          )}
 
-          {/* 目录列表 */}
-          <div className="max-h-60 overflow-y-auto rounded-md border bg-card">
-            {browsing ? (
-              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {t('loading')}
-              </div>
-            ) : directories.length === 0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                {t('noDirectories')}
-              </div>
-            ) : (
-              <ul className="py-1">
-                {directories.map((entry) => {
-                  const isSel = entry.path === selectedPath
-                  return (
-                    <li key={entry.path}>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleSelect(entry.path)}
-                        onDoubleClick={() => setCurrentPath(entry.path)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleSelect(entry.path)
-                          if (e.key === 'ArrowRight') setCurrentPath(entry.path)
-                        }}
-                        className={cn(
-                          'flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm transition-colors',
-                          isSel ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50',
-                        )}
-                      >
-                        <Folder
-                          className={cn(
-                            'h-4 w-4 shrink-0',
-                            isSel ? 'text-primary' : 'text-amber-500',
-                          )}
-                        />
-                        <span className="flex-1 truncate">{entry.name}</span>
-                        {isSel && <Check className="h-4 w-4 text-primary" />}
-                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                      </div>
-                    </li>
-                  )
-                })}
+            {/* 列表 */}
+            <div className="overflow-hidden rounded-md border bg-card">
+              <ul
+                ref={listRef}
+                tabIndex={0}
+                role="listbox"
+                aria-label={t('title')}
+                onKeyDown={handleListKeyDown}
+                className="max-h-72 space-y-0.5 overflow-y-auto p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-500/40 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30"
+              >
+                {browsing ? (
+                  <li>
+                    <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t('loading')}
+                    </div>
+                  </li>
+                ) : filteredDirs.length === 0 ? (
+                  <li>
+                    <div className="flex flex-col items-center justify-center gap-2 px-3 py-12 text-center text-sm text-muted-foreground">
+                      <Folder className="h-8 w-8 opacity-30" />
+                      <span>{filter ? t('noMatch') : t('noDirectories')}</span>
+                      {filter && (
+                        <button
+                          type="button"
+                          onClick={() => setFilter('')}
+                          className="text-xs text-amber-700 transition-colors hover:underline dark:text-amber-400"
+                        >
+                          {t('clearFilter')}
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ) : (
+                  filteredDirs.map((entry) => (
+                    <EntryRow
+                      key={entry.path}
+                      entry={entry}
+                      isSelected={selectedPath === entry.path}
+                      onSelect={selectEntry}
+                      onOpen={enterDirectory}
+                    />
+                  ))
+                )}
               </ul>
+            </div>
+
+            {/* 错误条 */}
+            {errorMessage && (
+              <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1">{errorMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (browseError) void refetchBrowse()
+                    else openMutation.reset()
+                  }}
+                  className="inline-flex h-5 shrink-0 items-center gap-1 rounded border border-destructive/30 bg-background px-1.5 text-[10px] font-medium text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  <RefreshCw className="h-2.5 w-2.5" />
+                  {t('retry')}
+                </button>
+              </div>
+            )}
+
+            {nativeHint && !errorMessage && (
+              <div className="flex items-start gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1">{nativeHint}</span>
+                <button
+                  type="button"
+                  onClick={() => setNativeHint(null)}
+                  className="inline-flex h-5 shrink-0 items-center justify-center rounded text-amber-700/70 transition-colors hover:bg-amber-500/15 hover:text-amber-700 dark:text-amber-400"
+                  aria-label={t('cancel')}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
             )}
           </div>
 
-          {/* 选中路径展示 */}
-          {selectedPath && (
-            <div className="rounded-md bg-muted/40 px-3 py-2 text-xs">
-              <span className="text-muted-foreground">{t('selected')}</span>
-              <span className="ml-2 font-mono">{selectedPath}</span>
-            </div>
-          )}
+          {/* Footer(背景对比,无 border) */}
+          <div className="bg-muted/30 px-5 py-3">
+            <div className="flex items-center gap-3">
+              {/* 选中信息 */}
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <Folder
+                  className={cn(
+                    'h-4 w-4 shrink-0',
+                    selectedName ? 'text-amber-500' : 'text-muted-foreground/40',
+                  )}
+                />
+                <div className="min-w-0 flex-1">
+                  <div
+                    className={cn(
+                      'truncate text-sm font-medium',
+                      selectedName ? 'text-foreground' : 'text-muted-foreground/60',
+                    )}
+                  >
+                    {selectedName || t('noTarget')}
+                  </div>
+                  {openTarget && (
+                    <div
+                      className="truncate font-mono text-[11px] text-muted-foreground"
+                      title={openTarget}
+                    >
+                      {openTarget}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-          {openMutation.isError && (
-            <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{(openMutation.error as Error)?.message}</span>
-            </div>
-          )}
+              {/* 计数 */}
+              <div className="shrink-0 text-[11px] text-muted-foreground/70">
+                {filter
+                  ? t('itemCountFiltered', {
+                      filtered: filteredDirs.length,
+                      total: sortedDirs.length,
+                    })
+                  : sortedDirs.length > 0
+                    ? t('itemCount', { count: sortedDirs.length })
+                    : null}
+              </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleOpenChange(false)}
-              disabled={openMutation.isPending}
-            >
-              {t('cancel')}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleConfirm}
-              disabled={!selectedPath || openMutation.isPending}
-            >
-              {openMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {openMutation.isPending ? t('opening') : t('selectAndOpen')}
-            </Button>
-          </DialogFooter>
+              {/* 按钮 */}
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={openMutation.isPending}
+                  className="h-8"
+                >
+                  {t('cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={openSelected}
+                  disabled={!canOpen}
+                  className="h-8 min-w-[7rem]"
+                >
+                  {openMutation.isPending && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
+                  <span className="truncate">
+                    {openMutation.isPending
+                      ? t('opening')
+                      : selectedName
+                        ? t('openSelected', { name: selectedName })
+                        : t('openAction')}
+                  </span>
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* 权限配置弹窗(首次打开时) */}
       {permDialogPath && (
         <WorkspacePermissionDialog
           open={true}
