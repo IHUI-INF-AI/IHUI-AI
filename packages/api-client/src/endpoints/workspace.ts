@@ -401,3 +401,39 @@ export async function getPermissionAuditLog(
 export async function getPermissionTemplates(): Promise<ApiResult<{ templates: RuleTemplate[] }>> {
   return fetchApi<{ templates: RuleTemplate[] }>('/api/workspace/templates')
 }
+
+// =============================================================================
+// Workspace Permission Audit — 人工审计确认(default / accept-edits 无匹配模式)
+// =============================================================================
+
+/** 待决人工审计请求(后端通过 WebSocket 推送 + 此接口查询) */
+export interface PendingPermissionRequest {
+  requestId: string
+  userId: string
+  tool: string
+  args: Record<string, unknown>
+  status: 'pending' | 'approved' | 'denied'
+  createdAt: number
+  resolvedAt: number | null
+}
+
+/** 列出当前用户待决的人工审计请求(用于页面刷新兜底) */
+export async function listPendingPermissionRequests(): Promise<
+  ApiResult<{ requests: PendingPermissionRequest[] }>
+> {
+  return fetchApi<{ requests: PendingPermissionRequest[] }>('/api/workspace/permission/requests')
+}
+
+/**
+ * 用户决策解锁审计 Promise(等待中的 FS 工具调用将根据 approved 同步放行/拒绝)。
+ */
+export async function resolvePermissionRequest(
+  requestId: string,
+  approved: boolean,
+  reason?: string,
+): Promise<ApiResult<{ resolved: boolean }>> {
+  return fetchApi<{ resolved: boolean }>(
+    `/api/workspace/permission/requests/${encodeURIComponent(requestId)}/resolve`,
+    { method: 'POST', body: JSON.stringify({ approved, reason }) },
+  )
+}
