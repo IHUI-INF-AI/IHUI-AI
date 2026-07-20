@@ -830,7 +830,14 @@ function SidebarUserRow({
           ]}
           trigger={
             <button
-              className="shrink-0 rounded-md p-1.5 outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+              // h-9 w-9 强制 36×36(等于 row 高度 h-9),
+              // 避免 Radix DropdownMenu.Trigger 注入样式(lineHeight 24px)
+              // 导致 button 实际高度 42.66px 撑出 row 36px 边界,
+              // 进而头像视觉上"漂浮"在 row 上,出现"没居中"的错觉。
+              // 真正问题:button lineHeight: 24px + padding 12px = 36px 理论值,
+              // 但实测 42.66px,差异 6.66px 来自 Radix asChild 透传的 inline 间距,
+              // 用 h-9 w-9 显式锁定 button 高度 = row 高度后,头像 + 文字视觉完美居中。
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={user?.nickname ?? 'User'}
               title={user?.nickname ?? 'User'}
             >
