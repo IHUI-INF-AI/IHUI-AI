@@ -996,8 +996,6 @@
     "uploadFailed": "アップロード",
     "downloadFailed": "ダウンロードに",
     "deleteConfirm": "これ？",
-    "developerTools": "ツール",
-    "mentionFile": "ファイルをメンション",
     "detail": {
       "previewFailed": "プレビュー"
     },

@@ -996,8 +996,6 @@
     "deleteConfirm": "确定要删除 {name} 吗？此操作不可恢复。",
     "uploadFailed": "上传失败",
     "downloadFailed": "下载失败",
-    "developerTools": "开发者工具",
-    "mentionFile": "提及文件",
     "detail": {
       "previewFailed": "预览失败"
     },
