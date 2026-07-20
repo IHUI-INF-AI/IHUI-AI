@@ -1167,6 +1167,7 @@
     "modelDescOpenRouterAuto": "스마트 라우팅 · 다중 벤더",
     "modelConfigured": "현재 모델의 API Key가 설정되어 있습니다",
     "modelNotConfigured": "현재 모델의 API Key가 설정되지 않았습니다. 모델 광장 페이지에서 원클릭 설정 가능",
+    "manageModels": "사용자 지정 모델 구성",
     "slashCmd": {
       "summary": "현재 대화 요약",
       "translate": "텍스트 번역",
@@ -13572,8 +13573,9 @@
     "officialPromotion": "공식 프로모션 플랫폼",
     "officialApp": "공식 앱",
     "contactUs": "문의하기",
+    "communityGroup": "커뮤니티 그룹",
     "icp": "Ji ICP 2025027274호",
-    "copyright": "© 2026 지후이 AI · 베이징 · 모든 권리 보유",
+    "copyright": "© 2025 Zhihui AI 그룹 · 중국",
     "platforms": {
       "n8n": "n8n",
       "coze": "Coze"
@@ -24354,10 +24356,10 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "지후이 AI 커뮤니티, AI의 무한한 가능성 탐색",
-      "explore": "AI의 무한한 가능성을 탐색하세요",
-      "brand": "지후이 AI 커뮤니티",
-      "connect": "아이디어를 연결하고 미지를 해방하세요",
+      "content": "8플랫폼 전체 커버리지 · 업계 최초",
+      "explore": "100+ LLM 원스톱 액세스",
+      "brand": "자체 개발 CLI, Claude Code 대안",
+      "connect": "LangGraph + MCP + A2A 트리플 스택",
       "ctaPrimary": "지금 체험",
       "ctaSecondary": "더 알아보기",
       "miniappBtn": "WeChat 미니프로그램"
@@ -24400,6 +24402,7 @@
     "marquee": {
       "label": "공지",
       "items": [
+        "8플랫폼 AI 플랫폼 · 100+ LLM 원스톱 액세스 · 자체 개발 CLI, Claude Code 대안",
         "지후이 AI 커뮤니티에 오신 것을 환영합니다, 얼리버드 가격 ¥6000/인/년, 18석 한정",
         "기업 AI화 의사결정자 커뮤니티 모집 개방, 인간-기계 협업 실전 코스 연중 무료",
         "선착순 18명 회원에게 1:1 AI 컨설턴트 상담 제공, 불만족 시 전액 환불",
@@ -24411,6 +24414,11 @@
       "title": "지후이 AI 커뮤니티에 오신 것을 환영합니다",
       "subtitle": "AI 시대 기업 합리적 효율 서비스와 상호 지원 커뮤니티. 의사결정자가 AI와 기업의 관계를 깊이 이해하고, 인간-기계 협업의 슈퍼 조직을 구축하도록 돕습니다.",
       "description": "지금 커뮤니티에 참여하여 모든 AI 도구, 전담 지원, 고급 모델 액세스 등의 혜택을 누려보세요. 업무 효율을 높여줍니다.",
+      "brandTitle": "지후이 AI 커뮤니티",
+      "brandSubtitle": "8플랫폼 기업급 AI 플랫폼",
+      "seats": "18석 한정 의사결정자",
+      "earlyBird": "얼리버드 ¥6000/년",
+      "multiEnd": "8플랫폼 전체 커버리지",
       "perYear": "일/년 동반",
       "benefits": {
         "benefit1": "연중 모든 코스 무료 참여",
@@ -24420,6 +24428,11 @@
         "benefit5": "AI 어시스턴트 우선 체험",
         "benefit6": "불만족 시 전액 환불"
       }
+    },
+    "stats": {
+      "platforms": "플랫폼 커버리지",
+      "models": "LLM 통합",
+      "seats": "석 · 의사결정자"
     },
     "news": {
       "title": "최신 뉴스",
@@ -24465,7 +24478,7 @@
       "recommended": "추천",
       "basic": {
         "name": "베이직",
-        "description": "개인 사용자와 전문가용",
+        "description": "AI를 탐색하는 개인 개발자용",
         "feature1": "무제한 AI 채팅",
         "feature2": "이미지 생성",
         "feature3": "음성 입력",
@@ -24476,7 +24489,7 @@
       },
       "professional": {
         "name": "프로페셔널",
-        "description": "파워 유저와 소규모 팀용",
+        "description": "기업 의사결정자 심층 사용용",
         "feature1": "무제한 AI 채팅",
         "feature2": "이미지/비디오 생성",
         "feature3": "90일 히스토리",
@@ -24487,7 +24500,7 @@
       },
       "enterprise": {
         "name": "엔터프라이즈",
-        "description": "고급 사용자와 팀용",
+        "description": "중소기업 팀 인간-기계 협업용",
         "feature1": "무제한 AI 채팅",
         "feature2": "이미지/비디오 생성",
         "feature3": "영구 히스토리",
@@ -24498,7 +24511,7 @@
       },
       "flagship": {
         "name": "플래그십",
-        "description": "최고의 경험을 추구하는 사용자용",
+        "description": "궁극의 AI 경험을 추구하는 의사결정자용",
         "feature1": "무제한 토큰 사용",
         "feature2": "모든 AI 모델 액세스",
         "feature3": "초고속 응답",
@@ -24511,26 +24524,26 @@
     "features": {
       "title": "강력한 기능",
       "titleEn": "강력한 기능",
-      "subtitle": "모델 통합부터 앱 스토어까지, 모든 요구를 충족하는 종합 AI 서비스를 만나보세요",
+      "subtitle": "8플랫폼 기업급 AI 플랫폼, 모델 통합부터 자체 개발 CLI까지 모든 요구 충족",
       "modelIntegration": {
-        "title": "멀티 모델 통합",
-        "description": "주요 LLM을 통합하고 필요에 따라 전환하여 다양한 시나리오의 대화와 추론 요구를 충족"
+        "title": "8플랫폼 전체 커버리지",
+        "description": "웹/데스크톱/모바일/미니프로그램/CLI/브라우저 확장, 통합 계정 원활한 전환"
       },
       "appStore": {
-        "title": "에이전트",
-        "description": "범용, 산업, 기능 세 가지 시나리오를 아우르는 즉시 사용 가능한 에이전트"
+        "title": "100+ LLM",
+        "description": "OpenAI/Claude/Gemini/DeepSeek/Qwen/GLM, 하나의 API 키로 전체 액세스"
       },
       "contentCreation": {
-        "title": "콘텐츠 생성",
-        "description": "AI 텍스트, 이미지, 비디오 원스톱 생성으로 아이디어를 빠르게 구현"
+        "title": "자체 개발 CLI",
+        "description": "Claude Code 대안, ACP Server + 6 도구 원클릭 가져오기"
       },
       "edu": {
-        "title": "AI 교육",
-        "description": "체계적인 AI 과정과 실전 훈련으로 완전한 지식 체계 구축"
+        "title": "풀스택 AI 교육",
+        "description": "과정/라이브/시험/자격증, 연중 무료 참여"
       },
       "navigation": {
-        "title": "스마트 내비게이션",
-        "description": "스마트 라우팅과 시나리오 인식으로 필요한 기능에 정확하게 도달"
+        "title": "AI 워크스페이스",
+        "description": "3가지 권한 모드 + 7개 엔드포인트 런타임 차단, 기업급 보안"
       }
     },
     "advantages": {
@@ -24539,19 +24552,19 @@
       "subtitle": "지후이 AI를 선택하는 이유",
       "professional": {
         "title": "전문성",
-        "description": "AI 분야를 깊이 있게 다루며 전문적인 기술 솔루션과 업계 선도 제품 서비스 제공"
+        "description": "8플랫폼 전체 커버리지 + 17개 가드레일 스크립트 + 풀스택 관측성, 업계 최초 기업급 AI 엔지니어링"
       },
       "efficient": {
         "title": "효율성",
-        "description": "개발 워크플로를 단순화하고 풍부한 API 인터페이스와 도구로 AI 애플리케이션을 빠르게 출시"
+        "description": "LiteLLM 스마트 라우팅 + 60% 캐시 비용 절감 + LangGraph 오케스트레이션, AI 앱 배포 가속"
       },
       "reliable": {
         "title": "신뢰성",
-        "description": "안정적이고 신뢰할 수 있는 서비스 보장, 99.9% 가용성으로 비즈니스 연속성 보장"
+        "description": "99.9% SLA + 60초 타임아웃 거부 + RBAC + AES-256-GCM 암호화, 기업급 보안"
       },
       "innovative": {
         "title": "혁신성",
-        "description": "지속적인 기술 혁신, 에이전트 클러스터, 계층적 계획 등 최첨단 AI 역량"
+        "description": "LangGraph + MCP + A2A 트리플 스택, 업계 최초 에이전트 간 통신 프로토콜"
       }
     }
   },
