@@ -141,7 +141,10 @@ export function HomePage3Magazine() {
   const { data: items = [], isLoading } = useQuery<NewsItem[]>({
     queryKey: ['marketing', 'magazine'],
     queryFn: async () => {
-      const d = unwrap<{ list: NewsItem[] }>(await fetchApi('/api/news?pageSize=8'))
+      // 2026-07-20 修正:后端 GET /api/news 根路由不存在,正确路由是 /api/news/articles
+      // (apps/api/src/routes/news.ts 第 122-130 行,GET /news/articles 公开路由)
+      // 之前调 /api/news 返回 404,导致"最新资讯"板块永远显示 empty
+      const d = unwrap<{ list: NewsItem[] }>(await fetchApi('/api/news/articles?pageSize=8'))
       return d.list ?? []
     },
     retry: false,
