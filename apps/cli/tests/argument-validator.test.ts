@@ -42,8 +42,9 @@ describe('validateToolArguments - 基础类型', () => {
     })
   })
 
-  it('string 类型不匹配(传 number) → type_mismatch', () => {
-    const r = validateToolArguments({ msg: 123 }, schema)
+  it('string 类型不匹配(传 object) → type_mismatch', () => {
+    // 注:数字/boolean 会被 coercion 成字符串,只有 object/null/array 等不能 coercion 的才报 type_mismatch
+    const r = validateToolArguments({ msg: {} }, schema)
     expect(r.valid).toBe(false)
     expect(r.errors[0]?.reason).toBe('type_mismatch')
     expect(r.errors[0]?.expected).toBe('string')
@@ -163,7 +164,8 @@ describe('validateToolArguments - 数组 + 嵌套', () => {
   })
 
   it('数组元素类型不匹配 → array_item_type_mismatch', () => {
-    const r = validateToolArguments({ paths: ['a', 123, 'c'] }, schema)
+    // 注:数字会被 coercion 成字符串('123' → '123'),所以用 null/object 触发 type_mismatch
+    const r = validateToolArguments({ paths: ['a', null, 'c'] }, schema)
     expect(r.valid).toBe(false)
     expect(r.errors[0]?.field).toBe('paths[1]')
   })

@@ -52,6 +52,33 @@
 
 ---
 
+### M-71 /workspace 主页错误条改卡片样式 + 移除空数据预览区(已完成 ✅ 2026-07-20,commit b4b13901)
+
+**触发**:用户反馈"工作空间页面 Internal Server Error 满屏红条 + 底部演示区视觉凌乱"。经排查:web 3000 在跑,api 3001 未启动 → 错误条来自 fetch 失败兜底;底部 5 个空数据预览组件(`DiffPreview` / `InlineDiffViewer` / `WorkspaceFolderSelector` / `CheckpointHistoryPanel` / `FileMentionPopover`)是 /workspace 主页当 demo 渲染,详情页 `/workspace/[id]` 已正常使用。
+
+**改动**:
+1. `apps/web/app/(main)/workspace/page.tsx`:
+   - 错误条从 `bg-destructive/10` 满铺改 `rounded-lg border border-destructive/30 bg-destructive/5 p-4` 卡片
+   - 卡片内容:lucide `AlertCircle` 图标 + 标题 + 描述 + `RefreshCw` 重试按钮 + `X` dismiss
+   - 移除 5 个预览组件 import 和 JSX 引用
+   - 移除 state: `mentionOpen` + `selectedFolder`
+   - 新增 state: `errorDismissed`(控制 dismiss 后不再显示)
+   - `useQuery` 加 `refetch`(支撑重试按钮)
+2. `apps/web/messages/{zh-CN,en,zh-TW,ko,ja}.json`:各加 4 个 key `loadErrorTitle` / `loadErrorDesc` / `retry` / `dismiss`,放 `loading` 后;zh-TW 用"加載"繁体字避免 §20 守门拦截
+
+**保留**:`LocalFolderPicker` / `ProjectCard` / Dialog 全套 / `useAiPanelStore` 同步(主页与 AI 面板双入口工作区选择器)
+
+**验证**:
+- `pnpm --filter @ihui/web typecheck` exit 0
+- `pnpm --filter @ihui/web lint` page.tsx 0 警告
+- `node scripts/check-i18n-keys.mjs` exit 0
+- browser 4 状态截图(default / hover / active / dark),DOM `role="alert"` className 命中卡片样式,h2 列表无"开发者工具",提及文件按钮=0,DiffPreview/auth.ts 字符串=0
+- Git 同步:local `b4b13901` == origin/main `b4b13901` ✅,git-push-guard 自动跑通
+
+**目标 ID**:`workspace-page-style-fix-20260720`(完整轮次见 `.trae-cn/archive/loop-run-log_workspace-page-style-fix-20260720.md`)
+
+---
+
 ## 2026-07-20 已完成任务
 
 ### M-65 v2:mono 图标 invert filter + PageIndicator 放大紧凑(已完成 ✅ 2026-07-20)

@@ -35,7 +35,10 @@ import { execFileSync } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PROJECT_ROOT = path.resolve(__dirname, '..');
+const SCRIPT_DIR_PROJECT_ROOT = path.resolve(__dirname, '..');
+// PROJECT_ROOT 在 main() 中根据第一个非选项参数动态确定
+// 缺省 → SCRIPT_DIR_PROJECT_ROOT;首个非选项参数 → 视为 fakeroot
+let PROJECT_ROOT = SCRIPT_DIR_PROJECT_ROOT;
 
 // 排除目录(gitignore 风格)
 const EXCLUDES = [
@@ -782,6 +785,61 @@ const CLAIMED_CAPABILITIES = [
       'apps/cli/src/fs-watcher/index.ts',
     ],
   },
+  // === 第 48 轮 P0 4 项能力(本轮新增 — Tool call JSON Schema validator)===
+  {
+    id: 'CLAIM-P48-1',
+    name: 'argument-validator.ts 纯函数校验器(零依赖 + 5 种 type + enum + required + coercion)',
+    importCheck: { pattern: "from\\s+['\"].*tools/argument-validator\\.js['\"]", mustMatch: 1 },
+    callCheck: { pattern: 'validateToolArguments|formatValidationErrors', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/tools/argument-validator.ts',
+      'apps/cli/tests/argument-validator.test.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P48-2',
+    name: 'parseToolCalls 用 repairJson 替代 raw JSON.parse(LLM 坏 JSON 自动修复)',
+    importCheck: { pattern: "from\\s+['\"].*json-repair\\.js['\"]|repairJson", mustMatch: 1 },
+    callCheck: { pattern: 'repairJson\\(|repairJson\\b', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/tools/index.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P48-3',
+    name: 'executeToolCall 集成 validateToolArguments 早期 fail-fast(坏参数不进入工具内部)',
+    importCheck: { pattern: "from\\s+['\"].*tools/argument-validator\\.js['\"]", mustMatch: 1 },
+    callCheck: { pattern: 'validateToolArguments\\(', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/tools/index.ts',
+    ],
+  },
+  {
+    id: 'CLAIM-P48-4',
+    name: 'ErrorType 扩展 validation_failed(LLM 入参校验失败的错误分类)',
+    importCheck: { pattern: 'validation_failed', mustMatch: 1 },
+    callCheck: { pattern: 'validation_failed', mustMatch: 1 },
+    fileCheck: [
+      'apps/cli/src/tools/index.ts',
+    ],
+  },
+  // === 第 49 轮 P0 1 项能力(本轮新增 — seed/_utils/upsert-by-unique.ts 通用幂等工具)===
+  {
+    id: 'CLAIM-P49-1',
+    name: 'upsertByUnique 通用幂等工具 + 全 seed 目录扫除 if(ex) 旧模式(8 个文件)',
+    importCheck: { pattern: "from\\s+['\"].*seed/_utils/upsert-by-unique\\.js['\"]|from\\s+['\"].*_utils/upsert-by-unique\\.js['\"]", mustMatch: 1 },
+    callCheck: { pattern: 'upsertByUnique\\(\\)', mustMatch: 1 },
+    fileCheck: [
+      'packages/database/seed/_utils/upsert-by-unique.ts',
+      'packages/database/seed/_utils/upsert-by-unique.test.ts',
+      'packages/database/seed/ai-fresh-2026.ts',
+      'packages/database/seed/ai-categories.ts',
+      'packages/database/seed/ai-courses-2026.ts',
+      'packages/database/seed/ai-tutorials.ts',
+      'packages/database/seed/lessons.ts',
+      'packages/database/seed/seed-cross-domain.ts',
+    ],
+  },
 ];
 
 // === 历史声明延期执行清单(P39/P42/P43/P46/P47 中未真实落地的 claim)===
@@ -887,10 +945,27 @@ async function checkProjectPlanClaims() {
 
 // === 主流程 ===
 async function main() {
-  // 解析 CLI 参数
+  // 解析 CLI 参数(第一个非选项参数视为 project root,后续为选项)
   const args = process.argv.slice(2);
-  const stagedMode = args.includes('--staged');
-  const helpMode = args.includes('--help') || args.includes('-h');
+  let projectRootArg = null;
+  const optionsArgs = [];
+  for (const a of args) {
+    if (a.startsWith('--') || a.startsWith('-')) {
+      optionsArgs.push(a);
+    } else {
+      projectRootArg = a;
+    }
+  }
+  if (projectRootArg) {
+    // 测试场景:第一个非选项参数视为 fakeroot,赋给 PROJECT_ROOT 影响后续扫描
+    PROJECT_ROOT = path.resolve(projectRootArg);
+  }
+  const stagedMode = optionsArgs.includes('--staged');
+  const helpMode = optionsArgs.includes('--help') || optionsArgs.includes('-h');
+  // 测试场景用:--skip-claimed 跳过守门项 6(CLAIMED 能力检查),--skip-plan 跳过守门项 7
+  // (fakeroot 不可能提供所有 P39-P49 声明的真实文件 + 完整 PROJECT_PLAN)
+  const skipClaimed = optionsArgs.includes('--skip-claimed');
+  const skipPlan = optionsArgs.includes('--skip-plan');
 
   if (helpMode) {
     console.log(`
@@ -1011,6 +1086,9 @@ async function main() {
 
   // 守门项 6:CLAIMED 能力 import + call + file 三件套(P39 6 项 + P42 8 项,始终扫全项目)
   console.log('━━━ 守门项 6:CLAIMED 能力"已声明但未实现"自动检测(P39 6 项 + P42 8 项)━━━');
+  if (skipClaimed) {
+    console.log('   ⏭️  跳过(--skip-claimed,测试 fakeroot 模式)\n');
+  } else {
   const claimedFailures = await checkClaimedCapabilities(filesForClaims);
   if (claimedFailures.length === 0) {
     console.log(`   ✅ ${CLAIMED_CAPABILITIES.length} 项 CLAIMED 能力全部有真实证据,通过\n`);
@@ -1022,9 +1100,13 @@ async function main() {
     totalFailures += claimedFailures.length;
     console.log('');
   }
+  }
 
   // 守门项 7:PROJECT_PLAN.md 持续推进度(P39 新增)
   console.log('━━━ 守门项 7:PROJECT_PLAN.md 持续推进度("已交付"声明计数,P39 新增)━━━');
+  if (skipPlan) {
+    console.log('   ⏭️  跳过(--skip-plan,测试 fakeroot 模式)\n');
+  } else {
   const planResult = await checkProjectPlanClaims();
   const planFailures = planResult.failures ?? [];
   if (planFailures.length === 0) {
@@ -1036,6 +1118,7 @@ async function main() {
     }
     totalFailures += planFailures.length;
     console.log('');
+  }
   }
 
   const elapsedMs = Date.now() - startMs;
