@@ -1354,18 +1354,16 @@ export function Sidebar({
           width={80}
           height={26}
           className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
-          onClick={() => router.push('/home')}
+          onClick={() => router.push('/')}
         />
       )}
       <Button
         variant="ghost"
         size="icon"
         onClick={onToggleCollapse}
-        // h-9 w-9 (36×36) 与新建任务按钮/主导航项统一;hover 用 foreground/20 与新建任务按钮一致(2026-07-20 用户反馈:原 h-[26px] + hover:bg-accent 太弱且尺寸不统一)
-        className={cn(
-          'flex-shrink-0 p-0 bg-foreground/10 text-foreground hover:bg-foreground/20',
-          'hidden lg:flex',
-        )}
+        // h-9 w-9 (36×36) 与新建任务按钮/主导航项统一;hover 用 foreground/20 与新建任务按钮一致;
+        // 默认无背景,仅 hover 出现 (2026-07-20 用户反馈:默认 bg-foreground/10 让按钮视觉过重)
+        className={cn('flex-shrink-0 p-0 text-foreground hover:bg-foreground/20', 'hidden lg:flex')}
         title={collapsed ? t('expand') : t('collapse')}
         aria-label={collapsed ? t('expand') : t('collapse')}
       >
