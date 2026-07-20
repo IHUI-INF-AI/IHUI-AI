@@ -71,6 +71,7 @@ import {
   NotebookPen,
   Ticket,
   RotateCcw,
+  Clock,
   MapPin,
   Heart,
   History,
@@ -410,12 +411,13 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
     ],
   },
-  // 自媒体分组(2026-07-20 新增):公众号文章 + 口播稿生成 skill
+  // 自媒体分组(2026-07-20 新增):公众号文章 + 口播稿生成 skill + 自动化定时任务
   {
     label: '自媒体',
     items: [
       { href: '/self-media/wechat', labelKey: 'selfMediaWechat', icon: Newspaper },
       { href: '/self-media/koubo', labelKey: 'selfMediaKoubo', icon: Mic },
+      { href: '/self-media/automation', labelKey: 'selfMediaAutomation', icon: Clock },
     ],
   },
   {
@@ -760,28 +762,28 @@ function SidebarUserRow({
   }
 
   return (
-    <div className="px-1.5 pb-2">
+    <div className="flex justify-center px-1.5 pb-2">
       {/*
         group/row:头像+昵称作为整体悬停单元
-        - 2026-07-20 改:容器从 `w-full + justify-center` 改为 `w-fit + mx-auto`
-          (user_profile 规则:"containers adjust width according to content width without leaving
-          large empty background spaces")。原 w-full 在 118px 父内容区中只装 112px 内容
+        - 2026-07-20 改:父容器从 `px-1.5 pb-2` 改为 `flex justify-center px-1.5 pb-2`,
+          子容器去掉 `mx-auto` 改用 `inline-flex`(flex 居中比 margin auto 在子元素上更可靠,
+          且 inline-flex 让父容器自然按内容宽度计算 flex 间距,左右空白对称分布)。
+        - 原 `w-full + justify-center` 在 118px 父内容区中只装 112px 内容
           (button 36 + gap 6 + 文字 70),左右各 3px 空白,视觉上文字"几乎贴右"。
-          改 w-fit 后容器宽度自适应内容,在父 div 中 mx-auto 水平居中,左右空白对称分布,
-          hover 背景也只覆盖头像+文字组不溢出。
+        - 现父容器 flex + 子容器 inline-flex,内容宽度完全由子内容决定,
+          父 flex justify-center 居中 → 左右空白 100% 对称,hover 背景也只覆盖头像+文字组。
         - 父容器 hover:bg-sidebar-item-hover-bg 出现弱色底(亮色纯白/暗色纯黑)
           与项目内其他导航项(NavLink/二级菜单)hover 行为完全一致,统一 hover 策略
         - 文本 group-hover/row:text-foreground 变亮(默认 text-foreground/70 弱化)
         - 折叠态 trigger button 加 p-1.5(12px) + 内部 Avatar h-6 w-6(24px) = 36×36 命中区,
           解决折叠态下小图标难以点中的体验问题
-        - 外层容器不设独立 padding,直接由 button 的 36×36 自然撑起行高,严格与
-          h-9 (36px) 导航项高度一致,避免比邻项多出 8px 的视觉错位
+        - 子容器 h-9 (36px) 严格与 h-9 导航项高度一致,避免比邻项多出 8px 的视觉错位
         - 头像 fallback 加 ring-1 ring-inset ring-border/30,无头像时字符 fallback 有弱边框,
           在白底/灰底上更易辨识
       */}
       <div
         className={cn(
-          'group/row mx-auto flex h-9 w-fit items-center gap-1.5 rounded-md transition-colors hover:bg-sidebar-item-hover-bg',
+          'group/row inline-flex h-9 items-center gap-1.5 rounded-md transition-colors hover:bg-sidebar-item-hover-bg',
         )}
       >
         <Dropdown

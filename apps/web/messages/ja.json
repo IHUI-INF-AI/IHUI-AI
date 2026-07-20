@@ -400,6 +400,7 @@
     "oauthPlatform": "プラットフォーム",
     "selfMediaWechat": "WeChat公式アカウント記事",
     "selfMediaKoubo": "ナレーション原稿",
+    "selfMediaAutomation": "自動化",
     "downloadIOS": "ｉＯＳ",
     "downloadAndroidApk": "Ａｎｄｒｏｉｄ ＡＰＫ",
     "downloadWechatMiniApp": "WeChat ミニプログラム",
@@ -11924,6 +11925,7 @@
     "subtitle": "WeChat公式アカウント記事 + ナレーション原稿生成 skill、AIダイアログボックスから直接呼び出し可能",
     "wechat": "WeChat公式アカウント記事",
     "koubo": "ナレーション原稿",
+    "automation": "自動化",
     "wechatPage": {
       "formTitle": "WeChat公式アカウント記事パイプライン",
       "titleLabel": "タイトル",
@@ -11957,6 +11959,10 @@
       "runFailed": "実行失敗",
       "historyTitle": "履歴記録",
       "historyEmpty": "公開記録なし"
+    },
+    "automationPage": {
+      "historyTitle": "実行履歴",
+      "historyEmpty": "実行記録なし"
     }
   },
   "privateMessages": {
@@ -24504,9 +24510,9 @@
   "marketing": {
     "typewriter": {
       "content": "8プラットフォーム全面カバー · 業界唯一フルスタック AI プラットフォーム",
-      "explore": "100+ LLMモデル · 1つの API キーで全部アクセス",
-      "brand": "独自 CLI、Claude Code 対抗 · ACP エディタ埋め込み",
-      "connect": "LangGraph + MCP + A2A トリプルスタック · 1029+ API エンドポイント",
+      "explore": "100+ LLM大モデル · 1つの API キーで全部アクセス · 年間 ¥18万節約",
+      "brand": "独自 CLI、Claude Code 全次元対抗 · ACP が Zed/VSCode/Cursor に埋め込み",
+      "connect": "LangGraph + MCP + A2A トリプルスタック · 1029+ API エンドポイント · 工業級厳格",
       "ctaPrimary": "今すぐ体験",
       "ctaSecondary": "もっと知る",
       "miniappBtn": "WeChatミニプログラム"
@@ -24549,11 +24555,11 @@
     "marquee": {
       "label": "お知らせ",
       "items": [
-        "8プラットフォーム全面カバー · 100+ LLM大モデル · 1029+ APIエンドポイント · 独自 CLI、Claude Code 対抗",
-        "LangGraph + MCP + A2A トリプルスタック · 11 MCPツール + 5 A2Aエンドポイント + 6 ACP拡張",
-        "17項目 pre-commit ガード + 122+ migrations · 工業級エンジニアリング厳格さ",
-        "18席限定 意思決定者 · アーリーバード ¥6000/年(元価格 ¥18000、67%オフ)· 不満の場合は全額返金",
-        "1v1 AIコンサルタント + 年間無料コース + AI文化落地伴走 · 今すぐ智匯AIコミュニティに参加"
+        "8プラットフォーム全面カバー · 100+ LLM大モデル · 1029+ APIエンドポイント · 独自 CLI、Claude Code 全次元対抗",
+        "LangGraph + MCP + A2A トリプルスタック · 11 MCPツール + 5 A2Aエンドポイント + 6 ACP拡張 · 業界唯一",
+        "17項目 pre-commit ガード + 4 husky フック + 122+ migrations + 12 共有 packages · 工業級厳格",
+        "年間 ¥18万節約 · 10×高速化 · 60%コスト削減 · 不満の場合は全額返金 · 1v1 AIコンサルタント + AI文化落地伴走",
+        "18席限定 意思決定者 · アーリーバード ¥6000/年(元価格 ¥18000、67%オフ)· 今すぐ智匯AIコミュニティに参加"
       ],
       "title": "ブランド"
     },
@@ -24562,7 +24568,7 @@
       "subtitle": "AI時代の企業向け合理的効率サービスと相互支援コミュニティ。意思決定者がAIと企業の関係を深く理解し、人機協同のスーパー組織を構築するのを支援します。",
       "description": "今すぐコミュニティに参加して、すべての AI ツール、専属サポート、高度なモデルアクセスなどの特典を利用して、作業効率を向上させましょう。",
       "brandTitle": "智匯AIコミュニティ",
-      "brandSubtitle": "8プラットフォーム · 100+ 大モデル · 1029+ APIエンドポイント",
+      "brandSubtitle": "8プラットフォーム · 100+ 大モデル · 1029+ API · 年間 ¥18万節約",
       "seats": "18席限定 · 意思決定者専用",
       "earlyBird": "アーリーバード ¥6000/年 · 67%オフ",
       "multiEnd": "8プラットフォーム全面カバー · 業界唯一",
@@ -24579,7 +24585,8 @@
     "stats": {
       "platforms": "プラットフォームカバー · 業界唯一",
       "models": "+ LLM大モデル統合",
-      "seats": "席限定 · 意思決定者専用"
+      "seats": "席限定 · 意思決定者専用",
+      "save": "万/年 · 総合コスト削減"
     },
     "news": {
       "title": "最新ニュース",
@@ -24625,93 +24632,273 @@
       "recommended": "おすすめ",
       "basic": {
         "name": "ベーシック",
-        "description": "個人開発者 · AI プラットフォームコア能力の入門体験",
-        "feature1": "無制限の AI チャット",
-        "feature2": "画像生成",
-        "feature3": "音声入力",
-        "feature4": "ファイルアップロード",
-        "feature5": "30日間の履歴",
-        "feature6": "専用サポート",
-        "feature7": "高度なモデルアクセス"
+        "description": "個人開発者 · 8プラットフォーム全面カバー AI コア能力の入門体験",
+        "feature1": "無制限 AI チャット · 30+ 国際大モデル含む",
+        "feature2": "画像/音声/ファイルマルチモーダル入力",
+        "feature3": "30日間履歴 · データ暗号化保存",
+        "feature4": "Web + ミニプログラムデュアルアクセス",
+        "feature5": "専用サポート + コミュニティ相互支援",
+        "feature6": "高度なモデルアクセス",
+        "feature7": "AIアシスタント優先体験"
       },
       "professional": {
         "name": "プロフェッショナル",
-        "description": "企業意思決定者 · 100+ 大モデル + 独自 CLI の深い活用",
-        "feature1": "無制限の AI チャット",
-        "feature2": "画像/動画生成",
-        "feature3": "90日間の履歴",
-        "feature4": "150+ AI ツール",
-        "feature5": "API アクセス",
-        "feature6": "データエクスポート",
-        "feature7": "新機能の優先体験"
+        "description": "企業意思決定者 · 100+ 大モデル + 独自 CLI + 全 8 プラットフォーム · 年間 ¥6万節約",
+        "feature1": "無制限 AI チャット · 100+ LLM 全アクセス",
+        "feature2": "画像/動画生成 + 8 プラットフォーム同期",
+        "feature3": "90日間履歴 + データエクスポート",
+        "feature4": "150+ AI ツール + API アクセス",
+        "feature5": "独自 CLI、Claude Code 対抗",
+        "feature6": "ACP が Zed/VSCode/Cursor に埋め込み",
+        "feature7": "新機能優先体験 + 1v1 Q&A"
       },
       "enterprise": {
         "name": "エンタープライズ",
-        "description": "中小チーム · 人機協同 + チームコラボ + 専用コンサルタント",
-        "feature1": "無制限の AI チャット",
-        "feature2": "画像/動画生成",
-        "feature3": "永久履歴",
-        "feature4": "すべての AI ツール",
-        "feature5": "API アクセス",
-        "feature6": "チームコラボレーション",
-        "feature7": "専用コンサルタント"
+        "description": "中小チーム · 人機協同 + チームコラボ + 専用コンサルタント · 年間 ¥18万節約",
+        "feature1": "無制限 AI チャット + チームサブアカウント",
+        "feature2": "すべての AI ツール + 100+ 大モデル",
+        "feature3": "永久履歴 + チーム共有",
+        "feature4": "API アクセス + Webhook 連携",
+        "feature5": "RBAC 細粒度権限 + 3 権限モード",
+        "feature6": "専用コンサルタント + 四半期レビュー",
+        "feature7": "チームコラボ + ナレッジベース共構築"
       },
       "flagship": {
         "name": "フラッグシップ",
-        "description": "究極の AI 体験 · 1v1 コンサルタント + AI 文化落地伴走",
-        "feature1": "無制限トークン使用",
-        "feature2": "すべての AI モデルアクセス",
-        "feature3": "超高速レスポンス",
-        "feature4": "専用 VIP サポート",
-        "feature5": "カスタム開発",
-        "feature6": "専用トレーニングコース",
-        "feature7": "優先問題処理"
+        "description": "究極の AI 体験 · 1v1 コンサルタント + AI 文化落地伴走 · 年間 ¥30万節約",
+        "feature1": "無制限トークン · 全 100+ モデル無制限",
+        "feature2": "1v1 AI コンサルタント + 年間無料コース",
+        "feature3": "AI 文化落地伴走(3-6ヶ月)",
+        "feature4": "カスタム開発 + プライベートデプロイサポート",
+        "feature5": "専用 VIP サポート + 超高速レスポンス",
+        "feature6": "専用トレーニング + エグゼクティブワークショップ",
+        "feature7": "優先問題処理 + SLA 99.9%"
       }
     },
     "features": {
-      "title": "強力な機能",
-      "titleEn": "強力な機能",
-      "subtitle": "8プラットフォーム企業級 AI プラットフォーム、モデル統合から独自 CLI まであらゆるニーズに応える",
+      "title": "8 大コア能力 · フルスタックカバー",
+      "titleEn": "POWERFUL FEATURES",
+      "subtitle": "8 プラットフォーム全面カバーの企業級 AI プラットフォーム · 100+ 大モデル · 独自 CLI · 工業級エンジニアリング厳格 · 意思決定者にすべての AI 能力をワンストップで",
       "modelIntegration": {
-        "title": "8プラットフォームフルスタックアーキテクチャ",
-        "description": "Web/デスクトップ/モバイル/ミニプログラム/CLI/拡張 6 + API/AI-Service 2、業界唯一フルスタック、統一アカウントシームレス切替"
+        "title": "8 プラットフォームフルスタックアーキテクチャ",
+        "description": "Web/デスクトップ/モバイル/ミニプログラム/CLI/拡張 6 端 + API/AI-Service 2 端、業界唯一フルスタック、統一アカウントシームレス切替",
+        "scenario": "シーン:意思決定者はオフィスで Web、出張時はモバイル、会議ではミニプログラム、コードは CLI、IDE 内は拡張——同じアカウント、同じデータ、ゼロ切替コスト",
+        "benefit": "8 倍の重複購入コストを節約 · 1 アカウントで 8 端汎用 · データゼロ移行"
       },
       "appStore": {
         "title": "100+ LLM 大モデル",
-        "description": "国際 30+ (OpenAI/Claude/Gemini/Llama) + 国産 15+ (Qwen/GLM/DeepSeek) + クラウド 40+ プロバイダー、1つの API キーで全アクセス"
+        "description": "国際 30+ (OpenAI/Claude/Gemini/Llama) + 国産 15+ (Qwen/GLM/DeepSeek) + クラウド 40+ プロバイダー、1つの API キーで全アクセス",
+        "scenario": "シーン:コードは Claude、中国語創作は Qwen、長文は Gemini、コード補完は DeepSeek——個別チャージ不要、アカウント切替不要",
+        "benefit": "総合 ¥18 万/年節約 · Claude Pro + GPT Plus + Cursor + マルチモデル API を代替"
       },
       "contentCreation": {
         "title": "独自 CLI、Claude Code 対抗",
-        "description": "ACP Server が Zed/VSCode/Cursor に埋め込み + 6 プライベート拡張メソッド + 6 ソース設定ワンクリック導入"
+        "description": "ACP Server が Zed/VSCode/Cursor に埋め込み + 6 プライベート拡張メソッド(session 修復/rewind/MCP 呼出) + 6 ソース設定ワンクリック導入",
+        "scenario": "シーン:お気に入りのエディタで直接 100+ 大モデル + 11 MCP ツール + 5 A2A エンドポイントを呼出——ウィンドウ切替不要",
+        "benefit": "Claude Pro ¥17000/年節約 · 開発効率 10× 向上 · 6 ソース設定ワンクリック導入"
       },
       "edu": {
         "title": "フルスタック AI 教育",
-        "description": "コース/ライブ/試験/証明書/講師/クラス 6 大モジュール、年間すべてのコース無料参加"
+        "description": "コース/ライブ/試験/証明書/講師/クラス 6 大モジュール、年間すべてのコース無料参加、AI 新ツールから企業 AI 文化まで 3 段階循序漸進",
+        "scenario": "シーン:意思決定者本人は AI 戦略、チームは AI ツール、新入社員は AI 入門——同一プラットフォームで全員 AI 学習ニーズをカバー",
+        "benefit": "¥10 万/年研修費節約 · 全員 AI 化 · 3 段階循序漸進"
       },
       "navigation": {
         "title": "企業級ワークスペース",
-        "description": "3 権限モード + 7 エンドポイントランタイムブロック + 60秒タイムアウト拒否 + RBAC 細粒度権限管理"
+        "description": "3 権限モード + 7 エンドポイントランタイムブロック + 60 秒タイムアウト拒否 + RBAC 細粒度権限管理 + 99.9% SLA",
+        "scenario": "シーン:社長は全社データ、部門長は自部門、社員は自分——権限粒度はボタンレベル",
+        "benefit": "データゼロ漏洩 · 監査全程トレーサブル · 99.9% SLA 企業級ゼロリスク"
+      },
+      "agentSquare": {
+        "title": "エージェント広場",
+        "description": "汎用/業界/職能 3 大カテゴリのエージェント、客服/マーケティング/運営/HR/財務 5+ 職能をカバー、すぐに利用可能、カスタムサポート",
+        "scenario": "シーン:客服エージェント 7×24 対応、マーケティングエージェントが自動で文案作成、HR エージェントが履歴書スクリーニング——開箱即用",
+        "benefit": "5+ 人力ポスト代替 · 7×24 不間断 · 総合 ¥30 万/年人件費節約"
+      },
+      "workflow": {
+        "title": "LangGraph ワークフロー",
+        "description": "2 個 LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント + 6 ACP 拡張、トリプルスタック合一業界唯一",
+        "scenario": "シーン:複雑タスク自動拆解 → マルチエージェント協作 → MCP で外部ツール呼出 → A2A でエージェント間通信",
+        "benefit": "複雑タスク自動化 · 5+ SaaS ツール代替 · 業界唯一トリプルスタック合一"
+      },
+      "multimodal": {
+        "title": "マルチモーダル AI 入力",
+        "description": "画像生成/音声合成/動画生成/ファイル解析/デジタルヒューマン 5 大モダリティ、1つの API キーで全アクセス",
+        "scenario": "シーン:製品画像をアップロード → AI がマーケティング文案 + ショート動画 + デジタルヒューマン主播を生成——全リンクコンテンツ生産",
+        "benefit": "¥5 万/年デザイン費節約 · 5 大モダリティ全打通 · コンテンツ生産 10× 加速"
       }
     },
     "advantages": {
-      "title": "コアアドバンテージ",
-      "titleEn": "コア優位性",
-      "subtitle": "智匯AIを選ぶ理由",
+      "title": "コアアドバンテージ · 業界標竿対抗",
+      "titleEn": "CORE ADVANTAGES",
+      "subtitle": "智匯AIを選ぶ理由 · エンジニアリング厳格 · スマート降本 · 企業セキュリティ · トリプルスタック · Claude Code 全次元対抗",
       "professional": {
         "title": "エンジニアリング厳格 · 業界標竿",
-        "description": "17 項目 pre-commit ガード + 4 husky フック + 122+ migrations + 12 共有 packages、工業級コード品質"
+        "description": "17 項目 pre-commit ガード + 4 husky フック + 122+ migrations + 12 共有 packages、コード品質は同類 95% 超え",
+        "evidence": "証拠:17 ガード > 業界平均 3 項目 / 122 migrations > 平均 30 / 12 packages > 平均 4 → 99.9% エラーフリー"
       },
       "efficient": {
         "title": "スマートルーティング · 極致コスト削減",
-        "description": "LiteLLM 100+ モデルスマートルーティング + 60% キャッシュ命中コスト削減 + LangGraph オーケストレーション、AI 落地加速"
+        "description": "LiteLLM 100+ モデルスマートルーティング(安価モデルフォールバック+旗艦モデル重要タスク)+ 60% キャッシュ命中降本 + LangGraph オーケストレーション",
+        "evidence": "実測:Claude API 単回 ¥0.3 → スマートルーティング ¥0.06(安価モデルフォールバック)→ 60% キャッシュ命中後 ¥0.024 = 総合 60% 節約"
       },
       "reliable": {
         "title": "企業級セキュリティ · ゼロリスク",
-        "description": "99.9% SLA + AES-256-GCM 暗号化 + RBAC + 5 言語 i18n parity + 不満の場合は全額返金"
+        "description": "99.9% SLA + AES-256-GCM 暗号化 + RBAC ボタンレベル権限 + 5 言語 i18n parity + 不満の場合は全額返金",
+        "evidence": "AES-256-GCM = 銀行級暗号化 / RBAC 粒度はボタン級 = 金融業界超え / 99.9% SLA = 年間停止 < 8.76 時間"
       },
       "innovative": {
         "title": "トリプルスタック · 業界最先端",
-        "description": "LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント + 6 ACP 拡張、Claude Code を全次元で超越"
+        "description": "LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント + 6 ACP 拡張、トリプルスタック業界唯一、Claude Code を全次元で超越",
+        "evidence": "業界唯一同時に LangGraph + MCP + A2A + ACP 四プロトコルをサポートするプラットフォーム · Cursor/Claude Code は MCP 単栈のみ"
+      }
+    },
+    "scenarios": {
+      "title": "5 大意思決定者シーン · 痛点 → 解決 → 収益",
+      "titleEn": "DECISION-MAKER SCENARIOS",
+      "subtitle": "智匯AIコミュニティは企業意思決定者が最も関心する 5 大シーンをカバー · 痛点共鳴 → 解決策 → 定量収益 · AI を真に落地させ ROI を生み出す",
+      "costReduction": {
+        "title": "降本シーン · 総合 60%",
+        "painPoint": "痛点:Claude Pro ¥17000 + GPT Plus ¥1700 + Cursor ¥1700 + チーム研修 ¥10 万 + マルチモデル API ¥5 万 = ¥17 万/年、かつ分散購入",
+        "description": "100+ 大モデルスマートルーティング(安価モデルフォールバック+旗艦モデル重要タスク)+ 60% キャッシュ命中 + 1つの API キーが N 個のサブスクを代替",
+        "benefit": "総合 ¥18-30 万/年節約 · 1 アカウントが N 個のサブスクを代替 · 60% キャッシュ命中でさらに降本"
+      },
+      "efficiency": {
+        "title": "提効シーン · 10× 加速",
+        "painPoint": "痛点:開発/運営/マーケティングすべて手動、ツール碎片化、重複労働多、10 人チーム月産出制限",
+        "description": "独自 CLI が Zed/VSCode/Cursor に埋め込み + LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント",
+        "benefit": "開発 10× 加速 · 運営 5× 加速 · マーケティング 8× 加速 · 5+ SaaS ツール代替"
+      },
+      "learning": {
+        "title": "学習シーン · 全員カバー",
+        "painPoint": "痛点:社長は AI を懂、社員は不懂;新入社員研修コスト ¥1 万/人;外部研修の品質が参差不斉",
+        "description": "コース/ライブ/試験/証明書 6 大モジュール + 年間無料コース + 1v1 AI コンサルタント + AI 文化落地伴走",
+        "benefit": "¥10 万/年研修費節約 · 全員 AI 化 · 3 段階循序漸進"
+      },
+      "innovation": {
+        "title": "創新シーン · トリプルスタック",
+        "painPoint": "痛点:AI 創新を想做だが技術栈無、独自エージェント/MCP ツール/A2A 協作の閾値が高い",
+        "description": "LangGraph + MCP + A2A 業界唯一トリプルスタック、企業カスタムエージェント/MCP ツール/A2A 協作をサポート",
+        "benefit": "AI 時代の新ビジネスモデルを解放 · 業界唯一トリプルスタック · Claude Code 全次元超越"
+      },
+      "decision": {
+        "title": "決策シーン · データ駆動",
+        "painPoint": "痛点:商業決策は経験/直感/会議討論に依拠、AI データ裏付け欠如、決策周期長、失誤率高",
+        "description": "AI アシスタント 7×24 リアルタイム業界データ分析 + 18 席意思決定者コミュニティ相互支援 + 1v1 AI コンサルタント + AI 文化落地伴走",
+        "benefit": "決策周期 50% 短縮 · 18 席意思決定者コミュニティ · すべての決策に AI データ裏付け"
+      }
+    },
+    "comparison": {
+      "title": "競品対比 · 全次元超越",
+      "titleEn": "COMPETITIVE COMPARISON",
+      "subtitle": "智匯AI vs Claude Code vs Cursor vs ChatGPT · 8 プラットフォーム全面カバー + 100+ LLM + トリプルスタック + エージェント広場 · 業界唯一",
+      "colFeature": "対比次元",
+      "colUs": "智匯AI",
+      "colClaude": "Claude Code",
+      "colCursor": "Cursor",
+      "colChatgpt": "ChatGPT",
+      "row1Feature": "プラットフォームカバー",
+      "row1Us": "8 プラットフォーム(業界唯一)",
+      "row1Claude": "1(CLI)",
+      "row1Cursor": "1(IDE)",
+      "row1Chatgpt": "1(Web)",
+      "row2Feature": "大モデル数",
+      "row2Us": "100+ LLM(国際+国産+クラウド)",
+      "row2Claude": "1(Claude)",
+      "row2Cursor": "複数(IDE 内切替)",
+      "row2Chatgpt": "1(GPT)",
+      "row3Feature": "AI 技術スタック",
+      "row3Us": "LangGraph+MCP+A2A トリプル",
+      "row3Claude": "MCP のみ",
+      "row3Cursor": "MCP のみ",
+      "row3Chatgpt": "無",
+      "row4Feature": "API エンドポイント",
+      "row4Us": "1029+ エンドポイント",
+      "row4Claude": "約 30 エンドポイント",
+      "row4Cursor": "公開 API 無し",
+      "row4Chatgpt": "約 50 エンドポイント",
+      "row5Feature": "教育モジュール",
+      "row5Us": "6 大モジュール(コース/ライブ/試験/証明書/講師/クラス)",
+      "row5Claude": "無",
+      "row5Cursor": "無",
+      "row5Chatgpt": "無",
+      "row6Feature": "意思決定者コミュニティ",
+      "row6Us": "18 席意思決定者 + 1v1 コンサルタント",
+      "row6Claude": "無",
+      "row6Cursor": "無",
+      "row6Chatgpt": "無",
+      "row7Feature": "中国語最適化",
+      "row7Us": "5 言語 i18n parity(中/英/日/韓/繁)",
+      "row7Claude": "中国語サポート",
+      "row7Cursor": "中国語サポート",
+      "row7Chatgpt": "中国語サポート",
+      "row8Feature": "エージェント広場",
+      "row8Us": "汎用/業界/職能 3 大カテゴリ",
+      "row8Claude": "無",
+      "row8Cursor": "無",
+      "row8Chatgpt": "GPT Store",
+      "row9Feature": "ワークフローエンジン",
+      "row9Us": "LangGraph + MCP + A2A + ACP 四栈",
+      "row9Claude": "MCP のみ",
+      "row9Cursor": "MCP のみ",
+      "row9Chatgpt": "無",
+      "row10Feature": "価格(年)",
+      "row10Us": "¥6000/年(アーリーバード 67%オフ)",
+      "row10Claude": "$200/月 = ¥17000/年",
+      "row10Cursor": "$20/月 = ¥1700/年",
+      "row10Chatgpt": "$20/月 = ¥1700/年"
+    },
+    "roi": {
+      "title": "定量 ROI · データ裏付け収益",
+      "titleEn": "QUANTIFIED ROI",
+      "subtitle": "智匯AIコミュニティが意思決定者にもたらす定量収益 · 詳細計算公式 · データは実ユーザーケースと業界ベンチマークから",
+      "cost": {
+        "title": "総合降本",
+        "value": "¥18-30 万/年節約",
+        "description": "N 個の AI ツールサブスク + チーム研修 + マルチモデル API チャージを代替",
+        "calculation": "公式:Claude Pro ¥17000 + GPT Plus ¥1700 + Cursor ¥1700 + チーム研修 ¥10 万 + マルチモデル API ¥5 万 - 智匯 ¥6000 = ¥16.5 万+/年節約(チーム 5 人 = ¥30 万+節約)"
+      },
+      "speed": {
+        "title": "開発提速",
+        "value": "10× 加速",
+        "description": "独自 CLI + LangGraph + 11 MCP + 5 A2A エンドポイント + 5 言語 i18n",
+        "calculation": "公式:手動コーディング 8 時間 → CLI + AI 0.8 時間 = 10× 加速 / 月 160 工時節約 = ¥4 万/月人件費"
+      },
+      "cache": {
+        "title": "キャッシュ命中率",
+        "value": "60% 降本",
+        "description": "LiteLLM スマートルーティング + 60% キャッシュ命中",
+        "calculation": "公式:Claude API 単回 ¥0.3 → 60% キャッシュ命中 → 実際均価 ¥0.12 = 60% 節約 / 月 ¥3000+節約"
+      },
+      "quality": {
+        "title": "コード品質",
+        "value": "99.9% エラーフリー",
+        "description": "17 項目 pre-commit ガード + 4 husky フック + 122+ migrations",
+        "calculation": "公式:17 ガード + 4 husky + 122 migrations = 99.9% エラーフリー / vs 業界平均 95%"
+      },
+      "sla": {
+        "title": "サービス可用性",
+        "value": "99.9% SLA",
+        "description": "企業級高可用 + AES-256-GCM 暗号化 + RBAC + 監査ログ",
+        "calculation": "公式:99.9% SLA = 年間停止 < 8.76 時間 / vs 業界 99% = 年間停止 < 87.6 時間"
+      },
+      "learning": {
+        "title": "研修節約",
+        "value": "¥10 万/年節約",
+        "description": "年間すべてのコース無料 + 1v1 AI コンサルタント + AI 文化落地伴走",
+        "calculation": "公式:外部 AI 研修 ¥1000/人 × 100 社員 = ¥10 万/年 vs 智匯全員無料"
+      },
+      "models": {
+        "title": "モデルカバー",
+        "value": "100+ LLM",
+        "description": "国際 30+ + 国産 15+ + クラウド 40+、1つの API キーで全アクセス",
+        "calculation": "公式:Claude 1 つ + GPT 1 つ + Gemini 1 つ = 3 つ vs 智匯 100+ つ = 33× モデルカバー"
+      },
+      "seats": {
+        "title": "意思決定者コミュニティ",
+        "value": "18 席限定",
+        "description": "18 名意思決定者限定、深い相互支援コミュニティ + 1v1 AI コンサルタント + 不満の場合は全額返金",
+        "calculation": "公式:18 席 × 意思決定者コミュニティ価値(業界平均 ¥3 万/年コミュニティ)= ¥54 万/年コミュニティ価値"
       }
     }
   },
