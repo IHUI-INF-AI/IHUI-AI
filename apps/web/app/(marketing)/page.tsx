@@ -63,7 +63,7 @@ export default function HomePage() {
        */}
       <main
         id="home-scroll-container"
-        className="snap-y snap-mandatory overflow-x-hidden overflow-y-scroll"
+        className="snap-y snap-proximity overflow-x-hidden overflow-y-scroll"
         style={{ height: 'calc(100vh - 1rem)' }}
       >
         {/* Page 1: Hero typewriter + 4 信任徽章 + 6 Benefits 横向 grid + 通知跑马灯
@@ -193,13 +193,11 @@ export default function HomePage() {
         </section>
 
         {/* Page 4: Magazine 新闻 + Footer
-            - 2026-07-20 改:去掉 min-h-[60vh](之前强制 480px 但实际内容 346px,顶部 134px 全空),
-              改为 min-h-[50vh] 提供下限但不强制,内容自然高度 ~346px,消除内部空地 */}
-        <section
-          id="home-page-4"
-          className="snap-start"
-          aria-label={t('magazine.title', { fallback: 'News' })}
-        >
+            - 2026-07-20 改:去掉 snap-start,因为 section 高度(magazine + footer ~1340px)
+              超过 viewport 884px,snap-mandatory 强制吸附到 section 顶部导致用户滚不到底部,
+              版权 + 国徽图标看不到。改为不参与 snap,用户可自由滚到底部看完整 footer。
+              前 3 个 section 仍保留 snap-start,正常吸附体验不受影响。 */}
+        <section id="home-page-4" aria-label={t('magazine.title', { fallback: 'News' })}>
           <div className="flex min-h-[50vh] w-full flex-col px-4 py-4 md:px-8 md:py-5">
             <HomePage3Magazine />
           </div>
