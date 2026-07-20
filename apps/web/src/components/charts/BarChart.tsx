@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 interface BarChartProps {
@@ -20,6 +21,7 @@ export const BarChart = React.memo(function BarChart({
   color = 'var(--primary)',
   className,
 }: BarChartProps) {
+  const t = useTranslations('a11y')
   const max = Math.max(...data, 1)
 
   if (horizontal) {
@@ -58,7 +60,7 @@ export const BarChart = React.memo(function BarChart({
         className="w-full"
         style={{ height }}
         role="img"
-        aria-label="柱状图"
+        aria-label={t('barChart')}
       >
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <line

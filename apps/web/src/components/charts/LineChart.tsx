@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 interface LineChartProps {
@@ -22,6 +23,7 @@ export const LineChart = React.memo(function LineChart({
   color = 'var(--primary)',
   className,
 }: LineChartProps) {
+  const t = useTranslations('a11y')
   const width = 400
   const padding = { top: 10, right: 10, bottom: xAxis ? 24 : 10, left: 30 }
   const chartW = width - padding.left - padding.right
@@ -59,7 +61,7 @@ export const LineChart = React.memo(function LineChart({
         className="w-full"
         style={{ height }}
         role="img"
-        aria-label="折线图"
+        aria-label={t('lineChart')}
       >
         <defs>
           <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
