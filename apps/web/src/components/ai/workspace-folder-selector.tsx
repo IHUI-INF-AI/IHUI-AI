@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Folder, FolderOpen, ChevronRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -29,6 +30,7 @@ function FolderTreeItem({
   selected?: string
   onSelect: (id: string) => void
 }) {
+  const tA11y = useTranslations('a11y')
   const [expanded, setExpanded] = React.useState(depth < 1)
   const children = (node.children ?? []) as FolderNode[]
   const hasChildren = children.length > 0
@@ -62,7 +64,7 @@ function FolderTreeItem({
             type="button"
             onClick={handleToggle}
             className="flex h-4 w-4 shrink-0 items-center justify-center"
-            aria-label={expanded ? '折叠' : '展开'}
+            aria-label={expanded ? tA11y('collapse') : tA11y('expand')}
           >
             <ChevronRight
               className={cn(

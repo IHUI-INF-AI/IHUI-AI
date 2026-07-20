@@ -1,7 +1,19 @@
 'use client'
 
 import * as React from 'react'
-import { Button, Card, CardContent, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ihui/ui'
+import { useTranslations } from 'next-intl'
+import {
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@ihui/ui'
 import { Plus, Trash2 } from 'lucide-react'
 import type { GenField, GenType, GenTypeMeta } from '@ihui/api-client'
 
@@ -15,6 +27,7 @@ interface FieldEditorProps {
 const FIELD_TYPE_OPTIONS: GenField['type'][] = ['string', 'number', 'boolean', 'date']
 
 export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEditorProps) {
+  const tA11y = useTranslations('a11y')
   const supported = FIELD_TYPE_OPTIONS.filter((t) => fieldTypes.includes(t))
 
   function add() {
@@ -41,7 +54,9 @@ export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEdi
           <Card key={i}>
             <CardContent className="flex items-end gap-2 pt-3">
               <div className="flex-1 space-y-1">
-                <Label htmlFor={`f-name-${i}`} className="text-xs">名称</Label>
+                <Label htmlFor={`f-name-${i}`} className="text-xs">
+                  名称
+                </Label>
                 <Input
                   id={`f-name-${i}`}
                   value={f.name}
@@ -51,7 +66,9 @@ export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEdi
                 />
               </div>
               <div className="w-32 space-y-1">
-                <Label htmlFor={`f-label-${i}`} className="text-xs">显示名</Label>
+                <Label htmlFor={`f-label-${i}`} className="text-xs">
+                  显示名
+                </Label>
                 <Input
                   id={`f-label-${i}`}
                   value={f.label ?? ''}
@@ -61,7 +78,9 @@ export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEdi
                 />
               </div>
               <div className="w-32 space-y-1">
-                <Label htmlFor={`f-type-${i}`} className="text-xs">类型</Label>
+                <Label htmlFor={`f-type-${i}`} className="text-xs">
+                  类型
+                </Label>
                 <Select
                   value={f.type}
                   onValueChange={(v) => update(i, { type: v as GenField['type'] })}
@@ -96,7 +115,7 @@ export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEdi
                 size="icon"
                 onClick={() => remove(i)}
                 disabled={disabled}
-                aria-label="删除字段"
+                aria-label={tA11y('deleteField')}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -119,7 +138,13 @@ interface TemplateSelectorProps {
   getLabel: (key: GenType) => string
 }
 
-export function TemplateSelector({ types, value, onChange, disabled, getLabel }: TemplateSelectorProps) {
+export function TemplateSelector({
+  types,
+  value,
+  onChange,
+  disabled,
+  getLabel,
+}: TemplateSelectorProps) {
   return (
     <div className="space-y-2">
       <Label htmlFor="gen-type">模板类型</Label>

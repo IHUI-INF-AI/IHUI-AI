@@ -84,6 +84,7 @@ export function MessageInput({
   modelLabel,
 }: MessageInputProps) {
   const t = useTranslations('chat')
+  const tA11y = useTranslations('a11y')
   const [value, setValue] = React.useState('')
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
@@ -472,8 +473,8 @@ export function MessageInput({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isStreaming}
-                aria-label="添加附件(图片/视频/文件)"
-                title="添加附件(图片/视频/文件)"
+                aria-label={tA11y('addAttachment')}
+                title={tA11y('addAttachment')}
                 className={cn(
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
                   'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -502,8 +503,8 @@ export function MessageInput({
                   })
                 }}
                 disabled={isStreaming}
-                aria-label="斜杠命令"
-                title="斜杠命令 (点击或输入 / 字符)"
+                aria-label={tA11y('slashCommand')}
+                title={tA11y('slashCommand')}
                 className={cn(
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
                   'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -532,8 +533,8 @@ export function MessageInput({
                   })
                 }}
                 disabled={isStreaming}
-                aria-label="提及文件"
-                title="提及文件 (点击或输入 @ 字符)"
+                aria-label={tA11y('mentionFile')}
+                title={tA11y('mentionFile')}
                 className={cn(
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
                   'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',

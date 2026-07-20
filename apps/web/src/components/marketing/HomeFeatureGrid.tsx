@@ -83,8 +83,8 @@ export function HomeFeatureGrid() {
   ]
 
   return (
-    <section className="space-y-10">
-      <div className="space-y-4">
+    <section className="space-y-6">
+      <div className="space-y-3">
         <div className="space-y-1 text-center">
           <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{t('title')}</h2>
           <h3 className="font-edix text-xs uppercase tracking-wider text-muted-foreground">
@@ -94,25 +94,27 @@ export function HomeFeatureGrid() {
             {t('subtitle')}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-5">
           {features.map(({ icon: Icon, title, description }) => (
             <div
               key={title}
-              className="flex flex-col items-center gap-3 rounded-lg border bg-card p-4 text-center transition-colors hover:border-primary/40 hover:bg-primary/5 sm:p-5"
+              className="flex flex-col items-center gap-2 rounded-lg border bg-card p-3 text-center transition-colors hover:border-primary/40 hover:bg-primary/5 sm:p-4"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Icon className="h-6 w-6" aria-hidden="true" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Icon className="h-5 w-5" aria-hidden="true" />
               </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold sm:text-base">{title}</h3>
-                <p className="text-xs text-muted-foreground sm:text-sm">{description}</p>
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-semibold">{title}</h3>
+                <p className="line-clamp-2 text-[11px] text-muted-foreground sm:text-xs">
+                  {description}
+                </p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="space-y-1 text-center">
           <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{ta('title')}</h2>
           <h3 className="font-edix text-xs uppercase tracking-wider text-muted-foreground">
@@ -122,18 +124,20 @@ export function HomeFeatureGrid() {
             {ta('subtitle')}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
           {advantages.map(({ icon: Icon, title, description }) => (
             <div
               key={title}
-              className="flex flex-col items-center gap-3 rounded-xl border bg-muted/40 p-4 text-center transition-colors hover:border-primary/40 hover:bg-primary/5 sm:p-5"
+              className="flex flex-col items-center gap-2 rounded-xl border bg-muted/40 p-3 text-center transition-colors hover:border-primary/40 hover:bg-primary/5 sm:p-4"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Icon className="h-6 w-6" aria-hidden="true" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Icon className="h-5 w-5" aria-hidden="true" />
               </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold sm:text-base">{title}</h3>
-                <p className="text-xs text-muted-foreground sm:text-sm">{description}</p>
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-semibold">{title}</h3>
+                <p className="line-clamp-2 text-[11px] text-muted-foreground sm:text-xs">
+                  {description}
+                </p>
               </div>
             </div>
           ))}
