@@ -19,6 +19,8 @@ const chatStreamSchema = z.object({
   modelId: z.string().optional(), // 向后兼容,优先使用 model
   agentId: z.string().optional(),
   materialContent: z.string().optional(),
+  /** 当前绑定的本地工作区路径,透传到 ai-service 用于注入项目记忆(CLAUDE.md/AGENTS.md) */
+  workspacePath: z.string().optional(),
   metadata: z
     .object({
       conversationId: z.string().optional(),
@@ -58,6 +60,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       modelId,
       agentId,
       materialContent,
+      workspacePath,
       metadata,
     } = parsed.data
     const resolvedModel = model ?? modelId
@@ -103,6 +106,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           model: resolvedModel,
           agentId,
           materialContent,
+          workspacePath,
           metadata: mergedMetadata,
         }),
         signal: controller.signal,
