@@ -15,8 +15,8 @@ import {
   Pencil,
   FileText,
   FileCode,
+  LogIn,
 } from 'lucide-react'
-
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { downloadText, slugifyForFilename, buildTimestamp } from '@/lib/download'
@@ -29,6 +29,7 @@ import {
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import {
@@ -216,7 +217,31 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
     [locale],
   )
 
-  if (collapsed || !isAuthenticated) return null
+  if (collapsed) return null
+
+  // 未登录态:仍渲染容器(保持视觉占位,避免用户以为"任务列表丢了"),
+  // 内容为"请先登录"引导,点击触发登录弹窗。不发起 API 请求(useQuery enabled 已门控)。
+  if (!isAuthenticated) {
+    return (
+      <div
+        role="region"
+        aria-label={t('title')}
+        className="mb-1 w-full rounded-md border border-border bg-card p-1.5"
+      >
+        <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+          <span>{tc('history')}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => useLoginDialogStore.getState().open('login')}
+          className="flex w-full items-center gap-1.5 rounded-sm px-2 py-3 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <LogIn className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{t('loginRequired')}</span>
+        </button>
+      </div>
+    )
+  }
 
   const items = data ?? []
 

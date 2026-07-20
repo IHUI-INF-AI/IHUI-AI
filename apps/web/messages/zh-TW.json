@@ -9166,7 +9166,8 @@
     "favorite": "收藏",
     "unfavorite": "取消收藏",
     "viewFavorites": "查看收藏",
-    "backToHistory": "返回歷史"
+    "backToHistory": "返回歷史",
+    "loginRequired": "請先登入"
   },
   "models": {
     "title": "模型市場",
