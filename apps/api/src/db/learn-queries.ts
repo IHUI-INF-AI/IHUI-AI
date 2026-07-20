@@ -740,10 +740,17 @@ export async function findLessonStudyReport(opts: {
   return { list: rows as Record<string, unknown>[], total, page, pageSize }
 }
 
+// =============================================================================
+// ReportService 报表服务(2026-07-20 迁移补齐 P0)
+// 重命名: findSignupReport → getLessonSignReport
+//        findMemberStudyReport → getLessonStudyReport
+// 与 edu 22 微服务 edu-admin ReportServiceImpl 接口对齐。
+// =============================================================================
+
 /**
- * 报名统计报表:按时间段聚合报名总数/完成总数/退款总数。
+ * 报名统计报表:按时间段聚合报名总数/完成总数/退款总数/在读数。
  */
-export async function findSignupReport(opts: {
+export async function getLessonSignReport(opts: {
   startDate?: string
   endDate?: string
 }): Promise<Record<string, unknown>> {
@@ -779,7 +786,7 @@ export async function findSignupReport(opts: {
 /**
  * 学员学习报表:按用户聚合报名课程数/完成课程数/平均进度。
  */
-export async function findMemberStudyReport(opts: {
+export async function getLessonStudyReport(opts: {
   page: number
   pageSize: number
   search?: string
@@ -821,9 +828,7 @@ export async function findMemberStudyReport(opts: {
  * 这里用 createdAt 作为 lastStudyAt 的代理(progress 字段更新时未独立记时间戳,
  * 业务上前端可按需显示"加入学习时间"或"最近报名时间")。
  */
-export async function findUserLearnRecords(
-  userId: string,
-): Promise<
+export async function findUserLearnRecords(userId: string): Promise<
   Array<{
     id: string
     title: string
