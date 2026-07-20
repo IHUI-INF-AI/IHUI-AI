@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2, FileText, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button, Input, Label } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import {
@@ -14,20 +15,21 @@ import {
 } from '../_components/shared'
 
 const POSITIONS = [
-  { key: 'top-left', label: '左上', class: 'items-start justify-start' },
-  { key: 'top-center', label: '上中', class: 'items-start justify-center' },
-  { key: 'top-right', label: '右上', class: 'items-start justify-end' },
-  { key: 'middle-left', label: '左中', class: 'items-center justify-start' },
-  { key: 'middle-center', label: '居中', class: 'items-center justify-center' },
-  { key: 'middle-right', label: '右中', class: 'items-center justify-end' },
-  { key: 'bottom-left', label: '左下', class: 'items-end justify-start' },
-  { key: 'bottom-center', label: '下中', class: 'items-end justify-center' },
-  { key: 'bottom-right', label: '右下', class: 'items-end justify-end' },
+  { key: 'top-left', labelKey: 'positions.topLeft', class: 'items-start justify-start' },
+  { key: 'top-center', labelKey: 'positions.topCenter', class: 'items-start justify-center' },
+  { key: 'top-right', labelKey: 'positions.topRight', class: 'items-start justify-end' },
+  { key: 'middle-left', labelKey: 'positions.middleLeft', class: 'items-center justify-start' },
+  { key: 'middle-center', labelKey: 'positions.middleCenter', class: 'items-center justify-center' },
+  { key: 'middle-right', labelKey: 'positions.middleRight', class: 'items-center justify-end' },
+  { key: 'bottom-left', labelKey: 'positions.bottomLeft', class: 'items-end justify-start' },
+  { key: 'bottom-center', labelKey: 'positions.bottomCenter', class: 'items-end justify-center' },
+  { key: 'bottom-right', labelKey: 'positions.bottomRight', class: 'items-end justify-end' },
 ]
 
 export default function PdfWatermarkPage() {
+  const t = useTranslations('pdfWatermarkPage')
   const [file, setFile] = React.useState<File | null>(null)
-  const [text, setText] = React.useState('机密')
+  const [text, setText] = React.useState(t('defaultText'))
   const [fontSize, setFontSize] = React.useState(48)
   const [color, setColor] = React.useState('#888888')
   const [opacity, setOpacity] = React.useState(20)
@@ -52,33 +54,34 @@ export default function PdfWatermarkPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
-      <ToolHeader
-        title="PDF 水印"
-        description="为 PDF 添加文字水印，自定义文本、位置、颜色与旋转角度"
-      />
+      <ToolHeader title={t('title')} description={t('description')} />
       {!file ? (
         <UploadArea
           accept="application/pdf"
           onFiles={(fs) => setFile(fs[0] ?? null)}
-          label="点击或拖拽一个 PDF 文件到此处上传"
+          label={t('uploadLabel')}
         />
       ) : (
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3 text-sm">
           <FileText className="h-4 w-4 shrink-0 text-primary" />
           <span className="flex-1 truncate">{file.name}</span>
-          <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
-          <Button variant="ghost" size="icon" onClick={() => setFile(null)} aria-label="移除">
+          <span className="text-xs text-muted-foreground">
+            {(file.size / 1024).toFixed(1)} {t('fileSizeUnit')}
+          </span>
+          <Button variant="ghost" size="icon" onClick={() => setFile(null)} aria-label={t('remove')}>
             <X className="h-4 w-4" />
           </Button>
         </div>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="wm-text">水印文本</Label>
+          <Label htmlFor="wm-text">{t('text')}</Label>
           <Input id="wm-text" value={text} onChange={(e) => setText(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="wm-size">字体大小：{fontSize}</Label>
+          <Label htmlFor="wm-size">
+            {t('fontSize')}：{fontSize}
+          </Label>
           <Input
             id="wm-size"
             type="range"
@@ -89,7 +92,7 @@ export default function PdfWatermarkPage() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="wm-color">颜色</Label>
+          <Label htmlFor="wm-color">{t('color')}</Label>
           <Input
             id="wm-color"
             type="color"
@@ -99,7 +102,9 @@ export default function PdfWatermarkPage() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="wm-opacity">透明度：{opacity}%</Label>
+          <Label htmlFor="wm-opacity">
+            {t('opacity')}：{opacity}%
+          </Label>
           <Input
             id="wm-opacity"
             type="range"
@@ -110,7 +115,9 @@ export default function PdfWatermarkPage() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="wm-rotation">旋转角度：{rotation}°</Label>
+          <Label htmlFor="wm-rotation">
+            {t('rotation')}：{rotation}°
+          </Label>
           <Input
             id="wm-rotation"
             type="range"
@@ -122,7 +129,7 @@ export default function PdfWatermarkPage() {
         </div>
       </div>
       <div className="space-y-2">
-        <Label>位置</Label>
+        <Label>{t('position')}</Label>
         <div className="grid grid-cols-3 gap-2">
           {POSITIONS.map((p) => (
             <button
@@ -136,13 +143,13 @@ export default function PdfWatermarkPage() {
                   : 'hover:bg-accent',
               )}
             >
-              {p.label}
+              {t(p.labelKey)}
             </button>
           ))}
         </div>
       </div>
       <div className="space-y-2">
-        <Label>预览</Label>
+        <Label>{t('preview')}</Label>
         <div className="flex h-40 rounded-lg border bg-card p-4">
           <div className={cn('flex w-full', posClass)}>
             <span
@@ -154,7 +161,7 @@ export default function PdfWatermarkPage() {
                 transform: `rotate(${rotation}deg)`,
               }}
             >
-              {text || '水印'}
+              {text || t('placeholder')}
             </span>
           </div>
         </div>
@@ -162,7 +169,7 @@ export default function PdfWatermarkPage() {
       <div className="flex items-center gap-3">
         <Button onClick={handleSubmit} disabled={loading || !file}>
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-          {loading ? '添加中...' : '添加水印'}
+          {loading ? t('submitting') : t('submit')}
         </Button>
       </div>
       {(loading || progress > 0) && <ProgressBar value={progress} />}
