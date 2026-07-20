@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Loader2, RotateCcw } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -26,14 +27,10 @@ interface RefundItem {
   createdAt: string
 }
 
-const STATUS_LABEL: Record<RefundItem['status'], string> = {
-  pending: '审核中',
-  approved: '已通过',
-  rejected: '已拒绝',
-  completed: '已完成',
-}
+type StatusKey = RefundItem['status']
 
 export default function RefundPage() {
+  const t = useTranslations('refund')
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['refund'],
     queryFn: async () => {
@@ -48,19 +45,26 @@ export default function RefundPage() {
     return Number.isNaN(d.getTime()) ? '-' : formatDate(d)
   }
 
+  const STATUS_LABEL: Record<StatusKey, string> = {
+    pending: t('listStatusPending'),
+    approved: t('listStatusApproved'),
+    rejected: t('listStatusRejected'),
+    completed: t('listStatusCompleted'),
+  }
+
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <RotateCcw className="h-6 w-6 text-primary" />
-            退款管理
+            {t('listTitle')}
           </h1>
-          <p className="text-sm text-muted-foreground">查看退款记录并申请退款</p>
+          <p className="text-sm text-muted-foreground">{t('listSubtitle')}</p>
         </div>
         <Button>
           <RotateCcw className="h-4 w-4" />
-          申请退款
+          {t('listApply')}
         </Button>
       </header>
 
@@ -69,18 +73,18 @@ export default function RefundPage() {
           {isLoading ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              加载中...
+              {t('listLoading')}
             </div>
           ) : list.length === 0 ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">暂无退款记录</p>
+            <p className="py-16 text-center text-sm text-muted-foreground">{t('listEmpty')}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="px-4 py-2.5">订单号</TableHead>
-                  <TableHead className="px-4 py-2.5 text-right">金额</TableHead>
-                  <TableHead className="px-4 py-2.5">状态</TableHead>
-                  <TableHead className="px-4 py-2.5">申请时间</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('listOrderNo')}</TableHead>
+                  <TableHead className="px-4 py-2.5 text-right">{t('listAmount')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('listStatus')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('listApplyTime')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
