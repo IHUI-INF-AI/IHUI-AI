@@ -1066,6 +1066,27 @@
       "decision": {
         "allow": "허용",
         "deny": "거부"
+      },
+      "auditRequest": {
+        "title": "권한 확인",
+        "description": "AI가 다음 작업을 수행하도록 요청하고 있습니다. 허용 여부를 확인해 주세요.",
+        "workspace": "워크스페이스",
+        "tool": "도구",
+        "details": "작업 세부 정보",
+        "allow": "이번만 허용",
+        "deny": "거부",
+        "pending": "사용자 확인 대기 중...",
+        "expired": "요청 시간 초과",
+        "queue": "대기열에 {count}개 요청 더 있음",
+        "toolNames": {
+          "fs.read": "파일 읽기",
+          "fs.write": "파일 쓰기",
+          "fs.edit": "파일 편집",
+          "fs.delete": "파일 삭제",
+          "fs.grep": "내용 검색",
+          "fs.glob": "파일 찾기",
+          "fs.run": "명령 실행"
+        }
       }
     },
     "permissionsPage": {
@@ -13514,22 +13535,68 @@
   },
   "footer": {
     "acknowledgments": "감사의 말",
-    "companyName": "회사",
+    "companyName": "지린성 애즈후이 인공지능 기술 유한회사",
     "addressLabel": "주소:",
-    "addressLine1": "긴높은새도달107",
-    "addressLine2": "만",
-    "companyContact": "전화:18643389808",
-    "companyEmail": "이메일:502319984{'@'}qq.com",
-    "companyEmail2": "lizong{'@'}aizhs.top",
-    "supportedPlatforms": "입플랫폼",
+    "addressLine1": "창춘시 고신구 월달로 107호",
+    "addressLine2": "인공지능 인재 인큐베이션 기지",
+    "companyContact": "전화: 18643389808",
+    "companyEmail": "이메일: 502319984 [at] qq.com",
+    "companyEmail2": "lizong [at] aizhs.top",
+    "supportedPlatforms": "지원 플랫폼",
     "models": "모델",
-    "paymentPlatforms": "결제플랫폼",
-    "cloudDatabases": "Data",
-    "officialPromotion": "플랫폼",
-    "officialApp": "앱",
+    "paymentPlatforms": "결제 플랫폼",
+    "cloudDatabases": "클라우드 데이터베이스",
+    "officialPromotion": "공식 프로모션 플랫폼",
+    "officialApp": "공식 앱",
     "contactUs": "문의하기",
-    "icp": "ICP2025027274",
-    "copyright": "Copyright © 2025 ai"
+    "icp": "Ji ICP 2025027274호",
+    "copyright": "© 2026 지후이 AI · 베이징 · 모든 권리 보유",
+    "platforms": {
+      "n8n": "n8n",
+      "coze": "Coze"
+    },
+    "modelItems": {
+      "gpt": "GPT",
+      "claude": "Claude",
+      "gemini": "Gemini",
+      "deepseek": "DeepSeek",
+      "qwen": "Qwen",
+      "doubao": "Doubao",
+      "llama": "Llama",
+      "mistral": "Mistral"
+    },
+    "payments": {
+      "wechat": "WeChat Pay",
+      "alipay": "Alipay",
+      "douyin": "Douyin Pay",
+      "unionpay": "UnionPay",
+      "visa": "VISA"
+    },
+    "databases": {
+      "mysql": "MySQL",
+      "postgresql": "PostgreSQL",
+      "mongodb": "MongoDB",
+      "redis": "Redis",
+      "sqlite": "SQLite"
+    },
+    "promos": {
+      "promo1": "프로모션 1",
+      "promo2": "프로모션 2",
+      "promo3": "프로모션 3",
+      "promo4": "프로모션 4",
+      "promo5": "프로모션 5",
+      "promo6": "프로모션 6",
+      "promo7": "프로모션 7",
+      "promo8": "프로모션 8",
+      "promo11": "프로모션 11",
+      "promo12": "프로모션 12",
+      "promo14": "프로모션 14",
+      "promo15": "프로모션 15",
+      "promo17": "프로모션 17",
+      "x": "X",
+      "facebook": "Facebook",
+      "github": "GitHub"
+    }
   },
   "agentCategory": {
     "title": "에이전트",
