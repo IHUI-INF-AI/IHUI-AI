@@ -11929,7 +11929,26 @@
     "ourMission": "Our Mission",
     "missionDesc1": "Making AI technology accessible to every learner, breaking down barriers to knowledge.",
     "missionDesc2": "Building an open, shared, and intelligent educational ecosystem to promote lifelong learning.",
-    "icpPlaceholder": "Beijing ICP No. 00000000"
+    "icpPlaceholder": "Beijing ICP No. 00000000",
+    "marketingBadge": "About IHUI AI",
+    "marketingHeroTitle": "Your AI-Era Enterprise Efficiency Partner",
+    "marketingHeroDesc": "IHUI AI Community is a service and mutual-aid community for enterprise rational efficiency in the AI era. We help decision-makers deeply understand the relationship between AI and enterprises, and build super organizations with human-AI collaboration.",
+    "marketingFallbackSiteName": "IHUI AI Community",
+    "marketingFallbackDescription": "IHUI AI Community is a service and mutual-aid community for enterprise rational efficiency in the AI era. We help decision-makers deeply understand the relationship between AI and enterprises, and build super organizations with human-AI collaboration.",
+    "valuesSection": "Our Values",
+    "valueMissionTitle": "Our Mission",
+    "valueMissionDesc": "Help decision-makers deeply understand the relationship between AI and enterprises, and drive rational efficiency improvement.",
+    "valueCommunityTitle": "Our Community",
+    "valueCommunityDesc": "Bringing together AI-era enterprise decision-makers to build super organizations with human-AI collaboration and mutual progress.",
+    "valuePromiseTitle": "Our Promise",
+    "valuePromiseDesc": "Full refund if not satisfied. The first 18 members enjoy one-on-one AI consulting.",
+    "valueDirectionTitle": "Our Direction",
+    "valueDirectionDesc": "From new AI tools to enterprise AI culture — a progressive three-stage journey of continuous evolution.",
+    "marketingCtaTitle": "Join IHUI AI Community",
+    "marketingCtaDesc": "Limited to the first 18 members · Early-bird ¥6,000/person/year · Full refund if not satisfied",
+    "marketingJoinNow": "Join Now",
+    "marketingViewPricing": "View Pricing",
+    "metaDescription": "IHUI AI Community is a service and mutual-aid community for enterprise rational efficiency in the AI era, helping decision-makers deeply understand the relationship between AI and enterprises, and build super organizations with human-AI collaboration."
   },
   "agreement": {
     "title": "Agreements & Policies",
@@ -13716,6 +13735,7 @@
     "adminBackendHealth": "Backend Health Check"
   },
   "footer": {
+    "aboutUs": "About Us",
     "acknowledgments": "Acknowledgments",
     "companyName": "Jilin Aizhihui AI Technology Co., Ltd.",
     "addressLabel": "Address:",
