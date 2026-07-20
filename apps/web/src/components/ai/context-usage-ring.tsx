@@ -281,10 +281,15 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
   const level = getUsageLevel(ratio)
   const style = USAGE_STYLES[level]
-  const triggerLabel = t('triggerLabel')
-    .replace('{percent}', String(Math.round(ratio * 100)))
-    .replace('{used}', formatTokenCount(usedTokens))
-    .replace('{max}', formatTokenCount(maxTokens))
+  // 2026-07-20 修:next-intl ICU 在调用 t() 时就校验 {percent} 变量,
+  // 之前的 .replace 是在 t() 返回后客户端字符串替换,导致 SSR 报
+  // FORMATTING_ERROR "context variable 'percent' was not provided"
+  // 改为传 variables 给 t() 走 ICU 正确插值
+  const triggerLabel = t('triggerLabel', {
+    percent: String(Math.round(ratio * 100)),
+    used: formatTokenCount(usedTokens),
+    max: formatTokenCount(maxTokens),
+  })
 
   const compressDisabled = !conversationId || compressing || isStreaming
 
