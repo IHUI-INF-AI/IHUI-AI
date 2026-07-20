@@ -78,12 +78,18 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('indicator.page1', { fallback: 'Hero' })}
         >
+          {/* 顶部固定区:Marquee 通知跑马灯(2026-07-20 用户反馈:从底部上移到顶部,
+              像 banner 一样最先被看到) */}
+          <div className="flex w-full flex-col gap-2 px-4 pt-4 md:px-8 md:pt-6">
+            <Marquee />
+          </div>
+
           {/* 主区:hero + 信任行,flex-1 占满所有剩余空间 */}
-          <div className="flex w-full flex-1 flex-col items-center justify-center gap-4 px-4 pt-4 md:gap-5 md:px-8 md:pt-6">
+          <div className="flex w-full flex-1 flex-col items-center justify-center gap-4 md:gap-5">
             <TypewriterHeroSection />
 
             {/* 4 个信任徽章 — 填充 hero 与底部之间的视觉空地 */}
-            <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] text-muted-foreground md:text-xs">
+            <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-[11px] text-muted-foreground md:text-xs">
               <span className="inline-flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                 {t('welcome.benefits.benefit6')}
@@ -101,7 +107,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* 底部固定区:6 Benefits + Marquee,固定高 ~140px */}
+          {/* 底部固定区:6 Benefits(去掉 marquee,已上移到顶部) */}
           <div className="flex w-full flex-col gap-2 px-4 pb-4 md:px-8 md:pb-6">
             <ul className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 sm:grid-cols-3 md:gap-3 lg:grid-cols-6">
               {benefits.map((b, i) => (
@@ -114,7 +120,6 @@ export default function HomePage() {
                 </li>
               ))}
             </ul>
-            <Marquee />
           </div>
         </section>
 
