@@ -29,8 +29,13 @@ export type Qr = {
   readonly altKey: 'officialApp' | 'contactUs'
   /** 可选:点击二维码拉起的 URL(如 `weixin://` 拉起电脑微信) */
   readonly href?: string
-  /** 可选:提示文案 i18n key(无 `footer.` 前缀),不填则不显示 */
-  readonly hintKey?: string
+  /**
+   * 可选:二维码下方副标题(主标题 altKey 下方一行小字)。
+   * 2026-07-20 加:PC 微信 `weixin://contacts/profile/<微信号>` 协议
+   * 只接受 wxid(以 `wxid_` 开头),不接受微信号,所以拉起后停在主界面。
+   * 兜底方案:在二维码下方显示微信号,用户可在微信搜索框手动搜索添加。
+   */
+  readonly subtitle?: string
 }
 
 // 统一图片加载策略(footer 强制 eager,首屏外也要立即显示)
@@ -118,16 +123,19 @@ export const PROMOTIONS: readonly Icon[] = [
 // 底部二维码:
 // - footer-icon-2.png:官方应用二维码(主题感知,白底深码)
 // - wechat-vx.png:微信个人号二维码(2026-07-20 加,源图来自用户百度同步盘 VX.png)。
-//   点击拉起 `weixin://contacts/profile/ok502319984` 协议 → 浏览器询问是否打开微信
-//   → 启动电脑微信并直接跳转到微信号 ok502319984 的个人资料页 → 用户点「添加到通讯录」即可。
-//   (备用:手机号 18643389808,但 weixin:// 协议出于隐私保护不支持用手机号拉起加好友界面)
+//   点击拉起 `weixin://` 协议 → 浏览器询问是否打开微信 → 启动电脑微信主程序。
+//   PC 微信 `weixin://contacts/profile/<微信号>` 协议只接受 wxid(以 wxid_ 开头),
+//   不接受微信号 ok502319984,所以拉起后停在主界面,不直接跳转到加好友界面。
+//   兜底方案:二维码下方副标题显示微信号,用户在微信搜索框手动搜索添加。
+//   (备用:手机号 18643389808,但 weixin:// 协议出于隐私保护不支持手机号拉起加好友界面)
 //   原 footer-icon-3.png 是 2534×2534 全空白色块 → 弃用。
 export const QRS: readonly Qr[] = [
   { src: '/footer/erweima/footer-icon-2.png', altKey: 'officialApp' },
   {
     src: '/footer/erweima/wechat-vx.png',
     altKey: 'contactUs',
-    href: 'weixin://contacts/profile/ok502319984',
+    href: 'weixin://',
+    subtitle: 'WeChat: ok502319984',
   },
 ]
 
