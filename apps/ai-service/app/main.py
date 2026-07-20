@@ -24,6 +24,7 @@ from app.core.jwt_auth import JWTAuthMiddleware
 from app.core.schema_check import check_schema, log_report
 from app.routers import a2a, agent_runtime, agents, health, llm, mcp, personas, tools, voice_stt
 from app.routers import self_media
+from app.routers import publish
 from app.routers.legacy import router as legacy_router
 from app.sio import sio
 from app.sio.handlers import register_handlers
@@ -60,8 +61,14 @@ async def lifespan(app: FastAPI):
     from app.services.self_media_scheduler import self_media_scheduler
     self_media_scheduler.start()
 
+    # 启动多平台一键发布调度器(轮询 publish_tasks 表 scheduled_at 到期任务,
+    # 同用户最多 3 个并发,失败平台支持 retry)
+    from app.services.publish.scheduler import publish_scheduler
+    publish_scheduler.start()
+
     yield
 
+    await publish_scheduler.stop()
     await self_media_scheduler.stop()
     shutdown_telemetry()
 
@@ -102,6 +109,8 @@ def create_app() -> FastAPI:
     app.include_router(voice_stt.router, prefix="/api", tags=["voice"])
     # 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
     app.include_router(self_media.router, prefix="/api", tags=["self-media"])
+    # 多平台一键发布(14 平台 + AES-256-GCM 凭证加密 + 调度器,2026-07-20 新增)
+    app.include_router(publish.router, prefix="/api", tags=["publish"])
     # v1 业务流路由(对话/智能体/RAG,2026-07-20 新增)
     app.include_router(api_v1_router, prefix="/api/v1", tags=["v1"])
     app.include_router(legacy_router)
