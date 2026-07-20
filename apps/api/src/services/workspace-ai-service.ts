@@ -1371,6 +1371,17 @@ class PermissionManager {
   private rules = new Map<string, PermissionRule[]>()
   private requests = new Map<string, PermissionRequest>()
   private pushFn: PushFn | null = null
+  // workspace_permissions 系统的待决请求存储(独立于 AgentLoop 用的 requests)
+  private workspacePending = new Map<
+    string,
+    {
+      req: PermissionRequest
+      resolve: (result: { allowed: boolean; reason: string }) => void
+      timer: ReturnType<typeof setTimeout>
+    }
+  >()
+  // workspace 人工审计超时(60s,期间未响应自动拒绝)
+  private static readonly WORKSPACE_AUDIT_TIMEOUT_MS = 60_000
 
   setPushFn(fn: PushFn): void {
     this.pushFn = fn
@@ -1614,6 +1625,297 @@ class PermissionManager {
       requestId: result.requestId,
     } as never)
     return { allowed: false, requestId: result.requestId, mode: perm.mode }
+  }
+
+  // ===========================================================================
+  // workspace_permissions 系统:FS Bridge 运行时拦截
+  // ===========================================================================
+
+  /**
+   * 阻塞式人工审计(workspace_permissions 系统专用)。
+   * 与 requestConfirmation 不同:返回 Promise,等待 resolveWorkspace() 被调用才解锁。
+   * 60s 超时自动拒绝,WebSocket 不可用立即拒绝。
+   */
+  private requestWorkspaceConfirmation(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    args: Record<string, unknown>
+  }): Promise<{ allowed: boolean; reason: string }> {
+    const requestId = randomUUID().slice(0, 12)
+    const req: PermissionRequest = {
+      requestId,
+      userId: params.userId,
+      tool: params.tool,
+      args: params.args,
+      status: 'pending',
+      createdAt: nowSec(),
+      resolvedAt: null,
+    }
+
+    return new Promise<{ allowed: boolean; reason: string }>((resolve) => {
+      const timer = setTimeout(() => {
+        this.workspacePending.delete(requestId)
+        resolve({ allowed: false, reason: '人工审计超时(60s)' })
+      }, PermissionManager.WORKSPACE_AUDIT_TIMEOUT_MS)
+
+      this.workspacePending.set(requestId, { req, resolve, timer })
+
+      if (this.pushFn) {
+        this.pushFn(params.userId, {
+          type: 'workspace.permission.request',
+          requestId,
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          tool: params.tool,
+          args: params.args,
+          createdAt: Date.now(),
+        })
+      } else {
+        // WebSocket 不可用 → 立即拒绝,避免挂死
+        clearTimeout(timer)
+        this.workspacePending.delete(requestId)
+        resolve({ allowed: false, reason: 'WebSocket 不可用,无法人工审计' })
+      }
+    })
+  }
+
+  /**
+   * 用户通过前端弹窗决策后,调用此方法解锁对应 Promise。
+   * 返回 false:requestId 不存在 / 用户不匹配 / 已超时
+   */
+  resolveWorkspace(
+    requestId: string,
+    userId: string,
+    approved: boolean,
+    reason?: string,
+  ): boolean {
+    const entry = this.workspacePending.get(requestId)
+    if (!entry || entry.req.userId !== userId) return false
+    clearTimeout(entry.timer)
+    this.workspacePending.delete(requestId)
+    entry.req.status = approved ? 'approved' : 'denied'
+    entry.req.resolvedAt = nowSec()
+    entry.resolve({
+      allowed: approved,
+      reason: approved ? reason ?? '用户允许' : reason ?? '用户拒绝',
+    })
+    return true
+  }
+
+  listWorkspacePending(userId: string): PermissionRequest[] {
+    return Array.from(this.workspacePending.values())
+      .filter((e) => e.req.userId === userId)
+      .map((e) => e.req)
+  }
+
+  /**
+   * workspace_permissions 系统的核心检查:FS Bridge enforcement 入口。
+   * - bypass-permissions → 直接放行
+   * - accept-edits + allow 规则匹配 → 放行
+   * - accept-edits + deny 规则匹配 → 拒绝
+   * - accept-edits 无匹配 → 走人工审计(block)
+   * - default → 全部走人工审计(block)
+   * - 未配置权限 → 拒绝(前端应先调 /fs/open 触发 setup)
+   */
+  async checkWorkspace(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    args: Record<string, unknown>
+  }): Promise<{
+    allowed: boolean
+    mode: string
+    reason: string
+    matchedRule?: string
+    requestId?: string
+  }> {
+    const { getPermission, listRules, appendAuditLog } = await import(
+      '../db/workspace-permission-queries.js'
+    )
+    const perm = await getPermission(params.userId, params.workspacePath)
+
+    // 未配置权限 → 拒绝,要求先 setup(由 /fs/open 触发)
+    if (!perm) {
+      return {
+        allowed: false,
+        mode: 'unset',
+        reason: '工作区权限未配置,请先完成首次设置',
+      }
+    }
+
+    // bypass-permissions → 直接放行 + 记录审计
+    if (perm.mode === 'bypass-permissions') {
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'allow',
+        reason: 'bypass-permissions 模式自动放行',
+      })
+      return { allowed: true, mode: perm.mode, reason: 'bypass-permissions 模式自动放行' }
+    }
+
+    // accept-edits → 查 DB 规则
+    if (perm.mode === 'accept-edits') {
+      const dbRules = await listRules(params.userId, params.workspacePath)
+      for (const r of dbRules) {
+        if (
+          this.workspaceRuleMatches(
+            r.ruleType,
+            r.pattern,
+            r.operation,
+            params.tool,
+            params.args,
+          )
+        ) {
+          if (r.decision === 'allow') {
+            await appendAuditLog({
+              userId: params.userId,
+              workspacePath: params.workspacePath,
+              toolName: params.tool,
+              args: JSON.stringify(params.args).slice(0, 1000),
+              decision: 'allow',
+              reason: `白名单 allow 匹配: ${r.pattern}`,
+            })
+            return {
+              allowed: true,
+              mode: perm.mode,
+              reason: `白名单 allow 匹配: ${r.pattern}`,
+              matchedRule: r.pattern,
+            }
+          }
+          if (r.decision === 'deny') {
+            await appendAuditLog({
+              userId: params.userId,
+              workspacePath: params.workspacePath,
+              toolName: params.tool,
+              args: JSON.stringify(params.args).slice(0, 1000),
+              decision: 'deny',
+              reason: `白名单 deny 匹配: ${r.pattern}`,
+            })
+            return {
+              allowed: false,
+              mode: perm.mode,
+              reason: `白名单 deny 匹配: ${r.pattern}`,
+              matchedRule: r.pattern,
+            }
+          }
+        }
+      }
+      // 无匹配 → 走人工审计
+      const audit = await this.requestWorkspaceConfirmation({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        tool: params.tool,
+        args: params.args,
+      })
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: audit.allowed ? 'allow' : 'deny',
+        reason: `accept-edits 无匹配规则,人工审计: ${audit.reason}`,
+      })
+      return {
+        allowed: audit.allowed,
+        mode: perm.mode,
+        reason: audit.reason,
+      }
+    }
+
+    // default → 全部人工审计
+    const audit = await this.requestWorkspaceConfirmation({
+      userId: params.userId,
+      workspacePath: params.workspacePath,
+      tool: params.tool,
+      args: params.args,
+    })
+    await appendAuditLog({
+      userId: params.userId,
+      workspacePath: params.workspacePath,
+      toolName: params.tool,
+      args: JSON.stringify(params.args).slice(0, 1000),
+      decision: audit.allowed ? 'allow' : 'deny',
+      reason: `default 模式人工审计: ${audit.reason}`,
+    })
+    return {
+      allowed: audit.allowed,
+      mode: perm.mode,
+      reason: audit.reason,
+    }
+  }
+
+  /**
+   * workspace 规则匹配:支持 path / command / operation 三种 ruleType。
+   * 与 SAFE_TEMPLATES 的 24 条预置规则格式兼容。
+   */
+  private workspaceRuleMatches(
+    ruleType: string,
+    pattern: string,
+    _operation: string | null | undefined,
+    tool: string,
+    args: Record<string, unknown>,
+  ): boolean {
+    if (ruleType === 'path') {
+      const filePath = String(args.path ?? '')
+      if (!filePath) return false
+      return this.matchPath(filePath, pattern)
+    }
+    if (ruleType === 'command') {
+      // command 规则:execute_command:cmd_prefix 或 旧式 tool 名(read_file 等)
+      if (pattern.startsWith('execute_command:')) {
+        if (tool !== 'fs.run') return false
+        const cmdPrefix = pattern.slice('execute_command:'.length)
+        const cmd = String(args.command ?? '')
+        if (cmdPrefix.endsWith(' *')) {
+          return cmd.startsWith(cmdPrefix.slice(0, -2))
+        }
+        if (cmdPrefix === 'curl *|*') {
+          return cmd.startsWith('curl ') && cmd.includes('|')
+        }
+        return cmd.startsWith(cmdPrefix)
+      }
+      // 旧式 tool 名映射(read_file / write_file / search_files 等)
+      const legacyMap: Record<string, string> = {
+        read_file: 'fs.read',
+        write_file: 'fs.write',
+        search_files: 'fs.grep',
+        list_directory: 'fs.browse',
+        get_file_info: 'fs.read',
+      }
+      const mappedTool = legacyMap[pattern]
+      if (mappedTool) return tool === mappedTool
+      return tool === pattern
+    }
+    if (ruleType === 'operation') {
+      // operation 规则格式: "read:*" / "write:*.md" 等
+      if (!pattern.includes(':')) return false
+      const parts = pattern.split(':')
+      const opType = parts[0]
+      const opPattern = parts[1]
+      if (!opType || !opPattern) return false
+      const currentOp = this.deriveOperation(tool)
+      if (opType !== currentOp) return false
+      if (opPattern === '*') return true
+      if (opPattern.startsWith('*.')) {
+        return String(args.path ?? '').endsWith(opPattern.slice(1))
+      }
+      return false
+    }
+    return false
+  }
+
+  private deriveOperation(tool: string): string {
+    if (tool === 'fs.read' || tool === 'fs.grep' || tool === 'fs.glob' || tool === 'fs.browse') {
+      return 'read'
+    }
+    if (tool === 'fs.write' || tool === 'fs.edit') return 'write'
+    if (tool === 'fs.delete') return 'delete'
+    if (tool === 'fs.run') return 'execute'
+    return 'unknown'
   }
 }
 
