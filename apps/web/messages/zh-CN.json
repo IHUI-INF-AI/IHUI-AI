@@ -439,7 +439,103 @@
     "openclaw": "OpenClaw",
     "pricing": "定价",
     "recruitment": "招募",
-    "support": "客服中心"
+    "support": "客服中心",
+    "modelsOverview": "模型概览",
+    "modelsMarket": "模型市场",
+    "modelsChannels": "渠道管理",
+    "modelsKeys": "API 密钥",
+    "modelsLogs": "调用日志",
+    "modelsChats": "对话记录",
+    "modelsUsers": "用户管理",
+    "modelsGroups": "用户分组",
+    "modelsUsage": "使用统计",
+    "modelsBilling": "账单管理",
+    "modelsRedeem": "兑换码",
+    "modelsReferral": "推荐奖励",
+    "modelsOpenclaw": "OpenClaw",
+    "modelsApiDocs": "API 文档",
+    "modelsSkills": "技能市场",
+    "messagesNotice": "通知",
+    "messagesLike": "点赞",
+    "messagesFavorite": "收藏",
+    "messagesComment": "评论",
+    "messagesFans": "粉丝",
+    "messagesPrivateLetter": "私信",
+    "userProfile": "个人资料",
+    "userSecurity": "账号安全",
+    "userNotifications": "通知设置",
+    "userOrders": "我的订单",
+    "userRealname": "实名认证",
+    "userSubscription": "订阅管理",
+    "userLearnRecord": "学习记录",
+    "userComment": "我的评论",
+    "userFans": "我的粉丝",
+    "userFollow": "我的关注",
+    "userAsk": "我的提问",
+    "userCircle": "我的圈子",
+    "userResource": "我的资源",
+    "userPoint": "积分中心",
+    "userExam": "我的考试",
+    "userSignUp": "报名记录",
+    "eduDashboard": "学习概览",
+    "eduCourses": "我的课程",
+    "eduExam": "在线考试",
+    "eduCertificates": "我的证书",
+    "eduSchedule": "课程表",
+    "eduNotes": "学习笔记",
+    "eduQa": "问答中心",
+    "eduProgress": "学习进度",
+    "memberDashboard": "会员仪表板",
+    "memberOrders": "我的订单",
+    "memberBenefits": "会员权益",
+    "memberPoints": "积分中心",
+    "memberCoupons": "优惠券",
+    "memberSubscription": "订阅管理",
+    "memberRefunds": "退款记录",
+    "memberAddresses": "收货地址",
+    "memberFavorites": "收藏夹",
+    "memberHistory": "浏览历史",
+    "memberInvitations": "邀请记录",
+    "memberFeedback": "意见反馈",
+    "memberHelp": "帮助中心",
+    "memberSettings": "会员设置",
+    "memberUpgrade": "会员升级",
+    "developerApiDocs": "API 文档",
+    "developerKeys": "密钥管理",
+    "developerWebhooks": "Webhook",
+    "developerSandbox": "沙箱环境",
+    "developerLimits": "调用限额",
+    "developerLogs": "调用日志",
+    "developerVersions": "版本管理",
+    "developerSubscription": "订阅管理",
+    "developerNotifications": "通知设置",
+    "developerTeam": "团队管理",
+    "developerBilling": "账单管理",
+    "developerSettings": "开发者设置",
+    "adminTheme": "主题管理",
+    "adminThemeList": "主题列表",
+    "adminThemeCreate": "创建主题",
+    "adminThemeColors": "颜色方案",
+    "adminThemeFonts": "字体配置",
+    "adminThemeDarkMode": "暗色模式",
+    "adminThemeAssets": "品牌资产",
+    "adminThemePresets": "预设主题",
+    "adminThemeExport": "导出",
+    "adminConfigs": "系统配置",
+    "adminDynamic": "动态",
+    "adminGroup": {
+      "operation": "运营管理",
+      "moderation": "内容审核",
+      "finance": "财务管理",
+      "aiAgent": "AI 智能体",
+      "marketing": "营销直播",
+      "courseExam": "课程考试",
+      "analytics": "监控 BI",
+      "support": "客服工单",
+      "community": "社区圈子",
+      "resource": "资源中心",
+      "developer": "开发者中心"
+    }
   },
   "auth": {
     "loginTitle": "欢迎回来",
@@ -24395,10 +24491,10 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "8 端全覆盖 · 行业首个",
-      "explore": "100+ 大模型一站式接入",
-      "brand": "自研 CLI 对标 Claude Code",
-      "connect": "LangGraph + MCP + A2A 三栈合一",
+      "content": "8 端全覆盖 · 行业唯一全栈 AI 平台",
+      "explore": "100+ LLM 模型 · 一个 API Key 全部访问",
+      "brand": "自研 CLI 对标 Claude Code · ACP 编辑器嵌入",
+      "connect": "LangGraph + MCP + A2A 三栈 · 1029+ API 端点",
       "ctaPrimary": "立即体验",
       "ctaSecondary": "了解更多",
       "miniappBtn": "微信小程序"
@@ -24441,11 +24537,11 @@
     "marquee": {
       "label": "公告",
       "items": [
-        "8 端全覆盖 AI 平台 · 100+ 大模型一站式接入 · 自研 CLI 对标 Claude Code",
-        "欢迎加入智汇 AI 社区,早鸟价 ¥6000/人/年,限 18 席",
-        "企业 AI 化决策者社群开放招募,人机协同实战课程全年免费",
-        "前 18 位会员享受一对一 AI 顾问咨询,不满意全额退款",
-        "立即扫码加入智汇 AI 社区,与决策者一起探索 AI 时代"
+        "8 端全覆盖 · 100+ LLM 大模型 · 1029+ API 端点 · 自研 CLI 对标 Claude Code",
+        "LangGraph + MCP + A2A 三栈合一 · 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展",
+        "17 项 pre-commit 守门 + 122+ migrations · 工业级工程严谨",
+        "限 18 席决策者 · 早鸟价 ¥6000/年(原价 ¥18000,3.3 折)· 不满意全额退款",
+        "1v1 AI 顾问 + 全年课程免费 + AI 文化落地陪跑 · 立即加入智汇 AI 社区"
       ],
       "title": "合作品牌"
     },
@@ -24454,10 +24550,10 @@
       "subtitle": "AI 时代企业理性效率服务与互助社群。帮助决策者深度理解 AI 与企业的关系,构建人机协同的超级组织。",
       "description": "立即加入社区,享受全部 AI 工具、专属客服、高级模型访问等专属权益,助你工作更高效。",
       "brandTitle": "智汇 AI 社区",
-      "brandSubtitle": "8 端全覆盖的企业级 AI 平台",
-      "seats": "限 18 席决策者",
-      "earlyBird": "早鸟价 ¥6000/年",
-      "multiEnd": "8 端全覆盖",
+      "brandSubtitle": "8 端全覆盖 · 100+ 大模型 · 1029+ API 端点",
+      "seats": "限 18 席 · 决策者专属",
+      "earlyBird": "早鸟价 ¥6000/年 · 3.3 折",
+      "multiEnd": "8 端全覆盖 · 行业唯一",
       "perYear": "天/年陪伴",
       "benefits": {
         "benefit1": "全年所有课程免费参加",
@@ -24469,9 +24565,9 @@
       }
     },
     "stats": {
-      "platforms": "端全覆盖",
-      "models": "大模型接入",
-      "seats": "席限位 · 决策者"
+      "platforms": "端全覆盖 · 行业唯一",
+      "models": "+ LLM 大模型接入",
+      "seats": "席限量 · 决策者专属"
     },
     "news": {
       "title": "最新资讯",
@@ -24517,44 +24613,44 @@
       "recommended": "推荐",
       "basic": {
         "name": "基础版",
-        "description": "适合个人开发者体验 AI 平台",
-        "feature1": "无限次AI对话",
+        "description": "个人开发者 · 入门体验 AI 平台核心能力",
+        "feature1": "无限次 AI 对话",
         "feature2": "图片生成",
         "feature3": "语音输入",
         "feature4": "文件上传",
-        "feature5": "30天历史记录",
+        "feature5": "30 天历史记录",
         "feature6": "专属客服",
         "feature7": "高级模型访问"
       },
       "professional": {
         "name": "专业版",
-        "description": "适合企业决策者深度使用",
-        "feature1": "无限次AI对话",
+        "description": "企业决策者 · 深度使用 100+ 大模型 + 自研 CLI",
+        "feature1": "无限次 AI 对话",
         "feature2": "图片/视频生成",
-        "feature3": "90天历史记录",
-        "feature4": "150+ AI工具",
-        "feature5": "API访问",
+        "feature3": "90 天历史记录",
+        "feature4": "150+ AI 工具",
+        "feature5": "API 访问",
         "feature6": "数据导出",
         "feature7": "优先体验新功能"
       },
       "enterprise": {
         "name": "企业版",
-        "description": "适合中小团队人机协同",
-        "feature1": "无限次AI对话",
+        "description": "中小团队 · 人机协同 + 团队协作 + 专属顾问",
+        "feature1": "无限次 AI 对话",
         "feature2": "图片/视频生成",
         "feature3": "永久历史记录",
-        "feature4": "全部AI工具",
-        "feature5": "API接口访问",
+        "feature4": "全部 AI 工具",
+        "feature5": "API 接口访问",
         "feature6": "团队协作",
         "feature7": "专属顾问"
       },
       "flagship": {
         "name": "旗舰版",
-        "description": "适合追求极致 AI 体验的决策者",
-        "feature1": "无限Token使用",
-        "feature2": "全部AI模型访问",
+        "description": "追求极致 AI 体验 · 1v1 顾问 + AI 文化落地陪跑",
+        "feature1": "无限 Token 使用",
+        "feature2": "全部 AI 模型访问",
         "feature3": "极速响应",
-        "feature4": "专属VIP客服",
+        "feature4": "专属 VIP 客服",
         "feature5": "定制化开发",
         "feature6": "专属培训课程",
         "feature7": "优先问题处理"
@@ -24565,24 +24661,24 @@
       "titleEn": "POWERFUL FEATURES",
       "subtitle": "8 端全覆盖的企业级 AI 平台,从模型集成到自研 CLI,满足您的各种需求",
       "modelIntegration": {
-        "title": "8 端全覆盖",
-        "description": "Web/桌面/移动/小程序/CLI/浏览器扩展,统一账号无缝切换"
+        "title": "8 端全覆盖架构",
+        "description": "Web/桌面/移动/小程序/CLI/扩展 6 端 + API/AI-Service 2 端,行业唯一全栈,统一账号无缝切换"
       },
       "appStore": {
-        "title": "100+ 大模型",
-        "description": "OpenAI/Claude/Gemini/DeepSeek/Qwen/GLM,一个 API Key 访问全部"
+        "title": "100+ LLM 大模型",
+        "description": "国际 30+ (OpenAI/Claude/Gemini/Llama) + 国产 15+ (Qwen/GLM/DeepSeek) + 云 40+ 提供商,一个 API Key 全访问"
       },
       "contentCreation": {
-        "title": "自研 CLI",
-        "description": "对标 Claude Code,ACP Server + 6 工具一键导入"
+        "title": "自研 CLI 对标 Claude Code",
+        "description": "ACP Server 嵌入 Zed/VSCode/Cursor + 6 私有扩展方法 + 6 来源配置一键导入"
       },
       "edu": {
         "title": "AI 教育全栈",
-        "description": "课程/直播/考试/证书,全年免费参加"
+        "description": "课程/直播/考试/证书/讲师/班级 6 大模块,全年所有课程免费参加"
       },
       "navigation": {
-        "title": "AI 工作空间",
-        "description": "3 种权限模式 + 7 端点运行时拦截,企业级安全"
+        "title": "企业级工作空间",
+        "description": "3 权限模式 + 7 端点运行时拦截 + 60s 超时拒绝 + RBAC 细粒度权限管控"
       }
     },
     "advantages": {
@@ -24590,20 +24686,20 @@
       "titleEn": "CORE ADVANTAGES",
       "subtitle": "为什么选择智汇AI",
       "professional": {
-        "title": "专业",
-        "description": "8 端全覆盖 + 17 守门脚本 + 全栈可观测性,行业首个企业级 AI 工程实践"
+        "title": "工程严谨 · 行业标杆",
+        "description": "17 项 pre-commit 守门 + 4 husky 钩子 + 122+ migrations + 12 共享 packages,工业级代码质量"
       },
       "efficient": {
-        "title": "高效",
-        "description": "LiteLLM 智能路由 + 60% 缓存降本 + LangGraph 图调度,加速 AI 应用落地"
+        "title": "智能路由 · 极致降本",
+        "description": "LiteLLM 100+ 模型智能路由 + 60% 缓存命中降本 + LangGraph 图调度,加速 AI 落地"
       },
       "reliable": {
-        "title": "可靠",
-        "description": "99.9% SLA + 60s 超时拒绝 + RBAC + AES-256-GCM 加密,企业级安全"
+        "title": "企业级安全 · 零风险",
+        "description": "99.9% SLA + AES-256-GCM 加密 + RBAC + 5 语言 i18n parity + 不满意全额退款"
       },
       "innovative": {
-        "title": "创新",
-        "description": "LangGraph + MCP + A2A 三栈合一,行业首个 Agent 间通信协议"
+        "title": "三栈合一 · 行业前沿",
+        "description": "LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,对标 Claude Code 全维度超越"
       }
     }
   },

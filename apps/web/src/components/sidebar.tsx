@@ -61,24 +61,20 @@ import {
   Gauge,
   GitBranch,
   Webhook,
-  Download,
   Palette,
   Paintbrush,
   Type,
   Image as ImageIcon,
   LayoutTemplate,
-  Plus,
   FileCheck,
   CalendarDays,
   NotebookPen,
-  ShoppingBag,
   Ticket,
   RotateCcw,
   MapPin,
   Heart,
   History,
   ArrowUp,
-  MessageCircle,
   Mail,
   ShieldCheck,
   Receipt,
@@ -90,7 +86,6 @@ import {
   MessagesSquare,
   UserPlus,
   ClipboardList,
-  CheckCircle2,
   Circle as CircleIcon,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
@@ -117,7 +112,7 @@ import { SidebarChatHistory } from '@/components/sidebar-chat-history'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { DOWNLOADS, isExternalDownloadHref } from '@/lib/downloads'
-import { ADMIN_NAV, ADMIN_NAV_GROUPS, type AdminNavItem, type AdminNavGroup } from '@/components/layout/AdminNav'
+import { ADMIN_NAV_GROUPS, type AdminNavGroup } from '@/components/layout/AdminNav'
 import { useAdminRouters } from '@/hooks/use-admin-routers'
 
 interface NavItem {
@@ -218,7 +213,12 @@ const ADMIN_THEME_CHILDREN: NavItem[] = [
   { href: '/admin/theme/fonts', labelKey: 'adminThemeFonts', icon: Type, adminOnly: true },
   { href: '/admin/theme/dark-mode', labelKey: 'adminThemeDarkMode', icon: Moon, adminOnly: true },
   { href: '/admin/theme/assets', labelKey: 'adminThemeAssets', icon: ImageIcon, adminOnly: true },
-  { href: '/admin/theme/presets', labelKey: 'adminThemePresets', icon: LayoutTemplate, adminOnly: true },
+  {
+    href: '/admin/theme/presets',
+    labelKey: 'adminThemePresets',
+    icon: LayoutTemplate,
+    adminOnly: true,
+  },
   { href: '/admin/theme/export', labelKey: 'adminThemeExport', icon: Download, adminOnly: true },
   { href: '/admin/configs', labelKey: 'adminConfigs', icon: Settings, adminOnly: true },
 ]
@@ -249,7 +249,12 @@ const MESSAGES_CHILDREN: NavItem[] = [
   { href: '/messages/favorite', labelKey: 'messagesFavorite', icon: Star },
   { href: '/messages/comment', labelKey: 'messagesComment', icon: MessageSquare },
   { href: '/messages/fans', labelKey: 'messagesFans', icon: Users },
-  { href: '/messages/private-letter', labelKey: 'messagesPrivateLetter', icon: Mail, badge: 'messages' },
+  {
+    href: '/messages/private-letter',
+    labelKey: 'messagesPrivateLetter',
+    icon: Mail,
+    badge: 'messages',
+  },
 ]
 
 /** /user 16 项作为 /user/profile 的三级子菜单 */
@@ -1105,7 +1110,9 @@ function ExpandableNavItem({
 
   // 未读数 badge:/messages 子项显示未读私信/通知数(从 useNotificationStore 获取)
   const notifUnread = useNotificationStore((s) => s.unreadCount)
-  const msgUnread = useNotificationStore((s) => s.notifications.filter((n) => n.type === 'message').length)
+  const msgUnread = useNotificationStore(
+    (s) => s.notifications.filter((n) => n.type === 'message').length,
+  )
   const getBadgeCount = (badge?: 'messages' | 'notification'): number => {
     if (badge === 'messages') return msgUnread
     if (badge === 'notification') return notifUnread
@@ -1172,7 +1179,8 @@ function ExpandableNavItem({
       {children.map((child) => {
         const ChildIcon = child.icon
         const active = isActive(child.href)
-        const childLabel = t(child.labelKey)
+        const childLabel = child.dynamicLabel ?? t(child.labelKey)
+        const badgeCount = getBadgeCount(child.badge)
         const refCb = (el: HTMLElement | null) => registerRef(child.href, el)
         return (
           <Link
@@ -1185,13 +1193,12 @@ function ExpandableNavItem({
             className={childClassName(active)}
           >
             <ChildIcon className="h-4 w-4 shrink-0" />
-            {/*
-              同父按钮,故意不用 flex-1 — 避免被 blockify 后被父级 text-align:center 居中,
-              跨级继承问题在父按钮根因修复后理论上更安全(子级 Link 是 <a> 而非 flex item),
-              但为防御性 + 与父按钮策略一致仍显式去掉 flex-1,统一处理。
-              truncate 仍保留,二级菜单文本过长截断。
-            */}
             <span className="min-w-0 truncate text-left">{childLabel}</span>
+            {badgeCount > 0 && (
+              <span className="ml-auto shrink-0 rounded-md bg-red-500 px-1.5 text-[10px] font-medium leading-4 text-white">
+                {badgeCount > 99 ? '99+' : badgeCount}
+              </span>
+            )}
           </Link>
         )
       })}
@@ -1205,7 +1212,7 @@ function ExpandableNavItem({
         align="start"
         items={children.map((child) => ({
           key: child.href,
-          label: t(child.labelKey),
+          label: child.dynamicLabel ?? t(child.labelKey),
           icon: child.icon,
           onSelect: () => {
             router.push(child.href)
@@ -1503,6 +1510,9 @@ export function Sidebar({
   const tchat = useTranslations('aiChat')
   const aiPanelOpen = useAiPanelStore((s) => s.open)
   const toggleAiPanel = useAiPanelStore((s) => s.togglePanel)
+  const isAdmin = (user?.roleId ?? 0) >= 1
+  // admin 动态路由:仅 admin 用户拉取,合并到"管理"分组 items 前部(过滤掉已分组的项)
+  const { list: adminDynamicList, loaded: adminLoaded } = useAdminRouters()
 
   const navRef = React.useRef<HTMLElement>(null)
   const mobileNavRef = React.useRef<HTMLElement>(null)
@@ -1572,11 +1582,38 @@ export function Sidebar({
     [pathname],
   )
 
-  const isAdmin = (user?.roleId ?? 0) >= 1
-  const visibleGroups = NAV_GROUPS.map((g) => ({
-    ...g,
-    items: g.items.filter((item) => !item.adminOnly || isAdmin),
-  })).filter((g) => g.items.length > 0)
+  // admin 动态路由合并:已加载 + 有数据 + admin 用户时,把不在 ADMIN_NAV_GROUPS 分组内的
+  // 动态路由作为扁平 NavItem 合并到"管理"分组前部(放在静态 /admin 入口之后)。
+  // 静态 /admin/statistics 等保留在前,动态项跟在后面,11 个分组展开项放最后。
+  const adminDynamicItems: NavItem[] = React.useMemo(() => {
+    if (!isAdmin || !adminLoaded || adminDynamicList.length === 0) return []
+    const groupedHrefs = new Set(ADMIN_NAV_GROUPS.flatMap((g) => g.items.map((i) => i.href)))
+    return adminDynamicList
+      .filter((r) => r.visible !== 0 && r.path && !groupedHrefs.has(r.path))
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+      .map((r) => ({
+        href: r.path,
+        labelKey: 'adminDynamic',
+        icon: LayoutDashboard,
+        adminOnly: true,
+        dynamicLabel: r.name,
+      }))
+  }, [isAdmin, adminLoaded, adminDynamicList])
+
+  const visibleGroups = React.useMemo(() => {
+    return NAV_GROUPS.map((g) => {
+      const filtered = g.items.filter((item) => !item.adminOnly || isAdmin)
+      // 合并 admin 动态路由到"管理"分组(items[0] 是 /admin 入口,动态项插在它后面)
+      if (g.label === '管理' && adminDynamicItems.length > 0) {
+        const [head, ...rest] = filtered
+        return {
+          ...g,
+          items: head ? [head, ...adminDynamicItems, ...rest] : [...adminDynamicItems, ...rest],
+        }
+      }
+      return { ...g, items: filtered }
+    }).filter((g) => g.items.length > 0)
+  }, [isAdmin, adminDynamicItems])
 
   const allVisibleItems = React.useMemo(
     () => flattenNavItems(visibleGroups.flatMap((g) => g.items)),
