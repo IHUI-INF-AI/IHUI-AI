@@ -313,7 +313,23 @@
     "modifySuccess": "変更成功"
   },
   "a11y": {
-    "menu": "メニュー"
+    "menu": "メニュー",
+    "more": "その他",
+    "close": "閉じる",
+    "copy": "コピー",
+    "copyResponse": "レスポンスをコピー",
+    "barChart": "棒グラフ",
+    "heatmap": "ヒートマップ",
+    "lineChart": "折れ線グラフ",
+    "pieChart": "円グラフ",
+    "radarChart": "レーダーチャート",
+    "openCustomerService": "カスタマーサポートを開く",
+    "minimize": "最小化",
+    "send": "送信",
+    "closeTag": "タグを閉じる",
+    "closeAlert": "アラートを閉じる",
+    "searchOption": "オプションを検索",
+    "uploadAvatar": "アバターをアップロード"
   },
   "nav": {
     "title": "メインナビゲーション",
@@ -982,6 +998,74 @@
       "tasks": "タスクリスト",
       "routines": "ルーチン",
       "folders": "フォルダ"
+    },
+    "openLocalFolder": "ローカルフォルダを開く",
+    "openedWorkspace": "開かれたワークスペース",
+    "reopenPermission": "権限を再設定",
+    "folderPicker": {
+      "title": "ローカルプロジェクトフォルダを選択",
+      "description": "ローカルディスクを閲覧してプロジェクトフォルダを選択します。初回オープン時にアクセス権限を設定します。",
+      "root": "ルートディレクトリ",
+      "loading": "ディレクトリを読み込み中...",
+      "noDirectories": "このディレクトリにサブフォルダはありません",
+      "selected": "選択済み:",
+      "cancel": "キャンセル",
+      "opening": "開いています...",
+      "selectAndOpen": "選択して開く"
+    },
+    "permission": {
+      "title": "ワークスペースアクセス権限",
+      "description": "このワークスペースに対する AI のアクセス権限モードを選択してください",
+      "path": "パス",
+      "techStack": "技術スタック",
+      "selectMode": "権限モードを選択",
+      "highRisk": "高リスク",
+      "whitelistRules": "ホワイトリストルール",
+      "manageRules": "ルールを管理",
+      "collapseRules": "ルールを折りたたむ",
+      "bypassWarning": "完全アクセス権限は AI にファイル削除、任意のコマンド実行などすべての操作を許可します。完全に信頼するプライベートプロジェクトでのみ使用してください。",
+      "cancel": "キャンセル",
+      "saveAndOpen": "保存して開く",
+      "saving": "保存中...",
+      "add": "追加",
+      "patternPlaceholder": "マッチパターンを入力 (例: src/**, *.ts)",
+      "loadingRules": "ルールを読み込み中...",
+      "noRules": "ルールがありません。リセットボタンを押してデフォルトの安全テンプレートを読み込んでください",
+      "deleteRule": "ルールを削除",
+      "builtin": "組み込み",
+      "resetToDefaults": "デフォルトテンプレートにリセット",
+      "mode": {
+        "default": {
+          "title": "手動監査",
+          "desc": "すべての操作にユーザー確認が必要、最も安全"
+        },
+        "accept-edits": {
+          "title": "ホワイトリスト許可",
+          "desc": "ホワイトリストルール内の操作のみ許可、それ以外は確認が必要"
+        },
+        "bypass-permissions": {
+          "title": "完全アクセス",
+          "desc": "AI がすべての操作を実行可能、確認不要"
+        }
+      },
+      "ruleType": {
+        "path": "パス",
+        "command": "コマンド",
+        "tool": "ツール"
+      },
+      "decision": {
+        "allow": "許可",
+        "deny": "拒否"
+      }
+    },
+    "permissionsPage": {
+      "title": "ワークスペース権限管理",
+      "subtitle": "すべてのローカルワークスペースのアクセス権限を管理",
+      "loading": "読み込み中...",
+      "empty": "ワークスペース権限設定がありません",
+      "goToWorkspace": "ワークスペースに戻る",
+      "edit": "編集",
+      "confirmDelete": "このワークスペースの権限設定を削除しますか?"
     }
   },
   "chat": {
@@ -8218,6 +8302,8 @@
     "connectedAccountsDesc": "しているサードパーティアカウントを",
     "llmConfigsTitle": "LLM 設定",
     "llmConfigsDesc": "各 AI プラットフォームの API キー、モデル ID、コンテキストを管理",
+    "cliImportTitle": "CLI 設定インポート",
+    "cliImportDesc": "cc-switch / codex++ / Claude / Codex / Gemini / Hermes などのローカルツールからワンクリックインポート",
     "securityTitle": "アカウントセキュリティ",
     "securityDesc": "アカウントのセキュリティを",
     "activityLoading": "読み込み中...",
@@ -24668,5 +24754,57 @@
     "xAxisLabel": "X軸",
     "yAxisLabel": "Y軸",
     "valueSuffix": ""
+  },
+  "cliImport": {
+    "title": "CLI 設定インポート",
+    "desc": "cc-switch / codex++ / Claude / Codex / Gemini / Hermes などのローカルツールからワンクリックインポート",
+    "sources": "対応ソース",
+    "sourceCcSwitch": "cc-switch",
+    "sourceCodexPlus": "codex++",
+    "sourceClaudeCli": "Claude Code",
+    "sourceCodexCli": "Codex CLI",
+    "sourceGeminiCli": "Gemini CLI",
+    "sourceHermes": "Hermes",
+    "upload": "ファイルアップロード",
+    "uploadHint": "ローカル設定ファイルを選択(.db / .json / .toml / .yaml / .env)",
+    "dragDrop": "ここにファイルをドラッグまたはクリックして選択",
+    "fileSelected": "選択済み: {name} ({size})",
+    "parse": "解析",
+    "parsing": "解析中...",
+    "parseFailed": "解析失敗: {error}",
+    "parseSuccess": "解析成功、プロバイダー {count} 件",
+    "previewTitle": "解析プレビュー",
+    "selectAll": "すべて選択",
+    "deselectAll": "すべて解除",
+    "selected": "{count}/{total} 選択",
+    "conflictStrategy": "重複処理戦略",
+    "overwrite": "上書き",
+    "skip": "スキップ",
+    "clone": "複製",
+    "overwriteDesc": "旧設定を削除して新規取り込み",
+    "skipDesc": "旧設定を保持し新規をスキップ",
+    "cloneDesc": "旧設定を保持し、新規に通番サフィックス付与",
+    "commit": "インポート確定",
+    "committing": "インポート中...",
+    "commitSuccess": "インポート完了: 成功 {imported}, スキップ {skipped}, 失敗 {failed}",
+    "commitFailed": "インポート失敗: {error}",
+    "noApiKey": "(手動入力が必要)",
+    "warning": "警告",
+    "historyTitle": "インポート履歴",
+    "historyEmpty": "インポート履歴なし",
+    "historySource": "ソース",
+    "historyPath": "パス",
+    "historyImported": "成功",
+    "historySkipped": "スキップ",
+    "historyFailed": "失敗",
+    "historyStatus": "ステータス",
+    "historyTime": "時間",
+    "statusSuccess": "成功",
+    "statusPartial": "一部成功",
+    "statusFailed": "失敗",
+    "errorNoFile": "設定ファイルをアップロードしてください",
+    "errorNoSource": "インポートソースを選択してください",
+    "errorPreviewExpired": "プレビュー期限切れ、再解析してください",
+    "errorParseFailed": "解析失敗"
   }
 }

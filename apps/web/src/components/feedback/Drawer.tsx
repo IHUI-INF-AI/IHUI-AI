@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -37,6 +38,7 @@ export function Drawer({
   height = 'auto',
   className,
 }: DrawerProps) {
+  const t = useTranslations('a11y')
   const panelRef = React.useRef<HTMLDivElement>(null)
   const triggerRef = React.useRef<HTMLElement | null>(null)
   const titleId = React.useId()
@@ -88,7 +90,7 @@ export function Drawer({
     <div className="fixed inset-0 z-modal">
       <button
         type="button"
-        aria-label="关闭"
+        aria-label={t('close')}
         className="absolute inset-0 h-full w-full cursor-default bg-black/80 animate-in fade-in-0"
         onClick={onClose}
       />
@@ -116,7 +118,7 @@ export function Drawer({
           )}
           <button
             onClick={onClose}
-            aria-label="关闭"
+            aria-label={t('close')}
             className="ml-auto rounded-sm opacity-70 hover:opacity-100"
           >
             <X className="h-5 w-5" />
