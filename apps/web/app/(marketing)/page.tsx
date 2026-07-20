@@ -1,11 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowRight, Check, ShieldCheck, Users, Zap } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Check, Globe, ShieldCheck, Users, Zap } from 'lucide-react'
 import { AnimatedNumber } from '@/components/common'
 import { Marquee } from '@/components/marketing/Marquee'
 import { PageIndicator } from '@/components/marketing/PageIndicator'
@@ -45,11 +42,8 @@ const TOTAL_PAGES = 4
 export default function HomePage() {
   const t = useTranslations('marketing')
   const te = useTranslations('enterprise')
-  const router = useRouter()
 
   const { section, scrollTo, next } = useFullPageScroll(TOTAL_PAGES)
-
-  const handleJoin = () => router.push('/support?source=landing')
 
   const benefits = BENEFITS_KEYS.map((k) => t(`welcome.benefits.${k}`))
 
@@ -88,7 +82,12 @@ export default function HomePage() {
           <div className="flex w-full flex-1 flex-col items-center justify-center gap-4 md:gap-5">
             <TypewriterHeroSection />
 
-            {/* 4 个信任徽章 — 填充 hero 与底部之间的视觉空地 */}
+            {/* 4 个信任徽章 — 填充 hero 与底部之间的视觉空地
+                2026-07-20 重构:从 3 个改为 4 个,修复 cta.subtitle 长句错位
+                1. 不满意全额退款(benefit6)
+                2. 限 18 席决策者(welcome.seats)
+                3. 早鸟价 ¥6000/年(welcome.earlyBird)
+                4. 8 端全覆盖(welcome.multiEnd) */}
             <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-[11px] text-muted-foreground md:text-xs">
               <span className="inline-flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-primary" />
@@ -97,12 +96,17 @@ export default function HomePage() {
               <span className="hidden h-3 w-px bg-border md:inline-block" />
               <span className="inline-flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5 text-primary" />
-                {t('welcome.perYear')}
+                {t('welcome.seats')}
               </span>
               <span className="hidden h-3 w-px bg-border md:inline-block" />
               <span className="inline-flex items-center gap-1.5">
                 <Zap className="h-3.5 w-3.5 text-primary" />
-                {t('cta.subtitle')}
+                {t('welcome.earlyBird')}
+              </span>
+              <span className="hidden h-3 w-px bg-border md:inline-block" />
+              <span className="inline-flex items-center gap-1.5">
+                <Globe className="h-3.5 w-3.5 text-primary" />
+                {t('welcome.multiEnd')}
               </span>
             </div>
           </div>
@@ -160,13 +164,19 @@ export default function HomePage() {
               <HomePage4Pricing />
             </div>
 
-            {/* 4 Stat 数据条(中部,固定高度) */}
+            {/* 4 Stat 数据条(中部,固定高度)
+                2026-07-20 重构:从 [18, 365, 6000, 67%] 改为 [8, 100+, ¥6000, 18]
+                1. 8 端全覆盖(stats.platforms)
+                2. 100+ 大模型接入(stats.models)
+                3. ¥6000 元/人/年 早鸟价(enterprise.hero.priceEarlyBird)
+                4. 18 席限位 · 决策者(stats.seats)
+                修复原 67% + cta.subtitle 长句错位 bug */}
             <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
               {[
-                { value: 18, suffix: '', label: t('welcome.perYear') },
-                { value: 365, suffix: '', label: t('welcome.perYear') },
+                { value: 8, suffix: '', label: t('stats.platforms') },
+                { value: 100, suffix: '+', label: t('stats.models') },
                 { value: 6000, prefix: '¥', label: te('hero.priceEarlyBird') },
-                { value: 67, suffix: '%', label: t('cta.subtitle') },
+                { value: 18, suffix: '', label: t('stats.seats') },
               ].map((s, i) => (
                 <div
                   key={i}
@@ -184,32 +194,31 @@ export default function HomePage() {
               ))}
             </div>
 
-            {/* Brand 跑马灯 + CTA(底部并排) */}
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto]">
-              <BrandMarquee />
-              <div className="flex items-center justify-center gap-2">
-                <Button size="sm" onClick={handleJoin}>
-                  {t('cta.join')}
-                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                </Button>
-                <Button size="sm" variant="outline" asChild>
-                  <Link href="/dashboard">{t('cta.dashboard')}</Link>
-                </Button>
-              </div>
-            </div>
+            {/* Brand 跑马灯(底部,删除原 CTA 按钮组 2026-07-20:
+                用户要求"不需要有这个跳转功能",移除"立即加入"/"进入工作台"按钮,
+                仅保留品牌跑马灯展示) */}
+            <BrandMarquee />
           </div>
         </section>
 
         {/* Page 4: Magazine 新闻 + Footer
-            - 2026-07-20 改:去掉 snap-start,因为 section 高度(magazine + footer ~1340px)
-              超过 viewport 884px,snap-mandatory 强制吸附到 section 顶部导致用户滚不到底部,
-              版权 + 国徽图标看不到。改为不参与 snap,用户可自由滚到底部看完整 footer。
-              前 3 个 section 仍保留 snap-start,正常吸附体验不受影响。 */}
-        <section id="home-page-4" aria-label={t('magazine.title', { fallback: 'News' })}>
-          <div className="flex min-h-[50vh] w-full flex-col px-4 py-4 md:px-8 md:py-5">
+            - 2026-07-20 改(自适应 v3):section min-h 视口高度,flex flex-col,snap-start。
+            - magazine 加回 flex-1 min-h-0:让 magazine 撑开 = 视口 - footer 自然高度。
+            - HomePage3Magazine 内部已改 flex-1 flex-col(2026-07-20),让 Card / grid
+              撑开 magazine 容器,根 section flex-1 + "查看更多" mt-auto 推到底。
+              彻底消除"暂无内容"卡片下方 200+px 大空隙。
+            - footer 高度完全由内容决定 (~180-200px),不再被 section flex 强制拉伸。 */}
+        <section
+          id="home-page-4"
+          className="flex min-h-[calc(100vh-1rem)] snap-start flex-col"
+          aria-label={t('magazine.title', { fallback: 'News' })}
+        >
+          <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-2 md:px-8 md:pt-5 md:pb-2">
             <HomePage3Magazine />
           </div>
-          <SiteFooter />
+          {/* mt-0 替代 mt-auto:magazine 已 flex-1 撑开,footer 紧贴下方无缝衔接。
+              mt-auto 会留中间大空白,已实测验证。 */}
+          <SiteFooter className="mt-0" />
         </section>
       </main>
 
