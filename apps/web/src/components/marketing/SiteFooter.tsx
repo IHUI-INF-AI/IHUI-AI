@@ -3,6 +3,18 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { Mail } from 'lucide-react'
+import {
+  DATABASES,
+  IMG_EAGER,
+  MODELS,
+  PAYMENTS,
+  PROMOTIONS,
+  QRS,
+  SUPPORTED,
+  type Icon,
+  type Qr,
+} from './footer-data'
 
 /**
  * SiteFooter — 公司信息 + 生态平台 + 推广平台 + 二维码 + 协议
@@ -10,78 +22,21 @@ import { useTranslations } from 'next-intl'
  * 布局:3 栏 grid(md+)
  *   1. 公司信息(名称/地址/电话/邮箱) + 6 快速链接
  *   2. 4 类生态平台 Logo(支持 2 / 模型 8 / 支付 5 / 数据库 5)
- *   3. 官方推广平台 16 槽位 + 2 固定二维码
+ *   3. 官方推广平台 16 槽位 + 1 官方应用 QR + 1 联系卡片
  * 底部:ICP 备案 + 版权 + 协议链接
  *
- * i18n:全部文案走 `footer.*` / `routes.*`,5 语言已 parity。
- * 资源:public/footer/ 路径,Next.js Image unoptimized 直出。
+ * 图片数据集中在 `footer-data.ts`,与 BrandMarquee 共享单一来源。
+ * i18n 全部走 `footer.*` / `routes.*`,5 语言已 parity。
+ *
+ * 2026-07-20 修复:
+ * - ICON_BOX 背景从 bg-white 改 bg-foreground/[0.04],让 model/3x(Claude 白底透明)
+ *   + awsp/n8n(白底透明)+ tuiguangpingtai/3/5/11(白底透明)等图标在白卡上可见。
+ * - QR_BOX 改 bg-zinc-900(始终深色),让 footer-icon-2.png 的白色 QR 码在亮/暗模式都可见。
+ * - footer-icon-3.png 是 2534×2534 全空白色块(无 QR 数据),改用 Mail 图标 + 联系卡片。
  */
-type Icon = { readonly nameKey: string; readonly src: string; readonly href?: string }
+
 type Link_ = { readonly labelKey: string; readonly href: string }
-type Qr = { readonly src: string; readonly altKey: 'officialApp' | 'contactUs' }
 
-const ICON_BOX =
-  'flex h-9 w-9 items-center justify-center rounded-md border bg-white transition-colors hover:border-primary/40'
-const ICON_IMG = 'h-6 w-6 object-contain'
-const QR_BOX = 'h-24 w-24 overflow-hidden rounded-md border bg-white p-1.5'
-const QR_IMG = 'h-full w-full object-contain'
-const PLATFORM_TITLE = 'text-xs font-semibold text-foreground/80'
-const MUTED_LINK = 'text-muted-foreground transition-colors hover:text-primary'
-
-const SUPPORTED: readonly Icon[] = [
-  { nameKey: 'platforms.n8n', src: '/footer/awsp/n8n.png' },
-  { nameKey: 'platforms.coze', src: '/footer/awsp/coze.png' },
-]
-const MODELS: readonly Icon[] = [
-  { nameKey: 'modelItems.gpt', src: '/footer/model/2.png' },
-  { nameKey: 'modelItems.claude', src: '/footer/model/3x.png' },
-  { nameKey: 'modelItems.gemini', src: '/footer/model/4.png' },
-  { nameKey: 'modelItems.deepseek', src: '/footer/model/5.png' },
-  { nameKey: 'modelItems.qwen', src: '/footer/model/6.png' },
-  { nameKey: 'modelItems.doubao', src: '/footer/model/7.png' },
-  { nameKey: 'modelItems.llama', src: '/footer/model/8x.png' },
-  { nameKey: 'modelItems.mistral', src: '/footer/model/9.png' },
-]
-const PAYMENTS: readonly Icon[] = [
-  { nameKey: 'payments.wechat', src: '/footer/zf/weixin.svg' },
-  { nameKey: 'payments.alipay', src: '/footer/zf/zfb.svg' },
-  { nameKey: 'payments.douyin', src: '/footer/zf/dy.svg' },
-  { nameKey: 'payments.unionpay', src: '/footer/zf/yl.svg' },
-  { nameKey: 'payments.visa', src: '/footer/zf/visa.svg' },
-]
-const DATABASES: readonly Icon[] = [
-  { nameKey: 'databases.mysql', src: '/footer/shujuku/1.png' },
-  { nameKey: 'databases.postgresql', src: '/footer/shujuku/2.png' },
-  { nameKey: 'databases.mongodb', src: '/footer/shujuku/3.png' },
-  { nameKey: 'databases.redis', src: '/footer/shujuku/4.png' },
-  { nameKey: 'databases.sqlite', src: '/footer/shujuku/5.png' },
-]
-const PROMOTIONS: readonly Icon[] = [
-  { nameKey: 'promos.promo1', src: '/footer/tuiguangpingtai/1.png' },
-  { nameKey: 'promos.promo2', src: '/footer/tuiguangpingtai/2.png' },
-  { nameKey: 'promos.promo3', src: '/footer/tuiguangpingtai/3.png' },
-  { nameKey: 'promos.promo4', src: '/footer/tuiguangpingtai/4.png' },
-  { nameKey: 'promos.promo5', src: '/footer/tuiguangpingtai/5.png' },
-  { nameKey: 'promos.promo6', src: '/footer/tuiguangpingtai/6.png' },
-  { nameKey: 'promos.promo7', src: '/footer/tuiguangpingtai/7.png' },
-  { nameKey: 'promos.promo8', src: '/footer/tuiguangpingtai/8.png' },
-  { nameKey: 'promos.x', src: '/footer/tuiguangpingtai/9.png', href: 'https://x.com/ok502319984' },
-  {
-    nameKey: 'promos.facebook',
-    src: '/footer/tuiguangpingtai/10.png',
-    href: 'https://www.facebook.com/share/17kQMPNhQb/',
-  },
-  { nameKey: 'promos.promo11', src: '/footer/tuiguangpingtai/11.png' },
-  { nameKey: 'promos.promo12', src: '/footer/tuiguangpingtai/12.png' },
-  { nameKey: 'promos.promo14', src: '/footer/tuiguangpingtai/14.png' },
-  { nameKey: 'promos.promo15', src: '/footer/tuiguangpingtai/15.png' },
-  {
-    nameKey: 'promos.github',
-    src: '/footer/tuiguangpingtai/16.png',
-    href: 'https://github.com/AIZHS2025',
-  },
-  { nameKey: 'promos.promo17', src: '/footer/tuiguangpingtai/17.png' },
-]
 const QUICK_LINKS: readonly Link_[] = [
   { labelKey: 'about', href: '/about' },
   { labelKey: 'help', href: '/help' },
@@ -90,32 +45,36 @@ const QUICK_LINKS: readonly Link_[] = [
   { labelKey: 'termsOfService', href: '/agreement/terms' },
   { labelKey: 'userAgreement', href: '/agreement' },
 ]
-const QRS: readonly Qr[] = [
-  { src: '/footer/erweima/footer-icon-2.png', altKey: 'officialApp' },
-  { src: '/footer/erweima/footer-icon-3.png', altKey: 'contactUs' },
-]
+
+// 排版原子 — 集中定义,避免散落
+const SECTION_TITLE = 'text-xs font-semibold text-foreground/80'
+// 2026-07-20 改:bg-foreground/[0.04] 替代 bg-white,让白底透明 PNG 图标在白卡上可见
+const ICON_BOX =
+  'flex h-9 w-9 items-center justify-center rounded-md border bg-foreground/[0.04] transition-colors hover:border-primary/40'
+const ICON_IMG = 'h-6 w-6 object-contain'
+// 2026-07-20 改:bg-zinc-900 始终深色,让 footer-icon-2.png 白色 QR 码在亮/暗模式都可见
+const QR_BOX = 'h-24 w-24 overflow-hidden rounded-md border border-zinc-900 bg-zinc-900 p-1.5'
+const QR_IMG = 'h-full w-full object-contain'
+const COMPANY_LINK = 'text-muted-foreground transition-colors hover:text-primary'
+const FOOTER_BOTTOM_LINK = 'transition-colors hover:text-primary'
+// 2026-07-20 新增:联系卡片容器(替代空白 footer-icon-3.png)
+const CONTACT_CARD =
+  'flex h-24 w-24 flex-col items-center justify-center gap-1.5 rounded-md border bg-foreground/[0.04] transition-colors hover:border-primary/40'
 
 function PlatformIcon({ name, src, href }: { name: string; src: string; href?: string }) {
   const img = (
-    <img
-      src={src}
-      alt={name}
-      width={24}
-      height={24}
-      className={ICON_IMG}
-      loading="eager"
-      decoding="sync"
-    />
+    <img src={src} alt={name} width={24} height={24} className={ICON_IMG} {...IMG_EAGER} />
   )
+  const className = ICON_BOX
   if (href) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" title={name} className={ICON_BOX}>
+      <a href={href} target="_blank" rel="noopener noreferrer" title={name} className={className}>
         {img}
       </a>
     )
   }
   return (
-    <div title={name} className={ICON_BOX}>
+    <div title={name} className={className}>
       {img}
     </div>
   )
@@ -132,7 +91,7 @@ function PlatformGroup({
 }) {
   return (
     <div className="space-y-1.5">
-      <h4 className={PLATFORM_TITLE}>{title}</h4>
+      <h4 className={SECTION_TITLE}>{title}</h4>
       <div className="flex flex-wrap gap-2">
         {items.map((p) => (
           <PlatformIcon
@@ -143,6 +102,24 @@ function PlatformGroup({
           />
         ))}
       </div>
+    </div>
+  )
+}
+
+function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'footer'>> }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className={QR_BOX}>
+        <img
+          src={qr.src}
+          alt={t(qr.altKey)}
+          width={88}
+          height={88}
+          className={QR_IMG}
+          {...IMG_EAGER}
+        />
+      </div>
+      <span className="text-xs text-muted-foreground">{t(qr.altKey)}</span>
     </div>
   )
 }
@@ -170,7 +147,7 @@ export function SiteFooter() {
             </ul>
             <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs">
               {QUICK_LINKS.map((l) => (
-                <Link key={l.href} href={l.href} className={MUTED_LINK}>
+                <Link key={l.href} href={l.href} className={COMPANY_LINK}>
                   {tRoutes(l.labelKey)}
                 </Link>
               ))}
@@ -185,26 +162,20 @@ export function SiteFooter() {
             <PlatformGroup title={t('cloudDatabases')} items={DATABASES} t={t} />
           </div>
 
-          {/* 推广平台 + 二维码 */}
+          {/* 推广平台 + 二维码 + 联系卡片 */}
           <div className="space-y-3">
             <PlatformGroup title={t('officialPromotion')} items={PROMOTIONS} t={t} />
             <div className="flex gap-5 pt-2">
               {QRS.map((q) => (
-                <div key={q.src} className="flex flex-col items-center gap-1.5">
-                  <div className={QR_BOX}>
-                    <img
-                      src={q.src}
-                      alt={t(q.altKey)}
-                      width={88}
-                      height={88}
-                      className={QR_IMG}
-                      loading="eager"
-                      decoding="sync"
-                    />
-                  </div>
-                  <span className="text-xs text-muted-foreground">{t(q.altKey)}</span>
-                </div>
+                <QrItem key={q.src} qr={q} t={t} />
               ))}
+              {/* 联系卡片(替代空白色块 footer-icon-3.png) */}
+              <div className="flex flex-col items-center gap-1.5">
+                <Link href="/support" className={CONTACT_CARD} title={t('contactUs')}>
+                  <Mail className="h-7 w-7 text-foreground/70" aria-hidden="true" />
+                </Link>
+                <span className="text-xs text-muted-foreground">{t('contactUs')}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -218,21 +189,20 @@ export function SiteFooter() {
               width={16}
               height={16}
               className="h-4 w-4 object-contain"
-              loading="eager"
-              decoding="sync"
+              {...IMG_EAGER}
             />
             <span>{t('icp')}</span>
             <span className="mx-1">·</span>
             <span>{t('copyright')}</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/agreement" className="hover:text-primary">
+            <Link href="/agreement" className={FOOTER_BOTTOM_LINK}>
               {tRoutes('userAgreement')}
             </Link>
-            <Link href="/agreement/privacy" className="hover:text-primary">
+            <Link href="/agreement/privacy" className={FOOTER_BOTTOM_LINK}>
               {tRoutes('privacyPolicy')}
             </Link>
-            <Link href="/support" className="hover:text-primary">
+            <Link href="/support" className={FOOTER_BOTTOM_LINK}>
               {t('contactUs')}
             </Link>
           </div>
