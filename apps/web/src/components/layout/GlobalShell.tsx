@@ -6,9 +6,11 @@ import { useTranslations } from 'next-intl'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
+import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
 import { Button } from '@ihui/ui'
 import { useAiPanelStore, AI_PANEL_DEFAULT_WIDTH } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
+import { useAuthStore } from '@/stores/auth'
 
 /**
  * GlobalShell — 真正的全局外壳(2026-07-19 立)
@@ -59,6 +61,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 导致 open=true 默认展开时,首帧 padding-left=0,AI 面板覆盖内容区(2026-07-20 修复"重叠"问题)。
   const mounted = useMounted()
   const { open: aiOpen, width: aiWidth } = useAiPanelStore()
+  const currentUserId = useAuthStore((s) => s.user?.id)
   const aiPanelOccupy = !mounted
     ? AI_PANEL_DEFAULT_WIDTH + 8
     : aiOpen
@@ -158,6 +161,12 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
           <PWAUpdatePrompt onUpdate={() => window.location.reload()} />
         </div>
       </div>
+      {/*
+        工作区人工审计确认弹窗(全局挂载,任意页面触发 FS 工具权限请求时弹出)。
+        Dialog 内部通过 usePermissionRequest 订阅 workspace.permission.request WS 事件。
+        未登录时不订阅、未挂载,登录后自动启用。
+      */}
+      <WorkspacePermissionRequestDialog userId={currentUserId} />
     </>
   )
 }
