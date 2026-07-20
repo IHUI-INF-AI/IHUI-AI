@@ -5,25 +5,52 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Wand2, Loader2 } from 'lucide-react'
 
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ihui/ui'
-import { fetchApi } from '@/lib/api'
-
-type Template = 'list' | 'page' | 'detail' | 'dialog'
-
-const TEMPLATES: Template[] = ['list', 'page', 'detail', 'dialog']
-const ENDPOINT = '/api/admin/tool/gen'
-
-interface GenResult {
-  files?: string[]
-  output?: string
-}
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
+import { getToolGenMeta, postToolGen, type GenField, type GenResult, type GenType, type GenTypeMeta } from '@/lib/api/admin-tool-gen'
+import { FieldEditor, TemplateSelector } from '@/components/admin/tool/gen/field-editor'
+import { GenResultViewer } from '@/components/admin/tool/gen/result-viewer'
 
 export default function ToolGenPage() {
   const t = useTranslations('admin.tool.gen')
+  const [types, setTypes] = React.useState<GenTypeMeta[]>([])
+  const [loadingMeta, setLoadingMeta] = React.useState(true)
   const [moduleName, setModuleName] = React.useState('')
-  const [template, setTemplate] = React.useState<Template>('list')
+  const [genType, setGenType] = React.useState<GenType>('list')
+  const [fields, setFields] = React.useState<GenField[]>([])
   const [result, setResult] = React.useState<GenResult | null>(null)
   const [pending, setPending] = React.useState(false)
+
+  const currentTypeMeta = types.find((m) => m.type === genType)
+
+  React.useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const r = await getToolGenMeta()
+      if (cancelled) return
+      if (r.success) {
+        setTypes(r.data.types)
+        // 选中第一个类型时,自动填入默认字段
+        const first = r.data.types[0]
+        if (first) {
+          setGenType(first.type)
+          setFields(first.defaultFields)
+        }
+      } else {
+        toast.error(r.error ?? '加载模板元信息失败')
+      }
+      setLoadingMeta(false)
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function onTypeChange(next: GenType) {
+    setGenType(next)
+    const meta = types.find((m) => m.type === next)
+    if (meta) setFields(meta.defaultFields)
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -32,22 +59,20 @@ export default function ToolGenPage() {
       toast.error(t('error'))
       return
     }
+    if (fields.length === 0) {
+      toast.error('请至少配置一个字段')
+      return
+    }
     setPending(true)
     setResult(null)
-    try {
-      const r = await fetchApi<GenResult>(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ moduleName: name, template }),
-      })
-      if (!r.success) throw new Error(r.error)
-      setResult(r.data)
-      toast.success(t('success'))
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : t('error'))
-    } finally {
-      setPending(false)
+    const r = await postToolGen({ type: genType, name, fields })
+    setPending(false)
+    if (!r.success) {
+      toast.error(r.error ?? t('error'))
+      return
     }
+    setResult(r.data)
+    toast.success(t('success'))
   }
 
   return (
@@ -60,7 +85,7 @@ export default function ToolGenPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
-      <Card className="max-w-2xl">
+      <Card className="max-w-3xl">
         <CardHeader>
           <CardTitle>{t('title')}</CardTitle>
           <CardDescription>{t('description')}</CardDescription>
@@ -75,41 +100,38 @@ export default function ToolGenPage() {
                 onChange={(e) => setModuleName(e.target.value)}
                 placeholder="user / order / product"
                 className="max-w-md"
-                disabled={pending}
+                disabled={pending || loadingMeta}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="template">{t('template')}</Label>
-              <Select value={template} onValueChange={(v) => setTemplate(v as Template)} disabled={pending}>
-                <SelectTrigger id="template" className="w-full max-w-md">
-                  <SelectValue placeholder={t('template')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {TEMPLATES.map((tpl) => (
-                    <SelectItem key={tpl} value={tpl}>
-                      {t(tpl)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <TemplateSelector
+              types={types}
+              value={genType}
+              onChange={onTypeChange}
+              disabled={pending || loadingMeta}
+              getLabel={(k) => t(k)}
+            />
+
+            {currentTypeMeta && (
+              <FieldEditor
+                fields={fields}
+                onChange={setFields}
+                fieldTypes={currentTypeMeta.fieldTypes}
+                disabled={pending}
+              />
+            )}
 
             <div className="flex gap-2">
-              <Button type="submit" disabled={pending}>
+              <Button type="submit" disabled={pending || loadingMeta}>
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
                 <span>{t('generate')}</span>
               </Button>
             </div>
           </form>
-
-          {result && (
-            <pre className="mt-4 max-h-80 overflow-auto rounded-md bg-muted/50 p-3 text-xs">
-              {result.files?.length ? result.files.join('\n') : result.output ?? JSON.stringify(result, null, 2)}
-            </pre>
-          )}
         </CardContent>
       </Card>
+
+      {result && <GenResultViewer result={result} />}
     </div>
   )
 }
