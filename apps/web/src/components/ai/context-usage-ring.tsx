@@ -78,7 +78,6 @@ function TriggerRing({ ratio, usedTokens, maxTokens }: TriggerRingProps) {
       className={cn(
         'relative inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
         'hover:bg-accent',
-        style.bg,
       )}
       aria-hidden="true"
     >
@@ -112,10 +111,21 @@ function TriggerRing({ ratio, usedTokens, maxTokens }: TriggerRingProps) {
           transform={`rotate(-90 ${TRIGGER_SIZE / 2} ${TRIGGER_SIZE / 2})`}
           className="transition-[stroke-dashoffset] duration-500 ease-out"
         />
+        {/* 中心百分比数字:SVG text + dominantBaseline=central 像素级精确居中,
+            避开 HTML flex items-center 受字体 ascent/descent 不对称影响导致的偏移 */}
+        <text
+          x={TRIGGER_SIZE / 2}
+          y={TRIGGER_SIZE / 2}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize="8"
+          fontWeight="600"
+          className="fill-foreground"
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        >
+          {percent}
+        </text>
       </svg>
-      <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[8px] font-semibold tabular-nums leading-none text-foreground">
-        {percent}
-      </span>
       {/* a11y:整个 trigger 由外层 button 提供 label,这里隐藏 */}
       <span className="sr-only">
         {usedTokens} / {maxTokens}
@@ -173,12 +183,20 @@ function PanelRing({ ratio, usedTokens, maxTokens }: PanelRingProps) {
             transform={`rotate(-90 ${PANEL_SIZE / 2} ${PANEL_SIZE / 2})`}
             className="transition-[stroke-dashoffset] duration-500 ease-out"
           />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-base font-semibold tabular-nums leading-none text-foreground">
+          {/* 中心百分比:SVG text 精确居中 */}
+          <text
+            x={PANEL_SIZE / 2}
+            y={PANEL_SIZE / 2}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize="16"
+            fontWeight="600"
+            className="fill-foreground"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          >
             {percent}%
-          </span>
-        </div>
+          </text>
+        </svg>
       </div>
       <span
         className={cn(
