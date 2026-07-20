@@ -17,11 +17,11 @@ const QR_CODES: QrCode[] = [
 ]
 
 const PAY_ICONS = [
-  { name: '微信', src: '/footer/zf/weixin@1x.png' },
+  { name: '微信', src: '/footer/zf/weixin.svg' },
   { name: '支付宝', src: '/footer/zf/zfb.svg' },
-  { name: '抖音', src: '/footer/zf/DY.png' },
-  { name: '银联', src: '/footer/zf/YL.png' },
-  { name: 'VISA', src: '/footer/zf/VISA.png' },
+  { name: '抖音', src: '/footer/zf/dy.svg' },
+  { name: '银联', src: '/footer/zf/yl.svg' },
+  { name: 'VISA', src: '/footer/zf/visa.svg' },
 ]
 
 interface FooterLink {
