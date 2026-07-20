@@ -235,10 +235,10 @@ export function ConversationList({ items }: { items: Conversation[] }) {
               onClick={() => {
                 // AI 对话是全局 docked 面板,与 Sidebar 同性质:点击历史项只触发
                 // 1) 写入 store 作为当前会话  2) 打开面板
-                // 3) 跳回 /home,让右侧工作区回到主工作流页面
+                // 3) 跳回 /,首页是营销落地页 + 右侧 AI 面板作为对话入口
                 useChatStore.getState().setConversationId(item.id)
                 useAiPanelStore.getState().openPanel()
-                router.push('/home')
+                router.push('/')
               }}
               className="min-w-0 flex-1 text-left"
             >
