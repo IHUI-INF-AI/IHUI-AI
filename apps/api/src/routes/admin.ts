@@ -809,8 +809,8 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
   server.get('/reports/signup', async (request, reply) => {
     try {
       const q = (request.query ?? {}) as { startDate?: string; endDate?: string }
-      const { findSignupReport } = await import('../db/learn-queries.js')
-      const data = await findSignupReport({
+      const { getLessonSignReport } = await import('../db/learn-queries.js')
+      const data = await getLessonSignReport({
         ...(q.startDate ? { startDate: q.startDate } : {}),
         ...(q.endDate ? { endDate: q.endDate } : {}),
       })
