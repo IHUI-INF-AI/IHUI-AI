@@ -14,75 +14,85 @@ import { useTranslations } from 'next-intl'
  * 3. 右侧:官方推广平台 16 槽位 + 2 个固定二维码(官方应用 / 联系我们)
  * 4. 底部:ICP 备案 + 版权 + 协议链接
  *
- * i18n:直接复用根命名空间 `footer.*`(历史 Vue 版迁移过来,5 语言已 parity)
- *      快速链接文案用 `routes.*`
+ * i18n:全部文案走 `footer.*` / `routes.*` 命名空间,5 语言已 parity
+ *      平台/品牌 name 一律按 useTranslations 路径解析,5 语言独立翻译
  * 资源:直接复用 public/footer/(路径与 Vue 版完全一致)
  * 推广平台 hover 二维码因迁移时丢失 promotion-qr-* 资源,简化为外链 + title 提示。
  */
 const SUPPORTED_PLATFORMS = [
-  { name: 'n8n', src: '/footer/awsp/n8n.png' },
-  { name: 'Coze', src: '/footer/awsp/coze.png' },
-]
+  { nameKey: 'platforms.n8n', src: '/footer/awsp/n8n.png' },
+  { nameKey: 'platforms.coze', src: '/footer/awsp/coze.png' },
+] as const
 
 const MODELS = [
-  { name: 'GPT', src: '/footer/model/2.png' },
-  { name: 'Claude', src: '/footer/model/3x.png' },
-  { name: 'Gemini', src: '/footer/model/4.png' },
-  { name: 'DeepSeek', src: '/footer/model/5.png' },
-  { name: 'Qwen', src: '/footer/model/6.png' },
-  { name: 'Doubao', src: '/footer/model/7.png' },
-  { name: 'Llama', src: '/footer/model/8x.png' },
-  { name: 'Mistral', src: '/footer/model/9.png' },
-]
+  { nameKey: 'modelItems.gpt', src: '/footer/model/2.png' },
+  { nameKey: 'modelItems.claude', src: '/footer/model/3x.png' },
+  { nameKey: 'modelItems.gemini', src: '/footer/model/4.png' },
+  { nameKey: 'modelItems.deepseek', src: '/footer/model/5.png' },
+  { nameKey: 'modelItems.qwen', src: '/footer/model/6.png' },
+  { nameKey: 'modelItems.doubao', src: '/footer/model/7.png' },
+  { nameKey: 'modelItems.llama', src: '/footer/model/8x.png' },
+  { nameKey: 'modelItems.mistral', src: '/footer/model/9.png' },
+] as const
 
 const PAYMENTS = [
-  { name: '微信', src: '/footer/zf/weixin.svg' },
-  { name: '支付宝', src: '/footer/zf/zfb.svg' },
-  { name: '抖音', src: '/footer/zf/dy.svg' },
-  { name: '银联', src: '/footer/zf/yl.svg' },
-  { name: 'VISA', src: '/footer/zf/visa.svg' },
-]
+  { nameKey: 'payments.wechat', src: '/footer/zf/weixin.svg' },
+  { nameKey: 'payments.alipay', src: '/footer/zf/zfb.svg' },
+  { nameKey: 'payments.douyin', src: '/footer/zf/dy.svg' },
+  { nameKey: 'payments.unionpay', src: '/footer/zf/yl.svg' },
+  { nameKey: 'payments.visa', src: '/footer/zf/visa.svg' },
+] as const
 
 const DATABASES = [
-  { name: 'MySQL', src: '/footer/shujuku/1.png' },
-  { name: 'PostgreSQL', src: '/footer/shujuku/2.png' },
-  { name: 'MongoDB', src: '/footer/shujuku/3.png' },
-  { name: 'Redis', src: '/footer/shujuku/4.png' },
-  { name: 'SQLite', src: '/footer/shujuku/5.png' },
-]
+  { nameKey: 'databases.mysql', src: '/footer/shujuku/1.png' },
+  { nameKey: 'databases.postgresql', src: '/footer/shujuku/2.png' },
+  { nameKey: 'databases.mongodb', src: '/footer/shujuku/3.png' },
+  { nameKey: 'databases.redis', src: '/footer/shujuku/4.png' },
+  { nameKey: 'databases.sqlite', src: '/footer/shujuku/5.png' },
+] as const
 
 // 推广平台 16 槽位(对应历史 Vue promotionQrs 数组)
 // 9/10/16 是外链,其余展示 Logo + title 提示
-const PROMOTIONS = [
-  { name: '推广-1', src: '/footer/tuiguangpingtai/1.png' },
-  { name: '推广-2', src: '/footer/tuiguangpingtai/2.png' },
-  { name: '推广-3', src: '/footer/tuiguangpingtai/3.png' },
-  { name: '推广-4', src: '/footer/tuiguangpingtai/4.png' },
-  { name: '推广-5', src: '/footer/tuiguangpingtai/5.png' },
-  { name: '推广-6', src: '/footer/tuiguangpingtai/6.png' },
-  { name: '推广-7', src: '/footer/tuiguangpingtai/7.png' },
-  { name: '推广-8', src: '/footer/tuiguangpingtai/8.png' },
-  { name: 'X', src: '/footer/tuiguangpingtai/9.png', href: 'https://x.com/ok502319984' },
-  { name: 'Facebook', src: '/footer/tuiguangpingtai/10.png', href: 'https://www.facebook.com/share/17kQMPNhQb/' },
-  { name: '推广-11', src: '/footer/tuiguangpingtai/11.png' },
-  { name: '推广-12', src: '/footer/tuiguangpingtai/12.png' },
-  { name: '推广-14', src: '/footer/tuiguangpingtai/14.png' },
-  { name: '推广-15', src: '/footer/tuiguangpingtai/15.png' },
-  { name: 'GitHub', src: '/footer/tuiguangpingtai/16.png', href: 'https://github.com/AIZHS2025' },
-  { name: '推广-17', src: '/footer/tuiguangpingtai/17.png' },
+type Promotion = { readonly nameKey: string; readonly src: string; readonly href?: string }
+
+const PROMOTIONS: readonly Promotion[] = [
+  { nameKey: 'promos.promo1', src: '/footer/tuiguangpingtai/1.png' },
+  { nameKey: 'promos.promo2', src: '/footer/tuiguangpingtai/2.png' },
+  { nameKey: 'promos.promo3', src: '/footer/tuiguangpingtai/3.png' },
+  { nameKey: 'promos.promo4', src: '/footer/tuiguangpingtai/4.png' },
+  { nameKey: 'promos.promo5', src: '/footer/tuiguangpingtai/5.png' },
+  { nameKey: 'promos.promo6', src: '/footer/tuiguangpingtai/6.png' },
+  { nameKey: 'promos.promo7', src: '/footer/tuiguangpingtai/7.png' },
+  { nameKey: 'promos.promo8', src: '/footer/tuiguangpingtai/8.png' },
+  { nameKey: 'promos.x', src: '/footer/tuiguangpingtai/9.png', href: 'https://x.com/ok502319984' },
+  {
+    nameKey: 'promos.facebook',
+    src: '/footer/tuiguangpingtai/10.png',
+    href: 'https://www.facebook.com/share/17kQMPNhQb/',
+  },
+  { nameKey: 'promos.promo11', src: '/footer/tuiguangpingtai/11.png' },
+  { nameKey: 'promos.promo12', src: '/footer/tuiguangpingtai/12.png' },
+  { nameKey: 'promos.promo14', src: '/footer/tuiguangpingtai/14.png' },
+  { nameKey: 'promos.promo15', src: '/footer/tuiguangpingtai/15.png' },
+  {
+    nameKey: 'promos.github',
+    src: '/footer/tuiguangpingtai/16.png',
+    href: 'https://github.com/AIZHS2025',
+  },
+  { nameKey: 'promos.promo17', src: '/footer/tuiguangpingtai/17.png' },
 ]
 
 const QUICK_LINKS_ROW_1 = [
   { labelKey: 'about', href: '/about' },
   { labelKey: 'help', href: '/help' },
   { labelKey: 'feedback', href: '/feedback' },
-]
+] as const
 
 const QUICK_LINKS_ROW_2 = [
   { labelKey: 'privacyPolicy', href: '/agreement/privacy' },
   { labelKey: 'termsOfService', href: '/agreement/terms' },
   { labelKey: 'userAgreement', href: '/agreement' },
-]
+] as const
 
 function PlatformIcon({ name, src, href }: { name: string; src: string; href?: string }) {
   const inner = (
@@ -177,22 +187,22 @@ export function SiteFooter() {
           <div className="space-y-3">
             <PlatformGroup title={t('supportedPlatforms')}>
               {SUPPORTED_PLATFORMS.map((p) => (
-                <PlatformIcon key={p.name} {...p} />
+                <PlatformIcon key={p.nameKey} name={t(p.nameKey)} src={p.src} />
               ))}
             </PlatformGroup>
             <PlatformGroup title={t('models')}>
               {MODELS.map((p) => (
-                <PlatformIcon key={p.name} {...p} />
+                <PlatformIcon key={p.nameKey} name={t(p.nameKey)} src={p.src} />
               ))}
             </PlatformGroup>
             <PlatformGroup title={t('paymentPlatforms')}>
               {PAYMENTS.map((p) => (
-                <PlatformIcon key={p.name} {...p} />
+                <PlatformIcon key={p.nameKey} name={t(p.nameKey)} src={p.src} />
               ))}
             </PlatformGroup>
             <PlatformGroup title={t('cloudDatabases')}>
               {DATABASES.map((p) => (
-                <PlatformIcon key={p.name} {...p} />
+                <PlatformIcon key={p.nameKey} name={t(p.nameKey)} src={p.src} />
               ))}
             </PlatformGroup>
           </div>
@@ -201,7 +211,12 @@ export function SiteFooter() {
           <div className="space-y-3">
             <PlatformGroup title={t('officialPromotion')}>
               {PROMOTIONS.map((p) => (
-                <PlatformIcon key={p.name} {...p} />
+                <PlatformIcon
+                  key={p.nameKey}
+                  name={t(p.nameKey)}
+                  src={p.src}
+                  {...(p.href ? { href: p.href } : {})}
+                />
               ))}
             </PlatformGroup>
 
