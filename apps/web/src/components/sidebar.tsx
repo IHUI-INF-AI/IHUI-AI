@@ -343,6 +343,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/agents', labelKey: 'agents', icon: Bot },
       { href: '/ai-world', labelKey: 'aiWorld', icon: Globe },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
+      // AI 自动化定时任务调度器(2026-07-20 移入 AI 分组,通用 AI 任务调度,与 /agents /workspace 同类)
+      { href: '/self-media/automation', labelKey: 'selfMediaAutomation', icon: Clock },
     ],
   },
   // 管理 分组(2026-07-20 重构):
@@ -389,8 +391,6 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/announcements', labelKey: 'announcements', icon: Megaphone },
       // /edu 8 项整合(原 /edu/layout.tsx 页面级菜单栏)
       ...EDU_ITEMS,
-      // AI 自动化定时任务调度器(2026-07-20 从自媒体分组移入,通用 AI 任务管理)
-      { href: '/self-media/automation', labelKey: 'selfMediaAutomation', icon: Clock },
     ],
   },
   {
