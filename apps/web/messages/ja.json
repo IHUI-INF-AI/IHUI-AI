@@ -12039,7 +12039,26 @@
     "ourMission": "のせる",
     "missionDesc1": "させる ai コース，の。",
     "missionDesc2": "、、の，コース。",
-    "icpPlaceholder": "ICP00000000"
+    "icpPlaceholder": "ICP00000000",
+    "marketingBadge": "智匯 AI について",
+    "marketingHeroTitle": "AI時代の企業理性効率パートナー",
+    "marketingHeroDesc": "智匯 AIコミュニティはAI時代の企業理性効率サービスと互助コミュニティです。意思決定者がAIと企業の関係を深く理解し、人間とAIが協働するスーパー組織を構築するお手伝いをします。",
+    "marketingFallbackSiteName": "智匯 AI コミュニティ",
+    "marketingFallbackDescription": "智匯 AIコミュニティはAI時代の企業理性効率サービスと互助コミュニティです。意思決定者がAIと企業の関係を深く理解し、人間とAIが協働するスーパー組織を構築するお手伝いをします。",
+    "valuesSection": "価値観",
+    "valueMissionTitle": "私たちの使命",
+    "valueMissionDesc": "意思決定者がAIと企業の関係を深く理解し、企業の理性効率向上を推進します。",
+    "valueCommunityTitle": "私たちのコミュニティ",
+    "valueCommunityDesc": "AI時代の企業意思決定者を集め、人間とAIが協働するスーパー組織を構築し、互いに助け合います。",
+    "valuePromiseTitle": "私たちの約束",
+    "valuePromiseDesc": "ご満足いただけない場合は全額返金。最初の18名の会員は1対1のAIコンサルティングを受けられます。",
+    "valueDirectionTitle": "私たちの方向性",
+    "valueDirectionDesc": "AI新ツールから企業AI文化まで、3段階で段階的に継続的に進化します。",
+    "marketingCtaTitle": "智匯 AI コミュニティに参加",
+    "marketingCtaDesc": "最初の18名限定・アーリーバード価格・満足いただけない場合は全額返金",
+    "marketingJoinNow": "今すぐ参加",
+    "marketingViewPricing": "価格を見る",
+    "metaDescription": "智匯 AIコミュニティはAI時代の企業理性効率サービスと互助コミュニティで、意思決定者がAIと企業の関係を深く理解し、人間とAIが協働するスーパー組織を構築するお手伝いをします。"
   },
   "agreement": {
     "title": "と",
@@ -13705,6 +13724,7 @@
     "adminBackendHealth": "バックエンドヘルスチェック"
   },
   "footer": {
+    "aboutUs": "私たちについて",
     "acknowledgments": "謝辞",
     "companyName": "吉林省愛智匯AI科技有限公司",
     "addressLabel": "住所:",
