@@ -433,6 +433,8 @@
     "sendCode": "獲取驗證碼",
     "resendCode": "{seconds}s 後重發",
     "registerBtn": "註冊",
+    "phoneRegister": "手機註冊",
+    "emailRegister": "郵箱註冊",
     "hasAccount": "已有賬號？",
     "toLogin": "去登入",
     "thirdPartyLogin": "第三方登入",
