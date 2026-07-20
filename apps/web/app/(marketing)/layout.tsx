@@ -29,11 +29,11 @@ import type { Metadata } from 'next'
  */
 export const metadata: Metadata = {
   title: {
-    default: '智汇 AI 社区 — AI 时代企业理性效率伙伴',
+    default: '智汇 AI 社区 — 8 端全覆盖的企业级 AI 平台',
     template: '%s | 智汇 AI',
   },
   description:
-    'AI 时代企业理性效率服务与互助社群。帮助决策者深度理解 AI 与企业的关系,构建人机协同的超级组织,实现企业的理性效率提升。',
+    '8 端全覆盖(Web/桌面/移动/小程序/CLI/扩展),100+ 大模型一站式接入,自研 CLI 对标 Claude Code,LangGraph + MCP + A2A 三栈合一。AI 时代企业决策者社群,限 18 席早鸟价 ¥6000/年,不满意全额退款。',
   openGraph: {
     type: 'website',
     locale: 'zh_CN',
