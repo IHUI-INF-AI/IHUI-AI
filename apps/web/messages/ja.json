@@ -9154,7 +9154,8 @@
     "favorite": "おにり",
     "unfavorite": "favorite",
     "viewFavorites": "おにりを",
-    "backToHistory": "にる"
+    "backToHistory": "にる",
+    "loginRequired": "ログインしてください"
   },
   "models": {
     "title": "モデルマーケット",
@@ -13562,8 +13563,8 @@
     "payments": {
       "wechat": "WeChat Pay",
       "alipay": "Alipay",
-      "douyin": "Douyin支付",
-      "unionpay": "銀聯",
+      "douyin": "Douyin Pay",
+      "unionpay": "UnionPay",
       "visa": "VISA"
     },
     "databases": {

@@ -9165,7 +9165,8 @@
     "favorite": "Favorite",
     "unfavorite": "Unfavorite",
     "viewFavorites": "View Favorites",
-    "backToHistory": "Back to History"
+    "backToHistory": "Back to History",
+    "loginRequired": "Please log in"
   },
   "models": {
     "title": "Model Marketplace",
