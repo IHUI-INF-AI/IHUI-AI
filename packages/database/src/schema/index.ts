@@ -155,3 +155,5 @@ export * from './learn-homework.js'
 export * from './resource-download.js'
 export * from './admin-extended.js'
 export * from './workspace-permissions.js'
+// 自媒体已发布内容记忆(2026-07-20 新增,迁移自源项目 JSON 文件)
+export * from './self-media.js'
