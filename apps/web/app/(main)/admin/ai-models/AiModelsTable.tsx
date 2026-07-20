@@ -2,6 +2,7 @@
 
 import { Pencil, Trash2, Zap } from 'lucide-react'
 import { Button, Switch } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import type { ModelRow } from './types'
 
 interface Props {
@@ -99,21 +100,26 @@ export function AiModelsTable({
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onTest(item.id)}
-                      disabled={testPending}
-                      title="测试连通"
-                    >
-                      <Zap className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(item)} title="编辑">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => onDelete(item)} title="删除">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <Tooltip content="测试连通">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onTest(item.id)}
+                        disabled={testPending}
+                      >
+                        <Zap className="h-3.5 w-3.5" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content="编辑">
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content="删除">
+                      <Button variant="ghost" size="sm" onClick={() => onDelete(item)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </td>
               </tr>

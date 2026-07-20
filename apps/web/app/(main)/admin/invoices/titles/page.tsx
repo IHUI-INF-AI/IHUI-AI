@@ -8,6 +8,7 @@ import { Loader2, Plus, Edit, Trash2, ChevronLeft, ChevronRight, FileText } from
 
 import { cn } from '@/lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 
 import { TitleDialog } from './TitleDialog'
 import {
@@ -197,19 +198,22 @@ export default function AdminInvoiceTitlesPage() {
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(t)} title="编辑">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(t)}
-                        title="删除"
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content="编辑">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(t)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content="删除">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(t)}
+                          className="text-destructive hover:text-destructive"
+                          disabled={deleteMut.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>

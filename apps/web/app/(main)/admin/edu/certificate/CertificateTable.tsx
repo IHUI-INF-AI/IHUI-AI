@@ -17,6 +17,7 @@ import {
 } from '@ihui/ui'
 import { useTranslations } from 'next-intl'
 import { SOURCE_MAP } from './helpers'
+import { Tooltip } from '@/components/feedback'
 import type { Certificate } from './types'
 
 interface Props {
@@ -129,16 +130,17 @@ export function CertificateTable({
                           <SelectItem value="0">{t('statusRevoke')}</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(c)}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deletePending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('delete')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(c)}
+                          className="text-destructive hover:text-destructive"
+                          disabled={deletePending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>

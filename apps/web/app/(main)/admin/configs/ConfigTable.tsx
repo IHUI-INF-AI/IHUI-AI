@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui'
+import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { th } from './helpers'
 import type { Config } from './types'
@@ -60,11 +61,8 @@ export function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDe
                     <div className="text-xs text-muted-foreground">{c.description}</div>
                   )}
                 </td>
-                <td
-                  className="max-w-[240px] break-words px-4 py-2.5 font-mono text-xs text-muted-foreground"
-                  title={c.value}
-                >
-                  {c.value || '-'}
+                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TruncatedText value={c.value || '-'} className="max-w-[240px]" mono />
                 </td>
                 <td className="px-4 py-2.5">
                   <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium">

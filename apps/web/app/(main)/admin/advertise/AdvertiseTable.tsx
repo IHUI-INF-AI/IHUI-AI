@@ -4,6 +4,7 @@ import { Loader2, Edit, Trash2, Megaphone } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import type { Advertise } from './types'
 
 interface Props {
@@ -78,25 +79,27 @@ export function AdvertiseTable({ list, isLoading, onEdit, onDelete }: Props) {
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
                     <HasPermi code="ai:advertise:edit">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(item)}
-                        title={t('edit')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('edit')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(item)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                     <HasPermi code="ai:advertise:remove">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(item)}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('delete')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(item)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                   </div>
                 </TableCell>

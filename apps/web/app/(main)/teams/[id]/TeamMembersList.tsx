@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 import { Button } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { fmt } from './helpers'
 import { ROLE_BADGE, ROLE_ICON } from './types'
@@ -87,16 +88,17 @@ export function TeamMembersList({
                 >
                   {m.role === 'admin' ? t('makeMember') : t('makeAdmin')}
                 </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                  onClick={() => onRemove(m.userId)}
-                  disabled={removePending}
-                  title={t('removeMember')}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <Tooltip content={t('removeMember')}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    onClick={() => onRemove(m.userId)}
+                    disabled={removePending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </Tooltip>
               </div>
             )}
           </div>

@@ -7,6 +7,7 @@ import { Wallet, TrendingUp, ShoppingCart, RotateCcw, Coins, Receipt } from 'luc
 import { fetchApi } from '@/lib/api'
 import { StatCard } from '@/components/data'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import type { RevenueStatResponse } from './types'
 
@@ -89,11 +90,12 @@ export default function RevenueStatPage() {
             {stats.trend.map((p) => (
               <div key={p.date} className="flex flex-col items-center gap-1.5">
                 <div className="flex h-32 w-full items-end rounded-md bg-muted/30 px-1">
-                  <div
-                    className={cn('w-full rounded-md bg-emerald-500/70 transition-all')}
-                    style={{ height: `${(p.gross / peak) * 100}%` }}
-                    title={`${p.date} 营收 ${p.gross}`}
-                  />
+                  <Tooltip content={`${p.date} 营收 ${p.gross}`}>
+                    <div
+                      className={cn('w-full rounded-md bg-emerald-500/70 transition-all')}
+                      style={{ height: `${(p.gross / peak) * 100}%` }}
+                    />
+                  </Tooltip>
                 </div>
                 <span className="text-xs text-muted-foreground tabular-nums">{p.date.slice(5)}</span>
                 <span className="text-xs font-semibold tabular-nums">{curFmt.format(p.gross)}</span>
