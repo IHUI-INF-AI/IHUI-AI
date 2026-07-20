@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Copy, Check } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 export interface ResponseViewerProps {
@@ -26,6 +27,7 @@ export default function ResponseViewer({
   raw,
   className,
 }: ResponseViewerProps): React.JSX.Element {
+  const t = useTranslations('a11y')
   const [copied, setCopied] = React.useState(false)
   const text = React.useMemo(() => {
     if (raw) return raw
@@ -62,7 +64,7 @@ export default function ResponseViewer({
           onClick={copy}
           disabled={!text}
           className="text-muted-foreground hover:text-foreground disabled:opacity-50"
-          aria-label="复制响应"
+          aria-label={t('copyResponse')}
         >
           {copied ? (
             <Check className="h-3.5 w-3.5 text-emerald-500" />

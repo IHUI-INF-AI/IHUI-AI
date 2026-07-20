@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 interface HeatmapProps {
@@ -18,6 +19,7 @@ export const Heatmap = React.memo(function Heatmap({
   color = '#3b82f6',
   className,
 }: HeatmapProps) {
+  const t = useTranslations('a11y')
   const flat = data.flat()
   const max = Math.max(...flat, 1)
   const min = Math.min(...flat, 0)
@@ -26,7 +28,7 @@ export const Heatmap = React.memo(function Heatmap({
   const getOpacity = (v: number) => ((v - min) / range) * 0.9 + 0.1
 
   return (
-    <div className={cn('w-full overflow-x-auto', className)} role="img" aria-label="热力图">
+    <div className={cn('w-full overflow-x-auto', className)} role="img" aria-label={t('heatmap')}>
       <div className="inline-block">
         {yLabels && (
           <div className="flex">
