@@ -181,7 +181,9 @@ export function TypewriterHeroSection() {
   const handleLearnMore = () => router.push('/learn')
 
   return (
-    <div className="flex w-full flex-col items-center gap-6 py-8 md:py-12">
+    // 2026-07-20 改:去掉 py-8 md:py-12(父容器已用 pt-8 md:pt-12 留顶间距,
+    // 内部再叠加 48px 顶部 padding 会导致内容"悬空居中",hero 视觉不主导)
+    <div className="flex w-full flex-col items-center gap-6">
       <TypewriterHero />
 
       <div className="flex flex-wrap items-center justify-center gap-3">
