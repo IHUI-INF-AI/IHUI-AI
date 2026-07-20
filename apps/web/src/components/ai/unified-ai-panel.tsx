@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Send, Square, Sparkles } from 'lucide-react'
 import { Button } from '@ihui/ui'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { MarkdownStream } from './markdown-stream'
@@ -34,6 +35,7 @@ export function UnifiedAIPanel({
   streamingContent,
   placeholder = '输入消息...',
 }: UnifiedAiPanelProps) {
+  const tA11y = useTranslations('a11y')
   const [value, setValue] = React.useState('')
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const { ref: textareaRef, resize } = useTextareaAutoHeight<HTMLTextAreaElement>(value)
@@ -149,7 +151,7 @@ export function UnifiedAIPanel({
                 size="icon"
                 onClick={() => onStop?.()}
                 disabled={!onStop}
-                aria-label="停止"
+                aria-label={tA11y('stop')}
                 className="h-9 w-9 shrink-0"
               >
                 <Square className="h-4 w-4" fill="currentColor" />
@@ -159,7 +161,7 @@ export function UnifiedAIPanel({
                 size="icon"
                 onClick={submit}
                 disabled={!value.trim()}
-                aria-label="发送"
+                aria-label={tA11y('send')}
                 className="h-9 w-9 shrink-0"
               >
                 <Send className="h-4 w-4" />
