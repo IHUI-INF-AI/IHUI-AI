@@ -1101,6 +1101,27 @@
       "zeroone": "01.AI",
       "yi": "Yi",
       "unknown": "Model"
+    },
+    "contextUsage": {
+      "triggerLabel": "Context used {percent}%, {used}/{max}, click for details",
+      "title": "Context Usage",
+      "used": "Used",
+      "max": "Max Capacity",
+      "messages": "Messages",
+      "currentModel": "Current Model",
+      "compressTitle": "Compress Context",
+      "compressTo200k": "Compress to 200K chars",
+      "compressTo1m": "Compress to 1M chars",
+      "compressSuccess": "Compression succeeded",
+      "compressFailed": "Compression failed",
+      "compressResultDesc": "Original {original} chars → compressed {compressed} chars",
+      "ratio": "Ratio",
+      "noConversation": "Start a new task before compressing",
+      "lowUsage": "Plenty of room",
+      "mediumUsage": "Over half used",
+      "highUsage": "Approaching limit",
+      "criticalUsage": "Limit exceeded",
+      "disclaimer": "Token count is a client-side estimate; may differ from server-side exact count by ±10%. Compressed content becomes the context summary for subsequent conversation."
     }
   },
   "learn": {

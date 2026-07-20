@@ -1101,6 +1101,27 @@
       "zeroone": "零一万物",
       "yi": "零一万物",
       "unknown": "モデル"
+    },
+    "contextUsage": {
+      "triggerLabel": "コンテキスト {percent}% 使用済み、{used}/{max}、クリックで詳細表示",
+      "title": "コンテキスト使用状況",
+      "used": "使用量",
+      "max": "最大容量",
+      "messages": "メッセージ数",
+      "currentModel": "現在のモデル",
+      "compressTitle": "コンテキスト圧縮",
+      "compressTo200k": "20万文字に圧縮",
+      "compressTo1m": "100万文字に圧縮",
+      "compressSuccess": "圧縮成功",
+      "compressFailed": "圧縮失敗",
+      "compressResultDesc": "元 {original} 文字 → 圧縮後 {compressed} 文字",
+      "ratio": "圧縮率",
+      "noConversation": "新規タスク開始後に圧縮できます",
+      "lowUsage": "余裕あり",
+      "mediumUsage": "半分以上使用",
+      "highUsage": "上限接近",
+      "criticalUsage": "上限超過",
+      "disclaimer": "トークン数はクライアント推定値で、サーバー正確計数と ±10% 誤差が生じる場合があります。圧縮後の内容は後続対話のコンテキスト要約として使用されます。"
     }
   },
   "learn": {
