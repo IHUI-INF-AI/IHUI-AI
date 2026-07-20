@@ -40,6 +40,19 @@ export const aiModelConfig = pgTable(
     extraConfig: text('extra_config'),
     /** 自定义 SVG 图标文本(0108 migration);为空时前端按 providerCode 回退到内置厂商图标 */
     iconSvg: text('icon_svg'),
+    /**
+     * CLI 配置导入溯源字段(2026-07-20 立,可空,向后兼容)
+     * - importSource: 'cc-switch' | 'codex++' | 'claude-cli' | 'codex-cli' | 'gemini-cli' | 'hermes' | null
+     * - importSourceId: 源工具中的 provider id(cc-switch) / relayProfile id(codex++)
+     * - importSourceAppType: 仅 cc-switch,值为 CliAppType 8 值之一
+     * 去重 partial unique index:
+     *   CREATE UNIQUE INDEX ix_ai_model_config_import_unique
+     *     ON ai_model_config (owner_uuid, import_source, import_source_id)
+     *     WHERE import_source IS NOT NULL;
+     */
+    importSource: varchar('import_source', { length: 32 }),
+    importSourceId: varchar('import_source_id', { length: 128 }),
+    importSourceAppType: varchar('import_source_app_type', { length: 32 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

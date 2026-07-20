@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle, Switch } from '@ihui/ui'
 import { clearToken } from '../lib/token'
 import { useState } from 'react'
 import { useI18n, type Locale } from '../i18n'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
+import { readFile } from '@tauri-apps/plugin-fs'
+import { fetchApi } from '@ihui/api-client'
 
 interface Ctx {
   onLogout: () => void
@@ -16,12 +19,24 @@ const localeOptions: { value: Locale; labelKey: string }[] = [
   { value: 'zh-TW', labelKey: 'setting.zhTW' },
 ]
 
+const IMPORT_SOURCES = [
+  { value: 'cc-switch', label: 'cc-switch (.db / .json)' },
+  { value: 'codex++', label: 'codex++ (settings.json)' },
+  { value: 'claude-cli', label: 'Claude Code (settings.json)' },
+  { value: 'codex-cli', label: 'Codex CLI (config.toml)' },
+  { value: 'gemini-cli', label: 'Gemini CLI (.env)' },
+  { value: 'hermes', label: 'Hermes (config.yaml)' },
+] as const
+
 export default function SettingsPage() {
   const { onLogout } = useOutletContext<Ctx>()
   const { locale, setLocale, t } = useI18n()
   const [dark, setDark] = useState(
     typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches,
   )
+  const [importSource, setImportSource] = useState<string>('cc-switch')
+  const [importBusy, setImportBusy] = useState(false)
+  const [importMsg, setImportMsg] = useState<string>('')
 
   const onToggleTheme = (v: boolean) => {
     setDark(v)
@@ -35,6 +50,59 @@ export default function SettingsPage() {
       alert(t('setting.cacheCleared'))
     } catch {
       alert(t('setting.clearCacheFailed'))
+    }
+  }
+
+  const onImportCliConfig = async () => {
+    setImportBusy(true)
+    setImportMsg('')
+    try {
+      const filePath = await openDialog({
+        multiple: false,
+        directory: false,
+      })
+      if (!filePath || Array.isArray(filePath)) {
+        setImportBusy(false)
+        return
+      }
+      const fileBytes = await readFile(filePath as string)
+      const fd = new FormData()
+      fd.append('source', importSource)
+      const blob = new Blob([fileBytes])
+      fd.append('file', blob, (filePath as string).split(/[\\/]/).pop() || 'config')
+
+      const parseRes = await fetchApi<{ preview: { previewId: string; providers: unknown[] } }>(
+        '/api/user/cli-import/parse-file',
+        { method: 'POST', body: fd },
+      )
+      if (!parseRes.success) {
+        setImportMsg(`解析失败: ${parseRes.error}`)
+        setImportBusy(false)
+        return
+      }
+      const preview = parseRes.data.preview
+      const commitRes = await fetchApi<{ imported: number; skipped: number; failed: number }>(
+        '/api/user/cli-import/commit',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            previewId: preview.previewId,
+            selectedProviderIds: [],
+            conflictStrategy: 'skip',
+          }),
+        },
+      )
+      if (!commitRes.success) {
+        setImportMsg(`导入失败: ${commitRes.error}`)
+      } else {
+        const r = commitRes.data
+        setImportMsg(`导入完成:成功 ${r.imported},跳过 ${r.skipped},失败 ${r.failed}`)
+      }
+    } catch (err) {
+      setImportMsg(`异常: ${(err as Error).message}`)
+    } finally {
+      setImportBusy(false)
     }
   }
 
@@ -87,6 +155,34 @@ export default function SettingsPage() {
                 {t('common.delete')}
               </button>
             </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>CLI 配置导入</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="setting-row">
+              <span>来源</span>
+              <select
+                value={importSource}
+                onChange={(e) => setImportSource(e.target.value)}
+                className="locale-select"
+              >
+                {IMPORT_SOURCES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="setting-row">
+              <span>选择本地配置文件并导入</span>
+              <button type="button" onClick={onImportCliConfig} disabled={importBusy}>
+                {importBusy ? '导入中...' : '选择文件'}
+              </button>
+            </div>
+            {importMsg && <p style={{ marginTop: 8, fontSize: 12, color: '#666' }}>{importMsg}</p>}
           </CardContent>
         </Card>
         <Card>
