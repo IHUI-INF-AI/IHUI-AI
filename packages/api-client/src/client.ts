@@ -249,6 +249,10 @@ export interface StreamChatOptions {
   topK?: number
   maxTokens?: number
   stop?: string[]
+  /** 当前绑定的本地工作区路径(从 useAiPanelStore.activeWorkspace.path 取)。
+   * 透传到后端用于注入 CLAUDE.md/AGENTS.md 项目记忆作为 system prompt。
+   * 无绑定时为 undefined,后端使用默认 system prompt。 */
+  workspacePath?: string
 }
 
 export function parseStreamLine(line: string): string | null {
@@ -674,6 +678,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (opts.topK !== undefined) body.topK = opts.topK
   if (opts.maxTokens !== undefined) body.maxTokens = opts.maxTokens
   if (opts.stop !== undefined) body.stop = opts.stop
+  if (opts.workspacePath) body.workspacePath = opts.workspacePath
 
   try {
     const resp = await fetch(url, {

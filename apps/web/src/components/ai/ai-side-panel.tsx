@@ -47,6 +47,8 @@ export function AISidePanel() {
 
   // 从 URL 检测当前是否处于 workspace 项目页(/workspace/[id]),并拉取项目名
   // 用于 AI 面板标题显示"项目文件夹名"(用户规则:选择项目文件时显示项目文件夹名)
+  // 优化:若用户已在 AI 面板手动绑定 activeWorkspace,则跳过 URL 项目名拉取
+  //      (displayTitle 优先级 activeWorkspace.name > workspaceName,拉了也用不上)
   React.useEffect(() => {
     if (!pathname) {
       setWorkspaceName(null)
@@ -55,6 +57,10 @@ export function AISidePanel() {
     const m = pathname.match(/^\/workspace\/([^/]+)/)
     if (!m) {
       setWorkspaceName(null)
+      return
+    }
+    // activeWorkspace 已绑定时跳过 URL 项目名拉取,避免无谓网络请求
+    if (useAiPanelStore.getState().activeWorkspace) {
       return
     }
     const projectId = m[1]!
