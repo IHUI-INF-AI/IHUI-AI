@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { FolderOpen, Loader2, Plus, Shield } from 'lucide-react'
+import { FolderOpen, Loader2, Plus, Shield, AlertCircle, RefreshCw, X } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -18,10 +18,6 @@ import {
   DialogFooter,
 } from '@ihui/ui'
 import { ProjectCard, type ProjectCardData } from '@/components/workspace/project-card'
-import { DiffPreview, InlineDiffViewer } from '@/components/ai'
-import { WorkspaceFolderSelector } from '@/components/ai/workspace-folder-selector'
-import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
-import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { LocalFolderPicker } from '@/components/workspace/local-folder-picker'
 
 interface ProjectItem {
@@ -52,7 +48,7 @@ export default function WorkspacePage() {
   const tc = useTranslations('common')
   const queryClient = useQueryClient()
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['workspace', 'projects'],
     queryFn: fetchProjects,
   })
@@ -61,8 +57,7 @@ export default function WorkspacePage() {
   const [name, setName] = React.useState('')
   const [description, setDescription] = React.useState('')
   const [formError, setFormError] = React.useState<string | null>(null)
-  const [mentionOpen, setMentionOpen] = React.useState(false)
-  const [selectedFolder, setSelectedFolder] = React.useState<string>()
+  const [errorDismissed, setErrorDismissed] = React.useState(false)
   const [folderPickerOpen, setFolderPickerOpen] = React.useState(false)
   const [openedWorkspace, setOpenedWorkspace] = React.useState<{
     path: string
@@ -182,9 +177,37 @@ export default function WorkspacePage() {
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
-      ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error).message}
+      ) : error && !errorDismissed ? (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4"
+        >
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <p className="text-sm font-medium text-destructive">{t('loadErrorTitle')}</p>
+            <p className="text-xs text-destructive/80">
+              {(error as Error).message || t('loadErrorDesc')}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void refetch()}
+              className="h-7 gap-1 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              {t('retry')}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setErrorDismissed(true)}
+              aria-label={t('dismiss')}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-destructive/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       ) : data && data.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -229,32 +252,6 @@ export default function WorkspacePage() {
           useAiPanelStore.getState().setActiveWorkspace({ path, name })
         }}
       />
-
-      {/* 开发者工具预览 */}
-      <section className="space-y-4">
-        <h2 className="text-base font-semibold">{t('developerTools')}</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <WorkspaceFolderSelector
-            folders={[]}
-            selected={selectedFolder}
-            onSelect={setSelectedFolder}
-          />
-          <CheckpointHistoryPanel checkpoints={[]} />
-        </div>
-        <div className="relative">
-          <Button variant="outline" size="sm" onClick={() => setMentionOpen((v) => !v)}>
-            {t('mentionFile')}
-          </Button>
-          <FileMentionPopover
-            files={[]}
-            open={mentionOpen}
-            onSelect={() => setMentionOpen(false)}
-            onClose={() => setMentionOpen(false)}
-          />
-        </div>
-        <DiffPreview oldContent="" newContent="" language="typescript" filename="auth.ts" />
-        <InlineDiffViewer content="" filename="auth.ts" />
-      </section>
     </div>
   )
 }
