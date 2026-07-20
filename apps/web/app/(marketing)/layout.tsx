@@ -1,29 +1,31 @@
 import * as React from 'react'
 import type { Metadata } from 'next'
-import { MarketingHeader } from '@/components/marketing/MarketingHeader'
 
 /**
  * Marketing 路由组布局
  *
  * - Server Component(含 metadata export)
- * - 含 Header,Sidebar + AISidePanel 由根 layout.tsx 的 GlobalShell 全局提供
+ * - Sidebar + AISidePanel 由根 layout.tsx 的 GlobalShell 全局提供(全站统一导航)
+ * - 与 (main) 路由组 MainShell 同款卡片容器结构:rounded-xl + bg-shell-panel + my-2 mr-2
+ * - 已移除 MarketingHeader(2026-07-20):sidebar 已含全部 6 个路由
+ *   (enterprise/learn/agents/news/ai-world/dashboard)+ 登录入口 + 品牌 logo,
+ *   MarketingHeader 是纯冗余,违反"左侧侧边栏统一导航"项目设定
  * - SiteFooter 由各子页面自行渲染(首页放在 main 滚动流末尾,作为最后一个 snap section,
  *   跟随 main 滚动可见,避免 layout 中悬浮不可达)
- * - metadata:站点级,所有 (marketing) 子路由继承
  *
  * 路由组 (marketing) 不影响 URL 路径:
  *   /(marketing)/page.tsx          → /
  *
  * 结构(填充在 GlobalShell 内容槽内):
- *   div flex-col flex-1 min-h-0 overflow-y-auto bg-background
- *     MarketingHeader  (sticky h-14 = 3.5rem)
- *     children          (首页 main 用 height: calc(100vh - 3.5rem) 独立滚动,
+ *   div rounded-xl bg-shell-panel my-2 mr-2 overflow-hidden
+ *     children          (首页 main 用 height: calc(100vh - 1rem) 独立滚动,
  *                        SiteFooter 在 main 内部末尾,跟随 main 滚动可见)
  *   /div
  *
  * 高度策略:
  * - flex-1 min-h-0:在 GlobalShell 内容槽(flex 容器)中正确填充
- * - overflow-y-auto:为非首页子路由提供滚动能力(首页 main 自带 overflow-y-scroll)
+ * - overflow-hidden:裁剪子元素溢出 + 保持圆角不被覆盖
+ * - my-2 mr-2:与 GlobalShell 的 Sidebar 之间留 8px 间距,与视口顶部/底部留 8px 间距
  */
 export const metadata: Metadata = {
   title: {
@@ -40,11 +42,8 @@ export const metadata: Metadata = {
 }
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
-  // overflow-x-hidden 兜底,防止子元素(首页 main 内的 Marquee / 跑马灯等
-  // transform 动画元素)宽度溢出导致整页可左右滑动。
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto bg-shell-panel">
-      <MarketingHeader />
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-shell-panel my-2 mr-2">
       {children}
     </div>
   )
