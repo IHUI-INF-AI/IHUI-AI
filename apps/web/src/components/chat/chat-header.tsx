@@ -5,6 +5,7 @@ import { Sparkles, Trash2, History, Cpu } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 interface ChatHeaderProps {
   currentModel: string
@@ -62,34 +63,36 @@ export function ChatHeader({
         </span>
       </div>
 
-      <button
-        type="button"
-        onClick={handleClear}
-        disabled={!hasMessages || isStreaming}
-        aria-label={clearLabel}
-        title={clearLabel}
-        className={cn(
-          'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
-          'hover:bg-accent hover:text-accent-foreground',
-          'disabled:cursor-not-allowed disabled:opacity-40',
-        )}
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
+      <Tooltip content={clearLabel}>
+        <button
+          type="button"
+          onClick={handleClear}
+          disabled={!hasMessages || isStreaming}
+          aria-label={clearLabel}
+          className={cn(
+            'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+            'hover:bg-accent hover:text-accent-foreground',
+            'disabled:cursor-not-allowed disabled:opacity-40',
+          )}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </Tooltip>
 
-      <button
-        type="button"
-        aria-label={historyLabel}
-        title={historyLabel}
-        disabled
-        className={cn(
-          'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
-          'hover:bg-accent hover:text-accent-foreground',
-          'disabled:cursor-not-allowed disabled:opacity-40',
-        )}
-      >
-        <History className="h-4 w-4" />
-      </button>
+      <Tooltip content={historyLabel}>
+        <button
+          type="button"
+          aria-label={historyLabel}
+          disabled
+          className={cn(
+            'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+            'hover:bg-accent hover:text-accent-foreground',
+            'disabled:cursor-not-allowed disabled:opacity-40',
+          )}
+        >
+          <History className="h-4 w-4" />
+        </button>
+      </Tooltip>
     </header>
   )
 }

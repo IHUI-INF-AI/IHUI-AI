@@ -3,6 +3,7 @@ import { Edit, Trash2, Loader2, ListOrdered, ChevronDown, ChevronRight } from 'l
 import { Button } from '@ihui/ui'
 import { useTranslations } from 'next-intl'
 import { isNotFound } from '@/lib/api-error'
+import { Tooltip } from '@/components/feedback'
 import type { Chapter } from './types'
 
 interface Props {
@@ -83,19 +84,22 @@ export function ChapterList({
                 {t('sortOrder', { value: ch.sortOrder })}
               </span>
               <div className="ml-auto flex items-center gap-1">
-                <Button variant="ghost" size="sm" onClick={() => onEdit(ch)} title={t('edit')}>
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onDelete(ch)}
-                  title={t('delete')}
-                  className="text-destructive hover:text-destructive"
-                  disabled={deletePending}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <Tooltip content={t('edit')}>
+                  <Button variant="ghost" size="sm" onClick={() => onEdit(ch)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </Tooltip>
+                <Tooltip content={t('delete')}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onDelete(ch)}
+                    className="text-destructive hover:text-destructive"
+                    disabled={deletePending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </Tooltip>
               </div>
             </div>
             {isExp && (

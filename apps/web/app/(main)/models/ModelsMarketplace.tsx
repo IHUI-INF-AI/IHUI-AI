@@ -34,6 +34,7 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 import { fetchConfigs, type UserLlmConfig } from '@/lib/user-llm-configs'
 import { providerToTemplateCode, hasPresetTemplate } from '@/lib/llm-templates'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
 import { ModelDetailDialog } from './ModelDetailDialog'
@@ -714,13 +715,12 @@ function ModelCardList({
           <span className="truncate text-xs text-muted-foreground">{vendorLabel}</span>
           {/* 配置状态 inline 徽章 */}
           {isConfigured && (
-            <span
-              className="inline-flex shrink-0 items-center gap-0.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
-              title={t('quickKey.configured')}
-            >
-              <CheckCircle2 className="h-2.5 w-2.5" />
-              {t('quickKey.configured')}
-            </span>
+            <Tooltip content={t('quickKey.configured')}>
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                <CheckCircle2 className="h-2.5 w-2.5" />
+                {t('quickKey.configured')}
+              </span>
+            </Tooltip>
           )}
         </div>
         <div className="mt-0.5 flex items-center gap-3 text-[11px] text-muted-foreground [&>span]:translate-y-[0.5px]">
@@ -755,19 +755,20 @@ function ModelCardList({
 
       {/* List 视图操作区:可配置且未配置时,显示「配置 API Key」小按钮 */}
       {canConfigure && !isConfigured && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[0.5px]"
-          onClick={(e) => {
-            e.stopPropagation()
-            onConfigure(model)
-          }}
-          title={t('market.configureKey')}
-        >
-          <KeyRound className="h-3 w-3" />
-          <span>{t('market.configureKey')}</span>
-        </Button>
+        <Tooltip content={t('market.configureKey')}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[0.5px]"
+            onClick={(e) => {
+              e.stopPropagation()
+              onConfigure(model)
+            }}
+          >
+            <KeyRound className="h-3 w-3" />
+            <span>{t('market.configureKey')}</span>
+          </Button>
+        </Tooltip>
       )}
 
       <Button
@@ -843,13 +844,12 @@ function ConfiguredBadge({
     const baseCls =
       'inline-flex items-center gap-0.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
     return (
-      <span
-        className={cn(baseCls, variant === 'absolute' && 'absolute left-3 top-3 z-10')}
-        title={t('quickKey.configured')}
-      >
-        <CheckCircle2 className="h-2.5 w-2.5" />
-        {t('quickKey.configured')}
-      </span>
+      <Tooltip content={t('quickKey.configured')}>
+        <span className={cn(baseCls, variant === 'absolute' && 'absolute left-3 top-3 z-10')}>
+          <CheckCircle2 className="h-2.5 w-2.5" />
+          {t('quickKey.configured')}
+        </span>
+      </Tooltip>
     )
   }
 
@@ -858,27 +858,29 @@ function ConfiguredBadge({
       'inline-flex h-5 items-center gap-0.5 rounded bg-amber-50 px-1.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-950/60'
     if (variant === 'absolute') {
       return (
+        <Tooltip content={t('market.configureKey')}>
+          <button
+            type="button"
+            className={cn(baseCls, 'absolute left-3 top-3 z-10')}
+            onClick={onConfigure}
+          >
+            <TriangleAlert className="h-2.5 w-2.5" />
+            {t('quickKey.notConfigured')}
+          </button>
+        </Tooltip>
+      )
+    }
+    return (
+      <Tooltip content={t('market.configureKey')}>
         <button
           type="button"
-          className={cn(baseCls, 'absolute left-3 top-3 z-10')}
+          className={baseCls}
           onClick={onConfigure}
-          title={t('market.configureKey')}
         >
           <TriangleAlert className="h-2.5 w-2.5" />
           {t('quickKey.notConfigured')}
         </button>
-      )
-    }
-    return (
-      <button
-        type="button"
-        className={baseCls}
-        onClick={onConfigure}
-        title={t('market.configureKey')}
-      >
-        <TriangleAlert className="h-2.5 w-2.5" />
-        {t('quickKey.notConfigured')}
-      </button>
+      </Tooltip>
     )
   }
 

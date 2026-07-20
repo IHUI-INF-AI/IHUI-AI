@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 
 import { formatDate } from '@/lib/date-utils'
 import { Button } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 
 export interface FileItem {
   id: string
@@ -79,39 +80,42 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1">
                     {onPreview && (
+                      <Tooltip content="预览">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => onPreview(file)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                    )}
+                    <Tooltip content={t('download')}>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => onPreview(file)}
-                        title="预览"
+                        onClick={() => onDownload(file)}
+                        disabled={isDownloading}
                       >
-                        <Eye className="h-4 w-4" />
+                        {isDownloading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => onDownload(file)}
-                      disabled={isDownloading}
-                      title={t('download')}
-                    >
-                      {isDownloading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => onDelete(file)}
-                      title={t('deleteFile')}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    </Tooltip>
+                    <Tooltip content={t('deleteFile')}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => onDelete(file)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </td>
               </tr>

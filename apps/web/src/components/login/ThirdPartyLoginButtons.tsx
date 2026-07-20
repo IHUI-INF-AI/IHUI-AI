@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui'
 
 import { useThirdPartyAuth, fetchGoogleOAuthConfig } from '@/hooks/use-third-party-auth'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import type { ThirdPartyPlatform } from '@/types/third-party'
 
@@ -129,20 +130,14 @@ export function ThirdPartyLoginButtons() {
           const platformDisabled = !isPlatformEnabled(p.key)
           const disabled = googleDisabled || platformDisabled || handlingCallback
           const isBusy = isLoading && currentPlatform === p.key
-          return (
+          const tooltipContent =
+            googleDisabled || platformDisabled ? t('googleNotConfigured') : undefined
+          const button = (
             <Button
-              key={p.key}
               type="button"
               variant="outline"
               disabled={disabled}
               onClick={() => handleProviderClick(p.key)}
-              title={
-                googleDisabled
-                  ? t('googleNotConfigured')
-                  : platformDisabled
-                    ? t('googleNotConfigured')
-                    : undefined
-              }
             >
               {isBusy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -158,6 +153,13 @@ export function ThirdPartyLoginButtons() {
               )}
               <span>{p.label}</span>
             </Button>
+          )
+          return tooltipContent ? (
+            <Tooltip key={p.key} content={tooltipContent}>
+              {button}
+            </Tooltip>
+          ) : (
+            <React.Fragment key={p.key}>{button}</React.Fragment>
           )
         })}
       </div>

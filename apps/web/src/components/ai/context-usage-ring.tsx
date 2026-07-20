@@ -298,6 +298,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
       portal
       position="top"
       align="center"
+      tooltip={triggerLabel}
       content={
         <div className="w-72">
           {/* 标题 */}
@@ -413,7 +414,6 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
       <button
         type="button"
         aria-label={triggerLabel}
-        title={triggerLabel}
         className={cn(
           'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
           'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
