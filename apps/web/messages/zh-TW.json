@@ -1101,6 +1101,27 @@
       "zeroone": "零一萬物",
       "yi": "零一萬物",
       "unknown": "模型"
+    },
+    "contextUsage": {
+      "triggerLabel": "上下文已使用 {percent}%,{used}/{max},點擊查看詳情",
+      "title": "上下文使用情況",
+      "used": "已使用",
+      "max": "最大容量",
+      "messages": "訊息數",
+      "currentModel": "目前模型",
+      "compressTitle": "壓縮上下文",
+      "compressTo200k": "壓縮到 20 萬字元",
+      "compressTo1m": "壓縮到 100 萬字元",
+      "compressSuccess": "壓縮成功",
+      "compressFailed": "壓縮失敗",
+      "compressResultDesc": "原始 {original} 字元 → 壓縮後 {compressed} 字元",
+      "ratio": "壓縮比",
+      "noConversation": "新建任務後才能壓縮",
+      "lowUsage": "餘量充足",
+      "mediumUsage": "使用過半",
+      "highUsage": "接近上限",
+      "criticalUsage": "已超上限",
+      "disclaimer": "Token 數為客戶端估算,與服務端精確計數可能存在 ±10% 誤差。壓縮後內容將作為後續對話的上下文摘要。"
     }
   },
   "learn": {
