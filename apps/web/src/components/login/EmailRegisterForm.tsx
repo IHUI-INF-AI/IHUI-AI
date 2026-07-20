@@ -10,7 +10,7 @@ import { Loader2 } from 'lucide-react'
 import { Button, Input, Label } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
 import { PasswordStrengthIndicator } from '@/components/login'
-import { emailSchema } from '@/components/login'
+import { emailSchema } from '@/components/login/login-schemas'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
