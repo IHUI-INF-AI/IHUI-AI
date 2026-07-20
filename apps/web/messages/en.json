@@ -1012,6 +1012,8 @@
     "openLocalFolder": "Open Local Folder",
     "openedWorkspace": "Opened Workspace",
     "reopenPermission": "Reconfigure Permissions",
+    "selectWorkspace": "Select Workspace",
+    "recentWorkspaces": "Recent Workspaces",
     "folderPicker": {
       "title": "Select Local Project Folder",
       "description": "Browse local disk to select a project folder. First-time open will configure access permissions.",
@@ -17459,6 +17461,9 @@
     "newConversation": "New Chat",
     "noHistory": "No history chat",
     "emptyWorkspace": "Empty Workspace",
+    "addWorkspace": "Add Workspace",
+    "clearWorkspace": "Clear Workspace",
+    "noRecentWorkspaces": "No recent workspaces",
     "handleHint": "Click or drag right to open AI workspace",
     "resizeHandleHint": "Drag to resize width",
     "filterByModel": "ModelFilter",
