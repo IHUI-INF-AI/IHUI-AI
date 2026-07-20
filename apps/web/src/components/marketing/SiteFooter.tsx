@@ -41,10 +41,12 @@ export function SiteFooter() {
 
   return (
     <footer className="mt-12 border-t bg-card/50">
-      {/* 2026-07-20 改:去掉 max-w-7xl mx-auto,容器改 w-full 撑满营销区域
-          (原因同 page.tsx — 父容器已撑满 1962/2449px,footer 也需撑满,
-           消除 max-w-7xl 居中导致 footer 两侧各 ~341px 黑地) */}
-      <div className="w-full px-4 py-10 md:px-8">
+      {/* 2026-07-20 恢复 max-w-7xl mx-auto 历史样式
+          (与 git 未改架构前 e815747a^ 一致),footer 内容居中限宽 1280px,
+          紧凑排版。之前 15667824 改成 w-full 撑满是为了消除"悬浮"视觉错觉,
+          但根因是 layout 布局问题(footer 在 main sibling 不可达),
+          现已将 SiteFooter 移入 main 内部末尾,布局问题根治,样式恢复历史。 */}
+      <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-8">
         <div className="grid gap-8 md:grid-cols-4">
           {/* 品牌区 */}
           <div className="space-y-3">
