@@ -312,6 +312,9 @@
     "dataItem": "資料項",
     "modifySuccess": "修改成功"
   },
+  "a11y": {
+    "menu": "選單"
+  },
   "nav": {
     "title": "主導航",
     "home": "首頁",
