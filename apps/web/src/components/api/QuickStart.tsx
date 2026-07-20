@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Copy, Check } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 export interface QuickStartStep {
@@ -53,6 +54,7 @@ export default function QuickStart({
 }
 
 function CodeBlock({ code, language }: { code: string; language?: string }) {
+  const t = useTranslations('a11y')
   const [copied, setCopied] = React.useState(false)
   const copy = async () => {
     try {
@@ -69,7 +71,7 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
         type="button"
         onClick={copy}
         className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
-        aria-label="复制"
+        aria-label={t('copy')}
       >
         {copied ? (
           <Check className="h-3.5 w-3.5 text-emerald-500" />
