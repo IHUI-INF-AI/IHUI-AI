@@ -28,7 +28,7 @@ import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
  */
 const BENEFITS_KEYS = ['benefit1', 'benefit2', 'benefit3', 'benefit4', 'benefit5', 'benefit6']
 
-const TOTAL_PAGES = 6
+const TOTAL_PAGES = 7
 
 export default function HomePage() {
   const t = useTranslations('marketing')
@@ -66,8 +66,12 @@ export default function HomePage() {
                 (work-area 已用 padding-left 487px 给 AI 面板让位,主区域 1962px;
                 AI 面板关闭时为 2449px)。让 hero/marquee 等撑满可用宽度,
                 消除之前 max-w-7xl 居中导致两侧各 ~341px 黑色空地。
-              - 内部 TypewriterHero / Marquee 仍用 items-center 居中显示。 */}
-          <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-4 py-4 md:px-8 md:py-6">
+              - 2026-07-20 改:父容器 justify-center → justify-start + pt-8 md:pt-12,
+                TypewriterHeroSection 去掉 py-8 md:py-12。
+                原方案:hero+marquee 内容总高 376px,父容器可用 1124px,空地 748px
+                被 justify-center 上下均分,导致 hero 视觉"悬空居中",下方大片黑地。
+                新方案:内容靠上(顶 80-112px),下方留白作呼吸,hero 视觉主导上方。 */}
+          <div className="flex h-full w-full flex-col items-center justify-start gap-4 px-4 pb-4 pt-8 md:px-8 md:pb-6 md:pt-12">
             <TypewriterHeroSection />
             <Marquee />
           </div>
@@ -220,13 +224,20 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Page 7: 底部 Footer(跟随 main 滚动,滚到最底部才可见,不悬浮)
+        {/* Page 7: 底部 Footer(独立 snap-start 分页,滚到第 6 页继续向下拉即可停靠)
             - 2026-07-20 修复:原 SiteFooter 在 layout 中作为 main 的 sibling,
               但 main 用 height: calc(100vh - 3.5rem) + overflow-y-scroll 锁定,
               占满视口剩余空间,layout 无可滚动空间,footer 永远不可见(视觉上"悬浮")。
-            - 现移入 main 末尾作为最后一个 snap-start section,跟随 main 滚动流,
-              滚到第 6 页继续向下拉即可见,符合"滑动到最底部才拉出 footer"的预期。 */}
-        <SiteFooter />
+            - 现作为第 7 个 snap-start section,跟随 main 滚动流,
+              useFullPageScroll 的 wheel 事件触发 next() 翻到第 7 页即可停靠。
+            - 不强制 minHeight 100vh,让 footer 自然高度,snap 顶部对齐视口顶部即可完整可见。 */}
+        <section
+          id="home-page-7"
+          className="snap-start"
+          aria-label={t('footer.brand', { fallback: 'Footer' })}
+        >
+          <SiteFooter />
+        </section>
       </main>
 
       {/* 右侧分页指示器 */}
