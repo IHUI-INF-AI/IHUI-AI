@@ -1,9 +1,14 @@
 /**
- * AdminContent — 内容运营总览(4 个子模块:announcement / help-article / article / advertise)。
+ * AdminContent — 内容运营总览(10 个子模块配置驱动)。
  *
- * 单页内嵌 4 Tab + CRUD 按钮,统一调 `/api/admin/content/:type/:id` 端点
- * (subagent A 实装的统一内容 CRUD 路由,支持 10 种 type,本页面用 4 种)。
- * 复用 useAdminCrud + ContentDialog + AdminDialog 模板,实现完整化(从 80% → 95%+)。
+ * 单页内嵌 10 Tab + CRUD 按钮,统一调 `/api/admin/content/:type/:id` 端点
+ * (subagent A 实装的统一内容 CRUD 路由,支持全部 10 种 type)。
+ *
+ * 10 type 列表(配置见 `lib/admin-content-types.ts`):
+ *   announcement / help-article / help-category / doc / article / advertise /
+ *   about-us / contact / recommendation / mobile-adapter
+ *
+ * 复用 useAdminCrud + ContentDialog + AdminDialog 模板,实现完整化(从 4/10 → 10/10)。
  */
 import { useMemo, useState } from 'react'
 import type { ApiResult } from '@ihui/types'
@@ -22,14 +27,16 @@ import {
 import { useAdminCrud } from '../../hooks/use-admin-crud'
 import { useI18n } from '../../i18n'
 import {
-  CONTENT_TYPES,
+  ALL_CONTENT_TYPES,
+  TYPE_CONFIGS,
   listAdminContent,
   createAdminContent,
   updateAdminContent,
   deleteAdminContent,
+  formValuesToBody,
   type ContentType,
   type ContentRow,
-} from '../../lib/api/admin-content'
+} from '../../lib/admin-content-types'
 import {
   ContentDialog,
   type ContentDialogMode,
@@ -45,8 +52,23 @@ interface ContentListParams {
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' })
 
-function tabKey(t: ContentType): string {
-  return `admin.content.tab${t.replace(/-(.)/g, (_, c) => c.toUpperCase()).replace(/^./, (c) => c.toUpperCase())}`
+function preview(value: unknown, max = 60): string {
+  if (typeof value !== 'string') return '—'
+  return `${value.slice(0, max)}${value.length > max ? '…' : ''}`
+}
+
+function statusBadge(row: ContentRow, t: (k: string) => string) {
+  const published = row.isPublished === true
+  return (
+    <span className={`admin-badge ${published ? 'admin-badge-ok' : 'admin-badge-muted'}`}>
+      {published ? t('admin.content.statusPublished') : t('admin.content.statusDraft')}
+    </span>
+  )
+}
+
+function sortCell(row: ContentRow): string {
+  const v = row.sortOrder ?? row.sort
+  return v === undefined || v === null ? '—' : String(v)
 }
 
 export default function AdminContent() {
@@ -108,26 +130,18 @@ export default function AdminContent() {
   const handleSubmit = async (values: ContentFormValues) => {
     setActionError('')
     setSuccessMessage('')
+    const body = formValuesToBody(values.values)
     try {
       if (dialogMode === 'create') {
-        const res = await createAdminContent(values.type, {
-          title: values.title.trim(),
-          content: values.content.trim(),
-          isPublished: values.isPublished,
-          sortOrder: values.sortOrder,
-        })
+        const res = await createAdminContent(values.type, body)
         if (!res.success) {
           setActionError(res.error || t('admin.content.createSuccess').replace('创建', '创建失败'))
           return
         }
         setSuccessMessage(t('admin.content.createSuccess'))
       } else if (editingRow) {
-        const res = await updateAdminContent(activeTab, String(editingRow.id), {
-          title: values.title.trim(),
-          content: values.content.trim(),
-          isPublished: values.isPublished,
-          sortOrder: values.sortOrder,
-        })
+        const editType: ContentType = (editingRow.type as ContentType) || activeTab
+        const res = await updateAdminContent(editType, String(editingRow.id), body)
         if (!res.success) {
           setActionError(res.error || t('admin.content.updateSuccess').replace('更新', '更新失败'))
           return
@@ -148,7 +162,8 @@ export default function AdminContent() {
     setActionError('')
     setSuccessMessage('')
     try {
-      const res = await deleteAdminContent(activeTab, String(row.id))
+      const deleteType: ContentType = (row.type as ContentType) || activeTab
+      const res = await deleteAdminContent(deleteType, String(row.id))
       if (!res.success) {
         setActionError(res.error || t('admin.content.deleteSuccess').replace('删除', '删除失败'))
         return
@@ -208,7 +223,7 @@ export default function AdminContent() {
         </CardHeader>
         <CardContent>
           <div className="admin-tabs" role="tablist" data-testid="admin-content-tabs">
-            {CONTENT_TYPES.map((tp) => (
+            {ALL_CONTENT_TYPES.map((tp) => (
               <button
                 key={tp}
                 type="button"
@@ -221,7 +236,7 @@ export default function AdminContent() {
                 }}
                 data-testid={`admin-content-tab-${tp}`}
               >
-                {t(tabKey(tp))}
+                {t(`admin.content.${TYPE_CONFIGS[tp].tabKey}`)}
               </button>
             ))}
           </div>
@@ -243,27 +258,20 @@ export default function AdminContent() {
               </TableHeader>
               <TableBody>
                 {rows.map((row) => {
-                  const published = row.isPublished === true
+                  const displayTitle =
+                    typeof row.title === 'string'
+                      ? row.title
+                      : typeof row.name === 'string'
+                        ? row.name
+                        : typeof row.key === 'string'
+                          ? row.key
+                          : '—'
                   return (
                     <TableRow key={String(row.id)} data-testid={`admin-content-row-${row.id}`}>
-                      <TableCell>{row.title || '—'}</TableCell>
-                      <TableCell className="admin-muted">
-                        {typeof row.content === 'string'
-                          ? `${row.content.slice(0, 60)}${row.content.length > 60 ? '…' : ''}`
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={`admin-badge ${published ? 'admin-badge-ok' : 'admin-badge-muted'}`}
-                        >
-                          {published
-                            ? t('admin.content.statusPublished')
-                            : t('admin.content.statusDraft')}
-                        </span>
-                      </TableCell>
-                      <TableCell className="admin-num">
-                        {String(row.sortOrder ?? row.sort ?? '—')}
-                      </TableCell>
+                      <TableCell>{displayTitle}</TableCell>
+                      <TableCell className="admin-muted">{preview(row.content)}</TableCell>
+                      <TableCell>{statusBadge(row, t)}</TableCell>
+                      <TableCell className="admin-num">{sortCell(row)}</TableCell>
                       <TableCell className="admin-muted">
                         {row.createdAt ? DATE_FORMATTER.format(new Date(row.createdAt)) : '—'}
                       </TableCell>
