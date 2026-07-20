@@ -828,6 +828,13 @@
       "when": 1784552400000,
       "tag": "20260720130000_add_2_minor_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1784556000000,
+      "tag": "20260720140000_workspace_permissions",
+      "breakpoints": true
     }
   ]
 }
