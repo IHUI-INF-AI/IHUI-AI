@@ -111,12 +111,39 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
     />
   )
   return (
-    <div className="flex flex-col items-center gap-0.5">
+    <div className="group/qr relative flex flex-col items-center gap-0.5">
       <div
         title={t(qr.altKey)}
         className="cursor-pointer transition-opacity hover:opacity-80"
       >
         <div className={QR_BOX}>{img}</div>
+      </div>
+      {/*
+        2026-07-20 加:hover 放大弹窗(240px 二维码大图),扫码更友好。
+        - 56px 缩略图扫码距离屏幕较远时难识别,hover 弹 240px 大图(2.7× 放大)
+        - 位置:absolute bottom-full 弹在 trigger 上方,left-1/2 -translate-x-1/2 水平居中
+        - 默认 scale-95 + opacity-0,group-hover/qr 时 scale-100 + opacity-100,
+          transition-all duration-200 滑入
+        - pointer-events-none 避免弹窗遮挡 trigger 自身 hover
+        - bg-popover + border + shadow-lg 与项目 Popover 视觉一致;无圆角违规
+      */}
+      <div
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-popover mb-2 -translate-x-1/2 scale-95 opacity-0 transition-all duration-200 group-hover/qr:scale-100 group-hover/qr:opacity-100"
+      >
+        <div className="rounded-md border bg-popover p-2 shadow-lg">
+          <div className="h-[240px] w-[240px] overflow-hidden rounded-sm bg-zinc-900 p-3">
+            <img
+              src={qr.src}
+              alt={t(qr.altKey)}
+              width={240}
+              height={240}
+              className="h-full w-full object-contain"
+              loading="eager"
+              decoding="sync"
+            />
+          </div>
+        </div>
       </div>
       <span className="text-[10px] leading-tight text-muted-foreground">{t(qr.altKey)}</span>
     </div>
