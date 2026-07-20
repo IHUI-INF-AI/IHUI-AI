@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
@@ -16,6 +17,7 @@ import {
 } from './footer-data'
 import { AgreementDialog } from './AgreementDialog'
 import { ContactDialog } from './ContactDialog'
+import { Tooltip } from '@/components/feedback'
 
 /**
  * SiteFooter — 公司信息 + 生态平台 + 推广平台 + 二维码 + 协议/联系弹窗
@@ -83,15 +85,19 @@ function PlatformIcon({
   const className = ICON_BOX
   if (href) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" title={name} className={className}>
-        {img}
-      </a>
+      <Tooltip content={name}>
+        <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+          {img}
+        </a>
+      </Tooltip>
     )
   }
   return (
-    <div title={name} className={className}>
-      {img}
-    </div>
+    <Tooltip content={name}>
+      <div className={className}>
+        {img}
+      </div>
+    </Tooltip>
   )
 }
 
@@ -135,18 +141,21 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
 
   // action='copy' 用 <button>(无障碍 + 键盘 Enter 触发);普通二维码用 <div>
   const trigger = qr.action === 'copy' ? (
-    <button
-      type="button"
-      onClick={handleCopy}
-      title={`点击复制微信号: ${qr.copyValue ?? ''}`}
-      className="cursor-pointer transition-opacity hover:opacity-80"
-    >
-      <div className={QR_BOX}>{img}</div>
-    </button>
+    <Tooltip content={`点击复制微信号: ${qr.copyValue ?? ''}`}>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="cursor-pointer transition-opacity hover:opacity-80"
+      >
+        <div className={QR_BOX}>{img}</div>
+      </button>
+    </Tooltip>
   ) : (
-    <div title={t(qr.altKey)} className="cursor-pointer transition-opacity hover:opacity-80">
-      <div className={QR_BOX}>{img}</div>
-    </div>
+    <Tooltip content={t(qr.altKey)}>
+      <div className="cursor-pointer transition-opacity hover:opacity-80">
+        <div className={QR_BOX}>{img}</div>
+      </div>
+    </Tooltip>
   )
 
   return (
@@ -280,15 +289,24 @@ export function SiteFooter({ className }: { className?: string }) {
           </div>
         </div>
 
-        {/* Row 2: 3 个 Dialog + ICP 版权(单行,border-top 分隔)
-            v6 关键改进:
-            1. **删除 与 sidebar 重复的 3 个 Link(关于/帮助/反馈)**
-               — sidebar 已有同等入口,footer 再放 1 份是冗余(用户反馈"按钮重复了 冗余了")。
-            2. 底部行只保留 3 个 Dialog button + ICP+版权,信息更纯粹。
-            3. pt-0.5(从 pt-1 减 2px),让底部行紧贴 footer 底边。
-            4. text-[11px](从 text-xs 减 1px),更克制。 */}
+        {/* Row 2: 3 个 Dialog + 1 个 /about Link + ICP 版权
+            2026-07-20 v6.1 调整(用户反馈"你删的 Link 在哪里访问"):
+            - /help 和 /feedback 在 sidebar 已有入口(帮助+帮助中心 / 反馈+意见反馈),
+              确认可点击 → 维持删除。
+            - /about 页面存在但 sidebar 没有"关于我们"入口,是营销页用户访问
+              "关于智汇 AI" 的唯一通道 → 恢复 1 个 Link,与 3 个 Dialog 并列。
+            - 整体保持 4 个交互项 + ICP+版权,无重复冗余。 */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-0.5 text-[11px] text-muted-foreground">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+            <Link
+              href="/about"
+              className={FOOTER_BTN}
+              onClick={() => {
+                if (typeof window !== 'undefined') window.scrollTo(0, 0)
+              }}
+            >
+              {t('aboutUs')}
+            </Link>
             <button type="button" onClick={() => dlg.open('user')} className={FOOTER_BTN}>
               {tRoutes('userAgreement')}
             </button>

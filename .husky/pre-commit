@@ -156,6 +156,14 @@ if (!run('🎨 检查 CSS 颜色 token 嵌套...', 'node scripts/check-input-bor
   process.exit(1)
 }
 
+// 18. 原生 title tooltip 守门(2026-07-20 hover 提示统一项目样式落地)
+// 防止新增 HTML title 属性用于 hover 提示(浏览器原生样式与项目 <Tooltip> 不一致)
+// 规则: <Button title="..."> / <button title="..."> / <td|div|span|p|a|img title="..."> → 用 <Tooltip> 包裹
+// 豁免: <Modal/Alert/StatCard> 等 component 自带 title prop / <Button asChild title>(透传) / <iframe title>(a11y)
+if (!run('🖱️  检查原生 title tooltip 违规...', 'node scripts/check-native-title-tooltip.mjs --staged')) {
+  process.exit(1)
+}
+
 // 16. 条件 typecheck 闸门(仅 staged 涉及 apps/web 时跑 web typecheck)
 // 防止"commit 通过但 push 失败"的循环(f21dc473 commit 漏掉 import 的教训)
 // 只在 staged 文件涉及 apps/web 时跑,避免影响其他包的 commit 速度

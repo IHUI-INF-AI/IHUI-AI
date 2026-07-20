@@ -2,6 +2,7 @@
 
 import { Loader2, Bell } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import { TruncatedText } from '@/components/common'
 import { th, maskUserId, STATUS_BADGE } from './helpers'
 import type { NotificationLog } from './types'
 
@@ -84,11 +85,8 @@ export function NotificationLogTable({ list, isLoading, onDetail }: Props) {
                       {statusLabel(item.status)}
                     </span>
                   </td>
-                  <td
-                    className="max-w-48 truncate px-4 py-2.5 text-xs text-muted-foreground"
-                    title={item.content ?? ''}
-                  >
-                    {item.content ?? '-'}
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <TruncatedText value={item.content ?? '-'} className="max-w-48" />
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{fmt(item.created_at)}</td>
                   <td className="px-4 py-2.5">

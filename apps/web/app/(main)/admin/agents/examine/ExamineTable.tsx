@@ -6,6 +6,7 @@ import { Loader2, ShieldCheck, Edit, Trash2, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import { STATUS_STYLE } from './helpers'
 import type { Examine } from './types'
 
@@ -77,36 +78,39 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
                   <div className="flex justify-end gap-1">
                     {item.status === 1 && (
                       <HasPermi code="ai:examine:edit">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onChat(item)}
-                          title={t('chatApprove')}
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                        </Button>
+                        <Tooltip content={t('chatApprove')}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onChat(item)}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                        </Tooltip>
                       </HasPermi>
                     )}
                     <HasPermi code="ai:examine:edit">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(item)}
-                        title={tc('edit')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={tc('edit')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(item)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                     <HasPermi code="ai:examine:remove">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(item)}
-                        title={tc('delete')}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={tc('delete')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(item)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                   </div>
                 </TableCell>

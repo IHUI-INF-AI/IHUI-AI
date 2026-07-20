@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { isNotFound } from '@/lib/api-error'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { useTranslations } from 'next-intl'
+import { Tooltip } from '@/components/feedback'
 import type { Member } from './types'
 
 interface Props {
@@ -98,16 +99,17 @@ export function MemberTable({ rows, isLoading, error, classId, onRemove, removeP
                 </span>
               </TableCell>
               <TableCell className="px-4 py-2.5 text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemove(m)}
-                  title={t('remove')}
-                  className="text-destructive hover:text-destructive"
-                  disabled={removePending}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <Tooltip content={t('remove')}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRemove(m)}
+                    className="text-destructive hover:text-destructive"
+                    disabled={removePending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </Tooltip>
               </TableCell>
             </TableRow>
           ))}

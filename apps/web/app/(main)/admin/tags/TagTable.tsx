@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 
 import { Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { Tag as TagChip } from '@/components/data/Tag'
 
 import { TAG_COLORS, getFontSize } from './helpers'
@@ -61,19 +62,22 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-5">
           {tags.map((tag, i) => (
-            <span
+            <Tooltip
               key={tag.id}
-              className={cn(
-                'inline-flex items-center gap-1 font-medium transition-colors hover:opacity-80',
-                TAG_COLORS[i % TAG_COLORS.length],
-              )}
-              style={{ fontSize: `${fontSize(tag.usageCount)}px` }}
-              title={t('usageCount', { count: tag.usageCount })}
+              content={t('usageCount', { count: tag.usageCount })}
             >
-              <Tag className="h-3 w-3" />
-              {tag.name}
-              <span className="text-xs text-muted-foreground">({tag.usageCount})</span>
-            </span>
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 font-medium transition-colors hover:opacity-80',
+                  TAG_COLORS[i % TAG_COLORS.length],
+                )}
+                style={{ fontSize: `${fontSize(tag.usageCount)}px` }}
+              >
+                <Tag className="h-3 w-3" />
+                {tag.name}
+                <span className="text-xs text-muted-foreground">({tag.usageCount})</span>
+              </span>
+            </Tooltip>
           ))}
         </div>
       </div>

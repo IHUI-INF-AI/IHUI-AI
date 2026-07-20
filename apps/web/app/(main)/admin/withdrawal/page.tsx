@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Banknote, ChevronLeft, ChevronRight, Check, X, Search } from 'lucide-react'
 import { Input, Button } from '@ihui/ui'
 import { Skeleton } from '@/components/ui/skeleton'
+import { TruncatedText } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { useWithdrawalMachine } from '@/lib/workflows'
 import type { Withdrawal, WithdrawalListData, WithdrawalStatus } from './types'
@@ -146,8 +147,8 @@ export default function AdminWithdrawalPage() {
                       {t(`status.${w.status}` as 'status.pending')}
                     </span>
                   </td>
-                  <td className="px-3 py-2 max-w-[200px] truncate text-xs text-muted-foreground" title={w.remark ?? ''}>
-                    {w.remark ?? '—'}
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <TruncatedText value={w.remark ?? '—'} className="max-w-[200px]" />
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{fmt.format(new Date(w.createdAt))}</td>
                   <td className="px-3 py-2 text-right">

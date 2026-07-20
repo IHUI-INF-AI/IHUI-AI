@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 
 import { Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 export interface McpDataStructureProps {
   data: unknown
@@ -118,19 +119,20 @@ export function McpDataStructure({ data, name }: McpDataStructureProps) {
           {name && <span className="text-sm font-medium">{name}</span>}
           <span className={cn('text-xs', typeColor(type))}>{type}</span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={handleCopy}
-          title={t('copy')}
-        >
-          {copied ? (
-            <Check className="h-3.5 w-3.5 text-emerald-500" />
-          ) : (
-            <Copy className="h-3.5 w-3.5" />
-          )}
-        </Button>
+        <Tooltip content={t('copy')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={handleCopy}
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-500" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </Tooltip>
       </div>
       <div className="max-h-[400px] overflow-auto p-3">
         <TreeNode value={data} depth={0} />

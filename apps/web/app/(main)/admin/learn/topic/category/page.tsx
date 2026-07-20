@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Edit, FolderTree, Loader2, Plus, Search, Tra
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ihui/ui'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 interface Category { id: string; name: string; sort: number; status: number; createdAt: string }
 interface ListData { list: Category[]; total: number }
@@ -107,8 +108,16 @@ export default function AdminLearnTopicCategoryPage() {
         <TableCell className="px-4 py-2.5 text-muted-foreground">{fmt.format(new Date(item.createdAt))}</TableCell>
         <TableCell className="px-4 py-2.5 text-right">
           <div className="flex items-center justify-end gap-1">
-            <Button variant="ghost" size="sm" onClick={() => openEdit(item)} title="编辑"><Edit className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="sm" onClick={() => handleDelete(item)} title="删除" className="text-destructive hover:text-destructive" disabled={deleteMut.isPending}><Trash2 className="h-4 w-4" /></Button>
+            <Tooltip content="编辑">
+              <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
+                <Edit className="h-4 w-4" />
+              </Button>
+            </Tooltip>
+            <Tooltip content="删除">
+              <Button variant="ghost" size="sm" onClick={() => handleDelete(item)} className="text-destructive hover:text-destructive" disabled={deleteMut.isPending}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </Tooltip>
           </div>
         </TableCell>
       </TableRow>
