@@ -3,6 +3,14 @@ import * as React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, fireEvent, waitFor } from '@testing-library/react'
 
+// next-intl 在 vitest 下不接 NextIntlClientProvider 上下文,直接 mock 掉 useTranslations
+// 用 key 直接当 label 返回(测试不依赖 i18n 文案正确性,只验证 aria-label 渲染逻辑)
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
+}))
+
+const renderWithIntl = (ui: React.ReactElement) => render(ui)
+
 // 提升 vi.fn 引用,便于在 mock 工厂和测试用例中共享(支持运行时改主题)
 // 返回类型用 union 形式,允许测试动态切换 light/dark
 const { mockUseTheme } = vi.hoisted(() => ({
@@ -74,7 +82,7 @@ describe('MarkdownStream - P2-1 流式 Markdown 增强', () => {
     // 流式中的代码块,未闭合(只有一个 ```)
     const content = '前文\n```js\nconst x = 1'
 
-    const { container } = render(<MarkdownStream content={content} isStreaming />)
+    const { container } = renderWithIntl(<MarkdownStream content={content} isStreaming />)
 
     // 应该渲染出 <pre>(代码块),且包含代码内容
     // 代码块走 SyntaxHighlighter(动态加载),需等待内容渲染
