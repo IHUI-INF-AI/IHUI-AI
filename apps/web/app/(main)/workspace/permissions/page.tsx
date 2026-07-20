@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { ChevronLeft, Loader2, Shield, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react'
+import { ChevronLeft, Loader2, Shield, ShieldAlert, ShieldCheck, Trash2, type LucideIcon } from 'lucide-react'
 
 import { Button } from '@ihui/ui'
 import { useAllWorkspacePermissions, useDeleteWorkspacePermission } from '@/hooks/use-workspace-permissions'
@@ -11,7 +11,7 @@ import { WorkspacePermissionDialog } from '@/components/workspace/workspace-perm
 import type { WorkspacePermission, WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { cn } from '@/lib/utils'
 
-const MODE_LABEL: Record<WorkspacePermissionMode, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
+const MODE_LABEL: Record<WorkspacePermissionMode, { icon: LucideIcon; color: string }> = {
   default: { icon: ShieldAlert, color: 'text-muted-foreground' },
   'accept-edits': { icon: ShieldCheck, color: 'text-emerald-500' },
   'bypass-permissions': { icon: Shield, color: 'text-amber-500' },
