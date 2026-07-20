@@ -24,7 +24,14 @@ export type Icon = {
   /** 纯白前景图标(2026-07-20 加):是否应用 `invert dark:invert-0` filter 适配主题 */
   readonly mono?: boolean
 }
-export type Qr = { readonly src: string; readonly altKey: 'officialApp' | 'contactUs' }
+export type Qr = {
+  readonly src: string
+  readonly altKey: 'officialApp' | 'contactUs'
+  /** 可选:点击二维码拉起的 URL(如 `weixin://` 拉起电脑微信) */
+  readonly href?: string
+  /** 可选:提示文案 i18n key(无 `footer.` 前缀),不填则不显示 */
+  readonly hintKey?: string
+}
 
 // 统一图片加载策略(footer 强制 eager,首屏外也要立即显示)
 export const IMG_EAGER = { loading: 'eager', decoding: 'sync' } as const
@@ -83,7 +90,12 @@ export const PROMOTIONS: readonly Icon[] = [
   { nameKey: 'promos.promo6', src: '/footer/tuiguangpingtai/6.png', mono: true },
   { nameKey: 'promos.promo7', src: '/footer/tuiguangpingtai/7.png', mono: true },
   { nameKey: 'promos.promo8', src: '/footer/tuiguangpingtai/8.png', mono: true },
-  { nameKey: 'promos.x', src: '/footer/tuiguangpingtai/9.png', mono: true, href: 'https://x.com/ok502319984' },
+  {
+    nameKey: 'promos.x',
+    src: '/footer/tuiguangpingtai/9.png',
+    mono: true,
+    href: 'https://x.com/ok502319984',
+  },
   {
     nameKey: 'promos.facebook',
     src: '/footer/tuiguangpingtai/10.png',
@@ -94,14 +106,24 @@ export const PROMOTIONS: readonly Icon[] = [
   { nameKey: 'promos.promo12', src: '/footer/tuiguangpingtai/12.png', mono: true },
   { nameKey: 'promos.promo14', src: '/footer/tuiguangpingtai/14.png', mono: true },
   { nameKey: 'promos.promo15', src: '/footer/tuiguangpingtai/15.png', mono: true },
-  { nameKey: 'promos.github', src: '/footer/tuiguangpingtai/16.png', mono: true, href: 'https://github.com/AIZHS2025' },
+  {
+    nameKey: 'promos.github',
+    src: '/footer/tuiguangpingtai/16.png',
+    mono: true,
+    href: 'https://github.com/AIZHS2025',
+  },
   { nameKey: 'promos.promo17', src: '/footer/tuiguangpingtai/17.png', mono: true },
 ]
 
-// 底部二维码(仅官方应用;原 footer-icon-3.png 是 2534×2534 全空白色块,
-// 2026-07-20 用户反馈"联系我们"二维码亮色模式不可见 → 改用联系卡片代替)
+// 底部二维码:
+// - footer-icon-2.png:官方应用二维码(主题感知,白底深码)
+// - wechat-vx.png:微信个人号二维码(2026-07-20 加,源图来自用户百度同步盘 VX.png)。
+//   点击拉起 `weixin://` 协议,浏览器会询问是否打开微信,确认后启动电脑微信。
+//   用户可在电脑微信中用「扫一扫」扫描屏幕上的二维码添加好友。
+//   原 footer-icon-3.png 是 2534×2534 全空白色块 → 弃用。
 export const QRS: readonly Qr[] = [
   { src: '/footer/erweima/footer-icon-2.png', altKey: 'officialApp' },
+  { src: '/footer/erweima/wechat-vx.png', altKey: 'contactUs', href: 'weixin://' },
 ]
 
 // 跑马灯专用:模型 + 推广平台拼接(24 张无缝循环)
