@@ -23,7 +23,7 @@ const TEXTAREA = `${AI_PANEL} textarea[aria-label]:not([disabled])`
 const CHIPS_WRAPPER = `${AI_PANEL} .flex.flex-wrap.items-center.justify-center.gap-2` // chips variant
 // 打开 AI 侧边面板
 async function openAiPanel(page: Page) {
-  // 优先尝试直接访问 /workspace 或 /home 触发 docked panel 渲染
+  // 优先尝试直接访问 /workspace 触发 docked panel 渲染
   await page.goto('/', { waitUntil: 'domcontentloaded' })
   // 触发 handle 拖拽或点击打开(通过点击 handle 模拟)
   // 这里用 JS 直接调 store 打开(避免依赖具体 UI 触发方式)

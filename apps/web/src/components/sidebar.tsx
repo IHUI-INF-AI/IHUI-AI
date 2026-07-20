@@ -198,7 +198,7 @@ export {
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: '',
-    items: [{ href: '/home', labelKey: 'home', icon: Home }],
+    items: [{ href: '/', labelKey: 'home', icon: Home }],
   },
   {
     label: 'AI',
