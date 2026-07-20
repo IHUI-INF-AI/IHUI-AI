@@ -11,7 +11,86 @@ import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { createConversation, sendMessage as persistMessage } from '@/lib/chat-api'
+import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
+
+// 斜杠命令 → 自媒体 skill 直调映射(避免走 LLM chat 流,直接调 skill API)
+// /wechat-article <title>  → POST /api/self-media/wechat/generate {title, dryRun:true}
+// /koubo-script <MMDD>     → POST /api/self-media/koubo/generate {date, dryRun:true}
+const SELF_MEDIA_SLASH_MAP = {
+  '/wechat-article': {
+    endpoint: '/api/self-media/wechat/generate',
+    parseArgs: (rest: string) => ({ title: rest || '今日公众号文章' }),
+    format: (r: any) => {
+      if (!r.success) return `❌ 公众号文章生成失败: ${r.error || '未知错误'}`
+      const d = r.data || {}
+      const ok = d.ok ?? false
+      const lines = [
+        `### 公众号文章生成 ${ok ? '✅' : '⚠️'}`,
+        `- 标题: ${d.title || ''}`,
+        `- md 路径: ${d.mdPath || '(无)'}`,
+        `- 耗时: ${d.duration_ms ?? 0} ms`,
+      ]
+      if (d.error) lines.push(`- 错误: ${d.error}`)
+      if (d.stdout) lines.push('\n```\n' + String(d.stdout).slice(0, 2000) + '\n```')
+      return lines.join('\n')
+    },
+  },
+  '/koubo-script': {
+    endpoint: '/api/self-media/koubo/generate',
+    parseArgs: (rest: string) => {
+      // rest 可能是 "MMDD" 或 "MMDD 选题方向"
+      const [date, ...topicParts] = rest.split(/\s+/)
+      return { date: date || '0720', topic: topicParts.join(' ') }
+    },
+    format: (r: any) => {
+      if (!r.success) return `❌ 口播稿生成失败: ${r.error || '未知错误'}`
+      const d = r.data || {}
+      const ok = d.ok ?? false
+      const lines = [
+        `### 口播稿生成 ${ok ? '✅' : '⚠️'}`,
+        `- 日期: ${d.date || ''}`,
+        `- 篇数: ${d.articlesCount ?? 0}`,
+        `- 输出: ${d.outputPath || '(无)'}`,
+        `- 耗时: ${d.duration_ms ?? 0} ms`,
+      ]
+      if (d.error) lines.push(`- 错误: ${d.error}`)
+      const articles: any[] = d.articles || []
+      if (articles.length) {
+        lines.push('\n---')
+        for (const a of articles.slice(0, 8)) {
+          lines.push(`\n#### 第 ${a.index} 篇\n\n${a.content || ''}`)
+        }
+      }
+      return lines.join('\n')
+    },
+  },
+} as const
+
+async function tryHandleSelfMediaSlash(
+  text: string,
+  onResult: (assistantContent: string) => void,
+): Promise<boolean> {
+  // 返回 true 表示命中斜杠命令(已调 skill),false 表示走原 chat 流程
+  const trimmed = text.trim()
+  const matched = Object.keys(SELF_MEDIA_SLASH_MAP).find((cmd) =>
+    trimmed === cmd || trimmed.startsWith(cmd + ' ') || trimmed.startsWith(cmd + '\n'),
+  )
+  if (!matched) return false
+  const cfg = SELF_MEDIA_SLASH_MAP[matched as keyof typeof SELF_MEDIA_SLASH_MAP]
+  const rest = trimmed.slice(matched.length).trim()
+  const body = cfg.parseArgs(rest)
+  try {
+    const r = await fetchApi<any>(cfg.endpoint, {
+      method: 'POST',
+      body: JSON.stringify({ ...body, dryRun: true }),
+    })
+    onResult(cfg.format(r))
+  } catch (e: any) {
+    onResult(`❌ ${matched} 调用失败: ${e?.message || String(e)}`)
+  }
+  return true
+}
 
 export interface UseChatReturn {
   messages: ReturnType<typeof useChatStore.getState>['messages']
@@ -57,6 +136,15 @@ export function useChat(): UseChatReturn {
 
       const store = useChatStore.getState()
       if (store.isStreaming) return
+
+      // 拦截自媒体斜杠命令(/wechat-article / /koubo-script),直接调 skill API,
+      // 不走 LLM chat 流。结果作为 assistant 消息追加到对话。
+      const slashHit = await tryHandleSelfMediaSlash(text, (assistantContent) => {
+        const m = store.currentModel
+        store.addMessage({ role: 'user', content: text, model: m })
+        store.addMessage({ role: 'assistant', content: assistantContent, model: m })
+      })
+      if (slashHit) return
 
       const model = store.currentModel
 
