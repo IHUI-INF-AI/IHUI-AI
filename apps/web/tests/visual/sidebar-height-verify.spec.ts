@@ -18,7 +18,7 @@ const DESKTOP_ASIDE = 'aside[aria-label="主导航"]:not([role="dialog"])'
 async function gotoHome(page: Page) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await page.goto('http://localhost:3000/home', {
+      await page.goto('http://localhost:3000/', {
         waitUntil: 'domcontentloaded',
         timeout: 15000,
       })
@@ -169,13 +169,13 @@ test.describe('侧边栏按钮高度统一验证', () => {
     await expect(page.locator(DESKTOP_ASIDE)).toBeVisible()
     await page.waitForTimeout(800)
 
-    // 点击侧边栏第二个导航项(避免点 /home 已在 /home)
+    // 点击侧边栏第二个导航项(避免点 / 已在 /)
     const navLinks = page.locator(`${DESKTOP_ASIDE} nav a[href]`)
     const count = await navLinks.count()
     let clickedHref = ''
     for (let i = 0; i < count; i++) {
       const href = await navLinks.nth(i).getAttribute('href')
-      if (href && href !== '/home') {
+      if (href && href !== '/') {
         await navLinks.nth(i).click()
         clickedHref = href
         break
