@@ -8,6 +8,15 @@ export const AI_PANEL_DEFAULT_WIDTH = 400
 export const AI_PANEL_MIN_WIDTH = 320
 export const AI_PANEL_MAX_WIDTH = 720
 
+/** AI 面板当前绑定的本地工作区(参考 Trae/Codex 顶部 project selector 设计)
+ *  - 用户在 AI 面板顶部"添加工作区"按钮选择本地文件夹后绑定
+ *  - 绑定后标题显示 workspace.name,取代兜底"空工作区"文字
+ *  - path 用于后续 AI 工具调用 fs.read/grep 等的根路径上下文 */
+export interface ActiveWorkspace {
+  path: string
+  name: string
+}
+
 interface AiPanelState {
   /** 面板是否展开(全局唯一,任何路由可触发) */
   open: boolean
@@ -15,11 +24,14 @@ interface AiPanelState {
   width: number
   /** 拖拽中标记(禁用过渡动画) */
   isResizing: boolean
+  /** 当前绑定的本地工作区(持久化,刷新后保留) */
+  activeWorkspace: ActiveWorkspace | null
   openPanel: () => void
   closePanel: () => void
   togglePanel: () => void
   setWidth: (w: number) => void
   setResizing: (v: boolean) => void
+  setActiveWorkspace: (ws: ActiveWorkspace | null) => void
 }
 
 /**
@@ -35,6 +47,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       open: true,
       width: AI_PANEL_DEFAULT_WIDTH,
       isResizing: false,
+      activeWorkspace: null,
 
       openPanel: () => set({ open: true }),
       closePanel: () => set({ open: false }),
@@ -44,10 +57,12 @@ export const useAiPanelStore = create<AiPanelState>()(
           width: Math.min(AI_PANEL_MAX_WIDTH, Math.max(AI_PANEL_MIN_WIDTH, w)),
         }),
       setResizing: (v) => set({ isResizing: v }),
+      setActiveWorkspace: (ws) => set({ activeWorkspace: ws }),
     }),
     {
       ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({
         width: s.width,
+        activeWorkspace: s.activeWorkspace,
       })),
       // 强制 open=true:rehydrate 时即使 localStorage 残留旧版本 open=false 也覆盖为 true。
       // 保证"AI 对话框默认弹出"规则在所有刷新场景下生效。
