@@ -22,25 +22,35 @@
 </p>
 
 <p align="center">
-  <strong>8 端全覆盖</strong> · <strong>100+ 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈协同</strong> · <strong>5 语言 i18n parity</strong>
+  <strong>8 端全覆盖</strong> · <strong>100+ 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈协同</strong> · <strong>15+ 业务模块</strong> · <strong>5 语言 i18n</strong>
 </p>
 
 ---
 
-> **我们坚信:AI 不应被少数平台垄断。每个人都应该拥有自己的 AI 程序。**
+> **你有没有想过——**
 >
-> IHUI-AI 以 Apache 2.0 协议开源,目标是让任何开发者、团队、企业都能基于它构建属于自己的 AI 程序,并把改进反哺回社区,共同打造最强、最全的 AI 应用。
+> 为什么 AI 红利总是被大厂独享?为什么搭建一个 AI 应用要从零拼凑认证、计费、模型路由、工作流、多端发布?
+> 为什么个人开发者、中小企业、教育机构总在重复造轮子,而不是站在彼此的肩膀上?
+>
+> **IHUI-AI 想改变这件事。**
+>
+> 我们把一个完整的 AI 应用基础设施——从 8 端框架、100+ 模型接入、工作流编排、企业级权限、计费订阅、内容发布、AI 教育、可观测性,到 17 道工程守门——以 Apache 2.0 协议全部开源出来。
+>
+> **不是套壳,不是 demo,是真正可生产、可商用、可自托管的 AI 应用基座。Fork 它,改它,把它变成你自己的。**
 
 ---
 
 ## 目录
 
+- [特性总览(30 秒看完所有能力)](#特性总览30-秒看完所有能力)
 - [为什么选择 IHUI-AI](#为什么选择-ihui-ai)
-- [项目愿景](#项目愿景)
+- [与同类项目对比](#与同类项目对比)
+- [谁在使用 IHUI-AI](#谁在使用-ihui-ai)
+- [5 个典型场景](#5-个典型场景)
 - [技术栈](#技术栈)
 - [8 端架构](#8-端架构)
 - [项目结构](#项目结构)
-- [核心能力](#核心能力)
+- [核心能力详解(15 大模块)](#核心能力详解15-大模块)
 - [快速开始](#快速开始)
 - [API 与协议](#api-与协议)
 - [数据库](#数据库)
@@ -50,6 +60,7 @@
 - [测试](#测试)
 - [部署](#部署)
 - [国际化](#国际化)
+- [FAQ](#faq)
 - [贡献](#贡献)
 - [文档导航](#文档导航)
 - [路线图](#路线图)
@@ -57,6 +68,77 @@
 - [开源共建愿景](#开源共建愿景)
 - [License](#license)
 - [致谢](#致谢)
+
+---
+
+## 特性总览(30 秒看完所有能力)
+
+| 大类 | 模块 | 关键能力 |
+|---|---|---|
+| **AI 对话与模型** | 多模型对话 | 100+ 模型 / 智能路由 / 60% 缓存命中 / 流式 SSE + WebSocket / 对话收藏 / 历史记录 / 分享 / 模板 |
+| | AI 图像生成 | 文生图 / 图像编辑 / 多分辨率 / 多模型(Stable Diffusion / DALL-E / 通义万相) |
+| | AI 音频 | TTS 流式合成 / ASR 语音识别 / 音色克隆 / 双向实时语音(WebRTC PCM16 16kHz) |
+| | AI 视频合成 | 文生视频 / 视频编辑 / 多模型混编 |
+| | AI 数字人 | 腾讯混元 3D / AI 世界 / 数字人交互 |
+| | AI 职业 | AI 求职助手 / 简历优化 / 模拟面试 |
+| | AI 新闻 | AI 资讯聚合 / 智能摘要 |
+| **AI 工作流** | LangGraph | StateGraph 工作流(plan → execute → summarize)+ stub 模式 |
+| | MCP 工具协议 | 11 内置工具 + 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP |
+| | A2A 协议 | Agent-to-Agent 互通 / Redis 持久化 + 内存降级 |
+| | 知识库 RAG | 文档向量化 / 语义搜索 / 引用追溯 |
+| | 工作流编排 | 可视化工作流 / CrewAI 集成 / N8N 代理 |
+| **多智能体生态** | 智能体市场 | 购买 / 审核 / 结算 / 提现 / 分类 / 推荐 / 排行 |
+| | 开发者中心 | API Keys / 调用日志 / 团队管理 / 收益分析 |
+| | Coze SDK 代理 | Bot / 对话 / 工作流 / 数据集 / 模板 / 变量 / 工作空间 / OAuth |
+| | OpenClaw | 开源 Agent 框架接入 |
+| **8 端框架** | Web | Next.js 15 / 83+ 页面 / PWA / SEO / 暗黑模式 / 5 语言 |
+| | API | Fastify 5 / ~1080 端点 / 12 WebSocket 端点 / OpenAPI |
+| | AI 服务 | FastAPI / LangGraph / LiteLLM / MCP / A2A |
+| | CLI | Node.js / ACP Server / 6 内置工具 / 6 源配置导入 |
+| | 桌面 | Tauri 2 / 系统托盘 / 本地文件访问 |
+| | 浏览器扩展 | WXT / 上下文菜单 / 侧边栏 |
+| | 移动 RN | React Native + Expo / iOS + Android |
+| | 小程序 | Taro 4 / 微信支付原生集成 |
+| **企业级能力** | 工作空间权限 | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 |
+| | RBAC + 多租户 | 角色 / 部门 / 组织 / 租户隔离 / 菜单权限 |
+| | SSO 单点登录 | OAuth 2.0 / Apple / Google / SSO 中转登录 |
+| | 计费与订阅 | VIP 等级 / 订阅 recurring / 钱包 / 积分 / 退款审计 / 发票 / 汇率 |
+| | 灰度发布 | Canary / 灰度规则 / A/B 测试 |
+| | 数据合规 | GDPR / 敏感词过滤 / 内容审核 / 审计日志 |
+| **内容创作** | 自媒体工作台 | 公众号文章 + 口播稿双流水线 / 斜杠命令 |
+| | 14 平台自动发布 | 文章 9 + 图片 2 + 视频 5 平台 / 凭证 AES-256-GCM 加密 |
+| | 资讯新闻 | 文章 / 新闻 / 专题 / 标签 / 评论 / 点赞 / 收藏 |
+| | 短剧 | 短剧创作与管理 |
+| **AI 教育全栈** | 课程学习 | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 |
+| | 题库与考试 | 多题型 / 自动批改 / 章节练习 / 错题本 / 试卷上传 |
+| | SRS 间隔重复 | 艾宾浩斯遗忘曲线 / 智能复习调度 |
+| | 直播教学 | 签到 / 互动 / 回放 / AI 辅助 |
+| | 学习报告 | 行为分析 / 个性化建议 / 证书发放 |
+| | 讲师管理 | 讲师主页 / 课程关联 |
+| **社区互动** | 圈子广场 | 圈子 / 广场 / 问答 / 帖子 / 话题 |
+| | 私信消息 | 1 对 1 私信 / 系统通知 / 多端同步 |
+| | 关注粉丝 | 关注 / 粉丝 / 用户主页 / 名片 |
+| | 分享邀请 | 邀请码 / 分享码 / H5 分享 / 推荐返佣 |
+| **运营增长** | 积分签到 | 每日签到 / 任务积分 / 积分商城 / 兑换 |
+| | 排行榜 | 多维度排行 / 周月榜 / 用户排名 |
+| | 抽奖活动 | 抽奖 / 红包 / 奖励视频广告 |
+| | 分销佣金 | 分销体系 / 佣金计划 / 提现 |
+| | 活动公告 | 活动管理 / 公告推送 / Banner 轮播 |
+| **客服支持** | 工单系统 | 工单提交 / 处理 / 评价 / FAQ |
+| | 在线客服 | WebSocket 实时客服 / 1 对 1 会话 |
+| | 反馈中心 | 用户反馈 / 处理状态 / 追踪 |
+| **运维监控** | BI 仪表盘 | 业务指标可视化 / 数据分析 |
+| | 错误仪表盘 | 错误聚合 / 告警 / 追踪 |
+| | 操作日志 | 登录日志 / 操作日志 / 回调日志 |
+| | 监控告警 | Prometheus + Grafana + Loki + Jaeger + OpenTelemetry |
+| **工程基础设施** | 数据库 | PostgreSQL 15 / 96+ 表 / 32+ 迁移 / Drizzle ORM |
+| | 队列缓存 | Redis 7 + BullMQ / 独立 worker |
+| | 对象存储 | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 |
+| | 邮件短信 | SMTP / 短信网关 / 邮件模板 / 验证码 |
+| | 国际化 | 5 语言 parity(zh-CN / zh-TW / en / ko / ja)+ 4 守门脚本 |
+| | 工程守门 | 17 pre-commit 钩子 + post-commit 自动 push |
+| | 测试覆盖 | 268 + 400+ 用例 / Vitest + Playwright + pytest |
+| | 部署运维 | Docker Compose / 蓝绿部署 / 健康检查 / 回滚 / 备份 |
 
 ---
 
@@ -76,22 +158,93 @@
 | **国际化** | zh-CN / zh-TW / en / ko / ja 5 语言 parity | 5 语言键集合强一致性 |
 | **数据库** | 96+ 表 + 32+ 迁移 + Drizzle ORM 类型安全 | 单库 PostgreSQL 15,schema 隔离 |
 | **API 规模** | ~1135 端点(api 1080 + ai-service 55)+ 12 WebSocket 端点 | 远超源项目 331 端点 |
+| **业务覆盖** | 15 大模块 / 50+ 子功能 / 83+ Web 页面 | 一个平台覆盖所有 AI 应用场景 |
 
 ---
 
-## 项目愿景
+## 与同类项目对比
 
-我们正在构建的不是另一个 ChatGPT 套壳,而是一套**完整的 AI 应用基础设施**:
+| 维度 | IHUI-AI | Dify | FastGPT | Langflow | ChatGPT-Next-Web |
+|---|---|---|---|---|---|
+| **端覆盖** | 8 端(Web/API/AI/CLI/桌面/扩展/移动/小程序) | 2 端(Web/Server) | 2 端(Web/Server) | 1 端(Web) | 1 端(Web) |
+| **模型接入** | 100+ 模型 + LiteLLM 网关 | 50+ 模型 | 30+ 模型 | LangChain 适配器 | 仅 OpenAI |
+| **工作流引擎** | LangGraph + MCP + A2A 三栈 | 自研工作流 | 简单工作流 | Langflow DAG | 无 |
+| **多租户 + RBAC** | 完整(租户/角色/部门/菜单) | 基础 | 基础 | 无 | 无 |
+| **计费订阅** | 完整(VIP/订阅/钱包/积分/退款/发票) | 无 | 基础 | 无 | 无 |
+| **AI 教育** | 全栈(课程/题库/考试/SRS/直播) | 无 | 无 | 无 | 无 |
+| **内容发布** | 14 平台一键自动发布 | 无 | 无 | 无 | 无 |
+| **CLI 工具** | 自研 ACP Server + 6 工具 | 无 | 无 | 无 | 无 |
+| **可观测性** | 三支柱完整(指标/日志/追踪) | 基础 | 基础 | 无 | 无 |
+| **工程守门** | 17 pre-commit 钩子 | 基础 | 基础 | 基础 | 无 |
+| **i18n** | 5 语言 parity + 4 守门 | 中英文 | 中英文 | 英文 | 多语言 |
+| **License** | Apache 2.0(商用友好) | Apache 2.0 | FastGPT Open License | MIT | MIT |
+| **生产级部署** | Docker Compose + 蓝绿 + 回滚 + 备份 | Docker | Docker | Docker | Docker |
 
-| 角色 | 用法 |
-|---|---|
-| **个人开发者** | 搭建自己的 AI 助手、内容创作平台、私有知识库 |
-| **企业团队** | 基于工作空间权限、计费、审计构建企业级 AI 中台 |
-| **AI 服务商** | 复用多模型代理、计费、订阅、SDK 能力快速上线商业产品 |
-| **教育机构** | 启用 AI 教育全栈(课程 / 题库 / 考试 / 学习路径 / SRS 间隔重复) |
-| **内容创作者** | 一键发布到 14 平台(公众号 / 知乎 / CSDN / 掘金 / 小红书 / B 站 / YouTube / 抖音 等) |
+**IHUI-AI 不是要替代谁,而是把"搭建一个完整 AI 应用"所需的所有基础设施都开源出来。**
 
-开源不是终点,而是起点。每一份 PR、每一个 Issue、每一次 Fork 都让这个平台更接近"让每个人都拥有自己的 AI 程序"的目标。
+---
+
+## 谁在使用 IHUI-AI
+
+本项目由**吉林省爱智汇人工智能科技有限公司**发起并主导开发,用于支撑公司商业化 AI 平台。我们欢迎更多企业、团队、个人提交使用案例(请编辑此章节提 PR):
+
+| 角色 | 场景 | 状态 |
+|---|---|---|
+| 爱智汇 AI | 公司主商业化平台(智汇 AI 集团) | 生产使用 |
+| AI 服务商 | 多模型代理 + 计费 + 订阅一站式上线 | 适配中 |
+| 教育机构 | AI 教育全栈(课程 / 题库 / 考试 / SRS) | 适配中 |
+| 内容创作者 | 14 平台一键发布 | 适配中 |
+| 个人开发者 | 私有 AI 助手 + 知识库 | 等你来填 |
+
+> 你的公司或项目正在用 IHUI-AI 吗?欢迎提交 PR 加入此列表。
+
+---
+
+## 5 个典型场景
+
+### 场景 1:个人开发者搭建私有 AI 助手
+
+```bash
+git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
+cd IHUI-AI && docker compose up -d
+# 5 分钟后,你拥有:
+# - 一个支持 100+ 模型的对话界面
+# - 私有知识库 RAG(你的文档向量化 + 语义搜索)
+# - 跨端同步(Web + 桌面 + 移动 + 小程序)
+# - 数据完全自托管,不被任何大厂窥探
+```
+
+### 场景 2:中小企业构建 AI 中台
+
+- 用 RBAC 给 200 个员工开账号,按部门隔离工作空间
+- 接入 7 个 LLM 厂商,智能路由选最便宜的模型
+- 用计费系统按部门收费,生成发票
+- 用 BI 仪表盘看哪些部门用得最多
+- 用审计日志满足合规要求
+
+### 场景 3:AI 服务商上线商业产品
+
+- 复用多模型代理 + 计费 + 订阅 + VIP + 钱包 + 积分
+- 用智能体市场让开发者入驻,抽取 30% 佣金
+- 用 API Keys + SDK 让客户接入你的平台
+- 用 14 平台发布做内容营销
+- 一周上线,而不是一年
+
+### 场景 4:教育机构改造教学
+
+- 用 AI 教育全栈导入课程 + 题库
+- 学生用 SRS 间隔重复自动复习
+- 老师用 AI 批改试卷 + 生成学习报告
+- 直播 + 签到 + 互动 + 回放
+- 学习行为分析 + 个性化建议
+- 证书自动发放
+
+### 场景 5:内容创作者解放生产力
+
+- 在自媒体工作台写公众号文章 + 口播稿
+- 一键发布到 14 平台(公众号 / 知乎 / CSDN / 掘金 / 小红书 / B 站 / YouTube / 抖音 等)
+- 凭证 AES-256-GCM 加密存储,平台不泄露
+- 发布完成 WebSocket 实时通知
 
 ---
 
@@ -159,7 +312,7 @@
 
 | 端 | 目录 | 技术栈 | 职责 |
 |---|---|---|---|
-| **Web** | `apps/web/` | Next.js 15 + React 19 | 主前端,83 页面,5 语言 i18n,PWA,SEO |
+| **Web** | `apps/web/` | Next.js 15 + React 19 | 主前端,83+ 页面,5 语言 i18n,PWA,SEO |
 | **API** | `apps/api/` | Fastify 5 + Drizzle | 业务管理 + 多厂商代理 + 认证 + WebSocket,~1080 端点 |
 | **AI 服务** | `apps/ai-service/` | FastAPI + LangGraph | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议,~55 端点 |
 | **CLI** | `apps/cli/` | Node.js + Commander | 自研命令行 AI 编程助手,ACP Server + 6 工具 + 6 源配置导入 |
@@ -176,13 +329,13 @@
 IHUI-AI/
 ├── apps/
 │   ├── ai-service/          # AI 服务 (FastAPI + LangGraph + LiteLLM + MCP + A2A)
-│   ├── api/                 # 后端 API (Fastify 5 + Drizzle ORM, ~1080 端点)
+│   ├── api/                 # 后端 API (Fastify 5 + Drizzle ORM, ~1080 端点, 37 路由文件)
 │   ├── cli/                 # 自研 CLI (ACP Server + 6 工具, 对标 Claude Code)
 │   ├── desktop/             # 桌面端 (Tauri 2 + React)
 │   ├── extension/           # 浏览器扩展 (WXT + React)
 │   ├── miniapp-taro/        # 微信小程序 (Taro 4 + React)
 │   ├── mobile-rn/           # 移动端 (React Native + Expo)
-│   └── web/                 # 前端 (Next.js 15 + React 19, 83 页面)
+│   └── web/                 # 前端 (Next.js 15 + React 19, 83+ 页面)
 ├── packages/
 │   ├── auth/                # @ihui/auth 共享认证 (JWT + token-family + OAuth2 + RBAC)
 │   ├── config/              # @ihui/config 共享配置
@@ -214,7 +367,7 @@ IHUI-AI/
 
 ---
 
-## 核心能力
+## 核心能力详解(15 大模块)
 
 ### 1. 100+ 大模型一站式接入
 
@@ -225,16 +378,17 @@ IHUI-AI/
 | **国际模型** | OpenAI GPT / Anthropic Claude / Google Gemini / xAI Grok / Groq / OpenRouter / Mistral |
 | **国产模型** | 智谱 GLM / 通义千问 Qwen / 豆包 Doubao / DeepSeek / 月之暗面 Kimi / 阶跃星辰 StepFun / 百川 / Yi / MiniMax |
 | **云厂商** | 阿里云 / 腾讯云 / 华为云 / 火山引擎 / 百度智能云 / AWS Bedrock / Azure OpenAI |
-| **多模态** | 文本 / 图像 / 语音(STT + TTS)/ 视频 / 嵌入向量 |
+| **多模态** | 文本 / 图像 / 语音(STT + TTS)/ 视频 / 嵌入向量 / 3D 数字人(腾讯混元) |
 
 ### 2. LangGraph + MCP + A2A 三栈协同
 
 | 栈 | 能力 |
 |---|---|
 | **LangGraph** | StateGraph 工作流(plan → execute → summarize),支持 stub 模式无 API key 也能开发 |
-| **MCP** | 11 内置工具(search_codebase / read_file / write_file / run_command / web_search / git_operations / db_query / analyze_code / generate_test / refactor_code / file_search)+ 3 资源 + 3 提示词 |
+| **MCP** | 11 内置工具(search_codebase / read_file / write_file / run_command / web_search / git_operations / db_query / analyze_code / generate_test / refactor_code / file_search)+ 3 资源 + 3 提示词 + 项目级 MCP |
 | **A2A** | Agent-to-Agent 协议,Redis 持久化 + 内存降级,智能体之间互相调用 |
 | **向量记忆** | 嵌入 + 余弦相似度语义搜索,跨会话长期记忆 |
+| **知识库 RAG** | 文档向量化 / 语义搜索 / 引用追溯 |
 
 ### 3. 自研 CLI(对标 Claude Code)
 
@@ -258,7 +412,21 @@ IHUI-AI/
 - 7 个 FS 端点全部接入:`/fs/read` `/fs/write` `/fs/edit` `/fs/delete` `/fs/grep` `/fs/glob` `/fs/run`
 - WebSocket 实时推送权限请求,60s 不响应自动拒绝
 
-### 5. 内容创作全栈
+### 5. 多模态 AI 创作
+
+| 能力 | 端点 / 实现 |
+|---|---|
+| **文生图** | 多模型(Stable Diffusion / DALL-E / 通义万相)/ 多分辨率 / 批量 |
+| **图像编辑** | 局部重绘 / 风格迁移 / 背景移除 / 高清放大 |
+| **TTS 流式合成** | 12+ 音色 / 多语言 / WebSocket 流式 / 中断控制 |
+| **ASR 语音识别** | 实时转写 / 文件转写 / 多语言 |
+| **音色克隆** | 短音频样本 → 自定义音色 / ws/timbre/generate |
+| **双向实时语音** | WebRTC PCM16 16kHz / ASR + LLM + TTS 闭环 |
+| **文生视频** | 多模型混编 / 视频编辑 / 视频合成 |
+| **AI 数字人** | 腾讯混元 3D / AI 世界 / 数字人交互 |
+| **AI 求职** | 简历优化 / 模拟面试 / 职业建议 |
+
+### 6. 内容创作与多平台发布
 
 - **自媒体工作台**:公众号文章 + 口播稿双流水线,通过 AI 对话框斜杠命令(`/wechat-article` / `/koubo-script`)或附加栏按钮双入口调用
 - **14 平台一键自动发布**:
@@ -270,27 +438,131 @@ IHUI-AI/
 | 视频 5 平台 | YouTube / B 站 / 抖音 / 快手 / 视频号 |
 
 - **凭证 AES-256-GCM 加密存储**,发布完成 WebSocket 实时通知 + 完整记录
+- **资讯新闻系统**:文章 / 新闻 / 专题 / 标签 / 评论 / 点赞 / 收藏 / 热门
+- **短剧创作与管理**:`apps/web/app/(main)/drama/`
 
-### 6. AI 教育全栈
-
-课程 / 题库 / 考试 / 学习路径 / SRS 间隔重复 / 直播 / 学习报告全套能力:
+### 7. AI 教育全栈
 
 | 模块 | 能力 |
 |---|---|
-| **学习路径** | 结构化课程 + 章节 + 进度跟踪 |
-| **题库与考试** | 多题型枚举双向映射 + 自动批改 + 章节练习 |
+| **课程学习** | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / 问答 |
+| **题库与考试** | 多题型枚举双向映射 / 自动批改 / 章节练习 / 错题本 / 试卷上传 |
 | **SRS 间隔重复** | 基于艾宾浩斯遗忘曲线的智能复习调度 |
-| **直播** | AI 辅助直播教学 |
+| **直播教学** | 直播 / 签到 / 互动 / 回放 / AI 辅助 |
 | **学习报告** | 学习行为分析 + 个性化建议 |
+| **证书发放** | 完成课程 / 考试通过自动发证 |
+| **讲师管理** | 讲师主页 / 课程关联 |
+| **学生端** | 我的问答 / 笔记 / 试卷 |
 
-### 7. 多智能体业务管理
+### 8. 多智能体业务管理
 
 完整的智能体市场 + 开发者生态:
 
-- 智能体购买 / 审核 / 结算 / 提现 / 分类 / 开发者认证
-- Coze SDK 代理(Bot / 对话 / 工作流 / 数据集 / 模板 / 变量 / 工作空间)
-- OAuth 2.0 + 用户 SK + PAT + SMS 全套认证
-- 计费 / 订阅 / VIP / 积分 / 钱包 / 退款完整交易闭环
+| 模块 | 能力 |
+|---|---|
+| **智能体市场** | 购买 / 审核 / 结算 / 提现 / 分类 / 推荐 / 排行 / 精选 |
+| **开发者中心** | API Keys / 调用日志 / 团队管理 / 收益分析 / 开发者认证 |
+| **Coze SDK 代理** | Bot / 对话 / 工作流 / 数据集 / 模板 / 变量 / 工作空间 / OAuth |
+| **OpenClaw** | 开源 Agent 框架接入 |
+| **Crew 集成** | CrewAI 多智能体协作 |
+| **N8N 代理** | N8N 工作流平台反向代理 |
+
+### 9. 社区与互动
+
+| 模块 | 能力 |
+|---|---|
+| **圈子广场** | 圈子 / 广场 / 问答 / 帖子 / 话题 / 标签 |
+| **私信消息** | 1 对 1 私信 / 系统通知 / 多端同步 / WebSocket 实时推送 |
+| **关注粉丝** | 关注 / 粉丝 / 用户主页 / 名片 / 用户文章 / 问答 / 评论 |
+| **分享邀请** | 邀请码 / 分享码 / H5 分享 / 推荐返佣 / 分销体系 |
+| **互动反馈** | 评论 / 点赞 / 收藏 / 举报 / 用户反馈中心 |
+
+### 10. 运营增长体系
+
+| 模块 | 能力 |
+|---|---|
+| **积分签到** | 每日签到 / 任务积分 / 积分商城 / 兑换 / 积分明细 |
+| **排行榜** | 多维度排行 / 周月榜 / 用户排名 |
+| **抽奖活动** | 抽奖 / 红包 / 奖励视频广告 |
+| **分销佣金** | 分销体系 / 佣金计划 / 提现 / 邀请返佣 |
+| **活动公告** | 活动管理 / 公告推送 / Banner 轮播 / 推广位 |
+| **VIP 会员** | VIP 等级 / 会员权益 / 优惠券 / 粉丝 / 升级 |
+
+### 11. 计费与交易
+
+完整的交易闭环:
+
+```
+订阅 VIP → 钱包充值 → 积分获取 → 模型调用扣费 → 退款审计 → 发票开具
+                ↓                ↑
+            分销佣金 ← 邀请返佣
+```
+
+- **VIP 等级**:多级会员 / 权益配置 / 升级流程
+- **订阅 recurring**:周期扣款 / 自动续费 / 取消订阅
+- **钱包**:充值 / 提现 / 余额 / 流水
+- **积分**:签到获取 / 任务获取 / 消费抵扣 / 兑换商品
+- **退款审计**:申请 / 审核 / 退款 / 银行流水
+- **发票**:增值税普票 / 专票 / 邮寄
+- **汇率**:多币种 / 实时汇率
+
+### 12. 客服与支持
+
+| 模块 | 能力 |
+|---|---|
+| **工单系统** | 工单提交 / 处理 / 评价 / FAQ / 工单列表 |
+| **在线客服** | WebSocket 实时客服 / 1 对 1 会话 / ws/customer-service |
+| **反馈中心** | 用户反馈 / 处理状态 / 追踪 |
+| **帮助中心** | 文档 / 教程 / `[...slug]` 动态路由 |
+
+### 13. 运维与监控
+
+| 模块 | 能力 |
+|---|---|
+| **BI 仪表盘** | 业务指标可视化 / 数据分析 / 报表 |
+| **错误仪表盘** | 错误聚合 / 告警 / 追踪 / admin-error-dashboard |
+| **操作日志** | 登录日志 / 操作日志 / 回调日志 / 系统操作日志 |
+| **API 调试** | API Debug / API 日志 / API 用量 / API 平台 |
+| **灰度发布** | Canary / 灰度规则 / A/B 测试 / admin-gray-release |
+| **监控告警** | Prometheus + Grafana + Loki + Jaeger + OpenTelemetry 三支柱 |
+| **健康检查** | `/api/health` / `live` / `ready` + AI 服务 `/health` |
+
+### 14. 安全与合规
+
+| 维度 | 实现 |
+|---|---|
+| **认证** | JWT HS256 + token-family 旋转(防盗用)+ refresh token 黑名单 |
+| **SSO 单点登录** | OAuth 2.0 / Apple / Google / SSO 中转登录 / 第三方登录 |
+| **限流** | 全局 100/min,auth login/register 10/min,分层 rate-limit |
+| **加密** | AES-256-GCM 加密 credentials(OSS + 教育 + 发布平台) |
+| **密码** | bcryptjs 哈希(member 表 SHA256 兼容旧 Java 数据) |
+| **数据脱敏** | password / passwordHash 字段在 API 响应中解构剥离 |
+| **GDPR** | 数据导出 / 数据删除 / 数据可携 / gdpr 路由 |
+| **敏感词** | 敏感词过滤 / 内容审核 / admin-sensitive-words |
+| **审计日志** | 登录日志 / 操作日志 / 系统操作日志 / 审计追溯 |
+| **事务安全** | DB 事务化:order 支付/退款 + social tag + gamification 积分 + chat 清空 |
+| **行锁** | `.for('update')` 行锁防 TOCTOU 竞态 |
+| **CSRF** | `@fastify/csrf-protection` 双 token 模式 |
+| **XSS** | sanitizer 绕过检测脚本守门(pre-commit 第 6 项) |
+| **API key 泄露** | `check-api-key-leak.mjs` 守门(pre-commit 第 1 项) |
+| **RBAC** | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 |
+| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 |
+| **多租户** | 租户隔离 / 组织 / 部门 / 菜单权限 |
+
+### 15. 工程基础设施
+
+| 模块 | 能力 |
+|---|---|
+| **数据库** | PostgreSQL 15 / 96+ 表 / 32+ 迁移 / Drizzle ORM 0.38 |
+| **队列缓存** | Redis 7 + BullMQ / 独立 worker 进程 |
+| **对象存储** | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 |
+| **邮件短信** | SMTP / 短信网关 / 邮件模板 / 验证码 / auth-codes |
+| **国际化** | 5 语言 parity + 4 守门脚本 + 品牌翻译策略 |
+| **工程守门** | 17 pre-commit 钩子 + post-commit 自动 push |
+| **测试覆盖** | 268 + 400+ 用例 / Vitest + Playwright + pytest |
+| **部署运维** | Docker Compose / 蓝绿部署 / 健康检查 / 回滚 / 备份 |
+| **App 版本** | app-version 管理 / 多端版本控制 |
+| **Webhooks** | 事件订阅 / 第三方集成 / callback-log |
 
 ---
 
@@ -377,7 +649,7 @@ pnpm turbo build typecheck lint test
 
 | 服务 | 端点数 | 前缀 | 覆盖域 |
 |---|---|---|---|
-| **apps/api** | ~1080 | `/api` + `/api/admin` | 37 路由文件,涵盖 auth / users / billing / content / chat / teams / workspace / agents / coze / oss / order / vip / exam / learn / live / news / topic / search / 等 |
+| **apps/api** | ~1080 | `/api` + `/api/admin` | 37 路由文件,涵盖 auth / users / billing / content / chat / teams / workspace / agents / coze / oss / order / vip / exam / learn / live / news / topic / search / drama / stock / gdpr / rbac / tenant 等 |
 | **apps/ai-service** | ~55 | `/api` | a2a(5)/ agents(9)/ health(4)/ llm(2)/ mcp(10)/ tools(3)/ self_media / publish |
 
 **统一响应格式:**
@@ -406,6 +678,7 @@ pnpm turbo build typecheck lint test
 | `/ws/stock/stream` | 股票行情流 |
 | `/ws/timbre/generate` | 音色克隆生成流 |
 | `/ws/coze/chat` | Coze 对话流 |
+| `/ws/live/chat` | 直播聊天室 |
 
 所有 WS 端点通过 `wsAuth(socket, token)` 校验 JWT,支持心跳 ping/pong,多实例通过 Redis Pub/Sub 跨实例广播。
 
@@ -414,7 +687,7 @@ pnpm turbo build typecheck lint test
 ## 数据库
 
 - **单库设计**:PostgreSQL 15,单库 `ihui`,通过 schema 隔离业务域
-- **96+ 表**:34 个 schema 模块文件,覆盖 users / projects / files / billing / audit / chat / teams / rbac / workflow / comments / promotions / gamification / content / social / community / learn / exam / order / live / member / resource / point / schedule / statistics / message / topic / behavior / oss / setting / self-media / publish 等
+- **96+ 表**:34 个 schema 模块文件,覆盖 users / projects / files / billing / audit / chat / teams / rbac / workflow / comments / promotions / gamification / content / social / community / learn / exam / order / live / member / resource / point / schedule / statistics / message / topic / behavior / oss / setting / self-media / publish / drama / stock / certificate 等
 - **32+ 迁移**:`packages/database/drizzle/`,drizzle-kit generate 生成 + 手动增量
 - **7 步幂等 seed**:`packages/database/seed/`,模式化 + 容错隔离
 - **行级安全**:RLS(Row Level Security)在关键字段启用,多租户隔离
@@ -458,10 +731,14 @@ pnpm turbo build typecheck lint test
 | 维度 | 实现 |
 |---|---|
 | **认证** | JWT HS256 + token-family 旋转(防盗用)+ refresh token 黑名单 |
+| **SSO** | OAuth 2.0 / Apple / Google / SSO 中转登录 |
 | **限流** | 全局 100/min,auth login/register 10/min,分层 rate-limit |
 | **加密** | AES-256-GCM 加密 credentials(OSS 驱动凭证 + 教育设置凭证 + 发布平台账号) |
 | **密码** | bcryptjs 哈希(member 表 SHA256 兼容旧 Java 数据) |
 | **数据脱敏** | password / passwordHash 字段在 API 响应中解构剥离 |
+| **GDPR** | 数据导出 / 删除 / 可携 / gdpr 路由 |
+| **敏感词** | 敏感词过滤 + 内容审核 + admin-sensitive-words |
+| **审计日志** | 登录日志 / 操作日志 / 系统操作日志 / 审计追溯 |
 | **事务安全** | DB 事务化:order 支付/退款 + social tag + gamification 积分 + chat 清空消息 |
 | **行锁** | `.for('update')` 行锁防 TOCTOU 竞态 |
 | **CSRF** | `@fastify/csrf-protection` 双 token 模式 |
@@ -469,6 +746,7 @@ pnpm turbo build typecheck lint test
 | **API key 泄露** | `check-api-key-leak.mjs` 守门(pre-commit 第 1 项) |
 | **RBAC** | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 |
 | **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 |
+| **多租户** | 租户隔离 + 组织 + 部门 + 菜单权限 |
 
 ---
 
@@ -598,6 +876,76 @@ node apps/api/scripts/pg-backup.mjs
 
 ---
 
+## FAQ
+
+<details>
+<summary><strong>Q1:IHUI-AI 可以商用吗?</strong></summary>
+
+可以。项目采用 Apache License 2.0,允许自由使用、修改、分发、商业使用,无传染性。你可以基于它构建商业产品,无需开源你的业务代码。唯一要求:保留 LICENSE 与 copyright notice。
+</details>
+
+<details>
+<summary><strong>Q2:与其他开源 AI 项目(Dify / FastGPT / Langflow)有何不同?</strong></summary>
+
+IHUI-AI 不只是 AI 对话平台,而是**完整的 AI 应用基础设施**:
+
+- 8 端覆盖(其他项目仅 1-2 端)
+- 完整计费订阅 + VIP + 钱包 + 积分(其他项目无)
+- AI 教育全栈(其他项目无)
+- 14 平台一键发布(其他项目无)
+- 自研 CLI(其他项目无)
+- 工程守门 17 钩子(其他项目基础)
+
+详见上方 [与同类项目对比](#与同类项目对比) 表。
+</details>
+
+<details>
+<summary><strong>Q3:需要哪些 LLM API Key 才能运行?</strong></summary>
+
+至少一个。最简启动只需 OpenAI API Key,即可体验完整对话能力。要使用全部功能,建议接入:
+
+- 国际:OpenAI + Anthropic Claude + Google Gemini
+- 国产:智谱 GLM + 通义千问 + DeepSeek + 豆包
+- 多模态:Stable Diffusion + 通义万相 + 腾讯混元 3D
+- 不想付费?AI 服务支持 stub 模式,无 API key 也能开发调试。
+</details>
+
+<details>
+<summary><strong>Q4:支持自托管吗?数据会被大厂窥探吗?</strong></summary>
+
+完全自托管。Docker Compose 一键启动后,所有数据(对话 / 知识库 / 用户 / 计费)存储在你自己的 PostgreSQL + Redis 中,LLM 调用走你自己的 API Key,凭证 AES-256-GCM 加密存储。没有任何外部数据回传,你拥有 100% 数据主权。
+</details>
+
+<details>
+<summary><strong>Q5:项目规模这么大,部署需要什么配置?</strong></summary>
+
+最小生产配置:4 核 CPU / 8GB 内存 / 50GB 磁盘 / 单 VM 即可。开发环境 2 核 4GB 够用。监控栈可选(关掉 Grafana / Loki / Jaeger 节省 1GB 内存)。详见 [DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)。
+</details>
+
+<details>
+<summary><strong>Q6:如何贡献代码?需要什么水平?</strong></summary>
+
+欢迎任何水平的贡献者。从修文档错别字、提 Issue、写测试用例,到接入新模型、新发布平台、新端适配都欢迎。详见 [贡献](#贡献) 章节。我们特别欢迎:新模型适配 / 新发布平台 / 新语言 / 新端适配 / AI 工作流模板 / 企业级能力 / 测试覆盖 / 文档改进 8 大方向。
+</details>
+
+<details>
+<summary><strong>Q7:为什么用 pnpm 而不是 npm / yarn?</strong></summary>
+
+pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖)+ 硬链接节省磁盘 + 工作空间协议 + 与 Turborepo 配合最佳。项目固定 `pnpm@9.15.0`,`corepack enable` 自动激活,无需手动管理版本。
+</details>
+
+<details>
+<summary><strong>Q8:CLI 配置导入功能是什么?能导入哪些工具的配置?</strong></summary>
+
+自研 CLI 提供 6 源一键导入功能,让你从其他 AI CLI 工具无缝切换到 IHUI-AI CLI,无需重新配置 API Key / 模型 / 工作流:
+
+- cc-switch / codex++ / Claude / Codex / Gemini / Hermes
+
+详见 `apps/cli/` 实现。
+</details>
+
+---
+
 ## 贡献
 
 我们欢迎任何形式的贡献:Issue / PR / 文档改进 / Bug 修复 / 新功能 / 翻译 / 测试用例。
@@ -662,11 +1010,17 @@ node apps/api/scripts/pg-backup.mjs
 - 工作空间权限 3 模式 + 7 端点运行时拦截 + 60s 审计超时
 - 自媒体工作台(公众号文章 + 口播稿双流水线)
 - 14 平台一键自动发布平台
-- AI 教育全栈(课程 / 题库 / 考试 / SRS / 直播 / 报告)
+- AI 教育全栈(课程 / 题库 / 考试 / SRS / 直播 / 报告 / 证书 / 讲师)
+- 多智能体市场 + 开发者中心 + Coze SDK 代理
+- 社区互动(圈子 / 广场 / 私信 / 关注 / 分享)
+- 运营增长(积分 / 签到 / 排行 / 抽奖 / 分销 / 邀请)
+- 计费交易闭环(VIP / 订阅 / 钱包 / 积分 / 退款 / 发票 / 汇率)
+- 客服支持(工单 / 在线客服 / 反馈 / 帮助中心)
+- BI 仪表盘 + 错误仪表盘 + 灰度发布
 - 5 语言 i18n parity(zh-CN / zh-TW / en / ko / ja)
 - 全栈可观测性(Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry)
 - 17 pre-commit 守门脚本 + post-commit 自动 push
-- 企业级安全(RBAC + AES-256-GCM + JWT token-family + CSRF + XSS 守门)
+- 企业级安全(RBAC + 多租户 + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR)
 
 ### 进行中
 
@@ -789,4 +1143,8 @@ IHUI-AI 的诞生离不开以下开源项目的启发与支持:
 
 <p align="center">
   <sub>Built by <strong>吉林省爱智汇人工智能科技有限公司</strong> · 开源共建,你我同在</sub>
+</p>
+
+<p align="center">
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star us on GitHub</a> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI/fork">Fork to build your own</a> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI/issues">Request a feature</a>
 </p>
