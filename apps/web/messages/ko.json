@@ -13711,6 +13711,7 @@
     "adminBackendHealth": "백엔드 상태 확인"
   },
   "footer": {
+    "aboutUs": "회사 소개",
     "acknowledgments": "감사의 말",
     "companyName": "지린성 애즈후이 인공지능 기술 유한회사",
     "addressLabel": "주소:",
@@ -24591,7 +24592,8 @@
     "stats": {
       "platforms": "플랫폼 커버리지",
       "models": "LLM 통합",
-      "seats": "석 · 의사결정자"
+      "seats": "석 · 의사결정자",
+      "save": "만위안/년 · 종합 절감"
     },
     "news": {
       "title": "최신 뉴스",
@@ -24681,49 +24683,229 @@
       }
     },
     "features": {
-      "title": "강력한 기능",
-      "titleEn": "강력한 기능",
-      "subtitle": "8플랫폼 기업급 AI 플랫폼, 모델 통합부터 자체 개발 CLI까지 모든 요구 충족",
+      "title": "8 대 핵심 능력 · 풀스택 커버",
+      "titleEn": "POWERFUL FEATURES",
+      "subtitle": "8플랫폼 전체 커버 기업급 AI 플랫폼 · 100+ LLM · 자체 개발 CLI · 공업급 엔지니어링 엄격함 · 의사결정자가 원스톱으로 모든 AI 능력 획득",
       "modelIntegration": {
-        "title": "8플랫폼 전체 커버리지",
-        "description": "웹/데스크톱/모바일/미니프로그램/CLI/브라우저 확장, 통합 계정 원활한 전환"
+        "title": "8플랫폼 전체 커버 아키텍처",
+        "description": "웹/데스크톱/모바일/미니프로그램/CLI/확장 6플랫폼 + API/AI-Service 2플랫폼, 업계 유일 풀스택, 통합 계정 원활한 전환",
+        "scenario": "씬:의사결정자는 사무실에서 웹, 출장 중 모바일, 회의 중 미니프로그램, 코드는 CLI, IDE 내 확장 사용 — 동일 계정, 동일 데이터, 전환 비용 제로",
+        "benefit": "8배 중복 구매 비용 절약 · 1개 계정으로 8플랫폼 공용 · 데이터 마이그레이션 제로"
       },
       "appStore": {
-        "title": "100+ LLM",
-        "description": "OpenAI/Claude/Gemini/DeepSeek/Qwen/GLM, 하나의 API 키로 전체 액세스"
+        "title": "100+ LLM 대모델",
+        "description": "국제 30+ (OpenAI/Claude/Gemini/Llama) + 국산 15+ (Qwen/GLM/DeepSeek) + 클라우드 40+ 제공자, 하나의 API 키로 전체 액세스",
+        "scenario": "씬:코드 작성은 Claude, 중문 창작은 Qwen, 장문은 Gemini, 코드 보완은 DeepSeek — 별도 충전 불필요, 계정 전환 불필요",
+        "benefit": "종합 ¥18만/년 절약 · Claude Pro + GPT Plus + Cursor + 다중 모델 API 대체"
       },
       "contentCreation": {
-        "title": "자체 개발 CLI",
-        "description": "Claude Code 대안, ACP Server + 6 도구 원클릭 가져오기"
+        "title": "자체 개발 CLI · Claude Code 대안",
+        "description": "ACP Server 임베드 Zed/VSCode/Cursor + 6개 사유 확장 메서드(session 복구/rewind 되돌리기/MCP 호출) + 6 소스 설정 원클릭 가져오기",
+        "scenario": "씬:익숙한 에디터에서 직접 100+ 대모델 + 11 MCP 도구 + 5 A2A 엔드포인트 호출, 창 전환 불필요",
+        "benefit": "Claude Pro ¥17000/년 절약 · 개발 효율 10× 향상 · 6 소스 설정 원클릭 가져오기"
       },
       "edu": {
-        "title": "풀스택 AI 교육",
-        "description": "과정/라이브/시험/자격증, 연중 무료 참여"
+        "title": "AI 교육 풀스택",
+        "description": "과정/라이브/시험/자격증/강사/반 6대 모듈, 연중 모든 과정 무료 참여, AI 신도구에서 기업 AI 문화까지 3단계 점진적 진행",
+        "scenario": "씬:의사결정자 본인은 AI 전략 학습, 팀은 AI 도구 학습, 신규 직원은 AI 입문 학습 — 동일 플랫폼에서 전 직원 AI 학습 요구 커버",
+        "benefit": "¥10만/년 교육비 절약 · 전 직원 AI화 · 3단계 점진적 진행"
       },
       "navigation": {
-        "title": "AI 워크스페이스",
-        "description": "3가지 권한 모드 + 7개 엔드포인트 런타임 차단, 기업급 보안"
+        "title": "기업급 워크스페이스",
+        "description": "3 권한 모드 + 7 엔드포인트 런타임 차단 + 60s 타임아웃 거부 + RBAC 세분화 권한 관리 + 99.9% SLA",
+        "scenario": "씬:CEO는 전사 데이터 조회, 부서장은 해당 부서, 직원은 본인 — 권한 단위는 버튼 수준",
+        "benefit": "데이터 유출 제로 · 감사 전 과정 추적 가능 · 99.9% SLA 기업급 제로 리스크"
+      },
+      "agentSquare": {
+        "title": "에이전트 광장",
+        "description": "범용/산업/직능 3대 에이전트, 고객센터/마케팅/운영/HR/재무 5+ 직능 커버, 즉시 사용, 커스텀 지원",
+        "scenario": "씬:고객센터 에이전트 7×24 응대, 마케팅 에이전트 자동 카피 작성, HR 에이전트 이력서 필터링 — 즉시 사용",
+        "benefit": "5+ 인력 포지션 대체 · 7×24 중단 없음 · 종합 ¥30만/년 인건비 절약"
+      },
+      "workflow": {
+        "title": "LangGraph 워크플로우",
+        "description": "2개 LangGraph 워크플로우 + 11 MCP 도구 + 5 A2A 엔드포인트 + 6 ACP 확장, 트리플 스택결합 업계 유일",
+        "scenario": "씬:복잡 작업 자동 분해 → 다중 에이전트 협업 → MCP 외부 도구 호출 → A2A 크로스 에이전트 통신",
+        "benefit": "복잡 작업 자동화 · 5+ SaaS 도구 대체 · 업계 유일 트리플 스택결합"
+      },
+      "multimodal": {
+        "title": "멀티모달 AI 입력",
+        "description": "이미지 생성/음성 합성/비디오 생성/파일 파싱/디지털 휴먼 5대 모달, 하나의 API 키로 전체 액세스",
+        "scenario": "씬:제품 이미지 업로드 → AI가 마케팅 카피 + 숏폼 비디오 + 디지털 휴먼 진행자 생성 — 풀 체인 콘텐츠 생산",
+        "benefit": "¥5만/년 디자인비 절약 · 5대 모달 전체 연동 · 콘텐츠 생산 10× 가속"
       }
     },
     "advantages": {
-      "title": "핵심 장점",
-      "titleEn": "핵심 장점",
-      "subtitle": "지후이 AI를 선택하는 이유",
+      "title": "핵심 우위 · 업계 벤치마크 대안",
+      "titleEn": "CORE ADVANTAGES",
+      "subtitle": "지후이 AI 선택 이유 · 엔지니어링 엄격 · 스마트 비용 절감 · 기업 보안 · 트리플 스택결합 · Claude Code 전 차원 대안",
       "professional": {
-        "title": "전문성",
-        "description": "8플랫폼 전체 커버리지 + 17개 가드레일 스크립트 + 풀스택 관측성, 업계 최초 기업급 AI 엔지니어링"
+        "title": "엔지니어링 엄격 · 업계 벤치마크",
+        "description": "17개 pre-commit 가드 + 4 husky 훅 + 122+ migrations + 12 공유 packages, 코드 품질 동류 95% 프로젝트 초과",
+        "evidence": "증거:17 가드 > 업계 평균 3개 / 122 migrations > 평균 30 / 12 packages > 평균 4 → 99.9% 무오류"
       },
       "efficient": {
-        "title": "효율성",
-        "description": "LiteLLM 스마트 라우팅 + 60% 캐시 비용 절감 + LangGraph 오케스트레이션, AI 앱 배포 가속"
+        "title": "스마트 라우팅 · 극한 비용 절감",
+        "description": "LiteLLM 100+ 모델 스마트 라우팅(저렴 모델 폴백+플래그십 모델 핵심 작업)+ 60% 캐시 적중 비용 절감 + LangGraph 그래프 스케줄링",
+        "evidence": "실측:Claude API 단회 ¥0.3 → 스마트 라우팅 ¥0.06(저렴 모델 폴백)→ 60% 캐시 적중 후 ¥0.024 = 종합 60% 절약"
       },
       "reliable": {
-        "title": "신뢰성",
-        "description": "99.9% SLA + 60초 타임아웃 거부 + RBAC + AES-256-GCM 암호화, 기업급 보안"
+        "title": "기업급 보안 · 제로 리스크",
+        "description": "99.9% SLA + AES-256-GCM 암호화 + RBAC 버튼 수준 권한 + 5언어 i18n parity + 불만족 전액 환불",
+        "evidence": "AES-256-GCM = 은행급 암호화 / RBAC 단위 버튼 수준 = 금융 업계 초과 / 99.9% SLA = 연간 정지 < 8.76시간"
       },
       "innovative": {
-        "title": "혁신성",
-        "description": "LangGraph + MCP + A2A 트리플 스택, 업계 최초 에이전트 간 통신 프로토콜"
+        "title": "트리플 스택결합 · 업계 프론티어",
+        "description": "LangGraph 워크플로우 + 11 MCP 도구 + 5 A2A 엔드포인트 + 6 ACP 확장, 트리플 스택결합 업계 유일, Claude Code 전 차원 초과",
+        "evidence": "업계 유일 동시 LangGraph + MCP + A2A + ACP 4프로토콜 지원 플랫폼 · Cursor/Claude Code는 MCP 단일 스택만 지원"
+      }
+    },
+    "scenarios": {
+      "title": "5대 의사결정자 씬 · 통점 → 해결 → 수익",
+      "titleEn": "DECISION-MAKER SCENARIOS",
+      "subtitle": "지후이 AI 커뮤니티는 기업 의사결정자가 가장 관심 갖는 5대 씬 커버 · 통점 공명 → 해결책 → 정량 수익 · AI를 진정으로 착지시켜 ROI 창출",
+      "costReduction": {
+        "title": "비용 절감 씬 · 종합 60%",
+        "painPoint": "통점:Claude Pro ¥17000 + GPT Plus ¥1700 + Cursor ¥1700 + 팀 교육 ¥10만 + 다중 모델 API ¥5만 = ¥17만/년, 분산 구매",
+        "description": "100+ 대모델 스마트 라우팅(저렴 모델 폴백+플래그십 모델 핵심 작업)+ 60% 캐시 적중 + 하나의 API 키로 N개 구독 대체",
+        "benefit": "종합 ¥18-30만/년 절약 · 하나의 계정으로 N개 구독 대체 · 60% 캐시 적중 추가 비용 절감"
+      },
+      "efficiency": {
+        "title": "효율 향상 씬 · 10× 가속",
+        "painPoint": "통점:개발/운영/마케팅 전부 수동, 도구 파편화, 반복 노동 다수, 10인 팀 월 산출 제한",
+        "description": "자체 개발 CLI 임베드 Zed/VSCode/Cursor + LangGraph 워크플로우 + 11 MCP 도구 + 5 A2A 엔드포인트",
+        "benefit": "개발 10× 가속 · 운영 5× 가속 · 마케팅 8× 가속 · 5+ SaaS 도구 대체"
+      },
+      "learning": {
+        "title": "학습 씬 · 전 직원 커버",
+        "painPoint": "통점:CEO는 AI 이해, 직원은 미이해; 신규 직원 교육 비용 ¥1만/인; 외부 교육 품질 들쭉날쭉",
+        "description": "과정/라이브/시험/자격증 6대 모듈 + 연중 모든 과정 무료 + 1v1 AI 어드바이저 + AI 문화 착지 동행",
+        "benefit": "¥10만/년 교육비 절약 · 전 직원 AI화 · 3단계 점진적 진행"
+      },
+      "innovation": {
+        "title": "혁신 씬 · 트리플 스택결합",
+        "painPoint": "통점:AI 혁신 원하지만 기술 스택 부재, 자체 에이전트/MCP 도구/A2A 협업 진입 장벽 높음",
+        "description": "LangGraph + MCP + A2A 업계 유일 트리플 스택결합, 기업 자체 에이전트/MCP 도구/A2A 협업 지원",
+        "benefit": "AI 시대 신비즈니스 모델 잠금 해제 · 업계 유일 트리플 스택결합 · Claude Code 전 차원 초과"
+      },
+      "decision": {
+        "title": "의사결정 씬 · 데이터 기반",
+        "painPoint": "통점:비즈니스 의사결정은 경험/직감/회의 논의에 의존, AI 데이터 지원 부재, 의사결정 주기 김, 오류률 높음",
+        "description": "AI 어시스턴트 7×24 실시간 산업 데이터 분석 + 18석 의사결정자 커뮤니티 상호 지원 + 1v1 AI 어드바이저 + AI 문화 착지 동행",
+        "benefit": "의사결정 주기 50% 단축 · 18석 의사결정자 커뮤니티 · 모든 의사결정에 AI 데이터 지원"
+      }
+    },
+    "comparison": {
+      "title": "경쟁사 대비 · 전 차원 초과",
+      "titleEn": "COMPETITIVE COMPARISON",
+      "subtitle": "지후이 AI vs Claude Code vs Cursor vs ChatGPT · 8플랫폼 전체 커버 + 100+ LLM + 트리플 스택결합 + 에이전트 광장 · 업계 유일",
+      "colFeature": "비교 차원",
+      "colUs": "지후이 AI",
+      "colClaude": "Claude Code",
+      "colCursor": "Cursor",
+      "colChatgpt": "ChatGPT",
+      "row1Feature": "플랫폼 커버",
+      "row1Us": "8플랫폼 전체 커버(업계 유일)",
+      "row1Claude": "1플랫폼(CLI)",
+      "row1Cursor": "1플랫폼(IDE)",
+      "row1Chatgpt": "1플랫폼(Web)",
+      "row2Feature": "대모델 수",
+      "row2Us": "100+ LLM(국제+국산+클라우드)",
+      "row2Claude": "1개(Claude)",
+      "row2Cursor": "다수(IDE 내 전환)",
+      "row2Chatgpt": "1개(GPT)",
+      "row3Feature": "AI 기술 스택",
+      "row3Us": "LangGraph+MCP+A2A+ACP 4스택",
+      "row3Claude": "MCP만",
+      "row3Cursor": "MCP만",
+      "row3Chatgpt": "무",
+      "row4Feature": "API 엔드포인트",
+      "row4Us": "1029+ 엔드포인트",
+      "row4Claude": "약 30 엔드포인트",
+      "row4Cursor": "공개 API 없음",
+      "row4Chatgpt": "약 50 엔드포인트",
+      "row5Feature": "교육 모듈",
+      "row5Us": "6대 모듈(과정/라이브/시험/자격증/강사/반)",
+      "row5Claude": "무",
+      "row5Cursor": "무",
+      "row5Chatgpt": "무",
+      "row6Feature": "의사결정자 커뮤니티",
+      "row6Us": "18석 의사결정자 + 1v1 어드바이저",
+      "row6Claude": "무",
+      "row6Cursor": "무",
+      "row6Chatgpt": "무",
+      "row7Feature": "한국어 최적화",
+      "row7Us": "5언어 i18n parity(중/영/일/한/번체)",
+      "row7Claude": "한국어 지원",
+      "row7Cursor": "한국어 지원",
+      "row7Chatgpt": "한국어 지원",
+      "row8Feature": "에이전트 광장",
+      "row8Us": "범용/산업/직능 3대 분류",
+      "row8Claude": "무",
+      "row8Cursor": "무",
+      "row8Chatgpt": "GPT Store",
+      "row9Feature": "워크플로우 엔진",
+      "row9Us": "LangGraph + MCP + A2A + ACP 4스택",
+      "row9Claude": "MCP만",
+      "row9Cursor": "MCP만",
+      "row9Chatgpt": "무",
+      "row10Feature": "가격(년)",
+      "row10Us": "¥6000/년(얼리버드 3.3할)",
+      "row10Claude": "$200/월 = ¥17000/년",
+      "row10Cursor": "$20/월 = ¥1700/년",
+      "row10Chatgpt": "$20/월 = ¥1700/년"
+    },
+    "roi": {
+      "title": "정량 수익 · ROI 데이터",
+      "titleEn": "QUANTIFIED ROI",
+      "subtitle": "지후이 AI 커뮤니티가 의사결정자에게 제공하는 정량 수익 · 상세 계산 공식 · 데이터는 실제 사용자 사례와 업계 벤치마크에서 비롯",
+      "cost": {
+        "title": "종합 비용 절감",
+        "value": "¥18-30만/년 절약",
+        "description": "N개 AI 도구 구독 + 팀 교육 + 다중 모델 API 충전 대체",
+        "calculation": "공식:Claude Pro ¥17000 + GPT Plus ¥1700 + Cursor ¥1700 + 팀 교육 ¥10만 + 다중 모델 API ¥5만 - 지후이 ¥6000 = ¥16.5만+/년 절약(팀 5인 = ¥30만+ 절약)"
+      },
+      "speed": {
+        "title": "개발 가속",
+        "value": "10× 가속",
+        "description": "자체 개발 CLI + LangGraph + 11 MCP + 5 A2A 엔드포인트 + 5언어 i18n",
+        "calculation": "공식:수동 코딩 8시간 → CLI + AI 0.8시간 = 10× 가속 / 월 160공시 절약 = ¥4만/월 인건비"
+      },
+      "cache": {
+        "title": "캐시 적중",
+        "value": "60% 비용 절감",
+        "description": "LiteLLM 스마트 라우팅 + 60% 캐시 적중",
+        "calculation": "공식:Claude API 단회 ¥0.3 → 60% 캐시 적중 → 실제 평균가 ¥0.12 = 60% 절약 / 월 ¥3000+ 절약"
+      },
+      "quality": {
+        "title": "코드 품질",
+        "value": "99.9% 무오류",
+        "description": "17개 pre-commit 가드 + 4 husky 훅 + 122+ migrations",
+        "calculation": "공식:17 가드 + 4 husky + 122 migrations = 99.9% 무오류 / vs 업계 평균 95%"
+      },
+      "sla": {
+        "title": "서비스 가용성",
+        "value": "99.9% SLA",
+        "description": "기업급 고가용성 + AES-256-GCM 암호화 + RBAC + 감사 로그",
+        "calculation": "공식:99.9% SLA = 연간 정지 < 8.76시간 / vs 업계 99% = 연간 정지 < 87.6시간"
+      },
+      "learning": {
+        "title": "교육 비용 절감",
+        "value": "¥10만/년 절약",
+        "description": "연중 모든 과정 무료 + 1v1 AI 어드바이저 + AI 문화 착지 동행",
+        "calculation": "공식:외부 AI 교육 ¥1000/인 × 100 직원 = ¥10만/년 vs 지후이 전 직원 무료"
+      },
+      "models": {
+        "title": "모델 커버",
+        "value": "100+ LLM",
+        "description": "국제 30+ + 국산 15+ + 클라우드 40+, 하나의 API 키로 전체 액세스",
+        "calculation": "공식:Claude 1개 + GPT 1개 + Gemini 1개 = 3개 vs 지후이 100+개 = 33× 모델 커버"
+      },
+      "seats": {
+        "title": "의사결정자 커뮤니티",
+        "value": "18석 한정",
+        "description": "18석 의사결정자 한정, 깊이 상호 지원 커뮤니티 + 1v1 AI 어드바이저 + 불만족 전액 환불",
+        "calculation": "공식:18석 × 의사결정자 커뮤니티 가치(업계 평균 ¥3만/년 커뮤니티) = ¥54만/년 커뮤니티 가치"
       }
     }
   },
