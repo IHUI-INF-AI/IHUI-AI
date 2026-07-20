@@ -49,6 +49,29 @@ const chatSchema = z.object({
   stream: z.boolean().optional(),
 })
 
+// Phase 5 P0 修复:前端 api-client sendAiChat 发送 {message, model?, conversationId?}
+// 这里扩展为 union,接受两种格式;运行时归一为 chatSchema 内部表示
+const chatSchemaFrontend = z.union([
+  chatSchema,
+  z
+    .object({
+      message: z.string().min(1).max(32000),
+      model: z.string().max(128).optional(),
+      conversationId: z.string().optional(),
+      temperature: z.number().min(0).max(2).optional(),
+      maxTokens: z.number().int().min(1).max(128000).optional(),
+      configId: z.string().uuid('请指定模型配置 ID'),
+    })
+    .transform((v) => ({
+      configId: v.configId,
+      messages: [{ role: 'user' as const, content: v.message }],
+      temperature: v.temperature,
+      maxTokens: v.maxTokens,
+      model: v.model,
+      conversationId: v.conversationId,
+    })),
+])
+
 async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
   try {
     await authenticate(request)
@@ -324,14 +347,15 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/chat', async (request, reply) => {
-    const parsed = chatSchema.safeParse(request.body)
+    const parsed = chatSchemaFrontend.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    const data = parsed.data
     const [config] = await db
       .select()
       .from(zhsAiUserModelChatConfig)
-      .where(eq(zhsAiUserModelChatConfig.id, parsed.data.configId))
+      .where(eq(zhsAiUserModelChatConfig.id, data.configId))
       .limit(1)
     if (!config) return reply.status(404).send(error(404, '模型配置不存在'))
     if (config.userId !== request.userId)
@@ -347,9 +371,9 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
         modelId: config.modelId,
         baseUrl: config.baseUrl,
         apiKey: config.apiKey,
-        messages: parsed.data.messages,
-        temperature: parsed.data.temperature ?? config.temperature ?? undefined,
-        maxTokens: parsed.data.maxTokens ?? config.maxTokens ?? undefined,
+        messages: data.messages,
+        temperature: data.temperature ?? config.temperature ?? undefined,
+        maxTokens: data.maxTokens ?? config.maxTokens ?? undefined,
       })
       replyContent = llmResult.content
       usage = llmResult.usage
@@ -363,7 +387,7 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
       .insert(zhsAiUserModelChatHistory)
       .values({
         userId: request.userId!,
-        configId: parsed.data.configId,
+        configId: data.configId,
         model: config.modelId,
         content: replyContent,
         promptTokens: usage.promptTokens,
