@@ -31,6 +31,9 @@ const { mockConfig } = vi.hoisted(() => ({
     TENCENT_SES_SECRET_KEY: '',
     TENCENT_SES_FROM: 'noreply@ihui.ai',
     TENCENT_SES_REGION: 'ap-hongkong',
+    TENCENT_SES_TEMPLATE_REGISTER: undefined as number | undefined,
+    TENCENT_SES_TEMPLATE_LOGIN: undefined as number | undefined,
+    TENCENT_SES_TEMPLATE_RESET: undefined as number | undefined,
     DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
     REDIS_URL: 'redis://localhost:6379',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!',
@@ -288,9 +291,7 @@ describe('email-service — buildTencentV3Signature (TC3-HMAC-SHA256)', () => {
       region: 'ap-hongkong',
       service: 'ses',
     })
-    expect(result.Authorization).toMatch(
-      /Credential=AKIDtest\/\d{4}-\d{2}-\d{2}\/ses\/tc3_request/,
-    )
+    expect(result.Authorization).toMatch(/Credential=AKIDtest\/\d{4}-\d{2}-\d{2}\/ses\/tc3_request/)
   })
 })
 
@@ -449,7 +450,9 @@ describe('email-service — sendEmail Fallback 链路', () => {
 
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ Response: { Error: { Message: 'TemplateNotFound' } } }),
+      json: async () => ({
+        Response: { Error: { Code: 'TemplateNotFound', Message: 'TemplateNotFound' } },
+      }),
     })
 
     const result = await sendEmail({
@@ -459,7 +462,7 @@ describe('email-service — sendEmail Fallback 链路', () => {
     })
     expect(result.sent).toBe(false)
     expect(result.provider).toBe('tencent')
-    expect(result.error).toBe('TemplateNotFound')
+    expect(result.error).toBe('[TemplateNotFound] TemplateNotFound')
   })
 
   it('fetch 抛网络异常:被 catch 后返回 sent=false + error 包含异常 message', async () => {
@@ -518,5 +521,184 @@ describe('email-service — sendVerificationEmail', () => {
       await import('../src/services/email-service.js')
     ).sendVerificationEmail('user@example.com', '123456')
     expect(result.provider).toBe('stub')
+  })
+})
+
+describe('email-service — 腾讯云 SES Template 模式 + Simple base64 修复', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    mockConfig.MAIL_PROVIDER = 'tencent'
+    mockConfig.TENCENT_SES_SECRET_ID = 'AKIDtest'
+    mockConfig.TENCENT_SES_SECRET_KEY = 'testkey'
+    mockConfig.TENCENT_SES_TEMPLATE_REGISTER = undefined
+    mockConfig.TENCENT_SES_TEMPLATE_LOGIN = undefined
+    mockConfig.TENCENT_SES_TEMPLATE_RESET = undefined
+    mockConfig.SMTP_ENABLED = false
+    mockConfig.SMTP_HOST = ''
+    fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('Template 模式:scene=register + 配置了 TENCENT_SES_TEMPLATE_REGISTER → payload 含 Template 无 Simple', async () => {
+    mockConfig.TENCENT_SES_TEMPLATE_REGISTER = 12345
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ Response: { MessageId: 'ses-tpl-1' } }),
+    })
+
+    const result = await sendEmail({
+      to: 'user@qq.com',
+      subject: 'verify',
+      html: '<p>x</p>',
+      scene: 'register',
+      templateVariables: { code: '123456', nickname: '张三' },
+    })
+    expect(result.sent).toBe(true)
+    expect(result.provider).toBe('tencent')
+
+    const init = fetchMock.mock.calls[0]![1] as RequestInit
+    const body = JSON.parse(init.body as string) as {
+      Template?: { TemplateID: number; TemplateVariables: string }
+      Simple?: { Html: string; Text: string }
+    }
+    expect(body.Template).toBeDefined()
+    expect(body.Template!.TemplateID).toBe(12345)
+    expect(body.Simple).toBeUndefined()
+    // TemplateVariables 是 JSON 字符串
+    expect(JSON.parse(body.Template!.TemplateVariables)).toEqual({
+      code: '123456',
+      nickname: '张三',
+    })
+  })
+
+  it('Template 模式:scene=login → 用 TENCENT_SES_TEMPLATE_LOGIN', async () => {
+    mockConfig.TENCENT_SES_TEMPLATE_LOGIN = 22222
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ Response: { MessageId: 'ses-tpl-2' } }),
+    })
+    await sendEmail({
+      to: 'user@qq.com',
+      subject: 'verify',
+      html: '<p>x</p>',
+      scene: 'login',
+      templateVariables: { code: '999999' },
+    })
+    const init = fetchMock.mock.calls[0]![1] as RequestInit
+    const body = JSON.parse(init.body as string)
+    expect(body.Template.TemplateID).toBe(22222)
+  })
+
+  it('Template 模式:scene=reset → 用 TENCENT_SES_TEMPLATE_RESET', async () => {
+    mockConfig.TENCENT_SES_TEMPLATE_RESET = 33333
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ Response: { MessageId: 'ses-tpl-3' } }),
+    })
+    await sendEmail({
+      to: 'user@qq.com',
+      subject: 'verify',
+      html: '<p>x</p>',
+      scene: 'reset',
+      templateVariables: { code: '000000' },
+    })
+    const init = fetchMock.mock.calls[0]![1] as RequestInit
+    const body = JSON.parse(init.body as string)
+    expect(body.Template.TemplateID).toBe(33333)
+  })
+
+  it('Simple fallback:无 template id → payload 含 Simple 无 Template,Html/Text 是 base64', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ Response: { MessageId: 'ses-simple-1' } }),
+    })
+    const html = '<p>hello 中文</p>'
+    const text = 'plain text 内容'
+    await sendEmail({
+      to: 'user@qq.com',
+      subject: 'notification',
+      html,
+      text,
+      scene: 'transaction', // 非验证码场景,无 template id
+    })
+    const init = fetchMock.mock.calls[0]![1] as RequestInit
+    const body = JSON.parse(init.body as string) as {
+      Template?: unknown
+      Simple?: { Html: string; Text: string }
+    }
+    expect(body.Template).toBeUndefined()
+    expect(body.Simple).toBeDefined()
+    // base64 解码后等于原字符串(验证 UTF-8 编码 + base64 编码正确)
+    expect(Buffer.from(body.Simple!.Html, 'base64').toString('utf8')).toBe(html)
+    expect(Buffer.from(body.Simple!.Text, 'base64').toString('utf8')).toBe(text)
+  })
+
+  it('Simple fallback:验证码场景但未配置 template id → 仍走 Simple', async () => {
+    // scene=register 但 TENCENT_SES_TEMPLATE_REGISTER 没配 → fallback Simple
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ Response: { MessageId: 'ses-simple-2' } }),
+    })
+    await sendEmail({
+      to: 'user@qq.com',
+      subject: 'verify',
+      html: '<p>code</p>',
+      scene: 'register',
+    })
+    const init = fetchMock.mock.calls[0]![1] as RequestInit
+    const body = JSON.parse(init.body as string)
+    expect(body.Simple).toBeDefined()
+    expect(body.Template).toBeUndefined()
+  })
+
+  it('sendVerificationEmail 透传 templateVariables 供 Template 模式使用', async () => {
+    mockConfig.TENCENT_SES_TEMPLATE_LOGIN = 99999
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ Response: { MessageId: 'ses-verify-1' } }),
+    })
+
+    const { sendVerificationEmail } = await import('../src/services/email-service.js')
+    const result = await sendVerificationEmail('user@qq.com', '654321', 'login', '李四')
+    expect(result.sent).toBe(true)
+
+    const init = fetchMock.mock.calls[0]![1] as RequestInit
+    const body = JSON.parse(init.body as string)
+    expect(body.Template.TemplateID).toBe(99999)
+    expect(JSON.parse(body.Template.TemplateVariables)).toEqual({
+      code: '654321',
+      nickname: '李四',
+      scene: 'login',
+    })
+  })
+
+  it('腾讯云返回业务错误时,error 包含 [Code] 前缀', async () => {
+    mockConfig.TENCENT_SES_TEMPLATE_LOGIN = 99999
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        Response: {
+          Error: {
+            Code: 'FailedOperation.WithOutPermission',
+            Message: '未开通自定义发送权限',
+          },
+        },
+      }),
+    })
+
+    const result = await sendEmail({
+      to: 'user@qq.com',
+      subject: 'verify',
+      html: '<p>x</p>',
+      scene: 'login',
+    })
+    expect(result.sent).toBe(false)
+    expect(result.error).toContain('[FailedOperation.WithOutPermission]')
+    expect(result.error).toContain('未开通自定义发送权限')
   })
 })
