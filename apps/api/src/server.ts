@@ -21,6 +21,7 @@ import { authRoutes } from './routes/auth.js'
 import { usersRoutes } from './routes/users.js'
 import { workspaceRoutes } from './routes/workspace.js'
 import { workspaceAiRoutes } from './routes/workspace-ai.js'
+import { workspacePermissionRoutes } from './routes/workspace-permissions.js'
 import { fileRoutes } from './routes/files.js'
 import { adminRoutes } from './routes/admin.js'
 import { i18nDashboardRoutes } from './routes/i18n-dashboard.js'
@@ -505,6 +506,7 @@ function registerRoutes(server: FastifyInstance) {
   server.register(workspaceRoutes, { prefix: '/api/workspace' })
   // Workspace AI 能力：swarm/subagents/agent_loop/sandbox/computer_use/codebase_index/permissions 等 15 个子模块
   server.register(workspaceAiRoutes, { prefix: '/api/workspace' })
+  server.register(workspacePermissionRoutes, { prefix: '/api/workspace' })
   // 文件管理增强 API：/api/files/*（/api/tags 已迁至 socialRoutes）
   server.register(fileRoutes, { prefix: '/api' })
   server.register(adminRoutes, { prefix: '/api/admin' })
