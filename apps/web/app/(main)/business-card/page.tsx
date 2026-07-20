@@ -9,6 +9,7 @@ import { CreditCard, Plus, Star, Share2, Loader2, Pencil, Trash2 } from 'lucide-
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import { getInitials } from '@/components/data/Avatar'
 
 interface BusinessCard {
@@ -169,15 +170,16 @@ export default function BusinessCardPage() {
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Link>
-                      <button
-                        type="button"
-                        onClick={() => removeMut.mutate(card.id)}
-                        disabled={removeMut.isPending}
-                        className="inline-flex items-center rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        title="删除"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <Tooltip content="删除">
+                        <button
+                          type="button"
+                          onClick={() => removeMut.mutate(card.id)}
+                          disabled={removeMut.isPending}
+                          className="inline-flex items-center rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </Tooltip>
                     </div>
                   </div>
                 }

@@ -4,6 +4,8 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Edit, Trash2, CheckCircle2, Loader2, HelpCircle } from 'lucide-react'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
+import { TruncatedText } from '@/components/common'
 import { STATUS_META } from './helpers'
 import type { AskItem } from './types'
 
@@ -84,9 +86,7 @@ export function AsksTable({
               return (
                 <TableRow key={item.id} className="hover:bg-muted/30">
                   <TableCell className="max-w-xs px-4 py-2.5">
-                    <div className="truncate font-medium" title={item.title}>
-                      {item.title}
-                    </div>
+                    <TruncatedText value={item.title} className="font-medium" />
                     {item.categoryName && (
                       <div className="text-xs text-muted-foreground">{item.categoryName}</div>
                     )}
@@ -118,35 +118,38 @@ export function AsksTable({
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(item)}
-                        title={t('edit')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      {item.status !== 1 && (
+                      <Tooltip content={t('edit')}>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => onAudit(item)}
-                          title={t('audit')}
-                          disabled={auditPending}
+                          onClick={() => onEdit(item)}
                         >
-                          <CheckCircle2 className="h-4 w-4" />
+                          <Edit className="h-4 w-4" />
                         </Button>
+                      </Tooltip>
+                      {item.status !== 1 && (
+                        <Tooltip content={t('audit')}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onAudit(item)}
+                            disabled={auditPending}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                        </Tooltip>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(item)}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deletePending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('delete')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(item)}
+                          className="text-destructive hover:text-destructive"
+                          disabled={deletePending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>

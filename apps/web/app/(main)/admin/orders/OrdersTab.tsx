@@ -8,6 +8,7 @@ import type { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import { type EduOrder, type PageData, api, PAGE_SIZE, ORDER_STATUS_CFG } from './types'
 import { Pagination } from './Pagination'
 import {
@@ -436,26 +437,28 @@ export function OrdersTab({
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <HasPermi code="ai:order:edit">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEdit(o)}
-                            title="编辑"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          <Tooltip content="编辑">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(o)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
                         </HasPermi>
                         <HasPermi code="ai:order:remove">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(o)}
-                            title="删除"
-                            className="text-destructive hover:text-destructive"
-                            disabled={deleteMut.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <Tooltip content="删除">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(o)}
+                              className="text-destructive hover:text-destructive"
+                              disabled={deleteMut.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
                         </HasPermi>
                       </div>
                     </td>

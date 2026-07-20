@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import { STATUS_CLASS } from './helpers'
 import type { Agent, Category } from './types'
 
@@ -112,18 +113,21 @@ export function AgentsTable({
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => onEdit(a)} title={tc('edit')}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onDelete(a)}
-                      disabled={deletePending}
-                      title={tc('delete')}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <Tooltip content={tc('edit')}>
+                      <Button size="sm" variant="ghost" onClick={() => onEdit(a)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={tc('delete')}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onDelete(a)}
+                        disabled={deletePending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </TableCell>
               </TableRow>

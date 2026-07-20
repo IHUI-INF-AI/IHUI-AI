@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { STATUS_CLASS } from './helpers'
 import type { Examine } from './types'
 
@@ -99,26 +100,28 @@ export function DemandSquareTable({
                   {r.status === 'pending' ? (
                     <div className="flex justify-end gap-1">
                       <HasPermi code="demandsquare:approve">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => onApprove(r.id)}
-                          disabled={approvePending}
-                          title={t('approve')}
-                        >
-                          <Check className="h-4 w-4 text-emerald-600" />
-                        </Button>
+                        <Tooltip content={t('approve')}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onApprove(r.id)}
+                            disabled={approvePending}
+                          >
+                            <Check className="h-4 w-4 text-emerald-600" />
+                          </Button>
+                        </Tooltip>
                       </HasPermi>
                       <HasPermi code="demandsquare:reject">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => onReject(r)}
-                          disabled={rejectPending}
-                          title={t('reject')}
-                        >
-                          <X className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <Tooltip content={t('reject')}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onReject(r)}
+                            disabled={rejectPending}
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </Tooltip>
                       </HasPermi>
                     </div>
                   ) : (

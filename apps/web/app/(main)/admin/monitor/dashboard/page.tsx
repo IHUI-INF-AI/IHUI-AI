@@ -16,6 +16,7 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/date-utils'
 
@@ -185,12 +186,12 @@ export default function AdminMonitorDashboardPage() {
             {Array.from({ length: 48 }).map((_, i) => {
               const h = 20 + Math.sin(i / 3) * 30 + Math.random() * 40
               return (
-                <div
-                  key={`bar-${i}`}
-                  className="flex-1 rounded-t bg-primary/60 transition-colors hover:bg-primary"
-                  style={{ height: `${Math.max(5, Math.min(100, h))}%` }}
-                  title={`${Math.round(h * (perf?.qps ? perf.qps / 100 : 1))} req/s`}
-                />
+                <Tooltip key={`bar-${i}`} content={`${Math.round(h * (perf?.qps ? perf.qps / 100 : 1))} req/s`}>
+                  <div
+                    className="flex-1 rounded-t bg-primary/60 transition-colors hover:bg-primary"
+                    style={{ height: `${Math.max(5, Math.min(100, h))}%` }}
+                  />
+                </Tooltip>
               )
             })}
           </div>

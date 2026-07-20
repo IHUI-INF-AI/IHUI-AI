@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
-import localFont from 'next/font/local'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getLocale } from 'next-intl/server'
 import { Toaster } from 'sonner'
@@ -12,17 +11,11 @@ import { GlobalHooksProvider } from '@/providers/global-hooks-provider'
 import { LoginDialog } from '@/components/login/LoginDialog'
 import { LoginRedirectListener } from '@/components/login/LoginRedirectListener'
 import { GlobalShell } from '@/components/layout/GlobalShell'
+import { TooltipProvider } from '@/components/feedback'
 
-// next/font/local 接入 (MIGRATION_INTEGRITY_REPORT §6.2 P0-1 修复)
-// 优势:self-host + 字体 display 优化 + CSS variable 集成 + 消除布局抖动
-// EDIX 是拉丁字符字体(已 woff2 + 4016 chars 子集),作为基础字体栈首选
-const edix = localFont({
-  src: '../public/fonts/EDIX.woff2',
-  variable: '--font-edix',
-  display: 'swap',
-  weight: '400',
-  style: 'normal',
-})
+// EDIX 拉丁字体仅在 h1-h6 标题 + .font-edix 工具类中显式使用(见 globals.css)。
+// 不再通过 next/font/local 挂载到 body,避免全站英文文本被强制走 EDIX 字体。
+// EDIX 字体由 globals.css 中的 @font-face 声明加载(unicode-range 限定拉丁字符)。
 
 export const metadata: Metadata = {
   title: { default: 'IHUI AI', template: '%s | IHUI AI' },
@@ -62,8 +55,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const [messages, locale] = await Promise.all([getMessages(), getLocale()])
 
   return (
-    <html lang={locale} className={edix.variable} suppressHydrationWarning>
-      <body className={`${edix.className} font-sans antialiased`}>
+    <html lang={locale} suppressHydrationWarning>
+      <body className="font-sans antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -72,18 +65,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           <NextIntlClientProvider locale={locale} messages={messages}>
             <QueryProvider>
-              <GlobalHooksProvider>
-                {/*
-                  GlobalShell 提供真全局骨架:左侧 Sidebar + 内容槽 + 右侧 AISidePanel + PWA 提示。
-                  所有路由组((main)/(marketing)/(auth)/sso/h5/forbidden)共享同一套全局组件,
-                  符合"本项目所有内容都应包含在工作区"的全局设定(2026-07-19)。
-                  各路由组 layout 在内容槽内填充自己的样式((main) 用 MainShell 工作区面板,
-                  (marketing) 用 Header+Footer,(auth) 用居中表单等)。
-                */}
-                <GlobalShell>{children}</GlobalShell>
-                <LoginRedirectListener />
-                <LoginDialog />
-              </GlobalHooksProvider>
+              <TooltipProvider>
+                <GlobalHooksProvider>
+                  {/*
+                    GlobalShell 提供真全局骨架:左侧 Sidebar + 内容槽 + 右侧 AISidePanel + PWA 提示。
+                    所有路由组((main)/(marketing)/(auth)/sso/h5/forbidden)共享同一套全局组件,
+                    符合"本项目所有内容都应包含在工作区"的全局设定(2026-07-19)。
+                    各路由组 layout 在内容槽内填充自己的样式((main) 用 MainShell 工作区面板,
+                    (marketing) 用 Header+Footer,(auth) 用居中表单等)。
+                  */}
+                  <GlobalShell>{children}</GlobalShell>
+                  <LoginRedirectListener />
+                  <LoginDialog />
+                </GlobalHooksProvider>
+              </TooltipProvider>
             </QueryProvider>
             <Toaster position="top-center" richColors closeButton />
           </NextIntlClientProvider>
