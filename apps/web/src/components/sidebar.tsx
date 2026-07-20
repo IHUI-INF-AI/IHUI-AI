@@ -600,12 +600,14 @@ function SidebarUserRow({
         - 不使用 flex-1 在昵称上(会导致头像被挤到左侧,justify-center 失效)
         - 折叠态 trigger button 加 p-1.5(12px) + 内部 Avatar h-6 w-6(24px) = 36×36 命中区,
           解决折叠态下小图标难以点中的体验问题
+        - 外层容器不设独立 padding,直接由 button 的 36×36 自然撑起行高,严格与
+          h-9 (36px) 导航项高度一致,避免比邻项多出 8px 的视觉错位
         - 头像 fallback 加 ring-1 ring-inset ring-border/30,无头像时字符 fallback 有弱边框,
           在白底/灰底上更易辨识
       */}
       <div
         className={cn(
-          'group/row flex w-full items-center justify-center gap-1.5 rounded-md p-1 transition-colors hover:bg-sidebar-item-hover-bg',
+          'group/row flex h-9 w-full items-center justify-center gap-1.5 rounded-md transition-colors hover:bg-sidebar-item-hover-bg',
         )}
       >
         <Dropdown
