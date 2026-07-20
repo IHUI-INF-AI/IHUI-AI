@@ -38,7 +38,16 @@ export function ScrollDownButton({ current, total, onNext }: ScrollDownButtonPro
       type="button"
       onClick={handleClick}
       aria-label={t('label')}
-      className={`fixed bottom-4 left-1/2 z-sticky flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-md border bg-card/80 shadow-sm backdrop-blur transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-card hover:shadow-md hover:border-foreground/15 ${
+      // 2026-07-20 改:从整个视口居中(left-1/2)改为右侧工作区居中
+      // - 公式:left = 50% + (sidebar + ai-panel) / 2 - 10px (半按钮宽度)
+      // - --sidebar-width:sidebar.tsx 同步,折叠态 60px / 展开态 ~260px
+      // - --ai-panel-width:ai-side-panel.tsx 同步,关闭 0 / 打开 width+8
+      // - 用 inline style 而非 left-1/2 + -translate-x-1/2,
+      //   避免 hover:-translate-y-1 / scale-95 覆盖 transform 导致按钮右移 10px
+      style={{
+        left: 'calc(50% + (var(--sidebar-width, 0px) + var(--ai-panel-width, 0px)) / 2 - 10px)',
+      }}
+      className={`fixed bottom-4 z-sticky flex h-5 w-5 items-center justify-center rounded-md border bg-card/80 shadow-sm backdrop-blur transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-card hover:shadow-md hover:border-foreground/15 ${
         clicking ? 'scale-95' : ''
       }`}
     >
