@@ -9166,7 +9166,8 @@
     "favorite": "收藏",
     "unfavorite": "取消收藏",
     "viewFavorites": "查看收藏",
-    "backToHistory": "返回任务列表"
+    "backToHistory": "返回任务列表",
+    "loginRequired": "请先登录"
   },
   "models": {
     "title": "模型市场",
