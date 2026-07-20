@@ -1,0 +1,13 @@
+#!/bin/sh
+# .git/hooks/pre-commit — 提交前自动门禁检查
+# 2026-07-14 用户强制·零容忍·根绝复发
+# 安装方法：
+#   mkdir -p .git/hooks
+#   cp pre-commit.template .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# Windows 用户可改用：
+#   pre_publish_check.py --all
+
+cd "$(git rev-parse --show-toplevel)/口播稿/koubo" || exit 0
+python pre_publish_check.py --all || exit 1
