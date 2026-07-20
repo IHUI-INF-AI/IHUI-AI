@@ -9,6 +9,7 @@ import { streamChat, formatSSEError } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { createConversation, sendMessage as persistMessage } from '@/lib/chat-api'
 import { logger } from '@/lib/logger'
 
@@ -101,6 +102,8 @@ export function useChat(): UseChatReturn {
 
       // 从 auth store 获取 userId(用于回调链路关联)
       const userId = useAuthStore.getState().user?.id ?? ''
+      // 从 ai-panel store 获取当前绑定的本地工作区路径(用于注入 CLAUDE.md/AGENTS.md 项目记忆)
+      const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
 
       try {
         await streamChat({
@@ -112,6 +115,7 @@ export function useChat(): UseChatReturn {
             userId,
             messageId: assistantId,
           },
+          workspacePath,
           onDelta: (delta) => {
             firstTokenReceived = true
             useChatStore.getState().appendToMessage(assistantId, delta)

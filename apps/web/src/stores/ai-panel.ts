@@ -11,10 +11,15 @@ export const AI_PANEL_MAX_WIDTH = 720
 /** AI 面板当前绑定的本地工作区(参考 Trae/Codex 顶部 project selector 设计)
  *  - 用户在 AI 面板顶部"添加工作区"按钮选择本地文件夹后绑定
  *  - 绑定后标题显示 workspace.name,取代兜底"空工作区"文字
- *  - path 用于后续 AI 工具调用 fs.read/grep 等的根路径上下文 */
+ *  - path 用于后续 AI 工具调用 fs.read/grep 等的根路径上下文
+ *  - mode/techStack 来自 LocalFolderPicker 权限配置,供 UI 显示权限模式徽章 */
 export interface ActiveWorkspace {
   path: string
   name: string
+  /** 权限模式:default(默认需审计)/ accept-edits(自动接受编辑)/ bypass-permissions(完全跳过) */
+  mode?: 'default' | 'accept-edits' | 'bypass-permissions'
+  /** 技术栈标签数组(逗号分隔的 techStack 字符串拆分),用于 UI 显示技术栈 chip */
+  techStack?: string[]
 }
 
 interface AiPanelState {
