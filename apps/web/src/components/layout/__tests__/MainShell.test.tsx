@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, act, fireEvent, cleanup } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 // 用 ref 捕获 GlobalShell 传给 Sidebar 的 mobileOpen / onCloseMobile,避免 DOM 结构歧义。
 // 2026-07-20 备注:MainShell 在重构后已精简,不再渲染浮动菜单按钮;
@@ -59,12 +60,20 @@ vi.mock('next-intl', () => ({
 
 import { GlobalShell } from '../GlobalShell'
 
+// GlobalShell 间接挂载 workspace-permission-request-dialog → usePermissionRequest → useQueryClient,
+// 测试需用 QueryClientProvider 包裹,避免 "No QueryClient set" 错误。
+let queryClient: QueryClient
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+}
+
 describe('GlobalShell 移动端菜单 toggle 行为', () => {
   beforeEach(() => {
     localStorage.clear()
     capturedCloseMobile = null
     capturedMobileOpen = false
     __setMockLocale('zh-CN')
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   })
 
   afterEach(() => {
@@ -76,6 +85,7 @@ describe('GlobalShell 移动端菜单 toggle 行为', () => {
       <GlobalShell>
         <div>content</div>
       </GlobalShell>,
+      { wrapper: Wrapper },
     )
     const menuBtn = getByRole('button', { name: '菜单' })
     expect(capturedMobileOpen, '初始应关闭').toBe(false)
@@ -92,6 +102,7 @@ describe('GlobalShell 移动端菜单 toggle 行为', () => {
       <GlobalShell>
         <div>content</div>
       </GlobalShell>,
+      { wrapper: Wrapper },
     )
     const menuBtn = getByRole('button', { name: '菜单' })
     act(() => fireEvent.click(menuBtn))
@@ -108,6 +119,7 @@ describe('GlobalShell 移动端菜单 toggle 行为', () => {
       <GlobalShell>
         <div>content</div>
       </GlobalShell>,
+      { wrapper: Wrapper },
     )
     const menuBtn = getByRole('button', { name: '菜单' })
     act(() => fireEvent.click(menuBtn))
@@ -124,6 +136,7 @@ describe('GlobalShell 移动端菜单 toggle 行为', () => {
       <GlobalShell>
         <div>content</div>
       </GlobalShell>,
+      { wrapper: Wrapper },
     )
     const menuBtn = getByRole('button', { name: 'メニュー' })
     expect(menuBtn, 'ja 环境应渲染 "メニュー" 按钮').not.toBeNull()
@@ -136,6 +149,7 @@ describe('GlobalShell 移动端菜单 toggle 行为', () => {
       <GlobalShell>
         <div>content</div>
       </GlobalShell>,
+      { wrapper: Wrapper },
     )
     const menuBtn = getByRole('button', { name: '메뉴' })
     expect(menuBtn, 'ko 环境应渲染 "메뉴" 按钮').not.toBeNull()

@@ -778,39 +778,9 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // ========== 兼容端点（前端 RESTful CRUD 模式） ==========
 
-  // GET / - 根路径列表（别名 /list）
-  fastify.get('/', { preHandler: authenticate }, async (request) => {
-    const { page, pageSize, keyword, status, categoryId } = z
-      .object({
-        ...pageQuery,
-        keyword: z.string().optional(),
-        status: z.coerce.number().optional(),
-        categoryId: z.string().optional(),
-      })
-      .parse(request.query)
-    const offset = (Number(page) - 1) * Number(pageSize)
-    const conditions = []
-    if (keyword) conditions.push(sql`${lessons.title} ILIKE ${`%${keyword}%`}`)
-    if (status !== undefined) conditions.push(eq(lessons.status, Number(status)))
-    if (categoryId) conditions.push(eq(lessons.categoryId, categoryId))
-    const where = conditions.length ? sql.join(conditions, sql` AND `) : sql`TRUE`
-    const result = await db
-      .select()
-      .from(lessons)
-      .where(where)
-      .limit(Number(pageSize))
-      .offset(offset)
-    const total = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(lessons)
-      .where(where)
-    return {
-      list: result,
-      total: total[0]?.count ?? 0,
-      page: Number(page),
-      pageSize: Number(pageSize),
-    }
-  })
+  // NOTE: GET / (根路径列表) 已由 missing-user-routes.ts Phase 5 P0 补建(字段映射版),
+  // 此处原"别名 /list"实现删除以避免 Fastify "Method 'GET' already declared for route '/api/course'" 重复注册错误。
+  // /list(L51)仍保留,功能等价。
 
   // PUT /:id - 更新课程（id 在 URL，兼容前端 RESTful 模式）
   fastify.put('/:id', { preHandler: authenticate }, async (request, reply) => {

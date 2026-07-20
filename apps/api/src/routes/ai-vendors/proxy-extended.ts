@@ -30,7 +30,6 @@ import {
   recordIdParam,
   reqKeyParam,
   tasksQuery,
-  aigcRecordsQuery,
   promptOnlyBody,
   jimengBody,
   type AsyncTask,
@@ -881,30 +880,9 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /aigc/records
-  server.get(
-    '/aigc/records',
-    {
-      schema: buildSchema({
-        summary: '当前用户 AIGC 记录列表',
-        description: '返回当前登录用户的 AIGC 记录,支持按 type/vendor 过滤',
-        tags: ['AI'],
-        querystring: aigcRecordsQuery,
-      }),
-    },
-    async (request, reply) => {
-      const query = aigcRecordsQuery.parse(request.query)
-      const list: AigcRecord[] = []
-      for (const r of aigcStore.values()) {
-        if (r.userId !== request.userId) continue
-        if (query.type && r.type !== query.type) continue
-        if (query.vendor && r.vendor !== query.vendor) continue
-        list.push(r)
-      }
-      list.sort((a, b) => b.createdAt - a.createdAt)
-      return reply.send(success(list))
-    },
-  )
+  // NOTE: GET /aigc/records 已由 missing-user-routes.ts Phase 5 P0 补建(DB 持久化版),
+  // 此处原内存 stub 版本删除以避免 Fastify "Method 'GET' already declared" 重复注册错误。
+  // POST /aigc/record(单数)、DELETE /aigc/records/:recordId、GET /aigc/records/stats 仍走内存版。
 
   // DELETE /aigc/records/:recordId
   server.delete(
