@@ -253,13 +253,17 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     const wrapperClass = (await iconWrapper.getAttribute('class')) ?? ''
     expect(wrapperClass, '色块应含 text-primary').toContain('text-primary')
     expect(wrapperClass, '色块应含 rounded-md(圆角守门禁用 rounded-full)').toContain('rounded-md')
-    const iconStyles = await iconWrapper.evaluate((el) => {
-      const cs = getComputedStyle(el)
+    const iconStyles = await iconWrapper.evaluate((el: Element) => {
+      // locator 匹配的元素可能是 HTMLElement | SVGElement,tsc 推断为联合类型,
+      // offsetWidth/offsetHeight 仅存在于 HTMLElement 上,运行时 div 必为 HTMLElement,
+      // 这里强制断言为 HTMLElement 解决 TS2339。
+      const target = el as HTMLElement
+      const cs = getComputedStyle(target)
       return {
         backgroundColor: cs.backgroundColor,
         color: cs.color,
-        width: el.offsetWidth,
-        height: el.offsetHeight,
+        width: target.offsetWidth,
+        height: target.offsetHeight,
       }
     })
     expect(iconStyles.backgroundColor, '色块背景色不能为 transparent').not.toBe('rgba(0, 0, 0, 0)')
