@@ -43,7 +43,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   // overflow-x-hidden 兜底,防止子元素(首页 main 内的 Marquee / 跑马灯等
   // transform 动画元素)宽度溢出导致整页可左右滑动。
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto bg-background">
+    <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto bg-shell-panel">
       <MarketingHeader />
       {children}
     </div>
