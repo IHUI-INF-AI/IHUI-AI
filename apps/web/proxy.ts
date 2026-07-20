@@ -60,12 +60,13 @@ function getToken(request: NextRequest): string | null {
   return request.cookies.get('auth_token')?.value ?? request.cookies.get('token')?.value ?? null
 }
 
-/** 重定向到营销落地页并设置 login_redirect cookie(5min),触发 LoginDialog
- *  / 已改为工作台首页(需登录),未登录用户重定向到 /landing 而非 /,避免死循环。
+/** 重定向到首页(/)并设置 login_redirect cookie(5min),触发 LoginDialog
+ *  / 改为营销落地页(2026-07-20 合并 /home /landing 路由),未登录用户重定向到 / 而非旧 /landing,
+ *  避免 404 + 路由冗余。
  */
 function redirectToLoginDialog(request: NextRequest, pathname: string): NextResponse {
   const url = request.nextUrl.clone()
-  url.pathname = '/landing'
+  url.pathname = '/'
   url.search = ''
   const res = NextResponse.redirect(url)
   res.cookies.set('login_redirect', pathname, {
@@ -87,14 +88,9 @@ export function proxy(request: NextRequest): NextResponse {
 
   const token = getToken(request)
 
-  // a2. 工作台首页 / 需要登录:未登录重定向到 /landing(营销落地页)并触发 LoginDialog
-  //     避免未登录用户直接进入工作台看到空数据
-  if (pathname === '/') {
-    if (!token || !isAuthenticated(token)) {
-      return redirectToLoginDialog(request, pathname)
-    }
-    return NextResponse.next()
-  }
+  // a2. / 是营销落地页(2026-07-20 合并 /home /landing),对所有用户公开,
+  //     未登录用户也能看到营销内容,登录后由 LoginDialog 处理回跳。
+  //     跳过 / 的登录检查,直接放行。
 
   // b. admin 路由：校验登录 + 角色
   if (isAdminRoute(pathname)) {
