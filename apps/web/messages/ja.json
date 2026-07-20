@@ -433,6 +433,8 @@
     "sendCode": "コード取得",
     "resendCode": "{seconds}sに",
     "registerBtn": "しみ",
+    "phoneRegister": "電話番号登録",
+    "emailRegister": "メール登録",
     "hasAccount": "アカウントをおちですか？",
     "toLogin": "ログインへ",
     "thirdPartyLogin": "サードパーティログイン",
