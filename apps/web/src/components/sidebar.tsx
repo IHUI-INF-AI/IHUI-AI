@@ -389,6 +389,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/announcements', labelKey: 'announcements', icon: Megaphone },
       // /edu 8 项整合(原 /edu/layout.tsx 页面级菜单栏)
       ...EDU_ITEMS,
+      // AI 自动化定时任务调度器(2026-07-20 从自媒体分组移入,通用 AI 任务管理)
+      { href: '/self-media/automation', labelKey: 'selfMediaAutomation', icon: Clock },
     ],
   },
   {
@@ -409,15 +411,9 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/search', labelKey: 'search', icon: Search },
       { href: '/tags', labelKey: 'tags', icon: Tag },
       { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
-    ],
-  },
-  // 自媒体分组(2026-07-20 新增):公众号文章 + 口播稿生成 skill + 自动化定时任务
-  {
-    label: '自媒体',
-    items: [
+      // 自媒体创作工具(2026-07-20 从独立分组整合到内容分组,内容创作归属内容大类)
       { href: '/self-media/wechat', labelKey: 'selfMediaWechat', icon: Newspaper },
       { href: '/self-media/koubo', labelKey: 'selfMediaKoubo', icon: Mic },
-      { href: '/self-media/automation', labelKey: 'selfMediaAutomation', icon: Clock },
     ],
   },
   {
