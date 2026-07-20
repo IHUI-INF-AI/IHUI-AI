@@ -1023,7 +1023,24 @@
       "selected": "已選擇:",
       "cancel": "取消",
       "opening": "打開中...",
-      "selectAndOpen": "選擇並打開"
+      "selectAndOpen": "選擇並打開",
+      "manualPathLabel": "路徑(直接輸入)",
+      "manualPathPlaceholder": "例如:G:\\Projects\\my-app 或 /home/user/projects",
+      "manualPathHint": "輸入完整絕對路徑,按 Enter 或點擊「打開」",
+      "manualPathHintWithNative": "已透過系統選擇器選中文件夾名,請在下方輸入完整絕對路徑(從檔案總管複製貼上)後按 Enter 打開",
+      "openPath": "打開",
+      "orBrowse": "或瀏覽目錄",
+      "nativePick": "選擇文件夾",
+      "nativePickHint": "點擊後彈出系統原生的文件夾選擇對話框(Windows 檔案總管風格)",
+      "nativePicking": "正在打開選擇器...",
+      "nativeSelected": "已透過系統選擇器選中:",
+      "nativeChildren": "此文件夾包含",
+      "nativePickError": "無法打開系統文件夾選擇器",
+      "reselect": "重新選擇",
+      "webkitPick": "選擇文件夾(瀏覽器)",
+      "webkitPickHint": "點擊後彈出瀏覽器原生的文件夾選擇對話框",
+      "webkitNoRoot": "無法獲取選中的文件夾名,請嘗試手動輸入完整路徑",
+      "noNativeSupport": "當前瀏覽器不支援系統文件夾選擇器,請使用下方的手動輸入或後端瀏覽"
     },
     "permission": {
       "title": "工作區訪問權限",
@@ -1081,13 +1098,13 @@
         "expired": "請求已超時",
         "queue": "佇列中還有 {count} 個請求",
         "toolNames": {
-          "fs.read": "讀取檔案",
-          "fs.write": "寫入檔案",
-          "fs.edit": "編輯檔案",
-          "fs.delete": "刪除檔案",
-          "fs.grep": "搜尋內容",
-          "fs.glob": "尋找檔案",
-          "fs.run": "執行命令"
+          "fsRead": "讀取檔案",
+          "fsWrite": "寫入檔案",
+          "fsEdit": "編輯檔案",
+          "fsDelete": "刪除檔案",
+          "fsGrep": "搜尋內容",
+          "fsGlob": "尋找檔案",
+          "fsRun": "執行命令"
         }
       }
     },
