@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Send, Square, SquareSlash, FileText, Plus, FilePlus, AtSign } from 'lucide-react'
+import { Send, Square, SquareSlash, FileText, Plus, FilePlus, AtSign, Newspaper } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -12,6 +12,7 @@ import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
+import { SelfMediaSkillPicker } from '@/components/chat/self-media-skill-picker'
 import { Popover } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { getRecentFilesForMention } from '@/lib/workspace-api'
@@ -34,7 +35,15 @@ interface ReferenceItem {
   size?: number
 }
 
-const SLASH_COMMAND_IDS = ['summary', 'translate', 'explain', 'code', 'polish'] as const
+const SLASH_COMMAND_IDS = [
+  'summary',
+  'translate',
+  'explain',
+  'code',
+  'polish',
+  'wechat-article',
+  'koubo-script',
+] as const
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
 const PROMPT_TEMPLATE_IDS = ['summary', 'translate', 'explain', 'code', 'polish'] as const
@@ -145,6 +154,8 @@ export function MessageInput({
     explain: t('cmdExplain'),
     code: t('cmdCode'),
     polish: t('cmdPolish'),
+    'wechat-article': t('cmdWechatArticle'),
+    'koubo-script': t('cmdKouboScript'),
   }
 
   // i18n key 为扁平结构(tplSummary / tplSummaryContent),与 message-list 空状态共用同一组 key,
@@ -433,6 +444,39 @@ export function MessageInput({
                 <FilePlus className="h-3.5 w-3.5" />
                 <span>{value.trim() ? t('addContextReference') : t('addContextHint')}</span>
               </button>
+              {/* 自媒体 skill 入口(2026-07-20 新增):Popover 展示 2 个 skill,
+                  选中后填充模板到 textarea,与斜杠命令 /wechat-article /koubo-script 同源 */}
+              {isStreaming ? (
+                <button
+                  type="button"
+                  disabled
+                  aria-label={t('selfMediaSkill')}
+                  title={t('selfMediaSkill')}
+                  className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
+                >
+                  <Newspaper className="h-3.5 w-3.5" />
+                  <span>{t('selfMediaSkill')}</span>
+                </button>
+              ) : (
+                <Popover
+                  content={<SelfMediaSkillPicker onSelect={fillInput} onClose={() => {}} />}
+                  position="bottom"
+                  trigger="click"
+                >
+                  <button
+                    type="button"
+                    aria-label={t('selfMediaSkill')}
+                    title={t('selfMediaSkill')}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
+                      'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
+                    )}
+                  >
+                    <Newspaper className="h-3.5 w-3.5" />
+                    <span>{t('selfMediaSkill')}</span>
+                  </button>
+                </Popover>
+              )}
               {references.length > 0 && (
                 <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                   {references.length} 个引用
