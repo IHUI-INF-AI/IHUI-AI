@@ -1101,6 +1101,27 @@
       "zeroone": "제로원일물",
       "yi": "영이물물",
       "unknown": "모델"
+    },
+    "contextUsage": {
+      "triggerLabel": "컨텍스트 {percent}% 사용됨, {used}/{max}, 클릭하여 상세 보기",
+      "title": "컨텍스트 사용 현황",
+      "used": "사용량",
+      "max": "최대 용량",
+      "messages": "메시지 수",
+      "currentModel": "현재 모델",
+      "compressTitle": "컨텍스트 압축",
+      "compressTo200k": "20만 자로 압축",
+      "compressTo1m": "100만 자로 압축",
+      "compressSuccess": "압축 성공",
+      "compressFailed": "압축 실패",
+      "compressResultDesc": "원본 {original}자 → 압축 후 {compressed}자",
+      "ratio": "압축률",
+      "noConversation": "새 작업을 시작한 후 압축할 수 있습니다",
+      "lowUsage": "여유 충분",
+      "mediumUsage": "절반 이상 사용",
+      "highUsage": "한도 임박",
+      "criticalUsage": "한도 초과",
+      "disclaimer": "토큰 수는 클라이언트 추정치이며 서버 정확 계수와 ±10% 오차가 있을 수 있습니다. 압축된 내용은 후속 대화의 컨텍스트 요약으로 사용됩니다."
     }
   },
   "learn": {
