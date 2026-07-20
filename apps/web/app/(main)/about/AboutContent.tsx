@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Sparkles, Target, Users, Shield, Rocket, Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui'
 import { fetchApi } from '@/lib/api'
 
@@ -65,21 +66,38 @@ async function fetchAbout(): Promise<{ info: AboutInfo; values: AboutValue[] }> 
   return { info, values }
 }
 
-export function AboutContent({
-  fallbackInfo,
-  fallbackValues,
-}: {
-  fallbackInfo: AboutInfo
-  fallbackValues: AboutValue[]
-}): React.JSX.Element {
+export function AboutContent(): React.JSX.Element {
+  const t = useTranslations('about')
   const { data, isLoading } = useQuery({
     queryKey: ['about-marketing'],
     queryFn: fetchAbout,
     retry: false,
   })
 
-  const info = data?.info?.siteName ? data.info : fallbackInfo
-  const values = data?.values?.length ? data.values : fallbackValues
+  // i18n 化的 fallback values(API 不可用时使用)
+  // 标题/描述走 t() 翻译,确保 5 语言切换时 fallback 也正确
+  const i18nValues: AboutValue[] = React.useMemo(
+    () => [
+      { icon: 'target', title: t('valueMissionTitle'), desc: t('valueMissionDesc') },
+      { icon: 'users', title: t('valueCommunityTitle'), desc: t('valueCommunityDesc') },
+      { icon: 'shield', title: t('valuePromiseTitle'), desc: t('valuePromiseDesc') },
+      { icon: 'rocket', title: t('valueDirectionTitle'), desc: t('valueDirectionDesc') },
+    ],
+    [t],
+  )
+
+  // 优先使用 API 返回的 values,fallback 用 i18n 化的版本(替代 page.tsx 传的中文 FALLBACK)
+  const displayValues = data?.values?.length ? data.values : i18nValues
+
+  // i18n 化的 info fallback
+  const i18nInfo: AboutInfo = React.useMemo(
+    () => ({
+      siteName: t('marketingFallbackSiteName'),
+      description: t('marketingFallbackDescription'),
+    }),
+    [t],
+  )
+  const displayInfo = data?.info?.siteName ? data.info : i18nInfo
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-12 md:px-8 md:py-16">
@@ -87,11 +105,11 @@ export function AboutContent({
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          关于智汇 AI
+          {t('marketingBadge')}
         </div>
-        <h1 className="text-3xl font-bold tracking-tight md:text-5xl">AI 时代企业理性效率伙伴</h1>
+        <h1 className="text-3xl font-bold tracking-tight md:text-5xl">{t('marketingHeroTitle')}</h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
-          {info.description ?? fallbackInfo.description}
+          {displayInfo.description ?? i18nInfo.description}
         </p>
       </section>
 
@@ -100,11 +118,11 @@ export function AboutContent({
         {isLoading && (
           <div className="col-span-full flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            加载中...
+            {t('loading')}
           </div>
         )}
         {!isLoading &&
-          values.map(({ icon, title, desc }) => {
+          displayValues.map(({ icon, title, desc }) => {
             const Icon = ICON_MAP[icon as keyof typeof ICON_MAP] ?? Target
             return (
               <div
@@ -125,16 +143,16 @@ export function AboutContent({
 
       {/* CTA */}
       <section className="mt-16 rounded-2xl border bg-primary/5 p-8 text-center md:p-12">
-        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">加入智汇 AI 社区</h2>
+        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('marketingCtaTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
-          仅限前 18 位会员 · 早鸟价 ¥6000/人/年 · 不满意全额退款
+          {t('marketingCtaDesc')}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Button size="lg" asChild>
-            <Link href="/support?source=about">立即加入</Link>
+            <Link href="/support?source=about">{t('marketingJoinNow')}</Link>
           </Button>
           <Button size="lg" variant="outline" asChild>
-            <Link href="/pricing">查看定价</Link>
+            <Link href="/pricing">{t('marketingViewPricing')}</Link>
           </Button>
         </div>
       </section>

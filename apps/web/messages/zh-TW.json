@@ -12092,7 +12092,26 @@
     "ourMission": "我們的使命",
     "missionDesc1": "讓 AI 技術惠及每一位學習者，打破知識獲取的壁壘。",
     "missionDesc2": "構建開放、共用、智能的教育生態，推動終身學習。",
-    "icpPlaceholder": "京ICP備00000000號"
+    "icpPlaceholder": "京ICP備00000000號",
+    "marketingBadge": "關於智匯 AI",
+    "marketingHeroTitle": "AI 時代企業理性效率夥伴",
+    "marketingHeroDesc": "智匯 AI 社區是 AI 時代企業理性效率服務與互助社群。我們幫助決策者深度理解 AI 與企業的關係，構建人機協同的超級組織，實現企業的理性效率提升。",
+    "marketingFallbackSiteName": "智匯 AI 社區",
+    "marketingFallbackDescription": "智匯 AI 社區是 AI 時代企業理性效率服務與互助社群。我們幫助決策者深度理解 AI 與企業的關係，構建人機協同的超級組織，實現企業的理性效率提升。",
+    "valuesSection": "價值觀",
+    "valueMissionTitle": "我們的使命",
+    "valueMissionDesc": "幫助決策者深度理解 AI 與企業的關係，推動企業理性效率提升。",
+    "valueCommunityTitle": "我們的社群",
+    "valueCommunityDesc": "匯聚 AI 時代企業決策者，構建人機協同的超級組織，互助共進。",
+    "valuePromiseTitle": "我們的承諾",
+    "valuePromiseDesc": "不滿意全額退款。前 18 位會員享受一對一 AI 顧問諮詢。",
+    "valueDirectionTitle": "我們的方向",
+    "valueDirectionDesc": "從 AI 新工具到企業 AI 文化，三階段循序漸進，持續演進。",
+    "marketingCtaTitle": "加入智匯 AI 社區",
+    "marketingCtaDesc": "僅限前 18 位會員 · 早鳥價 NT$27000/人/年 · 不滿意全額退款",
+    "marketingJoinNow": "立即加入",
+    "marketingViewPricing": "查看定價",
+    "metaDescription": "智匯 AI 社區是 AI 時代企業理性效率服務與互助社群，幫助決策者深度理解 AI 與企業的關係，構建人機協同的超級組織。"
   },
   "agreement": {
     "title": "協議與政策",
@@ -13790,6 +13809,7 @@
     "adminBackendHealth": "後端健康檢查"
   },
   "footer": {
+    "aboutUs": "關於我們",
     "acknowledgments": "致謝",
     "companyName": "吉林省愛智匯人工智能科技有限公司",
     "addressLabel": "地址:",
