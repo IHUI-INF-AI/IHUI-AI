@@ -399,6 +399,7 @@
     "distribution": "分销",
     "oauthPlatform": "开放平台",
     "selfMediaWechat": "公众号文章",
+    "publishPlatform": "发布平台",
     "selfMediaKoubo": "口播稿",
     "selfMediaAutomation": "自动化",
     "downloadIOS": "iOS",
@@ -7882,6 +7883,117 @@
     "automationPage": {
       "historyTitle": "执行历史",
       "historyEmpty": "暂无执行记录"
+    }
+  },
+  "publish": {
+    "title": "多平台一键发布",
+    "subtitle": "支持 md/docx/html/pdf/图片/视频 → 14 平台一键发布",
+    "tabs": {
+      "accounts": "平台账号",
+      "new": "新建发布",
+      "history": "发布历史"
+    },
+    "platforms": {
+      "title": "支持平台",
+      "wordpress": "WordPress",
+      "medium": "Medium",
+      "youtube": "YouTube",
+      "bilibili": "B站",
+      "wechat": "公众号",
+      "toutiao": "头条号",
+      "douyin": "抖音",
+      "kuaishou": "快手",
+      "weibo": "微博",
+      "zhihu": "知乎",
+      "csdn": "CSDN",
+      "juejin": "掘金",
+      "xiaohongshu": "小红书",
+      "shipinhao": "视频号"
+    },
+    "accounts": {
+      "title": "平台账号管理",
+      "subtitle": "配置各平台的登录凭证(加密存储)",
+      "add": "添加账号",
+      "edit": "编辑",
+      "delete": "删除",
+      "verify": "测试连接",
+      "verifySuccess": "连接成功",
+      "verifyFailed": "连接失败",
+      "deleteConfirm": "确定删除此账号吗?",
+      "platform": "平台",
+      "nickname": "昵称",
+      "credentials": "凭证",
+      "status": "状态",
+      "lastVerified": "最近验证",
+      "statusActive": "启用",
+      "statusDisabled": "禁用",
+      "statusExpired": "过期",
+      "noAccounts": "暂无账号,请先添加",
+      "credentialsHint": "凭证 JSON(平台特定:token/cookie/appId+secret)"
+    },
+    "new": {
+      "title": "新建发布任务",
+      "subtitle": "上传内容 → 选择平台 → 立即/定时发布",
+      "titleField": "标题",
+      "titlePlaceholder": "请输入标题(必填)",
+      "contentFormat": "内容格式",
+      "contentFormatMd": "Markdown",
+      "contentFormatDocx": "Word (docx)",
+      "contentFormatHtml": "HTML",
+      "contentFormatPdf": "PDF",
+      "contentFormatImage": "图片",
+      "contentFormatVideo": "视频",
+      "contentText": "内容(md/html 直接粘贴)",
+      "contentTextPlaceholder": "粘贴 markdown 或 html 内容...",
+      "uploadFile": "上传文件",
+      "uploadFileHint": "支持 docx/pdf/图片/视频,拖拽或点击上传",
+      "coverImage": "封面图(可选)",
+      "selectPlatforms": "选择目标平台",
+      "selectPlatformsHint": "至少选择 1 个平台",
+      "selectAll": "全选",
+      "clearAll": "清空",
+      "schedule": "定时发布",
+      "scheduleAt": "定时时间",
+      "submitNow": "立即发布",
+      "submitSchedule": "定时发布",
+      "submitting": "提交中...",
+      "submitSuccess": "任务已提交,正在发布",
+      "submitFailed": "提交失败"
+    },
+    "history": {
+      "title": "发布历史",
+      "subtitle": "查看所有发布任务的执行结果",
+      "taskTitle": "任务标题",
+      "platform": "平台",
+      "status": "状态",
+      "publishedUrl": "发布链接",
+      "duration": "耗时",
+      "time": "时间",
+      "errorMessage": "错误信息",
+      "filterPlatform": "平台筛选",
+      "filterStatus": "状态筛选",
+      "allPlatforms": "全部平台",
+      "allStatus": "全部状态",
+      "statusSuccess": "成功",
+      "statusFailed": "失败",
+      "statusSkipped": "跳过",
+      "noHistory": "暂无发布历史",
+      "viewDetail": "查看详情",
+      "openUrl": "打开链接"
+    },
+    "stats": {
+      "title": "发布统计",
+      "totalTasks": "总任务",
+      "totalSuccess": "成功次数",
+      "totalFailed": "失败次数",
+      "successRate": "成功率",
+      "platformDistribution": "平台分布"
+    },
+    "notifications": {
+      "publishComplete": "发布完成",
+      "publishCompleteBody": "任务「{title}」发布完成:{success} 成功,{failed} 失败",
+      "publishFailed": "发布失败",
+      "publishFailedBody": "任务「{title}」发布失败:{error}"
     }
   },
   "settings": {
@@ -25263,6 +25375,160 @@
       "previewTestSuccess": "连通成功",
       "previewTestFailed": "连通失败",
       "saveBeforeFetchErr": "请先保存配置,再拉取模型"
+    }
+  },
+  "pricingPage": {
+    "metadata": {
+      "title": "定价方案",
+      "description": "智汇 AI 社区会员定价:早鸟价 ¥6000/人/年,原价 ¥18000。全年所有课程免费参加,探索活动优先参与,社群互助无限次。"
+    },
+    "hero": {
+      "badge": "会员定价",
+      "title": "选择适合你的方案",
+      "subtitle": "早鸟价 ¥6000/人/年,限 18 席。所有方案均享受不满意全额退款保障。"
+    },
+    "loading": "加载中...",
+    "badge": "限时早鸟",
+    "refundTitle": "不满意全额退款保障",
+    "refundDesc": "我们对所有会员承诺:若您在加入后任何时间觉得价值不达预期,可申请全额退款,无理由无门槛。",
+    "earlyBird": {
+      "name": "早鸟会员",
+      "price": "¥6000",
+      "originalPrice": "¥18000",
+      "period": "/人/年",
+      "desc": "限前 18 席,售完即恢复原价",
+      "features": ["全年所有课程免费参加", "探索活动优先参与", "社群互助无限次", "线上社群专属入口", "AI 助手优先体验", "不满意全额退款"],
+      "cta": "立即加入"
+    },
+    "standard": {
+      "name": "标准会员",
+      "price": "¥18000",
+      "period": "/人/年",
+      "desc": "早鸟售罄后自动切换至此方案",
+      "features": ["全年所有课程免费参加", "探索活动优先参与", "社群互助无限次", "线上社群专属入口", "AI 助手优先体验"],
+      "cta": "了解详情"
+    },
+    "enterprise": {
+      "name": "企业服务",
+      "price": "商务洽谈",
+      "period": "",
+      "desc": "面向企业决策者团队的定制方案",
+      "features": ["团队多席位套餐", "一对一 AI 顾问咨询", "企业 AI 文化落地陪跑", "专属定制课程", "私享闭门活动"],
+      "cta": "联系商务"
+    }
+  },
+  "enterpriseTools": {
+    "sectionLabel": "企业AI工具一览",
+    "title": "从通用AI工具到行业专属智能体",
+    "subtitle": "全方位满足企业AI化需求",
+    "partnersTitle": "生态合作伙伴",
+    "categories": {
+      "general": "通用AI工具",
+      "industry": "行业智能体",
+      "function": "职能智能体"
+    },
+    "items": {
+      "textGeneration": "文本生成",
+      "imageGeneration": "图像生成",
+      "voiceProcessing": "语音处理",
+      "videoGeneration": "视频生成",
+      "manufacturing": "制造业",
+      "education": "教育行业",
+      "healthcare": "医疗健康",
+      "government": "政务服务",
+      "marketingService": "营销客服",
+      "productionManufacturing": "生产制造",
+      "rdInnovation": "研发创新",
+      "officeCollaboration": "办公协作"
+    }
+  },
+  "mobileDashboardPage": {
+    "title": "移动端仪表盘",
+    "subtitle": "监控移动端核心运营指标，数据为 Mock 演示数据。",
+    "stats": {
+      "dau": "DAU",
+      "newUsers": "新增用户",
+      "sessions": "会话数",
+      "crashRate": "崩溃率",
+      "trendSuffix": "较昨日"
+    },
+    "dauTrend": {
+      "title": "最近 7 天 DAU 趋势",
+      "subtitle": "每日活跃用户数变化曲线"
+    },
+    "devices": {
+      "title": "设备分布",
+      "subtitle": "iOS / Android / 其他占比",
+      "others": "其他"
+    },
+    "topPages": {
+      "title": "Top 5 页面",
+      "subtitle": "访问量最高的 5 个移动端页面",
+      "rankHeader": "排名",
+      "pathHeader": "页面路径",
+      "visitsHeader": "访问数",
+      "ratioHeader": "占比"
+    },
+    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+  },
+  "pdfWatermarkPage": {
+    "title": "PDF 水印",
+    "description": "为 PDF 添加文字水印，自定义文本、位置、颜色与旋转角度",
+    "uploadLabel": "点击或拖拽一个 PDF 文件到此处上传",
+    "remove": "移除",
+    "fileSizeUnit": "KB",
+    "text": "水印文本",
+    "fontSize": "字体大小",
+    "color": "颜色",
+    "opacity": "透明度",
+    "rotation": "旋转角度",
+    "position": "位置",
+    "preview": "预览",
+    "placeholder": "水印",
+    "defaultText": "机密",
+    "submitting": "添加中...",
+    "submit": "添加水印",
+    "positions": {
+      "topLeft": "左上",
+      "topCenter": "上中",
+      "topRight": "右上",
+      "middleLeft": "左中",
+      "middleCenter": "居中",
+      "middleRight": "右中",
+      "bottomLeft": "左下",
+      "bottomCenter": "下中",
+      "bottomRight": "右下"
+    }
+  },
+  "businessCardEditPage": {
+    "editTitle": "编辑名片",
+    "createTitle": "新建名片",
+    "subtitle": "填写名片信息并选择模板样式",
+    "back": "返回列表",
+    "loading": "加载中...",
+    "cardInfo": "名片信息",
+    "templateLabel": "模板",
+    "bioLabel": "简介",
+    "bioPlaceholder": "一句话介绍自己...",
+    "errors": {
+      "nameRequired": "请输入姓名"
+    },
+    "cancel": "取消",
+    "save": "保存",
+    "templates": {
+      "minimal": "简约",
+      "business": "商务",
+      "creative": "创意"
+    },
+    "fields": {
+      "name": { "label": "姓名 *", "placeholder": "张三" },
+      "title": { "label": "职位", "placeholder": "产品经理" },
+      "company": { "label": "公司", "placeholder": "XX 科技有限公司" },
+      "phone": { "label": "电话", "placeholder": "13800138000" },
+      "email": { "label": "邮箱", "placeholder": "zhangsan@example.com" },
+      "wechat": { "label": "微信", "placeholder": "zhangsan_wx" },
+      "address": { "label": "地址", "placeholder": "北京市朝阳区..." },
+      "avatar": { "label": "头像 URL", "placeholder": "https://..." }
     }
   }
 }
