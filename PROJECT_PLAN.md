@@ -455,6 +455,49 @@ miniapp-taro / mobile-rn → web /sso/login?redirect=ihui://sso/callback&client_
 
 ---
 
+## 节点进程管理工具链 + 僵尸 next-server 清理(已完成 ✅ 2026-07-20)
+
+**触发**:用户反馈"进程爆炸 35+ 个 node 进程",原 `Start-Process powershell -Command "pnpm dev"` 启动方式下,PowerShell 退出不会带走 Next.js fork 的子进程,反复重启 dev server 积累 35+ 僵尸 node。
+
+**根因**:
+1. PowerShell `Start-Process` 启动的 pnpm 进程独立,父进程退出后 next-server worker/turbopack 子进程成为孤儿
+2. Next.js 15 + Turbopack 模式下会 fork 多个 worker 进程,默认 `Stop-Process -Id <root_pid>` 只杀 root,不杀整棵树
+3. 35 个 node 进程积累的判定:端口 3000/3001/8000 全部空闲 + 进程名都是 node.exe + 启动时间集中在过去 30 分钟
+
+**解决方案**(2 个新脚本,跨平台,仅影响 dev server 进程管理):
+
+1. **[scripts/dev-web.mjs](file:///g:/IHUI-AI/scripts/dev-web.mjs) — 进程树管理启动器**:
+   - 启动前用 `taskkill /F /T` 杀端口残留进程树(/T 是关键,杀整棵而非单个 PID)
+   - `child_process.spawn` 跟踪 pnpm 进程(不是 Start-Process detached)
+   - Windows `shell: true` 让 pnpm.cmd 跑通(Node 24 + Windows 非 shell 模式 spawn .cmd 失败)
+   - 注册 SIGINT / SIGTERM / SIGHUP / exit handler 退出时用 `taskkill /F /T /PID child.pid` 杀整棵
+   - 用法:`node scripts/dev-web.mjs` 或 `node scripts/dev-web.mjs --clean --port 3001`
+2. **[scripts/kill-dev-servers.ps1](file:///g:/IHUI-AI/scripts/kill-dev-servers.ps1) — 一键精准清理**:
+   - 6 端口扫描:3000/3001/8000/8081/9229/9230(覆盖 web/api/ai-service/RN debugger/Next.js debugger)
+   - 只杀监听这些端口的进程 + 命令行匹配 `apps/web|.next|next-server|@ihui/*` 的 worker,**不误杀 Trae IDE / aihot / 其他 agent node 进程**
+   - `-DryRun` 标志显示将杀 PID 但不杀
+   - 用法:`powershell -File scripts/kill-dev-servers.ps1` 或 `-DryRun`
+
+**新启动规范(强制,2026-07-20 立)**:
+
+- 禁止:`Start-Process powershell -Command "pnpm --filter @ihui/web dev"`
+- 必须:`node scripts/dev-web.mjs`(进程树自动管理)或 `Start-Process cmd -ArgumentList "/c","node scripts/dev-web.mjs ..."`(用 cmd 包裹避免 PowerShell 退出)
+- 禁止:`taskkill /F /IM node.exe`(误杀其他 agent)
+- 必须:`powershell -File scripts/kill-dev-servers.ps1`
+- 流程:每次 dev server 假死后,**先跑 `kill-dev-servers.ps1` 清残留 → 再用 `dev-web.mjs` 启动**,不要暴力 Stop-Process 留孤儿
+
+**验证结果**:
+
+- 测试 1(DryRun):`kill-dev-servers.ps1 -DryRun` 显示 4 个 would kill,0 实际杀 ✓
+- 测试 2(实际 kill):端口全空时 dry run 4→0,实际 kill 后 11→0 node 进程(从 35 减到 0)✓
+- 测试 3(`dev-web.mjs` 启动):Ready in 3.1s,`/api/` 200 OK,7 个 node 进程(全是必要 worker)✓
+- 测试 4(优雅关闭):用 `kill-dev-servers.ps1` 杀 `dev-web.mjs` 启动的进程树,7→0 节点,端口 3000 释放 ✓
+- 测试 5(回归):杀完后再次用 `dev-web.mjs` 启动成功,无 EADDRINUSE 残留 ✓
+
+**跨端影响**:仅影响 dev server 进程管理(开发时工具链),不影响 production build(由 CI / `pnpm build` 处理,无子进程管理问题)。其他 agent 启动 dev server 也请改用本脚本。
+
+---
+
 ## P2 公共 hook 抽取:useBatchMutation + 7 admin 页面迁移(2026-07-20 完成)
 
 - [x] ✅ (2026-07-20) `apps/web/src/hooks/use-batch-mutation.ts` 新建公共 hook(支持 body / url 两种 ID 传参模式,统一管理 invalidate + toast + isPending + 空数组守卫 + 单行删除 override)
