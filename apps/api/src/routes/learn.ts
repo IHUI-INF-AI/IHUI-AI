@@ -35,9 +35,9 @@ import {
   findAdminSignups,
   updateSignupStatus,
   batchSignUp,
+  getLessonStudyReport,
+  getLessonSignReport,
   findLessonStudyReport,
-  findSignupReport,
-  findMemberStudyReport,
   findUserLearnRecords,
 } from '../db/learn-queries.js'
 import {
@@ -522,9 +522,14 @@ async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promis
 // =============================================================================
 
 /** 将后端 lessons 行映射为前端期望的字段命名(instructor/description/students/cover)。 */
-function adaptLesson<T extends { lecturerName: string | null; intro: string | null; signupCount: number; coverImage: string | null }>(
-  row: T,
-): T & { instructor: string; description: string; students: number; cover: string | null } {
+function adaptLesson<
+  T extends {
+    lecturerName: string | null
+    intro: string | null
+    signupCount: number
+    coverImage: string | null
+  },
+>(row: T): T & { instructor: string; description: string; students: number; cover: string | null } {
   return {
     ...row,
     instructor: row.lecturerName ?? '',
@@ -970,15 +975,26 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
     if (status !== undefined) {
       conditions.push(eq(eduLessonTopicCategories.status, status))
     }
-    const where = conditions.length > 0 ? (conditions.length === 1 ? conditions[0] : and(...conditions)) : undefined
+    const where =
+      conditions.length > 0
+        ? conditions.length === 1
+          ? conditions[0]
+          : and(...conditions)
+        : undefined
     const orderClause = [eduLessonTopicCategories.sort, desc(eduLessonTopicCategories.createdAt)]
     const offset = (page - 1) * pageSize
     const baseQuery = where
       ? db.select().from(eduLessonTopicCategories).where(where)
       : db.select().from(eduLessonTopicCategories)
     const [list, totalRows] = await Promise.all([
-      baseQuery.orderBy(...orderClause).limit(pageSize).offset(offset),
-      db.select({ count: dsql`count(*)::int` }).from(eduLessonTopicCategories).where(where ?? dsql`true`),
+      baseQuery
+        .orderBy(...orderClause)
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select({ count: dsql`count(*)::int` })
+        .from(eduLessonTopicCategories)
+        .where(where ?? dsql`true`),
     ])
     const total = totalRows[0]?.count ?? 0
     return reply.send(success({ list, total, page, pageSize }))
@@ -1046,7 +1062,9 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) {
       return reply.status(404).send(error(404, '分类不存在'))
     }
-    await db.delete(eduLessonTopicCategories).where(eq(eduLessonTopicCategories.id, idParsed.data.id))
+    await db
+      .delete(eduLessonTopicCategories)
+      .where(eq(eduLessonTopicCategories.id, idParsed.data.id))
     return reply.send(success({ ok: true }))
   })
 
@@ -1329,7 +1347,7 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await findSignupReport({
+    const result = await getLessonSignReport({
       startDate: parsed.data.startDate,
       endDate: parsed.data.endDate,
     })
@@ -1342,7 +1360,7 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await findMemberStudyReport({
+    const result = await getLessonStudyReport({
       page: parsed.data.page,
       pageSize: parsed.data.pageSize,
       search: parsed.data.search,

@@ -31,6 +31,9 @@ export type ScheduledJobName =
   | 'oauth-session-cleanup'
   | 'pg-backup-daily'
   | 'subscription-recurring-charge'
+  | 'workwechat-token-refresh'
+  | 'wechat-token-refresh'
+  | 'dingtalk-token-refresh'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -98,6 +101,24 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'subscription-recurring-charge',
     pattern: '0 3 * * *',
     description: '连续包月委托扣款扫描（每日03:00）',
+  },
+  // 以下 3 项迁移自旧架构 coze_zhs_py / ZHS (M-Token 2026-07-20 P0 补齐)
+  // 3 个第三方平台 Token 刷新:企业微信/微信公众号/钉钉 access_token(7200s 过期)
+  // 每 100 分钟一次(留 20 分钟冗余),无配置时静默 no-op
+  {
+    name: 'workwechat-token-refresh',
+    pattern: '*/100 * * * *',
+    description: '企业微信 access_token 刷新（每100分钟,7200s 过期）',
+  },
+  {
+    name: 'wechat-token-refresh',
+    pattern: '*/100 * * * *',
+    description: '微信公众号 access_token 刷新（每100分钟,7200s 过期）',
+  },
+  {
+    name: 'dingtalk-token-refresh',
+    pattern: '*/100 * * * *',
+    description: '钉钉 access_token 刷新（每100分钟,7200s 过期）',
   },
 ]
 
