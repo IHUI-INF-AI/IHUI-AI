@@ -1,3 +1,5 @@
+'use client'
+
 import {
   FileText,
   Image,
@@ -12,40 +14,41 @@ import {
   Lightbulb,
   Briefcase,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { Card, CardContent } from '@ihui/ui'
 
 interface ToolItem {
   icon: React.ComponentType<{ className?: string }>
-  label: string
+  labelKey: string
 }
 
-const CATEGORIES: { title: string; items: ToolItem[] }[] = [
+const CATEGORIES: { titleKey: string; items: ToolItem[] }[] = [
   {
-    title: '通用AI工具',
+    titleKey: 'general',
     items: [
-      { icon: FileText, label: '文本生成' },
-      { icon: Image, label: '图像生成' },
-      { icon: Mic, label: '语音处理' },
-      { icon: Video, label: '视频生成' },
+      { icon: FileText, labelKey: 'textGeneration' },
+      { icon: Image, labelKey: 'imageGeneration' },
+      { icon: Mic, labelKey: 'voiceProcessing' },
+      { icon: Video, labelKey: 'videoGeneration' },
     ],
   },
   {
-    title: '行业智能体',
+    titleKey: 'industry',
     items: [
-      { icon: Factory, label: '制造业' },
-      { icon: GraduationCap, label: '教育行业' },
-      { icon: Stethoscope, label: '医疗健康' },
-      { icon: Building2, label: '政务服务' },
+      { icon: Factory, labelKey: 'manufacturing' },
+      { icon: GraduationCap, labelKey: 'education' },
+      { icon: Stethoscope, labelKey: 'healthcare' },
+      { icon: Building2, labelKey: 'government' },
     ],
   },
   {
-    title: '职能智能体',
+    titleKey: 'function',
     items: [
-      { icon: Headphones, label: '营销客服' },
-      { icon: Settings, label: '生产制造' },
-      { icon: Lightbulb, label: '研发创新' },
-      { icon: Briefcase, label: '办公协作' },
+      { icon: Headphones, labelKey: 'marketingService' },
+      { icon: Settings, labelKey: 'productionManufacturing' },
+      { icon: Lightbulb, labelKey: 'rdInnovation' },
+      { icon: Briefcase, labelKey: 'officeCollaboration' },
     ],
   },
 ]
@@ -62,31 +65,35 @@ const PARTNERS = [
 ]
 
 export function ToolsSection() {
+  const t = useTranslations('enterpriseTools')
+
   return (
     <section className="space-y-4">
       <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        企业AI工具一览
+        {t('sectionLabel')}
       </div>
       <div className="space-y-2">
-        <h2 className="text-xl font-bold tracking-tight">从通用AI工具到行业专属智能体</h2>
-        <p className="text-sm text-muted-foreground">全方位满足企业AI化需求</p>
+        <h2 className="text-xl font-bold tracking-tight">{t('title')}</h2>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         {CATEGORIES.map((cat) => (
-          <Card key={cat.title}>
+          <Card key={cat.titleKey}>
             <CardContent className="space-y-3 p-5">
-              <h3 className="text-sm font-semibold tracking-tight">{cat.title}</h3>
+              <h3 className="text-sm font-semibold tracking-tight">
+                {t(`categories.${cat.titleKey}`)}
+              </h3>
               <div className="grid grid-cols-2 gap-2">
                 {cat.items.map((item) => {
                   const Icon = item.icon
                   return (
                     <div
-                      key={item.label}
+                      key={item.labelKey}
                       className="flex items-center gap-2 rounded-md border bg-muted/30 px-2.5 py-2 text-sm transition-colors hover:bg-accent"
                     >
                       <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span>{item.label}</span>
+                      <span>{t(`items.${item.labelKey}`)}</span>
                     </div>
                   )
                 })}
@@ -98,7 +105,7 @@ export function ToolsSection() {
 
       <Card>
         <CardContent className="p-5">
-          <h3 className="mb-3 text-sm font-semibold tracking-tight">生态合作伙伴</h3>
+          <h3 className="mb-3 text-sm font-semibold tracking-tight">{t('partnersTitle')}</h3>
           <div className="flex flex-wrap gap-2">
             {PARTNERS.map((name) => (
               <div

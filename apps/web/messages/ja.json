@@ -399,6 +399,7 @@
     "distribution": "ディストリビューション",
     "oauthPlatform": "プラットフォーム",
     "selfMediaWechat": "WeChat公式アカウント記事",
+    "publishPlatform": "公開プラットフォーム",
     "selfMediaKoubo": "ナレーション原稿",
     "selfMediaAutomation": "自動化",
     "downloadIOS": "ｉＯＳ",
@@ -11963,6 +11964,117 @@
     "automationPage": {
       "historyTitle": "実行履歴",
       "historyEmpty": "実行記録なし"
+    }
+  },
+  "publish": {
+    "title": "マルチプラットフォーム公開",
+    "subtitle": "md/docx/html/pdf/画像/動画対応 → 14 プラットフォーム ワンクリック公開",
+    "tabs": {
+      "accounts": "アカウント管理",
+      "new": "新規公開",
+      "history": "公開履歴"
+    },
+    "platforms": {
+      "title": "対応プラットフォーム",
+      "wordpress": "WordPress",
+      "medium": "Medium",
+      "youtube": "YouTube",
+      "bilibili": "Bilibili",
+      "wechat": "WeChat",
+      "toutiao": "Toutiao",
+      "douyin": "Douyin",
+      "kuaishou": "Kuaishou",
+      "weibo": "Weibo",
+      "zhihu": "Zhihu",
+      "csdn": "CSDN",
+      "juejin": "Juejin",
+      "xiaohongshu": "Xiaohongshu",
+      "shipinhao": "WeChat Channels"
+    },
+    "accounts": {
+      "title": "プラットフォームアカウント管理",
+      "subtitle": "各プラットフォームのログイン認証情報を設定(暗号化保存)",
+      "add": "アカウント追加",
+      "edit": "編集",
+      "delete": "削除",
+      "verify": "接続テスト",
+      "verifySuccess": "接続成功",
+      "verifyFailed": "接続失敗",
+      "deleteConfirm": "このアカウントを削除しますか?",
+      "platform": "プラットフォーム",
+      "nickname": "ニックネーム",
+      "credentials": "認証情報",
+      "status": "ステータス",
+      "lastVerified": "最終認証",
+      "statusActive": "有効",
+      "statusDisabled": "無効",
+      "statusExpired": "期限切れ",
+      "noAccounts": "アカウントがありません。先に追加してください",
+      "credentialsHint": "認証情報 JSON(プラットフォーム固有: token/cookie/appId+secret)"
+    },
+    "new": {
+      "title": "新規公開タスク",
+      "subtitle": "コンテンツアップロード → プラットフォーム選択 → 即時/予約公開",
+      "titleField": "タイトル",
+      "titlePlaceholder": "タイトルを入力してください(必須)",
+      "contentFormat": "コンテンツ形式",
+      "contentFormatMd": "Markdown",
+      "contentFormatDocx": "Word (docx)",
+      "contentFormatHtml": "HTML",
+      "contentFormatPdf": "PDF",
+      "contentFormatImage": "画像",
+      "contentFormatVideo": "動画",
+      "contentText": "コンテンツ(md/html を直接貼り付け)",
+      "contentTextPlaceholder": "markdown または html コンテンツを貼り付け...",
+      "uploadFile": "ファイルアップロード",
+      "uploadFileHint": "docx/pdf/画像/動画対応、ドラッグまたはクリックでアップロード",
+      "coverImage": "カバー画像(任意)",
+      "selectPlatforms": "対象プラットフォームを選択",
+      "selectPlatformsHint": "少なくとも 1 つのプラットフォームを選択",
+      "selectAll": "すべて選択",
+      "clearAll": "すべて解除",
+      "schedule": "予約公開",
+      "scheduleAt": "予約時間",
+      "submitNow": "即時公開",
+      "submitSchedule": "予約公開",
+      "submitting": "送信中...",
+      "submitSuccess": "タスクを送信しました。公開中",
+      "submitFailed": "送信失敗"
+    },
+    "history": {
+      "title": "公開履歴",
+      "subtitle": "すべての公開タスクの実行結果を表示",
+      "taskTitle": "タスクタイトル",
+      "platform": "プラットフォーム",
+      "status": "ステータス",
+      "publishedUrl": "公開 URL",
+      "duration": "所要時間",
+      "time": "時間",
+      "errorMessage": "エラーメッセージ",
+      "filterPlatform": "プラットフォーム絞り込み",
+      "filterStatus": "ステータス絞り込み",
+      "allPlatforms": "すべてのプラットフォーム",
+      "allStatus": "すべてのステータス",
+      "statusSuccess": "成功",
+      "statusFailed": "失敗",
+      "statusSkipped": "スキップ",
+      "noHistory": "公開履歴がありません",
+      "viewDetail": "詳細を表示",
+      "openUrl": "URLを開く"
+    },
+    "stats": {
+      "title": "公開統計",
+      "totalTasks": "総タスク数",
+      "totalSuccess": "成功回数",
+      "totalFailed": "失敗回数",
+      "successRate": "成功率",
+      "platformDistribution": "プラットフォーム分布"
+    },
+    "notifications": {
+      "publishComplete": "公開完了",
+      "publishCompleteBody": "タスク「{title}」の公開が完了しました:{success} 成功、{failed} 失敗",
+      "publishFailed": "公開失敗",
+      "publishFailedBody": "タスク「{title}」の公開に失敗しました:{error}"
     }
   },
   "privateMessages": {
@@ -25275,6 +25387,160 @@
       "previewTestSuccess": "接続成功",
       "previewTestFailed": "接続失敗",
       "saveBeforeFetchErr": "先に設定を保存してください"
+    }
+  },
+  "pricingPage": {
+    "metadata": {
+      "title": "料金プラン",
+      "description": "IHUI AI コミュニティ会員料金:アーリーバード ¥6000/人/年、通常 ¥18000。年間全コース無料参加、イベント優先参加、コミュニティサポート無制限。"
+    },
+    "hero": {
+      "badge": "会員料金",
+      "title": "あなたに合ったプランを選択",
+      "subtitle": "アーリーバード ¥6000/人/年、限定18席。全プランに全額返金保証付き。"
+    },
+    "loading": "読み込み中...",
+    "badge": "期間限定アーリーバード",
+    "refundTitle": "全額返金保証",
+    "refundDesc": "全ての会員に約束します:加入後いつでも価値が期待に届かない場合、理由不要で全額返金を申請できます。",
+    "earlyBird": {
+      "name": "アーリーバード会員",
+      "price": "¥6000",
+      "originalPrice": "¥18000",
+      "period": "/人/年",
+      "desc": "先着18席限定、売切後は通常価格に戻ります",
+      "features": ["年間全コース無料参加", "イベント優先参加", "コミュニティサポート無制限", "オンラインコミュニティ専用入口", "AIアシスタント優先体験", "不満足時全額返金"],
+      "cta": "今すぐ参加"
+    },
+    "standard": {
+      "name": "通常会員",
+      "price": "¥18000",
+      "period": "/人/年",
+      "desc": "アーリーバード売切後、自動的にこのプランに切替",
+      "features": ["年間全コース無料参加", "イベント優先参加", "コミュニティサポート無制限", "オンラインコミュニティ専用入口", "AIアシスタント優先体験"],
+      "cta": "詳細を見る"
+    },
+    "enterprise": {
+      "name": "エンタープライズサービス",
+      "price": "お問い合わせ",
+      "period": "",
+      "desc": "企業意思決定者チーム向けカスタムプラン",
+      "features": ["チーム複数席パッケージ", "1on1 AIコンサルティング", "企業AI文化導入支援", "専用カスタムコース", "プライベートクローズドイベント"],
+      "cta": "お問い合わせ"
+    }
+  },
+  "enterpriseTools": {
+    "sectionLabel": "企業AIツール一覧",
+    "title": "汎用AIツールから業界特化エージェントまで",
+    "subtitle": "企業AI化ニーズを全面的にサポート",
+    "partnersTitle": "エコシステムパートナー",
+    "categories": {
+      "general": "汎用AIツール",
+      "industry": "業界エージェント",
+      "function": "職能エージェント"
+    },
+    "items": {
+      "textGeneration": "テキスト生成",
+      "imageGeneration": "画像生成",
+      "voiceProcessing": "音声処理",
+      "videoGeneration": "動画生成",
+      "manufacturing": "製造業",
+      "education": "教育業界",
+      "healthcare": "医療健康",
+      "government": "政務サービス",
+      "marketingService": "マーケティング・カスタマーサポート",
+      "productionManufacturing": "生産製造",
+      "rdInnovation": "研究開発イノベーション",
+      "officeCollaboration": "オフィスコラボレーション"
+    }
+  },
+  "mobileDashboardPage": {
+    "title": "モバイルダッシュボード",
+    "subtitle": "モバイルのコア運営指標を監視。データはモックデモデータ。",
+    "stats": {
+      "dau": "DAU",
+      "newUsers": "新規ユーザー",
+      "sessions": "セッション数",
+      "crashRate": "クラッシュ率",
+      "trendSuffix": "前日比"
+    },
+    "dauTrend": {
+      "title": "直近7日間のDAU推移",
+      "subtitle": "日次アクティブユーザー数推移曲線"
+    },
+    "devices": {
+      "title": "デバイス分布",
+      "subtitle": "iOS / Android / その他の比率",
+      "others": "その他"
+    },
+    "topPages": {
+      "title": "トップ5ページ",
+      "subtitle": "アクセス数上位5つのモバイルページ",
+      "rankHeader": "順位",
+      "pathHeader": "ページパス",
+      "visitsHeader": "アクセス数",
+      "ratioHeader": "比率"
+    },
+    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+  },
+  "pdfWatermarkPage": {
+    "title": "PDF透かし",
+    "description": "PDFにテキスト透かしを追加。テキスト、位置、色、回転角度をカスタマイズ",
+    "uploadLabel": "クリックまたはPDFファイルをここにドラッグしてアップロード",
+    "remove": "削除",
+    "fileSizeUnit": "KB",
+    "text": "透かしテキスト",
+    "fontSize": "フォントサイズ",
+    "color": "色",
+    "opacity": "不透明度",
+    "rotation": "回転角度",
+    "position": "位置",
+    "preview": "プレビュー",
+    "placeholder": "透かし",
+    "defaultText": "社外秘",
+    "submitting": "追加中...",
+    "submit": "透かしを追加",
+    "positions": {
+      "topLeft": "左上",
+      "topCenter": "上中央",
+      "topRight": "右上",
+      "middleLeft": "中央左",
+      "middleCenter": "中央",
+      "middleRight": "中央右",
+      "bottomLeft": "左下",
+      "bottomCenter": "下中央",
+      "bottomRight": "右下"
+    }
+  },
+  "businessCardEditPage": {
+    "editTitle": "名刺を編集",
+    "createTitle": "名刺を新規作成",
+    "subtitle": "名刺情報を入力してテンプレートスタイルを選択",
+    "back": "リストに戻る",
+    "loading": "読み込み中...",
+    "cardInfo": "名刺情報",
+    "templateLabel": "テンプレート",
+    "bioLabel": "自己紹介",
+    "bioPlaceholder": "一言で自分を紹介...",
+    "errors": {
+      "nameRequired": "氏名を入力してください"
+    },
+    "cancel": "キャンセル",
+    "save": "保存",
+    "templates": {
+      "minimal": "シンプル",
+      "business": "ビジネス",
+      "creative": "クリエイティブ"
+    },
+    "fields": {
+      "name": { "label": "氏名 *", "placeholder": "張三" },
+      "title": { "label": "役職", "placeholder": "プロダクトマネージャー" },
+      "company": { "label": "会社", "placeholder": "XXテクノロジー株式会社" },
+      "phone": { "label": "電話", "placeholder": "13800138000" },
+      "email": { "label": "メール", "placeholder": "zhangsan@example.com" },
+      "wechat": { "label": "WeChat", "placeholder": "zhangsan_wx" },
+      "address": { "label": "住所", "placeholder": "東京都渋谷区..." },
+      "avatar": { "label": "アバターURL", "placeholder": "https://..." }
     }
   }
 }

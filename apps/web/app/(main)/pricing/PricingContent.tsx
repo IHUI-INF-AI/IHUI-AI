@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Check, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui'
@@ -46,7 +47,7 @@ async function fetchPlans(): Promise<Plan[]> {
           period: parsed.period ?? '',
           desc: parsed.desc ?? '',
           features: parsed.features ?? [],
-          cta: parsed.cta ?? '了解详情',
+          cta: parsed.cta ?? 'Learn More',
           ctaHref: parsed.ctaHref ?? '/support',
           highlighted: parsed.highlighted,
         })
@@ -58,7 +59,41 @@ async function fetchPlans(): Promise<Plan[]> {
   return plans
 }
 
-export function PricingContent({ fallbackPlans }: { fallbackPlans: Plan[] }): React.JSX.Element {
+export function PricingContent(): React.JSX.Element {
+  const t = useTranslations('pricingPage')
+
+  const fallbackPlans: Plan[] = [
+    {
+      name: t('earlyBird.name'),
+      price: t('earlyBird.price'),
+      originalPrice: t('earlyBird.originalPrice'),
+      period: t('earlyBird.period'),
+      desc: t('earlyBird.desc'),
+      features: t.raw('earlyBird.features') as string[],
+      cta: t('earlyBird.cta'),
+      ctaHref: '/support?source=pricing',
+      highlighted: true,
+    },
+    {
+      name: t('standard.name'),
+      price: t('standard.price'),
+      period: t('standard.period'),
+      desc: t('standard.desc'),
+      features: t.raw('standard.features') as string[],
+      cta: t('standard.cta'),
+      ctaHref: '/support?source=pricing-standard',
+    },
+    {
+      name: t('enterprise.name'),
+      price: t('enterprise.price'),
+      period: t('enterprise.period'),
+      desc: t('enterprise.desc'),
+      features: t.raw('enterprise.features') as string[],
+      cta: t('enterprise.cta'),
+      ctaHref: '/contact?source=pricing-enterprise',
+    },
+  ]
+
   const { data, isLoading } = useQuery({
     queryKey: ['pricing'],
     queryFn: fetchPlans,
@@ -75,11 +110,11 @@ export function PricingContent({ fallbackPlans }: { fallbackPlans: Plan[] }): Re
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          会员定价
+          {t('hero.badge')}
         </div>
-        <h1 className="text-3xl font-bold tracking-tight md:text-5xl">选择适合你的方案</h1>
+        <h1 className="text-3xl font-bold tracking-tight md:text-5xl">{t('hero.title')}</h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
-          早鸟价 ¥6000/人/年,限 18 席。所有方案均享受不满意全额退款保障。
+          {t('hero.subtitle')}
         </p>
       </section>
 
@@ -88,7 +123,7 @@ export function PricingContent({ fallbackPlans }: { fallbackPlans: Plan[] }): Re
         {isLoading && (
           <div className="col-span-full flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            加载中...
+            {t('loading')}
           </div>
         )}
         {!isLoading &&
@@ -101,7 +136,7 @@ export function PricingContent({ fallbackPlans }: { fallbackPlans: Plan[] }): Re
             >
               {plan.highlighted && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
-                  限时早鸟
+                  {t('badge')}
                 </div>
               )}
               <h2 className="text-lg font-semibold">{plan.name}</h2>
@@ -141,9 +176,9 @@ export function PricingContent({ fallbackPlans }: { fallbackPlans: Plan[] }): Re
 
       {/* 退款保障 */}
       <section className="mt-12 rounded-2xl border bg-primary/5 p-6 text-center md:p-8">
-        <h2 className="text-lg font-semibold">不满意全额退款保障</h2>
+        <h2 className="text-lg font-semibold">{t('refundTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-          我们对所有会员承诺:若您在加入后任何时间觉得价值不达预期,可申请全额退款,无理由无门槛。
+          {t('refundDesc')}
         </p>
       </section>
     </main>

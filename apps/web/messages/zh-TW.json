@@ -399,6 +399,7 @@
     "distribution": "分銷",
     "oauthPlatform": "開放平臺",
     "selfMediaWechat": "公眾號文章",
+    "publishPlatform": "發布平臺",
     "selfMediaKoubo": "口播稿",
     "selfMediaAutomation": "自動化",
     "downloadIOS": "iOS",
@@ -7882,6 +7883,117 @@
     "automationPage": {
       "historyTitle": "執行歷史",
       "historyEmpty": "暫無執行記錄"
+    }
+  },
+  "publish": {
+    "title": "多平臺一鍵發布",
+    "subtitle": "支援 md/docx/html/pdf/圖片/視頻 → 14 平臺一鍵發布",
+    "tabs": {
+      "accounts": "平臺帳號",
+      "new": "新建發布",
+      "history": "發布歷史"
+    },
+    "platforms": {
+      "title": "支援平臺",
+      "wordpress": "WordPress",
+      "medium": "Medium",
+      "youtube": "YouTube",
+      "bilibili": "B站",
+      "wechat": "公眾號",
+      "toutiao": "頭條號",
+      "douyin": "抖音",
+      "kuaishou": "快手",
+      "weibo": "微博",
+      "zhihu": "知乎",
+      "csdn": "CSDN",
+      "juejin": "掘金",
+      "xiaohongshu": "小紅書",
+      "shipinhao": "視頻號"
+    },
+    "accounts": {
+      "title": "平臺帳號管理",
+      "subtitle": "配置各平臺的登入憑證(加密儲存)",
+      "add": "新增帳號",
+      "edit": "編輯",
+      "delete": "刪除",
+      "verify": "測試連接",
+      "verifySuccess": "連接成功",
+      "verifyFailed": "連接失敗",
+      "deleteConfirm": "確定刪除此帳號嗎?",
+      "platform": "平臺",
+      "nickname": "暱稱",
+      "credentials": "憑證",
+      "status": "狀態",
+      "lastVerified": "最近驗證",
+      "statusActive": "啟用",
+      "statusDisabled": "禁用",
+      "statusExpired": "過期",
+      "noAccounts": "暫無帳號,請先新增",
+      "credentialsHint": "憑證 JSON(平臺特定:token/cookie/appId+secret)"
+    },
+    "new": {
+      "title": "新建發布任務",
+      "subtitle": "上傳內容 → 選擇平臺 → 立即/定時發布",
+      "titleField": "標題",
+      "titlePlaceholder": "請輸入標題(必填)",
+      "contentFormat": "內容格式",
+      "contentFormatMd": "Markdown",
+      "contentFormatDocx": "Word (docx)",
+      "contentFormatHtml": "HTML",
+      "contentFormatPdf": "PDF",
+      "contentFormatImage": "圖片",
+      "contentFormatVideo": "視頻",
+      "contentText": "內容(md/html 直接貼上)",
+      "contentTextPlaceholder": "貼上 markdown 或 html 內容...",
+      "uploadFile": "上傳檔案",
+      "uploadFileHint": "支援 docx/pdf/圖片/視頻,拖曳或點擊上傳",
+      "coverImage": "封面圖(可選)",
+      "selectPlatforms": "選擇目標平臺",
+      "selectPlatformsHint": "至少選擇 1 個平臺",
+      "selectAll": "全選",
+      "clearAll": "清空",
+      "schedule": "定時發布",
+      "scheduleAt": "定時時間",
+      "submitNow": "立即發布",
+      "submitSchedule": "定時發布",
+      "submitting": "提交中...",
+      "submitSuccess": "任務已提交,正在發布",
+      "submitFailed": "提交失敗"
+    },
+    "history": {
+      "title": "發布歷史",
+      "subtitle": "查看所有發布任務的執行結果",
+      "taskTitle": "任務標題",
+      "platform": "平臺",
+      "status": "狀態",
+      "publishedUrl": "發布連結",
+      "duration": "耗時",
+      "time": "時間",
+      "errorMessage": "錯誤資訊",
+      "filterPlatform": "平臺篩選",
+      "filterStatus": "狀態篩選",
+      "allPlatforms": "全部平臺",
+      "allStatus": "全部狀態",
+      "statusSuccess": "成功",
+      "statusFailed": "失敗",
+      "statusSkipped": "跳過",
+      "noHistory": "暫無發布歷史",
+      "viewDetail": "查看詳情",
+      "openUrl": "開啟連結"
+    },
+    "stats": {
+      "title": "發布統計",
+      "totalTasks": "總任務",
+      "totalSuccess": "成功次數",
+      "totalFailed": "失敗次數",
+      "successRate": "成功率",
+      "platformDistribution": "平臺分佈"
+    },
+    "notifications": {
+      "publishComplete": "發布完成",
+      "publishCompleteBody": "任務「{title}」發布完成:{success} 成功,{failed} 失敗",
+      "publishFailed": "發布失敗",
+      "publishFailedBody": "任務「{title}」發布失敗:{error}"
     }
   },
   "settings": {
@@ -25263,6 +25375,160 @@
       "previewTestSuccess": "連通成功",
       "previewTestFailed": "連通失敗",
       "saveBeforeFetchErr": "請先儲存配置，再拉取模型"
+    }
+  },
+  "pricingPage": {
+    "metadata": {
+      "title": "定價方案",
+      "description": "智匯 AI 社群會員定價:早鳥價 ¥6000/人/年,原價 ¥18000。全年所有課程免費參加,探索活動優先參與,社群互助無限次。"
+    },
+    "hero": {
+      "badge": "會員定價",
+      "title": "選擇適合您的方案",
+      "subtitle": "早鳥價 ¥6000/人/年,限 18 席。所有方案均享受不滿意全額退款保障。"
+    },
+    "loading": "載入中...",
+    "badge": "限時早鳥",
+    "refundTitle": "不滿意全額退款保障",
+    "refundDesc": "我們對所有會員承諾:若您在加入後任何時間覺得價值不達預期,可申請全額退款,無理由無門檻。",
+    "earlyBird": {
+      "name": "早鳥會員",
+      "price": "¥6000",
+      "originalPrice": "¥18000",
+      "period": "/人/年",
+      "desc": "限前 18 席,售完即恢復原價",
+      "features": ["全年所有課程免費參加", "探索活動優先參與", "社群互助無限次", "線上社群專屬入口", "AI 助手優先體驗", "不滿意全額退款"],
+      "cta": "立即加入"
+    },
+    "standard": {
+      "name": "標準會員",
+      "price": "¥18000",
+      "period": "/人/年",
+      "desc": "早鳥售罄後自動切換至此方案",
+      "features": ["全年所有課程免費參加", "探索活動優先參與", "社群互助無限次", "線上社群專屬入口", "AI 助手優先體驗"],
+      "cta": "瞭解詳情"
+    },
+    "enterprise": {
+      "name": "企業服務",
+      "price": "商務洽談",
+      "period": "",
+      "desc": "面向企業決策者團隊的客製方案",
+      "features": ["團隊多席位套餐", "一對一 AI 顧問諮詢", "企業 AI 文化落地陪跑", "專屬客製課程", "私享閉門活動"],
+      "cta": "聯絡商務"
+    }
+  },
+  "enterpriseTools": {
+    "sectionLabel": "企業AI工具一覽",
+    "title": "從通用AI工具到行業專屬智慧體",
+    "subtitle": "全方位滿足企業AI化需求",
+    "partnersTitle": "生態合作夥伴",
+    "categories": {
+      "general": "通用AI工具",
+      "industry": "行業智慧體",
+      "function": "職能智慧體"
+    },
+    "items": {
+      "textGeneration": "文字生成",
+      "imageGeneration": "圖像生成",
+      "voiceProcessing": "語音處理",
+      "videoGeneration": "影片生成",
+      "manufacturing": "製造業",
+      "education": "教育行業",
+      "healthcare": "醫療健康",
+      "government": "政務服務",
+      "marketingService": "行銷客服",
+      "productionManufacturing": "生產製造",
+      "rdInnovation": "研發創新",
+      "officeCollaboration": "辦公協作"
+    }
+  },
+  "mobileDashboardPage": {
+    "title": "行動端儀錶板",
+    "subtitle": "監控行動端核心營運指標，資料為 Mock 演示資料。",
+    "stats": {
+      "dau": "DAU",
+      "newUsers": "新增使用者",
+      "sessions": "工作階段數",
+      "crashRate": "崩潰率",
+      "trendSuffix": "較昨日"
+    },
+    "dauTrend": {
+      "title": "最近 7 天 DAU 趨勢",
+      "subtitle": "每日活躍使用者數變化曲線"
+    },
+    "devices": {
+      "title": "裝置分佈",
+      "subtitle": "iOS / Android / 其他佔比",
+      "others": "其他"
+    },
+    "topPages": {
+      "title": "Top 5 頁面",
+      "subtitle": "造訪量最高的 5 個行動端頁面",
+      "rankHeader": "排名",
+      "pathHeader": "頁面路徑",
+      "visitsHeader": "造訪數",
+      "ratioHeader": "佔比"
+    },
+    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+  },
+  "pdfWatermarkPage": {
+    "title": "PDF 浮水印",
+    "description": "為 PDF 加入文字浮水印，自訂文字、位置、顏色與旋轉角度",
+    "uploadLabel": "點擊或拖曳一個 PDF 檔案到此處上傳",
+    "remove": "移除",
+    "fileSizeUnit": "KB",
+    "text": "浮水印文字",
+    "fontSize": "字體大小",
+    "color": "顏色",
+    "opacity": "透明度",
+    "rotation": "旋轉角度",
+    "position": "位置",
+    "preview": "預覽",
+    "placeholder": "浮水印",
+    "defaultText": "機密",
+    "submitting": "加入中...",
+    "submit": "加入浮水印",
+    "positions": {
+      "topLeft": "左上",
+      "topCenter": "上中",
+      "topRight": "右上",
+      "middleLeft": "左中",
+      "middleCenter": "置中",
+      "middleRight": "右中",
+      "bottomLeft": "左下",
+      "bottomCenter": "下中",
+      "bottomRight": "右下"
+    }
+  },
+  "businessCardEditPage": {
+    "editTitle": "編輯名片",
+    "createTitle": "新建名片",
+    "subtitle": "填寫名片資訊並選擇範本樣式",
+    "back": "返回列表",
+    "loading": "載入中...",
+    "cardInfo": "名片資訊",
+    "templateLabel": "範本",
+    "bioLabel": "簡介",
+    "bioPlaceholder": "用一句話介紹自己...",
+    "errors": {
+      "nameRequired": "請輸入姓名"
+    },
+    "cancel": "取消",
+    "save": "儲存",
+    "templates": {
+      "minimal": "簡約",
+      "business": "商務",
+      "creative": "創意"
+    },
+    "fields": {
+      "name": { "label": "姓名 *", "placeholder": "張三" },
+      "title": { "label": "職位", "placeholder": "產品經理" },
+      "company": { "label": "公司", "placeholder": "XX 科技有限公司" },
+      "phone": { "label": "電話", "placeholder": "13800138000" },
+      "email": { "label": "信箱", "placeholder": "zhangsan@example.com" },
+      "wechat": { "label": "微信", "placeholder": "zhangsan_wx" },
+      "address": { "label": "地址", "placeholder": "台北市信義區..." },
+      "avatar": { "label": "頭像 URL", "placeholder": "https://..." }
     }
   }
 }
