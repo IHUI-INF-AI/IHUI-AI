@@ -220,6 +220,21 @@ a.text-xs:has(> svg):has(> span) > span,
   --color-shell-panel: hsl(220 12% 5%);
 }
 
+/* 登录栏 hover 高亮(2026-07-20 立)
+ * 浅色模式:登录栏(.login-scope)内所有 hover:bg-accent / hover:bg-muted 按钮,
+ *   hover 背景色强制为纯白(与 sidebar-item-hover-bg 同逻辑:高亮凸出);
+ * 暗色模式:恢复 .dark 默认的 --color-accent / --color-muted,行为与改前一致(不变)。
+ * 作用域:AuthShell 弹窗外壳(主站 LoginDialog + /sso/login + /sso/register)+ LoginPopup。
+ * 不影响主"登录"按钮(bg-primary / hover:bg-primary/90,因为它们不读 accent/muted)。 */
+.login-scope {
+  --color-accent: hsl(0 0% 100%);
+  --color-muted: hsl(0 0% 100%);
+}
+.dark .login-scope {
+  --color-accent: hsl(0 0% 17%);
+  --color-muted: hsl(0 0% 14.9%);
+}
+
 * {
   border-color: var(--color-border);
 }
