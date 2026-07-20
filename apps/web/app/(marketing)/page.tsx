@@ -9,6 +9,7 @@ import { PageIndicator } from '@/components/marketing/PageIndicator'
 import { ScrollDownButton } from '@/components/marketing/ScrollDownButton'
 import { BrandMarquee } from '@/components/marketing/BrandMarquee'
 import { HomeFeatureGrid } from '@/components/marketing/HomeFeatureGrid'
+import { HomeScenarioGrid } from '@/components/marketing/HomeScenarioGrid'
 import { HomePage3Magazine } from '@/components/marketing/HomePage3Magazine'
 import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
@@ -19,25 +20,21 @@ import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
  * 首页(/)
  *
  * 营销落地页 + 工作台入口合一:
- * - 全屏分页滚动 4 页(从 7 页合并减为 4 页,每页内容撑满 ~100vh 无大片空地):
- *   1) Hero + 6 Benefits + 通知跑马灯(并排三段,内容撑满)
- *   2) 5 Features + 4 Advantages(原 Page 3,内容高度足够)
- *   3) Pricing 4 卡 + BrandMarquee + CTA + 4 个 Stat 数据条(三段 justify-between 撑满)
- *   4) Magazine 新闻 grid + Footer(footer 自然高度,snap 即可)
- * - 顶部 MarketingHeader 已移除(sidebar 统一导航,2026-07-20)+ 底部 SiteFooter
- * - 不再使用 /home 工作区版首页,统一为营销体验
+ * - 全屏分页滚动 5 页(2026-07-20 升级:新增 Page 3 决策者场景 + ROI + 竞品对比):
+ *   1) Hero + 6 Benefits + 通知跑马灯
+ *   2) 5 Features + 4 Advantages(原 Page 2)
+ *   3) 5 Scenarios + 8 ROI + 8 行竞品对比表(2026-07-20 新增,解决用户"功能不全/优势不明"反馈)
+ *   4) Pricing 4 卡 + BrandMarquee + 4 Stats(原 Page 3)
+ *   5) Magazine 新闻 grid + Footer(原 Page 4)
  *
- * 2026-07-20 重构(从 7 页减为 4 页):
- * - 原 Page 1+2 合并:hero + 6 benefits 横向 grid + marquee 通知条 → 一页内三段 flex-1 撑满
- * - 原 Page 3 单独一页(features + advantages grid)
- * - 原 Page 4(magazine) 合并到 Page 3(pricing+magazine+brand+cta)
- * - 原 Page 5(pricing) + Page 6(brand+cta) 合并:pricing + brand marquee + cta + 4 stats
- * - 原 Page 7 footer 跟 Page 4 magazine 一起(magazine 在上,footer 自然高度在下)
- * - 减页后每页内容充实,消除 65-74% 空间浪费
+ * 2026-07-20 升级(从 4 页扩为 5 页,深度营销):
+ * - 新增 Page 3:5 大决策者场景 + 8 项可量化 ROI + 8 行 vs Claude Code/Cursor/ChatGPT 对比
+ * - 让决策者一眼看到场景化价值主张 + 量化收益 + 竞品全维度超越
+ * - 解决用户反馈"功能不全 不细致 优势没说明白 没有让人想使用的冲动"
  */
 const BENEFITS_KEYS = ['benefit1', 'benefit2', 'benefit3', 'benefit4', 'benefit5', 'benefit6']
 
-const TOTAL_PAGES = 4
+const TOTAL_PAGES = 5
 
 export default function HomePage() {
   const t = useTranslations('marketing')
@@ -147,13 +144,30 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Page 3: 4 定价卡 + 品牌跑马灯 + CTA + 4 Stat 数据条
+        {/* Page 3: 5 Scenarios + 8 ROI + 8 行竞品对比表(2026-07-20 新增)
+            - 解决用户反馈"功能不全 不细致 优势没说明白 没有让人想使用的冲动"
+            - 让决策者一眼看到场景化价值主张 + 量化收益 + 竞品全维度超越
+            - 三段式紧凑布局:5 场景(5 列)+ 8 ROI(4 列 x 2 行)+ 对比表(8 行 5 列) */}
+        <section
+          id="home-page-3"
+          className="flex snap-start flex-col"
+          style={{ minHeight: 'calc(100vh - 1rem)' }}
+          aria-label={t('scenarios.title', { fallback: 'Scenarios' })}
+        >
+          <div className="flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
+            <div className="w-full">
+              <HomeScenarioGrid />
+            </div>
+          </div>
+        </section>
+
+        {/* Page 4: 4 定价卡 + 品牌跑马灯 + CTA + 4 Stat 数据条
             - 2026-07-20 重构(从原 Page 5+6 合并 + 加 4 stat 数据):
               Pricing 4 卡 (flex-1) + 4 stat 横向条 (固定) + BrandMarquee (固定) + CTA (固定)
               四段式 flex-col justify-between 撑满 ~100vh
             - 消除原 39% (pricing) + 70% (brand+cta) 浪费 = 合并后内容更充实 */}
         <section
-          id="home-page-3"
+          id="home-page-4"
           className="snap-start"
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('pricing.title', { fallback: 'Pricing' })}
@@ -201,7 +215,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Page 4: Magazine 新闻 + Footer
+        {/* Page 5: Magazine 新闻 + Footer
             - 2026-07-20 改(自适应 v3):section min-h 视口高度,flex flex-col,snap-start。
             - magazine 加回 flex-1 min-h-0:让 magazine 撑开 = 视口 - footer 自然高度。
             - HomePage3Magazine 内部已改 flex-1 flex-col(2026-07-20),让 Card / grid
@@ -209,7 +223,7 @@ export default function HomePage() {
               彻底消除"暂无内容"卡片下方 200+px 大空隙。
             - footer 高度完全由内容决定 (~180-200px),不再被 section flex 强制拉伸。 */}
         <section
-          id="home-page-4"
+          id="home-page-5"
           className="flex min-h-[calc(100vh-1rem)] snap-start flex-col"
           aria-label={t('magazine.title', { fallback: 'News' })}
         >
