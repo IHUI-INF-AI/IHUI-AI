@@ -10,6 +10,7 @@ import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceInput } from '@/components/ai/voice-input'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { ModelSelector } from '@/components/chat/model-selector'
+import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { Popover } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
@@ -552,6 +553,7 @@ export function MessageInput({
                 tabIndex={-1}
               />
               <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
+                <ContextUsageRing model={model} isStreaming={isStreaming} />
                 <ModelSelector
                   value={model}
                   onChange={onModelChange}
