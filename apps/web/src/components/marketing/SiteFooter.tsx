@@ -48,22 +48,46 @@ const QUICK_LINKS: readonly Link_[] = [
 
 // 排版原子 — 集中定义,避免散落
 const SECTION_TITLE = 'text-xs font-semibold text-foreground/80'
-// 2026-07-20 改:bg-foreground/[0.04] 替代 bg-white,让白底透明 PNG 图标在白卡上可见
+// 2026-07-20 改:bg-card 替代 bg-white 和上版的 bg-foreground/[0.04],
+// 因为 white-on-transparent 图标现在通过 `invert dark:invert-0` filter 适配主题,
+// 不再需要容器加浅灰底。bg-card 主题感知:亮色白底 / 暗色深底,白色图标始终可见。
 const ICON_BOX =
-  'flex h-9 w-9 items-center justify-center rounded-md border bg-foreground/[0.04] transition-colors hover:border-primary/40'
+  'flex h-9 w-9 items-center justify-center rounded-md border bg-card transition-colors hover:border-primary/40'
 const ICON_IMG = 'h-6 w-6 object-contain'
 // 2026-07-20 改:bg-zinc-900 始终深色,让 footer-icon-2.png 白色 QR 码在亮/暗模式都可见
 const QR_BOX = 'h-24 w-24 overflow-hidden rounded-md border border-zinc-900 bg-zinc-900 p-1.5'
 const QR_IMG = 'h-full w-full object-contain'
 const COMPANY_LINK = 'text-muted-foreground transition-colors hover:text-primary'
 const FOOTER_BOTTOM_LINK = 'transition-colors hover:text-primary'
-// 2026-07-20 新增:联系卡片容器(替代空白 footer-icon-3.png)
+// 2026-07-20 改:bg-card(同 ICON_BOX,主题感知)
 const CONTACT_CARD =
-  'flex h-24 w-24 flex-col items-center justify-center gap-1.5 rounded-md border bg-foreground/[0.04] transition-colors hover:border-primary/40'
+  'flex h-24 w-24 flex-col items-center justify-center gap-1.5 rounded-md border bg-card transition-colors hover:border-primary/40'
 
-function PlatformIcon({ name, src, href }: { name: string; src: string; href?: string }) {
+// 2026-07-20 加:mono 图标的 filter 适配类
+// 亮色模式: invert(100%) → 白图变黑(白底白图 → 黑底白图)
+// 暗色模式: invert(0) → 还原原图(白图在深色背景上可见)
+const MONO_FILTER = 'invert dark:invert-0'
+
+function PlatformIcon({
+  name,
+  src,
+  href,
+  mono,
+}: {
+  name: string
+  src: string
+  href?: string
+  mono?: boolean
+}) {
   const img = (
-    <img src={src} alt={name} width={24} height={24} className={ICON_IMG} {...IMG_EAGER} />
+    <img
+      src={src}
+      alt={name}
+      width={24}
+      height={24}
+      className={`${ICON_IMG}${mono ? ` ${MONO_FILTER}` : ''}`}
+      {...IMG_EAGER}
+    />
   )
   const className = ICON_BOX
   if (href) {
@@ -98,6 +122,7 @@ function PlatformGroup({
             key={p.nameKey}
             name={t(p.nameKey)}
             src={p.src}
+            mono={p.mono}
             {...(p.href ? { href: p.href } : {})}
           />
         ))}
