@@ -141,6 +141,43 @@ export const selfMediaRoutes: FastifyPluginAsync = async (server) => {
     await proxyToAiService(request, reply, `/koubo/history${qs}`)
   })
 
+  // ===== 自动化管理(定时任务调度器)=====
+
+  server.get('/self-media/automation/tasks', async (request, reply) => {
+    await proxyToAiService(request, reply, '/automation/tasks')
+  })
+
+  server.get('/self-media/automation/tasks/:taskId', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string }
+    await proxyToAiService(request, reply, `/automation/tasks/${encodeURIComponent(taskId)}`)
+  })
+
+  server.post('/self-media/automation/tasks/:taskId/toggle', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string }
+    const { enabled } = (request.body ?? {}) as { enabled?: boolean }
+    const qs = `?enabled=${enabled ? 'true' : 'false'}`
+    await proxyToAiService(request, reply, `/automation/tasks/${encodeURIComponent(taskId)}/toggle${qs}`)
+  })
+
+  server.post('/self-media/automation/tasks/:taskId/config', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string }
+    await proxyToAiService(request, reply, `/automation/tasks/${encodeURIComponent(taskId)}/config`)
+  })
+
+  server.post('/self-media/automation/tasks/:taskId/trigger', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string }
+    await proxyToAiService(request, reply, `/automation/tasks/${encodeURIComponent(taskId)}/trigger`)
+  })
+
+  server.get('/self-media/automation/history', async (request, reply) => {
+    const { taskId, limit } = request.query as { taskId?: string; limit?: string }
+    const params = new URLSearchParams()
+    if (taskId) params.set('task_id', taskId)
+    if (limit) params.set('limit', limit)
+    const qs = params.toString() ? `?${params.toString()}` : ''
+    await proxyToAiService(request, reply, `/automation/history${qs}`)
+  })
+
   // ===== 本地数据库端点(不走 ai-service) =====
 
   // POST /self-media/record — 推送成功后写历史记录

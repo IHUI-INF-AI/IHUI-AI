@@ -645,3 +645,87 @@ async def koubo_history(limit: int = 50) -> dict[str, Any]:
     """查询口播稿已发布历史(从 self_media_published 表)。"""
     rows = await _fetch_history("koubo", limit=limit)
     return {"items": _serialize_history(rows), "count": len(rows)}
+
+
+# ===== 自动化管理(定时任务调度器)=====
+
+
+class TaskConfigUpdate(BaseModel):
+    hour: Optional[int] = None
+    minute: Optional[int] = None
+    dry_run: Optional[bool] = None
+    enabled: Optional[bool] = None
+    title_template: Optional[str] = None
+
+
+@router.get("/automation/tasks")
+async def automation_list_tasks() -> dict[str, Any]:
+    """列出所有定时任务(含运行时配置 + 最后执行信息)。"""
+    from app.services.self_media_scheduler import self_media_scheduler
+
+    return {"items": self_media_scheduler.list_tasks(), "count": 2}
+
+
+@router.get("/automation/tasks/{task_id}")
+async def automation_get_task(task_id: str) -> dict[str, Any]:
+    """获取单个任务详情。"""
+    from app.services.self_media_scheduler import self_media_scheduler
+
+    task = self_media_scheduler.get_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=f"task not found: {task_id}")
+    return task
+
+
+@router.post("/automation/tasks/{task_id}/toggle")
+async def automation_toggle_task(task_id: str, enabled: bool = True) -> dict[str, Any]:
+    """启用/禁用任务。"""
+    from app.services.self_media_scheduler import self_media_scheduler
+
+    ok = self_media_scheduler.set_task_enabled(task_id, enabled)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"task not found: {task_id}")
+    return {"ok": True, "task_id": task_id, "enabled": enabled}
+
+
+@router.post("/automation/tasks/{task_id}/config")
+async def automation_update_config(
+    task_id: str, body: TaskConfigUpdate
+) -> dict[str, Any]:
+    """修改任务配置(hour/minute/dry_run/title_template/enabled)。"""
+    from app.services.self_media_scheduler import self_media_scheduler
+
+    ok = self_media_scheduler.set_task_config(
+        task_id,
+        hour=body.hour,
+        minute=body.minute,
+        dry_run=body.dry_run,
+        enabled=body.enabled,
+        title_template=body.title_template,
+    )
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"task not found: {task_id}")
+    return {"ok": True, "task_id": task_id, "config": self_media_scheduler.get_task(task_id).get("config")}
+
+
+@router.post("/automation/tasks/{task_id}/trigger")
+async def automation_trigger_task(task_id: str) -> dict[str, Any]:
+    """立即触发任务(异步执行,立即返回)。"""
+    from app.services.self_media_scheduler import self_media_scheduler
+
+    result = await self_media_scheduler.trigger_task(task_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "trigger failed"))
+    return result
+
+
+@router.get("/automation/history")
+async def automation_history(
+    task_id: Optional[str] = None, limit: int = 30
+) -> dict[str, Any]:
+    """查询任务执行历史(可选按 task_id 过滤)。"""
+    from app.services.self_media_scheduler import self_media_scheduler
+
+    items = self_media_scheduler.list_history(task_id=task_id, limit=limit)
+    return {"items": items, "count": len(items)}
+

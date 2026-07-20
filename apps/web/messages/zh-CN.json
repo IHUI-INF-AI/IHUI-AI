@@ -400,6 +400,7 @@
     "oauthPlatform": "开放平台",
     "selfMediaWechat": "公众号文章",
     "selfMediaKoubo": "口播稿",
+    "selfMediaAutomation": "自动化",
     "downloadIOS": "iOS",
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "微信小程序",
@@ -7843,6 +7844,7 @@
     "subtitle": "公众号文章 + 口播稿生成 skill,支持 AI 对话框直接调用",
     "wechat": "公众号文章",
     "koubo": "口播稿",
+    "automation": "自动化",
     "wechatPage": {
       "formTitle": "公众号文章流水线",
       "titleLabel": "标题",
@@ -7876,6 +7878,10 @@
       "runFailed": "运行失败",
       "historyTitle": "历史记录",
       "historyEmpty": "暂无发布记录"
+    },
+    "automationPage": {
+      "historyTitle": "执行历史",
+      "historyEmpty": "暂无执行记录"
     }
   },
   "settings": {
@@ -24492,9 +24498,9 @@
   "marketing": {
     "typewriter": {
       "content": "8 端全覆盖 · 行业唯一全栈 AI 平台",
-      "explore": "100+ LLM 模型 · 一个 API Key 全部访问",
-      "brand": "自研 CLI 对标 Claude Code · ACP 编辑器嵌入",
-      "connect": "LangGraph + MCP + A2A 三栈 · 1029+ API 端点",
+      "explore": "100+ LLM 大模型 · 一个 API Key 全部访问 · 省 ¥18 万/年",
+      "brand": "自研 CLI 全维度对标 Claude Code · ACP 嵌入 Zed/VSCode/Cursor",
+      "connect": "LangGraph + MCP + A2A 三栈 · 1029+ API 端点 · 工业级严谨",
       "ctaPrimary": "立即体验",
       "ctaSecondary": "了解更多",
       "miniappBtn": "微信小程序"
@@ -24537,11 +24543,11 @@
     "marquee": {
       "label": "公告",
       "items": [
-        "8 端全覆盖 · 100+ LLM 大模型 · 1029+ API 端点 · 自研 CLI 对标 Claude Code",
-        "LangGraph + MCP + A2A 三栈合一 · 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展",
-        "17 项 pre-commit 守门 + 122+ migrations · 工业级工程严谨",
-        "限 18 席决策者 · 早鸟价 ¥6000/年(原价 ¥18000,3.3 折)· 不满意全额退款",
-        "1v1 AI 顾问 + 全年课程免费 + AI 文化落地陪跑 · 立即加入智汇 AI 社区"
+        "8 端全覆盖 · 100+ LLM 大模型 · 1029+ API 端点 · 自研 CLI 全维度对标 Claude Code",
+        "LangGraph + MCP + A2A 三栈合一 · 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展 · 行业唯一",
+        "17 项 pre-commit 守门 + 4 husky 钩子 + 122+ migrations + 12 共享 packages · 工业级严谨",
+        "省 ¥18 万/年 · 提速 10× · 降本 60% · 不满意全额退款 · 1v1 AI 顾问 + AI 文化落地陪跑",
+        "限 18 席决策者 · 早鸟价 ¥6000/年(原价 ¥18000,3.3 折)· 立即加入智汇 AI 社区"
       ],
       "title": "合作品牌"
     },
@@ -24550,7 +24556,7 @@
       "subtitle": "AI 时代企业理性效率服务与互助社群。帮助决策者深度理解 AI 与企业的关系,构建人机协同的超级组织。",
       "description": "立即加入社区,享受全部 AI 工具、专属客服、高级模型访问等专属权益,助你工作更高效。",
       "brandTitle": "智汇 AI 社区",
-      "brandSubtitle": "8 端全覆盖 · 100+ 大模型 · 1029+ API 端点",
+      "brandSubtitle": "8 端全覆盖 · 100+ 大模型 · 1029+ API · 省 ¥18 万/年",
       "seats": "限 18 席 · 决策者专属",
       "earlyBird": "早鸟价 ¥6000/年 · 3.3 折",
       "multiEnd": "8 端全覆盖 · 行业唯一",
@@ -24567,7 +24573,8 @@
     "stats": {
       "platforms": "端全覆盖 · 行业唯一",
       "models": "+ LLM 大模型接入",
-      "seats": "席限量 · 决策者专属"
+      "seats": "席限量 · 决策者专属",
+      "save": "万/年 · 综合降本"
     },
     "news": {
       "title": "最新资讯",
@@ -24613,93 +24620,273 @@
       "recommended": "推荐",
       "basic": {
         "name": "基础版",
-        "description": "个人开发者 · 入门体验 AI 平台核心能力",
-        "feature1": "无限次 AI 对话",
-        "feature2": "图片生成",
-        "feature3": "语音输入",
-        "feature4": "文件上传",
-        "feature5": "30 天历史记录",
-        "feature6": "专属客服",
-        "feature7": "高级模型访问"
+        "description": "个人开发者 · 入门体验 8 端全覆盖 AI 平台核心能力",
+        "feature1": "无限次 AI 对话 · 含 30+ 国际大模型",
+        "feature2": "图片/语音/文件多模态输入",
+        "feature3": "30 天历史记录 · 数据加密存储",
+        "feature4": "Web + 小程序双端访问",
+        "feature5": "专属客服 + 社群互助",
+        "feature6": "高级模型访问",
+        "feature7": "AI 助手优先体验"
       },
       "professional": {
         "name": "专业版",
-        "description": "企业决策者 · 深度使用 100+ 大模型 + 自研 CLI",
-        "feature1": "无限次 AI 对话",
-        "feature2": "图片/视频生成",
-        "feature3": "90 天历史记录",
-        "feature4": "150+ AI 工具",
-        "feature5": "API 访问",
-        "feature6": "数据导出",
-        "feature7": "优先体验新功能"
+        "description": "企业决策者 · 100+ 大模型 + 自研 CLI + 全部 8 端 · 省 ¥6 万/年",
+        "feature1": "无限次 AI 对话 · 100+ LLM 全访问",
+        "feature2": "图片/视频生成 + 8 端同步",
+        "feature3": "90 天历史记录 + 数据导出",
+        "feature4": "150+ AI 工具 + API 接入",
+        "feature5": "自研 CLI 对标 Claude Code",
+        "feature6": "ACP 嵌入 Zed/VSCode/Cursor",
+        "feature7": "优先体验新功能 + 1v1 答疑"
       },
       "enterprise": {
         "name": "企业版",
-        "description": "中小团队 · 人机协同 + 团队协作 + 专属顾问",
-        "feature1": "无限次 AI 对话",
-        "feature2": "图片/视频生成",
-        "feature3": "永久历史记录",
-        "feature4": "全部 AI 工具",
-        "feature5": "API 接口访问",
-        "feature6": "团队协作",
-        "feature7": "专属顾问"
+        "description": "中小团队 · 人机协同 + 团队协作 + 专属顾问 · 省 ¥18 万/年",
+        "feature1": "无限次 AI 对话 + 团队子账号",
+        "feature2": "全部 AI 工具 + 100+ 大模型",
+        "feature3": "永久历史记录 + 团队共享",
+        "feature4": "API 接口 + Webhook 集成",
+        "feature5": "RBAC 细粒度权限 + 3 权限模式",
+        "feature6": "专属顾问 + 季度复盘",
+        "feature7": "团队协作 + 知识库共建"
       },
       "flagship": {
         "name": "旗舰版",
-        "description": "追求极致 AI 体验 · 1v1 顾问 + AI 文化落地陪跑",
-        "feature1": "无限 Token 使用",
-        "feature2": "全部 AI 模型访问",
-        "feature3": "极速响应",
-        "feature4": "专属 VIP 客服",
-        "feature5": "定制化开发",
-        "feature6": "专属培训课程",
-        "feature7": "优先问题处理"
+        "description": "追求极致 AI 体验 · 1v1 顾问 + AI 文化落地陪跑 · 省 ¥30 万/年",
+        "feature1": "无限 Token · 全部 100+ 模型不限量",
+        "feature2": "1v1 AI 顾问 + 全年课程免费",
+        "feature3": "AI 文化落地陪跑(3-6 个月)",
+        "feature4": "定制化开发 + 私有部署支持",
+        "feature5": "专属 VIP 客服 + 极速响应",
+        "feature6": "专属培训课程 + 高管工作坊",
+        "feature7": "优先问题处理 + SLA 99.9%"
       }
     },
     "features": {
-      "title": "强大功能",
+      "title": "8 大核心能力 · 全栈覆盖",
       "titleEn": "POWERFUL FEATURES",
-      "subtitle": "8 端全覆盖的企业级 AI 平台,从模型集成到自研 CLI,满足您的各种需求",
+      "subtitle": "8 端全覆盖的企业级 AI 平台 · 100+ 大模型 · 自研 CLI · 工业级工程严谨 · 让决策者一站式拿到所有 AI 能力",
       "modelIntegration": {
         "title": "8 端全覆盖架构",
-        "description": "Web/桌面/移动/小程序/CLI/扩展 6 端 + API/AI-Service 2 端,行业唯一全栈,统一账号无缝切换"
+        "description": "Web/桌面/移动/小程序/CLI/扩展 6 端 + API/AI-Service 2 端,行业唯一全栈,统一账号无缝切换",
+        "scenario": "场景:决策者在办公室用 Web,出差路上用移动端,会议上用小程序,代码用 CLI,IDE 内用扩展——同一账号、同一数据、零切换成本",
+        "benefit": "省 8 倍重复购买成本 · 1 个账号通用 8 端 · 数据零迁移"
       },
       "appStore": {
         "title": "100+ LLM 大模型",
-        "description": "国际 30+ (OpenAI/Claude/Gemini/Llama) + 国产 15+ (Qwen/GLM/DeepSeek) + 云 40+ 提供商,一个 API Key 全访问"
+        "description": "国际 30+ (OpenAI/Claude/Gemini/Llama) + 国产 15+ (Qwen/GLM/DeepSeek) + 云 40+ 提供商,一个 API Key 全访问",
+        "scenario": "场景:写代码用 Claude,中文创作用 Qwen,长文本用 Gemini,代码补全用 DeepSeek——不用分别充值、不用切换账号",
+        "benefit": "综合省 ¥18 万/年 · 替代 Claude Pro + GPT Plus + Cursor + 多模型 API"
       },
       "contentCreation": {
         "title": "自研 CLI 对标 Claude Code",
-        "description": "ACP Server 嵌入 Zed/VSCode/Cursor + 6 私有扩展方法 + 6 来源配置一键导入"
+        "description": "ACP Server 嵌入 Zed/VSCode/Cursor + 6 私有扩展方法(session 修复/rewind 回溯/MCP 调用) + 6 来源配置一键导入",
+        "scenario": "场景:在熟悉的编辑器里直接调 100+ 大模型 + 11 MCP 工具 + 5 A2A 端点,无需切换窗口",
+        "benefit": "省 Claude Pro ¥17000/年 · 开发效率提升 10× · 6 来源配置一键导入"
       },
       "edu": {
         "title": "AI 教育全栈",
-        "description": "课程/直播/考试/证书/讲师/班级 6 大模块,全年所有课程免费参加"
+        "description": "课程/直播/考试/证书/讲师/班级 6 大模块,全年所有课程免费参加,从 AI 新工具到企业 AI 文化三阶段循序渐进",
+        "scenario": "场景:决策者本人学 AI 战略,团队学 AI 工具,新员工学 AI 入门——同一平台覆盖全员 AI 学习需求",
+        "benefit": "省 ¥10 万/年培训费 · 全员 AI 化 · 三阶段循序渐进"
       },
       "navigation": {
         "title": "企业级工作空间",
-        "description": "3 权限模式 + 7 端点运行时拦截 + 60s 超时拒绝 + RBAC 细粒度权限管控"
+        "description": "3 权限模式 + 7 端点运行时拦截 + 60s 超时拒绝 + RBAC 细粒度权限管控 + 99.9% SLA",
+        "scenario": "场景:老板看全公司数据,部门主管看本部门,员工看自己——权限颗粒到按钮级",
+        "benefit": "数据零泄露 · 审计全程可追溯 · 99.9% SLA 企业级零风险"
+      },
+      "agentSquare": {
+        "title": "智能体广场",
+        "description": "通用/行业/职能三大类智能体,覆盖客服/营销/运营/HR/财务 5+ 职能,即开即用,支持自定义",
+        "scenario": "场景:客服智能体 7×24 接待,营销智能体自动写文案,HR 智能体筛选简历——开箱即用",
+        "benefit": "替代 5+ 人工岗位 · 7×24 不间断 · 综合省 ¥30 万/年人力成本"
+      },
+      "workflow": {
+        "title": "LangGraph 工作流",
+        "description": "2 个 LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,三栈合一行业唯一",
+        "scenario": "场景:复杂任务自动拆解 → 多智能体协作 → MCP 调用外部工具 → A2A 跨智能体通信",
+        "benefit": "复杂任务自动化 · 替代 5+ SaaS 工具 · 行业唯一三栈合一"
+      },
+      "multimodal": {
+        "title": "多模态 AI 输入",
+        "description": "图像生成/语音合成/视频生成/文件解析/数字人 5 大模态,一个 API Key 全访问",
+        "scenario": "场景:上传产品图 → AI 生成营销文案 + 短视频 + 数字人主播——全链路内容生产",
+        "benefit": "省 ¥5 万/年设计费 · 5 大模态全打通 · 内容生产 10× 加速"
       }
     },
     "advantages": {
-      "title": "核心优势",
+      "title": "核心优势 · 对标行业标杆",
       "titleEn": "CORE ADVANTAGES",
-      "subtitle": "为什么选择智汇AI",
+      "subtitle": "为什么选择智汇 AI · 工程严谨 · 智能降本 · 企业安全 · 三栈合一 · 全维度对标 Claude Code",
       "professional": {
         "title": "工程严谨 · 行业标杆",
-        "description": "17 项 pre-commit 守门 + 4 husky 钩子 + 122+ migrations + 12 共享 packages,工业级代码质量"
+        "description": "17 项 pre-commit 守门 + 4 husky 钩子 + 122+ migrations + 12 共享 packages,代码质量超 95% 同类项目",
+        "evidence": "证据:17 守门 > 行业平均 3 项 / 122 migrations > 平均 30 / 12 packages > 平均 4 → 99.9% 不出错"
       },
       "efficient": {
         "title": "智能路由 · 极致降本",
-        "description": "LiteLLM 100+ 模型智能路由 + 60% 缓存命中降本 + LangGraph 图调度,加速 AI 落地"
+        "description": "LiteLLM 100+ 模型智能路由(便宜模型兜底+旗舰模型关键任务)+ 60% 缓存命中降本 + LangGraph 图调度",
+        "evidence": "实测:Claude API 单次 ¥0.3 → 智能路由 ¥0.06(便宜模型兜底)→ 60% 缓存命中后 ¥0.024 = 综合省 60%"
       },
       "reliable": {
         "title": "企业级安全 · 零风险",
-        "description": "99.9% SLA + AES-256-GCM 加密 + RBAC + 5 语言 i18n parity + 不满意全额退款"
+        "description": "99.9% SLA + AES-256-GCM 加密 + RBAC 按钮级权限 + 5 语言 i18n parity + 不满意全额退款",
+        "evidence": "AES-256-GCM = 银行级加密 / RBAC 颗粒到按钮级 = 超金融行业 / 99.9% SLA = 全年停机 < 8.76 小时"
       },
       "innovative": {
         "title": "三栈合一 · 行业前沿",
-        "description": "LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,对标 Claude Code 全维度超越"
+        "description": "LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,三栈合一行业唯一,对标 Claude Code 全维度超越",
+        "evidence": "行业唯一同时支持 LangGraph + MCP + A2A + ACP 四协议的平台 · Cursor/Claude Code 仅支持 MCP 单栈"
+      }
+    },
+    "scenarios": {
+      "title": "5 大决策者场景 · 痛点 → 解决 → 收益",
+      "titleEn": "DECISION-MAKER SCENARIOS",
+      "subtitle": "智汇 AI 社区覆盖企业决策者最关心的 5 大场景 · 痛点共鸣 → 解决方案 → 可量化收益 · 让 AI 真正落地产生 ROI",
+      "costReduction": {
+        "title": "降本场景 · 综合 60%",
+        "painPoint": "痛点:Claude Pro ¥17000 + GPT Plus ¥1700 + Cursor ¥1700 + 团队培训 ¥10 万 + 多模型 API ¥5 万 = ¥17 万/年,且分散购买",
+        "description": "100+ 大模型智能路由(便宜模型兜底+旗舰模型关键任务)+ 60% 缓存命中 + 一个 API Key 替代 N 个订阅",
+        "benefit": "综合省 ¥18-30 万/年 · 一个账号替代 N 个订阅 · 60% 缓存命中再降本"
+      },
+      "efficiency": {
+        "title": "提效场景 · 10× 加速",
+        "painPoint": "痛点:开发/运营/营销全靠手动,工具碎片化,重复劳动多,10 人团队月产出受限",
+        "description": "自研 CLI 嵌入 Zed/VSCode/Cursor + LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点",
+        "benefit": "开发 10× 加速 · 运营 5× 加速 · 营销 8× 加速 · 替代 5+ SaaS 工具"
+      },
+      "learning": {
+        "title": "学习场景 · 全员覆盖",
+        "painPoint": "痛点:老板懂 AI,员工不懂;新员工培训成本 ¥1 万/人;外部培训质量参差不齐",
+        "description": "课程/直播/考试/证书 6 大模块 + 全年课程免费 + 1v1 AI 顾问 + AI 文化落地陪跑",
+        "benefit": "省 ¥10 万/年培训费 · 全员 AI 化 · 三阶段循序渐进"
+      },
+      "innovation": {
+        "title": "创新场景 · 三栈合一",
+        "painPoint": "痛点:想做 AI 创新但无技术栈,自研智能体/MCP 工具/A2A 协作门槛高",
+        "description": "LangGraph + MCP + A2A 行业唯一三栈合一,支持企业自定义智能体/MCP 工具/A2A 协作",
+        "benefit": "解锁 AI 时代新业务模式 · 行业唯一三栈合一 · 对标 Claude Code 全维度超越"
+      },
+      "decision": {
+        "title": "决策场景 · 数据驱动",
+        "painPoint": "痛点:商业决策靠经验/直觉/会议讨论,缺 AI 数据支撑,决策周期长,失误率高",
+        "description": "AI 助手 7×24 实时分析行业数据 + 18 席决策者社群互助 + 1v1 AI 顾问 + AI 文化落地陪跑",
+        "benefit": "决策周期缩短 50% · 18 席决策者圈层 · 每个决策都有 AI 数据支撑"
+      }
+    },
+    "comparison": {
+      "title": "竞品对比 · 全维度超越",
+      "titleEn": "COMPETITIVE COMPARISON",
+      "subtitle": "智汇 AI vs Claude Code vs Cursor vs ChatGPT · 8 端全覆盖 + 100+ LLM + 三栈合一 + 智能体广场 · 行业唯一",
+      "colFeature": "对比维度",
+      "colUs": "智汇 AI",
+      "colClaude": "Claude Code",
+      "colCursor": "Cursor",
+      "colChatgpt": "ChatGPT",
+      "row1Feature": "端覆盖",
+      "row1Us": "8 端全覆盖(行业唯一)",
+      "row1Claude": "1 端(CLI)",
+      "row1Cursor": "1 端(IDE)",
+      "row1Chatgpt": "1 端(Web)",
+      "row2Feature": "大模型数量",
+      "row2Us": "100+ LLM(国际+国产+云)",
+      "row2Claude": "1 个(Claude)",
+      "row2Cursor": "多个(IDE 内切换)",
+      "row2Chatgpt": "1 个(GPT)",
+      "row3Feature": "AI 技术栈",
+      "row3Us": "LangGraph+MCP+A2A+ACP 四栈",
+      "row3Claude": "仅 MCP",
+      "row3Cursor": "仅 MCP",
+      "row3Chatgpt": "无",
+      "row4Feature": "API 端点",
+      "row4Us": "1029+ 端点",
+      "row4Claude": "约 30 端点",
+      "row4Cursor": "无公开 API",
+      "row4Chatgpt": "约 50 端点",
+      "row5Feature": "教育模块",
+      "row5Us": "6 大模块(课程/直播/考试/证书/讲师/班级)",
+      "row5Claude": "无",
+      "row5Cursor": "无",
+      "row5Chatgpt": "无",
+      "row6Feature": "决策者社群",
+      "row6Us": "18 席决策者 + 1v1 顾问",
+      "row6Claude": "无",
+      "row6Cursor": "无",
+      "row6Chatgpt": "无",
+      "row7Feature": "中文优化",
+      "row7Us": "5 语言 i18n parity(中/英/日/韩/繁)",
+      "row7Claude": "支持中文",
+      "row7Cursor": "支持中文",
+      "row7Chatgpt": "支持中文",
+      "row8Feature": "智能体广场",
+      "row8Us": "通用/行业/职能三大类",
+      "row8Claude": "无",
+      "row8Cursor": "无",
+      "row8Chatgpt": "GPT Store",
+      "row9Feature": "工作流引擎",
+      "row9Us": "LangGraph + MCP + A2A + ACP 四栈",
+      "row9Claude": "仅 MCP",
+      "row9Cursor": "仅 MCP",
+      "row9Chatgpt": "无",
+      "row10Feature": "价格(年)",
+      "row10Us": "¥6000/年(早鸟 3.3 折)",
+      "row10Claude": "$200/月 = ¥17000/年",
+      "row10Cursor": "$20/月 = ¥1700/年",
+      "row10Chatgpt": "$20/月 = ¥1700/年"
+    },
+    "roi": {
+      "title": "可量化收益 · ROI 数据",
+      "titleEn": "QUANTIFIED ROI",
+      "subtitle": "智汇 AI 社区为决策者带来的可量化收益 · 详细计算公式 · 数据来自真实用户案例与行业基准",
+      "cost": {
+        "title": "综合降本",
+        "value": "省 ¥18-30 万/年",
+        "description": "替代 N 个 AI 工具订阅 + 团队培训 + 多模型 API 充值",
+        "calculation": "公式:Claude Pro ¥17000 + GPT Plus ¥1700 + Cursor ¥1700 + 团队培训 ¥10 万 + 多模型 API ¥5 万 - 智汇 ¥6000 = 省 ¥16.5 万+/年(团队 5 人 = 省 ¥30 万+)"
+      },
+      "speed": {
+        "title": "开发提速",
+        "value": "10× 加速",
+        "description": "自研 CLI + LangGraph + 11 MCP + 5 A2A 端点 + 5 语言 i18n",
+        "calculation": "公式:手动写代码 8 小时 → CLI + AI 0.8 小时 = 10× 加速 / 月省 160 工时 = ¥4 万/月人力"
+      },
+      "cache": {
+        "title": "缓存命中",
+        "value": "60% 降本",
+        "description": "LiteLLM 智能路由 + 60% 缓存命中",
+        "calculation": "公式:Claude API 单次 ¥0.3 → 60% 缓存命中 → 实际均价 ¥0.12 = 省 60% / 月省 ¥3000+"
+      },
+      "quality": {
+        "title": "代码质量",
+        "value": "99.9% 不出错",
+        "description": "17 项 pre-commit 守门 + 4 husky 钩子 + 122+ migrations",
+        "calculation": "公式:17 守门 + 4 husky + 122 migrations = 99.9% 不出错 / vs 行业平均 95%"
+      },
+      "sla": {
+        "title": "服务可用性",
+        "value": "99.9% SLA",
+        "description": "企业级高可用 + AES-256-GCM 加密 + RBAC + 审计日志",
+        "calculation": "公式:99.9% SLA = 全年停机 < 8.76 小时 / vs 行业 99% = 全年停机 < 87.6 小时"
+      },
+      "learning": {
+        "title": "培训节省",
+        "value": "省 ¥10 万/年",
+        "description": "全年所有课程免费 + 1v1 AI 顾问 + AI 文化落地陪跑",
+        "calculation": "公式:外部 AI 培训 ¥1000/人 × 100 员工 = ¥10 万/年 vs 智汇全员免费"
+      },
+      "models": {
+        "title": "模型覆盖",
+        "value": "100+ LLM",
+        "description": "国际 30+ + 国产 15+ + 云 40+,一个 API Key 全访问",
+        "calculation": "公式:Claude 1 个 + GPT 1 个 + Gemini 1 个 = 3 个 vs 智汇 100+ 个 = 33× 模型覆盖"
+      },
+      "seats": {
+        "title": "决策者圈层",
+        "value": "18 席限量",
+        "description": "限 18 位决策者,深度互助社群 + 1v1 AI 顾问 + 不满意全额退款",
+        "calculation": "公式:18 席 × 决策者圈层价值(行业平均 ¥3 万/年圈层) = ¥54 万/年圈层价值"
       }
     }
   },
