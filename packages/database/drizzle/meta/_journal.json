@@ -835,6 +835,13 @@
       "when": 1784556000000,
       "tag": "20260720140000_workspace_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1784559600000,
+      "tag": "20260720150000_cli_provider_imports",
+      "breakpoints": true
     }
   ]
 }
