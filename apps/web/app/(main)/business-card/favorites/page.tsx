@@ -8,6 +8,7 @@ import { Star, Loader2, ArrowLeft, Trash2, Share2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import { getInitials } from '@/components/data/Avatar'
 
 interface BusinessCard {
@@ -142,16 +143,17 @@ export default function CardFavoritesPage() {
                           >
                             <Share2 className="h-3.5 w-3.5" />
                           </Link>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => removeMut.mutate(entry.favoriteId)}
-                            disabled={removeMut.isPending}
-                            title="取消收藏"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          <Tooltip content="取消收藏">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => removeMut.mutate(entry.favoriteId)}
+                              disabled={removeMut.isPending}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </Tooltip>
                         </div>
                       </div>
                     </div>
