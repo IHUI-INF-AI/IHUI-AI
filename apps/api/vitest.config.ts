@@ -4,8 +4,12 @@ export default defineConfig({
   test: {
     // 测试环境启动前加载 .env.test(指向 ihui_test 库)
     setupFiles: ['./tests/setup-env.ts'],
-    // 默认跑 mock 测试:tests/ 与 src/routes/__tests__/ 下的 *.test.ts
-    include: ['tests/**/*.test.ts', 'src/routes/__tests__/**/*.test.ts'],
+    // 默认跑 mock 测试:tests/ 与 src/{routes,services}/__tests__/ 下的 *.test.ts
+    include: [
+      'tests/**/*.test.ts',
+      'src/routes/__tests__/**/*.test.ts',
+      'src/services/__tests__/**/*.test.ts',
+    ],
     // 排除真实 DB 集成测试(用 vitest.real.config.ts 单独跑)
     exclude: [
       'dist/**',
