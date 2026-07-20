@@ -52,6 +52,8 @@ export * from './payment-callbacks.js'
 export * from './agent-context.js'
 export * from './identity.js'
 export * from './ai-config.js'
+// CLI 配置导入(cc-switch / codex++ / 各 CLI 工具)历史表
+export * from './cli-provider-imports.js'
 export * from './bot-sites.js'
 export * from './gen-table.js'
 export * from './refund-audit.js'

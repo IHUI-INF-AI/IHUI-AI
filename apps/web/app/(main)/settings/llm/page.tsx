@@ -9,6 +9,8 @@ import { Info, KeyRound, Loader2, Plus, Sparkles, Wand2 } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
+import Link from 'next/link'
+import { PackagePlus } from 'lucide-react'
 
 import { LlmConfigDialog } from './LlmConfigDialog'
 import { LlmConfigCard } from './LlmConfigCard'
@@ -140,15 +142,23 @@ export default function UserLlmConfigsPage() {
   return (
     <Container maxWidth="lg" padding={false} className="space-y-6 py-6">
       {/* Header */}
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <KeyRound className="h-6 w-6 text-primary" />
-          我的 LLM 配置
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          为每个 AI 平台保存独立的 API Key、模型 ID 与上下文长度。系统已预置 15+
-          平台模板,只需填写授权信息。
-        </p>
+      <header className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            <KeyRound className="h-6 w-6 text-primary" />
+            我的 LLM 配置
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            为每个 AI 平台保存独立的 API Key、模型 ID 与上下文长度。系统已预置 15+
+            平台模板,只需填写授权信息。
+          </p>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <Link href="/settings/import">
+            <PackagePlus className="mr-1.5 h-4 w-4" />
+            <span>导入 CLI 配置</span>
+          </Link>
+        </Button>
       </header>
 
       {/* Info Banner */}

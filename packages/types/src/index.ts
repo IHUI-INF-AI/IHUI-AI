@@ -1,6 +1,8 @@
 export * from './user.js'
 export * from './api.js'
 export * from './ai.js'
+// CLI 配置导入(cc-switch / codex++ / 各 CLI 工具)共享类型
+export * from './cli-config.js'
 export * from './notification.js'
 export * from './notification-channels.js'
 export * from './message-repair.js'

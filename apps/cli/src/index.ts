@@ -39,6 +39,7 @@ import {
 import { registerCapabilitiesCommand } from './commands/capabilities.js';
 import { registerCheckpointCommand } from './commands/checkpoint.js';
 import { registerHooksCommand } from './commands/hooks.js';
+import { registerImportCommand } from './commands/import.js';
 import { startAcpServer } from './acp/server.js';
 import { CheckpointManager } from './checkpoints/index.js';
 import {
@@ -473,6 +474,9 @@ registerCheckpointCommand(program);
 
 // hooks 子命令组
 registerHooksCommand(program);
+
+// import 子命令组 — CLI 配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)
+registerImportCommand(program);
 
 // skills 子命令 — 列出/查看已加载的 skills(从 .ihui/.agents/.claude/.cursor/skills 平面加载)
 const skillsCmd = program.command('skills').description('管理/查看 skills(.ihui/skills/*.md 等四级目录平面加载)');
