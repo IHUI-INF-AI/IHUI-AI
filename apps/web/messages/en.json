@@ -312,6 +312,9 @@
     "dataItem": "Data Item",
     "modifySuccess": "Modified Successfully"
   },
+  "a11y": {
+    "menu": "Menu"
+  },
   "nav": {
     "title": "Main Navigation",
     "home": "Home",
