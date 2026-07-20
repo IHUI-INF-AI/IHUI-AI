@@ -28,7 +28,9 @@ export function BrandMarquee() {
   const loop = [...brands, ...brands]
 
   return (
-    <section className="space-y-3" aria-label="Brand marquee">
+    // 2026-07-20 改:加 w-full 让 brand marquee 容器撑满父容器
+    // (原因同 Marquee.tsx — 父容器已无 max-w-7xl 限制,子元素需 w-full 才能撑满)
+    <section className="w-full space-y-3" aria-label="Brand marquee">
       <header className="flex flex-col items-center gap-1 text-center">
         <div className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground/70">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
