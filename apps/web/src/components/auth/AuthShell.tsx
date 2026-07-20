@@ -65,12 +65,10 @@ export function AuthShell({
 
       <div className="flex flex-col items-center text-center">
         {/* 顶部 logo + welcome 左右并排(复用 M-66/M-68/M-69 视觉方案,2026-07-20 恢复;2026-07-20 修 w-full 塌陷 + logo 统一 + logo 高度对齐 welcome 文字)
-            - logo 29×29 rounded-md object-contain + inline style translateY(2px),统一用 /images/logo.png?v=20260719-unify(全站 9 处一致)
-              第 6 次调整:translate 改用 inline style 而非 Tailwind translate-y-[2px] class。
-              根因:Tailwind 4 编译 chunk 中未生成 .translate-y-\[2px\] utility(可能被 purger 误判),computedTransform="none"。
-              inline style 100% 可靠,2px 是肉眼对齐中间值(0 偏高 4px 偏低)。
+            - logo 30×30 rounded-md object-contain + inline style translateY(2px),统一用 /images/logo.png?v=20260719-unify(全站 9 处一致)
+              第 7 次调整:用户反馈 29 稍小,+1 到 30px。translate 仍用 inline style(避免 Tailwind translate-y 编译 bug)。
             - welcome h-[52px] w-auto 等比缩放(原 447×67 → h52 时 w≈347)
-            - gap-3(12px)间距,29+12+340=381 ≤ 内宽 404(p-7 28×2 + max-w-460),余 23px 由 flex justify-center 自动居中
+            - gap-3(12px)间距,30+12+340=382 ≤ 内宽 404(p-7 28×2 + max-w-460),余 22px 由 flex justify-center 自动居中
             - welcome 容器固定 w-[340px] + shrink-0:flex 子元素 w-full 在 shrink-to-fit 容器里会塌陷为 0,
               且 absolute Image 无 in-flow 内容,父容器直接缩成 0 → welcome 不显示。固定宽度修复。
             - 浅色 welcome.svg / 深色 baiwelcome.svg 由 globals.css .welcome-img/.welcome-img-dark 切换 */}
@@ -78,9 +76,9 @@ export function AuthShell({
           <Image
             src="/images/logo.png?v=20260719-unify"
             alt="IHUI AI"
-            width={29}
-            height={29}
-            className="h-[29px] w-[29px] shrink-0 select-none rounded-md object-contain"
+            width={30}
+            height={30}
+            className="h-[30px] w-[30px] shrink-0 select-none rounded-md object-contain"
             style={{ transform: 'translateY(2px)' }}
             draggable={false}
             priority
