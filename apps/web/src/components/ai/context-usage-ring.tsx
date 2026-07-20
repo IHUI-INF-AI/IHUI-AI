@@ -76,7 +76,7 @@ function TriggerRing({ ratio, usedTokens, maxTokens }: TriggerRingProps) {
   return (
     <span
       className={cn(
-        'relative inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+        'relative inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
         'hover:bg-accent',
         style.bg,
       )}
@@ -113,7 +113,7 @@ function TriggerRing({ ratio, usedTokens, maxTokens }: TriggerRingProps) {
           className="transition-[stroke-dashoffset] duration-500 ease-out"
         />
       </svg>
-      <span className="absolute text-[8px] font-semibold tabular-nums leading-none text-foreground">
+      <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[8px] font-semibold tabular-nums leading-none text-foreground">
         {percent}
       </span>
       {/* a11y:整个 trigger 由外层 button 提供 label,这里隐藏 */}
