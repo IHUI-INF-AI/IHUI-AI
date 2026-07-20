@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -44,6 +45,7 @@ export function AuthShell({
   footer,
   className,
 }: AuthShellProps) {
+  const t = useTranslations('a11y')
   return (
     <div
       className={cn(
@@ -56,7 +58,7 @@ export function AuthShell({
         <button
           type="button"
           onClick={onClose}
-          aria-label="关闭"
+          aria-label={t('close')}
           className="absolute right-4 top-4 inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <X className="h-4 w-4" />

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { MessageCircle, Minus, X, Send, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -17,6 +18,7 @@ interface Props {
 const QUICK_REPLIES = ['你好，有什么可以帮您？', '请稍等，正在查询', '问题已收到', '感谢您的耐心']
 
 export function ChatWindow({ roomId, onClose }: Props) {
+  const t = useTranslations('a11y')
   const [isOpen, setIsOpen] = React.useState(false)
   const [isMinimized, setIsMinimized] = React.useState(false)
   const [messages, setMessages] = React.useState<CsMessage[]>([])
@@ -102,7 +104,7 @@ export function ChatWindow({ roomId, onClose }: Props) {
         type="button"
         onClick={handleOpen}
         className="fixed bottom-6 right-6 z-modal flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
-        aria-label="打开客服"
+        aria-label={t('openCustomerService')}
       >
         <MessageCircle className="h-6 w-6" />
         {unread > 0 && (
@@ -125,7 +127,7 @@ export function ChatWindow({ roomId, onClose }: Props) {
           <button
             onClick={() => setIsMinimized(true)}
             className="rounded p-1 transition-colors hover:bg-white/10"
-            aria-label="最小化"
+            aria-label={t('minimize')}
           >
             <Minus className="h-4 w-4" />
           </button>
@@ -135,7 +137,7 @@ export function ChatWindow({ roomId, onClose }: Props) {
               onClose?.()
             }}
             className="rounded p-1 transition-colors hover:bg-white/10"
-            aria-label="关闭"
+            aria-label={t('close')}
           >
             <X className="h-4 w-4" />
           </button>
@@ -178,7 +180,7 @@ export function ChatWindow({ roomId, onClose }: Props) {
                 ? 'cursor-not-allowed bg-muted text-muted-foreground/50'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90',
             )}
-            aria-label="发送"
+            aria-label={t('send')}
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>

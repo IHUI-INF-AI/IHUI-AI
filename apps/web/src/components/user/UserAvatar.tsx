@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { Camera, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -24,6 +25,7 @@ export default function UserAvatar({
   onUpload,
   className,
 }: UserAvatarProps): React.JSX.Element {
+  const t = useTranslations('a11y')
   const inputRef = React.useRef<HTMLInputElement>(null)
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,7 +60,7 @@ export default function UserAvatar({
           type="button"
           onClick={() => inputRef.current?.click()}
           className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100"
-          aria-label="上传头像"
+          aria-label={t('uploadAvatar')}
         >
           {uploading ? (
             <Loader2 className="h-5 w-5 animate-spin" />
