@@ -88,10 +88,13 @@ export async function submitAnswer(input: {
   examId: string
   answers: { questionId: string; answer: string | string[] }[]
 }): Promise<ApiResult<ExamResult>> {
-  return fetchApi<ExamResult>(`/exam/records/${encodeURIComponent(input.examId)}/submit`, {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
+  return fetchApi<ExamResult>(
+    `/exam/papers/${encodeURIComponent(input.examId)}/submit-answers`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ answers: input.answers }),
+    },
+  )
 }
 
 export async function getResult(id: string): Promise<ApiResult<ExamResult>> {
@@ -114,7 +117,7 @@ export interface ExamChapter {
 }
 
 export async function getExamChapters(examId: string): Promise<ApiResult<ExamChapter[]>> {
-  return fetchApi<ExamChapter[]>(`/exam/composition/rule/list${buildQs({ eid: examId })}`)
+  return fetchApi<ExamChapter[]>(`/exam/papers/${encodeURIComponent(examId)}/chapters`)
 }
 
 export interface ExamSignUp {
@@ -155,7 +158,7 @@ export async function getMyRecords(
 }
 
 export async function checkSubmitted(examId: string): Promise<ApiResult<boolean>> {
-  return fetchApi<boolean>(`/exam/records${buildQs({ examId })}`)
+  return fetchApi<boolean>(`/exam/records/check-submitted${buildQs({ examId })}`)
 }
 
 export async function getFavoriteExams(
