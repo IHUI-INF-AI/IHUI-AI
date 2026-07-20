@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 interface PieChartProps {
@@ -27,6 +28,7 @@ export const PieChart = React.memo(function PieChart({
   size = 200,
   className,
 }: PieChartProps) {
+  const t = useTranslations('a11y')
   const total = data.reduce((sum, d) => sum + d.value, 0) || 1
   const cx = size / 2
   const cy = size / 2
@@ -67,7 +69,7 @@ export const PieChart = React.memo(function PieChart({
 
   return (
     <div className={cn('flex items-center gap-4', className)}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="饼图">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={t('pieChart')}>
         {slices.map((s) => (
           <path
             key={s.label}

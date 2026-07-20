@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +42,7 @@ export function Alert({
   action,
   className,
 }: AlertProps) {
+  const t = useTranslations('a11y')
   const { icon: Icon, class: variantClass } = variantMap[variant]
   const [visible, setVisible] = React.useState(true)
 
@@ -65,7 +67,7 @@ export function Alert({
         <button
           type="button"
           onClick={handleClose}
-          aria-label="关闭提示"
+          aria-label={t('closeAlert')}
           className="shrink-0 rounded-sm opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <X className="h-4 w-4" />

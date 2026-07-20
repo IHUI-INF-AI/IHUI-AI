@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 interface RadarChartProps {
@@ -16,6 +17,7 @@ export const RadarChart = React.memo(function RadarChart({
   color = 'var(--primary)',
   className,
 }: RadarChartProps) {
+  const t = useTranslations('a11y')
   const cx = size / 2
   const cy = size / 2
   const r = size / 2 - 30
@@ -41,7 +43,7 @@ export const RadarChart = React.memo(function RadarChart({
         height={size}
         viewBox={`0 0 ${size} ${size}`}
         role="img"
-        aria-label="雷达图"
+        aria-label={t('radarChart')}
       >
         {[0.25, 0.5, 0.75, 1].map((t) => (
           <polygon
