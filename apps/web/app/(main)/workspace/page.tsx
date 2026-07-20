@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { FolderOpen, Loader2, Plus, Shield } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { Button, Input, Label } from '@ihui/ui'
 import {
   Dialog,
@@ -119,60 +120,60 @@ export default function WorkspacePage() {
                 {t('newProject')}
               </Button>
             </DialogTrigger>
-          <DialogContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <DialogHeader>
-                <DialogTitle>{t('newProject')}</DialogTitle>
-                <DialogDescription>{t('createProjectDesc')}</DialogDescription>
-              </DialogHeader>
+            <DialogContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <DialogHeader>
+                  <DialogTitle>{t('newProject')}</DialogTitle>
+                  <DialogDescription>{t('createProjectDesc')}</DialogDescription>
+                </DialogHeader>
 
-              {formError && (
-                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  {formError}
+                {formError && (
+                  <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {formError}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="project-name">{t('name')}</Label>
+                  <Input
+                    id="project-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t('namePlaceholder')}
+                    maxLength={128}
+                  />
                 </div>
-              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="project-name">{t('name')}</Label>
-                <Input
-                  id="project-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={t('namePlaceholder')}
-                  maxLength={128}
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-description">{t('description')}</Label>
+                  <textarea
+                    id="project-description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder={t('descriptionPlaceholder')}
+                    maxLength={2000}
+                    rows={3}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="project-description">{t('description')}</Label>
-                <textarea
-                  id="project-description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder={t('descriptionPlaceholder')}
-                  maxLength={2000}
-                  rows={3}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </div>
-
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleOpenChange(false)}
-                  disabled={createMutation.isPending}
-                >
-                  {tc('cancel')}
-                </Button>
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {createMutation.isPending ? t('creating') : t('create')}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleOpenChange(false)}
+                    disabled={createMutation.isPending}
+                  >
+                    {tc('cancel')}
+                  </Button>
+                  <Button type="submit" disabled={createMutation.isPending}>
+                    {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {createMutation.isPending ? t('creating') : t('create')}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -208,15 +209,9 @@ export default function WorkspacePage() {
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-medium">{openedWorkspace.name}</p>
-                <p className="font-mono text-xs text-muted-foreground">
-                  {openedWorkspace.path}
-                </p>
+                <p className="font-mono text-xs text-muted-foreground">{openedWorkspace.path}</p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setFolderPickerOpen(true)}
-              >
+              <Button variant="outline" size="sm" onClick={() => setFolderPickerOpen(true)}>
                 {t('reopenPermission')}
               </Button>
             </div>
@@ -227,7 +222,12 @@ export default function WorkspacePage() {
       <LocalFolderPicker
         open={folderPickerOpen}
         onOpenChange={setFolderPickerOpen}
-        onWorkspaceOpened={(path, name) => setOpenedWorkspace({ path, name })}
+        onWorkspaceOpened={(path, name) => {
+          setOpenedWorkspace({ path, name })
+          // 同步 AI 面板 activeWorkspace:确保用户在 /workspace 页面打开的文件夹
+          // 与 AI 面板工作区选择器保持一致(双入口行为统一,P1 修复)
+          useAiPanelStore.getState().setActiveWorkspace({ path, name })
+        }}
       />
 
       {/* 开发者工具预览 */}
