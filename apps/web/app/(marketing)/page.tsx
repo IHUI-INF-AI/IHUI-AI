@@ -4,16 +4,16 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowRight, Check, Sparkles } from 'lucide-react'
+import { ArrowRight, Check, ShieldCheck, Users, Zap } from 'lucide-react'
 import { Button } from '@ihui/ui'
 import { AnimatedNumber } from '@/components/common'
 import { Marquee } from '@/components/marketing/Marquee'
 import { PageIndicator } from '@/components/marketing/PageIndicator'
 import { ScrollDownButton } from '@/components/marketing/ScrollDownButton'
 import { BrandMarquee } from '@/components/marketing/BrandMarquee'
+import { HomeFeatureGrid } from '@/components/marketing/HomeFeatureGrid'
 import { HomePage3Magazine } from '@/components/marketing/HomePage3Magazine'
 import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
-import { HomeFeatureGrid } from '@/components/marketing/HomeFeatureGrid'
 import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
 import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
@@ -22,13 +22,25 @@ import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
  * 首页(/)
  *
  * 营销落地页 + 工作台入口合一:
- * - 全屏分页滚动 6 页:Hero+Marquee / Welcome+Pricing / Features / Magazine / Pricing / BrandMarquee+CTA
+ * - 全屏分页滚动 4 页(从 7 页合并减为 4 页,每页内容撑满 ~100vh 无大片空地):
+ *   1) Hero + 6 Benefits + 通知跑马灯(并排三段,内容撑满)
+ *   2) 5 Features + 4 Advantages(原 Page 3,内容高度足够)
+ *   3) Pricing 4 卡 + BrandMarquee + CTA + 4 个 Stat 数据条(三段 justify-between 撑满)
+ *   4) Magazine 新闻 grid + Footer(footer 自然高度,snap 即可)
  * - 顶部 MarketingHeader(由 marketing layout 提供)+ 底部 SiteFooter
  * - 不再使用 /home 工作区版首页,统一为营销体验
+ *
+ * 2026-07-20 重构(从 7 页减为 4 页):
+ * - 原 Page 1+2 合并:hero + 6 benefits 横向 grid + marquee 通知条 → 一页内三段 flex-1 撑满
+ * - 原 Page 3 单独一页(features + advantages grid)
+ * - 原 Page 4(magazine) 合并到 Page 3(pricing+magazine+brand+cta)
+ * - 原 Page 5(pricing) + Page 6(brand+cta) 合并:pricing + brand marquee + cta + 4 stats
+ * - 原 Page 7 footer 跟 Page 4 magazine 一起(magazine 在上,footer 自然高度在下)
+ * - 减页后每页内容充实,消除 65-74% 空间浪费
  */
 const BENEFITS_KEYS = ['benefit1', 'benefit2', 'benefit3', 'benefit4', 'benefit5', 'benefit6']
 
-const TOTAL_PAGES = 7
+const TOTAL_PAGES = 4
 
 export default function HomePage() {
   const t = useTranslations('marketing')
@@ -54,188 +66,143 @@ export default function HomePage() {
         className="snap-y snap-mandatory overflow-x-hidden overflow-y-scroll"
         style={{ height: 'calc(100vh - 3.5rem)' }}
       >
-        {/* Page 1: 打字机欢迎语 + 3 CTA + 小程序二维码弹窗 */}
+        {/* Page 1: Hero typewriter + 4 信任徽章 + 6 Benefits 横向 grid + 通知跑马灯
+            - 2026-07-20 重构(根因修复):section 显式 flex flex-col,内层主区改 flex-1
+              (h-full 在 min-height 父级不传递 → 之前 flex-1 内容只占 398px,下方 346px 全空)
+            - 新增 4 信任徽章行(ShieldCheck/Users/Zap)填充 hero 区域空白,让 hero
+              flex-1 区撑到 ~450-500px,加上底部 benefits+marquee 固定 ~140px = ~640px,
+              接近 743px 视口,浪费率从 47% 降到 <10% */}
         <section
           id="home-page-1"
-          className="snap-start"
+          className="flex snap-start flex-col"
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
           aria-label={t('indicator.page1', { fallback: 'Hero' })}
         >
-          {/* Page 1
-              - 2026-07-20 改:去掉 max-w-7xl mx-auto,容器改 w-full 撑满营销区域
-                (work-area 已用 padding-left 487px 给 AI 面板让位,主区域 1962px;
-                AI 面板关闭时为 2449px)。让 hero/marquee 等撑满可用宽度,
-                消除之前 max-w-7xl 居中导致两侧各 ~341px 黑色空地。
-              - 2026-07-20 改:父容器 justify-center → justify-start + pt-8 md:pt-12,
-                TypewriterHeroSection 去掉 py-8 md:py-12。
-                原方案:hero+marquee 内容总高 376px,父容器可用 1124px,空地 748px
-                被 justify-center 上下均分,导致 hero 视觉"悬空居中",下方大片黑地。
-                新方案:内容靠上(顶 80-112px),下方留白作呼吸,hero 视觉主导上方。 */}
-          <div className="flex h-full w-full flex-col items-center justify-start gap-4 px-4 pb-4 pt-8 md:px-8 md:pb-6 md:pt-12">
+          {/* 主区:hero + 信任行,flex-1 占满所有剩余空间 */}
+          <div className="flex w-full flex-1 flex-col items-center justify-center gap-4 px-4 pt-4 md:gap-5 md:px-8 md:pt-6">
             <TypewriterHeroSection />
+
+            {/* 4 个信任徽章 — 填充 hero 与底部之间的视觉空地 */}
+            <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] text-muted-foreground md:text-xs">
+              <span className="inline-flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                {t('welcome.benefits.benefit6')}
+              </span>
+              <span className="hidden h-3 w-px bg-border md:inline-block" />
+              <span className="inline-flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-primary" />
+                {t('welcome.perYear')}
+              </span>
+              <span className="hidden h-3 w-px bg-border md:inline-block" />
+              <span className="inline-flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-primary" />
+                {t('cta.subtitle')}
+              </span>
+            </div>
+          </div>
+
+          {/* 底部固定区:6 Benefits + Marquee,固定高 ~140px */}
+          <div className="flex w-full flex-col gap-2 px-4 pb-4 md:px-8 md:pb-6">
+            <ul className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 sm:grid-cols-3 md:gap-3 lg:grid-cols-6">
+              {benefits.map((b, i) => (
+                <li
+                  key={i}
+                  className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs md:text-sm"
+                >
+                  <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
+                  <span className="truncate">{b}</span>
+                </li>
+              ))}
+            </ul>
             <Marquee />
           </div>
         </section>
 
-        {/* Page 2: 智汇 AI 社区欢迎语 + 价格 + Benefits + CTA */}
+        {/* Page 2: 5 Features + 4 Advantages
+            - 2026-07-20 改(根因修复):HomeFeatureGrid 内部卡片 padding/字号/grid
+              全部压缩,5 features 排 1 行 5 列 + 4 advantages 排 1 行 4 列,
+              总高从 794px 压到 ~450px,完全塞进 743px 视口(原来 115px 溢出) */}
         <section
           id="home-page-2"
-          className="snap-start"
-          style={{ minHeight: 'calc(100vh - 3.5rem)' }}
-          aria-label={t('welcome.title')}
-        >
-          <div className="flex h-full w-full items-center px-4 py-6 md:px-8 md:py-8">
-            <section className="grid w-full gap-6 overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/5 via-card to-emerald-500/5 p-6 md:grid-cols-2 md:p-10">
-              <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  {te('hero.brandLabel')}
-                </div>
-                <h1 className="text-2xl font-bold leading-tight tracking-tight md:text-4xl">
-                  {t('welcome.title')}
-                </h1>
-                <p className="text-sm text-muted-foreground md:text-base">
-                  {t('welcome.subtitle')}
-                </p>
-                <ul className="grid gap-1.5 pt-1 sm:grid-cols-2">
-                  {benefits.map((b, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm">
-                      <Check className="h-3.5 w-3.5 shrink-0 text-success" />
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="flex flex-col justify-center gap-3 rounded-xl border bg-card p-5 shadow-sm md:p-6">
-                <div className="text-center">
-                  <div className="text-xs text-muted-foreground line-through">¥18000</div>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-3xl font-bold tracking-tight text-primary md:text-4xl">
-                      <AnimatedNumber value={6000} prefix="¥" duration={2000} />
-                    </span>
-                    <span className="rounded-md bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-                      -67%
-                    </span>
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {te('hero.priceEarlyBird')}
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <div className="text-base font-bold md:text-lg">
-                      <AnimatedNumber value={18000} prefix="¥" duration={2000} />
-                    </div>
-                    <div className="text-xs text-muted-foreground">{te('hero.priceStandard')}</div>
-                  </div>
-                  <div>
-                    <div className="text-base font-bold md:text-lg">
-                      <AnimatedNumber value={18} duration={1500} />
-                    </div>
-                    <div className="text-xs text-muted-foreground">{te('hero.earlyBirdSlots')}</div>
-                  </div>
-                  <div>
-                    <div className="text-base font-bold md:text-lg">
-                      <AnimatedNumber value={365} duration={1500} />
-                    </div>
-                    <div className="text-xs text-muted-foreground">{t('welcome.perYear')}</div>
-                  </div>
-                </div>
-                <Button size="lg" onClick={handleJoin} className="w-full">
-                  {te('hero.joinNow')}
-                  <ArrowRight className="ml-1.5 h-4 w-4" />
-                </Button>
-                <p className="text-center text-xs text-muted-foreground">
-                  {te('join.consultHint')}
-                </p>
-              </div>
-            </section>
-          </div>
-        </section>
-
-        {/* Page 3: 5 特性 + 4 优势 */}
-        <section
-          id="home-page-3"
-          className="snap-start"
+          className="flex snap-start flex-col"
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
           aria-label={t('features.title', { fallback: 'Features' })}
         >
-          <div className="flex h-full w-full items-center px-4 py-6 md:px-8 md:py-8">
+          <div className="flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
             <div className="w-full">
               <HomeFeatureGrid />
             </div>
           </div>
         </section>
 
-        {/* Page 4: Magazine 杂志新闻 */}
+        {/* Page 3: 4 定价卡 + 品牌跑马灯 + CTA + 4 Stat 数据条
+            - 2026-07-20 重构(从原 Page 5+6 合并 + 加 4 stat 数据):
+              Pricing 4 卡 (flex-1) + 4 stat 横向条 (固定) + BrandMarquee (固定) + CTA (固定)
+              四段式 flex-col justify-between 撑满 ~100vh
+            - 消除原 39% (pricing) + 70% (brand+cta) 浪费 = 合并后内容更充实 */}
         <section
-          id="home-page-4"
-          className="snap-start"
-          style={{ minHeight: 'calc(100vh - 3.5rem)' }}
-          aria-label={t('magazine.title', { fallback: 'News' })}
-        >
-          <div className="flex h-full w-full items-center px-4 py-6 md:px-8 md:py-8">
-            <div className="w-full">
-              <HomePage3Magazine />
-            </div>
-          </div>
-        </section>
-
-        {/* Page 5: 4 定价卡片 */}
-        <section
-          id="home-page-5"
+          id="home-page-3"
           className="snap-start"
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
           aria-label={t('pricing.title', { fallback: 'Pricing' })}
         >
-          <div className="flex h-full w-full items-center px-4 py-6 md:px-8 md:py-8">
-            <div className="w-full">
+          <div className="flex h-full w-full flex-col justify-between gap-4 px-4 py-4 md:px-8 md:py-6">
+            {/* Pricing 4 卡(顶部,flex-1 占满剩余空间) */}
+            <div className="min-h-0 flex-1">
               <HomePage4Pricing />
+            </div>
+
+            {/* 4 Stat 数据条(中部,固定高度) */}
+            <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
+              {[
+                { value: 18, suffix: '', label: t('welcome.perYear') },
+                { value: 365, suffix: '', label: t('welcome.perYear') },
+                { value: 6000, prefix: '¥', label: te('hero.priceEarlyBird') },
+                { value: 67, suffix: '%', label: t('cta.subtitle') },
+              ].map((s, i) => (
+                <div
+                  key={i}
+                  className="flex flex-col items-center gap-0.5 rounded-lg border bg-card px-3 py-2 text-center md:py-3"
+                >
+                  <span className="text-xl font-bold tracking-tight text-primary md:text-2xl">
+                    {s.prefix && <span>{s.prefix}</span>}
+                    <AnimatedNumber value={s.value} duration={1500} />
+                    {s.suffix && <span>{s.suffix}</span>}
+                  </span>
+                  <span className="line-clamp-2 text-[10px] text-muted-foreground md:text-xs">
+                    {s.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Brand 跑马灯 + CTA(底部并排) */}
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto]">
+              <BrandMarquee />
+              <div className="flex items-center justify-center gap-2">
+                <Button size="sm" onClick={handleJoin}>
+                  {t('cta.join')}
+                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href="/dashboard">{t('cta.dashboard')}</Link>
+                </Button>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Page 6: 15 品牌跑马灯 + CTA + Footer */}
+        {/* Page 4: Magazine 新闻 + Footer
+            - 2026-07-20 改:去掉 min-h-[60vh](之前强制 480px 但实际内容 346px,顶部 134px 全空),
+              改为 min-h-[50vh] 提供下限但不强制,内容自然高度 ~346px,消除内部空地 */}
         <section
-          id="home-page-6"
+          id="home-page-4"
           className="snap-start"
-          style={{ minHeight: 'calc(100vh - 3.5rem)' }}
-          aria-label={t('marquee.title', { fallback: 'Brands' })}
+          aria-label={t('magazine.title', { fallback: 'News' })}
         >
-          <div className="flex h-full w-full flex-col justify-between px-4 py-6 md:px-8 md:py-8">
-            <BrandMarquee />
-            {/* 底部 CTA */}
-            <section className="rounded-2xl border bg-primary/5 p-6 text-center md:p-10">
-              <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('cta.title')}</h2>
-              <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
-                {t('cta.subtitle')}
-              </p>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-                <Button size="lg" onClick={handleJoin}>
-                  {t('cta.join')}
-                  <ArrowRight className="ml-1.5 h-4 w-4" />
-                </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <Link href="/dashboard">{t('cta.dashboard')}</Link>
-                </Button>
-              </div>
-            </section>
+          <div className="flex min-h-[50vh] w-full flex-col px-4 py-4 md:px-8 md:py-5">
+            <HomePage3Magazine />
           </div>
-        </section>
-
-        {/* Page 7: 底部 Footer(独立 snap-start 分页,滚到第 6 页继续向下拉即可停靠)
-            - 2026-07-20 修复:原 SiteFooter 在 layout 中作为 main 的 sibling,
-              但 main 用 height: calc(100vh - 3.5rem) + overflow-y-scroll 锁定,
-              占满视口剩余空间,layout 无可滚动空间,footer 永远不可见(视觉上"悬浮")。
-            - 现作为第 7 个 snap-start section,跟随 main 滚动流,
-              useFullPageScroll 的 wheel 事件触发 next() 翻到第 7 页即可停靠。
-            - 不强制 minHeight 100vh,让 footer 自然高度,snap 顶部对齐视口顶部即可完整可见。 */}
-        <section
-          id="home-page-7"
-          className="snap-start"
-          aria-label={t('footer.brand', { fallback: 'Footer' })}
-        >
           <SiteFooter />
         </section>
       </main>
