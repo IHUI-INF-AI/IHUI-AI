@@ -2,6 +2,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +42,7 @@ export default function LogDetailDialog({
   onClose,
   className,
 }: LogDetailDialogProps): React.JSX.Element {
+  const t = useTranslations('a11y')
   React.useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose?.()
@@ -70,7 +72,7 @@ export default function LogDetailDialog({
           <button
             type="button"
             onClick={onClose}
-            aria-label="关闭"
+            aria-label={t('close')}
             className="text-muted-foreground hover:text-foreground"
           >
             <X className="h-5 w-5" />

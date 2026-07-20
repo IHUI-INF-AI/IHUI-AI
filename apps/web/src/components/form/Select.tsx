@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { ChevronDown, Check, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useClickOutside } from '@/hooks/use-click-outside'
@@ -36,6 +37,7 @@ export function Select({
   disabled = false,
   className,
 }: SelectProps) {
+  const t = useTranslations('a11y')
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
@@ -177,7 +179,7 @@ export function Select({
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   role="searchbox"
-                  aria-label="搜索选项"
+                  aria-label={t('searchOption')}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="搜索..."

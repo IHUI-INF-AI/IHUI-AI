@@ -313,7 +313,23 @@
     "modifySuccess": "수정 성공"
   },
   "a11y": {
-    "menu": "메뉴"
+    "menu": "메뉴",
+    "more": "더보기",
+    "close": "닫기",
+    "copy": "복사",
+    "copyResponse": "응답 복사",
+    "barChart": "막대 차트",
+    "heatmap": "히트맵",
+    "lineChart": "꺾은선 차트",
+    "pieChart": "원형 차트",
+    "radarChart": "방사형 차트",
+    "openCustomerService": "고객센터 열기",
+    "minimize": "최소화",
+    "send": "보내기",
+    "closeTag": "태그 닫기",
+    "closeAlert": "알림 닫기",
+    "searchOption": "옵션 검색",
+    "uploadAvatar": "아바타 업로드"
   },
   "nav": {
     "title": "메인 내비게이션",
@@ -982,6 +998,74 @@
       "tasks": "작업 목록",
       "routines": "루틴",
       "folders": "폴더"
+    },
+    "openLocalFolder": "로컬 폴더 열기",
+    "openedWorkspace": "열린 워크스페이스",
+    "reopenPermission": "권한 재설정",
+    "folderPicker": {
+      "title": "로컬 프로젝트 폴더 선택",
+      "description": "로컬 디스크를 탐색하여 프로젝트 폴더를 선택합니다. 최초 열면 접근 권한을 설정합니다.",
+      "root": "루트 디렉토리",
+      "loading": "디렉토리 로딩 중...",
+      "noDirectories": "이 디렉토리에 하위 폴더가 없습니다",
+      "selected": "선택됨:",
+      "cancel": "취소",
+      "opening": "여는 중...",
+      "selectAndOpen": "선택하고 열기"
+    },
+    "permission": {
+      "title": "워크스페이스 접근 권한",
+      "description": "이 워크스페이스에 대한 AI 접근 권한 모드를 선택하세요",
+      "path": "경로",
+      "techStack": "기술 스택",
+      "selectMode": "권한 모드 선택",
+      "highRisk": "고위험",
+      "whitelistRules": "화이트리스트 규칙",
+      "manageRules": "규칙 관리",
+      "collapseRules": "규칙 접기",
+      "bypassWarning": "전체 접근 권한은 AI가 파일 삭제, 임의 명령 실행 등 모든 작업을 수행할 수 있게 합니다. 완전히 신뢰하는 개인 프로젝트에서만 사용하세요.",
+      "cancel": "취소",
+      "saveAndOpen": "저장하고 열기",
+      "saving": "저장 중...",
+      "add": "추가",
+      "patternPlaceholder": "매칭 패턴 입력 (예: src/**, *.ts)",
+      "loadingRules": "규칙 로딩 중...",
+      "noRules": "규칙 없음. 재설정 버튼을 눌러 기본 안전 템플릿을 로드하세요",
+      "deleteRule": "규칙 삭제",
+      "builtin": "내장",
+      "resetToDefaults": "기본 템플릿으로 재설정",
+      "mode": {
+        "default": {
+          "title": "수동 감사",
+          "desc": "모든 작업에 사용자 확인 필요, 가장 안전"
+        },
+        "accept-edits": {
+          "title": "화이트리스트 허용",
+          "desc": "화이트리스트 규칙 내 작업만 허용, 나머지는 확인 필요"
+        },
+        "bypass-permissions": {
+          "title": "전체 접근",
+          "desc": "AI가 모든 작업을 실행 가능, 확인 불필요"
+        }
+      },
+      "ruleType": {
+        "path": "경로",
+        "command": "명령",
+        "tool": "도구"
+      },
+      "decision": {
+        "allow": "허용",
+        "deny": "거부"
+      }
+    },
+    "permissionsPage": {
+      "title": "워크스페이스 권한 관리",
+      "subtitle": "모든 로컬 워크스페이스의 접근 권한 관리",
+      "loading": "로딩 중...",
+      "empty": "워크스페이스 권한 설정이 없습니다",
+      "goToWorkspace": "워크스페이스로 돌아가기",
+      "edit": "편집",
+      "confirmDelete": "이 워크스페이스의 권한 설정을 삭제하시겠습니까?"
     }
   },
   "chat": {
@@ -8218,6 +8302,8 @@
     "connectedAccountsDesc": "연결된 타사 계정을 관리하세요",
     "llmConfigsTitle": "내 LLM 설정",
     "llmConfigsDesc": "각 AI 플랫폼의 API 키, 모델 ID, 컨텍스트 관리",
+    "cliImportTitle": "CLI 설정 가져오기",
+    "cliImportDesc": "cc-switch / codex++ / Claude / Codex / Gemini / Hermes 등 로컬 도구에서 원클릭 가져오기",
     "securityTitle": "계정 보안",
     "securityDesc": "계정 보안을 보호하세요",
     "activityLoading": "불러오는 중...",
@@ -24668,5 +24754,57 @@
     "xAxisLabel": "X축",
     "yAxisLabel": "Y축",
     "valueSuffix": ""
+  },
+  "cliImport": {
+    "title": "CLI 설정 가져오기",
+    "desc": "cc-switch / codex++ / Claude / Codex / Gemini / Hermes 등 로컬 도구에서 원클릭 가져오기",
+    "sources": "지원되는 소스",
+    "sourceCcSwitch": "cc-switch",
+    "sourceCodexPlus": "codex++",
+    "sourceClaudeCli": "Claude Code",
+    "sourceCodexCli": "Codex CLI",
+    "sourceGeminiCli": "Gemini CLI",
+    "sourceHermes": "Hermes",
+    "upload": "파일 업로드",
+    "uploadHint": "로컬 설정 파일 선택(.db / .json / .toml / .yaml / .env)",
+    "dragDrop": "여기에 파일을 끌어다 놓거나 클릭하여 선택",
+    "fileSelected": "선택됨: {name} ({size})",
+    "parse": "파싱",
+    "parsing": "파싱 중...",
+    "parseFailed": "파싱 실패: {error}",
+    "parseSuccess": "파싱 성공, 공급자 {count}개",
+    "previewTitle": "파싱 미리보기",
+    "selectAll": "모두 선택",
+    "deselectAll": "모두 해제",
+    "selected": "{count}/{total} 선택됨",
+    "conflictStrategy": "충돌 처리 전략",
+    "overwrite": "덮어쓰기",
+    "skip": "건너뛰기",
+    "clone": "복제",
+    "overwriteDesc": "기존 설정 삭제 후 새로 가져오기",
+    "skipDesc": "기존 설정 유지, 새 설정 건너뛰기",
+    "cloneDesc": "기존 설정 유지, 새 설정에 일련번호 추가",
+    "commit": "가져오기 확정",
+    "committing": "가져오는 중...",
+    "commitSuccess": "가져오기 완료: 성공 {imported}, 건너뜀 {skipped}, 실패 {failed}",
+    "commitFailed": "가져오기 실패: {error}",
+    "noApiKey": "(수동 입력 필요)",
+    "warning": "경고",
+    "historyTitle": "가져오기 기록",
+    "historyEmpty": "가져오기 기록 없음",
+    "historySource": "소스",
+    "historyPath": "경로",
+    "historyImported": "성공",
+    "historySkipped": "건너뜀",
+    "historyFailed": "실패",
+    "historyStatus": "상태",
+    "historyTime": "시간",
+    "statusSuccess": "성공",
+    "statusPartial": "일부 성공",
+    "statusFailed": "실패",
+    "errorNoFile": "설정 파일을 업로드하세요",
+    "errorNoSource": "가져오기 소스를 선택하세요",
+    "errorPreviewExpired": "미리보기 만료, 다시 파싱하세요",
+    "errorParseFailed": "파싱 실패"
   }
 }

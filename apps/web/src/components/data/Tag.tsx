@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ export function Tag({
   size = 'md',
   className,
 }: TagProps) {
+  const t = useTranslations('a11y')
   const style = color
     ? { backgroundColor: `${color}1a`, color, borderColor: `${color}40` }
     : undefined
@@ -47,7 +49,7 @@ export function Tag({
         <button
           type="button"
           onClick={onClose}
-          aria-label="关闭标签"
+          aria-label={t('closeTag')}
           className="ml-0.5 inline-flex items-center rounded-sm hover:opacity-70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <X className="h-3 w-3" />
