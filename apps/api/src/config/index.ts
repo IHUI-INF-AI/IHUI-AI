@@ -46,6 +46,15 @@ const envSchema = z.object({
   SMTP_FROM: z.string().default('noreply@ihui.ai'),
   SMTP_ENABLED: z.coerce.boolean().default(false),
 
+  // 邮件服务商 (auto=按收件域名智能路由国内/国外; smtp/resend/tencent 强制指定)
+  MAIL_PROVIDER: z.enum(['auto', 'smtp', 'resend', 'tencent']).default('auto'),
+  RESEND_API_KEY: z.string().default(''),
+  RESEND_FROM: z.string().default(''),
+  TENCENT_SES_SECRET_ID: z.string().default(''),
+  TENCENT_SES_SECRET_KEY: z.string().default(''),
+  TENCENT_SES_FROM: z.string().default(''),
+  TENCENT_SES_REGION: z.string().default('ap-hongkong'),
+
   // 微信支付 V3(全部 optional,缺失时降级 mock;wechat-pay.ts 仍直接读 process.env,此处仅校验存在性)
   WX_API_BASE: optionalUrl('https://api.mch.weixin.qq.com'),
   WX_MINI_APPID: z.string().optional().default(''),
