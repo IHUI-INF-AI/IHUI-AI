@@ -1373,8 +1373,9 @@ export function Sidebar({
         variant="ghost"
         size="icon"
         onClick={onCloseMobile}
-        // h-9 w-9 与展开/折叠按钮 + 新建任务按钮统一;hover foreground/20 与全局按钮规范一致
-        className="ml-auto flex-shrink-0 p-0 bg-foreground/10 text-foreground hover:bg-foreground/20 lg:hidden"
+        // h-9 w-9 与展开/折叠按钮 + 新建任务按钮统一;hover foreground/20 与全局按钮规范一致;
+        // 默认无背景,仅 hover 出现 (2026-07-20 与 desktop collapse 按钮同步)
+        className="ml-auto flex-shrink-0 p-0 text-foreground hover:bg-foreground/20 lg:hidden"
         aria-label={tc('close')}
       >
         <X className="h-4 w-4" />
