@@ -399,6 +399,7 @@
     "distribution": "Distribution",
     "oauthPlatform": "Open Platform",
     "selfMediaWechat": "WeChat Article",
+    "publishPlatform": "Publish",
     "selfMediaKoubo": "Voice-over Script",
     "selfMediaAutomation": "Automation",
     "downloadIOS": "iOS",
@@ -12113,6 +12114,117 @@
     "automationPage": {
       "historyTitle": "Execution History",
       "historyEmpty": "No execution records"
+    }
+  },
+  "publish": {
+    "title": "Multi-Platform Publishing",
+    "subtitle": "Supports md/docx/html/pdf/image/video → 14 platforms one-click publishing",
+    "tabs": {
+      "accounts": "Accounts",
+      "new": "New Publish",
+      "history": "History"
+    },
+    "platforms": {
+      "title": "Supported Platforms",
+      "wordpress": "WordPress",
+      "medium": "Medium",
+      "youtube": "YouTube",
+      "bilibili": "Bilibili",
+      "wechat": "WeChat",
+      "toutiao": "Toutiao",
+      "douyin": "Douyin",
+      "kuaishou": "Kuaishou",
+      "weibo": "Weibo",
+      "zhihu": "Zhihu",
+      "csdn": "CSDN",
+      "juejin": "Juejin",
+      "xiaohongshu": "Xiaohongshu",
+      "shipinhao": "WeChat Channels"
+    },
+    "accounts": {
+      "title": "Account Management",
+      "subtitle": "Configure login credentials for each platform (encrypted storage)",
+      "add": "Add Account",
+      "edit": "Edit",
+      "delete": "Delete",
+      "verify": "Test Connection",
+      "verifySuccess": "Connection Successful",
+      "verifyFailed": "Connection Failed",
+      "deleteConfirm": "Are you sure you want to delete this account?",
+      "platform": "Platform",
+      "nickname": "Nickname",
+      "credentials": "Credentials",
+      "status": "Status",
+      "lastVerified": "Last Verified",
+      "statusActive": "Active",
+      "statusDisabled": "Disabled",
+      "statusExpired": "Expired",
+      "noAccounts": "No accounts yet, please add one first",
+      "credentialsHint": "Credentials JSON (platform-specific: token/cookie/appId+secret)"
+    },
+    "new": {
+      "title": "New Publish Task",
+      "subtitle": "Upload content → Select platforms → Publish now/schedule",
+      "titleField": "Title",
+      "titlePlaceholder": "Enter title (required)",
+      "contentFormat": "Content Format",
+      "contentFormatMd": "Markdown",
+      "contentFormatDocx": "Word (docx)",
+      "contentFormatHtml": "HTML",
+      "contentFormatPdf": "PDF",
+      "contentFormatImage": "Image",
+      "contentFormatVideo": "Video",
+      "contentText": "Content (paste md/html directly)",
+      "contentTextPlaceholder": "Paste markdown or html content...",
+      "uploadFile": "Upload File",
+      "uploadFileHint": "Supports docx/pdf/image/video, drag or click to upload",
+      "coverImage": "Cover Image (optional)",
+      "selectPlatforms": "Select Target Platforms",
+      "selectPlatformsHint": "Select at least 1 platform",
+      "selectAll": "Select All",
+      "clearAll": "Clear All",
+      "schedule": "Schedule Publish",
+      "scheduleAt": "Scheduled Time",
+      "submitNow": "Publish Now",
+      "submitSchedule": "Schedule Publish",
+      "submitting": "Submitting...",
+      "submitSuccess": "Task submitted, publishing",
+      "submitFailed": "Submit Failed"
+    },
+    "history": {
+      "title": "Publish History",
+      "subtitle": "View execution results of all publish tasks",
+      "taskTitle": "Task Title",
+      "platform": "Platform",
+      "status": "Status",
+      "publishedUrl": "Published URL",
+      "duration": "Duration",
+      "time": "Time",
+      "errorMessage": "Error Message",
+      "filterPlatform": "Filter by Platform",
+      "filterStatus": "Filter by Status",
+      "allPlatforms": "All Platforms",
+      "allStatus": "All Status",
+      "statusSuccess": "Success",
+      "statusFailed": "Failed",
+      "statusSkipped": "Skipped",
+      "noHistory": "No publish history",
+      "viewDetail": "View Details",
+      "openUrl": "Open URL"
+    },
+    "stats": {
+      "title": "Publish Statistics",
+      "totalTasks": "Total Tasks",
+      "totalSuccess": "Success Count",
+      "totalFailed": "Failed Count",
+      "successRate": "Success Rate",
+      "platformDistribution": "Platform Distribution"
+    },
+    "notifications": {
+      "publishComplete": "Publish Complete",
+      "publishCompleteBody": "Task \"{title}\" published: {success} succeeded, {failed} failed",
+      "publishFailed": "Publish Failed",
+      "publishFailedBody": "Task \"{title}\" failed: {error}"
     }
   },
   "privateMessages": {
@@ -25291,6 +25403,160 @@
       "previewTestSuccess": "Connected",
       "previewTestFailed": "Connection failed",
       "saveBeforeFetchErr": "Save the config first, then fetch models"
+    }
+  },
+  "pricingPage": {
+    "metadata": {
+      "title": "Pricing Plans",
+      "description": "IHUI AI Community membership pricing: early bird ¥6000/person/year, regular ¥18000. Free access to all yearly courses, priority access to events, unlimited community support."
+    },
+    "hero": {
+      "badge": "Membership Pricing",
+      "title": "Choose Your Plan",
+      "subtitle": "Early bird ¥6000/person/year, limited to 18 seats. All plans include a full refund guarantee."
+    },
+    "loading": "Loading...",
+    "badge": "Limited Early Bird",
+    "refundTitle": "Full Refund Guarantee",
+    "refundDesc": "We promise all members: if you feel the value falls short of expectations at any time after joining, you can apply for a full refund with no reason and no threshold.",
+    "earlyBird": {
+      "name": "Early Bird Member",
+      "price": "¥6000",
+      "originalPrice": "¥18000",
+      "period": "/person/year",
+      "desc": "Limited to first 18 seats, regular price after sold out",
+      "features": ["Free access to all yearly courses", "Priority access to events", "Unlimited community support", "Online community exclusive entry", "Priority AI assistant experience", "Full refund if unsatisfied"],
+      "cta": "Join Now"
+    },
+    "standard": {
+      "name": "Standard Member",
+      "price": "¥18000",
+      "period": "/person/year",
+      "desc": "Automatically switches to this plan after early bird sold out",
+      "features": ["Free access to all yearly courses", "Priority access to events", "Unlimited community support", "Online community exclusive entry", "Priority AI assistant experience"],
+      "cta": "Learn More"
+    },
+    "enterprise": {
+      "name": "Enterprise Service",
+      "price": "Contact Sales",
+      "period": "",
+      "desc": "Customized plan for enterprise decision-maker teams",
+      "features": ["Team multi-seat package", "One-on-one AI consultant", "Enterprise AI culture implementation", "Custom courses", "Private closed-door events"],
+      "cta": "Contact Sales"
+    }
+  },
+  "enterpriseTools": {
+    "sectionLabel": "Enterprise AI Tools Overview",
+    "title": "From General AI Tools to Industry-Specific Agents",
+    "subtitle": "Comprehensively meet enterprise AI needs",
+    "partnersTitle": "Ecosystem Partners",
+    "categories": {
+      "general": "General AI Tools",
+      "industry": "Industry Agents",
+      "function": "Function Agents"
+    },
+    "items": {
+      "textGeneration": "Text Generation",
+      "imageGeneration": "Image Generation",
+      "voiceProcessing": "Voice Processing",
+      "videoGeneration": "Video Generation",
+      "manufacturing": "Manufacturing",
+      "education": "Education",
+      "healthcare": "Healthcare",
+      "government": "Government Services",
+      "marketingService": "Marketing & Service",
+      "productionManufacturing": "Production",
+      "rdInnovation": "R&D Innovation",
+      "officeCollaboration": "Office Collaboration"
+    }
+  },
+  "mobileDashboardPage": {
+    "title": "Mobile Dashboard",
+    "subtitle": "Monitor mobile core operational metrics. Data is mock demo data.",
+    "stats": {
+      "dau": "DAU",
+      "newUsers": "New Users",
+      "sessions": "Sessions",
+      "crashRate": "Crash Rate",
+      "trendSuffix": "vs yesterday"
+    },
+    "dauTrend": {
+      "title": "Last 7 Days DAU Trend",
+      "subtitle": "Daily active users curve"
+    },
+    "devices": {
+      "title": "Device Distribution",
+      "subtitle": "iOS / Android / Others",
+      "others": "Others"
+    },
+    "topPages": {
+      "title": "Top 5 Pages",
+      "subtitle": "Top 5 mobile pages by visits",
+      "rankHeader": "Rank",
+      "pathHeader": "Page Path",
+      "visitsHeader": "Visits",
+      "ratioHeader": "Ratio"
+    },
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  },
+  "pdfWatermarkPage": {
+    "title": "PDF Watermark",
+    "description": "Add text watermarks to PDFs with custom text, position, color, and rotation",
+    "uploadLabel": "Click or drag a PDF file here to upload",
+    "remove": "Remove",
+    "fileSizeUnit": "KB",
+    "text": "Watermark Text",
+    "fontSize": "Font Size",
+    "color": "Color",
+    "opacity": "Opacity",
+    "rotation": "Rotation",
+    "position": "Position",
+    "preview": "Preview",
+    "placeholder": "Watermark",
+    "defaultText": "Confidential",
+    "submitting": "Adding...",
+    "submit": "Add Watermark",
+    "positions": {
+      "topLeft": "Top Left",
+      "topCenter": "Top Center",
+      "topRight": "Top Right",
+      "middleLeft": "Middle Left",
+      "middleCenter": "Center",
+      "middleRight": "Middle Right",
+      "bottomLeft": "Bottom Left",
+      "bottomCenter": "Bottom Center",
+      "bottomRight": "Bottom Right"
+    }
+  },
+  "businessCardEditPage": {
+    "editTitle": "Edit Business Card",
+    "createTitle": "New Business Card",
+    "subtitle": "Fill in card information and select template style",
+    "back": "Back to List",
+    "loading": "Loading...",
+    "cardInfo": "Card Information",
+    "templateLabel": "Template",
+    "bioLabel": "Bio",
+    "bioPlaceholder": "Introduce yourself in one sentence...",
+    "errors": {
+      "nameRequired": "Please enter your name"
+    },
+    "cancel": "Cancel",
+    "save": "Save",
+    "templates": {
+      "minimal": "Minimal",
+      "business": "Business",
+      "creative": "Creative"
+    },
+    "fields": {
+      "name": { "label": "Name *", "placeholder": "Zhang San" },
+      "title": { "label": "Title", "placeholder": "Product Manager" },
+      "company": { "label": "Company", "placeholder": "XX Tech Co., Ltd." },
+      "phone": { "label": "Phone", "placeholder": "13800138000" },
+      "email": { "label": "Email", "placeholder": "zhangsan@example.com" },
+      "wechat": { "label": "WeChat", "placeholder": "zhangsan_wx" },
+      "address": { "label": "Address", "placeholder": "Chaoyang District, Beijing..." },
+      "avatar": { "label": "Avatar URL", "placeholder": "https://..." }
     }
   }
 }

@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CreditCard, Loader2, Save, User } from 'lucide-react'
 
@@ -38,20 +39,20 @@ interface CardForm {
 }
 
 const TEMPLATES = [
-  { value: 'minimal', label: '简约' },
-  { value: 'business', label: '商务' },
-  { value: 'creative', label: '创意' },
+  { value: 'minimal', labelKey: 'templates.minimal' },
+  { value: 'business', labelKey: 'templates.business' },
+  { value: 'creative', labelKey: 'templates.creative' },
 ]
 
-const FIELDS: { key: keyof CardForm; label: string; placeholder: string; type?: string }[] = [
-  { key: 'name', label: '姓名 *', placeholder: '张三' },
-  { key: 'title', label: '职位', placeholder: '产品经理' },
-  { key: 'company', label: '公司', placeholder: 'XX 科技有限公司' },
-  { key: 'phone', label: '电话', placeholder: '13800138000' },
-  { key: 'email', label: '邮箱', placeholder: 'zhangsan@example.com', type: 'email' },
-  { key: 'wechat', label: '微信', placeholder: 'zhangsan_wx' },
-  { key: 'address', label: '地址', placeholder: '北京市朝阳区...' },
-  { key: 'avatar', label: '头像 URL', placeholder: 'https://...' },
+const FIELDS: { key: keyof CardForm; labelKey: string; placeholderKey: string; type?: string }[] = [
+  { key: 'name', labelKey: 'fields.name.label', placeholderKey: 'fields.name.placeholder' },
+  { key: 'title', labelKey: 'fields.title.label', placeholderKey: 'fields.title.placeholder' },
+  { key: 'company', labelKey: 'fields.company.label', placeholderKey: 'fields.company.placeholder' },
+  { key: 'phone', labelKey: 'fields.phone.label', placeholderKey: 'fields.phone.placeholder' },
+  { key: 'email', labelKey: 'fields.email.label', placeholderKey: 'fields.email.placeholder', type: 'email' },
+  { key: 'wechat', labelKey: 'fields.wechat.label', placeholderKey: 'fields.wechat.placeholder' },
+  { key: 'address', labelKey: 'fields.address.label', placeholderKey: 'fields.address.placeholder' },
+  { key: 'avatar', labelKey: 'fields.avatar.label', placeholderKey: 'fields.avatar.placeholder' },
 ]
 
 const EMPTY_FORM: CardForm = {
@@ -74,6 +75,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export default function BusinessCardEditPage() {
+  const t = useTranslations('businessCardEditPage')
   const router = useRouter()
   const searchParams = useSearchParams()
   const editId = searchParams.get('id')
@@ -128,7 +130,7 @@ export default function BusinessCardEditPage() {
     e.preventDefault()
     setErr(null)
     if (!form.name.trim()) {
-      setErr('请输入姓名')
+      setErr(t('errors.nameRequired'))
       return
     }
     saveMut.mutate()
@@ -140,10 +142,10 @@ export default function BusinessCardEditPage() {
         <div className="flex items-center gap-2">
           <CreditCard className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-            {editId ? '编辑名片' : '新建名片'}
+            {editId ? t('editTitle') : t('createTitle')}
           </h1>
         </div>
-        <p className="text-sm text-muted-foreground">填写名片信息并选择模板样式</p>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Link
@@ -151,18 +153,18 @@ export default function BusinessCardEditPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回列表
+        {t('back')}
       </Link>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">名片信息</CardTitle>
+            <CardTitle className="text-base">{t('cardInfo')}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-4">
@@ -175,32 +177,32 @@ export default function BusinessCardEditPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 {FIELDS.map((f) => (
                   <div key={f.key} className="space-y-2">
-                    <Label htmlFor={`bc-${f.key}`}>{f.label}</Label>
+                    <Label htmlFor={`bc-${f.key}`}>{t(f.labelKey)}</Label>
                     <Input
                       id={`bc-${f.key}`}
                       type={f.type ?? 'text'}
                       value={form[f.key]}
                       onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))}
-                      placeholder={f.placeholder}
+                      placeholder={t(f.placeholderKey)}
                     />
                   </div>
                 ))}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="bc-bio">简介</Label>
+                <Label htmlFor="bc-bio">{t('bioLabel')}</Label>
                 <textarea
                   id="bc-bio"
                   value={form.bio}
                   onChange={(e) => setForm((p) => ({ ...p, bio: e.target.value }))}
                   rows={3}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  placeholder="一句话介绍自己..."
+                  placeholder={t('bioPlaceholder')}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>模板</Label>
+                <Label>{t('templateLabel')}</Label>
                 <div className="flex gap-2">
                   {TEMPLATES.map((tpl) => (
                     <button
@@ -215,7 +217,7 @@ export default function BusinessCardEditPage() {
                       )}
                     >
                       <User className="h-4 w-4" />
-                      {tpl.label}
+                      {t(tpl.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -228,7 +230,7 @@ export default function BusinessCardEditPage() {
                   onClick={() => router.push('/business-card')}
                   disabled={saveMut.isPending}
                 >
-                  取消
+                  {t('cancel')}
                 </Button>
                 <Button type="submit" disabled={saveMut.isPending}>
                   {saveMut.isPending ? (
@@ -236,7 +238,7 @@ export default function BusinessCardEditPage() {
                   ) : (
                     <Save className="mr-1 h-4 w-4" />
                   )}
-                  保存
+                  {t('save')}
                 </Button>
               </div>
             </form>
