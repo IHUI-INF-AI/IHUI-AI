@@ -15,11 +15,10 @@ interface PageIndicatorProps {
 /**
  * 右侧固定分页指示器 — 现代圆点风
  *
- * 2026-07-20 v3 重设计:之前矩形点太小太细反而难看。
- * 改为主流现代风格:
- *   - 默认点:6×6 圆形(rounded-full 装饰点豁免) bg-muted-foreground/40
- *   - active:16×6 椭圆 rounded-full bg-primary
- *   - hover:默认点变 muted-foreground/80 + 微放大到 8×8
+ * 2026-07-20 v4 重设计:用户要求 active 圆点竖向拉长 + 颜色仅黑白灰(去蓝)。
+ *   - 默认点:6×6 圆形(rounded-full 装饰点豁免) bg-foreground/30
+ *   - active:6×16 竖向胶囊 rounded-full bg-foreground(竖向 = 高度大于宽度)
+ *   - hover:默认点 6→8 圆形 + bg-foreground/60
  *   - 容器 gap 8px,button 命中区 16×10(命中精度 + 视觉紧凑)
  */
 export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
@@ -39,13 +38,13 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
             onClick={() => onClick(idx)}
             aria-label={t('switchTo', { index: idx + 1 })}
             aria-current={isActive ? 'true' : undefined}
-            className="group flex h-2.5 w-4 items-center justify-center"
+            className="group flex h-4 w-4 items-center justify-center"
           >
             <span
               className={`block rounded-full transition-all duration-300 ${
                 isActive
-                  ? 'h-1.5 w-4 bg-primary'
-                  : 'h-1.5 w-1.5 bg-muted-foreground/40 group-hover:h-1.5 group-hover:w-2 group-hover:bg-muted-foreground/80'
+                  ? 'h-4 w-1.5 bg-foreground'
+                  : 'h-1.5 w-1.5 bg-foreground/30 group-hover:h-2 group-hover:w-2 group-hover:bg-foreground/60'
               }`}
             />
           </button>
