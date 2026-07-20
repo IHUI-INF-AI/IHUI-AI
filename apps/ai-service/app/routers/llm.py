@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
+from ..core.context_compaction import compress_messages_if_needed
 from ..services.project_memory import build_system_prompt
 
 router = APIRouter()
@@ -129,6 +130,10 @@ class LLMCompleteRequest(BaseModel):
     workspace_path: str | None = Field(
         None, description="工作区路径,自动加载并注入项目记忆文件(CLAUDE.md/AGENTS.md/.ihui/memory.md)"
     )
+    # 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一,Python 端兜底)
+    context_limit: int | None = Field(
+        None, description="模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或 None = 不压缩"
+    )
 
 
 @router.post("/llm/complete")
@@ -137,6 +142,16 @@ async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any]:
     owner_uuid = (req.metadata or {}).get("userId")
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(req.messages, req.workspace_path)
+    # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
+    if req.context_limit and req.context_limit > 0:
+        messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        if compaction_info["compressed"]:
+            logger.info(
+                "Context auto-compressed (Python fallback): %d → %d tokens, removed %d msgs",
+                compaction_info["original_tokens"],
+                compaction_info["compressed_tokens"],
+                compaction_info["removed_count"],
+            )
     # 构造透传 kwargs(只透传非 None 的字段)
     kwargs: dict[str, Any] = {}
     if req.tools is not None:
@@ -192,9 +207,16 @@ async def complete_stream(req: LLMCompleteRequest) -> StreamingResponse:
     owner_uuid = (req.metadata or {}).get("userId")
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(req.messages, req.workspace_path)
+    # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
+    compaction_info: dict[str, Any] | None = None
+    if req.context_limit and req.context_limit > 0:
+        messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
 
     async def gen():
         try:
+            # 若发生压缩,通过 SSE 首事件通知调用方(对标 API 层的 compaction 事件)
+            if compaction_info and compaction_info.get("compressed"):
+                yield f"data: {json.dumps({'compaction': {'triggered': True, 'tokensBefore': compaction_info['original_tokens'], 'tokensAfter': compaction_info['compressed_tokens'], 'removedCount': compaction_info['removed_count'], 'usageRatio': compaction_info['usage_ratio']}}, ensure_ascii=False)}\n\n"
             async for event in llm_gateway.astream(messages, model=req.model, owner_uuid=owner_uuid):
                 event_type = event.get("type", "message")
                 # 累积内容用于回调
