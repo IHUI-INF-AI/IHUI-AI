@@ -7,7 +7,7 @@ import { BarChart3, Loader2, Clock, BookOpen, Award, TrendingUp } from 'lucide-r
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
-import { Alert } from '@/components/feedback'
+import { Alert, Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
 interface ProgressData {
@@ -90,12 +90,13 @@ export default function EduProgressPage() {
                 {(data.weeklyHours ?? []).map((w) => (
                   <div key={w.date} className="flex flex-1 flex-col items-center gap-1">
                     <div className="flex w-full flex-1 items-end">
+                    <Tooltip content={`${w.hours}h`}>
                       <div
                         className="w-full rounded-t bg-primary/80 transition-all hover:bg-primary"
                         style={{ height: `${(w.hours / maxHours) * 100}%`, minHeight: '2px' }}
-                        title={`${w.hours}h`}
                       />
-                    </div>
+                    </Tooltip>
+                  </div>
                     <span className="text-xs text-muted-foreground">{fmt(w.date)}</span>
                   </div>
                 ))}

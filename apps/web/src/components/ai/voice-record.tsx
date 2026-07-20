@@ -5,6 +5,7 @@ import { Mic, Square, Play, Pause, Trash2, Download } from 'lucide-react'
 import { Button } from '@ihui/ui'
 
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 interface VoiceRecordProps {
   /** 最大录制时长（秒） */
@@ -189,24 +190,26 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
             <track kind="captions" />
           </audio>
           <div className="ml-auto flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={downloadRecording}
-              title="下载"
-            >
-              <Download className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={deleteRecording}
-              title="删除"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            <Tooltip content="下载">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={downloadRecording}
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </Tooltip>
+            <Tooltip content="删除">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={deleteRecording}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </Tooltip>
           </div>
         </div>
       )}
