@@ -22,6 +22,7 @@ import {
   Gift,
   Shield,
   Search,
+  Send,
   Star,
   Tag,
   Rss,
@@ -414,6 +415,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       // 自媒体创作工具(2026-07-20 从独立分组整合到内容分组,内容创作归属内容大类)
       { href: '/self-media/wechat', labelKey: 'selfMediaWechat', icon: Newspaper },
       { href: '/self-media/koubo', labelKey: 'selfMediaKoubo', icon: Mic },
+      // 多平台一键发布平台(2026-07-20 新增,支持 md/docx/html/pdf/图片/视频 → 14 平台)
+      { href: '/publish', labelKey: 'publishPlatform', icon: Send },
     ],
   },
   {
@@ -698,7 +701,6 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           size="icon"
           className={btnClass}
           onClick={handleToggleTheme}
-          title={collapsed ? (isDark ? tt('lightMode') : tt('darkMode')) : undefined}
           aria-label={isDark ? tt('lightMode') : tt('darkMode')}
         >
           {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
@@ -761,14 +763,19 @@ function SidebarUserRow({
     <div className="flex justify-center px-1.5 pb-2">
       {/*
         group/row:头像+昵称作为整体悬停单元
-        - 2026-07-20 改:父容器从 `px-1.5 pb-2` 改为 `flex justify-center px-1.5 pb-2`,
-          子容器去掉 `mx-auto` 改用 `inline-flex`(flex 居中比 margin auto 在子元素上更可靠,
-          且 inline-flex 让父容器自然按内容宽度计算 flex 间距,左右空白对称分布)。
-        - 原 `w-full + justify-center` 在 118px 父内容区中只装 112px 内容
-          (button 36 + gap 6 + 文字 70),左右各 3px 空白,视觉上文字"几乎贴右"。
-        - 现父容器 flex + 子容器 inline-flex,内容宽度完全由子内容决定,
-          父 flex justify-center 居中 → 左右空白 100% 对称,hover 背景也只覆盖头像+文字组。
-        - 父容器 hover:bg-sidebar-item-hover-bg 出现弱色底(亮色纯白/暗色纯黑)
+        - 2026-07-20 v3 改(根除"文字贴上按钮右侧"问题):
+          1) 子容器加 `px-2`(左右各 8px padding):hover 背景覆盖到 padding,
+             button 左侧 + span 右侧各有 8px 留白,hover bg 视觉左右对称。
+             原方案子容器无 padding,hover bg 紧贴 button 左 + span 右,看起来"贴边"。
+          2) gap 从 `gap-1.5`(6px) → `gap-2`(8px):button 跟 span 间距增大,
+             "系统管理员"5 字不再贴上 button 右侧,视觉有呼吸感。
+          3) inline-flex 让子容器宽度 = padding*2 + button + gap + span 文字宽度,
+             内容宽度完全由子内容决定,父 `flex justify-center` 居中 → 左右空白 100% 对称。
+          4) 几个字的名称(2-7 字)自适应宽度,row 永远按内容宽度收缩,
+             不会出现"文字被截断贴到 button 右侧"的视觉问题。
+          5) 只有当 sidebar 拖到极窄(130px 最小)+ 长昵称(8 字+)时,span 才用 `min-w-0 truncate` 截断,
+             截断时显示省略号,不会贴到 button(因为有 gap-2 + px-2 双重间距)。
+        - 父容器 hover:bg-sidebar-item-hover-bg 出现弱色底(亮色纯白/暗色纯黑),
           与项目内其他导航项(NavLink/二级菜单)hover 行为完全一致,统一 hover 策略
         - 文本 group-hover/row:text-foreground 变亮(默认 text-foreground/70 弱化)
         - 折叠态 trigger button 加 p-1.5(12px) + 内部 Avatar h-6 w-6(24px) = 36×36 命中区,
@@ -779,7 +786,7 @@ function SidebarUserRow({
       */}
       <div
         className={cn(
-          'group/row inline-flex h-9 items-center gap-1.5 rounded-md transition-colors hover:bg-sidebar-item-hover-bg',
+          'group/row inline-flex h-9 items-center gap-2 rounded-md px-2 transition-colors hover:bg-sidebar-item-hover-bg',
         )}
       >
         <Dropdown
@@ -839,7 +846,6 @@ function SidebarUserRow({
               // 用 h-9 w-9 显式锁定 button 高度 = row 高度后,头像 + 文字视觉完美居中。
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={user?.nickname ?? 'User'}
-              title={user?.nickname ?? 'User'}
             >
               <Avatar
                 src={user?.avatar ?? undefined}
@@ -1231,7 +1237,6 @@ function ExpandableNavItem({
             aria-label={label}
             aria-controls={listId}
             className={parentClassName}
-            title={label}
           >
             <Icon className="h-5 w-5 shrink-0" />
           </button>
@@ -1750,18 +1755,19 @@ export function Sidebar({
           onClick={() => router.push('/')}
         />
       )}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onToggleCollapse}
-        // h-9 w-9 (36×36) 与新建任务按钮/主导航项统一;hover 用 foreground/20 与新建任务按钮一致;
-        // 默认无背景,仅 hover 出现 (2026-07-20 用户反馈:默认 bg-foreground/10 让按钮视觉过重)
-        className={cn('flex-shrink-0 p-0 text-foreground hover:bg-foreground/20', 'hidden lg:flex')}
-        title={collapsed ? t('expand') : t('collapse')}
-        aria-label={collapsed ? t('expand') : t('collapse')}
-      >
-        {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-      </Button>
+      <Tooltip content={collapsed ? t('expand') : t('collapse')} side="right">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleCollapse}
+          // h-9 w-9 (36×36) 与新建任务按钮/主导航项统一;hover 用 foreground/20 与新建任务按钮一致;
+          // 默认无背景,仅 hover 出现 (2026-07-20 用户反馈:默认 bg-foreground/10 让按钮视觉过重)
+          className={cn('flex-shrink-0 p-0 text-foreground hover:bg-foreground/20', 'hidden lg:flex')}
+          aria-label={collapsed ? t('expand') : t('collapse')}
+        >
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </Button>
+      </Tooltip>
       <Button
         variant="ghost"
         size="icon"

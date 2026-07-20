@@ -3,6 +3,7 @@
 import { ArrowLeft } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import type { ProjectDetail } from './types'
 
 interface Props {
@@ -23,9 +24,11 @@ export function ProjectHeader({
   const t = useTranslations('workspace')
   return (
     <div className="flex items-center gap-3">
-      <Button variant="ghost" size="icon" onClick={onBack} title={t('back')}>
-        <ArrowLeft className="h-5 w-5" />
-      </Button>
+      <Tooltip content={t('back')}>
+        <Button variant="ghost" size="icon" onClick={onBack}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+      </Tooltip>
       <div className="min-w-0">
         <h1 className="break-words text-2xl font-bold tracking-tight md:text-3xl">
           {projectError ? (

@@ -5,6 +5,7 @@ import { Loader2, Pencil, Trash2 } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { Tooltip } from '@/components/feedback'
 import { toArrayImages } from './helpers'
 import type { Product } from './types'
 
@@ -129,20 +130,23 @@ export function ProductTable({
                         {p.status === 'online' ? '下架' : '上架'}
                       </Button>
                       <HasPermi code="ai:zhs_product:edit">
-                        <Button size="sm" variant="ghost" onClick={() => onEdit(p)} title="编辑">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                        <Tooltip content="编辑">
+                          <Button size="sm" variant="ghost" onClick={() => onEdit(p)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </Tooltip>
                       </HasPermi>
                       <HasPermi code="ai:zhs_product:remove">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => onDelete(p)}
-                          title="删除"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <Tooltip content="删除">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onDelete(p)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </Tooltip>
                       </HasPermi>
                     </div>
                   </TableCell>

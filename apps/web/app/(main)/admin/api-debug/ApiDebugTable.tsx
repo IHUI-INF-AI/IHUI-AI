@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { TruncatedText } from '@/components/common'
 import { METHOD_COLOR } from './helpers'
 import type { HistoryItem } from './types'
 
@@ -42,8 +43,8 @@ export function ApiDebugTable({ list }: Props) {
                   {h.method}
                 </span>
               </td>
-              <td className="max-w-[320px] break-words px-4 py-2 font-mono text-xs" title={h.url}>
-                {h.url}
+              <td className="px-4 py-2 text-xs">
+                <TruncatedText value={h.url} className="max-w-[320px]" mono />
               </td>
               <td className="px-4 py-2">
                 <span

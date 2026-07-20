@@ -7,6 +7,7 @@ import { Star, Folder, FileText, Trash2, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
 type ResourceType = 'project' | 'file' | 'doc' | 'post' | 'comment'
@@ -124,16 +125,17 @@ export default function FavoritesPage() {
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {dateFmt.format(new Date(item.createdAt))}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                  onClick={() => removeMut.mutate(item)}
-                  disabled={removeMut.isPending}
-                  title={t('remove')}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <Tooltip content={t('remove')}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={() => removeMut.mutate(item)}
+                    disabled={removeMut.isPending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </Tooltip>
               </li>
             )
           })}

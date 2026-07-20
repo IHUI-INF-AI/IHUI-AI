@@ -13,6 +13,7 @@ import {
   Button,
   Checkbox,
 } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 import { PERM } from './helpers'
 import type { Category } from './types'
 
@@ -130,21 +131,24 @@ export function CategoryTable({
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <HasPermi code={`${PERM}edit`}>
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title={t('edit')}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('edit')}>
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(r)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                     <HasPermi code={`${PERM}remove`}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(r)}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deletePending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('delete')}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(r)}
+                          className="text-destructive hover:text-destructive"
+                          disabled={deletePending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </HasPermi>
                   </div>
                 </TableCell>
