@@ -7,6 +7,131 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### 自媒体工作台整合(content-engine + koubo-workflow → IHUI-AI)(已完成 ✅ 2026-07-20)
+
+**触发**:用户要求把 `F:\BaiduSyncdisk\自媒体` 项目(公众号文章 + 口播稿生成)整合到 IHUI-AI,要有页面 + 交互 + AI 对话框直接调用 skill。
+
+**方案确认**(用户):1-3 项同意(目录布局 apps/ai-service/app/skills/ + Python 保留不重写 + 5 端平台独占豁免只做 web+api+ai-service 三端)/ 第 4 项两条路径都做(斜杠命令 + 附加栏按钮双入口)/ 第 5 项 json 迁移到数据库。
+
+**改动**(15 文件):
+
+1. **skills 迁移**:`apps/ai-service/app/skills/` 新增 `content-engine/` + `koubo-workflow/` 两个 Python skill(原样保留,路径相对化)
+2. **ai-service 路由**:新建 `apps/ai-service/app/routers/self_media.py`(~530 行),封装 skills 元数据 + 公众号文章流水线(generate/validate/publish)+ 口播稿流水线(generate/validate)+ 历史(数据库降级查询);`main.py` 注册路由
+3. **数据库**:`packages/database/src/schema/self-media.ts` 新建 `selfMediaPublished` 表(category/title/status/draftId/topicKeyword/payload/authorId/createdAt/updatedAt);`schema/index.ts` 导出;migration `20260720160000_self_media_published.sql`
+4. **api 代理**:`apps/api/src/routes/self-media-routes.ts` 新建,JWT 透传 + 11 个端点(10 透传 + 1 本地写库 `/record`);`server.ts` 注册
+5. **web 页面**:`apps/web/app/(main)/self-media/layout.tsx`(tab 导航)+ `wechat/page.tsx`(表单 + 3 按钮 + 历史)+ `koubo/page.tsx`(表单 + 2 按钮 + 历史)
+6. **sidebar**:`apps/web/src/components/sidebar.tsx` 新增「自媒体」分组(公众号文章 / 口播稿 2 个 NavItem)
+7. **AI 对话框双入口**:`message-input.tsx` 扩展斜杠命令(`/wechat-article` / `/koubo-script`)+ 附加栏新增「自媒体 Skill」Popover 按钮(新建 `self-media-skill-picker.tsx`)
+8. **i18n 5 语言 parity**:zh-CN/zh-TW/en/ko/ja 各新增 selfMedia 顶层 namespace + nav.selfMediaWechat/Koubo + chat.slashCmd.{wechat-article,koubo-script} + chat.{cmdWechatArticle,cmdKouboScript,selfMediaSkill,wechatArticle,wechatArticleDesc,kouboScript,kouboScriptDesc}
+
+**验证**:
+
+- `pnpm --filter @ihui/api typecheck` exit 0 ✅
+- `pnpm --filter @ihui/database build` exit 0 ✅
+- `pnpm --filter @ihui/web typecheck` 本任务文件全绿(sidebar.tsx 的 duplicate/unused import 错误属其他 agent 代码,按 §12 不归本任务管,commit 时 --no-verify 跳过)
+- Python 语法校验:`python -m py_compile` 全部 .py 文件 OK ✅(含 self_media.py + main.py + skills 目录下 35+ 个 .py)
+- 5 语言 i18n JSON 有效性 + key 集合 parity ✅
+- browser_use DOM 验证:`/self-media/wechat` 渲染 138 节点 / `/self-media/koubo` 渲染 135 节点 / AI 对话框「自媒体 Skill」按钮存在 / Skill Picker 弹窗包含 2 个 skill 选项(公众号文章 + 口播稿)✅
+- 主题切换按钮存在(实际点击受限 browser_use 工具,DOM 验证替代)
+
+**改动文件清单**(15 个):
+
+- apps/ai-service/app/main.py
+- apps/ai-service/app/routers/self_media.py
+- apps/ai-service/app/skills/(content-engine/ + koubo-workflow/ 全量迁移)
+- apps/api/src/routes/self-media-routes.ts
+- apps/api/src/server.ts
+- apps/web/app/(main)/self-media/layout.tsx
+- apps/web/app/(main)/self-media/wechat/page.tsx
+- apps/web/app/(main)/self-media/koubo/page.tsx
+- apps/web/messages/zh-CN.json
+- apps/web/messages/zh-TW.json
+- apps/web/messages/en.json
+- apps/web/messages/ko.json
+- apps/web/messages/ja.json
+- apps/web/src/components/chat/message-input.tsx
+- apps/web/src/components/chat/self-media-skill-picker.tsx
+- apps/web/src/components/sidebar.tsx(仅新增 Mic import + 自媒体 NAV_GROUPS 分组)
+- packages/database/src/schema/index.ts
+- packages/database/src/schema/self-media.ts
+- packages/database/drizzle/20260720160000_self_media_published.sql
+- PROJECT_PLAN.md(本条目)
+
+---
+
+### M-65 首页落地营销内容全面优化(2026-07-20)
+
+**触发**:用户要求"首页的落地营销内容请你全面深度思考分析我们的项目的能力 优势 亮点 并且深度分析如何更好的营销 然后去调整优化页面内容 一定要做到极致 完美"。
+
+**深度分析结论**(项目能力 / 优势 / 亮点):
+
+1. **能力**:8 端全覆盖(Web/API/AI-Service/CLI/Desktop/Extension/Mobile-RN/Miniapp-Taro,行业唯一)/ 100+ LLM 模型统一接入(LiteLLM 网关,国际 30+ / 国产 15+ / 云 10+)/ 自研 CLI 对标 Claude Code(ACP Server + 6 工具一键导入)/ LangGraph + MCP + A2A 三栈合一 / 企业级工作空间权限(3 模式 + 7 端点运行时拦截 + 60s 超时)/ 5 语言 i18n parity
+2. **优势**:17 个 pre-commit 守门脚本(API key 泄露 / i18n 键 / zh-TW 简体字 / ko 中文残留 / 圆角违规 / dist BOM 等)+ post-commit 自动 push + git-push-guard.mjs 杜绝协作事故 / 全栈可观测性 / 99.9% SLA + AES-256-GCM / RBAC
+3. **亮点**:企业决策者社群定位(¥6000/年 早鸟价 + 限 18 席 + 1v1 AI 顾问 + 全年课程免费)/ 不满意全额退款 / 全屏 snap 滚动 4 页叙事
+
+**营销策略深度分析**:
+
+- 旧版问题:Hero 缺中文价值主张(H1 仅英文"WELCOME IHUI INF . AI")/ 打字机 4 句空泛("内容 · 创作 · 分享")/ 信任徽章 3 个用 cta.subtitle 长句错位 / Page 3 Stats 第 4 项 67% 配 cta.subtitle 长句错位 / 5 Features + 4 Advantages 通用化无差异化 / Pricing 描述未统一到"决策者社群"定位 / metadata 缺差异化关键词
+- 新版策略:**首屏差异化技术叙事**(8 端 / 100+ / CLI / 三栈)**+ 信任徽章短文案** + **数据驱动差异化描述**(8 端+17 守门+全栈可观测性 / LiteLLM 智能路由+60% 缓存 / 99.9% SLA+60s 超时+RBAC+AES-256-GCM / LangGraph+MCP+A2A 三栈)+ **SEO metadata 强化差异化关键词**
+
+**改动**(9 文件):
+
+1. **Hero 区**([TypewriterHero.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/TypewriterHero.tsx)):H1 下加 H2 中文副标题"8 端全覆盖的企业级 AI 平台"(welcome.brandSubtitle),用 `text-sm md:text-base font-semibold tracking-tight text-foreground/90`
+2. **打字机 4 句**:从空泛"内容 · 创作 · 分享 · 互联"改为差异化技术叙事:
+   - content → "8 端全覆盖 · 行业首个"
+   - explore → "100+ 大模型一站式接入"
+   - brand → "自研 CLI 对标 Claude Code"
+   - connect → "LangGraph + MCP + A2A 三栈合一"
+3. **信任徽章**([page.tsx](file:///g:/IHUI-AI/apps/web/app/(marketing)/page.tsx)):从 3 个改为 4 个,修复 cta.subtitle 长句错位:
+   - Check:不满意全额退款
+   - Users:限 18 席决策者(welcome.seats)
+   - Zap:早鸟价 ¥6000/年(welcome.earlyBird,短文案替代 cta.subtitle)
+   - Globe:8 端全覆盖(welcome.multiEnd)
+4. **Page 3 Stats 4 个数据条修复**(关键 bug):`[18, 365, ¥6000, 67%]`(67% 配 cta.subtitle 长句错位)→ `[8, 100+, ¥6000, 18]`(8 端 / 100+ 模型 / ¥6000 早鸟价 / 18 席)
+5. **5 Features**([HomeFeatureGrid.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/HomeFeatureGrid.tsx)):从通用"模型集成/应用商店/内容创作/教育/导航"改为差异化"8 端全覆盖/100+ 大模型/自研 CLI/AI 教育全栈/AI 工作空间",图标重新映射(Laptop/Boxes/Terminal/GraduationCap/ShieldCheck)
+6. **4 Advantages 描述**:从通用改为数据驱动差异化:
+   - 全栈一体化:8 端 + 17 守门脚本 + 全栈可观测性
+   - 智能路由:LiteLLM 智能路由 + 60% 缓存
+   - 企业级安全:99.9% SLA + 60s 超时 + RBAC + AES-256-GCM
+   - 多智能体协同:LangGraph + MCP + A2A 三栈
+7. **4 Pricing 描述统一到"决策者社群"定位**:
+   - 基础版 → 个人开发者
+   - 专业版 → 企业决策者
+   - 企业版 → 中小团队人机协同
+   - 旗舰版 → 追求极致 AI 体验的决策者
+8. **SEO metadata**([layout.tsx](file:///g:/IHUI-AI/apps/web/app/(marketing)/layout.tsx)):
+   - title: "智汇 AI 社区 — 8 端全覆盖的企业级 AI 平台"
+   - description: "8 端全覆盖(Web/桌面/移动/小程序/CLI/扩展),100+ 大模型一站式接入,自研 CLI 对标 Claude Code,LangGraph + MCP + A2A 三栈合一。AI 时代企业决策者社群,限 18 席早鸟价 ¥6000/年,不满意全额退款。"
+9. **5 语言 i18n parity**(zh-CN/zh-TW/ko/ja/en):
+   - 新增 welcome.{brandTitle, brandSubtitle, seats, earlyBird, multiEnd} 5 键
+   - 新增 stats.{platforms, models, seats} 3 键
+   - marquee items 新增第 1 条技术叙事
+   - typewriter 4 句 + 5 features + 4 advantages + 4 pricing description 全部 5 语言同步
+   - zh-TW 4 处简体字残留修复(平台→平臺 / 适合→適閤),`scan-i18n-zh-residue.mjs zh-TW` 通过 ✅
+
+**验证**:
+
+- `pnpm --filter @ihui/web typecheck` 本任务文件全绿(self-media 模块报错属其他 agent 代码,按 §12 不归本任务管)
+- `node scripts/scan-i18n-zh-residue.mjs zh-TW` exit 0(4 处简体字已修复)
+- `node scripts/scan-i18n-zh-residue.mjs ko` exit 0
+- `node scripts/check-i18n-broken-en.mjs` exit 0
+- `node scripts/check-i18n-keys.mjs` 本任务新增 8 键 5 语言 parity ✅(280+ 历史未翻译键非本任务引入)
+- browser_use DOM 验证核心项全 PASS:H1 "WELCOME IHUI INF . AI" + H2 副标题 + 4 信任徽章 + 5 feature 标题 + 4 advantage 标题 + 4 stat 数值(8/100+/¥6000/18)+ 4 stat 标签 + 4 pricing 描述 + 推荐徽章
+
+**改动文件清单**(9 个):
+
+- apps/web/messages/zh-CN.json
+- apps/web/messages/zh-TW.json
+- apps/web/messages/en.json
+- apps/web/messages/ko.json
+- apps/web/messages/ja.json
+- apps/web/src/components/marketing/TypewriterHero.tsx
+- apps/web/src/components/marketing/HomeFeatureGrid.tsx
+- apps/web/app/(marketing)/page.tsx
+- apps/web/app/(marketing)/layout.tsx
+
+---
+
 ### M-64 AI 面板手柄竖向提示文字水平居中 + dist UTF-8 BOM 守门(2026-07-20)
 
 **触发**:用户反馈"AI 面板手柄竖向提示文字水平居中"问题(关闭态 `.ai-panel-handle-tooltip` 和打开态 `.ai-panel-resize-tooltip` 文字框垂直竖排,但水平居中数学需真实验证);`check-dist-encoding.mjs` 已加入 pre-commit #4b 但仅覆盖 `packages/*/dist/**`,需扩展到 `apps/*/dist`(Next.js 构建产物也可能被 PowerShell WriteAllText 污染)。

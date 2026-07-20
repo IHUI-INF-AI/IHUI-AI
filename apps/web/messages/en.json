@@ -398,6 +398,8 @@
     "agents": "Agents",
     "distribution": "Distribution",
     "oauthPlatform": "Open Platform",
+    "selfMediaWechat": "WeChat Article",
+    "selfMediaKoubo": "Voice-over Script",
     "downloadIOS": "iOS",
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "WeChat Mini Program",
@@ -11950,6 +11952,46 @@
       "allowPopup": "Please allow pop-ups to print the certificate",
       "printError": "Print failed",
       "certText": "This is to certify that {name} has passed the relevant assessment."
+    }
+  },
+  "selfMedia": {
+    "title": "Self-Media Workbench",
+    "subtitle": "WeChat article + voice-over script generation skill, directly invocable from AI dialog",
+    "wechat": "WeChat Article",
+    "koubo": "Voice-over Script",
+    "wechatPage": {
+      "formTitle": "WeChat Article Pipeline",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Enter article title",
+      "digestLabel": "Summary",
+      "digestPlaceholder": "Summarize the article core in one sentence",
+      "mdPathLabel": "Source md path",
+      "mdPathPlaceholder": "articles/xxx.md (leave empty to auto-locate by title)",
+      "coverLabel": "Cover image path",
+      "coverPlaceholder": "output/images/cover.jpg (optional)",
+      "generate": "Generate (dry-run)",
+      "validate": "22-check validation",
+      "publishDryRun": "Push to draft box (dry-run)",
+      "resultTitle": "Run result",
+      "runSuccess": "Run succeeded",
+      "runFailed": "Run failed",
+      "historyTitle": "History",
+      "historyEmpty": "No published records"
+    },
+    "kouboPage": {
+      "formTitle": "Voice-over Script Pipeline",
+      "dateLabel": "Date (MMDD)",
+      "topicLabel": "Topic direction",
+      "topicPlaceholder": "e.g., AI large model release wave",
+      "filePathLabel": "Voice-over script path",
+      "filePathPlaceholder": "Output/0720.txt",
+      "generate": "Generate guide",
+      "validate": "Dual-gate validation",
+      "resultTitle": "Run result",
+      "runSuccess": "Run succeeded",
+      "runFailed": "Run failed",
+      "historyTitle": "History",
+      "historyEmpty": "No published records"
     }
   },
   "privateMessages": {
