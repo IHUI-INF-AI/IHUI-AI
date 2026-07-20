@@ -48,7 +48,7 @@ export default function LoginPopup({
     >
       <div
         className={cn(
-          'relative w-full max-w-sm rounded-2xl bg-background p-6 shadow-xl',
+          'login-scope relative w-full max-w-sm rounded-2xl bg-background p-6 shadow-xl',
           className,
         )}
       >
