@@ -13,6 +13,7 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { createConversation, sendMessage as persistMessage } from '@/lib/chat-api'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
+import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 
 // 斜杠命令 → 自媒体 skill 直调映射(避免走 LLM chat 流,直接调 skill API)
 // /wechat-article <title>  → POST /api/self-media/wechat/generate {title, dryRun:true}
@@ -73,8 +74,8 @@ async function tryHandleSelfMediaSlash(
 ): Promise<boolean> {
   // 返回 true 表示命中斜杠命令(已调 skill),false 表示走原 chat 流程
   const trimmed = text.trim()
-  const matched = Object.keys(SELF_MEDIA_SLASH_MAP).find((cmd) =>
-    trimmed === cmd || trimmed.startsWith(cmd + ' ') || trimmed.startsWith(cmd + '\n'),
+  const matched = Object.keys(SELF_MEDIA_SLASH_MAP).find(
+    (cmd) => trimmed === cmd || trimmed.startsWith(cmd + ' ') || trimmed.startsWith(cmd + '\n'),
   )
   if (!matched) return false
   const cfg = SELF_MEDIA_SLASH_MAP[matched as keyof typeof SELF_MEDIA_SLASH_MAP]
@@ -204,6 +205,14 @@ export function useChat(): UseChatReturn {
             messageId: assistantId,
           },
           workspacePath,
+          // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,API 端调用共享包压缩
+          contextLimit: getModelContextCapacity(model),
+          onCompaction: (info) => {
+            // 后端自动压缩完成,toast 提示用户(对标 CLI /compact 命令的可见性)
+            toast.success('上下文已自动压缩', {
+              description: `${formatTokenCount(info.tokensBefore)} → ${formatTokenCount(info.tokensAfter)}(移除 ${info.removedCount} 条历史)`,
+            })
+          },
           onDelta: (delta) => {
             firstTokenReceived = true
             useChatStore.getState().appendToMessage(assistantId, delta)

@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { repairMessages } from '@ihui/types'
+import { compressContextIfNeeded, type ChatMessage } from '@ihui/context-compaction'
 import { config } from '../config/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { error } from '../utils/response.js'
@@ -21,6 +22,8 @@ const chatStreamSchema = z.object({
   materialContent: z.string().optional(),
   /** 当前绑定的本地工作区路径,透传到 ai-service 用于注入项目记忆(CLAUDE.md/AGENTS.md) */
   workspacePath: z.string().optional(),
+  /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或不传 = 不压缩 */
+  contextLimit: z.number().int().min(0).max(2_000_000).optional(),
   metadata: z
     .object({
       conversationId: z.string().optional(),
@@ -61,6 +64,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       agentId,
       materialContent,
       workspacePath,
+      contextLimit,
       metadata,
     } = parsed.data
     const resolvedModel = model ?? modelId
@@ -68,6 +72,30 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     // P38 跨端同步:修复 messages 结构异常(非法 role/空 content/连续重复/开头 assistant/末尾无响应 user)
     // 共享函数 @ihui/types/message-repair,与 CLI repairSessionHistory / ai-service repair_messages 同源
     const { repaired: messages, removed: repairRemoved } = repairMessages(rawMessages)
+
+    // P39 跨端统一:88% 阈值自动压缩上下文(共享包 @ihui/context-compaction)
+    // CLI / API / ai-service 共用同一套规则,前端传 contextLimit 触发,压缩结果通过 SSE 通知前端
+    let finalMessages: ChatMessage[] = messages
+    let compactionInfo: {
+      triggered: true
+      tokensBefore: number
+      tokensAfter: number
+      removedCount: number
+      usageRatio: number
+    } | null = null
+    if (contextLimit && contextLimit > 0) {
+      const result = compressContextIfNeeded(messages, { contextLimit })
+      if (result.compressed) {
+        finalMessages = result.messages
+        compactionInfo = {
+          triggered: true,
+          tokensBefore: result.originalTokens,
+          tokensAfter: result.compressedTokens,
+          removedCount: result.removedCount,
+          usageRatio: result.usageRatio ?? 0,
+        }
+      }
+    }
 
     reply.hijack()
     const raw = reply.raw
@@ -81,6 +109,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     // 若发生修复,通过 SSE 首事件通知前端(对标 CLI /repair 命令的可见性)
     if (repairRemoved > 0) {
       raw.write(`data: ${JSON.stringify({ repair: { removed: repairRemoved } })}\n\n`)
+    }
+
+    // 若发生压缩,通过 SSE 首事件通知前端(对标 CLI /compact 命令的可见性,跨端统一 0.88 阈值)
+    if (compactionInfo) {
+      raw.write(`data: ${JSON.stringify({ compaction: compactionInfo })}\n\n`)
     }
 
     const controller = new AbortController()
@@ -101,12 +134,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           Authorization: request.headers.authorization ?? '',
         },
         body: JSON.stringify({
-          messages,
+          messages: finalMessages,
           sessionId,
           model: resolvedModel,
           agentId,
           materialContent,
           workspacePath,
+          contextLimit: contextLimit ?? 0,
           metadata: mergedMetadata,
         }),
         signal: controller.signal,

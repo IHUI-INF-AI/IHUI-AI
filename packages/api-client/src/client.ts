@@ -243,6 +243,13 @@ export interface StreamChatOptions {
   onError?: (error: string) => void
   onDone?: () => void
   onReasoning?: (delta: string) => void
+  /** 后端自动压缩上下文(88% 阈值触发)时回调,前端可 toast 提示用户 */
+  onCompaction?: (info: {
+    tokensBefore: number
+    tokensAfter: number
+    removedCount: number
+    usageRatio: number
+  }) => void
   metadata?: { conversationId?: string; userId?: string; messageId?: string }
   temperature?: number
   topP?: number
@@ -253,6 +260,9 @@ export interface StreamChatOptions {
    * 透传到后端用于注入 CLAUDE.md/AGENTS.md 项目记忆作为 system prompt。
    * 无绑定时为 undefined,后端使用默认 system prompt。 */
   workspacePath?: string
+  /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一)。
+   * 由 use-chat.ts 调 getModelContextCapacity(model) 取得,后端不传则不压缩。 */
+  contextLimit?: number
 }
 
 export function parseStreamLine(line: string): string | null {
@@ -679,6 +689,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (opts.maxTokens !== undefined) body.maxTokens = opts.maxTokens
   if (opts.stop !== undefined) body.stop = opts.stop
   if (opts.workspacePath) body.workspacePath = opts.workspacePath
+  if (opts.contextLimit !== undefined) body.contextLimit = opts.contextLimit
 
   try {
     const resp = await fetch(url, {
@@ -722,6 +733,32 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const decoder = new TextDecoder()
     let buffer = ''
     const hasReasoning = typeof opts.onReasoning === 'function'
+    const hasCompaction = typeof opts.onCompaction === 'function'
+
+    const tryParseCompaction = (line: string): void => {
+      if (!hasCompaction) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data)
+        if (json?.compaction?.triggered === true) {
+          opts.onCompaction!({
+            tokensBefore: Number(json.compaction.tokensBefore ?? 0),
+            tokensAfter: Number(json.compaction.tokensAfter ?? 0),
+            removedCount: Number(json.compaction.removedCount ?? 0),
+            usageRatio: Number(json.compaction.usageRatio ?? 0),
+          })
+        }
+      } catch {
+        /* 非 JSON 或非 compaction 事件忽略 */
+      }
+    }
 
     for (;;) {
       const { done, value } = await reader.read()
@@ -731,6 +768,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       while ((nl = buffer.indexOf('\n')) !== -1) {
         const line = buffer.slice(0, nl).replace(/\r$/, '')
         buffer = buffer.slice(nl + 1)
+        tryParseCompaction(line)
         const delta = parseStreamLine(line)
         if (delta) opts.onDelta(delta)
         if (hasReasoning) {
@@ -740,6 +778,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
     if (buffer.trim()) {
+      tryParseCompaction(buffer)
       const delta = parseStreamLine(buffer)
       if (delta) opts.onDelta(delta)
       if (hasReasoning) {

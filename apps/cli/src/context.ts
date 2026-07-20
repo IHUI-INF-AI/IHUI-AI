@@ -6,25 +6,39 @@
  *   - token 估算:gpt-tokenizer(BPE 真实分词,精确匹配 GPT-4/Cl100k 编码)
  *   - 压缩策略:保留首条 system + 尾部最近 N 条,中段用摘要替代
  *   - 阈值触发:支持绝对值(maxTokens)和百分比(triggerRatio of contextLimit)两种模式
- *   - 百分比模式:达 triggerRatio(如 0.85)触发压缩,压缩到 targetRatio(如 0.6)留出空间
+ *   - 百分比模式:达 triggerRatio(默认 0.88 = 88%,跨端统一)触发压缩,压缩到 targetRatio(0.6)留出空间
+ *
+ * 跨端共享:压缩核心逻辑提取到 @ihui/context-compaction,CLI/Web/API/ai-service 共用同一套规则。
+ * 本文件保留 UsageLedger + 压缩函数的 CLI 包装器(桥接 preCompact/postCompact hooks)。
  */
 
-import { encode } from 'gpt-tokenizer';
-import { runHook } from './hooks/index.js';
+// 共享包 re-export(跨端统一常量 + 纯函数)
+export {
+  estimateTokens,
+  estimateMessagesTokens,
+  summarizeMessage,
+  buildStructuredSummary,
+  compressContext,
+  type ChatMessage,
+  type CompressionResult,
+  type CompressionOptions,
+  type RatioCompressionOptions,
+  type CompactionHooks,
+  DEFAULT_TRIGGER_RATIO,
+  DEFAULT_TARGET_RATIO,
+  DEFAULT_KEEP_RECENT,
+  DEFAULT_MAX_TOKENS,
+  CONTEXT_BUDGET_THRESHOLD,
+} from '@ihui/context-compaction'
 
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-export function estimateTokens(text: string): number {
-  if (!text) return 0;
-  return encode(text).length;
-}
-
-export function estimateMessagesTokens(messages: ChatMessage[]): number {
-  return messages.reduce((sum, m) => sum + estimateTokens(m.content) + 4, 0);
-}
+import {
+  compressContextIfNeeded as _compressContextIfNeeded,
+  type ChatMessage,
+  type RatioCompressionOptions,
+  type CompressionResult,
+  type CompactionHooks,
+} from '@ihui/context-compaction'
+import { runHook } from './hooks/index.js'
 
 // ==================== P2-5 UsageLedger:chat-state token 估算 ====================
 
@@ -192,299 +206,49 @@ export class UsageLedger {
   }
 }
 
-export interface CompressionResult {
-  messages: ChatMessage[];
-  compressed: boolean;
-  originalTokens: number;
-  compressedTokens: number;
-  removedCount: number;
-  /** 触发原因(百分比模式才有值) */
-  trigger?: 'ratio' | 'absolute' | 'none';
-  /** 当前 token 占用率(percentage of contextLimit,百分比模式才有值) */
-  usageRatio?: number;
-}
+// ==================== CLI 压缩包装器(桥接 preCompact/postCompact hooks) ====================
+//
+// 共享包 @ihui/context-compaction 提供纯函数版 compressContextIfNeeded(无副作用,API/Web 直接用)。
+// CLI 端需要触发用户自定义 hooks(preCompact/postCompact,用于通知外部服务或执行本地命令),
+// 因此用本包装器把 runHook 桥接为 CompactionHooks 回调。
+//
+// 阈值由共享包统一为 0.88(88%),跨端一致。
 
-export interface CompressionOptions {
-  maxTokens?: number;
-  keepRecent?: number;
-}
-
-const DEFAULT_MAX_TOKENS = 24_000;
-const DEFAULT_KEEP_RECENT = 6;
-
-// ==================== 结构化摘要(替代 slice(0,200) 粗暴截断)====================
-
-const TOOL_CALL_REGEX = /```tool_call\s*\n([\s\S]*?)```/g;
-const TOOL_RESULT_REGEX = /\[工具结果\s*[✓✗]\]\s*(\S+)/g;
-const CODE_BLOCK_REGEX = /```(\w+)?/g;
-const MAX_SUMMARY_LEN = 160;
-
-/**
- * 从单条消息内容提取结构化关键信息(智能摘要)。
- *
- * 替代 `msg.content.slice(0, 200)` 的粗暴截断,提取:
- *   - assistant:tool_call 名称列表 + 首句决策 + 代码块语言标识
- *   - user:tool_result 状态(✓/✗)+ 工具名 + 首句
- *   - 其他:首句
- *
- * 每条摘要最多 MAX_SUMMARY_LEN 字符,信息密度高于 slice(0,200)。
- */
-export function summarizeMessage(msg: ChatMessage): string {
-  const role = msg.role;
-  const content = msg.content;
-  if (!content) return `[${role}] (空)`;
-
-  const parts: string[] = [`[${role}]`];
-
-  // 提取 tool_call 名称(assistant 调用了哪些工具)
-  if (role === 'assistant') {
-    const toolNames: string[] = [];
-    let m: RegExpExecArray | null;
-    TOOL_CALL_REGEX.lastIndex = 0;
-    while ((m = TOOL_CALL_REGEX.exec(content)) !== null) {
-      try {
-        const parsed = JSON.parse(m[1]!.trim());
-        if (parsed && typeof parsed.name === 'string') toolNames.push(parsed.name);
-      } catch {
-        // 忽略解析失败
-      }
-    }
-    if (toolNames.length > 0) {
-      parts.push(`工具调用: ${toolNames.join(', ')}`);
-    }
-  }
-
-  // 提取 tool_result 状态(user 消息中嵌入的工具结果)
-  if (role === 'user') {
-    const results: string[] = [];
-    let m: RegExpExecArray | null;
-    TOOL_RESULT_REGEX.lastIndex = 0;
-    while ((m = TOOL_RESULT_REGEX.exec(content)) !== null) {
-      results.push(m[1]!);
-    }
-    if (results.length > 0) {
-      parts.push(`工具结果: ${results.join(', ')}`);
-    }
-  }
-
-  // 提取代码块语言标识(assistant 写了什么语言的代码)
-  if (role === 'assistant') {
-    const langs: string[] = [];
-    let m: RegExpExecArray | null;
-    CODE_BLOCK_REGEX.lastIndex = 0;
-    while ((m = CODE_BLOCK_REGEX.exec(content)) !== null) {
-      const lang = m[1];
-      if (lang && !langs.includes(lang)) langs.push(lang);
-    }
-    if (langs.length > 0) {
-      parts.push(`代码块: ${langs.join(', ')}`);
-    }
-  }
-
-  // 提取首句(去掉 markdown 标记后的第一个句子)
-  const firstSentence = content
-    .replace(/```[\s\S]*?```/g, ' ') // 移除代码块
-    .replace(/[#*`>_~]/g, ' ')        // 移除 markdown 标记
-    .replace(/\s+/g, ' ')
-    .trim()
-    .split(/[。.!!\n?]/)[0] ?? '';
-  if (firstSentence) {
-    parts.push(firstSentence.slice(0, 80));
-  }
-
-  let summary = parts.join(' ');
-  if (summary.length > MAX_SUMMARY_LEN) {
-    summary = summary.slice(0, MAX_SUMMARY_LEN - 3) + '...';
-  }
-  return summary;
-}
-
-/** 批量生成结构化摘要(用于 compressContext / compressContextIfNeeded) */
-export function buildStructuredSummary(messages: ChatMessage[]): string {
-  return messages.map(summarizeMessage).join('\n');
-}
-
-export function compressContext(
-  messages: ChatMessage[],
-  opts: CompressionOptions = {},
-): CompressionResult {
-  const maxTokens = opts.maxTokens ?? DEFAULT_MAX_TOKENS;
-  const keepRecent = opts.keepRecent ?? DEFAULT_KEEP_RECENT;
-  const originalTokens = estimateMessagesTokens(messages);
-
-  if (originalTokens <= maxTokens || messages.length <= keepRecent + 1) {
-    return {
-      messages,
-      compressed: false,
-      originalTokens,
-      compressedTokens: originalTokens,
-      removedCount: 0,
-      trigger: 'none',
-    };
-  }
-
-  const systemMsgs = messages.filter((m) => m.role === 'system');
-  const nonSystem = messages.filter((m) => m.role !== 'system');
-  const keepCount = Math.min(keepRecent, nonSystem.length);
-  const toCompress = nonSystem.slice(0, nonSystem.length - keepCount);
-  const toKeep = nonSystem.slice(nonSystem.length - keepCount);
-
-  const summaryParts: string[] = [];
-  for (const msg of toCompress) {
-    summaryParts.push(summarizeMessage(msg));
-  }
-
-  const summaryMsg: ChatMessage = {
-    role: 'user',
-    content: `[上下文摘要 — 之前 ${toCompress.length} 条消息已压缩]\n${summaryParts.join('\n')}`,
-  };
-
-  const result = [...systemMsgs, summaryMsg, ...toKeep];
-  const compressedTokens = estimateMessagesTokens(result);
-
-  return {
-    messages: result,
-    compressed: true,
-    originalTokens,
-    compressedTokens,
-    removedCount: toCompress.length,
-    trigger: 'absolute',
-  };
-}
-
-// ==================== 百分比阈值自动压缩 ====================
-
-export interface RatioCompressionOptions {
-  /** 模型上下文窗口大小(tokens,如 8000 / 32000 / 128000) */
-  contextLimit: number;
-  /** 触发压缩的占用率(0-1,默认 0.85 = 85%) */
-  triggerRatio?: number;
-  /** 压缩后的目标占用率(0-1,默认 0.6 = 60%,留出空间继续对话) */
-  targetRatio?: number;
-  /** 保留最近 N 条消息(默认 6) */
-  keepRecent?: number;
-  /** 最少消息数(消息数不足时不压缩,默认 keepRecent + 1) */
-  minMessages?: number;
+/** CLI 专用压缩选项(扩展共享包 RatioCompressionOptions,增加 workspacePath/sessionId 用于 hook 透传) */
+export interface CLICompressionOptions extends RatioCompressionOptions {
   /** 工作区路径(透传给 preCompact/postCompact hook 上下文) */
   workspacePath?: string;
   /** 会话 ID(透传给 preCompact/postCompact hook 上下文) */
   sessionId?: string;
 }
 
-const DEFAULT_TRIGGER_RATIO = 0.85;
-const DEFAULT_TARGET_RATIO = 0.6;
-
 /**
- * 百分比阈值自动压缩 — 当 token 占用率达到 triggerRatio 时自动压缩到 targetRatio。
+ * CLI 百分比阈值自动压缩 — 桥接 preCompact/postCompact hooks。
  *
- * 与 compressContext 的区别:
- *   - compressContext 用绝对 maxTokens 阈值(固定 24000)
- *   - compressContextIfNeeded 用百分比阈值(动态适配不同模型的 contextLimit)
- *
- * 行为:
- *   - tokens / contextLimit < triggerRatio → 不压缩,返回原 messages
- *   - tokens / contextLimit >= triggerRatio → 压缩,目标压缩到 targetRatio * contextLimit 以下
- *   - 通过逐步增加 keepRecent 的压缩量,找到第一个使 compressedTokens < targetRatio * contextLimit 的方案
- *
- * @returns CompressionResult(含 trigger: 'ratio'|'none' 和 usageRatio)
+ * 行为与共享包 compressContextIfNeeded 完全一致(88% 触发,压缩到 60%),
+ * 额外在压缩前后触发 runHook('preCompact'/'postCompact')。
  */
 export function compressContextIfNeeded(
   messages: ChatMessage[],
-  opts: RatioCompressionOptions,
+  opts: CLICompressionOptions,
 ): CompressionResult {
-  const contextLimit = opts.contextLimit;
-  const triggerRatio = opts.triggerRatio ?? DEFAULT_TRIGGER_RATIO;
-  const targetRatio = opts.targetRatio ?? DEFAULT_TARGET_RATIO;
-  const keepRecent = opts.keepRecent ?? DEFAULT_KEEP_RECENT;
-  const minMessages = opts.minMessages ?? keepRecent + 1;
-  const triggerThreshold = Math.floor(contextLimit * triggerRatio);
-  const targetThreshold = Math.floor(contextLimit * targetRatio);
-
-  const originalTokens = estimateMessagesTokens(messages);
-  const usageRatio = originalTokens / contextLimit;
-
-  // 未达触发阈值,不压缩
-  if (originalTokens < triggerThreshold || messages.length <= minMessages) {
-    return {
-      messages,
-      compressed: false,
-      originalTokens,
-      compressedTokens: originalTokens,
-      removedCount: 0,
-      trigger: 'none',
-      usageRatio,
-    };
-  }
-
-  runHook('preCompact', {
-    workspacePath: opts.workspacePath,
-    sessionId: opts.sessionId,
-    compactedTokensBefore: originalTokens,
-  });
-
-  const systemMsgs = messages.filter((m) => m.role === 'system');
-  const nonSystem = messages.filter((m) => m.role !== 'system');
-
-  // 逐步减少 keepRecent,直到 compressedTokens < targetThreshold 或 keepRecent=1
-  let bestResult: CompressionResult | null = null;
-  for (let kr = Math.min(keepRecent, nonSystem.length - 1); kr >= 1; kr--) {
-    if (nonSystem.length <= kr) continue;
-    const toCompress = nonSystem.slice(0, nonSystem.length - kr);
-    const toKeep = nonSystem.slice(nonSystem.length - kr);
-
-    const summaryParts: string[] = [];
-    for (const msg of toCompress) {
-      summaryParts.push(summarizeMessage(msg));
-    }
-    const summaryMsg: ChatMessage = {
-      role: 'user',
-      content: `[上下文摘要 — 之前 ${toCompress.length} 条消息已压缩]\n${summaryParts.join('\n')}`,
-    };
-    const candidate = [...systemMsgs, summaryMsg, ...toKeep];
-    const candidateTokens = estimateMessagesTokens(candidate);
-
-    if (candidateTokens <= targetThreshold) {
-      bestResult = {
-        messages: candidate,
-        compressed: true,
-        originalTokens,
-        compressedTokens: candidateTokens,
-        removedCount: toCompress.length,
-        trigger: 'ratio',
-        usageRatio,
-      };
-      break;
-    }
-    // 记录最后一个候选(即使超过 target,也比不压缩好)
-    if (!bestResult) {
-      bestResult = {
-        messages: candidate,
-        compressed: true,
-        originalTokens,
-        compressedTokens: candidateTokens,
-        removedCount: toCompress.length,
-        trigger: 'ratio',
-        usageRatio,
-      };
-    }
-  }
-
-  // bestResult 一定不为 null(因为 nonSystem.length > minMessages >= 2,至少有 1 条可压缩)
-  const result = bestResult ?? {
-    messages,
-    compressed: false,
-    originalTokens,
-    compressedTokens: originalTokens,
-    removedCount: 0,
-    trigger: 'none' as const,
-    usageRatio,
+  const hooks: CompactionHooks = {
+    preCompact: ({ compactedTokensBefore }) => {
+      runHook('preCompact', {
+        workspacePath: opts.workspacePath,
+        sessionId: opts.sessionId,
+        compactedTokensBefore,
+      });
+    },
+    postCompact: ({ compactedTokensBefore, compactedTokensAfter }) => {
+      runHook('postCompact', {
+        workspacePath: opts.workspacePath,
+        sessionId: opts.sessionId,
+        compactedTokensBefore,
+        compactedTokensAfter,
+      });
+    },
   };
-  runHook('postCompact', {
-    workspacePath: opts.workspacePath,
-    sessionId: opts.sessionId,
-    compactedTokensBefore: originalTokens,
-    compactedTokensAfter: result.compressedTokens,
-  });
-  return result;
+  return _compressContextIfNeeded(messages, opts, hooks);
 }
 
