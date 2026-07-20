@@ -4,13 +4,14 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Newspaper, Mic } from 'lucide-react'
+import { Newspaper, Mic, Clock } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
 const TABS = [
   { href: '/self-media/wechat', labelKey: 'wechat', icon: Newspaper },
   { href: '/self-media/koubo', labelKey: 'koubo', icon: Mic },
+  { href: '/self-media/automation', labelKey: 'automation', icon: Clock },
 ] as const
 
 export default function SelfMediaLayout({ children }: { children: React.ReactNode }) {
