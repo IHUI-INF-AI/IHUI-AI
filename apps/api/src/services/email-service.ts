@@ -1,6 +1,8 @@
 import { createHmac, createHash } from 'node:crypto'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
+import { emailLogs } from '@ihui/database'
+import { db } from '../db/index.js'
 import type { FastifyInstance } from 'fastify'
 import type { EmailJobData } from '../plugins/queue.js'
 
@@ -25,6 +27,14 @@ export interface SendEmailOptions {
   subject: string
   html: string
   text?: string
+  /** 场景:register/login/reset/transaction/marketing/notification/other,用于审计与重发 */
+  scene?: string
+  /** 关联用户 ID(营销/通知邮件需要,验证码可空) */
+  userId?: string
+  /** 模板 slug(若使用 message_templates),便于按模板重发 */
+  templateSlug?: string
+  /** 模板变量(用于重发或回溯) */
+  metadata?: Record<string, unknown>
 }
 
 export interface SendEmailResult {
@@ -113,45 +123,75 @@ export function resolveProvider(email: string): 'resend' | 'tencent' | 'smtp' | 
 /**
  * 同步发送邮件(主入口)。
  * 失败时按 provider 链路降级:primary → smtp → stub。
+ * 每次发送都会异步写入 email_logs 审计(写日志失败不影响发送结果)。
  */
 export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
   const primary = resolveProvider(options.to)
 
+  let result: SendEmailResult
   if (primary === 'stub') {
     console.info(`[email-stub] To: ${options.to}, Subject: ${options.subject}`)
-    return { sent: false, stub: true, provider: 'stub' }
-  }
+    result = { sent: false, stub: true, provider: 'stub' }
+  } else {
+    result = await dispatch(options, primary)
 
-  let result: SendEmailResult | null = null
-  if (primary === 'resend') result = await sendViaResend(options)
-  else if (primary === 'tencent') result = await sendViaTencentSes(options)
-  else if (primary === 'smtp') result = await sendViaSmtp(options)
+    // primary 失败 → 尝试 SMTP 兜底(若 SMTP 可用且 primary 不是 SMTP)
+    if (!result.sent && primary !== 'smtp' && config.SMTP_ENABLED && config.SMTP_HOST) {
+      const fallback = await sendViaSmtp(options)
+      if (fallback.sent) {
+        logger.warn(`[email-fallback] primary=${primary} failed, smtp ok, To: ${options.to}`)
+        result = fallback
+      }
+    }
 
-  if (result?.sent) return result
-
-  // primary 失败 → 尝试 SMTP 兜底(若 SMTP 可用且 primary 不是 SMTP)
-  if (result && !result.sent && primary !== 'smtp' && config.SMTP_ENABLED && config.SMTP_HOST) {
-    const fallback = await sendViaSmtp(options)
-    if (fallback.sent) {
-      logger.warn(`[email-fallback] primary=${primary} failed, smtp ok, To: ${options.to}`)
-      return fallback
+    // 最终降级 stub(不抛错,保证调用方不崩)
+    if (!result.sent) {
+      logger.error(
+        `[email-error] provider=${primary} To: ${options.to} err: ${result.error ?? 'unknown'}`,
+      )
     }
   }
 
-  // 最终降级 stub(不抛错,保证调用方不崩)
-  if (result && !result.sent) {
-    logger.error(
-      `[email-error] provider=${primary} To: ${options.to} err: ${result.error ?? 'unknown'}`,
-    )
-  }
-  return (
-    result ?? {
-      sent: false,
-      stub: true,
-      provider: 'stub',
-      error: 'no provider resolved',
-    }
+  // 异步写审计日志(失败不影响发送结果)
+  void recordEmailLog(options, result).catch((e) =>
+    logger.warn('[email-log-write-failed]', { err: (e as Error).message }),
   )
+
+  return result
+}
+
+/**
+ * 按 primary provider 实际发送一次(不降级,降级由 sendEmail 负责)。
+ */
+async function dispatch(
+  options: SendEmailOptions,
+  primary: 'resend' | 'tencent' | 'smtp',
+): Promise<SendEmailResult> {
+  if (primary === 'resend') return sendViaResend(options)
+  if (primary === 'tencent') return sendViaTencentSes(options)
+  return sendViaSmtp(options)
+}
+
+/**
+ * 写 email_logs 审计记录。
+ * 失败仅 warn,不抛错(邮件主流程已结束,审计失败不应回滚)。
+ */
+async function recordEmailLog(
+  options: SendEmailOptions,
+  result: SendEmailResult,
+): Promise<void> {
+  const status: 'sent' | 'stub' | 'failed' = result.sent ? 'sent' : result.stub ? 'stub' : 'failed'
+  await db.insert(emailLogs).values({
+    toEmail: options.to,
+    subject: options.subject,
+    provider: result.provider,
+    status,
+    error: result.error,
+    scene: options.scene ?? null,
+    userId: options.userId ?? null,
+    templateSlug: options.templateSlug ?? null,
+    metadata: options.metadata ?? null,
+  })
 }
 
 /**
@@ -300,8 +340,10 @@ async function sendViaTencentSes(options: SendEmailOptions): Promise<SendEmailRe
 /**
  * 构造腾讯云 V3 签名(TC3-HMAC-SHA256)。
  * 参考文档:https://cloud.tencent.com/document/api/213/30654
+ *
+ * 导出供单元测试直接验证签名算法(避免依赖外部网络 + 真实凭据)。
  */
-async function buildTencentV3Signature(params: {
+export async function buildTencentV3Signature(params: {
   secretId: string
   secretKey: string
   host: string
@@ -404,6 +446,9 @@ export async function sendVerificationEmail(
     subject: subjectMap[scene],
     html,
     text: `您的验证码是 ${code},5 分钟内有效。`,
+    scene,
+    templateSlug: 'verify_code',
+    metadata: nickname ? { nickname } : undefined,
   })
 }
 
