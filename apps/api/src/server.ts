@@ -191,6 +191,8 @@ import { distributionRoutes } from './routes/distribution.js'
 // 用户级 LLM 平台配置（每用户独立 API Key + 模板 + 测试连通 + 拉取模型）
 import { userLlmConfigRoutes } from './routes/user-llm-configs.js'
 import { cliImportRoutes } from './routes/cli-import.js'
+// 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
+import { selfMediaRoutes } from './routes/self-media-routes.js'
 import { adminGrayReleaseRoutes } from './routes/admin-gray-release.js'
 import { adminErrorDashboardRoutes } from './routes/admin-error-dashboard.js'
 import { adminApiPlatformRoutes } from './routes/admin-api-platform.js'
@@ -208,6 +210,7 @@ import { adminShopRoutes } from './routes/admin-shop-routes.js'
 import { adminInvoicesRoutes } from './routes/admin-invoices.js'
 // 前端用户端缺失路由补建（54 个路由：空数据桩）
 import { missingUserRoutes } from './routes/missing-user-routes.js'
+import { publicSocketRoutes } from './routes/public-socket.js'
 // OpenClaw 控制台 8 面板后端端点（memory/skills/automation/channels/tools/gateway/sessions/stats）
 import { openclawRoutes } from './routes/openclaw-routes.js'
 // 补桩：文章列表 / 用户签到 / 教育课程作业评分证书 / 学习记录上传
@@ -858,6 +861,8 @@ function registerRoutes(server: FastifyInstance) {
   // CLI 配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)
   // 端点:/api/user/cli-import/{sources,parse-file,parse-payload,commit,preview/:id,history}
   server.register(cliImportRoutes, { prefix: '/api/user' })
+  // 自媒体 skill(公众号文章 + 口播稿,代理到 ai-service,2026-07-20 新增)
+  server.register(selfMediaRoutes, { prefix: '/api' })
   server.register(adminGrayReleaseRoutes, { prefix: '/api/admin' })
   server.register(adminErrorDashboardRoutes, { prefix: '/api/admin' })
   server.register(adminApiPlatformRoutes, { prefix: '/api/admin' })
@@ -876,6 +881,9 @@ function registerRoutes(server: FastifyInstance) {
   // 全部空数据桩，覆盖：文章 / 内容生成 / 知识库 / 技能 / 学习记录 / MCP / OpenClaw
   // 代理类 / 用户设置 / AI 补充 / 开发者扩展 / 分销 / VIP 权益 / 优惠券 / 通知详情 / 消息详情
   server.register(missingUserRoutes, { prefix: '/api' })
+
+  // public_socket 9 端点(迁移自 coze_zhs_py/api/public_socket.py:1-663,P0 补齐 2026-07-20)
+  server.register(publicSocketRoutes, { prefix: '/api/admin' })
 
   // OpenClaw 控制台 8 面板后端端点
   server.register(openclawRoutes, { prefix: '/api' })
