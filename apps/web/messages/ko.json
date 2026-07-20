@@ -400,6 +400,7 @@
     "oauthPlatform": "오픈플랫폼",
     "selfMediaWechat": "위챗 공식계정 글",
     "selfMediaKoubo": "나레이션 대본",
+    "selfMediaAutomation": "자동화",
     "downloadIOS": "ｉＯＳ",
     "downloadAndroidApk": "Ａｎｄｒｏｉｄ ＡＰＫ",
     "downloadWechatMiniApp": "WeChat 미니 프로그램",
@@ -11930,6 +11931,7 @@
     "subtitle": "위챗 공식계정 글 + 나레이션 대본 생성 skill, AI 대화상자에서 직접 호출 가능",
     "wechat": "위챗 공식계정 글",
     "koubo": "나레이션 대본",
+    "automation": "자동화",
     "wechatPage": {
       "formTitle": "위챗 공식계정 글 파이프라인",
       "titleLabel": "제목",
@@ -11963,6 +11965,10 @@
       "runFailed": "실행 실패",
       "historyTitle": "히스토리 기록",
       "historyEmpty": "게시 기록 없음"
+    },
+    "automationPage": {
+      "historyTitle": "실행 히스토리",
+      "historyEmpty": "실행 기록 없음"
     }
   },
   "privateMessages": {
