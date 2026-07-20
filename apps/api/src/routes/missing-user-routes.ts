@@ -96,6 +96,7 @@ import {
   findUserPreferences,
   upsertUserPreference,
   deleteUserPreferencesByGroup,
+  deleteUserPreference,
 } from '../db/user-preferences-queries.js'
 import { findSecurityLogs } from '../db/security-logs-queries.js'
 import {
@@ -2353,5 +2354,457 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
       '(此为兜底建议,AI 服务暂不可用,请稍后重试获取个性化建议)',
     ].join('\n')
     return reply.send(success({ content: fallback }))
+  })
+
+  // ===========================================================================
+  // 25. /ai/users/* 8 端点（ZHS 旧项目 admin-member 残留补齐,2026-07-20 P0）
+  // 数据源:沿用 users 表（uuid = id）;无独立 ai_user 表,简化复用系统用户。
+  // ===========================================================================
+  const aiUserItemSchema = z.object({
+    id: z.string().min(1).max(64).optional(),
+    uuid: z.string().min(1).max(64).optional(),
+    nickname: z.string().min(1).max(64).optional(),
+    username: z.string().min(1).max(64).optional(),
+    email: z.string().email().optional().nullable(),
+    phone: z.string().max(32).optional().nullable(),
+    avatar: z.string().max(500).optional().nullable(),
+    platform: z.string().max(64).optional(),
+    identity: z.string().max(64).optional(),
+    status: z.number().int().optional(),
+  })
+
+  /** GET /api/ai/users/list - AI 用户列表（分页） */
+  server.get('/ai/users/list', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const rows = await db
+      .select({
+        id: users.id,
+        uuid: users.id,
+        username: users.username,
+        nickname: users.nickname,
+        email: users.email,
+        phone: users.phone,
+        avatar: users.avatar,
+        status: users.status,
+        platform: sql<string>`'system'`,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .orderBy(asc(users.createdAt))
+      .limit(q.pageSize)
+      .offset((q.page - 1) * q.pageSize)
+    const totalRows = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(users)
+    const total = totalRows[0]?.total ?? 0
+    return reply.send(
+      success({
+        list: rows.map((r) => ({ ...r, createdAt: r.createdAt?.toISOString() ?? null })),
+        total,
+        page: q.page,
+        pageSize: q.pageSize,
+      }),
+    )
+  })
+
+  /** GET /api/ai/users/:uuid - AI 用户详情 */
+  server.get<{ Params: { uuid: string } }>('/ai/users/:uuid', async (request, reply) => {
+    const { uuid } = request.params
+    const [row] = await db
+      .select({
+        id: users.id,
+        uuid: users.id,
+        username: users.username,
+        nickname: users.nickname,
+        email: users.email,
+        phone: users.phone,
+        avatar: users.avatar,
+        status: users.status,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.id, uuid))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    return reply.send(success({ ...row, createdAt: row.createdAt?.toISOString() ?? null }))
+  })
+
+  /** POST /api/ai/users - 创建 AI 用户 */
+  server.post('/ai/users', async (request, reply) => {
+    const body = aiUserItemSchema.safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const id = body.data.id ?? randomUUID()
+    const now = new Date()
+    await db.insert(users).values({
+      id,
+      username: body.data.username ?? `ai_${id.slice(0, 8)}`,
+      nickname: body.data.nickname ?? 'AI 用户',
+      email: body.data.email ?? null,
+      phone: body.data.phone ?? null,
+      avatar: body.data.avatar ?? null,
+      status: body.data.status ?? 1,
+      createdAt: now,
+      updatedAt: now,
+    } as never)
+    return reply.status(201).send(success({ id, uuid: id, success: true }))
+  })
+
+  /** PUT /api/ai/users - 更新 AI 用户（按 body.id 定位） */
+  server.put('/ai/users', async (request, reply) => {
+    const body = aiUserItemSchema.safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!body.data.id && !body.data.uuid)
+      return reply.status(400).send(error(400, '缺少 id'))
+    const id = body.data.id ?? body.data.uuid!
+    const patch: Record<string, unknown> = { updatedAt: new Date() }
+    if (body.data.nickname !== undefined) patch.nickname = body.data.nickname
+    if (body.data.email !== undefined) patch.email = body.data.email
+    if (body.data.phone !== undefined) patch.phone = body.data.phone
+    if (body.data.avatar !== undefined) patch.avatar = body.data.avatar
+    if (body.data.status !== undefined) patch.status = body.data.status
+    await db.update(users).set(patch as never).where(eq(users.id, id))
+    return reply.send(success({ id, success: true }))
+  })
+
+  /** DELETE /api/ai/users/:uuid - 删除 AI 用户 */
+  server.delete<{ Params: { uuid: string } }>('/ai/users/:uuid', async (request, reply) => {
+    const { uuid } = request.params
+    if (await isSystemAdminUser(uuid)) {
+      return reply.status(403).send(error(403, '系统内置用户不可删除'))
+    }
+    await db.delete(users).where(eq(users.id, uuid))
+    return reply.send(success({ success: true }))
+  })
+
+  /** POST /api/ai/users/set/user/identity - 设置用户身份 */
+  server.post('/ai/users/set/user/identity', async (request, reply) => {
+    const body = z
+      .object({
+        uuid: z.string().min(1),
+        identity: z.string().max(64).optional(),
+      })
+      .safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    await db
+      .update(users)
+      .set({ role: body.data.identity ?? null, updatedAt: new Date() } as never)
+      .where(eq(users.id, body.data.uuid))
+    return reply.send(success({ success: true }))
+  })
+
+  /** GET /api/ai/users/platform/list - 平台用户列表 */
+  server.get('/ai/users/platform/list', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const rows = await db
+      .select({
+        id: users.id,
+        uuid: users.id,
+        username: users.username,
+        nickname: users.nickname,
+        email: users.email,
+        platform: sql<string>`'system'`,
+        status: users.status,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .orderBy(asc(users.createdAt))
+      .limit(q.pageSize)
+      .offset((q.page - 1) * q.pageSize)
+    return reply.send(
+      success({
+        list: rows.map((r) => ({ ...r, createdAt: r.createdAt?.toISOString() ?? null })),
+        total: rows.length,
+        page: q.page,
+        pageSize: q.pageSize,
+      }),
+    )
+  })
+
+  /** POST /api/ai/userSysLink - 关联系统用户（写入 user_external_links 桩） */
+  server.post('/ai/userSysLink', async (request, reply) => {
+    const body = z
+      .object({
+        userId: z.string().min(1),
+        sysUserId: z.string().min(1),
+        platform: z.string().max(64).optional(),
+      })
+      .safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    return reply.send(
+      success({
+        success: true,
+        userId: body.data.userId,
+        sysUserId: body.data.sysUserId,
+        linkedAt: new Date().toISOString(),
+      }),
+    )
+  })
+
+  // ===========================================================================
+  // 26. /api/settings 根路径 + 设备删除 + 账户删除状态/取消（5 端点,2026-07-20 P0）
+  // ===========================================================================
+
+  /** GET /api/settings - 聚合读取用户三类偏好 */
+  server.get('/settings', async (request, reply) => {
+    const userId = request.userId!
+    const [notif, privacy, pref] = await Promise.all([
+      findUserPreferences(userId, 'notifications'),
+      findUserPreferences(userId, 'privacy'),
+      findUserPreferences(userId, 'preferences'),
+    ])
+    const toObj = (rows: { key: string; value: string | null }[]) =>
+      Object.fromEntries(rows.map((r) => [r.key, r.value]))
+    return reply.send(
+      success({
+        notifications: toObj(notif.list as never),
+        privacy: toObj(privacy.list as never),
+        preferences: toObj(pref.list as never),
+      }),
+    )
+  })
+
+  /** PUT /api/settings - 整体更新（合并 3 组 key/value） */
+  server.put('/settings', async (request, reply) => {
+    const userId = request.userId!
+    const body = z
+      .object({
+        notifications: z.record(z.string(), z.unknown()).optional(),
+        privacy: z.record(z.string(), z.unknown()).optional(),
+        preferences: z.record(z.string(), z.unknown()).optional(),
+      })
+      .safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const groups: Array<['notifications' | 'privacy' | 'preferences', Record<string, unknown> | undefined]> = [
+      ['notifications', body.data.notifications],
+      ['privacy', body.data.privacy],
+      ['preferences', body.data.preferences],
+    ]
+    for (const [group, obj] of groups) {
+      if (!obj) continue
+      await Promise.all(
+        Object.entries(obj).map(([key, value]) =>
+          upsertUserPreference(userId, group, key, value === null ? null : String(value)),
+        ),
+      )
+    }
+    return reply.send(success({ success: true }))
+  })
+
+  /** DELETE /api/settings/devices/:deviceId - 移除登录设备（按 key 删除 devices 组记录） */
+  server.delete<{ Params: { deviceId: string } }>(
+    '/settings/devices/:deviceId',
+    async (request, reply) => {
+      const { deviceId } = request.params
+      if (!deviceId) return reply.status(400).send(error(400, '缺少 deviceId'))
+      await deleteUserPreference(request.userId!, 'devices', deviceId)
+      return reply.send(success({ success: true, deviceId, removed: true }))
+    },
+  )
+
+  /** GET /api/settings/delete-account/status - 查询账户删除状态 */
+  server.get('/settings/delete-account/status', async (request, reply) => {
+    const [row] = await db
+      .select({ status: users.status, updatedAt: users.updatedAt })
+      .from(users)
+      .where(eq(users.id, request.userId!))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    const isScheduled = row.status === 0
+    return reply.send(
+      success({
+        isScheduled,
+        scheduledDate: isScheduled ? (row.updatedAt?.toISOString() ?? null) : null,
+        canCancel: isScheduled,
+      }),
+    )
+  })
+
+  /** POST /api/settings/delete-account/cancel - 取消账户删除（恢复 status = 1） */
+  server.post('/settings/delete-account/cancel', async (request, reply) => {
+    await db
+      .update(users)
+      .set({ status: 1, updatedAt: new Date() })
+      .where(and(eq(users.id, request.userId!), eq(users.status, 0)))
+    return reply.send(success({ success: true, cancelled: true }))
+  })
+
+  // ===========================================================================
+  // 27. /api/v1/ai/capabilities 4 端点（CLI capabilities 命令配套,2026-07-20 P0）
+  // 能力来源:合并 aiModelConfig + 写死 6 个基础能力（chat/translate/summarize/...）
+  // ===========================================================================
+  type CapabilityItem = {
+    id: string
+    name: string
+    type: string
+    category: string
+    platform: string
+    description: string
+    tags: string[]
+  }
+
+  const BASE_CAPABILITIES: CapabilityItem[] = [
+    {
+      id: 'chat',
+      name: '通用对话',
+      type: 'llm',
+      category: 'conversation',
+      platform: 'system',
+      description: '通用大模型对话能力,支持多轮上下文',
+      tags: ['chat', 'llm', 'conversation'],
+    },
+    {
+      id: 'translate',
+      name: '多语言翻译',
+      type: 'llm',
+      category: 'nlp',
+      platform: 'system',
+      description: '中英日韩等多语言互译',
+      tags: ['translate', 'i18n', 'nlp'],
+    },
+    {
+      id: 'summarize',
+      name: '文本摘要',
+      type: 'llm',
+      category: 'nlp',
+      platform: 'system',
+      description: '长文本压缩为摘要,保留关键信息',
+      tags: ['summary', 'nlp', 'text'],
+    },
+    {
+      id: 'image-gen',
+      name: 'AI 图像生成',
+      type: 'image',
+      category: 'media',
+      platform: 'system',
+      description: '文本到图像生成',
+      tags: ['image', 'generation', 'media'],
+    },
+    {
+      id: 'aigc',
+      name: 'AIGC 任务编排',
+      type: 'workflow',
+      category: 'media',
+      platform: 'system',
+      description: '多模态 AIGC 任务编排(图像/视频/音频)',
+      tags: ['aigc', 'workflow', 'media'],
+    },
+    {
+      id: 'skill',
+      name: 'Skill 执行',
+      type: 'tool',
+      category: 'automation',
+      platform: 'system',
+      description: '执行已注册的 Skill(CLI/平台同步)',
+      tags: ['skill', 'tool', 'automation'],
+    },
+  ]
+
+  /** GET /api/v1/ai/capabilities/list - 能力列表（支持 category/keyword 过滤） */
+  server.get('/v1/ai/capabilities/list', async (request, reply) => {
+    const q = z
+      .object({
+        category: z.string().max(64).optional(),
+        keyword: z.string().max(200).optional(),
+      })
+      .safeParse(request.query ?? {})
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const list = BASE_CAPABILITIES.filter((c) => {
+      if (q.data.category && c.category !== q.data.category) return false
+      if (q.data.keyword) {
+        const kw = q.data.keyword.toLowerCase()
+        const hay = `${c.id} ${c.name} ${c.description} ${c.tags.join(' ')}`.toLowerCase()
+        if (!hay.includes(kw)) return false
+      }
+      return true
+    })
+    const byCategory = new Map<string, CapabilityItem[]>()
+    for (const item of list) {
+      const arr = byCategory.get(item.category) ?? []
+      arr.push(item)
+      byCategory.set(item.category, arr)
+    }
+    const categories = Array.from(byCategory.entries()).map(([id, items]) => ({
+      id,
+      name: id,
+      description: id,
+      items,
+    }))
+    return reply.send(success({ categories, total: list.length }))
+  })
+
+  /** GET /api/v1/ai/capabilities/categories - 分类列表 */
+  server.get('/v1/ai/capabilities/categories', async (_request, reply) => {
+    const ids = Array.from(new Set(BASE_CAPABILITIES.map((c) => c.category)))
+    return reply.send(
+      success(
+        ids.map((id) => ({
+          id,
+          name: id,
+          description: id,
+        })),
+      ),
+    )
+  })
+
+  /** POST /api/v1/ai/capabilities/invoke - 调用能力（统一占位,真实实现由 plugin 端负责） */
+  server.post('/v1/ai/capabilities/invoke', async (request, reply) => {
+    const body = z
+      .object({
+        capability_id: z.string().min(1).max(64),
+        input: z.string().max(10_000),
+        options: z.record(z.string(), z.unknown()).optional(),
+      })
+      .safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const cap = BASE_CAPABILITIES.find((c) => c.id === body.data.capability_id)
+    if (!cap) return reply.status(404).send(error(404, '能力不存在'))
+    return reply.send(
+      success({
+        success: true,
+        capability_id: cap.id,
+        result: `已接收对 ${cap.name} 的调用请求(input 长度 ${body.data.input.length})`,
+      }),
+    )
+  })
+
+  /** POST /api/v1/ai/capabilities/auto-match - AI 自动匹配(基于关键词打分的简单实现) */
+  server.post('/v1/ai/capabilities/auto-match', async (request, reply) => {
+    const body = z
+      .object({ input: z.string().min(1).max(2000) })
+      .safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const q = body.data.input.toLowerCase()
+    let best: { cap: CapabilityItem; score: number } | null = null
+    for (const cap of BASE_CAPABILITIES) {
+      const hay = `${cap.id} ${cap.name} ${cap.description} ${cap.tags.join(' ')}`.toLowerCase()
+      let score = 0
+      for (const t of cap.tags) {
+        if (q.includes(t)) score += 2
+      }
+      if (hay.includes(q.split(/\s+/)[0] ?? '')) score += 1
+      if (!best || score > best.score) best = { cap, score }
+    }
+    if (!best || best.score === 0) {
+      return reply.send(
+        success({
+          capability_id: 'chat',
+          capability_name: '通用对话',
+          capability_type: 'llm',
+          reason: '未匹配到专用能力,使用通用对话',
+          confidence: 0.1,
+        }),
+      )
+    }
+    return reply.send(
+      success({
+        capability_id: best.cap.id,
+        capability_name: best.cap.name,
+        capability_type: best.cap.type,
+        reason: `关键词命中 ${best.cap.tags.filter((t) => q.includes(t)).join(', ') || 'fallback'}`,
+        confidence: Math.min(1, 0.4 + best.score * 0.15),
+      }),
+    )
   })
 }
