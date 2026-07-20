@@ -23,6 +23,7 @@ import { db } from '../db/index.js'
 import { isSystemAdminUser } from '../db/queries.js'
 import {
   aiModelConfig,
+  aiAigcTasks,
   users,
   exportTasks,
   lessonSignUps,
@@ -1010,6 +1011,273 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     })
     return reply.send(
       success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
+  })
+
+  // ===========================================================================
+  // 10b. AI 模型管理 /ai/models POST/PUT/DELETE (Phase 5 P0 补建)
+  // 前端 api-client 调用: createAiModel / updateAiModel / deleteAiModel
+  // ===========================================================================
+  const aiModelCreateSchema = z.object({
+    name: z.string().min(1).max(100),
+    provider: z.string().min(1).max(64),
+    description: z.string().optional(),
+    baseUrl: z.string().url().optional(),
+    type: z.string().max(32).optional(),
+    status: z.number().int().min(0).max(1).optional(),
+    sort: z.number().int().optional(),
+  })
+
+  const aiModelUpdateSchema = aiModelCreateSchema.partial()
+
+  server.post('/ai/models', async (request, reply) => {
+    await authenticate(request)
+    const parsed = aiModelCreateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const d = parsed.data
+    const [row] = await db
+      .insert(aiModelConfig)
+      .values({
+        name: d.name,
+        providerCode: d.provider,
+        description: d.description,
+        apiFormat: d.type ?? 'openai_chat',
+        baseUrl: d.baseUrl ?? 'https://api.openai.com',
+        enabled: d.status === undefined ? true : d.status === 1,
+        sortOrder: d.sort ?? 0,
+        ownerUuid: request.userId,
+      })
+      .returning()
+    if (!row) return reply.status(500).send(error(500, '创建 AI 模型失败'))
+    return reply.send(
+      success({
+        id: row.id,
+        name: row.name,
+        provider: row.providerCode,
+        description: row.description,
+        type: row.apiFormat,
+        status: row.enabled ? 1 : 0,
+        sort: row.sortOrder,
+      }),
+    )
+  })
+
+  server.put('/ai/models/:id', async (request, reply) => {
+    await authenticate(request)
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const parsed = aiModelUpdateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const d = parsed.data
+    const updates: Record<string, unknown> = { updatedAt: new Date() }
+    if (d.name !== undefined) updates.name = d.name
+    if (d.provider !== undefined) updates.providerCode = d.provider
+    if (d.description !== undefined) updates.description = d.description
+    if (d.baseUrl !== undefined) updates.baseUrl = d.baseUrl
+    if (d.type !== undefined) updates.apiFormat = d.type
+    if (d.status !== undefined) updates.enabled = d.status === 1
+    if (d.sort !== undefined) updates.sortOrder = d.sort
+    const [row] = await db
+      .update(aiModelConfig)
+      .set(updates)
+      .where(eq(aiModelConfig.id, Number(id)))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '模型不存在'))
+    return reply.send(
+      success({
+        id: row.id,
+        name: row.name,
+        provider: row.providerCode,
+        description: row.description,
+        type: row.apiFormat,
+        status: row.enabled ? 1 : 0,
+        sort: row.sortOrder,
+      }),
+    )
+  })
+
+  server.delete('/ai/models/:id', async (request, reply) => {
+    await authenticate(request)
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [row] = await db
+      .select({ id: aiModelConfig.id, isBuiltin: aiModelConfig.isBuiltin })
+      .from(aiModelConfig)
+      .where(eq(aiModelConfig.id, Number(id)))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '模型不存在'))
+    if (row.isBuiltin) return reply.status(403).send(error(403, '内置模型不可删除'))
+    await db.delete(aiModelConfig).where(eq(aiModelConfig.id, Number(id)))
+    return reply.send(success({ success: true }))
+  })
+
+  // ===========================================================================
+  // 10c. AIGC 任务管理 /ai/aigc/records POST/GET (Phase 5 P0 补建)
+  // 前端 api-client 调用: createAigcTask / getAigcTasks / getAigcTask
+  // ===========================================================================
+  const aigcTaskCreateSchema = z.object({
+    type: z.string().min(1).max(50),
+    prompt: z.string().min(1).max(10000),
+    model: z.string().max(100).optional(),
+    params: z.record(z.unknown()).optional(),
+  })
+
+  const aigcTaskStatusToInt: Record<'pending' | 'running' | 'succeeded' | 'failed', number> = {
+    pending: 0,
+    running: 1,
+    succeeded: 2,
+    failed: 3,
+  }
+
+  const aigcTaskStatusMap: Record<number, 'pending' | 'running' | 'succeeded' | 'failed'> = {
+    0: 'pending',
+    1: 'running',
+    2: 'succeeded',
+    3: 'failed',
+  }
+
+  function safeParseJsonSafe(text: string): unknown {
+    try {
+      return JSON.parse(text)
+    } catch {
+      return text
+    }
+  }
+
+  function formatAigcTaskLocal(row: typeof aiAigcTasks.$inferSelect) {
+    return {
+      taskId: row.id,
+      type: row.type,
+      status: aigcTaskStatusMap[row.status] ?? 'pending',
+      result: row.output ? safeParseJsonSafe(row.output) : null,
+      input: row.input ? safeParseJsonSafe(row.input) : null,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.completedAt ? row.completedAt.toISOString() : row.createdAt.toISOString(),
+    }
+  }
+
+  server.post('/ai/aigc/records', async (request, reply) => {
+    await authenticate(request)
+    const parsed = aigcTaskCreateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const d = parsed.data
+    const [row] = await db
+      .insert(aiAigcTasks)
+      .values({
+        userId: request.userId!,
+        type: d.type,
+        status: aigcTaskStatusToInt.pending,
+        input: JSON.stringify({ prompt: d.prompt, model: d.model, params: d.params ?? {} }),
+      })
+      .returning()
+    if (!row) return reply.status(500).send(error(500, '创建 AIGC 任务失败'))
+    return reply.send(success(formatAigcTaskLocal(row)))
+  })
+
+  server.get('/ai/aigc/records', async (request, reply) => {
+    await authenticate(request)
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const offset = (q.page - 1) * q.pageSize
+    const [rows, totalRows] = await Promise.all([
+      db
+        .select()
+        .from(aiAigcTasks)
+        .where(eq(aiAigcTasks.userId, request.userId!))
+        .orderBy(sql`${aiAigcTasks.createdAt} DESC`)
+        .limit(q.pageSize)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(aiAigcTasks)
+        .where(eq(aiAigcTasks.userId, request.userId!)),
+    ])
+    return reply.send(
+      success({
+        list: rows.map(formatAigcTaskLocal),
+        total: Number(totalRows[0]?.count ?? 0),
+        page: q.page,
+        pageSize: q.pageSize,
+      }),
+    )
+  })
+
+  server.get('/ai/aigc/records/:taskId', async (request, reply) => {
+    await authenticate(request)
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [row] = await db.select().from(aiAigcTasks).where(eq(aiAigcTasks.id, id)).limit(1)
+    if (!row) return reply.status(404).send(error(404, 'AIGC 任务不存在'))
+    if (row.userId !== request.userId) return reply.status(403).send(error(403, '无权访问该任务'))
+    return reply.send(success(formatAigcTaskLocal(row)))
+  })
+
+  // ===========================================================================
+  // 10d. /api/course 顶层 GET 别名 (Phase 5 P0 补建)
+  // 前端 api-client 调用: getCourses 指向 /api/course 顶层路径
+  // zhsCourseRoutes 已注册 /api/course/list 与 /api/course/:id,
+  // 这里添加顶层 GET /api/course 作为前端期望的入口(同时返回 Course 字段映射)
+  // ===========================================================================
+  server.get('/course', async (request, reply) => {
+    await authenticate(request)
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const { keyword, categoryId, status } = request.query as Record<string, string | undefined>
+    const conds = [sql`TRUE`]
+    if (keyword) conds.push(sql`${lessons.title} ILIKE ${`%${keyword}%`}`)
+    if (status !== undefined) conds.push(sql`${lessons.status} = ${Number(status)}`)
+    if (categoryId) conds.push(sql`${lessons.categoryId} = ${categoryId}`)
+    const where = sql.join(conds, sql` AND `)
+    const offset = (q.page - 1) * q.pageSize
+    const [rows, totalRows] = await Promise.all([
+      db
+        .select()
+        .from(lessons)
+        .where(where)
+        .orderBy(sql`${lessons.createdAt} DESC`)
+        .limit(q.pageSize)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(lessons)
+        .where(where),
+    ])
+    // 映射到前端 Course 期望字段
+    const list = rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      cover: r.coverImage ?? null,
+      description: r.intro ?? '',
+      categoryId: r.categoryId ?? '',
+      categoryName: '',
+      instructor: r.lecturerName ?? '',
+      instructorAvatar: null,
+      price: Number(r.price ?? 0),
+      originalPrice:
+        r.originalPrice !== null && r.originalPrice !== undefined ? Number(r.originalPrice) : null,
+      lessonCount: 0,
+      studentCount: 0,
+      rating: 0,
+      level: '',
+      tags: [],
+      isEnrolled: false,
+      isFree: Number(r.price ?? 0) === 0,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }))
+    return reply.send(
+      success({
+        list,
+        total: Number(totalRows[0]?.count ?? 0),
+        page: q.page,
+        pageSize: q.pageSize,
+      }),
     )
   })
 
