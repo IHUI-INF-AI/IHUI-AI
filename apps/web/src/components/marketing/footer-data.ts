@@ -26,14 +26,18 @@ export type Icon = {
 }
 export type Qr = {
   readonly src: string
-  readonly altKey: 'officialApp' | 'contactUs'
-  /** 可选:点击二维码拉起的 URL(如 `weixin://` 拉起电脑微信) */
-  readonly href?: string
+  readonly altKey: 'officialApp' | 'officialWechat' | 'communityGroup'
+  /**
+   * 可选:点击二维码的交互类型(2026-07-20 重构)。
+   * - 'copy' (默认):复制 `copyValue` 到剪贴板 + toast 提示
+   *   注:`weixin://contacts/profile/<wxid>` 协议在 PC 微信 4.x 已失效,
+   *   改用复制微信号 + toast 引导用户去微信搜索框手动搜索添加(实测最可靠)
+   */
+  readonly action?: 'copy'
+  /** 可选:点击复制的值(如微信号) */
+  readonly copyValue?: string
   /**
    * 可选:二维码下方副标题(主标题 altKey 下方一行小字)。
-   * 2026-07-20 加:PC 微信 `weixin://contacts/profile/<微信号>` 协议
-   * 只接受 wxid(以 `wxid_` 开头),不接受微信号,所以拉起后停在主界面。
-   * 兜底方案:在二维码下方显示微信号,用户可在微信搜索框手动搜索添加。
    */
   readonly subtitle?: string
 }
@@ -123,20 +127,22 @@ export const PROMOTIONS: readonly Icon[] = [
 // 底部二维码:
 // - footer-icon-2.png:官方应用二维码(主题感知,白底深码)
 // - wechat-vx.png:微信个人号二维码(2026-07-20 加,源图来自用户百度同步盘 VX.png)。
-//   点击拉起 `weixin://` 协议 → 浏览器询问是否打开微信 → 启动电脑微信主程序。
-//   PC 微信 `weixin://contacts/profile/<微信号>` 协议只接受 wxid(以 wxid_ 开头),
-//   不接受微信号 ok502319984,所以拉起后停在主界面,不直接跳转到加好友界面。
-//   兜底方案:二维码下方副标题显示微信号,用户在微信搜索框手动搜索添加。
-//   (备用:手机号 18643389808,但 weixin:// 协议出于隐私保护不支持手机号拉起加好友界面)
+//   点击复制微信号 ok502319984 到剪贴板 + toast 提示「已复制微信号,去微信搜索添加」。
+//   历史:曾用 weixin:// 协议拉起 PC 微信加好友,但 PC 微信 4.x 关闭了协议跳转
+//   (weixin://contacts/profile/<wxid> 在新版 PC 微信已失效),改用复制 + 引导最稳。
 //   原 footer-icon-3.png 是 2534×2534 全空白色块 → 弃用。
 export const QRS: readonly Qr[] = [
   { src: '/footer/erweima/footer-icon-2.png', altKey: 'officialApp' },
   {
     src: '/footer/erweima/wechat-vx.png',
-    altKey: 'contactUs',
-    href: 'weixin://',
+    altKey: 'officialWechat',
+    action: 'copy',
+    copyValue: 'ok502319984',
     subtitle: 'WeChat: ok502319984',
   },
+  // 2026-07-20 新增:企微社区群二维码(源图来自用户桌面 微信图片_20260720200339_23_530.jpg)
+  // hover 弹窗在 SiteFooter QrItem 实现(放大到 ~240px 让用户扫码)
+  { src: '/footer/erweima/community-group.jpg', altKey: 'communityGroup' },
 ]
 
 // 跑马灯专用:模型 + 推广平台拼接(24 张无缝循环)
