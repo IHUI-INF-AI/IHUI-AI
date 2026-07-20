@@ -9160,7 +9160,8 @@
     "favorite": "즐겨찾기",
     "unfavorite": "미favorite",
     "viewFavorites": "즐겨찾기 보기",
-    "backToHistory": "기록으로 돌아가기"
+    "backToHistory": "기록으로 돌아가기",
+    "loginRequired": "로그인해 주세요"
   },
   "models": {
     "title": "모델 마켓",
