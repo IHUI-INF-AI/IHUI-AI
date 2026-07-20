@@ -313,7 +313,23 @@
     "modifySuccess": "Modified Successfully"
   },
   "a11y": {
-    "menu": "Menu"
+    "menu": "Menu",
+    "more": "More",
+    "close": "Close",
+    "copy": "Copy",
+    "copyResponse": "Copy response",
+    "barChart": "Bar chart",
+    "heatmap": "Heatmap",
+    "lineChart": "Line chart",
+    "pieChart": "Pie chart",
+    "radarChart": "Radar chart",
+    "openCustomerService": "Open customer service",
+    "minimize": "Minimize",
+    "send": "Send",
+    "closeTag": "Close tag",
+    "closeAlert": "Close alert",
+    "searchOption": "Search options",
+    "uploadAvatar": "Upload avatar"
   },
   "nav": {
     "title": "Main Navigation",
@@ -982,6 +998,74 @@
       "tasks": "Tasks",
       "routines": "Routines",
       "folders": "Folders"
+    },
+    "openLocalFolder": "Open Local Folder",
+    "openedWorkspace": "Opened Workspace",
+    "reopenPermission": "Reconfigure Permissions",
+    "folderPicker": {
+      "title": "Select Local Project Folder",
+      "description": "Browse local disk to select a project folder. First-time open will configure access permissions.",
+      "root": "Root",
+      "loading": "Loading directory...",
+      "noDirectories": "No subfolders in this directory",
+      "selected": "Selected:",
+      "cancel": "Cancel",
+      "opening": "Opening...",
+      "selectAndOpen": "Select and Open"
+    },
+    "permission": {
+      "title": "Workspace Access Permission",
+      "description": "Choose the AI access permission mode for this workspace",
+      "path": "Path",
+      "techStack": "Tech Stack",
+      "selectMode": "Select Permission Mode",
+      "highRisk": "High Risk",
+      "whitelistRules": "Whitelist Rules",
+      "manageRules": "Manage Rules",
+      "collapseRules": "Collapse Rules",
+      "bypassWarning": "Full access permission allows AI to perform any operation including deleting files and executing arbitrary commands. Use only in fully trusted private projects.",
+      "cancel": "Cancel",
+      "saveAndOpen": "Save and Open",
+      "saving": "Saving...",
+      "add": "Add",
+      "patternPlaceholder": "Enter match pattern (e.g. src/**, *.ts)",
+      "loadingRules": "Loading rules...",
+      "noRules": "No rules. Click reset button to load the default safety template.",
+      "deleteRule": "Delete Rule",
+      "builtin": "Built-in",
+      "resetToDefaults": "Reset to Defaults",
+      "mode": {
+        "default": {
+          "title": "Manual Audit",
+          "desc": "Every operation requires user confirmation, safest"
+        },
+        "accept-edits": {
+          "title": "Whitelist Allow",
+          "desc": "Only whitelist rule operations allowed, others require confirmation"
+        },
+        "bypass-permissions": {
+          "title": "Full Access",
+          "desc": "AI can perform any operation, no confirmation needed"
+        }
+      },
+      "ruleType": {
+        "path": "Path",
+        "command": "Command",
+        "tool": "Tool"
+      },
+      "decision": {
+        "allow": "Allow",
+        "deny": "Deny"
+      }
+    },
+    "permissionsPage": {
+      "title": "Workspace Permission Management",
+      "subtitle": "Manage access permissions for all local workspaces",
+      "loading": "Loading...",
+      "empty": "No workspace permission configurations",
+      "goToWorkspace": "Back to Workspace",
+      "edit": "Edit",
+      "confirmDelete": "Delete this workspace's permission configuration?"
     }
   },
   "chat": {
@@ -8301,6 +8385,8 @@
     "connectedAccountsDesc": "Manage your connected third-party accounts",
     "llmConfigsTitle": "My LLM Configs",
     "llmConfigsDesc": "Manage API keys, model IDs, and context for each AI platform",
+    "cliImportTitle": "CLI Config Import",
+    "cliImportDesc": "One-click import from cc-switch / codex++ / Claude / Codex / Gemini / Hermes local tools",
     "securityTitle": "Account Security",
     "securityDesc": "Protect your account security",
     "activityLoading": "Loading...",
@@ -24668,5 +24754,57 @@
     "xAxisLabel": "X Axis",
     "yAxisLabel": "Y Axis",
     "valueSuffix": ""
+  },
+  "cliImport": {
+    "title": "CLI Config Import",
+    "desc": "One-click import from cc-switch / codex++ / Claude / Codex / Gemini / Hermes local tools",
+    "sources": "Supported sources",
+    "sourceCcSwitch": "cc-switch",
+    "sourceCodexPlus": "codex++",
+    "sourceClaudeCli": "Claude Code",
+    "sourceCodexCli": "Codex CLI",
+    "sourceGeminiCli": "Gemini CLI",
+    "sourceHermes": "Hermes",
+    "upload": "Upload File",
+    "uploadHint": "Select local config file (.db / .json / .toml / .yaml / .env)",
+    "dragDrop": "Drag a file here, or click to select",
+    "fileSelected": "Selected: {name} ({size})",
+    "parse": "Parse",
+    "parsing": "Parsing...",
+    "parseFailed": "Parse failed: {error}",
+    "parseSuccess": "Parsed successfully, {count} providers",
+    "previewTitle": "Parse Preview",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "selected": "Selected {count}/{total}",
+    "conflictStrategy": "Conflict strategy",
+    "overwrite": "Overwrite",
+    "skip": "Skip",
+    "clone": "Clone",
+    "overwriteDesc": "Delete old config and import new",
+    "skipDesc": "Keep old config and skip new",
+    "cloneDesc": "Keep old config, append index suffix to new",
+    "commit": "Commit Import",
+    "committing": "Importing...",
+    "commitSuccess": "Import done: {imported} succeeded, {skipped} skipped, {failed} failed",
+    "commitFailed": "Import failed: {error}",
+    "noApiKey": "(manual fill required)",
+    "warning": "Warning",
+    "historyTitle": "Import History",
+    "historyEmpty": "No import records yet",
+    "historySource": "Source",
+    "historyPath": "Path",
+    "historyImported": "Imported",
+    "historySkipped": "Skipped",
+    "historyFailed": "Failed",
+    "historyStatus": "Status",
+    "historyTime": "Time",
+    "statusSuccess": "Success",
+    "statusPartial": "Partial",
+    "statusFailed": "Failed",
+    "errorNoFile": "Please upload a config file",
+    "errorNoSource": "Please select an import source",
+    "errorPreviewExpired": "Preview expired, please re-parse",
+    "errorParseFailed": "Parse failed"
   }
 }
