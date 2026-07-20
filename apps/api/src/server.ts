@@ -190,6 +190,7 @@ import { dramaRoutes } from './routes/drama.js'
 import { distributionRoutes } from './routes/distribution.js'
 // 用户级 LLM 平台配置（每用户独立 API Key + 模板 + 测试连通 + 拉取模型）
 import { userLlmConfigRoutes } from './routes/user-llm-configs.js'
+import { cliImportRoutes } from './routes/cli-import.js'
 import { adminGrayReleaseRoutes } from './routes/admin-gray-release.js'
 import { adminErrorDashboardRoutes } from './routes/admin-error-dashboard.js'
 import { adminApiPlatformRoutes } from './routes/admin-api-platform.js'
@@ -854,6 +855,9 @@ function registerRoutes(server: FastifyInstance) {
   server.register(distributionRoutes, { prefix: '/api' })
   // 用户级 LLM 平台配置：模板/CRUD/测试/拉取模型（/api/user/llm-configs/*）
   server.register(userLlmConfigRoutes, { prefix: '/api/user' })
+  // CLI 配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)
+  // 端点:/api/user/cli-import/{sources,parse-file,parse-payload,commit,preview/:id,history}
+  server.register(cliImportRoutes, { prefix: '/api/user' })
   server.register(adminGrayReleaseRoutes, { prefix: '/api/admin' })
   server.register(adminErrorDashboardRoutes, { prefix: '/api/admin' })
   server.register(adminApiPlatformRoutes, { prefix: '/api/admin' })
