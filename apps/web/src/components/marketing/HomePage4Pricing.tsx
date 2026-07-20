@@ -91,7 +91,8 @@ export function HomePage4Pricing() {
   const t = useTranslations('marketing.pricing')
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:py-16">
+    // 2026-07-20 改:去掉 max-w-7xl mx-auto,容器改 w-full 撑满营销区域
+    <section className="w-full px-4 py-12 sm:py-16">
       <div className="mb-8 text-center sm:mb-10">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('title')}</h2>
         <h3 className="font-edix mt-1 text-xs uppercase tracking-wider text-muted-foreground">
