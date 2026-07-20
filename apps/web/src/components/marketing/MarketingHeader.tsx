@@ -39,7 +39,9 @@ export function MarketingHeader() {
 
   return (
     <header className="sticky top-0 z-sticky border-b bg-background/85 backdrop-blur">
-      <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 md:px-8">
+      {/* 2026-07-20 改:去掉 max-w-7xl mx-auto,容器改 w-full 撑满营销区域
+          (原因同 page.tsx — 父容器已撑满,header 也需撑满,消除两侧黑地) */}
+      <div className="flex h-14 w-full items-center justify-between px-4 md:px-8">
         <Link href="/" className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-primary" />
           <span className="text-base font-bold tracking-tight">{t('header.brand')}</span>

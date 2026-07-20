@@ -41,7 +41,10 @@ export function SiteFooter() {
 
   return (
     <footer className="mt-12 border-t bg-card/50">
-      <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-8">
+      {/* 2026-07-20 改:去掉 max-w-7xl mx-auto,容器改 w-full 撑满营销区域
+          (原因同 page.tsx — 父容器已撑满 1962/2449px,footer 也需撑满,
+           消除 max-w-7xl 居中导致 footer 两侧各 ~341px 黑地) */}
+      <div className="w-full px-4 py-10 md:px-8">
         <div className="grid gap-8 md:grid-cols-4">
           {/* 品牌区 */}
           <div className="space-y-3">
