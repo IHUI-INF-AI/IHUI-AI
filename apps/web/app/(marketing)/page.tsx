@@ -42,10 +42,15 @@ export default function HomePage() {
 
   return (
     <>
-      {/* 全屏分页滚动容器 */}
+      {/* 全屏分页滚动容器
+          - 显式 overflow-x-hidden 防止 Marquee/TypewriterHero/跑马灯等内容因
+            transform/子元素宽度溢出产生横向滚动(2026-07-20 用户反馈"右侧有
+            大量空间浪费 + 可左右滑动")。overflow-y-scroll 单独使用会同时
+            强制 overflow-x: auto,加 hidden 才是真正锁定水平方向。
+       */}
       <main
         id="home-scroll-container"
-        className="snap-y snap-mandatory overflow-y-scroll"
+        className="snap-y snap-mandatory overflow-x-hidden overflow-y-scroll"
         style={{ height: 'calc(100vh - 3.5rem)' }}
       >
         {/* Page 1: 打字机欢迎语 + 3 CTA + 小程序二维码弹窗 */}
@@ -55,7 +60,13 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
           aria-label={t('indicator.page1', { fallback: 'Hero' })}
         >
-          <div className="mx-auto flex h-full w-full max-w-7xl flex-col items-center justify-center gap-3 px-4 py-4 md:px-8 md:py-6">
+          {/* Page 1
+              - 2026-07-20 改:去掉 max-w-7xl mx-auto,容器改 w-full 撑满营销区域
+                (work-area 已用 padding-left 487px 给 AI 面板让位,主区域 1962px;
+                AI 面板关闭时为 2449px)。让 hero/marquee 等撑满可用宽度,
+                消除之前 max-w-7xl 居中导致两侧各 ~341px 黑色空地。
+              - 内部 TypewriterHero / Marquee 仍用 items-center 居中显示。 */}
+          <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-4 py-4 md:px-8 md:py-6">
             <TypewriterHeroSection />
             <Marquee />
           </div>
@@ -68,7 +79,7 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
           aria-label={t('welcome.title')}
         >
-          <div className="mx-auto flex h-full w-full max-w-7xl items-center px-4 py-6 md:px-8 md:py-8">
+          <div className="flex h-full w-full items-center px-4 py-6 md:px-8 md:py-8">
             <section className="grid w-full gap-6 overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/5 via-card to-emerald-500/5 p-6 md:grid-cols-2 md:p-10">
               <div className="space-y-3">
                 <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -145,7 +156,7 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
           aria-label={t('features.title', { fallback: 'Features' })}
         >
-          <div className="mx-auto flex h-full w-full max-w-7xl items-center px-4 py-6 md:px-8 md:py-8">
+          <div className="flex h-full w-full items-center px-4 py-6 md:px-8 md:py-8">
             <div className="w-full">
               <HomeFeatureGrid />
             </div>
@@ -159,7 +170,7 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
           aria-label={t('magazine.title', { fallback: 'News' })}
         >
-          <div className="mx-auto flex h-full w-full max-w-7xl items-center px-4 py-6 md:px-8 md:py-8">
+          <div className="flex h-full w-full items-center px-4 py-6 md:px-8 md:py-8">
             <div className="w-full">
               <HomePage3Magazine />
             </div>
@@ -173,7 +184,7 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
           aria-label={t('pricing.title', { fallback: 'Pricing' })}
         >
-          <div className="mx-auto flex h-full w-full max-w-7xl items-center px-4 py-6 md:px-8 md:py-8">
+          <div className="flex h-full w-full items-center px-4 py-6 md:px-8 md:py-8">
             <div className="w-full">
               <HomePage4Pricing />
             </div>
@@ -187,7 +198,7 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
           aria-label={t('marquee.title', { fallback: 'Brands' })}
         >
-          <div className="mx-auto flex h-full w-full max-w-7xl flex-col justify-between px-4 py-6 md:px-8 md:py-8">
+          <div className="flex h-full w-full flex-col justify-between px-4 py-6 md:px-8 md:py-8">
             <BrandMarquee />
             {/* 底部 CTA */}
             <section className="rounded-2xl border bg-primary/5 p-6 text-center md:p-10">
