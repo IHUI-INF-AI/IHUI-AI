@@ -1012,6 +1012,8 @@
     "openLocalFolder": "로컬 폴더 열기",
     "openedWorkspace": "열린 워크스페이스",
     "reopenPermission": "권한 재설정",
+    "selectWorkspace": "워크스페이스 선택",
+    "recentWorkspaces": "최근 워크스페이스",
     "folderPicker": {
       "title": "로컬 프로젝트 폴더 선택",
       "description": "로컬 디스크를 탐색하여 프로젝트 폴더를 선택합니다. 최초 열면 접근 권한을 설정합니다.",
@@ -17449,6 +17451,9 @@
     "newConversation": "새 대화",
     "noHistory": "없음채팅",
     "emptyWorkspace": "빈 작업공간",
+    "addWorkspace": "워크스페이스 추가",
+    "clearWorkspace": "워크스페이스 해제",
+    "noRecentWorkspaces": "최근 워크스페이스 없음",
     "handleHint": "클릭하거나 오른쪽으로 드래그해 AI 작업공간 열기",
     "resizeHandleHint": "드래그하여 너비 조정",
     "filterByModel": "모델필터",
