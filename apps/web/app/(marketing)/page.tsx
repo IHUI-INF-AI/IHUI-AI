@@ -18,22 +18,18 @@ import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
 import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
 
 /**
- * 营销首页(从根 app/page.tsx 迁移而来)
+ * 首页(/)
  *
- * 变更:
- * - 移除内联 <header>(由 (marketing)/layout.tsx 的 <MarketingHeader /> 提供)
- * - 移除内联 <SiteFooter />(由 (marketing)/layout.tsx 提供)
- * - 移除外层 <div className="flex min-h-screen flex-col bg-background"> 包裹(由 layout 提供)
- * - 保留全屏分页滚动 main + PageIndicator + ScrollDownButton
- *
- * main 高度仍为 calc(100vh - 3.5rem),与 MarketingHeader 的 h-14 (= 3.5rem) 对齐,
- * 总高度 = 3.5rem + (100vh - 3.5rem) = 100vh,Footer 在视口下方由 body 滚动可见。
+ * 营销落地页 + 工作台入口合一:
+ * - 全屏分页滚动 6 页:Hero+Marquee / Welcome+Pricing / Features / Magazine / Pricing / BrandMarquee+CTA
+ * - 顶部 MarketingHeader(由 marketing layout 提供)+ 底部 SiteFooter
+ * - 不再使用 /home 工作区版首页,统一为营销体验
  */
 const BENEFITS_KEYS = ['benefit1', 'benefit2', 'benefit3', 'benefit4', 'benefit5', 'benefit6']
 
 const TOTAL_PAGES = 6
 
-export default function MarketingHomePage() {
+export default function HomePage() {
   const t = useTranslations('marketing')
   const te = useTranslations('enterprise')
   const router = useRouter()

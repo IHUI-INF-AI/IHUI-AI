@@ -35,7 +35,7 @@ const DEVICE_DISTRIBUTION: { name: string; percent: number; color: string }[] = 
 ]
 
 const TOP_PAGES: { rank: number; path: string; visits: string; ratio: string }[] = [
-  { rank: 1, path: '/home', visits: '186,302', ratio: '40.8%' },
+  { rank: 1, path: '/', visits: '186,302', ratio: '40.8%' },
   { rank: 2, path: '/chat', visits: '92,104', ratio: '20.2%' },
   { rank: 3, path: '/agents', visits: '54,871', ratio: '12.0%' },
   { rank: 4, path: '/discover', visits: '38,210', ratio: '8.4%' },
