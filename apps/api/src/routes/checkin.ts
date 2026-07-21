@@ -5,27 +5,7 @@ import { db } from '../db/index.js'
 import { signInRecords, signInRules } from '@ihui/database'
 import { requireAuth, requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-
-// =============================================================================
-// 签到奖励：第1天10分，逐日+5，第7天起50分封顶
-// =============================================================================
-
-function calcSignInReward(consecutiveDays: number): number {
-  if (consecutiveDays >= 7) return 50
-  return 10 + (consecutiveDays - 1) * 5
-}
-
-/** 返回今日日期字符串 YYYY-MM-DD（UTC） */
-function todayString(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-/** 日期偏移：days 为正向后，为负向前 */
-function shiftDate(date: string, days: number): string {
-  const d = new Date(date + 'T00:00:00Z')
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
+import { calcSignInReward, todayString, shiftDate } from '../utils/checkin-helpers.js'
 
 // =============================================================================
 // Zod schemas

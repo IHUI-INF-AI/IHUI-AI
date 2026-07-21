@@ -13,10 +13,10 @@
  * 注册（server.ts）：server.register(callbackLogRoutes, { prefix: '/api/callback-log' })
  */
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { randomBytes } from 'node:crypto'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 
 // ============================================================================
@@ -71,22 +71,6 @@ function serialize(e: CallbackLogEntry, withBody = false) {
         processTimeMs: e.processTimeMs,
         createdAt: e.createdAt,
       }
-}
-
-// ============================================================================
-// 鉴权辅助
-// ============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
 }
 
 /** 从请求体或查询中提取 biz_type / biz_id / source。 */
@@ -152,7 +136,7 @@ function recordCallback(
 export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
   // POST /callback-log/call — 通用回调记录（biz_type 默认 call）
   server.post('/call', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const meta = extractMeta(request)
     const entry = recordCallback(request, meta.bizType, meta.bizId, meta.source, 1, null)
     return reply.send(success({ callbackId: entry.id }))
@@ -160,7 +144,7 @@ export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /callback-log/sms — 短信回调
   server.post('/sms', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const meta = extractMeta(request)
     const entry = recordCallback(request, 'sms', meta.bizId, 'sms', 1, null)
     return reply.send(success({ callbackId: entry.id }))
@@ -168,7 +152,7 @@ export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /callback-log/payment — 支付回调
   server.post('/payment', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const meta = extractMeta(request)
     const entry = recordCallback(request, 'payment', meta.bizId, 'payment', 1, null)
     return reply.send(success({ callbackId: entry.id }))
@@ -176,7 +160,7 @@ export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /callback-log/list — 回调日志列表（支持 biz_type/source/status 过滤 + 分页）
   server.get('/list', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const query = z
       .object({
         biz_type: z.string().optional(),
@@ -206,7 +190,7 @@ export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /callback-log/:id — 回调详情（含请求/响应体）
   server.get('/:id', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { id } = z.object({ id: z.string() }).parse(request.params)
     const entry = store.get(id)
     if (!entry) {
@@ -217,7 +201,7 @@ export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /callback-log/:id — 删除回调日志
   server.delete('/:id', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { id } = z.object({ id: z.string() }).parse(request.params)
     if (!store.has(id)) {
       return reply.status(404).send(error(404, '日志不存在'))

@@ -9,7 +9,7 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { generateCompactId } from '../utils/crypto-random.js'
 
@@ -33,18 +33,6 @@ function genId(prefix: string): string {
   return generateCompactId(prefix)
 }
 
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-}
-
 const createSessionSchema = z.object({
   calleeId: z.string().min(1),
   offer: z.unknown().optional(),
@@ -65,7 +53,7 @@ const endSchema = z.object({ sessionId: z.string().min(1) })
 
 export const webrtcVoiceRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
   })
 
   // POST /session — 创建语音会话(主叫发起呼叫)
