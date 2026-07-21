@@ -8,6 +8,97 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### G5+ 知识图谱 DrizzleGraphStore 持久化后端(2026-07-22)
+
+**触发**:G5 知识图谱 commit `73f8d0a5d` 落地后,`graph_store` 仅 `InMemoryGraphStore`(进程内 dict),生产环境重启丢数据。本任务将其升级为 DrizzleGraphStore(asyncpg 直连 PG),通过环境变量 `KNOWLEDGE_GRAPH_STORE` 切换后端。
+
+**方案与产出**:
+
+1. **T1 GraphStore Protocol 统一接口**:`apps/ai-service/app/services/knowledge_graph.py` 新增 `class GraphStore(Protocol)`,所有方法(upsert_entity / upsert_relation / get_graph / clear)统一 async 接口,便于多态切换后端
+2. **T2 DrizzleGraphStore 实现**:asyncpg pool 懒加载 + 复用,upsert_entity/relation 走 SELECT-then-INSERT/UPDATE 模式,并发竞争触发 `asyncpg.UniqueViolationError` 时降级到 SELECT 路径,确保不丢数据
+3. **T3 InMemoryGraphStore 异步化**:所有方法改为 `async def`(内部仍是同步,只是 async wrapper),与 Protocol 保持一致,test 同步调用改为 `await`
+4. **T4 API 路由异步化**:`apps/ai-service/app/api/v1/knowledge_graph.py` build_graph / get_graph_data / clear_graph 全部加 `await graph_store.*`
+5. **T5 _create_graph_store 工厂**:根据 `KNOWLEDGE_GRAPH_STORE` 环境变量(`memory` | `drizzle` | 未知值降级)选择后端,初始化失败自动回退到内存模式
+6. **T6 数据库迁移闭环**:`packages/database/drizzle/meta/_journal.json` 加 `idx=124, tag=0125_knowledge_graph`,新建 `0125_snapshot.json` 包含 `zhs_knowledge_entity` + `zhs_knowledge_relation` 两张表 + 7 个索引的 schema 信息
+7. **T7 测试覆盖**:42 个测试全绿(原 27 个 + 新增 15 个 DrizzleGraphStore mock 测试),含并发 UniqueViolation 降级路径、Decimal→float 转换、Protocol 多态
+
+**变更文件**:
+
+- `apps/ai-service/app/services/knowledge_graph.py`(+417 行,InMemoryGraphStore 改 async + 加 Protocol/DrizzleGraphStore/工厂)
+- `apps/ai-service/app/api/v1/knowledge_graph.py`(+11 行,4 处同步调用加 await + 注释更新)
+- `apps/ai-service/tests/test_knowledge_graph.py`(+374 行,InMemoryGraphStore 测试改 async + 新增 DrizzleGraphStore mock 测试 + _create_graph_store 工厂测试)
+- `packages/database/drizzle/meta/0125_snapshot.json`(新,1.4MB,基于 0124 加 2 张表 7 个索引)
+- `packages/database/drizzle/meta/_journal.json`(+8 行,idx=124)
+
+**自验**:
+
+- `python -m pytest tests/test_knowledge_graph.py` 42/42 passed ✅
+- `python -m pytest tests/test_knowledge_graph.py tests/test_vector_memory.py` 84/84 passed ✅
+- `pnpm --filter @ihui/database build` exit 0 ✅
+- `pnpm --filter @ihui/database typecheck` exit 0 ✅
+- ai-service 全量测试 815 passed / 9 failed(失败均来自其他 agent 改动:test_routers.py LLM + test_schema_check.py ai_model_config 字段数,与本任务无关)
+- `node scripts/check-staged-files.mjs` 端分布正确(ai-service + database 共享包)
+
+**硬约束**:
+
+- 本任务仅修改 ai-service 端(知识图谱后端持久化)+ database 共享包 schema meta(无新表,只是补 snapshot)
+- 跨端:仅 ai-service + 共享包 schema(database 类型/索引已 commit 在 G5 任务 `73f8d0a5d` 的 `knowledge-graph.ts` 中,本任务不重复添加)
+- 数据库 migration 0125_knowledge_graph.sql + 0125_snapshot.json 必须同步,否则 drizzle-kit 检查失败
+- 平台独占标注:**仅 ai-service + 共享包 schema**(知识图谱后端是 ai-service 独占功能,其他端通过 next.config.ts rewrite 调用)
+
+---
+
+### .check-api-routes-ignore.json 5 处 TODO 后端路径审计补建 + 豁免移除闭环(2026-07-21)
+
+**触发**:用户授权"按授权指令'完美细致完整毫无遗漏'对 .check-api-routes-ignore.json 中 5 处标记为 TODO 待实装的后端路径完成审计 + 补建 + 移除豁免闭环"。
+
+**方案与产出**:
+
+1. **T1 审计**:5 处 TODO 豁免定位 → notes 5 端点 + shares 1 端点 + study/plans 1 端点(共 7 端点)+ admin/content/:type/:id 1 处已由 `apps/api/src/routes/admin/content/crud.ts` 实装(无需补建)
+2. **T2 补建**:`apps/api/src/routes/frontend-stub-other-routes.ts` 新增 188 行
+   - notes 模块:POST /notes(创建) + GET /notes/public(公开列表) + GET /notes/:id(详情) + PUT /notes/:id(更新,仅所有者) + DELETE /notes/:id(删除,仅所有者) → 共 5 端点
+   - shares 模块:POST /shares(创建分享链接,基于 systemConfigs 表 category='share-link')
+   - study/plans 模块:GET /study/plans(基于 lessonSignUps + lessons 聚合,progress 推算 status pending/inProgress/completed)
+3. **T3 豁免闭环**:
+   - **移除 5 处 TODO 豁免**:`POST /api/notes` / `GET /api/notes/public` / `POST /api/shares` / `GET /api/study/plans` / `GET /api/admin/content/:type/:id` 全部从 `.check-api-routes-ignore.json` 删除
+   - **新增 2 处守门 bug 标注**:`GET /api/auth/login/email`(e2e spec 字符串字面量误识别)/ `GET /api/admin/content/:type/:id`(desktop JSDoc 注释误识别)→ 这 2 处实际后端已注册,守门脚本假阳性
+4. **T4 守门脚本验证**:`node scripts/check-api-routes.mjs --warn-only` exit 0,前端所有 API 调用均有后端路由对应
+
+**变更文件**:
+
+- `apps/api/src/routes/frontend-stub-other-routes.ts`(+188 行)
+- `.check-api-routes-ignore.json`(移除 5 条 TODO 豁免 + 新增 2 条守门 bug 标注)
+- 配套: `scripts/check-staged-files.mjs`(新,lightweight staged 清单打印)
+- `AGENTS.md` 新增 §22 main 分支保护规则
+- `.husky/pre-commit` 第 22 项集成 `check-staged-files.mjs`
+
+**自验**:
+
+- `node scripts/check-api-routes.mjs --warn-only` exit 0 ✅
+- 后端 7 端点全部实装(notes ×5 + shares ×1 + study/plans ×1)✅
+- `.check-api-routes-ignore.json` 5 处 TODO 全部移除 ✅
+- 守门脚本误识别的 2 处 bug 已添加显式标注 ✅
+- `node scripts/check-staged-files.mjs` 测试通过(2 文件 staged, 端分布正确显示)✅
+
+**协作事故与教训(2026-07-21 落地 §22 规则)**:
+
+1. **本任务 commit 协作事故链**:
+   - 原 commit `2f817903f` 在另一 agent 跑 `git pull --rebase origin main` 时被**剥离**为 dangling commit
+   - 另一 agent 重建 commit `dcfdf438d`(message 写"fix(docs): 恢复 server-docs 3 文档")时,把本任务的 2 个文件 + 188 行变更**混入**了 docs 修复 commit,导致 commit message 与实际内容**不一致**
+   - 已 push 到 origin/main 的 `dcfdf438d` 无法改 message(git 不允许改写已 push 的 commit message)
+   - **接受现状**:本任务代码已 100% 落地 origin(只是 commit message 不完美),重 commit 反而会引入新的 non-fast-forward
+2. **新落地的 §22 规则**(AGENTS.md 2026-07-21 立)正是为此类事故设计:
+   - 禁止 main `git pull --rebase origin main`(永远)
+   - commit message 必须与 `git show --stat` 文件清单一致
+   - staged 清单 commit 前必须肉眼检查(第 22 项 `check-staged-files.mjs`)
+
+**硬约束**:
+
+- 本任务只动 `.check-api-routes-ignore.json` + `apps/api/src/routes/frontend-stub-other-routes.ts` + 新增 `scripts/check-staged-files.mjs` + 修改 `AGENTS.md` + `.husky/pre-commit`
+- 跨端:仅 api 端补建(7 端点)+ 工具脚本(`scripts/` + `.husky/` + `AGENTS.md`)
+
+---
+
 ### 模型市场 nav 样式重构 + 厂商 SVG 图标(2026-07-21)
 
 **触发**:用户反馈"`nav` 这里的样式太难看了 不符合本项目整体风格 并且也没有配上svg对应厂商的图标"。
@@ -106,6 +197,65 @@
 - commit message: `feat(auth): 分域 SSO 架构 — 主域 aizhs.top + 认证子域 bsm.aizhs.top`
 - 跨端:仅 web 端(API 与 ai-service 不变)
 - Cookie 域设置仅在非 localhost 时生效,本地纯 localhost 调试保持无 domain 行为不变
+
+---
+
+### AI 对话框 Skill 库统一面板 + 用户自定义技能 CRUD(2026-07-21,跨端:web + api + 共享包)
+
+**触发**:用户反馈"本项目的 ai 对话框内怎么没有 skill 列表呢 显示本项目所有的 skill 脚本 插件之类的 并且分类 可以点击调用对话"。
+
+**方案**(双 Tab 混合分类,用户已确认):
+
+- **数据源**(5 类聚合):
+  1. 硬编码斜杠命令 7 项(summary/translate/explain/code/polish/wechat-article/koubo-script)
+  2. 硬编码提示词模板 5 项(summary/translate/explain/code/polish)
+  3. 硬编码自媒体 Skill 2 项(公众号文章 / 口播稿)
+  4. 动态 OpenClaw Skills(`listAvailableSkills`)
+  5. 动态 MCP 工具(`/api/ai/mcp/servers` 拉每个 server 的 tools)
+  6. **新增** 用户自定义技能(新建 `user_chat_skills` 表 + 5 API)
+- **双 Tab 分类**:
+  - Tab 1 「按来源」:提示词模板 / 斜杠命令 / 自媒体 / OpenClaw / MCP 工具 / 自定义(6 分组)
+  - Tab 2 「按场景」:写作 / 编程 / 媒体 / 工具 / 自定义(5 分组,跨数据源聚合)
+- **点击行为**:填充 Skill 模板到 textarea(同现有 slash/template/self-media 行为);`category='custom'` 项有 ✏️/🗑 按钮;新增按钮调出 inline 表单(name + prompt + category + scenario + icon)
+- **toolbar 改造**:删除 message-input 的"提示词模板"按钮 + "自媒体 skill"按钮 + `/` 独立按钮,合并成单一"📚 技能库"按钮(`BookMarked` 图标)打开 SkillLibrary 弹窗;`@` 和 `+` 独立按钮保留;textarea 内输入 `/` 仍触发 SlashCommandPalette
+
+**变更文件**:
+
+- `packages/database/src/schema/user-chat-skills.ts`(新):user_chat_skills 表(id / userId / name / category / scenario / prompt / icon / enabled / sortOrder / createdAt / updatedAt)
+- `packages/database/src/schema/index.ts`:export 新表
+- `packages/database/drizzle/20260721200000_user_chat_skills.sql`(新):CREATE TABLE
+- `packages/database/drizzle/meta/_journal.json`:追加 idx 123 条目
+- `packages/database/drizzle/meta/0123_snapshot.json`(新):快照
+- `apps/api/src/db/chat-skills-queries.ts`(新):listChatSkills / createChatSkill / updateChatSkill / deleteChatSkill / findChatSkillById
+- `apps/api/src/routes/chat-skills.ts`(新):GET/POST/PATCH/DELETE /api/chat/skills(authenticate 守门 + Zod)
+- `apps/api/src/server.ts`:register chatSkillsRoutes(挂在 `/api/chat/skills` 路径前缀)
+- `apps/web/src/lib/chat-skills-api.ts`(新):listUserSkills / createUserSkill / updateUserSkill / deleteUserSkill
+- `apps/web/src/components/ai/skill-library.tsx`(新):双 Tab SkillLibrary 弹窗组件
+- `apps/web/src/components/chat/message-input.tsx`:改造 toolbar,删除 3 个分散按钮,新增"技能库"按钮接入 SkillLibrary
+- `apps/web/messages/{zh-CN,en,ja,ko,zh-TW}.json`:新增 30+ key 5 语言 parity(详见 STATE-skill-library.md H8)
+
+**多端同步**:跨端联动(AI 对话框 web 端 UI 调 api 端新接口 + 共享 packages/database 新表,完整三层联通;其他 6 端无 AI 对话框不动)
+
+**自验**:
+
+- typecheck `pnpm --filter @ihui/api typecheck` 0 错误
+- typecheck `pnpm --filter @ihui/web typecheck` 0 错误
+- `pnpm turbo build` exit 0
+- i18n 5 文件 JSON.parse VALID + 30+ key parity
+- zh-TW 无简体字残留 + ko 无中文残留 + en 无破碎英文
+- 圆角守门(`check-rounded-full.mjs`)exit 0
+- 多端同步守门(`check-multi-end-sync.mjs`):跨端任务 pass(本任务 web + api + 共享包)
+- 浏览器 4 状态截图(默认 / hover / active / dark)保存到 `.trae-cn/tmp/skill-library-*.png`
+
+**硬约束**:
+
+- 改动文件仅限本任务清单(不碰 chat.ts、use-chat.ts、chat-api.ts 等其他 agent 改动)
+- commit message: `feat(chat): AI 对话框 Skill 库统一面板 + 用户自定义技能 CRUD`
+- 数据库 migration 失败时降级为手写 SQL(仍写 journal 条目)
+- dev server 起不来走 §19 应急(告知用户手动跑,绝不带独立窗口)
+
+**详细 STATE**:`.trae-cn/goal-runtime/STATE-skill-library.md`(H1-H10 + C1-C5 + E1-E3 + Q1-Q3)
+**执行日志**:`.trae-cn/goal-runtime/loop-run-log-skill-library.md`
 
 ---
 
@@ -508,11 +658,11 @@ nginx -t && nginx -s reload
 
 **P1 阶段 2 全量范围**(留待后续子集):
 
-| 子集                        | 范围                                                                           | 工作量 | 状态 |
-| --------------------------- | ------------------------------------------------------------------------------ | ------ | ---- |
-| **P1-2.1 部署层管理**       | 客户 pause/resume/backup/restore 脚本 + admin-api Fastify 服务 + 证书续期 cron | 1-2 天 | ✅   |
-| **P1-2.2 web/admin UI**     | web/admin 端扩展(创建/暂停/删除/查看客户 UI) + 详情页 + 备份 + 证书           | 3-5 天 | ✅   |
-| **P1-2.3 资源监控(本次)**   | Prometheus + cAdvisor + Grafana + 详情页 iframe + 横向对比页                   | 2-3 天 | ✅   |
+| 子集                      | 范围                                                                           | 工作量 | 状态 |
+| ------------------------- | ------------------------------------------------------------------------------ | ------ | ---- |
+| **P1-2.1 部署层管理**     | 客户 pause/resume/backup/restore 脚本 + admin-api Fastify 服务 + 证书续期 cron | 1-2 天 | ✅   |
+| **P1-2.2 web/admin UI**   | web/admin 端扩展(创建/暂停/删除/查看客户 UI) + 详情页 + 备份 + 证书            | 3-5 天 | ✅   |
+| **P1-2.3 资源监控(本次)** | Prometheus + cAdvisor + Grafana + 详情页 iframe + 横向对比页                   | 2-3 天 | ✅   |
 
 **P1-2.1 详细任务清单**:
 
@@ -595,12 +745,12 @@ nginx -t && nginx -s reload
 
 **P1-2.2 / P1-2.3 完成情况**:
 
-| 子任务 | commit | 范围 |
-|---|---|---|
-| P1-2.2a 部署层管理后台 | `b5dff4ba` | 租户列表 + 创建/暂停/恢复/销毁 |
-| P1-2.2b 部署层详情页 + 备份管理 | `ebd29161b` | 详情页 + 备份列表/恢复/删除 |
-| P1-2.2c 证书状态监控 + 配额占位 | `346c72bf9` | acme.json 扫描 + 5 语言 i18n |
-| **P1-2.3 资源监控(本次)** | 待提交 | Prometheus + Grafana + 详情页 iframe + 横向对比页 |
+| 子任务                          | commit      | 范围                                              |
+| ------------------------------- | ----------- | ------------------------------------------------- |
+| P1-2.2a 部署层管理后台          | `b5dff4ba`  | 租户列表 + 创建/暂停/恢复/销毁                    |
+| P1-2.2b 部署层详情页 + 备份管理 | `ebd29161b` | 详情页 + 备份列表/恢复/删除                       |
+| P1-2.2c 证书状态监控 + 配额占位 | `346c72bf9` | acme.json 扫描 + 5 语言 i18n                      |
+| **P1-2.3 资源监控(本次)**       | 待提交      | Prometheus + Grafana + 详情页 iframe + 横向对比页 |
 
 **P1-2.3 详细任务清单**:
 
@@ -854,5 +1004,9 @@ cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
 - ❌ 模板引擎(本期用代码硬编码 section,后续可抽 ejs/handlebars)
 
 **状态**:🚧 进行中(本次会话)
+
+---
+
+<!-- 已归档(2026-07-21):综合安全审计 9 轮加固(已完成 ✅ 2026-07-21)— 配置/秘密泄露 + SQL 注入 + XSS + RCE + CSRF + SSRF + 依赖漏洞 + 安全头 + 加密失败 + token 持久化 全部深度修复,9 个 fix(security) commit 已合入 origin/main。完整审计归档见 `.trae-cn/goal-runtime/SECURITY-AUDIT-2026-07-21.md` -->
 
 ---
