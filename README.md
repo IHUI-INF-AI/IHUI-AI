@@ -70,20 +70,20 @@
 
 ### 🚀 3 个动作,30 秒,让这个故事被看见
 
-| #   | 动作                                 | 你将获得                                                          |
-| --- | ------------------------------------ | ----------------------------------------------------------------- |
-| 1   | ⭐ **Star 这个仓库**                   | 你的 GitHub 时间线会出现它,你的 followers 会看到                 |
-| 2   | 📲 **把上面那 2 行金句复制到朋友圈**    | 配图见下方,你将成为"第一个让朋友看到这个故事的人"               |
-| 3   | 💬 **在 Issue 区写下你自己的故事**     | [点此进入](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — 我们会精选置顶,让全世界看到 |
+| #   | 动作                                 | 你将获得                                                                                |
+| --- | ------------------------------------ | --------------------------------------------------------------------------------------- |
+| 1   | ⭐ **Star 这个仓库**                 | 你的 GitHub 时间线会出现它,你的 followers 会看到                                        |
+| 2   | 📲 **把上面那 2 行金句复制到朋友圈** | 配图见下方,你将成为"第一个让朋友看到这个故事的人"                                       |
+| 3   | 💬 **在 Issue 区写下你自己的故事**   | [点此进入](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — 我们会精选置顶,让全世界看到 |
 
 ---
 
 ### 🖼️ 配图已为你准备好(长按保存,直接发)
 
-| 图片 | 用途 | 路径 |
-| ---- | ---- | ---- |
-| 🏢 长春线下基地实拍 | 朋友圈/微博头图 | `apps/web/public/images/story/changchun-winter-2024.jpg` |
-| 🌃 凌晨编程 · 一盏台灯 | X/知乎/公众号中段 | `apps/web/public/images/story/late-night-coding.jpg` |
+| 图片                   | 用途              | 路径                                                     |
+| ---------------------- | ----------------- | -------------------------------------------------------- |
+| 🏢 长春线下基地实拍    | 朋友圈/微博头图   | `apps/web/public/images/story/changchun-winter-2024.jpg` |
+| 🌃 凌晨编程 · 一盏台灯 | X/知乎/公众号中段 | `apps/web/public/images/story/late-night-coding.jpg`     |
 
 ---
 
@@ -243,7 +243,7 @@
 | **数据库**           | **338+ 表 + 120+ 迁移** + 100 schema 文件 + Drizzle ORM + RLS + 租户路由                     | 单库 PostgreSQL 15,schema 隔离  |
 | **API 规模**         | ~1135 端点(api 1080 + ai-service 55)+ 12 WebSocket + 95+ 路由文件                            | 远超源项目 331 端点             |
 | **业务覆盖**         | 15 大模块 / 50+ 子功能 / **200+ Web 页面**                                                   | 一个平台覆盖所有 AI 应用场景    |
-| **共享包**           | 12 packages(auth/database/types/ui/sdk/api-client/context-compaction 等)                      | 跨端类型安全 + 复用             |
+| **共享包**           | 12 packages(auth/database/types/ui/sdk/api-client/context-compaction 等)                     | 跨端类型安全 + 复用             |
 | **性能保障**         | Knip 未使用代码 + Lighthouse CI + Locust 压测                                                | 性能预算 + 容量预估             |
 | **部署成熟度**       | Docker Compose(14 服务)+ 蓝绿 + Nginx upstream + 证书续期 cron                               | 生产级运维                      |
 
@@ -452,8 +452,8 @@ IHUI-AI/
 ├── .github/workflows/       # 4 个 CI:build / ci / e2e / knip + GitHub Act 本地 CI
 ├── .husky/                  # Git hooks (commit-msg + post-commit + pre-commit + pre-push + post-checkout + post-merge)
 ├── docker-compose.yml       # 14 服务编排(7 业务 + 7 监控)
-├── Dockerfile.api-new       # 后端镜像(api + worker 共用)
-├── Dockerfile.web-new       # 前端镜像(Next.js standalone)
+├── Dockerfile.api       # 后端镜像(api + worker 共用)
+├── Dockerfile.web       # 前端镜像(Next.js standalone)
 ├── Dockerfile.migrate       # 迁移一次性服务镜像
 ├── locustfile.py            # Locust 压测脚本
 ├── lighthouserc.json        # Lighthouse CI 性能预算
@@ -733,33 +733,33 @@ IHUI-AI/
 
 项目通过 17 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计脚本杜绝协作事故:
 
-| #       | 脚本                                         | 用途                                        |
-| ------- | -------------------------------------------- | ------------------------------------------- |
-| 1       | check-api-key-leak.mjs                       | API key 泄露检测                            |
-| 2       | check-i18n-keys.mjs                          | i18n 键完整性 + parity                      |
-| 2b      | scan-i18n-zh-residue.mjs zh-TW               | zh-TW 简体字残留(opencc 字形转换)           |
-| 2c      | scan-i18n-zh-residue.mjs ko                  | ko.json 中文残留(字符范围检测)              |
-| 2d      | scan-i18n-zh-residue.mjs ja                  | ja.json 中文残留(warn-only)                 |
-| 2e      | check-i18n-broken-en.mjs                     | en.json 破碎机翻英文守门                    |
-| 3       | check-db-schema-drift.mjs                    | schema drift 检测                           |
-| 4       | check-stale-dist.mjs                         | packages 陈旧 dist 检测                     |
-| 4b      | check-dist-encoding.mjs                      | packages dist UTF-8 BOM 守门                |
-| 4c      | check-api-client-utf8.mjs                    | api-client 源码字节级 UTF-8 完整性          |
-| 5       | lint-staged                                  | eslint + prettier                           |
-| 6       | check-sanitizer-bypass.mjs                   | XSS sanitizer 绕过检测                      |
-| 7       | check-dedupe.mjs                             | 依赖碎片化检测                              |
-| 8       | check-api-routes.mjs                         | 前后端路由一致性                            |
-| 9       | check-safe-parse.mjs                         | safeParse 静默忽略(warn-only)               |
-| 11      | check-rounded-full.mjs                       | 容器圆角违规(强制尺寸梯度)                  |
-| 12      | check-delivery-report-consistency.mjs        | 交付报告一致性                              |
-| 13b     | check-project-plan-size.mjs                  | PROJECT_PLAN.md 体积 < 50KB                 |
-| 13c     | check-project-plan-archive.mjs               | PROJECT_PLAN.md 已完成任务条目防误删        |
-| 15      | check-api-migration-completeness.mjs         | 迁移完整性                                  |
-| 16      | 条件 typecheck                               | apps/web staged 时跑 typecheck              |
-| 16b     | 条件 database build                          | packages/database/src staged 时跑 build     |
-| 17      | check-input-border-var.mjs                   | CSS 颜色 token 嵌套(hsl(var()))防护         |
-| 18      | check-native-title-tooltip.mjs               | 原生 title tooltip 违规(强制用项目 Tooltip) |
-| 17-post | git-push-guard.mjs(post-commit)              | 自动 push + 验证 local == remote(防遗漏)    |
+| #       | 脚本                                  | 用途                                        |
+| ------- | ------------------------------------- | ------------------------------------------- |
+| 1       | check-api-key-leak.mjs                | API key 泄露检测                            |
+| 2       | check-i18n-keys.mjs                   | i18n 键完整性 + parity                      |
+| 2b      | scan-i18n-zh-residue.mjs zh-TW        | zh-TW 简体字残留(opencc 字形转换)           |
+| 2c      | scan-i18n-zh-residue.mjs ko           | ko.json 中文残留(字符范围检测)              |
+| 2d      | scan-i18n-zh-residue.mjs ja           | ja.json 中文残留(warn-only)                 |
+| 2e      | check-i18n-broken-en.mjs              | en.json 破碎机翻英文守门                    |
+| 3       | check-db-schema-drift.mjs             | schema drift 检测                           |
+| 4       | check-stale-dist.mjs                  | packages 陈旧 dist 检测                     |
+| 4b      | check-dist-encoding.mjs               | packages dist UTF-8 BOM 守门                |
+| 4c      | check-api-client-utf8.mjs             | api-client 源码字节级 UTF-8 完整性          |
+| 5       | lint-staged                           | eslint + prettier                           |
+| 6       | check-sanitizer-bypass.mjs            | XSS sanitizer 绕过检测                      |
+| 7       | check-dedupe.mjs                      | 依赖碎片化检测                              |
+| 8       | check-api-routes.mjs                  | 前后端路由一致性                            |
+| 9       | check-safe-parse.mjs                  | safeParse 静默忽略(warn-only)               |
+| 11      | check-rounded-full.mjs                | 容器圆角违规(强制尺寸梯度)                  |
+| 12      | check-delivery-report-consistency.mjs | 交付报告一致性                              |
+| 13b     | check-project-plan-size.mjs           | PROJECT_PLAN.md 体积 < 50KB                 |
+| 13c     | check-project-plan-archive.mjs        | PROJECT_PLAN.md 已完成任务条目防误删        |
+| 15      | check-api-migration-completeness.mjs  | 迁移完整性                                  |
+| 16      | 条件 typecheck                        | apps/web staged 时跑 typecheck              |
+| 16b     | 条件 database build                   | packages/database/src staged 时跑 build     |
+| 17      | check-input-border-var.mjs            | CSS 颜色 token 嵌套(hsl(var()))防护         |
+| 18      | check-native-title-tooltip.mjs        | 原生 title tooltip 违规(强制用项目 Tooltip) |
+| 17-post | git-push-guard.mjs(post-commit)       | 自动 push + 验证 local == remote(防遗漏)    |
 
 **11 迁移审计脚本**:`audit-migration-api-routes-v2.mjs` / `audit-migration-api-routes.mjs` / `audit-migration-db-fields.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-migration-frontend-routes.mjs` / `audit-migration-i18n.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs`
 
@@ -1573,8 +1573,8 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 ### 附录 · 技术决策背后的故事
 
-> *这部分是写给开发者看的。如果你不是技术读者,可以跳过本章,直接看「故事续写」与「开源共建愿景」。*
-> *如果你是技术读者,这一章记录了 IHUI-AI 在 2025 年做出的 5 个关键架构决策——以及它们背后的思考过程。*
+> _这部分是写给开发者看的。如果你不是技术读者,可以跳过本章,直接看「故事续写」与「开源共建愿景」。_
+> _如果你是技术读者,这一章记录了 IHUI-AI 在 2025 年做出的 5 个关键架构决策——以及它们背后的思考过程。_
 
 在一个人用 Vibe Coding 完成 8 端代码的过程中,每一个技术选型都意味着代价:**选错 = 后面所有代码都要重写;选对 = 后面的代码会自然站得住。**
 
@@ -1671,8 +1671,8 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 ---
 
-> *这就是 5 个关键决策。每一个决策背后,都是一个独立开发者在凌晨 3 点反复权衡的代价。*
-> *如果你不认同其中的某个决策,欢迎在 Issue 里讨论——我们愿意被说服。*
+> _这就是 5 个关键决策。每一个决策背后,都是一个独立开发者在凌晨 3 点反复权衡的代价。_
+> _如果你不认同其中的某个决策,欢迎在 Issue 里讨论——我们愿意被说服。_
 
 ---
 
@@ -1705,7 +1705,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 - **不夸大不隐瞒**:融资用途、股权稀释比例、对赌条款等敏感信息,可适度省略细节,但不允许虚构或误导
 - **时间戳留痕**:每个新章末尾标注 `*最近一次更新:YYYY-MM-DD · <里程碑简述>*`
 
-> *最近一次更新:2026-07-21 · 故事首发版本*
+> _最近一次更新:2026-07-21 · 故事首发版本_
 
 ---
 
