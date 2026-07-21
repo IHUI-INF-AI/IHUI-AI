@@ -1961,7 +1961,8 @@
         "developer": "开发者中心",
         "saas": "SaaS 部署"
       },
-      "saasMetrics": "资源监控"
+      "saasMetrics": "资源监控",
+      "aiCost": "AI 成本总览"
     },
     "refund": {
       "title": "退款审核管理",
@@ -11440,6 +11441,26 @@
     "dayUv": "每日 UV",
     "ipCity": "IP 城市分布",
     "noData": "暂无数据"
+  },
+  "aiCost": {
+    "title": "AI 成本总览",
+    "subtitle": "Token 用量、成本与缓存命中率监控",
+    "loading": "加载中...",
+    "empty": "暂无 AI 调用数据",
+    "emptyHint": "用户模型聊天接入后,数据将自动出现",
+    "totalCost": "总成本",
+    "totalTokens": "总 Token",
+    "totalCalls": "总调用",
+    "cacheHitRate": "缓存命中率",
+    "byModel": "按模型",
+    "byDay": "按天",
+    "calls": "次",
+    "noModelData": "暂无模型维度数据",
+    "noDayData": "暂无日维度数据",
+    "rangeLabel": "时间范围",
+    "range1d": "最近 1 天",
+    "range7d": "最近 7 天",
+    "range30d": "最近 30 天"
   },
   "wallet": {
     "title": "我的钱包",
