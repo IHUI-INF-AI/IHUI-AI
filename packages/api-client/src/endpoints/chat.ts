@@ -14,13 +14,43 @@ export interface ConversationDetail {
   updatedAt: string
 }
 
+/** AI 主动提问选项(与 @ihui/types QuestionOptionPayload 结构一致) */
+export interface QuestionOption {
+  id: string
+  label: string
+}
+
+/** AI 主动提问载荷(持久化到 chat_messages.metadata.pendingQuestion) */
+export interface PendingQuestionPayload {
+  questionId: string
+  prompt: string
+  options: QuestionOption[]
+  allowCustom: boolean
+  allowMultiple: boolean
+  /** 关联的 assistant 消息 ID(DB id),用于持久化 metadata 到该消息 */
+  assistantMessageId?: string
+}
+
+/** chat_messages.metadata 的结构化类型(P2 多端同步持久化用)
+ *  - pendingQuestion: 非空表示该 assistant 消息触发了提问且未回答
+ *  - answeredQuestionId: 标记该提问已被回答(与 pendingQuestion: null 同时设置)
+ *  - questionId + isAnswer: user 消息标记,表示这是对某提问的回答
+ *  - 其他 key(model/usage/stub 等)由 ai-callback-worker 写入,保持向后兼容 */
+export interface ChatMessageMetadata {
+  pendingQuestion?: PendingQuestionPayload | null
+  answeredQuestionId?: string
+  questionId?: string
+  isAnswer?: boolean
+  [key: string]: unknown
+}
+
 export interface ConversationMessage {
   id: string
   conversationId: string
   role: ChatRole
   content: string
   tokens: number | null
-  metadata: unknown
+  metadata: ChatMessageMetadata | null
   createdAt: string
 }
 
@@ -39,22 +69,48 @@ export function getConversation(id: string) {
   )
 }
 
-/** 获取对话消息列表（时间正序，单页最�?100 条） */
+/** 获取对话消息列表(时间正序,单页最多 100 条) */
 export function getMessages(id: string) {
   return fetchApi<{ messages: ConversationMessage[]; total: number }>(
     `/api/chat/conversations/${encodeURIComponent(id)}/messages?pageSize=100`,
   )
 }
 
-/** 持久化一条消�?*/
-export function sendMessage(id: string, content: string, role: ChatRole = 'user') {
+/** 持久化一条消息
+ *  P2 多端同步:metadata 参数用于标记 questionId/isAnswer(用户回答)或其他业务元数据 */
+export function sendMessage(
+  id: string,
+  content: string,
+  role: ChatRole = 'user',
+  metadata?: ChatMessageMetadata,
+) {
   return fetchApi<{ message: ConversationMessage }>(
     `/api/chat/conversations/${encodeURIComponent(id)}/messages`,
     {
       method: 'POST',
-      body: JSON.stringify({ content, role }),
+      body: JSON.stringify(metadata ? { content, role, metadata } : { content, role }),
     },
   )
+}
+
+/** 持久化 AI 主动提问挂起状态 + WS 广播到多端
+ *  前端收到 SSE question 事件时调用,把 pendingQuestion 写入 chat_conversations.metadata
+ *  其他端通过 WS ai_question 事件收到后弹窗,实现多端同步
+ *
+ *  设计说明:不传 assistantMessageId,因为前端 onQuestion 时 assistantMessageId 是前端 UUID(占位),
+ *  DB id 要等 ai-callback 完成后才落地。用 conversation.metadata(对话级挂起状态)更合适。 */
+export function persistQuestion(input: {
+  conversationId: string
+  questionId: string
+  prompt: string
+  options: QuestionOption[]
+  allowCustom: boolean
+  allowMultiple: boolean
+}) {
+  return fetchApi<{ ok: boolean; persisted: boolean }>('/api/ai/chat/questions', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
 }
 
 /** 删除对话（级联删除消息） */
