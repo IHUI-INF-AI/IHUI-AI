@@ -42,7 +42,7 @@ function main() {
   try {
     const raw = readFileSync(IGNORE_FILE, 'utf8')
     data = JSON.parse(raw)
-  } catch (e) {
+  } catch {
     console.log(`${C.dim}⏭  ${IGNORE_FILE} 不存在或解析失败,跳过${C.reset}`)
     process.exit(0)
   }
