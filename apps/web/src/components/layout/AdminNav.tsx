@@ -213,6 +213,7 @@ interface AdminNavItem {
     | 'crew'
     | 'knowledgeRag'
     | 'saasTenants'
+    | 'saasCertificates'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -635,6 +636,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     icon: Server,
     items: [
       { href: '/admin/saas', labelKey: 'saasTenants', icon: Layers },
+      { href: '/admin/saas/certificates', labelKey: 'saasCertificates', icon: Lock },
     ],
   },
 ]
