@@ -5,14 +5,27 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
-import { getModelManager, type ModelCompletionRequest, type ModelCompletionResponse } from './models.js'
+import {
+  getModelManager,
+  type ModelCompletionRequest,
+  type ModelCompletionResponse,
+} from './models.js'
+import { generateCompactId } from '../../utils/crypto-random.js'
 
 export interface GatewayConfig {
   wsUrl?: string
-  reconnect?: { enabled: boolean; maxRetries: number; retryDelay: number; backoffMultiplier: number }
+  reconnect?: {
+    enabled: boolean
+    maxRetries: number
+    retryDelay: number
+    backoffMultiplier: number
+  }
   heartbeat?: { enabled: boolean; interval: number; timeout: number }
   messageQueue?: { maxSize: number; flushInterval: number }
-  routing?: { strategy: 'round_robin' | 'least_latency' | 'cost_optimized' | 'failover'; fallbackModels?: string[] }
+  routing?: {
+    strategy: 'round_robin' | 'least_latency' | 'cost_optimized' | 'failover'
+    fallbackModels?: string[]
+  }
 }
 
 export interface GatewayMessage {
@@ -75,10 +88,14 @@ export class ClawdbotGateway extends EventEmitter {
   receiveMessage(message: Omit<GatewayMessage, 'id' | 'timestamp'>): GatewayMessage {
     const fullMessage: GatewayMessage = {
       ...message,
-      id: `gw_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成网关消息 ID
+      id: generateCompactId('gw'),
       timestamp: Date.now(),
     }
-    logger.debug({ messageId: fullMessage.id, type: fullMessage.type }, '[Gateway] Message received')
+    logger.debug(
+      { messageId: fullMessage.id, type: fullMessage.type },
+      '[Gateway] Message received',
+    )
     this.emit('message', fullMessage)
     return fullMessage
   }
@@ -101,9 +118,9 @@ export class ClawdbotGateway extends EventEmitter {
     }
 
     if (strategy === 'cost_optimized') {
-      const cheapest = modelManager.listEnabled().sort(
-        (a, b) => (a.costPer1kTokens?.input ?? 0) - (b.costPer1kTokens?.input ?? 0),
-      )[0]
+      const cheapest = modelManager
+        .listEnabled()
+        .sort((a, b) => (a.costPer1kTokens?.input ?? 0) - (b.costPer1kTokens?.input ?? 0))[0]
       if (cheapest) return this.callWithFallback(cheapest.id, request)
     }
 
@@ -111,7 +128,10 @@ export class ClawdbotGateway extends EventEmitter {
     return this.callWithFallback(request.modelId ?? modelManager.getDefault()?.id ?? '', request)
   }
 
-  private async callWithFallback(modelId: string, request: ModelCompletionRequest): Promise<ModelCompletionResponse> {
+  private async callWithFallback(
+    modelId: string,
+    request: ModelCompletionRequest,
+  ): Promise<ModelCompletionResponse> {
     const fallbacks = this.config.routing?.fallbackModels ?? []
     const candidates = [modelId, ...fallbacks].filter(Boolean)
     const modelManager = getModelManager()

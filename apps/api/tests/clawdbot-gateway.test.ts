@@ -94,7 +94,7 @@ describe('clawdbot ClawdbotGateway AI 网关', () => {
         userId: 'u1',
         content: 'hi',
       })
-      expect(m.id).toMatch(/^gw_\d+_/)
+      expect(m.id).toMatch(/^gw_[a-z0-9]+$/)
       expect(m.timestamp).toBeGreaterThan(0)
       expect(m.content).toBe('hi')
     })
@@ -131,14 +131,12 @@ describe('clawdbot ClawdbotGateway AI 网关', () => {
     })
 
     it('failover 主模型失败时回退到 fallbackModels', async () => {
-      completeMock
-        .mockRejectedValueOnce(new Error('primary fail'))
-        .mockResolvedValueOnce({
-          modelId: 'm2',
-          content: 'fb',
-          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-          finishReason: 'stop',
-        })
+      completeMock.mockRejectedValueOnce(new Error('primary fail')).mockResolvedValueOnce({
+        modelId: 'm2',
+        content: 'fb',
+        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        finishReason: 'stop',
+      })
       gw.configure({ routing: { strategy: 'failover', fallbackModels: ['m2'] } })
       const r = await gw.routeCompletion({ messages: [], modelId: 'm1' })
       expect(r.modelId).toBe('m2')
