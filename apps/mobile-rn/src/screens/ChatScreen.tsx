@@ -11,7 +11,14 @@ import {
 } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { Button, Input } from '@ihui/ui-native'
-import { streamChat, fetchModels, formatSSEError, type LlmModel } from '@ihui/api-client'
+import {
+  streamChat,
+  fetchModels,
+  formatSSEError,
+  getModelContextCapacity,
+  formatTokenCount,
+  type LlmModel,
+} from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useScreenshot } from '../hooks/use-screenshot'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -101,6 +108,14 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       model,
       messages: apiMessages,
       signal: controller.signal,
+      // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
+      contextLimit: getModelContextCapacity(model),
+      onCompaction: (info) => {
+        Alert.alert(
+          '上下文已自动压缩',
+          `${formatTokenCount(info.tokensBefore)} → ${formatTokenCount(info.tokensAfter)}(移除 ${info.removedCount} 条历史)`,
+        )
+      },
       onDelta: (delta) => {
         setMessages((prev) => {
           const next = [...prev]
