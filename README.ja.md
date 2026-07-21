@@ -752,7 +752,6 @@ LiteLLM ゲートウェイで統一接続、インテリジェントルーティ
 | 9       | check-safe-parse.mjs                         | safeParse サイレント無視(warn-only)                      |
 | 11      | check-rounded-full.mjs                       | コンテナー角丸違反(サイズ階段を強制)                     |
 | 12      | check-delivery-report-consistency.mjs        | 納品レポート一貫性                                       |
-| 13      | check-cli-integration-completeness.mjs | cli 統合完全性                                    |
 | 13b     | check-project-plan-size.mjs                  | PROJECT_PLAN.md サイズ < 50KB                            |
 | 13c     | check-project-plan-archive.mjs               | PROJECT_PLAN.md 完了タスク誤削除防止                     |
 | 15      | check-api-migration-completeness.mjs         | マイグレーション完全性                                   |
@@ -1645,7 +1644,7 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 
 **理由**:
 
-- **機械が人間の review に代わる**: 17 個のガードレールは API key 漏洩・i18n キー整合性・zh-TW 簡体字残留・ko 中国語残留・ja 残留・en 機械翻訳破損・schema drift・stale dist・UTF-8 BOM・API ルート一貫性・safeParse 無視・依存性断片化・skipResponseSanitization・border-radius 違反・配信レポート一貫性・cli 統合・マイグレーション完全性・CSS カラートークン入れ子・ネイティブ title tooltip・staged 汚染警告をカバーします
+- **機械が人間の review に代わる**: 16 個のガードレールは API key 漏洩・i18n キー整合性・zh-TW 簡体字残留・ko 中国語残留・ja 残留・en 機械翻訳破損・schema drift・stale dist・UTF-8 BOM・API ルート一貫性・safeParse 無視・依存性断片化・skipResponseSanitization・border-radius 違反・配信レポート一貫性・マイグレーション完全性・CSS カラートークン入れ子・ネイティブ title tooltip・staged 汚染警告をカバーします
 - **機械が人間の audit に代わる**: 11 個のマイグレーション監査スクリプト + post-commit 自動 push フックが「commit 後の push 忘れ」協業事故をメカニズムから根絶します
 - **機械が DevOps に代わる**: 9 個の PowerShell 起動スクリプトが「プロジェクト起動」を「8 つのコマンド暗記」から「1 つのコマンド」に変えます
 

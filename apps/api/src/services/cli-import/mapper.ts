@@ -51,7 +51,7 @@ export function inferProviderCode(
  */
 export function deduplicateName(name: string, appType?: CliAppType): string {
   if (!appType) return name
-  // 仅在 cc-switch 多 app_type 场景需要后缀;claude-desktop/cli/opencode/openclaw 等不常见
+  // 仅在 cc-switch 多 app_type 场景需要后缀;claude-desktop/opencode/openclaw 等不常见
   const multiAppTypes: CliAppType[] = ['claude', 'codex', 'gemini', 'hermes']
   if (multiAppTypes.includes(appType)) {
     return `${name} (${appType})`
