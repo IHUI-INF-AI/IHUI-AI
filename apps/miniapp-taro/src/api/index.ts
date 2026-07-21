@@ -136,6 +136,9 @@ export interface ChatOptions {
   modelId?: string
   agentId?: string
   materialContent?: string
+  /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一)。
+   * 由调用方调 getModelContextCapacity(model) 取得,后端不传则不压缩。 */
+  contextLimit?: number
 }
 
 export interface ChatResult {
@@ -163,6 +166,12 @@ export const chatStream = (
   onReasoning?: (delta: string) => void,
   onMeta?: (meta: { sessionId?: string }) => void,
   signal?: AbortSignal,
+  onCompaction?: (info: {
+    tokensBefore: number
+    tokensAfter: number
+    removedCount: number
+    usageRatio: number
+  }) => void,
 ): Promise<void> => {
   let errored = false
   const resolvedModel = options.model ?? options.modelId
@@ -171,6 +180,7 @@ export const chatStream = (
     if (evt.type === 'chunk' && evt.content) onChunk(evt.content)
     else if (evt.type === 'reasoning' && evt.content) onReasoning?.(evt.content)
     else if (evt.type === 'meta' && evt.sessionId) onMeta?.({ sessionId: evt.sessionId })
+    else if (evt.type === 'compaction' && evt.compaction) onCompaction?.(evt.compaction)
     else if (evt.type === 'error' && evt.content) {
       errored = true
       const err = new Error(evt.content) as Error & {
@@ -204,6 +214,7 @@ export const chatStream = (
           model: resolvedModel,
           agentId: options.agentId,
           materialContent: options.materialContent,
+          contextLimit: options.contextLimit ?? 0,
         }),
         signal,
       })
@@ -244,6 +255,7 @@ export const chatStream = (
         model: resolvedModel,
         agentId: options.agentId,
         materialContent: options.materialContent,
+        contextLimit: options.contextLimit ?? 0,
       },
       enableChunked: true,
       responseType: 'text',
