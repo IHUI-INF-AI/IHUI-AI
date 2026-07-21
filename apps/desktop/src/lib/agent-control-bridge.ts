@@ -108,6 +108,7 @@ async function executeAction(req: AgentActionRequest): Promise<AgentActionRespon
   // 动态分发:params 类型由 action 决定,agent-control.ts 内部已做 Args 转换
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const params = req.params as any
+  const timeoutMs = req.timeout ?? 30000
   const finalize = (
     success: boolean,
     data?: AgentActionResponse['data'],
@@ -123,40 +124,53 @@ async function executeAction(req: AgentActionRequest): Promise<AgentActionRespon
     executedBy: 'desktop',
   })
 
+  // Tauri IPC 超时保护:防止 invoke() 卡住导致 Promise 永远 pending
+  // (api 端 pending Map 会超时,但 desktop 的 Promise 不会,这里加 race 保护)
+  function withTimeout<T>(p: Promise<T>): Promise<T> {
+    return Promise.race([
+      p,
+      new Promise<T>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Tauri IPC timed out after ${timeoutMs}ms`))
+        }, timeoutMs)
+      }),
+    ])
+  }
+
   try {
     // 用 unknown 承接各 action 返回的具体接口类型(ScreenshotResult/OkResult/...),
     // 这些接口无索引签名,不能直接赋给 AgentActionResponse['data'],故在 finalize 处统一 cast
     let data: unknown
     switch (req.action) {
       case 'screenshot_screen':
-        data = await screenshotScreen(params)
+        data = await withTimeout(screenshotScreen(params))
         break
       case 'mouse_move':
-        data = await mouseMove(params)
+        data = await withTimeout(mouseMove(params))
         break
       case 'mouse_click':
-        data = await mouseClick(params)
+        data = await withTimeout(mouseClick(params))
         break
       case 'keyboard_type':
-        data = await keyboardType(params)
+        data = await withTimeout(keyboardType(params))
         break
       case 'mouse_scroll':
-        data = await mouseScroll(params)
+        data = await withTimeout(mouseScroll(params))
         break
       case 'keyboard_press':
-        data = await keyboardPress(params)
+        data = await withTimeout(keyboardPress(params))
         break
       case 'keyboard_hotkey':
-        data = await keyboardHotkey(params)
+        data = await withTimeout(keyboardHotkey(params))
         break
       case 'active_window':
-        data = await activeWindow()
+        data = await withTimeout(activeWindow())
         break
       case 'clipboard_get':
-        data = await clipboardGet(params)
+        data = await withTimeout(clipboardGet(params))
         break
       case 'clipboard_set':
-        data = await clipboardSet(params)
+        data = await withTimeout(clipboardSet(params))
         break
       default:
         return finalize(
@@ -168,7 +182,10 @@ async function executeAction(req: AgentActionRequest): Promise<AgentActionRespon
     }
     return finalize(true, data as AgentActionResponse['data'])
   } catch (err) {
-    return finalize(false, undefined, (err as Error).message, 'EXECUTION_FAILED')
+    const errMsg = (err as Error).message
+    // 超时错误用 TIMEOUT 错误码,其他用 EXECUTION_FAILED
+    const errorCode = errMsg.includes('timed out') ? 'TIMEOUT' : 'EXECUTION_FAILED'
+    return finalize(false, undefined, errMsg, errorCode)
   }
 }
 
