@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { buildMainDomainUrl, isAuthSubdomainHost } from '@/lib/auth-domains'
 
 type Status = 'loading' | 'success' | 'error'
 
@@ -57,6 +58,32 @@ export function OAuthCallbackHandler({ provider }: OAuthCallbackHandlerProps) {
       return
     }
 
+    // 🎭 Mock 授权识别:code 以 mock_ 开头时,本地直接构造登录态,跳过后端 API
+    // 配合 /oauth/mock/[platform] 本地授权页使用,完整模拟真实 OAuth 流程
+    if (code.startsWith('mock_')) {
+      const mockUserId = `mock_${platformParam ?? 'user'}_${Date.now()}`
+      const mockToken = `mock_token_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+      const displayName = platformParam ? `${platformParam}演示用户` : '演示用户'
+      setToken(mockToken, `mock_refresh_${Date.now()}`)
+      setUser({
+        id: mockUserId,
+        nickname: displayName,
+        email: `${displayName.toLowerCase().replace(/[^a-z0-9]/g, '')}@example.com`,
+        avatar: null,
+        provider: platformParam ?? 'mock',
+      } as never)
+      setStatus('success')
+      // 复用现有的分域 SSO 跳转逻辑
+      if (isAuthSubdomainHost()) {
+        setTimeout(() => {
+          window.location.href = buildMainDomainUrl('/')
+        }, 800)
+      } else {
+        setTimeout(() => router.push('/'), 800)
+      }
+      return
+    }
+
     let cancelled = false
     const body = JSON.stringify({ code, state })
 
@@ -79,7 +106,15 @@ export function OAuthCallbackHandler({ provider }: OAuthCallbackHandlerProps) {
         setToken(res.data.token, res.data.refreshToken)
         setUser(res.data.user as never)
         setStatus('success')
-        setTimeout(() => router.push('/'), 800)
+        // 分域 SSO (2026-07-21):当前在认证子域,Cookie 已写在 .aizhs.top,
+        // 跨域生效后跳回主域根路径,主域 useAuthBootstrap 自动读 Cookie 恢复登录态
+        if (isAuthSubdomainHost()) {
+          setTimeout(() => {
+            window.location.href = buildMainDomainUrl('/')
+          }, 800)
+        } else {
+          setTimeout(() => router.push('/'), 800)
+        }
       })
       .catch((e: Error) => {
         if (cancelled) return
