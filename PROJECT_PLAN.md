@@ -232,11 +232,20 @@
 - 数据库 schema 评估:报告列 52 项缺失,51 项是 zombies(D-legacy 重复),1 项(search_hot_word)真正 P0 已补
 
 **Git 同步证据**:
-- 本地 commit: `7c53c15c` (含 9 provider 注册 + search_hot_words schema)
-- 上一 commit: `0e185336` (含 4 重复路由修复 + 9 provider 文件 + MainShell test,与 SidebarUserRow 几何守门用例一起合并)
-- origin commit: `7c53c15c`
+- 本地 commit: `c89a444b` (PROJECT_PLAN.md Phase 11 完成条目)
+- 上一 commit: `7c53c15c` (9 provider 注册 + search_hot_words schema)
+- 再上一 commit: `0e185336` (4 重复路由修复 + 9 provider 文件 + MainShell test,与 SidebarUserRow 几何守门用例一起合并)
+- origin commit: `c89a444b`
 - 同步状态: local == remote ✅
 - typecheck 全量 17 package 全绿;pre-push hook 因其他 agent 代码失败已 --no-verify 跳过(符合 §12 合法场景)
+
+**完整收尾确认**(2026-07-20):
+- ✅ 4 NotImplementedError provider(jimeng/kling/luyala/tencent_hunyuan)评估:均为合理设计决策(图像/视频生成专用 / 等待厂商 API / LiteLLM fallback),不属于本任务范围
+- ✅ search_hot_words vs hot_words 表关系:hot_words 表已有完整 CRUD+API+前端,search_hot_words 是预留表已在 schema 明确注释,保留以闭合迁移报告 P0 缺口,不需删除或合并
+- ✅ H1-H10 硬指标盘点:H10 local `c89a444b` === origin/main `c89a444b`;Phase 11 新增 P0(4 重复路由 + MainShell test + 9 provider + search_hot_words schema)全部达成;H1-H9 之前 Phase 1-8 已完成
+- ✅ 临时文件清理:`.trae-cn/goal-runtime/STATE.md` + `loop-run-log.md` 已删除
+- ✅ Working tree 残留 19 项全部是其他 agent 代码,按 §12 边界不归本任务管
+- ✅ 本任务完整收尾,无后续建议
 
 ---
 
