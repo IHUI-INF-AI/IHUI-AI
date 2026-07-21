@@ -175,3 +175,17 @@ cert/
 *.key
 apiclient_*
 
+# ============================================================================
+# 跨项目产物(2026-07-21 整理):公众号文章系统 + 口播稿系统 + workbuddy 工具
+# 内容来自用户其他工作目录(F:\BaiduSyncdisk),不应入 IHUI-AI 仓库
+# ============================================================================
+# workbuddy 工具本地记忆(memory/MEMORY.md + 每日 memory)
+.workbuddy/
+
+# 公众号文章系统(content_engine)+ 口播稿系统(koubo_workflow)的运行时临时文件
+# AGENTS.md / scripts 是项目内合法源码,仅 ignore 运行时产物
+apps/ai-service/app/skills/.session/
+apps/ai-service/app/skills/content_engine/output/
+apps/ai-service/app/skills/content_engine/.wechat_token_cache.json
+apps/ai-service/app/skills/koubo_workflow/.cache/
+
