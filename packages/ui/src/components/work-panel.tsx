@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Loader2,
   Lock,
+  Star,
 } from 'lucide-react'
 import { cn } from '../lib/utils.js'
 import { Input } from './input.js'
@@ -63,6 +64,10 @@ export interface WorkPanelProps {
   isLoading?: boolean
   /** 当前是否安全连接(https) */
   isSecure?: boolean
+  /** 当前页是否已收藏 */
+  isFavorite?: boolean
+  /** 切换收藏状态 */
+  onToggleFavorite?: () => void
   /** Tab 列表 */
   tabs: WorkPanelTabItem[]
   activeTabId: string | null
@@ -95,6 +100,8 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
       canForward,
       isLoading,
       isSecure,
+      isFavorite,
+      onToggleFavorite,
       tabs,
       activeTabId,
       onTabChange,
@@ -167,6 +174,15 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             </div>
           </form>
 
+          {onToggleFavorite && (
+            <ToolbarButton
+              onClick={onToggleFavorite}
+              title={isFavorite ? '取消收藏' : '添加收藏'}
+              className={isFavorite ? 'text-amber-500 hover:text-amber-500' : undefined}
+            >
+              <Star className={cn('h-4 w-4', isFavorite && 'fill-current')} />
+            </ToolbarButton>
+          )}
           {onOpenExternal && (
             <ToolbarButton onClick={onOpenExternal} title="在外部浏览器打开">
               <ExternalLink className="h-4 w-4" />
