@@ -12,25 +12,9 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
-
-// ============================================================================
-// 鉴权
-// ============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-}
 
 // ============================================================================
 // 通用工具
@@ -248,7 +232,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     // WebSocket 路由在 handler 内部通过 query token 鉴权
     if (request.headers.upgrade === 'websocket') return
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
   })
 
   // ==========================================================================
