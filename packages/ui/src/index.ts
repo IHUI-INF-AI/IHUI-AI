@@ -65,3 +65,15 @@ export { CodeBlock } from './components/code-block.js'
 export type { CodeBlockProps } from './components/code-block.js'
 export { LogViewer } from './components/log-viewer.js'
 export type { LogViewerProps } from './components/log-viewer.js'
+export {
+  Sheet,
+  SheetTrigger,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetFooter,
+  SheetTitle,
+  SheetDescription,
+} from './components/sheet.js'
+export { DataTable } from './components/data-table.js'
+export type { DataTableColumn, DataTableProps } from './components/data-table.js'
