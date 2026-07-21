@@ -83,45 +83,43 @@ export const DATABASES: readonly Icon[] = [
   { nameKey: 'databases.sqlite', src: '/footer/shujuku/5.png', mono: true },
 ]
 
-// 官方推广平台(16 槽位,跳号 13/18 素材不存在或未引用)
-// 2026-07-20 第四轮校正:PIL 像素数据为准(浏览器 canvas 验证易被
-// alpha 合成误导,Read tool 把白底透明图反衬在黑底,看起来像"黑图")。
-// - 1 (小红书深底白字 81% 黑底 + 13% 白字) → 不标 mono
-// - 2 (抖音浅底彩边 51% 近白) → 标 mono(白前景+透明边)
-// - 9 (X 黑鸟 100% 白前景) → 标 mono
-// - 16 (GitHub 黑猫 100% 白前景) → 标 mono
+// 官方推广平台(16 个,2026-07-21 v9 重命名为平台英文名,便于维护)
+// 文件名 = 平台英文名,与 i18n key 对齐;跳号 13.svg/18.png/Feiji.png 是占位素材未引用
+// mono 标记(2026-07-20 PIL 像素采样为准):白前景+透明边的图标需 invert filter 适配主题
+// - 小红书(深底白字 81% 黑底) → 不标 mono
+// - 抖音/X/GitHub/百度/微博 等(白前景+透明) → 标 mono
 export const PROMOTIONS: readonly Icon[] = [
-  { nameKey: 'promos.promo1', src: '/footer/tuiguangpingtai/1.png' },
-  { nameKey: 'promos.promo2', src: '/footer/tuiguangpingtai/2.png', mono: true },
-  { nameKey: 'promos.promo3', src: '/footer/tuiguangpingtai/3.png', mono: true },
-  { nameKey: 'promos.promo4', src: '/footer/tuiguangpingtai/4.png', mono: true },
-  { nameKey: 'promos.promo5', src: '/footer/tuiguangpingtai/5.png', mono: true },
-  { nameKey: 'promos.promo6', src: '/footer/tuiguangpingtai/6.png', mono: true },
-  { nameKey: 'promos.promo7', src: '/footer/tuiguangpingtai/7.png', mono: true },
-  { nameKey: 'promos.promo8', src: '/footer/tuiguangpingtai/8.png', mono: true },
+  { nameKey: 'promos.xiaohongshu', src: '/footer/tuiguangpingtai/xiaohongshu.png' },
+  { nameKey: 'promos.douyin', src: '/footer/tuiguangpingtai/douyin.png', mono: true },
+  { nameKey: 'promos.wechatChannels', src: '/footer/tuiguangpingtai/wechat-channels.png', mono: true },
+  { nameKey: 'promos.kuaishou', src: '/footer/tuiguangpingtai/kuaishou.png', mono: true },
+  { nameKey: 'promos.wechat', src: '/footer/tuiguangpingtai/wechat.png', mono: true },
+  { nameKey: 'promos.qq', src: '/footer/tuiguangpingtai/qq.png', mono: true },
+  { nameKey: 'promos.bilibili', src: '/footer/tuiguangpingtai/bilibili.png', mono: true },
+  { nameKey: 'promos.youtube', src: '/footer/tuiguangpingtai/youtube.png', mono: true },
   {
     nameKey: 'promos.x',
-    src: '/footer/tuiguangpingtai/9.png',
+    src: '/footer/tuiguangpingtai/x.png',
     mono: true,
     href: 'https://x.com/ok502319984',
   },
   {
     nameKey: 'promos.facebook',
-    src: '/footer/tuiguangpingtai/10.png',
+    src: '/footer/tuiguangpingtai/facebook.png',
     mono: true,
     href: 'https://www.facebook.com/share/17kQMPNhQb/',
   },
-  { nameKey: 'promos.promo11', src: '/footer/tuiguangpingtai/11.png', mono: true },
-  { nameKey: 'promos.promo12', src: '/footer/tuiguangpingtai/12.png', mono: true },
-  { nameKey: 'promos.promo14', src: '/footer/tuiguangpingtai/14.png', mono: true },
-  { nameKey: 'promos.promo15', src: '/footer/tuiguangpingtai/15.png', mono: true },
+  { nameKey: 'promos.baidu', src: '/footer/tuiguangpingtai/baidu.png', mono: true },
+  { nameKey: 'promos.weibo', src: '/footer/tuiguangpingtai/weibo.png', mono: true },
+  { nameKey: 'promos.telegram', src: '/footer/tuiguangpingtai/telegram.png', mono: true },
+  { nameKey: 'promos.google', src: '/footer/tuiguangpingtai/google.png', mono: true },
   {
     nameKey: 'promos.github',
-    src: '/footer/tuiguangpingtai/16.png',
+    src: '/footer/tuiguangpingtai/github.png',
     mono: true,
     href: 'https://github.com/AIZHS2025',
   },
-  { nameKey: 'promos.promo17', src: '/footer/tuiguangpingtai/17.png', mono: true },
+  { nameKey: 'promos.reddit', src: '/footer/tuiguangpingtai/reddit.png', mono: true },
 ]
 
 // 底部二维码:
