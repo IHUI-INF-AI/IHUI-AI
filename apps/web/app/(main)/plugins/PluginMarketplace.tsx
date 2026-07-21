@@ -3,11 +3,24 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { ArrowRight, ExternalLink, Gift, Search, Shield, X } from 'lucide-react'
+import {
+  ArrowRight,
+  ExternalLink,
+  Gift,
+  Pin,
+  Power,
+  Search,
+  Shield,
+  X,
+} from 'lucide-react'
 
 import { Card } from '@ihui/ui'
 import { BrandIcon } from '@/components/ai/brand-icon'
 import { Input } from '@ihui/ui'
+import { usePlugins } from '@/hooks/use-plugins'
+import { useDebounce } from '@/hooks/use-debounce'
+import { useLocalStorage } from '@/hooks/use-local-storage'
+import { useToast } from '@/hooks/use-toast'
 
 import {
   PROJECT_PLUGINS,
@@ -17,8 +30,8 @@ import {
   type PluginCategory,
 } from './plugins-data'
 
-type Filter = 'all' | 'builtin' | 'market' | PluginCategory
-type Sort = 'default' | 'name'
+type Filter = 'all' | 'builtin' | 'market' | 'installed' | 'pinned' | PluginCategory
+type Sort = 'default' | 'name' | 'installed'
 
 interface CategoryOption {
   key: Filter
@@ -26,14 +39,22 @@ interface CategoryOption {
   count: number
 }
 
+interface PluginUIPrefs {
+  filter: Filter
+  sort: Sort
+}
+
 /**
- * 插件市场客户端组件(2026-07-22 重构)
+ * 插件市场客户端组件(2026-07-22 重构 v2 — 真实接入版)
  *
  * 配套能力:
- *  - 实时搜索(名称 / 描述 / 标签)
- *  - 分类筛选(全部 / 内置 / 市场 / MCP / Agent / 工作流 / 工具 / 模型 / IDE / 知识 / 创作)
- *  - 排序(默认 / 字母)
+ *  - 实时搜索(防抖 300ms,名称 / 描述 / 标签)
+ *  - 分类筛选(all/builtin/market/installed/pinned + 10 个 category)
+ *  - 排序(default/name/installed — installed 按 installedAt desc + pinned 优先)
+ *  - 真实接入:启用/禁用按钮 + 收藏/置顶按钮(持久化到 user_preferences 表)
+ *  - UI 偏好持久化:filter/sort 存 localStorage(启用态走 server 避免跨设备不一致)
  *  - 空状态提示
+ *  - 未登录隐藏操作按钮(isAuthenticated=false)
  *
  * 卡片设计:
  *  - 圆角 rounded-lg,无 rounded-full
@@ -42,10 +63,20 @@ interface CategoryOption {
  */
 export function PluginMarketplace() {
   const t = useTranslations('plugins')
+  const toast = useToast()
+  const plugins = usePlugins()
 
-  const [query, setQuery] = React.useState('')
-  const [filter, setFilter] = React.useState<Filter>('all')
-  const [sort, setSort] = React.useState<Sort>('default')
+  // UI 偏好持久化到 localStorage(只存 filter/sort,不存启用态)
+  const [uiPrefs, setUiPrefs] = useLocalStorage<PluginUIPrefs>('ihui:plugins:ui-prefs', {
+    filter: 'all',
+    sort: 'default',
+  })
+  const filter = uiPrefs.filter
+  const sort = uiPrefs.sort
+
+  // 搜索输入(立即更新) + 防抖值(300ms 后才触发过滤)
+  const [queryInput, setQueryInput] = React.useState('')
+  const query = useDebounce(queryInput, 300)
 
   // 合并两类插件为统一列表,带 source 标记
   const allPlugins = React.useMemo(() => {
@@ -60,6 +91,8 @@ export function PluginMarketplace() {
       all: allPlugins.length,
       builtin: PROJECT_PLUGINS.length,
       market: MARKET_PLUGINS.length,
+      installed: 0,
+      pinned: 0,
       mcp: 0,
       agent: 0,
       workflow: 0,
@@ -70,22 +103,26 @@ export function PluginMarketplace() {
       creation: 0,
     }
     for (const p of allPlugins) {
-      counts[p.category] = (counts[p.category] || 0) + 1
+      counts[p.category] = (counts[p.category] ?? 0) + 1
+      if (plugins.isInstalled(p.id)) counts.installed = (counts.installed ?? 0) + 1
+      if (plugins.isPinned(p.id)) counts.pinned = (counts.pinned ?? 0) + 1
     }
     return [
-      { key: 'all' as Filter, label: t('catAll'), count: counts.all },
-      { key: 'builtin' as Filter, label: t('catBuiltin'), count: counts.builtin },
-      { key: 'market' as Filter, label: t('catMarket'), count: counts.market },
-      { key: 'mcp' as Filter, label: t('catMcp'), count: counts.mcp },
-      { key: 'agent' as Filter, label: t('catAgent'), count: counts.agent },
-      { key: 'workflow' as Filter, label: t('catWorkflow'), count: counts.workflow },
-      { key: 'tool' as Filter, label: t('catTool'), count: counts.tool },
-      { key: 'model' as Filter, label: t('catModel'), count: counts.model },
-      { key: 'ide' as Filter, label: t('catIde'), count: counts.ide },
-      { key: 'knowledge' as Filter, label: t('catKnowledge'), count: counts.knowledge },
-      { key: 'creation' as Filter, label: t('catCreation'), count: counts.creation },
-    ].filter((c) => c.count > 0)
-  }, [allPlugins, t])
+      { key: 'all' as Filter, label: t('catAll'), count: counts.all ?? 0 },
+      { key: 'builtin' as Filter, label: t('catBuiltin'), count: counts.builtin ?? 0 },
+      { key: 'market' as Filter, label: t('catMarket'), count: counts.market ?? 0 },
+      { key: 'installed' as Filter, label: t('catInstalled'), count: counts.installed ?? 0 },
+      { key: 'pinned' as Filter, label: t('catPinned'), count: counts.pinned ?? 0 },
+      { key: 'mcp' as Filter, label: t('catMcp'), count: counts.mcp ?? 0 },
+      { key: 'agent' as Filter, label: t('catAgent'), count: counts.agent ?? 0 },
+      { key: 'workflow' as Filter, label: t('catWorkflow'), count: counts.workflow ?? 0 },
+      { key: 'tool' as Filter, label: t('catTool'), count: counts.tool ?? 0 },
+      { key: 'model' as Filter, label: t('catModel'), count: counts.model ?? 0 },
+      { key: 'ide' as Filter, label: t('catIde'), count: counts.ide ?? 0 },
+      { key: 'knowledge' as Filter, label: t('catKnowledge'), count: counts.knowledge ?? 0 },
+      { key: 'creation' as Filter, label: t('catCreation'), count: counts.creation ?? 0 },
+    ].filter((c) => (c.count ?? 0) > 0 || c.key === 'all')
+  }, [allPlugins, plugins, t])
 
   // 过滤 + 排序
   const filtered = React.useMemo(() => {
@@ -94,6 +131,10 @@ export function PluginMarketplace() {
       list = list.filter((p) => p.source === 'project')
     } else if (filter === 'market') {
       list = list.filter((p) => p.source === 'market')
+    } else if (filter === 'installed') {
+      list = list.filter((p) => plugins.isInstalled(p.id))
+    } else if (filter === 'pinned') {
+      list = list.filter((p) => plugins.isPinned(p.id))
     } else if (filter !== 'all') {
       list = list.filter((p) => p.category === filter)
     }
@@ -110,14 +151,62 @@ export function PluginMarketplace() {
 
     if (sort === 'name') {
       list = [...list].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+    } else if (sort === 'installed') {
+      // pinned 优先,然后按 installedAt desc,未安装排最后
+      list = [...list].sort((a, b) => {
+        const sa = plugins.getState(a.id)
+        const sb = plugins.getState(b.id)
+        if (sa && sb) {
+          if (sa.pinned !== sb.pinned) return sa.pinned ? -1 : 1
+          return sb.installedAt.localeCompare(sa.installedAt)
+        }
+        if (sa) return -1
+        if (sb) return 1
+        return 0
+      })
     }
 
     return list
-  }, [allPlugins, filter, query, sort])
+  }, [allPlugins, filter, query, sort, plugins])
 
   // 按来源分组渲染
   const projectList = filtered.filter((p) => p.source === 'project')
   const marketList = filtered.filter((p) => p.source === 'market')
+
+  // 操作处理(带 toast 反馈)
+  const handleToggleInstall = React.useCallback(
+    async (pluginId: string, pluginName: string) => {
+      const wasInstalled = plugins.isInstalled(pluginId)
+      const ok = await plugins.toggleInstall(pluginId)
+      if (ok) {
+        if (wasInstalled) {
+          toast.success(t('uninstalled', { name: pluginName }))
+        } else {
+          toast.success(t('installed', { name: pluginName }))
+        }
+      } else {
+        toast.error(t('mutationError'))
+      }
+    },
+    [plugins, toast, t],
+  )
+
+  const handleTogglePinned = React.useCallback(
+    async (pluginId: string, pluginName: string) => {
+      const wasPinned = plugins.isPinned(pluginId)
+      const ok = await plugins.togglePinned(pluginId)
+      if (ok) {
+        if (wasPinned) {
+          toast.info(t('unpinned', { name: pluginName }))
+        } else {
+          toast.success(t('pinned', { name: pluginName }))
+        }
+      } else {
+        toast.error(t('mutationError'))
+      }
+    },
+    [plugins, toast, t],
+  )
 
   return (
     <div className="space-y-6">
@@ -126,15 +215,15 @@ export function PluginMarketplace() {
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={queryInput}
+            onChange={(e) => setQueryInput(e.target.value)}
             placeholder={t('searchPlaceholder')}
             className="h-9 pl-9 pr-9 [&>span]:translate-y-[0.5px]"
           />
-          {query && (
+          {queryInput && (
             <button
               type="button"
-              onClick={() => setQuery('')}
+              onClick={() => setQueryInput('')}
               aria-label={t('clear')}
               className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
             >
@@ -145,26 +234,21 @@ export function PluginMarketplace() {
         <div className="flex items-center gap-2 [&>span]:translate-y-[0.5px]">
           <span className="text-xs text-muted-foreground">{t('sortLabel')}</span>
           <div className="flex rounded-md bg-muted/60 p-0.5">
-            <button
-              type="button"
-              onClick={() => setSort('default')}
-              className={cn(
-                'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-                sort === 'default' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {t('sortDefault')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSort('name')}
-              className={cn(
-                'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-                sort === 'name' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {t('sortName')}
-            </button>
+            {(['default', 'name', 'installed'] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setUiPrefs((prev) => ({ ...prev, sort: s }))}
+                className={cn(
+                  'rounded px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[0.5px]',
+                  sort === s
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <span>{t(s === 'default' ? 'sortDefault' : s === 'name' ? 'sortName' : 'sortInstalled')}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -175,7 +259,7 @@ export function PluginMarketplace() {
           <button
             key={cat.key}
             type="button"
-            onClick={() => setFilter(cat.key)}
+            onClick={() => setUiPrefs((prev) => ({ ...prev, filter: cat.key }))}
             className={cn(
               'inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[0.5px]',
               filter === cat.key
@@ -203,8 +287,8 @@ export function PluginMarketplace() {
           <button
             type="button"
             onClick={() => {
-              setQuery('')
-              setFilter('all')
+              setQueryInput('')
+              setUiPrefs((prev) => ({ ...prev, filter: 'all' }))
             }}
             className="mt-4 rounded-md bg-foreground/10 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-foreground/15"
           >
@@ -223,7 +307,22 @@ export function PluginMarketplace() {
           />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {projectList.map((p) => (
-              <ProjectPluginCard key={p.id} plugin={p} openLabel={t('open')} builtinLabel={t('builtin')} />
+              <ProjectPluginCard
+                key={p.id}
+                plugin={p}
+                openLabel={t('open')}
+                builtinLabel={t('builtin')}
+                isAuthenticated={plugins.isAuthenticated}
+                isInstalled={plugins.isInstalled(p.id)}
+                isPinned={plugins.isPinned(p.id)}
+                onToggleInstall={() => handleToggleInstall(p.id, p.name)}
+                onTogglePinned={() => handleTogglePinned(p.id, p.name)}
+                installedBadgeLabel={t('installedBadge')}
+                installLabel={t('install')}
+                uninstallLabel={t('uninstall')}
+                pinLabel={t('pin')}
+                unpinLabel={t('unpin')}
+              />
             ))}
           </div>
         </section>
@@ -245,6 +344,16 @@ export function PluginMarketplace() {
                 visitLabel={t('visit')}
                 officialLabel={t('official')}
                 freeLabel={t('free')}
+                isAuthenticated={plugins.isAuthenticated}
+                isInstalled={plugins.isInstalled(p.id)}
+                isPinned={plugins.isPinned(p.id)}
+                onToggleInstall={() => handleToggleInstall(p.id, p.name)}
+                onTogglePinned={() => handleTogglePinned(p.id, p.name)}
+                installedBadgeLabel={t('installedBadge')}
+                installLabel={t('install')}
+                uninstallLabel={t('uninstall')}
+                pinLabel={t('pin')}
+                unpinLabel={t('unpin')}
               />
             ))}
           </div>
@@ -268,14 +377,111 @@ function SectionHeader({ title, desc, count }: { title: string; desc: string; co
   )
 }
 
+/** 卡片右上角操作按钮组:Pin + Enable/Disable */
+function PluginCardActions({
+  isAuthenticated,
+  isInstalled,
+  isPinned,
+  onToggleInstall,
+  onTogglePinned,
+  installLabel,
+  uninstallLabel,
+  pinLabel,
+  unpinLabel,
+}: {
+  isAuthenticated: boolean
+  isInstalled: boolean
+  isPinned: boolean
+  onToggleInstall: () => void
+  onTogglePinned: () => void
+  installLabel: string
+  uninstallLabel: string
+  pinLabel: string
+  unpinLabel: string
+}) {
+  // 未登录:不显示操作按钮(前端隐藏,后端兜底鉴权)
+  if (!isAuthenticated) return null
+  return (
+    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          onTogglePinned()
+        }}
+        disabled={!isInstalled}
+        aria-label={isPinned ? unpinLabel : pinLabel}
+        title={isPinned ? unpinLabel : pinLabel}
+        className={cn(
+          'flex h-6 w-6 items-center justify-center rounded transition-colors [&>span]:translate-y-[0.5px]',
+          isPinned
+            ? 'text-amber-500 hover:bg-amber-500/10'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+          !isInstalled && 'cursor-not-allowed opacity-40',
+        )}
+      >
+        {isPinned ? <Pin className="h-3.5 w-3.5 fill-current" /> : <Pin className="h-3.5 w-3.5" />}
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          onToggleInstall()
+        }}
+        aria-label={isInstalled ? uninstallLabel : installLabel}
+        title={isInstalled ? uninstallLabel : installLabel}
+        className={cn(
+          'flex h-6 w-6 items-center justify-center rounded transition-colors [&>span]:translate-y-[0.5px]',
+          isInstalled
+            ? 'text-emerald-500 hover:bg-emerald-500/10'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+        )}
+      >
+        <Power className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  )
+}
+
+/** 已安装徽章(右上角,与操作按钮同区) */
+function InstalledBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 [&>span]:translate-y-[0.5px]">
+      <span>{label}</span>
+    </span>
+  )
+}
+
 function ProjectPluginCard({
   plugin,
   openLabel,
   builtinLabel,
+  isAuthenticated,
+  isInstalled,
+  isPinned,
+  onToggleInstall,
+  onTogglePinned,
+  installedBadgeLabel,
+  installLabel,
+  uninstallLabel,
+  pinLabel,
+  unpinLabel,
 }: {
   plugin: ProjectPlugin
   openLabel: string
   builtinLabel: string
+  isAuthenticated: boolean
+  isInstalled: boolean
+  isPinned: boolean
+  onToggleInstall: () => void
+  onTogglePinned: () => void
+  installedBadgeLabel: string
+  installLabel: string
+  uninstallLabel: string
+  pinLabel: string
+  unpinLabel: string
 }) {
   const Icon = plugin.icon
   return (
@@ -290,11 +496,25 @@ function ProjectPluginCard({
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-sm font-semibold leading-tight">{plugin.name}</h3>
-            <span className="mt-0.5 inline-flex items-center text-xs text-emerald-600 dark:text-emerald-400 [&>span]:translate-y-[0.5px]">
-              <Shield className="mr-0.5 h-3 w-3" />
-              <span>{builtinLabel}</span>
-            </span>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs [&>span]:translate-y-[0.5px]">
+              <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400">
+                <Shield className="mr-0.5 h-3 w-3" />
+                {builtinLabel}
+              </span>
+              {isInstalled && <InstalledBadge label={installedBadgeLabel} />}
+            </div>
           </div>
+          <PluginCardActions
+            isAuthenticated={isAuthenticated}
+            isInstalled={isInstalled}
+            isPinned={isPinned}
+            onToggleInstall={onToggleInstall}
+            onTogglePinned={onTogglePinned}
+            installLabel={installLabel}
+            uninstallLabel={uninstallLabel}
+            pinLabel={pinLabel}
+            unpinLabel={unpinLabel}
+          />
         </div>
         <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">{plugin.description}</p>
         <div className="mt-auto flex flex-wrap gap-1">
@@ -321,11 +541,31 @@ function MarketPluginCard({
   visitLabel,
   officialLabel,
   freeLabel,
+  isAuthenticated,
+  isInstalled,
+  isPinned,
+  onToggleInstall,
+  onTogglePinned,
+  installedBadgeLabel,
+  installLabel,
+  uninstallLabel,
+  pinLabel,
+  unpinLabel,
 }: {
   plugin: MarketPlugin
   visitLabel: string
   officialLabel: string
   freeLabel: string
+  isAuthenticated: boolean
+  isInstalled: boolean
+  isPinned: boolean
+  onToggleInstall: () => void
+  onTogglePinned: () => void
+  installedBadgeLabel: string
+  installLabel: string
+  uninstallLabel: string
+  pinLabel: string
+  unpinLabel: string
 }) {
   const isInternal = plugin.url.startsWith('/')
   const FallbackIcon = plugin.fallbackIcon
@@ -351,8 +591,20 @@ function MarketPluginCard({
                 {freeLabel}
               </span>
             )}
+            {isInstalled && <InstalledBadge label={installedBadgeLabel} />}
           </div>
         </div>
+        <PluginCardActions
+          isAuthenticated={isAuthenticated}
+          isInstalled={isInstalled}
+          isPinned={isPinned}
+          onToggleInstall={onToggleInstall}
+          onTogglePinned={onTogglePinned}
+          installLabel={installLabel}
+          uninstallLabel={uninstallLabel}
+          pinLabel={pinLabel}
+          unpinLabel={unpinLabel}
+        />
       </div>
       <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">{plugin.description}</p>
       <div className="mt-auto flex flex-wrap gap-1">
