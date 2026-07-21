@@ -77,3 +77,14 @@ export {
 } from './components/sheet.js'
 export { DataTable } from './components/data-table.js'
 export type { DataTableColumn, DataTableProps } from './components/data-table.js'
+// 工作展示区组件(2026-07-22 立,AI 对话内嵌浏览器)
+export { ResizableHandle } from './components/resizable.js'
+export type { ResizableHandleProps } from './components/resizable.js'
+export { WebViewFrame } from './components/webview-frame.js'
+export type {
+  WebViewFrameProps,
+  WebViewMode,
+  WebViewStatus,
+} from './components/webview-frame.js'
+export { WorkPanel } from './components/work-panel.js'
+export type { WorkPanelProps, WorkPanelTabItem } from './components/work-panel.js'
