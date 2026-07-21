@@ -10,6 +10,7 @@ import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { phoneSchema, type TokenResult } from './login-schemas'
+import { OtpInput } from './OtpInput'
 
 interface PhoneCodeLoginFormProps {
   active: boolean
@@ -95,7 +96,7 @@ export function PhoneCodeLoginForm({
       setErr(t('invalidPhone'))
       return
     }
-    if (!code.trim()) {
+    if (code.length !== 6) {
       setErr(t('enterCode'))
       return
     }
@@ -142,23 +143,23 @@ export function PhoneCodeLoginForm({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="phone-code">{t('code')}</Label>
-        <div className="flex gap-2">
-          <Input
-            id="phone-code"
-            placeholder={t('codePlaceholder')}
-            className="h-10 flex-1"
+        <Label>{t('code')}</Label>
+        <div className="flex items-center gap-2">
+          <OtpInput
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={setCode}
+            disabled={submitting}
+            aria-label={t('code')}
+            className="flex-1"
           />
           <Button
             type="button"
             variant="outline"
-            className="h-10 shrink-0"
+            className="h-11 shrink-0 px-3 text-sm"
             disabled={sending || countdown > 0}
             onClick={onSendCode}
           >
-            {countdown > 0 ? t('resendCode', { seconds: countdown }) : t('sendSmsCode')}
+            {countdown > 0 ? t('resendCode', { seconds: countdown }) : t('getVerificationCode')}
           </Button>
         </div>
       </div>
