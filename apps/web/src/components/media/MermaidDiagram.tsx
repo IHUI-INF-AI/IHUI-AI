@@ -60,7 +60,10 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
         await mermaid.initialize({
           startOnLoad: false,
           theme: resolvedTheme === 'dark' ? 'dark' : 'default',
-          securityLevel: 'loose',
+          // 2026-07-21 安全审计加固:securityLevel 改为 'strict' 阻止 Mermaid 代码内嵌 HTML/事件
+          // 旧值 'loose' 允许 click/callback 等 HTML 事件 + 自定义 HTML 标签,可能被 XSS 利用
+          // 严格模式:仅渲染 SVG,无 HTML 事件,无 script 标签
+          securityLevel: 'strict',
         })
         const result = await mermaid.render(id, code)
         if (cancelled) return

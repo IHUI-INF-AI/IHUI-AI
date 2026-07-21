@@ -35,8 +35,18 @@ const nextConfig: NextConfig = {
   },
   images: {
     formats: ['image/avif', 'image/webp'],
-    remotePatterns: [{ protocol: 'https', hostname: '**' }],
-    dangerouslyAllowSVG: true,
+    // 收敛可访问的远程图片源(2026-07-21 安全审计加固)
+    // 旧值 `{ protocol: 'https', hostname: '**' }` 允许任意 HTTPS 主机,
+    // 攻击者可滥用 Next 图片代理访问 SSRF 目标
+    remotePatterns: [
+      { protocol: 'https', hostname: 'aizhs.top' },
+      { protocol: 'https', hostname: '*.aizhs.top' },
+      { protocol: 'https', hostname: 'api.dicebear.com' }, // 头像生成
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' }, // Google OAuth 头像
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com' }, // GitHub OAuth 头像
+      { protocol: 'https', hostname: 'platform-lookaside.fbsbx.com' }, // Facebook OAuth 头像
+    ],
+    dangerouslyAllowSVG: false,
     contentDispositionType: 'attachment',
     unoptimized: true,
   },
@@ -69,6 +79,31 @@ const nextConfig: NextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          // 2026-07-21 安全审计加固:启用 HSTS(2 年 + 子域 + preload 预申请)
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          // 2026-07-21 安全审计加固:添加 Content Security Policy
+          // 默认 self,脚本/样式允许 inline(Next.js + Tailwind 必需),
+          // connect 允许 aizhs.top API 域名,frame 限制为同源 + 第三方 OAuth
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https://*.aizhs.top wss://*.aizhs.top",
+              "media-src 'self' https:",
+              "object-src 'none'",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-src 'self' https://*.aizhs.top",
+            ].join('; '),
+          },
         ],
       },
     ]
