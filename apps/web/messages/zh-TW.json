@@ -9585,6 +9585,7 @@
     "title": "模型市場",
     "subtitle": "選擇適合您的 AI 模型",
     "all": "全部",
+    "navAriaLabel": "按廠商篩選",
     "contextLength": "上下文長度",
     "price": "價格",
     "free": "免費",
@@ -9727,7 +9728,18 @@
       "sensenova": "商湯日日新",
       "skywork": "天工",
       "internlm": "書生·浦語",
-      "local": "本地"
+      "local": "本地",
+      "ornith": "Ornith",
+      "codebrain": "CodeBrain",
+      "mai": "ＭＡＩ"
+    },
+    "providerGroups": {
+      "international": "國際原廠",
+      "domestic": "國內原廠",
+      "inference": "推論平臺",
+      "cloud": "雲端服務與平臺",
+      "aggregator": "聚合路由",
+      "local": "本地部署"
     },
     "model": {
       "stepfun-3-7-flash": {
