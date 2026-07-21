@@ -9502,7 +9502,58 @@
         "description": "なと"
       },
       "gemini-2-flash": {
-        "description": "コンテキストマルチモーダル"
+        "description": "超長コンテキストマルチモーダル"
+      },
+      "gpt-5.6-sol": {
+        "description": "OpenAI 2026-07 フラッグシップ汎用モデル、1M コンテキスト"
+      },
+      "gpt-5.6-terra": {
+        "description": "OpenAI マルチモーダルフラッグシップ、視覚特化"
+      },
+      "gpt-5.6-luna": {
+        "description": "OpenAI コード特化モデル"
+      },
+      "gpt-red": {
+        "description": "OpenAI 推論研究プレビュー版"
+      },
+      "claude-sonnet-5": {
+        "description": "Anthropic 2026-07 新世代フラッグシップ、深層推論"
+      },
+      "claude-opus-4.8": {
+        "description": "Anthropic トップクラス深層推論モデル"
+      },
+      "gemini-3.5-pro": {
+        "description": "Google マルチモーダルフラッグシップ、2M コンテキスト"
+      },
+      "grok-4.5": {
+        "description": "xAI リアルタイム強化推論モデル"
+      },
+      "deepseek-v4-pro": {
+        "description": "DeepSeek V4 オープンソースフラッグシップ"
+      },
+      "deepseek-v4-flash": {
+        "description": "DeepSeek V4 高速経済版"
+      },
+      "glm-5.2": {
+        "description": "智譜清言新世代フラッグシップ、中国語最適化"
+      },
+      "qwen3.7-max": {
+        "description": "アリババ通義千問 3.7 フラッグシップ"
+      },
+      "hunyuan-hy3": {
+        "description": "テンセント混元第三代、中国語深層最適化"
+      },
+      "kimi-k3": {
+        "description": "月之暗面 2M 長コンテキストフラッグシップ"
+      },
+      "ornith-1.0": {
+        "description": "国産新勢力汎用モデル"
+      },
+      "codebrain-1": {
+        "description": "国産コード特化モデル"
+      },
+      "mai-thinking-1": {
+        "description": "国産深層推論モデル"
       }
     },
     "nav": {
