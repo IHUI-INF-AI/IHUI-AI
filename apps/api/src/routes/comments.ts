@@ -15,6 +15,7 @@ import {
   findFeedbackById,
   findAllFeedbacksForAdmin,
   updateFeedback,
+  rateFeedback,
   deleteFeedback,
 } from '../db/comment-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -557,6 +558,28 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(403).send(error(403, '无权更新该反馈'))
     }
     const updated = await updateFeedback(parsed.data.id, { status: body.data.status })
+    return reply.send(success({ feedback: updated }))
+  })
+
+  // POST /feedbacks/:id/rate - 用户对反馈处理结果评价（1-5 分）
+  // 对应旧架构 server/app/api/v1/feedback/feedback.py 的 POST /{fid}/rate
+  server.post('/feedbacks/:id/rate', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = z.object({ rating: z.number().int().min(1).max(5) }).safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findFeedbackById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '反馈不存在'))
+    }
+    if (existing.userId !== request.userId) {
+      return reply.status(403).send(error(403, '无权评价该反馈'))
+    }
+    const updated = await rateFeedback(parsed.data.id, body.data.rating)
     return reply.send(success({ feedback: updated }))
   })
 
