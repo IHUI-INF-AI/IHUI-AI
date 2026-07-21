@@ -265,8 +265,14 @@ function main() {
         ? '汉字残留 (warn-only，ja 汉字词启发式不可靠)'
         : '半翻译 (本地字符+汉字混合)'
     console.warn(`⚠️ ${fileLabel} 发现 ${half.length} 处${label}:`)
-    for (const it of half) {
+    // warn-only 模式输出截断(ja README 可能数百处日文汉字词,日志爆炸)
+    const WARN_LIMIT = 20
+    const showList = half.slice(0, WARN_LIMIT)
+    for (const it of showList) {
       console.warn(`  L${it.line}: "${it.key}": "${it.value}"`)
+    }
+    if (half.length > WARN_LIMIT) {
+      console.warn(`  ... 还有 ${half.length - WARN_LIMIT} 处 (截断显示,总数 ${half.length})`)
     }
     console.warn('   (warn-only，可能是有意为之如日文汉字词/品牌名，不阻塞 commit)')
   }
