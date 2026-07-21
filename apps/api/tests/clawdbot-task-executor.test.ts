@@ -138,7 +138,7 @@ describe('clawdbot TaskExecutor 任务执行器', () => {
         name: 'T1',
         description: 'd',
         steps: [
-          { id: 'c1', name: 'C1', type: 'condition', condition: 'ctx.flag === true' },
+          { id: 'c1', name: 'C1', type: 'condition', condition: 'flag === true' },
           { id: 't1', name: 'T1', type: 'tool', toolName: 'tool1' },
         ],
       })
