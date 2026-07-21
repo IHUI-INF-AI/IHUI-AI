@@ -537,7 +537,13 @@
       "community": "Community",
       "resource": "Resources",
       "developer": "Developer"
-    }
+    },
+    "adminGroupLabel": "Admin",
+    "eduGroup": "AI Education",
+    "contentGroup": "Content",
+    "tradeGroup": "Trade",
+    "personalGroup": "Personal",
+    "developerGroup": "Developer"
   },
   "auth": {
     "loginTitle": "Welcome Back",
@@ -1143,7 +1149,8 @@
       "noTarget": "Not selected",
       "itemCount": "{count, plural, =0 {No folders} =1 {1 folder} other {{count} folders}}",
       "itemCountFiltered": "Showing {filtered} / {total}",
-      "shortcutsHint": "↑↓ Navigate · Enter Open/Enter · Backspace Up"
+      "shortcutsHint": "↑↓ Navigate · Enter Open/Enter · Backspace Up",
+      "rowOpenHint": "Open"
     },
     "permission": {
       "title": "Workspace Access Permission",
@@ -1791,7 +1798,18 @@
       "stripe": "Stripe",
       "usdc": "USDC",
       "payNow": "Pay Now",
-      "processing": "Processing..."
+      "processing": "Processing...",
+      "paySuccess": "Payment successful",
+      "payIncomplete": "Payment incomplete",
+      "payTimeout": "Payment timed out, please retry",
+      "orderClosed": "Order closed",
+      "payConfigNotReady": "Payment configuration is not ready",
+      "contactAdmin": "Please contact the administrator",
+      "methodNotSupported": "Payment method not supported",
+      "wechatScanTitle": "WeChat scan to pay",
+      "wechatScanDesc": "Please use WeChat to scan the QR code below. You will be redirected automatically after payment.",
+      "wechatQrAlt": "WeChat Pay QR code",
+      "loading": "Loading..."
     }
   },
   "admin": {
@@ -9421,7 +9439,15 @@
       "noTemplate": "No template for this provider. Please add manually in Settings → LLM Config.",
       "securityHint": "API Key is encrypted with AES-256-GCM, visible only to your account, never stored in plaintext.",
       "fullConfigHint": "Need to tweak context length / notes / custom Base URL? Go to",
-      "openFullConfig": "full config page →"
+      "openFullConfig": "full config page →",
+      "errSelectPlatform": "Please select a platform",
+      "errApiKeyRequired": "API Key is required",
+      "errModelIdRequired": "Model ID is required",
+      "errNoTemplate": "No template available for this provider",
+      "defaultConfigName": "My Configuration",
+      "official": "Official",
+      "cancel": "Cancel",
+      "testDuration": "Duration: {ms}ms"
     },
     "providers": {
       "openai": "OpenAI",
@@ -9652,7 +9678,11 @@
       "resetFilters": "Reset Filters",
       "configureKey": "Set API Key",
       "updateKey": "Update Key",
-      "configureKeyHint": "This model needs an API Key before use. Click to set it up."
+      "configureKeyHint": "This model needs an API Key before use. Click to set it up.",
+      "ariaLabel": {
+        "addFavorite": "Add to Favorites",
+        "removeFavorite": "Remove from Favorites"
+      }
     },
     "aiNews": {
       "title": "2026-07 AI News",
@@ -13733,26 +13763,65 @@
     "downloadToView": "DownloadView"
   },
   "commandPalette": {
-    "placeholder": "InputSearch...",
-    "escToAbort": "ESC Close",
-    "enter": "Back",
-    "navigate": "Nav",
-    "execute": "Execute",
-    "systemReady": "Systemthen",
-    "cpuOptimized": "Performance",
-    "noResults": "nottoMatch",
-    "systemInternal": "Systemin",
+    "searchPlaceholder": "Search commands...",
+    "noResults": "No matching commands found",
+    "keyboardHint": "↑↓ Navigate · Enter Execute",
+    "resultCount": "{count} results",
     "commands": {
-      "home": "Home",
-      "store": "AIApp",
-      "plaza": "Demand Square",
-      "learnAI": "Learn AI",
-      "community": "AI Creation Community",
-      "docs": "TechDocs",
-      "about": "About Us",
-      "darkMode": "Dark",
-      "aiAssistant": "OpenAI",
-      "backToTop": "Back to Top"
+      "chat": {
+        "label": "AI Chat",
+        "description": "Start a new AI conversation",
+        "keywords": [
+          "AI",
+          "chat",
+          "conversation"
+        ]
+      },
+      "drama": {
+        "label": "AI Drama",
+        "description": "Create AI drama content",
+        "keywords": [
+          "drama",
+          "video",
+          "short"
+        ]
+      },
+      "search": {
+        "label": "Search",
+        "description": "Search content, users, tags",
+        "keywords": [
+          "search",
+          "find",
+          "lookup"
+        ]
+      },
+      "ai-world": {
+        "label": "AI World",
+        "description": "Explore the AI world",
+        "keywords": [
+          "AI",
+          "world",
+          "explore"
+        ]
+      },
+      "profile": {
+        "label": "Profile",
+        "description": "View your profile",
+        "keywords": [
+          "profile",
+          "user",
+          "account"
+        ]
+      },
+      "settings": {
+        "label": "Settings",
+        "description": "Modify app preferences",
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ]
+      }
     }
   },
   "routes": {
@@ -26758,5 +26827,253 @@
     "yuan": "CNY",
     "minSpend": "Min spend {amount}",
     "validUntil": "Valid until: {date}"
+  },
+  "answerArea": {
+    "thinking": {
+      "title": "Thinking Process",
+      "collapse": "Collapse",
+      "expand": "Expand"
+    },
+    "image": {
+      "alt": "Image {index}",
+      "previewAlt": "Image {index} preview",
+      "close": "Close",
+      "prev": "Previous",
+      "next": "Next"
+    },
+    "audio": {
+      "playFailed": "Audio playback failed",
+      "pause": "Pause",
+      "play": "Play"
+    }
+  },
+  "agentRuntimePanel": {
+    "title": "Agent Runtime",
+    "clear": "Clear",
+    "plan": "Execution Plan",
+    "permissionDecision": "Permission Decision: {decision}",
+    "permissionMeta": "Tool: {tool} · Level: {level} · Mode: {mode}",
+    "unknownTool": "unknown",
+    "defaultLevel": "read",
+    "output": "Output",
+    "error": "Error",
+    "cancelledTitle": "Task Cancelled",
+    "cancelledBody": "Current execution stopped. To continue, modify your input and run again.",
+    "emptyState": "Enter a task to start Agent execution",
+    "placeholder": "Enter a task...",
+    "stop": "Stop",
+    "execute": "Run"
+  },
+  "musicGenerator": {
+    "title": "Music Generation",
+    "generate": "Generate Music",
+    "genreLabel": "Genre",
+    "durationLabel": "Duration",
+    "download": "Download",
+    "placeholder": "Describe the music to generate...",
+    "genre": {
+      "pop": "Pop",
+      "classical": "Classical",
+      "electronic": "Electronic",
+      "jazz": "Jazz",
+      "rock": "Rock"
+    },
+    "duration": {
+      "15": "15 sec",
+      "30": "30 sec",
+      "60": "60 sec"
+    }
+  },
+  "cronEditor": {
+    "title": "Cron Expression Editor",
+    "everyField": "Every {field}",
+    "stepPrefix": "Every ",
+    "specificPlaceholder": "{min}-{max}, comma separated",
+    "recentRuns": "Recent 5 runs",
+    "field": {
+      "minute": "Minute",
+      "hour": "Hour",
+      "day": "Day",
+      "month": "Month",
+      "weekday": "Weekday"
+    },
+    "mode": {
+      "every": "Every",
+      "step": "Step",
+      "range": "Range",
+      "specific": "Specific"
+    }
+  },
+  "videoGenerator": {
+    "title": "Video Generation",
+    "generate": "Generate Video",
+    "providerLabel": "Provider",
+    "durationLabel": "Duration",
+    "download": "Download",
+    "placeholder": "Describe the video to generate...",
+    "provider": {
+      "qwen": "Qwen",
+      "kling": "Kling",
+      "one-click": "One-Click"
+    },
+    "duration": {
+      "5": "5 sec",
+      "10": "10 sec",
+      "30": "30 sec"
+    }
+  },
+  "ticketDetailDialog": {
+    "statusPrefix": "Status: ",
+    "priorityPrefix": "Priority: ",
+    "descriptionLabel": "Issue Description",
+    "commentsLabel": "Communication Log",
+    "noComments": "No replies yet",
+    "adminRole": "Support",
+    "userRole": "Me",
+    "replyLabel": "Additional Reply",
+    "replyPlaceholder": "Enter additional content...",
+    "send": "Send",
+    "myRating": "My Rating",
+    "serviceRating": "Service Rating",
+    "ratingCommentPlaceholder": "Rating comment (optional)",
+    "submitRating": "Submit Rating",
+    "status": {
+      "pending": "Pending",
+      "open": "In Progress",
+      "resolved": "Resolved",
+      "closed": "Closed",
+      "rejected": "Rejected"
+    },
+    "priority": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    }
+  },
+  "memberSubscriptionPage": {
+    "title": "Subscription Management",
+    "subtitle": "Manage your subscription, renew or cancel",
+    "loading": "Loading...",
+    "noSubscription": "You haven't subscribed to any membership plan",
+    "subscribeNow": "Subscribe Now",
+    "subscriptionAmount": "Subscription Amount",
+    "autoRenew": "Auto Renew",
+    "autoRenewOn": "Enabled",
+    "autoRenewOff": "Disabled",
+    "renewNow": "Renew Now",
+    "cancelSubscription": "Cancel Subscription",
+    "status": {
+      "active": "Active",
+      "cancelled": "Cancelled",
+      "expired": "Expired"
+    }
+  },
+  "resourcesEditPage": {
+    "loading": "Loading...",
+    "backToList": "Back to Resources",
+    "editTitle": "Edit Resource",
+    "createTitle": "Publish Resource",
+    "errTitleRequired": "Please enter a title",
+    "errTypeRequired": "Please select a resource type",
+    "errProductIdRequired": "Please enter a product ID",
+    "errIntroductionRequired": "Please enter a resource introduction",
+    "errCategoryRequired": "Please select at least one category"
+  },
+  "toolsPdfSplitPage": {
+    "title": "PDF Split",
+    "description": "Split a PDF into multiple files by page range, fixed page count, or bookmarks",
+    "uploadLabel": "Click or drag a PDF file here to upload",
+    "removeFile": "Remove",
+    "modeLabel": "Split Mode",
+    "mode": {
+      "range": "By Page Range",
+      "every": "Every N Pages",
+      "bookmarks": "By Bookmarks"
+    },
+    "rangesLabel": "Page ranges (comma-separated, e.g. 1-3,5,7-10)",
+    "everyLabel": "Pages per File",
+    "bookmarksHint": "Will automatically split into multiple files based on the PDF's built-in bookmarks (level 1).",
+    "submit": "Split",
+    "submitting": "Splitting...",
+    "resultHint": "Split complete. The result has been packaged as a ZIP:"
+  },
+  "supportNewTicketForm": {
+    "errTitleMin": "Title must be at least 2 characters",
+    "errDescMin": "Description must be at least 10 characters",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Briefly describe your issue",
+    "categoryLabel": "Category",
+    "categoryPlaceholder": "Select a category",
+    "priorityLabel": "Priority",
+    "priority": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "descLabel": "Issue Description",
+    "descPlaceholder": "Please describe your issue in detail (at least 10 characters)",
+    "cancel": "Cancel",
+    "submit": "Submit Ticket"
+  },
+  "h5SharePage": {
+    "loading": "Loading...",
+    "errorDefault": "Share link is invalid or expired",
+    "retry": "Retry",
+    "copyFail": "Copy failed, please copy manually",
+    "shareTitleWithUser": "{user}'s share",
+    "shareTitleDefault": "IHUI AI Share",
+    "wechatShareTip": "Please tap the top-right ··· to \"Share to friend\" or copy the link",
+    "questionLabel": "Question",
+    "thinkingLabel": "Thinking process",
+    "answerLabel": "Answer",
+    "imageAlt": "Image {n}",
+    "contentAlt": "Content {n}",
+    "copied": "Copied",
+    "copyLink": "Copy link",
+    "wechatShare": "WeChat share"
+  },
+  "contactPage": {
+    "badge": "Contact us",
+    "title": "Get in touch with us",
+    "subtitle": "Business cooperation, course consultation, and enterprise service customization — feel free to contact us anytime. Our team will reply within 24 hours.",
+    "loading": "Loading...",
+    "addressTitle": "Company address",
+    "merchantIdLabel": "WeChat Pay merchant ID",
+    "ctaTitle": "Join the IHUI AI community now",
+    "ctaSubtitle": "Early bird price ¥6000/person/year, limited to 18 seats. One-on-one AI consultant. Full refund if not satisfied.",
+    "ctaJoin": "Join now",
+    "ctaLearnMore": "Learn more"
+  },
+  "kbArticleForm": {
+    "articleInfo": "Article info",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Enter article title",
+    "summaryLabel": "Summary",
+    "summaryPlaceholder": "Describe the article in one sentence",
+    "categoryLabel": "Category",
+    "categoryPlaceholder": "Select category",
+    "tagsLabel": "Tags",
+    "contentLabel": "Content (Markdown)",
+    "contentPlaceholder": "Supports Markdown syntax...",
+    "cancel": "Cancel",
+    "publish": "Publish"
+  },
+  "securityAuditPage": {
+    "title": "Security audit",
+    "subtitle": "View account security-related events (masked)",
+    "loading": "Loading...",
+    "empty": "No security events",
+    "colType": "Type",
+    "colDesc": "Description",
+    "colIp": "IP",
+    "colTime": "Time",
+    "type": {
+      "login": "Login record",
+      "permission": "Permission change",
+      "sensitive": "Sensitive operation",
+      "other": "Other"
+    }
   }
 }
