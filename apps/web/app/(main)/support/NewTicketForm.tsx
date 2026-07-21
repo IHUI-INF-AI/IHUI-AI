@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Loader2, MessageSquare } from 'lucide-react'
 
 import {
@@ -16,11 +17,12 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui'
-import { api, PRIORITY_LABEL, PRIORITIES, textareaClass } from './helpers'
+import { api, PRIORITIES, textareaClass } from './helpers'
 import type { Ticket, TicketPriority, Category } from './types'
 
 export function NewTicketForm({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient()
+  const t = useTranslations('supportNewTicketForm')
   const [title, setTitle] = React.useState('')
   const [description, setDescription] = React.useState('')
   const [categoryId, setCategoryId] = React.useState('')
@@ -65,11 +67,11 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
             e.preventDefault()
             setErr(null)
             if (title.trim().length < 2) {
-              setErr('标题至少 2 个字符')
+              setErr(t('errTitleMin'))
               return
             }
             if (description.trim().length < 10) {
-              setErr('描述至少 10 个字符')
+              setErr(t('errDescMin'))
               return
             }
             createMut.mutate()
@@ -77,22 +79,22 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
           className="space-y-4"
         >
           <div className="space-y-2">
-            <Label htmlFor="t-title">标题</Label>
+            <Label htmlFor="t-title">{t('titleLabel')}</Label>
             <Input
               id="t-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="简述您的问题"
+              placeholder={t('titlePlaceholder')}
               maxLength={200}
             />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="t-category">分类</Label>
+              <Label htmlFor="t-category">{t('categoryLabel')}</Label>
               <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger id="t-category" className="h-9 w-full">
-                  <SelectValue placeholder="选择分类" />
+                  <SelectValue placeholder={t('categoryPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
@@ -105,7 +107,7 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="t-priority">优先级</Label>
+              <Label htmlFor="t-priority">{t('priorityLabel')}</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as TicketPriority)}>
                 <SelectTrigger id="t-priority" className="h-9 w-full">
                   <SelectValue />
@@ -113,7 +115,7 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
                 <SelectContent>
                   {PRIORITIES.map((p) => (
                     <SelectItem key={p} value={p}>
-                      {PRIORITY_LABEL[p]}
+                      {t(`priority.${p}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -122,12 +124,12 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="t-desc">问题描述</Label>
+            <Label htmlFor="t-desc">{t('descLabel')}</Label>
             <textarea
               id="t-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="请详细描述您遇到的问题（至少 10 个字符）"
+              placeholder={t('descPlaceholder')}
               maxLength={5000}
               rows={6}
               className={textareaClass}
@@ -142,12 +144,12 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onDone} disabled={createMut.isPending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={createMut.isPending}>
               {createMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <MessageSquare className="mr-1 h-4 w-4" />
-              提交工单
+              {t('submit')}
             </Button>
           </div>
         </form>
