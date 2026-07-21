@@ -16,6 +16,7 @@ export type {
   SSEErrorSeverity,
   FormattedSSEError,
   FetchApiOptions,
+  ToolCallEvent,
 } from './client.js'
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'
 

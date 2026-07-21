@@ -281,7 +281,29 @@ export interface StreamChatOptions {
   agentId?: string
   /** 多 agent 多路复用回调:chunk 带 agentId 时触发,与 onDelta 互斥(有 agentId 走此回调,无则走 onDelta)。 */
   onAgentDelta?: (agentId: string, delta: string) => void
+  /** AI 工具调用回调(2026-07-22 立,P2 联动 WorkPanel):
+   *  - toolCallStart:Vercel AI SDK 协议 type 9(tool-call-streaming-start)或 type 8(tool-call)
+   *  - toolCallResult:type 7(tool-result)或自定义 tool_result 事件
+   *  触发 WorkPanel.openPanel({ url, source: 'ai-tool' }) */
+  onToolCall?: (event: ToolCallEvent) => void
 }
+
+/** AI 工具调用 SSE 事件(跨端共享) */
+export type ToolCallEvent =
+  | {
+      type: 'tool-call-start'
+      toolCallId: string
+      toolName: string
+      args?: Record<string, unknown>
+    }
+  | {
+      type: 'tool-result'
+      toolCallId: string
+      toolName: string
+      args?: Record<string, unknown>
+      result?: unknown
+      isError?: boolean
+    }
 
 export function parseStreamLine(line: string): string | null {
   if (!line || line.startsWith(':')) return null
@@ -786,6 +808,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const hasCompaction = typeof opts.onCompaction === 'function'
     const hasQuestion = typeof opts.onQuestion === 'function'
     const hasAgentDelta = typeof opts.onAgentDelta === 'function'
+    const hasToolCall = typeof opts.onToolCall === 'function'
 
     const tryParseCompaction = (line: string): void => {
       if (!hasCompaction) return
@@ -846,6 +869,74 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
 
+    /** 解析 Vercel AI SDK 协议 tool_call 事件:
+     *  - type 2(tool-call):{ toolCallId, toolName, args }
+     *  - type 7(tool-result):{ toolCallId, result, isError }
+     *  - 自定义 tool_result JSON:{ type:'tool_result', toolCallId, toolName, args, result }
+     * 触发 onToolCall 回调,前端据 args.result 中的 url 自动打开 WorkPanel */
+    const tryParseToolCall = (line: string): void => {
+      if (!hasToolCall) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (
+        line.startsWith('event:') ||
+        line.startsWith('id:') ||
+        line.startsWith('retry:')
+      ) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+
+      // Vercel AI SDK 协议 TYPE:JSON
+      const proto = data.match(/^(\d+):(.*)$/s)
+      if (proto?.[1] !== undefined) {
+        const t = proto[1]
+        try {
+          const parsed = JSON.parse(proto[2]!)
+          if (t === '2' && parsed?.toolCallId && parsed?.toolName) {
+            opts.onToolCall!({
+              type: 'tool-call-start',
+              toolCallId: String(parsed.toolCallId),
+              toolName: String(parsed.toolName),
+              args: parsed.args,
+            })
+          } else if (t === '7' && parsed?.toolCallId) {
+            opts.onToolCall!({
+              type: 'tool-result',
+              toolCallId: String(parsed.toolCallId),
+              toolName: typeof parsed.toolName === 'string' ? parsed.toolName : '',
+              result: parsed.result,
+              isError: parsed.isError === true,
+            })
+          }
+        } catch {
+          /* JSON 解析失败忽略 */
+        }
+        return
+      }
+
+      // 自定义 JSON 事件 { type: 'tool_result', toolCallId, toolName, args, result }
+      if (data.startsWith('{')) {
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type === 'tool_result' && json?.toolCallId) {
+            opts.onToolCall!({
+              type: 'tool-result',
+              toolCallId: String(json.toolCallId),
+              toolName: typeof json.toolName === 'string' ? json.toolName : '',
+              args: json.args as Record<string, unknown> | undefined,
+              result: json.result,
+              isError: json.isError === true,
+            })
+          }
+        } catch {
+          /* 非 JSON 忽略 */
+        }
+      }
+    }
+
     for (;;) {
       const { done, value } = await reader.read()
       if (done) break
@@ -856,6 +947,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         buffer = buffer.slice(nl + 1)
         tryParseCompaction(line)
         tryParseQuestion(line)
+        tryParseToolCall(line)
         const delta = parseStreamLine(line)
         if (delta) {
           const agentId = hasAgentDelta ? extractAgentId(line) : undefined
@@ -871,6 +963,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     if (buffer.trim()) {
       tryParseCompaction(buffer)
       tryParseQuestion(buffer)
+      tryParseToolCall(buffer)
       const delta = parseStreamLine(buffer)
       if (delta) {
         const agentId = hasAgentDelta ? extractAgentId(buffer) : undefined
