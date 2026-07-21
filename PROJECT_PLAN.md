@@ -255,11 +255,32 @@ P2 AI 工具调用深度联动(5 修改文件):
 
 ---
 
-### [ ] G6 jsonb 预留字段填充:ai_vendor_configs/certificate/oss/workflow 等(平台独占:仅 api+database,待启动)
+### [x] ✅(2026-07-22) G6 jsonb 预留字段填充:13 个 P0 字段加 default + 回填 NULL(平台独占:仅 database,共享包 only/跨端共享,/goal 模式完成)
 
-**触发**:审计发现 26 个 jsonb 字段 0 业务写入路径。
+**触发**:审计发现 13 个 P0 jsonb 字段未设 default,代码访问 NULL 会崩(特别是 workflows.steps 被 .map() 直接依赖)。
 
-**范围**:`packages/database/src/schema/*.ts` + `apps/api/src/routes/*.ts`(对应模块)
+**范围**:`packages/database/src/schema/*.ts`(9 个文件)+ 新建 migration `packages/database/drizzle/20260722140000_g6_jsonb_defaults.sql`
+
+**完成证据**:
+- 13 个 P0 jsonb 字段全部加 default(对象 `'{}'`,数组 `'[]'`):
+  - audit.ts:audit_logs.details + search_history.filters
+  - workflow.ts:workflows.trigger_config + workflows.steps(+ notNull)+ workflow_instances.context
+  - chat.ts:chat_conversations.metadata + chat_messages.metadata
+  - ai-vendor-configs.ts:ai_vendor_configs.config_json
+  - certificate.ts:certificate_templates.template_config
+  - oss.ts:oss_drivers.config
+  - system.ts:integration_configs.config
+  - llm-call-logs.ts:llm_call_logs.metadata
+  - analytics-events.ts:analytics_events.properties
+- workflows.steps 额外加 `.notNull()`(代码 .map() 强依赖,NULL 必崩)
+- migration 三阶段幂等结构:阶段 1 UPDATE 回填 NULL(13 条)→ 阶段 2 SET DEFAULT(13 条)→ 阶段 3 SET NOT NULL(仅 workflows.steps)
+- `pnpm --filter @ihui/database build` exit 0 ✅
+- `pnpm --filter @ihui/api typecheck` exit 0 ✅
+- Grep 验证 13 个字段 `.default()` 全部命中 ✅
+
+**遗留(P1/P2,非本任务范围)**:
+- P1:凭据类字段(oss_drivers/integration_configs 的 credentials)nullable 合理,不加 default
+- P2:email-logs/remote-device/security-logs/srs/stock 等 metadata 字段未加 default(审计判定 P2,代码无强依赖)
 
 ---
 
