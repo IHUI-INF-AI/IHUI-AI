@@ -19,6 +19,7 @@ import {
 
 import { Card, CardContent } from '@ihui/ui'
 import type { AiWorldItem, ItemKind } from './types'
+import { TrendingBadge } from './TrendingBadge'
 
 const KIND_ICON: Record<ItemKind, React.ComponentType<{ className?: string }>> = {
   news: Newspaper,
@@ -114,6 +115,13 @@ export function ItemCard({ item, layout = 'grid' }: Props) {
         </span>
       )}
       {item.source && <span className="text-muted-foreground/80">@{item.source}</span>}
+      {item.trendingScore !== null && (
+        <TrendingBadge
+          score={item.trendingScore}
+          metrics={item.trendingMetrics}
+          updatedAt={item.trendingUpdatedAt}
+        />
+      )}
     </div>
   )
 
