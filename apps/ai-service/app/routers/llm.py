@@ -289,8 +289,18 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             }
                             yield f"event: tool-call-start\ndata: {json.dumps(tc_start, ensure_ascii=False)}\n\n"
 
-                            # 执行工具
-                            exec_result = await _mcp.call_tool(tool_name, args)
+                            # 执行工具(异常保护:网络/超时/JSON 错误不应崩溃 SSE 流)
+                            try:
+                                exec_result = await _mcp.call_tool(tool_name, args)
+                            except Exception as e:
+                                logger.exception("Tool execution exception: %s", tool_name)
+                                exec_result = {
+                                    "tool": tool_name,
+                                    "ok": False,
+                                    "error": str(e)[:500],
+                                    "errorCode": "EXECUTION_EXCEPTION",
+                                    "message": f"工具执行异常: {type(e).__name__}",
+                                }
                             ok = bool(exec_result.get("ok"))
                             tool_exec_tracker.append(ok)
 
