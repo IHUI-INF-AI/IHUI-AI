@@ -115,7 +115,7 @@ export async function completeOrderWithSaga(
     {
       name: 'award-points',
       execute: async () => {
-        if (pointsToAward <= 0) return { amount: 0 }
+        if (pointsToAward <= 0 || !order.userId) return { amount: 0 }
         const result = await earnPoints(
           order.userId,
           pointsToAward,
@@ -128,6 +128,7 @@ export async function completeOrderWithSaga(
       compensate: async (result) => {
         const r = result as { amount: number; transactionId?: string }
         if (r.amount <= 0) return
+        if (!order.userId) return
         // 扣回已发积分
         await spendPoints(
           order.userId,
@@ -175,7 +176,7 @@ export async function completeOrderWithSaga(
   // WS 实时通知：outbox 'order.paid' 已写入，推送 WS 'payment.paid' 给用户所有在线端
   if (server) {
     try {
-      server.pushNotification(order.userId, {
+      if (order.userId) server.pushNotification(order.userId, {
         type: 'payment.paid' satisfies PaymentEventType,
         orderNo,
         amount: order.amount,
@@ -199,6 +200,7 @@ export async function completeOrderWithSaga(
  */
 export async function activateOrderSubscription(order: Order): Promise<void> {
   if (!order.productId) return
+  if (!order.userId) return
   if (order.orderType === 2) {
     const { purchaseVip } = await import('../db/vip-queries.js')
     await purchaseVip({ userId: order.userId, vipLevelId: order.productId, orderId: order.id })

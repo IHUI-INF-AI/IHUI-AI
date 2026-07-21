@@ -42,6 +42,41 @@
 
 ---
 
+### [x] ✅(2026-07-22) 深度代码质量治理:P1(3项)+ P2(6项)技术债清理 + 隐藏 bug 修复(跨端:web+api,平台独占:仅 web+api,/goal 模式完成)
+
+**触发**:用户 `/goal 深度分析本项目代码冗余、隐藏bug、技术债等所有问题 并且深度修复到极致完美`,经深度扫描 + 弹窗确认后执行全部 P1+P2 共 10 项治理。
+
+**P1 完成(3 项)**:
+1. **43 处 requireAuth 重复定义收敛**:新增共享 `checkAuth`(boolean 语义)到 `apps/api/src/plugins/auth.ts`,43 个路由文件 `requireAuth(` → `checkAuth(`,grep 0 命中
+2. **5 处签到工具函数合并**:新建 `apps/api/src/utils/checkin-helpers.ts`,`calcSignInReward`/`todayString`/`shiftDate` 统一引用,消除 5 处重复定义
+3. **签到时区 bug 修复**:`gamification-queries.ts` 的 `todayString()` 返回北京时间(UTC+8),其他 4 个文件返回 UTC → 统一为 UTC,消除同一用户不同端签到"今日"判断不一致 bug
+
+**P2 完成(4 项)+ 评估跳过(2 项)**:
+1. **react-hooks/exhaustive-deps 12 处修复**:11 个 web 文件改 useRef 缓存模式
+2. **ai-world-sync.ts 55 处 console.log → logger**:统一走 Fastify pino
+3. **knip.jsonc 补全**:7 → 16 个 workspace,删除不存在的 apps/miniapp 和 packages/sdk 引用
+4. **@next/next/no-img-element 4 处 → next/image**:`browser-panel.tsx`/`TypewriterHero.tsx`/`checkout/page.tsx`/`context-reference-panel.tsx`,next.config.ts 添加 `api.qrserver.com` remotePattern
+5. **P2-4 migration 命名统一 → 跳过**:128 个 .sql 混用 4 位数字(0000-0127)+ 14 位时间戳(8 个),重命名需同步改 `_journal.json` 高风险,记录到 issues.md Issue 3
+6. **P2-5 i18n key parity → 跳过**:~900+ 翻译键缺失,属内容翻译任务非代码质量任务,记录到 issues.md Issue 4
+
+**额外修复(预存技术债)**:
+- `ai-feed-service.ts:733` Object possibly undefined → 可选链
+- `DictDialog.tsx:265-326` 重复损坏 JSX(引用不存在的 form.dictType/onFormChange)→ 删除
+- `AdminNav.tsx` AdminGroupKey 类型缺 `'saas'`/`'aiCost'` → 补联合类型
+- `work-panel.ts` 未使用 import `probeEmbed` → 删除
+- `chat-skills.ts` 隐藏 bug:本地 `requireAuth` 返回 void 但调用方 `if (authResult) return authResult` 恒 false → 鉴权失败后 handler 仍执行!改用共享 `checkAuth`(boolean 语义)
+- 5 个文件 9 处 lint 错误修复(knowledge-graph eqeqeq / PluginMarketplace jsx-a11y / admin-saas route type-import / AttachmentsUpload jsx-a11y / pending-question eqeqeq)
+- 4 个 api lint 错误修复(mock-smtp unused vars / auth-email.test unused import / live-chat.test prefer-const)
+
+**验证证据**:
+- `pnpm --filter @ihui/web typecheck` exit 0 ✅
+- `pnpm --filter @ihui/web lint` 0 errors ✅
+- `pnpm --filter @ihui/api typecheck` 本任务改动文件 exit 0 ✅(order-service.ts + payment-gateway.ts 5 处 `string | null` 错误由其他 agent 改动引起,非本任务)
+- `pnpm --filter @ihui/api lint` 0 errors ✅
+- issues.md 记录 4 个待跟进 issue(check-in.ts 死文件 / 签到时区历史数据 / migration 命名 / i18n parity)
+
+---
+
 ### [x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P0+P2(右侧固定面板 + 全 8 端同步 + AI 深度联动已完成,Playwright 降级待 P1)
 
 **触发**:用户要求"AI 对话框需要调用浏览器时右侧工作展示区切换为内置 chrome 浏览器,或点击网址时也直接在项目内打开"。经深度探讨确认方案:右侧固定面板 + 全 8 端同步 + 后端 Playwright 截图降级 + AI 工具调用深度联动。
@@ -197,11 +232,26 @@ P2 AI 工具调用深度联动(5 修改文件):
 
 ---
 
-### [ ] G5 数据库 FK 与审计字段补齐:agent_tasks FK + audit_logs SET NULL + updated_by(平台独占:仅 database,待启动)
+### [x] ✅(2026-07-22) G5 数据库 FK 与审计字段补齐:agent_tasks FK + 4 表 CASCADE→SET NULL(平台独占:仅 database + 下游 api 回归修复,已完成)
 
-**触发**:审计发现 P0-10(agent_tasks.agentId/ruleId 缺 FK)+ audit_logs.userId ON DELETE CASCADE 丢审计 + 关键表缺 updated_by。
+**触发**:审计发现 P0-10(agent_tasks.agentId/ruleId 缺 FK)+ audit_logs/orders/commission_flows/withdrawal_flows 的 userId CASCADE 导致用户删除时丢审计/财务凭证。
 
-**范围**:`packages/database/src/schema/{agent-tasks,audit,billing,agent-billings}.ts` + 新增 migration
+**范围**:`packages/database/src/schema/{agent-tasks,audit,billing,commission}.ts` + 新建 migration + 下游 api null 检查回归修复(3 文件)
+
+**完成证据**:
+- agent-tasks.ts(P0-10):agentId 加 `.references(() => agents.agentId, { onDelete: 'cascade' })`,ruleId 加 `.references(() => agentRule.id, { onDelete: 'set null' })`
+- audit.ts:userId 的 `onDelete: 'cascade'` → `'set null'` + 改注释
+- billing.ts:orders.userId `cascade` → `set null` + 去 notNull(SET NULL 语义要求可空)
+- commission.ts:commissionFlows.beneficiaryId + withdrawalFlows.userId `cascade` → `set null` + 去 notNull
+- migration(20260722130000_g5_fk_audit_fix.sql):5 段幂等 SQL(2 加 FK + 4 CASCADE→SET NULL)+ 3 段 DROP NOT NULL
+- 下游 api 回归修复(6 处 typecheck 错误):commission-settle-service.ts(加 `if (!order.userId) continue`)+ order-service.ts(award-points/compensate/pushNotification/activateOrderSubscription 4 处加 null 检查)+ payment-gateway.ts(2 处 feedbackInvite 前加 `if (!result.order.userId) throw`)
+- database build exit 0 ✅
+- api typecheck exit 0 ✅(6 处回归全部修复)
+
+**遗留(P1,非本任务范围)**:
+- P1:updated_by 字段补齐(orders/commission_flows/withdrawal_flows/agent_tasks 建议补,audit_logs/agent_billings append-only 不补)
+- P1:agent_rule.agentId 类型陷阱(varchar vs uuid,影响未来 FK 扩展)
+- P2:snapshot.json / _journal.json drift(手写 migration 未同步 snapshot,待 drizzle-kit generate)
 
 ---
 
