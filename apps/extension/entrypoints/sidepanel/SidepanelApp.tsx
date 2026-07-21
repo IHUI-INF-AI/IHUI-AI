@@ -46,6 +46,14 @@ function SidepanelInner() {
     addFromWs(lastMessage)
   }, [lastMessage, addFromWs])
 
+  // 转发 WS 消息到 background,供 agent-control bridge 监听 agent.action 指令
+  useEffect(() => {
+    if (!lastMessage) return
+    void chrome.runtime
+      .sendMessage({ type: 'ws.notification', payload: lastMessage })
+      .catch(() => {})
+  }, [lastMessage])
+
   useEffect(() => {
     let cancelled = false
     void (async () => {
