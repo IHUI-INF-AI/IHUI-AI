@@ -268,9 +268,18 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
             response_type: 'code',
             state,
           }
-          // 支付宝使用 app_id 而非 client_id
+          // 各平台 appid 参数名差异:
+          // - 支付宝:app_id
+          // - 微信扫码(qrconnect)/ 企业微信(qrConnect):appid(不是 client_id)
+          // - 其他(Google/Apple/钉钉/GitHub/飞书):client_id
           if (platform === 'alipay') {
             params.app_id = config.appId || ''
+          } else if (platform === 'wechat' || platform === 'enterpriseWechat') {
+            params.appid = config.appId || ''
+            // 企业微信 qrConnect 必须带 agentid(自建应用 ID)
+            if (platform === 'enterpriseWechat' && config.agentId) {
+              params.agentid = String(config.agentId)
+            }
           } else {
             params.client_id = config.clientId || config.appId || ''
           }
@@ -284,7 +293,9 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
             params.include_granted_scopes = 'true'
           }
 
-          const url = buildAuthUrl(config.authUrl, params)
+          let url = buildAuthUrl(config.authUrl, params)
+          // 微信扫码授权链接必须以 #wechat_redirect 结尾,否则报 "redirect_uri 参数错误"
+          if (platform === 'wechat') url += '#wechat_redirect'
           if (typeof window !== 'undefined') window.location.href = url
           return true
         }
