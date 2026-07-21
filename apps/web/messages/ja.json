@@ -1959,7 +1959,8 @@
         "resource": "リソースセンター",
         "developer": "開発者センター",
         "saas": "SaaS デプロイ"
-      }
+      },
+      "saasMetrics": "リソース監視"
     },
     "refund": {
       "title": "APIテスト",
@@ -2667,7 +2668,8 @@
         "domain": "ドメイン",
         "domainHint": "ユーザー向け URL",
         "shortcuts": "ショートカット",
-        "manageBackups": "バックアップ管理"
+        "manageBackups": "バックアップ管理",
+        "compareTenants": "テナント比較"
       },
       "backups": {
         "title": "{slug} のバックアップ",
@@ -2749,6 +2751,35 @@
         "aiTokens": "AI トークン",
         "storage": "ストレージ",
         "unlimited": "無制限"
+      },
+      "metrics": {
+        "pageTitle": "リソース監視",
+        "pageSubtitle": "マルチテナント CPU / メモリ / ネットワーク リアルタイム比較 (Prometheus + Grafana)",
+        "refresh": "更新",
+        "loading": "Grafana チャートを読み込み中…",
+        "iframeTitle": "リアルタイム指標 (Grafana)",
+        "openNewWindow": "新しいウィンドウで開く",
+        "unavailable": "Prometheus に接続できません。cadvisor/prometheus コンテナを確認してください。",
+        "unavailableTitle": "リソース監視は利用できません",
+        "unavailableHint": "Prometheus サービスへの接続に失敗しました。",
+        "envHint": "ヒント: NEXT_PUBLIC_GRAFANA_BASE が未設定です。デフォルト http://127.0.0.1:3001 を使用",
+        "compareTitle": "マルチテナント比較 (各テナント CPU/メモリ)",
+        "rankingTitle": "テナントランキング (CPU 降順)",
+        "totalTenants": "合計 {total} テナント",
+        "containers": "コンテナ × {count}",
+        "usageBarLabel": "{label} 使用率",
+        "empty": "監視可能なテナントがありません。コンテナの起動を待機中…",
+        "generatedAt": "データ生成時刻: {time}",
+        "degraded": "劣化モード",
+        "degradedHint": "Prometheus データソースに接続できません。空データを表示",
+        "live": "ライブ",
+        "back": "テナント一覧に戻る",
+        "cardTitle": "リアルタイムリソース指標",
+        "cpu": "CPU",
+        "memory": "メモリ",
+        "networkRx": "受信",
+        "networkTx": "送信",
+        "unitCores": "コア"
       }
     },
     "users": {
