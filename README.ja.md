@@ -243,7 +243,7 @@
 | **データベース**                      | **338+ テーブル + 120+ マイグレーション** + 100 schema ファイル + Drizzle ORM + RLS + テナントルーティング | 単一データベース PostgreSQL 15、schema 分離                         |
 | **API 規模**                          | ~1135 エンドポイント(api 1080 + ai-service 55)+ 12 WebSocket + 95+ ルートファイル                          | 元プロジェクト 331 エンドポイントを大幅に超越                       |
 | **業務網羅**                          | 15 大モジュール / 50+ サブ機能 / **200+ Web ページ**                                                       | ひとつのプラットフォームで全 AI アプリケーションシナリオを網羅      |
-| **共有パッケージ**                    | 13 packages(auth/database/types/ui/i18n/sdk/api-client/context-compaction 等)                              | クロスプラットフォーム型安全 + 再利用                               |
+| **共有パッケージ**                    | 12 packages(auth/database/types/ui/sdk/api-client/context-compaction 等)                                   | クロスプラットフォーム型安全 + 再利用                               |
 | **性能保障**                          | Knip 未使用コード + Lighthouse CI + Locust 負荷テスト                                                      | 性能予算 + 容量見積り                                               |
 | **デプロイ成熟度**                    | Docker Compose(14 サービス)+ ブルーグリーン + Nginx upstream + 証明書更新 cron                             | 本番級運用                                                          |
 
@@ -434,7 +434,6 @@ IHUI-AI/
 │   ├── context-compaction/  # @ihui/context-compaction (コンテキスト圧縮)
 │   ├── database/            # @ihui/database (Drizzle, 338+ テーブル, 120+ マイグレーション, RLS, テナントルーティング)
 │   ├── eslint-config/       # @ihui/eslint-config
-│   ├── i18n/                # @ihui/i18n (5 言語 + brand-glossary)
 │   ├── sdk/                 # @ihui/sdk (自動生成)
 │   ├── tsconfig/            # @ihui/tsconfig
 │   ├── types/               # @ihui/types
