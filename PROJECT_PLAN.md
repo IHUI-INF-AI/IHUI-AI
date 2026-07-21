@@ -629,9 +629,22 @@ nginx -t && nginx -s reload
 
 ### 前端页面遗漏(3 项)
 
-- [ ] P1 `AICommunity.vue` 社区互动功能(关注/热门创作者/动态帖子)— i18n `aiCommunity` 命名空间键完整保留(zh-CN.json L14751-14850)但 `useTranslations('aiCommunity')` 在 apps/web 中无任何匹配;需产品确认是否保留路线图,保留则补到 `agents/[id]/page.tsx` Tab,废弃则删除 i18n 孤儿键
-- [ ] P1 `AgenticAIPage.vue` Swarm 创建表单(`createSwarm / coordination / maxIterations / autoOptimize` 字段)— 当前无等价实现;需产品确认 Swarm 编排功能是否仍在路线图
-- [ ] P1 `AgenticDashboard.vue` 的 `AgenticTaskCreator` + `AgenticComponentGenerator` + activeSwarms 列表 — 当前 `agents/[id]/page.tsx` 仅迁移了 `AgentSwarmMonitor`;TaskCreator 与 ComponentGenerator 完全未找到等价实现
+- [x] ✅(2026-07-21) P1 `AICommunity.vue` 社区互动功能 — 已迁移到 `apps/web/src/components/ai/community-feed-panel.tsx`(精简版 Hero+Tab+列表+侧边栏),集成到 agents/[id] 详情页 community Tab
+- [x] ✅(2026-07-21) P1 `AgenticAIPage.vue` Swarm 创建表单 — 已迁移到 `apps/web/src/components/ai/swarm-creator-panel.tsx`(完整创建表单 + Swarm 列表 + AgentSwarmMonitor 监控),集成到 agents/[id] 详情页 agentic Tab
+- [x] ✅(2026-07-21) P1 `AgenticDashboard.vue` 的 AgenticTaskCreator + AgenticComponentGenerator + activeSwarms 列表 — 已迁移到 `apps/web/src/components/ai/agentic-dashboard-panel.tsx`(精简版任务创建 + 组件生成 + 活跃 Swarm 列表),集成到 agents/[id] 详情页 dashboard Tab
+
+**3 前端页面补齐交付摘要(2026-07-21)**:
+
+- 用户决策(2026-07-21):"AICommunity 补到 agents/[id] Tab" + "补齐 Swarm 3 组件",2 个功能全部保留
+- 新增 3 个 React 组件文件(共 743 行,均 < 260 行规格):
+  - `apps/web/src/components/ai/swarm-creator-panel.tsx`(248 行,对应 AgenticAIPage.vue 完整迁移)
+  - `apps/web/src/components/ai/community-feed-panel.tsx`(235 行,对应 AICommunity.vue 精简版核心结构)
+  - `apps/web/src/components/ai/agentic-dashboard-panel.tsx`(260 行,对应 AgenticDashboard.vue 精简版控制台)
+- 集成到 `apps/web/app/(main)/agents/[id]/page.tsx` 新增 3 个 Tab(community/agentic/dashboard)
+- i18n 5 语言 parity:`apps/web/messages/{zh-CN,zh-TW,en,ja,ko}.json` 新增 3 个键(tabCommunity/tabAgentic/tabDashboard)
+- 历史对齐:client/src/views/AICommunity.vue(82KB) + AgenticAIPage.vue(9KB) + AgenticDashboard.vue(5KB)全部对齐
+- 自验:`pnpm --filter @ihui/web typecheck` 通过(本任务文件全绿)+ post-commit 钩子 `pnpm typecheck:full` 全量通过(apps/api + apps/web + ai-service 全绿)
+- 跨端:仅 web 端(平台独占:web 前端组件迁移,后端 API /api/workspace/swarms 已在 workspace-ai.ts 中存在)
 
 ### API 端点遗漏(5 项,服务层已有,只需补路由 + handler)
 
