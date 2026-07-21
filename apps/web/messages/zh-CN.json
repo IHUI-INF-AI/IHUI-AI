@@ -11476,7 +11476,13 @@
     "prev": "上一页",
     "next": "下一页",
     "loading": "加载中...",
-    "page": "第 {page} / {total} 页"
+    "page": "第 {page} / {total} 页",
+    "exportReport": "导出学习报告",
+    "exporting": "正在导出...",
+    "exportPdf": "导出 PDF",
+    "exportExcel": "导出 Excel",
+    "exportJson": "导出 JSON",
+    "exportError": "导出失败,请稍后重试"
   },
   "notes": {
     "title": "我的笔记",
@@ -26201,10 +26207,10 @@
     "subtitle": "查看你的学习数据与最近进度",
     "loading": "加载中...",
     "stats": {
-      "studyHours": "学习时长",
-      "inProgressCourses": "进行中课程",
+      "totalCourses": "已报名课程",
+      "completedCourses": "已完成课程",
       "passedExams": "已通过考试",
-      "avgProgress": "平均进度"
+      "totalCerts": "证书数量"
     },
     "coursesCard": {
       "title": "课程",
@@ -26495,7 +26501,8 @@
     "learnCount": "{n} 人学",
     "free": "免费",
     "includes": "包含课程",
-    "noLessons": "暂无课程"
+    "noLessons": "暂无课程",
+    "premiumLoadFailed": "专题课程加载失败,请稍后重试"
   },
   "learnRatePage": {
     "loading": "加载中...",
@@ -26732,6 +26739,15 @@
       "avgProgress": "平均进度"
     }
   },
+  "eduSchedulePage": {
+    "title": "课程表",
+    "subtitle": "本周课程安排一览",
+    "loading": "加载中...",
+    "empty": "本周暂无课程",
+    "today": "今天",
+    "noClass": "无课",
+    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+  },
   "memberUpgradePage": {
     "title": "会员升级",
     "subtitle": "选择适合你的会员等级,解锁更多权益",
@@ -26828,6 +26844,14 @@
     "bestScore": "最高分:{n}",
     "retake": "再次考试",
     "start": "开始考试"
+  },
+  "eduNotesPage": {
+    "title": "学习笔记",
+    "subtitle": "记录与回顾学习心得",
+    "searchPlaceholder": "搜索笔记...",
+    "loading": "加载中...",
+    "empty": "暂无笔记",
+    "generalNote": "通用笔记"
   },
   "memberCouponsPage": {
     "title": "优惠券",
@@ -27110,6 +27134,34 @@
       "thirdParty": "第三方"
     }
   },
+  "oauthMockPage": {
+    "title": "{platform} 授权",
+    "subtitle": "登录到 IHUI-AI",
+    "permissionsTitle": "应用将获取以下权限",
+    "permissionNickname": "你的昵称",
+    "permissionAvatar": "你的头像",
+    "permissionEmail": "你的邮箱地址",
+    "appRequesting": "应用 {app} 正在申请使用你的账号登录",
+    "demoNotice": "当前为本地演示模式(未配置真实 {platform} OAuth 凭据),点击「授权」将模拟完成登录流程,不会向 {platform} 发送任何请求。",
+    "authorize": "授权并登录",
+    "cancel": "取消",
+    "platforms": {
+      "google": "Google",
+      "apple": "Apple",
+      "dingtalk": "钉钉",
+      "enterpriseWechat": "企业微信",
+      "wechat": "微信",
+      "feishu": "飞书",
+      "github": "GitHub",
+      "alipay": "支付宝"
+    }
+  },
+  "oauthSetupPage": {
+    "title": "OAuth 凭据配置向导",
+    "subtitle": "应用内交互式引导,帮你一步步获取第三方登录平台的真实凭据",
+    "honestTitle": "🤖 AI 不能替你注册账号",
+    "honestBody": "5 个平台(GitHub/Google/飞书/支付宝/Apple)的账号注册需要你的真人信息(邮箱/手机/身份证/营业执照/付费信用卡),AI 无法代替你操作。但本向导会引导你每一步,跟着点就不会迷路。建议从 GitHub 开始(3 分钟,免费)。"
+  },
   "agentsStatsPage": {
     "back": "返回",
     "title": "智能体统计",
@@ -27266,7 +27318,13 @@
     "share": "分享",
     "danmuTitle": "弹幕互动",
     "danmuPlaceholder": "发送弹幕...",
-    "me": "我"
+    "me": "我",
+    "mockDanmu1Name": "张同学",
+    "mockDanmu1Content": "老师讲得很清晰",
+    "mockDanmu2Name": "李同学",
+    "mockDanmu2Content": "这个知识点终于懂了",
+    "mockDanmu3Name": "王同学",
+    "mockDanmu3Content": "期待下次直播"
   },
   "memberAddressFormPage": {
     "recipient": "收货人",
