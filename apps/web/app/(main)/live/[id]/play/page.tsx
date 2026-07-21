@@ -48,7 +48,7 @@ export default function LivePlayPage() {
   const locale = useLocale()
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['live', 'channel', id],
+    queryKey: ['live', 'channel', id, 'play'],
     queryFn: () => api<ChannelResp>(`/api/live/channels/${id}`),
   })
 
