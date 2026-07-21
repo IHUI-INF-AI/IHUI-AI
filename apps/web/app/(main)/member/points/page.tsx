@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Coins, Loader2, TrendingUp, TrendingDown, Gift } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -37,6 +37,7 @@ async function api<T>(url: string): Promise<T> {
 }
 
 export default function MemberPointsPage() {
+  const t = useTranslations('memberPointsPage')
   const locale = useLocale()
   const summaryQ = useQuery({
     queryKey: ['member', 'points-summary'],
@@ -76,21 +77,21 @@ export default function MemberPointsPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Coins className="h-5 w-5 text-primary" />
-          积分中心
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">查看积分余额、明细与兑换好礼</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground">当前积分</p>
+            <p className="text-xs text-muted-foreground">{t('summary.current')}</p>
             <p className="mt-1 text-xl font-bold text-primary">{summary?.points ?? 0}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground">累计获取</p>
+            <p className="text-xs text-muted-foreground">{t('summary.earned')}</p>
             <p className="mt-1 flex items-center gap-1 text-xl font-bold text-emerald-600 dark:text-emerald-500">
               <TrendingUp className="h-4 w-4" />
               {summary?.totalEarned ?? 0}
@@ -99,7 +100,7 @@ export default function MemberPointsPage() {
         </Card>
         <Card>
           <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground">累计消耗</p>
+            <p className="text-xs text-muted-foreground">{t('summary.spent')}</p>
             <p className="mt-1 flex items-center gap-1 text-xl font-bold text-red-600 dark:text-red-500">
               <TrendingDown className="h-4 w-4" />
               {summary?.totalSpent ?? 0}
@@ -109,16 +110,16 @@ export default function MemberPointsPage() {
       </div>
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold">积分明细</h2>
+        <h2 className="mb-2 text-sm font-semibold">{t('txTitle')}</h2>
         <Card>
           <CardContent className="p-0">
             {txQ.isLoading ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </div>
             ) : txs.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">暂无积分记录</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">{t('txEmpty')}</p>
             ) : (
               <ul className="divide-y">
                 {txs.slice(0, 20).map((tx) => (
@@ -151,17 +152,17 @@ export default function MemberPointsPage() {
       <div>
         <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
           <Gift className="h-4 w-4" />
-          积分兑换
+          {t('redeemTitle')}
         </h2>
         {redeemQ.isLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            加载中...
+            {t('loading')}
           </div>
         ) : redeemItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
             <Gift className="h-8 w-8 text-muted-foreground opacity-40" />
-            <p className="text-sm text-muted-foreground">暂无可兑换商品</p>
+            <p className="text-sm text-muted-foreground">{t('redeemEmpty')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -169,9 +170,11 @@ export default function MemberPointsPage() {
               <Card key={item.id} className="transition-colors hover:bg-accent">
                 <CardContent className="space-y-2 p-3">
                   <p className="line-clamp-2 text-sm font-medium">{item.name}</p>
-                  <p className="text-sm font-semibold text-primary">{item.points} 积分</p>
+                  <p className="text-sm font-semibold text-primary">
+                    {t('pointsUnit', { n: item.points })}
+                  </p>
                   <Button variant="outline" size="sm" className="w-full">
-                    立即兑换
+                    {t('redeemBtn')}
                   </Button>
                 </CardContent>
               </Card>
