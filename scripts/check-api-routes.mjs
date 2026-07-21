@@ -85,6 +85,36 @@ function extractFrontendCalls(src, file) {
             }
           }
         }
+        if (!resolved) {
+          // 作用域搜索:向前找最近的函数定义开头,在函数体内找 method
+          // 场景:const run = async (op, endpoint, body) => { ... method: 'POST' ... }
+          //       调用处 run('generate', '/api/self-media/koubo/generate', ...) 在另一行
+          // 限制 1:必须匹配 => 或 function 关键字,避免误匹配 const xxx = useMutation({ 等非函数
+          // 限制 2:只对"间接调用"(非 fetchApi 直接调用)适用,避免 React 组件内多 method 误判
+          const directFetchRe = /fetchApi\s*(<[^>]*>)?\s*\(\s*['"`]\/api\//i
+          const isDirectFetch = directFetchRe.test(lines[idx] || '')
+          if (!isDirectFetch) {
+            const funcStartRe =
+              /(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?\([^)]*\)\s*=>|function\s+\w+\s*\(|(?:const|let|var)\s+\w+\s*:\s*(?:async\s*)?\([^)]*\)\s*=>/
+            let funcStartLine = -1
+            for (let i = idx - 1; i >= 0; i--) {
+              if (funcStartRe.test(lines[i] || '')) {
+                funcStartLine = i
+                break
+              }
+            }
+            if (funcStartLine >= 0) {
+              for (let i = funcStartLine; i <= idx; i++) {
+                const fl = (lines[i] || '').toLowerCase()
+                const fm = fl.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
+                if (fm) {
+                  resolved = fm[1].toUpperCase()
+                  break
+                }
+              }
+            }
+          }
+        }
         if (resolved) {
           method = resolved
         } else {
@@ -317,18 +347,63 @@ if (dumpIdx !== -1 && process.argv[dumpIdx + 1]) {
   writeFileSync(process.argv[dumpIdx + 1], JSON.stringify(missing, null, 2), 'utf8')
 }
 
-if (missing.length === 0) {
+// 读取 ignore 配置(.check-api-routes-ignore.json)
+// 格式:{ "version": 1, "ignorePatterns": [{ "method": "GET", "pathPattern": "...", "reason": "..." }] }
+// pathPattern:支持字符串包含匹配,也支持 ^...$ 正则
+// method:"ANY" 或具体方法;省略 method = 任意 method 都豁免
+const IGNORE_FILE = join(ROOT, '.check-api-routes-ignore.json')
+let ignorePatterns = []
+if (existsSync(IGNORE_FILE)) {
+  try {
+    const cfg = JSON.parse(readFileSync(IGNORE_FILE, 'utf8'))
+    ignorePatterns = Array.isArray(cfg.ignorePatterns) ? cfg.ignorePatterns : []
+  } catch (e) {
+    console.log(
+      `${C.yellow}[API 路由比对] ⚠️  .check-api-routes-ignore.json 解析失败,忽略配置文件:${C.reset} ${e.message}`,
+    )
+  }
+}
+
+function matchesIgnore(call) {
+  return ignorePatterns.some((p) => {
+    if (!p || !p.pathPattern) return false
+    if (p.method && p.method !== 'ANY' && call.method !== 'ANY' && p.method !== call.method) return false
+    const pattern = p.pathPattern
+    if (pattern.startsWith('^') || pattern.endsWith('$') ||pattern.includes('\\')) {
+      try {
+        return new RegExp(pattern).test(call.path)
+      } catch {
+        return call.path.includes(pattern)
+      }
+    }
+    return call.path.includes(pattern)
+  })
+}
+
+const ignored = missing.filter(matchesIgnore)
+const realMissing = missing.filter((c) => !matchesIgnore(c))
+
+if (ignored.length > 0) {
+  console.log(
+    `${C.yellow}[API 路由比对] ℹ️  ${ignored.length} 处调用被 .check-api-routes-ignore.json 豁免(后端待实装/已知占位)${C.reset}`,
+  )
+  for (const ig of ignored.slice(0, 20)) {
+    console.log(`${C.dim}  ${ig.method} ${ig.path} @ ${ig.file}:${ig.line}${C.reset}`)
+  }
+}
+
+if (realMissing.length === 0) {
   console.log(`${C.green}[API 路由比对] ✅ 通过，前端所有 API 调用均有后端路由对应${C.reset}`)
   process.exit(0)
 }
 
-console.log(`${C.red}[API 路由比对] ❌ 发现 ${missing.length} 处前端调用无后端路由（404 风险）:${C.reset}`)
-for (const m of missing.slice(0, 50)) {
+console.log(`${C.red}[API 路由比对] ❌ 发现 ${realMissing.length} 处前端调用无后端路由（404 风险）:${C.reset}`)
+for (const m of realMissing.slice(0, 50)) {
   console.log(`${C.red}  ${m.method} ${m.path}${C.reset}`)
   console.log(`${C.dim}    @ ${m.file}:${m.line}${C.reset}`)
 }
-if (missing.length > 50) {
-  console.log(`${C.dim}  ... 还有 ${missing.length - 50} 处${C.reset}`)
+if (realMissing.length > 50) {
+  console.log(`${C.dim}  ... 还有 ${realMissing.length - 50} 处${C.reset}`)
 }
 console.log('')
 console.log(`${C.yellow}修复方法:${C.reset}`)
