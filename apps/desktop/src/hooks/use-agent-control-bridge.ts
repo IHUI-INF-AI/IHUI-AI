@@ -8,7 +8,7 @@
  *
  * 用法:在已登录根组件中 `useAgentControlBridge(token)`
  */
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { WSNotification } from '@ihui/api-client'
 import type { AgentActionRequest } from '@ihui/types'
 import { handleAgentAction, initAgentControlBridge } from '../lib/agent-control-bridge'
@@ -23,6 +23,7 @@ export interface UseAgentControlBridgeReturn {
 
 export function useAgentControlBridge(token: string | null): UseAgentControlBridgeReturn {
   const { connected, lastMessage } = useNotificationWebSocket(token)
+  const processedIds = useRef(new Set<string>())
 
   useEffect(() => {
     return initAgentControlBridge(token ?? '')
@@ -34,7 +35,17 @@ export function useAgentControlBridge(token: string | null): UseAgentControlBrid
     if (!data || data.type !== 'agent.action') return
     const req = data.request as AgentActionRequest | undefined
     if (!req) return
-    void handleAgentAction(req)
+    // requestId 去重,防止 WS 重连后重复执行同一指令
+    if (processedIds.current.has(req.requestId)) return
+    processedIds.current.add(req.requestId)
+    // 清理超过 100 条的旧 requestId(避免 Set 无限增长)
+    if (processedIds.current.size > 100) {
+      const arr = Array.from(processedIds.current)
+      processedIds.current = new Set(arr.slice(-50))
+    }
+    void handleAgentAction(req).catch((err) => {
+      console.warn('[useAgentControlBridge] handleAgentAction failed:', err)
+    })
   }, [lastMessage])
 
   return { connected, lastMessage }
