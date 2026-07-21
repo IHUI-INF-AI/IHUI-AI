@@ -84,7 +84,7 @@ export default function EduDashboardPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <Alert variant="danger" description={(error as Error).message} />
+        <Alert variant="danger" description={tc('loadFailed')} />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
