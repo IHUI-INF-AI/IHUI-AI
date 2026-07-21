@@ -403,10 +403,22 @@ export async function collectAllSources(): Promise<CollectResult> {
 
     try {
       if (src.sourceType === 'hotlist' && dailyHotUrl) {
-        const url = src.endpoint ?? `${dailyHotUrl}/news`
+        // endpoint 智能拼接:
+        // - 完整 URL(http(s)://开头)直接用
+        // - 相对路径(如 /news/weibo)拼接到 dailyHotUrl
+        // - null/undefined 走默认 ${dailyHotUrl}/news
+        const url = src.endpoint
+          ? src.endpoint.startsWith('http')
+            ? src.endpoint
+            : new URL(src.endpoint, dailyHotUrl).toString()
+          : `${dailyHotUrl}/news`
         items = await fetchDailyHotApi(url, src.sourceCode)
       } else if (src.sourceType === 'rss' && rsshubUrl) {
-        const url = src.endpoint ?? `${rsshubUrl}/热门订阅`
+        const url = src.endpoint
+          ? src.endpoint.startsWith('http')
+            ? src.endpoint
+            : new URL(src.endpoint, rsshubUrl).toString()
+          : `${rsshubUrl}/热门订阅`
         items = await fetchRssHub(url, src.sourceCode)
       } else if (src.sourceType === 'api' && src.endpoint) {
         // api 类型直接用 endpoint，优先尝试 DailyHotApi 格式
