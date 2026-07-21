@@ -54,10 +54,10 @@ export default function LivePlayPage() {
 
   const channel = data?.channel ?? null
 
-  const [danmuList, setDanmuList] = React.useState<Danmu[]>([
-    { id: 1, userName: '张同学', content: '老师讲得很清晰' },
-    { id: 2, userName: '李同学', content: '这个知识点终于懂了' },
-    { id: 3, userName: '王同学', content: '期待下次直播' },
+  const [danmuList, setDanmuList] = React.useState<Danmu[]>(() => [
+    { id: 1, userName: t('mockDanmu1Name'), content: t('mockDanmu1Content') },
+    { id: 2, userName: t('mockDanmu2Name'), content: t('mockDanmu2Content') },
+    { id: 3, userName: t('mockDanmu3Name'), content: t('mockDanmu3Content') },
   ])
   const [newDanmu, setNewDanmu] = React.useState('')
   const [liked, setLiked] = React.useState(false)
