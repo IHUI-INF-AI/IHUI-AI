@@ -5,7 +5,13 @@ import { useState, useCallback } from 'react'
 import { getNotificationSettings, updateNotificationSettings } from '@/api'
 import { useI18n } from '@/i18n'
 
-interface NotificationItem {
+/**
+ * 通知设置项(用户在设置页开关的通知类别)。
+ * 与 @ihui/types 的 NotificationItem(通知列表项:id/type/title/content/isRead/createdAt)语义不同 ——
+ * 此处是设置项,含 key / title / enabled 字段,非通知数据本身。
+ * 命名为 NotificationSettingItem 避免与 @ihui/types NotificationItem 命名冲突。
+ */
+interface NotificationSettingItem {
   key: string
   title: string
   enabled: boolean
@@ -13,7 +19,7 @@ interface NotificationItem {
 
 export default function NotificationPage() {
   const { t } = useI18n()
-  const [list, setList] = useState<NotificationItem[]>([])
+  const [list, setList] = useState<NotificationSettingItem[]>([])
 
   const load = useCallback(async () => {
     try {
