@@ -67,7 +67,7 @@ describe('clawdbot SystemService 系统服务', () => {
     it('log 包含 id 与 timestamp', () => {
       svc.log('info', 'src', 'msg')
       const logs = svc.getLogs()
-      expect(logs[0].id).toMatch(/^log_\d+_/)
+      expect(logs[0].id).toMatch(/^log_[a-z0-9]+$/)
       expect(logs[0].timestamp).toBeGreaterThan(0)
     })
 

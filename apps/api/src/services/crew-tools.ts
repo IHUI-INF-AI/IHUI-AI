@@ -12,15 +12,17 @@
  * 5. terminal_run      — Shell 命令执行(白名单)
  * 6. knowledge_search  — RAG 知识库检索
  */
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
+import { execFile } from 'node:child_process'
 import vm from 'node:vm'
 import { logger } from './clawdbot/logger.js'
 import { callRealLlm } from './crew-llm-adapter.js'
 import { knowledgeRagService } from './knowledge-rag-service.js'
 import type { ToolDefinition, ToolHandler, ToolContext } from './clawdbot/tools.js'
 
-const execAsync = promisify(exec)
+// 2026-07-21 安全审计加固:移除 exec(shell),统一改用 execFile
+// 原 execAsync(cmd, { shell: 默认 = /bin/sh }) 即使白名单匹配后,shell 仍会解析
+// `; & | $` 等元字符 → 命令注入 (CWE-78)
+// 修复:handler 内部用 execFile(binary, args, { shell: false }) 替代
 
 /** OpenAI function calling 格式的 tool 定义 */
 export interface OpenAIToolDef {
@@ -266,20 +268,57 @@ export const CREW_TOOLS: CrewTool[] = [
     },
     handler: async (params) => {
       const cmd = String(params.command ?? '').trim()
-      const isAllowed = TERMINAL_WHITELIST.some((w) => cmd === w || cmd.startsWith(w + ' '))
+      // 2026-07-21 安全审计加固:用 execFile 替代 exec(shell),防止 `git log; rm -rf /` 类注入
+      // 原实现 execAsync(cmd, { shell }) 在白名单匹配后仍会执行 shell 元字符
+      // 修复:解析为 argv,验证 binary 完整匹配白名单,execFile 无 shell 执行
+      const tokens = cmd.split(/\s+/).filter(Boolean)
+      if (tokens.length === 0) {
+        return { success: false, error: '命令不能为空', duration: 0 }
+      }
+      // 拒绝 shell 元字符(防止任何形式注入,execFile 虽无 shell 也作为防御纵深)
+      if (/[;|&$`<>(){}*?!\\]/.test(cmd)) {
+        return {
+          success: false,
+          error: `命令包含非法 shell 字符: ${cmd.slice(0, 50)}`,
+          duration: 0,
+        }
+      }
+      const binary = tokens[0]!
+      const isAllowed = TERMINAL_WHITELIST.some((w) => binary === w)
       if (!isAllowed) {
         return {
           success: false,
-          error: `命令不在白名单内: ${cmd.slice(0, 50)}。允许: ${TERMINAL_WHITELIST.join(', ')}`,
+          error: `命令不在白名单内: ${binary}。允许: ${TERMINAL_WHITELIST.join(', ')}`,
           duration: 0,
         }
       }
       try {
-        const { stdout, stderr } = await execAsync(cmd, { timeout: 10000, maxBuffer: 1024 * 1024 })
+        // 用 execFile 替代 exec,无 shell 解析,argv 严格按字面传递
+        const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>(
+          (resolve, reject) => {
+            execFile(
+              binary,
+              tokens.slice(1),
+              { timeout: 10000, maxBuffer: 1024 * 1024, shell: false },
+              (err, out, errOut) => {
+                if (err) {
+                  ;(err as Error & { stdout?: string; stderr?: string }).stdout = out
+                  ;(err as Error & { stdout?: string; stderr?: string }).stderr = errOut
+                  reject(err)
+                  return
+                }
+                resolve({ stdout: out, stderr: errOut })
+              },
+            )
+          },
+        )
         const output = stdout + (stderr ? `\n[stderr]\n${stderr}` : '')
         return { success: true, output: output.slice(0, 8000), metadata: { cmd }, duration: 0 }
       } catch (e) {
-        return { success: false, error: e instanceof Error ? e.message : String(e), duration: 0 }
+        const err = e as Error & { stdout?: string; stderr?: string }
+        const output =
+          (err.stdout ?? '') + (err.stderr ? `\n[stderr]\n${err.stderr}` : '') || err.message
+        return { success: false, error: output.slice(0, 8000), duration: 0 }
       }
     },
   },
