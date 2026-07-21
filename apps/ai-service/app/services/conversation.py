@@ -17,7 +17,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import re
 import time
 from dataclasses import dataclass, field
@@ -27,6 +29,8 @@ from typing import Any
 from ..core.llm_gateway import llm_gateway
 from .memory import memory_store
 from .mcp_server import mcp_server
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -137,149 +141,202 @@ class ConversationService:
         iterations = 0
         tool_calls: list[ToolCallRecord] = []
         stub = False
-
-        # 1. 写入用户消息到记忆
-        try:
-            await memory_store.add(sid, "user", user_input)
-        except Exception:
-            pass
-
-        # 2. 意图分类
-        t0 = time.monotonic()
-        intent = await self._classify_intent(user_input, model=model)
-        trace.append({
-            "node": "intent_classify",
-            "duration_ms": round((time.monotonic() - t0) * 1000, 2),
-            "intent": intent.intent,
-            "needs_tool": intent.needs_tool,
-        })
-
-        # 3. 工具选择
-        t0 = time.monotonic()
-        tools: list[dict[str, Any]] = []
-        if allowed_tools is not None:
-            tools = self._filter_tools(allowed_tools)
-        elif intent.needs_tool and intent.suggested_tools:
-            tools = self._filter_tools(intent.suggested_tools)
-        elif intent.needs_tool:
-            # 关键词 fallback
-            guessed = self._keyword_tool_select(user_input)
-            tools = self._filter_tools(guessed)
-        trace.append({
-            "node": "tool_select",
-            "duration_ms": round((time.monotonic() - t0) * 1000, 2),
-            "tool_count": len(tools),
-            "tool_names": [t.get("function", {}).get("name") for t in tools],
-        })
-
-        # 4. 加载历史上下文
-        history = await memory_store.get(sid, limit=20)
-        messages: list[dict[str, Any]] = []
-        for m in history[:-1]:  # 排除最后一条刚加入的 user
-            role = m.get("role")
-            content = m.get("content", "")
-            if role in ("user", "assistant") and content:
-                messages.append({"role": role, "content": content})
-        messages.append({"role": "user", "content": user_input})
-
-        # 5. Tool loop
-        final_response = ""
+        intent = IntentResult(intent="other", confidence=0.0)
         used_model = model or "default"
-        for it in range(max_iterations):
-            iterations = it + 1
-            t0 = time.monotonic()
-            call_kwargs: dict[str, Any] = {}
-            if tools:
-                call_kwargs["tools"] = tools
-                call_kwargs["tool_choice"] = "auto"
-            result = await llm_gateway.complete(
-                messages, model=model, **call_kwargs
-            )
-            used_model = result.get("model", used_model)
-            stub = result.get("stub", False) or stub
-            content = str(result.get("content", "") or "")
-            tool_calls_raw = result.get("tool_calls") or []
+        final_response = ""
 
-            trace.append({
-                "node": "llm_call",
-                "iteration": iterations,
-                "duration_ms": round((time.monotonic() - t0) * 1000, 2),
-                "model": used_model,
-                "stub": stub,
-                "tool_call_count": len(tool_calls_raw),
-            })
-
-            # 5.1 无 tool_call:最终回复
-            if not tool_calls_raw:
-                final_response = content
-                break
-
-            # 5.2 把 assistant 消息(含 tool_calls)加入上下文
-            messages.append({
-                "role": "assistant",
-                "content": content,
-                "tool_calls": tool_calls_raw,
-            })
-
-            # 5.3 解析并执行 tool_calls
-            for tc in tool_calls_raw:
-                if not isinstance(tc, dict):
-                    continue
-                fn = tc.get("function") or {}
-                tool_name = fn.get("name", "")
-                raw_args = fn.get("arguments", "")
-                if isinstance(raw_args, str):
-                    try:
-                        args = json.loads(raw_args) if raw_args.strip() else {}
-                    except (json.JSONDecodeError, ValueError):
-                        args = {"_raw": raw_args}
-                else:
-                    args = raw_args or {}
-
-                t1 = time.monotonic()
-                exec_result = await mcp_server.call_tool(tool_name, args)
-                ok = bool(exec_result.get("ok"))
-                record = ToolCallRecord(
-                    tool=tool_name,
-                    arguments=args,
-                    result=exec_result,
-                    ok=ok,
-                    duration_ms=round((time.monotonic() - t1) * 1000, 2),
-                )
-                tool_calls.append(record)
-                trace.append({
-                    "node": "tool_execute",
-                    "tool": tool_name,
-                    "ok": ok,
-                    "duration_ms": record.duration_ms,
-                })
-
-                # 把工具结果回灌
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.get("id", ""),
-                    "name": tool_name,
-                    "content": json.dumps(exec_result, ensure_ascii=False)[:4000],
-                })
-
-            # 5.4 最后一轮不再继续
-            if it == max_iterations - 1:
-                # 让 LLM 总结工具结果
-                summary = await llm_gateway.complete(messages, model=model)
-                final_response = str(summary.get("content", "") or "")
-                stub = stub or summary.get("stub", False)
-                trace.append({
-                    "node": "llm_summarize",
-                    "duration_ms": 0.0,
-                    "stub": summary.get("stub", False),
-                })
-                break
-
-        # 6. 写入 assistant 响应
         try:
-            await memory_store.add(sid, "assistant", final_response)
-        except Exception:
-            pass
+            # 1. 写入用户消息到记忆
+            try:
+                await memory_store.add(sid, "user", user_input)
+            except Exception:
+                pass
+
+            # 2. 意图分类
+            t0 = time.monotonic()
+            intent = await self._classify_intent(user_input, model=model)
+            trace.append({
+                "node": "intent_classify",
+                "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+                "intent": intent.intent,
+                "needs_tool": intent.needs_tool,
+            })
+
+            # 3. 工具选择
+            t0 = time.monotonic()
+            tools: list[dict[str, Any]] = []
+            if allowed_tools is not None:
+                tools = self._filter_tools(allowed_tools)
+            elif intent.needs_tool and intent.suggested_tools:
+                tools = self._filter_tools(intent.suggested_tools)
+            elif intent.needs_tool:
+                # 关键词 fallback
+                guessed = self._keyword_tool_select(user_input)
+                tools = self._filter_tools(guessed)
+            trace.append({
+                "node": "tool_select",
+                "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+                "tool_count": len(tools),
+                "tool_names": [t.get("function", {}).get("name") for t in tools],
+            })
+
+            # 4. 加载历史上下文
+            history = await memory_store.get(sid, limit=20)
+            messages: list[dict[str, Any]] = []
+            for m in history[:-1]:  # 排除最后一条刚加入的 user
+                role = m.get("role")
+                content = m.get("content", "")
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": content})
+            messages.append({"role": "user", "content": user_input})
+
+            # 5. Tool loop
+            for it in range(max_iterations):
+                iterations = it + 1
+                t0 = time.monotonic()
+                call_kwargs: dict[str, Any] = {}
+                if tools:
+                    call_kwargs["tools"] = tools
+                    call_kwargs["tool_choice"] = "auto"
+                result = await llm_gateway.complete(
+                    messages, model=model, **call_kwargs
+                )
+                used_model = result.get("model", used_model)
+                stub = result.get("stub", False) or stub
+
+                # P0-7: LLM error 字段检查 — 不把 error 响应当正常回复
+                if result.get("error"):
+                    err_msg = result.get("error_message", "未知错误")
+                    logger.warning(
+                        "LLM 调用失败: %s, model=%s, iter=%d",
+                        err_msg, used_model, iterations,
+                    )
+                    trace.append({
+                        "node": "llm_call",
+                        "iteration": iterations,
+                        "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+                        "model": used_model,
+                        "stub": stub,
+                        "error": True,
+                        "error_message": err_msg,
+                    })
+                    final_response = f"[LLM 调用失败] {err_msg}"
+                    break
+
+                content = str(result.get("content", "") or "")
+                tool_calls_raw = result.get("tool_calls") or []
+
+                trace.append({
+                    "node": "llm_call",
+                    "iteration": iterations,
+                    "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+                    "model": used_model,
+                    "stub": stub,
+                    "tool_call_count": len(tool_calls_raw),
+                })
+
+                # 5.1 无 tool_call:最终回复
+                if not tool_calls_raw:
+                    final_response = content
+                    break
+
+                # 5.2 把 assistant 消息(含 tool_calls)加入上下文
+                messages.append({
+                    "role": "assistant",
+                    "content": content,
+                    "tool_calls": tool_calls_raw,
+                })
+
+                # 5.3 解析并执行 tool_calls
+                for tc in tool_calls_raw:
+                    if not isinstance(tc, dict):
+                        continue
+                    fn = tc.get("function") or {}
+                    tool_name = fn.get("name", "")
+                    raw_args = fn.get("arguments", "")
+                    if isinstance(raw_args, str):
+                        try:
+                            args = json.loads(raw_args) if raw_args.strip() else {}
+                        except (json.JSONDecodeError, ValueError):
+                            args = {"_raw": raw_args}
+                    else:
+                        args = raw_args or {}
+
+                    t1 = time.monotonic()
+                    exec_result = await mcp_server.call_tool(tool_name, args)
+                    ok = bool(exec_result.get("ok"))
+                    record = ToolCallRecord(
+                        tool=tool_name,
+                        arguments=args,
+                        result=exec_result,
+                        ok=ok,
+                        duration_ms=round((time.monotonic() - t1) * 1000, 2),
+                    )
+                    tool_calls.append(record)
+                    # P0-7: 工具失败时在 trace 显式记录 _tool_error
+                    tool_trace: dict[str, Any] = {
+                        "node": "tool_execute",
+                        "tool": tool_name,
+                        "ok": ok,
+                        "duration_ms": record.duration_ms,
+                    }
+                    if not ok:
+                        tool_trace["_tool_error"] = (
+                            exec_result.get("error")
+                            or exec_result.get("message")
+                            or "tool execution failed"
+                        )
+                    trace.append(tool_trace)
+
+                    # 把工具结果回灌
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.get("id", ""),
+                        "name": tool_name,
+                        "content": json.dumps(exec_result, ensure_ascii=False)[:4000],
+                    })
+
+                # 5.4 最后一轮不再继续
+                if it == max_iterations - 1:
+                    # 让 LLM 总结工具结果
+                    summary = await llm_gateway.complete(messages, model=model)
+                    # P0-7: summarize 调用检查 error
+                    if summary.get("error"):
+                        err_msg = summary.get("error_message", "未知错误")
+                        logger.warning(
+                            "LLM summarize 失败: %s, model=%s",
+                            err_msg, used_model,
+                        )
+                        trace.append({
+                            "node": "llm_summarize",
+                            "duration_ms": 0.0,
+                            "stub": summary.get("stub", False),
+                            "error": True,
+                            "error_message": err_msg,
+                        })
+                        # final_response 保留之前的 content 或设置错误提示
+                        if not final_response:
+                            final_response = f"[LLM 摘要失败] {err_msg}"
+                    else:
+                        final_response = str(summary.get("content", "") or "")
+                        stub = stub or summary.get("stub", False)
+                        trace.append({
+                            "node": "llm_summarize",
+                            "duration_ms": 0.0,
+                            "stub": summary.get("stub", False),
+                        })
+                    break
+
+            # 6. 写入 assistant 响应
+            try:
+                await memory_store.add(sid, "assistant", final_response)
+            except Exception:
+                pass
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.exception("对话编排失败: %s", e)
+            final_response = f"[对话编排失败] {e}"
 
         return ConversationResult(
             session_id=sid,
