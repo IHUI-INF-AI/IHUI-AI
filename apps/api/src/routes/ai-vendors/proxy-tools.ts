@@ -8,6 +8,7 @@ import { sql } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { buildSchema } from '../../utils/swagger.js'
 import { verifyAccessToken } from '@ihui/auth'
+import { generateCompactId } from '../../utils/crypto-random.js'
 import { db } from '../../db/index.js'
 import {
   createVideoTask,
@@ -795,7 +796,9 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = n8nAddAgentBody.parse(request.body)
       if (!body.agentName || !body.connectorUserId)
         return reply.status(400).send(error(400, 'agentName 和 connectorUserId 为必填'))
-      const agentId = `n8n_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成 n8n agentId
+      // 风险:Math.random 可预测 → 攻击者可枚举其他用户/工作流 agent ID → 越权访问
+      const agentId = generateCompactId('n8n')
       n8nAgentStore.set(agentId, {
         agentId,
         agentName: body.agentName,
@@ -1149,7 +1152,9 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = n8nAddAgentDbBody.parse(request.body)
-      const agentId = `n8n_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成 n8n agentId
+      // 风险:DB 持久化的 agentId 可被枚举 → 越权访问其他用户工作流
+      const agentId = generateCompactId('n8n')
       const avatar = body.agentAvatar ?? ''
       const agentVariablesJson = JSON.stringify(body.agentVariables ?? {})
       try {
