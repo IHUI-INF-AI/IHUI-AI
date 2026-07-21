@@ -1,5 +1,6 @@
 /**
  * P1-2.2b: 租户详情页 - 基本信息 + 容器状态 + 资源限制
+ * P1-2.3:  新增 Grafana 实时图表 + Prometheus 指标卡片
  * 路径: /admin/saas/[slug]
  */
 'use client'
@@ -9,6 +10,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import {
+  Activity,
   ArrowLeft,
   Database,
   ExternalLink,
@@ -24,6 +26,8 @@ import { StateBadge } from '../_components/StateBadge'
 import { ContainerStatusCell } from '../_components/ContainerStatusCell'
 import { ConfirmActionDialog } from '../_components/ConfirmActionDialog'
 import { QuotaCard } from '../_components/QuotaCard'
+import { MetricsCard } from '../_components/MetricsCard'
+import { GrafanaFrame } from '../_components/GrafanaFrame'
 import { useTenantDetail } from '@/hooks/use-saas-tenants'
 import {
   useBackupTenant,
@@ -260,12 +264,18 @@ export default function TenantDetailPage() {
           />
         </div>
 
-        {/* P1-2.2c: 配额占位卡片 */}
+        {/* P1-2.2c: 配额占位卡片 + P1-2.3: 实时 Prometheus 指标 */}
         <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-3">
           <div className="lg:col-span-1">
             <QuotaCard slug={tenant.slug} />
           </div>
+          <div className="lg:col-span-1">
+            <MetricsCard slug={tenant.slug} />
+          </div>
         </div>
+
+        {/* P1-2.3: Grafana 实时图表 iframe(近 1h CPU/内存/磁盘/网络) */}
+        <GrafanaFrame tenant={tenant.slug} timeRange="now-1h" refresh="15s" />
 
         {/* 快捷导航 */}
         <Card>
@@ -278,6 +288,12 @@ export default function TenantDetailPage() {
                 <Link href={`/admin/saas/${encodeURIComponent(tenant.slug)}/backups`}>
                   <Database className="h-4 w-4" />
                   <CenteredText>{t('detail.manageBackups')}</CenteredText>
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/admin/saas/metrics">
+                  <Activity className="h-4 w-4" />
+                  <CenteredText>{t('detail.compareTenants')}</CenteredText>
                 </Link>
               </Button>
             </div>
