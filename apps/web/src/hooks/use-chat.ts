@@ -426,6 +426,7 @@ export function useChat(): UseChatReturn {
           onReasoning: (delta) => {
             useChatStore.getState().appendReasoningToMessage(assistantId, delta)
           },
+          onToolCall: createToolCallHandler(assistantId),
           onError: (errMsg) => {
             const formatted = formatSSEError(errMsg)
             useChatStore.getState().setMessageError(assistantId, formatted.message)
@@ -542,10 +543,27 @@ export function useChat(): UseChatReturn {
           useChatStore.getState().appendToAgentStream(agentId, delta)
         },
         onReasoning: (delta) => {
-            useChatStore.getState().appendReasoningToMessage(assistantId, delta)
-          },
-          onToolCall: createToolCallHandler(assistantId),
-          onError: (errMsg) => {
+          useChatStore.getState().appendReasoningToMessage(assistantId, delta)
+        },
+        onToolCall: createToolCallHandler(assistantId),
+        onError: (errMsg) => {
+          const formatted = formatSSEError(errMsg)
+          useChatStore.getState().setMessageError(assistantId, formatted.message)
+          useChatStore.getState().setError(formatted.message)
+          if (formatted.severity === 'auth') {
+            useLoginDialogStore.getState().open('login')
+          }
+          const toastDesc =
+            formatted.severity === 'auth' ? formatted.message : formatted.rawMessage
+          if (formatted.severity === 'ratelimit') {
+            toast.warning(formatted.title, { description: toastDesc })
+          } else if (formatted.severity === 'safety') {
+            toast.warning(formatted.title, { description: formatted.message })
+          } else {
+            toast.error(formatted.title, { description: toastDesc })
+          }
+        },
+      })
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         if (!firstTokenReceived) {
