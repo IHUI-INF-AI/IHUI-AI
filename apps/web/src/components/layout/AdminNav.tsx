@@ -217,6 +217,7 @@ interface AdminNavItem {
     | 'saasCertificates'
     | 'saasMetrics'
     | 'pluginsStats'
+    | 'aiCost'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -646,6 +647,7 @@ type AdminGroupKey =
   | 'community'
   | 'resource'
   | 'developer'
+  | 'saas'
 
 export interface AdminNavGroup {
   groupKey: AdminGroupKey

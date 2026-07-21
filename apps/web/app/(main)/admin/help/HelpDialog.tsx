@@ -49,11 +49,15 @@ export function HelpDialog({
     defaultValues,
   })
   const [slugTouched, setSlugTouched] = React.useState(false)
+  // defaultValues/editing 用 ref:避免加入 deps 后父组件传入新对象引用导致反复重置
+  const defaultValuesRef = React.useRef(defaultValues)
+  defaultValuesRef.current = defaultValues
+  const editingRef = React.useRef(editing)
+  editingRef.current = editing
   React.useEffect(() => {
-    form.reset(defaultValues)
-    setSlugTouched(!!editing)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing?.id, open])
+    form.reset(defaultValuesRef.current)
+    setSlugTouched(!!editingRef.current)
+  }, [editing?.id, open, form])
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>

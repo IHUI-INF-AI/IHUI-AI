@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import {
   listChatSkills,
   findChatSkillById,
@@ -41,20 +41,10 @@ export const chatSkillsRoutes: FastifyPluginAsync = async (server) => {
     enabled: baseFields.enabled,
   })
 
-  const requireAuth = async (request: import('fastify').FastifyRequest, reply: import('fastify').FastifyReply) => {
-    try {
-      await authenticate(request)
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || 'Authentication required'
-      return reply.status(statusCode).send(error(statusCode, message))
-    }
-  }
-
   // GET /api/chat/skills - 列出当前用户的技能
   server.get('/', async (request, reply) => {
-    const authResult = await requireAuth(request, reply)
-    if (authResult) return authResult
+    const authed = await checkAuth(request, reply)
+    if (!authed) return
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -64,8 +54,8 @@ export const chatSkillsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /api/chat/skills - 创建技能
   server.post('/', async (request, reply) => {
-    const authResult = await requireAuth(request, reply)
-    if (authResult) return authResult
+    const authed = await checkAuth(request, reply)
+    if (!authed) return
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -80,8 +70,8 @@ export const chatSkillsRoutes: FastifyPluginAsync = async (server) => {
 
   // PATCH /api/chat/skills/:id - 更新技能(仅当前用户自己的)
   server.patch('/:id', async (request, reply) => {
-    const authResult = await requireAuth(request, reply)
-    if (authResult) return authResult
+    const authed = await checkAuth(request, reply)
+    if (!authed) return
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -113,8 +103,8 @@ export const chatSkillsRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /api/chat/skills/:id - 删除技能(仅当前用户自己的)
   server.delete('/:id', async (request, reply) => {
-    const authResult = await requireAuth(request, reply)
-    if (authResult) return authResult
+    const authed = await checkAuth(request, reply)
+    if (!authed) return
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 

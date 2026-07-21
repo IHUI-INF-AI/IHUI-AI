@@ -1,43 +1,16 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { and, eq, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { signInRecords, userPoints, userThirdPartyAccounts, users, auditLogs } from '@ihui/database'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { revokeRefreshToken } from '../db/queries.js'
-
-function todayString(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function shiftDate(date: string, days: number): string {
-  const d = new Date(date + 'T00:00:00Z')
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
-function calcReward(consecutiveDays: number): number {
-  if (consecutiveDays >= 7) return 50
-  return 10 + (consecutiveDays - 1) * 5
-}
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply
-      .status(statusCode)
-      .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    return false
-  }
-}
+import { calcSignInReward, todayString, shiftDate } from '../utils/checkin-helpers.js'
 
 export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
   server.post('/user/check-in', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
     const today = todayString()
     const [existing] = await db
@@ -55,7 +28,7 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(signInRecords.userId, userId), eq(signInRecords.signInDate, yesterday)))
       .limit(1)
     const consecutiveDays = (yesterdayRecord?.consecutiveDays ?? 0) + 1
-    const rewardPoints = calcReward(consecutiveDays)
+    const rewardPoints = calcSignInReward(consecutiveDays)
     const [record] = await db
       .insert(signInRecords)
       .values({ userId, signInDate: today, consecutiveDays, rewardPoints })
@@ -64,7 +37,7 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/user/check-in/status', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
     const today = todayString()
     const [record] = await db
@@ -85,25 +58,25 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
         .limit(1)
       consecutiveDays = yesterdayRecord?.consecutiveDays ?? 0
     }
-    const todayReward = signedIn ? record!.rewardPoints : calcReward(consecutiveDays + 1)
+    const todayReward = signedIn ? record!.rewardPoints : calcSignInReward(consecutiveDays + 1)
     return reply.send(success({ signedIn, consecutiveDays, todayReward }))
   })
 
   // 用户设置页：设备管理 / IP 白名单 / 会话管理
   server.delete('/user/devices/:deviceId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { deviceId } = z.object({ deviceId: z.string() }).parse(request.params)
     return reply.send(success({ removed: deviceId }))
   })
 
   server.post('/user/ip-whitelist', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { ip } = z.object({ ip: z.string().min(1) }).parse(request.body)
     return reply.send(success({ added: ip }))
   })
 
   server.delete('/user/sessions/:sessionId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { sessionId } = z.object({ sessionId: z.string() }).parse(request.params)
     await revokeRefreshToken(sessionId)
     return reply.send(success({ ended: sessionId }))
@@ -111,7 +84,7 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /user/integral - 用户积分余额(迁移自 D 盘 /user/integral,对应 user_points.points)
   server.get('/user/integral', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const [points] = await db
       .select({
         points: userPoints.points,
@@ -128,7 +101,7 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /user/login-history - 登录历史(查 audit_logs 中 action='auth.login' 的记录)
   server.get('/user/login-history', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { page, pageSize } = z
       .object({
         page: z.coerce.number().int().min(1).default(1),
@@ -159,7 +132,7 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /user/security-score - 安全评分(基于密码强度/绑定第三方/会话数的启发式计算)
   server.get('/user/security-score', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const [user] = await db
       .select({ id: users.id, passwordHash: users.passwordHash, email: users.email })
       .from(users)
@@ -182,7 +155,7 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /user/info - 用户基本信息(迁移自 D 盘 /user/info,与 /api/users/me 语义一致但路径不同)
   server.get('/user/info', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const [user] = await db
       .select({
         id: users.id,
@@ -202,7 +175,7 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /user/bind-third-party - 绑定第三方账号
   server.post('/user/bind-third-party', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     // 该端点接收 refreshToken/accessToken 字段(写入 DB, 不在响应中返回), 标记跳过响应脱敏避免误报
     request.skipResponseSanitization = true
     const { platform, openId, unionId, accessToken, refreshToken, expiresAt } = z

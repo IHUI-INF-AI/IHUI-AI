@@ -45,6 +45,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' }, // Google OAuth 头像
       { protocol: 'https', hostname: 'avatars.githubusercontent.com' }, // GitHub OAuth 头像
       { protocol: 'https', hostname: 'platform-lookaside.fbsbx.com' }, // Facebook OAuth 头像
+      { protocol: 'https', hostname: 'api.qrserver.com' }, // QR 码生成服务
     ],
     dangerouslyAllowSVG: false,
     contentDispositionType: 'attachment',

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
-import { authenticate } from '../plugins/auth.js';
+import { checkAuth } from '../plugins/auth.js';
 import { success, error } from '../utils/response.js';
 import {
   findNotesList,
@@ -30,22 +30,6 @@ import { db } from '../db/index.js';
 import { lessonRecords, eduNotes, eduOfflineRecords, eduUploadedCerts } from '@ihui/database';
 import { exportToExcel } from '../services/excel-export-service.js';
 import { generateReportPDF } from '../services/pdf-service.js';
-
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request);
-    return true;
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401;
-    const message = (e as Error).message || 'Authentication required';
-    reply.status(statusCode).send(error(statusCode, message));
-    return false;
-  }
-}
 
 // =============================================================================
 // Zod schemas
@@ -354,7 +338,7 @@ export async function sendStudentReport(
 export const eduPublicRoutes: FastifyPluginAsync = async (server) => {
   // 统一登录校验
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
   });
 
   // ----- 我的课程 -----

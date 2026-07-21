@@ -168,7 +168,15 @@ export function AttachmentsUpload({
   return (
     <div className={cn('space-y-2', className)}>
       <div
+        role="button"
+        tabIndex={0}
         onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            inputRef.current?.click()
+          }
+        }}
         onDragOver={(e) => {
           e.preventDefault()
           setDragOver(true)

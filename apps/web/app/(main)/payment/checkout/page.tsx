@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Suspense, useEffect, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Check, Loader2, ArrowLeft, Tag } from 'lucide-react'
 
@@ -220,10 +221,11 @@ function CheckoutContent() {
             <DialogDescription>{t('checkout.wechatScanDesc')}</DialogDescription>
           </DialogHeader>
           <div className="flex justify-center py-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrCodeUrl)}&size=240x240`}
               alt={t('checkout.wechatQrAlt')}
+              width={240}
+              height={240}
               className="h-60 w-60 rounded-lg border"
             />
           </div>

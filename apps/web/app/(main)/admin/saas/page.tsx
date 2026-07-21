@@ -112,16 +112,21 @@ export default function AdminSaasPage() {
     setConfirmAction(null)
   }
 
+  // handlers 用 ref:这些函数每次渲染都是新引用,加入 deps 会让 useMemo 失去记忆化意义
+  const handlersRef = React.useRef({ handlePause, handleResume, handleBackup, handleDelete })
+  handlersRef.current = { handlePause, handleResume, handleBackup, handleDelete }
+
   const dialogProps = React.useMemo(() => {
     if (!confirmAction) return null
     const { type, tenant } = confirmAction
     const slug = tenant.slug
+    const h = handlersRef.current
     if (type === 'pause') {
       return {
         title: t('confirm.pauseTitle', { slug }),
         description: t('confirm.pauseHint', { slug }),
         variant: 'default' as const,
-        onConfirm: handlePause,
+        onConfirm: h.handlePause,
         pending: pending[slug] === 'pause',
       }
     }
@@ -130,7 +135,7 @@ export default function AdminSaasPage() {
         title: t('confirm.resumeTitle', { slug }),
         description: t('confirm.resumeHint', { slug }),
         variant: 'default' as const,
-        onConfirm: handleResume,
+        onConfirm: h.handleResume,
         pending: pending[slug] === 'resume',
       }
     }
@@ -139,7 +144,7 @@ export default function AdminSaasPage() {
         title: t('confirm.backupTitle', { slug }),
         description: t('confirm.backupHint', { slug }),
         variant: 'default' as const,
-        onConfirm: handleBackup,
+        onConfirm: h.handleBackup,
         pending: pending[slug] === 'backup',
       }
     }
@@ -148,10 +153,9 @@ export default function AdminSaasPage() {
       description: t('confirm.destroyHint', { slug }),
       variant: 'destructive' as const,
       requireInput: slug,
-      onConfirm: handleDelete,
+      onConfirm: h.handleDelete,
       pending: pending[slug] === 'delete',
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmAction, pending, t])
 
   return (

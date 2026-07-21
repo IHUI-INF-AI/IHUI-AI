@@ -2,7 +2,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import * as XLSX from 'xlsx'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findMembers,
@@ -443,22 +443,6 @@ async function importMembers(
 }
 
 // =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-}
-
-// =============================================================================
 // 路由（前缀 /api）
 // =============================================================================
 
@@ -503,7 +487,7 @@ export const memberRoutes: FastifyPluginAsync = async (server) => {
   // 需登录端点
   server.register(async (authed) => {
     authed.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-      if (!(await requireAuth(request, reply))) return
+      if (!(await checkAuth(request, reply))) return
     })
 
     // GET /members/by-id - 按 ID 查询会员
