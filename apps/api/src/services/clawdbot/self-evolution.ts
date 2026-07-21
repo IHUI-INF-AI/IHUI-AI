@@ -7,6 +7,7 @@ import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { getSkillManager } from './skills.js'
 import { getMemoryService } from './memory.js'
+import { generateCompactId } from '../../utils/crypto-random.js'
 
 export interface EvolutionTask {
   id: string
@@ -67,7 +68,8 @@ export class SelfEvolutionEngine extends EventEmitter {
     let existing = this.patterns.get(key)
     if (!existing) {
       existing = {
-        id: `pat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成行为模式 ID
+        id: generateCompactId('pat'),
         pattern,
         frequency: 0,
         successRate: 0,
@@ -102,11 +104,14 @@ export class SelfEvolutionEngine extends EventEmitter {
   }
 
   async evolve(gapId?: string): Promise<EvolutionTask> {
-    const gap = gapId ? this.gaps.get(gapId) : Array.from(this.gaps.values()).find((g) => !g.resolved)
+    const gap = gapId
+      ? this.gaps.get(gapId)
+      : Array.from(this.gaps.values()).find((g) => !g.resolved)
     if (!gap) throw new Error('No gap to evolve')
 
     const task: EvolutionTask = {
-      id: `evo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成进化任务 ID
+      id: generateCompactId('evo'),
       type: 'skill_creation',
       description: gap.description,
       trigger: gapId ?? 'auto',
