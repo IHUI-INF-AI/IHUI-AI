@@ -13,8 +13,8 @@ export const workflows = pgTable('workflows', {
   name: varchar('name', { length: 128 }).notNull(),
   description: text('description'),
   triggerType: varchar('trigger_type', { length: 32 }).default('manual').notNull(),
-  triggerConfig: jsonb('trigger_config'),
-  steps: jsonb('steps'),
+  triggerConfig: jsonb('trigger_config').default({}),
+  steps: jsonb('steps').default([]).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   createdBy: uuid('created_by')
     .references(() => users.id, { onDelete: 'cascade' })
@@ -35,7 +35,7 @@ export const workflowInstances = pgTable('workflow_instances', {
     .notNull(),
   projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
   status: varchar('status', { length: 16 }).default('pending').notNull(),
-  context: jsonb('context'),
+  context: jsonb('context').default({}),
   startedAt: timestamp('started_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   error: text('error'),
