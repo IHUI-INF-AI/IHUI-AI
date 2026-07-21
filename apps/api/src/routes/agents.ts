@@ -2,7 +2,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { randomUUID, randomBytes, createHmac, timingSafeEqual } from 'crypto'
 import { eq, and, desc, sql, inArray, gte } from 'drizzle-orm'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { db, dbRead } from '../db/index.js'
@@ -72,22 +72,6 @@ import {
   listActiveScopeMeta,
 } from '../db/oauth-queries.js'
 
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-}
-
 function toInt(v: string | undefined): number | undefined {
   if (v === undefined || v === '') return undefined
   const n = parseInt(v, 10)
@@ -151,7 +135,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     if (url.startsWith('/api/callback/') || url.startsWith('/cozeZhsApi/agents/callback/coze')) {
       return // 跳过 requireAuth,由路由内部 verifyHmacSignature 处理
     }
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
   })
 
   const agentIdParam = z.object({ agentId: z.string() })

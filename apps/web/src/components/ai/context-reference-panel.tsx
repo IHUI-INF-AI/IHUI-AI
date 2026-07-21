@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { FileText, Link as LinkIcon, Type, ImageIcon, Film, ChevronDown, X } from 'lucide-react'
 
 import { Button } from '@ihui/ui'
@@ -67,10 +68,11 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
                 <div className="flex items-center gap-2">
                   {/* 图片/视频缩略图优先显示(覆盖默认图标) */}
                   {hasThumbnail && ref.type === 'image' ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={ref.thumbnail}
+                    <Image
+                      src={ref.thumbnail as string}
                       alt={ref.label}
+                      width={40}
+                      height={40}
                       className="h-10 w-10 shrink-0 rounded-md border object-cover"
                     />
                   ) : hasThumbnail && ref.type === 'video' ? (
@@ -115,12 +117,14 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
                 {hasThumbnail && isOpen && (
                   <div className="mt-2 overflow-hidden rounded-md bg-muted/40 p-2">
                     {ref.type === 'image' ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={ref.thumbnail}
-                        alt={ref.label}
-                        className="max-h-64 w-full rounded-md object-contain"
-                      />
+                      <div className="relative h-64 w-full">
+                        <Image
+                          src={ref.thumbnail as string}
+                          alt={ref.label}
+                          fill
+                          className="rounded-md object-contain"
+                        />
+                      </div>
                     ) : (
                       <video
                         src={ref.thumbnail}

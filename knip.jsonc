@@ -11,13 +11,25 @@
       "entry": ["app/**/page.tsx", "app/**/layout.tsx", "app/layout.tsx"],
       "project": ["**/*.{ts,tsx}"]
     },
-    "apps/miniapp": {
-      "entry": ["main.ts", "App.vue"],
-      "project": ["**/*.{ts,vue}"]
-    },
     "apps/cli": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
+    },
+    "apps/desktop": {
+      "entry": ["src/main.tsx", "src-tauri/src/lib.rs"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/extension": {
+      "entry": ["src/i18n/index.tsx"],
+      "project": ["**/*.{ts,tsx}"]
+    },
+    "apps/mobile-rn": {
+      "entry": ["App.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/miniapp-taro": {
+      "entry": ["src/app.tsx"],
+      "project": ["**/*.{ts,tsx}"]
     },
     "packages/database": {
       "entry": ["src/index.ts"],
@@ -27,9 +39,33 @@
       "entry": ["src/index.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },
-    "packages/sdk": {
+    "packages/api-client": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
+    },
+    "packages/auth": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/config": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/context-compaction": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/types": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ui-native": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/ui-primitives": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
     }
   }
 }
