@@ -70,20 +70,20 @@ Fundraising can fail, but open source doesn't.
 
 ### 🚀 3 actions, 30 seconds, to let this story be seen
 
-| #   | Action                                  | What you'll get                                                      |
-| --- | --------------------------------------- | ------------------------------------------------------------------- |
-| 1   | ⭐ **Star this repo**                    | It'll appear on your GitHub timeline, visible to your followers     |
-| 2   | 📲 **Copy the 2 lines above to your feed** | See images below — you'll be "the first to bring this story to your friends" |
-| 3   | 💬 **Write your own story in Issues**     | [Enter here](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — we'll pin the best ones for the world to see |
+| #   | Action                                     | What you'll get                                                                                            |
+| --- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| 1   | ⭐ **Star this repo**                      | It'll appear on your GitHub timeline, visible to your followers                                            |
+| 2   | 📲 **Copy the 2 lines above to your feed** | See images below — you'll be "the first to bring this story to your friends"                               |
+| 3   | 💬 **Write your own story in Issues**      | [Enter here](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — we'll pin the best ones for the world to see |
 
 ---
 
 ### 🖼️ Images ready for you (save & share directly)
 
-| Image | Use as | Path |
-| ----- | ------ | ---- |
-| 🏢 Changchun base, real photo | Feed header / Weibo | `apps/web/public/images/story/changchun-winter-2024.jpg` |
-| 🌃 Late-night coding · one lamp | X / Zhihu / middle of article | `apps/web/public/images/story/late-night-coding.jpg` |
+| Image                           | Use as                        | Path                                                     |
+| ------------------------------- | ----------------------------- | -------------------------------------------------------- |
+| 🏢 Changchun base, real photo   | Feed header / Weibo           | `apps/web/public/images/story/changchun-winter-2024.jpg` |
+| 🌃 Late-night coding · one lamp | X / Zhihu / middle of article | `apps/web/public/images/story/late-night-coding.jpg`     |
 
 ---
 
@@ -452,8 +452,8 @@ IHUI-AI/
 ├── .github/workflows/       # 4 CIs: build / ci / e2e / knip + GitHub Act local CI
 ├── .husky/                  # Git hooks (commit-msg + post-commit + pre-commit + pre-push + post-checkout + post-merge)
 ├── docker-compose.yml       # 14-service orchestration (7 business + 7 monitoring)
-├── Dockerfile.api-new       # Backend image (api + worker shared)
-├── Dockerfile.web-new       # Frontend image (Next.js standalone)
+├── Dockerfile.api       # Backend image (api + worker shared)
+├── Dockerfile.web       # Frontend image (Next.js standalone)
 ├── Dockerfile.migrate       # One-shot migration service image
 ├── locustfile.py            # Locust load testing script
 ├── lighthouserc.json        # Lighthouse CI performance budget
@@ -733,33 +733,33 @@ Subscribe VIP → Wallet top-up → Earn points → Model call deduction → Ref
 
 The project eliminates collaboration incidents through 17 pre-commit hooks + post-commit auto-push + 11 migration audit scripts:
 
-| #       | Script                                       | Purpose                                                    |
-| ------- | -------------------------------------------- | ---------------------------------------------------------- |
-| 1       | check-api-key-leak.mjs                       | API key leakage detection                                  |
-| 2       | check-i18n-keys.mjs                          | i18n key integrity + parity                                |
-| 2b      | scan-i18n-zh-residue.mjs zh-TW               | zh-TW Simplified Chinese residue (opencc glyph conversion) |
-| 2c      | scan-i18n-zh-residue.mjs ko                  | ko.json Chinese residue (character range detection)        |
-| 2d      | scan-i18n-zh-residue.mjs ja                  | ja.json Chinese residue (warn-only)                        |
-| 2e      | check-i18n-broken-en.mjs                     | en.json broken machine translation guardrail               |
-| 3       | check-db-schema-drift.mjs                    | Schema drift detection                                     |
-| 4       | check-stale-dist.mjs                         | Packages stale dist detection                              |
-| 4b      | check-dist-encoding.mjs                      | Packages dist UTF-8 BOM guardrail                          |
-| 4c      | check-api-client-utf8.mjs                    | api-client source byte-level UTF-8 integrity               |
-| 5       | lint-staged                                  | eslint + prettier                                          |
-| 6       | check-sanitizer-bypass.mjs                   | XSS sanitizer bypass detection                             |
-| 7       | check-dedupe.mjs                             | Dependency fragmentation detection                         |
-| 8       | check-api-routes.mjs                         | Frontend-backend route consistency                         |
-| 9       | check-safe-parse.mjs                         | safeParse silent ignore (warn-only)                        |
-| 11      | check-rounded-full.mjs                       | Container border-radius violation (enforced size gradient) |
-| 12      | check-delivery-report-consistency.mjs        | Delivery report consistency                                |
-| 13b     | check-project-plan-size.mjs                  | PROJECT_PLAN.md size < 50KB                                |
-| 13c     | check-project-plan-archive.mjs               | PROJECT_PLAN.md completed task item anti-deletion          |
-| 15      | check-api-migration-completeness.mjs         | Migration completeness                                     |
-| 16      | Conditional typecheck                        | Run typecheck when apps/web staged                         |
-| 16b     | Conditional database build                   | Run build when packages/database/src staged                |
-| 17      | check-input-border-var.mjs                   | CSS color token nesting (hsl(var())) protection            |
-| 18      | check-native-title-tooltip.mjs               | Native title tooltip violation (enforce project Tooltip)   |
-| 17-post | git-push-guard.mjs (post-commit)             | Auto-push + verify local == remote (prevent omission)      |
+| #       | Script                                | Purpose                                                    |
+| ------- | ------------------------------------- | ---------------------------------------------------------- |
+| 1       | check-api-key-leak.mjs                | API key leakage detection                                  |
+| 2       | check-i18n-keys.mjs                   | i18n key integrity + parity                                |
+| 2b      | scan-i18n-zh-residue.mjs zh-TW        | zh-TW Simplified Chinese residue (opencc glyph conversion) |
+| 2c      | scan-i18n-zh-residue.mjs ko           | ko.json Chinese residue (character range detection)        |
+| 2d      | scan-i18n-zh-residue.mjs ja           | ja.json Chinese residue (warn-only)                        |
+| 2e      | check-i18n-broken-en.mjs              | en.json broken machine translation guardrail               |
+| 3       | check-db-schema-drift.mjs             | Schema drift detection                                     |
+| 4       | check-stale-dist.mjs                  | Packages stale dist detection                              |
+| 4b      | check-dist-encoding.mjs               | Packages dist UTF-8 BOM guardrail                          |
+| 4c      | check-api-client-utf8.mjs             | api-client source byte-level UTF-8 integrity               |
+| 5       | lint-staged                           | eslint + prettier                                          |
+| 6       | check-sanitizer-bypass.mjs            | XSS sanitizer bypass detection                             |
+| 7       | check-dedupe.mjs                      | Dependency fragmentation detection                         |
+| 8       | check-api-routes.mjs                  | Frontend-backend route consistency                         |
+| 9       | check-safe-parse.mjs                  | safeParse silent ignore (warn-only)                        |
+| 11      | check-rounded-full.mjs                | Container border-radius violation (enforced size gradient) |
+| 12      | check-delivery-report-consistency.mjs | Delivery report consistency                                |
+| 13b     | check-project-plan-size.mjs           | PROJECT_PLAN.md size < 50KB                                |
+| 13c     | check-project-plan-archive.mjs        | PROJECT_PLAN.md completed task item anti-deletion          |
+| 15      | check-api-migration-completeness.mjs  | Migration completeness                                     |
+| 16      | Conditional typecheck                 | Run typecheck when apps/web staged                         |
+| 16b     | Conditional database build            | Run build when packages/database/src staged                |
+| 17      | check-input-border-var.mjs            | CSS color token nesting (hsl(var())) protection            |
+| 18      | check-native-title-tooltip.mjs        | Native title tooltip violation (enforce project Tooltip)   |
+| 17-post | git-push-guard.mjs (post-commit)      | Auto-push + verify local == remote (prevent omission)      |
 
 **11 Migration Audit Scripts**: `audit-migration-api-routes-v2.mjs` / `audit-migration-api-routes.mjs` / `audit-migration-db-fields.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-migration-frontend-routes.mjs` / `audit-migration-i18n.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs`
 
@@ -1574,8 +1574,8 @@ On the hardest nights of this project, three lines were written over and over on
 
 ### Appendix · The Story Behind the Technical Decisions
 
-> *This part is written for developers. If you're not a technical reader, feel free to skip this chapter and go straight to "Story Continuation" and "Open Source Co-Build Vision."*
-> *If you are a technical reader, this chapter records 5 key architectural decisions IHUI-AI made in 2025—and the thinking behind them.*
+> _This part is written for developers. If you're not a technical reader, feel free to skip this chapter and go straight to "Story Continuation" and "Open Source Co-Build Vision."_
+> _If you are a technical reader, this chapter records 5 key architectural decisions IHUI-AI made in 2025—and the thinking behind them._
 
 In the process of one person building 8 platforms with Vibe Coding, every technical choice carries a cost: **a wrong choice = all subsequent code must be rewritten; a right choice = subsequent code will naturally stand on its own.**
 
@@ -1672,8 +1672,8 @@ Here are 5 technical decisions that get asked again and again.
 
 ---
 
-> *These are the 5 key decisions. Behind each one is the cost weighed repeatedly by an independent developer at 3 AM.*
-> *If you disagree with any of them, feel free to discuss in an Issue—we're willing to be convinced.*
+> _These are the 5 key decisions. Behind each one is the cost weighed repeatedly by an independent developer at 3 AM._
+> _If you disagree with any of them, feel free to discuss in an Issue—we're willing to be convinced._
 
 ---
 
