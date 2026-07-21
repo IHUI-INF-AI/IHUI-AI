@@ -1,0 +1,177 @@
+# 客户租户独立部署(由 create-customer.sh 复制此模板并替换占位符后生成到 customers/{slug}/)
+# 5 服务:db + redis + api + web + ai-service
+# Traefik 在顶层 deploy/saas/docker-compose.yml 共享,通过 Docker labels 动态发现
+
+services:
+  # PostgreSQL(独立实例,数据隔离)
+  db:
+    image: postgres:15-alpine
+    container_name: customer-{{SLUG}}-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - customer-{{SLUG}}-pgdata:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - customer-{{SLUG}}-net
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT}
+          cpus: '${CPU_LIMIT}'
+
+  # Redis(独立实例)
+  redis:
+    image: redis:7-alpine
+    container_name: customer-{{SLUG}}-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - customer-{{SLUG}}-redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - customer-{{SLUG}}-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # AI Service(LiteLLM 网关)
+  ai-service:
+    image: ihui-ai-service:${IMAGE_TAG}
+    container_name: customer-{{SLUG}}-ai
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=8000
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - customer-{{SLUG}}-net
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT}
+          cpus: '${CPU_LIMIT}'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # API(Fastify 5)
+  api:
+    image: ihui-api:${IMAGE_TAG}
+    container_name: customer-{{SLUG}}-api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      - CORS_ORIGIN=https://${CUSTOMER_DOMAIN}
+      - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=7d
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
+      - AI_SERVICE_URL=http://ai-service:8000
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    networks:
+      - customer-{{SLUG}}-net
+      - ihui-saas-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8080/api/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT}
+          cpus: '${CPU_LIMIT}'
+    # Traefik 自动发现 labels
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=ihui-saas-net
+      - traefik.http.routers.customer-{{SLUG}}-api.rule=Host(`{{DOMAIN}}`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`))
+      - traefik.http.routers.customer-{{SLUG}}-api.entrypoints=websecure
+      - traefik.http.routers.customer-{{SLUG}}-api.tls=true
+      - traefik.http.routers.customer-{{SLUG}}-api.tls.certresolver=letsencrypt
+      - traefik.http.services.customer-{{SLUG}}-api.loadbalancer.server.port=8080
+
+  # Web(Next.js)
+  web:
+    image: ihui-web:${IMAGE_TAG}
+    container_name: customer-{{SLUG}}-web
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - NEXT_PUBLIC_API_BASE=https://{{DOMAIN}}
+      - NEXT_PUBLIC_WS_URL=wss://{{DOMAIN}}
+      - DOMAIN={{DOMAIN}}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - customer-{{SLUG}}-net
+      - ihui-saas-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:3000/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT}
+          cpus: '${CPU_LIMIT}'
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=ihui-saas-net
+      - traefik.http.routers.customer-{{SLUG}}-web.rule=Host(`{{DOMAIN}}`)
+      - traefik.http.routers.customer-{{SLUG}}-web.entrypoints=websecure
+      - traefik.http.routers.customer-{{SLUG}}-web.tls=true
+      - traefik.http.routers.customer-{{SLUG}}-web.tls.certresolver=letsencrypt
+      - traefik.http.services.customer-{{SLUG}}-web.loadbalancer.server.port=3000
+
+networks:
+  customer-{{SLUG}}-net:
+    name: customer-{{SLUG}}-net
+    driver: bridge
+  ihui-saas-net:
+    external: true
+    name: ihui-saas-net
+
+volumes:
+  customer-{{SLUG}}-pgdata:
+    name: customer-{{SLUG}}-pgdata
+  customer-{{SLUG}}-redisdata:
+    name: customer-{{SLUG}}-redisdata
