@@ -16,6 +16,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success } from '../utils/response.js'
+import { generateTrackingId } from '../utils/crypto-random.js'
 
 // =============================================================================
 // In-memory sync state + history（进程级单例）
@@ -51,7 +52,8 @@ const pendingConflicts: ConflictItem[] = []
 let lastSyncStatus: OverallStatus = 'idle'
 
 function genId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+  // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成同步 ID
+  return generateTrackingId(prefix)
 }
 
 function nowIso(): string {
