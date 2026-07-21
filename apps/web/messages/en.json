@@ -14761,7 +14761,22 @@
     "official": "Official",
     "free": "Free",
     "open": "Open",
-    "visit": "Visit"
+    "visit": "Visit",
+    "catInstalled": "Installed",
+    "catPinned": "Pinned",
+    "sortInstalled": "Installed",
+    "loadingStates": "Loading...",
+    "loginRequired": "Please sign in to manage plugins",
+    "install": "Enable",
+    "uninstall": "Disable",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "installedBadge": "Enabled",
+    "installed": "{name} enabled",
+    "uninstalled": "{name} disabled",
+    "pinned": "{name} pinned",
+    "unpinned": "{name} unpinned",
+    "mutationError": "Operation failed, please retry"
   },
   "aiWorld": {
     "title": "Plugin Market",
@@ -25755,6 +25770,25 @@
       "pinned": "Pinned",
       "empty": "No articles yet. Run ai-fresh-2026 seed first."
     },
+    "feed": {
+      "label": "AI Feed Timeline",
+      "title": "Real-time AI News Stream",
+      "subtitle": "Aggregating 17 domestic and international sources, auto-collected every 6 hours",
+      "totalPrefix": "",
+      "totalSuffix": "items",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "itemsUnit": "items",
+      "empty": "No collected data yet. Waiting for the first ai-feed-collect cron run.",
+      "categoryAll": "All",
+      "categoryHotspot": "Hotspot",
+      "categoryAccount": "Account",
+      "categoryAnalysis": "Analysis",
+      "categoryCreation": "Creation",
+      "categoryRetrieval": "Retrieval",
+      "categoryTool": "Tool",
+      "categorySource": "Source"
+    },
     "funding": {
       "label": "Mega Funding & Acquisitions",
       "title": "Mega Funding & Acquisitions",
@@ -27766,6 +27800,7 @@
       "empty": "No documents",
       "loading": "Loading...",
       "manage": "Manage",
+      "upload": "Upload Document",
       "chunkCount": "{count} chunks",
       "sourceType": {
         "text": "Text",
@@ -27810,6 +27845,24 @@
       "chunkCount": "{count} chunks",
       "loading": "Loading...",
       "empty": "No documents"
+    },
+    "upload": {
+      "title": "Upload Document",
+      "subtitle": "Supports PDF / DOCX / Markdown / Text / HTML",
+      "modeFile": "File Upload",
+      "modeText": "Plain Text",
+      "titleLabel": "Title (optional)",
+      "titlePlaceholder": "Defaults to filename if empty",
+      "fileLabel": "Select file",
+      "fileHint": "PDF / DOCX / MD / TXT / HTML, max 20MB",
+      "textLabel": "Text content",
+      "textPlaceholder": "Paste or type text content...",
+      "charCount": "{count} chars",
+      "submit": "Upload",
+      "noFile": "Please select a file",
+      "noText": "Please enter text content",
+      "defaultTitle": "Untitled Document",
+      "success": "Ingested successfully, generated {count} chunks"
     }
   },
   "knowledgeGraph": {
