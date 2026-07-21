@@ -10,7 +10,7 @@
  * 注册（server.ts）：server.register(fileVersionRoutes, { prefix: '/api' })
  */
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { pipeline } from 'node:stream/promises'
 import { createWriteStream } from 'node:fs'
@@ -18,7 +18,7 @@ import { existsSync, mkdirSync, unlinkSync, copyFileSync, statSync } from 'node:
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { eq, desc, max, and } from 'drizzle-orm'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { db } from '../db/index.js'
 import { fileVersions, files } from '@ihui/database'
 import { findFileById } from '../db/workspace-queries.js'
@@ -29,19 +29,6 @@ const VERSIONS_DIR = join(process.cwd(), 'uploads', 'versions')
 
 function ensureVersionsDir(): void {
   if (!existsSync(VERSIONS_DIR)) mkdirSync(VERSIONS_DIR, { recursive: true })
-}
-
-/** 鉴权辅助：失败时发送响应并返回 false。 */
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
 }
 
 function serializeVersion(v: typeof fileVersions.$inferSelect) {
@@ -64,7 +51,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /file-versions/create — 上传新版本（multipart: file + 表单字段 fileId/changeLog）
   server.post('/file-versions/create', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
 
     const data = await request.file()
@@ -128,7 +115,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /file-versions/list/:fileId — 版本列表（按版本号倒序）
   server.get('/file-versions/list/:fileId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { fileId } = fileIdParam.parse(request.params)
 
     const list = await db
@@ -142,7 +129,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /file-versions/current/:fileId — 当前（最新）版本
   server.get('/file-versions/current/:fileId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { fileId } = fileIdParam.parse(request.params)
 
     const list = await db
@@ -160,7 +147,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /file-versions/:versionId — 版本详情
   server.get('/file-versions/:versionId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { versionId } = versionIdParam.parse(request.params)
 
     const list = await db.select().from(fileVersions).where(eq(fileVersions.id, versionId)).limit(1)
@@ -177,7 +164,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /file-versions/rollback/:versionId — 回滚到指定版本（以新版本号写入，成为当前版本）
   server.post('/file-versions/rollback/:versionId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
     const { versionId } = versionIdParam.parse(request.params)
 
@@ -223,7 +210,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /file-versions/:versionId — 删除指定版本（当前最新版本不可删）
   server.delete('/file-versions/:versionId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { versionId } = versionIdParam.parse(request.params)
 
     const list = await db.select().from(fileVersions).where(eq(fileVersions.id, versionId)).limit(1)
@@ -256,7 +243,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /file-versions/compare/:fileId?v1=&v2= — 对比两个版本
   server.get('/file-versions/compare/:fileId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { fileId } = fileIdParam.parse(request.params)
     const parsed = compareQuery.safeParse(request.query)
     if (!parsed.success) {

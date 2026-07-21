@@ -1,7 +1,7 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, desc, sql, and } from 'drizzle-orm'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { lessonTask, lessonSignUps, learnRecord, type LessonTask } from '@ihui/database'
@@ -22,22 +22,9 @@ function isUuid(s: string): boolean {
   return uuidSchema.safeParse(s).success
 }
 
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply
-      .status(statusCode)
-      .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    return false
-  }
-}
-
 export const eduStubRoutes: FastifyPluginAsync = async (server) => {
   server.get('/edu/courses/:id/assignments', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, '参数错误'))
@@ -71,7 +58,7 @@ export const eduStubRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/edu/courses/:id/grade', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, '参数错误'))
@@ -122,7 +109,7 @@ export const eduStubRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/edu/courses/:id/certificate', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, '参数错误'))
@@ -164,7 +151,7 @@ export const eduStubRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/edu/learn-record', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = learnRecordSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

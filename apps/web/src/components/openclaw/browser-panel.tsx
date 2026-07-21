@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import { Globe, Camera, ExternalLink, Loader2, Wrench, Download, MessageSquare } from 'lucide-react'
 
@@ -121,16 +122,16 @@ export function BrowserPanel() {
           {screenshot && (
             <div className="space-y-2">
               <p className="text-sm font-medium">{t('browserView')}</p>
-              <div className="overflow-hidden rounded-md border border-border bg-background">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+              <div className="relative h-80 overflow-hidden rounded-md border border-border bg-background">
+                <Image
                   src={
                     screenshot.startsWith('data:')
                       ? screenshot
                       : `data:image/png;base64,${screenshot}`
                   }
                   alt={t('browserCurrentPage')}
-                  className="max-h-80 w-full object-contain"
+                  fill
+                  className="object-contain"
                 />
               </div>
               <Button type="button" variant="outline" size="sm" onClick={handleDownload}>
