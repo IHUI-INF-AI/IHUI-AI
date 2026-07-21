@@ -1,10 +1,21 @@
-﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { db } from '../db/index.js'
-import { agentHeatStats, agents } from '@ihui/database'
+import {
+  agentHeatStats,
+  agents,
+  examQuestions,
+  examPapers,
+  examRecords,
+  circlePosts,
+  comments,
+  newsArticles,
+  resources,
+  helpArticles,
+} from '@ihui/database'
 import {
   getLearnStatistics,
   getExamStatistics,
@@ -341,6 +352,145 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
           dateRange: { startDate: start, endDate: end },
         }),
       )
+    },
+  )
+
+  // ===========================================================================
+  // P3-1: 聚合统计端点(admin 权限,3 个新端点)
+  // 路径:-aggregated 后缀避免与现有 /statistics/exam 和 /statistics/content 冲突
+  // ===========================================================================
+
+  const dateRangeQuery = z.object({
+    startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+    endDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  })
+
+  const aggregatedResponseSchema = {
+    200: {
+      type: 'object' as const,
+      properties: {
+        code: { type: 'number' },
+        message: { type: 'string' },
+        data: { type: 'object', additionalProperties: true },
+      },
+    },
+    400: {
+      type: 'object' as const,
+      properties: { code: { type: 'number' }, message: { type: 'string' } },
+    },
+    401: {
+      type: 'object' as const,
+      properties: { code: { type: 'number' }, message: { type: 'string' } },
+    },
+    403: {
+      type: 'object' as const,
+      properties: { code: { type: 'number' }, message: { type: 'string' } },
+    },
+  }
+
+  // GET /statistics/exam-aggregated - 考试统计聚合(题目数/试卷数/答题次数/平均分/及格率)
+  server.get(
+    '/statistics/exam-aggregated',
+    { preHandler: requireAdmin, schema: { response: aggregatedResponseSchema } },
+    async (_request, reply) => {
+      const [questionRows, paperRows, recordRows, passRows, avgRows] = await Promise.all([
+        db.select({ count: sql<number>`count(*)::int` }).from(examQuestions),
+        db.select({ count: sql<number>`count(*)::int` }).from(examPapers),
+        db.select({ count: sql<number>`count(*)::int` }).from(examRecords),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(examRecords)
+          .where(eq(examRecords.isPassed, true)),
+        db
+          .select({
+            avg: sql<number>`coalesce(avg(${examRecords.score}::numeric), 0)::float`,
+          })
+          .from(examRecords),
+      ])
+      const recordTotal = recordRows[0]?.count ?? 0
+      const passTotal = passRows[0]?.count ?? 0
+      const statistics = {
+        questionTotal: questionRows[0]?.count ?? 0,
+        paperTotal: paperRows[0]?.count ?? 0,
+        recordTotal,
+        avgScore: Number((avgRows[0]?.avg ?? 0).toFixed(2)),
+        passTotal,
+        passRate: recordTotal > 0 ? Math.round((passTotal / recordTotal) * 10000) / 10000 : 0,
+      }
+      return reply.send(success({ statistics }))
+    },
+  )
+
+  // GET /statistics/circle - 圈子统计聚合(动态数/评论数/点赞数/活跃用户)
+  server.get(
+    '/statistics/circle',
+    { preHandler: requireAdmin, schema: { response: aggregatedResponseSchema } },
+    async (request, reply) => {
+      const parsed = dateRangeQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const [postRows, commentRows, likeRows, activeUserRows] = await Promise.all([
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(circlePosts)
+          .where(eq(circlePosts.status, 1)),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(comments)
+          .where(eq(comments.resourceType, 'post')),
+        db
+          .select({
+            sum: sql<number>`coalesce(sum(${circlePosts.likeCount}), 0)::int`,
+          })
+          .from(circlePosts)
+          .where(eq(circlePosts.status, 1)),
+        db
+          .select({
+            count: sql<number>`count(distinct ${circlePosts.userId})::int`,
+          })
+          .from(circlePosts)
+          .where(eq(circlePosts.status, 1)),
+      ])
+      const statistics = {
+        postTotal: postRows[0]?.count ?? 0,
+        commentTotal: commentRows[0]?.count ?? 0,
+        likeTotal: likeRows[0]?.sum ?? 0,
+        activeUserCount: activeUserRows[0]?.count ?? 0,
+      }
+      return reply.send(success({ statistics }))
+    },
+  )
+
+  // GET /statistics/content-aggregated - 内容统计聚合(文章数/新闻数/资源数/浏览量)
+  server.get(
+    '/statistics/content-aggregated',
+    { preHandler: requireAdmin, schema: { response: aggregatedResponseSchema } },
+    async (_request, reply) => {
+      const [articleRows, newsRows, resourceRows, newsViewRows, resourceViewRows] = await Promise.all([
+        db.select({ count: sql<number>`count(*)::int` }).from(helpArticles),
+        db.select({ count: sql<number>`count(*)::int` }).from(newsArticles),
+        db.select({ count: sql<number>`count(*)::int` }).from(resources),
+        db
+          .select({
+            sum: sql<number>`coalesce(sum(${newsArticles.viewCount}), 0)::int`,
+          })
+          .from(newsArticles),
+        db
+          .select({
+            sum: sql<number>`coalesce(sum(${resources.viewCount}), 0)::int`,
+          })
+          .from(resources),
+      ])
+      const statistics = {
+        articleTotal: articleRows[0]?.count ?? 0,
+        newsTotal: newsRows[0]?.count ?? 0,
+        resourceTotal: resourceRows[0]?.count ?? 0,
+        newsViewSum: newsViewRows[0]?.sum ?? 0,
+        resourceViewSum: resourceViewRows[0]?.sum ?? 0,
+        viewSum: (newsViewRows[0]?.sum ?? 0) + (resourceViewRows[0]?.sum ?? 0),
+      }
+      return reply.send(success({ statistics }))
     },
   )
 }

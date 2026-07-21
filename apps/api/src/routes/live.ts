@@ -732,13 +732,28 @@ export const adminLiveRoutes: FastifyPluginAsync = async (server) => {
     '/live/tencent/callback-templates',
     { schema: { response: R } },
     async (_request, reply) => {
-      return reply.send(
-        success({
-          templates: [
-            { templateId: '0', templateName: '默认模板', description: '系统默认回调模板' },
-          ],
-        }),
-      )
+      const events = ['StreamBegin', 'StreamEnd', 'RecordFinished', 'Snapshot', 'PornDetect']
+      const templates = [
+        {
+          id: 'default',
+          name: '默认模板',
+          callbackUrl: '/api/live/tencent/callback',
+          events,
+        },
+        {
+          id: 'full',
+          name: '全事件模板',
+          callbackUrl: '/api/live/tencent/callback',
+          events,
+        },
+        {
+          id: 'minimal',
+          name: '精简模板(仅推流)',
+          callbackUrl: '/api/live/tencent/callback',
+          events: ['StreamBegin', 'StreamEnd'],
+        },
+      ]
+      return reply.send(success({ templates }))
     },
   )
 }
