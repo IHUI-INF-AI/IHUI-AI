@@ -786,7 +786,10 @@ function SidebarUserRow({
       */}
       <div
         className={cn(
-          'group/row inline-flex h-9 items-center gap-2 rounded-md px-2 transition-colors hover:bg-sidebar-item-hover-bg',
+          // 2026-07-21 用户反馈"头像跟名称可以更紧凑一些":把 gap 从 2(8px) 降到 1.5(6px),
+          // 头像 button 从 h-9 w-9(36×36) 缩到 h-7 w-7(28×28),
+          // 让 24px 头像 + 6 字用户名整体宽度收窄 ~10px,视觉上跟 NavLink 行(h-5 w-5 icon + gap-2.5 + 文字)重量更接近。
+          'group/row inline-flex h-9 items-center gap-1.5 rounded-md px-2 transition-colors hover:bg-sidebar-item-hover-bg',
         )}
       >
         <Dropdown
@@ -837,14 +840,14 @@ function SidebarUserRow({
           ]}
           trigger={
             <button
-              // h-9 w-9 强制 36×36(等于 row 高度 h-9),
-              // 避免 Radix DropdownMenu.Trigger 注入样式(lineHeight 24px)
-              // 导致 button 实际高度 42.66px 撑出 row 36px 边界,
-              // 进而头像视觉上"漂浮"在 row 上,出现"没居中"的错觉。
-              // 真正问题:button lineHeight: 24px + padding 12px = 36px 理论值,
-              // 但实测 42.66px,差异 6.66px 来自 Radix asChild 透传的 inline 间距,
-              // 用 h-9 w-9 显式锁定 button 高度 = row 高度后,头像 + 文字视觉完美居中。
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+              // 2026-07-21 紧凑化:从 h-9 w-9(36×36) 缩到 h-7 w-7(28×28),
+              // 1) 24×24 头像在 28×28 button 中有 2px 留白,视觉上不再"漂浮"或"装在大盒子里",
+              //    跟 NavLink 的 20×20 icon 在 36×36 行(8px 留白)的视觉重量更协调;
+              // 2) 28×28 仍是合规可点击区(Material 24, Apple HIG 44, 侧边栏列表项惯例 28-32);
+              // 3) 整行 row 高度仍是 h-9(36px)与 NavLink 严格对齐,只缩小头像区域,行高不变。
+              // Radix DropdownMenu.Trigger 注入的 lineHeight 24px 仍可能让 button 略高出 h-7,
+              // 但 h-7=28px + lineHeight 6.66px ≈ 34.66px,仍在 36px row 内,不会撑出。
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={user?.nickname ?? 'User'}
             >
               <Avatar
@@ -1762,10 +1765,17 @@ export function Sidebar({
           onClick={onToggleCollapse}
           // h-9 w-9 (36×36) 与新建任务按钮/主导航项统一;hover 用 foreground/20 与新建任务按钮一致;
           // 默认无背景,仅 hover 出现 (2026-07-20 用户反馈:默认 bg-foreground/10 让按钮视觉过重)
-          className={cn('flex-shrink-0 p-0 text-foreground hover:bg-foreground/20', 'hidden lg:flex')}
+          className={cn(
+            'flex-shrink-0 p-0 text-foreground hover:bg-foreground/20',
+            'hidden lg:flex',
+          )}
           aria-label={collapsed ? t('expand') : t('collapse')}
         >
-          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          {collapsed ? (
+            <PanelLeftOpen className="h-4 w-4" />
+          ) : (
+            <PanelLeftClose className="h-4 w-4" />
+          )}
         </Button>
       </Tooltip>
       <Button
