@@ -87,7 +87,7 @@ export const CREW_TOOLS: CrewTool[] = [
         },
       },
     },
-    handler: async (params) => {
+    handler: async (params, ctx) => {
       const prompt = String(params.prompt ?? '')
       const system = params.system ? String(params.system) : undefined
       const messages = system
@@ -96,7 +96,11 @@ export const CREW_TOOLS: CrewTool[] = [
             { role: 'user' as const, content: prompt },
           ]
         : [{ role: 'user' as const, content: prompt }]
-      const result = await callRealLlm({ messages })
+      const result = await callRealLlm({
+        messages,
+        userId: ctx?.userId, // G7: 传 userId 记成本
+        sessionId: ctx?.sessionId, // G7: 传 sessionId 关联会话
+      })
       return {
         success: true,
         output: result.content,
