@@ -2012,6 +2012,7 @@
       "notificationDispatch": "定向通知",
       "messageOverview": "消息概览",
       "visitTracking": "访问追踪",
+      "pluginsStats": "插件监测",
       "examMarking": "考试批阅",
       "saasTenants": "租户管理",
       "saasCertificates": "证书状态",
