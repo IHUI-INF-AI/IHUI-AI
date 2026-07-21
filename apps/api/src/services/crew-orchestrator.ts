@@ -55,6 +55,10 @@ export interface CrewStreamEvent {
     error?: string
     durationMs: number
   }
+  /** G7: complete/error 事件携带本次会话的 LLM 用量汇总(用于路由层扣费) */
+  usage?: UsageAccumulator
+  /** G7: complete/error 事件携带会话所属用户(用于路由层扣费) */
+  userId?: string
 }
 
 export interface SessionConfig {
@@ -63,11 +67,24 @@ export interface SessionConfig {
   maxRetries?: number
 }
 
+/** G7: 会话级 LLM 用量汇总 */
+export interface UsageAccumulator {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  model: string
+  calls: number
+}
+
 export interface SessionResult {
   success: boolean
   sessionId?: string
   result?: string
   error?: string
+  /** G7: 本次会话的 LLM 用量汇总(用于路由层扣费) */
+  usage?: UsageAccumulator
+  /** G7: 会话所属用户(用于路由层扣费) */
+  userId?: string
 }
 
 export interface SessionDetail {
@@ -85,6 +102,43 @@ export interface SessionDetail {
 export type StreamEvent = CrewStreamEvent
 
 class CrewOrchestrator {
+  /** G7: 会话级 usage 累计(会话结束清理) */
+  private _sessionUsage = new Map<string, UsageAccumulator>()
+
+  /** G7: 初始化会话 usage 累计器 */
+  private initUsage(sessionId: string): UsageAccumulator {
+    const u: UsageAccumulator = {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      model: '',
+      calls: 0,
+    }
+    this._sessionUsage.set(sessionId, u)
+    return u
+  }
+
+  /** G7: 累计 LLM 调用 usage */
+  private accUsage(
+    sessionId: string,
+    r: { usage: { promptTokens: number; completionTokens: number; totalTokens: number }; modelUsed: string },
+  ): void {
+    const u = this._sessionUsage.get(sessionId)
+    if (!u) return
+    u.promptTokens += r.usage.promptTokens
+    u.completionTokens += r.usage.completionTokens
+    u.totalTokens += r.usage.totalTokens
+    u.model = r.modelUsed // 记录最后使用的模型
+    u.calls++
+  }
+
+  /** G7: 取出并清理会话 usage */
+  private clearUsage(sessionId: string): UsageAccumulator | undefined {
+    const u = this._sessionUsage.get(sessionId)
+    this._sessionUsage.delete(sessionId)
+    return u
+  }
+
   /** 创建多智能体会话 */
   async createSession(opts: {
     userId: string
@@ -114,6 +168,7 @@ class CrewOrchestrator {
     await db.update(crewSession).set({ status: 'running' }).where(eq(crewSession.id, sessionId))
 
     const config = (session.config ?? {}) as SessionConfig
+    this.initUsage(sessionId) // G7: 初始化 usage 累计
     try {
       const result = await this.runSimplified(
         sessionId,
@@ -122,11 +177,22 @@ class CrewOrchestrator {
         config,
       )
       await this.updateSessionStatus(sessionId, 'completed', result)
-      return { success: true, sessionId, result }
+      return {
+        success: true,
+        sessionId,
+        result,
+        usage: this.clearUsage(sessionId),
+        userId: session.userId,
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       await this.updateSessionStatus(sessionId, 'failed', msg)
-      return { success: false, error: msg }
+      return {
+        success: false,
+        error: msg,
+        usage: this.clearUsage(sessionId),
+        userId: session.userId,
+      }
     }
   }
 
@@ -146,6 +212,7 @@ class CrewOrchestrator {
     await db.update(crewSession).set({ status: 'running' }).where(eq(crewSession.id, sessionId))
 
     const config = (session.config ?? {}) as SessionConfig
+    this.initUsage(sessionId) // G7: 初始化 usage 累计
     yield { type: 'start', content: '多智能体协作开始', sessionId }
 
     try {
@@ -194,7 +261,7 @@ class CrewOrchestrator {
               taskId,
             )
           } else {
-            output = await this.callLlm(prompt, config)
+            output = await this.callLlm(prompt, config, sessionId, session.userId)
           }
           await this.updateTaskStatus(taskId, 'completed', output)
         } catch (e) {
@@ -219,11 +286,23 @@ class CrewOrchestrator {
       await this.updateSessionStatus(sessionId, 'completed', finalResult)
       // 保存最终产物
       await this.saveArtifact(sessionId, 'final_report', 'text', finalResult)
-      yield { type: 'complete', content: finalResult, sessionId }
+      yield {
+        type: 'complete',
+        content: finalResult,
+        sessionId,
+        usage: this.clearUsage(sessionId),
+        userId: session.userId,
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       await this.updateSessionStatus(sessionId, 'failed', msg)
-      yield { type: 'error', content: `执行异常: ${msg}`, sessionId }
+      yield {
+        type: 'error',
+        content: `执行异常: ${msg}`,
+        sessionId,
+        usage: this.clearUsage(sessionId),
+        userId: session.userId,
+      }
     }
   }
 
@@ -336,7 +415,10 @@ class CrewOrchestrator {
         tools,
         toolChoice: 'auto',
         temperature: 0.3,
+        userId, // G7: 传 userId 记成本
+        sessionId, // G7: 传 sessionId 关联会话
       })
+      this.accUsage(sessionId, result) // G7: 累计 usage
 
       // 无工具调用 → 返回最终内容
       if (!result.toolCalls || result.toolCalls.length === 0) {
@@ -412,18 +494,29 @@ class CrewOrchestrator {
       modelId: config.modelId || undefined,
       messages,
       temperature: 0.3,
+      userId, // G7: 传 userId 记成本
+      sessionId, // G7: 传 sessionId 关联会话
     })
+    this.accUsage(sessionId, finalResult) // G7: 累计 usage
     return finalResult.content
   }
 
   /** 调用 LLM(优先真实 SDK,失败回退到 clawdbot gateway 占位) */
-  private async callLlm(prompt: string, config: SessionConfig): Promise<string> {
+  private async callLlm(
+    prompt: string,
+    config: SessionConfig,
+    sessionId?: string,
+    userId?: string,
+  ): Promise<string> {
     try {
       const result = await callRealLlm({
         modelId: config.modelId || undefined,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
+        userId, // G7: 传 userId 记成本
+        sessionId, // G7: 传 sessionId 关联会话
       })
+      if (sessionId) this.accUsage(sessionId, result) // G7: 累计 usage
       return result.content
     } catch (err) {
       // 真实 LLM 调用失败(无配置/key 无效/网络错误),回退到 gateway 占位
@@ -441,7 +534,7 @@ class CrewOrchestrator {
   private async runSimplified(
     sessionId: string,
     inputMessage: string,
-    _userId: string,
+    userId: string,
     config: SessionConfig,
   ): Promise<string> {
     const taskPlan = this.planTasks(inputMessage)
@@ -468,7 +561,7 @@ class CrewOrchestrator {
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-          output = await this.callLlm(prompt, config)
+          output = await this.callLlm(prompt, config, sessionId, userId)
           break
         } catch (e) {
           lastError = e as Error
