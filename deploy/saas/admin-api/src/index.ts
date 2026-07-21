@@ -15,6 +15,7 @@ import { config, AUDIT_LOG_PATH } from './config.js';
 import { authRoutes } from './routes/auth.js';
 import { customerRoutes } from './routes/customers.js';
 import { certificateRoutes } from './routes/certificates.js';
+import { metricsRoutes } from './routes/metrics.js';
 
 const app = Fastify({
   logger: {
@@ -69,6 +70,10 @@ app.addHook('onResponse', async (request, reply) => {
 
 // 鉴权路由(/admin/api/auth/*)
 await app.register(authRoutes);
+
+// P1-2.3 资源监控路由(/admin/api/customers/:slug/quota + /admin/api/metrics/*)
+// 必须先于 customerRoutes 注册,确保 /quota 路径匹配 metrics.ts 的真实实现
+await app.register(metricsRoutes);
 
 // 客户管理路由(/admin/api/customers/*)— 全部需要 X-Admin-API-Key
 await app.register(customerRoutes);
