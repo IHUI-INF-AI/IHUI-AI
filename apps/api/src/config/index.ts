@@ -20,7 +20,25 @@ const envSchema = z.object({
     z.string().url().optional(),
   ),
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
-  JWT_SECRET: z.string().min(32),
+  JWT_SECRET: z
+    .string()
+    .min(32, 'JWT_SECRET 必须至少 32 字符')
+    .refine(
+      (v) => {
+        // 仅在生产环境拒绝弱默认值/已知占位符(2026-07-21 安全审计加固)
+        // 测试环境允许弱密钥(测试套件历史使用 'test-jwt-secret-...' 占位)
+        if (process.env.NODE_ENV !== 'production') return true
+        if (v === 'a'.repeat(32)) return false
+        if (/^(.)\1+$/.test(v)) return false // 全相同字符
+        if (v.toLowerCase() === 'change-me' || v.toLowerCase() === 'changeme') return false
+        if (/^test[-_]/i.test(v)) return false // test- 前缀(测试密钥误用)
+        if (/^dev[-_]/i.test(v)) return false // dev- 前缀
+        if (/^placeholder/i.test(v)) return false
+        if (/^your[-_]?secret/i.test(v)) return false // your-secret / your_secret
+        return true
+      },
+      { message: 'JWT_SECRET 不能使用弱默认值/全相同字符/test- 前缀/已知占位符' },
+    ),
   JWT_EXPIRES_IN: z.string().default('7d'),
   CREDENTIALS_ENCRYPTION_KEY: z
     .string()
@@ -33,6 +51,9 @@ const envSchema = z.object({
         if (v === 'a'.repeat(32)) return false
         if (/^(.)\1+$/.test(v)) return false // 全相同字符(如 aaaa...)
         if (v.toLowerCase() === 'change-me' || v.toLowerCase() === 'changeme') return false
+        if (/^test[-_]/i.test(v)) return false // test- 前缀(测试密钥误用)
+        if (/^dev[-_]/i.test(v)) return false // dev- 前缀
+        if (/^placeholder/i.test(v)) return false
         return true
       },
       { message: 'CREDENTIALS_ENCRYPTION_KEY 不能使用弱默认值/全相同字符/已知占位符' },
