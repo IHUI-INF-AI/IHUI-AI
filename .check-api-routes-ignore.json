@@ -111,6 +111,12 @@
       "pathPattern": "/api/ai/tasks/:param",
       "reason": "image-gen-qwen.tsx:58 查询 dashscope 任务状态,后端 /api/ai/tasks/:taskId 待实装 (需代理到 ai-service)",
       "addedAt": "2026-07-21"
+    },
+    {
+      "method": "ANY",
+      "pathPattern": "/api/files/upload/form",
+      "reason": "守门脚本 method 推断 bug:AttachmentsUpload.tsx:86 使用 fetch() 直接调用 (非 fetchApi),守门脚本无法从同行推断 method,实际 method='POST' (AttachmentsUpload.tsx:87),后端已注册 POST /api/files/upload/form (files.ts:575,@fastify/multipart 解析),非真 404",
+      "addedAt": "2026-07-21"
     }
   ]
 }
