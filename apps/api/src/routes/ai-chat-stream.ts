@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { repairMessages } from '@ihui/types'
 import { compressContextIfNeeded, type ChatMessage } from '@ihui/context-compaction'
 import { config } from '../config/index.js'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { error, success } from '../utils/response.js'
 import { createMessage, patchConversationMetadata } from '../db/chat-queries.js'
 
@@ -25,6 +25,10 @@ const chatStreamSchema = z.object({
   workspacePath: z.string().optional(),
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或不传 = 不压缩 */
   contextLimit: z.number().int().min(0).max(2_000_000).optional(),
+  /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
+   *  传入工具名列表后,ai-service 走 tool loop(complete→tool_calls→execute→astream)。
+   *  如 ["browser_screenshot", "computer_mouse_click"] */
+  agentTools: z.array(z.string()).optional(),
   metadata: z
     .object({
       conversationId: z.string().optional(),
@@ -40,22 +44,9 @@ const chatAnswerSchema = chatStreamSchema.extend({
   answer: z.string().min(1),
 })
 
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply
-      .status(statusCode)
-      .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    return false
-  }
-}
-
 export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
   })
 
   // 共享的 SSE 流式转发逻辑:/chat/stream 和 /chat/answer 共用
@@ -71,6 +62,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       materialContent?: string
       workspacePath?: string
       contextLimit?: number
+      agentTools?: string[]
       metadata?: { conversationId?: string; userId?: string; messageId?: string }
     },
     extraFirstEvents: Array<{ key: string; payload: unknown }> = [],
@@ -117,6 +109,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           materialContent: opts.materialContent,
           workspacePath: opts.workspacePath,
           contextLimit: opts.contextLimit ?? 0,
+          agentTools: opts.agentTools,
           metadata: mergedMetadata,
         }),
         signal: controller.signal,
@@ -195,6 +188,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       materialContent,
       workspacePath,
       contextLimit,
+      agentTools,
       metadata,
     } = parsed.data
     const resolvedModel = model ?? modelId
@@ -239,6 +233,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         materialContent,
         workspacePath,
         contextLimit,
+        agentTools,
         metadata,
       },
       extraFirstEvents,
@@ -267,6 +262,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       materialContent,
       workspacePath,
       contextLimit,
+      agentTools,
       metadata,
       questionId,
       answer,
@@ -369,6 +365,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         materialContent,
         workspacePath,
         contextLimit,
+        agentTools,
         metadata,
       },
       extraFirstEvents,
