@@ -80,7 +80,7 @@ export interface CertificateTemplate {
   [key: string]: unknown
 }
 
-/** 知识库 */
+/** 知识�?*/
 export interface Knowledge {
   id: string
   title: string
@@ -98,7 +98,7 @@ export interface Knowledge {
   [key: string]: unknown
 }
 
-/** 技能 */
+/** 技�?*/
 export interface Skill {
   id: string
   name: string
@@ -259,21 +259,21 @@ export async function deleteCertificateTemplate(
   return fetchApi<{ success: boolean }>(`/api/certificates/templates/${id}`, { method: 'DELETE' })
 }
 
-// ===================== knowledge（知识库） =====================
+// ===================== knowledge（知识库�?=====================
 
-/** 获取知识库列表 */
+/** 获取知识库列�?*/
 export async function getKnowledgeList(
   query: PageQuery & { category?: string; keyword?: string } = {},
 ): Promise<ApiResult<PageData<Knowledge>>> {
   return fetchApi<PageData<Knowledge>>(`/api/knowledge${buildQs(query)}`)
 }
 
-/** 获取知识库详情 */
+/** 获取知识库详�?*/
 export async function getKnowledgeDetail(id: string): Promise<ApiResult<Knowledge>> {
   return fetchApi<Knowledge>(`/api/knowledge/${id}`)
 }
 
-/** 创建知识库条目 */
+/** 创建知识库条�?*/
 export async function createKnowledge(input: Partial<Knowledge>): Promise<ApiResult<Knowledge>> {
   return fetchApi<Knowledge>('/api/knowledge', {
     method: 'POST',
@@ -281,7 +281,7 @@ export async function createKnowledge(input: Partial<Knowledge>): Promise<ApiRes
   })
 }
 
-/** 更新知识库条目 */
+/** 更新知识库条�?*/
 export async function updateKnowledge(
   id: string,
   input: Partial<Knowledge>,
@@ -292,31 +292,31 @@ export async function updateKnowledge(
   })
 }
 
-/** 删除知识库条目 */
+/** 删除知识库条�?*/
 export async function deleteKnowledge(id: string): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>(`/api/knowledge/${id}`, { method: 'DELETE' })
 }
 
-/** 点赞知识库 */
+/** 点赞知识�?*/
 export async function likeKnowledge(id: string): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>(`/api/knowledge/${id}/like`, { method: 'POST' })
 }
 
 // ===================== skills（技能） =====================
 
-/** 获取技能列表 */
+/** 获取技能列�?*/
 export async function getSkills(
   query: PageQuery & { category?: string } = {},
 ): Promise<ApiResult<PageData<Skill>>> {
   return fetchApi<PageData<Skill>>(`/api/skills${buildQs(query)}`)
 }
 
-/** 获取技能详情 */
+/** 获取技能详�?*/
 export async function getSkillDetail(id: string): Promise<ApiResult<Skill>> {
   return fetchApi<Skill>(`/api/skills/${id}`)
 }
 
-/** 创建技能 */
+/** 创建技�?*/
 export async function createSkill(input: Partial<Skill>): Promise<ApiResult<Skill>> {
   return fetchApi<Skill>('/api/skills', {
     method: 'POST',
@@ -324,7 +324,7 @@ export async function createSkill(input: Partial<Skill>): Promise<ApiResult<Skil
   })
 }
 
-/** 更新技能 */
+/** 更新技�?*/
 export async function updateSkill(id: string, input: Partial<Skill>): Promise<ApiResult<Skill>> {
   return fetchApi<Skill>(`/api/skills/${id}`, {
     method: 'PUT',
@@ -332,7 +332,7 @@ export async function updateSkill(id: string, input: Partial<Skill>): Promise<Ap
   })
 }
 
-/** 删除技能 */
+/** 删除技�?*/
 export async function deleteSkill(id: string): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>(`/api/skills/${id}`, { method: 'DELETE' })
 }
