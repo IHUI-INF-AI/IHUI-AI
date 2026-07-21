@@ -402,6 +402,7 @@
     "publishPlatform": "發布平臺",
     "selfMediaKoubo": "口播稿",
     "selfMediaAutomation": "自動化",
+    "pluginMarket": "插件市場",
     "downloadIOS": "iOS",
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "微信小程式",
@@ -14851,6 +14852,17 @@
     "documentContentMinLength": "文檔內容至少10個字符",
     "metadataFormatError": "元資料格式錯誤，請輸入有效的JSON"
   },
+  "plugins": {
+    "title": "插件市場",
+    "subtitle": "探索本項目內置插件與全網熱門 AI 插件腳本市場",
+    "sectionProject": "本項目配置的插件",
+    "sectionProjectDesc": "平臺已集成的內置插件能力,點擊卡片直接進入對應功能",
+    "sectionMarket": "熱門插件腳本市場",
+    "sectionMarketDesc": "全網主流 AI 插件 / 腳本 / MCP 市場,點擊訪問官方網站",
+    "open": "進入",
+    "visit": "訪問官網",
+    "total": "共 {count} 個"
+  },
   "aiWorld": {
     "empty": "暫無內容，敬請期待",
     "loading": "加載中...",
@@ -27791,5 +27803,21 @@
       "loading": "載入中...",
       "empty": "暫無文檔"
     }
+  },
+  "knowledgeGraph": {
+    "title": "知識圖譜",
+    "buildSection": "從文字建構圖譜",
+    "placeholder": "貼上一段文字,系統會自動抽取其中的實體與關係...",
+    "buildButton": "抽取並建構",
+    "clearButton": "清空圖譜",
+    "graphSection": "圖譜視覺化",
+    "emptyState": "暫無資料,請在上方輸入文字後點擊「抽取並建構」",
+    "stats": "共 {entities} 個實體 / {relations} 條關係",
+    "legendHint": "提示:滑鼠懸停節點可高亮相關邊,節點大小代表出現次數,邊粗細代表關係權重",
+    "graphAriaLabel": "知識圖譜視覺化",
+    "frequencyLabel": "出現 {count} 次",
+    "charCount": "{count} 字元",
+    "feedbackBuildSuccess": "抽取完成,新增 {entities} 個實體,{relations} 條關係",
+    "feedbackClearSuccess": "圖譜已清空"
   }
 }
