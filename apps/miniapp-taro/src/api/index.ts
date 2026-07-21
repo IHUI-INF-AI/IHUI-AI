@@ -523,10 +523,10 @@ export interface Circle {
   comments?: number
 }
 export const getCircleList = (params?: { page?: number; pageSize?: number }) =>
-  get<{ list: Circle[]; total: number }>('/community/circle/list', params)
-export const getCircleDetail = (id: string | number) => get<Circle>(`/community/circle/${id}`)
+  get<{ list: Circle[]; total: number }>('/circles', params)
+export const getCircleDetail = (id: string | number) => get<Circle>(`/circles/${id}`)
 export const createCircle = (data: { title: string; content: string; images?: string[] }) =>
-  post('/community/circle', data)
+  post('/circles', data)
 
 export interface Ask {
   id: string | number
@@ -539,13 +539,13 @@ export interface Ask {
   adopted?: boolean
 }
 export const getAskList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
-  get<{ list: Ask[]; total: number }>('/community/ask/list', params)
-export const getAskDetail = (id: string | number) => get<Ask>(`/community/ask/${id}`)
-export const createAsk = (data: { title: string; content: string }) => post('/community/ask', data)
+  get<{ list: Ask[]; total: number }>('/asks', params)
+export const getAskDetail = (id: string | number) => get<Ask>(`/asks/${id}`)
+export const createAsk = (data: { title: string; content: string }) => post('/asks', data)
 
 /* Ask 模块扩展（M-64 + D7/D8 端点） */
 export const getAskCategories = () =>
-  get<{ list: Array<{ id: string; name: string }> }>('/ask/categories')
+  get<{ list: Array<{ id: string; name: string }> }>('/asks/categories')
 export const likeAsk = (id: string | number) =>
   post<{ id: string; liked: boolean }>(`/asks/${id}/like`)
 export const favoriteAsk = (id: string | number) =>
@@ -580,9 +580,9 @@ export const getTopicList = (params?: { page?: number; pageSize?: number }) =>
   get<{
     list: Array<{ id: string; name: string; count: number; coverUrl?: string }>
     total: number
-  }>('/community/topic/list', params)
+  }>('/circles/topic/list', params)
 export const getTopicDetail = (id: string | number) =>
-  get<{ id: string; name: string; posts: Circle[] }>(`/community/topic/${id}`)
+  get<{ id: string; name: string; posts: Circle[] }>(`/circles/topic/${id}`)
 
 /* ============ 教育扩展 ============ */
 
