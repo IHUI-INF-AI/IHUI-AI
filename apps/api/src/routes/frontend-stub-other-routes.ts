@@ -51,6 +51,10 @@ import {
   knowledgeBaseCategories,
   llmCallLogs,
   uploadSessions,
+  users,
+  lessonSignUps,
+  lessons,
+  systemConfigs,
 } from '@ihui/database'
 import { findActivityById, joinActivity } from '../db/promotion-queries.js'
 import { findAuditLogList } from '../db/oauth-queries.js'
@@ -1280,9 +1284,98 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 16. 笔记 /notes/:id (1 个)
+  // 16. 笔记 /notes/* (5 个:POST 创建 + GET public 列表 + GET :id 详情 + PUT :id 更新 + DELETE :id 删除)
   // ===========================================================================
 
+  // POST /notes - 创建笔记(mobile-rn NoteCreateScreen)
+  server.post('/notes', async (request, reply) => {
+    const body = z
+      .object({
+        title: z.string().min(1).max(200),
+        content: z.string().min(1),
+        courseId: z.string().max(100).optional(),
+        isPublic: z.boolean().optional(),
+        tags: z.array(z.string().max(50)).default([]),
+      })
+      .safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    const [note] = await db
+      .insert(notes)
+      .values({
+        userId: request.userId!,
+        title: body.data.title,
+        content: body.data.content,
+        isPublic: body.data.isPublic ?? false,
+        lessonId: body.data.courseId ?? null,
+      })
+      .returning()
+    if (!note) return reply.status(500).send(error(500, '创建笔记失败'))
+    return reply.status(201).send(success({ id: note.id }))
+  })
+
+  // GET /notes/public - 公开笔记列表(mobile-rn NoteListScreen)
+  server.get('/notes/public', async (_request, reply) => {
+    const rows = await dbRead
+      .select({
+        id: notes.id,
+        title: notes.title,
+        content: notes.content,
+        createdAt: notes.createdAt,
+        author: users.nickname,
+      })
+      .from(notes)
+      .leftJoin(users, eq(users.id, notes.userId))
+      .where(eq(notes.isPublic, true))
+      .orderBy(desc(notes.createdAt))
+      .limit(50)
+    const list = rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      summary: (r.content ?? '').slice(0, 100),
+      author: r.author ?? '',
+      likes: 0,
+      createdAt: r.createdAt.toISOString(),
+    }))
+    return reply.send(success(list))
+  })
+
+  // GET /notes/:id - 笔记详情
+  server.get('/notes/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [note] = await dbRead
+      .select({
+        id: notes.id,
+        title: notes.title,
+        content: notes.content,
+        isPublic: notes.isPublic,
+        createdAt: notes.createdAt,
+        updatedAt: notes.updatedAt,
+        userId: notes.userId,
+        author: users.nickname,
+      })
+      .from(notes)
+      .leftJoin(users, eq(users.id, notes.userId))
+      .where(eq(notes.id, id))
+      .limit(1)
+    if (!note) return reply.status(404).send(error(404, '笔记不存在'))
+    if (!note.isPublic && note.userId !== request.userId)
+      return reply.status(403).send(error(403, '无权查看此笔记'))
+    return reply.send(
+      success({
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        isPublic: note.isPublic,
+        author: note.author ?? '',
+        createdAt: note.createdAt.toISOString(),
+        updatedAt: note.updatedAt.toISOString(),
+      }),
+    )
+  })
+
+  // PUT /notes/:id - 更新笔记(仅所有者)
   server.put('/notes/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
@@ -1312,6 +1405,99 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
     if (body.data.lessonId !== undefined) updateData.lessonId = body.data.lessonId
     await db.update(notes).set(updateData).where(eq(notes.id, id))
     return reply.send(success({ updated: true }))
+  })
+
+  // DELETE /notes/:id - 删除笔记(仅所有者)
+  server.delete('/notes/:id', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const [existing] = await dbRead
+      .select({ id: notes.id, userId: notes.userId })
+      .from(notes)
+      .where(eq(notes.id, id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '笔记不存在'))
+    if (existing.userId !== request.userId!)
+      return reply.status(403).send(error(403, '无权删除此笔记'))
+    await db.delete(notes).where(eq(notes.id, id))
+    return reply.send(success({ deleted: true }))
+  })
+
+  // ===========================================================================
+  // 16b. 分享 /shares (1 个:POST 创建分享链接,mobile-rn ShareScreen)
+  // 用 systemConfigs 表存(category='share-link',key='share-link:<code>',value=JSON)
+  // ===========================================================================
+
+  server.post('/shares', async (request, reply) => {
+    const body = z
+      .object({
+        targetType: z.string().min(1).max(32),
+        targetId: z.string().min(1).max(100),
+        remark: z.string().max(500).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    const shareCode = randomUUID().replace(/-/g, '').slice(0, 16)
+    const expireAt = new Date(Date.now() + 7 * 86400_000)
+    await db.insert(systemConfigs).values({
+      key: `share-link:${shareCode}`,
+      value: JSON.stringify({
+        targetType: body.data.targetType,
+        targetId: body.data.targetId,
+        remark: body.data.remark ?? '',
+        createdBy: request.userId,
+        expireAt: expireAt.toISOString(),
+      }),
+      type: 'json',
+      category: 'share-link',
+    })
+    const shareUrl = `https://aizhs.top/s/${shareCode}`
+    return reply.status(201).send(
+      success({
+        shareUrl,
+        shareCode,
+        expireAt: expireAt.toISOString(),
+      }),
+    )
+  })
+
+  // ===========================================================================
+  // 16c. 学习计划 /study/plans (1 个:GET 学习计划列表,mobile-rn StudyPlanScreen)
+  // 基于 lessonSignUps + lessons 聚合,无需新表
+  // ===========================================================================
+
+  server.get('/study/plans', async (request, reply) => {
+    const signups = await dbRead
+      .select({
+        id: lessonSignUps.id,
+        progress: lessonSignUps.progress,
+        createdAt: lessonSignUps.createdAt,
+        lessonTitle: lessons.title,
+        lessonCount: lessons.lessonCount,
+      })
+      .from(lessonSignUps)
+      .innerJoin(lessons, eq(lessons.id, lessonSignUps.lessonId))
+      .where(and(eq(lessonSignUps.userId, request.userId!), sql`${lessonSignUps.status} != 3`))
+      .orderBy(desc(lessonSignUps.createdAt))
+    const plans = signups.map((s) => {
+      const targetMinutes = (s.lessonCount ?? 0) * 30
+      const completedMinutes = Math.round((targetMinutes * (s.progress ?? 0)) / 100)
+      const due = new Date(s.createdAt.getTime() + 30 * 86400_000)
+      const progress = s.progress ?? 0
+      const status: 'pending' | 'inProgress' | 'completed' =
+        progress >= 100 ? 'completed' : progress > 0 ? 'inProgress' : 'pending'
+      return {
+        id: s.id,
+        title: s.lessonTitle,
+        courseName: s.lessonTitle,
+        targetMinutes,
+        completedMinutes,
+        dueDate: due.toISOString().slice(0, 10),
+        status,
+      }
+    })
+    return reply.send(success(plans))
   })
 
   // ===========================================================================
