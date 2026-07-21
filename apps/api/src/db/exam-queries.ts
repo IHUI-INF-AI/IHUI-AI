@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, inArray, arrayOverlaps } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   examCategories,
@@ -114,9 +114,9 @@ export async function findPublishedPapers(opts: {
   }
   if (opts.categoryId) conds.push(eq(examPapers.categoryId, opts.categoryId))
   if (opts.cidList && opts.cidList.length > 0) {
-    conds.push(
-      sql`${examPapers.cidList} ?| ${sql.raw(`ARRAY[${opts.cidList.map((c) => `'${c}'`).join(',')}]::text[]`)}`,
-    )
+    // 2026-07-21 安全审计加固:用 Drizzle 参数化 arrayOverlaps 替代 sql.raw 字符串拼接,
+    // 消除 SQL 注入隐患(Zod 已验证 cidList[i] 是 string,安全做法仍应用参数化)
+    conds.push(arrayOverlaps(examPapers.cidList, opts.cidList))
   }
   if (opts.paperType) conds.push(eq(examPapers.paperType, opts.paperType))
   const where = and(...conds)
@@ -155,9 +155,9 @@ export async function findAllPapers(opts: {
   }
   if (opts.categoryId) conds.push(eq(examPapers.categoryId, opts.categoryId))
   if (opts.cidList && opts.cidList.length > 0) {
-    conds.push(
-      sql`${examPapers.cidList} ?| ${sql.raw(`ARRAY[${opts.cidList.map((c) => `'${c}'`).join(',')}]::text[]`)}`,
-    )
+    // 2026-07-21 安全审计加固:用 Drizzle 参数化 arrayOverlaps 替代 sql.raw 字符串拼接,
+    // 消除 SQL 注入隐患(Zod 已验证 cidList[i] 是 string,安全做法仍应用参数化)
+    conds.push(arrayOverlaps(examPapers.cidList, opts.cidList))
   }
   if (opts.paperType) conds.push(eq(examPapers.paperType, opts.paperType))
   const where = conds.length ? and(...conds) : undefined
@@ -744,9 +744,9 @@ export async function randomGetQuestionList(
     conds.push(inArray(examQuestions.difficulty, opts.difficulties))
   }
   if (opts.knowledgePointIds && opts.knowledgePointIds.length > 0) {
-    // jsonb 数组与知识点池有交集(Zod 已校验 uuid,安全)
-    const safeIds = opts.knowledgePointIds.map((id) => `'${id}'`).join(',')
-    conds.push(sql`${examQuestions.knowledgePointIds} ?| array[${sql.raw(safeIds)}]::text[]`)
+    // 2026-07-21 安全审计加固:用 Drizzle 参数化 arrayOverlaps 替代 sql.raw 字符串拼接,
+    // 消除 SQL 注入隐患(Zod 已验证 id 是 uuid,安全做法仍应用参数化)
+    conds.push(arrayOverlaps(examQuestions.knowledgePointIds, opts.knowledgePointIds))
   }
   const where = conds.length ? and(...conds) : undefined
   const pool = await db.select().from(examQuestions).where(where)
