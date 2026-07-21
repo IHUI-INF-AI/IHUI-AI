@@ -372,6 +372,7 @@ export function PluginMarketplace() {
                 isPinned={plugins.isPinned(p.id)}
                 onToggleInstall={() => handleToggleInstall(p.id, p.name)}
                 onTogglePinned={() => handleTogglePinned(p.id, p.name)}
+                onRecordClick={() => plugins.recordClick(p.id)}
                 installedBadgeLabel={t('installedBadge')}
                 installLabel={t('install')}
                 uninstallLabel={t('uninstall')}
@@ -569,6 +570,7 @@ function MarketPluginCard({
   isPinned,
   onToggleInstall,
   onTogglePinned,
+  onRecordClick,
   installedBadgeLabel,
   installLabel,
   uninstallLabel,
@@ -584,6 +586,7 @@ function MarketPluginCard({
   isPinned: boolean
   onToggleInstall: () => void
   onTogglePinned: () => void
+  onRecordClick: () => void
   installedBadgeLabel: string
   installLabel: string
   uninstallLabel: string
@@ -651,6 +654,7 @@ function MarketPluginCard({
     return (
       <Link
         href={plugin.url}
+        onClick={onRecordClick}
         className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:rounded-lg"
       >
         {card}
@@ -662,6 +666,7 @@ function MarketPluginCard({
       href={plugin.url}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={onRecordClick}
       className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:rounded-lg"
     >
       {card}
