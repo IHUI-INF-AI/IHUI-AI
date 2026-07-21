@@ -3,24 +3,11 @@
 import * as React from 'react'
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@ihui/ui'
-import { Textarea } from '@/components/form'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { Badge } from '@/components/data'
 import { AgentSwarmMonitor } from './agent-swarm-monitor'
+import { AgenticTaskCreator } from './agentic-task-creator'
+import { AgenticComponentGenerator } from './agentic-component-generator'
 
 export type SwarmStatus = 'pending' | 'running' | 'completed' | 'failed'
 
@@ -33,7 +20,7 @@ export interface SwarmItem {
   status: SwarmStatus
 }
 
-// mock 数据:3 个 Swarm
+// mock 数据:5 个 Swarm
 const MOCK_SWARMS: SwarmItem[] = [
   {
     swarmId: 'swarm-001',
@@ -57,8 +44,25 @@ const MOCK_SWARMS: SwarmItem[] = [
     coordination: 'market-based',
     status: 'pending',
   },
+  {
+    swarmId: 'swarm-004',
+    task: '搭建 CI/CD 流水线,集成代码扫描、单元测试、E2E 测试和自动部署',
+    coordination: 'hierarchical',
+    currentIteration: 2,
+    maxIterations: 15,
+    status: 'running',
+  },
+  {
+    swarmId: 'swarm-005',
+    task: '数据库迁移 PostgreSQL 14 到 16,验证兼容性、性能基准测试',
+    coordination: 'peer-to-peer',
+    currentIteration: 5,
+    maxIterations: 5,
+    status: 'failed',
+  },
 ]
 
+// pending 灰 / running 黄 / completed 绿 / failed 红
 const STATUS_VARIANT: Record<SwarmStatus, 'default' | 'warning' | 'success' | 'danger'> = {
   pending: 'default',
   running: 'warning',
@@ -66,41 +70,22 @@ const STATUS_VARIANT: Record<SwarmStatus, 'default' | 'warning' | 'success' | 'd
   failed: 'danger',
 }
 
-const COMPONENT_TYPES = ['Button', 'Card', 'Form', 'Layout'] as const
-type ComponentType = (typeof COMPONENT_TYPES)[number]
-
 /**
- * AgenticDashboardPanel - Agentic AI 控制台(精简版)
+ * AgenticDashboardPanel - Agentic AI 控制台主框架
+ * 1:1 复刻自 Vue 版 AgenticDashboard 主框架
  * 4 区块:任务创建 / Swarm 监控 / 组件生成器 / 活跃 Swarm 列表
  */
 export function AgenticDashboardPanel() {
   const t = useTranslations('agenticDashboard')
   const ts = useTranslations('agenticDashboard.status')
-
-  const [taskName, setTaskName] = useState('')
-  const [taskDesc, setTaskDesc] = useState('')
   const [currentSwarmId, setCurrentSwarmId] = useState<string | null>(null)
-  const [componentDesc, setComponentDesc] = useState('')
-  const [componentType, setComponentType] = useState<ComponentType>('Button')
 
-  const handleCreateTask = () => {
-    if (!taskName.trim()) return
-    console.log('[AgenticDashboard] 创建任务:', { name: taskName, description: taskDesc })
-    toast.success(`任务 "${taskName}" 已创建`)
-    setTaskName('')
-    setTaskDesc('')
-  }
+  // 任务创建成功回调,等价 Vue 版 handleTaskCreated(swarmId)
+  const handleTaskCreated = (swarmId: string) => setCurrentSwarmId(swarmId)
 
-  const handleGenerate = () => {
-    if (!componentDesc.trim()) return
-    console.log('[AgenticDashboard] 生成组件:', { type: componentType, description: componentDesc })
-    toast.success(`已生成 ${componentType} 组件`)
-    setComponentDesc('')
-  }
-
-  const handleSelectSwarm = (swarmId: string) => {
+  // 点击切换 currentSwarmId,active 态用 border-primary(无蓝色发光)
+  const handleSelectSwarm = (swarmId: string) =>
     setCurrentSwarmId(swarmId === currentSwarmId ? null : swarmId)
-  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
@@ -112,38 +97,10 @@ export function AgenticDashboardPanel() {
 
       {/* 4 区块 grid */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* 1. 任务创建区 */}
-        <Card className="rounded-lg">
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm">任务创建</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 p-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="agentic-task-name">任务名</Label>
-              <Input
-                id="agentic-task-name"
-                value={taskName}
-                onChange={(e) => setTaskName(e.target.value)}
-                placeholder="输入任务名称"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="agentic-task-desc">任务描述</Label>
-              <Textarea
-                id="agentic-task-desc"
-                value={taskDesc}
-                onChange={(e) => setTaskDesc(e.target.value)}
-                placeholder="描述任务目标和要求"
-                rows={4}
-              />
-            </div>
-            <Button className="w-full" onClick={handleCreateTask} disabled={!taskName.trim()}>
-              创建任务
-            </Button>
-          </CardContent>
-        </Card>
+        {/* 1. 任务创建 */}
+        <AgenticTaskCreator onCreated={handleTaskCreated} />
 
-        {/* 2. Swarm 监控 */}
+        {/* 2. Swarm 监控(仅当 currentSwarmId 有值时显示) */}
         <Card className="rounded-lg">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-sm">Swarm 监控</CardTitle>
@@ -160,43 +117,7 @@ export function AgenticDashboardPanel() {
         </Card>
 
         {/* 3. 组件生成器 */}
-        <Card className="rounded-lg">
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm">组件生成器</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 p-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="agentic-comp-desc">组件描述</Label>
-              <Input
-                id="agentic-comp-desc"
-                value={componentDesc}
-                onChange={(e) => setComponentDesc(e.target.value)}
-                placeholder="描述要生成的组件"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>组件类型</Label>
-              <Select
-                value={componentType}
-                onValueChange={(v) => setComponentType(v as ComponentType)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {COMPONENT_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button className="w-full" onClick={handleGenerate} disabled={!componentDesc.trim()}>
-              生成组件
-            </Button>
-          </CardContent>
-        </Card>
+        <AgenticComponentGenerator />
 
         {/* 4. 活跃 Swarm 列表 */}
         <Card className="rounded-lg">
@@ -241,11 +162,12 @@ export function AgenticDashboardPanel() {
                       <span>
                         {t('coordination')}: {swarm.coordination}
                       </span>
-                      {swarm.currentIteration !== undefined && swarm.maxIterations !== undefined && (
-                        <span>
-                          {t('iteration')}: {swarm.currentIteration}/{swarm.maxIterations}
-                        </span>
-                      )}
+                      {swarm.currentIteration !== undefined &&
+                        swarm.maxIterations !== undefined && (
+                          <span>
+                            {t('iteration')}: {swarm.currentIteration}/{swarm.maxIterations}
+                          </span>
+                        )}
                     </div>
                   </div>
                 )

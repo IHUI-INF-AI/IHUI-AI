@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus, Trash2 } from 'lucide-react'
 import {
   Button, Card, CardContent, CardHeader, CardTitle, Checkbox, Input, Label,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -13,9 +13,11 @@ import {
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { AgentSwarmMonitor } from './agent-swarm-monitor'
 
 type CoordinationMode = 'hierarchical' | 'peer-to-peer' | 'market-based'
+type AgentRole = 'coordinator' | 'worker' | 'reviewer'
 
 /** Swarm 列表项(export 给外部使用) */
 export interface SwarmItem {
@@ -32,11 +34,20 @@ interface SwarmRaw {
   status?: string
 }
 
+interface AgentFormItem {
+  role: AgentRole
+  name: string
+  model: string
+}
+
 interface SwarmFormState {
   task: string
   coordination: CoordinationMode
   maxIterations: number
   autoOptimize: boolean
+  workspacePath: string
+  modelId: string
+  agents: AgentFormItem[]
 }
 
 /** 状态颜色:pending 灰 / running 琥珀 / completed 绿 / failed 红 */
@@ -50,14 +61,25 @@ const STATUS_CLS: Record<string, string> = {
 const TEXTAREA_CLS =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none'
 
+const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
+  coordinator: '协调者',
+  worker: '执行者',
+  reviewer: '审查者',
+}
+
 /** SwarmCreatorPanel - Agent Swarm 创建 + 列表 + 监控(迁移自 Vue AgenticAIPage) */
 export function SwarmCreatorPanel() {
   const t = useTranslations('agenticAI')
+  // 默认 workspacePath 取 ai-panel store 中绑定的本地工作区
+  const initialWorkspacePath = useAiPanelStore.getState().activeWorkspace?.path ?? ''
   const [form, setForm] = React.useState<SwarmFormState>({
     task: '',
     coordination: 'hierarchical',
     maxIterations: 10,
     autoOptimize: false,
+    workspacePath: initialWorkspacePath,
+    modelId: 'default',
+    agents: [{ role: 'worker', name: 'Worker Agent', model: 'default' }],
   })
   const [selectedSwarmId, setSelectedSwarmId] = React.useState<string>('')
 
@@ -77,7 +99,7 @@ export function SwarmCreatorPanel() {
     },
   })
 
-  // 创建 Swarm
+  // 创建 Swarm — 严格按后端 createSwarmSchema 发送 camelCase 字段
   const createMutation = useMutation({
     mutationFn: async () => {
       const res = await fetchApi<SwarmRaw>('/api/workspace/swarms', {
@@ -85,9 +107,19 @@ export function SwarmCreatorPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           task: form.task,
-          coordination: form.coordination,
-          maxIterations: form.maxIterations,
-          autoOptimize: form.autoOptimize,
+          workspacePath: form.workspacePath,
+          modelId: form.modelId,
+          agents: form.agents.map((a) => ({
+            role: a.role,
+            name: a.name,
+            model: a.model,
+          })),
+          // coordination / maxIterations / autoOptimize 作为附加元数据一并下发
+          metadata: {
+            coordination: form.coordination,
+            maxIterations: form.maxIterations,
+            autoOptimize: form.autoOptimize,
+          },
         }),
       })
       if (!res.success) throw new Error(res.error)
@@ -117,8 +149,46 @@ export function SwarmCreatorPanel() {
       toast.error(t('enterTaskDescription'))
       return
     }
+    if (!form.workspacePath.trim()) {
+      toast.error('工作空间路径不能为空')
+      return
+    }
+    if (form.agents.length === 0) {
+      toast.error('至少需要一个 Agent')
+      return
+    }
     createMutation.mutate()
   }
+
+  /** 新增 Agent(默认 worker) */
+  const addAgent = () => {
+    setForm((f) => ({
+      ...f,
+      agents: [...f.agents, { role: 'worker', name: `Agent ${f.agents.length + 1}`, model: 'default' }],
+    }))
+  }
+
+  /** 删除指定 Agent(保证至少保留 1 个) */
+  const removeAgent = (idx: number) => {
+    setForm((f) => {
+      if (f.agents.length <= 1) return f
+      return { ...f, agents: f.agents.filter((_, i) => i !== idx) }
+    })
+  }
+
+  /** 更新指定 Agent 的字段 */
+  const updateAgent = (idx: number, patch: Partial<AgentFormItem>) => {
+    setForm((f) => ({
+      ...f,
+      agents: f.agents.map((a, i) => (i === idx ? { ...a, ...patch } : a)),
+    }))
+  }
+
+  const canCreate =
+    form.task.trim().length > 0 &&
+    form.workspacePath.trim().length > 0 &&
+    form.agents.length >= 1 &&
+    !createMutation.isPending
 
   return (
     <div className="flex flex-wrap gap-5">
@@ -137,6 +207,26 @@ export function SwarmCreatorPanel() {
                 onChange={(e) => setForm((f) => ({ ...f, task: e.target.value }))}
                 placeholder={t('taskDescriptionPlaceholder')}
                 className={TEXTAREA_CLS}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="swarm-workspace" className="text-sm font-medium">工作空间路径</Label>
+              <Input
+                id="swarm-workspace"
+                value={form.workspacePath}
+                onChange={(e) => setForm((f) => ({ ...f, workspacePath: e.target.value }))}
+                placeholder="/path/to/workspace"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="swarm-model" className="text-sm font-medium">模型 ID</Label>
+              <Input
+                id="swarm-model"
+                value={form.modelId}
+                onChange={(e) => setForm((f) => ({ ...f, modelId: e.target.value }))}
+                placeholder="default"
               />
             </div>
 
@@ -177,9 +267,61 @@ export function SwarmCreatorPanel() {
               <Label htmlFor="swarm-auto-opt" className="text-sm">{t('autoOptimize')}</Label>
             </div>
 
+            {/* Agents 列表 — 每行 3 字段(role/name/model)+ 删除按钮 */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Agents</Label>
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={addAgent}>
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  <span>添加 Agent</span>
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {form.agents.map((agent, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Select
+                      value={agent.role}
+                      onValueChange={(v) => updateAgent(idx, { role: v as AgentRole })}
+                    >
+                      <SelectTrigger className="h-8 w-[110px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(AGENT_ROLE_LABELS) as AgentRole[]).map((r) => (
+                          <SelectItem key={r} value={r}>{AGENT_ROLE_LABELS[r]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      className="h-8 flex-1"
+                      value={agent.name}
+                      onChange={(e) => updateAgent(idx, { name: e.target.value })}
+                      placeholder="名称"
+                    />
+                    <Input
+                      className="h-8 w-[120px]"
+                      value={agent.model}
+                      onChange={(e) => updateAgent(idx, { model: e.target.value })}
+                      placeholder="default"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      disabled={form.agents.length <= 1}
+                      onClick={() => removeAgent(idx)}
+                      aria-label="删除"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <Button
               className="w-full"
-              disabled={!form.task.trim() || createMutation.isPending}
+              disabled={!canCreate}
               onClick={onCreate}
             >
               {createMutation.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
