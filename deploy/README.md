@@ -6,14 +6,109 @@
 
 | 脯文件                        | 说明                                                   |
 | ----------------------------- | ------------------------------------------------------ |
+| `scripts/setup.sh`            | **首次部署脚本**(一键:拉码+装依赖+迁移+build+启动+Nginx+SSL) |
 | `scripts/deploy.sh`           | 蓝绿部署切换脚本(blue/green/status/rollback)           |
 | `scripts/deploy_certs.sh`     | SSL 证书部署 / 续期 / 检查脚本(deploy/renew/check)     |
 | `nginx/nginx-blue-green.conf` | nginx 蓝绿配置(Blue / Green upstream + HTTPS + 安全头) |
+| `nginx/conf.d/bsm-subdomain.conf` | **bsm.aizhs.top 认证子域 Nginx 配置**(分域 SSO) |
 | `cron/cert-renew.cron`        | 证书续期 cron 入口                                     |
 | `cron/cert-renew.sh`          | 证书续期封装                                           |
 | `setup-github-secrets.sh`     | GitHub Actions secrets 初始化                          |
 
 > 详见 `nginx/README.md` 了解 nginx 蓝绿配置细节.
+
+---
+
+## 首次部署(2026-07-21 立,飞书 OAuth + 分域 SSO)
+
+### 架构概览
+
+```
+aizhs.top(主域)        ← 用户日常访问
+   │ 点登录
+   ▼ 302
+bsm.aizhs.top(认证子域) ← 只承载登录/OAuth 回调
+   │ OAuth 跳转飞书
+   ▼
+accounts.feishu.cn      ← 飞书扫码页
+   │ 扫码成功,跳回 redirect_uri
+   ▼
+bsm.aizhs.top/callback  ← 写跨域 Cookie(.aizhs.top)
+   │ 307 跳回主域
+   ▼
+aizhs.top/              ← 主域读 Cookie 恢复登录态
+```
+
+### 用户必须先做的 5 件事(脚本无法代劳)
+
+1. **DNS 解析**(域名服务商后台,如阿里云/Cloudflare):
+   - 加 A 记录:`@` → 服务器 IP
+   - 加 A 记录:`bsm` → 服务器 IP(认证子域)
+
+2. **服务器环境**:
+   ```bash
+   # Ubuntu/Debian
+   apt update && apt install -y git nodejs npm nginx postgresql-client certbot python3-certbot-nginx
+   npm install -g pnpm pm2
+   # 拉代码
+   git clone <repo-url> /opt/ihui
+   cd /opt/ihui
+   ```
+
+3. **配置生产环境变量**(本地编辑后上传到服务器):
+   ```bash
+   # 服务器上:
+   cd /opt/ihui
+   cp .env.production.example .env.production
+   cp apps/web/.env.production.example apps/web/.env.production
+   # 编辑两个 .env.production 文件,填真实凭据(数据库密码/JWT secret/飞书 App Secret 等)
+   nano .env.production
+   nano apps/web/.env.production
+   ```
+
+4. **飞书开发者后台**(https://open.feishu.cn/app/cli_a9de15cbb8399bc8):
+   - 「安全设置 → 重定向 URL」白名单加:
+     - `http://localhost:3000/callback?platform=feishu`(本地开发,可选)
+     - `https://bsm.aizhs.top/callback?platform=feishu`(生产,**必填**)
+   - 「应用功能 → 网页」开关打开
+   - 「应用发布 → 版本管理与发布」创建版本 + 申请发布 + 管理员审核通过
+
+5. **其他第三方后台**(redirect_uri 改成 bsm 子域):
+   - 微信开放平台:加 `https://bsm.aizhs.top/callback?platform=wechat`
+   - 钉钉开发者后台:加 `https://bsm.aizhs.top/callback?platform=dingtalk`
+   - 企业微信后台:加 `https://bsm.aizhs.top/callback?platform=enterpriseWechat`
+   - GitHub OAuth App:加 `https://bsm.aizhs.top/callback?platform=github`
+   - Google Cloud Console:加 `https://bsm.aizhs.top/google/callback`
+
+### 一键部署(完成上面 5 件事后)
+
+```bash
+cd /opt/ihui
+sudo ./deploy/scripts/setup.sh
+```
+
+脚本会自动:
+1. 拉代码 + 装依赖
+2. 数据库迁移
+3. build 前端(静态注入 .env.production)
+4. build 后端
+5. 启动 web + api(pm2 守护 + 开机自启)
+6. 部署 Nginx 配置(主域 + bsm 子域)
+7. 申请 SSL 证书(Let's Encrypt)
+8. 健康检查 + 输出验证清单
+
+### 部署后验证
+
+| 验证项 | 命令/操作 | 期望 |
+|---|---|---|
+| 主域首页 | `curl -I https://aizhs.top/` | 200 OK |
+| bsm 子域 | `curl https://bsm.aizhs.top/nginx-health` | ok |
+| API 健康 | `curl https://aizhs.top/api/health` | `{"code":0,...}` |
+| 飞书扫码 | 浏览器 https://aizhs.top → 点登录 → 飞书登录 → 扫码 | 跳回主域已登录 |
+
+---
+
+
 
 ---
 
