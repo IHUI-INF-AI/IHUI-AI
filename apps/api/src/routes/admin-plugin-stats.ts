@@ -46,7 +46,7 @@ export const adminPluginStatsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send({ code: 400, message: 'Invalid query', data: null })
     }
-    const rows = await getPluginStatsByPlugin(parsed.data.limit)
+    const rows = await getPluginStatsByPlugin(parsed.data.days, parsed.data.limit)
     return reply.send(success(rows))
   })
 
