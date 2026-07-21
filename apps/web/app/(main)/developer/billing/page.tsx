@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Receipt, Loader2, Download, CreditCard, Plus } from 'lucide-react'
 
@@ -40,19 +40,14 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const STATUS_CONFIG: Record<BillItem['status'], { label: string; cls: string }> = {
-  paid: { label: '已支付', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-  pending: { label: '待支付', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-  failed: { label: '失败', cls: 'bg-rose-500/10 text-rose-600 dark:text-rose-400' },
-}
-
-const PAYMENT_LABEL: Record<PaymentMethod['type'], string> = {
-  alipay: '支付宝',
-  wechat: '微信支付',
-  card: '银行卡',
+const STATUS_CLASS: Record<BillItem['status'], string> = {
+  paid: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  failed: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
 }
 
 export default function BillingPage() {
+  const t = useTranslations('developerBillingPage')
   const locale = useLocale()
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -76,7 +71,7 @@ export default function BillingPage() {
     if (b.invoiceUrl) {
       window.open(b.invoiceUrl, '_blank')
     } else {
-      toast.info('发票生成中,请稍后')
+      toast.info(t('toastInvoiceGenerating'))
     }
   }
 
@@ -85,9 +80,9 @@ export default function BillingPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Receipt className="h-5 w-5 text-primary" />
-          账单
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">查看账单记录与付款方式</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -97,15 +92,15 @@ export default function BillingPage() {
           <div className="flex items-center justify-between">
             <p className="flex items-center gap-2 text-sm font-semibold">
               <CreditCard className="h-4 w-4" />
-              付款方式
+              {t('paymentMethods')}
             </p>
-            <Button size="sm" variant="outline" onClick={() => toast.info('请联系客服添加')}>
+            <Button size="sm" variant="outline" onClick={() => toast.info(t('toastContactSupport'))}>
               <Plus className="h-3.5 w-3.5" />
-              添加
+              {t('add')}
             </Button>
           </div>
           {paymentMethods.length === 0 ? (
-            <p className="py-3 text-center text-xs text-muted-foreground">暂无付款方式</p>
+            <p className="py-3 text-center text-xs text-muted-foreground">{t('noPaymentMethods')}</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {paymentMethods.map((p) => (
@@ -116,11 +111,11 @@ export default function BillingPage() {
                     p.isDefault && 'border-primary bg-primary/5',
                   )}
                 >
-                  <span className="font-medium">{PAYMENT_LABEL[p.type]}</span>
+                  <span className="font-medium">{t(`payType.${p.type}`)}</span>
                   {p.last4 && <span className="text-muted-foreground">**** {p.last4}</span>}
                   {p.isDefault && (
                     <span className="rounded bg-primary/10 px-1 py-0.5 text-xs text-primary">
-                      默认
+                      {t('default')}
                     </span>
                   )}
                 </div>
@@ -132,27 +127,27 @@ export default function BillingPage() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="border-b px-4 py-2.5 text-sm font-semibold">账单记录</div>
+          <div className="border-b px-4 py-2.5 text-sm font-semibold">{t('billRecords')}</div>
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              加载中...
+              {t('loading')}
             </div>
           ) : bills.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">暂无账单记录</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">{t('noBills')}</p>
           ) : (
             <div className="divide-y">
               {bills.map((b) => {
-                const cfg = STATUS_CONFIG[b.status]
+                const cls = STATUS_CLASS[b.status]
                 return (
                   <div key={b.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-medium">{b.invoiceNo}</p>
                         <span
-                          className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cfg.cls)}
+                          className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cls)}
                         >
-                          {cfg.label}
+                          {t(`status.${b.status}`)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -169,7 +164,7 @@ export default function BillingPage() {
                       disabled={b.status !== 'paid'}
                     >
                       <Download className="h-3.5 w-3.5" />
-                      发票
+                      {t('invoice')}
                     </Button>
                   </div>
                 )
