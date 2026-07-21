@@ -1945,6 +1945,7 @@
       "messageOverview": "Message Overview",
       "visitTracking": "Visit Tracking",
       "examMarking": "Exam Marking",
+      "saasTenants": "Tenant Management",
       "group": {
         "operation": "Operation",
         "moderation": "Moderation",
@@ -1956,7 +1957,8 @@
         "support": "Support",
         "community": "Community",
         "resource": "Resources",
-        "developer": "Developer"
+        "developer": "Developer",
+        "saas": "SaaS Deploy"
       }
     },
     "refund": {
@@ -2595,6 +2597,62 @@
       "totalProjects": "Total Projects",
       "todayRevenue": "Today's Revenue",
       "activeSessions": "Active Sessions"
+    },
+    "saas": {
+      "title": "Tenant Management",
+      "subtitle": "Manage the lifecycle of SaaS customer tenants",
+      "createTenant": "Create Tenant",
+      "creating": "Creating...",
+      "search": "Search",
+      "searchPlaceholder": "Search tenant slug...",
+      "filterState": "State filter",
+      "stateAll": "All",
+      "stateActive": "Active",
+      "statePaused": "Paused",
+      "stateCreating": "Creating",
+      "stateNotFound": "Not Found",
+      "total": "{total} tenants",
+      "empty": "No tenants. Click \"Create Tenant\" to start.",
+      "table": {
+        "slug": "Slug",
+        "domain": "Domain",
+        "state": "State",
+        "containers": "Containers",
+        "memory": "Memory",
+        "cpu": "CPU",
+        "stateChangedAt": "Changed At",
+        "actions": "Actions"
+      },
+      "action": {
+        "detail": "Detail",
+        "pause": "Pause",
+        "resume": "Resume",
+        "backup": "Backup",
+        "destroy": "Destroy"
+      },
+      "confirm": {
+        "pauseTitle": "Pause tenant {slug}",
+        "pauseHint": "All containers of this tenant will stop, but data is preserved. You can resume at any time.",
+        "resumeTitle": "Resume tenant {slug}",
+        "resumeHint": "Tenant containers will restart. DNS resolution remains unchanged.",
+        "backupTitle": "Backup tenant {slug}",
+        "backupHint": "Create a data snapshot now. Service is unaffected during the operation.",
+        "destroyTitle": "Destroy tenant {slug}",
+        "destroyHint": "This action is irreversible! All data, containers and backups will be permanently deleted.",
+        "destroyInputHint": "Type the slug \"{slug}\" to confirm destruction",
+        "cancel": "Cancel",
+        "confirm": "Confirm"
+      },
+      "form": {
+        "slug": "Tenant Slug",
+        "slugHint": "3-20 chars of lowercase letters, digits and hyphens. Cannot be changed after creation.",
+        "memory": "Memory Limit",
+        "cpu": "CPU Limit",
+        "plan": "Plan",
+        "planFree": "Free",
+        "planPro": "Pro",
+        "planEnterprise": "Enterprise"
+      }
     },
     "users": {
       "title": "User Management",
