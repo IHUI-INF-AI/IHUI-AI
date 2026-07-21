@@ -49,6 +49,7 @@ import { orderRoutes, adminOrderRoutes } from './routes/order.js'
 import { liveRoutes, adminLiveRoutes } from './routes/live.js'
 import { memberRoutes, adminMemberRoutes } from './routes/member.js'
 import { resourceRoutes, adminResourceRoutes } from './routes/resource.js'
+import { default as githubProjectRoutes } from './routes/github-projects.js'
 import { pointRoutes, adminPointRoutes } from './routes/point.js'
 import { usercenterRoutes } from './routes/usercenter.js'
 import { scheduleRoutes, adminScheduleRoutes } from './routes/schedule.js'
@@ -593,6 +594,8 @@ function registerRoutes(server: FastifyInstance) {
   // 资源库：/api/resources/* + /api/admin/resources/*
   server.register(resourceRoutes, { prefix: '/api' })
   server.register(adminResourceRoutes, { prefix: '/api/admin' })
+  // GitHub 开源项目库：/api/github-projects/*
+  server.register(githubProjectRoutes, { prefix: '/api' })
   // 教育积分：/api/edu-points/* + /api/admin/edu-points/*
   server.register(pointRoutes, { prefix: '/api' })
   server.register(adminPointRoutes, { prefix: '/api/admin' })
