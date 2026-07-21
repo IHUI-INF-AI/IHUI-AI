@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, Video, RefreshCw, ChevronRight, ChevronDown } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -48,6 +48,7 @@ async function api<T>(url: string): Promise<T> {
 
 export default function VideoTasksPage() {
   const locale = useLocale()
+  const t = useTranslations('videoTasksPage')
   const [expandedId, setExpandedId] = React.useState<number | null>(null)
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -95,10 +96,10 @@ export default function VideoTasksPage() {
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <Video className="h-6 w-6 text-primary" />
-            即梦视频任务
+            {t('title')}
           </h1>
           <p className="text-sm text-muted-foreground">
-            查看文生视频任务进度,生成中任务每 5 秒自动刷新
+            {t('description')}
           </p>
         </div>
         <Button
@@ -108,19 +109,19 @@ export default function VideoTasksPage() {
           disabled={listQuery.isFetching}
         >
           <RefreshCw className={`mr-1 h-4 w-4 ${listQuery.isFetching ? 'animate-spin' : ''}`} />
-          刷新
+          {t('refresh')}
         </Button>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">任务列表</CardTitle>
+          <CardTitle className="text-base">{t('taskList')}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {listQuery.isLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              加载中...
+              {t('loading')}
             </div>
           ) : listQuery.error ? (
             <div className="m-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -129,7 +130,7 @@ export default function VideoTasksPage() {
           ) : tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
               <Video className="h-8 w-8 opacity-40" />
-              <p className="text-sm">暂无视频任务</p>
+              <p className="text-sm">{t('empty')}</p>
             </div>
           ) : (
             <Table>
@@ -137,9 +138,9 @@ export default function VideoTasksPage() {
                 <TableRow>
                   <TableHead className="w-8" />
                   <TableHead className="w-20">ID</TableHead>
-                  <TableHead>Prompt 摘要</TableHead>
-                  <TableHead className="w-24">状态</TableHead>
-                  <TableHead className="w-40">创建时间</TableHead>
+                  <TableHead>{t('promptSummary')}</TableHead>
+                  <TableHead className="w-24">{t('status')}</TableHead>
+                  <TableHead className="w-40">{t('createdAt')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
