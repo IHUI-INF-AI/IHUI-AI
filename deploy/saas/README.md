@@ -145,6 +145,75 @@ curl -k https://demo.127.0.0.1.nip.io:443/
 | CPU | 1.0 | `CPU_LIMIT=2.0` |
 | Storage | 20G | volume 限制在 Docker 层另设 |
 
+## 客户生命周期管理(P1 阶段 2.1)
+
+### 脚本层(直接调用)
+
+```bash
+# 暂停/恢复
+./scripts/pause-customer.sh demo    # 停止容器,数据保留
+./scripts/resume-customer.sh demo   # 重启容器
+
+# 备份/恢复
+./scripts/backup-customer.sh demo             # 默认存到 backups/demo/<timestamp>/
+./scripts/restore-customer.sh demo            # 恢复最新备份
+./scripts/restore-customer.sh demo 20260721_120000  # 恢复指定备份
+
+# 列表(显示 state=active|paused)
+./scripts/list-customers.sh
+```
+
+### Admin API(程序化)
+
+启动后监听 `127.0.0.1:8081`(仅本机,不暴露公网)。
+
+```bash
+# 1. 在 .env 中设置 ADMIN_API_KEY(用 openssl rand -hex 32 生成)
+
+# 2. 启动 admin-api
+docker compose up -d admin-api
+
+# 3. 调用 API
+curl -H "X-Admin-API-Key: <your-key>" http://localhost:8081/admin/api/health
+
+# 列出客户
+curl -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/customers
+
+# 暂停
+curl -X POST -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/customers/demo/pause
+
+# 备份
+curl -X POST -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/customers/demo/backup
+
+# 恢复(默认最新备份)
+curl -X POST -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/customers/demo/restore
+
+# 恢复指定备份
+curl -X POST -H "X-Admin-API-Key: <key>" \
+     -H "Content-Type: application/json" \
+     -d '{"timestamp":"20260721_120000"}' \
+     http://localhost:8081/admin/api/customers/demo/restore
+
+# 销毁
+curl -X DELETE -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/customers/demo
+```
+
+### 证书自动续期
+
+```bash
+# 部署 cron(每周日 3:00 检查 + 自动重启 Traefik 触发重签)
+sudo cp deploy/saas/cron/cert-renew.cron /etc/cron.d/ihui-saas-cert-renew
+
+# 手动触发
+bash deploy/saas/cron/cert-renew.sh
+```
+
+行为:
+- 证书剩余 ≥ 30 天:健康
+- 证书剩余 < 30 天:警告(无需干预,Traefik 自动续)
+- 证书剩余 < 7 天:重启 Traefik 强制重签
+- 同时清理 30 天前的旧备份
+
 ## 故障排查
 
 ### 证书签发失败
@@ -194,14 +263,22 @@ docker logs customer-demo-api | grep -i "database"
 - 随机凭据生成 + 安全备份
 - 健康检查 + 启动等待
 
-### ⏳ P1 阶段 2(下次)
+### ✅ P1 阶段 2.1 部署层管理增强(本次)
 
-- 租户管理后台(web/admin 端扩展)
-- 资源监控(Prometheus + Grafana per-tenant)
+- 客户 pause/resume/backup/restore 脚本(状态持久化到 `.state` 文件)
+- Admin API 服务(Fastify 5 + X-Admin-API-Key 鉴权,端口 8081 仅 localhost)
+- 证书自动续期 cron(每周日 3:00 + 阈值自动重启 Traefik)
+- 备份保留策略(自动保留 7 个 + 30 天前清理)
+
+### ⏳ P1 阶段 2.2 web/admin UI(下次)
+
+- 租户管理后台(web/admin 端扩展,管理客户创建/暂停/删除/查看)
+- 需跨 web 端扩展,工作量 3-5 天
+
+### ⏳ P1 阶段 2.3 资源监控(后续)
+
+- Prometheus + Grafana per-tenant dashboard
 - 资源配额(API 调用 / 存储 / AI token)
-- 证书自动续期提醒
-- 自动备份到对象存储
-- 客户暂停/恢复
 
 ### ⏳ P2 阶段 3(后续)
 
