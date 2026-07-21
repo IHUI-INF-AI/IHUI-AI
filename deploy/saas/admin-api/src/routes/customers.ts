@@ -3,8 +3,9 @@
  * 端点:
  *   GET    /admin/api/customers
  *   GET    /admin/api/customers/:slug
- *   POST   /admin/api/customers                  (P1-2.2 新增)
- *   GET    /admin/api/customers/:slug/backups     (P1-2.2 新增)
+ *   POST   /admin/api/customers
+ *   GET    /admin/api/customers/:slug/backups
+ *   DELETE /admin/api/customers/:slug/backups/:timestamp   (P1-2.2b 新增)
  *   POST   /admin/api/customers/:slug/pause
  *   POST   /admin/api/customers/:slug/resume
  *   POST   /admin/api/customers/:slug/backup
@@ -146,6 +147,43 @@ async function getContainerStatus(slug: string): Promise<{ running: number; tota
   });
 }
 
+/**
+ * 递归计算目录大小(KB),限制深度避免深层目录过慢
+ */
+function dirSizeKb(dir: string, maxDepth: number, currentDepth = 0): number {
+  if (currentDepth > maxDepth) return 0;
+  let total = 0;
+  try {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = join(dir, entry.name);
+      try {
+        if (entry.isDirectory()) {
+          total += dirSizeKb(full, maxDepth, currentDepth + 1);
+        } else if (entry.isFile()) {
+          total += Math.ceil(statSync(full).size / 1024);
+        }
+      } catch {
+        // 跳过无权限或已删除的文件
+      }
+    }
+  } catch {
+    // 目录不可读
+  }
+  return total;
+}
+
+/**
+ * 格式化大小为人类可读字符串
+ */
+function formatSize(kb: number): string {
+  if (kb < 1024) return `${kb} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb.toFixed(1)} MB`;
+  const gb = mb / 1024;
+  return `${gb.toFixed(2)} GB`;
+}
+
 export async function customerRoutes(app: FastifyInstance): Promise<void> {
   // 所有路由需要双重鉴权(X-Admin-API-Key + X-Admin-User)
   app.addHook('preHandler', requireAdminAuth);
@@ -184,7 +222,7 @@ export async function customerRoutes(app: FastifyInstance): Promise<void> {
     return { status: 'created', slug, memory, cpu, plan: parse.data.plan, output: result.stdout };
   });
 
-  // ==================== 备份列表(P1-2.2 新增)====================
+  // ==================== 备份列表(P1-2.2)====================
   app.get<{ Params: { slug: string } }>(
     '/admin/api/customers/:slug/backups',
     async (request, reply) => {
@@ -202,13 +240,16 @@ export async function customerRoutes(app: FastifyInstance): Promise<void> {
       const now = Date.now();
       const backups = readdirSync(backupsDir)
         .filter((name) => {
+          // 跳过 latest 软链接和隐藏文件
+          if (name === 'latest' || name.startsWith('.')) return false;
           const full = join(backupsDir, name);
           return statSync(full).isDirectory();
         })
         .map((timestamp) => {
           const full = join(backupsDir, timestamp);
           const st = statSync(full);
-          // 简单 size 估算:目录内文件数 × 平均大小(避免递归扫描,接口保持轻量)
+          // 递归统计目录大小(KB),限制深度避免太慢
+          const totalSize = dirSizeKb(full, 3);
           const fileCount = readdirSync(full).length;
           const ageMs = now - st.mtimeMs;
           const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
@@ -222,7 +263,8 @@ export async function customerRoutes(app: FastifyInstance): Promise<void> {
           return {
             timestamp,
             mtime: st.mtime.toISOString(),
-            size: `${fileCount} 个文件`, // 真实 size 由 P1-2.2b 详情页递归统计
+            size: formatSize(totalSize),
+            sizeKb: totalSize,
             age,
             fileCount,
           };
@@ -230,6 +272,52 @@ export async function customerRoutes(app: FastifyInstance): Promise<void> {
         .sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
 
       return { backups };
+    },
+  );
+
+  // ==================== 删除备份(P1-2.2b 新增)====================
+  app.delete<{ Params: { slug: string; timestamp: string } }>(
+    '/admin/api/customers/:slug/backups/:timestamp',
+    async (request, reply) => {
+      const slugParse = SlugSchema.safeParse(request.params.slug);
+      if (!slugParse.success) {
+        return reply.status(400).send({ error: 'InvalidSlug', message: slugParse.error.message });
+      }
+      // 严格校验 timestamp 格式(YYYYMMDD_HHMMSS),防止路径穿越
+      const tsParse = z
+        .string()
+        .regex(/^[0-9]{8}_[0-9]{6}$/, 'Invalid timestamp format (expected YYYYMMDD_HHMMSS)')
+        .safeParse(request.params.timestamp);
+      if (!tsParse.success) {
+        return reply
+          .status(400)
+          .send({ error: 'InvalidTimestamp', message: tsParse.error.message });
+      }
+      const slug = slugParse.data;
+      const timestamp = tsParse.data;
+
+      const backupDir = join(BACKUPS_DIR, slug, timestamp);
+      if (!existsSync(backupDir)) {
+        return reply.status(404).send({
+          error: 'BackupNotFound',
+          message: `Backup '${timestamp}' not found for customer '${slug}'`,
+        });
+      }
+
+      // 调用删除脚本(FORCE_DELETE=1 跳过交互式确认,API 端默认视为已确认)
+      const result = await runScript(
+        'delete-backup.sh',
+        [slug, timestamp],
+        request.log,
+      );
+      if (result.code !== 0) {
+        return reply.status(500).send({
+          error: 'DeleteBackupFailed',
+          message: 'Delete backup script failed',
+          stderr: result.stderr,
+        });
+      }
+      return { status: 'deleted', slug, timestamp, output: result.stdout };
     },
   );
 

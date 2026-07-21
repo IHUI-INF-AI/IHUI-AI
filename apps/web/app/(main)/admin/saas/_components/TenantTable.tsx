@@ -3,14 +3,16 @@
  */
 import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
+import Link from 'next/link'
 import {
+  Database,
   Eye,
   Pause,
   Play,
-  Database,
   Trash2,
 } from 'lucide-react'
 import { Button } from '@ihui/ui'
+import { Tooltip } from '@/components/feedback'
 
 import { StateBadge } from './StateBadge'
 import { ContainerStatusCell } from './ContainerStatusCell'
@@ -24,7 +26,6 @@ interface TenantTableProps {
   pending: PendingMap
   onPause: (t: Tenant) => void
   onResume: (t: Tenant) => void
-  onBackup: (t: Tenant) => void
   onDelete: (t: Tenant) => void
 }
 
@@ -34,7 +35,6 @@ export function TenantTable({
   pending,
   onPause,
   onResume,
-  onBackup,
   onDelete,
 }: TenantTableProps) {
   const t = useTranslations('admin.saas')
@@ -100,55 +100,62 @@ export function TenantTable({
                     <Button
                       size="icon"
                       variant="ghost"
+                      asChild
                       aria-label={t('action.detail')}
                       title={t('action.detail')}
                     >
-                      <Eye className="h-4 w-4" />
+                      <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}`}>
+                        <Eye className="h-4 w-4" />
+                      </Link>
                     </Button>
                     {tn.state === 'paused' ? (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        aria-label={t('action.resume')}
-                        title={t('action.resume')}
-                        disabled={p !== null}
-                        onClick={() => onResume(tn)}
-                      >
-                        <Play className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('action.resume')}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label={t('action.resume')}
+                          disabled={p !== null}
+                          onClick={() => onResume(tn)}
+                        >
+                          <Play className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     ) : (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        aria-label={t('action.pause')}
-                        title={t('action.pause')}
-                        disabled={p !== null || !tn.exists}
-                        onClick={() => onPause(tn)}
-                      >
-                        <Pause className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content={t('action.pause')}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label={t('action.pause')}
+                          disabled={p !== null || !tn.exists}
+                          onClick={() => onPause(tn)}
+                        >
+                          <Pause className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     )}
                     <Button
                       size="icon"
                       variant="ghost"
+                      asChild
                       aria-label={t('action.backup')}
                       title={t('action.backup')}
-                      disabled={p !== null || !tn.exists}
-                      onClick={() => onBackup(tn)}
                     >
-                      <Database className="h-4 w-4" />
+                      <Link href={`/admin/saas/${encodeURIComponent(tn.slug)}/backups`}>
+                        <Database className="h-4 w-4" />
+                      </Link>
                     </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      aria-label={t('action.destroy')}
-                      title={t('action.destroy')}
-                      disabled={p !== null}
-                      onClick={() => onDelete(tn)}
-                      className="text-rose-500 hover:text-rose-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <Tooltip content={t('action.destroy')}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label={t('action.destroy')}
+                        disabled={p !== null}
+                        onClick={() => onDelete(tn)}
+                        className="text-rose-500 hover:text-rose-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </td>
               </tr>
