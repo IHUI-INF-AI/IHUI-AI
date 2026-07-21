@@ -402,6 +402,7 @@
     "publishPlatform": "Publish",
     "selfMediaKoubo": "Voice-over Script",
     "selfMediaAutomation": "Automation",
+    "pluginMarket": "Plugin Market",
     "downloadIOS": "iOS",
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "WeChat Mini Program",
@@ -11282,51 +11283,6 @@
     "heatmapHint": "View user behavior distribution heatmap"
   },
   "visitTracking": {
-    "title": "Visit Tracking",
-    "subtitle": "Website visit analytics",
-    "loading": "Loading...",
-    "empty": "No visit records",
-    "totalPv": "Total PV",
-    "totalUv": "Unique Visitors",
-    "totalIp": "IP Count",
-    "totalMembers": "Member Visits",
-    "dailyPv": "Daily PV",
-    "dailyUv": "Daily UV",
-    "ipCityList": "IP City Distribution",
-    "date": "Date",
-    "pv": "PV",
-    "uv": "UV",
-    "city": "City",
-    "ipCount": "IP Count",
-    "total": "{total} total",
-    "memberCount": "Member Visits",
-    "overview": "Overview",
-    "dayPv": "Daily PV",
-    "dayUv": "Daily UV",
-    "ipCity": "IP City Distribution",
-    "noData": "No data"
-  },
-  "aiCost": {
-    "title": "AI Cost Overview",
-    "subtitle": "Token usage, cost and cache hit rate monitoring",
-    "loading": "Loading...",
-    "empty": "No AI call data",
-    "emptyHint": "Data will appear once user model chat is connected",
-    "totalCost": "Total Cost",
-    "totalTokens": "Total Tokens",
-    "totalCalls": "Total Calls",
-    "cacheHitRate": "Cache Hit Rate",
-    "byModel": "By Model",
-    "byDay": "By Day",
-    "calls": "calls",
-    "noModelData": "No model data",
-    "noDayData": "No daily data",
-    "rangeLabel": "Time Range",
-    "range1d": "Last 1 day",
-    "range7d": "Last 7 days",
-    "range30d": "Last 30 days"
-  },
-  "visitTracking": {
     "title": "My Wallet",
     "balance": "Token Balance",
     "flows": "Transactions",
@@ -11373,6 +11329,26 @@
     "backToWallet": "Back to Wallet",
     "empty": "No records",
     "loading": "Loading..."
+  },
+  "aiCost": {
+    "title": "AI Cost Overview",
+    "subtitle": "Token usage, cost and cache hit rate monitoring",
+    "loading": "Loading...",
+    "empty": "No AI call data",
+    "emptyHint": "Data will appear once user model chat is connected",
+    "totalCost": "Total Cost",
+    "totalTokens": "Total Tokens",
+    "totalCalls": "Total Calls",
+    "cacheHitRate": "Cache Hit Rate",
+    "byModel": "By Model",
+    "byDay": "By Day",
+    "calls": "calls",
+    "noModelData": "No model data",
+    "noDayData": "No daily data",
+    "rangeLabel": "Time Range",
+    "range1d": "Last 1 day",
+    "range7d": "Last 7 days",
+    "range30d": "Last 30 days"
   },
   "oauth": {
     "title": "OAuth Authorization",
@@ -14752,6 +14728,17 @@
     "pleaseEnterDocumentContent": "Please enterDocsContent",
     "documentContentMinLength": "DocsContenttofew10",
     "metadataFormatError": "Data FormatError，Please enterValid JSON"
+  },
+  "plugins": {
+    "title": "Plugin Market",
+    "subtitle": "Explore built-in plugins and popular AI plugin marketplaces",
+    "sectionProject": "Project Plugins",
+    "sectionProjectDesc": "Built-in plugin capabilities integrated in this platform. Click to enter.",
+    "sectionMarket": "Popular Plugin Marketplaces",
+    "sectionMarketDesc": "Mainstream AI plugin / script / MCP marketplaces. Click to visit.",
+    "open": "Open",
+    "visit": "Visit",
+    "total": "{count} plugins"
   },
   "aiWorld": {
     "empty": "No content，",
@@ -27790,5 +27777,21 @@
       "loading": "Loading...",
       "empty": "No documents"
     }
+  },
+  "knowledgeGraph": {
+    "title": "Knowledge Graph",
+    "buildSection": "Build from Text",
+    "placeholder": "Paste a passage of text and the system will extract entities and relationships...",
+    "buildButton": "Extract & Build",
+    "clearButton": "Clear Graph",
+    "graphSection": "Graph Visualization",
+    "emptyState": "No data yet. Enter text above and click \"Extract & Build\".",
+    "stats": "{entities} entities / {relations} relations",
+    "legendHint": "Tip: hover a node to highlight its edges. Node size = frequency, edge thickness = weight.",
+    "graphAriaLabel": "Knowledge graph visualization",
+    "frequencyLabel": "occurs {count} times",
+    "charCount": "{count} chars",
+    "feedbackBuildSuccess": "Extracted {entities} entities and {relations} relations",
+    "feedbackClearSuccess": "Graph cleared"
   }
 }
