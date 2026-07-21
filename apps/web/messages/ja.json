@@ -1707,7 +1707,12 @@
       "free": {
         "name": "無料版",
         "cta": "getStarted",
-        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
+        "features": [
+          "10 AI chats per day",
+          "Basic models",
+          "1 project",
+          "Community support"
+        ]
       },
       "pro": {
         "name": "プロフェッショナル",
@@ -7975,9 +7980,24 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "プラン",
     "subscribe": "購読",
-    "planMonthlyFeatures": ["1000クレジット", "aiチャット", "コミュニティアクセス"],
-    "planYearlyFeatures": ["12000クレジット", "さなaiチャット", "サポート", "なし"],
-    "planLifetimeFeatures": ["クレジット", "ai", "サポート", "なし", "アクセス"],
+    "planMonthlyFeatures": [
+      "1000クレジット",
+      "aiチャット",
+      "コミュニティアクセス"
+    ],
+    "planYearlyFeatures": [
+      "12000クレジット",
+      "さなaiチャット",
+      "サポート",
+      "なし"
+    ],
+    "planLifetimeFeatures": [
+      "クレジット",
+      "ai",
+      "サポート",
+      "なし",
+      "アクセス"
+    ],
     "back": "戻る",
     "userCenter": "アカウント",
     "page": {
@@ -17074,13 +17094,23 @@
       "title": "月度会員",
       "days": "30",
       "select": "選択",
-      "benefits": ["すべてコースコース", "コースコミュニティ", "3ai", "コース"]
+      "benefits": [
+        "すべてコースコース",
+        "コースコミュニティ",
+        "3ai",
+        "コース"
+      ]
     },
     "yearly": {
       "title": "年度会員",
       "days": "365",
       "select": "選択",
-      "benefits": ["すべてコースコース", "コースコミュニティ", "ai", "コース+"]
+      "benefits": [
+        "すべてコースコース",
+        "コースコミュニティ",
+        "ai",
+        "コース+"
+      ]
     },
     "monthlyMember": "月度会員",
     "yearlyMember": "年度会員"
@@ -21126,7 +21156,11 @@
       "label": "コアポジショニング",
       "title": "AI時代の企業合理的効率サービスと相互支援コミュニティ",
       "description": "IHUI AIコミュニティは、企業の意思決定者がAIと企業の関係を深く理解できるよう支援することに尽力しています。体系化されたコース、実践的な探求、コミュニティの相互支援を通じて、人機協同のスーパー組織を構築し、企業の合理的効率向上を実現します。",
-      "tags": ["人機協同", "合理的効率", "スーパー組織"]
+      "tags": [
+        "人機協同",
+        "合理的効率",
+        "スーパー組織"
+      ]
     },
     "modules": {
       "label": "三大サービスモジュール",
@@ -21136,19 +21170,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -21280,25 +21326,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },
@@ -21322,12 +21380,29 @@
       ],
       "infoTitle": "情報世界",
       "infoBasicLabel": "初級情報世界",
-      "infoBasic": ["情報化", "IoT", "自動化"],
+      "infoBasic": [
+        "情報化",
+        "IoT",
+        "自動化"
+      ],
       "infoAdvancedLabel": "高度情報世界",
-      "infoAdvanced": ["知覚AI", "生成AI", "エージェントAI", "物理AI"],
+      "infoAdvanced": [
+        "知覚AI",
+        "生成AI",
+        "エージェントAI",
+        "物理AI"
+      ],
       "effectTitle": "AI化の効果",
-      "effectFlow": ["スーパー従業員", "スーパーチーム", "スーパープロダクト/サービス"],
-      "effectMetrics": ["コスト最適化", "効率向上", "体験アップグレード"]
+      "effectFlow": [
+        "スーパー従業員",
+        "スーパーチーム",
+        "スーパープロダクト/サービス"
+      ],
+      "effectMetrics": [
+        "コスト最適化",
+        "効率向上",
+        "体験アップグレード"
+      ]
     }
   },
   "drama": {
@@ -25409,7 +25484,14 @@
       "originalPrice": "¥18000",
       "period": "/人/年",
       "desc": "先着18席限定、売切後は通常価格に戻ります",
-      "features": ["年間全コース無料参加", "イベント優先参加", "コミュニティサポート無制限", "オンラインコミュニティ専用入口", "AIアシスタント優先体験", "不満足時全額返金"],
+      "features": [
+        "年間全コース無料参加",
+        "イベント優先参加",
+        "コミュニティサポート無制限",
+        "オンラインコミュニティ専用入口",
+        "AIアシスタント優先体験",
+        "不満足時全額返金"
+      ],
       "cta": "今すぐ参加"
     },
     "standard": {
@@ -25417,7 +25499,13 @@
       "price": "¥18000",
       "period": "/人/年",
       "desc": "アーリーバード売切後、自動的にこのプランに切替",
-      "features": ["年間全コース無料参加", "イベント優先参加", "コミュニティサポート無制限", "オンラインコミュニティ専用入口", "AIアシスタント優先体験"],
+      "features": [
+        "年間全コース無料参加",
+        "イベント優先参加",
+        "コミュニティサポート無制限",
+        "オンラインコミュニティ専用入口",
+        "AIアシスタント優先体験"
+      ],
       "cta": "詳細を見る"
     },
     "enterprise": {
@@ -25425,7 +25513,13 @@
       "price": "お問い合わせ",
       "period": "",
       "desc": "企業意思決定者チーム向けカスタムプラン",
-      "features": ["チーム複数席パッケージ", "1on1 AIコンサルティング", "企業AI文化導入支援", "専用カスタムコース", "プライベートクローズドイベント"],
+      "features": [
+        "チーム複数席パッケージ",
+        "1on1 AIコンサルティング",
+        "企業AI文化導入支援",
+        "専用カスタムコース",
+        "プライベートクローズドイベント"
+      ],
       "cta": "お問い合わせ"
     }
   },
@@ -25481,7 +25575,15 @@
       "visitsHeader": "アクセス数",
       "ratioHeader": "比率"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "pdfWatermarkPage": {
     "title": "PDF透かし",
@@ -25533,14 +25635,226 @@
       "creative": "クリエイティブ"
     },
     "fields": {
-      "name": { "label": "氏名 *", "placeholder": "張三" },
-      "title": { "label": "役職", "placeholder": "プロダクトマネージャー" },
-      "company": { "label": "会社", "placeholder": "XXテクノロジー株式会社" },
-      "phone": { "label": "電話", "placeholder": "13800138000" },
-      "email": { "label": "メール", "placeholder": "zhangsan@example.com" },
-      "wechat": { "label": "WeChat", "placeholder": "zhangsan_wx" },
-      "address": { "label": "住所", "placeholder": "東京都渋谷区..." },
-      "avatar": { "label": "アバターURL", "placeholder": "https://..." }
+      "name": {
+        "label": "氏名 *",
+        "placeholder": "張三"
+      },
+      "title": {
+        "label": "役職",
+        "placeholder": "プロダクトマネージャー"
+      },
+      "company": {
+        "label": "会社",
+        "placeholder": "XXテクノロジー株式会社"
+      },
+      "phone": {
+        "label": "電話",
+        "placeholder": "13800138000"
+      },
+      "email": {
+        "label": "メール",
+        "placeholder": "zhangsan@example.com"
+      },
+      "wechat": {
+        "label": "WeChat",
+        "placeholder": "zhangsan_wx"
+      },
+      "address": {
+        "label": "住所",
+        "placeholder": "東京都渋谷区..."
+      },
+      "avatar": {
+        "label": "アバターURL",
+        "placeholder": "https://..."
+      }
+    }
+  },
+  "refundDetailPage": {
+    "loading": "読み込み中...",
+    "back": "戻る",
+    "title": "返金詳細",
+    "notFound": "返金記録が存在しません",
+    "status": {
+      "pending": "審査中",
+      "approved": "承認済み",
+      "rejected": "却下",
+      "completed": "完了"
+    },
+    "auditAction": {
+      "approve": "承認",
+      "reject": "却下"
+    },
+    "refundType": {
+      "original": "元の支払い方法に返金"
+    },
+    "fields": {
+      "refundNo": "返金番号",
+      "orderNo": "注文番号",
+      "orderType": "注文タイプ",
+      "refundAmount": "返金金額",
+      "refundType": "返金方法",
+      "applyTime": "申請時間",
+      "processTime": "処理時間",
+      "completeTime": "完了時間",
+      "reason": "返金理由",
+      "processMessage": "処理説明",
+      "handleMessage": "処理結果"
+    },
+    "auditRecords": "審査記録"
+  },
+  "memberOrderDetailPage": {
+    "loading": "読み込み中...",
+    "back": "戻る",
+    "title": "注文詳細",
+    "notFound": "注文が存在しません",
+    "status": {
+      "pending": "未払い",
+      "paid": "支払済み",
+      "cancelled": "キャンセル",
+      "refunded": "返金済み"
+    },
+    "fields": {
+      "orderNo": "注文番号",
+      "product": "商品名",
+      "orderType": "注文タイプ",
+      "quantity": "数量",
+      "createdAt": "作成日時",
+      "payTime": "支払日時",
+      "cancelTime": "キャンセル日時",
+      "refundTime": "返金日時",
+      "payType": "支払い方法",
+      "remark": "備考",
+      "originalPrice": "元価格",
+      "discount": "割引",
+      "payAmount": "支払金額"
+    },
+    "actions": {
+      "pay": "支払う",
+      "cancel": "注文をキャンセル"
+    }
+  },
+  "resourceFormPage": {
+    "cardTitle": "リソース情報",
+    "fields": {
+      "title": {
+        "label": "タイトル",
+        "placeholder": "リソースのタイトルを入力"
+      },
+      "intro": {
+        "label": "説明",
+        "placeholder": "リソースの説明を入力"
+      },
+      "cidList": {
+        "label": "カテゴリ(複数選択、カンマ区切り ID)",
+        "placeholder": "例:uuid1, uuid2",
+        "available": "選択可能なカテゴリ"
+      },
+      "type": {
+        "label": "リソースタイプ",
+        "placeholder": "リソースタイプを選択"
+      },
+      "productId": {
+        "label": "製品 ID",
+        "placeholder": "関連製品 ID を入力"
+      },
+      "tagIdList": {
+        "label": "タグ(複数選択、カンマ区切り ID)",
+        "placeholder": "例:tag-id-1, tag-id-2"
+      },
+      "image": {
+        "label": "表示画像",
+        "placeholder": "表示画像をアップロード"
+      },
+      "introduction": {
+        "label": "リソース紹介(リッチテキスト)",
+        "placeholder": "リソースの詳細紹介を入力..."
+      },
+      "file": {
+        "label": "ファイルアップロード",
+        "uploading": "アップロード中...",
+        "select": "クリックしてファイルをアップロード",
+        "removeLabel": "ファイルを削除"
+      }
+    },
+    "submit": {
+      "edit": "変更を保存",
+      "create": "リソースを公開",
+      "cancel": "キャンセル"
+    }
+  },
+  "aiCareerPage": {
+    "title": "AI キャリア指導",
+    "subtitle": "お子様の学習状況を入力すると、AI が個別のキャリア指導を生成します",
+    "fields": {
+      "school": "学校の種類",
+      "classLevel": "クラスのレベル",
+      "scoreRange": "国語と英語の試験スコア範囲",
+      "scoreRangePlaceholder": "例:80-90点",
+      "languageDifficulty": "国語と英語の学習困難",
+      "scienceCharacteristics": "理科の特徴",
+      "scienceCharacteristicsPlaceholder": "例:数学が得意、物理は普通...",
+      "learningObstacle": "学習の障害",
+      "hobbies": "趣味",
+      "hobbiesPlaceholder": "例:プログラミング、絵画、音楽",
+      "target": "進学目標",
+      "targetPlaceholder": "例:名門高校、985大学"
+    },
+    "options": {
+      "school": [
+        "公立学校",
+        "私立学校",
+        "重点学校"
+      ],
+      "classLevel": [
+        "普通クラス",
+        "重点クラス"
+      ],
+      "difficulty": [
+        "読書速度が遅い",
+        "理解が困難",
+        "語彙力不足",
+        "作文が苦手"
+      ],
+      "obstacle": [
+        "ゲーム依存",
+        "注意力散漫",
+        "先延ばし癖",
+        "効率が低い"
+      ]
+    },
+    "submit": "指導を生成",
+    "submitting": "AI 分析中...",
+    "result": {
+      "title": "AI キャリア指導アドバイス",
+      "failed": "AI 分析に失敗しました"
+    }
+  },
+  "memberExamRecordPage": {
+    "title": "私の試験記録",
+    "subtitle": "過去の試験スコアと回答詳細を表示",
+    "loading": "読み込み中...",
+    "empty": "試験記録がありません",
+    "table": {
+      "examName": "試験名",
+      "examTime": "試験日時",
+      "score": "スコア",
+      "result": "結果",
+      "action": "操作"
+    },
+    "passed": "合格",
+    "failed": "不合格",
+    "total": "{n} 件",
+    "viewDetail": "詳細表示",
+    "detail": {
+      "title": "試験スコア詳細",
+      "score": "スコア",
+      "correct": "正解",
+      "wrong": "不正解",
+      "unanswered": "未回答",
+      "question": "問題",
+      "resultCol": "結果",
+      "correctLabel": "正解",
+      "wrongLabel": "不正解"
     }
   }
 }

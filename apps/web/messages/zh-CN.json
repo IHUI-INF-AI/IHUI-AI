@@ -1707,18 +1707,35 @@
       "free": {
         "name": "免费版",
         "cta": "开始使用",
-        "features": ["每日 10 次 AI 对话", "基础模型", "1 个项目", "社区支持"]
+        "features": [
+          "每日 10 次 AI 对话",
+          "基础模型",
+          "1 个项目",
+          "社区支持"
+        ]
       },
       "pro": {
         "name": "专业版",
         "cta": "立即升级",
-        "features": ["无限 AI 对话", "高级模型", "无限项目", "优先支持", "API 接入"]
+        "features": [
+          "无限 AI 对话",
+          "高级模型",
+          "无限项目",
+          "优先支持",
+          "API 接入"
+        ]
       },
       "enterprise": {
         "name": "企业版",
         "cta": "联系我们",
         "contactSales": "联系销售",
-        "features": ["专属部署", "团队管理", "SLA 保障", "定制开发", "培训支持"]
+        "features": [
+          "专属部署",
+          "团队管理",
+          "SLA 保障",
+          "定制开发",
+          "培训支持"
+        ]
       }
     },
     "checkout": {
@@ -8184,9 +8201,24 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "套餐功能",
     "subscribe": "订阅",
-    "planMonthlyFeatures": ["每月 1000 积分", "基础 AI 对话", "社区访问"],
-    "planYearlyFeatures": ["每月 12000 积分", "高级 AI 对话", "优先客服", "去广告"],
-    "planLifetimeFeatures": ["无限积分", "全部 AI 功能", "专属客服", "去广告", "早期功能体验"],
+    "planMonthlyFeatures": [
+      "每月 1000 积分",
+      "基础 AI 对话",
+      "社区访问"
+    ],
+    "planYearlyFeatures": [
+      "每月 12000 积分",
+      "高级 AI 对话",
+      "优先客服",
+      "去广告"
+    ],
+    "planLifetimeFeatures": [
+      "无限积分",
+      "全部 AI 功能",
+      "专属客服",
+      "去广告",
+      "早期功能体验"
+    ],
     "avatarCurrent": "当前头像",
     "avatarUpload": "点击相机按钮选择图片",
     "avatarUploadBtn": "上传头像",
@@ -17062,13 +17094,23 @@
       "title": "月度会员",
       "days": "30天",
       "select": "选择",
-      "benefits": ["全部课程免费学习", "专属学习社区", "每月3次AI答疑", "学习进度追踪"]
+      "benefits": [
+        "全部课程免费学习",
+        "专属学习社区",
+        "每月3次AI答疑",
+        "学习进度追踪"
+      ]
     },
     "yearly": {
       "title": "年度会员",
       "days": "365天",
       "select": "选择",
-      "benefits": ["全部课程免费学习", "专属学习社区", "无限AI答疑", "学习进度追踪+证书"]
+      "benefits": [
+        "全部课程免费学习",
+        "专属学习社区",
+        "无限AI答疑",
+        "学习进度追踪+证书"
+      ]
     },
     "monthlyMember": "月度会员",
     "yearlyMember": "年度会员"
@@ -21114,7 +21156,11 @@
       "label": "核心定位",
       "title": "AI时代企业理性效率服务与互助社群",
       "description": "智汇 AI社致力于帮助企业决策者深度理解AI与企业的关系,通过系统化的课程、实践探索和社群互助,构建人机协同的超级组织,实现企业的理性效率提升。",
-      "tags": ["人机协同", "理性效率", "超级组织"]
+      "tags": [
+        "人机协同",
+        "理性效率",
+        "超级组织"
+      ]
     },
     "modules": {
       "label": "三大服务模块",
@@ -21124,19 +21170,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"]
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"]
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"]
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ]
         }
       ]
     },
@@ -21268,25 +21326,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"]
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"]
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"]
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"]
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ]
         }
       ]
     },
@@ -21310,12 +21380,29 @@
       ],
       "infoTitle": "信息世界",
       "infoBasicLabel": "初级信息世界",
-      "infoBasic": ["信息化", "物联网", "自动化"],
+      "infoBasic": [
+        "信息化",
+        "物联网",
+        "自动化"
+      ],
       "infoAdvancedLabel": "高级信息世界",
-      "infoAdvanced": ["感知AI", "生成式AI", "智能体AI", "物理AI"],
+      "infoAdvanced": [
+        "感知AI",
+        "生成式AI",
+        "智能体AI",
+        "物理AI"
+      ],
       "effectTitle": "AI化效果",
-      "effectFlow": ["超级员工", "超级团队", "超级产品/服务"],
-      "effectMetrics": ["成本优化", "效率提升", "体验升级"]
+      "effectFlow": [
+        "超级员工",
+        "超级团队",
+        "超级产品/服务"
+      ],
+      "effectMetrics": [
+        "成本优化",
+        "效率提升",
+        "体验升级"
+      ]
     }
   },
   "drama": {
@@ -25397,7 +25484,14 @@
       "originalPrice": "¥18000",
       "period": "/人/年",
       "desc": "限前 18 席,售完即恢复原价",
-      "features": ["全年所有课程免费参加", "探索活动优先参与", "社群互助无限次", "线上社群专属入口", "AI 助手优先体验", "不满意全额退款"],
+      "features": [
+        "全年所有课程免费参加",
+        "探索活动优先参与",
+        "社群互助无限次",
+        "线上社群专属入口",
+        "AI 助手优先体验",
+        "不满意全额退款"
+      ],
       "cta": "立即加入"
     },
     "standard": {
@@ -25405,7 +25499,13 @@
       "price": "¥18000",
       "period": "/人/年",
       "desc": "早鸟售罄后自动切换至此方案",
-      "features": ["全年所有课程免费参加", "探索活动优先参与", "社群互助无限次", "线上社群专属入口", "AI 助手优先体验"],
+      "features": [
+        "全年所有课程免费参加",
+        "探索活动优先参与",
+        "社群互助无限次",
+        "线上社群专属入口",
+        "AI 助手优先体验"
+      ],
       "cta": "了解详情"
     },
     "enterprise": {
@@ -25413,7 +25513,13 @@
       "price": "商务洽谈",
       "period": "",
       "desc": "面向企业决策者团队的定制方案",
-      "features": ["团队多席位套餐", "一对一 AI 顾问咨询", "企业 AI 文化落地陪跑", "专属定制课程", "私享闭门活动"],
+      "features": [
+        "团队多席位套餐",
+        "一对一 AI 顾问咨询",
+        "企业 AI 文化落地陪跑",
+        "专属定制课程",
+        "私享闭门活动"
+      ],
       "cta": "联系商务"
     }
   },
@@ -25469,7 +25575,15 @@
       "visitsHeader": "访问数",
       "ratioHeader": "占比"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "pdfWatermarkPage": {
     "title": "PDF 水印",
@@ -25521,14 +25635,226 @@
       "creative": "创意"
     },
     "fields": {
-      "name": { "label": "姓名 *", "placeholder": "张三" },
-      "title": { "label": "职位", "placeholder": "产品经理" },
-      "company": { "label": "公司", "placeholder": "XX 科技有限公司" },
-      "phone": { "label": "电话", "placeholder": "13800138000" },
-      "email": { "label": "邮箱", "placeholder": "zhangsan@example.com" },
-      "wechat": { "label": "微信", "placeholder": "zhangsan_wx" },
-      "address": { "label": "地址", "placeholder": "北京市朝阳区..." },
-      "avatar": { "label": "头像 URL", "placeholder": "https://..." }
+      "name": {
+        "label": "姓名 *",
+        "placeholder": "张三"
+      },
+      "title": {
+        "label": "职位",
+        "placeholder": "产品经理"
+      },
+      "company": {
+        "label": "公司",
+        "placeholder": "XX 科技有限公司"
+      },
+      "phone": {
+        "label": "电话",
+        "placeholder": "13800138000"
+      },
+      "email": {
+        "label": "邮箱",
+        "placeholder": "zhangsan@example.com"
+      },
+      "wechat": {
+        "label": "微信",
+        "placeholder": "zhangsan_wx"
+      },
+      "address": {
+        "label": "地址",
+        "placeholder": "北京市朝阳区..."
+      },
+      "avatar": {
+        "label": "头像 URL",
+        "placeholder": "https://..."
+      }
+    }
+  },
+  "refundDetailPage": {
+    "loading": "加载中...",
+    "back": "返回",
+    "title": "退款详情",
+    "notFound": "退款记录不存在",
+    "status": {
+      "pending": "审核中",
+      "approved": "已通过",
+      "rejected": "已拒绝",
+      "completed": "已完成"
+    },
+    "auditAction": {
+      "approve": "审核通过",
+      "reject": "驳回"
+    },
+    "refundType": {
+      "original": "原路退回"
+    },
+    "fields": {
+      "refundNo": "退款单号",
+      "orderNo": "订单号",
+      "orderType": "订单类型",
+      "refundAmount": "退款金额",
+      "refundType": "退款方式",
+      "applyTime": "申请时间",
+      "processTime": "处理时间",
+      "completeTime": "完成时间",
+      "reason": "退款原因",
+      "processMessage": "处理说明",
+      "handleMessage": "处理结果"
+    },
+    "auditRecords": "审核记录"
+  },
+  "memberOrderDetailPage": {
+    "loading": "加载中...",
+    "back": "返回",
+    "title": "订单详情",
+    "notFound": "订单不存在",
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "refunded": "已退款"
+    },
+    "fields": {
+      "orderNo": "订单号",
+      "product": "商品名称",
+      "orderType": "订单类型",
+      "quantity": "数量",
+      "createdAt": "创建时间",
+      "payTime": "支付时间",
+      "cancelTime": "取消时间",
+      "refundTime": "退款时间",
+      "payType": "支付方式",
+      "remark": "备注",
+      "originalPrice": "原价",
+      "discount": "优惠",
+      "payAmount": "实付"
+    },
+    "actions": {
+      "pay": "去支付",
+      "cancel": "取消订单"
+    }
+  },
+  "resourceFormPage": {
+    "cardTitle": "资源信息",
+    "fields": {
+      "title": {
+        "label": "标题",
+        "placeholder": "请输入资源标题"
+      },
+      "intro": {
+        "label": "描述",
+        "placeholder": "请输入资源描述"
+      },
+      "cidList": {
+        "label": "分类(多选,逗号分隔 ID)",
+        "placeholder": "如:uuid1, uuid2",
+        "available": "可选分类"
+      },
+      "type": {
+        "label": "资源类型",
+        "placeholder": "请选择资源类型"
+      },
+      "productId": {
+        "label": "产品 ID",
+        "placeholder": "请输入关联产品 ID"
+      },
+      "tagIdList": {
+        "label": "标签(多选,逗号分隔 ID)",
+        "placeholder": "如:tag-id-1, tag-id-2"
+      },
+      "image": {
+        "label": "展示图",
+        "placeholder": "上传展示图"
+      },
+      "introduction": {
+        "label": "资源简介(富文本)",
+        "placeholder": "请输入资源详细介绍..."
+      },
+      "file": {
+        "label": "文件上传",
+        "uploading": "上传中...",
+        "select": "点击上传文件",
+        "removeLabel": "移除文件"
+      }
+    },
+    "submit": {
+      "edit": "保存修改",
+      "create": "发布资源",
+      "cancel": "取消"
+    }
+  },
+  "aiCareerPage": {
+    "title": "AI 生涯指导",
+    "subtitle": "填写孩子学习情况,AI 为您生成个性化生涯指导建议",
+    "fields": {
+      "school": "孩子就读学校类型",
+      "classLevel": "班级整体水平",
+      "scoreRange": "语文和英语考试分数范围",
+      "scoreRangePlaceholder": "如:80-90分",
+      "languageDifficulty": "语文和英语学习困难",
+      "scienceCharacteristics": "理科方面特点",
+      "scienceCharacteristicsPlaceholder": "如:数学较好,物理一般...",
+      "learningObstacle": "影响学习的因素",
+      "hobbies": "兴趣爱好",
+      "hobbiesPlaceholder": "如:编程、绘画、音乐",
+      "target": "升学目标",
+      "targetPlaceholder": "如:重点高中、985大学"
+    },
+    "options": {
+      "school": [
+        "公立学校",
+        "私立学校",
+        "重点学校"
+      ],
+      "classLevel": [
+        "普通班",
+        "重点班"
+      ],
+      "difficulty": [
+        "阅读速度慢",
+        "理解困难",
+        "词汇量不足",
+        "写作薄弱"
+      ],
+      "obstacle": [
+        "游戏沉迷",
+        "注意力分散",
+        "拖延症",
+        "效率低"
+      ]
+    },
+    "submit": "生成生涯指导",
+    "submitting": "AI 分析中...",
+    "result": {
+      "title": "AI 生涯指导建议",
+      "failed": "AI 分析失败"
+    }
+  },
+  "memberExamRecordPage": {
+    "title": "我的考试记录",
+    "subtitle": "查看历史考试成绩与答卷详情",
+    "loading": "加载中...",
+    "empty": "暂无考试记录",
+    "table": {
+      "examName": "考试名称",
+      "examTime": "考试时间",
+      "score": "得分",
+      "result": "结果",
+      "action": "操作"
+    },
+    "passed": "及格",
+    "failed": "不及格",
+    "total": "共 {n} 条",
+    "viewDetail": "查看详情",
+    "detail": {
+      "title": "考试成绩详情",
+      "score": "得分",
+      "correct": "答对",
+      "wrong": "答错",
+      "unanswered": "未答",
+      "question": "题目",
+      "resultCol": "结果",
+      "correctLabel": "正确",
+      "wrongLabel": "错误"
     }
   }
 }
