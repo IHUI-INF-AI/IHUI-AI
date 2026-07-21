@@ -22,16 +22,31 @@ declare module '@fastify/jwt' {
  * 从 Authorization header 提取 Bearer token 并验证。
  * 使用 @ihui/auth 的 jose verifyAccessToken，拒绝 refresh token 被当作 access token 使用。
  * 失败时抛出带 statusCode 的错误，由全局错误处理器统一返回 401。
+ *
+ * 2026-07-21 安全审计加固:同时支持 cookie 鉴权(auth_token)
+ * 原因:前端 auth store 禁止把 token 持久化到 localStorage(XSS 风险),
+ * 改为依赖 auth_token cookie 作为 token 持久化介质。
+ * 顺序:Authorization header 优先(显式传 token 的场景),cookie 兜底
+ * (浏览器同源请求自动附带,用于页面刷新后无 in-memory token 的场景)
  */
 export async function authenticate(request: FastifyRequest): Promise<JWTPayload> {
+  let token: string | null = null
   const header = request.headers.authorization
-  if (!header || !header.startsWith('Bearer ')) {
+  if (header && header.startsWith('Bearer ')) {
+    token = header.slice('Bearer '.length).trim()
+  } else {
+    // 兜底:从 auth_token cookie 读 token(浏览器同源请求自动附带)
+    const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies?.auth_token
+    if (cookieToken && cookieToken.length > 0) {
+      token = cookieToken
+    }
+  }
+  if (!token) {
     const err = new Error('Authentication required')
     ;(err as Error & { statusCode: number }).statusCode = 401
     throw err
   }
 
-  const token = header.slice('Bearer '.length).trim()
   let payload: JWTPayload
   try {
     payload = await verifyAccessToken(token)
